@@ -65,6 +65,15 @@ pub enum PlotError {
     AlreadyShared(AxisName),
     /// The axes belong to different figures.
     ForeignAxes,
+    /// A per-dataset argument with neither one value nor one per dataset.
+    DatasetCount {
+        /// The argument.
+        argument: &'static str,
+        /// Number of values given.
+        len: usize,
+        /// Number of datasets.
+        datasets: usize,
+    },
     /// A side that the axis cannot be drawn on (e.g. `Left` for x).
     WrongSide {
         /// The axis.
@@ -110,6 +119,19 @@ impl fmt::Display for PlotError {
             ),
             Self::AlreadyShared(axis) => write!(f, "{}-axis is already shared", axis.name()),
             Self::ForeignAxes => f.write_str("the axes belong to different figures"),
+            Self::DatasetCount {
+                argument, len: 0, ..
+            } => {
+                write!(f, "{argument} cannot be empty")
+            }
+            Self::DatasetCount {
+                argument,
+                len,
+                datasets,
+            } => write!(
+                f,
+                "{argument} has {len} values for {datasets} datasets; give one or one per dataset"
+            ),
             Self::WrongSide { axis, side } => {
                 write!(
                     f,

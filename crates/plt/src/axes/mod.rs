@@ -17,11 +17,14 @@ mod patches;
 mod reference;
 mod scatter;
 mod segments;
+mod share;
 mod state;
 mod steps;
 #[cfg(test)]
 mod tests;
 mod ticks;
+mod twins;
+mod view;
 
 pub use crate::ticker::AxisName;
 pub use axis::{Tick, TickSet};
@@ -33,9 +36,10 @@ pub use fill_between::FillBetweenOptions;
 pub use hist::{HistArtists, HistPlot, HistPlotOptions};
 pub use plt_core::path::DataLimits;
 pub use scatter::{MappedColors, ScatterColors, ScatterOptions};
+pub(crate) use share::ShareGroups;
 pub(crate) use state::AxesState;
 pub use steps::StairsOptions;
-pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickStyle};
+pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
 
 use plt_core::Bbox;
 
@@ -209,16 +213,27 @@ impl Axes {
     /// Sets the x view limits and turns x autoscaling off;
     /// `left > right` inverts the axis.
     pub fn set_xlim(&self, left: f64, right: f64) -> &Self {
-        self.raw
-            .with_mut::<AxesState, _>(|a| a.set_limits(AxisName::X, left, right));
-        self
+        self.set_limits(AxisName::X, left, right)
     }
 
     /// Sets the y view limits and turns y autoscaling off;
     /// `bottom > top` inverts the axis.
     pub fn set_ylim(&self, bottom: f64, top: f64) -> &Self {
-        self.raw
-            .with_mut::<AxesState, _>(|a| a.set_limits(AxisName::Y, bottom, top));
+        self.set_limits(AxisName::Y, bottom, top)
+    }
+
+    /// Sets the view limits of one axis, and of the axes sharing it, and
+    /// turns its autoscaling off (matplotlib's `set_xlim(..., auto=False)`).
+    /// Singular limits are expanded and limits a log axis cannot show are
+    /// ignored, as in matplotlib.
+    pub fn set_limits(&self, axis: AxisName, low: f64, high: f64) -> &Self {
+        self.raw.figure_state().borrow_mut().set_axis_limits(
+            self.id(),
+            axis,
+            (low, high),
+            Some(false),
+            true,
+        );
         self
     }
 
@@ -268,14 +283,14 @@ impl Axes {
         Ok(self)
     }
 
-    /// Installs a scale object on one axis, with its default tick helpers,
-    /// and re-autoscales that axis (matplotlib's `_set_axes_scale`).
+    /// Installs a scale object on one axis and on the axes sharing it,
+    /// with default tick helpers, and re-autoscales that axis (matplotlib's
+    /// `_set_axes_scale`).
     pub fn set_scale(&self, axis: AxisName, scale: Box<dyn Scale>) -> &Self {
-        self.raw.with_mut::<AxesState, _>(|a| {
-            let axis = a.axis_mut(axis);
-            axis.set_scale(scale);
-            axis.autoscale.stale = true;
-        });
+        self.raw
+            .figure_state()
+            .borrow_mut()
+            .set_shared_scale(self.id(), axis, &Rc::from(scale));
         self
     }
 

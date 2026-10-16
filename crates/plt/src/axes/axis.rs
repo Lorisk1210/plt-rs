@@ -3,11 +3,12 @@
 
 use std::rc::Rc;
 
-use super::ticks::TickStyle;
+use super::ticks::{Sides, TickStyle};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
-use crate::scale::{LinearScale, Scale};
+use crate::scale::{AxisTickers, LinearScale, Scale};
+use crate::spines::SpineSide;
 use crate::ticker::{AxisInfo, AxisName, Formatter, Locator, TickContext, TickerSettings};
 use crate::transforms::AxisMap;
 use crate::units::{AxisValues, Categories, CategoryFormatter, CategoryLocator};
@@ -43,6 +44,8 @@ pub(crate) struct AxisLabel {
     pub(crate) color: Color,
     /// Gap to the tick labels in points (`axes.labelpad`).
     pub(crate) pad: f64,
+    /// The side of the axes the label sits on.
+    pub(crate) side: SpineSide,
 }
 
 /// Autoscaling configuration and state of one axis.
@@ -69,16 +72,28 @@ pub(crate) struct AxisGeometry {
     pub(crate) length_points: f64,
 }
 
+/// The tick helpers of an axis, shared by axes sharing that axis.
+#[derive(Clone, Debug)]
+pub(crate) struct Tickers {
+    major_locator: Rc<dyn Locator>,
+    major_formatter: Rc<dyn Formatter>,
+    minor_locator: Rc<dyn Locator>,
+    minor_formatter: Rc<dyn Formatter>,
+}
+
 /// State of one axis.
+///
+/// The scale and tick helpers are reference counted because axes sharing
+/// an axis share them (matplotlib shares the `Ticker` and scale objects).
 #[derive(Debug)]
 pub(crate) struct AxisState {
     pub(crate) name: AxisName,
-    scale: Box<dyn Scale>,
+    scale: Rc<dyn Scale>,
     map: Option<Rc<dyn AxisMap>>,
-    pub(crate) major_locator: Box<dyn Locator>,
-    pub(crate) major_formatter: Box<dyn Formatter>,
-    pub(crate) minor_locator: Box<dyn Locator>,
-    pub(crate) minor_formatter: Box<dyn Formatter>,
+    pub(crate) major_locator: Rc<dyn Locator>,
+    pub(crate) major_formatter: Rc<dyn Formatter>,
+    pub(crate) minor_locator: Rc<dyn Locator>,
+    pub(crate) minor_formatter: Rc<dyn Formatter>,
     /// Whether the major locator and formatter are still the defaults,
     /// which units may replace (matplotlib's `isDefault_majloc`/`_majfmt`).
     default_major: (bool, bool),
@@ -96,6 +111,13 @@ pub(crate) struct AxisState {
     pub(crate) minor_style: TickStyle,
     /// The axis label.
     pub(crate) label: AxisLabel,
+    /// Whether ticks, tick labels, the label and the offset text are drawn.
+    pub(crate) visible: bool,
+    /// The side the offset text sits on (matplotlib's tick position for
+    /// x, offset position for y).
+    pub(crate) offset_side: SpineSide,
+    /// Whether the offset text is drawn.
+    pub(crate) offset_visible: bool,
 }
 
 impl AxisState {
@@ -106,16 +128,16 @@ impl AxisState {
             AxisName::X => (rc.axes_xmargin, rc.xtick_labelsize),
             AxisName::Y => (rc.axes_ymargin, rc.ytick_labelsize),
         };
-        let scale: Box<dyn Scale> = Box::new(LinearScale);
+        let scale: Rc<dyn Scale> = Rc::new(LinearScale);
         let tickers = scale.default_tickers(name, &settings);
         Self {
             name,
             map: scale.axis_map(),
             scale,
-            major_locator: tickers.major_locator,
-            major_formatter: tickers.major_formatter,
-            minor_locator: tickers.minor_locator,
-            minor_formatter: tickers.minor_formatter,
+            major_locator: Rc::from(tickers.major_locator),
+            major_formatter: Rc::from(tickers.major_formatter),
+            minor_locator: Rc::from(tickers.minor_locator),
+            minor_formatter: Rc::from(tickers.minor_formatter),
             default_major: (true, true),
             categories: None,
             autoscale: AutoscaleState {
@@ -133,7 +155,11 @@ impl AxisState {
                 font: FontProperties::from_rc(rc).with_size(rc.axes_labelsize, rc.font_size),
                 color: rc.axes_labelcolor.clone(),
                 pad: rc.axes_labelpad,
+                side: SpineSide::of(name, false),
             },
+            visible: true,
+            offset_side: SpineSide::of(name, false),
+            offset_visible: true,
         }
     }
 
@@ -144,25 +170,93 @@ impl AxisState {
 
     /// Replaces the scale and installs its default tick helpers
     /// (matplotlib's `Axis._set_scale`).
-    pub(crate) fn set_scale(&mut self, scale: Box<dyn Scale>) {
-        let tickers = scale.default_tickers(self.name, &self.settings);
-        self.major_locator = tickers.major_locator;
-        self.major_formatter = tickers.major_formatter;
-        self.minor_locator = tickers.minor_locator;
-        self.minor_formatter = tickers.minor_formatter;
+    pub(crate) fn set_scale(&mut self, scale: Rc<dyn Scale>) {
+        let AxisTickers {
+            major_locator,
+            minor_locator,
+            major_formatter,
+            minor_formatter,
+        } = scale.default_tickers(self.name, &self.settings);
+        self.major_locator = Rc::from(major_locator);
+        self.major_formatter = Rc::from(major_formatter);
+        self.minor_locator = Rc::from(minor_locator);
+        self.minor_formatter = Rc::from(minor_formatter);
         self.default_major = (true, true);
+        self.adopt_scale(scale);
+    }
+
+    /// Uses `scale` (shared with another axis) without touching the tick
+    /// helpers (matplotlib's `sharex` assigning `_scale`).
+    pub(crate) fn adopt_scale(&mut self, scale: Rc<dyn Scale>) {
         self.map = scale.axis_map();
         self.scale = scale;
     }
 
+    /// The tick helpers, to share with another axis.
+    pub(crate) fn tickers(&self) -> Tickers {
+        Tickers {
+            major_locator: Rc::clone(&self.major_locator),
+            major_formatter: Rc::clone(&self.major_formatter),
+            minor_locator: Rc::clone(&self.minor_locator),
+            minor_formatter: Rc::clone(&self.minor_formatter),
+        }
+    }
+
+    /// Uses tick helpers shared with another axis (matplotlib's `sharex`
+    /// assigning the `major` and `minor` tickers).
+    pub(crate) fn use_tickers(&mut self, tickers: Tickers) {
+        self.major_locator = tickers.major_locator;
+        self.major_formatter = tickers.major_formatter;
+        self.minor_locator = tickers.minor_locator;
+        self.minor_formatter = tickers.minor_formatter;
+    }
+
+    /// The shared scale object.
+    pub(crate) fn scale_rc(&self) -> Rc<dyn Scale> {
+        Rc::clone(&self.scale)
+    }
+
+    /// Applies `update` to the styles of both tick levels (matplotlib's
+    /// `set_tick_params(which="both", ...)`).
+    pub(crate) fn restyle_ticks(&mut self, mut update: impl FnMut(&mut TickStyle)) {
+        update(&mut self.major_style);
+        update(&mut self.minor_style);
+    }
+
+    /// Moves ticks and labels to the side at the high (`true`) or low end
+    /// of the axis, offset text included (matplotlib's
+    /// `set_ticks_position('top')` and friends).
+    pub(crate) fn ticks_to_side(&mut self, high: bool) {
+        let only = Sides {
+            first: !high,
+            second: high,
+        };
+        self.restyle_ticks(|style| {
+            style.ticks = only;
+            style.labels = only;
+        });
+        self.offset_side = SpineSide::of(self.name, high);
+    }
+
+    /// matplotlib's `tick_top`/`tick_right` (`high`) and
+    /// `tick_bottom`/`tick_left`: ticks move to one side, and the labels
+    /// with them unless both label sides were off.
+    pub(crate) fn tick_to(&mut self, high: bool) {
+        let labelled = self.major_style.labels.first || self.major_style.labels.second;
+        self.ticks_to_side(high);
+        if !labelled {
+            self.restyle_ticks(|style| style.labels = Sides::default());
+        }
+    }
+
     /// Replaces the major locator.
-    pub(crate) fn set_major_locator(&mut self, locator: Box<dyn Locator>) {
+    pub(crate) fn set_major_locator(&mut self, locator: Rc<dyn Locator>) {
         self.major_locator = locator;
         self.default_major.0 = false;
     }
 
     /// Replaces the major formatter.
-    pub(crate) fn set_major_formatter(&mut self, formatter: Box<dyn Formatter>) {
+    pub(crate) fn set_major_formatter(&mut self, formatter: Rc<dyn Formatter>) {
         self.major_formatter = formatter;
         self.default_major.1 = false;
     }
@@ -182,10 +276,10 @@ impl AxisState {
             CategoryFormatter::new(categories),
         );
         if self.default_major.0 {
-            self.major_locator = Box::new(locator);
+            self.major_locator = Rc::new(locator);
         }
         if self.default_major.1 {
-            self.major_formatter = Box::new(formatter);
+            self.major_formatter = Rc::new(formatter);
         }
         positions
     }

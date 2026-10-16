@@ -12,6 +12,7 @@ use crate::axes::AxesState;
 use crate::colors::Color;
 use crate::patches::PatchStyle;
 use crate::rc::RcParams;
+use crate::ticker::AxisName;
 use crate::transforms::Transform;
 
 /// Which edge of the axes a spine frames.
@@ -39,6 +40,31 @@ impl SpineSide {
             Self::Bottom => "bottom",
             Self::Top => "top",
         }
+    }
+
+    /// The side of axis `name` at its low (bottom, left) or high (top,
+    /// right) end.
+    pub const fn of(name: AxisName, high: bool) -> Self {
+        match (name, high) {
+            (AxisName::X, false) => Self::Bottom,
+            (AxisName::X, true) => Self::Top,
+            (AxisName::Y, false) => Self::Left,
+            (AxisName::Y, true) => Self::Right,
+        }
+    }
+
+    /// The axis that can be drawn along this side.
+    pub const fn axis(self) -> AxisName {
+        if self.is_vertical() {
+            AxisName::Y
+        } else {
+            AxisName::X
+        }
+    }
+
+    /// Whether this is the high side (top or right) of its axis.
+    pub const fn is_high(self) -> bool {
+        matches!(self, Self::Right | Self::Top)
     }
 
     const fn is_vertical(self) -> bool {

@@ -41,6 +41,9 @@ impl<'a> AxisPainter<'a> {
 
     /// Draws the axis; problems are reported on the axes.
     pub(crate) fn draw(&self, ctx: &mut DrawContext<'_>, rc: &crate::rc::RcParams) {
+        if !self.axis.visible {
+            return;
+        }
         let ticks = match &self.axis.ticks {
             Ok(ticks) => ticks,
             Err(message) => return ctx.report(self.axes_id, message),
@@ -252,29 +255,43 @@ impl<'a> AxisPainter<'a> {
             return;
         };
         let pad = ctx.points_to_pixels(label.pad);
-        let side = match self.name {
-            AxisName::X => SpineSide::Bottom,
-            AxisName::Y => SpineSide::Left,
-        };
-        let edge = self.spine_extent(ctx, side).unwrap_or(extent);
-        let boxes = label_boxes.iter().filter(|(one, _)| *one).map(|(_, b)| *b);
+        let high = label.side.is_high();
+        let edge = self.spine_extent(ctx, label.side).unwrap_or(extent);
+        let boxes = label_boxes
+            .iter()
+            .filter(|(first, _)| *first != high)
+            .map(|(_, b)| *b);
         let bounds = boxes.fold(edge, |acc, b| acc.union(&b));
         let (anchor, block) = match self.name {
             AxisName::X => (
-                Point::new(extent.x0() + 0.5 * extent.width(), bounds.y0() - pad),
+                Point::new(
+                    extent.x0() + 0.5 * extent.width(),
+                    if high {
+                        bounds.y1() + pad
+                    } else {
+                        bounds.y0() - pad
+                    },
+                ),
                 BlockStyle {
                     halign: HAlign::Center,
-                    valign: VAlign::Top,
+                    valign: if high { VAlign::Baseline } else { VAlign::Top },
                     multialign: HAlign::Center,
                     ..BlockStyle::default()
                 },
             ),
             AxisName::Y => (
-                Point::new(bounds.x0() - pad, extent.y0() + 0.5 * extent.height()),
+                Point::new(
+                    if high {
+                        bounds.x1() + pad
+                    } else {
+                        bounds.x0() - pad
+                    },
+                    extent.y0() + 0.5 * extent.height(),
+                ),
                 BlockStyle {
                     rotation: 90.0,
                     halign: HAlign::Center,
-                    valign: VAlign::Bottom,
+                    valign: if high { VAlign::Top } else { VAlign::Bottom },
                     multialign: HAlign::Center,
                     rotation_mode: RotationMode::Anchor,
                     ..BlockStyle::default()
@@ -299,7 +316,7 @@ impl<'a> AxisPainter<'a> {
         text: &str,
         label_boxes: &[(bool, Bbox)],
     ) {
-        if text.is_empty() {
+        if text.is_empty() || !self.axis.offset_visible {
             return;
         }
         let Some(extent) = ctx.layout().axes_extent(self.axes_id) else {
@@ -311,36 +328,52 @@ impl<'a> AxisPainter<'a> {
             size: style.label_size,
             ..FontProperties::from_rc(rc)
         };
+        let high = self.axis.offset_side.is_high();
         let (anchor, block) = match self.name {
             AxisName::X => {
-                let below = label_boxes
-                    .iter()
-                    .filter(|(one, _)| *one)
-                    .map(|(_, b)| b.y0())
-                    .fold(f64::INFINITY, f64::min);
-                let bottom = if below.is_finite() {
-                    below
+                let side_boxes = label_boxes.iter().filter(|(first, _)| *first != high);
+                let (y, valign) = if high {
+                    let top = side_boxes
+                        .map(|(_, b)| b.y1())
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    let top = if top.is_finite() { top } else { extent.ymax() };
+                    (top + pad, VAlign::Bottom)
                 } else {
-                    extent.ymin()
+                    let bottom = side_boxes
+                        .map(|(_, b)| b.y0())
+                        .fold(f64::INFINITY, f64::min);
+                    let bottom = if bottom.is_finite() {
+                        bottom
+                    } else {
+                        extent.ymin()
+                    };
+                    (bottom - pad, VAlign::Top)
                 };
                 (
-                    Point::new(extent.x1(), bottom - pad),
+                    Point::new(extent.x1(), y),
                     BlockStyle {
                         halign: HAlign::Right,
-                        valign: VAlign::Top,
+                        valign,
                         multialign: HAlign::Right,
                         ..BlockStyle::default()
                     },
                 )
             }
-            AxisName::Y => (
-                Point::new(extent.x0(), extent.ymax() + pad),
-                BlockStyle {
-                    halign: HAlign::Left,
-                    valign: VAlign::Baseline,
-                    ..BlockStyle::default()
-                },
-            ),
+            AxisName::Y => {
+                let (x, halign) = if high {
+                    (extent.x1(), HAlign::Right)
+                } else {
+                    (extent.x0(), HAlign::Left)
+                };
+                (
+                    Point::new(x, extent.ymax() + pad),
+                    BlockStyle {
+                        halign,
+                        valign: VAlign::Baseline,
+                        ..BlockStyle::default()
+                    },
+                )
+            }
         };
         self.draw_text(ctx, text, &font, &style.label_color, &block, anchor, rc);
     }
@@ -357,7 +390,12 @@ impl<'a> AxisPainter<'a> {
             (!ticks.major.is_empty(), &self.axis.major_style),
             (!ticks.minor.is_empty(), &self.axis.minor_style),
         ] {
-            if !(present && style.ticks.first) {
+            let marked = if side.is_high() {
+                style.ticks.second
+            } else {
+                style.ticks.first
+            };
+            if !(present && marked) {
                 continue;
             }
             let length = ctx.points_to_pixels(style.size);
@@ -365,11 +403,14 @@ impl<'a> AxisPainter<'a> {
                 style.direction.outward_fraction() * length,
                 (1.0 - style.direction.outward_fraction()) * length,
             );
+            let (x0, y0, x1, y1) = (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1());
             let padded = match side {
-                SpineSide::Bottom => {
-                    Bbox::from_extents(bbox.x0(), bbox.y0() - out, bbox.x1(), bbox.y1() + inward)
-                }
-                _ => Bbox::from_extents(bbox.x0() - out, bbox.y0(), bbox.x1() + inward, bbox.y1()),
+                SpineSide::Bottom => Bbox::from_extents(x0, y0 - out, x1, y1 + inward),
+                SpineSide::Left => Bbox::from_extents(x0 - out, y0, x1 + inward, y1),
+                SpineSide::Right => Bbox::from_extents(x0 - inward, y0, x1 + out, y1),
+                // matplotlib pads the inner edge of the top spine by the
+                // outward length too.
+                SpineSide::Top => Bbox::from_extents(x0, y0 - out, x1, y1 + out),
             };
             bbox = bbox.union(&padded);
         }

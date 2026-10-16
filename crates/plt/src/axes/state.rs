@@ -7,12 +7,12 @@ use plt_core::{Bbox, Path};
 use super::DataLimits;
 use super::axis::{AxisGeometry, AxisState};
 use super::axis_draw::AxisPainter;
-use super::limits::{AxisAutoscale, autoscale_axis, oriented};
+use super::limits::{AxisAutoscale, autoscale_axis};
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
 use crate::rc::{Cycler, RcParams};
-use crate::ticker::{AxisInfo, AxisName};
+use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
 use crate::transforms::{ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
 
 /// State of one axes (matplotlib's `_AxesBase`).
@@ -37,10 +37,13 @@ pub(crate) struct AxesState {
     pub(crate) use_sticky_edges: bool,
     /// Skip view-limit rounding when autoscaling.
     pub(crate) tight: bool,
-    /// Background colour.
-    pub(crate) facecolor: Color,
-    /// Whether the background patch is drawn.
+    /// The background rectangle.
+    pub(crate) patch: AxesPatch,
+    /// Whether the background patch and the spines are drawn.
     pub(crate) frame_on: bool,
+    /// The axes this one shares its x and y axis with, if any
+    /// (matplotlib's `_sharex`, `_sharey`).
+    pub(crate) shares: (Option<ArtistId>, Option<ArtistId>),
     /// Property cycle for lines and patches.
     pub(crate) prop_cycle: Cycler,
     /// Next property-cycle entry for lines.
@@ -58,6 +61,26 @@ pub(crate) struct AxesState {
     rc: Rc<RcParams>,
 }
 
+/// The background rectangle of an axes (matplotlib's `ax.patch`).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct AxesPatch {
+    /// Fill colour.
+    pub(crate) facecolor: Color,
+    /// Whether it is drawn.
+    pub(crate) visible: bool,
+}
+
+/// What the axes sharing one axis contribute to its autoscaling.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct SharedData {
+    /// The span of their finite data limits, if any is finite.
+    pub(crate) interval: Option<(f64, f64)>,
+    /// Their smallest positive datum.
+    pub(crate) minpos: f64,
+    /// Their children's sorted sticky edges.
+    pub(crate) stickies: Vec<f64>,
+}
+
 impl AxesState {
     /// Axes at `position` (frame fractions) configured from `rc`.
     pub(crate) fn new(position: Bbox, rc: Rc<RcParams>) -> Self {
@@ -72,8 +95,12 @@ impl AxesState {
             yaxis: AxisState::new(AxisName::Y, &rc),
             use_sticky_edges: true,
             tight: false,
-            facecolor: rc.axes_facecolor.clone(),
+            patch: AxesPatch {
+                facecolor: rc.axes_facecolor.clone(),
+                visible: true,
+            },
             frame_on: true,
+            shares: (None, None),
             prop_cycle: rc.axes_prop_cycle.clone(),
             line_cycle: 0,
             patch_cycle: 0,
@@ -129,13 +156,45 @@ impl AxesState {
         }
     }
 
-    /// Sets the view interval of one axis; explicit limits switch that
-    /// axis's autoscaling off (matplotlib's `set_xlim(..., auto=False)`).
-    pub(crate) fn set_limits(&mut self, name: AxisName, lower: f64, upper: f64) {
-        self.set_view_interval(name, (lower, upper));
-        let autoscale = &mut self.axis_mut(name).autoscale;
-        autoscale.enabled = false;
-        autoscale.stale = false;
+    /// Whether the view limits of one axis were ever changed from the
+    /// initial unit interval.
+    pub(crate) fn view_mutated(&self, name: AxisName) -> bool {
+        match name {
+            AxisName::X => self.view_mutated.0,
+            AxisName::Y => self.view_mutated.1,
+        }
+    }
+
+    /// The limits `(v0, v1)` become once validated for one axis
+    /// (matplotlib's `Axis._set_lim`): non-positive limits of a log axis
+    /// keep the current value, singular intervals are expanded by the
+    /// major locator, and the scale clamps the range; `v0 > v1` keeps the
+    /// axis inverted.
+    pub(crate) fn validated_limits(&self, name: AxisName, v0: f64, v1: f64) -> (f64, f64) {
+        let axis = self.axis(name);
+        let (mut v0, mut v1) = (v0, v1);
+        if axis.scale().name() == "log" && (v0 <= 0.0 || v1 <= 0.0) {
+            let (old0, old1) = self.view_interval(name);
+            if v0 <= 0.0 {
+                v0 = old0;
+            }
+            if v1 <= 0.0 {
+                v1 = old1;
+            }
+        }
+        let reverse = v0 > v1;
+        let (data, minpos) = self.data_interval(name);
+        let info = axis.info(&AxisGeometry {
+            view: self.view_interval(name),
+            data,
+            minpos,
+            length_points: 0.0,
+        });
+        let ctx = TickContext::new(&info, &axis.settings);
+        let (v0, v1) = axis.major_locator.nonsingular(v0, v1, &ctx);
+        let (v0, v1) = axis.scale().limit_range_for_scale(v0, v1, minpos);
+        let (low, high) = if v0 <= v1 { (v0, v1) } else { (v1, v0) };
+        if reverse { (high, low) } else { (low, high) }
     }
 
     /// Widens the view interval of one axis to include `low..=high`,
@@ -151,7 +210,8 @@ impl AxesState {
         self.set_view_interval(name, widened);
     }
 
-    fn set_view_interval(&mut self, name: AxisName, (lower, upper): (f64, f64)) {
+    /// Replaces the view interval of one axis.
+    pub(crate) fn set_view_interval(&mut self, name: AxisName, (lower, upper): (f64, f64)) {
         let v = self.view_lim;
         match name {
             AxisName::X => {
@@ -173,7 +233,7 @@ impl AxesState {
     }
 
     /// Data interval and minimum positive value of one axis.
-    fn data_interval(&self, name: AxisName) -> ((f64, f64), f64) {
+    pub(crate) fn data_interval(&self, name: AxisName) -> ((f64, f64), f64) {
         let bbox = self.data_lim.bbox;
         match name {
             AxisName::X => ((bbox.x0(), bbox.x1()), self.data_lim.minpos.x),
@@ -181,73 +241,56 @@ impl AxesState {
         }
     }
 
-    /// The data interval autoscaling starts from: the finite data limits,
-    /// `(-inf, inf)` without data, or `None` when there is no data but the
-    /// view was set explicitly (matplotlib keeps such limits).
-    fn autoscale_source(&self, name: AxisName) -> Option<(f64, f64)> {
-        let ((lo, hi), _) = self.data_interval(name);
-        let finite: Vec<f64> = [lo, hi].into_iter().filter(|v| v.is_finite()).collect();
-        let mutated = match name {
-            AxisName::X => self.view_mutated.0,
-            AxisName::Y => self.view_mutated.1,
+    /// Whether the margins of one axis stop at sticky edges.
+    pub(crate) fn uses_stickies(&self, name: AxisName) -> bool {
+        let autoscale = self.axis(name).autoscale;
+        self.use_sticky_edges && autoscale.margin != 0.0 && autoscale.enabled
+    }
+
+    /// The autoscaled `(lower, upper)` bound of one axis (matplotlib's
+    /// `handle_single_axis` in `autoscale_view`), or `None` when there is
+    /// no data and the view was set explicitly (matplotlib keeps it).
+    pub(crate) fn autoscale_bound(
+        &self,
+        name: AxisName,
+        shared: &SharedData,
+    ) -> Result<Option<(f64, f64)>, TickerError> {
+        let data = match shared.interval {
+            Some(interval) => interval,
+            None if self.view_mutated(name) => return Ok(None),
+            None => (f64::NEG_INFINITY, f64::INFINITY),
         };
-        match finite.as_slice() {
-            [] if mutated => None,
-            [] => Some((f64::NEG_INFINITY, f64::INFINITY)),
-            values => Some((
-                values.iter().copied().fold(f64::INFINITY, f64::min),
-                values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
-            )),
-        }
-    }
-
-    /// Recomputes stale autoscaled view limits (matplotlib's
-    /// `_unstale_viewLim` / `autoscale_view`); `stickies` are the sorted
-    /// sticky edges of the axes' children per axis.
-    pub(crate) fn unstale_view(&mut self, stickies: (&[f64], &[f64])) -> Result<(), String> {
-        for (name, sticky) in [(AxisName::X, stickies.0), (AxisName::Y, stickies.1)] {
-            let autoscale = self.axis(name).autoscale;
-            if !(autoscale.stale && autoscale.enabled) {
-                continue;
-            }
-            self.axis_mut(name).autoscale.stale = false;
-            let Some(data) = self.autoscale_source(name) else {
-                continue;
-            };
-            let view = self.view_interval(name);
-            let ((_, _), minpos) = self.data_interval(name);
-            let info = AxisInfo {
-                data_interval: data,
-                ..self.axis(name).info(&AxisGeometry {
-                    view,
-                    data,
-                    minpos,
-                    length_points: 0.0,
-                })
-            };
-            let usable = if self.use_sticky_edges && autoscale.margin != 0.0 {
-                sticky
-            } else {
-                &[]
-            };
-            let bound = autoscale_axis(&AxisAutoscale {
-                axis: self.axis(name),
-                info: &info,
-                margin: autoscale.margin,
-                stickies: usable,
-                tight: self.tight,
+        let axis = self.axis(name);
+        let (_, minpos) = self.data_interval(name);
+        let info = AxisInfo {
+            data_interval: data,
+            ..axis.info(&AxisGeometry {
+                view: self.view_interval(name),
+                data,
+                minpos,
+                length_points: 0.0,
             })
-            .map_err(|err| err.to_string())?;
-            self.set_view_interval(name, oriented(bound, view.0 > view.1));
-        }
-        Ok(())
-    }
-
-    /// Whether any axis waits for autoscaling.
-    pub(crate) fn needs_autoscale(&self) -> bool {
-        [&self.xaxis, &self.yaxis]
-            .iter()
-            .any(|axis| axis.autoscale.stale && axis.autoscale.enabled)
+        };
+        let log = axis.scale().name() == "log";
+        let stickies: Vec<f64> = if self.uses_stickies(name) {
+            shared
+                .stickies
+                .iter()
+                .copied()
+                .filter(|&s| !log || s > 0.0)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        autoscale_axis(&AxisAutoscale {
+            axis,
+            info: &info,
+            minpos: shared.minpos,
+            margin: axis.autoscale.margin,
+            stickies: &stickies,
+            tight: self.tight,
+        })
+        .map(Some)
     }
 
     /// Recomputes the ticks of both axes for an axes `extent` in display
@@ -311,8 +354,8 @@ impl Artist for AxesState {
         let Some(extent) = ctx.layout().axes_extent(self.base.id()) else {
             return;
         };
-        if self.frame_on {
-            match self.facecolor.resolve() {
+        if self.frame_on && self.patch.visible {
+            match self.patch.facecolor.resolve() {
                 Ok(face) => {
                     let mut gc = ctx.base_gc(&self.base);
                     gc.linewidth = 0.0;

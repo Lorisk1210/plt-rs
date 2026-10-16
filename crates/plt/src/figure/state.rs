@@ -5,7 +5,7 @@ use plt_render::Renderer;
 
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
-use crate::axes::AxesState;
+use crate::axes::{AxesState, ShareGroups};
 use crate::gridspec::SubplotParams;
 use crate::transforms::{ResolvedTransform, TransformContext};
 
@@ -25,6 +25,8 @@ pub(crate) struct FigureState {
     /// Problems found outside drawing (e.g. while autoscaling), reported
     /// with the next draw.
     pub(crate) pending_errors: Vec<DrawError>,
+    /// Axes sharing their x or y axis.
+    pub(crate) shared: ShareGroups,
 }
 
 impl FigureState {
@@ -45,6 +47,7 @@ impl FigureState {
             size_inches,
             stale: true,
             pending_errors: Vec::new(),
+            shared: ShareGroups::default(),
         }
     }
 
@@ -77,36 +80,8 @@ impl FigureState {
             parent.remove_child(id);
         }
         self.store.remove(id);
+        self.shared.remove(id);
         self.stale = true;
-    }
-
-    /// Recomputes the stale autoscaled view limits of one axes, honouring
-    /// the sticky edges of its children.
-    pub(crate) fn unstale_axes(&mut self, axes: ArtistId) {
-        let Some(state) = self.store.get_as::<AxesState>(axes) else {
-            return;
-        };
-        if !state.needs_autoscale() {
-            return;
-        }
-        let (mut xs, mut ys) = (Vec::new(), Vec::new());
-        for child in state.children.iter().filter_map(|&id| self.store.get(id)) {
-            let (x, y) = &child.base().sticky_edges;
-            xs.extend_from_slice(x);
-            ys.extend_from_slice(y);
-        }
-        xs.sort_by(f64::total_cmp);
-        ys.sort_by(f64::total_cmp);
-        let outcome = self
-            .store
-            .get_as_mut::<AxesState>(axes)
-            .map(|state| state.unstale_view((&xs, &ys)));
-        if let Some(Err(message)) = outcome {
-            self.pending_errors.push(DrawError {
-                artist: axes,
-                message,
-            });
-        }
     }
 
     /// The mutable pass before drawing: autoscaling, then ticks.

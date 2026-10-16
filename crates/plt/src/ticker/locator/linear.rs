@@ -1,11 +1,12 @@
 //! Evenly spaced ticks: a fixed count (`LinearLocator`) or a fixed step
 //! (`MultipleLocator`).
 
+use super::Locator;
 use super::maxn::EdgeInteger;
-use super::{Locator, nonsingular};
 use crate::numeric::linspace;
 use crate::ticker::pymath::{arange, ceil_int, divmod, floor_div, floor_int};
 use crate::ticker::{AutolimitMode, TickContext, TickerError};
+use crate::transforms::nonsingular;
 
 /// `numticks` evenly spaced ticks spanning the view (matplotlib's
 /// `LinearLocator`); `presets` override the ticks for specific views.
@@ -45,7 +46,7 @@ impl Locator for LinearLocator {
         vmax: f64,
         _: &TickContext<'_>,
     ) -> Result<Vec<f64>, TickerError> {
-        let view = nonsingular(vmin, vmax, 0.05, 1e-15);
+        let view = nonsingular(vmin, vmax, 0.05, 1e-15, true);
         if let Some((_, locs)) = self.presets.iter().find(|(key, _)| *key == view) {
             return Ok(locs.clone());
         }
@@ -84,7 +85,7 @@ impl Locator for LinearLocator {
             vmin = floor_int(scale * vmin, "view limit")? as f64 / scale;
             vmax = ceil_int(scale * vmax, "view limit")? as f64 / scale;
         }
-        Ok(nonsingular(vmin, vmax, 0.001, 1e-15))
+        Ok(nonsingular(vmin, vmax, 0.001, 1e-15, true))
     }
 }
 
@@ -161,7 +162,7 @@ impl Locator for MultipleLocator {
                 vmax += 1.0;
             }
         }
-        Ok(nonsingular(vmin, vmax, 0.001, 1e-15))
+        Ok(nonsingular(vmin, vmax, 0.001, 1e-15, true))
     }
 }
 
@@ -179,11 +180,11 @@ mod tests {
             [0.0, 0.25, 0.5, 0.75, 1.0]
         );
         assert_eq!(loc.tick_values(5.0, 5.0, &ctx).unwrap()[0], 4.75);
-        assert!(
+        assert_eq!(
             LinearLocator::new(Some(0))
                 .tick_values(0.0, 1.0, &ctx)
-                .unwrap()
-                .is_empty()
+                .unwrap(),
+            Vec::<f64>::new()
         );
         let preset = LinearLocator::default().with_preset(0.0, 1.0, vec![0.5]);
         assert_eq!(preset.tick_values(0.0, 1.0, &ctx).unwrap(), [0.5]);
@@ -198,7 +199,11 @@ mod tests {
         let ctx = TickContext::detached(&settings);
         let loc = LinearLocator::default();
         assert_eq!(loc.view_limits(0.13, 0.87, &ctx).unwrap(), (0.1, 0.9));
-        assert!(LinearLocator::new(Some(2)).view_limits(0.0, 1.0, &ctx).is_err());
+        assert!(
+            LinearLocator::new(Some(2))
+                .view_limits(0.0, 1.0, &ctx)
+                .is_err()
+        );
     }
 
     #[test]

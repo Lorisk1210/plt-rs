@@ -1,13 +1,15 @@
-//! Decimal digit generation and CPython's `format_float_short` layout.
+//! Decimal digit generation and `CPython`'s `format_float_short` layout.
 //!
-//! CPython formats floats in two stages: David Gay's `dtoa` produces the
+//! `CPython` formats floats in two stages: David Gay's `dtoa` produces the
 //! correctly rounded decimal digits (trailing zeros stripped) and the
 //! position of the decimal point, then `format_float_short` lays them out
 //! with padding zeros, a decimal point and an optional exponent. Rust's
 //! exact float formatting rounds identically (half to even on the exact
 //! binary value), so it serves as the digit generator here.
 
-/// One of CPython's float presentations.
+use std::fmt::Write as _;
+
+/// One of `CPython`'s float presentations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Presentation {
     /// `e`: one digit before the point, `precision` after, exponent.
@@ -21,6 +23,10 @@ pub(super) enum Presentation {
 }
 
 /// Everything `PyOS_double_to_string` takes besides the value.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "mirrors CPython's independent Py_DTSF_* flags"
+)]
 #[derive(Clone, Copy, Debug)]
 pub(super) struct FloatStyle {
     /// The presentation type.
@@ -140,7 +146,7 @@ fn push_zeros(out: &mut String, count: i64) {
     }
 }
 
-/// CPython's `PyOS_double_to_string` for one value.
+/// `CPython`'s `PyOS_double_to_string` for one value.
 pub(super) fn format_float(x: f64, style: FloatStyle) -> String {
     let mut out = String::new();
     if !x.is_finite() {
@@ -245,7 +251,7 @@ pub(super) fn format_float(x: f64, style: FloatStyle) -> String {
     }
     if use_exp {
         out.push(if style.upper { 'E' } else { 'e' });
-        out.push_str(&format!("{exponent:+03}"));
+        write!(out, "{exponent:+03}").expect("writing to a String cannot fail");
     }
     out
 }
@@ -298,7 +304,7 @@ mod tests {
             (5e-324, "5e-324"),
             (f64::NAN, "nan"),
             (f64::NEG_INFINITY, "-inf"),
-            (0.30000000000000004, "0.30000000000000004"),
+            (0.300_000_000_000_000_04, "0.30000000000000004"),
         ];
         for (x, want) in cases {
             assert_eq!(format_float(x, FloatStyle::REPR), want, "repr({x})");

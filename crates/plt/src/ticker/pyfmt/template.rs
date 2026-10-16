@@ -140,9 +140,7 @@ impl Field {
                 })?;
                 self.spec.format_int(pos)
             }
-            (Arg::Pos, None) if self.as_text || self.spec_is_empty => {
-                self.spec.format_str("None")
-            }
+            (Arg::Pos, None) if self.as_text || self.spec_is_empty => self.spec.format_str("None"),
             (Arg::Pos, None) => Err(FormatError::Type(
                 "unsupported format string passed to NoneType.__format__".into(),
             )),
@@ -245,18 +243,38 @@ mod tests {
     #[test]
     fn post_processing_applies_to_fields_only() {
         let t = StrTemplate::parse("a-{x}").unwrap();
-        let out = t.render(-2.0, None, |s| s.replace('-', "\u{2212}")).unwrap();
+        let out = t
+            .render(-2.0, None, |s| s.replace('-', "\u{2212}"))
+            .unwrap();
         assert_eq!(out, "a-\u{2212}2.0");
     }
 
     #[test]
     fn rejects_invalid_templates() {
-        assert!(matches!(StrTemplate::parse("{y}"), Err(FormatError::Key(_))));
-        assert!(matches!(StrTemplate::parse("{}"), Err(FormatError::Index(_))));
-        assert!(matches!(StrTemplate::parse("{x:#x}"), Err(FormatError::Value(_))));
-        assert!(matches!(StrTemplate::parse("x}"), Err(FormatError::Value(_))));
-        assert!(matches!(StrTemplate::parse("{x"), Err(FormatError::Value(_))));
-        assert!(matches!(StrTemplate::parse("{x!q}"), Err(FormatError::Value(_))));
+        assert!(matches!(
+            StrTemplate::parse("{y}"),
+            Err(FormatError::Key(_))
+        ));
+        assert!(matches!(
+            StrTemplate::parse("{}"),
+            Err(FormatError::Index(_))
+        ));
+        assert!(matches!(
+            StrTemplate::parse("{x:#x}"),
+            Err(FormatError::Value(_))
+        ));
+        assert!(matches!(
+            StrTemplate::parse("x}"),
+            Err(FormatError::Value(_))
+        ));
+        assert!(matches!(
+            StrTemplate::parse("{x"),
+            Err(FormatError::Value(_))
+        ));
+        assert!(matches!(
+            StrTemplate::parse("{x!q}"),
+            Err(FormatError::Value(_))
+        ));
         assert!(
             StrTemplate::parse("{pos:.2f}")
                 .unwrap()

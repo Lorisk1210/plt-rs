@@ -28,6 +28,10 @@ pub enum MinorDivisions {
 /// formatter is constructed (`from_settings` constructors), the others when
 /// ticks are computed (through [`crate::ticker::TickContext`]), mirroring
 /// when matplotlib reads each rcParam.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "mirrors independent boolean rcParams"
+)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct TickerSettings {
     /// `axes.unicode_minus`: typeset minus signs as U+2212.

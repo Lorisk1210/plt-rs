@@ -4,6 +4,10 @@ use super::FormatError;
 use super::dtoa::{FloatStyle, Presentation, format_float};
 
 /// The `%` conversion flags.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "the five independent printf flags"
+)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct Flags {
     /// `-`: left-justify within the width.
@@ -141,14 +145,16 @@ fn integer_body(value: f64, precision: Option<usize>) -> Result<String, FormatEr
             "cannot convert float infinity to integer".into(),
         ));
     }
-    let truncated = value.trunc();
-    let digits = format!("{:.0}", truncated.abs());
+    let text = super::integer(value);
+    let (sign, digits) = match text.strip_prefix('-') {
+        Some(digits) => ("-", digits),
+        None => ("", text.as_str()),
+    };
     let width = precision.unwrap_or(0);
-    let sign = if truncated < 0.0 { "-" } else { "" };
     Ok(format!("{sign}{digits:0>width$}"))
 }
 
-/// CPython's `unicode_format_arg_output`: sign, width and fill.
+/// `CPython`'s `unicode_format_arg_output`: sign, width and fill.
 fn pad(body: &str, conv: &Conversion, numeric: bool) -> String {
     let flags = conv.flags;
     let fill = if numeric && flags.zero { '0' } else { ' ' };
@@ -263,7 +269,10 @@ mod tests {
     use super::*;
 
     fn printf(template: &str, value: f64) -> String {
-        PrintfFormat::parse(template).unwrap().format(value).unwrap()
+        PrintfFormat::parse(template)
+            .unwrap()
+            .format(value)
+            .unwrap()
     }
 
     #[test]
@@ -279,7 +288,10 @@ mod tests {
         assert_eq!(printf("%08.2f", -3.5), "-0003.50");
         assert_eq!(printf("% f", 1.0), " 1.000000");
         assert_eq!(printf("%-8.2fx", 1.0), "1.00    x");
-        assert_eq!(printf(r"$\mathdefault{%1.1f}$", 0.5), r"$\mathdefault{0.5}$");
+        assert_eq!(
+            printf(r"$\mathdefault{%1.1f}$", 0.5),
+            r"$\mathdefault{0.5}$"
+        );
     }
 
     #[test]
@@ -309,7 +321,10 @@ mod tests {
             PrintfFormat::parse("%d %d"),
             Err(FormatError::Type(_))
         ));
-        assert!(matches!(PrintfFormat::parse("%"), Err(FormatError::Value(_))));
+        assert!(matches!(
+            PrintfFormat::parse("%"),
+            Err(FormatError::Value(_))
+        ));
         assert!(matches!(
             PrintfFormat::parse("%y"),
             Err(FormatError::Value(_))

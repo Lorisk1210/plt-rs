@@ -2,12 +2,12 @@
 //!
 //! Tick placement is full of `divmod`, `//`, `round` and `np.arange` calls
 //! whose exact floating-point behaviour decides which ticks appear. These
-//! helpers reproduce CPython's and numpy's algorithms bit for bit.
+//! helpers reproduce `CPython`'s and numpy's algorithms bit for bit.
 
 use super::TickerError;
 
 /// Python's float `divmod(x, y)`: the floor quotient and a remainder with
-/// the sign of `y` (CPython `float_divmod`, numpy `npy_divmod`).
+/// the sign of `y` (`CPython` `float_divmod`, numpy `npy_divmod`).
 pub(crate) fn divmod(x: f64, y: f64) -> (f64, f64) {
     let mut rem = x % y;
     let mut div = (x - rem) / y;
@@ -66,6 +66,15 @@ pub(crate) fn is_close_to_int(x: f64) -> bool {
     isclose(x, x.round_ties_even())
 }
 
+/// numpy's `np.sign`: -1, 0 or 1, and NaN for NaN.
+pub(crate) fn np_sign(x: f64) -> f64 {
+    if x == 0.0 || x.is_nan() {
+        x * 0.0
+    } else {
+        x.signum()
+    }
+}
+
 /// Python's `max(a, b)`: `a` unless `b > a` (so a NaN `a` wins).
 pub(crate) fn py_max(a: f64, b: f64) -> f64 {
     if b > a { b } else { a }
@@ -109,6 +118,14 @@ pub(crate) fn py_round(x: f64, ndigits: usize) -> f64 {
 /// `10.0 ** e` as computed by C's `pow` (Python's float power).
 pub(crate) fn pow10(e: f64) -> f64 {
     10.0_f64.powf(e)
+}
+
+/// `10**e` as Python evaluates it for an integer `e`: the double
+/// nearest to the exact power.
+pub(crate) fn pow10_int(e: i32) -> f64 {
+    format!("1e{e}")
+        .parse()
+        .expect("`1e<int>` is a valid float literal")
 }
 
 /// Python's `math.log(x, base)`: `log(x) / log(base)`.
@@ -239,9 +256,9 @@ mod tests {
         // numpy: np.arange(0.1, 1.0, 0.2)[2] == 0.5000000000000001
         let values = arange(0.1, 1.0, 0.2).unwrap();
         assert_eq!(values.len(), 5);
-        assert_eq!(values[1], 0.30000000000000004);
-        assert_eq!(values[2], 0.5000000000000001);
-        assert!(arange(1.0, 0.0, 1.0).unwrap().is_empty());
+        assert_eq!(values[1], 0.300_000_000_000_000_04);
+        assert_eq!(values[2], 0.500_000_000_000_000_1);
+        assert_eq!(arange(1.0, 0.0, 1.0).unwrap(), Vec::<f64>::new());
         assert!(arange(0.0, 1.0, 0.0).is_err());
         assert!(arange(0.0, 1e300, 1.0).is_err());
         assert!(arange(0.0, f64::NAN, 1.0).is_err());
@@ -251,6 +268,9 @@ mod tests {
     fn spacing_and_unique() {
         assert_eq!(spacing(1.0), f64::EPSILON);
         assert_eq!(spacing(-1.0), f64::EPSILON);
+        assert_eq!(np_sign(-3.0), -1.0);
+        assert_eq!(np_sign(0.0), 0.0);
+        assert!(np_sign(f64::NAN).is_nan());
         assert_eq!(sorted_unique(&[3.0, 1.0, 3.0, 2.0]), vec![1.0, 2.0, 3.0]);
     }
 }

@@ -12,7 +12,8 @@ pub fn figure_facts(fig: &Figure) -> Json {
     Json::Object(vec![
         (
             "size_px".into(),
-            Json::from(vec![width.round(), height.round()]),
+            // matplotlib's `get_width_height` truncates.
+            Json::from(vec![width.trunc(), height.trunc()]),
         ),
         ("suptitle".into(), fig.suptitle_text().into()),
         (

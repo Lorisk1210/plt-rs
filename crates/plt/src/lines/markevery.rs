@@ -47,6 +47,8 @@ pub enum MarkEveryError {
     NonPositiveDistance(f64),
     /// An index outside the data.
     IndexOutOfRange(i64),
+    /// A distance-based selection where only indices are available.
+    NeedsGeometry,
     /// A mask whose length differs from the data length.
     MaskLength {
         /// Mask length.
@@ -64,6 +66,7 @@ impl fmt::Display for MarkEveryError {
                 write!(f, "markevery distance step {step} must be positive")
             }
             Self::IndexOutOfRange(i) => write!(f, "markevery index {i} is out of range"),
+            Self::NeedsGeometry => f.write_str("a distance-based selection needs the drawn line"),
             Self::MaskLength { mask, points } => {
                 write!(
                     f,
@@ -87,7 +90,19 @@ impl MarkEvery {
         points: &[Point],
         axes_diagonal: f64,
     ) -> Result<Vec<usize>, MarkEveryError> {
-        let n = points.len();
+        match self {
+            Self::Distance { start, step } => by_distance(points, *start, *step, axes_diagonal),
+            _ => self.indices(points.len()),
+        }
+    }
+
+    /// The selected indices among `n` items, for the variants that do not
+    /// depend on screen geometry (also matplotlib's `errorevery`).
+    ///
+    /// # Errors
+    ///
+    /// For invalid selections and for [`MarkEvery::Distance`].
+    pub fn indices(&self, n: usize) -> Result<Vec<usize>, MarkEveryError> {
         match self {
             Self::Every { start, step } => slice_indices(n, Some(*start), None, Some(*step)),
             Self::Slice { start, stop, step } => slice_indices(n, *start, *stop, *step),
@@ -110,7 +125,7 @@ impl MarkEvery {
                 mask: mask.len(),
                 points: n,
             }),
-            Self::Distance { start, step } => by_distance(points, *start, *step, axes_diagonal),
+            Self::Distance { .. } => Err(MarkEveryError::NeedsGeometry),
         }
     }
 }

@@ -38,7 +38,9 @@ dependencies = [
 name = "plt-render"
 version = "0.1.0"
 dependencies = [
+ "plt-codec",
  "plt-core",
+ "plt-raster",
  "plt-text",
 ]
 
@@ -47,6 +49,7 @@ name = "plt-spec"
 version = "0.1.0"
 dependencies = [
  "plt",
+ "plt-codec",
  "plt-core",
  "plt-render",
 ]

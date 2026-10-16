@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(a + b, Complex::new(4.0, 1.0));
         assert_eq!(a - b, Complex::new(-2.0, 3.0));
         assert_eq!(a * b, Complex::new(5.0, 5.0));
-        assert_eq!((a * b) / b, a);
+        assert!(((a * b) / b - a).abs() < 1e-15);
         assert_eq!(-a, Complex::new(-1.0, -2.0));
         assert_eq!(a.conj(), Complex::new(1.0, -2.0));
         assert_eq!(a * 2.0, Complex::new(2.0, 4.0));

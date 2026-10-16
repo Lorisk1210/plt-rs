@@ -3,7 +3,7 @@
 use std::fmt;
 
 use crate::colors::ColormapError;
-use crate::lines::FormatError;
+use crate::lines::{FormatError, MarkEveryError};
 use crate::markers::MarkerError;
 use crate::patches::StepPatchError;
 
@@ -37,6 +37,10 @@ pub enum PlotError {
     Format(FormatError),
     /// Inconsistent step data.
     Steps(StepPatchError),
+    /// Negative error bar sizes (the argument named).
+    NegativeErrors(&'static str),
+    /// An invalid `errorevery` selection.
+    ErrorEvery(MarkEveryError),
 }
 
 impl fmt::Display for PlotError {
@@ -59,6 +63,10 @@ impl fmt::Display for PlotError {
             Self::Colormap(err) => err.fmt(f),
             Self::Format(err) => err.fmt(f),
             Self::Steps(err) => err.fmt(f),
+            Self::NegativeErrors(argument) => {
+                write!(f, "'{argument}' must not contain negative values")
+            }
+            Self::ErrorEvery(err) => write!(f, "errorevery: {err}"),
             Self::NormWithLimits => f.write_str(
                 "passing a Normalize instance simultaneously with vmin/vmax is not supported",
             ),

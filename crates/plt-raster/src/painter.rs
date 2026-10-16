@@ -6,10 +6,9 @@ use plt_core::{Affine2D, Path, Point, Rgba};
 use crate::clip::{Clip, ClipBox};
 use crate::color::Rgba8;
 use crate::error::RasterError;
-use crate::geometry::PathSink;
-use crate::geometry::curve::CurveFlattener;
 use crate::geometry::dash::{DashSink, Dasher};
 use crate::geometry::stroke::{StrokeSink, Stroker};
+use crate::geometry::{PathSink, feed_path};
 use crate::mask::Mask;
 use crate::pixmap::Pixmap;
 use crate::raster::{Gamma, Rasterizer, Scanline};
@@ -44,7 +43,6 @@ enum Scanlines {
 pub struct Painter {
     rasterizer: Rasterizer,
     scanline: Scanline,
-    flattener: CurveFlattener,
     stroker: Stroker,
     dasher: Dasher,
     colors: Vec<Rgba8>,
@@ -86,7 +84,7 @@ impl Painter {
             return Ok(());
         }
         self.begin(target, clip.rect, rule);
-        self.flattener.feed(path, &mut self.rasterizer);
+        feed_path(path, &mut self.rasterizer);
         self.render_solid(target, color, aa, clip.mask)
     }
 
@@ -131,7 +129,7 @@ impl Painter {
             return Ok(());
         }
         self.begin(target, clip.rect, rule);
-        self.flattener.feed(path, &mut self.rasterizer);
+        feed_path(path, &mut self.rasterizer);
         let data = tile.data();
         self.render_with(target, clip.mask, Scanlines::Packed, |x, y, out| {
             let row = i64::from(y).rem_euclid(th) * tw;
@@ -160,7 +158,7 @@ impl Painter {
         let color = Rgba8::from(color);
         self.rasterizer.reset_clipping();
         self.rasterizer.set_fill_rule(FillRule::NonZero);
-        self.flattener.feed(hatch, &mut self.rasterizer);
+        feed_path(hatch, &mut self.rasterizer);
         self.render_solid(&mut tile, color, Antialias::On, None)?;
         self.rasterizer.reset();
         self.add_stroke(
@@ -207,7 +205,7 @@ impl Painter {
         self.rasterizer.set_fill_rule(FillRule::NonZero);
         let mut fill_rows = Vec::new();
         if fill {
-            self.flattener.feed(path, &mut self.rasterizer);
+            feed_path(path, &mut self.rasterizer);
             self.rasterizer
                 .sweep(&mut self.scanline, |sl| fill_rows.push(sl.clone()))?;
             self.rasterizer.reset();
@@ -243,7 +241,7 @@ impl Painter {
             self.rasterizer.reset_clipping();
             self.rasterizer.set_fill_rule(rule);
         }
-        self.flattener.feed(path, &mut self.rasterizer);
+        feed_path(path, &mut self.rasterizer);
         let full = ClipBox::full(width, height);
         let Some(bounds) = rect.map_or(Some(full), |r| r.within(width, height)) else {
             return Ok(mask);
@@ -327,10 +325,10 @@ impl Painter {
         match &style.dashes {
             Some(pattern) => {
                 let mut dash = DashSink::new(&mut self.dasher, pattern, &mut stroke);
-                self.flattener.feed(path, &mut dash);
+                feed_path(path, &mut dash);
                 dash.finish();
             }
-            None => self.flattener.feed(path, &mut stroke),
+            None => feed_path(path, &mut stroke),
         }
         stroke.finish();
     }

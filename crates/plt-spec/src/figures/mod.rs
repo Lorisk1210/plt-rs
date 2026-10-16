@@ -1,9 +1,9 @@
 //! Figure cases: Rust translations of the spec's matplotlib figure scripts,
-//! compared with the goldens through structural facts (and pixels, once a
-//! raster backend renders them).
+//! compared with the goldens through structural facts and pixels.
 
 mod cases;
 mod facts;
+mod pixels;
 
 use std::error::Error;
 use std::fmt;
@@ -14,6 +14,7 @@ use plt::figure::Figure;
 use crate::json::Json;
 
 pub use facts::figure_facts;
+pub use pixels::{PixelReport, pixel_report, render_pixels};
 
 /// What a case's build function may fail with.
 pub type CaseResult = Result<(), Box<dyn Error>>;
@@ -76,9 +77,25 @@ impl FigureCase {
             .join(format!("{}.json", self.name))
     }
 
+    /// Golden image for this case.
+    pub fn png_path(&self) -> PathBuf {
+        crate::spec_root()
+            .join("goldens/figures")
+            .join(format!("{}.png", self.name))
+    }
+
     /// Builds the figure under the spec's reference configuration
     /// (matplotlib's defaults plus the case's rc overrides).
     pub fn build(&self) -> Result<Figure, Box<dyn Error>> {
+        self.with_figure(|fig| Ok(fig.clone()))
+    }
+
+    /// Builds the figure and runs `f` on it, both under the reference
+    /// configuration (so that drawing sees the case's rcParams too).
+    pub fn with_figure<T>(
+        &self,
+        f: impl FnOnce(&Figure) -> Result<T, Box<dyn Error>>,
+    ) -> Result<T, Box<dyn Error>> {
         plt::rc::context(|| {
             plt::rc::replace(plt::rc::RcParams::matplotlib());
             for (key, value) in self.rc {
@@ -86,7 +103,7 @@ impl FigureCase {
             }
             let fig = Figure::with_size(self.figsize.0, self.figsize.1, self.dpi);
             (self.build)(&fig)?;
-            Ok(fig)
+            f(&fig)
         })
     }
 }

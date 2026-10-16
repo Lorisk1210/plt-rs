@@ -2,8 +2,10 @@
 
 mod axis;
 mod axis_draw;
+mod broadcast;
 mod children;
 mod error;
+mod errorbar;
 mod limits;
 mod lines;
 mod patches;
@@ -19,6 +21,7 @@ mod ticks;
 pub use crate::ticker::AxisName;
 pub use axis::{Tick, TickSet};
 pub use error::PlotError;
+pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarOptions};
 pub use limits::DataLimits;
 pub use scatter::{MappedColors, ScatterColors, ScatterOptions};
 pub(crate) use state::AxesState;
@@ -192,6 +195,16 @@ impl Axes {
     /// The y view limits `(bottom, top)`, autoscaled first if needed.
     pub fn ylim(&self) -> (f64, f64) {
         self.view_lim().interval_y()
+    }
+
+    /// Whether `axis` runs from high to low values (matplotlib's
+    /// `Axis.get_inverted`).
+    pub fn inverted(&self, axis: AxisName) -> bool {
+        let (low, high) = match axis {
+            AxisName::X => self.xlim(),
+            AxisName::Y => self.ylim(),
+        };
+        high < low
     }
 
     /// Sets the x view limits and turns x autoscaling off;

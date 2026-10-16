@@ -2,6 +2,7 @@
 
 use plt_core::Path;
 
+use super::broadcast::broadcast;
 use super::children::DataUpdate;
 use super::{Axes, PlotError};
 use crate::artist::Artist;
@@ -43,7 +44,7 @@ impl Axes {
 
     /// Segments at `positions` spanning `low..high` along the value axis
     /// of `orientation`, drawn in `lines.color`.
-    fn segments(
+    pub(crate) fn segments(
         &self,
         orientation: Orientation,
         positions: &[f64],
@@ -74,18 +75,5 @@ impl Axes {
             DataUpdate::data(vec![extents.p0, extents.p1])
         };
         Ok(Collection::from_raw(self.adopt(collection, &update)))
-    }
-}
-
-/// `values` repeated to `n` entries when it holds a single value.
-fn broadcast(argument: &'static str, values: &[f64], n: usize) -> Result<Vec<f64>, PlotError> {
-    match values {
-        [single] => Ok(vec![*single; n]),
-        _ if values.len() == n => Ok(values.to_vec()),
-        _ => Err(PlotError::Broadcast {
-            argument,
-            len: values.len(),
-            points: n,
-        }),
     }
 }

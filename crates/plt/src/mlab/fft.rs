@@ -127,17 +127,17 @@ fn resized(input: &[Complex], len: usize) -> Vec<Complex> {
 fn factorize(n: usize) -> Option<Vec<usize>> {
     let mut factors = Vec::new();
     let mut rest = n;
-    while rest % 4 == 0 {
+    while rest.is_multiple_of(4) {
         factors.push(4);
         rest /= 4;
     }
-    if rest % 2 == 0 {
+    if rest.is_multiple_of(2) {
         factors.push(2);
         rest /= 2;
     }
     let mut p = 3;
     while p * p <= rest {
-        while rest % p == 0 {
+        while rest.is_multiple_of(p) {
             factors.push(p);
             rest /= p;
         }
@@ -391,7 +391,9 @@ mod tests {
 
     #[test]
     fn matches_naive_dft_for_many_lengths() {
-        for n in [1, 2, 3, 4, 5, 6, 7, 8, 12, 15, 16, 20, 31, 33, 48, 63, 64, 67, 81, 97, 100, 128, 134] {
+        for n in [
+            1, 2, 3, 4, 5, 6, 7, 8, 12, 15, 16, 20, 31, 33, 48, 63, 64, 67, 81, 97, 100, 128, 134,
+        ] {
             let x = signal(n);
             assert_close(&fft(&x), &naive_dft(&x), 1e-13);
         }
@@ -410,7 +412,7 @@ mod tests {
         let x = signal(5);
         assert_eq!(fft_n(&x, 8).len(), 8);
         assert_eq!(fft_n(&x, 3), fft(&x[..3]));
-        assert!(fft(&[]).is_empty());
+        assert_eq!(fft(&[]), Vec::<Complex>::new());
         assert!(FftPlan::new(0).is_empty());
         assert_eq!(FftPlan::new(9).len(), 9);
     }
@@ -435,6 +437,6 @@ mod tests {
     fn frequencies_match_numpy() {
         assert_eq!(fftfreq(4, 0.5), vec![0.0, 0.5, -1.0, -0.5]);
         assert_eq!(fftfreq(5, 1.0), vec![0.0, 0.2, 0.4, -0.4, -0.2]);
-        assert!(fftfreq(0, 1.0).is_empty());
+        assert_eq!(fftfreq(0, 1.0), Vec::<f64>::new());
     }
 }

@@ -44,8 +44,9 @@ impl Axes {
     /// Moves the axes to `[left, bottom, width, height]` in figure fractions.
     pub fn set_position(&self, rect: [f64; 4]) -> &Self {
         let [left, bottom, width, height] = rect;
-        self.raw
-            .with_mut::<AxesState, _>(|a| a.position = Bbox::from_bounds(left, bottom, width, height));
+        self.raw.with_mut::<AxesState, _>(|a| {
+            a.position = Bbox::from_bounds(left, bottom, width, height);
+        });
         self
     }
 

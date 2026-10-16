@@ -36,7 +36,11 @@ pub(crate) struct RecordingRenderer {
 
 impl RecordingRenderer {
     pub(crate) fn new(width: f64, height: f64, dpi: f64) -> Self {
-        Self { size: (width, height), dpi, calls: Vec::new() }
+        Self {
+            size: (width, height),
+            dpi,
+            calls: Vec::new(),
+        }
     }
 }
 
@@ -49,7 +53,13 @@ impl Renderer for RecordingRenderer {
         self.dpi
     }
 
-    fn draw_path(&mut self, gc: &GraphicsContext, path: &Path, transform: &Affine2D, fill: Option<Rgba>) {
+    fn draw_path(
+        &mut self,
+        gc: &GraphicsContext,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    ) {
         self.calls.push(Call::Path {
             points: path.transformed(transform).vertices().to_vec(),
             fill,
@@ -67,7 +77,16 @@ impl Renderer for RecordingRenderer {
         self.calls.push(Call::Gouraud(triangles.len()));
     }
 
-    fn draw_image(&mut self, _gc: &GraphicsContext, origin: Point, image: &RgbaImage, _transform: Option<&Affine2D>) {
-        self.calls.push(Call::Image { origin, size: (image.width(), image.height()) });
+    fn draw_image(
+        &mut self,
+        _gc: &GraphicsContext,
+        origin: Point,
+        image: &RgbaImage,
+        _transform: Option<&Affine2D>,
+    ) {
+        self.calls.push(Call::Image {
+            origin,
+            size: (image.width(), image.height()),
+        });
     }
 }

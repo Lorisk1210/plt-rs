@@ -81,7 +81,8 @@ impl ArtistBase {
     /// If called before the artist was inserted into an `ArtistStore`, which
     /// never happens for artists reachable from a figure.
     pub fn id(&self) -> ArtistId {
-        self.id.expect("artists are given an id when inserted into a store")
+        self.id
+            .expect("artists are given an id when inserted into a store")
     }
 
     pub(super) fn assign_id(&mut self, id: ArtistId) {

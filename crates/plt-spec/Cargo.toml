@@ -9,6 +9,7 @@ publish.workspace = true
 [dependencies]
 plt.workspace = true
 plt-core.workspace = true
+plt-render.workspace = true
 
 [lints]
 workspace = true

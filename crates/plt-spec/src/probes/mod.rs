@@ -4,8 +4,14 @@
 //! `spec/goldens/probes/<area>.json` and, once implemented, a module here
 //! exposing an [`Op`] table that evaluates the same operations on plt-rs.
 
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "every probe operation shares the fallible `Op` signature"
+)]
 mod areas;
 mod args;
+mod encode;
+pub mod waivers;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -178,11 +184,22 @@ pub enum Verdict {
     Unimplemented,
     /// plt-rs disagrees.
     Fail(String),
+    /// plt-rs deliberately disagrees; see [`waivers`].
+    Waived(&'static waivers::Waiver),
 }
 
 impl Probe {
-    /// Evaluates the probe with `op` and judges the outcome.
+    /// Evaluates the probe with `op` and judges the outcome, honouring
+    /// documented waivers for failures.
     pub fn judge(&self, op: Option<&Op>) -> Verdict {
+        match self.evaluate(op) {
+            Verdict::Fail(message) => waivers::find(&self.op, &self.args.to_string())
+                .map_or(Verdict::Fail(message), Verdict::Waived),
+            verdict => verdict,
+        }
+    }
+
+    fn evaluate(&self, op: Option<&Op>) -> Verdict {
         let Some(op) = op else {
             return Verdict::Unimplemented;
         };
@@ -227,6 +244,8 @@ pub struct AreaReport {
     pub passed: usize,
     /// Failure messages.
     pub failures: Vec<String>,
+    /// Probes that fail by design, with the documented reason.
+    pub waived: Vec<String>,
     /// Unimplemented operations and how many probes use each.
     pub unimplemented: BTreeMap<String, usize>,
 }
@@ -234,7 +253,10 @@ pub struct AreaReport {
 impl AreaReport {
     /// Total number of probes in the area.
     pub fn total(&self) -> usize {
-        self.passed + self.failures.len() + self.unimplemented.values().sum::<usize>()
+        self.passed
+            + self.failures.len()
+            + self.waived.len()
+            + self.unimplemented.values().sum::<usize>()
     }
 }
 
@@ -248,6 +270,9 @@ pub fn run(file: &ProbeFile, ops: &[Op]) -> AreaReport {
         match probe.judge(ops.iter().find(|op| op.name == probe.op)) {
             Verdict::Pass => report.passed += 1,
             Verdict::Fail(message) => report.failures.push(message),
+            Verdict::Waived(waiver) => report
+                .waived
+                .push(format!("{} {}: {}", probe.op, probe.args, waiver.reason)),
             Verdict::Unimplemented => {
                 *report.unimplemented.entry(probe.op.clone()).or_default() += 1;
             }

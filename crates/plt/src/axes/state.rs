@@ -48,7 +48,8 @@ impl AxesState {
     /// The full data → display transform for the axes placed at `display`:
     /// scales, then view limits onto the unit square, then onto `display`.
     pub(crate) fn data_transform(&self, display: &Bbox) -> ResolvedTransform {
-        let forward = |map: &Option<Rc<dyn AxisMap>>, v: f64| map.as_ref().map_or(v, |m| m.forward(v));
+        let forward =
+            |map: &Option<Rc<dyn AxisMap>>, v: f64| map.as_ref().map_or(v, |m| m.forward(v));
         let scaled_limits = Bbox::from_extents(
             forward(&self.x_map, self.view_lim.x0()),
             forward(&self.y_map, self.view_lim.y0()),
@@ -83,8 +84,12 @@ impl Artist for AxesState {
         if self.frame_on {
             let mut gc = ctx.base_gc(&self.base);
             gc.linewidth = 0.0;
-            ctx.renderer()
-                .draw_path(&gc, &Path::unit_rectangle(), &unit_to_bbox(&extent), Some(self.facecolor));
+            ctx.renderer().draw_path(
+                &gc,
+                &Path::unit_rectangle(),
+                &unit_to_bbox(&extent),
+                Some(self.facecolor),
+            );
         }
         ctx.draw_children_sorted(&self.children);
     }

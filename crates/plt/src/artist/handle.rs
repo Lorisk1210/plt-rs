@@ -23,7 +23,9 @@ pub struct RawHandle {
 
 impl fmt::Debug for RawHandle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RawHandle").field("id", &self.id).finish_non_exhaustive()
+        f.debug_struct("RawHandle")
+            .field("id", &self.id)
+            .finish_non_exhaustive()
     }
 }
 
@@ -57,32 +59,49 @@ impl RawHandle {
     /// Reads the artist as concrete type `T`.
     pub(crate) fn with<T: Artist, R>(&self, f: impl FnOnce(&T) -> R) -> R {
         let state = self.figure.borrow();
-        f(state.store.get_as::<T>(self.id).unwrap_or_else(|| self.gone()))
+        f(state
+            .store
+            .get_as::<T>(self.id)
+            .unwrap_or_else(|| self.gone()))
     }
 
     /// Mutates the artist as concrete type `T` and marks the figure stale.
     pub(crate) fn with_mut<T: Artist, R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let mut state = self.figure.borrow_mut();
         state.stale = true;
-        let artist = state.store.get_as_mut::<T>(self.id).unwrap_or_else(|| self.gone());
+        let artist = state
+            .store
+            .get_as_mut::<T>(self.id)
+            .unwrap_or_else(|| self.gone());
         f(artist)
     }
 
     /// Reads the common artist properties.
     pub(crate) fn with_base<R>(&self, f: impl FnOnce(&ArtistBase) -> R) -> R {
         let state = self.figure.borrow();
-        f(state.store.get(self.id).unwrap_or_else(|| self.gone()).base())
+        f(state
+            .store
+            .get(self.id)
+            .unwrap_or_else(|| self.gone())
+            .base())
     }
 
     /// Mutates the common artist properties.
     pub(crate) fn with_base_mut<R>(&self, f: impl FnOnce(&mut ArtistBase) -> R) -> R {
         let mut state = self.figure.borrow_mut();
         state.stale = true;
-        f(state.store.get_mut(self.id).unwrap_or_else(|| self.gone()).base_mut())
+        f(state
+            .store
+            .get_mut(self.id)
+            .unwrap_or_else(|| self.gone())
+            .base_mut())
     }
 
     fn gone(&self) -> ! {
-        panic!("artist {} was removed from its figure or has a different type", self.id)
+        panic!(
+            "artist {} was removed from its figure or has a different type",
+            self.id
+        )
     }
 }
 
@@ -231,6 +250,9 @@ pub trait ArtistHandle {
 
     /// Removes the artist (and everything it owns) from the figure.
     fn remove(&self) {
-        self.raw().figure_state().borrow_mut().remove_artist(self.id());
+        self.raw()
+            .figure_state()
+            .borrow_mut()
+            .remove_artist(self.id());
     }
 }

@@ -98,11 +98,15 @@ impl Transform {
                 ResolvedTransform::affine(Affine2D::scaling(dpi, dpi))
             }
             Self::Figure(frame) => {
-                let bbox = ctx.frame_bbox(*frame).ok_or(TransformError::MissingArtist(*frame))?;
+                let bbox = ctx
+                    .frame_bbox(*frame)
+                    .ok_or(TransformError::MissingArtist(*frame))?;
                 ResolvedTransform::affine(unit_to_bbox(&bbox))
             }
             Self::Axes(axes) => {
-                let bbox = ctx.axes_bbox(*axes).ok_or(TransformError::MissingArtist(*axes))?;
+                let bbox = ctx
+                    .axes_bbox(*axes)
+                    .ok_or(TransformError::MissingArtist(*axes))?;
                 ResolvedTransform::affine(unit_to_bbox(&bbox))
             }
             Self::Data(axes) => ctx

@@ -70,34 +70,35 @@ fn spec(args: &[String]) -> ExitCode {
 
 fn print_summary(reports: &[AreaReport], show_failures: bool) {
     println!(
-        "{:<20} {:>8} {:>8} {:>8} {:>8}",
-        "area", "pass", "fail", "missing", "total"
+        "{:<20} {:>8} {:>8} {:>8} {:>8} {:>8}",
+        "area", "pass", "fail", "waived", "missing", "total"
     );
-    let mut totals = [0_usize; 4];
+    let mut totals = [0_usize; 5];
     for report in reports {
         let missing: usize = report.unimplemented.values().sum();
         let row = [
             report.passed,
             report.failures.len(),
+            report.waived.len(),
             missing,
             report.total(),
         ];
         println!(
-            "{:<20} {:>8} {:>8} {:>8} {:>8}",
-            report.area, row[0], row[1], row[2], row[3]
+            "{:<20} {:>8} {:>8} {:>8} {:>8} {:>8}",
+            report.area, row[0], row[1], row[2], row[3], row[4]
         );
         for (total, value) in totals.iter_mut().zip(row) {
             *total += value;
         }
     }
-    let [pass, fail, missing, total] = totals;
+    let [pass, fail, waived, missing, total] = totals;
     let percent = if total == 0 {
         0.0
     } else {
         100.0 * pass as f64 / total as f64
     };
     println!(
-        "{:<20} {pass:>8} {fail:>8} {missing:>8} {total:>8}  ({percent:.1}% passing)",
+        "{:<20} {pass:>8} {fail:>8} {waived:>8} {missing:>8} {total:>8}  ({percent:.1}% passing)",
         "TOTAL"
     );
 
@@ -105,6 +106,9 @@ fn print_summary(reports: &[AreaReport], show_failures: bool) {
         for report in reports {
             for failure in &report.failures {
                 println!("FAIL [{}] {failure}", report.area);
+            }
+            for waived in &report.waived {
+                println!("WAIVED [{}] {waived}", report.area);
             }
             for (op, count) in &report.unimplemented {
                 println!("MISSING [{}] {op} ({count} probes)", report.area);

@@ -105,7 +105,8 @@ impl Figure {
 
     /// Sets the background colour.
     pub fn set_facecolor(&self, color: Rgba) -> &Self {
-        self.root.with_mut::<FigureFrame, _>(|frame| frame.facecolor = color);
+        self.root
+            .with_mut::<FigureFrame, _>(|frame| frame.facecolor = color);
         self
     }
 

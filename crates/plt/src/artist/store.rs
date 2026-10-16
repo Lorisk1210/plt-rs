@@ -38,11 +38,20 @@ impl ArtistStore {
     /// Takes ownership of `artist` and returns its id.
     pub fn insert(&mut self, mut artist: Box<dyn Artist>) -> ArtistId {
         let id = if let Some(index) = self.free.pop() {
-            ArtistId { index, generation: self.slots[index as usize].generation }
+            ArtistId {
+                index,
+                generation: self.slots[index as usize].generation,
+            }
         } else {
             let index = u32::try_from(self.slots.len()).expect("fewer than 2^32 artists");
-            self.slots.push(Slot { generation: 0, artist: None });
-            ArtistId { index, generation: 0 }
+            self.slots.push(Slot {
+                generation: 0,
+                artist: None,
+            });
+            ArtistId {
+                index,
+                generation: 0,
+            }
         };
         artist.base_mut().assign_id(id);
         self.slots[id.index as usize].artist = Some(artist);
@@ -156,7 +165,10 @@ mod tests {
 
     impl Node {
         fn boxed(children: Vec<ArtistId>) -> Box<dyn Artist> {
-            Box::new(Self { base: ArtistBase::default(), children })
+            Box::new(Self {
+                base: ArtistBase::default(),
+                children,
+            })
         }
     }
 

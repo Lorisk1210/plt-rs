@@ -337,6 +337,15 @@ pub enum Whiskers {
     Percentiles(f64, f64),
 }
 
+impl From<Whiskers> for crate::stats::Whis {
+    fn from(whiskers: Whiskers) -> Self {
+        match whiskers {
+            Whiskers::Factor(factor) => Self::Factor(factor),
+            Whiskers::Percentiles(low, high) => Self::Percentiles(low, high),
+        }
+    }
+}
+
 impl RcValue for Whiskers {
     fn parse_rc(text: &str) -> Result<Self, String> {
         match split_list(text)

@@ -3,6 +3,7 @@
 //! ```text
 //! cargo xtask spec [AREA...] [--failures]        probe conformance vs matplotlib goldens
 //! cargo xtask figures [PREFIX...] [--failures]   figure-case conformance
+//! cargo xtask render PREFIX...                   render cases to spec/out
 //! ```
 #![forbid(unsafe_code)]
 #![allow(clippy::print_stdout, clippy::print_stderr)] // a CLI reports on stdout
@@ -19,12 +20,44 @@ fn main() -> ExitCode {
     match args.split_first() {
         Some((command, rest)) if command == "spec" => spec(rest),
         Some((command, rest)) if command == "figures" => figure_cases(rest),
+        Some((command, rest)) if command == "render" && !rest.is_empty() => render(rest),
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
+            eprintln!("       cargo xtask render PREFIX...");
             ExitCode::FAILURE
         }
     }
+}
+
+/// Renders the translated cases whose names start with a prefix into
+/// `spec/out/<case>.png`, with `<case>.diff.png` marking the pixels that
+/// differ from the golden image.
+fn render(prefixes: &[String]) -> ExitCode {
+    let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/out");
+    let mut status = ExitCode::SUCCESS;
+    for case in figures::translated_cases()
+        .iter()
+        .filter(|case| prefixes.iter().any(|p| case.name.starts_with(p.as_str())))
+    {
+        let written = figures::pixel_artifacts(case).and_then(|artifacts| {
+            let base = out.join(case.name);
+            let dir = base.parent().unwrap_or(&out);
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+            std::fs::write(base.with_extension("png"), &artifacts.rendered)
+                .and_then(|()| std::fs::write(base.with_extension("diff.png"), &artifacts.diff))
+                .map_err(|e| e.to_string())?;
+            Ok(artifacts.report)
+        });
+        match written {
+            Ok(report) => println!("{:<44} {report}", case.name),
+            Err(err) => {
+                eprintln!("{}: {err}", case.name);
+                status = ExitCode::FAILURE;
+            }
+        }
+    }
+    status
 }
 
 /// Runs every figure case (or those whose name starts with a prefix) and

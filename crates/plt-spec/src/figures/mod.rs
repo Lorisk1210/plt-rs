@@ -14,7 +14,7 @@ use plt::figure::Figure;
 use crate::json::Json;
 
 pub use facts::figure_facts;
-pub use pixels::{PixelReport, pixel_report, render_pixels};
+pub use pixels::{PixelArtifacts, PixelReport, pixel_artifacts, pixel_report, render_pixels};
 
 /// What a case's build function may fail with.
 pub type CaseResult = Result<(), Box<dyn Error>>;

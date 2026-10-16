@@ -12,6 +12,7 @@
 //!   `boxplot`, `violinplot`, `hist`, `psd`, `specgram`, ...
 //! * [`contour`] / [`tri`] — contour generation and unstructured triangular
 //!   grids.
+//! * [`units`] — categorical axes and the conversion of plotting values.
 #![forbid(unsafe_code)]
 
 #[macro_use]
@@ -41,3 +42,4 @@ pub mod text;
 pub mod ticker;
 pub mod transforms;
 pub mod tri;
+pub mod units;

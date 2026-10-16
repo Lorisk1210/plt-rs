@@ -137,6 +137,19 @@ impl AxesState {
         autoscale.stale = false;
     }
 
+    /// Widens the view interval of one axis to include `low..=high`,
+    /// keeping its direction (matplotlib's `Axis.set_view_interval`).
+    pub(crate) fn include_in_view(&mut self, name: AxisName, low: f64, high: f64) {
+        let (old_low, old_high) = self.view_interval(name);
+        let (start, end) = (low.min(high), low.max(high));
+        let widened = if old_low < old_high {
+            (start.min(old_low), end.max(old_high))
+        } else {
+            (end.max(old_low), start.min(old_high))
+        };
+        self.set_view_interval(name, widened);
+    }
+
     fn set_view_interval(&mut self, name: AxisName, (lower, upper): (f64, f64)) {
         let v = self.view_lim;
         match name {

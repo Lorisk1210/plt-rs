@@ -5,9 +5,8 @@ use std::rc::Rc;
 use plt_core::Point;
 
 use super::children::DataUpdate;
-use super::lines::cycle_color;
-use super::{Axes, AxesState, PlotError};
-use crate::artist::{Artist, ArtistHandle};
+use super::{Axes, PlotError};
+use crate::artist::Artist;
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Color, Colormap, Norm, ScalarMappable, colormaps};
 use crate::markers::{FillStyle, Marker, MarkerStyle};
@@ -230,19 +229,6 @@ impl Axes {
             handle.set_mapping(mapping);
         }
         Ok(handle)
-    }
-
-    /// The next colour of the patch property cycle (matplotlib's
-    /// `_get_patches_for_fill.get_next_color`).
-    pub(crate) fn next_patch_color(&self) -> Color {
-        self.raw().with_mut::<AxesState, _>(|axes| {
-            let color = cycle_color(&axes.prop_cycle, axes.patch_cycle);
-            // Like matplotlib, only a cycle that provides colours advances.
-            if color.is_some() {
-                axes.patch_cycle += 1;
-            }
-            color.unwrap_or_else(|| Color::from("k"))
-        })
     }
 }
 

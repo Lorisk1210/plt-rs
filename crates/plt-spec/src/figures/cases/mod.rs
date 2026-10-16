@@ -1,5 +1,6 @@
 //! Rust translations of the spec's figure cases, one module per group.
 
+mod bars;
 mod basic;
 mod lines;
 mod scatter;
@@ -9,5 +10,12 @@ use super::FigureCase;
 
 /// Every translated case.
 pub(crate) fn all() -> Vec<FigureCase> {
-    [basic::CASES, lines::CASES, scatter::CASES, stats::CASES].concat()
+    [
+        bars::CASES,
+        basic::CASES,
+        lines::CASES,
+        scatter::CASES,
+        stats::CASES,
+    ]
+    .concat()
 }

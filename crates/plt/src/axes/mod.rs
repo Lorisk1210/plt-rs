@@ -2,6 +2,8 @@
 
 mod axis;
 mod axis_draw;
+mod axis_handle;
+mod bars;
 mod broadcast;
 mod children;
 mod error;
@@ -20,6 +22,8 @@ mod ticks;
 
 pub use crate::ticker::AxisName;
 pub use axis::{Tick, TickSet};
+pub use axis_handle::Axis;
+pub use bars::{BarAlign, BarContainer, BarOptions};
 pub use error::PlotError;
 pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarOptions};
 pub use limits::DataLimits;
@@ -197,16 +201,6 @@ impl Axes {
         self.view_lim().interval_y()
     }
 
-    /// Whether `axis` runs from high to low values (matplotlib's
-    /// `Axis.get_inverted`).
-    pub fn inverted(&self, axis: AxisName) -> bool {
-        let (low, high) = match axis {
-            AxisName::X => self.xlim(),
-            AxisName::Y => self.ylim(),
-        };
-        high < low
-    }
-
     /// Sets the x view limits and turns x autoscaling off;
     /// `left > right` inverts the axis.
     pub fn set_xlim(&self, left: f64, right: f64) -> &Self {
@@ -247,8 +241,13 @@ impl Axes {
     }
 
     fn view_lim(&self) -> Bbox {
-        self.raw.figure_state().borrow_mut().unstale_axes(self.id());
+        self.unstale_view();
         self.raw.with::<AxesState, _>(|a| a.view_lim)
+    }
+
+    /// Applies pending autoscaling to the view limits.
+    pub(crate) fn unstale_view(&self) {
+        self.raw.figure_state().borrow_mut().unstale_axes(self.id());
     }
 
     /// Sets the x scale by name (`"linear"`, `"log"`, `"symlog"`,

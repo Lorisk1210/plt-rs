@@ -14,6 +14,10 @@ const MAX_RMS: f64 = 1.0;
 /// Cases exempt from [`MAX_RMS`] (still reported), with the reason.
 const KNOWN_GAPS: &[(&str, &str)] = &[
     (
+        "bars/log_scale",
+        "log tick labels are mathtext, not rendered by plt yet",
+    ),
+    (
         "lines/loglog",
         "log tick labels are mathtext, not rendered by plt yet",
     ),

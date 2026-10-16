@@ -10,6 +10,7 @@ use crate::rc::RcParams;
 use crate::scale::{LinearScale, Scale};
 use crate::ticker::{AxisInfo, AxisName, Formatter, Locator, TickContext, TickerSettings};
 use crate::transforms::AxisMap;
+use crate::units::{AxisValues, Categories, CategoryFormatter, CategoryLocator};
 
 /// A tick with its label text.
 #[derive(Clone, Debug, PartialEq)]
@@ -78,6 +79,11 @@ pub(crate) struct AxisState {
     pub(crate) major_formatter: Box<dyn Formatter>,
     pub(crate) minor_locator: Box<dyn Locator>,
     pub(crate) minor_formatter: Box<dyn Formatter>,
+    /// Whether the major locator and formatter are still the defaults,
+    /// which units may replace (matplotlib's `isDefault_majloc`/`_majfmt`).
+    default_major: (bool, bool),
+    /// Category names, once categorical values were plotted.
+    categories: Option<Categories>,
     pub(crate) settings: TickerSettings,
     pub(crate) autoscale: AutoscaleState,
     /// Size of tick labels in points (drives the tick-space heuristic).
@@ -110,6 +116,8 @@ impl AxisState {
             major_formatter: tickers.major_formatter,
             minor_locator: tickers.minor_locator,
             minor_formatter: tickers.minor_formatter,
+            default_major: (true, true),
+            categories: None,
             autoscale: AutoscaleState {
                 enabled: true,
                 margin,
@@ -142,8 +150,44 @@ impl AxisState {
         self.major_formatter = tickers.major_formatter;
         self.minor_locator = tickers.minor_locator;
         self.minor_formatter = tickers.minor_formatter;
+        self.default_major = (true, true);
         self.map = scale.axis_map();
         self.scale = scale;
+    }
+
+    /// Replaces the major locator.
+    pub(crate) fn set_major_locator(&mut self, locator: Box<dyn Locator>) {
+        self.major_locator = locator;
+        self.default_major.0 = false;
+    }
+
+    /// Replaces the major formatter.
+    pub(crate) fn set_major_formatter(&mut self, formatter: Box<dyn Formatter>) {
+        self.major_formatter = formatter;
+        self.default_major.1 = false;
+    }
+
+    /// Converts plotting values to numbers, registering new category names
+    /// and labelling the ticks with them unless tick helpers were chosen
+    /// explicitly (matplotlib's `update_units` + `convert_units`).
+    pub(crate) fn convert_units(&mut self, values: AxisValues) -> Vec<f64> {
+        let names = match values {
+            AxisValues::Numbers(values) => return values,
+            AxisValues::Categories(names) => names,
+        };
+        let categories = self.categories.get_or_insert_with(Categories::default);
+        let positions = categories.convert(&names);
+        let (locator, formatter) = (
+            CategoryLocator::new(categories),
+            CategoryFormatter::new(categories),
+        );
+        if self.default_major.0 {
+            self.major_locator = Box::new(locator);
+        }
+        if self.default_major.1 {
+            self.major_formatter = Box::new(formatter);
+        }
+        positions
     }
 
     /// The non-linear part of the scale (`None` for linear axes).

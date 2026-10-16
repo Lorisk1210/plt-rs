@@ -33,6 +33,25 @@ pub(crate) fn broadcast_flags(
     }
 }
 
+/// The common length of arguments that are each one value or `n` values
+/// (`np.broadcast_arrays` on 1-D arguments).
+pub(crate) fn common_length(lengths: &[(&'static str, usize)]) -> Result<usize, PlotError> {
+    let n = lengths
+        .iter()
+        .map(|&(_, len)| len)
+        .filter(|&len| len != 1)
+        .max()
+        .unwrap_or(1);
+    match lengths.iter().find(|&&(_, len)| len != 1 && len != n) {
+        Some(&(argument, len)) => Err(PlotError::Broadcast {
+            argument,
+            len,
+            points: n,
+        }),
+        None => Ok(n),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -43,5 +62,13 @@ mod tests {
         assert_eq!(broadcast("a", &[1.0, 2.0], 2), Ok(vec![1.0, 2.0]));
         assert!(broadcast("a", &[1.0, 2.0], 3).is_err());
         assert_eq!(broadcast_flags("f", &[], 2), Ok(vec![false, false]));
+    }
+
+    #[test]
+    fn finds_the_common_length() {
+        assert_eq!(common_length(&[("x", 3), ("h", 1)]), Ok(3));
+        assert_eq!(common_length(&[("x", 1), ("h", 1)]), Ok(1));
+        assert_eq!(common_length(&[("x", 0), ("h", 1)]), Ok(0));
+        assert!(common_length(&[("x", 3), ("h", 2)]).is_err());
     }
 }

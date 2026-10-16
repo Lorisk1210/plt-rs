@@ -2,6 +2,7 @@
 
 mod limits;
 mod lines;
+mod patches;
 mod state;
 #[cfg(test)]
 mod tests;

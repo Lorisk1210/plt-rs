@@ -9,6 +9,8 @@ use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
 use crate::rc::{Cycler, RcParams};
+#[cfg(doc)]
+use crate::spines::SpineSide;
 use crate::transforms::{AxisMap, ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
 
 /// Which axis of an axes.
@@ -65,6 +67,8 @@ pub(crate) struct AxesState {
     pub(crate) line_cycle: usize,
     /// Plotted artists in insertion order.
     pub(crate) children: Vec<ArtistId>,
+    /// The spines, in [`SpineSide::ALL`] order once created.
+    pub(crate) spines: Vec<ArtistId>,
 }
 
 impl AxesState {
@@ -92,6 +96,7 @@ impl AxesState {
             prop_cycle: rc.axes_prop_cycle.clone(),
             line_cycle: 0,
             children: Vec::new(),
+            spines: Vec::new(),
         }
     }
 

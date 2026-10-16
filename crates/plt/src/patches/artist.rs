@@ -81,19 +81,33 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
         let outline = self.shape.path();
         let (path, affine) = resolved.split_path(&outline);
         let paths = [(path.into_owned(), affine)];
-        if let Err(err) = draw_patch_paths(ctx, &self.base, &self.style, &self.rc, S::EDGE_DEFAULT, &paths) {
+        if let Err(err) = draw_patch_paths(
+            ctx,
+            &self.base,
+            &self.style,
+            &self.rc,
+            S::EDGE_DEFAULT,
+            &paths,
+        ) {
             ctx.report(self.base.id(), err);
         }
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        Some(self.resolved(ctx)?.transform_path(&self.shape.path()).extents())
+        Some(
+            self.resolved(ctx)?
+                .transform_path(&self.shape.path())
+                .extents(),
+        )
     }
 
     fn outline(&self, ctx: &LayoutContext<'_>) -> Option<ClipPath> {
         let outline = self.shape.path();
         let (path, transform) = self.resolved(ctx)?.split_path(&outline);
-        Some(ClipPath { path: path.into_owned(), transform })
+        Some(ClipPath {
+            path: path.into_owned(),
+            transform,
+        })
     }
 }
 
@@ -106,7 +120,10 @@ pub struct Patch<S> {
 
 impl<S> Clone for Patch<S> {
     fn clone(&self) -> Self {
-        Self { raw: self.raw.clone(), shape: PhantomData }
+        Self {
+            raw: self.raw.clone(),
+            shape: PhantomData,
+        }
     }
 }
 
@@ -118,7 +135,10 @@ impl<S: PatchShape> ArtistHandle for Patch<S> {
 
 impl<S: PatchShape> Patch<S> {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
-        Self { raw, shape: PhantomData }
+        Self {
+            raw,
+            shape: PhantomData,
+        }
     }
 
     fn update(&self, f: impl FnOnce(&mut PatchArtist<S>)) -> &Self {

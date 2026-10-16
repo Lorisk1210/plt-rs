@@ -55,13 +55,23 @@ pub struct Rectangle {
 impl Rectangle {
     /// A rectangle from `xy` spanning `width × height`.
     pub fn new(xy: impl Into<Point>, width: f64, height: f64) -> Self {
-        Self { xy: xy.into(), width, height, angle: 0.0, rotation_point: RotationPoint::Xy }
+        Self {
+            xy: xy.into(),
+            width,
+            height,
+            angle: 0.0,
+            rotation_point: RotationPoint::Xy,
+        }
     }
 
     /// The same rectangle rotated by `angle` degrees about `point`.
     #[must_use]
     pub fn rotated(self, angle: f64, point: RotationPoint) -> Self {
-        Self { angle, rotation_point: point, ..self }
+        Self {
+            angle,
+            rotation_point: point,
+            ..self
+        }
     }
 
     /// The unrotated extent.
@@ -113,7 +123,12 @@ pub struct Ellipse {
 impl Ellipse {
     /// An ellipse centred on `center`.
     pub fn new(center: impl Into<Point>, width: f64, height: f64) -> Self {
-        Self { center: center.into(), width, height, angle: 0.0 }
+        Self {
+            center: center.into(),
+            width,
+            height,
+            angle: 0.0,
+        }
     }
 }
 
@@ -142,7 +157,10 @@ pub struct Circle {
 impl Circle {
     /// A circle of `radius` around `center`.
     pub fn new(center: impl Into<Point>, radius: f64) -> Self {
-        Self { center: center.into(), radius }
+        Self {
+            center: center.into(),
+            radius,
+        }
     }
 }
 
@@ -219,7 +237,13 @@ pub struct Wedge {
 impl Wedge {
     /// A wedge of radius `r` from `theta1` to `theta2` degrees.
     pub fn new(center: impl Into<Point>, r: f64, theta1: f64, theta2: f64) -> Self {
-        Self { center: center.into(), r, theta1, theta2, width: None }
+        Self {
+            center: center.into(),
+            r,
+            theta1,
+            theta2,
+            width: None,
+        }
     }
 }
 
@@ -253,7 +277,10 @@ impl PatchShape for Wedge {
                 (vertices, codes)
             }
         };
-        let placed = vertices.into_iter().map(|p| p * self.r + self.center).collect();
+        let placed = vertices
+            .into_iter()
+            .map(|p| p * self.r + self.center)
+            .collect();
         Path::new(placed, codes).expect("wedge codes are well formed")
     }
 }
@@ -274,7 +301,12 @@ pub struct RegularPolygon {
 impl RegularPolygon {
     /// A regular polygon pointing up.
     pub fn new(center: impl Into<Point>, sides: usize, radius: f64) -> Self {
-        Self { center: center.into(), sides, radius, orientation: 0.0 }
+        Self {
+            center: center.into(),
+            sides,
+            radius,
+            orientation: 0.0,
+        }
     }
 }
 
@@ -308,7 +340,11 @@ mod tests {
     use super::*;
 
     fn placed<S: PatchShape>(shape: &S) -> Vec<Point> {
-        shape.path().transformed(&shape.patch_transform()).vertices().to_vec()
+        shape
+            .path()
+            .transformed(&shape.patch_transform())
+            .vertices()
+            .to_vec()
     }
 
     #[test]
@@ -325,9 +361,24 @@ mod tests {
     #[test]
     fn polygon_closing_rules() {
         let p = Point::new;
-        assert_eq!(Polygon::new([p(0.0, 0.0), p(1.0, 0.0), p(0.0, 1.0)], true).vertices().len(), 4);
-        assert_eq!(Polygon::new([p(0.0, 0.0), p(1.0, 0.0), p(0.0, 0.0)], true).vertices().len(), 3);
-        assert_eq!(Polygon::new([p(0.0, 0.0), p(1.0, 0.0), p(1.0, 1.0), p(0.0, 0.0)], false).vertices().len(), 3);
+        assert_eq!(
+            Polygon::new([p(0.0, 0.0), p(1.0, 0.0), p(0.0, 1.0)], true)
+                .vertices()
+                .len(),
+            4
+        );
+        assert_eq!(
+            Polygon::new([p(0.0, 0.0), p(1.0, 0.0), p(0.0, 0.0)], true)
+                .vertices()
+                .len(),
+            3
+        );
+        assert_eq!(
+            Polygon::new([p(0.0, 0.0), p(1.0, 0.0), p(1.0, 1.0), p(0.0, 0.0)], false)
+                .vertices()
+                .len(),
+            3
+        );
     }
 
     #[test]
@@ -336,7 +387,10 @@ mod tests {
         let path = wedge.path();
         assert_eq!(path.code_at(path.len() - 1), PathCode::ClosePoly);
         assert_eq!(path.vertices()[path.len() - 2], Point::ORIGIN);
-        let ring = Wedge { width: Some(1.0), ..Wedge::new((0.0, 0.0), 2.0, 0.0, 360.0) };
+        let ring = Wedge {
+            width: Some(1.0),
+            ..Wedge::new((0.0, 0.0), 2.0, 0.0, 360.0)
+        };
         let ring_path = ring.path();
         let inner_start = ring_path.vertices()[ring_path.len() / 2];
         assert!((inner_start.length() - 1.0).abs() < 1e-9);
@@ -344,7 +398,10 @@ mod tests {
 
     #[test]
     fn circles_scale_the_unit_circle() {
-        let extents = Circle::new((5.0, 5.0), 2.0).path().transformed(&Circle::new((5.0, 5.0), 2.0).patch_transform()).extents();
+        let extents = Circle::new((5.0, 5.0), 2.0)
+            .path()
+            .transformed(&Circle::new((5.0, 5.0), 2.0).patch_transform())
+            .extents();
         assert!((extents.xmin() - 3.0).abs() < 1e-12 && (extents.ymax() - 7.0).abs() < 1e-12);
     }
 }

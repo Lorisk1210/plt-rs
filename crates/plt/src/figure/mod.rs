@@ -19,6 +19,7 @@ use crate::artist::{ArtistHandle, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotParams, SubplotSpec};
 use crate::numeric::Grid;
+use crate::spines::{SpineArtist, SpineSide};
 
 /// The problems found while drawing a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -213,12 +214,19 @@ impl Figure {
     }
 
     fn insert_axes(&self, position: Bbox, spec: Option<SubplotSpec>) -> Axes {
-        let mut axes = AxesState::new(position, &crate::rc::params());
+        let rc = crate::rc::params();
+        let mut axes = AxesState::new(position, &rc);
         axes.subplot_spec = spec;
-        let id = self
-            .state
-            .borrow_mut()
-            .adopt(self.root.id(), Box::new(axes));
+        let mut state = self.state.borrow_mut();
+        let id = state.adopt(self.root.id(), Box::new(axes));
+        let spines: Vec<_> = SpineSide::ALL
+            .into_iter()
+            .map(|side| state.adopt(id, Box::new(SpineArtist::new(side, id, Rc::clone(&rc)))))
+            .collect();
+        if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+            axes.spines = spines;
+        }
+        drop(state);
         Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id))
     }
 

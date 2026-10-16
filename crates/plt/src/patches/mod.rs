@@ -18,7 +18,11 @@ mod artist;
 mod shapes;
 mod style;
 
-pub(crate) use artist::PatchArtist;
 pub use artist::Patch;
-pub use shapes::{Circle, Ellipse, PatchShape, PathShape, Polygon, Rectangle, RegularPolygon, RotationPoint, Wedge};
+pub(crate) use artist::PatchArtist;
+pub use shapes::{
+    Circle, Ellipse, PatchShape, PathShape, Polygon, Rectangle, RegularPolygon, RotationPoint,
+    Wedge,
+};
 pub use style::PatchStyle;
+pub(crate) use style::draw_patch_paths;

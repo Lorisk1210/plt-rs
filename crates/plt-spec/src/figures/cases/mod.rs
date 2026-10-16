@@ -10,6 +10,7 @@ mod images;
 mod layout;
 mod lines;
 mod misc;
+mod polar;
 mod scatter;
 mod stats;
 mod styles;
@@ -41,6 +42,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::DATES,
         misc::SPECTRAL,
         misc::UNITS,
+        polar::CASES,
         scatter::CASES,
         stats::BOXPLOT,
         stats::ERRORBAR,

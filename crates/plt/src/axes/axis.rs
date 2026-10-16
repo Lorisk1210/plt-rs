@@ -7,6 +7,7 @@ use super::ticks::{Sides, TickStyle};
 use crate::colors::Color;
 use crate::dates::{AutoDateFormatter, AutoDateLocator};
 use crate::fonts::FontProperties;
+use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
@@ -106,6 +107,24 @@ pub(crate) struct AxisGeometry {
     pub(crate) minpos: f64,
     /// Length of the axis in points.
     pub(crate) length_points: f64,
+    /// Major ticks at or below this value are dropped before labelling
+    /// (the origin of full-circle polar axes).
+    pub(crate) tick_floor: Option<f64>,
+}
+
+/// The part an axis plays in its projection, which decides how its tick
+/// helpers are adapted (matplotlib's `ThetaAxis` and `RadialAxis`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub(crate) enum AxisRole {
+    /// An x or y axis of rectilinear axes.
+    #[default]
+    Cartesian,
+    /// The angle of polar axes: ticks at degree multiples, labelled in
+    /// degrees.
+    Theta,
+    /// The radius of polar axes: major locators are wrapped in a
+    /// [`RadialLocator`].
+    Radius,
 }
 
 /// The tick helpers of an axis, shared by axes sharing that axis.
@@ -124,6 +143,8 @@ pub(crate) struct Tickers {
 #[derive(Debug)]
 pub(crate) struct AxisState {
     pub(crate) name: AxisName,
+    /// The part the axis plays in its projection.
+    pub(crate) role: AxisRole,
     scale: Rc<dyn Scale>,
     map: Option<Rc<dyn AxisMap>>,
     pub(crate) major_locator: Rc<dyn Locator>,
@@ -168,6 +189,7 @@ impl AxisState {
         let tickers = scale.default_tickers(name, &settings);
         Self {
             name,
+            role: AxisRole::Cartesian,
             map: scale.axis_map(),
             scale,
             major_locator: Rc::from(tickers.major_locator),
@@ -223,6 +245,33 @@ impl AxisState {
         self.minor_formatter = Rc::from(minor_formatter);
         self.default_major = (true, true);
         self.adopt_scale(scale);
+        match self.role {
+            AxisRole::Cartesian => {}
+            AxisRole::Theta => {
+                (self.major_locator, self.major_formatter) = theta_tickers(&self.settings);
+            }
+            AxisRole::Radius => {
+                self.major_locator = self.for_role(Rc::clone(&self.major_locator));
+            }
+        }
+    }
+
+    /// The axis' own sticky edges (matplotlib's `Axis.sticky_edges`): a
+    /// radial axis sticks to zero.
+    pub(crate) fn sticky_edges(&self) -> &'static [f64] {
+        match self.role {
+            AxisRole::Radius => &[0.0],
+            AxisRole::Cartesian | AxisRole::Theta => &[],
+        }
+    }
+
+    /// `locator` as this axis uses it: wrapped in a [`RadialLocator`] on
+    /// a radial axis (matplotlib's `RadialAxis.set_major_locator`).
+    fn for_role(&self, locator: Rc<dyn Locator>) -> Rc<dyn Locator> {
+        match self.role {
+            AxisRole::Radius => RadialLocator::wrap(locator, self.scale.as_ref()),
+            AxisRole::Cartesian | AxisRole::Theta => locator,
+        }
     }
 
     /// Uses `scale` (shared with another axis) without touching the tick
@@ -291,7 +340,7 @@ impl AxisState {
 
     /// Replaces the major locator.
     pub(crate) fn set_major_locator(&mut self, locator: Rc<dyn Locator>) {
-        self.major_locator = locator;
+        self.major_locator = self.for_role(locator);
         self.default_major.0 = false;
     }
 
@@ -310,7 +359,7 @@ impl AxisState {
             AxisValues::Dates(numbers) => {
                 // matplotlib's DateConverter.axisinfo.
                 if self.default_major.0 {
-                    self.major_locator = Rc::new(AutoDateLocator::new());
+                    self.major_locator = self.for_role(Rc::new(AutoDateLocator::new()));
                 }
                 if self.default_major.1 {
                     self.major_formatter = Rc::new(AutoDateFormatter::new(AutoDateLocator::new()));
@@ -326,7 +375,7 @@ impl AxisState {
             CategoryFormatter::new(categories),
         );
         if self.default_major.0 {
-            self.major_locator = Rc::new(locator);
+            self.major_locator = self.for_role(Rc::new(locator));
         }
         if self.default_major.1 {
             self.major_formatter = Rc::new(formatter);
@@ -383,10 +432,13 @@ impl AxisState {
         geometry: &AxisGeometry,
     ) -> Result<TickSet, crate::ticker::TickerError> {
         let mut info = self.info(geometry);
-        let major_locs = {
+        let mut major_locs = {
             let ctx = TickContext::new(&info, &self.settings);
             self.major_locator.locate(&ctx)?
         };
+        if let Some(floor) = geometry.tick_floor {
+            major_locs.retain(|&loc| loc > floor);
+        }
         info.major_ticks.clone_from(&major_locs);
         let ctx = TickContext::new(&info, &self.settings);
         let (lo, hi) = (self.forward(geometry.view.0), self.forward(geometry.view.1));
@@ -441,6 +493,7 @@ mod tests {
             data: view,
             minpos: f64::INFINITY,
             length_points: 357.12,
+            tick_floor: None,
         }
     }
 

@@ -1,15 +1,15 @@
 //! Drawing an axis: gridlines, tick marks, tick labels, the axis label and
 //! the offset text (matplotlib's `Axis.draw` / `Tick.draw`).
 
-use plt_core::{Bbox, Path, Point};
+use plt_core::{Affine2D, Bbox, Path, Point};
 use plt_render::{GraphicsContext, SnapMode};
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
 use super::axis::{AxisState, LabelLoc, Tick};
 use super::state::AxesState;
-use super::ticks::{TickDirection, TickStyle};
+use super::ticks::{GridStyle, TickDirection, TickStyle};
 use crate::artist::{Artist, ArtistId, DrawContext};
-use crate::colors::Color;
+use crate::colors::{Color, ColorError};
 use crate::fonts::FontProperties;
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
 use crate::spines::{SpineArtist, SpineSide};
@@ -57,8 +57,20 @@ impl<'a> AxisPainter<'a> {
                 self.draw_tick(ctx, tick, style, rc, &mut label_boxes);
             }
         }
-        self.draw_axis_label(ctx, rc, &label_boxes);
-        self.draw_offset_text(ctx, rc, &ticks.offset, &label_boxes);
+        self.draw_annotations(ctx, rc, &ticks.offset, &label_boxes);
+    }
+
+    /// Draws the axis label and the offset text clear of the tick labels
+    /// `label_boxes` (`true` for labels on the first side).
+    pub(crate) fn draw_annotations(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        rc: &crate::rc::RcParams,
+        offset: &str,
+        label_boxes: &[(bool, Bbox)],
+    ) {
+        self.draw_axis_label(ctx, rc, label_boxes);
+        self.draw_offset_text(ctx, rc, offset, label_boxes);
     }
 
     /// The coordinate system of gridlines: data along the axis, axes
@@ -112,33 +124,21 @@ impl<'a> AxisPainter<'a> {
         &self,
         ctx: &mut DrawContext<'_>,
         loc: f64,
-        grid: &super::ticks::GridStyle,
+        grid: &GridStyle,
         rc: &crate::rc::RcParams,
     ) {
         let Some(resolved) = ctx.resolve(&self.grid_transform()) else {
             return;
         };
-        let color = match grid.color.resolve_alpha(Some(grid.alpha)) {
-            Ok(color) => color,
+        let mut gc = match grid_gc(grid, rc) {
+            Ok(gc) => gc,
             Err(err) => return ctx.report(self.axes_id, err),
         };
-        let line = Path::polyline(vec![self.tick_point(loc, 0.0), self.tick_point(loc, 1.0)]);
-        let (path, affine) = resolved.split_path(&line);
         // matplotlib clips gridlines to the axes patch, a rectangle, which
         // Artist.set_clip_path turns into a clip box.
-        let mut gc = GraphicsContext {
-            foreground: color,
-            linewidth: grid.linewidth,
-            antialiased: rc.lines_antialiased,
-            clip_rect: ctx.layout().clip_extent(self.axes_id),
-            ..GraphicsContext::default()
-        };
-        (gc.cap, gc.join) = if grid.linestyle.is_dashed() {
-            (rc.lines_dash_capstyle, rc.lines_dash_joinstyle)
-        } else {
-            (rc.lines_solid_capstyle, rc.lines_solid_joinstyle)
-        };
-        gc.dashes = grid.linestyle.scaled_dashes(grid.linewidth, rc);
+        gc.clip_rect = ctx.layout().clip_extent(self.axes_id);
+        let line = Path::polyline(vec![self.tick_point(loc, 0.0), self.tick_point(loc, 1.0)]);
+        let (path, affine) = resolved.split_path(&line);
         if grid.linestyle.is_visible() {
             ctx.renderer().draw_path(&gc, &path, &affine, None);
         }
@@ -155,38 +155,15 @@ impl<'a> AxisPainter<'a> {
         let Some(resolved) = ctx.resolve(&self.side_transform(ctx, high)) else {
             return;
         };
-        let color = match style.color.resolve() {
-            Ok(color) => color,
-            Err(err) => return ctx.report(self.axes_id, err),
-        };
         let marker = MarkerStyle::new(symbol, FillStyle::Full).expect("tick markers are valid");
-        let size = ctx.points_to_pixels(style.size);
-        let snap = marker.snap_threshold().map_or(SnapMode::Auto, |threshold| {
-            if size >= threshold {
-                SnapMode::Always
-            } else {
-                SnapMode::Never
-            }
-        });
-        let gc = GraphicsContext {
-            foreground: color,
-            linewidth: style.width,
-            join: marker.joinstyle(),
-            cap: marker.capstyle(),
-            snap,
-            ..GraphicsContext::default()
-        };
         let points = Path::polyline(vec![self.tick_point(loc, f64::from(u8::from(high)))]);
         let (points, affine) = resolved.split_path(&points);
-        let marker_transform = marker.transform().scale(size, size);
-        ctx.renderer().draw_markers(
-            &gc,
-            marker.path(),
-            &marker_transform,
-            &points,
-            &affine,
-            Some(color),
-        );
+        let mark = TickMark {
+            marker: &marker,
+            transform: marker.transform(),
+            style,
+        };
+        mark.draw(ctx, self.axes_id, &points, &affine);
     }
 
     /// Draws one tick label and returns its display extent.
@@ -236,15 +213,13 @@ impl<'a> AxisPainter<'a> {
             rotation_mode: style.label_rotation_mode,
             ..BlockStyle::default()
         };
-        self.draw_text(
-            ctx,
-            &tick.label,
-            &font,
-            &style.label_color,
-            &block,
-            anchor,
-            rc,
-        )
+        AxisText {
+            text: &tick.label,
+            font: &font,
+            color: &style.label_color,
+            block,
+        }
+        .draw(ctx, self.axes_id, anchor, rc)
     }
 
     fn draw_axis_label(
@@ -309,15 +284,13 @@ impl<'a> AxisPainter<'a> {
                 },
             ),
         };
-        self.draw_text(
-            ctx,
-            &label.text,
-            &label.font,
-            &label.color,
-            &block,
-            anchor,
-            rc,
-        );
+        AxisText {
+            text: &label.text,
+            font: &label.font,
+            color: &label.color,
+            block,
+        }
+        .draw(ctx, self.axes_id, anchor, rc);
     }
 
     fn draw_offset_text(
@@ -386,11 +359,21 @@ impl<'a> AxisPainter<'a> {
                 )
             }
         };
-        self.draw_text(ctx, text, &font, &style.label_color, &block, anchor, rc);
+        AxisText {
+            text,
+            font: &font,
+            color: &style.label_color,
+            block,
+        }
+        .draw(ctx, self.axes_id, anchor, rc);
     }
 
-    /// The spine on `side`, if the axes has one.
+    /// The spine on `side`, if the axes has one (polar spines do not
+    /// frame the axes sides).
     fn spine<'c>(&self, ctx: &'c DrawContext<'_>, side: SpineSide) -> Option<&'c SpineArtist> {
+        if self.axes.polar().is_some() {
+            return None;
+        }
         let index = SpineSide::ALL.iter().position(|s| *s == side)?;
         let spine_id = *self.axes.spines.get(index)?;
         ctx.layout().store().get_as::<SpineArtist>(spine_id)
@@ -441,32 +424,42 @@ impl<'a> AxisPainter<'a> {
         }
         Some(bbox)
     }
+}
 
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "a text draw needs its content, style and placement"
-    )]
-    fn draw_text(
+/// A text of an axis (tick label, axis label or offset text) ready to be
+/// laid out.
+pub(crate) struct AxisText<'a> {
+    /// The content.
+    pub(crate) text: &'a str,
+    /// The font.
+    pub(crate) font: &'a FontProperties,
+    /// The colour.
+    pub(crate) color: &'a Color,
+    /// Alignment and rotation about the anchor.
+    pub(crate) block: BlockStyle,
+}
+
+impl AxisText<'_> {
+    /// Draws the text at display point `anchor` and returns its display
+    /// extent; problems are reported on artist `owner`.
+    pub(crate) fn draw(
         &self,
         ctx: &mut DrawContext<'_>,
-        text: &str,
-        font: &FontProperties,
-        color: &Color,
-        block: &BlockStyle,
+        owner: ArtistId,
         anchor: Point,
         rc: &crate::rc::RcParams,
     ) -> Option<Bbox> {
-        let laid_out = match lay_out(text, font, block, ctx.layout().dpi(), rc) {
+        let laid_out = match lay_out(self.text, self.font, &self.block, ctx.layout().dpi(), rc) {
             Ok(laid_out) => laid_out,
             Err(err) => {
-                ctx.report(self.axes_id, err);
+                ctx.report(owner, err);
                 return None;
             }
         };
-        let color = match color.resolve() {
+        let color = match self.color.resolve() {
             Ok(color) => color,
             Err(err) => {
-                ctx.report(self.axes_id, err);
+                ctx.report(owner, err);
                 return None;
             }
         };
@@ -475,9 +468,86 @@ impl<'a> AxisPainter<'a> {
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };
-        draw_laid_out(ctx, &gc, &laid_out, anchor, block.rotation);
+        draw_laid_out(ctx, &gc, &laid_out, anchor, self.block.rotation);
         Some(laid_out.block.bbox.translated(anchor.x, anchor.y))
     }
+}
+
+/// A tick mark: the marker, its transform in marker units (scaled to the
+/// tick size when drawn) and the tick style.
+pub(crate) struct TickMark<'a> {
+    /// The marker shape.
+    pub(crate) marker: &'a MarkerStyle,
+    /// The marker transform before scaling to the tick size.
+    pub(crate) transform: Affine2D,
+    /// Size, width and colour.
+    pub(crate) style: &'a TickStyle,
+}
+
+impl TickMark<'_> {
+    /// Draws the mark at every vertex of `points` (non-affine part
+    /// applied, `affine` still to apply); problems are reported on artist
+    /// `owner`.
+    pub(crate) fn draw(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        owner: ArtistId,
+        points: &Path,
+        affine: &Affine2D,
+    ) {
+        let color = match self.style.color.resolve() {
+            Ok(color) => color,
+            Err(err) => return ctx.report(owner, err),
+        };
+        let size = ctx.points_to_pixels(self.style.size);
+        let snap = self
+            .marker
+            .snap_threshold()
+            .map_or(SnapMode::Auto, |threshold| {
+                if size >= threshold {
+                    SnapMode::Always
+                } else {
+                    SnapMode::Never
+                }
+            });
+        let gc = GraphicsContext {
+            foreground: color,
+            linewidth: self.style.width,
+            join: self.marker.joinstyle(),
+            cap: self.marker.capstyle(),
+            snap,
+            ..GraphicsContext::default()
+        };
+        let marker_transform = self.transform.scale(size, size);
+        ctx.renderer().draw_markers(
+            &gc,
+            self.marker.path(),
+            &marker_transform,
+            points,
+            affine,
+            Some(color),
+        );
+    }
+}
+
+/// The graphics context of gridlines in `grid` style (unclipped).
+pub(crate) fn grid_gc(
+    grid: &GridStyle,
+    rc: &crate::rc::RcParams,
+) -> Result<GraphicsContext, ColorError> {
+    let mut gc = GraphicsContext {
+        foreground: grid.color.resolve_alpha(Some(grid.alpha))?,
+        linewidth: grid.linewidth,
+        antialiased: rc.lines_antialiased,
+        ..GraphicsContext::default()
+    };
+    (gc.cap, gc.join) = if grid.linestyle.is_dashed() {
+        (rc.lines_dash_capstyle, rc.lines_dash_joinstyle)
+    } else {
+        (rc.lines_solid_capstyle, rc.lines_solid_joinstyle)
+    };
+    gc.dashes = grid.linestyle.scaled_dashes(grid.linewidth, rc);
+    Ok(gc)
 }
 
 /// The tick markers on side 1 (bottom/left) and side 2 (top/right).

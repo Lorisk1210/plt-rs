@@ -17,6 +17,7 @@
 //! * [`units`] — categorical axes and the conversion of plotting values.
 //! * [`image`] — images (`imshow`, `figimage`, `pcolorfast`) and their
 //!   resampling.
+//! * [`polar`] — polar axes: angle and radius instead of x and y.
 #![forbid(unsafe_code)]
 
 #[macro_use]
@@ -36,6 +37,7 @@ pub mod mlab;
 pub mod numeric;
 pub mod orientation;
 pub mod patches;
+pub mod polar;
 pub mod prelude;
 pub mod quiver;
 pub mod rc;

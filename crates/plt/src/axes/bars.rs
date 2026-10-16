@@ -296,6 +296,8 @@ impl Axes {
         options: &BarOptions,
     ) -> Patch<Rectangle> {
         let mut patch = PatchArtist::new(bar.rectangle(orientation), crate::rc::params());
+        // Bars follow the circle on polar axes.
+        patch.interpolation_steps = 100;
         patch.style.facecolor = Some(faces[index % faces.len()].clone());
         if !options.edgecolor.is_empty() {
             patch.style.edgecolor =

@@ -1,8 +1,8 @@
 //! Axes: data coordinate systems and the plotting API (matplotlib.axes).
 
 mod aspect;
-mod axis;
-mod axis_draw;
+pub(crate) mod axis;
+pub(crate) mod axis_draw;
 mod axis_handle;
 mod axis_mode;
 mod barbs;
@@ -26,6 +26,7 @@ mod patches;
 mod pcolor;
 mod pcolorfast;
 mod pie;
+pub(crate) mod projection;
 mod quiver;
 mod reference;
 mod scatter;
@@ -66,6 +67,7 @@ pub use pcolor::{Mesh, MeshCoords, PcolorOptions, Shading};
 pub use pcolorfast::{PcolorFast, PcolorfastOptions};
 pub use pie::{PieContainer, PieDirection, PieError, PieLabelFormat, PieOptions};
 pub use plt_core::path::DataLimits;
+pub use projection::ProjectionKind;
 pub use scatter::{MappedColors, ScatterColors, ScatterOptions};
 pub use secondary::SecondaryLocation;
 pub(crate) use share::ShareGroups;

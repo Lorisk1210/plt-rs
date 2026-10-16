@@ -203,8 +203,11 @@ impl AxesState {
         (axis.forward(v0.min(v1)), axis.forward(v0.max(v1)))
     }
 
-    /// matplotlib's `get_data_ratio`.
+    /// matplotlib's `get_data_ratio` (always 1 for polar axes).
     pub(crate) fn data_ratio(&self) -> f64 {
+        if self.polar().is_some() {
+            return 1.0;
+        }
         let (x0, x1) = self.scaled_bound(AxisName::X);
         let (y0, y1) = self.scaled_bound(AxisName::Y);
         let xsize = (x1 - x0).abs().max(1e-30);

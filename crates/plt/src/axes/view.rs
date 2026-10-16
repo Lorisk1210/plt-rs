@@ -5,7 +5,7 @@
 use std::rc::Rc;
 
 use super::PlotError;
-use super::axis::AxisState;
+use super::axis::{AxisRole, AxisState};
 use super::limits::oriented;
 use super::state::{AxesState, SharedData};
 use crate::artist::{ArtistId, DrawError};
@@ -54,6 +54,19 @@ impl FigureState {
         name: AxisName,
         scale: &Rc<dyn Scale>,
     ) {
+        let theta = self
+            .axes_state(axes)
+            .is_some_and(|state| state.axis(name).role == AxisRole::Theta);
+        if theta && scale.name() != "linear" {
+            self.pending_errors.push(DrawError {
+                artist: axes,
+                message: format!(
+                    "the angular axis of polar axes must stay linear, not {:?}",
+                    scale.name()
+                ),
+            });
+            return;
+        }
         self.update_shared_axis(axes, name, |axis| {
             axis.set_scale(Rc::clone(scale));
             axis.autoscale.stale = true;
@@ -142,6 +155,11 @@ impl FigureState {
                         AxisName::Y => y.clone(),
                     }
                 })
+                .chain(
+                    siblings
+                        .iter()
+                        .flat_map(|state| state.axis(name).sticky_edges().iter().copied()),
+                )
                 .collect()
         } else {
             Vec::new()

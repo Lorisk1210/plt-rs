@@ -11,9 +11,10 @@ use crate::artist::{
 use crate::axes::AxesState;
 use crate::colors::Color;
 use crate::patches::PatchStyle;
+use crate::polar::PolarView;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
-use crate::transforms::Transform;
+use crate::transforms::{ResolvedTransform, Transform};
 
 /// Which edge of the axes a spine frames.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -229,6 +230,9 @@ impl SpineArtist {
     fn display_path(&self, ctx: LayoutContext<'_>) -> Option<(Path, Affine2D)> {
         let axes_id = self.base.parent?;
         let axes = ctx.store().get_as::<AxesState>(axes_id)?;
+        if let Some(polar) = axes.polar_view() {
+            return self.polar_path(&polar, axes_id, ctx);
+        }
         let interval = self.bounds.unwrap_or(if self.side.is_vertical() {
             axes.view_lim.interval_y()
         } else {
@@ -237,6 +241,35 @@ impl SpineArtist {
         let resolved = ctx.resolve(&self.spine_transform(axes_id))?;
         let outline = self.path(interval);
         let (path, affine) = resolved.split_path(&outline);
+        Some((path.into_owned(), affine))
+    }
+}
+
+impl SpineArtist {
+    /// The spine of polar axes: the outer (`Top`) and inner (`Bottom`)
+    /// arcs, and the radial lines at the start (`Left`) and end (`Right`)
+    /// of a sector (matplotlib's `PolarAxes._gen_axes_spines`). `None`
+    /// when the geometry hides it.
+    fn polar_path(
+        &self,
+        polar: &PolarView<'_>,
+        axes_id: ArtistId,
+        ctx: LayoutContext<'_>,
+    ) -> Option<(Path, Affine2D)> {
+        if !polar.spine_shown(self.side) {
+            return None;
+        }
+        let view = polar.view();
+        if !self.side.is_vertical() {
+            let bounds = self.bounds.unwrap_or(view.interval_x());
+            return Some(polar.arc_spine(self.side, bounds, &ctx.axes_extent(axes_id)?));
+        }
+        let (low, high) = self.bounds.unwrap_or(view.interval_y());
+        let at = self.side.default_fraction();
+        let line = Path::polyline(vec![Point::new(at, low), Point::new(at, high)]);
+        let resolved = ResolvedTransform::affine(polar.theta_fraction())
+            .then(ctx.resolve(&Transform::Data(axes_id))?);
+        let (path, affine) = resolved.split_path(&line);
         Some((path.into_owned(), affine))
     }
 }

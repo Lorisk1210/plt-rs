@@ -48,9 +48,19 @@ impl<'a> LayoutContext<'a> {
         self.figure.axes_bbox(axes)
     }
 
-    /// Display-space extent of an axes or figure frame used as a clip box.
+    /// Display-space extent of an axes or figure frame used as a clip box
+    /// (`None` for polar axes, which clip to their wedge instead).
     pub fn clip_extent(&self, owner: ArtistId) -> Option<Bbox> {
+        if self.figure.axes_outline(owner).is_some() {
+            return None;
+        }
         self.axes_extent(owner).or_else(|| self.frame_extent(owner))
+    }
+
+    /// The outline artists clipped to `owner` are clipped to when it is
+    /// not a rectangle (the wedge of polar axes).
+    pub fn clip_outline(&self, owner: ArtistId) -> Option<ClipPath> {
+        self.figure.axes_outline(owner)
     }
 }
 
@@ -176,7 +186,11 @@ impl<'a> DrawContext<'a> {
             gc.clip_path = base
                 .clip_path
                 .as_ref()
-                .and_then(|spec| self.clip_path(spec));
+                .and_then(|spec| self.clip_path(spec))
+                .or_else(|| {
+                    base.clip_box
+                        .and_then(|owner| self.layout.clip_outline(owner))
+                });
         }
         gc
     }

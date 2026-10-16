@@ -1,13 +1,13 @@
 //! The shared, mutable state behind a [`Figure`](super::Figure) handle.
 
 use plt_core::{Bbox, Rgba};
-use plt_render::Renderer;
+use plt_render::{ClipPath, Renderer};
 
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
 use crate::gridspec::SubplotParams;
-use crate::transforms::{ResolvedTransform, TransformContext};
+use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
 
 /// Everything a figure owns: its artists and its canvas geometry.
 #[derive(Debug)]
@@ -111,6 +111,17 @@ impl FigureState {
         let mut errors = self.pending_errors.clone();
         errors.extend(ctx.into_errors());
         errors
+    }
+
+    /// The display outline of `axes` when its patch is not a rectangle
+    /// (the wedge of polar axes); `None` otherwise.
+    pub(crate) fn axes_outline(&self, axes: ArtistId) -> Option<ClipPath> {
+        let state = self.store.get_as::<AxesState>(axes)?;
+        state.polar()?;
+        Some(ClipPath {
+            path: state.patch_path(),
+            transform: unit_to_bbox(&self.axes_bbox(axes)?),
+        })
     }
 }
 

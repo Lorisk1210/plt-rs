@@ -22,10 +22,16 @@ pub trait PointMap: fmt::Debug {
     fn forward(&self, point: Point) -> Point;
     /// Inverse map.
     fn inverse(&self, point: Point) -> Point;
-    /// Whether straight segments must be subdivided before mapping because
-    /// the map bends lines (polar and geographic projections).
-    fn curves_lines(&self) -> bool {
-        true
+    /// Maps a path (matplotlib's `transform_path_non_affine`). The default
+    /// maps every vertex; projections that bend straight lines override it
+    /// to emit curves, typically honouring the path's
+    /// [`interpolation_steps`](Path::interpolation_steps).
+    fn transform_path(&self, path: &Path) -> Path {
+        let mut mapped = path.clone();
+        for p in mapped.vertices_mut() {
+            *p = self.forward(*p);
+        }
+        mapped
     }
 }
 
@@ -77,12 +83,16 @@ impl Step {
         })
     }
 
-    fn curves_lines(&self) -> bool {
-        match self {
-            Self::Plane(map) => map.curves_lines(),
-            Self::Blend(x, y) => x.curves_lines() || y.curves_lines(),
-            Self::Affine(_) | Self::Separable(..) => false,
+    /// Maps a path: plane maps may bend it, every other stage maps the
+    /// vertices.
+    fn transform_path(&self, mut path: Path) -> Path {
+        if let Self::Plane(map) = self {
+            return map.transform_path(&path);
         }
+        for p in path.vertices_mut() {
+            *p = self.apply(*p);
+        }
+        path
     }
 }
 
@@ -107,9 +117,6 @@ impl PointMap for InversePlane {
     }
     fn inverse(&self, point: Point) -> Point {
         self.0.forward(point)
-    }
-    fn curves_lines(&self) -> bool {
-        self.0.curves_lines()
     }
 }
 
@@ -234,27 +241,18 @@ impl ResolvedTransform {
         self.steps.iter().fold(p, |p, step| step.apply(p))
     }
 
-    /// Whether straight segments bend under this transform.
-    pub fn curves_lines(&self) -> bool {
-        self.steps.iter().any(Step::curves_lines)
-    }
-
     /// Splits a path for drawing: the non-affine steps are applied to the
-    /// vertices (subdividing first if lines bend), and the affine part is
-    /// returned for the renderer to apply.
+    /// path one after the other (plane maps may turn lines into curves),
+    /// and the affine part is returned for the renderer to apply.
     pub fn split_path<'a>(&self, path: &'a Path) -> (Cow<'a, Path>, Affine2D) {
         if self.steps.is_empty() {
             return (Cow::Borrowed(path), self.affine);
         }
-        let mut owned = if self.curves_lines() && path.interpolation_steps() > 1 {
-            path.interpolated(path.interpolation_steps())
-        } else {
-            path.clone()
-        };
-        for p in owned.vertices_mut() {
-            *p = self.transform_point_non_affine(*p);
-        }
-        (Cow::Owned(owned), self.affine)
+        let mapped = self
+            .steps
+            .iter()
+            .fold(path.clone(), |path, step| step.transform_path(path));
+        (Cow::Owned(mapped), self.affine)
     }
 
     /// Fully transforms a path.

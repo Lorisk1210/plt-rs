@@ -242,12 +242,12 @@ pub fn layout_block(
         let ox = match style.halign {
             HAlign::Left => x0,
             HAlign::Right => x1,
-            HAlign::Center => (x0 + x1) / 2.0,
+            HAlign::Center => f64::midpoint(x0, x1),
         };
         let oy = match style.valign {
             VAlign::Bottom => y0,
             VAlign::Top => y1,
-            VAlign::Center => (y0 + y1) / 2.0,
+            VAlign::Center => f64::midpoint(y0, y1),
             VAlign::Baseline => y1 - baseline,
             VAlign::CenterBaseline => y1 - baseline / 2.0,
         };
@@ -263,12 +263,12 @@ pub fn layout_block(
         let ox = match halign {
             HAlign::Left => rxmin,
             HAlign::Right => rxmax,
-            HAlign::Center => (rxmin + rxmax) / 2.0,
+            HAlign::Center => f64::midpoint(rxmin, rxmax),
         };
         let oy = match valign {
             VAlign::Bottom => rymin,
             VAlign::Top => rymax,
-            VAlign::Center => (rymin + rymax) / 2.0,
+            VAlign::Center => f64::midpoint(rymin, rymax),
             VAlign::Baseline => rymin + descent,
             VAlign::CenterBaseline => rymin + height_rot - baseline / 2.0,
         };

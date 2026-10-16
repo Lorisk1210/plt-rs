@@ -100,3 +100,34 @@ fn hidden_artists_are_not_drawn() {
         "only the figure background is drawn"
     );
 }
+
+#[test]
+fn subplots_follow_the_grid() {
+    let fig = Figure::new();
+    let axs = fig.subplots(2, 2).expect("valid grid");
+    let (x, y, w, h) = axs[(1, 0)].position().bounds();
+    assert!((x - 0.125).abs() < 1e-12 && (y - 0.11).abs() < 1e-12);
+    assert!((w - 0.352_272_727_272_727_24).abs() < 1e-12 && (h - 0.35).abs() < 1e-12);
+    assert_eq!(fig.axes().len(), 4);
+}
+
+#[test]
+fn subplots_adjust_moves_grid_axes_only() {
+    let fig = Figure::new();
+    let grid_axes = fig.subplot();
+    let free_axes = fig.add_axes([0.5, 0.5, 0.1, 0.1]);
+    fig.subplots_adjust(&crate::gridspec::SubplotOverrides {
+        left: Some(0.3),
+        ..Default::default()
+    })
+    .expect("valid");
+    assert!((grid_axes.position().x0() - 0.3).abs() < 1e-12);
+    assert_eq!(free_axes.position().x0(), 0.5);
+    assert!(
+        fig.subplots_adjust(&crate::gridspec::SubplotOverrides {
+            right: Some(0.2),
+            ..Default::default()
+        })
+        .is_err()
+    );
+}

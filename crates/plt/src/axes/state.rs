@@ -7,6 +7,7 @@ use plt_core::{Bbox, Path};
 use super::limits::{AxisAutoscale, DataLimits, autoscale_axis, oriented};
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
+use crate::gridspec::SubplotSpec;
 use crate::rc::{Cycler, RcParams};
 use crate::transforms::{AxisMap, ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
 
@@ -36,6 +37,8 @@ pub(crate) struct AxesState {
     base: ArtistBase,
     /// Placement as a fraction of the owning frame.
     pub(crate) position: Bbox,
+    /// The grid cell the axes occupies, if placed on a grid.
+    pub(crate) subplot_spec: Option<SubplotSpec>,
     /// Visible data range; `x0 > x1` means an inverted axis.
     pub(crate) view_lim: Bbox,
     /// Extent of all data added so far.
@@ -67,10 +70,15 @@ pub(crate) struct AxesState {
 impl AxesState {
     /// Axes at `position` (frame fractions) configured from `rc`.
     pub(crate) fn new(position: Bbox, rc: &RcParams) -> Self {
-        let autoscale = |margin| AutoscaleState { enabled: true, margin, stale: false };
+        let autoscale = |margin| AutoscaleState {
+            enabled: true,
+            margin,
+            stale: false,
+        };
         Self {
             base: ArtistBase::default(),
             position,
+            subplot_spec: None,
             view_lim: Bbox::UNIT,
             data_lim: DataLimits::default(),
             autoscale_x: autoscale(rc.axes_xmargin),
@@ -90,7 +98,8 @@ impl AxesState {
     /// The full data → display transform for the axes placed at `display`:
     /// scales, then view limits onto the unit square, then onto `display`.
     pub(crate) fn data_transform(&self, display: &Bbox) -> ResolvedTransform {
-        let forward = |map: &Option<Rc<dyn AxisMap>>, v: f64| map.as_ref().map_or(v, |m| m.forward(v));
+        let forward =
+            |map: &Option<Rc<dyn AxisMap>>, v: f64| map.as_ref().map_or(v, |m| m.forward(v));
         let scaled_limits = Bbox::from_extents(
             forward(&self.x_map, self.view_lim.x0()),
             forward(&self.y_map, self.view_lim.y0()),
@@ -115,11 +124,19 @@ impl AxesState {
         match axis {
             AxisName::X => {
                 self.view_lim = Bbox::from_extents(lower, v.y0(), upper, v.y1());
-                self.autoscale_x = AutoscaleState { enabled: false, stale: false, ..self.autoscale_x };
+                self.autoscale_x = AutoscaleState {
+                    enabled: false,
+                    stale: false,
+                    ..self.autoscale_x
+                };
             }
             AxisName::Y => {
                 self.view_lim = Bbox::from_extents(v.x0(), lower, v.x1(), upper);
-                self.autoscale_y = AutoscaleState { enabled: false, stale: false, ..self.autoscale_y };
+                self.autoscale_y = AutoscaleState {
+                    enabled: false,
+                    stale: false,
+                    ..self.autoscale_y
+                };
             }
         }
     }
@@ -156,7 +173,13 @@ impl AxesState {
             if !(state.stale && state.enabled) {
                 continue;
             }
-            let usable = |s: &[f64]| if self.use_sticky_edges && state.margin != 0.0 { s.to_vec() } else { Vec::new() };
+            let usable = |s: &[f64]| {
+                if self.use_sticky_edges && state.margin != 0.0 {
+                    s.to_vec()
+                } else {
+                    Vec::new()
+                }
+            };
             let bound = autoscale_axis(&AxisAutoscale {
                 data: interval,
                 minpos,
@@ -183,7 +206,8 @@ impl AxesState {
 
     /// Whether any axis waits for autoscaling.
     pub(crate) fn needs_autoscale(&self) -> bool {
-        (self.autoscale_x.stale && self.autoscale_x.enabled) || (self.autoscale_y.stale && self.autoscale_y.enabled)
+        (self.autoscale_x.stale && self.autoscale_x.enabled)
+            || (self.autoscale_y.stale && self.autoscale_y.enabled)
     }
 }
 
@@ -205,8 +229,12 @@ impl Artist for AxesState {
                 Ok(face) => {
                     let mut gc = ctx.base_gc(&self.base);
                     gc.linewidth = 0.0;
-                    ctx.renderer()
-                        .draw_path(&gc, &Path::unit_rectangle(), &unit_to_bbox(&extent), Some(face));
+                    ctx.renderer().draw_path(
+                        &gc,
+                        &Path::unit_rectangle(),
+                        &unit_to_bbox(&extent),
+                        Some(face),
+                    );
                 }
                 Err(err) => ctx.report(self.base.id(), err),
             }

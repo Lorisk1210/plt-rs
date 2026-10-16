@@ -20,7 +20,8 @@ fn close(a: (f64, f64), b: (f64, f64)) -> bool {
 fn plot_autoscales_like_matplotlib() {
     // spec/goldens/figures/basic/line.json
     let (_, ax) = axes();
-    ax.plot([1.0, 2.0, 3.0, 4.0], [1.0, 4.0, 2.0, 3.0]).expect("same length");
+    ax.plot([1.0, 2.0, 3.0, 4.0], [1.0, 4.0, 2.0, 3.0])
+        .expect("same length");
     assert!(close(ax.xlim(), (0.85, 4.15)));
     assert!(close(ax.ylim(), (0.85, 4.15)));
 }
@@ -46,14 +47,20 @@ fn lines_take_colours_from_the_cycle() {
     let first = ax.plot_y([1.0, 2.0]);
     let second = ax.plot_y([2.0, 1.0]);
     assert_eq!(first.rgba(), Ok(Rgba::from_rgba8([0x1f, 0x77, 0xb4, 0xff])));
-    assert_eq!(second.rgba(), Ok(Rgba::from_rgba8([0xff, 0x7f, 0x0e, 0xff])));
+    assert_eq!(
+        second.rgba(),
+        Ok(Rgba::from_rgba8([0xff, 0x7f, 0x0e, 0xff]))
+    );
     assert_eq!(first.zorder(), 2.0);
 }
 
 #[test]
 fn mismatched_lengths_are_rejected() {
     let (_, ax) = axes();
-    assert_eq!(ax.plot([1.0], [1.0, 2.0]), Err(PlotError::LengthMismatch { x: 1, y: 2 }));
+    assert_eq!(
+        ax.plot([1.0], [1.0, 2.0]),
+        Err(PlotError::LengthMismatch { x: 1, y: 2 })
+    );
 }
 
 #[test]
@@ -63,7 +70,12 @@ fn drawing_maps_data_into_the_axes_box() {
     ax.plot([0.0, 10.0], [0.0, 10.0]).expect("same length");
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
     fig.draw(&mut renderer).expect("drawable");
-    let Some(Call::Path { points, fill: None, linewidth }) = renderer.calls.last() else {
+    let Some(Call::Path {
+        points,
+        fill: None,
+        linewidth,
+    }) = renderer.calls.last()
+    else {
         panic!("expected the line last, got {:?}", renderer.calls);
     };
     assert_eq!(*linewidth, 1.5);
@@ -84,7 +96,9 @@ fn invalid_colours_are_reported_not_drawn() {
 #[test]
 fn draw_style_changes_the_path() {
     let (_, ax) = axes();
-    let line = ax.plot([0.0, 1.0, 2.0], [0.0, 1.0, 0.0]).expect("same length");
+    let line = ax
+        .plot([0.0, 1.0, 2.0], [0.0, 1.0, 0.0])
+        .expect("same length");
     line.set_drawstyle(DrawStyle::StepsPost);
     assert_eq!(line.path().map(|p| p.len()), Ok(5));
 }

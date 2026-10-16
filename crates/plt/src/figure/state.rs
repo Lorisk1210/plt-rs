@@ -6,6 +6,7 @@ use plt_render::Renderer;
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::AxesState;
+use crate::gridspec::SubplotParams;
 use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// Everything a figure owns: its artists and its canvas geometry.
@@ -27,7 +28,13 @@ impl FigureState {
     /// A figure of `size_inches` at `dpi` with an empty root frame.
     pub(crate) fn new(size_inches: (f64, f64), dpi: f64, facecolor: Rgba, edgecolor: Rgba) -> Self {
         let mut store = ArtistStore::default();
-        let root = store.insert(Box::new(FigureFrame::new(Bbox::UNIT, facecolor, edgecolor)));
+        let params = SubplotParams::from_rc(&crate::rc::params());
+        let root = store.insert(Box::new(FigureFrame::new(
+            Bbox::UNIT,
+            facecolor,
+            edgecolor,
+            params,
+        )));
         Self {
             store,
             root,

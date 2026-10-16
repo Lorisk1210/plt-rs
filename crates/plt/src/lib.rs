@@ -22,6 +22,7 @@ pub mod contour;
 pub mod dates;
 pub mod figure;
 pub mod fonts;
+pub mod gridspec;
 pub mod lines;
 pub mod markers;
 pub mod mlab;

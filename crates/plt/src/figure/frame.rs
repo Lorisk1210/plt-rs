@@ -3,6 +3,7 @@
 use plt_core::{Bbox, Path, Rgba};
 
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext};
+use crate::gridspec::SubplotParams;
 use crate::transforms::unit_to_bbox;
 
 /// A rectangular region that owns axes and figure-level artists: the
@@ -23,11 +24,18 @@ pub(crate) struct FigureFrame {
     pub(crate) relative_extent: Bbox,
     /// Owned artists in insertion order (axes included).
     pub(crate) children: Vec<ArtistId>,
+    /// Margins and spacing of subplot grids in this frame.
+    pub(crate) subplot_params: SubplotParams,
 }
 
 impl FigureFrame {
     /// A frame covering `relative_extent` of its parent.
-    pub(crate) fn new(relative_extent: Bbox, facecolor: Rgba, edgecolor: Rgba) -> Self {
+    pub(crate) fn new(
+        relative_extent: Bbox,
+        facecolor: Rgba,
+        edgecolor: Rgba,
+        subplot_params: SubplotParams,
+    ) -> Self {
         Self {
             base: ArtistBase::default(),
             facecolor,
@@ -36,6 +44,7 @@ impl FigureFrame {
             frameon: true,
             relative_extent,
             children: Vec::new(),
+            subplot_params,
         }
     }
 }

@@ -17,6 +17,8 @@
 //! * [`Painter`] — fills, strokes, hatch patterns, Gouraud triangles,
 //!   [`MarkerStamp`]s and transformed coverage, plus [`draw_image`] and
 //!   [`draw_coverage`] for blitting.
+//! * [`resample`] — matplotlib's image resampler (`_image.resample`):
+//!   Agg's interpolation kernels and span generators.
 #![forbid(unsafe_code)]
 
 mod clip;
@@ -28,6 +30,7 @@ mod painter;
 mod pixmap;
 mod raster;
 mod render;
+pub mod resample;
 mod style;
 
 pub use clip::{Clip, ClipBox};

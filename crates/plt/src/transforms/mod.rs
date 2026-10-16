@@ -68,6 +68,9 @@ pub enum Transform {
     },
     /// The inverse of a transform.
     Inverted(Box<Transform>),
+    /// The affine part of a transform without its translation, for
+    /// displacements such as collection offsets (`AffineDeltaTransform`).
+    AffineDelta(Box<Transform>),
 }
 
 impl Transform {
@@ -178,6 +181,10 @@ impl Transform {
                 .resolve(ctx)?
                 .inverted()
                 .ok_or(TransformError::Singular)?,
+            Self::AffineDelta(inner) => {
+                let [a, b, c, d, _, _] = inner.resolve(ctx)?.affine_part().values();
+                ResolvedTransform::affine(Affine2D::from_values(a, b, c, d, 0.0, 0.0))
+            }
         })
     }
 }
@@ -263,6 +270,13 @@ mod tests {
             Transform::Display.offset_points(36.0, 0.0),
             Transform::Display.offset_inches(0.5, 0.0)
         );
+    }
+
+    #[test]
+    fn affine_deltas_drop_the_translation() {
+        let base = Affine2D::scaling(2.0, 3.0).translate(5.0, 7.0);
+        let delta = Transform::AffineDelta(Box::new(Transform::Affine(base)));
+        assert_eq!(resolve_affine(&delta, 72.0), Affine2D::scaling(2.0, 3.0));
     }
 
     #[test]

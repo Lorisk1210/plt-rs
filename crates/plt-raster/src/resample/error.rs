@@ -3,6 +3,8 @@
 use std::error::Error;
 use std::fmt;
 
+use crate::error::RasterError;
+
 /// Why a grid could not be built or an image could not be resampled.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ResampleError {
@@ -42,6 +44,8 @@ pub enum ResampleError {
     InvalidRadius(f64),
     /// An interpolation name matplotlib's `_image` module does not know.
     UnknownInterpolation(String),
+    /// The rasterizer could not cover the destination.
+    Raster(RasterError),
 }
 
 impl fmt::Display for ResampleError {
@@ -71,11 +75,25 @@ impl fmt::Display for ResampleError {
                 super::MAX_FILTER_RADIUS
             ),
             Self::UnknownInterpolation(name) => write!(f, "unknown interpolation {name:?}"),
+            Self::Raster(err) => err.fmt(f),
         }
     }
 }
 
-impl Error for ResampleError {}
+impl Error for ResampleError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Raster(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<RasterError> for ResampleError {
+    fn from(err: RasterError) -> Self {
+        Self::Raster(err)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -89,7 +107,11 @@ mod tests {
             len: 5,
         };
         assert_eq!(e.to_string(), "a 2x3 grid cannot hold 5 pixels");
-        assert!(ResampleError::InvalidAlpha(2.0).to_string().contains("[0, 1]"));
+        assert!(
+            ResampleError::InvalidAlpha(2.0)
+                .to_string()
+                .contains("[0, 1]")
+        );
         assert!(
             ResampleError::UnknownInterpolation("x".into())
                 .to_string()

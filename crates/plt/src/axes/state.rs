@@ -5,6 +5,7 @@ use std::rc::Rc;
 use plt_core::{Bbox, Path};
 
 use super::DataLimits;
+use super::aspect::AspectState;
 use super::axis::{AxisGeometry, AxisState};
 use super::axis_draw::AxisPainter;
 use super::limits::{AxisAutoscale, autoscale_axis};
@@ -20,8 +21,11 @@ use crate::transforms::{ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
 #[derive(Debug)]
 pub(crate) struct AxesState {
     base: ArtistBase,
-    /// Placement as a fraction of the owning frame.
+    /// Placement as a fraction of the owning frame, before any aspect
+    /// adjustment (matplotlib's original position).
     pub(crate) position: Bbox,
+    /// The aspect settings and the active position they produce.
+    pub(crate) aspect: AspectState,
     /// The grid cell the axes occupies, if placed on a grid.
     pub(crate) subplot_spec: Option<SubplotSpec>,
     /// Visible data range; `x0 > x1` means an inverted axis.
@@ -107,6 +111,7 @@ impl AxesState {
         Self {
             base: ArtistBase::default(),
             position,
+            aspect: AspectState::default(),
             subplot_spec: None,
             view_lim: Bbox::UNIT,
             view_mutated: (false, false),

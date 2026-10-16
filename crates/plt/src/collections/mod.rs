@@ -8,9 +8,12 @@
 
 mod draw;
 mod props;
+mod quad_mesh;
 mod style;
 
 pub use props::CollectionProps;
+use quad_mesh::MeshGeometry;
+pub use quad_mesh::MeshShading;
 
 use std::rc::Rc;
 
@@ -36,6 +39,8 @@ pub enum CollectionKind {
     Poly,
     /// Polylines without faces (`LineCollection`, line defaults, z-order 2).
     Line,
+    /// A grid of quadrilaterals (`QuadMesh`, patch defaults, z-order 1).
+    QuadMesh,
 }
 
 /// The edge colours of a collection.
@@ -110,6 +115,8 @@ pub(crate) struct CollectionArtist {
     pub(crate) capstyle: Option<CapStyle>,
     pub(crate) joinstyle: Option<JoinStyle>,
     pub(crate) mapping: Option<Mapped>,
+    /// The vertex grid of a quad mesh, drawn as a mesh.
+    mesh: Option<MeshGeometry>,
     rc: Rc<RcParams>,
 }
 
@@ -138,6 +145,7 @@ impl CollectionArtist {
             capstyle: None,
             joinstyle: None,
             mapping: None,
+            mesh: None,
             rc,
         }
     }
@@ -184,7 +192,11 @@ impl Artist for CollectionArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        if let Err(problem) = draw::draw_collection(self, ctx) {
+        let drawn = match &self.mesh {
+            Some(mesh) => quad_mesh::draw_quad_mesh(self, mesh, ctx),
+            None => draw::draw_collection(self, ctx),
+        };
+        if let Err(problem) = drawn {
             ctx.report(self.base.id(), problem);
         }
     }

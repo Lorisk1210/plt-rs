@@ -24,12 +24,16 @@ impl<T: ops::Channel + Send + Sync + 'static> Pixel for [T; 4] {}
 
 /// A single-channel span colour: Agg's `grayN` value plus coverage alpha.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub(super) struct Gray<T> {
+pub struct Gray<T> {
     v: T,
     a: T,
 }
 
-pub(super) mod ops {
+#[expect(
+    unreachable_pub,
+    reason = "sealed: nameable bounds of the public `Pixel` trait, unreachable from outside"
+)]
+pub mod ops {
     use super::Gray;
 
     /// The scalar arithmetic of one Agg colour channel type.
@@ -103,7 +107,10 @@ pub(super) mod ops {
         }
 
         fn nearest(self) -> Gray<T> {
-            Gray { v: self, a: T::FULL }
+            Gray {
+                v: self,
+                a: T::FULL,
+            }
         }
 
         // matplotlib defines MPL_DISABLE_AGG_GRAY_CLIPPING: no clamping here.

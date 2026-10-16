@@ -222,7 +222,10 @@ mod tests {
     #[test]
     fn names_round_trip() {
         for interpolation in Interpolation::ALL {
-            assert_eq!(interpolation.name().parse::<Interpolation>(), Ok(interpolation));
+            assert_eq!(
+                interpolation.name().parse::<Interpolation>(),
+                Ok(interpolation)
+            );
             assert_eq!(interpolation.to_string(), interpolation.name());
         }
         assert_eq!(

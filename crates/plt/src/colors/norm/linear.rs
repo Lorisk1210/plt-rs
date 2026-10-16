@@ -80,6 +80,10 @@ impl Norm for NoNorm {
     fn inverse(&self, values: &[f64]) -> Result<Vec<Option<f64>>, NormError> {
         Ok(values.iter().copied().map(Some).collect())
     }
+
+    fn is_identity(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
@@ -131,5 +135,6 @@ mod tests {
         );
         assert_eq!(norm.inverse(&[3.0]), Ok(vec![Some(3.0)]));
         assert_eq!(norm.vmin(), None);
+        assert!(norm.is_identity() && !Normalize::default().is_identity());
     }
 }

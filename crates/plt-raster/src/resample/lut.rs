@@ -96,7 +96,11 @@ impl WeightLut {
                     }
                     flip = !flip;
                     let centre = diameter / 2;
-                    let tap = if flip { centre + tap / 2 } else { centre - tap / 2 };
+                    let tap = if flip {
+                        centre + tap / 2
+                    } else {
+                        centre - tap / 2
+                    };
                     let w = &mut self.weights[index(tap)];
                     if i32::from(*w) < FILTER_SCALE {
                         *w = w.wrapping_add(inc);
@@ -153,7 +157,11 @@ mod tests {
         for &interpolation in Interpolation::ALL.iter().skip(1) {
             let l = lut(interpolation, true);
             for phase in 0..SUBPIXEL_SCALE {
-                assert_eq!(phase_sum(&l, phase), FILTER_SCALE, "{interpolation:?} {phase}");
+                assert_eq!(
+                    phase_sum(&l, phase),
+                    FILTER_SCALE,
+                    "{interpolation:?} {phase}"
+                );
             }
         }
     }

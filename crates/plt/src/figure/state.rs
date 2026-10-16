@@ -84,7 +84,7 @@ impl FigureState {
         self.stale = true;
     }
 
-    /// The mutable pass before drawing: autoscaling, then ticks.
+    /// The mutable pass before drawing: autoscaling, aspect, then ticks.
     pub(crate) fn prepare(&mut self) {
         let axes: Vec<ArtistId> = self
             .store
@@ -93,7 +93,7 @@ impl FigureState {
             .collect();
         for id in axes {
             self.sync_secondary(id);
-            self.unstale_axes(id);
+            self.lay_out_axes(id);
             let Some(extent) = self.axes_bbox(id) else {
                 continue;
             };
@@ -135,7 +135,10 @@ impl TransformContext for FigureState {
         let state = self.store.get_as::<AxesState>(axes)?;
         let parent = state.base().parent?;
         let container = self.frame_bbox(parent).or_else(|| self.axes_bbox(parent))?;
-        Some(fraction_of(&container, &state.position))
+        Some(fraction_of(
+            &container,
+            &state.aspect.active_position(&state.position),
+        ))
     }
 
     fn data_transform(&self, axes: ArtistId) -> Option<ResolvedTransform> {

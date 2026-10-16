@@ -25,11 +25,7 @@ const SCALE_LIMIT: f64 = 200.0;
 
 /// Starts `interpolator` at the centre of destination pixel `(x, y)`.
 fn begin(interpolator: &mut impl SpanInterpolator, x: i32, y: i32, len: usize) {
-    interpolator.begin(
-        f64::from(x) + CENTRE,
-        f64::from(y) + CENTRE,
-        len as u32,
-    );
+    interpolator.begin(f64::from(x) + CENTRE, f64::from(y) + CENTRE, len as u32);
 }
 
 /// The fixed-point product of two tabulated weights.
@@ -150,7 +146,8 @@ pub(super) fn resample_affine<P: PixelOps>(
         let (sx, sy) = interpolator.coordinates();
         let sx = sx.wrapping_add(CENTRE_SUBPIXEL - radius_x);
         let sy = sy.wrapping_add(CENTRE_SUBPIXEL - radius_y);
-        let mut index_y = ((SUBPIXEL_MASK - (sy & SUBPIXEL_MASK)) * footprint.ry_inv) >> SUBPIXEL_SHIFT;
+        let mut index_y =
+            ((SUBPIXEL_MASK - (sy & SUBPIXEL_MASK)) * footprint.ry_inv) >> SUBPIXEL_SHIFT;
         let first_x = ((SUBPIXEL_MASK - (sx & SUBPIXEL_MASK)) * footprint.rx_inv) >> SUBPIXEL_SHIFT;
         let mut acc = P::ACCUM_ZERO;
         let mut total_weight = 0_i32;
@@ -208,7 +205,7 @@ mod tests {
     #[test]
     fn identity_filter_reproduces_the_source() {
         let src = Grid::from_vec(3, 1, vec![1.0, 2.0, 4.0]).expect("grid");
-        let mut out = [Default::default(); 3];
+        let mut out = [<f64 as PixelOps>::Color::default(); 3];
         let mut li = LinearInterpolator::new(AggAffine::IDENTITY);
         filter(&src, &lut(Interpolation::Bilinear), &mut li, 0, 0, &mut out);
         assert_eq!(values(&out), vec![1.0, 2.0, 4.0]);
@@ -217,7 +214,7 @@ mod tests {
     #[test]
     fn nearest_outside_is_background() {
         let src = Grid::from_vec(2, 1, vec![5.0, 6.0]).expect("grid");
-        let mut out = [Default::default(); 4];
+        let mut out = [<f64 as PixelOps>::Color::default(); 4];
         let mut nn = NearestInterpolator::new(AggAffine::IDENTITY);
         nearest(&src, &mut nn, -1, 0, &mut out);
         assert_eq!(values(&out), vec![0.0, 5.0, 6.0, 0.0]);
@@ -243,15 +240,20 @@ mod tests {
                 ry_inv: 256
             }
         );
-        let huge = AggAffine { sx: 40.0, sy: 40.0, ..shrink };
+        let huge = AggAffine {
+            sx: 40.0,
+            sy: 40.0,
+            ..shrink
+        };
         let fp = Footprint::new(&LinearInterpolator::new(huge));
-        assert_eq!((fp.rx, fp.ry), (1280, 2560));
+        // sx becomes 40·200/1600 = 5, then sy = 40·200/(5·40) = 40.
+        assert_eq!((fp.rx, fp.ry), (1280, 10240));
     }
 
     #[test]
     fn resampling_a_constant_is_exact() {
         let src = Grid::from_vec(8, 8, vec![[200_u8, 100, 50, 255]; 64]).expect("grid");
-        let mut out = [Default::default(); 3];
+        let mut out = [[0_u8; 4]; 3];
         let shrink = AggAffine {
             sx: 3.0,
             shy: 0.0,
@@ -262,7 +264,15 @@ mod tests {
         };
         let mut li = LinearInterpolator::new(shrink);
         let fp = Footprint::new(&li);
-        resample_affine(&src, &lut(Interpolation::Hanning), fp, &mut li, 0, 1, &mut out);
+        resample_affine(
+            &src,
+            &lut(Interpolation::Hanning),
+            fp,
+            &mut li,
+            0,
+            1,
+            &mut out,
+        );
         assert!(out.iter().all(|&c| c == [200, 100, 50, 255]));
     }
 }

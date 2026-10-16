@@ -122,6 +122,7 @@ pub(super) fn draw_collection(
         CollectionKind::Path => "PathCollection",
         CollectionKind::Poly => "PolyCollection",
         CollectionKind::Line => "LineCollection",
+        CollectionKind::QuadMesh => "QuadMesh",
     };
     ctx.renderer().open_group(name, c.base().gid.as_deref());
     let canvas = ctx.renderer().canvas_size();

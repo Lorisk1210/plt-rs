@@ -261,6 +261,11 @@ impl Collection {
         self.update(|c| c.linestyles = styles)
     }
 
+    /// Sets per-item antialiasing (cycled).
+    pub fn set_antialiased(&self, antialiased: Vec<bool>) -> &Self {
+        self.update(|c| c.antialiased = Some(antialiased))
+    }
+
     /// Sets the marker areas in points² (cycled).
     pub fn set_sizes(&self, sizes: Vec<f64>) -> &Self {
         self.update(|c| c.sizes = Some(sizes))

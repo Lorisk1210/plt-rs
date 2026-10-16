@@ -2,17 +2,21 @@
 //!
 //! Artists in the `plt` crate describe what to draw through the
 //! [`Renderer`] trait, using a [`GraphicsContext`] for stroke and clipping
-//! state. Backends translate those calls into pixels or vector documents.
+//! state. Backends translate those calls into pixels or vector documents:
+//! [`RasterRenderer`] reproduces matplotlib's Agg backend pixel for pixel
+//! and writes PNG.
 #![forbid(unsafe_code)]
 
 mod collection;
 mod gc;
 mod image;
+mod raster;
 mod renderer;
 
 pub use collection::{CollectionItem, PathCollection};
 pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sketch, SnapMode};
 pub use image::{ImageSizeError, RgbaImage};
+pub use raster::{RasterBackendError, RasterRenderer};
 pub use renderer::Renderer;
 
 use plt_core::{Affine2D, Bbox};

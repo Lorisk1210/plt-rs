@@ -1,6 +1,7 @@
 //! Figures: the top-level container of everything drawn (matplotlib.figure).
 
 mod frame;
+mod save;
 mod state;
 #[cfg(test)]
 mod tests;
@@ -13,6 +14,7 @@ use plt_core::{Bbox, Rgba};
 use plt_render::Renderer;
 
 pub(crate) use frame::FigureFrame;
+pub use save::SaveError;
 pub(crate) use state::FigureState;
 
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};

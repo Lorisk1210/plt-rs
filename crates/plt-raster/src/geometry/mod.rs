@@ -1,18 +1,18 @@
-//! The vertex pipeline in front of the rasterizer: curve flattening,
-//! dashing and stroking.
+//! The vertex pipeline in front of the rasterizer: dashing and stroking.
 //!
 //! Agg chains *pull*-based vertex sources (`conv_curve → conv_dash →
-//! conv_stroke → rasterizer`); here every stage is a *push*-based
-//! [`PathSink`] that forwards its output to the next stage. Each stage
-//! keeps Agg's exact per-sub-path semantics.
+//! conv_stroke → rasterizer`). Curves are flattened by plt-core's port of
+//! `conv_curve`; after that every stage here is a *push*-based
+//! [`PathSink`] that forwards its output to the next stage, keeping Agg's
+//! exact per-sub-path semantics.
 
-pub(crate) mod curve;
 pub(crate) mod dash;
 pub(crate) mod stroke;
 pub(crate) mod stroke_math;
 mod vertex_seq;
 
-use plt_core::Point;
+use plt_core::path::convert::{Vertex, VertexSource};
+use plt_core::{Path, PathCode, Point};
 
 /// A consumer of flattened path commands (straight segments only).
 pub trait PathSink {
@@ -22,6 +22,27 @@ pub trait PathSink {
     fn line_to(&mut self, p: Point);
     /// Closes the current sub-path.
     fn close(&mut self);
+}
+
+/// Sends a flattened vertex stream to `sink`. Curve vertices (absent from
+/// flattened streams) are treated as line vertices.
+pub(crate) fn feed_vertices<S: PathSink + ?Sized>(
+    vertices: impl IntoIterator<Item = Vertex>,
+    sink: &mut S,
+) {
+    for vertex in vertices {
+        match vertex.code {
+            PathCode::MoveTo => sink.move_to(vertex.point),
+            PathCode::ClosePoly => sink.close(),
+            PathCode::LineTo | PathCode::Curve3 | PathCode::Curve4 => sink.line_to(vertex.point),
+        }
+    }
+}
+
+/// Sends `path` to `sink`, flattening its curves exactly like Agg's
+/// `conv_curve` (plt-core's [`flatten_curves`](VertexSource::flatten_curves)).
+pub(crate) fn feed_path<S: PathSink + ?Sized>(path: &Path, sink: &mut S) {
+    feed_vertices(path.iter_vertices().flatten_curves(true), sink);
 }
 
 /// Wraps a sub-path generator (stroker or dasher) the way Agg's

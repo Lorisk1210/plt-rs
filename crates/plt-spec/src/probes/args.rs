@@ -15,6 +15,11 @@ impl<'a> Args<'a> {
         Self { raw }
     }
 
+    /// Whether the argument was recorded at all, possibly as `null`.
+    pub fn contains(&self, key: &str) -> bool {
+        self.raw.get(key).is_some()
+    }
+
     /// The raw argument, if present and not `null`.
     pub fn get(&self, key: &str) -> Option<&'a Json> {
         self.raw.get(key).filter(|v| !v.is_null())
@@ -126,5 +131,14 @@ mod tests {
         assert_eq!(args.opt_f64("missing"), Ok(None));
         assert!(matches!(args.i64("x"), Err(ProbeError::BadArgs(_))));
         assert!(matches!(args.str("missing"), Err(ProbeError::BadArgs(_))));
+    }
+
+    #[test]
+    fn contains_distinguishes_null_from_absent() {
+        let raw = Json::parse(r#"{"z": null, "x": 1}"#).unwrap();
+        let args = Args::new(&raw);
+        assert!(args.contains("z") && args.get("z").is_none());
+        assert!(args.contains("x"));
+        assert!(!args.contains("missing"));
     }
 }

@@ -108,6 +108,14 @@ impl Axes {
     }
 
     fn add_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> Line2D {
+        let line = self.cycled_line(x, y, props);
+        self.add_line_artist(line)
+    }
+
+    /// A new data line styled by `props`, with the property cycle filling
+    /// in the cycled properties `props` leaves unset (matplotlib's
+    /// `_makeline`).
+    pub(crate) fn cycled_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> LineArtist {
         let mut line = LineArtist::new(x, y, crate::rc::params());
         let cycled = self.raw().with_mut::<AxesState, _>(|axes| {
             let entry: Vec<(String, CycleValue)> = axes
@@ -128,6 +136,12 @@ impl Axes {
         }
         props.apply(&mut line);
         line.base_mut().transform = Some(self.trans_data());
+        line
+    }
+
+    /// Adds a line in data coordinates and extends the data limits to its
+    /// drawn vertices.
+    pub(crate) fn add_line_artist(&self, line: LineArtist) -> Line2D {
         let update = DataUpdate::data(line.drawn_points());
         Line2D::from_raw(self.adopt(line, &update))
     }

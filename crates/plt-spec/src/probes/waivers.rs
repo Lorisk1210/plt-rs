@@ -1,7 +1,7 @@
 //! Probes where plt-rs deliberately differs from matplotlib.
 //!
-//! Each waiver names the probe exactly (operation and canonical arguments)
-//! and records *why* reproducing matplotlib would be wrong — typically an
+//! Each waiver names the probe (operation and the arguments that single it
+//! out) and records *why* reproducing matplotlib would be wrong — typically an
 //! accidental behaviour or a matplotlib bug. Waived probes are reported
 //! separately and never count as passing.
 
@@ -13,7 +13,8 @@ use crate::json::Json;
 pub struct Waiver {
     /// Probe operation.
     pub op: &'static str,
-    /// The probe's arguments as JSON, exactly as in the golden file.
+    /// A JSON object of probe arguments, as in the golden file; arguments
+    /// not listed are not compared.
     pub args: &'static str,
     /// Why plt-rs differs.
     pub reason: &'static str,
@@ -38,6 +39,9 @@ const READONLY_FLAG: &str = "Python marks shared cached paths read-only; plt-rs 
      plain values, so the flag does not exist";
 const RGBA_ARRAY_FAST_PATH: &str = "matplotlib's to_rgba_array fast path for homogeneous \
      numeric lists skips the 0-1 range check every other input applies; plt-rs validates all colours";
+const ROUNDING_NOISE_RATIO: &str = "after linear detrending every segment's zero-frequency \
+     term is rounding noise (~1e-15), so the coherence there is a ratio of noise that depends \
+     on numpy's FFT summation order; every other bin matches";
 
 /// Every waiver, grouped by area.
 pub const WAIVERS: &[Waiver] = &[
@@ -141,20 +145,47 @@ pub const WAIVERS: &[Waiver] = &[
         args: r#"{"c": [[2, 0, 0], [0, 1, 0]]}"#,
         reason: RGBA_ARRAY_FAST_PATH,
     },
+    Waiver {
+        op: "mlab.cohere",
+        args: r#"{"NFFT": 32, "detrend": "linear", "window": "none"}"#,
+        reason: ROUNDING_NOISE_RATIO,
+    },
 ];
 
-/// The waiver covering a probe, if any. Arguments match exactly, with
-/// NaN equal to NaN.
+/// The waiver covering a probe, if any: every argument the waiver lists
+/// must equal the probe's exactly, with NaN equal to NaN.
 pub fn find(op: &str, args: &Json) -> Option<&'static Waiver> {
+    WAIVERS
+        .iter()
+        .find(|w| w.op == op && Json::parse(w.args).is_ok_and(|waived| covers(&waived, args)))
+}
+
+/// Whether every entry of the `waived` object equals the same entry of
+/// `args`.
+fn covers(waived: &Json, args: &Json) -> bool {
     let exact = Tolerance { rel: 0.0, abs: 0.0 };
-    WAIVERS.iter().find(|w| {
-        w.op == op && Json::parse(w.args).is_ok_and(|waived| compare(&waived, args, exact).is_ok())
+    waived.as_object().is_some_and(|entries| {
+        entries.iter().all(|(key, value)| {
+            args.get(key)
+                .is_some_and(|actual| compare(value, actual, exact).is_ok())
+        })
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn listed_arguments_must_match_and_others_are_ignored() {
+        let waived = Json::parse(r#"{"a": 1, "b": [NaN]}"#).unwrap();
+        let probe = Json::parse(r#"{"a": 1, "b": [NaN], "c": "x"}"#).unwrap();
+        assert!(covers(&waived, &probe));
+        let other = Json::parse(r#"{"a": 2, "b": [NaN], "c": "x"}"#).unwrap();
+        assert!(!covers(&waived, &other));
+        let missing = Json::parse(r#"{"a": 1}"#).unwrap();
+        assert!(!covers(&waived, &missing));
+    }
 
     #[test]
     fn every_waiver_is_valid_json() {

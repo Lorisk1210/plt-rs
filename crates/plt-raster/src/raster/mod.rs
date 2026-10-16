@@ -19,8 +19,7 @@ use self::clip::Clipper;
 pub use self::gamma::Gamma;
 pub use self::scanline::{Covers, Scanline, Span};
 use crate::error::RasterError;
-use crate::geometry::PathSink;
-use crate::geometry::curve::CurveFlattener;
+use crate::geometry::{PathSink, feed_path};
 use crate::style::FillRule;
 
 /// Default maximum number of coverage cells: matplotlib builds its
@@ -48,7 +47,6 @@ pub struct Rasterizer {
     fill_rule: FillRule,
     start: Point,
     status: Status,
-    flattener: CurveFlattener,
 }
 
 impl Default for Rasterizer {
@@ -74,7 +72,6 @@ impl Rasterizer {
             fill_rule: FillRule::NonZero,
             start: Point::ORIGIN,
             status: Status::Initial,
-            flattener: CurveFlattener::default(),
         }
     }
 
@@ -118,9 +115,7 @@ impl Rasterizer {
     /// Adds every sub-path of `path`, flattening curves like Agg's
     /// `conv_curve` (approximation scale 1).
     pub fn add_path(&mut self, path: &Path) {
-        let mut flattener = std::mem::take(&mut self.flattener);
-        flattener.feed(path, self);
-        self.flattener = flattener;
+        feed_path(path, self);
     }
 
     /// Bounds `(min_x, min_y, max_x, max_y)` of the cells touched by the

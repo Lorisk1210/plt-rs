@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 plt.workspace = true
+plt-codec.workspace = true
 plt-core.workspace = true
 plt-render.workspace = true
 

@@ -150,6 +150,22 @@ impl Figure {
         self
     }
 
+    /// Sets the colour of the frame around the canvas (matplotlib's
+    /// `set_edgecolor`); it shows once the frame has a width.
+    pub fn set_edgecolor(&self, color: Rgba) -> &Self {
+        self.root
+            .with_mut::<FigureFrame, _>(|frame| frame.edgecolor = color);
+        self
+    }
+
+    /// Sets the width of the frame around the canvas in points
+    /// (matplotlib's `set_linewidth`).
+    pub fn set_linewidth(&self, width: f64) -> &Self {
+        self.root
+            .with_mut::<FigureFrame, _>(|frame| frame.linewidth = width);
+        self
+    }
+
     /// The background colour.
     pub fn facecolor(&self) -> Rgba {
         self.root.with::<FigureFrame, _>(|frame| frame.facecolor)

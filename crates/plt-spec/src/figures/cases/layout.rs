@@ -3,6 +3,7 @@
 use plt::figure::Share;
 use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::prelude::*;
+use plt::text::Text;
 
 use crate::figures::FigureCase;
 
@@ -127,4 +128,42 @@ pub(crate) const CASES: &[FigureCase] = &[
         }
         Ok(())
     }),
+    FigureCase::new("layout/add_axes_rects", |fig| {
+        fill(&fig.add_axes([0.1, 0.1, 0.8, 0.8]), 0)?;
+        let ax = fig.add_axes([0.55, 0.55, 0.3, 0.25]);
+        ax.set_facecolor("0.9");
+        fill(&ax, 2)?;
+        ax.set_title("overlay");
+        Ok(())
+    }),
+    FigureCase::new("layout/figure_facecolor_edgecolor_linewidth", |fig| {
+        fig.set_facecolor(Color::from("lightsteelblue").resolve()?)
+            .set_edgecolor(Color::from("navy").resolve()?)
+            .set_linewidth(6.0);
+        fill(&fig.subplot(), 0)?;
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
+    FigureCase::new("layout/dpi_72", |fig| titled(fig, "72 dpi")).sized(6.4, 4.8, 72.0),
+    FigureCase::new("layout/dpi_150", |fig| titled(fig, "150 dpi")).sized(4.0, 3.0, 150.0),
+    FigureCase::new("layout/figsize_wide_short", |fig| {
+        fill(&fig.subplot(), 0)?;
+        Ok(())
+    })
+    .sized(8.0, 2.0, 100.0),
+    FigureCase::new("layout/figsize_tall_narrow", |fig| {
+        for (i, ax) in fig.subplots(3, 1)?.as_slice().iter().enumerate() {
+            fill(ax, i)?;
+        }
+        Ok(())
+    })
+    .sized(2.5, 5.0, 100.0),
 ];
+
+/// One filled subplot with `title`.
+fn titled(fig: &Figure, title: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let ax = fig.subplot();
+    fill(&ax, 0)?;
+    let _: Text = ax.set_title(title);
+    Ok(())
+}

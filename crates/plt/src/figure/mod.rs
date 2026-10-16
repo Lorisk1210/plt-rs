@@ -28,7 +28,7 @@ use crate::rc::RcParams;
 use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
 use plt_core::Point;
-use plt_text::{HAlign, RotationMode, VAlign};
+use plt_text::{HAlign, VAlign};
 
 /// The problems found while drawing a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -316,9 +316,10 @@ impl SuperKind {
         text.font = FontProperties::from_rc(rc)
             .with_size(size, rc.font_size)
             .with_weight(weight);
+        // matplotlib's `_suplabels` ignores the `rotation_mode` of its
+        // settings, so the y label rotates in the default mode.
         if self == Self::YLabel {
             text.rotation = 90.0;
-            text.rotation_mode = RotationMode::Anchor;
         }
         text.base_mut().transform = Some(Transform::Figure(frame));
         text

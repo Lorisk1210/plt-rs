@@ -27,13 +27,14 @@ mod stem;
 mod steps;
 #[cfg(test)]
 mod tests;
+mod tick_config;
 mod ticks;
 mod twins;
 mod view;
 mod violin;
 
 pub use crate::ticker::AxisName;
-pub use axis::{Tick, TickSet};
+pub use axis::{LabelLoc, Tick, TickSet};
 pub use axis_handle::Axis;
 pub use bars::{BandAlign, BarAlign, BarContainer, BarOptions};
 pub use boxplot::BoxplotOptions;
@@ -50,6 +51,7 @@ pub use stackplot::{Baseline, StackplotOptions};
 pub(crate) use state::AxesState;
 pub use stem::{StemContainer, StemOptions};
 pub use steps::StairsOptions;
+pub use tick_config::TicklabelFormat;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
 pub use violin::{ViolinDrawOptions, ViolinParts, ViolinSide, ViolinplotOptions};
 
@@ -59,6 +61,7 @@ use std::rc::Rc;
 
 use crate::artist::Artist;
 use crate::artist::{ArtistHandle, RawHandle};
+use crate::colors::Color;
 use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
 use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
@@ -135,8 +138,11 @@ impl Axes {
         self.set_title_at(TitleLocation::Center, text)
     }
 
-    /// Sets the title at `location` and returns it.
+    /// Sets the title at `location` and returns it. Like matplotlib's
+    /// `set_title`, this resets the gap of all titles to `axes.titlepad`;
+    /// call [`Axes::set_title_pad`] afterwards to change it.
     pub fn set_title_at(&self, location: TitleLocation, text: impl Into<String>) -> Text {
+        self.set_title_pad(crate::rc::params().axes_titlepad);
         let title = self.title_handle(location);
         title.set_text(text);
         title
@@ -269,6 +275,79 @@ impl Axes {
             a.xaxis.autoscale.stale = on;
             a.yaxis.autoscale.stale = on;
         });
+        self
+    }
+
+    /// Autoscales one axis (or both) from now on (matplotlib's
+    /// `autoscale(enable=True, axis=..., tight=...)`); `tight` drops the
+    /// margins and skips rounding the view to ticks.
+    pub fn autoscale(&self, axis: Option<AxisName>, tight: Option<bool>) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|a| {
+            for name in [AxisName::X, AxisName::Y] {
+                if axis.is_some_and(|only| only != name) {
+                    continue;
+                }
+                let autoscale = &mut a.axis_mut(name).autoscale;
+                autoscale.enabled = true;
+                autoscale.stale = true;
+                if tight == Some(true) {
+                    autoscale.margin = 0.0;
+                }
+            }
+            if let Some(tight) = tight {
+                a.tight = tight;
+            }
+        });
+        self
+    }
+
+    /// Hides the patch, spines and both axes, leaving titles and plotted
+    /// artists (matplotlib's `set_axis_off`, `axis("off")`).
+    pub fn set_axis_off(&self) -> &Self {
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.decorations.axis_on = false);
+        self
+    }
+
+    /// Shows the patch, spines and axes again (matplotlib's `set_axis_on`).
+    pub fn set_axis_on(&self) -> &Self {
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.decorations.axis_on = true);
+        self
+    }
+
+    /// Whether the patch, spines and axes are drawn.
+    pub fn axis_on(&self) -> bool {
+        self.raw.with::<AxesState, _>(|a| a.decorations.axis_on)
+    }
+
+    /// Shows or hides the background patch and the spines (matplotlib's
+    /// `set_frame_on`).
+    pub fn set_frame_on(&self, on: bool) -> &Self {
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.decorations.frame_on = on);
+        self
+    }
+
+    /// Sets the background colour (matplotlib's `set_facecolor`).
+    pub fn set_facecolor(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.patch.facecolor = color);
+        self
+    }
+
+    /// Sets the gap between the axes top and its titles in points
+    /// (matplotlib's `set_title(..., pad=...)`).
+    pub fn set_title_pad(&self, pad: f64) -> &Self {
+        for location in [
+            TitleLocation::Left,
+            TitleLocation::Center,
+            TitleLocation::Right,
+        ] {
+            self.title_handle(location)
+                .set_transform(Transform::Axes(self.id()).offset_points(0.0, pad));
+        }
         self
     }
 

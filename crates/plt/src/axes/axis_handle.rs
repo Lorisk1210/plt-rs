@@ -4,11 +4,12 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use super::axis::AxisState;
+use super::axis::{AxisState, LabelLoc};
 use super::ticks::{GridOptions, GridStyle, Sides, TickPosition};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
+use crate::fonts::FontSize;
 use crate::spines::SpineSide;
 use crate::ticker::{
     AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator, NullFormatter,
@@ -36,7 +37,15 @@ impl Axis {
         self.name
     }
 
-    fn update<R>(&self, f: impl FnOnce(&mut AxisState) -> R) -> R {
+    /// Reads this axis's state.
+    pub(super) fn read<R>(&self, f: impl FnOnce(&AxisState) -> R) -> R {
+        self.axes
+            .raw()
+            .with::<AxesState, _>(|axes| f(axes.axis(self.name)))
+    }
+
+    /// Changes this axis's state.
+    pub(super) fn update<R>(&self, f: impl FnOnce(&mut AxisState) -> R) -> R {
         self.axes
             .raw()
             .with_mut::<AxesState, _>(|axes| f(axes.axis_mut(self.name)))
@@ -44,7 +53,7 @@ impl Axis {
 
     /// Applies `f` to this axis and to the same axis of every axes
     /// sharing it (matplotlib shares the tickers between them).
-    fn update_shared(&self, f: impl FnMut(&mut AxisState)) {
+    pub(super) fn update_shared(&self, f: impl FnMut(&mut AxisState)) {
         self.axes
             .raw()
             .figure_state()
@@ -164,6 +173,29 @@ impl Axis {
         high < low
     }
 
+    /// Makes the axis run from high to low values or back, keeping its
+    /// range (matplotlib's `Axis.set_inverted`).
+    pub fn set_inverted(&self, inverted: bool) -> &Self {
+        let (low, high) = match self.name {
+            AxisName::X => self.axes.xlim(),
+            AxisName::Y => self.axes.ylim(),
+        };
+        let (low, high) = if low <= high {
+            (low, high)
+        } else {
+            (high, low)
+        };
+        let limits = if inverted { (high, low) } else { (low, high) };
+        self.axes.raw().figure_state().borrow_mut().set_axis_limits(
+            self.axes.id(),
+            self.name,
+            limits,
+            None,
+            true,
+        );
+        self
+    }
+
     /// Shows or hides the whole axis: ticks, tick labels, label and offset
     /// text (matplotlib's `Axis.set_visible`).
     pub fn set_visible(&self, visible: bool) -> &Self {
@@ -205,6 +237,27 @@ impl Axis {
     pub fn set_label_color(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
         self.update(|axis| axis.label.color = color);
+        self
+    }
+
+    /// Places the axis label along the axis (matplotlib's `loc` of
+    /// `set_xlabel`).
+    pub fn set_label_loc(&self, loc: LabelLoc) -> &Self {
+        self.update(|axis| axis.label.loc = loc);
+        self
+    }
+
+    /// Sets the gap between the tick labels and the axis label in points
+    /// (matplotlib's `labelpad`).
+    pub fn set_label_pad(&self, pad: f64) -> &Self {
+        self.update(|axis| axis.label.pad = pad);
+        self
+    }
+
+    /// Sets the font size of the axis label.
+    pub fn set_label_fontsize(&self, size: FontSize) -> &Self {
+        let base = crate::rc::params().font_size;
+        self.update(|axis| axis.label.font = axis.label.font.clone().with_size(size, base));
         self
     }
 

@@ -51,7 +51,10 @@ impl Step {
                 y.as_ref().map_or(p.y, |m| m.forward(p.y)),
             ),
             Self::Plane(map) => map.forward(p),
-            Self::Blend(x, y) => Point::new(x.transform_point(p).x, y.transform_point(p).y),
+            Self::Blend(x, y) => Point::new(
+                x.transform_point_non_affine(p).x,
+                y.transform_point_non_affine(p).y,
+            ),
         }
     }
 
@@ -67,7 +70,10 @@ impl Step {
             Self::Plane(map) => Self::Plane(Rc::new(InversePlane(Rc::clone(map)))),
             // A blend is only invertible when each component is separable;
             // matplotlib makes the same assumption.
-            Self::Blend(x, y) => Self::Blend(Rc::new(x.inverted()?), Rc::new(y.inverted()?)),
+            Self::Blend(x, y) => Self::Blend(
+                Rc::new(x.non_affine_inverted()?),
+                Rc::new(y.non_affine_inverted()?),
+            ),
         })
     }
 
@@ -165,11 +171,18 @@ impl ResolvedTransform {
     }
 
     /// x from `x` and y from `y` (matplotlib's blended transform).
+    ///
+    /// Like matplotlib's `BlendedGenericTransform`, the non-affine parts
+    /// are blended first (the blend step applies only them) and the affine
+    /// parts after, as one affine; this
+    /// keeps an infinite non-affine coordinate on one side (logit of an
+    /// axes edge) from reaching the other side's affine as `0 · ∞`.
     pub fn blend(x: Self, y: Self) -> Self {
+        let affine = blend_rows(&x.affine, &y.affine);
         if x.is_affine() && y.is_affine() {
-            return Self::affine(blend_rows(&x.affine, &y.affine));
+            return Self::affine(affine);
         }
-        Self::with_step(Step::Blend(Rc::new(x), Rc::new(y)), Affine2D::IDENTITY)
+        Self::with_step(Step::Blend(Rc::new(x), Rc::new(y)), affine)
     }
 
     /// The inverse transform, if every stage is invertible.
@@ -187,6 +200,20 @@ impl ResolvedTransform {
             None => Affine2D::IDENTITY,
         };
         Some(Self { steps, affine })
+    }
+
+    /// The inverse of the non-affine steps alone.
+    fn non_affine_inverted(&self) -> Option<Self> {
+        let steps = self
+            .steps
+            .iter()
+            .rev()
+            .map(Step::inverted)
+            .collect::<Option<Vec<_>>>()?;
+        Some(Self {
+            steps,
+            affine: Affine2D::IDENTITY,
+        })
     }
 
     /// Maps one point.
@@ -322,6 +349,27 @@ mod tests {
             affine_blend.transform_point(Point::new(1.0, 1.0)),
             Point::new(2.0, 3.0)
         );
+    }
+
+    #[test]
+    fn blend_keeps_infinite_coordinates_on_their_side() {
+        // x from a transform with a log y map, y from axes fractions: at
+        // y = 0 the log is -inf, which must not turn x into 0 * -inf.
+        let data = ResolvedTransform::with_step(
+            Step::Separable(None, Some(Rc::new(Log10))),
+            Affine2D::scaling(100.0, 2.0),
+        );
+        let axes = ResolvedTransform::affine(Affine2D::scaling(1.0, 50.0));
+        let blended = ResolvedTransform::blend(data, axes);
+        assert_eq!(
+            blended.transform_point(Point::new(0.5, 0.0)),
+            Point::new(50.0, 0.0)
+        );
+        let inverse = blended.inverted().expect("invertible");
+        assert!(close(
+            inverse.transform_point(Point::new(50.0, 25.0)),
+            Point::new(0.5, 0.5)
+        ));
     }
 
     #[test]

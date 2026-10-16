@@ -1,0 +1,79 @@
+//! Limit, margin, autoscaling and frame cases of `figures/cases_axes.py`.
+
+use plt::axes::AxisName;
+use plt::prelude::*;
+
+use super::line;
+use crate::figures::FigureCase;
+
+/// `CIRCLE = np.linspace(0, 2 * np.pi, 100)`.
+fn circle() -> Vec<f64> {
+    linspace(0.0, 2.0 * std::f64::consts::PI, 100)
+}
+
+/// `_ellipse(ax)`: `ax.plot(3 * np.cos(CIRCLE), np.sin(CIRCLE))`.
+fn ellipse(ax: &Axes) -> Result<(), plt::axes::PlotError> {
+    let x: Vec<f64> = circle().iter().map(|t| 3.0 * t.cos()).collect();
+    let y: Vec<f64> = circle().iter().map(|t| t.sin()).collect();
+    ax.plot(x, y).map(drop)
+}
+
+pub(crate) const CASES: &[FigureCase] = &[
+    FigureCase::new("axes/set_limits", |fig| {
+        let ax = fig.subplot();
+        line(&ax)?;
+        ax.set_xlim(2.0, 8.0).set_ylim(-2.0, 1.5);
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/reversed_limits", |fig| {
+        let ax = fig.subplot();
+        line(&ax)?;
+        ax.set_xlim(10.0, 0.0).set_ylim(1.5, -1.5);
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/invert_axes", |fig| {
+        let axs = fig.subplots(1, 2)?;
+        for (ax, name) in axs.as_slice().iter().zip([AxisName::X, AxisName::Y]) {
+            line(ax)?;
+            let axis = ax.axis_of(name);
+            axis.set_inverted(!axis.inverted());
+        }
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
+    FigureCase::new("axes/margins", |fig| {
+        let axs = fig.subplots(1, 2)?;
+        line(&axs[(0, 0)])?;
+        axs[(0, 0)].set_margins(0.25, 0.25);
+        line(&axs[(0, 1)])?;
+        axs[(0, 1)].set_margins(0.0, -0.25);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
+    FigureCase::new("axes/autoscale_tight", |fig| {
+        let ax = fig.subplot();
+        line(&ax)?;
+        ax.autoscale(None, Some(true));
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/axis_off", |fig| {
+        let ax = fig.subplot();
+        ellipse(&ax)?;
+        ax.set_title("no axis decorations");
+        ax.set_axis_off();
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/frame_off_and_facecolor", |fig| {
+        let axs = fig.subplots(1, 2)?;
+        line(&axs[(0, 0)])?;
+        axs[(0, 0)].set_frame_on(false);
+        line(&axs[(0, 1)])?;
+        axs[(0, 1)].set_facecolor("lightyellow");
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
+];

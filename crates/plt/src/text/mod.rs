@@ -239,6 +239,18 @@ impl Text {
         self
     }
 
+    /// Moves the text horizontally, keeping its y (matplotlib's `set_x`).
+    pub fn set_x(&self, x: f64) -> &Self {
+        self.raw.with_mut::<TextArtist, _>(|t| t.position.x = x);
+        self
+    }
+
+    /// Moves the text vertically, keeping its x (matplotlib's `set_y`).
+    pub fn set_y(&self, y: f64) -> &Self {
+        self.raw.with_mut::<TextArtist, _>(|t| t.position.y = y);
+        self
+    }
+
     /// Sets the fonts of math text (matplotlib's `set_math_fontfamily`).
     pub fn set_math_fontfamily(&self, fontset: crate::fonts::Fontset) -> &Self {
         self.raw

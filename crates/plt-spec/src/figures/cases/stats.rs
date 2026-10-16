@@ -3,7 +3,8 @@
 use plt::axes::{ErrorSize, ErrorbarOptions, FillBetweenOptions};
 use plt::collections::CollectionProps;
 use plt::colors::Color;
-use plt::lines::{LineProps, LineStyle, MarkEvery};
+use plt::figure::Share;
+use plt::lines::{LineProps, LineStyle, MarkEvery, StepWhere};
 use plt::numeric::{arange, linspace};
 
 use crate::figures::FigureCase;
@@ -156,6 +157,43 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("stats/fill_between_where_interpolate", |fig| {
+        let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
+        let x = linspace(0.0, 2.0 * std::f64::consts::PI, 13);
+        let (y1, y2) = (map(&x, f64::sin), map(&x, f64::cos));
+        for (ax, interpolate) in axs.as_slice().iter().zip([false, true]) {
+            ax.plot_fmt(&x, &y1, "k")?;
+            ax.plot_fmt(&x, &y2, "k--")?;
+            for (above, color) in [(true, "green"), (false, "red")] {
+                let options = FillBetweenOptions {
+                    mask: Some(y1.iter().zip(&y2).map(|(a, b)| (a >= b) == above).collect()),
+                    interpolate,
+                    props: CollectionProps::default().color(color).alpha(0.4),
+                    ..FillBetweenOptions::default()
+                };
+                ax.fill_between(&x, &y1, &y2, options)?;
+            }
+        }
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
+    FigureCase::new("stats/fill_between_step", |fig| {
+        let axs = fig.subplots_shared(1, 3, Share::None, Share::All)?;
+        let x = arange(0.0, 8.0, 1.0);
+        let y = [1.0, 3.0, 2.0, 4.0, 3.0, 5.0, 2.0, 3.0];
+        let steps = [StepWhere::Pre, StepWhere::Mid, StepWhere::Post];
+        for (ax, step) in axs.as_slice().iter().zip(steps) {
+            let options = FillBetweenOptions {
+                step: Some(step),
+                props: CollectionProps::default().alpha(0.5),
+                ..FillBetweenOptions::default()
+            };
+            ax.fill_between(&x, y, [0.0], options)?;
+            ax.step(&x, y, step, LineProps::default())?;
+        }
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
 ];
 
 /// `FB_X = np.linspace(0, 4 * np.pi, 60)`.

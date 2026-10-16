@@ -2,11 +2,14 @@
 //! `YAxis`): tick helpers, tick positions and labels, unit conversion.
 
 use std::any::Any;
+use std::rc::Rc;
 
 use super::axis::AxisState;
-use super::ticks::{GridOptions, GridStyle};
+use super::ticks::{GridOptions, GridStyle, Sides, TickPosition};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
+use crate::colors::Color;
+use crate::spines::SpineSide;
 use crate::ticker::{
     AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator, NullFormatter,
 };
@@ -39,27 +42,41 @@ impl Axis {
             .with_mut::<AxesState, _>(|axes| f(axes.axis_mut(self.name)))
     }
 
+    /// Applies `f` to this axis and to the same axis of every axes
+    /// sharing it (matplotlib shares the tickers between them).
+    fn update_shared(&self, f: impl FnMut(&mut AxisState)) {
+        self.axes
+            .raw()
+            .figure_state()
+            .borrow_mut()
+            .update_shared_axis(self.axes.id(), self.name, f);
+    }
+
     /// Places the major ticks with `locator`.
     pub fn set_major_locator(&self, locator: impl Locator) -> &Self {
-        self.update(|axis| axis.set_major_locator(Box::new(locator)));
+        let locator: Rc<dyn Locator> = Rc::new(locator);
+        self.update_shared(|axis| axis.set_major_locator(Rc::clone(&locator)));
         self
     }
 
     /// Places the minor ticks with `locator`.
     pub fn set_minor_locator(&self, locator: impl Locator) -> &Self {
-        self.update(|axis| axis.minor_locator = Box::new(locator));
+        let locator: Rc<dyn Locator> = Rc::new(locator);
+        self.update_shared(|axis| axis.minor_locator = Rc::clone(&locator));
         self
     }
 
     /// Labels the major ticks with `formatter`.
     pub fn set_major_formatter(&self, formatter: impl Formatter) -> &Self {
-        self.update(|axis| axis.set_major_formatter(Box::new(formatter)));
+        let formatter: Rc<dyn Formatter> = Rc::new(formatter);
+        self.update_shared(|axis| axis.set_major_formatter(Rc::clone(&formatter)));
         self
     }
 
     /// Labels the minor ticks with `formatter`.
     pub fn set_minor_formatter(&self, formatter: impl Formatter) -> &Self {
-        self.update(|axis| axis.minor_formatter = Box::new(formatter));
+        let formatter: Rc<dyn Formatter> = Rc::new(formatter);
+        self.update_shared(|axis| axis.minor_formatter = Rc::clone(&formatter));
         self
     }
 
@@ -78,14 +95,16 @@ impl Axis {
         let highest = ticks.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         if !ticks.is_empty() {
             self.axes.unstale_view();
-        }
-        self.axes.raw().with_mut::<AxesState, _>(|axes| {
-            if !ticks.is_empty() {
-                axes.include_in_view(self.name, lowest, highest);
+            let figure = self.axes.raw().figure_state();
+            let mut state = figure.borrow_mut();
+            for id in state.siblings(self.name, self.axes.id()) {
+                if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+                    axes.include_in_view(self.name, lowest, highest);
+                }
             }
-            axes.axis_mut(self.name)
-                .set_major_locator(Box::new(FixedLocator::new(ticks)));
-        });
+        }
+        let locator: Rc<dyn Locator> = Rc::new(FixedLocator::new(ticks));
+        self.update_shared(|axis| axis.set_major_locator(Rc::clone(&locator)));
         self
     }
 
@@ -102,10 +121,9 @@ impl Axis {
         labels: impl IntoIterator<Item = S>,
     ) -> Result<&Self, PlotError> {
         let labels: Vec<String> = labels.into_iter().map(Into::into).collect();
-        self.update(|axis| {
-            tick_label_formatter(axis.major_locator.as_ref(), labels)
-                .map(|formatter| axis.set_major_formatter(formatter))
-        })?;
+        let formatter =
+            self.update(|axis| tick_label_formatter(axis.major_locator.as_ref(), labels))?;
+        self.update_shared(|axis| axis.set_major_formatter(Rc::clone(&formatter)));
         Ok(self)
     }
 
@@ -145,19 +163,116 @@ impl Axis {
         };
         high < low
     }
+
+    /// Shows or hides the whole axis: ticks, tick labels, label and offset
+    /// text (matplotlib's `Axis.set_visible`).
+    pub fn set_visible(&self, visible: bool) -> &Self {
+        self.update(|axis| axis.visible = visible);
+        self
+    }
+
+    /// Whether the axis is drawn.
+    pub fn visible(&self) -> bool {
+        self.axes
+            .raw()
+            .with::<AxesState, _>(|axes| axes.axis(self.name).visible)
+    }
+
+    /// Fails unless `side` is one this axis can be drawn on.
+    fn check_side(&self, side: SpineSide) -> Result<(), PlotError> {
+        if side.axis() == self.name {
+            Ok(())
+        } else {
+            Err(PlotError::WrongSide {
+                axis: self.name,
+                side,
+            })
+        }
+    }
+
+    /// Puts the axis label on `side` (matplotlib's `set_label_position`).
+    ///
+    /// # Errors
+    ///
+    /// When `side` is not a side of this axis (e.g. `Left` for x).
+    pub fn set_label_position(&self, side: SpineSide) -> Result<&Self, PlotError> {
+        self.check_side(side)?;
+        self.update(|axis| axis.label.side = side);
+        Ok(self)
+    }
+
+    /// Colours the axis label (matplotlib's `set_xlabel(..., color=...)`).
+    pub fn set_label_color(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
+        self.update(|axis| axis.label.color = color);
+        self
+    }
+
+    /// The side the axis label sits on.
+    pub fn label_position(&self) -> SpineSide {
+        self.axes
+            .raw()
+            .with::<AxesState, _>(|axes| axes.axis(self.name).label.side)
+    }
+
+    /// Chooses which sides get ticks and tick labels (matplotlib's
+    /// `set_ticks_position`).
+    ///
+    /// # Errors
+    ///
+    /// When a [`TickPosition::Side`] is not a side of this axis.
+    pub fn set_ticks_position(&self, position: TickPosition) -> Result<&Self, PlotError> {
+        let both = Sides {
+            first: true,
+            second: true,
+        };
+        match position {
+            TickPosition::Side(side) => {
+                self.check_side(side)?;
+                self.update(|axis| axis.ticks_to_side(side.is_high()));
+            }
+            TickPosition::Both => self.update(|axis| axis.restyle_ticks(|s| s.ticks = both)),
+            TickPosition::None => {
+                self.update(|axis| axis.restyle_ticks(|s| s.ticks = Sides::default()));
+            }
+            TickPosition::Default => self.update(|axis| {
+                axis.restyle_ticks(|s| {
+                    s.ticks = both;
+                    s.labels = Sides {
+                        first: true,
+                        second: false,
+                    };
+                });
+            }),
+        }
+        Ok(self)
+    }
+
+    /// Moves the ticks, and the tick labels unless both were hidden, to
+    /// `side` (matplotlib's `tick_top`, `tick_bottom`, `tick_left` and
+    /// `tick_right`).
+    ///
+    /// # Errors
+    ///
+    /// When `side` is not a side of this axis.
+    pub fn tick_to(&self, side: SpineSide) -> Result<&Self, PlotError> {
+        self.check_side(side)?;
+        self.update(|axis| axis.tick_to(side.is_high()));
+        Ok(self)
+    }
 }
 
 /// The formatter showing `labels` at the ticks `locator` places.
 fn tick_label_formatter(
     locator: &dyn Locator,
     labels: Vec<String>,
-) -> Result<Box<dyn Formatter>, PlotError> {
+) -> Result<Rc<dyn Formatter>, PlotError> {
     if labels.is_empty() {
-        return Ok(Box::new(NullFormatter));
+        return Ok(Rc::new(NullFormatter));
     }
     let any: &dyn Any = locator;
     let Some(fixed) = any.downcast_ref::<FixedLocator>() else {
-        return Ok(Box::new(FixedFormatter::new(labels)));
+        return Ok(Rc::new(FixedFormatter::new(labels)));
     };
     if fixed.locs().len() != labels.len() {
         return Err(PlotError::TickLabelCount {
@@ -166,7 +281,7 @@ fn tick_label_formatter(
         });
     }
     let table: Vec<(f64, String)> = fixed.locs().iter().copied().zip(labels).collect();
-    Ok(Box::new(FuncFormatter::new(move |value, _| {
+    Ok(Rc::new(FuncFormatter::new(move |value, _| {
         label_at(&table, value)
     })))
 }

@@ -10,6 +10,8 @@ pub(crate) struct AxisAutoscale<'a> {
     pub(crate) axis: &'a AxisState,
     /// What the locator may know about the axis.
     pub(crate) info: &'a AxisInfo,
+    /// Smallest positive datum over the axes sharing this axis.
+    pub(crate) minpos: f64,
     /// Margin as a fraction of the data span.
     pub(crate) margin: f64,
     /// Sorted sticky values the margins must not cross.
@@ -38,9 +40,7 @@ pub(crate) fn autoscale_axis(request: &AxisAutoscale<'_>) -> Result<(f64, f64), 
     let x1_bound = request.stickies.iter().find(|&&s| s > x1 - tol).copied();
 
     // Add the margins in scaled space, then map back.
-    (x0, x1) = axis
-        .scale()
-        .limit_range_for_scale(x0, x1, request.info.minpos);
+    (x0, x1) = axis.scale().limit_range_for_scale(x0, x1, request.minpos);
     let inverse = |v: f64| axis.map().map_or(v, |m| m.inverse(v));
     let (t0, t1) = (axis.forward(x0), axis.forward(x1));
     let delta = (t1 - t0) * request.margin;
@@ -87,6 +87,7 @@ mod tests {
         autoscale_axis(&AxisAutoscale {
             axis: &axis,
             info: &info,
+            minpos: info.minpos,
             margin,
             stickies,
             tight: false,

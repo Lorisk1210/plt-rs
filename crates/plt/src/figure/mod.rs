@@ -3,6 +3,7 @@
 mod frame;
 mod save;
 mod state;
+mod subplots;
 #[cfg(test)]
 mod tests;
 
@@ -10,20 +11,20 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-use plt_core::{Bbox, Rgba};
+use plt_core::Rgba;
 use plt_render::Renderer;
 
 pub(crate) use frame::FigureFrame;
 pub use save::SaveError;
 pub(crate) use state::FigureState;
+pub use subplots::Share;
+pub(crate) use subplots::insert_axes;
 
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::fonts::FontProperties;
-use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotParams, SubplotSpec};
-use crate::numeric::Grid;
-use crate::rc::{ColorOrAuto, RcParams};
-use crate::spines::{SpineArtist, SpineSide};
+use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
+use crate::rc::RcParams;
 use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
 use plt_core::Point;
@@ -144,57 +145,6 @@ impl Figure {
         self.root.with::<FigureFrame, _>(|frame| frame.facecolor)
     }
 
-    /// Adds axes occupying `[left, bottom, width, height]` in figure fractions.
-    pub fn add_axes(&self, rect: [f64; 4]) -> Axes {
-        let [left, bottom, width, height] = rect;
-        self.insert_axes(Bbox::from_bounds(left, bottom, width, height), None)
-    }
-
-    /// Adds axes filling the default subplot area (`fig.add_subplot()`).
-    pub fn subplot(&self) -> Axes {
-        let spec = GridSpec::new(1, 1)
-            .and_then(|grid| grid.cell(0, 0))
-            .expect("a 1x1 grid has a cell (0, 0)");
-        self.add_subplot_spec(&spec)
-            .expect("the default subplot parameters are valid")
-    }
-
-    /// Adds axes in cell `index` (1-based, row-major) of an
-    /// `nrows × ncols` grid (`fig.add_subplot(nrows, ncols, index)`).
-    pub fn add_subplot(
-        &self,
-        nrows: usize,
-        ncols: usize,
-        index: usize,
-    ) -> Result<Axes, GridSpecError> {
-        let spec = GridSpec::new(nrows, ncols)?.numbered(index)?;
-        self.add_subplot_spec(&spec)
-    }
-
-    /// Adds axes covering a grid cell or block (`fig.add_subplot(gs[...])`).
-    pub fn add_subplot_spec(&self, spec: &SubplotSpec) -> Result<Axes, GridSpecError> {
-        let position = spec.position(&self.subplot_params())?;
-        Ok(self.insert_axes(position, Some(spec.clone())))
-    }
-
-    /// A grid of `nrows × ncols` axes (`fig.subplots(nrows, ncols)`),
-    /// indexed by `(row, col)`.
-    pub fn subplots(&self, nrows: usize, ncols: usize) -> Result<Grid<Axes>, GridSpecError> {
-        let grid = GridSpec::new(nrows, ncols)?;
-        let mut cells = Vec::with_capacity(nrows * ncols);
-        for row in 0..nrows {
-            for col in 0..ncols {
-                cells.push(self.add_subplot_spec(&grid.cell(row, col)?)?);
-            }
-        }
-        Ok(Grid::from_vec(nrows, ncols, cells).expect("one axes per grid cell"))
-    }
-
-    /// A grid specification using this figure's subplot parameters.
-    pub fn add_gridspec(&self, nrows: usize, ncols: usize) -> Result<GridSpec, GridSpecError> {
-        GridSpec::new(nrows, ncols)
-    }
-
     /// The margins and spacing of subplot grids.
     pub fn subplot_params(&self) -> SubplotParams {
         self.root
@@ -219,32 +169,6 @@ impl Figure {
         }
         state.stale = true;
         Ok(self)
-    }
-
-    fn insert_axes(&self, position: Bbox, spec: Option<SubplotSpec>) -> Axes {
-        let rc = crate::rc::params();
-        let mut axes = AxesState::new(position, Rc::clone(&rc));
-        axes.subplot_spec = spec;
-        let mut state = self.state.borrow_mut();
-        let id = state.adopt(self.root.id(), Box::new(axes));
-        let spines: Vec<_> = SpineSide::ALL
-            .into_iter()
-            .map(|side| state.adopt(id, Box::new(SpineArtist::new(side, id, Rc::clone(&rc)))))
-            .collect();
-        let titles: Vec<_> = [
-            (0.0, HAlign::Left),
-            (0.5, HAlign::Center),
-            (1.0, HAlign::Right),
-        ]
-        .into_iter()
-        .map(|(x, halign)| state.adopt(id, Box::new(axes_title(id, x, halign, &rc))))
-        .collect();
-        if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
-            axes.spines = spines;
-            axes.titles = titles;
-        }
-        drop(state);
-        Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id))
     }
 
     /// Sets the figure title (matplotlib's `suptitle`) and returns it.
@@ -399,22 +323,6 @@ impl SuperKind {
         text.base_mut().transform = Some(Transform::Figure(frame));
         text
     }
-}
-
-/// An empty axes title at axes fraction `x` (matplotlib's `Axes.title`,
-/// `_left_title` and `_right_title`).
-fn axes_title(axes: ArtistId, x: f64, halign: HAlign, rc: &Rc<RcParams>) -> TextArtist {
-    let y = rc.axes_titley.unwrap_or(1.0);
-    let mut title = TextArtist::new(Point::new(x, y), "", Rc::clone(rc));
-    title.halign = halign;
-    title.font = FontProperties::from_rc(rc)
-        .with_size(rc.axes_titlesize, rc.font_size)
-        .with_weight(rc.axes_titleweight);
-    if let ColorOrAuto::Color(color) = &rc.axes_titlecolor {
-        title.color = color.clone();
-    }
-    title.base_mut().transform = Some(Transform::Axes(axes).offset_points(0.0, rc.axes_titlepad));
-    title
 }
 
 impl ArtistHandle for Figure {

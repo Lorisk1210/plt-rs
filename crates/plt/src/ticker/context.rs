@@ -17,6 +17,16 @@ pub enum AxisName {
     Y,
 }
 
+impl AxisName {
+    /// matplotlib's name for the axis (`"x"` or `"y"`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::X => "x",
+            Self::Y => "y",
+        }
+    }
+}
+
 /// The kind of scale an axis uses, as far as tick helpers care.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ScaleHint {

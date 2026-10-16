@@ -1,0 +1,252 @@
+//! Shared and twinned axes (matplotlib's `sharex`/`sharey`, `twinx`/`twiny`
+//! and `label_outer`).
+
+use std::rc::Rc;
+
+use super::{Axes, AxesState, AxisName, PlotError};
+use crate::artist::{Artist, ArtistHandle};
+use crate::figure::insert_axes;
+use crate::spines::SpineSide;
+
+impl Axes {
+    /// Shares the x axis with `other`: both then show the same x range
+    /// and ticks, autoscaled from the data of both, and changing the
+    /// limits or scale of one changes all (matplotlib's `sharex`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let fig = Figure::new();
+    /// let (top, bottom) = (fig.add_subplot(2, 1, 1)?, fig.add_subplot(2, 1, 2)?);
+    /// bottom.share_x(&top)?;
+    /// top.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// bottom.plot([3.0, 4.0], [0.0, 1.0])?;
+    /// assert_eq!(bottom.xlim(), top.xlim());
+    /// assert_eq!(top.xlim(), (-0.2, 4.2));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the x axis is already shared with a different axes, or `other`
+    /// belongs to another figure.
+    pub fn share_x(&self, other: &Self) -> Result<&Self, PlotError> {
+        self.share(AxisName::X, other)
+    }
+
+    /// Shares the y axis with `other` (matplotlib's `sharey`); see
+    /// [`Axes::share_x`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::share_x`].
+    pub fn share_y(&self, other: &Self) -> Result<&Self, PlotError> {
+        self.share(AxisName::Y, other)
+    }
+
+    /// Shares axis `name` with `other`.
+    pub(crate) fn share(&self, name: AxisName, other: &Self) -> Result<&Self, PlotError> {
+        let figure = self.raw().figure_state();
+        if !Rc::ptr_eq(figure, other.raw().figure_state()) {
+            return Err(PlotError::ForeignAxes);
+        }
+        figure
+            .borrow_mut()
+            .share_axis(name, self.id(), other.id())?;
+        Ok(self)
+    }
+
+    /// A new axes on top of this one sharing its x axis, with its y axis
+    /// on the right (matplotlib's `twinx`).
+    #[must_use]
+    pub fn twinx(&self) -> Self {
+        self.twin(AxisName::X)
+    }
+
+    /// A new axes on top of this one sharing its y axis, with its x axis
+    /// on top (matplotlib's `twiny`).
+    #[must_use]
+    pub fn twiny(&self) -> Self {
+        self.twin(AxisName::Y)
+    }
+
+    /// matplotlib's `_make_twin_axes` followed by the `twinx`/`twiny`
+    /// set-up: the twin shares `shared`, draws its other axis on the far
+    /// side and has no background.
+    fn twin(&self, shared: AxisName) -> Self {
+        let own = match shared {
+            AxisName::X => AxisName::Y,
+            AxisName::Y => AxisName::X,
+        };
+        let (frame, position, spec, zorder, autoscale) = self.raw.with::<AxesState, _>(|axes| {
+            (
+                axes.base().parent,
+                axes.position,
+                axes.subplot_spec.clone(),
+                axes.base().zorder,
+                axes.axis(shared).autoscale.enabled,
+            )
+        });
+        let figure = self.raw().figure_state();
+        let frame = frame.expect("an axes always lives in a figure frame");
+        let twin = insert_axes(figure, frame, position, spec);
+        twin.share(shared, self)
+            .expect("a new axes in this figure shares nothing yet");
+        twin.set_zorder(zorder);
+        twin.raw.with_mut::<AxesState, _>(|axes| {
+            axes.patch.visible = false;
+            axes.axis_mut(shared).autoscale.enabled = autoscale;
+            axes.axis_mut(shared).visible = false;
+            let axis = axes.axis_mut(own);
+            axis.tick_to(true);
+            axis.label.side = SpineSide::of(own, true);
+        });
+        self.raw
+            .with_mut::<AxesState, _>(|axes| axes.axis_mut(own).tick_to(false));
+        twin
+    }
+
+    /// Hides the tick labels, axis labels and offset texts that face
+    /// neighbouring subplots, keeping only those on the outer edges of the
+    /// grid (matplotlib's `label_outer`). Axes not placed on a grid are
+    /// left alone.
+    pub fn label_outer(&self) -> &Self {
+        self.label_outer_axis(AxisName::X, false);
+        self.label_outer_axis(AxisName::Y, false);
+        self
+    }
+
+    /// matplotlib's `_label_outer_xaxis` / `_label_outer_yaxis`; with
+    /// `remove_inner_ticks` the inner tick marks go too.
+    pub(crate) fn label_outer_axis(&self, name: AxisName, remove_inner_ticks: bool) {
+        self.raw.with_mut::<AxesState, _>(|axes| {
+            let Some(spec) = axes.subplot_spec.clone() else {
+                return;
+            };
+            let (inner_low, inner_high) = match name {
+                AxisName::X => (!spec.is_last_row(), !spec.is_first_row()),
+                AxisName::Y => (!spec.is_first_col(), !spec.is_last_col()),
+            };
+            let axis = axes.axis_mut(name);
+            for (inner, high) in [(inner_high, true), (inner_low, false)] {
+                if !inner {
+                    continue;
+                }
+                let side = SpineSide::of(name, high);
+                if axis.label.side == side {
+                    axis.label.text.clear();
+                }
+                axis.restyle_ticks(|style| {
+                    let (labels, ticks) = if high {
+                        (&mut style.labels.second, &mut style.ticks.second)
+                    } else {
+                        (&mut style.labels.first, &mut style.ticks.first)
+                    };
+                    *labels = false;
+                    if remove_inner_ticks {
+                        *ticks = false;
+                    }
+                });
+                if axis.offset_side == side {
+                    axis.offset_visible = false;
+                }
+            }
+        });
+    }
+
+    /// Shows or hides the background patch (matplotlib's
+    /// `ax.patch.set_visible`).
+    pub fn set_patch_visible(&self, visible: bool) -> &Self {
+        self.raw
+            .with_mut::<AxesState, _>(|axes| axes.patch.visible = visible);
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::axes::{AxesState, AxisName};
+    use crate::figure::{Figure, Share};
+    use crate::prelude::*;
+    use crate::spines::SpineSide;
+
+    #[test]
+    fn twinx_puts_its_y_axis_on_the_right() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_zorder(3.0);
+        ax.plot([0.0, 10.0], [0.0, 1.0]).unwrap();
+        let twin = ax.twinx();
+        twin.plot([0.0, 20.0], [5.0, 6.0]).unwrap();
+        assert_eq!(ax.xlim(), twin.xlim());
+        assert_eq!(ax.xlim(), (-1.0, 21.0));
+        assert_eq!(twin.position(), ax.position());
+        assert_eq!(twin.zorder(), 3.0);
+        assert!(!twin.xaxis().visible());
+        assert_eq!(twin.yaxis().label_position(), SpineSide::Right);
+        twin.raw().with::<AxesState, _>(|state| {
+            assert!(!state.patch.visible);
+            let style = &state.yaxis.major_style;
+            assert!(style.ticks.second && !style.ticks.first);
+            assert!(style.labels.second && !style.labels.first);
+            assert_eq!(state.yaxis.offset_side, SpineSide::Right);
+        });
+    }
+
+    #[test]
+    fn twiny_puts_its_x_axis_on_top() {
+        let ax = Figure::new().subplot();
+        let twin = ax.twiny();
+        assert!(!twin.yaxis().visible());
+        assert_eq!(twin.xaxis().label_position(), SpineSide::Top);
+        assert_eq!(
+            twin.yaxis().set_label_position(SpineSide::Top).err(),
+            Some(crate::axes::PlotError::WrongSide {
+                axis: AxisName::Y,
+                side: SpineSide::Top
+            })
+        );
+    }
+
+    #[test]
+    fn label_outer_keeps_only_the_grid_edges() {
+        let fig = Figure::new();
+        let axs = fig.subplots(2, 2).unwrap();
+        for ax in axs.as_slice() {
+            ax.set_xlabel("x").set_ylabel("y").label_outer();
+        }
+        let labels = |row: usize, col: usize| {
+            let ax = &axs[(row, col)];
+            let shown = ax.raw().with::<AxesState, _>(|state| {
+                (
+                    state.xaxis.major_style.labels.first,
+                    state.yaxis.major_style.labels.first,
+                )
+            });
+            (ax.label(AxisName::X), ax.label(AxisName::Y), shown)
+        };
+        assert_eq!(labels(1, 0), ("x".into(), "y".into(), (true, true)));
+        assert_eq!(labels(0, 0), (String::new(), "y".into(), (false, true)));
+        assert_eq!(labels(1, 1), ("x".into(), String::new(), (true, false)));
+        assert_eq!(labels(0, 1), (String::new(), String::new(), (false, false)));
+    }
+
+    #[test]
+    fn shared_subplots_hide_inner_tick_labels() {
+        let fig = Figure::new();
+        let axs = fig.subplots_shared(2, 1, Share::Row, Share::None).unwrap();
+        let shown = |row: usize| {
+            axs[(row, 0)]
+                .raw()
+                .with::<AxesState, _>(|state| state.xaxis.major_style.labels.first)
+        };
+        assert!(shown(0), "rows sharing x keep every label");
+        let fig = Figure::new();
+        let axs = fig.subplots_shared(2, 1, Share::Col, Share::None).unwrap();
+        let shown = |row: usize| {
+            axs[(row, 0)]
+                .raw()
+                .with::<AxesState, _>(|state| state.xaxis.major_style.labels.first)
+        };
+        assert!(!shown(0) && shown(1));
+    }
+}

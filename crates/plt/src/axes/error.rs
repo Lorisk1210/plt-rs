@@ -6,7 +6,9 @@ use crate::colors::ColormapError;
 use crate::lines::{FormatError, MarkEveryError};
 use crate::markers::MarkerError;
 use crate::patches::StepPatchError;
+use crate::spines::SpineSide;
 use crate::stats::StatsError;
+use crate::ticker::AxisName;
 
 /// Invalid data or options passed to a plotting method.
 #[derive(Clone, Debug, PartialEq)]
@@ -59,6 +61,17 @@ pub enum PlotError {
         /// Number of labels.
         labels: usize,
     },
+    /// The axis is already shared with a different axes.
+    AlreadyShared(AxisName),
+    /// The axes belong to different figures.
+    ForeignAxes,
+    /// A side that the axis cannot be drawn on (e.g. `Left` for x).
+    WrongSide {
+        /// The axis.
+        axis: AxisName,
+        /// The requested side.
+        side: SpineSide,
+    },
 }
 
 impl fmt::Display for PlotError {
@@ -95,6 +108,16 @@ impl fmt::Display for PlotError {
                 "The number of FixedLocator locations ({ticks}), usually from a call to \
                  set_ticks, does not match the number of labels ({labels})."
             ),
+            Self::AlreadyShared(axis) => write!(f, "{}-axis is already shared", axis.name()),
+            Self::ForeignAxes => f.write_str("the axes belong to different figures"),
+            Self::WrongSide { axis, side } => {
+                write!(
+                    f,
+                    "{:?} is not a side of the {}-axis",
+                    side.name(),
+                    axis.name()
+                )
+            }
             Self::NormWithLimits => f.write_str(
                 "passing a Normalize instance simultaneously with vmin/vmax is not supported",
             ),

@@ -5,6 +5,7 @@ use std::str::FromStr;
 use crate::colors::Color;
 use crate::lines::LineStyle;
 use crate::rc::{ColorOrInherit, RcParams};
+use crate::spines::SpineSide;
 use crate::ticker::AxisName;
 
 /// Which way tick marks point relative to the axes.
@@ -54,6 +55,19 @@ pub struct Sides {
     pub first: bool,
     /// Top or right.
     pub second: bool,
+}
+
+/// Where an axis draws its ticks (matplotlib's `set_ticks_position`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum TickPosition {
+    /// Ticks and labels on this side only; the offset text follows.
+    Side(SpineSide),
+    /// Ticks on both sides; labels unchanged.
+    Both,
+    /// No ticks; labels unchanged.
+    None,
+    /// Ticks on both sides, labels on the bottom or left.
+    Default,
 }
 
 /// How gridlines at the ticks are drawn.

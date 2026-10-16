@@ -1,7 +1,9 @@
 //! Limit, margin, autoscaling and frame cases of `figures/cases_axes.py`.
 
-use plt::axes::AxisName;
+use plt::axes::{Adjustable, AxisMode, AxisName};
 use plt::prelude::*;
+use plt::rc::Aspect;
+use plt::transforms::Anchor;
 
 use super::line;
 use crate::figures::FigureCase;
@@ -59,6 +61,57 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/aspect_equal_box", |fig| {
+        let ax = fig.subplot();
+        ellipse(&ax)?;
+        ax.set_aspect(Aspect::Equal)?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/aspect_equal_datalim", |fig| {
+        let ax = fig.subplot();
+        ellipse(&ax)?;
+        ax.set_aspect(Aspect::Equal)?
+            .set_adjustable(Adjustable::Datalim);
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/aspect_numeric_anchor", |fig| {
+        let ax = fig.subplot();
+        ellipse(&ax)?;
+        ax.set_aspect(Aspect::Ratio(2.0))?.set_anchor(Anchor::SW);
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/box_aspect", |fig| {
+        let axs = fig.subplots(1, 2)?;
+        for (ax, ratio) in axs.as_slice().iter().zip([1.0, 0.5]) {
+            line(ax)?;
+            ax.set_box_aspect(Some(ratio))?;
+        }
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
+    FigureCase::new("axes/axis_modes_equal_scaled_tight_square", |fig| {
+        let axs = fig.subplots(2, 2)?;
+        fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+            hspace: Some(0.4),
+            ..plt::gridspec::SubplotOverrides::default()
+        })?;
+        let modes = [
+            (AxisMode::Equal, "equal"),
+            (AxisMode::Scaled, "scaled"),
+            (AxisMode::Tight, "tight"),
+            (AxisMode::Square, "square"),
+        ];
+        for (ax, (mode, name)) in axs.as_slice().iter().zip(modes) {
+            ellipse(ax)?;
+            ax.axis_mode(mode);
+            ax.set_title(name);
+        }
+        Ok(())
+    })
+    .sized(7.0, 6.0, 100.0),
     FigureCase::new("axes/axis_off", |fig| {
         let ax = fig.subplot();
         ellipse(&ax)?;

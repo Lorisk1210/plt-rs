@@ -30,6 +30,7 @@ mod tests;
 mod ticks;
 mod twins;
 mod view;
+mod violin;
 
 pub use crate::ticker::AxisName;
 pub use axis::{Tick, TickSet};
@@ -50,6 +51,7 @@ pub(crate) use state::AxesState;
 pub use stem::{StemContainer, StemOptions};
 pub use steps::StairsOptions;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
+pub use violin::{ViolinDrawOptions, ViolinParts, ViolinSide, ViolinplotOptions};
 
 use plt_core::Bbox;
 

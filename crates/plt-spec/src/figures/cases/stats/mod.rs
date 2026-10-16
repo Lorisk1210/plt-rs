@@ -4,11 +4,13 @@ mod boxplot;
 mod errorbar;
 mod events;
 mod fill_between;
+mod violin;
 
 pub(crate) use boxplot::CASES as BOXPLOT;
 pub(crate) use errorbar::CASES as ERRORBAR;
 pub(crate) use events::CASES as EVENTS;
 pub(crate) use fill_between::CASES as FILL_BETWEEN;
+pub(crate) use violin::CASES as VIOLIN;
 
 use crate::rng::SpecRng;
 

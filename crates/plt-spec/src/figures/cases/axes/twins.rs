@@ -1,8 +1,11 @@
 //! Twin and shared axes cases of `figures/cases_axes.py`.
 
+use plt::axes::SecondaryLocation;
 use plt::figure::Share;
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
+use plt::scale::FuncTransform;
+use plt::spines::SpineSide;
 
 use super::{line, of_t, t};
 use crate::figures::FigureCase;
@@ -53,6 +56,32 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/secondary_xaxis_functions", |fig| {
+        let ax = fig.subplot();
+        let deg = linspace(0.0, 360.0, 50);
+        let wave: Vec<f64> = deg.iter().map(|d| d.to_radians().sin()).collect();
+        ax.plot(&deg, wave)?;
+        ax.set_xlabel("degrees");
+        let radians = FuncTransform::new(f64::to_radians, f64::to_degrees);
+        let sec = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), Some(radians))?;
+        sec.set_xlabel("radians");
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/secondary_yaxis_location", |fig| {
+        let ax = fig.subplot();
+        fig.subplots_adjust(&SubplotOverrides {
+            right: Some(0.85),
+            ..SubplotOverrides::default()
+        })?;
+        ax.plot(arange(0.0, 20.0, 1.0), linspace(-10.0, 40.0, 20))?;
+        ax.set_ylabel("Celsius");
+        let fahrenheit = FuncTransform::new(|c| c * 1.8 + 32.0, |f| (f - 32.0) / 1.8);
+        let sec =
+            ax.secondary_yaxis(SecondaryLocation::Side(SpineSide::Right), Some(fahrenheit))?;
+        sec.set_ylabel("Fahrenheit");
+        Ok(())
+    }),
     FigureCase::new("axes/sharex_sharey_label_outer", |fig| {
         let axs = fig.subplots_shared(2, 2, Share::All, Share::All)?;
         for (i, ax) in axs.as_slice().iter().enumerate() {

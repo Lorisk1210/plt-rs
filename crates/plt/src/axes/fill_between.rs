@@ -57,8 +57,14 @@ impl Axes {
         y2: impl AsRef<[f64]>,
         options: FillBetweenOptions,
     ) -> Result<Collection, PlotError> {
-        let curves = Curves::new(Orientation::Vertical, x.as_ref(), y1.as_ref(), y2.as_ref(), options.mask.as_deref())?;
-        self.add_fill_between(Orientation::Vertical, &curves, options)
+        let curves = Curves::new(
+            Orientation::Vertical,
+            x.as_ref(),
+            y1.as_ref(),
+            y2.as_ref(),
+            options.mask.as_deref(),
+        )?;
+        Ok(self.add_fill_between(Orientation::Vertical, &curves, options))
     }
 
     /// Fills between `x1` and `x2` along `y` (matplotlib's
@@ -74,8 +80,14 @@ impl Axes {
         x2: impl AsRef<[f64]>,
         options: FillBetweenOptions,
     ) -> Result<Collection, PlotError> {
-        let curves = Curves::new(Orientation::Horizontal, y.as_ref(), x1.as_ref(), x2.as_ref(), options.mask.as_deref())?;
-        self.add_fill_between(Orientation::Horizontal, &curves, options)
+        let curves = Curves::new(
+            Orientation::Horizontal,
+            y.as_ref(),
+            x1.as_ref(),
+            x2.as_ref(),
+            options.mask.as_deref(),
+        )?;
+        Ok(self.add_fill_between(Orientation::Horizontal, &curves, options))
     }
 
     fn add_fill_between(
@@ -83,7 +95,7 @@ impl Axes {
         orientation: Orientation,
         curves: &Curves,
         options: FillBetweenOptions,
-    ) -> Result<Collection, PlotError> {
+    ) -> Collection {
         let mut props = options.props;
         if !props.sets_face() {
             props = props.facecolor(self.next_patch_color());
@@ -105,9 +117,7 @@ impl Axes {
             CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
         props.apply(&mut collection);
         collection.base_mut().transform = Some(self.trans_data());
-        Ok(Collection::from_raw(
-            self.adopt(collection, &DataUpdate::limits(limits)),
-        ))
+        Collection::from_raw(self.adopt(collection, &DataUpdate::limits(limits)))
     }
 }
 
@@ -167,7 +177,11 @@ impl Curves {
         step: Option<StepWhere>,
         interpolate: bool,
     ) -> Vec<(f64, f64)> {
-        let (t, f1, f2) = (&self.t[start..stop], &self.f1[start..stop], &self.f2[start..stop]);
+        let (t, f1, f2) = (
+            &self.t[start..stop],
+            &self.f1[start..stop],
+            &self.f2[start..stop],
+        );
         let style = step.map_or(DrawStyle::Default, DrawStyle::from);
         let mut rows = style
             .apply(t, &[f1, f2])
@@ -196,7 +210,8 @@ impl Curves {
     fn crossing(&self, idx: usize) -> (f64, f64) {
         let before = idx.saturating_sub(1);
         let end = (idx + 1).min(self.t.len());
-        let valid = |i: usize| self.t[i].is_finite() && self.f1[i].is_finite() && self.f2[i].is_finite();
+        let valid =
+            |i: usize| self.t[i].is_finite() && self.f1[i].is_finite() && self.f2[i].is_finite();
         if end - before == 2 {
             if !valid(idx) {
                 return (self.t[before], self.f1[before]);
@@ -282,8 +297,8 @@ mod tests {
             contiguous_regions(&[true, true, false, true, false, false, true]),
             [(0, 2), (3, 4), (6, 7)]
         );
-        assert!(contiguous_regions(&[]).is_empty());
-        assert!(contiguous_regions(&[false]).is_empty());
+        assert_eq!(contiguous_regions(&[]), Vec::new());
+        assert_eq!(contiguous_regions(&[false]), Vec::new());
     }
 
     #[test]

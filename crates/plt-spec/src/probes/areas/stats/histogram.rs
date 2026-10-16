@@ -1,8 +1,10 @@
 //! `numpy.histogram*` and `Axes.hist`.
 
+use plt::axes::{HistArtists, HistPlot, HistPlotOptions};
+use plt::figure::Figure;
 use plt::stats::{
-    self, BarRect, BinEstimator, BinSample, Bins, Cumulative, Hist, HistAlign, HistBottom,
-    HistOptions, HistOrientation, HistPatches, HistType, HistogramOptions,
+    self, BinEstimator, BinSample, Bins, Cumulative, HistAlign, HistBottom, HistOptions,
+    HistOrientation, HistType, HistogramOptions,
 };
 
 use super::{Numbers, datasets, floats, number, object};
@@ -164,29 +166,27 @@ pub(super) fn axes_hist(args: Args<'_>) -> Outcome {
             Some(b) => HistBottom::Uniform(number(b)?),
         },
     };
-    let hist = if integer {
+    let ax = Figure::new().subplot();
+    let options = HistPlotOptions {
+        layout: opts,
+        log: args.opt_bool("log")?.unwrap_or(false),
+        ..HistPlotOptions::default()
+    };
+    let plot = if integer {
         let ints: Vec<Vec<i64>> = sets
             .iter()
             .map(|s| s.iter().map(|&v| v as i64).collect())
             .collect();
-        stats::hist(&ints, &opts)
+        ax.hist(&ints, &options)
     } else {
-        stats::hist(&sets, &opts)
+        ax.hist(&sets, &options)
     }
     .map_err(ProbeError::rejected)?;
-    let log = args.opt_bool("log")?.unwrap_or(false);
-    let log_axis = |horizontal: bool| {
-        if log && (orientation == HistOrientation::Horizontal) == horizontal {
-            "log"
-        } else {
-            "linear"
-        }
-    };
-    let Hist {
+    let HistPlot {
         tops,
         edges,
-        patches,
-    } = hist;
+        artists,
+    } = plot;
     let n = if tops.len() == 1 {
         Json::from(tops.into_iter().next().unwrap_or_default())
     } else {
@@ -195,9 +195,9 @@ pub(super) fn axes_hist(args: Args<'_>) -> Outcome {
     Ok(object([
         ("n", n),
         ("bins", Json::from(edges)),
-        ("patches", patches_json(&patches)),
-        ("xscale", Json::from(log_axis(true))),
-        ("yscale", Json::from(log_axis(false))),
+        ("patches", patches_json(&artists)),
+        ("xscale", Json::from(ax.xscale())),
+        ("yscale", Json::from(ax.yscale())),
     ]))
 }
 
@@ -225,42 +225,40 @@ fn parse_cumulative(value: Option<&Json>) -> Result<Cumulative, ProbeError> {
     }
 }
 
-fn patches_json(patches: &HistPatches) -> Json {
-    match patches {
-        HistPatches::Bars(groups) => Json::Array(
-            groups
+/// The rectangles (`[x, y, width, height]`) or outlines of every dataset.
+fn patches_json(artists: &HistArtists) -> Json {
+    match artists {
+        HistArtists::Bars(containers) => Json::Array(
+            containers
                 .iter()
-                .map(|bars| {
+                .map(|container| {
                     Json::Array(
-                        bars.iter()
-                            .map(
-                                |&BarRect {
-                                     x,
-                                     y,
-                                     width,
-                                     height,
-                                 }| {
-                                    Json::from(vec![x, y, width, height])
-                                },
-                            )
+                        container
+                            .patches
+                            .iter()
+                            .map(|patch| {
+                                let rect = patch.shape();
+                                Json::from(vec![rect.xy.x, rect.xy.y, rect.width, rect.height])
+                            })
                             .collect(),
                     )
                 })
                 .collect(),
         ),
-        HistPatches::Steps(outlines) => Json::Array(
+        HistArtists::Steps(outlines) => Json::Array(
             outlines
                 .iter()
-                .map(|outline| {
-                    let xy = outline
-                        .vertices
+                .map(|patch| {
+                    let polygon = patch.shape();
+                    let xy = polygon
+                        .vertices()
                         .iter()
-                        .map(|v| Json::from(v.to_vec()))
+                        .map(|p| Json::from(vec![p.x, p.y]))
                         .collect();
                     Json::Array(vec![object([
                         ("xy", Json::Array(xy)),
-                        ("closed", Json::from(outline.closed)),
-                        ("fill", Json::from(outline.filled)),
+                        ("closed", Json::from(polygon.is_closed())),
+                        ("fill", Json::from(patch.style().fill)),
                     ])])
                 })
                 .collect(),

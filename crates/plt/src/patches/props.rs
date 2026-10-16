@@ -14,6 +14,8 @@ use crate::rc::ColorOrEdge;
 pub struct PatchProps {
     /// Properties common to all artists.
     pub base: BaseProps,
+    /// Face and edge colour, overridden by `facecolor` and `edgecolor`.
+    pub color: Option<Color>,
     /// Face colour.
     pub facecolor: Option<Color>,
     /// Edge colour.
@@ -52,6 +54,8 @@ macro_rules! patch_prop_builders {
 
 impl PatchProps {
     patch_prop_builders! {
+        /// Face and edge colour.
+        color: Color;
         /// Face colour.
         facecolor: Color;
         /// Edge colour.
@@ -81,6 +85,7 @@ impl PatchProps {
     pub fn overlay(self, overrides: Self) -> Self {
         Self {
             base: self.base.overlay(overrides.base),
+            color: overrides.color.or(self.color),
             facecolor: overrides.facecolor.or(self.facecolor),
             edgecolor: overrides.edgecolor.or(self.edgecolor),
             linewidth: overrides.linewidth.or(self.linewidth),
@@ -94,10 +99,35 @@ impl PatchProps {
         }
     }
 
-    /// Writes the set properties into a new patch.
+    /// Whether the property named `name` (matplotlib's spelling) is set.
+    pub fn is_set(&self, name: &str) -> bool {
+        match name {
+            "color" => self.color.is_some(),
+            "facecolor" => self.facecolor.is_some(),
+            "edgecolor" => self.edgecolor.is_some(),
+            "linewidth" => self.linewidth.is_some(),
+            "linestyle" => self.linestyle.is_some(),
+            "fill" => self.fill.is_some(),
+            "hatch" => self.hatch.is_some(),
+            "hatchcolor" => self.hatchcolor.is_some(),
+            "antialiased" => self.antialiased.is_some(),
+            "capstyle" => self.capstyle.is_some(),
+            "joinstyle" => self.joinstyle.is_some(),
+            "alpha" => self.base.alpha.is_some(),
+            "zorder" => self.base.zorder.is_some(),
+            "label" => self.base.label.is_some(),
+            _ => false,
+        }
+    }
+
+    /// Writes the set properties into a patch.
     pub(crate) fn apply<S: PatchShape>(self, patch: &mut PatchArtist<S>) {
         self.base.apply(patch.base_mut());
         let style = &mut patch.style;
+        if let Some(color) = self.color {
+            style.facecolor = Some(color.clone());
+            style.edgecolor = Some(color);
+        }
         if self.facecolor.is_some() {
             style.facecolor = self.facecolor;
         }

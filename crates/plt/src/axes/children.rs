@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use plt_core::Point;
 
-use super::{Axes, AxesState};
+use super::{Axes, AxesState, DataLimits};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 
 /// How a new child changes the data limits and autoscaling.
@@ -28,6 +28,13 @@ impl DataUpdate {
             autoscale: (true, true),
         }
     }
+
+    /// The corners and smallest positive coordinates of `limits`,
+    /// extending both limits and requesting autoscaling (matplotlib's
+    /// `add_collection`).
+    pub(crate) fn limits(limits: DataLimits) -> Self {
+        Self::data(vec![limits.bbox.p0, limits.bbox.p1, limits.minpos])
+    }
 }
 
 impl Axes {
@@ -41,7 +48,7 @@ impl Axes {
         let id = state.adopt(axes_id, Box::new(artist));
         if let Some(axes) = state.store.get_as_mut::<AxesState>(axes_id) {
             let (x, y) = update.update;
-            axes.data_lim.update(&update.points, x, y);
+            axes.data_lim.update_from_points(&update.points, x, y);
             let (x, y) = update.autoscale;
             axes.request_autoscale(x, y);
         }

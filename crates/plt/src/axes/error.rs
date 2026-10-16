@@ -6,6 +6,7 @@ use crate::colors::ColormapError;
 use crate::lines::{FormatError, MarkEveryError};
 use crate::markers::MarkerError;
 use crate::patches::StepPatchError;
+use crate::stats::StatsError;
 
 /// Invalid data or options passed to a plotting method.
 #[derive(Clone, Debug, PartialEq)]
@@ -49,6 +50,8 @@ pub enum PlotError {
         /// Number of items.
         items: usize,
     },
+    /// Invalid statistics input (binning, weights, ...).
+    Stats(StatsError),
     /// Tick labels whose number differs from the number of fixed ticks.
     TickLabelCount {
         /// Number of ticks.
@@ -78,6 +81,7 @@ impl fmt::Display for PlotError {
             Self::Colormap(err) => err.fmt(f),
             Self::Format(err) => err.fmt(f),
             Self::Steps(err) => err.fmt(f),
+            Self::Stats(err) => err.fmt(f),
             Self::NegativeErrors(argument) => {
                 write!(f, "'{argument}' must not contain negative values")
             }

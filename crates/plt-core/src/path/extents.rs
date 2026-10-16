@@ -56,7 +56,13 @@ impl DataLimits {
     /// updatey)`: includes every vertex with two finite coordinates —
     /// curve control points and the stored points of closures too.
     pub fn update_from_path(&mut self, path: &Path, update_x: bool, update_y: bool) {
-        let finite = || path.vertices().iter().filter(|p| p.is_finite());
+        self.update_from_points(path.vertices(), update_x, update_y);
+    }
+
+    /// [`DataLimits::update_from_path`] for the polyline through `points`
+    /// (matplotlib's `Bbox.update_from_data_xy`).
+    pub fn update_from_points(&mut self, points: &[Point], update_x: bool, update_y: bool) {
+        let finite = || points.iter().filter(|p| p.is_finite());
         if update_x {
             let (lo, hi, minpos) = axis_limits(finite().map(|p| p.x));
             self.bbox.p0.x = self.bbox.p0.x.min(lo);
@@ -127,6 +133,17 @@ mod tests {
 
     fn p(x: f64, y: f64) -> Point {
         Point::new(x, y)
+    }
+
+    #[test]
+    fn points_update_only_the_requested_axes() {
+        let mut limits = DataLimits::NULL;
+        limits.update_from_points(&[p(1.0, 2.0), p(f64::NAN, 10.0), p(-3.0, -1.0)], true, true);
+        assert_eq!(limits.bbox, Bbox::from_extents(-3.0, -1.0, 1.0, 2.0));
+        assert_eq!(limits.minpos, p(1.0, 2.0));
+        limits.update_from_points(&[p(100.0, 100.0)], false, true);
+        assert_eq!(limits.bbox.x1(), 1.0, "x untouched");
+        assert_eq!(limits.bbox.y1(), 100.0);
     }
 
     #[test]

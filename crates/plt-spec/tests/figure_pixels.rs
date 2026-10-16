@@ -18,6 +18,10 @@ const KNOWN_GAPS: &[(&str, &str)] = &[
         "log tick labels are mathtext, not rendered by plt yet",
     ),
     (
+        "hist/log",
+        "log tick labels are mathtext, not rendered by plt yet",
+    ),
+    (
         "lines/loglog",
         "log tick labels are mathtext, not rendered by plt yet",
     ),

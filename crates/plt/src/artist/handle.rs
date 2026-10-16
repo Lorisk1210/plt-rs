@@ -176,6 +176,21 @@ pub trait ArtistHandle {
         self.raw().with_base(|b| b.label.clone())
     }
 
+    /// Data values that autoscaling margins must not cross, per axis
+    /// (matplotlib's `sticky_edges`).
+    fn sticky_edges(&self) -> (Vec<f64>, Vec<f64>) {
+        self.raw().with_base(|b| b.sticky_edges.clone())
+    }
+
+    /// Replaces the sticky edges.
+    fn set_sticky_edges(&self, x: Vec<f64>, y: Vec<f64>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.sticky_edges = (x, y));
+        self
+    }
+
     /// Places the artist in another coordinate system.
     fn set_transform(&self, transform: Transform) -> &Self
     where

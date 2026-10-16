@@ -4,9 +4,10 @@ use std::rc::Rc;
 
 use plt_core::{Bbox, Path};
 
+use super::DataLimits;
 use super::axis::{AxisGeometry, AxisState};
 use super::axis_draw::AxisPainter;
-use super::limits::{AxisAutoscale, DataLimits, autoscale_axis, oriented};
+use super::limits::{AxisAutoscale, autoscale_axis, oriented};
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;

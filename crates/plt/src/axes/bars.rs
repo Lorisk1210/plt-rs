@@ -1,15 +1,18 @@
 //! Bar charts (matplotlib's `bar` and `barh`).
 
+use plt_core::{Path, Point};
+
 use super::broadcast::{broadcast, common_length};
 use super::children::DataUpdate;
 use super::{Axes, AxesState, ErrorbarContainer, ErrorbarOptions, PlotError};
 use crate::artist::{Artist, ArtistHandle};
+use crate::collections::{Collection, CollectionArtist, CollectionKind};
 use crate::colors::Color;
 use crate::orientation::Orientation;
 use crate::patches::{Patch, PatchArtist, PatchProps, Rectangle};
 use crate::scale::{LogScale, NonPositive};
 use crate::ticker::AxisName;
-use crate::units::AxisValues;
+use crate::units::{AxisValues, convert_dx};
 
 /// Where a bar sits relative to its position (matplotlib's `align`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -19,6 +22,19 @@ pub enum BarAlign {
     Center,
     /// Starting at the position; a negative thickness extends backwards.
     Edge,
+}
+
+/// Where a [`Axes::broken_barh`] band sits relative to its position
+/// (matplotlib's `align`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum BandAlign {
+    /// The band starts at the position.
+    #[default]
+    Bottom,
+    /// The band is centred on the position.
+    Center,
+    /// The band ends at the position.
+    Top,
 }
 
 /// Options of [`Axes::bar`] and [`Axes::barh`] (matplotlib's keywords).
@@ -155,53 +171,57 @@ impl Axes {
         self.bars(Orientation::Horizontal, y.into(), width.as_ref(), options)
     }
 
+    /// A horizontal band of rectangles, one per `(start, width)` in
+    /// `xranges`, spanning `height` vertically at `position` (matplotlib's
+    /// `broken_barh`). Style it through the returned collection.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::axes::BandAlign;
+    /// let ax = Figure::new().subplot();
+    /// let band = ax.broken_barh(&[(10.0, 50.0), (100.0, 20.0)], (20.0, 9.0), BandAlign::Bottom);
+    /// band.set_facecolor("tab:blue");
+    /// ```
+    pub fn broken_barh(
+        &self,
+        xranges: &[(f64, f64)],
+        (position, height): (f64, f64),
+        align: BandAlign,
+    ) -> Collection {
+        let (y0, y1) = match align {
+            BandAlign::Bottom => (position, position + height),
+            BandAlign::Center => (position - height / 2.0, position + height / 2.0),
+            BandAlign::Top => (position - height, position),
+        };
+        let paths = xranges
+            .iter()
+            .map(|&(x0, width)| {
+                let x1 = x0 + width;
+                Path::polygon([
+                    Point::new(x0, y0),
+                    Point::new(x0, y1),
+                    Point::new(x1, y1),
+                    Point::new(x1, y0),
+                ])
+            })
+            .collect();
+        let mut band = CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
+        band.base_mut().transform = Some(self.trans_data());
+        let update = DataUpdate::limits(band.shape_extents());
+        Collection::from_raw(self.adopt(band, &update))
+    }
+
     fn bars(
         &self,
         orientation: Orientation,
         positions: AxisValues,
         values: &[f64],
-        options: BarOptions,
+        mut options: BarOptions,
     ) -> Result<BarContainer, PlotError> {
         let (position_axis, value_axis) = match orientation {
             Orientation::Vertical => (AxisName::X, AxisName::Y),
             Orientation::Horizontal => (AxisName::Y, AxisName::X),
         };
-        if options.log {
-            let log = LogScale::new(10.0)
-                .expect("10 is a valid logarithm base")
-                .with_nonpositive(NonPositive::Clip);
-            self.set_scale(value_axis, Box::new(log));
-        }
-        let positions = self.axis_of(position_axis).convert_units(positions);
-        let n = common_length(&[
-            ("x", positions.len()),
-            ("height", values.len()),
-            ("width", options.thickness.len()),
-            ("y", options.base.len()),
-            ("linewidth", options.linewidth.len().max(1)),
-            ("hatch", options.hatch.len().max(1)),
-        ])?;
-        let positions = broadcast("x", &positions, n)?;
-        let values = broadcast("height", values, n)?;
-        let thickness = broadcast("width", &options.thickness, n)?;
-        let base = broadcast("y", &options.base, n)?;
-        if !options.bar_labels.is_empty() && options.bar_labels.len() != n {
-            return Err(PlotError::LabelCount {
-                labels: options.bar_labels.len(),
-                items: n,
-            });
-        }
-        let geometry: Vec<BarGeometry> = (0..n)
-            .map(|i| BarGeometry {
-                start: match options.align {
-                    BarAlign::Center => positions[i] - thickness[i] / 2.0,
-                    BarAlign::Edge => positions[i],
-                },
-                thickness: thickness[i],
-                base: base[i],
-                value: values[i],
-            })
-            .collect();
         let faces = if !options.color.is_empty() {
             options.color.clone()
         } else if let Some(face) = &options.props.facecolor {
@@ -209,6 +229,29 @@ impl Axes {
         } else {
             vec![self.next_patch_color()]
         };
+        if options.log {
+            let log = LogScale::new(10.0)
+                .expect("10 is a valid logarithm base")
+                .with_nonpositive(NonPositive::Clip);
+            self.set_scale(value_axis, Box::new(log));
+        }
+        let numeric = matches!(positions, AxisValues::Numbers(_));
+        let positions = self.axis_of(position_axis).convert_units(positions);
+        // Like matplotlib, extents are rounded through the numeric
+        // coordinates they start from.
+        let origin: &[f64] = if numeric { &positions } else { &[] };
+        let thickness = convert_dx(origin, &options.thickness);
+        let values = convert_dx(&options.base, values);
+        let (x_origin, y_origin) = match orientation {
+            Orientation::Vertical => (origin, options.base.as_slice()),
+            Orientation::Horizontal => (options.base.as_slice(), origin),
+        };
+        let errors = &mut options.errors;
+        errors.xerr = errors.xerr.take().map(|err| err.convert_dx(x_origin));
+        errors.yerr = errors.yerr.take().map(|err| err.convert_dx(y_origin));
+
+        let geometry = layout_bars(&positions, &values, &thickness, &options)?;
+        let n = geometry.len();
         let patches = geometry
             .iter()
             .enumerate()
@@ -223,8 +266,9 @@ impl Axes {
             .with_mut::<AxesState, _>(|axes| axes.request_autoscale(true, true));
         if !options.tick_labels.is_empty() {
             let tick_labels = broadcast("tick_label", &options.tick_labels, n)?;
-            let axis = self.axis_of(position_axis);
-            axis.set_ticks(positions.clone())
+            let ticks = broadcast("x", &positions, n)?;
+            self.axis_of(position_axis)
+                .set_ticks(ticks)
                 .set_ticklabels(tick_labels)?;
         }
         let label = if options.bar_labels.is_empty() {
@@ -235,7 +279,7 @@ impl Axes {
         Ok(BarContainer {
             patches,
             errorbar,
-            datavalues: values,
+            datavalues: geometry.iter().map(|bar| bar.value).collect(),
             orientation,
             label,
         })
@@ -307,4 +351,43 @@ impl Axes {
         base.label.get_or_insert_with(|| "_nolegend_".to_owned());
         self.errorbar(x, y, errors)
     }
+}
+
+/// Broadcasts the per-bar arguments to a common length and places the
+/// bars (matplotlib's `np.broadcast_arrays` and alignment in `bar`).
+fn layout_bars(
+    positions: &[f64],
+    values: &[f64],
+    thickness: &[f64],
+    options: &BarOptions,
+) -> Result<Vec<BarGeometry>, PlotError> {
+    let n = common_length(&[
+        ("x", positions.len()),
+        ("height", values.len()),
+        ("width", thickness.len()),
+        ("y", options.base.len()),
+        ("linewidth", options.linewidth.len().max(1)),
+        ("hatch", options.hatch.len().max(1)),
+    ])?;
+    if !options.bar_labels.is_empty() && options.bar_labels.len() != n {
+        return Err(PlotError::LabelCount {
+            labels: options.bar_labels.len(),
+            items: n,
+        });
+    }
+    let positions = broadcast("x", positions, n)?;
+    let values = broadcast("height", values, n)?;
+    let thickness = broadcast("width", thickness, n)?;
+    let base = broadcast("y", &options.base, n)?;
+    Ok((0..n)
+        .map(|i| BarGeometry {
+            start: match options.align {
+                BarAlign::Center => positions[i] - thickness[i] / 2.0,
+                BarAlign::Edge => positions[i],
+            },
+            thickness: thickness[i],
+            base: base[i],
+            value: values[i],
+        })
+        .collect())
 }

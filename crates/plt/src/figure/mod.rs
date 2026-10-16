@@ -1,6 +1,7 @@
 //! Figures: the top-level container of everything drawn (matplotlib.figure).
 
 mod frame;
+mod mosaic;
 mod save;
 mod state;
 mod subplots;
@@ -15,6 +16,7 @@ use plt_core::Rgba;
 use plt_render::Renderer;
 
 pub(crate) use frame::FigureFrame;
+pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use save::SaveError;
 pub(crate) use state::FigureState;
 pub use subplots::Share;

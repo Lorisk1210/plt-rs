@@ -6,6 +6,8 @@ use std::rc::Rc;
 
 use plt_core::{Affine2D, Path, Point};
 
+use super::blend::blend_rows;
+
 /// An invertible map of one coordinate (e.g. a log scale).
 pub trait AxisMap: fmt::Debug {
     /// Forward map.
@@ -165,9 +167,7 @@ impl ResolvedTransform {
     /// x from `x` and y from `y` (matplotlib's blended transform).
     pub fn blend(x: Self, y: Self) -> Self {
         if x.is_affine() && y.is_affine() {
-            let [xa, _, xc, _, xe, _] = x.affine.values();
-            let [_, yb, _, yd, _, yf] = y.affine.values();
-            return Self::affine(Affine2D::from_values(xa, yb, xc, yd, xe, yf));
+            return Self::affine(blend_rows(&x.affine, &y.affine));
         }
         Self::with_step(Step::Blend(Rc::new(x), Rc::new(y)), Affine2D::IDENTITY)
     }

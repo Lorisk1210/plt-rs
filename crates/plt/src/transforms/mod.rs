@@ -6,15 +6,33 @@
 //! state at draw time into a [`ResolvedTransform`]: a chain of non-affine
 //! steps (scales, projections) followed by a single trailing affine map, the
 //! same split matplotlib uses so renderers only ever see affine transforms.
+//!
+//! The concrete building blocks of matplotlib's transform tree live here
+//! too, with matplotlib's exact arithmetic: box-to-box maps
+//! ([`bbox_transform`] and friends), [`blended_affine`],
+//! [`scaled_translation`] and the units of [`Transform::offset_copy`], the
+//! mutable data-limits box [`TrackedBbox`], and the scalar helpers
+//! [`nonsingular`] and [`interval_contains`] (with its open and close
+//! variants). `Affine2D` and `Bbox` themselves come from `plt_core`.
 
+mod bbox_maps;
+mod blend;
+mod interval;
 mod nonsingular;
+mod offset;
 mod resolved;
+mod tracked_bbox;
 
 use std::fmt;
 
+pub use bbox_maps::{bbox_to_unit, bbox_transform, bbox_transform_from, unit_to_bbox};
+pub use blend::blended_affine;
+pub use interval::{interval_contains, interval_contains_close, interval_contains_open};
 pub use nonsingular::nonsingular;
-pub use plt_core::{Affine2D, Bbox, Point};
+pub use offset::{OffsetUnits, scaled_translation};
+pub use plt_core::{Affine2D, Anchor, Bbox, Point};
 pub use resolved::{AxisMap, PointMap, ResolvedTransform, Step};
+pub use tracked_bbox::TrackedBbox;
 
 use crate::artist::ArtistId;
 
@@ -38,8 +56,8 @@ pub enum Transform {
     Blended(Box<Transform>, Box<Transform>),
     /// Applies the first transform, then the second (`a + b`).
     Composite(Box<Transform>, Box<Transform>),
-    /// Translation by `(dx, dy)` measured in the units of `units`
-    /// (`ScaledTranslation`).
+    /// Translation by the image of the point `(dx, dy)` under `units`
+    /// (`ScaledTranslation`; see [`scaled_translation`]).
     Translation {
         /// Horizontal displacement.
         dx: f64,
@@ -64,21 +82,33 @@ impl Transform {
         Self::Composite(Box::new(self), Box::new(next))
     }
 
-    /// `self` followed by an offset of `(dx, dy)` points
-    /// (matplotlib's `offset_copy(..., units='points')`).
+    /// `self` followed by an offset of `(dx, dy)` in `units` (matplotlib's
+    /// `offset_copy`): dots translate directly, points and inches become a
+    /// [`Transform::Translation`] in inches, scaled by the figure's dpi.
     #[must_use]
-    pub fn offset_points(self, dx: f64, dy: f64) -> Self {
-        self.offset_inches(dx / 72.0, dy / 72.0)
-    }
-
-    /// `self` followed by an offset of `(dx, dy)` inches.
-    #[must_use]
-    pub fn offset_inches(self, dx: f64, dy: f64) -> Self {
+    pub fn offset_copy(self, dx: f64, dy: f64, units: OffsetUnits) -> Self {
+        let (dx, dy) = match units {
+            OffsetUnits::Dots => return self.then(Self::Affine(Affine2D::translation(dx, dy))),
+            OffsetUnits::Points => (dx / 72.0, dy / 72.0),
+            OffsetUnits::Inches => (dx, dy),
+        };
         self.then(Self::Translation {
             dx,
             dy,
             units: Box::new(Self::Inches),
         })
+    }
+
+    /// `self` followed by an offset of `(dx, dy)` points.
+    #[must_use]
+    pub fn offset_points(self, dx: f64, dy: f64) -> Self {
+        self.offset_copy(dx, dy, OffsetUnits::Points)
+    }
+
+    /// `self` followed by an offset of `(dx, dy)` inches.
+    #[must_use]
+    pub fn offset_inches(self, dx: f64, dy: f64) -> Self {
+        self.offset_copy(dx, dy, OffsetUnits::Inches)
     }
 
     /// Whether the x and y outputs pass through the data coordinates of
@@ -142,11 +172,7 @@ impl Transform {
             Self::Blended(x, y) => ResolvedTransform::blend(x.resolve(ctx)?, y.resolve(ctx)?),
             Self::Composite(first, second) => first.resolve(ctx)?.then(second.resolve(ctx)?),
             Self::Translation { dx, dy, units } => {
-                let units = units.resolve(ctx)?;
-                let origin = units.transform_point(Point::ORIGIN);
-                let moved = units.transform_point(Point::new(*dx, *dy));
-                let delta = moved - origin;
-                ResolvedTransform::affine(Affine2D::translation(delta.x, delta.y))
+                ResolvedTransform::affine(scaled_translation(*dx, *dy, &units.resolve(ctx)?))
             }
             Self::Inverted(inner) => inner
                 .resolve(ctx)?
@@ -154,20 +180,6 @@ impl Transform {
                 .ok_or(TransformError::Singular)?,
         })
     }
-}
-
-/// The affine map taking the unit square onto `bbox` (`BboxTransformTo`).
-pub fn unit_to_bbox(bbox: &Bbox) -> Affine2D {
-    Affine2D::scaling(bbox.width(), bbox.height()).translate(bbox.x0(), bbox.y0())
-}
-
-/// The affine map taking `bbox` onto the unit square (`BboxTransformFrom`).
-/// Degenerate boxes map everything to the origin.
-pub fn bbox_to_unit(bbox: &Bbox) -> Affine2D {
-    let (w, h) = (bbox.width(), bbox.height());
-    let sx = if w == 0.0 { 0.0 } else { 1.0 / w };
-    let sy = if h == 0.0 { 0.0 } else { 1.0 / h };
-    Affine2D::translation(-bbox.x0(), -bbox.y0()).scale(sx, sy)
 }
 
 /// The geometry a [`Transform`] is resolved against.
@@ -189,6 +201,8 @@ pub enum TransformError {
     MissingArtist(ArtistId),
     /// The transform has no inverse.
     Singular,
+    /// An affine blend was given a child with rotation or shear.
+    NotSeparable,
 }
 
 impl fmt::Display for TransformError {
@@ -196,8 +210,72 @@ impl fmt::Display for TransformError {
         match self {
             Self::MissingArtist(id) => write!(f, "transform refers to removed artist {id}"),
             Self::Singular => f.write_str("transform is not invertible"),
+            Self::NotSeparable => f.write_str("both children of an affine blend must be separable"),
         }
     }
 }
 
 impl std::error::Error for TransformError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A figure without artists: only its resolution is known.
+    struct Dpi(f64);
+
+    impl TransformContext for Dpi {
+        fn dpi(&self) -> f64 {
+            self.0
+        }
+        fn frame_bbox(&self, _: ArtistId) -> Option<Bbox> {
+            None
+        }
+        fn axes_bbox(&self, _: ArtistId) -> Option<Bbox> {
+            None
+        }
+        fn data_transform(&self, _: ArtistId) -> Option<ResolvedTransform> {
+            None
+        }
+    }
+
+    fn resolve_affine(t: &Transform, dpi: f64) -> Affine2D {
+        t.resolve(&Dpi(dpi)).expect("resolvable").affine_part()
+    }
+
+    #[test]
+    fn offset_copy_units() {
+        let base = Affine2D::scaling(2.0, 3.0);
+        let offset = |units| Transform::Affine(base).offset_copy(36.0, 72.0, units);
+        assert_eq!(
+            resolve_affine(&offset(OffsetUnits::Dots), 100.0),
+            base.translate(36.0, 72.0)
+        );
+        assert_eq!(
+            resolve_affine(&offset(OffsetUnits::Points), 100.0),
+            base.translate(50.0, 100.0)
+        );
+        assert_eq!(
+            resolve_affine(&offset(OffsetUnits::Inches), 100.0),
+            base.translate(3600.0, 7200.0)
+        );
+        assert_eq!(
+            Transform::Display.offset_points(36.0, 0.0),
+            Transform::Display.offset_inches(0.5, 0.0)
+        );
+    }
+
+    #[test]
+    fn scaled_translations_map_the_offset_as_a_point() {
+        let units = Affine2D::scaling(100.0, 100.0).translate(5.0, 7.0);
+        let translation = Transform::Translation {
+            dx: 1.0,
+            dy: 1.0,
+            units: Box::new(Transform::Affine(units)),
+        };
+        assert_eq!(
+            resolve_affine(&translation, 72.0),
+            Affine2D::translation(105.0, 107.0)
+        );
+    }
+}

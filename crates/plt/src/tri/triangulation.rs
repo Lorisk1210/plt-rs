@@ -205,6 +205,48 @@ impl Triangulation {
         }
     }
 
+    /// The edge of the neighbouring triangle that matches edge `edge` of
+    /// `tri` (it starts at this edge's end point).
+    pub(crate) fn neighbor_edge(&self, tri: usize, edge: usize) -> Option<TriEdge> {
+        let neighbor = self.neighbors[tri][edge]?;
+        let end = self.triangles[tri][(edge + 1) % 3];
+        let index = self.triangles[neighbor].iter().position(|&v| v == end)?;
+        Some((neighbor, index))
+    }
+
+    /// The boundaries of the unmasked region: closed loops of triangle edges
+    /// without a neighbour, each starting at its smallest `(tri, edge)` and
+    /// ordered by that start (matplotlib's `calculate_boundaries`).
+    pub(crate) fn boundaries(&self) -> Vec<Vec<TriEdge>> {
+        let mut remaining: BTreeSet<TriEdge> = self
+            .unmasked()
+            .flat_map(|t| (0..3).map(move |e| (t, e)))
+            .filter(|&(t, e)| self.neighbors[t][e].is_none())
+            .collect();
+        let mut boundaries = Vec::new();
+        while let Some(start) = remaining.pop_first() {
+            let mut boundary = vec![start];
+            let (mut tri, mut edge) = start;
+            loop {
+                edge = (edge + 1) % 3;
+                let point = self.triangles[tri][edge];
+                while let Some(next) = self.neighbors[tri][edge] {
+                    tri = next;
+                    edge = self.triangles[tri]
+                        .iter()
+                        .position(|&v| v == point)
+                        .expect("neighbouring triangles share the pivot point");
+                }
+                if (tri, edge) == start || !remaining.remove(&(tri, edge)) {
+                    break;
+                }
+                boundary.push((tri, edge));
+            }
+            boundaries.push(boundary);
+        }
+        boundaries
+    }
+
     /// Makes every positive-area triangle anticlockwise.
     fn correct_orientation(&mut self) {
         for t in 0..self.triangles.len() {
@@ -334,6 +376,15 @@ mod tests {
         let flat = Triangulation::new(&[0.0, 1.0, 2.0], &[0.0, 1.0, 2.0], vec![[0, 1, 2]]).unwrap();
         let [a, b, c] = flat.plane_coefficients(&[1.0, 2.0, 3.0]).unwrap()[0];
         assert!((a - 0.5).abs() < 1e-15 && (b - 0.5).abs() < 1e-15 && (c - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn boundaries_follow_the_hull() {
+        let tri = grid3();
+        let boundaries = tri.boundaries();
+        assert_eq!(boundaries.len(), 1);
+        assert_eq!(boundaries[0].len(), 8);
+        assert_eq!(boundaries[0][0], (0, 0));
     }
 
     #[test]

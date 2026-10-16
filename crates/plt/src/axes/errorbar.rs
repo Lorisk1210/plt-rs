@@ -9,6 +9,7 @@ use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
+use crate::units::convert_dx;
 
 /// Error sizes along one axis (matplotlib's `xerr`/`yerr`); every list
 /// holds one value or one per point.
@@ -38,6 +39,18 @@ impl From<Vec<f64>> for ErrorSize {
 }
 
 impl ErrorSize {
+    /// The sizes rounded through the coordinates they extend from
+    /// ([`convert_dx`]).
+    pub(crate) fn convert_dx(self, origins: &[f64]) -> Self {
+        match self {
+            Self::Symmetric(errors) => Self::Symmetric(convert_dx(origins, &errors)),
+            Self::Asymmetric { lower, upper } => Self::Asymmetric {
+                lower: convert_dx(origins, &lower),
+                upper: convert_dx(origins, &upper),
+            },
+        }
+    }
+
     /// `(lower, upper)` errors for `n` points.
     fn bounds(&self, argument: &'static str, n: usize) -> Result<(Vec<f64>, Vec<f64>), PlotError> {
         let (lower, upper) = match self {

@@ -1,54 +1,7 @@
-//! Data limits and automatic view limits (matplotlib's `dataLim`,
-//! `update_from_path` and `autoscale_view`).
-
-use plt_core::{Bbox, Point};
+//! Automatic view limits (matplotlib's `autoscale_view`).
 
 use super::axis::AxisState;
 use crate::ticker::{AxisInfo, TickContext, TickerError};
-
-/// The extent of the data plotted in an axes, plus the smallest positive
-/// coordinate per axis (needed to autoscale logarithmic axes).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DataLimits {
-    /// Bounding box of all finite data points.
-    pub bbox: Bbox,
-    /// Smallest strictly positive x and y seen (infinite when none).
-    pub minpos: Point,
-}
-
-impl Default for DataLimits {
-    fn default() -> Self {
-        Self {
-            bbox: Bbox::NULL,
-            minpos: Point::new(f64::INFINITY, f64::INFINITY),
-        }
-    }
-}
-
-impl DataLimits {
-    /// Extends the limits with `points`, considering only points whose two
-    /// coordinates are finite, and only the requested axes
-    /// (matplotlib's `Bbox.update_from_path`).
-    pub fn update(&mut self, points: &[Point], update_x: bool, update_y: bool) {
-        let finite = points.iter().filter(|p| p.is_finite());
-        for p in finite {
-            if update_x {
-                self.bbox.p0.x = self.bbox.p0.x.min(p.x);
-                self.bbox.p1.x = self.bbox.p1.x.max(p.x);
-                if p.x > 0.0 {
-                    self.minpos.x = self.minpos.x.min(p.x);
-                }
-            }
-            if update_y {
-                self.bbox.p0.y = self.bbox.p0.y.min(p.y);
-                self.bbox.p1.y = self.bbox.p1.y.max(p.y);
-                if p.y > 0.0 {
-                    self.minpos.y = self.minpos.y.min(p.y);
-                }
-            }
-        }
-    }
-}
 
 /// Everything needed to autoscale one axis of an axes.
 #[derive(Debug)]
@@ -139,25 +92,6 @@ mod tests {
             tight: false,
         })
         .expect("linear locators do not fail")
-    }
-
-    #[test]
-    fn data_limits_skip_partial_nans() {
-        let mut limits = DataLimits::default();
-        limits.update(
-            &[
-                Point::new(1.0, 2.0),
-                Point::new(f64::NAN, 10.0),
-                Point::new(-3.0, -1.0),
-            ],
-            true,
-            true,
-        );
-        assert_eq!(limits.bbox, Bbox::from_extents(-3.0, -1.0, 1.0, 2.0));
-        assert_eq!(limits.minpos, Point::new(1.0, 2.0));
-        limits.update(&[Point::new(100.0, 100.0)], false, true);
-        assert_eq!(limits.bbox.x1(), 1.0, "x untouched");
-        assert_eq!(limits.bbox.y1(), 100.0);
     }
 
     #[test]

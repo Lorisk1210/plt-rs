@@ -1,15 +1,14 @@
 //! The data side of `Axes.hist`: binning several datasets with shared
-//! edges, stacking, cumulating and normalising, plus the bar rectangles or
-//! step outlines that represent the result.
+//! edges, stacking, cumulating and normalising, plus the bars or step
+//! outlines that represent the result.
 //!
 //! [`hist`] performs every computation matplotlib's `Axes.hist` does
-//! before it creates artists; `Axes::hist` turns [`HistPatches::Bars`] into
-//! `Rectangle` patches and [`HistPatches::Steps`] into `Polygon` patches
-//! and sets a log scale on the count axis when asked to.
+//! before it creates artists; `Axes::hist` draws [`HistPatches::Bars`]
+//! with `bar`/`barh` and [`HistPatches::Steps`] as `Polygon` patches.
 
 mod geometry;
 
-pub use geometry::{BarRect, HistAlign, HistOrientation, HistPatches, HistType, StepOutline};
+pub use geometry::{HistAlign, HistBars, HistOrientation, HistPatches, HistType, StepOutline};
 
 use super::histogram::{Bins, HistogramOptions, histogram, histogram_bin_edges};
 use super::summary::pairwise_sum;

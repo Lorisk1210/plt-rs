@@ -1,6 +1,6 @@
 //! `figures/cases_bars.py`.
 
-use plt::axes::{BarAlign, BarOptions, ErrorSize, ErrorbarOptions};
+use plt::axes::{BandAlign, BarAlign, BarOptions, ErrorSize, ErrorbarOptions};
 use plt::colors::Color;
 use plt::numeric::arange;
 
@@ -245,4 +245,18 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("bars/broken_barh", |fig| {
+        let ax = fig.subplot();
+        let ranges = [(10.0, 50.0), (100.0, 20.0), (130.0, 10.0)];
+        ax.broken_barh(&ranges, (20.0, 9.0), BandAlign::Bottom)
+            .set_facecolor("tab:blue");
+        ax.broken_barh(&ranges, (10.0, 9.0), BandAlign::Bottom)
+            .set_facecolors(colors(&["tab:orange", "tab:green", "tab:red"]));
+        ax.set_ylim(5.0, 35.0).set_xlim(0.0, 200.0);
+        ax.set_yticks([15.0, 25.0])
+            .set_yticklabels(["Bill", "Jim"])?;
+        ax.grid(true);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
 ];

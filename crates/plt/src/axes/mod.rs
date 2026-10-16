@@ -8,6 +8,8 @@ mod broadcast;
 mod children;
 mod error;
 mod errorbar;
+mod fill;
+mod hist;
 mod limits;
 mod lines;
 mod patches;
@@ -23,14 +25,15 @@ mod ticks;
 pub use crate::ticker::AxisName;
 pub use axis::{Tick, TickSet};
 pub use axis_handle::Axis;
-pub use bars::{BarAlign, BarContainer, BarOptions};
+pub use bars::{BandAlign, BarAlign, BarContainer, BarOptions};
 pub use error::PlotError;
 pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarOptions};
-pub use limits::DataLimits;
+pub use hist::{HistArtists, HistPlot, HistPlotOptions};
+pub use plt_core::path::DataLimits;
 pub use scatter::{MappedColors, ScatterColors, ScatterOptions};
 pub(crate) use state::AxesState;
 pub use steps::StairsOptions;
-pub use ticks::{GridStyle, Sides, TickDirection, TickStyle};
+pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickStyle};
 
 use plt_core::Bbox;
 

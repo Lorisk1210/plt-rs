@@ -4,6 +4,7 @@
 use std::any::Any;
 
 use super::axis::AxisState;
+use super::ticks::{GridOptions, GridStyle};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::ticker::{
@@ -108,6 +109,33 @@ impl Axis {
         Ok(self)
     }
 
+    /// Shows (`visible`) or hides the gridlines of `options.which`,
+    /// restyled by `options` (matplotlib's `Axis.grid`; `options.axis` is
+    /// ignored here).
+    pub fn grid(&self, visible: bool, options: &GridOptions) -> &Self {
+        let rc = crate::rc::params();
+        self.update(|axis| {
+            for (major, on) in [
+                (true, options.which.major()),
+                (false, options.which.minor()),
+            ] {
+                if !on {
+                    continue;
+                }
+                let style = if major {
+                    &mut axis.major_style
+                } else {
+                    &mut axis.minor_style
+                };
+                let current = style.grid.take();
+                style.grid = visible.then(|| {
+                    options.restyle(current.unwrap_or_else(|| GridStyle::from_rc(major, &rc)))
+                });
+            }
+        });
+        self
+    }
+
     /// Whether the axis runs from high to low values (matplotlib's
     /// `Axis.get_inverted`).
     pub fn inverted(&self) -> bool {
@@ -174,6 +202,23 @@ impl Axes {
             axes: self.clone(),
             name,
         }
+    }
+
+    /// Shows or hides the major gridlines of both axes (matplotlib's
+    /// `grid`).
+    pub fn grid(&self, visible: bool) -> &Self {
+        self.grid_with(visible, &GridOptions::default())
+    }
+
+    /// Shows or hides gridlines of the axes and tick levels in `options`,
+    /// restyled by `options`.
+    pub fn grid_with(&self, visible: bool, options: &GridOptions) -> &Self {
+        for name in [AxisName::X, AxisName::Y] {
+            if options.axis.is_none_or(|only| only == name) {
+                self.axis_of(name).grid(visible, options);
+            }
+        }
+        self
     }
 
     /// Puts the x ticks exactly at `ticks` (matplotlib's `set_xticks`).

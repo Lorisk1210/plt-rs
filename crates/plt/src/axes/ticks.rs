@@ -69,6 +69,96 @@ pub struct GridStyle {
     pub linestyle: LineStyle,
 }
 
+impl GridStyle {
+    /// The rc style of major (`major = true`) or minor gridlines.
+    pub fn from_rc(major: bool, rc: &RcParams) -> Self {
+        let (color, alpha, linewidth, linestyle) = if major {
+            (
+                &rc.grid_major_color,
+                rc.grid_major_alpha,
+                rc.grid_major_linewidth,
+                &rc.grid_major_linestyle,
+            )
+        } else {
+            (
+                &rc.grid_minor_color,
+                rc.grid_minor_alpha,
+                rc.grid_minor_linewidth,
+                &rc.grid_minor_linestyle,
+            )
+        };
+        Self {
+            color: color.clone().unwrap_or_else(|| rc.grid_color.clone()),
+            alpha: alpha.unwrap_or(rc.grid_alpha),
+            linewidth: linewidth.unwrap_or(rc.grid_linewidth),
+            linestyle: linestyle
+                .clone()
+                .unwrap_or_else(|| rc.grid_linestyle.clone()),
+        }
+    }
+}
+
+/// Which tick levels a setting applies to (matplotlib's `which`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum TickLevel {
+    /// The major ticks.
+    #[default]
+    Major,
+    /// The minor ticks.
+    Minor,
+    /// Major and minor ticks.
+    Both,
+}
+
+impl TickLevel {
+    /// Whether the major ticks are included.
+    pub fn major(self) -> bool {
+        matches!(self, Self::Major | Self::Both)
+    }
+
+    /// Whether the minor ticks are included.
+    pub fn minor(self) -> bool {
+        matches!(self, Self::Minor | Self::Both)
+    }
+}
+
+/// Options of [`Axes::grid_with`](super::Axes::grid_with): where gridlines
+/// go and how they look (unset styles keep the current or rc ones).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct GridOptions {
+    /// Which tick levels get gridlines.
+    pub which: TickLevel,
+    /// Only this axis (`None` = both).
+    pub axis: Option<AxisName>,
+    /// Line colour.
+    pub color: Option<Color>,
+    /// Opacity.
+    pub alpha: Option<f64>,
+    /// Line width in points.
+    pub linewidth: Option<f64>,
+    /// Line style.
+    pub linestyle: Option<LineStyle>,
+}
+
+impl GridOptions {
+    /// `style` with the set options applied.
+    pub(crate) fn restyle(&self, mut style: GridStyle) -> GridStyle {
+        if let Some(color) = &self.color {
+            style.color = color.clone();
+        }
+        if let Some(alpha) = self.alpha {
+            style.alpha = alpha;
+        }
+        if let Some(linewidth) = self.linewidth {
+            style.linewidth = linewidth;
+        }
+        if let Some(linestyle) = &self.linestyle {
+            style.linestyle = linestyle.clone();
+        }
+        style
+    }
+}
+
 /// The appearance of one tick level (major or minor) of one axis.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TickStyle {
@@ -216,29 +306,7 @@ fn grid_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> Option<GridStyle>
     if !(rc.axes_grid && level_on && axis_on) {
         return None;
     }
-    let (color, alpha, linewidth, linestyle) = if major {
-        (
-            &rc.grid_major_color,
-            rc.grid_major_alpha,
-            rc.grid_major_linewidth,
-            &rc.grid_major_linestyle,
-        )
-    } else {
-        (
-            &rc.grid_minor_color,
-            rc.grid_minor_alpha,
-            rc.grid_minor_linewidth,
-            &rc.grid_minor_linestyle,
-        )
-    };
-    Some(GridStyle {
-        color: color.clone().unwrap_or_else(|| rc.grid_color.clone()),
-        alpha: alpha.unwrap_or(rc.grid_alpha),
-        linewidth: linewidth.unwrap_or(rc.grid_linewidth),
-        linestyle: linestyle
-            .clone()
-            .unwrap_or_else(|| rc.grid_linestyle.clone()),
-    })
+    Some(GridStyle::from_rc(major, rc))
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 
 mod bars;
 mod basic;
+mod hist;
 mod lines;
 mod scatter;
 mod stats;
@@ -13,6 +14,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
     [
         bars::CASES,
         basic::CASES,
+        hist::CASES,
         lines::CASES,
         scatter::CASES,
         stats::CASES,

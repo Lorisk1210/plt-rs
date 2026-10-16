@@ -6,6 +6,7 @@ use std::rc::Rc;
 use plt_core::{Bbox, Point};
 use plt_render::{CapStyle, ClipPath, JoinStyle};
 
+use super::PatchProps;
 use super::shapes::PatchShape;
 use super::style::{PatchStyle, draw_patch_paths};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
@@ -168,6 +169,11 @@ impl<S: PatchShape> Patch<S> {
     /// A copy of the edge/face/hatch properties.
     pub fn style(&self) -> PatchStyle {
         self.read(|p| p.style.clone())
+    }
+
+    /// Sets every property `props` sets.
+    pub fn update_props(&self, props: PatchProps) -> &Self {
+        self.update(|p| props.apply(p))
     }
 
     /// Sets the face colour.

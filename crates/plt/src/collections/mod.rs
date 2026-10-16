@@ -274,6 +274,11 @@ impl Collection {
         self.update(|c| c.sizes = Some(sizes))
     }
 
+    /// Sets the cap style of every edge.
+    pub fn set_capstyle(&self, capstyle: CapStyle) -> &Self {
+        self.update(|c| c.capstyle = Some(capstyle))
+    }
+
     /// Sets a hatch pattern for every item.
     pub fn set_hatch(&self, pattern: impl Into<String>) -> &Self {
         let pattern = pattern.into();
@@ -289,5 +294,10 @@ impl Collection {
     /// The item offsets.
     pub fn offsets(&self) -> Vec<Point> {
         self.raw.with::<CollectionArtist, _>(|c| c.offsets.clone())
+    }
+
+    /// The item shapes.
+    pub fn paths(&self) -> Vec<Path> {
+        self.raw.with::<CollectionArtist, _>(|c| c.paths.clone())
     }
 }

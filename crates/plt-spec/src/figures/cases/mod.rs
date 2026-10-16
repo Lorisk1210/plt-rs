@@ -25,6 +25,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         stats::ERRORBAR,
         stats::EVENTS,
         stats::FILL_BETWEEN,
+        stats::VIOLIN,
     ]
     .concat()
 }

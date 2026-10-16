@@ -13,8 +13,9 @@ use crate::window::{CursorIcon, WindowId, WindowOptions};
 /// Mutable access to the event loop: create and close windows, present
 /// frames, change titles and cursors, start timers, request exit.
 ///
-/// Handlers receive one with every event; [`EventLoop::context`]
-/// (crate::EventLoop::context) provides one outside of a handler.
+/// Handlers receive one with every event;
+/// [`EventLoop::context`](crate::EventLoop::context) provides one outside
+/// of a handler.
 pub struct Context<'a> {
     backend: &'a mut dyn Backend,
     state: &'a mut LoopState,
@@ -42,7 +43,9 @@ impl<'a> Context<'a> {
         self.backend.destroy_window(window)?;
         self.state.redraws.retain(|&id| id != window);
         let event = WindowEvent::Destroyed;
-        self.state.pending.push_back(Event::Window { window, event });
+        self.state
+            .pending
+            .push_back(Event::Window { window, event });
         Ok(())
     }
 
@@ -75,7 +78,10 @@ impl<'a> Context<'a> {
     /// refuse it; the actual size arrives as [`WindowEvent::Resized`].
     pub fn set_inner_size(&mut self, window: WindowId, size: impl Into<Size>) -> Result<(), Error> {
         let size = size.into();
-        if size.to_physical(self.backend.scale_factor(window)?).is_empty() {
+        if size
+            .to_physical(self.backend.scale_factor(window)?)
+            .is_empty()
+        {
             return Err(Error::InvalidArgument("window size must be non-zero"));
         }
         self.backend.set_inner_size(window, size)
@@ -121,8 +127,11 @@ impl<'a> Context<'a> {
     }
 
     /// Reads back what the window currently shows, as opaque RGBA8 (alpha
-    /// 255). On X11 this queries the server; regions covered by other
-    /// windows may read back as undefined.
+    /// 255), e.g. for screenshots and tests.
+    ///
+    /// On X11 this queries the server, which fails with an
+    /// [`Error::X11`] unless the window is mapped and lies within the
+    /// screen; regions covered by other windows read back as undefined.
     pub fn read_pixels(&mut self, window: WindowId) -> Result<OwnedFrame, Error> {
         self.backend.read_pixels(window)
     }

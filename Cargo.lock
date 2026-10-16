@@ -26,6 +26,9 @@ version = "0.1.0"
 [[package]]
 name = "plt-platform"
 version = "0.1.0"
+dependencies = [
+ "plt-codec",
+]
 
 [[package]]
 name = "plt-raster"
@@ -66,8 +69,8 @@ dependencies = [
 name = "plt-ui"
 version = "0.1.0"
 dependencies = [
+ "plt-codec",
  "plt-core",
- "plt-font",
  "plt-platform",
  "plt-raster",
  "plt-text",

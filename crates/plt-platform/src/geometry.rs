@@ -3,7 +3,7 @@
 //! *Physical* pixels are device pixels: frames are presented and pointer
 //! positions are reported in them. *Logical* pixels are physical pixels
 //! divided by the window's scale factor (1.0 on a 96 DPI display, 2.0 on a
-//! typical HiDPI display). Window sizes may be requested in either unit.
+//! typical high-DPI display). Window sizes may be requested in either unit.
 
 /// A size in physical (device) pixels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -160,6 +160,7 @@ impl PhysicalRect {
 
     /// The part of this rectangle inside a surface of `bounds` (possibly
     /// empty).
+    #[must_use]
     pub fn clip_to(self, bounds: PhysicalSize) -> Self {
         let x0 = self.x.min(bounds.width);
         let y0 = self.y.min(bounds.height);
@@ -178,12 +179,18 @@ mod tests {
         let logical = LogicalSize::new(640.0, 480.0);
         assert_eq!(logical.to_physical(2.0), PhysicalSize::new(1280, 960));
         assert_eq!(PhysicalSize::new(1280, 960).to_logical(2.0), logical);
-        assert_eq!(LogicalSize::new(100.4, 0.6).to_physical(1.0), PhysicalSize::new(100, 1));
+        assert_eq!(
+            LogicalSize::new(100.4, 0.6).to_physical(1.0),
+            PhysicalSize::new(100, 1)
+        );
     }
 
     #[test]
     fn degenerate_logical_sizes_saturate() {
-        assert_eq!(LogicalSize::new(f64::NAN, -3.0).to_physical(1.0), PhysicalSize::new(0, 0));
+        assert_eq!(
+            LogicalSize::new(f64::NAN, -3.0).to_physical(1.0),
+            PhysicalSize::new(0, 0)
+        );
         assert_eq!(
             LogicalSize::new(f64::INFINITY, 1e300).to_physical(1.0),
             PhysicalSize::new(u32::MAX, u32::MAX)

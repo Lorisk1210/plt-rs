@@ -28,7 +28,7 @@ pub enum Error {
     /// The display server sent data this crate cannot interpret.
     Malformed(&'static str),
     /// The display server lacks a feature this crate needs (e.g. a
-    /// TrueColor visual).
+    /// `TrueColor` visual).
     Unsupported(&'static str),
     /// The X server reported an error for a request.
     X11(X11Error),
@@ -159,7 +159,14 @@ mod tests {
         assert!(text.contains("BadWindow") && text.contains("42") && text.contains("0x1234"));
         let err = Error::io("connect", &io::Error::from(io::ErrorKind::NotFound));
         assert!(err.to_string().starts_with("connect failed"));
-        assert!(Error::BufferSize { expected: 4, actual: 3 }.to_string().contains("expected 4"));
+        assert!(
+            Error::BufferSize {
+                expected: 4,
+                actual: 3
+            }
+            .to_string()
+            .contains("expected 4")
+        );
     }
 
     #[test]

@@ -147,7 +147,9 @@ impl EventLoop {
 
     #[cfg(unix)]
     fn x11() -> Result<Self, Error> {
-        Ok(Self::from_backend(Box::new(crate::x11::X11Backend::connect()?)))
+        Ok(Self::from_backend(Box::new(
+            crate::x11::X11Backend::connect()?,
+        )))
     }
 
     #[cfg(not(unix))]
@@ -296,7 +298,11 @@ impl EventLoop {
     where
         F: FnMut(&mut Context<'_>, Event),
     {
-        if let Event::Window { window, event: ref window_event } = event {
+        if let Event::Window {
+            window,
+            event: ref window_event,
+        } = event
+        {
             if !self.backend.has_window(window) && *window_event != WindowEvent::Destroyed {
                 return;
             }

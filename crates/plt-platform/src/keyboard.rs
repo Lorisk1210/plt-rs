@@ -54,7 +54,7 @@ pub enum Key {
     Alt,
     /// Either Super ("Windows", "Command") key.
     Super,
-    /// AltGr / ISO Level 3 Shift.
+    /// `AltGr` / ISO Level 3 Shift.
     AltGr,
     /// Caps Lock.
     CapsLock,
@@ -116,7 +116,7 @@ impl Key {
         Cow::Borrowed(fixed)
     }
 
-    /// Whether this is a modifier key (Shift, Control, Alt, Super, AltGr).
+    /// Whether this is a modifier key (Shift, Control, Alt, Super, `AltGr`).
     pub const fn is_modifier(self) -> bool {
         matches!(
             self,

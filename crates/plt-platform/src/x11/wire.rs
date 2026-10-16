@@ -63,18 +63,37 @@ pub(crate) fn put_request_header(buf: &mut Vec<u8>, opcode: u8, detail: u8, body
     let words = (4 + body_len + pad4(body_len)) / 4;
     buf.put_u8(opcode);
     buf.put_u8(detail);
-    match u16::try_from(words) {
-        Ok(words) => buf.put_u16(words),
-        Err(_) => {
-            buf.put_u16(0);
-            buf.put_u32(u32::try_from(words + 1).unwrap_or(u32::MAX));
-        }
+    if let Ok(words) = u16::try_from(words) {
+        buf.put_u16(words);
+    } else {
+        buf.put_u16(0);
+        buf.put_u32(u32::try_from(words + 1).unwrap_or(u32::MAX));
     }
 }
 
 /// Converts `u32`s to their little-endian bytes (32-bit property data).
 pub(crate) fn u32s_to_bytes(values: &[u32]) -> Vec<u8> {
     values.iter().flat_map(|v| v.to_le_bytes()).collect()
+}
+
+/// The little-endian `u16` at byte `at` of a 32-byte event or header.
+pub(crate) fn u16_at(message: &[u8; 32], at: usize) -> u16 {
+    u16::from_le_bytes([message[at], message[at + 1]])
+}
+
+/// The little-endian `i16` at byte `at` of a 32-byte event or header.
+pub(crate) fn i16_at(message: &[u8; 32], at: usize) -> i16 {
+    i16::from_le_bytes([message[at], message[at + 1]])
+}
+
+/// The little-endian `u32` at byte `at` of a 32-byte event or header.
+pub(crate) fn u32_at(message: &[u8; 32], at: usize) -> u32 {
+    u32::from_le_bytes([
+        message[at],
+        message[at + 1],
+        message[at + 2],
+        message[at + 3],
+    ])
 }
 
 /// A bounds-checked little-endian reader over a server message.
@@ -95,15 +114,16 @@ impl<'a> Reader<'a> {
         Self { data, pos }
     }
 
-    /// Current offset.
-    pub(crate) const fn position(&self) -> usize {
-        self.pos
-    }
-
     /// Takes the next `len` bytes.
     pub(crate) fn bytes(&mut self, len: usize) -> Result<&'a [u8], Error> {
-        let end = self.pos.checked_add(len).ok_or(Error::Malformed("length overflow"))?;
-        let bytes = self.data.get(self.pos..end).ok_or(Error::Malformed("truncated message"))?;
+        let end = self
+            .pos
+            .checked_add(len)
+            .ok_or(Error::Malformed("length overflow"))?;
+        let bytes = self
+            .data
+            .get(self.pos..end)
+            .ok_or(Error::Malformed("truncated message"))?;
         self.pos = end;
         Ok(bytes)
     }
@@ -122,12 +142,6 @@ impl<'a> Reader<'a> {
     pub(crate) fn u16(&mut self) -> Result<u16, Error> {
         let b = self.bytes(2)?;
         Ok(u16::from_le_bytes([b[0], b[1]]))
-    }
-
-    /// Reads a little-endian `i16`.
-    pub(crate) fn i16(&mut self) -> Result<i16, Error> {
-        let b = self.bytes(2)?;
-        Ok(i16::from_le_bytes([b[0], b[1]]))
     }
 
     /// Reads a little-endian `u32`.
@@ -160,7 +174,9 @@ mod tests {
         buf.put_padded(b"abcde");
         assert_eq!(
             buf,
-            [1, 2, 3, 0xfe, 0xff, 5, 6, 7, 8, b'a', b'b', b'c', b'd', b'e', 0, 0, 0]
+            [
+                1, 2, 3, 0xfe, 0xff, 5, 6, 7, 8, b'a', b'b', b'c', b'd', b'e', 0, 0, 0
+            ]
         );
     }
 
@@ -186,15 +202,23 @@ mod tests {
         assert_eq!(reader.u8(), Ok(1));
         assert_eq!(reader.u16(), Ok(0x0302));
         assert_eq!(reader.u32(), Ok(0x0706_0504));
-        assert_eq!(reader.position(), 7);
         assert_eq!(reader.u8(), Err(Error::Malformed("truncated message")));
         let mut reader = Reader::at(&data, 5);
-        assert_eq!(reader.i16(), Ok(0x0706));
+        assert_eq!(reader.u16(), Ok(0x0706));
         assert!(Reader::new(&data).skip(usize::MAX).is_err());
     }
 
     #[test]
     fn u32_property_bytes() {
         assert_eq!(u32s_to_bytes(&[1, 0x0102_0304]), [1, 0, 0, 0, 4, 3, 2, 1]);
+    }
+
+    #[test]
+    fn fixed_offset_fields() {
+        let mut message = [0; 32];
+        message[2..8].copy_from_slice(&[0xfe, 0xff, 1, 2, 3, 4]);
+        assert_eq!(u16_at(&message, 2), 0xfffe);
+        assert_eq!(i16_at(&message, 2), -2);
+        assert_eq!(u32_at(&message, 4), 0x0403_0201);
     }
 }

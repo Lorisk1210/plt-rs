@@ -7,11 +7,13 @@
 //!   the output backend.
 //! * [`layout_block`] — matplotlib's multi-line stacking, alignment and
 //!   rotation of a text block.
+//! * [`mathtext`] — matplotlib's TeX-like math typesetting.
 #![forbid(unsafe_code)]
 
 mod block;
 mod engine;
 mod error;
+pub mod mathtext;
 mod run;
 
 pub use block::{

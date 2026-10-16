@@ -118,7 +118,11 @@ pub(crate) fn autoscale_axis(axis: &AxisAutoscale<'_>) -> (f64, f64) {
 /// Orders `(lower, upper)` to match the current orientation of an axis
 /// (matplotlib's `set_xbound` keeps inverted axes inverted).
 pub(crate) fn oriented(bound: (f64, f64), inverted: bool) -> (f64, f64) {
-    let (lo, hi) = if bound.0 <= bound.1 { bound } else { (bound.1, bound.0) };
+    let (lo, hi) = if bound.0 <= bound.1 {
+        bound
+    } else {
+        (bound.1, bound.0)
+    };
     if inverted { (hi, lo) } else { (lo, hi) }
 }
 
@@ -142,7 +146,11 @@ mod tests {
     fn data_limits_skip_partial_nans() {
         let mut limits = DataLimits::default();
         limits.update(
-            &[Point::new(1.0, 2.0), Point::new(f64::NAN, 10.0), Point::new(-3.0, -1.0)],
+            &[
+                Point::new(1.0, 2.0),
+                Point::new(f64::NAN, 10.0),
+                Point::new(-3.0, -1.0),
+            ],
             true,
             true,
         );

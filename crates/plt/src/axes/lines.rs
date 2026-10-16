@@ -50,7 +50,10 @@ impl Axes {
     pub fn plot(&self, x: impl AsRef<[f64]>, y: impl AsRef<[f64]>) -> Result<Line2D, PlotError> {
         let (x, y) = (x.as_ref(), y.as_ref());
         if x.len() != y.len() {
-            return Err(PlotError::LengthMismatch { x: x.len(), y: y.len() });
+            return Err(PlotError::LengthMismatch {
+                x: x.len(),
+                y: y.len(),
+            });
         }
         Ok(self.add_line(x.to_vec(), y.to_vec()))
     }
@@ -73,7 +76,10 @@ impl Axes {
             .map(|axes| {
                 let index = axes.line_cycle;
                 axes.line_cycle += 1;
-                axes.prop_cycle.entry(index).map(|(k, v)| (k.to_owned(), v.clone())).collect::<Vec<_>>()
+                axes.prop_cycle
+                    .entry(index)
+                    .map(|(k, v)| (k.to_owned(), v.clone()))
+                    .collect::<Vec<_>>()
             })
             .unwrap_or_default();
         for (key, value) in style {
@@ -102,8 +108,12 @@ fn apply_cycle(line: &mut LineArtist, key: &str, value: CycleValue) {
         ("markeredgewidth", CycleValue::Number(width)) => line.markeredgewidth = width,
         ("markeredgecolor", CycleValue::Color(color)) => line.markeredgecolor = color.into(),
         ("markerfacecolor", CycleValue::Color(color)) => line.markerfacecolor = color.into(),
-        ("alpha", CycleValue::Number(alpha)) => crate::artist::Artist::base_mut(line).alpha = Some(alpha),
-        ("dashes", CycleValue::Dashes(pattern)) => line.linestyle = crate::lines::LineStyle::dashes(0.0, pattern),
+        ("alpha", CycleValue::Number(alpha)) => {
+            crate::artist::Artist::base_mut(line).alpha = Some(alpha)
+        }
+        ("dashes", CycleValue::Dashes(pattern)) => {
+            line.linestyle = crate::lines::LineStyle::dashes(0.0, pattern)
+        }
         _ => {}
     }
 }

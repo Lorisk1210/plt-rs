@@ -75,14 +75,16 @@ impl Axes {
     /// Sets the x view limits and turns x autoscaling off;
     /// `left > right` inverts the axis.
     pub fn set_xlim(&self, left: f64, right: f64) -> &Self {
-        self.raw.with_mut::<AxesState, _>(|a| a.set_limits(AxisName::X, left, right));
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.set_limits(AxisName::X, left, right));
         self
     }
 
     /// Sets the y view limits and turns y autoscaling off;
     /// `bottom > top` inverts the axis.
     pub fn set_ylim(&self, bottom: f64, top: f64) -> &Self {
-        self.raw.with_mut::<AxesState, _>(|a| a.set_limits(AxisName::Y, bottom, top));
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.set_limits(AxisName::Y, bottom, top));
         self
     }
 

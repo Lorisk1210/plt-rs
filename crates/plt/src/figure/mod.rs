@@ -17,6 +17,8 @@ pub(crate) use state::FigureState;
 
 use crate::artist::{ArtistHandle, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState};
+use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotParams, SubplotSpec};
+use crate::numeric::Grid;
 
 /// The problems found while drawing a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,7 +27,12 @@ pub struct DrawErrors(pub Vec<DrawError>);
 impl fmt::Display for DrawErrors {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let messages: Vec<String> = self.0.iter().map(ToString::to_string).collect();
-        write!(f, "could not draw {} artist(s): {}", self.0.len(), messages.join("; "))
+        write!(
+            f,
+            "could not draw {} artist(s): {}",
+            self.0.len(),
+            messages.join("; ")
+        )
     }
 }
 
@@ -131,11 +138,87 @@ impl Figure {
     /// Adds axes occupying `[left, bottom, width, height]` in figure fractions.
     pub fn add_axes(&self, rect: [f64; 4]) -> Axes {
         let [left, bottom, width, height] = rect;
-        let position = Bbox::from_bounds(left, bottom, width, height);
+        self.insert_axes(Bbox::from_bounds(left, bottom, width, height), None)
+    }
+
+    /// Adds axes filling the default subplot area (`fig.add_subplot()`).
+    pub fn subplot(&self) -> Axes {
+        let spec = GridSpec::new(1, 1)
+            .and_then(|grid| grid.cell(0, 0))
+            .expect("a 1x1 grid has a cell (0, 0)");
+        self.add_subplot_spec(&spec)
+            .expect("the default subplot parameters are valid")
+    }
+
+    /// Adds axes in cell `index` (1-based, row-major) of an
+    /// `nrows × ncols` grid (`fig.add_subplot(nrows, ncols, index)`).
+    pub fn add_subplot(
+        &self,
+        nrows: usize,
+        ncols: usize,
+        index: usize,
+    ) -> Result<Axes, GridSpecError> {
+        let spec = GridSpec::new(nrows, ncols)?.numbered(index)?;
+        self.add_subplot_spec(&spec)
+    }
+
+    /// Adds axes covering a grid cell or block (`fig.add_subplot(gs[...])`).
+    pub fn add_subplot_spec(&self, spec: &SubplotSpec) -> Result<Axes, GridSpecError> {
+        let position = spec.position(&self.subplot_params())?;
+        Ok(self.insert_axes(position, Some(spec.clone())))
+    }
+
+    /// A grid of `nrows × ncols` axes (`fig.subplots(nrows, ncols)`),
+    /// indexed by `(row, col)`.
+    pub fn subplots(&self, nrows: usize, ncols: usize) -> Result<Grid<Axes>, GridSpecError> {
+        let grid = GridSpec::new(nrows, ncols)?;
+        let mut cells = Vec::with_capacity(nrows * ncols);
+        for row in 0..nrows {
+            for col in 0..ncols {
+                cells.push(self.add_subplot_spec(&grid.cell(row, col)?)?);
+            }
+        }
+        Ok(Grid::from_vec(nrows, ncols, cells).expect("one axes per grid cell"))
+    }
+
+    /// A grid specification using this figure's subplot parameters.
+    pub fn add_gridspec(&self, nrows: usize, ncols: usize) -> Result<GridSpec, GridSpecError> {
+        GridSpec::new(nrows, ncols)
+    }
+
+    /// The margins and spacing of subplot grids.
+    pub fn subplot_params(&self) -> SubplotParams {
+        self.root
+            .with::<FigureFrame, _>(|frame| frame.subplot_params)
+    }
+
+    /// Changes the subplot margins and spacing and moves every grid-placed
+    /// axes accordingly (`fig.subplots_adjust(...)`).
+    pub fn subplots_adjust(&self, overrides: &SubplotOverrides) -> Result<&Self, GridSpecError> {
+        let params = self.subplot_params().updated(overrides)?;
+        let mut state = self.state.borrow_mut();
+        if let Some(frame) = state.store.get_as_mut::<FigureFrame>(self.root.id()) {
+            frame.subplot_params = params;
+        }
+        let ids: Vec<_> = state.store.ids().collect();
+        for id in ids {
+            if let Some(axes) = state.store.get_as_mut::<AxesState>(id)
+                && let Some(spec) = &axes.subplot_spec
+            {
+                axes.position = spec.position(&params)?;
+            }
+        }
+        state.stale = true;
+        Ok(self)
+    }
+
+    fn insert_axes(&self, position: Bbox, spec: Option<SubplotSpec>) -> Axes {
+        let mut axes = AxesState::new(position, &crate::rc::params());
+        axes.subplot_spec = spec;
         let id = self
             .state
             .borrow_mut()
-            .adopt(self.root.id(), Box::new(AxesState::new(position, &crate::rc::params())));
+            .adopt(self.root.id(), Box::new(axes));
         Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id))
     }
 
@@ -162,7 +245,11 @@ impl Figure {
         self.state.borrow_mut().prepare();
         let errors = self.state.borrow().draw(renderer);
         self.state.borrow_mut().stale = false;
-        if errors.is_empty() { Ok(()) } else { Err(DrawErrors(errors)) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(DrawErrors(errors))
+        }
     }
 
     /// Whether something changed since the last draw.

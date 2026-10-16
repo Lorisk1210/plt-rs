@@ -76,6 +76,11 @@ must reproduce them.
   `np.random`, never wall-clock dates, never sample data files.
 * The reference configuration is `matplotlib.testing.setup()` plus
   `text.hinting = "none"`.
+* Checking plt-rs against the goldens: `cargo xtask spec [AREA] [--failures]`
+  (probes), `cargo xtask figures [GROUP] [--failures]` (structural facts),
+  `cargo test -p plt-spec --test figure_pixels` (pixels, RMS ≤ 1.0), and
+  `cargo xtask render PREFIX...` to write a case's rendering plus a diff
+  against its golden PNG to `spec/out/` for inspection.
 
 ## Git
 

@@ -15,6 +15,9 @@ pub use props::CollectionProps;
 use quad_mesh::MeshGeometry;
 pub use quad_mesh::MeshShading;
 
+use std::any::Any;
+use std::borrow::Cow;
+use std::fmt::Debug;
 use std::rc::Rc;
 
 use plt_core::path::{CollectionGeometry, DataLimits};
@@ -63,6 +66,18 @@ pub struct ColorMapping {
     pub values: Vec<Option<f64>>,
     /// The norm and colormap.
     pub mappable: ScalarMappable,
+}
+
+/// Shapes recomputed from the figure geometry at every draw, for
+/// collections whose paths depend on the axes size or the resolution
+/// (matplotlib's `Quiver`, which builds its arrows in `draw`).
+pub(crate) trait DrawTimeShapes: Debug {
+    /// The shapes for the current geometry and the transform from their
+    /// coordinates to display space.
+    fn shapes(&self, ctx: LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String>;
+
+    /// The generator as [`Any`], for artists that read its state.
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// A [`ColorMapping`] with its values already normalised (matplotlib
@@ -117,6 +132,8 @@ pub(crate) struct CollectionArtist {
     pub(crate) mapping: Option<Mapped>,
     /// The vertex grid of a quad mesh, drawn as a mesh.
     mesh: Option<MeshGeometry>,
+    /// Replaces `paths` and the artist transform when drawing.
+    pub(crate) draw_time: Option<Box<dyn DrawTimeShapes>>,
     rc: Rc<RcParams>,
 }
 
@@ -146,6 +163,7 @@ impl CollectionArtist {
             joinstyle: None,
             mapping: None,
             mesh: None,
+            draw_time: None,
             rc,
         }
     }
@@ -176,6 +194,35 @@ impl CollectionArtist {
     pub(crate) fn rc(&self) -> &RcParams {
         &self.rc
     }
+
+    /// The shapes to draw now and their transform: the stored paths, or
+    /// those of the draw-time generator.
+    fn current_shapes(
+        &self,
+        ctx: LayoutContext<'_>,
+    ) -> Result<(Cow<'_, [Path]>, Transform), String> {
+        match &self.draw_time {
+            Some(generator) => {
+                let (paths, transform) = generator.shapes(ctx)?;
+                Ok((Cow::Owned(paths), transform))
+            }
+            None => Ok((Cow::Borrowed(&self.paths), self.transform())),
+        }
+    }
+
+    /// The draw-time generator as a `T`, if it is one.
+    pub(crate) fn draw_time_state<T: Any>(&self) -> Option<&T> {
+        self.draw_time.as_ref()?.as_any().downcast_ref()
+    }
+
+    /// Draws the collection, returning what kept it from being drawn
+    /// (also used for collections drawn on behalf of another artist).
+    pub(crate) fn render(&self, ctx: &mut DrawContext<'_>) -> Result<(), String> {
+        match &self.mesh {
+            Some(mesh) => quad_mesh::draw_quad_mesh(self, mesh, ctx),
+            None => draw::draw_collection(self, ctx),
+        }
+    }
 }
 
 pub(crate) fn cycled<T>(items: &[T], i: usize) -> Option<&T> {
@@ -192,11 +239,7 @@ impl Artist for CollectionArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let drawn = match &self.mesh {
-            Some(mesh) => quad_mesh::draw_quad_mesh(self, mesh, ctx),
-            None => draw::draw_collection(self, ctx),
-        };
-        if let Err(problem) = drawn {
+        if let Err(problem) = self.render(ctx) {
             ctx.report(self.base.id(), problem);
         }
     }

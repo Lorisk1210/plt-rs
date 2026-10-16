@@ -12,6 +12,8 @@
 //!   `boxplot`, `violinplot`, `hist`, `psd`, `specgram`, ...
 //! * [`contour`] / [`tri`] — contour generation and unstructured triangular
 //!   grids.
+//! * [`quiver`] / [`streamplot`] — vector fields as arrows, wind barbs and
+//!   streamlines.
 //! * [`units`] — categorical axes and the conversion of plotting values.
 //! * [`image`] — images (`imshow`, `figimage`, `pcolorfast`) and their
 //!   resampling.
@@ -35,10 +37,12 @@ pub mod numeric;
 pub mod orientation;
 pub mod patches;
 pub mod prelude;
+pub mod quiver;
 pub mod rc;
 pub mod scale;
 pub mod spines;
 pub mod stats;
+pub mod streamplot;
 #[cfg(test)]
 mod testing;
 pub mod text;

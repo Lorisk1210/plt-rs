@@ -4,6 +4,8 @@ use std::fmt;
 
 use plt_core::Point;
 
+use crate::numeric::remainder;
+
 /// Which data points of a line get a marker.
 #[derive(Clone, Debug, PartialEq)]
 pub enum MarkEvery {
@@ -47,8 +49,11 @@ pub enum MarkEveryError {
     NonPositiveDistance(f64),
     /// An index outside the data.
     IndexOutOfRange(i64),
-    /// A distance-based selection where only indices are available.
+    /// A distance-based selection without the axes geometry it is
+    /// measured against.
     NeedsGeometry,
+    /// A distance-based selection on a line without a finite vertex.
+    NoFiniteVertices,
     /// A mask whose length differs from the data length.
     MaskLength {
         /// Mask length.
@@ -66,7 +71,10 @@ impl fmt::Display for MarkEveryError {
                 write!(f, "markevery distance step {step} must be positive")
             }
             Self::IndexOutOfRange(i) => write!(f, "markevery index {i} is out of range"),
-            Self::NeedsGeometry => f.write_str("a distance-based selection needs the drawn line"),
+            Self::NeedsGeometry => f.write_str("a distance-based selection needs the line's axes"),
+            Self::NoFiniteVertices => {
+                f.write_str("a distance-based selection needs a finite vertex")
+            }
             Self::MaskLength { mask, points } => {
                 write!(
                     f,
@@ -83,15 +91,19 @@ impl MarkEvery {
     /// The indices (into `points`) that receive markers, in drawing order.
     ///
     /// `points` are the line's vertices in display coordinates and
-    /// `axes_diagonal` the length of the axes diagonal in pixels; both are
-    /// only used by [`MarkEvery::Distance`].
+    /// `axes_diagonal` the length of the diagonal of the line's axes in
+    /// pixels (`None` outside an axes); both are only used by
+    /// [`MarkEvery::Distance`].
     pub fn select(
         &self,
         points: &[Point],
-        axes_diagonal: f64,
+        axes_diagonal: Option<f64>,
     ) -> Result<Vec<usize>, MarkEveryError> {
         match self {
-            Self::Distance { start, step } => by_distance(points, *start, *step, axes_diagonal),
+            Self::Distance { start, step } => {
+                let diagonal = axes_diagonal.ok_or(MarkEveryError::NeedsGeometry)?;
+                by_distance(points, *start, *step, diagonal)
+            }
             _ => self.indices(points.len()),
         }
     }
@@ -161,47 +173,58 @@ fn slice_indices(
     Ok(indices)
 }
 
-/// matplotlib's float `markevery`: walk the cumulative on-screen length of
-/// the finite vertices and pick, for each target distance, the vertex
-/// whose cumulative length is closest (duplicates removed, sorted).
+/// matplotlib's float `markevery` (`_mark_every_path`): markers sit every
+/// `step` axes diagonals along the cumulative on-screen length of the
+/// finite vertices, from `start` diagonals in, and each picks its nearest
+/// vertex (the earlier one on ties, the first of coincident ones).
+///
+/// Only the markers immediately before and after each vertex can select
+/// it, so those are the only candidates evaluated, as in matplotlib.
 fn by_distance(
     points: &[Point],
     start: f64,
     step: f64,
     diagonal: f64,
 ) -> Result<Vec<usize>, MarkEveryError> {
-    if step <= 0.0 || step.is_nan() {
-        return Err(MarkEveryError::NonPositiveDistance(step));
-    }
     let finite: Vec<usize> = (0..points.len())
         .filter(|&i| points[i].is_finite())
         .collect();
-    let mut cumulative = Vec::with_capacity(finite.len());
     let mut total = 0.0;
-    for (k, &i) in finite.iter().enumerate() {
-        if k > 0 {
-            total += points[i].distance(points[finite[k - 1]]);
-        }
-        cumulative.push(total);
+    let along: Vec<f64> = finite
+        .iter()
+        .enumerate()
+        .map(|(k, &i)| {
+            if k > 0 {
+                let d = points[i] - points[finite[k - 1]];
+                total += d.x.hypot(d.y);
+            }
+            total
+        })
+        .collect();
+    let &end = along.last().ok_or(MarkEveryError::NoFiniteVertices)?;
+    let (marker_start, marker_step) = (start * diagonal, step * diagonal);
+    if marker_step <= 0.0 {
+        return Err(MarkEveryError::NonPositiveDistance(step));
     }
-    let Some(&end) = cumulative.last() else {
-        return Ok(Vec::new());
-    };
-    let mut chosen: Vec<usize> = Vec::new();
-    let mut target = start * diagonal;
-    let increment = step * diagonal;
-    let mut count = 0.0;
-    while target < end {
-        let nearest = cumulative
-            .iter()
-            .enumerate()
-            .min_by(|a, b| (a.1 - target).abs().total_cmp(&(b.1 - target).abs()))
-            .map_or(0, |(k, _)| k);
-        chosen.push(nearest);
-        count += 1.0;
-        // numpy.arange computes start + i * step rather than accumulating.
-        target = start * diagonal + count * increment;
-    }
+    let first_reaching = |target: f64| along.partition_point(|&d| d < target);
+    let last = along.len() - 1;
+    let mut chosen: Vec<usize> = along
+        .iter()
+        .map(|&d| d - remainder(d - marker_start, marker_step))
+        .flat_map(|marker| [marker, marker + marker_step])
+        .filter(|&marker| marker >= marker_start && marker < end)
+        .map(|marker| {
+            let after = first_reaching(marker);
+            let before = after.saturating_sub(1);
+            let after = after.min(last);
+            let nearest = if (along[after] - marker).abs() < (marker - along[before]).abs() {
+                after
+            } else {
+                before
+            };
+            first_reaching(along[nearest])
+        })
+        .collect();
     chosen.sort_unstable();
     chosen.dedup();
     Ok(chosen.into_iter().map(|k| finite[k]).collect())
@@ -219,19 +242,19 @@ mod tests {
     fn strides_and_slices() {
         let pts = line(7);
         assert_eq!(
-            MarkEvery::Every { start: 0, step: 3 }.select(&pts, 1.0),
+            MarkEvery::Every { start: 0, step: 3 }.select(&pts, None),
             Ok(vec![0, 3, 6])
         );
         assert_eq!(
-            MarkEvery::Every { start: -3, step: 1 }.select(&pts, 1.0),
+            MarkEvery::Every { start: -3, step: 1 }.select(&pts, None),
             Ok(vec![4, 5, 6])
         );
         assert_eq!(
-            MarkEvery::Every { start: 1, step: -1 }.select(&pts, 1.0),
+            MarkEvery::Every { start: 1, step: -1 }.select(&pts, None),
             Ok(vec![1, 0])
         );
         assert_eq!(
-            MarkEvery::Every { start: 0, step: 0 }.select(&pts, 1.0),
+            MarkEvery::Every { start: 0, step: 0 }.select(&pts, None),
             Err(MarkEveryError::ZeroStep)
         );
         let reversed = MarkEvery::Slice {
@@ -239,31 +262,31 @@ mod tests {
             stop: None,
             step: Some(-3),
         };
-        assert_eq!(reversed.select(&pts, 1.0), Ok(vec![6, 3, 0]));
+        assert_eq!(reversed.select(&pts, None), Ok(vec![6, 3, 0]));
         let window = MarkEvery::Slice {
             start: Some(2),
             stop: Some(6),
             step: Some(2),
         };
-        assert_eq!(window.select(&pts, 1.0), Ok(vec![2, 4]));
+        assert_eq!(window.select(&pts, None), Ok(vec![2, 4]));
     }
 
     #[test]
     fn indices_and_masks() {
         let pts = line(4);
         assert_eq!(
-            MarkEvery::Indices(vec![-1, 0, 0]).select(&pts, 1.0),
+            MarkEvery::Indices(vec![-1, 0, 0]).select(&pts, None),
             Ok(vec![3, 0, 0])
         );
         assert_eq!(
-            MarkEvery::Indices(vec![9]).select(&pts, 1.0),
+            MarkEvery::Indices(vec![9]).select(&pts, None),
             Err(MarkEveryError::IndexOutOfRange(9))
         );
         assert_eq!(
-            MarkEvery::Mask(vec![true, false, false, true]).select(&pts, 1.0),
+            MarkEvery::Mask(vec![true, false, false, true]).select(&pts, None),
             Ok(vec![0, 3])
         );
-        assert!(MarkEvery::Mask(vec![true]).select(&pts, 1.0).is_err());
+        assert!(MarkEvery::Mask(vec![true]).select(&pts, None).is_err());
     }
 
     #[test]
@@ -275,14 +298,31 @@ mod tests {
             start: 0.0,
             step: 0.25,
         };
-        assert_eq!(every_quarter.select(&pts, 100.0), Ok(vec![0, 2, 5, 7]));
-        assert!(
+        assert_eq!(
+            every_quarter.select(&pts, Some(100.0)),
+            Ok(vec![0, 2, 5, 7])
+        );
+        assert_eq!(
+            every_quarter.select(&pts, None),
+            Err(MarkEveryError::NeedsGeometry)
+        );
+        assert_eq!(
             MarkEvery::Distance {
                 start: 0.0,
                 step: 0.0
             }
-            .select(&pts, 100.0)
-            .is_err()
+            .select(&pts, Some(100.0)),
+            Err(MarkEveryError::NonPositiveDistance(0.0))
+        );
+        // The last vertex is only picked by a marker strictly before it.
+        let single = MarkEvery::Distance {
+            start: 0.0,
+            step: 0.5,
+        };
+        assert_eq!(single.select(&pts[..1], Some(100.0)), Ok(vec![]));
+        assert_eq!(
+            single.select(&[Point::new(f64::NAN, 0.0)], Some(100.0)),
+            Err(MarkEveryError::NoFiniteVertices)
         );
         let gappy = vec![
             Point::new(0.0, 0.0),
@@ -294,7 +334,7 @@ mod tests {
                 start: 0.0,
                 step: 0.08
             }
-            .select(&gappy, 100.0),
+            .select(&gappy, Some(100.0)),
             Ok(vec![0, 2])
         );
     }

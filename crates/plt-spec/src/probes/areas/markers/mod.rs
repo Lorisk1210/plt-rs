@@ -1,5 +1,7 @@
 //! Probe operations for the `markers` area.
 
+mod markevery;
+
 use plt::lines::{DrawStyle, line_vertices, pts_to_midstep, pts_to_poststep, pts_to_prestep};
 use plt::markers::{FillStyle, Marker, MarkerKey, MarkerStyle, MarkerSymbol, PolygonStyle};
 use plt_core::Affine2D;
@@ -23,6 +25,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("lines.drawstyle", drawstyle),
     Op::new("lines.Line2D.set_drawstyle", set_drawstyle),
     Op::new("lines.Line2D.get_path", line_path),
+    Op::new("lines.markevery", markevery::marker_indices),
 ];
 
 type StepFn = fn(&[f64], &[&[f64]]) -> Result<Vec<Vec<f64>>, plt::lines::StepError>;

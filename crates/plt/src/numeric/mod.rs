@@ -71,6 +71,26 @@ pub fn meshgrid(x: &[f64], y: &[f64]) -> (Grid<f64>, Grid<f64>) {
     (xs, ys)
 }
 
+/// The remainder of `a / b` with the sign of `b` (numpy `remainder`,
+/// Python's `%`); a zero result takes the sign of `b`.
+///
+/// ```
+/// assert_eq!(plt::numeric::remainder(-1.0, 3.0), 2.0);
+/// assert_eq!(plt::numeric::remainder(1.0, -3.0), -2.0);
+/// ```
+pub fn remainder(a: f64, b: f64) -> f64 {
+    let fmod = a % b;
+    if b == 0.0 {
+        fmod
+    } else if fmod == 0.0 {
+        0.0_f64.copysign(b)
+    } else if (b < 0.0) != (fmod < 0.0) {
+        fmod + b
+    } else {
+        fmod
+    }
+}
+
 /// Minimum ignoring NaN; `None` if no finite-or-infinite value exists.
 pub fn nanmin<I: IntoIterator<Item = f64>>(values: I) -> Option<f64> {
     values.into_iter().filter(|v| !v.is_nan()).reduce(f64::min)
@@ -108,6 +128,18 @@ mod tests {
         assert_eq!(arange(0.0, 1.0, -1.0), Vec::<f64>::new());
         assert_eq!(arange(0.0, 1.0, 0.0), Vec::<f64>::new());
         assert_eq!(arange(0.0, 0.3, 0.1).len(), 3);
+    }
+
+    #[test]
+    fn remainder_matches_numpy() {
+        assert_eq!(remainder(7.5, 2.0), 1.5);
+        assert_eq!(remainder(-7.5, 2.0), 0.5);
+        assert_eq!(remainder(7.5, -2.0), -0.5);
+        assert!(remainder(-4.0, 2.0).is_sign_positive());
+        assert!(remainder(4.0, -2.0).is_sign_negative());
+        assert!(remainder(1.0, 0.0).is_nan());
+        assert!(remainder(f64::NAN, 2.0).is_nan());
+        assert_eq!(remainder(1.0, f64::INFINITY), 1.0);
     }
 
     #[test]

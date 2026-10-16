@@ -1,9 +1,11 @@
 //! `figures/cases_axes_misc.py`, split by section.
 
 mod dates;
+mod spectral;
 mod units;
 
 pub(crate) use dates::CASES as DATES;
+pub(crate) use spectral::CASES as SPECTRAL;
 pub(crate) use units::CASES as UNITS;
 
 use plt::numeric::linspace;

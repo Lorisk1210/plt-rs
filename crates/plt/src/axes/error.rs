@@ -5,6 +5,7 @@ use std::fmt;
 use crate::colors::ColormapError;
 use crate::lines::{FormatError, MarkEveryError};
 use crate::markers::MarkerError;
+use crate::mlab::MlabError;
 use crate::patches::StepPatchError;
 use crate::spines::SpineSide;
 use crate::stats::StatsError;
@@ -71,6 +72,8 @@ pub enum PlotError {
     NotMaxNLocator(AxisName),
     /// Invalid tick helper settings.
     Ticker(TickerError),
+    /// Invalid spectral analysis input.
+    Mlab(MlabError),
     /// A per-dataset argument with neither one value nor one per dataset.
     DatasetCount {
         /// The argument.
@@ -131,6 +134,7 @@ impl fmt::Display for PlotError {
                 axis.name()
             ),
             Self::Ticker(err) => err.fmt(f),
+            Self::Mlab(err) => err.fmt(f),
             Self::NotScalarFormatter(axis) => write!(
                 f,
                 "the {}-axis tick labels do not use a ScalarFormatter",

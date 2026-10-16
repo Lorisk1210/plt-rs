@@ -52,7 +52,9 @@ impl<'a> TriFinder<'a> {
                 if directed.insert((v[e], v[(e + 1) % 3]), t).is_some() {
                     return Err(TriError::InvalidTriangulation);
                 }
-                vertex_triangle.entry(point_key(tri.point(v[e]))).or_insert(t);
+                vertex_triangle
+                    .entry(point_key(tri.point(v[e])))
+                    .or_insert(t);
             }
         }
         Ok(Self {
@@ -113,6 +115,10 @@ impl<'a> TriFinder<'a> {
 }
 
 /// matplotlib's `XY::is_right_of`: lexicographic comparison by x, then y.
+#[expect(
+    clippy::float_cmp,
+    reason = "exact lexicographic order, as in matplotlib"
+)]
 fn is_right_of(p: Point, other: Point) -> bool {
     if p.x == other.x {
         p.y > other.y
@@ -153,7 +159,9 @@ struct BucketGrid {
 impl BucketGrid {
     fn new(tri: &Triangulation) -> Self {
         let live: Vec<usize> = tri.unmasked().collect();
-        let corners = live.iter().flat_map(|&t| tri.triangles()[t].map(|v| tri.point(v)));
+        let corners = live
+            .iter()
+            .flat_map(|&t| tri.triangles()[t].map(|v| tri.point(v)));
         let (lo, hi) = corners.fold(
             (
                 Point::new(f64::INFINITY, f64::INFINITY),
@@ -233,7 +241,10 @@ mod tests {
             [4, 5, 8],
             [4, 8, 7],
         ];
-        Triangulation::new(&x, &y, t).unwrap().with_mask(mask).unwrap()
+        Triangulation::new(&x, &y, t)
+            .unwrap()
+            .with_mask(mask)
+            .unwrap()
     }
 
     #[test]

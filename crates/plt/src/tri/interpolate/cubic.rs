@@ -69,13 +69,15 @@ impl<'a> CubicTriInterpolator<'a> {
         let dz = match kind {
             CubicKind::MinE => dof::min_energy_gradients(mesh, &eccs),
             CubicKind::Geom => dof::geom_gradients(mesh),
-            CubicKind::User { dzdx, dzdy } => {
-                let (gx, gy) = (compressed.gather(dzdx), compressed.gather(dzdy));
-                gx.iter()
-                    .zip(&gy)
-                    .map(|(gx, gy)| [gx * unit[0], gy * unit[1]])
-                    .collect()
-            }
+            // Like matplotlib, user derivatives are indexed by compressed
+            // node number without renumbering: once unused points are
+            // dropped, node `i` takes the derivatives given for point `i`.
+            CubicKind::User { dzdx, dzdy } => dzdx
+                .iter()
+                .zip(dzdy)
+                .take(pts.len())
+                .map(|(gx, gy)| [gx * unit[0], gy * unit[1]])
+                .collect(),
         };
         let dofs = dof::element_dofs(mesh, &dz);
         Ok(Self {
@@ -207,7 +209,11 @@ fn renumber(valid: &[bool]) -> Vec<Option<usize>> {
 pub(crate) fn ptp(values: &[f64]) -> f64 {
     let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let min = values.iter().copied().fold(f64::INFINITY, f64::min);
-    if values.is_empty() { f64::NAN } else { max - min }
+    if values.is_empty() {
+        f64::NAN
+    } else {
+        max - min
+    }
 }
 
 #[cfg(test)]
@@ -238,7 +244,12 @@ mod tests {
     fn all_kinds_reproduce_linear_fields() {
         let tri = grid(4);
         let f = |x: f64, y: f64| 3.0 + 0.75 * x - 0.5 * y;
-        let z: Vec<f64> = tri.x().iter().zip(tri.y()).map(|(&x, &y)| f(x, y)).collect();
+        let z: Vec<f64> = tri
+            .x()
+            .iter()
+            .zip(tri.y())
+            .map(|(&x, &y)| f(x, y))
+            .collect();
         let user = CubicKind::User {
             dzdx: vec![0.75; 16],
             dzdy: vec![-0.5; 16],
@@ -258,12 +269,31 @@ mod tests {
     #[test]
     fn values_at_nodes_are_exact() {
         let tri = grid(3);
-        let z: Vec<f64> = (0..9).map(|i| (i as f64 * 0.7).sin()).collect();
+        let z: Vec<f64> = (0..9).map(|i| (f64::from(i) * 0.7).sin()).collect();
         let interp = CubicTriInterpolator::new(&tri, &z, &CubicKind::MinE).unwrap();
-        for i in 0..9 {
+        for (i, zi) in z.iter().enumerate() {
             let v = interp.value(tri.x()[i], tri.y()[i]).unwrap();
-            assert!((v - z[i]).abs() < 1e-12);
+            assert!((v - zi).abs() < 1e-12);
         }
+    }
+
+    #[test]
+    fn user_gradients_use_compressed_numbering() {
+        // Point 0 is unused, so node 0 of the compressed mesh is point 1
+        // and takes the derivatives given for point 0, as in matplotlib.
+        let tri = Triangulation::new(
+            &[5.0, 0.0, 1.0, 0.0],
+            &[5.0, 0.0, 0.0, 1.0],
+            vec![[1, 2, 3]],
+        )
+        .unwrap();
+        let kind = CubicKind::User {
+            dzdx: vec![1.0, 2.0, 3.0, 4.0],
+            dzdy: vec![0.0; 4],
+        };
+        let interp = CubicTriInterpolator::new(&tri, &[0.0; 4], &kind).unwrap();
+        let [gx, gy] = interp.gradient(0.0, 0.0).unwrap();
+        assert!((gx - 1.0).abs() < 1e-12 && gy.abs() < 1e-12);
     }
 
     #[test]

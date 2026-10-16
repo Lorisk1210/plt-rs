@@ -216,7 +216,8 @@ pub(super) fn bending_matrix(jacobian: Mat2, ecc: [f64; 3]) -> [[f64; 9]; 9] {
     let mut k = [[0.0; 9]; 9];
     for point in GAUSS_POINTS {
         let d2s = shape_hessians(point, ecc);
-        let d2x = d2s.map(|row| [0, 1, 2].map(|c| (0..3).fold(0.0, |acc, i| acc + row[i] * h_rot[i][c])));
+        let d2x =
+            d2s.map(|row| [0, 1, 2].map(|c| (0..3).fold(0.0, |acc, i| acc + row[i] * h_rot[i][c])));
         // d2x @ E with E = diag(1, 1, 2).
         let weighted = d2x.map(|row| [row[0], row[1], 2.0 * row[2]]);
         for r in 0..9 {
@@ -306,7 +307,9 @@ pub(super) fn mat2_mul(a: Mat2, b: Mat2) -> Mat2 {
 }
 
 fn mat9_mul(a: &[[f64; 9]; 9], b: &[[f64; 9]; 9]) -> [[f64; 9]; 9] {
-    std::array::from_fn(|r| std::array::from_fn(|c| (0..9).fold(0.0, |acc, k| acc + a[r][k] * b[k][c])))
+    std::array::from_fn(|r| {
+        std::array::from_fn(|c| (0..9).fold(0.0, |acc, k| acc + a[r][k] * b[k][c]))
+    })
 }
 
 fn transpose9(a: &[[f64; 9]; 9]) -> [[f64; 9]; 9] {
@@ -384,7 +387,10 @@ mod tests {
         let inv = safe_inv22(m);
         let id = mat2_mul(m, inv);
         assert!((id[0][0] - 1.0).abs() < 1e-15 && id[0][1].abs() < 1e-15);
-        assert_eq!(safe_inv22([[1.0, 2.0], [2.0, 4.0]]), [[0.0, -0.0], [-0.0, 0.0]]);
+        assert_eq!(
+            safe_inv22([[1.0, 2.0], [2.0, 4.0]]),
+            [[0.0, -0.0], [-0.0, 0.0]]
+        );
         let rank1 = pseudo_inv22sym([[1.0, 1.0], [1.0, 1.0]]);
         assert_eq!(rank1, [[0.25, 0.25], [0.25, 0.25]]);
     }

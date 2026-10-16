@@ -69,12 +69,11 @@ impl<'a> UniformTriRefiner<'a> {
         subdiv: usize,
     ) -> Result<RefinedField, TriError> {
         let default;
-        let interp: &dyn TriInterpolator = match interpolator {
-            Some(interp) => interp,
-            None => {
-                default = CubicTriInterpolator::new(self.tri, z, &CubicKind::MinE)?;
-                &default
-            }
+        let interp: &dyn TriInterpolator = if let Some(interp) = interpolator {
+            interp
+        } else {
+            default = CubicTriInterpolator::new(self.tri, z, &CubicKind::MinE)?;
+            &default
         };
         let (triangulation, found) = self.refine_triangulation_with_index(subdiv);
         let z = found
@@ -90,7 +89,7 @@ impl<'a> UniformTriRefiner<'a> {
         Ok(RefinedField { triangulation, z })
     }
 
-    fn refine_with_ancestors(&self, subdiv: usize) -> (Triangulation, Vec<usize>) {
+    fn refine_with_ancestors(self, subdiv: usize) -> (Triangulation, Vec<usize>) {
         let mut tri = self.tri.clone();
         let mut ancestors: Vec<usize> = (0..tri.ntri()).collect();
         for _ in 0..subdiv {
@@ -118,8 +117,8 @@ fn refine_once(tri: &Triangulation) -> Triangulation {
             let is_master = neighbors[t][apex].is_none_or(|n| t > n);
             if is_master {
                 let (a, b) = (triangles[t][apex], triangles[t][(apex + 1) % 3]);
-                x.push((tri.x()[a] + tri.x()[b]) * 0.5);
-                y.push((tri.y()[a] + tri.y()[b]) * 0.5);
+                x.push(f64::midpoint(tri.x()[a], tri.x()[b]));
+                y.push(f64::midpoint(tri.y()[a], tri.y()[b]));
                 midside[t][apex] = x.len() - 1;
             }
         }

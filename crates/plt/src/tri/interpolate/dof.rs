@@ -25,7 +25,10 @@ impl Mesh<'_> {
 
 /// The Jacobian at apex 0: rows are the edges `p1 - p0` and `p2 - p0`.
 pub(super) fn jacobian([p0, p1, p2]: [[f64; 2]; 3]) -> Mat2 {
-    [[p1[0] - p0[0], p1[1] - p0[1]], [p2[0] - p0[0], p2[1] - p0[1]]]
+    [
+        [p1[0] - p0[0], p1[1] - p0[1]],
+        [p2[0] - p0[0], p2[1] - p0[1]],
+    ]
 }
 
 /// Element degrees of freedom from nodal values and gradients.
@@ -83,7 +86,10 @@ fn angle_weights(corners: [[f64; 2]; 3]) -> [f64; 3] {
 /// The gradient of the linear interpolant of one triangle (zero for flat
 /// triangles).
 fn linear_gradient([p0, p1, p2]: [[f64; 2]; 3], [f0, f1, f2]: [f64; 3]) -> [f64; 2] {
-    let dm = [[p1[0] - p0[0], p2[0] - p0[0]], [p1[1] - p0[1], p2[1] - p0[1]]];
+    let dm = [
+        [p1[0] - p0[0], p2[0] - p0[0]],
+        [p1[1] - p0[1], p2[1] - p0[1]],
+    ];
     let inv = safe_inv22(dm);
     let (dz1, dz2) = (f1 - f0, f2 - f0);
     [
@@ -93,7 +99,7 @@ fn linear_gradient([p0, p1, p2]: [[f64; 2]; 3], [f0, f1, f2]: [f64; 3]) -> [f64;
 }
 
 /// Nodal gradients minimising the bending energy of the HCT interpolant
-/// ('min_E'), solved by Jacobi-preconditioned conjugate gradients from the
+/// (`min_E`), solved by Jacobi-preconditioned conjugate gradients from the
 /// 'geom' estimate. If the solver does not improve on its starting point
 /// (e.g. NaN values), the 'geom' estimate is returned.
 pub(super) fn min_energy_gradients(mesh: Mesh<'_>, eccs: &[[f64; 3]]) -> Vec<[f64; 2]> {
@@ -102,7 +108,7 @@ pub(super) fn min_energy_gradients(mesh: Mesh<'_>, eccs: &[[f64; 3]]) -> Vec<[f6
     let (solution, err) = conjugate_gradient(&matrix, &rhs, start.clone(), 1e-10, 1000);
     let start_err = residual_norm(&matrix, &start, &rhs);
     let best = if start_err < err { start } else { solution };
-    best.chunks_exact(2).map(|g| [g[0], g[1]]).collect()
+    best.as_chunks::<2>().0.to_vec()
 }
 
 const FREE_DOFS: [usize; 6] = [1, 2, 4, 5, 7, 8];
@@ -235,7 +241,13 @@ mod tests {
     fn conjugate_gradient_solves_spd_systems() {
         let a = SparseMatrix::compress(
             2,
-            vec![(0, 0, 4.0), (0, 1, 1.0), (1, 0, 1.0), (1, 1, 2.0), (1, 1, 1.0)],
+            vec![
+                (0, 0, 4.0),
+                (0, 1, 1.0),
+                (1, 0, 1.0),
+                (1, 1, 2.0),
+                (1, 1, 1.0),
+            ],
         );
         let (x, err) = conjugate_gradient(&a, &[1.0, 2.0], vec![0.0, 0.0], 1e-12, 100);
         assert!(err < 1e-10);

@@ -59,9 +59,8 @@ fn incircle_exact(a: Point, b: Point, c: Point, d: Point) -> f64 {
     let (bdx, bdy) = (two_diff(b.x, d.x), two_diff(b.y, d.y));
     let (cdx, cdy) = (two_diff(c.x, d.x), two_diff(c.y, d.y));
     let lift = |x: &[f64], y: &[f64]| sum(&product(x, x), &product(y, y));
-    let cross = |x1: &[f64], y1: &[f64], x2: &[f64], y2: &[f64]| {
-        diff(&product(x1, y2), &product(x2, y1))
-    };
+    let cross =
+        |x1: &[f64], y1: &[f64], x2: &[f64], y2: &[f64]| diff(&product(x1, y2), &product(x2, y1));
     let terms = [
         product(&lift(&adx, &ady), &cross(&bdx, &bdy, &cdx, &cdy)),
         product(&lift(&bdx, &bdy), &cross(&cdx, &cdy, &adx, &ady)),
@@ -112,7 +111,8 @@ fn grow(e: &[f64], b: f64) -> Vec<f64> {
 
 /// The exact sum of two expansions.
 fn sum(e: &[f64], f: &[f64]) -> Vec<f64> {
-    f.iter().fold(e.to_vec(), |acc, &component| grow(&acc, component))
+    f.iter()
+        .fold(e.to_vec(), |acc, &component| grow(&acc, component))
 }
 
 /// The exact difference of two expansions.

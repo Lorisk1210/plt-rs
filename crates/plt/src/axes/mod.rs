@@ -8,6 +8,7 @@ mod boxplot;
 mod broadcast;
 mod bxp;
 mod children;
+mod contour;
 mod error;
 mod errorbar;
 mod eventplot;

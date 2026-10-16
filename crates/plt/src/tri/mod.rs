@@ -14,6 +14,8 @@
 //!   of fields defined on them.
 //! * [`TriAnalyzer`] — flatness measures and removal of flat border
 //!   triangles.
+//! * [`TriContourGenerator`] — contour lines and filled contours of a
+//!   field on a triangulation.
 //!
 //! ```
 //! use plt::tri::{LinearTriInterpolator, TriInterpolator, Triangulation};
@@ -28,6 +30,7 @@
 //! ```
 
 mod analyzer;
+mod contour;
 mod delaunay;
 mod error;
 mod finder;
@@ -36,6 +39,8 @@ mod refine;
 mod triangulation;
 
 pub use analyzer::TriAnalyzer;
+pub use contour::TriContourGenerator;
+pub(crate) use contour::source as contour_source;
 pub use error::TriError;
 pub use finder::TriFinder;
 pub use interpolate::{CubicKind, CubicTriInterpolator, LinearTriInterpolator, TriInterpolator};

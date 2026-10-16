@@ -3,6 +3,7 @@
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_render::{CapStyle, GraphicsContext, JoinStyle, SnapMode};
 
+use super::axline::InfiniteLine;
 use super::{DrawStyle, LineStyle, MarkEvery, StepError, inverse_dashes, line_vertices};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle};
 use crate::colors::Color;
@@ -37,6 +38,8 @@ pub(crate) struct LineArtist {
     pub(crate) solid_joinstyle: JoinStyle,
     pub(crate) dash_capstyle: CapStyle,
     pub(crate) dash_joinstyle: JoinStyle,
+    /// Set for lines extending across the whole view (`axline`).
+    pub(crate) infinite: Option<InfiniteLine>,
     /// rc snapshot used to resolve named dash patterns.
     rc: std::rc::Rc<RcParams>,
 }
@@ -70,6 +73,7 @@ impl LineArtist {
             solid_joinstyle: rc.lines_solid_joinstyle,
             dash_capstyle: rc.lines_dash_capstyle,
             dash_joinstyle: rc.lines_dash_joinstyle,
+            infinite: None,
             rc,
         };
         line.recache();
@@ -98,12 +102,32 @@ impl LineArtist {
         self.base.transform.clone().unwrap_or(Transform::Display)
     }
 
+    /// Draws the line through `drawn` and markers at `points`, both mapped
+    /// to display space by `resolved`.
+    pub(crate) fn draw_paths(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        resolved: &ResolvedTransform,
+        drawn: &Path,
+        points: &Path,
+    ) {
+        ctx.renderer()
+            .open_group("line2d", self.base.gid.as_deref());
+        let drawn = self
+            .draw_line(ctx, resolved, drawn)
+            .and_then(|()| self.draw_markers(ctx, resolved, points));
+        ctx.renderer().close_group("line2d");
+        if let Err(problem) = drawn {
+            ctx.report(self.base.id(), problem);
+        }
+    }
+
     fn draw_line(
         &self,
         ctx: &mut DrawContext<'_>,
         resolved: &ResolvedTransform,
+        drawn: &Path,
     ) -> Result<(), String> {
-        let drawn = self.path.as_ref().map_err(ToString::to_string)?;
         if !self.linestyle.is_visible() || drawn.is_empty() {
             return Ok(());
         }
@@ -138,14 +162,14 @@ impl LineArtist {
         &self,
         ctx: &mut DrawContext<'_>,
         resolved: &ResolvedTransform,
+        points: &Path,
     ) -> Result<(), String> {
-        if self.marker.is_nothing() || self.markersize <= 0.0 || self.xdata.is_empty() {
+        if self.marker.is_nothing() || self.markersize <= 0.0 || points.is_empty() {
             return Ok(());
         }
         let style =
             MarkerStyle::new(self.marker.clone(), self.fillstyle).map_err(|e| e.to_string())?;
-        let points = self.points().map_err(|e| e.to_string())?;
-        let (points, affine) = resolved.split_path(&points);
+        let (points, affine) = resolved.split_path(points);
         let points = self.subsample(ctx, &points, &affine)?;
         if points.is_empty() {
             return Ok(());
@@ -269,14 +293,20 @@ impl Artist for LineArtist {
             ctx.report(self.base.id(), "its coordinate system no longer exists");
             return;
         };
-        ctx.renderer()
-            .open_group("line2d", self.base.gid.as_deref());
-        let drawn = self
-            .draw_line(ctx, &resolved)
-            .and_then(|()| self.draw_markers(ctx, &resolved));
-        ctx.renderer().close_group("line2d");
-        if let Err(problem) = drawn {
-            ctx.report(self.base.id(), problem);
+        if let Some(infinite) = &self.infinite {
+            match infinite.display_segment(ctx, &resolved, self.base.parent) {
+                Ok(segment) => {
+                    self.draw_paths(ctx, &ResolvedTransform::identity(), &segment, &segment);
+                }
+                Err(problem) => ctx.report(self.base.id(), problem),
+            }
+            return;
+        }
+        match (&self.path, &self.points()) {
+            (Ok(drawn), Ok(points)) => self.draw_paths(ctx, &resolved, drawn, points),
+            (Err(problem), _) | (_, Err(problem)) => {
+                ctx.report(self.base.id(), problem.to_string());
+            }
         }
     }
 }
@@ -343,6 +373,11 @@ artist_properties! {
         xdata, set_xdata: Vec<f64> => recache;
         /// The y data.
         ydata, set_ydata: Vec<f64> => recache;
+    }
+}
+
+artist_properties! {
+    Line2D => LineArtist, LineProps {
         /// Line colour.
         color, set_color: Color;
         /// Line width in points.

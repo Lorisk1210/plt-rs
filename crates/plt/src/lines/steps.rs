@@ -20,6 +20,28 @@ pub enum DrawStyle {
     StepsPost,
 }
 
+/// Where the step of a step plot happens (matplotlib's `step(where=...)`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum StepWhere {
+    /// At the start of each interval: `y[i]` holds on `(x[i-1], x[i]]`.
+    #[default]
+    Pre,
+    /// Halfway between the points.
+    Mid,
+    /// At the end of each interval: `y[i]` holds on `[x[i], x[i+1])`.
+    Post,
+}
+
+impl From<StepWhere> for DrawStyle {
+    fn from(step: StepWhere) -> Self {
+        match step {
+            StepWhere::Pre => Self::StepsPre,
+            StepWhere::Mid => Self::StepsMid,
+            StepWhere::Post => Self::StepsPost,
+        }
+    }
+}
+
 const NAMES: [(&str, DrawStyle); 5] = [
     ("default", DrawStyle::Default),
     ("steps-mid", DrawStyle::StepsMid),

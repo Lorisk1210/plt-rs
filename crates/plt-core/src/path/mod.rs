@@ -4,10 +4,36 @@
 //! an optional parallel array of [`PathCode`]s (absent codes mean "a single
 //! polyline") — so large line plots stay cheap. Consumers iterate it as
 //! typed [`Segment`]s via [`Path::segments`].
+//!
+//! Beyond construction (including matplotlib's unit shapes), this module
+//! reproduces matplotlib's C++ `_path` algorithms exactly:
+//!
+//! * [`convert`] — the conditioning pipeline (`path_converters.h`),
+//!   [`Path::cleaned`], [`Path::iter_segments`] and
+//!   [`Path::convert_to_string`];
+//! * containment ([`Path::contains_points`] with Agg's contour offset for a
+//!   radius, [`Path::contains_path`], [`Path::stroke_contains_point`]);
+//! * intersections ([`Path::intersects_path`], [`Path::intersects_bbox`]);
+//! * polygons ([`Path::to_polygons`], [`Path::clip_to_bbox`]);
+//! * data limits with `minpos` ([`DataLimits`]), path collections
+//!   ([`CollectionGeometry`]) and [`count_overlapping`].
 
+mod builder;
+mod collection;
+mod contains;
+pub mod convert;
+mod extents;
+mod intersect;
+mod outline;
+mod polygons;
 mod shapes;
 
 use std::fmt;
+
+pub use builder::PathBuilder;
+pub use collection::{CollectionError, CollectionGeometry};
+pub use extents::{DataLimits, count_overlapping};
+pub use polygons::PolygonOptions;
 
 use crate::bezier::Bezier;
 use crate::{Affine2D, Bbox, Point};
@@ -162,8 +188,14 @@ impl Path {
     }
 
     /// Concatenates paths into one compound path (matplotlib's
-    /// `make_compound_path`); code-less inputs become move + lines.
+    /// `make_compound_path`); code-less inputs become move + lines. As in
+    /// matplotlib, compounding no paths at all gives an empty path without
+    /// codes.
     pub fn compound<'a, I: IntoIterator<Item = &'a Self>>(paths: I) -> Self {
+        let mut paths = paths.into_iter().peekable();
+        if paths.peek().is_none() {
+            return Self::polyline(Vec::new());
+        }
         let mut vertices = Vec::new();
         let mut codes = Vec::new();
         for path in paths {
@@ -172,6 +204,24 @@ impl Path {
                 Some(c) => codes.extend_from_slice(c),
                 None => codes.extend(polyline_codes(path.vertices.len())),
             }
+        }
+        Self {
+            vertices,
+            codes: Some(codes),
+            interpolation_steps: 1,
+        }
+    }
+
+    /// One closed polygon per entry, each followed by an ignored closing
+    /// vertex at the origin (matplotlib's `make_compound_path_from_polys`).
+    pub fn compound_from_polygons<P: AsRef<[Point]>>(polygons: &[P]) -> Self {
+        let mut vertices = Vec::new();
+        let mut codes = Vec::new();
+        for polygon in polygons {
+            let polygon = polygon.as_ref();
+            vertices.extend_from_slice(polygon);
+            vertices.push(Point::ORIGIN);
+            codes.extend(closed_codes(polygon.len() + 1));
         }
         Self {
             vertices,
@@ -347,7 +397,8 @@ impl Path {
     }
 
     /// Subdivides every segment into `steps` straight pieces by linear
-    /// interpolation of the vertices (matplotlib's `Path.interpolated`).
+    /// interpolation of the vertices (matplotlib's `Path.interpolated`, with
+    /// `numpy.interp`'s arithmetic).
     #[must_use]
     pub fn interpolated(&self, steps: usize) -> Self {
         if steps <= 1 || self.is_empty() {
@@ -371,7 +422,12 @@ impl Path {
             .collect();
         let mut out = Vec::with_capacity((vertices.len() - 1) * steps + 1);
         for pair in vertices.windows(2) {
-            out.extend((0..steps).map(|i| pair[0].lerp(pair[1], i as f64 / steps as f64)));
+            out.extend((0..steps).map(|k| {
+                Point::new(
+                    interp(pair[0].x, pair[1].x, k, steps),
+                    interp(pair[0].y, pair[1].y, k, steps),
+                )
+            }));
         }
         out.push(vertices[vertices.len() - 1]);
         let new_codes = self.codes.as_ref().map(|codes| {
@@ -389,6 +445,23 @@ impl Path {
     }
 }
 
+/// `numpy.interp` between samples `a` and `b`, `steps` apart, at offset
+/// `k`: samples are returned verbatim and a NaN from one side is retried
+/// from the other (so NaN neighbours do not leak into exact samples).
+#[expect(clippy::float_cmp, reason = "numpy compares the samples exactly")]
+fn interp(a: f64, b: f64, k: usize, steps: usize) -> f64 {
+    if k == 0 {
+        return a;
+    }
+    let slope = (b - a) / steps as f64;
+    let value = slope * k as f64 + a;
+    if !value.is_nan() {
+        return value;
+    }
+    let value = slope * (k as f64 - steps as f64) + b;
+    if value.is_nan() && a == b { a } else { value }
+}
+
 fn polyline_codes(len: usize) -> impl Iterator<Item = PathCode> {
     (0..len).map(|i| {
         if i == 0 {
@@ -399,10 +472,12 @@ fn polyline_codes(len: usize) -> impl Iterator<Item = PathCode> {
     })
 }
 
+/// matplotlib's `closed=True` codes: a move, lines, and a closure on the
+/// last vertex (which wins for a single vertex).
 fn closed_codes(len: usize) -> Vec<PathCode> {
     let mut codes: Vec<PathCode> = polyline_codes(len).collect();
-    if len > 1 {
-        codes[len - 1] = PathCode::ClosePoly;
+    if let Some(last) = codes.last_mut() {
+        *last = PathCode::ClosePoly;
     }
     codes
 }
@@ -439,102 +514,6 @@ impl Iterator for Segments<'_> {
             PathCode::Curve4 => Segment::CubicTo(vertices[i], vertices[i + 1], vertices[i + 2]),
             PathCode::ClosePoly => Segment::Close,
         })
-    }
-}
-
-/// Incremental [`Path`] construction.
-///
-/// ```
-/// use plt_core::{Path, Point};
-/// let triangle = Path::builder()
-///     .move_to(Point::new(0.0, 0.0))
-///     .line_to(Point::new(1.0, 0.0))
-///     .line_to(Point::new(0.0, 1.0))
-///     .close()
-///     .build();
-/// assert_eq!(triangle.len(), 4);
-/// ```
-#[derive(Clone, Debug, Default)]
-pub struct PathBuilder {
-    vertices: Vec<Point>,
-    codes: Vec<PathCode>,
-    subpath_start: Point,
-}
-
-impl PathBuilder {
-    /// Starts a new sub-path.
-    #[must_use]
-    pub fn move_to(mut self, p: Point) -> Self {
-        self.subpath_start = p;
-        self.push(PathCode::MoveTo, &[p])
-    }
-
-    /// Adds a straight line (starting a sub-path if none is open).
-    #[must_use]
-    pub fn line_to(self, p: Point) -> Self {
-        self.ensure_started(p).push(PathCode::LineTo, &[p])
-    }
-
-    /// Adds a quadratic Bézier curve.
-    #[must_use]
-    pub fn quad_to(self, control: Point, end: Point) -> Self {
-        self.ensure_started(control)
-            .push(PathCode::Curve3, &[control, end])
-    }
-
-    /// Adds a cubic Bézier curve.
-    #[must_use]
-    pub fn cubic_to(self, c1: Point, c2: Point, end: Point) -> Self {
-        self.ensure_started(c1)
-            .push(PathCode::Curve4, &[c1, c2, end])
-    }
-
-    /// Closes the current sub-path.
-    #[must_use]
-    pub fn close(self) -> Self {
-        if self.codes.is_empty() {
-            return self;
-        }
-        let start = self.subpath_start;
-        self.push(PathCode::ClosePoly, &[start])
-    }
-
-    /// Appends every segment of an existing path.
-    #[must_use]
-    pub fn extend(mut self, path: &Path) -> Self {
-        for segment in path.segments() {
-            self = match segment {
-                Segment::MoveTo(p) => self.move_to(p),
-                Segment::LineTo(p) => self.line_to(p),
-                Segment::QuadTo(c, p) => self.quad_to(c, p),
-                Segment::CubicTo(c1, c2, p) => self.cubic_to(c1, c2, p),
-                Segment::Close => self.close(),
-            };
-        }
-        self
-    }
-
-    /// Finishes the path.
-    pub fn build(self) -> Path {
-        Path {
-            vertices: self.vertices,
-            codes: Some(self.codes),
-            interpolation_steps: 1,
-        }
-    }
-
-    fn ensure_started(self, p: Point) -> Self {
-        if self.codes.is_empty() {
-            self.move_to(p)
-        } else {
-            self
-        }
-    }
-
-    fn push(mut self, code: PathCode, points: &[Point]) -> Self {
-        self.vertices.extend_from_slice(points);
-        self.codes.extend(std::iter::repeat_n(code, points.len()));
-        self
     }
 }
 
@@ -661,6 +640,32 @@ mod tests {
         assert_eq!(closed.vertices()[4], p(0.0, 0.0));
         assert_eq!(closed.code_at(4), PathCode::ClosePoly);
         assert_eq!(closed.code_at(3), PathCode::LineTo);
+    }
+
+    #[test]
+    fn compound_edge_cases_match_matplotlib() {
+        assert!(Path::compound([]).codes().is_none());
+        assert_eq!(Path::compound([&Path::default()]).codes(), Some(&[][..]));
+        assert_eq!(
+            Path::closed(vec![p(1.0, 2.0)]).codes(),
+            Some(&[PathCode::ClosePoly][..])
+        );
+        let polys = Path::compound_from_polygons(&[vec![p(0.0, 0.0)], vec![p(1.0, 1.0)]]);
+        assert_eq!(
+            polys.vertices(),
+            &[p(0.0, 0.0), Point::ORIGIN, p(1.0, 1.0), Point::ORIGIN]
+        );
+        assert_eq!(
+            polys.codes(),
+            Some(
+                &[
+                    PathCode::MoveTo,
+                    PathCode::ClosePoly,
+                    PathCode::MoveTo,
+                    PathCode::ClosePoly
+                ][..]
+            )
+        );
     }
 
     #[test]

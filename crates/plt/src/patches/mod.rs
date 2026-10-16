@@ -16,6 +16,7 @@
 
 mod artist;
 mod shapes;
+mod step;
 mod style;
 
 pub use artist::Patch;
@@ -24,5 +25,6 @@ pub use shapes::{
     Circle, Ellipse, PatchShape, PathShape, Polygon, Rectangle, RegularPolygon, RotationPoint,
     Wedge,
 };
+pub use step::{StepBaseline, StepPatch, StepPatchError};
 pub use style::PatchStyle;
 pub(crate) use style::draw_patch_paths;

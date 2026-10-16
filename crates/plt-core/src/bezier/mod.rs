@@ -1,4 +1,26 @@
 //! Bézier curve utilities: evaluation, subdivision, extrema and flattening.
+//!
+//! * [`Bezier`] — planar lines, quadratics and cubics.
+//! * [`BezierSegment`] — matplotlib's d-dimensional `BezierSegment` with its
+//!   polynomial form and axis-aligned extrema.
+//! * Splitting at the boundary of a closed region
+//!   ([`split_bezier_intersecting_with_closedpath`], [`split_path_inout`])
+//!   and the offsetting helpers ([`get_parallels`], [`make_wedged_bezier2`],
+//!   ...) of `matplotlib.bezier`, used by fancy arrows.
+
+mod parallel;
+mod segment;
+mod split;
+
+pub use parallel::{
+    Direction, Parallel, check_if_parallel, find_control_points, get_cos_sin, get_intersection,
+    get_normal_points, get_parallels, make_wedged_bezier2,
+};
+pub use segment::{BezierError, BezierSegment};
+pub use split::{
+    find_bezier_t_intersecting_with_closedpath, inside_circle,
+    split_bezier_intersecting_with_closedpath, split_path_inout,
+};
 
 use crate::Point;
 

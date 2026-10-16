@@ -2,8 +2,8 @@
 
 use plt::lines::{DrawStyle, line_vertices, pts_to_midstep, pts_to_poststep, pts_to_prestep};
 use plt::markers::{FillStyle, Marker, MarkerKey, MarkerStyle, MarkerSymbol, PolygonStyle};
-use plt_core::Path;
 use plt_core::Affine2D;
+use plt_core::Path;
 use plt_render::{CapStyle, JoinStyle};
 
 use crate::json::Json;
@@ -34,11 +34,16 @@ fn steps(args: Args<'_>, step: StepFn) -> Outcome {
         .as_array()
         .unwrap_or(&[])
         .iter()
-        .map(|y| y.as_f64_vec().ok_or_else(|| ProbeError::BadArgs(format!("bad y series {y}"))))
+        .map(|y| {
+            y.as_f64_vec()
+                .ok_or_else(|| ProbeError::BadArgs(format!("bad y series {y}")))
+        })
         .collect::<Result<_, _>>()?;
     let ys: Vec<&[f64]> = ys.iter().map(Vec::as_slice).collect();
     let rows = step(&x, &ys).map_err(ProbeError::rejected)?;
-    Ok(Json::from(rows.into_iter().map(Json::from).collect::<Vec<_>>()))
+    Ok(Json::from(
+        rows.into_iter().map(Json::from).collect::<Vec<_>>(),
+    ))
 }
 
 /// matplotlib's legacy draw-method name for each style.
@@ -56,7 +61,9 @@ fn drawstyle_names(_args: Args<'_>) -> Outcome {
     let methods = DrawStyle::all()
         .map(|(name, style)| (name.to_owned(), Json::from(draw_method(style))))
         .collect();
-    let lookup = ["default", "steps", "steps-pre", "steps-post", "steps-mid"].map(Json::from).to_vec();
+    let lookup = ["default", "steps", "steps-pre", "steps-post", "steps-mid"]
+        .map(Json::from)
+        .to_vec();
     Ok(Json::Object(vec![
         ("drawStyleKeys".into(), Json::Array(keys)),
         ("drawStyles".into(), Json::Object(methods)),
@@ -65,7 +72,10 @@ fn drawstyle_names(_args: Args<'_>) -> Outcome {
 }
 
 fn drawstyle(args: Args<'_>) -> Outcome {
-    let style: DrawStyle = args.str("drawstyle")?.parse().map_err(ProbeError::rejected)?;
+    let style: DrawStyle = args
+        .str("drawstyle")?
+        .parse()
+        .map_err(ProbeError::rejected)?;
     let step_function = match style {
         DrawStyle::Default => "identity",
         DrawStyle::Steps | DrawStyle::StepsPre => "pts_to_prestep",
@@ -88,7 +98,10 @@ fn set_drawstyle(args: Args<'_>) -> Outcome {
 
 fn line_path(args: Args<'_>) -> Outcome {
     let (x, y) = (args.f64_vec("x")?, args.f64_vec("y")?);
-    let style: DrawStyle = args.str("drawstyle")?.parse().map_err(ProbeError::rejected)?;
+    let style: DrawStyle = args
+        .str("drawstyle")?
+        .parse()
+        .map_err(ProbeError::rejected)?;
     let vertices = line_vertices(&x, &y, style).map_err(ProbeError::rejected)?;
     Ok(encode::path(&Path::polyline(vertices)))
 }
@@ -187,9 +200,7 @@ fn decode_marker(value: Option<&Json>) -> Result<Marker, ProbeError> {
             Marker::from_code(code).map_err(ProbeError::rejected)
         }
         Json::Object(_) => Ok(Marker::Path(encode::parse_path(value)?)),
-        Json::Array(items)
-            if items.iter().all(|i| i.as_f64().is_some()) && !items.is_empty() =>
-        {
+        Json::Array(items) if items.iter().all(|i| i.as_f64().is_some()) && !items.is_empty() => {
             decode_tuple(items)
         }
         Json::Array(_) => encode::parse_points(value)

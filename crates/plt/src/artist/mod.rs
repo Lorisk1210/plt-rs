@@ -25,6 +25,7 @@ use plt_render::ClipPath;
 pub use base::{ArtistBase, ClipPathSpec};
 pub use context::{DrawContext, DrawError, LayoutContext};
 pub use handle::{ArtistHandle, RawHandle};
+pub use properties::BaseProps;
 pub use store::{ArtistId, ArtistStore};
 
 /// Behaviour shared by every drawable object.

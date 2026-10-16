@@ -20,7 +20,7 @@ HEADER = """//! {what}
 
 def hex_table(name, doc, table):
     rows = [f"/// {doc}", f"pub(super) const {name}: &[(&str, &str)] = &["]
-    rows += [f'    ("{k}", "{v.lower()}"),' for k, v in table.items()]
+    rows += [f'    ("{k}", "{v}"),' for k, v in table.items()]
     rows.append("];")
     return "\n".join(rows)
 

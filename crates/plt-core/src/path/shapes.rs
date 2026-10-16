@@ -159,7 +159,8 @@ fn arc_path(theta1: f64, theta2: f64, segments: Option<usize>, is_wedge: bool) -
 
     let mut vertices = Vec::with_capacity(3 * n + 4);
     let mut codes = Vec::with_capacity(3 * n + 4);
-    let start = Point::new(eta1.cos(), eta1.sin());
+    // linspace's first sample `0 * step + eta1`: NaN when the span is.
+    let start = Point::new(angle(0).cos(), angle(0).sin());
     if is_wedge {
         vertices.extend([Point::ORIGIN, start]);
         codes.extend([PathCode::MoveTo, PathCode::LineTo]);

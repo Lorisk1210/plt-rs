@@ -361,7 +361,7 @@ impl Bbox {
     /// Matches matplotlib's `Bbox.transformed`: the lower-left, upper-left and
     /// lower-right corners are mapped, and the result spans from the image of
     /// the lower-left corner to `(lr.x, ul.y)`. For rotations this is not the
-    /// enclosing box — use [`transformed_hull`](Self::transformed_hull).
+    /// enclosing box — use [`transformed_enclosing`](Self::transformed_enclosing).
     #[must_use]
     pub fn transformed(&self, t: &Affine2D) -> Self {
         let ll = t.transform_point(self.p0);
@@ -404,7 +404,10 @@ impl Bbox {
 
     /// How many points lie strictly inside the box (non-finite points never do).
     pub fn count_contains(&self, points: &[Point]) -> usize {
-        let (lo, hi) = (Point::new(self.xmin(), self.ymin()), Point::new(self.xmax(), self.ymax()));
+        let (lo, hi) = (
+            Point::new(self.xmin(), self.ymin()),
+            Point::new(self.xmax(), self.ymax()),
+        );
         points
             .iter()
             .filter(|p| lo.x < p.x && p.x < hi.x && lo.y < p.y && p.y < hi.y)
@@ -446,12 +449,20 @@ impl Bbox {
 
 /// `min` that propagates NaN, like numpy.
 fn nan_min(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() { f64::NAN } else { a.min(b) }
+    if a.is_nan() || b.is_nan() {
+        f64::NAN
+    } else {
+        a.min(b)
+    }
 }
 
 /// `max` that propagates NaN, like numpy.
 fn nan_max(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() { f64::NAN } else { a.max(b) }
+    if a.is_nan() || b.is_nan() {
+        f64::NAN
+    } else {
+        a.max(b)
+    }
 }
 
 /// Python's builtin `min`: keep the current value unless a candidate is

@@ -98,105 +98,36 @@ impl TickStyle {
     /// The rc defaults for the major (`major = true`) or minor ticks of
     /// one axis, including matplotlib's `axes.grid*` rules.
     pub fn from_rc(axis: AxisName, major: bool, rc: &RcParams) -> Self {
-        let x = axis == AxisName::X;
-        let (size, width, pad) = match (x, major) {
-            (true, true) => (
-                rc.xtick_major_size,
-                rc.xtick_major_width,
-                rc.xtick_major_pad,
+        let (size, width, pad) = tick_dimensions(axis, major, rc);
+        let (ticks, labels) = tick_sides(axis, major, rc);
+        let (color, label_color, label_size, direction) = match axis {
+            AxisName::X => (
+                &rc.xtick_color,
+                &rc.xtick_labelcolor,
+                rc.xtick_labelsize,
+                &rc.xtick_direction,
             ),
-            (true, false) => (
-                rc.xtick_minor_size,
-                rc.xtick_minor_width,
-                rc.xtick_minor_pad,
-            ),
-            (false, true) => (
-                rc.ytick_major_size,
-                rc.ytick_major_width,
-                rc.ytick_major_pad,
-            ),
-            (false, false) => (
-                rc.ytick_minor_size,
-                rc.ytick_minor_width,
-                rc.ytick_minor_pad,
+            AxisName::Y => (
+                &rc.ytick_color,
+                &rc.ytick_labelcolor,
+                rc.ytick_labelsize,
+                &rc.ytick_direction,
             ),
         };
-        let color = if x {
-            rc.xtick_color.clone()
-        } else {
-            rc.ytick_color.clone()
-        };
-        let label_color = match if x {
-            &rc.xtick_labelcolor
-        } else {
-            &rc.ytick_labelcolor
-        } {
+        let label_color = match label_color {
             ColorOrInherit::Inherit => color.clone(),
             ColorOrInherit::Color(c) => c.clone(),
-        };
-        let label_size = if x {
-            rc.xtick_labelsize
-        } else {
-            rc.ytick_labelsize
-        }
-        .to_points(rc.font_size);
-        let direction = if x {
-            &rc.xtick_direction
-        } else {
-            &rc.ytick_direction
-        }
-        .parse()
-        .unwrap_or_default();
-        let (side1, side2, level1, level2, label1, label2) = match (x, major) {
-            (true, true) => (
-                rc.xtick_bottom,
-                rc.xtick_top,
-                rc.xtick_major_bottom,
-                rc.xtick_major_top,
-                rc.xtick_labelbottom,
-                rc.xtick_labeltop,
-            ),
-            (true, false) => (
-                rc.xtick_bottom,
-                rc.xtick_top,
-                rc.xtick_minor_bottom,
-                rc.xtick_minor_top,
-                rc.xtick_labelbottom,
-                rc.xtick_labeltop,
-            ),
-            (false, true) => (
-                rc.ytick_left,
-                rc.ytick_right,
-                rc.ytick_major_left,
-                rc.ytick_major_right,
-                rc.ytick_labelleft,
-                rc.ytick_labelright,
-            ),
-            (false, false) => (
-                rc.ytick_left,
-                rc.ytick_right,
-                rc.ytick_minor_left,
-                rc.ytick_minor_right,
-                rc.ytick_labelleft,
-                rc.ytick_labelright,
-            ),
         };
         Self {
             size,
             width,
             pad,
-            color,
+            color: color.clone(),
             label_color,
-            label_size,
-            direction,
-            ticks: Sides {
-                first: side1 && level1,
-                second: side2 && level2,
-            },
-            labels: Sides {
-                first: label1,
-                second: label2,
-            },
+            label_size: label_size.to_points(rc.font_size),
+            direction: direction.parse().unwrap_or_default(),
+            ticks,
+            labels,
             grid: grid_from_rc(axis, major, rc),
         }
     }
@@ -206,6 +137,68 @@ impl TickStyle {
     pub fn label_offset(&self) -> f64 {
         self.pad + self.size * self.direction.outward_fraction()
     }
+}
+
+/// `(size, width, pad)` of the major or minor ticks of one axis.
+fn tick_dimensions(axis: AxisName, major: bool, rc: &RcParams) -> (f64, f64, f64) {
+    match (axis, major) {
+        (AxisName::X, true) => (
+            rc.xtick_major_size,
+            rc.xtick_major_width,
+            rc.xtick_major_pad,
+        ),
+        (AxisName::X, false) => (
+            rc.xtick_minor_size,
+            rc.xtick_minor_width,
+            rc.xtick_minor_pad,
+        ),
+        (AxisName::Y, true) => (
+            rc.ytick_major_size,
+            rc.ytick_major_width,
+            rc.ytick_major_pad,
+        ),
+        (AxisName::Y, false) => (
+            rc.ytick_minor_size,
+            rc.ytick_minor_width,
+            rc.ytick_minor_pad,
+        ),
+    }
+}
+
+/// The sides with ticks (side enabled and this tick level enabled) and
+/// the sides with labels.
+fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
+    let (sides, levels, labels) = match (axis, major) {
+        (AxisName::X, true) => (
+            (rc.xtick_bottom, rc.xtick_top),
+            (rc.xtick_major_bottom, rc.xtick_major_top),
+            (rc.xtick_labelbottom, rc.xtick_labeltop),
+        ),
+        (AxisName::X, false) => (
+            (rc.xtick_bottom, rc.xtick_top),
+            (rc.xtick_minor_bottom, rc.xtick_minor_top),
+            (rc.xtick_labelbottom, rc.xtick_labeltop),
+        ),
+        (AxisName::Y, true) => (
+            (rc.ytick_left, rc.ytick_right),
+            (rc.ytick_major_left, rc.ytick_major_right),
+            (rc.ytick_labelleft, rc.ytick_labelright),
+        ),
+        (AxisName::Y, false) => (
+            (rc.ytick_left, rc.ytick_right),
+            (rc.ytick_minor_left, rc.ytick_minor_right),
+            (rc.ytick_labelleft, rc.ytick_labelright),
+        ),
+    };
+    let ticks = Sides {
+        first: sides.0 && levels.0,
+        second: sides.1 && levels.1,
+    };
+    let labels = Sides {
+        first: labels.0,
+        second: labels.1,
+    };
+    (ticks, labels)
 }
 
 fn grid_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> Option<GridStyle> {

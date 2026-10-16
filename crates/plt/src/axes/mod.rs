@@ -2,19 +2,27 @@
 
 mod axis;
 mod axis_draw;
+mod children;
+mod error;
 mod limits;
 mod lines;
 mod patches;
+mod reference;
+mod scatter;
+mod segments;
 mod state;
+mod steps;
 #[cfg(test)]
 mod tests;
 mod ticks;
 
 pub use crate::ticker::AxisName;
 pub use axis::{Tick, TickSet};
+pub use error::PlotError;
 pub use limits::DataLimits;
-pub use lines::PlotError;
+pub use scatter::{MappedColors, ScatterColors, ScatterOptions};
 pub(crate) use state::AxesState;
+pub use steps::StairsOptions;
 pub use ticks::{GridStyle, Sides, TickDirection, TickStyle};
 
 use plt_core::Bbox;
@@ -66,6 +74,18 @@ impl Axes {
     /// Axes-fraction coordinates (`ax.transAxes`).
     pub fn trans_axes(&self) -> Transform {
         Transform::Axes(self.id())
+    }
+
+    /// x in data, y in axes-fraction coordinates
+    /// (`ax.get_xaxis_transform()`).
+    pub fn trans_xaxis(&self) -> Transform {
+        Transform::blended(self.trans_data(), self.trans_axes())
+    }
+
+    /// x in axes-fraction, y in data coordinates
+    /// (`ax.get_yaxis_transform()`).
+    pub fn trans_yaxis(&self) -> Transform {
+        Transform::blended(self.trans_axes(), self.trans_data())
     }
 
     /// Placement as a fraction of the figure (or subfigure).

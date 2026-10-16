@@ -17,6 +17,7 @@
 #[macro_use]
 pub mod artist;
 pub mod axes;
+pub mod collections;
 pub mod colors;
 pub mod contour;
 pub mod dates;
@@ -27,15 +28,16 @@ pub mod lines;
 pub mod markers;
 pub mod mlab;
 pub mod numeric;
+pub mod orientation;
 pub mod patches;
 pub mod prelude;
 pub mod rc;
 pub mod scale;
 pub mod spines;
 pub mod stats;
-pub mod text;
 #[cfg(test)]
 mod testing;
+pub mod text;
 pub mod ticker;
 pub mod transforms;
 pub mod tri;

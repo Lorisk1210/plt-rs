@@ -1,7 +1,7 @@
 //! JSON encodings shared by several probe areas (paths, matrices,
 //! transform operation lists), as documented in the spec's Python modules.
 
-use plt_core::{Affine2D, Path, PathCode, Point};
+use plt_core::{Affine2D, Bbox, Path, PathCode, Point};
 
 use super::ProbeError;
 use crate::json::Json;
@@ -99,4 +99,45 @@ pub(crate) fn parse_affine_ops(value: &Json) -> Result<Affine2D, ProbeError> {
             _ => return Err(ProbeError::BadArgs(format!("unknown transform op {op}"))),
         })
     })
+}
+
+/// `[[x0, y0], [x1, y1]]`.
+pub(crate) fn bbox(b: &Bbox) -> Json {
+    Json::Array(vec![point(b.p0), point(b.p1)])
+}
+
+/// Decodes `[[x0, y0], [x1, y1]]`.
+pub(crate) fn parse_bbox(value: &Json) -> Result<Bbox, ProbeError> {
+    match parse_points(value)?.as_slice() {
+        [p0, p1] => Ok(Bbox::new(*p0, *p1)),
+        _ => Err(ProbeError::BadArgs(format!("expected a bbox, got {value}"))),
+    }
+}
+
+/// Decodes a path dict the way `Path(np.asarray(vertices).reshape(-1, 2),
+/// codes)` builds it (so `[]` is the empty path). plt-rs paths have no
+/// `STOP` code: matplotlib's algorithms end a path at its first `STOP`, so
+/// the path is truncated there.
+pub(crate) fn parse_mpl_path(value: &Json) -> Result<Path, ProbeError> {
+    let raw_vertices = value.get("vertices").unwrap_or(&Json::Null);
+    let mut vertices = if raw_vertices.as_array().is_some_and(<[Json]>::is_empty) {
+        Vec::new()
+    } else {
+        parse_points(raw_vertices)?
+    };
+    let Some(codes) = value.get("codes").filter(|c| !c.is_null()) else {
+        return Ok(Path::polyline(vertices));
+    };
+    let mut codes = codes
+        .as_f64_vec()
+        .ok_or_else(|| ProbeError::BadArgs(format!("bad path codes {codes}")))?;
+    if let Some(stop) = codes.iter().position(|c| *c as u8 == 0) {
+        codes.truncate(stop);
+        vertices.truncate(stop);
+    }
+    let codes = codes
+        .into_iter()
+        .map(|c| PathCode::try_from(c as u8).map_err(ProbeError::rejected))
+        .collect::<Result<Vec<_>, _>>()?;
+    Path::new(vertices, codes).map_err(ProbeError::rejected)
 }

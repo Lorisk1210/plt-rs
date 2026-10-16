@@ -274,7 +274,11 @@ impl FontDatabase {
     }
 
     /// [`find_fonts`](Self::find_fonts) with explicit generic-family lists.
-    pub fn find_fonts_with(&self, query: &FontQuery, generics: &GenericFamilies) -> Result<Vec<FontId>> {
+    pub fn find_fonts_with(
+        &self,
+        query: &FontQuery,
+        generics: &GenericFamilies,
+    ) -> Result<Vec<FontId>> {
         let found: Vec<FontId> = query
             .families
             .iter()

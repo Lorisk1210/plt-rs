@@ -160,6 +160,17 @@ pub enum ColorError {
     ComponentOutOfRange(Rgba),
     /// An alpha override outside `[0, 1]`.
     AlphaOutOfRange(f64),
+    /// Per-colour alphas do not match the number of colours.
+    AlphaCount {
+        /// Number of colours.
+        colors: usize,
+        /// Number of alpha values.
+        alphas: usize,
+    },
+    /// Two colour lists that must be equally long are not.
+    CountMismatch(usize, usize),
+    /// A NaN component where a definite value is needed (e.g. hex codes).
+    NanComponent(Rgba),
 }
 
 impl fmt::Display for ColorError {
@@ -179,6 +190,13 @@ impl fmt::Display for ColorError {
             Self::AlphaOutOfRange(alpha) => {
                 write!(f, "alpha must be between 0 and 1 inclusive, got {alpha}")
             }
+            Self::AlphaCount { colors, alphas } => {
+                write!(f, "{alphas} alpha values do not match {colors} colours")
+            }
+            Self::CountMismatch(a, b) => {
+                write!(f, "different numbers of colours: {a} and {b}")
+            }
+            Self::NanComponent(rgba) => write!(f, "cannot convert NaN components of {rgba:?}"),
         }
     }
 }
@@ -198,17 +216,24 @@ pub fn is_color_like(spec: &str) -> bool {
 
 /// `#rrggbb` (or `#rrggbbaa` with `keep_alpha`), rounding half to even
 /// like Python's `round`.
-pub fn to_hex(rgba: Rgba, keep_alpha: bool) -> String {
+///
+/// # Errors
+///
+/// [`ColorError::NanComponent`] when an emitted channel is NaN.
+pub fn to_hex(rgba: Rgba, keep_alpha: bool) -> Result<String, ColorError> {
     let channels: &[f64] = if keep_alpha {
         &[rgba.r, rgba.g, rgba.b, rgba.a]
     } else {
         &[rgba.r, rgba.g, rgba.b]
     };
-    channels.iter().fold(String::from("#"), |mut hex, v| {
+    if channels.iter().any(|v| v.is_nan()) {
+        return Err(ColorError::NanComponent(rgba));
+    }
+    Ok(channels.iter().fold(String::from("#"), |mut hex, v| {
         let byte = (v * 255.0).round_ties_even() as u8;
         write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
         hex
-    })
+    }))
 }
 
 /// Whether `spec` is a property-cycle reference `"C<digits>"`.
@@ -227,10 +252,11 @@ fn cycle_index(spec: &str) -> Option<usize> {
 
 fn from_components(rgba: Rgba, alpha: Option<f64>) -> Result<Rgba, ColorError> {
     let rgba = alpha.map_or(rgba, |a| rgba.with_alpha(a));
-    if rgba.to_array().iter().all(|v| (0.0..=1.0).contains(v)) {
-        Ok(rgba)
-    } else {
+    // matplotlib rejects components outside [0, 1] but lets NaN through.
+    if rgba.to_array().iter().any(|&v| v < 0.0 || v > 1.0) {
         Err(ColorError::ComponentOutOfRange(rgba))
+    } else {
+        Ok(rgba)
     }
 }
 
@@ -248,13 +274,27 @@ fn parse_spec(spec: &str, alpha: Option<f64>) -> Result<Rgba, ColorError> {
     {
         return parse_hex(spec, digits, alpha);
     }
-    match spec.trim().parse::<f64>() {
-        Ok(grey) if (0.0..=1.0).contains(&grey) => {
+    match py_float(spec) {
+        Some(grey) if (0.0..=1.0).contains(&grey) => {
             Ok(Rgba::new(grey, grey, grey, alpha.unwrap_or(1.0)))
         }
-        Ok(_) => Err(ColorError::GreyOutOfRange(spec.to_owned())),
-        Err(_) => Err(ColorError::Invalid(spec.to_owned())),
+        Some(_) => Err(ColorError::GreyOutOfRange(spec.to_owned())),
+        None => Err(ColorError::Invalid(spec.to_owned())),
     }
+}
+
+/// Python's `float(text)`: surrounding whitespace is ignored and single
+/// underscores may separate digits (`"0.5_0"` is 0.5).
+fn py_float(text: &str) -> Option<f64> {
+    let text = text.trim();
+    let bytes = text.as_bytes();
+    let separates_digits = |i: usize| {
+        i > 0 && bytes[i - 1].is_ascii_digit() && bytes.get(i + 1).is_some_and(u8::is_ascii_digit)
+    };
+    if (0..bytes.len()).any(|i| bytes[i] == b'_' && !separates_digits(i)) {
+        return None;
+    }
+    text.replace('_', "").parse().ok()
 }
 
 fn parse_hex(spec: &str, digits: &str, alpha: Option<f64>) -> Result<Rgba, ColorError> {
@@ -286,7 +326,7 @@ mod tests {
         assert_eq!(rgba("Red"), Ok(Rgba::opaque(1.0, 0.0, 0.0)));
         assert_eq!(rgba("tab:grey"), rgba("tab:gray"));
         assert_eq!(
-            rgba("xkcd:sky blue").map(|c| to_hex(c, false)),
+            rgba("xkcd:sky blue").map(|c| to_hex(c, false).unwrap()),
             Ok("#75bbfd".into())
         );
         assert_eq!(
@@ -342,12 +382,20 @@ mod tests {
 
     #[test]
     fn hex_output_rounds_half_to_even() {
-        assert_eq!(to_hex(Rgba::new(0.5, 1.0, 0.0, 0.5), true), "#80ff0080");
-        assert_eq!(to_hex(Rgba::new(0.5, 1.0, 0.0, 0.5), false), "#80ff00");
         assert_eq!(
-            to_hex(Rgba::opaque(2.5 / 255.0, 0.0, 0.0), false),
+            to_hex(Rgba::new(0.5, 1.0, 0.0, 0.5), true).unwrap(),
+            "#80ff0080"
+        );
+        assert_eq!(
+            to_hex(Rgba::new(0.5, 1.0, 0.0, 0.5), false).unwrap(),
+            "#80ff00"
+        );
+        assert_eq!(
+            to_hex(Rgba::opaque(2.5 / 255.0, 0.0, 0.0), false).unwrap(),
             "#020000"
         );
+        assert!(to_hex(Rgba::opaque(f64::NAN, 0.0, 0.0), false).is_err());
+        assert!(to_hex(Rgba::new(0.0, 0.0, 0.0, f64::NAN), false).is_ok());
     }
 
     #[test]

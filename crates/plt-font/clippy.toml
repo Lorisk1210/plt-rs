@@ -1,0 +1,7 @@
+# Clippy reads the nearest clippy.toml only, so this repeats the workspace
+# settings (keep in sync with /clippy.toml) and adds the proper nouns this
+# crate's documentation constantly refers to.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-print-in-tests = true
+doc-valid-idents = ["FreeType", "HarfBuzz", ".."]

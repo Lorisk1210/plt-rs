@@ -1,0 +1,12 @@
+[package]
+name = "plt-font"
+description = "TrueType/OpenType parsing, glyph outlines, shaping and font management with bundled fonts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

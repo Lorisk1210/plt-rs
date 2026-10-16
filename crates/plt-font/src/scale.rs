@@ -1,0 +1,301 @@
+//! FreeType/HarfBuzz-compatible scaling.
+//!
+//! matplotlib sizes fonts with `FT_Set_Char_Size(ptsize * 64, dpi)` and lays
+//! out text with HarfBuzz on top of FreeType (`hb-ft`). Text widths depend on
+//! the exact integer arithmetic of both libraries, which [`Size`]
+//! reproduces: FreeType's 16.16 scale, `hb-ft`'s rounding of advances, and
+//! HarfBuzz's `em_mult` scaling of `GPOS` values.
+
+use crate::error::Result;
+use crate::face::Face;
+use crate::fixed::{div_fix, mul_div, mul_fix, pix_round};
+use crate::outline::{Midpoint, OutlineSink};
+use crate::tables::glyf::Scaling;
+use crate::types::{GlyphId, Rect};
+
+/// A font size in FreeType terms: 16.16 scales from font units to 26.6
+/// pixels, plus the rounded pixels-per-em.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Size {
+    x_scale: i64,
+    y_scale: i64,
+    x_ppem: u16,
+    y_ppem: u16,
+    units_per_em: u16,
+}
+
+/// How `FT_Get_Kerning` scales a kerning value.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum KerningMode {
+    /// Scaled and rounded to whole pixels (`FT_KERNING_DEFAULT`).
+    Default,
+    /// Scaled without rounding (`FT_KERNING_UNFITTED`).
+    Unfitted,
+    /// Font units (`FT_KERNING_UNSCALED`).
+    Unscaled,
+}
+
+impl Size {
+    /// The size matplotlib's `FT2Font.set_size(points, dpi)` selects: the
+    /// point size is truncated to 26.6 and the resolution to an integer.
+    pub fn new(face: &Face<'_>, points: f64, dpi: f64) -> Self {
+        Self::from_char_size(face, (points * 64.0) as i64, dpi as u32)
+    }
+
+    /// `FT_Set_Char_Size(face, char_size, 0, dpi, dpi)` with `char_size` in
+    /// 26.6 points.
+    pub fn from_char_size(face: &Face<'_>, char_size: i64, dpi: u32) -> Self {
+        let char_size = char_size.max(64);
+        let dpi = if dpi == 0 { 72 } else { i64::from(dpi) };
+        let scaled = (char_size * dpi + 36) / 72;
+        let units_per_em = face.units_per_em();
+        let scale = div_fix(scaled, i64::from(units_per_em));
+        let ppem = u16::try_from((scaled + 32) >> 6).unwrap_or(u16::MAX);
+        Self {
+            x_scale: scale,
+            y_scale: scale,
+            x_ppem: ppem,
+            y_ppem: ppem,
+            units_per_em,
+        }
+    }
+
+    /// Horizontal scale from font units to 26.6 pixels, as 16.16.
+    pub const fn x_scale(&self) -> i64 {
+        self.x_scale
+    }
+
+    /// Vertical scale from font units to 26.6 pixels, as 16.16.
+    pub const fn y_scale(&self) -> i64 {
+        self.y_scale
+    }
+
+    /// Rounded horizontal pixels per em.
+    pub const fn x_ppem(&self) -> u16 {
+        self.x_ppem
+    }
+
+    /// Rounded vertical pixels per em.
+    pub const fn y_ppem(&self) -> u16 {
+        self.y_ppem
+    }
+
+    /// Scales a horizontal font-unit value to 26.6 (`FT_MulFix`).
+    pub fn scale_x(&self, value: i64) -> i64 {
+        mul_fix(value, self.x_scale)
+    }
+
+    /// Scales a vertical font-unit value to 26.6 (`FT_MulFix`).
+    pub fn scale_y(&self, value: i64) -> i64 {
+        mul_fix(value, self.y_scale)
+    }
+
+    /// Unhinted linear advance in 16.16 pixels (FreeType's
+    /// `linearHoriAdvance` / `FT_Get_Advance`).
+    pub fn linear_advance(&self, face: &Face<'_>, glyph: GlyphId) -> i64 {
+        mul_div(i64::from(face.glyph_advance(glyph)), self.x_scale, 64)
+    }
+
+    /// Advance in 26.6 pixels as HarfBuzz's FreeType integration computes
+    /// it for unhinted layout.
+    pub fn advance(&self, face: &Face<'_>, glyph: GlyphId) -> i32 {
+        let linear = self.linear_advance(face, glyph).abs();
+        // hb-ft: `(int) (v * x_mult + (1<<9)) >> 10` in single precision.
+        ((linear as f32 + 512.0) as i32) >> 10
+    }
+
+    /// The HarfBuzz font scale (`hb_font_t::x_scale`) derived from
+    /// FreeType's.
+    fn hb_scale(scale: i64, units_per_em: u16) -> i64 {
+        (scale * i64::from(units_per_em) + 0x8000) >> 16
+    }
+
+    /// HarfBuzz's `em_mult` multiplier for one axis.
+    fn hb_mult(&self, scale: i64) -> i64 {
+        (Self::hb_scale(scale, self.units_per_em) << 16) / i64::from(self.units_per_em)
+    }
+
+    /// Scales a horizontal `GPOS` value like HarfBuzz (`em_scale_x`).
+    pub fn em_scale_x(&self, value: i32) -> i32 {
+        ((i64::from(value) * self.hb_mult(self.x_scale) + 0x8000) >> 16) as i32
+    }
+
+    /// Scales a vertical `GPOS` value like HarfBuzz (`em_scale_y`).
+    pub fn em_scale_y(&self, value: i32) -> i32 {
+        ((i64::from(value) * self.hb_mult(self.y_scale) + 0x8000) >> 16) as i32
+    }
+
+    /// HarfBuzz's floating-point `em_fscale_x`, used for anchors.
+    pub(crate) fn em_fscale_x(&self, value: i32) -> f32 {
+        value as f32
+            * (Self::hb_scale(self.x_scale, self.units_per_em) as f32
+                / f32::from(self.units_per_em))
+    }
+
+    /// HarfBuzz's floating-point `em_fscale_y`, used for anchors.
+    pub(crate) fn em_fscale_y(&self, value: i32) -> f32 {
+        value as f32
+            * (Self::hb_scale(self.y_scale, self.units_per_em) as f32
+                / f32::from(self.units_per_em))
+    }
+
+    /// HarfBuzz font scales `(x, y)` in 26.6 per em, used for device tables.
+    pub(crate) fn hb_scales(&self) -> (i64, i64) {
+        (
+            Self::hb_scale(self.x_scale, self.units_per_em),
+            Self::hb_scale(self.y_scale, self.units_per_em),
+        )
+    }
+
+    /// Control box of the unhinted glyph outline in 26.6 pixels, exactly as
+    /// FreeType computes it (`FT_Glyph_Get_CBox` with subpixel units).
+    pub fn glyph_cbox(&self, face: &Face<'_>, glyph: GlyphId) -> Result<Option<Rect>> {
+        let outline = face.load_outline(glyph, self.scaling())?;
+        Ok(outline.control_box().map(|(x0, y0, x1, y1)| Rect {
+            x_min: x0 as i32,
+            y_min: y0 as i32,
+            x_max: x1 as i32,
+            y_max: y1 as i32,
+        }))
+    }
+
+    /// Emits the unhinted outline FreeType loads at this size, in pixels
+    /// (26.6 values divided by 64) — what matplotlib's `FT2Font.get_path`
+    /// returns.
+    pub fn outline(
+        &self,
+        face: &Face<'_>,
+        glyph: GlyphId,
+        sink: &mut impl OutlineSink,
+    ) -> Result<()> {
+        let mut pixels = PixelSink(sink);
+        face.load_outline(glyph, self.scaling())?
+            .decompose(&mut pixels, Midpoint::Truncated);
+        Ok(())
+    }
+
+    pub(crate) const fn scaling(&self) -> Scaling {
+        Scaling::Fixed {
+            x_scale: self.x_scale,
+            y_scale: self.y_scale,
+        }
+    }
+
+    /// `FT_Get_Kerning` for the legacy `kern` table, in 26.6 pixels (or
+    /// font units for [`KerningMode::Unscaled`]).
+    pub fn kerning(
+        &self,
+        face: &Face<'_>,
+        left: GlyphId,
+        right: GlyphId,
+        mode: KerningMode,
+    ) -> i64 {
+        let raw = i64::from(face.legacy_kerning(left, right));
+        match mode {
+            KerningMode::Unscaled => raw,
+            KerningMode::Unfitted => mul_fix(raw, self.x_scale),
+            KerningMode::Default => {
+                let scaled = mul_fix(raw, self.x_scale);
+                let damped = if self.x_ppem < 25 {
+                    mul_div(scaled, i64::from(self.x_ppem), 25)
+                } else {
+                    scaled
+                };
+                pix_round(damped)
+            }
+        }
+    }
+}
+
+/// Divides 26.6 coordinates by 64 on their way to a sink.
+struct PixelSink<'s, S: OutlineSink>(&'s mut S);
+
+impl<S: OutlineSink> OutlineSink for PixelSink<'_, S> {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.0.move_to(x / 64.0, y / 64.0);
+    }
+    fn line_to(&mut self, x: f32, y: f32) {
+        self.0.line_to(x / 64.0, y / 64.0);
+    }
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        self.0.quad_to(x1 / 64.0, y1 / 64.0, x / 64.0, y / 64.0);
+    }
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        self.0.curve_to(
+            x1 / 64.0,
+            y1 / 64.0,
+            x2 / 64.0,
+            y2 / 64.0,
+            x / 64.0,
+            y / 64.0,
+        );
+    }
+    fn close(&mut self) {
+        self.0.close();
+    }
+}
+
+/// Value scaling used while shaping: raw font units, or HarfBuzz's 26.6
+/// pixel arithmetic at a [`Size`].
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Scaler {
+    Units,
+    Pixels(Size),
+}
+
+impl Scaler {
+    pub(crate) fn advance(&self, face: &Face<'_>, glyph: GlyphId) -> i32 {
+        match self {
+            Self::Units => i32::from(face.glyph_advance(glyph)),
+            Self::Pixels(size) => size.advance(face, glyph),
+        }
+    }
+
+    pub(crate) fn x(&self, value: i32) -> i32 {
+        match self {
+            Self::Units => value,
+            Self::Pixels(size) => size.em_scale_x(value),
+        }
+    }
+
+    pub(crate) fn y(&self, value: i32) -> i32 {
+        match self {
+            Self::Units => value,
+            Self::Pixels(size) => size.em_scale_y(value),
+        }
+    }
+
+    pub(crate) fn fx(&self, value: i32) -> f32 {
+        match self {
+            Self::Units => value as f32,
+            Self::Pixels(size) => size.em_fscale_x(value),
+        }
+    }
+
+    pub(crate) fn fy(&self, value: i32) -> f32 {
+        match self {
+            Self::Units => value as f32,
+            Self::Pixels(size) => size.em_fscale_y(value),
+        }
+    }
+
+    /// Coordinate space for contour points used by anchors.
+    pub(crate) const fn scaling(&self) -> Scaling {
+        match self {
+            Self::Units => Scaling::Units,
+            Self::Pixels(size) => size.scaling(),
+        }
+    }
+
+    /// Device-table context: `(ppem, scale)` per axis, or `None` when
+    /// device adjustments do not apply (unscaled shaping).
+    pub(crate) fn device(&self) -> Option<((u16, i64), (u16, i64))> {
+        match self {
+            Self::Units => None,
+            Self::Pixels(size) => {
+                let (x, y) = size.hb_scales();
+                Some(((size.x_ppem, x), (size.y_ppem, y)))
+            }
+        }
+    }
+}

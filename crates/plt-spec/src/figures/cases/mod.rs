@@ -31,6 +31,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         layout::CASES,
         lines::CASES,
         misc::DATES,
+        misc::SPECTRAL,
         misc::UNITS,
         scatter::CASES,
         stats::BOXPLOT,

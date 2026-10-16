@@ -109,10 +109,10 @@ fn apply_cycle(line: &mut LineArtist, key: &str, value: CycleValue) {
         ("markeredgecolor", CycleValue::Color(color)) => line.markeredgecolor = color.into(),
         ("markerfacecolor", CycleValue::Color(color)) => line.markerfacecolor = color.into(),
         ("alpha", CycleValue::Number(alpha)) => {
-            crate::artist::Artist::base_mut(line).alpha = Some(alpha)
+            crate::artist::Artist::base_mut(line).alpha = Some(alpha);
         }
         ("dashes", CycleValue::Dashes(pattern)) => {
-            line.linestyle = crate::lines::LineStyle::dashes(0.0, pattern)
+            line.linestyle = crate::lines::LineStyle::dashes(0.0, pattern);
         }
         _ => {}
     }

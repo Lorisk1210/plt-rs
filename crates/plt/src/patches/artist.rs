@@ -39,7 +39,7 @@ impl<S: PatchShape> PatchArtist<S> {
         shape.then(self.base.transform.clone().unwrap_or(Transform::Display))
     }
 
-    fn resolved(&self, ctx: &LayoutContext<'_>) -> Option<ResolvedTransform> {
+    fn resolved(&self, ctx: LayoutContext<'_>) -> Option<ResolvedTransform> {
         ctx.resolve(&self.transform())
     }
 
@@ -74,7 +74,7 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let Some(resolved) = self.resolved(ctx.layout()) else {
+        let Some(resolved) = self.resolved(*ctx.layout()) else {
             ctx.report(self.base.id(), "its coordinate system no longer exists");
             return;
         };
@@ -95,7 +95,7 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         Some(
-            self.resolved(ctx)?
+            self.resolved(*ctx)?
                 .transform_path(&self.shape.path())
                 .extents(),
         )
@@ -103,7 +103,7 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
 
     fn outline(&self, ctx: &LayoutContext<'_>) -> Option<ClipPath> {
         let outline = self.shape.path();
-        let (path, transform) = self.resolved(ctx)?.split_path(&outline);
+        let (path, transform) = self.resolved(*ctx)?.split_path(&outline);
         Some(ClipPath {
             path: path.into_owned(),
             transform,

@@ -81,22 +81,36 @@ impl fmt::Display for DrawStyle {
 /// The vertices a `Line2D` draws for data `(x, y)`: length-1 data is
 /// broadcast against the other coordinate (as numpy does), then the draw
 /// style is applied.
-pub fn line_vertices(x: &[f64], y: &[f64], style: DrawStyle) -> Result<Vec<plt_core::Point>, StepError> {
+pub fn line_vertices(
+    x: &[f64],
+    y: &[f64],
+    style: DrawStyle,
+) -> Result<Vec<plt_core::Point>, StepError> {
     let n = x.len().max(y.len());
     let (x, y) = if x.len() == y.len() || x.is_empty() || y.is_empty() {
         (x.to_vec(), y.to_vec())
     } else {
-        (broadcast(x, n).map_err(|_| mismatch(x, y))?, broadcast(y, n).map_err(|_| mismatch(x, y))?)
+        (
+            broadcast(x, n).map_err(|_| mismatch(x, y))?,
+            broadcast(y, n).map_err(|_| mismatch(x, y))?,
+        )
     };
     if x.len() != y.len() {
         return Err(mismatch(&x, &y));
     }
     let rows = style.apply(&x, &[&y])?;
-    Ok(rows[0].iter().zip(&rows[1]).map(|(&x, &y)| plt_core::Point::new(x, y)).collect())
+    Ok(rows[0]
+        .iter()
+        .zip(&rows[1])
+        .map(|(&x, &y)| plt_core::Point::new(x, y))
+        .collect())
 }
 
 fn mismatch(x: &[f64], y: &[f64]) -> StepError {
-    StepError::LengthMismatch { x: x.len(), y: y.len() }
+    StepError::LengthMismatch {
+        x: x.len(),
+        y: y.len(),
+    }
 }
 
 /// Invalid draw style input.
@@ -230,10 +244,11 @@ mod tests {
 
     #[test]
     fn line_vertices_broadcast_single_values() {
-        let vertical = line_vertices(&[0.0], &[1.0, 2.0, 3.0], DrawStyle::Default).expect("broadcasts");
+        let vertical =
+            line_vertices(&[0.0], &[1.0, 2.0, 3.0], DrawStyle::Default).expect("broadcasts");
         assert_eq!(vertical.len(), 3);
         assert!(line_vertices(&[0.0, 1.0], &[1.0, 2.0, 3.0], DrawStyle::Default).is_err());
-        assert!(line_vertices(&[], &[], DrawStyle::StepsMid).expect("empty").is_empty());
+        assert_eq!(line_vertices(&[], &[], DrawStyle::StepsMid), Ok(Vec::new()));
     }
 
     #[test]

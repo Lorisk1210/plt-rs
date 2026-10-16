@@ -35,20 +35,32 @@ pub struct FigureCase {
 
 impl fmt::Debug for FigureCase {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FigureCase").field("name", &self.name).finish_non_exhaustive()
+        f.debug_struct("FigureCase")
+            .field("name", &self.name)
+            .finish_non_exhaustive()
     }
 }
 
 impl FigureCase {
     /// A case on the default 6.4 × 4.8 in, 100 dpi canvas.
     pub const fn new(name: &'static str, build: fn(&Figure) -> CaseResult) -> Self {
-        Self { name, figsize: (6.4, 4.8), dpi: 100.0, rc: &[], build }
+        Self {
+            name,
+            figsize: (6.4, 4.8),
+            dpi: 100.0,
+            rc: &[],
+            build,
+        }
     }
 
     /// The same case on a different canvas.
     #[must_use]
     pub const fn sized(self, width: f64, height: f64, dpi: f64) -> Self {
-        Self { figsize: (width, height), dpi, ..self }
+        Self {
+            figsize: (width, height),
+            dpi,
+            ..self
+        }
     }
 
     /// The same case with rcParams overrides.
@@ -59,7 +71,9 @@ impl FigureCase {
 
     /// Golden facts file for this case.
     pub fn facts_path(&self) -> PathBuf {
-        crate::spec_root().join("goldens/figures").join(format!("{}.json", self.name))
+        crate::spec_root()
+            .join("goldens/figures")
+            .join(format!("{}.json", self.name))
     }
 
     /// Builds the figure under the spec's reference configuration
@@ -99,10 +113,17 @@ pub fn golden_case_names() -> Vec<String> {
     let mut names = Vec::new();
     for group in std::fs::read_dir(&root).into_iter().flatten().flatten() {
         let group_name = group.file_name().to_string_lossy().into_owned();
-        for file in std::fs::read_dir(group.path()).into_iter().flatten().flatten() {
+        for file in std::fs::read_dir(group.path())
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
             let path = file.path();
             if path.extension().is_some_and(|e| e == "json") {
-                let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+                let stem = path
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
                 names.push(format!("{group_name}/{stem}"));
             }
         }

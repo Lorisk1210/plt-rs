@@ -6,8 +6,10 @@ mod linestyle;
 mod markevery;
 mod steps;
 
-pub(crate) use line::LineArtist;
 pub use line::Line2D;
+pub(crate) use line::LineArtist;
 pub use linestyle::{LineStyle, LineStyleError, inverse_dashes};
 pub use markevery::{MarkEvery, MarkEveryError};
-pub use steps::{DrawStyle, StepError, line_vertices, pts_to_midstep, pts_to_poststep, pts_to_prestep};
+pub use steps::{
+    DrawStyle, StepError, line_vertices, pts_to_midstep, pts_to_poststep, pts_to_prestep,
+};

@@ -22,6 +22,9 @@ pub(crate) struct FigureState {
     pub(crate) size_inches: (f64, f64),
     /// Set whenever something changed since the last draw.
     pub(crate) stale: bool,
+    /// Problems found outside drawing (e.g. while autoscaling), reported
+    /// with the next draw.
+    pub(crate) pending_errors: Vec<DrawError>,
 }
 
 impl FigureState {
@@ -41,6 +44,7 @@ impl FigureState {
             dpi,
             size_inches,
             stale: true,
+            pending_errors: Vec::new(),
         }
     }
 
@@ -93,13 +97,19 @@ impl FigureState {
         }
         xs.sort_by(f64::total_cmp);
         ys.sort_by(f64::total_cmp);
-        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
-            state.unstale_view((&xs, &ys));
+        let outcome = self
+            .store
+            .get_as_mut::<AxesState>(axes)
+            .map(|state| state.unstale_view((&xs, &ys)));
+        if let Some(Err(message)) = outcome {
+            self.pending_errors.push(DrawError {
+                artist: axes,
+                message,
+            });
         }
     }
 
-    /// The mutable pass before drawing: autoscaling (and, later, ticks
-    /// and layout).
+    /// The mutable pass before drawing: autoscaling, then ticks.
     pub(crate) fn prepare(&mut self) {
         let axes: Vec<ArtistId> = self
             .store
@@ -108,6 +118,13 @@ impl FigureState {
             .collect();
         for id in axes {
             self.unstale_axes(id);
+            let Some(extent) = self.axes_bbox(id) else {
+                continue;
+            };
+            let dpi = self.dpi;
+            if let Some(state) = self.store.get_as_mut::<AxesState>(id) {
+                state.update_ticks(&extent, dpi);
+            }
         }
     }
 
@@ -115,7 +132,9 @@ impl FigureState {
     pub(crate) fn draw(&self, renderer: &mut dyn Renderer) -> Vec<DrawError> {
         let mut ctx = DrawContext::new(self, renderer);
         ctx.draw_child(self.root);
-        ctx.into_errors()
+        let mut errors = self.pending_errors.clone();
+        errors.extend(ctx.into_errors());
+        errors
     }
 }
 

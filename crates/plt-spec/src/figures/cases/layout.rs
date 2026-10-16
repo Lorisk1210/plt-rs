@@ -1,6 +1,6 @@
 //! `figures/cases_layout.py`.
 
-use plt::figure::Share;
+use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicOptions, Share};
 use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::prelude::*;
 use plt::text::Text;
@@ -128,6 +128,23 @@ pub(crate) const CASES: &[FigureCase] = &[
         }
         Ok(())
     }),
+    FigureCase::new("layout/subplot_mosaic_string", |fig| {
+        let axes = fig.subplot_mosaic(&Mosaic::parse("AAB;C.B")?, &MosaicOptions::default())?;
+        fill_sorted(&axes, None)
+    }),
+    FigureCase::new("layout/subplot_mosaic_nested_ratios", |fig| {
+        let label = |name: &str| MosaicCell::Label(name.into());
+        let mosaic = Mosaic::new(vec![
+            vec![label("main"), MosaicCell::Nested(Mosaic::parse("ab;cd")?)],
+            vec![label("bottom"), label("bottom")],
+        ])?;
+        let options = MosaicOptions {
+            width_ratios: Some(vec![2.0, 1.0]),
+            height_ratios: Some(vec![3.0, 1.0]),
+            ..MosaicOptions::default()
+        };
+        fill_sorted(&fig.subplot_mosaic(&mosaic, &options)?, Some(8.0))
+    }),
     FigureCase::new("layout/add_axes_rects", |fig| {
         fill(&fig.add_axes([0.1, 0.1, 0.8, 0.8]), 0)?;
         let ax = fig.add_axes([0.55, 0.55, 0.3, 0.25]);
@@ -159,6 +176,24 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(2.5, 5.0, 100.0),
 ];
+
+/// `for i, (name, ax) in enumerate(sorted(axd.items()))`: fills each
+/// axes and titles it with its label (at `title_size` points if given).
+fn fill_sorted(
+    axes: &MosaicAxes,
+    title_size: Option<f64>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut sorted: Vec<(&str, &Axes)> = axes.iter().collect();
+    sorted.sort_by_key(|(name, _)| *name);
+    for (i, (name, ax)) in sorted.into_iter().enumerate() {
+        fill(ax, i)?;
+        let title = ax.set_title(name);
+        if let Some(size) = title_size {
+            title.set_fontsize(size);
+        }
+    }
+    Ok(())
+}
 
 /// One filled subplot with `title`.
 fn titled(fig: &Figure, title: &str) -> Result<(), Box<dyn std::error::Error>> {

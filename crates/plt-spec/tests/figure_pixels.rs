@@ -12,7 +12,10 @@ use plt_spec::figures::{self, PixelReport};
 const MAX_RMS: f64 = 1.0;
 
 /// Cases exempt from [`MAX_RMS`] (still reported), with the reason.
-const KNOWN_GAPS: &[(&str, &str)] = &[];
+const KNOWN_GAPS: &[(&str, &str)] = &[(
+    "polar/grid_styling",
+    "the title is not yet lifted above tick labels that rise over the axes",
+)];
 
 #[test]
 fn figure_cases_match_golden_pixels() {

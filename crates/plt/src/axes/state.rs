@@ -9,10 +9,13 @@ use super::aspect::AspectState;
 use super::axis::{AxisGeometry, AxisState};
 use super::axis_draw::AxisPainter;
 use super::limits::{AxisAutoscale, autoscale_axis};
+use super::projection::Projection;
 use super::secondary::Secondary;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
+use crate::patches::PatchShape;
+use crate::polar::{PolarAxisPainter, PolarState, PolarView};
 use crate::rc::{Cycler, RcParams};
 use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
 use crate::transforms::{ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
@@ -28,6 +31,8 @@ pub(crate) struct AxesState {
     pub(crate) aspect: AspectState,
     /// The grid cell the axes occupies, if placed on a grid.
     pub(crate) subplot_spec: Option<SubplotSpec>,
+    /// The coordinate system.
+    pub(crate) projection: Projection,
     /// Visible data range; `x0 > x1` means an inverted axis.
     pub(crate) view_lim: Bbox,
     /// Whether the view limits were ever changed from the initial unit box.
@@ -113,6 +118,7 @@ impl AxesState {
             position,
             aspect: AspectState::default(),
             subplot_spec: None,
+            projection: Projection::Rectilinear,
             view_lim: Bbox::UNIT,
             view_mutated: (false, false),
             data_lim: DataLimits::default(),
@@ -165,9 +171,27 @@ impl AxesState {
         }
     }
 
+    /// The polar settings, if this is a polar axes.
+    pub(crate) fn polar(&self) -> Option<&PolarState> {
+        match &self.projection {
+            Projection::Polar(settings) => Some(settings),
+            Projection::Rectilinear => None,
+        }
+    }
+
+    /// The polar geometry at the current view, if this is a polar axes.
+    pub(crate) fn polar_view(&self) -> Option<PolarView<'_>> {
+        self.polar()
+            .map(|settings| PolarView::new(settings, self.view_lim, self.yaxis.map()))
+    }
+
     /// The full data → display transform for the axes placed at `display`:
-    /// scales, then view limits onto the unit square, then onto `display`.
+    /// scales, then view limits onto the unit square, then onto `display`
+    /// (or the polar projection).
     pub(crate) fn data_transform(&self, display: &Bbox) -> ResolvedTransform {
+        if let Some(polar) = self.polar_view() {
+            return polar.data_transform(display);
+        }
         let (x0, x1) = self.view_lim.interval_x();
         let (y0, y1) = self.view_lim.interval_y();
         let scaled_limits = Bbox::from_extents(
@@ -218,6 +242,7 @@ impl AxesState {
             data,
             minpos,
             length_points: 0.0,
+            tick_floor: None,
         });
         let ctx = TickContext::new(&info, &axis.settings);
         let (v0, v1) = axis.major_locator.nonsingular(v0, v1, &ctx);
@@ -309,6 +334,7 @@ impl AxesState {
                 data,
                 minpos,
                 length_points: 0.0,
+                tick_floor: None,
             })
         };
         let log = axis.scale().name() == "log";
@@ -347,6 +373,7 @@ impl AxesState {
                 data: (lo, hi),
                 minpos,
                 length_points: length_pixels / dpi * 72.0,
+                tick_floor: self.tick_floor(name),
             };
             self.axis_mut(name).update_ticks(&geometry);
         }
@@ -354,6 +381,16 @@ impl AxesState {
 }
 
 impl AxesState {
+    /// The value at or below which major ticks of one axis are dropped:
+    /// the origin of full-circle polar axes whose lower radial limit
+    /// does not exceed it (matplotlib's `RadialLocator.__call__`).
+    fn tick_floor(&self, name: AxisName) -> Option<f64> {
+        let polar = self.polar_view().filter(|_| name == AxisName::Y)?;
+        let origin = polar.rorigin() * polar.rsign();
+        let rmin = self.view_lim.y0().min(self.view_lim.y1());
+        (polar.is_full_circle_rad() && rmin <= origin).then_some(origin)
+    }
+
     /// Draws children and both axes in z-order (stable for ties, children
     /// before axes as in matplotlib's `get_children`).
     fn draw_contents(&self, ctx: &mut DrawContext<'_>) {
@@ -377,9 +414,13 @@ impl AxesState {
         for (_, item) in items {
             match item {
                 Item::Child(id) => ctx.draw_child(id),
-                Item::Axis(name) => {
-                    AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc);
-                }
+                Item::Axis(name) => match self.polar_view() {
+                    Some(polar) => {
+                        PolarAxisPainter::new(self.base.id(), self, polar, name)
+                            .draw(ctx, &self.rc);
+                    }
+                    None => AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc),
+                },
             }
         }
     }
@@ -405,7 +446,7 @@ impl Artist for AxesState {
                     gc.linewidth = 0.0;
                     ctx.renderer().draw_path(
                         &gc,
-                        &Path::unit_rectangle(),
+                        &self.patch_path(),
                         &unit_to_bbox(&extent),
                         Some(face),
                     );
@@ -426,5 +467,14 @@ impl Artist for AxesState {
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         ctx.axes_extent(self.base.id())
+    }
+}
+
+impl AxesState {
+    /// The outline of the background patch in axes coordinates: the unit
+    /// square, or the wedge of polar axes.
+    pub(crate) fn patch_path(&self) -> Path {
+        self.polar_view()
+            .map_or_else(Path::unit_rectangle, |polar| polar.patch().path())
     }
 }

@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use plt_core::{Bbox, Point};
+use plt_core::{Bbox, Path, Point};
 use plt_render::{CapStyle, ClipPath, JoinStyle};
 
 use super::PatchProps;
@@ -21,6 +21,9 @@ pub(crate) struct PatchArtist<S: PatchShape> {
     base: ArtistBase,
     pub(crate) style: PatchStyle,
     pub(crate) shape: S,
+    /// Pieces each outline segment is cut into for projections that bend
+    /// lines (matplotlib's `get_path()._interpolation_steps`).
+    pub(crate) interpolation_steps: usize,
     rc: Rc<RcParams>,
 }
 
@@ -31,8 +34,17 @@ impl<S: PatchShape> PatchArtist<S> {
             base: ArtistBase::with_zorder(1.0),
             style: PatchStyle::from_rc(&rc),
             shape,
+            interpolation_steps: 1,
             rc,
         }
+    }
+
+    /// The outline in the shape's coordinates, carrying the
+    /// interpolation steps.
+    fn shape_path(&self) -> Path {
+        self.shape
+            .path()
+            .with_interpolation_steps(self.interpolation_steps)
     }
 
     fn transform(&self) -> Transform {
@@ -79,7 +91,7 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
             ctx.report(self.base.id(), "its coordinate system no longer exists");
             return;
         };
-        let outline = self.shape.path();
+        let outline = self.shape_path();
         let (path, affine) = resolved.split_path(&outline);
         let paths = [(path.into_owned(), affine)];
         if let Err(err) = draw_patch_paths(
@@ -97,13 +109,13 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         Some(
             self.resolved(*ctx)?
-                .transform_path(&self.shape.path())
+                .transform_path(&self.shape_path())
                 .extents(),
         )
     }
 
     fn outline(&self, ctx: &LayoutContext<'_>) -> Option<ClipPath> {
-        let outline = self.shape.path();
+        let outline = self.shape_path();
         let (path, transform) = self.resolved(*ctx)?.split_path(&outline);
         Some(ClipPath {
             path: path.into_owned(),

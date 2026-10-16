@@ -28,7 +28,7 @@ fn axes_facts(ax: &Axes) -> Json {
     let (x0, x1) = ax.xlim();
     let (y0, y1) = ax.ylim();
     Json::Object(vec![
-        ("kind".into(), "rectilinear".into()),
+        ("kind".into(), ax.projection().name().into()),
         ("position".into(), Json::from(vec![x, y, w, h])),
         ("title".into(), ax.title(TitleLocation::Center).into()),
         ("xlim".into(), Json::from(vec![x0, x1])),

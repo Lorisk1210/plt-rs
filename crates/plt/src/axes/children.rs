@@ -46,12 +46,19 @@ impl Axes {
         let figure = self.raw().figure_state();
         let mut state = figure.borrow_mut();
         let id = state.adopt(axes_id, Box::new(artist));
-        if let Some(axes) = state.store.get_as_mut::<AxesState>(axes_id) {
+        drop(state);
+        self.update_data(update);
+        RawHandle::new(Rc::clone(figure), id)
+    }
+
+    /// Applies `update` to the data limits and autoscaling state
+    /// (matplotlib's `update_datalim` plus `_request_autoscale_view`).
+    pub(crate) fn update_data(&self, update: &DataUpdate) {
+        self.raw().with_mut::<AxesState, _>(|axes| {
             let (x, y) = update.update;
             axes.data_lim.update_from_points(&update.points, x, y);
             let (x, y) = update.autoscale;
             axes.request_autoscale(x, y);
-        }
-        RawHandle::new(Rc::clone(figure), id)
+        });
     }
 }

@@ -1,27 +1,45 @@
 //! Axes: data coordinate systems and the plotting API (matplotlib.axes).
 
 mod axis;
+mod axis_draw;
 mod limits;
 mod lines;
 mod patches;
 mod state;
 #[cfg(test)]
 mod tests;
+mod ticks;
 
 pub use crate::ticker::AxisName;
 pub use axis::{Tick, TickSet};
 pub use limits::DataLimits;
 pub use lines::PlotError;
 pub(crate) use state::AxesState;
+pub use ticks::{GridStyle, Sides, TickDirection, TickStyle};
 
 use plt_core::Bbox;
 
 use std::rc::Rc;
 
+use crate::artist::Artist;
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
 use crate::spines::{Spine, Spines};
+use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
+use plt_core::Point;
+
+/// Where an axes title sits.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum TitleLocation {
+    /// Flush left.
+    Left,
+    /// Centred.
+    #[default]
+    Center,
+    /// Flush right.
+    Right,
+}
 
 /// A handle to one axes of a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,6 +80,70 @@ impl Axes {
             a.position = Bbox::from_bounds(left, bottom, width, height);
         });
         self
+    }
+
+    /// Sets the centre title (matplotlib's `set_title`) and returns it.
+    pub fn set_title(&self, text: impl Into<String>) -> Text {
+        self.set_title_at(TitleLocation::Center, text)
+    }
+
+    /// Sets the title at `location` and returns it.
+    pub fn set_title_at(&self, location: TitleLocation, text: impl Into<String>) -> Text {
+        let title = self.title_handle(location);
+        title.set_text(text);
+        title
+    }
+
+    /// The title at `location` (empty when unset).
+    pub fn title(&self, location: TitleLocation) -> String {
+        self.title_handle(location).text()
+    }
+
+    fn title_handle(&self, location: TitleLocation) -> Text {
+        let index = match location {
+            TitleLocation::Left => 0,
+            TitleLocation::Center => 1,
+            TitleLocation::Right => 2,
+        };
+        let id = self.raw.with::<AxesState, _>(|a| a.titles[index]);
+        Text::from_raw(RawHandle::new(Rc::clone(self.raw.figure_state()), id))
+    }
+
+    /// Adds text at `(x, y)` in data coordinates (matplotlib's `ax.text`).
+    pub fn text(&self, x: f64, y: f64, text: impl Into<String>) -> Text {
+        let mut artist = TextArtist::new(Point::new(x, y), text, crate::rc::params());
+        let base = artist.base_mut();
+        base.transform = Some(Transform::Data(self.id()));
+        base.clip_box = Some(self.id());
+        base.clip_on = false;
+        let id = self
+            .raw
+            .figure_state()
+            .borrow_mut()
+            .adopt(self.id(), Box::new(artist));
+        Text::from_raw(RawHandle::new(Rc::clone(self.raw.figure_state()), id))
+    }
+
+    /// Sets the x-axis label.
+    pub fn set_xlabel(&self, text: impl Into<String>) -> &Self {
+        let text = text.into();
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.xaxis.label.text = text);
+        self
+    }
+
+    /// Sets the y-axis label.
+    pub fn set_ylabel(&self, text: impl Into<String>) -> &Self {
+        let text = text.into();
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.yaxis.label.text = text);
+        self
+    }
+
+    /// The label of one axis.
+    pub fn label(&self, axis: AxisName) -> String {
+        self.raw
+            .with::<AxesState, _>(|a| a.axis(axis).label.text.clone())
     }
 
     /// The four spines framing the axes.

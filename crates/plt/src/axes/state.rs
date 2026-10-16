@@ -1,8 +1,11 @@
 //! The axes artist: a data coordinate system placed inside a figure frame.
 
+use std::rc::Rc;
+
 use plt_core::{Bbox, Path, Point};
 
 use super::axis::{AxisGeometry, AxisState};
+use super::axis_draw::AxisPainter;
 use super::limits::{AxisAutoscale, DataLimits, autoscale_axis, oriented};
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
@@ -45,11 +48,16 @@ pub(crate) struct AxesState {
     pub(crate) children: Vec<ArtistId>,
     /// The spines, in `SpineSide::ALL` order once created.
     pub(crate) spines: Vec<ArtistId>,
+    /// The left, centre and right titles once created.
+    pub(crate) titles: Vec<ArtistId>,
+    /// z-order of the axis artists (`axes.axisbelow`).
+    pub(crate) axis_zorder: f64,
+    rc: Rc<RcParams>,
 }
 
 impl AxesState {
     /// Axes at `position` (frame fractions) configured from `rc`.
-    pub(crate) fn new(position: Bbox, rc: &RcParams) -> Self {
+    pub(crate) fn new(position: Bbox, rc: Rc<RcParams>) -> Self {
         Self {
             base: ArtistBase::default(),
             position,
@@ -57,8 +65,8 @@ impl AxesState {
             view_lim: Bbox::UNIT,
             view_mutated: (false, false),
             data_lim: DataLimits::default(),
-            xaxis: AxisState::new(AxisName::X, rc),
-            yaxis: AxisState::new(AxisName::Y, rc),
+            xaxis: AxisState::new(AxisName::X, &rc),
+            yaxis: AxisState::new(AxisName::Y, &rc),
             use_sticky_edges: true,
             tight: false,
             facecolor: rc.axes_facecolor.clone(),
@@ -67,6 +75,9 @@ impl AxesState {
             line_cycle: 0,
             children: Vec::new(),
             spines: Vec::new(),
+            titles: Vec::new(),
+            axis_zorder: rc.axes_axisbelow.zorder(),
+            rc,
         }
     }
 
@@ -242,6 +253,34 @@ impl AxesState {
     }
 }
 
+impl AxesState {
+    /// Draws children and both axes in z-order (stable for ties, children
+    /// before axes as in matplotlib's `get_children`).
+    fn draw_contents(&self, ctx: &mut DrawContext<'_>) {
+        enum Item {
+            Child(ArtistId),
+            Axis(AxisName),
+        }
+        let store = ctx.layout().store();
+        let mut items: Vec<(f64, Item)> = self
+            .children
+            .iter()
+            .filter_map(|&id| Some((store.get(id)?.base().zorder, Item::Child(id))))
+            .collect();
+        items.push((self.axis_zorder, Item::Axis(AxisName::X)));
+        items.push((self.axis_zorder, Item::Axis(AxisName::Y)));
+        items.sort_by(|a, b| a.0.total_cmp(&b.0));
+        for (_, item) in items {
+            match item {
+                Item::Child(id) => ctx.draw_child(id),
+                Item::Axis(name) => {
+                    AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc)
+                }
+            }
+        }
+    }
+}
+
 impl Artist for AxesState {
     fn base(&self) -> &ArtistBase {
         &self.base
@@ -270,7 +309,7 @@ impl Artist for AxesState {
                 Err(err) => ctx.report(self.base.id(), err),
             }
         }
-        ctx.draw_children_sorted(&self.children);
+        self.draw_contents(ctx);
     }
 
     fn children(&self) -> Vec<ArtistId> {

@@ -1,6 +1,7 @@
 //! The drawing interface every output backend implements.
 
 use plt_core::{Affine2D, Path, Point, Rgba};
+use plt_text::{TextEngine, TextRun};
 
 use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
@@ -30,7 +31,13 @@ pub trait Renderer {
     }
 
     /// Strokes `path` with `gc` and fills it with `fill`, if given.
-    fn draw_path(&mut self, gc: &GraphicsContext, path: &Path, transform: &Affine2D, fill: Option<Rgba>);
+    fn draw_path(
+        &mut self,
+        gc: &GraphicsContext,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    );
 
     /// Draws `marker` (in marker coordinates, mapped by `marker_transform`
     /// to pixel offsets) at every vertex of `path` transformed by `transform`.
@@ -80,6 +87,34 @@ pub trait Renderer {
         image: &RgbaImage,
         transform: Option<&Affine2D>,
     );
+
+    /// Draws laid-out text with its origin (left end of the baseline) at
+    /// `origin`, rotated by `angle` degrees counter-clockwise about it.
+    ///
+    /// The default fills every glyph outline and rule as a path in the
+    /// stroke colour, which is exact for vector output; raster backends
+    /// override it to reproduce `FreeType`'s glyph rendering.
+    fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
+        let engine = TextEngine::global();
+        let placement = Affine2D::identity()
+            .rotate_deg(angle)
+            .translate(origin.x, origin.y);
+        let mut fill_gc = gc.clone();
+        fill_gc.linewidth = 0.0;
+        let color = gc.stroke_color();
+        for glyph in &run.glyphs {
+            let Ok(outline) = engine.glyph_outline(glyph.font, glyph.glyph, glyph.size, run.dpi)
+            else {
+                continue;
+            };
+            let at = Affine2D::translation(glyph.x, glyph.y).then(placement);
+            self.draw_path(&fill_gc, &outline, &at, Some(color));
+        }
+        for rect in &run.rects {
+            let at = crate::unit_box(rect).then(placement);
+            self.draw_path(&fill_gc, &Path::unit_rectangle(), &at, Some(color));
+        }
+    }
 
     /// Starts a named group of draw calls (vector backends emit a group).
     fn open_group(&mut self, _name: &str, _gid: Option<&str>) {}

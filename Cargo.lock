@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "plt-core",
  "plt-render",
+ "plt-text",
 ]
 
 [[package]]
@@ -38,6 +39,7 @@ name = "plt-render"
 version = "0.1.0"
 dependencies = [
  "plt-core",
+ "plt-text",
 ]
 
 [[package]]

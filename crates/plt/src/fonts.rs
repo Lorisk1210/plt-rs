@@ -4,7 +4,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use crate::rc::RcValue;
+use crate::rc::{RcParams, RcValue};
 
 /// A relative font size keyword, scaled against `font.size`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -235,6 +235,79 @@ impl FontStretch {
         value: 500,
         keyword: Some("normal"),
     };
+}
+
+/// A complete font description (matplotlib's `FontProperties`) with the
+/// size resolved to points.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FontProperties {
+    /// Family names or generic families, in priority order.
+    pub families: Vec<String>,
+    /// Upright, italic or oblique.
+    pub style: plt_text::FontStyle,
+    /// Normal or small caps.
+    pub variant: plt_text::FontVariant,
+    /// Weight.
+    pub weight: FontWeight,
+    /// Stretch.
+    pub stretch: FontStretch,
+    /// Size in points.
+    pub size: f64,
+}
+
+impl FontProperties {
+    /// The defaults from `font.*` rcParams.
+    pub fn from_rc(rc: &RcParams) -> Self {
+        Self {
+            families: rc.font_family.clone(),
+            style: plt_text::FontStyle::parse(&rc.font_style)
+                .unwrap_or(plt_text::FontStyle::Normal),
+            variant: if rc.font_variant == "small-caps" {
+                plt_text::FontVariant::SmallCaps
+            } else {
+                plt_text::FontVariant::Normal
+            },
+            weight: rc.font_weight,
+            stretch: rc.font_stretch,
+            size: rc.font_size,
+        }
+    }
+
+    /// The same properties at another size, given relative to `font.size`.
+    #[must_use]
+    pub fn with_size(self, size: FontSize, base: f64) -> Self {
+        Self {
+            size: size.to_points(base),
+            ..self
+        }
+    }
+
+    /// The same properties with another weight.
+    #[must_use]
+    pub fn with_weight(self, weight: FontWeight) -> Self {
+        Self { weight, ..self }
+    }
+
+    /// The font request used to pick font files, resolving generic family
+    /// names through the `font.serif`, `font.sans-serif`, ... lists of `rc`.
+    pub fn request(&self, rc: &RcParams) -> plt_text::FontRequest {
+        let mut query = plt_text::FontQuery::families(self.families.iter().cloned());
+        query.style = self.style;
+        query.variant = self.variant;
+        query.weight = plt_text::Weight(self.weight.value());
+        query.stretch = plt_text::Stretch(self.stretch.value());
+        query.size = self.size;
+        plt_text::FontRequest {
+            query,
+            generics: plt_text::GenericFamilies {
+                serif: rc.font_serif.clone(),
+                sans_serif: rc.font_sans_serif.clone(),
+                cursive: rc.font_cursive.clone(),
+                fantasy: rc.font_fantasy.clone(),
+                monospace: rc.font_monospace.clone(),
+            },
+        }
+    }
 }
 
 /// An invalid font property value.

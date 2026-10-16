@@ -26,6 +26,17 @@ pub(crate) struct FigureFrame {
     pub(crate) children: Vec<ArtistId>,
     /// Margins and spacing of subplot grids in this frame.
     pub(crate) subplot_params: SubplotParams,
+    /// The figure title and super-labels, once created.
+    pub(crate) super_texts: SuperTexts,
+}
+
+/// The texts spanning a whole figure (matplotlib's `_suptitle`,
+/// `_supxlabel`, `_supylabel`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SuperTexts {
+    pub(crate) title: Option<ArtistId>,
+    pub(crate) xlabel: Option<ArtistId>,
+    pub(crate) ylabel: Option<ArtistId>,
 }
 
 impl FigureFrame {
@@ -45,6 +56,7 @@ impl FigureFrame {
             relative_extent,
             children: Vec::new(),
             subplot_params,
+            super_texts: SuperTexts::default(),
         }
     }
 }

@@ -224,10 +224,10 @@ impl FontDatabase {
 
     /// matplotlib's `findfont` without fallback: the best-scoring face, or
     /// `None` when no family matches.
-    fn best_match(&self, query: &FontQuery) -> Option<FontId> {
+    fn best_match(&self, query: &FontQuery, generics: &GenericFamilies) -> Option<FontId> {
         let mut best: Option<(f64, FontId)> = None;
         for entry in &self.entries {
-            let score = score::total(query, entry, &self.generics);
+            let score = score::total(query, entry, generics);
             if best.is_none_or(|(best_score, _)| score < best_score) {
                 best = Some((score, entry.font));
             }
@@ -243,20 +243,26 @@ impl FontDatabase {
     /// family matches, the default family is searched with the same style,
     /// weight and stretch.
     pub fn find_font(&self, query: &FontQuery) -> Result<FontId> {
-        self.best_match(query)
+        self.find_font_with(query, &self.generics)
+    }
+
+    /// [`find_font`](Self::find_font) with explicit generic-family lists
+    /// (matplotlib reads them from the current `font.*` rcParams).
+    pub fn find_font_with(&self, query: &FontQuery, generics: &GenericFamilies) -> Result<FontId> {
+        self.best_match(query, generics)
             .or_else(|| {
                 let fallback = FontQuery {
                     families: vec![self.default_family.clone()],
                     ..query.clone()
                 };
-                self.best_match(&fallback)
+                self.best_match(&fallback, generics)
             })
             .ok_or_else(|| FontError::NoMatchingFont(query.to_string()))
     }
 
     /// `findfont(prop, fallback_to_default=False)`.
     pub fn find_font_exact(&self, query: &FontQuery) -> Result<FontId> {
-        self.best_match(query)
+        self.best_match(query, &self.generics)
             .ok_or_else(|| FontError::NoMatchingFont(query.to_string()))
     }
 
@@ -264,18 +270,26 @@ impl FontDatabase {
     /// the query (families without a match are skipped), or the default
     /// family's best face when none matches.
     pub fn find_fonts(&self, query: &FontQuery) -> Result<Vec<FontId>> {
+        self.find_fonts_with(query, &self.generics)
+    }
+
+    /// [`find_fonts`](Self::find_fonts) with explicit generic-family lists.
+    pub fn find_fonts_with(&self, query: &FontQuery, generics: &GenericFamilies) -> Result<Vec<FontId>> {
         let found: Vec<FontId> = query
             .families
             .iter()
             .filter_map(|family| {
-                self.best_match(&FontQuery {
-                    families: vec![family.clone()],
-                    ..query.clone()
-                })
+                self.best_match(
+                    &FontQuery {
+                        families: vec![family.clone()],
+                        ..query.clone()
+                    },
+                    generics,
+                )
             })
             .collect();
         if found.is_empty() {
-            self.find_font(query).map(|id| vec![id])
+            self.find_font_with(query, generics).map(|id| vec![id])
         } else {
             Ok(found)
         }

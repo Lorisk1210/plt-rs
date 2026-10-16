@@ -14,3 +14,10 @@ pub use collection::{CollectionItem, PathCollection};
 pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sketch, SnapMode};
 pub use image::{ImageSizeError, RgbaImage};
 pub use renderer::Renderer;
+
+use plt_core::{Affine2D, Bbox};
+
+/// The affine map taking the unit square onto `bbox`.
+fn unit_box(bbox: &Bbox) -> Affine2D {
+    Affine2D::scaling(bbox.width(), bbox.height()).translate(bbox.x0(), bbox.y0())
+}

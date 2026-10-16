@@ -2,10 +2,12 @@
 
 use std::rc::Rc;
 
-use plt_core::{Affine2D, Path, Point};
+use plt_core::{Affine2D, Bbox, Path, Point};
 use plt_render::CapStyle;
 
-use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
+};
 use crate::axes::AxesState;
 use crate::colors::Color;
 use crate::patches::PatchStyle;
@@ -178,28 +180,38 @@ impl Artist for SpineArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let Some(axes_id) = self.base.parent else {
+        let Some((path, affine)) = self.display_path(*ctx.layout()) else {
             return;
         };
-        let Some(axes) = ctx.layout().store().get_as::<AxesState>(axes_id) else {
-            return;
-        };
-        let interval = self.bounds.unwrap_or(if self.side.is_vertical() {
-            axes.view_lim.interval_y()
-        } else {
-            axes.view_lim.interval_x()
-        });
-        let Some(resolved) = ctx.resolve(&self.spine_transform(axes_id)) else {
-            return;
-        };
-        let outline = self.path(interval);
-        let (path, affine) = resolved.split_path(&outline);
-        let paths = [(path.into_owned(), affine)];
+        let paths = [(path, affine)];
         if let Err(err) =
             crate::patches::draw_patch_paths(ctx, &self.base, &self.style, &self.rc, false, &paths)
         {
             ctx.report(self.base.id(), err);
         }
+    }
+
+    fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        let (path, affine) = self.display_path(*ctx)?;
+        Some(path.transformed(&affine).extents())
+    }
+}
+
+impl SpineArtist {
+    /// The spine path (non-affine part applied) and its display affine,
+    /// spanning the bounds or the parent axes' view interval.
+    fn display_path(&self, ctx: LayoutContext<'_>) -> Option<(Path, Affine2D)> {
+        let axes_id = self.base.parent?;
+        let axes = ctx.store().get_as::<AxesState>(axes_id)?;
+        let interval = self.bounds.unwrap_or(if self.side.is_vertical() {
+            axes.view_lim.interval_y()
+        } else {
+            axes.view_lim.interval_x()
+        });
+        let resolved = ctx.resolve(&self.spine_transform(axes_id))?;
+        let outline = self.path(interval);
+        let (path, affine) = resolved.split_path(&outline);
+        Some((path.into_owned(), affine))
     }
 }
 

@@ -63,7 +63,9 @@ impl<'a> PathCollection<'a> {
     /// Returns `true` when nothing would be drawn.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
-            || (self.facecolors.is_empty() && self.edgecolors.is_empty() && self.hatchcolors.is_empty())
+            || (self.facecolors.is_empty()
+                && self.edgecolors.is_empty()
+                && self.hatchcolors.is_empty())
     }
 
     /// Resolves every drawable item, exactly as matplotlib's
@@ -103,7 +105,9 @@ impl<'a> PathCollection<'a> {
             if let (Some(&color), Some(hatch)) = (cycled(self.hatchcolors, i), gc.hatch.as_mut()) {
                 hatch.color = color;
             }
-            let fill = cycled(self.facecolors, i).copied().filter(|c| !c.is_transparent());
+            let fill = cycled(self.facecolors, i)
+                .copied()
+                .filter(|c| !c.is_transparent());
             let own = cycled(self.path_transforms, i).copied().unwrap_or_default();
             let transform = own
                 .then(self.master_transform)
@@ -129,7 +133,11 @@ mod tests {
     #[test]
     fn cycles_properties_and_skips_non_finite_offsets() {
         let paths = [Path::unit_rectangle()];
-        let offsets = [Point::new(1.0, 1.0), Point::new(f64::NAN, 0.0), Point::new(3.0, 3.0)];
+        let offsets = [
+            Point::new(1.0, 1.0),
+            Point::new(f64::NAN, 0.0),
+            Point::new(3.0, 3.0),
+        ];
         let faces = [Rgba::BLACK, Rgba::TRANSPARENT];
         let collection = PathCollection {
             paths: &paths,
@@ -140,9 +148,16 @@ mod tests {
         let items: Vec<_> = collection.items(&GraphicsContext::default()).collect();
         assert_eq!(items.len(), 2);
         assert_eq!(items[0].fill, Some(Rgba::BLACK));
-        assert_eq!(items[1].fill, Some(Rgba::BLACK), "third item cycles back to the first face");
+        assert_eq!(
+            items[1].fill,
+            Some(Rgba::BLACK),
+            "third item cycles back to the first face"
+        );
         assert_eq!(items[1].transform.translation_part(), Point::new(3.0, 3.0));
-        assert_eq!(items[0].gc.linewidth, 0.0, "no edge colours means no stroke");
+        assert_eq!(
+            items[0].gc.linewidth, 0.0,
+            "no edge colours means no stroke"
+        );
     }
 
     #[test]

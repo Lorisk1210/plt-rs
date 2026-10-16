@@ -15,11 +15,17 @@ use plt_render::Renderer;
 pub(crate) use frame::FigureFrame;
 pub(crate) use state::FigureState;
 
-use crate::artist::{ArtistHandle, DrawError, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState};
+use crate::fonts::FontProperties;
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotParams, SubplotSpec};
 use crate::numeric::Grid;
+use crate::rc::{ColorOrAuto, RcParams};
 use crate::spines::{SpineArtist, SpineSide};
+use crate::text::{Text, TextArtist};
+use crate::transforms::Transform;
+use plt_core::Point;
+use plt_text::{HAlign, RotationMode, VAlign};
 
 /// The problems found while drawing a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -215,7 +221,7 @@ impl Figure {
 
     fn insert_axes(&self, position: Bbox, spec: Option<SubplotSpec>) -> Axes {
         let rc = crate::rc::params();
-        let mut axes = AxesState::new(position, &rc);
+        let mut axes = AxesState::new(position, Rc::clone(&rc));
         axes.subplot_spec = spec;
         let mut state = self.state.borrow_mut();
         let id = state.adopt(self.root.id(), Box::new(axes));
@@ -223,11 +229,81 @@ impl Figure {
             .into_iter()
             .map(|side| state.adopt(id, Box::new(SpineArtist::new(side, id, Rc::clone(&rc)))))
             .collect();
+        let titles: Vec<_> = [
+            (0.0, HAlign::Left),
+            (0.5, HAlign::Center),
+            (1.0, HAlign::Right),
+        ]
+        .into_iter()
+        .map(|(x, halign)| state.adopt(id, Box::new(axes_title(id, x, halign, &rc))))
+        .collect();
         if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
             axes.spines = spines;
+            axes.titles = titles;
         }
         drop(state);
         Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id))
+    }
+
+    /// Sets the figure title (matplotlib's `suptitle`) and returns it.
+    pub fn suptitle(&self, text: impl Into<String>) -> Text {
+        self.super_text(SuperKind::Title, text.into())
+    }
+
+    /// Sets the figure-wide x label (`supxlabel`) and returns it.
+    pub fn supxlabel(&self, text: impl Into<String>) -> Text {
+        self.super_text(SuperKind::XLabel, text.into())
+    }
+
+    /// Sets the figure-wide y label (`supylabel`) and returns it.
+    pub fn supylabel(&self, text: impl Into<String>) -> Text {
+        self.super_text(SuperKind::YLabel, text.into())
+    }
+
+    /// The figure title (empty when unset).
+    pub fn suptitle_text(&self) -> String {
+        let id = self
+            .root
+            .with::<FigureFrame, _>(|frame| frame.super_texts.title);
+        id.map(|id| Text::from_raw(RawHandle::new(Rc::clone(&self.state), id)).text())
+            .unwrap_or_default()
+    }
+
+    /// Adds text at `(x, y)` in figure fractions (matplotlib's `fig.text`).
+    pub fn text(&self, x: f64, y: f64, text: impl Into<String>) -> Text {
+        let rc = crate::rc::params();
+        let mut artist = TextArtist::new(Point::new(x, y), text, rc);
+        artist.base_mut().transform = Some(Transform::Figure(self.root.id()));
+        let id = self
+            .state
+            .borrow_mut()
+            .adopt(self.root.id(), Box::new(artist));
+        Text::from_raw(RawHandle::new(Rc::clone(&self.state), id))
+    }
+
+    fn super_text(&self, kind: SuperKind, text: String) -> Text {
+        let existing = self.root.with::<FigureFrame, _>(|frame| match kind {
+            SuperKind::Title => frame.super_texts.title,
+            SuperKind::XLabel => frame.super_texts.xlabel,
+            SuperKind::YLabel => frame.super_texts.ylabel,
+        });
+        let id = existing.unwrap_or_else(|| {
+            let artist = kind.artist(self.root.id(), &crate::rc::params());
+            let mut state = self.state.borrow_mut();
+            let id = state.adopt(self.root.id(), Box::new(artist));
+            if let Some(frame) = state.store.get_as_mut::<FigureFrame>(self.root.id()) {
+                let slot = match kind {
+                    SuperKind::Title => &mut frame.super_texts.title,
+                    SuperKind::XLabel => &mut frame.super_texts.xlabel,
+                    SuperKind::YLabel => &mut frame.super_texts.ylabel,
+                };
+                *slot = Some(id);
+            }
+            id
+        });
+        let handle = Text::from_raw(RawHandle::new(Rc::clone(&self.state), id));
+        handle.set_text(text);
+        handle
     }
 
     /// Every axes of the figure, in creation order.
@@ -272,6 +348,71 @@ impl Figure {
     pub fn is_stale(&self) -> bool {
         self.state.borrow().stale
     }
+}
+
+/// The figure-wide texts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SuperKind {
+    Title,
+    XLabel,
+    YLabel,
+}
+
+impl SuperKind {
+    /// A new text placed and styled like matplotlib's `_suplabels`.
+    fn artist(self, frame: ArtistId, rc: &Rc<RcParams>) -> TextArtist {
+        let (position, halign, valign, size, weight) = match self {
+            Self::Title => (
+                (0.5, 0.98),
+                HAlign::Center,
+                VAlign::Top,
+                rc.figure_titlesize,
+                rc.figure_titleweight,
+            ),
+            Self::XLabel => (
+                (0.5, 0.01),
+                HAlign::Center,
+                VAlign::Bottom,
+                rc.figure_labelsize,
+                rc.figure_labelweight,
+            ),
+            Self::YLabel => (
+                (0.02, 0.5),
+                HAlign::Left,
+                VAlign::Center,
+                rc.figure_labelsize,
+                rc.figure_labelweight,
+            ),
+        };
+        let mut text = TextArtist::new(Point::new(position.0, position.1), "", Rc::clone(rc));
+        text.halign = halign;
+        text.valign = valign;
+        text.font = FontProperties::from_rc(rc)
+            .with_size(size, rc.font_size)
+            .with_weight(weight);
+        if self == Self::YLabel {
+            text.rotation = 90.0;
+            text.rotation_mode = RotationMode::Anchor;
+        }
+        text.base_mut().transform = Some(Transform::Figure(frame));
+        text
+    }
+}
+
+/// An empty axes title at axes fraction `x` (matplotlib's `Axes.title`,
+/// `_left_title` and `_right_title`).
+fn axes_title(axes: ArtistId, x: f64, halign: HAlign, rc: &Rc<RcParams>) -> TextArtist {
+    let y = rc.axes_titley.unwrap_or(1.0);
+    let mut title = TextArtist::new(Point::new(x, y), "", Rc::clone(rc));
+    title.halign = halign;
+    title.font = FontProperties::from_rc(rc)
+        .with_size(rc.axes_titlesize, rc.font_size)
+        .with_weight(rc.axes_titleweight);
+    if let ColorOrAuto::Color(color) = &rc.axes_titlecolor {
+        title.color = color.clone();
+    }
+    title.base_mut().transform = Some(Transform::Axes(axes).offset_points(0.0, rc.axes_titlepad));
+    title
 }
 
 impl ArtistHandle for Figure {

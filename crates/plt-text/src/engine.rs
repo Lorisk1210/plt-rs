@@ -4,11 +4,33 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock, PoisonError};
 
 use plt_core::{Path, PathBuilder, Point};
-use plt_font::{FontDatabase, FontId, FontQuery, GlyphId, OutlineSink, ShapeOptions, Size};
+use plt_font::{
+    FontDatabase, FontId, FontQuery, GenericFamilies, GlyphId, OutlineSink, ShapeOptions, Size,
+};
 
 use crate::block::FontHeightMetrics;
 use crate::error::TextError;
 use crate::run::{PlacedGlyph, TextRun};
+
+/// A font query plus the generic-family lists (`font.sans-serif`, ...)
+/// in effect when it is resolved.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FontRequest {
+    /// Families, style, weight, stretch and size.
+    pub query: FontQuery,
+    /// Preference lists for generic family names.
+    pub generics: GenericFamilies,
+}
+
+impl FontRequest {
+    /// A request resolving generic families with matplotlib's defaults.
+    pub fn new(query: FontQuery) -> Self {
+        Self {
+            query,
+            generics: GenericFamilies::default(),
+        }
+    }
+}
 
 /// Fonts plus layout services shared by every figure and backend.
 #[derive(Debug)]
@@ -56,10 +78,11 @@ impl TextEngine {
     pub fn layout_line(
         &self,
         text: &str,
-        query: &FontQuery,
+        request: &FontRequest,
         dpi: f64,
     ) -> Result<TextRun, TextError> {
-        let fonts = self.db.find_fonts(query)?;
+        let query = &request.query;
+        let fonts = self.db.find_fonts_with(query, &request.generics)?;
         let chain = self.db.font_chain(&fonts, true)?;
         let layout = chain.layout(text, query.size, dpi, &ShapeOptions::default())?;
         let resort = self.db.last_resort();
@@ -96,10 +119,11 @@ impl TextEngine {
     /// matplotlib's `Text._get_layout` computes them.
     pub fn font_height_metrics(
         &self,
-        query: &FontQuery,
+        request: &FontRequest,
         dpi: f64,
     ) -> Result<FontHeightMetrics, TextError> {
-        let fonts = self.db.find_fonts(query)?;
+        let query = &request.query;
+        let fonts = self.db.find_fonts_with(query, &request.generics)?;
         let face = self.db.face(fonts[0])?;
         let scale = 1.0 / f64::from(face.units_per_em()) * query.size * dpi / 72.0;
         let (gap, ascent, descent) = face.os2().map_or_else(
@@ -191,11 +215,11 @@ impl OutlineSink for PathSink {
 mod tests {
     use super::*;
 
-    fn dejavu(size: f64) -> FontQuery {
-        FontQuery {
+    fn dejavu(size: f64) -> FontRequest {
+        FontRequest::new(FontQuery {
             size,
             ..FontQuery::families(["DejaVu Sans"])
-        }
+        })
     }
 
     #[test]

@@ -30,7 +30,11 @@ pub struct ImageSizeError {
 
 impl fmt::Display for ImageSizeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "RGBA image needs {} bytes, got {}", self.expected, self.actual)
+        write!(
+            f,
+            "RGBA image needs {} bytes, got {}",
+            self.expected, self.actual
+        )
     }
 }
 
@@ -41,15 +45,26 @@ impl RgbaImage {
     pub fn new(width: usize, height: usize, data: Vec<u8>) -> Result<Self, ImageSizeError> {
         let expected = width * height * 4;
         if data.len() == expected {
-            Ok(Self { width, height, data })
+            Ok(Self {
+                width,
+                height,
+                data,
+            })
         } else {
-            Err(ImageSizeError { expected, actual: data.len() })
+            Err(ImageSizeError {
+                expected,
+                actual: data.len(),
+            })
         }
     }
 
     /// A fully transparent image.
     pub fn transparent(width: usize, height: usize) -> Self {
-        Self { width, height, data: vec![0; width * height * 4] }
+        Self {
+            width,
+            height,
+            data: vec![0; width * height * 4],
+        }
     }
 
     /// Width in pixels.
@@ -81,7 +96,12 @@ impl RgbaImage {
     pub fn pixel(&self, x: usize, y: usize) -> Option<[u8; 4]> {
         (x < self.width && y < self.height).then(|| {
             let i = (y * self.width + x) * 4;
-            [self.data[i], self.data[i + 1], self.data[i + 2], self.data[i + 3]]
+            [
+                self.data[i],
+                self.data[i + 1],
+                self.data[i + 2],
+                self.data[i + 3],
+            ]
         })
     }
 }
@@ -94,7 +114,10 @@ mod tests {
     fn size_validation_and_access() {
         assert_eq!(
             RgbaImage::new(2, 2, vec![0; 15]),
-            Err(ImageSizeError { expected: 16, actual: 15 })
+            Err(ImageSizeError {
+                expected: 16,
+                actual: 15
+            })
         );
         let mut img = RgbaImage::transparent(2, 1);
         img.data_mut()[4..8].copy_from_slice(&[1, 2, 3, 4]);

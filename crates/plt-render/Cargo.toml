@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 plt-core.workspace = true
+plt-text.workspace = true
 
 [lints]
 workspace = true

@@ -8,11 +8,11 @@ use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 use super::axis::{AxisState, LabelLoc, Tick};
 use super::state::AxesState;
 use super::ticks::{TickDirection, TickStyle};
-use crate::artist::{ArtistId, DrawContext};
+use crate::artist::{Artist, ArtistId, DrawContext};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
-use crate::spines::SpineSide;
+use crate::spines::{SpineArtist, SpineSide};
 use crate::text::{draw_laid_out, lay_out};
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
@@ -61,9 +61,9 @@ impl<'a> AxisPainter<'a> {
         self.draw_offset_text(ctx, rc, &ticks.offset, &label_boxes);
     }
 
-    /// The coordinate system of tick positions: data along the axis, axes
-    /// fractions across it.
-    fn tick_transform(&self) -> Transform {
+    /// The coordinate system of gridlines: data along the axis, axes
+    /// fractions across it (matplotlib's `get_xaxis_transform('grid')`).
+    fn grid_transform(&self) -> Transform {
         let data = Transform::Data(self.axes_id);
         let across = Transform::Axes(self.axes_id);
         match self.name {
@@ -93,10 +93,10 @@ impl<'a> AxisPainter<'a> {
         }
         let (mark1, mark2) = tick_markers(self.name, style.direction);
         if style.ticks.first {
-            self.draw_tick_mark(ctx, tick.loc, 0.0, mark1, style);
+            self.draw_tick_mark(ctx, tick.loc, false, mark1, style);
         }
         if style.ticks.second {
-            self.draw_tick_mark(ctx, tick.loc, 1.0, mark2, style);
+            self.draw_tick_mark(ctx, tick.loc, true, mark2, style);
         }
         for (enabled, side_one) in [(style.labels.first, true), (style.labels.second, false)] {
             if enabled
@@ -115,7 +115,7 @@ impl<'a> AxisPainter<'a> {
         grid: &super::ticks::GridStyle,
         rc: &crate::rc::RcParams,
     ) {
-        let Some(resolved) = ctx.resolve(&self.tick_transform()) else {
+        let Some(resolved) = ctx.resolve(&self.grid_transform()) else {
             return;
         };
         let color = match grid.color.resolve_alpha(Some(grid.alpha)) {
@@ -148,11 +148,11 @@ impl<'a> AxisPainter<'a> {
         &self,
         ctx: &mut DrawContext<'_>,
         loc: f64,
-        across: f64,
+        high: bool,
         symbol: MarkerSymbol,
         style: &TickStyle,
     ) {
-        let Some(resolved) = ctx.resolve(&self.tick_transform()) else {
+        let Some(resolved) = ctx.resolve(&self.side_transform(ctx, high)) else {
             return;
         };
         let color = match style.color.resolve() {
@@ -176,7 +176,7 @@ impl<'a> AxisPainter<'a> {
             snap,
             ..GraphicsContext::default()
         };
-        let points = Path::polyline(vec![self.tick_point(loc, across)]);
+        let points = Path::polyline(vec![self.tick_point(loc, f64::from(u8::from(high)))]);
         let (points, affine) = resolved.split_path(&points);
         let marker_transform = marker.transform().scale(size, size);
         ctx.renderer().draw_markers(
@@ -198,7 +198,7 @@ impl<'a> AxisPainter<'a> {
         side_one: bool,
         rc: &crate::rc::RcParams,
     ) -> Option<Bbox> {
-        let resolved = ctx.resolve(&self.tick_transform())?;
+        let resolved = ctx.resolve(&self.side_transform(ctx, !side_one))?;
         let across = if side_one { 0.0 } else { 1.0 };
         let base = resolved.transform_point(self.tick_point(tick.loc, across));
         let offset = ctx.points_to_pixels(style.label_offset());
@@ -227,10 +227,13 @@ impl<'a> AxisPainter<'a> {
             size: style.label_size,
             ..FontProperties::from_rc(rc)
         };
+        let halign = style.label_halign.unwrap_or(halign);
         let block = BlockStyle {
             halign,
-            valign,
+            valign: style.label_valign.unwrap_or(valign),
             multialign: halign,
+            rotation: style.label_rotation,
+            rotation_mode: style.label_rotation_mode,
             ..BlockStyle::default()
         };
         self.draw_text(
@@ -386,13 +389,27 @@ impl<'a> AxisPainter<'a> {
         self.draw_text(ctx, text, &font, &style.label_color, &block, anchor, rc);
     }
 
+    /// The spine on `side`, if the axes has one.
+    fn spine<'c>(&self, ctx: &'c DrawContext<'_>, side: SpineSide) -> Option<&'c SpineArtist> {
+        let index = SpineSide::ALL.iter().position(|s| *s == side)?;
+        let spine_id = *self.axes.spines.get(index)?;
+        ctx.layout().store().get_as::<SpineArtist>(spine_id)
+    }
+
+    /// The coordinate system of the ticks and labels on the low (bottom,
+    /// left) or high side: that side's spine transform, so ticks follow a
+    /// moved spine (matplotlib's `get_xaxis_transform('tick1')`).
+    fn side_transform(&self, ctx: &DrawContext<'_>, high: bool) -> Transform {
+        self.spine(ctx, SpineSide::of(self.name, high)).map_or_else(
+            || self.grid_transform(),
+            |spine| spine.spine_transform(self.axes_id),
+        )
+    }
+
     /// The spine's extent widened by the outward/inward part of the ticks
     /// drawn on it (matplotlib's `Spine.get_window_extent`).
     fn spine_extent(&self, ctx: &DrawContext<'_>, side: SpineSide) -> Option<Bbox> {
-        let index = SpineSide::ALL.iter().position(|s| *s == side)?;
-        let spine_id = *self.axes.spines.get(index)?;
-        let spine = ctx.layout().store().get(spine_id)?;
-        let mut bbox = spine.window_extent(ctx.layout())?;
+        let mut bbox = self.spine(ctx, side)?.window_extent(ctx.layout())?;
         let ticks = self.axis.ticks.as_ref().ok()?;
         for (present, style) in [
             (!ticks.major.is_empty(), &self.axis.major_style),

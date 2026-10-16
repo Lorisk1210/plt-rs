@@ -7,6 +7,7 @@ use crate::lines::LineStyle;
 use crate::rc::{ColorOrInherit, RcParams};
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
+use plt_text::{HAlign, RotationMode, VAlign};
 
 /// Which way tick marks point relative to the axes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -194,6 +195,14 @@ pub struct TickStyle {
     pub ticks: Sides,
     /// Sides with tick labels.
     pub labels: Sides,
+    /// Rotation of the labels in degrees.
+    pub label_rotation: f64,
+    /// How rotated labels are aligned.
+    pub label_rotation_mode: RotationMode,
+    /// Horizontal label alignment replacing the side's default.
+    pub label_halign: Option<HAlign>,
+    /// Vertical label alignment replacing the side's default.
+    pub label_valign: Option<VAlign>,
     /// Gridlines, if shown.
     pub grid: Option<GridStyle>,
 }
@@ -232,8 +241,22 @@ impl TickStyle {
             direction: direction.parse().unwrap_or_default(),
             ticks,
             labels,
+            label_rotation: 0.0,
+            label_rotation_mode: RotationMode::Default,
+            label_halign: None,
+            label_valign: None,
             grid: grid_from_rc(axis, major, rc),
         }
+    }
+
+    /// Whether anything of this tick level is drawn: marks, labels or
+    /// gridlines.
+    pub fn is_drawn(&self) -> bool {
+        self.ticks.first
+            || self.ticks.second
+            || self.labels.first
+            || self.labels.second
+            || self.grid.is_some()
     }
 
     /// Distance from the axes edge to the labels in points: the pad plus

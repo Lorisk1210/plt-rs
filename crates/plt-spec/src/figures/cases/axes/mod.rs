@@ -5,6 +5,8 @@ mod grids;
 mod labels;
 mod limits;
 mod scales;
+mod spines;
+mod ticks;
 mod twins;
 
 pub(crate) use formatting::CASES as FORMATTING;
@@ -12,6 +14,8 @@ pub(crate) use grids::CASES as GRIDS;
 pub(crate) use labels::CASES as LABELS;
 pub(crate) use limits::CASES as LIMITS;
 pub(crate) use scales::CASES as SCALES;
+pub(crate) use spines::CASES as SPINES;
+pub(crate) use ticks::CASES as TICKS;
 pub(crate) use twins::CASES as TWINS;
 
 use plt::prelude::*;

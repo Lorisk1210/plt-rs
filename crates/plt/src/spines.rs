@@ -140,7 +140,7 @@ impl SpineArtist {
     /// The coordinate system of the spine path: axes fractions across the
     /// spine, data along it, adjusted by the spine position
     /// (matplotlib's `get_spine_transform`).
-    fn spine_transform(&self, axes: ArtistId) -> Transform {
+    pub(crate) fn spine_transform(&self, axes: ArtistId) -> Transform {
         let data = Transform::Data(axes);
         let across = Transform::Axes(axes);
         let base = if self.side.is_vertical() {

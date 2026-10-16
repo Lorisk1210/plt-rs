@@ -136,6 +136,13 @@ impl MaxNLocator {
         }
     }
 
+    /// Changes the maximum number of intervals.
+    #[must_use]
+    pub fn with_nbins(mut self, nbins: Nbins) -> Self {
+        self.nbins = nbins;
+        self
+    }
+
     /// Acceptable tick multiples: an increasing sequence within `[1, 10]`
     /// (1 and 10 are added if missing).
     pub fn with_steps(mut self, steps: &[f64]) -> Result<Self, TickerError> {

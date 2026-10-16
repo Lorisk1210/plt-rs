@@ -102,13 +102,13 @@ impl TextEngine {
         let fonts = self.db.find_fonts(query)?;
         let face = self.db.face(fonts[0])?;
         let scale = 1.0 / f64::from(face.units_per_em()) * query.size * dpi / 72.0;
-        let (gap, ascent, descent) = match face.os2() {
-            Some(os2) => (os2.typo_line_gap, os2.typo_ascender, os2.typo_descender),
-            None => {
+        let (gap, ascent, descent) = face.os2().map_or_else(
+            || {
                 let hhea = face.hhea();
                 (hhea.line_gap, hhea.ascender, hhea.descender)
-            }
-        };
+            },
+            |os2| (os2.typo_line_gap, os2.typo_ascender, os2.typo_descender),
+        );
         Ok(FontHeightMetrics {
             ascent: f64::from(ascent) * scale,
             descent: -f64::from(descent) * scale,

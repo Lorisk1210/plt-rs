@@ -3,6 +3,9 @@
 
 use std::rc::Rc;
 
+use super::ticks::TickStyle;
+use crate::colors::Color;
+use crate::fonts::FontProperties;
 use crate::rc::RcParams;
 use crate::scale::{LinearScale, Scale};
 use crate::ticker::{AxisInfo, AxisName, Formatter, Locator, TickContext, TickerSettings};
@@ -26,6 +29,19 @@ pub struct TickSet {
     pub minor: Vec<Tick>,
     /// Offset or scale text shown at the end of the axis (e.g. `1e6`).
     pub offset: String,
+}
+
+/// The label of an axis (matplotlib's `Axis.label`).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct AxisLabel {
+    /// Label text; empty labels are not drawn.
+    pub(crate) text: String,
+    /// Font (`axes.labelsize`, `axes.labelweight`).
+    pub(crate) font: FontProperties,
+    /// Colour (`axes.labelcolor`).
+    pub(crate) color: Color,
+    /// Gap to the tick labels in points (`axes.labelpad`).
+    pub(crate) pad: f64,
 }
 
 /// Autoscaling configuration and state of one axis.
@@ -68,6 +84,12 @@ pub(crate) struct AxisState {
     pub(crate) label_size: f64,
     /// Ticks computed by the last prepare pass, or why they could not be.
     pub(crate) ticks: Result<TickSet, String>,
+    /// Appearance of the major ticks.
+    pub(crate) major_style: TickStyle,
+    /// Appearance of the minor ticks.
+    pub(crate) minor_style: TickStyle,
+    /// The axis label.
+    pub(crate) label: AxisLabel,
 }
 
 impl AxisState {
@@ -96,6 +118,14 @@ impl AxisState {
             label_size: label_size.to_points(rc.font_size),
             settings,
             ticks: Ok(TickSet::default()),
+            major_style: TickStyle::from_rc(name, true, rc),
+            minor_style: TickStyle::from_rc(name, false, rc),
+            label: AxisLabel {
+                text: String::new(),
+                font: FontProperties::from_rc(rc).with_size(rc.axes_labelsize, rc.font_size),
+                color: rc.axes_labelcolor.clone(),
+                pad: rc.axes_labelpad,
+            },
         }
     }
 

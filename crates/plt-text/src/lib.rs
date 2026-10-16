@@ -18,7 +18,9 @@ pub use block::{
     BlockLayout, BlockStyle, FontHeightMetrics, HAlign, LineMetrics, LinePlacement, LineSpacing,
     RotationMode, VAlign, layout_block,
 };
-pub use engine::TextEngine;
+pub use engine::{FontRequest, TextEngine};
 pub use error::TextError;
-pub use plt_font::{FontId, FontQuery, FontStyle, FontVariant, GlyphId, Stretch, Weight};
+pub use plt_font::{
+    FontId, FontQuery, FontStyle, FontVariant, GenericFamilies, GlyphId, Stretch, Weight,
+};
 pub use run::{PlacedGlyph, TextRun};

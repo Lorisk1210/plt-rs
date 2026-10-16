@@ -1,6 +1,6 @@
 //! Structural facts of a figure, mirroring `spec_support.figcases.figure_facts`.
 
-use plt::axes::{Axes, AxisName};
+use plt::axes::{Axes, AxisName, TitleLocation};
 use plt::figure::Figure;
 
 use crate::compare::{Tolerance, compare};
@@ -14,6 +14,7 @@ pub fn figure_facts(fig: &Figure) -> Json {
             "size_px".into(),
             Json::from(vec![width.round(), height.round()]),
         ),
+        ("suptitle".into(), fig.suptitle_text().into()),
         (
             "axes".into(),
             Json::Array(fig.axes().iter().map(axes_facts).collect()),
@@ -28,10 +29,13 @@ fn axes_facts(ax: &Axes) -> Json {
     Json::Object(vec![
         ("kind".into(), "rectilinear".into()),
         ("position".into(), Json::from(vec![x, y, w, h])),
+        ("title".into(), ax.title(TitleLocation::Center).into()),
         ("xlim".into(), Json::from(vec![x0, x1])),
         ("ylim".into(), Json::from(vec![y0, y1])),
         ("xscale".into(), ax.xscale().into()),
         ("yscale".into(), ax.yscale().into()),
+        ("xlabel".into(), ax.label(AxisName::X).into()),
+        ("ylabel".into(), ax.label(AxisName::Y).into()),
         ("xticks".into(), ticks(ax, AxisName::X)),
         ("yticks".into(), ticks(ax, AxisName::Y)),
     ])

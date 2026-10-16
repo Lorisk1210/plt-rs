@@ -80,7 +80,10 @@ pub struct Dashes {
 impl Dashes {
     /// A solid line.
     pub const fn solid() -> Self {
-        Self { offset: 0.0, pattern: Vec::new() }
+        Self {
+            offset: 0.0,
+            pattern: Vec::new(),
+        }
     }
 
     /// Returns `true` when the pattern draws a continuous line.
@@ -239,7 +242,19 @@ mod tests {
     #[test]
     fn zero_length_dash_patterns_are_solid() {
         assert!(Dashes::solid().is_solid());
-        assert!(Dashes { offset: 0.0, pattern: vec![0.0, 0.0] }.is_solid());
-        assert!(!Dashes { offset: 0.0, pattern: vec![3.0, 1.0] }.is_solid());
+        assert!(
+            Dashes {
+                offset: 0.0,
+                pattern: vec![0.0, 0.0]
+            }
+            .is_solid()
+        );
+        assert!(
+            !Dashes {
+                offset: 0.0,
+                pattern: vec![3.0, 1.0]
+            }
+            .is_solid()
+        );
     }
 }

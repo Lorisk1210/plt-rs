@@ -33,6 +33,7 @@ pub mod rc;
 pub mod scale;
 pub mod spines;
 pub mod stats;
+pub mod text;
 #[cfg(test)]
 mod testing;
 pub mod ticker;

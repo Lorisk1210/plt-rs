@@ -39,8 +39,8 @@ pub(crate) struct AxesState {
     pub(crate) tight: bool,
     /// The background rectangle.
     pub(crate) patch: AxesPatch,
-    /// Whether the background patch and the spines are drawn.
-    pub(crate) frame_on: bool,
+    /// Which decorations are drawn.
+    pub(crate) decorations: Decorations,
     /// The axes this one shares its x and y axis with, if any
     /// (matplotlib's `_sharex`, `_sharey`).
     pub(crate) shares: (Option<ArtistId>, Option<ArtistId>),
@@ -59,6 +59,23 @@ pub(crate) struct AxesState {
     /// z-order of the axis artists (`axes.axisbelow`).
     pub(crate) axis_zorder: f64,
     rc: Rc<RcParams>,
+}
+
+/// Which decorations an axes draws (matplotlib's `axison` and
+/// `_frameon`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Decorations {
+    /// The patch, the spines and both axes.
+    pub(crate) axis_on: bool,
+    /// The patch and the spines.
+    pub(crate) frame_on: bool,
+}
+
+impl Decorations {
+    /// Whether the patch and spines are drawn.
+    pub(crate) fn framed(self) -> bool {
+        self.axis_on && self.frame_on
+    }
 }
 
 /// The background rectangle of an axes (matplotlib's `ax.patch`).
@@ -99,7 +116,10 @@ impl AxesState {
                 facecolor: rc.axes_facecolor.clone(),
                 visible: true,
             },
-            frame_on: true,
+            decorations: Decorations {
+                axis_on: true,
+                frame_on: true,
+            },
             shares: (None, None),
             prop_cycle: rc.axes_prop_cycle.clone(),
             line_cycle: 0,
@@ -333,13 +353,17 @@ impl AxesState {
             Axis(AxisName),
         }
         let store = ctx.layout().store();
+        let framed = self.decorations.framed();
         let mut items: Vec<(f64, Item)> = self
             .children
             .iter()
+            .filter(|id| framed || !self.spines.contains(id))
             .filter_map(|&id| Some((store.get(id)?.base().zorder, Item::Child(id))))
             .collect();
-        items.push((self.axis_zorder, Item::Axis(AxisName::X)));
-        items.push((self.axis_zorder, Item::Axis(AxisName::Y)));
+        if self.decorations.axis_on {
+            items.push((self.axis_zorder, Item::Axis(AxisName::X)));
+            items.push((self.axis_zorder, Item::Axis(AxisName::Y)));
+        }
         items.sort_by(|a, b| a.0.total_cmp(&b.0));
         for (_, item) in items {
             match item {
@@ -365,7 +389,7 @@ impl Artist for AxesState {
         let Some(extent) = ctx.layout().axes_extent(self.base.id()) else {
             return;
         };
-        if self.frame_on && self.patch.visible {
+        if self.decorations.framed() && self.patch.visible {
             match self.patch.facecolor.resolve() {
                 Ok(face) => {
                     let mut gc = ctx.base_gc(&self.base);

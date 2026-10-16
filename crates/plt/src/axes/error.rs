@@ -65,6 +65,8 @@ pub enum PlotError {
     AlreadyShared(AxisName),
     /// The axes belong to different figures.
     ForeignAxes,
+    /// The axis does not label its major ticks with a `ScalarFormatter`.
+    NotScalarFormatter(AxisName),
     /// A per-dataset argument with neither one value nor one per dataset.
     DatasetCount {
         /// The argument.
@@ -119,6 +121,11 @@ impl fmt::Display for PlotError {
             ),
             Self::AlreadyShared(axis) => write!(f, "{}-axis is already shared", axis.name()),
             Self::ForeignAxes => f.write_str("the axes belong to different figures"),
+            Self::NotScalarFormatter(axis) => write!(
+                f,
+                "the {}-axis tick labels do not use a ScalarFormatter",
+                axis.name()
+            ),
             Self::DatasetCount {
                 argument, len: 0, ..
             } => {

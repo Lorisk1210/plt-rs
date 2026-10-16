@@ -33,6 +33,39 @@ pub struct TickSet {
     pub offset: String,
 }
 
+/// Where an axis label sits along its axis (matplotlib's `loc` of
+/// `set_xlabel`/`set_ylabel`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum LabelLoc {
+    /// At the left (x) or bottom (y) end, aligned to it.
+    Start,
+    /// Centred.
+    #[default]
+    Center,
+    /// At the right (x) or top (y) end, aligned to it.
+    End,
+}
+
+impl LabelLoc {
+    /// The rc name (`"left"`, `"bottom"`, `"center"`, ...) for axis `name`.
+    fn from_rc(name: &str) -> Self {
+        match name {
+            "left" | "bottom" => Self::Start,
+            "right" | "top" => Self::End,
+            _ => Self::Center,
+        }
+    }
+
+    /// The position along the axis as a fraction of its length.
+    pub(crate) fn fraction(self) -> f64 {
+        match self {
+            Self::Start => 0.0,
+            Self::Center => 0.5,
+            Self::End => 1.0,
+        }
+    }
+}
+
 /// The label of an axis (matplotlib's `Axis.label`).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct AxisLabel {
@@ -46,6 +79,8 @@ pub(crate) struct AxisLabel {
     pub(crate) pad: f64,
     /// The side of the axes the label sits on.
     pub(crate) side: SpineSide,
+    /// Where along the axis the label sits.
+    pub(crate) loc: LabelLoc,
 }
 
 /// Autoscaling configuration and state of one axis.
@@ -156,6 +191,10 @@ impl AxisState {
                 color: rc.axes_labelcolor.clone(),
                 pad: rc.axes_labelpad,
                 side: SpineSide::of(name, false),
+                loc: LabelLoc::from_rc(match name {
+                    AxisName::X => &rc.xaxis_labellocation,
+                    AxisName::Y => &rc.yaxis_labellocation,
+                }),
             },
             visible: true,
             offset_side: SpineSide::of(name, false),

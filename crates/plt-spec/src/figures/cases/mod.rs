@@ -14,7 +14,12 @@ use super::FigureCase;
 /// Every translated case.
 pub(crate) fn all() -> Vec<FigureCase> {
     [
-        axes::CASES,
+        axes::FORMATTING,
+        axes::GRIDS,
+        axes::LABELS,
+        axes::LIMITS,
+        axes::SCALES,
+        axes::TWINS,
         bars::CASES,
         basic::CASES,
         hist::CASES,

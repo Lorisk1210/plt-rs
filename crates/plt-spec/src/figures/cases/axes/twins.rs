@@ -1,25 +1,11 @@
-//! `figures/cases_axes.py`.
+//! Twin and shared axes cases of `figures/cases_axes.py`.
 
 use plt::figure::Share;
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
 
+use super::{line, of_t, t};
 use crate::figures::FigureCase;
-
-/// `T = np.linspace(0, 10, 50)`.
-fn t() -> Vec<f64> {
-    linspace(0.0, 10.0, 50)
-}
-
-/// `T` mapped through `f`.
-fn of_t(f: impl Fn(f64) -> f64) -> Vec<f64> {
-    t().into_iter().map(f).collect()
-}
-
-/// `_line(ax)`: `ax.plot(T, np.sin(T))`.
-fn line(ax: &Axes) -> Result<(), plt::axes::PlotError> {
-    ax.plot(t(), of_t(f64::sin)).map(drop)
-}
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/twinx", |fig| {

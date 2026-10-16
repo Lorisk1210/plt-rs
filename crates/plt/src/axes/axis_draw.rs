@@ -5,7 +5,7 @@ use plt_core::{Bbox, Path, Point};
 use plt_render::{GraphicsContext, SnapMode};
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
-use super::axis::{AxisState, Tick};
+use super::axis::{AxisState, LabelLoc, Tick};
 use super::state::AxesState;
 use super::ticks::{TickDirection, TickStyle};
 use crate::artist::{ArtistId, DrawContext};
@@ -124,10 +124,13 @@ impl<'a> AxisPainter<'a> {
         };
         let line = Path::polyline(vec![self.tick_point(loc, 0.0), self.tick_point(loc, 1.0)]);
         let (path, affine) = resolved.split_path(&line);
+        // matplotlib clips gridlines to the axes patch, a rectangle, which
+        // Artist.set_clip_path turns into a clip box.
         let mut gc = GraphicsContext {
             foreground: color,
             linewidth: grid.linewidth,
             antialiased: rc.lines_antialiased,
+            clip_rect: ctx.layout().clip_extent(self.axes_id),
             ..GraphicsContext::default()
         };
         (gc.cap, gc.join) = if grid.linestyle.is_dashed() {
@@ -262,10 +265,15 @@ impl<'a> AxisPainter<'a> {
             .filter(|(first, _)| *first != high)
             .map(|(_, b)| *b);
         let bounds = boxes.fold(edge, |acc, b| acc.union(&b));
+        let along = match label.loc {
+            LabelLoc::Start => HAlign::Left,
+            LabelLoc::Center => HAlign::Center,
+            LabelLoc::End => HAlign::Right,
+        };
         let (anchor, block) = match self.name {
             AxisName::X => (
                 Point::new(
-                    extent.x0() + 0.5 * extent.width(),
+                    extent.x0() + label.loc.fraction() * extent.width(),
                     if high {
                         bounds.y1() + pad
                     } else {
@@ -273,7 +281,7 @@ impl<'a> AxisPainter<'a> {
                     },
                 ),
                 BlockStyle {
-                    halign: HAlign::Center,
+                    halign: along,
                     valign: if high { VAlign::Baseline } else { VAlign::Top },
                     multialign: HAlign::Center,
                     ..BlockStyle::default()
@@ -286,11 +294,11 @@ impl<'a> AxisPainter<'a> {
                     } else {
                         bounds.x0() - pad
                     },
-                    extent.y0() + 0.5 * extent.height(),
+                    extent.y0() + label.loc.fraction() * extent.height(),
                 ),
                 BlockStyle {
                     rotation: 90.0,
-                    halign: HAlign::Center,
+                    halign: along,
                     valign: if high { VAlign::Top } else { VAlign::Bottom },
                     multialign: HAlign::Center,
                     rotation_mode: RotationMode::Anchor,

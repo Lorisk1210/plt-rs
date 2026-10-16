@@ -79,7 +79,7 @@ fn drawing_maps_data_into_the_axes_box() {
                 points,
                 fill: None,
                 linewidth,
-            } if *linewidth == 1.5 => Some(points),
+            } if (*linewidth - 1.5).abs() < 1e-12 => Some(points),
             _ => None,
         })
         .expect("the line is drawn");

@@ -1,37 +1,15 @@
 //! The axes artist: a data coordinate system placed inside a figure frame.
 
-use std::rc::Rc;
+use plt_core::{Bbox, Path, Point};
 
-use plt_core::{Bbox, Path};
-
+use super::axis::{AxisGeometry, AxisState};
 use super::limits::{AxisAutoscale, DataLimits, autoscale_axis, oriented};
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
 use crate::rc::{Cycler, RcParams};
-#[cfg(doc)]
-use crate::spines::SpineSide;
-use crate::transforms::{AxisMap, ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
-
-/// Which axis of an axes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum AxisName {
-    /// The horizontal axis.
-    X,
-    /// The vertical axis.
-    Y,
-}
-
-/// Per-axis autoscaling configuration and state.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct AutoscaleState {
-    /// Whether the view follows the data.
-    pub(crate) enabled: bool,
-    /// Padding added around the data, as a fraction of its span.
-    pub(crate) margin: f64,
-    /// Set when data changed and the view must be recomputed before use.
-    pub(crate) stale: bool,
-}
+use crate::ticker::{AxisInfo, AxisName};
+use crate::transforms::{ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
 
 /// State of one axes (matplotlib's `_AxesBase`).
 #[derive(Debug)]
@@ -43,20 +21,18 @@ pub(crate) struct AxesState {
     pub(crate) subplot_spec: Option<SubplotSpec>,
     /// Visible data range; `x0 > x1` means an inverted axis.
     pub(crate) view_lim: Bbox,
+    /// Whether the view limits were ever changed from the initial unit box.
+    pub(crate) view_mutated: (bool, bool),
     /// Extent of all data added so far.
     pub(crate) data_lim: DataLimits,
-    /// Autoscaling of the x axis.
-    pub(crate) autoscale_x: AutoscaleState,
-    /// Autoscaling of the y axis.
-    pub(crate) autoscale_y: AutoscaleState,
+    /// The horizontal axis.
+    pub(crate) xaxis: AxisState,
+    /// The vertical axis.
+    pub(crate) yaxis: AxisState,
     /// Whether sticky edges limit the margins.
     pub(crate) use_sticky_edges: bool,
     /// Skip view-limit rounding when autoscaling.
     pub(crate) tight: bool,
-    /// Non-linear scale of the x axis (`None` = linear).
-    pub(crate) x_map: Option<Rc<dyn AxisMap>>,
-    /// Non-linear scale of the y axis (`None` = linear).
-    pub(crate) y_map: Option<Rc<dyn AxisMap>>,
     /// Background colour.
     pub(crate) facecolor: Color,
     /// Whether the background patch is drawn.
@@ -67,30 +43,24 @@ pub(crate) struct AxesState {
     pub(crate) line_cycle: usize,
     /// Plotted artists in insertion order.
     pub(crate) children: Vec<ArtistId>,
-    /// The spines, in [`SpineSide::ALL`] order once created.
+    /// The spines, in `SpineSide::ALL` order once created.
     pub(crate) spines: Vec<ArtistId>,
 }
 
 impl AxesState {
     /// Axes at `position` (frame fractions) configured from `rc`.
     pub(crate) fn new(position: Bbox, rc: &RcParams) -> Self {
-        let autoscale = |margin| AutoscaleState {
-            enabled: true,
-            margin,
-            stale: false,
-        };
         Self {
             base: ArtistBase::default(),
             position,
             subplot_spec: None,
             view_lim: Bbox::UNIT,
+            view_mutated: (false, false),
             data_lim: DataLimits::default(),
-            autoscale_x: autoscale(rc.axes_xmargin),
-            autoscale_y: autoscale(rc.axes_ymargin),
+            xaxis: AxisState::new(AxisName::X, rc),
+            yaxis: AxisState::new(AxisName::Y, rc),
             use_sticky_edges: true,
             tight: false,
-            x_map: None,
-            y_map: None,
             facecolor: rc.axes_facecolor.clone(),
             frame_on: true,
             prop_cycle: rc.axes_prop_cycle.clone(),
@@ -100,119 +70,175 @@ impl AxesState {
         }
     }
 
+    /// The axis called `name`.
+    pub(crate) fn axis(&self, name: AxisName) -> &AxisState {
+        match name {
+            AxisName::X => &self.xaxis,
+            AxisName::Y => &self.yaxis,
+        }
+    }
+
+    /// Mutable access to the axis called `name`.
+    pub(crate) fn axis_mut(&mut self, name: AxisName) -> &mut AxisState {
+        match name {
+            AxisName::X => &mut self.xaxis,
+            AxisName::Y => &mut self.yaxis,
+        }
+    }
+
+    /// The view interval of one axis.
+    pub(crate) fn view_interval(&self, name: AxisName) -> (f64, f64) {
+        match name {
+            AxisName::X => self.view_lim.interval_x(),
+            AxisName::Y => self.view_lim.interval_y(),
+        }
+    }
+
     /// The full data → display transform for the axes placed at `display`:
     /// scales, then view limits onto the unit square, then onto `display`.
     pub(crate) fn data_transform(&self, display: &Bbox) -> ResolvedTransform {
-        let forward =
-            |map: &Option<Rc<dyn AxisMap>>, v: f64| map.as_ref().map_or(v, |m| m.forward(v));
+        let (x0, x1) = self.view_lim.interval_x();
+        let (y0, y1) = self.view_lim.interval_y();
         let scaled_limits = Bbox::from_extents(
-            forward(&self.x_map, self.view_lim.x0()),
-            forward(&self.y_map, self.view_lim.y0()),
-            forward(&self.x_map, self.view_lim.x1()),
-            forward(&self.y_map, self.view_lim.y1()),
+            self.xaxis.forward(x0),
+            self.yaxis.forward(y0),
+            self.xaxis.forward(x1),
+            self.yaxis.forward(y1),
         );
         let affine = bbox_to_unit(&scaled_limits).then(unit_to_bbox(display));
-        if self.x_map.is_none() && self.y_map.is_none() {
+        let (x_map, y_map) = (self.xaxis.map().cloned(), self.yaxis.map().cloned());
+        if x_map.is_none() && y_map.is_none() {
             ResolvedTransform::affine(affine)
         } else {
-            ResolvedTransform::with_step(
-                Step::Separable(self.x_map.clone(), self.y_map.clone()),
-                affine,
-            )
+            ResolvedTransform::with_step(Step::Separable(x_map, y_map), affine)
         }
     }
 
     /// Sets the view interval of one axis; explicit limits switch that
     /// axis's autoscaling off (matplotlib's `set_xlim(..., auto=False)`).
-    pub(crate) fn set_limits(&mut self, axis: AxisName, lower: f64, upper: f64) {
+    pub(crate) fn set_limits(&mut self, name: AxisName, lower: f64, upper: f64) {
+        self.set_view_interval(name, (lower, upper));
+        let autoscale = &mut self.axis_mut(name).autoscale;
+        autoscale.enabled = false;
+        autoscale.stale = false;
+    }
+
+    fn set_view_interval(&mut self, name: AxisName, (lower, upper): (f64, f64)) {
         let v = self.view_lim;
-        match axis {
+        match name {
             AxisName::X => {
                 self.view_lim = Bbox::from_extents(lower, v.y0(), upper, v.y1());
-                self.autoscale_x = AutoscaleState {
-                    enabled: false,
-                    stale: false,
-                    ..self.autoscale_x
-                };
+                self.view_mutated.0 = true;
             }
             AxisName::Y => {
                 self.view_lim = Bbox::from_extents(v.x0(), lower, v.x1(), upper);
-                self.autoscale_y = AutoscaleState {
-                    enabled: false,
-                    stale: false,
-                    ..self.autoscale_y
-                };
+                self.view_mutated.1 = true;
             }
         }
     }
 
     /// Records new data and asks for the view to follow it.
-    pub(crate) fn add_data(&mut self, points: &[plt_core::Point], update_x: bool, update_y: bool) {
+    pub(crate) fn add_data(&mut self, points: &[Point], update_x: bool, update_y: bool) {
         self.data_lim.update(points, update_x, update_y);
-        self.autoscale_x.stale |= update_x;
-        self.autoscale_y.stale |= update_y;
+        self.xaxis.autoscale.stale |= update_x;
+        self.yaxis.autoscale.stale |= update_y;
+    }
+
+    /// Data interval and minimum positive value of one axis.
+    fn data_interval(&self, name: AxisName) -> ((f64, f64), f64) {
+        let bbox = self.data_lim.bbox;
+        match name {
+            AxisName::X => ((bbox.x0(), bbox.x1()), self.data_lim.minpos.x),
+            AxisName::Y => ((bbox.y0(), bbox.y1()), self.data_lim.minpos.y),
+        }
+    }
+
+    /// The data interval autoscaling starts from: the finite data limits,
+    /// `(-inf, inf)` without data, or `None` when there is no data but the
+    /// view was set explicitly (matplotlib keeps such limits).
+    fn autoscale_source(&self, name: AxisName) -> Option<(f64, f64)> {
+        let ((lo, hi), _) = self.data_interval(name);
+        let finite: Vec<f64> = [lo, hi].into_iter().filter(|v| v.is_finite()).collect();
+        let mutated = match name {
+            AxisName::X => self.view_mutated.0,
+            AxisName::Y => self.view_mutated.1,
+        };
+        match finite.as_slice() {
+            [] if mutated => None,
+            [] => Some((f64::NEG_INFINITY, f64::INFINITY)),
+            values => Some((
+                values.iter().copied().fold(f64::INFINITY, f64::min),
+                values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+            )),
+        }
     }
 
     /// Recomputes stale autoscaled view limits (matplotlib's
-    /// `_unstale_viewLim`); `stickies` are the sorted sticky edges of the
-    /// axes' children per axis.
-    pub(crate) fn unstale_view(&mut self, stickies: (&[f64], &[f64])) {
-        let identity = |lo, hi, _| (lo, hi);
-        for (axis, sticky) in [(AxisName::X, stickies.0), (AxisName::Y, stickies.1)] {
-            let (state, interval, minpos, map, inverted) = match axis {
-                AxisName::X => (
-                    self.autoscale_x,
-                    (self.data_lim.bbox.x0(), self.data_lim.bbox.x1()),
-                    self.data_lim.minpos.x,
-                    self.x_map.as_ref(),
-                    self.view_lim.x0() > self.view_lim.x1(),
-                ),
-                AxisName::Y => (
-                    self.autoscale_y,
-                    (self.data_lim.bbox.y0(), self.data_lim.bbox.y1()),
-                    self.data_lim.minpos.y,
-                    self.y_map.as_ref(),
-                    self.view_lim.y0() > self.view_lim.y1(),
-                ),
-            };
-            if !(state.stale && state.enabled) {
+    /// `_unstale_viewLim` / `autoscale_view`); `stickies` are the sorted
+    /// sticky edges of the axes' children per axis.
+    pub(crate) fn unstale_view(&mut self, stickies: (&[f64], &[f64])) -> Result<(), String> {
+        for (name, sticky) in [(AxisName::X, stickies.0), (AxisName::Y, stickies.1)] {
+            let autoscale = self.axis(name).autoscale;
+            if !(autoscale.stale && autoscale.enabled) {
                 continue;
             }
-            let usable = |s: &[f64]| {
-                if self.use_sticky_edges && state.margin != 0.0 {
-                    s.to_vec()
-                } else {
-                    Vec::new()
-                }
+            self.axis_mut(name).autoscale.stale = false;
+            let Some(data) = self.autoscale_source(name) else {
+                continue;
+            };
+            let view = self.view_interval(name);
+            let ((_, _), minpos) = self.data_interval(name);
+            let info = AxisInfo {
+                data_interval: data,
+                ..self.axis(name).info(&AxisGeometry {
+                    view,
+                    data,
+                    minpos,
+                    length_points: 0.0,
+                })
+            };
+            let usable = if self.use_sticky_edges && autoscale.margin != 0.0 {
+                sticky
+            } else {
+                &[]
             };
             let bound = autoscale_axis(&AxisAutoscale {
-                data: interval,
-                minpos,
-                margin: state.margin,
-                stickies: &usable(sticky),
-                scale: map,
-                limit_range: &identity,
+                axis: self.axis(name),
+                info: &info,
+                margin: autoscale.margin,
+                stickies: usable,
                 tight: self.tight,
-            });
-            let (lower, upper) = oriented(bound, inverted);
-            let v = self.view_lim;
-            match axis {
-                AxisName::X => {
-                    self.view_lim = Bbox::from_extents(lower, v.y0(), upper, v.y1());
-                    self.autoscale_x.stale = false;
-                }
-                AxisName::Y => {
-                    self.view_lim = Bbox::from_extents(v.x0(), lower, v.x1(), upper);
-                    self.autoscale_y.stale = false;
-                }
-            }
+            })
+            .map_err(|err| err.to_string())?;
+            self.set_view_interval(name, oriented(bound, view.0 > view.1));
         }
+        Ok(())
     }
 
     /// Whether any axis waits for autoscaling.
     pub(crate) fn needs_autoscale(&self) -> bool {
-        (self.autoscale_x.stale && self.autoscale_x.enabled)
-            || (self.autoscale_y.stale && self.autoscale_y.enabled)
+        [&self.xaxis, &self.yaxis]
+            .iter()
+            .any(|axis| axis.autoscale.stale && axis.autoscale.enabled)
+    }
+
+    /// Recomputes the ticks of both axes for an axes `extent` in display
+    /// pixels at `dpi`.
+    pub(crate) fn update_ticks(&mut self, extent: &Bbox, dpi: f64) {
+        for name in [AxisName::X, AxisName::Y] {
+            let ((lo, hi), minpos) = self.data_interval(name);
+            let length_pixels = match name {
+                AxisName::X => extent.width().abs(),
+                AxisName::Y => extent.height().abs(),
+            };
+            let geometry = AxisGeometry {
+                view: self.view_interval(name),
+                data: (lo, hi),
+                minpos,
+                length_points: length_pixels / dpi * 72.0,
+            };
+            self.axis_mut(name).update_ticks(&geometry);
+        }
     }
 }
 

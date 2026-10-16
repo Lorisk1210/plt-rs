@@ -257,32 +257,43 @@ impl PatchShape for Wedge {
         };
         let arc = Path::arc(theta1, theta2, None);
         let arc_codes = arc.resolved_codes();
-        let (vertices, codes) = match self.width {
-            Some(width) => {
-                let inner = (self.r - width) / self.r;
-                let mut vertices = arc.vertices().to_vec();
-                vertices.extend(arc.vertices().iter().rev().map(|&p| p * inner));
-                vertices.push(Point::ORIGIN);
-                let mut codes = arc_codes.clone();
-                codes.push(connector);
-                codes.extend_from_slice(&arc_codes[1..]);
-                codes.push(PathCode::ClosePoly);
-                (vertices, codes)
-            }
-            None => {
-                let mut vertices = arc.vertices().to_vec();
-                vertices.extend([Point::ORIGIN, Point::ORIGIN]);
-                let mut codes = arc_codes;
-                codes.extend([PathCode::LineTo, PathCode::ClosePoly]);
-                (vertices, codes)
-            }
-        };
+        let (vertices, codes) = self.width.map_or_else(
+            || wedge_outline(&arc, arc_codes.clone()),
+            |width| annulus_outline(&arc, &arc_codes, (self.r - width) / self.r, connector),
+        );
         let placed = vertices
             .into_iter()
             .map(|p| p * self.r + self.center)
             .collect();
         Path::new(placed, codes).expect("wedge codes are well formed")
     }
+}
+
+/// The outline of a full wedge: the arc, back to the centre, closed.
+fn wedge_outline(arc: &Path, arc_codes: Vec<PathCode>) -> (Vec<Point>, Vec<PathCode>) {
+    let mut vertices = arc.vertices().to_vec();
+    vertices.extend([Point::ORIGIN, Point::ORIGIN]);
+    let mut codes = arc_codes;
+    codes.extend([PathCode::LineTo, PathCode::ClosePoly]);
+    (vertices, codes)
+}
+
+/// The outline of an annular sector: the outer arc, then the inner arc
+/// (scaled by `inner`) backwards, joined by `connector`.
+fn annulus_outline(
+    arc: &Path,
+    arc_codes: &[PathCode],
+    inner: f64,
+    connector: PathCode,
+) -> (Vec<Point>, Vec<PathCode>) {
+    let mut vertices = arc.vertices().to_vec();
+    vertices.extend(arc.vertices().iter().rev().map(|&p| p * inner));
+    vertices.push(Point::ORIGIN);
+    let mut codes = arc_codes.to_vec();
+    codes.push(connector);
+    codes.extend_from_slice(&arc_codes[1..]);
+    codes.push(PathCode::ClosePoly);
+    (vertices, codes)
 }
 
 /// A regular polygon with `sides` vertices on a circle of `radius`.

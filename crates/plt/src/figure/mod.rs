@@ -252,12 +252,20 @@ impl Figure {
     pub fn draw(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
         self.state.borrow_mut().prepare();
         let errors = self.state.borrow().draw(renderer);
-        self.state.borrow_mut().stale = false;
+        let mut state = self.state.borrow_mut();
+        state.stale = false;
+        state.pending_errors.clear();
         if errors.is_empty() {
             Ok(())
         } else {
             Err(DrawErrors(errors))
         }
+    }
+
+    /// Runs the layout pass (autoscaling and tick placement) without
+    /// drawing, so limits and ticks can be queried.
+    pub fn layout(&self) {
+        self.state.borrow_mut().prepare();
     }
 
     /// Whether something changed since the last draw.

@@ -60,10 +60,15 @@ impl fmt::Display for MarkEveryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ZeroStep => f.write_str("markevery step cannot be zero"),
-            Self::NonPositiveDistance(step) => write!(f, "markevery distance step {step} must be positive"),
+            Self::NonPositiveDistance(step) => {
+                write!(f, "markevery distance step {step} must be positive")
+            }
             Self::IndexOutOfRange(i) => write!(f, "markevery index {i} is out of range"),
             Self::MaskLength { mask, points } => {
-                write!(f, "markevery mask has {mask} entries but the line has {points} points")
+                write!(
+                    f,
+                    "markevery mask has {mask} entries but the line has {points} points"
+                )
             }
         }
     }
@@ -77,7 +82,11 @@ impl MarkEvery {
     /// `points` are the line's vertices in display coordinates and
     /// `axes_diagonal` the length of the axes diagonal in pixels; both are
     /// only used by [`MarkEvery::Distance`].
-    pub fn select(&self, points: &[Point], axes_diagonal: f64) -> Result<Vec<usize>, MarkEveryError> {
+    pub fn select(
+        &self,
+        points: &[Point],
+        axes_diagonal: f64,
+    ) -> Result<Vec<usize>, MarkEveryError> {
         let n = points.len();
         match self {
             Self::Every { start, step } => slice_indices(n, Some(*start), None, Some(*step)),
@@ -92,17 +101,27 @@ impl MarkEvery {
                         .ok_or(MarkEveryError::IndexOutOfRange(i))
                 })
                 .collect(),
-            Self::Mask(mask) if mask.len() == n => {
-                Ok(mask.iter().enumerate().filter_map(|(i, &on)| on.then_some(i)).collect())
-            }
-            Self::Mask(mask) => Err(MarkEveryError::MaskLength { mask: mask.len(), points: n }),
+            Self::Mask(mask) if mask.len() == n => Ok(mask
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &on)| on.then_some(i))
+                .collect()),
+            Self::Mask(mask) => Err(MarkEveryError::MaskLength {
+                mask: mask.len(),
+                points: n,
+            }),
             Self::Distance { start, step } => by_distance(points, *start, *step, axes_diagonal),
         }
     }
 }
 
 /// Python's `slice(start, stop, step).indices(n)` expanded to indices.
-fn slice_indices(n: usize, start: Option<i64>, stop: Option<i64>, step: Option<i64>) -> Result<Vec<usize>, MarkEveryError> {
+fn slice_indices(
+    n: usize,
+    start: Option<i64>,
+    stop: Option<i64>,
+    step: Option<i64>,
+) -> Result<Vec<usize>, MarkEveryError> {
     let step = step.unwrap_or(1);
     if step == 0 {
         return Err(MarkEveryError::ZeroStep);
@@ -110,7 +129,11 @@ fn slice_indices(n: usize, start: Option<i64>, stop: Option<i64>, step: Option<i
     let len = n as i64;
     let (lower, upper) = if step > 0 { (0, len) } else { (-1, len - 1) };
     let clamp = |i: i64| {
-        if i < 0 { (i + len).max(lower) } else { i.min(upper) }
+        if i < 0 {
+            (i + len).max(lower)
+        } else {
+            i.min(upper)
+        }
     };
     let start = start.map_or(if step > 0 { 0 } else { upper }, clamp);
     let stop = stop.map_or(if step > 0 { len } else { lower }, clamp);
@@ -126,11 +149,18 @@ fn slice_indices(n: usize, start: Option<i64>, stop: Option<i64>, step: Option<i
 /// matplotlib's float `markevery`: walk the cumulative on-screen length of
 /// the finite vertices and pick, for each target distance, the vertex
 /// whose cumulative length is closest (duplicates removed, sorted).
-fn by_distance(points: &[Point], start: f64, step: f64, diagonal: f64) -> Result<Vec<usize>, MarkEveryError> {
+fn by_distance(
+    points: &[Point],
+    start: f64,
+    step: f64,
+    diagonal: f64,
+) -> Result<Vec<usize>, MarkEveryError> {
     if step <= 0.0 || step.is_nan() {
         return Err(MarkEveryError::NonPositiveDistance(step));
     }
-    let finite: Vec<usize> = (0..points.len()).filter(|&i| points[i].is_finite()).collect();
+    let finite: Vec<usize> = (0..points.len())
+        .filter(|&i| points[i].is_finite())
+        .collect();
     let mut cumulative = Vec::with_capacity(finite.len());
     let mut total = 0.0;
     for (k, &i) in finite.iter().enumerate() {
@@ -173,22 +203,51 @@ mod tests {
     #[test]
     fn strides_and_slices() {
         let pts = line(7);
-        assert_eq!(MarkEvery::Every { start: 0, step: 3 }.select(&pts, 1.0), Ok(vec![0, 3, 6]));
-        assert_eq!(MarkEvery::Every { start: -3, step: 1 }.select(&pts, 1.0), Ok(vec![4, 5, 6]));
-        assert_eq!(MarkEvery::Every { start: 1, step: -1 }.select(&pts, 1.0), Ok(vec![1, 0]));
-        assert_eq!(MarkEvery::Every { start: 0, step: 0 }.select(&pts, 1.0), Err(MarkEveryError::ZeroStep));
-        let reversed = MarkEvery::Slice { start: None, stop: None, step: Some(-3) };
+        assert_eq!(
+            MarkEvery::Every { start: 0, step: 3 }.select(&pts, 1.0),
+            Ok(vec![0, 3, 6])
+        );
+        assert_eq!(
+            MarkEvery::Every { start: -3, step: 1 }.select(&pts, 1.0),
+            Ok(vec![4, 5, 6])
+        );
+        assert_eq!(
+            MarkEvery::Every { start: 1, step: -1 }.select(&pts, 1.0),
+            Ok(vec![1, 0])
+        );
+        assert_eq!(
+            MarkEvery::Every { start: 0, step: 0 }.select(&pts, 1.0),
+            Err(MarkEveryError::ZeroStep)
+        );
+        let reversed = MarkEvery::Slice {
+            start: None,
+            stop: None,
+            step: Some(-3),
+        };
         assert_eq!(reversed.select(&pts, 1.0), Ok(vec![6, 3, 0]));
-        let window = MarkEvery::Slice { start: Some(2), stop: Some(6), step: Some(2) };
+        let window = MarkEvery::Slice {
+            start: Some(2),
+            stop: Some(6),
+            step: Some(2),
+        };
         assert_eq!(window.select(&pts, 1.0), Ok(vec![2, 4]));
     }
 
     #[test]
     fn indices_and_masks() {
         let pts = line(4);
-        assert_eq!(MarkEvery::Indices(vec![-1, 0, 0]).select(&pts, 1.0), Ok(vec![3, 0, 0]));
-        assert_eq!(MarkEvery::Indices(vec![9]).select(&pts, 1.0), Err(MarkEveryError::IndexOutOfRange(9)));
-        assert_eq!(MarkEvery::Mask(vec![true, false, false, true]).select(&pts, 1.0), Ok(vec![0, 3]));
+        assert_eq!(
+            MarkEvery::Indices(vec![-1, 0, 0]).select(&pts, 1.0),
+            Ok(vec![3, 0, 0])
+        );
+        assert_eq!(
+            MarkEvery::Indices(vec![9]).select(&pts, 1.0),
+            Err(MarkEveryError::IndexOutOfRange(9))
+        );
+        assert_eq!(
+            MarkEvery::Mask(vec![true, false, false, true]).select(&pts, 1.0),
+            Ok(vec![0, 3])
+        );
         assert!(MarkEvery::Mask(vec![true]).select(&pts, 1.0).is_err());
     }
 
@@ -197,10 +256,31 @@ mod tests {
         let pts = line(11); // 100 px long
         // Targets 0, 25, 50, 75 px; ties (25 between 20 and 30) pick the
         // first vertex, like numpy's argmin.
-        let every_quarter = MarkEvery::Distance { start: 0.0, step: 0.25 };
+        let every_quarter = MarkEvery::Distance {
+            start: 0.0,
+            step: 0.25,
+        };
         assert_eq!(every_quarter.select(&pts, 100.0), Ok(vec![0, 2, 5, 7]));
-        assert!(MarkEvery::Distance { start: 0.0, step: 0.0 }.select(&pts, 100.0).is_err());
-        let gappy = vec![Point::new(0.0, 0.0), Point::new(f64::NAN, 0.0), Point::new(10.0, 0.0)];
-        assert_eq!(MarkEvery::Distance { start: 0.0, step: 0.08 }.select(&gappy, 100.0), Ok(vec![0, 2]));
+        assert!(
+            MarkEvery::Distance {
+                start: 0.0,
+                step: 0.0
+            }
+            .select(&pts, 100.0)
+            .is_err()
+        );
+        let gappy = vec![
+            Point::new(0.0, 0.0),
+            Point::new(f64::NAN, 0.0),
+            Point::new(10.0, 0.0),
+        ];
+        assert_eq!(
+            MarkEvery::Distance {
+                start: 0.0,
+                step: 0.08
+            }
+            .select(&gappy, 100.0),
+            Ok(vec![0, 2])
+        );
     }
 }

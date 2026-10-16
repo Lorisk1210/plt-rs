@@ -99,6 +99,41 @@ impl Default for TickerSettings {
     }
 }
 
+impl From<&crate::rc::RcParams> for TickerSettings {
+    /// The ticker-relevant subset of the given rcParams.
+    fn from(rc: &crate::rc::RcParams) -> Self {
+        let limit = |i: usize| {
+            rc.axes_formatter_limits
+                .get(i)
+                .map_or(0, |&v| i32::try_from(v).unwrap_or(0))
+        };
+        let ndivs = |text: &str| {
+            text.parse()
+                .map_or(MinorDivisions::Auto, MinorDivisions::Count)
+        };
+        Self {
+            axes_unicode_minus: rc.axes_unicode_minus,
+            axes_formatter_limits: (limit(0), limit(1)),
+            axes_formatter_offset_threshold: i32::try_from(rc.axes_formatter_offset_threshold)
+                .unwrap_or(4),
+            axes_formatter_useoffset: rc.axes_formatter_useoffset,
+            axes_formatter_use_mathtext: rc.axes_formatter_use_mathtext,
+            axes_formatter_min_exponent: i32::try_from(rc.axes_formatter_min_exponent).unwrap_or(0),
+            text_usetex: rc.text_usetex,
+            axes_autolimit_mode: if rc.axes_autolimit_mode == "round_numbers" {
+                AutolimitMode::RoundNumbers
+            } else {
+                AutolimitMode::Data
+            },
+            classic_mode: false,
+            xtick_minor_ndivs: ndivs(&rc.xtick_minor_ndivs),
+            ytick_minor_ndivs: ndivs(&rc.ytick_minor_ndivs),
+            xtick_minor_visible: rc.xtick_minor_visible,
+            ytick_minor_visible: rc.ytick_minor_visible,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

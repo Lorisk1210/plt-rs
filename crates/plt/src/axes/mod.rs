@@ -1,5 +1,6 @@
 //! Axes: data coordinate systems and the plotting API (matplotlib.axes).
 
+mod axis;
 mod limits;
 mod lines;
 mod patches;
@@ -7,16 +8,18 @@ mod state;
 #[cfg(test)]
 mod tests;
 
+pub use crate::ticker::AxisName;
+pub use axis::{Tick, TickSet};
 pub use limits::DataLimits;
 pub use lines::PlotError;
 pub(crate) use state::AxesState;
-pub use state::AxisName;
 
 use plt_core::Bbox;
 
 use std::rc::Rc;
 
 use crate::artist::{ArtistHandle, RawHandle};
+use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
 use crate::spines::{Spine, Spines};
 use crate::transforms::Transform;
 
@@ -109,10 +112,10 @@ impl Axes {
     /// fraction of the data span (matplotlib's `margins`).
     pub fn set_margins(&self, x: f64, y: f64) -> &Self {
         self.raw.with_mut::<AxesState, _>(|a| {
-            a.autoscale_x.margin = x;
-            a.autoscale_y.margin = y;
-            a.autoscale_x.stale = true;
-            a.autoscale_y.stale = true;
+            a.xaxis.autoscale.margin = x;
+            a.yaxis.autoscale.margin = y;
+            a.xaxis.autoscale.stale = true;
+            a.yaxis.autoscale.stale = true;
         });
         self
     }
@@ -120,10 +123,10 @@ impl Axes {
     /// Turns autoscaling of both axes on or off.
     pub fn set_autoscale_on(&self, on: bool) -> &Self {
         self.raw.with_mut::<AxesState, _>(|a| {
-            a.autoscale_x.enabled = on;
-            a.autoscale_y.enabled = on;
-            a.autoscale_x.stale = on;
-            a.autoscale_y.stale = on;
+            a.xaxis.autoscale.enabled = on;
+            a.yaxis.autoscale.enabled = on;
+            a.xaxis.autoscale.stale = on;
+            a.yaxis.autoscale.stale = on;
         });
         self
     }
@@ -131,5 +134,48 @@ impl Axes {
     fn view_lim(&self) -> Bbox {
         self.raw.figure_state().borrow_mut().unstale_axes(self.id());
         self.raw.with::<AxesState, _>(|a| a.view_lim)
+    }
+
+    /// Sets the x scale by name (`"linear"`, `"log"`, `"symlog"`,
+    /// `"logit"`, `"asinh"`, ...) with default options.
+    pub fn set_xscale(&self, name: &str) -> Result<&Self, ScaleError> {
+        self.set_scale(AxisName::X, scale_factory(name, &ScaleOptions::default())?);
+        Ok(self)
+    }
+
+    /// Sets the y scale by name.
+    pub fn set_yscale(&self, name: &str) -> Result<&Self, ScaleError> {
+        self.set_scale(AxisName::Y, scale_factory(name, &ScaleOptions::default())?);
+        Ok(self)
+    }
+
+    /// Installs a scale object on one axis, with its default tick helpers,
+    /// and re-autoscales that axis (matplotlib's `_set_axes_scale`).
+    pub fn set_scale(&self, axis: AxisName, scale: Box<dyn Scale>) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|a| {
+            let axis = a.axis_mut(axis);
+            axis.set_scale(scale);
+            axis.autoscale.stale = true;
+        });
+        self
+    }
+
+    /// The name of the x scale.
+    pub fn xscale(&self) -> &'static str {
+        self.raw.with::<AxesState, _>(|a| a.xaxis.scale().name())
+    }
+
+    /// The name of the y scale.
+    pub fn yscale(&self) -> &'static str {
+        self.raw.with::<AxesState, _>(|a| a.yaxis.scale().name())
+    }
+
+    /// The ticks one axis draws in the current view (computed by the last
+    /// draw or layout pass; call [`Figure::layout`](crate::figure::Figure::layout)
+    /// to refresh them without drawing).
+    pub fn ticks(&self, axis: AxisName) -> Result<TickSet, String> {
+        self.raw.figure_state().borrow_mut().prepare();
+        self.raw
+            .with::<AxesState, _>(|a| a.axis(axis).ticks.clone())
     }
 }

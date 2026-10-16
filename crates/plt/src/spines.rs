@@ -121,7 +121,7 @@ impl SpineArtist {
             Transform::blended(data.clone(), across)
         };
         match self.position {
-            SpinePosition::Outward(points) if points == 0.0 => base,
+            SpinePosition::Outward(0.0) => base,
             SpinePosition::Outward(points) => {
                 let (dx, dy) = match self.side {
                     SpineSide::Left => (-points, 0.0),

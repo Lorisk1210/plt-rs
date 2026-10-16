@@ -55,7 +55,10 @@ impl LineArtist {
             drawstyle: DrawStyle::Default,
             gapcolor: Color::none(),
             marker: rc.lines_marker.clone(),
-            fillstyle: rc.markers_fillstyle.parse().expect("rc validates markers.fillstyle"),
+            fillstyle: rc
+                .markers_fillstyle
+                .parse()
+                .expect("rc validates markers.fillstyle"),
             markersize: rc.lines_markersize,
             markeredgewidth: rc.lines_markeredgewidth,
             markeredgecolor: rc.lines_markeredgecolor.clone(),
@@ -80,7 +83,10 @@ impl LineArtist {
 
     /// The vertices actually drawn, in the line's coordinates.
     pub(crate) fn drawn_points(&self) -> Vec<Point> {
-        self.path.as_ref().map(|p| p.vertices().to_vec()).unwrap_or_default()
+        self.path
+            .as_ref()
+            .map(|p| p.vertices().to_vec())
+            .unwrap_or_default()
     }
 
     /// The data points (ignoring the draw style), for markers.
@@ -92,7 +98,11 @@ impl LineArtist {
         self.base.transform.clone().unwrap_or(Transform::Display)
     }
 
-    fn draw_line(&self, ctx: &mut DrawContext<'_>, resolved: &ResolvedTransform) -> Result<(), String> {
+    fn draw_line(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        resolved: &ResolvedTransform,
+    ) -> Result<(), String> {
         let drawn = self.path.as_ref().map_err(ToString::to_string)?;
         if !self.linestyle.is_visible() || drawn.is_empty() {
             return Ok(());
@@ -108,21 +118,32 @@ impl LineArtist {
         };
         let dashes = self.linestyle.scaled_dashes(self.linewidth, &self.rc);
         if dashed && !self.gapcolor.is_none() {
-            gc.foreground = self.gapcolor.resolve_alpha(self.base.alpha).map_err(|e| e.to_string())?;
+            gc.foreground = self
+                .gapcolor
+                .resolve_alpha(self.base.alpha)
+                .map_err(|e| e.to_string())?;
             gc.dashes = inverse_dashes(&dashes);
             ctx.renderer().draw_path(&gc, &path, &affine, None);
         }
-        gc.foreground = self.color.resolve_alpha(self.base.alpha).map_err(|e| e.to_string())?;
+        gc.foreground = self
+            .color
+            .resolve_alpha(self.base.alpha)
+            .map_err(|e| e.to_string())?;
         gc.dashes = dashes;
         ctx.renderer().draw_path(&gc, &path, &affine, None);
         Ok(())
     }
 
-    fn draw_markers(&self, ctx: &mut DrawContext<'_>, resolved: &ResolvedTransform) -> Result<(), String> {
+    fn draw_markers(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        resolved: &ResolvedTransform,
+    ) -> Result<(), String> {
         if self.marker.is_nothing() || self.markersize <= 0.0 || self.xdata.is_empty() {
             return Ok(());
         }
-        let style = MarkerStyle::new(self.marker.clone(), self.fillstyle).map_err(|e| e.to_string())?;
+        let style =
+            MarkerStyle::new(self.marker.clone(), self.fillstyle).map_err(|e| e.to_string())?;
         let points = self.points().map_err(|e| e.to_string())?;
         let (points, affine) = resolved.split_path(&points);
         let points = self.subsample(ctx, &points, &affine)?;
@@ -132,7 +153,10 @@ impl LineArtist {
         let alpha = self.base.alpha;
         let face_spec = self.marker_face(&style, false);
         let face = face_spec.resolve_alpha(alpha).map_err(|e| e.to_string())?;
-        let face_alt = self.marker_face(&style, true).resolve_alpha(alpha).map_err(|e| e.to_string())?;
+        let face_alt = self
+            .marker_face(&style, true)
+            .resolve_alpha(alpha)
+            .map_err(|e| e.to_string())?;
         let mut edge = self
             .markeredgecolor
             .or(&self.color)
@@ -154,16 +178,31 @@ impl LineArtist {
             Some(_) => SnapMode::Never,
             None => gc.snap,
         };
-        let is_pixel = matches!(self.marker, Marker::Symbol(crate::markers::MarkerSymbol::Pixel));
+        let is_pixel = matches!(
+            self.marker,
+            Marker::Symbol(crate::markers::MarkerSymbol::Pixel)
+        );
         let scale = |t: Affine2D| if is_pixel { t } else { t.scale(size, size) };
         if is_pixel {
             gc.linewidth = 0.0;
         }
-        ctx.renderer()
-            .draw_markers(&gc, style.path(), &scale(style.transform()), &points, &affine, Some(face));
+        ctx.renderer().draw_markers(
+            &gc,
+            style.path(),
+            &scale(style.transform()),
+            &points,
+            &affine,
+            Some(face),
+        );
         if let (Some(alt_path), Some(alt_transform)) = (style.alt_path(), style.alt_transform()) {
-            ctx.renderer()
-                .draw_markers(&gc, alt_path, &scale(alt_transform), &points, &affine, Some(face_alt));
+            ctx.renderer().draw_markers(
+                &gc,
+                alt_path,
+                &scale(alt_transform),
+                &points,
+                &affine,
+                Some(face_alt),
+            );
         }
         Ok(())
     }
@@ -179,18 +218,31 @@ impl LineArtist {
         self.markerfacecolor.or(&self.color).clone()
     }
 
-    fn subsample(&self, ctx: &DrawContext<'_>, points: &Path, affine: &Affine2D) -> Result<Path, String> {
+    fn subsample(
+        &self,
+        ctx: &DrawContext<'_>,
+        points: &Path,
+        affine: &Affine2D,
+    ) -> Result<Path, String> {
         let Some(markevery) = &self.markevery else {
             return Ok(points.clone());
         };
-        let display: Vec<Point> = points.vertices().iter().map(|p| affine.transform_point(*p)).collect();
+        let display: Vec<Point> = points
+            .vertices()
+            .iter()
+            .map(|p| affine.transform_point(*p))
+            .collect();
         let diagonal = self
             .base
             .parent
             .and_then(|axes| ctx.layout().axes_extent(axes))
             .map_or(0.0, |bbox| bbox.p0.distance(bbox.p1));
-        let indices = markevery.select(&display, diagonal).map_err(|e| e.to_string())?;
-        Ok(Path::polyline(indices.into_iter().map(|i| points.vertices()[i]).collect()))
+        let indices = markevery
+            .select(&display, diagonal)
+            .map_err(|e| e.to_string())?;
+        Ok(Path::polyline(
+            indices.into_iter().map(|i| points.vertices()[i]).collect(),
+        ))
     }
 
     fn line_gc(&self, ctx: &DrawContext<'_>) -> GraphicsContext {
@@ -217,7 +269,8 @@ impl Artist for LineArtist {
             ctx.report(self.base.id(), "its coordinate system no longer exists");
             return;
         };
-        ctx.renderer().open_group("line2d", self.base.gid.as_deref());
+        ctx.renderer()
+            .open_group("line2d", self.base.gid.as_deref());
         let drawn = self
             .draw_line(ctx, &resolved)
             .and_then(|()| self.draw_markers(ctx, &resolved));
@@ -273,12 +326,14 @@ impl Line2D {
 
     /// The colour of the marker edges (the line colour when automatic).
     pub fn effective_markeredgecolor(&self) -> Color {
-        self.raw.with::<LineArtist, _>(|line| line.markeredgecolor.or(&line.color).clone())
+        self.raw
+            .with::<LineArtist, _>(|line| line.markeredgecolor.or(&line.color).clone())
     }
 
     /// The resolved line colour.
     pub fn rgba(&self) -> Result<Rgba, crate::colors::ColorError> {
-        self.raw.with::<LineArtist, _>(|line| line.color.resolve_alpha(line.base.alpha))
+        self.raw
+            .with::<LineArtist, _>(|line| line.color.resolve_alpha(line.base.alpha))
     }
 }
 

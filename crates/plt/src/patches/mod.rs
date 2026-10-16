@@ -15,12 +15,14 @@
 //! ```
 
 mod artist;
+mod props;
 mod shapes;
 mod step;
 mod style;
 
 pub use artist::Patch;
 pub(crate) use artist::PatchArtist;
+pub use props::PatchProps;
 pub use shapes::{
     Circle, Ellipse, PatchShape, PathShape, Polygon, Rectangle, RegularPolygon, RotationPoint,
     Wedge,

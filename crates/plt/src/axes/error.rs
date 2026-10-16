@@ -41,6 +41,21 @@ pub enum PlotError {
     NegativeErrors(&'static str),
     /// An invalid `errorevery` selection.
     ErrorEvery(MarkEveryError),
+    /// Per-item legend labels whose number differs from the number of
+    /// items.
+    LabelCount {
+        /// Number of labels.
+        labels: usize,
+        /// Number of items.
+        items: usize,
+    },
+    /// Tick labels whose number differs from the number of fixed ticks.
+    TickLabelCount {
+        /// Number of ticks.
+        ticks: usize,
+        /// Number of labels.
+        labels: usize,
+    },
 }
 
 impl fmt::Display for PlotError {
@@ -67,6 +82,15 @@ impl fmt::Display for PlotError {
                 write!(f, "'{argument}' must not contain negative values")
             }
             Self::ErrorEvery(err) => write!(f, "errorevery: {err}"),
+            Self::LabelCount { labels, items } => write!(
+                f,
+                "number of labels ({labels}) does not match number of bars ({items})."
+            ),
+            Self::TickLabelCount { ticks, labels } => write!(
+                f,
+                "The number of FixedLocator locations ({ticks}), usually from a call to \
+                 set_ticks, does not match the number of labels ({labels})."
+            ),
             Self::NormWithLimits => f.write_str(
                 "passing a Normalize instance simultaneously with vmin/vmax is not supported",
             ),

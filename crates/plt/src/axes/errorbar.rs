@@ -362,7 +362,7 @@ impl Axes {
                 caps.push(style.cap(self, cx, cy, cap_marker));
             }
         }
-        let inverted = self.inverted(direction.axis);
+        let inverted = self.axis_of(direction.axis).inverted();
         for (upper_end, lims, ends) in [
             (false, &direction.lolims, &high),
             (true, &direction.uplims, &low),

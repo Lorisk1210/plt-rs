@@ -69,6 +69,47 @@ impl BaseProps {
     }
 }
 
+/// Chainable builder methods for the [`BaseProps`] in the `base` field of
+/// a property set.
+macro_rules! base_prop_builders {
+    () => {
+        /// Opacity override in `[0, 1]`.
+        #[must_use]
+        pub fn alpha(mut self, alpha: f64) -> Self {
+            self.base.alpha = Some(alpha);
+            self
+        }
+
+        /// Drawing order.
+        #[must_use]
+        pub fn zorder(mut self, zorder: f64) -> Self {
+            self.base.zorder = Some(zorder);
+            self
+        }
+
+        /// Legend label.
+        #[must_use]
+        pub fn label(mut self, label: impl Into<String>) -> Self {
+            self.base.label = Some(label.into());
+            self
+        }
+
+        /// Whether the artist is drawn.
+        #[must_use]
+        pub fn visible(mut self, visible: bool) -> Self {
+            self.base.visible = Some(visible);
+            self
+        }
+
+        /// Whether the artist is clipped to its axes.
+        #[must_use]
+        pub fn clip_on(mut self, clip_on: bool) -> Self {
+            self.base.clip_on = Some(clip_on);
+            self
+        }
+    };
+}
+
 /// Implements matplotlib-style `property()` / `set_property(value)` pairs
 /// on a handle type for fields of its artist state.
 ///
@@ -134,40 +175,7 @@ macro_rules! artist_properties {
                 }
             )*
 
-            /// Opacity override in `[0, 1]`.
-            #[must_use]
-            pub fn alpha(mut self, alpha: f64) -> Self {
-                self.base.alpha = Some(alpha);
-                self
-            }
-
-            /// Drawing order.
-            #[must_use]
-            pub fn zorder(mut self, zorder: f64) -> Self {
-                self.base.zorder = Some(zorder);
-                self
-            }
-
-            /// Legend label.
-            #[must_use]
-            pub fn label(mut self, label: impl Into<String>) -> Self {
-                self.base.label = Some(label.into());
-                self
-            }
-
-            /// Whether the artist is drawn.
-            #[must_use]
-            pub fn visible(mut self, visible: bool) -> Self {
-                self.base.visible = Some(visible);
-                self
-            }
-
-            /// Whether the artist is clipped to its axes.
-            #[must_use]
-            pub fn clip_on(mut self, clip_on: bool) -> Self {
-                self.base.clip_on = Some(clip_on);
-                self
-            }
+            base_prop_builders!();
 
             /// `self` with every property set in `overrides` replaced.
             #[must_use]

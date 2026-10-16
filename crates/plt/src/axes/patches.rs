@@ -1,8 +1,10 @@
 //! Adding patches to an axes.
 
-use super::Axes;
 use super::children::DataUpdate;
-use crate::artist::Artist;
+use super::lines::cycle_color;
+use super::{Axes, AxesState};
+use crate::artist::{Artist, ArtistHandle};
+use crate::colors::Color;
 use crate::patches::{Patch, PatchArtist, PatchShape};
 
 impl Axes {
@@ -20,5 +22,18 @@ impl Axes {
             autoscale: (false, false),
         };
         Patch::from_raw(self.adopt(patch, &update))
+    }
+
+    /// The next colour of the patch property cycle (matplotlib's
+    /// `_get_patches_for_fill.get_next_color`).
+    pub(crate) fn next_patch_color(&self) -> Color {
+        self.raw().with_mut::<AxesState, _>(|axes| {
+            let color = cycle_color(&axes.prop_cycle, axes.patch_cycle);
+            // Like matplotlib, only a cycle that provides colours advances.
+            if color.is_some() {
+                axes.patch_cycle += 1;
+            }
+            color.unwrap_or_else(|| Color::from("k"))
+        })
     }
 }

@@ -31,6 +31,7 @@ pub mod patches;
 pub mod prelude;
 pub mod rc;
 pub mod scale;
+pub mod spines;
 pub mod stats;
 #[cfg(test)]
 mod testing;

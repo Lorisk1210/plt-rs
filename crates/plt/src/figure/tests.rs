@@ -34,6 +34,7 @@ fn draw_emits_figure_then_axes_backgrounds() {
         Call::Path {
             points: axes_rect, ..
         },
+        ..,
     ] = renderer.calls.as_slice()
     else {
         panic!(

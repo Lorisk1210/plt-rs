@@ -60,21 +60,35 @@ impl PatchStyle {
     }
 
     /// Colours and widths resolved against `rc` and the artist's alpha.
-    pub(crate) fn resolve(&self, rc: &RcParams, alpha: Option<f64>, edge_default: bool) -> Result<ResolvedStyle, ColorError> {
+    pub(crate) fn resolve(
+        &self,
+        rc: &RcParams,
+        alpha: Option<f64>,
+        edge_default: bool,
+    ) -> Result<ResolvedStyle, ColorError> {
         let edge_spec = match &self.edgecolor {
             Some(color) => color.clone(),
-            None if rc.patch_force_edgecolor || !self.fill || edge_default => rc.patch_edgecolor.clone(),
+            None if rc.patch_force_edgecolor || !self.fill || edge_default => {
+                rc.patch_edgecolor.clone()
+            }
             None => Color::none(),
         };
         let edge = edge_spec.resolve_alpha(alpha)?;
-        let face_spec = self.facecolor.clone().unwrap_or_else(|| rc.patch_facecolor.clone());
+        let face_spec = self
+            .facecolor
+            .clone()
+            .unwrap_or_else(|| rc.patch_facecolor.clone());
         let face = face_spec.resolve_alpha(if self.fill { alpha } else { Some(0.0) })?;
         let hatch_color = match &self.hatchcolor {
             ColorOrEdge::Edge if edge.is_transparent() => rc.patch_edgecolor.resolve()?,
             ColorOrEdge::Edge => edge,
             ColorOrEdge::Color(color) => color.resolve_alpha(alpha)?,
         };
-        let gap = if self.edgegapcolor.is_none() { None } else { Some(self.edgegapcolor.resolve_alpha(alpha)?) };
+        let gap = if self.edgegapcolor.is_none() {
+            None
+        } else {
+            Some(self.edgegapcolor.resolve_alpha(alpha)?)
+        };
         Ok(ResolvedStyle {
             edge,
             face,
@@ -138,7 +152,11 @@ pub(crate) fn draw_patch_paths(
         }
     }
     gc.foreground = resolved.edge;
-    gc.dashes = if linewidth > 0.0 { dashes } else { plt_render::Dashes::solid() };
+    gc.dashes = if linewidth > 0.0 {
+        dashes
+    } else {
+        plt_render::Dashes::solid()
+    };
     for (path, affine) in paths {
         ctx.renderer().draw_path(&gc, path, affine, fill);
     }
@@ -154,11 +172,30 @@ mod tests {
     fn default_edges_follow_matplotlib() {
         let rc = RcParams::matplotlib();
         let style = PatchStyle::from_rc(&rc);
-        assert!(style.resolve(&rc, None, false).expect("valid").edge.is_transparent());
-        assert!(!style.resolve(&rc, None, true).expect("valid").edge.is_transparent(), "edge-default classes");
-        let unfilled = PatchStyle { fill: false, ..style.clone() };
+        assert!(
+            style
+                .resolve(&rc, None, false)
+                .expect("valid")
+                .edge
+                .is_transparent()
+        );
+        assert!(
+            !style
+                .resolve(&rc, None, true)
+                .expect("valid")
+                .edge
+                .is_transparent(),
+            "edge-default classes"
+        );
+        let unfilled = PatchStyle {
+            fill: false,
+            ..style.clone()
+        };
         let resolved = unfilled.resolve(&rc, None, false).expect("valid");
-        assert!(!resolved.edge.is_transparent(), "unfilled patches get an edge");
+        assert!(
+            !resolved.edge.is_transparent(),
+            "unfilled patches get an edge"
+        );
         assert_eq!(resolved.face.a, 0.0);
     }
 
@@ -172,6 +209,9 @@ mod tests {
         };
         let resolved = style.resolve(&rc, Some(0.5), false).expect("valid");
         assert_eq!((resolved.face.a, resolved.edge.a), (0.5, 0.5));
-        assert_eq!(resolved.hatch_color, resolved.edge, "hatches follow the edge by default");
+        assert_eq!(
+            resolved.hatch_color, resolved.edge,
+            "hatches follow the edge by default"
+        );
     }
 }

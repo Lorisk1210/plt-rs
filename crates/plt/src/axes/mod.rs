@@ -14,7 +14,10 @@ pub use state::AxisName;
 
 use plt_core::Bbox;
 
+use std::rc::Rc;
+
 use crate::artist::{ArtistHandle, RawHandle};
+use crate::spines::{Spine, Spines};
 use crate::transforms::Transform;
 
 /// A handle to one axes of a figure.
@@ -56,6 +59,19 @@ impl Axes {
             a.position = Bbox::from_bounds(left, bottom, width, height);
         });
         self
+    }
+
+    /// The four spines framing the axes.
+    pub fn spines(&self) -> Spines {
+        let ids = self.raw.with::<AxesState, _>(|a| a.spines.clone());
+        let spine =
+            |i: usize| Spine::from_raw(RawHandle::new(Rc::clone(self.raw.figure_state()), ids[i]));
+        Spines {
+            left: spine(0),
+            right: spine(1),
+            bottom: spine(2),
+            top: spine(3),
+        }
     }
 
     /// The extent of all data plotted so far (`ax.dataLim`).

@@ -70,15 +70,19 @@ fn drawing_maps_data_into_the_axes_box() {
     ax.plot([0.0, 10.0], [0.0, 10.0]).expect("same length");
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
     fig.draw(&mut renderer).expect("drawable");
-    let Some(Call::Path {
-        points,
-        fill: None,
-        linewidth,
-    }) = renderer.calls.last()
-    else {
-        panic!("expected the line last, got {:?}", renderer.calls);
-    };
-    assert_eq!(*linewidth, 1.5);
+    // The line (z-order 2) is drawn before the spines (z-order 2.5).
+    let points = renderer
+        .calls
+        .iter()
+        .find_map(|call| match call {
+            Call::Path {
+                points,
+                fill: None,
+                linewidth,
+            } if *linewidth == 1.5 => Some(points),
+            _ => None,
+        })
+        .expect("the line is drawn");
     assert!((points[0].x - 80.0).abs() < 1e-9 && (points[1].y - 422.4).abs() < 1e-9);
 }
 

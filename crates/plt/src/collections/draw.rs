@@ -6,6 +6,7 @@ use plt_render::{Dashes, GraphicsContext, Hatch, PathCollection};
 use super::style::{broadcast_widths_and_dashes, resolve_colors};
 use super::{CollectionArtist, CollectionKind, cycled};
 use crate::artist::{Artist, DrawContext};
+use crate::transforms::Transform;
 
 /// A collection resolved for one draw: shapes after the non-affine part
 /// of the transform, offsets in display space and per-item styles.
@@ -22,12 +23,16 @@ struct Batch {
 }
 
 impl Batch {
-    fn new(c: &CollectionArtist, ctx: &DrawContext<'_>) -> Result<Self, String> {
+    fn new(
+        c: &CollectionArtist,
+        ctx: &DrawContext<'_>,
+        shapes: &[Path],
+        transform: &Transform,
+    ) -> Result<Self, String> {
         let resolved = ctx
-            .resolve(&c.transform())
+            .resolve(transform)
             .ok_or("its coordinate system no longer exists")?;
-        let paths = c
-            .paths
+        let paths = shapes
             .iter()
             .map(|p| resolved.split_path(p).0.into_owned())
             .collect();
@@ -112,10 +117,11 @@ pub(super) fn draw_collection(
     c: &CollectionArtist,
     ctx: &mut DrawContext<'_>,
 ) -> Result<(), String> {
-    if c.paths.is_empty() {
+    let (shapes, transform) = c.current_shapes(*ctx.layout())?;
+    if shapes.is_empty() {
         return Ok(());
     }
-    let batch = Batch::new(c, ctx)?;
+    let batch = Batch::new(c, ctx, &shapes, &transform)?;
     let mut gc = graphics_context(c, ctx, &batch.edges)?;
     let name = match c.kind {
         CollectionKind::Generic => "Collection",

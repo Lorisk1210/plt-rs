@@ -4,6 +4,7 @@ mod axes;
 mod bars;
 mod basic;
 mod contour;
+mod fields;
 mod hist;
 mod images;
 mod layout;
@@ -29,6 +30,9 @@ pub(crate) fn all() -> Vec<FigureCase> {
         bars::CASES,
         basic::CASES,
         contour::CASES,
+        fields::BARBS,
+        fields::QUIVER,
+        fields::STREAMPLOT,
         hist::CASES,
         images::CASES,
         layout::CASES,

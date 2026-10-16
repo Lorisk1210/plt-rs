@@ -94,7 +94,7 @@ impl MappedColors {
 
     /// The colormap and norm (matplotlib's `set_cmap`, `set_norm` and
     /// `_scale_norm`) plus the values with non-finite ones masked.
-    fn into_mapping(self, rc: &RcParams) -> Result<ColorMapping, PlotError> {
+    pub(crate) fn into_mapping(self, rc: &RcParams) -> Result<ColorMapping, PlotError> {
         let cmap = match self.cmap {
             Some(cmap) => cmap,
             None => colormaps::get(&rc.image_cmap)?,

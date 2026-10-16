@@ -1,0 +1,59 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+repository = "https://github.com/loris/plt-rs"
+
+[workspace.dependencies]
+plt-core = { path = "crates/plt-core" }
+plt-codec = { path = "crates/plt-codec" }
+plt-font = { path = "crates/plt-font" }
+plt-raster = { path = "crates/plt-raster" }
+plt-text = { path = "crates/plt-text" }
+plt-render = { path = "crates/plt-render" }
+plt-platform = { path = "crates/plt-platform" }
+plt-ui = { path = "crates/plt-ui" }
+plt = { path = "crates/plt" }
+plt-spec = { path = "crates/plt-spec" }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Numeric code converts between float and integer pixel domains constantly;
+# each such cast is deliberate.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+# Math-heavy code legitimately uses short, similar names (x0, x1, dx, dy).
+many_single_char_names = "allow"
+similar_names = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+# Restriction lints that keep library code honest.
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+unwrap_used = "warn"
+
+[profile.dev]
+# Rendering tests are pixel-heavy; unoptimised builds are needlessly slow.
+opt-level = 1
+
+[profile.release]
+debug = "line-tables-only"

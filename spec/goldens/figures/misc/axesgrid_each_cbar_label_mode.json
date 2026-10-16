@@ -1,0 +1,84 @@
+{
+ "size_px": [600, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.27375, 0.202778, 0.405556],
+   "title": "",
+   "xlim": [-0.5, 9.5],
+   "ylim": [9.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [5.0, "5"]],
+   "yticks": [[0.0, "0.0"], [2.5, "2.5"], [5.0, "5.0"], [7.5, "7.5"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.411111, 0.27375, 0.202778, 0.405556],
+   "title": "",
+   "xlim": [-0.5, 9.5],
+   "ylim": [9.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [5.0, "5"]],
+   "yticks": [[0.0, "0.0"], [2.5, "2.5"], [5.0, "5.0"], [7.5, "7.5"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.697222, 0.27375, 0.202778, 0.405556],
+   "title": "",
+   "xlim": [-0.5, 9.5],
+   "ylim": [9.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [5.0, "5"]],
+   "yticks": [[0.0, "0.0"], [2.5, "2.5"], [5.0, "5.0"], [7.5, "7.5"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.695972, 0.202778, 0.020278],
+   "title": "",
+   "xlim": [-0.985446, 0.985446],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.411111, 0.695972, 0.202778, 0.020278],
+   "title": "",
+   "xlim": [-1.970893, 1.970893],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-1.0, "−1"], [0.0, "0"], [1.0, "1"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.697222, 0.695972, 0.202778, 0.020278],
+   "title": "",
+   "xlim": [-2.956339, 2.956339],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-2.5, "−2.5"], [0.0, "0.0"], [2.5, "2.5"]],
+   "yticks": []
+  }
+ ]
+}

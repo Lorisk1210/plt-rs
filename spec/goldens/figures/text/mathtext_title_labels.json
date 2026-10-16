@@ -1,0 +1,20 @@
+{
+ "size_px": [500, 400],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "$\\alpha_i > \\beta_i \\quad \\sum_{n=1}^\\infty \\frac{1}{n^2} = \\frac{\\pi^2}{6}$",
+   "xlim": [-0.1, 2.1],
+   "ylim": [-0.030769, 1.049084],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "time $t$ [$\\mu$s]",
+   "ylabel": "$\\sqrt{\\langle x^2 \\rangle}$",
+   "xticks": [[0, "$0$"], [1, "$\\frac{1}{2}\\pi$"], [2, "$\\pi$"]],
+   "yticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"]],
+   "legend": ["$e^{-x^2}$"]
+  }
+ ]
+}

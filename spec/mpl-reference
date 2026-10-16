@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Run the conformance spec against real matplotlib.
+#   spec/mpl-reference                   verify goldens reproduce exactly
+#   spec/mpl-reference --update-goldens  regenerate goldens from matplotlib
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root/spec/reference"
+exec "$root/.venv/bin/python" -m pytest "$@"

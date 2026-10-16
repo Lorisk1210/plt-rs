@@ -10,7 +10,7 @@ use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
 use crate::ticker::{AxisInfo, AxisName, Formatter, Locator, TickContext, TickerSettings};
-use crate::transforms::AxisMap;
+use crate::transforms::{AxisMap, interval_contains_close};
 use crate::units::{AxisValues, Categories, CategoryFormatter, CategoryLocator};
 
 /// A tick with its label text.
@@ -376,14 +376,6 @@ impl AxisState {
     }
 }
 
-/// matplotlib's `_interval_contains_close`: `val` within the sorted
-/// interval widened by `rtol` times its length.
-pub(crate) fn interval_contains_close((a, b): (f64, f64), val: f64, rtol: f64) -> bool {
-    let (a, b) = if a > b { (b, a) } else { (a, b) };
-    let r = (b - a) * rtol;
-    a - r <= val && val <= b + r
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -429,12 +421,5 @@ mod tests {
         assert_eq!(axis.tick_space(357.12), 11);
         let y = AxisState::new(AxisName::Y, &RcParams::matplotlib());
         assert_eq!(y.tick_space(266.112), 13);
-    }
-
-    #[test]
-    fn interval_tolerance() {
-        assert!(interval_contains_close((0.0, 1.0), 1.0 + 1e-12, 1e-10));
-        assert!(interval_contains_close((1.0, 0.0), 0.5, 1e-10));
-        assert!(!interval_contains_close((0.0, 1.0), 1.1, 1e-10));
     }
 }

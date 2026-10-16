@@ -20,6 +20,8 @@ pub(crate) fn all() -> Vec<FigureCase> {
         axes::LABELS,
         axes::LIMITS,
         axes::SCALES,
+        axes::SPINES,
+        axes::TICKS,
         axes::TWINS,
         bars::CASES,
         basic::CASES,

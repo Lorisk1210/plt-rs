@@ -100,21 +100,28 @@ impl Axis {
     /// include them (matplotlib's `Axis.set_ticks`).
     pub fn set_ticks(&self, ticks: impl Into<AxisValues>) -> &Self {
         let ticks = self.convert_units(ticks);
-        let lowest = ticks.iter().copied().fold(f64::INFINITY, f64::min);
-        let highest = ticks.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        if !ticks.is_empty() {
-            self.axes.unstale_view();
-            let figure = self.axes.raw().figure_state();
-            let mut state = figure.borrow_mut();
-            for id in state.siblings(self.name, self.axes.id()) {
-                if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
-                    axes.include_in_view(self.name, lowest, highest);
-                }
-            }
-        }
+        self.include_ticks_in_view(&ticks);
         let locator: Rc<dyn Locator> = Rc::new(FixedLocator::new(ticks));
         self.update_shared(|axis| axis.set_major_locator(Rc::clone(&locator)));
         self
+    }
+
+    /// Widens the view of this axis and its siblings to include `ticks`
+    /// (matplotlib's `_set_tick_locations`).
+    pub(super) fn include_ticks_in_view(&self, ticks: &[f64]) {
+        if ticks.is_empty() {
+            return;
+        }
+        let lowest = ticks.iter().copied().fold(f64::INFINITY, f64::min);
+        let highest = ticks.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        self.axes.unstale_view();
+        let figure = self.axes.raw().figure_state();
+        let mut state = figure.borrow_mut();
+        for id in state.siblings(self.name, self.axes.id()) {
+            if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+                axes.include_in_view(self.name, lowest, highest);
+            }
+        }
     }
 
     /// Labels the major ticks with `labels`: one per fixed tick when the

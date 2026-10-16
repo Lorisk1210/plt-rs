@@ -8,7 +8,7 @@ use crate::markers::MarkerError;
 use crate::patches::StepPatchError;
 use crate::spines::SpineSide;
 use crate::stats::StatsError;
-use crate::ticker::AxisName;
+use crate::ticker::{AxisName, TickerError};
 
 /// Invalid data or options passed to a plotting method.
 #[derive(Clone, Debug, PartialEq)]
@@ -67,6 +67,10 @@ pub enum PlotError {
     ForeignAxes,
     /// The axis does not label its major ticks with a `ScalarFormatter`.
     NotScalarFormatter(AxisName),
+    /// The axis does not place its major ticks with a `MaxNLocator`.
+    NotMaxNLocator(AxisName),
+    /// Invalid tick helper settings.
+    Ticker(TickerError),
     /// A per-dataset argument with neither one value nor one per dataset.
     DatasetCount {
         /// The argument.
@@ -121,6 +125,12 @@ impl fmt::Display for PlotError {
             ),
             Self::AlreadyShared(axis) => write!(f, "{}-axis is already shared", axis.name()),
             Self::ForeignAxes => f.write_str("the axes belong to different figures"),
+            Self::NotMaxNLocator(axis) => write!(
+                f,
+                "the {}-axis ticks are not placed by a MaxNLocator",
+                axis.name()
+            ),
+            Self::Ticker(err) => err.fmt(f),
             Self::NotScalarFormatter(axis) => write!(
                 f,
                 "the {}-axis tick labels do not use a ScalarFormatter",

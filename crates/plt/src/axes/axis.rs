@@ -378,11 +378,6 @@ impl AxisState {
         };
         info.major_ticks.clone_from(&major_locs);
         let ctx = TickContext::new(&info, &self.settings);
-        let major_labels = self.major_formatter.format_ticks(&major_locs, &ctx)?;
-        let minor_locs =
-            self.without_overlaps(self.minor_locator.locate(&ctx)?, &major_locs, geometry.view);
-        let minor_labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;
-
         let (lo, hi) = (self.forward(geometry.view.0), self.forward(geometry.view.1));
         let visible = |loc: f64| interval_contains_close((lo, hi), self.forward(loc), 1e-10);
         let collect = |locs: &[f64], labels: Vec<String>| {
@@ -392,11 +387,21 @@ impl AxisState {
                 .map(|(&loc, label)| Tick { loc, label })
                 .collect()
         };
-        Ok(TickSet {
-            major: collect(&major_locs, major_labels.labels),
-            minor: collect(&minor_locs, minor_labels.labels),
-            offset: major_labels.offset,
-        })
+        // Like matplotlib's `_tick_group_visible`, a tick level whose
+        // marks, labels and gridlines are all off is not computed.
+        let mut ticks = TickSet::default();
+        if self.major_style.is_drawn() {
+            let labels = self.major_formatter.format_ticks(&major_locs, &ctx)?;
+            ticks.major = collect(&major_locs, labels.labels);
+            ticks.offset = labels.offset;
+        }
+        if self.minor_style.is_drawn() {
+            let minor_locs =
+                self.without_overlaps(self.minor_locator.locate(&ctx)?, &major_locs, geometry.view);
+            let labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;
+            ticks.minor = collect(&minor_locs, labels.labels);
+        }
+        Ok(ticks)
     }
 
     /// Drops minor ticks that coincide with major ones (matplotlib's

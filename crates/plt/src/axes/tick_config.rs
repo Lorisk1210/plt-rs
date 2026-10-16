@@ -1,16 +1,25 @@
-//! Configuring ticks: minor ticks, axis z-order and tick label formats
-//! (matplotlib's `minorticks_on`, `set_axisbelow`, `ticklabel_format`).
+//! Configuring ticks: tick parameters, minor ticks, locator parameters,
+//! axis z-order and tick label formats (matplotlib's `tick_params`,
+//! `minorticks_on`, `locator_params`, `set_axisbelow`,
+//! `ticklabel_format`).
 
 use std::any::Any;
 use std::rc::Rc;
 
+use plt_text::{HAlign, RotationMode, VAlign};
+
 use super::axis_handle::Axis;
+use super::ticks::{TickDirection, TickLevel, TickStyle};
 use super::{Axes, AxesState, AxisName, PlotError};
-use crate::rc::AxisBelow;
+use crate::colors::Color;
+use crate::fonts::FontSize;
+use crate::rc::{AxisBelow, RcParams};
 use crate::scale::{ScaleError, ScaleOptions, scale_factory};
 use crate::ticker::{
-    AutoMinorLocator, Formatter, Locator, NullLocator, OffsetMode, ScalarFormatter,
+    AutoLocator, AutoMinorLocator, FixedLocator, Formatter, Locator, MaxNLocator, Nbins,
+    NullLocator, OffsetMode, ScalarFormatter,
 };
+use crate::units::AxisValues;
 
 /// Options of [`Axes::ticklabel_format`]; unset fields keep the current
 /// setting of the formatter.
@@ -121,6 +130,248 @@ impl Axes {
             }
             let formatter: Rc<dyn Formatter> = Rc::new(formatter);
             axis.update_shared(|state| state.major_formatter = Rc::clone(&formatter));
+        }
+        Ok(self)
+    }
+}
+
+/// Options of [`Axes::tick_params`] (matplotlib's `tick_params`); unset
+/// fields keep their current value. The side switches only apply to the
+/// axis drawn on that side (`bottom` and `top` to x, `left` and `right`
+/// to y).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TickParams {
+    /// Only this axis (`None` = both).
+    pub axis: Option<AxisName>,
+    /// Which tick levels change.
+    pub which: TickLevel,
+    /// Restore the rc defaults before applying the rest.
+    pub reset: bool,
+    /// Tick direction.
+    pub direction: Option<TickDirection>,
+    /// Tick length in points.
+    pub length: Option<f64>,
+    /// Tick width in points.
+    pub width: Option<f64>,
+    /// Tick colour.
+    pub color: Option<Color>,
+    /// Gap between tick and label in points.
+    pub pad: Option<f64>,
+    /// Label font size.
+    pub labelsize: Option<FontSize>,
+    /// Label colour.
+    pub labelcolor: Option<Color>,
+    /// Tick and label colour (overrides `color` and `labelcolor`).
+    pub colors: Option<Color>,
+    /// Label rotation in degrees.
+    pub labelrotation: Option<f64>,
+    /// How rotated labels are aligned.
+    pub labelrotation_mode: Option<RotationMode>,
+    /// Ticks on the bottom side.
+    pub bottom: Option<bool>,
+    /// Ticks on the top side.
+    pub top: Option<bool>,
+    /// Ticks on the left side.
+    pub left: Option<bool>,
+    /// Ticks on the right side.
+    pub right: Option<bool>,
+    /// Labels on the bottom side.
+    pub labelbottom: Option<bool>,
+    /// Labels on the top side.
+    pub labeltop: Option<bool>,
+    /// Labels on the left side.
+    pub labelleft: Option<bool>,
+    /// Labels on the right side.
+    pub labelright: Option<bool>,
+}
+
+impl TickParams {
+    /// Applies the parameters to the style of one tick level of axis
+    /// `name`.
+    fn apply(&self, name: AxisName, major: bool, style: &mut TickStyle, rc: &RcParams) {
+        if self.reset {
+            *style = TickStyle::from_rc(name, major, rc);
+        }
+        let set = |slot: &mut f64, value: Option<f64>| {
+            if let Some(value) = value {
+                *slot = value;
+            }
+        };
+        set(&mut style.size, self.length);
+        set(&mut style.width, self.width);
+        set(&mut style.pad, self.pad);
+        set(&mut style.label_rotation, self.labelrotation);
+        if let Some(direction) = self.direction {
+            style.direction = direction;
+        }
+        if let Some(size) = self.labelsize {
+            style.label_size = size.to_points(rc.font_size);
+        }
+        if let Some(mode) = self.labelrotation_mode {
+            style.label_rotation_mode = mode;
+        }
+        let (color, labelcolor) = match &self.colors {
+            Some(both) => (Some(both), Some(both)),
+            None => (self.color.as_ref(), self.labelcolor.as_ref()),
+        };
+        if let Some(color) = color {
+            style.color = color.clone();
+        }
+        if let Some(color) = labelcolor {
+            style.label_color = color.clone();
+        }
+        let (low, high, label_low, label_high) = match name {
+            AxisName::X => (self.bottom, self.top, self.labelbottom, self.labeltop),
+            AxisName::Y => (self.left, self.right, self.labelleft, self.labelright),
+        };
+        for (slot, value) in [
+            (&mut style.ticks.first, low),
+            (&mut style.ticks.second, high),
+            (&mut style.labels.first, label_low),
+            (&mut style.labels.second, label_high),
+        ] {
+            if let Some(value) = value {
+                *slot = value;
+            }
+        }
+    }
+}
+
+/// Text properties of tick labels (the keyword arguments of matplotlib's
+/// `set_ticklabels`); unset fields keep their current value.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct TickLabelProps {
+    /// Rotation in degrees.
+    pub rotation: Option<f64>,
+    /// How rotated labels are aligned.
+    pub rotation_mode: Option<RotationMode>,
+    /// Horizontal alignment.
+    pub halign: Option<HAlign>,
+    /// Vertical alignment.
+    pub valign: Option<VAlign>,
+}
+
+/// Options of [`Axes::locator_params`]; unset fields keep the locator's
+/// current setting.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LocatorParams {
+    /// Only this axis (`None` = both).
+    pub axis: Option<AxisName>,
+    /// Maximum number of intervals.
+    pub nbins: Option<Nbins>,
+    /// Acceptable tick multiples within `[1, 10]`.
+    pub steps: Option<Vec<f64>>,
+    /// Integer ticks only.
+    pub integer: Option<bool>,
+    /// Symmetric about zero.
+    pub symmetric: Option<bool>,
+}
+
+impl Axis {
+    /// Changes the tick parameters of this axis (matplotlib's
+    /// `Axis.set_tick_params`); `params.axis` is ignored.
+    pub fn set_tick_params(&self, params: &TickParams) -> &Self {
+        let rc = crate::rc::params();
+        let name = self.name();
+        self.update(|axis| {
+            if params.which.major() {
+                params.apply(name, true, &mut axis.major_style, &rc);
+            }
+            if params.which.minor() {
+                params.apply(name, false, &mut axis.minor_style, &rc);
+            }
+        });
+        self
+    }
+
+    /// Changes the text properties of the labels of one tick level.
+    pub fn set_ticklabel_props(&self, which: TickLevel, props: &TickLabelProps) -> &Self {
+        let apply = |style: &mut TickStyle| {
+            if let Some(rotation) = props.rotation {
+                style.label_rotation = rotation;
+            }
+            if let Some(mode) = props.rotation_mode {
+                style.label_rotation_mode = mode;
+            }
+            if props.halign.is_some() {
+                style.label_halign = props.halign;
+            }
+            if props.valign.is_some() {
+                style.label_valign = props.valign;
+            }
+        };
+        self.update(|axis| {
+            if which.major() {
+                apply(&mut axis.major_style);
+            }
+            if which.minor() {
+                apply(&mut axis.minor_style);
+            }
+        });
+        self
+    }
+
+    /// Puts the minor ticks exactly at `ticks` (matplotlib's
+    /// `set_ticks(..., minor=True)`), widening the view to include them.
+    pub fn set_minor_ticks(&self, ticks: impl Into<AxisValues>) -> &Self {
+        let ticks = self.convert_units(ticks);
+        self.include_ticks_in_view(&ticks);
+        let locator: Rc<dyn Locator> = Rc::new(FixedLocator::new(ticks));
+        self.update_shared(|axis| axis.minor_locator = Rc::clone(&locator));
+        self
+    }
+}
+
+impl Axes {
+    /// Changes the tick parameters of one or both axes (matplotlib's
+    /// `tick_params`).
+    pub fn tick_params(&self, params: &TickParams) -> &Self {
+        for name in [AxisName::X, AxisName::Y] {
+            if params.axis.is_none_or(|only| only == name) {
+                self.axis_of(name).set_tick_params(params);
+            }
+        }
+        self
+    }
+
+    /// Changes the parameters of the default major locators (matplotlib's
+    /// `locator_params`) and re-autoscales the affected axes.
+    ///
+    /// # Errors
+    ///
+    /// When an affected axis does not place its major ticks with a
+    /// `MaxNLocator` (or `AutoLocator`), or `steps` are invalid.
+    pub fn locator_params(&self, params: &LocatorParams) -> Result<&Self, PlotError> {
+        for name in [AxisName::X, AxisName::Y] {
+            if params.axis.is_some_and(|only| only != name) {
+                continue;
+            }
+            let axis = self.axis_of(name);
+            let current = axis.read(|state| {
+                let locator: &dyn Any = state.major_locator.as_ref();
+                locator
+                    .downcast_ref::<AutoLocator>()
+                    .map(|auto| auto.as_max_n().clone())
+                    .or_else(|| locator.downcast_ref::<MaxNLocator>().cloned())
+            });
+            let mut locator = current.ok_or(PlotError::NotMaxNLocator(name))?;
+            if let Some(nbins) = params.nbins {
+                locator = locator.with_nbins(nbins);
+            }
+            if let Some(steps) = &params.steps {
+                locator = locator.with_steps(steps).map_err(PlotError::Ticker)?;
+            }
+            if let Some(integer) = params.integer {
+                locator = locator.with_integer(integer);
+            }
+            if let Some(symmetric) = params.symmetric {
+                locator = locator.with_symmetric(symmetric);
+            }
+            let locator: Rc<dyn Locator> = Rc::new(locator);
+            axis.update_shared(|state| {
+                state.major_locator = Rc::clone(&locator);
+                state.autoscale.stale = true;
+            });
         }
         Ok(self)
     }

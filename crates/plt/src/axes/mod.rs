@@ -52,7 +52,7 @@ pub use stackplot::{Baseline, StackplotOptions};
 pub(crate) use state::AxesState;
 pub use stem::{StemContainer, StemOptions};
 pub use steps::StairsOptions;
-pub use tick_config::TicklabelFormat;
+pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat};
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
 pub use violin::{ViolinDrawOptions, ViolinParts, ViolinSide, ViolinplotOptions};
 

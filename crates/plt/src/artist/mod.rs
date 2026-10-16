@@ -12,6 +12,8 @@
 mod base;
 mod context;
 mod handle;
+#[macro_use]
+mod properties;
 mod store;
 
 use std::any::Any;
@@ -21,7 +23,7 @@ use plt_core::{Bbox, Point};
 use plt_render::ClipPath;
 
 pub use base::{ArtistBase, ClipPathSpec};
-pub use context::{DrawContext, LayoutContext};
+pub use context::{DrawContext, DrawError, LayoutContext};
 pub use handle::{ArtistHandle, RawHandle};
 pub use store::{ArtistId, ArtistStore};
 

@@ -1,6 +1,8 @@
 //! Probe operations for the `markers` area.
 
+use plt::lines::{DrawStyle, line_vertices, pts_to_midstep, pts_to_poststep, pts_to_prestep};
 use plt::markers::{FillStyle, Marker, MarkerKey, MarkerStyle, MarkerSymbol, PolygonStyle};
+use plt_core::Path;
 use plt_core::Affine2D;
 use plt_render::{CapStyle, JoinStyle};
 
@@ -14,7 +16,82 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("markers.MarkerStyle.styles", marker_styles),
     Op::new("markers.MarkerStyle.derived", marker_derived),
     Op::new("markers.MarkerStyle.class_attributes", class_attributes),
+    Op::new("cbook.pts_to_prestep", |args| steps(args, pts_to_prestep)),
+    Op::new("cbook.pts_to_poststep", |args| steps(args, pts_to_poststep)),
+    Op::new("cbook.pts_to_midstep", |args| steps(args, pts_to_midstep)),
+    Op::new("lines.drawstyle_names", drawstyle_names),
+    Op::new("lines.drawstyle", drawstyle),
+    Op::new("lines.Line2D.set_drawstyle", set_drawstyle),
+    Op::new("lines.Line2D.get_path", line_path),
 ];
+
+type StepFn = fn(&[f64], &[&[f64]]) -> Result<Vec<Vec<f64>>, plt::lines::StepError>;
+
+fn steps(args: Args<'_>, step: StepFn) -> Outcome {
+    let x = args.f64_vec("x")?;
+    let ys: Vec<Vec<f64>> = args
+        .json("ys")?
+        .as_array()
+        .unwrap_or(&[])
+        .iter()
+        .map(|y| y.as_f64_vec().ok_or_else(|| ProbeError::BadArgs(format!("bad y series {y}"))))
+        .collect::<Result<_, _>>()?;
+    let ys: Vec<&[f64]> = ys.iter().map(Vec::as_slice).collect();
+    let rows = step(&x, &ys).map_err(ProbeError::rejected)?;
+    Ok(Json::from(rows.into_iter().map(Json::from).collect::<Vec<_>>()))
+}
+
+/// matplotlib's legacy draw-method name for each style.
+fn draw_method(style: DrawStyle) -> &'static str {
+    match style {
+        DrawStyle::Default => "_draw_lines",
+        DrawStyle::Steps | DrawStyle::StepsPre => "_draw_steps_pre",
+        DrawStyle::StepsMid => "_draw_steps_mid",
+        DrawStyle::StepsPost => "_draw_steps_post",
+    }
+}
+
+fn drawstyle_names(_args: Args<'_>) -> Outcome {
+    let keys: Vec<Json> = DrawStyle::all().map(|(name, _)| Json::from(name)).collect();
+    let methods = DrawStyle::all()
+        .map(|(name, style)| (name.to_owned(), Json::from(draw_method(style))))
+        .collect();
+    let lookup = ["default", "steps", "steps-pre", "steps-post", "steps-mid"].map(Json::from).to_vec();
+    Ok(Json::Object(vec![
+        ("drawStyleKeys".into(), Json::Array(keys)),
+        ("drawStyles".into(), Json::Object(methods)),
+        ("STEP_LOOKUP_MAP".into(), Json::Array(lookup)),
+    ]))
+}
+
+fn drawstyle(args: Args<'_>) -> Outcome {
+    let style: DrawStyle = args.str("drawstyle")?.parse().map_err(ProbeError::rejected)?;
+    let step_function = match style {
+        DrawStyle::Default => "identity",
+        DrawStyle::Steps | DrawStyle::StepsPre => "pts_to_prestep",
+        DrawStyle::StepsMid => "pts_to_midstep",
+        DrawStyle::StepsPost => "pts_to_poststep",
+    };
+    Ok(Json::Object(vec![
+        ("draw_method".into(), draw_method(style).into()),
+        ("step_function".into(), step_function.into()),
+    ]))
+}
+
+fn set_drawstyle(args: Args<'_>) -> Outcome {
+    let style = match args.opt_str("drawstyle")? {
+        Some(name) => name.parse::<DrawStyle>().map_err(ProbeError::rejected)?,
+        None => DrawStyle::Default,
+    };
+    Ok(style.name().into())
+}
+
+fn line_path(args: Args<'_>) -> Outcome {
+    let (x, y) = (args.f64_vec("x")?, args.f64_vec("y")?);
+    let style: DrawStyle = args.str("drawstyle")?.parse().map_err(ProbeError::rejected)?;
+    let vertices = line_vertices(&x, &y, style).map_err(ProbeError::rejected)?;
+    Ok(encode::path(&Path::polyline(vertices)))
+}
 
 fn marker_style(args: Args<'_>) -> Outcome {
     build(args, args.opt_str("fillstyle")?).map(|m| describe(&m, args))

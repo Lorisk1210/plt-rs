@@ -4,7 +4,7 @@ use plt_core::{Bbox, Rgba};
 use plt_render::Renderer;
 
 use super::frame::FigureFrame;
-use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext};
+use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::AxesState;
 use crate::transforms::{ResolvedTransform, TransformContext};
 
@@ -69,10 +69,46 @@ impl FigureState {
         self.stale = true;
     }
 
-    /// Renders the whole figure.
-    pub(crate) fn draw(&self, renderer: &mut dyn Renderer) {
+    /// Recomputes the stale autoscaled view limits of one axes, honouring
+    /// the sticky edges of its children.
+    pub(crate) fn unstale_axes(&mut self, axes: ArtistId) {
+        let Some(state) = self.store.get_as::<AxesState>(axes) else {
+            return;
+        };
+        if !state.needs_autoscale() {
+            return;
+        }
+        let (mut xs, mut ys) = (Vec::new(), Vec::new());
+        for child in state.children.iter().filter_map(|&id| self.store.get(id)) {
+            let (x, y) = &child.base().sticky_edges;
+            xs.extend_from_slice(x);
+            ys.extend_from_slice(y);
+        }
+        xs.sort_by(f64::total_cmp);
+        ys.sort_by(f64::total_cmp);
+        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
+            state.unstale_view((&xs, &ys));
+        }
+    }
+
+    /// The mutable pass before drawing: autoscaling (and, later, ticks
+    /// and layout).
+    pub(crate) fn prepare(&mut self) {
+        let axes: Vec<ArtistId> = self
+            .store
+            .ids()
+            .filter(|&id| self.store.get_as::<AxesState>(id).is_some())
+            .collect();
+        for id in axes {
+            self.unstale_axes(id);
+        }
+    }
+
+    /// Renders the whole figure, returning the problems encountered.
+    pub(crate) fn draw(&self, renderer: &mut dyn Renderer) -> Vec<DrawError> {
         let mut ctx = DrawContext::new(self, renderer);
         ctx.draw_child(self.root);
+        ctx.into_errors()
     }
 }
 

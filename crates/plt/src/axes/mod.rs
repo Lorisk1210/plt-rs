@@ -1,8 +1,15 @@
 //! Axes: data coordinate systems and the plotting API (matplotlib.axes).
 
+mod limits;
+mod lines;
 mod state;
+#[cfg(test)]
+mod tests;
 
+pub use limits::DataLimits;
+pub use lines::PlotError;
 pub(crate) use state::AxesState;
+pub use state::AxisName;
 
 use plt_core::Bbox;
 
@@ -51,33 +58,59 @@ impl Axes {
     }
 
     /// The extent of all data plotted so far (`ax.dataLim`).
-    pub fn data_lim(&self) -> Bbox {
+    pub fn data_lim(&self) -> DataLimits {
         self.raw.with::<AxesState, _>(|a| a.data_lim)
     }
 
-    /// The x view limits `(left, right)`.
+    /// The x view limits `(left, right)`, autoscaled first if needed.
     pub fn xlim(&self) -> (f64, f64) {
-        self.raw.with::<AxesState, _>(|a| a.view_lim.interval_x())
+        self.view_lim().interval_x()
     }
 
-    /// The y view limits `(bottom, top)`.
+    /// The y view limits `(bottom, top)`, autoscaled first if needed.
     pub fn ylim(&self) -> (f64, f64) {
-        self.raw.with::<AxesState, _>(|a| a.view_lim.interval_y())
+        self.view_lim().interval_y()
     }
 
-    /// Sets the x view limits; `left > right` inverts the axis.
+    /// Sets the x view limits and turns x autoscaling off;
+    /// `left > right` inverts the axis.
     pub fn set_xlim(&self, left: f64, right: f64) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|a| a.set_limits(AxisName::X, left, right));
+        self
+    }
+
+    /// Sets the y view limits and turns y autoscaling off;
+    /// `bottom > top` inverts the axis.
+    pub fn set_ylim(&self, bottom: f64, top: f64) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|a| a.set_limits(AxisName::Y, bottom, top));
+        self
+    }
+
+    /// Sets the padding added around the data when autoscaling, as a
+    /// fraction of the data span (matplotlib's `margins`).
+    pub fn set_margins(&self, x: f64, y: f64) -> &Self {
         self.raw.with_mut::<AxesState, _>(|a| {
-            a.view_lim = Bbox::from_extents(left, a.view_lim.y0(), right, a.view_lim.y1());
+            a.autoscale_x.margin = x;
+            a.autoscale_y.margin = y;
+            a.autoscale_x.stale = true;
+            a.autoscale_y.stale = true;
         });
         self
     }
 
-    /// Sets the y view limits; `bottom > top` inverts the axis.
-    pub fn set_ylim(&self, bottom: f64, top: f64) -> &Self {
+    /// Turns autoscaling of both axes on or off.
+    pub fn set_autoscale_on(&self, on: bool) -> &Self {
         self.raw.with_mut::<AxesState, _>(|a| {
-            a.view_lim = Bbox::from_extents(a.view_lim.x0(), bottom, a.view_lim.x1(), top);
+            a.autoscale_x.enabled = on;
+            a.autoscale_y.enabled = on;
+            a.autoscale_x.stale = on;
+            a.autoscale_y.stale = on;
         });
         self
+    }
+
+    fn view_lim(&self) -> Bbox {
+        self.raw.figure_state().borrow_mut().unstale_axes(self.id());
+        self.raw.with::<AxesState, _>(|a| a.view_lim)
     }
 }

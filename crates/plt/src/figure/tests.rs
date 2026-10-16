@@ -22,7 +22,7 @@ fn draw_emits_figure_then_axes_backgrounds() {
     fig.set_facecolor(Rgba::opaque(0.9, 0.9, 0.9));
     let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
-    fig.draw(&mut renderer);
+    fig.draw(&mut renderer).expect("drawable");
     assert!(!fig.is_stale());
 
     let [
@@ -93,7 +93,7 @@ fn hidden_artists_are_not_drawn() {
     let fig = Figure::new();
     fig.add_axes([0.1, 0.1, 0.8, 0.8]).set_visible(false);
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
-    fig.draw(&mut renderer);
+    fig.draw(&mut renderer).expect("drawable");
     assert_eq!(
         renderer.calls.len(),
         1,

@@ -85,6 +85,26 @@ color_with_keywords! {
     }
 }
 
+impl<T: Into<Color>> From<T> for ColorOrAuto {
+    /// `"auto"` selects [`ColorOrAuto::Auto`]; anything else is a colour.
+    fn from(value: T) -> Self {
+        match value.into() {
+            Color::Spec(spec) if spec == "auto" => Self::Auto,
+            color => Self::Color(color),
+        }
+    }
+}
+
+impl ColorOrAuto {
+    /// The explicit colour, or `fallback` when automatic.
+    pub fn or<'a>(&'a self, fallback: &'a Color) -> &'a Color {
+        match self {
+            Self::Auto => fallback,
+            Self::Color(color) => color,
+        }
+    }
+}
+
 color_with_keywords! {
     /// A colour, or `inherit` (use the parent's colour).
     ColorOrInherit {

@@ -14,6 +14,7 @@
 //!   grids.
 #![forbid(unsafe_code)]
 
+#[macro_use]
 pub mod artist;
 pub mod axes;
 pub mod colors;
@@ -25,6 +26,7 @@ pub mod lines;
 pub mod markers;
 pub mod mlab;
 pub mod numeric;
+pub mod prelude;
 pub mod rc;
 pub mod scale;
 pub mod stats;

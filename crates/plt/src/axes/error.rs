@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use super::pie::PieError;
 use crate::colors::ColormapError;
 use crate::lines::{FormatError, MarkEveryError};
 use crate::markers::MarkerError;
@@ -74,6 +75,8 @@ pub enum PlotError {
     Ticker(TickerError),
     /// Invalid spectral analysis input.
     Mlab(MlabError),
+    /// An invalid pie chart.
+    Pie(PieError),
     /// A per-dataset argument with neither one value nor one per dataset.
     DatasetCount {
         /// The argument.
@@ -135,6 +138,7 @@ impl fmt::Display for PlotError {
             ),
             Self::Ticker(err) => err.fmt(f),
             Self::Mlab(err) => err.fmt(f),
+            Self::Pie(err) => err.fmt(f),
             Self::NotScalarFormatter(axis) => write!(
                 f,
                 "the {}-axis tick labels do not use a ScalarFormatter",

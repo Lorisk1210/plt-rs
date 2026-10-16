@@ -63,6 +63,26 @@ pub fn logspace(start: f64, stop: f64, num: usize, base: f64) -> Vec<f64> {
         .collect()
 }
 
+/// `num` samples spaced evenly on a log scale from `start` to `stop`, both
+/// included exactly (numpy `geomspace`); both must have the same sign.
+///
+/// ```
+/// let v = plt::numeric::geomspace(1.0, 1000.0, 4);
+/// assert_eq!((v[0], v[3]), (1.0, 1000.0));
+/// assert!((v[1] - 10.0).abs() < 1e-12);
+/// ```
+pub fn geomspace(start: f64, stop: f64, num: usize) -> Vec<f64> {
+    let sign = start.signum();
+    let mut values = logspace((start / sign).log10(), (stop / sign).log10(), num, 10.0);
+    if let Some(first) = values.first_mut() {
+        *first = start / sign;
+    }
+    if num > 1 {
+        values[num - 1] = stop / sign;
+    }
+    values.iter().map(|v| v * sign).collect()
+}
+
 /// Coordinate matrices from coordinate vectors (numpy `meshgrid`, `xy`
 /// indexing): both grids have `y.len()` rows and `x.len()` columns.
 pub fn meshgrid(x: &[f64], y: &[f64]) -> (Grid<f64>, Grid<f64>) {
@@ -128,6 +148,17 @@ mod tests {
         assert_eq!(arange(0.0, 1.0, -1.0), Vec::<f64>::new());
         assert_eq!(arange(0.0, 1.0, 0.0), Vec::<f64>::new());
         assert_eq!(arange(0.0, 0.3, 0.1).len(), 3);
+    }
+
+    #[test]
+    fn geomspace_pins_the_ends() {
+        let v = geomspace(1e-2, 1e3, 40);
+        assert_eq!((v[0], v[39]), (1e-2, 1e3));
+        let negative = geomspace(-1.0, -100.0, 3);
+        assert_eq!(negative[0], -1.0);
+        assert!((negative[1] + 10.0).abs() < 1e-12);
+        assert_eq!(geomspace(1.0, 10.0, 1), [1.0]);
+        assert_eq!(geomspace(1.0, 10.0, 0), Vec::<f64>::new());
     }
 
     #[test]

@@ -122,6 +122,11 @@ impl Axes {
         Transform::blended(self.trans_axes(), self.trans_data())
     }
 
+    /// The grid cell the axes occupies, if it was placed on a grid.
+    pub fn subplot_spec(&self) -> Option<crate::gridspec::SubplotSpec> {
+        self.raw.with::<AxesState, _>(|a| a.subplot_spec.clone())
+    }
+
     /// Placement as a fraction of the figure (or subfigure).
     pub fn position(&self) -> Bbox {
         self.raw.with::<AxesState, _>(|a| a.position)

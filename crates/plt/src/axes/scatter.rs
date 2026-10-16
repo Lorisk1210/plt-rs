@@ -12,6 +12,7 @@ use crate::colors::{Color, Colormap, Norm, ScalarMappable, colormaps};
 use crate::markers::{FillStyle, Marker, MarkerStyle};
 use crate::rc::RcParams;
 use crate::transforms::Transform;
+use crate::units::AxisValues;
 
 /// How scatter markers are coloured (matplotlib's `c` / `color`).
 #[derive(Debug, Default)]
@@ -145,8 +146,8 @@ impl Axes {
     /// (matplotlib's `ax.scatter(x, y)`).
     pub fn scatter(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
     ) -> Result<Collection, PlotError> {
         self.scatter_with(x, y, ScatterOptions::default())
     }
@@ -154,17 +155,20 @@ impl Axes {
     /// A scatter plot with explicit options.
     pub fn scatter_with(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
         options: ScatterOptions,
     ) -> Result<Collection, PlotError> {
-        let (x, y) = (x.as_ref(), y.as_ref());
+        let (x, y) = (x.into(), y.into());
         if x.len() != y.len() {
             return Err(PlotError::LengthMismatch {
                 x: x.len(),
                 y: y.len(),
             });
         }
+        let x = self.xaxis().convert_units(x);
+        let y = self.yaxis().convert_units(y);
+        let (x, y) = (x.as_slice(), y.as_slice());
         let rc = crate::rc::params();
         let marker = options.marker.unwrap_or_else(|| rc.scatter_marker.clone());
         let style = MarkerStyle::new(marker, FillStyle::Full)?;

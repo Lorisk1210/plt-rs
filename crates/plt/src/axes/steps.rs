@@ -1,5 +1,6 @@
 //! Step plots: `step` and `stairs`.
 
+use crate::units::AxisValues;
 use plt_core::Point;
 
 use super::children::DataUpdate;
@@ -29,8 +30,8 @@ impl Axes {
     /// A line through `(x, y)` drawn as steps (matplotlib's `step`).
     pub fn step(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
         at: StepWhere,
         props: LineProps,
     ) -> Result<Line2D, PlotError> {

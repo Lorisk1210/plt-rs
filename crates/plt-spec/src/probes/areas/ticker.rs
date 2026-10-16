@@ -108,7 +108,7 @@ pub(super) struct Params<'a> {
 }
 
 impl<'a> Params<'a> {
-    pub(super) fn of(args: &Args<'a>, allowed: &[&str]) -> Result<Self, ProbeError> {
+    pub(super) fn of(args: Args<'a>, allowed: &[&str]) -> Result<Self, ProbeError> {
         let raw = args.get("params").unwrap_or(&EMPTY);
         let entries = raw
             .as_object()
@@ -133,7 +133,7 @@ impl<'a> Params<'a> {
 }
 
 /// The rcParams of the probe's optional `rc` argument.
-pub(super) fn settings(args: &Args<'_>) -> Result<TickerSettings, ProbeError> {
+pub(super) fn settings(args: Args<'_>) -> Result<TickerSettings, ProbeError> {
     let mut s = TickerSettings::default();
     let Some(rc) = args.get("rc") else {
         return Ok(s);
@@ -201,7 +201,7 @@ fn usize_arg(value: Option<i64>, name: &str) -> Result<Option<usize>, ProbeError
         .transpose()
 }
 
-fn pair_arg(args: &Args<'_>, key: &str) -> Result<(f64, f64), ProbeError> {
+fn pair_arg(args: Args<'_>, key: &str) -> Result<(f64, f64), ProbeError> {
     match args.f64_vec(key)?.as_slice() {
         &[a, b] => Ok((a, b)),
         _ => Err(bad(format!("{key} is not a pair"))),
@@ -209,7 +209,7 @@ fn pair_arg(args: &Args<'_>, key: &str) -> Result<(f64, f64), ProbeError> {
 }
 
 /// A dummy axis whose view and data intervals are the probe's `view`.
-fn view_axis(args: &Args<'_>) -> Result<AxisInfo, ProbeError> {
+fn view_axis(args: Args<'_>) -> Result<AxisInfo, ProbeError> {
     let (vmin, vmax) = pair_arg(args, "view")?;
     Ok(AxisInfo::with_view(vmin, vmax))
 }
@@ -233,21 +233,21 @@ fn labels(result: Result<TickLabels, TickerError>) -> Outcome {
 }
 
 /// Evaluates `locator.tick_values(vmin, vmax)` without an axis.
-fn tick_values(locator: &dyn Locator, args: &Args<'_>) -> Outcome {
+fn tick_values(locator: &dyn Locator, args: Args<'_>) -> Outcome {
     let settings = settings(args)?;
     let ctx = TickContext::detached(&settings);
     floats(locator.tick_values(args.f64("vmin")?, args.f64("vmax")?, &ctx))
 }
 
 /// Evaluates `locator.view_limits(lo, hi)` without an axis.
-fn view_limits(locator: &dyn Locator, args: &Args<'_>, lo: &str, hi: &str) -> Outcome {
+fn view_limits(locator: &dyn Locator, args: Args<'_>, lo: &str, hi: &str) -> Outcome {
     let settings = settings(args)?;
     let ctx = TickContext::detached(&settings);
     pair(locator.view_limits(args.f64(lo)?, args.f64(hi)?, &ctx))
 }
 
 /// `formatter.format_ticks(locs)` on a dummy axis showing `view`.
-fn format_ticks(formatter: &dyn Formatter, args: &Args<'_>, settings: &TickerSettings) -> Outcome {
+fn format_ticks(formatter: &dyn Formatter, args: Args<'_>, settings: &TickerSettings) -> Outcome {
     let axis = view_axis(args)?;
     let ctx = TickContext::new(&axis, settings);
     labels(formatter.format_ticks(&args.f64_vec("locs")?, &ctx))
@@ -280,7 +280,7 @@ fn nbins(value: Option<&Json>) -> Result<Option<Nbins>, ProbeError> {
         .transpose()
 }
 
-fn max_n(args: &Args<'_>) -> Result<MaxNLocator, ProbeError> {
+fn max_n(args: Args<'_>) -> Result<MaxNLocator, ProbeError> {
     let params = Params::of(
         args,
         &[
@@ -318,27 +318,27 @@ fn max_n(args: &Args<'_>) -> Result<MaxNLocator, ProbeError> {
 }
 
 fn maxn_tick_values(args: Args<'_>) -> Outcome {
-    tick_values(&max_n(&args)?, &args)
+    tick_values(&max_n(args)?, args)
 }
 
 fn maxn_view_limits(args: Args<'_>) -> Outcome {
-    view_limits(&max_n(&args)?, &args, "dmin", "dmax")
+    view_limits(&max_n(args)?, args, "dmin", "dmax")
 }
 
 fn auto_tick_values(args: Args<'_>) -> Outcome {
-    tick_values(&AutoLocator::from_settings(&settings(&args)?), &args)
+    tick_values(&AutoLocator::from_settings(&settings(args)?), args)
 }
 
 fn auto_view_limits(args: Args<'_>) -> Outcome {
     view_limits(
-        &AutoLocator::from_settings(&settings(&args)?),
-        &args,
+        &AutoLocator::from_settings(&settings(args)?),
+        args,
         "dmin",
         "dmax",
     )
 }
 
-fn multiple(args: &Args<'_>) -> Result<MultipleLocator, ProbeError> {
+fn multiple(args: Args<'_>) -> Result<MultipleLocator, ProbeError> {
     let p = Params::of(args, &["base", "offset"])?.args();
     Ok(MultipleLocator::new(p.opt_f64("base")?.unwrap_or(1.0))
         .map_err(rejected)?
@@ -346,15 +346,15 @@ fn multiple(args: &Args<'_>) -> Result<MultipleLocator, ProbeError> {
 }
 
 fn multiple_tick_values(args: Args<'_>) -> Outcome {
-    tick_values(&multiple(&args)?, &args)
+    tick_values(&multiple(args)?, args)
 }
 
 fn multiple_view_limits(args: Args<'_>) -> Outcome {
-    view_limits(&multiple(&args)?, &args, "dmin", "dmax")
+    view_limits(&multiple(args)?, args, "dmin", "dmax")
 }
 
 fn fixed_tick_values(args: Args<'_>) -> Outcome {
-    let p = Params::of(&args, &["locs", "nbins"])?.args();
+    let p = Params::of(args, &["locs", "nbins"])?.args();
     let locs = p
         .json("locs")?
         .as_f64_vec()
@@ -366,7 +366,7 @@ fn fixed_tick_values(args: Args<'_>) -> Outcome {
     floats(locator.locate(&TickContext::default()))
 }
 
-fn linear(args: &Args<'_>) -> Result<LinearLocator, ProbeError> {
+fn linear(args: Args<'_>) -> Result<LinearLocator, ProbeError> {
     let p = Params::of(args, &["numticks"])?.args();
     Ok(LinearLocator::new(usize_arg(
         p.opt_i64("numticks")?,
@@ -375,23 +375,23 @@ fn linear(args: &Args<'_>) -> Result<LinearLocator, ProbeError> {
 }
 
 fn linear_tick_values(args: Args<'_>) -> Outcome {
-    tick_values(&linear(&args)?, &args)
+    tick_values(&linear(args)?, args)
 }
 
 fn linear_view_limits(args: Args<'_>) -> Outcome {
-    view_limits(&linear(&args)?, &args, "vmin", "vmax")
+    view_limits(&linear(args)?, args, "vmin", "vmax")
 }
 
 fn index_tick_values(args: Args<'_>) -> Outcome {
-    let p = Params::of(&args, &["base", "offset"])?.args();
-    tick_values(&IndexLocator::new(p.f64("base")?, p.f64("offset")?), &args)
+    let p = Params::of(args, &["base", "offset"])?.args();
+    tick_values(&IndexLocator::new(p.f64("base")?, p.f64("offset")?), args)
 }
 
 fn null_tick_values(args: Args<'_>) -> Outcome {
-    tick_values(&NullLocator, &args)
+    tick_values(&NullLocator, args)
 }
 
-fn log_locator(args: &Args<'_>) -> Result<LogLocator, ProbeError> {
+fn log_locator(args: Args<'_>) -> Result<LogLocator, ProbeError> {
     let params = Params::of(args, &["base", "subs", "numticks"])?;
     let p = params.args();
     let mut locator = LogLocator::new(p.opt_f64("base")?.unwrap_or(10.0)).map_err(rejected)?;
@@ -414,7 +414,7 @@ fn log_locator(args: &Args<'_>) -> Result<LogLocator, ProbeError> {
 }
 
 /// A dummy axis with the probe's `minpos`.
-fn minpos_axis(args: &Args<'_>) -> Result<AxisInfo, ProbeError> {
+fn minpos_axis(args: Args<'_>) -> Result<AxisInfo, ProbeError> {
     Ok(AxisInfo {
         minpos: args.f64("minpos")?,
         ..AxisInfo::DUMMY
@@ -422,27 +422,27 @@ fn minpos_axis(args: &Args<'_>) -> Result<AxisInfo, ProbeError> {
 }
 
 fn log_tick_values(args: Args<'_>) -> Outcome {
-    let locator = log_locator(&args)?;
+    let locator = log_locator(args)?;
     if args.get("minpos").is_none() {
-        return tick_values(&locator, &args);
+        return tick_values(&locator, args);
     }
-    let axis = minpos_axis(&args)?;
-    let settings = settings(&args)?;
+    let axis = minpos_axis(args)?;
+    let settings = settings(args)?;
     let ctx = TickContext::new(&axis, &settings);
     floats(locator.tick_values(args.f64("vmin")?, args.f64("vmax")?, &ctx))
 }
 
 fn log_view_limits(args: Args<'_>) -> Outcome {
-    let locator = log_locator(&args)?;
-    let axis = minpos_axis(&args)?;
-    let settings = settings(&args)?;
+    let locator = log_locator(args)?;
+    let axis = minpos_axis(args)?;
+    let settings = settings(args)?;
     let ctx = TickContext::new(&axis, &settings);
     pair(locator.view_limits(args.f64("vmin")?, args.f64("vmax")?, &ctx))
 }
 
 fn log_nonsingular(args: Args<'_>) -> Outcome {
-    let locator = log_locator(&args)?;
-    let axis = minpos_axis(&args)?;
+    let locator = log_locator(args)?;
+    let axis = minpos_axis(args)?;
     let settings = TickerSettings::default();
     let ctx = TickContext::new(&axis, &settings);
     pair(Ok(locator.nonsingular(
@@ -452,7 +452,7 @@ fn log_nonsingular(args: Args<'_>) -> Outcome {
     )))
 }
 
-fn symlog(args: &Args<'_>) -> Result<SymmetricalLogLocator, ProbeError> {
+fn symlog(args: Args<'_>) -> Result<SymmetricalLogLocator, ProbeError> {
     let p = Params::of(args, &["base", "linthresh", "subs", "numticks"])?.args();
     let (Some(base), Some(linthresh)) = (p.opt_f64("base")?, p.opt_f64("linthresh")?) else {
         return Err(ProbeError::Rejected(
@@ -470,14 +470,14 @@ fn symlog(args: &Args<'_>) -> Result<SymmetricalLogLocator, ProbeError> {
 }
 
 fn symlog_tick_values(args: Args<'_>) -> Outcome {
-    tick_values(&symlog(&args)?, &args)
+    tick_values(&symlog(args)?, args)
 }
 
 fn symlog_view_limits(args: Args<'_>) -> Outcome {
-    view_limits(&symlog(&args)?, &args, "vmin", "vmax")
+    view_limits(&symlog(args)?, args, "vmin", "vmax")
 }
 
-fn asinh(args: &Args<'_>) -> Result<AsinhLocator, ProbeError> {
+fn asinh(args: Args<'_>) -> Result<AsinhLocator, ProbeError> {
     let p = Params::of(
         args,
         &["linear_width", "numticks", "symthresh", "base", "subs"],
@@ -501,16 +501,16 @@ fn asinh(args: &Args<'_>) -> Result<AsinhLocator, ProbeError> {
 }
 
 fn asinh_tick_values(args: Args<'_>) -> Outcome {
-    tick_values(&asinh(&args)?, &args)
+    tick_values(&asinh(args)?, args)
 }
 
 fn asinh_call(args: Args<'_>) -> Outcome {
-    let axis = view_axis(&args)?;
+    let axis = view_axis(args)?;
     let settings = TickerSettings::default();
-    floats(asinh(&args)?.locate(&TickContext::new(&axis, &settings)))
+    floats(asinh(args)?.locate(&TickContext::new(&axis, &settings)))
 }
 
-fn logit_locator(args: &Args<'_>) -> Result<LogitLocator, ProbeError> {
+fn logit_locator(args: Args<'_>) -> Result<LogitLocator, ProbeError> {
     let params = Params::of(args, &["minor", "nbins"])?;
     let mut locator = LogitLocator::new(params.args().opt_bool("minor")?.unwrap_or(false));
     if let Some(n) = nbins(params.raw("nbins"))? {
@@ -520,11 +520,11 @@ fn logit_locator(args: &Args<'_>) -> Result<LogitLocator, ProbeError> {
 }
 
 fn logit_tick_values(args: Args<'_>) -> Outcome {
-    tick_values(&logit_locator(&args)?, &args)
+    tick_values(&logit_locator(args)?, args)
 }
 
 fn logit_nonsingular(args: Args<'_>) -> Outcome {
-    let locator = logit_locator(&args)?;
+    let locator = logit_locator(args)?;
     let ctx = TickContext::default();
     pair(Ok(locator.nonsingular(
         args.f64("vmin")?,
@@ -534,13 +534,13 @@ fn logit_nonsingular(args: Args<'_>) -> Outcome {
 }
 
 fn auto_minor_call(args: Args<'_>) -> Outcome {
-    let params = Params::of(&args, &["n"])?;
+    let params = Params::of(args, &["n"])?;
     let ndivs = params
         .raw("n")
         .filter(|n| !n.is_null())
         .map(minor_divisions)
         .transpose()?;
-    let (vmin, vmax) = pair_arg(&args, "view")?;
+    let (vmin, vmax) = pair_arg(args, "view")?;
     let axis = AxisInfo {
         name: match args.str("axis_name")? {
             "y" => AxisName::Y,
@@ -550,7 +550,7 @@ fn auto_minor_call(args: Args<'_>) -> Outcome {
         major_ticks: args.f64_vec("major_locs")?,
         ..AxisInfo::DUMMY
     };
-    let settings = settings(&args)?;
+    let settings = settings(args)?;
     floats(AutoMinorLocator::new(ndivs).locate(&TickContext::new(&axis, &settings)))
 }
 
@@ -567,7 +567,7 @@ fn offset_mode(value: &Json) -> Result<OffsetMode, ProbeError> {
     }
 }
 
-fn scalar(args: &Args<'_>, settings: &TickerSettings) -> Result<ScalarFormatter, ProbeError> {
+fn scalar(args: Args<'_>, settings: &TickerSettings) -> Result<ScalarFormatter, ProbeError> {
     let p = Params::of(
         args,
         &[
@@ -601,30 +601,34 @@ fn scalar(args: &Args<'_>, settings: &TickerSettings) -> Result<ScalarFormatter,
 }
 
 fn scalar_format_ticks(args: Args<'_>) -> Outcome {
-    let settings = settings(&args)?;
-    format_ticks(&scalar(&args, &settings)?, &args, &settings)
+    let settings = settings(args)?;
+    format_ticks(&scalar(args, &settings)?, args, &settings)
 }
 
 fn scalar_format_data(args: Args<'_>) -> Outcome {
-    let settings = settings(&args)?;
-    let formatter = scalar(&args, &settings)?;
+    let settings = settings(args)?;
+    let formatter = scalar(args, &settings)?;
     text(formatter.format_data(args.f64("value")?, &TickContext::detached(&settings)))
 }
 
 fn scalar_format_data_short(args: Args<'_>) -> Outcome {
-    let settings = settings(&args)?;
-    let formatter = scalar(&args, &settings)?;
-    let axis = view_axis(&args)?;
+    let settings = settings(args)?;
+    let formatter = scalar(args, &settings)?;
+    let axis = view_axis(args)?;
     let ctx = TickContext::new(&axis, &settings);
     // matplotlib formats Python ints with "%d"; Rust data is always f64,
     // so the integer branch only exists in this adapter.
-    if let Some(integer) = args.get("value").filter(|v| v.is_integer()).and_then(Json::as_i64) {
+    if let Some(integer) = args
+        .get("value")
+        .filter(|v| v.is_integer())
+        .and_then(Json::as_i64)
+    {
         return Ok(Json::from(settings.fix_minus(&integer.to_string())));
     }
     text(formatter.format_data_short(args.f64("value")?, &ctx))
 }
 
-fn eng(args: &Args<'_>, settings: &TickerSettings) -> Result<EngFormatter, ProbeError> {
+fn eng(args: Args<'_>, settings: &TickerSettings) -> Result<EngFormatter, ProbeError> {
     let p = Params::of(args, &["unit", "places", "sep", "useMathText", "useOffset"])?.args();
     let mut formatter = EngFormatter::from_settings(settings)
         .with_places(usize_arg(p.opt_i64("places")?, "places")?);
@@ -644,17 +648,17 @@ fn eng(args: &Args<'_>, settings: &TickerSettings) -> Result<EngFormatter, Probe
 }
 
 fn eng_format_ticks(args: Args<'_>) -> Outcome {
-    let settings = settings(&args)?;
-    format_ticks(&eng(&args, &settings)?, &args, &settings)
+    let settings = settings(args)?;
+    format_ticks(&eng(args, &settings)?, args, &settings)
 }
 
 fn eng_format_data(args: Args<'_>) -> Outcome {
-    let settings = settings(&args)?;
-    let formatter = eng(&args, &settings)?;
+    let settings = settings(args)?;
+    let formatter = eng(args, &settings)?;
     text(formatter.format_data(args.f64("value")?, &TickContext::detached(&settings)))
 }
 
-fn log_format_ticks(style: LogLabelStyle, args: &Args<'_>) -> Outcome {
+fn log_format_ticks(style: LogLabelStyle, args: Args<'_>) -> Outcome {
     let settings = settings(args)?;
     let p = Params::of(
         args,
@@ -675,19 +679,19 @@ fn log_format_ticks(style: LogLabelStyle, args: &Args<'_>) -> Outcome {
 }
 
 fn log_plain_format_ticks(args: Args<'_>) -> Outcome {
-    log_format_ticks(LogLabelStyle::Plain, &args)
+    log_format_ticks(LogLabelStyle::Plain, args)
 }
 
 fn log_exponent_format_ticks(args: Args<'_>) -> Outcome {
-    log_format_ticks(LogLabelStyle::Exponent, &args)
+    log_format_ticks(LogLabelStyle::Exponent, args)
 }
 
 fn log_mathtext_format_ticks(args: Args<'_>) -> Outcome {
-    log_format_ticks(LogLabelStyle::Mathtext, &args)
+    log_format_ticks(LogLabelStyle::Mathtext, args)
 }
 
 fn log_sci_format_ticks(args: Args<'_>) -> Outcome {
-    log_format_ticks(LogLabelStyle::SciNotation, &args)
+    log_format_ticks(LogLabelStyle::SciNotation, args)
 }
 
 fn log_format_data_short(args: Args<'_>) -> Outcome {
@@ -697,7 +701,7 @@ fn log_format_data_short(args: Args<'_>) -> Outcome {
 
 fn logit_format_ticks(args: Args<'_>) -> Outcome {
     let p = Params::of(
-        &args,
+        args,
         &[
             "use_overline",
             "one_half",
@@ -719,11 +723,11 @@ fn logit_format_ticks(args: Args<'_>) -> Outcome {
     if let Some(n) = usize_arg(p.opt_i64("minor_number")?, "minor_number")? {
         formatter = formatter.with_minor_number(n);
     }
-    format_ticks(&formatter, &args, &settings(&args)?)
+    format_ticks(&formatter, args, &settings(args)?)
 }
 
 fn percent_format_ticks(args: Args<'_>) -> Outcome {
-    let params = Params::of(&args, &["xmax", "decimals", "symbol", "is_latex"])?;
+    let params = Params::of(args, &["xmax", "decimals", "symbol", "is_latex"])?;
     let p = params.args();
     let decimals = p
         .opt_i64("decimals")?
@@ -737,23 +741,23 @@ fn percent_format_ticks(args: Args<'_>) -> Outcome {
         .with_decimals(decimals)
         .with_symbol(symbol)
         .with_is_latex(p.opt_bool("is_latex")?.unwrap_or(false));
-    format_ticks(&formatter, &args, &settings(&args)?)
+    format_ticks(&formatter, args, &settings(args)?)
 }
 
 fn str_method_format_ticks(args: Args<'_>) -> Outcome {
-    let p = Params::of(&args, &["fmt"])?.args();
+    let p = Params::of(args, &["fmt"])?.args();
     let formatter = StrMethodFormatter::new(p.str("fmt")?).map_err(rejected)?;
-    format_ticks(&formatter, &args, &settings(&args)?)
+    format_ticks(&formatter, args, &settings(args)?)
 }
 
 fn format_str_format_ticks(args: Args<'_>) -> Outcome {
-    let p = Params::of(&args, &["fmt"])?.args();
+    let p = Params::of(args, &["fmt"])?.args();
     let formatter = FormatStrFormatter::new(p.str("fmt")?).map_err(rejected)?;
-    format_ticks(&formatter, &args, &settings(&args)?)
+    format_ticks(&formatter, args, &settings(args)?)
 }
 
 fn fixed_format_ticks(args: Args<'_>) -> Outcome {
-    let p = Params::of(&args, &["seq"])?.args();
+    let p = Params::of(args, &["seq"])?.args();
     let seq = p
         .json("seq")?
         .as_array()
@@ -764,9 +768,9 @@ fn fixed_format_ticks(args: Args<'_>) -> Outcome {
                 .collect()
         })
         .ok_or_else(|| bad("seq must be an array of strings"))?;
-    format_ticks(&FixedFormatter::new(seq), &args, &settings(&args)?)
+    format_ticks(&FixedFormatter::new(seq), args, &settings(args)?)
 }
 
 fn null_format_ticks(args: Args<'_>) -> Outcome {
-    format_ticks(&NullFormatter, &args, &settings(&args)?)
+    format_ticks(&NullFormatter, args, &settings(args)?)
 }

@@ -34,7 +34,11 @@ pub fn nonsingular(vmin: f64, vmax: f64, expander: f64, tiny: f64, increasing: b
             hi += expander * hi.abs();
         }
     }
-    if swapped && !increasing { (hi, lo) } else { (lo, hi) }
+    if swapped && !increasing {
+        (hi, lo)
+    } else {
+        (lo, hi)
+    }
 }
 
 #[cfg(test)]
@@ -43,11 +47,25 @@ mod tests {
 
     #[test]
     fn matches_matplotlib() {
-        assert_eq!(nonsingular(f64::NAN, 1.0, 0.001, 1e-15, true), (-0.001, 0.001));
-        assert_eq!(nonsingular(1.0, f64::INFINITY, 0.05, 1e-15, true), (-0.05, 0.05));
+        assert_eq!(
+            nonsingular(f64::NAN, 1.0, 0.001, 1e-15, true),
+            (-0.001, 0.001)
+        );
+        assert_eq!(
+            nonsingular(1.0, f64::INFINITY, 0.05, 1e-15, true),
+            (-0.05, 0.05)
+        );
         assert_eq!(nonsingular(3.0, 1.0, 0.05, 1e-15, true), (1.0, 3.0));
         assert_eq!(nonsingular(-2.0, -2.0, 0.05, 1e-15, true), (-2.1, -1.9));
-        assert_eq!(nonsingular(1e-310, 1e-310, 0.05, 1e-15, true), (-0.05, 0.05), "subnormal magnitudes");
-        assert_eq!(nonsingular(0.0, 10.0, 0.05, 1e-15, true), (0.0, 10.0), "regular ranges are untouched");
+        assert_eq!(
+            nonsingular(1e-310, 1e-310, 0.05, 1e-15, true),
+            (-0.05, 0.05),
+            "subnormal magnitudes"
+        );
+        assert_eq!(
+            nonsingular(0.0, 10.0, 0.05, 1e-15, true),
+            (0.0, 10.0),
+            "regular ranges are untouched"
+        );
     }
 }

@@ -31,13 +31,20 @@ fn main() -> ExitCode {
 /// prints a per-group summary.
 fn figure_cases(args: &[String]) -> ExitCode {
     let show_failures = args.iter().any(|a| a == "--failures");
-    let prefixes: Vec<&str> = args.iter().filter(|a| !a.starts_with("--")).map(String::as_str).collect();
+    let prefixes: Vec<&str> = args
+        .iter()
+        .filter(|a| !a.starts_with("--"))
+        .map(String::as_str)
+        .collect();
     let selected = |name: &str| prefixes.is_empty() || prefixes.iter().any(|p| name.starts_with(p));
     let translated = figures::translated_cases();
 
     let mut groups: BTreeMap<String, [usize; 3]> = BTreeMap::new();
     let mut failures = Vec::new();
-    for name in figures::golden_case_names().into_iter().filter(|n| selected(n)) {
+    for name in figures::golden_case_names()
+        .into_iter()
+        .filter(|n| selected(n))
+    {
         let group = name.split('/').next().unwrap_or_default().to_owned();
         let verdict = translated
             .iter()
@@ -54,10 +61,16 @@ fn figure_cases(args: &[String]) -> ExitCode {
         }
     }
 
-    println!("{:<20} {:>8} {:>8} {:>12}", "group", "pass", "fail", "untranslated");
+    println!(
+        "{:<20} {:>8} {:>8} {:>12}",
+        "group", "pass", "fail", "untranslated"
+    );
     let mut totals = [0_usize; 3];
     for (group, counts) in &groups {
-        println!("{group:<20} {:>8} {:>8} {:>12}", counts[0], counts[1], counts[2]);
+        println!(
+            "{group:<20} {:>8} {:>8} {:>12}",
+            counts[0], counts[1], counts[2]
+        );
         for (total, n) in totals.iter_mut().zip(counts) {
             *total += n;
         }
@@ -69,7 +82,11 @@ fn figure_cases(args: &[String]) -> ExitCode {
             println!("{failure}");
         }
     }
-    if fail == 0 && untranslated == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+    if fail == 0 && untranslated == 0 {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
 
 /// Replays every probe golden against plt-rs and prints a summary table.

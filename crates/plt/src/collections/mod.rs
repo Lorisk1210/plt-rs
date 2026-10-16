@@ -1,0 +1,285 @@
+//! Collections: many similar shapes drawn in one batch
+//! (matplotlib.collections).
+//!
+//! One [`Collection`] artist covers matplotlib's `PathCollection` (scatter
+//! markers sized in points²), `PolyCollection`, `LineCollection`,
+//! `PatchCollection` and friends; the [`CollectionKind`] selects the
+//! default colours, widths and z-order of each flavour.
+
+mod draw;
+mod style;
+
+use std::rc::Rc;
+
+use plt_core::path::{CollectionGeometry, DataLimits};
+use plt_core::{Affine2D, Bbox, Path, Point};
+use plt_render::{CapStyle, JoinStyle};
+
+use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
+use crate::colors::{Color, Normalized, ScalarMappable};
+use crate::lines::LineStyle;
+use crate::rc::RcParams;
+use crate::transforms::Transform;
+
+/// Which matplotlib collection class the defaults follow.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum CollectionKind {
+    /// A generic `Collection` (patch defaults, z-order 1).
+    #[default]
+    Generic,
+    /// Markers sized in points² at data offsets (`PathCollection`).
+    Path,
+    /// Polygons (`PolyCollection`, e.g. `fill_between`).
+    Poly,
+    /// Polylines without faces (`LineCollection`, line defaults, z-order 2).
+    Line,
+}
+
+/// The edge colours of a collection.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum EdgeColors {
+    /// matplotlib's default rule: `patch.edgecolor` when edges are forced,
+    /// faces are not drawn, or the kind draws edges by default; else none.
+    #[default]
+    Default,
+    /// The same colours as the faces.
+    Face,
+    /// Explicit colours, cycled over the items.
+    Colors(Vec<Color>),
+}
+
+/// Values mapped to colours through a norm and colormap.
+#[derive(Debug)]
+pub struct ColorMapping {
+    /// One value per item (`None` = masked).
+    pub values: Vec<Option<f64>>,
+    /// The norm and colormap.
+    pub mappable: ScalarMappable,
+}
+
+/// A [`ColorMapping`] with its values already normalised (matplotlib
+/// autoscales the norm and normalises when the array is set).
+#[derive(Debug)]
+pub(crate) struct Mapped {
+    pub(crate) source: ColorMapping,
+    pub(crate) normalized: Result<Vec<Normalized>, String>,
+}
+
+impl Mapped {
+    fn new(mut source: ColorMapping) -> Self {
+        source.mappable.norm_mut().autoscale_none(&source.values);
+        let normalized = source
+            .mappable
+            .normalize(&source.values)
+            .map_err(|e| e.to_string());
+        Self { source, normalized }
+    }
+
+    /// The mapped colours with `alpha` applied.
+    pub(crate) fn colors(&self, alpha: Option<f64>) -> Result<Vec<plt_core::Rgba>, String> {
+        let cmap = self.source.mappable.cmap();
+        let normalized = self.normalized.as_ref().map_err(Clone::clone)?;
+        Ok(normalized.iter().map(|&n| cmap.lookup(n, alpha)).collect())
+    }
+}
+
+/// State of a collection.
+#[derive(Debug)]
+pub(crate) struct CollectionArtist {
+    base: ArtistBase,
+    pub(crate) kind: CollectionKind,
+    pub(crate) paths: Vec<Path>,
+    /// Explicit per-item transforms (cycled); see also `sizes`.
+    pub(crate) transforms: Vec<Affine2D>,
+    /// Marker areas in points² (cycled); scale each item at draw time.
+    pub(crate) sizes: Option<Vec<f64>>,
+    pub(crate) offsets: Vec<Point>,
+    /// Coordinate system of `offsets` (`None` = no offsets).
+    pub(crate) offset_transform: Option<Transform>,
+    /// Face colours (`None` = the kind's default).
+    pub(crate) facecolors: Option<Vec<Color>>,
+    pub(crate) edgecolors: EdgeColors,
+    /// Edge widths in points (`None` = the kind's default).
+    pub(crate) linewidths: Option<Vec<f64>>,
+    pub(crate) linestyles: Vec<LineStyle>,
+    pub(crate) antialiased: Option<Vec<bool>>,
+    pub(crate) hatch: Option<String>,
+    pub(crate) capstyle: Option<CapStyle>,
+    pub(crate) joinstyle: Option<JoinStyle>,
+    pub(crate) mapping: Option<Mapped>,
+    rc: Rc<RcParams>,
+}
+
+impl CollectionArtist {
+    /// An empty collection of the given kind with rc defaults.
+    pub(crate) fn new(kind: CollectionKind, paths: Vec<Path>, rc: Rc<RcParams>) -> Self {
+        let zorder = if kind == CollectionKind::Line {
+            2.0
+        } else {
+            1.0
+        };
+        Self {
+            base: ArtistBase::with_zorder(zorder),
+            kind,
+            paths,
+            transforms: Vec::new(),
+            sizes: None,
+            offsets: Vec::new(),
+            offset_transform: None,
+            facecolors: None,
+            edgecolors: EdgeColors::Default,
+            linewidths: None,
+            linestyles: vec![LineStyle::Solid],
+            antialiased: None,
+            hatch: None,
+            capstyle: None,
+            joinstyle: None,
+            mapping: None,
+            rc,
+        }
+    }
+
+    fn transform(&self) -> Transform {
+        self.base.transform.clone().unwrap_or(Transform::Display)
+    }
+
+    /// The extent of the shapes placed at their offsets, all in data
+    /// coordinates (matplotlib's `get_datalim` for collections whose shapes
+    /// live in data space).
+    pub(crate) fn shape_extents(&self) -> DataLimits {
+        let geometry = CollectionGeometry {
+            master_transform: Affine2D::IDENTITY,
+            paths: &self.paths,
+            transforms: &self.transforms,
+            // matplotlib collections without offsets have one at the origin.
+            offsets: if self.offsets.is_empty() {
+                &[Point::ORIGIN]
+            } else {
+                &self.offsets
+            },
+            offset_transform: Affine2D::IDENTITY,
+        };
+        geometry.extents().unwrap_or(DataLimits::NULL)
+    }
+
+    pub(crate) fn rc(&self) -> &RcParams {
+        &self.rc
+    }
+}
+
+pub(crate) fn cycled<T>(items: &[T], i: usize) -> Option<&T> {
+    (!items.is_empty()).then(|| &items[i % items.len()])
+}
+
+impl Artist for CollectionArtist {
+    fn base(&self) -> &ArtistBase {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut ArtistBase {
+        &mut self.base
+    }
+
+    fn draw(&self, ctx: &mut DrawContext<'_>) {
+        if let Err(problem) = draw::draw_collection(self, ctx) {
+            ctx.report(self.base.id(), problem);
+        }
+    }
+
+    fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        let resolved = ctx.resolve(&self.transform())?;
+        let offsets = match &self.offset_transform {
+            Some(t) => {
+                let r = ctx.resolve(t)?;
+                self.offsets.iter().map(|&p| r.transform_point(p)).collect()
+            }
+            None => Vec::new(),
+        };
+        let shapes = self
+            .paths
+            .iter()
+            .map(|p| resolved.transform_path(p).extents());
+        let shape_box = shapes.fold(Bbox::NULL, |acc, b| acc.union(&b));
+        if offsets.is_empty() {
+            return Some(shape_box);
+        }
+        Some(Bbox::from_points(offsets))
+    }
+}
+
+/// A handle to a collection (matplotlib's `Collection` subclasses).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Collection {
+    raw: RawHandle,
+}
+
+impl ArtistHandle for Collection {
+    fn raw(&self) -> &RawHandle {
+        &self.raw
+    }
+}
+
+impl Collection {
+    pub(crate) fn from_raw(raw: RawHandle) -> Self {
+        Self { raw }
+    }
+
+    fn update(&self, f: impl FnOnce(&mut CollectionArtist)) -> &Self {
+        self.raw.with_mut::<CollectionArtist, _>(f);
+        self
+    }
+
+    /// Sets one face colour for every item.
+    pub fn set_facecolor(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
+        self.update(|c| c.facecolors = Some(vec![color]))
+    }
+
+    /// Sets per-item face colours (cycled).
+    pub fn set_facecolors(&self, colors: Vec<Color>) -> &Self {
+        self.update(|c| c.facecolors = Some(colors))
+    }
+
+    /// Sets the edge colours.
+    pub fn set_edgecolors(&self, edges: EdgeColors) -> &Self {
+        self.update(|c| c.edgecolors = edges)
+    }
+
+    /// Sets one edge colour for every item.
+    pub fn set_edgecolor(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
+        self.update(|c| c.edgecolors = EdgeColors::Colors(vec![color]))
+    }
+
+    /// Sets the edge widths in points (cycled).
+    pub fn set_linewidths(&self, widths: Vec<f64>) -> &Self {
+        self.update(|c| c.linewidths = Some(widths))
+    }
+
+    /// Sets the edge line styles (cycled).
+    pub fn set_linestyles(&self, styles: Vec<LineStyle>) -> &Self {
+        self.update(|c| c.linestyles = styles)
+    }
+
+    /// Sets the marker areas in points² (cycled).
+    pub fn set_sizes(&self, sizes: Vec<f64>) -> &Self {
+        self.update(|c| c.sizes = Some(sizes))
+    }
+
+    /// Sets a hatch pattern for every item.
+    pub fn set_hatch(&self, pattern: impl Into<String>) -> &Self {
+        let pattern = pattern.into();
+        self.update(|c| c.hatch = Some(pattern))
+    }
+
+    /// Maps `values` to face (or, for line collections, edge) colours.
+    pub fn set_mapping(&self, mapping: ColorMapping) -> &Self {
+        let mapped = Mapped::new(mapping);
+        self.update(|c| c.mapping = Some(mapped))
+    }
+
+    /// The item offsets.
+    pub fn offsets(&self) -> Vec<Point> {
+        self.raw.with::<CollectionArtist, _>(|c| c.offsets.clone())
+    }
+}

@@ -1,39 +1,13 @@
 //! Line plotting: `plot`.
 
-use std::fmt;
-
-use plt_core::Point;
-
-use super::{Axes, AxesState};
-use crate::artist::{ArtistHandle, RawHandle};
-use crate::lines::{Line2D, LineArtist};
-use crate::rc::CycleValue;
-use crate::transforms::Transform;
-
-/// Invalid data passed to a plotting method.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PlotError {
-    /// x and y have different lengths.
-    LengthMismatch {
-        /// Number of x values.
-        x: usize,
-        /// Number of y values.
-        y: usize,
-    },
-}
-
-impl fmt::Display for PlotError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::LengthMismatch { x, y } => write!(
-                f,
-                "x and y must have same first dimension, but have shapes ({x},) and ({y},)"
-            ),
-        }
-    }
-}
-
-impl std::error::Error for PlotError {}
+use super::children::DataUpdate;
+use super::{Axes, AxesState, PlotError};
+use crate::artist::{Artist, ArtistHandle};
+use crate::colors::Color;
+use crate::lines::{Line2D, LineArtist, LineProps};
+use crate::rc::{CycleValue, Cycler};
+use crate::scale::LogScale;
+use crate::ticker::AxisName;
 
 impl Axes {
     /// Plots `y` against `x` as a line using the next property-cycle style
@@ -48,6 +22,38 @@ impl Axes {
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
     pub fn plot(&self, x: impl AsRef<[f64]>, y: impl AsRef<[f64]>) -> Result<Line2D, PlotError> {
+        self.plot_with(x, y, LineProps::default())
+    }
+
+    /// Plots `y` against `x` styled by a format string such as `"ro--"`
+    /// (matplotlib's `ax.plot(x, y, fmt)`).
+    pub fn plot_fmt(
+        &self,
+        x: impl AsRef<[f64]>,
+        y: impl AsRef<[f64]>,
+        format: &str,
+    ) -> Result<Line2D, PlotError> {
+        self.plot_with(x, y, LineProps::fmt(format)?)
+    }
+
+    /// Plots `y` against `x` with explicit properties; the property cycle
+    /// supplies only the properties left unset, and does not advance when
+    /// every cycled property is set (matplotlib's `ax.plot(x, y, **kwargs)`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8]);
+    /// let props = LineProps::fmt("o--")?.markersize(4.0).label("data");
+    /// let line = ax.plot_with([1.0, 2.0], [3.0, 4.0], props)?;
+    /// assert_eq!(line.markersize(), 4.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn plot_with(
+        &self,
+        x: impl AsRef<[f64]>,
+        y: impl AsRef<[f64]>,
+        props: LineProps,
+    ) -> Result<Line2D, PlotError> {
         let (x, y) = (x.as_ref(), y.as_ref());
         if x.len() != y.len() {
             return Err(PlotError::LengthMismatch {
@@ -55,46 +61,98 @@ impl Axes {
                 y: y.len(),
             });
         }
-        Ok(self.add_line(x.to_vec(), y.to_vec()))
+        Ok(self.add_line(x.to_vec(), y.to_vec(), props))
     }
 
     /// Plots `y` against its indices `0, 1, 2, ...` (matplotlib's `ax.plot(y)`).
     pub fn plot_y(&self, y: impl AsRef<[f64]>) -> Line2D {
         let y = y.as_ref().to_vec();
         let x = (0..y.len()).map(|i| i as f64).collect();
-        self.add_line(x, y)
+        self.add_line(x, y, LineProps::default())
     }
 
-    fn add_line(&self, x: Vec<f64>, y: Vec<f64>) -> Line2D {
-        let figure = self.raw().figure_state();
-        let mut state = figure.borrow_mut();
-        let axes_id = self.id();
+    /// Plots on logarithmic x and y axes (matplotlib's `ax.loglog`).
+    pub fn loglog(&self, x: impl AsRef<[f64]>, y: impl AsRef<[f64]>) -> Result<Line2D, PlotError> {
+        self.set_log_scales(true, true);
+        self.plot(x, y)
+    }
+
+    /// Plots on a logarithmic x axis (matplotlib's `ax.semilogx`).
+    pub fn semilogx(
+        &self,
+        x: impl AsRef<[f64]>,
+        y: impl AsRef<[f64]>,
+    ) -> Result<Line2D, PlotError> {
+        self.set_log_scales(true, false);
+        self.plot(x, y)
+    }
+
+    /// Plots on a logarithmic y axis (matplotlib's `ax.semilogy`).
+    pub fn semilogy(
+        &self,
+        x: impl AsRef<[f64]>,
+        y: impl AsRef<[f64]>,
+    ) -> Result<Line2D, PlotError> {
+        self.set_log_scales(false, true);
+        self.plot(x, y)
+    }
+
+    fn set_log_scales(&self, x: bool, y: bool) {
+        let log = || Box::new(LogScale::new(10.0).expect("10 is a valid logarithm base"));
+        if x {
+            self.set_scale(AxisName::X, log());
+        }
+        if y {
+            self.set_scale(AxisName::Y, log());
+        }
+    }
+
+    fn add_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> Line2D {
         let mut line = LineArtist::new(x, y, crate::rc::params());
-        let style = state
-            .store
-            .get_as_mut::<AxesState>(axes_id)
-            .map(|axes| {
-                let index = axes.line_cycle;
+        let cycled = self.raw().with_mut::<AxesState, _>(|axes| {
+            let entry: Vec<(String, CycleValue)> = axes
+                .prop_cycle
+                .entry(axes.line_cycle)
+                .filter(|(key, _)| !props.is_set(key))
+                .map(|(key, value)| (key.to_owned(), value.clone()))
+                .collect();
+            // matplotlib's `_getdefaults`: only advance when the cycle
+            // supplies something.
+            if !entry.is_empty() {
                 axes.line_cycle += 1;
-                axes.prop_cycle
-                    .entry(index)
-                    .map(|(k, v)| (k.to_owned(), v.clone()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        for (key, value) in style {
+            }
+            entry
+        });
+        for (key, value) in cycled {
             apply_cycle(&mut line, &key, value);
         }
-        let base = crate::artist::Artist::base_mut(&mut line);
-        base.transform = Some(Transform::Data(axes_id));
-        base.clip_box = Some(axes_id);
-        let points: Vec<Point> = line.drawn_points();
-        let id = state.adopt(axes_id, Box::new(line));
-        if let Some(axes) = state.store.get_as_mut::<AxesState>(axes_id) {
-            axes.add_data(&points, true, true);
-        }
-        Line2D::from_raw(RawHandle::new(std::rc::Rc::clone(figure), id))
+        props.apply(&mut line);
+        line.base_mut().transform = Some(self.trans_data());
+        let update = DataUpdate::data(line.drawn_points());
+        Line2D::from_raw(self.adopt(line, &update))
     }
+
+    /// The next colour of the line property cycle (matplotlib's
+    /// `_get_lines.get_next_color`).
+    pub(crate) fn next_line_color(&self) -> Color {
+        self.raw().with_mut::<AxesState, _>(|axes| {
+            let color = cycle_color(&axes.prop_cycle, axes.line_cycle);
+            if color.is_some() {
+                axes.line_cycle += 1;
+            }
+            color.unwrap_or_else(|| Color::from("k"))
+        })
+    }
+}
+
+/// The colour of entry `index` of a property cycle, if it cycles colours.
+pub(crate) fn cycle_color(cycle: &Cycler, index: usize) -> Option<Color> {
+    cycle
+        .entry(index)
+        .find_map(|(key, value)| match (key, value) {
+            ("color", CycleValue::Color(color)) => Some(color.clone()),
+            _ => None,
+        })
 }
 
 /// Applies one property-cycle entry to a new line.
@@ -108,9 +166,7 @@ fn apply_cycle(line: &mut LineArtist, key: &str, value: CycleValue) {
         ("markeredgewidth", CycleValue::Number(width)) => line.markeredgewidth = width,
         ("markeredgecolor", CycleValue::Color(color)) => line.markeredgecolor = color.into(),
         ("markerfacecolor", CycleValue::Color(color)) => line.markerfacecolor = color.into(),
-        ("alpha", CycleValue::Number(alpha)) => {
-            crate::artist::Artist::base_mut(line).alpha = Some(alpha);
-        }
+        ("alpha", CycleValue::Number(alpha)) => line.base_mut().alpha = Some(alpha),
         ("dashes", CycleValue::Dashes(pattern)) => {
             line.linestyle = crate::lines::LineStyle::dashes(0.0, pattern);
         }

@@ -11,8 +11,13 @@
 //!   first, then rotates).
 //! * [`Bbox`] — a possibly-inverted axis-aligned box (`x0` may exceed `x1`).
 //! * [`Path`] — vertices plus optional [`PathCode`]s, iterated as
-//!   [`Segment`]s; see [`path`] for constructors of matplotlib's unit shapes.
+//!   [`Segment`]s; see [`path`] for matplotlib's unit shapes, containment,
+//!   intersection, clipping and extents queries, and [`path::convert`] for
+//!   the conditioning pipeline every backend runs before drawing
+//!   (NaN removal, clipping, snapping, simplification, curve flattening,
+//!   sketching).
 //! * [`bezier`] — evaluation, subdivision and extrema of Bézier curves.
+//! * [`hatch`] — matplotlib's hatch patterns.
 //! * [`Rgba`] — a straight-alpha colour with components in `[0, 1]`.
 #![forbid(unsafe_code)]
 
@@ -20,6 +25,7 @@ mod affine;
 mod bbox;
 pub mod bezier;
 mod color;
+pub mod hatch;
 pub mod path;
 mod point;
 

@@ -90,7 +90,10 @@ fn compare_at(
     };
     match (expected, actual) {
         (Json::Number(_) | Json::Integer(_), Json::Number(_) | Json::Integer(_))
-            if tol.accepts(expected.as_f64().unwrap_or(f64::NAN), actual.as_f64().unwrap_or(f64::NAN)) =>
+            if tol.accepts(
+                expected.as_f64().unwrap_or(f64::NAN),
+                actual.as_f64().unwrap_or(f64::NAN),
+            ) =>
         {
             Ok(())
         }
@@ -114,7 +117,9 @@ fn compare_at(
             }
             Ok(())
         }
-        (Json::Number(_) | Json::Integer(_) | Json::Array(_) | Json::Object(_), _) => Err(mismatch(path)),
+        (Json::Number(_) | Json::Integer(_) | Json::Array(_) | Json::Object(_), _) => {
+            Err(mismatch(path))
+        }
         _ if expected == actual => Ok(()),
         _ => Err(mismatch(path)),
     }

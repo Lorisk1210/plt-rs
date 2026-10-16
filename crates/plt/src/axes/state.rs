@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use plt_core::{Bbox, Path, Point};
+use plt_core::{Bbox, Path};
 
 use super::axis::{AxisGeometry, AxisState};
 use super::axis_draw::AxisPainter;
@@ -44,6 +44,8 @@ pub(crate) struct AxesState {
     pub(crate) prop_cycle: Cycler,
     /// Next property-cycle entry for lines.
     pub(crate) line_cycle: usize,
+    /// Next property-cycle entry for patches and collections.
+    pub(crate) patch_cycle: usize,
     /// Plotted artists in insertion order.
     pub(crate) children: Vec<ArtistId>,
     /// The spines, in `SpineSide::ALL` order once created.
@@ -73,6 +75,7 @@ impl AxesState {
             frame_on: true,
             prop_cycle: rc.axes_prop_cycle.clone(),
             line_cycle: 0,
+            patch_cycle: 0,
             children: Vec::new(),
             spines: Vec::new(),
             titles: Vec::new(),
@@ -148,11 +151,11 @@ impl AxesState {
         }
     }
 
-    /// Records new data and asks for the view to follow it.
-    pub(crate) fn add_data(&mut self, points: &[Point], update_x: bool, update_y: bool) {
-        self.data_lim.update(points, update_x, update_y);
-        self.xaxis.autoscale.stale |= update_x;
-        self.yaxis.autoscale.stale |= update_y;
+    /// Marks the view limits of the given axes for re-autoscaling at the
+    /// next layout (matplotlib's `_request_autoscale_view`).
+    pub(crate) fn request_autoscale(&mut self, x: bool, y: bool) {
+        self.xaxis.autoscale.stale |= x;
+        self.yaxis.autoscale.stale |= y;
     }
 
     /// Data interval and minimum positive value of one axis.
@@ -274,7 +277,7 @@ impl AxesState {
             match item {
                 Item::Child(id) => ctx.draw_child(id),
                 Item::Axis(name) => {
-                    AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc)
+                    AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc);
                 }
             }
         }

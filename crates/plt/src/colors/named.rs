@@ -7,20 +7,38 @@ use plt_core::Rgba;
 
 use super::named_data::{BASE, CSS4, TABLEAU, XKCD};
 
+/// A named colour as matplotlib's tables store it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NamedColor {
+    /// A base colour's RGB triple (`"g"` is `(0, 0.5, 0)`).
+    Rgb([f64; 3]),
+    /// A `#rrggbb` code, in the table's letter case.
+    Hex(&'static str),
+}
+
+impl NamedColor {
+    /// The opaque colour.
+    pub fn rgba(self) -> Rgba {
+        match self {
+            Self::Rgb([r, g, b]) => Rgba::opaque(r, g, b),
+            Self::Hex(hex) => parse_hex6(hex),
+        }
+    }
+}
+
 /// matplotlib's `_colors_full_map`: every named colour, built in reverse
 /// priority order so later tables win (base > Tableau > CSS4 > xkcd), with
 /// the grey/gray spelling variants matplotlib adds.
-fn full_map() -> &'static HashMap<String, Rgba> {
-    static MAP: OnceLock<HashMap<String, Rgba>> = OnceLock::new();
+fn full_map() -> &'static HashMap<String, NamedColor> {
+    static MAP: OnceLock<HashMap<String, NamedColor>> = OnceLock::new();
     MAP.get_or_init(|| {
         let mut map = HashMap::new();
-        let mut insert_hex = |table: &[(&str, &str)], from: &str, to: &str| {
+        let mut insert_hex = |table: &[(&'static str, &'static str)], from: &str, to: &str| {
             for &(name, hex) in table {
-                let rgba = parse_hex6(hex);
                 if from.is_empty() {
-                    map.insert(name.to_owned(), rgba);
+                    map.insert(name.to_owned(), NamedColor::Hex(hex));
                 } else if name.contains(from) {
-                    map.insert(name.replace(from, to), rgba);
+                    map.insert(name.replace(from, to), NamedColor::Hex(hex));
                 }
             }
         };
@@ -29,8 +47,8 @@ fn full_map() -> &'static HashMap<String, Rgba> {
         insert_hex(CSS4, "", "");
         insert_hex(TABLEAU, "", "");
         insert_hex(TABLEAU, "gray", "grey");
-        for &(name, [r, g, b]) in BASE {
-            map.insert(name.to_owned(), Rgba::opaque(r, g, b));
+        for &(name, rgb) in BASE {
+            map.insert(name.to_owned(), NamedColor::Rgb(rgb));
         }
         map
     })
@@ -46,12 +64,20 @@ pub(super) fn lookup(name: &str) -> Option<Rgba> {
                 .then(|| map.get(&name.to_lowercase()))
                 .flatten()
         })
-        .copied()
+        .map(|color| color.rgba())
 }
 
 /// Every named colour (name, colour), for listing and table probes.
 pub fn named_colors() -> impl Iterator<Item = (&'static str, Rgba)> {
-    full_map().iter().map(|(name, rgba)| (name.as_str(), *rgba))
+    named_color_table().map(|(name, color)| (name, color.rgba()))
+}
+
+/// Every named colour with its value as matplotlib stores it
+/// (`get_named_colors_mapping`).
+pub fn named_color_table() -> impl Iterator<Item = (&'static str, NamedColor)> {
+    full_map()
+        .iter()
+        .map(|(name, color)| (name.as_str(), *color))
 }
 
 /// One of matplotlib's named-colour tables.

@@ -1,0 +1,145 @@
+//! Agg's `vertex_sequence<vertex_dist>`: a polyline that drops coincident
+//! vertices and records the length of each segment.
+
+use crate::Point;
+
+/// Points closer than this are coincident (`vertex_dist_epsilon`).
+pub(super) const VERTEX_DIST_EPSILON: f64 = 1e-14;
+
+/// A vertex with the distance to its successor.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct VertexDist {
+    pub(super) x: f64,
+    pub(super) y: f64,
+    pub(super) dist: f64,
+}
+
+impl VertexDist {
+    pub(super) const fn new(p: Point) -> Self {
+        Self {
+            x: p.x,
+            y: p.y,
+            dist: 0.0,
+        }
+    }
+
+    /// `vertex_dist::operator()`: stores the distance to `next` and reports
+    /// whether the points are distinct.
+    fn measure(&mut self, next: &Self) -> bool {
+        let dx = next.x - self.x;
+        let dy = next.y - self.y;
+        self.dist = (dx * dx + dy * dy).sqrt();
+        let distinct = self.dist > VERTEX_DIST_EPSILON;
+        if !distinct {
+            self.dist = 1.0 / VERTEX_DIST_EPSILON;
+        }
+        distinct
+    }
+}
+
+/// The filtered polyline of one sub-path.
+#[derive(Clone, Debug, Default)]
+pub(super) struct VertexSequence {
+    v: Vec<VertexDist>,
+}
+
+impl VertexSequence {
+    pub(super) fn clear(&mut self) {
+        self.v.clear();
+    }
+
+    pub(super) fn len(&self) -> usize {
+        self.v.len()
+    }
+
+    pub(super) fn get(&self, i: usize) -> &VertexDist {
+        &self.v[i]
+    }
+
+    /// The vertex before `i`, wrapping around.
+    pub(super) fn prev(&self, i: usize) -> &VertexDist {
+        &self.v[(i + self.v.len() - 1) % self.v.len()]
+    }
+
+    /// The vertex after `i`, wrapping around.
+    pub(super) fn next(&self, i: usize) -> &VertexDist {
+        &self.v[(i + 1) % self.v.len()]
+    }
+
+    /// Checks the last pair (dropping the last vertex if it coincides with
+    /// its predecessor), then appends `val`.
+    pub(super) fn add(&mut self, val: VertexDist) {
+        let n = self.v.len();
+        if n > 1 {
+            let last = self.v[n - 1];
+            if !self.v[n - 2].measure(&last) {
+                self.v.pop();
+            }
+        }
+        self.v.push(val);
+    }
+
+    /// Replaces the last vertex by `val`.
+    pub(super) fn modify_last(&mut self, val: VertexDist) {
+        self.v.pop();
+        self.add(val);
+    }
+
+    /// Removes trailing coincident vertices and, for closed sub-paths, a
+    /// last vertex equal to the first; measures the closing segment.
+    pub(super) fn close(&mut self, closed: bool) {
+        while self.v.len() > 1 {
+            let n = self.v.len();
+            let last = self.v[n - 1];
+            if self.v[n - 2].measure(&last) {
+                break;
+            }
+            self.v.pop();
+            self.modify_last(last);
+        }
+        if closed {
+            while self.v.len() > 1 {
+                let first = self.v[0];
+                let n = self.v.len();
+                if self.v[n - 1].measure(&first) {
+                    break;
+                }
+                self.v.pop();
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vd(x: f64, y: f64) -> VertexDist {
+        VertexDist::new(Point::new(x, y))
+    }
+
+    #[test]
+    fn coincident_vertices_are_dropped() {
+        let mut s = VertexSequence::default();
+        for (x, y) in [(0.0, 0.0), (3.0, 4.0), (3.0, 4.0), (6.0, 8.0), (6.0, 8.0)] {
+            s.add(vd(x, y));
+        }
+        s.close(false);
+        assert_eq!(s.len(), 3);
+        assert_eq!(s.get(0).dist, 5.0);
+        assert_eq!(s.get(1).dist, 5.0);
+    }
+
+    #[test]
+    fn closing_drops_repeated_start_and_measures_the_wrap() {
+        let mut s = VertexSequence::default();
+        for (x, y) in [(0.0, 0.0), (4.0, 0.0), (4.0, 3.0), (0.0, 0.0)] {
+            s.add(vd(x, y));
+        }
+        s.close(true);
+        assert_eq!(s.len(), 3);
+        assert_eq!(s.get(2).dist, 5.0);
+        assert_eq!(s.prev(0).x, 4.0);
+        assert_eq!(s.next(2).x, 0.0);
+    }
+}

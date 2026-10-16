@@ -12,8 +12,8 @@ mod resolved;
 
 use std::fmt;
 
-pub use plt_core::{Affine2D, Bbox, Point};
 pub use nonsingular::nonsingular;
+pub use plt_core::{Affine2D, Bbox, Point};
 pub use resolved::{AxisMap, PointMap, ResolvedTransform, Step};
 
 use crate::artist::ArtistId;
@@ -79,6 +79,31 @@ impl Transform {
             dy,
             units: Box::new(Self::Inches),
         })
+    }
+
+    /// Whether the x and y outputs pass through the data coordinates of
+    /// `axes` last (matplotlib's `contains_branch_separately(transData)`),
+    /// i.e. which directions of points in this system are data values.
+    pub fn data_directions(&self, axes: ArtistId) -> (bool, bool) {
+        match self {
+            Self::Data(id) => (*id == axes, *id == axes),
+            Self::Blended(x, y) => (x.ends_in_data(axes), y.ends_in_data(axes)),
+            Self::Composite(_, last) => {
+                let both = last.ends_in_data(axes);
+                (both, both)
+            }
+            _ => (false, false),
+        }
+    }
+
+    /// Whether the transform ends with `axes`' data transform
+    /// (matplotlib's `contains_branch`).
+    fn ends_in_data(&self, axes: ArtistId) -> bool {
+        match self {
+            Self::Data(id) => *id == axes,
+            Self::Composite(_, last) => last.ends_in_data(axes),
+            _ => false,
+        }
     }
 
     /// The inverse transform.

@@ -187,6 +187,16 @@ impl GridSpec {
         (self.data.nrows, self.data.ncols)
     }
 
+    /// Relative column widths.
+    pub fn width_ratios(&self) -> &[f64] {
+        &self.data.width_ratios
+    }
+
+    /// Relative row heights.
+    pub fn height_ratios(&self) -> &[f64] {
+        &self.data.height_ratios
+    }
+
     /// The single cell at `(row, col)`.
     pub fn cell(&self, row: usize, col: usize) -> Result<SubplotSpec, GridSpecError> {
         self.span(row..row + 1, col..col + 1)

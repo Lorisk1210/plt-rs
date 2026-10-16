@@ -1,0 +1,14 @@
+[package]
+name = "plt"
+description = "Matplotlib, reimagined in Rust: figures, axes, artists and a pyplot-style API"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+plt-core.workspace = true
+plt-render.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,102 @@
+//! The drawing interface every output backend implements.
+
+use plt_core::{Affine2D, Path, Point, Rgba};
+
+use crate::collection::PathCollection;
+use crate::gc::GraphicsContext;
+use crate::image::RgbaImage;
+
+/// A drawing target: a raster canvas, an SVG/PDF/PS document, a window.
+///
+/// This mirrors matplotlib's `RendererBase`. All geometry arrives in
+/// *display coordinates*: pixels at the renderer's dpi with the origin at
+/// the **bottom-left** corner and y pointing up. Transforms passed alongside
+/// paths are affine maps into that space; any non-affine part (log scales,
+/// polar projections) has already been applied by the caller.
+///
+/// Only [`draw_path`](Self::draw_path) is mandatory; the batched operations
+/// have correct but slow default implementations that backends override
+/// when they can do better (e.g. stamping a pre-rasterised marker).
+pub trait Renderer {
+    /// Canvas width and height in pixels.
+    fn canvas_size(&self) -> (f64, f64);
+
+    /// Resolution in dots per inch.
+    fn dpi(&self) -> f64;
+
+    /// Converts a length in points (1/72 inch) to pixels.
+    fn points_to_pixels(&self, points: f64) -> f64 {
+        points * self.dpi() / 72.0
+    }
+
+    /// Strokes `path` with `gc` and fills it with `fill`, if given.
+    fn draw_path(&mut self, gc: &GraphicsContext, path: &Path, transform: &Affine2D, fill: Option<Rgba>);
+
+    /// Draws `marker` (in marker coordinates, mapped by `marker_transform`
+    /// to pixel offsets) at every vertex of `path` transformed by `transform`.
+    fn draw_markers(
+        &mut self,
+        gc: &GraphicsContext,
+        marker: &Path,
+        marker_transform: &Affine2D,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    ) {
+        for &vertex in path.vertices() {
+            let at = transform.transform_point(vertex);
+            if at.is_finite() {
+                let placed = marker_transform.translate(at.x, at.y);
+                self.draw_path(gc, marker, &placed, fill);
+            }
+        }
+    }
+
+    /// Draws many paths with per-item properties (scatter, patches, meshes).
+    fn draw_path_collection(&mut self, gc: &GraphicsContext, collection: &PathCollection<'_>) {
+        for item in collection.items(gc) {
+            self.draw_path(&item.gc, item.path, &item.transform, item.fill);
+        }
+    }
+
+    /// Draws triangles whose vertex colours are interpolated linearly
+    /// (Gouraud shading); `transform` maps the vertices to display space.
+    fn draw_gouraud_triangles(
+        &mut self,
+        gc: &GraphicsContext,
+        triangles: &[[Point; 3]],
+        colors: &[[Rgba; 3]],
+        transform: &Affine2D,
+    );
+
+    /// Draws an image with its **bottom-left** corner at `origin` (display
+    /// coordinates). With `transform`, the image's unit square is mapped
+    /// through it instead (only used when
+    /// [`option_scale_image`](Self::option_scale_image) is `true`).
+    fn draw_image(
+        &mut self,
+        gc: &GraphicsContext,
+        origin: Point,
+        image: &RgbaImage,
+        transform: Option<&Affine2D>,
+    );
+
+    /// Starts a named group of draw calls (vector backends emit a group).
+    fn open_group(&mut self, _name: &str, _gid: Option<&str>) {}
+
+    /// Ends the most recently opened group.
+    fn close_group(&mut self, _name: &str) {}
+
+    /// When `true`, images are drawn one by one instead of being
+    /// composited into a single image first.
+    fn option_image_nocomposite(&self) -> bool {
+        false
+    }
+
+    /// When `true`, [`draw_image`](Self::draw_image) accepts arbitrary
+    /// affine transforms (vector backends); otherwise images arrive
+    /// pre-resampled at display resolution.
+    fn option_scale_image(&self) -> bool {
+        false
+    }
+}

@@ -8,10 +8,13 @@ publish.workspace = true
 
 [dependencies]
 plt-core.workspace = true
-plt-font.workspace = true
 plt-raster.workspace = true
 plt-text.workspace = true
 plt-platform.workspace = true
+
+[dev-dependencies]
+# The figure window example saves screenshots as PNG.
+plt-codec.workspace = true
 
 [lints]
 workspace = true

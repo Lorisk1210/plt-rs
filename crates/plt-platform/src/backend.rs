@@ -15,7 +15,7 @@ use crate::window::{CursorIcon, WindowId, WindowOptions};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum BackendKind {
-    /// The X Window System (also XWayland), spoken over its wire protocol.
+    /// The X Window System (also `XWayland`), spoken over its wire protocol.
     X11,
     /// An in-memory backend for tests: records presented frames and lets
     /// tests inject input (see [`HeadlessHandle`](crate::HeadlessHandle)).

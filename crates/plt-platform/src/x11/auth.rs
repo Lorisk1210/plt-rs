@@ -131,14 +131,24 @@ pub(crate) fn hostname() -> Option<String> {
     };
     from_file("/proc/sys/kernel/hostname")
         .or_else(|| from_file("/etc/hostname"))
-        .or_else(|| std::env::var("HOSTNAME").ok().filter(|name| !name.is_empty()))
+        .or_else(|| {
+            std::env::var("HOSTNAME")
+                .ok()
+                .filter(|name| !name.is_empty())
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn entry_bytes(family: u16, address: &[u8], number: &[u8], name: &[u8], data: &[u8]) -> Vec<u8> {
+    fn entry_bytes(
+        family: u16,
+        address: &[u8],
+        number: &[u8],
+        name: &[u8],
+        data: &[u8],
+    ) -> Vec<u8> {
         let mut out = family.to_be_bytes().to_vec();
         for field in [address, number, name, data] {
             out.extend_from_slice(&(field.len() as u16).to_be_bytes());
@@ -147,12 +157,24 @@ mod tests {
         out
     }
 
-    /// The layout of a real XWayland (mutter) Xauthority file: one local and
+    /// The layout of a real `XWayland` (mutter) Xauthority file: one local and
     /// one wild entry, both with an empty display number.
     fn xwayland_file() -> Vec<u8> {
         let cookie = [0x7d, 0xd6, 0xea, 0x92, 0x35, 0x95, 0x75, 0xbd];
-        let mut file = entry_bytes(FAMILY_LOCAL, b"fedora.fritz.box", b"", MIT_MAGIC_COOKIE, &cookie);
-        file.extend(entry_bytes(FAMILY_WILD, b"fedora.fritz.box", b"", MIT_MAGIC_COOKIE, &[9; 8]));
+        let mut file = entry_bytes(
+            FAMILY_LOCAL,
+            b"fedora.fritz.box",
+            b"",
+            MIT_MAGIC_COOKIE,
+            &cookie,
+        );
+        file.extend(entry_bytes(
+            FAMILY_WILD,
+            b"fedora.fritz.box",
+            b"",
+            MIT_MAGIC_COOKIE,
+            &[9; 8],
+        ));
         file
     }
 
@@ -162,7 +184,7 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].family, FAMILY_LOCAL);
         assert_eq!(entries[0].address, b"fedora.fritz.box");
-        assert!(entries[0].number.is_empty());
+        assert_eq!(entries[0].number, b"");
         assert_eq!(entries[1].family, FAMILY_WILD);
     }
 
@@ -171,8 +193,8 @@ mod tests {
         let mut file = xwayland_file();
         file.extend_from_slice(&[1, 0, 0, 5, b'a']);
         assert_eq!(parse(&file).len(), 2);
-        assert!(parse(&[]).is_empty());
-        assert!(parse(&[0]).is_empty());
+        assert_eq!(parse(&[]), []);
+        assert_eq!(parse(&[0]), []);
     }
 
     #[test]
@@ -189,7 +211,13 @@ mod tests {
     #[test]
     fn display_number_must_match_when_present() {
         let mut file = entry_bytes(FAMILY_LOCAL, b"h", b"1", MIT_MAGIC_COOKIE, &[1]);
-        file.extend(entry_bytes(FAMILY_LOCAL, b"h", b"0", MIT_MAGIC_COOKIE, &[0]));
+        file.extend(entry_bytes(
+            FAMILY_LOCAL,
+            b"h",
+            b"0",
+            MIT_MAGIC_COOKIE,
+            &[0],
+        ));
         let entries = parse(&file);
         assert_eq!(find(&entries, FAMILY_LOCAL, b"h", 0).unwrap().data, [0]);
         assert_eq!(find(&entries, FAMILY_LOCAL, b"h", 1).unwrap().data, [1]);
@@ -201,7 +229,10 @@ mod tests {
     fn other_auth_protocols_are_skipped() {
         let mut file = entry_bytes(FAMILY_LOCAL, b"h", b"", b"XDM-AUTHORIZATION-1", &[1]);
         file.extend(entry_bytes(FAMILY_LOCAL, b"h", b"", MIT_MAGIC_COOKIE, &[2]));
-        assert_eq!(find(&parse(&file), FAMILY_LOCAL, b"h", 0).unwrap().data, [2]);
+        assert_eq!(
+            find(&parse(&file), FAMILY_LOCAL, b"h", 0).unwrap().data,
+            [2]
+        );
     }
 
     #[test]

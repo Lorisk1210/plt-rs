@@ -28,7 +28,12 @@ pub(crate) struct Timers {
 impl Timers {
     /// Starts a timer firing `delay` after `now`, then every `period` if
     /// one is given.
-    pub(crate) fn add(&mut self, now: Instant, delay: Duration, period: Option<Duration>) -> TimerId {
+    pub(crate) fn add(
+        &mut self,
+        now: Instant,
+        delay: Duration,
+        period: Option<Duration>,
+    ) -> TimerId {
         self.next_id += 1;
         let id = TimerId(self.next_id);
         self.entries.push(Entry {
@@ -101,7 +106,7 @@ mod tests {
         let mut timers = Timers::default();
         let id = timers.add(t0, 10 * MS, None);
         assert_eq!(timers.next_deadline(), Some(t0 + 10 * MS));
-        assert!(timers.due(t0).is_empty());
+        assert_eq!(timers.due(t0), []);
         assert!(!timers.fire(id, t0));
         assert_eq!(timers.due(t0 + 10 * MS), vec![id]);
         assert!(timers.fire(id, t0 + 10 * MS));

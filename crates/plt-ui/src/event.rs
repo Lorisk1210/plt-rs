@@ -1,0 +1,111 @@
+//! Input events as widgets receive them.
+
+use plt_core::Point;
+use plt_platform::{KeyEvent, Modifiers, MouseButton, ScrollDelta};
+
+/// An input event routed to one widget, with positions in window pixels.
+///
+/// Pointer events go to the widget under the pointer, except that a
+/// widget pressed with a button receives every pointer event until all
+/// buttons are released (pointer capture). Key events go to the focused
+/// widget: the last clicked widget that accepts focus.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub enum UiEvent {
+    /// The pointer moved onto the widget.
+    PointerEnter(Point),
+    /// The pointer moved off the widget (or left the window).
+    PointerLeave,
+    /// The pointer moved.
+    PointerMove {
+        /// Pointer position.
+        position: Point,
+        /// Held modifiers.
+        modifiers: Modifiers,
+    },
+    /// A mouse button was pressed.
+    PointerDown {
+        /// The button.
+        button: MouseButton,
+        /// Pointer position.
+        position: Point,
+        /// Held modifiers.
+        modifiers: Modifiers,
+        /// 1 for a single click, 2 for a double click, ...
+        click_count: u32,
+    },
+    /// A mouse button was released.
+    PointerUp {
+        /// The button.
+        button: MouseButton,
+        /// Pointer position.
+        position: Point,
+        /// Held modifiers.
+        modifiers: Modifiers,
+    },
+    /// The wheel or touchpad scrolled.
+    Wheel {
+        /// Scroll amount.
+        delta: ScrollDelta,
+        /// Pointer position.
+        position: Point,
+        /// Held modifiers.
+        modifiers: Modifiers,
+    },
+    /// A key was pressed or released.
+    Key(KeyEvent),
+}
+
+impl UiEvent {
+    /// The pointer position, for pointer events.
+    pub fn position(&self) -> Option<Point> {
+        match self {
+            Self::PointerEnter(position)
+            | Self::PointerMove { position, .. }
+            | Self::PointerDown { position, .. }
+            | Self::PointerUp { position, .. }
+            | Self::Wheel { position, .. } => Some(*position),
+            Self::PointerLeave | Self::Key(_) => None,
+        }
+    }
+
+    /// The same event with its position moved by `(-origin.x, -origin.y)`,
+    /// i.e. relative to `origin`.
+    #[must_use]
+    pub fn relative_to(&self, origin: Point) -> Self {
+        let shift = |p: &Point| Point::new(p.x - origin.x, p.y - origin.y);
+        let mut event = self.clone();
+        match &mut event {
+            Self::PointerEnter(position)
+            | Self::PointerMove { position, .. }
+            | Self::PointerDown { position, .. }
+            | Self::PointerUp { position, .. }
+            | Self::Wheel { position, .. } => *position = shift(position),
+            Self::PointerLeave | Self::Key(_) => {}
+        }
+        event
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn positions_and_relative_events() {
+        let down = UiEvent::PointerDown {
+            button: MouseButton::Left,
+            position: Point::new(15.0, 25.0),
+            modifiers: Modifiers::NONE,
+            click_count: 1,
+        };
+        assert_eq!(down.position(), Some(Point::new(15.0, 25.0)));
+        let local = down.relative_to(Point::new(10.0, 20.0));
+        assert_eq!(local.position(), Some(Point::new(5.0, 5.0)));
+        assert_eq!(UiEvent::PointerLeave.position(), None);
+        assert_eq!(
+            UiEvent::PointerLeave.relative_to(Point::new(1.0, 1.0)),
+            UiEvent::PointerLeave
+        );
+    }
+}

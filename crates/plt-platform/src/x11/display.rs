@@ -2,7 +2,7 @@
 //!
 //! Supported forms: `:0`, `:0.1`, `unix:0`, `host:0`, `host:0.1`,
 //! `tcp/host:0`, `unix/host:0`, and an absolute socket path such as
-//! XQuartz's `/private/tmp/com.apple.launchd.x/org.xquartz:0`.
+//! `XQuartz`'s `/private/tmp/com.apple.launchd.x/org.xquartz:0`.
 
 use std::path::PathBuf;
 
@@ -100,13 +100,22 @@ mod tests {
         assert_eq!(parsed(":1.2"), (Target::Local, 1, 2));
         assert_eq!(parsed("unix:3"), (Target::Local, 3, 0));
         assert_eq!(parsed("unix/anything:4.1"), (Target::Local, 4, 1));
-        assert_eq!(DisplayName::parse(":7").unwrap().local_socket_path(), "/tmp/.X11-unix/X7");
+        assert_eq!(
+            DisplayName::parse(":7").unwrap().local_socket_path(),
+            "/tmp/.X11-unix/X7"
+        );
     }
 
     #[test]
     fn tcp_forms() {
-        assert_eq!(parsed("localhost:10.0"), (Target::Tcp("localhost".into()), 10, 0));
-        assert_eq!(parsed("tcp/example.org:2"), (Target::Tcp("example.org".into()), 2, 0));
+        assert_eq!(
+            parsed("localhost:10.0"),
+            (Target::Tcp("localhost".into()), 10, 0)
+        );
+        assert_eq!(
+            parsed("tcp/example.org:2"),
+            (Target::Tcp("example.org".into()), 2, 0)
+        );
         assert_eq!(parsed("10.0.0.1:0"), (Target::Tcp("10.0.0.1".into()), 0, 0));
     }
 
@@ -118,7 +127,17 @@ mod tests {
 
     #[test]
     fn invalid_names() {
-        for name in ["", "0", ":", ":x", ":0.", ":0.y", "host::0", "decnet/host:0", ":99999"] {
+        for name in [
+            "",
+            "0",
+            ":",
+            ":x",
+            ":0.",
+            ":0.y",
+            "host::0",
+            "decnet/host:0",
+            ":99999",
+        ] {
             assert!(
                 matches!(DisplayName::parse(name), Err(Error::InvalidDisplay(_))),
                 "{name:?} should be rejected"

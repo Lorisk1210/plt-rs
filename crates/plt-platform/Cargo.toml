@@ -8,5 +8,9 @@ publish.workspace = true
 
 [dependencies]
 
+[dev-dependencies]
+# The window example saves screenshots as PNG.
+plt-codec.workspace = true
+
 [lints]
 workspace = true

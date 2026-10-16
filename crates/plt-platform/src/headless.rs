@@ -6,9 +6,9 @@
 //! while the loop blocks in [`EventLoop::run`](crate::EventLoop::run).
 //!
 //! The backend behaves like a cooperative window manager: a new window
-//! gets a `RedrawRequested`, and [`Context::set_inner_size`]
-//! (crate::Context::set_inner_size) is applied at once and reported as
-//! `Resized`.
+//! gets a `RedrawRequested`, and
+//! [`Context::set_inner_size`](crate::Context::set_inner_size) is applied
+//! at once and reported as `Resized`.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
@@ -196,7 +196,10 @@ impl HeadlessBackend {
         f: impl FnOnce(&mut HeadlessWindow) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let mut state = self.shared.lock();
-        let target = state.windows.get_mut(&window).ok_or(Error::UnknownWindow(window))?;
+        let target = state
+            .windows
+            .get_mut(&window)
+            .ok_or(Error::UnknownWindow(window))?;
         f(target)
     }
 }
@@ -228,7 +231,9 @@ impl Backend for HeadlessBackend {
             icon: options.icon.clone(),
         };
         let surface = OwnedFrame::filled(size, INITIAL_PIXEL)?;
-        state.windows.insert(window, HeadlessWindow { snapshot, surface });
+        state
+            .windows
+            .insert(window, HeadlessWindow { snapshot, surface });
         let event = WindowEvent::RedrawRequested;
         state.queue.push_back(Event::Window { window, event });
         Ok(window)
@@ -236,7 +241,11 @@ impl Backend for HeadlessBackend {
 
     fn destroy_window(&mut self, window: WindowId) -> Result<(), Error> {
         let mut state = self.shared.lock();
-        state.windows.remove(&window).map(drop).ok_or(Error::UnknownWindow(window))
+        state
+            .windows
+            .remove(&window)
+            .map(drop)
+            .ok_or(Error::UnknownWindow(window))
     }
 
     fn window_ids(&self) -> Vec<WindowId> {
@@ -257,7 +266,7 @@ impl Backend for HeadlessBackend {
 
     fn set_title(&mut self, window: WindowId, title: &str) -> Result<(), Error> {
         self.with_window(window, |w| {
-            w.snapshot.title = title.to_owned();
+            title.clone_into(&mut w.snapshot.title);
             Ok(())
         })
     }
@@ -271,7 +280,10 @@ impl Backend for HeadlessBackend {
 
     fn set_inner_size(&mut self, window: WindowId, size: Size) -> Result<(), Error> {
         let mut state = self.shared.lock();
-        let target = state.windows.get_mut(&window).ok_or(Error::UnknownWindow(window))?;
+        let target = state
+            .windows
+            .get_mut(&window)
+            .ok_or(Error::UnknownWindow(window))?;
         let size = size.to_physical(target.snapshot.scale_factor);
         target.resize(size)?;
         state.queue.push_back(Event::Window {
@@ -288,7 +300,10 @@ impl Backend for HeadlessBackend {
         region: PhysicalRect,
     ) -> Result<(), Error> {
         let mut state = self.shared.lock();
-        let target = state.windows.get_mut(&window).ok_or(Error::UnknownWindow(window))?;
+        let target = state
+            .windows
+            .get_mut(&window)
+            .ok_or(Error::UnknownWindow(window))?;
         let region = region.clip_to(target.surface.size());
         copy_opaque(frame, region, &mut target.surface);
         let image = target.surface.clone();
@@ -308,7 +323,11 @@ impl Backend for HeadlessBackend {
         let mut state = self.shared.lock();
         while state.queue.is_empty() && !state.woken {
             state = match deadline {
-                None => self.shared.input.wait(state).unwrap_or_else(PoisonError::into_inner),
+                None => self
+                    .shared
+                    .input
+                    .wait(state)
+                    .unwrap_or_else(PoisonError::into_inner),
                 Some(deadline) => {
                     let Some(left) = deadline.checked_duration_since(Instant::now()) else {
                         break;
@@ -357,12 +376,20 @@ impl Waker for HeadlessWaker {
 fn copy_opaque(src: &Frame<'_>, region: PhysicalRect, dst: &mut OwnedFrame) {
     let region = region.clip_to(src.size()).clip_to(dst.size());
     let dst_stride = dst.size().width as usize * 4;
-    let (x0, x1) = (region.x as usize * 4, (region.x + region.width) as usize * 4);
+    let (x0, x1) = (
+        region.x as usize * 4,
+        (region.x + region.width) as usize * 4,
+    );
     for y in region.y..region.y + region.height {
         let src_row = &src.row(y)[x0..x1];
         let start = y as usize * dst_stride;
         let dst_row = &mut dst.pixels_mut()[start + x0..start + x1];
-        for (d, s) in dst_row.chunks_exact_mut(4).zip(src_row.chunks_exact(4)) {
+        for (d, s) in dst_row
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(src_row.as_chunks::<4>().0)
+        {
             d.copy_from_slice(&[s[0], s[1], s[2], 255]);
         }
     }
@@ -392,7 +419,9 @@ mod tests {
         backend
             .present(window, &white.as_frame(), PhysicalRect::new(0, 0, 2, 2))
             .unwrap();
-        backend.set_inner_size(window, PhysicalSize::new(3, 1).into()).unwrap();
+        backend
+            .set_inner_size(window, PhysicalSize::new(3, 1).into())
+            .unwrap();
         let surface = backend.read_pixels(window).unwrap();
         assert_eq!(surface.size(), PhysicalSize::new(3, 1));
         assert_eq!(surface.pixel(1, 0), Some([255; 4]));

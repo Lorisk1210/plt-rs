@@ -7,22 +7,29 @@ use crate::error::Error;
 
 /// Protocol version spoken by this crate.
 const PROTOCOL_MAJOR: u16 = 11;
-/// TrueColor visual class.
+/// `TrueColor` visual class.
 pub(crate) const VISUAL_CLASS_TRUE_COLOR: u8 = 4;
 
 /// Encodes the setup request (little-endian byte order).
 pub(crate) fn encode_request(credentials: Option<&Credentials>) -> Vec<u8> {
+    // Xauthority fields have 16-bit lengths, so real credentials always
+    // fit; clamping keeps the length fields and the data consistent.
+    let clamp = |bytes: &[u8]| -> (u16, Vec<u8>) {
+        let len = u16::try_from(bytes.len()).unwrap_or(u16::MAX);
+        (len, bytes[..usize::from(len)].to_vec())
+    };
     let (name, data) = credentials.map_or((&[][..], &[][..]), |c| (&c.name[..], &c.data[..]));
+    let ((name_len, name), (data_len, data)) = (clamp(name), clamp(data));
     let mut buf = Vec::with_capacity(12 + name.len() + data.len() + 6);
     buf.put_u8(b'l');
     buf.put_u8(0);
     buf.put_u16(PROTOCOL_MAJOR);
     buf.put_u16(0);
-    buf.put_u16(u16::try_from(name.len()).unwrap_or(0));
-    buf.put_u16(u16::try_from(data.len()).unwrap_or(0));
+    buf.put_u16(name_len);
+    buf.put_u16(data_len);
     buf.put_u16(0);
-    buf.put_padded(name);
-    buf.put_padded(data);
+    buf.put_padded(&name);
+    buf.put_padded(&data);
     buf
 }
 
@@ -81,19 +88,20 @@ impl Screen {
         })
     }
 
-    /// The visual to render with: the root visual if it is 24-bit
-    /// TrueColor, else the first 24-bit TrueColor visual.
+    /// The visual to render with, with its depth: the root visual if it is
+    /// `TrueColor` (it needs no colormap of its own), else the first 24-bit
+    /// `TrueColor` visual.
     pub(crate) fn true_color_visual(&self) -> Option<(u8, Visual)> {
-        let suitable = |(depth, visual): &(u8, Visual)| {
-            *depth == 24 && visual.class == VISUAL_CLASS_TRUE_COLOR
-        };
-        self.visual(self.root_visual).filter(suitable).or_else(|| {
-            self.depths
-                .iter()
-                .filter(|depth| depth.depth == 24)
-                .flat_map(|depth| depth.visuals.iter().map(|v| (depth.depth, *v)))
-                .find(suitable)
-        })
+        let true_color = |(_, visual): &(u8, Visual)| visual.class == VISUAL_CLASS_TRUE_COLOR;
+        self.visual(self.root_visual)
+            .filter(true_color)
+            .or_else(|| {
+                self.depths
+                    .iter()
+                    .filter(|depth| depth.depth == 24)
+                    .flat_map(|depth| depth.visuals.iter().map(|v| (depth.depth, *v)))
+                    .find(true_color)
+            })
     }
 }
 
@@ -123,7 +131,7 @@ impl Setup {
 pub(crate) const REPLY_HEADER_LEN: usize = 8;
 
 /// The length of the reply body following the 8-byte header.
-pub(crate) fn reply_body_len(header: &[u8; REPLY_HEADER_LEN]) -> usize {
+pub(crate) fn reply_body_len(header: [u8; REPLY_HEADER_LEN]) -> usize {
     usize::from(u16::from_le_bytes([header[6], header[7]])) * 4
 }
 
@@ -138,7 +146,9 @@ pub(crate) fn parse_reply(reply: &[u8]) -> Result<Setup, Error> {
                 Reader::at(reply, REPLY_HEADER_LEN).bytes(reason_len)?
             } else {
                 // `Authenticate` replies carry the reason in the whole body.
-                Reader::at(reply, REPLY_HEADER_LEN).bytes(reply.len() - REPLY_HEADER_LEN)?
+                reply
+                    .get(REPLY_HEADER_LEN..)
+                    .ok_or(Error::Malformed("truncated setup reply"))?
             };
             let reason = String::from_utf8_lossy(reason);
             let reason = reason.trim_end_matches(['\0', '\n']);
@@ -251,16 +261,14 @@ fn parse_depth(r: &mut Reader<'_>) -> Result<Depth, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// A setup reply captured from XWayland (mutter, GNOME 49).
-    const XWAYLAND: &[u8] = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/fixtures/x11/setup_xwayland.bin"
-    ));
+    use crate::x11::fixtures::SETUP as XWAYLAND;
 
     #[test]
     fn request_without_credentials() {
-        assert_eq!(encode_request(None), [b'l', 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            encode_request(None),
+            [b'l', 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
     }
 
     #[test]
@@ -280,7 +288,7 @@ mod tests {
     #[test]
     fn parses_captured_xwayland_reply() {
         let header: [u8; 8] = XWAYLAND[..8].try_into().unwrap();
-        assert_eq!(reply_body_len(&header) + 8, XWAYLAND.len());
+        assert_eq!(reply_body_len(header) + 8, XWAYLAND.len());
         let setup = parse_reply(XWAYLAND).unwrap();
         assert_eq!(setup.vendor, "The X.Org Foundation");
         assert_eq!(setup.maximum_request_length, 0xffff);
@@ -321,6 +329,9 @@ mod tests {
         );
         let mut reply = vec![2, 0, 0, 0, 0, 0, 2, 0];
         reply.extend_from_slice(b"auth\0\0\0\0");
-        assert_eq!(parse_reply(&reply), Err(Error::ConnectionRefused("auth".into())));
+        assert_eq!(
+            parse_reply(&reply),
+            Err(Error::ConnectionRefused("auth".into()))
+        );
     }
 }

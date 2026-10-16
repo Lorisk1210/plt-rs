@@ -156,7 +156,7 @@ mod tests {
         let frame = Frame::new(3, 2, &data).unwrap();
         assert_eq!(frame.size(), PhysicalSize::new(3, 2));
         assert_eq!(frame.row(1).len(), 12);
-        assert!(frame.row(2).is_empty());
+        assert_eq!(frame.row(2), b"");
         assert_eq!(
             Frame::new(3, 3, &data),
             Err(Error::BufferSize {
@@ -170,7 +170,7 @@ mod tests {
     fn empty_frames_are_valid() {
         let frame = Frame::new(0, 10, &[]).unwrap();
         assert!(frame.size().is_empty());
-        assert!(frame.row(0).is_empty());
+        assert_eq!(frame.row(0), b"");
     }
 
     #[test]

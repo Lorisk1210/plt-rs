@@ -152,7 +152,9 @@ impl Icon {
 
 impl fmt::Debug for Icon {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Icon").field("size", &self.size).finish_non_exhaustive()
+        f.debug_struct("Icon")
+            .field("size", &self.size)
+            .finish_non_exhaustive()
     }
 }
 
@@ -191,11 +193,20 @@ mod tests {
             .with_inner_size(PhysicalSize::new(300, 200))
             .with_app_id("demo");
         assert_eq!(options.app_id, "demo");
-        assert_eq!(options.physical_inner_size(2.0), Ok(PhysicalSize::new(300, 200)));
+        assert_eq!(
+            options.physical_inner_size(2.0),
+            Ok(PhysicalSize::new(300, 200))
+        );
         let options = WindowOptions::default();
-        assert_eq!(options.physical_inner_size(2.0), Ok(PhysicalSize::new(1280, 960)));
+        assert_eq!(
+            options.physical_inner_size(2.0),
+            Ok(PhysicalSize::new(1280, 960))
+        );
         let empty = WindowOptions::new("t").with_inner_size(LogicalSize::new(0.0, 10.0));
-        assert!(matches!(empty.physical_inner_size(1.0), Err(Error::InvalidArgument(_))));
+        assert!(matches!(
+            empty.physical_inner_size(1.0),
+            Err(Error::InvalidArgument(_))
+        ));
     }
 
     #[test]

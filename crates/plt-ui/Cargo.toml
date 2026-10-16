@@ -1,0 +1,17 @@
+[package]
+name = "plt-ui"
+description = "A small retained-mode UI engine used for plt-rs figure windows"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+plt-core.workspace = true
+plt-font.workspace = true
+plt-raster.workspace = true
+plt-text.workspace = true
+plt-platform.workspace = true
+
+[lints]
+workspace = true

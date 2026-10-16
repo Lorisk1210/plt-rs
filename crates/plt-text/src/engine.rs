@@ -67,6 +67,13 @@ impl TextEngine {
         })
     }
 
+    /// An engine over matplotlib's bundled fonts only, ignoring the fonts
+    /// installed on the system (for host-independent results).
+    pub fn bundled() -> &'static Self {
+        static ENGINE: OnceLock<TextEngine> = OnceLock::new();
+        ENGINE.get_or_init(|| Self::new(FontDatabase::with_bundled_fonts()))
+    }
+
     /// The font catalogue.
     pub fn database(&self) -> &FontDatabase {
         &self.db
@@ -75,6 +82,11 @@ impl TextEngine {
     /// Lays out a single line of plain text (matplotlib's
     /// `FT2Font.set_text` with font fallback): glyph positions and the
     /// width/height/descent matplotlib reports, all in pixels.
+    ///
+    /// Like matplotlib, whose layout engine (libraqm) shapes a single
+    /// paragraph, only the text up to and including the first paragraph
+    /// separator (`\n`, `\r`, `\r\n`, U+001C–U+001E, U+0085, U+2029) is
+    /// laid out.
     pub fn layout_line(
         &self,
         text: &str,
@@ -84,7 +96,12 @@ impl TextEngine {
         let query = &request.query;
         let fonts = self.db.find_fonts_with(query, &request.generics)?;
         let chain = self.db.font_chain(&fonts, true)?;
-        let layout = chain.layout(text, query.size, dpi, &ShapeOptions::default())?;
+        let layout = chain.layout(
+            first_paragraph(text),
+            query.size,
+            dpi,
+            &ShapeOptions::default(),
+        )?;
         let resort = self.db.last_resort();
         let font_of = |index: usize| {
             fonts
@@ -169,6 +186,27 @@ impl TextEngine {
     }
 }
 
+/// Whether `c` separates paragraphs (Unicode bidi class `B`).
+fn is_paragraph_separator(c: char) -> bool {
+    matches!(c, '\n' | '\r' | '\u{1c}'..='\u{1e}' | '\u{85}' | '\u{2029}')
+}
+
+/// The first paragraph of `text`, including the separator that ends it
+/// (`\r\n` is a single separator).
+fn first_paragraph(text: &str) -> &str {
+    let Some((index, separator)) = text
+        .char_indices()
+        .find(|&(_, c)| is_paragraph_separator(c))
+    else {
+        return text;
+    };
+    let mut end = index + separator.len_utf8();
+    if separator == '\r' && text[end..].starts_with('\n') {
+        end += 1;
+    }
+    &text[..end]
+}
+
 /// Collects font outline commands into a [`Path`].
 #[derive(Debug, Default)]
 struct PathSink {
@@ -233,6 +271,16 @@ mod tests {
         assert_eq!(run.width, 45.765_625);
         assert!(run.height > 0.0 && run.descent >= 0.0);
         assert_eq!(run.glyphs.len(), 6);
+    }
+
+    #[test]
+    fn only_the_first_paragraph_is_laid_out() {
+        assert_eq!(first_paragraph("a\rb"), "a\r");
+        assert_eq!(first_paragraph("a\r\nb"), "a\r\n");
+        assert_eq!(first_paragraph("a\r\rb"), "a\r");
+        assert_eq!(first_paragraph("a\u{2029}b"), "a\u{2029}");
+        assert_eq!(first_paragraph("a\tb"), "a\tb");
+        assert_eq!(first_paragraph(""), "");
     }
 
     #[test]

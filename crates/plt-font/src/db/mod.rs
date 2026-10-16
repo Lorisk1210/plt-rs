@@ -1,12 +1,14 @@
 //! Font management: the bundled fonts, optional system fonts and
 //! matplotlib's `findfont` matching.
 
+mod afm;
 mod bundled;
 mod entry;
 mod query;
 mod score;
 mod system;
 
+pub use afm::AfmFont;
 pub use entry::{FontEntry, FontId};
 pub use query::{
     FontQuery, FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
@@ -262,7 +264,17 @@ impl FontDatabase {
 
     /// `findfont(prop, fallback_to_default=False)`.
     pub fn find_font_exact(&self, query: &FontQuery) -> Result<FontId> {
-        self.best_match(query, &self.generics)
+        self.find_font_exact_with(query, &self.generics)
+    }
+
+    /// [`find_font_exact`](Self::find_font_exact) with explicit
+    /// generic-family lists.
+    pub fn find_font_exact_with(
+        &self,
+        query: &FontQuery,
+        generics: &GenericFamilies,
+    ) -> Result<FontId> {
+        self.best_match(query, generics)
             .ok_or_else(|| FontError::NoMatchingFont(query.to_string()))
     }
 
@@ -275,6 +287,17 @@ impl FontDatabase {
 
     /// [`find_fonts`](Self::find_fonts) with explicit generic-family lists.
     pub fn find_fonts_with(
+        &self,
+        query: &FontQuery,
+        generics: &GenericFamilies,
+    ) -> Result<Vec<FontId>> {
+        self.find_fonts_exact_with(query, generics)
+            .or_else(|_| self.find_font_with(query, generics).map(|id| vec![id]))
+    }
+
+    /// `_find_fonts_by_props(prop, fallback_to_default=False)`: the best
+    /// face for each family of the query, failing when no family matches.
+    pub fn find_fonts_exact_with(
         &self,
         query: &FontQuery,
         generics: &GenericFamilies,
@@ -293,7 +316,7 @@ impl FontDatabase {
             })
             .collect();
         if found.is_empty() {
-            self.find_font_with(query, generics).map(|id| vec![id])
+            Err(FontError::NoMatchingFont(query.to_string()))
         } else {
             Ok(found)
         }

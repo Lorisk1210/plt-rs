@@ -12,32 +12,7 @@ use plt_spec::figures::{self, PixelReport};
 const MAX_RMS: f64 = 1.0;
 
 /// Cases exempt from [`MAX_RMS`] (still reported), with the reason.
-const KNOWN_GAPS: &[(&str, &str)] = &[
-    (
-        "bars/log_scale",
-        "log tick labels are mathtext, not rendered by plt yet",
-    ),
-    (
-        "hist/log",
-        "log tick labels are mathtext, not rendered by plt yet",
-    ),
-    (
-        "lines/loglog",
-        "log tick labels are mathtext, not rendered by plt yet",
-    ),
-    (
-        "lines/semilogx_base2",
-        "log tick labels are mathtext, not rendered by plt yet",
-    ),
-    (
-        "lines/semilogy_exponential",
-        "log tick labels are mathtext, not rendered by plt yet",
-    ),
-    (
-        "scatter/log_axes",
-        "log tick labels are mathtext, not rendered by plt yet",
-    ),
-];
+const KNOWN_GAPS: &[(&str, &str)] = &[];
 
 #[test]
 fn figure_cases_match_golden_pixels() {

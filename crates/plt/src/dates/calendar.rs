@@ -43,7 +43,11 @@ pub const fn days_in_month(year: i64, month: u32) -> u32 {
 /// Number of days in `year` before the first day of `month` (1-12).
 pub const fn days_before_month(year: i64, month: u32) -> u32 {
     const CUMULATIVE: [u32; 12] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    let leap_shift = if month > 2 && is_leap_year(year) { 1 } else { 0 };
+    let leap_shift = if month > 2 && is_leap_year(year) {
+        1
+    } else {
+        0
+    };
     CUMULATIVE[(month as usize).saturating_sub(1) % 12] + leap_shift
 }
 

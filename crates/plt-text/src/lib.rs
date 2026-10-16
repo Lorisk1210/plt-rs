@@ -8,11 +8,13 @@
 //! * [`layout_block`] — matplotlib's multi-line stacking, alignment and
 //!   rotation of a text block.
 //! * [`mathtext`] — matplotlib's TeX-like math typesetting.
+//! * [`fontconfig`] — the fontconfig patterns font properties are written in.
 #![forbid(unsafe_code)]
 
 mod block;
 mod engine;
 mod error;
+pub mod fontconfig;
 pub mod mathtext;
 mod run;
 
@@ -23,6 +25,7 @@ pub use block::{
 pub use engine::{FontRequest, TextEngine};
 pub use error::TextError;
 pub use plt_font::{
-    FontId, FontQuery, FontStyle, FontVariant, GenericFamilies, GlyphId, Stretch, Weight,
+    AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
+    GenericFamilies, GlyphId, Stretch, Weight,
 };
 pub use run::{PlacedGlyph, TextRun};

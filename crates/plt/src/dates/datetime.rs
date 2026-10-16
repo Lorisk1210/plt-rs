@@ -393,7 +393,10 @@ mod tests {
             DateTime::new(9999, 12, 31, 23, 59, 59, 999_999).unwrap(),
         ];
         for dt in cases {
-            assert_eq!(DateTime::from_timestamp_micros(dt.timestamp_micros()), Ok(dt));
+            assert_eq!(
+                DateTime::from_timestamp_micros(dt.timestamp_micros()),
+                Ok(dt)
+            );
         }
         assert_eq!(cases[1].timestamp_micros(), -1);
         assert!(DateTime::from_timestamp_micros(cases[4].timestamp_micros() + 1).is_err());

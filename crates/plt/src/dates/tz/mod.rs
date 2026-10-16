@@ -1,4 +1,4 @@
-//! Time zones: UTC, fixed offsets and IANA zones read from TZif files.
+//! Time zones: UTC, fixed offsets and IANA zones read from `TZif` files.
 //!
 //! The model is Python's: a [`ZonedDateTime`] is a local wall-clock
 //! [`DateTime`] plus a [`TimeZone`]; arithmetic within one zone happens on
@@ -8,7 +8,7 @@
 mod tzfile;
 mod zoned;
 
-use std::fmt;
+use std::fmt::{self, Write as _};
 use std::sync::Arc;
 
 pub use tzfile::TzFile;
@@ -57,9 +57,9 @@ impl UtcOffset {
         );
         let (sec, frac) = (seconds % 60, micros % MICROS_PER_SECOND);
         if sec != 0 || frac != 0 {
-            text.push_str(&format!("{separator}{sec:02}"));
+            let _ = write!(text, "{separator}{sec:02}");
             if frac != 0 {
-                text.push_str(&format!(".{frac:06}"));
+                let _ = write!(text, ".{frac:06}");
             }
         }
         text
@@ -112,7 +112,7 @@ impl TimeZone {
         match self {
             Self::Utc => "UTC".to_owned(),
             Self::Fixed(offset) if *offset == UtcOffset::UTC => "UTC".to_owned(),
-            Self::Fixed(offset) => format!("UTC{offset:#}"),
+            Self::Fixed(offset) => format!("UTC{offset}"),
             Self::Zone(zone) => zone.name_at_local(local, fold).to_owned(),
         }
     }

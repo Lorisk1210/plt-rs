@@ -1,6 +1,7 @@
 //! `figures/cases_stats.py`.
 
-use plt::axes::{ErrorSize, ErrorbarOptions};
+use plt::axes::{ErrorSize, ErrorbarOptions, FillBetweenOptions};
+use plt::collections::CollectionProps;
 use plt::colors::Color;
 use plt::lines::{LineProps, LineStyle, MarkEvery};
 use plt::numeric::{arange, linspace};
@@ -114,4 +115,50 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("stats/fill_between_default", |fig| {
+        let x = fb_x();
+        let y = map(&x, f64::sin);
+        fig.subplot()
+            .fill_between(&x, y, [0.0], FillBetweenOptions::default())?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("stats/fill_between_two_curves_alpha", |fig| {
+        let ax = fig.subplot();
+        let x = fb_x();
+        let y = map(&x, f64::sin);
+        ax.plot_fmt(&x, &y, "k")?;
+        let band = FillBetweenOptions {
+            props: CollectionProps::default()
+                .alpha(0.3)
+                .color("tab:blue")
+                .edgecolor("tab:blue")
+                .linewidth(1.0),
+            ..FillBetweenOptions::default()
+        };
+        ax.fill_between(&x, map(&y, |y| y - 0.3), map(&y, |y| y + 0.3), band)?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("stats/fill_betweenx", |fig| {
+        let y = linspace(0.0, 2.0, 50);
+        let wave = map(&y, |y| (4.0 * y).sin());
+        let options = FillBetweenOptions {
+            mask: Some(y.iter().map(|&y| y < 1.5).collect()),
+            props: CollectionProps::default()
+                .hatch("\\\\")
+                .facecolor("lightyellow")
+                .edgecolor("k"),
+            ..FillBetweenOptions::default()
+        };
+        fig.subplot()
+            .fill_betweenx(&y, &wave, map(&wave, |w| 1.5 * w + 1.0), options)?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
 ];
+
+/// `FB_X = np.linspace(0, 4 * np.pi, 60)`.
+fn fb_x() -> Vec<f64> {
+    linspace(0.0, 4.0 * std::f64::consts::PI, 60)
+}

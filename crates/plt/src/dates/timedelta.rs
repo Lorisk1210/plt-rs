@@ -47,7 +47,7 @@ impl TimeDelta {
     }
 
     /// `timedelta(days=x)` for a fractional day count, rounding to the
-    /// nearest microsecond exactly as CPython does (the whole and
+    /// nearest microsecond exactly as `CPython` does (the whole and
     /// fractional parts are converted separately and the final half
     /// microsecond is rounded to even).
     ///
@@ -73,9 +73,11 @@ impl TimeDelta {
         let leftover = scaled - scaled_whole;
         if leftover != 0.0 {
             let mut rounded = leftover.round();
-            if (rounded - leftover).abs() == 0.5 {
+            #[allow(clippy::float_cmp, reason = "CPython detects exact halves this way")]
+            let halfway = (rounded - leftover).abs() == 0.5;
+            if halfway {
                 let odd = f64::from(u8::from(total & 1 == 1));
-                rounded = 2.0 * ((leftover + odd) * 0.5).round() - odd;
+                rounded = 2.0 * leftover.midpoint(odd).round() - odd;
             }
             total += rounded as i128;
         }
@@ -193,7 +195,11 @@ mod tests {
             (1.123_456_789, (1, 10_666, 666_570)),
         ];
         for (days, expected) in cases {
-            assert_eq!(parts(TimeDelta::from_days_f64(days).unwrap()), expected, "{days}");
+            assert_eq!(
+                parts(TimeDelta::from_days_f64(days).unwrap()),
+                expected,
+                "{days}"
+            );
         }
         assert!(TimeDelta::from_days_f64(f64::NAN).is_err());
         assert!(TimeDelta::from_days_f64(1e300).is_err());
@@ -203,8 +209,14 @@ mod tests {
     fn normalisation_and_display() {
         let d = TimeDelta::new(1, 3_661, 5).unwrap();
         assert_eq!(d.to_string(), "1 day, 1:01:01.000005");
-        assert_eq!(TimeDelta::new(-2, 0, 0).unwrap().to_string(), "-2 days, 0:00:00");
-        assert_eq!(TimeDelta::from_micros(-1).to_string(), "-1 day, 23:59:59.999999");
+        assert_eq!(
+            TimeDelta::new(-2, 0, 0).unwrap().to_string(),
+            "-2 days, 0:00:00"
+        );
+        assert_eq!(
+            TimeDelta::from_micros(-1).to_string(),
+            "-1 day, 23:59:59.999999"
+        );
         assert_eq!(TimeDelta::new(0, 90, 0).unwrap().total_seconds(), 90.0);
         assert_eq!(TimeDelta::from_micros(i64::MIN).checked_neg(), None);
         assert!(TimeDelta::new(i64::MAX, 0, 0).is_err());

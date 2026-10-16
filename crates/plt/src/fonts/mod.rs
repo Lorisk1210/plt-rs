@@ -1,10 +1,22 @@
-//! Font property values: sizes, weights and stretches
-//! (the vocabularies of matplotlib's `font_manager`).
+//! Fonts (matplotlib's `font_manager`): the vocabularies of font sizes,
+//! weights and stretches, [`FontProperties`] and the [`FontManager`] that
+//! finds font files for them.
+
+mod manager;
+mod properties;
 
 use std::fmt;
 use std::str::FromStr;
 
-use crate::rc::{RcParams, RcValue};
+pub use manager::{FontExt, FontListEntry, FontManager};
+pub use plt_text::fontconfig::FontconfigPattern;
+pub use plt_text::mathtext::Fontset;
+pub use plt_text::{FontStyle, FontVariant};
+pub use properties::{
+    FontProperties, parse_math_fontfamily, parse_style, parse_variant, style_name, variant_name,
+};
+
+use crate::rc::RcValue;
 
 /// A relative font size keyword, scaled against `font.size`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -95,16 +107,17 @@ impl From<RelativeSize> for FontSize {
 impl FromStr for FontSize {
     type Err = FontPropertyError;
 
-    /// Parses a keyword (case-insensitive) or a number of points.
+    /// Parses a number of points (Python's `float`) or a keyword
+    /// (case-sensitive, as `FontProperties.set_size` requires).
     fn from_str(text: &str) -> Result<Self, FontPropertyError> {
-        let lower = text.to_ascii_lowercase();
-        if let Some((_, size, _)) = RELATIVE_SIZES.iter().find(|(name, _, _)| *name == lower) {
-            return Ok(Self::Relative(*size));
+        if let Ok(points) = text.trim().parse() {
+            return Ok(Self::Points(points));
         }
-        text.trim()
-            .parse()
-            .map(Self::Points)
-            .map_err(|_| FontPropertyError::Size(text.to_owned()))
+        RELATIVE_SIZES
+            .iter()
+            .find(|(name, _, _)| *name == text)
+            .map(|(_, size, _)| Self::Relative(*size))
+            .ok_or_else(|| FontPropertyError::Size(text.to_owned()))
     }
 }
 
@@ -135,6 +148,15 @@ macro_rules! named_scale {
                 Self { value, keyword: None }
             }
 
+            /// A numeric value, which must lie in 0–1000.
+            pub fn from_number(value: i64) -> Result<Self, FontPropertyError> {
+                u16::try_from(value)
+                    .ok()
+                    .filter(|&value| value <= 1000)
+                    .map(Self::numeric)
+                    .ok_or_else(|| FontPropertyError::$error(value.to_string()))
+            }
+
             /// Looks up a keyword such as `"bold"` (case-sensitive, as in matplotlib).
             pub fn from_name(name: &str) -> Option<Self> {
                 Self::NAMES
@@ -157,10 +179,15 @@ macro_rules! named_scale {
         impl FromStr for $name {
             type Err = FontPropertyError;
 
+            /// Parses a keyword or an integer in 0–1000 (Python's `int`).
             fn from_str(text: &str) -> Result<Self, FontPropertyError> {
-                Self::from_name(text)
-                    .or_else(|| text.trim().parse().ok().map(Self::numeric))
-                    .ok_or_else(|| FontPropertyError::$error(text.to_owned()))
+                if let Some(named) = Self::from_name(text) {
+                    return Ok(named);
+                }
+                text.trim()
+                    .parse()
+                    .map_err(|_| FontPropertyError::$error(text.to_owned()))
+                    .and_then(Self::from_number)
             }
         }
 
@@ -212,7 +239,9 @@ named_scale!(
         ("expanded", 700),
         ("extended", 700),
         ("extra-expanded", 800),
+        ("extra-extended", 800),
         ("ultra-expanded", 900),
+        ("ultra-extended", 900),
     ]
 );
 
@@ -237,79 +266,6 @@ impl FontStretch {
     };
 }
 
-/// A complete font description (matplotlib's `FontProperties`) with the
-/// size resolved to points.
-#[derive(Clone, Debug, PartialEq)]
-pub struct FontProperties {
-    /// Family names or generic families, in priority order.
-    pub families: Vec<String>,
-    /// Upright, italic or oblique.
-    pub style: plt_text::FontStyle,
-    /// Normal or small caps.
-    pub variant: plt_text::FontVariant,
-    /// Weight.
-    pub weight: FontWeight,
-    /// Stretch.
-    pub stretch: FontStretch,
-    /// Size in points.
-    pub size: f64,
-}
-
-impl FontProperties {
-    /// The defaults from `font.*` rcParams.
-    pub fn from_rc(rc: &RcParams) -> Self {
-        Self {
-            families: rc.font_family.clone(),
-            style: plt_text::FontStyle::parse(&rc.font_style)
-                .unwrap_or(plt_text::FontStyle::Normal),
-            variant: if rc.font_variant == "small-caps" {
-                plt_text::FontVariant::SmallCaps
-            } else {
-                plt_text::FontVariant::Normal
-            },
-            weight: rc.font_weight,
-            stretch: rc.font_stretch,
-            size: rc.font_size,
-        }
-    }
-
-    /// The same properties at another size, given relative to `font.size`.
-    #[must_use]
-    pub fn with_size(self, size: FontSize, base: f64) -> Self {
-        Self {
-            size: size.to_points(base),
-            ..self
-        }
-    }
-
-    /// The same properties with another weight.
-    #[must_use]
-    pub fn with_weight(self, weight: FontWeight) -> Self {
-        Self { weight, ..self }
-    }
-
-    /// The font request used to pick font files, resolving generic family
-    /// names through the `font.serif`, `font.sans-serif`, ... lists of `rc`.
-    pub fn request(&self, rc: &RcParams) -> plt_text::FontRequest {
-        let mut query = plt_text::FontQuery::families(self.families.iter().cloned());
-        query.style = self.style;
-        query.variant = self.variant;
-        query.weight = plt_text::Weight(self.weight.value());
-        query.stretch = plt_text::Stretch(self.stretch.value());
-        query.size = self.size;
-        plt_text::FontRequest {
-            query,
-            generics: plt_text::GenericFamilies {
-                serif: rc.font_serif.clone(),
-                sans_serif: rc.font_sans_serif.clone(),
-                cursive: rc.font_cursive.clone(),
-                fantasy: rc.font_fantasy.clone(),
-                monospace: rc.font_monospace.clone(),
-            },
-        }
-    }
-}
-
 /// An invalid font property value.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FontPropertyError {
@@ -319,6 +275,16 @@ pub enum FontPropertyError {
     Weight(String),
     /// Not a stretch keyword or number.
     Stretch(String),
+    /// Not `normal`, `italic` or `oblique`.
+    Style(String),
+    /// Not `normal` or `small-caps`.
+    Variant(String),
+    /// Not a mathtext fontset.
+    MathFontFamily(String),
+    /// A malformed fontconfig pattern.
+    Pattern(String),
+    /// A fontconfig pattern property `FontProperties` has no setter for.
+    PatternKey(String),
 }
 
 impl fmt::Display for FontPropertyError {
@@ -327,6 +293,15 @@ impl fmt::Display for FontPropertyError {
             Self::Size(text) => write!(f, "{text:?} is not a valid font size"),
             Self::Weight(text) => write!(f, "{text:?} is not a valid font weight"),
             Self::Stretch(text) => write!(f, "{text:?} is not a valid font stretch"),
+            Self::Style(text) => write!(f, "{text:?} is not a valid font style"),
+            Self::Variant(text) => write!(f, "{text:?} is not a valid font variant"),
+            Self::MathFontFamily(text) => {
+                write!(f, "{text:?} is not a valid math font family")
+            }
+            Self::Pattern(why) => f.write_str(why),
+            Self::PatternKey(key) => {
+                write!(f, "font properties have no {key:?} to set from a pattern")
+            }
         }
     }
 }
@@ -347,7 +322,20 @@ macro_rules! rc_via_str {
     )+};
 }
 
-rc_via_str!(FontSize, FontWeight, FontStretch);
+rc_via_str!(FontWeight, FontStretch);
+
+impl RcValue for FontSize {
+    /// rc files spell size keywords case-insensitively.
+    fn parse_rc(text: &str) -> Result<Self, String> {
+        text.to_ascii_lowercase()
+            .parse()
+            .map_err(|err: FontPropertyError| err.to_string())
+    }
+
+    fn format_rc(&self) -> String {
+        self.to_string()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -356,7 +344,7 @@ mod tests {
     #[test]
     fn sizes() {
         assert_eq!(
-            "Large".parse::<FontSize>().map(|s| s.to_points(10.0)),
+            "large".parse::<FontSize>().map(|s| s.to_points(10.0)),
             Ok(12.0)
         );
         assert_eq!(
@@ -364,7 +352,13 @@ mod tests {
             Ok(0.579 * 10.0)
         );
         assert_eq!("13.5".parse::<FontSize>(), Ok(FontSize::Points(13.5)));
+        assert_eq!(" 1e1 ".parse::<FontSize>(), Ok(FontSize::Points(10.0)));
         assert!("huge".parse::<FontSize>().is_err());
+        assert!("Small".parse::<FontSize>().is_err());
+        assert_eq!(
+            FontSize::parse_rc("Small"),
+            Ok(FontSize::Relative(RelativeSize::Small))
+        );
         assert_eq!(
             FontSize::Relative(RelativeSize::XLarge).to_string(),
             "x-large"
@@ -376,6 +370,10 @@ mod tests {
         let bold: FontWeight = "bold".parse().expect("valid");
         assert_eq!((bold.value(), bold.name()), (700, Some("bold")));
         assert_eq!("600".parse::<FontWeight>().map(FontWeight::value), Ok(600));
+        assert!("1001".parse::<FontWeight>().is_err());
+        assert!("-1".parse::<FontWeight>().is_err());
+        assert!("bold ".parse::<FontWeight>().is_err());
+        assert_eq!(FontWeight::from_number(0).map(FontWeight::value), Ok(0));
         assert!(
             "Bold".parse::<FontWeight>().is_err(),
             "names are case-sensitive"

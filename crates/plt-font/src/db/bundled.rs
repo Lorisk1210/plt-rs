@@ -1,42 +1,16 @@
 //! The fonts matplotlib ships in `mpl-data/fonts/ttf`, embedded in the binary.
 
-/// `(file name, contents)` of every bundled font, sorted by file name.
+/// `(file name, contents)` of every bundled font, in the order matplotlib
+/// adds them (Python string order of the file names: upper case sorts
+/// before lower case and `-` before `.`), which decides `findfont` ties.
 pub(crate) const BUNDLED_FONTS: [(&str, &[u8]); 40] = [
-    ("cmb10.ttf", include_bytes!("../../fonts/cmb10.ttf")),
-    ("cmex10.ttf", include_bytes!("../../fonts/cmex10.ttf")),
-    ("cmmi10.ttf", include_bytes!("../../fonts/cmmi10.ttf")),
-    ("cmr10.ttf", include_bytes!("../../fonts/cmr10.ttf")),
-    ("cmss10.ttf", include_bytes!("../../fonts/cmss10.ttf")),
-    ("cmsy10.ttf", include_bytes!("../../fonts/cmsy10.ttf")),
-    ("cmti10.ttf", include_bytes!("../../fonts/cmti10.ttf")),
-    ("cmtt10.ttf", include_bytes!("../../fonts/cmtt10.ttf")),
-    (
-        "DejaVuSans-BoldOblique.ttf",
-        include_bytes!("../../fonts/DejaVuSans-BoldOblique.ttf"),
-    ),
     (
         "DejaVuSans-Bold.ttf",
         include_bytes!("../../fonts/DejaVuSans-Bold.ttf"),
     ),
     (
-        "DejaVuSansDisplay.ttf",
-        include_bytes!("../../fonts/DejaVuSansDisplay.ttf"),
-    ),
-    (
-        "DejaVuSansMono-BoldOblique.ttf",
-        include_bytes!("../../fonts/DejaVuSansMono-BoldOblique.ttf"),
-    ),
-    (
-        "DejaVuSansMono-Bold.ttf",
-        include_bytes!("../../fonts/DejaVuSansMono-Bold.ttf"),
-    ),
-    (
-        "DejaVuSansMono-Oblique.ttf",
-        include_bytes!("../../fonts/DejaVuSansMono-Oblique.ttf"),
-    ),
-    (
-        "DejaVuSansMono.ttf",
-        include_bytes!("../../fonts/DejaVuSansMono.ttf"),
+        "DejaVuSans-BoldOblique.ttf",
+        include_bytes!("../../fonts/DejaVuSans-BoldOblique.ttf"),
     ),
     (
         "DejaVuSans-Oblique.ttf",
@@ -47,16 +21,32 @@ pub(crate) const BUNDLED_FONTS: [(&str, &[u8]); 40] = [
         include_bytes!("../../fonts/DejaVuSans.ttf"),
     ),
     (
-        "DejaVuSerif-BoldItalic.ttf",
-        include_bytes!("../../fonts/DejaVuSerif-BoldItalic.ttf"),
+        "DejaVuSansDisplay.ttf",
+        include_bytes!("../../fonts/DejaVuSansDisplay.ttf"),
+    ),
+    (
+        "DejaVuSansMono-Bold.ttf",
+        include_bytes!("../../fonts/DejaVuSansMono-Bold.ttf"),
+    ),
+    (
+        "DejaVuSansMono-BoldOblique.ttf",
+        include_bytes!("../../fonts/DejaVuSansMono-BoldOblique.ttf"),
+    ),
+    (
+        "DejaVuSansMono-Oblique.ttf",
+        include_bytes!("../../fonts/DejaVuSansMono-Oblique.ttf"),
+    ),
+    (
+        "DejaVuSansMono.ttf",
+        include_bytes!("../../fonts/DejaVuSansMono.ttf"),
     ),
     (
         "DejaVuSerif-Bold.ttf",
         include_bytes!("../../fonts/DejaVuSerif-Bold.ttf"),
     ),
     (
-        "DejaVuSerifDisplay.ttf",
-        include_bytes!("../../fonts/DejaVuSerifDisplay.ttf"),
+        "DejaVuSerif-BoldItalic.ttf",
+        include_bytes!("../../fonts/DejaVuSerif-BoldItalic.ttf"),
     ),
     (
         "DejaVuSerif-Italic.ttf",
@@ -67,40 +57,44 @@ pub(crate) const BUNDLED_FONTS: [(&str, &[u8]); 40] = [
         include_bytes!("../../fonts/DejaVuSerif.ttf"),
     ),
     (
+        "DejaVuSerifDisplay.ttf",
+        include_bytes!("../../fonts/DejaVuSerifDisplay.ttf"),
+    ),
+    (
         "LastResortHE-Regular.ttf",
         include_bytes!("../../fonts/LastResortHE-Regular.ttf"),
-    ),
-    (
-        "STIXGeneralBolIta.ttf",
-        include_bytes!("../../fonts/STIXGeneralBolIta.ttf"),
-    ),
-    (
-        "STIXGeneralBol.ttf",
-        include_bytes!("../../fonts/STIXGeneralBol.ttf"),
-    ),
-    (
-        "STIXGeneralItalic.ttf",
-        include_bytes!("../../fonts/STIXGeneralItalic.ttf"),
     ),
     (
         "STIXGeneral.ttf",
         include_bytes!("../../fonts/STIXGeneral.ttf"),
     ),
     (
-        "STIXNonUniBolIta.ttf",
-        include_bytes!("../../fonts/STIXNonUniBolIta.ttf"),
+        "STIXGeneralBol.ttf",
+        include_bytes!("../../fonts/STIXGeneralBol.ttf"),
+    ),
+    (
+        "STIXGeneralBolIta.ttf",
+        include_bytes!("../../fonts/STIXGeneralBolIta.ttf"),
+    ),
+    (
+        "STIXGeneralItalic.ttf",
+        include_bytes!("../../fonts/STIXGeneralItalic.ttf"),
+    ),
+    (
+        "STIXNonUni.ttf",
+        include_bytes!("../../fonts/STIXNonUni.ttf"),
     ),
     (
         "STIXNonUniBol.ttf",
         include_bytes!("../../fonts/STIXNonUniBol.ttf"),
     ),
     (
-        "STIXNonUniIta.ttf",
-        include_bytes!("../../fonts/STIXNonUniIta.ttf"),
+        "STIXNonUniBolIta.ttf",
+        include_bytes!("../../fonts/STIXNonUniBolIta.ttf"),
     ),
     (
-        "STIXNonUni.ttf",
-        include_bytes!("../../fonts/STIXNonUni.ttf"),
+        "STIXNonUniIta.ttf",
+        include_bytes!("../../fonts/STIXNonUniIta.ttf"),
     ),
     (
         "STIXSizFiveSymReg.ttf",
@@ -138,6 +132,14 @@ pub(crate) const BUNDLED_FONTS: [(&str, &[u8]); 40] = [
         "STIXSizTwoSymReg.ttf",
         include_bytes!("../../fonts/STIXSizTwoSymReg.ttf"),
     ),
+    ("cmb10.ttf", include_bytes!("../../fonts/cmb10.ttf")),
+    ("cmex10.ttf", include_bytes!("../../fonts/cmex10.ttf")),
+    ("cmmi10.ttf", include_bytes!("../../fonts/cmmi10.ttf")),
+    ("cmr10.ttf", include_bytes!("../../fonts/cmr10.ttf")),
+    ("cmss10.ttf", include_bytes!("../../fonts/cmss10.ttf")),
+    ("cmsy10.ttf", include_bytes!("../../fonts/cmsy10.ttf")),
+    ("cmti10.ttf", include_bytes!("../../fonts/cmti10.ttf")),
+    ("cmtt10.ttf", include_bytes!("../../fonts/cmtt10.ttf")),
 ];
 
 /// File name of the Last Resort font used as final fallback.

@@ -1,11 +1,15 @@
 //! The `Line2D` artist: a polyline with optional markers.
 
+use std::fmt;
+
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_render::{CapStyle, GraphicsContext, JoinStyle, SnapMode};
 
 use super::axline::InfiniteLine;
-use super::{DrawStyle, LineStyle, MarkEvery, StepError, inverse_dashes, line_vertices};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle};
+use super::{
+    DrawStyle, LineStyle, MarkEvery, MarkEveryError, StepError, inverse_dashes, line_vertices,
+};
+use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
 use crate::colors::Color;
 use crate::markers::{FillStyle, Marker, MarkerStyle};
 use crate::rc::{ColorOrAuto, RcParams};
@@ -170,7 +174,15 @@ impl LineArtist {
         let style =
             MarkerStyle::new(self.marker.clone(), self.fillstyle).map_err(|e| e.to_string())?;
         let (points, affine) = resolved.split_path(points);
-        let points = self.subsample(ctx, &points, &affine)?;
+        let points = match self
+            .select_markers(*ctx.layout(), &points, &affine)
+            .map_err(|e| e.to_string())?
+        {
+            Some(indices) => {
+                Path::polyline(indices.iter().map(|&i| points.vertices()[i]).collect())
+            }
+            None => points.into_owned(),
+        };
         if points.is_empty() {
             return Ok(());
         }
@@ -242,14 +254,16 @@ impl LineArtist {
         self.markerfacecolor.or(&self.color).clone()
     }
 
-    fn subsample(
+    /// The indices of `points` (non-affine coordinates, mapped to pixels
+    /// by `affine`) that get markers, or `None` for all of them.
+    fn select_markers(
         &self,
-        ctx: &DrawContext<'_>,
+        layout: LayoutContext<'_>,
         points: &Path,
         affine: &Affine2D,
-    ) -> Result<Path, String> {
+    ) -> Result<Option<Vec<usize>>, MarkEveryError> {
         let Some(markevery) = &self.markevery else {
-            return Ok(points.clone());
+            return Ok(None);
         };
         let display: Vec<Point> = points
             .vertices()
@@ -259,14 +273,25 @@ impl LineArtist {
         let diagonal = self
             .base
             .parent
-            .and_then(|axes| ctx.layout().axes_extent(axes))
-            .map_or(0.0, |bbox| bbox.p0.distance(bbox.p1));
-        let indices = markevery
-            .select(&display, diagonal)
-            .map_err(|e| e.to_string())?;
-        Ok(Path::polyline(
-            indices.into_iter().map(|i| points.vertices()[i]).collect(),
-        ))
+            .and_then(|axes| layout.axes_extent(axes))
+            .map(|bbox| (bbox.p1.x - bbox.p0.x).hypot(bbox.p1.y - bbox.p0.y));
+        markevery.select(&display, diagonal).map(Some)
+    }
+
+    /// The indices of the data points that get markers, in drawing order.
+    fn marker_indices(&self, layout: LayoutContext<'_>) -> Result<Vec<usize>, MarkerError> {
+        let points = self.points().map_err(MarkerError::Data)?;
+        if points.is_empty() {
+            return Ok(Vec::new());
+        }
+        let resolved = layout
+            .resolve(&self.transform())
+            .ok_or(MarkerError::Detached)?;
+        let (points, affine) = resolved.split_path(&points);
+        Ok(self
+            .select_markers(layout, &points, &affine)
+            .map_err(MarkerError::MarkEvery)?
+            .unwrap_or_else(|| (0..points.len()).collect()))
     }
 
     fn line_gc(&self, ctx: &DrawContext<'_>) -> GraphicsContext {
@@ -354,6 +379,16 @@ impl Line2D {
         self.raw.with::<LineArtist, _>(|line| line.path.clone())
     }
 
+    /// The indices of the data points that get markers when the line is
+    /// drawn with the figure's current layout, in drawing order
+    /// (`markevery` applied; every point without it). Lay the figure out
+    /// first ([`crate::figure::Figure::layout`]) so the view is final.
+    pub fn marker_indices(&self) -> Result<Vec<usize>, MarkerError> {
+        let state = self.raw.figure_state().borrow();
+        self.raw
+            .with::<LineArtist, _>(|line| line.marker_indices(LayoutContext::new(&state)))
+    }
+
     /// The colour of the marker edges (the line colour when automatic).
     pub fn effective_markeredgecolor(&self) -> Color {
         self.raw
@@ -366,6 +401,29 @@ impl Line2D {
             .with::<LineArtist, _>(|line| line.color.resolve_alpha(line.base.alpha))
     }
 }
+
+/// Why the marker positions of a line cannot be determined.
+#[derive(Clone, Debug, PartialEq)]
+pub enum MarkerError {
+    /// The line's data cannot be drawn.
+    Data(StepError),
+    /// The line's coordinate system no longer exists.
+    Detached,
+    /// The `markevery` selection does not fit the line.
+    MarkEvery(MarkEveryError),
+}
+
+impl fmt::Display for MarkerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Data(err) => write!(f, "invalid line data: {err}"),
+            Self::Detached => f.write_str("the line's coordinate system no longer exists"),
+            Self::MarkEvery(err) => err.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for MarkerError {}
 
 artist_properties! {
     Line2D => LineArtist {

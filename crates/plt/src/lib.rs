@@ -20,9 +20,12 @@ pub mod colors;
 pub mod contour;
 pub mod dates;
 pub mod figure;
+pub mod fonts;
+pub mod lines;
 pub mod markers;
 pub mod mlab;
 pub mod numeric;
+pub mod rc;
 pub mod scale;
 pub mod stats;
 #[cfg(test)]

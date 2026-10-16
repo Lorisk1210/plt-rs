@@ -10,6 +10,7 @@ mod lines;
 mod misc;
 mod scatter;
 mod stats;
+mod styles;
 
 use super::FigureCase;
 
@@ -40,6 +41,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         stats::EVENTS,
         stats::FILL_BETWEEN,
         stats::VIOLIN,
+        styles::CASES,
     ]
     .concat()
 }

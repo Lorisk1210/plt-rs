@@ -143,9 +143,15 @@ impl Axes {
         self
     }
 
-    /// Sets the centre title (matplotlib's `set_title`) and returns it.
+    /// Sets the title at the `axes.titlelocation` position (centre by
+    /// default; matplotlib's `set_title`) and returns it.
     pub fn set_title(&self, text: impl Into<String>) -> Text {
-        self.set_title_at(TitleLocation::Center, text)
+        let location = match crate::rc::params().axes_titlelocation.as_str() {
+            "left" => TitleLocation::Left,
+            "right" => TitleLocation::Right,
+            _ => TitleLocation::Center,
+        };
+        self.set_title_at(location, text)
     }
 
     /// Sets the title at `location` and returns it. Like matplotlib's

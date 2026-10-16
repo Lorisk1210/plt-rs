@@ -5,7 +5,7 @@ use super::error::ResampleError;
 /// A `width × height` grid of pixels stored row by row.
 ///
 /// Pixel `(x, y)` lives at index `y * width + x`; row 0 is the first row in
-/// memory (array-index order, as in a NumPy array).
+/// memory (array-index order, as in a `NumPy` array).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Grid<P> {
     width: usize,
@@ -91,13 +91,11 @@ impl<P> Grid<P> {
 impl<P: Clone> Grid<P> {
     /// A grid with every pixel set to `value`.
     pub fn filled(width: usize, height: usize, value: P) -> Result<Self, ResampleError> {
-        let len = width
-            .checked_mul(height)
-            .ok_or(ResampleError::GridSize {
-                width,
-                height,
-                len: 0,
-            })?;
+        let len = width.checked_mul(height).ok_or(ResampleError::GridSize {
+            width,
+            height,
+            len: 0,
+        })?;
         Ok(Self {
             width,
             height,
@@ -143,6 +141,7 @@ mod tests {
     fn empty_grids() {
         let g = Grid::filled(0, 4, 1.0_f32).expect("grid");
         assert!(g.is_empty());
-        assert_eq!(g.row(0), None);
+        assert_eq!(g.row(0), Some(&[][..]));
+        assert_eq!(g.row(4), None);
     }
 }

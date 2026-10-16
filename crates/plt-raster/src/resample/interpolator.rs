@@ -153,7 +153,10 @@ impl SpanInterpolator for NearestInterpolator {
         let (current, last) = (f64::from(self.current), f64::from(self.last));
         // The tiny fudge compensates for precision loss, as in matplotlib.
         let lerp = |a: f64, b: f64| trunc(a + (b - a) * current / last + 1e-8);
-        (lerp(self.start.0, self.end.0), lerp(self.start.1, self.end.1))
+        (
+            lerp(self.start.0, self.end.0),
+            lerp(self.start.1, self.end.1),
+        )
     }
 
     fn advance(&mut self) {
@@ -269,7 +272,10 @@ mod tests {
     fn linear_identity_is_exact() {
         let mut li = LinearInterpolator::new(AggAffine::IDENTITY);
         let coords = walk(&mut li, 3.5, 2.5, 4);
-        assert_eq!(coords, vec![(896, 640), (1152, 640), (1408, 640), (1664, 640)]);
+        assert_eq!(
+            coords,
+            vec![(896, 640), (1152, 640), (1408, 640), (1664, 640)]
+        );
         assert_eq!(walk(&mut li, 0.5, 0.5, 1), vec![(128, 128)]);
     }
 
@@ -277,9 +283,10 @@ mod tests {
     fn nearest_truncates_toward_zero() {
         let mut nn = NearestInterpolator::new(scaled(0.5, 1.0, -1.0, 0.0));
         let coords = walk(&mut nn, 0.5, 0.5, 3);
-        // The end points are exact (−192 and 64); the interior sample is
-        // −64 + 1e-8, which truncates toward zero to −63.
-        assert_eq!(coords, vec![(-192, 128), (-63, 128), (64, 128)]);
+        // Only the last sample is taken verbatim; the others get a 1e-8
+        // fudge and truncate toward zero: −192 + 1e-8 → −191,
+        // −64 + 1e-8 → −63.
+        assert_eq!(coords, vec![(-191, 128), (-63, 128), (64, 128)]);
     }
 
     #[test]

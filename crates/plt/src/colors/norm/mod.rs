@@ -89,6 +89,12 @@ pub trait Norm: fmt::Debug {
     /// Maps normalised values back to data values. Entries matplotlib
     /// would mask come back as `None`.
     fn inverse(&self, values: &[f64]) -> Result<Vec<Option<f64>>, NormError>;
+
+    /// Whether the norm hands data through unchanged, so that integer
+    /// data indexes the colormap directly (matplotlib's `NoNorm`).
+    fn is_identity(&self) -> bool {
+        false
+    }
 }
 
 /// Why normalisation failed.

@@ -1,5 +1,6 @@
 //! Axes: data coordinate systems and the plotting API (matplotlib.axes).
 
+mod aspect;
 mod axis;
 mod axis_draw;
 mod axis_handle;
@@ -14,16 +15,21 @@ mod errorbar;
 mod eventplot;
 mod fill;
 mod fill_between;
+mod hexbin;
 mod hist;
+mod image;
 mod limits;
 mod lines;
 mod patches;
+mod pcolor;
+mod pcolorfast;
 mod reference;
 mod scatter;
 mod secondary;
 mod segments;
 mod share;
 mod spectral;
+mod spy;
 mod stackplot;
 mod state;
 mod stem;
@@ -37,6 +43,7 @@ mod view;
 mod violin;
 
 pub use crate::ticker::AxisName;
+pub use aspect::{Adjustable, AspectError};
 pub use axis::{LabelLoc, Tick, TickSet};
 pub use axis_handle::Axis;
 pub use bars::{BandAlign, BarAlign, BarContainer, BarOptions};
@@ -46,12 +53,17 @@ pub use error::PlotError;
 pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarOptions};
 pub use eventplot::EventplotOptions;
 pub use fill_between::FillBetweenOptions;
+pub use hexbin::{HexBins, HexGridSize, HexReduce, HexScale, HexbinOptions};
 pub use hist::{HistArtists, HistPlot, HistPlotOptions};
+pub use image::ImshowOptions;
+pub use pcolor::{Mesh, MeshCoords, PcolorOptions, Shading};
+pub use pcolorfast::{PcolorFast, PcolorfastOptions};
 pub use plt_core::path::DataLimits;
 pub use scatter::{MappedColors, ScatterColors, ScatterOptions};
 pub use secondary::SecondaryLocation;
 pub(crate) use share::ShareGroups;
 pub use spectral::{CorrelationArtists, SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale};
+pub use spy::{Spy, SpyOptions};
 pub use stackplot::{Baseline, StackplotOptions};
 pub(crate) use state::AxesState;
 pub use stem::{StemContainer, StemOptions};
@@ -129,9 +141,12 @@ impl Axes {
         self.raw.with::<AxesState, _>(|a| a.subplot_spec.clone())
     }
 
-    /// Placement as a fraction of the figure (or subfigure).
+    /// Placement as a fraction of the figure (or subfigure), after the
+    /// aspect adjustment (matplotlib's `get_position`).
     pub fn position(&self) -> Bbox {
-        self.raw.with::<AxesState, _>(|a| a.position)
+        self.apply_aspect();
+        self.raw
+            .with::<AxesState, _>(|a| a.aspect.active_position(&a.position))
     }
 
     /// Moves the axes to `[left, bottom, width, height]` in figure fractions.

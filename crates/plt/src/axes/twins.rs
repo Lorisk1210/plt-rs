@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use super::{Axes, AxesState, AxisName, PlotError};
+use super::{Adjustable, Axes, AxesState, AxisName, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::figure::insert_axes;
 use crate::spines::SpineSide;
@@ -91,6 +91,8 @@ impl Axes {
         let twin = insert_axes(figure, frame, position, spec);
         twin.share(shared, self)
             .expect("a new axes in this figure shares nothing yet");
+        self.set_adjustable(Adjustable::Datalim);
+        twin.set_adjustable(Adjustable::Datalim);
         twin.set_zorder(zorder);
         twin.raw.with_mut::<AxesState, _>(|axes| {
             axes.patch.visible = false;

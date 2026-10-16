@@ -98,15 +98,15 @@ impl FilterShape {
     /// The support radius of the kernel.
     pub(super) fn radius(&self) -> f64 {
         match *self {
-            Self::Bilinear | Self::Hanning | Self::Hamming | Self::Hermite | Self::Kaiser { .. } => {
-                1.0
-            }
+            Self::Bilinear
+            | Self::Hanning
+            | Self::Hamming
+            | Self::Hermite
+            | Self::Kaiser { .. } => 1.0,
             Self::Quadric => 1.5,
-            Self::Bicubic
-            | Self::Catrom
-            | Self::Mitchell(_)
-            | Self::Spline16
-            | Self::Gaussian => 2.0,
+            Self::Bicubic | Self::Catrom | Self::Mitchell(_) | Self::Spline16 | Self::Gaussian => {
+                2.0
+            }
             Self::Spline36 => 3.0,
             Self::Bessel => BESSEL_RADIUS,
             Self::Sinc { radius } | Self::Lanczos { radius } | Self::Blackman { radius } => radius,
@@ -160,6 +160,10 @@ fn bicubic(x: f64) -> f64 {
     (1.0 / 6.0) * (pow3(x + 2.0) - 4.0 * pow3(x + 1.0) + 6.0 * pow3(x) - 4.0 * pow3(x - 1.0))
 }
 
+#[expect(
+    clippy::manual_midpoint,
+    reason = "Agg's polynomial, kept verbatim for identical rounding"
+)]
 fn catrom(x: f64) -> f64 {
     if x < 1.0 {
         0.5 * (2.0 + x * x * (-5.0 + x * 3.0))

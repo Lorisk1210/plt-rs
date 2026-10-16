@@ -13,6 +13,8 @@
 //! * [`contour`] / [`tri`] — contour generation and unstructured triangular
 //!   grids.
 //! * [`units`] — categorical axes and the conversion of plotting values.
+//! * [`image`] — images (`imshow`, `figimage`, `pcolorfast`) and their
+//!   resampling.
 #![forbid(unsafe_code)]
 
 #[macro_use]
@@ -25,6 +27,7 @@ pub mod dates;
 pub mod figure;
 pub mod fonts;
 pub mod gridspec;
+pub mod image;
 pub mod lines;
 pub mod markers;
 pub mod mlab;

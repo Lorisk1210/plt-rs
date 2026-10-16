@@ -21,9 +21,11 @@ pub use subplots::Share;
 pub(crate) use subplots::insert_axes;
 
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};
-use crate::axes::{Axes, AxesState};
+use crate::axes::{Axes, AxesState, PlotError};
 use crate::fonts::FontProperties;
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
+use crate::lines::{Line2D, LineArtist, LineProps};
+use crate::patches::{Patch, PatchArtist, PatchShape};
 use crate::rc::RcParams;
 use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
@@ -205,6 +207,45 @@ impl Figure {
             .borrow_mut()
             .adopt(self.root.id(), Box::new(artist));
         Text::from_raw(RawHandle::new(Rc::clone(&self.state), id))
+    }
+
+    /// Adds a line through `(x, y)` in figure fractions, styled from the
+    /// rc parameters and `props` without the property cycle (matplotlib's
+    /// `fig.add_artist(Line2D(...))`).
+    ///
+    /// # Errors
+    ///
+    /// When `x` and `y` differ in length.
+    pub fn add_line(&self, x: &[f64], y: &[f64], props: LineProps) -> Result<Line2D, PlotError> {
+        if x.len() != y.len() {
+            return Err(PlotError::LengthMismatch {
+                x: x.len(),
+                y: y.len(),
+            });
+        }
+        let mut line = LineArtist::new(x.to_vec(), y.to_vec(), crate::rc::params());
+        props.apply(&mut line);
+        if line.base().transform.is_none() {
+            line.base_mut().transform = Some(Transform::Figure(self.root.id()));
+        }
+        let id = self
+            .state
+            .borrow_mut()
+            .adopt(self.root.id(), Box::new(line));
+        Ok(Line2D::from_raw(RawHandle::new(Rc::clone(&self.state), id)))
+    }
+
+    /// Adds a patch in figure fractions (matplotlib's
+    /// `fig.add_artist(patch)`); give it another coordinate system with
+    /// [`ArtistHandle::set_transform`].
+    pub fn add_patch<S: PatchShape>(&self, shape: S) -> Patch<S> {
+        let mut patch = PatchArtist::new(shape, crate::rc::params());
+        patch.base_mut().transform = Some(Transform::Figure(self.root.id()));
+        let id = self
+            .state
+            .borrow_mut()
+            .adopt(self.root.id(), Box::new(patch));
+        Patch::from_raw(RawHandle::new(Rc::clone(&self.state), id))
     }
 
     fn super_text(&self, kind: SuperKind, text: String) -> Text {

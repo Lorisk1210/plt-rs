@@ -157,6 +157,18 @@ impl Axes {
         Line2D::from_raw(self.adopt(line, &update))
     }
 
+    /// Replaces the property cycle of lines and patches and restarts it;
+    /// `None` restores `axes.prop_cycle` (matplotlib's `set_prop_cycle`).
+    pub fn set_prop_cycle(&self, cycle: Option<Cycler>) -> &Self {
+        let cycle = cycle.unwrap_or_else(|| crate::rc::params().axes_prop_cycle.clone());
+        self.raw().with_mut::<AxesState, _>(|axes| {
+            axes.prop_cycle = cycle;
+            axes.line_cycle = 0;
+            axes.patch_cycle = 0;
+        });
+        self
+    }
+
     /// The next colour of the line property cycle (matplotlib's
     /// `_get_lines.get_next_color`).
     pub(crate) fn next_line_color(&self) -> Color {

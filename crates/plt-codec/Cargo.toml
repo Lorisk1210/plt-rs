@@ -1,0 +1,12 @@
+[package]
+name = "plt-codec"
+description = "Self-contained DEFLATE/zlib and PNG codecs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

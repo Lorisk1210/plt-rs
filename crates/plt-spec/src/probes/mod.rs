@@ -193,7 +193,7 @@ impl Probe {
     /// documented waivers for failures.
     pub fn judge(&self, op: Option<&Op>) -> Verdict {
         match self.evaluate(op) {
-            Verdict::Fail(message) => waivers::find(&self.op, &self.args.to_string())
+            Verdict::Fail(message) => waivers::find(&self.op, &self.args)
                 .map_or(Verdict::Fail(message), Verdict::Waived),
             verdict => verdict,
         }

@@ -182,10 +182,12 @@ impl Affine2D {
         self.a * self.d - self.b * self.c
     }
 
-    /// The inverse transformation, or `None` when the matrix is singular.
+    /// The inverse transformation, or `None` when the determinant is
+    /// exactly zero. Non-finite matrices invert to non-finite results, as
+    /// with numpy's `linalg.inv`.
     pub fn inverted(&self) -> Option<Self> {
         let det = self.determinant();
-        if det == 0.0 || !det.is_finite() {
+        if det == 0.0 {
             return None;
         }
         let a = self.d / det;

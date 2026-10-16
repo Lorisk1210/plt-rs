@@ -3,10 +3,10 @@
 //! matplotlib builds tick labels with Python's float formatting — `repr`,
 //! printf-style `%` formatting and the `str.format` mini-language — and
 //! Rust's `{}` output differs from it (`1e-05` vs `1e-5`, `1e+16` vs
-//! `10000000000000000`). This module reproduces CPython's algorithms: the
+//! `10000000000000000`). This module reproduces `CPython`'s algorithms: the
 //! digits come from Rust's exact formatting, which rounds half to even on
-//! the exact binary value like CPython's `dtoa`, and are laid out by a port
-//! of CPython's `format_float_short` and its format-spec machinery.
+//! the exact binary value like `CPython`'s `dtoa`, and are laid out by a port
+//! of `CPython`'s `format_float_short` and its format-spec machinery.
 //!
 //! * [`repr`], [`fixed`], [`exponential`], [`general`] — `repr(x)`,
 //!   `'%.nf' % x`, `'%.ne' % x` and `'%.ng' % x`.
@@ -66,6 +66,20 @@ pub fn repr(x: f64) -> String {
     format_float(x, FloatStyle::REPR)
 }
 
+/// Python's `'%d' % x`: the value truncated towards zero. (Python raises
+/// for NaN and infinity; those are written like [`repr`] here.)
+pub fn integer(x: f64) -> String {
+    if !x.is_finite() {
+        return repr(x);
+    }
+    let digits = format!("{:.0}", x.trunc().abs());
+    if x <= -1.0 {
+        format!("-{digits}")
+    } else {
+        digits
+    }
+}
+
 /// Python's `'%.{precision}f' % x`.
 pub fn fixed(x: f64, precision: usize) -> String {
     format_float(x, FloatStyle::new(Presentation::Fixed, precision))
@@ -100,10 +114,13 @@ mod tests {
     #[test]
     fn convenience_functions() {
         assert_eq!(repr(10_000_000.0), "10000000.0");
+        assert_eq!(integer(-1500.25), "-1500");
+        assert_eq!(integer(-0.5), "0");
+        assert_eq!(integer(1e20), "100000000000000000000");
         assert_eq!(fixed(-0.0, 1), "-0.0");
         assert_eq!(exponential(1500.25, 1), "1.5e+03");
         assert_eq!(general(1234.5678, 6), "1234.57");
-        assert_eq!(general_alternate(3.14159265, 8), "3.1415927");
+        assert_eq!(general_alternate(1.234_567_89, 8), "1.2345679");
         assert_eq!(general_alternate(1e-7, 4), "1.000e-07");
     }
 }

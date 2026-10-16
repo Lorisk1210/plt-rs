@@ -100,23 +100,28 @@ impl FormatSpec {
         for sep in [',', '_'] {
             if chars.get(pos) == Some(&sep) {
                 if grouping.is_some() {
-                    return Err(FormatError::Value("Cannot specify both ',' and '_'.".into()));
+                    return Err(FormatError::Value(
+                        "Cannot specify both ',' and '_'.".into(),
+                    ));
                 }
                 grouping = Some(sep);
                 pos += 1;
             }
         }
         if grouping == Some('_') && chars.get(pos) == Some(&',') {
-            return Err(FormatError::Value("Cannot specify both ',' and '_'.".into()));
+            return Err(FormatError::Value(
+                "Cannot specify both ',' and '_'.".into(),
+            ));
         }
-        let precision = if chars.get(pos) == Some(&'.') {
-            pos += 1;
-            Some(integer(&chars, &mut pos).ok_or_else(|| {
-                FormatError::Value("Format specifier missing precision".into())
-            })?)
-        } else {
-            None
-        };
+        let precision =
+            if chars.get(pos) == Some(&'.') {
+                pos += 1;
+                Some(integer(&chars, &mut pos).ok_or_else(|| {
+                    FormatError::Value("Format specifier missing precision".into())
+                })?)
+            } else {
+                None
+            };
         let ty = match &chars[pos..] {
             [] => None,
             [c] => Some(*c),
@@ -264,7 +269,9 @@ impl FormatSpec {
     pub fn format_int(&self, value: i64) -> Result<String, FormatError> {
         self.check_int()?;
         let (radix_digits, prefix, group_len) = match self.ty {
-            Some('e' | 'E' | 'f' | 'F' | 'g' | 'G' | '%') => return self.format_float(value as f64),
+            Some('e' | 'E' | 'f' | 'F' | 'g' | 'G' | '%') => {
+                return self.format_float(value as f64);
+            }
             Some('b') => (format!("{:b}", value.unsigned_abs()), "0b", 4),
             Some('o') => (format!("{:o}", value.unsigned_abs()), "0o", 4),
             Some('x') => (format!("{:x}", value.unsigned_abs()), "0x", 4),
@@ -288,15 +295,12 @@ impl FormatSpec {
             None => value.to_owned(),
         };
         let fill = self.fill.unwrap_or(if self.zero_pad { '0' } else { ' ' });
-        let padding = self
-            .width
-            .unwrap_or(0)
-            .saturating_sub(text.chars().count());
+        let padding = self.width.unwrap_or(0).saturating_sub(text.chars().count());
         let (left, right) = split_padding(self.align.unwrap_or(Align::Left), padding);
         Ok(pad_around(&text, fill, left, right))
     }
 
-    /// CPython's `calc_number_widths` + `fill_number`.
+    /// `CPython`'s `calc_number_widths` + `fill_number`.
     fn layout_number(
         &self,
         negative: bool,
@@ -332,7 +336,11 @@ impl FormatSpec {
         let padding = width.saturating_sub(non_digits + grouped.chars().count());
         let mut out = String::new();
         let (left, right) = split_padding(align, padding);
-        let middle = if align == Align::AfterSign { padding } else { 0 };
+        let middle = if align == Align::AfterSign {
+            padding
+        } else {
+            0
+        };
         out.extend(std::iter::repeat_n(fill, left));
         out.extend(sign);
         out.push_str(prefix);
@@ -378,7 +386,7 @@ fn pad_around(text: &str, fill: char, left: usize, right: usize) -> String {
     out
 }
 
-/// CPython's `_PyUnicode_InsertThousandsGrouping`: separators every
+/// `CPython`'s `_PyUnicode_InsertThousandsGrouping`: separators every
 /// `group_len` digits, zero-padded to at least `min_width` characters.
 fn group_digits(digits: &str, min_width: usize, sep: Option<char>, group_len: usize) -> String {
     let digits: Vec<char> = digits.chars().collect();
@@ -417,7 +425,10 @@ mod tests {
     use super::*;
 
     fn float(spec: &str, value: f64) -> String {
-        FormatSpec::parse(spec).unwrap().format_float(value).unwrap()
+        FormatSpec::parse(spec)
+            .unwrap()
+            .format_float(value)
+            .unwrap()
     }
 
     #[test]
@@ -437,7 +448,7 @@ mod tests {
         assert_eq!(float(".3", 1.0), "1.0");
         assert_eq!(float(".3", 1234.5), "1.23e+03");
         assert_eq!(float("1.0e", 12345.0), "1e+04");
-        assert_eq!(float("0.2f", 3.14159), "3.14");
+        assert_eq!(float("0.2f", 1.234_56), "1.23");
         assert_eq!(float("08.2f", -3.5), "-0003.50");
         assert_eq!(float("010,.1f", 1234.5), "0,001,234.5");
         assert_eq!(float("*^9.1f", 2.0), "***2.0***");

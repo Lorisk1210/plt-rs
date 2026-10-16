@@ -39,9 +39,10 @@ impl FixedLocator {
 
 /// numpy's `np.abs(values).min()` (NaN-propagating).
 fn min_abs(values: impl Iterator<Item = f64>) -> f64 {
-    values
-        .map(f64::abs)
-        .fold(f64::INFINITY, |acc, v| if v.is_nan() || v < acc { v } else { acc })
+    values.map(f64::abs).fold(
+        f64::INFINITY,
+        |acc, v| if v.is_nan() || v < acc { v } else { acc },
+    )
 }
 
 impl Locator for FixedLocator {
@@ -137,12 +138,12 @@ mod tests {
             ticks(&FixedLocator::new(locs.clone()).with_nbins(3)),
             [-4.0, 0.0, 4.0]
         );
+        // nbins is at least 2: every 6th position, the subset holding 0.
+        assert_eq!(ticks(&FixedLocator::new(locs).with_nbins(0)), [0.0]);
         assert_eq!(
-            ticks(&FixedLocator::new(locs).with_nbins(0)).len(),
-            6,
-            "nbins is at least 2"
+            ticks(&FixedLocator::new(Vec::new()).with_nbins(2)),
+            Vec::<f64>::new()
         );
-        assert!(ticks(&FixedLocator::new(Vec::new()).with_nbins(2)).is_empty());
     }
 
     #[test]
@@ -153,7 +154,10 @@ mod tests {
             index.tick_values(0.0, 10.0, &ctx).unwrap(),
             [0.5, 3.0, 5.5, 8.0]
         );
-        assert!(index.tick_values(10.0, 0.0, &ctx).unwrap().is_empty());
-        assert!(ticks(&NullLocator).is_empty());
+        assert_eq!(
+            index.tick_values(10.0, 0.0, &ctx).unwrap(),
+            Vec::<f64>::new()
+        );
+        assert_eq!(ticks(&NullLocator), Vec::<f64>::new());
     }
 }

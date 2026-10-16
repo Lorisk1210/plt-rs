@@ -13,8 +13,10 @@ pub enum Json {
     Null,
     /// `true` / `false`.
     Bool(bool),
-    /// Any number (integers are represented exactly up to 2^53).
+    /// A number written with a fraction or exponent (Python `float`).
     Number(f64),
+    /// A number written without fraction or exponent (Python `int`).
+    Integer(i64),
     /// A string.
     String(String),
     /// An array.
@@ -50,15 +52,25 @@ impl Json {
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             Self::Number(n) => Some(*n),
+            Self::Integer(i) => Some(*i as f64),
             _ => None,
         }
     }
 
     /// The number as an integer, if it is integral and in range.
     pub fn as_i64(&self) -> Option<i64> {
-        self.as_f64()
-            .filter(|n| n.fract() == 0.0 && n.abs() < 9.0e15)
-            .map(|n| n as i64)
+        match self {
+            Self::Integer(i) => Some(*i),
+            _ => self
+                .as_f64()
+                .filter(|n| n.fract() == 0.0 && n.abs() < 9.0e15)
+                .map(|n| n as i64),
+        }
+    }
+
+    /// Whether the value was written as an integer literal (a Python `int`).
+    pub fn is_integer(&self) -> bool {
+        matches!(self, Self::Integer(_))
     }
 
     /// The string, if this is one.
@@ -151,6 +163,7 @@ impl fmt::Display for Json {
                 f.write_str(if *n > 0.0 { "Infinity" } else { "-Infinity" })
             }
             Self::Number(n) => write!(f, "{n:?}"),
+            Self::Integer(i) => write!(f, "{i}"),
             Self::String(s) => write_escaped(f, s),
             Self::Array(items) => {
                 f.write_char('[')?;
@@ -332,11 +345,15 @@ impl Parser<'_> {
         ) {
             self.pos += 1;
         }
-        std::str::from_utf8(&self.bytes[start..self.pos])
-            .ok()
-            .and_then(|s| s.parse().ok())
+        let text = std::str::from_utf8(&self.bytes[start..self.pos])
+            .map_err(|_| self.error("malformed number"))?;
+        let is_integral = !text.contains(['.', 'e', 'E']);
+        if is_integral && let Ok(integer) = text.parse() {
+            return Ok(Json::Integer(integer));
+        }
+        text.parse()
             .map(Json::Number)
-            .ok_or_else(|| self.error("malformed number"))
+            .map_err(|_| self.error("malformed number"))
     }
 
     fn string(&mut self) -> Result<String, ParseError> {

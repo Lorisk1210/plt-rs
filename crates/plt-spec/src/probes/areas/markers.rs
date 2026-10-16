@@ -182,13 +182,13 @@ fn decode_marker(value: Option<&Json>) -> Result<Marker, ProbeError> {
     };
     match value {
         Json::String(code) => code.parse().map_err(ProbeError::rejected),
-        Json::Number(_) => {
+        Json::Number(_) | Json::Integer(_) => {
             let code = value.as_i64().ok_or_else(|| ProbeError::rejected(value))?;
             Marker::from_code(code).map_err(ProbeError::rejected)
         }
         Json::Object(_) => Ok(Marker::Path(encode::parse_path(value)?)),
         Json::Array(items)
-            if items.iter().all(|i| matches!(i, Json::Number(_))) && !items.is_empty() =>
+            if items.iter().all(|i| i.as_f64().is_some()) && !items.is_empty() =>
         {
             decode_tuple(items)
         }

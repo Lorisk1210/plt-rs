@@ -128,19 +128,19 @@ impl Bbox {
     }
     /// Smaller x bound.
     pub fn xmin(&self) -> f64 {
-        self.p0.x.min(self.p1.x)
+        nan_min(self.p0.x, self.p1.x)
     }
     /// Larger x bound.
     pub fn xmax(&self) -> f64 {
-        self.p0.x.max(self.p1.x)
+        nan_max(self.p0.x, self.p1.x)
     }
     /// Smaller y bound.
     pub fn ymin(&self) -> f64 {
-        self.p0.y.min(self.p1.y)
+        nan_min(self.p0.y, self.p1.y)
     }
     /// Larger y bound.
     pub fn ymax(&self) -> f64 {
-        self.p0.y.max(self.p1.y)
+        nan_max(self.p0.y, self.p1.y)
     }
     /// Signed width `x1 - x0`.
     pub fn width(&self) -> f64 {
@@ -245,19 +245,19 @@ impl Bbox {
     #[must_use]
     pub fn union(&self, other: &Self) -> Self {
         Self::from_extents(
-            self.xmin().min(other.xmin()),
-            self.ymin().min(other.ymin()),
-            self.xmax().max(other.xmax()),
-            self.ymax().max(other.ymax()),
+            nan_min(self.xmin(), other.xmin()),
+            nan_min(self.ymin(), other.ymin()),
+            nan_max(self.xmax(), other.xmax()),
+            nan_max(self.ymax(), other.ymax()),
         )
     }
 
     /// The ordered intersection, or `None` when the boxes are disjoint.
     pub fn intersection(&self, other: &Self) -> Option<Self> {
-        let x0 = self.xmin().max(other.xmin());
-        let x1 = self.xmax().min(other.xmax());
-        let y0 = self.ymin().max(other.ymin());
-        let y1 = self.ymax().min(other.ymax());
+        let x0 = nan_max(self.xmin(), other.xmin());
+        let x1 = nan_min(self.xmax(), other.xmax());
+        let y0 = nan_max(self.ymin(), other.ymin());
+        let y1 = nan_min(self.ymax(), other.ymax());
         (x0 <= x1 && y0 <= y1).then(|| Self::from_extents(x0, y0, x1, y1))
     }
 
@@ -370,10 +370,67 @@ impl Bbox {
         Self::new(ll, Point::new(lr.x, ul.y))
     }
 
-    /// The ordered box enclosing all four transformed corners.
+    /// The box enclosing all four transformed corners, keeping the input's
+    /// orientation (matplotlib's `TransformedBbox`).
     #[must_use]
-    pub fn transformed_hull(&self, t: &Affine2D) -> Self {
-        Self::from_points(self.corners().map(|p| t.transform_point(p)))
+    pub fn transformed_enclosing(&self, t: &Affine2D) -> Self {
+        let corners = [
+            self.p0,
+            Point::new(self.p1.x, self.p0.y),
+            Point::new(self.p0.x, self.p1.y),
+            self.p1,
+        ]
+        .map(|p| t.transform_point(p));
+        let span = |coord: fn(&Point) -> f64, flip: bool| {
+            let values = corners.iter().map(coord);
+            let (lo, hi) = (py_min(values.clone()), py_max(values));
+            if flip { (hi, lo) } else { (lo, hi) }
+        };
+        let (x0, x1) = span(|p| p.x, self.p0.x > self.p1.x);
+        let (y0, y1) = span(|p| p.y, self.p0.y > self.p1.y);
+        Self::from_extents(x0, y0, x1, y1)
+    }
+
+    /// The box rotated by `radians` about the origin, as the bounding box
+    /// of its finite rotated corners (matplotlib's `Bbox.rotated`).
+    #[must_use]
+    pub fn rotated(&self, radians: f64) -> Self {
+        let rotation = Affine2D::rotation(radians);
+        let corners = self.corners().map(|p| rotation.transform_point(p));
+        let finite = corners.into_iter().filter(|p| p.is_finite());
+        let bounds = Self::from_points(finite);
+        if bounds.is_null() { Self::UNIT } else { bounds }
+    }
+
+    /// How many points lie strictly inside the box (non-finite points never do).
+    pub fn count_contains(&self, points: &[Point]) -> usize {
+        let (lo, hi) = (Point::new(self.xmin(), self.ymin()), Point::new(self.xmax(), self.ymax()));
+        points
+            .iter()
+            .filter(|p| lo.x < p.x && p.x < hi.x && lo.y < p.y && p.y < hi.y)
+            .count()
+    }
+
+    /// How many boxes strictly overlap this one: touching edges do not
+    /// count, while boxes containing NaN do (all comparisons fail), as in
+    /// matplotlib's `count_overlaps`.
+    pub fn count_overlaps(&self, others: &[Self]) -> usize {
+        others
+            .iter()
+            .filter(|b| {
+                !(b.xmax() <= self.xmin()
+                    || b.ymax() <= self.ymin()
+                    || b.xmin() >= self.xmax()
+                    || b.ymin() >= self.ymax())
+            })
+            .count()
+    }
+
+    /// Whether the box has a positive extent in some direction and a finite
+    /// size (matplotlib's private `Bbox._is_finite`).
+    pub fn has_finite_extent(&self) -> bool {
+        let (w, h) = (self.width(), self.height());
+        (w > 0.0 || h > 0.0) && w < f64::INFINITY && h < f64::INFINITY
     }
 
     /// Extends the (ordered) box to include `p`; non-finite points are ignored.
@@ -385,6 +442,29 @@ impl Bbox {
             *self
         }
     }
+}
+
+/// `min` that propagates NaN, like numpy.
+fn nan_min(a: f64, b: f64) -> f64 {
+    if a.is_nan() || b.is_nan() { f64::NAN } else { a.min(b) }
+}
+
+/// `max` that propagates NaN, like numpy.
+fn nan_max(a: f64, b: f64) -> f64 {
+    if a.is_nan() || b.is_nan() { f64::NAN } else { a.max(b) }
+}
+
+/// Python's builtin `min`: keep the current value unless a candidate is
+/// smaller (so NaN behaves according to its position).
+fn py_min(mut values: impl Iterator<Item = f64>) -> f64 {
+    let first = values.next().unwrap_or(f64::NAN);
+    values.fold(first, |current, v| if v < current { v } else { current })
+}
+
+/// Python's builtin `max` (see [`py_min`]).
+fn py_max(mut values: impl Iterator<Item = f64>) -> f64 {
+    let first = values.next().unwrap_or(f64::NAN);
+    values.fold(first, |current, v| if v > current { v } else { current })
 }
 
 #[cfg(test)]

@@ -89,7 +89,11 @@ fn compare_at(
         actual: truncate(&actual.to_string()),
     };
     match (expected, actual) {
-        (Json::Number(e), Json::Number(a)) if tol.accepts(*e, *a) => Ok(()),
+        (Json::Number(_) | Json::Integer(_), Json::Number(_) | Json::Integer(_))
+            if tol.accepts(expected.as_f64().unwrap_or(f64::NAN), actual.as_f64().unwrap_or(f64::NAN)) =>
+        {
+            Ok(())
+        }
         (Json::Array(e), Json::Array(a)) if e.len() == a.len() => {
             for (i, (e, a)) in e.iter().zip(a).enumerate() {
                 let len = path.len();
@@ -110,7 +114,7 @@ fn compare_at(
             }
             Ok(())
         }
-        (Json::Number(_) | Json::Array(_) | Json::Object(_), _) => Err(mismatch(path)),
+        (Json::Number(_) | Json::Integer(_) | Json::Array(_) | Json::Object(_), _) => Err(mismatch(path)),
         _ if expected == actual => Ok(()),
         _ => Err(mismatch(path)),
     }

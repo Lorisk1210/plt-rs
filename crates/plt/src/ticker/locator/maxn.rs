@@ -1,8 +1,9 @@
 //! `MaxNLocator` and `AutoLocator`: nice evenly spaced ticks.
 
-use super::{Locator, nonsingular};
+use super::Locator;
 use crate::ticker::pymath::{arange, divmod, floor_div, pow10, py_max};
 use crate::ticker::{AutolimitMode, TickContext, TickerError, TickerSettings};
+use crate::transforms::nonsingular;
 
 /// Maximum number of intervals between ticks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,7 +31,7 @@ pub enum Prune {
 /// large compared to the range (`|mean| / range >= threshold`).
 pub fn scale_range(vmin: f64, vmax: f64, n: f64, threshold: f64) -> (f64, f64) {
     let dv = (vmax - vmin).abs();
-    let meanv = (vmax + vmin) / 2.0;
+    let meanv = vmax.midpoint(vmin);
     let offset = if meanv.abs() / dv < threshold {
         0.0
     } else {
@@ -105,7 +106,7 @@ impl EdgeInteger {
 /// use plt::ticker::{Locator, MaxNLocator, Nbins, TickContext};
 /// let locator = MaxNLocator::new(Nbins::Fixed(4));
 /// let ticks = locator.tick_values(0.1, 0.9, &TickContext::default()).unwrap();
-/// assert_eq!(ticks, [0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 1.0]);
+/// assert_eq!(ticks, [0.0, 0.2, 0.4, 0.600_000_000_000_000_1, 0.8, 1.0]);
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct MaxNLocator {
@@ -253,8 +254,7 @@ impl MaxNLocator {
             steps.retain(|&s| s < 1.0 || (s - s.round_ties_even()).abs() < 0.001);
         }
         let raw_step = (hi - lo) / nbins;
-        let round_numbers =
-            ctx.settings().axes_autolimit_mode == AutolimitMode::RoundNumbers;
+        let round_numbers = ctx.settings().axes_autolimit_mode == AutolimitMode::RoundNumbers;
         let large_enough = |step: f64| {
             step >= raw_step && (!round_numbers || floor_div(lo, step) * step + step * nbins >= hi)
         };
@@ -321,7 +321,7 @@ impl Locator for MaxNLocator {
         ctx: &TickContext<'_>,
     ) -> Result<Vec<f64>, TickerError> {
         let (vmin, vmax) = self.symmetrized(vmin, vmax);
-        let (vmin, vmax) = nonsingular(vmin, vmax, 1e-13, 1e-14);
+        let (vmin, vmax) = nonsingular(vmin, vmax, 1e-13, 1e-14, true);
         let mut locs = self.raw_ticks(vmin, vmax, ctx)?;
         let n = locs.len();
         match self.prune {
@@ -345,7 +345,7 @@ impl Locator for MaxNLocator {
         ctx: &TickContext<'_>,
     ) -> Result<(f64, f64), TickerError> {
         let (dmin, dmax) = self.symmetrized(dmin, dmax);
-        let (dmin, dmax) = nonsingular(dmin, dmax, 1e-12, 1e-13);
+        let (dmin, dmax) = nonsingular(dmin, dmax, 1e-12, 1e-13, true);
         if ctx.settings().axes_autolimit_mode == AutolimitMode::RoundNumbers {
             let ticks = self.raw_ticks(dmin, dmax, ctx)?;
             match (ticks.first(), ticks.last()) {
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!(ticks(&auto, 0.0, 10.0), [0.0, 2.0, 4.0, 6.0, 8.0, 10.0]);
         assert_eq!(
             ticks(&auto, 0.0, 1.0),
-            [0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 1.0]
+            [0.0, 0.2, 0.4, 0.600_000_000_000_000_1, 0.8, 1.0]
         );
         assert_eq!(
             ticks(&auto, 1e5, 1e5 + 5.0),
@@ -453,9 +453,15 @@ mod tests {
     #[test]
     fn prune_and_integer() {
         let base = MaxNLocator::new(Nbins::Fixed(5));
-        assert_eq!(ticks(&base, 0.0, 1.0), [0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 1.0]);
+        assert_eq!(
+            ticks(&base, 0.0, 1.0),
+            [0.0, 0.2, 0.4, 0.600_000_000_000_000_1, 0.8, 1.0]
+        );
         let pruned = base.clone().with_prune(Some(Prune::Both));
-        assert_eq!(ticks(&pruned, 0.0, 1.0), [0.2, 0.4, 0.6000000000000001, 0.8]);
+        assert_eq!(
+            ticks(&pruned, 0.0, 1.0),
+            [0.2, 0.4, 0.600_000_000_000_000_1, 0.8]
+        );
         let integer = base.with_integer(true);
         assert_eq!(ticks(&integer, 0.0, 3.0), [0.0, 1.0, 2.0, 3.0]);
     }
@@ -468,9 +474,10 @@ mod tests {
         };
         let ctx = TickContext::detached(&settings);
         let auto = AutoLocator::new();
-        assert_eq!(auto.view_limits(0.13, 0.87, &ctx).unwrap(), (0.0, 1.0));
+        assert_eq!(auto.view_limits(0.13, 0.87, &ctx).unwrap(), (0.1, 0.9));
         assert_eq!(
-            auto.view_limits(0.13, 0.87, &TickContext::default()).unwrap(),
+            auto.view_limits(0.13, 0.87, &TickContext::default())
+                .unwrap(),
             (0.13, 0.87)
         );
     }
@@ -478,8 +485,8 @@ mod tests {
     #[test]
     fn degenerate_input_does_not_panic() {
         let auto = AutoLocator::new();
-        assert!(!ticks(&auto, f64::NAN, 1.0).is_empty());
-        assert!(!ticks(&auto, 1.5, 1.5).is_empty());
+        assert_ne!(ticks(&auto, f64::NAN, 1.0), Vec::<f64>::new());
+        assert_ne!(ticks(&auto, 1.5, 1.5), Vec::<f64>::new());
         assert!(
             MaxNLocator::new(Nbins::Fixed(0))
                 .tick_values(0.0, 1.0, &TickContext::default())

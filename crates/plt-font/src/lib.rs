@@ -30,7 +30,7 @@ mod tables;
 mod types;
 
 pub use db::{
-    FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
+    AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
     GenericFamilies, GenericFamily, Stretch, Weight,
 };
 pub use error::{FontError, Result};

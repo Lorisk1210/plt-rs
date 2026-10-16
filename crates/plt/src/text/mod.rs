@@ -1,21 +1,33 @@
-//! Text artists (matplotlib.text).
+//! Text artists (matplotlib.text): measuring, laying out and drawing
+//! strings, with mathtext for the lines that contain `$...$` math.
+//!
+//! [`Text`] is the artist handle. Code drawing text without an artist
+//! (tick labels, legends) uses [`lay_out`] and [`draw_laid_out`], which
+//! apply the same rules: lines are split at `\n`, each line with an even
+//! number of unescaped `$` is typeset by mathtext with the `mathtext.*`
+//! settings, and the block is stacked, aligned and rotated like
+//! matplotlib's `Text._get_layout`.
 
 mod layout;
+mod math;
+mod wrap;
 
 use std::rc::Rc;
 
 use plt_core::{Bbox, Point};
-use plt_text::{BlockStyle, HAlign, LineSpacing, RotationMode, VAlign};
+use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
 use crate::colors::Color;
-use crate::fonts::FontProperties;
+use crate::fonts::{FontProperties, FontSize};
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 
-pub(crate) use layout::{LaidOutText, lay_out};
+pub use layout::{LaidOutText, measure_text};
+pub(crate) use layout::{lay_out, lay_out_with_math};
 pub use plt_text::{
-    HAlign as HorizontalAlignment, RotationMode as TextRotationMode, VAlign as VerticalAlignment,
+    BlockLayout, HAlign as HorizontalAlignment, LineMetrics, LinePlacement, LineSpacing,
+    RotationMode as TextRotationMode, TextError, VAlign as VerticalAlignment,
 };
 
 /// State of a text artist (matplotlib's `Text`).
@@ -34,6 +46,10 @@ pub(crate) struct TextArtist {
     pub(crate) rotation_mode: RotationMode,
     pub(crate) linespacing: LineSpacing,
     pub(crate) antialiased: bool,
+    /// Whether lines are wrapped at the figure edge.
+    pub(crate) wrap: bool,
+    /// Whether `$...$` is typeset as math.
+    pub(crate) parse_math: bool,
     rc: Rc<RcParams>,
 }
 
@@ -54,18 +70,26 @@ impl TextArtist {
             rotation_mode: RotationMode::Default,
             linespacing: LineSpacing::Normal,
             antialiased: rc.text_antialiased,
+            wrap: false,
+            parse_math: rc.text_parse_math,
             rc,
         }
     }
 
-    /// Alignment and rotation of the block.
+    /// Alignment and rotation of the block. Wrapped text always aligns
+    /// before rotating (matplotlib switches it to the `anchor` rotation
+    /// mode when wrapping).
     pub(crate) fn block_style(&self) -> BlockStyle {
         BlockStyle {
             rotation: self.rotation.rem_euclid(360.0),
             halign: self.halign,
             valign: self.valign,
             multialign: self.multialign.unwrap_or(self.halign),
-            rotation_mode: self.rotation_mode,
+            rotation_mode: if self.wrap {
+                RotationMode::Anchor
+            } else {
+                self.rotation_mode
+            },
             linespacing: self.linespacing,
         }
     }
@@ -82,9 +106,44 @@ impl TextArtist {
         anchor.is_finite().then_some(anchor)
     }
 
-    /// Lays the text out for the canvas resolution.
-    pub(crate) fn layout(&self, dpi: f64) -> Result<LaidOutText, plt_text::TextError> {
-        lay_out(&self.text, &self.font, &self.block_style(), dpi, &self.rc)
+    /// The extent of the (sub)figure containing the text.
+    fn figure_box(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
+        let mut id = self.base.parent?;
+        loop {
+            if let Some(extent) = ctx.frame_extent(id) {
+                return Some(extent);
+            }
+            id = ctx.store().get(id)?.base().parent?;
+        }
+    }
+
+    /// The text with line breaks inserted so that it fits in its figure,
+    /// if wrapping is on (matplotlib's `_get_wrapped_text`).
+    pub(crate) fn wrapped_text(&self, ctx: LayoutContext<'_>) -> Result<String, TextError> {
+        if !self.wrap {
+            return Ok(self.text.clone());
+        }
+        let (Some(anchor), Some(figure)) = (self.anchor(ctx), self.figure_box(ctx)) else {
+            return Ok(self.text.clone());
+        };
+        let style = self.block_style();
+        let width = wrap::wrap_width(anchor, &figure, style.rotation, style.halign);
+        wrap::wrap_text(&self.text, width, |line| {
+            let math = plt_text::mathtext::is_math_text(line);
+            measure_text(line, &self.font, math, ctx.dpi(), &self.rc).map(|m| m.width.ceil())
+        })
+    }
+
+    /// Lays the (wrapped) text out for the canvas resolution.
+    pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<LaidOutText, TextError> {
+        lay_out_with_math(
+            &self.wrapped_text(ctx)?,
+            &self.font,
+            &self.block_style(),
+            ctx.dpi(),
+            &self.rc,
+            self.parse_math,
+        )
     }
 }
 
@@ -104,7 +163,7 @@ impl Artist for TextArtist {
         let Some(anchor) = self.anchor(*ctx.layout()) else {
             return;
         };
-        let laid_out = match self.layout(ctx.layout().dpi()) {
+        let laid_out = match self.layout(*ctx.layout()) {
             Ok(laid_out) => laid_out,
             Err(err) => return ctx.report(self.base.id(), err),
         };
@@ -123,7 +182,7 @@ impl Artist for TextArtist {
         if self.text.is_empty() {
             return Some(Bbox::from_bounds(anchor.x, anchor.y, 0.0, 0.0));
         }
-        let laid_out = self.layout(ctx.dpi()).ok()?;
+        let laid_out = self.layout(*ctx).ok()?;
         Some(laid_out.block.bbox.translated(anchor.x, anchor.y))
     }
 }
@@ -160,17 +219,48 @@ impl Text {
         Self { raw }
     }
 
-    /// Sets the font size in points.
+    /// Sets the font size in points (sizes below 1 pt become 1 pt).
     pub fn set_fontsize(&self, points: f64) -> &Self {
-        self.raw.with_mut::<TextArtist, _>(|t| t.font.size = points);
-        self
+        self.set_size(FontSize::Points(points))
     }
 
     /// Sets the font size from a keyword relative to `font.size`.
     pub fn set_fontsize_relative(&self, size: crate::fonts::RelativeSize) -> &Self {
-        self.raw
-            .with_mut::<TextArtist, _>(|t| t.font.size = size.scale() * t.rc.font_size);
+        self.set_size(FontSize::Relative(size))
+    }
+
+    /// Sets the font size in points or relative to `font.size`
+    /// (matplotlib's `set_fontsize`).
+    pub fn set_size(&self, size: FontSize) -> &Self {
+        self.raw.with_mut::<TextArtist, _>(|t| {
+            let base = t.rc.font_size;
+            t.font.set_size(size, base);
+        });
         self
+    }
+
+    /// Sets the fonts of math text (matplotlib's `set_math_fontfamily`).
+    pub fn set_math_fontfamily(&self, fontset: crate::fonts::Fontset) -> &Self {
+        self.raw
+            .with_mut::<TextArtist, _>(|t| t.font.math_fontfamily = fontset);
+        self
+    }
+
+    /// The layout matplotlib's `Text._get_layout` computes: the (wrapped)
+    /// lines, their placement relative to the anchor and the bounds of the
+    /// rotated block. Fails for malformed math.
+    pub fn layout(&self) -> Result<LaidOutText, TextError> {
+        let state = self.raw.figure_state().borrow();
+        self.raw
+            .with::<TextArtist, _>(|t| t.layout(LayoutContext::new(&state)))
+    }
+
+    /// The text with the line breaks wrapping adds (the text itself when
+    /// wrapping is off; matplotlib's `_get_wrapped_text`).
+    pub fn wrapped_text(&self) -> Result<String, TextError> {
+        let state = self.raw.figure_state().borrow();
+        self.raw
+            .with::<TextArtist, _>(|t| t.wrapped_text(LayoutContext::new(&state)))
     }
 
     /// Sets the font families (names or generic families).
@@ -213,5 +303,9 @@ artist_properties! {
         font, set_font: FontProperties;
         /// Anti-aliasing.
         antialiased, set_antialiased: bool;
+        /// Whether lines are broken to fit in the figure.
+        wrap, set_wrap: bool;
+        /// Whether `$...$` is typeset as math (`text.parse_math`).
+        parse_math, set_parse_math: bool;
     }
 }

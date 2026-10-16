@@ -7,7 +7,10 @@
 //! default colours, widths and z-order of each flavour.
 
 mod draw;
+mod props;
 mod style;
+
+pub use props::CollectionProps;
 
 use std::rc::Rc;
 

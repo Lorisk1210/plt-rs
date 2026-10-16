@@ -123,6 +123,46 @@ pub struct BlockLayout {
     pub frame: (Point, (f64, f64)),
 }
 
+impl HAlign {
+    /// Parses matplotlib's name (`left`, `center`, `right`).
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "left" => Some(Self::Left),
+            "center" => Some(Self::Center),
+            "right" => Some(Self::Right),
+            _ => None,
+        }
+    }
+}
+
+impl VAlign {
+    /// Parses matplotlib's name (`top`, `bottom`, `center`, `baseline`,
+    /// `center_baseline`).
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "top" => Some(Self::Top),
+            "bottom" => Some(Self::Bottom),
+            "center" => Some(Self::Center),
+            "baseline" => Some(Self::Baseline),
+            "center_baseline" => Some(Self::CenterBaseline),
+            _ => None,
+        }
+    }
+}
+
+impl RotationMode {
+    /// Parses matplotlib's name (`default`, `anchor`, `xtick`, `ytick`).
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "default" => Some(Self::Default),
+            "anchor" => Some(Self::Anchor),
+            "xtick" => Some(Self::XTick),
+            "ytick" => Some(Self::YTick),
+            _ => None,
+        }
+    }
+}
+
 /// Rotates `(x, y)` by `angle` degrees, exactly as matplotlib's
 /// `_rotate_point` (no rotation for zero).
 fn rotate(angle: f64, x: f64, y: f64) -> (f64, f64) {
@@ -385,6 +425,19 @@ mod tests {
             layout.bbox.center().length() < 1e-9,
             "centred on the anchor"
         );
+    }
+
+    #[test]
+    fn names_parse() {
+        assert_eq!(HAlign::parse("center"), Some(HAlign::Center));
+        assert_eq!(HAlign::parse("middle"), None);
+        assert_eq!(
+            VAlign::parse("center_baseline"),
+            Some(VAlign::CenterBaseline)
+        );
+        assert_eq!(VAlign::parse("Top"), None);
+        assert_eq!(RotationMode::parse("ytick"), Some(RotationMode::YTick));
+        assert_eq!(RotationMode::parse("foo"), None);
     }
 
     #[test]

@@ -92,6 +92,7 @@ impl FigureState {
             .filter(|&id| self.store.get_as::<AxesState>(id).is_some())
             .collect();
         for id in axes {
+            self.sync_secondary(id);
             self.unstale_axes(id);
             let Some(extent) = self.axes_bbox(id) else {
                 continue;
@@ -128,10 +129,13 @@ impl TransformContext for FigureState {
         Some(fraction_of(&parent, &node.relative_extent))
     }
 
+    /// Axes are placed in a figure frame, or (secondary axes) in their
+    /// host axes.
     fn axes_bbox(&self, axes: ArtistId) -> Option<Bbox> {
         let state = self.store.get_as::<AxesState>(axes)?;
-        let frame = self.frame_bbox(state.base().parent?)?;
-        Some(fraction_of(&frame, &state.position))
+        let parent = state.base().parent?;
+        let container = self.frame_bbox(parent).or_else(|| self.axes_bbox(parent))?;
+        Some(fraction_of(&container, &state.position))
     }
 
     fn data_transform(&self, axes: ArtistId) -> Option<ResolvedTransform> {

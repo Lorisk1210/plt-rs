@@ -8,6 +8,7 @@ use super::DataLimits;
 use super::axis::{AxisGeometry, AxisState};
 use super::axis_draw::AxisPainter;
 use super::limits::{AxisAutoscale, autoscale_axis};
+use super::secondary::Secondary;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
@@ -44,6 +45,8 @@ pub(crate) struct AxesState {
     /// The axes this one shares its x and y axis with, if any
     /// (matplotlib's `_sharex`, `_sharey`).
     pub(crate) shares: (Option<ArtistId>, Option<ArtistId>),
+    /// Set when this is a secondary axis of another axes.
+    pub(crate) secondary: Option<Secondary>,
     /// Property cycle for lines and patches.
     pub(crate) prop_cycle: Cycler,
     /// Next property-cycle entry for lines.
@@ -121,6 +124,7 @@ impl AxesState {
                 frame_on: true,
             },
             shares: (None, None),
+            secondary: None,
             prop_cycle: rc.axes_prop_cycle.clone(),
             line_cycle: 0,
             patch_cycle: 0,

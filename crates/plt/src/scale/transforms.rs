@@ -238,6 +238,20 @@ impl FuncTransform {
             inverse: Rc::new(inverse),
         }
     }
+
+    /// The identity.
+    pub fn identity() -> Self {
+        Self::new(|x| x, |x| x)
+    }
+
+    /// The same pair with forward and inverse swapped.
+    #[must_use]
+    pub fn reversed(&self) -> Self {
+        Self {
+            forward: Rc::clone(&self.inverse),
+            inverse: Rc::clone(&self.forward),
+        }
+    }
 }
 
 impl fmt::Debug for FuncTransform {

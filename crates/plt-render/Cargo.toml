@@ -1,0 +1,13 @@
+[package]
+name = "plt-render"
+description = "Renderer abstraction with raster (PNG), SVG, PDF and PostScript backends"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+plt-core.workspace = true
+
+[lints]
+workspace = true

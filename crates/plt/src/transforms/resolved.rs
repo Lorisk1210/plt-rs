@@ -57,8 +57,10 @@ impl Step {
         Some(match self {
             Self::Affine(affine) => Self::Affine(affine.inverted()?),
             Self::Separable(x, y) => Self::Separable(
-                x.as_ref().map(|m| Rc::new(InverseAxis(Rc::clone(m))) as Rc<dyn AxisMap>),
-                y.as_ref().map(|m| Rc::new(InverseAxis(Rc::clone(m))) as Rc<dyn AxisMap>),
+                x.as_ref()
+                    .map(|m| Rc::new(InverseAxis(Rc::clone(m))) as Rc<dyn AxisMap>),
+                y.as_ref()
+                    .map(|m| Rc::new(InverseAxis(Rc::clone(m))) as Rc<dyn AxisMap>),
             ),
             Self::Plane(map) => Self::Plane(Rc::new(InversePlane(Rc::clone(map)))),
             // A blend is only invertible when each component is separable;
@@ -121,12 +123,18 @@ impl ResolvedTransform {
 
     /// A purely affine transform.
     pub fn affine(affine: Affine2D) -> Self {
-        Self { steps: Vec::new(), affine }
+        Self {
+            steps: Vec::new(),
+            affine,
+        }
     }
 
     /// A non-affine step followed by an affine map.
     pub fn with_step(step: Step, affine: Affine2D) -> Self {
-        Self { steps: vec![step], affine }
+        Self {
+            steps: vec![step],
+            affine,
+        }
     }
 
     /// Whether the transform is a single affine map.
@@ -261,24 +269,39 @@ mod tests {
         let t = ResolvedTransform::affine(Affine2D::scaling(2.0, 2.0))
             .then(ResolvedTransform::affine(Affine2D::translation(1.0, 0.0)));
         assert!(t.is_affine());
-        assert_eq!(t.transform_point(Point::new(1.0, 1.0)), Point::new(3.0, 2.0));
+        assert_eq!(
+            t.transform_point(Point::new(1.0, 1.0)),
+            Point::new(3.0, 2.0)
+        );
     }
 
     #[test]
     fn non_affine_steps_then_affine() {
         let t = log_x_then_scale();
-        assert!(close(t.transform_point(Point::new(1000.0, 3.0)), Point::new(300.0, 6.0)));
+        assert!(close(
+            t.transform_point(Point::new(1000.0, 3.0)),
+            Point::new(300.0, 6.0)
+        ));
         let inv = t.inverted().expect("invertible");
-        assert!(close(inv.transform_point(Point::new(300.0, 6.0)), Point::new(1000.0, 3.0)));
+        assert!(close(
+            inv.transform_point(Point::new(300.0, 6.0)),
+            Point::new(1000.0, 3.0)
+        ));
     }
 
     #[test]
     fn composition_keeps_order() {
         let t = ResolvedTransform::affine(Affine2D::scaling(10.0, 1.0)).then(log_x_then_scale());
         // (10 * 10 = 100) -> log10 = 2 -> * 100 = 200
-        assert!(close(t.transform_point(Point::new(10.0, 1.0)), Point::new(200.0, 2.0)));
+        assert!(close(
+            t.transform_point(Point::new(10.0, 1.0)),
+            Point::new(200.0, 2.0)
+        ));
         let inv = t.inverted().expect("invertible");
-        assert!(close(inv.transform_point(Point::new(200.0, 2.0)), Point::new(10.0, 1.0)));
+        assert!(close(
+            inv.transform_point(Point::new(200.0, 2.0)),
+            Point::new(10.0, 1.0)
+        ));
     }
 
     #[test]
@@ -286,13 +309,19 @@ mod tests {
         let x = ResolvedTransform::affine(Affine2D::scaling(2.0, 0.0));
         let y = log_x_then_scale().then(ResolvedTransform::affine(Affine2D::translation(0.0, 1.0)));
         let blended = ResolvedTransform::blend(x, y);
-        assert!(close(blended.transform_point(Point::new(5.0, 4.0)), Point::new(10.0, 9.0)));
+        assert!(close(
+            blended.transform_point(Point::new(5.0, 4.0)),
+            Point::new(10.0, 9.0)
+        ));
         let affine_blend = ResolvedTransform::blend(
             ResolvedTransform::affine(Affine2D::scaling(2.0, 7.0)),
             ResolvedTransform::affine(Affine2D::scaling(5.0, 3.0)),
         );
         assert!(affine_blend.is_affine());
-        assert_eq!(affine_blend.transform_point(Point::new(1.0, 1.0)), Point::new(2.0, 3.0));
+        assert_eq!(
+            affine_blend.transform_point(Point::new(1.0, 1.0)),
+            Point::new(2.0, 3.0)
+        );
     }
 
     #[test]
@@ -302,6 +331,9 @@ mod tests {
         let (partial, affine) = t.split_path(&path);
         assert!(close(partial.vertices()[1], Point::new(2.0, 2.0)));
         assert_eq!(affine, Affine2D::scaling(100.0, 2.0));
-        assert!(close(t.transform_path(&path).vertices()[0], Point::new(100.0, 2.0)));
+        assert!(close(
+            t.transform_path(&path).vertices()[0],
+            Point::new(100.0, 2.0)
+        ));
     }
 }

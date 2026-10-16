@@ -63,13 +63,18 @@ pub struct DrawContext<'a> {
 
 impl std::fmt::Debug for DrawContext<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DrawContext").field("layout", &self.layout).finish_non_exhaustive()
+        f.debug_struct("DrawContext")
+            .field("layout", &self.layout)
+            .finish_non_exhaustive()
     }
 }
 
 impl<'a> DrawContext<'a> {
     pub(crate) fn new(figure: &'a FigureState, renderer: &'a mut dyn Renderer) -> Self {
-        Self { layout: LayoutContext::new(figure), renderer }
+        Self {
+            layout: LayoutContext::new(figure),
+            renderer,
+        }
     }
 
     /// Read-only geometry access.
@@ -132,8 +137,13 @@ impl<'a> DrawContext<'a> {
             ..GraphicsContext::default()
         };
         if base.clip_on {
-            gc.clip_rect = base.clip_box.and_then(|owner| self.layout.clip_extent(owner));
-            gc.clip_path = base.clip_path.as_ref().and_then(|spec| self.clip_path(spec));
+            gc.clip_rect = base
+                .clip_box
+                .and_then(|owner| self.layout.clip_extent(owner));
+            gc.clip_path = base
+                .clip_path
+                .as_ref()
+                .and_then(|spec| self.clip_path(spec));
         }
         gc
     }
@@ -143,7 +153,10 @@ impl<'a> DrawContext<'a> {
             ClipPathSpec::Path { path, transform } => {
                 let resolved = self.resolve(transform)?;
                 let (path, transform) = resolved.split_path(path);
-                Some(ClipPath { path: path.into_owned(), transform })
+                Some(ClipPath {
+                    path: path.into_owned(),
+                    transform,
+                })
             }
             ClipPathSpec::Artist(id) => self.layout.store().get(*id)?.outline(&self.layout),
         }

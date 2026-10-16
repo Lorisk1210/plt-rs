@@ -56,8 +56,12 @@ impl Artist for FigureFrame {
             let mut gc = ctx.base_gc(&self.base);
             gc.linewidth = self.linewidth;
             gc.foreground = self.edgecolor;
-            ctx.renderer()
-                .draw_path(&gc, &Path::unit_rectangle(), &unit_to_bbox(&extent), Some(self.facecolor));
+            ctx.renderer().draw_path(
+                &gc,
+                &Path::unit_rectangle(),
+                &unit_to_bbox(&extent),
+                Some(self.facecolor),
+            );
         }
         ctx.draw_children_sorted(&self.children);
     }

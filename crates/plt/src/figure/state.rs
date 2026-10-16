@@ -28,7 +28,13 @@ impl FigureState {
     pub(crate) fn new(size_inches: (f64, f64), dpi: f64, facecolor: Rgba, edgecolor: Rgba) -> Self {
         let mut store = ArtistStore::default();
         let root = store.insert(Box::new(FigureFrame::new(Bbox::UNIT, facecolor, edgecolor)));
-        Self { store, root, dpi, size_inches, stale: true }
+        Self {
+            store,
+            root,
+            dpi,
+            size_inches,
+            stale: true,
+        }
     }
 
     /// Canvas size in pixels.
@@ -37,7 +43,11 @@ impl FigureState {
     }
 
     /// Inserts `artist` as a child of the container `parent`.
-    pub(crate) fn adopt(&mut self, parent: ArtistId, mut artist: Box<dyn crate::artist::Artist>) -> ArtistId {
+    pub(crate) fn adopt(
+        &mut self,
+        parent: ArtistId,
+        mut artist: Box<dyn crate::artist::Artist>,
+    ) -> ArtistId {
         artist.base_mut().parent = Some(parent);
         let id = self.store.insert(artist);
         if let Some(frame) = self.store.get_as_mut::<FigureFrame>(parent) {
@@ -89,7 +99,11 @@ impl TransformContext for FigureState {
 
     fn data_transform(&self, axes: ArtistId) -> Option<ResolvedTransform> {
         let display = self.axes_bbox(axes)?;
-        Some(self.store.get_as::<AxesState>(axes)?.data_transform(&display))
+        Some(
+            self.store
+                .get_as::<AxesState>(axes)?
+                .data_transform(&display),
+        )
     }
 }
 

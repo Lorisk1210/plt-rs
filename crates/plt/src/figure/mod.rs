@@ -4,6 +4,7 @@ mod frame;
 mod mosaic;
 mod save;
 mod state;
+mod subfigure;
 mod subplots;
 #[cfg(test)]
 mod tests;
@@ -19,6 +20,7 @@ pub(crate) use frame::FigureFrame;
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use save::SaveError;
 pub(crate) use state::FigureState;
+pub use subfigure::SubfigureOptions;
 pub use subplots::Share;
 pub(crate) use subplots::insert_axes;
 
@@ -300,17 +302,28 @@ impl Figure {
     }
 
     /// Every axes of the figure, in creation order.
+    /// The figure lists the axes of its subfigures too (matplotlib's
+    /// shared axes stack); a subfigure lists only its own.
     pub fn axes(&self) -> Vec<Axes> {
         let state = self.state.borrow();
-        let frame = state
+        let frame_id = self.root.id();
+        let in_scope = |parent: Option<ArtistId>| match parent {
+            Some(parent) if frame_id == state.root => {
+                state.store.get_as::<FigureFrame>(parent).is_some()
+            }
+            Some(parent) => parent == frame_id,
+            None => false,
+        };
+        state
             .store
-            .get_as::<FigureFrame>(state.root)
-            .expect("the root frame lives as long as the figure");
-        frame
-            .children
-            .iter()
-            .filter(|&&id| state.store.get_as::<AxesState>(id).is_some())
-            .map(|&id| Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id)))
+            .ids()
+            .filter(|&id| {
+                state
+                    .store
+                    .get_as::<AxesState>(id)
+                    .is_some_and(|axes| in_scope(axes.base().parent))
+            })
+            .map(|id| Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id)))
             .collect()
     }
 

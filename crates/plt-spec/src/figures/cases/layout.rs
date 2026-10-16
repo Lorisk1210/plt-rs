@@ -1,6 +1,6 @@
 //! `figures/cases_layout.py`.
 
-use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicOptions, Share};
+use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicOptions, Share, SubfigureOptions};
 use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::prelude::*;
 use plt::text::Text;
@@ -144,6 +144,23 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..MosaicOptions::default()
         };
         fill_sorted(&fig.subplot_mosaic(&mosaic, &options)?, Some(8.0))
+    }),
+    FigureCase::new("layout/subfigures_side_by_side", |fig| {
+        let options = SubfigureOptions {
+            wspace: Some(0.05),
+            width_ratios: Some(vec![2.0, 1.0]),
+            ..SubfigureOptions::default()
+        };
+        let parts = fig.subfigures(1, 2, &options)?;
+        let (left, right) = (&parts[(0, 0)], &parts[(0, 1)]);
+        left.set_facecolor(Color::from("0.92").resolve()?);
+        left.suptitle("left subfigure");
+        for (i, ax) in left.subplots(2, 1)?.as_slice().iter().enumerate() {
+            fill(ax, i)?;
+        }
+        right.suptitle("right subfigure");
+        fill(&right.subplot(), 3)?;
+        Ok(())
     }),
     FigureCase::new("layout/add_axes_rects", |fig| {
         fill(&fig.add_axes([0.1, 0.1, 0.8, 0.8]), 0)?;

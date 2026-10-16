@@ -1,0 +1,19 @@
+{
+ "size_px": [500, 400],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.25, 0.775, 0.63],
+   "title": "",
+   "xlim": [-0.2, 4.2],
+   "ylim": [0.8, 5.2],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "January"], [1, "February"], [2, "March"], [3, "April"], [4, "May"]],
+   "yticks": [[1, "low"], [3, "mid"], [5, "high"]]
+  }
+ ]
+}

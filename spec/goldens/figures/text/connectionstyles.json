@@ -1,0 +1,110 @@
+{
+ "size_px": [800, 500],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.583846, 0.158163, 0.296154],
+   "title": "arc3",
+   "xlim": [0.17, 0.83],
+   "ylim": [0.17, 0.83],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.330612, 0.583846, 0.158163, 0.296154],
+   "title": "arc3\nrad=0.3",
+   "xlim": [0.17, 0.83],
+   "ylim": [0.17, 0.83],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.536224, 0.583846, 0.158163, 0.296154],
+   "title": "arc3\nrad=-0.3",
+   "xlim": [0.17, 0.83],
+   "ylim": [0.17, 0.83],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.741837, 0.583846, 0.158163, 0.296154],
+   "title": "angle3\nangleA=90\nangleB=0",
+   "xlim": [0.17, 0.83],
+   "ylim": [0.17, 0.83],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.158163, 0.296154],
+   "title": "angle\nangleA=-90\nangleB=180\nrad=0",
+   "xlim": [0.17, 0.83],
+   "ylim": [0.17, 0.83],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.330612, 0.11, 0.158163, 0.296154],
+   "title": "angle\nangleA=-90\nangleB=180\nrad=5",
+   "xlim": [0.17, 0.83],
+   "ylim": [0.17, 0.83],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.536224, 0.11, 0.158163, 0.296154],
+   "title": "arc\nangleA=-90\nangleB=0\narmA=30\narmB=30\nrad=0",
+   "xlim": [0.17, 0.83],
+   "ylim": [0.17, 0.83],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.741837, 0.11, 0.158163, 0.296154],
+   "title": "bar\nfraction=0.1",
+   "xlim": [0.17, 0.83],
+   "ylim": [0.17, 0.83],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

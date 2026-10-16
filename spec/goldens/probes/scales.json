@@ -1,0 +1,1091 @@
+{
+ "area": "scales",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"base": 0}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 0, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 0, "subs": null},
+    "major_formatter": {"class": "StrMethodFormatter", "fmt": "{x:.3g}"},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"base": 16}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 16, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 16, "subs": [2.0, 4.0, 8.0]},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 16.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"linear_width": 0.5, "base": 2}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 0.5, "numticks": 11, "symthresh": 0.2, "base": 2, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 0.5, "numticks": 11, "symthresh": 0.2, "base": 2, "subs": null},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"base": 7}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 7, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 7, "subs": null},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 7.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"subs": [3]}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 10, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 10, "subs": [3.0]},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 10, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 10, "subs": [2.0, 5.0]},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"base": 0}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 0, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 0, "subs": null},
+    "major_formatter": {"class": "StrMethodFormatter", "fmt": "{x:.3g}"},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"base": 16}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 16, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 16, "subs": [2.0, 4.0, 8.0]},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 16.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"linear_width": 0.5, "base": 2}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 0.5, "numticks": 11, "symthresh": 0.2, "base": 2, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 0.5, "numticks": 11, "symthresh": 0.2, "base": 2, "subs": null},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"base": 7}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 7, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 7, "subs": null},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 7.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {"subs": [3]}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 10, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 10, "subs": [3.0]},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 10, "subs": null},
+    "minor_locator": {"class": "AsinhLocator", "linear_width": 1.0, "numticks": 11, "symthresh": 0.2, "base": 10, "subs": [2.0, 5.0]},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.AsinhScale.inverted.transform",
+   "args": {
+    "params": {"linear_width": 1.0, "base": 2},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-11013.232874703393, -27.289917197127753, -10.017874927409903, -3.6268604078470186, -2.1292794550948173, -1.1752011936438014, -0.5210953054937474, 0.0, 0.5210953054937474, 1.1752011936438014, 2.1292794550948173, 3.6268604078470186, 10.017874927409903, 27.289917197127753, 11013.232874703393, 2.610734844882072e+173, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.AsinhScale.inverted.transform",
+   "args": {
+    "params": {"linear_width": 0.1},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-1.3440585709080679e+42, -1.1769263341851e+16, -534323729076.22314, -24258259.770489514, -163450.86862359024, -1101.3232874703394, -7.420321057778875, 0.0, 7.420321057778875, 1101.3232874703394, 163450.86862359024, 24258259.770489514, 534323729076.22314, 1.1769263341851e+16, 1.3440585709080679e+42, Infinity, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.AsinhScale.inverted.transform",
+   "args": {
+    "params": {"linear_width": 10.0},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-11.752011936438013, -4.107523258028155, -3.045202934471426, -2.01336002541094, -1.5056313315161265, -1.0016675001984403, -0.5002083593765502, 0.0, 0.5002083593765502, 1.0016675001984403, 1.5056313315161265, 2.01336002541094, 3.045202934471426, 4.107523258028155, 11.752011936438013, 1.1769263341851e+18, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.AsinhScale.inverted.transform",
+   "args": {
+    "params": {"linear_width": 1e-05},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-Infinity, -Infinity, -Infinity, -Infinity, -Infinity, -Infinity, -Infinity, 0.0, Infinity, Infinity, Infinity, Infinity, Infinity, Infinity, Infinity, Infinity, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.AsinhScale.inverted.transform",
+   "args": {"params": {}, "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]},
+   "value": [-11013.232874703393, -27.289917197127753, -10.017874927409903, -3.6268604078470186, -2.1292794550948173, -1.1752011936438014, -0.5210953054937474, 0.0, 0.5210953054937474, 1.1752011936438014, 2.1292794550948173, 3.6268604078470186, 10.017874927409903, 27.289917197127753, 11013.232874703393, 2.610734844882072e+173, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.AsinhScale.limit_range_for_scale", "args": {"params": {}, "vmin": -5.0, "vmax": 5.0, "minpos": 1.0}, "value": [-5.0, 5.0]},
+  {
+   "op": "scale.AsinhScale.transform",
+   "args": {
+    "params": {"linear_width": 1.0, "base": 2},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-7.600902709541988, -5.298342365610589, -2.99822295029797, -1.4436354751788103, -0.881373587019543, -0.48121182505960347, -0.009999833340832888, 0.0, 0.009999833340832888, 0.48121182505960347, 0.881373587019543, 1.4436354751788103, 2.99822295029797, 5.298342365610589, 7.600902709541988, 691.4686750787737, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.AsinhScale.transform", "args": {"params": {"linear_width": -1.0}, "values": [1.0]}, "error": "ValueError"},
+  {"op": "scale.AsinhScale.transform", "args": {"params": {"linear_width": 0.0}, "values": [1.0]}, "error": "ValueError"},
+  {
+   "op": "scale.AsinhScale.transform",
+   "args": {
+    "params": {"linear_width": 0.1},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-0.9903487555036128, -0.7600902709541989, -0.5298342365610589, -0.3689503868988906, -0.299822295029797, -0.23124383412727526, -0.009983407889920755, 0.0, 0.009983407889920755, 0.23124383412727526, 0.299822295029797, 0.3689503868988906, 0.5298342365610589, 0.7600902709541989, 0.9903487555036128, 69.37712601717678, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.AsinhScale.transform",
+   "args": {
+    "params": {"linear_width": 10.0},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-52.983423656105884, -29.9822295029797, -8.81373587019543, -1.9869011034924142, -0.9983407889920757, -0.49979190069348667, -0.009999998333334082, 0.0, 0.009999998333334082, 0.49979190069348667, 0.9983407889920757, 1.9869011034924142, 8.81373587019543, 29.9822295029797, 52.983423656105884, 6891.660899857797, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.AsinhScale.transform",
+   "args": {
+    "params": {"linear_width": 1e-05},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-0.00019113827924512313, -0.00016811242831518268, -0.0001450865773852447, -0.0001289921982609637, -0.00012206072645555175, -0.0001151292546507023, -7.600902709541989e-05, 0.0, 7.600902709541989e-05, 0.0001151292546507023, 0.00012206072645555175, 0.0001289921982609637, 0.0001450865773852447, 0.00016811242831518268, 0.00019113827924512313, 0.007029816005437439, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.AsinhScale.transform",
+   "args": {"params": {}, "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-7.600902709541988, -5.298342365610589, -2.99822295029797, -1.4436354751788103, -0.881373587019543, -0.48121182505960347, -0.009999833340832888, 0.0, 0.009999833340832888, 0.48121182505960347, 0.881373587019543, 1.4436354751788103, 2.99822295029797, 5.298342365610589, 7.600902709541988, 691.4686750787737, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.AsinhScale.val_in_range",
+   "args": {"params": {}, "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false, false, false]
+  },
+  {
+   "op": "scale.FuncScale.default_locators_and_formatters",
+   "args": {"params": {"functions": "affine"}, "axis": "x", "rc": {"xtick.minor.visible": true}},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "AutoMinorLocator", "ndivs": null},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.FuncScale.default_locators_and_formatters",
+   "args": {"params": {"functions": "square"}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "NullLocator"},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.FuncScale.default_locators_and_formatters",
+   "args": {"params": {"functions": "affine"}, "axis": "y", "rc": {"xtick.minor.visible": true}},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "NullLocator"},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.FuncScale.default_locators_and_formatters",
+   "args": {"params": {"functions": "affine"}, "axis": "y", "rc": {"ytick.minor.visible": true}},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "AutoMinorLocator", "ndivs": null},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.FuncScale.default_locators_and_formatters",
+   "args": {"params": {"functions": "square"}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "NullLocator"},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.FuncScale.inverted.transform",
+   "args": {"params": {"functions": "affine"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [-0.5, -0.375, -0.25, 0.0, 0.5, 4.5, 5e+99, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScale.inverted.transform",
+   "args": {"params": {"functions": "cube"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [0.0, 0.6299605249474366, 0.7937005259840998, 1.0, 1.2599210498948732, 2.154434690031884, 2.1544346900318838e+33, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScale.inverted.transform",
+   "args": {"params": {"functions": "log1p"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [0.0, 0.2840254166877415, 0.6487212707001282, 1.7182818284590453, 6.38905609893065, 22025.465794806718, Infinity, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScale.inverted.transform",
+   "args": {"params": {"functions": "square"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [0.0, 0.5, 0.7071067811865476, 1.0, 1.4142135623730951, 3.1622776601683795, 1e+50, NaN, Infinity]
+  },
+  {"op": "scale.FuncScale.limit_range_for_scale", "args": {"params": {"functions": "square"}, "vmin": -1.0, "vmax": 4.0, "minpos": 1.0}, "value": [-1.0, 4.0]},
+  {
+   "op": "scale.FuncScale.transform",
+   "args": {"params": {"functions": "affine"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [1.0, 1.5, 2.0, 3.0, 5.0, 21.0, 2e+100, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScale.transform",
+   "args": {"params": {"functions": "cube"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [0.0, 0.015625, 0.125, 1.0, 8.0, 1000.0, 1e+300, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScale.transform",
+   "args": {"params": {"functions": "log1p"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [0.0, 0.22314355131420976, 0.4054651081081644, 0.6931471805599453, 1.0986122886681098, 2.3978952727983707, 230.25850929940458, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScale.transform",
+   "args": {"params": {"functions": "square"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [0.0, 0.0625, 0.25, 1.0, 4.0, 100.0, 1e+200, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScale.val_in_range",
+   "args": {"params": {"functions": "square"}, "values": [-1e+300, -100.0, -1.0, -0.5, 0.0, 0.5, 1.0, 100.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [true, true, true, true, true, true, true, true, true, false, false, false]
+  },
+  {
+   "op": "scale.FuncScaleLog.default_locators_and_formatters",
+   "args": {"params": {"functions": "affine"}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 10.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 10.0, "subs": "auto", "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.FuncScaleLog.default_locators_and_formatters",
+   "args": {"params": {"functions": "affine"}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 10.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 10.0, "subs": "auto", "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {"op": "scale.FuncScaleLog.inverted.transform", "args": {"params": {"functions": "affine", "base": 2}, "values": [-1.0, 0.0, 3.0]}, "value": [-0.25, 0.0, 3.5]},
+  {
+   "op": "scale.FuncScaleLog.inverted.transform",
+   "args": {"params": {"functions": "affine"}, "values": [-2.0, -1.0, 0.0, 0.5, 1.0, 2.0, NaN]},
+   "value": [-0.495, -0.45, 0.0, 1.0811388300841898, 4.500000000000001, 49.50000000000002, NaN]
+  },
+  {
+   "op": "scale.FuncScaleLog.inverted.transform",
+   "args": {"params": {"functions": "cube"}, "values": [-2.0, -1.0, 0.0, 0.5, 1.0, 2.0, NaN]},
+   "value": [0.21544346900318834, 0.46415888336127786, 1.0, 1.4677992676220695, 2.154434690031884, 4.641588833612779, NaN]
+  },
+  {
+   "op": "scale.FuncScaleLog.inverted.transform",
+   "args": {"params": {"functions": "log1p"}, "values": [-2.0, -1.0, 0.0, 0.5, 1.0, 2.0, NaN]},
+   "value": [0.010050167084168053, 0.1051709180756476, 1.7182818284590453, 22.624342922017807, 22025.465794806754, 2.68811714181625e+43, NaN]
+  },
+  {
+   "op": "scale.FuncScaleLog.inverted.transform",
+   "args": {"params": {"functions": "square"}, "values": [-2.0, -1.0, 0.0, 0.5, 1.0, 2.0, NaN]},
+   "value": [0.09999999999999998, 0.3162277660168379, 1.0, 1.7782794100389228, 3.1622776601683795, 10.000000000000002, NaN]
+  },
+  {"op": "scale.FuncScaleLog.limit_range_for_scale", "args": {"params": {"functions": "square"}, "vmin": -1.0, "vmax": 4.0, "minpos": 0.5}, "value": [0.5, 4.0]},
+  {
+   "op": "scale.FuncScaleLog.transform",
+   "args": {"params": {"functions": "affine", "base": 2}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [0.0, 0.5849625007211562, 1.0, 1.584962500721156, 2.321928094887362, 4.392317422778761, 333.19280948873626, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScaleLog.transform",
+   "args": {"params": {"functions": "affine"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [0.0, 0.17609125905568124, 0.3010299956639812, 0.47712125471966244, 0.6989700043360189, 1.3222192947339193, 100.30102999566398, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScaleLog.transform",
+   "args": {"params": {"functions": "cube"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [-1000.0, -1.806179973983887, -0.9030899869919435, 0.0, 0.9030899869919435, 3.0, 300.0, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScaleLog.transform",
+   "args": {"params": {"functions": "log1p"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [-1000.0, -0.6514156594356942, -0.39204651261946405, -0.1591745389548616, 0.04084445256892067, 0.379830211523892, 2.362215688699463, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScaleLog.transform",
+   "args": {"params": {"functions": "square"}, "values": [0.0, 0.25, 0.5, 1.0, 2.0, 10.0, 1e+100, NaN, Infinity]},
+   "value": [-1000.0, -1.2041199826559248, -0.6020599913279624, 0.0, 0.6020599913279624, 2.0, 200.0, NaN, Infinity]
+  },
+  {
+   "op": "scale.FuncScaleLog.val_in_range",
+   "args": {"params": {"functions": "square"}, "values": [-1e+300, -100.0, -1.0, -0.5, 0.0, 0.5, 1.0, 100.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [false, false, false, false, false, true, true, true, true, false, false, false]
+  },
+  {
+   "op": "scale.LinearScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "x", "rc": {"_internal.classic_mode": true}},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": 9, "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "NullLocator"},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.LinearScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "x", "rc": {"xtick.minor.visible": true}},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "AutoMinorLocator", "ndivs": null},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.LinearScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "NullLocator"},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.LinearScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "y", "rc": {"xtick.minor.visible": true}},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "NullLocator"},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.LinearScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "y", "rc": {"ytick.minor.visible": true}},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "AutoMinorLocator", "ndivs": null},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.LinearScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "AutoLocator", "nbins": "auto", "steps": [1.0, 2.0, 2.5, 5.0, 10.0], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2},
+    "minor_locator": {"class": "NullLocator"},
+    "major_formatter": {
+     "class": "ScalarFormatter",
+     "useOffset": true,
+     "offset": 0,
+     "useMathText": false,
+     "useLocale": false,
+     "usetex": false,
+     "scientific": true,
+     "powerlimits": [-5, 6],
+     "offset_threshold": 4
+    },
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.LinearScale.inverted.transform",
+   "args": {"params": {}, "values": [-1e+300, -100.0, -1.0, -0.5, 0.0, 0.5, 1.0, 100.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-1e+300, -100.0, -1.0, -0.5, 0.0, 0.5, 1.0, 100.0, 1e+300, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.LinearScale.limit_range_for_scale", "args": {"params": {}, "vmin": -5.0, "vmax": 5.0, "minpos": 1.0}, "value": [-5.0, 5.0]},
+  {
+   "op": "scale.LinearScale.transform",
+   "args": {"params": {}, "values": [-1e+300, -100.0, -1.0, -0.5, 0.0, 0.5, 1.0, 100.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-1e+300, -100.0, -1.0, -0.5, 0.0, 0.5, 1.0, 100.0, 1e+300, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.LinearScale.val_in_range",
+   "args": {"params": {}, "values": [-1e+300, -100.0, -1.0, -0.5, 0.0, 0.5, 1.0, 100.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [true, true, true, true, true, true, true, true, true, false, false, false]
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {"base": 2, "subs": [1.5], "nonpositive": "mask"}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 2.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 2.0, "subs": [1.5], "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": true, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {"base": 2}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 2.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 2.0, "subs": "auto", "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {"subs": [2, 5]}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 10.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 10.0, "subs": [2.0, 5.0], "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": true, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "x", "rc": {"_internal.classic_mode": true}},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 10.0, "subs": [1.0], "numticks": 15},
+    "minor_locator": {"class": "LogLocator", "base": 10.0, "subs": "auto", "numticks": 15},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [0, 0], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [0, 0], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 10.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 10.0, "subs": "auto", "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {"base": 2, "subs": [1.5], "nonpositive": "mask"}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 2.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 2.0, "subs": [1.5], "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": true, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {"base": 2}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 2.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 2.0, "subs": "auto", "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {"subs": [2, 5]}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 10.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 10.0, "subs": [2.0, 5.0], "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": true, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "LogLocator", "base": 10.0, "subs": [1.0], "numticks": "auto"},
+    "minor_locator": {"class": "LogLocator", "base": 10.0, "subs": "auto", "numticks": "auto"},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null}
+   }
+  },
+  {
+   "op": "scale.LogScale.inverted.transform",
+   "args": {"params": {"base": 0.5}, "values": [-1000.0, -300.0, -3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 10.0, 300.0, 400.0, 1100.0, NaN, Infinity, -Infinity]},
+   "value": [1.0715086071861939e+301, 2.0370359763344673e+90, 7.999999999999998, 2.0, 1.414213562373095, 1.0, 0.7071067811865476, 0.5, 0.25, 0.0009765625, 4.909093465297771e-91, 3.872591914849292e-121, 0.0, NaN, 0.0, Infinity]
+  },
+  {
+   "op": "scale.LogScale.inverted.transform",
+   "args": {
+    "params": {"base": 100.0, "nonpositive": "mask"},
+    "values": [-1000.0, -300.0, -3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 10.0, 300.0, 400.0, 1100.0, NaN, Infinity, -Infinity]
+   },
+   "value": [0.0, 0.0, 9.999999999999987e-07, 0.009999999999999995, 0.09999999999999998, 1.0, 10.000000000000002, 100.00000000000004, 10000.00000000001, 1.0000000000000079e+20, Infinity, Infinity, Infinity, NaN, Infinity, 0.0]
+  },
+  {
+   "op": "scale.LogScale.inverted.transform",
+   "args": {
+    "params": {"base": 2, "nonpositive": "mask"},
+    "values": [-1000.0, -300.0, -3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 10.0, 300.0, 400.0, 1100.0, NaN, Infinity, -Infinity]
+   },
+   "value": [9.332636185032189e-302, 4.909093465297727e-91, 0.125, 0.5, 0.7071067811865476, 1.0, 1.4142135623730951, 2.0, 4.0, 1024.0, 2.037035976334486e+90, 2.5822498780869086e+120, Infinity, NaN, Infinity, 0.0]
+  },
+  {
+   "op": "scale.LogScale.inverted.transform",
+   "args": {"params": {"base": 2.718281828459045}, "values": [-1000.0, -300.0, -3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 10.0, 300.0, 400.0, 1100.0, NaN, Infinity, -Infinity]},
+   "value": [0.0, 5.148200222412013e-131, 0.049787068367863944, 0.36787944117144233, 0.6065306597126334, 1.0, 1.6487212707001282, 2.718281828459045, 7.38905609893065, 22026.465794806718, 1.9424263952412558e+130, 5.221469689764144e+173, Infinity, NaN, Infinity, 0.0]
+  },
+  {
+   "op": "scale.LogScale.inverted.transform",
+   "args": {"params": {"base": 2}, "values": [-1000.0, -300.0, -3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 10.0, 300.0, 400.0, 1100.0, NaN, Infinity, -Infinity]},
+   "value": [9.332636185032189e-302, 4.909093465297727e-91, 0.125, 0.5, 0.7071067811865476, 1.0, 1.4142135623730951, 2.0, 4.0, 1024.0, 2.037035976334486e+90, 2.5822498780869086e+120, Infinity, NaN, Infinity, 0.0]
+  },
+  {
+   "op": "scale.LogScale.inverted.transform",
+   "args": {"params": {"base": 3.0}, "values": [-1000.0, -300.0, -3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 10.0, 300.0, 400.0, 1100.0, NaN, Infinity, -Infinity]},
+   "value": [0.0, 7.305056581147575e-144, 0.037037037037037035, 0.3333333333333333, 0.5773502691896257, 1.0, 1.7320508075688774, 3.0000000000000004, 9.000000000000002, 59049.00000000008, 1.3689147905859296e+143, 7.055079108655513e+190, Infinity, NaN, Infinity, 0.0]
+  },
+  {
+   "op": "scale.LogScale.inverted.transform",
+   "args": {"params": {"nonpositive": "mask"}, "values": [-1000.0, -300.0, -3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 10.0, 300.0, 400.0, 1100.0, NaN, Infinity, -Infinity]},
+   "value": [0.0, 9.9999999999991e-301, 0.0009999999999999994, 0.09999999999999998, 0.3162277660168379, 1.0, 3.1622776601683795, 10.000000000000002, 100.00000000000004, 10000000000.00004, 1.00000000000009e+300, Infinity, Infinity, NaN, Infinity, 0.0]
+  },
+  {
+   "op": "scale.LogScale.inverted.transform",
+   "args": {"params": {}, "values": [-1000.0, -300.0, -3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 10.0, 300.0, 400.0, 1100.0, NaN, Infinity, -Infinity]},
+   "value": [0.0, 9.9999999999991e-301, 0.0009999999999999994, 0.09999999999999998, 0.3162277660168379, 1.0, 3.1622776601683795, 10.000000000000002, 100.00000000000004, 10000000000.00004, 1.00000000000009e+300, Infinity, Infinity, NaN, Infinity, 0.0]
+  },
+  {"op": "scale.LogScale.limit_range_for_scale", "args": {"params": {}, "vmin": -5.0, "vmax": -1.0, "minpos": 0.5}, "value": [0.5, 0.5]},
+  {"op": "scale.LogScale.limit_range_for_scale", "args": {"params": {}, "vmin": -5.0, "vmax": 10.0, "minpos": 0.5}, "value": [0.5, 10.0]},
+  {"op": "scale.LogScale.limit_range_for_scale", "args": {"params": {}, "vmin": 0.0, "vmax": 10.0, "minpos": 0.5}, "value": [0.5, 10.0]},
+  {"op": "scale.LogScale.limit_range_for_scale", "args": {"params": {}, "vmin": 1.0, "vmax": 10.0, "minpos": 1.0}, "value": [1.0, 10.0]},
+  {"op": "scale.LogScale.limit_range_for_scale", "args": {"params": {}, "vmin": 10.0, "vmax": 0.0, "minpos": 2.0}, "value": [10.0, 2.0]},
+  {"op": "scale.LogScale.limit_range_for_scale", "args": {"params": {}, "vmin": 0.0, "vmax": 10.0, "minpos": Infinity}, "value": [1e-300, 10.0]},
+  {"op": "scale.LogScale.limit_range_for_scale", "args": {"params": {}, "vmin": 0.0, "vmax": 0.0, "minpos": NaN}, "value": [1e-300, 1e-300]},
+  {"op": "scale.LogScale.transform", "args": {"params": {"base": -10.0}, "values": [1.0]}, "error": "ValueError"},
+  {"op": "scale.LogScale.transform", "args": {"params": {"base": 0.0}, "values": [1.0]}, "error": "ValueError"},
+  {
+   "op": "scale.LogScale.transform",
+   "args": {"params": {"base": 0.5}, "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-1000.0, -1000.0, 996.5784284662087, 16.609640474436812, 9.965784284662087, 1.0, 0.0, -1.0, -1.5849625007211563, -3.3219280948873626, -6.643856189774725, -10.0, -996.5784284662087, NaN, -Infinity, -1000.0]
+  },
+  {"op": "scale.LogScale.transform", "args": {"params": {"base": 1.0}, "values": [1.0]}, "error": "ValueError"},
+  {
+   "op": "scale.LogScale.transform",
+   "args": {
+    "params": {"base": 100.0, "nonpositive": "mask"},
+    "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [NaN, -Infinity, -149.99999999999997, -2.5, -1.4999999999999998, -0.15051499783199057, 0.0, 0.15051499783199057, 0.23856062735983122, 0.5, 1.0, 1.5051499783199058, 149.99999999999997, NaN, Infinity, NaN]
+  },
+  {
+   "op": "scale.LogScale.transform",
+   "args": {
+    "params": {"base": 2, "nonpositive": "mask"},
+    "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [NaN, -Infinity, -996.5784284662087, -16.609640474436812, -9.965784284662087, -1.0, 0.0, 1.0, 1.584962500721156, 3.321928094887362, 6.643856189774724, 10.0, 996.5784284662087, NaN, Infinity, NaN]
+  },
+  {
+   "op": "scale.LogScale.transform",
+   "args": {"params": {"base": 2.718281828459045}, "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-1000.0, -1000.0, -690.7755278982137, -11.512925464970229, -6.907755278982137, -0.6931471805599453, 0.0, 0.6931471805599453, 1.0986122886681098, 2.302585092994046, 4.605170185988092, 6.931471805599453, 690.7755278982137, NaN, Infinity, -1000.0]
+  },
+  {
+   "op": "scale.LogScale.transform",
+   "args": {"params": {"base": 2}, "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-1000.0, -1000.0, -996.5784284662087, -16.609640474436812, -9.965784284662087, -1.0, 0.0, 1.0, 1.584962500721156, 3.321928094887362, 6.643856189774724, 10.0, 996.5784284662087, NaN, Infinity, -1000.0]
+  },
+  {
+   "op": "scale.LogScale.transform",
+   "args": {"params": {"base": 3.0}, "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-1000.0, -1000.0, -628.7709822868153, -10.479516371446921, -6.287709822868153, -0.6309297535714574, 0.0, 0.6309297535714574, 1.0, 2.095903274289385, 4.19180654857877, 6.309297535714574, 628.7709822868153, NaN, Infinity, -1000.0]
+  },
+  {"op": "scale.LogScale.transform", "args": {"params": {"nonpositive": "drop"}, "values": [1.0]}, "error": "ValueError"},
+  {
+   "op": "scale.LogScale.transform",
+   "args": {"params": {"nonpositive": "mask"}, "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [NaN, -Infinity, -300.0, -5.0, -3.0, -0.3010299956639812, 0.0, 0.3010299956639812, 0.47712125471966244, 1.0, 2.0, 3.010299956639812, 300.0, NaN, Infinity, NaN]
+  },
+  {
+   "op": "scale.LogScale.transform",
+   "args": {"params": {}, "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-1000.0, -1000.0, -300.0, -5.0, -3.0, -0.3010299956639812, 0.0, 0.3010299956639812, 0.47712125471966244, 1.0, 2.0, 3.010299956639812, 300.0, NaN, Infinity, -1000.0]
+  },
+  {
+   "op": "scale.LogScale.val_in_range",
+   "args": {"params": {}, "values": [-1.0, 0.0, 1e-300, 1e-05, 0.001, 0.5, 1.0, 2.0, 3.0, 10.0, 100.0, 1024.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [false, false, true, true, true, true, true, true, true, true, true, true, true, false, false, false]
+  },
+  {
+   "op": "scale.LogitScale.default_locators_and_formatters",
+   "args": {"params": {"one_half": "1/2", "use_overline": true}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "LogitLocator", "nbins": "auto", "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2, "minor": false},
+    "minor_locator": {"class": "LogitLocator", "nbins": "auto", "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2, "minor": true},
+    "major_formatter": {"class": "LogitFormatter", "use_overline": true, "one_half": "1/2", "minor": false, "minor_threshold": 25, "minor_number": 6},
+    "minor_formatter": {"class": "LogitFormatter", "use_overline": true, "one_half": "1/2", "minor": true, "minor_threshold": 25, "minor_number": 6}
+   }
+  },
+  {
+   "op": "scale.LogitScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "LogitLocator", "nbins": "auto", "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2, "minor": false},
+    "minor_locator": {"class": "LogitLocator", "nbins": "auto", "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2, "minor": true},
+    "major_formatter": {"class": "LogitFormatter", "use_overline": false, "one_half": "\\frac{1}{2}", "minor": false, "minor_threshold": 25, "minor_number": 6},
+    "minor_formatter": {"class": "LogitFormatter", "use_overline": false, "one_half": "\\frac{1}{2}", "minor": true, "minor_threshold": 25, "minor_number": 6}
+   }
+  },
+  {
+   "op": "scale.LogitScale.default_locators_and_formatters",
+   "args": {"params": {"one_half": "1/2", "use_overline": true}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "LogitLocator", "nbins": "auto", "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2, "minor": false},
+    "minor_locator": {"class": "LogitLocator", "nbins": "auto", "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2, "minor": true},
+    "major_formatter": {"class": "LogitFormatter", "use_overline": true, "one_half": "1/2", "minor": false, "minor_threshold": 25, "minor_number": 6},
+    "minor_formatter": {"class": "LogitFormatter", "use_overline": true, "one_half": "1/2", "minor": true, "minor_threshold": 25, "minor_number": 6}
+   }
+  },
+  {
+   "op": "scale.LogitScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "LogitLocator", "nbins": "auto", "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2, "minor": false},
+    "minor_locator": {"class": "LogitLocator", "nbins": "auto", "steps": [1, 2, 5, 10], "integer": false, "symmetric": false, "prune": null, "min_n_ticks": 2, "minor": true},
+    "major_formatter": {"class": "LogitFormatter", "use_overline": false, "one_half": "\\frac{1}{2}", "minor": false, "minor_threshold": 25, "minor_number": 6},
+    "minor_formatter": {"class": "LogitFormatter", "use_overline": false, "one_half": "\\frac{1}{2}", "minor": true, "minor_threshold": 25, "minor_number": 6}
+   }
+  },
+  {
+   "op": "scale.LogitScale.inverted.transform",
+   "args": {"params": {"nonpositive": "clip"}, "values": [-1000.0, -400.0, -10.0, -3.0, -1.0, 0.0, 1.0, 3.0, 10.0, 400.0, 1000.0, NaN, Infinity, -Infinity]},
+   "value": [0.0, 0.0, 9.999999999e-11, 0.000999000999000999, 0.09090909090909091, 0.5, 0.9090909090909091, 0.9990009990009991, 0.9999999999, 1.0, 1.0, NaN, 1.0, 0.0]
+  },
+  {
+   "op": "scale.LogitScale.inverted.transform",
+   "args": {
+    "params": {"nonpositive": "mask", "one_half": "1/2"},
+    "values": [-1000.0, -400.0, -10.0, -3.0, -1.0, 0.0, 1.0, 3.0, 10.0, 400.0, 1000.0, NaN, Infinity, -Infinity]
+   },
+   "value": [0.0, 0.0, 9.999999999e-11, 0.000999000999000999, 0.09090909090909091, 0.5, 0.9090909090909091, 0.9990009990009991, 0.9999999999, 1.0, 1.0, NaN, 1.0, 0.0]
+  },
+  {
+   "op": "scale.LogitScale.inverted.transform",
+   "args": {"params": {}, "values": [-1000.0, -400.0, -10.0, -3.0, -1.0, 0.0, 1.0, 3.0, 10.0, 400.0, 1000.0, NaN, Infinity, -Infinity]},
+   "value": [0.0, 0.0, 9.999999999e-11, 0.000999000999000999, 0.09090909090909091, 0.5, 0.9090909090909091, 0.9990009990009991, 0.9999999999, 1.0, 1.0, NaN, 1.0, 0.0]
+  },
+  {"op": "scale.LogitScale.limit_range_for_scale", "args": {"params": {}, "vmin": 0.1, "vmax": 0.9, "minpos": 0.001}, "value": [0.1, 0.9]},
+  {"op": "scale.LogitScale.limit_range_for_scale", "args": {"params": {}, "vmin": 0.0, "vmax": 1.0, "minpos": 0.001}, "value": [0.001, 0.999]},
+  {"op": "scale.LogitScale.limit_range_for_scale", "args": {"params": {}, "vmin": -1.0, "vmax": 2.0, "minpos": 0.01}, "value": [0.01, 0.99]},
+  {"op": "scale.LogitScale.limit_range_for_scale", "args": {"params": {}, "vmin": 0.5, "vmax": 0.5, "minpos": 0.1}, "value": [0.5, 0.5]},
+  {"op": "scale.LogitScale.limit_range_for_scale", "args": {"params": {}, "vmin": 0.0, "vmax": 1.0, "minpos": Infinity}, "value": [1e-07, 0.9999999]},
+  {
+   "op": "scale.LogitScale.transform",
+   "args": {
+    "params": {"nonpositive": "clip"},
+    "values": [-0.1, 0.0, 1e-300, 1e-10, 0.001, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999, 0.9999999999, 1.0, 1.1, NaN, Infinity, -Infinity]
+   },
+   "value": [-1000.0, -1000.0, -300.0, -9.99999999995657, -2.9995654882259823, -0.9542425094393249, -0.47712125471966244, 0.0, 0.47712125471966244, 0.954242509439325, 2.999565488225982, 9.999999964022885, 1000.0, 1000.0, NaN, 1000.0, -1000.0]
+  },
+  {"op": "scale.LogitScale.transform", "args": {"params": {"nonpositive": "drop"}, "values": [0.5]}, "error": "ValueError"},
+  {
+   "op": "scale.LogitScale.transform",
+   "args": {
+    "params": {"nonpositive": "mask", "one_half": "1/2"},
+    "values": [-0.1, 0.0, 1e-300, 1e-10, 0.001, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999, 0.9999999999, 1.0, 1.1, NaN, Infinity, -Infinity]
+   },
+   "value": [NaN, -Infinity, -300.0, -9.99999999995657, -2.9995654882259823, -0.9542425094393249, -0.47712125471966244, 0.0, 0.47712125471966244, 0.954242509439325, 2.999565488225982, 9.999999964022885, Infinity, NaN, NaN, NaN, NaN]
+  },
+  {
+   "op": "scale.LogitScale.transform",
+   "args": {"params": {}, "values": [-0.1, 0.0, 1e-300, 1e-10, 0.001, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999, 0.9999999999, 1.0, 1.1, NaN, Infinity, -Infinity]},
+   "value": [NaN, -Infinity, -300.0, -9.99999999995657, -2.9995654882259823, -0.9542425094393249, -0.47712125471966244, 0.0, 0.47712125471966244, 0.954242509439325, 2.999565488225982, 9.999999964022885, Infinity, NaN, NaN, NaN, NaN]
+  },
+  {
+   "op": "scale.LogitScale.val_in_range",
+   "args": {"params": {}, "values": [-0.1, 0.0, 1e-300, 1e-10, 0.001, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999, 0.9999999999, 1.0, 1.1, NaN, Infinity, -Infinity]},
+   "value": [false, false, true, true, true, true, true, true, true, true, true, true, false, false, false, false, false]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.default_locators_and_formatters",
+   "args": {"params": {"base": 2, "linthresh": 0.5, "linscale": 2.0, "subs": [2, 3]}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "SymmetricalLogLocator", "base": 2, "linthresh": 0.5, "subs": [1.0], "numticks": 15},
+    "minor_locator": {"class": "SymmetricalLogLocator", "base": 2, "linthresh": 0.5, "subs": [2.0, 3.0], "numticks": 15},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.SymmetricalLogScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "x"},
+   "value": {
+    "major_locator": {"class": "SymmetricalLogLocator", "base": 10, "linthresh": 2, "subs": [1.0], "numticks": 15},
+    "minor_locator": {"class": "SymmetricalLogLocator", "base": 10, "linthresh": 2, "subs": [1.0], "numticks": 15},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.SymmetricalLogScale.default_locators_and_formatters",
+   "args": {"params": {"base": 2, "linthresh": 0.5, "linscale": 2.0, "subs": [2, 3]}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "SymmetricalLogLocator", "base": 2, "linthresh": 0.5, "subs": [1.0], "numticks": 15},
+    "minor_locator": {"class": "SymmetricalLogLocator", "base": 2, "linthresh": 0.5, "subs": [2.0, 3.0], "numticks": 15},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 2.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.SymmetricalLogScale.default_locators_and_formatters",
+   "args": {"params": {}, "axis": "y"},
+   "value": {
+    "major_locator": {"class": "SymmetricalLogLocator", "base": 10, "linthresh": 2, "subs": [1.0], "numticks": 15},
+    "minor_locator": {"class": "SymmetricalLogLocator", "base": 10, "linthresh": 2, "subs": [1.0], "numticks": 15},
+    "major_formatter": {"class": "LogFormatterSciNotation", "base": 10.0, "labelOnlyBase": false, "minor_thresholds": [1, 0.4], "linthresh": null},
+    "minor_formatter": {"class": "NullFormatter"}
+   }
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {"params": {"base": 10, "linthresh": 10.0, "linscale": 0.1}, "values": [-0.001, 0.0, 0.001]},
+   "value": [-0.009, 0.0, 0.009]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {
+    "params": {"base": 10, "linthresh": 10.0, "linscale": 0.1},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-77.42636826811271, -19.448624389373624, -15.448591479026756, -12.271252398511901, -10.936765212249707, -9.0, -4.5, 0.0, 4.5, 9.0, 10.936765212249707, 12.271252398511901, 15.448591479026756, 19.448624389373624, 77.42636826811271, 7.74263682681123e+40, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {"params": {"base": 2, "linthresh": 1.0}, "values": [-0.001, 0.0, 0.001]},
+   "value": [-0.0005, 0.0, 0.0005]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {
+    "params": {"base": 2, "linthresh": 1.0},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-255.99999999999994, -4.0, -2.0, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 2.0, 4.0, 255.99999999999994, 6.45562469521729e+119, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {"params": {"base": 2.718281828459045}, "values": [-0.001, 0.0, 0.001]},
+   "value": [-0.0006321205588285577, 0.0, 0.0006321205588285577]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {
+    "params": {"base": 2.718281828459045},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-61.01809586412584, -3.0379121104641102, -1.896361676485673, -1.2642411176571153, -0.9481808382428365, -0.6321205588285577, -0.31606027941427883, 0.0, 0.31606027941427883, 0.6321205588285577, 0.9481808382428365, 1.2642411176571153, 1.896361676485673, 3.0379121104641102, 61.01809586412584, 2.970862979814484e+86, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {"params": {"linthresh": 1.0, "linscale": 0.5}, "values": [-0.001, 0.0, 0.001]},
+   "value": [-0.0018, 0.0, 0.0018]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {
+    "params": {"linthresh": 1.0, "linscale": 0.5},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-2782559402.2071295, -2782.559402207128, -278.2559402207128, -27.825594022071257, -8.799225435691074, -2.7825594022071245, -0.8999999999999999, 0.0, 0.8999999999999999, 2.7825594022071245, 8.799225435691074, 27.825594022071257, 278.2559402207128, 2782.559402207128, 2782559402.2071295, Infinity, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {"params": {"linthresh": 1.0, "linscale": 2.0}, "values": [-0.001, 0.0, 0.001]},
+   "value": [-0.00045, 0.0, 0.00045]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {
+    "params": {"linthresh": 1.0, "linscale": 2.0},
+    "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]
+   },
+   "value": [-59948425.03189424, -59.948425031894104, -5.9948425031894095, -0.8999999999999999, -0.6749999999999999, -0.44999999999999996, -0.22499999999999998, 0.0, 0.22499999999999998, 0.44999999999999996, 0.6749999999999999, 0.8999999999999999, 5.9948425031894095, 59.948425031894104, 59948425.03189424, Infinity, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.SymmetricalLogScale.inverted.transform", "args": {"params": {"linthresh": 0.01}, "values": [-0.001, 0.0, 0.001]}, "value": [-0.0009, 0.0, 0.0009]},
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {"params": {"linthresh": 0.01}, "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]},
+   "value": [-Infinity, -Infinity, -7.742636826812538e+296, -7.742636826811573e+196, -7.742636826811309e+146, -7.742636826811487e+96, -7.742636826811335e+46, 0.0, 7.742636826811335e+46, 7.742636826811487e+96, 7.742636826811309e+146, 7.742636826811573e+196, 7.742636826812538e+296, Infinity, Infinity, Infinity, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.SymmetricalLogScale.inverted.transform", "args": {"params": {"linthresh": 1.0}, "values": [-0.001, 0.0, 0.001]}, "value": [-0.0009, 0.0, 0.0009]},
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {"params": {"linthresh": 1.0}, "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]},
+   "value": [-774263682.6811295, -774.2636826811278, -77.42636826811275, -7.742636826811271, -2.448436746822227, -0.8999999999999999, -0.44999999999999996, 0.0, 0.44999999999999996, 0.8999999999999999, 2.448436746822227, 7.742636826811271, 77.42636826811275, 774.2636826811278, 774263682.6811295, Infinity, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.SymmetricalLogScale.inverted.transform", "args": {"params": {}, "values": [-0.001, 0.0, 0.001]}, "value": [-0.0009, 0.0, 0.0009]},
+  {
+   "op": "scale.SymmetricalLogScale.inverted.transform",
+   "args": {"params": {}, "values": [-10.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 10.0, 400.0, NaN, Infinity, -Infinity]},
+   "value": [-15485.273653622558, -15.485273653622542, -4.896873493644454, -1.7999999999999998, -1.3499999999999999, -0.8999999999999999, -0.44999999999999996, 0.0, 0.44999999999999996, 0.8999999999999999, 1.3499999999999999, 1.7999999999999998, 4.896873493644454, 15.485273653622542, 15485.273653622558, 1.5485273653623145e+199, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.SymmetricalLogScale.limit_range_for_scale", "args": {"params": {}, "vmin": -5.0, "vmax": 5.0, "minpos": 1.0}, "value": [-5.0, 5.0]},
+  {"op": "scale.SymmetricalLogScale.transform", "args": {"params": {"base": 0.5}, "values": [1.0]}, "error": "ValueError"},
+  {"op": "scale.SymmetricalLogScale.transform", "args": {"params": {"base": 1.0}, "values": [1.0]}, "error": "ValueError"},
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {"params": {"base": 10, "linthresh": 10.0, "linscale": 0.1}, "values": [-0.005, 0.0, 0.005]},
+   "value": [-0.0005555555555555556, 0.0, 0.0005555555555555556]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {
+    "params": {"base": 10, "linthresh": 10.0, "linscale": 0.1},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-21.111111111111107, -11.11111111111111, -1.1111111111111112, -0.22222222222222224, -0.11111111111111112, -0.05555555555555556, -0.0011111111111111111, 0.0, 0.0011111111111111111, 0.05555555555555556, 0.11111111111111112, 0.22222222222222224, 1.1111111111111112, 11.11111111111111, 21.111111111111107, 2991.1111111111104, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.SymmetricalLogScale.transform", "args": {"params": {"base": 2, "linthresh": 1.0}, "values": [-0.005, 0.0, 0.005]}, "value": [-0.01, 0.0, 0.01]},
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {
+    "params": {"base": 2, "linthresh": 1.0},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-11.965784284662087, -8.643856189774725, -5.321928094887363, -3.0, -2.0, -1.0, -0.02, 0.0, 0.02, 1.0, 2.0, 3.0, 5.321928094887363, 8.643856189774725, 11.965784284662087, 998.5784284662087, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {"params": {"base": 2.718281828459045}, "values": [-0.005, 0.0, 0.005]},
+   "value": [-0.007909883534346632, 0.0, 0.007909883534346632]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {
+    "params": {"base": 2.718281828459045},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-15.593169610583036, -10.987999424594946, -6.382829238606854, -3.163953413738653, -1.5819767068693265, -0.7909883534346632, -0.015819767068693265, 0.0, 0.015819767068693265, 0.7909883534346632, 1.5819767068693265, 3.163953413738653, 6.382829238606854, 10.987999424594946, 15.593169610583036, 1383.328714849046, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.SymmetricalLogScale.transform", "args": {"params": {"linscale": 0.0}, "values": [1.0]}, "error": "ValueError"},
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {"params": {"linthresh": 1.0, "linscale": 0.5}, "values": [-0.005, 0.0, 0.005]},
+   "value": [-0.002777777777777778, 0.0, 0.002777777777777778]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {
+    "params": {"linthresh": 1.0, "linscale": 0.5},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-3.5555555555555554, -2.5555555555555554, -1.5555555555555556, -0.8565855512195367, -0.5555555555555556, -0.2777777777777778, -0.005555555555555556, 0.0, 0.005555555555555556, 0.2777777777777778, 0.5555555555555556, 0.8565855512195367, 1.5555555555555556, 2.5555555555555554, 3.5555555555555554, 300.5555555555555, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {"params": {"linthresh": 1.0, "linscale": 2.0}, "values": [-0.005, 0.0, 0.005]},
+   "value": [-0.011111111111111112, 0.0, 0.011111111111111112]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {
+    "params": {"linthresh": 1.0, "linscale": 2.0},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-5.222222222222221, -4.222222222222222, -3.2222222222222223, -2.5232522178862036, -2.2222222222222223, -1.1111111111111112, -0.022222222222222223, 0.0, 0.022222222222222223, 1.1111111111111112, 2.2222222222222223, 2.5232522178862036, 3.2222222222222223, 4.222222222222222, 5.222222222222221, 302.2222222222222, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.SymmetricalLogScale.transform", "args": {"params": {"linthresh": -1.0}, "values": [1.0]}, "error": "ValueError"},
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {"params": {"linthresh": 0.01}, "values": [-0.005, 0.0, 0.005]},
+   "value": [-0.005555555555555556, 0.0, 0.005555555555555556]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {
+    "params": {"linthresh": 0.01},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-0.06111111111111111, -0.05111111111111111, -0.041111111111111105, -0.03412141106775092, -0.031111111111111107, -0.028100811154471297, -0.011111111111111112, 0.0, 0.011111111111111112, 0.028100811154471297, 0.031111111111111107, 0.03412141106775092, 0.041111111111111105, 0.05111111111111111, 0.06111111111111111, 3.03111111111111, NaN, Infinity, -Infinity]
+  },
+  {"op": "scale.SymmetricalLogScale.transform", "args": {"params": {"linthresh": 0.0}, "values": [1.0]}, "error": "ValueError"},
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {"params": {"linthresh": 1.0}, "values": [-0.005, 0.0, 0.005]},
+   "value": [-0.005555555555555556, 0.0, 0.005555555555555556]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {
+    "params": {"linthresh": 1.0},
+    "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]
+   },
+   "value": [-4.111111111111111, -3.111111111111111, -2.111111111111111, -1.4121411067750924, -1.1111111111111112, -0.5555555555555556, -0.011111111111111112, 0.0, 0.011111111111111112, 0.5555555555555556, 1.1111111111111112, 1.4121411067750924, 2.111111111111111, 3.111111111111111, 4.111111111111111, 301.11111111111103, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {"params": {}, "values": [-0.005, 0.0, 0.005]},
+   "value": [-0.005555555555555556, 0.0, 0.005555555555555556]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.transform",
+   "args": {"params": {}, "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [-7.620162230894259, -5.62016223089426, -3.62016223089426, -2.2222222222222223, -1.1111111111111112, -0.5555555555555556, -0.011111111111111112, 0.0, 0.011111111111111112, 0.5555555555555556, 1.1111111111111112, 2.2222222222222223, 3.62016223089426, 5.62016223089426, 7.620162230894259, 601.6201622308942, NaN, Infinity, -Infinity]
+  },
+  {
+   "op": "scale.SymmetricalLogScale.val_in_range",
+   "args": {"params": {}, "values": [-1000.0, -100.0, -10.0, -2.0, -1.0, -0.5, -0.01, 0.0, 0.01, 0.5, 1.0, 2.0, 10.0, 100.0, 1000.0, 1e+300, NaN, Infinity, -Infinity]},
+   "value": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false, false, false]
+  },
+  {"op": "scale.get_scale_names", "args": {}, "value": ["asinh", "function", "functionlog", "linear", "log", "logit", "symlog"]},
+  {"op": "scale.scale_factory", "args": {"scale": "log", "params": {"base": 2}}, "value": "LogScale"},
+  {"op": "scale.scale_factory", "args": {"scale": "log", "params": {"bogus": 1}}, "error": "TypeError"},
+  {"op": "scale.scale_factory", "args": {"scale": "functionlog", "params": {"functions": "affine"}}, "value": "FuncScaleLog"},
+  {"op": "scale.scale_factory", "args": {"scale": "function", "params": {"functions": "square"}}, "value": "FuncScale"},
+  {"op": "scale.scale_factory", "args": {"scale": "symlog", "params": {"linthresh": 1}}, "value": "SymmetricalLogScale"},
+  {"op": "scale.scale_factory", "args": {"scale": "asinh", "params": {}}, "value": "AsinhScale"},
+  {"op": "scale.scale_factory", "args": {"scale": "bogus", "params": {}}, "error": "ValueError"},
+  {"op": "scale.scale_factory", "args": {"scale": "linear", "params": {}}, "value": "LinearScale"},
+  {"op": "scale.scale_factory", "args": {"scale": "logit", "params": {}}, "value": "LogitScale"}
+ ]
+}

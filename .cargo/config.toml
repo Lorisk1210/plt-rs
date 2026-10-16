@@ -1,0 +1,7 @@
+# Lets the musl target link without a system C toolchain.
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"
+rustflags = ["-C", "link-self-contained=yes"]
+
+[alias]
+xtask = "run --package xtask --release --"

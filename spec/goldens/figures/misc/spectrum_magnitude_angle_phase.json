@@ -1,0 +1,45 @@
+{
+ "size_px": [500, 600],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.705, 0.775, 0.175],
+   "title": "",
+   "xlim": [-2.5, 52.5],
+   "ylim": [-55.399121, -4.678602],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Frequency",
+   "ylabel": "Magnitude (dB)",
+   "xticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"], [40.0, "40"], [50.0, "50"]],
+   "yticks": [[-40.0, "−40"], [-20.0, "−20"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.4075, 0.775, 0.175],
+   "title": "",
+   "xlim": [-2.5, 52.5],
+   "ylim": [-3.454911, 3.455712],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Frequency",
+   "ylabel": "Angle (radians)",
+   "xticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"], [40.0, "40"], [50.0, "50"]],
+   "yticks": [[-2.5, "−2.5"], [0.0, "0.0"], [2.5, "2.5"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.175],
+   "title": "",
+   "xlim": [-2.5, 52.5],
+   "ylim": [-2.418193, 54.268882],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Frequency",
+   "ylabel": "Phase (radians)",
+   "xticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"], [40.0, "40"], [50.0, "50"]],
+   "yticks": [[0.0, "0"], [20.0, "20"], [40.0, "40"]]
+  }
+ ]
+}

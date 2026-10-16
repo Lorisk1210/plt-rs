@@ -1,0 +1,19 @@
+{
+ "size_px": [500, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "",
+   "xlim": [-2.5, 52.5],
+   "ylim": [-47.0, -1.935571],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Frequency",
+   "ylabel": "Cross Spectrum Magnitude (dB)",
+   "xticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"], [40.0, "40"], [50.0, "50"]],
+   "yticks": [[-47, "−47"], [-37, "−37"], [-27, "−27"], [-17, "−17"], [-7, "−7"]]
+  }
+ ]
+}

@@ -15,8 +15,21 @@ use plt_render::Renderer;
 pub(crate) use frame::FigureFrame;
 pub(crate) use state::FigureState;
 
-use crate::artist::{ArtistHandle, RawHandle};
+use crate::artist::{ArtistHandle, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState};
+
+/// The problems found while drawing a figure.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DrawErrors(pub Vec<DrawError>);
+
+impl fmt::Display for DrawErrors {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let messages: Vec<String> = self.0.iter().map(ToString::to_string).collect();
+        write!(f, "could not draw {} artist(s): {}", self.0.len(), messages.join("; "))
+    }
+}
+
+impl std::error::Error for DrawErrors {}
 
 /// A figure: the canvas, its background and every axes and artist on it.
 ///
@@ -122,7 +135,7 @@ impl Figure {
         let id = self
             .state
             .borrow_mut()
-            .adopt(self.root.id(), Box::new(AxesState::new(position)));
+            .adopt(self.root.id(), Box::new(AxesState::new(position, &crate::rc::params())));
         Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id))
     }
 
@@ -142,10 +155,14 @@ impl Figure {
     }
 
     /// Renders the figure through `renderer`.
-    pub fn draw(&self, renderer: &mut dyn Renderer) {
-        let mut state = self.state.borrow_mut();
-        state.draw(renderer);
-        state.stale = false;
+    ///
+    /// Everything drawable is drawn; artists with invalid properties (for
+    /// example an unknown colour name) are skipped and reported.
+    pub fn draw(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
+        self.state.borrow_mut().prepare();
+        let errors = self.state.borrow().draw(renderer);
+        self.state.borrow_mut().stale = false;
+        if errors.is_empty() { Ok(()) } else { Err(DrawErrors(errors)) }
     }
 
     /// Whether something changed since the last draw.

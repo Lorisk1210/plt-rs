@@ -30,8 +30,10 @@ pub enum Color {
 }
 
 impl Color {
-    /// Fully transparent (`"none"`).
-    pub const NONE: Self = Self::Rgba(Rgba::TRANSPARENT);
+    /// matplotlib's `"none"`: draw nothing.
+    pub fn none() -> Self {
+        Self::Spec("none".to_owned())
+    }
 
     /// Validates a colour string now rather than when it is used.
     pub fn parse(spec: &str) -> Result<Self, ColorError> {

@@ -54,11 +54,30 @@ impl<'a> LayoutContext<'a> {
     }
 }
 
+/// A problem that kept (part of) an artist from being drawn, such as an
+/// invalid colour string given to a setter.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DrawError {
+    /// The artist concerned.
+    pub artist: ArtistId,
+    /// What went wrong.
+    pub message: String,
+}
+
+impl std::fmt::Display for DrawError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "artist {}: {}", self.artist, self.message)
+    }
+}
+
+impl std::error::Error for DrawError {}
+
 /// Everything an artist needs while drawing: the renderer plus read-only
 /// access to the rest of the figure.
 pub struct DrawContext<'a> {
     layout: LayoutContext<'a>,
     renderer: &'a mut dyn Renderer,
+    errors: Vec<DrawError>,
 }
 
 impl std::fmt::Debug for DrawContext<'_> {
@@ -74,7 +93,21 @@ impl<'a> DrawContext<'a> {
         Self {
             layout: LayoutContext::new(figure),
             renderer,
+            errors: Vec::new(),
         }
+    }
+
+    /// Records a problem; drawing continues with the remaining artists.
+    pub fn report(&mut self, artist: ArtistId, problem: impl std::fmt::Display) {
+        self.errors.push(DrawError {
+            artist,
+            message: problem.to_string(),
+        });
+    }
+
+    /// The problems recorded while drawing.
+    pub(crate) fn into_errors(self) -> Vec<DrawError> {
+        self.errors
     }
 
     /// Read-only geometry access.

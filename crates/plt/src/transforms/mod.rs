@@ -7,11 +7,13 @@
 //! steps (scales, projections) followed by a single trailing affine map, the
 //! same split matplotlib uses so renderers only ever see affine transforms.
 
+mod nonsingular;
 mod resolved;
 
 use std::fmt;
 
 pub use plt_core::{Affine2D, Bbox, Point};
+pub use nonsingular::nonsingular;
 pub use resolved::{AxisMap, PointMap, ResolvedTransform, Step};
 
 use crate::artist::ArtistId;

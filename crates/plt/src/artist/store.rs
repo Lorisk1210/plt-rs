@@ -129,6 +129,13 @@ impl ArtistStore {
         result
     }
 
+    /// The ids of every live artist.
+    pub fn ids(&self) -> impl Iterator<Item = ArtistId> + '_ {
+        self.slots.iter().zip(0..).filter_map(|(slot, index)| {
+            slot.artist.as_ref().map(|_| ArtistId { index, generation: slot.generation })
+        })
+    }
+
     /// Number of live artists.
     pub fn len(&self) -> usize {
         self.slots.iter().filter(|s| s.artist.is_some()).count()

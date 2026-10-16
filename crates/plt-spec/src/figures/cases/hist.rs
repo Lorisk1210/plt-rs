@@ -42,7 +42,7 @@ fn laid_out(layout: HistOptions<'_>) -> HistPlotOptions<'_> {
 /// `bins=n`.
 fn bins(n: usize) -> HistOptions<'static> {
     HistOptions {
-        bins: Bins::Count(n),
+        bins: Some(Bins::Count(n)),
         ..HistOptions::default()
     }
 }
@@ -57,7 +57,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let edges = vec![-4.0, -2.0, -1.0, -0.5, 0.0, 0.25, 0.5, 1.0, 2.0, 4.0];
         let options = HistPlotOptions {
             layout: HistOptions {
-                bins: Bins::Edges(edges),
+                bins: Some(Bins::Edges(edges)),
                 ..HistOptions::default()
             },
             props: PatchProps::default().edgecolor("k"),
@@ -75,7 +75,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .zip([BinEstimator::Auto, BinEstimator::Sqrt])
         {
             let layout = HistOptions {
-                bins: Bins::Estimator(estimator),
+                bins: Some(Bins::Estimator(estimator)),
                 ..HistOptions::default()
             };
             ax.hist(&[skewed()], &laid_out(layout))?;
@@ -213,7 +213,9 @@ pub(crate) const CASES: &[FigureCase] = &[
         let weights = [values.iter().map(|&v| (v * v) as f64).collect::<Vec<f64>>()];
         let options = HistPlotOptions {
             layout: HistOptions {
-                bins: Bins::Edges(arange(0.0, 11.0, 1.0).iter().map(|e| e - 0.5).collect()),
+                bins: Some(Bins::Edges(
+                    arange(0.0, 11.0, 1.0).iter().map(|e| e - 0.5).collect(),
+                )),
                 weights: Some(&weights),
                 ..HistOptions::default()
             },
@@ -241,7 +243,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         for (ax, (align, color)) in axes.as_slice().iter().zip(sides) {
             let options = HistPlotOptions {
                 layout: HistOptions {
-                    bins: Bins::Edges(arange(0.0, 7.0, 1.0)),
+                    bins: Some(Bins::Edges(arange(0.0, 7.0, 1.0))),
                     rwidth: Some(0.6),
                     align,
                     ..HistOptions::default()

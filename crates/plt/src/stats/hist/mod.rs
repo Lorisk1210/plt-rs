@@ -54,8 +54,9 @@ impl HistBottom {
 /// Every option of `Axes.hist` that influences counts or geometry.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct HistOptions<'a> {
-    /// Bins (default ten equal-width bins).
-    pub bins: Bins,
+    /// Bins (`None`: ten equal-width bins; [`crate::axes::Axes::hist`]
+    /// uses `hist.bins` instead).
+    pub bins: Option<Bins>,
     /// Range of equal-width bins; defaults to the NaN-ignoring extent of
     /// all datasets.
     pub range: Option<(f64, f64)>,
@@ -104,7 +105,7 @@ pub struct Hist {
 ///
 /// ```
 /// use plt::stats::{Bins, HistOptions, hist};
-/// let opts = HistOptions { bins: Bins::Count(2), ..HistOptions::default() };
+/// let opts = HistOptions { bins: Some(Bins::Count(2)), ..HistOptions::default() };
 /// let h = hist(&[vec![0.0, 1.0, 1.5, 2.0]], &opts).unwrap();
 /// assert_eq!(h.tops, vec![vec![1.0, 3.0]]);
 /// assert_eq!(h.edges, vec![0.0, 1.0, 2.0]);
@@ -144,7 +145,7 @@ fn bin_datasets<T: BinSample, D: AsRef<[T]>>(
         let edges = histogram_bin_edges(
             &all,
             &HistogramOptions {
-                bins: opts.bins.clone(),
+                bins: opts.bins.clone().unwrap_or_default(),
                 range,
                 density: false,
                 weights: all_weights.as_deref(),
@@ -152,7 +153,7 @@ fn bin_datasets<T: BinSample, D: AsRef<[T]>>(
         )?;
         (Bins::Edges(edges), None)
     } else {
-        (opts.bins.clone(), range)
+        (opts.bins.clone().unwrap_or_default(), range)
     };
     let mut edges = Vec::new();
     let counts = datasets
@@ -281,7 +282,7 @@ mod tests {
 
     fn opts(bins: usize) -> HistOptions<'static> {
         HistOptions {
-            bins: Bins::Count(bins),
+            bins: Some(Bins::Count(bins)),
             ..HistOptions::default()
         }
     }

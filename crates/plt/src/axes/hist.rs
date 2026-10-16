@@ -5,9 +5,11 @@ use super::{Axes, BarAlign, BarContainer, BarOptions, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::patches::{Patch, PatchProps, PatchShape, Polygon};
+use crate::rc::HistBins;
 use crate::scale::{LogScale, NonPositive};
 use crate::stats::{
-    BinSample, HistBars, HistOptions, HistOrientation, HistPatches, HistType, StepOutline, hist,
+    BinSample, Bins, HistBars, HistOptions, HistOrientation, HistPatches, HistType, StepOutline,
+    hist,
 };
 use crate::ticker::AxisName;
 
@@ -73,7 +75,11 @@ impl Axes {
         } else {
             broadcast("color", &options.color, datasets.len())?
         };
-        let computed = hist(datasets, &options.layout).map_err(PlotError::Stats)?;
+        let mut layout = options.layout.clone();
+        if layout.bins.is_none() {
+            layout.bins = Some(rc_bins(&crate::rc::params().hist_bins)?);
+        }
+        let computed = hist(datasets, &layout).map_err(PlotError::Stats)?;
         let artists = match computed.patches {
             HistPatches::Bars(groups) => {
                 HistArtists::Bars(self.hist_bars(groups, &colors, options)?)
@@ -200,4 +206,13 @@ fn style_dataset<S: PatchShape>(patches: &[Patch<S>], label: Option<&String>, pr
             }
         }
     }
+}
+
+/// The bins `hist.bins` asks for.
+fn rc_bins(bins: &HistBins) -> Result<Bins, PlotError> {
+    Ok(match bins {
+        HistBins::Count(count) => Bins::Count(*count),
+        HistBins::Rule(rule) => Bins::Estimator(rule.parse().map_err(PlotError::Stats)?),
+        HistBins::Edges(edges) => Bins::Edges(edges.clone()),
+    })
 }

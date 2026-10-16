@@ -90,14 +90,22 @@ impl Default for Figure {
 }
 
 impl Figure {
-    /// A 6.4 × 4.8 inch figure at 100 dpi with a white background.
+    /// A 6.4 × 4.8 inch figure at 100 dpi coloured by `figure.facecolor`
+    /// and `figure.edgecolor`.
     pub fn new() -> Self {
         Self::with_size(6.4, 4.8, 100.0)
     }
 
     /// A figure of the given size in inches and resolution.
     pub fn with_size(width: f64, height: f64, dpi: f64) -> Self {
-        let state = FigureState::new((width, height), dpi, Rgba::WHITE, Rgba::WHITE);
+        let rc = crate::rc::params();
+        let color = |c: &crate::colors::Color| c.resolve().unwrap_or(Rgba::WHITE);
+        let state = FigureState::new(
+            (width, height),
+            dpi,
+            color(&rc.figure_facecolor),
+            color(&rc.figure_edgecolor),
+        );
         let root = state.root;
         let state = Rc::new(RefCell::new(state));
         let root = RawHandle::new(Rc::clone(&state), root);

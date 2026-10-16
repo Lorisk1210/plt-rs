@@ -150,7 +150,7 @@ pub(super) fn axes_hist(args: Args<'_>) -> Outcome {
         .map(|w| datasets(w, false).map(|(w, _)| w))
         .transpose()?;
     let opts = HistOptions {
-        bins: parse_bins(args.get("bins"))?,
+        bins: Some(parse_bins(args.get("bins"))?),
         range: parse_range(args)?,
         density: args.opt_bool("density")?.unwrap_or(false),
         weights: weights.as_deref(),

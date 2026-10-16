@@ -241,6 +241,17 @@ impl AxesState {
         }
     }
 
+    /// Widens the data limits of one axis to include `low..=high`
+    /// without touching the smallest positive datum (matplotlib's
+    /// assignment to `dataLim.intervalx`).
+    pub(crate) fn extend_data_interval(&mut self, name: AxisName, low: f64, high: f64) {
+        let b = self.data_lim.bbox;
+        self.data_lim.bbox = match name {
+            AxisName::X => Bbox::from_extents(b.x0().min(low), b.y0(), b.x1().max(high), b.y1()),
+            AxisName::Y => Bbox::from_extents(b.x0(), b.y0().min(low), b.x1(), b.y1().max(high)),
+        };
+    }
+
     /// Whether the margins of one axis stop at sticky edges.
     pub(crate) fn uses_stickies(&self, name: AxisName) -> bool {
         let autoscale = self.axis(name).autoscale;

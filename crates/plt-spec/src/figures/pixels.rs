@@ -53,26 +53,110 @@ pub fn render_pixels(case: &FigureCase) -> Result<(RasterRenderer, usize), Box<d
     })
 }
 
+/// A case rendered next to its golden image.
+struct Rendered {
+    width: u32,
+    height: u32,
+    actual: Vec<u8>,
+    golden: Vec<u8>,
+    draw_errors: usize,
+}
+
+impl Rendered {
+    /// Renders `case` and loads its golden PNG, both as RGBA.
+    fn new(case: &FigureCase) -> Result<Self, String> {
+        let golden =
+            std::fs::read(case.png_path()).map_err(|e| format!("cannot read golden: {e}"))?;
+        let golden =
+            plt_codec::png::decode(&golden).map_err(|e| format!("cannot decode golden: {e}"))?;
+        let (canvas, draw_errors) =
+            render_pixels(case).map_err(|e| format!("render failed: {e}"))?;
+        let actual = canvas.pixmap();
+        let size = (actual.width(), actual.height());
+        if size != (golden.width(), golden.height()) {
+            return Err(format!(
+                "image sizes do not match: rendered {}x{}, golden {}x{}",
+                size.0,
+                size.1,
+                golden.width(),
+                golden.height()
+            ));
+        }
+        Ok(Self {
+            width: size.0,
+            height: size.1,
+            actual: actual.data().to_vec(),
+            golden: golden.to_rgba8(),
+            draw_errors,
+        })
+    }
+
+    fn report(&self) -> PixelReport {
+        PixelReport {
+            draw_errors: self.draw_errors,
+            ..compare_rgba(&self.actual, &self.golden)
+        }
+    }
+
+    fn png(&self, data: &[u8]) -> Result<Vec<u8>, String> {
+        plt_codec::png::ImageRef::rgba8(self.width, self.height, data)
+            .and_then(plt_codec::png::encode)
+            .map_err(|e| format!("cannot encode PNG: {e}"))
+    }
+}
+
 /// Renders a case and compares it with its golden PNG.
 pub fn pixel_report(case: &FigureCase) -> Result<PixelReport, String> {
-    let golden = std::fs::read(case.png_path()).map_err(|e| format!("cannot read golden: {e}"))?;
-    let golden =
-        plt_codec::png::decode(&golden).map_err(|e| format!("cannot decode golden: {e}"))?;
-    let (canvas, draw_errors) = render_pixels(case).map_err(|e| format!("render failed: {e}"))?;
-    let actual = canvas.pixmap();
-    let size = (actual.width(), actual.height());
-    if size != (golden.width(), golden.height()) {
-        return Err(format!(
-            "image sizes do not match: rendered {}x{}, golden {}x{}",
-            size.0,
-            size.1,
-            golden.width(),
-            golden.height()
-        ));
-    }
-    let mut report = compare_rgba(actual.data(), &golden.to_rgba8());
-    report.draw_errors = draw_errors;
-    Ok(report)
+    Rendered::new(case).map(|rendered| rendered.report())
+}
+
+/// A rendered case for inspection: its PNG, a PNG highlighting where it
+/// differs from the golden image, and the comparison.
+#[derive(Clone, Debug)]
+pub struct PixelArtifacts {
+    /// The rendered image.
+    pub rendered: Vec<u8>,
+    /// The golden image faded, with differing pixels in red (brighter for
+    /// larger differences).
+    pub diff: Vec<u8>,
+    /// The comparison.
+    pub report: PixelReport,
+}
+
+/// Renders a case and builds [`PixelArtifacts`].
+pub fn pixel_artifacts(case: &FigureCase) -> Result<PixelArtifacts, String> {
+    let rendered = Rendered::new(case)?;
+    let diff = diff_rgba(&rendered.actual, &rendered.golden);
+    Ok(PixelArtifacts {
+        rendered: rendered.png(&rendered.actual)?,
+        diff: rendered.png(&diff)?,
+        report: rendered.report(),
+    })
+}
+
+/// The golden image faded to a quarter of its contrast, with pixels that
+/// differ painted red in proportion to their largest channel difference.
+fn diff_rgba(actual: &[u8], expected: &[u8]) -> Vec<u8> {
+    actual
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(expected.as_chunks::<4>().0)
+        .flat_map(|(a, e)| {
+            let d = a
+                .iter()
+                .zip(e)
+                .map(|(x, y)| x.abs_diff(*y))
+                .max()
+                .unwrap_or(0);
+            if d == 0 {
+                e.map(|c| 191 + c / 4)
+            } else {
+                let fade = 255 - d.saturating_mul(16).max(64);
+                [255, fade, fade, 255]
+            }
+        })
+        .collect()
 }
 
 /// Compares two RGBA buffers of equal size like `compare_images`: an image
@@ -129,6 +213,9 @@ mod tests {
             ),
             (6, 1, 2)
         );
+        let diff = diff_rgba(&a, &e);
+        assert_eq!(&diff[..4], [255, 159, 159, 255]);
+        assert_eq!(&diff[4..], [191, 191, 191, 254]);
         // Translucent images include alpha.
         let report = compare_rgba(&[0, 0, 0, 0], &[0, 0, 0, 4]);
         assert!((report.rms - 2.0).abs() < 1e-12);

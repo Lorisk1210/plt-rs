@@ -27,6 +27,7 @@ pub mod lines;
 pub mod markers;
 pub mod mlab;
 pub mod numeric;
+pub mod patches;
 pub mod prelude;
 pub mod rc;
 pub mod scale;

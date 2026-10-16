@@ -32,7 +32,10 @@ impl<'a> TriAnalyzer<'a> {
                 .map(|(v, _)| *v)
                 .collect()
         };
-        [1.0 / ptp(&pick(self.tri.x())), 1.0 / ptp(&pick(self.tri.y()))]
+        [
+            1.0 / ptp(&pick(self.tri.x())),
+            1.0 / ptp(&pick(self.tri.y())),
+        ]
     }
 
     /// The ratio of incircle to circumcircle radius of each triangle (at most

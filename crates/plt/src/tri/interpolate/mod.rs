@@ -4,8 +4,8 @@ mod cubic;
 mod dof;
 mod hct;
 
-pub use cubic::{CubicKind, CubicTriInterpolator};
 pub(crate) use cubic::ptp;
+pub use cubic::{CubicKind, CubicTriInterpolator};
 
 use super::{TriError, TriFinder, Triangulation};
 

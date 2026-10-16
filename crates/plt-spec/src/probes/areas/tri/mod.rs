@@ -24,7 +24,10 @@ pub(crate) const OPS: &[Op] = &[
     ),
     Op::new("tri.TrapezoidMapTriFinder.find", find),
     Op::new("tri.LinearTriInterpolator.__call__", fields::linear_call),
-    Op::new("tri.LinearTriInterpolator.gradient", fields::linear_gradient),
+    Op::new(
+        "tri.LinearTriInterpolator.gradient",
+        fields::linear_gradient,
+    ),
     Op::new("tri.CubicTriInterpolator.__call__", fields::cubic_call),
     Op::new("tri.CubicTriInterpolator.gradient", fields::cubic_gradient),
     Op::new(
@@ -50,9 +53,12 @@ fn floats(args: Args<'_>, key: &str) -> Result<Vec<f64>, ProbeError> {
     }
 }
 
+/// Triangles as given (truncated to integers) and as validated indices.
+type ParsedTriangles = (Vec<[i64; 3]>, Vec<[usize; 3]>);
+
 /// `np.array(triangles, dtype=np.int32)` validated as an `(N, 3)` array of
 /// non-negative indices (float indices truncate).
-fn parse_triangles(value: &Json) -> Result<(Vec<[i64; 3]>, Vec<[usize; 3]>), ProbeError> {
+fn parse_triangles(value: &Json) -> Result<ParsedTriangles, ProbeError> {
     let shape_error = || ProbeError::rejected("triangles must be a (N, 3) int array");
     let rows = value.as_array().ok_or_else(shape_error)?;
     if rows.is_empty() {
@@ -167,7 +173,9 @@ fn object<const N: usize>(entries: [(&str, Json); N]) -> Json {
 
 /// A finite value, or `null` (numpy's `masked_invalid`).
 fn masked(value: Option<f64>) -> Json {
-    value.filter(|v| v.is_finite()).map_or(Json::Null, Json::from)
+    value
+        .filter(|v| v.is_finite())
+        .map_or(Json::Null, Json::from)
 }
 
 fn delaunay(args: Args<'_>) -> Outcome {
@@ -205,7 +213,13 @@ fn explicit(args: Args<'_>) -> Outcome {
     let neighbors = tri
         .neighbors()
         .iter()
-        .map(|nb| Json::Array(nb.iter().map(|n| n.map_or(Json::Integer(-1), int)).collect()))
+        .map(|nb| {
+            Json::Array(
+                nb.iter()
+                    .map(|n| n.map_or(Json::Integer(-1), int))
+                    .collect(),
+            )
+        })
         .collect();
     Ok(object([
         (
@@ -272,8 +286,8 @@ fn circle_ratios(args: Args<'_>) -> Outcome {
 
 fn flat_tri_mask(args: Args<'_>) -> Outcome {
     let tri = triangulation(args)?;
-    let mask = TriAnalyzer::new(&tri)
-        .flat_tri_mask(args.f64("min_circle_ratio")?, args.bool("rescale")?);
+    let mask =
+        TriAnalyzer::new(&tri).flat_tri_mask(args.f64("min_circle_ratio")?, args.bool("rescale")?);
     Ok(Json::from(mask))
 }
 

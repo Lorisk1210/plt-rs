@@ -18,8 +18,8 @@ use std::collections::HashMap;
 
 use plt_core::Point;
 
-pub(crate) use predicates::orient2d;
 use predicates::incircle;
+pub(crate) use predicates::orient2d;
 
 use super::TriError;
 
@@ -377,6 +377,7 @@ fn edge_slot(v: &[usize; 3], from: usize, to: usize) -> usize {
 }
 
 /// Whether `p`, collinear with `a` and `b`, lies strictly between them.
+#[expect(clippy::float_cmp, reason = "exact geometric predicate, as in qhull")]
 fn strictly_between(a: Point, b: Point, p: Point) -> bool {
     if a.x == b.x {
         (a.y < p.y && p.y < b.y) || (b.y < p.y && p.y < a.y)
@@ -423,7 +424,9 @@ mod tests {
     fn random_points_are_delaunay() {
         let mut state = 12345u64;
         let mut next = || {
-            state = state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1);
             (state >> 11) as f64 / (1u64 << 53) as f64
         };
         let points: Vec<Point> = (0..300).map(|_| Point::new(next(), next())).collect();
@@ -441,7 +444,10 @@ mod tests {
 
     #[test]
     fn degenerate_inputs_are_rejected() {
-        assert_eq!(triangulate(&pts(&[(0.0, 0.0), (1.0, 1.0)])), Err(TriError::TooFewPoints));
+        assert_eq!(
+            triangulate(&pts(&[(0.0, 0.0), (1.0, 1.0)])),
+            Err(TriError::TooFewPoints)
+        );
         assert_eq!(
             triangulate(&pts(&[(0.0, 0.0), (0.0, 0.0), (1.0, 0.0)])),
             Err(TriError::TooFewUniquePoints)

@@ -9,9 +9,9 @@ use plt_text::HAlign;
 
 use super::{Figure, FigureState};
 use crate::artist::{Artist, ArtistId, RawHandle};
-use crate::axes::{Axes, AxesState, AxisName};
+use crate::axes::{Axes, AxesState, AxisName, TickLabelProps, TickLevel, TickParams};
 use crate::fonts::FontProperties;
-use crate::gridspec::{GridSpec, GridSpecError, SubplotSpec};
+use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotSpec};
 use crate::numeric::Grid;
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::spines::{SpineArtist, SpineSide};
@@ -153,6 +153,50 @@ impl Figure {
             }
         }
         Ok(Grid::from_vec(nrows, ncols, cells).expect("one axes per grid cell"))
+    }
+
+    /// Makes room for long date tick labels (matplotlib's `autofmt_xdate`):
+    /// the x tick labels are rotated by `rotation` degrees and aligned
+    /// `halign`; with several subplots only the bottom row keeps them (and
+    /// its x labels); grid-placed figures get `bottom` as their bottom
+    /// margin.
+    ///
+    /// # Errors
+    ///
+    /// When `bottom` leaves no room for the subplots.
+    pub fn autofmt_xdate(
+        &self,
+        bottom: f64,
+        rotation: f64,
+        halign: HAlign,
+    ) -> Result<&Self, GridSpecError> {
+        let axes = self.axes();
+        let rotated = TickLabelProps {
+            rotation: Some(rotation),
+            halign: Some(halign),
+            ..TickLabelProps::default()
+        };
+        let all_subplots = axes.iter().all(|ax| ax.subplot_spec().is_some());
+        for ax in &axes {
+            let bottom_row = ax.subplot_spec().is_none_or(|spec| spec.is_last_row());
+            if axes.len() == 1 || bottom_row {
+                ax.xaxis().set_ticklabel_props(TickLevel::Major, &rotated);
+            } else if all_subplots {
+                ax.xaxis().set_tick_params(&TickParams {
+                    labelbottom: Some(false),
+                    labeltop: Some(false),
+                    ..TickParams::default()
+                });
+                ax.set_xlabel("");
+            }
+        }
+        if all_subplots {
+            self.subplots_adjust(&SubplotOverrides {
+                bottom: Some(bottom),
+                ..SubplotOverrides::default()
+            })?;
+        }
+        Ok(self)
     }
 
     /// A grid specification using this figure's subplot parameters.

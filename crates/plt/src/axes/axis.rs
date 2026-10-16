@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use super::ticks::{Sides, TickStyle};
 use crate::colors::Color;
+use crate::dates::{AutoDateFormatter, AutoDateLocator};
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
@@ -306,6 +307,16 @@ impl AxisState {
     pub(crate) fn convert_units(&mut self, values: AxisValues) -> Vec<f64> {
         let names = match values {
             AxisValues::Numbers(values) => return values,
+            AxisValues::Dates(numbers) => {
+                // matplotlib's DateConverter.axisinfo.
+                if self.default_major.0 {
+                    self.major_locator = Rc::new(AutoDateLocator::new());
+                }
+                if self.default_major.1 {
+                    self.major_formatter = Rc::new(AutoDateFormatter::new(AutoDateLocator::new()));
+                }
+                return numbers;
+            }
             AxisValues::Categories(names) => names,
         };
         let categories = self.categories.get_or_insert_with(Categories::default);

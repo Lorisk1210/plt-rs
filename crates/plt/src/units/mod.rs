@@ -1,7 +1,7 @@
-//! Unit conversion of plotting values (matplotlib's `units` and
-//! `category` modules): numbers pass through unchanged and category names
+//! Unit conversion of plotting values (matplotlib's `units`, `category`
+//! and date converters): numbers pass through unchanged, category names
 //! are placed at 0, 1, 2, ... in order of their first appearance on an
-//! axis.
+//! axis, and dates become date numbers on an axis with date ticks.
 //!
 //! ```
 //! use plt::prelude::*;
@@ -12,6 +12,8 @@
 //! ```
 
 mod category;
+
+use crate::dates::{DateTime, Datetime64, get_epoch};
 
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
 
@@ -46,13 +48,15 @@ pub enum AxisValues {
     Numbers(Vec<f64>),
     /// Category names.
     Categories(Vec<String>),
+    /// Dates as date numbers (days since the [epoch](crate::dates::get_epoch)).
+    Dates(Vec<f64>),
 }
 
 impl AxisValues {
     /// The number of values.
     pub fn len(&self) -> usize {
         match self {
-            Self::Numbers(values) => values.len(),
+            Self::Numbers(values) | Self::Dates(values) => values.len(),
             Self::Categories(names) => names.len(),
         }
     }
@@ -60,6 +64,33 @@ impl AxisValues {
     /// Whether there are no values.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+impl From<&[DateTime]> for AxisValues {
+    /// Naive date-times are taken as UTC, as matplotlib does by default.
+    fn from(dates: &[DateTime]) -> Self {
+        let epoch = get_epoch();
+        Self::Dates(dates.iter().map(|&d| epoch.date2num(d)).collect())
+    }
+}
+
+impl From<Vec<DateTime>> for AxisValues {
+    fn from(dates: Vec<DateTime>) -> Self {
+        Self::from(dates.as_slice())
+    }
+}
+
+impl From<&[Datetime64]> for AxisValues {
+    fn from(dates: &[Datetime64]) -> Self {
+        let epoch = get_epoch();
+        Self::Dates(dates.iter().map(|&d| epoch.datetime64_to_num(d)).collect())
+    }
+}
+
+impl From<Vec<Datetime64>> for AxisValues {
+    fn from(dates: Vec<Datetime64>) -> Self {
+        Self::from(dates.as_slice())
     }
 }
 
@@ -120,5 +151,37 @@ impl From<&[&str]> for AxisValues {
 impl<const N: usize> From<[&str; N]> for AxisValues {
     fn from(names: [&str; N]) -> Self {
         names.as_slice().into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::axes::AxisName;
+    use crate::figure::Figure;
+
+    #[test]
+    fn dates_become_date_numbers_on_a_date_axis() {
+        let days = [
+            DateTime::new(1970, 1, 2, 0, 0, 0, 0).unwrap(),
+            DateTime::new(1970, 1, 3, 12, 0, 0, 0).unwrap(),
+        ];
+        assert_eq!(
+            AxisValues::from(&days[..]),
+            AxisValues::Dates(vec![1.0, 2.5])
+        );
+        let instants = [Datetime64::new(86_400, 0)];
+        assert_eq!(
+            AxisValues::from(&instants[..]),
+            AxisValues::Dates(vec![1.0])
+        );
+
+        let ax = Figure::new().subplot();
+        ax.plot(days.to_vec(), [1.0, 2.0]).unwrap();
+        let ticks = ax.ticks(AxisName::X).unwrap();
+        let labels: Vec<&str> = ticks.major.iter().map(|t| t.label.as_str()).collect();
+        // matplotlib 3.11 labels this span the same way.
+        assert_eq!(labels[..3], ["01-02 00", "01-02 04", "01-02 08"]);
+        assert_eq!(labels.last(), Some(&"01-03 12"));
     }
 }

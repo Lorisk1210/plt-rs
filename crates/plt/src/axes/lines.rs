@@ -8,6 +8,7 @@ use crate::lines::{Line2D, LineArtist, LineProps};
 use crate::rc::{CycleValue, Cycler};
 use crate::scale::LogScale;
 use crate::ticker::AxisName;
+use crate::units::AxisValues;
 
 impl Axes {
     /// Plots `y` against `x` as a line using the next property-cycle style
@@ -21,7 +22,11 @@ impl Axes {
     /// assert_eq!(ax.xlim(), (0.9, 3.1));
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
-    pub fn plot(&self, x: impl AsRef<[f64]>, y: impl AsRef<[f64]>) -> Result<Line2D, PlotError> {
+    pub fn plot(
+        &self,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+    ) -> Result<Line2D, PlotError> {
         self.plot_with(x, y, LineProps::default())
     }
 
@@ -29,8 +34,8 @@ impl Axes {
     /// (matplotlib's `ax.plot(x, y, fmt)`).
     pub fn plot_fmt(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
         format: &str,
     ) -> Result<Line2D, PlotError> {
         self.plot_with(x, y, LineProps::fmt(format)?)
@@ -50,18 +55,20 @@ impl Axes {
     /// ```
     pub fn plot_with(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
         props: LineProps,
     ) -> Result<Line2D, PlotError> {
-        let (x, y) = (x.as_ref(), y.as_ref());
+        let (x, y) = (x.into(), y.into());
         if x.len() != y.len() {
             return Err(PlotError::LengthMismatch {
                 x: x.len(),
                 y: y.len(),
             });
         }
-        Ok(self.add_line(x.to_vec(), y.to_vec(), props))
+        let x = self.xaxis().convert_units(x);
+        let y = self.yaxis().convert_units(y);
+        Ok(self.add_line(x, y, props))
     }
 
     /// Plots `y` against its indices `0, 1, 2, ...` (matplotlib's `ax.plot(y)`).
@@ -72,7 +79,11 @@ impl Axes {
     }
 
     /// Plots on logarithmic x and y axes (matplotlib's `ax.loglog`).
-    pub fn loglog(&self, x: impl AsRef<[f64]>, y: impl AsRef<[f64]>) -> Result<Line2D, PlotError> {
+    pub fn loglog(
+        &self,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+    ) -> Result<Line2D, PlotError> {
         self.set_log_scales(true, true);
         self.plot(x, y)
     }
@@ -80,8 +91,8 @@ impl Axes {
     /// Plots on a logarithmic x axis (matplotlib's `ax.semilogx`).
     pub fn semilogx(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
     ) -> Result<Line2D, PlotError> {
         self.set_log_scales(true, false);
         self.plot(x, y)
@@ -90,8 +101,8 @@ impl Axes {
     /// Plots on a logarithmic y axis (matplotlib's `ax.semilogy`).
     pub fn semilogy(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
     ) -> Result<Line2D, PlotError> {
         self.set_log_scales(false, true);
         self.plot(x, y)

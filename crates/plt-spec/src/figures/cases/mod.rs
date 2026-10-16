@@ -7,6 +7,7 @@ mod contour;
 mod hist;
 mod layout;
 mod lines;
+mod misc;
 mod scatter;
 mod stats;
 
@@ -29,6 +30,8 @@ pub(crate) fn all() -> Vec<FigureCase> {
         hist::CASES,
         layout::CASES,
         lines::CASES,
+        misc::DATES,
+        misc::UNITS,
         scatter::CASES,
         stats::BOXPLOT,
         stats::ERRORBAR,

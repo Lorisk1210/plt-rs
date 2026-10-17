@@ -362,6 +362,12 @@ impl Figure {
         state.prepare();
     }
 
+    /// Whether `artist` belongs to this figure (or one of its
+    /// subfigures).
+    pub fn contains_artist(&self, artist: &impl ArtistHandle) -> bool {
+        Rc::ptr_eq(&self.state, artist.raw().figure_state())
+    }
+
     /// Read access to the figure's state.
     pub(crate) fn state(&self) -> std::cell::Ref<'_, FigureState> {
         self.state.borrow()

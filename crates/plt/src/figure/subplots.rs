@@ -8,7 +8,7 @@ use plt_core::{Bbox, Point};
 use plt_text::HAlign;
 
 use super::{Figure, FigureState};
-use crate::artist::{Artist, ArtistId, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName, TickLabelProps, TickLevel, TickParams};
 use crate::fonts::FontProperties;
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotSpec};
@@ -57,6 +57,24 @@ impl Figure {
             Bbox::from_bounds(left, bottom, width, height),
             None,
         )
+    }
+
+    /// The current axes (matplotlib's `gca`): the axes added last or made
+    /// current with [`Figure::sca`], or a new subplot if the figure has
+    /// none.
+    pub fn gca(&self) -> Axes {
+        let axes = self.axes();
+        let current = self.state.borrow().current_axes;
+        current
+            .and_then(|id| axes.iter().find(|ax| ax.id() == id).cloned())
+            .or_else(|| axes.last().cloned())
+            .unwrap_or_else(|| self.subplot())
+    }
+
+    /// Makes `ax` the current axes (matplotlib's `sca`).
+    pub fn sca(&self, ax: &Axes) -> &Self {
+        self.state.borrow_mut().current_axes = Some(ax.id());
+        self
     }
 
     /// Adds axes filling the default subplot area (`fig.add_subplot()`).
@@ -234,6 +252,7 @@ pub(crate) fn insert_axes(
         axes.spines = spines;
         axes.titles = titles;
     }
+    state.current_axes = Some(id);
     drop(state);
     Axes::from_raw(RawHandle::new(Rc::clone(figure), id))
 }

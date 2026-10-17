@@ -22,6 +22,7 @@
 //!   fancy boxes and arrows, annotation coordinate systems, path effects
 //!   and tables.
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
+//! * [`pyplot`] — the stateful `matplotlib.pyplot`-style interface.
 //! * [`navigation`] — interactive pan, zoom and view history, independent
 //!   of any window system; [`gui`] shows figures in windows with a
 //!   toolbar ([`gui::show`]).
@@ -57,6 +58,7 @@ pub mod patches;
 pub mod patheffects;
 pub mod polar;
 pub mod prelude;
+pub mod pyplot;
 pub mod quiver;
 pub mod rc;
 pub mod scale;

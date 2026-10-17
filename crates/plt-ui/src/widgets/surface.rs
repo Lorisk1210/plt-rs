@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use plt_core::Rgba;
 use plt_platform::PhysicalSize;
 use plt_raster::Pixmap;
 
@@ -29,6 +30,7 @@ type EventMap<M> = Box<dyn Fn(SurfaceEvent) -> Option<M>>;
 /// keyboard focus when clicked, so key presses reach it.
 pub struct Surface<M> {
     image: Option<Pixmap>,
+    selection: Option<Rect>,
     size: PhysicalSize,
     map: EventMap<M>,
 }
@@ -39,9 +41,17 @@ impl<M> Surface<M> {
     pub fn new(map: impl Fn(SurfaceEvent) -> Option<M> + 'static) -> Self {
         Self {
             image: None,
+            selection: None,
             size: PhysicalSize::default(),
             map: Box::new(map),
         }
+    }
+
+    /// Shows (or with `None` hides) a selection rectangle over the image,
+    /// in pixels from the surface's top-left corner, such as the box of a
+    /// zoom being dragged. Corners may come in any order.
+    pub fn set_selection(&mut self, selection: Option<Rect>) {
+        self.selection = selection.map(normalized);
     }
 
     /// Shows `image`, drawn at the top-left corner and clipped to the
@@ -86,12 +96,24 @@ impl<M: 'static> Widget<M> for Surface<M> {
     }
 
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError> {
-        let background = cx.theme().surface;
-        cx.canvas().fill_rect(rect, background)?;
-        match &self.image {
-            Some(image) => cx.canvas().draw_pixmap(image, rect.origin()),
-            None => Ok(()),
+        let theme = cx.theme();
+        cx.canvas().fill_rect(rect, theme.surface)?;
+        if let Some(image) = &self.image {
+            cx.canvas().draw_pixmap(image, rect.origin())?;
         }
+        if let Some(selection) = self.selection {
+            let placed = Rect::new(
+                rect.x + selection.x,
+                rect.y + selection.y,
+                selection.width,
+                selection.height,
+            );
+            let tint = Rgba::new(theme.accent.r, theme.accent.g, theme.accent.b, 0.12);
+            cx.canvas().fill_rect(placed, tint)?;
+            let width = cx.scale_factor();
+            cx.canvas().stroke_rect(placed, width, theme.accent)?;
+        }
+        Ok(())
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
@@ -106,10 +128,18 @@ impl<M: 'static> Widget<M> for Surface<M> {
     }
 }
 
+/// `rect` with a non-negative width and height.
+fn normalized(rect: Rect) -> Rect {
+    let (x0, x1) = (rect.x.min(rect.max_x()), rect.x.max(rect.max_x()));
+    let (y0, y1) = (rect.y.min(rect.max_y()), rect.y.max(rect.max_y()));
+    Rect::new(x0, y0, x1 - x0, y1 - y0)
+}
+
 impl<M> fmt::Debug for Surface<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Surface")
             .field("image", &self.image)
+            .field("selection", &self.selection)
             .field("size", &self.size)
             .finish_non_exhaustive()
     }

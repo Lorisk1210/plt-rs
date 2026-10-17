@@ -4,8 +4,9 @@ use plt_core::Rgba;
 use plt_platform::{Key, KeyEvent, Modifiers, MouseButton, PhysicalPosition, ScrollDelta};
 
 use super::*;
+use crate::icon::Icon;
 use crate::widget::EventCx;
-use crate::widgets::{Button, Flex, Label, Surface, SurfaceEvent};
+use crate::widgets::{Button, Flex, Label, Separator, Surface, SurfaceEvent, ToolButton};
 
 /// A widget reporting every event it receives as a message
 /// `(name, event)`.
@@ -224,6 +225,74 @@ fn buttons_click_and_highlight() {
         [] as [&str; 0],
         "releasing outside cancels the click"
     );
+}
+
+/// The red channel of the pixel at `(x, y)` of the next frame.
+fn red_at(ui: &mut Ui<&'static str>, x: f64, y: f64) -> u8 {
+    let frame = ui.paint().unwrap();
+    frame.pixels()[(y as usize * frame.width() as usize + x as usize) * 4]
+}
+
+#[test]
+fn tool_buttons_can_be_checked_and_disabled() {
+    let square = Icon::new(24.0).fill(plt_core::Path::polygon([
+        Point::new(4.0, 4.0),
+        Point::new(20.0, 4.0),
+        Point::new(20.0, 20.0),
+        Point::new(4.0, 20.0),
+    ]));
+    let mut toolbar = Flex::row();
+    let pan = toolbar.push(ToolButton::new(square.clone(), "pan"), 0.0);
+    toolbar.push(Separator::vertical(), 0.0);
+    let back = toolbar.push(ToolButton::new(square, "back"), 0.0);
+    let mut ui = Ui::new(toolbar, PhysicalSize::new(200, 40), 1.0).unwrap();
+    let corner = |ui: &Ui<&'static str>, id| {
+        let rect = ui.widget_rect(id).unwrap();
+        (rect.x + 3.0, rect.center().y)
+    };
+    let (x, y) = corner(&ui, pan);
+    let flat = red_at(&mut ui, x, y);
+    ui.widget_mut::<ToolButton<&'static str>>(pan)
+        .unwrap()
+        .set_checked(true);
+    let checked = red_at(&mut ui, x, y);
+    assert!(
+        checked < flat,
+        "a checked button shows a face: {checked} < {flat}"
+    );
+    ui.widget_mut::<ToolButton<&'static str>>(back)
+        .unwrap()
+        .set_enabled(false);
+    let center = ui.widget_rect(back).unwrap().center();
+    ui.handle(&button(ButtonState::Pressed, center.x, center.y))
+        .unwrap();
+    let released = ui.handle(&button(ButtonState::Released, center.x, center.y));
+    assert_eq!(
+        released.unwrap(),
+        [] as [&str; 0],
+        "disabled buttons ignore clicks"
+    );
+}
+
+#[test]
+fn surfaces_show_a_selection() {
+    let mut ui = Ui::new(
+        Surface::new(|_| None::<&'static str>),
+        PhysicalSize::new(100, 100),
+        1.0,
+    )
+    .unwrap();
+    let plain = red_at(&mut ui, 50.0, 50.0);
+    let root = ui.root_id();
+    ui.widget_mut::<Surface<&'static str>>(root)
+        .unwrap()
+        .set_selection(Some(Rect::new(80.0, 80.0, -60.0, -60.0)));
+    let tinted = red_at(&mut ui, 50.0, 50.0);
+    assert!(
+        tinted < plain,
+        "the selection tints the surface: {tinted} < {plain}"
+    );
+    assert_eq!(red_at(&mut ui, 90.0, 90.0), plain, "outside the selection");
 }
 
 #[derive(Debug, Clone, PartialEq)]

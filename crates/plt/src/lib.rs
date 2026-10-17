@@ -23,7 +23,8 @@
 //!   and tables.
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
 //! * [`navigation`] — interactive pan, zoom and view history, independent
-//!   of any window system.
+//!   of any window system; [`gui`] shows figures in windows with a
+//!   toolbar ([`gui::show`]).
 //! * [`layout`] — layout engines (constrained layout) placing the axes so
 //!   that their decorations fit.
 //! * [`mplot3d`] — 3-D axes: surfaces, wireframes, 3-D scatter, bars,
@@ -42,6 +43,7 @@ pub mod dates;
 pub mod figure;
 pub mod fonts;
 pub mod gridspec;
+pub mod gui;
 pub mod image;
 pub mod layout;
 pub mod lines;

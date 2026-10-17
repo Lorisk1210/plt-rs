@@ -6,10 +6,13 @@ version = 4
 name = "plt"
 version = "0.1.0"
 dependencies = [
+ "plt-codec",
  "plt-core",
+ "plt-platform",
  "plt-raster",
  "plt-render",
  "plt-text",
+ "plt-ui",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-//! Pie charts (matplotlib's `pie` and `pie_label`).
+//! Pie charts (matplotlib's `pie`).
 
 use std::fmt;
 use std::rc::Rc;
@@ -9,8 +9,8 @@ use crate::colors::Color;
 use crate::fonts::FontSize;
 use crate::patches::{Patch, PatchProps, Shadow, ShadowError, Wedge};
 use crate::rc::Aspect;
-use crate::text::{HorizontalAlignment, Text, VerticalAlignment};
-use crate::ticker::pyfmt::PrintfFormat;
+use crate::text::Text;
+use crate::ticker::pyfmt::{FormatError, PrintfFormat};
 
 /// How the percentage labels of a pie are written (matplotlib's
 /// `autopct`).
@@ -143,12 +143,16 @@ impl Default for PieOptions {
 pub struct PieContainer {
     /// The wedges.
     pub wedges: Vec<Patch<Wedge>>,
+    /// The values the pie shows.
+    pub values: Vec<f64>,
     /// The fraction of the pie each wedge covers.
     pub fracs: Vec<f64>,
     /// The labels outside the wedges.
     pub labels: Vec<Text>,
     /// The percentage labels.
     pub pct_labels: Vec<Text>,
+    /// The labels added with [`Axes::pie_label`], one list per call.
+    pub added_labels: Vec<Vec<Text>>,
 }
 
 /// Why a pie cannot be drawn.
@@ -175,6 +179,15 @@ pub enum PieError {
     },
     /// `autopct` is not a valid printf template.
     Format(String),
+    /// A list of labels does not have one label per wedge.
+    LabelCount {
+        /// Labels given.
+        labels: usize,
+        /// Wedges.
+        wedges: usize,
+    },
+    /// A label template is invalid for the values.
+    LabelFormat(FormatError),
     /// The wedge shadows cannot be made.
     Shadow(ShadowError),
 }
@@ -196,6 +209,11 @@ impl fmt::Display for PieError {
                 "'{argument}' must be of length 'x' ({wedges}), not {len}"
             ),
             Self::Format(why) => write!(f, "invalid autopct: {why}"),
+            Self::LabelCount { labels, wedges } => write!(
+                f,
+                "The number of labels ({labels}) must match the number of wedges ({wedges})"
+            ),
+            Self::LabelFormat(err) => write!(f, "invalid pie label template: {err}"),
             Self::Shadow(err) => err.fmt(f),
         }
     }
@@ -252,10 +270,10 @@ impl Axes {
             .text_size
             .unwrap_or(crate::rc::params().xtick_labelsize);
         let labels = match options.labeldistance {
-            Some(distance) if !options.labels.is_empty() => self.pie_label(
+            Some(distance) if !options.labels.is_empty() => self.place_pie_labels(
                 &wedges,
                 &options.labels,
-                &LabelPlacement {
+                &super::pie_label::LabelPlacement {
                     distance,
                     outer: true,
                     rotate: options.rotatelabels,
@@ -272,10 +290,10 @@ impl Axes {
                     .map(|frac| percent_label(format, 100.0 * frac))
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(PlotError::Pie)?;
-                self.pie_label(
+                self.place_pie_labels(
                     &wedges,
                     &texts,
-                    &LabelPlacement {
+                    &super::pie_label::LabelPlacement {
                         distance: options.pctdistance,
                         outer: false,
                         rotate: false,
@@ -297,9 +315,11 @@ impl Axes {
         }
         Ok(PieContainer {
             wedges,
+            values: values.to_vec(),
             fracs,
             labels,
             pct_labels,
+            added_labels: Vec::new(),
         })
     }
 
@@ -353,64 +373,6 @@ impl Axes {
             })
             .collect()
     }
-
-    /// matplotlib's `pie_label`: a text per wedge at `placement.distance`
-    /// radii along the wedge's bisector.
-    fn pie_label(
-        &self,
-        wedges: &[Patch<Wedge>],
-        labels: &[String],
-        placement: &LabelPlacement,
-        size: Option<FontSize>,
-        color: Option<&Color>,
-    ) -> Vec<Text> {
-        wedges
-            .iter()
-            .zip(labels)
-            .map(|(wedge, label)| {
-                let shape = wedge.shape();
-                let thetam =
-                    2.0 * std::f64::consts::PI * 0.5 * (shape.theta1 + shape.theta2) / 360.0;
-                let x = shape.center.x + placement.distance * shape.r * thetam.cos();
-                let y = shape.center.y + placement.distance * shape.r * thetam.sin();
-                let halign = match (placement.outer, x > 0.0) {
-                    (false, _) => HorizontalAlignment::Center,
-                    (true, true) => HorizontalAlignment::Left,
-                    (true, false) => HorizontalAlignment::Right,
-                };
-                let (valign, rotation) = if placement.rotate {
-                    let valign = match (placement.outer, y > 0.0) {
-                        (false, _) => VerticalAlignment::Center,
-                        (true, true) => VerticalAlignment::Bottom,
-                        (true, false) => VerticalAlignment::Top,
-                    };
-                    let flip = if x > 0.0 { 0.0 } else { 180.0 };
-                    (valign, thetam.to_degrees() + flip)
-                } else {
-                    (VerticalAlignment::Center, 0.0)
-                };
-                let text = self.text(x, y, label.clone());
-                text.set_rotation(rotation)
-                    .set_halign(halign)
-                    .set_valign(valign);
-                if let Some(size) = size {
-                    text.set_size(size);
-                }
-                if let Some(color) = color {
-                    text.set_color(color.clone());
-                }
-                text
-            })
-            .collect()
-    }
-}
-
-/// Where [`Axes::pie_label`] places a set of labels.
-struct LabelPlacement {
-    distance: f64,
-    /// Align labels away from the pie rather than centring them.
-    outer: bool,
-    rotate: bool,
 }
 
 /// The fraction of the pie each value covers.

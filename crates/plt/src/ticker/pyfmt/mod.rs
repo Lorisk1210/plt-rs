@@ -33,7 +33,7 @@ use std::fmt;
 use dtoa::{FloatStyle, Presentation, format_float};
 pub use printf::PrintfFormat;
 pub use spec::FormatSpec;
-pub use template::StrTemplate;
+pub use template::{StrTemplate, TemplateValue};
 
 /// Why a Python-style format string was rejected; the variants mirror the
 /// Python exception that would have been raised.

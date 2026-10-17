@@ -1,6 +1,8 @@
 //! Pie chart cases of `figures/cases_stats.py`.
 
-use plt::axes::{PieDirection, PieLabelFormat, PieOptions, PieShadow};
+use plt::axes::{
+    PieDirection, PieLabelAlignment, PieLabelFormat, PieLabelOptions, PieOptions, PieShadow,
+};
 use plt::colors::Color;
 use plt::fonts::FontSize;
 use plt::lines::LineStyle;
@@ -118,4 +120,42 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 5.0, 100.0),
+    FigureCase::new("stats/pie_label", |fig| {
+        let axs = fig.subplots(1, 2)?;
+        let (left, right) = (&axs[(0, 0)], &axs[(0, 1)]);
+        let mut pie = left.pie(&[15.0, 30.0, 45.0, 10.0], &PieOptions::default())?;
+        let inside = PieLabelOptions {
+            distance: 0.7,
+            ..PieLabelOptions::default()
+        };
+        left.pie_label(&mut pie, "{absval:d}", &inside)?;
+        let outside = PieLabelOptions {
+            distance: 1.15,
+            ..PieLabelOptions::default()
+        };
+        let names: &[&str] = &["frogs", "hogs", "dogs", "logs"];
+        left.pie_label(&mut pie, names, &outside)?;
+        let unnormalized = PieOptions {
+            normalize: false,
+            ..PieOptions::default()
+        };
+        let mut partial = right.pie(&[0.2, 0.3, 0.1], &unnormalized)?;
+        let rotated = PieLabelOptions {
+            distance: 1.1,
+            rotate: true,
+            color: Some(Color::from("tab:red")),
+            size: Some(FontSize::Points(8.0)),
+            ..PieLabelOptions::default()
+        };
+        right.pie_label(&mut partial, "{frac:.1%}", &rotated)?;
+        let outer = PieLabelOptions {
+            distance: 0.5,
+            alignment: PieLabelAlignment::Outer,
+            ..PieLabelOptions::default()
+        };
+        let letters: &[&str] = &["a", "b", "c"];
+        right.pie_label(&mut partial, letters, &outer)?;
+        Ok(())
+    })
+    .sized(8.0, 4.0, 100.0),
 ];

@@ -37,6 +37,7 @@ pub use error::TextDrawError;
 pub use handle::Text;
 pub use layout::{LaidOutText, measure_text};
 pub(crate) use layout::{lay_out, lay_out_with_math};
+pub(crate) use math::math_style;
 pub use plt_text::{
     BlockLayout, HAlign as HorizontalAlignment, LineMetrics, LinePlacement, LineSpacing,
     RotationMode as TextRotationMode, TextError, VAlign as VerticalAlignment,

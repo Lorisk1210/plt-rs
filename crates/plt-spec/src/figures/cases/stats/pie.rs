@@ -1,6 +1,6 @@
 //! Pie chart cases of `figures/cases_stats.py`.
 
-use plt::axes::{PieDirection, PieLabelFormat, PieOptions};
+use plt::axes::{PieDirection, PieLabelFormat, PieOptions, PieShadow};
 use plt::colors::Color;
 use plt::fonts::FontSize;
 use plt::lines::LineStyle;
@@ -28,6 +28,18 @@ pub(crate) const CASES: &[FigureCase] = &[
         let options = PieOptions {
             labels: names(),
             autopct: Some(PieLabelFormat::Printf("%1.1f%%".into())),
+            ..PieOptions::default()
+        };
+        fig.subplot().pie(&SHARES, &options)?;
+        Ok(())
+    })
+    .sized(5.0, 5.0, 100.0),
+    FigureCase::new("stats/pie_explode_shadow_startangle", |fig| {
+        let options = PieOptions {
+            labels: names(),
+            explode: vec![0.1, 0.0, 0.0, 0.2, 0.0],
+            shadow: Some(PieShadow::default()),
+            startangle: 90.0,
             ..PieOptions::default()
         };
         fig.subplot().pie(&SHARES, &options)?;

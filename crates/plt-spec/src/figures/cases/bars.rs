@@ -1,8 +1,13 @@
 //! `figures/cases_bars.py`.
 
-use plt::axes::{BandAlign, BarAlign, BarOptions, ErrorSize, ErrorbarOptions};
+use plt::axes::{
+    BandAlign, BarAlign, BarLabelFormat, BarLabelOptions, BarLabelType, BarOptions, ErrorSize,
+    ErrorbarOptions, GroupedBarData, GroupedBarOptions,
+};
 use plt::colors::Color;
+use plt::lines::LineProps;
 use plt::numeric::arange;
+use plt::orientation::Orientation;
 
 use crate::figures::FigureCase;
 
@@ -11,6 +16,27 @@ const HEIGHTS: [f64; 5] = [3.0, 7.0, 5.0, 2.0, 6.0];
 /// `X = np.arange(len(HEIGHTS))`.
 fn x() -> Vec<f64> {
     arange(0.0, 5.0, 1.0)
+}
+
+/// `HEIGHTS` scaled by `factor`.
+fn heights(factor: f64) -> Vec<f64> {
+    HEIGHTS.iter().map(|h| h * factor).collect()
+}
+
+/// `bar_label` options with only `padding` set.
+fn padded(padding: f64) -> BarLabelOptions {
+    BarLabelOptions {
+        padding: vec![padding],
+        ..BarLabelOptions::default()
+    }
+}
+
+/// `bar_label` options formatting values with `template`.
+fn formatted(template: &str) -> BarLabelOptions {
+    BarLabelOptions {
+        fmt: BarLabelFormat::Template(template.to_owned()),
+        ..BarLabelOptions::default()
+    }
 }
 
 /// `[Color::from(name), ...]`.
@@ -200,6 +226,96 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("bars/bar_label_edge_default", |fig| {
+        let ax = fig.subplot();
+        let bars = ax.bar(x(), heights(1.5), BarOptions::default())?;
+        ax.bar_label(&bars, &BarLabelOptions::default())?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("bars/bar_label_center_stacked", |fig| {
+        let ax = fig.subplot();
+        let a = [20.0, 35.0, 30.0];
+        let b = [25.0, 32.0, 34.0];
+        let x = arange(0.0, 3.0, 1.0);
+        let lower = ax.bar(&x, a, BarOptions::default())?;
+        let on_a = BarOptions {
+            base: a.to_vec(),
+            ..BarOptions::default()
+        };
+        let upper = ax.bar(&x, b, on_a)?;
+        let center = BarLabelOptions {
+            label_type: BarLabelType::Center,
+            ..BarLabelOptions::default()
+        };
+        ax.bar_label(&lower, &center)?;
+        for label in ax.bar_label(&upper, &center)? {
+            label.set_color("white");
+        }
+        ax.bar_label(&upper, &BarLabelOptions::default())?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("bars/bar_label_fmt_padding", |fig| {
+        let axes = fig.subplots(1, 2)?;
+        let [ax1, ax2] = axes.as_slice() else {
+            unreachable!("one row of two axes")
+        };
+        let bars = ax1.bar(x(), heights(1.0 / 7.0), BarOptions::default())?;
+        let two_places = BarLabelOptions {
+            padding: vec![3.0],
+            ..formatted("%.2f")
+        };
+        for label in ax1.bar_label(&bars, &two_places)? {
+            label.set_fontsize(8.0);
+        }
+        let bars = ax2.barh(x(), heights(1.0 / 7.0), BarOptions::default())?;
+        let percent = BarLabelOptions {
+            padding: vec![-25.0],
+            ..formatted("{:.0%}")
+        };
+        for label in ax2.bar_label(&bars, &percent)? {
+            label.set_color("white");
+        }
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
+    FigureCase::new("bars/bar_label_custom_labels", |fig| {
+        let ax = fig.subplot();
+        let bars = ax.bar(x(), HEIGHTS, BarOptions::default())?;
+        let options = BarLabelOptions {
+            labels: ["a", "bb", "ccc", "", "e"].map(String::from).to_vec(),
+            ..padded(2.0)
+        };
+        for label in ax.bar_label(&bars, &options)? {
+            label.set_rotation(90.0);
+        }
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("bars/negative_values_labeled", |fig| {
+        let ax = fig.subplot();
+        let values = [3.0, -2.0, 4.5, -1.0, 0.5];
+        let options = BarOptions {
+            color: values
+                .iter()
+                .map(|&v| Color::from(if v < 0.0 { "tab:red" } else { "tab:green" }))
+                .collect(),
+            ..BarOptions::default()
+        };
+        let bars = ax.bar(x(), values, options)?;
+        ax.axhline(0.0, LineProps::default().color("k").linewidth(0.8));
+        ax.bar_label(&bars, &formatted("%+.1f"))?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("bars/negative_barh_labeled", |fig| {
+        let ax = fig.subplot();
+        let bars = ax.barh(x(), [-3.0, 2.0, -1.5, 4.0, 1.0], BarOptions::default())?;
+        ax.bar_label(&bars, &padded(4.0))?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
     FigureCase::new("bars/log_scale", |fig| {
         let options = BarOptions {
             log: true,
@@ -259,4 +375,21 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),
+    FigureCase::new("bars/grouped_bar_dict_horizontal", |fig| {
+        let data = GroupedBarData::Named(vec![
+            ("2023".into(), vec![3.0, 5.0]),
+            ("2024".into(), vec![4.0, 2.0]),
+            ("2025".into(), vec![6.0, 1.0]),
+        ]);
+        let options = GroupedBarOptions {
+            tick_labels: ["east", "west"].map(String::from).to_vec(),
+            orientation: Orientation::Horizontal,
+            group_spacing: 0.5,
+            bar_spacing: 0.1,
+            ..GroupedBarOptions::default()
+        };
+        fig.subplot().grouped_bar(data, options)?;
+        Ok(())
+    })
+    .sized(6.0, 4.0, 100.0),
 ];

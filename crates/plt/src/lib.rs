@@ -22,6 +22,7 @@
 //!   fancy boxes and arrows, annotation coordinate systems, path effects
 //!   and tables.
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
+//! * [`sankey`] — Sankey flow diagrams.
 //! * [`pyplot`] — the stateful `matplotlib.pyplot`-style interface.
 //! * [`widgets`] — buttons, sliders, check/radio buttons and text boxes.
 //! * [`events`] — figure events, callbacks (`mpl_connect`) and timers;
@@ -66,6 +67,7 @@ pub mod prelude;
 pub mod pyplot;
 pub mod quiver;
 pub mod rc;
+pub mod sankey;
 pub mod scale;
 pub mod spines;
 pub mod stats;

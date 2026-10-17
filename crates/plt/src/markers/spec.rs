@@ -222,6 +222,9 @@ pub enum Marker {
     Vertices(Vec<Point>),
     /// An arbitrary path, normalised to fit.
     Path(Path),
+    /// Mathtext such as `"$\clubsuit$"`, drawn as its outline centred and
+    /// scaled to fit.
+    Math(String),
 }
 
 impl Default for Marker {
@@ -268,10 +271,14 @@ impl Marker {
 impl FromStr for Marker {
     type Err = MarkerError;
 
-    /// Parses matplotlib's string marker codes (`"o"`, `"^"`, `"None"`, ...).
+    /// Parses matplotlib's string marker codes (`"o"`, `"^"`, `"None"`,
+    /// ...) and mathtext markers (`"$f$"`).
     fn from_str(code: &str) -> Result<Self, MarkerError> {
         if NOTHING_CODES.contains(&code) {
             return Ok(Self::Symbol(MarkerSymbol::Nothing));
+        }
+        if plt_text::mathtext::is_math_text(code) {
+            return Ok(Self::Math(code.to_owned()));
         }
         CHAR_CODES
             .iter()
@@ -292,6 +299,8 @@ pub enum MarkerError {
     NoSides,
     /// A vertex or path marker without any finite extent.
     EmptyShape,
+    /// A mathtext marker that cannot be typeset (the reason).
+    Math(String),
 }
 
 impl fmt::Display for MarkerError {
@@ -304,6 +313,7 @@ impl fmt::Display for MarkerError {
             ),
             Self::NoSides => f.write_str("polygon markers need at least one side"),
             Self::EmptyShape => f.write_str("marker shape has no extent"),
+            Self::Math(why) => write!(f, "invalid mathtext marker: {why}"),
         }
     }
 }

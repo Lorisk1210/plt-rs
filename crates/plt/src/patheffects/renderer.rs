@@ -39,29 +39,6 @@ impl<'r> PathEffectRenderer<'r> {
     }
 }
 
-/// The outlines of a text run as one compound path relative to its origin
-/// (matplotlib's `TextToPath.get_text_path`).
-fn text_path(run: &TextRun) -> Path {
-    let engine = TextEngine::global();
-    let glyphs = run.glyphs.iter().filter_map(|glyph| {
-        let outline = engine
-            .glyph_outline(glyph.font, glyph.glyph, glyph.size, run.dpi)
-            .ok()?;
-        Some(outline.transformed(&Affine2D::translation(glyph.x, glyph.y)))
-    });
-    let rects = run.rects.iter().map(|rect| {
-        let (x, y, w, h) = rect.bounds();
-        Path::polygon([
-            Point::new(x, y),
-            Point::new(x + w, y),
-            Point::new(x + w, y + h),
-            Point::new(x, y + h),
-        ])
-    });
-    let parts: Vec<Path> = glyphs.chain(rects).collect();
-    Path::compound(&parts)
-}
-
 impl Renderer for PathEffectRenderer<'_> {
     fn canvas_size(&self) -> (f64, f64) {
         self.inner.canvas_size()
@@ -145,7 +122,12 @@ impl Renderer for PathEffectRenderer<'_> {
             linewidth: 0.0,
             ..gc.clone()
         };
-        self.draw_path(&gc, &text_path(run), &placement, Some(gc.foreground));
+        self.draw_path(
+            &gc,
+            &run.outline(TextEngine::global()),
+            &placement,
+            Some(gc.foreground),
+        );
     }
 
     fn open_group(&mut self, name: &str, gid: Option<&str>) {

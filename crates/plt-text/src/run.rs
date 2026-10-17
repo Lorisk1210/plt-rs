@@ -1,7 +1,9 @@
 //! Laid-out text ready for any backend.
 
-use plt_core::Bbox;
+use plt_core::{Affine2D, Bbox, Path, Point};
 use plt_font::{FontId, GlyphId};
+
+use crate::engine::TextEngine;
 
 /// One glyph placed relative to the text origin.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -41,5 +43,29 @@ impl TextRun {
     /// Whether nothing would be drawn.
     pub fn is_empty(&self) -> bool {
         self.glyphs.is_empty() && self.rects.is_empty()
+    }
+
+    /// The glyph outlines and rules as one compound path in pixels
+    /// relative to the origin, glyphs first (matplotlib's
+    /// `TextToPath.get_text_path`); glyphs `engine` has no outline for
+    /// are left out.
+    pub fn outline(&self, engine: &TextEngine) -> Path {
+        let glyphs = self.glyphs.iter().filter_map(|glyph| {
+            let outline = engine
+                .glyph_outline(glyph.font, glyph.glyph, glyph.size, self.dpi)
+                .ok()?;
+            Some(outline.transformed(&Affine2D::translation(glyph.x, glyph.y)))
+        });
+        let rects = self.rects.iter().map(|rect| {
+            let (x, y, w, h) = rect.bounds();
+            Path::polygon([
+                Point::new(x, y),
+                Point::new(x + w, y),
+                Point::new(x + w, y + h),
+                Point::new(x, y + h),
+            ])
+        });
+        let parts: Vec<Path> = glyphs.chain(rects).collect();
+        Path::compound(&parts)
     }
 }

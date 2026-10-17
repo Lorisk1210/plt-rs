@@ -166,3 +166,77 @@ def _(fig):
     click_and_drag(plain, (2.0, -1.0), (7.0, 0.5))
     plain.rotation = -30
     del ellipse, plain
+
+
+def _press(ax, xy, button=1):
+    MouseEvent._from_ax_coords("button_press_event", ax, xy, button)._process()
+
+
+def _release(ax, xy, button=1):
+    MouseEvent._from_ax_coords("button_release_event", ax, xy, button)._process()
+
+
+def _place_vertex(ax, xy, button=1):
+    """matplotlib's test helper ``polygon_place_vertex``."""
+    _move(ax, xy)
+    _press(ax, xy, button)
+    _release(ax, xy, button)
+
+
+LOOP = [(2.0 + 1.5 * np.cos(a), 1.0 * np.sin(a)) for a in np.linspace(0, 5, 12)]
+
+
+@case("selectors/lasso")
+def _(fig):
+    left, right = fig.subplots(1, 2)
+    for ax in (left, right):
+        _plot(ax)
+    selector = widgets.LassoSelector(left, _noop, useblit=False, props=dict(color="m", lw=2))
+    _press(left, LOOP[0])
+    for xy in LOOP[1:]:
+        MouseEvent._from_ax_coords("motion_notify_event", left, xy, 1)._process()
+    lasso = widgets.Lasso(right, (5.0, 0.0), _noop, useblit=False, props=dict(color="tab:red"))
+    for xy in [(6.0, 0.5), (7.0, 0.2), (6.5, -0.6), (5.5, -0.4)]:
+        MouseEvent._from_ax_coords("motion_notify_event", right, xy, 1)._process()
+    del selector, lasso
+
+
+@case("selectors/polygon_complete")
+def _(fig):
+    ax = fig.subplots()
+    _plot(ax)
+    polygon = widgets.PolygonSelector(ax, _noop)
+    for xy in [(2.0, -1.0), (6.0, -1.2), (7.0, 0.5), (4.0, 1.2), (2.0, -1.0)]:
+        _place_vertex(ax, xy)
+    # Drag the third vertex.
+    click_and_drag(polygon, (7.0, 0.5), (8.0, 0.8))
+    del polygon
+
+
+@case("selectors/polygon_open")
+def _(fig):
+    left, right = fig.subplots(1, 2)
+    for ax in (left, right):
+        _plot(ax)
+    polygon = widgets.PolygonSelector(left, _noop, props=dict(color="tab:green", lw=3),
+                                      handle_props=dict(marker="s", markersize=5))
+    for xy in [(2.0, -1.0), (6.0, -1.0), (7.0, 0.5)]:
+        _place_vertex(left, xy)
+    _move(left, (3.0, 1.0))
+    moved = widgets.PolygonSelector(right, _noop)
+    moved.verts = [(2.0, -1.0), (5.0, -1.0), (3.5, 1.0)]
+    click_and_drag(moved, (3.0, 0.0), (5.0, 0.2), key="shift")
+    del polygon, moved
+
+
+@case("selectors/polygon_box")
+def _(fig):
+    ax = fig.subplots()
+    _plot(ax)
+    polygon = widgets.PolygonSelector(ax, _noop, draw_bounding_box=True,
+                                      box_props=dict(facecolor="none", edgecolor="tab:orange"))
+    for xy in [(2.0, -1.0), (6.0, -1.0), (4.0, 1.0), (2.0, -1.0)]:
+        _place_vertex(ax, xy)
+    # Stretch with the north-east corner of the box.
+    click_and_drag(polygon._box, (6.0, 1.0), (8.0, 1.3))
+    del polygon

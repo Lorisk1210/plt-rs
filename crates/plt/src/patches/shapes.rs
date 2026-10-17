@@ -30,6 +30,10 @@ pub struct Rectangle {
     pub angle: f64,
     /// Centre of the rotation.
     pub rotation_point: RotationPoint,
+    /// Height-to-width ratio of a display unit square in data units, so
+    /// that rotations look right on axes with unequal scales (matplotlib's
+    /// `_aspect_ratio_correction`, set by the rectangle selector).
+    pub aspect_ratio_correction: f64,
 }
 
 impl Rectangle {
@@ -41,6 +45,7 @@ impl Rectangle {
             height,
             angle: 0.0,
             rotation_point: RotationPoint::Xy,
+            aspect_ratio_correction: 1.0,
         }
     }
 
@@ -75,9 +80,12 @@ impl PatchShape for Rectangle {
             ),
             RotationPoint::At(p) => p,
         };
+        let correction = self.aspect_ratio_correction;
         crate::transforms::unit_to_bbox(&bbox).then(
             Affine2D::translation(-pivot.x, -pivot.y)
+                .scale(1.0, correction)
                 .rotate_deg(self.angle)
+                .scale(1.0, 1.0 / correction)
                 .translate(pivot.x, pivot.y),
         )
     }
@@ -98,6 +106,9 @@ pub struct Ellipse {
     pub height: f64,
     /// Counter-clockwise rotation in degrees.
     pub angle: f64,
+    /// Height-to-width ratio of a display unit square in data units (see
+    /// [`Rectangle::aspect_ratio_correction`]).
+    pub aspect_ratio_correction: f64,
 }
 
 impl Ellipse {
@@ -108,6 +119,7 @@ impl Ellipse {
             width,
             height,
             angle: 0.0,
+            aspect_ratio_correction: 1.0,
         }
     }
 }
@@ -118,9 +130,11 @@ impl PatchShape for Ellipse {
     }
 
     fn patch_transform(&self) -> Affine2D {
+        let correction = self.aspect_ratio_correction;
         Affine2D::identity()
-            .scale(self.width * 0.5, self.height * 0.5)
+            .scale(self.width * 0.5, self.height * 0.5 * correction)
             .rotate_deg(self.angle)
+            .scale(1.0, 1.0 / correction)
             .translate(self.center.x, self.center.y)
     }
 }

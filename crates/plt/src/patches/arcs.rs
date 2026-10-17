@@ -87,10 +87,8 @@ impl PatchShape for Arc {
 
     fn patch_transform(&self) -> Affine2D {
         Ellipse {
-            center: self.center,
-            width: self.width,
-            height: self.height,
             angle: self.angle,
+            ..Ellipse::new(self.center, self.width, self.height)
         }
         .patch_transform()
     }

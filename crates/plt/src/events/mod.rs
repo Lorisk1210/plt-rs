@@ -32,11 +32,17 @@
 //! periodically while the figure is shown
 //! (the basis of [`crate::animation`]).
 //!
+//! Interactive tools share the pointer through the figure's widget lock
+//! ([`Figure::lock_widgets`](crate::figure::Figure::lock_widgets)) and ask
+//! the window for cursor shapes
+//! ([`Figure::set_cursor`](crate::figure::Figure::set_cursor)).
+//!
 //! [`EventSource`] turns raw input into events the way matplotlib's
 //! canvas does: it finds the axes under the pointer and the data
 //! coordinates there, remembers the held button and key, and emits axes
 //! enter/leave events as the pointer moves.
 
+mod lock;
 mod registry;
 mod source;
 mod timers;
@@ -44,6 +50,7 @@ mod timers;
 use crate::axes::Axes;
 use crate::navigation::PointerButton;
 
+pub use lock::{CursorShape, LockError, LockOwner};
 pub(crate) use registry::CallbackRegistry;
 pub use registry::ConnectionId;
 pub use source::EventSource;

@@ -22,7 +22,7 @@ use crate::ticker::{
     AxisInfo, Formatter, OffsetMode, ScalarFormatter, TickContext, TickerSettings,
 };
 
-/// The direction a slider moves in.
+/// The direction a slider moves in, or a span selector selects along.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Orientation {
     /// Left to right.

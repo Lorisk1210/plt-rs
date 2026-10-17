@@ -1,21 +1,25 @@
 //! The built-in widgets.
 
 mod button;
+mod checkbox;
 mod choice;
 mod flex;
 mod label;
 mod list;
 mod separator;
+mod stack;
 mod surface;
 mod text_input;
 mod tool_button;
 
 pub use button::Button;
+pub use checkbox::Checkbox;
 pub use choice::Choice;
 pub use flex::{Axis, Flex};
 pub use label::Label;
 pub use list::{List, ListItem};
 pub use separator::Separator;
+pub use stack::Stack;
 pub use surface::{Surface, SurfaceEvent};
 pub use text_input::TextInput;
 pub use tool_button::ToolButton;

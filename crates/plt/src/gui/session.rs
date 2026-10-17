@@ -414,7 +414,7 @@ mod tests {
             session.wait_for_button_press(&figure, timeout).unwrap(),
             None
         );
-        // A click answers, and focuses the canvas for keys.
+        // A click answers too.
         click(&handle, id, MouseButton::Left, (200.0, 150.0));
         assert_eq!(
             session.wait_for_button_press(&figure, timeout).unwrap(),

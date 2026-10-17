@@ -393,6 +393,11 @@ impl AxisState {
         self.map.as_ref().map_or(value, |m| m.forward(value))
     }
 
+    /// Maps a scaled value back to data.
+    pub(crate) fn inverse(&self, value: f64) -> f64 {
+        self.map.as_ref().map_or(value, |m| m.inverse(value))
+    }
+
     /// What tick helpers know about this axis.
     pub(crate) fn info(&self, geometry: &AxisGeometry) -> AxisInfo {
         AxisInfo {

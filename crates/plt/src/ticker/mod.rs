@@ -38,6 +38,7 @@ mod settings;
 
 pub use context::{AxisInfo, AxisName, ScaleHint, TickContext};
 pub use error::TickerError;
+pub(crate) use formatter::g_sig_digits;
 pub use formatter::{
     EngFormatter, FixedFormatter, FormatStrFormatter, Formatter, FuncFormatter, LogFormatter,
     LogLabelStyle, LogitFormatter, NullFormatter, OffsetMode, PercentFormatter, ScalarFormatter,

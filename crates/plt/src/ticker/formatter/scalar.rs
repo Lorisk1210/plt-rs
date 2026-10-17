@@ -410,7 +410,7 @@ impl ScalarFormatter {
 
 /// matplotlib's `cbook._g_sig_digits`: significant digits needed to show
 /// `value` known to within `delta`.
-fn g_sig_digits(value: f64, delta: f64) -> Result<usize, TickerError> {
+pub(crate) fn g_sig_digits(value: f64, delta: f64) -> Result<usize, TickerError> {
     if !value.is_finite() {
         return Ok(0);
     }
@@ -464,8 +464,27 @@ impl Formatter for ScalarFormatter {
     /// the view resolves (`%-#.<n>g`).
     fn format_data_short(&self, value: f64, ctx: &TickContext<'_>) -> Result<String, TickerError> {
         let (a, b) = ctx.view_interval();
-        let digits = g_sig_digits(value, (b - a) / 1e4)?;
-        Ok(ctx.settings().fix_minus(&general_alternate(value, digits)))
+        Self::format_data_resolved(value, (b - a) / 1e4, ctx.settings())
+    }
+}
+
+impl ScalarFormatter {
+    /// The value with as many significant digits as needed to tell it
+    /// from values `resolution` away (`%-#.<n>g`; matplotlib's
+    /// `format_data_short` with an axis attached, where the resolution is
+    /// the data size of a screen pixel).
+    ///
+    /// # Errors
+    ///
+    /// When the number of digits cannot be determined (a negative or
+    /// non-finite resolution).
+    pub fn format_data_resolved(
+        value: f64,
+        resolution: f64,
+        settings: &TickerSettings,
+    ) -> Result<String, TickerError> {
+        let digits = g_sig_digits(value, resolution)?;
+        Ok(settings.fix_minus(&general_alternate(value, digits)))
     }
 }
 

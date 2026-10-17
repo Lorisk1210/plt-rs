@@ -14,6 +14,7 @@ pub use eng::EngFormatter;
 pub use log::{LogFormatter, LogLabelStyle};
 pub use logit::LogitFormatter;
 pub use percent::PercentFormatter;
+pub(crate) use scalar::g_sig_digits;
 pub use scalar::{OffsetMode, ScalarFormatter};
 pub use simple::{
     FixedFormatter, FormatStrFormatter, FuncFormatter, NullFormatter, StrMethodFormatter,

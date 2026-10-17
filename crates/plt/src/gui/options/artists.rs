@@ -1,0 +1,353 @@
+//! The curves and images of an axes in the figure options dialog: their
+//! fields, how the fields are read, and how the settings are applied.
+
+use plt_ui::{Flex, List, ListItem, Stack, UiWindow, WidgetId};
+
+use super::OptionsMessage;
+use super::fields::{
+    FieldError, Form, chosen, hex, marker_text, number_text, parse_color, parse_marker,
+    parse_number, text_of,
+};
+use crate::artist::ArtistHandle;
+use crate::axes::Axes;
+use crate::colors::{Color, Colormap, colormaps};
+use crate::image::{AxesImage, Interpolation};
+use crate::lines::{DrawStyle, Line2D, LineStyle};
+use crate::markers::Marker;
+use crate::rc::ColorOrAuto;
+
+/// The line styles offered.
+const LINE_STYLES: [(&str, LineStyle); 5] = [
+    ("Solid", LineStyle::Solid),
+    ("Dashed", LineStyle::Dashed),
+    ("DashDot", LineStyle::DashDot),
+    ("Dotted", LineStyle::Dotted),
+    ("None", LineStyle::None),
+];
+
+/// The draw styles offered.
+const DRAW_STYLES: [(&str, DrawStyle); 4] = [
+    ("Default", DrawStyle::Default),
+    ("Steps (Pre)", DrawStyle::StepsPre),
+    ("Steps (Mid)", DrawStyle::StepsMid),
+    ("Steps (Post)", DrawStyle::StepsPost),
+];
+
+/// The fields of one curve, and its marker code when the dialog opened.
+#[derive(Debug)]
+pub(super) struct CurveFields {
+    pub(super) line: Line2D,
+    pub(super) label: WidgetId,
+    pub(super) style: WidgetId,
+    pub(super) draw_style: WidgetId,
+    pub(super) width: WidgetId,
+    pub(super) color: WidgetId,
+    pub(super) marker: WidgetId,
+    pub(super) marker_size: WidgetId,
+    pub(super) face: WidgetId,
+    pub(super) edge: WidgetId,
+}
+
+/// The fields of one image.
+#[derive(Debug)]
+pub(super) struct ImageFields {
+    pub(super) image: AxesImage,
+    pub(super) label: WidgetId,
+    pub(super) cmap: WidgetId,
+    pub(super) min: WidgetId,
+    pub(super) max: WidgetId,
+    pub(super) interpolation: WidgetId,
+}
+
+/// The settings of a curve read from its fields.
+#[derive(Debug)]
+pub(super) struct CurvePlan {
+    label: String,
+    style: Option<LineStyle>,
+    draw_style: DrawStyle,
+    width: f64,
+    color: Color,
+    marker: Option<(Marker, f64, Color, Color)>,
+}
+
+/// The settings of an image read from its fields.
+#[derive(Debug)]
+pub(super) struct ImagePlan {
+    label: String,
+    cmap: Colormap,
+    limits: Option<(f64, f64)>,
+    interpolation: Interpolation,
+}
+
+/// How an artist is named in the dialog's lists.
+pub(super) fn shown_label(label: &str) -> String {
+    if label.is_empty() {
+        "(no label)".to_owned()
+    } else {
+        label.to_owned()
+    }
+}
+
+/// The curves the dialog edits: the lines not excluded from legends.
+pub(super) fn edited_lines(axes: &Axes) -> Vec<Line2D> {
+    axes.lines()
+        .into_iter()
+        .filter(|line| line.label() != "_nolegend_")
+        .collect()
+}
+
+/// A list of curves beside the fields of the selected one.
+pub(super) fn curves_panel(
+    lines: &[Line2D],
+    page: usize,
+) -> (Vec<CurveFields>, Flex<OptionsMessage>, WidgetId) {
+    let mut panel = Flex::row().with_spacing(8.0);
+    let items = lines
+        .iter()
+        .map(|line| ListItem::new(shown_label(&line.label())))
+        .collect();
+    let mut list = List::new(items, move |index| OptionsMessage::Curve { page, index });
+    list.set_selected(Some(0));
+    panel.push(list, 1.0);
+    let mut pages = Stack::new();
+    let fields = lines
+        .iter()
+        .map(|line| {
+            let (fields, form) = curve_form(line);
+            pages.push(form);
+            fields
+        })
+        .collect();
+    let pages = panel.push(pages, 3.0);
+    (fields, panel, pages)
+}
+
+/// The fields of one curve.
+fn curve_form(line: &Line2D) -> (CurveFields, Flex<OptionsMessage>) {
+    let mut form = Form::new();
+    let label = form.text("Label", line.label());
+    form.heading("Line");
+    let current = line.linestyle();
+    let mut styles: Vec<&str> = LINE_STYLES.iter().map(|(name, _)| *name).collect();
+    let style_index = LINE_STYLES
+        .iter()
+        .position(|(_, style)| *style == current)
+        .unwrap_or_else(|| {
+            styles.push("Custom");
+            LINE_STYLES.len()
+        });
+    let style = form.choice("Line style", &styles, style_index);
+    let draw = match line.drawstyle() {
+        DrawStyle::Steps => DrawStyle::StepsPre,
+        other => other,
+    };
+    let draw_index = DRAW_STYLES
+        .iter()
+        .position(|(_, d)| *d == draw)
+        .unwrap_or(0);
+    let names: Vec<&str> = DRAW_STYLES.iter().map(|(name, _)| *name).collect();
+    let draw_style = form.choice("Draw style", &names, draw_index);
+    let width = form.text("Width", number_text(line.linewidth()));
+    let color = form.text("Color (RGBA)", line.rgba().map(hex).unwrap_or_default());
+    form.heading("Marker");
+    let marker = form.text("Style", marker_text(&line.marker()));
+    let marker_size = form.text("Size", number_text(line.markersize()));
+    let face = form.text(
+        "Face color (RGBA)",
+        marker_color(line, line.markerfacecolor()),
+    );
+    let edge = form.text(
+        "Edge color (RGBA)",
+        hex(line
+            .effective_markeredgecolor()
+            .resolve()
+            .unwrap_or_default()),
+    );
+    let fields = CurveFields {
+        line: line.clone(),
+        label,
+        style,
+        draw_style,
+        width,
+        color,
+        marker,
+        marker_size,
+        face,
+        edge,
+    };
+    (fields, form.finish())
+}
+
+/// The hex text of a marker colour, following the line's colour when
+/// automatic.
+fn marker_color(line: &Line2D, color: ColorOrAuto) -> String {
+    match color {
+        ColorOrAuto::Color(color) => color.resolve().map(hex).unwrap_or_default(),
+        ColorOrAuto::Auto => line.rgba().map(hex).unwrap_or_default(),
+    }
+}
+
+/// A list of images beside the fields of the selected one.
+pub(super) fn images_panel(
+    images: &[AxesImage],
+    page: usize,
+) -> (Vec<ImageFields>, Flex<OptionsMessage>, WidgetId) {
+    let mut panel = Flex::row().with_spacing(8.0);
+    let items = images
+        .iter()
+        .map(|image| ListItem::new(shown_label(&image.label())))
+        .collect();
+    let mut list = List::new(items, move |index| OptionsMessage::Image { page, index });
+    list.set_selected(Some(0));
+    panel.push(list, 1.0);
+    let mut pages = Stack::new();
+    let fields = images
+        .iter()
+        .map(|image| {
+            let mut form = Form::new();
+            let (low, high) = image.clim();
+            let fields = ImageFields {
+                image: image.clone(),
+                label: form.text("Label", image.label()),
+                cmap: form.text("Colormap", image.cmap().name()),
+                min: form.text("Min. value", low.map(number_text).unwrap_or_default()),
+                max: form.text("Max. value", high.map(number_text).unwrap_or_default()),
+                interpolation: form.text("Interpolation", image.interpolation().name()),
+            };
+            pages.push(form.finish());
+            fields
+        })
+        .collect();
+    let pages = panel.push(pages, 3.0);
+    (fields, panel, pages)
+}
+
+pub(super) fn read_curve(
+    window: &mut UiWindow<OptionsMessage>,
+    fields: &CurveFields,
+) -> Result<CurvePlan, FieldError> {
+    let label = text_of(window, fields.label);
+    let style = LINE_STYLES
+        .get(chosen(window, fields.style))
+        .map(|(_, style)| style.clone());
+    let draw_style = DRAW_STYLES[chosen(window, fields.draw_style).min(DRAW_STYLES.len() - 1)].1;
+    let width = parse_number(&format!("{label}: width"), &text_of(window, fields.width))?;
+    let color = parse_color(&format!("{label}: color"), &text_of(window, fields.color))?;
+    let marker_text = text_of(window, fields.marker);
+    let marker = if marker_text.trim().eq_ignore_ascii_case("none") {
+        None
+    } else {
+        Some((
+            parse_marker(&format!("{label}: marker"), &marker_text)?,
+            parse_number(
+                &format!("{label}: marker size"),
+                &text_of(window, fields.marker_size),
+            )?,
+            parse_color(
+                &format!("{label}: face color"),
+                &text_of(window, fields.face),
+            )?,
+            parse_color(
+                &format!("{label}: edge color"),
+                &text_of(window, fields.edge),
+            )?,
+        ))
+    };
+    Ok(CurvePlan {
+        label,
+        style,
+        draw_style,
+        width,
+        color,
+        marker,
+    })
+}
+
+pub(super) fn read_image(
+    window: &mut UiWindow<OptionsMessage>,
+    fields: &ImageFields,
+) -> Result<ImagePlan, FieldError> {
+    let label = text_of(window, fields.label);
+    let name = text_of(window, fields.cmap);
+    let cmap = colormaps::get(name.trim())
+        .map_err(|_| FieldError(format!("{label}: no colormap is called {name:?}")))?;
+    let (low, high) = (text_of(window, fields.min), text_of(window, fields.max));
+    let limits = if low.trim().is_empty() && high.trim().is_empty() {
+        None
+    } else {
+        Some((
+            parse_number(&format!("{label}: min. value"), &low)?,
+            parse_number(&format!("{label}: max. value"), &high)?,
+        ))
+    };
+    let text = text_of(window, fields.interpolation);
+    let interpolation = text
+        .trim()
+        .parse()
+        .map_err(|_| FieldError(format!("{label}: {text:?} is not an interpolation")))?;
+    Ok(ImagePlan {
+        label,
+        cmap,
+        limits,
+        interpolation,
+    })
+}
+
+/// matplotlib's curve settings of `apply_callback`.
+pub(super) fn apply_curve(line: &Line2D, plan: CurvePlan) {
+    line.set_label(plan.label);
+    if let Some(style) = plan.style {
+        line.set_linestyle(style);
+    }
+    line.set_drawstyle(plan.draw_style)
+        .set_linewidth(plan.width)
+        .set_alpha(None);
+    line.set_color(plan.color);
+    if let Some((marker, size, face, edge)) = plan.marker {
+        line.set_marker(marker)
+            .set_markersize(size)
+            .set_markerfacecolor(ColorOrAuto::Color(face))
+            .set_markeredgecolor(ColorOrAuto::Color(edge));
+    }
+}
+
+/// matplotlib's image settings of `apply_callback`.
+pub(super) fn apply_image(image: &AxesImage, plan: ImagePlan) {
+    image.set_label(plan.label);
+    image
+        .set_cmap(plan.cmap)
+        .set_interpolation(plan.interpolation);
+    if let Some((low, high)) = plan.limits {
+        image.set_clim(Some(low.min(high)), Some(low.max(high)));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::figure::Figure;
+    use crate::lines::LineProps;
+
+    #[test]
+    fn every_line_but_hidden_ones_is_edited() {
+        let ax = Figure::new().subplot();
+        ax.plot_with(
+            vec![0.0, 1.0],
+            vec![0.0, 1.0],
+            LineProps::default().label("a"),
+        )
+        .unwrap();
+        ax.plot(vec![0.0, 1.0], vec![1.0, 0.0]).unwrap();
+        ax.plot_with(
+            vec![0.0, 1.0],
+            vec![1.0, 1.0],
+            LineProps::default().label("_nolegend_"),
+        )
+        .unwrap();
+        let labels: Vec<String> = edited_lines(&ax)
+            .iter()
+            .map(|l| shown_label(&l.label()))
+            .collect();
+        assert_eq!(labels, ["a", "(no label)"]);
+    }
+}

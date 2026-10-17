@@ -2,6 +2,7 @@
 //! `figureoptions.figure_edit`): titles, limits, labels and scales of the
 //! axes, the style of their curves and the colormaps of their images.
 
+mod artists;
 mod axes_page;
 mod fields;
 

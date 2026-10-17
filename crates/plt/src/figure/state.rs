@@ -30,6 +30,9 @@ pub(crate) struct FigureState {
     pub(crate) shared: ShareGroups,
     /// The layout engine and what it needs to know.
     pub(crate) layout: LayoutState,
+    /// The axes `gca` returns: the last added or made current
+    /// (matplotlib's `_axstack` order).
+    pub(crate) current_axes: Option<ArtistId>,
 }
 
 impl FigureState {
@@ -53,6 +56,7 @@ impl FigureState {
             pending_errors: Vec::new(),
             shared: ShareGroups::default(),
             layout: LayoutState::from_rc(&rc),
+            current_axes: None,
         }
     }
 

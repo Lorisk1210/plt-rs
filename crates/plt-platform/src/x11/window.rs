@@ -65,6 +65,17 @@ pub(crate) fn activate(atoms: &Atoms, window: u32) -> [u8; 32] {
     request::client_message(window, atoms.net_active_window, [1, 0, 0, 0, 0])
 }
 
+/// The `_NET_WM_STATE` client message asking an EWMH window manager to
+/// add (or remove) the full-screen state of `window`.
+pub(crate) fn fullscreen(atoms: &Atoms, window: u32, on: bool) -> [u8; 32] {
+    let action = u32::from(on);
+    request::client_message(
+        window,
+        atoms.net_wm_state,
+        [action, atoms.net_wm_state_fullscreen, 0, 1, 0],
+    )
+}
+
 /// Requests describing a new window: title, class, supported protocols
 /// (close button and ping), process, minimum size and icon.
 pub(crate) fn initial_properties(
@@ -158,6 +169,8 @@ mod tests {
         utf8_string: 306,
         wake: 307,
         net_active_window: 308,
+        net_wm_state: 309,
+        net_wm_state_fullscreen: 310,
     };
 
     /// `(property, type, value)` of a `ChangeProperty` request.
@@ -216,6 +229,13 @@ mod tests {
         let event = activate(&ATOMS, 9);
         assert_eq!(event[0], 33, "a ClientMessage");
         assert_eq!(words(&event[4..]), [9, 308, 1, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn fullscreen_is_a_state_message() {
+        let event = fullscreen(&ATOMS, 9, true);
+        assert_eq!(words(&event[4..]), [9, 309, 1, 310, 0, 1, 0]);
+        assert_eq!(words(&fullscreen(&ATOMS, 9, false)[12..16]), [0]);
     }
 
     #[test]

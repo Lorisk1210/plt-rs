@@ -92,6 +92,10 @@ pub(crate) trait Backend {
     /// Brings the window above the others and asks for focus.
     fn raise_window(&mut self, window: WindowId) -> Result<(), Error>;
 
+    /// Makes the window cover the screen without decorations, or restores
+    /// it.
+    fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error>;
+
     /// Copies `region` of `frame` (already clipped to the frame) to the
     /// same position of the window.
     fn present(

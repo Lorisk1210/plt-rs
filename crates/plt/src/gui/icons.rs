@@ -3,6 +3,8 @@
 use plt_core::{Path, Point};
 use plt_ui::Icon;
 
+use super::GuiError;
+
 const GRID: f64 = 24.0;
 
 fn p(x: f64, y: f64) -> Point {
@@ -79,6 +81,28 @@ pub(super) fn subplots() -> Icon {
                 .stroke(line(&[(knob + KNOB, y), (20.0, y)]))
                 .stroke(Path::circle(p(knob, y), KNOB))
         })
+}
+
+/// A line chart over two axes: the plt-rs window icon.
+pub(super) fn app() -> Icon {
+    Icon::new(GRID)
+        .with_stroke_width(2.2)
+        .stroke(line(&[(4.0, 3.5), (4.0, 20.0), (20.5, 20.0)]))
+        .stroke(line(&[
+            (7.0, 15.5),
+            (11.0, 10.0),
+            (14.5, 13.0),
+            (19.5, 5.5),
+        ]))
+}
+
+/// The icon of plt-rs windows: [`app`] in white on the theme's accent,
+/// 64 pixels wide.
+pub(super) fn window_icon() -> Result<plt_platform::Icon, GuiError> {
+    const SIZE: u32 = 64;
+    let accent = plt_ui::Theme::default().accent;
+    let rgba = app().app_icon(SIZE, accent, plt_core::Rgba::WHITE)?;
+    Ok(plt_platform::Icon::from_rgba(SIZE, SIZE, rgba)?)
 }
 
 /// A folder, for directories in file lists.

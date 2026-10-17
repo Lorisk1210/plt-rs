@@ -4,6 +4,8 @@
 use plt_core::Rgba;
 use plt_core::{Affine2D, Path};
 
+use plt_raster::{Painter, Pixmap};
+
 use crate::canvas::Canvas;
 use crate::error::UiError;
 use crate::geometry::Rect;
@@ -65,6 +67,24 @@ impl Icon {
         self
     }
 
+    /// The icon drawn in `color` over a `size`-pixel square of `background`
+    /// with rounded corners — an application icon — as straight RGBA bytes,
+    /// row by row.
+    ///
+    /// # Errors
+    ///
+    /// When `size` is zero or too large for an image.
+    pub fn app_icon(&self, size: u32, background: Rgba, color: Rgba) -> Result<Vec<u8>, UiError> {
+        let mut pixmap = Pixmap::new(size, size)?;
+        let mut painter = Painter::new();
+        let side = f64::from(size);
+        let rect = Rect::new(0.0, 0.0, side, side);
+        let mut canvas = Canvas::new(&mut pixmap, &mut painter, rect, 1.0);
+        canvas.fill_rounded_rect(rect, side * 0.22, background)?;
+        self.paint(&mut canvas, rect.inset(side * 0.14), color)?;
+        Ok(pixmap.data().to_vec())
+    }
+
     /// Paints the icon in `color`, scaled to the largest square centred in
     /// `rect`.
     pub fn paint(&self, canvas: &mut Canvas<'_>, rect: Rect, color: Rgba) -> Result<(), UiError> {
@@ -80,5 +100,27 @@ impl Icon {
             canvas.stroke_path(&line.transformed(&place), self.stroke_width * scale, color)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_icons_are_opaque_squares_with_rounded_corners() {
+        let icon = Icon::new(24.0).stroke(Path::polyline(vec![
+            plt_core::Point::new(4.0, 12.0),
+            plt_core::Point::new(20.0, 12.0),
+        ]));
+        let rgba = icon
+            .app_icon(32, Rgba::new(0.2, 0.4, 0.9, 1.0), Rgba::WHITE)
+            .unwrap();
+        assert_eq!(rgba.len(), 32 * 32 * 4);
+        let alpha = |x: usize, y: usize| rgba[(y * 32 + x) * 4 + 3];
+        assert_eq!(alpha(0, 0), 0, "rounded corner");
+        assert_eq!(alpha(16, 4), 255);
+        let center = (16 * 32 + 16) * 4;
+        assert!(rgba[center] > 200, "the stroke is white");
     }
 }

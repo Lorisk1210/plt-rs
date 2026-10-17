@@ -303,6 +303,17 @@ impl Backend for X11Backend {
         self.conn.flush()
     }
 
+    fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error> {
+        let (xid, _) = self.window(window)?;
+        let message = window::fullscreen(&self.atoms, xid, fullscreen);
+        self.conn.send(&request::send_event(
+            self.root,
+            event_mask::SUBSTRUCTURE_REDIRECT | event_mask::SUBSTRUCTURE_NOTIFY,
+            &message,
+        ))?;
+        self.conn.flush()
+    }
+
     fn set_inner_size(&mut self, window: WindowId, size: Size) -> Result<(), Error> {
         let (xid, _) = self.window(window)?;
         let (width, height) = size_u16(size.to_physical(self.scale_factor))?;

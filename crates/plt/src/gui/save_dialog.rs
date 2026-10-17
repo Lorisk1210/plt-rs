@@ -209,6 +209,7 @@ impl SaveDialog {
         root.push(buttons, 0.0);
         let options = WindowOptions::new("Save the figure")
             .with_app_id("plt-rs")
+            .with_icon(icons::window_icon()?)
             .with_inner_size(LogicalSize::new(600.0, 440.0))
             .with_min_inner_size(LogicalSize::new(420.0, 300.0));
         let mut window = UiWindow::open(cx, &options, root)?;

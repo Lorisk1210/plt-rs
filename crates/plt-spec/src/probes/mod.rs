@@ -288,6 +288,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("colormaps", areas::colormaps::OPS),
     ("colormap_luts", areas::colormap_luts::OPS),
     ("norms", areas::norms::OPS),
+    ("lightsource", areas::lightsource::OPS),
     ("ticker", areas::ticker::OPS),
     ("scales", areas::scales::OPS),
     ("dates", areas::dates::OPS),

@@ -28,6 +28,7 @@ mod array;
 mod colormap;
 pub mod colormaps;
 mod hsv;
+mod light;
 mod mappable;
 mod named;
 mod named_data;
@@ -43,6 +44,9 @@ pub use colormap::{
     SegmentFn, SegmentProblem,
 };
 pub use hsv::{hsv_to_rgb, rgb_to_hsv};
+pub use light::{
+    BlendMode, LightSource, Relief, ShadeError, ShadeOptions, blend_overlay, blend_soft_light,
+};
 pub use mappable::ScalarMappable;
 pub use named::{ColorTable, NamedColor, named_color_table, named_colors};
 pub use norm::{

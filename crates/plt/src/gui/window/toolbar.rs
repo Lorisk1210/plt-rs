@@ -26,7 +26,7 @@ pub(in crate::gui) enum Tool {
     Zoom,
     /// Open the subplot configuration tool.
     Subplots,
-    /// Save the figure as PNG.
+    /// Open the save dialog.
     Save,
 }
 
@@ -42,7 +42,7 @@ impl Tool {
             }
             Self::Zoom => "Zoom to rectangle; x/y fixes axis (o)",
             Self::Subplots => "Configure subplots",
-            Self::Save => "Save the figure as PNG (s)",
+            Self::Save => "Save the figure (s)",
         }
     }
 }

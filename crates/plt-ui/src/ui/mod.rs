@@ -94,6 +94,27 @@ impl<M: 'static> Ui<M> {
         self.routing.focus
     }
 
+    /// Gives keyboard focus to widget `id`, if it accepts focus, or takes
+    /// it from every widget when `None`.
+    pub fn set_focus(&mut self, id: Option<WidgetId>) {
+        let focus = match id {
+            Some(id)
+                if self
+                    .root
+                    .find(id)
+                    .is_some_and(|pod| pod.widget().accepts_focus()) =>
+            {
+                Some(id)
+            }
+            Some(_) => return,
+            None => None,
+        };
+        if focus != self.routing.focus {
+            self.routing.focus = focus;
+            self.needs_paint = true;
+        }
+    }
+
     /// The rectangle of a widget from the last layout.
     pub fn widget_rect(&self, id: WidgetId) -> Option<Rect> {
         self.root.find(id).map(WidgetPod::rect)

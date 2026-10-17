@@ -1,44 +1,8 @@
-//! What figure-window shortcuts do to a figure: saving it, toggling grids
-//! and logarithmic axes (matplotlib's `key_press_handler`).
-
-use std::path::PathBuf;
+//! What figure-window shortcuts do to the axes under the pointer: toggling
+//! grids and logarithmic axes (matplotlib's `key_press_handler`).
 
 use super::keys::KeyAction;
 use crate::axes::{Axes, AxisName, GridOptions, TickLevel};
-use crate::figure::{Figure, SaveError};
-
-/// Saves `figure` as `<title>.png` in the working directory, numbering
-/// the name if the file exists; returns the path written.
-///
-/// # Errors
-///
-/// When the figure cannot be rendered or written.
-pub(super) fn save(figure: &Figure, title: &str) -> Result<PathBuf, SaveError> {
-    let stem: String = title
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() {
-                c.to_ascii_lowercase()
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let path = (0..10_000_u32)
-        .map(|n| match n {
-            0 => PathBuf::from(format!("{stem}.png")),
-            n => PathBuf::from(format!("{stem}-{n}.png")),
-        })
-        .find(|path| !path.exists())
-        .ok_or_else(|| {
-            SaveError::Io(std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                format!("every {stem}-N.png name is taken"),
-            ))
-        })?;
-    figure.savefig(&path)?;
-    Ok(path)
-}
 
 /// The next grid state in matplotlib's cycle: none, x, both, y.
 fn next_grids(state: (bool, bool)) -> (bool, bool) {
@@ -119,6 +83,7 @@ fn toggle_log(ax: &Axes, name: AxisName) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::figure::Figure;
 
     #[test]
     fn grid_shortcuts_cycle_like_matplotlib() {

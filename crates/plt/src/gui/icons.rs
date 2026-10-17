@@ -81,6 +81,33 @@ pub(super) fn subplots() -> Icon {
         })
 }
 
+/// A folder, for directories in file lists.
+pub(super) fn folder() -> Icon {
+    Icon::new(GRID).stroke(line(&[
+        (3.5, 19.5),
+        (3.5, 5.5),
+        (9.5, 5.5),
+        (11.5, 8.0),
+        (20.5, 8.0),
+        (20.5, 19.5),
+        (3.5, 19.5),
+    ]))
+}
+
+/// A sheet with a folded corner, for files in file lists.
+pub(super) fn file() -> Icon {
+    Icon::new(GRID)
+        .stroke(line(&[
+            (6.0, 3.5),
+            (14.0, 3.5),
+            (18.5, 8.0),
+            (18.5, 20.5),
+            (6.0, 20.5),
+            (6.0, 3.5),
+        ]))
+        .stroke(line(&[(14.0, 3.5), (14.0, 8.0), (18.5, 8.0)]))
+}
+
 /// A tray with a downward arrow: save the figure.
 pub(super) fn save() -> Icon {
     Icon::new(GRID)

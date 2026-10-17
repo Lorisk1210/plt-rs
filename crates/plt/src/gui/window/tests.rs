@@ -165,3 +165,55 @@ fn the_subplot_tool_adjusts_the_figure() {
         .expect("the window closes");
     assert_eq!(handle.windows(), Vec::<WindowId>::new());
 }
+
+#[test]
+fn the_save_dialog_writes_the_figure() {
+    let dir = std::env::temp_dir().join(format!("plt-save-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("the directory is made");
+    crate::rc::context(|| {
+        crate::rc::update(|rc| rc.savefig_directory = dir.display().to_string());
+        let figure = Figure::with_size(2.0, 1.5, 100.0);
+        figure.subplot();
+        let (mut event_loop, handle) = EventLoop::headless();
+        let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+            .expect("the window opens");
+        window
+            .use_tool(&mut event_loop.context(), Tool::Save)
+            .expect("the dialog opens");
+        let dialog = handle.stacking_order()[1];
+        assert_eq!(
+            handle.window(dialog).expect("it exists").title,
+            "Save the figure"
+        );
+        pump(&mut event_loop, &mut window);
+        // The name's stem is selected: typing replaces it.
+        for c in ['p', 'l', 'o', 't'] {
+            let event = KeyEvent {
+                key: Key::Character(c),
+                state: ButtonState::Pressed,
+                repeat: false,
+                text: Some(c.to_string()),
+                modifiers: Modifiers::NONE,
+                scancode: 0,
+            };
+            handle
+                .inject(dialog, WindowEvent::Key(event))
+                .expect("the dialog exists");
+        }
+        let enter = KeyEvent {
+            key: Key::Enter,
+            state: ButtonState::Pressed,
+            repeat: false,
+            text: None,
+            modifiers: Modifiers::NONE,
+            scancode: 0,
+        };
+        handle
+            .inject(dialog, WindowEvent::Key(enter))
+            .expect("the dialog exists");
+        pump(&mut event_loop, &mut window);
+        assert!(dir.join("plot.png").is_file(), "the figure is saved");
+        assert_eq!(handle.windows(), [window.id()], "the dialog closed");
+    });
+    std::fs::remove_dir_all(&dir).expect("the directory is removed");
+}

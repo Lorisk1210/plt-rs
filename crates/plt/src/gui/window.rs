@@ -12,7 +12,7 @@ use plt_platform::{
 use plt_ui::{Flex, Surface, SurfaceEvent, UiWindow, WidgetId};
 
 use super::GuiError;
-use super::actions;
+use super::save_dialog::{Outcome, SaveDialog};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
 use crate::figure::Figure;
 use crate::gridspec::SubplotOverrides;
@@ -64,6 +64,8 @@ pub struct FigureWindow {
     title: String,
     /// The subplot tool opened from the toolbar, while it is open.
     subplot_tool: Option<SubplotToolWindow>,
+    /// The save dialog opened from the toolbar, while it is open.
+    save_dialog: Option<SaveDialog>,
 }
 
 impl FigureWindow {
@@ -110,6 +112,7 @@ impl FigureWindow {
             cursor: None,
             title: title.to_owned(),
             subplot_tool: None,
+            save_dialog: None,
         };
         figure_window.refresh_tools(cx)?;
         figure_window.sync_timers(cx);
@@ -135,6 +138,10 @@ impl FigureWindow {
     pub fn owns_window(&self, window: WindowId) -> bool {
         self.id() == window
             || self
+                .save_dialog
+                .as_ref()
+                .is_some_and(|dialog| dialog.id() == window)
+            || self
                 .subplot_tool
                 .as_ref()
                 .is_some_and(|tool| tool.window.owns_window(window))
@@ -153,6 +160,20 @@ impl FigureWindow {
         window: WindowId,
         event: &WindowEvent,
     ) -> Result<bool, GuiError> {
+        if let Some(dialog) = self.save_dialog.as_mut().filter(|d| d.id() == window) {
+            return match dialog.handle(cx, event)? {
+                Outcome::Open => Ok(true),
+                Outcome::Saved(path) => {
+                    self.close_save_dialog(cx)?;
+                    self.set_status(cx, format!("Saved {}", path.display()))?;
+                    Ok(true)
+                }
+                Outcome::Cancelled => {
+                    self.close_save_dialog(cx)?;
+                    Ok(true)
+                }
+            };
+        }
         if window != self.id() {
             if let Some(tool) = &mut self.subplot_tool
                 && tool.window.owns_window(window)
@@ -185,6 +206,7 @@ impl FigureWindow {
     /// When the window system fails to close a window.
     pub fn close(mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         self.close_subplot_tool(cx)?;
+        self.close_save_dialog(cx)?;
         for (timer, _) in self.timers.drain(..) {
             cx.cancel_timer(timer);
         }
@@ -296,13 +318,7 @@ impl FigureWindow {
             Tool::Pan => return self.toggle_mode(cx, NavMode::Pan, "pan"),
             Tool::Zoom => return self.toggle_mode(cx, NavMode::Zoom, "zoom"),
             Tool::Subplots => return self.configure_subplots(cx),
-            Tool::Save => {
-                let message = match actions::save(&self.figure, &self.title) {
-                    Ok(path) => format!("Saved {}", path.display()),
-                    Err(err) => format!("Could not save the figure: {err}"),
-                };
-                return self.set_status(cx, message);
-            }
+            Tool::Save => return self.save_figure(cx),
         }
         self.refresh_tools(cx)
     }
@@ -343,6 +359,23 @@ impl FigureWindow {
             _tool: tool,
         });
         Ok(())
+    }
+
+    /// Opens the save dialog, or raises it when it is open (matplotlib's
+    /// `save_figure`).
+    fn save_figure(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match &self.save_dialog {
+            Some(dialog) => cx.raise_window(dialog.id())?,
+            None => self.save_dialog = Some(SaveDialog::open(cx, &self.figure, &self.title)?),
+        }
+        Ok(())
+    }
+
+    fn close_save_dialog(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match self.save_dialog.take() {
+            Some(dialog) => dialog.close(cx),
+            None => Ok(()),
+        }
     }
 
     fn close_subplot_tool(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {

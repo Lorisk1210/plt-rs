@@ -1,5 +1,5 @@
 //! Interactive widgets drawn in axes (matplotlib's `widgets`): buttons,
-//! sliders, check and radio buttons and text boxes.
+//! sliders, check and radio buttons, text boxes and the subplot tool.
 //!
 //! Each widget takes over an axes: it draws itself with ordinary artists
 //! and reacts to the figure's [events](crate::events) when the figure is
@@ -22,6 +22,7 @@
 mod button;
 mod range_slider;
 mod slider;
+mod subplot_tool;
 mod textbox;
 mod toggles;
 
@@ -31,6 +32,7 @@ use std::rc::Rc;
 pub use button::{Button, ButtonOptions};
 pub use range_slider::RangeSlider;
 pub use slider::{Orientation, Slider, SliderOptions, ValStep};
+pub use subplot_tool::SubplotTool;
 pub use textbox::{TextBox, TextBoxOptions};
 pub use toggles::{CheckButtons, RadioButtons};
 

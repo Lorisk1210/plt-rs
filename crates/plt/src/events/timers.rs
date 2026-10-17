@@ -52,11 +52,17 @@ impl Figure {
 
     /// Stops and forgets a timer; returns whether it was running.
     pub fn remove_timer(&self, key: TimerKey) -> bool {
-        let mut state = self.state_mut();
-        let timers = &mut state.timers.timers;
-        let before = timers.len();
-        timers.retain(|(k, _, _)| *k != key);
-        timers.len() != before
+        // The callback is dropped after the figure is released: it may own
+        // handles whose drop uses the figure.
+        let removed = {
+            let mut state = self.state_mut();
+            let timers = &mut state.timers.timers;
+            timers
+                .iter()
+                .position(|(k, _, _)| *k == key)
+                .map(|index| timers.remove(index))
+        };
+        removed.is_some()
     }
 
     /// The running timers and their intervals.

@@ -1,7 +1,7 @@
 //! Sliders (matplotlib's `widgets.SliderBase` and `widgets.Slider`).
 
-use std::cell::Cell;
-use std::rc::Rc;
+use std::cell::{Cell, RefCell};
+use std::rc::{Rc, Weak};
 
 use plt_core::Point;
 use plt_text::{HAlign, VAlign};
@@ -97,8 +97,8 @@ pub(super) struct SliderBase {
     pub(super) orientation: Orientation,
     pub(super) valmin: f64,
     pub(super) valmax: f64,
-    pub(super) closedmin: bool,
-    pub(super) closedmax: bool,
+    pub(super) closedmin: Cell<bool>,
+    pub(super) closedmax: Cell<bool>,
     valstep: Option<ValStep>,
     valfmt: Option<PrintfFormat>,
     formatter: ScalarFormatter,
@@ -135,8 +135,8 @@ impl SliderBase {
             orientation: options.orientation,
             valmin,
             valmax,
-            closedmin: options.closedmin,
-            closedmax: options.closedmax,
+            closedmin: Cell::new(options.closedmin),
+            closedmax: Cell::new(options.closedmax),
             valstep: options.valstep.clone(),
             valfmt: options
                 .valfmt
@@ -192,14 +192,15 @@ impl SliderBase {
         )
     }
 
-    /// matplotlib's `Slider._value_in_bounds`: snapped, then held in the
-    /// range (`None` when an open end would be reached).
-    pub(super) fn in_bounds(&self, val: f64) -> Option<f64> {
+    /// `val` snapped and held in the range (`None` when an open end
+    /// would be reached), the first part of matplotlib's
+    /// `Slider._value_in_bounds`.
+    pub(super) fn in_range(&self, val: f64) -> Option<f64> {
         let val = self.stepped(val);
         if val <= self.valmin {
-            self.closedmin.then_some(self.valmin)
+            self.closedmin.get().then_some(self.valmin)
         } else if val >= self.valmax {
-            self.closedmax.then_some(self.valmax)
+            self.closedmax.get().then_some(self.valmax)
         } else {
             Some(val)
         }
@@ -327,11 +328,34 @@ struct SliderParts {
     handle: Line2D,
     valtext: Text,
     val: Cell<f64>,
+    /// Sliders whose values bound this one from below and above
+    /// (matplotlib's `slidermin` and `slidermax`).
+    links: RefCell<(Weak<SliderParts>, Weak<SliderParts>)>,
     changed: Observers<f64>,
 }
 
 impl SliderParts {
-    fn set_val(&self, val: f64) {
+    /// matplotlib's `Slider._value_in_bounds`: snapped, held in the range
+    /// and between the linked sliders (`None` when an open end would be
+    /// reached).
+    fn in_bounds(&self, val: f64) -> Option<f64> {
+        let val = self.base.in_range(val)?;
+        let (below, above) = &*self.links.borrow();
+        if let Some(below) = below.upgrade()
+            && val <= below.val.get()
+        {
+            return self.base.closedmin.get().then(|| below.val.get());
+        }
+        if let Some(above) = above.upgrade()
+            && val >= above.val.get()
+        {
+            return self.base.closedmax.get().then(|| above.val.get());
+        }
+        Some(val)
+    }
+
+    /// Shows `val` without running the callbacks.
+    fn show(&self, val: f64) {
         match self.base.orientation {
             Orientation::Vertical => self.poly.update_shape(|r| r.height = val - r.xy.y),
             Orientation::Horizontal => self.poly.update_shape(|r| r.width = val - r.xy.x),
@@ -340,6 +364,10 @@ impl SliderParts {
         let text = self.base.format(&[val]).remove(0);
         self.valtext.set_text(text);
         self.val.set(val);
+    }
+
+    fn set_val(&self, val: f64) {
+        self.show(val);
         self.changed.process(&val);
     }
 }
@@ -357,7 +385,7 @@ impl Slider {
     /// Turns `ax` into a slider over `valmin..valmax` labelled `label`.
     pub fn new(ax: &Axes, label: &str, valmin: f64, valmax: f64, options: &SliderOptions) -> Self {
         let base = SliderBase::new(ax, valmin, valmax, options);
-        let valinit = base.in_bounds(options.valinit).unwrap_or(valmin);
+        let valinit = base.in_range(options.valinit).unwrap_or(valmin);
         let track = base.track(&options.track_color, 1.0);
         let poly = match options.orientation {
             Orientation::Vertical => ax.axhspan_between(valmin, valinit, 0.25, 0.75),
@@ -383,6 +411,7 @@ impl Slider {
             handle,
             valtext,
             val: Cell::new(valinit),
+            links: RefCell::new((Weak::new(), Weak::new())),
             changed: Observers::default(),
         });
         parts.set_val(valinit);
@@ -396,7 +425,7 @@ impl Slider {
                 let value = parts
                     .base
                     .event_value(mouse)
-                    .and_then(|v| parts.base.in_bounds(v));
+                    .and_then(|v| parts.in_bounds(v));
                 if let Some(value) = value.filter(|&v| v.total_cmp(&parts.val.get()).is_ne()) {
                     parts.set_val(value);
                 }
@@ -425,6 +454,27 @@ impl Slider {
         if self.val().total_cmp(&self.valinit).is_ne() {
             self.set_val(self.valinit);
         }
+    }
+
+    /// Returns to the initial value without running the callbacks.
+    pub(super) fn reset_quietly(&self) {
+        self.parts.show(self.valinit);
+    }
+
+    /// Whether the minimum and the maximum can be reached.
+    pub fn set_closed(&self, min: bool, max: bool) {
+        self.parts.base.closedmin.set(min);
+        self.parts.base.closedmax.set(max);
+    }
+
+    /// Keeps the value above `other`'s (matplotlib's `slidermin`).
+    pub fn set_slidermin(&self, other: &Self) {
+        self.parts.links.borrow_mut().0 = Rc::downgrade(&other.parts);
+    }
+
+    /// Keeps the value below `other`'s (matplotlib's `slidermax`).
+    pub fn set_slidermax(&self, other: &Self) {
+        self.parts.links.borrow_mut().1 = Rc::downgrade(&other.parts);
     }
 
     /// The label.

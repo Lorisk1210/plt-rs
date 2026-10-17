@@ -5,42 +5,7 @@
 use plt_core::Rgba;
 
 use super::math::{Vec3, cross, dot, norm, sub};
-
-/// A light infinitely far away (matplotlib's `colors.LightSource`).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct LightSource {
-    /// Azimuth of the light in degrees clockwise from north.
-    pub azdeg: f64,
-    /// Altitude of the light in degrees above the horizon.
-    pub altdeg: f64,
-}
-
-impl LightSource {
-    /// A light at azimuth `azdeg` and altitude `altdeg`.
-    pub const fn new(azdeg: f64, altdeg: f64) -> Self {
-        Self { azdeg, altdeg }
-    }
-
-    /// The light used by 3-D shading unless another is given
-    /// (`azdeg=225, altdeg=19.4712`, kept for backwards compatibility).
-    pub const fn mplot3d() -> Self {
-        Self::new(225.0, 19.4712)
-    }
-
-    /// The unit vector pointing towards the light.
-    pub fn direction(&self) -> Vec3 {
-        let az = (90.0 - self.azdeg).to_radians();
-        let alt = self.altdeg.to_radians();
-        [az.cos() * alt.cos(), az.sin() * alt.cos(), alt.sin()]
-    }
-}
-
-impl Default for LightSource {
-    /// matplotlib's default light: `azdeg=315, altdeg=45`.
-    fn default() -> Self {
-        Self::new(315.0, 45.0)
-    }
-}
+pub use crate::colors::LightSource;
 
 /// A normal of a planar polygon from three of its vertices spread around
 /// it; it points towards the viewer when the vertices run

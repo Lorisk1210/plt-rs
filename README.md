@@ -46,11 +46,14 @@ plt::show()?;
   subplot grids, mosaics, subfigures, constrained and tight layout,
   aligned labels, insets, `axes_grid1` and `axisartist`.
 * **Interactive**: figure windows with a toolbar (home/back/forward,
-  pan, zoom-to-rectangle, wheel zoom, subplot configuration, save),
-  matplotlib's keyboard shortcuts, a live coordinate readout, figure
-  events (`connect`), timers and `FuncAnimation` (saved as animated PNG);
+  pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
+  options, save), a save dialog (PNG, SVG, PDF, PS, EPS), matplotlib's
+  keyboard shortcuts, a live coordinate readout, figure events
+  (`connect`), timers and `FuncAnimation` (saved as animated PNG);
   pyplot's interactive mode with `pause`, `ginput` and
   `waitforbuttonpress`.
+* **Output**: PNG pixel-identical to matplotlib's Agg, and SVG, PDF and
+  PostScript/EPS documents structured like matplotlib's.
 * **Widgets**: buttons, sliders and range sliders, check and radio
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
   lasso and polygon selectors.
@@ -64,7 +67,7 @@ plt::show()?;
 | `plt-font`     | TrueType/OpenType parsing, shaping (GSUB/GPOS), font manager      |
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `plt-text`     | text layout and the mathtext parser and typesetter                |
-| `plt-render`   | the `Renderer` trait and the Agg-compatible raster backend        |
+| `plt-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS |
 | `plt-platform` | windows, input and the event loop (X11; headless for tests)       |
 | `plt-ui`       | the retained-mode UI engine used by figure windows                |
 | `plt`          | the matplotlib model: figures, axes, artists, pyplot, GUI         |
@@ -87,6 +90,7 @@ produce golden values and images:
 cargo xtask spec                                # probes: op(args) -> value
 cargo xtask figures                             # figure structure (limits, ticks, ...)
 cargo test -p plt-spec --test figure_pixels     # figure pixels, RMS <= 1.0
+cargo test -p plt-spec --test figure_vectors    # SVG/PDF/PS documents, item by item
 cargo xtask render polar/                       # write renderings and diffs to spec/out/
 ```
 

@@ -105,6 +105,10 @@ pub fn show(figures: &[Figure]) -> Result<(), GuiError> {
                     Ok(())
                 })
             }
+            Event::Timer(timer) => windows
+                .iter_mut()
+                .find(|window| window.owns_timer(timer))
+                .map_or(Ok(()), |window| window.tick(cx, timer)),
             Event::Window { window, event } => {
                 match windows.iter_mut().position(|w| w.id() == window) {
                     Some(index) => match windows[index].handle(cx, &event) {

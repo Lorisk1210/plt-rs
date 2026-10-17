@@ -23,7 +23,8 @@
 //!   and tables.
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
 //! * [`pyplot`] — the stateful `matplotlib.pyplot`-style interface.
-//! * [`events`] — figure events and callbacks (`mpl_connect`).
+//! * [`events`] — figure events, callbacks (`mpl_connect`) and timers;
+//!   [`animation`] plays frame functions on them and saves animated PNGs.
 //! * [`navigation`] — interactive pan, zoom and view history, independent
 //!   of any window system; [`gui`] shows figures in windows with a
 //!   toolbar ([`gui::show`]).
@@ -33,6 +34,7 @@
 //!   contours and more, projected through a camera.
 #![forbid(unsafe_code)]
 
+pub mod animation;
 #[macro_use]
 pub mod artist;
 pub mod axes;

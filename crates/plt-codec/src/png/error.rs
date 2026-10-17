@@ -44,6 +44,13 @@ pub enum EncodeError {
     /// A resolution is not a finite positive number of dots per inch that
     /// fits the `pHYs` chunk.
     InvalidDpi(f64),
+    /// An animated PNG needs at least one frame.
+    NoFrames,
+    /// An animation frame differs in size or format from the first one.
+    FrameMismatch {
+        /// The offending frame.
+        index: usize,
+    },
 }
 
 impl fmt::Display for EncodeError {
@@ -70,6 +77,11 @@ impl fmt::Display for EncodeError {
                 )
             }
             Self::InvalidDpi(dpi) => write!(f, "invalid resolution of {dpi} dpi"),
+            Self::NoFrames => f.write_str("an animated PNG needs at least one frame"),
+            Self::FrameMismatch { index } => write!(
+                f,
+                "animation frame {index} differs in size or format from the first"
+            ),
         }
     }
 }

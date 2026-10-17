@@ -38,6 +38,10 @@ pub(crate) struct FigureState {
     pub(crate) callbacks: CallbackRegistry,
     /// The timers added with `Figure::add_timer`.
     pub(crate) timers: TimerRegistry,
+    /// The axes receiving all mouse events (`Figure::grab_mouse`).
+    pub(crate) mouse_grabber: Option<ArtistId>,
+    /// Whether a widget takes key presses (`Figure::set_capture_keys`).
+    pub(crate) capture_keys: bool,
 }
 
 impl FigureState {
@@ -64,6 +68,8 @@ impl FigureState {
             current_axes: None,
             callbacks: CallbackRegistry::default(),
             timers: TimerRegistry::default(),
+            mouse_grabber: None,
+            capture_keys: false,
         }
     }
 

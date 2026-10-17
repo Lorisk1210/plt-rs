@@ -23,6 +23,7 @@
 //!   and tables.
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
 //! * [`pyplot`] — the stateful `matplotlib.pyplot`-style interface.
+//! * [`widgets`] — buttons, sliders, check/radio buttons and text boxes.
 //! * [`events`] — figure events, callbacks (`mpl_connect`) and timers;
 //!   [`animation`] plays frame functions on them and saves animated PNGs.
 //! * [`navigation`] — interactive pan, zoom and view history, independent
@@ -77,3 +78,4 @@ pub mod ticker;
 pub mod transforms;
 pub mod tri;
 pub mod units;
+pub mod widgets;

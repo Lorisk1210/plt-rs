@@ -132,6 +132,12 @@ impl Axes {
         Self { raw }
     }
 
+    /// The figure this axes belongs to (matplotlib's
+    /// `get_figure(root=True)`).
+    pub fn figure(&self) -> crate::figure::Figure {
+        crate::figure::Figure::root_of(self.raw.figure_state())
+    }
+
     /// Data coordinates of this axes (`ax.transData`).
     pub fn trans_data(&self) -> Transform {
         Transform::Data(self.id())
@@ -394,6 +400,11 @@ impl Axes {
         self.raw
             .with_mut::<AxesState, _>(|a| a.patch.facecolor = color);
         self
+    }
+
+    /// The background colour.
+    pub fn facecolor(&self) -> Color {
+        self.raw.with::<AxesState, _>(|a| a.patch.facecolor.clone())
     }
 
     /// Sets the gap between the axes top and its titles in points

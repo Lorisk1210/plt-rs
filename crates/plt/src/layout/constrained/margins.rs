@@ -1,6 +1,6 @@
 //! The margins of constrained layout: room for the decorations and
-//! colorbars of every axes, for the titles and labels of every
-//! (sub)figure, and matching margins inside spanning axes (matplotlib's
+//! colorbars of every axes, for the titles, labels and outside legends of
+//! every (sub)figure, and matching margins inside spanning axes (matplotlib's
 //! `make_layout_margins`, `make_margin_suptitles`,
 //! `match_submerged_margins` and `reset_margins`).
 
@@ -14,6 +14,7 @@ use super::tree::{LayoutTree, frame_extent};
 use crate::artist::{Artist, ArtistId, LayoutContext};
 use crate::figure::{FigureFrame, FigureState};
 use crate::gridspec::SubplotSpec;
+use crate::legend::{OutsideEdge, outside_legends};
 use crate::spines::SpineSide;
 use crate::text::TextArtist;
 
@@ -52,6 +53,25 @@ impl LayoutTree {
             self.grids
                 .get_mut(grid)
                 .edit_outer_margin_mins(&margin, &spec.rows(), &spec.cols());
+        }
+        self.make_legend_margins(fig, frame, pads);
+    }
+
+    /// Room at the frame's edges for its `"outside ..."` legends.
+    fn make_legend_margins(&mut self, fig: &FigureState, frame: usize, pads: &Pads) {
+        let (width, height) = fig.size_pixels();
+        let (id, grid) = (self.frames[frame].id, self.frames[frame].grid);
+        for (edge, bbox) in outside_legends(fig, id) {
+            let w = bbox.width() / width + 2.0 * pads.w_pad;
+            let h = bbox.height() / height + 2.0 * pads.h_pad;
+            let (margin, size) = match edge {
+                OutsideEdge::Upper => (Margin::Top, h),
+                OutsideEdge::Lower => (Margin::Bottom, h),
+                OutsideEdge::Left => (Margin::Left, w),
+                OutsideEdge::Right => (Margin::Right, w),
+                OutsideEdge::Center => continue,
+            };
+            self.grids.get_mut(grid).edit_margin_min(margin, size, 0);
         }
     }
 

@@ -47,11 +47,14 @@ pub(crate) use layout::lay_out_legends;
 pub use options::{
     BboxToAnchor, LegendAlignment, LegendLabelColor, LegendLoc, LegendMode, LegendOptions,
 };
+pub(crate) use settings::OutsideEdge;
 
 use artist::{LegendArtist, LegendParent};
-use settings::Location;
+use settings::Placement;
 
-use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
+use plt_core::Bbox;
+
+use crate::artist::{Artist, ArtistHandle, ArtistId, LayoutContext, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::figure::{Figure, FigureFrame, FigureState};
 use crate::patches::{FancyBboxPatch, Patch};
@@ -137,17 +140,35 @@ impl Legend {
     ///
     /// # Errors
     ///
-    /// When `loc` is not a location, or is `"best"` for a figure legend.
+    /// When `loc` is not a location, is `"best"` for a figure legend or
+    /// `"outside ..."` for an axes legend.
     pub fn set_loc(&self, loc: impl Into<LegendLoc>) -> Result<&Self, LegendError> {
-        let location = Location::parse(&loc.into())?;
         let parent = self.read(|legend| legend.parent);
-        if matches!(parent, LegendParent::Figure(_)) && location == Location::Best {
-            return Err(LegendError::BestForFigure);
-        }
-        self.raw
-            .with_mut::<LegendArtist, _>(|legend| legend.location = location);
+        let placement = Placement::parse(&loc.into(), matches!(parent, LegendParent::Figure(_)))?;
+        self.raw.with_mut::<LegendArtist, _>(|legend| {
+            legend.location = placement.location;
+            legend.outside = placement.outside;
+        });
         Ok(self)
     }
+}
+
+/// The edges and extents (display pixels) of the `"outside ..."` legends
+/// of figure frame `frame` without a `bbox_to_anchor`, which constrained
+/// layout makes room for.
+pub(crate) fn outside_legends(state: &FigureState, frame: ArtistId) -> Vec<(OutsideEdge, Bbox)> {
+    let Some(node) = state.store.get_as::<FigureFrame>(frame) else {
+        return Vec::new();
+    };
+    let layout = LayoutContext::new(state);
+    node.children
+        .iter()
+        .filter_map(|&id| {
+            let legend = state.store.get_as::<LegendArtist>(id)?;
+            let edge = legend.outside.filter(|_| legend.anchor.is_none())?;
+            Some((edge, legend.window_extent(&layout)?))
+        })
+        .collect()
 }
 
 /// The legends among `children`.

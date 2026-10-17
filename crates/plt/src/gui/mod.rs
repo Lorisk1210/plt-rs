@@ -22,12 +22,12 @@
 mod actions;
 mod icons;
 mod keys;
+mod session;
 mod window;
 
 use std::fmt;
 
-use plt_platform::{Event, EventLoop};
-
+pub use session::{GinputOptions, Session};
 pub use window::FigureWindow;
 
 use crate::figure::{Figure, SaveError};
@@ -88,47 +88,12 @@ impl From<SaveError> for GuiError {
 ///
 /// When there is no window system to connect to, or a window fails.
 pub fn show(figures: &[Figure]) -> Result<(), GuiError> {
-    let mut event_loop = EventLoop::new()?;
-    let mut windows: Vec<FigureWindow> = Vec::new();
-    let mut started = false;
-    let mut failure: Option<GuiError> = None;
-    event_loop.run(|cx, event| {
-        let result = match event {
-            Event::Started => {
-                started = true;
-                figures.iter().enumerate().try_for_each(|(i, figure)| {
-                    windows.push(FigureWindow::open(
-                        cx,
-                        figure,
-                        &format!("Figure {}", i + 1),
-                    )?);
-                    Ok(())
-                })
-            }
-            Event::Timer(timer) => windows
-                .iter_mut()
-                .find(|window| window.owns_timer(timer))
-                .map_or(Ok(()), |window| window.tick(cx, timer)),
-            Event::Window { window, event } => {
-                match windows.iter_mut().position(|w| w.owns_window(window)) {
-                    Some(index) => match windows[index].handle(cx, window, &event) {
-                        Ok(true) => Ok(()),
-                        Ok(false) => windows.remove(index).close(cx),
-                        Err(err) => Err(err),
-                    },
-                    None => Ok(()),
-                }
-            }
-            // Callbacks may change figures shown in other windows.
-            Event::AboutToWait => windows.iter_mut().try_for_each(|window| window.refresh(cx)),
-            _ => Ok(()),
-        };
-        if let Err(err) = result {
-            failure = Some(err);
-        }
-        if failure.is_some() || (started && windows.is_empty()) {
-            cx.exit();
-        }
-    })?;
-    failure.map_or(Ok(()), Err)
+    let mut session = Session::new()?;
+    let titled: Vec<(Figure, String)> = figures
+        .iter()
+        .enumerate()
+        .map(|(i, figure)| (figure.clone(), format!("Figure {}", i + 1)))
+        .collect();
+    session.show(&titled)?;
+    session.run(None, || false)
 }

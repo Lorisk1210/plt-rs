@@ -16,16 +16,23 @@
 //! Everything else is reached through the objects: [`gca`] returns the
 //! current [`Axes`] with the full plotting API, [`gcf`] the current
 //! [`Figure`].
+//!
+//! [`show`] opens a window per figure and waits until they are closed. In
+//! interactive mode ([`ion`]) new figures open their windows at once and
+//! [`show`] returns immediately; [`pause`] keeps the windows responsive
+//! for a while, and [`ginput`] and [`waitforbuttonpress`] wait for clicks
+//! and keys in them.
 
 use std::cell::RefCell;
 use std::path::Path;
+use std::time::Duration;
 
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, PlotError};
 use crate::collections::Collection;
 use crate::figure::{Figure, SaveError};
 use crate::gridspec::{GridSpec, GridSpecError};
-use crate::gui::GuiError;
+use crate::gui::{GinputOptions, GuiError, Session};
 use crate::lines::Line2D;
 use crate::numeric::Grid;
 use crate::scale::ScaleError;
@@ -37,6 +44,9 @@ use crate::units::AxisValues;
 struct Registry {
     figures: Vec<(u32, Figure)>,
     current: Option<u32>,
+    /// Whether figures show as they are made (matplotlib's interactive
+    /// mode).
+    interactive: bool,
 }
 
 impl Registry {
@@ -64,10 +74,53 @@ impl Registry {
 
 thread_local! {
     static REGISTRY: RefCell<Registry> = RefCell::new(Registry::default());
+    /// The windows of the figures, once shown.
+    static SESSION: RefCell<Option<Session>> = const { RefCell::new(None) };
 }
 
 fn with_registry<R>(f: impl FnOnce(&mut Registry) -> R) -> R {
     REGISTRY.with(|registry| f(&mut registry.borrow_mut()))
+}
+
+/// Shows every open figure in the thread's window session (started on
+/// first use), runs `f` with it, then closes the figures whose windows
+/// were closed. The session is not borrowed while `f` runs, so figure
+/// callbacks may use pyplot.
+fn with_session<R>(f: impl FnOnce(&mut Session) -> Result<R, GuiError>) -> Result<R, GuiError> {
+    let stored = SESSION.with(|session| session.borrow_mut().take());
+    let mut session = match stored {
+        Some(session) => session,
+        None => Session::new()?,
+    };
+    let figures: Vec<(Figure, String)> = with_registry(|registry| {
+        registry
+            .figures
+            .iter()
+            .map(|(num, fig)| (fig.clone(), format!("Figure {num}")))
+            .collect()
+    });
+    let result = session.show(&figures).and_then(|()| f(&mut session));
+    let closed = session.take_closed();
+    with_registry(|registry| {
+        registry.figures.retain(|(_, fig)| !closed.contains(fig));
+        if registry
+            .current
+            .is_some_and(|num| registry.get(num).is_none())
+        {
+            registry.current = registry.figures.last().map(|(n, _)| *n);
+        }
+    });
+    SESSION.with(|stored| *stored.borrow_mut() = Some(session));
+    result
+}
+
+/// In interactive mode, shows new figures and redraws changed ones
+/// (matplotlib's `draw_if_interactive`). Best effort: without a window
+/// system nothing is shown, and `show` or `pause` report why.
+fn draw_if_interactive() {
+    if isinteractive() {
+        let _ = with_session(|_| Ok(()));
+    }
 }
 
 /// A new figure with the default size, made current (matplotlib's
@@ -75,6 +128,7 @@ fn with_registry<R>(f: impl FnOnce(&mut Registry) -> R) -> R {
 pub fn figure() -> Figure {
     let fig = Figure::new();
     with_registry(|registry| registry.add(fig.clone()));
+    draw_if_interactive();
     fig
 }
 
@@ -159,38 +213,126 @@ pub fn subplot(nrows: usize, ncols: usize, index: usize) -> Result<Axes, GridSpe
     Ok(ax)
 }
 
-/// Closes the current figure (matplotlib's `close()`).
+/// Closes the current figure and its window (matplotlib's `close()`).
 pub fn close() {
-    with_registry(|registry| {
-        if let Some(num) = registry.current.take() {
-            registry.figures.retain(|(n, _)| *n != num);
-            registry.current = registry.figures.last().map(|(n, _)| *n);
+    let closed = with_registry(|registry| {
+        let num = registry.current.take()?;
+        let figure = registry.get(num).cloned();
+        registry.figures.retain(|(n, _)| *n != num);
+        registry.current = registry.figures.last().map(|(n, _)| *n);
+        figure
+    });
+    close_windows(closed.as_slice());
+}
+
+/// Closes every figure and window (matplotlib's `close("all")`); the
+/// interactive mode stays.
+pub fn close_all() {
+    let closed = with_registry(|registry| {
+        registry.current = None;
+        std::mem::take(&mut registry.figures)
+    });
+    let figures: Vec<Figure> = closed.into_iter().map(|(_, fig)| fig).collect();
+    close_windows(&figures);
+}
+
+/// Closes the windows of `figures`. Best effort: a window system that
+/// fails here takes the windows with it.
+fn close_windows(figures: &[Figure]) {
+    SESSION.with(|session| {
+        if let Some(session) = session.borrow_mut().as_mut() {
+            for figure in figures {
+                let _ = session.close(figure);
+            }
         }
     });
 }
 
-/// Closes every figure (matplotlib's `close("all")`).
-pub fn close_all() {
-    with_registry(|registry| *registry = Registry::default());
-}
-
-/// Shows every open figure in a window and returns once all windows are
-/// closed; the figures are closed too (matplotlib's blocking `show()`).
+/// Shows every open figure in a window (matplotlib's `show()`): outside
+/// interactive mode it returns once all windows are closed, closing their
+/// figures; in interactive mode it returns at once.
 ///
 /// # Errors
 ///
 /// When there is no window system or a window fails.
 pub fn show() -> Result<(), GuiError> {
-    let figures: Vec<Figure> = with_registry(|registry| {
-        registry
-            .figures
-            .iter()
-            .map(|(_, fig)| fig.clone())
-            .collect()
-    });
-    let shown = crate::gui::show(&figures);
-    close_all();
-    shown
+    if isinteractive() {
+        return with_session(|_| Ok(()));
+    }
+    with_session(|session| session.run(None, || false))
+}
+
+/// Turns interactive mode on (matplotlib's `ion`): new figures open their
+/// windows at once and [`show`] does not wait.
+pub fn ion() {
+    with_registry(|registry| registry.interactive = true);
+}
+
+/// Turns interactive mode off (matplotlib's `ioff`).
+pub fn ioff() {
+    with_registry(|registry| registry.interactive = false);
+}
+
+/// Whether interactive mode is on (matplotlib's `isinteractive`).
+pub fn isinteractive() -> bool {
+    with_registry(|registry| registry.interactive)
+}
+
+/// Redraws the shown figures that changed (matplotlib's `draw`).
+///
+/// # Errors
+///
+/// When a figure cannot be rendered.
+pub fn draw() -> Result<(), GuiError> {
+    let shown = SESSION.with(|session| session.borrow().is_some());
+    if shown {
+        with_session(|_| Ok(()))
+    } else {
+        Ok(())
+    }
+}
+
+/// Shows the figures and keeps their windows responsive for `seconds`;
+/// without figures it just sleeps (matplotlib's `pause`).
+///
+/// # Errors
+///
+/// When there is no window system or a window fails.
+pub fn pause(seconds: f64) -> Result<(), GuiError> {
+    let duration = Duration::try_from_secs_f64(seconds).unwrap_or(Duration::ZERO);
+    if fignums().is_empty() {
+        std::thread::sleep(duration);
+        return Ok(());
+    }
+    with_session(|session| session.pause(duration))
+}
+
+/// Waits for up to `n` clicks in the current figure (all until stopped
+/// when `n` is 0) for at most `timeout`, and returns their data
+/// coordinates (matplotlib's `ginput`; see [`Session::ginput`]).
+///
+/// # Errors
+///
+/// When there is no window system or a window fails.
+pub fn ginput(
+    n: usize,
+    timeout: Option<Duration>,
+    options: GinputOptions,
+) -> Result<Vec<(f64, f64)>, GuiError> {
+    let figure = gcf();
+    with_session(|session| session.ginput(&figure, n, timeout, options))
+}
+
+/// Waits for a key press (`Some(true)`), a click (`Some(false)`) in the
+/// current figure, or `timeout` (`None`) (matplotlib's
+/// `waitforbuttonpress`).
+///
+/// # Errors
+///
+/// When there is no window system or a window fails.
+pub fn waitforbuttonpress(timeout: Option<Duration>) -> Result<Option<bool>, GuiError> {
+    let figure = gcf();
+    with_session(|session| session.wait_for_button_press(&figure, timeout))
 }
 
 /// Saves the current figure as PNG (matplotlib's `savefig`).

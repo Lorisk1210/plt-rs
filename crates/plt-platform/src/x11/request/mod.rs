@@ -10,7 +10,7 @@ mod window;
 
 pub(crate) use window::{
     NewWindow, WindowAttribute, WindowClass, change_window_attributes, create_colormap,
-    create_window, destroy_window, event_mask, map_window, resize_window,
+    create_window, destroy_window, event_mask, map_window, raise_window, resize_window,
 };
 
 use super::wire::{WireWrite, pad4, put_request_header, u32s_to_bytes};

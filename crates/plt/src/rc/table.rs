@@ -535,7 +535,7 @@ rc_params! {
     /// `figure.labelweight`: Weight of the figure label.
     figure_labelweight: FontWeight = "normal" => "figure.labelweight";
     /// `figure.figsize`: Figure size in inches.
-    figure_figsize: Vec<f64> = "6.4, 4.8" => "figure.figsize";
+    figure_figsize: [f64; 2] = "6.4, 4.8" => "figure.figsize";
     /// `figure.dpi`: Figure dots per inch.
     figure_dpi: f64 = "100" => "figure.dpi";
     /// `figure.facecolor`: Figure face color.

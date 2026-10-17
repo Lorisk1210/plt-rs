@@ -74,6 +74,12 @@ impl<'a> Context<'a> {
         self.backend.set_cursor(window, cursor)
     }
 
+    /// Brings a window above the others and asks the window manager to
+    /// focus it.
+    pub fn raise_window(&mut self, window: WindowId) -> Result<(), Error> {
+        self.backend.raise_window(window)
+    }
+
     /// Asks for a new content size. The window manager may adjust or
     /// refuse it; the actual size arrives as [`WindowEvent::Resized`].
     pub fn set_inner_size(&mut self, window: WindowId, size: impl Into<Size>) -> Result<(), Error> {

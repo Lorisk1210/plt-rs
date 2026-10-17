@@ -97,10 +97,12 @@ impl Default for Figure {
 }
 
 impl Figure {
-    /// A 6.4 × 4.8 inch figure at 100 dpi coloured by `figure.facecolor`
-    /// and `figure.edgecolor`.
+    /// A figure of size `figure.figsize` at `figure.dpi`, coloured by
+    /// `figure.facecolor` and `figure.edgecolor`.
     pub fn new() -> Self {
-        Self::with_size(6.4, 4.8, 100.0)
+        let rc = crate::rc::params();
+        let [width, height] = rc.figure_figsize;
+        Self::with_size(width, height, rc.figure_dpi)
     }
 
     /// A figure of the given size in inches and resolution.

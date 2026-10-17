@@ -89,6 +89,9 @@ pub(crate) trait Backend {
     /// Asks for a new content size; the outcome is reported as `Resized`.
     fn set_inner_size(&mut self, window: WindowId, size: Size) -> Result<(), Error>;
 
+    /// Brings the window above the others and asks for focus.
+    fn raise_window(&mut self, window: WindowId) -> Result<(), Error>;
+
     /// Copies `region` of `frame` (already clipped to the frame) to the
     /// same position of the window.
     fn present(

@@ -172,7 +172,7 @@ mod tests {
         let rc = RcParams::matplotlib();
         assert_eq!(RcParams::KEYS.len(), 338);
         assert_eq!(rc.lines_linewidth, 1.5);
-        assert_eq!(rc.figure_figsize, vec![6.4, 4.8]);
+        assert_eq!(rc.figure_figsize, [6.4, 4.8]);
         assert_eq!(rc.font_size, 10.0);
         assert_eq!(rc.axes_prop_cycle.len(), 10);
         assert_eq!(rc.axes_formatter_limits, vec![-5, 6]);

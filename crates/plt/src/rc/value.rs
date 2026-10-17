@@ -136,10 +136,10 @@ impl RcValue for Vec<i64> {
     }
 }
 
-impl RcValue for [f64; 3] {
+impl<const N: usize> RcValue for [f64; N] {
     fn parse_rc(text: &str) -> Result<Self, String> {
         let values = Vec::<f64>::parse_rc(text)?;
-        <[f64; 3]>::try_from(values).map_err(|v| format!("expected 3 values, got {}", v.len()))
+        <[f64; N]>::try_from(values).map_err(|v| format!("expected {N} values, got {}", v.len()))
     }
     fn format_rc(&self) -> String {
         self.iter()

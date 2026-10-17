@@ -162,6 +162,18 @@ pub(crate) fn resize_window(window: u32, width: u16, height: u16) -> Request {
     })
 }
 
+/// `ConfigureWindow` stacking the window above its siblings.
+pub(crate) fn raise_window(window: u32) -> Request {
+    const STACK_MODE: u16 = 1 << 6;
+    const ABOVE: u32 = 0;
+    request(CONFIGURE_WINDOW, 0, |b| {
+        b.put_u32(window);
+        b.put_u16(STACK_MODE);
+        b.put_u16(0);
+        b.put_u32(ABOVE);
+    })
+}
+
 /// `CreateColormap` without allocated entries (enough for `TrueColor`).
 pub(crate) fn create_colormap(colormap: u32, window: u32, visual: u32) -> Request {
     request(CREATE_COLORMAP, 0, |b| {
@@ -218,6 +230,9 @@ mod tests {
         #[rustfmt::skip]
         let resize = [12, 0, 5, 0,  1, 0, 0, 0,  12, 0, 0, 0,  44, 1, 0, 0,  200, 0, 0, 0];
         assert_eq!(wire_bytes(resize_window(1, 300, 200).encoded()), resize);
+        #[rustfmt::skip]
+        let raise = [12, 0, 4, 0,  1, 0, 0, 0,  0x40, 0, 0, 0,  0, 0, 0, 0];
+        assert_eq!(wire_bytes(raise_window(1).encoded()), raise);
         let attributes = change_window_attributes(9, &[WindowAttribute::Cursor(3)]);
         assert_eq!(
             wire_bytes(attributes.encoded()),

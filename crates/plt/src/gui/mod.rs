@@ -3,13 +3,13 @@
 //! windows.
 //!
 //! Each [`FigureWindow`] shows a figure above a toolbar — home, back,
-//! forward, pan, zoom and save — with a readout of the data coordinates
-//! under the pointer. Dragging pans or zooms as in matplotlib (see
-//! [`crate::navigation`]), the wheel zooms around the pointer, and the
-//! `keymap.*` rcParams bind the usual shortcuts (`h` home, `p` pan, `o`
-//! zoom, `g` grids, `l`/`k` log scales, `s` save, `q` close, ...). The
-//! window resizes the figure with it and renders at the screen's scale
-//! factor.
+//! forward, pan, zoom, subplot configuration and save — with a readout of
+//! the data coordinates under the pointer. Dragging pans or zooms as in
+//! matplotlib (see [`crate::navigation`]), the wheel zooms around the
+//! pointer, and the `keymap.*` rcParams bind the usual shortcuts (`h`
+//! home, `p` pan, `o` zoom, `g` grids, `l`/`k` log scales, `s` save, `q`
+//! close, ...). The window resizes the figure with it and renders at the
+//! screen's scale factor.
 //!
 //! ```no_run
 //! use plt::figure::Figure;
@@ -110,18 +110,17 @@ pub fn show(figures: &[Figure]) -> Result<(), GuiError> {
                 .find(|window| window.owns_timer(timer))
                 .map_or(Ok(()), |window| window.tick(cx, timer)),
             Event::Window { window, event } => {
-                match windows.iter_mut().position(|w| w.id() == window) {
-                    Some(index) => match windows[index].handle(cx, &event) {
+                match windows.iter_mut().position(|w| w.owns_window(window)) {
+                    Some(index) => match windows[index].handle(cx, window, &event) {
                         Ok(true) => Ok(()),
-                        Ok(false) => {
-                            windows.remove(index);
-                            cx.close_window(window).map_err(GuiError::from)
-                        }
+                        Ok(false) => windows.remove(index).close(cx),
                         Err(err) => Err(err),
                     },
                     None => Ok(()),
                 }
             }
+            // Callbacks may change figures shown in other windows.
+            Event::AboutToWait => windows.iter_mut().try_for_each(|window| window.refresh(cx)),
             _ => Ok(()),
         };
         if let Err(err) = result {

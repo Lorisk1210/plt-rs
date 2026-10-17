@@ -290,6 +290,19 @@ impl Backend for X11Backend {
         self.conn.flush()
     }
 
+    fn raise_window(&mut self, window: WindowId) -> Result<(), Error> {
+        let (xid, _) = self.window(window)?;
+        self.conn.send(&request::raise_window(xid))?;
+        // EWMH window managers only restack and focus on request.
+        let activate = window::activate(&self.atoms, xid);
+        self.conn.send(&request::send_event(
+            self.root,
+            event_mask::SUBSTRUCTURE_REDIRECT | event_mask::SUBSTRUCTURE_NOTIFY,
+            &activate,
+        ))?;
+        self.conn.flush()
+    }
+
     fn set_inner_size(&mut self, window: WindowId, size: Size) -> Result<(), Error> {
         let (xid, _) = self.window(window)?;
         let (width, height) = size_u16(size.to_physical(self.scale_factor))?;

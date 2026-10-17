@@ -58,6 +58,13 @@ pub(crate) fn title(atoms: &Atoms, window: u32, title: &str) -> [Request; 2] {
     ]
 }
 
+/// The `_NET_ACTIVE_WINDOW` client message asking an EWMH window manager
+/// to raise and focus `window`, sent by a normal application (source 1)
+/// without a timestamp.
+pub(crate) fn activate(atoms: &Atoms, window: u32) -> [u8; 32] {
+    request::client_message(window, atoms.net_active_window, [1, 0, 0, 0, 0])
+}
+
 /// Requests describing a new window: title, class, supported protocols
 /// (close button and ping), process, minimum size and icon.
 pub(crate) fn initial_properties(
@@ -150,6 +157,7 @@ mod tests {
         net_wm_pid: 305,
         utf8_string: 306,
         wake: 307,
+        net_active_window: 308,
     };
 
     /// `(property, type, value)` of a `ChangeProperty` request.
@@ -201,6 +209,13 @@ mod tests {
         assert_eq!(hints.len(), SIZE_HINTS_LEN);
         assert_eq!((hints[0], hints[5], hints[6]), (P_MIN_SIZE, 200, 100));
         assert_eq!(words(&find(ATOMS.net_wm_icon)), [1, 1, 0x8011_2233]);
+    }
+
+    #[test]
+    fn activation_is_a_client_message() {
+        let event = activate(&ATOMS, 9);
+        assert_eq!(event[0], 33, "a ClientMessage");
+        assert_eq!(words(&event[4..]), [9, 308, 1, 0, 0, 0, 0]);
     }
 
     #[test]

@@ -2,58 +2,23 @@
 //! navigation tools and a coordinate readout (matplotlib's
 //! `FigureManager` + `NavigationToolbar2`).
 
+mod input;
+mod toolbar;
+
 use plt_core::Point;
 use plt_platform::{
-    ButtonState, Context, CursorIcon, Key, KeyEvent, LogicalSize, Modifiers, MouseButton,
-    PhysicalSize, ScrollDelta, TimerId, WindowEvent, WindowId, WindowOptions,
+    Context, CursorIcon, LogicalSize, PhysicalSize, TimerId, WindowEvent, WindowId, WindowOptions,
 };
-use plt_ui::{
-    Flex, Label, Rect, Separator, Surface, SurfaceEvent, ToolButton, UiEvent, UiWindow, WidgetId,
-};
+use plt_ui::{Flex, Surface, SurfaceEvent, UiWindow, WidgetId};
 
 use super::GuiError;
 use super::actions;
-use super::icons;
-use super::keys::{self, KeyAction};
 use crate::events::{Event, EventSource, TimerKey};
 use crate::figure::Figure;
-use crate::navigation::{DragKey, NavMode, Navigation, PointerButton, Rubberband};
-
-/// Height of the toolbar in logical pixels.
-const TOOLBAR_HEIGHT: f64 = 37.0;
-
-/// A toolbar button.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) enum Tool {
-    /// Restore the original view.
-    Home,
-    /// Previous view.
-    Back,
-    /// Next view.
-    Forward,
-    /// Toggle the pan tool.
-    Pan,
-    /// Toggle the zoom tool.
-    Zoom,
-    /// Save the figure as PNG.
-    Save,
-}
-
-impl Tool {
-    /// What the tool does and its shortcut, for the status line.
-    fn hint(self) -> &'static str {
-        match self {
-            Self::Home => "Reset original view (h)",
-            Self::Back => "Back to previous view (c)",
-            Self::Forward => "Forward to next view (v)",
-            Self::Pan => {
-                "Left button pans, right button zooms; x/y fixes axis, Ctrl fixes aspect (p)"
-            }
-            Self::Zoom => "Zoom to rectangle; x/y fixes axis (o)",
-            Self::Save => "Save the figure as PNG (s)",
-        }
-    }
-}
+use crate::gridspec::SubplotOverrides;
+use crate::navigation::{NavMode, Navigation};
+use crate::widgets::SubplotTool;
+use toolbar::{Tool, Toolbar};
 
 /// What the widgets of a figure window report.
 #[derive(Clone, Debug, PartialEq)]
@@ -66,13 +31,12 @@ pub(super) enum Message {
     Canvas(SurfaceEvent),
 }
 
-/// The toolbar buttons whose look follows the navigation state.
-#[derive(Debug, Clone, Copy)]
-struct ToolIds {
-    back: WidgetId,
-    forward: WidgetId,
-    pan: WidgetId,
-    zoom: WidgetId,
+/// The subplot configuration tool of a figure window, in its own window.
+#[derive(Debug)]
+struct SubplotToolWindow {
+    window: Box<FigureWindow>,
+    /// Keeps the sliders connected while the window is open.
+    _tool: SubplotTool,
 }
 
 /// A window showing one figure, with pan/zoom navigation.
@@ -81,8 +45,8 @@ pub struct FigureWindow {
     figure: Figure,
     window: UiWindow<Message>,
     canvas: WidgetId,
-    status: WidgetId,
-    tools: ToolIds,
+    /// The toolbar; tool windows have none.
+    toolbar: Option<Toolbar>,
     navigation: Navigation,
     /// Turns canvas input into figure events for connected callbacks.
     events: EventSource,
@@ -96,52 +60,44 @@ pub struct FigureWindow {
     /// The last pointer position over the canvas, in display coordinates.
     pointer: Option<Point>,
     title: String,
+    /// The subplot tool opened from the toolbar, while it is open.
+    subplot_tool: Option<SubplotToolWindow>,
 }
 
 impl FigureWindow {
-    /// Opens a window titled `title` showing `figure` at its size.
+    /// Opens a window titled `title` showing `figure` at its size, above a
+    /// toolbar.
     ///
     /// # Errors
     ///
     /// When the window cannot be created.
     pub fn open(cx: &mut Context<'_>, figure: &Figure, title: &str) -> Result<Self, GuiError> {
+        Self::build(cx, figure, title, true)
+    }
+
+    /// Opens a window showing `figure`, with or without the toolbar.
+    fn build(
+        cx: &mut Context<'_>,
+        figure: &Figure,
+        title: &str,
+        with_toolbar: bool,
+    ) -> Result<Self, GuiError> {
         let mut root = Flex::column();
         let canvas = root.push(Surface::new(|event| Some(Message::Canvas(event))), 1.0);
-        let mut toolbar = Flex::row().with_padding(2.0).with_spacing(2.0);
-        let button = |toolbar: &mut Flex<Message>, icon, tool| {
-            let button = ToolButton::new(icon, Message::Tool(tool))
-                .with_hover_messages(Message::Hint(Some(tool)), Message::Hint(None));
-            toolbar.push(button, 0.0)
-        };
-        button(&mut toolbar, icons::home(), Tool::Home);
-        let back = button(&mut toolbar, icons::back(), Tool::Back);
-        let forward = button(&mut toolbar, icons::forward(), Tool::Forward);
-        toolbar.push(Separator::vertical(), 0.0);
-        let pan = button(&mut toolbar, icons::pan(), Tool::Pan);
-        let zoom = button(&mut toolbar, icons::zoom(), Tool::Zoom);
-        toolbar.push(Separator::vertical(), 0.0);
-        button(&mut toolbar, icons::save(), Tool::Save);
-        let status = toolbar.push(Label::new(""), 1.0);
-        root.push(Separator::horizontal(), 0.0);
-        root.push(toolbar, 0.0);
+        let toolbar = with_toolbar.then(|| Toolbar::build(&mut root));
         let (width, height) = figure.size_inches();
         let dpi = figure.dpi();
+        let toolbar_height = if with_toolbar { toolbar::HEIGHT } else { 0.0 };
         let options = WindowOptions::new(title)
             .with_app_id("plt-rs")
-            .with_inner_size(LogicalSize::new(width * dpi, height * dpi + TOOLBAR_HEIGHT))
+            .with_inner_size(LogicalSize::new(width * dpi, height * dpi + toolbar_height))
             .with_min_inner_size(LogicalSize::new(240.0, 160.0));
         let window = UiWindow::open(cx, &options, root)?;
         let mut figure_window = Self {
             figure: figure.clone(),
             window,
             canvas,
-            status,
-            tools: ToolIds {
-                back,
-                forward,
-                pan,
-                zoom,
-            },
+            toolbar,
             navigation: Navigation::new(),
             events: EventSource::new(),
             timers: Vec::new(),
@@ -150,6 +106,7 @@ impl FigureWindow {
             held: None,
             pointer: None,
             title: title.to_owned(),
+            subplot_tool: None,
         };
         figure_window.refresh_tools(cx)?;
         figure_window.sync_timers(cx);
@@ -171,13 +128,39 @@ impl FigureWindow {
         &self.figure
     }
 
-    /// Handles an event of this window; returns `false` once the window
-    /// should close.
+    /// Whether `window` is this window or a tool window it opened.
+    pub fn owns_window(&self, window: WindowId) -> bool {
+        self.id() == window
+            || self
+                .subplot_tool
+                .as_ref()
+                .is_some_and(|tool| tool.window.owns_window(window))
+    }
+
+    /// Handles an event of this window or of a tool window it opened (see
+    /// [`FigureWindow::owns_window`]); returns `false` once this window
+    /// should close, which [`FigureWindow::close`] does.
     ///
     /// # Errors
     ///
-    /// When rendering the figure or updating the window fails.
-    pub fn handle(&mut self, cx: &mut Context<'_>, event: &WindowEvent) -> Result<bool, GuiError> {
+    /// When rendering a figure or updating a window fails.
+    pub fn handle(
+        &mut self,
+        cx: &mut Context<'_>,
+        window: WindowId,
+        event: &WindowEvent,
+    ) -> Result<bool, GuiError> {
+        if window != self.id() {
+            if let Some(tool) = &mut self.subplot_tool
+                && tool.window.owns_window(window)
+                && !tool.window.handle(cx, window, event)?
+            {
+                self.close_subplot_tool(cx)?;
+            }
+            // The tool adjusts this window's figure.
+            self.refresh(cx)?;
+            return Ok(true);
+        }
         if *event == WindowEvent::CloseRequested {
             self.figure.process_event(&Event::Close);
             return Ok(false);
@@ -189,6 +172,21 @@ impl FigureWindow {
             }
         }
         Ok(true)
+    }
+
+    /// Closes the window and the tool windows it opened, and stops the
+    /// platform timers of its figure.
+    ///
+    /// # Errors
+    ///
+    /// When the window system fails to close a window.
+    pub fn close(mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        self.close_subplot_tool(cx)?;
+        for (timer, _) in self.timers.drain(..) {
+            cx.cancel_timer(timer);
+        }
+        cx.close_window(self.id())?;
+        Ok(())
     }
 
     fn apply(&mut self, cx: &mut Context<'_>, message: Message) -> Result<bool, GuiError> {
@@ -213,33 +211,59 @@ impl FigureWindow {
             Message::Canvas(SurfaceEvent::Input(event)) => self.canvas_input(cx, &event)?,
         };
         // Callbacks and tools may have changed the figure and its timers.
-        self.sync_timers(cx);
-        if open && self.figure.is_stale() {
-            self.render(cx)?;
+        if open {
+            self.refresh(cx)?;
         }
         Ok(open)
     }
 
-    /// Whether platform timer `timer` belongs to this window.
-    pub fn owns_timer(&self, timer: TimerId) -> bool {
-        self.timers.iter().any(|(id, _)| *id == timer)
-    }
-
-    /// Runs the figure timer behind platform timer `timer` and redraws if
-    /// the tick changed the figure.
+    /// Keeps platform timers running for the figure's timers and redraws
+    /// the figure if it changed, here and in the tool windows. Call it when
+    /// the figure may have been changed from elsewhere (another window's
+    /// callbacks, a timer).
     ///
     /// # Errors
     ///
-    /// When rendering the figure fails.
-    pub fn tick(&mut self, cx: &mut Context<'_>, timer: TimerId) -> Result<(), GuiError> {
-        if let Some(&(_, key)) = self.timers.iter().find(|(id, _)| *id == timer) {
-            self.figure.fire_timer(key);
-        }
+    /// When rendering a figure fails.
+    pub fn refresh(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         self.sync_timers(cx);
         if self.figure.is_stale() {
             self.render(cx)?;
         }
-        Ok(())
+        match &mut self.subplot_tool {
+            Some(tool) => tool.window.refresh(cx),
+            None => Ok(()),
+        }
+    }
+
+    /// Whether platform timer `timer` belongs to this window or its tool
+    /// windows.
+    pub fn owns_timer(&self, timer: TimerId) -> bool {
+        self.timers.iter().any(|(id, _)| *id == timer)
+            || self
+                .subplot_tool
+                .as_ref()
+                .is_some_and(|tool| tool.window.owns_timer(timer))
+    }
+
+    /// Runs the figure timer behind platform timer `timer` and redraws
+    /// what the tick changed.
+    ///
+    /// # Errors
+    ///
+    /// When rendering a figure fails.
+    pub fn tick(&mut self, cx: &mut Context<'_>, timer: TimerId) -> Result<(), GuiError> {
+        match self.timers.iter().find(|(id, _)| *id == timer) {
+            Some(&(_, key)) => {
+                self.figure.fire_timer(key);
+            }
+            None => {
+                if let Some(tool) = &mut self.subplot_tool {
+                    tool.window.tick(cx, timer)?;
+                }
+            }
+        }
+        self.refresh(cx)
     }
 
     /// Starts platform timers for new figure timers and cancels those of
@@ -267,6 +291,7 @@ impl FigureWindow {
             Tool::Forward => self.navigation.forward(&self.figure),
             Tool::Pan => self.navigation.toggle(NavMode::Pan),
             Tool::Zoom => self.navigation.toggle(NavMode::Zoom),
+            Tool::Subplots => return self.configure_subplots(cx),
             Tool::Save => {
                 let message = match actions::save(&self.figure, &self.title) {
                     Ok(path) => format!("Saved {}", path.display()),
@@ -278,169 +303,43 @@ impl FigureWindow {
         self.refresh_tools(cx)
     }
 
-    /// Display coordinates (from the bottom-left corner of the figure) of
-    /// a canvas position (from its top-left corner).
-    fn to_display(&self, position: Point) -> Point {
-        Point::new(position.x, f64::from(self.canvas_size.height) - position.y)
-    }
-
-    fn drag_key(&self, modifiers: Modifiers) -> DragKey {
-        match self.held {
-            Some('x') => DragKey::X,
-            Some('y') => DragKey::Y,
-            _ if modifiers.control() => DragKey::Control,
-            _ if modifiers.shift() => DragKey::Shift,
-            _ => DragKey::None,
+    /// Opens a window with sliders for the figure's subplot parameters,
+    /// or raises it when it is open (matplotlib's `configure_subplots`).
+    fn configure_subplots(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        if let Some(tool) = &self.subplot_tool {
+            cx.raise_window(tool.window.id())?;
+            return Ok(());
         }
-    }
-
-    fn canvas_input(&mut self, cx: &mut Context<'_>, event: &UiEvent) -> Result<bool, GuiError> {
-        match event {
-            UiEvent::PointerEnter(position) => {
-                let at = self.to_display(*position);
-                self.events.figure_enter(&self.figure, at.x, at.y);
-            }
-            UiEvent::PointerMove {
-                position,
-                modifiers,
-            } => {
-                let at = self.to_display(*position);
-                self.pointer = Some(at);
-                self.events.motion(&self.figure, at.x, at.y);
-                if self.navigation.is_dragging() {
-                    let rubberband = self.navigation.drag(at, self.drag_key(*modifiers));
-                    self.show_rubberband(cx, rubberband)?;
-                }
-                let readout = self.navigation.readout(&self.figure, at);
-                self.set_status(cx, readout)?;
-            }
-            UiEvent::PointerDown {
-                button,
-                position,
-                click_count,
-                ..
-            } => {
-                if let Some(button) = pointer_button(*button) {
-                    let at = self.to_display(*position);
-                    self.events
-                        .button_press(&self.figure, at.x, at.y, button, *click_count == 2);
-                    self.navigation.press(&self.figure, at, button);
-                }
-            }
-            UiEvent::PointerUp {
-                button,
-                position,
-                modifiers,
-            } => {
-                let at = self.to_display(*position);
-                if let Some(button) = pointer_button(*button) {
-                    self.events.button_release(&self.figure, at.x, at.y, button);
-                }
-                if self.navigation.is_dragging() {
-                    self.navigation
-                        .release(&self.figure, at, self.drag_key(*modifiers));
-                    self.show_rubberband(cx, None)?;
-                    self.refresh_tools(cx)?;
-                }
-            }
-            UiEvent::Wheel {
-                delta, position, ..
-            } => {
-                let steps = match *delta {
-                    ScrollDelta::Lines { y, .. } => y,
-                    ScrollDelta::Pixels { y, .. } => y / 40.0,
-                };
-                let at = self.to_display(*position);
-                self.events.scroll(&self.figure, at.x, at.y, steps);
-                self.navigation.wheel(&self.figure, at, steps);
-                self.refresh_tools(cx)?;
-            }
-            UiEvent::PointerLeave => {
-                self.pointer = None;
-                self.events.figure_leave(&self.figure);
-                self.set_status(cx, String::new())?;
-            }
-            UiEvent::Key(key) => return self.key(cx, key),
-            _ => {}
-        }
-        Ok(true)
-    }
-
-    fn key(&mut self, cx: &mut Context<'_>, event: &KeyEvent) -> Result<bool, GuiError> {
-        if let Key::Character(c @ ('x' | 'y')) = event.key {
-            self.held = (event.state == ButtonState::Pressed).then_some(c);
-        }
-        let Some(name) = keys::key_name(event) else {
-            return Ok(true);
+        let figure = Figure::with_size(6.0, 3.0, crate::rc::params().figure_dpi);
+        let top = SubplotOverrides {
+            top: Some(0.9),
+            ..SubplotOverrides::default()
         };
-        let at = self.pointer.unwrap_or(Point::new(f64::NAN, f64::NAN));
-        if event.state != ButtonState::Pressed {
-            self.events.key_release(&self.figure, &name, at.x, at.y);
-            return Ok(true);
-        }
-        self.events.key_press(&self.figure, &name, at.x, at.y);
-        if self.figure.captures_keys() {
-            return Ok(true);
-        }
-        let rc = crate::rc::params();
-        let Some(action) = keys::action(&name, &rc) else {
-            return Ok(true);
-        };
-        match action {
-            KeyAction::Quit => return Ok(false),
-            KeyAction::Home => self.use_tool(cx, Tool::Home)?,
-            KeyAction::Back => self.use_tool(cx, Tool::Back)?,
-            KeyAction::Forward => self.use_tool(cx, Tool::Forward)?,
-            KeyAction::Pan => self.use_tool(cx, Tool::Pan)?,
-            KeyAction::Zoom => self.use_tool(cx, Tool::Zoom)?,
-            KeyAction::Save => self.use_tool(cx, Tool::Save)?,
-            KeyAction::Grid | KeyAction::GridMinor | KeyAction::LogX | KeyAction::LogY => {
-                let target = self
-                    .pointer
-                    .and_then(|at| crate::navigation::axes_at(&self.figure, at));
-                if let Some(ax) = target {
-                    actions::apply_to_axes(&ax, action);
-                }
-            }
-        }
-        Ok(true)
-    }
-
-    /// Shows the zoom rectangle (display coordinates) on the canvas.
-    fn show_rubberband(
-        &mut self,
-        cx: &mut Context<'_>,
-        rubberband: Option<Rubberband>,
-    ) -> Result<(), GuiError> {
-        let height = f64::from(self.canvas_size.height);
-        let selection = rubberband.map(|band| {
-            let b = band.bbox;
-            Rect::new(b.x0(), height - b.y0(), b.x1() - b.x0(), b.y0() - b.y1())
+        figure
+            .subplots_adjust(&top)
+            .expect("0.9 is a valid top margin");
+        let tool = SubplotTool::new(&self.figure, &figure);
+        let window = Self::build(cx, &figure, "Subplot configuration tool", false)?;
+        self.subplot_tool = Some(SubplotToolWindow {
+            window: Box::new(window),
+            _tool: tool,
         });
-        self.window
-            .update(cx, self.canvas, |canvas: &mut Surface<Message>| {
-                canvas.set_selection(selection);
-            })?;
         Ok(())
     }
 
-    /// Updates the history buttons, the checked tool and the cursor.
-    fn refresh_tools(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        let mode = self.navigation.mode();
-        let states = [
-            (self.tools.back, self.navigation.can_go_back(), false),
-            (self.tools.forward, self.navigation.can_go_forward(), false),
-            (self.tools.pan, true, mode == NavMode::Pan),
-            (self.tools.zoom, true, mode == NavMode::Zoom),
-        ];
-        for (id, enabled, checked) in states {
-            self.window
-                .update(cx, id, |button: &mut ToolButton<Message>| {
-                    button.set_enabled(enabled);
-                    button.set_checked(checked);
-                })?;
+    fn close_subplot_tool(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match self.subplot_tool.take() {
+            Some(tool) => tool.window.close(cx),
+            None => Ok(()),
         }
-        let cursor = match mode {
+    }
+
+    /// Updates the toolbar buttons and the cursor.
+    fn refresh_tools(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        if let Some(toolbar) = self.toolbar {
+            toolbar.refresh(&mut self.window, cx, &self.navigation)?;
+        }
+        let cursor = match self.navigation.mode() {
             NavMode::None => CursorIcon::Default,
             NavMode::Pan => CursorIcon::Move,
             NavMode::Zoom => CursorIcon::Crosshair,
@@ -449,10 +348,12 @@ impl FigureWindow {
         Ok(())
     }
 
+    /// Shows `text` in the status line, if there is a toolbar.
     fn set_status(&mut self, cx: &mut Context<'_>, text: String) -> Result<(), GuiError> {
-        self.window
-            .update(cx, self.status, |label: &mut Label| label.set_text(text))?;
-        Ok(())
+        match self.toolbar {
+            Some(toolbar) => toolbar.set_status(&mut self.window, cx, text),
+            None => Ok(()),
+        }
     }
 
     /// Renders the figure at the canvas size and shows it; artists that
@@ -481,34 +382,28 @@ impl FigureWindow {
     }
 }
 
-/// The navigation button of a mouse button.
-fn pointer_button(button: MouseButton) -> Option<PointerButton> {
-    match button {
-        MouseButton::Left => Some(PointerButton::Left),
-        MouseButton::Middle => Some(PointerButton::Middle),
-        MouseButton::Right => Some(PointerButton::Right),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
 
-    use plt_platform::{Event, EventLoop, HeadlessHandle, PhysicalPosition};
+    use plt_platform::{
+        ButtonState, Event, EventLoop, HeadlessHandle, Key, KeyEvent, Modifiers, MouseButton,
+        PhysicalPosition,
+    };
 
     use super::*;
 
-    /// Runs one loop iteration, feeding the window's events to `window`.
+    /// Runs one loop iteration, feeding the events of `window` and its
+    /// tool windows to it.
     fn pump(event_loop: &mut EventLoop, window: &mut FigureWindow) -> bool {
         let mut open = true;
         event_loop
             .pump_events(Some(Duration::ZERO), |cx, event| {
                 if let Event::Window { window: id, event } = event
-                    && id == window.id()
+                    && window.owns_window(id)
                 {
                     open &= window
-                        .handle(cx, &event)
+                        .handle(cx, id, &event)
                         .expect("the window handles events");
                 }
             })
@@ -595,5 +490,63 @@ mod tests {
         assert_eq!(ax.xlim(), (0.0, 10.0), "home restores the view");
         key(&handle, id, 'q');
         assert!(!pump(&mut event_loop, &mut window), "q closes the window");
+    }
+
+    #[test]
+    fn the_subplot_tool_adjusts_the_figure() {
+        let figure = Figure::with_size(4.0, 3.0, 100.0);
+        figure.subplots(2, 2).expect("a 2×2 grid has cells");
+        let (mut event_loop, handle) = EventLoop::headless();
+        let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+            .expect("the window opens");
+        let main = window.id();
+        window
+            .use_tool(&mut event_loop.context(), Tool::Subplots)
+            .expect("the tool opens");
+        let tool = window.subplot_tool.as_ref().expect("the tool is open");
+        let tool_id = tool.window.id();
+        let snapshot = handle.window(tool_id).expect("the tool window exists");
+        assert_eq!(snapshot.title, "Subplot configuration tool");
+        assert_eq!(snapshot.size, PhysicalSize::new(600, 300), "no toolbar");
+        assert!(window.owns_window(tool_id));
+        pump(&mut event_loop, &mut window);
+        handle.take_frames();
+
+        // Click 30% along the "left" slider.
+        let tool = window.subplot_tool.as_ref().expect("the tool is open");
+        let slider = tool.window.figure().axes()[0].position();
+        let at = (
+            600.0 * (slider.x0() + 0.3 * slider.width()),
+            300.0 * (1.0 - (slider.y0() + 0.5 * slider.height())),
+        );
+        mouse(&handle, tool_id, ButtonState::Pressed, at);
+        mouse(&handle, tool_id, ButtonState::Released, at);
+        pump(&mut event_loop, &mut window);
+        let left = figure.subplot_params().left;
+        assert!((left - 0.3).abs() < 0.01, "left is {left}");
+        let redrawn: Vec<_> = handle.take_frames().iter().map(|f| f.window).collect();
+        assert!(redrawn.contains(&main), "the figure is redrawn");
+        assert!(redrawn.contains(&tool_id), "the slider is redrawn");
+
+        // Clicking the tool again raises its window.
+        event_loop
+            .context()
+            .raise_window(main)
+            .expect("the window exists");
+        window
+            .use_tool(&mut event_loop.context(), Tool::Subplots)
+            .expect("the tool is raised");
+        assert_eq!(handle.stacking_order(), [main, tool_id]);
+
+        handle
+            .inject(tool_id, WindowEvent::CloseRequested)
+            .expect("the window exists");
+        assert!(pump(&mut event_loop, &mut window));
+        assert!(window.subplot_tool.is_none());
+        assert_eq!(handle.windows(), [main]);
+        window
+            .close(&mut event_loop.context())
+            .expect("the window closes");
+        assert_eq!(handle.windows(), Vec::<WindowId>::new());
     }
 }

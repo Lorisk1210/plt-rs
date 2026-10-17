@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 })
                 .map_err(Into::into),
             (Event::Window { window: id, event }, Some(shown)) if id == shown.id() => shown
-                .handle(cx, &event)
+                .handle(cx, id, &event)
                 .map_err(Into::into)
                 .and_then(|open| {
                     if event == WindowEvent::RedrawRequested

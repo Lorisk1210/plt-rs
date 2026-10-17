@@ -39,10 +39,12 @@ impl CallbackRegistry {
         id
     }
 
-    fn disconnect(&mut self, id: ConnectionId) -> bool {
-        let before = self.callbacks.len();
-        self.callbacks.retain(|(cid, _, _)| *cid != id);
-        self.callbacks.len() != before
+    /// Removes callback `id` and returns it, for the caller to drop once
+    /// the figure is no longer borrowed (dropping a callback may drop
+    /// widgets that disconnect their own callbacks).
+    fn take(&mut self, id: ConnectionId) -> Option<Callback> {
+        let index = self.callbacks.iter().position(|(cid, _, _)| *cid == id)?;
+        Some(self.callbacks.remove(index).2)
     }
 
     fn listeners(&self, kind: EventKind) -> Vec<Callback> {
@@ -66,7 +68,8 @@ impl Figure {
     /// Disconnects a callback (matplotlib's `mpl_disconnect`); returns
     /// whether it was connected.
     pub fn disconnect(&self, id: ConnectionId) -> bool {
-        self.state_mut().callbacks.disconnect(id)
+        let removed = self.state_mut().callbacks.take(id);
+        removed.is_some()
     }
 
     /// Delivers `event` to the callbacks connected for its kind, in

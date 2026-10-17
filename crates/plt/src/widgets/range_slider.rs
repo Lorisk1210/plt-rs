@@ -30,7 +30,7 @@ impl RangeParts {
     fn min_in_bounds(&self, low: f64) -> f64 {
         let base = &self.base;
         let low = if low <= base.valmin {
-            if !base.closedmin {
+            if !base.closedmin.get() {
                 return self.val.get().0;
             }
             base.valmin
@@ -45,7 +45,7 @@ impl RangeParts {
     fn max_in_bounds(&self, high: f64) -> f64 {
         let base = &self.base;
         let high = if high >= base.valmax {
-            if !base.closedmax {
+            if !base.closedmax.get() {
                 return self.val.get().1;
             }
             base.valmax

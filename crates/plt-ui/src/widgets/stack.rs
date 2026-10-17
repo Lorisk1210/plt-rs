@@ -6,7 +6,7 @@ use crate::widget::{LayoutCx, PaintCx, Widget, WidgetId, WidgetPod};
 
 /// Children stacked on top of each other with only one shown — the pages
 /// of a tabbed panel. The hidden pages are neither laid out, painted nor
-/// given events.
+/// given events, but their widgets can still be found by id.
 pub struct Stack<M> {
     pages: Vec<WidgetPod<M>>,
     shown: usize,
@@ -88,6 +88,14 @@ impl<M: 'static> Widget<M> for Stack<M> {
     fn children_mut(&mut self) -> &mut [WidgetPod<M>] {
         let end = (self.shown + 1).min(self.pages.len());
         &mut self.pages[self.shown.min(end)..end]
+    }
+
+    fn all_children(&self) -> &[WidgetPod<M>] {
+        &self.pages
+    }
+
+    fn all_children_mut(&mut self) -> &mut [WidgetPod<M>] {
+        &mut self.pages
     }
 }
 

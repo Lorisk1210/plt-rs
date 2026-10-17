@@ -65,6 +65,17 @@ pub trait Widget<M>: Any {
     fn children_mut(&mut self) -> &mut [WidgetPod<M>] {
         &mut []
     }
+
+    /// Every child widget, including those not shown (the hidden pages
+    /// of a [`Stack`](crate::Stack)), for finding widgets by id.
+    fn all_children(&self) -> &[WidgetPod<M>] {
+        self.children()
+    }
+
+    /// Every child widget, mutably.
+    fn all_children_mut(&mut self) -> &mut [WidgetPod<M>] {
+        self.children_mut()
+    }
 }
 
 /// A widget in the tree, with its identity and laid-out rectangle.
@@ -131,7 +142,7 @@ impl<M: 'static> WidgetPod<M> {
             return Some(self);
         }
         self.widget
-            .children()
+            .all_children()
             .iter()
             .find_map(|child| child.find(id))
     }
@@ -142,7 +153,7 @@ impl<M: 'static> WidgetPod<M> {
             return Some(self);
         }
         self.widget
-            .children_mut()
+            .all_children_mut()
             .iter_mut()
             .find_map(|child| child.find_mut(id))
     }

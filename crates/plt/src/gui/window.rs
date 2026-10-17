@@ -11,6 +11,7 @@ use plt_platform::{
 };
 use plt_ui::{Flex, Surface, SurfaceEvent, UiWindow, WidgetId};
 
+use super::options::{self, OptionsDialog};
 use super::save_dialog::{Outcome, SaveDialog};
 use super::{GuiError, icons};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
@@ -68,6 +69,8 @@ pub struct FigureWindow {
     subplot_tool: Option<SubplotToolWindow>,
     /// The save dialog opened from the toolbar, while it is open.
     save_dialog: Option<SaveDialog>,
+    /// The figure options dialog opened from the toolbar, while it is open.
+    options_dialog: Option<OptionsDialog>,
 }
 
 impl FigureWindow {
@@ -117,6 +120,7 @@ impl FigureWindow {
             title: title.to_owned(),
             subplot_tool: None,
             save_dialog: None,
+            options_dialog: None,
         };
         figure_window.refresh_tools(cx)?;
         figure_window.sync_timers(cx);
@@ -143,6 +147,10 @@ impl FigureWindow {
         self.id() == window
             || self
                 .save_dialog
+                .as_ref()
+                .is_some_and(|dialog| dialog.id() == window)
+            || self
+                .options_dialog
                 .as_ref()
                 .is_some_and(|dialog| dialog.id() == window)
             || self
@@ -178,6 +186,26 @@ impl FigureWindow {
                 }
             };
         }
+        if let Some(dialog) = self.options_dialog.as_mut().filter(|d| d.id() == window) {
+            match dialog.handle(cx, event)? {
+                options::Outcome::Open => {}
+                options::Outcome::Applied {
+                    limits_changed,
+                    close,
+                } => {
+                    if limits_changed {
+                        self.navigation.push_current(&self.figure);
+                        self.refresh_tools(cx)?;
+                    }
+                    if close {
+                        self.close_options_dialog(cx)?;
+                    }
+                    self.refresh(cx)?;
+                }
+                options::Outcome::Cancelled => self.close_options_dialog(cx)?,
+            }
+            return Ok(true);
+        }
         if window != self.id() {
             if let Some(tool) = &mut self.subplot_tool
                 && tool.window.owns_window(window)
@@ -211,6 +239,7 @@ impl FigureWindow {
     pub fn close(mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         self.close_subplot_tool(cx)?;
         self.close_save_dialog(cx)?;
+        self.close_options_dialog(cx)?;
         for (timer, _) in self.timers.drain(..) {
             cx.cancel_timer(timer);
         }
@@ -322,6 +351,7 @@ impl FigureWindow {
             Tool::Pan => return self.toggle_mode(cx, NavMode::Pan, "pan"),
             Tool::Zoom => return self.toggle_mode(cx, NavMode::Zoom, "zoom"),
             Tool::Subplots => return self.configure_subplots(cx),
+            Tool::Options => return self.edit_parameters(cx),
             Tool::Save => return self.save_figure(cx),
         }
         self.refresh_tools(cx)
@@ -373,6 +403,27 @@ impl FigureWindow {
             None => self.save_dialog = Some(SaveDialog::open(cx, &self.figure, &self.title)?),
         }
         Ok(())
+    }
+
+    /// Opens the figure options dialog, or raises it when it is open
+    /// (matplotlib's `edit_parameters`).
+    fn edit_parameters(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        if let Some(dialog) = &self.options_dialog {
+            cx.raise_window(dialog.id())?;
+            return Ok(());
+        }
+        match OptionsDialog::open(cx, &self.figure)? {
+            Some(dialog) => self.options_dialog = Some(dialog),
+            None => self.set_status(cx, "There are no axes to edit".to_owned())?,
+        }
+        Ok(())
+    }
+
+    fn close_options_dialog(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match self.options_dialog.take() {
+            Some(dialog) => dialog.close(cx),
+            None => Ok(()),
+        }
     }
 
     fn close_save_dialog(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {

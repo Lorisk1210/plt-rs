@@ -26,6 +26,8 @@ pub(in crate::gui) enum Tool {
     Zoom,
     /// Open the subplot configuration tool.
     Subplots,
+    /// Open the figure options dialog.
+    Options,
     /// Open the save dialog.
     Save,
 }
@@ -42,6 +44,7 @@ impl Tool {
             }
             Self::Zoom => "Zoom to rectangle; x/y fixes axis (o)",
             Self::Subplots => "Configure subplots",
+            Self::Options => "Edit axis, curve and image parameters",
             Self::Save => "Save the figure (s)",
         }
     }
@@ -74,6 +77,7 @@ impl Toolbar {
         let pan = button(&mut row, icons::pan(), Tool::Pan);
         let zoom = button(&mut row, icons::zoom(), Tool::Zoom);
         button(&mut row, icons::subplots(), Tool::Subplots);
+        button(&mut row, icons::options(), Tool::Options);
         row.push(Separator::vertical(), 0.0);
         button(&mut row, icons::save(), Tool::Save);
         let status = row.push(Label::new(""), 1.0);

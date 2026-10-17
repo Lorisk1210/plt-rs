@@ -191,6 +191,11 @@ impl AxesImage {
         })
     }
 
+    /// The colormap.
+    pub fn cmap(&self) -> Colormap {
+        self.read(|image| image.core.mappable.borrow().cmap().clone())
+    }
+
     /// Replaces the colormap.
     pub fn set_cmap(&self, cmap: Colormap) -> &Self {
         self.update(|image| image.core.mappable.get_mut().set_cmap(cmap))

@@ -35,6 +35,7 @@ impl FigureState {
         let state = self.store.get_as_mut::<AxesState>(axes)?;
         state.update_ticks(&extent, dpi);
         let children = state.children.clone();
+        self.update_title_position(axes);
         let insets: Vec<ArtistId> = children
             .into_iter()
             .filter(|&child| self.store.get_as::<AxesState>(child).is_some())
@@ -80,7 +81,7 @@ impl FigureState {
 }
 
 /// The extent of an axis' texts (matplotlib's `Axis.get_tightbbox`).
-fn axis_tight_bbox(
+pub(super) fn axis_tight_bbox(
     layout: LayoutContext<'_>,
     painter: &AxisPainter<'_>,
     for_layout_only: bool,

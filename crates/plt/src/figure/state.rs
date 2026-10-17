@@ -100,7 +100,7 @@ impl FigureState {
             .ids()
             .filter(|&id| self.store.get_as::<AxesState>(id).is_some())
             .collect();
-        for id in axes {
+        for &id in &axes {
             self.sync_secondary(id);
             self.lay_out_axes(id);
             let Some(extent) = self.axes_bbox(id) else {
@@ -110,6 +110,11 @@ impl FigureState {
             if let Some(state) = self.store.get_as_mut::<AxesState>(id) {
                 state.update_ticks(&extent, dpi);
             }
+        }
+        // Titles clear the decorations of twins and insets, whose ticks
+        // are only all known now.
+        for id in axes {
+            self.update_title_position(id);
         }
     }
 

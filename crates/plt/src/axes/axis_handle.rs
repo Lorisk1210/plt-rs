@@ -397,6 +397,20 @@ impl Axes {
         self.grid_with(visible, &GridOptions::default())
     }
 
+    /// Whether the major (`major`) or minor gridlines of one axis are
+    /// shown.
+    pub fn has_grid(&self, axis: AxisName, major: bool) -> bool {
+        self.raw.with::<AxesState, _>(|state| {
+            let axis = state.axis(axis);
+            let style = if major {
+                &axis.major_style
+            } else {
+                &axis.minor_style
+            };
+            style.grid.is_some()
+        })
+    }
+
     /// Shows or hides gridlines of the axes and tick levels in `options`,
     /// restyled by `options`.
     pub fn grid_with(&self, visible: bool, options: &GridOptions) -> &Self {

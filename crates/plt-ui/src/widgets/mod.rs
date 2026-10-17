@@ -3,12 +3,16 @@
 mod button;
 mod flex;
 mod label;
+mod separator;
 mod surface;
+mod tool_button;
 
 pub use button::Button;
 pub use flex::{Axis, Flex};
 pub use label::Label;
+pub use separator::Separator;
 pub use surface::{Surface, SurfaceEvent};
+pub use tool_button::ToolButton;
 
 /// Widgets for the tests.
 #[cfg(test)]

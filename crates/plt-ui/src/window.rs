@@ -114,7 +114,7 @@ mod tests {
         assert_eq!(pump(&mut event_loop, &mut window), [] as [&str; 0]);
         let frames = handle.take_frames();
         assert_eq!(frames.len(), 1, "the first redraw presents a frame");
-        assert_eq!(frames[0].image.pixel(199, 39), Some([240, 240, 240, 255]));
+        assert_eq!(frames[0].image.pixel(199, 39), Some([246, 247, 249, 255]));
 
         let center = window.ui().widget_rect(home).unwrap().center();
         for state in [ButtonState::Pressed, ButtonState::Released] {

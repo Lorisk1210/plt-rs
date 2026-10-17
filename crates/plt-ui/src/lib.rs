@@ -3,9 +3,11 @@
 //! # Overview
 //!
 //! * A UI is a tree of [`Widget`]s held in [`WidgetPod`]s. Containers such
-//!   as [`Flex`] own their children; leaves such as [`Button`], [`Label`]
-//!   and [`Surface`] (an application-rendered image, e.g. a figure) paint
-//!   and react to input.
+//!   as [`Flex`] own their children; leaves such as [`Button`],
+//!   [`ToolButton`] (a vector [`Icon`] that can be checked or disabled),
+//!   [`Label`], [`Separator`] and [`Surface`] (an application-rendered
+//!   image, e.g. a figure, with an optional selection rectangle) paint and
+//!   react to input.
 //! * [`Ui`] owns the tree and a window-sized framebuffer. It lays the tree
 //!   out (measure, then arrange), paints it with `plt-raster` (text comes
 //!   from `plt-text` and the bundled fonts), and routes input: hover
@@ -51,6 +53,7 @@ mod canvas;
 mod error;
 mod event;
 mod geometry;
+mod icon;
 mod text;
 mod theme;
 mod ui;
@@ -62,9 +65,10 @@ pub use canvas::Canvas;
 pub use error::UiError;
 pub use event::UiEvent;
 pub use geometry::{Constraints, Rect, Size};
+pub use icon::Icon;
 pub use text::{TextLayout, TextStyle};
 pub use theme::Theme;
 pub use ui::Ui;
 pub use widget::{EventCx, LayoutCx, PaintCx, Status, Widget, WidgetId, WidgetPod};
-pub use widgets::{Axis, Button, Flex, Label, Surface, SurfaceEvent};
+pub use widgets::{Axis, Button, Flex, Label, Separator, Surface, SurfaceEvent, ToolButton};
 pub use window::UiWindow;

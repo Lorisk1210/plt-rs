@@ -1,7 +1,9 @@
 //! Drawing into the window framebuffer, clipped to one widget.
 
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_raster::{Antialias, Clip, ClipBox, FillRule, Painter, Pixmap, draw_image};
+use plt_raster::{
+    Antialias, Clip, ClipBox, FillRule, LineCap, LineJoin, Painter, Pixmap, StrokeStyle, draw_image,
+};
 use plt_text::TextEngine;
 
 use crate::error::UiError;
@@ -70,6 +72,39 @@ impl<'a> Canvas<'a> {
         let rule = FillRule::NonZero;
         self.painter
             .fill_path(self.target, path, color, rule, Antialias::On, &clip)?;
+        Ok(())
+    }
+
+    /// Strokes a path given in window pixels with round caps and joins.
+    pub fn stroke_path(&mut self, path: &Path, width: f64, color: Rgba) -> Result<(), UiError> {
+        let clip = Clip::rect(self.clip_box());
+        let style = StrokeStyle::new(width)
+            .with_cap(LineCap::Round)
+            .with_join(LineJoin::Round);
+        self.painter
+            .stroke_path(self.target, path, color, &style, Antialias::On, &clip)?;
+        Ok(())
+    }
+
+    /// Strokes the outline of a rectangle, keeping the line inside it.
+    pub fn stroke_rect(&mut self, rect: Rect, width: f64, color: Rgba) -> Result<(), UiError> {
+        let inner = rect.inset(width / 2.0);
+        let corners = [
+            Point::new(inner.x, inner.y),
+            Point::new(inner.max_x(), inner.y),
+            Point::new(inner.max_x(), inner.max_y()),
+            Point::new(inner.x, inner.max_y()),
+        ];
+        let clip = Clip::rect(self.clip_box());
+        let style = StrokeStyle::new(width);
+        self.painter.stroke_path(
+            self.target,
+            &Path::closed(corners.to_vec()),
+            color,
+            &style,
+            Antialias::On,
+            &clip,
+        )?;
         Ok(())
     }
 

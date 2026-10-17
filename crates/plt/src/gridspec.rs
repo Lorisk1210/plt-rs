@@ -187,14 +187,31 @@ impl GridSpec {
         (self.data.nrows, self.data.ncols)
     }
 
-    /// Relative column widths.
+    /// The relative column widths.
     pub fn width_ratios(&self) -> &[f64] {
         &self.data.width_ratios
     }
 
-    /// Relative row heights.
+    /// The relative row heights.
     pub fn height_ratios(&self) -> &[f64] {
         &self.data.height_ratios
+    }
+
+    /// The `(wspace, hspace)` the grid sets itself, if any.
+    pub fn spacing(&self) -> (Option<f64>, Option<f64>) {
+        (self.data.overrides.wspace, self.data.overrides.hspace)
+    }
+
+    /// The cell block a nested grid subdivides (`None` for a figure-level
+    /// grid).
+    pub fn parent(&self) -> Option<&SubplotSpec> {
+        self.data.parent.as_ref()
+    }
+
+    /// Whether `other` is this very grid rather than an equal copy (grids
+    /// are compared by identity where matplotlib uses them as keys).
+    pub fn is_same(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.data, &other.data)
     }
 
     /// The single cell at `(row, col)`.
@@ -485,6 +502,25 @@ mod tests {
             .and_then(|s| s.position(&defaults()))
             .expect("valid");
         assert!((top.x0() - whole.x0()).abs() < 1e-12 && (top.y1() - whole.y1()).abs() < 1e-12);
+        assert_eq!(inner.parent(), Some(&left));
+        assert!(outer.parent().is_none());
+    }
+
+    #[test]
+    fn accessors_and_identity() {
+        let overrides = SubplotOverrides {
+            hspace: Some(0.3),
+            ..SubplotOverrides::default()
+        };
+        let grid =
+            GridSpec::with_ratios(2, 1, None, Some(vec![2.0, 1.0]), overrides).expect("valid");
+        assert_eq!(grid.width_ratios(), [1.0]);
+        assert_eq!(grid.height_ratios(), [2.0, 1.0]);
+        assert_eq!(grid.spacing(), (None, Some(0.3)));
+        let twin =
+            GridSpec::with_ratios(2, 1, None, Some(vec![2.0, 1.0]), overrides).expect("valid");
+        assert_eq!(grid, twin);
+        assert!(!grid.is_same(&twin) && grid.is_same(&grid.clone()));
     }
 
     #[test]

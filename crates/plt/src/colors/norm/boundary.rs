@@ -1,6 +1,6 @@
 //! Discrete normalisation into colour bins (`BoundaryNorm`).
 
-use super::{Limits, Norm, NormError};
+use super::{Limits, Norm, NormError, NormKind};
 use crate::colors::npmath::{np_clip, np_less};
 use crate::colors::{Extend, Normalized};
 
@@ -160,6 +160,10 @@ impl Norm for BoundaryNorm {
     /// Always fails: binning loses the position within a bin.
     fn inverse(&self, _values: &[f64]) -> Result<Vec<Option<f64>>, NormError> {
         Err(NormError::NotInvertible)
+    }
+
+    fn kind(&self) -> NormKind<'_> {
+        NormKind::Boundary(self)
     }
 }
 

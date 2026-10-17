@@ -56,8 +56,31 @@ pub(crate) struct AspectState {
     anchor: Option<Anchor>,
     /// Height/width ratio of the axes box itself.
     box_aspect: Option<f64>,
+    /// Narrows the original position before the aspect is applied.
+    pub(crate) locator: Option<AxesLocator>,
     /// The active position and the original position it derives from.
     active: Option<(Bbox, Bbox)>,
+}
+
+/// Places an axes inside part of its original position before the aspect
+/// is applied, like the axes locator matplotlib gives colorbars to make
+/// room for their extensions (`_ColorbarAxesLocator`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct AxesLocator {
+    /// The part of the original position used, in fractions of it.
+    pub(crate) fraction: Bbox,
+    /// The box aspect to use instead of the axes' own.
+    pub(crate) box_aspect: Option<f64>,
+}
+
+impl AxesLocator {
+    /// `fraction` of `original`, computed like matplotlib's
+    /// `shrunk(...).translated(...)`.
+    fn locate(&self, original: &Bbox) -> Bbox {
+        let (x0, y0, width, height) = original.bounds();
+        let (fx, fy, fw, fh) = self.fraction.bounds();
+        Bbox::from_bounds(x0 + fx * width, y0 + fy * height, width * fw, height * fh)
+    }
 }
 
 impl AspectState {
@@ -73,6 +96,16 @@ impl AspectState {
 
     fn anchor(&self) -> Anchor {
         self.anchor.unwrap_or(Anchor::C)
+    }
+
+    /// Anchors the axes and fixes the shape of its box with a free data
+    /// aspect: `set_anchor`, `set_box_aspect` and `set_aspect('auto')` in
+    /// one, as layout engines reshape colorbars.
+    pub(crate) fn fix_box(&mut self, anchor: Anchor, box_aspect: f64) {
+        self.anchor = Some(anchor);
+        self.box_aspect = Some(box_aspect);
+        self.adjustable = Adjustable::Datalim;
+        self.ratio = None;
     }
 }
 
@@ -217,9 +250,10 @@ impl AxesState {
 }
 
 impl FigureState {
-    /// Brings one axes up to date for layout: pending autoscaling, then
-    /// the aspect.
+    /// Brings one axes up to date for layout: a due layout-engine pass,
+    /// pending autoscaling, then the aspect.
     pub(crate) fn lay_out_axes(&mut self, axes: ArtistId) {
+        self.run_pending_layout();
         self.unstale_axes(axes);
         self.apply_aspect(axes);
     }
@@ -232,21 +266,28 @@ impl FigureState {
         };
         let original = state.position;
         let settings = state.aspect;
+        let located = settings
+            .locator
+            .map_or(original, |locator| locator.locate(&original));
+        let box_aspect = settings
+            .locator
+            .and_then(|locator| locator.box_aspect)
+            .or(settings.box_aspect);
         let data_ratio = state.data_ratio();
         let frame = state.base().parent.and_then(|f| self.frame_bbox(f));
-        let active = if settings.ratio.is_none() && settings.box_aspect.is_none() {
-            Some(original)
+        let active = if settings.ratio.is_none() && box_aspect.is_none() {
+            Some(located)
         } else if let Some(frame) = frame {
             let fig_aspect = frame.height() / frame.width();
             let shrunk = |aspect: f64| {
-                original
-                    .shrunk_to_aspect(aspect, Some(&original), fig_aspect)
-                    .map(|b| b.anchored(settings.anchor(), &original))
+                located
+                    .shrunk_to_aspect(aspect, Some(&located), fig_aspect)
+                    .map(|b| b.anchored(settings.anchor(), &located))
             };
-            match (settings.adjustable, settings.box_aspect) {
+            match (settings.adjustable, box_aspect) {
                 (Adjustable::Box, _) => shrunk(settings.ratio.unwrap_or(1.0) * data_ratio),
                 (Adjustable::Datalim, Some(box_aspect)) => shrunk(box_aspect),
-                (Adjustable::Datalim, None) => Some(original),
+                (Adjustable::Datalim, None) => Some(located),
             }
             .inspect(|position| {
                 if let (Adjustable::Datalim, Some(ratio)) = (settings.adjustable, settings.ratio) {

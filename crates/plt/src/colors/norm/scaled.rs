@@ -1,36 +1,61 @@
 //! Norms built on a scale transform (`LogNorm`, `SymLogNorm`, `AsinhNorm`,
 //! `FuncNorm`): matplotlib's `make_norm_from_scale`.
 
-use super::{Limits, Norm, NormError, map_unmasked, np_clip, zeros};
+use super::{Limits, Norm, NormError, NormKind, map_unmasked, np_clip, zeros};
 use crate::colors::Normalized;
 use crate::scale::{
-    AsinhTransform, FuncTransform, LogTransform, NonPositive, SymmetricalLogTransform,
+    AsinhScale, AsinhTransform, FuncScale, FuncTransform, LogScale, LogTransform, NonPositive,
+    Scale, SymmetricalLogScale, SymmetricalLogTransform,
 };
 use crate::transforms::AxisMap;
 
 /// A scale transform a [`ScaleNorm`] can normalise through.
-pub trait NormTransform: AxisMap {
+pub trait NormTransform: AxisMap + Clone + 'static {
     /// The inverse of one value, or `None` where matplotlib's masked-array
     /// arithmetic masks it (transforms that divide their input mask
     /// non-finite values).
     fn inverse_masked(&self, value: f64) -> Option<f64> {
         Some(self.inverse(value))
     }
+
+    /// The scale the norm was made from (matplotlib's `norm._scale`).
+    fn scale(&self) -> Box<dyn Scale>;
 }
 
-impl NormTransform for LogTransform {}
+impl NormTransform for LogTransform {
+    fn scale(&self) -> Box<dyn Scale> {
+        let scale = LogScale::new(self.base()).expect("the transform has a valid base");
+        Box::new(scale.with_nonpositive(self.nonpositive()))
+    }
+}
 
-impl NormTransform for FuncTransform {}
+impl NormTransform for FuncTransform {
+    fn scale(&self) -> Box<dyn Scale> {
+        Box::new(FuncScale::from_transform(self.clone()))
+    }
+}
 
 impl NormTransform for SymmetricalLogTransform {
     fn inverse_masked(&self, value: f64) -> Option<f64> {
         value.is_finite().then(|| self.inverse(value))
+    }
+
+    fn scale(&self) -> Box<dyn Scale> {
+        let scale = SymmetricalLogScale::new(self.base(), self.linthresh(), self.linscale())
+            .expect("the transform has valid parameters");
+        Box::new(scale)
     }
 }
 
 impl NormTransform for AsinhTransform {
     fn inverse_masked(&self, value: f64) -> Option<f64> {
         value.is_finite().then(|| self.inverse(value))
+    }
+
+    fn scale(&self) -> Box<dyn Scale> {
+        let scale =
+            AsinhScale::new(self.linear_width(), 10.0).expect("the transform has a valid width");
+        Box::new(scale)
     }
 }
 
@@ -191,6 +216,10 @@ impl<T: NormTransform> Norm for ScaleNorm<T> {
             .iter()
             .map(|&v| self.transform.inverse_masked(v * (t_hi - t_lo) + t_lo))
             .collect())
+    }
+
+    fn kind(&self) -> NormKind<'_> {
+        NormKind::Scaled(self.transform.scale())
     }
 }
 

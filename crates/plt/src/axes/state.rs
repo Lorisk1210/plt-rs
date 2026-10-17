@@ -7,7 +7,7 @@ use plt_core::{Bbox, Path};
 use super::DataLimits;
 use super::aspect::AspectState;
 use super::axis::{AxisGeometry, AxisState};
-use super::axis_draw::AxisPainter;
+use super::axis_layout::AxisPainter;
 use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::Projection;
 use super::secondary::Secondary;
@@ -15,7 +15,7 @@ use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
 use crate::patches::PatchShape;
-use crate::polar::{PolarAxisPainter, PolarState, PolarView};
+use crate::polar::{PolarState, PolarView};
 use crate::rc::{Cycler, RcParams};
 use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
 use crate::transforms::{ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
@@ -70,7 +70,8 @@ pub(crate) struct AxesState {
     pub(crate) titles: Vec<ArtistId>,
     /// z-order of the axis artists (`axes.axisbelow`).
     pub(crate) axis_zorder: f64,
-    rc: Rc<RcParams>,
+    /// The rc parameters the axes was created with.
+    pub(crate) rc: Rc<RcParams>,
 }
 
 /// Which decorations an axes draws (matplotlib's `axison` and
@@ -414,13 +415,9 @@ impl AxesState {
         for (_, item) in items {
             match item {
                 Item::Child(id) => ctx.draw_child(id),
-                Item::Axis(name) => match self.polar_view() {
-                    Some(polar) => {
-                        PolarAxisPainter::new(self.base.id(), self, polar, name)
-                            .draw(ctx, &self.rc);
-                    }
-                    None => AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc),
-                },
+                Item::Axis(name) => {
+                    AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc);
+                }
             }
         }
     }

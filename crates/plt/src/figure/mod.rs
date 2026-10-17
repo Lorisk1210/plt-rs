@@ -333,7 +333,7 @@ impl Figure {
     /// Everything drawable is drawn; artists with invalid properties (for
     /// example an unknown colour name) are skipped and reported.
     pub fn draw(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
-        self.state.borrow_mut().prepare();
+        self.layout();
         let errors = self.state.borrow().draw(renderer);
         let mut state = self.state.borrow_mut();
         state.stale = false;
@@ -345,10 +345,13 @@ impl Figure {
         }
     }
 
-    /// Runs the layout pass (autoscaling and tick placement) without
-    /// drawing, so limits and ticks can be queried.
+    /// Runs the layout pass (the layout engine, autoscaling and tick
+    /// placement) without drawing, so positions, limits and ticks can be
+    /// queried.
     pub fn layout(&self) {
-        self.state.borrow_mut().prepare();
+        let mut state = self.state.borrow_mut();
+        state.layout.pending = true;
+        state.prepare();
     }
 
     /// Whether something changed since the last draw.

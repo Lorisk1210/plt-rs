@@ -49,7 +49,7 @@ plt::show()?;
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
   options, save), a save dialog (PNG, SVG, PDF, PS, EPS), matplotlib's
   keyboard shortcuts, a live coordinate readout, figure events
-  (`connect`), timers and `FuncAnimation` (saved as animated PNG or as an
+  (`connect`), timers and `FuncAnimation` (saved as animated PNG or GIF, or as an
   HTML page with matplotlib's JavaScript player, `to_jshtml`);
   pyplot's interactive mode with `pause`, `ginput` and
   `waitforbuttonpress`.
@@ -64,7 +64,7 @@ plt::show()?;
 | crate          | responsibility                                                    |
 |----------------|-------------------------------------------------------------------|
 | `plt-core`     | points, affine transforms, bounding boxes, paths, colours         |
-| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, PNG and animated PNG, base64         |
+| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, PNG/APNG, animated GIF, base64       |
 | `plt-font`     | TrueType/OpenType parsing, shaping (GSUB/GPOS), font manager      |
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `plt-text`     | text layout and the mathtext parser and typesetter                |

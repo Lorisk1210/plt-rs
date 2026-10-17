@@ -2,6 +2,7 @@
 //!
 //! The crate has no dependencies and no `unsafe` code. It provides:
 //!
+//! * [`base64`] — base64 encoding for embedding binary data in text.
 //! * [`checksum`] — CRC-32 (PNG, gzip) and Adler-32 (zlib) checksums, both as
 //!   incremental hashers and as one-shot helpers.
 //! * [`deflate`] — raw DEFLATE (RFC 1951): an LZ77 + Huffman compressor with
@@ -34,6 +35,7 @@
 //! ```
 #![forbid(unsafe_code)]
 
+pub mod base64;
 pub mod checksum;
 pub mod deflate;
 pub mod png;

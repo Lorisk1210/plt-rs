@@ -1,6 +1,7 @@
 //! Animations (matplotlib's `animation.FuncAnimation`): a function updates
 //! the figure for each frame; a figure window plays the frames on a timer,
-//! and the animation can be saved as an animated PNG.
+//! and the animation can be saved as an animated PNG or as a web page with
+//! matplotlib's JavaScript player.
 //!
 //! ```
 //! use plt::animation::{AnimationOptions, Frames, FuncAnimation};
@@ -19,7 +20,7 @@
 
 use std::cell::RefCell;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -27,6 +28,11 @@ use plt_codec::png::{AnimatedEncoder, EncodeError, Frame, ImageRef};
 
 use crate::events::TimerKey;
 use crate::figure::{Figure, SaveError};
+
+mod html;
+mod html_template;
+
+pub use html::{HtmlOptions, PlayMode};
 
 /// Frames saved from an animation without a known length (matplotlib's
 /// default `save_count`).
@@ -70,6 +76,9 @@ pub enum AnimationError {
     Save(SaveError),
     /// The frames could not be encoded.
     Encode(EncodeError),
+    /// An HTML page was to be written to a file not named `.html` or
+    /// `.htm`.
+    NotHtml(PathBuf),
 }
 
 impl fmt::Display for AnimationError {
@@ -77,6 +86,11 @@ impl fmt::Display for AnimationError {
         match self {
             Self::Save(err) => write!(f, "cannot save the animation: {err}"),
             Self::Encode(err) => write!(f, "cannot encode the animation: {err}"),
+            Self::NotHtml(path) => write!(
+                f,
+                "cannot write the player to {}: the file name must end in .html or .htm",
+                path.display()
+            ),
         }
     }
 }
@@ -86,6 +100,7 @@ impl std::error::Error for AnimationError {
         match self {
             Self::Save(err) => Some(err),
             Self::Encode(err) => Some(err),
+            Self::NotHtml(_) => None,
         }
     }
 }
@@ -193,6 +208,19 @@ impl FuncAnimation {
         }
     }
 
+    /// Shows every saved frame in turn and hands the figure to `visit`
+    /// (matplotlib's `Animation.save` loop).
+    fn for_each_frame(
+        &self,
+        mut visit: impl FnMut(&Figure) -> Result<(), SaveError>,
+    ) -> Result<(), AnimationError> {
+        for frame in 0..self.save_count() {
+            (self.player.borrow_mut().update)(frame);
+            visit(&self.figure).map_err(AnimationError::Save)?;
+        }
+        Ok(())
+    }
+
     /// Renders every saved frame and encodes them as an animated PNG
     /// showing each frame for one interval, looping if the animation
     /// repeats.
@@ -201,16 +229,11 @@ impl FuncAnimation {
     ///
     /// When a frame cannot be rendered or the frames cannot be encoded.
     pub fn to_apng(&self) -> Result<Vec<u8>, AnimationError> {
-        let count = self.save_count();
-        let images = (0..count)
-            .map(|frame| {
-                (self.player.borrow_mut().update)(frame);
-                self.figure
-                    .render_raster()
-                    .map(|canvas| canvas.to_image())
-                    .map_err(AnimationError::Save)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut images = Vec::with_capacity(self.save_count());
+        self.for_each_frame(|figure| {
+            images.push(figure.render_raster()?.to_image());
+            Ok(())
+        })?;
         let millis =
             u16::try_from(self.player.borrow().options.interval.as_millis()).unwrap_or(u16::MAX);
         let frames = images

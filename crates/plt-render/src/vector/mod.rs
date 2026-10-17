@@ -1,0 +1,204 @@
+//! Infrastructure shared by the SVG, PDF and PostScript backends: Python's
+//! number formatting, embedded-font data, glyph tracking, run analysis,
+//! images, metadata and the error type.
+
+mod base64;
+mod digest;
+mod font;
+mod format;
+mod image;
+mod metadata;
+mod text;
+mod tracker;
+
+use std::fmt;
+
+use plt_codec::CompressionLevel;
+use plt_codec::checksum::crc32;
+use plt_codec::png::EncodeError;
+use plt_core::Path;
+use plt_core::path::convert::VertexSource;
+use plt_core::{Affine2D, Bbox, Point};
+use plt_text::TextError;
+
+pub(crate) use base64::encode as base64_encode;
+pub(crate) use digest::sha256_hex;
+pub(crate) use font::{FontCache, FontInfo};
+pub(crate) use format::{general, hex, hex_color, repr, repr_bytes, repr_str, short, trimmed};
+pub(crate) use image::{flipped_rows, png_idat};
+pub use metadata::{Metadata, Timestamp};
+pub(crate) use text::{
+    RunKind, base_size, glyph_chars, kind, prev_kerns, shaped_positions, source_text,
+};
+pub(crate) use tracker::{CharacterTracker, Subset};
+
+/// Why a vector document could not be produced.
+#[derive(Debug)]
+pub enum VectorError {
+    /// The page size or resolution is not positive and finite.
+    InvalidCanvas {
+        /// Requested width.
+        width: f64,
+        /// Requested height.
+        height: f64,
+        /// Requested image resolution.
+        dpi: f64,
+    },
+    /// A font could not be read.
+    Font(TextError),
+    /// An image could not be encoded.
+    Image(EncodeError),
+    /// A number the format cannot represent (PDF has no NaN or infinity).
+    NonFinite(&'static str),
+}
+
+impl fmt::Display for VectorError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidCanvas { width, height, dpi } => write!(
+                f,
+                "invalid page {width} x {height} at {dpi} dpi: all must be positive"
+            ),
+            Self::Font(err) => write!(f, "cannot embed font: {err}"),
+            Self::Image(err) => write!(f, "cannot encode image: {err}"),
+            Self::NonFinite(what) => write!(f, "cannot write a non-finite {what}"),
+        }
+    }
+}
+
+impl std::error::Error for VectorError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Font(err) => Some(err),
+            Self::Image(err) => Some(err),
+            Self::InvalidCanvas { .. } | Self::NonFinite(_) => None,
+        }
+    }
+}
+
+impl From<TextError> for VectorError {
+    fn from(err: TextError) -> Self {
+        Self::Font(err)
+    }
+}
+
+impl From<EncodeError> for VectorError {
+    fn from(err: EncodeError) -> Self {
+        Self::Image(err)
+    }
+}
+
+/// Validates a page size and image resolution.
+pub(crate) fn check_canvas(width: f64, height: f64, dpi: f64) -> Result<(), VectorError> {
+    let valid = |v: f64| v.is_finite() && v > 0.0;
+    if valid(width) && valid(height) && valid(dpi) {
+        Ok(())
+    } else {
+        Err(VectorError::InvalidCanvas { width, height, dpi })
+    }
+}
+
+/// Problems met while drawing, reported when the document is finished.
+#[derive(Debug, Default)]
+pub(crate) struct Problems(Option<VectorError>);
+
+impl Problems {
+    /// Records `result`'s error unless an earlier one is kept.
+    pub(crate) fn record<T>(&mut self, result: Result<T, VectorError>) -> Option<T> {
+        match result {
+            Ok(value) => Some(value),
+            Err(err) => {
+                self.0.get_or_insert(err);
+                None
+            }
+        }
+    }
+
+    /// `Ok(value)` unless a problem was recorded.
+    pub(crate) fn into_result<T>(self, value: T) -> Result<T, VectorError> {
+        self.0.map_or(Ok(value), Err)
+    }
+}
+
+/// The marker positions of `path` (matplotlib's `iter_segments(trans,
+/// clip=clip, simplify=False)`): the last vertex of every segment after
+/// transforming, dropping non-finite points and clipping to `clip`.
+pub(crate) fn segment_ends(path: &Path, transform: Affine2D, clip: Option<Bbox>) -> Vec<Point> {
+    let mut stream = path
+        .iter_vertices()
+        .transform(transform)
+        .remove_nans(true, path.codes().is_some())
+        .clip_to(clip);
+    let mut ends = Vec::new();
+    while let Some(vertex) = stream.next() {
+        let mut point = vertex.point;
+        for _ in 1..vertex.code.vertex_count() {
+            if let Some(next) = stream.next() {
+                point = next.point;
+            }
+        }
+        ends.push(point);
+    }
+    ends
+}
+
+/// A gzip member (RFC 1952) holding `data`, as Python's `gzip.GzipFile`
+/// writes it at its default level 9 (used for `.svgz`).
+pub fn gzip(data: &[u8]) -> Vec<u8> {
+    // Magic, deflate, no flags, no modification time, maximum compression,
+    // unknown operating system.
+    let mut out = vec![0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 2, 255];
+    out.extend(plt_codec::deflate::compress(data, CompressionLevel::BEST));
+    out.extend_from_slice(&crc32(data).to_le_bytes());
+    out.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gzip_members_round_trip() {
+        let data = b"<svg/>\n".repeat(20);
+        let member = gzip(&data);
+        assert_eq!(&member[..3], &[0x1f, 0x8b, 8]);
+        let body = &member[10..member.len() - 8];
+        assert_eq!(plt_codec::deflate::decompress(body).unwrap(), data);
+        assert_eq!(
+            member[member.len() - 4..],
+            (data.len() as u32).to_le_bytes()
+        );
+    }
+
+    #[test]
+    fn segment_ends_skip_nans_and_clip() {
+        let path = Path::polyline(vec![
+            Point::new(1.0, 1.0),
+            Point::new(f64::NAN, 2.0),
+            Point::new(3.0, 3.0),
+            Point::new(50.0, 3.0),
+        ]);
+        let clip = Bbox::from_extents(0.0, 0.0, 10.0, 10.0);
+        let ends = segment_ends(&path, Affine2D::scaling(2.0, 1.0), Some(clip));
+        assert_eq!(ends[0], Point::new(2.0, 1.0));
+        assert_eq!(ends[1], Point::new(6.0, 3.0));
+        assert_eq!(ends.last().map(|p| p.x), Some(11.0), "clipped one unit out");
+    }
+
+    #[test]
+    fn canvas_validation_and_problems() {
+        assert!(check_canvas(10.0, 10.0, 72.0).is_ok());
+        assert!(matches!(
+            check_canvas(0.0, 10.0, 72.0),
+            Err(VectorError::InvalidCanvas { .. })
+        ));
+        let mut problems = Problems::default();
+        assert_eq!(problems.record(Ok::<_, VectorError>(3)), Some(3));
+        assert_eq!(
+            problems.record(Err::<(), _>(VectorError::NonFinite("x"))),
+            None
+        );
+        assert!(problems.into_result(()).is_err());
+    }
+}

@@ -4,6 +4,7 @@
 mod cases;
 mod facts;
 mod pixels;
+pub mod vector;
 
 use std::error::Error;
 use std::fmt;

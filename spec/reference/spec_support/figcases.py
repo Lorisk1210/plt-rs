@@ -53,6 +53,46 @@ class FigureCase:
                 plt.close(fig)
         return buffer.getvalue(), facts
 
+    def vector_path(self, fmt: str) -> pathlib.Path:
+        return FIGURE_ROOT / f"{self.name}.{fmt}"
+
+    def render_vector(self, fmt: str) -> bytes:
+        """Build the figure with matplotlib and save it as ``fmt`` (svg, pdf
+        or ps) with everything that varies between runs pinned: fixed SVG id
+        salt, no creator or dates, ``SOURCE_DATE_EPOCH=0`` for PostScript."""
+        import os
+
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+
+        metadata = VECTOR_METADATA[fmt]
+        previous_epoch = os.environ.get("SOURCE_DATE_EPOCH")
+        os.environ["SOURCE_DATE_EPOCH"] = "0"
+        try:
+            with mpl.rc_context({**self.rc, "svg.hashsalt": "plt-rs"}):
+                fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
+                try:
+                    self.build(fig)
+                    buffer = io.BytesIO()
+                    fig.savefig(buffer, format=fmt, dpi=self.dpi, metadata=metadata)
+                finally:
+                    plt.close(fig)
+        finally:
+            if previous_epoch is None:
+                del os.environ["SOURCE_DATE_EPOCH"]
+            else:
+                os.environ["SOURCE_DATE_EPOCH"] = previous_epoch
+        return buffer.getvalue()
+
+
+#: The ``metadata`` passed to ``savefig`` for each vector golden: nothing
+#: that names the matplotlib version or the date.
+VECTOR_METADATA: dict[str, dict[str, Any]] = {
+    "svg": {"Date": None, "Creator": None},
+    "pdf": {"Creator": None, "Producer": None, "CreationDate": None},
+    "ps": {"Creator": None},
+}
+
 
 def case(name: str, **options: Any) -> Callable[[Callable[[Any], None]], Callable[[Any], None]]:
     """Register a figure case under ``<group>/<name>``."""

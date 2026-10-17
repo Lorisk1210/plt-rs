@@ -53,6 +53,7 @@ impl AxesImageArtist {
 
     fn render(&self, ctx: &mut DrawContext<'_>) -> Result<Option<RenderedImage>, ImageError> {
         let canvas = canvas_bbox(ctx);
+        let magnification = ctx.renderer().image_magnification();
         let layout = ctx.layout();
         let (Some(resolved), Some(out_bbox)) =
             (ctx.resolve(&self.transform()), self.out_bbox(*layout))
@@ -74,7 +75,7 @@ impl AxesImageArtist {
             out_bbox,
             clip,
             round_to_pixels: true,
-            magnification: 1.0,
+            magnification,
         };
         let alpha = self.core.alpha(self.base.alpha);
         self.core.make_image(&placement, alpha.as_ref())

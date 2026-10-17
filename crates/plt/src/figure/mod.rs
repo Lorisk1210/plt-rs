@@ -22,7 +22,7 @@ use plt_render::Renderer;
 pub(crate) use frame::FigureFrame;
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use print::{BboxInches, SaveOptions};
-pub use save::SaveError;
+pub use save::{SaveError, SaveFormat};
 pub(crate) use state::FigureState;
 pub use subfigure::SubfigureOptions;
 pub use subplots::Share;

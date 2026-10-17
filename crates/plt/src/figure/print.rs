@@ -1,14 +1,12 @@
-//! Saving with options (matplotlib's `savefig` keywords): resolution,
+//! Printing with options (matplotlib's `savefig` keywords): resolution,
 //! cropping to the drawn area (`bbox_inches`), transparency and
-//! background colours.
-
-use std::path::Path as FsPath;
+//! background colours, for the raster canvas and the vector backends.
 
 use plt_core::{Bbox, Rgba};
-use plt_render::RasterRenderer;
+use plt_render::{Metadata, RasterRenderer, Renderer, VectorError};
 
 use super::frame::FigureFrame;
-use super::save::SaveError;
+use super::save::{SaveError, SaveFormat};
 use super::{DrawErrors, Figure, FigureState};
 use crate::artist::{ArtistId, LayoutContext};
 use crate::axes::{Axes, AxesState};
@@ -28,7 +26,8 @@ pub enum BboxInches {
 /// rcParams.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SaveOptions {
-    /// Resolution (`savefig.dpi`, the figure's own by default).
+    /// Resolution (`savefig.dpi`, the figure's own by default). Vector
+    /// formats are drawn in points and rasterize images at this resolution.
     pub dpi: Option<f64>,
     /// The part of the figure saved (`savefig.bbox`, the whole figure by
     /// default).
@@ -43,6 +42,12 @@ pub struct SaveOptions {
     pub facecolor: Option<Rgba>,
     /// Figure border colour (`savefig.edgecolor`).
     pub edgecolor: Option<Rgba>,
+    /// The file format, overriding the file name's extension
+    /// (matplotlib's `format`).
+    pub format: Option<SaveFormat>,
+    /// Document metadata of the vector formats (plt-rs as creator and
+    /// the current or `SOURCE_DATE_EPOCH` date by default).
+    pub metadata: Option<Metadata>,
 }
 
 impl FigureState {
@@ -116,6 +121,17 @@ impl Drop for Saving<'_> {
     }
 }
 
+/// The canvas a prepared print draws into.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Page {
+    /// Width in inches.
+    width: f64,
+    /// Height in inches.
+    height: f64,
+    /// The save resolution (images of vector formats are rasterized at it).
+    dpi: f64,
+}
+
 /// `color`, unless the rcParam asks for a specific one.
 fn rc_color(setting: &ColorOrAuto, figure: Rgba) -> Rgba {
     match setting {
@@ -123,6 +139,9 @@ fn rc_color(setting: &ColorOrAuto, figure: Rgba) -> Rgba {
         ColorOrAuto::Color(color) => color.resolve().unwrap_or(figure),
     }
 }
+
+/// The resolution vector backends draw at: one unit per point.
+const POINTS_PER_INCH: f64 = 72.0;
 
 impl Figure {
     /// The area everything visible is drawn in, in inches from the
@@ -140,31 +159,18 @@ impl Figure {
         )
     }
 
-    /// Renders the figure as [`Figure::savefig_with`] would.
-    ///
-    /// # Errors
-    ///
-    /// When the canvas cannot be created or some artists cannot be drawn.
-    pub fn render_raster_with(&self, options: &SaveOptions) -> Result<RasterRenderer, SaveError> {
-        let (canvas, problems) = self.render_raster_partial(options)?;
-        problems.map_or(Ok(canvas), |errors| Err(SaveError::Draw(errors)))
-    }
-
-    /// Renders the figure as [`Figure::savefig_with`] would, skipping the
-    /// artists that cannot be drawn: the canvas, and the problems if any.
-    ///
-    /// # Errors
-    ///
-    /// When the canvas cannot be created.
-    pub fn render_raster_partial(
-        &self,
-        options: &SaveOptions,
-    ) -> Result<(RasterRenderer, Option<DrawErrors>), SaveError> {
+    /// Prepares the figure for printing with `options` as matplotlib's
+    /// `print_figure` does: resolution, background colours and the part
+    /// printed. The figure is drawn at `canvas_dpi` (the save resolution
+    /// for raster output, 72 for the vector formats, which also measure
+    /// the tight box at 72 dpi).
+    fn begin_print(&self, options: &SaveOptions, canvas_dpi: Option<f64>) -> (Saving<'_>, Page) {
         let rc = crate::rc::params();
         let dpi = options.dpi.unwrap_or(match rc.savefig_dpi {
             Dpi::Value(dpi) => dpi,
             Dpi::Figure => self.dpi(),
         });
+        let canvas_dpi = canvas_dpi.unwrap_or(dpi);
         let transparent = options.transparent.unwrap_or(rc.savefig_transparent);
         let saving = Saving {
             figure: self,
@@ -194,7 +200,9 @@ impl Figure {
                     .unwrap_or_else(|| rc_color(&rc.savefig_edgecolor, saving.colors.1)),
             )
         };
-        self.set_dpi(dpi).set_facecolor(face).set_edgecolor(edge);
+        self.set_dpi(canvas_dpi)
+            .set_facecolor(face)
+            .set_edgecolor(edge);
         for (ax, _) in &saving.axes_faces {
             ax.set_facecolor(Color::none());
         }
@@ -211,37 +219,60 @@ impl Figure {
         };
         let (width, height) =
             window.map_or_else(|| self.size_inches(), |b| (b.width(), b.height()));
-        self.state_mut().print_window = window
-            .map(|b| Bbox::from_extents(b.x0() * dpi, b.y0() * dpi, b.x1() * dpi, b.y1() * dpi));
-        let mut canvas = Self::raster_canvas_sized(width, height, dpi)?;
+        self.state_mut().print_window = window.map(|b| {
+            Bbox::from_extents(
+                b.x0() * canvas_dpi,
+                b.y0() * canvas_dpi,
+                b.x1() * canvas_dpi,
+                b.y1() * canvas_dpi,
+            )
+        });
+        (saving, Page { width, height, dpi })
+    }
+
+    /// Renders the figure as [`Figure::savefig_with`] would for raster
+    /// output.
+    ///
+    /// # Errors
+    ///
+    /// When the canvas cannot be created or some artists cannot be drawn.
+    pub fn render_raster_with(&self, options: &SaveOptions) -> Result<RasterRenderer, SaveError> {
+        let (canvas, problems) = self.render_raster_partial(options)?;
+        problems.map_or(Ok(canvas), |errors| Err(SaveError::Draw(errors)))
+    }
+
+    /// Renders the figure as [`Figure::savefig_with`] would for raster
+    /// output, skipping the artists that cannot be drawn: the canvas, and
+    /// the problems if any.
+    ///
+    /// # Errors
+    ///
+    /// When the canvas cannot be created.
+    pub fn render_raster_partial(
+        &self,
+        options: &SaveOptions,
+    ) -> Result<(RasterRenderer, Option<DrawErrors>), SaveError> {
+        let (saving, page) = self.begin_print(options, None);
+        let mut canvas = Self::raster_canvas_sized(page.width, page.height, page.dpi)?;
         let problems = self.draw(&mut canvas).err();
         drop(saving);
         Ok((canvas, problems))
     }
 
-    /// The figure as PNG bytes with save options.
-    ///
-    /// # Errors
-    ///
-    /// As [`Figure::render_raster_with`], or when encoding fails.
-    pub fn to_png_with(&self, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
-        self.render_raster_with(options)?
-            .to_png()
-            .map_err(SaveError::Backend)
-    }
-
-    /// Writes the figure to `path` as PNG with save options (matplotlib's
-    /// `savefig` keywords).
-    ///
-    /// # Errors
-    ///
-    /// As [`Figure::to_png_with`], or when the file cannot be written.
-    pub fn savefig_with(
+    /// Renders the figure with a vector backend as [`Figure::savefig_with`]
+    /// would: the figure is drawn at 72 dpi into the renderer `make`
+    /// creates from the page width and height in inches and the image
+    /// resolution (matplotlib's `print_svg`, `print_pdf` and `print_ps`).
+    pub(crate) fn render_vector_with<R: Renderer>(
         &self,
-        path: impl AsRef<FsPath>,
         options: &SaveOptions,
-    ) -> Result<(), SaveError> {
-        std::fs::write(path, self.to_png_with(options)?).map_err(SaveError::Io)
+        make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
+    ) -> Result<R, SaveError> {
+        let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
+        let mut renderer = make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
+        self.draw(&mut renderer).map_err(SaveError::Draw)?;
+        drop(saving);
+        Ok(renderer)
     }
 }
 
@@ -289,5 +320,28 @@ mod tests {
             Color::none(),
             "axes colour restored"
         );
+    }
+
+    #[test]
+    fn vector_pages_are_drawn_at_72_dpi() {
+        let fig = Figure::with_size(2.0, 1.0, 50.0);
+        fig.subplot();
+        let options = SaveOptions {
+            bbox_inches: Some(BboxInches::Inches(Bbox::from_bounds(0.5, 0.25, 1.0, 0.5))),
+            ..SaveOptions::default()
+        };
+        let mut seen = None;
+        fig.render_vector_with(&options, |width, height, dpi| {
+            seen = Some((width, height, dpi));
+            plt_render::SvgRenderer::new(
+                width * 72.0,
+                height * 72.0,
+                dpi,
+                plt_render::SvgOptions::default(),
+            )
+        })
+        .unwrap();
+        assert_eq!(seen, Some((1.0, 0.5, 50.0)));
+        assert_eq!(fig.dpi(), 50.0, "resolution restored");
     }
 }

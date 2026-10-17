@@ -1,12 +1,17 @@
-//! Rasterizing figures and writing PNG files: matplotlib's `savefig` with
-//! the Agg canvas.
+//! Writing figures: matplotlib's `savefig` with the Agg canvas (PNG) and
+//! the SVG, PDF and PostScript backends, chosen from the file extension.
 
 use std::fmt;
-use std::path::Path as FsPath;
+use std::path::{Path as FsPath, PathBuf};
+use std::str::FromStr;
 
 use plt_core::path::convert::SimplifySettings;
-use plt_render::{RasterBackendError, RasterRenderer};
+use plt_render::{
+    Metadata, Orientation, Paper, PdfOptions, PdfRenderer, PsOptions, PsRenderer,
+    RasterBackendError, RasterRenderer, SvgOptions, SvgRenderer, VectorError,
+};
 
+use super::print::SaveOptions;
 use super::{DrawErrors, Figure};
 
 /// Why a figure could not be rendered or saved.
@@ -14,8 +19,12 @@ use super::{DrawErrors, Figure};
 pub enum SaveError {
     /// The canvas could not be created or encoded.
     Backend(RasterBackendError),
+    /// A vector document could not be written.
+    Vector(VectorError),
     /// Some artists could not be drawn.
     Draw(DrawErrors),
+    /// The file format is not one plt-rs can write.
+    UnsupportedFormat(String),
     /// Writing the file failed.
     Io(std::io::Error),
 }
@@ -24,7 +33,12 @@ impl fmt::Display for SaveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Backend(err) => write!(f, "cannot render the figure: {err}"),
+            Self::Vector(err) => write!(f, "cannot write the document: {err}"),
             Self::Draw(err) => err.fmt(f),
+            Self::UnsupportedFormat(format) => write!(
+                f,
+                "format {format:?} is not supported (supported formats: eps, pdf, png, ps, svg, svgz)"
+            ),
             Self::Io(err) => write!(f, "cannot write the figure: {err}"),
         }
     }
@@ -34,9 +48,68 @@ impl std::error::Error for SaveError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Backend(err) => Some(err),
+            Self::Vector(err) => Some(err),
             Self::Draw(err) => Some(err),
             Self::Io(err) => Some(err),
+            Self::UnsupportedFormat(_) => None,
         }
+    }
+}
+
+/// The file formats figures can be saved in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SaveFormat {
+    /// Portable Network Graphics (the Agg canvas).
+    Png,
+    /// Scalable Vector Graphics.
+    Svg,
+    /// Gzip-compressed SVG.
+    Svgz,
+    /// Portable Document Format.
+    Pdf,
+    /// PostScript, centred on the `ps.papersize` page.
+    Ps,
+    /// Encapsulated PostScript, sized to the figure.
+    Eps,
+}
+
+impl SaveFormat {
+    /// The file extension (without a dot).
+    pub const fn extension(self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Svg => "svg",
+            Self::Svgz => "svgz",
+            Self::Pdf => "pdf",
+            Self::Ps => "ps",
+            Self::Eps => "eps",
+        }
+    }
+}
+
+impl FromStr for SaveFormat {
+    type Err = SaveError;
+
+    /// Parses a format name or extension, ignoring case.
+    fn from_str(name: &str) -> Result<Self, SaveError> {
+        Ok(match name.to_ascii_lowercase().as_str() {
+            "png" => Self::Png,
+            "svg" => Self::Svg,
+            "svgz" => Self::Svgz,
+            "pdf" => Self::Pdf,
+            "ps" => Self::Ps,
+            "eps" => Self::Eps,
+            _ => return Err(SaveError::UnsupportedFormat(name.to_owned())),
+        })
+    }
+}
+
+/// matplotlib's `path.simplify` settings from the rcParams.
+fn simplify_settings() -> SimplifySettings {
+    let rc = crate::rc::params();
+    SimplifySettings {
+        enabled: rc.path_simplify,
+        threshold: rc.path_simplify_threshold,
     }
 }
 
@@ -56,13 +129,8 @@ impl Figure {
         height: f64,
         dpi: f64,
     ) -> Result<RasterRenderer, SaveError> {
-        let rc = crate::rc::params();
-        let simplify = SimplifySettings {
-            enabled: rc.path_simplify,
-            threshold: rc.path_simplify_threshold,
-        };
         RasterRenderer::new(width * dpi, height * dpi, dpi)
-            .map(|canvas| canvas.with_simplify(simplify))
+            .map(|canvas| canvas.with_simplify(simplify_settings()))
             .map_err(SaveError::Backend)
     }
 
@@ -77,15 +145,221 @@ impl Figure {
         self.render_raster()?.to_png().map_err(SaveError::Backend)
     }
 
-    /// Writes the figure to `path` as PNG.
-    pub fn savefig(&self, path: impl AsRef<FsPath>) -> Result<(), SaveError> {
-        std::fs::write(path, self.to_png()?).map_err(SaveError::Io)
+    /// The figure as PNG bytes with save options.
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::render_raster_with`], or when encoding fails.
+    pub fn to_png_with(&self, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
+        self.render_raster_with(options)?
+            .to_png()
+            .map_err(SaveError::Backend)
     }
+
+    /// The figure as an SVG document (matplotlib's `savefig(format="svg")`).
+    pub fn to_svg(&self) -> Result<String, SaveError> {
+        self.to_svg_with(&SaveOptions::default())
+    }
+
+    /// The figure as an SVG document with save options; the `svg.*`
+    /// rcParams configure the document.
+    ///
+    /// # Errors
+    ///
+    /// When some artists cannot be drawn or the document cannot be written.
+    pub fn to_svg_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
+        let rc = crate::rc::params();
+        let svg = SvgOptions {
+            hashsalt: rc.svg_hashsalt.clone(),
+            id: rc.svg_id.clone(),
+            metadata: options.metadata.clone().unwrap_or_default(),
+            simplify: simplify_settings(),
+            composite_images: rc.image_composite_image,
+        };
+        self.render_vector_with(options, |width, height, dpi| {
+            SvgRenderer::new(width * 72.0, height * 72.0, dpi, svg)
+        })?
+        .finish()
+        .map_err(SaveError::Vector)
+    }
+
+    /// The figure as a PDF document (matplotlib's `savefig(format="pdf")`).
+    pub fn to_pdf(&self) -> Result<Vec<u8>, SaveError> {
+        self.to_pdf_with(&SaveOptions::default())
+    }
+
+    /// The figure as a PDF document with save options; the `pdf.*`
+    /// rcParams configure the document.
+    ///
+    /// # Errors
+    ///
+    /// When some artists cannot be drawn or the document cannot be written.
+    pub fn to_pdf_with(&self, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
+        let rc = crate::rc::params();
+        let pdf = PdfOptions {
+            compression: u8::try_from(rc.pdf_compression.clamp(0, 9)).unwrap_or(6),
+            inherit_color: rc.pdf_inheritcolor,
+            metadata: options.metadata.clone().unwrap_or_default(),
+            simplify: simplify_settings(),
+            composite_images: rc.image_composite_image,
+        };
+        self.render_vector_with(options, |width, height, dpi| {
+            PdfRenderer::new(width, height, dpi, pdf)
+        })?
+        .finish()
+        .map_err(SaveError::Vector)
+    }
+
+    /// The figure in `format` with save options (matplotlib's
+    /// `savefig(buffer, format=...)`).
+    ///
+    /// # Errors
+    ///
+    /// When some artists cannot be drawn or the output cannot be encoded.
+    pub fn to_format(
+        &self,
+        format: SaveFormat,
+        options: &SaveOptions,
+    ) -> Result<Vec<u8>, SaveError> {
+        match format {
+            SaveFormat::Png => self.to_png_with(options),
+            SaveFormat::Svg => self.to_svg_with(options).map(String::into_bytes),
+            SaveFormat::Svgz => self
+                .to_svg_with(options)
+                .map(|svg| plt_render::gzip(svg.as_bytes())),
+            SaveFormat::Pdf => self.to_pdf_with(options),
+            SaveFormat::Ps => self.to_ps_with(options).map(String::into_bytes),
+            SaveFormat::Eps => self.to_eps_with(options).map(String::into_bytes),
+        }
+    }
+
+    /// Writes the figure to `path` in the format its extension names
+    /// (PNG, SVG, SVGZ, PDF, PS or EPS; `savefig.format` and an appended
+    /// extension without one).
+    pub fn savefig(&self, path: impl AsRef<FsPath>) -> Result<(), SaveError> {
+        self.savefig_with(path, &SaveOptions::default())
+    }
+
+    /// Writes the figure to `path` with save options (matplotlib's
+    /// `savefig` keywords).
+    ///
+    /// # Errors
+    ///
+    /// When the format is unsupported, the figure cannot be rendered or
+    /// the file cannot be written.
+    pub fn savefig_with(
+        &self,
+        path: impl AsRef<FsPath>,
+        options: &SaveOptions,
+    ) -> Result<(), SaveError> {
+        let (path, format) = resolve_format(path.as_ref(), options.format)?;
+        let document = if matches!(format, SaveFormat::Ps | SaveFormat::Eps) {
+            let titled = SaveOptions {
+                metadata: Some(file_metadata(options, &path)),
+                ..options.clone()
+            };
+            self.to_format(format, &titled)?
+        } else {
+            self.to_format(format, options)?
+        };
+        std::fs::write(path, document).map_err(SaveError::Io)
+    }
+
+    /// A PostScript document with save options: `eps` selects
+    /// Encapsulated PostScript; `ps.papersize` and `savefig.orientation`
+    /// place the figure on the page.
+    fn postscript(&self, options: &SaveOptions, eps: bool) -> Result<String, SaveError> {
+        let rc = crate::rc::params();
+        let ps = PsOptions {
+            eps,
+            paper: Paper::from_name(&rc.ps_papersize).unwrap_or(Paper::Figure),
+            orientation: if rc.savefig_orientation == "landscape" {
+                Orientation::Landscape
+            } else {
+                Orientation::Portrait
+            },
+            metadata: options.metadata.clone().unwrap_or_default(),
+            simplify: simplify_settings(),
+            composite_images: rc.image_composite_image,
+        };
+        self.render_vector_with(options, |width, height, dpi| {
+            PsRenderer::new(width, height, dpi, ps)
+        })?
+        .finish()
+        .map_err(SaveError::Vector)
+    }
+
+    /// The figure as a PostScript document centred on a `ps.papersize`
+    /// page (matplotlib's `savefig(format="ps")`).
+    pub fn to_ps(&self) -> Result<String, SaveError> {
+        self.to_ps_with(&SaveOptions::default())
+    }
+
+    /// The figure as a PostScript document with save options.
+    ///
+    /// # Errors
+    ///
+    /// When some artists cannot be drawn or a font cannot be embedded.
+    pub fn to_ps_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
+        self.postscript(options, false)
+    }
+
+    /// The figure as an Encapsulated PostScript document (matplotlib's
+    /// `savefig(format="eps")`).
+    pub fn to_eps(&self) -> Result<String, SaveError> {
+        self.to_eps_with(&SaveOptions::default())
+    }
+
+    /// The figure as an Encapsulated PostScript document with save
+    /// options.
+    ///
+    /// # Errors
+    ///
+    /// When some artists cannot be drawn or a font cannot be embedded.
+    pub fn to_eps_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
+        self.postscript(options, true)
+    }
+}
+
+/// matplotlib's `print_figure` format resolution: an explicit format, the
+/// file name's extension, or `savefig.format` appended to the file name.
+fn resolve_format(
+    path: &FsPath,
+    format: Option<SaveFormat>,
+) -> Result<(PathBuf, SaveFormat), SaveError> {
+    if let Some(format) = format {
+        return Ok((path.to_owned(), format));
+    }
+    match path.extension().and_then(|e| e.to_str()) {
+        Some(extension) if !extension.is_empty() => Ok((path.to_owned(), extension.parse()?)),
+        _ => {
+            let format: SaveFormat = crate::rc::params().savefig_format.parse()?;
+            let name = path.to_string_lossy();
+            let stem = name.trim_end_matches('.');
+            Ok((
+                PathBuf::from(format!("{stem}.{}", format.extension())),
+                format,
+            ))
+        }
+    }
+}
+
+/// Metadata for a document saved to `path`: the file name as title (as
+/// matplotlib's PostScript backend writes it) unless metadata is given.
+fn file_metadata(options: &SaveOptions, path: &FsPath) -> Metadata {
+    options.metadata.clone().unwrap_or_else(|| Metadata {
+        title: path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned()),
+        ..Metadata::default()
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::figure::BboxInches;
+    use plt_core::Bbox;
 
     #[test]
     fn renders_the_figure_background() {
@@ -115,5 +389,64 @@ mod tests {
         let fig = Figure::with_size(0.5, 0.5, 10.0);
         let missing = std::env::temp_dir().join("plt-rs-missing-dir/x/figure.png");
         assert!(matches!(fig.savefig(missing), Err(SaveError::Io(_))));
+    }
+
+    #[test]
+    fn formats_come_from_extensions() {
+        assert_eq!("SVG".parse::<SaveFormat>().unwrap(), SaveFormat::Svg);
+        assert!(matches!(
+            "jpeg".parse::<SaveFormat>(),
+            Err(SaveError::UnsupportedFormat(_))
+        ));
+        let (path, format) = resolve_format(FsPath::new("out/plot.pdf"), None).unwrap();
+        assert_eq!(
+            (path, format),
+            (PathBuf::from("out/plot.pdf"), SaveFormat::Pdf)
+        );
+        let (path, format) = resolve_format(FsPath::new("plot"), None).unwrap();
+        assert_eq!((path, format), (PathBuf::from("plot.png"), SaveFormat::Png));
+        let (_, format) = resolve_format(FsPath::new("plot.png"), Some(SaveFormat::Eps)).unwrap();
+        assert_eq!(format, SaveFormat::Eps);
+    }
+
+    #[test]
+    fn svg_documents() {
+        let fig = Figure::with_size(2.0, 1.0, 50.0);
+        let svg = fig.to_svg().unwrap();
+        assert!(svg.contains("width=\"144pt\" height=\"72pt\""));
+        let svgz = fig
+            .to_format(SaveFormat::Svgz, &SaveOptions::default())
+            .unwrap();
+        assert_eq!(&svgz[..2], &[0x1f, 0x8b]);
+        let metadata = file_metadata(&SaveOptions::default(), FsPath::new("dir/a.ps"));
+        assert_eq!(metadata.title.as_deref(), Some("a.ps"));
+    }
+
+    #[test]
+    fn pdf_and_postscript_documents() {
+        let fig = Figure::with_size(2.0, 1.0, 50.0);
+        let ax = fig.subplot();
+        ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).unwrap();
+        let pdf = fig.to_pdf().unwrap();
+        assert!(pdf.starts_with(b"%PDF-1.4"));
+        let tight = SaveOptions {
+            bbox_inches: Some(BboxInches::Inches(Bbox::from_bounds(0.0, 0.0, 1.0, 0.5))),
+            ..SaveOptions::default()
+        };
+        let cropped = String::from_utf8_lossy(&fig.to_pdf_with(&tight).unwrap()).into_owned();
+        assert!(cropped.contains("/MediaBox [ 0 0 72 36 ]"));
+        let ps = fig.to_ps().unwrap();
+        assert!(ps.starts_with("%!PS-Adobe-3.0\n%%DocumentPaperSizes: letter"));
+        let eps = fig.to_eps_with(&tight).unwrap();
+        assert!(eps.contains("%%BoundingBox: 0 0 72 36\n"));
+        let dir = std::env::temp_dir().join("plt-rs-save-formats");
+        std::fs::create_dir_all(&dir).unwrap();
+        fig.savefig(dir.join("figure.eps")).unwrap();
+        let saved = std::fs::read_to_string(dir.join("figure.eps")).unwrap();
+        assert!(saved.contains("%%Title: figure.eps\n"));
+        assert!(matches!(
+            fig.savefig(dir.join("figure.jpeg")),
+            Err(SaveError::UnsupportedFormat(_))
+        ));
     }
 }

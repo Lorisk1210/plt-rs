@@ -1,0 +1,2064 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="288pt" height="216pt" viewBox="0 0 288 216" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 216 
+L 288 216 
+L 288 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 36 192.24 
+L 259.2 192.24 
+L 259.2 25.92 
+L 36 25.92 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="QuadMesh_1">
+    <g clip-path="url(#pe7502ab81e)">
+     <filter id="colorAdd">
+      <feComposite in="SourceGraphic" in2="BackgroundImage" operator="arithmetic" k2="1" k3="1"/>
+     </filter>
+     <filter id="colorMat">
+      <feColorMatrix type="matrix" values="1 0 0 0 0 
+0 1 0 0 0 
+0 0 1 0 0 
+1 1 1 1 0 
+0 0 0 0 1 "/>
+     </filter>
+     <defs>
+      <linearGradient id="GR0_0" gradientUnits="userSpaceOnUse" x1="36" y1="192.24" x2="56.737692" y2="169.976157">
+       <stop offset="1" style="stop-color: #3c3774; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b518b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR0_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="192.24" x2="59.902308" y2="169.976157">
+       <stop offset="1" style="stop-color: #3c3774; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #440154; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR0_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="171.45" x2="58.32" y2="192.24">
+       <stop offset="1" style="stop-color: #3c3774; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #35517e; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,171.45 L 36,192.24 80.64,192.24 Z" fill="#3c3774" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,171.45 L 36,192.24 80.64,192.24 Z" fill="url(#GR0_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,171.45 L 36,192.24 80.64,192.24 Z" fill="url(#GR0_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,171.45 L 36,192.24 80.64,192.24 Z" fill="url(#GR0_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR1_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="192.24" x2="59.902308" y2="169.976157">
+       <stop offset="1" style="stop-color: #3b3a75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #440154; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="150.66" x2="59.902308" y2="172.923843">
+       <stop offset="1" style="stop-color: #3b3a75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="171.45" x2="80.64" y2="171.45">
+       <stop offset="1" style="stop-color: #3b3a75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #35517e; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,171.45 L 80.64,192.24 80.64,150.66 Z" fill="#3b3a75" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,171.45 L 80.64,192.24 80.64,150.66 Z" fill="url(#GR1_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,171.45 L 80.64,192.24 80.64,150.66 Z" fill="url(#GR1_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,171.45 L 80.64,192.24 80.64,150.66 Z" fill="url(#GR1_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR2_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="150.66" x2="59.902308" y2="172.923843">
+       <stop offset="1" style="stop-color: #2e6c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2_1" gradientUnits="userSpaceOnUse" x1="36" y1="150.66" x2="56.737692" y2="172.923843">
+       <stop offset="1" style="stop-color: #2e6c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f988b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="171.45" x2="58.32" y2="150.66">
+       <stop offset="1" style="stop-color: #2e6c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #35517e; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,171.45 L 80.64,150.66 36,150.66 Z" fill="#2e6c87" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,171.45 L 80.64,150.66 36,150.66 Z" fill="url(#GR2_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,171.45 L 80.64,150.66 36,150.66 Z" fill="url(#GR2_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,171.45 L 80.64,150.66 36,150.66 Z" fill="url(#GR2_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR3_0" gradientUnits="userSpaceOnUse" x1="36" y1="150.66" x2="56.737692" y2="172.923843">
+       <stop offset="1" style="stop-color: #306986; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f988b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3_1" gradientUnits="userSpaceOnUse" x1="36" y1="192.24" x2="56.737692" y2="169.976157">
+       <stop offset="1" style="stop-color: #306986; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b518b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="171.45" x2="36" y2="171.45">
+       <stop offset="1" style="stop-color: #306986; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #35517e; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,171.45 L 36,150.66 36,192.24 Z" fill="#306986" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,171.45 L 36,150.66 36,192.24 Z" fill="url(#GR3_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,171.45 L 36,150.66 36,192.24 Z" fill="url(#GR3_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,171.45 L 36,150.66 36,192.24 Z" fill="url(#GR3_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR4_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="192.24" x2="101.377692" y2="169.976157">
+       <stop offset="1" style="stop-color: #42246e; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #440154; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="192.24" x2="104.542308" y2="169.976157">
+       <stop offset="1" style="stop-color: #42246e; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #472c7a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="171.45" x2="102.96" y2="192.24">
+       <stop offset="1" style="stop-color: #42246e; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b407a; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,171.45 L 80.64,192.24 125.28,192.24 Z" fill="#42246e" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,171.45 L 80.64,192.24 125.28,192.24 Z" fill="url(#GR4_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,171.45 L 80.64,192.24 125.28,192.24 Z" fill="url(#GR4_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,171.45 L 80.64,192.24 125.28,192.24 Z" fill="url(#GR4_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR5_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="192.24" x2="104.542308" y2="169.976157">
+       <stop offset="1" style="stop-color: #394c81; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #472c7a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR5_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="150.66" x2="104.542308" y2="172.923843">
+       <stop offset="1" style="stop-color: #394c81; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR5_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="171.45" x2="125.28" y2="171.45">
+       <stop offset="1" style="stop-color: #394c81; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b407a; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,171.45 L 125.28,192.24 125.28,150.66 Z" fill="#394c81" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,171.45 L 125.28,192.24 125.28,150.66 Z" fill="url(#GR5_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,171.45 L 125.28,192.24 125.28,150.66 Z" fill="url(#GR5_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,171.45 L 125.28,192.24 125.28,150.66 Z" fill="url(#GR5_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR6_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="150.66" x2="104.542308" y2="172.923843">
+       <stop offset="1" style="stop-color: #345c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR6_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="150.66" x2="101.377692" y2="172.923843">
+       <stop offset="1" style="stop-color: #345c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR6_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="171.45" x2="102.96" y2="150.66">
+       <stop offset="1" style="stop-color: #345c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b407a; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,171.45 L 125.28,150.66 80.64,150.66 Z" fill="#345c87" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,171.45 L 125.28,150.66 80.64,150.66 Z" fill="url(#GR6_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,171.45 L 125.28,150.66 80.64,150.66 Z" fill="url(#GR6_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,171.45 L 125.28,150.66 80.64,150.66 Z" fill="url(#GR6_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR7_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="150.66" x2="101.377692" y2="172.923843">
+       <stop offset="1" style="stop-color: #3d3474; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR7_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="192.24" x2="101.377692" y2="169.976157">
+       <stop offset="1" style="stop-color: #3d3474; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #440154; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR7_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="171.45" x2="80.64" y2="171.45">
+       <stop offset="1" style="stop-color: #3d3474; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b407a; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,171.45 L 80.64,150.66 80.64,192.24 Z" fill="#3d3474" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,171.45 L 80.64,150.66 80.64,192.24 Z" fill="url(#GR7_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,171.45 L 80.64,150.66 80.64,192.24 Z" fill="url(#GR7_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,171.45 L 80.64,150.66 80.64,192.24 Z" fill="url(#GR7_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR8_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="192.24" x2="146.017692" y2="169.976157">
+       <stop offset="1" style="stop-color: #386582; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #472c7a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR8_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="192.24" x2="149.182308" y2="169.976157">
+       <stop offset="1" style="stop-color: #386582; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #24868e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR8_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="171.45" x2="147.6" y2="192.24">
+       <stop offset="1" style="stop-color: #386582; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b7c7f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,171.45 L 125.28,192.24 169.92,192.24 Z" fill="#386582" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,171.45 L 125.28,192.24 169.92,192.24 Z" fill="url(#GR8_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,171.45 L 125.28,192.24 169.92,192.24 Z" fill="url(#GR8_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,171.45 L 125.28,192.24 169.92,192.24 Z" fill="url(#GR8_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR9_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="192.24" x2="149.182308" y2="169.976157">
+       <stop offset="1" style="stop-color: #3d997b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #24868e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR9_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="150.66" x2="149.182308" y2="172.923843">
+       <stop offset="1" style="stop-color: #3d997b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR9_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="171.45" x2="169.92" y2="171.45">
+       <stop offset="1" style="stop-color: #3d997b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b7c7f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,171.45 L 169.92,192.24 169.92,150.66 Z" fill="#3d997b" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,171.45 L 169.92,192.24 169.92,150.66 Z" fill="url(#GR9_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,171.45 L 169.92,192.24 169.92,150.66 Z" fill="url(#GR9_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,171.45 L 169.92,192.24 169.92,150.66 Z" fill="url(#GR9_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GRa_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="150.66" x2="149.182308" y2="172.923843">
+       <stop offset="1" style="stop-color: #3f947c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRa_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="150.66" x2="146.017692" y2="172.923843">
+       <stop offset="1" style="stop-color: #3f947c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRa_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="171.45" x2="147.6" y2="150.66">
+       <stop offset="1" style="stop-color: #3f947c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b7c7f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,171.45 L 169.92,150.66 125.28,150.66 Z" fill="#3f947c" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,171.45 L 169.92,150.66 125.28,150.66 Z" fill="url(#GRa_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,171.45 L 169.92,150.66 125.28,150.66 Z" fill="url(#GRa_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,171.45 L 169.92,150.66 125.28,150.66 Z" fill="url(#GRa_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GRb_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="150.66" x2="146.017692" y2="172.923843">
+       <stop offset="1" style="stop-color: #396083; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRb_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="192.24" x2="146.017692" y2="169.976157">
+       <stop offset="1" style="stop-color: #396083; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #472c7a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRb_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="171.45" x2="125.28" y2="171.45">
+       <stop offset="1" style="stop-color: #396083; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b7c7f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,171.45 L 125.28,150.66 125.28,192.24 Z" fill="#396083" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,171.45 L 125.28,150.66 125.28,192.24 Z" fill="url(#GRb_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,171.45 L 125.28,150.66 125.28,192.24 Z" fill="url(#GRb_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,171.45 L 125.28,150.66 125.28,192.24 Z" fill="url(#GRb_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GRc_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="192.24" x2="190.657692" y2="169.976157">
+       <stop offset="1" style="stop-color: #319f80; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #24868e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRc_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="192.24" x2="193.822308" y2="169.976157">
+       <stop offset="1" style="stop-color: #319f80; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #20a386; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRc_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="171.45" x2="192.24" y2="192.24">
+       <stop offset="1" style="stop-color: #319f80; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #50b36c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,171.45 L 169.92,192.24 214.56,192.24 Z" fill="#319f80" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,171.45 L 169.92,192.24 214.56,192.24 Z" fill="url(#GRc_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,171.45 L 169.92,192.24 214.56,192.24 Z" fill="url(#GRc_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,171.45 L 169.92,192.24 214.56,192.24 Z" fill="url(#GRc_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GRd_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="192.24" x2="193.822308" y2="169.976157">
+       <stop offset="1" style="stop-color: #5cbb63; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #20a386; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRd_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="150.66" x2="193.822308" y2="172.923843">
+       <stop offset="1" style="stop-color: #5cbb63; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRd_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="171.45" x2="214.56" y2="171.45">
+       <stop offset="1" style="stop-color: #5cbb63; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #50b36c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,171.45 L 214.56,192.24 214.56,150.66 Z" fill="#5cbb63" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,171.45 L 214.56,192.24 214.56,150.66 Z" fill="url(#GRd_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,171.45 L 214.56,192.24 214.56,150.66 Z" fill="url(#GRd_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,171.45 L 214.56,192.24 214.56,150.66 Z" fill="url(#GRd_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GRe_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="150.66" x2="193.822308" y2="172.923843">
+       <stop offset="1" style="stop-color: #6fc758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRe_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="150.66" x2="190.657692" y2="172.923843">
+       <stop offset="1" style="stop-color: #6fc758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRe_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="171.45" x2="192.24" y2="150.66">
+       <stop offset="1" style="stop-color: #6fc758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #50b36c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,171.45 L 214.56,150.66 169.92,150.66 Z" fill="#6fc758" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,171.45 L 214.56,150.66 169.92,150.66 Z" fill="url(#GRe_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,171.45 L 214.56,150.66 169.92,150.66 Z" fill="url(#GRe_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,171.45 L 214.56,150.66 169.92,150.66 Z" fill="url(#GRe_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GRf_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="150.66" x2="190.657692" y2="172.923843">
+       <stop offset="1" style="stop-color: #44ab75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRf_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="192.24" x2="190.657692" y2="169.976157">
+       <stop offset="1" style="stop-color: #44ab75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #24868e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GRf_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="171.45" x2="169.92" y2="171.45">
+       <stop offset="1" style="stop-color: #44ab75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #50b36c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,171.45 L 169.92,150.66 169.92,192.24 Z" fill="#44ab75" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,171.45 L 169.92,150.66 169.92,192.24 Z" fill="url(#GRf_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,171.45 L 169.92,150.66 169.92,192.24 Z" fill="url(#GRf_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,171.45 L 169.92,150.66 169.92,192.24 Z" fill="url(#GRf_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR10_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="192.24" x2="235.297692" y2="169.976157">
+       <stop offset="1" style="stop-color: #338f82; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #20a386; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR10_1" gradientUnits="userSpaceOnUse" x1="259.2" y1="192.24" x2="238.462308" y2="169.976157">
+       <stop offset="1" style="stop-color: #338f82; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #31678e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR10_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="171.45" x2="236.88" y2="192.24">
+       <stop offset="1" style="stop-color: #338f82; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #47a473; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,171.45 L 214.56,192.24 259.2,192.24 Z" fill="#338f82" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,171.45 L 214.56,192.24 259.2,192.24 Z" fill="url(#GR10_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,171.45 L 214.56,192.24 259.2,192.24 Z" fill="url(#GR10_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,171.45 L 214.56,192.24 259.2,192.24 Z" fill="url(#GR10_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR11_0" gradientUnits="userSpaceOnUse" x1="259.2" y1="192.24" x2="238.462308" y2="169.976157">
+       <stop offset="1" style="stop-color: #349281; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #31678e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR11_1" gradientUnits="userSpaceOnUse" x1="259.2" y1="150.66" x2="238.462308" y2="172.923843">
+       <stop offset="1" style="stop-color: #349281; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #25ac82; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR11_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="171.45" x2="259.2" y2="171.45">
+       <stop offset="1" style="stop-color: #349281; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #47a473; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,171.45 L 259.2,192.24 259.2,150.66 Z" fill="#349281" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,171.45 L 259.2,192.24 259.2,150.66 Z" fill="url(#GR11_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,171.45 L 259.2,192.24 259.2,150.66 Z" fill="url(#GR11_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,171.45 L 259.2,192.24 259.2,150.66 Z" fill="url(#GR11_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR12_0" gradientUnits="userSpaceOnUse" x1="259.2" y1="150.66" x2="238.462308" y2="172.923843">
+       <stop offset="1" style="stop-color: #5bb963; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #25ac82; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR12_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="150.66" x2="235.297692" y2="172.923843">
+       <stop offset="1" style="stop-color: #5bb963; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR12_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="171.45" x2="236.88" y2="150.66">
+       <stop offset="1" style="stop-color: #5bb963; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #47a473; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,171.45 L 259.2,150.66 214.56,150.66 Z" fill="#5bb963" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,171.45 L 259.2,150.66 214.56,150.66 Z" fill="url(#GR12_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,171.45 L 259.2,150.66 214.56,150.66 Z" fill="url(#GR12_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,171.45 L 259.2,150.66 214.56,150.66 Z" fill="url(#GR12_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR13_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="150.66" x2="235.297692" y2="172.923843">
+       <stop offset="1" style="stop-color: #59b665; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR13_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="192.24" x2="235.297692" y2="169.976157">
+       <stop offset="1" style="stop-color: #59b665; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #20a386; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR13_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="171.45" x2="214.56" y2="171.45">
+       <stop offset="1" style="stop-color: #59b665; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #47a473; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,171.45 L 214.56,150.66 214.56,192.24 Z" fill="#59b665" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,171.45 L 214.56,150.66 214.56,192.24 Z" fill="url(#GR13_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,171.45 L 214.56,150.66 214.56,192.24 Z" fill="url(#GR13_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,171.45 L 214.56,150.66 214.56,192.24 Z" fill="url(#GR13_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR14_0" gradientUnits="userSpaceOnUse" x1="36" y1="150.66" x2="56.737692" y2="128.396157">
+       <stop offset="1" style="stop-color: #2b7f8a; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f988b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR14_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="150.66" x2="59.902308" y2="128.396157">
+       <stop offset="1" style="stop-color: #2b7f8a; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR14_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="129.87" x2="58.32" y2="150.66">
+       <stop offset="1" style="stop-color: #2b7f8a; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2d8a87; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,129.87 L 36,150.66 80.64,150.66 Z" fill="#2b7f8a" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,129.87 L 36,150.66 80.64,150.66 Z" fill="url(#GR14_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,129.87 L 36,150.66 80.64,150.66 Z" fill="url(#GR14_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,129.87 L 36,150.66 80.64,150.66 Z" fill="url(#GR14_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR15_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="150.66" x2="59.902308" y2="128.396157">
+       <stop offset="1" style="stop-color: #2e768b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR15_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="109.08" x2="59.902308" y2="131.343843">
+       <stop offset="1" style="stop-color: #2e768b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #287d8e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR15_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="129.87" x2="80.64" y2="129.87">
+       <stop offset="1" style="stop-color: #2e768b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2d8a87; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,129.87 L 80.64,150.66 80.64,109.08 Z" fill="#2e768b" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,129.87 L 80.64,150.66 80.64,109.08 Z" fill="url(#GR15_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,129.87 L 80.64,150.66 80.64,109.08 Z" fill="url(#GR15_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,129.87 L 80.64,150.66 80.64,109.08 Z" fill="url(#GR15_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR16_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="109.08" x2="59.902308" y2="131.343843">
+       <stop offset="1" style="stop-color: #2e9584; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #287d8e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR16_1" gradientUnits="userSpaceOnUse" x1="36" y1="109.08" x2="56.737692" y2="131.343843">
+       <stop offset="1" style="stop-color: #2e9584; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #37b878; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR16_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="129.87" x2="58.32" y2="109.08">
+       <stop offset="1" style="stop-color: #2e9584; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2d8a87; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,129.87 L 80.64,109.08 36,109.08 Z" fill="#2e9584" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,129.87 L 80.64,109.08 36,109.08 Z" fill="url(#GR16_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,129.87 L 80.64,109.08 36,109.08 Z" fill="url(#GR16_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,129.87 L 80.64,109.08 36,109.08 Z" fill="url(#GR16_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR17_0" gradientUnits="userSpaceOnUse" x1="36" y1="109.08" x2="56.737692" y2="131.343843">
+       <stop offset="1" style="stop-color: #2b9e83; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #37b878; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR17_1" gradientUnits="userSpaceOnUse" x1="36" y1="150.66" x2="56.737692" y2="128.396157">
+       <stop offset="1" style="stop-color: #2b9e83; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f988b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR17_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="129.87" x2="36" y2="129.87">
+       <stop offset="1" style="stop-color: #2b9e83; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2d8a87; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,129.87 L 36,109.08 36,150.66 Z" fill="#2b9e83" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,129.87 L 36,109.08 36,150.66 Z" fill="url(#GR17_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,129.87 L 36,109.08 36,150.66 Z" fill="url(#GR17_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,129.87 L 36,109.08 36,150.66 Z" fill="url(#GR17_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR18_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="150.66" x2="101.377692" y2="128.396157">
+       <stop offset="1" style="stop-color: #2e6f8d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR18_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="150.66" x2="104.542308" y2="128.396157">
+       <stop offset="1" style="stop-color: #2e6f8d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR18_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="129.87" x2="102.96" y2="150.66">
+       <stop offset="1" style="stop-color: #2e6f8d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2a7b8d; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,129.87 L 80.64,150.66 125.28,150.66 Z" fill="#2e6f8d" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,129.87 L 80.64,150.66 125.28,150.66 Z" fill="url(#GR18_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,129.87 L 80.64,150.66 125.28,150.66 Z" fill="url(#GR18_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,129.87 L 80.64,150.66 125.28,150.66 Z" fill="url(#GR18_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR19_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="150.66" x2="104.542308" y2="128.396157">
+       <stop offset="1" style="stop-color: #26858c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR19_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="109.08" x2="104.542308" y2="131.343843">
+       <stop offset="1" style="stop-color: #26858c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f9a8a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR19_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="129.87" x2="125.28" y2="129.87">
+       <stop offset="1" style="stop-color: #26858c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2a7b8d; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,129.87 L 125.28,150.66 125.28,109.08 Z" fill="#26858c" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,129.87 L 125.28,150.66 125.28,109.08 Z" fill="url(#GR19_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,129.87 L 125.28,150.66 125.28,109.08 Z" fill="url(#GR19_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,129.87 L 125.28,150.66 125.28,109.08 Z" fill="url(#GR19_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR1a_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="109.08" x2="104.542308" y2="131.343843">
+       <stop offset="1" style="stop-color: #25868c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f9a8a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1a_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="109.08" x2="101.377692" y2="131.343843">
+       <stop offset="1" style="stop-color: #25868c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #287d8e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1a_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="129.87" x2="102.96" y2="109.08">
+       <stop offset="1" style="stop-color: #25868c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2a7b8d; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,129.87 L 125.28,109.08 80.64,109.08 Z" fill="#25868c" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,129.87 L 125.28,109.08 80.64,109.08 Z" fill="url(#GR1a_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,129.87 L 125.28,109.08 80.64,109.08 Z" fill="url(#GR1a_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,129.87 L 125.28,109.08 80.64,109.08 Z" fill="url(#GR1a_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR1b_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="109.08" x2="101.377692" y2="131.343843">
+       <stop offset="1" style="stop-color: #2d718d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #287d8e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1b_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="150.66" x2="101.377692" y2="128.396157">
+       <stop offset="1" style="stop-color: #2d718d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1b_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="129.87" x2="80.64" y2="129.87">
+       <stop offset="1" style="stop-color: #2d718d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2a7b8d; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,129.87 L 80.64,109.08 80.64,150.66 Z" fill="#2d718d" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,129.87 L 80.64,109.08 80.64,150.66 Z" fill="url(#GR1b_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,129.87 L 80.64,109.08 80.64,150.66 Z" fill="url(#GR1b_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,129.87 L 80.64,109.08 80.64,150.66 Z" fill="url(#GR1b_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR1c_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="150.66" x2="146.017692" y2="128.396157">
+       <stop offset="1" style="stop-color: #47a575; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1c_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="150.66" x2="149.182308" y2="128.396157">
+       <stop offset="1" style="stop-color: #47a575; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1c_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="129.87" x2="147.6" y2="150.66">
+       <stop offset="1" style="stop-color: #47a575; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #53ae6c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,129.87 L 125.28,150.66 169.92,150.66 Z" fill="#47a575" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,129.87 L 125.28,150.66 169.92,150.66 Z" fill="url(#GR1c_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,129.87 L 125.28,150.66 169.92,150.66 Z" fill="url(#GR1c_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,129.87 L 125.28,150.66 169.92,150.66 Z" fill="url(#GR1c_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR1d_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="150.66" x2="149.182308" y2="128.396157">
+       <stop offset="1" style="stop-color: #73c656; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1d_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="109.08" x2="149.182308" y2="131.343843">
+       <stop offset="1" style="stop-color: #73c656; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #addc30; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1d_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="129.87" x2="169.92" y2="129.87">
+       <stop offset="1" style="stop-color: #73c656; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #53ae6c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,129.87 L 169.92,150.66 169.92,109.08 Z" fill="#73c656" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,129.87 L 169.92,150.66 169.92,109.08 Z" fill="url(#GR1d_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,129.87 L 169.92,150.66 169.92,109.08 Z" fill="url(#GR1d_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,129.87 L 169.92,150.66 169.92,109.08 Z" fill="url(#GR1d_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR1e_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="109.08" x2="149.182308" y2="131.343843">
+       <stop offset="1" style="stop-color: #60b762; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #addc30; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1e_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="109.08" x2="146.017692" y2="131.343843">
+       <stop offset="1" style="stop-color: #60b762; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f9a8a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1e_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="129.87" x2="147.6" y2="109.08">
+       <stop offset="1" style="stop-color: #60b762; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #53ae6c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,129.87 L 169.92,109.08 125.28,109.08 Z" fill="#60b762" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,129.87 L 169.92,109.08 125.28,109.08 Z" fill="url(#GR1e_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,129.87 L 169.92,109.08 125.28,109.08 Z" fill="url(#GR1e_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,129.87 L 169.92,109.08 125.28,109.08 Z" fill="url(#GR1e_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR1f_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="109.08" x2="146.017692" y2="131.343843">
+       <stop offset="1" style="stop-color: #349681; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f9a8a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1f_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="150.66" x2="146.017692" y2="128.396157">
+       <stop offset="1" style="stop-color: #349681; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR1f_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="129.87" x2="125.28" y2="129.87">
+       <stop offset="1" style="stop-color: #349681; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #53ae6c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,129.87 L 125.28,109.08 125.28,150.66 Z" fill="#349681" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,129.87 L 125.28,109.08 125.28,150.66 Z" fill="url(#GR1f_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,129.87 L 125.28,109.08 125.28,150.66 Z" fill="url(#GR1f_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,129.87 L 125.28,109.08 125.28,150.66 Z" fill="url(#GR1f_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR20_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="150.66" x2="190.657692" y2="128.396157">
+       <stop offset="1" style="stop-color: #8dd448; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR20_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="150.66" x2="193.822308" y2="128.396157">
+       <stop offset="1" style="stop-color: #8dd448; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR20_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="129.87" x2="192.24" y2="150.66">
+       <stop offset="1" style="stop-color: #8dd448; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #aad93c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,129.87 L 169.92,150.66 214.56,150.66 Z" fill="#8dd448" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,129.87 L 169.92,150.66 214.56,150.66 Z" fill="url(#GR20_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,129.87 L 169.92,150.66 214.56,150.66 Z" fill="url(#GR20_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,129.87 L 169.92,150.66 214.56,150.66 Z" fill="url(#GR20_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR21_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="150.66" x2="193.822308" y2="128.396157">
+       <stop offset="1" style="stop-color: #c4de32; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR21_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="109.08" x2="193.822308" y2="131.343843">
+       <stop offset="1" style="stop-color: #c4de32; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #fde725; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR21_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="129.87" x2="214.56" y2="129.87">
+       <stop offset="1" style="stop-color: #c4de32; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #aad93c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,129.87 L 214.56,150.66 214.56,109.08 Z" fill="#c4de32" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,129.87 L 214.56,150.66 214.56,109.08 Z" fill="url(#GR21_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,129.87 L 214.56,150.66 214.56,109.08 Z" fill="url(#GR21_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,129.87 L 214.56,150.66 214.56,109.08 Z" fill="url(#GR21_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR22_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="109.08" x2="193.822308" y2="131.343843">
+       <stop offset="1" style="stop-color: #c7df30; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #fde725; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR22_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="109.08" x2="190.657692" y2="131.343843">
+       <stop offset="1" style="stop-color: #c7df30; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #addc30; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR22_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="129.87" x2="192.24" y2="109.08">
+       <stop offset="1" style="stop-color: #c7df30; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #aad93c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,129.87 L 214.56,109.08 169.92,109.08 Z" fill="#c7df30" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,129.87 L 214.56,109.08 169.92,109.08 Z" fill="url(#GR22_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,129.87 L 214.56,109.08 169.92,109.08 Z" fill="url(#GR22_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,129.87 L 214.56,109.08 169.92,109.08 Z" fill="url(#GR22_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR23_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="109.08" x2="190.657692" y2="131.343843">
+       <stop offset="1" style="stop-color: #90d446; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #addc30; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR23_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="150.66" x2="190.657692" y2="128.396157">
+       <stop offset="1" style="stop-color: #90d446; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR23_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="129.87" x2="169.92" y2="129.87">
+       <stop offset="1" style="stop-color: #90d446; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #aad93c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,129.87 L 169.92,109.08 169.92,150.66 Z" fill="#90d446" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,129.87 L 169.92,109.08 169.92,150.66 Z" fill="url(#GR23_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,129.87 L 169.92,109.08 169.92,150.66 Z" fill="url(#GR23_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,129.87 L 169.92,109.08 169.92,150.66 Z" fill="url(#GR23_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR24_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="150.66" x2="235.297692" y2="128.396157">
+       <stop offset="1" style="stop-color: #71c758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR24_1" gradientUnits="userSpaceOnUse" x1="259.2" y1="150.66" x2="238.462308" y2="128.396157">
+       <stop offset="1" style="stop-color: #71c758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #25ac82; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR24_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="129.87" x2="236.88" y2="150.66">
+       <stop offset="1" style="stop-color: #71c758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #89ce4f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,129.87 L 214.56,150.66 259.2,150.66 Z" fill="#71c758" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,129.87 L 214.56,150.66 259.2,150.66 Z" fill="url(#GR24_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,129.87 L 214.56,150.66 259.2,150.66 Z" fill="url(#GR24_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,129.87 L 214.56,150.66 259.2,150.66 Z" fill="url(#GR24_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR25_0" gradientUnits="userSpaceOnUse" x1="259.2" y1="150.66" x2="238.462308" y2="128.396157">
+       <stop offset="1" style="stop-color: #5ac166; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #25ac82; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR25_1" gradientUnits="userSpaceOnUse" x1="259.2" y1="109.08" x2="238.462308" y2="131.343843">
+       <stop offset="1" style="stop-color: #5ac166; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #5ec962; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR25_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="129.87" x2="259.2" y2="129.87">
+       <stop offset="1" style="stop-color: #5ac166; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #89ce4f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,129.87 L 259.2,150.66 259.2,109.08 Z" fill="#5ac166" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,129.87 L 259.2,150.66 259.2,109.08 Z" fill="url(#GR25_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,129.87 L 259.2,150.66 259.2,109.08 Z" fill="url(#GR25_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,129.87 L 259.2,150.66 259.2,109.08 Z" fill="url(#GR25_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR26_0" gradientUnits="userSpaceOnUse" x1="259.2" y1="109.08" x2="238.462308" y2="131.343843">
+       <stop offset="1" style="stop-color: #a2d547; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #5ec962; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR26_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="109.08" x2="235.297692" y2="131.343843">
+       <stop offset="1" style="stop-color: #a2d547; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #fde725; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR26_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="129.87" x2="236.88" y2="109.08">
+       <stop offset="1" style="stop-color: #a2d547; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #89ce4f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,129.87 L 259.2,109.08 214.56,109.08 Z" fill="#a2d547" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,129.87 L 259.2,109.08 214.56,109.08 Z" fill="url(#GR26_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,129.87 L 259.2,109.08 214.56,109.08 Z" fill="url(#GR26_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,129.87 L 259.2,109.08 214.56,109.08 Z" fill="url(#GR26_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR27_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="109.08" x2="235.297692" y2="131.343843">
+       <stop offset="1" style="stop-color: #b9db39; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #fde725; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR27_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="150.66" x2="235.297692" y2="128.396157">
+       <stop offset="1" style="stop-color: #b9db39; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR27_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="129.87" x2="214.56" y2="129.87">
+       <stop offset="1" style="stop-color: #b9db39; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #89ce4f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,129.87 L 214.56,109.08 214.56,150.66 Z" fill="#b9db39" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,129.87 L 214.56,109.08 214.56,150.66 Z" fill="url(#GR27_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,129.87 L 214.56,109.08 214.56,150.66 Z" fill="url(#GR27_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,129.87 L 214.56,109.08 214.56,150.66 Z" fill="url(#GR27_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR28_0" gradientUnits="userSpaceOnUse" x1="36" y1="109.08" x2="56.737692" y2="86.816157">
+       <stop offset="1" style="stop-color: #2e9584; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #37b878; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR28_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="109.08" x2="59.902308" y2="86.816157">
+       <stop offset="1" style="stop-color: #2e9584; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #287d8e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR28_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="88.29" x2="58.32" y2="109.08">
+       <stop offset="1" style="stop-color: #2e9584; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2d8a87; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,88.29 L 36,109.08 80.64,109.08 Z" fill="#2e9584" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,88.29 L 36,109.08 80.64,109.08 Z" fill="url(#GR28_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,88.29 L 36,109.08 80.64,109.08 Z" fill="url(#GR28_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,88.29 L 36,109.08 80.64,109.08 Z" fill="url(#GR28_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR29_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="109.08" x2="59.902308" y2="86.816157">
+       <stop offset="1" style="stop-color: #2e768b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #287d8e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR29_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="67.5" x2="59.902308" y2="89.763843">
+       <stop offset="1" style="stop-color: #2e768b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR29_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="88.29" x2="80.64" y2="88.29">
+       <stop offset="1" style="stop-color: #2e768b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2d8a87; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,88.29 L 80.64,109.08 80.64,67.5 Z" fill="#2e768b" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,88.29 L 80.64,109.08 80.64,67.5 Z" fill="url(#GR29_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,88.29 L 80.64,109.08 80.64,67.5 Z" fill="url(#GR29_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,88.29 L 80.64,109.08 80.64,67.5 Z" fill="url(#GR29_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR2a_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="67.5" x2="59.902308" y2="89.763843">
+       <stop offset="1" style="stop-color: #2b7f8a; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2a_1" gradientUnits="userSpaceOnUse" x1="36" y1="67.5" x2="56.737692" y2="89.763843">
+       <stop offset="1" style="stop-color: #2b7f8a; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f988b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2a_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="88.29" x2="58.32" y2="67.5">
+       <stop offset="1" style="stop-color: #2b7f8a; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2d8a87; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,88.29 L 80.64,67.5 36,67.5 Z" fill="#2b7f8a" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,88.29 L 80.64,67.5 36,67.5 Z" fill="url(#GR2a_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,88.29 L 80.64,67.5 36,67.5 Z" fill="url(#GR2a_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,88.29 L 80.64,67.5 36,67.5 Z" fill="url(#GR2a_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR2b_0" gradientUnits="userSpaceOnUse" x1="36" y1="67.5" x2="56.737692" y2="89.763843">
+       <stop offset="1" style="stop-color: #2b9e83; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f988b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2b_1" gradientUnits="userSpaceOnUse" x1="36" y1="109.08" x2="56.737692" y2="86.816157">
+       <stop offset="1" style="stop-color: #2b9e83; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #37b878; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2b_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="88.29" x2="36" y2="88.29">
+       <stop offset="1" style="stop-color: #2b9e83; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2d8a87; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,88.29 L 36,67.5 36,109.08 Z" fill="#2b9e83" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,88.29 L 36,67.5 36,109.08 Z" fill="url(#GR2b_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,88.29 L 36,67.5 36,109.08 Z" fill="url(#GR2b_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,88.29 L 36,67.5 36,109.08 Z" fill="url(#GR2b_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR2c_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="109.08" x2="101.377692" y2="86.816157">
+       <stop offset="1" style="stop-color: #25868c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #287d8e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2c_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="109.08" x2="104.542308" y2="86.816157">
+       <stop offset="1" style="stop-color: #25868c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f9a8a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2c_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="88.29" x2="102.96" y2="109.08">
+       <stop offset="1" style="stop-color: #25868c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2a7b8d; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,88.29 L 80.64,109.08 125.28,109.08 Z" fill="#25868c" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,88.29 L 80.64,109.08 125.28,109.08 Z" fill="url(#GR2c_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,88.29 L 80.64,109.08 125.28,109.08 Z" fill="url(#GR2c_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,88.29 L 80.64,109.08 125.28,109.08 Z" fill="url(#GR2c_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR2d_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="109.08" x2="104.542308" y2="86.816157">
+       <stop offset="1" style="stop-color: #26858c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f9a8a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2d_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="67.5" x2="104.542308" y2="89.763843">
+       <stop offset="1" style="stop-color: #26858c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2d_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="88.29" x2="125.28" y2="88.29">
+       <stop offset="1" style="stop-color: #26858c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2a7b8d; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,88.29 L 125.28,109.08 125.28,67.5 Z" fill="#26858c" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,88.29 L 125.28,109.08 125.28,67.5 Z" fill="url(#GR2d_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,88.29 L 125.28,109.08 125.28,67.5 Z" fill="url(#GR2d_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,88.29 L 125.28,109.08 125.28,67.5 Z" fill="url(#GR2d_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR2e_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="67.5" x2="104.542308" y2="89.763843">
+       <stop offset="1" style="stop-color: #2e6f8d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2e_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="67.5" x2="101.377692" y2="89.763843">
+       <stop offset="1" style="stop-color: #2e6f8d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2e_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="88.29" x2="102.96" y2="67.5">
+       <stop offset="1" style="stop-color: #2e6f8d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2a7b8d; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,88.29 L 125.28,67.5 80.64,67.5 Z" fill="#2e6f8d" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,88.29 L 125.28,67.5 80.64,67.5 Z" fill="url(#GR2e_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,88.29 L 125.28,67.5 80.64,67.5 Z" fill="url(#GR2e_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,88.29 L 125.28,67.5 80.64,67.5 Z" fill="url(#GR2e_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR2f_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="67.5" x2="101.377692" y2="89.763843">
+       <stop offset="1" style="stop-color: #2d718d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2f_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="109.08" x2="101.377692" y2="86.816157">
+       <stop offset="1" style="stop-color: #2d718d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #287d8e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR2f_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="88.29" x2="80.64" y2="88.29">
+       <stop offset="1" style="stop-color: #2d718d; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #2a7b8d; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,88.29 L 80.64,67.5 80.64,109.08 Z" fill="#2d718d" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,88.29 L 80.64,67.5 80.64,109.08 Z" fill="url(#GR2f_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,88.29 L 80.64,67.5 80.64,109.08 Z" fill="url(#GR2f_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,88.29 L 80.64,67.5 80.64,109.08 Z" fill="url(#GR2f_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR30_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="109.08" x2="146.017692" y2="86.816157">
+       <stop offset="1" style="stop-color: #60b762; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f9a8a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR30_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="109.08" x2="149.182308" y2="86.816157">
+       <stop offset="1" style="stop-color: #60b762; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #addc30; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR30_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="88.29" x2="147.6" y2="109.08">
+       <stop offset="1" style="stop-color: #60b762; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #53ae6c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,88.29 L 125.28,109.08 169.92,109.08 Z" fill="#60b762" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,88.29 L 125.28,109.08 169.92,109.08 Z" fill="url(#GR30_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,88.29 L 125.28,109.08 169.92,109.08 Z" fill="url(#GR30_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,88.29 L 125.28,109.08 169.92,109.08 Z" fill="url(#GR30_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR31_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="109.08" x2="149.182308" y2="86.816157">
+       <stop offset="1" style="stop-color: #73c656; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #addc30; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR31_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="67.5" x2="149.182308" y2="89.763843">
+       <stop offset="1" style="stop-color: #73c656; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR31_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="88.29" x2="169.92" y2="88.29">
+       <stop offset="1" style="stop-color: #73c656; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #53ae6c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,88.29 L 169.92,109.08 169.92,67.5 Z" fill="#73c656" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,88.29 L 169.92,109.08 169.92,67.5 Z" fill="url(#GR31_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,88.29 L 169.92,109.08 169.92,67.5 Z" fill="url(#GR31_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,88.29 L 169.92,109.08 169.92,67.5 Z" fill="url(#GR31_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR32_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="67.5" x2="149.182308" y2="89.763843">
+       <stop offset="1" style="stop-color: #47a575; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR32_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="67.5" x2="146.017692" y2="89.763843">
+       <stop offset="1" style="stop-color: #47a575; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR32_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="88.29" x2="147.6" y2="67.5">
+       <stop offset="1" style="stop-color: #47a575; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #53ae6c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,88.29 L 169.92,67.5 125.28,67.5 Z" fill="#47a575" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,88.29 L 169.92,67.5 125.28,67.5 Z" fill="url(#GR32_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,88.29 L 169.92,67.5 125.28,67.5 Z" fill="url(#GR32_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,88.29 L 169.92,67.5 125.28,67.5 Z" fill="url(#GR32_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR33_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="67.5" x2="146.017692" y2="89.763843">
+       <stop offset="1" style="stop-color: #349681; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR33_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="109.08" x2="146.017692" y2="86.816157">
+       <stop offset="1" style="stop-color: #349681; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f9a8a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR33_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="88.29" x2="125.28" y2="88.29">
+       <stop offset="1" style="stop-color: #349681; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #53ae6c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,88.29 L 125.28,67.5 125.28,109.08 Z" fill="#349681" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,88.29 L 125.28,67.5 125.28,109.08 Z" fill="url(#GR33_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,88.29 L 125.28,67.5 125.28,109.08 Z" fill="url(#GR33_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,88.29 L 125.28,67.5 125.28,109.08 Z" fill="url(#GR33_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR34_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="109.08" x2="190.657692" y2="86.816157">
+       <stop offset="1" style="stop-color: #c7df30; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #addc30; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR34_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="109.08" x2="193.822308" y2="86.816157">
+       <stop offset="1" style="stop-color: #c7df30; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #fde725; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR34_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="88.29" x2="192.24" y2="109.08">
+       <stop offset="1" style="stop-color: #c7df30; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #aad93c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,88.29 L 169.92,109.08 214.56,109.08 Z" fill="#c7df30" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,88.29 L 169.92,109.08 214.56,109.08 Z" fill="url(#GR34_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,88.29 L 169.92,109.08 214.56,109.08 Z" fill="url(#GR34_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,88.29 L 169.92,109.08 214.56,109.08 Z" fill="url(#GR34_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR35_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="109.08" x2="193.822308" y2="86.816157">
+       <stop offset="1" style="stop-color: #c4de32; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #fde725; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR35_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="67.5" x2="193.822308" y2="89.763843">
+       <stop offset="1" style="stop-color: #c4de32; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR35_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="88.29" x2="214.56" y2="88.29">
+       <stop offset="1" style="stop-color: #c4de32; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #aad93c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,88.29 L 214.56,109.08 214.56,67.5 Z" fill="#c4de32" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,88.29 L 214.56,109.08 214.56,67.5 Z" fill="url(#GR35_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,88.29 L 214.56,109.08 214.56,67.5 Z" fill="url(#GR35_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,88.29 L 214.56,109.08 214.56,67.5 Z" fill="url(#GR35_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR36_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="67.5" x2="193.822308" y2="89.763843">
+       <stop offset="1" style="stop-color: #8dd448; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR36_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="67.5" x2="190.657692" y2="89.763843">
+       <stop offset="1" style="stop-color: #8dd448; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR36_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="88.29" x2="192.24" y2="67.5">
+       <stop offset="1" style="stop-color: #8dd448; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #aad93c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,88.29 L 214.56,67.5 169.92,67.5 Z" fill="#8dd448" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,88.29 L 214.56,67.5 169.92,67.5 Z" fill="url(#GR36_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,88.29 L 214.56,67.5 169.92,67.5 Z" fill="url(#GR36_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,88.29 L 214.56,67.5 169.92,67.5 Z" fill="url(#GR36_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR37_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="67.5" x2="190.657692" y2="89.763843">
+       <stop offset="1" style="stop-color: #90d446; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR37_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="109.08" x2="190.657692" y2="86.816157">
+       <stop offset="1" style="stop-color: #90d446; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #addc30; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR37_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="88.29" x2="169.92" y2="88.29">
+       <stop offset="1" style="stop-color: #90d446; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #aad93c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,88.29 L 169.92,67.5 169.92,109.08 Z" fill="#90d446" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,88.29 L 169.92,67.5 169.92,109.08 Z" fill="url(#GR37_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,88.29 L 169.92,67.5 169.92,109.08 Z" fill="url(#GR37_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,88.29 L 169.92,67.5 169.92,109.08 Z" fill="url(#GR37_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR38_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="109.08" x2="235.297692" y2="86.816157">
+       <stop offset="1" style="stop-color: #a2d547; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #fde725; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR38_1" gradientUnits="userSpaceOnUse" x1="259.2" y1="109.08" x2="238.462308" y2="86.816157">
+       <stop offset="1" style="stop-color: #a2d547; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #5ec962; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR38_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="88.29" x2="236.88" y2="109.08">
+       <stop offset="1" style="stop-color: #a2d547; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #89ce4f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,88.29 L 214.56,109.08 259.2,109.08 Z" fill="#a2d547" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,88.29 L 214.56,109.08 259.2,109.08 Z" fill="url(#GR38_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,88.29 L 214.56,109.08 259.2,109.08 Z" fill="url(#GR38_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,88.29 L 214.56,109.08 259.2,109.08 Z" fill="url(#GR38_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR39_0" gradientUnits="userSpaceOnUse" x1="259.2" y1="109.08" x2="238.462308" y2="86.816157">
+       <stop offset="1" style="stop-color: #5ac166; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #5ec962; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR39_1" gradientUnits="userSpaceOnUse" x1="259.2" y1="67.5" x2="238.462308" y2="89.763843">
+       <stop offset="1" style="stop-color: #5ac166; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #25ac82; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR39_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="88.29" x2="259.2" y2="88.29">
+       <stop offset="1" style="stop-color: #5ac166; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #89ce4f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,88.29 L 259.2,109.08 259.2,67.5 Z" fill="#5ac166" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,88.29 L 259.2,109.08 259.2,67.5 Z" fill="url(#GR39_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,88.29 L 259.2,109.08 259.2,67.5 Z" fill="url(#GR39_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,88.29 L 259.2,109.08 259.2,67.5 Z" fill="url(#GR39_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR3a_0" gradientUnits="userSpaceOnUse" x1="259.2" y1="67.5" x2="238.462308" y2="89.763843">
+       <stop offset="1" style="stop-color: #71c758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #25ac82; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3a_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="67.5" x2="235.297692" y2="89.763843">
+       <stop offset="1" style="stop-color: #71c758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3a_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="88.29" x2="236.88" y2="67.5">
+       <stop offset="1" style="stop-color: #71c758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #89ce4f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,88.29 L 259.2,67.5 214.56,67.5 Z" fill="#71c758" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,88.29 L 259.2,67.5 214.56,67.5 Z" fill="url(#GR3a_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,88.29 L 259.2,67.5 214.56,67.5 Z" fill="url(#GR3a_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,88.29 L 259.2,67.5 214.56,67.5 Z" fill="url(#GR3a_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR3b_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="67.5" x2="235.297692" y2="89.763843">
+       <stop offset="1" style="stop-color: #b9db39; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3b_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="109.08" x2="235.297692" y2="86.816157">
+       <stop offset="1" style="stop-color: #b9db39; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #fde725; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3b_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="88.29" x2="214.56" y2="88.29">
+       <stop offset="1" style="stop-color: #b9db39; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #89ce4f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,88.29 L 214.56,67.5 214.56,109.08 Z" fill="#b9db39" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,88.29 L 214.56,67.5 214.56,109.08 Z" fill="url(#GR3b_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,88.29 L 214.56,67.5 214.56,109.08 Z" fill="url(#GR3b_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,88.29 L 214.56,67.5 214.56,109.08 Z" fill="url(#GR3b_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR3c_0" gradientUnits="userSpaceOnUse" x1="36" y1="67.5" x2="56.737692" y2="45.236157">
+       <stop offset="1" style="stop-color: #2e6c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f988b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3c_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="67.5" x2="59.902308" y2="45.236157">
+       <stop offset="1" style="stop-color: #2e6c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3c_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="46.71" x2="58.32" y2="67.5">
+       <stop offset="1" style="stop-color: #2e6c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #35517e; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,46.71 L 36,67.5 80.64,67.5 Z" fill="#2e6c87" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,46.71 L 36,67.5 80.64,67.5 Z" fill="url(#GR3c_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,46.71 L 36,67.5 80.64,67.5 Z" fill="url(#GR3c_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,46.71 L 36,67.5 80.64,67.5 Z" fill="url(#GR3c_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR3d_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="67.5" x2="59.902308" y2="45.236157">
+       <stop offset="1" style="stop-color: #3b3a75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3d_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="25.92" x2="59.902308" y2="48.183843">
+       <stop offset="1" style="stop-color: #3b3a75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #440154; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3d_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="46.71" x2="80.64" y2="46.71">
+       <stop offset="1" style="stop-color: #3b3a75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #35517e; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,46.71 L 80.64,67.5 80.64,25.92 Z" fill="#3b3a75" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,46.71 L 80.64,67.5 80.64,25.92 Z" fill="url(#GR3d_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,46.71 L 80.64,67.5 80.64,25.92 Z" fill="url(#GR3d_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,46.71 L 80.64,67.5 80.64,25.92 Z" fill="url(#GR3d_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR3e_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="25.92" x2="59.902308" y2="48.183843">
+       <stop offset="1" style="stop-color: #3c3774; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #440154; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3e_1" gradientUnits="userSpaceOnUse" x1="36" y1="25.92" x2="56.737692" y2="48.183843">
+       <stop offset="1" style="stop-color: #3c3774; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b518b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3e_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="46.71" x2="58.32" y2="25.92">
+       <stop offset="1" style="stop-color: #3c3774; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #35517e; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,46.71 L 80.64,25.92 36,25.92 Z" fill="#3c3774" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,46.71 L 80.64,25.92 36,25.92 Z" fill="url(#GR3e_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,46.71 L 80.64,25.92 36,25.92 Z" fill="url(#GR3e_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,46.71 L 80.64,25.92 36,25.92 Z" fill="url(#GR3e_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR3f_0" gradientUnits="userSpaceOnUse" x1="36" y1="25.92" x2="56.737692" y2="48.183843">
+       <stop offset="1" style="stop-color: #306986; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b518b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3f_1" gradientUnits="userSpaceOnUse" x1="36" y1="67.5" x2="56.737692" y2="45.236157">
+       <stop offset="1" style="stop-color: #306986; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #1f988b; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR3f_2" gradientUnits="userSpaceOnUse" x1="58.32" y1="46.71" x2="36" y2="46.71">
+       <stop offset="1" style="stop-color: #306986; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #35517e; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 58.32,46.71 L 36,25.92 36,67.5 Z" fill="#306986" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 58.32,46.71 L 36,25.92 36,67.5 Z" fill="url(#GR3f_0)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,46.71 L 36,25.92 36,67.5 Z" fill="url(#GR3f_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 58.32,46.71 L 36,25.92 36,67.5 Z" fill="url(#GR3f_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR40_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="67.5" x2="101.377692" y2="45.236157">
+       <stop offset="1" style="stop-color: #345c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR40_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="67.5" x2="104.542308" y2="45.236157">
+       <stop offset="1" style="stop-color: #345c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR40_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="46.71" x2="102.96" y2="67.5">
+       <stop offset="1" style="stop-color: #345c87; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b407a; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,46.71 L 80.64,67.5 125.28,67.5 Z" fill="#345c87" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,46.71 L 80.64,67.5 125.28,67.5 Z" fill="url(#GR40_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,46.71 L 80.64,67.5 125.28,67.5 Z" fill="url(#GR40_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,46.71 L 80.64,67.5 125.28,67.5 Z" fill="url(#GR40_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR41_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="67.5" x2="104.542308" y2="45.236157">
+       <stop offset="1" style="stop-color: #394c81; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR41_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="25.92" x2="104.542308" y2="48.183843">
+       <stop offset="1" style="stop-color: #394c81; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #472c7a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR41_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="46.71" x2="125.28" y2="46.71">
+       <stop offset="1" style="stop-color: #394c81; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b407a; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,46.71 L 125.28,67.5 125.28,25.92 Z" fill="#394c81" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,46.71 L 125.28,67.5 125.28,25.92 Z" fill="url(#GR41_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,46.71 L 125.28,67.5 125.28,25.92 Z" fill="url(#GR41_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,46.71 L 125.28,67.5 125.28,25.92 Z" fill="url(#GR41_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR42_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="25.92" x2="104.542308" y2="48.183843">
+       <stop offset="1" style="stop-color: #42246e; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #472c7a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR42_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="25.92" x2="101.377692" y2="48.183843">
+       <stop offset="1" style="stop-color: #42246e; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #440154; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR42_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="46.71" x2="102.96" y2="25.92">
+       <stop offset="1" style="stop-color: #42246e; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b407a; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,46.71 L 125.28,25.92 80.64,25.92 Z" fill="#42246e" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,46.71 L 125.28,25.92 80.64,25.92 Z" fill="url(#GR42_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,46.71 L 125.28,25.92 80.64,25.92 Z" fill="url(#GR42_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,46.71 L 125.28,25.92 80.64,25.92 Z" fill="url(#GR42_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR43_0" gradientUnits="userSpaceOnUse" x1="80.64" y1="25.92" x2="101.377692" y2="48.183843">
+       <stop offset="1" style="stop-color: #3d3474; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #440154; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR43_1" gradientUnits="userSpaceOnUse" x1="80.64" y1="67.5" x2="101.377692" y2="45.236157">
+       <stop offset="1" style="stop-color: #3d3474; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #375b8d; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR43_2" gradientUnits="userSpaceOnUse" x1="102.96" y1="46.71" x2="80.64" y2="46.71">
+       <stop offset="1" style="stop-color: #3d3474; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b407a; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 102.96,46.71 L 80.64,25.92 80.64,67.5 Z" fill="#3d3474" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 102.96,46.71 L 80.64,25.92 80.64,67.5 Z" fill="url(#GR43_0)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,46.71 L 80.64,25.92 80.64,67.5 Z" fill="url(#GR43_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 102.96,46.71 L 80.64,25.92 80.64,67.5 Z" fill="url(#GR43_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR44_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="67.5" x2="146.017692" y2="45.236157">
+       <stop offset="1" style="stop-color: #3f947c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR44_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="67.5" x2="149.182308" y2="45.236157">
+       <stop offset="1" style="stop-color: #3f947c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR44_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="46.71" x2="147.6" y2="67.5">
+       <stop offset="1" style="stop-color: #3f947c; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b7c7f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,46.71 L 125.28,67.5 169.92,67.5 Z" fill="#3f947c" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,46.71 L 125.28,67.5 169.92,67.5 Z" fill="url(#GR44_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,46.71 L 125.28,67.5 169.92,67.5 Z" fill="url(#GR44_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,46.71 L 125.28,67.5 169.92,67.5 Z" fill="url(#GR44_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR45_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="67.5" x2="149.182308" y2="45.236157">
+       <stop offset="1" style="stop-color: #3d997b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR45_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="25.92" x2="149.182308" y2="48.183843">
+       <stop offset="1" style="stop-color: #3d997b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #24868e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR45_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="46.71" x2="169.92" y2="46.71">
+       <stop offset="1" style="stop-color: #3d997b; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b7c7f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,46.71 L 169.92,67.5 169.92,25.92 Z" fill="#3d997b" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,46.71 L 169.92,67.5 169.92,25.92 Z" fill="url(#GR45_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,46.71 L 169.92,67.5 169.92,25.92 Z" fill="url(#GR45_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,46.71 L 169.92,67.5 169.92,25.92 Z" fill="url(#GR45_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR46_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="25.92" x2="149.182308" y2="48.183843">
+       <stop offset="1" style="stop-color: #386582; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #24868e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR46_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="25.92" x2="146.017692" y2="48.183843">
+       <stop offset="1" style="stop-color: #386582; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #472c7a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR46_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="46.71" x2="147.6" y2="25.92">
+       <stop offset="1" style="stop-color: #386582; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b7c7f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,46.71 L 169.92,25.92 125.28,25.92 Z" fill="#386582" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,46.71 L 169.92,25.92 125.28,25.92 Z" fill="url(#GR46_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,46.71 L 169.92,25.92 125.28,25.92 Z" fill="url(#GR46_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,46.71 L 169.92,25.92 125.28,25.92 Z" fill="url(#GR46_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR47_0" gradientUnits="userSpaceOnUse" x1="125.28" y1="25.92" x2="146.017692" y2="48.183843">
+       <stop offset="1" style="stop-color: #396083; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #472c7a; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR47_1" gradientUnits="userSpaceOnUse" x1="125.28" y1="67.5" x2="146.017692" y2="45.236157">
+       <stop offset="1" style="stop-color: #396083; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #29798e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR47_2" gradientUnits="userSpaceOnUse" x1="147.6" y1="46.71" x2="125.28" y2="46.71">
+       <stop offset="1" style="stop-color: #396083; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #3b7c7f; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 147.6,46.71 L 125.28,25.92 125.28,67.5 Z" fill="#396083" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 147.6,46.71 L 125.28,25.92 125.28,67.5 Z" fill="url(#GR47_0)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,46.71 L 125.28,25.92 125.28,67.5 Z" fill="url(#GR47_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 147.6,46.71 L 125.28,25.92 125.28,67.5 Z" fill="url(#GR47_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR48_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="67.5" x2="190.657692" y2="45.236157">
+       <stop offset="1" style="stop-color: #6fc758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR48_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="67.5" x2="193.822308" y2="45.236157">
+       <stop offset="1" style="stop-color: #6fc758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR48_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="46.71" x2="192.24" y2="67.5">
+       <stop offset="1" style="stop-color: #6fc758; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #50b36c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,46.71 L 169.92,67.5 214.56,67.5 Z" fill="#6fc758" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,46.71 L 169.92,67.5 214.56,67.5 Z" fill="url(#GR48_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,46.71 L 169.92,67.5 214.56,67.5 Z" fill="url(#GR48_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,46.71 L 169.92,67.5 214.56,67.5 Z" fill="url(#GR48_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR49_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="67.5" x2="193.822308" y2="45.236157">
+       <stop offset="1" style="stop-color: #5cbb63; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR49_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="25.92" x2="193.822308" y2="48.183843">
+       <stop offset="1" style="stop-color: #5cbb63; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #20a386; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR49_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="46.71" x2="214.56" y2="46.71">
+       <stop offset="1" style="stop-color: #5cbb63; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #50b36c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,46.71 L 214.56,67.5 214.56,25.92 Z" fill="#5cbb63" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,46.71 L 214.56,67.5 214.56,25.92 Z" fill="url(#GR49_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,46.71 L 214.56,67.5 214.56,25.92 Z" fill="url(#GR49_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,46.71 L 214.56,67.5 214.56,25.92 Z" fill="url(#GR49_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR4a_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="25.92" x2="193.822308" y2="48.183843">
+       <stop offset="1" style="stop-color: #319f80; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #20a386; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4a_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="25.92" x2="190.657692" y2="48.183843">
+       <stop offset="1" style="stop-color: #319f80; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #24868e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4a_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="46.71" x2="192.24" y2="25.92">
+       <stop offset="1" style="stop-color: #319f80; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #50b36c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,46.71 L 214.56,25.92 169.92,25.92 Z" fill="#319f80" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,46.71 L 214.56,25.92 169.92,25.92 Z" fill="url(#GR4a_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,46.71 L 214.56,25.92 169.92,25.92 Z" fill="url(#GR4a_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,46.71 L 214.56,25.92 169.92,25.92 Z" fill="url(#GR4a_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR4b_0" gradientUnits="userSpaceOnUse" x1="169.92" y1="25.92" x2="190.657692" y2="48.183843">
+       <stop offset="1" style="stop-color: #44ab75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #24868e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4b_1" gradientUnits="userSpaceOnUse" x1="169.92" y1="67.5" x2="190.657692" y2="45.236157">
+       <stop offset="1" style="stop-color: #44ab75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #58c765; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4b_2" gradientUnits="userSpaceOnUse" x1="192.24" y1="46.71" x2="169.92" y2="46.71">
+       <stop offset="1" style="stop-color: #44ab75; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #50b36c; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 192.24,46.71 L 169.92,25.92 169.92,67.5 Z" fill="#44ab75" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 192.24,46.71 L 169.92,25.92 169.92,67.5 Z" fill="url(#GR4b_0)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,46.71 L 169.92,25.92 169.92,67.5 Z" fill="url(#GR4b_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 192.24,46.71 L 169.92,25.92 169.92,67.5 Z" fill="url(#GR4b_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR4c_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="67.5" x2="235.297692" y2="45.236157">
+       <stop offset="1" style="stop-color: #5bb963; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4c_1" gradientUnits="userSpaceOnUse" x1="259.2" y1="67.5" x2="238.462308" y2="45.236157">
+       <stop offset="1" style="stop-color: #5bb963; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #25ac82; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4c_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="46.71" x2="236.88" y2="67.5">
+       <stop offset="1" style="stop-color: #5bb963; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #47a473; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,46.71 L 214.56,67.5 259.2,67.5 Z" fill="#5bb963" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,46.71 L 214.56,67.5 259.2,67.5 Z" fill="url(#GR4c_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,46.71 L 214.56,67.5 259.2,67.5 Z" fill="url(#GR4c_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,46.71 L 214.56,67.5 259.2,67.5 Z" fill="url(#GR4c_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR4d_0" gradientUnits="userSpaceOnUse" x1="259.2" y1="67.5" x2="238.462308" y2="45.236157">
+       <stop offset="1" style="stop-color: #349281; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #25ac82; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4d_1" gradientUnits="userSpaceOnUse" x1="259.2" y1="25.92" x2="238.462308" y2="48.183843">
+       <stop offset="1" style="stop-color: #349281; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #31678e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4d_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="46.71" x2="259.2" y2="46.71">
+       <stop offset="1" style="stop-color: #349281; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #47a473; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,46.71 L 259.2,67.5 259.2,25.92 Z" fill="#349281" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,46.71 L 259.2,67.5 259.2,25.92 Z" fill="url(#GR4d_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,46.71 L 259.2,67.5 259.2,25.92 Z" fill="url(#GR4d_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,46.71 L 259.2,67.5 259.2,25.92 Z" fill="url(#GR4d_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR4e_0" gradientUnits="userSpaceOnUse" x1="259.2" y1="25.92" x2="238.462308" y2="48.183843">
+       <stop offset="1" style="stop-color: #338f82; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #31678e; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4e_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="25.92" x2="235.297692" y2="48.183843">
+       <stop offset="1" style="stop-color: #338f82; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #20a386; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4e_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="46.71" x2="236.88" y2="25.92">
+       <stop offset="1" style="stop-color: #338f82; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #47a473; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,46.71 L 259.2,25.92 214.56,25.92 Z" fill="#338f82" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,46.71 L 259.2,25.92 214.56,25.92 Z" fill="url(#GR4e_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,46.71 L 259.2,25.92 214.56,25.92 Z" fill="url(#GR4e_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,46.71 L 259.2,25.92 214.56,25.92 Z" fill="url(#GR4e_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+     <defs>
+      <linearGradient id="GR4f_0" gradientUnits="userSpaceOnUse" x1="214.56" y1="25.92" x2="235.297692" y2="48.183843">
+       <stop offset="1" style="stop-color: #59b665; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #20a386; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4f_1" gradientUnits="userSpaceOnUse" x1="214.56" y1="67.5" x2="235.297692" y2="45.236157">
+       <stop offset="1" style="stop-color: #59b665; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #a5db36; stop-opacity: 0"/>
+      </linearGradient>
+      <linearGradient id="GR4f_2" gradientUnits="userSpaceOnUse" x1="236.88" y1="46.71" x2="214.56" y2="46.71">
+       <stop offset="1" style="stop-color: #59b665; stop-opacity: 1"/>
+       <stop offset="0" style="stop-color: #47a473; stop-opacity: 0"/>
+      </linearGradient>
+     </defs>
+     <path d="M 236.88,46.71 L 214.56,25.92 214.56,67.5 Z" fill="#59b665" fill-opacity="1" shape-rendering="crispEdges"/>
+     <g stroke="none" stroke-width="0" shape-rendering="crispEdges" filter="url(#colorMat)">
+      <path d="M 236.88,46.71 L 214.56,25.92 214.56,67.5 Z" fill="url(#GR4f_0)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,46.71 L 214.56,25.92 214.56,67.5 Z" fill="url(#GR4f_1)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+      <path d="M 236.88,46.71 L 214.56,25.92 214.56,67.5 Z" fill="url(#GR4f_2)" filter="url(#colorAdd)" shape-rendering="crispEdges"/>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="md57ead06d7" d="M 0 0 
+L 0 3.5 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#md57ead06d7" x="36" y="192.24" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <!-- −3 -->
+      <g transform="translate(28.628906 206.837656) scale(0.1 -0.1)">
+       <defs>
+        <path id="DejaVuSans-c9c" d="M 678 2272 
+L 4684 2272 
+L 4684 1741 
+L 678 1741 
+L 678 2272 
+z
+" transform="scale(0.015625)"/>
+        <path id="DejaVuSans-16" d="M 2597 2516 
+Q 3050 2419 3304 2112 
+Q 3559 1806 3559 1356 
+Q 3559 666 3084 287 
+Q 2609 -91 1734 -91 
+Q 1441 -91 1130 -33 
+Q 819 25 488 141 
+L 488 750 
+Q 750 597 1062 519 
+Q 1375 441 1716 441 
+Q 2309 441 2620 675 
+Q 2931 909 2931 1356 
+Q 2931 1769 2642 2001 
+Q 2353 2234 1838 2234 
+L 1294 2234 
+L 1294 2753 
+L 1863 2753 
+Q 2328 2753 2575 2939 
+Q 2822 3125 2822 3475 
+Q 2822 3834 2567 4026 
+Q 2313 4219 1838 4219 
+Q 1578 4219 1281 4162 
+Q 984 4106 628 3988 
+L 628 4550 
+Q 988 4650 1302 4700 
+Q 1616 4750 1894 4750 
+Q 2613 4750 3031 4423 
+Q 3450 4097 3450 3541 
+Q 3450 3153 3228 2886 
+Q 3006 2619 2597 2516 
+z
+" transform="scale(0.015625)"/>
+       </defs>
+       <use xlink:href="#DejaVuSans-c9c"/>
+       <use xlink:href="#DejaVuSans-16" transform="translate(83.796875 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#md57ead06d7" x="73.2" y="192.24" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <!-- −2 -->
+      <g transform="translate(65.828906 206.837656) scale(0.1 -0.1)">
+       <defs>
+        <path id="DejaVuSans-15" d="M 1228 531 
+L 3431 531 
+L 3431 0 
+L 469 0 
+L 469 531 
+Q 828 903 1448 1529 
+Q 2069 2156 2228 2338 
+Q 2531 2678 2651 2914 
+Q 2772 3150 2772 3378 
+Q 2772 3750 2511 3984 
+Q 2250 4219 1831 4219 
+Q 1534 4219 1204 4116 
+Q 875 4013 500 3803 
+L 500 4441 
+Q 881 4594 1212 4672 
+Q 1544 4750 1819 4750 
+Q 2544 4750 2975 4387 
+Q 3406 4025 3406 3419 
+Q 3406 3131 3298 2873 
+Q 3191 2616 2906 2266 
+Q 2828 2175 2409 1742 
+Q 1991 1309 1228 531 
+z
+" transform="scale(0.015625)"/>
+       </defs>
+       <use xlink:href="#DejaVuSans-c9c"/>
+       <use xlink:href="#DejaVuSans-15" transform="translate(83.796875 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#md57ead06d7" x="110.4" y="192.24" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <!-- −1 -->
+      <g transform="translate(103.028906 206.837656) scale(0.1 -0.1)">
+       <defs>
+        <path id="DejaVuSans-14" d="M 794 531 
+L 1825 531 
+L 1825 4091 
+L 703 3866 
+L 703 4441 
+L 1819 4666 
+L 2450 4666 
+L 2450 531 
+L 3481 531 
+L 3481 0 
+L 794 0 
+L 794 531 
+z
+" transform="scale(0.015625)"/>
+       </defs>
+       <use xlink:href="#DejaVuSans-c9c"/>
+       <use xlink:href="#DejaVuSans-14" transform="translate(83.796875 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#md57ead06d7" x="147.6" y="192.24" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <!-- 0 -->
+      <g transform="translate(144.41875 206.837656) scale(0.1 -0.1)">
+       <defs>
+        <path id="DejaVuSans-13" d="M 2034 4250 
+Q 1547 4250 1301 3770 
+Q 1056 3291 1056 2328 
+Q 1056 1369 1301 889 
+Q 1547 409 2034 409 
+Q 2525 409 2770 889 
+Q 3016 1369 3016 2328 
+Q 3016 3291 2770 3770 
+Q 2525 4250 2034 4250 
+z
+M 2034 4750 
+Q 2819 4750 3233 4129 
+Q 3647 3509 3647 2328 
+Q 3647 1150 3233 529 
+Q 2819 -91 2034 -91 
+Q 1250 -91 836 529 
+Q 422 1150 422 2328 
+Q 422 3509 836 4129 
+Q 1250 4750 2034 4750 
+z
+" transform="scale(0.015625)"/>
+       </defs>
+       <use xlink:href="#DejaVuSans-13"/>
+      </g>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#md57ead06d7" x="184.8" y="192.24" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <!-- 1 -->
+      <g transform="translate(181.61875 206.837656) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-14"/>
+      </g>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#md57ead06d7" x="222" y="192.24" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <!-- 2 -->
+      <g transform="translate(218.81875 206.837656) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-15"/>
+      </g>
+     </g>
+    </g>
+    <g id="xtick_7">
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#md57ead06d7" x="259.2" y="192.24" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <!-- 3 -->
+      <g transform="translate(256.01875 206.837656) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-16"/>
+      </g>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_8">
+      <defs>
+       <path id="mc12ed710c0" d="M 0 0 
+L -3.5 0 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="192.24" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <!-- −2.0 -->
+      <g transform="translate(4.717187 196.038828) scale(0.1 -0.1)">
+       <defs>
+        <path id="DejaVuSans-11" d="M 684 794 
+L 1344 794 
+L 1344 0 
+L 684 0 
+L 684 794 
+z
+" transform="scale(0.015625)"/>
+       </defs>
+       <use xlink:href="#DejaVuSans-c9c"/>
+       <use xlink:href="#DejaVuSans-15" transform="translate(83.796875 0)"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(147.421875 0)"/>
+       <use xlink:href="#DejaVuSans-13" transform="translate(179.203125 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="171.45" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <!-- −1.5 -->
+      <g transform="translate(4.717187 175.248828) scale(0.1 -0.1)">
+       <defs>
+        <path id="DejaVuSans-18" d="M 691 4666 
+L 3169 4666 
+L 3169 4134 
+L 1269 4134 
+L 1269 2991 
+Q 1406 3038 1543 3061 
+Q 1681 3084 1819 3084 
+Q 2600 3084 3056 2656 
+Q 3513 2228 3513 1497 
+Q 3513 744 3044 326 
+Q 2575 -91 1722 -91 
+Q 1428 -91 1123 -41 
+Q 819 9 494 109 
+L 494 744 
+Q 775 591 1075 516 
+Q 1375 441 1709 441 
+Q 2250 441 2565 725 
+Q 2881 1009 2881 1497 
+Q 2881 1984 2565 2268 
+Q 2250 2553 1709 2553 
+Q 1456 2553 1204 2497 
+Q 953 2441 691 2322 
+L 691 4666 
+z
+" transform="scale(0.015625)"/>
+       </defs>
+       <use xlink:href="#DejaVuSans-c9c"/>
+       <use xlink:href="#DejaVuSans-14" transform="translate(83.796875 0)"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(147.421875 0)"/>
+       <use xlink:href="#DejaVuSans-18" transform="translate(179.203125 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="150.66" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <!-- −1.0 -->
+      <g transform="translate(4.717187 154.458828) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-c9c"/>
+       <use xlink:href="#DejaVuSans-14" transform="translate(83.796875 0)"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(147.421875 0)"/>
+       <use xlink:href="#DejaVuSans-13" transform="translate(179.203125 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_11">
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="129.87" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <!-- −0.5 -->
+      <g transform="translate(4.717187 133.668828) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-c9c"/>
+       <use xlink:href="#DejaVuSans-13" transform="translate(83.796875 0)"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(147.421875 0)"/>
+       <use xlink:href="#DejaVuSans-18" transform="translate(179.203125 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="109.08" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_12">
+      <!-- 0.0 -->
+      <g transform="translate(13.096875 112.878828) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-13"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(63.625 0)"/>
+       <use xlink:href="#DejaVuSans-13" transform="translate(95.40625 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="88.29" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_13">
+      <!-- 0.5 -->
+      <g transform="translate(13.096875 92.088828) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-13"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(63.625 0)"/>
+       <use xlink:href="#DejaVuSans-18" transform="translate(95.40625 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="67.5" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <!-- 1.0 -->
+      <g transform="translate(13.096875 71.298828) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-14"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(63.625 0)"/>
+       <use xlink:href="#DejaVuSans-13" transform="translate(95.40625 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_15">
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="46.71" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_15">
+      <!-- 1.5 -->
+      <g transform="translate(13.096875 50.508828) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-14"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(63.625 0)"/>
+       <use xlink:href="#DejaVuSans-18" transform="translate(95.40625 0)"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#mc12ed710c0" x="36" y="25.92" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_16">
+      <!-- 2.0 -->
+      <g transform="translate(13.096875 29.718828) scale(0.1 -0.1)">
+       <use xlink:href="#DejaVuSans-15"/>
+       <use xlink:href="#DejaVuSans-11" transform="translate(63.625 0)"/>
+       <use xlink:href="#DejaVuSans-13" transform="translate(95.40625 0)"/>
+      </g>
+     </g>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 36 192.24 
+L 36 25.92 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 259.2 192.24 
+L 259.2 25.92 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 36 192.24 
+L 259.2 192.24 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 36 25.92 
+L 259.2 25.92 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="pe7502ab81e">
+   <rect x="36" y="25.92" width="223.2" height="166.32"/>
+  </clipPath>
+ </defs>
+</svg>

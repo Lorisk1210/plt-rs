@@ -3,21 +3,40 @@
 //! Artists in the `plt` crate describe what to draw through the
 //! [`Renderer`] trait, using a [`GraphicsContext`] for stroke and clipping
 //! state. Backends translate those calls into pixels or vector documents:
-//! [`RasterRenderer`] reproduces matplotlib's Agg backend pixel for pixel
-//! and writes PNG.
+//!
+//! * [`RasterRenderer`] reproduces matplotlib's Agg backend pixel for
+//!   pixel and writes PNG.
+//! * [`SvgRenderer`] writes the SVG documents of matplotlib's `RendererSVG`
+//!   (text as glyph paths).
+//! * [`PdfRenderer`] writes the PDF documents of matplotlib's
+//!   `RendererPdf` (text in Type 3 fonts).
+//! * [`PsRenderer`] writes the PostScript and EPS documents of
+//!   matplotlib's `RendererPS` (text in Type 3 fonts).
+//!
+//! The vector backends draw in points, rasterize images at their own
+//! resolution ([`Renderer::image_magnification`]) and share [`Metadata`]
+//! and [`VectorError`].
 #![forbid(unsafe_code)]
 
 mod collection;
 mod gc;
 mod image;
+mod pdf;
+mod ps;
 mod raster;
 mod renderer;
+mod svg;
+mod vector;
 
 pub use collection::{CollectionItem, PathCollection};
 pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sketch, SnapMode};
 pub use image::{ImageSizeError, RgbaImage};
+pub use pdf::{PdfOptions, PdfRenderer};
+pub use ps::{Orientation, Paper, PsOptions, PsRenderer};
 pub use raster::{RasterBackendError, RasterRenderer};
 pub use renderer::Renderer;
+pub use svg::{SvgOptions, SvgRenderer};
+pub use vector::{Metadata, Timestamp, VectorError, gzip};
 
 use plt_core::{Affine2D, Bbox};
 

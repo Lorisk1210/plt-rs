@@ -3,37 +3,20 @@
 use crate::artist::ArtistId;
 use crate::ticker::AxisName;
 
-/// Disjoint groups of axes that share their x or their y axis.
-///
-/// Sharing is permanent, as in matplotlib: groups only ever merge, and an
-/// axes leaves its group only when it is removed from the figure.
+/// Disjoint groups of axes (matplotlib's `cbook.Grouper`): joining only
+/// ever merges groups, and an axes leaves its group only when it is
+/// removed from the figure.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct ShareGroups {
-    x: Vec<Vec<ArtistId>>,
-    y: Vec<Vec<ArtistId>>,
+struct Grouper {
+    groups: Vec<Vec<ArtistId>>,
 }
 
-impl ShareGroups {
-    fn groups(&self, name: AxisName) -> &Vec<Vec<ArtistId>> {
-        match name {
-            AxisName::X => &self.x,
-            AxisName::Y => &self.y,
-        }
-    }
-
-    fn groups_mut(&mut self, name: AxisName) -> &mut Vec<Vec<ArtistId>> {
-        match name {
-            AxisName::X => &mut self.x,
-            AxisName::Y => &mut self.y,
-        }
-    }
-
-    /// Puts `a` and `b`, and everything already sharing with either, in
+impl Grouper {
+    /// Puts `a` and `b`, and everything already joined with either, in
     /// one group.
-    pub(crate) fn join(&mut self, name: AxisName, a: ArtistId, b: ArtistId) {
-        let groups = self.groups_mut(name);
+    fn join(&mut self, a: ArtistId, b: ArtistId) {
         let mut merged = Vec::new();
-        groups.retain(|group| {
+        self.groups.retain(|group| {
             let touches = group.contains(&a) || group.contains(&b);
             if touches {
                 merged.extend_from_slice(group);
@@ -45,12 +28,12 @@ impl ShareGroups {
                 merged.push(id);
             }
         }
-        groups.push(merged);
+        self.groups.push(merged);
     }
 
-    /// The axes sharing axis `name` with `axes`, `axes` included.
-    pub(crate) fn siblings(&self, name: AxisName, axes: ArtistId) -> Vec<ArtistId> {
-        self.groups(name)
+    /// The members of the group of `axes`, `axes` included.
+    fn siblings(&self, axes: ArtistId) -> Vec<ArtistId> {
+        self.groups
             .iter()
             .find(|group| group.contains(&axes))
             .cloned()
@@ -58,13 +41,59 @@ impl ShareGroups {
     }
 
     /// Forgets `axes`, dissolving groups left with a single member.
+    fn remove(&mut self, axes: ArtistId) {
+        for group in &mut self.groups {
+            group.retain(|&id| id != axes);
+        }
+        self.groups.retain(|group| group.len() > 1);
+    }
+}
+
+/// The axes sharing their x or their y axis (matplotlib's `_shared_axes`)
+/// and the axes twinned on top of each other (`_twinned_axes`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ShareGroups {
+    x: Grouper,
+    y: Grouper,
+    twins: Grouper,
+}
+
+impl ShareGroups {
+    fn axis(&mut self, name: AxisName) -> &mut Grouper {
+        match name {
+            AxisName::X => &mut self.x,
+            AxisName::Y => &mut self.y,
+        }
+    }
+
+    /// Makes `a` and `b`, and everything already sharing axis `name` with
+    /// either, share it.
+    pub(crate) fn join(&mut self, name: AxisName, a: ArtistId, b: ArtistId) {
+        self.axis(name).join(a, b);
+    }
+
+    /// The axes sharing axis `name` with `axes`, `axes` included.
+    pub(crate) fn siblings(&self, name: AxisName, axes: ArtistId) -> Vec<ArtistId> {
+        match name {
+            AxisName::X => self.x.siblings(axes),
+            AxisName::Y => self.y.siblings(axes),
+        }
+    }
+
+    /// Records that `twin` was made on top of `axes`.
+    pub(crate) fn join_twins(&mut self, axes: ArtistId, twin: ArtistId) {
+        self.twins.join(axes, twin);
+    }
+
+    /// The axes twinned with `axes`, `axes` included.
+    pub(crate) fn twins(&self, axes: ArtistId) -> Vec<ArtistId> {
+        self.twins.siblings(axes)
+    }
+
+    /// Forgets `axes`, dissolving groups left with a single member.
     pub(crate) fn remove(&mut self, axes: ArtistId) {
-        for name in [AxisName::X, AxisName::Y] {
-            let groups = self.groups_mut(name);
-            for group in groups.iter_mut() {
-                group.retain(|&id| id != axes);
-            }
-            groups.retain(|group| group.len() > 1);
+        for grouper in [&mut self.x, &mut self.y, &mut self.twins] {
+            grouper.remove(axes);
         }
     }
 }
@@ -108,5 +137,14 @@ mod tests {
         assert_eq!(groups.siblings(AxisName::Y, id[0]), [id[0], id[2]]);
         groups.remove(id[2]);
         assert_eq!(groups.siblings(AxisName::Y, id[0]), [id[0]]);
+    }
+
+    #[test]
+    fn twins_are_grouped_apart_from_shares() {
+        let id = ids(2);
+        let mut groups = ShareGroups::default();
+        groups.join_twins(id[0], id[1]);
+        assert_eq!(groups.twins(id[1]), [id[0], id[1]]);
+        assert_eq!(groups.siblings(AxisName::X, id[0]), [id[0]]);
     }
 }

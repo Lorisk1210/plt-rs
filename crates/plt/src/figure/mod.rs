@@ -3,6 +3,7 @@
 mod artists;
 mod frame;
 mod mosaic;
+mod print;
 mod save;
 mod state;
 mod subfigure;
@@ -19,6 +20,7 @@ use plt_render::Renderer;
 
 pub(crate) use frame::FigureFrame;
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
+pub use print::{BboxInches, SaveOptions};
 pub use save::SaveError;
 pub(crate) use state::FigureState;
 pub use subfigure::SubfigureOptions;
@@ -174,6 +176,11 @@ impl Figure {
     /// The background colour.
     pub fn facecolor(&self) -> Rgba {
         self.root.with::<FigureFrame, _>(|frame| frame.facecolor)
+    }
+
+    /// The colour of the frame around the canvas.
+    pub fn edgecolor(&self) -> Rgba {
+        self.root.with::<FigureFrame, _>(|frame| frame.edgecolor)
     }
 
     /// The margins and spacing of subplot grids.

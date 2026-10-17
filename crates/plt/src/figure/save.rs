@@ -46,7 +46,16 @@ impl Figure {
     /// `path.simplify` settings — ready to be drawn into.
     pub fn raster_canvas(&self) -> Result<RasterRenderer, SaveError> {
         let (width, height) = self.size_inches();
-        let dpi = self.dpi();
+        Self::raster_canvas_sized(width, height, self.dpi())
+    }
+
+    /// A raster canvas of `width × height` inches at `dpi` with the
+    /// current `path.simplify` settings.
+    pub(crate) fn raster_canvas_sized(
+        width: f64,
+        height: f64,
+        dpi: f64,
+    ) -> Result<RasterRenderer, SaveError> {
         let rc = crate::rc::params();
         let simplify = SimplifySettings {
             enabled: rc.path_simplify,

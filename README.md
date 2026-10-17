@@ -35,16 +35,25 @@ plt::show()?;
 * **Plots**: lines and markers, scatter, bars and histograms, error bars,
   fills, stems, event plots, stack plots, box and violin plots, pies,
   spectral plots, images (`imshow`, `pcolormesh`, `hexbin`, ...), contours
-  and triangulations, quiver/barbs/streamplot, polar axes, 3-D axes
-  (surfaces, wireframes, 3-D scatter and bars, voxels), annotations, fancy
-  boxes and arrows, path effects, tables, colorbars.
+  and triangulations, quiver/barbs/streamplot, Sankey diagrams, polar and
+  geographic axes (Aitoff, Hammer, Lambert, Mollweide), 3-D axes (surfaces,
+  wireframes, 3-D scatter and bars, voxels), annotations, fancy boxes and
+  arrows, path effects, tables, legends, colorbars.
+* **Text**: TrueType fonts with OpenType shaping, right-to-left and
+  Arabic text, and mathtext.
 * **Axes and layout**: scales, tickers and formatters, dates and
   categories, shared and twin axes, secondary axes, aspect handling,
-  subplot grids, mosaics, subfigures, constrained layout, insets.
+  subplot grids, mosaics, subfigures, constrained and tight layout,
+  aligned labels, insets, `axes_grid1` and `axisartist`.
 * **Interactive**: figure windows with a toolbar (home/back/forward,
-  pan, zoom-to-rectangle, wheel zoom, save), matplotlib's keyboard
-  shortcuts, a live coordinate readout, figure events (`connect`),
-  timers and `FuncAnimation` (saved as animated PNG).
+  pan, zoom-to-rectangle, wheel zoom, subplot configuration, save),
+  matplotlib's keyboard shortcuts, a live coordinate readout, figure
+  events (`connect`), timers and `FuncAnimation` (saved as animated PNG);
+  pyplot's interactive mode with `pause`, `ginput` and
+  `waitforbuttonpress`.
+* **Widgets**: buttons, sliders and range sliders, check and radio
+  buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
+  lasso and polygon selectors.
 
 ## Crates
 
@@ -68,6 +77,7 @@ plt::show()?;
 cargo build --workspace
 cargo test --workspace
 cargo run -p plt --example figure_window        # needs an X server
+cargo run -p plt --example widgets              # sliders and a span selector
 ```
 
 The conformance spec in `spec/` was run against matplotlib 3.11 to

@@ -47,6 +47,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::DATES,
         misc::SPECTRAL,
         misc::UNITS,
+        misc::WIDGETS,
         mplot3d::CONTOURS,
         mplot3d::OBJECTS,
         mplot3d::SCATTER,

@@ -26,6 +26,15 @@ pub fn axes_at(figure: &Figure, at: Point) -> Option<Axes> {
         })
 }
 
+impl Axes {
+    /// Whether display point `at` (pixels from the figure's bottom-left
+    /// corner) is over the axes background: its box, or the wedge of polar
+    /// axes (matplotlib's `contains_point`).
+    pub fn contains_point(&self, at: Point) -> bool {
+        contains(self, at)
+    }
+}
+
 /// Whether the background of `ax` contains display point `at`
 /// (matplotlib's `in_axes`): its box, or the wedge of polar axes.
 pub(super) fn contains(ax: &Axes, at: Point) -> bool {

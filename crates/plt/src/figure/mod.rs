@@ -362,6 +362,49 @@ impl Figure {
         state.prepare();
     }
 
+    /// The root figure owning `state`.
+    pub(crate) fn root_of(state: &Rc<RefCell<FigureState>>) -> Self {
+        let root = state.borrow().root;
+        Self {
+            state: Rc::clone(state),
+            root: RawHandle::new(Rc::clone(state), root),
+        }
+    }
+
+    /// Sends every mouse event to `ax` until [`Figure::release_mouse`]:
+    /// their axes and data coordinates are those of `ax` wherever the
+    /// pointer is (matplotlib's `canvas.grab_mouse`).
+    pub fn grab_mouse(&self, ax: &Axes) {
+        self.state.borrow_mut().mouse_grabber = Some(ax.id());
+    }
+
+    /// Ends a [`Figure::grab_mouse`] by `ax` (matplotlib's
+    /// `canvas.release_mouse`).
+    pub fn release_mouse(&self, ax: &Axes) {
+        let mut state = self.state.borrow_mut();
+        if state.mouse_grabber == Some(ax.id()) {
+            state.mouse_grabber = None;
+        }
+    }
+
+    /// The axes grabbing the mouse, if any.
+    pub fn mouse_grabber(&self) -> Option<Axes> {
+        let id = self.state.borrow().mouse_grabber?;
+        self.axes().into_iter().find(|ax| ax.id() == id)
+    }
+
+    /// Makes a widget receive key presses without the window acting on its
+    /// keyboard shortcuts, or gives them back (matplotlib's text boxes
+    /// clear the `keymap.*` rcParams while typing).
+    pub fn set_capture_keys(&self, capture: bool) {
+        self.state.borrow_mut().capture_keys = capture;
+    }
+
+    /// Whether key presses are captured by a widget.
+    pub fn captures_keys(&self) -> bool {
+        self.state.borrow().capture_keys
+    }
+
     /// Whether `artist` belongs to this figure (or one of its
     /// subfigures).
     pub fn contains_artist(&self, artist: &impl ArtistHandle) -> bool {

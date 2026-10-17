@@ -139,6 +139,9 @@ pub struct ScatterOptions {
     /// Draw points whose mapped value is not finite in the colormap's
     /// "bad" colour instead of omitting them.
     pub plot_nonfinite: bool,
+    /// Coordinates of the points (matplotlib's `transform=`); data by
+    /// default. Points in other coordinates do not count for autoscaling.
+    pub offset_transform: Option<Transform>,
 }
 
 impl Axes {
@@ -225,9 +228,15 @@ impl Axes {
         let base = collection.base_mut();
         base.alpha = options.alpha;
         base.transform = Some(Transform::Display);
-        collection.offset_transform = Some(self.trans_data());
-        // Marker shapes live in screen space: only the offsets bound the data.
-        let update = DataUpdate::data(collection.offsets.clone());
+        // Marker shapes live in screen space: only the offsets bound the
+        // data, and only when they are in data coordinates.
+        let update = if let Some(transform) = options.offset_transform {
+            collection.offset_transform = Some(transform);
+            DataUpdate::data(Vec::new())
+        } else {
+            collection.offset_transform = Some(self.trans_data());
+            DataUpdate::data(collection.offsets.clone())
+        };
         let handle = Collection::from_raw(self.adopt(collection, &update));
         if let Some(mapping) = mapping {
             handle.set_mapping(mapping);

@@ -35,8 +35,12 @@ fn data_at(ax: &Axes, x: f64, y: f64) -> (Option<f64>, Option<f64>) {
 }
 
 /// `(x, y)` with the axes under it and the data coordinates there.
+/// The axes is the one grabbing the mouse, if any.
 fn locate(figure: &Figure, x: f64, y: f64) -> Location {
-    location_in(axes_at(figure, Point::new(x, y)), x, y)
+    let inaxes = figure
+        .mouse_grabber()
+        .or_else(|| axes_at(figure, Point::new(x, y)));
+    location_in(inaxes, x, y)
 }
 
 fn location_in(inaxes: Option<Axes>, x: f64, y: f64) -> Location {

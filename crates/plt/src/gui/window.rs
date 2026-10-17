@@ -355,6 +355,9 @@ impl FigureWindow {
             return Ok(true);
         }
         self.events.key_press(&self.figure, &name, at.x, at.y);
+        if self.figure.captures_keys() {
+            return Ok(true);
+        }
         let rc = crate::rc::params();
         let Some(action) = keys::action(&name, &rc) else {
             return Ok(true);

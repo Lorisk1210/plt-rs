@@ -246,9 +246,10 @@ impl AxesState {
         (axis.forward(v0.min(v1)), axis.forward(v0.max(v1)))
     }
 
-    /// matplotlib's `get_data_ratio` (always 1 for polar axes).
+    /// matplotlib's `get_data_ratio` (always 1 for polar and geographic
+    /// axes).
     pub(crate) fn data_ratio(&self) -> f64 {
-        if self.polar().is_some() {
+        if !self.projection.is_rectilinear() {
             return 1.0;
         }
         let (x0, x1) = self.scaled_bound(AxisName::X);

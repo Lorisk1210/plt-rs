@@ -99,7 +99,7 @@ def _axes_facts(ax: Any) -> dict[str, Any]:
         "position": list(ax.get_position().bounds),
         "title": ax.get_title(),
     }
-    if ax.name in ("rectilinear", "polar"):
+    if ax.name in ("rectilinear", "polar", "aitoff", "hammer", "lambert", "mollweide"):
         facts["xlim"] = list(ax.get_xlim())
         facts["ylim"] = list(ax.get_ylim())
         facts["xscale"] = ax.get_xscale()

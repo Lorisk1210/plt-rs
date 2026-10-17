@@ -14,12 +14,12 @@ use super::ticks::TickStyle;
 use crate::artist::{Artist, ArtistId, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
-use crate::polar;
 use crate::rc::RcParams;
 use crate::spines::{SpineArtist, SpineSide};
 use crate::text::{LaidOutText, lay_out};
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
+use crate::{geo, polar};
 
 /// Distance between tick labels and the offset text, in points
 /// (matplotlib's `Axis.OFFSETTEXTPAD`).
@@ -166,8 +166,12 @@ impl<'a> AxisPainter<'a> {
     }
 
     /// The coordinate system of gridlines: data along the axis, axes
-    /// fractions across it (matplotlib's `get_xaxis_transform('grid')`).
+    /// fractions (or, on geographic axes, fractions of the gridline)
+    /// across it (matplotlib's `get_xaxis_transform('grid')`).
     pub(super) fn grid_transform(&self) -> Transform {
+        if let Some(geo) = self.axes.geo() {
+            return geo::tick_transform(self.axes_id, geo, self.name);
+        }
         let data = Transform::Data(self.axes_id);
         let across = Transform::Axes(self.axes_id);
         match self.name {
@@ -205,6 +209,11 @@ impl<'a> AxisPainter<'a> {
                 first_side,
             )?;
             (anchor, align, RotationMode::Anchor)
+        } else if let Some(geo) = self.axes.geo() {
+            let display = layout.axes_extent(self.axes_id)?;
+            let (anchor, align) =
+                geo::tick_label_anchor(geo, &display, self.name, tick.loc, first_side);
+            (anchor, align, style.label_rotation_mode)
         } else {
             let (anchor, align) = self.cartesian_label_anchor(layout, tick, style, first_side)?;
             (anchor, align, style.label_rotation_mode)
@@ -411,10 +420,10 @@ impl<'a> AxisPainter<'a> {
         ))
     }
 
-    /// The spine on `side`, if the axes has one (polar spines do not
-    /// frame the axes sides).
+    /// The spine on `side`, if the axes has one (the spines of curved
+    /// projections do not frame the axes sides).
     fn spine<'c>(&self, layout: LayoutContext<'c>, side: SpineSide) -> Option<&'c SpineArtist> {
-        if self.axes.polar().is_some() {
+        if !self.axes.projection.is_rectilinear() {
             return None;
         }
         let index = SpineSide::ALL.iter().position(|s| *s == side)?;

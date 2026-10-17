@@ -163,10 +163,13 @@ impl FigureState {
     }
 
     /// The display outline of `axes` when its patch is not a rectangle
-    /// (the wedge of polar axes); `None` otherwise.
+    /// (the wedge of polar axes, the ellipse of geographic axes); `None`
+    /// otherwise.
     pub(crate) fn axes_outline(&self, axes: ArtistId) -> Option<ClipPath> {
         let state = self.store.get_as::<AxesState>(axes)?;
-        state.polar()?;
+        if state.projection.is_rectilinear() {
+            return None;
+        }
         Some(ClipPath {
             path: state.patch_path(),
             transform: unit_to_bbox(&self.axes_bbox(axes)?),

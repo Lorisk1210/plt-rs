@@ -54,16 +54,18 @@ impl FigureState {
         name: AxisName,
         scale: &Rc<dyn Scale>,
     ) {
-        let theta = self
-            .axes_state(axes)
-            .is_some_and(|state| state.axis(name).role == AxisRole::Theta);
-        if theta && scale.name() != "linear" {
+        let linear_only = self.axes_state(axes).and_then(|state| {
+            if state.geo().is_some() {
+                Some("the axes of geographic projections")
+            } else {
+                (state.axis(name).role == AxisRole::Theta)
+                    .then_some("the angular axis of polar axes")
+            }
+        });
+        if let Some(axis) = linear_only.filter(|_| scale.name() != "linear") {
             self.pending_errors.push(DrawError {
                 artist: axes,
-                message: format!(
-                    "the angular axis of polar axes must stay linear, not {:?}",
-                    scale.name()
-                ),
+                message: format!("{axis} must stay linear, not {:?}", scale.name()),
             });
             return;
         }
@@ -175,7 +177,8 @@ impl FigureState {
     /// Sets the view limits of axis `name` of `axes` (matplotlib's
     /// `Axis._set_lim`): validates them, marks the axis and its siblings
     /// as autoscaled, switches autoscaling to `auto` when given and, with
-    /// `emit`, applies the same limits to every sibling.
+    /// `emit`, applies the same limits to every sibling. The fixed limits
+    /// of geographic axes refuse to change (matplotlib raises).
     pub(crate) fn set_axis_limits(
         &mut self,
         axes: ArtistId,
@@ -184,6 +187,15 @@ impl FigureState {
         auto: Option<bool>,
         emit: bool,
     ) {
+        if let Some(state) = self.axes_state(axes).filter(|state| state.geo().is_some()) {
+            if state.view_interval(name) != (v0, v1) {
+                self.pending_errors.push(DrawError {
+                    artist: axes,
+                    message: "changing the limits of geographic axes is not supported".into(),
+                });
+            }
+            return;
+        }
         let Some(state) = self.axes_state_mut(axes) else {
             return;
         };

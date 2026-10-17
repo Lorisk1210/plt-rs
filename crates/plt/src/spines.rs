@@ -10,11 +10,12 @@ use crate::artist::{
 };
 use crate::axes::AxesState;
 use crate::colors::Color;
+use crate::geo;
 use crate::patches::PatchStyle;
 use crate::polar::PolarView;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
-use crate::transforms::{ResolvedTransform, Transform};
+use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 
 /// Which edge of the axes a spine frames.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -232,6 +233,13 @@ impl SpineArtist {
         let axes = ctx.store().get_as::<AxesState>(axes_id)?;
         if let Some(polar) = axes.polar_view() {
             return self.polar_path(&polar, axes_id, ctx);
+        }
+        if axes.geo().is_some() {
+            // matplotlib's single circular `geo` spine around the map.
+            if self.side != geo::OUTLINE_SPINE {
+                return None;
+            }
+            return Some((geo::outline(), unit_to_bbox(&ctx.axes_extent(axes_id)?)));
         }
         let interval = self.bounds.unwrap_or(if self.side.is_vertical() {
             axes.view_lim.interval_y()

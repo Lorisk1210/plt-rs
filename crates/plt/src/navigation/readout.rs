@@ -66,6 +66,12 @@ pub(super) fn format_coord(ax: &Axes, at: Point) -> String {
     if ax.as_polar().is_some() {
         return polar_coord(ax, at).unwrap_or_default();
     }
+    if let Some(geo) = ax.as_geo() {
+        return data_transform(ax)
+            .and_then(|trans| trans.inverted())
+            .map(|inverse| inverse.transform_point(at))
+            .map_or_else(String::new, |p| geo.format_coord(p.x, p.y));
+    }
     let mut twins = ax.twins();
     twins.sort_by(|a, b| a.zorder().total_cmp(&b.zorder()));
     let pairs: Option<Vec<String>> = twins
@@ -184,6 +190,14 @@ mod tests {
         twin.set_ylim(0.0, 100.0);
         let text = format_coord(&ax, display(&ax, 2.5, 0.25));
         assert_eq!(text, "(x, y) = (2.50, 0.250) | (2.50, 25.0)");
+    }
+
+    #[test]
+    fn geographic_coordinates_in_hemispheres() {
+        let fig = Figure::new();
+        let geo = fig.geo_subplot(crate::geo::GeoProjection::Hammer);
+        let text = format_coord(&geo, display(&geo, -PI / 2.0, 0.5));
+        assert_eq!(text, "28.647890°N, 90.000000°W");
     }
 
     #[test]

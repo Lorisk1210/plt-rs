@@ -1,7 +1,8 @@
 //! Drawing an axis: gridlines, tick marks, tick labels, the axis label and
 //! the offset text (matplotlib's `Axis.draw` / `Tick.draw`). Polar axes
 //! draw their circular gridlines and rotated marks through
-//! [`crate::polar`].
+//! [`crate::polar`]; geographic axes draw theirs here, in the coordinates
+//! [`crate::geo`] gives them.
 
 use plt_core::{Affine2D, Path};
 use plt_render::{GraphicsContext, SnapMode};
@@ -81,9 +82,11 @@ impl AxisPainter<'_> {
             Ok(gc) => gc,
             Err(err) => return ctx.report(self.axes_id, err),
         };
-        // matplotlib clips gridlines to the axes patch, a rectangle, which
-        // Artist.set_clip_path turns into a clip box.
+        // matplotlib clips gridlines to the axes patch: a rectangle, which
+        // Artist.set_clip_path turns into a clip box, or the outline of a
+        // geographic map.
         gc.clip_rect = ctx.layout().clip_extent(self.axes_id);
+        gc.clip_path = ctx.layout().clip_outline(self.axes_id);
         let line = Path::polyline(vec![self.tick_point(loc, 0.0), self.tick_point(loc, 1.0)]);
         let (path, affine) = resolved.split_path(&line);
         if grid.linestyle.is_visible() {
@@ -104,7 +107,7 @@ impl AxisPainter<'_> {
         };
         let marker = MarkerStyle::new(symbol, FillStyle::Full).expect("tick markers are valid");
         let points = Path::polyline(vec![self.tick_point(loc, f64::from(u8::from(high)))]);
-        let (points, affine) = resolved.split_path(&points);
+        let (points, affine) = resolved.split_points(&points);
         TickMark {
             marker: &marker,
             transform: marker.transform(),

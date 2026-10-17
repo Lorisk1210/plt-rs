@@ -10,16 +10,15 @@ use plt_core::{Bbox, Point};
 
 use super::artist::{HandleRef, LegendArtist, LegendParent};
 use super::best::best_position;
-use super::handlers::Attach;
 use super::settings::Location;
 use super::{LegendError, LegendMode};
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawError, LayoutContext};
-use crate::collections::CollectionArtist;
 use crate::figure::FigureState;
-use crate::offsetbox::{OffsetBoxError, Placement, anchored_bbox};
+use crate::offsetbox::{
+    OffsetBoxError, Placement, anchored_bbox, apply_placements, transformed_bbox,
+};
 use crate::patches::{FancyBboxPatch, PatchArtist, PatchShape, PatchStyle, Shadow, ShadowError};
-use crate::text::TextArtist;
-use crate::transforms::{ResolvedTransform, Transform};
+use crate::transforms::Transform;
 
 /// Offset of the frame's shadow in points (matplotlib's `_shadow_props`).
 const SHADOW_OFFSET: (f64, f64) = (2.0, -2.0);
@@ -126,33 +125,6 @@ impl LegendArtist {
     }
 }
 
-/// The box around the corners of `bbox` mapped by `transform`, keeping its
-/// orientation (matplotlib's `TransformedBbox`).
-fn transformed_bbox(bbox: &Bbox, transform: &ResolvedTransform) -> Bbox {
-    let corners = [
-        Point::new(bbox.p0.x, bbox.p0.y),
-        Point::new(bbox.p1.x, bbox.p0.y),
-        Point::new(bbox.p0.x, bbox.p1.y),
-        Point::new(bbox.p1.x, bbox.p1.y),
-    ]
-    .map(|p| transform.transform_point(p));
-    let (mut x0, mut x1) = min_max(corners.iter().map(|p| p.x));
-    let (mut y0, mut y1) = min_max(corners.iter().map(|p| p.y));
-    if bbox.p0.x > bbox.p1.x {
-        (x0, x1) = (x1, x0);
-    }
-    if bbox.p0.y > bbox.p1.y {
-        (y0, y1) = (y1, y0);
-    }
-    Bbox::from_extents(x0, y0, x1, y1)
-}
-
-fn min_max(values: impl Iterator<Item = f64>) -> (f64, f64) {
-    values.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| {
-        (lo.min(v), hi.max(v))
-    })
-}
-
 /// Lays out every legend of the figure and moves its parts into place;
 /// legends that cannot be laid out are reported with the next draw.
 pub(crate) fn lay_out_legends(state: &mut FigureState) {
@@ -220,34 +192,6 @@ fn apply(
             patch.shape = outline;
         }
     }
-    for placement in layout.placements {
-        match placement {
-            Placement::Text { text, anchor } => {
-                if let Some(text) = store.get_as_mut::<TextArtist>(text) {
-                    text.position = anchor;
-                    text.base_mut().transform = Some(Transform::Display);
-                }
-            }
-            Placement::Area { artists, transform } => {
-                for handle in artists {
-                    let transform = Transform::Affine(transform);
-                    match handle.attach {
-                        Attach::Transform => {
-                            if let Some(artist) = store.get_mut(handle.id) {
-                                artist.base_mut().transform = Some(transform);
-                            }
-                        }
-                        Attach::Offsets => {
-                            if let Some(collection) =
-                                store.get_as_mut::<CollectionArtist>(handle.id)
-                            {
-                                collection.offset_transform = Some(transform);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    apply_placements(store, layout.placements);
     Ok(())
 }

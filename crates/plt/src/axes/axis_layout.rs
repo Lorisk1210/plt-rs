@@ -497,7 +497,13 @@ pub(crate) fn place_text(
     anchor: Point,
     rc: &RcParams,
 ) -> Result<PlacedText, String> {
-    let laid_out = lay_out(text, font, block, layout.dpi(), rc).map_err(|e| e.to_string())?;
+    let mut laid_out = lay_out(text, font, block, layout.dpi(), rc).map_err(|e| e.to_string())?;
+    // The axis texts are drawn through the rc path effects.
+    if !rc.path_effects.is_empty() {
+        laid_out = laid_out
+            .as_text_paths(font, rc.text_parse_math, layout.dpi(), rc)
+            .map_err(|e| e.to_string())?;
+    }
     let color = color.resolve().map_err(|e| e.to_string())?;
     Ok(PlacedText {
         laid_out,

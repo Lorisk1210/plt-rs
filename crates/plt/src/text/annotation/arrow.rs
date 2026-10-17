@@ -120,6 +120,10 @@ pub(crate) struct ArrowTarget {
     pub(crate) point: Point,
     /// The text's font size in points.
     pub(crate) fontsize: f64,
+    /// What one unit of mutation scale is worth, in points: 1 for
+    /// annotations; annotation boxes give the pixels per point, as
+    /// matplotlib scales their arrows by the resolution twice.
+    pub(crate) mutation_unit: f64,
     /// The region the arrow starts from (`patchA`).
     pub(crate) start_region: Option<ClipRegion>,
 }
@@ -194,7 +198,8 @@ impl AnnotationArrow {
                 relpos,
                 mutation_scale,
             } => {
-                spec.mutation_scale = mutation_scale.unwrap_or(target.fontsize);
+                spec.mutation_scale =
+                    mutation_scale.unwrap_or(target.fontsize) * target.mutation_unit;
                 relpos
             }
             Placement::Legacy {

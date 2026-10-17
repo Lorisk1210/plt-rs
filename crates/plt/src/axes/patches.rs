@@ -5,7 +5,7 @@ use super::lines::cycle_color;
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
-use crate::patches::{Patch, PatchArtist, PatchShape};
+use crate::patches::{FancyArrow, Patch, PatchArtist, PatchShape};
 
 impl Axes {
     /// Adds a patch in data coordinates, clipped to the axes, and extends
@@ -27,6 +27,29 @@ impl Axes {
             autoscale: (false, false),
         };
         Patch::from_raw(self.adopt(patch, &update))
+    }
+
+    /// Adds an arrow polygon in data coordinates, extends the data limits
+    /// to cover it and autoscales the view (matplotlib's `arrow`, whose
+    /// keyword arguments are the fields of [`FancyArrow`] plus patch
+    /// properties set through the returned handle).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::patches::FancyArrow;
+    /// let ax = Figure::new().subplot();
+    /// let arrow = ax.arrow(FancyArrow { head_width: Some(0.05), ..FancyArrow::new(0.0, 0.0, 0.5, 0.5) });
+    /// arrow.set_facecolor("k");
+    /// assert!(ax.xlim().1 > 0.5, "the view covers the head");
+    /// ```
+    pub fn arrow(&self, arrow: FancyArrow) -> Patch<FancyArrow> {
+        let patch = self.add_patch(arrow);
+        self.update_data(&DataUpdate {
+            points: Vec::new(),
+            update: (false, false),
+            autoscale: (true, true),
+        });
+        patch
     }
 
     /// The next colour of the patch property cycle (matplotlib's

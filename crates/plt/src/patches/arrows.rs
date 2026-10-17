@@ -120,14 +120,11 @@ impl FancyArrow {
             distance + head_length
         };
         let (hw, hl, hs, lw) = (head_width, head_length, self.overhang, self.width);
-        let mut shift = if self.length_includes_head {
-            0.0
-        } else {
-            head_length
-        };
-        if self.head_starts_at_zero {
-            shift += head_length / 2.0;
-        }
+        // Applied one after the other, as matplotlib shifts the vertices.
+        let shifts = [
+            (!self.length_includes_head).then_some(head_length),
+            self.head_starts_at_zero.then_some(head_length / 2.0),
+        ];
         let left: Vec<Point> = [
             (0.0, 0.0),
             (-hl, -hw / 2.0),
@@ -136,7 +133,7 @@ impl FancyArrow {
             (-length, 0.0),
         ]
         .into_iter()
-        .map(|(x, y)| Point::new(x + shift, y))
+        .map(|(x, y)| Point::new(shifts.iter().flatten().fold(x, |x, shift| x + shift), y))
         .collect();
         let mirrored = |p: &Point| Point::new(p.x, -p.y);
         let coords: Vec<Point> = match self.shape {

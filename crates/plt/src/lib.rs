@@ -36,14 +36,16 @@
 //!   the axes so that their decorations fit, and aligned labels.
 //! * [`inset`] — rectangles marking the area an inset axes enlarges.
 //! * [`axes_grid1`] / [`axisartist`] — axes placed by dividers with fixed
-//!   paddings, and axes drawn by axis artists (`mpl_toolkits`).
+//!   paddings, anchored scale bars and direction arrows, and axes drawn
+//!   by axis artists (`mpl_toolkits`).
 //! * [`mplot3d`] — 3-D axes: surfaces, wireframes, 3-D scatter, bars,
 //!   contours and more, projected through a camera.
 //! * [`legend`] / [`offsetbox`] / [`container`] — legends, the box
-//!   packers they are laid out with, and the artist groups of bar, error
+//!   packers they are laid out with (also anchored and annotation boxes
+//!   of texts, images and artists), and the artist groups of bar, error
 //!   bar and stem plots they list.
-//! * [`rc`] / [`style`] — runtime configuration and the bundled style
-//!   sheets.
+//! * [`rc`] / [`style`] — runtime configuration, the bundled style sheets
+//!   and the xkcd sketch style.
 #![forbid(unsafe_code)]
 
 pub mod animation;

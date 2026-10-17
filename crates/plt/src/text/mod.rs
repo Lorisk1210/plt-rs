@@ -31,13 +31,12 @@ use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 
-pub(crate) use annotation::AnnotationState;
 pub use annotation::{AnnotateOptions, Annotation, ArrowProps, FancyArrowProps, LegacyArrowProps};
+pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget};
 pub use error::TextDrawError;
-pub use handle::Text;
-pub use layout::{LaidOutText, measure_text};
+pub use handle::{Text, TextProps};
+pub use layout::{LaidOutText, measure_text, text_path};
 pub(crate) use layout::{lay_out, lay_out_with_math};
-pub(crate) use math::math_style;
 pub use plt_text::{
     BlockLayout, HAlign as HorizontalAlignment, LineMetrics, LinePlacement, LineSpacing,
     RotationMode as TextRotationMode, TextError, VAlign as VerticalAlignment,
@@ -240,11 +239,17 @@ impl TextArtist {
             bbox.draw(ctx, &self.base, &self.rc, &placement)
                 .map_err(TextDrawError::Box)?;
         }
-        let laid_out = self.layout_at(layout, anchor)?;
+        let mut laid_out = self.layout_at(layout, anchor)?;
+        if !self.base.path_effects.is_empty() {
+            laid_out =
+                laid_out.as_text_paths(&self.font, self.parse_math, layout.dpi(), &self.rc)?;
+        }
         let color = self.color.resolve_alpha(self.base.alpha)?;
         let mut gc = ctx.base_gc(&self.base);
         gc.foreground = color;
         gc.antialiased = self.antialiased;
+        // matplotlib never sketches glyphs, even as paths.
+        gc.sketch = None;
         let rotation = self.block_style().rotation;
         with_path_effects(ctx, &self.base.path_effects, |ctx| {
             draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);

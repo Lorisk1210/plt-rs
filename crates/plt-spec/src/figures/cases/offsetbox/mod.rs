@@ -1,0 +1,81 @@
+//! `figures/cases_offsetbox.py`: anchored and annotation boxes, the
+//! `axes_grid1` anchored artists, `Axes.arrow`, `Axes.ecdf`,
+//! `pyplot.figtext` and `pyplot.xkcd`.
+
+mod anchored;
+mod annotation;
+mod gaps;
+
+use plt::fonts::{FontProperties, FontSize};
+use plt::numeric::Grid;
+use plt::offsetbox::{BoxItem, OffsetBox, TextArea};
+use plt::prelude::*;
+use plt::text::TextProps;
+
+use crate::figures::FigureCase;
+
+/// Every case of the group.
+pub(crate) const CASES: &[FigureCase] = &[
+    FigureCase::new("offsetbox/anchored_text", anchored::anchored_text),
+    FigureCase::new("offsetbox/anchored_packers", anchored::anchored_packers),
+    FigureCase::new(
+        "offsetbox/padded_and_aux_boxes",
+        anchored::padded_and_aux_boxes,
+    ),
+    FigureCase::new("offsetbox/anchored_size_bar", anchored::anchored_size_bar),
+    FigureCase::new(
+        "offsetbox/anchored_direction_arrows",
+        anchored::anchored_direction_arrows,
+    ),
+    FigureCase::new(
+        "offsetbox/anchored_drawing_area_and_aux",
+        anchored::anchored_drawing_area_and_aux,
+    ),
+    FigureCase::new("offsetbox/annotation_bbox_text", annotation::text),
+    FigureCase::new("offsetbox/annotation_bbox_image", annotation::image),
+    FigureCase::new(
+        "offsetbox/annotation_bbox_drawing_area",
+        annotation::drawing_area,
+    ),
+    FigureCase::new("offsetbox/axes_arrow", gaps::axes_arrow),
+    FigureCase::new("offsetbox/ecdf", gaps::ecdf).sized(9.0, 3.5, 100.0),
+    FigureCase::new("offsetbox/figtext", gaps::figtext),
+    FigureCase::new("offsetbox/xkcd_bacon", gaps::xkcd_bacon).with_rc_setup(gaps::xkcd_default),
+    FigureCase::new("offsetbox/xkcd_ticks", gaps::xkcd_ticks).with_rc_setup(gaps::xkcd_strong),
+];
+
+/// `T = np.linspace(0, 10, 40)`.
+fn t() -> Vec<f64> {
+    linspace(0.0, 10.0, 40)
+}
+
+/// `T` mapped through `f`.
+fn of_t(f: impl Fn(f64) -> f64) -> Vec<f64> {
+    t().into_iter().map(f).collect()
+}
+
+/// The default font at `points` (matplotlib's `size=points` text
+/// property, or `FontProperties(size=points)`).
+fn sized(points: f64) -> FontProperties {
+    let rc = plt::rc::params();
+    FontProperties::from_rc(&rc).with_size(FontSize::Points(points), rc.font_size)
+}
+
+/// `TextArea(text, textprops=props)`.
+fn text_area(text: &str, props: TextProps) -> OffsetBox<BoxItem> {
+    TextArea::from_text(text, props).into()
+}
+
+/// `_gradient(rows, cols)`: `sin(x / 3) + cos(y / 4)` on the index grid.
+fn gradient(rows: usize, cols: usize) -> Grid<f64> {
+    Grid::from_fn(rows, cols, |r, c| {
+        (c as f64 / 3.0).sin() + (r as f64 / 4.0).cos()
+    })
+}
+
+/// `_unit_axes(fig)`: an axes over `(0, 1)²`.
+fn unit_axes(fig: &Figure) -> Axes {
+    let ax = fig.subplot();
+    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax
+}

@@ -11,7 +11,7 @@ use super::handle::Source;
 use super::handlers::{self, HandleArtists, HandleBox, HandlerContext};
 use super::labelcolor::{HandleView, label_colors};
 use super::settings::{Location, Placement, Settings};
-use super::{BboxToAnchor, LegendAlignment, LegendError, LegendMode, LegendOptions};
+use super::{LegendAlignment, LegendError, LegendMode, LegendOptions};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore};
 use crate::colors::Color;
 use crate::figure::FigureState;
@@ -77,7 +77,7 @@ impl Parts<'_> {
                 let text = self.insert(Box::new(text));
                 let boxes = (
                     OffsetBox::DrawingArea(drawing),
-                    OffsetBox::TextArea(TextArea::new(text, true)),
+                    OffsetBox::TextArea(TextArea::new(HandleRef::text(text), true)),
                 );
                 (text, boxes)
             })
@@ -125,7 +125,7 @@ pub(crate) fn build(
     let title = parts.insert(Box::new(title));
     let (texts, items) = parts.insert_entries(made, colors, &area);
     let parts = parts.ids;
-    let mut title_box = OffsetBox::TextArea(TextArea::new(title, false));
+    let mut title_box = OffsetBox::TextArea(TextArea::new(HandleRef::text(title), false));
     title_box.set_visible(has_title);
     let legend = LegendArtist {
         base: ArtistBase::with_zorder(LEGEND_ZORDER),
@@ -172,15 +172,11 @@ fn entry_colors(
 /// parent's fractions.
 fn anchor(options: &LegendOptions, parent: LegendParent) -> Option<(Bbox, Transform)> {
     options.bbox_to_anchor.map(|anchor| {
-        let bbox = match anchor {
-            BboxToAnchor::Point(x, y) => Bbox::from_bounds(x, y, 0.0, 0.0),
-            BboxToAnchor::Bounds(x, y, w, h) => Bbox::from_bounds(x, y, w, h),
-        };
         let transform = options
             .bbox_transform
             .clone()
             .unwrap_or_else(|| parent.fractions());
-        (bbox, transform)
+        (anchor.bbox(), transform)
     })
 }
 

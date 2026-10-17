@@ -20,6 +20,9 @@ pub use pixels::{PixelArtifacts, PixelReport, pixel_artifacts, pixel_report, ren
 /// What a case's build function may fail with.
 pub type CaseResult = Result<(), Box<dyn Error>>;
 
+/// Changes a case makes to the rcParams in code.
+pub type RcSetup = fn(&mut plt::rc::RcParams) -> CaseResult;
+
 /// A named figure recipe mirroring `@case("group/name")` in the Python spec.
 #[derive(Clone, Copy)]
 pub struct FigureCase {
@@ -34,6 +37,10 @@ pub struct FigureCase {
     pub style: Option<&'static str>,
     /// rcParams applied while building and drawing.
     pub rc: &'static [(&'static str, &'static str)],
+    /// Changes to the rcParams that have no rc-file text (a case `rc`
+    /// holding Python objects, such as `plt.xkcd()`'s path effects),
+    /// applied after the style sheet and before `rc`.
+    pub rc_setup: Option<RcSetup>,
     /// Populates the figure.
     pub build: fn(&Figure) -> CaseResult,
 }
@@ -55,7 +62,17 @@ impl FigureCase {
             dpi: 100.0,
             style: None,
             rc: &[],
+            rc_setup: None,
             build,
+        }
+    }
+
+    /// The same case with rcParams changed in code before its `rc`.
+    #[must_use]
+    pub const fn with_rc_setup(self, setup: RcSetup) -> Self {
+        Self {
+            rc_setup: Some(setup),
+            ..self
         }
     }
 
@@ -116,6 +133,9 @@ impl FigureCase {
                 plt::style::sheet(style)
                     .ok_or_else(|| plt::rc::RcError::UnknownStyle(style.to_owned()))?
                     .apply(&mut rc)?;
+            }
+            if let Some(setup) = self.rc_setup {
+                setup(&mut rc)?;
             }
             plt::rc::replace(rc);
             for (key, value) in self.rc {

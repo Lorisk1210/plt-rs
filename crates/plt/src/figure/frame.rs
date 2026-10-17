@@ -4,6 +4,7 @@ use plt_core::{Bbox, Path, Rgba};
 
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext};
 use crate::gridspec::{SubplotParams, SubplotSpec};
+use crate::patheffects::with_path_effects;
 use crate::transforms::unit_to_bbox;
 
 /// A rectangular region that owns axes and figure-level artists: the
@@ -83,12 +84,14 @@ impl Artist for FigureFrame {
             gc.foreground = self.edgecolor;
             // matplotlib draws the figure patch without anti-aliasing.
             gc.antialiased = false;
-            ctx.renderer().draw_path(
-                &gc,
-                &Path::unit_rectangle(),
-                &unit_to_bbox(&extent),
-                Some(self.facecolor),
-            );
+            with_path_effects(ctx, &self.base.path_effects, |ctx| {
+                ctx.renderer().draw_path(
+                    &gc,
+                    &Path::unit_rectangle(),
+                    &unit_to_bbox(&extent),
+                    Some(self.facecolor),
+                );
+            });
         }
         ctx.draw_children_sorted(&self.children);
     }

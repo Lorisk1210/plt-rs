@@ -1,6 +1,5 @@
 //! Showing images in an axes: `imshow` and `matshow`.
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use plt_core::Point;
@@ -9,8 +8,8 @@ use super::children::DataUpdate;
 use super::{Axes, AxesState, AxisName, TickPosition};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::image::{
-    AxesImage, AxesImageArtist, ColorizerOptions, Extent, ImageAlpha, ImageCore, ImageData,
-    ImageError, Interpolation, InterpolationStage, Origin, Resampling, rc_defaults, split_alpha,
+    AxesImage, AxesImageArtist, ColorizerOptions, CoreSettings, Extent, ImageAlpha, ImageCore,
+    ImageData, ImageError, Interpolation, InterpolationStage, Origin,
 };
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
@@ -72,36 +71,22 @@ impl Axes {
         options: ImshowOptions,
     ) -> Result<AxesImage, ImageError> {
         let rc = crate::rc::params();
-        let data = data.into().normalized();
-        let (interpolation, stage, origin) = rc_defaults(&rc);
-        let filterrad = options.filterrad.unwrap_or(4.0);
-        if filterrad.is_nan() || filterrad <= 0.0 {
-            return Err(ImageError::FilterRadius(filterrad));
-        }
-        let resampling = Resampling {
-            interpolation: options.interpolation.unwrap_or(interpolation),
+        let settings = CoreSettings {
+            colors: options.colors,
+            interpolation: options.interpolation,
+            stage: options.interpolation_stage,
+            origin: options.origin,
+            filternorm: options.filternorm,
+            filterrad: options.filterrad,
             resample: options.resample.unwrap_or(rc.image_resample),
-            filternorm: options.filternorm.unwrap_or(true),
-            filterrad,
-            origin: options.origin.unwrap_or(origin),
+            alpha: options.alpha,
         };
-        let mut mappable = options.colors.into_mappable(&rc)?;
-        if let Some(field) = data.scalars() {
-            mappable.norm_mut().autoscale_none(&field.masked_values());
-        }
+        let (core, uniform) = ImageCore::build(data, settings, &rc)?;
         self.set_aspect(options.aspect.unwrap_or(rc.image_aspect))?;
-        let (rows, cols) = data.shape();
+        let (rows, cols) = core.data.shape();
         let extent = options
             .extent
-            .unwrap_or_else(|| Extent::default_for(rows, cols, resampling.origin));
-        let (uniform, alpha_grid) = split_alpha(options.alpha);
-        let core = ImageCore {
-            data,
-            mappable: RefCell::new(mappable),
-            alpha_grid,
-            stage: options.interpolation_stage.unwrap_or(stage),
-            resampling,
-        };
+            .unwrap_or_else(|| Extent::default_for(rows, cols, core.resampling.origin));
         let mut artist = AxesImageArtist::new(core, extent);
         artist.base_mut().alpha = uniform;
         Ok(self.add_image(artist))

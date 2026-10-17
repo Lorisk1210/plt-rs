@@ -139,7 +139,7 @@ impl Text {
 }
 
 artist_properties! {
-    Text => TextArtist {
+    Text => TextArtist, TextProps {
         /// The string shown (lines separated by `\n`).
         text, set_text: String;
         /// Position in the text's coordinate system.

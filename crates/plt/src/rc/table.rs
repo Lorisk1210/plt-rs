@@ -13,6 +13,7 @@ use crate::colors::Color;
 use crate::fonts::{FontSize, FontStretch, FontWeight};
 use crate::lines::LineStyle;
 use crate::markers::Marker;
+use crate::patheffects::PathEffect;
 use plt_render::{CapStyle, JoinStyle};
 
 rc_params! {
@@ -637,7 +638,7 @@ rc_params! {
     /// `path.sketch`: May be None, or a tuple of the form:.
     path_sketch: Option<[f64; 3]> = "None" => "path.sketch";
     /// `path.effects`.
-    path_effects: Vec<String> = "" => "path.effects";
+    path_effects: Vec<PathEffect> = "" => "path.effects";
     /// `agg.path.chunksize`: 0 to disable; values in the range.
     agg_path_chunksize: i64 = "0" => "agg.path.chunksize";
     /// `keymap.fullscreen`: Toggling.

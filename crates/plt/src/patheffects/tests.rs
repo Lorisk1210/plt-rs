@@ -210,3 +210,14 @@ fn text_with_effects_is_drawn_as_one_outline() {
     };
     assert_eq!((*fill, *linewidth), (Some(Rgba::BLACK), 0.0));
 }
+
+#[test]
+fn rc_files_can_only_clear_the_path_effects() {
+    let mut rc = crate::rc::RcParams::matplotlib();
+    assert!(rc.set("path.effects", "[]").is_ok());
+    assert_eq!(rc.path_effects, Vec::new());
+    assert!(rc.set("path.effects", "withStroke").is_err());
+    rc.path_effects = vec![PathEffect::normal()];
+    let shown = rc.get("path.effects").expect("a parameter");
+    assert!(shown.contains("Normal"), "{shown}");
+}

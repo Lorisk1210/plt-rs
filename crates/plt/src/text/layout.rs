@@ -1,8 +1,9 @@
 //! Measuring and laying out the lines of a text block, with mathtext for
 //! the lines matplotlib treats as math.
 
+use plt_core::{Affine2D, Path, Point};
 use plt_text::{
-    BlockLayout, BlockStyle, LineMetrics, TextEngine, TextError, TextRun, layout_block,
+    BlockLayout, BlockStyle, LineMetrics, PlacedGlyph, TextEngine, TextError, TextRun, layout_block,
 };
 
 use super::math::{Line, math_style};
@@ -37,6 +38,110 @@ pub fn measure_text(
         Line::Plain(text.into())
     };
     line_run(&line, font, dpi, rc).map(|run| metrics(&run))
+}
+
+/// The size text paths are typeset at before scaling to their size
+/// (matplotlib's `TextToPath.FONT_SCALE`).
+const PATH_FONT_SCALE: f64 = 100.0;
+
+/// The resolution text paths are typeset at (`TextToPath.DPI`).
+const PATH_DPI: f64 = 72.0;
+
+/// The outline of one line of `text` with its baseline starting at `xy`,
+/// in the units of `xy` with the font `size` units tall (`None` = the
+/// font's size): typeset with `font` (as mathtext when it holds math and
+/// `text.parse_math` is on) at 100 points and 72 dpi, then scaled
+/// (matplotlib's `TextPath(xy, text, size, prop)`).
+///
+/// # Errors
+///
+/// When the math cannot be typeset or no font is found.
+pub fn text_path(
+    xy: Point,
+    text: &str,
+    size: Option<f64>,
+    font: &FontProperties,
+) -> Result<Path, TextError> {
+    let rc = crate::rc::params();
+    let mut typeset = font.clone();
+    typeset.size = PATH_FONT_SCALE;
+    let run = line_run(
+        &Line::classify(text, rc.text_parse_math),
+        &typeset,
+        PATH_DPI,
+        &rc,
+    )?;
+    let scale = size.unwrap_or(font.size) / PATH_FONT_SCALE;
+    Ok(run
+        .outline(TextEngine::global())
+        .transformed(&Affine2D::scaling(scale, scale).translate(xy.x, xy.y)))
+}
+
+impl LaidOutText {
+    /// The same text with the glyphs of each line placed as matplotlib
+    /// draws text through path effects (`RendererBase._draw_text_as_path`):
+    /// typeset by `TextToPath` at 100 points and 72 dpi, then scaled to
+    /// `font`'s size at `dpi`. The lines stay where they are; only the
+    /// glyph positions within them change, as advances and kerning round
+    /// differently at that size.
+    ///
+    /// # Errors
+    ///
+    /// When a line's math cannot be typeset.
+    pub(crate) fn as_text_paths(
+        &self,
+        font: &FontProperties,
+        parse_math: bool,
+        dpi: f64,
+        rc: &RcParams,
+    ) -> Result<Self, TextError> {
+        let mut typeset = font.clone();
+        typeset.size = PATH_FONT_SCALE;
+        let scale = font.size * dpi / 72.0 / PATH_FONT_SCALE;
+        let runs = self
+            .lines
+            .iter()
+            .zip(&self.runs)
+            .map(|(line, run)| {
+                if line.is_empty() {
+                    return Ok(run.clone());
+                }
+                let path_run = line_run(&Line::classify(line, parse_math), &typeset, PATH_DPI, rc)?;
+                Ok(scaled_run(&path_run, scale, dpi))
+            })
+            .collect::<Result<Vec<_>, TextError>>()?;
+        Ok(Self {
+            lines: self.lines.clone(),
+            block: self.block.clone(),
+            runs,
+        })
+    }
+}
+
+/// `run` (laid out at the text-path resolution) scaled by `scale` and
+/// expressed at `dpi`: positions, glyph sizes and rules grow by `scale`.
+fn scaled_run(run: &TextRun, scale: f64, dpi: f64) -> TextRun {
+    TextRun {
+        glyphs: run
+            .glyphs
+            .iter()
+            .map(|glyph| PlacedGlyph {
+                size: glyph.size * scale * PATH_DPI / dpi,
+                x: glyph.x * scale,
+                y: glyph.y * scale,
+                ..*glyph
+            })
+            .collect(),
+        rects: run
+            .rects
+            .iter()
+            .map(|rect| rect.transformed(&Affine2D::scaling(scale, scale)))
+            .collect(),
+        width: run.width * scale,
+        height: run.height * scale,
+        descent: run.descent * scale,
+        dpi,
+    }
 }
 
 /// The width, height and descent of a run.
@@ -149,5 +254,42 @@ mod tests {
         let dollars = measure_text("price $5", &font, false, 100.0, &rc).expect("plain");
         assert_eq!(laid_out.runs[1].width, dollars.width);
         assert!(laid_out.runs[2].is_empty());
+    }
+
+    #[test]
+    fn text_paths_scale_with_their_size_from_their_origin() {
+        let font = FontProperties::from_rc(&reference());
+        let small = text_path(Point::ORIGIN, "Ag", Some(1.0), &font).expect("plain text");
+        let large = text_path(Point::new(5.0, 2.0), "Ag", Some(3.0), &font).expect("plain text");
+        let (small, large) = (small.extents(), large.extents());
+        assert!(small.height() > 0.5 && small.height() < 1.5, "{small:?}");
+        assert!((large.width() - 3.0 * small.width()).abs() < 1e-9);
+        assert!((large.x0() - (5.0 + 3.0 * small.x0())).abs() < 1e-9);
+        assert!(small.y0() < 0.0, "the g descends below the baseline");
+        assert!(text_path(Point::ORIGIN, r"$\frac$", None, &font).is_err());
+    }
+
+    #[test]
+    fn text_path_runs_keep_the_lines_and_rescale_the_glyphs() {
+        let rc = reference();
+        let font = FontProperties::from_rc(&rc);
+        let laid_out =
+            lay_out("AVA\n\nWAV", &font, &BlockStyle::default(), 100.0, &rc).expect("valid text");
+        let paths = laid_out
+            .as_text_paths(&font, true, 100.0, &rc)
+            .expect("valid text");
+        assert_eq!(paths.block, laid_out.block);
+        assert!(paths.runs[1].is_empty());
+        for (path_run, run) in paths.runs.iter().zip(&laid_out.runs) {
+            assert_eq!(path_run.glyphs.len(), run.glyphs.len());
+            assert_eq!(path_run.dpi, 100.0);
+            for (path_glyph, glyph) in path_run.glyphs.iter().zip(&run.glyphs) {
+                assert!((path_glyph.size - glyph.size).abs() < 1e-9);
+                assert!(
+                    (path_glyph.x - glyph.x).abs() < 0.5,
+                    "only the rounding differs"
+                );
+            }
+        }
     }
 }

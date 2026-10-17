@@ -7,6 +7,8 @@
 //!   made by `imshow`, `matshow`, `spy` and `pcolorfast`.
 //! * [`FigureImage`] — an image placed in figure pixels by
 //!   [`Figure::figimage`](crate::figure::Figure::figimage).
+//! * [`BboxImageOptions`] — an image stretched over a box of the canvas,
+//!   as an [`OffsetImage`](crate::offsetbox::OffsetImage) draws it.
 //! * [`Interpolation`], [`InterpolationStage`], [`Origin`], [`Extent`] and
 //!   [`ImageAlpha`] — how images are oriented, placed and resampled.
 //!
@@ -15,6 +17,7 @@
 //! kernels (in data or colour space) and colour-mapped to 8-bit RGBA.
 
 mod artist;
+mod bbox_image;
 mod colorize;
 mod data;
 mod error;
@@ -26,12 +29,14 @@ mod resample;
 mod stages;
 
 pub use artist::AxesImage;
-pub(crate) use artist::{AxesImageArtist, split_alpha};
+pub(crate) use artist::AxesImageArtist;
+pub(crate) use bbox_image::BboxImageArtist;
+pub use bbox_image::BboxImageOptions;
 pub use colorize::ColorizerOptions;
 pub use data::{ImageData, ScalarField, ScalarKind};
 pub use error::ImageError;
 pub use figure_image::{FigimageOptions, FigureImage};
-pub(crate) use make::ImageCore;
+pub(crate) use make::{CoreSettings, ImageCore};
 pub use options::{Extent, ImageAlpha, Interpolation, InterpolationStage, Origin, UnknownName};
 pub use pcolor_image::PcolorImage;
 pub(crate) use pcolor_image::PcolorImageArtist;

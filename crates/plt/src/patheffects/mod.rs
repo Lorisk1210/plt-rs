@@ -28,6 +28,7 @@ pub use ticked::TickedStroke;
 
 use crate::artist::DrawContext;
 use crate::colors::{Color, ColorError};
+use crate::rc::RcValue;
 
 /// Changes an effect makes to the graphics state of the paths it draws
 /// (the keyword arguments matplotlib forwards to the graphics context).
@@ -341,6 +342,31 @@ impl Effect {
                 renderer.draw_path(&gc, path, &placed, None);
             }
             Self::TickedStroke(ticks) => ticks.draw_path(renderer, gc, path, affine, fill),
+        }
+    }
+}
+
+/// The `path.effects` rcParam: matplotlib's holds Python objects, so rc
+/// files can only give the empty list; effects are set on the parameters
+/// themselves (as `pyplot::xkcd` does).
+impl RcValue for Vec<PathEffect> {
+    fn parse_rc(text: &str) -> Result<Self, String> {
+        let inner = text
+            .strip_prefix('[')
+            .and_then(|t| t.strip_suffix(']'))
+            .unwrap_or(text);
+        if inner.trim().is_empty() {
+            Ok(Vec::new())
+        } else {
+            Err("path effects cannot be written as text".to_owned())
+        }
+    }
+
+    fn format_rc(&self) -> String {
+        if self.is_empty() {
+            String::new()
+        } else {
+            format!("{self:?}")
         }
     }
 }

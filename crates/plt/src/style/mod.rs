@@ -14,12 +14,19 @@
 //! # Ok::<(), plt::rc::RcError>(())
 //! ```
 //!
+//! [`apply_xkcd`] sets the parameters of matplotlib's xkcd sketch style;
+//! [`pyplot::xkcd`](crate::pyplot::xkcd) applies them for a scope.
+//!
 //! The sheets in `style/sheets/` are copied verbatim from matplotlib 3.11
 //! (`mpl-data/stylelib`), copyright the Matplotlib Development Team and
 //! distributed under the Matplotlib license; the comments of several
 //! sheets credit the projects their palettes come from (seaborn,
 //! fivethirtyeight, Tableau, Solarized, Petroff's accessible colour
 //! sequences, ...).
+
+mod xkcd;
+
+pub use xkcd::{XkcdError, XkcdSketch, apply_xkcd};
 
 use crate::rc::{RcEntry, RcError, RcParams, parse_rc_text};
 

@@ -158,6 +158,21 @@ pub fn axes_contains_point(layout: LayoutContext<'_>, axes: ArtistId, point: Poi
     })
 }
 
+/// Whether an annotation of the display point `point`, given in
+/// `xycoords`, is drawn: always, unless `annotation_clip` asks (or, unset,
+/// the point is in data coordinates) to draw it only while the point is
+/// inside `axes` (matplotlib's `_AnnotationBase._check_xy`).
+pub fn annotation_shown(
+    layout: LayoutContext<'_>,
+    annotation_clip: Option<bool>,
+    xycoords: &Coords,
+    axes: Option<ArtistId>,
+    point: Point,
+) -> bool {
+    let clip = annotation_clip.unwrap_or(*xycoords == Coords::Data);
+    !clip || axes.is_some_and(|axes| axes_contains_point(layout, axes, point))
+}
+
 /// The data transform of the frame's axes.
 fn data(frame: &CoordFrame<'_>) -> Result<ResolvedTransform, CoordError> {
     let axes = frame.axes.ok_or(CoordError::NoAxes)?;

@@ -68,6 +68,9 @@ pub(crate) struct AxesState {
     pub(crate) spines: Vec<ArtistId>,
     /// The left, centre and right titles once created.
     pub(crate) titles: Vec<ArtistId>,
+    /// Whether the titles are lifted above decorations on top
+    /// (matplotlib's `_autotitlepos`; off when `axes.titley` places them).
+    pub(crate) auto_title_position: bool,
     /// z-order of the axis artists (`axes.axisbelow`).
     pub(crate) axis_zorder: f64,
     /// The rc parameters the axes was created with.
@@ -143,6 +146,7 @@ impl AxesState {
             children: Vec::new(),
             spines: Vec::new(),
             titles: Vec::new(),
+            auto_title_position: rc.axes_titley.is_none(),
             axis_zorder: rc.axes_axisbelow.zorder(),
             rc,
         }

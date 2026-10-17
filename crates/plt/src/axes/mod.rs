@@ -50,6 +50,7 @@ mod tests;
 mod tick_config;
 mod ticks;
 mod tight_bbox;
+mod title_position;
 mod twins;
 mod view;
 mod violin;
@@ -194,6 +195,16 @@ impl Axes {
         let title = self.title_handle(location);
         title.set_text(text);
         title
+    }
+
+    /// Places the title at `location` at height `y` in axes fractions and
+    /// stops lifting this axes' titles above decorations on top
+    /// (matplotlib's `set_title(..., y=...)`).
+    pub fn set_title_y(&self, location: TitleLocation, y: f64) -> &Self {
+        self.title_handle(location).set_y(y);
+        self.raw
+            .with_mut::<AxesState, _>(|axes| axes.auto_title_position = false);
+        self
     }
 
     /// The title at `location` (empty when unset).

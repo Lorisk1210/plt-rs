@@ -12,20 +12,7 @@ use plt_spec::figures::{self, PixelReport};
 const MAX_RMS: f64 = 1.0;
 
 /// Cases exempt from [`MAX_RMS`] (still reported), with the reason.
-const KNOWN_GAPS: &[(&str, &str)] = &[
-    (
-        "contour/tripcolor_facecolors",
-        "Delaunay triangles come in a different order than qhull's (same triangles)",
-    ),
-    (
-        "contour/tripcolor_flat",
-        "Delaunay triangles come in a different order than qhull's, so edges overlap differently",
-    ),
-    (
-        "contour/triplot_masked",
-        "Delaunay triangles come in a different order than qhull's, so other triangles are masked",
-    ),
-];
+const KNOWN_GAPS: &[(&str, &str)] = &[];
 
 #[test]
 fn figure_cases_match_golden_pixels() {

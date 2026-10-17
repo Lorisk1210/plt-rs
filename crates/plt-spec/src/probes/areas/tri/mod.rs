@@ -17,6 +17,7 @@ use crate::probes::{Args, Op, Outcome, ProbeError};
 pub(crate) const OPS: &[Op] = &[
     Op::new("tri.Triangulation.delaunay", delaunay),
     Op::new("tri.Triangulation.delaunay_counts", delaunay_counts),
+    Op::new("tri.Triangulation.delaunay_order", delaunay_order),
     Op::new("tri.Triangulation.explicit", explicit),
     Op::new(
         "tri.Triangulation.calculate_plane_coefficients",
@@ -162,6 +163,27 @@ fn edges_json(tri: &Triangulation) -> Json {
     Json::Array(tri.edges().iter().map(|e| index_list(e)).collect())
 }
 
+/// Triangles as stored, in order.
+fn triangles_json(triangles: &[[usize; 3]]) -> Json {
+    Json::Array(triangles.iter().map(|t| triple_json(*t)).collect())
+}
+
+/// Neighbours as matplotlib stores them, in triangle order, `-1` for none.
+fn raw_neighbors_json(tri: &Triangulation) -> Json {
+    Json::Array(
+        tri.neighbors()
+            .iter()
+            .map(|nb| {
+                Json::Array(
+                    nb.iter()
+                        .map(|n| n.map_or(Json::Integer(-1), int))
+                        .collect(),
+                )
+            })
+            .collect(),
+    )
+}
+
 fn object<const N: usize>(entries: [(&str, Json); N]) -> Json {
     Json::Object(
         entries
@@ -203,24 +225,23 @@ fn delaunay_counts(args: Args<'_>) -> Outcome {
     ]))
 }
 
+/// The triangles and neighbours exactly as matplotlib's qhull wrapper
+/// orders them.
+fn delaunay_order(args: Args<'_>) -> Outcome {
+    let tri = Triangulation::delaunay(&floats(args, "x")?, &floats(args, "y")?)
+        .map_err(ProbeError::rejected)?;
+    Ok(object([
+        ("triangles", triangles_json(tri.triangles())),
+        ("neighbors", raw_neighbors_json(&tri)),
+    ]))
+}
+
 fn explicit(args: Args<'_>) -> Outcome {
     let (x, y) = (floats(args, "x")?, floats(args, "y")?);
     let (raw, indices) = parse_triangles(args.json("triangles")?)?;
     let mut tri = Triangulation::new(&x, &y, indices).map_err(ProbeError::rejected)?;
     tri.set_mask(parse_mask(args)?)
         .map_err(ProbeError::rejected)?;
-    let triples = |ts: &[[usize; 3]]| Json::Array(ts.iter().map(|t| triple_json(*t)).collect());
-    let neighbors = tri
-        .neighbors()
-        .iter()
-        .map(|nb| {
-            Json::Array(
-                nb.iter()
-                    .map(|n| n.map_or(Json::Integer(-1), int))
-                    .collect(),
-            )
-        })
-        .collect();
     Ok(object([
         (
             "triangles_input",
@@ -230,10 +251,10 @@ fn explicit(args: Args<'_>) -> Outcome {
                     .collect(),
             ),
         ),
-        ("triangles", triples(tri.triangles())),
-        ("masked_triangles", triples(&tri.masked_triangles())),
+        ("triangles", triangles_json(tri.triangles())),
+        ("masked_triangles", triangles_json(&tri.masked_triangles())),
         ("edges", edges_json(&tri)),
-        ("neighbors", Json::Array(neighbors)),
+        ("neighbors", raw_neighbors_json(&tri)),
         ("is_delaunay", Json::from(tri.is_delaunay())),
     ]))
 }

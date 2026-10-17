@@ -53,23 +53,22 @@ impl Triangulation {
 
     /// The Delaunay triangulation of the points.
     ///
-    /// Duplicate points are left out (only the first occurrence is used).
-    /// Fails for non-finite coordinates, fewer than three distinct points or
-    /// collinear points.
+    /// The triangles, their vertex order and their neighbours are exactly
+    /// matplotlib's (qhull's). Duplicate points are left out (one of each
+    /// set of duplicates is used). Fails for non-finite coordinates, fewer
+    /// than three distinct points or collinear points.
     pub fn delaunay(x: &[f64], y: &[f64]) -> Result<Self, TriError> {
         check_lengths(x, y)?;
         let points: Vec<Point> = x.iter().zip(y).map(|(&x, &y)| Point::new(x, y)).collect();
-        let triangles = delaunay::triangulate(&points)?;
-        let mut tri = Self {
+        let delaunay = delaunay::triangulate(&points)?;
+        Ok(Self {
             x: x.to_vec(),
             y: y.to_vec(),
-            triangles,
+            triangles: delaunay.triangles,
             mask: None,
-            neighbors: Vec::new(),
+            neighbors: delaunay.neighbors,
             is_delaunay: true,
-        };
-        tri.neighbors = tri.compute_neighbors();
-        Ok(tri)
+        })
     }
 
     /// The same triangulation with a triangle mask (`true` = masked out).

@@ -67,6 +67,17 @@ Ops
     "points_used"}`` (``points_used`` = sorted list of point indices referenced
     by any triangle).
 
+``tri.Triangulation.delaunay_order`` args ``{x, y}`` (any points: grids,
+    cocircular sets, duplicates included). Value ``{"triangles":
+    t.triangles, "neighbors": t.neighbors}`` exactly as matplotlib returns
+    them, without canonicalisation: qhull's facet order, the vertex order
+    within each triangle, and ``-1`` for a missing neighbour. matplotlib runs
+    qhull 2020.2 with ``qhull d Qt Qbb Qc Qz`` on the points minus their mean
+    and keeps the lower Delaunay facets in qhull's facet-list order; where the
+    triangulation is not unique (cocircular points) qhull's merges and its
+    triangulation of merged facets ('Qt') decide the triangles. The order is
+    what tripcolor/triplot draw in and what a triangle mask indexes.
+
 ``tri.Triangulation.explicit`` args ``{x, y, triangles, mask, set_mask_after}``.
     Builds ``Triangulation(x, y, triangles, mask)`` -- or, if
     ``set_mask_after`` is true, builds it without mask, reads ``edges`` and
@@ -282,6 +293,11 @@ def _delaunay_counts(x, y):
         "nedges": int(t.edges.shape[0]),
         "points_used": sorted({int(v) for v in t.triangles.ravel()}),
     }
+
+
+def _delaunay_order(x, y):
+    t = mtri.Triangulation(x, y)
+    return {"triangles": t.triangles.tolist(), "neighbors": t.neighbors.tolist()}
 
 
 def _explicit(x, y, triangles, mask, set_mask_after):
@@ -640,6 +656,95 @@ def test_delaunay_cocircular_counts():
         out = probes.probe("tri.Triangulation.delaunay_counts", _delaunay_counts, x=x, y=y)
         assert (out["ntri"], out["nedges"]) == (ntri, nedges)
         assert out["points_used"] == list(range(len(x)))
+
+
+def _ring(n: int, radius: float = 1.0, phase: float = 0.0):
+    angles = [phase + 2 * math.pi * k / n for k in range(n)]
+    return [radius * math.cos(a) for a in angles], [radius * math.sin(a) for a in angles]
+
+
+def _cloud(seed: int, n: int, low: float = 0.0, high: float = 1.0):
+    r = rng(seed)
+    return r.uniform(n, low, high).tolist(), r.uniform(n, low, high).tolist()
+
+
+def _with_duplicates(xs, ys, seed: int, count: int):
+    picks = rng(seed).integers(count, 0, len(xs)).tolist()
+    return xs + [xs[i] for i in picks], ys + [ys[i] for i in picks]
+
+
+def _hexagonal(n: int, m: int):
+    xs = [i + 0.5 * (j % 2) for j in range(m) for i in range(n)]
+    ys = [j * math.sqrt(3.0) / 2.0 for j in range(m) for i in range(n)]
+    return xs, ys
+
+
+def _rings_with_centre(count: int, per_ring: int):
+    xs, ys = [0.0], [0.0]
+    for r in range(1, count + 1):
+        rx, ry = _ring(per_ring, float(r), 0.5 * r)
+        xs += rx
+        ys += ry
+    return xs, ys
+
+
+def _figure_points(n: int, seed: int):
+    """The points of the contour/tri* figure cases: a cloud plus the corners."""
+    r = rng(seed)
+    xs = r.uniform(n, -3.0, 3.0).tolist() + [-3.0, 3.0, 3.0, -3.0]
+    ys = r.uniform(n, -2.0, 2.0).tolist() + [-2.0, -2.0, 2.0, 2.0]
+    return xs, ys
+
+
+def _integer_lattice(seed: int, n: int, size: int):
+    r = rng(seed)
+    return [float(v) for v in r.integers(n, 0, size)], [float(v) for v in r.integers(n, 0, size)]
+
+
+ORDER_SETS = {
+    "grid_3x3": tuple(_grid(3)[:2]),
+    "grid_5x4": tuple(_grid(5, 4)[:2]),
+    "grid_9x9": tuple(_grid(9)[:2]),
+    "grid_14x6": tuple(_grid(14, 6)[:2]),
+    "jittered_grid_6": _jittered_grid(3, 6, 0.3),
+    "jittered_grid_11": _jittered_grid(11, 11, 0.05),
+    "jittered_grid_tiny": _jittered_grid(17, 8, 1e-9),
+    "hexagonal_7x6": _hexagonal(7, 6),
+    "ring_5": _ring(5),
+    "ring_12_centre": tuple(a + [0.0] for a in _ring(12)),
+    "ring_31": _ring(31, 2.5, 0.1),
+    "rings_concentric": _rings_with_centre(3, 10),
+    "rectangle": ([0.0, 2.0, 2.0, 0.0], [0.0, 0.0, 1.0, 1.0]),
+    "cloud_3": _cloud(41, 3),
+    "cloud_4": _cloud(42, 4),
+    "cloud_7": _cloud(43, 7),
+    "cloud_25": _cloud(44, 25),
+    "cloud_80": _cloud(45, 80),
+    "cloud_200": _cloud(46, 200),
+    "cloud_500": _cloud(47, 500),
+    "cloud_offset": _cloud(48, 60, 1000.0, 1001.0),
+    "cloud_duplicates": _with_duplicates(*_cloud(49, 40), 50, 12),
+    "grid_duplicates": _with_duplicates(*_grid(6)[:2], 51, 8),
+    "integer_lattice": _integer_lattice(52, 90, 6),
+    "figure_tripcolor_flat": _figure_points(60, 21),
+    "figure_tripcolor_facecolors": _figure_points(30, 22),
+    "figure_triplot_masked": _figure_points(30, 23),
+}
+
+
+@pytest.mark.parametrize("name", sorted(ORDER_SETS))
+def test_delaunay_qhull_order(name):
+    x, y = ORDER_SETS[name]
+    out = probes.probe("tri.Triangulation.delaunay_order", _delaunay_order, x=list(x), y=list(y))
+    xs, ys = np.asarray(x, float), np.asarray(y, float)
+    for a, b, c in out["triangles"]:
+        assert (xs[b] - xs[a]) * (ys[c] - ys[a]) - (ys[b] - ys[a]) * (xs[c] - xs[a]) > 0
+    for t, nb in enumerate(out["neighbors"]):
+        for e, n in enumerate(nb):
+            if n >= 0:
+                start, end = out["triangles"][t][e], out["triangles"][t][(e + 1) % 3]
+                k = out["triangles"][n].index(end)
+                assert out["triangles"][n][(k + 1) % 3] == start and out["neighbors"][n][k] == t
 
 
 EXPLICIT_CASES = {

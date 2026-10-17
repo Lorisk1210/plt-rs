@@ -6,8 +6,9 @@ use plt_core::Bbox;
 use super::LegendMode;
 use super::handlers::Attach;
 use super::settings::{Location, OutsideEdge, Settings};
-use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
-use crate::offsetbox::{Leaf, OffsetBox};
+use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
+use crate::collections::CollectionArtist;
+use crate::offsetbox::{ArtistRef, OffsetBox};
 use crate::transforms::Transform;
 
 /// What a legend is placed in.
@@ -37,11 +38,45 @@ impl LegendParent {
     }
 }
 
-/// An artist of a handle box and how it follows the box.
+/// An artist of the legend box (a handle or a text) and how it follows
+/// the box.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct HandleRef {
     pub(crate) id: ArtistId,
     pub(crate) attach: Attach,
+}
+
+impl HandleRef {
+    /// A text of the legend, which the box moves by its anchor.
+    pub(crate) fn text(id: ArtistId) -> Self {
+        Self {
+            id,
+            attach: Attach::Transform,
+        }
+    }
+}
+
+impl ArtistRef for HandleRef {
+    fn artist_id(&self) -> ArtistId {
+        self.id
+    }
+
+    /// Collections drawn at offsets follow the box through their offset
+    /// transform, everything else through its transform.
+    fn attach(&self, store: &mut ArtistStore, transform: Transform) {
+        match self.attach {
+            Attach::Transform => {
+                if let Some(artist) = store.get_mut(self.id) {
+                    artist.base_mut().transform = Some(transform);
+                }
+            }
+            Attach::Offsets => {
+                if let Some(collection) = store.get_as_mut::<CollectionArtist>(self.id) {
+                    collection.offset_transform = Some(transform);
+                }
+            }
+        }
+    }
 }
 
 /// State of a legend (matplotlib's `Legend`). Its parts are artists of
@@ -100,15 +135,8 @@ impl Artist for LegendArtist {
             ctx.draw_child(shadow);
         }
         ctx.draw_child(self.frame);
-        for leaf in self.legend_box.leaves() {
-            match leaf {
-                Leaf::Text(id) => ctx.draw_child(id),
-                Leaf::Area(artists) => {
-                    for artist in artists {
-                        ctx.draw_child(artist.id);
-                    }
-                }
-            }
+        for artist in self.legend_box.artists() {
+            ctx.draw_child(artist.id);
         }
         ctx.renderer().close_group("legend");
     }

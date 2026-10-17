@@ -36,6 +36,7 @@ use crate::gui::{GinputOptions, GuiError, Session};
 use crate::lines::Line2D;
 use crate::numeric::Grid;
 use crate::scale::ScaleError;
+use crate::style::{XkcdError, XkcdSketch};
 use crate::text::Text;
 use crate::units::AxisValues;
 
@@ -456,6 +457,44 @@ pub fn fignum_exists(num: u32) -> bool {
     fignums().contains(&num)
 }
 
+/// Adds a text at `(x, y)` in fractions of the current figure
+/// (matplotlib's `figtext`, an alias of
+/// [`Figure::text`](crate::figure::Figure::text)).
+pub fn figtext(x: f64, y: f64, text: impl Into<String>) -> Text {
+    gcf().text(x, y, text)
+}
+
+/// Runs `f` in matplotlib's xkcd sketch style and restores the previous
+/// rc parameters afterwards (matplotlib's `with plt.xkcd(...):`): every
+/// artist made inside wobbles as `sketch` says and is outlined in white,
+/// in a 14 pt comic font (`DejaVu Sans` when no xkcd font is installed).
+///
+/// ```
+/// use plt::pyplot as plt;
+/// use ::plt::style::XkcdSketch;
+/// let png = plt::xkcd(XkcdSketch::default(), || -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+///     let fig = plt::figure();
+///     plt::plot([0.0, 1.0, 2.0], [0.0, 1.0, 0.5])?;
+///     Ok(fig.to_png()?)
+/// })??;
+/// assert!(!png.is_empty());
+/// assert_eq!(::plt::rc::params().path_sketch, None, "the style ends with the scope");
+/// plt::close_all();
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// [`XkcdError::Usetex`] when `text.usetex` is on.
+pub fn xkcd<R>(sketch: XkcdSketch, f: impl FnOnce() -> R) -> Result<R, XkcdError> {
+    crate::rc::context(|| {
+        let mut rc = (*crate::rc::params()).clone();
+        crate::style::apply_xkcd(&mut rc, sketch)?;
+        crate::rc::replace(rc);
+        Ok(f())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -505,6 +544,34 @@ mod tests {
         clf();
         assert_eq!(gcf().axes(), Vec::<Axes>::new());
         assert!(fignum_exists(1) && !fignum_exists(2));
+        close_all();
+    }
+
+    #[test]
+    fn figtext_writes_on_the_current_figure() {
+        close_all();
+        let fig = figure();
+        let caption = figtext(0.5, 0.02, "caption");
+        assert!(fig.contains_artist(&caption));
+        assert_eq!(caption.text(), "caption");
+        close_all();
+    }
+
+    #[test]
+    fn xkcd_styles_what_is_made_in_its_scope() {
+        use crate::artist::ArtistHandle;
+        close_all();
+        let sketched = xkcd(XkcdSketch::default(), || {
+            plot(vec![0.0, 1.0], vec![0.0, 1.0])
+        })
+        .expect("usetex is off")
+        .expect("valid data");
+        let plain = plot(vec![0.0, 1.0], vec![1.0, 0.0]).expect("valid data");
+        let sketch = |line: &Line2D| line.raw().with_base(|base| base.sketch);
+        let effects = |line: &Line2D| line.raw().with_base(|base| base.path_effects.len());
+        assert_eq!(sketch(&sketched).map(|s| s.length), Some(100.0));
+        assert_eq!(effects(&sketched), 1, "the white outline");
+        assert_eq!((sketch(&plain), effects(&plain)), (None, 0));
         close_all();
     }
 

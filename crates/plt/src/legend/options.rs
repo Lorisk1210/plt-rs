@@ -3,6 +3,7 @@
 use super::handle::LegendHandle;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
+pub use crate::offsetbox::BboxToAnchor;
 use crate::rc::LabelColor;
 use crate::transforms::Transform;
 
@@ -52,28 +53,6 @@ impl From<i32> for LegendLoc {
 impl From<(f64, f64)> for LegendLoc {
     fn from((x, y): (f64, f64)) -> Self {
         Self::Point(x, y)
-    }
-}
-
-/// The box a legend is placed in (matplotlib's `bbox_to_anchor`), in the
-/// coordinates of `bbox_transform`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BboxToAnchor {
-    /// A point: the corner of the legend named by `loc` goes there.
-    Point(f64, f64),
-    /// A box `(x, y, width, height)` the legend is placed in.
-    Bounds(f64, f64, f64, f64),
-}
-
-impl From<(f64, f64)> for BboxToAnchor {
-    fn from((x, y): (f64, f64)) -> Self {
-        Self::Point(x, y)
-    }
-}
-
-impl From<(f64, f64, f64, f64)> for BboxToAnchor {
-    fn from((x, y, width, height): (f64, f64, f64, f64)) -> Self {
-        Self::Bounds(x, y, width, height)
     }
 }
 

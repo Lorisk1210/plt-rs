@@ -7,11 +7,13 @@
 use plt_core::{Affine2D, Path};
 use plt_render::{GraphicsContext, SnapMode};
 
+use super::AxesState;
 use super::axis_layout::{AxisPainter, PlacedText};
 use super::ticks::{GridStyle, TickDirection, TickStyle};
-use crate::artist::{ArtistId, DrawContext};
+use crate::artist::{ArtistId, DrawContext, rc_sketch};
 use crate::colors::ColorError;
-use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
+use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
+use crate::patheffects::with_path_effects;
 use crate::polar;
 use crate::text::draw_laid_out;
 use crate::ticker::AxisName;
@@ -31,21 +33,33 @@ impl AxisPainter<'_> {
             ctx.report(self.axes_id, problem);
         }
         let polar = self.axes.polar_view();
-        let mut labels = texts.tick_labels.iter().peekable();
-        for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
-            match &polar {
-                Some(polar) => {
-                    polar::draw_tick_lines(ctx, self.axes_id, polar, self.name, tick, style, rc);
+        // Ticks, labels and gridlines are artists made with the rc path
+        // effects in matplotlib.
+        with_path_effects(ctx, &rc.path_effects, |ctx| {
+            let mut labels = texts.tick_labels.iter().peekable();
+            for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
+                match &polar {
+                    Some(polar) => {
+                        polar::draw_tick_lines(
+                            ctx,
+                            self.axes_id,
+                            polar,
+                            self.name,
+                            tick,
+                            style,
+                            rc,
+                        );
+                    }
+                    None => self.draw_tick_lines(ctx, tick.loc, style, rc),
                 }
-                None => self.draw_tick_lines(ctx, tick.loc, style, rc),
+                while let Some(label) = labels.next_if(|label| label.tick == index) {
+                    draw_text(ctx, &label.text, rc);
+                }
             }
-            while let Some(label) = labels.next_if(|label| label.tick == index) {
-                draw_text(ctx, &label.text, rc);
+            for text in [&texts.label, &texts.offset].into_iter().flatten() {
+                draw_text(ctx, text, rc);
             }
-        }
-        for text in [&texts.label, &texts.offset].into_iter().flatten() {
-            draw_text(ctx, text, rc);
-        }
+        });
     }
 
     /// The gridline and the tick marks of the tick at `loc`.
@@ -154,12 +168,20 @@ impl TickMark<'_> {
                     SnapMode::Never
                 }
             });
+        // Tick marks are line markers, sketched like markers of lines made
+        // under the owning axes' rc parameters.
+        let sketch = ctx
+            .layout()
+            .store()
+            .get_as::<AxesState>(owner)
+            .and_then(|axes| rc_sketch(&axes.rc));
         let gc = GraphicsContext {
             foreground: color,
             linewidth: self.style.width,
             join: self.marker.joinstyle(),
             cap: self.marker.capstyle(),
             snap,
+            sketch: marker_sketch(sketch),
             ..GraphicsContext::default()
         };
         let marker_transform = self.transform.scale(size, size);
@@ -183,6 +205,7 @@ pub(crate) fn grid_gc(
         foreground: grid.color.resolve_alpha(Some(grid.alpha))?,
         linewidth: grid.linewidth,
         antialiased: rc.lines_antialiased,
+        sketch: rc_sketch(rc),
         ..GraphicsContext::default()
     };
     (gc.cap, gc.join) = if grid.linestyle.is_dashed() {

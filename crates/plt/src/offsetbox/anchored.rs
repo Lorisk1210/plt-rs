@@ -1,10 +1,13 @@
 //! Placing a box at one of nine positions inside a container
-//! (matplotlib's `AnchoredOffsetbox.codes` and `_get_anchored_bbox`).
+//! (matplotlib's `AnchoredOffsetbox.codes`, `_get_anchored_bbox` and
+//! `bbox_to_anchor`).
 
 use std::fmt;
 use std::str::FromStr;
 
 use plt_core::{Anchor, Bbox, Point};
+
+use crate::transforms::ResolvedTransform;
 
 /// A position inside a container box, with matplotlib's location codes
 /// `1..=10` (`AnchoredOffsetbox.codes`).
@@ -122,6 +125,65 @@ impl FromStr for AnchorLoc {
             .find(|loc| loc.name() == name)
             .ok_or_else(|| UnknownLocation(name.to_owned()))
     }
+}
+
+/// The box an anchored box or a legend is placed in (matplotlib's
+/// `bbox_to_anchor`), in the coordinates of its `bbox_transform`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BboxToAnchor {
+    /// A point: the corner of the box named by `loc` goes there.
+    Point(f64, f64),
+    /// A box `(x, y, width, height)` the box is placed in.
+    Bounds(f64, f64, f64, f64),
+}
+
+impl BboxToAnchor {
+    /// The anchor as a box (a point is a box of zero size).
+    pub fn bbox(self) -> Bbox {
+        match self {
+            Self::Point(x, y) => Bbox::from_bounds(x, y, 0.0, 0.0),
+            Self::Bounds(x, y, width, height) => Bbox::from_bounds(x, y, width, height),
+        }
+    }
+}
+
+impl From<(f64, f64)> for BboxToAnchor {
+    fn from((x, y): (f64, f64)) -> Self {
+        Self::Point(x, y)
+    }
+}
+
+impl From<(f64, f64, f64, f64)> for BboxToAnchor {
+    fn from((x, y, width, height): (f64, f64, f64, f64)) -> Self {
+        Self::Bounds(x, y, width, height)
+    }
+}
+
+/// The box around the corners of `bbox` mapped by `transform`, keeping its
+/// orientation (matplotlib's `TransformedBbox`).
+pub(crate) fn transformed_bbox(bbox: &Bbox, transform: &ResolvedTransform) -> Bbox {
+    let corners = [
+        Point::new(bbox.p0.x, bbox.p0.y),
+        Point::new(bbox.p1.x, bbox.p0.y),
+        Point::new(bbox.p0.x, bbox.p1.y),
+        Point::new(bbox.p1.x, bbox.p1.y),
+    ]
+    .map(|p| transform.transform_point(p));
+    let (mut x0, mut x1) = min_max(corners.iter().map(|p| p.x));
+    let (mut y0, mut y1) = min_max(corners.iter().map(|p| p.y));
+    if bbox.p0.x > bbox.p1.x {
+        (x0, x1) = (x1, x0);
+    }
+    if bbox.p0.y > bbox.p1.y {
+        (y0, y1) = (y1, y0);
+    }
+    Bbox::from_extents(x0, y0, x1, y1)
+}
+
+fn min_max(values: impl Iterator<Item = f64>) -> (f64, f64) {
+    values.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| {
+        (lo.min(v), hi.max(v))
+    })
 }
 
 /// The lower-left corner of `bbox` placed at `loc` inside `parent` shrunk

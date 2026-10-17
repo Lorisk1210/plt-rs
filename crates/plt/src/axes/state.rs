@@ -16,6 +16,7 @@ use crate::colors::Color;
 use crate::geo::{self, GeoState};
 use crate::gridspec::SubplotSpec;
 use crate::patches::PatchShape;
+use crate::patheffects::with_path_effects;
 use crate::polar::{PolarState, PolarView};
 use crate::rc::{Cycler, RcParams};
 use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
@@ -476,12 +477,14 @@ impl Artist for AxesState {
                 Ok(face) => {
                     let mut gc = ctx.base_gc(&self.base);
                     gc.linewidth = 0.0;
-                    ctx.renderer().draw_path(
-                        &gc,
-                        &self.patch_path(),
-                        &unit_to_bbox(&extent),
-                        Some(face),
-                    );
+                    with_path_effects(ctx, &self.base.path_effects, |ctx| {
+                        ctx.renderer().draw_path(
+                            &gc,
+                            &self.patch_path(),
+                            &unit_to_bbox(&extent),
+                            Some(face),
+                        );
+                    });
                 }
                 Err(err) => ctx.report(self.base.id(), err),
             }

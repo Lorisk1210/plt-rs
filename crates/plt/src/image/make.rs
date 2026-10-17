@@ -6,11 +6,38 @@ use std::cell::RefCell;
 use plt_core::{Affine2D, Bbox, Point};
 use plt_render::RgbaImage;
 
+use super::artist::split_alpha;
 use super::resample::{PixelMap, Resampling};
 use super::stages::{data_stage, rgba_stage};
-use super::{Extent, ImageAlpha, ImageData, ImageError, InterpolationStage, Origin};
+use super::{
+    ColorizerOptions, Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage,
+    Origin, rc_defaults,
+};
 use crate::colors::ScalarMappable;
 use crate::numeric::Grid;
+use crate::rc::RcParams;
+
+/// How an image is coloured, resampled and made transparent; unset
+/// settings follow the `image.*` rc parameters.
+#[derive(Debug, Default)]
+pub(crate) struct CoreSettings {
+    /// Colormap, norm and limits for scalar data.
+    pub(crate) colors: ColorizerOptions,
+    /// Interpolation when resampling.
+    pub(crate) interpolation: Option<Interpolation>,
+    /// Whether data or colours are resampled.
+    pub(crate) stage: Option<InterpolationStage>,
+    /// Where row 0 of the array is drawn.
+    pub(crate) origin: Option<Origin>,
+    /// Normalise the kernel weights (`None` = `true`).
+    pub(crate) filternorm: Option<bool>,
+    /// Kernel radius of the sinc family (`None` = 4).
+    pub(crate) filterrad: Option<f64>,
+    /// Agg's full resampling when downsampling.
+    pub(crate) resample: bool,
+    /// Opacity: uniform or per pixel.
+    pub(crate) alpha: Option<ImageAlpha>,
+}
 
 /// An image resampled for the screen: pixels (top row first) and the
 /// display position of their bottom-left corner.
@@ -58,6 +85,47 @@ pub(crate) struct Placement {
 }
 
 impl ImageCore {
+    /// The image of `data` made as `settings` say, with the uniform
+    /// opacity, which lives on the artist; scalar data autoscale the norm's
+    /// unset limits.
+    ///
+    /// # Errors
+    ///
+    /// When the filter radius is not positive, or the colormap or norm is
+    /// invalid.
+    pub(crate) fn build(
+        data: impl Into<ImageData>,
+        settings: CoreSettings,
+        rc: &RcParams,
+    ) -> Result<(Self, Option<f64>), ImageError> {
+        let data = data.into().normalized();
+        let (interpolation, stage, origin) = rc_defaults(rc);
+        let filterrad = settings.filterrad.unwrap_or(4.0);
+        if filterrad.is_nan() || filterrad <= 0.0 {
+            return Err(ImageError::FilterRadius(filterrad));
+        }
+        let resampling = Resampling {
+            interpolation: settings.interpolation.unwrap_or(interpolation),
+            resample: settings.resample,
+            filternorm: settings.filternorm.unwrap_or(true),
+            filterrad,
+            origin: settings.origin.unwrap_or(origin),
+        };
+        let mut mappable = settings.colors.into_mappable(rc)?;
+        if let Some(field) = data.scalars() {
+            mappable.norm_mut().autoscale_none(&field.masked_values());
+        }
+        let (uniform, alpha_grid) = split_alpha(settings.alpha);
+        let core = Self {
+            data,
+            mappable: RefCell::new(mappable),
+            alpha_grid,
+            stage: settings.stage.unwrap_or(stage),
+            resampling,
+        };
+        Ok((core, uniform))
+    }
+
     /// The opacity of the image: per-pixel, else the artist's `alpha`.
     pub(crate) fn alpha(&self, uniform: Option<f64>) -> Option<ImageAlpha> {
         self.alpha_grid

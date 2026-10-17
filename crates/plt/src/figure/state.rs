@@ -145,6 +145,7 @@ impl FigureState {
             self.update_title_position(id);
         }
         crate::legend::lay_out_legends(self);
+        crate::offsetbox::lay_out_boxes(self);
     }
 
     /// Renders the whole figure, returning the problems encountered.

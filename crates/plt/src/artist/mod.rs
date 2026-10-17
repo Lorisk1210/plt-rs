@@ -24,6 +24,7 @@ use plt_render::ClipPath;
 
 use crate::patches::PatchView;
 
+pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
 pub use context::{DrawContext, DrawError, LayoutContext};
 pub use handle::{ArtistHandle, RawHandle};

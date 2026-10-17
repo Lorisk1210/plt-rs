@@ -18,7 +18,7 @@ pub use arrow::{ArrowProps, FancyArrowProps, LegacyArrowProps};
 
 use super::{Text, TextArtist, TextDrawError};
 use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle};
-use crate::coords::{CoordError, CoordFrame, Coords, axes_contains_point};
+use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
 use crate::patches::{ClipRegion, DisplayPath};
 
 /// The options of [`Axes::annotate`](crate::axes::Axes::annotate)
@@ -117,11 +117,13 @@ impl AnnotationState {
 
     /// Whether the annotation is drawn (`_check_xy`).
     fn shown(&self, text: &TextArtist, layout: LayoutContext<'_>, point: Point) -> bool {
-        let clip = self
-            .annotation_clip
-            .unwrap_or(self.xycoords == Coords::Data);
-        !clip
-            || Self::axes(text, layout).is_some_and(|axes| axes_contains_point(layout, axes, point))
+        annotation_shown(
+            layout,
+            self.annotation_clip,
+            &self.xycoords,
+            Self::axes(text, layout),
+            point,
+        )
     }
 
     /// Where the arrow is aimed, given the text's extent.
@@ -157,6 +159,7 @@ impl AnnotationState {
             text_bbox,
             point,
             fontsize: text.font.size,
+            mutation_unit: 1.0,
             start_region,
         })
     }

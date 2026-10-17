@@ -14,6 +14,7 @@ mod legend;
 mod lines;
 mod misc;
 mod mplot3d;
+mod offsetbox;
 mod patches;
 mod polar;
 mod scatter;
@@ -65,6 +66,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         mplot3d::SCATTER,
         mplot3d::SURFACES,
         mplot3d::VIEW,
+        offsetbox::CASES,
         patches::COLLECTIONS,
         patches::FANCY,
         patches::HATCHING,

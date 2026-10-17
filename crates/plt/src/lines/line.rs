@@ -11,7 +11,7 @@ use super::{
 };
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
 use crate::colors::Color;
-use crate::markers::{FillStyle, Marker, MarkerStyle};
+use crate::markers::{FillStyle, Marker, MarkerStyle, marker_sketch};
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::transforms::{ResolvedTransform, Transform};
 
@@ -205,6 +205,7 @@ impl LineArtist {
         }
 
         let mut gc = self.line_gc(ctx);
+        gc.sketch = marker_sketch(gc.sketch);
         gc.linewidth = self.markeredgewidth;
         gc.foreground = edge;
         gc.join = style.joinstyle();

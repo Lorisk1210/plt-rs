@@ -11,7 +11,11 @@
 //! * [`ImageGrid`] (also [`AxesGrid`]) lays out a grid of image axes with
 //!   fixed paddings, each, some or one colorbar axes, and tick labels only
 //!   on the outer axes.
+//! * [`anchored_artists`] holds ready-made anchored boxes: a scale bar,
+//!   direction arrows, and anchored drawing areas, aux-transform boxes and
+//!   ellipses.
 
+pub mod anchored_artists;
 mod axes_divider;
 mod cbar_layout;
 mod divider;

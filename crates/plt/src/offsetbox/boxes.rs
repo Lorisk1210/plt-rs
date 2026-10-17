@@ -1,5 +1,5 @@
 //! The boxes of an offset-box tree and their layout (matplotlib's
-//! `HPacker`, `VPacker`, `DrawingArea` and `TextArea`).
+//! `HPacker`, `VPacker` and the `OffsetBox` protocol).
 //!
 //! Layout follows matplotlib's `_get_bbox_and_child_offsets`: every box
 //! reports its extent relative to its own origin, and a packer reports the
@@ -8,14 +8,14 @@
 //! by the canvas resolution, while explicit packer widths and heights are
 //! in pixels.
 
-use plt_core::{Affine2D, Bbox, Point};
-use plt_text::HAlign;
+use plt_core::{Bbox, Path, Point};
 
-use super::{OffsetBoxError, PackAlign, PackMode, aligned_offsets, packed_offsets};
-use crate::artist::{ArtistId, LayoutContext};
-use crate::text::{TextArtist, measure_text};
+use super::leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea};
+use super::{ArtistRef, OffsetBoxError, PackAlign, PackMode, aligned_offsets, packed_offsets};
+use crate::artist::LayoutContext;
+use crate::transforms::Transform;
 
-/// A box of an offset-box tree; drawing areas hold artists of type `A`.
+/// A box of an offset-box tree; its leaves refer to artists through `A`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum OffsetBox<A> {
     /// Children side by side, left to right (matplotlib's `HPacker`).
@@ -25,7 +25,13 @@ pub enum OffsetBox<A> {
     /// A fixed-size area for artists (matplotlib's `DrawingArea`).
     DrawingArea(DrawingArea<A>),
     /// A single text (matplotlib's `TextArea`).
-    TextArea(TextArea),
+    TextArea(TextArea<A>),
+    /// Artists in their own coordinates (matplotlib's `AuxTransformBox`).
+    AuxTransformBox(AuxTransformBox<A>),
+    /// An image (matplotlib's `OffsetImage`).
+    Image(OffsetImage<A>),
+    /// A child with padding and a frame (matplotlib's `PaddedBox`).
+    PaddedBox(PaddedBox<A>),
 }
 
 /// The settings and children of an [`OffsetBox::HPacker`] or
@@ -65,84 +71,70 @@ impl<A> Packer<A> {
             visible: true,
         }
     }
+
+    fn map<B>(self, f: &mut impl FnMut(A) -> B) -> Packer<B> {
+        Packer {
+            pad: self.pad,
+            sep: self.sep,
+            width: self.width,
+            height: self.height,
+            align: self.align,
+            mode: self.mode,
+            children: self.children.into_iter().map(|c| c.map(f)).collect(),
+            visible: self.visible,
+        }
+    }
 }
 
-/// An area of fixed size whose artists are positioned relative to its
-/// origin, in points (matplotlib's `DrawingArea`).
-#[derive(Clone, Debug, PartialEq)]
-pub struct DrawingArea<A> {
-    /// Width in points.
-    pub width: f64,
-    /// Height in points.
-    pub height: f64,
-    /// How far the area extends left of its origin, in points.
-    pub xdescent: f64,
-    /// How far the area extends below its origin, in points.
-    pub ydescent: f64,
-    /// The artists drawn in the area, in drawing order.
-    pub artists: Vec<A>,
-    /// Whether the area takes part in its parent's layout.
-    pub visible: bool,
-}
-
-/// A text whose origin is the start of its (last) baseline (matplotlib's
-/// `TextArea`). The text artist must be left, centre or right aligned
-/// horizontally and baseline aligned vertically.
-#[derive(Clone, Debug, PartialEq)]
-pub struct TextArea {
-    /// The text artist.
-    pub text: ArtistId,
-    /// Shift multi-line text so that it is roughly centred on the
-    /// baseline of single-line text (matplotlib's `multilinebaseline`).
-    pub multilinebaseline: bool,
-    /// Whether the area takes part in its parent's layout.
-    pub visible: bool,
-}
-
-/// Where a leaf of the tree ends up once laid out.
+/// Where the artists of a leaf go once the tree is laid out.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Placement<A> {
     /// A text to be drawn with its anchor (the start of its last baseline)
     /// at `anchor`, in display pixels.
     Text {
         /// The text artist.
-        text: ArtistId,
+        text: A,
         /// The anchor in display pixels.
         anchor: Point,
     },
-    /// A drawing area: its artists' coordinates (points from the area's
-    /// origin) map to display pixels through `transform`.
-    Area {
-        /// The artists of the area.
+    /// Artists of a drawing area or an aux-transform box, whose
+    /// coordinates map to display pixels through `transform`.
+    Artists {
+        /// The artists.
         artists: Vec<A>,
-        /// Points from the area's origin to display pixels.
-        transform: Affine2D,
+        /// Their coordinates to display pixels.
+        transform: Transform,
+        /// A clip outline in the artists' coordinates, if they are clipped.
+        clip: Option<Path>,
+    },
+    /// An image drawn into `bbox`, in display pixels.
+    Image {
+        /// The image artist.
+        image: A,
+        /// Where the image goes.
+        bbox: Bbox,
+    },
+    /// A frame outlining `bbox`, in display pixels.
+    Frame {
+        /// The frame patch (a `FancyBboxPatch`).
+        frame: A,
+        /// The framed box.
+        bbox: Bbox,
+        /// The new mutation scale of the frame's box style, if it changes.
+        mutation_scale: Option<f64>,
     },
 }
 
-/// A visible leaf of the tree, in drawing order.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Leaf<'a, A> {
-    /// A text artist.
-    Text(ArtistId),
-    /// The artists of a drawing area.
-    Area(&'a [A]),
-}
-
-/// The extent of a text area and how far its text is shifted up from the
-/// area's origin.
-struct TextExtent {
-    bbox: Bbox,
-    baseline_shift: f64,
-}
-
-impl<A: Clone> OffsetBox<A> {
+impl<A> OffsetBox<A> {
     /// Whether the box takes part in its parent's layout.
     pub fn is_visible(&self) -> bool {
         match self {
             Self::HPacker(packer) | Self::VPacker(packer) => packer.visible,
             Self::DrawingArea(area) => area.visible,
             Self::TextArea(area) => area.visible,
+            Self::AuxTransformBox(aux) => aux.visible,
+            Self::Image(image) => image.visible,
+            Self::PaddedBox(padded) => padded.visible,
         }
     }
 
@@ -152,6 +144,9 @@ impl<A: Clone> OffsetBox<A> {
             Self::HPacker(packer) | Self::VPacker(packer) => packer.visible = visible,
             Self::DrawingArea(area) => area.visible = visible,
             Self::TextArea(area) => area.visible = visible,
+            Self::AuxTransformBox(aux) => aux.visible = visible,
+            Self::Image(image) => image.visible = visible,
+            Self::PaddedBox(padded) => padded.visible = visible,
         }
     }
 
@@ -163,6 +158,100 @@ impl<A: Clone> OffsetBox<A> {
         }
     }
 
+    /// The artists of the visible boxes in drawing order: frames before
+    /// what they frame.
+    pub fn artists(&self) -> Vec<&A> {
+        let mut artists = Vec::new();
+        self.collect_artists(&mut artists);
+        artists
+    }
+
+    fn collect_artists<'a>(&'a self, artists: &mut Vec<&'a A>) {
+        match self {
+            Self::HPacker(packer) | Self::VPacker(packer) => {
+                for child in packer.children.iter().filter(|c| c.is_visible()) {
+                    child.collect_artists(artists);
+                }
+            }
+            Self::DrawingArea(area) => artists.extend(&area.artists),
+            Self::TextArea(area) => artists.push(&area.text),
+            Self::AuxTransformBox(aux) => artists.extend(&aux.artists),
+            Self::Image(image) => artists.push(&image.image),
+            Self::PaddedBox(padded) => {
+                artists.push(&padded.frame);
+                if padded.child.is_visible() {
+                    padded.child.collect_artists(artists);
+                }
+            }
+        }
+    }
+
+    /// The same tree with every artist reference replaced by `f` of it,
+    /// in drawing order (how a box's artists join a figure).
+    pub fn map<B>(self, f: &mut impl FnMut(A) -> B) -> OffsetBox<B> {
+        match self {
+            Self::HPacker(packer) => OffsetBox::HPacker(packer.map(f)),
+            Self::VPacker(packer) => OffsetBox::VPacker(packer.map(f)),
+            Self::DrawingArea(area) => OffsetBox::DrawingArea(DrawingArea {
+                width: area.width,
+                height: area.height,
+                xdescent: area.xdescent,
+                ydescent: area.ydescent,
+                clip: area.clip,
+                artists: area.artists.into_iter().map(&mut *f).collect(),
+                visible: area.visible,
+            }),
+            Self::TextArea(area) => OffsetBox::TextArea(TextArea {
+                text: f(area.text),
+                multilinebaseline: area.multilinebaseline,
+                visible: area.visible,
+            }),
+            Self::AuxTransformBox(aux) => OffsetBox::AuxTransformBox(AuxTransformBox {
+                aux_transform: aux.aux_transform,
+                artists: aux.artists.into_iter().map(&mut *f).collect(),
+                visible: aux.visible,
+                extent: aux.extent,
+            }),
+            Self::Image(image) => OffsetBox::Image(OffsetImage {
+                image: f(image.image),
+                zoom: image.zoom,
+                dpi_cor: image.dpi_cor,
+                visible: image.visible,
+            }),
+            Self::PaddedBox(padded) => {
+                let frame = f(padded.frame);
+                OffsetBox::PaddedBox(PaddedBox {
+                    pad: padded.pad,
+                    child: Box::new(padded.child.map(f)),
+                    frame,
+                    visible: padded.visible,
+                })
+            }
+        }
+    }
+
+    /// Calls `f` on every aux-transform box of the tree.
+    pub(crate) fn for_each_aux_mut(&mut self, f: &mut impl FnMut(&mut AuxTransformBox<A>)) {
+        match self {
+            Self::HPacker(packer) | Self::VPacker(packer) => {
+                for child in &mut packer.children {
+                    child.for_each_aux_mut(f);
+                }
+            }
+            Self::AuxTransformBox(aux) => f(aux),
+            Self::PaddedBox(padded) => padded.child.for_each_aux_mut(f),
+            Self::DrawingArea(_) | Self::TextArea(_) | Self::Image(_) => {}
+        }
+    }
+
+    /// Whether the box is a packer in [`PackMode::Expand`], which takes the
+    /// width of a vertical packer containing it.
+    fn expands(&self) -> bool {
+        matches!(self, Self::HPacker(p) | Self::VPacker(p) if p.mode == PackMode::Expand)
+    }
+}
+
+impl<A: ArtistRef> OffsetBox<A> {
     /// The extent relative to the box's origin, in pixels (matplotlib's
     /// `get_bbox`).
     pub fn bbox(&self, ctx: LayoutContext<'_>) -> Result<Bbox, OffsetBoxError> {
@@ -191,25 +280,6 @@ impl<A: Clone> OffsetBox<A> {
         Ok(placements)
     }
 
-    /// The visible leaves in drawing order.
-    pub fn leaves(&self) -> Vec<Leaf<'_, A>> {
-        let mut leaves = Vec::new();
-        self.collect_leaves(&mut leaves);
-        leaves
-    }
-
-    fn collect_leaves<'a>(&'a self, leaves: &mut Vec<Leaf<'a, A>>) {
-        match self {
-            Self::HPacker(packer) | Self::VPacker(packer) => {
-                for child in packer.children.iter().filter(|c| c.is_visible()) {
-                    child.collect_leaves(leaves);
-                }
-            }
-            Self::DrawingArea(area) => leaves.push(Leaf::Area(&area.artists)),
-            Self::TextArea(area) => leaves.push(Leaf::Text(area.text)),
-        }
-    }
-
     /// The extent, with the width a parent imposes on an expanding packer.
     fn bbox_sized(
         &self,
@@ -221,6 +291,12 @@ impl<A: Clone> OffsetBox<A> {
             Self::VPacker(packer) => Ok(packer.vertical(ctx, imposed_width)?.0),
             Self::DrawingArea(area) => Ok(area.bbox(ctx)),
             Self::TextArea(area) => Ok(area.extent(ctx)?.bbox),
+            Self::AuxTransformBox(aux) => Ok(aux.bbox()),
+            Self::Image(image) => image.bbox(ctx),
+            Self::PaddedBox(padded) => {
+                let pad = padded.pad * ctx.points_to_pixels(1.0);
+                Ok(padded.child.bbox(ctx)?.padded(pad, pad))
+            }
         }
     }
 
@@ -241,32 +317,35 @@ impl<A: Clone> OffsetBox<A> {
                 let width = imposed_width.or(packer.width);
                 packer.place_children(ctx, offset, &offsets, width, placements)?;
             }
-            Self::DrawingArea(area) => {
-                let scale = ctx.points_to_pixels(1.0);
-                placements.push(Placement::Area {
-                    artists: area.artists.clone(),
-                    transform: Affine2D::scaling(scale, scale).translate(offset.x, offset.y),
-                });
-            }
+            Self::DrawingArea(area) => placements.push(area.placement(ctx, offset)),
             Self::TextArea(area) => {
                 let shift = area.extent(ctx)?.baseline_shift;
                 placements.push(Placement::Text {
-                    text: area.text,
+                    text: area.text.clone(),
                     anchor: Point::new(offset.x, offset.y + shift),
                 });
+            }
+            Self::AuxTransformBox(aux) => placements.push(aux.placement(offset)),
+            Self::Image(image) => placements.push(Placement::Image {
+                image: image.image.clone(),
+                bbox: image.bbox(ctx)?.translated(offset.x, offset.y),
+            }),
+            Self::PaddedBox(padded) => {
+                placements.push(Placement::Frame {
+                    frame: padded.frame.clone(),
+                    bbox: self.window_extent(ctx, offset)?,
+                    mutation_scale: None,
+                });
+                if padded.child.is_visible() {
+                    padded.child.place_into(ctx, offset, None, placements)?;
+                }
             }
         }
         Ok(())
     }
-
-    /// Whether the box is a packer in [`PackMode::Expand`], which takes the
-    /// width of a vertical packer containing it.
-    fn expands(&self) -> bool {
-        matches!(self, Self::HPacker(p) | Self::VPacker(p) if p.mode == PackMode::Expand)
-    }
 }
 
-impl<A: Clone> Packer<A> {
+impl<A: ArtistRef> Packer<A> {
     fn visible_children(&self) -> impl Iterator<Item = &OffsetBox<A>> {
         self.children.iter().filter(|c| c.is_visible())
     }
@@ -366,70 +445,22 @@ impl<A: Clone> Packer<A> {
     }
 }
 
-impl<A> DrawingArea<A> {
-    /// A visible area of the given size in points, with no artists yet.
-    pub fn new(width: f64, height: f64, xdescent: f64, ydescent: f64) -> Self {
-        Self {
-            width,
-            height,
-            xdescent,
-            ydescent,
-            artists: Vec::new(),
-            visible: true,
-        }
-    }
-
-    /// matplotlib's `DrawingArea.get_bbox`.
-    fn bbox(&self, ctx: LayoutContext<'_>) -> Bbox {
-        let scale = ctx.points_to_pixels(1.0);
-        Bbox::from_bounds(
-            -self.xdescent * scale,
-            -self.ydescent * scale,
-            self.width * scale,
-            self.height * scale,
-        )
-    }
+macro_rules! box_from {
+    ($($leaf:ident => $variant:ident),* $(,)?) => {
+        $(
+            impl<A> From<$leaf<A>> for OffsetBox<A> {
+                fn from(leaf: $leaf<A>) -> Self {
+                    Self::$variant(leaf)
+                }
+            }
+        )*
+    };
 }
 
-impl TextArea {
-    /// A visible area for the text artist `text`.
-    pub fn new(text: ArtistId, multilinebaseline: bool) -> Self {
-        Self {
-            text,
-            multilinebaseline,
-            visible: true,
-        }
-    }
-
-    /// matplotlib's `TextArea.get_bbox`: the text's extent, at least as tall
-    /// as `"lp"` above the baseline, with multi-line text optionally moved
-    /// to centre it on the baseline.
-    fn extent(&self, ctx: LayoutContext<'_>) -> Result<TextExtent, OffsetBoxError> {
-        let text = ctx
-            .store()
-            .get_as::<TextArtist>(self.text)
-            .ok_or(OffsetBoxError::MissingText(self.text))?;
-        let reference = measure_text("lp", &text.font, false, ctx.dpi(), &text.rc)?;
-        let (h_ref, d_ref) = (reference.height, reference.descent);
-        let laid_out = text.layout(ctx)?;
-        let (width, mut height) = (laid_out.block.bbox.width(), laid_out.block.bbox.height());
-        let mut descent = laid_out.block.lines.last().map_or(0.0, |line| line.descent);
-        let mut baseline_shift = 0.0;
-        if laid_out.block.lines.len() > 1 && self.multilinebaseline {
-            let centred = 0.5 * height - 0.5 * (h_ref - d_ref);
-            baseline_shift = descent - centred;
-            descent = centred;
-        } else {
-            height = (h_ref - d_ref).max(height - descent) + descent;
-        }
-        let x0 = match text.halign {
-            HAlign::Left => 0.0,
-            HAlign::Center => -width / 2.0,
-            HAlign::Right => -width,
-        };
-        Ok(TextExtent {
-            bbox: Bbox::from_bounds(x0, -descent, width, height),
-            baseline_shift,
-        })
-    }
+box_from! {
+    DrawingArea => DrawingArea,
+    TextArea => TextArea,
+    AuxTransformBox => AuxTransformBox,
+    OffsetImage => Image,
+    PaddedBox => PaddedBox,
 }

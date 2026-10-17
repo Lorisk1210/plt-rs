@@ -5,6 +5,7 @@ use plt_render::Sketch;
 
 use super::ArtistId;
 use crate::patheffects::PathEffect;
+use crate::rc::RcParams;
 use crate::transforms::Transform;
 
 /// A clip region attached to an artist.
@@ -105,8 +106,22 @@ pub fn is_hidden_label(label: &str) -> bool {
     label.is_empty() || label.starts_with('_')
 }
 
+/// The sketch the `path.sketch` rcParam asks for (matplotlib passes its
+/// values on as they are).
+pub(crate) fn rc_sketch(rc: &RcParams) -> Option<Sketch> {
+    rc.path_sketch.map(|[scale, length, randomness]| Sketch {
+        scale,
+        length,
+        randomness,
+    })
+}
+
 impl Default for ArtistBase {
+    /// matplotlib's `Artist.__init__`: visible at z-order 0, clipped once
+    /// given a clip region, sketched and with path effects as the current
+    /// `path.sketch` and `path.effects` rcParams say.
     fn default() -> Self {
+        let rc = crate::rc::params();
         Self {
             visible: true,
             alpha: None,
@@ -120,8 +135,8 @@ impl Default for ArtistBase {
             animated: false,
             in_layout: true,
             snap: None,
-            sketch: None,
-            path_effects: Vec::new(),
+            sketch: rc_sketch(&rc),
+            path_effects: rc.path_effects.clone(),
             gid: None,
             url: None,
             sticky_edges: (Vec::new(), Vec::new()),

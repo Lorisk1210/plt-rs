@@ -9,6 +9,7 @@ use plt_core::Bbox;
 use super::AxesState;
 use super::axis::AxisState;
 use super::axis_layout::AxisPainter;
+use super::state::TitlePlacement;
 use super::tight_bbox::axis_tight_bbox;
 use crate::artist::{Artist, ArtistId, LayoutContext};
 use crate::figure::FigureState;
@@ -70,7 +71,9 @@ impl FigureState {
             return;
         };
         let titles = state.titles.clone();
-        if !state.auto_title_position || !titles.iter().any(|&title| self.has_text(title)) {
+        if state.title_placement == TitlePlacement::Fixed
+            || !titles.iter().any(|&title| self.has_text(title))
+        {
             return;
         }
         let group = self.title_group(axes);

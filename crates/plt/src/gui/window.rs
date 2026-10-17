@@ -15,6 +15,7 @@ use super::GuiError;
 use super::actions;
 use super::icons;
 use super::keys::{self, KeyAction};
+use crate::events::{Event, EventSource};
 use crate::figure::Figure;
 use crate::navigation::{DragKey, NavMode, Navigation, PointerButton, Rubberband};
 
@@ -65,6 +66,8 @@ pub struct FigureWindow {
     status: WidgetId,
     tools: ToolIds,
     navigation: Navigation,
+    /// Turns canvas input into figure events for connected callbacks.
+    events: EventSource,
     /// The figure's resolution at scale factor 1.
     base_dpi: f64,
     canvas_size: PhysicalSize,
@@ -118,6 +121,7 @@ impl FigureWindow {
                 zoom,
             },
             navigation: Navigation::new(),
+            events: EventSource::new(),
             base_dpi: dpi,
             canvas_size: PhysicalSize::default(),
             held: None,
@@ -151,10 +155,12 @@ impl FigureWindow {
     /// When rendering the figure or updating the window fails.
     pub fn handle(&mut self, cx: &mut Context<'_>, event: &WindowEvent) -> Result<bool, GuiError> {
         if *event == WindowEvent::CloseRequested {
+            self.figure.process_event(&Event::Close);
             return Ok(false);
         }
         for message in self.window.handle(cx, event)? {
             if !self.apply(cx, message)? {
+                self.figure.process_event(&Event::Close);
                 return Ok(false);
             }
         }
@@ -162,15 +168,27 @@ impl FigureWindow {
     }
 
     fn apply(&mut self, cx: &mut Context<'_>, message: Message) -> Result<bool, GuiError> {
-        match message {
-            Message::Tool(tool) => self.use_tool(cx, tool)?,
+        let open = match message {
+            Message::Tool(tool) => {
+                self.use_tool(cx, tool)?;
+                true
+            }
             Message::Canvas(SurfaceEvent::Resized(size)) => {
                 self.canvas_size = size;
                 self.render(cx)?;
+                self.figure.process_event(&Event::Resize {
+                    width: f64::from(size.width),
+                    height: f64::from(size.height),
+                });
+                true
             }
-            Message::Canvas(SurfaceEvent::Input(event)) => return self.canvas_input(cx, &event),
+            Message::Canvas(SurfaceEvent::Input(event)) => self.canvas_input(cx, &event)?,
+        };
+        // Callbacks and tools may have changed the figure.
+        if open && self.figure.is_stale() {
+            self.render(cx)?;
         }
-        Ok(true)
+        Ok(open)
     }
 
     fn use_tool(&mut self, cx: &mut Context<'_>, tool: Tool) -> Result<(), GuiError> {
@@ -188,8 +206,7 @@ impl FigureWindow {
                 return self.set_status(cx, message);
             }
         }
-        self.refresh_tools(cx)?;
-        self.render(cx)
+        self.refresh_tools(cx)
     }
 
     /// Display coordinates (from the bottom-left corner of the figure) of
@@ -210,42 +227,51 @@ impl FigureWindow {
 
     fn canvas_input(&mut self, cx: &mut Context<'_>, event: &UiEvent) -> Result<bool, GuiError> {
         match event {
+            UiEvent::PointerEnter(position) => {
+                let at = self.to_display(*position);
+                self.events.figure_enter(&self.figure, at.x, at.y);
+            }
             UiEvent::PointerMove {
                 position,
                 modifiers,
             } => {
                 let at = self.to_display(*position);
                 self.pointer = Some(at);
+                self.events.motion(&self.figure, at.x, at.y);
                 if self.navigation.is_dragging() {
                     let rubberband = self.navigation.drag(at, self.drag_key(*modifiers));
                     self.show_rubberband(cx, rubberband)?;
-                    if self.navigation.mode() == NavMode::Pan {
-                        self.render(cx)?;
-                    }
                 }
                 let readout = self.navigation.readout(&self.figure, at);
                 self.set_status(cx, readout)?;
             }
             UiEvent::PointerDown {
-                button, position, ..
+                button,
+                position,
+                click_count,
+                ..
             } => {
                 if let Some(button) = pointer_button(*button) {
                     let at = self.to_display(*position);
+                    self.events
+                        .button_press(&self.figure, at.x, at.y, button, *click_count == 2);
                     self.navigation.press(&self.figure, at, button);
                 }
             }
             UiEvent::PointerUp {
+                button,
                 position,
                 modifiers,
-                ..
             } => {
+                let at = self.to_display(*position);
+                if let Some(button) = pointer_button(*button) {
+                    self.events.button_release(&self.figure, at.x, at.y, button);
+                }
                 if self.navigation.is_dragging() {
-                    let at = self.to_display(*position);
                     self.navigation
                         .release(&self.figure, at, self.drag_key(*modifiers));
                     self.show_rubberband(cx, None)?;
                     self.refresh_tools(cx)?;
-                    self.render(cx)?;
                 }
             }
             UiEvent::Wheel {
@@ -255,13 +281,14 @@ impl FigureWindow {
                     ScrollDelta::Lines { y, .. } => y,
                     ScrollDelta::Pixels { y, .. } => y / 40.0,
                 };
-                self.navigation
-                    .wheel(&self.figure, self.to_display(*position), steps);
+                let at = self.to_display(*position);
+                self.events.scroll(&self.figure, at.x, at.y, steps);
+                self.navigation.wheel(&self.figure, at, steps);
                 self.refresh_tools(cx)?;
-                self.render(cx)?;
             }
             UiEvent::PointerLeave => {
                 self.pointer = None;
+                self.events.figure_leave(&self.figure);
                 self.set_status(cx, String::new())?;
             }
             UiEvent::Key(key) => return self.key(cx, key),
@@ -274,11 +301,17 @@ impl FigureWindow {
         if let Key::Character(c @ ('x' | 'y')) = event.key {
             self.held = (event.state == ButtonState::Pressed).then_some(c);
         }
+        let Some(name) = keys::key_name(event) else {
+            return Ok(true);
+        };
+        let at = self.pointer.unwrap_or(Point::new(f64::NAN, f64::NAN));
         if event.state != ButtonState::Pressed {
+            self.events.key_release(&self.figure, &name, at.x, at.y);
             return Ok(true);
         }
+        self.events.key_press(&self.figure, &name, at.x, at.y);
         let rc = crate::rc::params();
-        let Some(action) = keys::key_name(event).and_then(|name| keys::action(&name, &rc)) else {
+        let Some(action) = keys::action(&name, &rc) else {
             return Ok(true);
         };
         match action {
@@ -295,7 +328,6 @@ impl FigureWindow {
                     .and_then(|at| crate::navigation::axes_at(&self.figure, at));
                 if let Some(ax) = target {
                     actions::apply_to_axes(&ax, action);
-                    self.render(cx)?;
                 }
             }
         }
@@ -351,7 +383,9 @@ impl FigureWindow {
         Ok(())
     }
 
-    /// Renders the figure at the canvas size and shows it.
+    /// Renders the figure at the canvas size and shows it; artists that
+    /// cannot be drawn are skipped and the first problem is shown in the
+    /// status line.
     fn render(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         let size = self.canvas_size;
         if size.width == 0 || size.height == 0 {
@@ -361,11 +395,16 @@ impl FigureWindow {
         self.figure
             .set_dpi(dpi)
             .set_size_inches(f64::from(size.width) / dpi, f64::from(size.height) / dpi);
-        let image = self.figure.render_raster()?.into_pixmap();
+        let mut canvas = self.figure.raster_canvas()?;
+        let problem = self.figure.draw(&mut canvas).err();
+        let image = canvas.into_pixmap();
         self.window
             .update(cx, self.canvas, |canvas: &mut Surface<Message>| {
                 canvas.set_image(image);
             })?;
+        if let Some(problem) = problem {
+            self.set_status(cx, problem.to_string())?;
+        }
         Ok(())
     }
 }
@@ -447,6 +486,13 @@ mod tests {
         let figure = Figure::with_size(4.0, 3.0, 100.0);
         let ax = figure.subplot();
         ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let presses = std::rc::Rc::new(std::cell::Cell::new(0));
+        let counter = std::rc::Rc::clone(&presses);
+        figure.connect(crate::events::EventKind::ButtonPress, move |event| {
+            if event.location().is_some_and(|at| at.inaxes.is_some()) {
+                counter.set(counter.get() + 1);
+            }
+        });
         let (mut event_loop, handle) = EventLoop::headless();
         let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
             .expect("the window opens");
@@ -463,6 +509,7 @@ mod tests {
         key(&handle, id, 'p');
         pump(&mut event_loop, &mut window);
         assert_eq!(window.navigation.mode(), NavMode::Pan);
+        assert_eq!(presses.get(), 1, "callbacks see clicks in the axes");
         mouse(&handle, id, ButtonState::Pressed, (200.0, 150.0));
         mouse(&handle, id, ButtonState::Released, (231.0, 150.0));
         pump(&mut event_loop, &mut window);

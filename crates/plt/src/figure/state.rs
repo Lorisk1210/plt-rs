@@ -6,6 +6,7 @@ use plt_render::{ClipPath, Renderer};
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
+use crate::events::CallbackRegistry;
 use crate::gridspec::SubplotParams;
 use crate::layout::LayoutState;
 use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
@@ -33,6 +34,8 @@ pub(crate) struct FigureState {
     /// The axes `gca` returns: the last added or made current
     /// (matplotlib's `_axstack` order).
     pub(crate) current_axes: Option<ArtistId>,
+    /// The callbacks connected with `Figure::connect`.
+    pub(crate) callbacks: CallbackRegistry,
 }
 
 impl FigureState {
@@ -57,6 +60,7 @@ impl FigureState {
             shared: ShareGroups::default(),
             layout: LayoutState::from_rc(&rc),
             current_axes: None,
+            callbacks: CallbackRegistry::default(),
         }
     }
 

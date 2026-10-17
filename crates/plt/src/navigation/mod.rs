@@ -248,7 +248,9 @@ impl Navigation {
     /// The text for a status bar with the pointer at `at`: the data
     /// coordinates under it, or an empty string outside every axes.
     pub fn readout(&self, figure: &Figure, at: Point) -> String {
-        axes_at(figure, at).map_or_else(String::new, |ax| readout::format_coord(&ax, at))
+        axes_at(figure, at)
+            .filter(Axes::navigate)
+            .map_or_else(String::new, |ax| readout::format_coord(&ax, at))
     }
 
     /// The axes an interaction at `at` acts on (matplotlib's
@@ -259,7 +261,7 @@ impl Navigation {
         let candidates: Vec<Axes> = figure
             .axes()
             .into_iter()
-            .filter(|ax| readout::contains(ax, at) && (!zoom || ax.can_zoom()))
+            .filter(|ax| ax.navigate() && readout::contains(ax, at) && (!zoom || ax.can_zoom()))
             .collect();
         if candidates.is_empty() {
             return candidates;

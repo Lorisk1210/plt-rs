@@ -19,6 +19,20 @@ impl Axes {
     pub fn can_zoom(&self) -> bool {
         self.as_polar().is_none()
     }
+
+    /// Whether the navigation toolbar acts on this axes and reports its
+    /// coordinates (matplotlib's `get_navigate`).
+    pub fn navigate(&self) -> bool {
+        self.raw().with::<AxesState, _>(|state| state.navigate)
+    }
+
+    /// Lets the navigation toolbar act on this axes or not (matplotlib's
+    /// `set_navigate`; widgets turn it off).
+    pub fn set_navigate(&self, navigate: bool) -> &Self {
+        self.raw()
+            .with_mut::<AxesState, _>(|state| state.navigate = navigate);
+        self
+    }
 }
 
 /// The axes box and data transform of `ax`, brought up to date.

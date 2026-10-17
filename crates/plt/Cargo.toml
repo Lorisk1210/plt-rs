@@ -7,16 +7,13 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+plt-codec.workspace = true
 plt-core.workspace = true
 plt-platform.workspace = true
 plt-raster.workspace = true
 plt-render.workspace = true
 plt-text.workspace = true
 plt-ui.workspace = true
-
-[dev-dependencies]
-# The figure window example saves screenshots as PNG.
-plt-codec.workspace = true
 
 [lints]
 workspace = true

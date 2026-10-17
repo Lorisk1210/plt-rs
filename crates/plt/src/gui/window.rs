@@ -5,7 +5,7 @@
 use plt_core::Point;
 use plt_platform::{
     ButtonState, Context, CursorIcon, Key, KeyEvent, LogicalSize, Modifiers, MouseButton,
-    PhysicalSize, ScrollDelta, WindowEvent, WindowId, WindowOptions,
+    PhysicalSize, ScrollDelta, TimerId, WindowEvent, WindowId, WindowOptions,
 };
 use plt_ui::{
     Flex, Label, Rect, Separator, Surface, SurfaceEvent, ToolButton, UiEvent, UiWindow, WidgetId,
@@ -15,7 +15,7 @@ use super::GuiError;
 use super::actions;
 use super::icons;
 use super::keys::{self, KeyAction};
-use crate::events::{Event, EventSource};
+use crate::events::{Event, EventSource, TimerKey};
 use crate::figure::Figure;
 use crate::navigation::{DragKey, NavMode, Navigation, PointerButton, Rubberband};
 
@@ -68,6 +68,8 @@ pub struct FigureWindow {
     navigation: Navigation,
     /// Turns canvas input into figure events for connected callbacks.
     events: EventSource,
+    /// The platform timers running the figure's timers.
+    timers: Vec<(TimerId, TimerKey)>,
     /// The figure's resolution at scale factor 1.
     base_dpi: f64,
     canvas_size: PhysicalSize,
@@ -122,6 +124,7 @@ impl FigureWindow {
             },
             navigation: Navigation::new(),
             events: EventSource::new(),
+            timers: Vec::new(),
             base_dpi: dpi,
             canvas_size: PhysicalSize::default(),
             held: None,
@@ -129,6 +132,7 @@ impl FigureWindow {
             title: title.to_owned(),
         };
         figure_window.refresh_tools(cx)?;
+        figure_window.sync_timers(cx);
         // The initial layout reports the canvas size: render the figure
         // before the first frame.
         for message in figure_window.window.take_messages() {
@@ -184,11 +188,52 @@ impl FigureWindow {
             }
             Message::Canvas(SurfaceEvent::Input(event)) => self.canvas_input(cx, &event)?,
         };
-        // Callbacks and tools may have changed the figure.
+        // Callbacks and tools may have changed the figure and its timers.
+        self.sync_timers(cx);
         if open && self.figure.is_stale() {
             self.render(cx)?;
         }
         Ok(open)
+    }
+
+    /// Whether platform timer `timer` belongs to this window.
+    pub fn owns_timer(&self, timer: TimerId) -> bool {
+        self.timers.iter().any(|(id, _)| *id == timer)
+    }
+
+    /// Runs the figure timer behind platform timer `timer` and redraws if
+    /// the tick changed the figure.
+    ///
+    /// # Errors
+    ///
+    /// When rendering the figure fails.
+    pub fn tick(&mut self, cx: &mut Context<'_>, timer: TimerId) -> Result<(), GuiError> {
+        if let Some(&(_, key)) = self.timers.iter().find(|(id, _)| *id == timer) {
+            self.figure.fire_timer(key);
+        }
+        self.sync_timers(cx);
+        if self.figure.is_stale() {
+            self.render(cx)?;
+        }
+        Ok(())
+    }
+
+    /// Starts platform timers for new figure timers and cancels those of
+    /// removed ones.
+    fn sync_timers(&mut self, cx: &mut Context<'_>) {
+        let wanted = self.figure.timers();
+        self.timers.retain(|(id, key)| {
+            let keep = wanted.iter().any(|(k, _)| k == key);
+            if !keep {
+                cx.cancel_timer(*id);
+            }
+            keep
+        });
+        for (key, interval) in wanted {
+            if !self.timers.iter().any(|(_, k)| *k == key) {
+                self.timers.push((cx.set_interval(interval), key));
+            }
+        }
     }
 
     fn use_tool(&mut self, cx: &mut Context<'_>, tool: Tool) -> Result<(), GuiError> {

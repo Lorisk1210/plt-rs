@@ -12,6 +12,22 @@ use crate::{CompressionLevel, zlib};
 /// Largest `IDAT` chunk the encoder writes; larger streams are split.
 const IDAT_CHUNK_LEN: usize = 1 << 20;
 
+/// The filtered, zlib-compressed scanlines of `image` (the contents of
+/// its `IDAT` chunks).
+pub(super) fn compress_image(
+    image: &ImageRef<'_>,
+    strategy: FilterStrategy,
+    level: CompressionLevel,
+) -> Vec<u8> {
+    let filtered = filter::filter_image(
+        image.data(),
+        image.row_bytes(),
+        image.format().filter_stride(),
+        strategy,
+    );
+    zlib::compress(&filtered, level)
+}
+
 /// How the `pHYs` chunk was requested.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Resolution {
@@ -108,14 +124,7 @@ impl Encoder {
             .collect::<Result<Vec<_>, _>>()?;
 
         let format = image.format();
-        let filtered = filter::filter_image(
-            image.data(),
-            image.row_bytes(),
-            format.filter_stride(),
-            self.filter,
-        );
-        let compressed = zlib::compress(&filtered, self.level);
-        drop(filtered);
+        let compressed = compress_image(&image, self.filter, self.level);
 
         let text_len: usize = text_chunks.iter().map(|(_, data)| data.len() + 12).sum();
         let mut png = Vec::with_capacity(compressed.len() + text_len + 128);

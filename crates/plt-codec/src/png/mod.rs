@@ -32,6 +32,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+mod animated;
 mod chunk;
 mod convert;
 mod decoded;
@@ -47,6 +48,7 @@ mod parse;
 mod text;
 mod types;
 
+pub use animated::{AnimatedEncoder, Frame};
 pub use chunk::{ChunkType, SIGNATURE};
 pub use decoded::{ColorKey, DecodedImage};
 pub use decoder::Decoder;

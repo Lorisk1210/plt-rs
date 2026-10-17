@@ -6,7 +6,7 @@ use plt_render::{ClipPath, Renderer};
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
-use crate::events::CallbackRegistry;
+use crate::events::{CallbackRegistry, TimerRegistry};
 use crate::gridspec::SubplotParams;
 use crate::layout::LayoutState;
 use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
@@ -36,6 +36,8 @@ pub(crate) struct FigureState {
     pub(crate) current_axes: Option<ArtistId>,
     /// The callbacks connected with `Figure::connect`.
     pub(crate) callbacks: CallbackRegistry,
+    /// The timers added with `Figure::add_timer`.
+    pub(crate) timers: TimerRegistry,
 }
 
 impl FigureState {
@@ -61,6 +63,7 @@ impl FigureState {
             layout: LayoutState::from_rc(&rc),
             current_axes: None,
             callbacks: CallbackRegistry::default(),
+            timers: TimerRegistry::default(),
         }
     }
 

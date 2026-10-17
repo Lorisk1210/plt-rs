@@ -1,7 +1,7 @@
 //! Animations (matplotlib's `animation.FuncAnimation`): a function updates
 //! the figure for each frame; a figure window plays the frames on a timer,
-//! and the animation can be saved as an animated PNG or as a web page with
-//! matplotlib's JavaScript player.
+//! and the animation can be saved as an animated PNG or GIF or as a web
+//! page with matplotlib's JavaScript player.
 //!
 //! ```
 //! use plt::animation::{AnimationOptions, Frames, FuncAnimation};
@@ -20,17 +20,19 @@
 
 use std::cell::RefCell;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use plt_codec::png::{AnimatedEncoder, EncodeError, Frame, ImageRef};
+use plt_codec::gif::GifError;
+use plt_codec::png::EncodeError;
 
 use crate::events::TimerKey;
 use crate::figure::{Figure, SaveError};
 
 mod html;
 mod html_template;
+mod save;
 
 pub use html::{HtmlOptions, PlayMode};
 
@@ -74,8 +76,12 @@ impl Default for AnimationOptions {
 pub enum AnimationError {
     /// A frame could not be rendered or the file written.
     Save(SaveError),
-    /// The frames could not be encoded.
+    /// The frames could not be encoded as an animated PNG.
     Encode(EncodeError),
+    /// The frames could not be encoded as a GIF.
+    Gif(GifError),
+    /// The file name's extension names no format animations are saved in.
+    UnsupportedFormat(String),
     /// An HTML page was to be written to a file not named `.html` or
     /// `.htm`.
     NotHtml(PathBuf),
@@ -86,6 +92,11 @@ impl fmt::Display for AnimationError {
         match self {
             Self::Save(err) => write!(f, "cannot save the animation: {err}"),
             Self::Encode(err) => write!(f, "cannot encode the animation: {err}"),
+            Self::Gif(err) => write!(f, "cannot encode the animation as a GIF: {err}"),
+            Self::UnsupportedFormat(extension) => write!(
+                f,
+                "cannot save animations as {extension:?} (supported: apng, gif, htm, html, png)"
+            ),
             Self::NotHtml(path) => write!(
                 f,
                 "cannot write the player to {}: the file name must end in .html or .htm",
@@ -100,7 +111,8 @@ impl std::error::Error for AnimationError {
         match self {
             Self::Save(err) => Some(err),
             Self::Encode(err) => Some(err),
-            Self::NotHtml(_) => None,
+            Self::Gif(err) => Some(err),
+            Self::UnsupportedFormat(_) | Self::NotHtml(_) => None,
         }
     }
 }
@@ -220,50 +232,12 @@ impl FuncAnimation {
         }
         Ok(())
     }
+}
 
-    /// Renders every saved frame and encodes them as an animated PNG
-    /// showing each frame for one interval, looping if the animation
-    /// repeats.
-    ///
-    /// # Errors
-    ///
-    /// When a frame cannot be rendered or the frames cannot be encoded.
-    pub fn to_apng(&self) -> Result<Vec<u8>, AnimationError> {
-        let mut images = Vec::with_capacity(self.save_count());
-        self.for_each_frame(|figure| {
-            images.push(figure.render_raster()?.to_image());
-            Ok(())
-        })?;
-        let millis =
-            u16::try_from(self.player.borrow().options.interval.as_millis()).unwrap_or(u16::MAX);
-        let frames = images
-            .iter()
-            .map(|image| {
-                let side = |n: usize| u32::try_from(n).map_err(|_| EncodeError::ImageTooLarge);
-                let (width, height) = (side(image.width()), side(image.height()));
-                Ok(Frame {
-                    image: ImageRef::rgba8(width?, height?, image.data())?,
-                    delay: (millis, 1000),
-                })
-            })
-            .collect::<Result<Vec<_>, EncodeError>>()
-            .map_err(AnimationError::Encode)?;
-        let plays = u32::from(!self.player.borrow().options.repeat);
-        AnimatedEncoder::new()
-            .plays(plays)
-            .encode(&frames)
-            .map_err(AnimationError::Encode)
-    }
-
-    /// Writes [`FuncAnimation::to_apng`] to `path`.
-    ///
-    /// # Errors
-    ///
-    /// As [`FuncAnimation::to_apng`], or when the file cannot be written.
-    pub fn save_apng(&self, path: impl AsRef<Path>) -> Result<(), AnimationError> {
-        let apng = self.to_apng()?;
-        std::fs::write(path, apng).map_err(|err| AnimationError::Save(SaveError::Io(err)))
-    }
+/// `duration` in milliseconds, exact for whole milliseconds.
+fn interval_millis(duration: Duration) -> f64 {
+    let whole_seconds = Duration::from_secs(duration.as_secs()).as_secs_f64();
+    whole_seconds * 1000.0 + f64::from(duration.subsec_nanos()) / 1e6
 }
 
 impl Drop for FuncAnimation {

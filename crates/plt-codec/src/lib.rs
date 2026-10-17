@@ -5,6 +5,7 @@
 //! * [`base64`] — base64 encoding for embedding binary data in text.
 //! * [`checksum`] — CRC-32 (PNG, gzip) and Adler-32 (zlib) checksums, both as
 //!   incremental hashers and as one-shot helpers.
+//! * [`gif`] — animated GIF encoding with a shared, quantised palette.
 //! * [`deflate`] — raw DEFLATE (RFC 1951): an LZ77 + Huffman compressor with
 //!   zlib-style levels 0–9, and a strictly validating, table-driven
 //!   decompressor.
@@ -38,6 +39,7 @@
 pub mod base64;
 pub mod checksum;
 pub mod deflate;
+pub mod gif;
 pub mod png;
 pub mod zlib;
 

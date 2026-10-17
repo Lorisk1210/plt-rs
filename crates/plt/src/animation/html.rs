@@ -12,7 +12,7 @@ use std::time::Duration;
 use plt_codec::base64;
 
 use super::html_template::{DISPLAY_TEMPLATE, INCLUDED_FRAMES, JS_INCLUDE, STYLE_INCLUDE};
-use super::{AnimationError, FuncAnimation};
+use super::{AnimationError, FuncAnimation, interval_millis};
 use crate::figure::{SaveError, SaveFormat, SaveOptions};
 use crate::ticker::pyfmt;
 use crate::ticker::pymath::floor_div;
@@ -178,9 +178,7 @@ fn interval_text(fps: Option<NonZeroU32>, interval: Duration) -> String {
     if let Some(fps) = fps {
         return (1000 / fps.get()).to_string();
     }
-    let whole_seconds = Duration::from_secs(interval.as_secs()).as_secs_f64();
-    let millis = whole_seconds * 1000.0 + f64::from(interval.subsec_nanos()) / 1e6;
-    pyfmt::repr(floor_div(1000.0, 1000.0 / millis))
+    pyfmt::repr(floor_div(1000.0, 1000.0 / interval_millis(interval)))
 }
 
 /// The script lines setting each embedded frame (matplotlib's

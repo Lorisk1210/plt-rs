@@ -10,6 +10,7 @@
 //!   `bins=` form ([`Bins`], [`BinEstimator`]), ranges, weights and
 //!   densities; [`hist`] adds what `Axes.hist` does on top (shared edges,
 //!   stacking, cumulative counts, bar and step geometry).
+//! * [`histogram2d`] — `np.histogram2d` ([`AxisBins`], [`Histogram2d`]).
 //! * [`boxplot_stats`] — `cbook.boxplot_stats` ([`BoxStats`]).
 //! * [`violin_stats`] / [`GaussianKde`] — `cbook.violin_stats` and
 //!   `mlab.GaussianKDE`.
@@ -29,6 +30,7 @@ mod boxplot;
 mod error;
 mod hist;
 mod histogram;
+mod histogram2d;
 mod kde;
 mod linalg;
 mod summary;
@@ -44,6 +46,7 @@ pub use histogram::{
     BinEstimator, BinSample, Bins, Histogram, HistogramOptions, bin_width, histogram,
     histogram_bin_edges, outer_edges,
 };
+pub use histogram2d::{AxisBins, Histogram2d, Histogram2dOptions, histogram2d};
 pub use kde::{BandwidthMethod, GaussianKde};
 pub use summary::{mean, median, pairwise_sum, percentile, percentiles, quantile, std, var};
 pub use violin::{ViolinOptions, ViolinStats, violin_stats, violin_stats_with};

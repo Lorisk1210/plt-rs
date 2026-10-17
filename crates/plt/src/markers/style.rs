@@ -209,8 +209,25 @@ impl Shape {
             }
             Marker::Vertices(points) => shape.custom(Path::polyline(points.clone()))?,
             Marker::Path(path) => shape.custom(path.clone())?,
+            Marker::Math(text) => shape.mathtext(super::mathtext::text_path(text)?),
         }
         Ok(shape)
+    }
+
+    /// `_set_mathtext_path`: the text outline centred on its extents and
+    /// scaled so that its larger side spans one unit; nothing is drawn for
+    /// text without an outline.
+    fn mathtext(&mut self, outline: Path) {
+        if outline.vertices().is_empty() {
+            return;
+        }
+        let bbox = outline.extents();
+        let (width, height) = (bbox.width(), bbox.height());
+        let max_dim = width.max(height);
+        self.transform =
+            Affine2D::translation(-bbox.xmin() - 0.5 * width, -bbox.ymin() - 0.5 * height)
+                .scale(1.0 / max_dim, 1.0 / max_dim);
+        self.path = outline;
     }
 
     /// `_set_custom_marker`: normalise so the largest coordinate is 0.5.

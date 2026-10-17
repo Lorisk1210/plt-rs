@@ -12,7 +12,9 @@
 //!   `'%.nf' % x`, `'%.ne' % x` and `'%.ng' % x`.
 //! * [`PrintfFormat`] — `template % x` for any one-conversion template.
 //! * [`FormatSpec`] — `format(x, spec)`.
-//! * [`StrTemplate`] — `template.format(x=x, pos=pos)`.
+//! * [`StrTemplate`] — `template.format(x=x, pos=pos)` or
+//!   `template.format(x)`.
+//! * [`auto_format`] — matplotlib's `%`-or-`format` choice for one value.
 //!
 //! ```
 //! use plt::ticker::pyfmt;
@@ -107,9 +109,41 @@ pub fn general_alternate(x: f64, precision: usize) -> String {
     )
 }
 
+/// matplotlib's `cbook._auto_format_str`: `template % value` when Python
+/// accepts that, else `template.format(value)` (so `"%.2f"`, `"{:.0%}"`
+/// and plain text all work).
+///
+/// ```
+/// use plt::ticker::pyfmt::auto_format;
+/// assert_eq!(auto_format("%.2f m", 0.2).unwrap(), "0.20 m");
+/// assert_eq!(auto_format("{} m", 0.2).unwrap(), "0.2 m");
+/// assert_eq!(auto_format("%d or {}", 0.2).unwrap(), "0 or {}");
+/// ```
+///
+/// # Errors
+///
+/// When neither form accepts `template`.
+pub fn auto_format(template: &str, value: f64) -> Result<String, FormatError> {
+    match PrintfFormat::parse(template).and_then(|format| format.format(value)) {
+        Err(FormatError::Type(_) | FormatError::Value(_)) => {
+            StrTemplate::parse_positional(template)?.render(value, None, |text| text)
+        }
+        printed => printed,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_format_falls_back_to_str_format() {
+        assert_eq!(auto_format("%g", 3.0), Ok("3".to_owned()));
+        assert_eq!(auto_format("{:.0%}", 0.43), Ok("43%".to_owned()));
+        assert_eq!(auto_format("const", 1.0), Ok("const".to_owned()));
+        assert_eq!(auto_format("%d", f64::NAN), Ok("%d".to_owned()));
+        assert!(auto_format("{y}", 1.0).is_err());
+    }
 
     #[test]
     fn convenience_functions() {

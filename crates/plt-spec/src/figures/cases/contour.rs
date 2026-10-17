@@ -1,10 +1,16 @@
 //! `figures/cases_contour.py`.
 
+use plt::axes::{ImshowOptions, TriShading, TriValues, TripcolorOptions};
+use plt::collections::{CollectionProps, EdgeColors};
 use plt::colors::{Color, Extend, colormaps};
-use plt::contour::{ClabelOptions, ContourOptions, LabelFormat, Levels, QuadCoords, QuadField};
+use plt::contour::{
+    ClabelOptions, ContourOptions, LabelFormat, Levels, Origin, QuadCoords, QuadField,
+};
 use plt::fonts::FontSize;
-use plt::lines::LineStyle;
-use plt::numeric::{Grid, linspace, meshgrid};
+use plt::image::{ColorizerOptions, Extent};
+use plt::lines::{LineProps, LineStyle};
+use plt::numeric::{Grid, arange, linspace, meshgrid};
+use plt::rc::Aspect;
 use plt::ticker::LogLocator;
 use plt::ticker::pyfmt::PrintfFormat;
 use plt::tri::Triangulation;
@@ -289,6 +295,28 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
+    FigureCase::new("contour/origin_extent_image", |fig| {
+        let ax = fig.subplot();
+        let z = bumps(30, 20).z;
+        let image = ImshowOptions {
+            colors: ColorizerOptions::default().cmap(colormaps::get("gray")?),
+            origin: Some(plt::image::Origin::Lower),
+            extent: Some(Extent::new(0.0, 6.0, 0.0, 4.0)),
+            ..ImshowOptions::default()
+        };
+        ax.imshow(z.clone(), image)?;
+        let field = QuadField::new(z).with_coords(QuadCoords::Implicit {
+            origin: Some(Origin::Lower),
+            extent: Some([0.0, 6.0, 0.0, 4.0]),
+        });
+        let options = ContourOptions {
+            cmap: Some(colormaps::get("autumn")?),
+            ..count(6)
+        };
+        ax.contour(&field, options)?;
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
     FigureCase::new("contour/tricontour", |fig| {
         let tri = random_triangulation(60, 21)?;
         fig.subplot()
@@ -303,6 +331,58 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..values(&[-2.0, -1.0, -0.3, 0.3, 1.0, 2.0])
         };
         fig.subplot().tricontourf(&tri, &tri_bumps(&tri), options)?;
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
+    FigureCase::new("contour/tripcolor_flat", |fig| {
+        let tri = random_triangulation(60, 21)?;
+        let options = TripcolorOptions {
+            props: CollectionProps {
+                edgecolors: Some(EdgeColors::Colors(colors(&["w"]))),
+                linewidths: Some(vec![0.3]),
+                ..CollectionProps::default()
+            },
+            ..TripcolorOptions::default()
+        };
+        fig.subplot()
+            .tripcolor(&tri, TriValues::Auto(tri_bumps(&tri)), options)?;
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
+    FigureCase::new("contour/tripcolor_gouraud", |fig| {
+        let tri = random_triangulation(60, 21)?;
+        let options = TripcolorOptions {
+            colors: ColorizerOptions::default().cmap(colormaps::get("magma")?),
+            shading: TriShading::Gouraud,
+            ..TripcolorOptions::default()
+        };
+        fig.subplot()
+            .tripcolor(&tri, TriValues::Auto(tri_bumps(&tri)), options)?;
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
+    FigureCase::new("contour/tripcolor_facecolors", |fig| {
+        let tri = random_triangulation(30, 22)?;
+        let faces = arange(0.0, tri.ntri() as f64, 1.0);
+        let options = TripcolorOptions {
+            colors: ColorizerOptions::default().cmap(colormaps::get("tab20")?),
+            ..TripcolorOptions::default()
+        };
+        fig.subplot()
+            .tripcolor(&tri, TriValues::Faces(faces), options)?;
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
+    FigureCase::new("contour/triplot_masked", |fig| {
+        let ax = fig.subplot();
+        let mut tri = random_triangulation(30, 23)?;
+        tri.set_mask(Some((0..tri.ntri()).map(|t| t % 4 == 0).collect()))?;
+        let props = LineProps::default()
+            .color("tab:green")
+            .linewidth(1.0)
+            .markersize(3.0);
+        ax.triplot(&tri, "o-", props)?;
+        ax.set_aspect(Aspect::Equal)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),

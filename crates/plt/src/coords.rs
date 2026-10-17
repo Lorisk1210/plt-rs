@@ -72,6 +72,9 @@ pub enum Coords {
     Transform(Transform),
     /// Fractions of another artist's extent.
     Artist(ArtistId),
+    /// Fractions of the part of another artist's extent inside its clip
+    /// box (how `bar_label` centres labels on bars).
+    ClippedArtist(ArtistId),
     /// x in the first system, y in the second.
     Blended(Box<Coords>, Box<Coords>),
 }
@@ -130,6 +133,17 @@ impl Coords {
                 let artist = layout.store().get(*id).ok_or(CoordError::Detached)?;
                 let extent = artist.window_extent(&layout).ok_or(CoordError::NoExtent)?;
                 ResolvedTransform::affine(unit_to_bbox(&extent))
+            }
+            Self::ClippedArtist(id) => {
+                let artist = layout.store().get(*id).ok_or(CoordError::Detached)?;
+                let extent = artist.window_extent(&layout).ok_or(CoordError::NoExtent)?;
+                let clip = artist
+                    .base()
+                    .clip_box
+                    .and_then(|axes| layout.axes_extent(axes))
+                    .ok_or(CoordError::NoExtent)?;
+                let visible = extent.intersection(&clip).unwrap_or(Bbox::NULL);
+                ResolvedTransform::affine(unit_to_bbox(&visible))
             }
             Self::Blended(x, y) => ResolvedTransform::blend(x.resolve(frame)?, y.resolve(frame)?),
         })

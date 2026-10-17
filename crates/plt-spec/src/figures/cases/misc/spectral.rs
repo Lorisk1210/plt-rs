@@ -2,7 +2,7 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::{SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale};
+use plt::axes::{SpecgramOptions, SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale};
 use plt::gridspec::SubplotOverrides;
 use plt::mlab::{SpectralOptions, SpectrumOptions, XcorrOptions};
 use plt::prelude::*;
@@ -35,6 +35,29 @@ fn welch(nfft: usize) -> SpectralPlotOptions {
 }
 
 pub(crate) const CASES: &[FigureCase] = &[
+    FigureCase::new("misc/specgram", |fig| {
+        let noise = SpecRng::new(62).normal(2048, 0.0, 1.0);
+        let x: Vec<f64> = noise
+            .iter()
+            .enumerate()
+            .map(|(i, noise)| {
+                let t = i as f64 / 200.0;
+                (2.0 * PI * (5.0 + 4.0 * t) * t).sin() + 0.2 * noise
+            })
+            .collect();
+        let options = SpecgramOptions {
+            spectral: SpectralOptions {
+                nfft: 128,
+                fs: 200.0,
+                noverlap: Some(64),
+                ..SpectralOptions::default()
+            },
+            ..SpecgramOptions::default()
+        };
+        fig.subplot().specgram(&x, options)?;
+        Ok(())
+    })
+    .sized(5.0, 3.0, 100.0),
     FigureCase::new("misc/psd", |fig| {
         fig.subplot().psd(&signal(1024, 61), &welch(256))?;
         Ok(())

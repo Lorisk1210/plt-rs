@@ -6,6 +6,7 @@ use plt_raster::resample::ResampleError;
 
 use crate::axes::AspectError;
 use crate::colors::{ColormapError, NormError};
+use crate::stats::StatsError;
 
 /// Invalid input to `imshow`, `pcolormesh`, `hexbin` and friends, or a
 /// failure while turning an image into pixels.
@@ -70,6 +71,8 @@ pub enum ImageError {
     Aspect(AspectError),
     /// The resampler rejected the image geometry.
     Resample(ResampleError),
+    /// Invalid two-dimensional histogram input (`hist2d`).
+    Histogram(StatsError),
 }
 
 impl fmt::Display for ImageError {
@@ -130,6 +133,7 @@ impl fmt::Display for ImageError {
             Self::Norm(err) => err.fmt(f),
             Self::Aspect(err) => err.fmt(f),
             Self::Resample(err) => err.fmt(f),
+            Self::Histogram(err) => err.fmt(f),
         }
     }
 }
@@ -141,6 +145,7 @@ impl std::error::Error for ImageError {
             Self::Norm(err) => Some(err),
             Self::Aspect(err) => Some(err),
             Self::Resample(err) => Some(err),
+            Self::Histogram(err) => Some(err),
             _ => None,
         }
     }
@@ -167,6 +172,12 @@ impl From<AspectError> for ImageError {
 impl From<ResampleError> for ImageError {
     fn from(err: ResampleError) -> Self {
         Self::Resample(err)
+    }
+}
+
+impl From<StatsError> for ImageError {
+    fn from(err: StatsError) -> Self {
+        Self::Histogram(err)
     }
 }
 

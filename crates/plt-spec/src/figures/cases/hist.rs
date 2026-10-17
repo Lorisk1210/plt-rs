@@ -1,14 +1,18 @@
 //! `figures/cases_hist.py`.
 
-use plt::axes::HistPlotOptions;
-use plt::colors::Color;
+use plt::axes::{Hist2d, Hist2dOptions, HistPlotOptions, PcolorOptions};
+use plt::colorbar::{ColorbarAxes, ColorbarOptions};
+use plt::colors::{Color, LogNorm, colormaps};
+use plt::figure::Figure;
+use plt::image::ColorizerOptions;
 use plt::numeric::{arange, linspace};
 use plt::patches::PatchProps;
 use plt::stats::{
-    BinEstimator, Bins, Cumulative, HistAlign, HistBottom, HistOptions, HistOrientation, HistType,
+    AxisBins, BinEstimator, Bins, Cumulative, HistAlign, HistBottom, HistOptions, HistOrientation,
+    HistType, Histogram2dOptions,
 };
 
-use crate::figures::FigureCase;
+use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 /// `NORMAL = rng(100).normal(1000)`.
@@ -29,6 +33,24 @@ fn three() -> Vec<Vec<f64>> {
         SpecRng::new(103).normal(400, 0.5, 0.7),
         SpecRng::new(104).normal(300, 2.0, 1.2),
     ]
+}
+
+/// `x = rng(seed).normal(5000)` and `y = 0.6 * x + rng(seed + 1).normal(5000, scale=0.8)`.
+fn correlated(seed: u64) -> (Vec<f64>, Vec<f64>) {
+    let x = SpecRng::new(seed).normal(5000, 0.0, 1.0);
+    let noise = SpecRng::new(seed + 1).normal(5000, 0.0, 0.8);
+    let y = x.iter().zip(noise).map(|(x, n)| 0.6 * x + n).collect();
+    (x, y)
+}
+
+/// `fig.colorbar(image, ax=ax)` for the mesh of a `hist2d`.
+fn hist2d_colorbar(fig: &Figure, hist: &Hist2d) -> CaseResult {
+    let options = ColorbarOptions {
+        axes: ColorbarAxes::Parent(fig.axes()[0].clone()),
+        ..ColorbarOptions::default()
+    };
+    fig.colorbar(&hist.mesh, options)?;
+    Ok(())
 }
 
 /// Histogram options with `layout` and default styling.
@@ -277,6 +299,49 @@ pub(crate) const CASES: &[FigureCase] = &[
         };
         fig.subplot().hist(&[normal()], &laid_out(layout))?;
         Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("hist/hist2d_default", |fig| {
+        let (x, y) = correlated(106);
+        fig.subplot().hist2d(&x, &y, Hist2dOptions::default())?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("hist/hist2d_bins_cmap_colorbar", |fig| {
+        let (x, y) = correlated(108);
+        let options = Hist2dOptions {
+            histogram: Histogram2dOptions {
+                bins: [AxisBins::Count(30), AxisBins::Count(20)],
+                ..Histogram2dOptions::default()
+            },
+            cmin: Some(1.0),
+            mesh: PcolorOptions {
+                colors: ColorizerOptions::default().cmap(colormaps::get("magma")?),
+                ..PcolorOptions::default()
+            },
+            ..Hist2dOptions::default()
+        };
+        let hist = fig.subplot().hist2d(&x, &y, options)?;
+        hist2d_colorbar(fig, &hist)
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("hist/hist2d_lognorm_range", |fig| {
+        let x = SpecRng::new(110).normal(5000, 0.0, 1.0);
+        let y = SpecRng::new(111).normal(5000, 0.0, 1.0);
+        let options = Hist2dOptions {
+            histogram: Histogram2dOptions {
+                bins: [AxisBins::Count(25), AxisBins::Count(25)],
+                range: [Some((-3.0, 3.0)), Some((-2.0, 2.0))],
+                ..Histogram2dOptions::default()
+            },
+            mesh: PcolorOptions {
+                colors: ColorizerOptions::default().norm(LogNorm::default()),
+                ..PcolorOptions::default()
+            },
+            ..Hist2dOptions::default()
+        };
+        let hist = fig.subplot().hist2d(&x, &y, options)?;
+        hist2d_colorbar(fig, &hist)
     })
     .sized(5.0, 4.0, 100.0),
 ];

@@ -2,9 +2,11 @@
 
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::EdgeColors;
-use plt::colors::{Color, colormaps};
+use plt::colorbar::{ColorbarAxes, ColorbarOptions};
+use plt::colors::{Color, LogNorm, TwoSlopeNorm, colormaps};
 use plt::markers::Marker;
 use plt::numeric::{arange, linspace, logspace};
+use plt::orientation::Orientation;
 
 use crate::figures::FigureCase;
 use crate::rng::SpecRng;
@@ -42,6 +44,72 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..ScatterOptions::default()
         };
         fig.subplot().scatter_with(x, y, options)?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("scatter/cmap_vmin_vmax_with_colorbar", |fig| {
+        let ax = fig.subplot();
+        let (x, y) = points(5, 80);
+        let c: Vec<f64> = x.iter().map(|v| v * 10.0).collect();
+        let options = ScatterOptions {
+            colors: MappedColors::new(c)
+                .with_cmap(colormaps::get("plasma")?)
+                .with_limits(Some(2.0), Some(8.0))
+                .into(),
+            sizes: Some(vec![50.0]),
+            ..ScatterOptions::default()
+        };
+        let points = ax.scatter_with(x, y, options)?;
+        let options = ColorbarOptions {
+            axes: ColorbarAxes::Parent(ax),
+            label: "value".into(),
+            ..ColorbarOptions::default()
+        };
+        fig.colorbar(&points, options)?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("scatter/lognorm_with_colorbar", |fig| {
+        let ax = fig.subplot();
+        let x = linspace(0.0, 1.0, 50);
+        let y: Vec<f64> = x.iter().map(|v| v * v).collect();
+        let c: Vec<f64> = x.iter().map(|v| 10f64.powf(4.0 * v)).collect();
+        let options = ScatterOptions {
+            colors: MappedColors::new(c)
+                .with_cmap(colormaps::get("cividis")?)
+                .with_norm(LogNorm::default())
+                .into(),
+            sizes: Some(vec![60.0]),
+            ..ScatterOptions::default()
+        };
+        let points = ax.scatter_with(x, y, options)?;
+        let options = ColorbarOptions {
+            axes: ColorbarAxes::Parent(ax),
+            ..ColorbarOptions::default()
+        };
+        fig.colorbar(&points, options)?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new("scatter/twoslopenorm_diverging", |fig| {
+        let ax = fig.subplot();
+        let (x, y) = points(6, 60);
+        let c: Vec<f64> = x.iter().map(|v| 10.0 * v - 3.0).collect();
+        let options = ScatterOptions {
+            colors: MappedColors::new(c)
+                .with_cmap(colormaps::get("RdBu_r")?)
+                .with_norm(TwoSlopeNorm::new(0.0, None, None)?)
+                .into(),
+            sizes: Some(vec![40.0]),
+            ..ScatterOptions::default()
+        };
+        let points = ax.scatter_with(x, y, options)?;
+        let options = ColorbarOptions {
+            axes: ColorbarAxes::Parent(ax),
+            orientation: Some(Orientation::Horizontal),
+            ..ColorbarOptions::default()
+        };
+        fig.colorbar(&points, options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

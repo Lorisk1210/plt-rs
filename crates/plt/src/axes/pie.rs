@@ -7,7 +7,7 @@ use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::fonts::FontSize;
-use crate::patches::{Patch, PatchProps, Wedge};
+use crate::patches::{Patch, PatchProps, Shadow, ShadowError, Wedge};
 use crate::rc::Aspect;
 use crate::text::{HorizontalAlignment, Text, VerticalAlignment};
 use crate::ticker::pyfmt::PrintfFormat;
@@ -40,6 +40,29 @@ pub enum PieDirection {
     CounterClockwise,
     /// Clockwise.
     Clockwise,
+}
+
+/// The drop shadow drawn under every wedge (matplotlib's `shadow=True`,
+/// or a dict of `Shadow` arguments).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PieShadow {
+    /// Horizontal offset in points.
+    pub ox: f64,
+    /// Vertical offset in points.
+    pub oy: f64,
+    /// How much darker than its wedge the shadow is, in `[0, 1]`.
+    pub shade: f64,
+}
+
+impl Default for PieShadow {
+    /// matplotlib's pie shadow: offset by `(-0.02, -0.02)`, shade 0.7.
+    fn default() -> Self {
+        Self {
+            ox: -0.02,
+            oy: -0.02,
+            shade: 0.7,
+        }
+    }
 }
 
 /// Options of [`Axes::pie`].
@@ -85,6 +108,8 @@ pub struct PieOptions {
     pub normalize: bool,
     /// Hatch patterns, cycled over the wedges (empty: none).
     pub hatches: Vec<String>,
+    /// A shadow under every wedge (`None`: no shadows).
+    pub shadow: Option<PieShadow>,
 }
 
 impl Default for PieOptions {
@@ -108,6 +133,7 @@ impl Default for PieOptions {
             rotatelabels: false,
             normalize: true,
             hatches: Vec::new(),
+            shadow: None,
         }
     }
 }
@@ -149,6 +175,8 @@ pub enum PieError {
     },
     /// `autopct` is not a valid printf template.
     Format(String),
+    /// The wedge shadows cannot be made.
+    Shadow(ShadowError),
 }
 
 impl fmt::Display for PieError {
@@ -168,6 +196,7 @@ impl fmt::Display for PieError {
                 "'{argument}' must be of length 'x' ({wedges}), not {len}"
             ),
             Self::Format(why) => write!(f, "invalid autopct: {why}"),
+            Self::Shadow(err) => err.fmt(f),
         }
     }
 }
@@ -193,7 +222,8 @@ impl Axes {
     ///
     /// When the values are negative, non-finite or all zero, unnormalised
     /// values sum above 1, the radius is not positive, `labels` or
-    /// `explode` do not match the values, or `autopct` is invalid.
+    /// `explode` do not match the values, `autopct` is invalid, or the
+    /// shadow's shade is outside `[0, 1]`.
     pub fn pie(&self, values: &[f64], options: &PieOptions) -> Result<PieContainer, PlotError> {
         self.set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
@@ -214,7 +244,9 @@ impl Axes {
         if options.radius <= 0.0 || options.radius.is_nan() {
             return Err(PlotError::Pie(PieError::Radius(options.radius)));
         }
-        let wedges = self.pie_wedges(&fracs, options);
+        let wedges = self
+            .pie_wedges(&fracs, options)
+            .map_err(|err| PlotError::Pie(PieError::Shadow(err)))?;
         let (cx, cy) = options.center;
         let label_size = options
             .text_size
@@ -271,8 +303,13 @@ impl Axes {
         })
     }
 
-    /// One wedge per fraction, laid out from `startangle`.
-    fn pie_wedges(&self, fracs: &[f64], options: &PieOptions) -> Vec<Patch<Wedge>> {
+    /// One wedge per fraction, laid out from `startangle`, each followed
+    /// by its shadow if any.
+    fn pie_wedges(
+        &self,
+        fracs: &[f64],
+        options: &PieOptions,
+    ) -> Result<Vec<Patch<Wedge>>, ShadowError> {
         let mut theta1 = options.startangle / 360.0;
         fracs
             .iter()
@@ -307,8 +344,12 @@ impl Axes {
                 let wedge = self.add_patch(shape);
                 wedge.update_props(props.overlay(options.wedgeprops.clone()));
                 wedge.set_clip_on(false);
+                if let Some(PieShadow { ox, oy, shade }) = options.shadow {
+                    let shadow = self.add_patch(Shadow::of_shaded(&wedge, ox, oy, shade)?);
+                    shadow.set_clip_on(false).set_label("_nolegend_");
+                }
                 theta1 = theta2;
-                wedge
+                Ok(wedge)
             })
             .collect()
     }

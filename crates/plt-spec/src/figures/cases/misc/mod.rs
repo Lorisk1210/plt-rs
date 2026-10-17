@@ -2,12 +2,14 @@
 
 mod artists;
 mod dates;
+mod sankey;
 mod spectral;
 mod units;
 mod widgets;
 
 pub(crate) use artists::CASES as ARTISTS;
 pub(crate) use dates::CASES as DATES;
+pub(crate) use sankey::CASES as SANKEY;
 pub(crate) use spectral::CASES as SPECTRAL;
 pub(crate) use units::CASES as UNITS;
 pub(crate) use widgets::CASES as WIDGETS;

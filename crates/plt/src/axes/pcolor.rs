@@ -335,14 +335,7 @@ impl Axes {
             })
             .unzip();
         let mut props = options.props;
-        let edges_none = props.edgecolors.as_ref().is_none_or(is_none);
-        props
-            .edgecolors
-            .get_or_insert(EdgeColors::Colors(vec![Color::none()]));
-        props.linewidths.get_or_insert(vec![0.25]);
-        if edges_none {
-            props.antialiased.get_or_insert(vec![false]);
-        }
+        pcolor_edge_defaults(&mut props);
         let mut collection =
             CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
         props.apply(&mut collection);
@@ -422,6 +415,19 @@ fn default_shading(shading: Option<Shading>) -> Shading {
             .parse()
             .unwrap_or_default()
     })
+}
+
+/// `pcolor`'s edge defaults (shared by `tripcolor`): no edges, 0.25 pt
+/// wide, and no anti-aliasing unless edges are drawn or it is set.
+pub(super) fn pcolor_edge_defaults(props: &mut CollectionProps) {
+    let edges_none = props.edgecolors.as_ref().is_none_or(is_none);
+    props
+        .edgecolors
+        .get_or_insert(EdgeColors::Colors(vec![Color::none()]));
+    props.linewidths.get_or_insert(vec![0.25]);
+    if edges_none {
+        props.antialiased.get_or_insert(vec![false]);
+    }
 }
 
 /// Whether edge colours are matplotlib's `"none"`.

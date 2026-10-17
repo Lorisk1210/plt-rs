@@ -235,6 +235,17 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("lines/markers_mathtext", |fig| {
+        let ax = fig.subplot();
+        let markers = [r"$\clubsuit$", r"$f$", r"$\alpha$", r"$\heartsuit$"];
+        for (i, marker) in markers.into_iter().enumerate() {
+            let y = i as f64;
+            let style = props().marker(marker.parse::<Marker>()?).markersize(15.0);
+            ax.plot_with([0.0, 1.0, 2.0], [y, y + 0.5, y], style)?;
+        }
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
     FigureCase::new("lines/markers_polygon_tuples_and_vertices", |fig| {
         let ax = fig.subplot();
         let polygon = |sides, style, angle| Marker::Polygon {

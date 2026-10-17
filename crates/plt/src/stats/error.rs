@@ -39,6 +39,13 @@ pub enum StatsError {
         /// Number of weights.
         actual: usize,
     },
+    /// The coordinates of two-dimensional samples differ in length.
+    SampleLengthMismatch {
+        /// Number of x values.
+        x: usize,
+        /// Number of y values.
+        y: usize,
+    },
     /// Weighted data cannot use an automatic bin-width estimator.
     WeightedEstimator,
     /// A bin estimator name numpy does not know.
@@ -99,6 +106,12 @@ impl fmt::Display for StatsError {
             }
             Self::WeightsMismatch { expected, actual } => {
                 write!(f, "{actual} weights given for {expected} samples")
+            }
+            Self::SampleLengthMismatch { x, y } => {
+                write!(
+                    f,
+                    "x and y must have the same length, but have {x} and {y} values"
+                )
             }
             Self::WeightedEstimator => f.write_str(
                 "automated estimation of the number of bins is not supported for weighted data",

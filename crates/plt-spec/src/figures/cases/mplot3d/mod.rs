@@ -29,7 +29,7 @@ fn surface(n: usize) -> (Grid<f64>, Grid<f64>, Grid<f64>) {
 }
 
 /// `_helix()`: two turns of a helix rising from 0 to 1.
-fn helix() -> [Vec<f64>; 3] {
+pub(super) fn helix() -> [Vec<f64>; 3] {
     let t = linspace(0.0, 4.0 * PI, 200);
     [
         t.iter().map(|t| t.cos()).collect(),

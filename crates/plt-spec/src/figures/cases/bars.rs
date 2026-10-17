@@ -5,6 +5,7 @@ use plt::axes::{
     ErrorbarOptions, GroupedBarData, GroupedBarOptions,
 };
 use plt::colors::Color;
+use plt::legend::LegendOptions;
 use plt::lines::LineProps;
 use plt::numeric::arange;
 use plt::orientation::Orientation;
@@ -375,6 +376,56 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),
+    FigureCase::new("bars/grouped_via_offsets", |fig| {
+        let ax = fig.subplot();
+        let groups = ["G1", "G2", "G3", "G4"];
+        let series = [
+            ("men", [20.0, 34.0, 30.0, 35.0]),
+            ("women", [25.0, 32.0, 34.0, 20.0]),
+            ("kids", [10.0, 15.0, 12.0, 18.0]),
+        ];
+        let x = arange(0.0, 4.0, 1.0);
+        let width = 0.25;
+        for (i, (name, values)) in (0_i32..).zip(series) {
+            let offset = f64::from(i - 1) * width;
+            let options = BarOptions {
+                thickness: vec![width],
+                label: Some(name.to_owned()),
+                ..BarOptions::default()
+            };
+            let bars = ax.bar(
+                x.iter().map(|x| x + offset).collect::<Vec<_>>(),
+                values,
+                options,
+            )?;
+            for label in ax.bar_label(&bars, &padded(2.0))? {
+                label.set_fontsize(7.0);
+            }
+        }
+        ax.set_xticks(x);
+        ax.set_xticklabels(groups)?;
+        ax.set_ylim(0.0, 40.0);
+        ax.legend(LegendOptions::default().loc("upper left").ncols(3))?;
+        Ok(())
+    })
+    .sized(6.0, 4.0, 100.0),
+    FigureCase::new("bars/grouped_bar_lists", |fig| {
+        let ax = fig.subplot();
+        let heights = GroupedBarData::Datasets(vec![
+            vec![1.0, 2.0, 3.0],
+            vec![1.5, 2.5, 2.0],
+            vec![0.5, 1.0, 4.0],
+        ]);
+        let options = GroupedBarOptions {
+            tick_labels: ["A", "B", "C"].map(String::from).to_vec(),
+            labels: ["x", "y", "z"].map(String::from).to_vec(),
+            ..GroupedBarOptions::default()
+        };
+        ax.grouped_bar(heights, options)?;
+        ax.legend(LegendOptions::default())?;
+        Ok(())
+    })
+    .sized(6.0, 4.0, 100.0),
     FigureCase::new("bars/grouped_bar_dict_horizontal", |fig| {
         let data = GroupedBarData::Named(vec![
             ("2023".into(), vec![3.0, 5.0]),

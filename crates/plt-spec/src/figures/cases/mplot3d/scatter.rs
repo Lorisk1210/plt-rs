@@ -4,7 +4,9 @@ use plt::artist::ArtistHandle;
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::{CollectionProps, EdgeColors};
 use plt::colors::colormaps;
-use plt::mplot3d::{Axes3DOptions, FaceColors, Scatter3DOptions, SurfaceOptions};
+use plt::legend::LegendOptions;
+use plt::lines::LineProps;
+use plt::mplot3d::{Axes3DOptions, Axis3, FaceColors, Scatter3DOptions, SurfaceOptions};
 
 use super::surface;
 use crate::figures::FigureCase;
@@ -19,6 +21,16 @@ fn area(area: f64) -> ScatterOptions {
 }
 
 pub(crate) const CASES: &[FigureCase] = &[
+    FigureCase::new("mplot3d/plot_line", |fig| {
+        let ax = fig.subplot_3d();
+        let [x, y, z] = super::helix();
+        let helix = LineProps::default().label("helix");
+        ax.plot_with(&x, &y, &z, Axis3::Z, helix)?;
+        ax.plot_fmt(&[-1.0, 1.0], &[-1.0, 1.0], &[0.0, 1.0], "r--o")?;
+        ax.legend(LegendOptions::default())?;
+        Ok(())
+    })
+    .sized(4.0, 4.0, 100.0),
     FigureCase::new("mplot3d/scatter_depthshade", |fig| {
         let ax = fig.subplot_3d();
         let mut g = SpecRng::new(41);

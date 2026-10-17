@@ -102,7 +102,9 @@ impl FigureWindow {
             .with_icon(icons::window_icon()?)
             .with_inner_size(LogicalSize::new(width * dpi, height * dpi + toolbar_height))
             .with_min_inner_size(LogicalSize::new(240.0, 160.0));
-        let window = UiWindow::open(cx, &options, root)?;
+        let mut window = UiWindow::open(cx, &options, root)?;
+        // Keys reach the figure from the start, as in matplotlib's windows.
+        window.ui_mut().set_focus(Some(canvas));
         let mut figure_window = Self {
             figure: figure.clone(),
             window,

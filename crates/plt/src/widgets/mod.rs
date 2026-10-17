@@ -36,7 +36,8 @@ pub use button::{Button, ButtonOptions};
 pub use cursor::{Cursor, CursorOptions, MultiCursor};
 pub use range_slider::RangeSlider;
 pub use selectors::{
-    ModifierKeys, SelectorError, SelectorEvent, SelectorState, SpanSelector, SpanSelectorOptions,
+    EllipseSelector, ModifierKeys, RectangleSelector, RectangleSelectorOptions, SelectorError,
+    SelectorEvent, SelectorState, SelectorUnits, SpanSelector, SpanSelectorOptions,
 };
 pub use slider::{Orientation, Slider, SliderOptions, ValStep};
 pub use subplot_tool::SubplotTool;

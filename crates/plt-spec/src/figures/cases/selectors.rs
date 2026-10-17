@@ -7,7 +7,8 @@ use plt::patches::PatchProps;
 use plt::prelude::*;
 use plt::transforms::Point;
 use plt::widgets::{
-    Cursor, CursorOptions, MultiCursor, Orientation, SpanSelector, SpanSelectorOptions,
+    Cursor, CursorOptions, EllipseSelector, MultiCursor, Orientation, RectangleSelector,
+    RectangleSelectorOptions, SelectorUnits, SpanSelector, SpanSelectorOptions,
 };
 
 use crate::figures::{CaseResult, FigureCase};
@@ -55,6 +56,23 @@ fn click_and_drag(ax: &Axes, start: (f64, f64), end: (f64, f64), key: Option<&st
         source.key_release(&fig, key, b.x, b.y);
     }
     Ok(())
+}
+
+/// Interactive rectangle options.
+fn interactive_region() -> RectangleSelectorOptions {
+    RectangleSelectorOptions {
+        interactive: true,
+        ..RectangleSelectorOptions::default()
+    }
+}
+
+/// Two axes side by side, both showing the sine.
+fn pair(fig: &Figure) -> Result<(Axes, Axes), Box<dyn std::error::Error>> {
+    let axs = fig.subplots(1, 2)?;
+    let (left, right) = (axs[(0, 0)].clone(), axs[(0, 1)].clone());
+    plot(&left)?;
+    plot(&right)?;
+    Ok((left, right))
 }
 
 /// Interactive span options.
@@ -141,5 +159,72 @@ pub(crate) const CASES: &[FigureCase] = &[
         let _removed = SpanSelector::new(right, Orientation::Horizontal, &options);
         click_and_drag(right, (2.0, 0.0), (6.0, 0.0), None)?;
         click_and_drag(right, (8.0, 0.0), (8.5, 0.0), None)
+    }),
+    FigureCase::new("selectors/rectangle_interactive", |fig| {
+        let ax = fig.subplot();
+        plot(&ax)?;
+        let _rect = RectangleSelector::new(&ax, &interactive_region());
+        click_and_drag(&ax, (2.0, -1.0), (6.0, 1.0), None)?;
+        click_and_drag(&ax, (6.0, 1.0), (8.0, 1.2), None)
+    }),
+    FigureCase::new("selectors/rectangle_square_center", |fig| {
+        let (left, right) = pair(fig)?;
+        let square = RectangleSelectorOptions {
+            props: PatchProps::default().facecolor("tab:green").alpha(0.3),
+            ..interactive_region()
+        };
+        let _square = RectangleSelector::new(&left, &square);
+        click_and_drag(&left, (2.0, -1.0), (6.0, 0.0), Some("shift"))?;
+        let centred = RectangleSelectorOptions {
+            handle_props: LineProps::default()
+                .markeredgecolor(plt::rc::ColorOrAuto::Color("r".into()))
+                .markersize(9.0),
+            ..interactive_region()
+        };
+        let _centred = RectangleSelector::new(&right, &centred);
+        click_and_drag(&right, (5.0, 0.0), (7.0, 0.8), Some("control"))
+    }),
+    FigureCase::new("selectors/rectangle_rotated", |fig| {
+        let (left, right) = pair(fig)?;
+        let set_angle = RectangleSelector::new(&left, &interactive_region());
+        set_angle.set_extents((3.0, 7.0, -0.5, 0.5));
+        set_angle.set_rotation(25.0);
+        let _dragged = RectangleSelector::new(&right, &interactive_region());
+        click_and_drag(&right, (3.0, -0.5), (7.0, 0.5), None)?;
+        click_and_drag(&right, (7.0, -0.5), (7.0, 0.2), Some("r"))
+    }),
+    FigureCase::new("selectors/rectangle_move_key", |fig| {
+        let ax = fig.subplot();
+        plot(&ax)?;
+        let options = RectangleSelectorOptions {
+            drag_from_anywhere: true,
+            ..interactive_region()
+        };
+        let _rect = RectangleSelector::new(&ax, &options);
+        click_and_drag(&ax, (1.0, -1.0), (3.0, 0.0), None)?;
+        click_and_drag(&ax, (8.0, 1.0), (9.0, 1.2), Some(" "))?;
+        click_and_drag(&ax, (3.0, -0.3), (4.0, -0.5), None)
+    }),
+    FigureCase::new("selectors/ellipse", |fig| {
+        let (left, right) = pair(fig)?;
+        let blue = RectangleSelectorOptions {
+            props: PatchProps::default()
+                .facecolor("tab:blue")
+                .edgecolor("k")
+                .alpha(0.3),
+            ..interactive_region()
+        };
+        let _ellipse = EllipseSelector::new(&left, &blue);
+        click_and_drag(&left, (2.0, -1.0), (8.0, 1.0), None)?;
+        let pixels = RectangleSelectorOptions {
+            spancoords: SelectorUnits::Pixels,
+            minspanx: 30.0,
+            minspany: 30.0,
+            ..interactive_region()
+        };
+        let plain = EllipseSelector::new(&right, &pixels);
+        click_and_drag(&right, (2.0, -1.0), (7.0, 0.5), None)?;
+        plain.set_rotation(-30.0);
+        Ok(())
     }),
 ];

@@ -14,10 +14,14 @@
 
 mod driver;
 mod handles;
+mod rectangle;
+mod region;
 mod span;
 
 use std::fmt;
 
+pub use rectangle::{EllipseSelector, RectangleSelector, RectangleSelectorOptions};
+pub use region::SelectorUnits;
 pub use span::{SpanSelector, SpanSelectorOptions};
 
 use crate::navigation::PointerButton;

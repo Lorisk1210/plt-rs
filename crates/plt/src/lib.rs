@@ -23,6 +23,7 @@
 //!   and tables.
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
 //! * [`pyplot`] — the stateful `matplotlib.pyplot`-style interface.
+//! * [`events`] — figure events and callbacks (`mpl_connect`).
 //! * [`navigation`] — interactive pan, zoom and view history, independent
 //!   of any window system; [`gui`] shows figures in windows with a
 //!   toolbar ([`gui::show`]).
@@ -41,6 +42,7 @@ pub mod colors;
 pub mod contour;
 pub mod coords;
 pub mod dates;
+pub mod events;
 pub mod figure;
 pub mod fonts;
 pub mod gridspec;

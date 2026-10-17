@@ -373,6 +373,11 @@ impl Figure {
         self.state.borrow()
     }
 
+    /// Write access to the figure's state.
+    pub(crate) fn state_mut(&self) -> std::cell::RefMut<'_, FigureState> {
+        self.state.borrow_mut()
+    }
+
     /// Whether something changed since the last draw.
     pub fn is_stale(&self) -> bool {
         self.state.borrow().stale

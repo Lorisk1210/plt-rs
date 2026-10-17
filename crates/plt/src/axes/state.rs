@@ -68,13 +68,24 @@ pub(crate) struct AxesState {
     pub(crate) spines: Vec<ArtistId>,
     /// The left, centre and right titles once created.
     pub(crate) titles: Vec<ArtistId>,
-    /// Whether the titles are lifted above decorations on top
-    /// (matplotlib's `_autotitlepos`; off when `axes.titley` places them).
-    pub(crate) auto_title_position: bool,
+    /// Whether the navigation toolbar acts on this axes (matplotlib's
+    /// `get_navigate`).
+    pub(crate) navigate: bool,
+    /// How the titles' height is chosen (matplotlib's `_autotitlepos`).
+    pub(crate) title_placement: TitlePlacement,
     /// z-order of the axis artists (`axes.axisbelow`).
     pub(crate) axis_zorder: f64,
     /// The rc parameters the axes was created with.
     pub(crate) rc: Rc<RcParams>,
+}
+
+/// How the height of an axes' titles is chosen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TitlePlacement {
+    /// Lifted above the decorations on top of the axes.
+    Auto,
+    /// Where `axes.titley` or `Axes::set_title_y` put them.
+    Fixed,
 }
 
 /// Which decorations an axes draws (matplotlib's `axison` and
@@ -146,7 +157,12 @@ impl AxesState {
             children: Vec::new(),
             spines: Vec::new(),
             titles: Vec::new(),
-            auto_title_position: rc.axes_titley.is_none(),
+            navigate: true,
+            title_placement: if rc.axes_titley.is_some() {
+                TitlePlacement::Fixed
+            } else {
+                TitlePlacement::Auto
+            },
             axis_zorder: rc.axes_axisbelow.zorder(),
             rc,
         }

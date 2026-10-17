@@ -203,7 +203,7 @@ impl Axes {
     pub fn set_title_y(&self, location: TitleLocation, y: f64) -> &Self {
         self.title_handle(location).set_y(y);
         self.raw
-            .with_mut::<AxesState, _>(|axes| axes.auto_title_position = false);
+            .with_mut::<AxesState, _>(|axes| axes.title_placement = state::TitlePlacement::Fixed);
         self
     }
 

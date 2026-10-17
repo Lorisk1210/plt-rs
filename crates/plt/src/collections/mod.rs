@@ -230,6 +230,14 @@ impl CollectionArtist {
         }
     }
 
+    /// The face and edge colours after defaults, colour mapping and
+    /// alpha, as drawn.
+    pub(crate) fn resolved_colors(
+        &self,
+    ) -> Result<(Vec<plt_core::Rgba>, Vec<plt_core::Rgba>), String> {
+        style::resolve_colors(self)
+    }
+
     /// The draw-time generator as a `T`, if it is one.
     pub(crate) fn draw_time_state<T: Any>(&self) -> Option<&T> {
         self.draw_time.as_ref()?.as_any().downcast_ref()

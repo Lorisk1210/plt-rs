@@ -63,6 +63,9 @@ pub struct AxisInfo {
     pub major_ticks: Vec<f64>,
     /// The axis' scale.
     pub scale: ScaleHint,
+    /// Whether the axis belongs to a 3-D axes, where `MaxNLocator` takes
+    /// slightly smaller steps (matplotlib 3.9's automargin compensation).
+    pub three_d: bool,
 }
 
 impl AxisInfo {
@@ -76,6 +79,7 @@ impl AxisInfo {
         tick_space: 9,
         major_ticks: Vec::new(),
         scale: ScaleHint::Linear,
+        three_d: false,
     };
 
     /// A dummy axis whose view *and* data intervals are `(vmin, vmax)`.

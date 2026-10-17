@@ -11,6 +11,7 @@ mod images;
 mod layout;
 mod lines;
 mod misc;
+mod mplot3d;
 mod patches;
 mod polar;
 mod scatter;
@@ -46,6 +47,11 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::DATES,
         misc::SPECTRAL,
         misc::UNITS,
+        mplot3d::CONTOURS,
+        mplot3d::OBJECTS,
+        mplot3d::SCATTER,
+        mplot3d::SURFACES,
+        mplot3d::VIEW,
         patches::COLLECTIONS,
         patches::FANCY,
         patches::HATCHING,

@@ -111,6 +111,7 @@ impl FigureState {
                 state.update_ticks(&extent, dpi);
             }
         }
+        crate::mplot3d::prepare_axes3d(self);
         // Titles clear the decorations of twins and insets, whose ticks
         // are only all known now.
         for id in axes {
@@ -154,10 +155,12 @@ impl TransformContext for FigureState {
         Some(fraction_of(&parent, &node.relative_extent))
     }
 
-    /// Axes are placed in a figure frame, or (secondary axes) in their
-    /// host axes.
+    /// Axes are placed in a figure frame, or (secondary axes and the
+    /// projection planes of 3-D axes) in their host axes.
     fn axes_bbox(&self, axes: ArtistId) -> Option<Bbox> {
-        let state = self.store.get_as::<AxesState>(axes)?;
+        let Some(state) = self.store.get_as::<AxesState>(axes) else {
+            return crate::mplot3d::axes3d_bbox(self, axes);
+        };
         let parent = state.base().parent?;
         let container = self.frame_bbox(parent).or_else(|| self.axes_bbox(parent))?;
         Some(fraction_of(

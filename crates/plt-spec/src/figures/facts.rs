@@ -1,7 +1,9 @@
 //! Structural facts of a figure, mirroring `spec_support.figcases.figure_facts`.
 
+use plt::artist::ArtistHandle;
 use plt::axes::{Axes, AxisName, TitleLocation};
 use plt::figure::Figure;
+use plt::mplot3d::Axes3D;
 
 use crate::compare::{Tolerance, compare};
 use crate::json::Json;
@@ -16,10 +18,33 @@ pub fn figure_facts(fig: &Figure) -> Json {
             Json::from(vec![width.trunc(), height.trunc()]),
         ),
         ("suptitle".into(), fig.suptitle_text().into()),
-        (
-            "axes".into(),
-            Json::Array(fig.axes().iter().map(axes_facts).collect()),
-        ),
+        ("axes".into(), Json::Array(all_axes_facts(fig))),
+    ])
+}
+
+/// The facts of every 2-D and 3-D axes, in creation order.
+fn all_axes_facts(fig: &Figure) -> Vec<Json> {
+    let mut facts: Vec<_> = fig
+        .axes()
+        .iter()
+        .map(|ax| (ax.id(), axes_facts(ax)))
+        .chain(fig.axes3d().iter().map(|ax| (ax.id(), axes3d_facts(ax))))
+        .collect();
+    facts.sort_by_key(|(id, _)| *id);
+    facts.into_iter().map(|(_, facts)| facts).collect()
+}
+
+/// The facts matplotlib records for an `Axes3D`.
+fn axes3d_facts(ax: &Axes3D) -> Json {
+    let (x, y, w, h) = ax.position().bounds();
+    let limits = |(low, high): (f64, f64)| Json::from(vec![low, high]);
+    Json::Object(vec![
+        ("kind".into(), "3d".into()),
+        ("position".into(), Json::from(vec![x, y, w, h])),
+        ("title".into(), ax.title().into()),
+        ("xlim".into(), limits(ax.xlim())),
+        ("ylim".into(), limits(ax.ylim())),
+        ("zlim".into(), limits(ax.zlim())),
     ])
 }
 

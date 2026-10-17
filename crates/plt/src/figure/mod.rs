@@ -306,6 +306,15 @@ impl Figure {
     /// The figure lists the axes of its subfigures too (matplotlib's
     /// shared axes stack); a subfigure lists only its own.
     pub fn axes(&self) -> Vec<Axes> {
+        self.scoped::<AxesState>()
+            .into_iter()
+            .map(|id| Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id)))
+            .collect()
+    }
+
+    /// The artists of type `T` placed directly in this figure's frame or,
+    /// for the root figure, in any frame (the scope of [`Figure::axes`]).
+    pub(crate) fn scoped<T: Artist>(&self) -> Vec<ArtistId> {
         let state = self.state.borrow();
         let frame_id = self.root.id();
         let in_scope = |parent: Option<ArtistId>| match parent {
@@ -321,10 +330,9 @@ impl Figure {
             .filter(|&id| {
                 state
                     .store
-                    .get_as::<AxesState>(id)
-                    .is_some_and(|axes| in_scope(axes.base().parent))
+                    .get_as::<T>(id)
+                    .is_some_and(|artist| in_scope(artist.base().parent))
             })
-            .map(|id| Axes::from_raw(RawHandle::new(Rc::clone(&self.state), id)))
             .collect()
     }
 

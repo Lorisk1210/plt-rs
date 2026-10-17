@@ -173,6 +173,11 @@ impl Axes {
             .with_mut::<AxesState, _>(|axes| axes.patch.visible = visible);
         self
     }
+
+    /// Whether the background patch is drawn.
+    pub fn patch_visible(&self) -> bool {
+        self.raw.with::<AxesState, _>(|axes| axes.patch.visible)
+    }
 }
 
 #[cfg(test)]

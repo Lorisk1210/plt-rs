@@ -22,6 +22,8 @@
 //!   fancy boxes and arrows, annotation coordinate systems, path effects
 //!   and tables.
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
+//! * [`navigation`] — interactive pan, zoom and view history, independent
+//!   of any window system.
 //! * [`layout`] — layout engines (constrained layout) placing the axes so
 //!   that their decorations fit.
 #![forbid(unsafe_code)]
@@ -43,6 +45,7 @@ pub mod layout;
 pub mod lines;
 pub mod markers;
 pub mod mlab;
+pub mod navigation;
 pub mod numeric;
 pub mod orientation;
 pub mod patches;

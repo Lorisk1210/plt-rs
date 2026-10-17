@@ -354,6 +354,11 @@ impl Figure {
         state.prepare();
     }
 
+    /// Read access to the figure's state.
+    pub(crate) fn state(&self) -> std::cell::Ref<'_, FigureState> {
+        self.state.borrow()
+    }
+
     /// Whether something changed since the last draw.
     pub fn is_stale(&self) -> bool {
         self.state.borrow().stale

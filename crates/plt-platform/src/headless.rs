@@ -76,6 +76,8 @@ struct State {
     next_id: u64,
     scale_factor: f64,
     windows: BTreeMap<WindowId, HeadlessWindow>,
+    /// The open windows from bottom to top.
+    stacking: Vec<WindowId>,
     queue: VecDeque<Event>,
     woken: bool,
     loop_alive: bool,
@@ -146,6 +148,12 @@ impl HeadlessHandle {
         self.shared.lock().windows.keys().copied().collect()
     }
 
+    /// Ids of the open windows from bottom to top: new and raised windows
+    /// go on top.
+    pub fn stacking_order(&self) -> Vec<WindowId> {
+        self.shared.lock().stacking.clone()
+    }
+
     /// The state of an open window.
     pub fn window(&self, window: WindowId) -> Option<WindowSnapshot> {
         let state = self.shared.lock();
@@ -177,6 +185,7 @@ impl HeadlessBackend {
                 next_id: 1,
                 scale_factor: 1.0,
                 windows: BTreeMap::new(),
+                stacking: Vec::new(),
                 queue: VecDeque::new(),
                 woken: false,
                 loop_alive: true,
@@ -234,6 +243,7 @@ impl Backend for HeadlessBackend {
         state
             .windows
             .insert(window, HeadlessWindow { snapshot, surface });
+        state.stacking.push(window);
         let event = WindowEvent::RedrawRequested;
         state.queue.push_back(Event::Window { window, event });
         Ok(window)
@@ -241,6 +251,7 @@ impl Backend for HeadlessBackend {
 
     fn destroy_window(&mut self, window: WindowId) -> Result<(), Error> {
         let mut state = self.shared.lock();
+        state.stacking.retain(|&id| id != window);
         state
             .windows
             .remove(&window)
@@ -276,6 +287,16 @@ impl Backend for HeadlessBackend {
             w.snapshot.cursor = cursor;
             Ok(())
         })
+    }
+
+    fn raise_window(&mut self, window: WindowId) -> Result<(), Error> {
+        let mut state = self.shared.lock();
+        if !state.windows.contains_key(&window) {
+            return Err(Error::UnknownWindow(window));
+        }
+        state.stacking.retain(|&id| id != window);
+        state.stacking.push(window);
+        Ok(())
     }
 
     fn set_inner_size(&mut self, window: WindowId, size: Size) -> Result<(), Error> {
@@ -426,6 +447,23 @@ mod tests {
         assert_eq!(surface.size(), PhysicalSize::new(3, 1));
         assert_eq!(surface.pixel(1, 0), Some([255; 4]));
         assert_eq!(surface.pixel(2, 0), Some(INITIAL_PIXEL));
+    }
+
+    #[test]
+    fn raised_windows_go_on_top() {
+        let (mut backend, handle) = HeadlessBackend::new();
+        let options = WindowOptions::new("t");
+        let first = backend.create_window(&options).unwrap();
+        let second = backend.create_window(&options).unwrap();
+        assert_eq!(handle.stacking_order(), [first, second]);
+        backend.raise_window(first).unwrap();
+        assert_eq!(handle.stacking_order(), [second, first]);
+        backend.destroy_window(first).unwrap();
+        assert_eq!(handle.stacking_order(), [second]);
+        assert_eq!(
+            backend.raise_window(first),
+            Err(Error::UnknownWindow(first))
+        );
     }
 
     #[test]

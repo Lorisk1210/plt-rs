@@ -69,6 +69,7 @@ atoms! {
     net_wm_name = "_NET_WM_NAME",
     net_wm_icon = "_NET_WM_ICON",
     net_wm_pid = "_NET_WM_PID",
+    net_active_window = "_NET_ACTIVE_WINDOW",
     utf8_string = "UTF8_STRING",
     wake = "_PLT_PLATFORM_WAKE",
 }

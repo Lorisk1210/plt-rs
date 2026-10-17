@@ -69,6 +69,18 @@ pub(super) fn zoom() -> Icon {
         .stroke(line(&[(10.5, 8.0), (10.5, 13.0)]))
 }
 
+/// Three sliders with their knobs: configure the subplots.
+pub(super) fn subplots() -> Icon {
+    const KNOB: f64 = 2.5;
+    [(6.0, 15.0), (12.0, 8.0), (18.0, 13.0)]
+        .iter()
+        .fold(Icon::new(GRID), |icon, &(y, knob)| {
+            icon.stroke(line(&[(4.0, y), (knob - KNOB, y)]))
+                .stroke(line(&[(knob + KNOB, y), (20.0, y)]))
+                .stroke(Path::circle(p(knob, y), KNOB))
+        })
+}
+
 /// A tray with a downward arrow: save the figure.
 pub(super) fn save() -> Icon {
     Icon::new(GRID)

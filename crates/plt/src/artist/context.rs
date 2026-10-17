@@ -5,6 +5,7 @@ use plt_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
 use super::{ArtistBase, ArtistId, ArtistStore, ClipPathSpec};
 use crate::figure::FigureState;
+use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 
 /// Read-only access to figure geometry, for measuring and hit testing.
@@ -67,6 +68,16 @@ impl<'a> LayoutContext<'a> {
     /// not a rectangle (the wedge of polar axes).
     pub fn clip_outline(&self, owner: ArtistId) -> Option<ClipPath> {
         self.figure.axes_outline(owner)
+    }
+
+    /// The axes whose `axis` labels align with those of `axes` in its
+    /// figure, `axes` included (see
+    /// [`Figure::align_labels`](crate::figure::Figure::align_labels)).
+    pub(crate) fn label_siblings(self, axes: ArtistId, axis: AxisName) -> Vec<ArtistId> {
+        match self.store().get(axes).and_then(|a| a.base().parent) {
+            Some(frame) => self.figure.layout.label_groups.siblings(frame, axis, axes),
+            None => vec![axes],
+        }
     }
 }
 

@@ -83,6 +83,8 @@ pub(crate) struct AxisLabel {
     pub(crate) side: SpineSide,
     /// Where along the axis the label sits.
     pub(crate) loc: LabelLoc,
+    /// Whether the label is drawn (matplotlib's `label.set_visible`).
+    pub(crate) visible: bool,
 }
 
 /// Autoscaling configuration and state of one axis.
@@ -218,6 +220,7 @@ impl AxisState {
                     AxisName::X => &rc.xaxis_labellocation,
                     AxisName::Y => &rc.yaxis_labellocation,
                 }),
+                visible: true,
             },
             visible: true,
             offset_side: SpineSide::of(name, false),

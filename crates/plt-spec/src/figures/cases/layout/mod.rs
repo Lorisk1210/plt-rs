@@ -1,4 +1,12 @@
-//! `figures/cases_layout.py`.
+//! `figures/cases_layout.py`, split by section.
+
+mod constrained;
+mod insets;
+mod tight;
+
+pub(crate) use constrained::CASES as CONSTRAINED;
+pub(crate) use insets::CASES as INSETS;
+pub(crate) use tight::CASES as TIGHT;
 
 use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicOptions, Share, SubfigureOptions};
 use plt::gridspec::{GridSpec, SubplotOverrides};
@@ -24,7 +32,7 @@ fn fill(ax: &Axes, i: usize) -> Result<(), plt::axes::PlotError> {
     .map(drop)
 }
 
-pub(crate) const CASES: &[FigureCase] = &[
+pub(crate) const GRIDS: &[FigureCase] = &[
     FigureCase::new("layout/subplots_2x2", |fig| {
         for (i, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
             fill(ax, i)?;

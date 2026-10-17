@@ -101,10 +101,29 @@ impl<'a> AxisPainter<'a> {
         major.chain(minor).collect()
     }
 
-    /// Lays out the tick labels, then the axis label and the offset text
-    /// beyond them.
+    /// Lays out the tick labels, then the axis label beyond those of the
+    /// axes it aligns with and the offset text beyond its own.
     pub(crate) fn texts(&self, layout: LayoutContext<'_>, rc: &RcParams) -> AxisTexts {
         let mut texts = AxisTexts::default();
+        self.lay_out_tick_labels(layout, rc, &mut texts);
+        let boxes = label_boxes(&texts.tick_labels);
+        let aligned = self.aligned_label_boxes(layout, &boxes);
+        for (slot, placed) in [
+            (&mut texts.label, self.axis_label(layout, rc, &aligned)),
+            (&mut texts.offset, self.offset_text(layout, rc, &boxes)),
+        ] {
+            match placed {
+                Some(Ok(text)) => *slot = Some(text),
+                Some(Err(problem)) => texts.problems.push(problem),
+                None => {}
+            }
+        }
+        texts
+    }
+
+    /// Lays out the tick labels into `texts` (matplotlib's
+    /// `_get_ticklabel_bboxes`).
+    fn lay_out_tick_labels(&self, layout: LayoutContext<'_>, rc: &RcParams, texts: &mut AxisTexts) {
         for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
             for (enabled, first_side) in [(style.labels.first, true), (style.labels.second, false)]
             {
@@ -122,22 +141,28 @@ impl<'a> AxisPainter<'a> {
                 }
             }
         }
-        let boxes: Vec<(bool, Bbox)> = texts
-            .tick_labels
-            .iter()
-            .map(|label| (label.first_side, label.text.bbox()))
-            .collect();
-        for (slot, placed) in [
-            (&mut texts.label, self.axis_label(layout, rc, &boxes)),
-            (&mut texts.offset, self.offset_text(layout, rc, &boxes)),
-        ] {
-            match placed {
-                Some(Ok(text)) => *slot = Some(text),
-                Some(Err(problem)) => texts.problems.push(problem),
-                None => {}
+    }
+
+    /// The tick label boxes of this axis (`own`) and of the same axis of
+    /// the axes its label aligns with (matplotlib's
+    /// `_get_tick_boxes_siblings`).
+    fn aligned_label_boxes(
+        &self,
+        layout: LayoutContext<'_>,
+        own: &[(bool, Bbox)],
+    ) -> Vec<(bool, Bbox)> {
+        let mut boxes = Vec::new();
+        for sibling in layout.label_siblings(self.axes_id, self.name) {
+            if sibling == self.axes_id {
+                boxes.extend_from_slice(own);
+            } else if let Some(axes) = layout.store().get_as::<AxesState>(sibling) {
+                let mut texts = AxisTexts::default();
+                AxisPainter::new(sibling, axes, self.name)
+                    .lay_out_tick_labels(layout, &axes.rc, &mut texts);
+                boxes.extend(label_boxes(&texts.tick_labels));
             }
         }
-        texts
+        boxes
     }
 
     /// The coordinate system of gridlines: data along the axis, axes
@@ -200,7 +225,7 @@ impl<'a> AxisPainter<'a> {
             rotation_mode,
             ..BlockStyle::default()
         };
-        Some(place(
+        Some(place_text(
             layout,
             &tick.label,
             &font,
@@ -246,7 +271,7 @@ impl<'a> AxisPainter<'a> {
         label_boxes: &[(bool, Bbox)],
     ) -> Option<Result<PlacedText, String>> {
         let label = &self.axis.label;
-        if label.text.is_empty() {
+        if label.text.is_empty() || !label.visible {
             return None;
         }
         let extent = layout.axes_extent(self.axes_id)?;
@@ -299,7 +324,7 @@ impl<'a> AxisPainter<'a> {
                 },
             ),
         };
-        Some(place(
+        Some(place_text(
             layout,
             &label.text,
             &label.font,
@@ -375,7 +400,7 @@ impl<'a> AxisPainter<'a> {
                 )
             }
         };
-        Some(place(
+        Some(place_text(
             layout,
             text,
             &font,
@@ -445,8 +470,16 @@ impl<'a> AxisPainter<'a> {
     }
 }
 
+/// The extents of tick labels, each with whether it is on the first side.
+fn label_boxes(labels: &[TickLabel]) -> Vec<(bool, Bbox)> {
+    labels
+        .iter()
+        .map(|label| (label.first_side, label.text.bbox()))
+        .collect()
+}
+
 /// `text` laid out at `anchor` with `font`, `block` and `color`.
-fn place(
+pub(crate) fn place_text(
     layout: LayoutContext<'_>,
     text: &str,
     font: &FontProperties,

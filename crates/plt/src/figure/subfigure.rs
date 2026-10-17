@@ -74,13 +74,14 @@ impl Figure {
         let mut cells = Vec::with_capacity(nrows * ncols);
         for row in 0..nrows {
             for col in 0..ncols {
+                let spec = grid.cell(row, col)?;
                 let extent = match &positions {
                     Some(p) => {
                         Bbox::from_extents(p.lefts[col], p.bottoms[row], p.rights[col], p.tops[row])
                     }
-                    None => ratio_extent(&grid.cell(row, col)?),
+                    None => ratio_extent(&spec),
                 };
-                cells.push(self.insert_subfigure(extent));
+                cells.push(self.insert_subfigure(extent, spec));
             }
         }
         Ok(Grid::from_vec(nrows, ncols, cells).expect("one subfigure per grid cell"))
@@ -90,10 +91,10 @@ impl Figure {
     /// `add_subfigure`).
     #[must_use]
     pub fn add_subfigure(&self, spec: &SubplotSpec) -> Self {
-        self.insert_subfigure(ratio_extent(spec))
+        self.insert_subfigure(ratio_extent(spec), spec.clone())
     }
 
-    fn insert_subfigure(&self, extent: Bbox) -> Self {
+    fn insert_subfigure(&self, extent: Bbox, spec: SubplotSpec) -> Self {
         let rc = crate::rc::params();
         let mut frame = FigureFrame::new(
             extent,
@@ -102,6 +103,7 @@ impl Figure {
             self.subplot_params(),
         );
         frame.frameon = rc.figure_frameon;
+        frame.subplot_spec = Some(spec);
         let id = self
             .state
             .borrow_mut()

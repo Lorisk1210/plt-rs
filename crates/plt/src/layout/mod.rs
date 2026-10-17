@@ -20,14 +20,20 @@
 //! assert!(x < 0.125 && x + w > 0.9, "tighter than the default margins");
 //! ```
 
+mod align;
 mod constrained;
 mod grid;
+mod tight;
 
 pub use constrained::ConstrainedLayout;
+pub use tight::{TightLayout, TightLayoutError};
+
+pub(crate) use align::LabelGroups;
 
 use plt_core::Anchor;
 
 use crate::artist::{ArtistHandle, ArtistId};
+use crate::axes_grid1::Divider;
 use crate::figure::{Figure, FigureState};
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
@@ -81,6 +87,10 @@ pub(crate) struct LayoutState {
     pub(crate) colorbars: Vec<ColorbarLayout>,
     /// Whether the engine must run before positions are used.
     pub(crate) pending: bool,
+    /// The axes whose labels align ([`Figure::align_labels`]).
+    pub(crate) label_groups: LabelGroups,
+    /// The dividers placing axes (`axes_grid1`), indexed by their ids.
+    pub(crate) dividers: Vec<Divider>,
 }
 
 impl LayoutState {
@@ -93,6 +103,8 @@ impl LayoutState {
                 .then(|| LayoutEngine::Constrained(ConstrainedLayout::from_rc(rc))),
             colorbars: Vec::new(),
             pending: true,
+            label_groups: LabelGroups::default(),
+            dividers: Vec::new(),
         }
     }
 }

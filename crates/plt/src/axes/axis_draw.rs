@@ -192,7 +192,7 @@ pub(crate) fn grid_gc(
 }
 
 /// Draws a laid-out axis text.
-fn draw_text(ctx: &mut DrawContext<'_>, text: &PlacedText, rc: &crate::rc::RcParams) {
+pub(crate) fn draw_text(ctx: &mut DrawContext<'_>, text: &PlacedText, rc: &crate::rc::RcParams) {
     let gc = GraphicsContext {
         foreground: text.color,
         antialiased: rc.text_antialiased,

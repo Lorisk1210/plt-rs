@@ -30,8 +30,11 @@
 //! * [`navigation`] — interactive pan, zoom and view history, independent
 //!   of any window system; [`gui`] shows figures in windows with a
 //!   toolbar ([`gui::show`]).
-//! * [`layout`] — layout engines (constrained layout) placing the axes so
-//!   that their decorations fit.
+//! * [`layout`] — layout engines (constrained and tight layout) placing
+//!   the axes so that their decorations fit, and aligned labels.
+//! * [`inset`] — rectangles marking the area an inset axes enlarges.
+//! * [`axes_grid1`] / [`axisartist`] — axes placed by dividers with fixed
+//!   paddings, and axes drawn by axis artists (`mpl_toolkits`).
 //! * [`mplot3d`] — 3-D axes: surfaces, wireframes, 3-D scatter, bars,
 //!   contours and more, projected through a camera.
 //! * [`legend`] / [`offsetbox`] / [`container`] — legends, the box
@@ -45,6 +48,8 @@ pub mod animation;
 #[macro_use]
 pub mod artist;
 pub mod axes;
+pub mod axes_grid1;
+pub mod axisartist;
 pub mod collections;
 pub mod colorbar;
 pub mod colors;
@@ -58,6 +63,7 @@ pub mod fonts;
 pub mod gridspec;
 pub mod gui;
 pub mod image;
+pub mod inset;
 pub mod layout;
 pub mod legend;
 pub mod lines;

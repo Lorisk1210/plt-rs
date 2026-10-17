@@ -5,7 +5,8 @@
 
 use std::ops::Range;
 
-use super::{LayoutTree, pos_and_bbox};
+use super::reposition::{place, pos_and_bbox};
+use super::tree::LayoutTree;
 use crate::axes::AxesState;
 use crate::figure::FigureState;
 use crate::gridspec::SubplotSpec;
@@ -77,8 +78,8 @@ impl LayoutTree {
             SpineSide::Left | SpineSide::Right => colorbar.aspect,
             SpineSide::Top | SpineSide::Bottom => 1.0 / colorbar.aspect,
         };
+        place(fig, colorbar.cax, &placed);
         if let Some(cax) = fig.store.get_as_mut::<AxesState>(colorbar.cax) {
-            cax.position = placed;
             cax.aspect.fix_box(anchor, box_aspect);
         }
     }

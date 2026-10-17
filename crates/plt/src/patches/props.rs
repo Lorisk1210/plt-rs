@@ -2,8 +2,8 @@
 
 use plt_render::{CapStyle, JoinStyle};
 
-use super::PatchShape;
 use super::artist::PatchArtist;
+use super::{PatchShape, PatchStyle};
 use crate::artist::{Artist, BaseProps};
 use crate::colors::Color;
 use crate::lines::LineStyle;
@@ -122,8 +122,13 @@ impl PatchProps {
 
     /// Writes the set properties into a patch.
     pub(crate) fn apply<S: PatchShape>(self, patch: &mut PatchArtist<S>) {
-        self.base.apply(patch.base_mut());
-        let style = &mut patch.style;
+        let base = self.apply_style(&mut patch.style);
+        base.apply(patch.base_mut());
+    }
+
+    /// Writes the set edge, face and hatch properties into `style` and
+    /// returns the common artist properties for the caller to apply.
+    pub(crate) fn apply_style(self, style: &mut PatchStyle) -> BaseProps {
         if let Some(color) = self.color {
             style.facecolor = Some(color.clone());
             style.edgecolor = Some(color);
@@ -158,5 +163,6 @@ impl PatchProps {
         if let Some(join) = self.joinstyle {
             style.joinstyle = join;
         }
+        self.base
     }
 }

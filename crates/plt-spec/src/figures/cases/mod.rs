@@ -10,10 +10,12 @@ mod images;
 mod layout;
 mod lines;
 mod misc;
+mod patches;
 mod polar;
 mod scatter;
 mod stats;
 mod styles;
+mod text;
 
 use super::FigureCase;
 
@@ -42,6 +44,11 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::DATES,
         misc::SPECTRAL,
         misc::UNITS,
+        patches::COLLECTIONS,
+        patches::FANCY,
+        patches::HATCHING,
+        patches::SHAPES,
+        patches::STYLES,
         polar::CASES,
         scatter::CASES,
         stats::BOXPLOT,
@@ -51,6 +58,12 @@ pub(crate) fn all() -> Vec<FigureCase> {
         stats::PIE,
         stats::VIOLIN,
         styles::CASES,
+        text::ANNOTATE,
+        text::BOXES,
+        text::EFFECTS,
+        text::LAYOUT,
+        text::MATH,
+        text::TABLES,
     ]
     .concat()
 }

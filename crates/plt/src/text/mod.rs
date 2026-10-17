@@ -7,9 +7,16 @@
 //! number of unescaped `$` is typeset by mathtext with the `mathtext.*`
 //! settings, and the block is stacked, aligned and rotated like
 //! matplotlib's `Text._get_layout`.
+//!
+//! A text may draw a box behind itself ([`TextBoxProps`]) and, as an
+//! [`Annotation`], an arrow to the point it annotates.
 
+mod annotation;
+mod error;
+mod handle;
 mod layout;
 mod math;
+mod text_box;
 mod wrap;
 
 use std::rc::Rc;
@@ -17,20 +24,28 @@ use std::rc::Rc;
 use plt_core::{Bbox, Point};
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
+use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
 use crate::colors::Color;
-use crate::fonts::{FontProperties, FontSize};
+use crate::fonts::FontProperties;
+use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 
+pub(crate) use annotation::AnnotationState;
+pub use annotation::{AnnotateOptions, Annotation, ArrowProps, FancyArrowProps, LegacyArrowProps};
+pub use error::TextDrawError;
+pub use handle::Text;
 pub use layout::{LaidOutText, measure_text};
 pub(crate) use layout::{lay_out, lay_out_with_math};
 pub use plt_text::{
     BlockLayout, HAlign as HorizontalAlignment, LineMetrics, LinePlacement, LineSpacing,
     RotationMode as TextRotationMode, TextError, VAlign as VerticalAlignment,
 };
+pub use text_box::TextBoxProps;
+pub(crate) use text_box::{BoxPlacement, TextBox};
 
-/// State of a text artist (matplotlib's `Text`).
+/// State of a text artist (matplotlib's `Text`, and `Annotation` when
+/// `annotation` is set).
 #[derive(Debug)]
 pub(crate) struct TextArtist {
     base: ArtistBase,
@@ -50,7 +65,11 @@ pub(crate) struct TextArtist {
     pub(crate) wrap: bool,
     /// Whether `$...$` is typeset as math.
     pub(crate) parse_math: bool,
-    rc: Rc<RcParams>,
+    /// The box drawn behind the text.
+    pub(crate) bbox: Option<TextBox>,
+    /// What makes the text an annotation.
+    pub(crate) annotation: Option<Box<AnnotationState>>,
+    pub(crate) rc: Rc<RcParams>,
 }
 
 impl TextArtist {
@@ -72,6 +91,8 @@ impl TextArtist {
             antialiased: rc.text_antialiased,
             wrap: false,
             parse_math: rc.text_parse_math,
+            bbox: None,
+            annotation: None,
             rc,
         }
     }
@@ -98,7 +119,7 @@ impl TextArtist {
         self.base.transform.clone().unwrap_or(Transform::Display)
     }
 
-    /// The anchor in display coordinates, if it is finite.
+    /// The anchor of a plain text in display coordinates, if it is finite.
     fn anchor(&self, ctx: LayoutContext<'_>) -> Option<Point> {
         let anchor = ctx
             .resolve(&self.transform())?
@@ -117,13 +138,11 @@ impl TextArtist {
         }
     }
 
-    /// The text with line breaks inserted so that it fits in its figure,
-    /// if wrapping is on (matplotlib's `_get_wrapped_text`).
-    pub(crate) fn wrapped_text(&self, ctx: LayoutContext<'_>) -> Result<String, TextError> {
-        if !self.wrap {
-            return Ok(self.text.clone());
-        }
-        let (Some(anchor), Some(figure)) = (self.anchor(ctx), self.figure_box(ctx)) else {
+    /// The text with line breaks inserted so that it fits in its figure
+    /// when anchored at `anchor`, if wrapping is on (matplotlib's
+    /// `_get_wrapped_text`).
+    fn wrapped_at(&self, ctx: LayoutContext<'_>, anchor: Point) -> Result<String, TextError> {
+        let Some(figure) = self.figure_box(ctx).filter(|_| self.wrap) else {
             return Ok(self.text.clone());
         };
         let style = self.block_style();
@@ -134,16 +153,102 @@ impl TextArtist {
         })
     }
 
-    /// Lays the (wrapped) text out for the canvas resolution.
-    pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<LaidOutText, TextError> {
+    /// The text with the line breaks wrapping adds.
+    pub(crate) fn wrapped_text(&self, ctx: LayoutContext<'_>) -> Result<String, TextError> {
+        match self.anchor(ctx) {
+            Some(anchor) => self.wrapped_at(ctx, anchor),
+            None => Ok(self.text.clone()),
+        }
+    }
+
+    fn layout_at(&self, ctx: LayoutContext<'_>, anchor: Point) -> Result<LaidOutText, TextError> {
         lay_out_with_math(
-            &self.wrapped_text(ctx)?,
+            &self.wrapped_at(ctx, anchor)?,
             &self.font,
             &self.block_style(),
             ctx.dpi(),
             &self.rc,
             self.parse_math,
         )
+    }
+
+    /// Lays the (wrapped) text out for the canvas resolution.
+    pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<LaidOutText, TextError> {
+        match self.anchor(ctx) {
+            Some(anchor) => self.layout_at(ctx, anchor),
+            None => lay_out_with_math(
+                &self.text,
+                &self.font,
+                &self.block_style(),
+                ctx.dpi(),
+                &self.rc,
+                self.parse_math,
+            ),
+        }
+    }
+
+    /// The text's extent when anchored at `anchor` (`Text.get_window_extent`).
+    pub(crate) fn extent_at(
+        &self,
+        ctx: LayoutContext<'_>,
+        anchor: Point,
+    ) -> Result<Bbox, TextDrawError> {
+        if self.text.is_empty() {
+            return Ok(Bbox::from_bounds(anchor.x, anchor.y, 0.0, 0.0));
+        }
+        let laid_out = self.layout_at(ctx, anchor)?;
+        Ok(laid_out.block.bbox.translated(anchor.x, anchor.y))
+    }
+
+    /// The box and where it goes for the text anchored at `anchor`
+    /// (`update_bbox_position_size`).
+    pub(crate) fn box_placement(
+        &self,
+        ctx: LayoutContext<'_>,
+        anchor: Point,
+    ) -> Result<Option<(&TextBox, BoxPlacement)>, TextDrawError> {
+        let Some(bbox) = &self.bbox else {
+            return Ok(None);
+        };
+        let laid_out = self.layout_at(ctx, anchor)?;
+        let (corner, size) = laid_out.block.frame;
+        Ok(Some((
+            bbox,
+            BoxPlacement {
+                anchor,
+                corner,
+                size,
+                rotation: self.block_style().rotation,
+                fontsize_px: ctx.points_to_pixels(self.font.size),
+            },
+        )))
+    }
+
+    /// Draws the box and the text anchored at `anchor` (the body of
+    /// `Text.draw`); path effects apply to the glyphs only.
+    pub(crate) fn draw_at(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        anchor: Point,
+    ) -> Result<(), TextDrawError> {
+        if self.text.is_empty() {
+            return Ok(());
+        }
+        let layout = *ctx.layout();
+        if let Some((bbox, placement)) = self.box_placement(layout, anchor)? {
+            bbox.draw(ctx, &self.base, &self.rc, &placement)
+                .map_err(TextDrawError::Box)?;
+        }
+        let laid_out = self.layout_at(layout, anchor)?;
+        let color = self.color.resolve_alpha(self.base.alpha)?;
+        let mut gc = ctx.base_gc(&self.base);
+        gc.foreground = color;
+        gc.antialiased = self.antialiased;
+        let rotation = self.block_style().rotation;
+        with_path_effects(ctx, &self.base.path_effects, |ctx| {
+            draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);
+        });
+        Ok(())
     }
 }
 
@@ -157,33 +262,23 @@ impl Artist for TextArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        if self.text.is_empty() {
-            return;
+        let drawn = match &self.annotation {
+            Some(annotation) => annotation.draw(self, ctx),
+            None => match self.anchor(*ctx.layout()) {
+                Some(anchor) => self.draw_at(ctx, anchor),
+                None => Ok(()),
+            },
+        };
+        if let Err(err) = drawn {
+            ctx.report(self.base.id(), err);
         }
-        let Some(anchor) = self.anchor(*ctx.layout()) else {
-            return;
-        };
-        let laid_out = match self.layout(*ctx.layout()) {
-            Ok(laid_out) => laid_out,
-            Err(err) => return ctx.report(self.base.id(), err),
-        };
-        let color = match self.color.resolve_alpha(self.base.alpha) {
-            Ok(color) => color,
-            Err(err) => return ctx.report(self.base.id(), err),
-        };
-        let mut gc = ctx.base_gc(&self.base);
-        gc.foreground = color;
-        gc.antialiased = self.antialiased;
-        draw_laid_out(ctx, &gc, &laid_out, anchor, self.block_style().rotation);
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        let anchor = self.anchor(*ctx)?;
-        if self.text.is_empty() {
-            return Some(Bbox::from_bounds(anchor.x, anchor.y, 0.0, 0.0));
+        match &self.annotation {
+            Some(annotation) => annotation.extent(self, *ctx).ok(),
+            None => self.extent_at(*ctx, self.anchor(*ctx)?).ok(),
         }
-        let laid_out = self.layout(*ctx).ok()?;
-        Some(laid_out.block.bbox.translated(anchor.x, anchor.y))
     }
 }
 
@@ -199,125 +294,5 @@ pub(crate) fn draw_laid_out(
     for (line, run) in laid_out.block.lines.iter().zip(&laid_out.runs) {
         ctx.renderer()
             .draw_text(gc, run, anchor + line.origin, angle);
-    }
-}
-
-/// A handle to a text artist (matplotlib's `Text`).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Text {
-    raw: RawHandle,
-}
-
-impl ArtistHandle for Text {
-    fn raw(&self) -> &RawHandle {
-        &self.raw
-    }
-}
-
-impl Text {
-    pub(crate) fn from_raw(raw: RawHandle) -> Self {
-        Self { raw }
-    }
-
-    /// Sets the font size in points (sizes below 1 pt become 1 pt).
-    pub fn set_fontsize(&self, points: f64) -> &Self {
-        self.set_size(FontSize::Points(points))
-    }
-
-    /// Sets the font size from a keyword relative to `font.size`.
-    pub fn set_fontsize_relative(&self, size: crate::fonts::RelativeSize) -> &Self {
-        self.set_size(FontSize::Relative(size))
-    }
-
-    /// Sets the font size in points or relative to `font.size`
-    /// (matplotlib's `set_fontsize`).
-    pub fn set_size(&self, size: FontSize) -> &Self {
-        self.raw.with_mut::<TextArtist, _>(|t| {
-            let base = t.rc.font_size;
-            t.font.set_size(size, base);
-        });
-        self
-    }
-
-    /// Moves the text horizontally, keeping its y (matplotlib's `set_x`).
-    pub fn set_x(&self, x: f64) -> &Self {
-        self.raw.with_mut::<TextArtist, _>(|t| t.position.x = x);
-        self
-    }
-
-    /// Moves the text vertically, keeping its x (matplotlib's `set_y`).
-    pub fn set_y(&self, y: f64) -> &Self {
-        self.raw.with_mut::<TextArtist, _>(|t| t.position.y = y);
-        self
-    }
-
-    /// Sets the fonts of math text (matplotlib's `set_math_fontfamily`).
-    pub fn set_math_fontfamily(&self, fontset: crate::fonts::Fontset) -> &Self {
-        self.raw
-            .with_mut::<TextArtist, _>(|t| t.font.math_fontfamily = fontset);
-        self
-    }
-
-    /// The layout matplotlib's `Text._get_layout` computes: the (wrapped)
-    /// lines, their placement relative to the anchor and the bounds of the
-    /// rotated block. Fails for malformed math.
-    pub fn layout(&self) -> Result<LaidOutText, TextError> {
-        let state = self.raw.figure_state().borrow();
-        self.raw
-            .with::<TextArtist, _>(|t| t.layout(LayoutContext::new(&state)))
-    }
-
-    /// The text with the line breaks wrapping adds (the text itself when
-    /// wrapping is off; matplotlib's `_get_wrapped_text`).
-    pub fn wrapped_text(&self) -> Result<String, TextError> {
-        let state = self.raw.figure_state().borrow();
-        self.raw
-            .with::<TextArtist, _>(|t| t.wrapped_text(LayoutContext::new(&state)))
-    }
-
-    /// Sets the font families (names or generic families).
-    pub fn set_family<I: IntoIterator<Item = S>, S: Into<String>>(&self, families: I) -> &Self {
-        let families: Vec<String> = families.into_iter().map(Into::into).collect();
-        self.raw
-            .with_mut::<TextArtist, _>(|t| t.font.families = families);
-        self
-    }
-
-    /// Sets the font weight.
-    pub fn set_weight(&self, weight: crate::fonts::FontWeight) -> &Self {
-        self.raw
-            .with_mut::<TextArtist, _>(|t| t.font.weight = weight);
-        self
-    }
-}
-
-artist_properties! {
-    Text => TextArtist {
-        /// The string shown (lines separated by `\n`).
-        text, set_text: String;
-        /// Position in the text's coordinate system.
-        position, set_position: Point;
-        /// Text colour.
-        color, set_color: Color;
-        /// Counter-clockwise rotation in degrees.
-        rotation, set_rotation: f64;
-        /// Horizontal alignment relative to the position.
-        halign, set_halign: HAlign;
-        /// Vertical alignment relative to the position.
-        valign, set_valign: VAlign;
-        /// Alignment of lines within a multi-line block (`None` follows `halign`).
-        multialign, set_multialign: Option<HAlign>;
-        /// How rotation and alignment combine.
-        rotation_mode, set_rotation_mode: RotationMode;
-        /// Spacing between lines.
-        linespacing, set_linespacing: LineSpacing;
-        /// Font description.
-        font, set_font: FontProperties;
-        /// Anti-aliasing.
-        antialiased, set_antialiased: bool;
-        /// Whether lines are broken to fit in the figure.
-        wrap, set_wrap: bool;
-        /// Whether `$...$` is typeset as math (`text.parse_math`).
-        parse_math, set_parse_math: bool;
     }
 }

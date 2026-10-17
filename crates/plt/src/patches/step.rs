@@ -4,7 +4,7 @@ use std::fmt;
 
 use plt_core::{Path, PathBuilder, Point};
 
-use super::shapes::PatchShape;
+use super::PatchShape;
 use crate::orientation::Orientation;
 
 /// Where the vertical edges of a [`StepPatch`] end.
@@ -205,8 +205,6 @@ impl StepPatch {
 }
 
 impl PatchShape for StepPatch {
-    const EDGE_DEFAULT: bool = true;
-
     fn path(&self) -> Path {
         let mut builder = Path::builder();
         for (start, end) in self.finite_runs() {

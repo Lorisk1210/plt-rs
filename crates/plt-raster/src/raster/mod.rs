@@ -26,6 +26,48 @@ use crate::style::FillRule;
 /// rasterizer with 32768 blocks of 4096 cells.
 pub const DEFAULT_CELL_LIMIT: usize = 32768 * 4096;
 
+/// How the accumulated area of a cell becomes its coverage.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum CoverageRounding {
+    /// Agg's `calculate_alpha`: the magnitude of the area, rounded towards
+    /// negative infinity before it is made positive.
+    #[default]
+    Agg,
+    /// `FreeType`'s smooth rasterizer (`gray_hline`), which matplotlib draws
+    /// glyphs with: it works with y pointing up, so areas have the
+    /// opposite sign, and negative ones lose one level (`~coverage`).
+    FreeType,
+}
+
+impl CoverageRounding {
+    /// The coverage (0 to 256, before clamping) of an accumulated `area`.
+    fn coverage(self, area: i32, rule: FillRule) -> u32 {
+        match self {
+            Self::Agg => {
+                let mut cover = (area >> 9).unsigned_abs();
+                if rule == FillRule::EvenOdd {
+                    cover &= 511;
+                    if cover > 256 {
+                        cover = 512 - cover;
+                    }
+                }
+                cover
+            }
+            Self::FreeType => {
+                let cover = area.wrapping_neg() >> 9;
+                if rule == FillRule::EvenOdd {
+                    let cover = (cover & 511).unsigned_abs();
+                    if cover >= 256 { 511 - cover } else { cover }
+                } else if cover < 0 {
+                    (!cover).unsigned_abs()
+                } else {
+                    cover.unsigned_abs()
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Status {
     Initial,
@@ -45,6 +87,7 @@ pub struct Rasterizer {
     clipper: Clipper,
     gamma: [u8; 256],
     fill_rule: FillRule,
+    rounding: CoverageRounding,
     start: Point,
     status: Status,
 }
@@ -70,6 +113,7 @@ impl Rasterizer {
             clipper: Clipper::default(),
             gamma: Gamma::Linear.table(),
             fill_rule: FillRule::NonZero,
+            rounding: CoverageRounding::Agg,
             start: Point::ORIGIN,
             status: Status::Initial,
         }
@@ -112,6 +156,11 @@ impl Rasterizer {
         self.gamma = gamma.table();
     }
 
+    /// Sets how cell areas are rounded to coverage.
+    pub fn set_coverage_rounding(&mut self, rounding: CoverageRounding) {
+        self.rounding = rounding;
+    }
+
     /// Adds every sub-path of `path`, flattening curves like Agg's
     /// `conv_curve` (approximation scale 1).
     pub fn add_path(&mut self, path: &Path) {
@@ -139,16 +188,10 @@ impl Rasterizer {
         }
     }
 
-    /// Converts accumulated area to an 8-bit alpha under the fill rule and
-    /// gamma (Agg's `calculate_alpha`).
+    /// Converts accumulated area to an 8-bit alpha under the fill rule,
+    /// rounding and gamma (Agg's `calculate_alpha`).
     fn calculate_alpha(&self, area: i32) -> u8 {
-        let mut cover = (area >> 9).unsigned_abs();
-        if self.fill_rule == FillRule::EvenOdd {
-            cover &= 511;
-            if cover > 256 {
-                cover = 512 - cover;
-            }
-        }
+        let cover = self.rounding.coverage(area, self.fill_rule);
         self.gamma[cover.min(255) as usize]
     }
 
@@ -216,6 +259,23 @@ impl PathSink for Rasterizer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn freetype_rounding_drops_a_level_for_its_negative_areas() {
+        let (agg, freetype) = (CoverageRounding::Agg, CoverageRounding::FreeType);
+        let rule = FillRule::NonZero;
+        // A y-down positive area is negative in FreeType's y-up space.
+        assert_eq!(agg.coverage(512 * 100, rule), 100);
+        assert_eq!(freetype.coverage(512 * 100, rule), 99);
+        assert_eq!(agg.coverage(-512 * 100, rule), 100);
+        assert_eq!(freetype.coverage(-512 * 100, rule), 100);
+        // Fractions: Agg rounds the magnitude of negative areas up.
+        assert_eq!(agg.coverage(-(512 * 100 + 256), rule), 101);
+        assert_eq!(freetype.coverage(512 * 100 + 256, rule), 100);
+        let even_odd = FillRule::EvenOdd;
+        assert_eq!(freetype.coverage(-512 * 300, even_odd), 211);
+        assert_eq!(agg.coverage(512 * 300, even_odd), 212);
+    }
 
     fn coverage(ras: &mut Rasterizer, width: usize, height: usize) -> Vec<u8> {
         let mut out = vec![0u8; width * height];

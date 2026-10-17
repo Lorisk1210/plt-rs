@@ -18,6 +18,9 @@
 //! * [`image`] — images (`imshow`, `figimage`, `pcolorfast`) and their
 //!   resampling.
 //! * [`polar`] — polar axes: angle and radius instead of x and y.
+//! * [`patches`] / [`coords`] / [`patheffects`] / [`table`] — shapes,
+//!   fancy boxes and arrows, annotation coordinate systems, path effects
+//!   and tables.
 #![forbid(unsafe_code)]
 
 #[macro_use]
@@ -26,6 +29,7 @@ pub mod axes;
 pub mod collections;
 pub mod colors;
 pub mod contour;
+pub mod coords;
 pub mod dates;
 pub mod figure;
 pub mod fonts;
@@ -37,6 +41,7 @@ pub mod mlab;
 pub mod numeric;
 pub mod orientation;
 pub mod patches;
+pub mod patheffects;
 pub mod polar;
 pub mod prelude;
 pub mod quiver;
@@ -45,6 +50,7 @@ pub mod scale;
 pub mod spines;
 pub mod stats;
 pub mod streamplot;
+pub mod table;
 #[cfg(test)]
 mod testing;
 pub mod text;

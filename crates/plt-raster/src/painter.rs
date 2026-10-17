@@ -11,7 +11,7 @@ use crate::geometry::stroke::{StrokeSink, Stroker};
 use crate::geometry::{PathSink, feed_path};
 use crate::mask::Mask;
 use crate::pixmap::Pixmap;
-use crate::raster::{Gamma, Rasterizer, Scanline};
+use crate::raster::{CoverageRounding, Gamma, Rasterizer, Scanline};
 use crate::render::Surface;
 use crate::render::gouraud::GouraudTriangle;
 use crate::render::image::CoverageSampler;
@@ -67,6 +67,12 @@ impl Painter {
     /// (matplotlib uses the default, [`Gamma::Linear`]).
     pub fn set_gamma(&mut self, gamma: Gamma) {
         self.rasterizer.set_gamma(gamma);
+    }
+
+    /// Sets how cell areas are rounded to coverage for subsequent
+    /// operations ([`CoverageRounding::FreeType`] reproduces glyphs).
+    pub fn set_coverage_rounding(&mut self, rounding: CoverageRounding) {
+        self.rasterizer.set_coverage_rounding(rounding);
     }
 
     /// Fills `path` with a solid colour (matplotlib's path face).

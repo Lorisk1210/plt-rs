@@ -1,29 +1,9 @@
 //! Patch geometries: each shape supplies a path and the transform placing
 //! it, exactly as the corresponding matplotlib patch class.
 
-use std::fmt::Debug;
-
 use plt_core::{Affine2D, Bbox, Path, PathCode, Point};
 
-/// The geometry of a patch (matplotlib's `get_path` + `get_patch_transform`).
-pub trait PatchShape: Debug + Clone + 'static {
-    /// Whether the patch draws an edge by default (matplotlib's
-    /// `_edge_default`).
-    const EDGE_DEFAULT: bool = false;
-
-    /// The outline, in the shape's own coordinates.
-    fn path(&self) -> Path;
-
-    /// Maps the outline into the patch's coordinate system (usually data).
-    fn patch_transform(&self) -> Affine2D {
-        Affine2D::IDENTITY
-    }
-
-    /// Whether the shape is degenerate and should not affect autoscaling.
-    fn skips_autoscale(&self) -> bool {
-        false
-    }
-}
+use super::PatchShape;
 
 /// Where a [`Rectangle`] rotates around.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -331,6 +311,48 @@ impl PatchShape for RegularPolygon {
             .scale(self.radius, self.radius)
             .rotate(self.orientation)
             .translate(self.center.x, self.center.y)
+    }
+}
+
+/// A regular polygon approximating a circle (matplotlib's `CirclePolygon`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct CirclePolygon {
+    /// Centre.
+    pub center: Point,
+    /// Distance from the centre to each vertex.
+    pub radius: f64,
+    /// Number of vertices.
+    pub resolution: usize,
+}
+
+impl CirclePolygon {
+    /// A 20-gon of `radius` around `center`.
+    pub fn new(center: impl Into<Point>, radius: f64) -> Self {
+        Self {
+            center: center.into(),
+            radius,
+            resolution: 20,
+        }
+    }
+
+    /// The same circle with `resolution` vertices.
+    #[must_use]
+    pub fn with_resolution(self, resolution: usize) -> Self {
+        Self { resolution, ..self }
+    }
+
+    fn polygon(&self) -> RegularPolygon {
+        RegularPolygon::new(self.center, self.resolution, self.radius)
+    }
+}
+
+impl PatchShape for CirclePolygon {
+    fn path(&self) -> Path {
+        self.polygon().path()
+    }
+
+    fn patch_transform(&self) -> Affine2D {
+        self.polygon().patch_transform()
     }
 }
 

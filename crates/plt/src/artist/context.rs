@@ -140,6 +140,26 @@ impl<'a> DrawContext<'a> {
         self.layout.points_to_pixels(points)
     }
 
+    /// Runs `f` with every drawing call going through the renderer that
+    /// `wrap` builds around this context's renderer (matplotlib swaps in a
+    /// `PathEffectRenderer` this way).
+    pub fn with_wrapped_renderer<R>(
+        &mut self,
+        wrap: impl for<'r> FnOnce(&'r mut dyn Renderer) -> Box<dyn Renderer + 'r>,
+        f: impl FnOnce(&mut DrawContext<'_>) -> R,
+    ) -> R {
+        let mut wrapped = wrap(&mut *self.renderer);
+        let mut inner = DrawContext {
+            layout: self.layout,
+            renderer: &mut *wrapped,
+            errors: Vec::new(),
+        };
+        let result = f(&mut inner);
+        let errors = inner.errors;
+        self.errors.extend(errors);
+        result
+    }
+
     /// Draws a child artist if it exists, is visible and not animated.
     pub fn draw_child(&mut self, id: ArtistId) {
         let Some(artist) = self.layout.store().get(id) else {

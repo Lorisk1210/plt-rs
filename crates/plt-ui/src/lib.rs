@@ -5,9 +5,10 @@
 //! * A UI is a tree of [`Widget`]s held in [`WidgetPod`]s. Containers such
 //!   as [`Flex`] own their children; leaves such as [`Button`],
 //!   [`ToolButton`] (a vector [`Icon`] that can be checked or disabled),
-//!   [`Label`], [`Separator`] and [`Surface`] (an application-rendered
-//!   image, e.g. a figure, with an optional selection rectangle) paint and
-//!   react to input.
+//!   [`Label`], [`Separator`], [`TextInput`] (a one-line editable field),
+//!   [`List`] (scrollable rows), [`Choice`] (a segmented control) and
+//!   [`Surface`] (an application-rendered image, e.g. a figure, with an
+//!   optional selection rectangle) paint and react to input.
 //! * [`Ui`] owns the tree and a window-sized framebuffer. It lays the tree
 //!   out (measure, then arrange), paints it with `plt-raster` (text comes
 //!   from `plt-text` and the bundled fonts), and routes input: hover
@@ -70,5 +71,8 @@ pub use text::{TextLayout, TextStyle};
 pub use theme::Theme;
 pub use ui::Ui;
 pub use widget::{EventCx, LayoutCx, PaintCx, Status, Widget, WidgetId, WidgetPod};
-pub use widgets::{Axis, Button, Flex, Label, Separator, Surface, SurfaceEvent, ToolButton};
+pub use widgets::{
+    Axis, Button, Choice, Flex, Label, List, ListItem, Separator, Surface, SurfaceEvent, TextInput,
+    ToolButton,
+};
 pub use window::UiWindow;

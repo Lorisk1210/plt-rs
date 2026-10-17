@@ -19,6 +19,8 @@ pub struct Button<M> {
     text: Option<TextLayout>,
     /// Whether the left button went down on this button and is held.
     pressed: bool,
+    /// Whether this is the primary action, filled with the accent colour.
+    primary: bool,
 }
 
 impl<M> Button<M> {
@@ -29,7 +31,16 @@ impl<M> Button<M> {
             message,
             text: None,
             pressed: false,
+            primary: false,
         }
+    }
+
+    /// The button styled as the main action of its group: filled with the
+    /// theme's accent colour.
+    #[must_use]
+    pub fn primary(mut self) -> Self {
+        self.primary = true;
+        self
     }
 
     /// The label.
@@ -55,12 +66,30 @@ impl<M: Clone + 'static> Widget<M> for Button<M> {
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError> {
         let status = cx.status();
         let theme = cx.theme();
-        let face = if status.active && self.pressed {
-            theme.button_active
+        let pressed = status.active && self.pressed;
+        let (face, ink) = if self.primary {
+            // Darken the accent when hovered or pressed.
+            let shade = if pressed {
+                0.8
+            } else if status.hot {
+                0.9
+            } else {
+                1.0
+            };
+            let accent = theme.accent;
+            let face = plt_core::Rgba::new(
+                accent.r * shade,
+                accent.g * shade,
+                accent.b * shade,
+                accent.a,
+            );
+            (face, plt_core::Rgba::WHITE)
+        } else if pressed {
+            (theme.button_active, theme.text)
         } else if status.hot {
-            theme.button_hot
+            (theme.button_hot, theme.text)
         } else {
-            theme.button
+            (theme.button, theme.text)
         };
         let scale = cx.scale_factor();
         let radius = theme.corner_radius * scale;
@@ -70,7 +99,7 @@ impl<M: Clone + 'static> Widget<M> for Button<M> {
             let center = rect.center();
             let size = text.size();
             let origin = Point::new(center.x - size.width / 2.0, center.y - size.height / 2.0);
-            cx.canvas().draw_text(text, origin, theme.text)?;
+            cx.canvas().draw_text(text, origin, ink)?;
         }
         Ok(())
     }

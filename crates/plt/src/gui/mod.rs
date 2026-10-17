@@ -9,7 +9,8 @@
 //! pointer, and the `keymap.*` rcParams bind the usual shortcuts (`h`
 //! home, `p` pan, `o` zoom, `g` grids, `l`/`k` log scales, `s` save, `q`
 //! close, ...). The window resizes the figure with it and renders at the
-//! screen's scale factor.
+//! screen's scale factor. Saving opens a dialog to pick the directory, the
+//! file name and the format (PNG, SVG, PDF, PS or EPS).
 //!
 //! ```no_run
 //! use plt::figure::Figure;
@@ -22,6 +23,7 @@
 mod actions;
 mod icons;
 mod keys;
+mod save_dialog;
 mod session;
 mod window;
 

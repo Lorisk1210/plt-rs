@@ -3,9 +3,11 @@
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_render::{Dashes, GraphicsContext, Hatch, PathCollection};
 
+use super::spec::{EllipseUnits, Ellipses};
 use super::style::{broadcast_widths_and_dashes, resolve_colors};
 use super::{CollectionArtist, CollectionKind, cycled};
-use crate::artist::{Artist, DrawContext};
+use crate::artist::{Artist, ArtistId, DrawContext, LayoutContext};
+use crate::axes::AxesState;
 use crate::transforms::Transform;
 
 /// A collection resolved for one draw: shapes after the non-affine part
@@ -37,15 +39,30 @@ impl Batch {
             .map(|p| resolved.split_path(p).0.into_owned())
             .collect();
         let dpi = ctx.layout().dpi();
-        let transforms = match &c.sizes {
-            Some(sizes) => sizes
+        let mut master = resolved.affine_part();
+        let transforms = match (&c.ellipses, &c.sizes) {
+            (Some(ellipses), _) => {
+                let axes = c.base().parent;
+                let scales = ellipse_scales(ellipses.units, *ctx.layout(), axes)
+                    .ok_or("its axes no longer exist")?;
+                if let Some(data) = scales.data {
+                    master = data;
+                }
+                ellipse_transforms(ellipses, scales.scale)
+            }
+            (None, Some(sizes)) => sizes
                 .iter()
                 .map(|area| {
-                    let scale = area.sqrt() * dpi / 72.0;
-                    Affine2D::scaling(scale, scale)
+                    let scale = area.sqrt() * dpi / 72.0 * c.size_factor;
+                    let scaled = Affine2D::scaling(scale, scale);
+                    if c.size_rotation == 0.0 {
+                        scaled
+                    } else {
+                        scaled.rotate(-c.size_rotation)
+                    }
                 })
                 .collect(),
-            None => c.transforms.clone(),
+            (None, None) => c.transforms.clone(),
         };
         let offsets = match &c.offset_transform {
             Some(t) => {
@@ -76,7 +93,7 @@ impl Batch {
         });
         Ok(Self {
             paths,
-            master: resolved.affine_part(),
+            master,
             transforms,
             offsets,
             faces,
@@ -194,4 +211,66 @@ fn graphics_context(
         gc.join = join;
     }
     Ok(gc)
+}
+
+/// How the ellipses of a collection are scaled at draw time.
+struct EllipseScales {
+    /// Pixels per unit along both axes.
+    scale: f64,
+    /// For data units: the data transform without its translation, which
+    /// replaces the collection's transform.
+    data: Option<Affine2D>,
+}
+
+/// `EllipseCollection._set_transforms`: the scale of `units` in the axes
+/// `axes`.
+fn ellipse_scales(
+    units: EllipseUnits,
+    layout: LayoutContext<'_>,
+    axes: Option<ArtistId>,
+) -> Option<EllipseScales> {
+    let plain = |scale: f64| Some(EllipseScales { scale, data: None });
+    match units {
+        EllipseUnits::Inches => return plain(layout.dpi()),
+        EllipseUnits::Points => return plain(layout.dpi() / 72.0),
+        EllipseUnits::Dots => return plain(1.0),
+        _ => {}
+    }
+    let axes = axes?;
+    let bbox = layout.axes_extent(axes)?;
+    let view = layout.store().get_as::<AxesState>(axes)?.view_lim;
+    match units {
+        EllipseUnits::Xy => {
+            let m = layout
+                .resolve(&crate::transforms::Transform::Data(axes))?
+                .affine_part()
+                .matrix();
+            Some(EllipseScales {
+                scale: 1.0,
+                data: Some(Affine2D::from_values(
+                    m[0][0], m[1][0], m[0][1], m[1][1], 0.0, 0.0,
+                )),
+            })
+        }
+        EllipseUnits::X => plain(bbox.width() / view.width()),
+        EllipseUnits::Y => plain(bbox.height() / view.height()),
+        EllipseUnits::Width => plain(bbox.width()),
+        _ => plain(bbox.height()),
+    }
+}
+
+/// One affine per ellipse: the unit circle stretched to its half axes
+/// (scaled by `scale`) and rotated.
+fn ellipse_transforms(ellipses: &Ellipses, scale: f64) -> Vec<Affine2D> {
+    ellipses
+        .half_widths
+        .iter()
+        .zip(&ellipses.half_heights)
+        .zip(&ellipses.angles)
+        .map(|((w, h), angle)| {
+            let (w, h) = (w * scale, h * scale);
+            let (sin, cos) = (angle.sin(), angle.cos());
+            Affine2D::from_values(w * cos, w * sin, h * -sin, h * cos, 0.0, 0.0)
+        })
+        .collect()
 }

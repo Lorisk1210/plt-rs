@@ -1,5 +1,7 @@
 //! Axes: data coordinate systems and the plotting API (matplotlib.axes).
 
+mod add_artist;
+mod annotate;
 mod aspect;
 pub(crate) mod axis;
 pub(crate) mod axis_draw;
@@ -40,6 +42,7 @@ mod state;
 mod stem;
 mod steps;
 mod streamplot;
+mod table;
 #[cfg(test)]
 mod tests;
 mod tick_config;

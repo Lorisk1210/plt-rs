@@ -5,9 +5,11 @@ use std::rc::Rc;
 use plt_core::{Affine2D, Path, Rgba};
 use plt_render::{CapStyle, GraphicsContext, Hatch, JoinStyle};
 
+use super::DisplayPath;
 use crate::artist::{ArtistBase, DrawContext};
 use crate::colors::{Color, ColorError};
 use crate::lines::{LineStyle, inverse_dashes};
+use crate::patheffects::with_path_effects;
 use crate::rc::{ColorOrEdge, RcParams};
 
 /// How a patch's outline, face and hatch are painted (matplotlib's `Patch`
@@ -112,8 +114,8 @@ pub(crate) struct ResolvedStyle {
 }
 
 /// Paints `paths` (each already split into a non-affine part and its
-/// display affine) with the patch's properties, exactly as matplotlib's
-/// `Patch._draw_paths_with_artist_properties` does.
+/// display affine) with the patch's properties, filling every face; see
+/// [`paint_paths`].
 pub(crate) fn draw_patch_paths(
     ctx: &mut DrawContext<'_>,
     base: &ArtistBase,
@@ -121,6 +123,26 @@ pub(crate) fn draw_patch_paths(
     rc: &Rc<RcParams>,
     edge_default: bool,
     paths: &[(Path, Affine2D)],
+) -> Result<(), ColorError> {
+    let paths: Vec<DisplayPath> = paths
+        .iter()
+        .map(|(path, affine)| DisplayPath::filled(path.clone(), *affine))
+        .collect();
+    paint_paths(ctx, base, style, rc, edge_default, &paths)
+}
+
+/// Paints `paths` with the patch's properties through the artist's path
+/// effects, exactly as matplotlib's
+/// `Patch._draw_paths_with_artist_properties` does: the gaps of a dashed
+/// edge first (when they have a colour), then the faces of the filled
+/// paths with their hatch, and the edges.
+pub(crate) fn paint_paths(
+    ctx: &mut DrawContext<'_>,
+    base: &ArtistBase,
+    style: &PatchStyle,
+    rc: &RcParams,
+    edge_default: bool,
+    paths: &[DisplayPath],
 ) -> Result<(), ColorError> {
     let resolved = style.resolve(rc, base.alpha, edge_default)?;
     let mut gc: GraphicsContext = ctx.base_gc(base);
@@ -140,26 +162,32 @@ pub(crate) fn draw_patch_paths(
             linewidth: style.hatch_linewidth,
         });
     }
-    let fill = (!resolved.face.is_transparent()).then_some(resolved.face);
+    let face = (!resolved.face.is_transparent()).then_some(resolved.face);
     let dashes = style.linestyle.scaled_dashes(resolved.linewidth, rc);
 
     ctx.renderer().open_group("patch", base.gid.as_deref());
-    if let (true, true, Some(gap)) = (linewidth > 0.0, style.linestyle.is_dashed(), resolved.gap) {
-        gc.foreground = gap;
-        gc.dashes = inverse_dashes(&dashes);
-        for (path, affine) in paths {
-            ctx.renderer().draw_path(&gc, path, affine, fill);
+    with_path_effects(ctx, &base.path_effects, |ctx| {
+        let draw_all = |ctx: &mut DrawContext<'_>, gc: &GraphicsContext| {
+            for path in paths {
+                let fill = face.filter(|_| path.filled);
+                ctx.renderer().draw_path(gc, &path.path, &path.affine, fill);
+            }
+        };
+        if let (true, true, Some(gap)) =
+            (linewidth > 0.0, style.linestyle.is_dashed(), resolved.gap)
+        {
+            gc.foreground = gap;
+            gc.dashes = inverse_dashes(&dashes);
+            draw_all(ctx, &gc);
         }
-    }
-    gc.foreground = resolved.edge;
-    gc.dashes = if linewidth > 0.0 {
-        dashes
-    } else {
-        plt_render::Dashes::solid()
-    };
-    for (path, affine) in paths {
-        ctx.renderer().draw_path(&gc, path, affine, fill);
-    }
+        gc.foreground = resolved.edge;
+        gc.dashes = if linewidth > 0.0 {
+            dashes
+        } else {
+            plt_render::Dashes::solid()
+        };
+        draw_all(ctx, &gc);
+    });
     ctx.renderer().close_group("patch");
     Ok(())
 }

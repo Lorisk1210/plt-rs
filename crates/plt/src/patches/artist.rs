@@ -3,17 +3,81 @@
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use plt_core::{Bbox, Path, Point};
+use plt_core::{Affine2D, Bbox, Path, Point};
 use plt_render::{CapStyle, ClipPath, JoinStyle};
 
-use super::PatchProps;
-use super::shapes::PatchShape;
-use super::style::{PatchStyle, draw_patch_paths};
+use super::shape::{DisplayPath, PatchShape, ShapeFrame};
+use super::style::{PatchStyle, paint_paths};
+use super::{PatchError, PatchProps};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
 use crate::colors::Color;
 use crate::lines::LineStyle;
 use crate::rc::{ColorOrEdge, RcParams};
-use crate::transforms::{ResolvedTransform, Transform};
+use crate::transforms::Transform;
+
+/// The pieces a patch is drawn from, borrowed from whichever artist owns
+/// them (a patch artist, or a text drawing its box or arrow).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct PatchParts<'a, S> {
+    pub(crate) base: &'a ArtistBase,
+    pub(crate) style: &'a PatchStyle,
+    pub(crate) rc: &'a RcParams,
+    pub(crate) shape: &'a S,
+    /// Pieces each outline segment is cut into for projections that bend
+    /// lines (matplotlib's `get_path()._interpolation_steps`).
+    pub(crate) interpolation_steps: usize,
+}
+
+impl<S: PatchShape> PatchParts<'_, S> {
+    /// The outlines in display space.
+    pub(crate) fn display_paths(
+        &self,
+        layout: LayoutContext<'_>,
+    ) -> Result<Vec<DisplayPath>, PatchError> {
+        let transform = self.base.transform.clone().unwrap_or(Transform::Display);
+        let frame = ShapeFrame {
+            layout,
+            transform: layout.resolve(&transform).ok_or(PatchError::Detached)?,
+            linewidth: self.style.linewidth.unwrap_or(self.rc.patch_linewidth),
+            parent: self.base.parent,
+            interpolation_steps: self.interpolation_steps,
+        };
+        self.shape.display_paths(&frame)
+    }
+
+    /// Draws the patch (matplotlib's `Patch.draw`).
+    pub(crate) fn paint(&self, ctx: &mut DrawContext<'_>) -> Result<(), PatchError> {
+        let paths = self.display_paths(*ctx.layout())?;
+        paint_paths(ctx, self.base, self.style, self.rc, S::EDGE_DEFAULT, &paths)?;
+        Ok(())
+    }
+
+    /// The extent of the outlines in display space.
+    pub(crate) fn extent(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
+        self.display_paths(layout)
+            .ok()?
+            .iter()
+            .map(|path| path.to_display().extents())
+            .reduce(|a, b| a.union(&b))
+    }
+
+    /// The outline as a clip region.
+    pub(crate) fn outline(&self, layout: LayoutContext<'_>) -> Option<ClipPath> {
+        let mut paths = self.display_paths(layout).ok()?;
+        if paths.len() == 1 {
+            let only = paths.remove(0);
+            return Some(ClipPath {
+                path: only.path,
+                transform: only.affine,
+            });
+        }
+        let displayed: Vec<Path> = paths.iter().map(DisplayPath::to_display).collect();
+        Some(ClipPath {
+            path: Path::compound(&displayed),
+            transform: Affine2D::IDENTITY,
+        })
+    }
+}
 
 /// A shape painted with a [`PatchStyle`] (matplotlib's `Patch` subclasses).
 #[derive(Debug)]
@@ -28,32 +92,29 @@ pub(crate) struct PatchArtist<S: PatchShape> {
 }
 
 impl<S: PatchShape> PatchArtist<S> {
-    /// A patch with matplotlib's defaults under `rc` (z-order 1).
+    /// A patch with matplotlib's defaults under `rc` (z-order 1), adjusted
+    /// by the shape.
     pub(crate) fn new(shape: S, rc: Rc<RcParams>) -> Self {
+        let mut base = ArtistBase::with_zorder(1.0);
+        let mut style = PatchStyle::from_rc(&rc);
+        shape.init_style(&mut style, &mut base);
         Self {
-            base: ArtistBase::with_zorder(1.0),
-            style: PatchStyle::from_rc(&rc),
+            base,
+            style,
             shape,
             interpolation_steps: 1,
             rc,
         }
     }
 
-    /// The outline in the shape's coordinates, carrying the
-    /// interpolation steps.
-    fn shape_path(&self) -> Path {
-        self.shape
-            .path()
-            .with_interpolation_steps(self.interpolation_steps)
-    }
-
-    fn transform(&self) -> Transform {
-        let shape = Transform::Affine(self.shape.patch_transform());
-        shape.then(self.base.transform.clone().unwrap_or(Transform::Display))
-    }
-
-    fn resolved(&self, ctx: LayoutContext<'_>) -> Option<ResolvedTransform> {
-        ctx.resolve(&self.transform())
+    fn parts(&self) -> PatchParts<'_, S> {
+        PatchParts {
+            base: &self.base,
+            style: &self.style,
+            rc: &self.rc,
+            shape: &self.shape,
+            interpolation_steps: self.interpolation_steps,
+        }
     }
 
     /// Points bounding the outline (ends and axis extrema of every curve),
@@ -87,40 +148,17 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let Some(resolved) = self.resolved(*ctx.layout()) else {
-            ctx.report(self.base.id(), "its coordinate system no longer exists");
-            return;
-        };
-        let outline = self.shape_path();
-        let (path, affine) = resolved.split_path(&outline);
-        let paths = [(path.into_owned(), affine)];
-        if let Err(err) = draw_patch_paths(
-            ctx,
-            &self.base,
-            &self.style,
-            &self.rc,
-            S::EDGE_DEFAULT,
-            &paths,
-        ) {
+        if let Err(err) = self.parts().paint(ctx) {
             ctx.report(self.base.id(), err);
         }
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        Some(
-            self.resolved(*ctx)?
-                .transform_path(&self.shape_path())
-                .extents(),
-        )
+        self.parts().extent(*ctx)
     }
 
     fn outline(&self, ctx: &LayoutContext<'_>) -> Option<ClipPath> {
-        let outline = self.shape_path();
-        let (path, transform) = self.resolved(*ctx)?.split_path(&outline);
-        Some(ClipPath {
-            path: path.into_owned(),
-            transform,
-        })
+        self.parts().outline(*ctx)
     }
 }
 
@@ -224,6 +262,13 @@ impl<S: PatchShape> Patch<S> {
         self.update(|p| p.style.linestyle = style)
     }
 
+    /// Sets the colour drawn in the gaps of a dashed edge (matplotlib's
+    /// `set_edgegapcolor`; `"none"` leaves them empty).
+    pub fn set_edgegapcolor(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
+        self.update(|p| p.style.edgegapcolor = color)
+    }
+
     /// Sets the hatch pattern (e.g. `"//"`, `"x"`, `"o."`).
     pub fn set_hatch(&self, pattern: impl Into<String>) -> &Self {
         let pattern = pattern.into();
@@ -234,6 +279,12 @@ impl<S: PatchShape> Patch<S> {
     pub fn set_hatchcolor(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
         self.update(|p| p.style.hatchcolor = ColorOrEdge::Color(color))
+    }
+
+    /// Sets the hatch line width in points (matplotlib's
+    /// `set_hatch_linewidth`).
+    pub fn set_hatch_linewidth(&self, width: f64) -> &Self {
+        self.update(|p| p.style.hatch_linewidth = width)
     }
 
     /// Sets the edge cap style.

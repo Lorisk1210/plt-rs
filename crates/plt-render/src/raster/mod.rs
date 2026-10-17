@@ -7,6 +7,7 @@
 
 mod condition;
 mod draw;
+mod glyph;
 mod text;
 
 use std::fmt;

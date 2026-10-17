@@ -6,8 +6,9 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
-use super::{Artist, ArtistBase, ArtistId, LayoutContext};
+use super::{Artist, ArtistBase, ArtistId, ClipPathSpec, LayoutContext};
 use crate::figure::FigureState;
+use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
 
 /// An untyped reference to one artist of a figure.
@@ -206,6 +207,26 @@ pub trait ArtistHandle {
         Self: Sized,
     {
         self.raw().with_base_mut(|b| b.clip_on = clip_on);
+        self
+    }
+
+    /// Clips the artist to a region besides its clip box (matplotlib's
+    /// `set_clip_path`); `None` removes it.
+    fn set_clip_path(&self, clip: Option<ClipPathSpec>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.clip_path = clip);
+        self
+    }
+
+    /// Sets the effects applied when the artist's paths are drawn
+    /// (matplotlib's `set_path_effects`).
+    fn set_path_effects(&self, effects: Vec<PathEffect>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.path_effects = effects);
         self
     }
 

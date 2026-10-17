@@ -8,9 +8,11 @@
 //! text's snapping, grown to at least one pixel as matplotlib does.
 
 use plt_core::{Affine2D, Path, Point};
+use plt_raster::CoverageRounding;
 use plt_text::{TextEngine, TextRun};
 
 use super::RasterRenderer;
+use super::glyph::freetype_polygon;
 use crate::gc::{Dashes, GraphicsContext, SnapMode};
 use crate::renderer::Renderer;
 
@@ -42,15 +44,20 @@ impl RasterRenderer {
             snap: SnapMode::Never,
             ..fill_gc.clone()
         };
+        // Glyphs are rendered by FreeType, which rounds coverage its own way.
+        self.painter
+            .set_coverage_rounding(CoverageRounding::FreeType);
         for glyph in &run.glyphs {
             let Ok(outline) = engine.glyph_outline(glyph.font, glyph.glyph, glyph.size, run.dpi)
             else {
                 continue;
             };
             let pen = placement.transform_point(Point::new(glyph.x, glyph.y));
-            let at = rotation.translate(quantize(pen.x), quantize(pen.y));
-            self.draw_path(&glyph_gc, &outline, &at, Some(color));
+            let pen = Point::new(quantize(pen.x), quantize(pen.y));
+            let polygon = freetype_polygon(&outline, angle, pen);
+            self.draw_path(&glyph_gc, &polygon, &Affine2D::IDENTITY, Some(color));
         }
+        self.painter.set_coverage_rounding(CoverageRounding::Agg);
         for rect in &run.rects {
             let (mut x, mut y, mut w, mut h) = rect.bounds();
             if gc.snap != SnapMode::Never {

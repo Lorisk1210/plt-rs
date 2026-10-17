@@ -13,7 +13,12 @@ impl Axes {
     /// (matplotlib's `add_patch`).
     pub fn add_patch<S: PatchShape>(&self, shape: S) -> Patch<S> {
         let mut patch = PatchArtist::new(shape, crate::rc::params());
-        patch.base_mut().transform = Some(self.trans_data());
+        // Like matplotlib's `_set_artist_props`, keep a transform the
+        // shape already chose (a shadow inherits its source's).
+        let base = patch.base_mut();
+        if base.transform.is_none() {
+            base.transform = Some(self.trans_data());
+        }
         // matplotlib's add_patch extends the data limits without
         // autoscaling the view.
         let update = DataUpdate {

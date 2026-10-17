@@ -4,6 +4,7 @@ use plt_core::Path;
 use plt_render::Sketch;
 
 use super::ArtistId;
+use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
 
 /// A clip region attached to an artist.
@@ -54,6 +55,9 @@ pub struct ArtistBase {
     pub snap: Option<bool>,
     /// Hand-drawn wobble.
     pub sketch: Option<Sketch>,
+    /// Effects applied when the artist's paths are drawn (matplotlib's
+    /// `path_effects`; empty draws the paths as they are).
+    pub path_effects: Vec<PathEffect>,
     /// Group id for vector output.
     pub gid: Option<String>,
     /// Hyperlink for vector output.
@@ -111,6 +115,7 @@ impl Default for ArtistBase {
             in_layout: true,
             snap: None,
             sketch: None,
+            path_effects: Vec::new(),
             gid: None,
             url: None,
             sticky_edges: (Vec::new(), Vec::new()),

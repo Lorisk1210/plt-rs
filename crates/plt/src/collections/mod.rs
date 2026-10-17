@@ -4,16 +4,25 @@
 //! One [`Collection`] artist covers matplotlib's `PathCollection` (scatter
 //! markers sized in points²), `PolyCollection`, `LineCollection`,
 //! `PatchCollection` and friends; the [`CollectionKind`] selects the
-//! default colours, widths and z-order of each flavour.
+//! default colours, widths and z-order of each flavour. A
+//! [`CollectionSpec`] builds one of matplotlib's collection classes
+//! (patches, lines, polygons, ellipses, circles, regular polygons, events)
+//! for [`Axes::add_collection`](crate::axes::Axes::add_collection);
+//! [`TriMeshSpec`] builds a Gouraud-shaded [`TriMesh`].
 
 mod draw;
 mod props;
 mod quad_mesh;
+mod spec;
 mod style;
+mod trimesh;
 
 pub use props::CollectionProps;
 use quad_mesh::MeshGeometry;
 pub use quad_mesh::MeshShading;
+pub(crate) use spec::Ellipses;
+pub use spec::{CollectionPatch, CollectionSpec, EllipseUnits};
+pub use trimesh::{TriMesh, TriMeshError, TriMeshSpec};
 
 use std::any::Any;
 use std::borrow::Cow;
@@ -116,6 +125,14 @@ pub(crate) struct CollectionArtist {
     pub(crate) transforms: Vec<Affine2D>,
     /// Marker areas in points² (cycled); scale each item at draw time.
     pub(crate) sizes: Option<Vec<f64>>,
+    /// Extra scale of the sizes (matplotlib's `_factor`: 1/√π for circles
+    /// and regular polygons, whose sizes are circle areas).
+    pub(crate) size_factor: f64,
+    /// Rotation of sized items in radians (regular polygons).
+    pub(crate) size_rotation: f64,
+    /// Ellipses scaled at draw time (`EllipseCollection`); replaces
+    /// `transforms` and `sizes`.
+    pub(crate) ellipses: Option<Ellipses>,
     pub(crate) offsets: Vec<Point>,
     /// Coordinate system of `offsets` (`None` = no offsets).
     pub(crate) offset_transform: Option<Transform>,
@@ -151,6 +168,9 @@ impl CollectionArtist {
             paths,
             transforms: Vec::new(),
             sizes: None,
+            size_factor: 1.0,
+            size_rotation: 0.0,
+            ellipses: None,
             offsets: Vec::new(),
             offset_transform: None,
             facecolors: None,

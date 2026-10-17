@@ -64,6 +64,24 @@ impl Axes3D {
         Ok(Line2D::from_raw(raw))
     }
 
+    /// Places a legend of the labelled artists in the axes (matplotlib's
+    /// `ax.legend()` on 3-D axes).
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::legend`](crate::axes::Axes::legend).
+    pub fn legend(
+        &self,
+        options: crate::legend::LegendOptions,
+    ) -> Result<crate::legend::Legend, crate::legend::LegendError> {
+        self.plane().legend(options)
+    }
+
+    /// The legend placed with [`Axes3D::legend`], if any.
+    pub fn get_legend(&self) -> Option<crate::legend::Legend> {
+        self.plane().get_legend()
+    }
+
     /// Adds text at `(x, y, z)` in data coordinates; with a `zdir` the
     /// baseline follows that axis as seen on screen (matplotlib's
     /// `ax.text(x, y, z, s, zdir=...)`).

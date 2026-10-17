@@ -38,14 +38,19 @@ fn all_axes_facts(fig: &Figure) -> Vec<Json> {
 fn axes3d_facts(ax: &Axes3D) -> Json {
     let (x, y, w, h) = ax.position().bounds();
     let limits = |(low, high): (f64, f64)| Json::from(vec![low, high]);
-    Json::Object(vec![
+    let mut facts = vec![
         ("kind".into(), "3d".into()),
         ("position".into(), Json::from(vec![x, y, w, h])),
         ("title".into(), ax.title().into()),
         ("xlim".into(), limits(ax.xlim())),
         ("ylim".into(), limits(ax.ylim())),
         ("zlim".into(), limits(ax.zlim())),
-    ])
+    ];
+    if let Some(legend) = ax.get_legend() {
+        let labels = legend.labels().into_iter().map(Json::from).collect();
+        facts.push(("legend".into(), Json::Array(labels)));
+    }
+    Json::Object(facts)
 }
 
 fn axes_facts(ax: &Axes) -> Json {

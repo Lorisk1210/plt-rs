@@ -64,6 +64,8 @@ pub(crate) struct AxesState {
     pub(crate) patch_cycle: usize,
     /// Plotted artists in insertion order.
     pub(crate) children: Vec<ArtistId>,
+    /// Containers of the plotting calls that made them (`ax.containers`).
+    pub(crate) containers: Vec<crate::container::ContainerIds>,
     /// The spines, in `SpineSide::ALL` order once created.
     pub(crate) spines: Vec<ArtistId>,
     /// The left, centre and right titles once created.
@@ -155,6 +157,7 @@ impl AxesState {
             line_cycle: 0,
             patch_cycle: 0,
             children: Vec::new(),
+            containers: Vec::new(),
             spines: Vec::new(),
             titles: Vec::new(),
             navigate: true,

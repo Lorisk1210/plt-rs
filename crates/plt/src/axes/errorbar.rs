@@ -273,14 +273,16 @@ impl Axes {
             .collect();
         self.raw()
             .with_mut::<super::AxesState, _>(|axes| axes.request_autoscale(true, true));
-        Ok(ErrorbarContainer {
+        let container = ErrorbarContainer {
             data_line,
             caplines,
             barlinecols,
             has_xerr,
             has_yerr,
             label,
-        })
+        };
+        self.add_container(container.clone());
+        Ok(container)
     }
 
     /// The requested error directions, horizontal first, taken out of

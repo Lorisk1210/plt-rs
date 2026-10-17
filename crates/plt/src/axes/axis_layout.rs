@@ -224,23 +224,16 @@ impl<'a> AxisPainter<'a> {
         let across = if first_side { 0.0 } else { 1.0 };
         let base = resolved.transform_point(self.tick_point(tick.loc, across));
         let offset = layout.points_to_pixels(style.label_offset());
+        // `xtick.alignment` and `ytick.alignment` (matplotlib's
+        // `get_xaxis_text1_transform` and friends).
+        let rc = &self.axes.rc;
+        let x_align = HAlign::parse(&rc.xtick_alignment).unwrap_or(HAlign::Center);
+        let y_align = VAlign::parse(&rc.ytick_alignment).unwrap_or(VAlign::CenterBaseline);
         Some(match (self.name, first_side) {
-            (AxisName::X, true) => (
-                base - Point::new(0.0, offset),
-                (HAlign::Center, VAlign::Top),
-            ),
-            (AxisName::X, false) => (
-                base + Point::new(0.0, offset),
-                (HAlign::Center, VAlign::Bottom),
-            ),
-            (AxisName::Y, true) => (
-                base - Point::new(offset, 0.0),
-                (HAlign::Right, VAlign::CenterBaseline),
-            ),
-            (AxisName::Y, false) => (
-                base + Point::new(offset, 0.0),
-                (HAlign::Left, VAlign::CenterBaseline),
-            ),
+            (AxisName::X, true) => (base - Point::new(0.0, offset), (x_align, VAlign::Top)),
+            (AxisName::X, false) => (base + Point::new(0.0, offset), (x_align, VAlign::Bottom)),
+            (AxisName::Y, true) => (base - Point::new(offset, 0.0), (HAlign::Right, y_align)),
+            (AxisName::Y, false) => (base + Point::new(offset, 0.0), (HAlign::Left, y_align)),
         })
     }
 

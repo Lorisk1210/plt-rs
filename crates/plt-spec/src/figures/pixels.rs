@@ -4,6 +4,7 @@
 use std::error::Error;
 use std::fmt;
 
+use plt::figure::SaveOptions;
 use plt_render::RasterRenderer;
 
 use super::FigureCase;
@@ -44,12 +45,8 @@ impl fmt::Display for PixelReport {
 /// Artists that fail to draw are skipped; their count is returned.
 pub fn render_pixels(case: &FigureCase) -> Result<(RasterRenderer, usize), Box<dyn Error>> {
     case.with_figure(|fig| {
-        let mut canvas = fig.raster_canvas()?;
-        let draw_errors = fig
-            .draw(&mut canvas)
-            .err()
-            .map_or(0, |errors| errors.0.len());
-        Ok((canvas, draw_errors))
+        let (canvas, problems) = fig.render_raster_partial(&SaveOptions::default())?;
+        Ok((canvas, problems.map_or(0, |errors| errors.0.len())))
     })
 }
 

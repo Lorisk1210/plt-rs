@@ -22,7 +22,9 @@ use std::fmt::Debug;
 use plt_core::{Bbox, Point};
 use plt_render::ClipPath;
 
-pub use base::{ArtistBase, ClipPathSpec};
+use crate::patches::PatchView;
+
+pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
 pub use context::{DrawContext, DrawError, LayoutContext};
 pub use handle::{ArtistHandle, RawHandle};
 pub use properties::BaseProps;
@@ -61,5 +63,12 @@ pub trait Artist: Any + Debug {
     /// Whether a display-space point hits the artist (for picking).
     fn contains(&self, _ctx: &LayoutContext<'_>, _point: Point) -> bool {
         false
+    }
+
+    /// The artist as a patch, whatever its shape (matplotlib's
+    /// `isinstance(artist, Patch)`), for code that treats every patch
+    /// alike such as legends.
+    fn as_patch(&self) -> Option<PatchView<'_>> {
+        None
     }
 }

@@ -125,7 +125,7 @@ impl From<&crate::rc::RcParams> for TickerSettings {
             } else {
                 AutolimitMode::Data
             },
-            classic_mode: false,
+            classic_mode: rc.internal_classic_mode,
             xtick_minor_ndivs: ndivs(&rc.xtick_minor_ndivs),
             ytick_minor_ndivs: ndivs(&rc.ytick_minor_ndivs),
             xtick_minor_visible: rc.xtick_minor_visible,

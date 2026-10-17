@@ -34,6 +34,11 @@
 //!   that their decorations fit.
 //! * [`mplot3d`] — 3-D axes: surfaces, wireframes, 3-D scatter, bars,
 //!   contours and more, projected through a camera.
+//! * [`legend`] / [`offsetbox`] / [`container`] — legends, the box
+//!   packers they are laid out with, and the artist groups of bar, error
+//!   bar and stem plots they list.
+//! * [`rc`] / [`style`] — runtime configuration and the bundled style
+//!   sheets.
 #![forbid(unsafe_code)]
 
 pub mod animation;
@@ -43,6 +48,7 @@ pub mod axes;
 pub mod collections;
 pub mod colorbar;
 pub mod colors;
+pub mod container;
 pub mod contour;
 pub mod coords;
 pub mod dates;
@@ -53,12 +59,14 @@ pub mod gridspec;
 pub mod gui;
 pub mod image;
 pub mod layout;
+pub mod legend;
 pub mod lines;
 pub mod markers;
 pub mod mlab;
 pub mod mplot3d;
 pub mod navigation;
 pub mod numeric;
+pub mod offsetbox;
 pub mod orientation;
 pub mod patches;
 pub mod patheffects;
@@ -72,6 +80,7 @@ pub mod scale;
 pub mod spines;
 pub mod stats;
 pub mod streamplot;
+pub mod style;
 pub mod table;
 #[cfg(test)]
 mod testing;

@@ -12,7 +12,7 @@ import matplotlib as mpl
 import matplotlib.rcsetup as rcsetup
 
 OUT = pathlib.Path(__file__).resolve().parents[1] / "src" / "rc" / "table.rs"
-SKIP = {"_internal.classic_mode", "backend"}
+SKIP = {"backend"}
 
 # validator name -> (Rust type, extra validation expression or None)
 TYPES = {
@@ -94,7 +94,8 @@ def split_comment(text):
 
 
 def field_name(key):
-    return re.sub(r"[.\-]", "_", key)
+    # Hidden parameters (`_internal.*`) get a field without the underscore.
+    return re.sub(r"[.\-]", "_", key.lstrip("_"))
 
 
 def rust_str(text):
@@ -126,7 +127,9 @@ def main():
         if key in SKIP:
             continue
         name = getattr(validator, "__name__", None) or type(validator).__name__
-        value, comment = entries[key]
+        # Hidden parameters are not documented in matplotlibrc.
+        value, comment = entries.get(key) or (
+            str(rcsetup._hardcoded_defaults[key]), "Matplotlib 1.x behaviour")
         if name == "ValidateInStrings":
             allowed = sorted(validator.valid.values()) if isinstance(validator.valid, dict) else sorted(validator.valid)
             fn = "one_of_ignore_case" if validator.ignorecase else "one_of"

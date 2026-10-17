@@ -1,5 +1,6 @@
 //! The generic patch artist and its typed handle.
 
+use std::any::Any;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -77,6 +78,19 @@ impl<S: PatchShape> PatchParts<'_, S> {
             transform: Affine2D::IDENTITY,
         })
     }
+}
+
+/// The parts every patch has, whatever its shape (matplotlib's `Patch`
+/// base class), as [`Artist::as_patch`] shows them.
+#[derive(Clone, Copy, Debug)]
+pub struct PatchView<'a> {
+    /// How the outline, face and hatch are painted.
+    pub style: &'a PatchStyle,
+    /// Whether the shape draws an edge by default (matplotlib's
+    /// `_edge_default`).
+    pub edge_default: bool,
+    /// The geometry, for downcasting to its concrete shape.
+    pub shape: &'a dyn Any,
 }
 
 /// A shape painted with a [`PatchStyle`] (matplotlib's `Patch` subclasses).
@@ -159,6 +173,14 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
 
     fn outline(&self, ctx: &LayoutContext<'_>) -> Option<ClipPath> {
         self.parts().outline(*ctx)
+    }
+
+    fn as_patch(&self) -> Option<PatchView<'_>> {
+        Some(PatchView {
+            style: &self.style,
+            edge_default: S::EDGE_DEFAULT,
+            shape: &self.shape,
+        })
     }
 }
 

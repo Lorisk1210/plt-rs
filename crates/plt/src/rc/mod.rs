@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn defaults_match_matplotlib() {
         let rc = RcParams::matplotlib();
-        assert_eq!(RcParams::KEYS.len(), 337);
+        assert_eq!(RcParams::KEYS.len(), 338);
         assert_eq!(rc.lines_linewidth, 1.5);
         assert_eq!(rc.figure_figsize, vec![6.4, 4.8]);
         assert_eq!(rc.font_size, 10.0);

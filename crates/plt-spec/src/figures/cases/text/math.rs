@@ -1,5 +1,6 @@
 //! Mathtext and unicode cases of `figures/cases_text.py`.
 
+use plt::legend::LegendOptions;
 use plt::prelude::*;
 use plt::text::VerticalAlignment;
 
@@ -58,6 +59,25 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(7.0, 6.0, 100.0)
     .with_rc(&[("mathtext.fontset", "stixsans")]),
+    FigureCase::new("text/mathtext_title_labels", |fig| {
+        let ax = fig.subplot();
+        let x = linspace(0.0, 2.0, 30);
+        let y: Vec<f64> = x.iter().map(|x| (-(x * x)).exp()).collect();
+        ax.plot_with(&x, y, LineProps::default().label(r"$e^{-x^2}$"))?;
+        ax.set_title(
+            r"$\alpha_i > \beta_i \quad \sum_{n=1}^\infty \frac{1}{n^2} = \frac{\pi^2}{6}$",
+        );
+        ax.set_xlabel(r"time $t$ [$\mu$s]")
+            .set_ylabel(r"$\sqrt{\langle x^2 \rangle}$");
+        ax.xaxis().set_ticks([0.0, 1.0, 2.0]).set_ticklabels([
+            r"$0$",
+            r"$\frac{1}{2}\pi$",
+            r"$\pi$",
+        ])?;
+        ax.legend(LegendOptions::default())?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0),
     FigureCase::new("text/mathtext_mixed_sizes", |fig| {
         let ax = blank(fig);
         ax.set_axis_off();

@@ -52,7 +52,7 @@ fn axes_facts(ax: &Axes) -> Json {
     let (x, y, w, h) = ax.position().bounds();
     let (x0, x1) = ax.xlim();
     let (y0, y1) = ax.ylim();
-    Json::Object(vec![
+    let mut facts = vec![
         ("kind".into(), ax.projection().name().into()),
         ("position".into(), Json::from(vec![x, y, w, h])),
         ("title".into(), ax.title(TitleLocation::Center).into()),
@@ -64,7 +64,12 @@ fn axes_facts(ax: &Axes) -> Json {
         ("ylabel".into(), ax.label(AxisName::Y).into()),
         ("xticks".into(), ticks(ax, AxisName::X)),
         ("yticks".into(), ticks(ax, AxisName::Y)),
-    ])
+    ];
+    if let Some(legend) = ax.get_legend() {
+        let labels = legend.labels().into_iter().map(Json::from).collect();
+        facts.push(("legend".into(), Json::Array(labels)));
+    }
+    Json::Object(facts)
 }
 
 /// Drawn major ticks as `[[location, label], ...]`; a tick computation

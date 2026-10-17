@@ -6,6 +6,7 @@
 //! matplotlib draws.
 
 mod mathtext;
+mod shapes;
 mod spec;
 mod style;
 

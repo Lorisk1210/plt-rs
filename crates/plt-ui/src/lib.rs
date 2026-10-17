@@ -6,7 +6,8 @@
 //!   as [`Flex`] own their children; leaves such as [`Button`],
 //!   [`ToolButton`] (a vector [`Icon`] that can be checked or disabled),
 //!   [`Label`], [`Separator`], [`TextInput`] (a one-line editable field),
-//!   [`List`] (scrollable rows), [`Choice`] (a segmented control) and
+//!   [`List`] (scrollable rows), [`Choice`] (a segmented control),
+//!   [`Checkbox`], [`Stack`] (pages of which one shows) and
 //!   [`Surface`] (an application-rendered image, e.g. a figure, with an
 //!   optional selection rectangle) paint and react to input.
 //! * [`Ui`] owns the tree and a window-sized framebuffer. It lays the tree
@@ -72,7 +73,7 @@ pub use theme::Theme;
 pub use ui::Ui;
 pub use widget::{EventCx, LayoutCx, PaintCx, Status, Widget, WidgetId, WidgetPod};
 pub use widgets::{
-    Axis, Button, Choice, Flex, Label, List, ListItem, Separator, Surface, SurfaceEvent, TextInput,
-    ToolButton,
+    Axis, Button, Checkbox, Choice, Flex, Label, List, ListItem, Separator, Stack, Surface,
+    SurfaceEvent, TextInput, ToolButton,
 };
 pub use window::UiWindow;

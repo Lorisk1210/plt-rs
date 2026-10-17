@@ -11,6 +11,8 @@ use crate::widget::{LayoutCx, PaintCx, Widget};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Label {
     text: String,
+    /// The narrowest the label gets, in logical pixels.
+    min_width: f64,
     /// The text laid out by the last measure.
     layout: Option<TextLayout>,
 }
@@ -20,8 +22,17 @@ impl Label {
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
+            min_width: 0.0,
             layout: None,
         }
+    }
+
+    /// The label at least `width` logical pixels wide, e.g. to line up
+    /// the fields of a form.
+    #[must_use]
+    pub fn with_min_width(mut self, width: f64) -> Self {
+        self.min_width = width;
+        self
     }
 
     /// The text.
@@ -47,7 +58,8 @@ impl<M> Widget<M> for Label {
         let padding = cx.theme().padding * cx.scale_factor();
         let size = layout.size();
         self.layout = Some(layout);
-        Ok(constraints.constrain(Size::new(size.width + 2.0 * padding, size.height + padding)))
+        let width = (size.width + 2.0 * padding).max(self.min_width * cx.scale_factor());
+        Ok(constraints.constrain(Size::new(width, size.height + padding)))
     }
 
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError> {

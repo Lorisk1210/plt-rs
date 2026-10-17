@@ -174,7 +174,7 @@ impl LineArtist {
         }
         let style =
             MarkerStyle::new(self.marker.clone(), self.fillstyle).map_err(|e| e.to_string())?;
-        let (points, affine) = resolved.split_path(points);
+        let (points, affine) = resolved.split_points(points);
         let points = match self
             .select_markers(*ctx.layout(), &points, &affine)
             .map_err(|e| e.to_string())?
@@ -288,7 +288,7 @@ impl LineArtist {
         let resolved = layout
             .resolve(&self.transform())
             .ok_or(MarkerError::Detached)?;
-        let (points, affine) = resolved.split_path(&points);
+        let (points, affine) = resolved.split_points(&points);
         Ok(self
             .select_markers(layout, &points, &affine)
             .map_err(MarkerError::MarkEvery)?

@@ -119,7 +119,7 @@ impl PolarAxes {
             .raw()
             .with_mut::<AxesState, _>(|state| match &mut state.projection {
                 Projection::Polar(settings) => change(settings),
-                Projection::Rectilinear => {
+                Projection::Rectilinear | Projection::Geo(_) => {
                     unreachable!("a PolarAxes handle refers to polar axes")
                 }
             });

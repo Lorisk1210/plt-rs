@@ -15,9 +15,15 @@ const MIN_DRAG: f64 = 5.0;
 
 impl Axes {
     /// Whether the zoom-to-rectangle tool works on this axes (not on
-    /// polar axes; matplotlib's `can_zoom`).
+    /// polar or geographic axes; matplotlib's `can_zoom`).
     pub fn can_zoom(&self) -> bool {
-        self.as_polar().is_none()
+        self.as_polar().is_none() && self.as_geo().is_none()
+    }
+
+    /// Whether the pan/zoom tool works on this axes (not on geographic
+    /// axes; matplotlib's `can_pan`).
+    pub fn can_pan(&self) -> bool {
+        self.as_geo().is_none()
     }
 
     /// Whether the navigation toolbar acts on this axes and reports its

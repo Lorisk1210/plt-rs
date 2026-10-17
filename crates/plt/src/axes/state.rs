@@ -13,6 +13,7 @@ use super::projection::Projection;
 use super::secondary::Secondary;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
+use crate::geo::{self, GeoState};
 use crate::gridspec::SubplotSpec;
 use crate::patches::PatchShape;
 use crate::polar::{PolarState, PolarView};
@@ -199,7 +200,15 @@ impl AxesState {
     pub(crate) fn polar(&self) -> Option<&PolarState> {
         match &self.projection {
             Projection::Polar(settings) => Some(settings),
-            Projection::Rectilinear => None,
+            Projection::Rectilinear | Projection::Geo(_) => None,
+        }
+    }
+
+    /// The geographic settings, if this is a geographic axes.
+    pub(crate) fn geo(&self) -> Option<&GeoState> {
+        match &self.projection {
+            Projection::Geo(settings) => Some(settings),
+            Projection::Rectilinear | Projection::Polar(_) => None,
         }
     }
 
@@ -211,10 +220,13 @@ impl AxesState {
 
     /// The full data → display transform for the axes placed at `display`:
     /// scales, then view limits onto the unit square, then onto `display`
-    /// (or the polar projection).
+    /// (or the polar or a geographic projection).
     pub(crate) fn data_transform(&self, display: &Bbox) -> ResolvedTransform {
         if let Some(polar) = self.polar_view() {
             return polar.data_transform(display);
+        }
+        if let Some(geo) = self.geo() {
+            return geo.data_transform(display);
         }
         let (x0, x1) = self.view_lim.interval_x();
         let (y0, y1) = self.view_lim.interval_y();
@@ -492,9 +504,12 @@ impl Artist for AxesState {
 
 impl AxesState {
     /// The outline of the background patch in axes coordinates: the unit
-    /// square, or the wedge of polar axes.
+    /// square, the wedge of polar axes, or the ellipse of geographic axes.
     pub(crate) fn patch_path(&self) -> Path {
-        self.polar_view()
-            .map_or_else(Path::unit_rectangle, |polar| polar.patch().path())
+        match self.polar_view() {
+            Some(polar) => polar.patch().path(),
+            None if self.geo().is_some() => geo::outline(),
+            None => Path::unit_rectangle(),
+        }
     }
 }

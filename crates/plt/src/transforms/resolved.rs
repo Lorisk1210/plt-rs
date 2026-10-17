@@ -255,6 +255,21 @@ impl ResolvedTransform {
         (Cow::Owned(mapped), self.affine)
     }
 
+    /// Splits a path of positions (markers) for drawing like
+    /// [`split_path`](Self::split_path), but maps the vertices one by one
+    /// so that no projection subdivides it (matplotlib's
+    /// `get_transformed_points_and_affine`).
+    pub fn split_points<'a>(&self, points: &'a Path) -> (Cow<'a, Path>, Affine2D) {
+        if self.steps.is_empty() {
+            return (Cow::Borrowed(points), self.affine);
+        }
+        let mut mapped = points.clone();
+        for p in mapped.vertices_mut() {
+            *p = self.transform_point_non_affine(*p);
+        }
+        (Cow::Owned(mapped), self.affine)
+    }
+
     /// Fully transforms a path.
     pub fn transform_path(&self, path: &Path) -> Path {
         let (partial, affine) = self.split_path(path);

@@ -18,6 +18,8 @@
 //! * [`image`] — images (`imshow`, `figimage`, `pcolorfast`) and their
 //!   resampling.
 //! * [`polar`] — polar axes: angle and radius instead of x and y.
+//! * [`geo`] — geographic axes: longitude and latitude through the Aitoff,
+//!   Hammer, Lambert and Mollweide map projections.
 //! * [`patches`] / [`coords`] / [`patheffects`] / [`table`] — shapes,
 //!   fancy boxes and arrows, annotation coordinate systems, path effects
 //!   and tables.
@@ -60,6 +62,7 @@ pub mod dates;
 pub mod events;
 pub mod figure;
 pub mod fonts;
+pub mod geo;
 pub mod gridspec;
 pub mod gui;
 pub mod image;

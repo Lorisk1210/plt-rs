@@ -261,7 +261,11 @@ impl Navigation {
         let candidates: Vec<Axes> = figure
             .axes()
             .into_iter()
-            .filter(|ax| ax.navigate() && readout::contains(ax, at) && (!zoom || ax.can_zoom()))
+            .filter(|ax| {
+                ax.navigate()
+                    && readout::contains(ax, at)
+                    && if zoom { ax.can_zoom() } else { ax.can_pan() }
+            })
             .collect();
         if candidates.is_empty() {
             return candidates;

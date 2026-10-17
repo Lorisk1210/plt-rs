@@ -10,6 +10,8 @@ use crate::rc::RcParams;
 /// `key_press_handler`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) enum KeyAction {
+    /// Toggle full screen (`keymap.fullscreen`).
+    Fullscreen,
     /// Restore the original view (`keymap.home`).
     Home,
     /// Previous view (`keymap.back`).
@@ -82,6 +84,7 @@ pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
 /// The action bound to key `name` under `rc`.
 pub(super) fn action(name: &str, rc: &RcParams) -> Option<KeyAction> {
     [
+        (&rc.keymap_fullscreen, KeyAction::Fullscreen),
         (&rc.keymap_home, KeyAction::Home),
         (&rc.keymap_back, KeyAction::Back),
         (&rc.keymap_forward, KeyAction::Forward),
@@ -140,6 +143,7 @@ mod tests {
         assert_eq!(action("ctrl+s", &rc), Some(KeyAction::Save));
         assert_eq!(action("L", &rc), Some(KeyAction::LogX));
         assert_eq!(action("ctrl+w", &rc), Some(KeyAction::Quit));
+        assert_eq!(action("f", &rc), Some(KeyAction::Fullscreen));
         assert_eq!(action("z", &rc), None);
     }
 }

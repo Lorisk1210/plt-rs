@@ -11,8 +11,8 @@ use plt_platform::{
 };
 use plt_ui::{Flex, Surface, SurfaceEvent, UiWindow, WidgetId};
 
-use super::GuiError;
 use super::save_dialog::{Outcome, SaveDialog};
+use super::{GuiError, icons};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
 use crate::figure::Figure;
 use crate::gridspec::SubplotOverrides;
@@ -61,6 +61,8 @@ pub struct FigureWindow {
     pointer: Option<Point>,
     /// The cursor shown, once set.
     cursor: Option<CursorIcon>,
+    /// Whether the window was made full screen.
+    fullscreen: bool,
     title: String,
     /// The subplot tool opened from the toolbar, while it is open.
     subplot_tool: Option<SubplotToolWindow>,
@@ -94,6 +96,7 @@ impl FigureWindow {
         let toolbar_height = if with_toolbar { toolbar::HEIGHT } else { 0.0 };
         let options = WindowOptions::new(title)
             .with_app_id("plt-rs")
+            .with_icon(icons::window_icon()?)
             .with_inner_size(LogicalSize::new(width * dpi, height * dpi + toolbar_height))
             .with_min_inner_size(LogicalSize::new(240.0, 160.0));
         let window = UiWindow::open(cx, &options, root)?;
@@ -110,6 +113,7 @@ impl FigureWindow {
             held: None,
             pointer: None,
             cursor: None,
+            fullscreen: false,
             title: title.to_owned(),
             subplot_tool: None,
             save_dialog: None,

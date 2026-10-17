@@ -80,6 +80,12 @@ impl<'a> Context<'a> {
         self.backend.raise_window(window)
     }
 
+    /// Asks the window manager to show a window full screen, or to restore
+    /// it; the new size arrives as [`WindowEvent::Resized`].
+    pub fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error> {
+        self.backend.set_fullscreen(window, fullscreen)
+    }
+
     /// Asks for a new content size. The window manager may adjust or
     /// refuse it; the actual size arrives as [`WindowEvent::Resized`].
     pub fn set_inner_size(&mut self, window: WindowId, size: impl Into<Size>) -> Result<(), Error> {

@@ -52,6 +52,8 @@ pub struct WindowSnapshot {
     pub cursor: CursorIcon,
     /// Icon from the creation options.
     pub icon: Option<Icon>,
+    /// Whether the window was made full screen.
+    pub fullscreen: bool,
 }
 
 #[derive(Debug)]
@@ -238,6 +240,7 @@ impl Backend for HeadlessBackend {
             scale_factor,
             cursor: CursorIcon::Default,
             icon: options.icon.clone(),
+            fullscreen: false,
         };
         let surface = OwnedFrame::filled(size, INITIAL_PIXEL)?;
         state
@@ -285,6 +288,13 @@ impl Backend for HeadlessBackend {
     fn set_cursor(&mut self, window: WindowId, cursor: CursorIcon) -> Result<(), Error> {
         self.with_window(window, |w| {
             w.snapshot.cursor = cursor;
+            Ok(())
+        })
+    }
+
+    fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error> {
+        self.with_window(window, |w| {
+            w.snapshot.fullscreen = fullscreen;
             Ok(())
         })
     }

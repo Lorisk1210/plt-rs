@@ -17,6 +17,7 @@ mod mplot3d;
 mod offsetbox;
 mod patches;
 mod polar;
+mod pyplot;
 mod scatter;
 mod selectors;
 mod stats;
@@ -73,6 +74,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         patches::SHAPES,
         patches::STYLES,
         polar::CASES,
+        pyplot::CASES,
         scatter::CASES,
         selectors::CASES,
         stats::BOXPLOT,

@@ -58,6 +58,23 @@ impl ScalarMappable {
         self.cmap = cmap;
     }
 
+    /// Sets the data values mapped to the ends of the colormap
+    /// (matplotlib's `set_clim`); `None` leaves a limit unchanged.
+    pub fn set_clim(&mut self, vmin: Option<f64>, vmax: Option<f64>) {
+        if vmin.is_some() {
+            self.norm.set_vmin(vmin);
+        }
+        if vmax.is_some() {
+            self.norm.set_vmax(vmax);
+        }
+    }
+
+    /// The data values mapped to the ends of the colormap (matplotlib's
+    /// `get_clim`).
+    pub fn clim(&self) -> (Option<f64>, Option<f64>) {
+        (self.norm.vmin(), self.norm.vmax())
+    }
+
     /// Normalises the data (autoscaling unset limits from it).
     pub fn normalize(&mut self, data: &[Option<f64>]) -> Result<Vec<Normalized>, NormError> {
         self.norm.normalize_masked(data, None)

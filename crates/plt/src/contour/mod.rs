@@ -45,4 +45,4 @@ pub use options::{ContourNorm, ContourOptions};
 pub use set::{ContourSet, ContourWarning};
 
 pub(crate) use assemble::LevelPath;
-pub(crate) use set::{ContourPlan, ContourSource, Generator};
+pub(crate) use set::{ContourPlan, ContourSource, ContourState, Generator};

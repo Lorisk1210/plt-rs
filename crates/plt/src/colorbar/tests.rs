@@ -24,6 +24,14 @@ fn image_figure() -> (Figure, Axes, crate::image::AxesImage) {
 }
 
 #[test]
+fn the_current_axes_stays_current() {
+    let (fig, ax, image) = image_figure();
+    let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+    assert_eq!(fig.gca(), ax);
+    assert_ne!(colorbar.ax(), &ax);
+}
+
+#[test]
 fn default_colorbar_takes_the_right_of_the_cell() {
     let (fig, ax, image) = image_figure();
     let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();

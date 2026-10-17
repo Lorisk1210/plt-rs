@@ -5,7 +5,7 @@
 
 mod constrained;
 mod contours;
-mod data;
+pub(super) mod data;
 mod extensions;
 mod norms;
 mod placement;

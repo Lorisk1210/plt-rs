@@ -34,7 +34,7 @@ use plt_core::{Affine2D, Bbox, Path, Point};
 use plt_render::{CapStyle, JoinStyle};
 
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
-use crate::colors::{Color, Normalized, ScalarMappable};
+use crate::colors::{Color, Colormap, Normalized, ScalarMappable};
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -372,6 +372,38 @@ impl Collection {
     pub fn set_mapping(&self, mapping: ColorMapping) -> &Self {
         let mapped = Mapped::new(mapping);
         self.update(|c| c.mapping = Some(mapped))
+    }
+
+    /// Replaces the colormap of the colour mapping, if the collection has
+    /// one (matplotlib's `set_cmap`).
+    pub fn set_cmap(&self, cmap: Colormap) -> &Self {
+        self.update(|c| {
+            if let Some(mapped) = &mut c.mapping {
+                mapped.source.mappable.set_cmap(cmap);
+            }
+        })
+    }
+
+    /// Sets the data values mapped to the ends of the colormap, if the
+    /// collection has a colour mapping (matplotlib's `set_clim`); `None`
+    /// leaves a limit unchanged.
+    pub fn set_clim(&self, vmin: Option<f64>, vmax: Option<f64>) -> &Self {
+        self.update(|c| {
+            if let Some(Mapped { mut source, .. }) = c.mapping.take() {
+                source.mappable.set_clim(vmin, vmax);
+                c.mapping = Some(Mapped::new(source));
+            }
+        })
+    }
+
+    /// The data values mapped to the ends of the colormap, `(None, None)`
+    /// without a colour mapping.
+    pub fn clim(&self) -> (Option<f64>, Option<f64>) {
+        self.raw.with::<CollectionArtist, _>(|c| {
+            c.mapping
+                .as_ref()
+                .map_or((None, None), |mapped| mapped.source.mappable.clim())
+        })
     }
 
     /// The item offsets.

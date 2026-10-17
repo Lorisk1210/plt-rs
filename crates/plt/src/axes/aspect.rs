@@ -12,6 +12,7 @@ use plt_core::{Anchor, Bbox};
 
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError};
+use crate::axes_grid1::DividerCell;
 use crate::figure::FigureState;
 use crate::rc::Aspect;
 use crate::ticker::AxisName;
@@ -56,7 +57,11 @@ pub(crate) struct AspectState {
     anchor: Option<Anchor>,
     /// Height/width ratio of the axes box itself.
     box_aspect: Option<f64>,
-    /// Narrows the original position before the aspect is applied.
+    /// Places the axes in the cells of a divider instead of its original
+    /// position (`axes_grid1`'s axes locators).
+    pub(crate) divider: Option<DividerCell>,
+    /// Narrows the (divided) original position before the aspect is
+    /// applied.
     pub(crate) locator: Option<AxesLocator>,
     /// The active position and the original position it derives from.
     active: Option<(Bbox, Bbox)>,
@@ -96,6 +101,11 @@ impl AspectState {
 
     fn anchor(&self) -> Anchor {
         self.anchor.unwrap_or(Anchor::C)
+    }
+
+    /// The fixed height/width ratio of data units, `None` for automatic.
+    pub(crate) fn ratio(&self) -> Option<f64> {
+        self.ratio
     }
 
     /// Anchors the axes and fixes the shape of its box with a free data
@@ -266,9 +276,16 @@ impl FigureState {
         };
         let original = state.position;
         let settings = state.aspect;
+        let divided = settings
+            .divider
+            .and_then(|cell| self.locate_in_divider(cell))
+            .unwrap_or(original);
+        let Some(state) = self.store.get_as::<AxesState>(axes) else {
+            return;
+        };
         let located = settings
             .locator
-            .map_or(original, |locator| locator.locate(&original));
+            .map_or(divided, |locator| locator.locate(&divided));
         let box_aspect = settings
             .locator
             .and_then(|locator| locator.box_aspect)

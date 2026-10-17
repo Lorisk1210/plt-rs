@@ -202,6 +202,16 @@ impl GridSpec {
         (self.data.overrides.wspace, self.data.overrides.hspace)
     }
 
+    /// Whether the grid sets non-zero margins or spacings of its own
+    /// (matplotlib's `locally_modified_subplot_params`, which tests them
+    /// for truth).
+    pub fn locally_modified(&self) -> bool {
+        let o = &self.data.overrides;
+        [o.left, o.bottom, o.right, o.top, o.wspace, o.hspace]
+            .into_iter()
+            .any(|value| value.is_some_and(|v| v != 0.0))
+    }
+
     /// The cell block a nested grid subdivides (`None` for a figure-level
     /// grid).
     pub fn parent(&self) -> Option<&SubplotSpec> {

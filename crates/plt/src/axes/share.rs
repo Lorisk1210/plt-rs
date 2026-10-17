@@ -7,14 +7,14 @@ use crate::ticker::AxisName;
 /// ever merges groups, and an axes leaves its group only when it is
 /// removed from the figure.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct Grouper {
+pub(crate) struct Grouper {
     groups: Vec<Vec<ArtistId>>,
 }
 
 impl Grouper {
     /// Puts `a` and `b`, and everything already joined with either, in
     /// one group.
-    fn join(&mut self, a: ArtistId, b: ArtistId) {
+    pub(crate) fn join(&mut self, a: ArtistId, b: ArtistId) {
         let mut merged = Vec::new();
         self.groups.retain(|group| {
             let touches = group.contains(&a) || group.contains(&b);
@@ -32,7 +32,7 @@ impl Grouper {
     }
 
     /// The members of the group of `axes`, `axes` included.
-    fn siblings(&self, axes: ArtistId) -> Vec<ArtistId> {
+    pub(crate) fn siblings(&self, axes: ArtistId) -> Vec<ArtistId> {
         self.groups
             .iter()
             .find(|group| group.contains(&axes))

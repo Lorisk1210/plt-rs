@@ -3,7 +3,7 @@
 use plt_core::{Bbox, Path, Rgba};
 
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext};
-use crate::gridspec::SubplotParams;
+use crate::gridspec::{SubplotParams, SubplotSpec};
 use crate::transforms::unit_to_bbox;
 
 /// A rectangular region that owns axes and figure-level artists: the
@@ -28,6 +28,9 @@ pub(crate) struct FigureFrame {
     pub(crate) subplot_params: SubplotParams,
     /// The figure title and super-labels, once created.
     pub(crate) super_texts: SuperTexts,
+    /// For subfigures: the cells of the parent's grid covered (matplotlib's
+    /// `SubFigure._subplotspec`).
+    pub(crate) subplot_spec: Option<SubplotSpec>,
 }
 
 /// The texts spanning a whole figure (matplotlib's `_suptitle`,
@@ -57,6 +60,7 @@ impl FigureFrame {
             children: Vec::new(),
             subplot_params,
             super_texts: SuperTexts::default(),
+            subplot_spec: None,
         }
     }
 }

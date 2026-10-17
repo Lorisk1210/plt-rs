@@ -7,6 +7,7 @@ use crate::layout::buffer::{GlyphInfo, props};
 use crate::layout::common::Coverage;
 use crate::layout::context;
 use crate::reader::{Array, Reader, tail};
+use crate::shape::category::GeneralCategory;
 use crate::types::{GlyphId, Tag};
 
 const GSUB: Tag = Tag::new(b"GSUB");
@@ -118,7 +119,11 @@ fn multiple(ctx: &mut Applier<'_, '_>, data: &[u8]) -> Result<bool> {
     let expanded = glyphs.iter().enumerate().map(|(component, glyph)| {
         let mut info = template;
         info.set_glyph(glyph, &gdef, class);
-        info.set_lig_props_for_mark(0, component as u8);
+        info.multiplied = true;
+        // Glyphs attached to a ligature keep their component.
+        if template.lig_id == 0 {
+            info.set_lig_props_for_mark(0, component as u8);
+        }
         info
     });
     let inserted = ctx.buffer.splice(idx, expanded);
@@ -196,8 +201,14 @@ fn ligate(ctx: &mut Applier<'_, '_>, positions: &[usize], glyph: GlyphId) {
     let mut last_num_components = u32::from(head.lig_num_comps());
     let mut components_so_far = last_num_components;
     head.set_glyph(glyph, &gdef, is_ligature.then_some(props::LIGATURE));
+    head.multiplied = false;
     if is_ligature {
         head.set_lig_props_for_ligature(lig_id, total_components as u8);
+        // A ligature starting with a nonspacing mark is no mark any more.
+        if head.chars.is_nonspacing_mark() {
+            head.chars.category = GeneralCategory::OtherLetter;
+            head.chars.combining_class = 0;
+        }
     }
 
     let renumber = |info: &mut GlyphInfo, so_far: u32, last_count: u32| {

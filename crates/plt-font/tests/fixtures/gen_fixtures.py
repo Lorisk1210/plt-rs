@@ -75,6 +75,49 @@ CORPUS = [
     "1\u2009000 a\u2002b\u205fc\u202fd\u2007e\u2008f\u2011g\u00a0h\u3000i",
 ]
 
+# Right-to-left, bidirectional and Arabic text (libraqm's SheenBidi and
+# HarfBuzz's Arabic shaper).
+COMPLEX_FONTS = [
+    "DejaVuSans.ttf",
+    "DejaVuSans-Bold.ttf",
+    "DejaVuSansMono.ttf",
+    "DejaVuSerif.ttf",
+]
+
+COMPLEX_CORPUS = [
+    "\u0645\u0631\u062d\u0628\u0627",
+    "\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645",
+    "\u0627\u0644\u0633\u0644\u0627\u0645 \u0639\u0644\u064a\u0643\u0645",
+    "\u0644\u0623 \u0644\u0625 \u0644\u0622 \u0644\u0627",
+    "\u0645\u064e\u0631\u0652\u062d\u064e\u0628\u064b\u0627",
+    "\u0645\u064f\u062d\u064e\u0645\u064e\u0651\u062f",
+    "\u0628\u0651\u064e \u0628\u064e\u0651 \u0628\u0654\u064e",
+    "\u067e\u06cc\u06a9\u0627\u0646 \u06af\u0644",
+    "\u0640\u0645\u0640 \u0628\u0640\u0640\u0628",
+    "\u0628\u200d\u0628 \u0628\u200c\u0628 \u200d\u0628\u200d",
+    "\u0628 \u0629 \u0621",
+    "\u0661\u0662\u0663 \u0663\u066b\u0661\u0664",
+    "\u0639\u062f\u062f 123 \u0648 \u0664\u0665\u0666",
+    "1,234.5 \u062f\u0648\u0644\u0627\u0631",
+    "abc \u0645\u0631\u062d\u0628\u0627 123",
+    "Hello \u05e9\u05dc\u05d5\u05dd world",
+    "\u05e9\u05b8\u05c1\u05dc\u05d5\u05b9\u05dd",
+    "(\u0645\u0631\u062d\u0628\u0627)",
+    "\u0645 (abc) \u0645",
+    "\u00ab\u0645\u0631\u062d\u0628\u0627\u00bb [\u05d0] <\u05d1>",
+    "\u202babc def\u202c \u202edef\u202c",
+    "a\u2067\u0628 c\u2069d \u2068\u05d0\u2069",
+    "\u064e\u0628",
+    "\u0301a",
+    "x\u0628\u064e\u0651y",
+    "\u0627\u0644\u0639\u0631\u0628\u064a\u0629: 2024 (\u0661\u0669)!",
+    "\u0723\u0720\u0721\u0710",
+    "\u067e\u05b9 \u00e9\u0323",
+    "\u0645{3\u064f\u0662.\u062a\u064a",
+    "\u202d\u05b9\u0642\u0650\u0648\u0307\u06a9\u062b",
+    "(z\u0623\u05b8\u0654\u0655fz",
+]
+
 FEATURE_CASES = [
     ("AVATAR office", ("-kern",)),
     ("AVATAR office", ("-liga",)),
@@ -119,6 +162,20 @@ def shaping_fixtures():
             case["extents"] = measure(font, text, features)
             case["glyphs"] = layout_items(font, text, features)
             cases.append(case)
+    return cases
+
+
+def complex_fixtures():
+    cases = []
+    for name in COMPLEX_FONTS:
+        font = fm.get_font(str(FONT_DIR / name))
+        for size, dpi in POSITION_SIZES:
+            font.set_size(size, dpi)
+            for text in COMPLEX_CORPUS:
+                case = {"font": name, "size": size, "dpi": dpi, "text": text, "features": []}
+                case["extents"] = measure(font, text)
+                case["glyphs"] = layout_items(font, text)
+                cases.append(case)
     return cases
 
 
@@ -318,6 +375,7 @@ def main():
     write("kerning.json", kerning_fixtures())
     write("findfont.json", findfont_fixtures())
     write("shaping.json", shaping_fixtures())
+    write("complex.json", complex_fixtures())
     write("outlines.json", outline_fixtures())
     write("bigrams.json", bigram_fixtures())
 

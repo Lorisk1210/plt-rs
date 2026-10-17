@@ -90,9 +90,42 @@ impl Rect {
     }
 }
 
+/// Horizontal text direction.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub enum Direction {
+    /// Left to right (Latin, Greek, digits, ...).
+    #[default]
+    LeftToRight,
+    /// Right to left (Arabic, Hebrew, ...).
+    RightToLeft,
+}
+
+impl Direction {
+    /// The opposite direction.
+    #[must_use]
+    pub const fn reversed(self) -> Self {
+        match self {
+            Self::LeftToRight => Self::RightToLeft,
+            Self::RightToLeft => Self::LeftToRight,
+        }
+    }
+
+    /// Whether glyphs run in the buffer's logical order (left to right).
+    pub const fn is_forward(self) -> bool {
+        matches!(self, Self::LeftToRight)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn directions() {
+        assert_eq!(Direction::default(), Direction::LeftToRight);
+        assert_eq!(Direction::LeftToRight.reversed(), Direction::RightToLeft);
+        assert!(!Direction::RightToLeft.is_forward());
+    }
 
     #[test]
     fn tag_round_trips_and_pads() {

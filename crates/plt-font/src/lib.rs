@@ -8,10 +8,13 @@
 //!   emitted through an [`OutlineSink`], names, kerning and glyph names.
 //! * [`Size`] — FreeType-compatible scaling, so scaled advances, outlines
 //!   and bounding boxes agree with matplotlib to the 1/64 pixel.
-//! * [`shape`] / [`shape_at_size`] — HarfBuzz-style shaping with the
-//!   default OpenType features (ligatures, `GPOS` kerning with fallback to
-//!   the legacy `kern` table, mark positioning), and [`FontChain`] for
-//!   matplotlib's per-character font fallback and text extents.
+//! * [`shape`] / [`shape_at_size`] — libraqm/HarfBuzz-style shaping: the
+//!   Unicode Bidirectional Algorithm with visual reordering of right-to-left
+//!   runs, HarfBuzz's Arabic (joining forms, presentation-form fallback) and
+//!   Hebrew shapers, the default OpenType features (ligatures, `GPOS`
+//!   kerning with fallback to the legacy `kern` table, cursive and mark
+//!   positioning), and [`FontChain`] for matplotlib's per-character font
+//!   fallback and text extents.
 //! * [`FontDatabase`] — the bundled matplotlib fonts plus optional system
 //!   fonts, with matplotlib's `findfont` scoring.
 #![forbid(unsafe_code)]
@@ -35,7 +38,7 @@ pub use db::{
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};
-pub use layout::plan::{Feature, ParseFeatureError};
+pub use layout::feature::{Feature, ParseFeatureError};
 pub use outline::{OutlineRecorder, OutlineSink, PathCommand};
 pub use scale::{KerningMode, Size};
 pub use shape::{
@@ -48,4 +51,4 @@ pub use tables::head::{Head, Hhea};
 pub use tables::name::NameKey;
 pub use tables::os2::{Os2, ScriptMetrics};
 pub use tables::post::Post;
-pub use types::{GlyphId, Rect, Tag};
+pub use types::{Direction, GlyphId, Rect, Tag};

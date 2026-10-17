@@ -1,11 +1,14 @@
 //! Lookup application machinery shared by `GSUB` and `GPOS`: glyph
-//! skipping per lookup flags, sequence matching and nested lookups.
+//! skipping per lookup flags and joiner rules, feature masks, sequence
+//! matching and nested lookups.
 
 use crate::face::Face;
-use crate::layout::buffer::{Buffer, GlyphInfo, props};
+use crate::layout::buffer::{Buffer, GlyphInfo, Ignorable, Mask, props};
 use crate::layout::common::{LayoutTable, Lookup, lookup_flag};
+use crate::layout::map::LookupMap;
 use crate::layout::{gpos, gsub};
 use crate::scale::Scaler;
+use crate::types::Direction;
 
 /// Maximum nesting of contextual lookups (HarfBuzz's limit).
 const MAX_NESTING: u8 = 64;
@@ -19,12 +22,30 @@ pub(crate) enum TableKind {
     Gpos,
 }
 
+impl TableKind {
+    /// Index of the table in per-table arrays (`GSUB` first).
+    pub(crate) const fn index(self) -> usize {
+        match self {
+            Self::Gsub => 0,
+            Self::Gpos => 1,
+        }
+    }
+}
+
 /// Whether a glyph may be skipped while matching.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Skip {
     No,
     Yes,
     Maybe,
+}
+
+/// HarfBuzz's two skipping iterators: input glyphs must carry the lookup's
+/// mask, context glyphs need not and skip joiners more liberally.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Iter {
+    Input,
+    Context,
 }
 
 /// A nested lookup to apply at a position of a matched sequence.
@@ -39,29 +60,40 @@ pub(crate) struct Applier<'f, 'a> {
     pub(crate) face: &'f Face<'a>,
     pub(crate) scaler: &'f Scaler,
     pub(crate) buffer: &'f mut Buffer,
-    table: LayoutTable<'a>,
+    /// Direction of the run being shaped.
+    pub(crate) direction: Direction,
+    table: LayoutTable<'f>,
     kind: TableKind,
-    flags: u16,
+    /// Flags of the current lookup.
+    pub(crate) flags: u16,
     mark_set: Option<u16>,
+    lookup_mask: Mask,
+    auto_zwnj: bool,
+    auto_zwj: bool,
     nesting: u8,
 }
 
 impl<'f, 'a> Applier<'f, 'a> {
     pub(crate) fn new(
         face: &'f Face<'a>,
-        table: LayoutTable<'a>,
+        table: LayoutTable<'f>,
         kind: TableKind,
         scaler: &'f Scaler,
+        direction: Direction,
         buffer: &'f mut Buffer,
     ) -> Self {
         Self {
             face,
             scaler,
             buffer,
+            direction,
             table,
             kind,
             flags: 0,
             mark_set: None,
+            lookup_mask: Mask::MAX,
+            auto_zwnj: true,
+            auto_zwj: true,
             nesting: 0,
         }
     }
@@ -90,26 +122,41 @@ impl<'f, 'a> Applier<'f, 'a> {
         wanted == 0 || wanted == info.props & lookup_flag::MARK_ATTACHMENT_TYPE
     }
 
-    fn may_skip(&self, info: &GlyphInfo) -> Skip {
+    /// HarfBuzz's `matcher_t::may_skip`: default-ignorable glyphs may be
+    /// skipped, except joiners the lookup handles itself and glyphs hidden
+    /// only from `GPOS`.
+    fn may_skip(&self, info: &GlyphInfo, iter: Iter) -> Skip {
         if !self.check_glyph_property(info) {
-            Skip::Yes
-        } else if info.chars.default_ignorable {
-            Skip::Maybe
-        } else {
-            Skip::No
+            return Skip::Yes;
         }
+        let gpos = self.kind == TableKind::Gpos;
+        let context = iter == Iter::Context;
+        let skippable = match info.ignorable() {
+            None => false,
+            Some(Ignorable::Zwnj) => gpos || (context && self.auto_zwnj),
+            Some(Ignorable::Zwj) => context || self.auto_zwj,
+            Some(Ignorable::Hidden) => gpos,
+            Some(Ignorable::Other) => true,
+        };
+        if skippable { Skip::Maybe } else { Skip::No }
     }
 
-    /// Finds the next (`forward`) or previous glyph from `from` that the
-    /// lookup does not skip. With `matcher`, glyphs that may be skipped are
-    /// only taken when they match; without, the first non-skippable glyph
-    /// is returned. Returns `None` when the sequence cannot continue.
+    /// Finds the next (`forward`) or previous glyph from `from`. Glyphs
+    /// that may be skipped are only taken when `matcher` accepts them;
+    /// without a matcher the first non-skippable glyph (carrying the
+    /// lookup mask, for input matching) is returned. Returns `None` when
+    /// the sequence cannot continue.
     fn step(
         &self,
         from: usize,
         forward: bool,
+        iter: Iter,
         matcher: Option<&dyn Fn(&GlyphInfo) -> bool>,
     ) -> Option<usize> {
+        let mask = match iter {
+            Iter::Input => self.lookup_mask,
+            Iter::Context => Mask::MAX,
+        };
         let mut index = from;
         loop {
             index = if forward {
@@ -118,11 +165,15 @@ impl<'f, 'a> Applier<'f, 'a> {
                 index.checked_sub(1)?
             };
             let info = self.buffer.info.get(index)?;
-            let skip = self.may_skip(info);
+            let skip = self.may_skip(info, iter);
             if skip == Skip::Yes {
                 continue;
             }
-            let matched = matcher.map(|m| m(info));
+            let matched = if info.mask & mask == 0 {
+                Some(false)
+            } else {
+                matcher.map(|m| m(info))
+            };
             match (matched, skip) {
                 (Some(true), _) | (None, Skip::No) => return Some(index),
                 (_, Skip::No) => return None,
@@ -131,14 +182,14 @@ impl<'f, 'a> Applier<'f, 'a> {
         }
     }
 
-    /// Next glyph after `from` that the lookup does not skip.
+    /// Next input glyph after `from` that the lookup does not skip.
     pub(crate) fn next(&self, from: usize) -> Option<usize> {
-        self.step(from, true, None)
+        self.step(from, true, Iter::Input, None)
     }
 
-    /// Previous glyph before `from` that the lookup does not skip.
+    /// Previous input glyph before `from` that the lookup does not skip.
     pub(crate) fn prev(&self, from: usize) -> Option<usize> {
-        self.step(from, false, None)
+        self.step(from, false, Iter::Input, None)
     }
 
     /// Previous glyph before `from` under the current lookup's mark
@@ -146,11 +197,29 @@ impl<'f, 'a> Applier<'f, 'a> {
     /// mark attaches to in mark-to-mark positioning.
     pub(crate) fn prev_ignoring_classes(&mut self, from: usize) -> Option<usize> {
         let saved = self.flags;
-        self.flags &= !(lookup_flag::IGNORE_BASE_GLYPHS
-            | lookup_flag::IGNORE_LIGATURES
-            | lookup_flag::IGNORE_MARKS);
+        self.flags &= !lookup_flag::IGNORE_FLAGS;
         let found = self.prev(from);
         self.flags = saved;
+        found
+    }
+
+    /// The closest glyph before `from` that the input iterator would match
+    /// with marks ignored, skipping glyphs `accept` rejects (HarfBuzz's base
+    /// search in mark-to-base and mark-to-ligature positioning).
+    pub(crate) fn find_base(
+        &mut self,
+        from: usize,
+        accept: &dyn Fn(&Buffer, usize) -> bool,
+    ) -> Option<usize> {
+        let saved = (self.flags, self.mark_set);
+        self.flags = lookup_flag::IGNORE_MARKS;
+        self.mark_set = None;
+        let found = (0..from).rev().find(|&index| {
+            let info = &self.buffer.info[index];
+            let skip = self.may_skip(info, Iter::Input);
+            skip == Skip::No && info.mask & self.lookup_mask != 0 && accept(self.buffer, index)
+        });
+        (self.flags, self.mark_set) = saved;
         found
     }
 
@@ -169,9 +238,32 @@ impl<'f, 'a> Applier<'f, 'a> {
         positions.push(self.buffer.idx);
         for i in 1..=count {
             let last = *positions.last()?;
-            positions.push(self.step(last, true, Some(&|info: &GlyphInfo| matcher(i, info)))?);
+            let matcher = |info: &GlyphInfo| matcher(i, info);
+            positions.push(self.step(last, true, Iter::Input, Some(&matcher))?);
         }
         Some(positions)
+    }
+
+    /// Matches `count` context glyphs from `start` backwards (`forward ==
+    /// false`, closest first) or forwards.
+    fn match_context(
+        &self,
+        start: usize,
+        count: usize,
+        forward: bool,
+        matcher: &dyn Fn(usize, &GlyphInfo) -> bool,
+    ) -> bool {
+        let mut index = start;
+        (0..count).all(|i| {
+            let matcher = |info: &GlyphInfo| matcher(i, info);
+            match self.step(index, forward, Iter::Context, Some(&matcher)) {
+                Some(found) => {
+                    index = found;
+                    true
+                }
+                None => false,
+            }
+        })
     }
 
     /// Matches `count` glyphs before `start` (closest first).
@@ -181,16 +273,7 @@ impl<'f, 'a> Applier<'f, 'a> {
         count: usize,
         matcher: &dyn Fn(usize, &GlyphInfo) -> bool,
     ) -> bool {
-        let mut index = start;
-        (0..count).all(|i| {
-            match self.step(index, false, Some(&|info: &GlyphInfo| matcher(i, info))) {
-                Some(found) => {
-                    index = found;
-                    true
-                }
-                None => false,
-            }
-        })
+        self.match_context(start, count, false, matcher)
     }
 
     /// Matches `count` glyphs after `end` (the last input glyph).
@@ -200,31 +283,36 @@ impl<'f, 'a> Applier<'f, 'a> {
         count: usize,
         matcher: &dyn Fn(usize, &GlyphInfo) -> bool,
     ) -> bool {
-        let mut index = end;
-        (0..count).all(|i| {
-            match self.step(index, true, Some(&|info: &GlyphInfo| matcher(i, info))) {
-                Some(found) => {
-                    index = found;
-                    true
-                }
-                None => false,
-            }
+        self.match_context(end, count, true, matcher)
+    }
+
+    /// Whether the lookup applies at the current glyph (HarfBuzz's checks
+    /// in `apply_forward` / `apply_backward`).
+    fn applies_here(&self) -> bool {
+        self.cur().is_some_and(|info| {
+            info.mask & self.lookup_mask != 0 && self.check_glyph_property(info)
         })
     }
 
     /// Applies one lookup to the whole buffer (forward, or backward for
-    /// reverse chaining substitutions).
-    pub(crate) fn apply_lookup(&mut self, lookup_index: u16) {
-        let Some(lookup) = self.table.lookup(lookup_index) else {
+    /// reverse chaining substitutions), restricted to glyphs carrying the
+    /// lookup's mask.
+    pub(crate) fn apply_lookup(&mut self, map: LookupMap) {
+        let Some(lookup) = self.table.lookup(map.index) else {
             return;
         };
+        if self.buffer.len() == 0 || map.mask == 0 {
+            return;
+        }
+        self.lookup_mask = map.mask;
+        self.auto_zwnj = map.auto_zwnj;
+        self.auto_zwj = map.auto_zwj;
         self.flags = lookup.flags;
         self.mark_set = lookup.mark_filtering_set;
         if self.kind == TableKind::Gsub && lookup.kind == gsub::REVERSE_CHAIN {
             for index in (0..self.buffer.len()).rev() {
                 self.buffer.idx = index;
-                let info = self.buffer.info[index];
-                if self.check_glyph_property(&info) {
+                if self.applies_here() {
                     self.apply_subtables(&lookup);
                 }
             }
@@ -232,8 +320,7 @@ impl<'f, 'a> Applier<'f, 'a> {
         }
         self.buffer.idx = 0;
         while self.buffer.idx < self.buffer.len() {
-            let info = self.buffer.info[self.buffer.idx];
-            if !(self.check_glyph_property(&info) && self.apply_subtables(&lookup)) {
+            if !(self.applies_here() && self.apply_subtables(&lookup)) {
                 self.buffer.idx += 1;
             }
         }
@@ -241,7 +328,7 @@ impl<'f, 'a> Applier<'f, 'a> {
 
     /// Tries each subtable at the current position; the first one that
     /// applies wins.
-    fn apply_subtables(&mut self, lookup: &Lookup<'a>) -> bool {
+    fn apply_subtables(&mut self, lookup: &Lookup<'_>) -> bool {
         lookup.subtables().any(|data| match self.kind {
             TableKind::Gsub => gsub::apply(self, lookup.kind, data),
             TableKind::Gpos => gpos::apply(self, lookup.kind, data),

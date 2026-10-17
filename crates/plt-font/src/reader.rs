@@ -289,6 +289,25 @@ impl<'a, T: FromBytes> Array<'a, T> {
         }
         None
     }
+
+    /// Binary search probing like HarfBuzz's `hb_bsearch` (midpoint of an
+    /// inclusive range), which decides the match among duplicate keys.
+    pub(crate) fn harfbuzz_search_by(
+        &self,
+        mut compare: impl FnMut(&T) -> Ordering,
+    ) -> Option<(usize, T)> {
+        let (mut low, mut high) = (0, self.len());
+        while low < high {
+            let mid = low + (high - 1 - low) / 2;
+            let value = self.get(mid)?;
+            match compare(&value) {
+                Ordering::Less => low = mid + 1,
+                Ordering::Greater => high = mid,
+                Ordering::Equal => return Some((mid, value)),
+            }
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -334,6 +353,13 @@ mod tests {
         assert_eq!(array.iter().collect::<Vec<_>>(), vec![1, 5, 9]);
         assert_eq!(array.binary_search_by(|v| v.cmp(&9)), Some((2, 9)));
         assert_eq!(array.binary_search_by(|v| v.cmp(&4)), None);
+        assert_eq!(array.harfbuzz_search_by(|v| v.cmp(&9)), Some((2, 9)));
+        assert_eq!(array.harfbuzz_search_by(|v| v.cmp(&4)), None);
         assert_eq!(Array::<u32>::default().len(), 0);
+        // Duplicates: HarfBuzz probes (0 + 3) / 2 first.
+        let duplicates = [0, 7, 0, 7, 0, 7, 0, 7];
+        let array: Array<'_, u16> = Array::new(&duplicates);
+        assert_eq!(array.harfbuzz_search_by(|v| v.cmp(&7)), Some((1, 7)));
+        assert_eq!(array.binary_search_by(|v| v.cmp(&7)), Some((2, 7)));
     }
 }

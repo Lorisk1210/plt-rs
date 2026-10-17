@@ -2,8 +2,20 @@
 
 use std::fmt;
 
-use crate::shape::unicode_data::{COMMON, INHERITED, MARK_RANGES, SCRIPT_RUNS, SCRIPTS};
-use crate::types::Tag;
+use crate::shape::category::GeneralCategory;
+use crate::shape::unicode_data::{COMMON, INHERITED, SCRIPT_RUNS, SCRIPTS};
+use crate::types::{Direction, Tag};
+
+/// Scripts HarfBuzz writes right to left
+/// (`hb_script_get_horizontal_direction`).
+const RIGHT_TO_LEFT: [&str; 36] = [
+    "Adlm", "Arab", "Armi", "Avst", "Chrs", "Cprt", "Elym", "Gara", "Hatr", "Hebr", "Khar", "Lydi",
+    "Mand", "Mani", "Mend", "Merc", "Mero", "Narb", "Nbat", "Nkoo", "Orkh", "Ougr", "Palm", "Phli",
+    "Phlp", "Phnx", "Prti", "Rohg", "Samr", "Sarb", "Sidt", "Sogd", "Sogo", "Syrc", "Thaa", "Yezi",
+];
+
+/// Scripts written in either direction, which HarfBuzz never reorders.
+const EITHER_DIRECTION: [&str; 4] = ["Hung", "Ital", "Runr", "Tfng"];
 
 /// A Unicode script (ISO 15924), e.g. Latin, Greek, Common.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -50,39 +62,25 @@ impl Script {
     }
 }
 
+impl Script {
+    /// The direction the script is written in, `None` for scripts written
+    /// either way (HarfBuzz's `hb_script_get_horizontal_direction`).
+    pub(crate) fn horizontal_direction(self) -> Option<Direction> {
+        let code = self.iso_code();
+        if EITHER_DIRECTION.contains(&code) {
+            None
+        } else if RIGHT_TO_LEFT.contains(&code) {
+            Some(Direction::RightToLeft)
+        } else {
+            Some(Direction::LeftToRight)
+        }
+    }
+}
+
 impl fmt::Debug for Script {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Script({})", self.iso_code())
     }
-}
-
-/// Whether `c` is a combining mark, and if so whether it is non-spacing
-/// (general category Mn) rather than Mc/Me.
-pub(crate) fn mark_kind(c: char) -> Option<bool> {
-    let code = u32::from(c);
-    let index = MARK_RANGES.partition_point(|&(start, _, _)| start <= code);
-    let &(_, end, nonspacing) = MARK_RANGES.get(index.checked_sub(1)?)?;
-    (code <= end).then_some(nonspacing)
-}
-
-/// HarfBuzz's `is_default_ignorable`.
-pub(crate) fn is_default_ignorable(c: char) -> bool {
-    matches!(
-        u32::from(c),
-        0x00AD
-            | 0x034F
-            | 0x061C
-            | 0x17B4..=0x17B5
-            | 0x180B..=0x180E
-            | 0x200B..=0x200F
-            | 0x202A..=0x202E
-            | 0x2060..=0x206F
-            | 0xFE00..=0xFE0F
-            | 0xFEFF
-            | 0xFFF0..=0xFFF8
-            | 0x1D173..=0x1D17A
-            | 0xE0000..=0xE0FFF
-    )
 }
 
 /// Paired punctuation recognised by libraqm, openers at even indices.
@@ -92,11 +90,21 @@ const PAIRED: [u32; 34] = [
     0x3010, 0x3011, 0x3014, 0x3015, 0x3016, 0x3017, 0x3018, 0x3019, 0x301A, 0x301B,
 ];
 
+/// libraqm's `_raqm_unicode_script`: nonspacing marks inherit the script
+/// of their base whatever their own script.
+fn raqm_script(c: char) -> Script {
+    if GeneralCategory::of(c) == GeneralCategory::NonspacingMark {
+        Script::INHERITED
+    } else {
+        Script::of(c)
+    }
+}
+
 /// libraqm's `_raqm_resolve_scripts`: Common and Inherited characters take
 /// the script of the preceding character (paired brackets that of their
 /// opener), and leading ones that of the following character.
 pub(crate) fn resolve_scripts(text: &[char]) -> Vec<Script> {
-    let mut scripts: Vec<Script> = text.iter().map(|&c| Script::of(c)).collect();
+    let mut scripts: Vec<Script> = text.iter().map(|&c| raqm_script(c)).collect();
     let mut last_script_index: Option<usize> = None;
     let mut last_set_index: Option<usize> = None;
     let mut last_script = Script::COMMON;
@@ -173,13 +181,19 @@ mod tests {
     }
 
     #[test]
-    fn character_properties() {
-        assert_eq!(mark_kind('\u{301}'), Some(true));
-        assert_eq!(mark_kind('\u{903}'), Some(false));
-        assert_eq!(mark_kind('a'), None);
-        assert!(is_default_ignorable('\u{200D}'));
-        assert!(is_default_ignorable('\u{AD}'));
-        assert!(!is_default_ignorable(' '));
+    fn directions() {
+        let arabic = Script::of('\u{628}');
+        assert_eq!(arabic.horizontal_direction(), Some(Direction::RightToLeft));
+        assert_eq!(latin().horizontal_direction(), Some(Direction::LeftToRight));
+        assert_eq!(
+            Script::COMMON.horizontal_direction(),
+            Some(Direction::LeftToRight)
+        );
+        let runic = Script::from_iso_code("Runr").unwrap();
+        assert_eq!(runic.horizontal_direction(), None);
+        // Arabic marks inherit the script of a Latin base.
+        let text: Vec<char> = "a\u{610}".chars().collect();
+        assert_eq!(resolve_scripts(&text), vec![latin(), latin()]);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! Interactive widgets drawn in axes (matplotlib's `widgets`): buttons,
-//! sliders, check and radio buttons, text boxes and the subplot tool.
+//! sliders, check and radio buttons, text boxes, the subplot tool,
+//! crosshair cursors and selectors of ranges, regions and shapes.
 //!
 //! Each widget takes over an axes: it draws itself with ordinary artists
 //! and reacts to the figure's [events](crate::events) when the figure is
@@ -20,7 +21,9 @@
 //! ```
 
 mod button;
+mod cursor;
 mod range_slider;
+mod selectors;
 mod slider;
 mod subplot_tool;
 mod textbox;
@@ -30,13 +33,18 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub use button::{Button, ButtonOptions};
+pub use cursor::{Cursor, CursorOptions, MultiCursor};
 pub use range_slider::RangeSlider;
+pub use selectors::{
+    ModifierKeys, SelectorError, SelectorEvent, SelectorState, SpanSelector, SpanSelectorOptions,
+};
 pub use slider::{Orientation, Slider, SliderOptions, ValStep};
 pub use subplot_tool::SubplotTool;
 pub use textbox::{TextBox, TextBoxOptions};
 pub use toggles::{CheckButtons, RadioButtons};
 
-use crate::events::{ConnectionId, Event, EventKind};
+use crate::axes::Axes;
+use crate::events::{ConnectionId, Event, EventKind, Location};
 use crate::figure::Figure;
 
 /// The figure callbacks of a widget, disconnected when it is dropped.
@@ -117,6 +125,27 @@ impl<T> Observers<T> {
         running.append(&mut callbacks);
         *callbacks = running;
     }
+}
+
+/// The data coordinates of `location` in `ax`: those of the event when it
+/// happened over `ax`, else the pointer mapped through the data transform
+/// of `ax` (matplotlib's `_call_with_reparented_event`).
+fn data_in(ax: &Axes, location: &Location) -> Option<plt_core::Point> {
+    match (&location.inaxes, location.xdata, location.ydata) {
+        (Some(inaxes), Some(x), Some(y)) if inaxes == ax => Some(plt_core::Point::new(x, y)),
+        _ => {
+            let trans = ax.figure().resolve_transform(&ax.trans_data()).ok()?;
+            let p = trans
+                .inverted()?
+                .transform_point(plt_core::Point::new(location.x, location.y));
+            (p.x.is_finite() && p.y.is_finite()).then_some(p)
+        }
+    }
+}
+
+/// `(a, b)` in increasing order (matplotlib's `sorted` of an interval).
+fn ordered((a, b): (f64, f64)) -> (f64, f64) {
+    if a <= b { (a, b) } else { (b, a) }
 }
 
 /// The pointer position of a mouse event and whether `left` is the

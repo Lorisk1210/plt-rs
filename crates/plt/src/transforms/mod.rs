@@ -224,6 +224,24 @@ impl fmt::Display for TransformError {
 
 impl std::error::Error for TransformError {}
 
+impl crate::figure::Figure {
+    /// `transform` as it maps points in the figure's current layout
+    /// (matplotlib's `transform.transform(...)` on a live transform such as
+    /// `ax.transData`); the figure is laid out first.
+    ///
+    /// # Errors
+    ///
+    /// When the transform refers to a removed artist.
+    pub fn resolve_transform(
+        &self,
+        transform: &Transform,
+    ) -> Result<ResolvedTransform, TransformError> {
+        let mut state = self.state_mut();
+        state.prepare();
+        transform.resolve(&*state)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

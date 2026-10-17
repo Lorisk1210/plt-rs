@@ -28,6 +28,7 @@ use self::history::ViewStack;
 use self::pan::PanStart;
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
+use crate::events::{LockError, LockOwner};
 use crate::figure::Figure;
 
 pub use self::readout::axes_at;
@@ -102,6 +103,8 @@ pub struct Navigation {
     mode: NavMode,
     history: ViewStack,
     drag: Option<Drag>,
+    /// Holds the figure's widget lock while a mode is active.
+    owner: LockOwner,
 }
 
 /// How much one wheel step zooms.
@@ -120,14 +123,24 @@ impl Navigation {
 
     /// Switches to `mode`, or back to [`NavMode::None`] if it is already
     /// active (matplotlib's `pan()` and `zoom()` toggles); an interaction
-    /// in progress is abandoned.
-    pub fn toggle(&mut self, mode: NavMode) {
+    /// in progress is abandoned. An active mode holds the figure's widget
+    /// lock, so that widgets leave the pointer alone.
+    ///
+    /// # Errors
+    ///
+    /// When a widget holds the lock (matplotlib's "pan unavailable").
+    pub fn toggle(&mut self, figure: &Figure, mode: NavMode) -> Result<(), LockError> {
+        if !figure.widgets_available(self.owner) {
+            return Err(LockError::AlreadyLocked);
+        }
         self.drag = None;
-        self.mode = if self.mode == mode {
-            NavMode::None
+        if self.mode == mode {
+            self.mode = NavMode::None;
+            figure.release_widgets(self.owner)
         } else {
-            mode
-        };
+            self.mode = mode;
+            figure.lock_widgets(self.owner)
+        }
     }
 
     /// Whether [`Navigation::back`] would change the view.

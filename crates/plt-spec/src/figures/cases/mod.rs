@@ -17,6 +17,7 @@ mod mplot3d;
 mod patches;
 mod polar;
 mod scatter;
+mod selectors;
 mod stats;
 mod styles;
 mod text;
@@ -71,6 +72,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         patches::STYLES,
         polar::CASES,
         scatter::CASES,
+        selectors::CASES,
         stats::BOXPLOT,
         stats::ERRORBAR,
         stats::EVENTS,

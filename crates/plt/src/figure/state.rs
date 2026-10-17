@@ -6,7 +6,7 @@ use plt_render::{ClipPath, Renderer};
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
-use crate::events::{CallbackRegistry, TimerRegistry};
+use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
 use crate::gridspec::SubplotParams;
 use crate::layout::LayoutState;
 use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
@@ -42,6 +42,10 @@ pub(crate) struct FigureState {
     pub(crate) mouse_grabber: Option<ArtistId>,
     /// Whether a widget takes key presses (`Figure::set_capture_keys`).
     pub(crate) capture_keys: bool,
+    /// Who holds the widget lock (`Figure::lock_widgets`).
+    pub(crate) widget_lock: Option<LockOwner>,
+    /// The cursor tools ask the window for (`Figure::set_cursor`).
+    pub(crate) cursor: CursorShape,
     /// The part of the figure being printed, in display pixels, while
     /// saving with `bbox_inches` (matplotlib's `adjust_bbox`).
     pub(crate) print_window: Option<Bbox>,
@@ -73,6 +77,8 @@ impl FigureState {
             timers: TimerRegistry::default(),
             mouse_grabber: None,
             capture_keys: false,
+            widget_lock: None,
+            cursor: CursorShape::default(),
             print_window: None,
         }
     }

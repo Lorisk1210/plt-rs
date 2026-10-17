@@ -175,6 +175,13 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
         self.parts().outline(*ctx)
     }
 
+    /// Whether the outline encloses `point` (matplotlib's
+    /// `Patch.contains` with a zero radius).
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        self.outline(ctx)
+            .is_some_and(|clip| clip.path.contains_point(point, Some(&clip.transform), 0.0))
+    }
+
     fn as_patch(&self) -> Option<PatchView<'_>> {
         Some(PatchView {
             style: &self.style,
@@ -246,6 +253,19 @@ impl<S: PatchShape> Patch<S> {
     /// Sets every property `props` sets.
     pub fn update_props(&self, props: PatchProps) -> &Self {
         self.update(|p| props.apply(p))
+    }
+
+    /// Whether the patch encloses display point `point` in the figure's
+    /// current layout (matplotlib's `contains` with a zero radius).
+    pub fn contains_display_point(&self, point: Point) -> bool {
+        let figure = self.raw.figure_state();
+        let mut state = figure.borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        layout
+            .store()
+            .get(self.raw.id())
+            .is_some_and(|patch| patch.contains(&layout, point))
     }
 
     /// Sets the face colour.

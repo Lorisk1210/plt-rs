@@ -151,6 +151,14 @@ macro_rules! artist_properties {
             $( $(#[$doc])* $field, $setter: $ty $(=> $hook)?; )*
         });
 
+        impl $handle {
+            /// Sets every property `props` sets (matplotlib's `Artist.set`).
+            pub fn update_props(&self, props: $props) -> &Self {
+                self.raw.with_mut::<$state, _>(|state| props.apply(state));
+                self
+            }
+        }
+
         #[doc = concat!(
             "Properties of a new [`", stringify!($handle), "`] (matplotlib's keyword ",
             "arguments); unset ones keep their defaults."
@@ -197,7 +205,7 @@ macro_rules! artist_properties {
                 }
             }
 
-            /// Writes the set properties into a new artist's state.
+            /// Writes the set properties into an artist's state.
             pub(crate) fn apply(self, state: &mut $state) {
                 $crate::artist::BaseProps::apply(self.base, $crate::artist::Artist::base_mut(state));
                 $(

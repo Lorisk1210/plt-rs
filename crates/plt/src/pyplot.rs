@@ -335,7 +335,8 @@ pub fn waitforbuttonpress(timeout: Option<Duration>) -> Result<Option<bool>, Gui
     with_session(|session| session.wait_for_button_press(&figure, timeout))
 }
 
-/// Saves the current figure as PNG (matplotlib's `savefig`).
+/// Saves the current figure in the format its extension names (PNG, SVG,
+/// PDF, PS or EPS; matplotlib's `savefig`).
 ///
 /// # Errors
 ///

@@ -24,7 +24,7 @@ pub(super) const fn snap_mode(mode: SnapMode) -> PathSnap {
 
 /// The sketch filter's parameters, if sketching is on.
 pub(super) fn sketch_params(sketch: Option<Sketch>) -> Option<SketchParams> {
-    sketch.map(|s| SketchParams::new(s.scale, Some(s.length), Some(s.randomness)))
+    sketch.map(Sketch::params)
 }
 
 /// The cached clip mask, if `active` (a free function so that callers can

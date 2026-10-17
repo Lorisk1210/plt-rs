@@ -1,5 +1,6 @@
 //! The graphics context: stroke, fill-modifier and clipping state for a draw call.
 
+use plt_core::path::convert::SketchParams;
 use plt_core::{Affine2D, Bbox, Path, Rgba};
 
 /// How the ends of open strokes are drawn.
@@ -114,6 +115,13 @@ pub struct Sketch {
     pub randomness: f64,
 }
 
+impl Sketch {
+    /// The path converters' sketch filter settings.
+    pub(crate) fn params(self) -> SketchParams {
+        SketchParams::new(self.scale, Some(self.length), Some(self.randomness))
+    }
+}
+
 /// An arbitrary clip region: a path and the transform to display space.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipPath {
@@ -205,6 +213,12 @@ impl GraphicsContext {
     /// Whether anything visible would be stroked.
     pub fn strokes(&self) -> bool {
         self.linewidth > 0.0 && !self.stroke_color().is_transparent()
+    }
+
+    /// The hatch, unless its pattern is empty (matplotlib's artists only
+    /// set non-empty hatches).
+    pub(crate) fn active_hatch(&self) -> Option<&Hatch> {
+        self.hatch.as_ref().filter(|h| !h.pattern.is_empty())
     }
 
     fn apply_alpha(&self, color: Rgba) -> Rgba {

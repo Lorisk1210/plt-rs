@@ -32,7 +32,9 @@ impl Tolerance {
         }
     }
 
-    fn accepts(self, expected: f64, actual: f64) -> bool {
+    /// Whether `actual` is within the tolerance of `expected` (NaN only
+    /// matches NaN, infinities only match infinities of the same sign).
+    pub fn accepts(self, expected: f64, actual: f64) -> bool {
         if expected.is_nan() || actual.is_nan() {
             return expected.is_nan() && actual.is_nan();
         }

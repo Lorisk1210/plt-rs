@@ -40,6 +40,10 @@ pub struct PathCollection<'a> {
 pub struct CollectionItem<'a> {
     /// The shape.
     pub path: &'a Path,
+    /// Index of the shape in [`PathCollection::raw_paths`].
+    pub path_index: usize,
+    /// Translation of the item in display coordinates.
+    pub offset: Point,
     /// Full transform to display coordinates (offset included).
     pub transform: Affine2D,
     /// The graphics context with per-item overrides applied.
@@ -60,6 +64,39 @@ impl<'a> PathCollection<'a> {
             .max(self.offsets.len())
     }
 
+    /// Number of distinct shapes: `max(paths, path_transforms)`.
+    fn raw_path_count(&self) -> usize {
+        if self.paths.is_empty() {
+            0
+        } else {
+            self.paths.len().max(self.path_transforms.len())
+        }
+    }
+
+    /// Every shape with its transform before the offset (matplotlib's
+    /// `_iter_collection_raw_paths`); items refer to them by
+    /// [`CollectionItem::path_index`].
+    pub fn raw_paths(&self) -> impl Iterator<Item = (&'a Path, Affine2D)> + '_ {
+        (0..self.raw_path_count()).map(|i| {
+            let own = cycled(self.path_transforms, i).copied().unwrap_or_default();
+            (
+                &self.paths[i % self.paths.len()],
+                own.then(self.master_transform),
+            )
+        })
+    }
+
+    /// How often each raw path is used, rounded up (matplotlib's
+    /// `_iter_collection_uses_per_path`); zero when nothing is filled or
+    /// stroked.
+    pub fn uses_per_path(&self) -> usize {
+        let raw = self.raw_path_count();
+        if raw == 0 || (self.facecolors.is_empty() && self.edgecolors.is_empty()) {
+            return 0;
+        }
+        self.len().div_ceil(raw)
+    }
+
     /// Returns `true` when nothing would be drawn.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -74,6 +111,7 @@ impl<'a> PathCollection<'a> {
     /// transparent edges disable stroking.
     pub fn items(&self, base: &GraphicsContext) -> impl Iterator<Item = CollectionItem<'a>> + '_ {
         let count = if self.is_empty() { 0 } else { self.len() };
+        let raw_count = self.raw_path_count();
         let mut gc = base.clone();
         if self.edgecolors.is_empty() {
             gc.linewidth = 0.0;
@@ -108,12 +146,19 @@ impl<'a> PathCollection<'a> {
             let fill = cycled(self.facecolors, i)
                 .copied()
                 .filter(|c| !c.is_transparent());
-            let own = cycled(self.path_transforms, i).copied().unwrap_or_default();
+            // Items cycle through the raw paths, as matplotlib's
+            // `_iter_collection` cycles through the path ids.
+            let path_index = i % raw_count;
+            let own = cycled(self.path_transforms, path_index)
+                .copied()
+                .unwrap_or_default();
             let transform = own
                 .then(self.master_transform)
                 .translate(offset.x, offset.y);
             Some(CollectionItem {
-                path: &self.paths[i % self.paths.len()],
+                path: &self.paths[path_index % self.paths.len()],
+                path_index,
+                offset,
                 transform,
                 gc: gc.clone(),
                 fill,

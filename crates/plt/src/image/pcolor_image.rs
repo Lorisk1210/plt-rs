@@ -54,10 +54,14 @@ impl PcolorImageArtist {
         }
     }
 
-    /// matplotlib's `PcolorImage.make_image`: every pixel of the axes box
-    /// takes the colour of the cell containing its centre (transparent
-    /// outside the grid).
-    fn render(&self, ctx: &DrawContext<'_>) -> Result<Option<RenderedImage>, ImageError> {
+    /// matplotlib's `PcolorImage.make_image`: every pixel of the axes box,
+    /// at `magnification` pixels per display unit, takes the colour of the
+    /// cell containing its centre (transparent outside the grid).
+    fn render(
+        &self,
+        ctx: &DrawContext<'_>,
+        magnification: f64,
+    ) -> Result<Option<RenderedImage>, ImageError> {
         let layout = ctx.layout();
         let Some(axes_id) = self.base.parent else {
             return Ok(None);
@@ -72,7 +76,7 @@ impl PcolorImageArtist {
             return Ok(None);
         };
         let colors = cell_colors(&self.data, &mut self.mappable.borrow_mut())?;
-        let round = |v: f64| (v + 0.5) as i64;
+        let round = |v: f64| (v * magnification + 0.5) as i64;
         let (l, b, r, t) = (
             round(axes.x0()),
             round(axes.y0()),
@@ -104,7 +108,7 @@ impl PcolorImageArtist {
             .collect();
         Ok(Some(RenderedImage {
             pixels: RgbaImage::new(width, height, data).expect("four bytes per pixel"),
-            origin: Point::new(l as f64, b as f64),
+            origin: Point::new(l as f64 / magnification, b as f64 / magnification),
         }))
     }
 }
@@ -189,7 +193,8 @@ impl Artist for PcolorImageArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let rendered = self.render(ctx);
+        let magnification = ctx.renderer().image_magnification();
+        let rendered = self.render(ctx, magnification);
         draw_rendered(ctx, &self.base, rendered);
     }
 

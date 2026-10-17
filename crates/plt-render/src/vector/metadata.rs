@@ -1,0 +1,169 @@
+//! Document metadata shared by the vector backends: title, creator and
+//! creation date, with matplotlib's `SOURCE_DATE_EPOCH` convention for
+//! reproducible builds.
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// A moment in UTC, in whole seconds since the Unix epoch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Timestamp(pub i64);
+
+/// A calendar date and time of day in UTC.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Civil {
+    year: i64,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+    /// 0 = Monday.
+    weekday: usize,
+}
+
+const WEEKDAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTHS: [&str; 12] = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+impl Timestamp {
+    /// The current time.
+    pub fn now() -> Self {
+        let seconds = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(elapsed) => elapsed.as_secs() as i64,
+            Err(before) => -(before.duration().as_secs() as i64),
+        };
+        Self(seconds)
+    }
+
+    /// `SOURCE_DATE_EPOCH` when set to a valid number of seconds, else the
+    /// current time (what matplotlib writes by default).
+    pub fn source_date_or_now() -> Self {
+        std::env::var("SOURCE_DATE_EPOCH")
+            .ok()
+            .and_then(|value| value.trim().parse().ok())
+            .map_or_else(Self::now, Self)
+    }
+
+    /// Howard Hinnant's `civil_from_days`.
+    fn civil(self) -> Civil {
+        let days = self.0.div_euclid(86_400);
+        let secs = self.0.rem_euclid(86_400) as u32;
+        let z = days + 719_468;
+        let era = z.div_euclid(146_097);
+        let doe = z.rem_euclid(146_097);
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let day = (doy - (153 * mp + 2) / 5 + 1) as u32;
+        let month = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+        let year = yoe + era * 400 + i64::from(month <= 2);
+        Civil {
+            year,
+            month,
+            day,
+            hour: secs / 3600,
+            minute: secs / 60 % 60,
+            second: secs % 60,
+            // 1970-01-01 was a Thursday.
+            weekday: (days + 3).rem_euclid(7) as usize,
+        }
+    }
+
+    /// ISO 8601 with a UTC offset (`2026-10-17T07:27:00+00:00`), as the SVG
+    /// backend writes `dc:date`.
+    pub fn iso8601(self) -> String {
+        let c = self.civil();
+        format!(
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}+00:00",
+            c.year, c.month, c.day, c.hour, c.minute, c.second
+        )
+    }
+
+    /// A PDF date string (`D:20261017072700Z`).
+    pub fn pdf(self) -> String {
+        let c = self.civil();
+        format!(
+            "D:{:04}{:02}{:02}{:02}{:02}{:02}Z",
+            c.year, c.month, c.day, c.hour, c.minute, c.second
+        )
+    }
+
+    /// `%a %b %d %H:%M:%S %Y`, as the PostScript backend writes
+    /// `%%CreationDate`.
+    pub fn ctime(self) -> String {
+        let c = self.civil();
+        format!(
+            "{} {} {:02} {:02}:{:02}:{:02} {}",
+            WEEKDAYS[c.weekday],
+            MONTHS[c.month as usize - 1],
+            c.day,
+            c.hour,
+            c.minute,
+            c.second,
+            c.year
+        )
+    }
+}
+
+/// Metadata written into a vector document; `None` leaves an entry out.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Metadata {
+    /// Document title.
+    pub title: Option<String>,
+    /// The application that made the document.
+    pub creator: Option<String>,
+    /// The library that wrote it (PDF `Producer`).
+    pub producer: Option<String>,
+    /// Creation date.
+    pub date: Option<Timestamp>,
+}
+
+impl Default for Metadata {
+    /// plt-rs as creator and producer, dated by
+    /// [`Timestamp::source_date_or_now`].
+    fn default() -> Self {
+        let version = env!("CARGO_PKG_VERSION");
+        Self {
+            title: None,
+            creator: Some(format!("plt-rs v{version}")),
+            producer: Some(format!("plt-rs v{version}")),
+            date: Some(Timestamp::source_date_or_now()),
+        }
+    }
+}
+
+impl Metadata {
+    /// No metadata at all (reproducible output).
+    pub const fn none() -> Self {
+        Self {
+            title: None,
+            creator: None,
+            producer: None,
+            date: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn formats_dates() {
+        let t = Timestamp(1_792_222_020);
+        assert_eq!(t.iso8601(), "2026-10-17T07:27:00+00:00");
+        assert_eq!(t.pdf(), "D:20261017072700Z");
+        assert_eq!(t.ctime(), "Sat Oct 17 07:27:00 2026");
+        assert_eq!(Timestamp(0).ctime(), "Thu Jan 01 00:00:00 1970");
+        assert_eq!(Timestamp(-1).iso8601(), "1969-12-31T23:59:59+00:00");
+        assert_eq!(Timestamp(951_782_400).pdf(), "D:20000229000000Z");
+    }
+
+    #[test]
+    fn defaults_name_plt_rs() {
+        let metadata = Metadata::default();
+        assert!(metadata.creator.is_some_and(|c| c.starts_with("plt-rs")));
+        assert_eq!(Metadata::none().date, None);
+    }
+}

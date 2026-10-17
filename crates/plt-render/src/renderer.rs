@@ -134,4 +134,11 @@ pub trait Renderer {
     fn option_scale_image(&self) -> bool {
         false
     }
+
+    /// The factor by which images are magnified before being drawn
+    /// (matplotlib's `get_image_magnification`): vector backends rasterize
+    /// images at their own resolution rather than at 72 dpi.
+    fn image_magnification(&self) -> f64 {
+        1.0
+    }
 }

@@ -1,5 +1,5 @@
-"""Generate src/shape/unicode_data.rs: scripts, marks, combining classes and
-canonical (de)compositions.
+"""Generate src/shape/unicode_data.rs: scripts, combining classes and canonical
+(de)compositions.
 
 Run with the project venv (needs fontTools for Unicode script data):
 
@@ -24,21 +24,6 @@ def script_ranges():
         if code != last:
             runs.append((cp, code))
             last = code
-    return runs
-
-
-def mark_ranges():
-    """(start, end, nonspacing) runs of general categories Mn / Mc / Me."""
-    runs = []
-    for cp in range(MAX):
-        cat = unicodedata.category(chr(cp))
-        if cat not in ("Mn", "Mc", "Me"):
-            continue
-        nonspacing = cat == "Mn"
-        if runs and runs[-1][1] == cp - 1 and runs[-1][2] == nonspacing:
-            runs[-1][1] = cp
-        else:
-            runs.append([cp, cp, nonspacing])
     return runs
 
 
@@ -121,15 +106,6 @@ def main():
         "pub(crate) static SCRIPT_RUNS: [(u32, u8); %d] = [" % len(runs),
     ]
     out += wrap("(0x%X, %d)" % (cp, index[code]) for cp, code in runs)
-    marks = mark_ranges()
-    out += [
-        "];",
-        "",
-        "/// Combining marks: `(first, last, nonspacing)` where `nonspacing` marks",
-        "/// general category Mn (otherwise Mc or Me).",
-        "pub(crate) static MARK_RANGES: [(u32, u32, bool); %d] = [" % len(marks),
-    ]
-    out += wrap("(0x%X, 0x%X, %s)" % (a, b, "true" if n else "false") for a, b, n in marks)
     out.append("];")
     ccc = combining_classes()
     out += [
@@ -156,7 +132,7 @@ def main():
     out += wrap("(0x%X, 0x%X, 0x%X)" % c for c in composed)
     out.append("];")
     OUT.write_text("\n".join(out) + "\n")
-    print(f"{len(codes)} scripts, {len(runs)} runs, {len(marks)} marks, {len(ccc)} ccc, "
+    print(f"{len(codes)} scripts, {len(runs)} runs, {len(ccc)} ccc, "
           f"{len(decomposed)} decompositions, {len(composed)} compositions -> {OUT}")
 
 

@@ -7,9 +7,11 @@ use crate::types::{GlyphId, Tag};
 
 /// Lookup flag bits.
 pub(crate) mod lookup_flag {
+    pub(crate) const RIGHT_TO_LEFT: u16 = 0x0001;
     pub(crate) const IGNORE_BASE_GLYPHS: u16 = 0x0002;
     pub(crate) const IGNORE_LIGATURES: u16 = 0x0004;
     pub(crate) const IGNORE_MARKS: u16 = 0x0008;
+    pub(crate) const IGNORE_FLAGS: u16 = IGNORE_BASE_GLYPHS | IGNORE_LIGATURES | IGNORE_MARKS;
     pub(crate) const USE_MARK_FILTERING_SET: u16 = 0x0010;
     pub(crate) const MARK_ATTACHMENT_TYPE: u16 = 0xFF00;
 }
@@ -50,7 +52,7 @@ impl FromBytes for RangeRecord {
 
 fn find_range(ranges: &Array<'_, RangeRecord>, glyph: GlyphId) -> Option<RangeRecord> {
     ranges
-        .binary_search_by(|range| {
+        .harfbuzz_search_by(|range| {
             if range.end < glyph.0 {
                 std::cmp::Ordering::Less
             } else if range.start > glyph.0 {
@@ -94,11 +96,12 @@ impl<'a> Coverage<'a> {
         Self::parse(tail(parent, usize::from(offset), tag)?, tag)
     }
 
-    /// Coverage index of `glyph`, if covered.
+    /// Coverage index of `glyph`, if covered (with HarfBuzz's choice among
+    /// duplicate entries).
     pub(crate) fn index(&self, glyph: GlyphId) -> Option<u16> {
         match self {
             Self::Glyphs(glyphs) => glyphs
-                .binary_search_by(|g| g.cmp(&glyph))
+                .harfbuzz_search_by(|g| g.cmp(&glyph))
                 .map(|(i, _)| i as u16),
             Self::Ranges(ranges) => find_range(ranges, glyph)
                 .map(|range| range.value.wrapping_add(glyph.0 - range.start)),
@@ -345,6 +348,11 @@ impl<'a> LayoutTable<'a> {
         Some((record.tag, r.array(usize::from(count)).ok()?))
     }
 
+    /// Number of lookups in the lookup list.
+    pub(crate) fn lookup_count(&self) -> usize {
+        peek::<u16>(self.lookups, 0).map_or(0, usize::from)
+    }
+
     /// Lookup `index`.
     pub(crate) fn lookup(&self, index: u16) -> Option<Lookup<'a>> {
         let mut r = Reader::new(self.lookups, self.tag);
@@ -509,6 +517,7 @@ pub(crate) mod tests {
         assert_eq!((ext.kind, ext.flags, ext.len()), (1, 8, 1));
         assert_eq!(ext.subtable(0), Some(&single[..]));
         assert_eq!(table.lookup(0).unwrap().subtables().count(), 1);
+        assert_eq!(table.lookup_count(), 2);
         assert!(table.lookup(2).is_none());
         assert!(LayoutTable::parse(&data[..8], TAG, 7).is_err());
     }

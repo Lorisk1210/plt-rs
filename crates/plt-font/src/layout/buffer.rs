@@ -1,7 +1,12 @@
 //! The glyph buffer that `GSUB` and `GPOS` lookups operate on.
 
 use crate::layout::gdef::{Gdef, GlyphClass};
+use crate::shape::category::GeneralCategory;
 use crate::types::GlyphId;
+
+/// Feature mask bits of a glyph: the lookups of a feature only apply to
+/// glyphs carrying the feature's bits (HarfBuzz's `hb_mask_t`).
+pub(crate) type Mask = u32;
 
 /// Glyph property bits; the class bits deliberately coincide with the
 /// `IgnoreBaseGlyphs`/`IgnoreLigatures`/`IgnoreMarks` lookup flags, and the
@@ -13,17 +18,45 @@ pub(crate) mod props {
     pub(crate) const CLASS_MASK: u16 = BASE | LIGATURE | MARK;
 }
 
-/// Unicode properties of the character a glyph came from.
+/// How a default-ignorable character takes part in lookup matching.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Ignorable {
+    /// ZERO WIDTH NON-JOINER: skipped in context, not in `GSUB` input.
+    Zwnj,
+    /// ZERO WIDTH JOINER: skipped unless a feature handles joiners itself.
+    Zwj,
+    /// Hidden during `GPOS` only (CGJ, Mongolian variation selectors, tags).
+    Hidden,
+    /// Any other default-ignorable character.
+    Other,
+}
+
+/// Unicode properties of the character a glyph came from (HarfBuzz's
+/// `unicode_props`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(crate) struct CharProps {
-    /// General category Mn (non-spacing mark).
-    pub(crate) nonspacing_mark: bool,
-    /// Default-ignorable code point (hidden by shaping).
-    pub(crate) default_ignorable: bool,
-    /// General category Mn, Mc or Me.
-    pub(crate) mark: bool,
-    /// Canonical combining class.
+    pub(crate) category: GeneralCategory,
+    /// HarfBuzz's modified combining class; zero for non-marks.
     pub(crate) combining_class: u8,
+    /// Set for default-ignorable characters (hidden by shaping).
+    pub(crate) ignorable: Option<Ignorable>,
+}
+
+impl CharProps {
+    /// General category Mn, Mc or Me.
+    pub(crate) const fn is_mark(self) -> bool {
+        self.category.is_mark()
+    }
+
+    /// General category Mn.
+    pub(crate) fn is_nonspacing_mark(self) -> bool {
+        self.category == GeneralCategory::NonspacingMark
+    }
+
+    /// Hidden from `GSUB` skipping (see [`Ignorable::Hidden`]).
+    pub(crate) fn is_hidden(self) -> bool {
+        self.ignorable == Some(Ignorable::Hidden)
+    }
 }
 
 /// One glyph being shaped.
@@ -33,28 +66,53 @@ pub(crate) struct GlyphInfo {
     /// Byte offset of the cluster start in the source text.
     pub(crate) cluster: usize,
     pub(crate) chars: CharProps,
+    /// Features enabled for this glyph.
+    pub(crate) mask: Mask,
     /// Class bits plus mark attachment class in the high byte.
     pub(crate) props: u16,
     /// Ligature id shared by a ligature and the marks attached to it.
     pub(crate) lig_id: u8,
     /// For marks: the ligature component they belong to (1-based); for
-    /// ligatures: the number of components.
+    /// ligatures: the number of components; for the glyphs of a multiple
+    /// substitution: their index in the sequence.
     pub(crate) lig_comp: u8,
     /// Whether this glyph is a ligature formed during shaping.
     pub(crate) lig_base: bool,
+    /// Whether a `GSUB` lookup replaced this glyph.
+    pub(crate) substituted: bool,
+    /// Whether this glyph came out of a multiple substitution.
+    pub(crate) multiplied: bool,
+    /// Per-glyph value owned by the script shaper and carried through
+    /// substitutions (HarfBuzz's auxiliary shaper variable).
+    pub(crate) aux: u8,
 }
 
 impl GlyphInfo {
-    pub(crate) fn new(glyph: GlyphId, cluster: usize, chars: CharProps) -> Self {
+    pub(crate) fn new(glyph: GlyphId, cluster: usize, chars: CharProps, mask: Mask) -> Self {
         Self {
             glyph,
             cluster,
             chars,
+            mask,
             props: 0,
             lig_id: 0,
             lig_comp: 0,
             lig_base: false,
+            substituted: false,
+            multiplied: false,
+            aux: 0,
         }
+    }
+
+    /// How the glyph's character is ignorable; characters stop being
+    /// default-ignorable once substituted (HarfBuzz's
+    /// `_hb_glyph_info_is_default_ignorable`).
+    pub(crate) fn ignorable(&self) -> Option<Ignorable> {
+        self.chars.ignorable.filter(|_| !self.substituted)
+    }
+
+    pub(crate) fn is_default_ignorable(&self) -> bool {
+        self.ignorable().is_some()
     }
 
     pub(crate) const fn is_mark(&self) -> bool {
@@ -95,11 +153,12 @@ impl GlyphInfo {
         self.lig_base = true;
     }
 
-    /// Recomputes the class bits after a substitution. Fonts with GDEF glyph
-    /// classes use them; otherwise `guess` (ligature or the old class) is
-    /// kept, mirroring HarfBuzz's `_set_glyph_class`.
+    /// Substitutes the glyph and recomputes the class bits. Fonts with GDEF
+    /// glyph classes use them; otherwise `guess` (ligature or the old
+    /// class) is kept, mirroring HarfBuzz's `_set_glyph_class`.
     pub(crate) fn set_glyph(&mut self, glyph: GlyphId, gdef: &Gdef<'_>, guess: Option<u16>) {
         self.glyph = glyph;
+        self.substituted = true;
         if gdef.has_glyph_classes() {
             self.props = gdef_props(gdef, glyph);
         } else if let Some(class) = guess {
@@ -137,6 +196,7 @@ pub(crate) enum AttachKind {
     #[default]
     None,
     Mark,
+    Cursive,
 }
 
 /// Glyphs plus positions, with a cursor used while applying lookups.
@@ -193,19 +253,49 @@ impl Buffer {
         self.pos.remove(index);
     }
 
-    /// Sets every cluster in `start..end` to the smallest one (HarfBuzz's
-    /// `merge_clusters`).
+    /// Reverses glyphs and positions (HarfBuzz's `hb_buffer_reverse`).
+    pub(crate) fn reverse(&mut self) {
+        self.info.reverse();
+        self.pos.reverse();
+    }
+
+    /// Merges the clusters of `start..end` (see [`merge_clusters`]).
     pub(crate) fn merge_clusters(&mut self, start: usize, end: usize) {
-        let end = end.min(self.info.len());
-        if let Some(cluster) = self
-            .info
-            .get(start..end)
-            .and_then(|range| range.iter().map(|i| i.cluster).min())
-        {
-            self.info[start..end]
-                .iter_mut()
-                .for_each(|info| info.cluster = cluster);
+        merge_clusters(&mut self.info, start, end, |info| &mut info.cluster);
+    }
+}
+
+/// HarfBuzz's `merge_clusters`: gives `items[start..end]` their smallest
+/// cluster, extending the range over neighbours that shared the cluster
+/// of its first or last item.
+pub(crate) fn merge_clusters<T>(
+    items: &mut [T],
+    start: usize,
+    end: usize,
+    cluster: fn(&mut T) -> &mut usize,
+) {
+    let end = end.min(items.len());
+    if end <= start + 1 {
+        return;
+    }
+    let get = |items: &mut [T], index: usize| *cluster(&mut items[index]);
+    let merged = (start..end)
+        .map(|index| get(items, index))
+        .min()
+        .unwrap_or_default();
+    let (mut start, mut end) = (start, end);
+    if merged != get(items, end - 1) {
+        while end < items.len() && get(items, end - 1) == get(items, end) {
+            end += 1;
         }
+    }
+    if merged != get(items, start) {
+        while start > 0 && get(items, start - 1) == get(items, start) {
+            start -= 1;
+        }
+    }
+    for item in &mut items[start..end] {
+        *cluster(item) = merged;
     }
 }
 
@@ -214,7 +304,7 @@ mod tests {
     use super::*;
 
     fn info(glyph: u16, cluster: usize) -> GlyphInfo {
-        GlyphInfo::new(GlyphId(glyph), cluster, CharProps::default())
+        GlyphInfo::new(GlyphId(glyph), cluster, CharProps::default(), 1)
     }
 
     #[test]
@@ -241,10 +331,28 @@ mod tests {
             buffer.info.iter().map(|i| i.cluster).collect::<Vec<_>>(),
             vec![0, 1, 1, 1]
         );
+        buffer.reverse();
+        assert_eq!(
+            buffer.info.iter().map(|i| i.glyph.0).collect::<Vec<_>>(),
+            vec![3, 6, 5, 1]
+        );
         buffer.remove(0);
         assert_eq!(buffer.len(), 3);
         assert_eq!(buffer.splice(0, std::iter::empty()), 0);
         assert_eq!(buffer.len(), 2);
+    }
+
+    #[test]
+    fn merging_extends_over_shared_clusters() {
+        let mut clusters = vec![0, 2, 2, 3, 3, 5];
+        merge_clusters(&mut clusters, 2, 4, |c| c);
+        assert_eq!(clusters, vec![0, 2, 2, 2, 2, 5]);
+        let mut clusters = vec![1, 1, 4, 0];
+        merge_clusters(&mut clusters, 1, 4, |c| c);
+        assert_eq!(clusters, vec![0, 0, 0, 0]);
+        merge_clusters(&mut clusters, 3, 3, |c| c);
+        merge_clusters(&mut clusters, 2, 9, |c| c);
+        assert_eq!(clusters, vec![0; 4]);
     }
 
     #[test]
@@ -261,5 +369,30 @@ mod tests {
         mark.set_lig_props_for_mark(3, 2);
         assert_eq!((mark.lig_comp(), mark.lig_num_comps()), (2, 1));
         assert!(mark.is_mark() && lig.is_ligature() && !lig.is_base());
+    }
+
+    #[test]
+    fn character_properties() {
+        let zwj = CharProps {
+            category: GeneralCategory::Format,
+            combining_class: 0,
+            ignorable: Some(Ignorable::Zwj),
+        };
+        assert!(!zwj.is_hidden() && !zwj.is_mark());
+        let mut glyph = GlyphInfo::new(GlyphId(3), 0, zwj, 1);
+        assert_eq!(glyph.ignorable(), Some(Ignorable::Zwj));
+        glyph.set_glyph(GlyphId(4), &Gdef::default(), None);
+        assert!(!glyph.is_default_ignorable());
+        let acute = CharProps {
+            category: GeneralCategory::NonspacingMark,
+            combining_class: 230,
+            ignorable: None,
+        };
+        assert!(acute.is_mark() && acute.is_nonspacing_mark());
+        let cgj = CharProps {
+            ignorable: Some(Ignorable::Hidden),
+            ..acute
+        };
+        assert!(cgj.is_hidden());
     }
 }

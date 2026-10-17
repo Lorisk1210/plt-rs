@@ -278,24 +278,4 @@ impl Scaler {
             Self::Pixels(size) => size.em_fscale_y(value),
         }
     }
-
-    /// Coordinate space for contour points used by anchors.
-    pub(crate) const fn scaling(&self) -> Scaling {
-        match self {
-            Self::Units => Scaling::Units,
-            Self::Pixels(size) => size.scaling(),
-        }
-    }
-
-    /// Device-table context: `(ppem, scale)` per axis, or `None` when
-    /// device adjustments do not apply (unscaled shaping).
-    pub(crate) fn device(&self) -> Option<((u16, i64), (u16, i64))> {
-        match self {
-            Self::Units => None,
-            Self::Pixels(size) => {
-                let (x, y) = size.hb_scales();
-                Some(((size.x_ppem, x), (size.y_ppem, y)))
-            }
-        }
-    }
 }

@@ -1,11 +1,14 @@
 //! Text layout compared with matplotlib's `FT2Font.set_text` /
 //! `_layout` (libraqm + HarfBuzz + FreeType), including the Last Resort
-//! fallback (`tests/fixtures/shaping.json`).
+//! fallback (`tests/fixtures/shaping.json`), with right-to-left, bidi and
+//! Arabic text (`complex.json`, `arabic.json`).
 
 mod common;
 
 use common::{Json, fixture, font_bytes};
-use plt_font::{Face, Feature, FontChain, ShapeOptions, Size, shape_at_size};
+use plt_font::{
+    Direction, Face, Feature, FontChain, ShapeOptions, Size, shape_at_size, shape_with,
+};
 
 const LAST_RESORT: &str = "LastResortHE-Regular.ttf";
 
@@ -81,7 +84,19 @@ fn check_case(chain: &FontChain<'_>, names: &[&str], case: &Json, summary: &mut 
 
 #[test]
 fn layout_matches_matplotlib() {
-    let fixtures = fixture("shaping.json");
+    check_fixture("shaping.json");
+}
+
+/// Right-to-left, bidirectional and Arabic text.
+#[test]
+fn complex_layout_matches_matplotlib() {
+    check_fixture("complex.json");
+}
+
+/// Lays out every case of fixture file `name` with its font plus the Last
+/// Resort fallback and compares with matplotlib.
+fn check_fixture(name: &str) {
+    let fixtures = fixture(name);
     let resort_data = font_bytes(LAST_RESORT);
     let mut summary = Summary {
         cases: 0,
@@ -92,9 +107,10 @@ fn layout_matches_matplotlib() {
     while index < cases.len() {
         let name = cases[index].get("font").as_str().to_owned();
         let data = font_bytes(&name);
-        let mut resort = Face::parse(&resort_data, 0).unwrap();
-        resort.select_charmap(0).unwrap();
-        let chain = FontChain::new(vec![Face::parse(&data, 0).unwrap(), resort]);
+        let mut resort = Face::parse(&resort_data, 0).expect("Last Resort parses");
+        resort.select_charmap(0).expect("Last Resort has a charmap");
+        let face = Face::parse(&data, 0).expect("font parses");
+        let chain = FontChain::new(vec![face, resort]);
         let names = [name.as_str(), LAST_RESORT];
         while index < cases.len() && cases[index].get("font").as_str() == name {
             check_case(&chain, &names, &cases[index], &mut summary);
@@ -108,6 +124,123 @@ fn layout_matches_matplotlib() {
         summary.cases,
         summary.failures.join("\n")
     );
+}
+
+/// Small fonts from `tests/fixtures/gen_arabic_fonts.py`: Arabic fallback
+/// shaping (presentation forms, ligatures, mark stacking) and cursive and
+/// mark attachment in both directions.
+#[test]
+fn synthetic_arabic_fonts_match_matplotlib() {
+    let fixtures = fixture("arabic.json");
+    let mut failures = Vec::new();
+    for (kind, cases) in fixtures.as_object() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures")
+            .join(format!("arabic-{kind}.ttf"));
+        let data = std::fs::read(&path).unwrap();
+        let chain = FontChain::new(vec![Face::parse(&data, 0).unwrap()]);
+        for case in cases.as_array() {
+            let text = case.get("text").as_str();
+            let (size, dpi) = (case.get("size").as_f64(), case.get("dpi").as_f64());
+            let layout = chain
+                .layout(text, size, dpi, &ShapeOptions::default())
+                .expect("layout");
+            let glyphs: Vec<Vec<i64>> = layout
+                .glyphs
+                .iter()
+                .map(|g| vec![i64::from(g.glyph_id.0), i64::from(g.x), i64::from(g.y)])
+                .collect();
+            let expected: Vec<Vec<i64>> = case
+                .get("glyphs")
+                .as_array()
+                .iter()
+                .map(Json::i64s)
+                .collect();
+            let extents = vec![
+                i64::from(layout.width),
+                i64::from(layout.height),
+                i64::from(layout.descent),
+            ];
+            if glyphs != expected || extents != case.get("extents").i64s() {
+                failures.push(format!(
+                    "{kind} {size}/{dpi} {text:?}:\n  actual   {extents:?} {glyphs:?}\n  expected {:?} {expected:?}",
+                    case.get("extents").i64s()
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Glyphs and pen positions (26.6 pixels at 12 pt / 72 dpi) with
+/// `DejaVuSans.ttf` as matplotlib's `FT2Font._layout` reports them.
+#[test]
+fn arabic_and_mixed_text_in_visual_order() {
+    let data = font_bytes("DejaVuSans.ttf");
+    let chain = FontChain::new(vec![Face::parse(&data, 0).unwrap()]);
+    let placed = |text: &str| {
+        let layout = chain
+            .layout(text, 12.0, 72.0, &ShapeOptions::default())
+            .unwrap();
+        let glyphs: Vec<(u16, i32)> = layout.glyphs.iter().map(|g| (g.glyph_id.0, g.x)).collect();
+        (glyphs, layout.width)
+    };
+    // MEEM REH HAH BEH ALEF: joined forms, rightmost letter last.
+    assert_eq!(
+        placed("\u{645}\u{631}\u{62D}\u{628}\u{627}"),
+        (
+            vec![
+                (5253, 0),
+                (5257, 234),
+                (5274, 466),
+                (5285, 941),
+                (5338, 1365)
+            ],
+            1776
+        )
+    );
+    // The digits after the Arabic word are Arabic numbers (W2) and move
+    // with it to the left of the Arabic text.
+    assert_eq!(
+        placed("abc \u{645}\u{631}\u{62D}\u{628}\u{627} 123"),
+        (
+            vec![
+                (68, 0),
+                (69, 471),
+                (70, 959),
+                (3, 1381),
+                (20, 1625),
+                (21, 2114),
+                (22, 2603),
+                (3, 3092),
+                (5253, 3336),
+                (5257, 3570),
+                (5274, 3802),
+                (5285, 4277),
+                (5338, 4701)
+            ],
+            5112
+        )
+    );
+}
+
+#[test]
+fn paragraph_direction_can_be_forced() {
+    let data = font_bytes("DejaVuSans.ttf");
+    let face = Face::parse(&data, 0).unwrap();
+    let text = "ab \u{5D0}";
+    let order = |direction| {
+        let options = ShapeOptions {
+            direction,
+            ..ShapeOptions::default()
+        };
+        shape_with(&face, text, &options)
+            .iter()
+            .map(|g| g.cluster)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(order(None), vec![0, 1, 2, 3]);
+    assert_eq!(order(Some(Direction::RightToLeft)), vec![3, 2, 0, 1]);
 }
 
 #[test]

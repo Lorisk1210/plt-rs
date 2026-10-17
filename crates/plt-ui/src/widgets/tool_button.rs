@@ -19,6 +19,8 @@ const ICON_SIZE: f64 = 20.0;
 pub struct ToolButton<M> {
     icon: Icon,
     message: M,
+    /// Messages sent when the pointer enters and leaves the button.
+    hover: Option<(M, M)>,
     checked: bool,
     enabled: bool,
     /// Whether the left button went down on this button and is held.
@@ -31,10 +33,19 @@ impl<M> ToolButton<M> {
         Self {
             icon,
             message,
+            hover: None,
             checked: false,
             enabled: true,
             pressed: false,
         }
+    }
+
+    /// Also sends `enter` when the pointer moves onto the button and
+    /// `leave` when it moves off (e.g. to show a hint).
+    #[must_use]
+    pub fn with_hover_messages(mut self, enter: M, leave: M) -> Self {
+        self.hover = Some((enter, leave));
+        self
     }
 
     /// Checks or unchecks the button (e.g. while its mode is on).
@@ -112,7 +123,11 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
-        if !self.enabled {
+        let clicking = matches!(
+            event,
+            UiEvent::PointerDown { .. } | UiEvent::PointerUp { .. }
+        );
+        if clicking && !self.enabled {
             return;
         }
         match event {
@@ -133,6 +148,16 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
                 }
                 self.pressed = false;
                 cx.request_paint();
+            }
+            UiEvent::PointerEnter(_) => {
+                if let Some((enter, _)) = &self.hover {
+                    cx.emit(enter.clone());
+                }
+            }
+            UiEvent::PointerLeave => {
+                if let Some((_, leave)) = &self.hover {
+                    cx.emit(leave.clone());
+                }
             }
             _ => {}
         }

@@ -39,11 +39,29 @@ pub(super) enum Tool {
     Save,
 }
 
+impl Tool {
+    /// What the tool does and its shortcut, for the status line.
+    fn hint(self) -> &'static str {
+        match self {
+            Self::Home => "Reset original view (h)",
+            Self::Back => "Back to previous view (c)",
+            Self::Forward => "Forward to next view (v)",
+            Self::Pan => {
+                "Left button pans, right button zooms; x/y fixes axis, Ctrl fixes aspect (p)"
+            }
+            Self::Zoom => "Zoom to rectangle; x/y fixes axis (o)",
+            Self::Save => "Save the figure as PNG (s)",
+        }
+    }
+}
+
 /// What the widgets of a figure window report.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Message {
     /// A toolbar button was clicked.
     Tool(Tool),
+    /// The pointer moved onto (`Some`) or off a toolbar button.
+    Hint(Option<Tool>),
     /// Something happened on the figure canvas.
     Canvas(SurfaceEvent),
 }
@@ -91,7 +109,9 @@ impl FigureWindow {
         let canvas = root.push(Surface::new(|event| Some(Message::Canvas(event))), 1.0);
         let mut toolbar = Flex::row().with_padding(2.0).with_spacing(2.0);
         let button = |toolbar: &mut Flex<Message>, icon, tool| {
-            toolbar.push(ToolButton::new(icon, Message::Tool(tool)), 0.0)
+            let button = ToolButton::new(icon, Message::Tool(tool))
+                .with_hover_messages(Message::Hint(Some(tool)), Message::Hint(None));
+            toolbar.push(button, 0.0)
         };
         button(&mut toolbar, icons::home(), Tool::Home);
         let back = button(&mut toolbar, icons::back(), Tool::Back);
@@ -175,6 +195,10 @@ impl FigureWindow {
         let open = match message {
             Message::Tool(tool) => {
                 self.use_tool(cx, tool)?;
+                true
+            }
+            Message::Hint(tool) => {
+                self.set_status(cx, tool.map_or("", Tool::hint).to_owned())?;
                 true
             }
             Message::Canvas(SurfaceEvent::Resized(size)) => {

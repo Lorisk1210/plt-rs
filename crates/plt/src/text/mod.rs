@@ -2,7 +2,7 @@
 //! strings, with mathtext for the lines that contain `$...$` math.
 //!
 //! [`Text`] is the artist handle. Code drawing text without an artist
-//! (tick labels, legends) uses [`lay_out`] and [`draw_laid_out`], which
+//! (tick labels, legends) uses the crate's `lay_out` and `draw_laid_out`, which
 //! apply the same rules: lines are split at `\n`, each line with an even
 //! number of unescaped `$` is typeset by mathtext with the `mathtext.*`
 //! settings, and the block is stacked, aligned and rotated like

@@ -64,7 +64,8 @@ const CUBOID: [[[f64; 3]; 4]; 6] = [
 #[derive(Clone, Debug)]
 pub struct Bar3DOptions {
     /// One colour for all bars, one per bar, one per face kind (6, in
-    /// [`CUBOID`] order) or one per face; empty takes the next colour of
+    /// matplotlib's cuboid face order: bottom, top, front, back, left,
+    /// right) or one per face; empty takes the next colour of
     /// the patch property cycle.
     pub color: Vec<Color>,
     /// How faces are ordered by depth.

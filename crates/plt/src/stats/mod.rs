@@ -4,7 +4,7 @@
 //! Every routine reproduces the numpy/matplotlib arithmetic it replaces, so
 //! the numbers match matplotlib's to the last bit where numpy's are exact:
 //!
-//! * [`mean`], [`median`], [`var`], [`std`], [`percentile`], [`quantile`] —
+//! * [`mean`], [`median`], [`var`], [`std`](fn@std), [`percentile`], [`quantile`] —
 //!   numpy's reductions (pairwise summation, 'linear' interpolation).
 //! * [`histogram`] / [`histogram_bin_edges`] — `np.histogram` with every
 //!   `bins=` form ([`Bins`], [`BinEstimator`]), ranges, weights and

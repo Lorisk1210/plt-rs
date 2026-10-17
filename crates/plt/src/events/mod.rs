@@ -1,7 +1,8 @@
 //! Figure events and callbacks (matplotlib's `FigureCanvasBase.mpl_connect`
 //! and the `Event` classes of `backend_bases`).
 //!
-//! Callbacks are connected to a [`Figure`] for one [`EventKind`] and
+//! Callbacks are connected to a [`Figure`](crate::figure::Figure) for one
+//! [`EventKind`] and
 //! receive every [`Event`] of that kind:
 //!
 //! ```
@@ -27,7 +28,8 @@
 //! assert_eq!(clicks.get(), 1);
 //! ```
 //!
-//! [`Figure::add_timer`] calls back periodically while the figure is shown
+//! [`Figure::add_timer`](crate::figure::Figure::add_timer) calls back
+//! periodically while the figure is shown
 //! (the basis of [`crate::animation`]).
 //!
 //! [`EventSource`] turns raw input into events the way matplotlib's

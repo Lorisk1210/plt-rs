@@ -72,7 +72,7 @@ impl Artist for FigureFrame {
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         if self.frameon
-            && let Some(extent) = ctx.layout().frame_extent(self.base.id())
+            && let Some(extent) = ctx.layout().frame_patch_extent(self.base.id())
         {
             let mut gc = ctx.base_gc(&self.base);
             gc.linewidth = self.linewidth;

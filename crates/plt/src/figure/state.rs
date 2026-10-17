@@ -42,6 +42,9 @@ pub(crate) struct FigureState {
     pub(crate) mouse_grabber: Option<ArtistId>,
     /// Whether a widget takes key presses (`Figure::set_capture_keys`).
     pub(crate) capture_keys: bool,
+    /// The part of the figure being printed, in display pixels, while
+    /// saving with `bbox_inches` (matplotlib's `adjust_bbox`).
+    pub(crate) print_window: Option<Bbox>,
 }
 
 impl FigureState {
@@ -70,6 +73,7 @@ impl FigureState {
             timers: TimerRegistry::default(),
             mouse_grabber: None,
             capture_keys: false,
+            print_window: None,
         }
     }
 
@@ -145,6 +149,18 @@ impl FigureState {
         errors
     }
 
+    /// Where the background of `frame` is drawn: its extent, or the whole
+    /// canvas for the root figure while a window of it is printed
+    /// (matplotlib moves the figure patch onto the saved area).
+    pub(crate) fn frame_patch_bbox(&self, frame: ArtistId) -> Option<Bbox> {
+        match self.print_window {
+            Some(window) if frame == self.root => {
+                Some(Bbox::from_bounds(0.0, 0.0, window.width(), window.height()))
+            }
+            _ => self.frame_bbox(frame),
+        }
+    }
+
     /// The display outline of `axes` when its patch is not a rectangle
     /// (the wedge of polar axes); `None` otherwise.
     pub(crate) fn axes_outline(&self, axes: ArtistId) -> Option<ClipPath> {
@@ -166,7 +182,10 @@ impl TransformContext for FigureState {
         let node = self.store.get_as::<FigureFrame>(frame)?;
         if frame == self.root {
             let (w, h) = self.size_pixels();
-            return Some(Bbox::from_bounds(0.0, 0.0, w, h));
+            let (x, y) = self
+                .print_window
+                .map_or((0.0, 0.0), |window| (-window.x0(), -window.y0()));
+            return Some(Bbox::from_bounds(x, y, w, h));
         }
         let parent = self.frame_bbox(node.base().parent?)?;
         Some(fraction_of(&parent, &node.relative_extent))

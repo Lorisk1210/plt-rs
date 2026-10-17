@@ -18,6 +18,7 @@ mod lasso;
 mod polygon;
 mod rectangle;
 mod region;
+mod shape;
 mod span;
 
 use std::fmt;

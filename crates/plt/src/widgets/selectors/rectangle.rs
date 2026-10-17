@@ -6,6 +6,7 @@ use plt_core::path::PolygonOptions;
 
 use super::driver::{Core, Driver};
 use super::region::{Region, RegionSettings, SelectorUnits};
+use super::shape::RegionShape;
 use super::{ModifierKeys, SelectorError, SelectorEvent, selector_methods};
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
@@ -77,10 +78,7 @@ impl Default for RectangleSelectorOptions {
 }
 
 /// The selector driver for `shape` on `ax` with `options`.
-fn region<S: super::region::RegionShape>(
-    ax: &Axes,
-    options: &RectangleSelectorOptions,
-) -> Driver<Region<S>> {
+fn region<S: RegionShape>(ax: &Axes, options: &RectangleSelectorOptions) -> Driver<Region<S>> {
     let mut props = options.props.clone();
     let visible = props.base.visible.take();
     let patch = ax.add_patch(S::initial());
@@ -295,7 +293,6 @@ impl RectangleSelector {
     /// `(x0, y0, width, height)` of the unrotated rectangle (matplotlib's
     /// `_rect_bbox`).
     pub(super) fn rect_bbox(&self) -> (f64, f64, f64, f64) {
-        use super::region::RegionShape;
         self.driver.shared.borrow().tool.patch.shape().rect_bbox()
     }
 

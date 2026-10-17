@@ -240,14 +240,10 @@ pub(crate) fn insert_axes(
         .into_iter()
         .map(|side| state.adopt(id, Box::new(SpineArtist::new(side, id, Rc::clone(&rc)))))
         .collect();
-    let titles: Vec<_> = [
-        (0.0, HAlign::Left),
-        (0.5, HAlign::Center),
-        (1.0, HAlign::Right),
-    ]
-    .into_iter()
-    .map(|(x, halign)| state.adopt(id, Box::new(axes_title(id, x, halign, &rc))))
-    .collect();
+    let titles: Vec<_> = TITLE_PLACES
+        .into_iter()
+        .map(|(x, halign)| state.adopt(id, Box::new(axes_title(id, x, halign, &rc))))
+        .collect();
     if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
         axes.spines = spines;
         axes.titles = titles;
@@ -257,9 +253,17 @@ pub(crate) fn insert_axes(
     Axes::from_raw(RawHandle::new(Rc::clone(figure), id))
 }
 
+/// Where the left, centre and right titles of an axes sit: axes fraction
+/// and alignment.
+pub(crate) const TITLE_PLACES: [(f64, HAlign); 3] = [
+    (0.0, HAlign::Left),
+    (0.5, HAlign::Center),
+    (1.0, HAlign::Right),
+];
+
 /// An empty axes title at axes fraction `x` (matplotlib's `Axes.title`,
 /// `_left_title` and `_right_title`).
-fn axes_title(axes: ArtistId, x: f64, halign: HAlign, rc: &Rc<RcParams>) -> TextArtist {
+pub(crate) fn axes_title(axes: ArtistId, x: f64, halign: HAlign, rc: &Rc<RcParams>) -> TextArtist {
     let y = rc.axes_titley.unwrap_or(1.0);
     let mut title = TextArtist::new(Point::new(x, y), "", Rc::clone(rc));
     title.halign = halign;

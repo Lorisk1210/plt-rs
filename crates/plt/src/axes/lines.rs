@@ -2,7 +2,9 @@
 
 use super::children::DataUpdate;
 use super::{Axes, AxesState, PlotError};
-use crate::artist::{Artist, ArtistHandle};
+use std::rc::Rc;
+
+use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::colors::Color;
 use crate::lines::{Line2D, LineArtist, LineProps};
 use crate::rc::{CycleValue, Cycler};
@@ -148,6 +150,23 @@ impl Axes {
         props.apply(&mut line);
         line.base_mut().transform = Some(self.trans_data());
         line
+    }
+
+    /// The lines of the axes in the order they were added (matplotlib's
+    /// `ax.lines`).
+    pub fn lines(&self) -> Vec<Line2D> {
+        let figure = self.raw().figure_state();
+        let state = figure.borrow();
+        let children = state
+            .store
+            .get_as::<AxesState>(self.id())
+            .map(|axes| axes.children.clone())
+            .unwrap_or_default();
+        children
+            .into_iter()
+            .filter(|&id| state.store.get_as::<LineArtist>(id).is_some())
+            .map(|id| Line2D::from_raw(RawHandle::new(Rc::clone(figure), id)))
+            .collect()
     }
 
     /// Adds a line in data coordinates and extends the data limits to its

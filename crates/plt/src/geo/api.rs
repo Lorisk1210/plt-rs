@@ -97,7 +97,7 @@ impl GeoAxes {
     /// Turns freshly created rectilinear `axes` into geographic axes
     /// drawn through `projection` (matplotlib's `GeoAxes.__init__` and
     /// `clear`).
-    fn convert(axes: Axes, projection: GeoProjection) -> Self {
+    pub(crate) fn convert(axes: Axes, projection: GeoProjection) -> Self {
         // The limits are fixed once the axes is geographic.
         axes.set_xlim(-PI, PI).set_ylim(-FRAC_PI_2, FRAC_PI_2);
         axes.raw().with_mut::<AxesState, _>(|state| {

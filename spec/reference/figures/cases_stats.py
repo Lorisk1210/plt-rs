@@ -293,6 +293,18 @@ def _(fig):
     )
 
 
+@case("stats/pie_label", figsize=(8, 4))
+def _(fig):
+    left, right = fig.subplots(1, 2)
+    pie = left.pie([15, 30, 45, 10])
+    left.pie_label(pie, "{absval:d}", distance=0.7)
+    left.pie_label(pie, ["frogs", "hogs", "dogs", "logs"], distance=1.15)
+    partial = right.pie([0.2, 0.3, 0.1], normalize=False)
+    right.pie_label(partial, "{frac:.1%}", rotate=True, distance=1.1,
+                    textprops=dict(color="tab:red", size=8))
+    right.pie_label(partial, ["a", "b", "c"], alignment="outer", distance=0.5)
+
+
 @case("stats/pie_rotatelabels_frame_center", figsize=(5, 5))
 def _(fig):
     ax = fig.subplots()

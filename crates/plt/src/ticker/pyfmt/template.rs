@@ -1,27 +1,39 @@
 //! `str.format` templates with the fields `x` (a float) and `pos` (an
-//! optional integer), as used by matplotlib's `StrMethodFormatter`, or
-//! with one positional float.
+//! optional integer), as used by matplotlib's `StrMethodFormatter`, with
+//! one positional float, or with fields of other names.
 
 use super::FormatError;
 use super::dtoa::{FloatStyle, format_float};
 use super::spec::FormatSpec;
 
-/// The argument a replacement field refers to.
+/// A value a replacement field formats.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TemplateValue {
+    /// A Python `float`.
+    Float(f64),
+    /// A Python `int`.
+    Int(i64),
+    /// Python's `None`.
+    None,
+}
+
+/// The type a field's argument is known to have when the template is
+/// parsed, for early checks of its spec.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Arg {
-    /// `{x}`: the tick value.
-    X,
-    /// `{pos}`: the tick index.
-    Pos,
+enum Kind {
+    Float,
+    Int,
 }
 
 /// How replacement fields name their argument.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Naming {
-    /// The keywords `x` and `pos`.
+enum Naming<'a> {
+    /// The keywords `x` (a float) and `pos` (an integer).
     Keywords,
-    /// One positional argument (`{}`, `{0}`).
+    /// One positional float (`{}`, `{0}`).
     Positional(Numbering),
+    /// These keywords, the arguments in order.
+    Named(&'a [&'a str]),
 }
 
 /// Python's field numbering state: unknown until the first positional
@@ -36,7 +48,8 @@ enum Numbering {
 /// A replacement field such as `{x:.2f}` or `{pos!r:>3}`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Field {
-    arg: Arg,
+    /// The index of the argument formatted.
+    arg: usize,
     /// `!r`, `!s` or `!a`: format the argument's string form instead.
     as_text: bool,
     spec: FormatSpec,
@@ -85,7 +98,20 @@ impl StrTemplate {
         Self::parse_with(template, Naming::Positional(Numbering::Unknown))
     }
 
-    fn parse_with(template: &str, mut naming: Naming) -> Result<Self, FormatError> {
+    /// Parses and validates a template whose fields name the keywords
+    /// `names`, rendered with [`StrTemplate::render_values`] in that order.
+    ///
+    /// ```
+    /// use plt::ticker::pyfmt::{StrTemplate, TemplateValue};
+    /// let t = StrTemplate::parse_named("{absval:d} ({frac:.0%})", &["absval", "frac"]).unwrap();
+    /// let values = [TemplateValue::Int(3), TemplateValue::Float(0.25)];
+    /// assert_eq!(t.render_values(&values, |s| s).unwrap(), "3 (25%)");
+    /// ```
+    pub fn parse_named(template: &str, names: &[&str]) -> Result<Self, FormatError> {
+        Self::parse_with(template, Naming::Named(names))
+    }
+
+    fn parse_with(template: &str, mut naming: Naming<'_>) -> Result<Self, FormatError> {
         let mut parts = Vec::new();
         let mut literal = String::new();
         let mut chars = template.chars().peekable();
@@ -153,13 +179,33 @@ impl StrTemplate {
         &self,
         x: f64,
         pos: Option<usize>,
+        post: impl FnMut(String) -> String,
+    ) -> Result<String, FormatError> {
+        let pos =
+            match pos {
+                Some(pos) => TemplateValue::Int(i64::try_from(pos).map_err(|_| {
+                    FormatError::Value("tick position does not fit an integer".into())
+                })?),
+                None => TemplateValue::None,
+            };
+        self.render_values(&[TemplateValue::Float(x), pos], post)
+    }
+
+    /// Renders the template with `values`, the arguments its fields refer
+    /// to in order; `post` is applied to each formatted field.
+    ///
+    /// Fails when a field's spec does not suit its value (Python's
+    /// `ValueError` or `TypeError`) or names a missing argument.
+    pub fn render_values(
+        &self,
+        values: &[TemplateValue],
         mut post: impl FnMut(String) -> String,
     ) -> Result<String, FormatError> {
         let mut out = String::new();
         for part in &self.parts {
             match part {
                 Part::Literal(text) => out.push_str(text),
-                Part::Field(field) => out.push_str(&post(field.render(x, pos)?)),
+                Part::Field(field) => out.push_str(&post(field.render(values)?)),
             }
         }
         Ok(out)
@@ -167,27 +213,37 @@ impl StrTemplate {
 }
 
 impl Field {
-    fn render(&self, x: f64, pos: Option<usize>) -> Result<String, FormatError> {
-        match (self.arg, pos) {
-            (Arg::X, _) if self.as_text => self.spec.format_str(&format_float(x, FloatStyle::REPR)),
-            (Arg::X, _) => self.spec.format_float(x),
-            (Arg::Pos, Some(pos)) if self.as_text => self.spec.format_str(&pos.to_string()),
-            (Arg::Pos, Some(pos)) => {
-                let pos = i64::try_from(pos).map_err(|_| {
-                    FormatError::Value("tick position does not fit an integer".into())
-                })?;
-                self.spec.format_int(pos)
+    fn render(&self, values: &[TemplateValue]) -> Result<String, FormatError> {
+        let value = values
+            .get(self.arg)
+            .copied()
+            .ok_or_else(|| out_of_range(&self.arg.to_string()))?;
+        match value {
+            TemplateValue::Float(x) if self.as_text => {
+                self.spec.format_str(&format_float(x, FloatStyle::REPR))
             }
-            (Arg::Pos, None) if self.as_text || self.spec_is_empty => self.spec.format_str("None"),
-            (Arg::Pos, None) => Err(FormatError::Type(
+            TemplateValue::Float(x) => {
+                self.spec.check_float()?;
+                self.spec.format_float(x)
+            }
+            TemplateValue::Int(i) if self.as_text => self.spec.format_str(&i.to_string()),
+            TemplateValue::Int(i) => {
+                self.spec.check_int()?;
+                self.spec.format_int(i)
+            }
+            TemplateValue::None if self.as_text || self.spec_is_empty => {
+                self.spec.format_str("None")
+            }
+            TemplateValue::None => Err(FormatError::Type(
                 "unsupported format string passed to NoneType.__format__".into(),
             )),
         }
     }
 }
 
-/// Parses `name[!conv][:spec]` and validates it against the argument type.
-fn parse_field(body: &str, naming: &mut Naming) -> Result<Field, FormatError> {
+/// Parses `name[!conv][:spec]` and validates it against the argument type
+/// when that is known.
+fn parse_field(body: &str, naming: &mut Naming<'_>) -> Result<Field, FormatError> {
     let name_end = body.find([':', '!']).unwrap_or(body.len());
     let (name, rest) = body.split_at(name_end);
     let (as_text, spec_text) = match rest.strip_prefix('!') {
@@ -217,9 +273,10 @@ fn parse_field(body: &str, naming: &mut Naming) -> Result<Field, FormatError> {
         }
         None => (false, rest.strip_prefix(':').unwrap_or("")),
     };
-    let arg = match naming {
+    let (arg, kind) = match naming {
         Naming::Keywords => keyword_arg(name)?,
-        Naming::Positional(numbering) => positional_arg(name, numbering)?,
+        Naming::Positional(numbering) => (positional_arg(name, numbering)?, Some(Kind::Float)),
+        Naming::Named(names) => (named_arg(name, names)?, None),
     };
     if spec_text.contains('{') {
         return Err(FormatError::Unsupported(
@@ -227,10 +284,11 @@ fn parse_field(body: &str, naming: &mut Naming) -> Result<Field, FormatError> {
         ));
     }
     let spec = FormatSpec::parse(spec_text)?;
-    match (arg, as_text) {
+    match (kind, as_text) {
         (_, true) => spec.check_str()?,
-        (Arg::X, false) => spec.check_float()?,
-        (Arg::Pos, false) => spec.check_int()?,
+        (Some(Kind::Float), false) => spec.check_float()?,
+        (Some(Kind::Int), false) => spec.check_int()?,
+        (None, false) => {}
     }
     Ok(Field {
         arg,
@@ -240,11 +298,12 @@ fn parse_field(body: &str, naming: &mut Naming) -> Result<Field, FormatError> {
     })
 }
 
-/// The argument a field names under the `x`/`pos` convention.
-fn keyword_arg(name: &str) -> Result<Arg, FormatError> {
+/// The argument a field names under the `x`/`pos` convention, and its
+/// type.
+fn keyword_arg(name: &str) -> Result<(usize, Option<Kind>), FormatError> {
     match name {
-        "x" => Ok(Arg::X),
-        "pos" => Ok(Arg::Pos),
+        "x" => Ok((0, Some(Kind::Float))),
+        "pos" => Ok((1, Some(Kind::Int))),
         "" => Err(out_of_range("0")),
         n if n.bytes().all(|b| b.is_ascii_digit()) => Err(out_of_range(n)),
         n if n.starts_with("x.") || n.starts_with("x[") || n.starts_with("pos") => Err(
@@ -254,9 +313,24 @@ fn keyword_arg(name: &str) -> Result<Arg, FormatError> {
     }
 }
 
+/// The argument a field names among the keywords `names`.
+fn named_arg(name: &str, names: &[&str]) -> Result<usize, FormatError> {
+    if let Some(index) = names.iter().position(|&n| n == name) {
+        return Ok(index);
+    }
+    match name {
+        "" => Err(out_of_range("0")),
+        n if n.bytes().all(|b| b.is_ascii_digit()) => Err(out_of_range(n)),
+        n if n.contains(['.', '[']) => Err(FormatError::Unsupported(format!(
+            "attribute or index access in field {n:?}"
+        ))),
+        n => Err(FormatError::Key(n.to_owned())),
+    }
+}
+
 /// The argument a field names when the only argument is positional,
 /// following Python's automatic or manual numbering.
-fn positional_arg(name: &str, numbering: &mut Numbering) -> Result<Arg, FormatError> {
+fn positional_arg(name: &str, numbering: &mut Numbering) -> Result<usize, FormatError> {
     let mixed =
         |from: &str, to: &str| FormatError::Value(format!("cannot switch from {from} to {to}"));
     let index = match (name, *numbering) {
@@ -292,7 +366,7 @@ fn positional_arg(name: &str, numbering: &mut Numbering) -> Result<Arg, FormatEr
         (n, _) => return Err(FormatError::Key(n.to_owned())),
     };
     if index == 0 {
-        Ok(Arg::X)
+        Ok(0)
     } else {
         Err(out_of_range(&index.to_string()))
     }
@@ -368,6 +442,22 @@ mod tests {
                 .render(0.0, None, |s| s)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn named_templates_check_types_when_rendering() {
+        let t = StrTemplate::parse_named("{a:d}/{b:.1f}", &["a", "b"]).unwrap();
+        let ok = [TemplateValue::Int(2), TemplateValue::Float(0.25)];
+        assert_eq!(t.render_values(&ok, |s| s), Ok("2/0.2".to_owned()));
+        let float_for_d = [TemplateValue::Float(2.0), TemplateValue::Float(0.25)];
+        assert!(matches!(
+            t.render_values(&float_for_d, |s| s),
+            Err(FormatError::Value(_))
+        ));
+        assert!(matches!(
+            StrTemplate::parse_named("{c}", &["a"]),
+            Err(FormatError::Key(_))
+        ));
     }
 
     #[test]

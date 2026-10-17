@@ -3,6 +3,7 @@
 mod axes;
 mod bars;
 mod basic;
+mod colorbar;
 mod contour;
 mod fields;
 mod hist;
@@ -32,6 +33,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         axes::TWINS,
         bars::CASES,
         basic::CASES,
+        colorbar::CASES,
         contour::CASES,
         fields::BARBS,
         fields::QUIVER,

@@ -5,8 +5,10 @@
 //! because matplotlib's results depend on those precise values.
 
 mod grid;
+mod interp;
 
 pub use grid::{Grid, GridError};
+pub use interp::interp;
 
 /// `num` evenly spaced samples over `[start, stop]` (numpy `linspace`).
 ///

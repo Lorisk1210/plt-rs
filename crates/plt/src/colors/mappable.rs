@@ -16,7 +16,7 @@ use super::{Colormap, Norm, NormError, Normalize, Normalized};
 /// assert_eq!(colors[2], mappable.cmap().bad());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ScalarMappable {
     norm: Box<dyn Norm>,
     cmap: Colormap,

@@ -5,15 +5,23 @@
 use plt_core::Rgba;
 
 use super::{ContourError, ContourNorm, ContourOptions};
-use crate::colors::{Color, Colormap, Extend, LogNorm, NoNorm, Norm, Normalize, colormaps};
+use crate::colors::{
+    Color, Colormap, Extend, LogNorm, NoNorm, Norm, Normalize, ScalarMappable, colormaps,
+};
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 
 /// The colour of every level (lines) or band (fills), before alpha.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub(crate) struct ColorPlan {
     /// One colour per level or band.
     pub(crate) colors: Vec<Rgba>,
+    /// The colormap and norm the colours come from (`None` when no colour
+    /// is mapped).
+    pub(crate) mapping: Option<ScalarMappable>,
+    /// The value mapped to each colour (matplotlib's `cvalues`): the
+    /// layers, or colour indices for explicit colours.
+    pub(crate) cvalues: Vec<f64>,
     /// The norm limits after autoscaling to the levels.
     pub(crate) norm_limits: (Option<f64>, Option<f64>),
     /// Whether the colormap has a single colour (negative levels of line
@@ -72,6 +80,8 @@ pub(crate) fn map_colors(
         colors,
         norm_limits: (norm.vmin(), norm.vmax()),
         monochrome: cmap.is_monochrome(),
+        cvalues: coloring.layers.to_vec(),
+        mapping: Some(ScalarMappable::with_norm(cmap, norm)),
     })
 }
 
@@ -96,6 +106,8 @@ fn indexed_colors(
     if ncolors == 0 || available.is_empty() {
         return Ok(ColorPlan {
             colors: Vec::new(),
+            mapping: None,
+            cvalues: Vec::new(),
             norm_limits,
             monochrome: true,
         });
@@ -112,14 +124,13 @@ fn indexed_colors(
     let count = coloring.levels.len() - usize::from(coloring.filled)
         + usize::from(coloring.filled && extend_min)
         + usize::from(coloring.filled && extend_max);
-    let colors = (first..)
-        .take(count)
-        .map(|index| cmap.sample_index(index))
-        .collect();
+    let indices: Vec<i64> = (first..).take(count).collect();
     Ok(ColorPlan {
-        colors,
+        colors: indices.iter().map(|&i| cmap.sample_index(i)).collect(),
+        cvalues: indices.iter().map(|&i| i as f64).collect(),
         norm_limits,
         monochrome: cmap.is_monochrome(),
+        mapping: Some(ScalarMappable::with_norm(cmap, Box::new(norm))),
     })
 }
 
@@ -222,6 +233,7 @@ mod tests {
             .map(|c| Color::from(*c).resolve().unwrap())
             .collect();
         assert_eq!(plan.colors, resolved);
+        assert_eq!(plan.cvalues, [-1.0, 0.0, 1.0, 2.0], "band indices");
         let mut single = ContourOptions {
             colors: Some(vec![Color::from("k")]),
             ..ContourOptions::default()
@@ -238,14 +250,14 @@ mod tests {
             cmap: Some(colormaps::get("gray").unwrap()),
             ..ContourOptions::default()
         };
-        assert_eq!(
+        assert!(matches!(
             map_colors(
                 &mut both,
                 &coloring(&levels, &levels, false, Extend::Neither),
                 &rc
             ),
             Err(ContourError::ColorsAndCmap)
-        );
+        ));
     }
 
     #[test]

@@ -14,7 +14,7 @@ use super::{ContourError, ContourOptions, QuadContourGenerator};
 use crate::artist::{Artist, ArtistHandle};
 use crate::axes::Axes;
 use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
-use crate::colors::{Color, Extend};
+use crate::colors::{Color, Extend, ScalarMappable};
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 use crate::ticker::TickerSettings;
@@ -84,6 +84,10 @@ pub(crate) struct ContourState {
     pub(crate) norm_limits: (Option<f64>, Option<f64>),
     /// One colour per level or band, before alpha.
     pub(crate) colors: Vec<Rgba>,
+    /// The colormap and norm the colours come from, if any.
+    pub(crate) mapping: Option<ScalarMappable>,
+    /// The value mapped to each colour (matplotlib's `cvalues`).
+    pub(crate) cvalues: Vec<f64>,
     pub(crate) alpha: Option<f64>,
     pub(crate) linewidths: Vec<f64>,
     pub(crate) linestyles: Vec<LineStyle>,
@@ -172,6 +176,8 @@ impl ContourPlan {
             extend: options.extend,
             norm_limits: plan.norm_limits,
             colors: plan.colors,
+            mapping: plan.mapping,
+            cvalues: plan.cvalues,
             alpha: options.alpha,
             linewidths,
             linestyles,

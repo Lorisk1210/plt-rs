@@ -38,10 +38,46 @@ pub use scaled::{AsinhNorm, FuncNorm, LogNorm, NormTransform, ScaleNorm, SymLogN
 
 use super::Normalized;
 use super::npmath::{nan_max, nan_min, np_clip};
-use crate::scale::ScaleError;
+use crate::scale::{Scale, ScaleError};
+
+/// The family a norm belongs to, for code that treats norm classes
+/// differently (matplotlib's `isinstance` checks and a norm's `_scale`),
+/// such as colorbars choosing their axis scale and ticks.
+#[derive(Debug)]
+pub enum NormKind<'a> {
+    /// Exactly the linear [`Normalize`].
+    Linear,
+    /// A [`BoundaryNorm`] binning data into colour indices.
+    Boundary(&'a BoundaryNorm),
+    /// The identity [`NoNorm`].
+    Identity,
+    /// A norm made from a scale ([`LogNorm`], [`SymLogNorm`],
+    /// [`AsinhNorm`], [`FuncNorm`]): axes showing it use that scale.
+    Scaled(Box<dyn Scale>),
+    /// Any other norm.
+    Other,
+}
+
+/// Boxed copies of norms, implemented for every norm that is `Clone`.
+pub trait NormClone {
+    /// A boxed copy of this norm.
+    fn clone_box(&self) -> Box<dyn Norm>;
+}
+
+impl<T: Norm + Clone + 'static> NormClone for T {
+    fn clone_box(&self) -> Box<dyn Norm> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Norm> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
 
 /// A mapping from data values to colormap positions (matplotlib's `Norm`).
-pub trait Norm: fmt::Debug {
+pub trait Norm: fmt::Debug + NormClone {
     /// The data value mapped to 0, once known.
     fn vmin(&self) -> Option<f64>;
 
@@ -93,7 +129,12 @@ pub trait Norm: fmt::Debug {
     /// Whether the norm hands data through unchanged, so that integer
     /// data indexes the colormap directly (matplotlib's `NoNorm`).
     fn is_identity(&self) -> bool {
-        false
+        matches!(self.kind(), NormKind::Identity)
+    }
+
+    /// The family of the norm ([`NormKind::Other`] unless overridden).
+    fn kind(&self) -> NormKind<'_> {
+        NormKind::Other
     }
 }
 

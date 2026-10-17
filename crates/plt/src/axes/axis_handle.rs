@@ -63,22 +63,34 @@ impl Axis {
 
     /// Places the major ticks with `locator`.
     pub fn set_major_locator(&self, locator: impl Locator) -> &Self {
-        let locator: Rc<dyn Locator> = Rc::new(locator);
-        self.update_shared(|axis| axis.set_major_locator(Rc::clone(&locator)));
+        self.set_shared_major_locator(&(Rc::new(locator) as Rc<dyn Locator>))
+    }
+
+    /// Places the major ticks with a locator that may be shared.
+    pub(crate) fn set_shared_major_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
+        self.update_shared(|axis| axis.set_major_locator(Rc::clone(locator)));
         self
     }
 
     /// Places the minor ticks with `locator`.
     pub fn set_minor_locator(&self, locator: impl Locator) -> &Self {
-        let locator: Rc<dyn Locator> = Rc::new(locator);
-        self.update_shared(|axis| axis.minor_locator = Rc::clone(&locator));
+        self.set_shared_minor_locator(&(Rc::new(locator) as Rc<dyn Locator>))
+    }
+
+    /// Places the minor ticks with a locator that may be shared.
+    pub(crate) fn set_shared_minor_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
+        self.update_shared(|axis| axis.minor_locator = Rc::clone(locator));
         self
     }
 
     /// Labels the major ticks with `formatter`.
     pub fn set_major_formatter(&self, formatter: impl Formatter) -> &Self {
-        let formatter: Rc<dyn Formatter> = Rc::new(formatter);
-        self.update_shared(|axis| axis.set_major_formatter(Rc::clone(&formatter)));
+        self.set_shared_major_formatter(&(Rc::new(formatter) as Rc<dyn Formatter>))
+    }
+
+    /// Labels the major ticks with a formatter that may be shared.
+    pub(crate) fn set_shared_major_formatter(&self, formatter: &Rc<dyn Formatter>) -> &Self {
+        self.update_shared(|axis| axis.set_major_formatter(Rc::clone(formatter)));
         self
     }
 

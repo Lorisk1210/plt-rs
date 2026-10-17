@@ -21,12 +21,16 @@
 //! * [`patches`] / [`coords`] / [`patheffects`] / [`table`] — shapes,
 //!   fancy boxes and arrows, annotation coordinate systems, path effects
 //!   and tables.
+//! * [`colorbar`] — colorbars for images, collections and contour sets.
+//! * [`layout`] — layout engines (constrained layout) placing the axes so
+//!   that their decorations fit.
 #![forbid(unsafe_code)]
 
 #[macro_use]
 pub mod artist;
 pub mod axes;
 pub mod collections;
+pub mod colorbar;
 pub mod colors;
 pub mod contour;
 pub mod coords;
@@ -35,6 +39,7 @@ pub mod figure;
 pub mod fonts;
 pub mod gridspec;
 pub mod image;
+pub mod layout;
 pub mod lines;
 pub mod markers;
 pub mod mlab;

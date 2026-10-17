@@ -50,7 +50,7 @@ pub enum LabelLoc {
 
 impl LabelLoc {
     /// The rc name (`"left"`, `"bottom"`, `"center"`, ...) for axis `name`.
-    fn from_rc(name: &str) -> Self {
+    pub(crate) fn from_rc(name: &str) -> Self {
         match name {
             "left" | "bottom" => Self::Start,
             "right" | "top" => Self::End,

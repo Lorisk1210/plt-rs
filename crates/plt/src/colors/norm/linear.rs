@@ -1,6 +1,6 @@
 //! Linear normalisation (`Normalize`) and the identity (`NoNorm`).
 
-use super::{Limits, Norm, NormError, linear, linear_inverse, map_unmasked};
+use super::{Limits, Norm, NormError, NormKind, linear, linear_inverse, map_unmasked};
 use crate::colors::Normalized;
 
 /// Maps `[vmin, vmax]` linearly onto `[0, 1]` (matplotlib's `Normalize`).
@@ -51,6 +51,10 @@ impl Norm for Normalize {
     fn inverse(&self, values: &[f64]) -> Result<Vec<Option<f64>>, NormError> {
         linear_inverse(values, &self.limits)
     }
+
+    fn kind(&self) -> NormKind<'_> {
+        NormKind::Linear
+    }
 }
 
 /// Passes values through unchanged (matplotlib's `NoNorm`), for data that
@@ -81,8 +85,8 @@ impl Norm for NoNorm {
         Ok(values.iter().copied().map(Some).collect())
     }
 
-    fn is_identity(&self) -> bool {
-        true
+    fn kind(&self) -> NormKind<'_> {
+        NormKind::Identity
     }
 }
 

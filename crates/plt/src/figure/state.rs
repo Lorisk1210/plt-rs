@@ -7,6 +7,7 @@ use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
 use crate::gridspec::SubplotParams;
+use crate::layout::LayoutState;
 use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
 
 /// Everything a figure owns: its artists and its canvas geometry.
@@ -27,13 +28,16 @@ pub(crate) struct FigureState {
     pub(crate) pending_errors: Vec<DrawError>,
     /// Axes sharing their x or y axis.
     pub(crate) shared: ShareGroups,
+    /// The layout engine and what it needs to know.
+    pub(crate) layout: LayoutState,
 }
 
 impl FigureState {
     /// A figure of `size_inches` at `dpi` with an empty root frame.
     pub(crate) fn new(size_inches: (f64, f64), dpi: f64, facecolor: Rgba, edgecolor: Rgba) -> Self {
         let mut store = ArtistStore::default();
-        let params = SubplotParams::from_rc(&crate::rc::params());
+        let rc = crate::rc::params();
+        let params = SubplotParams::from_rc(&rc);
         let root = store.insert(Box::new(FigureFrame::new(
             Bbox::UNIT,
             facecolor,
@@ -48,6 +52,7 @@ impl FigureState {
             stale: true,
             pending_errors: Vec::new(),
             shared: ShareGroups::default(),
+            layout: LayoutState::from_rc(&rc),
         }
     }
 
@@ -70,6 +75,7 @@ impl FigureState {
             axes.children.push(id);
         }
         self.stale = true;
+        self.layout.pending = true;
         id
     }
 
@@ -82,10 +88,13 @@ impl FigureState {
         self.store.remove(id);
         self.shared.remove(id);
         self.stale = true;
+        self.layout.pending = true;
     }
 
-    /// The mutable pass before drawing: autoscaling, aspect, then ticks.
+    /// The mutable pass before drawing: a due layout-engine pass, then
+    /// autoscaling, aspect and ticks of every axes.
     pub(crate) fn prepare(&mut self) {
+        self.run_pending_layout();
         let axes: Vec<ArtistId> = self
             .store
             .ids()

@@ -4,7 +4,7 @@
 use std::rc::Rc;
 
 use super::{Adjustable, Axes, AxesState, AxisName, PlotError};
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::figure::insert_axes;
 use crate::spines::SpineSide;
 
@@ -55,6 +55,16 @@ impl Axes {
         Ok(self)
     }
 
+    /// This axes and the axes twinned with it by [`Axes::twinx`] and
+    /// [`Axes::twiny`] (matplotlib's `_twinned_axes.get_siblings`).
+    pub fn twins(&self) -> Vec<Self> {
+        let figure = self.raw.figure_state();
+        let ids = figure.borrow().shared.twins(self.id());
+        ids.into_iter()
+            .map(|id| Self::from_raw(RawHandle::new(Rc::clone(figure), id)))
+            .collect()
+    }
+
     /// A new axes on top of this one sharing its x axis, with its y axis
     /// on the right (matplotlib's `twinx`).
     #[must_use]
@@ -91,6 +101,7 @@ impl Axes {
         let twin = insert_axes(figure, frame, position, spec);
         twin.share(shared, self)
             .expect("a new axes in this figure shares nothing yet");
+        figure.borrow_mut().shared.join_twins(self.id(), twin.id());
         self.set_adjustable(Adjustable::Datalim);
         twin.set_adjustable(Adjustable::Datalim);
         twin.set_zorder(zorder);

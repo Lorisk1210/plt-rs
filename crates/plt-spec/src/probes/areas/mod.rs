@@ -3,6 +3,7 @@
 //! Each module exposes `OPS`; an empty table means the area is not
 //! implemented yet and every probe in it reports as missing.
 
+pub(crate) mod animation;
 pub(crate) mod colormap_luts;
 pub(crate) mod colormaps;
 pub(crate) mod colors;

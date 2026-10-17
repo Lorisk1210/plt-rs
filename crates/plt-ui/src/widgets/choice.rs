@@ -103,10 +103,13 @@ impl<M: 'static> Widget<M> for Choice<M> {
         let theme = cx.theme();
         let scale = cx.scale_factor();
         let radius = theme.corner_radius * scale;
+        // The segments keep their natural widths, from the left.
+        let used: f64 = self.widths.iter().sum();
+        let outline = Rect::new(rect.x, rect.y, used.min(rect.width), rect.height);
         cx.canvas()
-            .fill_rounded_rect(rect, radius, theme.separator)?;
+            .fill_rounded_rect(outline, radius, theme.separator)?;
         cx.canvas()
-            .fill_rounded_rect(rect.inset(scale), radius - scale, theme.button)?;
+            .fill_rounded_rect(outline.inset(scale), radius - scale, theme.button)?;
         let mut x = rect.x;
         for (index, (layout, width)) in self.layouts.iter().zip(&self.widths).enumerate() {
             let segment = Rect::new(x, rect.y, *width, rect.height);

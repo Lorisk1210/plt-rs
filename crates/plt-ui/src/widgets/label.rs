@@ -1,6 +1,7 @@
 //! Static text.
 
 use plt_core::Point;
+use plt_text::Weight;
 
 use crate::error::UiError;
 use crate::geometry::{Constraints, Rect, Size};
@@ -13,6 +14,8 @@ pub struct Label {
     text: String,
     /// The narrowest the label gets, in logical pixels.
     min_width: f64,
+    /// Whether the text is bold.
+    bold: bool,
     /// The text laid out by the last measure.
     layout: Option<TextLayout>,
 }
@@ -23,8 +26,16 @@ impl Label {
         Self {
             text: text.into(),
             min_width: 0.0,
+            bold: false,
             layout: None,
         }
+    }
+
+    /// The label in bold, e.g. as the heading of a group of fields.
+    #[must_use]
+    pub fn bold(mut self) -> Self {
+        self.bold = true;
+        self
     }
 
     /// The label at least `width` logical pixels wide, e.g. to line up
@@ -53,7 +64,10 @@ impl<M> Widget<M> for Label {
         cx: &mut LayoutCx<'_, M>,
         constraints: Constraints,
     ) -> Result<Size, UiError> {
-        let style = TextStyle::new(cx.theme().font_size);
+        let mut style = TextStyle::new(cx.theme().font_size);
+        if self.bold {
+            style.weight = Weight::BOLD;
+        }
         let layout = TextLayout::new(&self.text, &style, cx.scale_factor())?;
         let padding = cx.theme().padding * cx.scale_factor();
         let size = layout.size();

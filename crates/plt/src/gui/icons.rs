@@ -132,6 +132,20 @@ pub(super) fn file() -> Icon {
         .stroke(line(&[(14.0, 3.5), (14.0, 8.0), (18.5, 8.0)]))
 }
 
+/// A pencil: edit the figure's options.
+pub(super) fn options() -> Icon {
+    Icon::new(GRID)
+        .stroke(line(&[
+            (15.0, 5.0),
+            (19.0, 9.0),
+            (8.5, 19.5),
+            (4.0, 20.0),
+            (4.5, 15.5),
+            (15.0, 5.0),
+        ]))
+        .stroke(line(&[(12.5, 7.5), (16.5, 11.5)]))
+}
+
 /// A tray with a downward arrow: save the figure.
 pub(super) fn save() -> Icon {
     Icon::new(GRID)

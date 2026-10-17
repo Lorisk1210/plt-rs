@@ -38,6 +38,23 @@ impl DataUpdate {
 }
 
 impl Axes {
+    /// Handles to the children of type `T`, in the order they were added
+    /// (matplotlib's `ax.lines`, `ax.images`, ...).
+    pub(crate) fn children_of<T: Artist>(&self) -> Vec<RawHandle> {
+        let figure = self.raw().figure_state();
+        let state = figure.borrow();
+        let children = state
+            .store
+            .get_as::<AxesState>(self.id())
+            .map(|axes| axes.children.clone())
+            .unwrap_or_default();
+        children
+            .into_iter()
+            .filter(|&id| state.store.get_as::<T>(id).is_some())
+            .map(|id| RawHandle::new(Rc::clone(figure), id))
+            .collect()
+    }
+
     /// Adds `artist` as a child clipped to the axes and applies `update`
     /// (matplotlib's `add_line`/`add_patch`/`add_collection` bookkeeping).
     pub(crate) fn adopt(&self, mut artist: impl Artist, update: &DataUpdate) -> RawHandle {

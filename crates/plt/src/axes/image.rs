@@ -44,6 +44,15 @@ pub struct ImshowOptions {
 }
 
 impl Axes {
+    /// The images of the axes in the order they were added (matplotlib's
+    /// `ax.images`).
+    pub fn images(&self) -> Vec<AxesImage> {
+        self.children_of::<AxesImageArtist>()
+            .into_iter()
+            .map(AxesImage::from_raw)
+            .collect()
+    }
+
     /// Shows `data` as an image on a regular grid (matplotlib's `imshow`):
     /// scalars are colour-mapped, RGB(A) colours drawn as they are. The
     /// axes aspect becomes `image.aspect` (equal) unless given, and the view

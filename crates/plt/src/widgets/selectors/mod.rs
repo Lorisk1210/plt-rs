@@ -14,12 +14,16 @@
 
 mod driver;
 mod handles;
+mod lasso;
+mod polygon;
 mod rectangle;
 mod region;
 mod span;
 
 use std::fmt;
 
+pub use lasso::{Lasso, LassoSelector};
+pub use polygon::{PolygonSelector, PolygonSelectorOptions};
 pub use rectangle::{EllipseSelector, RectangleSelector, RectangleSelectorOptions};
 pub use region::SelectorUnits;
 pub use span::{SpanSelector, SpanSelectorOptions};
@@ -144,6 +148,8 @@ pub enum SelectorError {
     StateNotSet(SelectorState),
     /// The selector draws no handles.
     NoHandles,
+    /// A polygon needs at least one vertex.
+    NoVertices,
 }
 
 impl fmt::Display for SelectorError {
@@ -154,6 +160,7 @@ impl fmt::Display for SelectorError {
             }
             Self::StateNotSet(state) => write!(f, "the {state:?} state is not on"),
             Self::NoHandles => f.write_str("this selector doesn't have handles"),
+            Self::NoVertices => f.write_str("a polygon needs at least one vertex"),
         }
     }
 }

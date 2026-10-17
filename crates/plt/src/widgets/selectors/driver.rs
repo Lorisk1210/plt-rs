@@ -84,6 +84,11 @@ impl Core {
         }
     }
 
+    /// Whether no other tool holds the figure's widget lock.
+    pub(super) fn lock_available(&self) -> bool {
+        self.ax.figure().widgets_available(self.owner)
+    }
+
     /// Whether the pointer is over the axes background.
     pub(super) fn contains(&self, pointer: &Pointer) -> bool {
         self.ax.contains_point(Point::new(pointer.x, pointer.y))
@@ -95,7 +100,7 @@ impl Core {
         if !self.active || !self.ax.visible() {
             return true;
         }
-        if !self.ax.figure().widgets_available(self.owner) {
+        if !self.lock_available() {
             return true;
         }
         if let Some(buttons) = &self.buttons
@@ -135,6 +140,11 @@ impl Core {
     /// The key of `state`, if supported.
     pub(super) fn key(&self, state: SelectorState) -> Option<&str> {
         self.keys.key(state)
+    }
+
+    /// The key clearing the selection, if any.
+    pub(super) fn clear_key(&self) -> Option<&str> {
+        self.keys.clear.as_deref()
     }
 
     fn supported(&self, state: SelectorState) -> Result<(), SelectorError> {

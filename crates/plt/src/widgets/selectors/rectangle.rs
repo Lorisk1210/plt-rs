@@ -291,6 +291,23 @@ pub struct RectangleSelector {
 
 region_methods!(RectangleSelector, Rectangle);
 
+impl RectangleSelector {
+    /// `(x0, y0, width, height)` of the unrotated rectangle (matplotlib's
+    /// `_rect_bbox`).
+    pub(super) fn rect_bbox(&self) -> (f64, f64, f64, f64) {
+        use super::region::RegionShape;
+        self.driver.shared.borrow().tool.patch.shape().rect_bbox()
+    }
+
+    /// Makes the selector only edit its current rectangle, as the bounding
+    /// box of a polygon selector does.
+    pub(super) fn edit_only(&self) {
+        let mut shared = self.driver.shared.borrow_mut();
+        shared.tool.allow_creation = false;
+        shared.core.selection_completed = true;
+    }
+}
+
 /// An ellipse selected by dragging the mouse (matplotlib's
 /// `EllipseSelector`), inscribed in the rectangle a [`RectangleSelector`]
 /// would select.

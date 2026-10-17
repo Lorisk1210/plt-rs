@@ -36,7 +36,10 @@ fn data_at(ax: &Axes, x: f64, y: f64) -> (Option<f64>, Option<f64>) {
 
 /// `(x, y)` with the axes under it and the data coordinates there.
 /// The axes is the one grabbing the mouse, if any.
+/// Whole pixels from the bottom left: like matplotlib's `LocationEvent`,
+/// pointer positions are truncated to integers.
 fn locate(figure: &Figure, x: f64, y: f64) -> Location {
+    let (x, y) = (x.trunc(), y.trunc());
     let inaxes = figure
         .mouse_grabber()
         .or_else(|| axes_at(figure, Point::new(x, y)));
@@ -100,7 +103,8 @@ impl EventSource {
         let location = locate(figure, x, y);
         if self.last_axes != location.inaxes {
             if let Some(last) = self.last_axes.take() {
-                figure.process_event(&Event::AxesLeave(location_in(Some(last), x, y)));
+                let left = location_in(Some(last), location.x, location.y);
+                figure.process_event(&Event::AxesLeave(left));
             }
             if location.inaxes.is_some() {
                 figure.process_event(&Event::AxesEnter(location.clone()));

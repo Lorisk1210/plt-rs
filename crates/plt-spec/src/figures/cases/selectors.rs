@@ -1,14 +1,16 @@
 //! `figures/cases_selectors.py`: cursors and selectors driven by
 //! synthetic mouse and key events.
 
-use plt::events::EventSource;
+use plt::events::{Event, KeyEvent, Location, MouseEvent};
+use plt::markers::MarkerSymbol;
 use plt::navigation::PointerButton;
 use plt::patches::PatchProps;
 use plt::prelude::*;
 use plt::transforms::Point;
 use plt::widgets::{
-    Cursor, CursorOptions, EllipseSelector, MultiCursor, Orientation, RectangleSelector,
-    RectangleSelectorOptions, SelectorUnits, SpanSelector, SpanSelectorOptions,
+    Cursor, CursorOptions, EllipseSelector, Lasso, LassoSelector, MultiCursor, Orientation,
+    PolygonSelector, PolygonSelectorOptions, RectangleSelector, RectangleSelectorOptions,
+    SelectorUnits, SpanSelector, SpanSelectorOptions,
 };
 
 use crate::figures::{CaseResult, FigureCase};
@@ -27,35 +29,100 @@ fn plot(ax: &Axes) -> CaseResult {
     Ok(())
 }
 
-/// Display coordinates of data point `(x, y)` of `ax`.
-fn display(ax: &Axes, (x, y): (f64, f64)) -> Result<Point, Box<dyn std::error::Error>> {
+/// Where data point `(x, y)` of `ax` is, as matplotlib's synthetic events
+/// say (`_from_ax_coords`): over `ax`, at exactly those data coordinates,
+/// and at whole pixels (`LocationEvent` truncates them).
+fn location(ax: &Axes, (x, y): (f64, f64)) -> Result<Location, Box<dyn std::error::Error>> {
     let trans = ax.figure().resolve_transform(&ax.trans_data())?;
-    Ok(trans.transform_point(Point::new(x, y)))
+    let at = trans.transform_point(Point::new(x, y));
+    Ok(Location {
+        x: at.x.trunc(),
+        y: at.y.trunc(),
+        inaxes: Some(ax.clone()),
+        xdata: Some(x),
+        ydata: Some(y),
+    })
+}
+
+/// A mouse event at data point `xy` of `ax` with `button` involved.
+fn mouse(
+    ax: &Axes,
+    xy: (f64, f64),
+    button: Option<PointerButton>,
+) -> Result<MouseEvent, Box<dyn std::error::Error>> {
+    Ok(MouseEvent {
+        location: location(ax, xy)?,
+        button,
+        key: None,
+        step: 0.0,
+        dblclick: false,
+    })
+}
+
+/// A motion event at data point `xy` of `ax`, with `button` held.
+fn motion(ax: &Axes, xy: (f64, f64), button: Option<PointerButton>) -> CaseResult {
+    ax.figure()
+        .process_event(&Event::Motion(mouse(ax, xy, button)?));
+    Ok(())
 }
 
 /// A motion event at data point `xy` of `ax`.
 fn move_to(ax: &Axes, xy: (f64, f64)) -> CaseResult {
-    let at = display(ax, xy)?;
-    EventSource::new().motion(&ax.figure(), at.x, at.y);
+    motion(ax, xy, None)
+}
+
+/// A press of `button` at data point `xy` of `ax`.
+fn press(ax: &Axes, xy: (f64, f64), button: PointerButton) -> CaseResult {
+    ax.figure()
+        .process_event(&Event::ButtonPress(mouse(ax, xy, Some(button))?));
     Ok(())
+}
+
+/// A release of `button` at data point `xy` of `ax`.
+fn release(ax: &Axes, xy: (f64, f64), button: PointerButton) -> CaseResult {
+    ax.figure()
+        .process_event(&Event::ButtonRelease(mouse(ax, xy, Some(button))?));
+    Ok(())
+}
+
+/// A key event for `key` at data point `xy` of `ax`.
+fn key_event(ax: &Axes, xy: (f64, f64), key: &str) -> Result<KeyEvent, Box<dyn std::error::Error>> {
+    Ok(KeyEvent {
+        location: location(ax, xy)?,
+        key: key.to_owned(),
+    })
 }
 
 /// matplotlib's `testing.widgets.click_and_drag`: with `key` held, press
 /// the left button at data point `start`, move to `end` and release.
 fn click_and_drag(ax: &Axes, start: (f64, f64), end: (f64, f64), key: Option<&str>) -> CaseResult {
     let fig = ax.figure();
-    let (a, b) = (display(ax, start)?, display(ax, end)?);
-    let mut source = EventSource::new();
     if let Some(key) = key {
-        source.key_press(&fig, key, a.x, a.y);
+        fig.process_event(&Event::KeyPress(key_event(ax, start, key)?));
     }
-    source.button_press(&fig, a.x, a.y, PointerButton::Left, false);
-    source.motion(&fig, b.x, b.y);
-    source.button_release(&fig, b.x, b.y, PointerButton::Left);
+    press(ax, start, PointerButton::Left)?;
+    motion(ax, end, Some(PointerButton::Left))?;
+    release(ax, end, PointerButton::Left)?;
     if let Some(key) = key {
-        source.key_release(&fig, key, b.x, b.y);
+        fig.process_event(&Event::KeyRelease(key_event(ax, end, key)?));
     }
     Ok(())
+}
+
+/// matplotlib's test helper `polygon_place_vertex`: move to data point
+/// `xy` and click there.
+fn place_vertex(ax: &Axes, xy: (f64, f64)) -> CaseResult {
+    move_to(ax, xy)?;
+    press(ax, xy, PointerButton::Left)?;
+    release(ax, xy, PointerButton::Left)
+}
+
+/// `LOOP`: twelve points along an elliptical arc.
+fn lasso_loop() -> Vec<(f64, f64)> {
+    linspace(0.0, 5.0, 12)
+        .into_iter()
+        .map(|a| (2.0 + 1.5 * a.cos(), 1.0 * a.sin()))
+        .collect()
 }
 
 /// Interactive rectangle options.
@@ -226,5 +293,73 @@ pub(crate) const CASES: &[FigureCase] = &[
         click_and_drag(&right, (2.0, -1.0), (7.0, 0.5), None)?;
         plain.set_rotation(-30.0);
         Ok(())
+    }),
+    FigureCase::new("selectors/lasso", |fig| {
+        let (left, right) = pair(fig)?;
+        let props = LineProps::default().color("m").linewidth(2.0);
+        let _selector = LassoSelector::new(&left, &props, None);
+        let path = lasso_loop();
+        press(&left, path[0], PointerButton::Left)?;
+        for &xy in &path[1..] {
+            motion(&left, xy, Some(PointerButton::Left))?;
+        }
+        let _lasso = Lasso::new(&right, (5.0, 0.0), &LineProps::default().color("tab:red"));
+        for xy in [(6.0, 0.5), (7.0, 0.2), (6.5, -0.6), (5.5, -0.4)] {
+            motion(&right, xy, Some(PointerButton::Left))?;
+        }
+        Ok(())
+    }),
+    FigureCase::new("selectors/polygon_complete", |fig| {
+        let ax = fig.subplot();
+        plot(&ax)?;
+        let _polygon = PolygonSelector::new(&ax, &PolygonSelectorOptions::default());
+        for xy in [
+            (2.0, -1.0),
+            (6.0, -1.2),
+            (7.0, 0.5),
+            (4.0, 1.2),
+            (2.0, -1.0),
+        ] {
+            place_vertex(&ax, xy)?;
+        }
+        click_and_drag(&ax, (7.0, 0.5), (8.0, 0.8), None)
+    }),
+    FigureCase::new("selectors/polygon_open", |fig| {
+        let (left, right) = pair(fig)?;
+        let options = PolygonSelectorOptions {
+            props: LineProps::default().color("tab:green").linewidth(3.0),
+            handle_props: Some(
+                LineProps::default()
+                    .marker(MarkerSymbol::Square)
+                    .markersize(5.0),
+            ),
+            ..PolygonSelectorOptions::default()
+        };
+        let _polygon = PolygonSelector::new(&left, &options);
+        for xy in [(2.0, -1.0), (6.0, -1.0), (7.0, 0.5)] {
+            place_vertex(&left, xy)?;
+        }
+        move_to(&left, (3.0, 1.0))?;
+        let moved = PolygonSelector::new(&right, &PolygonSelectorOptions::default());
+        moved.set_verts(&[(2.0, -1.0), (5.0, -1.0), (3.5, 1.0)])?;
+        click_and_drag(&right, (3.0, 0.0), (5.0, 0.2), Some("shift"))
+    }),
+    FigureCase::new("selectors/polygon_box", |fig| {
+        let ax = fig.subplot();
+        plot(&ax)?;
+        let options = PolygonSelectorOptions {
+            draw_bounding_box: true,
+            box_props: Some(
+                PatchProps::default()
+                    .facecolor("none")
+                    .edgecolor("tab:orange"),
+            ),
+            ..PolygonSelectorOptions::default()
+        };
+        let _polygon = PolygonSelector::new(&ax, &options);
+        for xy in [(2.0, -1.0), (6.0, -1.0), (4.0, 1.0), (2.0, -1.0)] {
+            place_vertex(&ax, xy)?;
+        }
+        click_and_drag(&ax, (6.0, 1.0), (8.0, 1.3), None)
     }),
 ];

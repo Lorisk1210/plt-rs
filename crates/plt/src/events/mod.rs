@@ -86,7 +86,8 @@ pub enum EventKind {
     Close,
 }
 
-/// Where the pointer is (matplotlib's `LocationEvent` attributes).
+/// Where the pointer is (matplotlib's `LocationEvent` attributes); an
+/// [`EventSource`] reports whole pixels, as matplotlib does.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Location {
     /// Pixels from the left of the figure.

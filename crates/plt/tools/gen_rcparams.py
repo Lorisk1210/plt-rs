@@ -14,6 +14,12 @@ import matplotlib.rcsetup as rcsetup
 OUT = pathlib.Path(__file__).resolve().parents[1] / "src" / "rc" / "table.rs"
 SKIP = {"backend"}
 
+# Parameters whose validator checks a fixed length that its name does not
+# tell: key -> (Rust type, extra validation expression or None).
+KEY_TYPES = {
+    "figure.figsize": ("[f64; 2]", None),
+}
+
 # validator name -> (Rust type, extra validation expression or None)
 TYPES = {
     "validate_bool": ("bool", None),
@@ -134,6 +140,8 @@ def main():
             allowed = sorted(validator.valid.values()) if isinstance(validator.valid, dict) else sorted(validator.valid)
             fn = "one_of_ignore_case" if validator.ignorecase else "one_of"
             rust_type, check = "String", f"validate::{fn}(&[{', '.join(rust_str(a) for a in allowed)}])"
+        elif key in KEY_TYPES:
+            rust_type, check = KEY_TYPES[key]
         else:
             rust_type, check = TYPES[name]
         rows.append((key, rust_type, value, check, doc(comment, key)))

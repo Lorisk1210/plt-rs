@@ -7,6 +7,7 @@ use plt::colors::{Extend, colormaps};
 use plt::figure::{Share, SubfigureOptions};
 use plt::image::ColorizerOptions;
 use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::legend::LegendOptions;
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
 use plt::prelude::*;
@@ -79,6 +80,34 @@ pub(crate) const CASES: &[FigureCase] = &[
         fig.suptitle("Constrained suptitle").set_fontsize(16.0);
         fig.supxlabel("time");
         fig.supylabel("value");
+        Ok(())
+    }),
+    FigureCase::new("layout/constrained_legend_outside", |fig| {
+        constrained(fig);
+        let t = linspace(0.0, 10.0, 40);
+        let axs = fig.subplots(1, 2)?;
+        for (i, ax) in axs.as_slice().iter().enumerate() {
+            let phase = i as f64;
+            let sin: Vec<f64> = t.iter().map(|&t| (t + phase).sin()).collect();
+            let cos: Vec<f64> = t.iter().map(|&t| (t + phase).cos()).collect();
+            for (name, y) in [("sin", sin), ("cos", cos)] {
+                ax.plot_with(
+                    t.clone(),
+                    y,
+                    LineProps::default().label(format!("{name} {i}")),
+                )?;
+            }
+        }
+        fig.legend(
+            LegendOptions::default()
+                .loc("outside upper center")
+                .ncols(4),
+        )?;
+        axs[(0, 1)].legend(
+            LegendOptions::default()
+                .loc("center left")
+                .bbox_to_anchor((1.0, 0.5)),
+        )?;
         Ok(())
     }),
     FigureCase::new("layout/constrained_pads", |fig| {

@@ -13,7 +13,10 @@ pub enum LegendLoc {
     /// A location name: `"best"` (axes legends only), `"upper right"`,
     /// `"upper left"`, `"lower left"`, `"lower right"`, `"right"`,
     /// `"center left"`, `"center right"`, `"lower center"`,
-    /// `"upper center"` or `"center"`.
+    /// `"upper center"` or `"center"`. Figure legends also take these
+    /// names prefixed by `"outside "`, with the edge first where it is
+    /// ambiguous (`"outside right upper"`), to sit outside the axes:
+    /// constrained layout makes room for them at that edge.
     Name(String),
     /// matplotlib's numeric location code, `0` (`"best"`) to `10`.
     Code(i64),

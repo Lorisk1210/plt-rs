@@ -5,7 +5,7 @@ use plt_core::Bbox;
 
 use super::LegendMode;
 use super::handlers::Attach;
-use super::settings::{Location, Settings};
+use super::settings::{Location, OutsideEdge, Settings};
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::offsetbox::{Leaf, OffsetBox};
 use crate::transforms::Transform;
@@ -52,6 +52,8 @@ pub(crate) struct LegendArtist {
     pub(crate) parent: LegendParent,
     pub(crate) settings: Settings,
     pub(crate) location: Location,
+    /// The edge an `"outside ..."` figure legend makes room at.
+    pub(crate) outside: Option<OutsideEdge>,
     pub(crate) mode: LegendMode,
     /// `bbox_to_anchor` in the coordinates of its transform.
     pub(crate) anchor: Option<(Bbox, Transform)>,

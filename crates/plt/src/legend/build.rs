@@ -10,7 +10,7 @@ use super::artist::{HandleRef, LegendArtist, LegendParent};
 use super::handle::Source;
 use super::handlers::{self, HandleArtists, HandleBox, HandlerContext};
 use super::labelcolor::{HandleView, label_colors};
-use super::settings::{Location, Settings};
+use super::settings::{Location, Placement, Settings};
 use super::{BboxToAnchor, LegendAlignment, LegendError, LegendMode, LegendOptions};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore};
 use crate::colors::Color;
@@ -95,7 +95,7 @@ pub(crate) fn build(
 ) -> Result<ArtistId, LegendError> {
     let rc = crate::rc::params();
     let settings = Settings::resolve(options, &rc)?;
-    let location = location(options, parent, &rc)?;
+    let placement = placement(options, parent, &rc)?;
     if options.reverse {
         entries.reverse();
     }
@@ -130,7 +130,8 @@ pub(crate) fn build(
     let legend = LegendArtist {
         base: ArtistBase::with_zorder(LEGEND_ZORDER),
         parent,
-        location,
+        location: placement.location,
+        outside: placement.outside,
         mode: options.mode,
         anchor: anchor(options, parent),
         legend_box: legend_box(items, title_box, ncols, options, &settings),
@@ -195,25 +196,25 @@ fn title_text(options: &LegendOptions, rc: &Rc<RcParams>) -> Result<TextArtist, 
     Ok(title)
 }
 
-/// The validated location: the option, else `legend.loc`, which figure
+/// The validated placement: the option, else `legend.loc`, which figure
 /// legends take as `"upper right"` when it asks for `"best"`.
-fn location(
+fn placement(
     options: &LegendOptions,
     parent: LegendParent,
     rc: &RcParams,
-) -> Result<Location, LegendError> {
+) -> Result<Placement, LegendError> {
     let figure = matches!(parent, LegendParent::Figure(_));
-    let location = match &options.loc {
-        Some(loc) => Location::parse(loc)?,
-        None => match Location::from_rc(&rc.legend_loc)? {
-            Location::Best if figure => Location::Anchored(AnchorLoc::UpperRight),
-            location => location,
-        },
-    };
-    if figure && location == Location::Best {
-        return Err(LegendError::BestForFigure);
+    if let Some(loc) = &options.loc {
+        return Placement::parse(loc, figure);
     }
-    Ok(location)
+    let location = match Location::from_rc(&rc.legend_loc)? {
+        Location::Best if figure => Location::Anchored(AnchorLoc::UpperRight),
+        location => location,
+    };
+    Ok(Placement {
+        location,
+        outside: None,
+    })
 }
 
 /// The title font: `title_fontproperties`, else the rc font at

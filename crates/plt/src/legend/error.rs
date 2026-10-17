@@ -12,6 +12,8 @@ pub enum LegendError {
     InvalidLocation(String),
     /// `loc="best"` was asked of a figure legend.
     BestForFigure,
+    /// An `"outside ..."` location (this one) was asked of an axes legend.
+    OutsideForAxes(String),
     /// `numpoints` is zero.
     NoPoints,
     /// `scatteryoffsets` is empty.
@@ -37,6 +39,10 @@ impl fmt::Display for LegendError {
             ),
             Self::BestForFigure => f.write_str(
                 "automatic legend placement (loc=\"best\") is not implemented for figure legends",
+            ),
+            Self::OutsideForAxes(loc) => write!(
+                f,
+                "the 'outside' option of loc={loc:?} only works for figure legends"
             ),
             Self::NoPoints => f.write_str("numpoints must be > 0"),
             Self::NoScatterOffsets => f.write_str("scatteryoffsets must not be empty"),

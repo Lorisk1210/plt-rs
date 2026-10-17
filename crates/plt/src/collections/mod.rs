@@ -215,6 +215,14 @@ impl CollectionArtist {
         &self.rc
     }
 
+    /// The face and edge colours after defaults, colour mapping and alpha
+    /// (matplotlib's `get_facecolor` and `get_edgecolor`).
+    pub(crate) fn resolved_colors(
+        &self,
+    ) -> Result<(Vec<plt_core::Rgba>, Vec<plt_core::Rgba>), String> {
+        style::resolve_colors(self)
+    }
+
     /// The shapes to draw now and their transform: the stored paths, or
     /// those of the draw-time generator.
     fn current_shapes(
@@ -228,14 +236,6 @@ impl CollectionArtist {
             }
             None => Ok((Cow::Borrowed(&self.paths), self.transform())),
         }
-    }
-
-    /// The face and edge colours after defaults, colour mapping and
-    /// alpha, as drawn.
-    pub(crate) fn resolved_colors(
-        &self,
-    ) -> Result<(Vec<plt_core::Rgba>, Vec<plt_core::Rgba>), String> {
-        style::resolve_colors(self)
     }
 
     /// The draw-time generator as a `T`, if it is one.

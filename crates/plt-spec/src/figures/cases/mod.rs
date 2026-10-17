@@ -9,6 +9,7 @@ mod fields;
 mod hist;
 mod images;
 mod layout;
+mod legend;
 mod lines;
 mod misc;
 mod mplot3d;
@@ -42,6 +43,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         hist::CASES,
         images::CASES,
         layout::CASES,
+        legend::CASES,
         lines::CASES,
         misc::ARTISTS,
         misc::DATES,
@@ -68,6 +70,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         stats::PIE,
         stats::VIOLIN,
         styles::CASES,
+        styles::SHEETS,
         text::ANNOTATE,
         text::BOXES,
         text::EFFECTS,

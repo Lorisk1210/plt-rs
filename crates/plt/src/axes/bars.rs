@@ -276,13 +276,15 @@ impl Axes {
         } else {
             Some("_nolegend_".to_owned())
         };
-        Ok(BarContainer {
+        let container = BarContainer {
             patches,
             errorbar,
             datavalues: geometry.iter().map(|bar| bar.value).collect(),
             orientation,
             label,
-        })
+        };
+        self.add_container(container.clone());
+        Ok(container)
     }
 
     /// Adds bar `index`: per-bar styles first, then the shared properties;

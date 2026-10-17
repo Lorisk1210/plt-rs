@@ -9,7 +9,7 @@ use plt_render::RasterRenderer;
 
 use super::frame::FigureFrame;
 use super::save::SaveError;
-use super::{Figure, FigureState};
+use super::{DrawErrors, Figure, FigureState};
 use crate::artist::{ArtistId, LayoutContext};
 use crate::axes::{Axes, AxesState};
 use crate::colors::Color;
@@ -146,6 +146,20 @@ impl Figure {
     ///
     /// When the canvas cannot be created or some artists cannot be drawn.
     pub fn render_raster_with(&self, options: &SaveOptions) -> Result<RasterRenderer, SaveError> {
+        let (canvas, problems) = self.render_raster_partial(options)?;
+        problems.map_or(Ok(canvas), |errors| Err(SaveError::Draw(errors)))
+    }
+
+    /// Renders the figure as [`Figure::savefig_with`] would, skipping the
+    /// artists that cannot be drawn: the canvas, and the problems if any.
+    ///
+    /// # Errors
+    ///
+    /// When the canvas cannot be created.
+    pub fn render_raster_partial(
+        &self,
+        options: &SaveOptions,
+    ) -> Result<(RasterRenderer, Option<DrawErrors>), SaveError> {
         let rc = crate::rc::params();
         let dpi = options.dpi.unwrap_or(match rc.savefig_dpi {
             Dpi::Value(dpi) => dpi,
@@ -200,9 +214,9 @@ impl Figure {
         self.state_mut().print_window = window
             .map(|b| Bbox::from_extents(b.x0() * dpi, b.y0() * dpi, b.x1() * dpi, b.y1() * dpi));
         let mut canvas = Self::raster_canvas_sized(width, height, dpi)?;
-        self.draw(&mut canvas).map_err(SaveError::Draw)?;
+        let problems = self.draw(&mut canvas).err();
         drop(saving);
-        Ok(canvas)
+        Ok((canvas, problems))
     }
 
     /// The figure as PNG bytes with save options.

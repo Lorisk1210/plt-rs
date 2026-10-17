@@ -2,6 +2,7 @@
 //! value, a marker on its head and the baseline itself.
 
 use super::{Axes, PlotError};
+use crate::artist::ArtistHandle;
 use crate::collections::Collection;
 use crate::lines::{FormatString, Line2D, LineProps};
 use crate::orientation::Orientation;
@@ -23,6 +24,8 @@ pub struct StemOptions {
     /// Vertical stems rise from a horizontal baseline; horizontal ones
     /// extend from a vertical baseline.
     pub orientation: Orientation,
+    /// Legend label of the stem container.
+    pub label: Option<String>,
 }
 
 impl Default for StemOptions {
@@ -33,6 +36,7 @@ impl Default for StemOptions {
             basefmt: "C3-".into(),
             bottom: 0.0,
             orientation: Orientation::Vertical,
+            label: None,
         }
     }
 }
@@ -46,6 +50,8 @@ pub struct StemContainer {
     pub stemlines: Collection,
     /// The baseline.
     pub baseline: Line2D,
+    /// Legend label.
+    pub label: Option<String>,
 }
 
 impl Axes {
@@ -94,6 +100,8 @@ impl Axes {
         if let Some(style) = &line.linestyle {
             stemlines.set_linestyles(vec![style.clone()]);
         }
+        // The parts are shown in legends through the container only.
+        stemlines.set_label("_nolegend_");
 
         let span = [
             locs.iter().copied().fold(f64::INFINITY, f64::min),
@@ -112,14 +120,18 @@ impl Axes {
                     color: None,
                     ..marker
                 })
-            },
+            }
+            .label("_nolegend_"),
         )?;
-        let baseline = self.plot_with(base_x, base_y, LineProps::from(base))?;
-        Ok(StemContainer {
+        let baseline = self.plot_with(base_x, base_y, LineProps::from(base).label("_nolegend_"))?;
+        let container = StemContainer {
             markerline,
             stemlines,
             baseline,
-        })
+            label: options.label.clone(),
+        };
+        self.add_container(container.clone());
+        Ok(container)
     }
 }
 

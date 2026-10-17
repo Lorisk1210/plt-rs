@@ -6,7 +6,7 @@ use plt_core::Rgba;
 
 use super::literal::Expr;
 use super::value::RcValue;
-use crate::colors::{Color, color_sequence, is_cycle_reference};
+use crate::colors::{Color, color_sequence};
 use crate::lines::LineStyle;
 use crate::markers::Marker;
 
@@ -284,11 +284,15 @@ fn items(
 
 /// Colour lists: a sequence of colours, or a string that is a
 /// comma-separated list, a colour-sequence name (`"tab10"`) or a run of
-/// single-letter colours (`"rgb"`). Cycle references are not allowed in
-/// the `color` property.
+/// single-letter colours (`"rgb"`). Cycle references `"C0"` to `"C9"` are
+/// not allowed in the `color` property (matplotlib's
+/// `validate_color_for_prop_cycle`; longer ones such as `"C85200"` are
+/// hex colours without their `#`).
 fn color_values(values: &Expr, allow_cycle_refs: bool) -> Result<Vec<CycleValue>, String> {
     let one = |spec: &str| -> Option<CycleValue> {
-        let reference_ok = allow_cycle_refs || !is_cycle_reference(spec);
+        let single_digit_reference =
+            matches!(spec.as_bytes(), [b'C', digit] if digit.is_ascii_digit());
+        let reference_ok = allow_cycle_refs || !single_digit_reference;
         reference_ok
             .then(|| Color::parse_rc(spec).ok().map(CycleValue::Color))
             .flatten()
@@ -420,6 +424,11 @@ mod tests {
         assert!(
             parse("cycler('color', ['C1'])").is_err(),
             "no cycle references in the color cycle"
+        );
+        assert_eq!(
+            parse("cycler('color', ['C85200'])").map(|c| c.colors()),
+            Ok(vec![plt_core::Rgba::from_rgba8([0xC8, 0x52, 0x00, 0xFF])]),
+            "six hex digits starting with C are a colour"
         );
     }
 

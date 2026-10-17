@@ -66,11 +66,10 @@ impl Figure {
             .map_err(SaveError::Backend)
     }
 
-    /// Renders the figure with the Agg-compatible raster backend.
+    /// Renders the figure with the Agg-compatible raster backend, as
+    /// `savefig` does.
     pub fn render_raster(&self) -> Result<RasterRenderer, SaveError> {
-        let mut canvas = self.raster_canvas()?;
-        self.draw(&mut canvas).map_err(SaveError::Draw)?;
-        Ok(canvas)
+        self.render_raster_with(&super::SaveOptions::default())
     }
 
     /// The figure as PNG bytes (matplotlib's `savefig(format="png")`).
@@ -97,6 +96,18 @@ mod tests {
         assert_eq!(&pixmap.data()[(3 * 20 + 3) * 4..][..4], &[255; 4]);
         let png = fig.to_png().unwrap();
         assert_eq!(&png[1..4], b"PNG");
+    }
+
+    #[test]
+    fn saving_uses_the_savefig_colours_and_restores_the_figure_ones() {
+        crate::rc::context(|| {
+            crate::rc::set("figure.facecolor", "0.75").unwrap();
+            crate::rc::set("savefig.facecolor", "black").unwrap();
+            let fig = Figure::with_size(1.0, 0.5, 20.0);
+            let canvas = fig.render_raster().unwrap();
+            assert_eq!(&canvas.pixmap().data()[..4], &[0, 0, 0, 255]);
+            assert!((fig.facecolor().r - 0.75).abs() < 1e-12);
+        });
     }
 
     #[test]

@@ -1,11 +1,12 @@
-//! `figures/cases_styles.py`: individual rcParams (the style sheets need
-//! legends).
+//! `figures/cases_styles.py`: every bundled style sheet applied to the
+//! same standard plot, and individual rcParams.
 
 use plt::axes::{ErrorbarOptions, HistPlotOptions, MappedColors, ScatterOptions};
+use plt::legend::LegendOptions;
 use plt::patches::Rectangle;
 use plt::prelude::*;
 
-use crate::figures::FigureCase;
+use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 /// `X = np.linspace(0, 10, 30)`.
@@ -22,6 +23,86 @@ fn of_x(f: impl Fn(f64) -> f64) -> Vec<f64> {
 fn every_third(values: &[f64]) -> Vec<f64> {
     values.iter().step_by(3).copied().collect()
 }
+
+/// `_standard_plot`: lines from the colour cycle, a scatter, a legend,
+/// titles and labels, and bars with error bars.
+fn standard_plot(fig: &Figure) -> CaseResult {
+    let axes = fig.subplots(1, 2)?;
+    let (ax1, ax2) = (&axes[(0, 0)], &axes[(0, 1)]);
+    for i in 0..4 {
+        let shift = f64::from(i);
+        let line = LineProps::default().label(format!("line {i}"));
+        ax1.plot_with(x(), of_x(|x| (x + 0.8 * shift).sin() + 0.5 * shift), line)?;
+    }
+    let every = every_third(&x());
+    let below = every.iter().map(|x| x.cos() - 1.5).collect::<Vec<_>>();
+    ax1.scatter(every, below)?.set_label("points");
+    ax1.set_title("Lines and scatter");
+    ax1.set_xlabel("x").set_ylabel("y");
+    ax1.legend(
+        LegendOptions::default()
+            .fontsize(plt::fonts::RelativeSize::Small)
+            .loc("upper right"),
+    )?;
+    let bars = BarOptions {
+        errors: ErrorbarOptions {
+            yerr: Some(vec![0.3, 0.5, 0.2, 0.4].into()),
+            ..ErrorbarOptions::default()
+        },
+        ..BarOptions::default()
+    };
+    ax2.bar(["a", "b", "c", "d"], [3.0, 5.0, 2.0, 4.0], bars)?;
+    ax2.set_title("Bars");
+    Ok(())
+}
+
+/// Parameters pinned on top of every sheet so that goldens do not depend
+/// on the host (`PINNED`).
+const PINNED: &[(&str, &str)] = &[("font.family", "DejaVu Sans"), ("text.hinting", "none")];
+
+/// One `styles/sheet_<name>` case per bundled sheet.
+macro_rules! sheet_cases {
+    ($($name:literal),* $(,)?) => {
+        &[$(
+            FigureCase::new(concat!("styles/sheet_", $name), standard_plot)
+                .sized(7.0, 3.5, 100.0)
+                .with_style($name)
+                .with_rc(PINNED),
+        )*]
+    };
+}
+
+/// `STYLE_SHEETS`: the sheets applied as `{**library[name], **PINNED}`.
+pub(crate) const SHEETS: &[FigureCase] = sheet_cases![
+    "Solarize_Light2",
+    "bmh",
+    "classic",
+    "dark_background",
+    "fast",
+    "fivethirtyeight",
+    "ggplot",
+    "grayscale",
+    "petroff6",
+    "petroff8",
+    "petroff10",
+    "seaborn-v0_8",
+    "seaborn-v0_8-bright",
+    "seaborn-v0_8-colorblind",
+    "seaborn-v0_8-dark",
+    "seaborn-v0_8-dark-palette",
+    "seaborn-v0_8-darkgrid",
+    "seaborn-v0_8-deep",
+    "seaborn-v0_8-muted",
+    "seaborn-v0_8-notebook",
+    "seaborn-v0_8-paper",
+    "seaborn-v0_8-pastel",
+    "seaborn-v0_8-poster",
+    "seaborn-v0_8-talk",
+    "seaborn-v0_8-ticks",
+    "seaborn-v0_8-white",
+    "seaborn-v0_8-whitegrid",
+    "tableau-colorblind10",
+];
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("styles/rc_prop_cycle_color_and_linestyle", |fig| {
@@ -166,6 +247,24 @@ pub(crate) const CASES: &[FigureCase] = &[
         ("patch.facecolor", "salmon"),
         ("hist.bins", "20"),
         ("hatch.color", "white"),
+    ]),
+    FigureCase::new("styles/rc_legend", |fig| {
+        let ax = fig.subplot();
+        ax.plot_with(x(), of_x(f64::sin), LineProps::default().label("sine"))?;
+        ax.plot_with(x(), of_x(f64::cos), LineProps::default().label("cosine"))?;
+        ax.legend(LegendOptions::default())?;
+        Ok(())
+    })
+    .sized(5.0, 4.0, 100.0)
+    .with_rc(&[
+        ("legend.frameon", "True"),
+        ("legend.loc", "upper left"),
+        ("legend.fontsize", "large"),
+        ("legend.handlelength", "3"),
+        ("legend.facecolor", "lightyellow"),
+        ("legend.edgecolor", "k"),
+        ("legend.fancybox", "False"),
+        ("legend.framealpha", "1"),
     ]),
     FigureCase::new("styles/rc_scatter_errorbar_cmap", |fig| {
         let ax = fig.subplot();

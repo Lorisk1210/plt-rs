@@ -138,6 +138,7 @@ impl FigureState {
         for id in axes {
             self.update_title_position(id);
         }
+        crate::legend::lay_out_legends(self);
     }
 
     /// Renders the whole figure, returning the problems encountered.

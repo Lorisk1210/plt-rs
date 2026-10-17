@@ -1,0 +1,86 @@
+//! Handles of lines and line collections (matplotlib's `HandlerLine2D`
+//! and `HandlerLineCollection`).
+
+use super::{HandleArtist, HandleArtists, HandleBox, HandlerContext, copy_line};
+use crate::collections::{CollectionArtist, CollectionKind};
+use crate::colors::Color;
+use crate::legend::LegendError;
+use crate::lines::{LineArtist, MarkEvery};
+use crate::numeric::linspace;
+
+/// The vertical middle of a handle box, where line handles run.
+pub(super) fn middle(area: &HandleBox) -> f64 {
+    (area.height - area.ydescent) / 2.0
+}
+
+/// A line across the handle box in the style of `source`, with
+/// `numpoints` markers, or one marker in the middle (matplotlib's
+/// `HandlerLine2D`).
+pub(super) fn line2d(
+    ctx: &HandlerContext<'_>,
+    source: &LineArtist,
+    area: &HandleBox,
+) -> HandleArtists {
+    let numpoints = ctx.settings.numpoints;
+    let (mut xdata, _) = ctx.xdata(area, numpoints);
+    let mut markevery = None;
+    if numpoints == 1 {
+        // A three-point line marked only in the middle.
+        xdata = linspace(xdata[0], xdata[xdata.len() - 1], 3);
+        markevery = Some(MarkEvery::Indices(vec![1]));
+    }
+    let ydata = vec![middle(area); xdata.len()];
+    let mut line = ctx.line(xdata, ydata);
+    line.markevery = markevery;
+    copy_line(&mut line, source);
+    scale_markers(ctx, &mut line);
+    HandleArtists::unmapped(vec![HandleArtist::placed(line)])
+}
+
+/// Applies the legend's `markerscale`.
+pub(super) fn scale_markers(ctx: &HandlerContext<'_>, line: &mut LineArtist) {
+    line.markersize *= ctx.settings.markerscale;
+}
+
+/// A line in the colour, width and line style of the first line of
+/// `source`, with `scatterpoints` points (matplotlib's
+/// `HandlerLineCollection`).
+pub(super) fn line_collection(
+    ctx: &HandlerContext<'_>,
+    source: &CollectionArtist,
+    area: &HandleBox,
+) -> Result<Option<HandleArtists>, LegendError> {
+    let (xdata, _) = ctx.xdata(area, ctx.settings.scatterpoints);
+    let ydata = vec![middle(area); xdata.len()];
+    let mut line = ctx.line(xdata, ydata);
+    let (_, edges) = source
+        .resolved_colors()
+        .map_err(LegendError::HandleColors)?;
+    let Some(&color) = edges.first() else {
+        return Ok(None);
+    };
+    line.color = Color::from(color);
+    if let Some(style) = source.linestyles.first() {
+        line.linestyle = style.clone();
+    }
+    line.linewidth = first_width(source);
+    Ok(Some(HandleArtists::unmapped(vec![HandleArtist::placed(
+        line,
+    )])))
+}
+
+/// The first edge width of a collection, with its kind's default.
+pub(super) fn first_width(source: &CollectionArtist) -> f64 {
+    source
+        .linewidths
+        .as_ref()
+        .and_then(|widths| widths.first().copied())
+        .unwrap_or_else(|| {
+            let rc = source.rc();
+            if source.kind == CollectionKind::Line {
+                rc.lines_linewidth
+            } else {
+                rc.patch_linewidth
+            }
+        })
+}

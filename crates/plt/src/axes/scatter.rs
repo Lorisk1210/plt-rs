@@ -5,8 +5,8 @@ use std::rc::Rc;
 use plt_core::Point;
 
 use super::children::DataUpdate;
-use super::{Axes, PlotError};
-use crate::artist::Artist;
+use super::{Axes, AxesState, PlotError};
+use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Color, Colormap, Norm, ScalarMappable, colormaps};
 use crate::markers::{FillStyle, Marker, MarkerStyle};
@@ -173,12 +173,19 @@ impl Axes {
         let y = self.yaxis().convert_units(y);
         let (x, y) = (x.as_slice(), y.as_slice());
         let rc = crate::rc::params();
+        // matplotlib 1.x defaults in classic mode: 20 pt² blue markers
+        // with the default patch edges.
+        let classic = rc.internal_classic_mode;
         let marker = options.marker.unwrap_or_else(|| rc.scatter_marker.clone());
         let style = MarkerStyle::new(marker, FillStyle::Full)?;
         let shape = style.path().transformed(&style.transform());
-        let sizes = options
-            .sizes
-            .unwrap_or_else(|| vec![rc.lines_markersize.powi(2)]);
+        let sizes = options.sizes.unwrap_or_else(|| {
+            vec![if classic {
+                20.0
+            } else {
+                rc.lines_markersize.powi(2)
+            }]
+        });
         if sizes.len() != 1 && sizes.len() != x.len() {
             return Err(PlotError::Broadcast {
                 argument: "s",
@@ -189,10 +196,15 @@ impl Axes {
 
         let mut collection =
             CollectionArtist::new(CollectionKind::Path, vec![shape], Rc::clone(&rc));
-        let mut edges = options
-            .edgecolors
-            .unwrap_or_else(|| scatter_edges(&rc.scatter_edgecolors));
+        let mut edges = options.edgecolors.unwrap_or_else(|| {
+            if classic {
+                EdgeColors::Default
+            } else {
+                scatter_edges(&rc.scatter_edgecolors)
+            }
+        });
         let (faces, mapping) = match options.colors {
+            ScatterColors::Cycle if classic => (Some(vec![Color::from("b")]), None),
             ScatterColors::Cycle => (Some(vec![self.next_patch_color()]), None),
             ScatterColors::Single(color) => (Some(vec![color]), None),
             ScatterColors::PerPoint(colors) => (Some(colors), None),
@@ -228,6 +240,17 @@ impl Axes {
         let base = collection.base_mut();
         base.alpha = options.alpha;
         base.transform = Some(Transform::Display);
+        if classic && !x.is_empty() {
+            // Classic mode leaves room for the markers' size.
+            self.raw().with_mut::<AxesState, _>(|axes| {
+                for axis in [&mut axes.xaxis, &mut axes.yaxis] {
+                    if axis.autoscale.margin < 0.05 {
+                        axis.autoscale.margin = 0.05;
+                        axis.autoscale.stale = true;
+                    }
+                }
+            });
+        }
         // Marker shapes live in screen space: only the offsets bound the
         // data, and only when they are in data coordinates.
         let update = if let Some(transform) = options.offset_transform {

@@ -690,4 +690,6 @@ rc_params! {
     animation_convert_path: String = "convert" => "animation.convert_path";
     /// `animation.convert_args`.
     animation_convert_args: Vec<String> = "-layers, OptimizePlus" => "animation.convert_args";
+    /// `_internal.classic_mode`: Matplotlib 1.x behaviour.
+    internal_classic_mode: bool = "False" => "_internal.classic_mode";
 }

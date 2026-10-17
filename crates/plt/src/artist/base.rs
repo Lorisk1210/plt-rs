@@ -95,8 +95,14 @@ impl ArtistBase {
 
     /// Whether the label marks the artist as excluded from legends.
     pub fn is_label_hidden(&self) -> bool {
-        self.label.is_empty() || self.label.starts_with('_')
+        is_hidden_label(&self.label)
     }
+}
+
+/// Whether a label keeps what it names out of automatic legends: empty or
+/// starting with `_` (matplotlib's `_get_legend_handles_labels`).
+pub fn is_hidden_label(label: &str) -> bool {
+    label.is_empty() || label.starts_with('_')
 }
 
 impl Default for ArtistBase {

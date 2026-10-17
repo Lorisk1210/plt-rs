@@ -28,6 +28,9 @@ pub struct FigureCase {
     pub figsize: (f64, f64),
     /// Figure resolution.
     pub dpi: f64,
+    /// A bundled style sheet applied before `rc` (a case `rc` built from
+    /// `matplotlib.style.library[name]`).
+    pub style: Option<&'static str>,
     /// rcParams applied while building and drawing.
     pub rc: &'static [(&'static str, &'static str)],
     /// Populates the figure.
@@ -49,6 +52,7 @@ impl FigureCase {
             name,
             figsize: (6.4, 4.8),
             dpi: 100.0,
+            style: None,
             rc: &[],
             build,
         }
@@ -68,6 +72,15 @@ impl FigureCase {
     #[must_use]
     pub const fn with_rc(self, rc: &'static [(&'static str, &'static str)]) -> Self {
         Self { rc, ..self }
+    }
+
+    /// The same case with a bundled style sheet applied under its rc.
+    #[must_use]
+    pub const fn with_style(self, style: &'static str) -> Self {
+        Self {
+            style: Some(style),
+            ..self
+        }
     }
 
     /// Golden facts file for this case.
@@ -97,7 +110,13 @@ impl FigureCase {
         f: impl FnOnce(&Figure) -> Result<T, Box<dyn Error>>,
     ) -> Result<T, Box<dyn Error>> {
         plt::rc::context(|| {
-            plt::rc::replace(plt::rc::RcParams::matplotlib());
+            let mut rc = plt::rc::RcParams::matplotlib();
+            if let Some(style) = self.style {
+                plt::style::sheet(style)
+                    .ok_or_else(|| plt::rc::RcError::UnknownStyle(style.to_owned()))?
+                    .apply(&mut rc)?;
+            }
+            plt::rc::replace(rc);
             for (key, value) in self.rc {
                 plt::rc::set(key, value)?;
             }

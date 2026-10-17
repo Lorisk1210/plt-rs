@@ -11,7 +11,8 @@ use plt::colors::{Color, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::Figure;
 use plt::fonts::FontSize;
-use plt::lines::LineStyle;
+use plt::legend::LegendOptions;
+use plt::lines::{LineProps, LineStyle};
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::patches::PatchProps;
 use plt::polar::{Compass, PolarAxes, ThetaDirection};
@@ -45,6 +46,19 @@ fn polar_grid(n_theta: usize, n_r: usize) -> (Grid<f64>, Grid<f64>) {
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("polar/plot_default", |fig| {
         spiral_axes(fig)?;
+        Ok(())
+    }),
+    square("polar/plot_markers_multiple", |fig| {
+        let ax = fig.polar_subplot();
+        let theta = linspace(0.0, TAU, 13);
+        let trefoil: Vec<f64> = theta.iter().map(|t| 1.0 + 0.5 * (3.0 * t).cos()).collect();
+        ax.plot_with(&theta, trefoil, LineProps::fmt("o-")?.label("trefoil"))?;
+        ax.plot_with(
+            &theta,
+            vec![0.8; 13],
+            LineProps::fmt("s--")?.label("circle"),
+        )?;
+        ax.legend(LegendOptions::default().loc("lower left"))?;
         Ok(())
     }),
     square("polar/scatter", |fig| {

@@ -105,6 +105,9 @@ impl Figure {
         let engine = self.layout_engine();
         let use_gridspec = options.use_gridspec && engine.is_none_or(|e| e.colorbar_gridspec());
         let constrained = matches!(engine, Some(LayoutEngine::Constrained(_)));
+        // The new colorbar axes becomes current; matplotlib restores the
+        // axes that was current before.
+        let current = self.current_axes();
         let placement = match parents {
             Parents::One(parent) => match parent.subplot_spec() {
                 Some(spec) if use_gridspec => {
@@ -114,6 +117,9 @@ impl Figure {
             },
             Parents::Many(parents) => placement::make_axes(self, &parents, &options, constrained)?,
         };
+        if let Some(current) = current {
+            self.sca(&current);
+        }
         placement.cax.grid_with(
             false,
             &GridOptions {

@@ -258,8 +258,9 @@ impl ContourState {
 
 /// A contour plot: what [`Axes::contour`], [`Axes::contourf`],
 /// [`Axes::tricontour`] and [`Axes::tricontourf`] return (matplotlib's
-/// `ContourSet`).
-#[derive(Debug)]
+/// `ContourSet`). Clones share the collections and copy the levels,
+/// colours and labels.
+#[derive(Clone, Debug)]
 pub struct ContourSet {
     axes: Axes,
     collections: Vec<Collection>,

@@ -8,6 +8,7 @@ use super::DataLimits;
 use super::aspect::AspectState;
 use super::axis::{AxisGeometry, AxisState};
 use super::axis_layout::AxisPainter;
+use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::Projection;
 use super::secondary::Secondary;
@@ -79,6 +80,9 @@ pub(crate) struct AxesState {
     pub(crate) title_placement: TitlePlacement,
     /// z-order of the axis artists (`axes.axisbelow`).
     pub(crate) axis_zorder: f64,
+    /// The colour-mapped artist pyplot's colormap functions act on
+    /// (matplotlib's `_current_image`).
+    pub(crate) current_image: Option<CurrentImage>,
     /// The rc parameters the axes was created with.
     pub(crate) rc: Rc<RcParams>,
 }
@@ -169,6 +173,7 @@ impl AxesState {
                 TitlePlacement::Auto
             },
             axis_zorder: rc.axes_axisbelow.zorder(),
+            current_image: None,
             rc,
         }
     }

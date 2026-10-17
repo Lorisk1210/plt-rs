@@ -11,6 +11,7 @@
 //!   as an [`OffsetImage`](crate::offsetbox::OffsetImage) draws it.
 //! * [`Interpolation`], [`InterpolationStage`], [`Origin`], [`Extent`] and
 //!   [`ImageAlpha`] — how images are oriented, placed and resampled.
+//! * [`imread`] and [`imsave`] — PNG files to and from image arrays.
 //!
 //! Drawing follows matplotlib's `_make_image` exactly: the image is
 //! clipped to its clip box, rounded to whole pixels, resampled with Agg's
@@ -22,6 +23,7 @@ mod colorize;
 mod data;
 mod error;
 mod figure_image;
+mod io;
 mod make;
 mod options;
 mod pcolor_image;
@@ -36,6 +38,7 @@ pub use colorize::ColorizerOptions;
 pub use data::{ImageData, ScalarField, ScalarKind};
 pub use error::ImageError;
 pub use figure_image::{FigimageOptions, FigureImage};
+pub use io::{ImageIoError, ImsaveOptions, imread, imread_png, imsave, imsave_png};
 pub(crate) use make::{CoreSettings, ImageCore};
 pub use options::{Extent, ImageAlpha, Interpolation, InterpolationStage, Origin, UnknownName};
 pub use pcolor_image::PcolorImage;

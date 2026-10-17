@@ -1,0 +1,389 @@
+//! Reading and writing images as PNG files (matplotlib.image's `imread`
+//! and `imsave`).
+
+use std::fmt;
+use std::path::Path;
+
+use plt_codec::png::{self, ColorType, DecodeError, EncodeError, ImageRef};
+
+use super::{ImageData, Origin};
+use crate::colors::{Colormap, ColormapError, NormError, ScalarMappable, colormaps};
+use crate::numeric::Grid;
+
+/// Why an image cannot be read or written.
+#[derive(Debug)]
+pub enum ImageIoError {
+    /// The file could not be read or written.
+    Io(std::io::Error),
+    /// The file is not a valid PNG.
+    Decode(DecodeError),
+    /// The pixels could not be encoded.
+    Encode(EncodeError),
+    /// The file extension names a format other than PNG.
+    UnsupportedFormat(String),
+    /// The default colormap `image.cmap` is unknown.
+    Colormap(ColormapError),
+    /// The colour limits cannot normalise the data.
+    Norm(NormError),
+    /// Float colours outside `[0, 1]`.
+    ColorRange,
+}
+
+impl fmt::Display for ImageIoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(err) => write!(f, "cannot access the image file: {err}"),
+            Self::Decode(err) => write!(f, "cannot read the PNG: {err}"),
+            Self::Encode(err) => write!(f, "cannot write the PNG: {err}"),
+            Self::UnsupportedFormat(format) => {
+                write!(
+                    f,
+                    "format {format:?} is not supported (supported formats: png)"
+                )
+            }
+            Self::Colormap(err) => err.fmt(f),
+            Self::Norm(err) => err.fmt(f),
+            Self::ColorRange => {
+                f.write_str("Floating point image RGB values must be in the 0..1 range.")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ImageIoError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(err) => Some(err),
+            Self::Decode(err) => Some(err),
+            Self::Encode(err) => Some(err),
+            Self::Colormap(err) => Some(err),
+            Self::Norm(err) => Some(err),
+            Self::UnsupportedFormat(_) | Self::ColorRange => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for ImageIoError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
+impl From<DecodeError> for ImageIoError {
+    fn from(err: DecodeError) -> Self {
+        Self::Decode(err)
+    }
+}
+
+impl From<EncodeError> for ImageIoError {
+    fn from(err: EncodeError) -> Self {
+        Self::Encode(err)
+    }
+}
+
+impl From<ColormapError> for ImageIoError {
+    fn from(err: ColormapError) -> Self {
+        Self::Colormap(err)
+    }
+}
+
+impl From<NormError> for ImageIoError {
+    fn from(err: NormError) -> Self {
+        Self::Norm(err)
+    }
+}
+
+/// How [`imsave`] turns an array into pixels.
+#[derive(Clone, Debug)]
+pub struct ImsaveOptions {
+    /// The value mapped to the bottom of the colormap (scalar data; the
+    /// data minimum when `None`).
+    pub vmin: Option<f64>,
+    /// The value mapped to the top of the colormap (scalar data; the data
+    /// maximum when `None`).
+    pub vmax: Option<f64>,
+    /// The colormap of scalar data (`image.cmap` when `None`).
+    pub cmap: Option<Colormap>,
+    /// Where row 0 of the array goes (`image.origin` when `None`).
+    pub origin: Option<Origin>,
+    /// The resolution recorded in the file.
+    pub dpi: f64,
+}
+
+impl Default for ImsaveOptions {
+    fn default() -> Self {
+        Self {
+            vmin: None,
+            vmax: None,
+            cmap: None,
+            origin: None,
+            dpi: 100.0,
+        }
+    }
+}
+
+/// Reads a PNG file into an image array (matplotlib's `imread`).
+///
+/// # Errors
+///
+/// When the file cannot be read, is not a PNG, or its extension names
+/// another format.
+pub fn imread(path: impl AsRef<Path>) -> Result<ImageData, ImageIoError> {
+    let path = path.as_ref();
+    require_png(path)?;
+    imread_png(&std::fs::read(path)?)
+}
+
+/// Decodes PNG bytes into an image array the way matplotlib's `imread`
+/// does: greyscale becomes scalars in `[0, 1]`, RGB stays RGB and every
+/// other format (palette, grey with alpha, RGBA) becomes RGBA, with float
+/// channels in `[0, 1]` computed in single precision; 16-bit colour
+/// channels keep their high byte, as Pillow does.
+///
+/// ```
+/// use plt::image::{ImageData, ImsaveOptions, imread_png, imsave_png};
+/// use plt::numeric::Grid;
+/// let gray = Grid::from_vec(1, 2, vec![0.0, 1.0])?;
+/// let png = imsave_png(gray, &ImsaveOptions::default())?;
+/// let ImageData::Rgba(pixels) = imread_png(&png)? else { unreachable!() };
+/// assert_eq!(pixels.shape(), (1, 2));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When the bytes are not a valid PNG.
+pub fn imread_png(png: &[u8]) -> Result<ImageData, ImageIoError> {
+    let image = png::Decoder::new().decode(png)?;
+    let (rows, cols) = (image.height() as usize, image.width() as usize);
+    let rgba = image.to_rgba16();
+    let pixel = |row: usize, col: usize| -> [u16; 4] {
+        let start = (row * cols + col) * 4;
+        [
+            rgba[start],
+            rgba[start + 1],
+            rgba[start + 2],
+            rgba[start + 3],
+        ]
+    };
+    let byte_unit = |value: u16| unit(value >> 8, 255.0);
+    Ok(match image.color_type() {
+        ColorType::Gray => {
+            Grid::from_fn(rows, cols, |row, col| unit(pixel(row, col)[0], 65535.0)).into()
+        }
+        ColorType::Rgb => Grid::from_fn(rows, cols, |row, col| {
+            let [r, g, b, _] = pixel(row, col);
+            [r, g, b].map(byte_unit)
+        })
+        .into(),
+        ColorType::Rgba | ColorType::GrayAlpha | ColorType::Indexed => {
+            Grid::from_fn(rows, cols, |row, col| pixel(row, col).map(byte_unit)).into()
+        }
+    })
+}
+
+/// `value / max` in single precision, as matplotlib's float32 arrays.
+fn unit(value: u16, max: f32) -> f64 {
+    f64::from(f32::from(value) / max)
+}
+
+/// Saves an array as a PNG file (matplotlib's `imsave`): scalar data is
+/// colour-mapped through `cmap` between `vmin` and `vmax`.
+///
+/// # Errors
+///
+/// As [`imsave_png`], and when the file cannot be written or its extension
+/// names another format.
+pub fn imsave(
+    path: impl AsRef<Path>,
+    data: impl Into<ImageData>,
+    options: &ImsaveOptions,
+) -> Result<(), ImageIoError> {
+    let path = path.as_ref();
+    require_png(path)?;
+    std::fs::write(path, imsave_png(data, options)?)?;
+    Ok(())
+}
+
+/// Encodes an array as an RGBA PNG the way matplotlib's `imsave` does:
+/// scalars through the colormap (masked values, NaN included, in its "bad"
+/// colour, as for a numpy masked array), float colours truncated to bytes,
+/// rows flipped for [`Origin::Lower`].
+///
+/// # Errors
+///
+/// When the colormap is unknown, the limits cannot normalise the data,
+/// float colours leave `[0, 1]`, or the image is empty or too large.
+pub fn imsave_png(
+    data: impl Into<ImageData>,
+    options: &ImsaveOptions,
+) -> Result<Vec<u8>, ImageIoError> {
+    let data = data.into();
+    let (rows, cols) = data.shape();
+    let mut pixels = rgba_bytes(&data, options)?;
+    let origin = options
+        .origin
+        .unwrap_or_else(|| crate::rc::params().image_origin.parse().unwrap_or_default());
+    if origin == Origin::Lower {
+        let mut flipped = Vec::with_capacity(pixels.len());
+        for row in pixels.chunks_exact(cols.max(1)).rev() {
+            flipped.extend_from_slice(row);
+        }
+        pixels = flipped;
+    }
+    let bytes = pixels.concat();
+    let dimension = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
+    let image = ImageRef::rgba8(dimension(cols), dimension(rows), &bytes)?;
+    Ok(png::Encoder::new().dpi(options.dpi).encode(image)?)
+}
+
+/// The 8-bit RGBA pixels of `data`, row-major (matplotlib's
+/// `Colorizer.to_rgba(arr, bytes=True)`).
+fn rgba_bytes(data: &ImageData, options: &ImsaveOptions) -> Result<Vec<[u8; 4]>, ImageIoError> {
+    let floats = |channels: &[f64]| {
+        if channels.iter().any(|&v| v < 0.0 || v > 1.0) {
+            Err(ImageIoError::ColorRange)
+        } else {
+            Ok(())
+        }
+    };
+    // Truncation, as numpy's `astype(np.uint8)`.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "values are in [0, 255]"
+    )]
+    let byte = |v: f64| (v * 255.0) as u8;
+    Ok(match data {
+        ImageData::Scalar(field) => {
+            let cmap = match &options.cmap {
+                Some(cmap) => cmap.clone(),
+                None => colormaps::get_cmap(None)?,
+            };
+            let mut mappable = ScalarMappable::new(cmap);
+            mappable.set_clim(options.vmin, options.vmax);
+            mappable.to_rgba_bytes(&field.masked_values(), None)?
+        }
+        ImageData::Rgb(grid) => {
+            floats(grid.as_slice().as_flattened())?;
+            grid.as_slice()
+                .iter()
+                .map(|&[r, g, b]| [byte(r), byte(g), byte(b), 255])
+                .collect()
+        }
+        ImageData::Rgba(grid) => {
+            floats(grid.as_slice().as_flattened())?;
+            grid.as_slice()
+                .iter()
+                .map(|pixel| pixel.map(byte))
+                .collect()
+        }
+        ImageData::RgbBytes(grid) => grid
+            .as_slice()
+            .iter()
+            .map(|&[r, g, b]| [r, g, b, 255])
+            .collect(),
+        ImageData::RgbaBytes(grid) => grid.as_slice().to_vec(),
+    })
+}
+
+/// Fails unless `path` names a PNG file (or has no extension, which
+/// matplotlib reads and writes as PNG).
+fn require_png(path: &Path) -> Result<(), ImageIoError> {
+    match path
+        .extension()
+        .map(|ext| ext.to_string_lossy().to_lowercase())
+    {
+        None => Ok(()),
+        Some(ext) if ext == "png" => Ok(()),
+        Some(ext) => Err(ImageIoError::UnsupportedFormat(ext)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use plt_codec::png::{BitDepth, Encoder};
+
+    fn decode(png: &[u8]) -> Vec<u8> {
+        png::Decoder::new().decode(png).unwrap().to_rgba8()
+    }
+
+    #[test]
+    fn scalars_are_colour_mapped_between_the_limits() {
+        let data = Grid::from_vec(1, 3, vec![0.0, 5.0, f64::NAN]).unwrap();
+        let options = ImsaveOptions {
+            cmap: Some(colormaps::get("gray").unwrap()),
+            vmax: Some(10.0),
+            ..ImsaveOptions::default()
+        };
+        let pixels = decode(&imsave_png(data, &options).unwrap());
+        assert_eq!(&pixels[..4], [0, 0, 0, 255]);
+        assert_eq!(&pixels[4..8], [128, 128, 128, 255], "5 of 0..10");
+        assert_eq!(
+            &pixels[8..],
+            [0, 0, 0, 0],
+            "masked: the transparent bad colour"
+        );
+    }
+
+    #[test]
+    fn colours_are_truncated_and_lower_origin_flips_rows() {
+        let data = Grid::from_vec(2, 1, vec![[1.0, 0.5, 0.0], [0.0, 0.0, 1.0]]).unwrap();
+        let options = ImsaveOptions {
+            origin: Some(Origin::Lower),
+            ..ImsaveOptions::default()
+        };
+        let pixels = decode(&imsave_png(data, &options).unwrap());
+        assert_eq!(pixels, [0, 0, 255, 255, 255, 127, 0, 255]);
+        let out_of_range = Grid::from_vec(1, 1, vec![[1.5, 0.0, 0.0]]).unwrap();
+        assert!(matches!(
+            imsave_png(out_of_range, &ImsaveOptions::default()),
+            Err(ImageIoError::ColorRange)
+        ));
+    }
+
+    #[test]
+    fn png_formats_read_like_matplotlib() {
+        let gray = Encoder::new()
+            .encode(ImageRef::new(2, 1, ColorType::Gray, BitDepth::Eight, &[0, 51]).unwrap())
+            .unwrap();
+        let ImageData::Scalar(field) = imread_png(&gray).unwrap() else {
+            panic!("greyscale reads as scalars");
+        };
+        assert_eq!(
+            field.values().as_slice(),
+            [0.0, f64::from(51.0_f32 / 255.0)]
+        );
+        let rgba = [255, 0, 0, 255, 0, 0, 255, 51];
+        let png = Encoder::new()
+            .encode(ImageRef::rgba8(2, 1, &rgba).unwrap())
+            .unwrap();
+        let ImageData::Rgba(pixels) = imread_png(&png).unwrap() else {
+            panic!("RGBA reads as RGBA");
+        };
+        assert_eq!(pixels.as_slice()[1][3], f64::from(51.0_f32 / 255.0));
+        assert!(imread_png(b"not a png").is_err());
+    }
+
+    #[test]
+    fn only_png_files_are_handled() {
+        let dir = std::env::temp_dir().join(format!("plt-imsave-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("tiny.png");
+        let data = Grid::from_vec(1, 1, vec![[0_u8, 128, 255]]).unwrap();
+        imsave(&path, data, &ImsaveOptions::default()).unwrap();
+        let ImageData::Rgba(pixels) = imread(&path).unwrap() else {
+            panic!("imsave writes RGBA");
+        };
+        assert_eq!(
+            pixels.as_slice()[0],
+            [0.0, f64::from(128.0_f32 / 255.0), 1.0, 1.0]
+        );
+        assert!(matches!(
+            imread(dir.join("tiny.jpg")),
+            Err(ImageIoError::UnsupportedFormat(ext)) if ext == "jpg"
+        ));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

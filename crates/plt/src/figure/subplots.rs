@@ -63,12 +63,18 @@ impl Figure {
     /// current with [`Figure::sca`], or a new subplot if the figure has
     /// none.
     pub fn gca(&self) -> Axes {
-        let axes = self.axes();
+        self.current_axes().unwrap_or_else(|| self.subplot())
+    }
+
+    /// The current axes, `None` when the figure has none (matplotlib's
+    /// `_axstack.current()`).
+    pub(crate) fn current_axes(&self) -> Option<Axes> {
+        let mut axes = self.axes();
         let current = self.state.borrow().current_axes;
-        current
-            .and_then(|id| axes.iter().find(|ax| ax.id() == id).cloned())
-            .or_else(|| axes.last().cloned())
-            .unwrap_or_else(|| self.subplot())
+        match current.and_then(|id| axes.iter().position(|ax| ax.id() == id)) {
+            Some(index) => Some(axes.swap_remove(index)),
+            None => axes.pop(),
+        }
     }
 
     /// Makes `ax` the current axes (matplotlib's `sca`).

@@ -12,13 +12,13 @@ fn wave(x: f64, y: f64) -> f64 {
 }
 
 /// `_field(n)`: the wave on an `n × n` grid over `[-3, 3]²`.
-pub(super) fn field(n: usize) -> Grid<f64> {
+pub(in crate::figures::cases) fn field(n: usize) -> Grid<f64> {
     let x = linspace(-3.0, 3.0, n);
     Grid::from_fn(n, n, |r, c| wave(x[c], x[r]))
 }
 
 /// `_xyz()`: the 40 × 40 wave with its coordinates.
-pub(super) fn xyz() -> QuadField {
+pub(in crate::figures::cases) fn xyz() -> QuadField {
     let x = linspace(-3.0, 3.0, 40);
     let (xx, yy) = meshgrid(&x, &x);
     let z = Grid::from_fn(40, 40, |r, c| wave(xx[(r, c)], yy[(r, c)]));

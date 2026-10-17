@@ -106,6 +106,15 @@ impl RawHandle {
     }
 }
 
+/// The untyped handle has the properties every artist shares, which is
+/// what predicates over a figure's artists look at
+/// ([`Figure::findobj`](crate::figure::Figure::findobj)).
+impl ArtistHandle for RawHandle {
+    fn raw(&self) -> &RawHandle {
+        self
+    }
+}
+
 /// Properties and operations shared by every artist handle
 /// (matplotlib's `Artist` API).
 ///

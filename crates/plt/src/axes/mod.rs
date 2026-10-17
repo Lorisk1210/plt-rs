@@ -17,6 +17,7 @@ mod bxp;
 mod children;
 mod clear;
 mod contour;
+mod current_image;
 mod ecdf;
 mod error;
 mod errorbar;
@@ -76,6 +77,7 @@ pub use bars::{BandAlign, BarAlign, BarContainer, BarOptions};
 pub use boxplot::BoxplotOptions;
 pub use bxp::{BoxArtist, BoxStyle, BoxplotArtists, BxpOptions};
 pub(crate) use children::DataUpdate;
+pub use current_image::ColorizingArtist;
 pub use ecdf::{EcdfError, EcdfOptions};
 pub use error::PlotError;
 pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarOptions};
@@ -410,6 +412,12 @@ impl Axes {
         self.raw
             .with_mut::<AxesState, _>(|a| a.decorations.frame_on = on);
         self
+    }
+
+    /// Whether the background patch and the spines are drawn (matplotlib's
+    /// `get_frame_on`).
+    pub fn frame_on(&self) -> bool {
+        self.raw.with::<AxesState, _>(|a| a.decorations.frame_on)
     }
 
     /// Sets the background colour (matplotlib's `set_facecolor`).

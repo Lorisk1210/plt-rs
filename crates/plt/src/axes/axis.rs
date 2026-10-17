@@ -408,6 +408,7 @@ impl AxisState {
             tick_space: self.tick_space(geometry.length_points),
             major_ticks: Vec::new(),
             scale: self.scale.hint(),
+            three_d: false,
         }
     }
 

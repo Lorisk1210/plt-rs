@@ -260,7 +260,12 @@ impl MaxNLocator {
         if self.integer {
             steps.retain(|&s| s < 1.0 || (s - s.round_ties_even()).abs() < 0.001);
         }
-        let raw_step = (hi - lo) / nbins;
+        let mut raw_step = (hi - lo) / nbins;
+        if ctx.axis().is_some_and(|axis| axis.three_d) {
+            // matplotlib keeps the appearance of 3-D ticks from before its
+            // 3.9 automargin change (a zoom of 2/48).
+            raw_step = raw_step * 23.0 / 24.0;
+        }
         let round_numbers = ctx.settings().axes_autolimit_mode == AutolimitMode::RoundNumbers;
         let large_enough = |step: f64| {
             step >= raw_step && (!round_numbers || floor_div(lo, step) * step + step * nbins >= hi)

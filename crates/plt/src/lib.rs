@@ -26,6 +26,8 @@
 //!   of any window system.
 //! * [`layout`] — layout engines (constrained layout) placing the axes so
 //!   that their decorations fit.
+//! * [`mplot3d`] — 3-D axes: surfaces, wireframes, 3-D scatter, bars,
+//!   contours and more, projected through a camera.
 #![forbid(unsafe_code)]
 
 #[macro_use]
@@ -45,6 +47,7 @@ pub mod layout;
 pub mod lines;
 pub mod markers;
 pub mod mlab;
+pub mod mplot3d;
 pub mod navigation;
 pub mod numeric;
 pub mod orientation;

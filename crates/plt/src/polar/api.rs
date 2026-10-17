@@ -73,7 +73,7 @@ impl PolarAxes {
 
     /// Turns freshly created rectilinear `axes` into polar axes
     /// (matplotlib's `PolarAxes.__init__` and `clear`).
-    fn convert(axes: Axes) -> Self {
+    pub(crate) fn convert(axes: Axes) -> Self {
         axes.raw().with_mut::<AxesState, _>(|state| {
             state.projection = Projection::Polar(PolarState::default());
             for (axis, role) in [

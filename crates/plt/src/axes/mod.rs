@@ -15,6 +15,7 @@ mod boxplot;
 mod broadcast;
 mod bxp;
 mod children;
+mod clear;
 mod contour;
 mod error;
 mod errorbar;

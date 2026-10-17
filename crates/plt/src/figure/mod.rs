@@ -1,6 +1,7 @@
 //! Figures: the top-level container of everything drawn (matplotlib.figure).
 
 mod artists;
+mod clear;
 mod frame;
 mod mosaic;
 mod print;
@@ -25,7 +26,7 @@ pub use save::SaveError;
 pub(crate) use state::FigureState;
 pub use subfigure::SubfigureOptions;
 pub use subplots::Share;
-pub(crate) use subplots::insert_axes;
+pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes};
 
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState, PlotError};

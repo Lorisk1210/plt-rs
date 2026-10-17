@@ -20,6 +20,7 @@
 use std::cell::RefCell;
 use std::path::Path;
 
+use crate::artist::ArtistHandle;
 use crate::axes::{Axes, PlotError};
 use crate::collections::Collection;
 use crate::figure::{Figure, SaveError};
@@ -288,6 +289,30 @@ pub fn suptitle(text: impl Into<String>) -> Text {
     gcf().suptitle(text)
 }
 
+/// Clears the current axes (matplotlib's `cla`).
+pub fn cla() {
+    gca().clear();
+}
+
+/// Clears the current figure (matplotlib's `clf`).
+pub fn clf() {
+    gcf().clear();
+}
+
+/// Removes `ax` from its figure, or the current axes when `None`
+/// (matplotlib's `delaxes`).
+pub fn delaxes(ax: Option<&Axes>) {
+    match ax {
+        Some(ax) => ax.remove(),
+        None => gca().remove(),
+    }
+}
+
+/// Whether figure `num` is open (matplotlib's `fignum_exists`).
+pub fn fignum_exists(num: u32) -> bool {
+    fignums().contains(&num)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,6 +347,21 @@ mod tests {
         assert_eq!(gca(), ax);
         title("t");
         assert_eq!(ax.title(crate::axes::TitleLocation::Center), "t");
+        close_all();
+    }
+
+    #[test]
+    fn clearing_and_removing() {
+        close_all();
+        plot(vec![0.0, 1.0], vec![0.0, 2.0]).unwrap();
+        cla();
+        assert_eq!(gca().lines(), Vec::<crate::lines::Line2D>::new());
+        delaxes(None);
+        assert_eq!(gcf().axes(), Vec::<Axes>::new());
+        subplot(2, 1, 1).unwrap();
+        clf();
+        assert_eq!(gcf().axes(), Vec::<Axes>::new());
+        assert!(fignum_exists(1) && !fignum_exists(2));
         close_all();
     }
 

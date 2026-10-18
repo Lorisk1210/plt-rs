@@ -46,6 +46,7 @@ mod anchored_box;
 mod annotation_bbox;
 mod apply;
 mod boxes;
+mod drag;
 mod leaves;
 mod pack;
 mod pending;

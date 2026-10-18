@@ -13,6 +13,7 @@ use crate::artist::{
 };
 use crate::axes::Axes;
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
+use crate::events::Dragger;
 use crate::fonts::FontSize;
 use crate::patches::{
     BoxShape, BoxStyle, ClipRegion, DisplayPath, FancyBboxPatch, Patch, PatchArtist, PatchProps,
@@ -80,6 +81,8 @@ impl Default for AnnotationBboxOptions {
 /// Where the annotated point and the box are, in display pixels.
 struct Geometry {
     point: Point,
+    /// Where `xybox` is.
+    anchor: Point,
     offset: Point,
     extent: Bbox,
 }
@@ -106,6 +109,8 @@ pub(crate) struct AnnotationBboxArtist {
     /// Every part, for removal with the box.
     parts: Vec<ArtistId>,
     rc: Rc<RcParams>,
+    /// The callbacks dragging the box, while it is draggable.
+    pub(crate) dragger: Option<Dragger>,
 }
 
 impl AnnotationBboxArtist {
@@ -121,6 +126,28 @@ impl AnnotationBboxArtist {
             offset_origin,
             fontsize: self.fontsize,
         }
+    }
+
+    /// The display position of the box anchor (matplotlib's `xybox` in
+    /// `boxcoords`).
+    pub(crate) fn box_display(&self, layout: LayoutContext<'_>) -> Option<Point> {
+        Some(self.geometry(layout).ok()?.anchor)
+    }
+
+    /// The `xybox`, in `boxcoords`, that puts the box anchor at display
+    /// position `at`; `None` when the coordinates cannot be inverted.
+    pub(crate) fn xybox_at(&self, layout: LayoutContext<'_>, at: Point) -> Option<Point> {
+        let point = self.geometry(layout).ok()?.point;
+        let transform = self
+            .boxcoords
+            .resolve(&self.coord_frame(layout, Some(point)))
+            .ok()?;
+        Some(transform.inverted()?.transform_point(at))
+    }
+
+    /// Moves the box anchor (matplotlib's `xybox`).
+    pub(crate) fn set_xybox(&mut self, xybox: Point) {
+        self.xybox = xybox;
     }
 
     /// The annotated point and the box (matplotlib's `update_positions`).
@@ -141,6 +168,7 @@ impl AnnotationBboxArtist {
         );
         Ok(Geometry {
             point,
+            anchor,
             offset,
             extent: bbox.translated(offset.x, offset.y),
         })
@@ -174,14 +202,9 @@ impl AnnotationBboxArtist {
             .style
             .resolve(&self.rc, frame.base().alpha, FancyBboxPatch::EDGE_DEFAULT)
             .map_err(|err| err.to_string())?;
-        let radius = if resolved.edge.a == 0.0 {
-            0.0
-        } else {
-            resolved.linewidth
-        };
         Ok(Some(ClipRegion {
             path: frame.shape.path(),
-            radius,
+            radius: resolved.hit_radius(),
         }))
     }
 
@@ -279,6 +302,27 @@ impl Artist for AnnotationBboxArtist {
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         self.extent(*ctx)
+    }
+
+    /// matplotlib's `AnnotationBbox.contains`: on an artist of the child
+    /// box while the box is shown; the arrow does not count.
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        let Ok(geometry) = self.geometry(*ctx) else {
+            return false;
+        };
+        let shown = annotation_shown(
+            *ctx,
+            self.annotation_clip,
+            &self.xycoords,
+            Some(self.axes),
+            geometry.point,
+        );
+        shown
+            && self
+                .child
+                .artists()
+                .into_iter()
+                .any(|&id| ctx.store().get(id).is_some_and(|a| a.contains(ctx, point)))
     }
 }
 
@@ -404,6 +448,7 @@ impl Axes {
             frame,
             parts: parts.clone(),
             rc,
+            dragger: None,
         };
         let id = adopt_box(&mut state, self.id(), Box::new(artist), &parts);
         drop(state);

@@ -17,7 +17,7 @@ use super::options::{self, OptionsDialog};
 use super::save_dialog::{Outcome, SaveDialog};
 use super::{GuiError, icons};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
-use crate::figure::Figure;
+use crate::figure::{Figure, SaveError};
 use crate::navigation::{NavMode, Navigation};
 use crate::widgets::SubplotTool;
 use toolbar::{Tool, Toolbar};
@@ -447,6 +447,20 @@ impl FigureWindow {
             Some(toolbar) => toolbar.set_status(&mut self.window, cx, text),
             None => Ok(()),
         }
+    }
+
+    /// Puts the figure, as the window shows it, on the clipboard as a PNG
+    /// image (matplotlib's `ToolCopyToClipboard`, bound to `keymap.copy`).
+    fn copy_to_clipboard(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        let mut canvas = self.figure.raster_canvas()?;
+        let problem = self.figure.draw(&mut canvas).err();
+        let png = canvas.to_png().map_err(SaveError::Backend)?;
+        cx.set_clipboard_image(self.window.id(), png)?;
+        let status = problem.map_or_else(
+            || "Copied the figure to the clipboard".to_owned(),
+            |problem| problem.to_string(),
+        );
+        self.set_status(cx, status)
     }
 
     /// Renders the figure at the canvas size and shows it; artists that

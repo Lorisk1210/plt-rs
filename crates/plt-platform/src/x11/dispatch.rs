@@ -41,6 +41,7 @@ impl X11Backend {
                         continue;
                     }
                     let repeat = std::mem::take(&mut repeating);
+                    self.last_input_time = pointer.time;
                     let key = self.input.key(state, keycode, pointer.mask, repeat);
                     self.emit(out, pointer.window, WindowEvent::Key(key));
                 }
@@ -49,6 +50,7 @@ impl X11Backend {
                     button,
                     pointer,
                 } => {
+                    self.last_input_time = pointer.time;
                     if let Some(event) = self.input.button(state, button, &pointer) {
                         self.emit(out, pointer.window, event);
                     }
@@ -77,6 +79,8 @@ impl X11Backend {
                     message_type,
                     data,
                 } => self.client_message(out, window, message_type, data)?,
+                ServerEvent::SelectionRequest(asked) => self.answer_selection(asked)?,
+                ServerEvent::SelectionClear { selection } => self.clipboard_taken(selection),
                 ServerEvent::KeyboardMappingChanged => {
                     self.input.set_keymap(Keymap::query(&mut self.conn)?);
                 }

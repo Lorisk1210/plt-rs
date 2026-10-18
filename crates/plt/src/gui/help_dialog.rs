@@ -28,6 +28,7 @@ fn shortcuts(rc: &RcParams, tools: &[ToolSpec]) -> Vec<(String, Vec<String>)> {
         ("Pan and zoom with the mouse", &rc.keymap_pan),
         ("Zoom to a rectangle", &rc.keymap_zoom),
         ("Save the figure", &rc.keymap_save),
+        ("Copy the figure to the clipboard", &rc.keymap_copy),
         ("Toggle full screen", &rc.keymap_fullscreen),
         ("Cycle the major grids", &rc.keymap_grid),
         ("Cycle the minor grids", &rc.keymap_grid_minor),

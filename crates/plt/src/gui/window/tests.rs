@@ -49,13 +49,18 @@ fn mouse(handle: &HeadlessHandle, id: WindowId, state: ButtonState, (x, y): (f64
 }
 
 fn key(handle: &HeadlessHandle, id: WindowId, c: char) {
+    chord(handle, id, c, Modifiers::NONE);
+}
+
+/// Presses and releases `c` with `modifiers` held.
+fn chord(handle: &HeadlessHandle, id: WindowId, c: char, modifiers: Modifiers) {
     for state in [ButtonState::Pressed, ButtonState::Released] {
         let event = KeyEvent {
             key: Key::Character(c),
             state,
             repeat: false,
             text: None,
-            modifiers: Modifiers::NONE,
+            modifiers,
             scancode: 0,
         };
         handle
@@ -277,4 +282,21 @@ fn the_save_dialog_writes_the_figure() {
         assert_eq!(handle.windows(), [window.id()], "the dialog closed");
     });
     std::fs::remove_dir_all(&dir).expect("the directory is removed");
+}
+
+#[test]
+fn ctrl_c_copies_the_figure_to_the_clipboard() {
+    let figure = Figure::with_size(2.0, 1.5, 100.0);
+    figure.subplot();
+    let (mut event_loop, handle) = EventLoop::headless();
+    let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+        .expect("the window opens");
+    pump(&mut event_loop, &mut window);
+    assert_eq!(handle.clipboard_image(), None);
+
+    chord(&handle, window.id(), 'c', Modifiers::CONTROL);
+    pump(&mut event_loop, &mut window);
+    let png = handle.clipboard_image().expect("the figure is copied");
+    let image = plt_codec::png::decode(&png).expect("the clipboard holds a PNG");
+    assert_eq!((image.width(), image.height()), (200, 150));
 }

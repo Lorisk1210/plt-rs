@@ -24,6 +24,8 @@ pub(crate) enum KeyAction {
     Zoom,
     /// Save the figure (`keymap.save`).
     Save,
+    /// Copy the figure to the clipboard (`keymap.copy`).
+    Copy,
     /// Close the window (`keymap.quit`).
     Quit,
     /// Close every figure window (`keymap.quit_all`).
@@ -95,6 +97,7 @@ pub(crate) fn action(name: &str, rc: &RcParams) -> Option<KeyAction> {
         (&rc.keymap_pan, KeyAction::Pan),
         (&rc.keymap_zoom, KeyAction::Zoom),
         (&rc.keymap_save, KeyAction::Save),
+        (&rc.keymap_copy, KeyAction::Copy),
         (&rc.keymap_quit, KeyAction::Quit),
         (&rc.keymap_quit_all, KeyAction::QuitAll),
         (&rc.keymap_grid, KeyAction::Grid),

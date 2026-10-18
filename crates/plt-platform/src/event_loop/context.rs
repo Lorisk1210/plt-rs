@@ -80,6 +80,12 @@ impl<'a> Context<'a> {
         self.backend.raise_window(window)
     }
 
+    /// Puts the PNG image `png` on the clipboard, owned by `window`, until
+    /// another application takes the clipboard.
+    pub fn set_clipboard_image(&mut self, window: WindowId, png: Vec<u8>) -> Result<(), Error> {
+        self.backend.set_clipboard_image(window, png)
+    }
+
     /// Asks the window manager to show a window full screen, or to restore
     /// it; the new size arrives as [`WindowEvent::Resized`].
     pub fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error> {

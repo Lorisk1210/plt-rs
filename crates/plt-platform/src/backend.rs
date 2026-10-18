@@ -92,6 +92,10 @@ pub(crate) trait Backend {
     /// Brings the window above the others and asks for focus.
     fn raise_window(&mut self, window: WindowId) -> Result<(), Error>;
 
+    /// Puts the PNG image `png` on the clipboard, owned by `window`, until
+    /// another client takes the clipboard.
+    fn set_clipboard_image(&mut self, window: WindowId, png: Vec<u8>) -> Result<(), Error>;
+
     /// Makes the window cover the screen without decorations, or restores
     /// it.
     fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error>;

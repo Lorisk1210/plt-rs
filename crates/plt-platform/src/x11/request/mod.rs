@@ -4,10 +4,12 @@
 //! by a reply), so the connection always knows whether to expect one.
 //! Window management requests live in [`window`].
 
+mod selection;
 #[cfg(test)]
 pub(crate) mod testing;
 mod window;
 
+pub(crate) use selection::{selection_notify, set_selection_owner};
 pub(crate) use window::{
     NewWindow, WindowAttribute, WindowClass, change_window_attributes, create_colormap,
     create_window, destroy_window, event_mask, map_window, raise_window, resize_window,

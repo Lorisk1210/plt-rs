@@ -16,6 +16,8 @@ const FOCUS_OUT: u8 = 10;
 const EXPOSE: u8 = 12;
 const CONFIGURE_NOTIFY: u8 = 22;
 const PROPERTY_NOTIFY: u8 = 28;
+const SELECTION_CLEAR: u8 = 29;
+const SELECTION_REQUEST: u8 = 30;
 const CLIENT_MESSAGE: u8 = 33;
 const MAPPING_NOTIFY: u8 = 34;
 
@@ -27,6 +29,21 @@ const NOTIFY_POINTER: u8 = 5;
 const NOTIFY_GRAB: u8 = 1;
 /// Focus mode of the end of a keyboard grab.
 const NOTIFY_UNGRAB: u8 = 2;
+
+/// What another client asked for, from a `SelectionRequest` event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SelectionRequest {
+    /// The time of the request.
+    pub(crate) time: u32,
+    /// The client window asking.
+    pub(crate) requestor: u32,
+    /// The selection asked for.
+    pub(crate) selection: u32,
+    /// The form asked for (an atom such as `image/png`).
+    pub(crate) target: u32,
+    /// Where to put it on the requestor (0 from obsolete clients).
+    pub(crate) property: u32,
+}
 
 /// Where and when a pointer or key event happened.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,6 +140,13 @@ pub(crate) enum ServerEvent {
         /// The data.
         data: [u32; 5],
     },
+    /// `SelectionRequest`: a client asks for a selection we own.
+    SelectionRequest(SelectionRequest),
+    /// `SelectionClear`: another client took a selection we owned.
+    SelectionClear {
+        /// The selection.
+        selection: u32,
+    },
     /// `MappingNotify` for the keyboard or modifier mapping.
     KeyboardMappingChanged,
     /// Anything this crate does not act on.
@@ -176,6 +200,16 @@ impl ServerEvent {
                 window: u32_at(raw, 4),
                 message_type: u32_at(raw, 8),
                 data: [12, 16, 20, 24, 28].map(|at| u32_at(raw, at)),
+            },
+            SELECTION_REQUEST => Self::SelectionRequest(SelectionRequest {
+                time: u32_at(raw, 4),
+                requestor: u32_at(raw, 12),
+                selection: u32_at(raw, 16),
+                target: u32_at(raw, 20),
+                property: u32_at(raw, 24),
+            }),
+            SELECTION_CLEAR => Self::SelectionClear {
+                selection: u32_at(raw, 12),
             },
             MAPPING_NOTIFY if matches!(raw[4], 0 | 1) => Self::KeyboardMappingChanged,
             _ => Self::Ignored,

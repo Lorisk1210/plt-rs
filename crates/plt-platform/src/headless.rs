@@ -84,6 +84,8 @@ struct State {
     woken: bool,
     loop_alive: bool,
     frames: Vec<PresentedFrame>,
+    /// The image last put on the clipboard.
+    clipboard: Option<Vec<u8>>,
 }
 
 #[derive(Debug)]
@@ -150,6 +152,11 @@ impl HeadlessHandle {
         self.shared.lock().windows.keys().copied().collect()
     }
 
+    /// The PNG image last put on the clipboard, if any.
+    pub fn clipboard_image(&self) -> Option<Vec<u8>> {
+        self.shared.lock().clipboard.clone()
+    }
+
     /// Ids of the open windows from bottom to top: new and raised windows
     /// go on top.
     pub fn stacking_order(&self) -> Vec<WindowId> {
@@ -192,6 +199,7 @@ impl HeadlessBackend {
                 woken: false,
                 loop_alive: true,
                 frames: Vec::new(),
+                clipboard: None,
             }),
             input: Condvar::new(),
         });
@@ -297,6 +305,15 @@ impl Backend for HeadlessBackend {
             w.snapshot.fullscreen = fullscreen;
             Ok(())
         })
+    }
+
+    fn set_clipboard_image(&mut self, window: WindowId, png: Vec<u8>) -> Result<(), Error> {
+        let mut state = self.shared.lock();
+        if !state.windows.contains_key(&window) {
+            return Err(Error::UnknownWindow(window));
+        }
+        state.clipboard = Some(png);
+        Ok(())
     }
 
     fn raise_window(&mut self, window: WindowId) -> Result<(), Error> {

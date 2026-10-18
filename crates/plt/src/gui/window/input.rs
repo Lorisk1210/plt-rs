@@ -150,6 +150,7 @@ impl FigureWindow {
                 self.fullscreen = !self.fullscreen;
                 cx.set_fullscreen(self.window.id(), self.fullscreen)?;
             }
+            KeyAction::Copy => self.copy_to_clipboard(cx)?,
             KeyAction::Grid | KeyAction::GridMinor | KeyAction::LogX | KeyAction::LogY => {
                 let target = self
                     .pointer

@@ -448,3 +448,23 @@ def _(fig):
         at.patch.set_boxstyle(style)
         at.patch.set(facecolor=f"C{i}", alpha=0.4, hatch="//" if i % 2 else None)
         ax.add_artist(at)
+
+
+@case("offsetbox/figure_anchored", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    ax.plot(T, np.sin(T))
+    fig.add_artist(AnchoredText("figure corner", loc="upper left", bbox_to_anchor=(0, 1),
+                                bbox_transform=fig.transFigure, prop=dict(size=9)))
+    fig.add_artist(AnchoredText("pixels", loc="lower right", bbox_to_anchor=(400, 0),
+                                frameon=False))
+    fig.add_artist(AnchoredOffsetbox(loc="center", child=TextArea("child"),
+                                     bbox_to_anchor=(0.5, 0.95), bbox_transform=fig.transFigure))
+
+
+@case("offsetbox/subfigure_anchored", figsize=(5, 3))
+def _(fig):
+    for i, sub in enumerate(fig.subfigures(1, 2)):
+        sub.subplots().plot(T, np.cos(T + i))
+        sub.add_artist(AnchoredText(f"panel {i}", loc="upper right", bbox_to_anchor=(1, 1),
+                                    bbox_transform=sub.transSubfigure, prop=dict(size=8)))

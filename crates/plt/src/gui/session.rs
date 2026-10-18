@@ -45,17 +45,23 @@ impl Session {
     }
 
     /// Opens a window titled `title` for each figure of `figures` without
-    /// one, and redraws the figures that changed.
+    /// one, brings the windows of the others to the front when
+    /// `figure.raise_window` is on (as matplotlib's backends do on every
+    /// show, `pause` included), and redraws the figures that changed.
     ///
     /// # Errors
     ///
     /// When a window cannot be created or a figure cannot be rendered.
     pub fn show(&mut self, figures: &[(Figure, String)]) -> Result<(), GuiError> {
         let mut cx = self.event_loop.context();
+        let raise = crate::rc::params().figure_raise_window;
         for (figure, title) in figures {
-            if !self.windows.iter().any(|window| window.figure() == figure) {
-                self.windows
-                    .push(FigureWindow::open(&mut cx, figure, title)?);
+            match self.windows.iter().find(|window| window.figure() == figure) {
+                Some(window) if raise => cx.raise_window(window.id())?,
+                Some(_) => {}
+                None => self
+                    .windows
+                    .push(FigureWindow::open(&mut cx, figure, title)?),
             }
         }
         self.windows
@@ -300,6 +306,24 @@ mod tests {
             };
             handle.inject(id, event).expect("the window exists");
         }
+    }
+
+    #[test]
+    fn showing_again_raises_windows_unless_told_not_to() {
+        let (mut session, handle) = Session::headless();
+        let figures = [Figure::new(), Figure::new()];
+        let titled = |figure: &Figure| (figure.clone(), "Figure".to_owned());
+        session
+            .show(&[titled(&figures[0]), titled(&figures[1])])
+            .unwrap();
+        let first = session.windows[0].id();
+        crate::rc::context(|| {
+            crate::rc::set("figure.raise_window", "False").unwrap();
+            session.show(&[titled(&figures[0])]).unwrap();
+        });
+        assert_ne!(handle.stacking_order().last(), Some(&first));
+        session.show(&[titled(&figures[0])]).unwrap();
+        assert_eq!(handle.stacking_order().last(), Some(&first));
     }
 
     #[test]

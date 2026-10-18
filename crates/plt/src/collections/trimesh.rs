@@ -7,7 +7,8 @@ use plt_core::{Bbox, Point, Rgba};
 
 use super::{ColorMapping, Mapped};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistStore, DrawContext, LayoutContext, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, DrawContext, LayoutContext,
+    LimitPoints, RawHandle,
 };
 use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
@@ -121,6 +122,12 @@ impl Artist for TriMeshArtist {
         if let Err(problem) = self.draw_mesh(ctx) {
             ctx.report(self.base.id(), problem);
         }
+    }
+
+    /// matplotlib's `_update_collection_limits`: the vertices of the drawn
+    /// triangles.
+    fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
+        LimitPoints::from_limits(self.data_limits(), (true, true))
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {

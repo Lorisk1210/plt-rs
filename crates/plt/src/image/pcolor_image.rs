@@ -10,7 +10,9 @@ use super::artist::draw_rendered;
 use super::make::RenderedImage;
 use super::stages::normalize;
 use super::{ImageData, ImageError};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
+};
 use crate::axes::AxesState;
 use crate::colors::ScalarMappable;
 use crate::numeric::{Grid, linspace};
@@ -209,6 +211,18 @@ impl Artist for PcolorImageArtist {
         Some(Bbox::from_points(
             corners.map(|(&x, &y)| resolved.transform_point(Point::new(x, y))),
         ))
+    }
+
+    /// The corners of the grid (matplotlib's `_update_image_limits`).
+    fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
+        let corners = [
+            Point::new(*self.x.first()?, *self.y.first()?),
+            Point::new(*self.x.last()?, *self.y.last()?),
+        ];
+        Some(LimitPoints {
+            points: corners.to_vec(),
+            directions: (true, true),
+        })
     }
 
     /// matplotlib's `AxesImage.contains` with the grid as extent.

@@ -5,7 +5,7 @@ use std::rc::Rc;
 use plt_core::Point;
 
 use super::{Axes, AxesState, DataLimits};
-use crate::artist::{Artist, ArtistHandle, RawHandle};
+use crate::artist::{Artist, ArtistHandle, LimitPoints, RawHandle};
 
 /// How a new child changes the data limits and autoscaling.
 #[derive(Clone, Debug, Default)]
@@ -34,6 +34,26 @@ impl DataUpdate {
     /// `add_collection`).
     pub(crate) fn limits(limits: DataLimits) -> Self {
         Self::data(vec![limits.bbox.p0, limits.bbox.p1, limits.minpos])
+    }
+
+    /// What an artist adds to the data limits, without autoscaling the
+    /// view (matplotlib's `add_patch`).
+    pub(crate) fn extending(limits: Option<LimitPoints>) -> Self {
+        let LimitPoints { points, directions } = limits.unwrap_or_default();
+        Self {
+            points,
+            update: directions,
+            autoscale: (false, false),
+        }
+    }
+
+    /// What an artist adds to the data limits, autoscaling the view
+    /// (matplotlib's `add_line` and `add_collection`).
+    pub(crate) fn autoscaled(limits: Option<LimitPoints>) -> Self {
+        Self {
+            autoscale: (true, true),
+            ..Self::extending(limits)
+        }
     }
 }
 
@@ -66,6 +86,60 @@ impl Axes {
         drop(state);
         self.update_data(update);
         RawHandle::new(Rc::clone(figure), id)
+    }
+
+    /// Recomputes the data limits from the lines, patches, images and
+    /// collections of the axes, leaving hidden ones out when
+    /// `visible_only` (matplotlib's `relim`). The view follows at the next
+    /// [`Axes::autoscale_view`].
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// line.set_data(&[0.0, 10.0], &[0.0, 5.0]);
+    /// assert_eq!(ax.data_lim().bbox.p1.x, 1.0, "set_data leaves the limits alone");
+    /// ax.relim(false);
+    /// assert_eq!(ax.data_lim().bbox.p1.x, 10.0);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn relim(&self, visible_only: bool) -> &Self {
+        let axes = self.id();
+        let figure = self.raw().figure_state();
+        let mut state = figure.borrow_mut();
+        let children = state
+            .store
+            .get_as::<AxesState>(axes)
+            .map(|a| a.children.clone())
+            .unwrap_or_default();
+        let mut limits = DataLimits::NULL;
+        for artist in children.into_iter().filter_map(|id| state.store.get(id)) {
+            if visible_only && !artist.base().visible {
+                continue;
+            }
+            if let Some(LimitPoints {
+                points,
+                directions: (x, y),
+            }) = artist.limit_points(axes)
+            {
+                limits.update_from_points(&points, x, y);
+            }
+        }
+        if let Some(axes) = state.store.get_as_mut::<AxesState>(axes) {
+            axes.data_lim = limits;
+        }
+        self
+    }
+
+    /// Extends the data limits to include `points` in x when `updatex` and
+    /// in y when `updatey` (matplotlib's `update_datalim`).
+    pub fn update_datalim(&self, points: &[Point], updatex: bool, updatey: bool) -> &Self {
+        self.update_data(&DataUpdate {
+            points: points.to_vec(),
+            update: (updatex, updatey),
+            autoscale: (false, false),
+        });
+        self
     }
 
     /// Applies `update` to the data limits and autoscaling state

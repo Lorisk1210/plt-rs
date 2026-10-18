@@ -6,22 +6,6 @@ use super::children::DataUpdate;
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionSpec, TriMesh, TriMeshSpec};
 use crate::patches::{Patch, PatchArtist, PatchShape};
-use plt_core::path::DataLimits;
-
-/// The corners and smallest positive point of `limits`, in the directions
-/// that are data values, requesting autoscaling there.
-fn limits_update(limits: DataLimits, (x, y): (bool, bool)) -> DataUpdate {
-    let points = if limits.bbox.is_null() {
-        Vec::new()
-    } else {
-        vec![limits.bbox.p0, limits.bbox.p1, limits.minpos]
-    };
-    DataUpdate {
-        points,
-        update: (x, y),
-        autoscale: (true, true),
-    }
-}
 
 impl Axes {
     /// Adds a patch in data coordinates (unless its shape chose others),
@@ -45,8 +29,8 @@ impl Axes {
         if base.transform.is_none() {
             base.transform = Some(self.trans_data());
         }
-        let (limits, directions) = artist.data_limits(self.id());
-        Collection::from_raw(self.adopt(artist, &limits_update(limits, directions)))
+        let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
+        Collection::from_raw(self.adopt(artist, &update))
     }
 
     /// Adds a triangle mesh in data coordinates (matplotlib's
@@ -54,7 +38,7 @@ impl Axes {
     pub fn add_trimesh(&self, spec: TriMeshSpec) -> TriMesh {
         let mut artist = spec.artist;
         artist.base_mut().transform = Some(self.trans_data());
-        let limits = artist.data_limits();
-        TriMesh::from_raw(self.adopt(artist, &limits_update(limits, (true, true))))
+        let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
+        TriMesh::from_raw(self.adopt(artist, &update))
     }
 }

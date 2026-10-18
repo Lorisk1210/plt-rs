@@ -114,6 +114,22 @@ def _(fig):
     ax.autoscale(tight=True)
 
 
+@case("axes/relim", figsize=(6, 3))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    line, = ax1.plot([0, 1], [0, 1])
+    ax1.bar([2], [1])
+    ax1.scatter([3.5], [-1.5])
+    line.set_data([0, 4], [-2, 3])
+    ax1.relim()
+    ax1.autoscale_view()
+    ax2.plot([0, 1], [0, 1])
+    hidden, = ax2.plot([-5, 5], [-5, 5])
+    hidden.set_visible(False)
+    ax2.relim(visible_only=True)
+    ax2.autoscale_view()
+
+
 
 # --- aspect ----------------------------------------------------------------
 

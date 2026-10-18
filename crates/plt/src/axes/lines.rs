@@ -159,10 +159,15 @@ impl Axes {
             .collect()
     }
 
-    /// Adds a line in data coordinates and extends the data limits to its
-    /// drawn vertices.
-    pub(crate) fn add_line_artist(&self, line: LineArtist) -> Line2D {
-        let update = DataUpdate::data(line.drawn_points());
+    /// Adds a line, in data coordinates unless it has a transform, extends
+    /// the data limits to its drawn vertices and autoscales (matplotlib's
+    /// `add_line`).
+    pub(crate) fn add_line_artist(&self, mut line: LineArtist) -> Line2D {
+        let base = line.base_mut();
+        if base.transform.is_none() {
+            base.transform = Some(self.trans_data());
+        }
+        let update = DataUpdate::autoscaled(line.limit_points(self.id()));
         Line2D::from_raw(self.adopt(line, &update))
     }
 

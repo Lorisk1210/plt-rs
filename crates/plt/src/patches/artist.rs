@@ -10,7 +10,9 @@ use plt_render::{CapStyle, ClipPath, JoinStyle};
 use super::shape::{DisplayPath, PatchShape, ShapeFrame};
 use super::style::{PatchStyle, paint_paths};
 use super::{ClipRegion, PatchError, PatchProps};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
+};
 use crate::colors::Color;
 use crate::lines::LineStyle;
 use crate::rc::{ColorOrEdge, RcParams};
@@ -185,6 +187,21 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
 
     fn outline(&self, ctx: &LayoutContext<'_>) -> Option<ClipPath> {
         self.parts().outline(*ctx)
+    }
+
+    /// The outline's ends and axis extrema, in the directions where the
+    /// patch's coordinates are data values (matplotlib's
+    /// `_update_patch_limits`).
+    fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
+        let directions = self
+            .base
+            .transform
+            .as_ref()
+            .map_or((false, false), |transform| transform.data_directions(axes));
+        (directions != (false, false)).then(|| LimitPoints {
+            points: self.data_points(),
+            directions,
+        })
     }
 
     /// Whether the outline encloses `point` (matplotlib's

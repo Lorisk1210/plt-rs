@@ -8,6 +8,7 @@ use super::math::{
     Matrix4, Vec3, add, ortho_transformation, persp_transformation, scaled, view_axes,
     view_transformation, world_transformation,
 };
+use super::scaling::AxisScale;
 
 /// Distance of the camera from the centre of the box (matplotlib's
 /// `_dist`).
@@ -86,23 +87,46 @@ pub(crate) struct Camera {
     box_aspect: Vec3,
 }
 
-/// The projection of one draw (matplotlib's `M`).
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// The projection of one draw (matplotlib's `M` preceded by the axis
+/// scale transforms).
+#[derive(Clone, Debug)]
 pub(crate) struct Projection {
-    /// Scaled data coordinates to projected coordinates.
+    /// Transformed data coordinates to projected coordinates.
     pub(crate) matrix: Matrix4,
     /// Whether points outside the view frustum are clipped.
     perspective: bool,
+    /// The scales of the x, y and z axes.
+    scales: [AxisScale; 3],
 }
 
 impl Projection {
-    /// Projects a point (matplotlib's `proj_transform`).
-    pub(crate) fn project(&self, p: Vec3) -> Vec3 {
-        self.matrix.project(p)
+    /// The same projection applied after the scale transforms of the
+    /// three axes.
+    pub(crate) fn with_scales(self, scales: [AxisScale; 3]) -> Self {
+        Self { scales, ..self }
     }
 
-    /// Projects a point, or `None` when a perspective projection puts it
-    /// outside the view frustum (matplotlib's `_proj_transform_vec_clip`).
+    /// A data point in transformed coordinates; coordinates outside their
+    /// scale's domain become NaN (matplotlib's `_apply_scale_transforms`
+    /// with `_scale_invalid_mask`).
+    pub(crate) fn transform(&self, p: Vec3) -> Vec3 {
+        [0, 1, 2].map(|i| self.scales[i].masked_forward(p[i]))
+    }
+
+    /// Projects a data point (matplotlib's `_scale_proj_transform`).
+    pub(crate) fn project(&self, p: Vec3) -> Vec3 {
+        self.matrix.project(self.transform(p))
+    }
+
+    /// Projects a point already in transformed coordinates (matplotlib's
+    /// `proj_transform`).
+    pub(crate) fn project_transformed(&self, q: Vec3) -> Vec3 {
+        self.matrix.project(q)
+    }
+
+    /// Projects a data point, or `None` when a perspective projection puts
+    /// it outside the view frustum (matplotlib's
+    /// `_scale_proj_transform_clip`).
     pub(crate) fn project_clipped(&self, p: Vec3) -> Option<Vec3> {
         let projected = self.project(p);
         let [x, y, z] = projected;
@@ -174,8 +198,9 @@ impl Camera {
         roll(a, 2 - self.vertical.index() as isize)
     }
 
-    /// The projection matrix for the scaled axis limits
-    /// `[xmin, xmax, ymin, ymax, zmin, zmax]` (matplotlib's `get_proj`).
+    /// The projection for the axis limits `[xmin, xmax, ymin, ymax, zmin,
+    /// zmax]` in transformed coordinates, for linear axes until
+    /// [`Projection::with_scales`] (matplotlib's `get_proj`).
     pub(crate) fn projection(&self, limits: [f64; 6]) -> Projection {
         let box_aspect = self.box_aspect();
         let world = world_transformation(limits, box_aspect);
@@ -198,6 +223,7 @@ impl Camera {
         Projection {
             matrix: projection.dot(&view.dot(&world)),
             perspective: !self.is_ortho(),
+            scales: Default::default(),
         }
     }
 

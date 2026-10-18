@@ -12,11 +12,21 @@
 //! ("computed z-order") so that nearer ones are drawn on top, and the
 //! polygons and markers inside a collection are sorted back to front.
 //!
+//! Each axis has a scale (linear, log, symlog, logit, ...): data are
+//! mapped through the scales before the projection, and autoscaling,
+//! panning, zooming and the status-bar readout work in the transformed
+//! coordinates, as in matplotlib 3.11.
+//!
 //! * [`math`] — homogeneous projection matrices (matplotlib's `proj3d`).
-//! * [`Axes3D`] — limits, labels, view and decoration settings, and the
-//!   plotting methods: `plot`, `scatter`, `plot_surface`,
-//!   `plot_wireframe`, `plot_trisurf`, `contour`, `contourf`, `bar3d`,
-//!   `bar`, `quiver`, `voxels`, `stem`, `text` and `text2d`.
+//! * [`Axes3D`] — limits, bounds, margins, scales, equal aspects
+//!   ([`Aspect3D`]), labels, view and decoration settings, sharing of axes
+//!   and views, and the plotting methods: `plot`, `scatter`,
+//!   `plot_surface`, `plot_wireframe`, `plot_trisurf`, `contour`,
+//!   `contourf`, `tricontour`, `tricontourf`, `fill_between`, `errorbar`,
+//!   `bar3d`, `bar`, `quiver`, `voxels`, `stem`, `text`, `text2d` and
+//!   `add_collection3d`.
+//! * [`Axis3D`] — one axis: tick locators and formatters (major and
+//!   minor), fixed ticks and labels, tick parameters.
 //! * [`LightSource`] — the light shading surfaces, bars and voxels.
 //!
 //! ```
@@ -35,16 +45,22 @@
 //! [`Figure::subplot_3d`]: crate::figure::Figure::subplot_3d
 
 mod art3d;
+mod aspect;
 mod axis3d;
 mod axis_draw;
+mod axis_handle;
 mod bars;
+mod bounds;
 mod camera;
 mod collections3d;
 mod contour;
 mod coords;
 mod error;
+mod errorbar;
+mod fill_between;
 mod geometry;
 mod handle;
+mod lift;
 mod limits;
 pub mod math;
 mod mouse;
@@ -52,8 +68,11 @@ mod plot;
 mod quaternion;
 mod quiver;
 mod readout;
+mod scales;
+mod scaling;
 mod scatter;
 mod shade;
+mod share;
 mod state;
 mod stem;
 mod surface;
@@ -61,12 +80,16 @@ mod trisurf;
 mod voxels;
 
 pub use art3d::{ProjectedOutline, ZSort};
+pub use aspect::Aspect3D;
+pub use axis_handle::Axis3D;
 pub use bars::{Bar3DOptions, Boxes};
 pub use camera::{ProjType, ViewAngles};
 pub use collections3d::{FaceColormap, FaceColors};
 pub use contour::Contour3DOptions;
 pub use coords::Axis3;
 pub use error::Axes3DError;
+pub use errorbar::{Errorbar3D, Errorbar3DOptions};
+pub use fill_between::{FillBetween3DOptions, FillMode};
 pub use handle::{Axes3D, Axes3DOptions};
 pub use math::Vec3;
 pub(crate) use mouse::MouseAction;

@@ -8,7 +8,7 @@ use plt_core::{Bbox, Path, Point};
 use plt_render::GraphicsContext;
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
-use super::axis3d::Axis3D;
+use super::axis3d::{Axis3DState, DrawnTick};
 use super::camera::{Projection, norm_text_angle};
 use super::coords::Axis3;
 use super::geometry::{BoxGeometry, juggled, static_tick_direction, tick_direction};
@@ -41,7 +41,7 @@ pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &
     let projection = axes.projection();
     let painter = Painter {
         axes,
-        geometry: BoxGeometry::new(&axes.limits, &projection),
+        geometry: BoxGeometry::new(axes.scaled_limits(), &projection),
         projection,
         plane,
         extent: *extent,
@@ -59,7 +59,8 @@ pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &
     }
 }
 
-/// Everything shared by the decorations of one draw.
+/// Everything shared by the decorations of one draw, which are placed in
+/// transformed coordinates.
 struct Painter<'a> {
     axes: &'a Axes3DState,
     geometry: BoxGeometry,
@@ -83,9 +84,9 @@ impl Painter<'_> {
         ctx.report(self.axes.base_id(), problem);
     }
 
-    /// The projected `(x, y)` of a point in scaled coordinates.
+    /// The projected `(x, y)` of a point in transformed coordinates.
     fn project(&self, p: Vec3) -> Point {
-        let q = self.projection.project(p);
+        let q = self.projection.project_transformed(p);
         Point::new(q[0], q[1])
     }
 
@@ -118,22 +119,22 @@ impl Painter<'_> {
         }
     }
 
-    /// Draws the gridlines of `dir`: from each tick across the two panes
-    /// meeting along the far edge (matplotlib's `draw_grid`).
+    /// Draws the gridlines of `dir`: from each major and minor tick across
+    /// the two panes meeting along the far edge (matplotlib's
+    /// `draw_grid`).
     fn draw_grid(&self, ctx: &mut DrawContext<'_>, dir: Axis3) {
         let axis = self.axes.axis(dir);
-        let ticks = axis.drawn_ticks();
-        if ticks.is_empty() {
+        if axis.drawn_ticks().next().is_none() {
             return;
         }
         let i = dir.index();
         let (a, b) = ((i + 1) % 3, (i + 2) % 3);
         let (far, near) = (self.geometry.far_corner(), self.geometry.near_corner());
-        let paths = ticks
-            .iter()
-            .map(|tick| {
+        let paths = axis
+            .drawn_ticks()
+            .map(|drawn| {
                 let mut corner = far;
-                corner[i] = tick.loc;
+                corner[i] = axis.scale.masked_forward(drawn.tick.loc);
                 let (mut start, mut end) = (corner, corner);
                 start[a] = near[a];
                 end[b] = near[b];
@@ -171,7 +172,7 @@ impl Painter<'_> {
             (axis.label.pad + AXIS_LABEL_OFFSET) * deltas_per_point,
         );
         let edges = self.geometry.axis_line(dir, self.axes.camera.vertical);
-        let ends = edges.map(|p| self.projection.project(p));
+        let ends = edges.map(|p| self.projection.project_transformed(p));
         // The text angle follows the axis in axes coordinates.
         let (dx, dy) = (
             (ends[1][0] - ends[0][0]) * width,
@@ -207,7 +208,7 @@ impl Painter<'_> {
     fn draw_ticks(
         &self,
         ctx: &mut DrawContext<'_>,
-        axis: &Axis3D,
+        axis: &Axis3DState,
         origin: Vec3,
         deltas_per_point: f64,
     ) {
@@ -224,36 +225,45 @@ impl Painter<'_> {
             base + TICK_OUTWARD * tickdelta,
             base - TICK_INWARD * tickdelta,
         );
-        let label_deltas = scaled(
-            scaled(self.geometry.deltas, deltas_per_point),
-            axis.style.tick_pad + TICK_LABEL_OFFSET,
-        );
-        let style = &axis.style;
-        for tick in axis.drawn_ticks() {
+        let points = scaled(self.geometry.deltas, deltas_per_point);
+        for DrawnTick { tick, style, width } in axis.drawn_ticks() {
             let mut p = origin;
-            p[dir.index()] = tick.loc;
+            p[dir.index()] = axis.scale.masked_forward(tick.loc);
             p[tickdir] = outward;
             let out_end = self.project(p);
             p[tickdir] = inward;
             let in_end = self.project(p);
             p[tickdir] = base;
+            let label_deltas = scaled(points, style.pad + TICK_LABEL_OFFSET);
             let label_at = self.geometry.move_from_center(p, label_deltas, dir);
+            // The marks are always drawn, as wide as the axis says
+            // (matplotlib's `_tick_update_position`).
             self.stroke(
                 ctx,
                 &Path::polyline(vec![out_end, in_end]),
-                style.tick_width,
-                &style.tick_color,
+                width,
+                &style.color,
             );
+            if !style.labels.first {
+                continue;
+            }
+            let font = FontProperties {
+                size: style.label_size,
+                ..FontProperties::from_rc(self.axes.rc())
+            };
+            let halign = style.label_halign.unwrap_or(HAlign::Center);
             self.draw_text(
                 ctx,
                 &PlacedText {
                     text: &tick.label,
-                    font: &style.tick_font,
-                    color: &style.tick_label_color,
+                    font: &font,
+                    color: &style.label_color,
                     block: BlockStyle {
-                        halign: HAlign::Center,
-                        valign: VAlign::Top,
-                        multialign: HAlign::Center,
+                        halign,
+                        valign: style.label_valign.unwrap_or(VAlign::Top),
+                        multialign: halign,
+                        rotation: style.label_rotation.rem_euclid(360.0),
+                        rotation_mode: style.label_rotation_mode,
                         ..BlockStyle::default()
                     },
                     position: self.project(label_at),
@@ -267,7 +277,7 @@ impl Painter<'_> {
     fn draw_offset_text(
         &self,
         ctx: &mut DrawContext<'_>,
-        axis: &Axis3D,
+        axis: &Axis3DState,
         edges: [Vec3; 2],
         ends: [Vec3; 2],
         label_deltas: Vec3,
@@ -276,7 +286,7 @@ impl Painter<'_> {
         let Ok(ticks) = &axis.ticks else {
             return;
         };
-        if ticks.offset.is_empty() {
+        if ticks.offset.is_empty() || !axis.offset_visible() {
             return;
         }
         let dir = axis.dir;
@@ -286,7 +296,7 @@ impl Painter<'_> {
         let at = self
             .geometry
             .move_from_center(edges[outer], label_deltas, dir);
-        let center = self.projection.project(self.geometry.centers);
+        let center = self.projection.project_transformed(self.geometry.centers);
         let edge = ends[outer];
         let even_highs = self.geometry.highs.iter().filter(|&&h| h).count() % 2 == 0;
         let halign = if center[tickdir] > edge[tickdir] {
@@ -308,12 +318,14 @@ impl Painter<'_> {
         } else {
             HAlign::Right
         };
+        let rc = self.axes.rc();
+        let font = FontProperties::from_rc(rc).with_size(rc.xtick_labelsize, rc.font_size);
         self.draw_text(
             ctx,
             &PlacedText {
                 text: &ticks.offset,
-                font: &axis.style.tick_font,
-                color: &axis.style.tick_label_color,
+                font: &font,
+                color: &axis.offset_color,
                 block: anchored(norm_text_angle(dy.atan2(dx).to_degrees()), halign),
                 position: self.project(at),
             },

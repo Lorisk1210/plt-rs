@@ -188,7 +188,7 @@ pub struct TickParams {
 impl TickParams {
     /// Applies the parameters to the style of one tick level of axis
     /// `name`.
-    fn apply(&self, name: AxisName, major: bool, style: &mut TickStyle, rc: &RcParams) {
+    pub(crate) fn apply(&self, name: AxisName, major: bool, style: &mut TickStyle, rc: &RcParams) {
         if self.reset {
             *style = TickStyle::from_rc(name, major, rc);
         }

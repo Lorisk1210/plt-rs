@@ -1,8 +1,9 @@
 //! Probe operations for the `axes3d` area (navigating 3-D axes with the
-//! mouse).
+//! mouse, and their aspect).
 
+use plt::axes::Adjustable;
 use plt::figure::Figure;
-use plt::mplot3d::{Axes3D, Axis3};
+use plt::mplot3d::{Aspect3D, Axes3D, Axis3};
 use plt::navigation::{DragKey, NavMode, Navigation, PointerButton};
 use plt_core::Point;
 
@@ -16,6 +17,8 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("axes3d.pan", pan),
     Op::new("axes3d.zoom_box", zoom_box),
     Op::new("axes3d.format_coord", format_coord),
+    Op::new("axes3d.set_aspect", set_aspect),
+    Op::new("axes3d.zoom_data", zoom_data),
 ];
 
 fn bad(what: &str) -> ProbeError {
@@ -30,8 +33,18 @@ fn point(args: Args<'_>, key: &str) -> Result<Point, ProbeError> {
     }
 }
 
+/// The axis a `scales` key names.
+fn axis_named(name: &str) -> Result<Axis3, ProbeError> {
+    match name {
+        "x" => Ok(Axis3::X),
+        "y" => Ok(Axis3::Y),
+        "z" => Ok(Axis3::Z),
+        _ => Err(bad("scales")),
+    }
+}
+
 /// The reference figure: a 3-D axes in a 4 × 3 inch figure at 100 dpi with
-/// the probe's `view` and `limits`, laid out.
+/// the probe's `view`, `scales` and `limits`, laid out.
 fn scene(args: Args<'_>) -> Result<(Figure, Axes3D), ProbeError> {
     let fig = Figure::with_size(4.0, 3.0, 100.0);
     let ax = fig.subplot_3d();
@@ -41,6 +54,14 @@ fn scene(args: Args<'_>) -> Result<(Figure, Axes3D), ProbeError> {
                 ax.view_init(elev, azim, roll);
             }
             _ => return Err(bad("view")),
+        }
+    }
+    if let Some(scales) = args.get("scales") {
+        for (name, scale) in scales.as_object().ok_or_else(|| bad("scales"))? {
+            let scale = scale.as_str().ok_or_else(|| bad("scales"))?;
+            let options = plt::scale::ScaleOptions::default();
+            ax.set_scale_with(axis_named(name)?, scale, &options)
+                .map_err(ProbeError::rejected)?;
         }
     }
     if let Some(limits) = args.get("limits").filter(|v| !v.is_null()) {
@@ -132,4 +153,41 @@ fn format_coord(args: Args<'_>) -> Outcome {
     Ok(Json::from(
         Navigation::new().readout(&fig, point(args, "pixel")?),
     ))
+}
+
+/// An aspect given by its matplotlib name.
+fn aspect(name: &str) -> Result<Aspect3D, ProbeError> {
+    name.parse().map_err(ProbeError::rejected)
+}
+
+fn set_aspect(args: Args<'_>) -> Outcome {
+    let (_fig, ax) = scene(args)?;
+    let adjustable = match args.str("adjustable")? {
+        "box" => Adjustable::Box,
+        "datalim" => Adjustable::Datalim,
+        _ => return Err(bad("adjustable")),
+    };
+    ax.set_aspect(aspect(args.str("aspect")?)?, adjustable)
+        .map_err(ProbeError::rejected)?;
+    if let Some(then) = args.opt_str("then")? {
+        ax.set_aspect(aspect(then)?, adjustable)
+            .map_err(ProbeError::rejected)?;
+    }
+    Ok(Json::Object(vec![
+        ("limits".into(), limits(&ax)?),
+        ("box_aspect".into(), Json::from(ax.box_aspect().to_vec())),
+    ]))
+}
+
+fn zoom_data(args: Args<'_>) -> Outcome {
+    let (_fig, ax) = scene(args)?;
+    if let Some(name) = args.get("aspect").and_then(Json::as_str) {
+        ax.set_aspect(aspect(name)?, Adjustable::Box)
+            .map_err(ProbeError::rejected)?;
+    }
+    let &[u, v, w] = args.f64_vec("scale")?.as_slice() else {
+        return Err(bad("scale"));
+    };
+    ax.zoom_data_limits(u, v, w).map_err(ProbeError::rejected)?;
+    limits(&ax)
 }

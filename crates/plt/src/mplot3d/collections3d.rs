@@ -2,13 +2,14 @@
 //! colour-mapped, and line collections (matplotlib's `Poly3DCollection`
 //! and `Line3DCollection` constructors).
 
-use plt_core::Rgba;
+use plt_core::{Path, Rgba};
 
 use super::art3d::{Art3D, Polys3D, ZSort};
 use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::math::Vec3;
 use super::shade::{LightSource, polygon_normal, shade_colors};
+use crate::artist::RawHandle;
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors,
 };
@@ -143,6 +144,22 @@ impl Axes3D {
         if let Some(mapping) = mapping {
             handle.set_mapping(*mapping);
         }
+        self.register_polys(&raw, polys.faces, polys.zsort, None)?;
+        Ok(handle)
+    }
+
+    /// Gives a polygon collection already added to the plane its 3-D
+    /// faces, resolving its colours once (matplotlib's
+    /// `set_3d_properties` keeping `_facecolor3d` and `_edgecolor3d`);
+    /// `lifted` holds the 2-D paths and the sort position of polygons
+    /// lifted from a 2-D collection.
+    pub(crate) fn register_polys(
+        &self,
+        raw: &RawHandle,
+        faces: Vec<Vec<Vec3>>,
+        zsort: ZSort,
+        lifted: Option<(Vec<Path>, f64)>,
+    ) -> Result<(), Axes3DError> {
         let (facecolors, edgecolors) = raw
             .with_mut::<CollectionArtist, _>(|c| {
                 let colors = c.resolved_colors();
@@ -151,17 +168,19 @@ impl Axes3D {
                 colors
             })
             .map_err(Axes3DError::Style)?;
+        let (templates, sort_zpos) = lifted.unzip();
         self.register(
             raw.id(),
             Art3D::Polys(Polys3D {
-                faces: polys.faces,
-                zsort: polys.zsort,
-                sort_zpos: None,
+                faces,
+                zsort,
+                sort_zpos,
                 facecolors,
                 edgecolors,
+                templates,
             }),
         );
-        Ok(handle)
+        Ok(())
     }
 
     /// Adds a line collection of 3-D polylines (matplotlib's

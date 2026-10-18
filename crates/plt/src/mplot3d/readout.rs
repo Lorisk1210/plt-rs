@@ -30,10 +30,11 @@ impl Axes3D {
         )
     }
 
-    /// The point of the pane nearest to the camera's line of sight
-    /// through projected point `(xv, yv)`, and the axis that pane is normal
-    /// to (matplotlib's `_calc_coord`); `None` when the projection cannot
-    /// be inverted.
+    /// The point (in data coordinates) of the pane nearest to the camera's
+    /// line of sight through projected point `(xv, yv)`, and the axis that
+    /// pane is normal to (matplotlib's `_calc_coord`, which works in
+    /// transformed coordinates); `None` when the projection cannot be
+    /// inverted.
     pub(crate) fn pane_point(&self, xv: f64, yv: f64) -> Option<(Vec3, Axis3)> {
         self.with(|axes| {
             let projection = axes.projection();
@@ -50,7 +51,7 @@ impl Axes3D {
             } else {
                 [x / w, y / w, z / w]
             };
-            let limits = axes.limits.scaled();
+            let limits = axes.scaled_limits();
             let aspect = axes.camera.stored_box_aspect();
             let view_w = axes.camera.view_frame()[2];
             let focal = if focal_length.is_infinite() {
@@ -63,7 +64,7 @@ impl Axes3D {
                 f64::midpoint(hi, lo) + view_w[i] * DIST * (hi - lo) / aspect[i] * focal
             });
             let vec = [0, 1, 2].map(|i| eye[i] - p1[i]);
-            let geometry = BoxGeometry::new(&axes.limits, &projection);
+            let geometry = BoxGeometry::new(limits, &projection);
             let panes = [0, 1, 2].map(|i| {
                 if geometry.highs[i] {
                     geometry.maxs[i]
@@ -84,7 +85,8 @@ impl Axes3D {
             // The point lies on the pane: rounding must not move it off a
             // pane at zero (which would print as 1e-16).
             point[nearest] = panes[nearest];
-            Some((point, Axis3::ALL[nearest]))
+            let data = Axis3::ALL.map(|axis| axes.axis(axis).scale.inverse(point[axis.index()]));
+            Some((data, Axis3::ALL[nearest]))
         })
     }
 
@@ -100,15 +102,15 @@ impl Axes3D {
     ) -> Option<String> {
         self.with(|axes| {
             let axis3d = axes.axis(axis);
-            let formatter: &dyn Any = axis3d.major_formatter.as_ref();
-            if formatter.is::<ScalarFormatter>() {
+            let formatter = &axis3d.tickers.major_formatter;
+            let any: &dyn Any = formatter.as_ref();
+            if any.is::<ScalarFormatter>() {
                 return ScalarFormatter::format_data_resolved(value, resolution, &axis3d.settings)
                     .ok();
             }
             let (lo, hi) = axes.limits.view(axis);
             let info = AxisInfo::with_view(lo, hi);
-            axis3d
-                .major_formatter
+            formatter
                 .format_data_short(value, &TickContext::new(&info, &axis3d.settings))
                 .ok()
         })

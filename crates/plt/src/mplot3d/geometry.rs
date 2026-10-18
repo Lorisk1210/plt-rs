@@ -5,7 +5,6 @@
 
 use super::camera::{Camera, Projection};
 use super::coords::{Axis3, roll};
-use super::limits::Limits3D;
 use super::math::Vec3;
 
 /// The box corners making up the two planes normal to x, y and z (low
@@ -23,12 +22,13 @@ pub(crate) const PLANES: [[usize; 4]; 6] = [
 /// reference (matplotlib 3.9's `1/12 * 24/25`).
 const DELTA_SCALE: f64 = 0.08;
 
-/// The projected data box of one draw.
+/// The projected data box of one draw, in transformed coordinates (the
+/// axis scales applied).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BoxGeometry {
-    /// The low corner of the box in scaled coordinates.
+    /// The low corner of the box.
     pub(crate) mins: Vec3,
-    /// The high corner of the box in scaled coordinates.
+    /// The high corner of the box.
     pub(crate) maxs: Vec3,
     /// The eight corners, projected.
     pub(crate) corners: [Vec3; 8],
@@ -41,9 +41,14 @@ pub(crate) struct BoxGeometry {
 }
 
 impl BoxGeometry {
-    /// The box of `limits` seen through `projection`.
-    pub(crate) fn new(limits: &Limits3D, projection: &Projection) -> Self {
-        let bounds = Axis3::ALL.map(|axis| limits.bound(axis));
+    /// The box of the limits `[xmin, xmax, ymin, ymax, zmin, zmax]` in
+    /// transformed coordinates (possibly inverted) seen through
+    /// `projection` (matplotlib's `_get_coord_info`).
+    pub(crate) fn new(scaled: [f64; 6], projection: &Projection) -> Self {
+        let bounds = [0, 1, 2].map(|i| {
+            let (a, b) = (scaled[2 * i], scaled[2 * i + 1]);
+            (a.min(b), a.max(b))
+        });
         let mins = bounds.map(|b| b.0);
         let maxs = bounds.map(|b| b.1);
         let [(x0, x1), (y0, y1), (z0, z1)] = bounds;
@@ -57,7 +62,7 @@ impl BoxGeometry {
             [x1, y1, z1],
             [x0, y1, z1],
         ]
-        .map(|p| projection.project(p));
+        .map(|p| projection.project_transformed(p));
         let mean_depth = |plane: usize| {
             PLANES[plane]
                 .iter()
@@ -185,13 +190,12 @@ pub(crate) const fn static_tick_direction(axis: Axis3) -> usize {
 mod tests {
     use super::*;
     use crate::mplot3d::camera::ProjType;
-    use crate::rc::RcParams;
 
     fn default_box() -> (BoxGeometry, Camera) {
         let camera = Camera::new(ProjType::default()).expect("valid camera");
-        let limits = Limits3D::new(0.0, &RcParams::matplotlib());
-        let projection = camera.projection(limits.scaled());
-        (BoxGeometry::new(&limits, &projection), camera)
+        let limits = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+        let projection = camera.projection(limits);
+        (BoxGeometry::new(limits, &projection), camera)
     }
 
     #[test]

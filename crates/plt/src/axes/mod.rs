@@ -70,6 +70,7 @@ pub(crate) use aspect::AxesLocator;
 pub use aspect::{Adjustable, AspectError};
 pub use axis::{LabelLoc, Tick, TickSet};
 pub use axis_handle::Axis;
+pub(crate) use axis_handle::tick_label_formatter;
 pub(crate) use axis_layout::{PlacedText, place_text};
 pub use axis_mode::AxisMode;
 pub use bar_label::{BarLabelError, BarLabelFormat, BarLabelOptions, BarLabelType};

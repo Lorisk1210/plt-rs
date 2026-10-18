@@ -63,7 +63,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mplot3d/inverted_axes", |fig| {
         let ax = fig.subplot_3d();
         plot_helix(&ax)?;
-        ax.invert(Axis3::Z).invert(Axis3::X);
+        ax.invert(Axis3::Z)?.invert(Axis3::X)?;
         Ok(())
     })
     .sized(4.0, 4.0, 100.0),

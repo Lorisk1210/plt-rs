@@ -1,11 +1,16 @@
-//! `figures/cases_mplot3d.py`, split by topic.
+//! `figures/cases_mplot3d.py` and `figures/cases_mplot3d_api.py`, split by
+//! topic.
 
+mod api;
+mod api_plots;
 mod contours;
 mod objects;
 mod scatter;
 mod surfaces;
 mod view;
 
+pub(crate) use api::CASES as API;
+pub(crate) use api_plots::CASES as API_PLOTS;
 pub(crate) use contours::CASES as CONTOURS;
 pub(crate) use objects::CASES as OBJECTS;
 pub(crate) use scatter::CASES as SCATTER;

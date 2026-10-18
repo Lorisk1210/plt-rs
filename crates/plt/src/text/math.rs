@@ -36,8 +36,9 @@ impl<'a> Line<'a> {
 }
 
 /// The mathtext configuration for text in `font` at `dpi`: the fontset is
-/// the font's math font family, the rest comes from `mathtext.*` in `rc`.
-pub(crate) fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
+/// the font's math font family, the rest comes from `mathtext.*` in `rc`
+/// (what matplotlib's `MathTextParser.parse(s, dpi, prop)` typesets with).
+pub fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
     MathStyle {
         fontset: font.math_fontfamily,
         default: MathFont::parse(&rc.mathtext_default).unwrap_or_default(),

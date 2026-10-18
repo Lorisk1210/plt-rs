@@ -200,6 +200,11 @@ pub(crate) struct Dims {
     /// Depth.
     pub(crate) depth: f64,
     level: u32,
+    /// How many slots of the enclosing list hold this very box. matplotlib
+    /// builds the `\substack` separators as `[Vbox(...)] * n`, one object
+    /// in every slot, so shrinking the list shrinks that object once per
+    /// slot; each copy here replays all of those shrinks.
+    copies: u32,
 }
 
 impl Dims {
@@ -210,15 +215,18 @@ impl Dims {
             height,
             depth,
             level: 0,
+            copies: 1,
         }
     }
 
     fn shrink(&mut self) {
-        self.level += 1;
-        if self.level < NUM_SIZE_LEVELS {
-            self.width *= SHRINK_FACTOR;
-            self.height *= SHRINK_FACTOR;
-            self.depth *= SHRINK_FACTOR;
+        for _ in 0..self.copies {
+            self.level += 1;
+            if self.level < NUM_SIZE_LEVELS {
+                self.width *= SHRINK_FACTOR;
+                self.height *= SHRINK_FACTOR;
+                self.depth *= SHRINK_FACTOR;
+            }
         }
     }
 }
@@ -297,6 +305,15 @@ impl Node {
     /// An empty box of the given height and depth (`Vbox`).
     pub(crate) fn vbox(height: f64, depth: f64) -> Self {
         Self::Box(Dims::new(0.0, height, depth))
+    }
+
+    /// One of `copies` slots of a list holding the same empty box of the
+    /// given height and depth (a `Vbox` repeated by reference).
+    pub(crate) fn shared_vbox(height: f64, depth: f64, copies: u32) -> Self {
+        Self::Box(Dims {
+            copies,
+            ..Dims::new(0.0, height, depth)
+        })
     }
 
     /// A horizontal rule running across the enclosing box (`Hrule`).
@@ -477,6 +494,15 @@ mod tests {
             dims.shrink();
         }
         assert_eq!(dims.width, SHRINK_FACTOR.powi(5));
+        let Node::Box(mut shared) = Node::shared_vbox(0.0, 1.0, 2) else {
+            panic!("a shared vbox is a box");
+        };
+        shared.shrink();
+        assert_eq!(shared.depth, SHRINK_FACTOR * SHRINK_FACTOR);
+        for _ in 0..3 {
+            shared.shrink();
+        }
+        assert_eq!(shared.depth, SHRINK_FACTOR.powi(5));
         let mut state = State {
             font: FontName::Default,
             font_class: FontName::Rm,

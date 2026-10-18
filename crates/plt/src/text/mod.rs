@@ -38,6 +38,7 @@ pub use error::TextDrawError;
 pub use handle::{Text, TextProps};
 pub use layout::{LaidOutText, measure_text, text_path};
 pub(crate) use layout::{lay_out, lay_out_with_math};
+pub use math::math_style;
 pub(crate) use metrics::{hinting, with_text_path_metrics, without_hinting};
 pub use plt_text::{
     BlockLayout, HAlign as HorizontalAlignment, LineMetrics, LinePlacement, LineSpacing,

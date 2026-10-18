@@ -13,6 +13,7 @@ mod images;
 mod layout;
 mod legend;
 mod lines;
+mod mathtext;
 mod misc;
 mod mplot3d;
 mod offsetbox;
@@ -60,6 +61,11 @@ pub(crate) fn all() -> Vec<FigureCase> {
         layout::TIGHT,
         legend::CASES,
         lines::CASES,
+        mathtext::DELIMITER_CASES,
+        mathtext::FONT_CASES,
+        mathtext::LIGHTWEIGHT_CASES,
+        mathtext::TESTS_A_CASES,
+        mathtext::TESTS_B_CASES,
         misc::ARTISTS,
         misc::AXES_GRID,
         misc::AXISARTIST,

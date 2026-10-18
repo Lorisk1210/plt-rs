@@ -305,12 +305,14 @@ impl Parser<'_, '_> {
             .map(|row| row.width)
             .reduce(py_max)
             .ok_or_else(Fail::empty_max)?;
+        // matplotlib separates the rows with one `Vbox` object repeated.
+        let separators = u32::try_from(rows.len().saturating_sub(1)).unwrap_or(u32::MAX);
         let mut stack = Vec::with_capacity(rows.len() * 2);
         for row in rows {
             let mut centered = List::hcentered(vec![row.into_node()]);
             centered.hpack(max_width, Packing::Exactly);
             stack.push(centered.into_node());
-            stack.push(Node::vbox(0.0, thickness * 2.0));
+            stack.push(Node::shared_vbox(0.0, thickness * 2.0, separators));
         }
         stack.pop();
         let list = List::hlist(vec![List::vlist(stack).into_node()], self.fonts)?;

@@ -50,7 +50,9 @@ does it without pyplot.
   tables, legends, colorbars; matplotlib's colormaps, norms and colour
   sequences, including the multivariate and bivariate colormaps.
 * **Text**: TrueType fonts with OpenType shaping, right-to-left and
-  Arabic text, and mathtext.
+  Arabic text, and mathtext in every matplotlib fontset (DejaVu Sans and
+  Serif, Computer Modern, STIX, STIX sans, custom), placing every glyph
+  and rule where matplotlib does on its own mathtext test suite.
 * **Axes and layout**: scales, tickers and formatters, dates and
   categories, shared and twin axes, secondary axes, aspect handling,
   subplot grids, mosaics, subfigures, constrained and tight layout,

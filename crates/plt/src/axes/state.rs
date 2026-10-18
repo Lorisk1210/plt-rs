@@ -12,6 +12,7 @@ use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::Projection;
 use super::secondary::Secondary;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
+use crate::axes_grid1::Parasite;
 use crate::colors::Color;
 use crate::geo::{self, GeoState};
 use crate::gridspec::SubplotSpec;
@@ -57,6 +58,8 @@ pub(crate) struct AxesState {
     pub(crate) shares: (Option<ArtistId>, Option<ArtistId>),
     /// Set when this is a secondary axis of another axes.
     pub(crate) secondary: Option<Secondary>,
+    /// Set when this is a parasite axes drawn by its host (`axes_grid1`).
+    pub(crate) parasite: Option<Parasite>,
     /// Property cycle for lines and patches.
     pub(crate) prop_cycle: Cycler,
     /// Next property-cycle entry for lines.
@@ -160,6 +163,7 @@ impl AxesState {
             },
             shares: (None, None),
             secondary: None,
+            parasite: None,
             prop_cycle: rc.axes_prop_cycle.clone(),
             line_cycle: 0,
             patch_cycle: 0,

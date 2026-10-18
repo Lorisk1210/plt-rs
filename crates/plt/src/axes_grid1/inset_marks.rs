@@ -1,141 +1,19 @@
 //! Marks joining an inset axes to the area of its parent it shows: an
 //! outline of the area and lines between corners (matplotlib's
-//! `BboxPatch`, `BboxConnector` and `mark_inset`).
+//! `mark_inset`).
 
-use plt_core::{Bbox, Path, Point};
-
-use crate::artist::{ArtistBase, ArtistHandle, ArtistId, LayoutContext};
-use crate::axes::{Axes, AxesState};
-use crate::offsetbox::transformed_bbox;
-use crate::patches::{
-    DisplayPath, Patch, PatchError, PatchProps, PatchShape, PatchStyle, ShapeFrame,
-};
-use crate::transforms::Transform;
-
-/// A corner of a box (matplotlib's codes 1 to 4 of `mark_inset`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Corner {
-    /// `1`.
-    UpperRight,
-    /// `2`.
-    UpperLeft,
-    /// `3`.
-    LowerLeft,
-    /// `4`.
-    LowerRight,
-}
-
-impl Corner {
-    /// The corner with matplotlib's code `1` to `4`.
-    pub fn from_code(code: u8) -> Option<Self> {
-        Some(match code {
-            1 => Self::UpperRight,
-            2 => Self::UpperLeft,
-            3 => Self::LowerLeft,
-            4 => Self::LowerRight,
-            _ => return None,
-        })
-    }
-
-    /// The corner of `bbox`, read from its stored points like
-    /// matplotlib's `get_bbox_edge_pos` (a flipped box swaps corners).
-    fn of(self, bbox: &Bbox) -> Point {
-        let (p0, p1) = (bbox.p0, bbox.p1);
-        match self {
-            Self::UpperRight => p1,
-            Self::UpperLeft => Point::new(p0.x, p1.y),
-            Self::LowerLeft => p0,
-            Self::LowerRight => Point::new(p1.x, p0.y),
-        }
-    }
-}
-
-/// The area inset axes `inset` shows, in display pixels: its view limits
-/// through the data transform of `parent` (matplotlib's `TransformedBbox`
-/// of `mark_inset`).
-fn shown_area(layout: LayoutContext<'_>, parent: ArtistId, inset: ArtistId) -> Option<Bbox> {
-    let view = layout.store().get_as::<AxesState>(inset)?.view_lim;
-    Some(transformed_bbox(
-        &view,
-        &layout.resolve(&Transform::Data(parent))?,
-    ))
-}
-
-/// The outline of the area an inset axes shows, drawn in the inset's
-/// parent (matplotlib's `BboxPatch` of `mark_inset`).
-#[derive(Clone, Debug, PartialEq)]
-pub struct InsetArea {
-    inset: ArtistId,
-}
-
-impl PatchShape for InsetArea {
-    fn path(&self) -> Path {
-        Path::polyline(Vec::new())
-    }
-
-    fn skips_autoscale(&self) -> bool {
-        true
-    }
-
-    fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
-        let Some(area) = frame
-            .parent
-            .and_then(|parent| shown_area(frame.layout, parent, self.inset))
-        else {
-            return Ok(Vec::new());
-        };
-        let corners = [
-            Corner::LowerLeft,
-            Corner::LowerRight,
-            Corner::UpperRight,
-            Corner::UpperLeft,
-        ]
-        .map(|corner| corner.of(&area));
-        Ok(vec![DisplayPath::display(Path::polygon(corners), true)])
-    }
-}
-
-/// A line from a corner of an inset axes to the same corner of the area
-/// it shows, drawn in the inset (matplotlib's `BboxConnector` of
-/// `mark_inset`).
-#[derive(Clone, Debug, PartialEq)]
-pub struct InsetConnector {
-    parent: ArtistId,
-    corner: Corner,
-}
-
-impl PatchShape for InsetConnector {
-    fn path(&self) -> Path {
-        Path::polyline(Vec::new())
-    }
-
-    fn skips_autoscale(&self) -> bool {
-        true
-    }
-
-    fn init_style(&self, _style: &mut PatchStyle, base: &mut ArtistBase) {
-        base.clip_on = false;
-    }
-
-    fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
-        let ends = frame.parent.and_then(|inset| {
-            let inset_box = frame.layout.axes_extent(inset)?;
-            let area = shown_area(frame.layout, self.parent, inset)?;
-            Some([self.corner.of(&inset_box), self.corner.of(&area)])
-        });
-        Ok(ends.map_or_else(Vec::new, |ends| {
-            vec![DisplayPath::display(Path::polyline(ends.to_vec()), false)]
-        }))
-    }
-}
+use super::bbox_patches::{BboxConnector, BboxPatch, BboxSource, Corner};
+use crate::artist::ArtistHandle;
+use crate::axes::Axes;
+use crate::patches::{Patch, PatchProps};
 
 /// The marks [`mark_inset`] adds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InsetMarks {
     /// The outline of the area, in the parent.
-    pub area: Patch<InsetArea>,
+    pub area: Patch<BboxPatch>,
     /// The lines from the two corners, in the inset.
-    pub connectors: [Patch<InsetConnector>; 2],
+    pub connectors: [Patch<BboxConnector>; 2],
 }
 
 /// Outlines the area of `parent` that `inset` shows and joins corners
@@ -166,14 +44,18 @@ pub fn mark_inset(
         fill: Some(fill),
         ..props
     };
-    let area = parent.add_artist(InsetArea { inset: inset.id() });
+    let shown = BboxSource::view_limits(inset, parent.trans_data());
+    let area = parent.add_patch(BboxPatch::new(shown.clone()));
     area.update_props(styled.clone());
     let connectors = [first, second].map(|corner| {
-        let line = inset.add_artist(InsetConnector {
-            parent: parent.id(),
+        let line = inset.add_patch(BboxConnector::new(
+            BboxSource::axes(inset),
+            shown.clone(),
             corner,
-        });
+            None,
+        ));
         line.update_props(styled.clone());
+        line.set_clip_on(false);
         line
     });
     InsetMarks { area, connectors }
@@ -185,20 +67,7 @@ mod tests {
     use crate::axes_grid1::{InsetOptions, zoomed_inset_axes};
     use crate::figure::Figure;
     use crate::testing::{Call, RecordingRenderer};
-
-    #[test]
-    fn corners_follow_matplotlib_codes() {
-        let bbox = Bbox::from_bounds(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(
-            Corner::from_code(1).map(|c| c.of(&bbox)),
-            Some(Point::new(4.0, 6.0))
-        );
-        assert_eq!(
-            Corner::from_code(3).map(|c| c.of(&bbox)),
-            Some(Point::new(1.0, 2.0))
-        );
-        assert_eq!(Corner::from_code(5), None);
-    }
+    use plt_core::Point;
 
     #[test]
     fn marks_outline_the_area_and_join_the_corners() {
@@ -219,6 +88,10 @@ mod tests {
             PatchProps::default().edgecolor("0.5"),
         );
         assert_eq!(marks.connectors[1].zorder(), 1.0);
+        assert!(
+            ax.data_lim().bbox.is_null(),
+            "the marks have no data limits"
+        );
         let mut renderer = RecordingRenderer::new(400.0, 400.0, 100.0);
         fig.draw(&mut renderer).expect("drawable");
         let outlines: Vec<Vec<Point>> = renderer

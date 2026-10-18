@@ -7,6 +7,7 @@ use plt_core::{Bbox, Path, Point};
 use super::artist::LegendParent;
 use crate::artist::{Artist, ArtistId, LayoutContext};
 use crate::axes::AxesState;
+use crate::axes_grid1::parasites_of;
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::lines::LineArtist;
 use crate::offsetbox::{AnchorLoc, anchored_bbox};
@@ -26,17 +27,20 @@ struct Obstacles {
 }
 
 impl Obstacles {
-    /// The plotted artists of `axes` (matplotlib's `_auto_legend_data`).
+    /// The plotted artists of `axes` and of its parasites, which a host
+    /// draws as its own (matplotlib's `_auto_legend_data`).
     fn of_axes(ctx: LayoutContext<'_>, axes: ArtistId) -> Self {
         let mut obstacles = Self::default();
         let store = ctx.store();
-        let Some(state) = store.get_as::<AxesState>(axes) else {
-            return obstacles;
-        };
-        let plotted = state
-            .children
-            .iter()
-            .filter(|id| !state.spines.contains(id) && !state.titles.contains(id));
+        let owners = std::iter::once(axes).chain(parasites_of(store, axes));
+        let plotted = owners
+            .filter_map(|owner| store.get_as::<AxesState>(owner))
+            .flat_map(|state| {
+                state
+                    .children
+                    .iter()
+                    .filter(|id| !state.spines.contains(id) && !state.titles.contains(id))
+            });
         for &id in plotted {
             let Some(artist) = store.get(id) else {
                 continue;

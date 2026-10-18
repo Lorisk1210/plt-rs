@@ -1,8 +1,10 @@
 //! `figures/cases_toolkits.py`: `axes_grid1` image grids and dividers in
-//! one submodule, inset locators, RGB axes and `axisartist` in another.
+//! one submodule, inset locators, RGB axes and `axisartist` in another,
+//! bbox connectors and host and parasite axes in a third.
 
 mod grids;
 mod insets;
+mod parasites;
 
 use plt::numeric::{Grid, linspace};
 
@@ -30,6 +32,22 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("toolkits/zoomed_inset_mark_inset", insets::zoomed_marked)
         .sized(5.0, 4.0, 100.0),
     FigureCase::new("toolkits/rgb_axes", insets::rgb).sized(5.0, 4.0, 100.0),
+    FigureCase::new(
+        "toolkits/bbox_connector_patch",
+        parasites::bbox_connector_patch,
+    )
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new(
+        "toolkits/host_twinx_twiny_legend",
+        parasites::twinx_twiny_legend,
+    ),
+    FigureCase::new("toolkits/host_twin_aux_tight", parasites::twin_aux_tight)
+        .sized(7.0, 3.5, 100.0),
+    FigureCase::new(
+        "toolkits/host_aux_axes_best_legend",
+        parasites::aux_axes_best_legend,
+    )
+    .sized(5.0, 3.5, 100.0),
     FigureCase::new(
         "toolkits/axisartist_axisline_styles",
         insets::axisline_styles,

@@ -1,8 +1,9 @@
 //! Which axes of a grid keep their tick labels and axis labels
 //! (matplotlib's `Grid.set_label_mode` and `SimpleAxisArtist.toggle`).
 
-use crate::artist::ArtistHandle;
-use crate::axes::{Axes, AxesState, AxisName, TickLevel, TickParams};
+use super::mpl_axes::SimpleAxisArtist;
+use crate::axes::Axes;
+use crate::axisartist::Toggle;
 use crate::spines::SpineSide;
 
 /// Which axes of a grid are labelled (matplotlib's `label_mode`).
@@ -41,42 +42,18 @@ pub(super) fn apply_label_mode(rows: &[Vec<Axes>], mode: LabelMode) {
 /// Shows or hides the major tick labels and the axis label on `side`
 /// (matplotlib's `SimpleAxisArtist.toggle(ticklabels=..., label=...)`).
 fn toggle(ax: &Axes, side: SpineSide, shown: bool) {
-    let name = side.axis();
-    let params = match name {
-        AxisName::X => TickParams {
-            labelbottom: Some(shown),
-            ..TickParams::default()
-        },
-        AxisName::Y => TickParams {
-            labelleft: Some(shown),
-            ..TickParams::default()
-        },
-    };
-    ax.tick_params(&TickParams {
-        axis: Some(name),
-        which: TickLevel::Major,
-        ..params
+    SimpleAxisArtist::new(ax, side).toggle(&Toggle {
+        ticklabels: Some(shown),
+        label: Some(shown),
+        ..Toggle::default()
     });
-    let axis = ax.axis_of(name);
-    let on_side = axis.label_position() == side;
-    if shown {
-        set_label_visible(ax, name, true);
-        axis.set_label_position(side)
-            .expect("the label goes on a side of its own axis");
-    } else if on_side {
-        set_label_visible(ax, name, false);
-    }
-}
-
-/// Shows or hides the label of axis `name`.
-fn set_label_visible(ax: &Axes, name: AxisName, visible: bool) {
-    ax.raw()
-        .with_mut::<AxesState, _>(|state| state.axis_mut(name).label.visible = visible);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::artist::ArtistHandle;
+    use crate::axes::{AxesState, AxisName};
     use crate::figure::Figure;
 
     #[test]

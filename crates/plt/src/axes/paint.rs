@@ -10,6 +10,7 @@ use super::Axes;
 use super::axis_layout::AxisPainter;
 use super::state::AxesState;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore, DrawContext};
+use crate::axes_grid1::{is_parasite, parasites_of};
 use crate::image::Compositor;
 use crate::legend::LegendArtist;
 use crate::patheffects::with_path_effects;
@@ -21,8 +22,13 @@ use crate::transforms::unit_to_bbox;
 enum Item {
     /// A child artist.
     Child(ArtistId),
-    /// The x or y axis.
-    Axis(AxisName),
+    /// The x or y axis of this axes or of one of its parasites.
+    Axis(ArtistId, AxisName),
+}
+
+/// Child `id` with its z-order, unless it was removed.
+fn zordered(store: &ArtistStore, id: ArtistId) -> Option<(f64, Item)> {
+    Some((store.get(id)?.base().zorder, Item::Child(id)))
 }
 
 impl AxesState {
@@ -52,37 +58,78 @@ impl AxesState {
     }
 
     /// The children and both axes sorted by z-order, stable for ties in the
-    /// order of matplotlib's `get_children`: plotted artists, spines, both
-    /// axes, the centre, left and right titles, child axes, the legend.
+    /// order of matplotlib's `get_children`: plotted artists, the children
+    /// of every parasite (which matplotlib's `HostAxesBase.draw` appends to
+    /// the plotted artists), spines, both axes, the centre, left and right
+    /// titles, child axes, the legend.
     fn items(&self, store: &ArtistStore) -> Vec<(f64, Item)> {
-        let framed = self.decorations.framed();
-        let is_legend = |id: ArtistId| store.get_as::<LegendArtist>(id).is_some();
-        let is_child_axes = |id: ArtistId| store.get_as::<AxesState>(id).is_some();
-        let plotted = self.children.iter().copied().filter(|&id| {
+        let mut items: Vec<(f64, Item)> = self
+            .plotted(store)
+            .filter_map(|id| zordered(store, id))
+            .collect();
+        let parasites = parasites_of(store, self.base().id());
+        for parasite in parasites
+            .into_iter()
+            .filter_map(|id| store.get_as::<Self>(id))
+        {
+            items.extend(parasite.plotted(store).filter_map(|id| zordered(store, id)));
+            // matplotlib draws every child of a parasite that is visible:
+            // its frame and axis settings do not count.
+            items.extend(parasite.decoration_items(store, true, true));
+        }
+        items.extend(self.decoration_items(
+            store,
+            self.decorations.framed(),
+            self.decorations.axis_on,
+        ));
+        items.sort_by(|a, b| a.0.total_cmp(&b.0));
+        items
+    }
+
+    /// The plotted children: neither spines, titles, legends nor child
+    /// axes.
+    fn plotted<'a>(&'a self, store: &'a ArtistStore) -> impl Iterator<Item = ArtistId> + 'a {
+        self.children.iter().copied().filter(move |&id| {
             !self.spines.contains(&id)
                 && !self.titles.contains(&id)
-                && !is_legend(id)
-                && !is_child_axes(id)
-        });
-        let spines = self.spines_in_children_order().filter(|_| framed);
+                && store.get_as::<LegendArtist>(id).is_none()
+                && store.get_as::<Self>(id).is_none()
+        })
+    }
+
+    /// The decorations in the order of matplotlib's `get_children`: the
+    /// spines (with `spines`), both axes (with `axes`), the centre, left
+    /// and right titles, the child axes other than parasites, the legends.
+    fn decoration_items(&self, store: &ArtistStore, spines: bool, axes: bool) -> Vec<(f64, Item)> {
+        let id = self.base().id();
+        let mut items: Vec<(f64, Item)> = self
+            .spines_in_children_order()
+            .filter(|_| spines)
+            .filter_map(|id| zordered(store, id))
+            .collect();
+        if axes {
+            items.push((self.axis_zorder, Item::Axis(id, AxisName::X)));
+            items.push((self.axis_zorder, Item::Axis(id, AxisName::Y)));
+        }
         // `titles` holds the left, centre and right title.
         let titles = [1, 0, 2]
             .into_iter()
             .filter_map(|i| self.titles.get(i).copied());
-        let child_axes = self
+        let child_axes =
+            self.children.iter().copied().filter(|&child| {
+                store.get_as::<Self>(child).is_some() && !is_parasite(store, child)
+            });
+        let legends = self
             .children
             .iter()
             .copied()
-            .filter(|&id| is_child_axes(id));
-        let legends = self.children.iter().copied().filter(|&id| is_legend(id));
-        let child = |id: ArtistId| Some((store.get(id)?.base().zorder, Item::Child(id)));
-        let mut items: Vec<(f64, Item)> = plotted.chain(spines).filter_map(child).collect();
-        if self.decorations.axis_on {
-            items.push((self.axis_zorder, Item::Axis(AxisName::X)));
-            items.push((self.axis_zorder, Item::Axis(AxisName::Y)));
-        }
-        items.extend(titles.chain(child_axes).chain(legends).filter_map(child));
-        items.sort_by(|a, b| a.0.total_cmp(&b.0));
+            .filter(|&child| store.get_as::<LegendArtist>(child).is_some());
+        items.extend(
+            titles
+                .chain(child_axes)
+                .chain(legends)
+                .filter_map(|id| zordered(store, id)),
+        );
         items
     }
 
@@ -132,9 +179,18 @@ impl AxesState {
     fn draw_item(&self, ctx: &mut DrawContext<'_>, item: Item) {
         match item {
             Item::Child(id) => ctx.draw_child(id),
-            Item::Axis(name) => ctx.draw_artist(false, |ctx| {
-                AxisPainter::new(self.base().id(), self, name).draw(ctx, &self.rc);
-            }),
+            Item::Axis(owner, name) => {
+                let axes = if owner == self.base().id() {
+                    Some(self)
+                } else {
+                    ctx.layout().store().get_as::<Self>(owner)
+                };
+                if let Some(axes) = axes {
+                    ctx.draw_artist(false, |ctx| {
+                        AxisPainter::new(owner, axes, name).draw(ctx, &axes.rc);
+                    });
+                }
+            }
         }
     }
 
@@ -145,7 +201,7 @@ impl AxesState {
             .iter()
             .filter_map(|&(_, item)| match item {
                 Item::Child(id) => Some(id),
-                Item::Axis(_) => None,
+                Item::Axis(..) => None,
             })
             .collect();
         let clip = ctx.layout().axes_extent(self.base().id());
@@ -153,7 +209,7 @@ impl AxesState {
         for &(_, item) in items {
             match item {
                 Item::Child(id) => compositor.draw(ctx, id),
-                Item::Axis(_) => {
+                Item::Axis(..) => {
                     compositor.flush(ctx);
                     self.draw_item(ctx, item);
                 }

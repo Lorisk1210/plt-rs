@@ -283,7 +283,7 @@ impl Axes3D {
             return f64::NAN;
         };
         let display = axes.position.transformed(&unit_to_bbox(&frame));
-        let size = markersize * markersize * state.dpi / 72.0;
+        let size = markersize * markersize * state.dpi() / 72.0;
         let fraction = f64::midpoint(size / display.width(), size / display.height());
         let mut camera = axes.camera;
         camera.angles.elev = 0.0;

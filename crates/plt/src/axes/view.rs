@@ -47,7 +47,7 @@ impl FigureState {
                 AxisName::X => extent.width(),
                 AxisName::Y => extent.height(),
             };
-            let points = pixels.abs() / self.dpi * 72.0;
+            let points = pixels.abs() / self.dpi() * 72.0;
             Some(self.axes_state(owner)?.axis(name).tick_space(points))
         })
     }

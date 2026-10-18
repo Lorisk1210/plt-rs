@@ -171,7 +171,7 @@ impl FigureState {
     pub(crate) fn locate_in_divider(&mut self, cell: DividerCell) -> Option<Bbox> {
         let divider = self.layout.dividers.get(cell.divider.0)?.clone();
         let frame = self.frame_bbox(divider.frame)?;
-        let (fig_w, fig_h) = (frame.width() / self.dpi, frame.height() / self.dpi);
+        let (fig_w, fig_h) = (frame.width() / self.dpi(), frame.height() / self.dpi());
         let (x, y, w, h) = self.divider_rect(&divider)?.bounds();
         let horizontal: Vec<(f64, f64)> = divider
             .horizontal

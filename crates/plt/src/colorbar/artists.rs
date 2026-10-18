@@ -312,7 +312,7 @@ impl Painter<'_> {
         let height = figure
             .axes_bbox(self.ax.id())
             .map_or(f64::NAN, |extent| extent.height());
-        let grow = inches * figure.dpi / height;
+        let grow = inches * figure.dpi() / height;
         Path::closed(vec![
             Point::new(0.0, -grow),
             Point::new(1.0, -grow),

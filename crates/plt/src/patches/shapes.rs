@@ -256,7 +256,7 @@ impl PatchShape for Wedge {
         let arc = Path::arc(theta1, theta2, None);
         let arc_codes = arc.resolved_codes();
         let (vertices, codes) = self.width.map_or_else(
-            || wedge_outline(&arc, arc_codes.clone()),
+            || wedge_outline(&arc, arc_codes.clone(), connector),
             |width| annulus_outline(&arc, &arc_codes, (self.r - width) / self.r, connector),
         );
         let placed = vertices
@@ -267,12 +267,18 @@ impl PatchShape for Wedge {
     }
 }
 
-/// The outline of a full wedge: the arc, back to the centre, closed.
-fn wedge_outline(arc: &Path, arc_codes: Vec<PathCode>) -> (Vec<Point>, Vec<PathCode>) {
+/// The outline of a wedge without a hole: the arc, then the centre joined
+/// by `connector` (a move for a full turn, so that no radius is drawn),
+/// closed.
+fn wedge_outline(
+    arc: &Path,
+    arc_codes: Vec<PathCode>,
+    connector: PathCode,
+) -> (Vec<Point>, Vec<PathCode>) {
     let mut vertices = arc.vertices().to_vec();
     vertices.extend([Point::ORIGIN, Point::ORIGIN]);
     let mut codes = arc_codes;
-    codes.extend([PathCode::LineTo, PathCode::ClosePoly]);
+    codes.extend([connector, PathCode::ClosePoly]);
     (vertices, codes)
 }
 
@@ -438,6 +444,12 @@ mod tests {
         let path = wedge.path();
         assert_eq!(path.code_at(path.len() - 1), PathCode::ClosePoly);
         assert_eq!(path.vertices()[path.len() - 2], Point::ORIGIN);
+        assert_eq!(path.code_at(path.len() - 2), PathCode::LineTo);
+        // A full turn moves to the centre instead of drawing a radius.
+        let disc = Wedge::new((0.0, 0.0), 2.0, 90.0, 450.0).path();
+        assert_eq!(disc.code_at(disc.len() - 2), PathCode::MoveTo);
+        assert_eq!(disc.code_at(disc.len() - 1), PathCode::ClosePoly);
+        assert_eq!(disc.vertices()[0], Point::new(2.0, 0.0));
         let ring = Wedge {
             width: Some(1.0),
             ..Wedge::new((0.0, 0.0), 2.0, 0.0, 360.0)

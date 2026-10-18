@@ -1,5 +1,7 @@
 //! The shared, mutable state behind a [`Figure`](super::Figure) handle.
 
+use std::cell::Cell;
+
 use plt_core::{Bbox, Rgba};
 use plt_render::{ClipPath, Renderer};
 
@@ -19,8 +21,8 @@ pub(crate) struct FigureState {
     pub(crate) store: ArtistStore,
     /// The root frame (the figure itself).
     pub(crate) root: ArtistId,
-    /// Canvas resolution in dots per inch.
-    pub(crate) dpi: f64,
+    /// Canvas resolution in dots per inch (see [`FigureState::set_dpi`]).
+    dpi: Cell<f64>,
     /// Canvas size in inches.
     pub(crate) size_inches: (f64, f64),
     /// Set whenever something changed since the last draw.
@@ -49,8 +51,8 @@ pub(crate) struct FigureState {
     pub(crate) cursor: CursorShape,
     /// The tools the program added to the figure's windows.
     pub(crate) tools: ToolRegistry,
-    /// The part of the figure being printed, in display pixels, while
-    /// saving with `bbox_inches` (matplotlib's `adjust_bbox`).
+    /// The part of the figure being printed, in inches, while saving with
+    /// `bbox_inches` (matplotlib's `adjust_bbox`).
     pub(crate) print_window: Option<Bbox>,
 }
 
@@ -113,7 +115,7 @@ impl FigureState {
         Self {
             store,
             root,
-            dpi,
+            dpi: Cell::new(dpi),
             size_inches,
             stale: true,
             pending_errors: Vec::new(),
@@ -131,9 +133,23 @@ impl FigureState {
         }
     }
 
+    /// Canvas resolution in dots per inch.
+    pub(crate) fn dpi(&self) -> f64 {
+        self.dpi.get()
+    }
+
+    /// Changes the canvas resolution. Drawing changes it through a shared
+    /// borrow while rasterized artists are drawn into the raster canvas of
+    /// a vector document, so that they compute their geometry in its
+    /// pixels (matplotlib's `MixedModeRenderer` sets `figure.dpi`).
+    pub(crate) fn set_dpi(&self, dpi: f64) {
+        self.dpi.set(dpi);
+    }
+
     /// Canvas size in pixels.
     pub(crate) fn size_pixels(&self) -> (f64, f64) {
-        (self.size_inches.0 * self.dpi, self.size_inches.1 * self.dpi)
+        let dpi = self.dpi();
+        (self.size_inches.0 * dpi, self.size_inches.1 * dpi)
     }
 
     /// Inserts `artist` as a child of the container `parent`.
@@ -182,7 +198,7 @@ impl FigureState {
             let Some(extent) = self.axes_bbox(id) else {
                 continue;
             };
-            let dpi = self.dpi;
+            let dpi = self.dpi();
             let shared = self.shared_tick_spaces(id);
             if let Some(state) = self.store.get_as_mut::<AxesState>(id) {
                 state.update_ticks(&extent, dpi, shared);
@@ -214,7 +230,13 @@ impl FigureState {
     pub(crate) fn frame_patch_bbox(&self, frame: ArtistId) -> Option<Bbox> {
         match self.print_window {
             Some(window) if frame == self.root => {
-                Some(Bbox::from_bounds(0.0, 0.0, window.width(), window.height()))
+                let dpi = self.dpi();
+                Some(Bbox::from_bounds(
+                    0.0,
+                    0.0,
+                    window.width() * dpi,
+                    window.height() * dpi,
+                ))
             }
             _ => self.frame_bbox(frame),
         }
@@ -244,16 +266,17 @@ impl FigureState {
 
 impl TransformContext for FigureState {
     fn dpi(&self) -> f64 {
-        self.dpi
+        self.dpi.get()
     }
 
     fn frame_bbox(&self, frame: ArtistId) -> Option<Bbox> {
         let node = self.store.get_as::<FigureFrame>(frame)?;
         if frame == self.root {
             let (w, h) = self.size_pixels();
-            let (x, y) = self
-                .print_window
-                .map_or((0.0, 0.0), |window| (-window.x0(), -window.y0()));
+            let dpi = self.dpi();
+            let (x, y) = self.print_window.map_or((0.0, 0.0), |window| {
+                (-window.x0() * dpi, -window.y0() * dpi)
+            });
             return Some(Bbox::from_bounds(x, y, w, h));
         }
         let parent = self.frame_bbox(node.base().parent?)?;

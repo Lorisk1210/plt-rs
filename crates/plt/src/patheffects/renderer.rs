@@ -162,6 +162,10 @@ impl Renderer for PathEffectRenderer<'_> {
         self.inner.stop_rasterizing();
     }
 
+    fn raster_dpi(&self) -> Option<f64> {
+        self.inner.raster_dpi()
+    }
+
     fn start_filter(&mut self) {
         self.inner.start_filter();
     }

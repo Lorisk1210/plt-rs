@@ -171,11 +171,11 @@ fn to_int(integral: f64, what: &'static str) -> Result<i64, TickerError> {
 /// memory long before, plt-rs reports [`TickerError::TooManyTicks`].
 const MAX_ARANGE: f64 = 1e7;
 
-/// numpy's `np.arange(start, stop, step)` for floats.
+/// numpy's `np.arange(start, stop, step)` for floats ([`numeric::arange`],
+/// whose last-bit rounding matters for tick positions), with numpy's
+/// errors for a zero step and a NaN length.
 ///
-/// numpy stores `start` and `start + step`, then fills the rest with
-/// `start + i * delta` where `delta = (start + step) - start`, which can
-/// differ from `step` in the last bit; this matters for tick positions.
+/// [`numeric::arange`]: crate::numeric::arange
 pub(crate) fn arange(start: f64, stop: f64, step: f64) -> Result<Vec<f64>, TickerError> {
     if step == 0.0 {
         return Err(TickerError::invalid("step", "arange step must be non-zero"));
@@ -184,22 +184,10 @@ pub(crate) fn arange(start: f64, stop: f64, step: f64) -> Result<Vec<f64>, Ticke
     if len.is_nan() {
         return Err(TickerError::NonFinite("arange length"));
     }
-    if len <= 0.0 {
-        return Ok(Vec::new());
-    }
     if len > MAX_ARANGE {
         return Err(TickerError::TooManyTicks(len as usize));
     }
-    let len = len as usize;
-    let next = start + step;
-    let delta = next - start;
-    Ok((0..len)
-        .map(|i| match i {
-            0 => start,
-            1 => next,
-            _ => start + i as f64 * delta,
-        })
-        .collect())
+    Ok(crate::numeric::arange(start, stop, step))
 }
 
 /// `np.unique`: sorted values without duplicates (NaN sorted last).

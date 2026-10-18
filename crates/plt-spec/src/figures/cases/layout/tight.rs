@@ -1,13 +1,15 @@
 //! The tight-layout section of `figures/cases_layout.py`, plus label
 //! alignment.
 
-use plt::axes::{AxisName, TickParams};
+use plt::axes::{AxisName, TickParams, TickPosition};
 use plt::axes::{Mesh, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::colors::colormaps;
 use plt::gridspec::SubplotOverrides;
 use plt::image::ColorizerOptions;
 use plt::layout::{LayoutEngine, TightLayout};
+use plt::rc::Aspect;
+use plt::spines::SpineSide;
 
 use super::{fill, grid, t};
 use crate::figures::FigureCase;
@@ -97,4 +99,23 @@ pub(crate) const CASES: &[FigureCase] = &[
         fig.align_labels(None);
         Ok(())
     }),
+    FigureCase::new("layout/align_titles", |fig| {
+        fig.subplots_adjust(&SubplotOverrides {
+            top: Some(0.7),
+            ..SubplotOverrides::default()
+        })?;
+        let axs = fig.subplots(1, 3)?;
+        axs[(0, 0)].plot([0.0, 1.0], [0.0, 1.0])?;
+        axs[(0, 0)].set_aspect(Aspect::Equal)?;
+        let top = axs[(0, 1)].xaxis();
+        top.set_ticks_position(TickPosition::Side(SpineSide::Top))?;
+        top.set_label_position(SpineSide::Top)?;
+        axs[(0, 1)].set_xlabel("top label");
+        for (i, ax) in axs.as_slice().iter().enumerate() {
+            ax.set_title(format!("Title {i}"));
+        }
+        fig.align_titles(None);
+        Ok(())
+    })
+    .sized(7.0, 3.0, 100.0),
 ];

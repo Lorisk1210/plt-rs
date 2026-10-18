@@ -2,11 +2,12 @@
 //! leaving just enough room around and between grid cells for the
 //! decorations of their axes.
 //!
-//! Unlike constrained layout, tight layout runs once, when asked
-//! ([`Figure::tight_layout`]), and only changes the figure's subplot
-//! parameters, so it handles a single grid of uniform cells: margins are
-//! the largest decorations along each edge of the grid, the spacings the
-//! largest between neighbouring cells.
+//! Tight layout runs once when asked ([`Figure::tight_layout`]), or at
+//! every draw as a layout engine ([`LayoutEngine::Tight`](super::LayoutEngine::Tight),
+//! `figure.autolayout`). It only changes the figure's subplot parameters,
+//! so it handles a single grid of uniform cells: margins are the largest
+//! decorations along each edge of the grid, the spacings the largest
+//! between neighbouring cells.
 
 use std::fmt;
 use std::ops::Range;
@@ -110,19 +111,32 @@ impl Figure {
     /// # Ok::<(), plt::layout::TightLayoutError>(())
     /// ```
     pub fn tight_layout(&self, params: &TightLayout) -> Result<&Self, TightLayoutError> {
-        let subplot_params = self.subplot_params();
         let axes: Vec<ArtistId> = self.axes().iter().map(ArtistHandle::id).collect();
-        let overrides = {
-            let mut state = self.raw().figure_state().borrow_mut();
-            state.layout.engine = None;
-            state.layout.pending = true;
-            let measured = Measured::new(&mut state, &axes, &subplot_params)?;
-            adjusted_params(&state, &measured, params)?
-        };
-        if let Some(overrides) = overrides {
-            self.subplots_adjust(&overrides)?;
-        }
+        let mut state = self.raw().figure_state().borrow_mut();
+        state.layout.engine = None;
+        state.layout.pending = true;
+        state.tight_layout_pass(self.raw().id(), &axes, params)?;
         Ok(self)
+    }
+}
+
+impl FigureState {
+    /// One tight layout pass over `axes`, changing the subplot parameters
+    /// of figure frame `frame` (matplotlib's `TightLayoutEngine.execute`).
+    pub(crate) fn tight_layout_pass(
+        &mut self,
+        frame: ArtistId,
+        axes: &[ArtistId],
+        params: &TightLayout,
+    ) -> Result<(), TightLayoutError> {
+        let Some(subplot_params) = self.subplot_params_of(frame) else {
+            return Ok(());
+        };
+        let measured = Measured::new(self, axes, &subplot_params)?;
+        if let Some(overrides) = adjusted_params(self, &measured, params)? {
+            self.set_subplot_params(frame, subplot_params.updated(&overrides)?)?;
+        }
+        Ok(())
     }
 }
 

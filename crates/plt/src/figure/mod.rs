@@ -198,19 +198,9 @@ impl Figure {
     /// axes accordingly (`fig.subplots_adjust(...)`).
     pub fn subplots_adjust(&self, overrides: &SubplotOverrides) -> Result<&Self, GridSpecError> {
         let params = self.subplot_params().updated(overrides)?;
-        let mut state = self.state.borrow_mut();
-        if let Some(frame) = state.store.get_as_mut::<FigureFrame>(self.root.id()) {
-            frame.subplot_params = params;
-        }
-        let ids: Vec<_> = state.store.ids().collect();
-        for id in ids {
-            if let Some(axes) = state.store.get_as_mut::<AxesState>(id)
-                && let Some(spec) = &axes.subplot_spec
-            {
-                axes.position = spec.position(&params)?;
-            }
-        }
-        state.stale = true;
+        self.state
+            .borrow_mut()
+            .set_subplot_params(self.root.id(), params)?;
         Ok(self)
     }
 

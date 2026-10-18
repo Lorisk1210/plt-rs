@@ -7,7 +7,7 @@ use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
-use crate::gridspec::SubplotParams;
+use crate::gridspec::{GridSpecError, SubplotParams};
 use crate::gui::tools::ToolRegistry;
 use crate::layout::LayoutState;
 use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
@@ -55,6 +55,50 @@ pub(crate) struct FigureState {
 }
 
 impl FigureState {
+    /// The subplot parameters of figure frame `frame`.
+    pub(crate) fn subplot_params_of(&self, frame: ArtistId) -> Option<SubplotParams> {
+        self.store
+            .get_as::<FigureFrame>(frame)
+            .map(|frame| frame.subplot_params)
+    }
+
+    /// Gives figure frame `frame` the subplot parameters `params` and moves
+    /// every grid-placed axes accordingly (`fig.subplots_adjust(...)`).
+    pub(crate) fn set_subplot_params(
+        &mut self,
+        frame: ArtistId,
+        params: SubplotParams,
+    ) -> Result<(), GridSpecError> {
+        if let Some(frame) = self.store.get_as_mut::<FigureFrame>(frame) {
+            frame.subplot_params = params;
+        }
+        let ids: Vec<_> = self.store.ids().collect();
+        for id in ids {
+            if let Some(axes) = self.store.get_as_mut::<AxesState>(id)
+                && let Some(spec) = &axes.subplot_spec
+            {
+                axes.position = spec.position(&params)?;
+            }
+        }
+        self.stale = true;
+        Ok(())
+    }
+
+    /// The axes of the whole figure, subfigures included, in creation
+    /// order (the scope of the root figure's `Figure::axes`).
+    pub(crate) fn all_axes(&self) -> Vec<ArtistId> {
+        self.store
+            .ids()
+            .filter(|&id| {
+                self.store.get_as::<AxesState>(id).is_some_and(|axes| {
+                    axes.base()
+                        .parent
+                        .is_some_and(|parent| self.store.get_as::<FigureFrame>(parent).is_some())
+                })
+            })
+            .collect()
+    }
+
     /// A figure of `size_inches` at `dpi` with an empty root frame.
     pub(crate) fn new(size_inches: (f64, f64), dpi: f64, facecolor: Rgba, edgecolor: Rgba) -> Self {
         let mut store = ArtistStore::default();

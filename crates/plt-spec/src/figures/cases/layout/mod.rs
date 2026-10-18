@@ -10,6 +10,7 @@ pub(crate) use tight::CASES as TIGHT;
 
 use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicOptions, Share, SubfigureOptions};
 use plt::gridspec::{GridSpec, SubplotOverrides};
+use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::text::Text;
 
@@ -18,6 +19,14 @@ use crate::figures::FigureCase;
 /// `T = np.linspace(0, 10, 40)`.
 fn t() -> Vec<f64> {
     linspace(0.0, 10.0, 40)
+}
+
+/// `GRID = np.add.outer(np.sin(np.linspace(0, 3, 12)),
+/// np.cos(np.linspace(0, 4, 16)))`.
+fn grid() -> Grid<f64> {
+    let rows = linspace(0.0, 3.0, 12);
+    let cols = linspace(0.0, 4.0, 16);
+    Grid::from_fn(12, 16, |r, c| rows[r].sin() + cols[c].cos())
 }
 
 /// `_fill(ax, i)`: `ax.plot(T, np.sin(T + i))`.

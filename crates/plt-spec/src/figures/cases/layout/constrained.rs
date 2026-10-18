@@ -8,22 +8,16 @@ use plt::figure::{Share, SubfigureOptions};
 use plt::image::ColorizerOptions;
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::LegendOptions;
-use plt::numeric::Grid;
 use plt::orientation::Orientation;
 use plt::prelude::*;
 use plt::spines::SpineSide;
 
-use super::fill;
+use super::{fill, grid};
 use crate::figures::{CaseResult, FigureCase};
 
-/// `GRID = np.add.outer(np.sin(np.linspace(0, 3, 12)),
-/// np.cos(np.linspace(0, 4, 16)))`, scaled by `gain`.
-fn grid(gain: f64) -> Mesh {
-    let rows = linspace(0.0, 3.0, 12);
-    let cols = linspace(0.0, 4.0, 16);
-    Mesh::new(Grid::from_fn(12, 16, |r, c| {
-        (rows[r].sin() + cols[c].cos()) * gain
-    }))
+/// [`grid`] scaled by `gain`, as a mesh.
+fn scaled_grid(gain: f64) -> Mesh {
+    Mesh::new(grid().map(|v| v * gain))
 }
 
 /// `pcolormesh` options with a named colormap.
@@ -62,7 +56,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("layout/constrained_colorbars", |fig| {
         constrained(fig);
         for (i, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
-            let mesh = ax.pcolormesh(grid(i as f64 + 1.0), colored("viridis")?)?;
+            let mesh = ax.pcolormesh(scaled_grid(i as f64 + 1.0), colored("viridis")?)?;
             fig.colorbar(&mesh, beside(ax))?;
         }
         Ok(())
@@ -130,9 +124,9 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("layout/colorbar_steals_space", |fig| {
         let axs = fig.subplots(1, 2)?;
         let (left, right) = (&axs[(0, 0)], &axs[(0, 1)]);
-        let mesh = left.pcolormesh(grid(1.0), PcolorOptions::default())?;
+        let mesh = left.pcolormesh(scaled_grid(1.0), PcolorOptions::default())?;
         fig.colorbar(&mesh, beside(left))?;
-        let mesh = right.pcolormesh(grid(1.0), colored("magma")?)?;
+        let mesh = right.pcolormesh(scaled_grid(1.0), colored("magma")?)?;
         let options = ColorbarOptions {
             orientation: Some(Orientation::Horizontal),
             extend: Some(Extend::Both),
@@ -156,7 +150,7 @@ fn constrained_shared_colorbar(fig: &Figure) -> CaseResult {
     };
     let mut last = None;
     for ax in axs.as_slice() {
-        last = Some(ax.pcolormesh(grid(1.0), options()?)?);
+        last = Some(ax.pcolormesh(scaled_grid(1.0), options()?)?);
     }
     let mesh = last.ok_or("no mesh")?;
     let options = ColorbarOptions {
@@ -185,7 +179,7 @@ fn subfigures_nested_constrained(fig: &Figure) -> CaseResult {
     right.set_facecolor(Color::from("lightcyan").resolve()?);
     let mesh = right
         .subplot()
-        .pcolormesh(grid(1.0), PcolorOptions::default())?;
+        .pcolormesh(scaled_grid(1.0), PcolorOptions::default())?;
     right.colorbar(&mesh, ColorbarOptions::default())?;
     Ok(())
 }

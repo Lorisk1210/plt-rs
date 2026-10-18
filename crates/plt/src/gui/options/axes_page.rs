@@ -1,7 +1,7 @@
 //! One axes in the figure options dialog: its titles, limits, labels and
 //! scales, its curves and its images (matplotlib's `figure_edit` pages).
 
-use plt_ui::{Checkbox, Choice, Flex, Stack, UiWindow, WidgetId};
+use plt_ui::{Checkbox, Flex, Spacing, Stack, Tabs, UiWindow, WidgetId};
 
 use super::OptionsMessage;
 use super::artists::{
@@ -61,7 +61,7 @@ pub(super) struct AxesPage {
 impl AxesPage {
     /// The page for `axes`, number `page` of the dialog, and its widgets.
     pub(super) fn build(axes: &Axes, page: usize) -> (Self, Flex<OptionsMessage>) {
-        let mut root = Flex::column().with_spacing(8.0);
+        let mut root = Flex::column().with_spacing(Spacing::Lg);
         let lines = edited_lines(axes);
         let images = axes.images();
         let mut tabs = vec!["Axes".to_owned()];
@@ -73,7 +73,7 @@ impl AxesPage {
         }
         if tabs.len() > 1 {
             root.push(
-                Choice::new(tabs, move |tab| OptionsMessage::Tab { page, tab }),
+                Tabs::new(tabs, move |tab| OptionsMessage::Tab { page, tab }),
                 0.0,
             );
         }
@@ -205,17 +205,24 @@ fn show(window: &mut UiWindow<OptionsMessage>, stack: WidgetId, index: usize) {
 }
 
 /// The title, both axes and the legend switch.
-fn general_form(axes: &Axes) -> (WidgetId, [AxisFields; 2], WidgetId, Flex<OptionsMessage>) {
+fn general_form(
+    axes: &Axes,
+) -> (
+    WidgetId,
+    [AxisFields; 2],
+    WidgetId,
+    plt_ui::Form<OptionsMessage>,
+) {
     let mut form = Form::new();
+    form.section("");
     let title = form.text("Title", axes.title(TitleLocation::Center));
     let mut axis = |name: AxisName| {
         let (heading, (min, max), scale) = match name {
             AxisName::X => ("X axis", axes.xlim(), axes.xscale()),
             AxisName::Y => ("Y axis", axes.ylim(), axes.yscale()),
         };
-        form.heading(heading);
-        let min = form.text("Min", number_text(min));
-        let max = form.text("Max", number_text(max));
+        form.section(heading);
+        let (min, max) = form.pair(("Min", number_text(min)), ("Max", number_text(max)));
         let label = form.text("Label", axes.label(name));
         let current = SCALES.iter().position(|&s| s == scale).unwrap_or(0);
         let scale = form.choice("Scale", &SCALES, current);
@@ -228,7 +235,8 @@ fn general_form(axes: &Axes) -> (WidgetId, [AxisFields; 2], WidgetId, Flex<Optio
         }
     };
     let fields = [axis(AxisName::X), axis(AxisName::Y)];
-    let legend = form.push(Checkbox::new("(Re-)Generate automatic legend", |_| {
+    form.section("");
+    let legend = form.wide(Checkbox::new("(Re-)Generate automatic legend", |_| {
         OptionsMessage::Edited
     }));
     (title, fields, legend, form.finish())

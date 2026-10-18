@@ -2,45 +2,63 @@
 //! artist properties and the text the fields show.
 
 use plt_core::Rgba;
-use plt_ui::{Choice, Flex, Label, TextInput, UiWindow, Widget, WidgetId};
+use plt_ui::{Choice, Flex, Label, Spacing, Swatch, TextInput, UiWindow, Widget, WidgetId};
 
 use super::OptionsMessage;
 use crate::markers::{Marker, MarkerKey, MarkerSymbol};
 use crate::ticker::pyfmt;
 
-/// Width of the field names, in logical pixels.
-const NAME_WIDTH: f64 = 140.0;
+/// The space between the fields of a row holding two.
+const PAIR_GAP: Spacing = Spacing::Md;
 
-/// A form being built: a column of rows, each a name and a field.
+/// A form being built: sections of rows, each a name and a field.
 pub(super) struct Form {
-    column: Flex<OptionsMessage>,
+    form: plt_ui::Form<OptionsMessage>,
 }
 
 impl Form {
     /// An empty form.
     pub(super) fn new() -> Self {
         Self {
-            column: Flex::column().with_spacing(4.0),
+            form: plt_ui::Form::new(),
         }
     }
 
-    /// Adds a heading.
-    pub(super) fn heading(&mut self, text: &str) {
-        self.column.push(Label::new(text).bold(), 0.0);
-    }
-
-    /// Adds a row named `name` holding `field`; returns the field's id.
-    pub(super) fn row(&mut self, name: &str, field: impl Widget<OptionsMessage>) -> WidgetId {
-        let mut row = Flex::row().with_spacing(8.0);
-        row.push(Label::new(name).with_min_width(NAME_WIDTH), 0.0);
-        let id = row.push(field, 1.0);
-        self.column.push(row, 0.0);
-        id
+    /// Starts a section: the next rows are grouped under `title` (none
+    /// when empty).
+    pub(super) fn section(&mut self, title: &str) {
+        self.form.section(title);
     }
 
     /// Adds a text field showing `text`.
     pub(super) fn text(&mut self, name: &str, text: impl Into<String>) -> WidgetId {
-        self.row(name, TextInput::new(text, |_| OptionsMessage::Edited))
+        self.form.row(name, edited_text(text))
+    }
+
+    /// Adds two text fields on one row, `name` showing `text` and
+    /// `second_name` showing `second_text`; returns both ids.
+    pub(super) fn pair(
+        &mut self,
+        (name, text): (&str, String),
+        (second_name, second_text): (&str, String),
+    ) -> (WidgetId, WidgetId) {
+        let mut row = Flex::row().with_spacing(PAIR_GAP);
+        let first = row.push(edited_text(text), 1.0);
+        row.push(Label::new(second_name), 0.0);
+        let second = row.push(edited_text(second_text), 1.0);
+        self.form.row(name, row);
+        (first, second)
+    }
+
+    /// Adds a text field for a colour showing `text`, after a swatch of
+    /// the colour typed.
+    pub(super) fn color(&mut self, name: &str, text: String) -> WidgetId {
+        let mut row = Flex::row().with_spacing(Spacing::Sm);
+        let swatch = row.push(Swatch::new(swatch_color(&text)), 0.0);
+        let input = TextInput::new(text, move |text| OptionsMessage::Color { swatch, text });
+        let id = row.push(input, 1.0);
+        self.form.row(name, row);
+        id
     }
 
     /// Adds segments for `options` with `chosen` selected.
@@ -50,18 +68,28 @@ impl Form {
             |_| OptionsMessage::Edited,
         );
         choice.set_chosen(chosen);
-        self.row(name, choice)
+        self.form.row(name, choice)
     }
 
-    /// Adds any widget on its own line.
-    pub(super) fn push(&mut self, widget: impl Widget<OptionsMessage>) -> WidgetId {
-        self.column.push(widget, 0.0)
+    /// Adds any widget across the row.
+    pub(super) fn wide(&mut self, widget: impl Widget<OptionsMessage>) -> WidgetId {
+        self.form.wide_row(widget)
     }
 
-    /// The finished column.
-    pub(super) fn finish(self) -> Flex<OptionsMessage> {
-        self.column
+    /// The finished form.
+    pub(super) fn finish(self) -> plt_ui::Form<OptionsMessage> {
+        self.form
     }
+}
+
+/// A text field showing `text`, read when the dialog applies.
+fn edited_text(text: impl Into<String>) -> TextInput<OptionsMessage> {
+    TextInput::new(text, |_| OptionsMessage::Edited)
+}
+
+/// The colour a swatch shows for `text`, if it is a colour.
+pub(super) fn swatch_color(text: &str) -> Option<Rgba> {
+    parse_color("", text).ok()?.resolve().ok()
 }
 
 /// Why the form's values cannot be applied: the field and the problem.
@@ -173,6 +201,9 @@ mod tests {
         assert!(parse_number("Min", "abc").is_err());
         assert!(parse_color("Color", "#ff000080").is_ok());
         assert!(parse_color("Color", "nope").is_err());
+        assert_eq!(swatch_color("red"), Some(Rgba::new(1.0, 0.0, 0.0, 1.0)));
+        assert_eq!(swatch_color("#ff000080").map(|c| c.a), Some(128.0 / 255.0));
+        assert_eq!(swatch_color("nope"), None);
         assert_eq!(marker_text(&Marker::Symbol(MarkerSymbol::Circle)), "o");
         assert_eq!(marker_text(&Marker::Symbol(MarkerSymbol::CaretDown)), "7");
         assert_eq!(marker_text(&Marker::Symbol(MarkerSymbol::Nothing)), "None");
@@ -185,5 +216,37 @@ mod tests {
             Ok(Marker::Symbol(MarkerSymbol::Square))
         );
         assert!(parse_marker("Style", "??").is_err());
+    }
+
+    #[test]
+    fn colour_fields_tell_their_swatch_what_is_typed() {
+        use plt_platform::{ButtonState, Key, KeyEvent, Modifiers, PhysicalSize, WindowEvent};
+        use plt_ui::Ui;
+
+        let mut form = Form::new();
+        let field = form.color("Color (RGBA)", "#ff0000ff".to_owned());
+        let mut ui = Ui::new(form.finish(), PhysicalSize::new(400, 60), 1.0).unwrap();
+        ui.set_focus(Some(field));
+        let key = WindowEvent::Key(KeyEvent {
+            key: Key::Backspace,
+            state: ButtonState::Pressed,
+            repeat: false,
+            text: None,
+            modifiers: Modifiers::NONE,
+            scancode: 22,
+        });
+        let messages = ui.handle(&key).unwrap();
+        let [OptionsMessage::Color { swatch, text }] = messages.as_slice() else {
+            panic!("one colour message, not {messages:?}");
+        };
+        assert_eq!(text, "#ff0000f");
+        let shown = ui
+            .widget_mut::<Swatch>(*swatch)
+            .map(|swatch| swatch.color());
+        assert_eq!(
+            shown,
+            Some(swatch_color("#ff0000ff")),
+            "the swatch beside the field"
+        );
     }
 }

@@ -1,0 +1,115 @@
+//! Labelled segments side by side, the shared part of segmented controls
+//! and tab bars: their layout, hit testing and hover tracking.
+
+use crate::error::UiError;
+use crate::event::UiEvent;
+use crate::geometry::Rect;
+use crate::text::{TextLayout, TextStyle};
+
+/// The laid-out labels of a row of segments and the segment under the
+/// pointer.
+#[derive(Debug, Default)]
+pub(crate) struct Segments {
+    /// The labels laid out by the last measure.
+    pub(crate) layouts: Vec<TextLayout>,
+    /// The width of each segment, in pixels.
+    pub(crate) widths: Vec<f64>,
+    /// The segment under the pointer.
+    pub(crate) hot: Option<usize>,
+}
+
+impl Segments {
+    /// Lays out `labels` in `style`, each segment `padding` pixels wider
+    /// than its label on both sides and at least `min_width` wide.
+    pub(crate) fn measure(
+        &mut self,
+        labels: &[String],
+        style: &TextStyle,
+        scale_factor: f64,
+        padding: f64,
+        min_width: f64,
+    ) -> Result<(), UiError> {
+        self.layouts = labels
+            .iter()
+            .map(|label| TextLayout::new(label, style, scale_factor))
+            .collect::<Result<_, _>>()?;
+        self.widths = self
+            .layouts
+            .iter()
+            .map(|layout| (layout.size().width + 2.0 * padding).max(min_width))
+            .collect();
+        Ok(())
+    }
+
+    /// The width of all the segments.
+    pub(crate) fn total_width(&self) -> f64 {
+        self.widths.iter().sum()
+    }
+
+    /// The segment containing `x` pixels from the left edge of the row.
+    pub(crate) fn at(&self, x: f64) -> Option<usize> {
+        if x < 0.0 {
+            return None;
+        }
+        let mut right = 0.0;
+        self.widths.iter().position(|width| {
+            right += width;
+            x < right
+        })
+    }
+
+    /// The segments with their left edges, from `x`.
+    pub(crate) fn placed(&self, x: f64) -> impl Iterator<Item = (usize, f64, f64)> + '_ {
+        self.widths
+            .iter()
+            .enumerate()
+            .scan(x, |left, (index, &width)| {
+                let start = *left;
+                *left += width;
+                Some((index, start, width))
+            })
+    }
+
+    /// Follows the pointer over a row of segments at `rect`; returns
+    /// whether the segment under it changed.
+    pub(crate) fn track_hover(&mut self, event: &UiEvent, rect: Rect) -> bool {
+        let hot = match event {
+            UiEvent::PointerEnter(position) | UiEvent::PointerMove { position, .. } => {
+                self.at(position.x - rect.x)
+            }
+            UiEvent::PointerLeave => None,
+            _ => return false,
+        };
+        let changed = hot != self.hot;
+        self.hot = hot;
+        changed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use plt_core::Point;
+
+    use super::*;
+
+    #[test]
+    fn segments_under_the_pointer() {
+        let mut segments = Segments {
+            widths: vec![30.0, 30.0, 40.0],
+            ..Segments::default()
+        };
+        assert_eq!(segments.at(10.0), Some(0));
+        assert_eq!(segments.at(65.0), Some(2));
+        assert_eq!(segments.at(100.0), None);
+        assert_eq!(segments.at(-1.0), None);
+        assert_eq!(segments.total_width(), 100.0);
+        let lefts: Vec<f64> = segments.placed(5.0).map(|(_, x, _)| x).collect();
+        assert_eq!(lefts, [5.0, 35.0, 65.0]);
+        let rect = Rect::new(10.0, 0.0, 100.0, 20.0);
+        assert!(segments.track_hover(&UiEvent::PointerEnter(Point::new(15.0, 5.0)), rect));
+        assert_eq!(segments.hot, Some(0));
+        assert!(!segments.track_hover(&UiEvent::PointerEnter(Point::new(16.0, 5.0)), rect));
+        assert!(segments.track_hover(&UiEvent::PointerLeave, rect));
+        assert_eq!(segments.hot, None);
+    }
+}

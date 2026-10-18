@@ -27,7 +27,7 @@ use plt_platform::{
     WindowOptions,
 };
 use plt_raster::{Antialias, Clip, Painter, Pixmap, Rgba8, StrokeStyle};
-use plt_ui::{Button, Flex, Label, Surface, SurfaceEvent, UiEvent, UiWindow, WidgetId};
+use plt_ui::{Button, Flex, Label, Spacing, Surface, SurfaceEvent, UiEvent, UiWindow, WidgetId};
 
 /// Where matplotlib puts the axes by default, as fractions of the figure:
 /// left, bottom, width, height.
@@ -84,7 +84,9 @@ impl FigureWindow {
     fn open(cx: &mut Context<'_>) -> Result<Self, Box<dyn Error>> {
         let mut root = Flex::column();
         let canvas = root.push(Surface::new(canvas_message), 1.0);
-        let mut toolbar = Flex::row().with_padding(2.0).with_spacing(2.0);
+        let mut toolbar = Flex::row()
+            .with_padding(Spacing::Xs)
+            .with_spacing(Spacing::Xs);
         for (label, tool) in [
             ("Home", Tool::Home),
             ("Back", Tool::Back),

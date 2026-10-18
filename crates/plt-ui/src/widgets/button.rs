@@ -1,16 +1,22 @@
 //! Push buttons.
 
-use plt_core::Point;
 use plt_platform::MouseButton;
 
+use super::frame::paint_frame;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::text::{TextLayout, TextStyle};
+use crate::theme::Spacing;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
 /// A button with a text label that sends a message when clicked: pressed
 /// and released with the left button while the pointer is over it.
+///
+/// Buttons are as tall as the theme's controls and at least
+/// [`Theme::button_min_width`](crate::Theme) wide, so that the buttons of
+/// a dialog match. A secondary button has a light face and an outline;
+/// the [primary](Button::primary) one is filled with the accent colour.
 #[derive(Debug)]
 pub struct Button<M> {
     label: String,
@@ -55,50 +61,44 @@ impl<M: Clone + 'static> Widget<M> for Button<M> {
         cx: &mut LayoutCx<'_, M>,
         constraints: Constraints,
     ) -> Result<Size, UiError> {
-        let style = TextStyle::new(cx.theme().font_size);
-        let text = TextLayout::new(&self.label, &style, cx.scale_factor())?;
-        let padding = cx.theme().padding * cx.scale_factor();
-        let size = text.size();
+        let theme = cx.theme();
+        let scale = cx.scale_factor();
+        let style = TextStyle::new(theme.font_size);
+        let text = TextLayout::new(&self.label, &style, scale)?;
+        let padding = theme.space(Spacing::Md) * scale;
+        let width = (text.size().width + 2.0 * padding).max(theme.button_min_width * scale);
         self.text = Some(text);
-        Ok(constraints.constrain(Size::new(size.width + 2.0 * padding, size.height + padding)))
+        Ok(constraints.constrain(Size::new(width, theme.control_height * scale)))
     }
 
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError> {
         let status = cx.status();
         let theme = cx.theme();
+        let radius = theme.corner_radius * cx.scale_factor();
         let pressed = status.active && self.pressed;
-        let (face, ink) = if self.primary {
-            // Darken the accent when hovered or pressed.
-            let shade = if pressed {
-                0.8
+        let ink = if self.primary {
+            let face = if pressed {
+                theme.accent_active
             } else if status.hot {
-                0.9
+                theme.accent_hot
             } else {
-                1.0
+                theme.accent
             };
-            let accent = theme.accent;
-            let face = plt_core::Rgba::new(
-                accent.r * shade,
-                accent.g * shade,
-                accent.b * shade,
-                accent.a,
-            );
-            (face, plt_core::Rgba::WHITE)
-        } else if pressed {
-            (theme.button_active, theme.text)
-        } else if status.hot {
-            (theme.button_hot, theme.text)
+            cx.canvas().fill_rounded_rect(rect, radius, face)?;
+            theme.text_on_accent
         } else {
-            (theme.button, theme.text)
+            let face = if pressed {
+                theme.button_active
+            } else if status.hot {
+                theme.button_hot
+            } else {
+                theme.button
+            };
+            paint_frame(cx, rect, radius, face)?;
+            theme.text
         };
-        let scale = cx.scale_factor();
-        let radius = theme.corner_radius * scale;
-        cx.canvas()
-            .fill_rounded_rect(rect.inset(scale), radius, face)?;
         if let Some(text) = &self.text {
-            let center = rect.center();
-            let size = text.size();
-            let origin = Point::new(center.x - size.width / 2.0, center.y - size.height / 2.0);
+            let origin = rect.centered(text.size()).origin();
             cx.canvas().draw_text(text, origin, ink)?;
         }
         Ok(())

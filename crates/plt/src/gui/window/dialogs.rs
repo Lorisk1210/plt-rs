@@ -3,14 +3,12 @@
 
 use plt_platform::Context;
 
-use super::{FigureWindow, SubplotToolWindow};
-use crate::figure::Figure;
-use crate::gridspec::SubplotOverrides;
+use super::FigureWindow;
 use crate::gui::GuiError;
 use crate::gui::help_dialog::HelpDialog;
 use crate::gui::options::OptionsDialog;
 use crate::gui::save_dialog::SaveDialog;
-use crate::widgets::SubplotTool;
+use crate::gui::subplot_dialog::SubplotDialog;
 
 impl FigureWindow {
     /// Opens a window with sliders for the figure's subplot parameters,
@@ -19,24 +17,10 @@ impl FigureWindow {
         &mut self,
         cx: &mut Context<'_>,
     ) -> Result<(), GuiError> {
-        if let Some(tool) = &self.subplot_tool {
-            cx.raise_window(tool.window.id())?;
-            return Ok(());
+        match &self.subplot_tool {
+            Some(tool) => cx.raise_window(tool.id())?,
+            None => self.subplot_tool = Some(SubplotDialog::open(cx, &self.figure)?),
         }
-        let figure = Figure::with_size(6.0, 3.0, crate::rc::params().figure_dpi);
-        let top = SubplotOverrides {
-            top: Some(0.9),
-            ..SubplotOverrides::default()
-        };
-        figure
-            .subplots_adjust(&top)
-            .expect("0.9 is a valid top margin");
-        let tool = SubplotTool::new(&self.figure, &figure);
-        let window = Self::build(cx, &figure, "Subplot configuration tool", false)?;
-        self.subplot_tool = Some(SubplotToolWindow {
-            window: Box::new(window),
-            _tool: tool,
-        });
         Ok(())
     }
 
@@ -80,7 +64,7 @@ impl FigureWindow {
 
     pub(super) fn close_subplot_tool(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         match self.subplot_tool.take() {
-            Some(tool) => tool.window.close(cx),
+            Some(tool) => tool.close(cx),
             None => Ok(()),
         }
     }

@@ -6,24 +6,35 @@ use std::rc::Rc;
 use plt_core::Point;
 use plt_platform::MouseButton;
 
+use super::segments::Segments;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
-use crate::text::{TextLayout, TextStyle};
+use crate::text::TextStyle;
+use crate::theme::Spacing;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
 /// Makes the message sent for an option.
 type OptionMessage<M> = Rc<dyn Fn(usize) -> M>;
 
+/// Space left and right of an option's label.
+const PADDING: Spacing = Spacing::Md;
+/// How far the chosen segment's raised face sits inside the track.
+const THUMB_INSET: Spacing = Spacing::Xxs;
+/// Space above and below the dividers between segments.
+const DIVIDER_MARGIN: Spacing = Spacing::Sm;
+
 /// A row of labelled segments of which exactly one is chosen; clicking a
 /// segment chooses it and sends a message with its index.
+///
+/// The segments sit on a recessed track at their natural widths (at
+/// least [`Theme::segment_min_width`](crate::Theme)), from the left edge;
+/// the chosen one is a raised face.
 pub struct Choice<M> {
     options: Vec<String>,
     chosen: usize,
     on_choose: OptionMessage<M>,
-    /// The labels laid out by the last measure, and the segment widths.
-    layouts: Vec<TextLayout>,
-    widths: Vec<f64>,
+    segments: Segments,
 }
 
 impl<M> fmt::Debug for Choice<M> {
@@ -43,8 +54,7 @@ impl<M> Choice<M> {
             options,
             chosen: 0,
             on_choose: Rc::new(on_choose),
-            layouts: Vec::new(),
-            widths: Vec::new(),
+            segments: Segments::default(),
         }
     }
 
@@ -65,15 +75,6 @@ impl<M> Choice<M> {
             self.chosen = index;
         }
     }
-
-    /// The segment containing `x` pixels from the left edge.
-    fn segment_at(&self, x: f64) -> Option<usize> {
-        let mut right = 0.0;
-        self.widths.iter().position(|width| {
-            right += width;
-            x < right
-        })
-    }
 }
 
 impl<M: 'static> Widget<M> for Choice<M> {
@@ -82,59 +83,64 @@ impl<M: 'static> Widget<M> for Choice<M> {
         cx: &mut LayoutCx<'_, M>,
         constraints: Constraints,
     ) -> Result<Size, UiError> {
-        let style = TextStyle::new(cx.theme().font_size);
+        let theme = cx.theme();
         let scale = cx.scale_factor();
-        let padding = cx.theme().padding * scale;
-        self.layouts = self
-            .options
-            .iter()
-            .map(|option| TextLayout::new(option, &style, scale))
-            .collect::<Result<_, _>>()?;
-        self.widths = self
-            .layouts
-            .iter()
-            .map(|layout| layout.size().width + 2.0 * padding)
-            .collect();
-        let height = TextLayout::new("", &style, scale)?.size().height + padding;
-        Ok(constraints.constrain(Size::new(self.widths.iter().sum(), height)))
+        self.segments.measure(
+            &self.options,
+            &TextStyle::new(theme.font_size),
+            scale,
+            theme.space(PADDING) * scale,
+            theme.segment_min_width * scale,
+        )?;
+        let natural = Size::new(self.segments.total_width(), theme.control_height * scale);
+        Ok(constraints.constrain(natural))
     }
 
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError> {
         let theme = cx.theme();
         let scale = cx.scale_factor();
         let radius = theme.corner_radius * scale;
-        // The segments keep their natural widths, from the left.
-        let used: f64 = self.widths.iter().sum();
-        let outline = Rect::new(rect.x, rect.y, used.min(rect.width), rect.height);
-        cx.canvas()
-            .fill_rounded_rect(outline, radius, theme.separator)?;
-        cx.canvas()
-            .fill_rounded_rect(outline.inset(scale), radius - scale, theme.button)?;
-        let mut x = rect.x;
-        for (index, (layout, width)) in self.layouts.iter().zip(&self.widths).enumerate() {
-            let segment = Rect::new(x, rect.y, *width, rect.height);
-            if index == self.chosen {
-                cx.canvas().fill_rounded_rect(
-                    segment.inset(2.0 * scale),
-                    radius - 2.0 * scale,
-                    theme.button_checked,
-                )?;
-            } else if index > 0 && index != self.chosen + 1 {
-                let divider = Rect::new(x, rect.y + rect.height * 0.25, scale, rect.height * 0.5);
-                cx.canvas().fill_rect(divider, theme.separator)?;
+        let height = (theme.control_height * scale).min(rect.height);
+        let width = self.segments.total_width().min(rect.width);
+        let track = Rect::new(rect.x, rect.center().y - height / 2.0, width, height).snapped();
+        cx.canvas().fill_rounded_rect(track, radius, theme.track)?;
+        let inset = theme.space(THUMB_INSET) * scale;
+        let margin = theme.space(DIVIDER_MARGIN) * scale;
+        let hot = self.segments.hot;
+        for (index, x, width) in self.segments.placed(track.x) {
+            let segment = Rect::new(x, track.y, width, track.height);
+            let face = segment.inset(inset).snapped();
+            let chosen = index == self.chosen;
+            if chosen {
+                let shadow = Rect::new(face.x, face.y + scale, face.width, face.height);
+                cx.canvas()
+                    .fill_rounded_rect(shadow, radius - inset, theme.shadow)?;
+                cx.canvas()
+                    .fill_rounded_rect(face, radius - inset, theme.surface)?;
+            } else if hot == Some(index) {
+                cx.canvas()
+                    .fill_rounded_rect(face, radius - inset, theme.hover)?;
+            } else if index > 0 && index != self.chosen + 1 && hot != Some(index - 1) {
+                let divider = Rect::new(
+                    x.round(),
+                    track.y + margin,
+                    scale,
+                    (track.height - 2.0 * margin).max(0.0),
+                );
+                cx.canvas().fill_rect(divider, theme.border)?;
             }
+            let color = if chosen || hot == Some(index) {
+                theme.text
+            } else {
+                theme.text_secondary
+            };
+            let layout = &self.segments.layouts[index];
             let size = layout.size();
             let origin = Point::new(
-                x + (width - size.width) / 2.0,
-                rect.y + (rect.height - size.height) / 2.0,
+                (x + (width - size.width) / 2.0).round(),
+                segment.center().y - size.height / 2.0,
             );
-            let color = if index == self.chosen {
-                theme.accent
-            } else {
-                theme.text
-            };
             cx.canvas().draw_text(layout, origin, color)?;
-            x += width;
         }
         Ok(())
     }
@@ -145,11 +151,14 @@ impl<M: 'static> Widget<M> for Choice<M> {
             position,
             ..
         } = event
-            && let Some(index) = self.segment_at(position.x - rect.x)
+            && let Some(index) = self.segments.at(position.x - rect.x)
             && index != self.chosen
         {
             self.chosen = index;
             cx.emit((self.on_choose)(index));
+            cx.request_paint();
+        }
+        if self.segments.track_hover(event, rect) {
             cx.request_paint();
         }
     }
@@ -157,16 +166,26 @@ impl<M: 'static> Widget<M> for Choice<M> {
 
 #[cfg(test)]
 mod tests {
+    use plt_platform::Modifiers;
+
     use super::*;
 
     #[test]
-    fn segments_under_the_pointer() {
+    fn clicking_a_segment_chooses_it() {
         let mut choice = Choice::new(vec!["PNG".into(), "SVG".into(), "PDF".into()], |i| i);
-        choice.widths = vec![30.0, 30.0, 40.0];
-        assert_eq!(choice.segment_at(10.0), Some(0));
-        assert_eq!(choice.segment_at(65.0), Some(2));
-        assert_eq!(choice.segment_at(101.0), None);
-        choice.set_chosen(2);
+        choice.segments.widths = vec![30.0, 30.0, 40.0];
+        let press = |x| UiEvent::PointerDown {
+            button: MouseButton::Left,
+            position: Point::new(x, 5.0),
+            modifiers: Modifiers::NONE,
+            click_count: 1,
+        };
+        let rect = Rect::new(0.0, 0.0, 200.0, 28.0);
+        let mut messages = Vec::new();
+        let mut cx = EventCx::new(&mut messages);
+        choice.event(&mut cx, &press(65.0), rect);
+        choice.event(&mut cx, &press(150.0), rect);
+        assert_eq!(messages, [2], "beyond the segments chooses nothing");
         assert_eq!(choice.chosen(), 2);
         choice.set_chosen(7);
         assert_eq!(choice.chosen(), 2);

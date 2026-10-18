@@ -27,7 +27,7 @@ type EventMap<M> = Box<dyn Fn(SurfaceEvent) -> Option<M>>;
 
 /// Shows an image supplied by the application, filling all the space it
 /// is given, and reports its size and the input over it. It takes
-/// keyboard focus when clicked, so key presses reach it.
+/// keyboard focus when clicked, so key presses (Tab included) reach it.
 pub struct Surface<M> {
     image: Option<Pixmap>,
     selection: Option<Rect>,
@@ -124,6 +124,10 @@ impl<M: 'static> Widget<M> for Surface<M> {
     }
 
     fn accepts_focus(&self) -> bool {
+        true
+    }
+
+    fn wants_tab(&self) -> bool {
         true
     }
 }

@@ -4,11 +4,15 @@
 
 use std::path::{Path, PathBuf};
 
-use plt_platform::{ButtonState, Context, Key, LogicalSize, WindowEvent, WindowId, WindowOptions};
-use plt_ui::{Button, Choice, Flex, Label, List, ListItem, TextInput, UiWindow, WidgetId};
+use plt_platform::{Context, WindowEvent, WindowId};
+use plt_ui::{Choice, Flex, Form, Label, List, ListItem, Overflow, TextInput, UiWindow, WidgetId};
 
+use super::dialog::{self, Dialog};
 use super::{GuiError, icons};
 use crate::figure::{Figure, SaveFormat};
+
+/// How many rows of the directory listing show at first.
+const LISTED_ROWS: usize = 10;
 
 /// The formats offered, in the order shown.
 const FORMATS: [SaveFormat; 8] = [
@@ -184,38 +188,36 @@ impl SaveDialog {
         let name = default_name(title, FORMATS[format]);
         let directory = start_directory();
         let entries = list_directory(&directory);
-        let mut root = Flex::column().with_padding(10.0).with_spacing(8.0);
-        let location = root.push(Label::new(directory.display().to_string()), 0.0);
-        let list = root.push(
-            List::new(items(&entries), DialogMessage::Selected).on_activate(DialogMessage::Opened),
-            1.0,
+        let mut content = Flex::column().with_spacing(dialog::GAP);
+        let mut place = Form::new();
+        let location = place.row(
+            "Folder",
+            Label::new(directory.display().to_string()).with_overflow(Overflow::ElideStart),
         );
-        let mut name_row = Flex::row().with_spacing(8.0);
-        name_row.push(Label::new("File name"), 0.0);
-        let name_field = name_row.push(
+        content.push(place, 0.0);
+        let listing = List::new(items(&entries), DialogMessage::Selected)
+            .on_activate(DialogMessage::Opened)
+            .with_visible_rows(LISTED_ROWS);
+        let list = content.push(listing, 1.0);
+        let mut naming = Form::new();
+        let name_field = naming.row(
+            "File name",
             TextInput::new(name.clone(), DialogMessage::NameChanged)
                 .on_submit(|_| DialogMessage::Save),
-            1.0,
         );
-        root.push(name_row, 0.0);
-        let mut buttons = Flex::row().with_spacing(8.0);
         let labels = FORMATS
             .iter()
             .map(|f| f.extension().to_uppercase())
             .collect();
         let mut choice = Choice::new(labels, DialogMessage::Format);
         choice.set_chosen(format);
-        let formats = buttons.push(choice, 0.0);
-        let status = buttons.push(Label::new(""), 1.0);
-        buttons.push(Button::new("Cancel", DialogMessage::Cancel), 0.0);
-        buttons.push(Button::new("Save", DialogMessage::Save).primary(), 0.0);
-        root.push(buttons, 0.0);
-        let options = WindowOptions::new("Save the figure")
-            .with_app_id("plt-rs")
-            .with_icon(icons::window_icon()?)
-            .with_inner_size(LogicalSize::new(600.0, 440.0))
-            .with_min_inner_size(LogicalSize::new(420.0, 300.0));
-        let mut window = UiWindow::open(cx, &options, root)?;
+        let formats = naming.row("Format", choice);
+        content.push(naming, 0.0);
+        let (mut chrome, status) = Dialog::with_status();
+        chrome.button("Cancel", DialogMessage::Cancel);
+        chrome.primary("Save", DialogMessage::Save);
+        let options = dialog::window_options("Save the figure")?;
+        let mut window = UiWindow::open_fitted(cx, &options, chrome.finish(content))?;
         window.ui_mut().set_focus(Some(name_field));
         let mut dialog = Self {
             figure: figure.clone(),
@@ -252,14 +254,8 @@ impl SaveDialog {
         cx: &mut Context<'_>,
         event: &WindowEvent,
     ) -> Result<Outcome, GuiError> {
-        match event {
-            WindowEvent::CloseRequested => return Ok(Outcome::Cancelled),
-            WindowEvent::Key(key)
-                if key.key == Key::Escape && key.state == ButtonState::Pressed =>
-            {
-                return Ok(Outcome::Cancelled);
-            }
-            _ => {}
+        if dialog::dismissed(event, self.window.ui()) {
+            return Ok(Outcome::Cancelled);
         }
         for message in self.window.handle(cx, event)? {
             let outcome = self.apply(cx, message)?;

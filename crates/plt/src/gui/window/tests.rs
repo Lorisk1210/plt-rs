@@ -8,6 +8,7 @@ use plt_platform::{
 };
 
 use super::*;
+use crate::gui::subplot_dialog::{Param, SubplotMessage};
 
 /// Runs one loop iteration, feeding the events of `window` and its
 /// tool windows to it.
@@ -164,8 +165,7 @@ fn user_tools_and_help_are_on_the_toolbar() {
         .apply(&mut event_loop.context(), Message::Tool(Tool::User(0)))
         .expect("the button works");
     assert_eq!((uses.get(), figure.tool_toggled("mark")), (2, Some(false)));
-    let hint = window.toolbar.as_ref().map(|t| t.hint(Tool::User(0)));
-    assert_eq!(hint.as_deref(), Some("Mark the peak (m)"));
+    assert_eq!(window.toolbar.hint(Tool::User(0)), "Mark the peak (m)");
     window
         .apply(&mut event_loop.context(), Message::Tool(Tool::Help))
         .expect("help opens");
@@ -186,29 +186,51 @@ fn the_subplot_tool_adjusts_the_figure() {
         .use_tool(&mut event_loop.context(), Tool::Subplots)
         .expect("the tool opens");
     let tool = window.subplot_tool.as_ref().expect("the tool is open");
-    let tool_id = tool.window.id();
+    let tool_id = tool.id();
     let snapshot = handle.window(tool_id).expect("the tool window exists");
     assert_eq!(snapshot.title, "Subplot configuration tool");
-    assert_eq!(snapshot.size, PhysicalSize::new(600, 300), "no toolbar");
     assert!(window.owns_window(tool_id));
     pump(&mut event_loop, &mut window);
     handle.take_frames();
 
-    // Click 30% along the "left" slider.
+    // Click 30% along the "left" slider: its thumb's centre travels
+    // between the ends of the track, inset by the thumb's radius.
     let tool = window.subplot_tool.as_ref().expect("the tool is open");
-    let slider = tool.window.figure().axes()[0].position();
+    let left = tool
+        .controls
+        .iter()
+        .find(|control| control.param == Param::Left)
+        .copied()
+        .expect("the tool has a left slider");
+    let track = tool
+        .window()
+        .ui()
+        .widget_rect(left.slider)
+        .expect("the slider is laid out");
+    let radius = plt_ui::Theme::default().checkbox_size / 2.0;
     let at = (
-        600.0 * (slider.x0() + 0.3 * slider.width()),
-        300.0 * (1.0 - (slider.y0() + 0.5 * slider.height())),
+        track.x + radius + 0.3 * (track.width - 2.0 * radius),
+        track.center().y,
     );
     mouse(&handle, tool_id, ButtonState::Pressed, at);
     mouse(&handle, tool_id, ButtonState::Released, at);
     pump(&mut event_loop, &mut window);
-    let left = figure.subplot_params().left;
-    assert!((left - 0.3).abs() < 0.01, "left is {left}");
+    let value = figure.subplot_params().left;
+    assert!((value - 0.3).abs() < 0.01, "left is {value}");
     let redrawn: Vec<_> = handle.take_frames().iter().map(|f| f.window).collect();
     assert!(redrawn.contains(&main), "the figure is redrawn");
     assert!(redrawn.contains(&tool_id), "the slider is redrawn");
+    let tool = window.subplot_tool.as_mut().expect("the tool is open");
+    let shown = tool
+        .window_mut()
+        .ui_mut()
+        .widget_mut::<plt_ui::TextInput<SubplotMessage>>(left.field)
+        .map(|field| field.text().to_owned());
+    assert_eq!(
+        shown.as_deref(),
+        Some("0.300"),
+        "the field follows the slider"
+    );
 
     // Clicking the tool again raises its window.
     event_loop

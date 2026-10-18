@@ -2,24 +2,33 @@
 //!
 //! # Overview
 //!
-//! * A UI is a tree of [`Widget`]s held in [`WidgetPod`]s. Containers such
-//!   as [`Flex`] own their children; leaves such as [`Button`],
-//!   [`ToolButton`] (a vector [`Icon`] that can be checked or disabled),
+//! * A UI is a tree of [`Widget`]s held in [`WidgetPod`]s. Containers own
+//!   their children: [`Flex`] (rows and columns), [`Form`] (labelled
+//!   fields on an aligned label column, grouped into titled cards) and
+//!   [`Stack`] (pages of which one shows, e.g. under [`Tabs`]). Leaves
+//!   paint and react to input: [`Button`], [`ToolButton`] (a vector
+//!   [`Icon`] that can be checked or disabled, with a tooltip),
 //!   [`Label`], [`Separator`], [`TextInput`] (a one-line editable field),
 //!   [`List`] (scrollable rows), [`Choice`] (a segmented control),
-//!   [`Checkbox`], [`Stack`] (pages of which one shows) and
+//!   [`Dropdown`] (a button opening a list of options), [`Slider`],
+//!   [`Checkbox`],
+//!   [`Swatch`] (a colour sample), [`Keycaps`] (keyboard shortcuts) and
 //!   [`Surface`] (an application-rendered image, e.g. a figure, with an
-//!   optional selection rectangle) paint and react to input.
+//!   optional selection rectangle).
 //! * [`Ui`] owns the tree and a window-sized framebuffer. It lays the tree
 //!   out (measure, then arrange), paints it with `plt-raster` (text comes
 //!   from `plt-text` and the bundled fonts), and routes input: hover
-//!   tracking, pointer capture while a button is held, keyboard focus.
+//!   tracking, pointer capture while a button is held, keyboard focus
+//!   (moved with Tab), popups and tooltips.
 //! * Widgets talk to the application with messages of a type `M` of its
 //!   choosing, returned by [`Ui::handle`].
-//! * [`UiWindow`] connects a [`Ui`] to a `plt-platform` window.
+//! * [`UiWindow`] connects a [`Ui`] to a `plt-platform` window, which it
+//!   can size to fit its content.
 //!
 //! All lengths are window pixels (physical pixels); widgets scale the
-//! [`Theme`]'s logical lengths by the window's scale factor.
+//! [`Theme`]'s logical lengths by the window's scale factor. The theme
+//! holds every colour and metric, and a spacing scale ([`Spacing`]) for
+//! padding and gaps.
 //!
 //! ```
 //! use plt_platform::{PhysicalSize, WindowEvent, PhysicalPosition, MouseButton, ButtonState, Modifiers};
@@ -68,12 +77,13 @@ pub use error::UiError;
 pub use event::UiEvent;
 pub use geometry::{Constraints, Rect, Size};
 pub use icon::Icon;
-pub use text::{TextLayout, TextStyle};
-pub use theme::Theme;
+pub use text::{FontFamily, TextLayout, TextStyle};
+pub use theme::{Spacing, Theme};
 pub use ui::Ui;
 pub use widget::{EventCx, LayoutCx, PaintCx, Status, Widget, WidgetId, WidgetPod};
 pub use widgets::{
-    Axis, Button, Checkbox, Choice, Flex, Label, List, ListItem, Separator, Stack, Surface,
-    SurfaceEvent, TextInput, ToolButton,
+    Align, Axis, Button, Checkbox, Choice, Dropdown, Flex, Form, Keycaps, Label, List, ListItem,
+    Overflow, Separator, Slider, Stack, Surface, SurfaceEvent, Swatch, Tabs, TextInput, Tone,
+    ToolButton,
 };
 pub use window::UiWindow;

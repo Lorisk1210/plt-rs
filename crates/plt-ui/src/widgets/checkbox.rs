@@ -9,17 +9,36 @@ use plt_platform::MouseButton;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
+use crate::icon::Icon;
 use crate::text::{TextLayout, TextStyle};
+use crate::theme::Spacing;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
+/// The gap between the box and its label.
+const GAP: Spacing = Spacing::Sm;
+
+/// The tick in a checked box.
+fn tick() -> Icon {
+    Icon::new(24.0)
+        .with_stroke_width(3.0)
+        .stroke(Path::polyline(vec![
+            Point::new(6.0, 12.5),
+            Point::new(10.0, 16.5),
+            Point::new(18.0, 8.0),
+        ]))
+}
+
 /// A box with a label that a click checks or unchecks, sending a message
-/// with the new state.
+/// with the new state. Clicks count on the box and the label, not on the
+/// rest of the widget's rectangle.
 pub struct Checkbox<M> {
     label: String,
     checked: bool,
     on_toggle: Rc<dyn Fn(bool) -> M>,
     /// The label laid out by the last measure.
     layout: Option<TextLayout>,
+    /// The width of the box, gap and label from the last measure.
+    content_width: f64,
 }
 
 impl<M> fmt::Debug for Checkbox<M> {
@@ -39,6 +58,7 @@ impl<M> Checkbox<M> {
             checked: false,
             on_toggle: Rc::new(on_toggle),
             layout: None,
+            content_width: 0.0,
         }
     }
 
@@ -59,13 +79,14 @@ impl<M: 'static> Widget<M> for Checkbox<M> {
         cx: &mut LayoutCx<'_, M>,
         constraints: Constraints,
     ) -> Result<Size, UiError> {
-        let style = TextStyle::new(cx.theme().font_size);
-        let layout = TextLayout::new(&self.label, &style, cx.scale_factor())?;
-        let padding = cx.theme().padding * cx.scale_factor();
-        let size = layout.size();
+        let theme = cx.theme();
+        let scale = cx.scale_factor();
+        let style = TextStyle::new(theme.font_size);
+        let layout = TextLayout::new(&self.label, &style, scale)?;
+        self.content_width = (theme.checkbox_size + theme.space(GAP)) * scale + layout.size().width;
         self.layout = Some(layout);
-        let width = size.height + padding + size.width + 2.0 * padding;
-        Ok(constraints.constrain(Size::new(width, size.height + padding)))
+        let natural = Size::new(self.content_width, theme.control_height * scale);
+        Ok(constraints.constrain(natural))
     }
 
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError> {
@@ -74,33 +95,24 @@ impl<M: 'static> Widget<M> for Checkbox<M> {
         };
         let theme = cx.theme();
         let scale = cx.scale_factor();
-        let padding = theme.padding * scale;
-        let side = layout.size().height * 0.85;
-        let top = rect.center().y - side / 2.0;
-        let square = Rect::new(rect.x + padding, top, side, side);
-        let radius = theme.corner_radius * scale * 0.5;
+        let hot = cx.status().hot;
+        let side = theme.checkbox_size * scale;
+        let square = Rect::new(rect.x, rect.center().y - side / 2.0, side, side).snapped();
+        // Slightly tighter corners than full-size controls.
+        let radius = (theme.corner_radius - theme.space(Spacing::Xxs)) * scale;
         if self.checked {
-            cx.canvas()
-                .fill_rounded_rect(square, radius, theme.accent)?;
-            let tick = Path::polyline(vec![
-                Point::new(square.x + side * 0.22, top + side * 0.52),
-                Point::new(square.x + side * 0.42, top + side * 0.72),
-                Point::new(square.x + side * 0.78, top + side * 0.3),
-            ]);
-            cx.canvas()
-                .stroke_path(&tick, 1.8 * scale, plt_core::Rgba::WHITE)?;
+            let face = if hot { theme.accent_hot } else { theme.accent };
+            cx.canvas().fill_rounded_rect(square, radius, face)?;
+            tick().paint(cx.canvas(), square, theme.text_on_accent)?;
         } else {
-            let border = if cx.status().hot {
-                theme.accent
-            } else {
-                theme.separator
-            };
-            cx.canvas().fill_rounded_rect(square, radius, border)?;
+            let outline = if hot { theme.border_hot } else { theme.border };
             cx.canvas()
-                .fill_rounded_rect(square.inset(scale), radius - scale, theme.surface)?;
+                .fill_rounded_rect(square, radius, theme.surface)?;
+            cx.canvas()
+                .stroke_rounded_rect(square, radius, scale, outline)?;
         }
         let origin = Point::new(
-            square.max_x() + padding,
+            square.max_x() + theme.space(GAP) * scale,
             rect.center().y - layout.size().height / 2.0,
         );
         cx.canvas().draw_text(layout, origin, theme.text)
@@ -113,6 +125,7 @@ impl<M: 'static> Widget<M> for Checkbox<M> {
             ..
         } = event
             && rect.contains(*position)
+            && position.x < rect.x + self.content_width
         {
             self.checked = !self.checked;
             cx.emit((self.on_toggle)(self.checked));

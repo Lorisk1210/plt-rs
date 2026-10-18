@@ -5,8 +5,9 @@ use crate::geometry::{Constraints, Rect, Size};
 use crate::widget::{LayoutCx, PaintCx, Widget, WidgetId, WidgetPod};
 
 /// Children stacked on top of each other with only one shown — the pages
-/// of a tabbed panel. The hidden pages are neither laid out, painted nor
-/// given events, but their widgets can still be found by id.
+/// of a tabbed panel. The stack is as large as its largest page. The
+/// hidden pages are measured but neither arranged, painted nor given
+/// events; their widgets can still be found by id.
 pub struct Stack<M> {
     pages: Vec<WidgetPod<M>>,
     shown: usize,
@@ -63,10 +64,15 @@ impl<M: 'static> Widget<M> for Stack<M> {
         cx: &mut LayoutCx<'_, M>,
         constraints: Constraints,
     ) -> Result<Size, UiError> {
-        match self.pages.get_mut(self.shown) {
-            Some(page) => page.measure(cx, constraints),
-            None => Ok(constraints.constrain(Size::new(0.0, 0.0))),
+        // As large as the largest page, so that showing another page
+        // keeps the layout (and a window fitted to it) still.
+        let mut size = Size::ZERO;
+        for page in &mut self.pages {
+            let page_size = page.measure(cx, constraints)?;
+            size.width = size.width.max(page_size.width);
+            size.height = size.height.max(page_size.height);
         }
+        Ok(constraints.constrain(size))
     }
 
     fn arrange(&mut self, cx: &mut LayoutCx<'_, M>, rect: Rect) -> Result<(), UiError> {
@@ -115,5 +121,19 @@ mod tests {
         assert_eq!(stack.children()[0].id(), second);
         stack.show(5);
         assert_eq!(stack.shown(), 1);
+    }
+
+    #[test]
+    fn the_stack_fits_its_largest_page() {
+        let mut stack: Stack<()> = Stack::new();
+        stack.push(Fixed(Size::new(30.0, 10.0)));
+        stack.push(Fixed(Size::new(20.0, 40.0)));
+        let theme = crate::theme::Theme::default();
+        let mut messages = Vec::new();
+        let mut cx = LayoutCx::for_tests(&theme, &mut messages, 1.0);
+        let natural = stack
+            .measure(&mut cx, Constraints::loose(Size::INFINITE))
+            .unwrap();
+        assert_eq!(natural, Size::new(30.0, 40.0));
     }
 }

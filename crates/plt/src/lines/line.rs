@@ -18,6 +18,32 @@ use crate::markers::{FillStyle, Marker, MarkerStyle, marker_sketch};
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::transforms::{ResolvedTransform, Transform};
 
+/// A marker rotation following the θ orientation of polar axes: by angle
+/// θ shifted the way the axes shift θ, plus a fixed turn (matplotlib's
+/// `_ScaledRotation(theta, transShift)`, evaluated when drawing).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct PolarMarkerRotation {
+    /// The data angle in radians.
+    pub(crate) theta: f64,
+    /// A further turn in radians.
+    pub(crate) extra: f64,
+}
+
+impl PolarMarkerRotation {
+    /// The rotation in radians inside axes `parent`: θ times the θ
+    /// direction plus the θ offset when they are polar, plus the extra
+    /// turn.
+    fn angle(self, ctx: LayoutContext<'_>, parent: Option<crate::artist::ArtistId>) -> f64 {
+        let shifted = parent
+            .and_then(|axes| ctx.store().get_as::<crate::axes::AxesState>(axes))
+            .and_then(crate::axes::AxesState::polar)
+            .map_or(self.theta, |polar| {
+                self.theta * polar.direction.sign() + polar.theta_offset
+            });
+        shifted + self.extra
+    }
+}
+
 /// State of a [`Line2D`] (matplotlib's `Line2D`).
 #[derive(Debug)]
 pub(crate) struct LineArtist {
@@ -49,6 +75,9 @@ pub(crate) struct LineArtist {
     pub(crate) dash_joinstyle: JoinStyle,
     /// Set for lines extending across the whole view (`axline`).
     pub(crate) infinite: Option<InfiniteLine>,
+    /// Turns the markers through an angle of the polar axes the line is
+    /// in (the caps of polar error bars).
+    pub(crate) marker_rotation: Option<PolarMarkerRotation>,
     /// rc snapshot used to resolve named dash patterns.
     rc: std::rc::Rc<RcParams>,
 }
@@ -84,6 +113,7 @@ impl LineArtist {
             dash_capstyle: rc.lines_dash_capstyle,
             dash_joinstyle: rc.lines_dash_joinstyle,
             infinite: None,
+            marker_rotation: None,
             rc,
         };
         line.recache();
@@ -178,8 +208,11 @@ impl LineArtist {
         if self.marker.is_nothing() || self.markersize <= 0.0 || points.is_empty() {
             return Ok(());
         }
-        let style =
+        let mut style =
             MarkerStyle::new(self.marker.clone(), self.fillstyle).map_err(|e| e.to_string())?;
+        if let Some(rotation) = &self.marker_rotation {
+            style = style.rotated(rotation.angle(*ctx.layout(), self.base.parent));
+        }
         let (points, affine) = resolved.split_points(points);
         let points = match self
             .select_markers(*ctx.layout(), &points, &affine)

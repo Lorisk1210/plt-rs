@@ -105,6 +105,10 @@ pub(crate) struct LegendArtist {
     pub(crate) texts: Vec<ArtistId>,
     /// Every part, for removal with the legend.
     pub(crate) parts: Vec<ArtistId>,
+    /// Whether the legend stays on its axes as an ordinary artist
+    /// (matplotlib's `ax.add_artist(legend)`): a new axes legend does not
+    /// replace it and it is no longer the axes' legend.
+    pub(crate) kept: bool,
 }
 
 impl LegendArtist {

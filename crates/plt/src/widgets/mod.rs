@@ -40,10 +40,13 @@ pub use selectors::{
     RectangleSelector, RectangleSelectorOptions, SelectorError, SelectorEvent, SelectorState,
     SelectorUnits, SpanSelector, SpanSelectorOptions,
 };
-pub use slider::{Orientation, Slider, SliderOptions, ValStep};
+pub use slider::{HandleStyle, Orientation, Slider, SliderOptions, ValStep};
 pub use subplot_tool::SubplotTool;
 pub use textbox::{TextBox, TextBoxOptions};
-pub use toggles::{CheckButtons, RadioButtons};
+pub use toggles::{
+    ButtonLayout, ButtonMarkerProps, ButtonsError, CheckButtons, CheckButtonsOptions, RadioButtons,
+    RadioButtonsOptions,
+};
 
 use crate::axes::Axes;
 use crate::events::{ConnectionId, Event, EventKind, Location};

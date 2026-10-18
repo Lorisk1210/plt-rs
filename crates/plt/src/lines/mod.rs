@@ -11,8 +11,8 @@ mod steps;
 pub use axline::AxLineThrough;
 pub(crate) use axline::InfiniteLine;
 pub use format::{FormatError, FormatString};
-pub(crate) use line::LineArtist;
 pub use line::{Line2D, LineProps, MarkerError};
+pub(crate) use line::{LineArtist, PolarMarkerRotation};
 pub use linestyle::{LineStyle, LineStyleError, inverse_dashes};
 pub use markevery::{MarkEvery, MarkEveryError};
 pub use steps::{

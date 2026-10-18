@@ -22,7 +22,10 @@ pub(crate) use paint::{draw_tick_lines, tick_label_anchor};
 pub(crate) use ticker::{RadialLocator, theta_tickers};
 pub(crate) use transform::PolarView;
 
-use crate::axes::Axes;
+use crate::artist::ArtistId;
+use crate::axes::{Axes, AxesState};
+use crate::figure::FigureState;
+use crate::spines::SpineSide;
 
 /// The way θ increases (matplotlib's `set_theta_direction`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -113,5 +116,28 @@ impl Axes {
     /// This axes as polar axes, if it is one.
     pub fn as_polar(&self) -> Option<PolarAxes> {
         PolarAxes::new(self.clone())
+    }
+}
+
+/// Shows the start and end spines of a sector and the inner spine around
+/// a hole, and hides them otherwise, whatever their visibility was
+/// (matplotlib's `PolarAxes.draw` sets it before every draw).
+pub(crate) fn update_spine_visibility(state: &mut FigureState, axes: ArtistId) {
+    let Some(axes_state) = state.store.get_as::<AxesState>(axes) else {
+        return;
+    };
+    let Some(view) = axes_state.polar_view() else {
+        return;
+    };
+    let updates: Vec<(ArtistId, bool)> = SpineSide::ALL
+        .iter()
+        .zip(&axes_state.spines)
+        .filter(|(side, _)| **side != SpineSide::Top)
+        .map(|(&side, &id)| (id, view.spine_shown(side)))
+        .collect();
+    for (id, visible) in updates {
+        if let Some(spine) = state.store.get_mut(id) {
+            spine.base_mut().visible = visible;
+        }
     }
 }

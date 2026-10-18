@@ -68,7 +68,11 @@ impl Axis {
 
     /// Places the major ticks with a locator that may be shared.
     pub(crate) fn set_shared_major_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
-        self.update_shared(|axis| axis.set_major_locator(Rc::clone(locator)));
+        let owner = self.axes.id();
+        self.update_shared(|axis| {
+            axis.set_major_locator(Rc::clone(locator));
+            axis.ticker_owner = Some(owner);
+        });
         self
     }
 
@@ -79,7 +83,11 @@ impl Axis {
 
     /// Places the minor ticks with a locator that may be shared.
     pub(crate) fn set_shared_minor_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
-        self.update_shared(|axis| axis.minor_locator = Rc::clone(locator));
+        let owner = self.axes.id();
+        self.update_shared(|axis| {
+            axis.minor_locator = Rc::clone(locator);
+            axis.ticker_owner = Some(owner);
+        });
         self
     }
 
@@ -114,8 +122,7 @@ impl Axis {
         let ticks = self.convert_units(ticks);
         self.include_ticks_in_view(&ticks);
         let locator: Rc<dyn Locator> = Rc::new(FixedLocator::new(ticks));
-        self.update_shared(|axis| axis.set_major_locator(Rc::clone(&locator)));
-        self
+        self.set_shared_major_locator(&locator)
     }
 
     /// Widens the view of this axis and its siblings to include `ticks`

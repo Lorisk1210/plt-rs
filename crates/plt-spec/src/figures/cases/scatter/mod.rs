@@ -1,10 +1,16 @@
-//! `figures/cases_scatter.py`.
+//! `figures/cases_scatter.py`: the basic cases here, legends and
+//! variants in submodules.
+
+mod legends;
+mod variants;
+
+pub(crate) use legends::CASES as LEGENDS;
+pub(crate) use variants::CASES as VARIANTS;
 
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::EdgeColors;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::colors::{Color, LogNorm, TwoSlopeNorm, colormaps};
-use plt::markers::Marker;
 use plt::numeric::{arange, linspace, logspace};
 use plt::orientation::Orientation;
 
@@ -29,7 +35,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let (x, y) = points(3, 30);
         let options = ScatterOptions {
             sizes: Some(linspace(5.0, 600.0, 30)),
-            alpha: Some(0.6),
+            alpha: 0.6.into(),
             ..ScatterOptions::default()
         };
         fig.subplot().scatter_with(x, y, options)?;
@@ -118,7 +124,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let markers = ["o", "s", "^", "D", "*", "P", "X", "h", "x", "+", "1", "|"];
         for (i, marker) in markers.into_iter().enumerate() {
             let options = ScatterOptions {
-                marker: Some(marker.parse::<Marker>()?),
+                marker: Some(marker.parse()?),
                 sizes: Some(vec![80.0]),
                 ..ScatterOptions::default()
             };
@@ -154,7 +160,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             sizes: Some(vec![300.0]),
             colors: MappedColors::new(y.clone()).into(),
             edgecolors: Some(EdgeColors::Face),
-            alpha: Some(0.4),
+            alpha: 0.4.into(),
             ..ScatterOptions::default()
         };
         fig.subplot().scatter_with(x, y, options)?;
@@ -219,7 +225,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let y: Vec<f64> = x.iter().zip(noise).map(|(x, n)| 0.5 * x + n).collect();
         let options = ScatterOptions {
             sizes: Some(vec![2.0]),
-            alpha: Some(0.5),
+            alpha: 0.5.into(),
             ..ScatterOptions::default()
         };
         fig.subplot().scatter_with(x, y, options)?;

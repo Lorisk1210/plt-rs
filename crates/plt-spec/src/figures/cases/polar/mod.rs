@@ -1,4 +1,11 @@
-//! `figures/cases_polar.py`.
+//! `figures/cases_polar.py`: the basic cases here, sectors and radial
+//! settings in submodules.
+
+mod radial;
+mod sectors;
+
+pub(crate) use radial::CASES as RADIAL;
+pub(crate) use sectors::CASES as SECTORS;
 
 use std::f64::consts::{PI, TAU};
 
@@ -71,7 +78,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             colors: MappedColors::new(theta.clone())
                 .with_cmap(colormaps::get("hsv")?)
                 .into(),
-            alpha: Some(0.75),
+            alpha: 0.75.into(),
             ..ScatterOptions::default()
         };
         ax.scatter_with(theta, r, options)?;

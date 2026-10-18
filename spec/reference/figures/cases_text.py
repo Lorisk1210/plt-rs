@@ -4,6 +4,7 @@ connection styles, shrink), mathtext under every bundled fontset, unicode,
 path effects and tables."""
 
 import numpy as np
+from matplotlib import colormaps as mpl_colormaps
 from matplotlib import patches
 from matplotlib import patheffects as pe
 
@@ -429,3 +430,88 @@ def _(fig):
                      colLabels=["one", "two"], edges="horizontal", loc="upper center")
     table.auto_set_column_width([0, 1])
     ax.table(cellText=[["open", "closed"]], edges="BT", loc="lower center")
+
+
+@case("text/table_cell_styles_header", figsize=(5, 3))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_axis_off()
+    rows = [["Mon", "12", "3.5"], ["Tue", "15", "4.0"], ["Wed", "9", "2.25"], ["Thu", "21", "5.5"]]
+    table = ax.table(cellText=rows, colLabels=["day", "count", "mean"], loc="center")
+    for (row, col), cell in table.get_celld().items():
+        cell.set_edgecolor("0.7")
+        if row == 0:
+            cell.set_facecolor("#40466e")
+            cell.set_text_props(weight="bold", color="w")
+            cell.set_linewidth(2)
+        elif row % 2 == 0:
+            cell.set_facecolor("#f1f1f2")
+    table[(4, 1)].set_text_props(color="tab:red")
+
+
+@case("text/table_visible_edges_per_cell", figsize=(5, 3))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_axis_off()
+    table = ax.table(cellText=[["open", "B", "LR"], ["T", "closed", "BRT"]], loc="center",
+                     cellLoc="center")
+    for (row, col), cell in table.get_celld().items():
+        cell.visible_edges = cell.get_text().get_text()
+    table.scale(1, 2)
+
+
+@case("text/table_outside_locations", figsize=(6, 4.5))
+def _(fig):
+    ax = fig.subplots()
+    ax.plot([0, 1], [0, 1])
+    for loc in ["top", "left", "right", "bottom right", "top left"]:
+        ax.table(cellText=[[loc]], loc=loc, colWidths=[0.2])
+    fig.subplots_adjust(left=0.25, right=0.75, top=0.8, bottom=0.2)
+
+
+@case("text/table_auto_font_size_shrinks", figsize=(6, 3))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    cells = [["a fairly long entry", "x"], ["short", "another long entry"]]
+    for ax in (ax1, ax2):
+        ax.set_axis_off()
+    ax1.table(cellText=cells, colWidths=[0.4, 0.4], loc="center")
+    fixed = ax2.table(cellText=cells, colWidths=[0.4, 0.4], loc="center")
+    fixed.auto_set_font_size(False)
+    fixed.set_fontsize(7)
+
+
+@case("text/table_bbox_cell_locs", figsize=(5, 4))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.table(cellText=[["1", "22", "333"], ["4444", "5", "66"]], rowLabels=["first", "second"],
+             colLabels=["A", "B", "C"], cellLoc="left", rowLoc="center", colLoc="right",
+             bbox=[0.25, 0.2, 0.7, 0.5])
+
+
+@case("text/table_colours_only_scaled", figsize=(5, 3))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_axis_off()
+    values = np.linspace(0.0, 1.0, 12).reshape(3, 4)
+    colours = [[mpl_colormaps["viridis"](v) for v in row] for row in values]
+    table = ax.table(cellColours=colours, rowLabels=["r1", "r2", "r3"],
+                     colLabels=["w", "x", "y", "z"], loc="center")
+    table.scale(1, 2.5)
+    for col in range(4):
+        table[(0, col)].visible_edges = "B"
+    table[(1, 2)].set_height(0.2)
+
+
+@case("text/table_cell_size_text_edit", figsize=(5, 3))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_axis_off()
+    table = ax.table(cellText=[["a", "b"], ["c", "d"]], loc="center", colWidths=[0.2, 0.2])
+    table[(0, 0)].get_text().set_text("edited")
+    table[(0, 1)].set_width(0.35)
+    table[(1, 0)].set_text_props(fontstyle="italic", ha="left")
+    table[(1, 1)].set_facecolor("tab:olive")
+    table[(1, 1)].set_alpha(0.5)

@@ -19,6 +19,7 @@
 //! ```
 
 mod cell;
+mod handle;
 mod layout;
 
 use std::fmt;
@@ -29,10 +30,9 @@ use plt_core::Bbox;
 use plt_text::HAlign;
 
 pub use cell::CellEdges;
+pub use handle::{Table, TableCell};
 
-use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
-};
+use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 use crate::rc::RcParams;
@@ -322,15 +322,19 @@ impl TableBuilder {
     fn fill(&self, table: &mut TableArtist, options: &TableOptions, height: f64) {
         let white = || Color::from("w");
         let font = FontProperties::from_rc(&table.rc);
+        let text_color = table.rc.text_color.clone();
         let make = |width: f64, text: &str, facecolor: Color, loc: HAlign| Cell {
             width,
             height,
             text: text.to_owned(),
             facecolor,
             edgecolor: Color::from("k"),
+            linewidth: None,
+            alpha: None,
             loc,
             edges: options.edges,
             font: font.clone(),
+            text_color: text_color.clone(),
         };
         let has_col_header = options.col_labels.is_some() || options.col_colours.is_some();
         let offset = i32::from(has_col_header);
@@ -449,65 +453,5 @@ impl Artist for TableArtist {
             .iter()
             .map(|cell| cell.bbox.transformed(&to_display))
             .reduce(|a, b| a.union(&b))
-    }
-}
-
-/// A handle to a table (matplotlib's `Table`).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Table {
-    raw: RawHandle,
-}
-
-impl ArtistHandle for Table {
-    fn raw(&self) -> &RawHandle {
-        &self.raw
-    }
-}
-
-impl Table {
-    pub(crate) fn from_raw(raw: RawHandle) -> Self {
-        Self { raw }
-    }
-
-    fn update(&self, f: impl FnOnce(&mut TableArtist)) -> &Self {
-        self.raw.with_mut::<TableArtist, _>(f);
-        self
-    }
-
-    /// Turns the shrinking of the font size to fit the cells on or off.
-    pub fn auto_set_font_size(&self, on: bool) -> &Self {
-        self.update(|t| t.auto_fontsize = on)
-    }
-
-    /// Sets the text size of every cell in points (still shrunk to fit
-    /// unless [`auto_set_font_size`](Self::auto_set_font_size) is off).
-    pub fn set_fontsize(&self, size: f64) -> &Self {
-        self.update(|t| t.set_fontsize(size))
-    }
-
-    /// Scales column widths by `xscale` and row heights by `yscale`.
-    pub fn scale(&self, xscale: f64, yscale: f64) -> &Self {
-        self.update(|t| {
-            for (_, cell) in &mut t.cells {
-                cell.width *= xscale;
-                cell.height *= yscale;
-            }
-        })
-    }
-
-    /// Fits the widths of these columns to their texts at draw time
-    /// (`-1` is the row header column).
-    pub fn auto_set_column_width(&self, columns: &[i32]) -> &Self {
-        self.update(|t| t.auto_columns.extend_from_slice(columns))
-    }
-
-    /// The number of cells.
-    pub fn len(&self) -> usize {
-        self.raw.with::<TableArtist, _>(|t| t.cells.len())
-    }
-
-    /// Whether the table has no cells.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
     }
 }

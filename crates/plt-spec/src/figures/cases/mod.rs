@@ -24,7 +24,9 @@ mod selectors;
 mod stats;
 mod styles;
 mod text;
+mod toolkits;
 mod vectors;
+mod widgets;
 
 use super::FigureCase;
 
@@ -46,7 +48,9 @@ pub(crate) fn all() -> Vec<FigureCase> {
         fields::BARBS,
         fields::QUIVER,
         fields::STREAMPLOT,
+        geo::ARTISTS,
         geo::CASES,
+        geo::GRIDS,
         hinting::CASES,
         hist::CASES,
         images::CASES,
@@ -79,8 +83,12 @@ pub(crate) fn all() -> Vec<FigureCase> {
         patches::SHAPES,
         patches::STYLES,
         polar::CASES,
+        polar::RADIAL,
+        polar::SECTORS,
         pyplot::CASES,
         scatter::CASES,
+        scatter::LEGENDS,
+        scatter::VARIANTS,
         selectors::CASES,
         stats::BOXPLOT,
         stats::ERRORBAR,
@@ -96,7 +104,10 @@ pub(crate) fn all() -> Vec<FigureCase> {
         text::LAYOUT,
         text::MATH,
         text::TABLES,
+        text::TABLE_CELLS,
+        toolkits::CASES,
         vectors::CASES,
+        widgets::CASES,
     ]
     .concat()
 }

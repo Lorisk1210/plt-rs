@@ -3,6 +3,8 @@
 
 use std::rc::Rc;
 
+use crate::artist::ArtistId;
+
 use super::ticks::{Sides, TickStyle};
 use crate::colors::Color;
 use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter};
@@ -109,6 +111,9 @@ pub(crate) struct AxisGeometry {
     pub(crate) minpos: f64,
     /// Length of the axis in points.
     pub(crate) length_points: f64,
+    /// How many ticks fit along the axis of another axes the locators are
+    /// bound to (`None` measures this axis).
+    pub(crate) tick_space: Option<usize>,
     /// Major ticks at or below this value are dropped before labelling
     /// (the origin of full-circle polar axes).
     pub(crate) tick_floor: Option<f64>,
@@ -153,6 +158,10 @@ pub(crate) struct AxisState {
     pub(crate) major_formatter: Rc<dyn Formatter>,
     pub(crate) minor_locator: Rc<dyn Locator>,
     pub(crate) minor_formatter: Rc<dyn Formatter>,
+    /// The axes whose axis the locators measure when it is not this one:
+    /// matplotlib binds a locator to the axis that set it, and axes
+    /// sharing an axis share their locators (`locator.axis`).
+    pub(crate) ticker_owner: Option<ArtistId>,
     /// Whether the major locator and formatter are still the defaults,
     /// which units may replace (matplotlib's `isDefault_majloc`/`_majfmt`).
     default_major: (bool, bool),
@@ -198,6 +207,7 @@ impl AxisState {
             major_formatter: Rc::from(tickers.major_formatter),
             minor_locator: Rc::from(tickers.minor_locator),
             minor_formatter: Rc::from(tickers.minor_formatter),
+            ticker_owner: None,
             default_major: (true, true),
             categories: None,
             autoscale: AutoscaleState {
@@ -416,7 +426,9 @@ impl AxisState {
             view_interval: geometry.view,
             data_interval: geometry.data,
             minpos: geometry.minpos,
-            tick_space: self.tick_space(geometry.length_points),
+            tick_space: geometry
+                .tick_space
+                .unwrap_or_else(|| self.tick_space(geometry.length_points)),
             major_ticks: Vec::new(),
             scale: self.scale.hint(),
             three_d: false,
@@ -425,7 +437,7 @@ impl AxisState {
 
     /// How many ticks fit (matplotlib's `get_tick_space`): tick labels are
     /// assumed to be at most 3:1 (x) or 2:1 (y) wide.
-    fn tick_space(&self, length_points: f64) -> usize {
+    pub(crate) fn tick_space(&self, length_points: f64) -> usize {
         let ratio = match self.name {
             AxisName::X => 3.0,
             AxisName::Y => 2.0,
@@ -510,6 +522,7 @@ mod tests {
             data: view,
             minpos: f64::INFINITY,
             length_points: 357.12,
+            tick_space: None,
             tick_floor: None,
         }
     }

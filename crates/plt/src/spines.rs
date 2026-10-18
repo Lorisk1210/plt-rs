@@ -11,6 +11,7 @@ use crate::artist::{
 use crate::axes::AxesState;
 use crate::colors::Color;
 use crate::geo;
+use crate::lines::LineStyle;
 use crate::patches::PatchStyle;
 use crate::polar::PolarView;
 use crate::rc::RcParams;
@@ -336,6 +337,13 @@ impl Spine {
             .with_mut::<SpineArtist, _>(|s| s.style.linewidth = Some(width));
         self
     }
+
+    /// Sets the spine line style (solid, dashed, ...).
+    pub fn set_linestyle(&self, style: LineStyle) -> &Self {
+        self.raw
+            .with_mut::<SpineArtist, _>(|s| s.style.linestyle = style);
+        self
+    }
 }
 
 /// The four spines of an axes.
@@ -424,5 +432,22 @@ mod tests {
             (segments[2][0].y - (52.8 - 10.0 * 100.0 / 72.0)).abs() < 1e-9,
             "bottom spine 10pt out"
         );
+    }
+
+    #[test]
+    fn spines_take_a_line_style() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.spines()
+            .left
+            .set_linestyle(LineStyle::Dashed)
+            .set_linewidth(2.0);
+        let style = ax
+            .spines()
+            .left
+            .raw()
+            .with::<SpineArtist, _>(|spine| spine.style.clone());
+        assert_eq!(style.linestyle, LineStyle::Dashed);
+        assert_eq!(style.linewidth, Some(2.0));
     }
 }

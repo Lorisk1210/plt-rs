@@ -1,7 +1,9 @@
 //! What a legend can list, and how the entries of `legend()` are found
 //! (matplotlib's `_get_legend_handles` and `_parse_legend_args`).
 
-use crate::artist::{ArtistHandle, ArtistId, ArtistStore, is_hidden_label};
+use std::rc::Rc;
+
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore, is_hidden_label};
 use crate::axes::{AxesState, BarContainer, ErrorbarContainer, StemContainer};
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::container::{Container, ContainerIds};
@@ -30,6 +32,27 @@ pub(crate) enum Source {
     Artist(ArtistId),
     /// The artists of a plotting call.
     Container(ContainerIds),
+    /// A line drawn nowhere but in legends (matplotlib's proxy artists,
+    /// such as the handles of `legend_elements`).
+    Proxy(ProxyLine),
+}
+
+/// A line that exists only as a legend handle; handles compare equal when
+/// they share the line.
+#[derive(Clone, Debug)]
+pub(crate) struct ProxyLine(pub(crate) Rc<LineArtist>);
+
+impl PartialEq for ProxyLine {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl LegendHandle {
+    /// A handle showing `line`, which is drawn nowhere else.
+    pub(crate) fn proxy(line: LineArtist) -> Self {
+        Self(Source::Proxy(ProxyLine(Rc::new(line))))
+    }
 }
 
 impl<T: ArtistHandle> From<&T> for LegendHandle {
@@ -74,6 +97,7 @@ impl Source {
         match self {
             Self::Artist(id) => store.get(*id).map(|a| a.base().label.clone()),
             Self::Container(container) => container.label().map(str::to_owned),
+            Self::Proxy(line) => Some(line.0.base().label.clone()),
         }
     }
 
@@ -82,7 +106,7 @@ impl Source {
     pub(crate) fn has_handler(&self, store: &ArtistStore) -> bool {
         match self {
             Self::Artist(id) => artist_has_handler(store, *id),
-            Self::Container(_) => true,
+            Self::Container(_) | Self::Proxy(_) => true,
         }
     }
 }

@@ -178,12 +178,14 @@ impl FigureState {
         for &id in &axes {
             self.sync_secondary(id);
             self.lay_out_axes(id);
+            crate::polar::update_spine_visibility(self, id);
             let Some(extent) = self.axes_bbox(id) else {
                 continue;
             };
             let dpi = self.dpi;
+            let shared = self.shared_tick_spaces(id);
             if let Some(state) = self.store.get_as_mut::<AxesState>(id) {
-                state.update_ticks(&extent, dpi);
+                state.update_ticks(&extent, dpi, shared);
             }
         }
         crate::mplot3d::prepare_axes3d(self);

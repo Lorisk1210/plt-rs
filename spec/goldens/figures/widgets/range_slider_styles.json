@@ -1,0 +1,58 @@
+{
+ "size_px": [500, 400],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.25, 0.8, 0.6, 0.08],
+   "title": "",
+   "xlim": [0.0, 10.0],
+   "ylim": [0.4725, 0.5275],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "$\\mathdefault{0}$"], [2.0, "$\\mathdefault{2}$"], [4.0, "$\\mathdefault{4}$"], [6.0, "$\\mathdefault{6}$"], [8.0, "$\\mathdefault{8}$"], [10.0, "$\\mathdefault{10}$"]],
+   "yticks": [[0.475, "0.475"], [0.5, "0.500"], [0.525, "0.525"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.25, 0.6, 0.6, 0.08],
+   "title": "",
+   "xlim": [-5.0, 5.0],
+   "ylim": [0.4725, 0.5275],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-4.0, "$\\mathdefault{−4}$"], [-2.0, "$\\mathdefault{−2}$"], [0.0, "$\\mathdefault{0}$"], [2.0, "$\\mathdefault{2}$"], [4.0, "$\\mathdefault{4}$"]],
+   "yticks": [[0.475, "0.475"], [0.5, "0.500"], [0.525, "0.525"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.25, 0.4, 0.6, 0.08],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.4725, 0.5275],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "$\\mathdefault{0.0}$"], [0.2, "$\\mathdefault{0.2}$"], [0.4, "$\\mathdefault{0.4}$"], [0.6, "$\\mathdefault{0.6}$"], [0.8, "$\\mathdefault{0.8}$"], [1.0, "$\\mathdefault{1.0}$"]],
+   "yticks": [[0.475, "0.475"], [0.5, "0.500"], [0.525, "0.525"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.08, 0.1, 0.06, 0.4],
+   "title": "",
+   "xlim": [0.4725, 0.5275],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.475, "0.475"], [0.5, "0.500"], [0.525, "0.525"]],
+   "yticks": [[0.0, "$\\mathdefault{0.0}$"], [0.2, "$\\mathdefault{0.2}$"], [0.4, "$\\mathdefault{0.4}$"], [0.6, "$\\mathdefault{0.6}$"], [0.8, "$\\mathdefault{0.8}$"], [1.0, "$\\mathdefault{1.0}$"]]
+  }
+ ]
+}

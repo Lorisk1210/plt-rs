@@ -219,3 +219,22 @@ fn invalid_options_are_errors() {
     ));
     assert_eq!(ax.get_legend(), None, "failed legends leave nothing behind");
 }
+
+#[test]
+fn kept_legends_stay_beside_the_next_one() {
+    let (_, ax) = canvas();
+    ax.plot_with([0.0, 1.0], [0.0, 1.0], labelled("line"))
+        .unwrap();
+    let first = ax
+        .legend(LegendOptions::default().loc("lower left"))
+        .unwrap();
+    ax.keep_legend(&first);
+    let second = ax
+        .legend(LegendOptions::default().loc("upper right"))
+        .unwrap();
+    assert!(first.raw().is_alive(), "a kept legend is not replaced");
+    assert_eq!(ax.get_legend(), Some(second.clone()));
+    let third = ax.legend(LegendOptions::default()).unwrap();
+    assert!(!second.raw().is_alive(), "the axes legend still is");
+    assert_eq!(ax.get_legend(), Some(third));
+}

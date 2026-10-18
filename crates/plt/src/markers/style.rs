@@ -1,5 +1,7 @@
 //! Resolved marker geometry (matplotlib's `MarkerStyle`).
 
+use std::str::FromStr;
+
 use plt_core::{Affine2D, Path};
 use plt_render::{CapStyle, JoinStyle};
 
@@ -154,6 +156,17 @@ impl MarkerStyle {
     }
 }
 
+impl FromStr for MarkerStyle {
+    type Err = MarkerError;
+
+    /// Parses a marker code with the fill style of `markers.fillstyle`
+    /// (matplotlib's `MarkerStyle(marker)`).
+    fn from_str(code: &str) -> Result<Self, MarkerError> {
+        let fillstyle = crate::rc::params().markers_fillstyle.parse()?;
+        Self::new(code.parse::<Marker>()?, fillstyle)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,5 +281,13 @@ mod tests {
             ),
             Err(MarkerError::NoSides)
         );
+    }
+
+    #[test]
+    fn parsed_styles_take_the_rc_fillstyle() {
+        let parsed: MarkerStyle = "D".parse().expect("a marker code");
+        assert_eq!(parsed.fillstyle(), FillStyle::Full);
+        assert_eq!(parsed.marker(), &Marker::Symbol(MarkerSymbol::Diamond));
+        assert!("not a marker".parse::<MarkerStyle>().is_err());
     }
 }

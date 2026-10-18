@@ -1,5 +1,7 @@
 //! Sliders (matplotlib's `widgets.SliderBase` and `widgets.Slider`).
 
+mod options;
+
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
@@ -22,6 +24,8 @@ use crate::ticker::{
     AxisInfo, Formatter, OffsetMode, ScalarFormatter, TickContext, TickerSettings,
 };
 
+pub use options::{HandleStyle, SliderOptions, ValStep};
+
 /// The direction a slider moves in, or a span selector selects along.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Orientation {
@@ -30,63 +34,6 @@ pub enum Orientation {
     Horizontal,
     /// Bottom to top.
     Vertical,
-}
-
-/// Values a slider snaps to (matplotlib's `valstep`).
-#[derive(Clone, Debug, PartialEq)]
-pub enum ValStep {
-    /// Multiples of this step from the minimum.
-    Step(f64),
-    /// The closest of these values.
-    Values(Vec<f64>),
-}
-
-/// Options of a [`Slider`] (and, apart from `valinit` and `initcolor`,
-/// of a [`RangeSlider`](super::RangeSlider)).
-#[derive(Clone, Debug, PartialEq)]
-pub struct SliderOptions {
-    /// The initial value.
-    pub valinit: f64,
-    /// A printf-style format of the value (`%1.2f`); by default the
-    /// axis' scalar formatter.
-    pub valfmt: Option<String>,
-    /// Whether the minimum can be reached.
-    pub closedmin: bool,
-    /// Whether the maximum can be reached.
-    pub closedmax: bool,
-    /// Whether the value follows the pointer while dragging (otherwise it
-    /// only jumps on clicks).
-    pub dragging: bool,
-    /// Values to snap to.
-    pub valstep: Option<ValStep>,
-    /// The direction.
-    pub orientation: Orientation,
-    /// Colour of the line marking the initial value (`None` hides it).
-    pub initcolor: Option<Color>,
-    /// Colour of the track.
-    pub track_color: Color,
-    /// Colour of the selected part of the track (the patch colour by
-    /// default).
-    pub facecolor: Option<Color>,
-}
-
-impl Default for SliderOptions {
-    /// matplotlib's defaults: from 0.5, a red initial-value line on a
-    /// light grey track.
-    fn default() -> Self {
-        Self {
-            valinit: 0.5,
-            valfmt: None,
-            closedmin: true,
-            closedmax: true,
-            dragging: true,
-            valstep: None,
-            orientation: Orientation::Horizontal,
-            initcolor: Some(Color::from("r")),
-            track_color: Color::from("lightgrey"),
-            facecolor: None,
-        }
-    }
 }
 
 /// What every slider shares: its range, snapping and formatting
@@ -105,6 +52,7 @@ pub(super) struct SliderBase {
     settings: TickerSettings,
     pub(super) dragging: bool,
     pub(super) drag_active: Cell<bool>,
+    handle_style: HandleStyle,
 }
 
 impl SliderBase {
@@ -146,6 +94,7 @@ impl SliderBase {
             settings,
             dragging: options.dragging,
             drag_active: Cell::new(false),
+            handle_style: options.handle_style.clone(),
         }
     }
 
@@ -276,12 +225,13 @@ impl SliderBase {
             Orientation::Vertical => (0.5, value),
             Orientation::Horizontal => (value, 0.5),
         };
+        let style = &self.handle_style;
         let props = LineProps::default()
             .linestyle(LineStyle::None)
             .marker(Marker::Symbol(MarkerSymbol::Circle))
-            .markerfacecolor(ColorOrAuto::Color(Color::from("white")))
-            .markeredgecolor(ColorOrAuto::Color(Color::from(".75")))
-            .markersize(10.0);
+            .markerfacecolor(ColorOrAuto::Color(style.facecolor.clone()))
+            .markeredgecolor(ColorOrAuto::Color(style.edgecolor.clone()))
+            .markersize(style.size);
         let handle = self
             .ax
             .plot_with(vec![x], vec![y], props)
@@ -391,22 +341,20 @@ impl Slider {
             Orientation::Vertical => ax.axhspan_between(valmin, valinit, 0.25, 0.75),
             Orientation::Horizontal => ax.axvspan_between(valmin, valinit, 0.25, 0.75),
         };
-        if let Some(facecolor) = &options.facecolor {
-            poly.set_facecolor(facecolor.clone());
-        }
-        if let Some(initcolor) = &options.initcolor {
-            let props = LineProps::default().color(initcolor.clone()).linewidth(1.0);
-            let line = match options.orientation {
-                Orientation::Vertical => ax.axhline(valinit, props),
-                Orientation::Horizontal => ax.axvline(valinit, props),
-            };
-            // matplotlib gives the line its clip path before adding it to
-            // the axes, which then leaves it without a clip box.
-            line.raw().with_base_mut(|b| {
-                b.clip_path = Some(crate::artist::ClipPathSpec::Artist(track.id()));
-                b.clip_box = None;
-            });
-        }
+        poly.update_props(options.poly.clone());
+        let props = LineProps::default()
+            .color(options.initcolor.clone())
+            .linewidth(1.0);
+        let line = match options.orientation {
+            Orientation::Vertical => ax.axhline(valinit, props),
+            Orientation::Horizontal => ax.axvline(valinit, props),
+        };
+        // matplotlib gives the line its clip path before adding it to the
+        // axes, which then leaves it without a clip box.
+        line.raw().with_base_mut(|b| {
+            b.clip_path = Some(crate::artist::ClipPathSpec::Artist(track.id()));
+            b.clip_box = None;
+        });
         let handle = base.handle(valinit);
         let (label, valtext) = base.texts(label, &base.format(&[valinit]).remove(0));
         let kinds = base.event_kinds();
@@ -556,5 +504,25 @@ mod tests {
         );
         assert_eq!(slider.val(), 7.0);
         assert_eq!(slider.valtext().text(), r"$\mathdefault{7}$");
+    }
+
+    #[test]
+    fn handles_and_selection_take_their_styles() {
+        use crate::patches::PatchProps;
+
+        let fig = Figure::new();
+        let ax = fig.add_axes([0.2, 0.5, 0.6, 0.1]);
+        let options = SliderOptions {
+            handle_style: HandleStyle {
+                size: 14.0,
+                facecolor: Color::from("tab:orange"),
+                ..HandleStyle::default()
+            },
+            poly: PatchProps::default().facecolor("tab:green").alpha(0.6),
+            ..SliderOptions::default()
+        };
+        let slider = Slider::new(&ax, "s", 0.0, 1.0, &options);
+        assert_eq!(slider.parts.handle.markersize(), 14.0);
+        assert_eq!(slider.parts.poly.alpha(), Some(0.6));
     }
 }

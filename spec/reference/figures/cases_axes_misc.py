@@ -249,6 +249,63 @@ def _(fig):
     sankey.finish()
 
 
+@case("misc/sankey_rotation_shape_params", figsize=(5, 5))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_xticks([])
+    ax.set_yticks([])
+    sankey = Sankey(ax=ax, scale=1 / 3, gap=0.4, radius=0.2, shoulder=0.05, head_angle=120,
+                    offset=0.3, margin=0.2, unit=None)
+    sankey.add(flows=[1, -0.4, -0.3, -0.3], orientations=[0, 1, 0, -1], rotation=90,
+               trunklength=2.0, patchlabel="rotated", labels=["in", "a", "b", "c"],
+               fc="tab:green", ec="k", lw=1.5, alpha=0.6)
+    sankey.finish()
+
+
+@case("misc/sankey_units_format_texts", figsize=(6, 4))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_xticks([])
+    ax.set_yticks([])
+    sankey = Sankey(ax=ax, scale=0.02, unit=" kW", format="%.1f")
+    sankey.add(flows=[50, -20, -15, -10, -5], orientations=[0, 1, 1, -1, -1],
+               labels=["supply", "heating", "lights", "pumps", "losses"],
+               pathlengths=[0.5, 0.25, 0.5, 0.25, 0.5], patchlabel="plant", fc="lightsteelblue")
+    diagram, = sankey.finish()
+    diagram.text.set_fontweight("bold")
+    for text in diagram.texts:
+        text.set_fontsize(8)
+    diagram.texts[-1].set_color("tab:red")
+
+
+@case("misc/sankey_three_chained", figsize=(6, 5))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_xticks([])
+    ax.set_yticks([])
+    sankey = Sankey(ax=ax, unit=None, gap=0.3)
+    sankey.add(flows=[1, -0.6, -0.4], orientations=[0, 0, 1], labels=["in", "", "up"],
+               patchlabel="A", fc="tab:blue", alpha=0.5)
+    sankey.add(flows=[0.6, -0.2, -0.4], orientations=[0, -1, 0], prior=0, connect=(1, 0),
+               labels=[None, "down", ""], patchlabel="B", fc="tab:orange", alpha=0.5)
+    sankey.add(flows=[0.4, -0.1, -0.3], orientations=[0, 1, 0], prior=1, connect=(2, 0),
+               labels=[None, "leak", "out"], patchlabel="C", fc="tab:green", alpha=0.5,
+               trunklength=0.5)
+    sankey.finish()
+
+
+@case("misc/sankey_zero_and_unbalanced_flows", figsize=(5, 4))
+def _(fig):
+    ax = fig.subplots()
+    ax.set_xticks([])
+    ax.set_yticks([])
+    sankey = Sankey(ax=ax, format=lambda q: f"{q:+.2f}", tolerance=0.01)
+    sankey.add(flows=[0.7, 0.3, 0.0, -0.5, -0.3, 0.005], orientations=[0, 1, -1, 0, -1, 1],
+               labels=["main", "side", "zero", "out", "drain", "tiny"],
+               pathlengths=0.4, fc="wheat", ec="saddlebrown")
+    sankey.finish()
+
+
 # --- insets
 
 @case("misc/indicate_inset_zoom", figsize=(5, 4))

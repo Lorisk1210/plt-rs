@@ -23,6 +23,7 @@ mod selectors;
 mod stats;
 mod styles;
 mod text;
+mod vectors;
 
 use super::FigureCase;
 
@@ -91,6 +92,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         text::LAYOUT,
         text::MATH,
         text::TABLES,
+        vectors::CASES,
     ]
     .concat()
 }

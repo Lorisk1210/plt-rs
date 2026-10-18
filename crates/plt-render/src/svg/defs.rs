@@ -126,7 +126,7 @@ impl SvgRenderer {
     /// `_get_hatch`: the id of the hatch pattern filling `face` with the
     /// hatch of `gc`, if it has one.
     pub(super) fn hatch_id(&mut self, gc: &GraphicsContext, face: Option<Rgba>) -> Option<String> {
-        let hatch = gc.active_hatch()?;
+        let hatch = gc.hatch.as_ref()?;
         let key = HatchKey {
             pattern: hatch.pattern.clone(),
             face,

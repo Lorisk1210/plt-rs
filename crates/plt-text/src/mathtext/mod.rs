@@ -30,7 +30,7 @@ pub use style::{CustomFonts, Fontset, MathFallback, MathFont, MathStyle};
 
 use crate::engine::TextEngine;
 use crate::error::TextError;
-use crate::run::TextRun;
+use crate::run::{TextRun, TextSource};
 
 /// Whether matplotlib treats `text` as math: it contains an even, non-zero
 /// number of dollar signs not escaped as `\$`.
@@ -84,7 +84,12 @@ impl TextEngine {
     /// # Ok::<(), plt_text::TextError>(())
     /// ```
     pub fn layout_math(&self, source: &str, style: &MathStyle) -> Result<TextRun, TextError> {
-        Ok(self.typeset_math(source, style)?.to_text_run())
+        let mut run = self.typeset_math(source, style)?.to_text_run();
+        run.source = Some(TextSource::Math {
+            text: source.to_owned(),
+            style: style.clone(),
+        });
+        Ok(run)
     }
 }
 

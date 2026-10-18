@@ -105,8 +105,8 @@ impl Axes {
         self.set_adjustable(Adjustable::Datalim);
         twin.set_adjustable(Adjustable::Datalim);
         twin.set_zorder(zorder);
+        twin.update_twinned_patch_visibility();
         twin.raw.with_mut::<AxesState, _>(|axes| {
-            axes.patch.visible = false;
             axes.axis_mut(shared).autoscale.enabled = autoscale;
             axes.axis_mut(shared).visible = false;
             let axis = axes.axis_mut(own);
@@ -164,6 +164,36 @@ impl Axes {
                 }
             }
         });
+    }
+
+    /// Shows the background patch of the bottom-most axes of a group of
+    /// twinned axes only (the lowest z-order, the first added among
+    /// equals), and only if it draws its frame (matplotlib's
+    /// `_update_twinned_axes_patch_visibility`).
+    pub(crate) fn update_twinned_patch_visibility(&self) {
+        let figure = self.raw().figure_state();
+        let twins = figure.borrow().shared.twins(self.id());
+        if twins.len() < 2 {
+            return;
+        }
+        let mut state = figure.borrow_mut();
+        let order = |id| {
+            let zorder = state.store.get(id).map_or(0.0, |a| a.base().zorder);
+            (zorder, id)
+        };
+        let bottom = twins
+            .iter()
+            .copied()
+            .min_by(|&a, &b| {
+                let ((za, ia), (zb, ib)) = (order(a), order(b));
+                za.total_cmp(&zb).then(ia.cmp(&ib))
+            })
+            .expect("a group of twins is not empty");
+        for id in twins {
+            if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+                axes.patch.visible = id == bottom && axes.decorations.frame_on;
+            }
+        }
     }
 
     /// Shows or hides the background patch (matplotlib's

@@ -155,7 +155,8 @@ pub(crate) fn paint_paths(
     gc.cap = style.capstyle;
     gc.join = style.joinstyle;
     gc.antialiased = resolved.antialiased;
-    if let Some(pattern) = &style.hatch {
+    // matplotlib only hands the renderer non-empty hatches.
+    if let Some(pattern) = style.hatch.as_ref().filter(|p| !p.is_empty()) {
         gc.hatch = Some(Hatch {
             pattern: pattern.clone(),
             color: resolved.hatch_color,

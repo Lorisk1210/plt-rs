@@ -3,7 +3,7 @@
 //! background colours, for the raster canvas and the vector backends.
 
 use plt_core::{Bbox, Rgba};
-use plt_render::{Metadata, RasterRenderer, Renderer, VectorError};
+use plt_render::{Metadata, MixedModeRenderer, PdfRenderer, RasterRenderer, Renderer, VectorError};
 
 use super::frame::FigureFrame;
 use super::save::{SaveError, SaveFormat};
@@ -266,6 +266,9 @@ impl Figure {
     /// would: the figure is drawn at 72 dpi into the renderer `make`
     /// creates from the page width and height in inches and the image
     /// resolution (matplotlib's `print_svg`, `print_pdf` and `print_ps`).
+    ///
+    /// Rasterized artists are drawn at the image resolution into images
+    /// placed in the document (matplotlib's `MixedModeRenderer`).
     pub(crate) fn render_vector_with<R: Renderer>(
         &self,
         options: &SaveOptions,
@@ -273,9 +276,41 @@ impl Figure {
     ) -> Result<R, SaveError> {
         let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
         let mut renderer = make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
-        self.draw(&mut renderer).map_err(SaveError::Draw)?;
+        self.draw_mixed(&mut renderer, page)?;
         drop(saving);
         Ok(renderer)
+    }
+
+    /// Draws the figure as one more page of a PDF document, as
+    /// [`Figure::savefig_with`] draws a PDF file (matplotlib's `print_pdf`
+    /// into a `PdfPages`).
+    pub(crate) fn render_pdf_page(
+        &self,
+        options: &SaveOptions,
+        document: &mut PdfRenderer,
+    ) -> Result<(), SaveError> {
+        let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
+        document
+            .new_page(page.width, page.height, page.dpi)
+            .map_err(SaveError::Vector)?;
+        self.draw_mixed(document, page)?;
+        drop(saving);
+        Ok(())
+    }
+
+    /// Draws the prepared figure into the vector `renderer` of `page`,
+    /// rasterized artists at the page's resolution.
+    fn draw_mixed(&self, renderer: &mut dyn Renderer, page: Page) -> Result<(), SaveError> {
+        let mut mixed = MixedModeRenderer::new(
+            renderer,
+            page.width,
+            page.height,
+            page.dpi,
+            super::save::simplify_settings(),
+        );
+        let drawn = self.draw(&mut mixed).map_err(SaveError::Draw);
+        let rasterized = mixed.finish().map_err(SaveError::Backend);
+        drawn.and(rasterized)
     }
 }
 

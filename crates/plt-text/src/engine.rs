@@ -10,7 +10,7 @@ use plt_font::{
 
 use crate::block::FontHeightMetrics;
 use crate::error::TextError;
-use crate::run::{PlacedGlyph, TextRun};
+use crate::run::{GlyphChars, PlacedGlyph, TextRun, TextSource};
 
 /// A font query plus the generic-family lists (`font.sans-serif`, ...)
 /// in effect when it is resolved.
@@ -96,12 +96,8 @@ impl TextEngine {
         let query = &request.query;
         let fonts = self.db.find_fonts_with(query, &request.generics)?;
         let chain = self.db.font_chain(&fonts, true)?;
-        let layout = chain.layout(
-            first_paragraph(text),
-            query.size,
-            dpi,
-            &ShapeOptions::default(),
-        )?;
+        let paragraph = first_paragraph(text);
+        let layout = chain.layout(paragraph, query.size, dpi, &ShapeOptions::default())?;
         let resort = self.db.last_resort();
         let font_of = |index: usize| {
             fonts
@@ -110,6 +106,7 @@ impl TextEngine {
                 .or(resort)
                 .expect("chain faces come from `fonts` or the last-resort font")
         };
+        let clusters = ClusterEnds::new(layout.glyphs.iter().map(|g| g.cluster), paragraph.len());
         let px = |v: i32| f64::from(v) / 64.0;
         Ok(TextRun {
             glyphs: layout
@@ -121,6 +118,10 @@ impl TextEngine {
                     size: query.size,
                     x: px(g.x),
                     y: px(g.y),
+                    chars: GlyphChars::Cluster {
+                        start: g.cluster,
+                        end: clusters.end_of(g.cluster),
+                    },
                 })
                 .collect(),
             rects: Vec::new(),
@@ -128,6 +129,11 @@ impl TextEngine {
             height: px(layout.height),
             descent: px(layout.descent),
             dpi,
+            source: Some(TextSource::Plain {
+                text: text.to_owned(),
+                font: request.clone(),
+            }),
+            anchor: None,
         })
     }
 
@@ -183,6 +189,31 @@ impl TextEngine {
         let path = sink.finish();
         cache.insert(key, path.clone());
         Ok(path)
+    }
+}
+
+/// Where the clusters of a shaped text end: each cluster runs up to the
+/// next cluster start in logical order (matplotlib's `LayoutItem.char` is
+/// that whole substring for every glyph of the cluster).
+struct ClusterEnds {
+    starts: Vec<usize>,
+    len: usize,
+}
+
+impl ClusterEnds {
+    /// The clusters starting at `starts` (in any order) of a text `len`
+    /// bytes long.
+    fn new(starts: impl Iterator<Item = usize>, len: usize) -> Self {
+        let mut starts: Vec<usize> = starts.collect();
+        starts.sort_unstable();
+        starts.dedup();
+        Self { starts, len }
+    }
+
+    /// The end of the cluster starting at `start`.
+    fn end_of(&self, start: usize) -> usize {
+        let next = self.starts.partition_point(|&s| s <= start);
+        self.starts.get(next).copied().unwrap_or(self.len)
     }
 }
 
@@ -271,6 +302,29 @@ mod tests {
         assert_eq!(run.width, 45.765_625);
         assert!(run.height > 0.0 && run.descent >= 0.0);
         assert_eq!(run.glyphs.len(), 6);
+    }
+
+    #[test]
+    fn glyphs_know_their_clusters() {
+        let engine = TextEngine::bundled();
+        let chars = |text: &str| -> Vec<String> {
+            let run = engine
+                .layout_line(text, &dejavu(10.0), 72.0)
+                .expect("bundled font");
+            run.glyphs
+                .iter()
+                .map(|g| run.glyph_text(g).expect("known").into_owned())
+                .collect()
+        };
+        // matplotlib: [item.char for item in _text_helpers.layout(s, font)].
+        assert_eq!(chars("x\u{301}y"), ["x\u{301}", "x\u{301}", "y"]);
+        assert_eq!(
+            chars("\u{644}\u{627} b"),
+            ["b", " ", "\u{644}\u{627}"],
+            "visual order"
+        );
+        let ends = ClusterEnds::new([4, 0, 2, 2].into_iter(), 6);
+        assert_eq!((ends.end_of(0), ends.end_of(2), ends.end_of(4)), (2, 4, 6));
     }
 
     #[test]

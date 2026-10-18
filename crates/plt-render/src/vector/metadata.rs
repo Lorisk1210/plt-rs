@@ -106,7 +106,33 @@ impl Timestamp {
     }
 }
 
+/// Whether a PDF document has been trapped for printing (its `Trapped`
+/// entry).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Trapped {
+    /// Trapping has been done.
+    True,
+    /// Trapping has not been done.
+    False,
+    /// Not known.
+    Unknown,
+}
+
+impl Trapped {
+    /// The PDF name of the value.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::True => "True",
+            Self::False => "False",
+            Self::Unknown => "Unknown",
+        }
+    }
+}
+
 /// Metadata written into a vector document; `None` leaves an entry out.
+///
+/// Every format writes the title, creator and date; the other entries are
+/// keys of the PDF document information dictionary only.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Metadata {
     /// Document title.
@@ -117,6 +143,16 @@ pub struct Metadata {
     pub producer: Option<String>,
     /// Creation date.
     pub date: Option<Timestamp>,
+    /// Who made the document (PDF `Author`).
+    pub author: Option<String>,
+    /// What the document is about (PDF `Subject`).
+    pub subject: Option<String>,
+    /// Keywords (PDF `Keywords`).
+    pub keywords: Option<String>,
+    /// When the document was last changed (PDF `ModDate`).
+    pub modified: Option<Timestamp>,
+    /// Whether the document is trapped (PDF `Trapped`).
+    pub trapped: Option<Trapped>,
 }
 
 impl Default for Metadata {
@@ -125,10 +161,10 @@ impl Default for Metadata {
     fn default() -> Self {
         let version = env!("CARGO_PKG_VERSION");
         Self {
-            title: None,
             creator: Some(format!("plt-rs v{version}")),
             producer: Some(format!("plt-rs v{version}")),
             date: Some(Timestamp::source_date_or_now()),
+            ..Self::none()
         }
     }
 }
@@ -141,6 +177,11 @@ impl Metadata {
             creator: None,
             producer: None,
             date: None,
+            author: None,
+            subject: None,
+            keywords: None,
+            modified: None,
+            trapped: None,
         }
     }
 }

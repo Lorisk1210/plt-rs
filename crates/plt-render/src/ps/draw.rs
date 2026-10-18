@@ -186,7 +186,7 @@ impl PsRenderer {
         let might_stroke = gc.linewidth > 0.0 && !is_transparent(Some(rgb));
         let stroke = paint && might_stroke;
         let fill = paint && !is_transparent(face);
-        let hatch = gc.active_hatch().cloned();
+        let hatch = gc.hatch.clone();
         if might_stroke {
             self.set_line(gc);
         }
@@ -232,7 +232,7 @@ impl PsRenderer {
         transform: Affine2D,
         face: Option<Rgba>,
     ) {
-        let clip = face.is_none() && gc.active_hatch().is_none();
+        let clip = face.is_none() && gc.hatch.is_none();
         let simplify = if clip {
             self.options.simplify.for_path(path)
         } else {

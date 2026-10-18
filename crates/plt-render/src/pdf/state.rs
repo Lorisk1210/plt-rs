@@ -123,9 +123,9 @@ impl PdfState {
                 (!gc.dashes.pattern.is_empty()).then(|| gc.dashes.pattern.clone()),
             ),
             rgb,
-            hatch: gc.active_hatch().map(|h| h.pattern.clone()),
-            hatch_color: gc.active_hatch().map(|h| h.color),
-            hatch_linewidth: gc.active_hatch().map_or(1.0, |h| h.linewidth),
+            hatch: gc.hatch.as_ref().map(|h| h.pattern.clone()),
+            hatch_color: gc.hatch.as_ref().map(|h| h.color),
+            hatch_linewidth: gc.hatch.as_ref().map_or(1.0, |h| h.linewidth),
         }
     }
 

@@ -1,6 +1,7 @@
-//! Text as paths (`_draw_text_as_path`): every glyph is defined once in
-//! `FreeType`'s 26.6 units at `TextToPath.FONT_SCALE` (100 pt) and placed
-//! with `<use>` inside a group scaled to the font size.
+//! Text as paths (`_draw_text_as_path`): the text is laid out again by
+//! `TextToPath` at `FONT_SCALE` (100 pt, 72 dpi), every glyph is defined
+//! once in `FreeType`'s 26.6 units at that size and placed with `<use>`
+//! inside a group scaled to the font size.
 
 #![allow(
     clippy::float_cmp,
@@ -10,24 +11,16 @@
 use std::fmt::Write as _;
 
 use plt_core::{Affine2D, Path, Point};
-use plt_text::{PlacedGlyph, TextRun};
+use plt_text::{PlacedGlyph, TextRun, TextSource};
 
-use super::SvgRenderer;
 use super::defs::path_data;
 use super::style::{Style, TransformOp, css, transform_attr};
+use super::{SvgFontType, SvgRenderer};
 use crate::gc::GraphicsContext;
-use crate::vector::{RunKind, VectorError, base_size, hex_color, kind, shaped_positions, short};
+use crate::vector::{POINTS_DPI, VectorError, hex_color, in_points, short};
 
-/// The size glyphs are defined at (`TextToPath.FONT_SCALE`).
+/// The size text is laid out at (`TextToPath.FONT_SCALE`).
 const FONT_SCALE: f64 = 100.0;
-
-/// One placed glyph: its id, position at [`FONT_SCALE`] and scale.
-struct GlyphUse {
-    id: String,
-    x: f64,
-    y: f64,
-    scale: f64,
-}
 
 /// `urllib.parse.quote` with its default safe characters.
 fn url_quote(text: &str) -> String {
@@ -42,9 +35,14 @@ fn url_quote(text: &str) -> String {
     out
 }
 
+/// `_adjust_glyph_repr`: the id a glyph is defined and referenced by.
+fn adjusted(glyph_repr: &str) -> String {
+    glyph_repr.replace("%20", "_")
+}
+
 impl SvgRenderer {
     /// `_get_glyph_repr`: the quoted PostScript name and glyph index.
-    fn glyph_id(&mut self, glyph: &PlacedGlyph) -> Result<String, VectorError> {
+    fn glyph_repr(&mut self, glyph: &PlacedGlyph) -> Result<String, VectorError> {
         let font = self.fonts.get(glyph.font)?;
         Ok(url_quote(&format!(
             "{}-{:x}",
@@ -53,29 +51,30 @@ impl SvgRenderer {
         )))
     }
 
-    /// `_update_glyph_map_defs`: defines the glyphs not yet defined.
+    /// `_update_glyph_map_defs`: defines the glyphs (by `glyph_repr`) not
+    /// yet defined.
     fn define_glyphs(&mut self, glyphs: &[(String, &PlacedGlyph)]) -> Result<(), VectorError> {
         let engine = self.fonts.engine();
         let mut new = Vec::new();
-        for (id, glyph) in glyphs {
-            if self.glyphs.contains(id) || new.iter().any(|(known, _)| known == id) {
+        for (repr, glyph) in glyphs {
+            if self.glyphs.contains(repr) || new.iter().any(|(known, _)| known == repr) {
                 continue;
             }
-            let outline = engine.glyph_outline(glyph.font, glyph.glyph, FONT_SCALE, 72.0)?;
-            new.push((id.clone(), outline));
+            let outline = engine.glyph_outline(glyph.font, glyph.glyph, FONT_SCALE, POINTS_DPI)?;
+            new.push((repr.clone(), outline));
         }
         if new.is_empty() {
             return Ok(());
         }
         self.writer.start("defs", &[]);
-        for (id, outline) in new {
+        for (repr, outline) in new {
             // Back to FreeType's integral 26.6 units.
             let d = path_data(&outline, Affine2D::scaling(64.0, 64.0));
             self.writer.element(
                 "path",
                 "",
                 &[
-                    ("id", id.replace("%20", "_")),
+                    ("id", adjusted(&repr)),
                     ("d", d),
                     (
                         "transform",
@@ -83,49 +82,71 @@ impl SvgRenderer {
                     ),
                 ],
             );
-            self.glyphs.insert(id);
+            self.glyphs.insert(repr);
         }
         self.writer.end(true);
         Ok(())
     }
 
-    /// The glyph placements of a plain-text run at [`FONT_SCALE`]: shaped
-    /// again at that size like matplotlib, or scaled when that fails.
-    fn plain_uses(&mut self, run: &TextRun, size: f64) -> Result<Vec<GlyphUse>, VectorError> {
-        let positions =
-            shaped_positions(run, &mut self.fonts, FONT_SCALE, 72.0).unwrap_or_else(|| {
-                let factor = FONT_SCALE / size * 72.0 / run.dpi;
-                run.glyphs
-                    .iter()
-                    .map(|g| (g.x * factor, g.y * factor))
-                    .collect()
-            });
-        run.glyphs
+    /// The glyphs and rules of one text laid out at [`FONT_SCALE`]
+    /// (`get_glyphs_with_font`, `get_glyphs_mathtext`): the glyphs placed
+    /// with `<use>`, the rules of mathtext as paths.
+    fn text_glyphs(&mut self, source: &TextSource) -> Result<(), VectorError> {
+        let scaled = source.layout(self.fonts.engine(), FONT_SCALE, POINTS_DPI)?;
+        let reprs = scaled
+            .glyphs
             .iter()
-            .zip(positions)
-            .map(|(glyph, (x, y))| {
-                Ok(GlyphUse {
-                    id: self.glyph_id(glyph)?,
-                    x,
-                    y,
-                    scale: 1.0,
-                })
-            })
-            .collect()
+            .map(|glyph| Ok((self.glyph_repr(glyph)?, glyph)))
+            .collect::<Result<Vec<_>, VectorError>>()?;
+        self.define_glyphs(&reprs)?;
+        for (repr, glyph) in reprs {
+            let (id, scale) = if source.is_math() {
+                (adjusted(&repr), glyph.size / FONT_SCALE)
+            } else {
+                (repr, 1.0)
+            };
+            self.writer.element(
+                "use",
+                "",
+                &[
+                    ("xlink:href", format!("#{id}")),
+                    (
+                        "transform",
+                        transform_attr(&[
+                            TransformOp::Translate(glyph.x, glyph.y),
+                            TransformOp::Scale(scale),
+                        ]),
+                    ),
+                ],
+            );
+        }
+        for rect in &scaled.rects {
+            let (x, y, w, h) = rect.bounds();
+            let outline = Path::compound_from_polygons(&[[
+                Point::new(x, y),
+                Point::new(x, y + h),
+                Point::new(x + w, y + h),
+                Point::new(x + w, y),
+                Point::new(x, y),
+            ]]);
+            self.writer.element(
+                "path",
+                "",
+                &[("d", path_data(&outline, Affine2D::IDENTITY))],
+            );
+        }
+        Ok(())
     }
 
-    /// Writes the group of one run; `size` is the font size in points.
+    /// Writes the comment and group of one text.
     fn text_group(
         &mut self,
         gc: &GraphicsContext,
-        run: &TextRun,
+        source: &TextSource,
         origin: Point,
         angle: f64,
     ) -> Result<(), VectorError> {
-        let math = kind(run, &mut self.fonts) == RunKind::Math;
-        let Some(size) = base_size(run).filter(|_| !run.glyphs.is_empty()) else {
-            return Ok(());
-        };
+        self.writer.comment(source.text());
         let color = gc.stroke_color();
         let mut style = Style::new();
         if hex_color(color) != "#000000" {
@@ -135,8 +156,7 @@ impl SvgRenderer {
         if alpha != 1.0 {
             style.push(("opacity", short(alpha)));
         }
-        let font_scale = size / FONT_SCALE;
-        let to_points = run.dpi / 72.0;
+        let font_scale = source.size() / FONT_SCALE;
         self.writer.start(
             "g",
             &[
@@ -151,64 +171,13 @@ impl SvgRenderer {
                 ),
             ],
         );
-        let uses = if math {
-            let factor = FONT_SCALE / size / to_points;
-            run.glyphs
-                .iter()
-                .map(|glyph| {
-                    Ok(GlyphUse {
-                        id: self.glyph_id(glyph)?.replace("%20", "_"),
-                        x: glyph.x * factor,
-                        y: glyph.y * factor,
-                        scale: glyph.size / size,
-                    })
-                })
-                .collect::<Result<Vec<_>, VectorError>>()
-        } else {
-            self.plain_uses(run, size)
-        };
-        let result = uses.and_then(|uses| {
-            let pairs: Vec<(String, &PlacedGlyph)> =
-                uses.iter().map(|u| u.id.clone()).zip(&run.glyphs).collect();
-            self.define_glyphs(&pairs)?;
-            for glyph in uses {
-                self.writer.element(
-                    "use",
-                    "",
-                    &[
-                        ("xlink:href", format!("#{}", glyph.id)),
-                        (
-                            "transform",
-                            transform_attr(&[
-                                TransformOp::Translate(glyph.x, glyph.y),
-                                TransformOp::Scale(glyph.scale),
-                            ]),
-                        ),
-                    ],
-                );
-            }
-            Ok(())
-        });
-        if math {
-            let factor = FONT_SCALE / size / to_points;
-            for rect in &run.rects {
-                let (x, y, w, h) = rect.bounds();
-                let corners = [(x, y), (x, y + h), (x + w, y + h), (x + w, y), (x, y)];
-                let outline = Path::compound_from_polygons(&[
-                    corners.map(|(cx, cy)| Point::new(cx * factor, cy * factor))
-                ]);
-                self.writer.element(
-                    "path",
-                    "",
-                    &[("d", path_data(&outline, Affine2D::IDENTITY))],
-                );
-            }
-        }
+        let result = self.text_glyphs(source);
         self.writer.end(true);
         result
     }
 
-    /// `draw_text` with `svg.fonttype = "path"`.
+    /// `draw_text`: the text as glyph paths or text elements; runs without
+    /// a source are filled as paths.
     pub(super) fn svg_text(
         &mut self,
         gc: &GraphicsContext,
@@ -216,17 +185,27 @@ impl SvgRenderer {
         origin: Point,
         angle: f64,
     ) {
+        let Some(source) = &run.source else {
+            crate::renderer::fill_text(self, gc, run, origin, angle);
+            return;
+        };
         let clip = self.clip_attribute(gc);
         if let Some(clip) = &clip {
             self.writer.start("g", std::slice::from_ref(clip));
         }
         let link = self.open_link(gc);
-        if !run.glyphs.is_empty() || !run.rects.is_empty() {
-            let text = crate::vector::source_text(run, &mut self.fonts);
-            self.writer.comment(&text);
+        match self.options.fonttype {
+            SvgFontType::Path => {
+                let result = self.text_group(gc, source, origin, angle);
+                self.problems.record(result);
+            }
+            SvgFontType::None => {
+                let points = in_points(run, source, &self.fonts).map_err(VectorError::from);
+                if let Some(points) = self.problems.record(points) {
+                    self.text_elements(gc, &points, source, origin, angle);
+                }
+            }
         }
-        let result = self.text_group(gc, run, origin, angle);
-        self.problems.record(result);
         self.close_link(link);
         if clip.is_some() {
             self.writer.end(true);
@@ -242,5 +221,6 @@ mod tests {
     fn quotes_like_urllib() {
         assert_eq!(url_quote("DejaVuSans-14"), "DejaVuSans-14");
         assert_eq!(url_quote("My Font-1f"), "My%20Font-1f");
+        assert_eq!(adjusted("My%20Font-1f"), "My_Font-1f");
     }
 }

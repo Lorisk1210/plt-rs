@@ -14,8 +14,6 @@ pub(crate) struct FontInfo {
     face: Face<'static>,
     postscript_name: String,
     sort_key: String,
-    /// The smallest character code mapped to each glyph.
-    chars: HashMap<GlyphId, u32>,
 }
 
 impl FontInfo {
@@ -30,18 +28,10 @@ impl FontInfo {
             Some(FontSource::Bundled(name)) => (*name).to_owned(),
             None => postscript_name.clone(),
         };
-        let mut chars = HashMap::new();
-        for (code, glyph) in face.mappings() {
-            chars
-                .entry(glyph)
-                .and_modify(|c: &mut u32| *c = (*c).min(code))
-                .or_insert(code);
-        }
         Ok(Self {
             face,
             postscript_name,
             sort_key,
-            chars,
         })
     }
 
@@ -134,14 +124,6 @@ impl FontInfo {
         // A glyph that cannot be loaded is drawn as nothing.
         let _ = self.face.outline(glyph, &mut sink);
         sink.finish()
-    }
-
-    /// The character code a glyph renders, recovered from the character
-    /// map (the smallest code when several map to the glyph).
-    pub(crate) fn char_of(&self, glyph: GlyphId) -> Option<char> {
-        self.chars
-            .get(&glyph)
-            .and_then(|&code| char::from_u32(code))
     }
 }
 
@@ -266,7 +248,6 @@ mod tests {
         assert_eq!(font.postscript_name(), "DejaVuSans");
         assert_eq!(font.units_per_em(), 2048.0);
         assert_eq!(font.glyph_name(GlyphId(20)), "one");
-        assert_eq!(font.char_of(GlyphId(20)), Some('1'));
         assert_eq!(font.advance(GlyphId(20)), 1303);
         assert_eq!(
             font.linear_advance(GlyphId(20), 10.0, 72.0),

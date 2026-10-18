@@ -4,6 +4,7 @@ mod artists;
 mod clear;
 mod frame;
 mod mosaic;
+mod pdf_pages;
 mod print;
 mod save;
 mod state;
@@ -21,6 +22,7 @@ use plt_render::Renderer;
 
 pub(crate) use frame::FigureFrame;
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
+pub use pdf_pages::PdfPages;
 pub use print::{BboxInches, SaveOptions};
 pub use save::{SaveError, SaveFormat};
 pub(crate) use state::FigureState;

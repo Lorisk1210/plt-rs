@@ -1,7 +1,7 @@
 //! PostScript documents as drawing items: the header's bounding box, the
 //! page description run by a small interpreter ([`interp`]) — one item
 //! per fill, stroke, glyph, image and shading with its graphics state —
-//! and the Type 3 fonts of the prolog.
+//! and the Type 3 and Type 42 fonts of the prolog.
 
 mod interp;
 mod lexer;
@@ -9,6 +9,7 @@ mod lexer;
 use self::interp::Interpreter;
 use self::lexer::{Lexer, Tok};
 use super::diff::{Item, Token};
+use super::truetype::glyph_tokens;
 
 /// Tokens of a PostScript fragment.
 fn tokens(text: &str) -> Vec<Token> {
@@ -58,6 +59,49 @@ fn font_item(program: &str) -> Item {
     item
 }
 
+/// The bytes of a Type 42 font's `sfnts` strings, each without its
+/// terminating NUL.
+fn sfnts_bytes(array: &str) -> Vec<u8> {
+    let hex: String = array.chars().filter(|c| !c.is_whitespace()).collect();
+    let mut data = Vec::new();
+    for string in hex.split('<').skip(1) {
+        let digits = string.split('>').next().unwrap_or("");
+        let mut bytes: Vec<u8> = (0..digits.len() / 2)
+            .filter_map(|i| u8::from_str_radix(&digits[2 * i..2 * i + 2], 16).ok())
+            .collect();
+        bytes.pop();
+        data.extend(bytes);
+    }
+    data
+}
+
+/// One Type 42 font: name, matrix, box, encoding, font information, the
+/// glyph names and the outline of every named glyph but `.notdef`.
+fn type42_item(program: &str) -> Item {
+    let mut item = Item::new("font42");
+    for (start, end) in [
+        ("/FontName ", " def"),
+        ("/FontMatrix ", " def"),
+        ("/FontBBox ", " def"),
+        ("/Encoding ", " def"),
+        ("/FontInfo 7 dict dup begin", "end readonly def"),
+        ("/CharStrings", "end readonly def"),
+    ] {
+        if let Some(value) = between(program, start, end) {
+            item.tokens.extend(tokens(value));
+        }
+    }
+    let glyphs = between(program, "/CharStrings", "end readonly def")
+        .unwrap_or("")
+        .lines()
+        .filter_map(|line| line.split_whitespace().nth(1)?.parse::<u16>().ok())
+        .filter(|&glyph| glyph != 0);
+    // The array is broken into lines anywhere, even inside `]def`.
+    let data = sfnts_bytes(between(program, "/sfnts[", "]").unwrap_or(""));
+    glyph_tokens(&data, glyphs, &mut item.tokens);
+    item
+}
+
 /// The drawing items of a PostScript document.
 pub(super) fn items(document: &[u8]) -> Result<Vec<Item>, String> {
     let text = std::str::from_utf8(document).map_err(|e| e.to_string())?;
@@ -84,6 +128,7 @@ pub(super) fn items(document: &[u8]) -> Result<Vec<Item>, String> {
         .split("%!PS-Adobe-3.0 Resource-Font")
         .skip(1)
         .map(font_item)
+        .chain(prolog.split("%%!PS-TrueTypeFont").skip(1).map(type42_item))
         .collect();
     fonts.sort_by_key(ToString::to_string);
     items.extend(fonts);

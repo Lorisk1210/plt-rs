@@ -153,6 +153,10 @@ impl TickMark<'_> {
         points: &Path,
         affine: &Affine2D,
     ) {
+        // Tick marks are line markers, which matplotlib skips at size 0.
+        if self.style.size <= 0.0 {
+            return;
+        }
         let color = match self.style.color.resolve() {
             Ok(color) => color,
             Err(err) => return ctx.report(owner, err),

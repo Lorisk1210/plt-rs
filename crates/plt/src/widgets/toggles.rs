@@ -64,7 +64,7 @@ impl ButtonColumn {
     fn markers(&self, symbol: MarkerSymbol, options: ScatterOptions) -> Collection {
         let (x, y): (Vec<f64>, Vec<f64>) = self.centres.iter().map(|p| (p.x, p.y)).unzip();
         let options = ScatterOptions {
-            sizes: Some(vec![self.size]),
+            sizes: Some(vec![self.size; self.centres.len()]),
             marker: Some(Marker::Symbol(symbol)),
             offset_transform: Some(self.ax.trans_axes()),
             ..options

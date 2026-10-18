@@ -50,7 +50,7 @@ impl PdfRenderer {
         fill: Option<Rgba>,
     ) {
         self.check_gc(gc, fill);
-        let clip = fill.is_none() && gc.active_hatch().is_none();
+        let clip = fill.is_none() && gc.hatch.is_none();
         let ops = path_ops(
             path,
             transform,
@@ -119,7 +119,7 @@ impl PdfRenderer {
         collection: &PathCollection<'_>,
     ) -> Option<(bool, bool)> {
         let filled = match collection.facecolors.first() {
-            None if gc.active_hatch().is_some() => return None,
+            None if gc.hatch.is_some() => return None,
             None => false,
             Some(first) if collection.facecolors.iter().all(|c| c.a == first.a) => first.a != 0.0,
             Some(_) => return None,

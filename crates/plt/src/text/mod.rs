@@ -16,13 +16,14 @@ mod error;
 mod handle;
 mod layout;
 mod math;
+mod metrics;
 mod text_box;
 mod wrap;
 
 use std::rc::Rc;
 
 use plt_core::{Bbox, Point};
-use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
+use plt_text::{BlockStyle, HAlign, RotationMode, TextAnchor, TextRun, VAlign};
 
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
 use crate::colors::Color;
@@ -37,6 +38,7 @@ pub use error::TextDrawError;
 pub use handle::{Text, TextProps};
 pub use layout::{LaidOutText, measure_text, text_path};
 pub(crate) use layout::{lay_out, lay_out_with_math};
+pub(crate) use metrics::with_text_path_metrics;
 pub use plt_text::{
     BlockLayout, HAlign as HorizontalAlignment, LineMetrics, LinePlacement, LineSpacing,
     RotationMode as TextRotationMode, TextError, VAlign as VerticalAlignment,
@@ -289,7 +291,9 @@ impl Artist for TextArtist {
 }
 
 /// Draws every line of a laid-out text block anchored at `anchor`
-/// (display coordinates), rotated by `angle` degrees.
+/// (display coordinates), rotated by `angle` degrees. A single line tells
+/// the renderer where and how the text is anchored, as matplotlib passes
+/// the text artist along with single-line texts.
 pub(crate) fn draw_laid_out(
     ctx: &mut DrawContext<'_>,
     gc: &plt_render::GraphicsContext,
@@ -297,6 +301,19 @@ pub(crate) fn draw_laid_out(
     anchor: Point,
     angle: f64,
 ) {
+    if let ([line], [run]) = (laid_out.block.lines.as_slice(), laid_out.runs.as_slice()) {
+        let anchored = TextRun {
+            anchor: Some(TextAnchor {
+                point: anchor,
+                halign: laid_out.style.halign,
+                rotation_mode: laid_out.style.rotation_mode,
+            }),
+            ..run.clone()
+        };
+        ctx.renderer()
+            .draw_text(gc, &anchored, anchor + line.origin, angle);
+        return;
+    }
     for (line, run) in laid_out.block.lines.iter().zip(&laid_out.runs) {
         ctx.renderer()
             .draw_text(gc, run, anchor + line.origin, angle);

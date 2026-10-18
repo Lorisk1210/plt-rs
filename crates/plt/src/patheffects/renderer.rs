@@ -48,6 +48,10 @@ impl Renderer for PathEffectRenderer<'_> {
         self.inner.dpi()
     }
 
+    fn points_to_pixels(&self, points: f64) -> f64 {
+        self.inner.points_to_pixels(points)
+    }
+
     fn draw_path(
         &mut self,
         gc: &GraphicsContext,
@@ -138,11 +142,23 @@ impl Renderer for PathEffectRenderer<'_> {
         self.inner.close_group(name);
     }
 
+    fn start_rasterizing(&mut self) {
+        self.inner.start_rasterizing();
+    }
+
+    fn stop_rasterizing(&mut self) {
+        self.inner.stop_rasterizing();
+    }
+
     fn option_image_nocomposite(&self) -> bool {
         self.inner.option_image_nocomposite()
     }
 
     fn option_scale_image(&self) -> bool {
         self.inner.option_scale_image()
+    }
+
+    fn image_magnification(&self) -> f64 {
+        self.inner.image_magnification()
     }
 }

@@ -152,6 +152,7 @@ impl FigureState {
     pub(crate) fn draw(&self, renderer: &mut dyn Renderer) -> Vec<DrawError> {
         let mut ctx = DrawContext::new(self, renderer);
         ctx.draw_child(self.root);
+        ctx.finish_rasterizing();
         let mut errors = self.pending_errors.clone();
         errors.extend(ctx.into_errors());
         errors

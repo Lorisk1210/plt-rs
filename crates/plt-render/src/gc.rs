@@ -215,12 +215,6 @@ impl GraphicsContext {
         self.linewidth > 0.0 && !self.stroke_color().is_transparent()
     }
 
-    /// The hatch, unless its pattern is empty (matplotlib's artists only
-    /// set non-empty hatches).
-    pub(crate) fn active_hatch(&self) -> Option<&Hatch> {
-        self.hatch.as_ref().filter(|h| !h.pattern.is_empty())
-    }
-
     fn apply_alpha(&self, color: Rgba) -> Rgba {
         self.alpha.map_or(color, |a| color.with_alpha(a))
     }

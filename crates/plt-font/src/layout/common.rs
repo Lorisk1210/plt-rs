@@ -111,6 +111,20 @@ impl<'a> Coverage<'a> {
     pub(crate) fn contains(&self, glyph: GlyphId) -> bool {
         self.index(glyph).is_some()
     }
+
+    /// Every covered glyph with its coverage index, in table order.
+    pub(crate) fn entries(&self) -> Vec<(u16, GlyphId)> {
+        match self {
+            Self::Glyphs(glyphs) => (0..).zip(glyphs.iter()).collect(),
+            Self::Ranges(ranges) => ranges
+                .iter()
+                .flat_map(|range| {
+                    (range.start..=range.end)
+                        .map(move |g| (range.value.wrapping_add(g - range.start), GlyphId(g)))
+                })
+                .collect(),
+        }
+    }
 }
 
 /// A class definition table mapping glyphs to small integers.
@@ -335,6 +349,39 @@ impl<'a> LayoutTable<'a> {
         } else {
             parse_at(default_offset)
         }
+    }
+
+    /// The features any language system of any script refers to,
+    /// required features included (fontTools' `ScriptList.collect_features`).
+    pub(crate) fn referenced_features(&self) -> Vec<u16> {
+        let mut features = Vec::new();
+        let records = Self::records(self.scripts, self.tag).unwrap_or_default();
+        for record in records.iter() {
+            let Some(script_data) = self.scripts.get(usize::from(record.offset)..) else {
+                continue;
+            };
+            let mut r = Reader::new(script_data, self.tag);
+            let (Ok(default_offset), Ok(count)) = (r.u16(), r.u16()) else {
+                continue;
+            };
+            let lang_records: Array<'_, TagRecord> =
+                r.array(usize::from(count)).unwrap_or_default();
+            let offsets = std::iter::once(default_offset)
+                .filter(|&offset| offset != 0)
+                .chain(lang_records.iter().map(|lang| lang.offset));
+            for offset in offsets {
+                let lang_sys = script_data
+                    .get(usize::from(offset)..)
+                    .and_then(|d| LangSys::parse(d, self.tag).ok());
+                if let Some(lang_sys) = lang_sys {
+                    features.extend(lang_sys.feature_indices.iter());
+                    features.extend(lang_sys.required_feature);
+                }
+            }
+        }
+        features.sort_unstable();
+        features.dedup();
+        features
     }
 
     /// Tag and lookup indices of feature `index`.

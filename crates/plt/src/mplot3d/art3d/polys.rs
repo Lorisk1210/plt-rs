@@ -70,6 +70,10 @@ impl Polys3D {
         let mut order: Vec<usize> = (0..face_z.len()).collect();
         order.sort_by(|&a, &b| face_z[a].total_cmp(&face_z[b]));
         order.reverse();
+        // matplotlib stores ragged polygons in one array padded with NaN
+        // up to the longest one, then closes every polygon: the padding
+        // makes path conversion drop the closure of the shorter ones.
+        let longest = projected.iter().map(Vec::len).max().unwrap_or(0);
         collection.paths = order
             .iter()
             .map(|&i| {
@@ -77,6 +81,7 @@ impl Polys3D {
                 let mut vertices: Vec<Point> =
                     face.iter().map(|p| Point::new(p[0], p[1])).collect();
                 if let Some(&first) = vertices.first() {
+                    vertices.resize(longest, Point::new(f64::NAN, f64::NAN));
                     vertices.push(first);
                 }
                 Path::closed(vertices)

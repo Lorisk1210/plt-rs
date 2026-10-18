@@ -1,24 +1,29 @@
-//! The PDF backend: matplotlib's `RendererPdf` and `PdfFile` with
-//! `pdf.fonttype = 3`.
+//! The PDF backend: matplotlib's `RendererPdf` and `PdfFile`.
 //!
-//! One page is written: a content stream whose graphics state is tracked
-//! so that only changes are emitted, text in Type 3 fonts built from the
-//! glyph outlines, alpha through extended graphics states, hatches as
-//! tiling patterns, markers and large path collections as form `XObject`s,
-//! images as (indexed when possible) PNG-predicted image `XObject`s with
-//! soft masks, and Gouraud triangles as free-form shadings.
+//! Every page is a content stream whose graphics state is tracked so that
+//! only changes are emitted; the pages share one resource dictionary:
+//! text in Type 3 fonts built from the glyph outlines, alpha through
+//! extended graphics states, hatches as tiling patterns, markers and large
+//! path collections as form `XObject`s, images as (indexed when possible)
+//! PNG-predicted image `XObject`s with soft masks, and Gouraud triangles as
+//! free-form shadings. A document may hold several pages (matplotlib's
+//! `PdfPages`), with text notes attached to them.
 //!
-//! Not supported: Type 42 font embedding (`pdf.fonttype = 42`), the 14
-//! core fonts (`pdf.use14corefonts`), link annotations for URLs and
-//! several pages per file.
+//! TrueType fonts are embedded as Type 3 fonts or, with `pdf.fonttype =
+//! 42`, as `CIDFontType2` subsets of the font program.
+//!
+//! Not supported: the 14 core fonts (`pdf.use14corefonts`) and link
+//! annotations for URLs.
 
 mod draw;
 mod fonts;
 mod image;
 mod object;
+mod pages;
 mod resources;
 mod state;
 mod text;
+mod type42;
 mod writer;
 
 use plt_core::path::convert::{SimplifySettings, SketchParams, StringCodes, StringOptions};
@@ -26,7 +31,8 @@ use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_text::TextRun;
 
 use self::fonts::FontNames;
-use self::object::{Obj, text_string};
+use self::object::Obj;
+use self::pages::{Note, PageParents, Pages};
 use self::resources::{ResourceIds, Resources};
 use self::state::{PdfState, StateStack};
 use self::writer::PdfWriter;
@@ -34,7 +40,9 @@ use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::renderer::Renderer;
-use crate::vector::{CharacterTracker, FontCache, Metadata, Problems, VectorError, check_canvas};
+use crate::vector::{
+    CharacterTracker, FontCache, FontType, Metadata, Problems, VectorError, check_canvas,
+};
 
 /// Settings of a PDF document (matplotlib's `pdf.*` rcParams and the
 /// `metadata` argument of `savefig`).
@@ -50,6 +58,8 @@ pub struct PdfOptions {
     pub simplify: SimplifySettings,
     /// `image.composite_image`.
     pub composite_images: bool,
+    /// `pdf.fonttype`: how TrueType fonts are embedded.
+    pub fonttype: FontType,
 }
 
 impl Default for PdfOptions {
@@ -60,6 +70,7 @@ impl Default for PdfOptions {
             metadata: Metadata::default(),
             simplify: SimplifySettings::default(),
             composite_images: true,
+            fonttype: FontType::Type3,
         }
     }
 }
@@ -70,8 +81,7 @@ struct Ids {
     root: u32,
     pages: u32,
     resources: ResourceIds,
-    annotations: u32,
-    page: u32,
+    resource_dictionary: u32,
 }
 
 /// `pathOperations`: path data in PDF operators (quadratic curves as
@@ -95,17 +105,20 @@ fn path_ops(
     .into_bytes()
 }
 
-/// Renders into a one-page PDF document exactly like matplotlib's
-/// `RendererPdf`. Coordinates are points with the origin at the bottom
-/// left.
+/// Renders into a PDF document exactly like matplotlib's `RendererPdf`
+/// and `PdfFile`. Coordinates are points with the origin at the bottom
+/// left of the current page.
 #[derive(Debug)]
 pub struct PdfRenderer {
     writer: PdfWriter,
-    /// Page size in inches.
+    /// Size of the current page in inches.
     width: f64,
     height: f64,
     image_dpi: f64,
     ids: Ids,
+    pages: Pages,
+    /// Whether the content stream of a page is open.
+    page_open: bool,
     resources: Resources,
     states: StateStack,
     font_names: FontNames,
@@ -125,6 +138,10 @@ impl PdfRenderer {
     /// A document with one page of `width × height` inches whose images
     /// are rasterized at `image_dpi` (matplotlib's `PdfFile` plus
     /// `newPage`).
+    ///
+    /// # Errors
+    ///
+    /// When the page size or resolution is not positive and finite.
     pub fn new(
         width: f64,
         height: f64,
@@ -132,6 +149,19 @@ impl PdfRenderer {
         options: PdfOptions,
     ) -> Result<Self, VectorError> {
         check_canvas(width, height, image_dpi)?;
+        let mut document = Self::document(options)?;
+        document.new_page(width, height, image_dpi)?;
+        Ok(document)
+    }
+
+    /// A document without pages yet (matplotlib's `PdfFile`); drawing
+    /// needs a page started with [`new_page`](Self::new_page).
+    ///
+    /// # Errors
+    ///
+    /// Never in practice: the document's first objects are always
+    /// writable.
+    pub fn document(options: PdfOptions) -> Result<Self, VectorError> {
         let mut writer = PdfWriter::new(options.compression);
         let root = writer.reserve();
         let pages = writer.reserve();
@@ -142,14 +172,14 @@ impl PdfRenderer {
             shadings: writer.reserve(),
             xobjects: writer.reserve(),
         };
-        let resources = writer.reserve();
+        let resource_dictionary = writer.reserve();
         writer.write_object(
             root,
             &Obj::dict([("Type", Obj::name("Catalog")), ("Pages", Obj::Ref(pages))]),
         )?;
         let procsets = ["PDF", "Text", "ImageB", "ImageC", "ImageI"].map(Obj::name);
         writer.write_object(
-            resources,
+            resource_dictionary,
             &Obj::dict([
                 ("Font", Obj::Ref(resource_ids.fonts)),
                 ("XObject", Obj::Ref(resource_ids.xobjects)),
@@ -159,50 +189,24 @@ impl PdfRenderer {
                 ("ProcSet", Obj::Array(procsets.to_vec())),
             ]),
         )?;
-        let contents = writer.reserve();
-        let annotations = writer.reserve();
-        let page = writer.reserve();
-        writer.write_object(
-            page,
-            &Obj::dict([
-                ("Type", Obj::name("Page")),
-                ("Parent", Obj::Ref(pages)),
-                ("Resources", Obj::Ref(resources)),
-                (
-                    "MediaBox",
-                    Obj::Array(vec![
-                        Obj::Int(0),
-                        Obj::Int(0),
-                        Obj::Real(72.0 * width),
-                        Obj::Real(72.0 * height),
-                    ]),
-                ),
-                ("Contents", Obj::Ref(contents)),
-                ("Annots", Obj::Ref(annotations)),
-            ]),
-        )?;
-        let length = writer.reserve();
-        writer.begin_stream(contents, Some(length), Vec::new(), None);
-        writer.output(&[Obj::name("DeviceRGB"), Obj::op("CS")])?;
-        writer.output(&[Obj::name("DeviceRGB"), Obj::op("cs")])?;
-        writer.output(&[Obj::Int(1), Obj::op("j")])?;
         let states = StateStack::new(options.inherit_color);
         Ok(Self {
             writer,
-            width,
-            height,
-            image_dpi,
+            width: 0.0,
+            height: 0.0,
+            image_dpi: 72.0,
             ids: Ids {
                 root,
                 pages,
                 resources: resource_ids,
-                annotations,
-                page,
+                resource_dictionary,
             },
+            pages: Pages::default(),
+            page_open: false,
             resources: Resources::default(),
             states,
             font_names: FontNames::default(),
-            tracker: CharacterTracker::new(256),
+            tracker: CharacterTracker::new(options.fonttype.subset_size()),
             fonts: FontCache::default(),
             options,
             generation: 0,
@@ -211,26 +215,88 @@ impl PdfRenderer {
         })
     }
 
-    /// Closes the page and writes fonts, resources, the page tree, the
-    /// document information and the cross-reference table (matplotlib's
-    /// `finalize` and `close`).
+    /// Ends the current page, if any, and starts a page of `width ×
+    /// height` inches whose images are rasterized at `image_dpi`, drawn
+    /// with a fresh graphics state (matplotlib's `newPage` and a new
+    /// `RendererPdf`). Notes attached since the last page go on it.
+    ///
+    /// # Errors
+    ///
+    /// When the page size or resolution is not positive and finite, or the
+    /// previous page could not be written.
+    pub fn new_page(&mut self, width: f64, height: f64, image_dpi: f64) -> Result<(), VectorError> {
+        check_canvas(width, height, image_dpi)?;
+        self.end_page()?;
+        let parents = PageParents {
+            pages: self.ids.pages,
+            resources: self.ids.resource_dictionary,
+        };
+        let contents = self.pages.start(&mut self.writer, parents, width, height)?;
+        let length = self.writer.reserve();
+        self.writer
+            .begin_stream(contents, Some(length), Vec::new(), None);
+        self.writer
+            .output(&[Obj::name("DeviceRGB"), Obj::op("CS")])?;
+        self.writer
+            .output(&[Obj::name("DeviceRGB"), Obj::op("cs")])?;
+        self.writer.output(&[Obj::Int(1), Obj::op("j")])?;
+        self.states = StateStack::new(self.options.inherit_color);
+        (self.width, self.height, self.image_dpi) = (width, height, image_dpi);
+        self.page_open = true;
+        Ok(())
+    }
+
+    /// Attaches a text note shown at `rect` (`[x0, y0, x1, y1]` in points)
+    /// to the next page started (matplotlib's `newTextnote`).
+    pub fn attach_note(&mut self, text: &str, rect: [f64; 4]) {
+        self.pages.add_note(Note {
+            text: text.to_owned(),
+            rect,
+        });
+    }
+
+    /// How many pages the document has.
+    pub fn page_count(&self) -> usize {
+        self.pages.len()
+    }
+
+    /// The document information written when the document is finished
+    /// (matplotlib's `PdfPages.infodict`).
+    pub fn metadata_mut(&mut self) -> &mut Metadata {
+        &mut self.options.metadata
+    }
+
+    /// Restores the graphics state and closes the content stream of the
+    /// current page (`RendererPdf.finalize` and `endStream`).
+    fn end_page(&mut self) -> Result<(), VectorError> {
+        if !self.page_open {
+            return Ok(());
+        }
+        let restore = self.states.finish();
+        self.writer.output(&restore)?;
+        self.writer.end_stream()?;
+        self.page_open = false;
+        Ok(())
+    }
+
+    /// Closes the page and writes the annotations, fonts, resources, the
+    /// page tree, the document information and the cross-reference table
+    /// (matplotlib's `finalize` and `close`).
     ///
     /// # Errors
     ///
     /// When a font, image or number met while drawing could not be
     /// written.
     pub fn finish(mut self) -> Result<Vec<u8>, VectorError> {
-        let restore = self.states.finish();
-        self.writer.output(&restore)?;
-        self.writer.end_stream()?;
-        self.writer
-            .write_object(self.ids.annotations, &Obj::Array(Vec::new()))?;
+        self.end_page()?;
+        self.pages.write_annotations(&mut self.writer)?;
         fonts::write_fonts(
             &mut self.writer,
             &mut self.fonts,
             &self.font_names,
             &self.tracker,
             self.ids.resources.fonts,
+            self.options.fonttype,
         )?;
         self.resources.write(
             &mut self.writer,
@@ -238,31 +304,11 @@ impl PdfRenderer {
             self.height,
             self.options.compression > 0,
         )?;
-        self.writer.write_object(
-            self.ids.pages,
-            &Obj::dict([
-                ("Type", Obj::name("Pages")),
-                ("Kids", Obj::Array(vec![Obj::Ref(self.ids.page)])),
-                ("Count", Obj::Int(1)),
-            ]),
-        )?;
-        let metadata = &self.options.metadata;
-        let mut info = Vec::new();
-        if let Some(creator) = &metadata.creator {
-            info.push(("Creator".to_owned(), text_string(creator)));
-        }
-        if let Some(producer) = &metadata.producer {
-            info.push(("Producer".to_owned(), text_string(producer)));
-        }
-        if let Some(date) = metadata.date {
-            info.push(("CreationDate".to_owned(), text_string(&date.pdf())));
-        }
-        if let Some(title) = &metadata.title {
-            info.push(("Title".to_owned(), text_string(title)));
-        }
-        let info_id = self.writer.reserve();
-        self.writer.write_object(info_id, &Obj::Dict(info))?;
-        let file = self.writer.finish(self.ids.root, info_id)?;
+        self.pages.write_tree(&mut self.writer, self.ids.pages)?;
+        let info = self.writer.reserve();
+        self.writer
+            .write_object(info, &pages::info_dict(&self.options.metadata))?;
+        let file = self.writer.finish(self.ids.root, info)?;
         self.problems.into_result(file)
     }
 

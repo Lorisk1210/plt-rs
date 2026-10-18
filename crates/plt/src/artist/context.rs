@@ -101,12 +101,24 @@ impl std::fmt::Display for DrawError {
 
 impl std::error::Error for DrawError {}
 
+/// Where drawing stands with respect to rasterized artists (the
+/// `_raster_depth` and `_rasterizing` attributes matplotlib keeps on the
+/// renderer).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Rasterization {
+    /// How many rasterized artists are being drawn, one inside the other.
+    depth: usize,
+    /// Whether the renderer draws into a raster canvas.
+    active: bool,
+}
+
 /// Everything an artist needs while drawing: the renderer plus read-only
 /// access to the rest of the figure.
 pub struct DrawContext<'a> {
     layout: LayoutContext<'a>,
     renderer: &'a mut dyn Renderer,
     errors: Vec<DrawError>,
+    rasterization: Rasterization,
 }
 
 impl std::fmt::Debug for DrawContext<'_> {
@@ -123,6 +135,7 @@ impl<'a> DrawContext<'a> {
             layout: LayoutContext::new(figure),
             renderer,
             errors: Vec::new(),
+            rasterization: Rasterization::default(),
         }
     }
 
@@ -172,33 +185,86 @@ impl<'a> DrawContext<'a> {
             layout: self.layout,
             renderer: &mut *wrapped,
             errors: Vec::new(),
+            rasterization: self.rasterization,
         };
         let result = f(&mut inner);
-        let errors = inner.errors;
+        let DrawContext {
+            errors,
+            rasterization,
+            ..
+        } = inner;
         self.errors.extend(errors);
+        self.rasterization = rasterization;
         result
     }
 
-    /// Draws a child artist if it exists, is visible and not animated.
+    /// Runs `draw`, the draw call of an artist with the given `rasterized`
+    /// property, under matplotlib's rasterization bookkeeping
+    /// (`allow_rasterization`): a rasterized artist outside any other
+    /// starts rasterizing, an artist that is not rasterized outside any
+    /// rasterized one stops it, so that consecutive rasterized artists
+    /// share one image.
+    pub fn draw_artist<R>(&mut self, rasterized: bool, draw: impl FnOnce(&mut Self) -> R) -> R {
+        let outermost = self.rasterization.depth == 0;
+        if rasterized {
+            if outermost && !self.rasterization.active {
+                self.renderer.start_rasterizing();
+                self.rasterization.active = true;
+            }
+            self.rasterization.depth += 1;
+        } else if outermost && self.rasterization.active {
+            self.renderer.stop_rasterizing();
+            self.rasterization.active = false;
+        }
+        let result = draw(self);
+        if rasterized {
+            self.rasterization.depth -= 1;
+        }
+        result
+    }
+
+    /// Places what is still being rasterized once the figure is drawn
+    /// (matplotlib's `_finalize_rasterization`).
+    pub(crate) fn finish_rasterizing(&mut self) {
+        if self.rasterization.active {
+            self.renderer.stop_rasterizing();
+            self.rasterization.active = false;
+        }
+    }
+
+    /// Draws a child artist if it exists and is not animated; an
+    /// invisible child draws nothing but still ends rasterizing like any
+    /// artist that is not rasterized.
     pub fn draw_child(&mut self, id: ArtistId) {
         let Some(artist) = self.layout.store().get(id) else {
             return;
         };
         let base = artist.base();
-        if base.visible && !base.animated {
-            artist.draw(self);
+        if base.animated {
+            return;
         }
+        self.draw_artist(base.rasterized, |ctx| {
+            if base.visible {
+                artist.draw(ctx);
+            }
+        });
     }
 
-    /// Draws children in z-order (stable for equal z-orders).
-    pub fn draw_children_sorted(&mut self, children: &[ArtistId]) {
+    /// `children` in z-order (stable for equal z-orders), removed ones
+    /// left out.
+    pub fn sorted_children(&self, children: &[ArtistId]) -> Vec<ArtistId> {
         let store = self.layout.store();
         let mut ordered: Vec<(f64, ArtistId)> = children
             .iter()
             .filter_map(|&id| Some((store.get(id)?.base().zorder, id)))
             .collect();
         ordered.sort_by(|a, b| a.0.total_cmp(&b.0));
-        for (_, id) in ordered {
+        ordered.into_iter().map(|(_, id)| id).collect()
+    }
+
+    /// Draws children in z-order (stable for equal z-orders).
+    pub fn draw_children_sorted(&mut self, children: &[ArtistId]) {
+        for id in self.sorted_children(children) {
             self.draw_child(id);
         }
     }

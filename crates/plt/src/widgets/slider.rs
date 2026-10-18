@@ -400,7 +400,12 @@ impl Slider {
                 Orientation::Vertical => ax.axhline(valinit, props),
                 Orientation::Horizontal => ax.axvline(valinit, props),
             };
-            line.set_clip_path(Some(crate::artist::ClipPathSpec::Artist(track.id())));
+            // matplotlib gives the line its clip path before adding it to
+            // the axes, which then leaves it without a clip box.
+            line.raw().with_base_mut(|b| {
+                b.clip_path = Some(crate::artist::ClipPathSpec::Artist(track.id()));
+                b.clip_box = None;
+            });
         }
         let handle = base.handle(valinit);
         let (label, valtext) = base.texts(label, &base.format(&[valinit]).remove(0));

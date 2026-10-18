@@ -39,14 +39,42 @@ fn numbers(operands: &[Value]) -> Vec<f64> {
     operands.iter().filter_map(Value::as_num).collect()
 }
 
-/// A Type 3 font as text placement needs it.
+/// A Type 3 or Type 0 font as text placement needs it.
 #[derive(Clone, Debug, Default)]
 struct Font {
     name: String,
-    glyphs: HashMap<u8, String>,
-    widths: HashMap<u8, f64>,
+    glyphs: HashMap<u32, String>,
+    widths: HashMap<u32, f64>,
     /// Horizontal scale of the font matrix.
     scale: f64,
+    /// Bytes per character code (2 for `Identity-H` Type 0 fonts).
+    code_bytes: usize,
+}
+
+/// The widths of a CID font's `W` array (`c [w1 w2 ...]` and
+/// `c_first c_last w` entries).
+fn cid_widths(entries: &[Value]) -> HashMap<u32, f64> {
+    let mut widths = HashMap::new();
+    let mut i = 0;
+    while i < entries.len() {
+        let first = entries[i].as_num().unwrap_or(0.0) as u32;
+        match entries.get(i + 1) {
+            Some(Value::Array(run)) => {
+                for (code, width) in (first..).zip(run) {
+                    widths.insert(code, width.as_num().unwrap_or(0.0));
+                }
+                i += 2;
+            }
+            Some(last) => {
+                let last = last.as_num().unwrap_or(0.0) as u32;
+                let width = entries.get(i + 2).and_then(Value::as_num).unwrap_or(0.0);
+                widths.extend((first..=last).map(|code| (code, width)));
+                i += 3;
+            }
+            None => break,
+        }
+    }
+    widths
 }
 
 /// The graphics state.
@@ -229,6 +257,33 @@ impl<'a> Interpreter<'a> {
 
     fn font(&mut self, resources: &'a Value, name: &str, size: f64) {
         let font = self.doc.resolve(self.resource(resources, "Font", name));
+        let base = font
+            .get("BaseFont")
+            .and_then(Value::as_name)
+            .unwrap_or(name);
+        self.state.font_size = size;
+        if font.get("Subtype").and_then(Value::as_name) == Some("Type0") {
+            let descendant = font
+                .get("DescendantFonts")
+                .map(|d| self.doc.resolve(d))
+                .and_then(Value::as_array)
+                .and_then(<[Value]>::first)
+                .map_or(&Value::Null, |d| self.doc.resolve(d));
+            let widths = descendant
+                .get("W")
+                .map(|w| self.doc.resolve(w))
+                .and_then(Value::as_array)
+                .map(cid_widths)
+                .unwrap_or_default();
+            self.state.font = Font {
+                name: base_name(base).to_owned(),
+                glyphs: HashMap::new(),
+                widths,
+                scale: 0.001,
+                code_bytes: 2,
+            };
+            return;
+        }
         let mut glyphs = HashMap::new();
         let differences = self
             .doc
@@ -241,7 +296,7 @@ impl<'a> Interpreter<'a> {
             match entry {
                 Value::Num(n) => code = *n as u32,
                 Value::Name(glyph) => {
-                    glyphs.insert(code as u8, glyph.clone());
+                    glyphs.insert(code, glyph.clone());
                     code += 1;
                 }
                 _ => {}
@@ -255,7 +310,7 @@ impl<'a> Interpreter<'a> {
             .unwrap_or_default()
             .iter()
             .enumerate()
-            .filter_map(|(i, w)| Some(((first + i as u32) as u8, w.as_num()?)))
+            .filter_map(|(i, w)| Some((first + i as u32, w.as_num()?)))
             .collect();
         let scale = font
             .get("FontMatrix")
@@ -263,22 +318,20 @@ impl<'a> Interpreter<'a> {
             .and_then(|m| m.first())
             .and_then(Value::as_num)
             .unwrap_or(0.001);
-        let base = font
-            .get("BaseFont")
-            .and_then(Value::as_name)
-            .unwrap_or(name);
         self.state.font = Font {
             name: base_name(base).to_owned(),
             glyphs,
             widths,
             scale,
+            code_bytes: 1,
         };
-        self.state.font_size = size;
     }
 
     /// Shows the codes of a string, one item per glyph.
     fn show(&mut self, bytes: &[u8]) {
-        for &code in bytes {
+        let width = self.state.font.code_bytes.max(1);
+        for chunk in bytes.chunks(width) {
+            let code = chunk.iter().fold(0u32, |code, &b| code << 8 | u32::from(b));
             let s = &self.state;
             let render = concat(
                 &[s.font_size, 0.0, 0.0, s.font_size, 0.0, s.rise],

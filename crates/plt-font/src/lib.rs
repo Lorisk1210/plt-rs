@@ -29,6 +29,7 @@ mod outline;
 mod reader;
 mod scale;
 mod shape;
+mod subset;
 mod tables;
 mod types;
 
@@ -45,6 +46,7 @@ pub use shape::{
     FontChain, LaidOutGlyph, Script, ShapeOptions, ShapedGlyph, TextLayout, shape, shape_at_size,
     shape_with,
 };
+pub use subset::{FontSubset, subset};
 pub use tables::cmap::CharmapInfo;
 pub use tables::directory::{SfntFlavor, face_count};
 pub use tables::head::{Head, Hhea};

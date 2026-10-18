@@ -5,7 +5,7 @@ use plt_core::Bbox;
 use plt_font::{FontId, GlyphId};
 
 use super::boxes::Shipped;
-use crate::run::{PlacedGlyph, TextRun};
+use crate::run::{GlyphChars, PlacedGlyph, TextRun};
 
 /// A glyph of typeset math.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -118,7 +118,8 @@ impl MathLayout {
 
     /// The run backends draw (matplotlib's `VectorParse`): the box rounded
     /// up to whole pixels, glyphs and rules placed from the rounded top,
-    /// y up from the baseline.
+    /// y up from the baseline. The run has no source; see
+    /// [`TextEngine::layout_math`](crate::TextEngine::layout_math).
     pub fn to_text_run(&self) -> TextRun {
         let (width, height, depth) = (self.width.ceil(), self.height.ceil(), self.depth.ceil());
         TextRun {
@@ -131,6 +132,7 @@ impl MathLayout {
                     size: g.size,
                     x: g.x,
                     y: height - g.y + g.offset,
+                    chars: GlyphChars::Code(g.code),
                 })
                 .collect(),
             rects: self
@@ -142,6 +144,8 @@ impl MathLayout {
             height: height + depth,
             descent: depth,
             dpi: self.dpi,
+            source: None,
+            anchor: None,
         }
     }
 

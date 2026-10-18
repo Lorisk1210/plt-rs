@@ -41,6 +41,7 @@ mod tests;
 
 use std::rc::Rc;
 
+pub(crate) use artist::LegendArtist;
 pub use error::LegendError;
 pub use handle::LegendHandle;
 pub(crate) use layout::lay_out_legends;
@@ -49,7 +50,7 @@ pub use options::{
 };
 pub(crate) use settings::OutsideEdge;
 
-use artist::{LegendArtist, LegendParent};
+use artist::LegendParent;
 use settings::Placement;
 
 use plt_core::Bbox;

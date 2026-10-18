@@ -4,6 +4,7 @@ use plt_core::{Bbox, Path, Point};
 
 use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::PixelMap;
+use super::unsampled::UnsampledImage;
 use super::{Extent, ImageAlpha, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistStore, ClipPathSpec, DrawContext, LayoutContext,
@@ -13,7 +14,7 @@ use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
 use crate::numeric::Grid;
 use crate::patches::PatchShape;
-use crate::transforms::Transform;
+use crate::transforms::{ResolvedTransform, Transform};
 
 /// State of an image on a regular grid in data coordinates.
 #[derive(Debug)]
@@ -33,7 +34,7 @@ impl AxesImageArtist {
         }
     }
 
-    fn transform(&self) -> Transform {
+    pub(super) fn transform(&self) -> Transform {
         self.base.transform.clone().unwrap_or(Transform::Display)
     }
 
@@ -53,15 +54,11 @@ impl AxesImageArtist {
         ))
     }
 
-    fn render(&self, ctx: &mut DrawContext<'_>) -> Result<Option<RenderedImage>, ImageError> {
+    /// The display box the image is clipped to (matplotlib's clip box,
+    /// axes box or figure box).
+    fn clip_bbox(&self, ctx: &mut DrawContext<'_>) -> Bbox {
         let canvas = canvas_bbox(ctx);
-        let magnification = ctx.renderer().image_magnification();
         let layout = ctx.layout();
-        let (Some(resolved), Some(out_bbox)) =
-            (ctx.resolve(&self.transform()), self.out_bbox(*layout))
-        else {
-            return Ok(None);
-        };
         let clip = if self.base.clip_on {
             self.base
                 .clip_box
@@ -70,7 +67,22 @@ impl AxesImageArtist {
         } else {
             None
         };
-        let clip = clip.unwrap_or(canvas);
+        clip.unwrap_or(canvas)
+    }
+
+    /// matplotlib's `AxesImage.make_image` at `magnification`.
+    pub(super) fn render(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        magnification: f64,
+    ) -> Result<Option<RenderedImage>, ImageError> {
+        let clip = self.clip_bbox(ctx);
+        let layout = ctx.layout();
+        let (Some(resolved), Some(out_bbox)) =
+            (ctx.resolve(&self.transform()), self.out_bbox(*layout))
+        else {
+            return Ok(None);
+        };
         let placement = Placement {
             extent: self.extent,
             transform: Some(PixelMap::from_resolved(resolved)),
@@ -81,6 +93,25 @@ impl AxesImageArtist {
         };
         let alpha = self.core.alpha(self.base.alpha);
         self.core.make_image(&placement, alpha.as_ref())
+    }
+}
+
+impl AxesImageArtist {
+    /// `make_image(unsampled=True)`, or `None` when the image's map is
+    /// not affine.
+    fn unsampled(
+        &self,
+        ctx: &mut DrawContext<'_>,
+    ) -> Option<Result<Option<UnsampledImage>, ImageError>> {
+        let clip = self.clip_bbox(ctx);
+        let resolved = ctx
+            .resolve(&self.transform())
+            .filter(ResolvedTransform::is_affine)?;
+        let out_bbox = self.out_bbox(*ctx.layout())?;
+        Some(
+            self.core
+                .unsampled(self.extent, resolved.affine_part(), out_bbox, clip),
+        )
     }
 }
 
@@ -118,8 +149,32 @@ impl Artist for AxesImageArtist {
         &mut self.base
     }
 
+    /// Images with interpolation `none` go unsampled to renderers that
+    /// scale images themselves, when their map is affine (matplotlib's
+    /// `_check_unsampled_image`).
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let rendered = self.render(ctx);
+        if self.core.resampling.interpolation == Interpolation::None
+            && ctx.renderer().option_scale_image()
+            && let Some(unsampled) = self.unsampled(ctx)
+        {
+            match unsampled {
+                Ok(Some(image)) => {
+                    let mut gc = ctx.base_gc(&self.base);
+                    gc.alpha = self.base.alpha;
+                    ctx.renderer().draw_image(
+                        &gc,
+                        image.origin,
+                        &image.pixels,
+                        Some(&image.transform),
+                    );
+                }
+                Ok(None) => {}
+                Err(err) => ctx.report(self.base.id(), err),
+            }
+            return;
+        }
+        let magnification = ctx.renderer().image_magnification();
+        let rendered = self.render(ctx, magnification);
         draw_rendered(ctx, &self.base, rendered);
     }
 

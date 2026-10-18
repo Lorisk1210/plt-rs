@@ -6,6 +6,7 @@ use plt_core::Bbox;
 use super::AxesState;
 use super::axis_layout::{AxisPainter, PlacedText};
 use crate::artist::{Artist, ArtistBase, ArtistId, ClipPathSpec, LayoutContext};
+use crate::axes_grid1::parasites_of;
 use crate::figure::FigureState;
 use crate::spines::SpineArtist;
 use crate::text::TextArtist;
@@ -20,7 +21,9 @@ impl FigureState {
     /// children not clipped to the axes (spines with their ticks, inset
     /// axes, unclipped artists). `for_layout_only` collapses the axis
     /// labels along their axis and the titles horizontally, so that their
-    /// length does not count.
+    /// length does not count. Axes with parasites measure their full
+    /// decorations, as matplotlib's `HostAxes.get_tightbbox` has no
+    /// `for_layout_only`; their parasites count like insets.
     pub(crate) fn axes_tight_bbox(
         &mut self,
         axes: ArtistId,
@@ -29,6 +32,7 @@ impl FigureState {
         if !self.store.get_as::<AxesState>(axes)?.base().visible {
             return None;
         }
+        let for_layout_only = for_layout_only && parasites_of(&self.store, axes).is_empty();
         self.lay_out_axes(axes);
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi;

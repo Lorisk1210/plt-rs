@@ -99,8 +99,10 @@ impl FigureState {
 
     /// Recomputes the stale autoscaled view limits of `axes` (matplotlib's
     /// `_unstale_viewLim`): an axis is rescaled when it or any axes
-    /// sharing it changed, from the data of all of them.
+    /// sharing it changed, from the data of all of them. A parasite
+    /// following its host takes the host's limits instead.
     pub(crate) fn unstale_axes(&mut self, axes: ArtistId) {
+        self.sync_parasite(axes);
         let need = AXES.map(|name| {
             self.siblings(name, axes).into_iter().any(|id| {
                 self.axes_state(id)

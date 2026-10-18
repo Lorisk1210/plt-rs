@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, is_hidden_label};
 use crate::axes::{AxesState, BarContainer, ErrorbarContainer, StemContainer};
+use crate::axes_grid1::parasites_of;
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::container::{Container, ContainerIds};
 use crate::lines::{LineArtist, LineProps};
@@ -222,11 +223,13 @@ fn artist_has_handler(store: &ArtistStore, id: ArtistId) -> bool {
 }
 
 /// The artists and containers of `axes` a legend can list, unless
-/// labelled `_nolegend_`, in plotting order with the containers last
-/// (matplotlib's `_get_legend_handles`).
+/// labelled `_nolegend_`, in plotting order with the containers last,
+/// each axes followed by its parasites (matplotlib's
+/// `_get_legend_handles`).
 pub(crate) fn candidates(store: &ArtistStore, axes: &[ArtistId]) -> Vec<Source> {
     axes.iter()
-        .filter_map(|&id| store.get_as::<AxesState>(id))
+        .flat_map(|&id| std::iter::once(id).chain(parasites_of(store, id)))
+        .filter_map(|id| store.get_as::<AxesState>(id))
         .flat_map(|axes| {
             let artists = axes.children.iter().map(|&id| Source::Artist(id));
             let containers = axes.containers.iter().cloned().map(Source::Container);

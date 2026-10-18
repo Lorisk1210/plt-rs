@@ -123,12 +123,13 @@ impl Axes {
         self.add_line_artist(line)
     }
 
-    /// A new data line styled by `props`, with the property cycle filling
-    /// in the cycled properties `props` leaves unset (matplotlib's
-    /// `_makeline`).
+    /// A new data line styled by `props`, with the property cycle (of the
+    /// host, for parasite axes) filling in the cycled properties `props`
+    /// leaves unset (matplotlib's `_makeline`).
     pub(crate) fn cycled_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> LineArtist {
         let mut line = LineArtist::new(x, y, crate::rc::params());
-        let cycled = self.raw().with_mut::<AxesState, _>(|axes| {
+        let owner = self.line_cycle_owner();
+        let cycled = owner.raw().with_mut::<AxesState, _>(|axes| {
             let entry: Vec<(String, CycleValue)> = axes
                 .prop_cycle
                 .entry(axes.line_cycle)
@@ -186,13 +187,15 @@ impl Axes {
     /// The next colour of the line property cycle (matplotlib's
     /// `_get_lines.get_next_color`).
     pub(crate) fn next_line_color(&self) -> Color {
-        self.raw().with_mut::<AxesState, _>(|axes| {
-            let color = cycle_color(&axes.prop_cycle, axes.line_cycle);
-            if color.is_some() {
-                axes.line_cycle += 1;
-            }
-            color.unwrap_or_else(|| Color::from("k"))
-        })
+        self.line_cycle_owner()
+            .raw()
+            .with_mut::<AxesState, _>(|axes| {
+                let color = cycle_color(&axes.prop_cycle, axes.line_cycle);
+                if color.is_some() {
+                    axes.line_cycle += 1;
+                }
+                color.unwrap_or_else(|| Color::from("k"))
+            })
     }
 }
 

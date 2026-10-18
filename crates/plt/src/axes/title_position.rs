@@ -12,6 +12,7 @@ use super::axis_layout::AxisPainter;
 use super::state::TitlePlacement;
 use super::tight_bbox::axis_tight_bbox;
 use crate::artist::{Artist, ArtistId, LayoutContext};
+use crate::axes_grid1::is_parasite;
 use crate::figure::FigureState;
 use crate::layout::Aligned;
 use crate::spines::SpineSide;
@@ -133,13 +134,10 @@ impl FigureState {
             );
         }
         if let Some(state) = self.store.get_as::<AxesState>(axes) {
-            group.extend(
-                state
-                    .children
-                    .iter()
-                    .copied()
-                    .filter(|&child| self.store.get_as::<AxesState>(child).is_some()),
-            );
+            // matplotlib's child axes, which parasites are not.
+            group.extend(state.children.iter().copied().filter(|&child| {
+                self.store.get_as::<AxesState>(child).is_some() && !is_parasite(&self.store, child)
+            }));
         }
         group
     }

@@ -91,13 +91,15 @@ impl Artist for BboxImageArtist {
     }
 
     /// matplotlib's `BboxImage.make_image`: the box, as fractions of the
-    /// canvas, mapped back onto the canvas, clipped to it.
+    /// canvas, mapped back onto the canvas, clipped to it, at the
+    /// renderer's image magnification (as `_ImageBase.draw` asks).
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let Some(out_bbox) = self.bbox else {
             return;
         };
         let canvas = canvas_bbox(ctx);
         let (width, height) = (canvas.width(), canvas.height());
+        let magnification = ctx.renderer().image_magnification();
         let placement = Placement {
             extent: Extent::new(
                 out_bbox.x0() / width,
@@ -109,7 +111,7 @@ impl Artist for BboxImageArtist {
             out_bbox,
             clip: canvas,
             round_to_pixels: true,
-            magnification: 1.0,
+            magnification,
         };
         let alpha = self.core.alpha(self.base.alpha);
         let rendered = self.core.make_image(&placement, alpha.as_ref());

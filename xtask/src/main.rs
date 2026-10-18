@@ -3,7 +3,7 @@
 //! ```text
 //! cargo xtask spec [AREA...] [--failures]        probe conformance vs matplotlib goldens
 //! cargo xtask figures [PREFIX...] [--failures]   figure-case conformance
-//! cargo xtask render PREFIX...                   render cases to spec/out
+//! cargo xtask render PREFIX... [--vectors]       render cases to spec/out
 //! ```
 #![forbid(unsafe_code)]
 #![allow(clippy::print_stdout, clippy::print_stderr)] // a CLI reports on stdout
@@ -12,6 +12,7 @@ use std::process::ExitCode;
 
 use std::collections::BTreeMap;
 
+use plt_spec::figures::vector::{VectorFormat, render_vector};
 use plt_spec::figures::{self, CaseVerdict};
 use plt_spec::probes::{self, AreaReport, ProbeFile};
 
@@ -20,11 +21,15 @@ fn main() -> ExitCode {
     match args.split_first() {
         Some((command, rest)) if command == "spec" => spec(rest),
         Some((command, rest)) if command == "figures" => figure_cases(rest),
-        Some((command, rest)) if command == "render" && !rest.is_empty() => render(rest),
+        Some((command, rest))
+            if command == "render" && rest.iter().any(|a| !a.starts_with("--")) =>
+        {
+            render(rest)
+        }
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
-            eprintln!("       cargo xtask render PREFIX...");
+            eprintln!("       cargo xtask render PREFIX... [--vectors]");
             ExitCode::FAILURE
         }
     }
@@ -32,13 +37,20 @@ fn main() -> ExitCode {
 
 /// Renders the translated cases whose names start with a prefix into
 /// `spec/out/<case>.png`, with `<case>.diff.png` marking the pixels that
-/// differ from the golden image.
-fn render(prefixes: &[String]) -> ExitCode {
+/// differ from the golden image; `--vectors` also writes the case as SVG,
+/// PDF and PostScript the way the vector goldens are saved.
+fn render(args: &[String]) -> ExitCode {
+    let vectors = args.iter().any(|a| a == "--vectors");
+    let prefixes: Vec<&str> = args
+        .iter()
+        .filter(|a| !a.starts_with("--"))
+        .map(String::as_str)
+        .collect();
     let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/out");
     let mut status = ExitCode::SUCCESS;
     for case in figures::translated_cases()
         .iter()
-        .filter(|case| prefixes.iter().any(|p| case.name.starts_with(p.as_str())))
+        .filter(|case| prefixes.iter().any(|p| case.name.starts_with(p)))
     {
         let written = figures::pixel_artifacts(case).and_then(|artifacts| {
             let base = out.join(case.name);
@@ -47,6 +59,13 @@ fn render(prefixes: &[String]) -> ExitCode {
             std::fs::write(base.with_extension("png"), &artifacts.rendered)
                 .and_then(|()| std::fs::write(base.with_extension("diff.png"), &artifacts.diff))
                 .map_err(|e| e.to_string())?;
+            if vectors {
+                for format in VectorFormat::ALL {
+                    let document = render_vector(case, format).map_err(|e| e.to_string())?;
+                    std::fs::write(base.with_extension(format.extension()), document)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
             Ok(artifacts.report)
         });
         match written {

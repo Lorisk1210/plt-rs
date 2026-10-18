@@ -2,7 +2,6 @@
 //! rc-file text, as style sheets and `matplotlibrc` files set them, and
 //! the parameters each bundled style sheet sets.
 
-mod canon;
 mod fields;
 
 use plt::rc::RcParams;

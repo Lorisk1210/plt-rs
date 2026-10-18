@@ -143,6 +143,13 @@ Ops
     broadcast together first; the step function of the drawstyle is applied to
     ``(x, y)``; codes are null). Mismatched lengths -> ValueError.
 
+``axes._process_plot_format``  args ``{fmt}`` -> ``[linestyle, marker, color]``
+    for a MATLAB-style format string under matplotlib's defaults:
+    line styles as ``"solid"``/``"dashed"``/``"dashdot"``/``"dotted"``/
+    ``"none"`` (or null when unset), markers as their character (``"None"``
+    for no marker, null when unset) and colours as ``[r, g, b, a]`` resolved
+    against the default property cycle (null when unset). Invalid -> error.
+
 ``lines.markevery``  args ``{figsize: [w_in, h_in], dpi, rect: [l, b, w, h]
     (figure fraction), xscale, yscale ("linear"|"log"), xlim: [lo, hi],
     ylim: [lo, hi], x: [...], y: [...], drawstyle, markevery: MARKEVERY}``.
@@ -1081,3 +1088,35 @@ def _markevery_safe(data, me):
         return _markevery(**GEOM_A, **data, drawstyle="default", markevery=me)
     except Exception as exc:  # noqa: BLE001
         return exc
+
+
+# --- format strings (``_process_plot_format``)
+
+FMT_TOKENS = ["-", "--", "-.", ":", " ", "o", ".", ",", "v", "^", "<", ">", "1", "2", "3", "4",
+              "8", "s", "p", "P", "*", "h", "H", "+", "x", "X", "D", "d", "|", "_", "b", "g", "r",
+              "c", "m", "y", "k", "w", "C0", "C7", "C10"]
+FMT_EXTRA = ["", "0", "1", "1.0", "0.5", "red", "tab:blue", "#ff0000", "#f00", "C", "Cx", "rr",
+             "--:", "oo", "o-o", "z", "ro--", "--ro", "C1o", "o C1", "k^:", "r o", "-.-", "None",
+             "none", "CC", "C1C2", "r2", "2r", "xkcd:sky blue", "C1-"]
+
+
+def _linestyle_canon(ls):
+    if ls is None:
+        return None
+    return {"-": "solid", "--": "dashed", "-.": "dashdot", ":": "dotted"}.get(ls, "none")
+
+
+def _plot_format(fmt):
+    from matplotlib import colors as mcolors
+    from matplotlib.axes._base import _process_plot_format
+    linestyle, marker, color = _process_plot_format(fmt)
+    marker = None if marker is None else ("None" if marker in ("None", "none", " ", "")
+                                          else marker)
+    color = None if color is None else [float(c) for c in mcolors.to_rgba(color)]
+    return [_linestyle_canon(linestyle), marker, color]
+
+
+def test_plot_formats():
+    pairs = [a + b for a in FMT_TOKENS for b in FMT_TOKENS[::3]]
+    for fmt in FMT_TOKENS + FMT_EXTRA + pairs:
+        probes.probe("axes._process_plot_format", _plot_format, fmt=fmt)

@@ -7,6 +7,7 @@ pub(crate) mod afm;
 pub(crate) mod animation;
 pub(crate) mod axes3d;
 pub(crate) mod axisartist;
+mod canon;
 pub(crate) mod colormap_luts;
 pub(crate) mod colormaps;
 pub(crate) mod colors;

@@ -1,16 +1,23 @@
-//! Self-contained DEFLATE, zlib and PNG codecs for plt-rs.
+//! Self-contained image and compression codecs for plt-rs.
 //!
 //! The crate has no dependencies and no `unsafe` code. It provides:
 //!
-//! * [`base64`] — base64 encoding for embedding binary data in text.
+//! * [`base64`] — base64 encoding for embedding binary data in text, and
+//!   decoding.
 //! * [`checksum`] — CRC-32 (PNG, gzip) and Adler-32 (zlib) checksums, both as
 //!   incremental hashers and as one-shot helpers.
-//! * [`gif`] — animated GIF encoding with a shared, quantised palette.
-//! * [`jpeg`] — baseline JPEG encoding matching Pillow's output byte for byte.
+//! * [`gif`] — animated GIF encoding with a shared, quantised palette, and
+//!   decoding of a file's first frame as Pillow opens it.
+//! * [`jpeg`] — baseline JPEG encoding matching Pillow's output byte for
+//!   byte, and baseline, extended and progressive decoding whose pixels are
+//!   Pillow's (libjpeg-turbo's arithmetic, ported).
 //! * [`deflate`] — raw DEFLATE (RFC 1951): an LZ77 + Huffman compressor with
 //!   zlib-style levels 0–9, and a strictly validating, table-driven
 //!   decompressor.
-//! * [`tiff`] — uncompressed RGBA TIFF files, laid out as Pillow writes them.
+//! * [`tiff`] — uncompressed RGBA TIFF files, laid out as Pillow writes them,
+//!   and decoding of the TIFF layouts and compressions Pillow reads.
+//! * [`raster`] — decoded JPEG, TIFF and GIF images in the Pillow mode the
+//!   same file opens in, convertible to RGBA as Pillow converts them.
 //! * [`zlib`] — the RFC 1950 container (header and Adler-32 trailer) around
 //!   DEFLATE, in both directions.
 //! * [`png`] — a PNG encoder (grey, grey + alpha, RGB and RGBA at 8 or 16 bits,
@@ -19,7 +26,8 @@
 //!   palettes, `tRNS` transparency and Adam7 interlacing.
 //!
 //! Every decoder in this crate treats its input as untrusted: malformed data
-//! produces a descriptive error value, never a panic.
+//! produces a descriptive error value, never a panic, and declared image
+//! sizes are checked against the input before anything is allocated.
 //!
 //! # Example
 //!
@@ -44,6 +52,7 @@ pub mod deflate;
 pub mod gif;
 pub mod jpeg;
 pub mod png;
+pub mod raster;
 pub mod tiff;
 pub mod zlib;
 

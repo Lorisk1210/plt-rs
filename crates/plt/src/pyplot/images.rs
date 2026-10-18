@@ -165,12 +165,12 @@ pub fn figimage(
     gcf().figimage(data, options)
 }
 
-/// Reads a PNG file into an image array (matplotlib's `imread`; see
-/// [`crate::image::imread`]).
+/// Reads a PNG, JPEG, TIFF or GIF file into an image array (matplotlib's
+/// `imread`; see [`crate::image::imread`]).
 ///
 /// # Errors
 ///
-/// When the file cannot be read or is not a PNG.
+/// When the file cannot be read or is not a valid image of those formats.
 pub fn imread(path: impl AsRef<Path>) -> Result<ImageData, ImageIoError> {
     crate::image::imread(path)
 }

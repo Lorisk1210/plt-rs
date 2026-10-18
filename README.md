@@ -82,7 +82,7 @@ writes every figure as a PNG with an `index.html` showing them all.
 | crate          | responsibility                                                    |
 |----------------|-------------------------------------------------------------------|
 | `plt-core`     | points, affine transforms, bounding boxes, paths, colours         |
-| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, base64    |
+| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF read and write |
 | `plt-font`     | TrueType/OpenType parsing, shaping (GSUB/GPOS), font manager      |
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `plt-text`     | text layout and the mathtext parser and typesetter                |

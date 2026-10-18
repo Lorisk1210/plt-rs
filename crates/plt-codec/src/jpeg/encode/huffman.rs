@@ -2,7 +2,7 @@
 //! run-length coded AC coefficients, packed most significant bit first
 //! with `0xFF` bytes stuffed.
 
-use super::tables::{HuffmanSpec, ZIGZAG};
+use crate::jpeg::tables::{HuffmanSpec, ZIGZAG};
 
 /// The code and its length for every symbol of a table.
 #[derive(Clone, Debug)]

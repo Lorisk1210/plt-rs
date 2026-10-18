@@ -11,8 +11,9 @@
 //!   as an [`OffsetImage`](crate::offsetbox::OffsetImage) draws it.
 //! * [`Interpolation`], [`InterpolationStage`], [`Origin`], [`Extent`] and
 //!   [`ImageAlpha`] — how images are oriented, placed and resampled.
-//! * [`imread`] and [`imsave`] — PNG files to image arrays and arrays to
-//!   PNG, JPEG, TIFF, GIF or raw files ([`BitmapFormat`]).
+//! * [`imread`] and [`imsave`] — PNG, JPEG, TIFF and GIF files to image
+//!   arrays, and arrays to PNG, JPEG, TIFF, GIF or raw files
+//!   ([`BitmapFormat`]).
 //!
 //! Drawing follows matplotlib's `_make_image` exactly: the image is
 //! clipped to its clip box, rounded to whole pixels, resampled with Agg's
@@ -26,6 +27,7 @@ mod composite;
 mod data;
 mod error;
 mod figure_image;
+mod imread;
 mod io;
 mod make;
 mod options;
@@ -44,10 +46,8 @@ pub(crate) use composite::Compositor;
 pub use data::{ImageData, ScalarField, ScalarKind};
 pub use error::ImageError;
 pub use figure_image::{FigimageOptions, FigureImage};
-pub use io::{
-    ImageIoError, ImsaveOptions, imread, imread_png, imsave, imsave_bytes, imsave_format,
-    imsave_png,
-};
+pub use imread::{ImreadFormat, imread, imread_bytes, imread_png};
+pub use io::{ImageIoError, ImsaveOptions, imsave, imsave_bytes, imsave_format, imsave_png};
 pub(crate) use make::{CoreSettings, ImageCore};
 pub use options::{Extent, ImageAlpha, Interpolation, InterpolationStage, Origin, UnknownName};
 pub use pcolor_image::PcolorImage;

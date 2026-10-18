@@ -1,6 +1,7 @@
-//! The variable-width LZW compression of GIF image data: codes grow from
-//! `min_code_size + 1` to 12 bits, packed least significant bit first; a
-//! clear code restarts the table when all 4096 codes are taken.
+//! The variable-width LZW coding of GIF image data: codes grow from
+//! `min_code_size + 1` to 12 bits, packed least significant bit first. The
+//! compressor restarts the table with a clear code when all 4096 codes are
+//! taken; the decompressor follows Pillow's, accepting deferred clears.
 
 /// The widest code GIF allows.
 const MAX_WIDTH: u8 = 12;
@@ -122,60 +123,120 @@ impl Table {
     }
 }
 
-/// Decompresses a code stream (the inverse of [`compress`]), or `None`
-/// when it is malformed. Only the tests read GIF data back.
-#[cfg(test)]
-pub(super) fn decompress(data: &[u8], min_code_size: u8) -> Option<Vec<u8>> {
-    let clear = 1_usize << min_code_size;
+/// Why a code stream could not be decompressed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum LzwError {
+    /// The minimum code size is above 12.
+    InvalidCodeSize,
+    /// A code that is neither a palette index, a code in the table, nor
+    /// the next code to be added.
+    InvalidCode,
+    /// The data ended before the image was complete.
+    Truncated,
+}
+
+/// How decompression stopped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Finish {
+    /// The sink reported the image complete; any further data is ignored.
+    Complete,
+    /// The stream's end code came first.
+    EndCode,
+}
+
+/// Decompresses a code stream read from `bytes`, the way Pillow's GIF
+/// decoder does (`GifDecode.c`), handing each palette index to `sink`,
+/// which returns `true` once the image is complete.
+///
+/// Codes grow one bit when the table's next free code reaches all ones;
+/// a full table stops growing until a clear code (a deferred clear); the
+/// first code after a clear is taken literally and adds no entry.
+pub(super) fn decompress(
+    bytes: impl IntoIterator<Item = u8>,
+    min_code_size: u8,
+    mut sink: impl FnMut(u8) -> bool,
+) -> Result<Finish, LzwError> {
+    if min_code_size > MAX_WIDTH {
+        return Err(LzwError::InvalidCodeSize);
+    }
+    let clear = 1_u16 << min_code_size;
     let end = clear + 1;
-    let mut strings: Vec<Vec<u8>> = Vec::new();
-    let reset = |strings: &mut Vec<Vec<u8>>| {
-        strings.clear();
-        strings.extend((0..clear).map(|i| vec![u8::try_from(i).unwrap()]));
-        strings.extend([Vec::new(), Vec::new()]);
-    };
-    reset(&mut strings);
-    let mut width = usize::from(min_code_size) + 1;
-    let mut out = Vec::new();
-    let mut previous: Option<usize> = None;
-    let mut bit = 0;
+    let mut bytes = bytes.into_iter();
+    let (mut buffer, mut buffered) = (0_u32, 0_u8);
+    // Each table entry: the code of its prefix and its last index.
+    let mut links = vec![0_u16; usize::from(TABLE_CODES)];
+    let mut suffixes = vec![0_u8; usize::from(TABLE_CODES)];
+    let mut string: Vec<u8> = Vec::with_capacity(usize::from(TABLE_CODES));
+    let mut width = min_code_size + 1;
+    let mut next = end + 1;
+    // The previous code and the first index of its string; none right
+    // after a clear code.
+    let mut previous: Option<(u16, u8)> = None;
     loop {
-        let code = (0..width).try_fold(0, |code, i| {
-            let at = bit + i;
-            let set = data.get(at / 8)? >> (at % 8) & 1;
-            Some(code | usize::from(set) << i)
-        })?;
-        bit += width;
+        while buffered < width {
+            let byte = bytes.next().ok_or(LzwError::Truncated)?;
+            buffer |= u32::from(byte) << buffered;
+            buffered += 8;
+        }
+        let code = u16::try_from(buffer & ((1 << width) - 1)).expect("at most 13 bits");
+        buffer >>= width;
+        buffered -= width;
         if code == clear {
-            reset(&mut strings);
-            width = usize::from(min_code_size) + 1;
-            previous = None;
+            if previous.is_some() {
+                width = min_code_size + 1;
+                next = end + 1;
+                previous = None;
+            }
             continue;
         }
         if code == end {
-            return Some(out);
+            return Ok(Finish::EndCode);
         }
-        let string = match (strings.get(code), previous) {
-            (Some(string), _) => string.clone(),
-            (None, Some(prev)) if code == strings.len() => {
-                let mut string = strings[prev].clone();
-                string.push(strings[prev][0]);
-                string
+        string.clear();
+        let first = match previous {
+            None if code > clear => return Err(LzwError::InvalidCode),
+            // Indices are bytes: with code sizes above 8, Pillow keeps the
+            // low byte.
+            None => code as u8,
+            Some((last_code, last_first)) => {
+                if code > next {
+                    return Err(LzwError::InvalidCode);
+                }
+                let mut walk = code;
+                if code == next {
+                    // The string of the previous code, then its first index.
+                    string.push(last_first);
+                    walk = last_code;
+                }
+                while walk >= clear {
+                    if string.len() >= usize::from(TABLE_CODES) || walk >= TABLE_CODES {
+                        return Err(LzwError::InvalidCode);
+                    }
+                    string.push(suffixes[usize::from(walk)]);
+                    walk = links[usize::from(walk)];
+                }
+                let first = walk as u8;
+                if next < TABLE_CODES {
+                    suffixes[usize::from(next)] = first;
+                    links[usize::from(next)] = last_code;
+                    if next == (1 << width) - 1 && width < MAX_WIDTH {
+                        width += 1;
+                    }
+                    next += 1;
+                }
+                first
             }
-            _ => return None,
         };
-        if let Some(prev) = previous
-            && strings.len() < usize::from(TABLE_CODES)
-        {
-            let mut entry = strings[prev].clone();
-            entry.push(string[0]);
-            strings.push(entry);
-            if strings.len() == 1 << width && width < usize::from(MAX_WIDTH) {
-                width += 1;
+        previous = Some((code, first));
+        if sink(first) {
+            return Ok(Finish::Complete);
+        }
+        // The rest of the string was collected last index first.
+        for &index in string.iter().rev() {
+            if sink(index) {
+                return Ok(Finish::Complete);
             }
         }
-        out.extend_from_slice(&string);
-        previous = Some(code);
     }
 }
 
@@ -184,11 +245,20 @@ mod tests {
     use super::*;
     use crate::test_util::Rng;
 
+    fn unpack(packed: &[u8], min_code_size: u8) -> Result<(Vec<u8>, Finish), LzwError> {
+        let mut indices = Vec::new();
+        let finish = decompress(packed.iter().copied(), min_code_size, |index| {
+            indices.push(index);
+            false
+        })?;
+        Ok((indices, finish))
+    }
+
     fn round_trip(indices: &[u8], min_code_size: u8) {
         let packed = compress(indices, min_code_size);
         assert_eq!(
-            decompress(&packed, min_code_size).as_deref(),
-            Some(indices),
+            unpack(&packed, min_code_size),
+            Ok((indices.to_vec(), Finish::EndCode)),
             "{} indices at {min_code_size} bits",
             indices.len()
         );
@@ -220,5 +290,41 @@ mod tests {
         let stripes: Vec<u8> = (0..100_000).map(|i| u8::from(i % 640 < 320)).collect();
         assert!(compress(&stripes, 2).len() < stripes.len() / 20);
         round_trip(&stripes, 2);
+    }
+
+    #[test]
+    fn a_complete_image_stops_decoding() {
+        let packed = compress(&[1, 2, 3, 1, 2, 3], 2);
+        let mut seen = Vec::new();
+        let finish = decompress(packed.iter().copied(), 2, |index| {
+            seen.push(index);
+            seen.len() == 4
+        });
+        assert_eq!(finish, Ok(Finish::Complete));
+        assert_eq!(seen, [1, 2, 3, 1]);
+    }
+
+    #[test]
+    fn malformed_streams_are_errors() {
+        assert_eq!(unpack(&[], 2), Err(LzwError::Truncated));
+        assert_eq!(unpack(&[0xFF], 13), Err(LzwError::InvalidCodeSize));
+        // Clear (4), index 1, then code 7 beyond the table (next is 6).
+        assert_eq!(
+            unpack(&[0b1100_1100, 0b0000_0001], 2),
+            Err(LzwError::InvalidCode)
+        );
+        // A first code above the clear code.
+        assert_eq!(unpack(&[0b0000_0110], 2), Err(LzwError::InvalidCode));
+        let mut rng = Rng::new(3);
+        for _ in 0..2000 {
+            let len = rng.below(64);
+            let noise = rng.bytes(len);
+            let bits = u8::try_from(rng.below(13)).unwrap();
+            let mut count = 0_usize;
+            let _ = decompress(noise.iter().copied(), bits, |_| {
+                count += 1;
+                count > 100_000
+            });
+        }
     }
 }

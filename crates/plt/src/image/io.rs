@@ -1,15 +1,15 @@
-//! Reading images from PNG files and writing them as PNG, JPEG, TIFF, GIF
-//! or raw files (matplotlib.image's `imread` and `imsave`).
+//! Writing images as PNG, JPEG, TIFF, GIF or raw files (matplotlib.image's
+//! `imsave`), and the errors of reading and writing them.
 
 use std::fmt;
 use std::path::Path;
 
-use plt_codec::png::{self, ColorType, DecodeError};
+use plt_codec::png::DecodeError;
+use plt_codec::{gif, jpeg, tiff};
 use plt_core::Rgba;
 
 use super::{BitmapError, BitmapFormat, BitmapSettings, ImageData, Origin};
 use crate::colors::{Colormap, ColormapError, NormError, ScalarMappable, colormaps};
-use crate::numeric::Grid;
 use crate::rc::ColorOrAuto;
 
 /// Why an image cannot be read or written.
@@ -19,10 +19,19 @@ pub enum ImageIoError {
     Io(std::io::Error),
     /// The file is not a valid PNG.
     Decode(DecodeError),
+    /// The file is not a valid JPEG.
+    Jpeg(jpeg::DecodeError),
+    /// The file is not a valid TIFF.
+    Tiff(tiff::DecodeError),
+    /// The file is not a valid GIF.
+    Gif(gif::DecodeError),
+    /// The data is not in any format that can be read (Pillow's
+    /// `UnidentifiedImageError`).
+    UnidentifiedImage,
     /// The pixels could not be encoded.
     Bitmap(BitmapError),
-    /// The file extension names a format that cannot be read (anything
-    /// but PNG) or written (anything but a bitmap format).
+    /// The file extension names a format that cannot be written (anything
+    /// but a bitmap format).
     UnsupportedFormat(String),
     /// The default colormap `image.cmap` is unknown.
     Colormap(ColormapError),
@@ -37,11 +46,14 @@ impl fmt::Display for ImageIoError {
         match self {
             Self::Io(err) => write!(f, "cannot access the image file: {err}"),
             Self::Decode(err) => write!(f, "cannot read the PNG: {err}"),
+            Self::Jpeg(err) => write!(f, "cannot read the JPEG: {err}"),
+            Self::Tiff(err) => write!(f, "cannot read the TIFF: {err}"),
+            Self::Gif(err) => write!(f, "cannot read the GIF: {err}"),
+            Self::UnidentifiedImage => f.write_str("cannot identify the image file"),
             Self::Bitmap(err) => write!(f, "cannot write the image: {err}"),
             Self::UnsupportedFormat(format) => write!(
                 f,
-                "format {format:?} is not supported (imread reads png; imsave writes gif, \
-                 jpeg, jpg, png and tiff)"
+                "format {format:?} is not supported (imsave writes gif, jpeg, jpg, png and tiff)"
             ),
             Self::Colormap(err) => err.fmt(f),
             Self::Norm(err) => err.fmt(f),
@@ -57,10 +69,13 @@ impl std::error::Error for ImageIoError {
         match self {
             Self::Io(err) => Some(err),
             Self::Decode(err) => Some(err),
+            Self::Jpeg(err) => Some(err),
+            Self::Tiff(err) => Some(err),
+            Self::Gif(err) => Some(err),
             Self::Bitmap(err) => Some(err),
             Self::Colormap(err) => Some(err),
             Self::Norm(err) => Some(err),
-            Self::UnsupportedFormat(_) | Self::ColorRange => None,
+            Self::UnidentifiedImage | Self::UnsupportedFormat(_) | Self::ColorRange => None,
         }
     }
 }
@@ -74,6 +89,24 @@ impl From<std::io::Error> for ImageIoError {
 impl From<DecodeError> for ImageIoError {
     fn from(err: DecodeError) -> Self {
         Self::Decode(err)
+    }
+}
+
+impl From<jpeg::DecodeError> for ImageIoError {
+    fn from(err: jpeg::DecodeError) -> Self {
+        Self::Jpeg(err)
+    }
+}
+
+impl From<tiff::DecodeError> for ImageIoError {
+    fn from(err: tiff::DecodeError) -> Self {
+        Self::Tiff(err)
+    }
+}
+
+impl From<gif::DecodeError> for ImageIoError {
+    fn from(err: gif::DecodeError) -> Self {
+        Self::Gif(err)
     }
 }
 
@@ -126,71 +159,6 @@ impl Default for ImsaveOptions {
             jpeg_quality: None,
         }
     }
-}
-
-/// Reads a PNG file into an image array (matplotlib's `imread`).
-///
-/// # Errors
-///
-/// When the file cannot be read, is not a PNG, or its extension names
-/// another format.
-pub fn imread(path: impl AsRef<Path>) -> Result<ImageData, ImageIoError> {
-    let path = path.as_ref();
-    require_png(path)?;
-    imread_png(&std::fs::read(path)?)
-}
-
-/// Decodes PNG bytes into an image array the way matplotlib's `imread`
-/// does: greyscale becomes scalars in `[0, 1]`, RGB stays RGB and every
-/// other format (palette, grey with alpha, RGBA) becomes RGBA, with float
-/// channels in `[0, 1]` computed in single precision; 16-bit colour
-/// channels keep their high byte, as Pillow does.
-///
-/// ```
-/// use plt::image::{ImageData, ImsaveOptions, imread_png, imsave_png};
-/// use plt::numeric::Grid;
-/// let gray = Grid::from_vec(1, 2, vec![0.0, 1.0])?;
-/// let png = imsave_png(gray, &ImsaveOptions::default())?;
-/// let ImageData::Rgba(pixels) = imread_png(&png)? else { unreachable!() };
-/// assert_eq!(pixels.shape(), (1, 2));
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-///
-/// # Errors
-///
-/// When the bytes are not a valid PNG.
-pub fn imread_png(png: &[u8]) -> Result<ImageData, ImageIoError> {
-    let image = png::Decoder::new().decode(png)?;
-    let (rows, cols) = (image.height() as usize, image.width() as usize);
-    let rgba = image.to_rgba16();
-    let pixel = |row: usize, col: usize| -> [u16; 4] {
-        let start = (row * cols + col) * 4;
-        [
-            rgba[start],
-            rgba[start + 1],
-            rgba[start + 2],
-            rgba[start + 3],
-        ]
-    };
-    let byte_unit = |value: u16| unit(value >> 8, 255.0);
-    Ok(match image.color_type() {
-        ColorType::Gray => {
-            Grid::from_fn(rows, cols, |row, col| unit(pixel(row, col)[0], 65535.0)).into()
-        }
-        ColorType::Rgb => Grid::from_fn(rows, cols, |row, col| {
-            let [r, g, b, _] = pixel(row, col);
-            [r, g, b].map(byte_unit)
-        })
-        .into(),
-        ColorType::Rgba | ColorType::GrayAlpha | ColorType::Indexed => {
-            Grid::from_fn(rows, cols, |row, col| pixel(row, col).map(byte_unit)).into()
-        }
-    })
-}
-
-/// `value / max` in single precision, as matplotlib's float32 arrays.
-fn unit(value: u16, max: f32) -> f64 {
-    f64::from(f32::from(value) / max)
 }
 
 /// Saves an array as an image file in the format its extension names
@@ -351,23 +319,11 @@ fn rgba_bytes(data: &ImageData, options: &ImsaveOptions) -> Result<Vec<[u8; 4]>,
     })
 }
 
-/// Fails unless `path` names a PNG file (or has no extension, which
-/// matplotlib reads as PNG).
-fn require_png(path: &Path) -> Result<(), ImageIoError> {
-    match path
-        .extension()
-        .map(|ext| ext.to_string_lossy().to_lowercase())
-    {
-        None => Ok(()),
-        Some(ext) if ext == "png" => Ok(()),
-        Some(ext) => Err(ImageIoError::UnsupportedFormat(ext)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use plt_codec::png::{BitDepth, Encoder, ImageRef};
+    use crate::numeric::Grid;
+    use plt_codec::png;
 
     fn decode(png: &[u8]) -> Vec<u8> {
         png::Decoder::new().decode(png).unwrap().to_rgba8()
@@ -408,44 +364,13 @@ mod tests {
     }
 
     #[test]
-    fn png_formats_read_like_matplotlib() {
-        let gray = Encoder::new()
-            .encode(ImageRef::new(2, 1, ColorType::Gray, BitDepth::Eight, &[0, 51]).unwrap())
-            .unwrap();
-        let ImageData::Scalar(field) = imread_png(&gray).unwrap() else {
-            panic!("greyscale reads as scalars");
-        };
-        assert_eq!(
-            field.values().as_slice(),
-            [0.0, f64::from(51.0_f32 / 255.0)]
-        );
-        let rgba = [255, 0, 0, 255, 0, 0, 255, 51];
-        let png = Encoder::new()
-            .encode(ImageRef::rgba8(2, 1, &rgba).unwrap())
-            .unwrap();
-        let ImageData::Rgba(pixels) = imread_png(&png).unwrap() else {
-            panic!("RGBA reads as RGBA");
-        };
-        assert_eq!(pixels.as_slice()[1][3], f64::from(51.0_f32 / 255.0));
-        assert!(imread_png(b"not a png").is_err());
-    }
-
-    #[test]
-    fn files_are_read_as_png_and_written_by_extension() {
+    fn files_are_written_by_extension() {
         let dir = std::env::temp_dir().join(format!("plt-imsave-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("tiny.png");
         let data = Grid::from_vec(1, 1, vec![[0_u8, 128, 255]]).unwrap();
-        imsave(&path, data.clone(), &ImsaveOptions::default()).unwrap();
-        let ImageData::Rgba(pixels) = imread(&path).unwrap() else {
-            panic!("imsave writes RGBA");
-        };
-        assert_eq!(
-            pixels.as_slice()[0],
-            [0.0, f64::from(128.0_f32 / 255.0), 1.0, 1.0]
-        );
         for (name, signature) in [
-            ("tiny.jpeg", &b"\xff\xd8\xff"[..]),
+            ("tiny.png", &b"\x89PNG"[..]),
+            ("tiny.jpeg", b"\xff\xd8\xff"),
             ("tiny.TIFF", b"II*\0"),
             ("tiny.gif", b"GIF89a"),
         ] {
@@ -457,10 +382,6 @@ mod tests {
                 "{name}"
             );
         }
-        assert!(matches!(
-            imread(dir.join("tiny.jpeg")),
-            Err(ImageIoError::UnsupportedFormat(ext)) if ext == "jpeg"
-        ));
         for refused in ["tif", "rgba", "pdf"] {
             assert!(matches!(
                 imsave(dir.join(format!("tiny.{refused}")), data.clone(), &ImsaveOptions::default()),

@@ -73,5 +73,8 @@ atoms! {
     net_wm_state = "_NET_WM_STATE",
     net_wm_state_fullscreen = "_NET_WM_STATE_FULLSCREEN",
     utf8_string = "UTF8_STRING",
+    clipboard = "CLIPBOARD",
+    targets = "TARGETS",
+    image_png = "image/png",
     wake = "_PLT_PLATFORM_WAKE",
 }

@@ -171,6 +171,9 @@ mod tests {
         net_active_window: 308,
         net_wm_state: 309,
         net_wm_state_fullscreen: 310,
+        clipboard: 311,
+        targets: 312,
+        image_png: 313,
     };
 
     /// `(property, type, value)` of a `ChangeProperty` request.

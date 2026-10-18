@@ -404,7 +404,8 @@ impl WebCanvas {
         };
         self.held = Some(key);
         match action {
-            None | Some(KeyAction::Fullscreen | KeyAction::Help) => {}
+            // The browser has its own full screen, help and clipboard.
+            None | Some(KeyAction::Fullscreen | KeyAction::Help | KeyAction::Copy) => {}
             Some(KeyAction::Quit) => return Next::Close,
             Some(KeyAction::QuitAll) => return Next::CloseAll,
             Some(

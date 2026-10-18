@@ -33,6 +33,7 @@ mod output;
 mod reply;
 mod request;
 mod resources;
+mod selection;
 mod server_event;
 mod setup;
 mod transport;
@@ -102,6 +103,11 @@ pub(crate) struct X11Backend {
     cursors: Cursors,
     scale_factor: f64,
     waker: Arc<X11Waker>,
+    /// The image offered on the clipboard while this connection owns it.
+    clipboard: Option<Vec<u8>>,
+    /// The server time of the latest key or button event, which claims
+    /// the clipboard (ICCCM asks for an event time, not `CurrentTime`).
+    last_input_time: u32,
 }
 
 impl X11Backend {
@@ -136,6 +142,8 @@ impl X11Backend {
             cursors: Cursors::default(),
             scale_factor,
             waker,
+            clipboard: None,
+            last_input_time: 0,
         })
     }
 
@@ -301,6 +309,10 @@ impl Backend for X11Backend {
             &activate,
         ))?;
         self.conn.flush()
+    }
+
+    fn set_clipboard_image(&mut self, window: WindowId, png: Vec<u8>) -> Result<(), Error> {
+        self.offer_clipboard(window, png)
     }
 
     fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error> {

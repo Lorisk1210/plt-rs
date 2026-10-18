@@ -248,3 +248,12 @@ def _(fig):
     ax = fig.subplots()
     ax.scatter(X, np.sin(X), c=X)
     ax.errorbar(X[::3], np.cos(X[::3]), yerr=0.2, fmt="o")
+
+
+@case("styles/rc_path_snap_off", figsize=(4, 3), rc={"path.snap": False, "axes.grid": True})
+def _(fig):
+    ax = fig.subplots()
+    ax.plot([0.13, 0.13, 0.87, 0.87, 0.13], [0.21, 0.79, 0.79, 0.21, 0.21], linewidth=1)
+    ax.bar([0.3, 0.55], [0.4, 0.6], width=0.17)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)

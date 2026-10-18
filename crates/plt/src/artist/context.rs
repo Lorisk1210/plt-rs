@@ -270,11 +270,17 @@ impl<'a> DrawContext<'a> {
     }
 
     /// A graphics context initialised from an artist's common properties:
-    /// clipping, snapping, sketch, alpha override, url and gid.
+    /// clipping, snapping (never when `path.snap` is off, as matplotlib's
+    /// `get_snap`), sketch, alpha override, url and gid.
     pub fn base_gc(&self, base: &ArtistBase) -> GraphicsContext {
+        let snap = if crate::rc::params().path_snap {
+            base.snap
+        } else {
+            Some(false)
+        };
         let mut gc = GraphicsContext {
             alpha: base.alpha,
-            snap: match base.snap {
+            snap: match snap {
                 None => SnapMode::Auto,
                 Some(true) => SnapMode::Always,
                 Some(false) => SnapMode::Never,

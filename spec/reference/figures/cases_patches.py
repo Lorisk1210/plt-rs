@@ -361,6 +361,20 @@ def _(fig):
     ax.autoscale_view()
 
 
+
+@case("patches/polycollection_nan_vertices", figsize=(4, 3))
+def _(fig):
+    # NaN vertices make the extents NaN, which turns off the single-path
+    # (draw_markers) shortcut.
+    ax = fig.subplots()
+    x = np.linspace(0.0, 1.0, 20)
+    y = 0.5 + 0.3 * np.sin(2 * np.pi * x)
+    verts = np.column_stack([np.r_[np.nan, x, np.nan], np.r_[np.nan, y, np.nan]])
+    ax.add_collection(collections.PolyCollection([verts], facecolors="tab:orange",
+                                                 edgecolors="k", linewidths=0.5))
+    ax.set_xlim(-0.1, 1.1)
+    ax.set_ylim(0.0, 1.0)
+
 @case("patches/ellipsecollection_units", figsize=(6, 3))
 def _(fig):
     ax1, ax2 = fig.subplots(1, 2)

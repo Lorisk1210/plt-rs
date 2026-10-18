@@ -171,6 +171,24 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("patches/polycollection_nan_vertices", |fig| {
+        let ax = fig.subplot();
+        let mut verts = vec![Point::new(f64::NAN, f64::NAN)];
+        verts.extend(
+            linspace(0.0, 1.0, 20)
+                .into_iter()
+                .map(|x| Point::new(x, 0.5 + 0.3 * (2.0 * PI * x).sin())),
+        );
+        verts.push(Point::new(f64::NAN, f64::NAN));
+        let props = CollectionProps::default()
+            .facecolor("tab:orange")
+            .edgecolor("k")
+            .linewidth(0.5);
+        ax.add_collection(CollectionSpec::polygons(vec![verts]).with_props(props));
+        ax.set_xlim(-0.1, 1.1).set_ylim(0.0, 1.0);
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
     FigureCase::new("patches/ellipsecollection_units", ellipse_panels).sized(6.0, 3.0, 100.0),
     FigureCase::new("patches/circlecollection", |fig| {
         let ax = fig.subplot();

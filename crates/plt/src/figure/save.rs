@@ -150,6 +150,7 @@ pub(super) fn pdf_options(metadata: Metadata) -> PdfOptions {
         simplify: simplify_settings(),
         composite_images: rc.image_composite_image,
         fonttype: embedding(rc.pdf_fonttype),
+        core_fonts: rc.pdf_use14corefonts,
     }
 }
 
@@ -233,8 +234,11 @@ impl Figure {
     /// When some artists cannot be drawn or the document cannot be written.
     pub fn to_pdf_with(&self, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
         let pdf = pdf_options(options.metadata.clone().unwrap_or_default());
-        self.render_vector_with(options, |width, height, dpi| {
-            PdfRenderer::new(width, height, dpi, pdf)
+        // Text the backend draws in core fonts is laid out with their metrics.
+        crate::text::with_afm_metrics(pdf.afm_directory(), || {
+            self.render_vector_with(options, |width, height, dpi| {
+                PdfRenderer::new(width, height, dpi, pdf)
+            })
         })?
         .finish()
         .map_err(SaveError::Vector)
@@ -337,9 +341,13 @@ impl Figure {
             simplify: simplify_settings(),
             composite_images: rc.image_composite_image,
             fonttype: embedding(rc.ps_fonttype),
+            afm: rc.ps_useafm,
         };
-        self.render_vector_with(options, |width, height, dpi| {
-            PsRenderer::new(width, height, dpi, ps)
+        // Text the backend draws in AFM fonts is laid out with their metrics.
+        crate::text::with_afm_metrics(ps.afm_directory(), || {
+            self.render_vector_with(options, |width, height, dpi| {
+                PsRenderer::new(width, height, dpi, ps)
+            })
         })?
         .finish()
         .map_err(SaveError::Vector)
@@ -517,6 +525,27 @@ mod tests {
         assert_eq!(&svgz[..2], &[0x1f, 0x8b]);
         let metadata = file_metadata(&SaveOptions::default(), FsPath::new("dir/a.ps"));
         assert_eq!(metadata.title.as_deref(), Some("a.ps"));
+    }
+
+    #[test]
+    fn afm_fonts_measure_and_draw_text_when_the_rc_asks() {
+        crate::rc::context(|| {
+            crate::rc::set("pdf.compression", "0").unwrap();
+            let fig = Figure::with_size(2.0, 1.0, 50.0);
+            fig.text(0.5, 0.5, "AVATAR")
+                .set_halign(crate::text::HorizontalAlignment::Center);
+            let embedded = String::from_utf8_lossy(&fig.to_pdf().unwrap()).into_owned();
+            assert!(!embedded.contains("/Type1"));
+            crate::rc::set("pdf.use14corefonts", "True").unwrap();
+            crate::rc::set("ps.useafm", "True").unwrap();
+            let pdf = String::from_utf8_lossy(&fig.to_pdf().unwrap()).into_owned();
+            // Centred by Helvetica's AFM width: 72 - 36.11 / 2.
+            assert!(pdf.contains("53.945 36 Td\n(AVATAR) Tj ET"), "{pdf}");
+            assert!(pdf.contains("/Subtype /Type1 /BaseFont /Helvetica"));
+            let ps = fig.to_ps().unwrap();
+            assert!(ps.contains("/Helvetica 10.000 selectfont"));
+            assert!(!ps.contains("/FontName"), "nothing is embedded");
+        });
     }
 
     #[test]

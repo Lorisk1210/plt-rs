@@ -29,6 +29,10 @@ use super::FigureCase;
 /// The cases with vector goldens (`VECTOR_CASES` in the spec's
 /// `figures/test_vectors.py`).
 pub const VECTOR_CASES: &[&str] = &[
+    "afm/core_fonts_layout",
+    "afm/core_fonts_text",
+    "afm/ps_fonts_layout",
+    "afm/ps_fonts_text",
     "axes/grid_major_minor_styles",
     "axes/mathtext_labels",
     "bars/hatches",

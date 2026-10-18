@@ -1,10 +1,26 @@
 //! matplotlib's AFM font list (`fontManager.afmlist`): the Type 1 fonts
 //! whose metrics matplotlib ships in `mpl-data/fonts/{afm,pdfcorefonts}`
-//! (the PostScript and PDF core fonts), and `findfont(..., fontext="afm")`.
+//! (the PostScript and PDF core fonts), and `findfont(..., fontext="afm")`
+//! over all of them or over one directory.
 
+use super::afm_catalogue::AFM_FONTS;
+use crate::afm::{AfmError, AfmMetrics, bundled_metrics};
 use crate::db::query::{FontQuery, FontStyle, FontVariant, GenericFamilies, Stretch, Weight};
 use crate::db::score;
 use crate::error::{FontError, Result};
+
+/// The directory of matplotlib's data an AFM file lives in, which its PDF
+/// and PostScript backends restrict their font lookups to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AfmDirectory {
+    /// `fonts/pdfcorefonts`: the 14 PDF core fonts (Courier, Helvetica,
+    /// Times, Symbol and `ZapfDingbats`), whose metrics plt-rs bundles.
+    PdfCore,
+    /// `fonts/afm`: the 35 standard PostScript fonts, Helvetica Light,
+    /// Utopia and Computer Modern. Their files are catalogued but not
+    /// bundled: their notices do not permit redistribution.
+    PostScript,
+}
 
 /// One AFM font, described as matplotlib's `afmFontProperty` reads it from
 /// the metrics file.
@@ -20,461 +36,15 @@ pub struct AfmFont {
     pub weight: &'static str,
     /// Condensed for narrow faces.
     pub stretch: Stretch,
+    /// Where matplotlib keeps the file.
+    pub directory: AfmDirectory,
 }
 
 /// The family `findfont` falls back to for AFM fonts.
 const DEFAULT_FAMILY: &str = "Helvetica";
 
-const fn afm(
-    file: &'static str,
-    name: &'static str,
-    style: FontStyle,
-    weight: &'static str,
-    stretch: Stretch,
-) -> AfmFont {
-    AfmFont {
-        file,
-        name,
-        style,
-        weight,
-        stretch,
-    }
-}
-
-/// Every bundled AFM font in matplotlib's order (file names in Python
-/// string order).
-const AFM_FONTS: [AfmFont; 61] = [
-    afm(
-        "Courier-Bold.afm",
-        "Courier",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Courier-BoldOblique.afm",
-        "Courier",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Courier-Oblique.afm",
-        "Courier",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Courier.afm",
-        "Courier",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Helvetica-Bold.afm",
-        "Helvetica",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Helvetica-BoldOblique.afm",
-        "Helvetica",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Helvetica-Oblique.afm",
-        "Helvetica",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Helvetica.afm",
-        "Helvetica",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Symbol.afm",
-        "Symbol",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Times-Bold.afm",
-        "Times",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Times-BoldItalic.afm",
-        "Times",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Times-Italic.afm",
-        "Times",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "Times-Roman.afm",
-        "Times",
-        FontStyle::Normal,
-        "roman",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "ZapfDingbats.afm",
-        "ZapfDingbats",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "cmex10.afm",
-        "Computer Modern",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "cmmi10.afm",
-        "Computer Modern",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "cmr10.afm",
-        "Computer Modern",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "cmsy10.afm",
-        "Computer Modern",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "cmti10.afm",
-        "cmti10",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "cmtt10.afm",
-        "Computer Modern",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pagd8a.afm",
-        "ITC Avant Garde Gothic",
-        FontStyle::Normal,
-        "demi",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pagdo8a.afm",
-        "ITC Avant Garde Gothic",
-        FontStyle::Italic,
-        "demi",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pagk8a.afm",
-        "ITC Avant Garde Gothic",
-        FontStyle::Normal,
-        "book",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pagko8a.afm",
-        "ITC Avant Garde Gothic",
-        FontStyle::Italic,
-        "book",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pbkd8a.afm",
-        "ITC Bookman",
-        FontStyle::Normal,
-        "demi",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pbkdi8a.afm",
-        "ITC Bookman",
-        FontStyle::Italic,
-        "demi",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pbkl8a.afm",
-        "ITC Bookman",
-        FontStyle::Normal,
-        "light",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pbkli8a.afm",
-        "ITC Bookman",
-        FontStyle::Italic,
-        "light",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pcrb8a.afm",
-        "Courier",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pcrbo8a.afm",
-        "Courier",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pcrr8a.afm",
-        "Courier",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pcrro8a.afm",
-        "Courier",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "phvb8a.afm",
-        "Helvetica",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "phvb8an.afm",
-        "Helvetica",
-        FontStyle::Normal,
-        "bold",
-        Stretch::CONDENSED,
-    ),
-    afm(
-        "phvbo8a.afm",
-        "Helvetica",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "phvbo8an.afm",
-        "Helvetica",
-        FontStyle::Italic,
-        "bold",
-        Stretch::CONDENSED,
-    ),
-    afm(
-        "phvl8a.afm",
-        "Helvetica",
-        FontStyle::Normal,
-        "light",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "phvlo8a.afm",
-        "Helvetica",
-        FontStyle::Italic,
-        "light",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "phvr8a.afm",
-        "Helvetica",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "phvr8an.afm",
-        "Helvetica",
-        FontStyle::Normal,
-        "medium",
-        Stretch::CONDENSED,
-    ),
-    afm(
-        "phvro8a.afm",
-        "Helvetica",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "phvro8an.afm",
-        "Helvetica",
-        FontStyle::Italic,
-        "medium",
-        Stretch::CONDENSED,
-    ),
-    afm(
-        "pncb8a.afm",
-        "New Century Schoolbook",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pncbi8a.afm",
-        "New Century Schoolbook",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pncr8a.afm",
-        "New Century Schoolbook",
-        FontStyle::Normal,
-        "roman",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pncri8a.afm",
-        "New Century Schoolbook",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pplb8a.afm",
-        "Palatino",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pplbi8a.afm",
-        "Palatino",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pplr8a.afm",
-        "Palatino",
-        FontStyle::Normal,
-        "roman",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pplri8a.afm",
-        "Palatino",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "psyr.afm",
-        "Symbol",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "ptmb8a.afm",
-        "Times",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "ptmbi8a.afm",
-        "Times",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "ptmr8a.afm",
-        "Times",
-        FontStyle::Normal,
-        "roman",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "ptmri8a.afm",
-        "Times",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "putb8a.afm",
-        "Utopia",
-        FontStyle::Normal,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "putbi8a.afm",
-        "Utopia",
-        FontStyle::Italic,
-        "bold",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "putr8a.afm",
-        "Utopia",
-        FontStyle::Normal,
-        "regular",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "putri8a.afm",
-        "Utopia",
-        FontStyle::Italic,
-        "regular",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pzcmi8a.afm",
-        "ITC Zapf Chancery",
-        FontStyle::Italic,
-        "medium",
-        Stretch::NORMAL,
-    ),
-    afm(
-        "pzdr.afm",
-        "ITC Zapf Dingbats",
-        FontStyle::Normal,
-        "medium",
-        Stretch::NORMAL,
-    ),
-];
-
 impl AfmFont {
-    /// The bundled AFM fonts, in matplotlib's catalogue order.
+    /// The catalogued AFM fonts, in matplotlib's catalogue order.
     pub fn all() -> &'static [Self] {
         &AFM_FONTS
     }
@@ -485,6 +55,16 @@ impl AfmFont {
         Weight::parse(self.weight).unwrap_or(Weight::NORMAL)
     }
 
+    /// The font's metrics.
+    ///
+    /// # Errors
+    ///
+    /// When the metrics file is not bundled (the fonts of
+    /// [`AfmDirectory::PostScript`]).
+    pub fn metrics(&self) -> Result<&'static AfmMetrics, AfmError> {
+        bundled_metrics(self.file)
+    }
+
     /// matplotlib's `findfont(prop, fontext="afm")`: the first font with the
     /// lowest score; when no family matches, the best `Helvetica` face if
     /// `fallback_to_default` is set.
@@ -493,17 +73,44 @@ impl AfmFont {
         generics: &GenericFamilies,
         fallback_to_default: bool,
     ) -> Result<&'static Self> {
-        best_match(query, generics)
-            .or_else(|| {
-                fallback_to_default.then(|| {
-                    let fallback = FontQuery {
-                        families: vec![DEFAULT_FAMILY.to_owned()],
-                        ..query.clone()
-                    };
-                    best_match(&fallback, generics)
-                })?
+        find_font(query, generics, fallback_to_default, None)
+    }
+
+    /// `findfont(prop, fontext="afm", directory=...)`, as the PDF and
+    /// PostScript backends pick the font of a text: the best font of
+    /// `directory`, falling back to its best `Helvetica` face.
+    pub fn find_in(
+        query: &FontQuery,
+        generics: &GenericFamilies,
+        directory: AfmDirectory,
+    ) -> Result<&'static Self> {
+        find_font(query, generics, true, Some(directory))
+    }
+
+    /// `_find_fonts_by_props(prop, fontext="afm", directory=...)`: the best
+    /// font of `directory` for each family of the query that matches one,
+    /// in family order, or its best `Helvetica` face when none does.
+    pub fn find_all_in(
+        query: &FontQuery,
+        generics: &GenericFamilies,
+        directory: AfmDirectory,
+    ) -> Result<Vec<&'static Self>> {
+        let found: Vec<&'static Self> = query
+            .families
+            .iter()
+            .filter_map(|family| {
+                let single = FontQuery {
+                    families: vec![family.clone()],
+                    ..query.clone()
+                };
+                best_match(&single, generics, Some(directory))
             })
-            .ok_or_else(|| FontError::NoMatchingFont(query.to_string()))
+            .collect();
+        if found.is_empty() {
+            Self::find_in(&with_default_family(query), generics, directory).map(|font| vec![font])
+        } else {
+            Ok(found)
+        }
     }
 
     /// The `findfont` score of this font for `query` (0 is a perfect match).
@@ -516,10 +123,41 @@ impl AfmFont {
     }
 }
 
-/// The best-scoring font, if its score is below 10 (a family matched).
-fn best_match(query: &FontQuery, generics: &GenericFamilies) -> Option<&'static AfmFont> {
+/// `query` asking for the default family instead of its own.
+fn with_default_family(query: &FontQuery) -> FontQuery {
+    FontQuery {
+        families: vec![DEFAULT_FAMILY.to_owned()],
+        ..query.clone()
+    }
+}
+
+/// `findfont` over the fonts of `directory` (all fonts for `None`).
+fn find_font(
+    query: &FontQuery,
+    generics: &GenericFamilies,
+    fallback_to_default: bool,
+    directory: Option<AfmDirectory>,
+) -> Result<&'static AfmFont> {
+    best_match(query, generics, directory)
+        .or_else(|| {
+            fallback_to_default
+                .then(|| best_match(&with_default_family(query), generics, directory))?
+        })
+        .ok_or_else(|| FontError::NoMatchingFont(query.to_string()))
+}
+
+/// The best-scoring font of `directory` (all fonts for `None`), if its
+/// score is below 10 (a family matched).
+fn best_match(
+    query: &FontQuery,
+    generics: &GenericFamilies,
+    directory: Option<AfmDirectory>,
+) -> Option<&'static AfmFont> {
     let mut best: Option<(f64, &'static AfmFont)> = None;
-    for font in &AFM_FONTS {
+    let candidates = AFM_FONTS
+        .iter()
+        .filter(|font| directory.is_none_or(|d| font.directory == d));
+    for font in candidates {
         let score = font.score(query, generics);
         if best.is_none_or(|(best_score, _)| score < best_score) {
             best = Some((score, font));
@@ -538,6 +176,12 @@ mod tests {
 
     fn find(query: &FontQuery) -> &'static str {
         AfmFont::find(query, &GenericFamilies::default(), true)
+            .expect("Helvetica always matches")
+            .file
+    }
+
+    fn find_in(query: &FontQuery, directory: AfmDirectory) -> &'static str {
+        AfmFont::find_in(query, &GenericFamilies::default(), directory)
             .expect("Helvetica always matches")
             .file
     }
@@ -571,6 +215,57 @@ mod tests {
                 false
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn directories_restrict_the_search() {
+        use AfmDirectory::{PdfCore, PostScript};
+        // matplotlib: findfont(prop, fontext='afm', directory=...).
+        let serif = FontQuery::families(["serif"]);
+        assert_eq!(find_in(&serif, PdfCore), "Times-Roman.afm");
+        assert_eq!(find_in(&serif, PostScript), "pncr8a.afm");
+        let sans = FontQuery::families(["DejaVu Sans"]);
+        assert_eq!(find_in(&sans, PdfCore), "Helvetica.afm");
+        assert_eq!(find_in(&sans, PostScript), "phvr8a.afm");
+        let palatino = FontQuery::families(["Palatino"]).with_weight(Weight::BOLD);
+        assert_eq!(find_in(&palatino, PdfCore), "Helvetica-Bold.afm");
+        let fonts = |families: &[&str]| -> Vec<&str> {
+            AfmFont::find_all_in(
+                &FontQuery::families(families.iter().copied()),
+                &GenericFamilies::default(),
+                PdfCore,
+            )
+            .expect("Helvetica always matches")
+            .iter()
+            .map(|font| font.file)
+            .collect()
+        };
+        assert_eq!(
+            fonts(&["Foo", "Times", "Courier"]),
+            ["Times-Roman.afm", "Courier.afm"]
+        );
+        assert_eq!(fonts(&["Foo"]), ["Helvetica.afm"]);
+    }
+
+    #[test]
+    fn only_core_fonts_have_metrics() {
+        let core = AfmFont::find_in(
+            &FontQuery::families(["Courier"]),
+            &GenericFamilies::default(),
+            AfmDirectory::PdfCore,
+        )
+        .expect("a core font");
+        assert_eq!(
+            core.metrics().and_then(AfmMetrics::font_name),
+            Ok("Courier")
+        );
+        let base35 = find_in(&FontQuery::families(["Courier"]), AfmDirectory::PostScript);
+        assert_eq!(base35, "pcrr8a.afm");
+        assert!(
+            AfmFont::all()
+                .iter()
+                .all(|font| font.metrics().is_ok() == (font.directory == AfmDirectory::PdfCore))
         );
     }
 }

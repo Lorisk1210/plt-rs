@@ -1,0 +1,1232 @@
+{
+ "area": "afm",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "_afm.AFM", "args": {"data": ""}, "error": "RuntimeError"},
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "Comment first\nStartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\n"
+   },
+   "value": {"fontname": "Sample", "ascender": 700.0, "bbox": [-10, -20, 1380.0, 700, 20], "kern": 0}
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "FontName X\nStartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\n"
+   },
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\n"
+   },
+   "value": {"fontname": null, "ascender": 700.0, "bbox": [-10, -20, 1380.0, 700, 20], "kern": 0}
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 7,5e2\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\n"
+   },
+   "value": {"fontname": "Sample", "ascender": 750.0, "bbox": [-10, -20, 1380.0, 700, 20], "kern": 0}
+  },
+  {"op": "_afm.AFM", "args": {"data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\n"}, "error": "RuntimeError"},
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\n"
+   },
+   "value": {"fontname": "Sample", "ascender": 700.0, "bbox": [-10, -20, 1380.0, 700, 20], "kern": 0}
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\nStartComposites 1\nCC Aring 3 ; PCC A 0 0 ;\nEndComposites\n"
+   },
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\nStartKernData\nStartKernPairs 1\nKPX A V -80\n"
+   },
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\nStartKernData\nStartKernPairs 1\nKPX A V -80\nEndKernPairs\nEndKernData\nEndFontMetrics\n"
+   },
+   "value": {"fontname": "Sample", "ascender": 700.0, "bbox": [-10, -20, 1300.0, 700, 20], "kern": -80.0}
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\nStartKernData\nStartKernPairs 1\nKPY A V 1\nEndKernPairs\nx\n"
+   },
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\nStartKernData\nStartTrackKern 1\n"
+   },
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\nStartKernData\n\nStartKernPairs 1\n\nKPX A V -5\n\nEndKernPairs\nx\n"
+   },
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\nStartComposites 1\nCC Aring 2 ; PCC A 0 0 ; PCC ring 100 200 ;\nEndComposites\n"
+   },
+   "value": {"fontname": "Sample", "ascender": 700.0, "bbox": [-10, -20, 1380.0, 700, 20], "kern": 0}
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {"data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 65 ; WX 700 ; N A ; B 1 2 3\nEndCharMetrics\n"},
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {"data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\nC 65 ; WX 700 ; N A\nEndCharMetrics\n"},
+   "error": "RuntimeError"
+  },
+  {"op": "_afm.AFM", "args": {"data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics 3\n\nEndCharMetrics\n"}, "error": "RuntimeError"},
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender 700\nStartCharMetrics x\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\n"
+   },
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nAscender oops\nFontBBox 0 x 1 2\nUnknownKey 3\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\n"
+   },
+   "value": {"fontname": "Sample", "ascender": null, "bbox": [-10, -20, 1380.0, 700, 20], "kern": 0}
+  },
+  {
+   "op": "_afm.AFM",
+   "args": {
+    "data": "StartFontMetrics 4.1\nFontName Sample\nFontBBox 0 0 inf 1\nStartCharMetrics 3\nC 63 ; WX 444 ; N question ; B 30 0 400 700 ;\nC 65 ; WX 700 ; N A ; B -10 0 710 680 ;\nC 86 ; WX 680 ; N V ; B 5 -20 675 680 ;\nEndCharMetrics\n"
+   },
+   "error": "OverflowError"
+  },
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Courier.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Helvetica.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Symbol.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Times-Roman.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "ZapfDingbats.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Courier.afm", "code": 128}, "value": "Euro"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Helvetica.afm", "code": 128}, "value": "Euro"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Symbol.afm", "code": 128}, "value": "Euro"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Times-Roman.afm", "code": 128}, "value": "Euro"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "ZapfDingbats.afm", "code": 128}, "value": "a89"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Courier.afm", "code": 233}, "value": "Oslash"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Helvetica.afm", "code": 233}, "value": "Oslash"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Symbol.afm", "code": 233}, "value": "bracketlefttp"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Times-Roman.afm", "code": 233}, "value": "Oslash"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "ZapfDingbats.afm", "code": 233}, "value": "a179"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Courier.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Helvetica.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Symbol.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Times-Roman.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "ZapfDingbats.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Courier.afm", "code": 32}, "value": "space"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Helvetica.afm", "code": 32}, "value": "space"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Symbol.afm", "code": 32}, "value": "space"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Times-Roman.afm", "code": 32}, "value": "space"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "ZapfDingbats.afm", "code": 32}, "value": "space"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Courier.afm", "code": 63}, "value": "question"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Helvetica.afm", "code": 63}, "value": "question"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Symbol.afm", "code": 63}, "value": "question"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Times-Roman.afm", "code": 63}, "value": "question"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "ZapfDingbats.afm", "code": 63}, "value": "a8"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Courier.afm", "code": 65}, "value": "A"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Helvetica.afm", "code": 65}, "value": "A"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Symbol.afm", "code": 65}, "value": "Alpha"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Times-Roman.afm", "code": 65}, "value": "A"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "ZapfDingbats.afm", "code": 65}, "value": "a10"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Courier.afm", "code": 8722}, "value": "minus"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Helvetica.afm", "code": 8722}, "value": "minus"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Symbol.afm", "code": 8722}, "value": "minus"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "Times-Roman.afm", "code": 8722}, "value": "minus"},
+  {"op": "_afm.AFM.get_glyph_name", "args": {"file": "ZapfDingbats.afm", "code": 8722}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Courier.afm", "name1": "", "name2": "A"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Courier.afm", "name1": "A", "name2": "V"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Courier.afm", "name1": "T", "name2": "o"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Courier.afm", "name1": "V", "name2": "V"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Courier.afm", "name1": "f", "name2": "eacute"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Helvetica.afm", "name1": "", "name2": "A"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Helvetica.afm", "name1": "A", "name2": "V"}, "value": -70.0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Helvetica.afm", "name1": "T", "name2": "o"}, "value": -120.0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Helvetica.afm", "name1": "V", "name2": "V"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Helvetica.afm", "name1": "f", "name2": "eacute"}, "value": -30.0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Symbol.afm", "name1": "", "name2": "A"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Symbol.afm", "name1": "A", "name2": "V"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Symbol.afm", "name1": "T", "name2": "o"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Symbol.afm", "name1": "V", "name2": "V"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Symbol.afm", "name1": "f", "name2": "eacute"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Times-Roman.afm", "name1": "", "name2": "A"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Times-Roman.afm", "name1": "A", "name2": "V"}, "value": -135.0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Times-Roman.afm", "name1": "T", "name2": "o"}, "value": -80.0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Times-Roman.afm", "name1": "V", "name2": "V"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Times-Roman.afm", "name1": "f", "name2": "eacute"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "ZapfDingbats.afm", "name1": "", "name2": "A"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "ZapfDingbats.afm", "name1": "A", "name2": "V"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "ZapfDingbats.afm", "name1": "T", "name2": "o"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "ZapfDingbats.afm", "name1": "V", "name2": "V"}, "value": 0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "ZapfDingbats.afm", "name1": "f", "name2": "eacute"}, "value": 0},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": " "}, "value": [0, 0, 600.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "AVATAR"}, "value": [-13, 0, 3600.0, 562, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "Hg"}, "value": [0, -146, 1200.0, 708, 146]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "Toyota"}, "value": [-4, -142, 3600.0, 704, 142]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "WAVE"}, "value": [-18, 0, 2400.0, 562, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "¼²"}, "value": [0, -14, 1200.0, 580, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "Ångström ±½×©"}, "value": [-47, -146, 7800.0, 947, 146]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "€–“”"}, "value": [0, -14, 2400.0, 853, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "→α"}, "value": [0, -14, 1200.0, 580, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "− 1.5"}, "value": [0, -15, 3000.0, 631, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "😀"}, "value": [0, -14, 600.0, 580, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "a\nb"}, "value": [0, -15, 1200.0, 626, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "café naïve"}, "value": [-1, -15, 6000.0, 661, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Bold.afm", "s": "fi fl"}, "value": [0, 0, 3000.0, 658, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": " "}, "value": [0, 0, 600.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "AVATAR"}, "value": [-9, 0, 3600.0, 562, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "Hg"}, "value": [0, -146, 1200.0, 708, 146]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "Toyota"}, "value": [-21, -142, 3600.0, 704, 142]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "WAVE"}, "value": [-9, 0, 2400.0, 562, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "¼²"}, "value": [0, -14, 1200.0, 580, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "Ångström ±½×©"}, "value": [-22, -146, 7800.0, 947, 146]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "€–“”"}, "value": [0, -14, 2400.0, 853, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "→α"}, "value": [0, -14, 1200.0, 580, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "− 1.5"}, "value": [0, -15, 3000.0, 631, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "😀"}, "value": [0, -14, 600.0, 580, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "a\nb"}, "value": [0, -15, 1200.0, 626, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "café naïve"}, "value": [0, -15, 6000.0, 661, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-BoldOblique.afm", "s": "fi fl"}, "value": [0, 0, 3000.0, 658, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": " "}, "value": [0, 0, 600.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "AVATAR"}, "value": [0, -13, 3600.0, 575, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "Hg"}, "value": [0, -157, 1200.0, 719, 157]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "Toyota"}, "value": [-4, -157, 3600.0, 719, 157]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "WAVE"}, "value": [0, -13, 2400.0, 575, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "¼²"}, "value": [0, -15, 1200.0, 572, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "Ångström ±½×©"}, "value": [-5, -157, 7800.0, 907, 157]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "€–“”"}, "value": [0, -15, 2400.0, 905, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "→α"}, "value": [0, -15, 1200.0, 572, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "− 1.5"}, "value": [0, -15, 3000.0, 637, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "😀"}, "value": [0, -15, 600.0, 572, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "a\nb"}, "value": [0, -15, 1200.0, 629, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "café naïve"}, "value": [0, -15, 6000.0, 672, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier-Oblique.afm", "s": "fi fl"}, "value": [0, 0, 3000.0, 657, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": " "}, "value": [0, 0, 600.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "AVATAR"}, "value": [-4, -13, 3600.0, 575, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "Hg"}, "value": [0, -157, 1200.0, 719, 157]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "Toyota"}, "value": [0, -157, 3600.0, 719, 157]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "WAVE"}, "value": [-4, -13, 2400.0, 575, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "¼²"}, "value": [0, -15, 1200.0, 572, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "Ångström ±½×©"}, "value": [-5, -157, 7800.0, 907, 157]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "€–“”"}, "value": [0, -15, 2400.0, 905, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "→α"}, "value": [0, -15, 1200.0, 572, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "− 1.5"}, "value": [0, -15, 3000.0, 637, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "😀"}, "value": [0, -15, 600.0, 572, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "a\nb"}, "value": [0, -15, 1200.0, 629, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "café naïve"}, "value": [0, -15, 6000.0, 672, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Courier.afm", "s": "fi fl"}, "value": [0, 0, 3000.0, 657, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": " "}, "value": [0, 0, 278.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "AVATAR"}, "value": [0, 0, 3826.0, 718, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "Hg"}, "value": [0, -217, 1333.0, 935, 217]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "Toyota"}, "value": [0, -214, 3153.0, 932, 214]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "WAVE"}, "value": [0, 0, 2860.0, 718, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "¼²"}, "value": [0, 0, 1222.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "Ångström ±½×©"}, "value": [-11, -217, 7719.0, 1179, 217]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "€–“”"}, "value": [0, 0, 2167.0, 1181, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "→α"}, "value": [0, 0, 1222.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "− 1.5"}, "value": [0, -19, 2252.0, 729, 19]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "😀"}, "value": [0, 0, 611.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "a\nb"}, "value": [0, -14, 1167.0, 718, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "café naïve"}, "value": [-21, -14, 4826.0, 750, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Bold.afm", "s": "fi fl"}, "value": [0, 0, 1500.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": " "}, "value": [0, 0, 278.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "AVATAR"}, "value": [0, 0, 3826.0, 718, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "Hg"}, "value": [0, -217, 1333.0, 935, 217]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "Toyota"}, "value": [0, -214, 3153.0, 932, 214]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "WAVE"}, "value": [0, 0, 2860.0, 718, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "¼²"}, "value": [0, 0, 1222.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "Ångström ±½×©"}, "value": [0, -217, 7719.0, 1179, 217]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "€–“”"}, "value": [0, 0, 2167.0, 1181, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "→α"}, "value": [0, 0, 1222.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "− 1.5"}, "value": [0, -19, 2252.0, 729, 19]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "😀"}, "value": [0, 0, 611.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "a\nb"}, "value": [0, -14, 1167.0, 718, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "café naïve"}, "value": [0, -14, 4826.0, 750, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-BoldOblique.afm", "s": "fi fl"}, "value": [0, 0, 1500.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": " "}, "value": [0, 0, 278.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "AVATAR"}, "value": [0, 0, 3611.0, 718, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "Hg"}, "value": [0, -220, 1278.0, 938, 220]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "Toyota"}, "value": [0, -214, 2887.0, 932, 214]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "WAVE"}, "value": [0, 0, 2825.0, 718, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "¼²"}, "value": [0, 0, 1112.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "Ångström ±½×©"}, "value": [0, -220, 7296.0, 1151, 220]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "€–“”"}, "value": [0, 0, 1778.0, 1195, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "→α"}, "value": [0, 0, 1112.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "− 1.5"}, "value": [0, -19, 2252.0, 722, 19]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "😀"}, "value": [0, 0, 556.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "a\nb"}, "value": [0, -15, 1112.0, 718, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "café naïve"}, "value": [0, -15, 4559.0, 743, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica-Oblique.afm", "s": "fi fl"}, "value": [0, 0, 1278.0, 728, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": " "}, "value": [0, 0, 278.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "AVATAR"}, "value": [0, 0, 3611.0, 718, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "Hg"}, "value": [0, -220, 1278.0, 938, 220]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "Toyota"}, "value": [0, -214, 2887.0, 932, 214]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "WAVE"}, "value": [0, 0, 2825.0, 718, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "¼²"}, "value": [0, 0, 1112.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "Ångström ±½×©"}, "value": [-14, -220, 7296.0, 1151, 220]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "€–“”"}, "value": [0, 0, 1778.0, 1195, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "→α"}, "value": [0, 0, 1112.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "− 1.5"}, "value": [0, -19, 2252.0, 722, 19]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "😀"}, "value": [0, 0, 556.0, 727, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "a\nb"}, "value": [0, -15, 1112.0, 718, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "café naïve"}, "value": [0, -15, 4559.0, 743, 15]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Helvetica.afm", "s": "fi fl"}, "value": [0, 0, 1278.0, 728, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": " "}, "value": [0, 0, 250.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "AVATAR"}, "value": [0, -17, 2664.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "Hg"}, "value": [0, -17, 888.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "Toyota"}, "value": [0, -17, 2664.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "WAVE"}, "value": [0, -17, 1776.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "¼²"}, "value": [0, -17, 888.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "Ångström ±½×©"}, "value": [0, -17, 5788.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "€–“”"}, "value": [0, -17, 1776.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "→α"}, "value": [0, -17, 888.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "− 1.5"}, "value": [0, -17, 2049.0, 693, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "😀"}, "value": [0, -17, 444.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "a\nb"}, "value": [0, -17, 888.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "café naïve"}, "value": [0, -17, 4246.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Symbol.afm", "s": "fi fl"}, "value": [0, -17, 2026.0, 686, 17]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": " "}, "value": [0, 0, 250.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "AVATAR"}, "value": [0, -18, 3812.0, 708, 18]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "Hg"}, "value": [0, -206, 1278.0, 882, 206]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "Toyota"}, "value": [0, -205, 2883.0, 881, 205]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "WAVE"}, "value": [0, -18, 2846.0, 708, 18]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "¼²"}, "value": [0, -13, 1000.0, 689, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "Ångström ±½×©"}, "value": [-7, -206, 7146.0, 1141, 206]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "€–“”"}, "value": [0, -13, 2000.0, 1060, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "→α"}, "value": [0, -13, 1000.0, 689, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "− 1.5"}, "value": [0, -13, 2070.0, 701, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "😀"}, "value": [0, -13, 500.0, 689, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "a\nb"}, "value": [0, -14, 1056.0, 676, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "café naïve"}, "value": [-37, -14, 4229.0, 713, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Bold.afm", "s": "fi fl"}, "value": [0, 0, 1447.0, 691, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": " "}, "value": [0, 0, 250.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "AVATAR"}, "value": [-67, -18, 3656.0, 701, 18]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "Hg"}, "value": [-52, -203, 1278.0, 872, 203]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "Toyota"}, "value": [-94, -205, 2728.0, 874, 205]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "WAVE"}, "value": [-67, -18, 2721.0, 701, 18]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "¼²"}, "value": [0, -13, 1000.0, 684, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "Ångström ±½×©"}, "value": [-67, -203, 6944.0, 1124, 203]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "€–“”"}, "value": [-40, -13, 2000.0, 1067, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "→α"}, "value": [0, -13, 1000.0, 684, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "− 1.5"}, "value": [-11, -13, 2106.0, 696, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "😀"}, "value": [0, -13, 500.0, 684, 13]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "a\nb"}, "value": [-21, -14, 1000.0, 700, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "café naïve"}, "value": [-169, -205, 4168.0, 889, 205]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-BoldItalic.afm", "s": "fi fl"}, "value": [-169, -205, 1472.0, 895, 205]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": " "}, "value": [0, 0, 250.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "AVATAR"}, "value": [-51, -18, 3359.0, 686, 18]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "Hg"}, "value": [-8, -206, 1222.0, 859, 206]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "Toyota"}, "value": [-24, -206, 2686.0, 859, 206]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "WAVE"}, "value": [-51, -18, 2501.0, 686, 18]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "¼²"}, "value": [0, -12, 1000.0, 664, 12]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "Ångström ±½×©"}, "value": [-51, -206, 6954.0, 1089, 206]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "€–“”"}, "value": [-6, -12, 2112.0, 1114, 12]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "→α"}, "value": [0, -12, 1000.0, 664, 12]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "− 1.5"}, "value": [0, -11, 2175.0, 687, 11]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "😀"}, "value": [0, -12, 500.0, 664, 12]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "a\nb"}, "value": [0, -11, 1000.0, 683, 11]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "café naïve"}, "value": [-147, -207, 4082.0, 860, 207]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Italic.afm", "s": "fi fl"}, "value": [-147, -207, 1342.0, 879, 207]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": " "}, "value": [0, 0, 250.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "AVATAR"}, "value": [0, -11, 3692.0, 685, 11]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "Hg"}, "value": [0, -218, 1222.0, 880, 218]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "Toyota"}, "value": [0, -218, 2743.0, 880, 218]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "WAVE"}, "value": [0, -11, 2744.0, 685, 11]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "¼²"}, "value": [0, -8, 888.0, 676, 8]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "Ångström ±½×©"}, "value": [0, -218, 6888.0, 1116, 218]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "€–“”"}, "value": [0, -8, 1832.0, 1117, 8]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "→α"}, "value": [0, -8, 888.0, 676, 8]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "− 1.5"}, "value": [0, -14, 2064.0, 690, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "😀"}, "value": [0, -8, 444.0, 676, 8]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "a\nb"}, "value": [0, -10, 944.0, 683, 10]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "café naïve"}, "value": [-9, -14, 4041.0, 697, 14]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "Times-Roman.afm", "s": "fi fl"}, "value": [0, 0, 1452.0, 683, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": " "}, "value": [0, 0, 278.0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": ""}, "value": [0, 0, 0, 0, 0]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "AVATAR"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "Hg"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "Toyota"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "WAVE"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "\n"}, "value": [0, 1000000000, 0.0, -1000000000, -1000000000]},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "¼²"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "Ångström ±½×©"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "€–“”"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "→α"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "− 1.5"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "😀"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "a\nb"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "café naïve"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_str_bbox_and_descent", "args": {"file": "ZapfDingbats.afm", "s": "fi fl"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Courier.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Helvetica.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Symbol.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Times-Roman.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "ZapfDingbats.afm", "code": -1}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Courier.afm", "code": 128}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Helvetica.afm", "code": 128}, "value": 556.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Symbol.afm", "code": 128}, "value": 750.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Times-Roman.afm", "code": 128}, "value": 500.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "ZapfDingbats.afm", "code": 128}, "value": 390.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Courier.afm", "code": 233}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Helvetica.afm", "code": 233}, "value": 778.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Symbol.afm", "code": 233}, "value": 384.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Times-Roman.afm", "code": 233}, "value": 722.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "ZapfDingbats.afm", "code": 233}, "value": 836.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Courier.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Helvetica.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Symbol.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Times-Roman.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "ZapfDingbats.afm", "code": 300}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Courier.afm", "code": 32}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Helvetica.afm", "code": 32}, "value": 278.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Symbol.afm", "code": 32}, "value": 250.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Times-Roman.afm", "code": 32}, "value": 250.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "ZapfDingbats.afm", "code": 32}, "value": 278.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Courier.afm", "code": 63}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Helvetica.afm", "code": 63}, "value": 556.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Symbol.afm", "code": 63}, "value": 444.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Times-Roman.afm", "code": 63}, "value": 444.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "ZapfDingbats.afm", "code": 63}, "value": 537.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Courier.afm", "code": 65}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Helvetica.afm", "code": 65}, "value": 667.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Symbol.afm", "code": 65}, "value": 722.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Times-Roman.afm", "code": 65}, "value": 722.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "ZapfDingbats.afm", "code": 65}, "value": 692.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Courier.afm", "code": 8722}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Helvetica.afm", "code": 8722}, "value": 584.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Symbol.afm", "code": 8722}, "value": 549.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "Times-Roman.afm", "code": 8722}, "value": 564.0},
+  {"op": "_afm.AFM.get_width_char", "args": {"file": "ZapfDingbats.afm", "code": 8722}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Courier.afm", "name": "A"}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Courier.afm", "name": "Euro"}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Courier.afm", "name": "a1"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Courier.afm", "name": "alpha"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Courier.afm", "name": "minus"}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Courier.afm", "name": "question"}, "value": 600.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Courier.afm", "name": "uni20AC"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Helvetica.afm", "name": "A"}, "value": 667.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Helvetica.afm", "name": "Euro"}, "value": 556.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Helvetica.afm", "name": "a1"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Helvetica.afm", "name": "alpha"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Helvetica.afm", "name": "minus"}, "value": 584.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Helvetica.afm", "name": "question"}, "value": 556.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Helvetica.afm", "name": "uni20AC"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Symbol.afm", "name": "A"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Symbol.afm", "name": "Euro"}, "value": 750.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Symbol.afm", "name": "a1"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Symbol.afm", "name": "alpha"}, "value": 631.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Symbol.afm", "name": "minus"}, "value": 549.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Symbol.afm", "name": "question"}, "value": 444.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Symbol.afm", "name": "uni20AC"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Times-Roman.afm", "name": "A"}, "value": 722.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Times-Roman.afm", "name": "Euro"}, "value": 500.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Times-Roman.afm", "name": "a1"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Times-Roman.afm", "name": "alpha"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Times-Roman.afm", "name": "minus"}, "value": 564.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Times-Roman.afm", "name": "question"}, "value": 444.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "Times-Roman.afm", "name": "uni20AC"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "ZapfDingbats.afm", "name": "A"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "ZapfDingbats.afm", "name": "Euro"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "ZapfDingbats.afm", "name": "a1"}, "value": 974.0},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "ZapfDingbats.afm", "name": "alpha"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "ZapfDingbats.afm", "name": "minus"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "ZapfDingbats.afm", "name": "question"}, "error": "KeyError"},
+  {"op": "_afm.AFM.get_width_from_char_name", "args": {"file": "ZapfDingbats.afm", "name": "uni20AC"}, "error": "KeyError"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_angle"}, "value": 0.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_ascender"}, "value": 629.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_capheight"}, "value": 562.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_descender"}, "value": -157.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_familyname"}, "value": "Courier"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_fontname"}, "value": "Courier-Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_fullname"}, "value": "Courier Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_weight"}, "value": "Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Bold.afm", "getter": "get_xheight"}, "value": 439.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_angle"}, "value": -12.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_ascender"}, "value": 629.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_capheight"}, "value": 562.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_descender"}, "value": -157.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_familyname"}, "value": "Courier"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_fontname"}, "value": "Courier-BoldOblique"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_fullname"}, "value": "Courier Bold Oblique"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_weight"}, "value": "Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-BoldOblique.afm", "getter": "get_xheight"}, "value": 439.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_angle"}, "value": -12.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_ascender"}, "value": 629.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_capheight"}, "value": 562.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_descender"}, "value": -157.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_familyname"}, "value": "Courier"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_fontname"}, "value": "Courier-Oblique"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_fullname"}, "value": "Courier Oblique"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_weight"}, "value": "Medium"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier-Oblique.afm", "getter": "get_xheight"}, "value": 426.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_angle"}, "value": 0.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_ascender"}, "value": 629.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_capheight"}, "value": 562.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_descender"}, "value": -157.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_familyname"}, "value": "Courier"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_fontname"}, "value": "Courier"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_fullname"}, "value": "Courier"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_weight"}, "value": "Medium"},
+  {"op": "_afm.AFM.header", "args": {"file": "Courier.afm", "getter": "get_xheight"}, "value": 426.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_angle"}, "value": 0.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_ascender"}, "value": 718.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_capheight"}, "value": 718.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_descender"}, "value": -207.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_familyname"}, "value": "Helvetica"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_fontname"}, "value": "Helvetica-Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_fullname"}, "value": "Helvetica Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_weight"}, "value": "Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Bold.afm", "getter": "get_xheight"}, "value": 532.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_angle"}, "value": -12.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_ascender"}, "value": 718.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_capheight"}, "value": 718.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_descender"}, "value": -207.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_familyname"}, "value": "Helvetica"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_fontname"}, "value": "Helvetica-BoldOblique"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_fullname"}, "value": "Helvetica Bold Oblique"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_weight"}, "value": "Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-BoldOblique.afm", "getter": "get_xheight"}, "value": 532.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_angle"}, "value": -12.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_ascender"}, "value": 718.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_capheight"}, "value": 718.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_descender"}, "value": -207.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_familyname"}, "value": "Helvetica"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_fontname"}, "value": "Helvetica-Oblique"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_fullname"}, "value": "Helvetica Oblique"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_weight"}, "value": "Medium"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica-Oblique.afm", "getter": "get_xheight"}, "value": 523.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_angle"}, "value": 0.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_ascender"}, "value": 718.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_capheight"}, "value": 718.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_descender"}, "value": -207.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_familyname"}, "value": "Helvetica"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_fontname"}, "value": "Helvetica"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_fullname"}, "value": "Helvetica"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_weight"}, "value": "Medium"},
+  {"op": "_afm.AFM.header", "args": {"file": "Helvetica.afm", "getter": "get_xheight"}, "value": 523.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_angle"}, "value": 0.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_ascender"}, "error": "KeyError"},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_capheight"}, "error": "KeyError"},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_descender"}, "error": "KeyError"},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_familyname"}, "value": "Symbol"},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_fontname"}, "value": "Symbol"},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_fullname"}, "value": "Symbol"},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_weight"}, "value": "Medium"},
+  {"op": "_afm.AFM.header", "args": {"file": "Symbol.afm", "getter": "get_xheight"}, "error": "KeyError"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_angle"}, "value": 0.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_ascender"}, "value": 683.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_capheight"}, "value": 676.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_descender"}, "value": -217.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_familyname"}, "value": "Times"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_fontname"}, "value": "Times-Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_fullname"}, "value": "Times Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_weight"}, "value": "Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Bold.afm", "getter": "get_xheight"}, "value": 461.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_angle"}, "value": -15.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_ascender"}, "value": 683.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_capheight"}, "value": 669.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_descender"}, "value": -217.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_familyname"}, "value": "Times"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_fontname"}, "value": "Times-BoldItalic"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_fullname"}, "value": "Times Bold Italic"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_weight"}, "value": "Bold"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-BoldItalic.afm", "getter": "get_xheight"}, "value": 462.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_angle"}, "value": -15.5},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_ascender"}, "value": 683.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_capheight"}, "value": 653.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_descender"}, "value": -217.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_familyname"}, "value": "Times"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_fontname"}, "value": "Times-Italic"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_fullname"}, "value": "Times Italic"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_weight"}, "value": "Medium"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Italic.afm", "getter": "get_xheight"}, "value": 441.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_angle"}, "value": 0.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_ascender"}, "value": 683.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_capheight"}, "value": 662.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_descender"}, "value": -217.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_familyname"}, "value": "Times"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_fontname"}, "value": "Times-Roman"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_fullname"}, "value": "Times Roman"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_weight"}, "value": "Roman"},
+  {"op": "_afm.AFM.header", "args": {"file": "Times-Roman.afm", "getter": "get_xheight"}, "value": 450.0},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_angle"}, "value": 0.0},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_ascender"}, "error": "KeyError"},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_capheight"}, "error": "KeyError"},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_descender"}, "error": "KeyError"},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_familyname"}, "value": "ZapfDingbats"},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_fontname"}, "value": "ZapfDingbats"},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_fullname"}, "value": "ITC Zapf Dingbats"},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_underline_thickness"}, "value": 50.0},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_weight"}, "value": "Medium"},
+  {"op": "_afm.AFM.header", "args": {"file": "ZapfDingbats.afm", "getter": "get_xheight"}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf._get_font_height_metrics", "args": {"font": null}, "value": [7.18, 2.07, 1.85]},
+  {
+   "op": "backend_pdf.RendererPdf._get_font_height_metrics",
+   "args": {"font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [7.18, 2.07, 1.85]
+  },
+  {"op": "backend_pdf.RendererPdf._get_font_height_metrics", "args": {"font": {"family": "Symbol", "size": 12}}, "error": "KeyError"},
+  {
+   "op": "backend_pdf.RendererPdf._get_font_height_metrics",
+   "args": {"font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [7.513, 2.387, 1.9800000000000002]
+  },
+  {"op": "backend_pdf.RendererPdf._get_font_height_metrics", "args": {"font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf._get_font_height_metrics", "args": {"font": {"family": "monospace", "weight": "bold"}}, "value": [6.29, 1.57, 1.572]},
+  {"op": "backend_pdf.RendererPdf._get_font_height_metrics", "args": {"font": {"family": "serif"}}, "value": [6.83, 2.17, 1.8]},
+  {"op": "backend_pdf.RendererPdf._get_font_height_metrics", "args": {"font": {"family": ["Foo", "Courier"], "size": 7.5}}, "value": [4.7175, 1.1775, 1.179]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": " ", "font": null}, "value": [2.7800000000000002, 0.0, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "", "font": null}, "value": [0.0, 0.0, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "AVATAR", "font": null}, "value": [36.11, 7.18, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Hg", "font": null}, "value": [12.780000000000001, 9.38, 2.2]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Toyota", "font": null}, "value": [28.87, 9.32, 2.14]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "WAVE", "font": null}, "value": [28.25, 7.18, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "\n", "font": null}, "value": [0.0, -10000000.0, -10000000.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "¼²", "font": null}, "value": [11.120000000000001, 7.2700000000000005, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Ångström ±½×©", "font": null}, "value": [72.96000000000001, 11.51, 2.2]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "€–“”", "font": null}, "value": [17.78, 11.950000000000001, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "→α", "font": null}, "value": [11.120000000000001, 7.2700000000000005, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "− 1.5", "font": null}, "value": [22.52, 7.22, 0.19]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "😀", "font": null}, "value": [5.5600000000000005, 7.2700000000000005, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "a\nb", "font": null}, "value": [11.120000000000001, 7.18, 0.15]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "café naïve", "font": null}, "value": [45.59, 7.43, 0.15]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "fi fl", "font": null}, "value": [12.780000000000001, 7.28, 0.0]},
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": " ", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [2.7800000000000002, 0.0, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [0.0, 0.0, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "AVATAR", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [38.26, 7.18, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Hg", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [13.33, 9.35, 2.17]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Toyota", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [31.53, 9.32, 2.14]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "WAVE", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [28.6, 7.18, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "\n", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [0.0, -10000000.0, -10000000.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "¼²", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [12.22, 7.2700000000000005, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Ångström ±½×©", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [77.19, 11.790000000000001, 2.17]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "€–“”", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [21.67, 11.81, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "→α", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [12.22, 7.2700000000000005, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "− 1.5", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [22.52, 7.29, 0.19]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "😀", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [6.11, 7.2700000000000005, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "a\nb", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [11.67, 7.18, 0.14]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "café naïve", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [48.26, 7.5, 0.14]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "fi fl", "font": {"family": "Helvetica", "weight": "bold", "style": "oblique"}},
+   "value": [15.0, 7.2700000000000005, 0.0]
+  },
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": " ", "font": {"family": "Symbol", "size": 12}}, "value": [3.0, 0.0, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "", "font": {"family": "Symbol", "size": 12}}, "value": [0.0, 0.0, 0.0]},
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "AVATAR", "font": {"family": "Symbol", "size": 12}},
+   "value": [31.968, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Hg", "font": {"family": "Symbol", "size": 12}},
+   "value": [10.656, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Toyota", "font": {"family": "Symbol", "size": 12}},
+   "value": [31.968, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "WAVE", "font": {"family": "Symbol", "size": 12}},
+   "value": [21.312, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "\n", "font": {"family": "Symbol", "size": 12}},
+   "value": [0.0, -12000000.0, -12000000.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "¼²", "font": {"family": "Symbol", "size": 12}},
+   "value": [10.656, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Ångström ±½×©", "font": {"family": "Symbol", "size": 12}},
+   "value": [69.456, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "€–“”", "font": {"family": "Symbol", "size": 12}},
+   "value": [21.312, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "→α", "font": {"family": "Symbol", "size": 12}},
+   "value": [10.656, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "− 1.5", "font": {"family": "Symbol", "size": 12}},
+   "value": [24.588, 8.316, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "😀", "font": {"family": "Symbol", "size": 12}},
+   "value": [5.328, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "a\nb", "font": {"family": "Symbol", "size": 12}},
+   "value": [10.656, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "café naïve", "font": {"family": "Symbol", "size": 12}},
+   "value": [50.952, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "fi fl", "font": {"family": "Symbol", "size": 12}},
+   "value": [24.312, 8.232, 0.20400000000000001]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": " ", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [2.75, 0.0, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [0.0, 0.0, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "AVATAR", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [36.949, 7.545999999999999, 0.19799999999999998]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Hg", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [13.441999999999998, 9.449, 2.266]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Toyota", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [29.546, 9.449, 2.266]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "WAVE", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [27.511, 7.545999999999999, 0.19799999999999998]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "\n", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [0.0, -11000000.0, -11000000.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "¼²", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [11.0, 7.303999999999999, 0.132]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Ångström ±½×©", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [76.494, 11.979, 2.266]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "€–“”", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [23.232, 12.254, 0.132]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "→α", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [11.0, 7.303999999999999, 0.132]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "− 1.5", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [23.924999999999997, 7.5569999999999995, 0.121]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "😀", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [5.5, 7.303999999999999, 0.132]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "a\nb", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [11.0, 7.513, 0.121]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "café naïve", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [44.901999999999994, 9.459999999999999, 2.2769999999999997]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "fi fl", "font": {"family": "Times", "style": "italic", "size": 11}},
+   "value": [14.761999999999999, 9.668999999999999, 2.2769999999999997]
+  },
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": " ", "font": {"family": "ZapfDingbats"}}, "value": [2.7800000000000002, 0.0, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "", "font": {"family": "ZapfDingbats"}}, "value": [0.0, 0.0, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "AVATAR", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Hg", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Toyota", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "WAVE", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "\n", "font": {"family": "ZapfDingbats"}},
+   "value": [0.0, -10000000.0, -10000000.0]
+  },
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "¼²", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Ångström ±½×©", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "€–“”", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "→α", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "− 1.5", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "😀", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "a\nb", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "café naïve", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "fi fl", "font": {"family": "ZapfDingbats"}}, "error": "KeyError"},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": " ", "font": {"family": "monospace", "weight": "bold"}}, "value": [6.0, 0.0, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "", "font": {"family": "monospace", "weight": "bold"}}, "value": [0.0, 0.0, 0.0]},
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "AVATAR", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [36.0, 5.62, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Hg", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [12.0, 7.08, 1.46]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Toyota", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [36.0, 7.04, 1.42]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "WAVE", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [24.0, 5.62, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "\n", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [0.0, -10000000.0, -10000000.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "¼²", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [12.0, 5.8, 0.14]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Ångström ±½×©", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [78.0, 9.47, 1.46]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "€–“”", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [24.0, 8.53, 0.14]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "→α", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [12.0, 5.8, 0.14]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "− 1.5", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [30.0, 6.3100000000000005, 0.15]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "😀", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [6.0, 5.8, 0.14]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "a\nb", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [12.0, 6.26, 0.15]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "café naïve", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [60.0, 6.61, 0.15]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "fi fl", "font": {"family": "monospace", "weight": "bold"}},
+   "value": [30.0, 6.58, 0.0]
+  },
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": " ", "font": {"family": "serif"}}, "value": [2.5, 0.0, 0.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "", "font": {"family": "serif"}}, "value": [0.0, 0.0, 0.0]},
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "AVATAR", "font": {"family": "serif"}},
+   "value": [36.92, 6.8500000000000005, 0.11]
+  },
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Hg", "font": {"family": "serif"}}, "value": [12.22, 8.8, 2.18]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Toyota", "font": {"family": "serif"}}, "value": [27.43, 8.8, 2.18]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "WAVE", "font": {"family": "serif"}}, "value": [27.44, 6.8500000000000005, 0.11]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "\n", "font": {"family": "serif"}}, "value": [0.0, -10000000.0, -10000000.0]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "¼²", "font": {"family": "serif"}}, "value": [8.88, 6.76, 0.08]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "Ångström ±½×©", "font": {"family": "serif"}}, "value": [68.88, 11.16, 2.18]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "€–“”", "font": {"family": "serif"}}, "value": [18.32, 11.17, 0.08]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "→α", "font": {"family": "serif"}}, "value": [8.88, 6.76, 0.08]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "− 1.5", "font": {"family": "serif"}}, "value": [20.64, 6.9, 0.14]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "😀", "font": {"family": "serif"}}, "value": [4.44, 6.76, 0.08]},
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "a\nb", "font": {"family": "serif"}}, "value": [9.44, 6.83, 0.1]},
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "café naïve", "font": {"family": "serif"}},
+   "value": [40.410000000000004, 6.97, 0.14]
+  },
+  {"op": "backend_pdf.RendererPdf.get_text_width_height_descent", "args": {"s": "fi fl", "font": {"family": "serif"}}, "value": [14.52, 6.83, 0.0]},
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": " ", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [4.5, 0.0, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [0.0, 0.0, 0.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "AVATAR", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [27.0, 4.3125, 0.0975]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Hg", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [9.0, 5.3925, 1.1775]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Toyota", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [27.0, 5.3925, 1.1775]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "WAVE", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [18.0, 4.3125, 0.0975]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "\n", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [0.0, -7500000.0, -7500000.0]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "¼²", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [9.0, 4.29, 0.11249999999999999]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "Ångström ±½×©", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [58.5, 6.802499999999999, 1.1775]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "€–“”", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [18.0, 6.7875, 0.11249999999999999]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "→α", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [9.0, 4.29, 0.11249999999999999]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "− 1.5", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [22.5, 4.7775, 0.11249999999999999]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "😀", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [4.5, 4.29, 0.11249999999999999]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "a\nb", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [9.0, 4.7175, 0.11249999999999999]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "café naïve", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [45.0, 5.04, 0.11249999999999999]
+  },
+  {
+   "op": "backend_pdf.RendererPdf.get_text_width_height_descent",
+   "args": {"s": "fi fl", "font": {"family": ["Foo", "Courier"], "size": 7.5}},
+   "value": [22.5, 4.9275, 0.0]
+  },
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": null, "directory": "afm"}, "value": ["phvr8a.afm"]},
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Computer Modern", "style": "italic"}, "directory": "afm"},
+   "value": ["cmmi10.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Helvetica", "stretch": "condensed"}, "directory": "afm"},
+   "value": ["phvr8an.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Helvetica", "weight": "bold", "style": "oblique"}, "directory": "afm"},
+   "value": ["phvbo8a.afm"]
+  },
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": {"family": "Palatino", "weight": "bold"}, "directory": "afm"}, "value": ["pplb8a.afm"]},
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": {"family": "Symbol", "size": 12}, "directory": "afm"}, "value": ["psyr.afm"]},
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Times", "style": "italic", "size": 11}, "directory": "afm"},
+   "value": ["ptmri8a.afm"]
+  },
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": {"family": "ZapfDingbats"}, "directory": "afm"}, "value": ["phvr8a.afm"]},
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": {"family": "cursive"}, "directory": "afm"}, "value": ["phvr8a.afm"]},
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "monospace", "weight": "bold"}, "directory": "afm"},
+   "value": ["pcrb8a.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "sans-serif", "weight": "bold", "style": "italic"}, "directory": "afm"},
+   "value": ["phvbo8a.afm"]
+  },
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": {"family": "serif"}, "directory": "afm"}, "value": ["pncr8a.afm"]},
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": ["Foo", "Courier"], "size": 7.5}, "directory": "afm"},
+   "value": ["pcrr8a.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": ["Times", "Foo", "Courier"]}, "directory": "afm"},
+   "value": ["ptmr8a.afm", "pcrr8a.afm"]
+  },
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": null, "directory": "pdfcorefonts"}, "value": ["Helvetica.afm"]},
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Computer Modern", "style": "italic"}, "directory": "pdfcorefonts"},
+   "value": ["Helvetica-Oblique.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Helvetica", "stretch": "condensed"}, "directory": "pdfcorefonts"},
+   "value": ["Helvetica.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Helvetica", "weight": "bold", "style": "oblique"}, "directory": "pdfcorefonts"},
+   "value": ["Helvetica-BoldOblique.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Palatino", "weight": "bold"}, "directory": "pdfcorefonts"},
+   "value": ["Helvetica-Bold.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Symbol", "size": 12}, "directory": "pdfcorefonts"},
+   "value": ["Symbol.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "Times", "style": "italic", "size": 11}, "directory": "pdfcorefonts"},
+   "value": ["Times-Italic.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "ZapfDingbats"}, "directory": "pdfcorefonts"},
+   "value": ["ZapfDingbats.afm"]
+  },
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": {"family": "cursive"}, "directory": "pdfcorefonts"}, "value": ["Helvetica.afm"]},
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "monospace", "weight": "bold"}, "directory": "pdfcorefonts"},
+   "value": ["Courier-Bold.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": "sans-serif", "weight": "bold", "style": "italic"}, "directory": "pdfcorefonts"},
+   "value": ["Helvetica-BoldOblique.afm"]
+  },
+  {"op": "font_manager.FontManager._find_fonts_by_props", "args": {"prop": {"family": "serif"}, "directory": "pdfcorefonts"}, "value": ["Times-Roman.afm"]},
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": ["Foo", "Courier"], "size": 7.5}, "directory": "pdfcorefonts"},
+   "value": ["Courier.afm"]
+  },
+  {
+   "op": "font_manager.FontManager._find_fonts_by_props",
+   "args": {"prop": {"family": ["Times", "Foo", "Courier"]}, "directory": "pdfcorefonts"},
+   "value": ["Times-Roman.afm", "Courier.afm"]
+  },
+  {"op": "font_manager.findfont", "args": {"prop": null, "directory": "afm"}, "value": "phvr8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Computer Modern", "style": "italic"}, "directory": "afm"}, "value": "cmmi10.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Helvetica", "stretch": "condensed"}, "directory": "afm"}, "value": "phvr8an.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Helvetica", "weight": "bold", "style": "oblique"}, "directory": "afm"}, "value": "phvbo8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Palatino", "weight": "bold"}, "directory": "afm"}, "value": "pplb8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Symbol", "size": 12}, "directory": "afm"}, "value": "psyr.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Times", "style": "italic", "size": 11}, "directory": "afm"}, "value": "ptmri8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "ZapfDingbats"}, "directory": "afm"}, "value": "phvr8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "cursive"}, "directory": "afm"}, "value": "phvr8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "monospace", "weight": "bold"}, "directory": "afm"}, "value": "pcrb8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "sans-serif", "weight": "bold", "style": "italic"}, "directory": "afm"}, "value": "phvbo8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "serif"}, "directory": "afm"}, "value": "pncr8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": ["Foo", "Courier"], "size": 7.5}, "directory": "afm"}, "value": "pcrr8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": ["Times", "Foo", "Courier"]}, "directory": "afm"}, "value": "ptmr8a.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": null, "directory": "pdfcorefonts"}, "value": "Helvetica.afm"},
+  {
+   "op": "font_manager.findfont",
+   "args": {"prop": {"family": "Computer Modern", "style": "italic"}, "directory": "pdfcorefonts"},
+   "value": "Helvetica-Oblique.afm"
+  },
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Helvetica", "stretch": "condensed"}, "directory": "pdfcorefonts"}, "value": "Helvetica.afm"},
+  {
+   "op": "font_manager.findfont",
+   "args": {"prop": {"family": "Helvetica", "weight": "bold", "style": "oblique"}, "directory": "pdfcorefonts"},
+   "value": "Helvetica-BoldOblique.afm"
+  },
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Palatino", "weight": "bold"}, "directory": "pdfcorefonts"}, "value": "Helvetica-Bold.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Symbol", "size": 12}, "directory": "pdfcorefonts"}, "value": "Symbol.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Times", "style": "italic", "size": 11}, "directory": "pdfcorefonts"}, "value": "Times-Italic.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "ZapfDingbats"}, "directory": "pdfcorefonts"}, "value": "ZapfDingbats.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "cursive"}, "directory": "pdfcorefonts"}, "value": "Helvetica.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "monospace", "weight": "bold"}, "directory": "pdfcorefonts"}, "value": "Courier-Bold.afm"},
+  {
+   "op": "font_manager.findfont",
+   "args": {"prop": {"family": "sans-serif", "weight": "bold", "style": "italic"}, "directory": "pdfcorefonts"},
+   "value": "Helvetica-BoldOblique.afm"
+  },
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "serif"}, "directory": "pdfcorefonts"}, "value": "Times-Roman.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": ["Foo", "Courier"], "size": 7.5}, "directory": "pdfcorefonts"}, "value": "Courier.afm"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": ["Times", "Foo", "Courier"]}, "directory": "pdfcorefonts"}, "value": "Times-Roman.afm"}
+ ]
+}

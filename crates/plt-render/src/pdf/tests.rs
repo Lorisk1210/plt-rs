@@ -106,6 +106,72 @@ fn text_uses_type3_fonts() {
     assert!(pdf.contains("636 0 109 0 544 730 d1\n"));
 }
 
+/// A run of `text` laid out in `families` at 12 points.
+fn plain_run(text: &str, families: &[&str]) -> plt_text::TextRun {
+    TextEngine::global()
+        .layout_line(
+            text,
+            &FontRequest::new(FontQuery {
+                size: 12.0,
+                ..FontQuery::families(families.iter().copied())
+            }),
+            72.0,
+        )
+        .expect("bundled font")
+}
+
+#[test]
+fn core_fonts_show_whole_strings_by_name() {
+    let mut r = PdfRenderer::new(
+        2.0,
+        1.0,
+        72.0,
+        PdfOptions {
+            compression: 0,
+            metadata: Metadata::none(),
+            core_fonts: true,
+            ..PdfOptions::default()
+        },
+    )
+    .expect("valid page");
+    assert_eq!(r.afm_directory(), Some(AfmDirectory::PdfCore));
+    let gc = GraphicsContext::default();
+    r.draw_text(
+        &gc,
+        &plain_run("AVATAR", &["DejaVu Sans"]),
+        Point::new(3.0, 4.0),
+        0.0,
+    );
+    r.draw_text(
+        &gc,
+        &plain_run("caf\u{e9} \u{2212}1", &["Times", "Courier"]),
+        Point::new(5.0, 6.0),
+        90.0,
+    );
+    let math = TextEngine::global()
+        .layout_math("$x$", &plt_text::mathtext::MathStyle::default())
+        .expect("valid math");
+    r.draw_text(&gc, &math, Point::new(1.0, 1.0), 0.0);
+    let document = r.finish().expect("document");
+    // Code page 1252: the e-acute is byte 0xe9, the minus sign unknown.
+    let rotated = b"BT /F2 12 Tf\n0 1 -1 0 5 6 Tm\n0 0 Td\n(caf\xe9 ?1) Tj ET\n";
+    assert!(document.windows(rotated.len()).any(|w| w == rotated));
+    let pdf = text(&document);
+    assert!(
+        pdf.contains("BT /F1 12 Tf\n3 4 Td\n(AVATAR) Tj ET\n"),
+        "{pdf}"
+    );
+    for font in ["Helvetica", "Times-Roman", "Courier"] {
+        assert!(pdf.contains(&format!(
+            "<< /Type /Font /Subtype /Type1 /BaseFont /{font}\n/Encoding /WinAnsiEncoding >>"
+        )));
+    }
+    assert!(
+        pdf.contains("/Subtype /Type3"),
+        "mathtext still embeds its fonts"
+    );
+}
+
 #[test]
 fn images_and_shadings() {
     let mut r = renderer();

@@ -1,0 +1,20 @@
+{
+ "size_px": [400, 300],
+ "suptitle": "Suptitle",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.167709, 0.157409, 0.821873, 0.675318],
+   "title": "Title: WAVE",
+   "xlim": [-3.3, 3.3],
+   "ylim": [-1.098907, 1.098907],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "time (s)",
+   "ylabel": "amplitude",
+   "xticks": [[-3.0, "−3"], [-2.0, "−2"], [-1.0, "−1"], [0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"]],
+   "yticks": [[-1.0, "−1.0"], [-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]],
+   "legend": ["sin AVATAR", "cos Toyota"]
+  }
+ ]
+}

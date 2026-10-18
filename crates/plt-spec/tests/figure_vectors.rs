@@ -30,10 +30,18 @@ use plt_spec::figures::vector::{self, VectorFormat, VectorReport};
 use plt_spec::figures::{self, FigureCase};
 
 /// Cases exempt from agreement (still reported), with the reason.
-const KNOWN_GAPS: &[(&str, &str)] = &[(
-    "contour/tripcolor_gouraud",
-    "Delaunay triangles come in a different order than qhull's (same triangles)",
-)];
+const KNOWN_GAPS: &[(&str, &str)] = &[
+    (
+        "afm/ps_fonts_text",
+        "ps.useafm: matplotlib measures with the base-35 AFM files, whose notices forbid \
+         redistribution; plt-rs uses the 14 core fonts' metrics (serif is Times, not New \
+         Century Schoolbook, and the newer Helvetica kerns f-eacute)",
+    ),
+    (
+        "contour/tripcolor_gouraud",
+        "Delaunay triangles come in a different order than qhull's (same triangles)",
+    ),
+];
 
 /// Why a report fails the acceptance policy, if it does.
 fn problems(report: &VectorReport) -> Option<String> {

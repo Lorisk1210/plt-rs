@@ -3,6 +3,7 @@
 //! Each module exposes `OPS`; an empty table means the area is not
 //! implemented yet and every probe in it reports as missing.
 
+pub(crate) mod afm;
 pub(crate) mod animation;
 pub(crate) mod axes3d;
 pub(crate) mod axisartist;

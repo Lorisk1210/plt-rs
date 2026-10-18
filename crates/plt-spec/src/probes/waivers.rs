@@ -50,8 +50,18 @@ const SMALLER_THAN_A_TOOTH: &str = "a box smaller than one tooth makes matplotli
 const UNSORTED_BOUNDARIES: &str = "matplotlib's BoundaryNorm does not check that its \
      boundaries increase and then maps every value outside the colormap; plt-rs rejects them";
 
+const FLOAT32_IMAGES: &str = "matplotlib's imread returns float32 colours and resamples and \
+     converts them to bytes in float32; plt-rs keeps the float32 values in f64, so a channel \
+     whose float32 product with 255 falls just below an integer truncates one level higher \
+     (two pixels of this thumbnail, by one level)";
+
 /// Every waiver, grouped by area.
 pub const WAIVERS: &[Waiver] = &[
+    Waiver {
+        op: "image.thumbnail",
+        args: r#"{"scale": 0.25, "interpolation": "nearest"}"#,
+        reason: FLOAT32_IMAGES,
+    },
     Waiver {
         op: "colors.from_levels_and_colors",
         args: r#"{"levels": [2.0, 1.0, 0.0]}"#,

@@ -7,6 +7,7 @@ from matplotlib import transforms
 from matplotlib.transforms import Bbox, TransformedBbox
 from mpl_toolkits import axisartist
 from mpl_toolkits.axes_grid1 import ImageGrid, host_axes, host_subplot, make_axes_locatable
+from mpl_toolkits.axes_grid1.axes_divider import make_axes_area_auto_adjustable
 from mpl_toolkits.axes_grid1.axes_rgb import RGBAxes
 from mpl_toolkits.axes_grid1.inset_locator import (BboxConnector, BboxConnectorPatch,
                                                    BboxPatch, inset_axes, mark_inset,
@@ -95,6 +96,26 @@ def _(fig):
     bins = np.linspace(-4.0, 4.0, 33)
     top.hist(x, bins=bins)
     right.hist(y, bins=bins, orientation="horizontal", color="tab:orange")
+
+
+@case("toolkits/auto_adjustable_area", figsize=(5, 3))
+def _(fig):
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_yticks([0.5], labels=["very long label"])
+    make_axes_area_auto_adjustable(ax)
+
+
+@case("toolkits/auto_adjustable_area_shared", figsize=(5, 3))
+def _(fig):
+    ax1 = fig.add_axes([0, 0, 1, 0.5])
+    ax2 = fig.add_axes([0, 0.5, 1, 0.5])
+    ax1.set_yticks([0.5], labels=["very long label"])
+    ax1.set_ylabel("Y label")
+    ax2.set_title("Title")
+    # The axes drawn last measures only itself: matplotlib leaves the axes
+    # it measures at their original positions, after they were drawn.
+    make_axes_area_auto_adjustable(ax1, pad=0.1, use_axes=[ax1, ax2])
+    make_axes_area_auto_adjustable(ax2, pad=0.1)
 
 
 # --- axes_grid1: inset locators and RGB axes

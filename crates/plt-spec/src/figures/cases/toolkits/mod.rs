@@ -27,6 +27,12 @@ pub(crate) const CASES: &[FigureCase] = &[
         grids::marginal_histograms,
     )
     .sized(5.0, 5.0, 100.0),
+    FigureCase::new("toolkits/auto_adjustable_area", grids::auto_adjustable).sized(5.0, 3.0, 100.0),
+    FigureCase::new(
+        "toolkits/auto_adjustable_area_shared",
+        grids::auto_adjustable_shared,
+    )
+    .sized(5.0, 3.0, 100.0),
     FigureCase::new("toolkits/inset_locator_inset_axes", insets::inset_locator)
         .sized(6.0, 4.0, 100.0),
     FigureCase::new("toolkits/zoomed_inset_mark_inset", insets::zoomed_marked)

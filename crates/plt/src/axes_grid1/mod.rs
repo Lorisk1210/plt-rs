@@ -7,7 +7,9 @@
 //! their aspect.
 //!
 //! * [`make_axes_locatable`] divides the area of an axes, so that
-//!   colorbars or marginal axes can be appended beside it.
+//!   colorbars or marginal axes can be appended beside it, and
+//!   [`make_axes_area_auto_adjustable`] shrinks an axes until its
+//!   decorations fit inside its original position.
 //! * [`ImageGrid`] (also [`AxesGrid`]) lays out a grid of image axes with
 //!   fixed paddings, each, some or one colorbar axes, and tick labels only
 //!   on the outer axes.
@@ -37,7 +39,7 @@ mod parasite_axes;
 mod rgb_axes;
 mod size;
 
-pub use axes_divider::{AxesDivider, make_axes_locatable};
+pub use axes_divider::{AxesDivider, make_axes_area_auto_adjustable, make_axes_locatable};
 pub use bbox_patches::{
     BboxConnector, BboxConnectorPatch, BboxPatch, BboxSource, Corner, connect_bbox,
 };

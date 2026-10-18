@@ -271,34 +271,62 @@ impl AxesState {
     }
 }
 
+/// Where an axes is placed before its aspect is applied.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Placement {
+    /// Where its divider, inset locator or axes locator puts it.
+    Located,
+    /// At its original position, without calling its locators
+    /// (matplotlib's `get_tightbbox(call_axes_locator=False)`, which
+    /// sizes measuring the axes for its own divider use).
+    Original,
+}
+
 impl FigureState {
     /// Brings one axes up to date for layout: a due layout-engine pass,
     /// pending autoscaling, then the aspect.
     pub(crate) fn lay_out_axes(&mut self, axes: ArtistId) {
+        self.lay_out_axes_at(axes, Placement::Located);
+    }
+
+    /// [`lay_out_axes`](Self::lay_out_axes) with the axes placed by
+    /// `placement`.
+    pub(crate) fn lay_out_axes_at(&mut self, axes: ArtistId, placement: Placement) {
         self.run_pending_layout();
         self.unstale_axes(axes);
-        self.apply_aspect(axes);
+        self.apply_aspect_at(axes, placement);
     }
 
     /// matplotlib's `apply_aspect`: sets the active position of `axes`
     /// and, for [`Adjustable::Datalim`], widens one view interval.
     pub(crate) fn apply_aspect(&mut self, axes: ArtistId) {
+        self.apply_aspect_at(axes, Placement::Located);
+    }
+
+    /// [`apply_aspect`](Self::apply_aspect) with the axes placed by
+    /// `placement`.
+    fn apply_aspect_at(&mut self, axes: ArtistId, placement: Placement) {
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;
         };
         let original = state.position;
         let settings = state.aspect;
-        let divided = settings
-            .divider
-            .and_then(|cell| self.locate_in_divider(cell))
-            .or_else(|| settings.inset.and_then(|id| self.locate_inset(axes, id)))
-            .unwrap_or(original);
+        let located = match placement {
+            Placement::Located => {
+                let divided = settings
+                    .divider
+                    .and_then(|cell| self.locate_in_divider(cell))
+                    .or_else(|| settings.inset.and_then(|id| self.locate_inset(axes, id)))
+                    .unwrap_or(original);
+                settings
+                    .locator
+                    .map_or(divided, |locator| locator.locate(&divided))
+            }
+            Placement::Original => original,
+        };
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;
         };
-        let located = settings
-            .locator
-            .map_or(divided, |locator| locator.locate(&divided));
         let box_aspect = settings
             .locator
             .and_then(|locator| locator.box_aspect)

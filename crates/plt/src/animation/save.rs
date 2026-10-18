@@ -8,20 +8,23 @@ use plt_codec::gif::{GifEncoder, GifError, GifFrame};
 use plt_codec::png::{AnimatedEncoder, EncodeError, Frame, ImageRef};
 use plt_render::RgbaImage;
 
-use super::{AnimationError, FuncAnimation, HtmlOptions, interval_millis};
+use super::{
+    AnimationError, FuncAnimation, HtmlOptions, MovieOptions, interval_millis, render_frame,
+};
 use crate::figure::SaveError;
 
 impl FuncAnimation {
-    /// Writes the animation to `path` in the format its extension names:
-    /// `.png` or `.apng` for an animated PNG, `.gif` for an animated GIF,
-    /// `.html` or `.htm` for a page with the JavaScript player (matplotlib's
-    /// `Animation.save`; video formats need ffmpeg, which plt-rs does not
-    /// use).
+    /// Writes the animation to `path` in the format its extension names
+    /// (matplotlib's `Animation.save`): `.png` or `.apng` for an animated
+    /// PNG, `.gif` for an animated GIF, `.html` or `.htm` for a page with
+    /// the JavaScript player, and any other extension for a video encoded
+    /// by ffmpeg ([`FuncAnimation::save_movie`], matplotlib's default
+    /// `animation.writer`).
     ///
     /// # Errors
     ///
-    /// When the extension names no supported format, a frame cannot be
-    /// rendered or encoded, or the file cannot be written.
+    /// When `path` has no extension, a frame cannot be rendered or
+    /// encoded, or the file cannot be written.
     pub fn save(&self, path: impl AsRef<Path>) -> Result<(), AnimationError> {
         let path = path.as_ref();
         let extension = path
@@ -33,7 +36,8 @@ impl FuncAnimation {
             "png" | "apng" => self.save_apng(path),
             "gif" => self.save_gif(path),
             "html" | "htm" => self.save_html(path, &HtmlOptions::default()),
-            _ => Err(AnimationError::UnsupportedFormat(extension)),
+            "" => Err(AnimationError::UnsupportedFormat(extension)),
+            _ => self.save_movie(path, &MovieOptions::default()),
         }
     }
 
@@ -116,7 +120,7 @@ impl FuncAnimation {
     fn frame_images(&self) -> Result<Vec<RgbaImage>, AnimationError> {
         let mut images = Vec::new();
         self.for_each_frame(|figure| {
-            images.push(figure.render_raster()?.to_image());
+            images.push(render_frame(figure)?);
             Ok(())
         })?;
         Ok(images)
@@ -216,8 +220,8 @@ mod tests {
                 .starts_with(b"\x89PNG")
         );
         assert!(matches!(
-            anim.save(dir.join("a.mp4")),
-            Err(AnimationError::UnsupportedFormat(ext)) if ext == "mp4"
+            anim.save(dir.join("movie")),
+            Err(AnimationError::UnsupportedFormat(ext)) if ext.is_empty()
         ));
         std::fs::remove_dir_all(dir).unwrap();
     }

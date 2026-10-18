@@ -56,6 +56,7 @@ pub mod axes_grid1;
 pub mod axisartist;
 pub mod collections;
 pub mod colorbar;
+mod colorizer;
 pub mod colors;
 pub mod container;
 pub mod contour;

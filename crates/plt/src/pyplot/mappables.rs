@@ -34,22 +34,16 @@ pub fn sci(image: impl Into<ColorizingArtist>) -> Result<(), PlotError> {
 }
 
 /// Sets the data values mapped to the ends of the colormap of the current
-/// image; `None` leaves a limit unchanged (matplotlib's `clim`).
+/// image; `None` leaves a limit unchanged (matplotlib's `clim`). Its
+/// colorbars follow.
 ///
 /// # Errors
 ///
-/// [`PyplotError::NoCurrentImage`] without a current image, and
-/// [`PyplotError::FixedContourColors`] when it is a contour set.
+/// [`PyplotError::NoCurrentImage`] without a current image.
 pub fn clim(vmin: Option<f64>, vmax: Option<f64>) -> Result<(), PyplotError> {
-    match gci().ok_or(PyplotError::NoCurrentImage)? {
-        ColorizingArtist::Image(image) => {
-            image.set_clim(vmin, vmax);
-        }
-        ColorizingArtist::Collection(collection) => {
-            collection.set_clim(vmin, vmax);
-        }
-        ColorizingArtist::Contour(_) => return Err(PyplotError::FixedContourColors),
-    }
+    gci()
+        .ok_or(PyplotError::NoCurrentImage)?
+        .set_clim(vmin, vmax);
     Ok(())
 }
 
@@ -89,25 +83,17 @@ pub fn get_cmap(name: Option<&str>, lut: Option<usize>) -> Result<Colormap, Colo
 }
 
 /// Makes `name` the default colormap (`image.cmap`) and the colormap of
-/// the current image, if any (matplotlib's `set_cmap`).
+/// the current image, if any (matplotlib's `set_cmap`); its colorbars
+/// follow.
 ///
 /// # Errors
 ///
-/// When no colormap has that name, and
-/// [`PyplotError::FixedContourColors`] when the current image is a
-/// contour set (the default changes even then).
+/// [`PyplotError::Colormap`] when no colormap has that name.
 pub fn set_cmap(name: &str) -> Result<(), PyplotError> {
     let cmap = colormaps::get(name)?;
     crate::rc::update(|rc| name.clone_into(&mut rc.image_cmap));
-    match gci() {
-        Some(ColorizingArtist::Image(image)) => {
-            image.set_cmap(cmap);
-        }
-        Some(ColorizingArtist::Collection(collection)) => {
-            collection.set_cmap(cmap);
-        }
-        Some(ColorizingArtist::Contour(_)) => return Err(PyplotError::FixedContourColors),
-        None => {}
+    if let Some(image) = gci() {
+        image.set_cmap(cmap);
     }
     Ok(())
 }
@@ -123,7 +109,7 @@ macro_rules! colormap_shortcuts {
         ///
         /// # Errors
         ///
-        /// As [`set_cmap`] when the current image is a contour set.
+        /// As [`set_cmap`], when the colormap was unregistered.
         pub fn $name() -> Result<(), PyplotError> {
             set_cmap(stringify!($name))
         }
@@ -207,13 +193,16 @@ mod tests {
                 Err(PyplotError::Colormap(_))
             ));
             let field = QuadField::new(ramp());
-            contourf(&field, ContourOptions::default()).unwrap();
-            assert_eq!(viridis(), Err(PyplotError::FixedContourColors));
+            let contours = contourf(&field, ContourOptions::default()).unwrap();
+            viridis().unwrap();
+            assert_eq!(crate::rc::params().image_cmap, "viridis");
             assert_eq!(
-                crate::rc::params().image_cmap,
-                "viridis",
-                "the default still changes"
+                contours.cmap().map(|c| c.name().to_owned()),
+                Some("viridis".to_owned()),
+                "contour sets are recoloured"
             );
+            clim(Some(-1.0), None).unwrap();
+            assert_eq!(contours.norm_limits().0, Some(-1.0));
             sci(&points).unwrap();
             assert!(matches!(gci(), Some(ColorizingArtist::Collection(c)) if c == points));
         });

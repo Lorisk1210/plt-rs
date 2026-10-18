@@ -47,7 +47,7 @@ pub(super) fn clabel(args: Args<'_>) -> Outcome {
             levels: Levels::Values(args.f64_vec("levels")?),
             ..ContourOptions::default()
         };
-        let mut cs = ax.contour(&field, options).map_err(ProbeError::rejected)?;
+        let cs = ax.contour(&field, options).map_err(ProbeError::rejected)?;
         ax.set_xlim(x0, x1);
         ax.set_ylim(y0, y1);
         cs.clabel(&clabel_options(Args::new(args.json("clabel")?))?)
@@ -69,10 +69,7 @@ pub(super) fn clabel(args: Args<'_>) -> Outcome {
             .collect();
         Ok(Json::Object(vec![
             ("labels".into(), Json::Array(labels)),
-            (
-                "label_widths".into(),
-                Json::from(cs.label_widths().to_vec()),
-            ),
+            ("label_widths".into(), Json::from(cs.label_widths())),
             (
                 "paths".into(),
                 Json::Array(cs.paths().iter().map(canon::canonical).collect()),

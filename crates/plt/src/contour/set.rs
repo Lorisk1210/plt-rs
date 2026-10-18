@@ -5,16 +5,15 @@ use std::fmt;
 use std::rc::Rc;
 
 use plt_core::{Path, Point, Rgba};
-use plt_render::Dashes;
 
-use super::label::ContourLabel;
+use super::label::LabelRecord;
 use super::levels::{self, LevelRequest};
 use super::style::{self, LevelColoring, LineStyling};
 use super::{ContourError, ContourOptions, QuadContourGenerator};
-use crate::artist::{Artist, ArtistHandle};
-use crate::axes::Axes;
-use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
+use crate::artist::Artist;
+use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
 use crate::colors::{Color, Extend, ScalarMappable};
+use crate::image::ScalarKind;
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 use crate::ticker::TickerSettings;
@@ -88,11 +87,14 @@ pub(crate) struct ContourState {
     pub(crate) mapping: Option<ScalarMappable>,
     /// The value mapped to each colour (matplotlib's `cvalues`).
     pub(crate) cvalues: Vec<f64>,
+    /// Whether the `cvalues` are layers or colour indices.
+    pub(crate) cvalue_kind: ScalarKind,
     pub(crate) alpha: Option<f64>,
     pub(crate) linewidths: Vec<f64>,
     pub(crate) linestyles: Vec<LineStyle>,
     pub(crate) warnings: Vec<ContourWarning>,
-    pub(crate) labels: Vec<ContourLabel>,
+    /// The labels added by `clabel`, in creation order.
+    pub(crate) labels: Vec<LabelRecord>,
     /// The label widths of the last `clabel` call, per labelled level.
     pub(crate) label_widths: Vec<f64>,
     pub(crate) rc: Rc<RcParams>,
@@ -178,6 +180,7 @@ impl ContourPlan {
             colors: plan.colors,
             mapping: plan.mapping,
             cvalues: plan.cvalues,
+            cvalue_kind: plan.cvalue_kind,
             alpha: options.alpha,
             linewidths,
             linestyles,
@@ -196,6 +199,11 @@ impl ContourPlan {
 }
 
 impl ContourState {
+    /// `color` with the set's alpha.
+    pub(crate) fn with_alpha(&self, color: Rgba) -> Rgba {
+        self.alpha.map_or(color, |a| color.with_alpha(a))
+    }
+
     /// The collections drawing `paths`: one, or one per band when filled
     /// contours are hatched (matplotlib then draws the bands one by one,
     /// each with its hatch).
@@ -253,166 +261,6 @@ impl ContourState {
         }
         base.sticky_edges = (vec![mins.x, maxs.x], vec![mins.y, maxs.y]);
         collection
-    }
-}
-
-/// A contour plot: what [`Axes::contour`], [`Axes::contourf`],
-/// [`Axes::tricontour`] and [`Axes::tricontourf`] return (matplotlib's
-/// `ContourSet`). Clones share the collections and copy the levels,
-/// colours and labels.
-#[derive(Clone, Debug)]
-pub struct ContourSet {
-    axes: Axes,
-    collections: Vec<Collection>,
-    state: ContourState,
-}
-
-impl ContourSet {
-    pub(crate) fn new(axes: Axes, collections: Vec<Collection>, state: ContourState) -> Self {
-        Self {
-            axes,
-            collections,
-            state,
-        }
-    }
-
-    pub(crate) fn state(&self) -> &ContourState {
-        &self.state
-    }
-
-    pub(crate) fn state_mut(&mut self) -> &mut ContourState {
-        &mut self.state
-    }
-
-    /// The axes the contours are drawn in.
-    pub fn axes(&self) -> &Axes {
-        &self.axes
-    }
-
-    /// The collections drawing the contours: one, or one per band for
-    /// hatched filled contours.
-    pub fn collections(&self) -> &[Collection] {
-        &self.collections
-    }
-
-    /// Whether these are filled contours.
-    pub fn filled(&self) -> bool {
-        self.state.filled
-    }
-
-    /// The contour levels.
-    pub fn levels(&self) -> &[f64] {
-        &self.state.levels
-    }
-
-    /// The value each level (lines) or band (fills) is coloured by: the
-    /// levels, or the band midpoints (with the `extend` sentinels
-    /// `±1e250`; geometric when log-scaled).
-    pub fn layers(&self) -> &[f64] {
-        &self.state.layers
-    }
-
-    /// The smallest unmasked z (`None` when all z is masked).
-    pub fn zmin(&self) -> Option<f64> {
-        self.state.zmin
-    }
-
-    /// The largest unmasked z.
-    pub fn zmax(&self) -> Option<f64> {
-        self.state.zmax
-    }
-
-    /// Whether levels and colours are log-scaled.
-    pub fn logscale(&self) -> bool {
-        self.state.logscale
-    }
-
-    /// Which ends are extended.
-    pub fn extend(&self) -> Extend {
-        self.state.extend
-    }
-
-    /// The norm's `(vmin, vmax)` after autoscaling to the levels.
-    pub fn norm_limits(&self) -> (Option<f64>, Option<f64>) {
-        self.state.norm_limits
-    }
-
-    /// The z interval `(lower, upper]` of every band of a filled contour:
-    /// consecutive levels including the `extend` sentinels, the lowest
-    /// bound lowered when it equals [`ContourSet::zmin`] so the minimum is
-    /// included (matplotlib's `_get_lowers_and_uppers`).
-    pub fn bands(&self) -> Vec<(f64, f64)> {
-        levels::bands(&self.state.extended, self.state.zmin, self.state.logscale)
-    }
-
-    /// One colour per level (lines) or band (fills), alpha applied.
-    pub fn colors(&self) -> Vec<Rgba> {
-        self.state
-            .colors
-            .iter()
-            .map(|&c| self.state.with_alpha(c))
-            .collect()
-    }
-
-    /// The line width of every level in points (empty for fills).
-    pub fn linewidths(&self) -> &[f64] {
-        &self.state.linewidths
-    }
-
-    /// The line style of every level (empty for fills).
-    pub fn linestyles(&self) -> &[LineStyle] {
-        &self.state.linestyles
-    }
-
-    /// The dash pattern of every level, scaled by its line width
-    /// (matplotlib's `get_linestyle`; solid lines have an empty pattern).
-    pub fn dash_patterns(&self) -> Vec<Dashes> {
-        self.state
-            .linestyles
-            .iter()
-            .zip(&self.state.linewidths)
-            .map(|(style, &width)| style.scaled_dashes(width, &self.state.rc))
-            .collect()
-    }
-
-    /// One compound path per level (lines) or band (fills), as currently
-    /// drawn (inline labels cut the lines).
-    pub fn paths(&self) -> Vec<Path> {
-        self.collections
-            .iter()
-            .flat_map(|c| c.raw().with::<CollectionArtist, _>(|c| c.paths.clone()))
-            .collect()
-    }
-
-    /// What matplotlib would have warned about.
-    pub fn warnings(&self) -> &[ContourWarning] {
-        &self.state.warnings
-    }
-
-    /// The labels added by [`ContourSet::clabel`], in creation order.
-    pub fn labels(&self) -> &[ContourLabel] {
-        &self.state.labels
-    }
-
-    /// Replaces the paths (one per level or band) in the collections.
-    pub(crate) fn set_paths(&self, paths: Vec<Path>) {
-        if let [only] = self.collections.as_slice() {
-            only.raw()
-                .with_mut::<CollectionArtist, _>(|c| c.paths = paths);
-            return;
-        }
-        for (collection, path) in self.collections.iter().zip(paths) {
-            collection
-                .raw()
-                .with_mut::<CollectionArtist, _>(|c| c.paths = vec![path]);
-        }
-    }
-}
-
-impl ContourState {
-    /// `color` with the set's alpha.
-    pub(crate) fn with_alpha(&self, color: Rgba) -> Rgba {
-        self.alpha.map_or(color, |a| color.with_alpha(a))
     }
 }
 

@@ -12,9 +12,6 @@ pub enum PyplotError {
     /// No image or other colour-mapped artist was made current in the
     /// current figure (`colorbar`, `clim`).
     NoCurrentImage,
-    /// The current image is a contour set, whose colours are fixed when it
-    /// is made (`clim`, `set_cmap` and the colormap shortcuts).
-    FixedContourColors,
     /// The current axes is not polar (`polar`, `rgrids`, `thetagrids`).
     NotPolar,
     /// An unknown colormap.
@@ -32,9 +29,6 @@ impl fmt::Display for PyplotError {
                 "no mappable was found: first define one such as an image (with imshow) \
                  or a contour set (with contourf)",
             ),
-            Self::FixedContourColors => f.write_str(
-                "the current image is a contour set, whose colormap and limits cannot change",
-            ),
             Self::NotPolar => f.write_str("the current axes is not polar"),
             Self::Colormap(err) => err.fmt(f),
             Self::Colorbar(err) => err.fmt(f),
@@ -49,7 +43,7 @@ impl std::error::Error for PyplotError {
             Self::Colormap(err) => Some(err),
             Self::Colorbar(err) => Some(err),
             Self::Plot(err) => Some(err),
-            Self::NoCurrentImage | Self::FixedContourColors | Self::NotPolar => None,
+            Self::NoCurrentImage | Self::NotPolar => None,
         }
     }
 }

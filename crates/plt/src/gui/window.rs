@@ -375,7 +375,7 @@ impl FigureWindow {
 
     /// Opens a window with sliders for the figure's subplot parameters,
     /// or raises it when it is open (matplotlib's `configure_subplots`).
-    fn configure_subplots(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+    pub(super) fn configure_subplots(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         if let Some(tool) = &self.subplot_tool {
             cx.raise_window(tool.window.id())?;
             return Ok(());

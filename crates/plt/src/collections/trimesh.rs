@@ -6,7 +6,11 @@ use plt_core::path::DataLimits;
 use plt_core::{Bbox, Point, Rgba};
 
 use super::{ColorMapping, Mapped};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistStore, DrawContext, LayoutContext, RawHandle,
+};
+use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
+use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 use crate::tri::Triangulation;
@@ -43,6 +47,11 @@ pub(crate) struct TriMeshArtist {
 }
 
 impl TriMeshArtist {
+    /// The norm and colormap.
+    pub(crate) fn mappable(&self) -> &ScalarMappable {
+        &self.mapping.source.mappable
+    }
+
     fn transform(&self) -> Transform {
         self.base.transform.clone().unwrap_or(Transform::Display)
     }
@@ -83,6 +92,18 @@ impl TriMeshArtist {
         ctx.renderer()
             .draw_gouraud_triangles(&gc, &corners, &shades, &resolved.affine_part());
         ctx.renderer().close_group("TriMesh");
+        Ok(())
+    }
+}
+
+impl ColorMapped for TriMeshArtist {
+    fn mapping_mut(&mut self) -> Option<&mut ScalarMappable> {
+        Some(&mut self.mapping.source.mappable)
+    }
+
+    /// Problems normalising the values are reported when drawing.
+    fn remap(&mut self, _others: &mut ArtistStore) -> Result<(), NormError> {
+        self.mapping.refresh();
         Ok(())
     }
 }
@@ -172,6 +193,40 @@ impl TriMesh {
         let mapped = Mapped::new(mapping);
         self.raw
             .with_mut::<TriMeshArtist, _>(|m| m.mapping = mapped);
+        colorizer::notify(&self.raw, true);
         Ok(self)
+    }
+
+    /// The colormap.
+    pub fn cmap(&self) -> Colormap {
+        self.raw
+            .with::<TriMeshArtist, _>(|m| m.mappable().cmap().clone())
+    }
+
+    /// The data values mapped to the ends of the colormap.
+    pub fn clim(&self) -> (Option<f64>, Option<f64>) {
+        self.raw.with::<TriMeshArtist, _>(|m| m.mappable().clim())
+    }
+
+    /// Replaces the colormap (matplotlib's `set_cmap`); the mesh's
+    /// colorbars follow.
+    pub fn set_cmap(&self, cmap: Colormap) -> &Self {
+        change_mapping::<TriMeshArtist>(&self.raw, MappingChange::Cmap(Box::new(cmap)));
+        self
+    }
+
+    /// Replaces the norm (matplotlib's `set_norm`); unset limits come
+    /// from the values and the mesh's colorbars follow.
+    pub fn set_norm(&self, norm: Box<dyn Norm>) -> &Self {
+        change_mapping::<TriMeshArtist>(&self.raw, MappingChange::Norm(norm));
+        self
+    }
+
+    /// Sets the data values mapped to the ends of the colormap
+    /// (matplotlib's `set_clim`); `None` leaves a limit unchanged. The
+    /// mesh's colorbars follow.
+    pub fn set_clim(&self, vmin: Option<f64>, vmax: Option<f64>) -> &Self {
+        change_mapping::<TriMeshArtist>(&self.raw, MappingChange::Clim(vmin, vmax));
+        self
     }
 }

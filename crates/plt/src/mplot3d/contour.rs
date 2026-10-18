@@ -43,8 +43,7 @@ impl Axes3D {
         let had_data = self.has_data();
         let field = rotated_field(&grid, options.zdir);
         let set = self.plane().contour(&field, options.contour)?;
-        let levels = set.levels().to_vec();
-        self.lift(&set, options.zdir, options.offset, &levels);
+        self.lift(&set, options.zdir, options.offset, &set.levels());
         self.auto_scale_xyz(x.as_slice(), y.as_slice(), Some(z.as_slice()), had_data)?;
         Ok(set)
     }
@@ -73,10 +72,10 @@ impl Axes3D {
             .windows(2)
             .map(|w| w[0] + (w[1] - w[0]) / 2.0)
             .collect();
-        if let ([first, second, ..], true) = (levels, extend.extends_min()) {
+        if let ([first, second, ..], true) = (levels.as_slice(), extend.extends_min()) {
             middles.insert(0, first - (second - first) / 2.0);
         }
-        if let ([.., before, last], true) = (levels, extend.extends_max()) {
+        if let ([.., before, last], true) = (levels.as_slice(), extend.extends_max()) {
             middles.push(last + (last - before) / 2.0);
         }
         self.lift(&set, options.zdir, options.offset, &middles);

@@ -4,9 +4,9 @@
 use super::children::DataUpdate;
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
-use crate::collections::Collection;
 use crate::contour::{
-    ContourError, ContourOptions, ContourPlan, ContourSet, ContourSource, Generator, QuadField,
+    ContourError, ContourOptions, ContourPlan, ContourSet, ContourSetArtist, ContourSource,
+    Generator, QuadField,
 };
 use crate::tri::{Triangulation, contour_source};
 
@@ -100,10 +100,14 @@ impl Axes {
         let mut collections = Vec::with_capacity(plan.collections.len());
         for mut collection in plan.collections {
             collection.base_mut().transform = Some(self.trans_data());
-            collections.push(Collection::from_raw(self.adopt(collection, &update)));
+            collections.push(self.adopt(collection, &update).id());
             update = DataUpdate::default();
         }
+        let set = self.adopt(
+            ContourSetArtist::new(plan.state, collections),
+            &DataUpdate::default(),
+        );
         self.raw().with_mut::<AxesState, _>(|a| a.tight = true);
-        Ok(ContourSet::new(self.clone(), collections, plan.state))
+        Ok(ContourSet::from_raw(self.clone(), set))
     }
 }

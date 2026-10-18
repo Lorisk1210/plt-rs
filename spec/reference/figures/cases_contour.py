@@ -209,3 +209,25 @@ def _(fig):
     t.set_mask(np.arange(len(t.triangles)) % 4 == 0)
     ax.triplot(t, "o-", color="tab:green", lw=1, ms=3)
     ax.set_aspect("equal")
+
+
+@case("contour/recolor_set_cmap", figsize=(5, 3.5))
+def _(fig):
+    ax = fig.subplots()
+    xx, yy, zz = _xyz()
+    cf = ax.contourf(xx, yy, zz, levels=8)
+    cl = ax.contour(xx, yy, zz, levels=cf.levels)
+    ax.clabel(cl)
+    fig.colorbar(cf, ax=ax)
+    cf.set_cmap("RdBu_r")
+    cf.set_clim(-1.5, 1.5)
+    cl.set_cmap("Greys")
+
+
+@case("contour/tripcolor_gouraud_colorbar", figsize=(5, 3.5))
+def _(fig):
+    ax = fig.subplots()
+    t = _triangulation()
+    tc = ax.tripcolor(t, _tri_z(t), shading="gouraud", cmap="magma")
+    fig.colorbar(tc, ax=ax)
+    tc.set_clim(-1.5, 1.5)

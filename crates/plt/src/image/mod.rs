@@ -50,6 +50,7 @@ pub use options::{Extent, ImageAlpha, Interpolation, InterpolationStage, Origin,
 pub use pcolor_image::PcolorImage;
 pub(crate) use pcolor_image::PcolorImageArtist;
 pub(crate) use resample::Resampling;
+pub(crate) use stages::normalize as normalize_scalars;
 
 use crate::rc::RcParams;
 

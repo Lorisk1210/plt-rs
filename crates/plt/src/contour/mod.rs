@@ -11,7 +11,8 @@
 //! * [`ContourSet`] — what `Axes::contour`, `contourf`, `tricontour` and
 //!   `tricontourf` return: the chosen levels, the bands of filled contours,
 //!   one compound path per level or band, their colours and styles, and
-//!   [`ContourSet::clabel`] to label line contours.
+//!   [`ContourSet::clabel`] to label line contours. Changing its colormap,
+//!   norm or limits recolours the contours, their labels and colorbars.
 //!
 //! ```
 //! use plt::contour::{ContourOptions, Levels, QuadField};
@@ -29,6 +30,7 @@
 mod assemble;
 mod error;
 mod grid;
+mod handle;
 mod label;
 mod levels;
 mod mpl2014;
@@ -38,11 +40,13 @@ mod style;
 
 pub use error::ContourError;
 pub use grid::{Origin, QuadCoords, QuadField};
+pub use handle::ContourSet;
 pub use label::{ClabelOptions, ContourLabel, LabelFormat};
 pub use levels::Levels;
 pub use mpl2014::QuadContourGenerator;
 pub use options::{ContourNorm, ContourOptions};
-pub use set::{ContourSet, ContourWarning};
+pub use set::ContourWarning;
 
 pub(crate) use assemble::LevelPath;
-pub(crate) use set::{ContourPlan, ContourSource, ContourState, Generator};
+pub(crate) use handle::ContourSetArtist;
+pub(crate) use set::{ContourPlan, ContourSource, Generator};

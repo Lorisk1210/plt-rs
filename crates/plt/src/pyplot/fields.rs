@@ -50,10 +50,7 @@ pub fn contourf(field: &QuadField, options: ContourOptions) -> Result<ContourSet
 /// # Errors
 ///
 /// As [`ContourSet::clabel`].
-pub fn clabel(
-    contours: &mut ContourSet,
-    options: &ClabelOptions,
-) -> Result<Vec<Text>, ContourError> {
+pub fn clabel(contours: &ContourSet, options: &ClabelOptions) -> Result<Vec<Text>, ContourError> {
     contours.clabel(options)
 }
 
@@ -91,9 +88,8 @@ pub fn tricontourf(
     Ok(contours)
 }
 
-/// Draws a pseudocolour plot of a triangulation on the current axes
-/// (matplotlib's `tripcolor`); flat shading becomes the current image
-/// (Gouraud meshes cannot be colour-mapped again).
+/// Draws a pseudocolour plot of a triangulation on the current axes and
+/// makes it the current image (matplotlib's `tripcolor`).
 ///
 /// # Errors
 ///
@@ -105,9 +101,7 @@ pub fn tripcolor(
 ) -> Result<Tripcolor, TripcolorError> {
     let ax = gca();
     let plot = ax.tripcolor(tri, values, options)?;
-    if let Tripcolor::Flat(cells) = &plot {
-        make_current(&ax, cells);
-    }
+    make_current(&ax, &plot);
     Ok(plot)
 }
 
@@ -179,8 +173,9 @@ pub fn streamplot(
 mod tests {
     use super::*;
     use crate::axes::ColorizingArtist;
+    use crate::axes::TriShading;
     use crate::numeric::{Grid, meshgrid};
-    use crate::pyplot::{close_all, gci};
+    use crate::pyplot::{clim, close_all, gci};
 
     fn field() -> QuadField {
         QuadField::new(Grid::from_fn(5, 5, |row, col| (row * col) as f64))
@@ -199,12 +194,12 @@ mod tests {
     fn contours_become_current_and_take_labels() {
         close_all();
         contourf(&field(), ContourOptions::default()).unwrap();
-        let mut lines = contour(&field(), ContourOptions::default()).unwrap();
+        let lines = contour(&field(), ContourOptions::default()).unwrap();
         let Some(ColorizingArtist::Contour(current)) = gci() else {
             panic!("the line contours are current");
         };
         assert_eq!(current.collections(), lines.collections());
-        let labels = clabel(&mut lines, &ClabelOptions::default()).unwrap();
+        let labels = clabel(&lines, &ClabelOptions::default()).unwrap();
         assert_ne!(labels.len(), 0);
         close_all();
     }
@@ -225,6 +220,18 @@ mod tests {
             panic!("flat shading by default");
         };
         assert!(matches!(gci(), Some(ColorizingArtist::Collection(c)) if c == cells));
+        let gouraud = TripcolorOptions {
+            shading: TriShading::Gouraud,
+            ..TripcolorOptions::default()
+        };
+        let Tripcolor::Gouraud(mesh) =
+            tripcolor(&tri, TriValues::Auto(z.to_vec()), gouraud).unwrap()
+        else {
+            panic!("Gouraud shading draws a mesh");
+        };
+        assert!(matches!(gci(), Some(ColorizingArtist::TriMesh(m)) if m == mesh));
+        clim(Some(0.0), Some(4.0)).unwrap();
+        assert_eq!(mesh.clim(), (Some(0.0), Some(4.0)));
         triplot(&tri, "k-", LineProps::default()).unwrap();
         close_all();
     }

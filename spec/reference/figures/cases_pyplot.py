@@ -87,3 +87,12 @@ def _(fig):
     plt.rgrids([0.5, 1.0, 1.5], ["a", "b", "c"], angle=45.0)
     plt.thetagrids([0.0, 90.0, 180.0, 270.0])
     plt.title("polar")
+
+
+@case("pyplot/contour_clim_cmap_after_colorbar")
+def _(fig):
+    xx, yy, zz = _xyz()
+    plt.contourf(xx, yy, zz, levels=8)
+    plt.colorbar()
+    plt.clim(-0.2, 0.3)
+    plt.magma()

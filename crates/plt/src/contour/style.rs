@@ -8,6 +8,7 @@ use super::{ContourError, ContourNorm, ContourOptions};
 use crate::colors::{
     Color, Colormap, Extend, LogNorm, NoNorm, Norm, Normalize, ScalarMappable, colormaps,
 };
+use crate::image::ScalarKind;
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 
@@ -22,6 +23,8 @@ pub(crate) struct ColorPlan {
     /// The value mapped to each colour (matplotlib's `cvalues`): the
     /// layers, or colour indices for explicit colours.
     pub(crate) cvalues: Vec<f64>,
+    /// Whether the `cvalues` are layers or colour indices.
+    pub(crate) cvalue_kind: ScalarKind,
     /// The norm limits after autoscaling to the levels.
     pub(crate) norm_limits: (Option<f64>, Option<f64>),
     /// Whether the colormap has a single colour (negative levels of line
@@ -81,6 +84,7 @@ pub(crate) fn map_colors(
         norm_limits: (norm.vmin(), norm.vmax()),
         monochrome: cmap.is_monochrome(),
         cvalues: coloring.layers.to_vec(),
+        cvalue_kind: ScalarKind::Float,
         mapping: Some(ScalarMappable::with_norm(cmap, norm)),
     })
 }
@@ -108,6 +112,7 @@ fn indexed_colors(
             colors: Vec::new(),
             mapping: None,
             cvalues: Vec::new(),
+            cvalue_kind: ScalarKind::Integer,
             norm_limits,
             monochrome: true,
         });
@@ -128,6 +133,7 @@ fn indexed_colors(
     Ok(ColorPlan {
         colors: indices.iter().map(|&i| cmap.sample_index(i)).collect(),
         cvalues: indices.iter().map(|&i| i as f64).collect(),
+        cvalue_kind: ScalarKind::Integer,
         norm_limits,
         monochrome: cmap.is_monochrome(),
         mapping: Some(ScalarMappable::with_norm(cmap, Box::new(norm))),

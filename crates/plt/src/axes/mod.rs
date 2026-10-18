@@ -481,6 +481,19 @@ impl Axes {
         self
     }
 
+    /// Replaces the scale object of one axis and of the axes sharing it,
+    /// keeping their tick helpers and limits (a colorbar following the new
+    /// limits of a norm its scale is made from).
+    pub(crate) fn adopt_scale(&self, axis: AxisName, scale: Box<dyn Scale>) {
+        let scale: Rc<dyn Scale> = Rc::from(scale);
+        self.raw
+            .figure_state()
+            .borrow_mut()
+            .update_shared_axis(self.id(), axis, |state| {
+                state.adopt_scale(Rc::clone(&scale));
+            });
+    }
+
     /// The name of the x scale.
     pub fn xscale(&self) -> &'static str {
         self.raw.with::<AxesState, _>(|a| a.xaxis.scale().name())

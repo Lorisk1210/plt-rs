@@ -55,7 +55,8 @@
 //! interactive mode ([`ion`]) new figures open their windows at once and
 //! [`show`] returns immediately; [`pause`] keeps the windows responsive
 //! for a while, and [`ginput`] and [`waitforbuttonpress`] wait for clicks
-//! and keys in them.
+//! and keys in them; [`subplot_tool`] opens the sliders adjusting the
+//! subplot layout of a figure.
 //!
 //! matplotlib's introspection helpers (`setp`, `getp`, `get`,
 //! `get_plot_commands`) and its backend machinery (`switch_backend`,

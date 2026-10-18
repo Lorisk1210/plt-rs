@@ -1,10 +1,17 @@
 //! Colorbars built end to end, checked against values from matplotlib.
 
 use super::*;
-use crate::axes::{ImshowOptions, MappedColors, ScatterColors, ScatterOptions};
-use crate::colors::{BoundaryNorm, Normalize, colormaps};
+use crate::artist::ArtistId;
+use crate::axes::{
+    ImshowOptions, MappedColors, ScatterColors, ScatterOptions, TriShading, TriValues, Tripcolor,
+    TripcolorOptions,
+};
+use crate::collections::CollectionArtist;
+use crate::colors::{BoundaryNorm, LogNorm, Normalize, ScalarMappable, colormaps};
+use crate::contour::{ContourOptions, Levels, QuadField};
 use crate::numeric::Grid;
 use crate::spines::SpineSide;
+use crate::tri::Triangulation;
 
 fn close(actual: (f64, f64, f64, f64), expected: [f64; 4]) -> bool {
     let actual = [actual.0, actual.1, actual.2, actual.3];
@@ -165,4 +172,132 @@ fn scatter_colorbars_follow_the_mapped_values() {
         .unwrap();
     let colorbar = fig.colorbar(&points, ColorbarOptions::default()).unwrap();
     assert_eq!(colorbar.ax().ylim(), (1.0, 3.0));
+    points.set_clim(None, Some(5.0));
+    assert_eq!(colorbar.ax().ylim(), (1.0, 5.0));
+}
+
+/// The colormap name of the colorbar's colour blocks, and how many
+/// collections its axes holds.
+fn solids(colorbar: &Colorbar) -> (String, usize) {
+    let id = colorbar.read(|state| state.drawn.solids).expect("filled");
+    let children = colorbar
+        .ax()
+        .raw()
+        .with::<AxesState, _>(|axes| axes.children.clone());
+    let figure = colorbar.ax().raw().figure_state().borrow();
+    let collection = |id: ArtistId| figure.store.get_as::<CollectionArtist>(id);
+    let name = collection(id)
+        .and_then(|c| c.mapping.as_ref())
+        .map(|mapped| mapped.source.mappable.cmap().name().to_owned())
+        .unwrap_or_default();
+    let count = children
+        .into_iter()
+        .filter(|&c| collection(c).is_some())
+        .count();
+    (name, count)
+}
+
+#[test]
+fn colorbars_follow_limits_and_colormaps() {
+    let (fig, _, image) = image_figure();
+    let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+    colorbar.set_ticks(vec![0.0, 0.25]);
+    image.set_clim(Some(-0.25), Some(0.5));
+    assert_eq!(colorbar.ax().ylim(), (-0.25, 0.5));
+    image.set_cmap(colormaps::get("magma").unwrap());
+    assert_eq!(
+        solids(&colorbar),
+        ("magma".to_owned(), 1),
+        "old blocks removed"
+    );
+    let ticks = colorbar.ax().ticks(AxisName::Y).unwrap();
+    let locs: Vec<f64> = ticks.major.iter().map(|t| t.loc).collect();
+    assert_eq!(locs, [0.0, 0.25], "ticks set on the colorbar stay");
+}
+
+#[test]
+fn a_new_norm_brings_its_scale() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let data = Grid::from_fn(4, 4, |r, c| 1.0 + (r * 4 + c) as f64 * 10.0);
+    let image = ax.imshow(data, ImshowOptions::default()).unwrap();
+    let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+    assert_eq!(colorbar.ax().yscale(), "linear");
+    image.set_norm(Box::new(LogNorm::default()));
+    assert_eq!(
+        image.clim(),
+        (Some(1.0), Some(151.0)),
+        "autoscaled to the data"
+    );
+    assert_eq!(colorbar.ax().yscale(), "log");
+    assert_eq!(colorbar.ax().ylim(), (1.0, 151.0));
+}
+
+#[test]
+fn contour_colorbars_follow_recolouring() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let field = QuadField::new(Grid::from_fn(4, 5, |i, j| (i + j) as f64));
+    let options = ContourOptions {
+        levels: Levels::Values(vec![0.0, 2.0, 4.0, 7.0]),
+        ..ContourOptions::default()
+    };
+    let fills = ax.contourf(&field, options).unwrap();
+    let colorbar = fig.colorbar(&fills, ColorbarOptions::default()).unwrap();
+    fills.set_cmap(colormaps::get("plasma").unwrap());
+    fills.set_clim(Some(-5.0), None);
+    assert_eq!(solids(&colorbar).0, "plasma");
+    assert_eq!(colorbar.ax().ylim(), (0.0, 7.0), "the levels stay");
+    let lines = ax.contour(&field, ContourOptions::default()).unwrap();
+    let lined = fig.colorbar(&lines, ColorbarOptions::default()).unwrap();
+    lines.set_cmap(colormaps::get("gray").unwrap());
+    assert_eq!(
+        lined.read(|state| state.drawn.lines.len()),
+        1,
+        "the contour lines are redrawn, not added"
+    );
+}
+
+#[test]
+fn gouraud_meshes_have_colorbars() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let tri = Triangulation::delaunay(&[0.0, 1.0, 0.0, 1.0], &[0.0, 0.0, 1.0, 1.0]).unwrap();
+    let options = TripcolorOptions {
+        shading: TriShading::Gouraud,
+        ..TripcolorOptions::default()
+    };
+    let plot = ax
+        .tripcolor(&tri, TriValues::Auto(vec![0.0, 1.0, 2.0, 3.0]), options)
+        .unwrap();
+    let colorbar = fig.colorbar(&plot, ColorbarOptions::default()).unwrap();
+    assert_eq!(colorbar.ax().ylim(), (0.0, 3.0));
+    let Tripcolor::Gouraud(mesh) = plot else {
+        panic!("Gouraud shading draws a mesh");
+    };
+    mesh.set_clim(None, Some(6.0));
+    assert_eq!(colorbar.ax().ylim(), (0.0, 6.0));
+}
+
+#[test]
+fn colorbars_in_other_figures_keep_a_copy() {
+    let (_, _, image) = image_figure();
+    let other = Figure::new();
+    let options = ColorbarOptions {
+        axes: ColorbarAxes::Cax(other.add_axes([0.85, 0.1, 0.05, 0.8])),
+        ..ColorbarOptions::default()
+    };
+    let colorbar = other.colorbar(&image, options).unwrap();
+    image.set_clim(Some(-2.0), Some(2.0));
+    assert_eq!(colorbar.ax().ylim(), (-0.5, 0.5));
+}
+
+#[test]
+fn removed_mappables_have_no_colorbar() {
+    let (fig, _, image) = image_figure();
+    image.remove();
+    assert_eq!(
+        fig.colorbar(&image, ColorbarOptions::default()).err(),
+        Some(ColorbarError::RemovedMappable)
+    );
 }

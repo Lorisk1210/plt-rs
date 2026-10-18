@@ -28,6 +28,10 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("pyplot/contour_colorbar_labels", contour_colorbar_labels),
     FigureCase::new("pyplot/subplot2grid_twin", subplot2grid_twin),
     FigureCase::new("pyplot/polar_grids", polar_grids),
+    FigureCase::new(
+        "pyplot/contour_clim_cmap_after_colorbar",
+        contour_clim_cmap_after_colorbar,
+    ),
 ];
 
 /// Runs `build` with `fig` as pyplot's current figure, then lets pyplot
@@ -126,8 +130,22 @@ fn contour_colorbar_labels(fig: &Figure) -> CaseResult {
             linewidths: Some(vec![0.6]),
             ..ContourOptions::default()
         };
-        let mut contours = pyplot::contour(&field, lines)?;
-        pyplot::clabel(&mut contours, &ClabelOptions::default())?;
+        let contours = pyplot::contour(&field, lines)?;
+        pyplot::clabel(&contours, &ClabelOptions::default())?;
+        Ok(())
+    })
+}
+
+fn contour_clim_cmap_after_colorbar(fig: &Figure) -> CaseResult {
+    with_current(fig, || {
+        let fills = ContourOptions {
+            levels: Levels::Count(8),
+            ..ContourOptions::default()
+        };
+        pyplot::contourf(&xyz(), fills)?;
+        pyplot::colorbar(None, ColorbarOptions::default())?;
+        pyplot::clim(Some(-0.2), Some(0.3))?;
+        pyplot::magma()?;
         Ok(())
     })
 }

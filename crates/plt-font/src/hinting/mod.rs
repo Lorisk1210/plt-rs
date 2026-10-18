@@ -35,6 +35,10 @@
 //! backward jumps, the `maxp` sizes for stack, storage, definitions and
 //! twilight points) plus a work budget on the points instructions visit,
 //! so it can neither crash, nor hang, nor allocate without bound.
+//!
+//! The TrueType driver and interpreter are copyright David Turner, Robert
+//! Wilhelm and Werner Lemberg, and ported here under the FreeType License
+//! (FTL).
 
 mod error;
 mod interp;

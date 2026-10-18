@@ -125,6 +125,27 @@ def _(fig):
     fig.tight_layout(pad=2.0, w_pad=4.0)
 
 
+@case("layout/autolayout_rc", rc={"figure.autolayout": True})
+def _(fig):
+    axs = fig.subplots(2, 2)
+    for i, ax in enumerate(axs.flat):
+        ax.plot(T, 1e4 * np.sin(T + i))
+        ax.set_xlabel("a rather long x axis label")
+        ax.set_ylabel("long y label\nwith two lines")
+        ax.set_title(f"panel title {i}")
+
+
+@case("layout/tight_engine_colorbar")
+def _(fig):
+    fig.set_layout_engine("tight")
+    axs = fig.subplots(1, 2)
+    for i, ax in enumerate(axs):
+        mesh = ax.pcolormesh(GRID + i, cmap="viridis")
+        fig.colorbar(mesh, ax=ax, label="value")
+        ax.set_title(f"panel {i}")
+        ax.set_ylabel("rows")
+
+
 # --- constrained layout ----------------------------------------------------
 
 

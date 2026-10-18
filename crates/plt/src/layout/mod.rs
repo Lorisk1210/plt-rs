@@ -44,6 +44,9 @@ use crate::spines::SpineSide;
 pub enum LayoutEngine {
     /// Constrained layout (matplotlib's `ConstrainedLayoutEngine`).
     Constrained(ConstrainedLayout),
+    /// Tight layout at every draw (matplotlib's `TightLayoutEngine`,
+    /// `layout="tight"` or `figure.autolayout`).
+    Tight(TightLayout),
 }
 
 impl LayoutEngine {
@@ -52,6 +55,7 @@ impl LayoutEngine {
     pub fn colorbar_gridspec(&self) -> bool {
         match self {
             Self::Constrained(_) => false,
+            Self::Tight(_) => true,
         }
     }
 }
@@ -94,13 +98,18 @@ pub(crate) struct LayoutState {
 }
 
 impl LayoutState {
-    /// No colorbars, and the engine the rc parameters ask for
-    /// (`figure.constrained_layout.use`).
+    /// No colorbars, and the engine the rc parameters ask for:
+    /// `figure.autolayout` before `figure.constrained_layout.use`, as in
+    /// matplotlib's `set_layout_engine(None)`.
     pub(crate) fn from_rc(rc: &RcParams) -> Self {
+        let engine = if rc.figure_autolayout {
+            Some(LayoutEngine::Tight(TightLayout::default()))
+        } else {
+            rc.figure_constrained_layout_use
+                .then(|| LayoutEngine::Constrained(ConstrainedLayout::from_rc(rc)))
+        };
         Self {
-            engine: rc
-                .figure_constrained_layout_use
-                .then(|| LayoutEngine::Constrained(ConstrainedLayout::from_rc(rc))),
+            engine,
             colorbars: Vec::new(),
             pending: true,
             label_groups: LabelGroups::default(),
@@ -135,6 +144,12 @@ impl FigureState {
         }
         match self.layout.engine {
             Some(LayoutEngine::Constrained(params)) => constrained::execute(self, &params),
+            Some(LayoutEngine::Tight(params)) => {
+                let axes = self.all_axes();
+                // A figure tight layout cannot fit keeps its parameters,
+                // as matplotlib's engine does (after a warning).
+                let _ = self.tight_layout_pass(self.root, &axes, &params);
+            }
             None => {}
         }
     }

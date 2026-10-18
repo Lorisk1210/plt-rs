@@ -43,8 +43,17 @@ const ROUNDING_NOISE_RATIO: &str = "after linear detrending every segment's zero
      term is rounding noise (~1e-15), so the coherence there is a ratio of noise that depends \
      on numpy's FFT summation order; every other bin matches";
 
+const SMALLER_THAN_A_TOOTH: &str = "a box smaller than one tooth makes matplotlib ask numpy's \
+     linspace for a negative number of samples, which raises; plt-rs draws plain edges rather \
+     than failing the figure";
+
 /// Every waiver, grouped by area.
 pub const WAIVERS: &[Waiver] = &[
+    Waiver {
+        op: "patches.BoxStyle",
+        args: r#"{"style": "roundtooth,pad=0.2,tooth_size=1"}"#,
+        reason: SMALLER_THAN_A_TOOTH,
+    },
     Waiver {
         op: "ticker.AsinhLocator.__call__",
         args: r#"{"params": {"linear_width": 10.0, "numticks": 7}, "view": [10.0, 100.0]}"#,

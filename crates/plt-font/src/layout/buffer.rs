@@ -199,6 +199,15 @@ pub(crate) enum AttachKind {
     Cursive,
 }
 
+/// HarfBuzz's buffer limits, which keep hostile fonts from multiplying the
+/// buffer (multiple substitutions applied by lookup after lookup) or the
+/// work (contextual lookups nesting several lookups per level): the buffer
+/// grows to at most 64 times its input length, and nested lookups run at
+/// most 1024 times per input glyph, each with a floor of 16384.
+const MAX_LEN_FACTOR: usize = 64;
+const MAX_OPS_FACTOR: usize = 1024;
+const LIMIT_FLOOR: usize = 16384;
+
 /// Glyphs plus positions, with a cursor used while applying lookups.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Buffer {
@@ -206,17 +215,36 @@ pub(crate) struct Buffer {
     pub(crate) pos: Vec<GlyphPos>,
     pub(crate) idx: usize,
     next_lig_id: u8,
+    max_len: usize,
+    ops_left: usize,
 }
 
 impl Buffer {
     pub(crate) fn new(info: Vec<GlyphInfo>) -> Self {
         let pos = vec![GlyphPos::default(); info.len()];
+        let limit = |factor: usize| info.len().saturating_mul(factor).max(LIMIT_FLOOR);
         Self {
+            max_len: limit(MAX_LEN_FACTOR),
+            ops_left: limit(MAX_OPS_FACTOR),
             info,
             pos,
             idx: 0,
             next_lig_id: 0,
         }
+    }
+
+    /// Whether `extra` more glyphs stay within the length limit.
+    pub(crate) fn can_grow(&self, extra: usize) -> bool {
+        self.len().saturating_add(extra) <= self.max_len
+    }
+
+    /// Spends one nested-lookup operation; `false` once none are left.
+    pub(crate) fn spend_op(&mut self) -> bool {
+        let Some(left) = self.ops_left.checked_sub(1) else {
+            return false;
+        };
+        self.ops_left = left;
+        true
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -353,6 +381,20 @@ mod tests {
         merge_clusters(&mut clusters, 3, 3, |c| c);
         merge_clusters(&mut clusters, 2, 9, |c| c);
         assert_eq!(clusters, vec![0; 4]);
+    }
+
+    #[test]
+    fn growth_and_work_are_limited() {
+        let mut buffer = Buffer::new(vec![info(1, 0); 2]);
+        assert!(buffer.can_grow(LIMIT_FLOOR - 2));
+        assert!(!buffer.can_grow(LIMIT_FLOOR - 1));
+        assert!(!buffer.can_grow(usize::MAX));
+        assert_eq!(
+            (0..LIMIT_FLOOR + 5).filter(|_| buffer.spend_op()).count(),
+            LIMIT_FLOOR
+        );
+        let long = Buffer::new(vec![info(1, 0); 1000]);
+        assert!(long.can_grow(63_000) && !long.can_grow(63_001));
     }
 
     #[test]

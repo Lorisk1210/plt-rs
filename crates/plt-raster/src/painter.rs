@@ -559,4 +559,30 @@ mod tests {
                 .is_err()
         );
     }
+
+    #[test]
+    fn hostile_strokes_fail_fast() {
+        // 1e15 dashes, each capped by thousands of points, all clipped away:
+        // the edge count trips the cell limit and stroking stops early.
+        let mut painter = Painter::with_cell_limit(1 << 16);
+        let mut target = Pixmap::new(8, 8).unwrap();
+        let line = Path::polyline(vec![p(0.0, 4.0), p(1e6, 4.0)]);
+        let dashes = DashPattern::new(vec![(1e-9, 1e-9)], 0.0).unwrap();
+        let style = StrokeStyle::new(1e9)
+            .with_cap(LineCap::Round)
+            .with_dashes(Some(dashes));
+        let clip = Clip::rect(ClipBox::new(100, 100, 108, 108));
+        let result = painter.stroke_path(
+            &mut target,
+            &line,
+            Rgba::BLACK,
+            &style,
+            Antialias::On,
+            &clip,
+        );
+        assert_eq!(
+            result,
+            Err(RasterError::CellLimitExceeded { limit: 1 << 16 })
+        );
+    }
 }

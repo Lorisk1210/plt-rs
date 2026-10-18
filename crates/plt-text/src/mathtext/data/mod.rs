@@ -338,4 +338,47 @@ mod tests {
         assert!(is_space(' ') && is_space('\u{2003}') && !is_space('x'));
         assert_eq!(BakomaFile::Cmsy10.family(), "cmsy10");
     }
+
+    /// Every name the tables know, typeset alone, as a script, as a
+    /// command taking an argument and as a delimiter, in every built-in
+    /// fontset: each must give a layout or a mathtext error.
+    #[test]
+    fn every_symbol_name_typesets_or_errors() {
+        use crate::TextEngine;
+        use crate::mathtext::{Fontset, MathStyle};
+
+        let names = tex2uni::TEX2UNI
+            .iter()
+            .map(|(name, _)| *name)
+            .chain(bakoma::LATEX_TO_BAKOMA.iter().map(|(name, _, _)| *name))
+            .chain(bakoma::SIZE_ALTERNATIVES.iter().map(|(name, _)| *name))
+            .chain(symbols::ACCENT_MAP.iter().map(|(name, _)| *name))
+            .chain(symbols::FUNCTION_NAMES.iter().copied())
+            .chain(symbols::FONT_NAMES.iter().copied())
+            .chain(symbols::SPACE_WIDTHS.iter().map(|(name, _)| *name))
+            .chain(symbols::WIDE_ACCENTS.iter().copied());
+        let sources: Vec<String> = names
+            .flat_map(|name| {
+                let c = if name.starts_with('\\') {
+                    name.to_owned()
+                } else {
+                    format!("\\{name}")
+                };
+                [
+                    format!("${c} x^{c}_{{{c}}}$"),
+                    format!("${c}{{y}}$"),
+                    format!("$\\left{c}z\\right{c}$"),
+                ]
+            })
+            .collect();
+        for fontset in [Fontset::DejaVuSans, Fontset::Cm, Fontset::Stix] {
+            let style = MathStyle::default().with_fontset(fontset);
+            for source in &sources {
+                match TextEngine::global().typeset_math(source, &style) {
+                    Ok(layout) => drop(layout.to_text_run()),
+                    Err(err) => assert!(matches!(err, crate::TextError::Math(_)), "{source}"),
+                }
+            }
+        }
+    }
 }

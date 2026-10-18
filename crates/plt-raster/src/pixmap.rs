@@ -17,6 +17,25 @@ pub(crate) fn pixel_count(width: u32, height: u32) -> Result<usize, RasterError>
         .ok_or(RasterError::InvalidDimensions { width, height })
 }
 
+/// A `width × height` buffer repeating `pixel`. Sizes the allocator refuses
+/// (accepted per side, but terabytes in total) are reported as
+/// [`RasterError::InvalidDimensions`] instead of aborting the process.
+pub(crate) fn filled_buffer(width: u32, height: u32, pixel: &[u8]) -> Result<Vec<u8>, RasterError> {
+    let invalid = RasterError::InvalidDimensions { width, height };
+    let len = pixel_count(width, height)?
+        .checked_mul(pixel.len())
+        .ok_or_else(|| invalid.clone())?;
+    let mut data = Vec::new();
+    data.try_reserve_exact(len).map_err(|_| invalid)?;
+    if len > 0 {
+        data.extend_from_slice(pixel);
+        while data.len() < len {
+            data.extend_from_within(..data.len().min(len - data.len()));
+        }
+    }
+    Ok(data)
+}
+
 /// An RGBA image, 8 bits per channel, rows top to bottom, straight
 /// (non-premultiplied) alpha — the layout of matplotlib's Agg buffer
 /// (`pixfmt_rgba32_plain`) and of `buffer_rgba()`.
@@ -45,11 +64,10 @@ impl Pixmap {
     /// Creates a pixmap filled with `color`. matplotlib's canvas starts as
     /// [`Rgba8::TRANSPARENT_WHITE`].
     pub fn filled(width: u32, height: u32, color: Rgba8) -> Result<Self, RasterError> {
-        let n = pixel_count(width, height)?;
         Ok(Self {
             width,
             height,
-            data: color.to_array().repeat(n),
+            data: filled_buffer(width, height, &color.to_array())?,
         })
     }
 
@@ -250,6 +268,22 @@ mod tests {
             })
         );
         assert_eq!(Pixmap::new(0, 5).unwrap().data(), []);
+    }
+
+    #[test]
+    fn unallocatable_sizes_are_errors() {
+        // Each side is accepted, but the buffer would take 281 TB.
+        let side = MAX_DIMENSION - 1;
+        assert_eq!(
+            Pixmap::new(side, side),
+            Err(RasterError::InvalidDimensions {
+                width: side,
+                height: side
+            })
+        );
+        let odd = Pixmap::filled(3, 5, Rgba8::new(1, 2, 3, 4)).unwrap();
+        assert!(odd.data().chunks(4).all(|px| px == [1, 2, 3, 4]));
+        assert_eq!(odd.data().len(), 60);
     }
 
     #[test]

@@ -22,6 +22,13 @@ const LAYOUT_FEATURES: [&[u8; 4]; 66] = [
     b"vatu", b"vchw", b"vert", b"vhal", b"vjmo", b"vkrn",
 ];
 
+/// Deepest nesting of contextual lookups followed (HarfBuzz's limit).
+/// Each nested application may add glyphs, which resets the memo, so a
+/// self-applying lookup would otherwise recurse once per glyph. Deeper
+/// applications are left to the next round of the fixpoint loop, with the
+/// memo cleared since it no longer tells which glyphs were fully processed.
+const MAX_NESTING: u8 = 64;
+
 /// Lookup types that may replace one glyph by several or several by one
 /// (fontTools' `may_have_non_1to1`).
 const fn may_have_non_1to1(kind: u16) -> bool {
@@ -61,6 +68,8 @@ struct Closure<'a> {
     /// Per lookup: the glyph count the memo is valid for, and the glyphs
     /// processed since.
     done: HashMap<u16, (usize, BTreeSet<GlyphId>)>,
+    /// Lookups being applied inside each other.
+    nesting: u8,
 }
 
 /// The coverage-indexed offsets of a subtable after `skip` bytes: the
@@ -146,6 +155,10 @@ impl Closure<'_> {
     /// Applies lookup `index` to `targets` (fontTools'
     /// `Lookup.closure_glyphs`).
     fn lookup(&mut self, index: u16, targets: Targets) -> Result<()> {
+        if self.nesting >= MAX_NESTING {
+            self.done.clear();
+            return Ok(());
+        }
         let Some(lookup) = self.table.lookup(index) else {
             return Ok(());
         };
@@ -165,10 +178,12 @@ impl Closure<'_> {
             return Ok(());
         }
         memo.1.extend(current.iter().copied());
-        for subtable in lookup.subtables() {
-            self.subtable(lookup.kind, subtable, &current)?;
-        }
-        Ok(())
+        self.nesting += 1;
+        let applied = lookup
+            .subtables()
+            .try_for_each(|subtable| self.subtable(lookup.kind, subtable, &current));
+        self.nesting -= 1;
+        applied
     }
 
     fn subtable(&mut self, kind: u16, data: &[u8], current: &BTreeSet<GlyphId>) -> Result<()> {
@@ -555,6 +570,7 @@ pub(super) fn close_over_gsub(gsub: &[u8], glyphs: &mut BTreeSet<GlyphId>) -> Re
         table,
         glyphs: std::mem::take(glyphs),
         done: HashMap::new(),
+        nesting: 0,
     };
     loop {
         let before = closure.glyphs.len();

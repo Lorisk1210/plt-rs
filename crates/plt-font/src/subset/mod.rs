@@ -91,6 +91,34 @@ mod tests {
         assert!(parsed.table(Tag::new(b"GSUB")).is_none());
     }
 
+    /// A `GSUB` whose `ccmp` lookup 0 (chaining context, format 3) applies
+    /// lookup 1 (`g → g + 1` for `g < glyphs`) and then itself at every
+    /// covered glyph.
+    fn self_applying_gsub(glyphs: u16) -> Vec<u8> {
+        let mut t = Vec::new();
+        let mut put = |values: &[u16]| t.extend(values.iter().flat_map(|v| v.to_be_bytes()));
+        let range = [2, 1, 0, glyphs - 1, 0];
+        put(&[1, 0, 10, 30, 44]);
+        put(&[1, 0x4446, 0x4C54, 8, 4, 0, 0, 0xFFFF, 1, 0]);
+        put(&[1, 0x6363, 0x6D70, 8, 0, 1, 0]);
+        put(&[2, 6, 44]);
+        put(&[6, 0, 1, 8, 3, 0, 1, 20, 0, 2, 0, 1, 0, 0]);
+        put(&range);
+        put(&[1, 0, 1, 8, 1, 6, 1]);
+        put(&range);
+        t
+    }
+
+    #[test]
+    fn self_applying_lookups_close_without_deep_recursion() {
+        // Every nested application adds one glyph and resets the memo: the
+        // recursion would be 1000 lookups deep.
+        let gsub = self_applying_gsub(1000);
+        let mut glyphs = std::collections::BTreeSet::from([GlyphId(0)]);
+        gsub::close_over_gsub(&gsub, &mut glyphs).expect("valid table");
+        assert_eq!(glyphs.len(), 1001);
+    }
+
     #[test]
     fn closes_over_ligatures_and_components() {
         let (db, id) = dejavu();

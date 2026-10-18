@@ -29,8 +29,9 @@ impl Stroker {
     }
 
     /// Emits the generated vertices of `out`, the first one as a move-to
-    /// when `first` is set.
-    fn emit<S: PathSink + ?Sized>(points: &[Point], first: &mut bool, sink: &mut S) {
+    /// when `first` is set. Returns `false` once the sink is saturated, so
+    /// that the caller stops computing caps and joins nobody will draw.
+    fn emit<S: PathSink + ?Sized>(points: &[Point], first: &mut bool, sink: &mut S) -> bool {
         for &p in points {
             if *first {
                 sink.move_to(p);
@@ -39,6 +40,7 @@ impl Stroker {
                 sink.line_to(p);
             }
         }
+        !sink.is_saturated()
     }
 }
 
@@ -82,7 +84,9 @@ impl SubpathGenerator for Stroker {
                     src.prev(i).dist,
                     src.get(i).dist,
                 );
-                Self::emit(out, &mut first, sink);
+                if !Self::emit(out, &mut first, sink) {
+                    return;
+                }
             }
             sink.close();
             first = true;
@@ -95,11 +99,15 @@ impl SubpathGenerator for Stroker {
                     src.get(i).dist,
                     src.prev(i).dist,
                 );
-                Self::emit(out, &mut first, sink);
+                if !Self::emit(out, &mut first, sink) {
+                    return;
+                }
             }
         } else {
             math.calc_cap(out, src.get(0), src.get(1), src.get(0).dist);
-            Self::emit(out, &mut first, sink);
+            if !Self::emit(out, &mut first, sink) {
+                return;
+            }
             for i in 1..n - 1 {
                 math.calc_join(
                     out,
@@ -109,10 +117,14 @@ impl SubpathGenerator for Stroker {
                     src.prev(i).dist,
                     src.get(i).dist,
                 );
-                Self::emit(out, &mut first, sink);
+                if !Self::emit(out, &mut first, sink) {
+                    return;
+                }
             }
             math.calc_cap(out, src.get(n - 1), src.get(n - 2), src.get(n - 2).dist);
-            Self::emit(out, &mut first, sink);
+            if !Self::emit(out, &mut first, sink) {
+                return;
+            }
             for i in (1..n - 1).rev() {
                 math.calc_join(
                     out,
@@ -122,7 +134,9 @@ impl SubpathGenerator for Stroker {
                     src.get(i).dist,
                     src.prev(i).dist,
                 );
-                Self::emit(out, &mut first, sink);
+                if !Self::emit(out, &mut first, sink) {
+                    return;
+                }
             }
         }
         sink.close();
@@ -164,6 +178,10 @@ impl<S: PathSink + ?Sized> PathSink for StrokeSink<'_, S> {
 
     fn close(&mut self) {
         self.acc.close(self.stroker, self.out);
+    }
+
+    fn is_saturated(&self) -> bool {
+        self.out.is_saturated()
     }
 }
 

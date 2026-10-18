@@ -7,6 +7,12 @@ use super::{Vertex, VertexSource};
 use crate::Point;
 use crate::path::PathCode;
 
+/// The total length (in units, hence pieces) a [`Segmenter`] cuts per pass:
+/// thousands of canvas-high strokes, yet a bound for hostile coordinates
+/// (Agg would cut a `1e300`-long line into `1e300` pieces). Lines beyond the
+/// budget are passed through whole.
+const PIECE_BUDGET: f64 = 16_777_216.0;
+
 /// Parameters of matplotlib's sketch filter (`set_sketch_params`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SketchParams {
@@ -49,7 +55,8 @@ impl Lcg {
 }
 
 /// Agg's `conv_adaptor_vpgen<_, vpgen_segmentator>` at approximation scale
-/// 1: splits every line into pieces of at most one unit.
+/// 1: splits every line into pieces of at most one unit, within
+/// [`PIECE_BUDGET`].
 #[derive(Clone, Debug)]
 struct Segmenter<I> {
     source: I,
@@ -62,6 +69,8 @@ struct Segmenter<I> {
     start: Point,
     pending_close: bool,
     vertices: usize,
+    /// The length that may still be cut into pieces in this pass.
+    budget: f64,
 }
 
 impl<I: VertexSource> Segmenter<I> {
@@ -76,6 +85,7 @@ impl<I: VertexSource> Segmenter<I> {
             start: Point::ORIGIN,
             pending_close: false,
             vertices: 0,
+            budget: PIECE_BUDGET,
         }
     }
 
@@ -92,9 +102,11 @@ impl<I: VertexSource> Segmenter<I> {
         self.delta = p - self.origin;
         let len = (self.delta.x * self.delta.x + self.delta.y * self.delta.y).sqrt();
         let len = if len < 1e-30 { 1e-30 } else { len };
-        // Non-finite lengths would never terminate in Agg; emit the end point.
+        // Non-finite lengths would never terminate in Agg, and lengths beyond
+        // the budget would take too long: emit the end point.
         let ddl = 1.0 / len;
-        self.ddl = if ddl.is_finite() && ddl > 0.0 {
+        self.ddl = if ddl.is_finite() && ddl > 0.0 && len <= self.budget {
+            self.budget -= len;
             ddl
         } else {
             1.0
@@ -170,6 +182,7 @@ impl<I: VertexSource> VertexSource for Segmenter<I> {
         self.start = Point::ORIGIN;
         self.pending_close = false;
         self.vertices = 0;
+        self.budget = PIECE_BUDGET;
     }
 }
 
@@ -312,5 +325,13 @@ mod tests {
         let path = Path::polyline(vec![p(0.0, 0.0), p(f64::INFINITY, 0.0), p(f64::NAN, 1.0)]);
         let params = SketchParams::new(1.0, None, None);
         assert_eq!(path.iter_vertices().sketch(Some(params)).count(), 3);
+    }
+
+    #[test]
+    fn huge_lines_are_not_cut_beyond_the_budget() {
+        // Agg would cut the first line into 1e300 pieces.
+        let path = Path::polyline(vec![p(0.0, 0.0), p(1e300, 0.0), p(1e300, 10.0)]);
+        let params = SketchParams::new(1.0, None, None);
+        assert_eq!(path.iter_vertices().sketch(Some(params)).count(), 12);
     }
 }

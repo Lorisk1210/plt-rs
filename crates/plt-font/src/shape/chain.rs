@@ -84,14 +84,16 @@ impl<'a> FontChain<'a> {
         let mut pen = 0i32;
         for (face_index, glyph) in shape_text(&text, &self.faces, &assignment, options, &pixels) {
             let (face, size) = (&self.faces[face_index], &sizes[face_index]);
-            let (x, y) = (pen + glyph.x_offset, glyph.y_offset);
+            // Positions saturate rather than overflow for absurdly long or
+            // large text (FreeType's pen is 64-bit).
+            let (x, y) = (pen.saturating_add(glyph.x_offset), glyph.y_offset);
             let cbox = size
                 .glyph_cbox(face, glyph.glyph_id)?
                 .map_or(Rect::default(), |r| Rect {
-                    x_min: r.x_min + x,
-                    y_min: r.y_min + y,
-                    x_max: r.x_max + x,
-                    y_max: r.y_max + y,
+                    x_min: r.x_min.saturating_add(x),
+                    y_min: r.y_min.saturating_add(y),
+                    x_max: r.x_max.saturating_add(x),
+                    y_max: r.y_max.saturating_add(y),
                 });
             bbox = Some(bbox.map_or(cbox, |b| union(b, cbox)));
             layout.glyphs.push(LaidOutGlyph {
@@ -102,7 +104,7 @@ impl<'a> FontChain<'a> {
                 y,
                 x_advance: glyph.x_advance,
             });
-            pen += glyph.x_advance;
+            pen = pen.saturating_add(glyph.x_advance);
         }
         let bbox = bbox.unwrap_or_default();
         layout.width = pen;

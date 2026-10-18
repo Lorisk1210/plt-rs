@@ -23,6 +23,10 @@ const SUBPIXEL_MASK: i32 = SUBPIXEL_SCALE - 1;
 /// Fewest stored cells before dense accumulation is considered.
 const MIN_DENSE_CELLS: usize = 1 << 16;
 
+/// Units of work (edges and cell visits) allowed per cell of the limit; see
+/// [`CellBuffer::count_work`].
+const WORK_PER_CELL: usize = 16;
+
 /// Longest horizontal extent rendered in one piece; longer edges are split
 /// so that intermediate products cannot overflow.
 const DX_LIMIT: i32 = 16384 << SUBPIXEL_SHIFT;
@@ -60,6 +64,8 @@ pub(crate) struct CellBuffer {
     is_sorted: bool,
     limit: usize,
     overflowed: bool,
+    /// Work done since the last reset; see [`Self::count_work`].
+    work: usize,
     /// Bounds guaranteed to contain every cell (known when clipping).
     frame: Option<Frame>,
     /// Stored cell count at which accumulation switches to `dense`.
@@ -82,6 +88,7 @@ impl CellBuffer {
             is_sorted: false,
             limit,
             overflowed: false,
+            work: 0,
             frame: None,
             dense_threshold: usize::MAX,
             dense: DenseGrid::default(),
@@ -106,6 +113,7 @@ impl CellBuffer {
         self.max_y = -i32::MAX;
         self.is_sorted = false;
         self.overflowed = false;
+        self.work = 0;
         if self.dense_active {
             self.dense.clear();
             self.dense_active = false;
@@ -122,6 +130,20 @@ impl CellBuffer {
 
     pub(crate) const fn limit(&self) -> usize {
         self.limit
+    }
+
+    /// Counts one unit of work (an input edge, or a cell visited by an edge)
+    /// against [`WORK_PER_CELL`] times the cell limit.
+    ///
+    /// Agg only limits the cells it stores. Edges clipped away entirely and
+    /// nearly horizontal edges (whose cells carry no coverage) are free
+    /// there, so hostile strokes and dashes could run for hours; valid
+    /// geometry exceeds the work bound long after the cell limit.
+    pub(crate) fn count_work(&mut self) {
+        self.work += 1;
+        if self.work > self.limit.saturating_mul(WORK_PER_CELL) {
+            self.overflowed = true;
+        }
     }
 
     /// Returns `true` when no cell carries any coverage.
@@ -192,6 +214,7 @@ impl CellBuffer {
 
     fn set_curr_cell(&mut self, x: i32, y: i32) {
         if self.curr.x != x || self.curr.y != y {
+            self.count_work();
             self.add_curr_cell();
             self.curr = Cell {
                 x,
@@ -260,7 +283,7 @@ impl CellBuffer {
                 rem += dx;
             }
             modulo -= dx;
-            while ex1 != ex2 {
+            while ex1 != ex2 && !self.overflowed {
                 delta = lift;
                 modulo += rem;
                 if modulo >= 0 {
@@ -278,7 +301,14 @@ impl CellBuffer {
     }
 
     /// Adds the edge from `(x1, y1)` to `(x2, y2)` in 24.8 fixed point.
+    ///
+    /// Once the cell limit has been exceeded the sweep can only fail, so the
+    /// rest of the edge and all further edges are ignored rather than walked
+    /// cell by cell (an edge may span millions of cells).
     pub(crate) fn line(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
+        if self.overflowed {
+            return;
+        }
         let dx = x2 - x1;
         if dx >= DX_LIMIT || dx <= -DX_LIMIT {
             // Overflow-safe midpoint.
@@ -328,7 +358,7 @@ impl CellBuffer {
 
             let delta = first + first - SUBPIXEL_SCALE;
             let area = two_fx * delta;
-            while ey1 != ey2 {
+            while ey1 != ey2 && !self.overflowed {
                 self.curr.cover = delta;
                 self.curr.area = area;
                 ey1 += incr;
@@ -368,7 +398,7 @@ impl CellBuffer {
                 rem += dy;
             }
             modulo -= dy;
-            while ey1 != ey2 {
+            while ey1 != ey2 && !self.overflowed {
                 delta = lift;
                 modulo += rem;
                 if modulo >= 0 {
@@ -398,6 +428,12 @@ impl CellBuffer {
             return;
         }
         if self.cells.is_empty() {
+            return;
+        }
+        if self.overflowed {
+            // The sweep fails regardless; skip the per-row bookkeeping, which
+            // for hostile geometry spans millions of rows.
+            self.is_sorted = true;
             return;
         }
 
@@ -535,6 +571,21 @@ mod tests {
         b.sort();
         assert!(b.overflowed());
         assert_eq!(b.total_cells(), 3);
+    }
+
+    #[test]
+    fn walks_stop_at_the_work_limit() {
+        // A 4-million-pixel edge rising one subpixel stores a single cell,
+        // yet visits every cell along the way; later edges are ignored
+        // rather than walked (billions of steps).
+        let mut b = CellBuffer::new(100);
+        b.line(-(1 << 30), 0, (1 << 30) - 1, 1);
+        assert!(b.overflowed() && b.total_cells() <= 1);
+        let bounds = b.bounds();
+        for _ in 0..1000 {
+            b.line(-(1 << 30), 0, (1 << 30) - 1, (1 << 30) - 1);
+        }
+        assert_eq!(b.bounds(), bounds);
     }
 
     #[test]

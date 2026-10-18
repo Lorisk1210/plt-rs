@@ -12,6 +12,23 @@ const LOCA: Tag = Tag::new(b"loca");
 /// Deepest composite nesting accepted (guards against reference cycles).
 const MAX_COMPONENT_DEPTH: u8 = 16;
 
+/// The most components one glyph load visits. Components shared between
+/// the levels of a composite multiply exponentially with the nesting depth
+/// (and empty components add no points to stop at).
+const MAX_COMPONENTS: u32 = 0xFFFF;
+
+/// The most points one glyph may have (FreeType's `FT_OUTLINE_POINTS_MAX`).
+const MAX_POINTS: usize = 0xFFFF;
+
+/// What one glyph load has used up so far.
+#[derive(Default)]
+struct LoadBudget {
+    /// Current composite nesting depth.
+    depth: u8,
+    /// Components visited.
+    components: u32,
+}
+
 const ON_CURVE: u8 = 0x01;
 const X_SHORT: u8 = 0x02;
 const Y_SHORT: u8 = 0x04;
@@ -175,7 +192,7 @@ impl<'a> Glyf<'a> {
         lsb: &dyn Fn(GlyphId) -> i16,
         out: &mut Outline,
     ) -> Result<i64> {
-        self.load_recursive(glyph, scaling, lsb, out, 0)
+        self.load_recursive(glyph, scaling, lsb, out, &mut LoadBudget::default())
     }
 
     fn load_recursive(
@@ -184,9 +201,9 @@ impl<'a> Glyf<'a> {
         scaling: Scaling,
         lsb: &dyn Fn(GlyphId) -> i16,
         out: &mut Outline,
-        depth: u8,
+        budget: &mut LoadBudget,
     ) -> Result<i64> {
-        if depth > MAX_COMPONENT_DEPTH {
+        if budget.depth > MAX_COMPONENT_DEPTH {
             return Err(FontError::malformed(
                 GLYF,
                 "composite glyphs nested too deeply",
@@ -200,7 +217,7 @@ impl<'a> Glyf<'a> {
             load_simple(body, header.contours as usize, scaling, out)?;
             Ok(pp1)
         } else {
-            self.load_composite(body, scaling, lsb, out, depth, pp1)
+            self.load_composite(body, scaling, lsb, out, budget, pp1)
         }
     }
 
@@ -210,7 +227,7 @@ impl<'a> Glyf<'a> {
         scaling: Scaling,
         lsb: &dyn Fn(GlyphId) -> i16,
         out: &mut Outline,
-        depth: u8,
+        budget: &mut LoadBudget,
         mut pp1: i64,
     ) -> Result<i64> {
         let base_points = out.points.len();
@@ -218,8 +235,16 @@ impl<'a> Glyf<'a> {
         loop {
             let component = Component::parse(&mut r)?;
             let start = out.points.len();
-            let component_pp1 =
-                self.load_recursive(component.glyph, scaling, lsb, out, depth + 1)?;
+            budget.components += 1;
+            if budget.components > MAX_COMPONENTS {
+                return Err(FontError::malformed(
+                    GLYF,
+                    "composite glyph has too many components",
+                ));
+            }
+            budget.depth += 1;
+            let component_pp1 = self.load_recursive(component.glyph, scaling, lsb, out, budget)?;
+            budget.depth -= 1;
             if component.flags & USE_MY_METRICS != 0 {
                 pp1 = component_pp1;
             }
@@ -360,6 +385,9 @@ fn load_simple(body: &[u8], contours: usize, scaling: Scaling, out: &mut Outline
         previous = Some(end);
     }
     let count = usize::from(last) + 1;
+    if out.points.len() + count > MAX_POINTS {
+        return Err(FontError::malformed(GLYF, "glyph has too many points"));
+    }
     let instructions = usize::from(r.u16()?);
     r.skip(instructions)?;
 
@@ -606,6 +634,24 @@ pub(crate) mod tests {
         let (loca, data) = tables(&[square()]);
         let glyf = Glyf::new(&loca[..4], &data, true);
         assert!(load(&glyf, 0, Scaling::Units).is_err());
+    }
+
+    #[test]
+    fn exponential_composites_are_rejected() {
+        // Glyph n + 1 places glyph n eight times: 8^16 loads at full depth.
+        let eight = |glyph: u16| composite(&[(ARGS_ARE_XY_VALUES, glyph, &[0u8, 0][..]); 8]);
+        let mut empties = vec![Vec::new()];
+        empties.extend((0..16).map(eight));
+        let (loca, data) = tables(&empties);
+        let glyf = Glyf::new(&loca, &data, true);
+        assert!(load(&glyf, 16, Scaling::Units).is_err());
+        // With a square at the bottom the points run out first.
+        let mut squares = vec![square()];
+        squares.extend((0..16).map(eight));
+        let (loca, data) = tables(&squares);
+        let glyf = Glyf::new(&loca, &data, true);
+        assert!(load(&glyf, 16, Scaling::Units).is_err());
+        assert_eq!(load(&glyf, 2, Scaling::Units).unwrap().points.len(), 4 * 64);
     }
 
     #[test]

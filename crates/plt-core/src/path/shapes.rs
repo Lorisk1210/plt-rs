@@ -12,6 +12,11 @@ use crate::Point;
 /// matplotlib's tangent length for a 45° cubic arc on the unit circle.
 const MAGIC: f64 = 0.265_203_1;
 
+/// The most cubic pieces of an arc. An arc within one turn needs at most
+/// 16; the bound keeps spans that overflow between huge angles
+/// (and absurd explicit counts) from exhausting memory.
+const MAX_ARC_SEGMENTS: usize = 1 << 16;
+
 impl Path {
     /// The closed unit square from `(0, 0)` to `(1, 1)`.
     pub fn unit_rectangle() -> Self {
@@ -89,7 +94,7 @@ impl Path {
     /// Béziers (matplotlib's `Path.arc`). `theta2` is unwrapped to the
     /// shortest arc within one turn unless the span is a whole number of
     /// turns, which yields a full circle. `segments` defaults to a power of
-    /// two keeping each piece within 90°.
+    /// two keeping each piece within 90°, and is capped at 65 536.
     pub fn arc(theta1: f64, theta2: f64, segments: Option<usize>) -> Self {
         arc_path(theta1, theta2, segments, false)
     }
@@ -146,9 +151,10 @@ fn arc_path(theta1: f64, theta2: f64, segments: Option<usize>, is_wedge: bool) -
         theta2 - 360.0 * turns.floor()
     };
     let (eta1, eta2) = (theta1.to_radians(), eta2.to_radians());
+    // NaN spans cast to zero pieces, infinite ones saturate: both clamp.
     let n = segments
         .unwrap_or_else(|| 2.0_f64.powf(((eta2 - eta1) / FRAC_PI_2).ceil()) as usize)
-        .max(1);
+        .clamp(1, MAX_ARC_SEGMENTS);
 
     let deta = (eta2 - eta1) / n as f64;
     let t = (0.5 * deta).tan();
@@ -246,5 +252,17 @@ mod tests {
             (last - Point::new(120f64.to_radians().cos(), 120f64.to_radians().sin())).length()
                 < 1e-12
         );
+    }
+
+    #[test]
+    fn garbled_spans_stay_bounded() {
+        // The span overflows to -inf turns and unwraps to an infinite angle,
+        // which would ask for 2^inf pieces.
+        assert_eq!(
+            Path::arc(f64::MAX, -1e300, None).len(),
+            3 * MAX_ARC_SEGMENTS + 1
+        );
+        assert_eq!(Path::arc(0.0, f64::NAN, None).len(), 4);
+        assert_eq!(Path::wedge(f64::INFINITY, 0.0, Some(0)).len(), 7);
     }
 }

@@ -158,13 +158,22 @@ impl SegmentDelta<'_> {
         self.segment_glyph(low, code)
     }
 
+    /// Calls `f` for every mapped code in increasing order, like
+    /// FreeType's character iteration: segments are taken by start code and
+    /// overlaps clipped, so that each code is visited once (overlapping
+    /// segments would otherwise repeat up to 65 536 codes each).
     fn for_each(&self, f: &mut dyn FnMut(u32, GlyphId)) {
-        for segment in 0..self.ends.len() {
-            let (Some(start), Some(end)) = (self.starts.get(segment), self.ends.get(segment))
-            else {
-                return;
-            };
-            for code in u32::from(start)..=u32::from(end) {
+        let mut segments: Vec<(u16, u16, usize)> = (0..self.ends.len())
+            .map_while(|segment| {
+                Some((self.starts.get(segment)?, self.ends.get(segment)?, segment))
+            })
+            .collect();
+        segments.sort_by_key(|&(start, ..)| start);
+        let mut next = 0;
+        for (start, end, segment) in segments {
+            let first = u32::from(start).max(next);
+            next = next.max(u32::from(end) + 1);
+            for code in first..=u32::from(end) {
                 if code == 0xFFFF {
                     break;
                 }
@@ -288,9 +297,15 @@ impl<'a> Subtable<'a> {
                 }
             }
             Self::SegmentedCoverage(groups) | Self::ManyToOne(groups) => {
+                // Ordered and clipped as in `SegmentDelta::for_each`.
                 let many_to_one = matches!(self, Self::ManyToOne(_));
-                for group in groups.iter() {
-                    for code in group.start..=group.end.min(0x10_FFFF) {
+                let mut groups: Vec<Group> = groups.iter().collect();
+                groups.sort_by_key(|group| group.start);
+                let mut next = 0;
+                for group in groups {
+                    let (first, last) = (group.start.max(next), group.end.min(0x10_FFFF));
+                    next = next.max(last.saturating_add(1));
+                    for code in first..=last {
                         let offset = if many_to_one { 0 } else { code - group.start };
                         match u16::try_from(group.glyph.saturating_add(offset)) {
                             Ok(0) => {}
@@ -477,6 +492,29 @@ mod tests {
         let (_, ucs4) = cmap.get(3).unwrap();
         assert_eq!(ucs4.glyph(0x1F601), Some(GlyphId(101)));
         assert_eq!(ucs4.glyph(0x1F603), None);
+    }
+
+    #[test]
+    fn overlapping_ranges_are_enumerated_once() {
+        // 200 copies of the full range would enumerate 200 million codes.
+        let mut groups = vec![(0, 0x10_FFFF, 7); 200];
+        let mut segments = vec![(0x20, 0xFFFE, 1); 200];
+        // Unsorted ranges are still enumerated in increasing order.
+        groups.insert(0, (0x41, 0x5A, 9));
+        segments.insert(0, (0x41, 0x5A, 1));
+        let data = wrap(&[(0, 6, format12(13, &groups)), (3, 1, format4(&segments))]);
+        let cmap = Cmap::parse(&data).unwrap();
+        for (index, codes) in [(0, 0x11_0000), (1, 0xFFFE - 0x20 + 1)] {
+            let (_, sub) = cmap.get(index).unwrap();
+            let mut count = 0;
+            let mut last = None;
+            sub.for_each(&mut |code, _| {
+                assert!(last < Some(code));
+                last = Some(code);
+                count += 1;
+            });
+            assert_eq!(count, codes);
+        }
     }
 
     #[test]

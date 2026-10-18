@@ -17,6 +17,9 @@ use crate::path::{Path, PathCode};
 /// matplotlib's default hatch density (lines per unit tile).
 pub const DEFAULT_DENSITY: i32 = 6;
 
+/// The most vertices a hatch path may have; see [`HatchError::TooDense`].
+pub const MAX_VERTICES: usize = 1 << 22;
+
 /// Why a hatch pattern could not be built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HatchError {
@@ -25,6 +28,9 @@ pub enum HatchError {
     /// A shape pattern (`o`, `O`, `.`, `*`) needs an even number of rows
     /// (character count times density); matplotlib fails on odd counts.
     OddShapeRows,
+    /// The pattern and density would need more than [`MAX_VERTICES`]
+    /// vertices (matplotlib builds such paths regardless, exhausting memory).
+    TooDense,
 }
 
 impl fmt::Display for HatchError {
@@ -32,6 +38,7 @@ impl fmt::Display for HatchError {
         f.write_str(match self {
             Self::NegativeDensity => "hatch density must not be negative",
             Self::OddShapeRows => "shape hatches need an even number of rows",
+            Self::TooDense => "the hatch pattern is too dense",
         })
     }
 }
@@ -145,7 +152,13 @@ fn star() -> Path {
 /// unit square. Patterns without any hatch character give an empty path.
 pub fn pattern_path(pattern: &str, density: i32) -> Result<Path, HatchError> {
     let density = usize::try_from(density).map_err(|_| HatchError::NegativeDensity)?;
-    let count = |chars: &[char]| pattern.chars().filter(|c| chars.contains(c)).count() * density;
+    let count = |chars: &[char]| {
+        pattern
+            .chars()
+            .filter(|c| chars.contains(c))
+            .count()
+            .saturating_mul(density)
+    };
     let shape_rows = |c: char| {
         let rows = count(&[c]);
         if rows % 2 == 0 {
@@ -160,16 +173,44 @@ pub fn pattern_path(pattern: &str, density: i32) -> Result<Path, HatchError> {
         shape_rows('.')?,
         shape_rows('*')?,
     );
-    let mut b = Builder::default();
-    b.straight_lines(count(&['-', '+']), true);
-    b.straight_lines(count(&['|', '+']), false);
-    b.diagonals(count(&['/', 'x', 'X']), true);
-    b.diagonals(count(&['\\', 'x', 'X']), false);
+    let lines = [
+        count(&['-', '+']),
+        count(&['|', '+']),
+        count(&['/', 'x', 'X']),
+        count(&['\\', 'x', 'X']),
+    ];
     let circle = Path::unit_circle();
+    let star = star();
+    // An upper bound on the vertex count: two per line (diagonals have one
+    // extra line), and up to `(rows + 1)²` copies of each shape, drawn twice
+    // when unfilled.
+    let shape_vertices = |rows: usize, shape: &Path, copies: usize| {
+        let side = rows.saturating_add(1);
+        side.saturating_mul(side)
+            .saturating_mul(shape.len() * copies)
+    };
+    let estimate = lines
+        .iter()
+        .map(|n| n.saturating_add(1).saturating_mul(2))
+        .chain([
+            shape_vertices(small, &circle, 2),
+            shape_vertices(large, &circle, 2),
+            shape_vertices(dots, &circle, 1),
+            shape_vertices(stars, &star, 1),
+        ])
+        .fold(0, usize::saturating_add);
+    if estimate > MAX_VERTICES {
+        return Err(HatchError::TooDense);
+    }
+    let mut b = Builder::default();
+    b.straight_lines(lines[0], true);
+    b.straight_lines(lines[1], false);
+    b.diagonals(lines[2], true);
+    b.diagonals(lines[3], false);
     b.shapes(small, &circle, 0.2, false);
     b.shapes(large, &circle, 0.35, false);
     b.shapes(dots, &circle, 0.1, true);
-    b.shapes(stars, &star(), 1.0 / 3.0, true);
+    b.shapes(stars, &star, 1.0 / 3.0, true);
     if b.vertices.is_empty() {
         return Ok(Path::default());
     }
@@ -213,5 +254,16 @@ mod tests {
         assert_eq!(pattern_path("-", -1), Err(HatchError::NegativeDensity));
         assert!(pattern_path("", 6).expect("valid").is_empty());
         assert!(pattern_path("/", 0).expect("valid").is_empty());
+    }
+
+    #[test]
+    fn too_dense_patterns_are_rejected() {
+        assert_eq!(pattern_path("/", i32::MAX), Err(HatchError::TooDense));
+        assert_eq!(pattern_path("oo", 4096), Err(HatchError::TooDense));
+        assert_eq!(
+            pattern_path(&"x".repeat(1 << 20), 6),
+            Err(HatchError::TooDense)
+        );
+        assert_eq!(pattern_path("/", 1000).expect("valid").len(), 2002);
     }
 }

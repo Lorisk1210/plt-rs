@@ -22,15 +22,24 @@ pub trait PathSink {
     fn line_to(&mut self, p: Point);
     /// Closes the current sub-path.
     fn close(&mut self);
+    /// Returns `true` once further input cannot change the outcome (the
+    /// rasterizer exceeded its cell limit), so producers may stop early.
+    fn is_saturated(&self) -> bool {
+        false
+    }
 }
 
-/// Sends a flattened vertex stream to `sink`. Curve vertices (absent from
-/// flattened streams) are treated as line vertices.
+/// Sends a flattened vertex stream to `sink`, stopping early once the sink
+/// is saturated. Curve vertices (absent from flattened streams) are treated
+/// as line vertices.
 pub(crate) fn feed_vertices<S: PathSink + ?Sized>(
     vertices: impl IntoIterator<Item = Vertex>,
     sink: &mut S,
 ) {
     for vertex in vertices {
+        if sink.is_saturated() {
+            return;
+        }
         match vertex.code {
             PathCode::MoveTo => sink.move_to(vertex.point),
             PathCode::ClosePoly => sink.close(),

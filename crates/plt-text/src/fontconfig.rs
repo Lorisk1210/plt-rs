@@ -11,6 +11,8 @@
 //! # Ok::<(), plt_text::TextError>(())
 //! ```
 
+use std::collections::HashMap;
+
 use crate::error::TextError;
 
 /// Characters a family name must escape.
@@ -52,6 +54,8 @@ const CONSTANTS: [(&str, &str, &str); 24] = [
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FontconfigPattern {
     properties: Vec<(String, Vec<String>)>,
+    /// Position of each key in `properties`.
+    index: HashMap<String, usize>,
 }
 
 impl FontconfigPattern {
@@ -98,16 +102,16 @@ impl FontconfigPattern {
 
     /// The values of one property, if it was given.
     pub fn get(&self, key: &str) -> Option<&[String]> {
-        self.properties
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, values)| values.as_slice())
+        let &at = self.index.get(key)?;
+        Some(&self.properties[at].1)
     }
 
     fn extend(&mut self, key: &str, values: Vec<String>) {
-        match self.properties.iter_mut().find(|(k, _)| k == key) {
-            Some((_, existing)) => existing.extend(values),
-            None => self.properties.push((key.to_owned(), values)),
+        if let Some(&at) = self.index.get(key) {
+            self.properties[at].1.extend(values);
+        } else {
+            self.index.insert(key.to_owned(), self.properties.len());
+            self.properties.push((key.to_owned(), values));
         }
     }
 }
@@ -248,10 +252,13 @@ impl Scanner {
         }
         self.pos = start;
         self.skip_ws();
-        let rest: String = self.chars[self.pos..].iter().collect();
+        let rest = &self.chars[self.pos..];
         let (constant, key, value) = CONSTANTS
             .iter()
-            .filter(|(constant, _, _)| rest.starts_with(constant))
+            .filter(|(constant, _, _)| {
+                let mut chars = rest.iter();
+                constant.chars().all(|c| chars.next() == Some(&c))
+            })
             .max_by_key(|(constant, _, _)| constant.len())?;
         self.pos += constant.len();
         Some(((*key).to_owned(), vec![(*value).to_owned()]))
@@ -317,5 +324,28 @@ mod tests {
         for pattern in ["a:b", "sans-serif", ":boldx", r"Foo\x"] {
             assert!(FontconfigPattern::parse(pattern).is_err(), "{pattern}");
         }
+    }
+
+    #[test]
+    fn long_patterns_parse_in_linear_time() {
+        // Every constant used to copy the rest of the pattern, and every key
+        // to scan all earlier keys: both quadratic in the pattern length.
+        let constants = ":bold".repeat(100_000);
+        assert_eq!(props(&constants)[1].1.len(), 100_000);
+        let letters = |mut i: usize| {
+            (0..4)
+                .map(|_| {
+                    let c = char::from(b'a' + (i % 26) as u8);
+                    i /= 26;
+                    c
+                })
+                .collect::<String>()
+        };
+        let keys: String = (0..100_000)
+            .flat_map(|i| [":".to_owned(), letters(i), "=v".to_owned()])
+            .collect();
+        let parsed = FontconfigPattern::parse(&keys).expect("valid pattern");
+        assert_eq!(parsed.properties().len(), 100_001);
+        assert_eq!(parsed.get(&letters(99_999)), Some(&["v".to_owned()][..]));
     }
 }

@@ -5,6 +5,7 @@ mod boxes;
 mod effects;
 mod layout;
 mod math;
+mod table_cells;
 mod tables;
 
 pub(crate) use annotate::CASES as ANNOTATE;
@@ -12,6 +13,7 @@ pub(crate) use boxes::CASES as BOXES;
 pub(crate) use effects::CASES as EFFECTS;
 pub(crate) use layout::CASES as LAYOUT;
 pub(crate) use math::CASES as MATH;
+pub(crate) use table_cells::CASES as TABLE_CELLS;
 pub(crate) use tables::CASES as TABLES;
 
 use plt::prelude::*;

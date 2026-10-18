@@ -151,9 +151,15 @@ pub(crate) struct Cell {
     pub(crate) text: String,
     pub(crate) facecolor: Color,
     pub(crate) edgecolor: Color,
+    /// Edge width in points (`None` = `patch.linewidth`).
+    pub(crate) linewidth: Option<f64>,
+    /// Opacity of the face and edges (the text keeps its own).
+    pub(crate) alpha: Option<f64>,
+    /// Horizontal alignment of the text, which also sets where it sits.
     pub(crate) loc: HAlign,
     pub(crate) edges: CellEdges,
     pub(crate) font: FontProperties,
+    pub(crate) text_color: Color,
 }
 
 impl Cell {
@@ -213,9 +219,13 @@ impl Cell {
         base.clip_on = false;
         base.parent = table.parent;
         base.transform = Some(Transform::Affine(*to_display));
+        base.alpha = self.alpha;
         let mut style = PatchStyle::from_rc(rc);
         style.facecolor = Some(self.facecolor.clone());
         style.edgecolor = Some(self.edgecolor.clone());
+        if let Some(width) = self.linewidth {
+            style.linewidth = Some(width);
+        }
         let shape = CellShape {
             bbox: placed.bbox,
             edges: self.edges,
@@ -241,7 +251,7 @@ impl Cell {
         };
         let laid_out = self.laid_out(placed.fontsize, ctx.layout().dpi(), rc)?;
         let gc = GraphicsContext {
-            foreground: rc.text_color.resolve()?,
+            foreground: self.text_color.resolve()?,
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };

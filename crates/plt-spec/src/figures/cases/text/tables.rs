@@ -8,7 +8,7 @@ use plt::text::HorizontalAlignment;
 use crate::figures::FigureCase;
 
 /// Rows of owned strings.
-fn rows<const R: usize, const C: usize>(cells: [[&str; C]; R]) -> Vec<Vec<String>> {
+pub(super) fn rows<const R: usize, const C: usize>(cells: [[&str; C]; R]) -> Vec<Vec<String>> {
     cells
         .iter()
         .map(|row| row.iter().map(|&s| s.to_owned()).collect())
@@ -16,7 +16,7 @@ fn rows<const R: usize, const C: usize>(cells: [[&str; C]; R]) -> Vec<Vec<String
 }
 
 /// Owned strings.
-fn strings<const N: usize>(items: [&str; N]) -> Vec<String> {
+pub(super) fn strings<const N: usize>(items: [&str; N]) -> Vec<String> {
     items.iter().map(|&s| s.to_owned()).collect()
 }
 

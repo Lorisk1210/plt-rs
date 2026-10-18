@@ -367,9 +367,9 @@ impl<'a> PolarView<'a> {
         }
     }
 
-    /// Whether the spine on `side` is drawn regardless of its own
-    /// visibility: the start and end spines of sectors and the inner
-    /// spine around a hole (matplotlib's `draw` sets their visibility).
+    /// Whether matplotlib's `draw` shows the spine on `side`: the outer
+    /// spine always, the start and end spines of sectors and the inner
+    /// spine around a hole.
     pub(crate) fn spine_shown(&self, side: SpineSide) -> bool {
         match side {
             SpineSide::Left | SpineSide::Right => !self.is_full_circle(),

@@ -133,13 +133,7 @@ impl Batch {
         let (faces, edges) = resolve_colors(c)?;
         let rc = c.rc();
         let line_defaults = c.kind == CollectionKind::Line;
-        let widths = c.linewidths.clone().unwrap_or_else(|| {
-            vec![if line_defaults {
-                rc.lines_linewidth
-            } else {
-                rc.patch_linewidth
-            }]
-        });
+        let widths = c.linewidths_or_default();
         let (widths, dashes) = broadcast_widths_and_dashes(&widths, &c.linestyles, rc);
         let antialiased = c.antialiased.clone().unwrap_or_else(|| {
             vec![if line_defaults {

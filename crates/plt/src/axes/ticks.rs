@@ -185,6 +185,10 @@ pub struct TickStyle {
     pub pad: f64,
     /// Tick colour.
     pub color: Color,
+    /// Edge colour of the tick marks when it is not the tick colour,
+    /// which then only fills them (matplotlib's `markeredgecolor` of the
+    /// tick lines, which `axes_grid1`'s RGB axes set).
+    pub edgecolor: Option<Color>,
     /// Label colour.
     pub label_color: Color,
     /// Label size in points.
@@ -236,6 +240,7 @@ impl TickStyle {
             width,
             pad,
             color: color.clone(),
+            edgecolor: None,
             label_color,
             label_size: label_size.to_points(rc.font_size),
             direction: direction.parse().unwrap_or_default(),

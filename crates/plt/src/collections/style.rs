@@ -6,7 +6,7 @@ use plt_render::Dashes;
 
 use super::{CollectionArtist, CollectionKind, EdgeColors};
 use crate::artist::Artist;
-use crate::colors::Color;
+use crate::colors::{Alpha, Color, to_rgba_array};
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 
@@ -15,7 +15,10 @@ use crate::rc::RcParams;
 /// `update_scalarmappable`).
 pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
     let rc = c.rc();
-    let alpha = c.base().alpha;
+    let alpha = c
+        .alphas
+        .clone()
+        .map_or_else(|| Alpha::from(c.base().alpha), Alpha::Each);
     // A lone "none" means no colours at all (matplotlib's `to_rgba_array`).
     let resolve = |colors: &[Color]| -> Result<Vec<Rgba>, String> {
         if let [only] = colors
@@ -23,10 +26,14 @@ pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgb
         {
             return Ok(Vec::new());
         }
-        colors
-            .iter()
-            .map(|color| color.resolve_alpha(alpha).map_err(|e| e.to_string()))
-            .collect()
+        match &alpha {
+            Alpha::Each(_) => to_rgba_array(colors.to_vec(), alpha.clone()),
+            _ => colors
+                .iter()
+                .map(|color| color.resolve_alpha(c.base().alpha))
+                .collect(),
+        }
+        .map_err(|e| e.to_string())
     };
     let face_spec = c.facecolors.clone().unwrap_or_else(|| {
         vec![if c.kind == CollectionKind::Line {
@@ -38,7 +45,7 @@ pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgb
     let face_is_none = face_spec.len() == 1 && face_spec[0].is_none();
     let edge_default = c.kind == CollectionKind::Line;
 
-    let mapped = c.mapping.as_ref().map(|m| m.colors(alpha)).transpose()?;
+    let mapped = c.mapping.as_ref().map(|m| m.colors(&alpha)).transpose()?;
     let face_mapped = mapped.is_some() && !face_is_none;
     let edge_mapped = mapped.is_some()
         && if face_is_none {
@@ -125,5 +132,35 @@ mod tests {
     fn least_common_multiple() {
         assert_eq!(lcm(4, 6), 12);
         assert_eq!(lcm(1, 1), 1);
+    }
+
+    #[test]
+    fn per_item_alphas_repeat_a_single_colour() {
+        use crate::artist::ArtistHandle;
+        use crate::axes::{ScatterColors, ScatterOptions};
+        use crate::colors::Alpha;
+        use crate::figure::Figure;
+
+        let ax = Figure::new().subplot();
+        let options = ScatterOptions {
+            colors: ScatterColors::Single(Color::from("red")),
+            alpha: Alpha::Each(vec![0.25, 0.5, 1.0]),
+            ..ScatterOptions::default()
+        };
+        let points = ax
+            .scatter_with([0.0, 1.0, 2.0], [0.0, 1.0, 2.0], options)
+            .unwrap();
+        let (faces, edges) = points
+            .raw()
+            .with::<CollectionArtist, _>(CollectionArtist::resolved_colors)
+            .unwrap();
+        let alphas: Vec<f64> = faces.iter().map(|c| c.a).collect();
+        assert_eq!(alphas, [0.25, 0.5, 1.0]);
+        assert_eq!(edges.len(), 3, "face-coloured edges follow");
+        let wrong = ScatterOptions {
+            alpha: Alpha::Each(vec![0.5; 2]),
+            ..ScatterOptions::default()
+        };
+        assert!(ax.scatter_with([0.0, 1.0, 2.0], [0.0; 3], wrong).is_err());
     }
 }

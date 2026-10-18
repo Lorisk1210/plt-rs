@@ -286,6 +286,7 @@ impl AxesState {
             data,
             minpos,
             length_points: 0.0,
+            tick_space: None,
             tick_floor: None,
         });
         let ctx = TickContext::new(&info, &axis.settings);
@@ -378,6 +379,7 @@ impl AxesState {
                 data,
                 minpos,
                 length_points: 0.0,
+                tick_space: None,
                 tick_floor: None,
             })
         };
@@ -405,8 +407,8 @@ impl AxesState {
 
     /// Recomputes the ticks of both axes for an axes `extent` in display
     /// pixels at `dpi`.
-    pub(crate) fn update_ticks(&mut self, extent: &Bbox, dpi: f64) {
-        for name in [AxisName::X, AxisName::Y] {
+    pub(crate) fn update_ticks(&mut self, extent: &Bbox, dpi: f64, shared: [Option<usize>; 2]) {
+        for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
             let ((lo, hi), minpos) = self.data_interval(name);
             let length_pixels = match name {
                 AxisName::X => extent.width().abs(),
@@ -417,6 +419,7 @@ impl AxesState {
                 data: (lo, hi),
                 minpos,
                 length_points: length_pixels / dpi * 72.0,
+                tick_space,
                 tick_floor: self.tick_floor(name),
             };
             self.axis_mut(name).update_ticks(&geometry);

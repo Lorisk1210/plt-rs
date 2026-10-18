@@ -152,6 +152,7 @@ fn format_value(ax: &Axes, name: AxisName, at: Point) -> Option<String> {
             data: (low, high),
             minpos,
             length_points: 0.0,
+            tick_space: None,
             tick_floor: None,
         });
         axis.major_formatter

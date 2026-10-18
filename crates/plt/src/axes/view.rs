@@ -12,6 +12,7 @@ use crate::artist::{ArtistId, DrawError};
 use crate::figure::FigureState;
 use crate::scale::Scale;
 use crate::ticker::AxisName;
+use crate::transforms::TransformContext;
 
 /// Both axis names, in matplotlib's order.
 const AXES: [AxisName; 2] = [AxisName::X, AxisName::Y];
@@ -28,6 +29,27 @@ impl FigureState {
     /// The axes sharing axis `name` with `axes`, `axes` included.
     pub(crate) fn siblings(&self, name: AxisName, axes: ArtistId) -> Vec<ArtistId> {
         self.shared.siblings(name, axes)
+    }
+
+    /// For the x and the y axis of `axes`, how many ticks fit along the
+    /// axis of another axes its locators are bound to, if they are
+    /// (matplotlib's `locator.axis.get_tick_space()` for locators shared
+    /// with a sibling of another size).
+    pub(crate) fn shared_tick_spaces(&self, axes: ArtistId) -> [Option<usize>; 2] {
+        AXES.map(|name| {
+            let owner = self
+                .axes_state(axes)?
+                .axis(name)
+                .ticker_owner
+                .filter(|&owner| owner != axes)?;
+            let extent = self.axes_bbox(owner)?;
+            let pixels = match name {
+                AxisName::X => extent.width(),
+                AxisName::Y => extent.height(),
+            };
+            let points = pixels.abs() / self.dpi * 72.0;
+            Some(self.axes_state(owner)?.axis(name).tick_space(points))
+        })
     }
 
     /// Applies `update` to axis `name` of `axes` and of every axes sharing
@@ -235,6 +257,7 @@ impl FigureState {
             return Ok(());
         };
         let tickers = source.axis(name).tickers();
+        let owner = source.axis(name).ticker_owner.unwrap_or(other);
         let scale = source.axis(name).scale_rc();
         let view = source.view_interval(name);
         let auto = source.axis(name).autoscale.enabled;
@@ -245,6 +268,7 @@ impl FigureState {
                 AxisName::Y => state.shares.1 = Some(other),
             }
             state.axis_mut(name).use_tickers(tickers);
+            state.axis_mut(name).ticker_owner = Some(owner);
         }
         self.set_axis_limits(axes, name, view, Some(auto), false);
         if let Some(state) = self.axes_state_mut(axes) {
@@ -363,5 +387,29 @@ mod tests {
         assert_eq!(axs[(0, 1)].xlim(), (-0.4, 8.4));
         assert_eq!(axs[(0, 0)].xlim(), (0.0, 1.0), "column 0 has no data");
         assert_eq!(axs[(1, 0)].ylim(), (-0.2, 4.2));
+    }
+
+    #[test]
+    fn shared_locators_measure_the_axis_they_are_bound_to() {
+        let fig = Figure::with_size(6.0, 4.0, 100.0);
+        let wide = fig.add_axes([0.1, 0.55, 0.8, 0.4]);
+        let narrow = fig.add_axes([0.1, 0.1, 0.1, 0.4]);
+        narrow.share_x(&wide).unwrap();
+        wide.set_xlim(0.0, 24.0);
+        let locs = |ax: &Axes| -> Vec<f64> {
+            ax.ticks(AxisName::X)
+                .unwrap()
+                .major
+                .iter()
+                .map(|t| t.loc)
+                .collect()
+        };
+        fig.layout();
+        assert_eq!(locs(&narrow), locs(&wide), "ticks for the wide axis");
+        narrow
+            .xaxis()
+            .set_major_locator(MultipleLocator::new(12.0).unwrap());
+        fig.layout();
+        assert_eq!(locs(&wide), [0.0, 12.0, 24.0]);
     }
 }

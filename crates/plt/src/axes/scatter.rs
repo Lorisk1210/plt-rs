@@ -8,8 +8,8 @@ use super::children::DataUpdate;
 use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
-use crate::colors::{Color, Colormap, Norm, ScalarMappable, colormaps};
-use crate::markers::{FillStyle, Marker, MarkerStyle};
+use crate::colors::{Alpha, Color, Colormap, Norm, ScalarMappable, colormaps};
+use crate::markers::{FillStyle, MarkerStyle};
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 use crate::units::AxisValues;
@@ -128,14 +128,17 @@ pub struct ScatterOptions {
     pub sizes: Option<Vec<f64>>,
     /// Marker colours.
     pub colors: ScatterColors,
-    /// Marker shape; default `scatter.marker`.
-    pub marker: Option<Marker>,
+    /// Marker shape, fill style and transform; default `scatter.marker`
+    /// with the fill style of `markers.fillstyle`.
+    pub marker: Option<MarkerStyle>,
     /// Edge colours; default `scatter.edgecolors`.
     pub edgecolors: Option<EdgeColors>,
     /// Edge widths in points.
     pub linewidths: Option<Vec<f64>>,
-    /// Opacity.
-    pub alpha: Option<f64>,
+    /// Opacity: one for every marker or one per marker (matplotlib's
+    /// `alpha`, a number or an array); [`Alpha::Keep`] keeps the colours'
+    /// own.
+    pub alpha: Alpha,
     /// Draw points whose mapped value is not finite in the colormap's
     /// "bad" colour instead of omitting them.
     pub plot_nonfinite: bool,
@@ -176,8 +179,10 @@ impl Axes {
         // matplotlib 1.x defaults in classic mode: 20 pt² blue markers
         // with the default patch edges.
         let classic = rc.internal_classic_mode;
-        let marker = options.marker.unwrap_or_else(|| rc.scatter_marker.clone());
-        let style = MarkerStyle::new(marker, FillStyle::Full)?;
+        let style = match options.marker {
+            Some(style) => style,
+            None => MarkerStyle::new(rc.scatter_marker.clone(), rc.markers_fillstyle.parse()?)?,
+        };
         let shape = style.path().transformed(&style.transform());
         let sizes = options.sizes.unwrap_or_else(|| {
             vec![if classic {
@@ -237,8 +242,8 @@ impl Axes {
         collection.facecolors = faces;
         collection.edgecolors = edges;
         collection.linewidths = linewidths;
+        apply_alpha(&mut collection, options.alpha, x.len())?;
         let base = collection.base_mut();
-        base.alpha = options.alpha;
         base.transform = Some(Transform::Display);
         if classic && !x.is_empty() {
             // Classic mode leaves room for the markers' size.
@@ -294,6 +299,28 @@ fn masked_offsets(
             }
         })
         .collect()
+}
+
+/// Gives the markers one opacity, or one each when there is one per
+/// point (matplotlib's `alpha` number or array).
+fn apply_alpha(
+    collection: &mut CollectionArtist,
+    alpha: Alpha,
+    points: usize,
+) -> Result<(), PlotError> {
+    match alpha {
+        Alpha::Keep => {}
+        Alpha::Uniform(alpha) => collection.base_mut().alpha = Some(alpha),
+        Alpha::Each(alphas) if alphas.len() == points => collection.alphas = Some(alphas),
+        Alpha::Each(alphas) => {
+            return Err(PlotError::Broadcast {
+                argument: "alpha",
+                len: alphas.len(),
+                points,
+            });
+        }
+    }
+    Ok(())
 }
 
 /// `scatter.edgecolors`: `"face"` or a colour.

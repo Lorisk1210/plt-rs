@@ -172,6 +172,20 @@ pub(crate) fn outside_legends(state: &FigureState, frame: ArtistId) -> Vec<(Outs
         .collect()
 }
 
+/// The legends among `children` that are the axes legend, not kept as
+/// ordinary artists (at most one).
+fn axes_legends(state: &FigureState, children: &[ArtistId]) -> Vec<ArtistId> {
+    legends_in(state, children)
+        .into_iter()
+        .filter(|&id| {
+            state
+                .store
+                .get_as::<LegendArtist>(id)
+                .is_some_and(|legend| !legend.kept)
+        })
+        .collect()
+}
+
 /// The legends among `children`.
 fn legends_in(state: &FigureState, children: &[ArtistId]) -> Vec<ArtistId> {
     children
@@ -201,7 +215,7 @@ impl Axes {
         let previous = state
             .store
             .get_as::<AxesState>(self.id())
-            .map(|axes| legends_in(&state, &axes.children))
+            .map(|axes| axes_legends(&state, &axes.children))
             .unwrap_or_default();
         let id = build::build(&mut state, LegendParent::Axes(self.id()), entries, &options)?;
         for old in previous {
@@ -217,10 +231,20 @@ impl Axes {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
         let axes = state.store.get_as::<AxesState>(self.id())?;
-        let id = legends_in(&state, &axes.children).into_iter().next()?;
+        let id = axes_legends(&state, &axes.children).into_iter().next()?;
         Some(Legend {
             raw: RawHandle::new(Rc::clone(figure), id),
         })
+    }
+
+    /// Keeps `legend` on the axes as an ordinary artist, so that the next
+    /// [`Axes::legend`] adds a legend beside it instead of replacing it
+    /// (matplotlib's `ax.add_artist(legend)` for showing several legends).
+    /// The kept legend is no longer the one [`Axes::get_legend`] returns.
+    pub fn keep_legend(&self, legend: &Legend) {
+        legend
+            .raw
+            .with_mut::<LegendArtist, _>(|legend| legend.kept = true);
     }
 
     /// The handles and labels `legend()` would list (matplotlib's

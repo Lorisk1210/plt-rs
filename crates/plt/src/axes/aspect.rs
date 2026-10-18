@@ -12,7 +12,7 @@ use plt_core::{Anchor, Bbox};
 
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError};
-use crate::axes_grid1::DividerCell;
+use crate::axes_grid1::{DividerCell, InsetLocatorId};
 use crate::figure::FigureState;
 use crate::rc::Aspect;
 use crate::ticker::AxisName;
@@ -60,6 +60,9 @@ pub(crate) struct AspectState {
     /// Places the axes in the cells of a divider instead of its original
     /// position (`axes_grid1`'s axes locators).
     pub(crate) divider: Option<DividerCell>,
+    /// Anchors the axes in a box of its parent instead of its original
+    /// position (`axes_grid1.inset_locator`).
+    pub(crate) inset: Option<InsetLocatorId>,
     /// Narrows the (divided) original position before the aspect is
     /// applied.
     pub(crate) locator: Option<AxesLocator>,
@@ -280,6 +283,7 @@ impl FigureState {
         let divided = settings
             .divider
             .and_then(|cell| self.locate_in_divider(cell))
+            .or_else(|| settings.inset.and_then(|id| self.locate_inset(axes, id)))
             .unwrap_or(original);
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;

@@ -187,3 +187,17 @@ fn texts_have_no_handler() {
     text.set_label("note");
     assert!(handle(&fig, &artist_source(&text), &LegendOptions::default()).is_none());
 }
+
+#[test]
+fn proxy_lines_are_drawn_like_lines() {
+    let fig = Figure::new();
+    let mut proxy = LineArtist::new(vec![0.0], vec![0.0], crate::rc::params());
+    proxy.marker = crate::markers::Marker::Symbol(crate::markers::MarkerSymbol::Square);
+    proxy.markersize = 9.0;
+    proxy.linestyle = crate::lines::LineStyle::None;
+    let LegendHandle(source) = LegendHandle::proxy(proxy);
+    let made = handle(&fig, &source, &LegendOptions::default()).unwrap();
+    let legline = as_line(&made.artists[0]);
+    assert_eq!(legline.markersize, 9.0);
+    assert_eq!(legline.markevery, Some(MarkEvery::Indices(vec![1])));
+}

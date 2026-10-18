@@ -33,7 +33,7 @@ pub(crate) use align::{Aligned, LabelGroups};
 use plt_core::Anchor;
 
 use crate::artist::{ArtistHandle, ArtistId};
-use crate::axes_grid1::Divider;
+use crate::axes_grid1::{Divider, InsetLocator};
 use crate::figure::{Figure, FigureState};
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
@@ -96,6 +96,9 @@ pub(crate) struct LayoutState {
     pub(crate) label_groups: LabelGroups,
     /// The dividers placing axes (`axes_grid1`), indexed by their ids.
     pub(crate) dividers: Vec<Divider>,
+    /// The locators placing inset axes (`axes_grid1.inset_locator`),
+    /// indexed by their ids.
+    pub(crate) insets: Vec<InsetLocator>,
 }
 
 impl LayoutState {
@@ -115,6 +118,7 @@ impl LayoutState {
             pending: true,
             label_groups: LabelGroups::default(),
             dividers: Vec::new(),
+            insets: Vec::new(),
         }
     }
 }

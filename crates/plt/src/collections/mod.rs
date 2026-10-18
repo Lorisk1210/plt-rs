@@ -11,12 +11,14 @@
 //! [`TriMeshSpec`] builds a Gouraud-shaded [`TriMesh`].
 
 mod draw;
+mod legend_elements;
 mod props;
 mod quad_mesh;
 mod spec;
 mod style;
 mod trimesh;
 
+pub use legend_elements::{ElementCount, LegendElements, LegendElementsOptions, LegendProperty};
 pub use props::CollectionProps;
 use quad_mesh::MeshGeometry;
 pub use quad_mesh::MeshShading;
@@ -39,7 +41,7 @@ use crate::artist::{
     LimitPoints, RawHandle, format_values,
 };
 use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
-use crate::colors::{Color, Colormap, Norm, NormError, Normalized, ScalarMappable};
+use crate::colors::{Alpha, Color, Colormap, Norm, NormError, Normalized, ScalarMappable};
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -122,10 +124,10 @@ impl Mapped {
     }
 
     /// The mapped colours with `alpha` applied.
-    pub(crate) fn colors(&self, alpha: Option<f64>) -> Result<Vec<plt_core::Rgba>, String> {
+    pub(crate) fn colors(&self, alpha: &Alpha) -> Result<Vec<plt_core::Rgba>, String> {
         let cmap = self.source.mappable.cmap();
         let normalized = self.normalized.as_ref().map_err(Clone::clone)?;
-        Ok(normalized.iter().map(|&n| cmap.lookup(n, alpha)).collect())
+        cmap.map(normalized, alpha).map_err(|err| err.to_string())
     }
 }
 
@@ -156,6 +158,9 @@ pub(crate) struct CollectionArtist {
     /// Edge widths in points (`None` = the kind's default).
     pub(crate) linewidths: Option<Vec<f64>>,
     pub(crate) linestyles: Vec<LineStyle>,
+    /// One opacity per item, replacing the artist's single alpha
+    /// (matplotlib's array `alpha`).
+    pub(crate) alphas: Option<Vec<f64>>,
     pub(crate) antialiased: Option<Vec<bool>>,
     pub(crate) hatch: Option<String>,
     pub(crate) capstyle: Option<CapStyle>,
@@ -194,6 +199,7 @@ impl CollectionArtist {
             edgecolors: EdgeColors::Default,
             linewidths: None,
             linestyles: vec![LineStyle::Solid],
+            alphas: None,
             antialiased: None,
             hatch: None,
             capstyle: None,
@@ -231,6 +237,18 @@ impl CollectionArtist {
 
     pub(crate) fn rc(&self) -> &RcParams {
         &self.rc
+    }
+
+    /// The edge widths in points, or the kind's default width
+    /// (`lines.linewidth` for line collections, else `patch.linewidth`).
+    pub(crate) fn linewidths_or_default(&self) -> Vec<f64> {
+        self.linewidths.clone().unwrap_or_else(|| {
+            vec![if self.kind == CollectionKind::Line {
+                self.rc.lines_linewidth
+            } else {
+                self.rc.patch_linewidth
+            }]
+        })
     }
 
     /// The face and edge colours after defaults, colour mapping and alpha
@@ -417,6 +435,12 @@ impl Collection {
     /// Sets the edge line styles (cycled).
     pub fn set_linestyles(&self, styles: Vec<LineStyle>) -> &Self {
         self.update(|c| c.linestyles = styles)
+    }
+
+    /// Sets one opacity per item (matplotlib's `set_alpha` with an array):
+    /// the faces and edges take them, a single colour repeated for each.
+    pub fn set_alphas(&self, alphas: Vec<f64>) -> &Self {
+        self.update(|c| c.alphas = Some(alphas))
     }
 
     /// Sets per-item antialiasing (cycled).

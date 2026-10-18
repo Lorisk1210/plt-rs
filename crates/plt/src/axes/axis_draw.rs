@@ -11,7 +11,7 @@ use super::AxesState;
 use super::axis_layout::{AxisPainter, PlacedText};
 use super::ticks::{GridStyle, TickDirection, TickStyle};
 use crate::artist::{ArtistId, DrawContext, rc_sketch};
-use crate::colors::ColorError;
+use crate::colors::{Color, ColorError};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
 use crate::patheffects::with_path_effects;
 use crate::polar;
@@ -161,6 +161,11 @@ impl TickMark<'_> {
             Ok(color) => color,
             Err(err) => return ctx.report(owner, err),
         };
+        let edge = match self.style.edgecolor.as_ref().map(Color::resolve) {
+            None => color,
+            Some(Ok(edge)) => edge,
+            Some(Err(err)) => return ctx.report(owner, err),
+        };
         let size = ctx.points_to_pixels(self.style.size);
         let snap = self
             .marker
@@ -180,7 +185,7 @@ impl TickMark<'_> {
             .get_as::<AxesState>(owner)
             .and_then(|axes| rc_sketch(&axes.rc));
         let gc = GraphicsContext {
-            foreground: color,
+            foreground: edge,
             linewidth: self.style.width,
             join: self.marker.joinstyle(),
             cap: self.marker.capstyle(),

@@ -1,4 +1,11 @@
-//! `figures/cases_geo.py`.
+//! `figures/cases_geo.py`: the basic cases here, grids and artists in
+//! submodules.
+
+mod artists;
+mod grids;
+
+pub(crate) use artists::CASES as ARTISTS;
+pub(crate) use grids::CASES as GRIDS;
 
 use std::f64::consts::{FRAC_PI_2, PI};
 

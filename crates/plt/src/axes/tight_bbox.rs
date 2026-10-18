@@ -32,8 +32,9 @@ impl FigureState {
         self.lay_out_axes(axes);
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi;
+        let shared = self.shared_tick_spaces(axes);
         let state = self.store.get_as_mut::<AxesState>(axes)?;
-        state.update_ticks(&extent, dpi);
+        state.update_ticks(&extent, dpi, shared);
         let children = state.children.clone();
         self.update_title_position(axes);
         let insets: Vec<ArtistId> = children

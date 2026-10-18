@@ -406,4 +406,62 @@ mod tests {
         let radial = ax.ticks(AxisName::Y).unwrap();
         assert!(radial.major.iter().all(|t| t.loc > 0.0));
     }
+
+    #[test]
+    fn drawing_decides_the_visibility_of_the_sector_spines() {
+        let fig = Figure::new();
+        let ax = fig.polar_subplot();
+        let spines = ax.spines();
+        spines.left.set_visible(true);
+        fig.layout();
+        assert!(!spines.left.visible(), "a full circle has no start spine");
+        ax.set_thetamax(270.0);
+        spines.right.set_visible(false);
+        fig.layout();
+        assert!(spines.left.visible() && spines.right.visible());
+        assert!(
+            !spines.bottom.visible(),
+            "no hole without an origin below rmin"
+        );
+        ax.set_rorigin(Some(-1.0));
+        fig.layout();
+        assert!(spines.bottom.visible());
+    }
+
+    #[test]
+    fn error_bar_caps_turn_with_theta() {
+        use crate::axes::ErrorbarOptions;
+        use crate::lines::LineArtist;
+        use crate::markers::{Marker, MarkerSymbol};
+
+        let ax = Figure::new().polar_subplot();
+        let options = ErrorbarOptions {
+            xerr: Some(0.1.into()),
+            yerr: Some(0.2.into()),
+            capsize: Some(3.0),
+            ..ErrorbarOptions::default()
+        };
+        let bars = ax
+            .errorbar([0.0, 1.0, 2.0], [1.0, 1.5, 2.0], options)
+            .unwrap();
+        // Both ends of both directions, one line per point.
+        assert_eq!(bars.caplines.len(), 12);
+        let turns: Vec<(Marker, f64)> = bars
+            .caplines
+            .iter()
+            .map(|cap| {
+                cap.raw().with::<LineArtist, _>(|line| {
+                    let rotation = line.marker_rotation.expect("a polar cap");
+                    (line.marker.clone(), rotation.extra)
+                })
+            })
+            .collect();
+        assert!(
+            turns
+                .iter()
+                .all(|(m, _)| *m == Marker::Symbol(MarkerSymbol::HLine))
+        );
+        assert_eq!(turns[0].1, 0.0, "angular bars have radial caps");
+        assert_eq!(turns[11].1, std::f64::consts::FRAC_PI_2);
+    }
 }

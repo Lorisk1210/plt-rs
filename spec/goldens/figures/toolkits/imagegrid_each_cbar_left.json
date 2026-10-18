@@ -1,0 +1,84 @@
+{
+ "size_px": [700, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.174892, 0.329596, 0.141775, 0.330808],
+   "title": "",
+   "xlim": [-0.5, 11.5],
+   "ylim": [11.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [10.0, "10"]],
+   "yticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.466558, 0.329596, 0.141775, 0.330808],
+   "title": "",
+   "xlim": [-0.5, 11.5],
+   "ylim": [11.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [10.0, "10"]],
+   "yticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.758225, 0.329596, 0.141775, 0.330808],
+   "title": "",
+   "xlim": [-0.5, 11.5],
+   "ylim": [11.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [10.0, "10"]],
+   "yticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.329596, 0.014177, 0.330808],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-0.968825, 0.968825],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "scale 1e0",
+   "xticks": [],
+   "yticks": [[-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.416667, 0.329596, 0.014177, 0.330808],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-9.598531, 9.833105],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "scale 1e1",
+   "xticks": [],
+   "yticks": [[-5.0, "−5"], [0.0, "0"], [5.0, "5"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.708333, 0.329596, 0.014177, 0.330808],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-97.789729, 95.726544],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "scale 1e2",
+   "xticks": [],
+   "yticks": [[-50.0, "−50"], [0.0, "0"], [50.0, "50"]]
+  }
+ ]
+}

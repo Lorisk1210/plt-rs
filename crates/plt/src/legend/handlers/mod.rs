@@ -152,6 +152,7 @@ pub(crate) fn create(
             Ok(Some(patch::patch(ctx, first, area)))
         }
         Source::Container(ContainerIds::Errorbar(ids)) => errorbar::errorbar(ctx, ids, area),
+        Source::Proxy(line) => Ok(Some(line::line2d(ctx, &line.0, area))),
         Source::Container(ContainerIds::Stem {
             markerline,
             stemlines,

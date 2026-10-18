@@ -74,7 +74,7 @@ impl TriMeshArtist {
         let resolved = ctx
             .resolve(&self.transform())
             .ok_or("its coordinate system no longer exists")?;
-        let colors = self.mapping.colors(self.base.alpha)?;
+        let colors = self.mapping.colors(&self.base.alpha.into())?;
         let corners: Vec<[Point; 3]> = self
             .triangles
             .iter()

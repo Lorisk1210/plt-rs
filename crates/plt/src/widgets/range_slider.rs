@@ -133,9 +133,7 @@ impl RangeSlider {
         };
         let empty = Polygon::new(vec![Point::new(0.0, 0.0); 5], true);
         let poly = ax.add_patch_in(empty, transform, (false, false));
-        if let Some(facecolor) = &options.facecolor {
-            poly.set_facecolor(facecolor.clone());
-        }
+        poly.update_props(options.poly.clone());
         let extent = valmax - valmin;
         let start = valinit.unwrap_or((valmin + extent * 0.25, valmin + extent * 0.75));
         let handles = [base.handle(start.0), base.handle(start.1)];

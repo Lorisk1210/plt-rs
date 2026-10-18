@@ -1,11 +1,13 @@
 //! Error bars (matplotlib's `errorbar`).
 
+use std::f64::consts::FRAC_PI_2;
+
 use super::broadcast::{broadcast, broadcast_flags};
-use super::{Axes, PlotError};
+use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
-use crate::collections::Collection;
+use crate::collections::{Collection, CollectionArtist};
 use crate::colors::Color;
-use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery};
+use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery, PolarMarkerRotation};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
@@ -153,6 +155,34 @@ impl BarStyle {
         props.apply(&mut line);
         line.base_mut().transform = Some(axes.trans_data());
         line
+    }
+
+    /// The cap or limit-marker lines with `marker` at `(x, y)` for error
+    /// bars along `axis`: one line, or on polar axes one line per point
+    /// whose `_` marker is turned perpendicular to its bar (matplotlib
+    /// draws every polar cap with the `_` marker, whatever `marker` is).
+    fn caps(
+        &self,
+        axes: &Axes,
+        (x, y): (Vec<f64>, Vec<f64>),
+        marker: MarkerSymbol,
+        axis: AxisName,
+    ) -> Vec<LineArtist> {
+        if !axes
+            .raw()
+            .with::<AxesState, _>(|state| state.polar().is_some())
+        {
+            return vec![self.cap(axes, x, y, marker)];
+        }
+        let extra = if axis == AxisName::Y { FRAC_PI_2 } else { 0.0 };
+        x.into_iter()
+            .zip(y)
+            .map(|(theta, r)| {
+                let mut line = self.cap(axes, vec![theta], vec![r], MarkerSymbol::HLine);
+                line.marker_rotation = Some(PolarMarkerRotation { theta, extra });
+                line
+            })
+            .collect()
     }
 
     /// Styles a family of error bars (matplotlib's `eb_lines_style`).
@@ -344,6 +374,18 @@ impl Axes {
             &masked(&high, every),
         )?;
         style.style_bars(&bars);
+        if along_x
+            && self
+                .raw()
+                .with::<AxesState, _>(|state| state.polar().is_some())
+        {
+            // Angular error bars bend along their circle on polar axes.
+            bars.raw().with_mut::<CollectionArtist, _>(|bars| {
+                for path in &mut bars.paths {
+                    *path = std::mem::take(path).with_interpolation_steps(2);
+                }
+            });
+        }
 
         // Lines take `(x, y)`; the error values belong on the error axis.
         let place = |positions: Vec<f64>, values: Vec<f64>| {
@@ -373,8 +415,8 @@ impl Axes {
         if style.capsize > 0.0 && nolims.contains(&true) {
             let mask: Vec<bool> = nolims.iter().zip(every).map(|(&a, &b)| a && b).collect();
             for ends in [&low, &high] {
-                let (cx, cy) = place(masked(indep, &mask), masked(ends, &mask));
-                caps.push(style.cap(self, cx, cy, cap_marker));
+                let points = place(masked(indep, &mask), masked(ends, &mask));
+                caps.extend(style.caps(self, points, cap_marker, direction.axis));
             }
         }
         let inverted = self.axis_of(direction.axis).inverted();
@@ -391,10 +433,11 @@ impl Axes {
                 lo_marker
             };
             let mask: Vec<bool> = lims.iter().zip(every).map(|(&a, &b)| a && b).collect();
-            let (cx, cy) = place(masked(indep, &mask), masked(ends, &mask));
-            caps.push(style.cap(self, cx, cy, marker));
+            let points = place(masked(indep, &mask), masked(ends, &mask));
+            caps.extend(style.caps(self, points, marker, direction.axis));
             if style.capsize > 0.0 {
-                caps.push(style.cap(self, masked(x, &mask), masked(y, &mask), cap_marker));
+                let points = (masked(x, &mask), masked(y, &mask));
+                caps.extend(style.caps(self, points, cap_marker, direction.axis));
             }
         }
         Ok((bars, caps))

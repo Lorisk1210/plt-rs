@@ -309,3 +309,142 @@ def _(fig):
     ax.set_title("sketchy")
     ax.set_xlabel("x")
     ax.legend(loc="lower left")
+
+
+# --- more anchored boxes, packers and annotation boxes ---------------------------
+
+
+@case("offsetbox/anchored_text_location_codes")
+def _(fig):
+    ax = _unit_axes(fig)
+    for code in range(1, 11):
+        ax.add_artist(AnchoredText(f"loc={code}", loc=code, prop=dict(size=8), pad=0.2,
+                                   borderpad=0.3))
+    styled = AnchoredText("styled frame", loc="center", prop=dict(size=11, color="tab:brown"),
+                          bbox_to_anchor=(0.5, 0.3), bbox_transform=ax.transAxes)
+    styled.patch.set(facecolor="lightyellow", edgecolor="tab:orange", linewidth=1.5)
+    styled.patch.set_boxstyle("round4,pad=0.2")
+    ax.add_artist(styled)
+
+
+@case("offsetbox/packer_alignments_and_modes")
+def _(fig):
+    ax = _unit_axes(fig)
+
+    def texts(*sizes):
+        return [TextArea(f"{s}pt", textprops=dict(size=s)) for s in sizes]
+
+    for loc, align in [("upper left", "top"), ("upper right", "bottom"),
+                       ("center left", "center"), ("center right", "baseline")]:
+        box = HPacker(children=texts(8, 14, 20), align=align, pad=2, sep=6)
+        ax.add_artist(AnchoredOffsetbox(loc=loc, child=box, frameon=True))
+    for loc, align in [("lower left", "left"), ("lower right", "right")]:
+        column = VPacker(children=texts(8, 12, 16), align=align, pad=2, sep=2)
+        ax.add_artist(AnchoredOffsetbox(loc=loc, child=column, frameon=True))
+    equal = HPacker(children=texts(8, 10, 12), mode="equal", sep=4, width=150)
+    ax.add_artist(AnchoredOffsetbox(loc="lower center", child=equal, frameon=True))
+    fixed = VPacker(children=texts(9, 9), mode="fixed", sep=10, align="center")
+    ax.add_artist(AnchoredOffsetbox(loc="upper center", child=fixed, frameon=True))
+
+
+@case("offsetbox/drawing_area_descents_in_packer")
+def _(fig):
+    ax = _unit_axes(fig)
+    shifted = DrawingArea(30, 20, xdescent=5, ydescent=8)
+    shifted.add_artist(Rectangle((-5, -8), 30, 20, fc="tab:cyan"))
+    shifted.add_artist(Circle((0, 0), 3, fc="k"))
+    row = HPacker(children=[TextArea("before"), shifted, TextArea("after")],
+                  align="baseline", pad=0, sep=4)
+    anchored = AnchoredOffsetbox(loc="upper left", child=row, frameon=True)
+    anchored.patch.set_boxstyle("round,pad=0.1")
+    ax.add_artist(anchored)
+    clipped = DrawingArea(50, 30, 10, 10, clip=True)
+    clipped.add_artist(Ellipse((15, 5), 60, 40, fc="tab:pink", ec="k"))
+    ax.add_artist(AnchoredOffsetbox(loc="center", child=clipped, frameon=True, pad=0.0))
+    top = DrawingArea(40, 25, 0, 0)
+    top.add_artist(Rectangle((0, 0), 40, 25, fc="tab:olive", alpha=0.5))
+    column = VPacker(children=[top, TextArea("under the area")], align="center", pad=0, sep=2)
+    ax.add_artist(AnchoredOffsetbox(loc="lower right", child=column, frameon=False))
+
+
+@case("offsetbox/annotation_bbox_packed_children")
+def _(fig):
+    ax = _unit_axes(fig)
+    xy = (0.3, 0.4)
+    ax.plot(*xy, "o", color="tab:red")
+    bars = DrawingArea(36, 24, 0, 0)
+    for i, height in enumerate([10, 24, 16]):
+        bars.add_artist(Rectangle((2 + 12 * i, 0), 8, height, fc=f"C{i}"))
+    card = VPacker(children=[TextArea("sales", textprops=dict(weight="bold")), bars],
+                   align="center", pad=0, sep=3)
+    ax.add_artist(AnnotationBbox(card, xy, xybox=(60, 50), boxcoords="offset points",
+                                 arrowprops=dict(arrowstyle="->",
+                                                 connectionstyle="arc3,rad=-0.2")))
+    swatch = DrawingArea(12, 12, 0, 0)
+    swatch.add_artist(Circle((6, 6), 6, fc="tab:green"))
+    row = HPacker(children=[swatch, TextArea("green marker")], align="center", pad=0, sep=4)
+    ax.add_artist(AnnotationBbox(row, (0.75, 0.25), xybox=(0.95, 0.6),
+                                 box_alignment=(1.0, 0.0),
+                                 bboxprops=dict(boxstyle="round", fc="0.95"),
+                                 arrowprops=dict(arrowstyle="-|>", color="tab:green")))
+    ax.plot(0.75, 0.25, "s", color="tab:green")
+
+
+@case("offsetbox/annotation_bbox_aux_and_padded")
+def _(fig):
+    ax = fig.subplots()
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 5)
+    aux = AuxTransformBox(ax.transData)
+    aux.add_artist(Rectangle((0, 0), 1.5, 0.6, angle=20, fc="tab:blue"))
+    aux.add_artist(Circle((2.2, 0.3), 0.3, fc="tab:orange"))
+    ax.add_artist(AnnotationBbox(aux, (2, 1), xybox=(6, 3.5),
+                                 arrowprops=dict(arrowstyle="->")))
+    padded = PaddedBox(TextArea("padded text"), pad=5, draw_frame=True,
+                       patch_attrs=dict(facecolor="honeydew", edgecolor="tab:green"))
+    ax.add_artist(AnnotationBbox(padded, (8, 1), xybox=(8, 2.5), frameon=False,
+                                 arrowprops=dict(arrowstyle="-[")))
+    ax.plot([2, 8], [1, 1], "k.")
+
+
+@case("offsetbox/annotation_bbox_mixed_coords")
+def _(fig):
+    ax = fig.subplots()
+    ax.plot(T, np.sin(T))
+    ax.add_artist(AnnotationBbox(TextArea("blended: x data, y axes"), (5, 0.9),
+                                 xycoords=("data", "axes fraction"), xybox=(2, 0.6),
+                                 boxcoords=("data", "axes fraction"),
+                                 arrowprops=dict(arrowstyle="->")))
+    ax.add_artist(AnnotationBbox(TextArea("figure fraction"), (0.5, 0.05),
+                                 xycoords="figure fraction", xybox=(0.8, 0.2),
+                                 boxcoords="axes fraction", annotation_clip=False,
+                                 arrowprops=dict(arrowstyle="wedge,tail_width=0.5",
+                                                 fc="0.8", ec="0.4")))
+    ax.add_artist(AnnotationBbox(TextArea("axes pixels"), (8, -0.9), xybox=(300, 40),
+                                 boxcoords="axes pixels", pad=0.8,
+                                 bboxprops=dict(boxstyle="larrow", fc="lavender"),
+                                 arrowprops=dict(arrowstyle="->", shrinkB=8)))
+
+
+@case("offsetbox/textarea_multiline_baseline")
+def _(fig):
+    ax = _unit_axes(fig)
+    row = HPacker(children=[TextArea("one\ntwo\nthree", multilinebaseline=True),
+                            TextArea("base"),
+                            TextArea("left\nlines", multilinebaseline=False),
+                            TextArea("right\naligned lines", textprops=dict(ha="right"))],
+                  align="baseline", pad=0, sep=8)
+    ax.add_artist(AnchoredOffsetbox(loc="center", child=row, frameon=True))
+    ax.axhline(0.5, color="0.8")
+
+
+@case("offsetbox/anchored_text_boxstyles")
+def _(fig):
+    ax = _unit_axes(fig)
+    styles = ["round4,pad=0.3", "sawtooth", "larrow", "roundtooth", "circle"]
+    for i, style in enumerate(styles):
+        at = AnchoredText(style, loc="center", bbox_to_anchor=(0.2 + 0.15 * i, 0.15 + 0.17 * i),
+                          bbox_transform=ax.transAxes, prop=dict(size=9))
+        at.patch.set_boxstyle(style)
+        at.patch.set(facecolor=f"C{i}", alpha=0.4, hatch="//" if i % 2 else None)
+        ax.add_artist(at)

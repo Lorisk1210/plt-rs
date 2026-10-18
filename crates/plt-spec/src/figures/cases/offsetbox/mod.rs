@@ -5,6 +5,8 @@
 mod anchored;
 mod annotation;
 mod gaps;
+mod layouts;
+mod pointers;
 
 use plt::fonts::{FontProperties, FontSize};
 use plt::numeric::Grid;
@@ -42,6 +44,35 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("offsetbox/figtext", gaps::figtext),
     FigureCase::new("offsetbox/xkcd_bacon", gaps::xkcd_bacon).with_rc_setup(gaps::xkcd_default),
     FigureCase::new("offsetbox/xkcd_ticks", gaps::xkcd_ticks).with_rc_setup(gaps::xkcd_strong),
+    FigureCase::new(
+        "offsetbox/anchored_text_location_codes",
+        layouts::location_codes,
+    ),
+    FigureCase::new(
+        "offsetbox/packer_alignments_and_modes",
+        layouts::packer_alignments,
+    ),
+    FigureCase::new(
+        "offsetbox/drawing_area_descents_in_packer",
+        layouts::drawing_area_descents,
+    ),
+    FigureCase::new(
+        "offsetbox/textarea_multiline_baseline",
+        layouts::multiline_baseline,
+    ),
+    FigureCase::new("offsetbox/anchored_text_boxstyles", layouts::text_boxstyles),
+    FigureCase::new(
+        "offsetbox/annotation_bbox_packed_children",
+        pointers::packed_children,
+    ),
+    FigureCase::new(
+        "offsetbox/annotation_bbox_aux_and_padded",
+        pointers::aux_and_padded,
+    ),
+    FigureCase::new(
+        "offsetbox/annotation_bbox_mixed_coords",
+        pointers::mixed_coords,
+    ),
 ];
 
 /// `T = np.linspace(0, 10, 40)`.

@@ -46,6 +46,16 @@ pub use plt_text::{
 pub use text_box::TextBoxProps;
 pub(crate) use text_box::{BoxPlacement, TextBox};
 
+/// How a text's rotation is reduced before it is drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AngleReduction {
+    /// Into `[0, 360)`, as `set_rotation` stores it.
+    Modulo360,
+    /// Not at all: matplotlib's `Text3D.draw` sets `_rotation` directly,
+    /// bypassing `set_rotation`.
+    AsIs,
+}
+
 /// State of a text artist (matplotlib's `Text`, and `Annotation` when
 /// `annotation` is set).
 #[derive(Debug)]
@@ -56,6 +66,8 @@ pub(crate) struct TextArtist {
     pub(crate) color: Color,
     pub(crate) font: FontProperties,
     pub(crate) rotation: f64,
+    /// How `rotation` is reduced before drawing.
+    pub(crate) rotation_reduction: AngleReduction,
     pub(crate) halign: HAlign,
     pub(crate) valign: VAlign,
     /// Alignment of lines within the block; `None` follows `halign`.
@@ -85,6 +97,7 @@ impl TextArtist {
             color: rc.text_color.clone(),
             font: FontProperties::from_rc(&rc),
             rotation: 0.0,
+            rotation_reduction: AngleReduction::Modulo360,
             halign: HAlign::Left,
             valign: VAlign::Baseline,
             multialign: None,
@@ -104,7 +117,10 @@ impl TextArtist {
     /// mode when wrapping).
     pub(crate) fn block_style(&self) -> BlockStyle {
         BlockStyle {
-            rotation: self.rotation.rem_euclid(360.0),
+            rotation: match self.rotation_reduction {
+                AngleReduction::Modulo360 => self.rotation.rem_euclid(360.0),
+                AngleReduction::AsIs => self.rotation,
+            },
             halign: self.halign,
             valign: self.valign,
             multialign: self.multialign.unwrap_or(self.halign),

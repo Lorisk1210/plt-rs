@@ -125,12 +125,35 @@ fn prepare(
             .collect();
         arabic.setup_masks(&mut items, &pre, &post);
     }
+    set_ranged_masks(text, plan, &mut items);
     if plan.fallback_mark_positioning {
         for item in &mut items {
             recategorize_mark(item.c, &mut item.props);
         }
     }
     (items, direction)
+}
+
+/// Gives the items whose cluster lies in a ranged feature's characters
+/// that feature's value. Ranges count characters of `text`, clusters are
+/// byte offsets of its characters, so the bounds become byte offsets
+/// (past the end for indices past the text).
+fn set_ranged_masks(text: &[(usize, char)], plan: &ShapePlan, items: &mut [ClusterChar]) {
+    let offset = |index: u32| {
+        usize::try_from(index)
+            .ok()
+            .and_then(|index| text.get(index))
+            .map_or(usize::MAX, |&(offset, _)| offset)
+    };
+    for ranged in &plan.ranged_masks {
+        let clusters = offset(ranged.start)..offset(ranged.end);
+        for item in items
+            .iter_mut()
+            .filter(|item| clusters.contains(&item.cluster))
+        {
+            item.mask = (item.mask & !ranged.mask) | ranged.value;
+        }
+    }
 }
 
 /// Maps characters to glyphs and assigns glyph classes (from `GDEF`, or

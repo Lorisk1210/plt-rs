@@ -54,6 +54,9 @@ pub const VECTOR_CASES: &[&str] = &[
     "polar/plot_default",
     "scatter/default",
     "scatter/edgecolor_face_and_alpha",
+    "shaping/features",
+    "shaping/languages",
+    "shaping/single_lines_only",
     "stats/fill_between_two_curves_alpha",
     "text/color_alpha_background",
     "text/mathtext_mixed_sizes",
@@ -94,6 +97,18 @@ pub const VECTOR_VARIANTS: &[VectorVariant] = &[
         name: "nofont",
         rc: &[("svg.fonttype", "none")],
         formats: &[VectorFormat::Svg],
+    },
+    VectorVariant {
+        case: "shaping/features",
+        name: "type42",
+        rc: &[("pdf.fonttype", "42"), ("ps.fonttype", "42")],
+        formats: &[VectorFormat::Pdf, VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "shaping/features",
+        name: "afm",
+        rc: &[("pdf.use14corefonts", "True"), ("ps.useafm", "True")],
+        formats: &[VectorFormat::Pdf, VectorFormat::Ps],
     },
 ];
 

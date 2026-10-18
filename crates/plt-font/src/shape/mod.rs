@@ -3,17 +3,20 @@
 //! This reproduces the pipeline matplotlib uses (libraqm + `SheenBidi` +
 //! HarfBuzz). Text is resolved with the Unicode Bidirectional Algorithm
 //! and split into runs of one level, script (libraqm's rules for Common
-//! and Inherited characters) and font, ordered visually. Each run is
-//! shaped like HarfBuzz does: switched to its script's native direction,
+//! and Inherited characters), font and language, ordered visually. Each
+//! run is shaped like HarfBuzz does: its script and language pick the
+//! font's script and language system (HarfBuzz's BCP 47 to OpenType tag
+//! tables), it is switched to its script's native direction,
 //! mirrored when right to left, normalized (decomposing characters the
 //! font lacks, reordering and recomposing marks), mapped through the
 //! character map, given per-glyph feature masks by the script shaper
-//! (Arabic joining), substituted with the `GSUB` lookups of HarfBuzz's
-//! features stage by stage (with the Arabic presentation-form fallback for
-//! fonts without the features) and positioned with `GPOS` (`kern`,
-//! `curs`, `mark`, `mkmk`, ...) or the legacy `kern` table. Mark glyphs get
-//! zero advance; fonts without `GPOS` get HarfBuzz's fallback mark
-//! stacking. Right-to-left runs come out in visual order.
+//! (Arabic joining) and by features set for parts of the text,
+//! substituted with the `GSUB` lookups of HarfBuzz's default and the
+//! user's features stage by stage (with the Arabic presentation-form
+//! fallback for fonts without the features) and positioned with `GPOS`
+//! (`kern`, `curs`, `mark`, `mkmk`, ...) or the legacy `kern` table. Mark
+//! glyphs get zero advance; fonts without `GPOS` get HarfBuzz's fallback
+//! mark stacking. Right-to-left runs come out in visual order.
 
 mod arabic;
 mod bidi;
@@ -22,6 +25,7 @@ mod chain;
 mod fallback;
 mod hebrew;
 mod itemize;
+mod language;
 mod normalize;
 mod plan;
 mod position;
@@ -33,13 +37,15 @@ mod unicode;
 mod unicode_data;
 
 pub use chain::{FontChain, LaidOutGlyph, TextLayout};
+pub use language::{LanguageRange, LanguageTag};
 pub use script::Script;
 
 use crate::face::Face;
 use crate::layout::feature::Feature;
 use crate::scale::{Scaler, Size};
-use crate::types::{Direction, GlyphId, Tag};
+use crate::types::{Direction, GlyphId};
 use itemize::{itemize, scripts};
+use language::char_languages;
 use plan::ShapePlan;
 use run::shape_run;
 
@@ -65,11 +71,15 @@ pub struct ShapedGlyph {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ShapeOptions {
     /// Feature settings applied on top of HarfBuzz's defaults (e.g.
-    /// `-kern` to disable kerning, `smcp` to enable small capitals).
+    /// `-kern` to disable kerning, `smcp` to enable small capitals), in
+    /// order (later settings of a feature win).
     pub features: Vec<Feature>,
-    /// OpenType language system tag (e.g. `TRK `); `None` uses the
-    /// script's default language system.
-    pub language: Option<Tag>,
+    /// Languages of character ranges (later ranges win where they
+    /// overlap; ranges are clipped to the text). Characters no range
+    /// covers use the default language system; each language picks the
+    /// font's language system as HarfBuzz does, and runs split where the
+    /// language changes, as libraqm splits them.
+    pub languages: Vec<LanguageRange>,
     /// Forces one script for the whole text instead of itemizing it.
     pub script: Option<Script>,
     /// Paragraph direction; `None` takes it from the first strong
@@ -146,14 +156,15 @@ fn shape_text<'h>(
 ) -> Vec<(usize, ShapedGlyph)> {
     let chars: Vec<char> = text.iter().map(|&(_, c)| c).collect();
     let scripts = scripts(&chars, options.script);
+    let languages = char_languages(&options.languages, chars.len());
     let mut glyphs = Vec::with_capacity(text.len());
-    for run in itemize(&chars, &scripts, assignment, options.direction) {
+    for run in itemize(&chars, &scripts, assignment, &languages, options.direction) {
         let face = &faces[run.face];
         let plan = ShapePlan::new(
             face,
             run.script,
             run.direction,
-            options.language,
+            run.language,
             &options.features,
         );
         let shaped = shape_run(

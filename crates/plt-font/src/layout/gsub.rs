@@ -141,8 +141,15 @@ fn alternate(ctx: &mut Applier<'_, '_>, data: &[u8]) -> Result<bool> {
     let Some(set) = indexed(data, 4, index)? else {
         return Ok(false);
     };
-    // Default features carry the value 1, selecting the first alternate.
-    match glyph_array(set)?.get(0) {
+    // The feature's value numbers the alternates from 1 (HarfBuzz's
+    // `alt_index`); 0 and values past the last alternate substitute
+    // nothing.
+    let alternates = glyph_array(set)?;
+    let chosen = usize::try_from(ctx.feature_value())
+        .ok()
+        .and_then(|value| value.checked_sub(1))
+        .and_then(|index| alternates.get(index));
+    match chosen {
         Some(glyph) => {
             replace(ctx, glyph);
             Ok(true)

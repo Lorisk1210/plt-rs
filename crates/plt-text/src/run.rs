@@ -9,6 +9,7 @@ use crate::block::{HAlign, RotationMode};
 use crate::engine::{FontRequest, TextEngine};
 use crate::error::TextError;
 use crate::mathtext::MathStyle;
+use crate::shaping::Shaping;
 
 /// The characters a glyph renders (matplotlib's `LayoutItem.char` for
 /// shaped text, the character code of a mathtext glyph).
@@ -48,9 +49,10 @@ pub struct PlacedGlyph {
 }
 
 /// What a run was laid out from: the `s`, `prop` and `ismath` arguments
-/// matplotlib's backends receive in `draw_text`. Vector backends use it to
-/// name the text, to embed fonts by character and to lay the text out
-/// again at another size.
+/// matplotlib's backends receive in `draw_text`, and the features and
+/// language of the `mtext` artist. Vector backends use it to name the
+/// text, to embed fonts by character and to lay the text out again at
+/// another size.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TextSource {
     /// Shaped text (`ismath=False`).
@@ -59,6 +61,8 @@ pub enum TextSource {
         text: String,
         /// Its font.
         font: FontRequest,
+        /// Its features and language.
+        shaping: Shaping,
     },
     /// Mathtext (`ismath=True`).
     Math {
@@ -96,9 +100,10 @@ impl TextSource {
         self.font().query.size
     }
 
-    /// Lays the text out again, unhinted, at `points` and `dpi` (with
-    /// `points` 100 and `dpi` 72 this is matplotlib's `TextToPath`, which
-    /// vector backends and path effects use).
+    /// Lays the text out again, unhinted, at `points` and `dpi` with the
+    /// same features and language (with `points` 100 and `dpi` 72 this is
+    /// matplotlib's `TextToPath`, which vector backends and path effects
+    /// use).
     ///
     /// # Errors
     ///
@@ -107,11 +112,15 @@ impl TextSource {
     /// before).
     pub fn layout(&self, engine: &TextEngine, points: f64, dpi: f64) -> Result<TextRun, TextError> {
         match self {
-            Self::Plain { text, font } => {
+            Self::Plain {
+                text,
+                font,
+                shaping,
+            } => {
                 let mut font = font.clone();
                 font.query.size = points;
                 font.hinting = Hinting::None;
-                engine.layout_line(text, &font, dpi)
+                engine.layout_line_with(text, &font, shaping, dpi)
             }
             Self::Math { text, style } => {
                 let mut style = style.clone().with_size(points).with_dpi(dpi);
@@ -257,6 +266,43 @@ mod tests {
         let xs: Vec<f64> = at_100.glyphs.iter().map(|g| g.x).collect();
         assert_eq!(xs, [0.0, 63.625, 95.406_25]);
         assert_eq!(at_100.source.map(|s| s.size()), Some(100.0));
+    }
+
+    #[test]
+    fn sources_keep_their_features_and_language() {
+        let engine = TextEngine::bundled();
+        let shaping = Shaping {
+            features: vec!["-liga".parse().expect("valid")],
+            language: None,
+        };
+        let run = engine
+            .layout_line_with("office", &dejavu(10.0), &shaping, 72.0)
+            .expect("bundled font");
+        assert_eq!(run.glyphs.len(), 6, "no ffi ligature");
+        let source = run.source.expect("laid out by the engine");
+        let again = source.layout(engine, 100.0, 72.0).expect("bundled font");
+        assert_eq!(again.glyphs.len(), 6);
+        assert!(matches!(again.source, Some(TextSource::Plain { shaping: s, .. }) if s == shaping));
+        let catalan = Shaping {
+            features: Vec::new(),
+            language: Some("ca".into()),
+        };
+        let run = engine
+            .layout_line_with("office", &dejavu(10.0), &catalan, 72.0)
+            .expect("bundled font");
+        assert_eq!(run.glyphs.len(), 6, "Catalan has no liga in DejaVu Sans");
+        let outside = Shaping {
+            features: Vec::new(),
+            language: Some(vec![plt_font::LanguageRange::new("sr", 0, 7)].into()),
+        };
+        assert!(matches!(
+            engine.layout_line_with("office", &dejavu(10.0), &outside, 72.0),
+            Err(TextError::LanguageRange {
+                start: 0,
+                end: 7,
+                ..
+            })
+        ));
     }
 
     #[test]

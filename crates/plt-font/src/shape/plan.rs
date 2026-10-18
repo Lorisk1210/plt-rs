@@ -7,9 +7,11 @@ use crate::layout::apply::{Applier, TableKind};
 use crate::layout::buffer::{Buffer, Mask};
 use crate::layout::feature::Feature;
 use crate::layout::map::{FeatureFlags, Map, MapBuilder};
+use crate::layout::ot_tags::OtTags;
 use crate::scale::Scaler;
 use crate::shape::arabic::{self, ArabicPlan};
 use crate::shape::hebrew;
+use crate::shape::language::LanguageTag;
 use crate::shape::normalize::Hooks;
 use crate::shape::script::Script;
 use crate::tables::kern::KernSubtable;
@@ -76,6 +78,20 @@ const COMMON_FEATURES: [(&[u8; 4], FeatureFlags); 14] = [
     (b"rclt", FeatureFlags::NONE),
 ];
 
+/// The mask bits a feature set for some characters only gives them
+/// (HarfBuzz's `set_masks` in `hb_ot_shape_setup_masks`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct RangedMask {
+    /// The feature's mask bits.
+    pub(crate) mask: Mask,
+    /// Its value within those bits.
+    pub(crate) value: Mask,
+    /// Index of the first character.
+    pub(crate) start: u32,
+    /// Index one past the last character.
+    pub(crate) end: u32,
+}
+
 /// Everything needed to shape one run of one script and direction.
 #[derive(Clone, Debug)]
 pub(crate) struct ShapePlan {
@@ -87,6 +103,9 @@ pub(crate) struct ShapePlan {
     pub(crate) shaper: Shaper,
     /// Mask of `rtlm`, given to characters that are not mirrored.
     pub(crate) rtlm_mask: Mask,
+    /// The masks of the user's features that cover part of the text, in
+    /// the order they were given.
+    pub(crate) ranged_masks: Vec<RangedMask>,
     /// The shaper's normalization hooks.
     pub(crate) normalize_hooks: Hooks,
     /// Positioning uses `GPOS`.
@@ -127,21 +146,28 @@ fn collect_features(
         builder.enable_feature(Tag::new(tag), flags);
     }
     for feature in features {
-        builder.add_feature(feature.tag, FeatureFlags::GLOBAL, feature.value);
+        let flags = if feature.is_global() {
+            FeatureFlags::GLOBAL
+        } else {
+            FeatureFlags::NONE
+        };
+        builder.add_feature(feature.tag, flags, feature.value);
     }
 }
 
 impl ShapePlan {
-    /// Plans a run of `script` in `direction` with `language` and the
-    /// user's `features` on top of HarfBuzz's defaults.
+    /// Plans a run of `script` in `direction` with `language` (`None`:
+    /// the default language system) and the user's `features` on top of
+    /// HarfBuzz's defaults.
     pub(crate) fn new(
         face: &Face<'_>,
         script: Script,
         direction: Direction,
-        language: Option<Tag>,
+        language: Option<&LanguageTag>,
         features: &[Feature],
     ) -> Self {
-        let mut builder = MapBuilder::new(face, script.opentype_tag(), language);
+        let tags = OtTags::new(script, language);
+        let mut builder = MapBuilder::new(face, &tags.scripts, &tags.languages);
         let kind = Shaper::kind(script, builder.chosen_script(TableKind::Gsub));
         let arabic_script = script.iso_code() == "Arab";
         // The Hebrew shaper only trusts `GPOS` designed for Hebrew.
@@ -177,10 +203,24 @@ impl ShapePlan {
                 },
             ),
         };
+        let ranged_masks = features
+            .iter()
+            .filter(|feature| !feature.is_global())
+            .filter_map(|feature| {
+                let (mask, value) = map.value_bits(feature.tag, feature.value)?;
+                Some(RangedMask {
+                    mask,
+                    value,
+                    start: feature.start,
+                    end: feature.end,
+                })
+            })
+            .collect();
         Self {
             script,
             direction,
             rtlm_mask: map.one_mask(Tag::new(b"rtlm")),
+            ranged_masks,
             normalize_hooks,
             shaper,
             map,

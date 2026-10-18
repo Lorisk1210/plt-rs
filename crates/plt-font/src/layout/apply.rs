@@ -103,6 +103,18 @@ impl<'f, 'a> Applier<'f, 'a> {
         self.buffer.info.get(self.buffer.idx)
     }
 
+    /// The value of the current lookup's feature for the current glyph:
+    /// the glyph's bits of the lookup mask (1 for features enabled with
+    /// the default value), which picks an alternate.
+    pub(crate) fn feature_value(&self) -> u32 {
+        let shift = self.lookup_mask.trailing_zeros();
+        self.cur().map_or(0, |info| {
+            (info.mask & self.lookup_mask)
+                .checked_shr(shift)
+                .unwrap_or(0)
+        })
+    }
+
     /// HarfBuzz's `check_glyph_property`: whether the current lookup
     /// processes `info` at all.
     fn check_glyph_property(&self, info: &GlyphInfo) -> bool {

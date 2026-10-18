@@ -3,7 +3,9 @@
 use plt_core::Point;
 use plt_text::{HAlign, RotationMode, VAlign};
 
-use super::{LaidOutText, LineSpacing, TextArtist, TextBox, TextBoxProps, TextError};
+use super::{
+    Feature, LaidOutText, Language, LineSpacing, TextArtist, TextBox, TextBoxProps, TextError,
+};
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
@@ -169,5 +171,59 @@ artist_properties! {
         wrap, set_wrap: bool;
         /// Whether `$...$` is typeset as math (`text.parse_math`).
         parse_math, set_parse_math: bool;
+        /// OpenType feature settings on top of the font's defaults
+        /// (matplotlib's `fontfeatures`, e.g. `-kern`, `ss01`, `aalt=2`,
+        /// `liga[0:3]=0`; parse them with `str::parse`), applied when the
+        /// text is drawn as a single line of plain text. They do not change
+        /// its extent: matplotlib measures text without them.
+        fontfeatures, set_fontfeatures: Vec<Feature>;
+        /// The language of the text, which picks the font's language
+        /// system (e.g. Serbian letter forms for `"sr"`), applied like the
+        /// features. Setting `None` takes `text.language`, as a new text
+        /// does.
+        language, set_language: Option<Language> => resolve_language;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::figure::Figure;
+    use crate::rc;
+    use crate::text::HorizontalAlignment;
+
+    #[test]
+    fn new_texts_take_the_rc_language_and_none_restores_it() {
+        rc::context(|| {
+            rc::set("text.language", "sr").expect("valid rc");
+            let fig = Figure::with_size(2.0, 1.0, 72.0);
+            let text = fig.text(0.5, 0.5, "\u{431}");
+            assert_eq!(text.language(), Some(Language::from("sr")));
+            text.set_language(Language::from("ru"));
+            assert_eq!(text.language(), Some(Language::from("ru")));
+            text.set_language(None);
+            assert_eq!(text.language(), Some(Language::from("sr")));
+        });
+        let fig = Figure::with_size(2.0, 1.0, 72.0);
+        let text = fig.text(0.5, 0.5, "x");
+        assert_eq!(text.language(), None, "text.language defaults to None");
+        assert_eq!(text.fontfeatures(), []);
+    }
+
+    #[test]
+    fn features_and_language_leave_the_extent_alone() {
+        let fig = Figure::with_size(4.0, 1.0, 100.0);
+        let text = fig.text(0.5, 0.5, "AVAVA office");
+        text.set_halign(HorizontalAlignment::Right);
+        let before = text.window_extent();
+        let features: Vec<Feature> = ["-kern", "-liga"]
+            .iter()
+            .map(|f| f.parse().expect("valid feature"))
+            .collect();
+        text.set_fontfeatures(features.clone())
+            .set_language(Language::from("ca"));
+        assert_eq!(text.fontfeatures(), features);
+        assert!(before.is_some());
+        assert_eq!(text.window_extent(), before);
     }
 }

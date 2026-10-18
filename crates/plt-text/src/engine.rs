@@ -6,12 +6,13 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 use plt_core::{Path, PathBuilder, Point};
 use plt_font::{
     AutohintTarget, FontDatabase, FontId, FontQuery, GenericFamilies, GlyphId, Hinter, Hinting,
-    HintingInstance, OutlineSink, ShapeOptions, Size,
+    HintingInstance, OutlineSink, Size,
 };
 
 use crate::block::FontHeightMetrics;
 use crate::error::TextError;
 use crate::run::{GlyphChars, PlacedGlyph, TextRun, TextSource};
+use crate::shaping::Shaping;
 
 /// A font query plus the generic-family lists (`font.sans-serif`, ...)
 /// in effect when it is resolved.
@@ -109,17 +110,30 @@ impl TextEngine {
         request: &FontRequest,
         dpi: f64,
     ) -> Result<TextRun, TextError> {
+        self.layout_line_with(text, request, &Shaping::default(), dpi)
+    }
+
+    /// [`layout_line`](Self::layout_line) with OpenType features and a
+    /// language (`FT2Font.set_text(text, features=..., language=...)`);
+    /// language ranges count the characters of the whole `text`.
+    ///
+    /// # Errors
+    ///
+    /// When the fonts cannot be loaded, or a language range reaches
+    /// outside `text` ([`TextError::LanguageRange`]).
+    pub fn layout_line_with(
+        &self,
+        text: &str,
+        request: &FontRequest,
+        shaping: &Shaping,
+        dpi: f64,
+    ) -> Result<TextRun, TextError> {
+        let options = shaping.shape_options(text)?;
         let query = &request.query;
         let fonts = self.db.find_fonts_with(query, &request.generics)?;
         let chain = self.db.font_chain(&fonts, request.last_resort)?;
         let paragraph = first_paragraph(text);
-        let layout = chain.layout(
-            paragraph,
-            query.size,
-            dpi,
-            &ShapeOptions::default(),
-            request.hinting,
-        )?;
+        let layout = chain.layout(paragraph, query.size, dpi, &options, request.hinting)?;
         let resort = self.db.last_resort();
         let font_of = |index: usize| {
             fonts
@@ -154,6 +168,7 @@ impl TextEngine {
             source: Some(TextSource::Plain {
                 text: text.to_owned(),
                 font: request.clone(),
+                shaping: shaping.clone(),
             }),
             anchor: None,
         })

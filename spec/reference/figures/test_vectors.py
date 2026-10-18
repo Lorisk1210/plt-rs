@@ -2,10 +2,11 @@
 and compare with (or write) the vector goldens next to their PNG goldens.
 
 The subset covers lines, markers, dashes, alpha, text and mathtext, text in
-the standard PostScript fonts (``pdf.use14corefonts``, ``ps.useafm``),
-images, clipping, hatches, Gouraud shading, polar axes, collections,
-rasterized artists and colorbars. Some cases are saved again with other font settings
-(Type 42 fonts, SVG text as text), and two cases are collected into one
+the standard PostScript fonts (``pdf.use14corefonts``, ``ps.useafm``), text
+shaped with OpenType features and languages, images, clipping, hatches,
+Gouraud shading, polar axes, collections, rasterized artists and colorbars.
+Some cases are saved again with other font settings (Type 42 fonts, SVG text
+as text, standard PostScript fonts), and two cases are collected into one
 multi-page PDF. plt-rs compares its own documents with these structurally
 (plt-spec's ``figure_vectors`` test); keep the lists in sync with
 ``VECTOR_CASES``, ``VECTOR_VARIANTS`` and ``PDF_PAGES`` there.
@@ -53,6 +54,9 @@ VECTOR_CASES = [
     "polar/plot_default",
     "scatter/default",
     "scatter/edgecolor_face_and_alpha",
+    "shaping/features",
+    "shaping/languages",
+    "shaping/single_lines_only",
     "stats/fill_between_two_curves_alpha",
     "text/color_alpha_background",
     "text/mathtext_mixed_sizes",
@@ -72,6 +76,8 @@ FORMATS = ["svg", "pdf", "ps"]
 VECTOR_VARIANTS = [
     ("vectors/text_fonts", "type42", {"pdf.fonttype": 42, "ps.fonttype": 42}, ["pdf", "ps"]),
     ("vectors/text_fonts", "nofont", {"svg.fonttype": "none"}, ["svg"]),
+    ("shaping/features", "type42", {"pdf.fonttype": 42, "ps.fonttype": 42}, ["pdf", "ps"]),
+    ("shaping/features", "afm", {"pdf.use14corefonts": True, "ps.useafm": True}, ["pdf", "ps"]),
 ]
 
 #: Cases collected, one per page, into ``vectors/pages.pdf``; a note is

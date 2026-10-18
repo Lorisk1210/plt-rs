@@ -98,7 +98,7 @@ pub(crate) fn hinting(rc: &RcParams) -> Hinting {
 /// current measuring mode reports.
 pub(super) fn measured(mut run: TextRun, dpi: f64) -> Result<TextRun, TextError> {
     if let Some(directory) = AFM_METRICS.get()
-        && let Some(TextSource::Plain { text, font }) = &run.source
+        && let Some(TextSource::Plain { text, font, .. }) = &run.source
     {
         let line = font.afm_line_metrics(text, directory, dpi)?;
         (run.width, run.height, run.descent) = (line.width, line.height, line.descent);

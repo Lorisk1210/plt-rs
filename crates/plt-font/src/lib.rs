@@ -17,8 +17,11 @@
 //!   runs, HarfBuzz's Arabic (joining forms, presentation-form fallback) and
 //!   Hebrew shapers, the default OpenType features (ligatures, `GPOS`
 //!   kerning with fallback to the legacy `kern` table, cursive and mark
-//!   positioning), and [`FontChain`] for matplotlib's per-character font
-//!   fallback and text extents.
+//!   positioning), user [`Feature`]s in HarfBuzz's syntax (also for parts
+//!   of the text), BCP 47 languages ([`LanguageTag`], [`LanguageRange`])
+//!   mapped to the font's language systems with HarfBuzz's tag tables, and
+//!   [`FontChain`] for matplotlib's per-character font fallback and text
+//!   extents.
 //! * [`FontDatabase`] — the bundled matplotlib fonts plus optional system
 //!   fonts, with matplotlib's `findfont` scoring.
 //! * [`AfmFont`] / [`AfmMetrics`] — matplotlib's catalogue of Adobe Font
@@ -59,8 +62,8 @@ pub use layout::feature::{Feature, ParseFeatureError};
 pub use outline::{OutlineRecorder, OutlineSink, PathCommand};
 pub use scale::{KerningMode, Size};
 pub use shape::{
-    FontChain, LaidOutGlyph, Script, ShapeOptions, ShapedGlyph, TextLayout, shape, shape_at_size,
-    shape_with,
+    FontChain, LaidOutGlyph, LanguageRange, LanguageTag, Script, ShapeOptions, ShapedGlyph,
+    TextLayout, shape, shape_at_size, shape_with,
 };
 pub use subset::{FontSubset, subset};
 pub use tables::cmap::CharmapInfo;

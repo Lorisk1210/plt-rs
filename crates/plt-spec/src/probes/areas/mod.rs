@@ -30,6 +30,7 @@ pub(crate) mod rcsetup;
 pub(crate) mod scales;
 pub(crate) mod stats;
 pub(crate) mod text_metrics;
+pub(crate) mod text_shaping;
 pub(crate) mod ticker;
 pub(crate) mod transforms;
 pub(crate) mod tri;

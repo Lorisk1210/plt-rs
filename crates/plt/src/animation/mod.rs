@@ -1,8 +1,9 @@
 //! Animations (matplotlib's `animation.FuncAnimation` and
 //! `ArtistAnimation`): a function updates the figure for each frame, or
 //! each frame shows prepared artists. A figure window plays the frames on
-//! a timer, and the animation can be saved as an animated PNG or GIF or as
-//! a web page with matplotlib's JavaScript player.
+//! a timer, and the animation can be saved as an animated PNG or GIF, as a
+//! web page with matplotlib's JavaScript player, or as a video through
+//! ffmpeg.
 //!
 //! ```
 //! use plt::animation::{AnimationOptions, Frames, FuncAnimation};
@@ -29,14 +30,19 @@ use plt_codec::gif::GifError;
 use plt_codec::png::EncodeError;
 
 use crate::events::TimerKey;
-use crate::figure::{Figure, SaveError};
+use plt_core::Bbox;
+use plt_render::RgbaImage;
+
+use crate::figure::{BboxInches, Figure, SaveError, SaveOptions};
 
 mod artists;
 mod html;
 mod html_template;
+mod movie;
 mod save;
 
 pub use html::{HtmlOptions, PlayMode};
+pub use movie::{MovieError, MovieOptions};
 
 /// Frames saved from an animation without a known length (matplotlib's
 /// default `save_count`).
@@ -87,6 +93,8 @@ pub enum AnimationError {
     /// An HTML page was to be written to a file not named `.html` or
     /// `.htm`.
     NotHtml(PathBuf),
+    /// ffmpeg could not make the video.
+    Movie(MovieError),
 }
 
 impl fmt::Display for AnimationError {
@@ -99,6 +107,7 @@ impl fmt::Display for AnimationError {
                 f,
                 "cannot save animations as {extension:?} (supported: apng, gif, htm, html, png)"
             ),
+            Self::Movie(err) => err.fmt(f),
             Self::NotHtml(path) => write!(
                 f,
                 "cannot write the player to {}: the file name must end in .html or .htm",
@@ -114,6 +123,7 @@ impl std::error::Error for AnimationError {
             Self::Save(err) => Some(err),
             Self::Encode(err) => Some(err),
             Self::Gif(err) => Some(err),
+            Self::Movie(err) => Some(err),
             Self::UnsupportedFormat(_) | Self::NotHtml(_) => None,
         }
     }
@@ -234,6 +244,20 @@ impl FuncAnimation {
         }
         Ok(())
     }
+}
+
+/// One frame of `figure`, rendered as `savefig` would but always of the
+/// whole figure: matplotlib's movie writers turn `savefig.bbox = "tight"`
+/// off so that every frame has the same size.
+fn render_frame(figure: &Figure) -> Result<RgbaImage, SaveError> {
+    let (width, height) = figure.size_inches();
+    let options = SaveOptions {
+        bbox_inches: Some(BboxInches::Inches(Bbox::from_bounds(
+            0.0, 0.0, width, height,
+        ))),
+        ..SaveOptions::default()
+    };
+    Ok(figure.render_raster_with(&options)?.to_image())
 }
 
 /// `duration` in milliseconds, exact for whole milliseconds.

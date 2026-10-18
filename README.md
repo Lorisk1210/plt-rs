@@ -51,8 +51,9 @@ plt::show()?;
   EPS), matplotlib's keyboard shortcuts, a live coordinate readout, 3-D
   axes that rotate (arcball, trackball, sphere or azimuth/elevation), pan
   and zoom with the mouse, figure events (`connect`), timers and
-  `FuncAnimation`/`ArtistAnimation` (saved as animated PNG or GIF, or as
-  an HTML page with matplotlib's JavaScript player, `to_jshtml`);
+  `FuncAnimation`/`ArtistAnimation` (saved as animated PNG or GIF, as an
+  HTML page with matplotlib's JavaScript player, `to_jshtml`, or as a
+  video through an installed ffmpeg, `to_html5_video`);
   pyplot's interactive mode with `pause`, `ginput` and
   `waitforbuttonpress`.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF

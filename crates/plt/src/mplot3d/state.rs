@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use plt_core::{Anchor, Bbox, Path};
 
-use super::art3d::{Art3D, SortKind};
+use super::art3d::{Artist3D, SortKind};
 use super::aspect::AspectSettings;
 use super::axis_draw::draw_axes;
 use super::axis3d::Axis3DState;
@@ -60,8 +60,8 @@ pub(crate) struct Axes3DState {
     pub(crate) computed_zorder: bool,
     /// Background colour of the axes box.
     pub(crate) facecolor: Color,
-    /// The 3-D geometry of the plane's artists, in insertion order.
-    pub(crate) artists: Vec<(ArtistId, Art3D)>,
+    /// The plane's artists with their 3-D geometry, in insertion order.
+    pub(crate) artists: Vec<Artist3D>,
     /// The mouse buttons that rotate, pan and zoom the axes.
     pub(crate) mouse: MouseButtons,
     /// z-order of the axes artists (`axes.axisbelow`); computed z-orders
@@ -143,25 +143,35 @@ impl Axes3DState {
 
     /// Whether data artists were added (matplotlib's `has_data`).
     pub(crate) fn has_data(&self) -> bool {
-        self.artists.iter().any(|(_, art)| art.is_data())
+        self.artists.iter().any(|artist| artist.art.is_data())
     }
 
     /// The layout pass for an axes of display extent `extent`: ticks for
     /// the axes width, then every 3-D artist projected onto its 2-D
-    /// artist and, with computed z-order, collections and patches ordered
-    /// by depth above the axes (matplotlib's `Axes3D.draw` before
-    /// drawing).
+    /// artist (hiding the points outside the view limits for the artists
+    /// clipped to them) and, with computed z-order, collections and
+    /// patches ordered by depth above the axes (matplotlib's
+    /// `Axes3D.draw` before drawing).
     fn prepare(&mut self, store: &mut ArtistStore, extent: &Bbox, dpi: f64) {
-        self.artists.retain(|(id, _)| store.contains(*id));
+        self.artists.retain(|artist| store.contains(artist.id));
         let width_points = extent.width().abs() / dpi * 72.0;
         for dir in Axis3::ALL {
             let span = self.limits.span(dir);
             self.axes[dir.index()].update_ticks(&span, width_points, self.limits.automargin);
         }
         let projection = self.projection();
+        let hiding = projection
+            .clone()
+            .hiding_outside(Axis3::ALL.map(|axis| self.limits.bound(axis)));
         let mut depths: Vec<(ArtistId, SortKind, f64)> = Vec::new();
-        for (id, art) in &self.artists {
-            let Some(depth) = art.project(*id, store, &projection) else {
+        for Artist3D {
+            id,
+            art,
+            axlim_clip,
+        } in &self.artists
+        {
+            let projection = if *axlim_clip { &hiding } else { &projection };
+            let Some(depth) = art.project(*id, store, projection) else {
                 continue;
             };
             let visible = store.get(*id).is_some_and(|a| a.base().visible);

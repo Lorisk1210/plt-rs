@@ -24,6 +24,10 @@ pub struct Stem3DOptions {
     pub bottom: f64,
     /// The axis the stems run along.
     pub orientation: Axis3,
+    /// Whether the stems are hidden where they reach beyond the view
+    /// limits; the markers and the baseline are not, as in matplotlib
+    /// (`axlim_clip`).
+    pub axlim_clip: bool,
 }
 
 impl Default for Stem3DOptions {
@@ -34,6 +38,7 @@ impl Default for Stem3DOptions {
             basefmt: "C3-".into(),
             bottom: 0.0,
             orientation: Axis3::Z,
+            axlim_clip: false,
         }
     }
 }
@@ -106,7 +111,7 @@ impl Axes3D {
             Some(vec![format.linestyle.unwrap_or_else(|| {
                 crate::rc::params().lines_linestyle.clone()
             })]);
-        let stemlines = self.add_segments(stems, props);
+        let stemlines = self.add_segments(stems, props, options.axlim_clip);
         let markerline = self.plot_with(x, y, z, Axis3::Z, no_legend(&options.markerfmt)?)?;
         let base_span = |axis: usize| -> [f64; 2] {
             let (low, high) = limits[axis];

@@ -55,6 +55,11 @@ pub struct Errorbar3DOptions {
     pub uplims: [Vec<bool>; 3],
     /// Which points get error bars (`None` = all).
     pub errorevery: Option<MarkEvery>,
+    /// Whether the data line, the bars and the caps hide their points
+    /// outside the view limits; the limit arrows are not hidden, as in
+    /// matplotlib (`axlim_clip`, which matplotlib 3.11 fails to draw
+    /// once a cap is hidden).
+    pub axlim_clip: bool,
 }
 
 /// The artists of a 3-D error bar plot.
@@ -139,8 +144,9 @@ impl Axes3D {
         let zorder = kwargs.base.zorder.unwrap_or(2.0);
         data.base_mut().zorder = zorder + if options.barsabove { -0.1 } else { 0.1 };
         let points: Vec<Vec3> = (0..n).map(|i| [x[i], y[i], z[i]]).collect();
-        let data_line =
-            (!hidden).then(|| Line2D::from_raw(self.add_artist(data, Art3D::Line(points.clone()))));
+        let data_line = (!hidden).then(|| {
+            Line2D::from_raw(self.add_artist(data, Art3D::Line(points.clone()), options.axlim_clip))
+        });
         let ecolor = options.ecolor.take().unwrap_or(color);
         let capsize = options
             .capsize
@@ -155,6 +161,7 @@ impl Axes3D {
                 .filter(|&w| w != 0.0)
                 .or(kwargs.linewidth),
             arrow_length: f64::NAN,
+            axlim_clip: options.axlim_clip,
         };
         style.arrow_length = self.limit_arrow_length(style.markersize());
         let mut bars = Errorbar3D {
@@ -249,7 +256,7 @@ impl Axes3D {
             .map(|(&low, &high)| vec![low, high])
             .collect();
         bars.errlines
-            .push(self.add_segments(segments, style.bar_props()));
+            .push(self.add_segments(segments, style.bar_props(), style.axlim_clip));
         Ok(ends)
     }
 
@@ -258,7 +265,7 @@ impl Axes3D {
         let [xs, ys, _] = columns(points);
         let mut line = LineArtist::new(xs, ys, crate::rc::params());
         style.cap_props(marker).apply(&mut line);
-        Line2D::from_raw(self.add_artist(line, Art3D::Line(points.to_vec())))
+        Line2D::from_raw(self.add_artist(line, Art3D::Line(points.to_vec()), style.axlim_clip))
     }
 
     /// The length of the limit arrows: a marker of `markersize` points
@@ -312,6 +319,9 @@ struct CapStyle {
     bar_width: Option<f64>,
     /// Length of the limit arrows in data units.
     arrow_length: f64,
+    /// Whether the bars and caps hide their points outside the view
+    /// limits; the arrows never do, as in matplotlib.
+    axlim_clip: bool,
 }
 
 impl CapStyle {

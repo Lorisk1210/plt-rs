@@ -45,6 +45,7 @@ fn wireframe(ax: &Axes3D, stride: usize, props: CollectionProps) -> Result<(), A
             cols: stride,
         },
         props,
+        ..WireframeOptions::default()
     };
     ax.plot_wireframe(&x, &y, &z, options).map(drop)
 }

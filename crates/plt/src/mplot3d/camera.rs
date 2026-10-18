@@ -97,6 +97,9 @@ pub(crate) struct Projection {
     perspective: bool,
     /// The scales of the x, y and z axes.
     scales: [AxisScale; 3],
+    /// The increasing data intervals of the x, y and z view limits
+    /// outside which points are hidden, for the artists clipped to them.
+    view: Option<[(f64, f64); 3]>,
 }
 
 impl Projection {
@@ -106,11 +109,48 @@ impl Projection {
         Self { scales, ..self }
     }
 
-    /// A data point in transformed coordinates; coordinates outside their
-    /// scale's domain become NaN (matplotlib's `_apply_scale_transforms`
-    /// with `_scale_invalid_mask`).
+    /// The same projection hiding the points outside the increasing data
+    /// intervals `view` of the three axes, as if they were masked
+    /// (matplotlib's `axlim_clip`).
+    pub(crate) fn hiding_outside(self, view: [(f64, f64); 3]) -> Self {
+        Self {
+            view: Some(view),
+            ..self
+        }
+    }
+
+    /// Whether the projection hides `p` because it lies outside the view
+    /// limits (matplotlib's `_viewlim_mask`; NaN coordinates are left to
+    /// the scale mask).
+    pub(crate) fn hides(&self, p: Vec3) -> bool {
+        self.view.is_some_and(|view| {
+            p.iter()
+                .zip(view)
+                .any(|(&c, (low, high))| c < low || c > high)
+        })
+    }
+
+    /// A data point in transformed coordinates; hidden points and
+    /// coordinates outside their scale's domain become NaN (matplotlib's
+    /// `_apply_scale_transforms` with `_viewlim_mask` and
+    /// `_scale_invalid_mask`).
     pub(crate) fn transform(&self, p: Vec3) -> Vec3 {
+        if self.hides(p) {
+            return [f64::NAN; 3];
+        }
+        self.scale_transform(p)
+    }
+
+    /// A data point in transformed coordinates, NaN only where outside
+    /// its scale's domain.
+    fn scale_transform(&self, p: Vec3) -> Vec3 {
         [0, 1, 2].map(|i| self.scales[i].masked_forward(p[i]))
+    }
+
+    /// Projects a data point even if the projection hides it, as
+    /// matplotlib does for the masked vertices whose depth still counts.
+    pub(crate) fn project_hidden_too(&self, p: Vec3) -> Vec3 {
+        self.matrix.project(self.scale_transform(p))
     }
 
     /// Projects a data point (matplotlib's `_scale_proj_transform`).
@@ -224,6 +264,7 @@ impl Camera {
             matrix: projection.dot(&view.dot(&world)),
             perspective: !self.is_ortho(),
             scales: Default::default(),
+            view: None,
         }
     }
 
@@ -347,6 +388,24 @@ mod tests {
         assert!(projection.project_clipped([0.5, 0.5, 0.5]).is_some());
         assert!(projection.project_clipped([500.0, 0.5, 0.5]).is_none());
         assert!(projection.project_clipped([f64::NAN, 0.5, 0.5]).is_none());
+    }
+
+    #[test]
+    fn hiding_projections_mask_points_outside_the_view() {
+        let camera = Camera::new(ProjType::default()).expect("valid camera");
+        let projection = camera.projection([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
+        let hiding = projection.clone().hiding_outside([(0.0, 1.0); 3]);
+        let outside = [1.5, 0.5, 0.5];
+        assert!(!projection.hides(outside));
+        assert!(hiding.hides(outside));
+        assert!(!hiding.hides([1.0, 0.0, 0.5]), "the limits are inside");
+        assert!(!hiding.hides([f64::NAN, 0.5, 0.5]));
+        assert!(hiding.project(outside).iter().all(|c| c.is_nan()));
+        assert!(hiding.project_clipped(outside).is_none());
+        assert_eq!(
+            hiding.project_hidden_too(outside),
+            projection.project(outside)
+        );
     }
 
     #[test]

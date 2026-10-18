@@ -94,6 +94,9 @@ pub(crate) struct NewPolys {
     pub(crate) zsort: ZSort,
     /// Further properties, applied after the colours.
     pub(crate) props: CollectionProps,
+    /// Whether the vertices outside the view limits are hidden
+    /// (matplotlib's `axlim_clip`).
+    pub(crate) axlim_clip: bool,
 }
 
 impl FaceColormap {
@@ -144,7 +147,7 @@ impl Axes3D {
         if let Some(mapping) = mapping {
             handle.set_mapping(*mapping);
         }
-        self.register_polys(&raw, polys.faces, polys.zsort, None)?;
+        self.register_polys(&raw, polys.faces, polys.zsort, None, polys.axlim_clip)?;
         Ok(handle)
     }
 
@@ -152,13 +155,15 @@ impl Axes3D {
     /// faces, resolving its colours once (matplotlib's
     /// `set_3d_properties` keeping `_facecolor3d` and `_edgecolor3d`);
     /// `lifted` holds the 2-D paths and the sort position of polygons
-    /// lifted from a 2-D collection.
+    /// lifted from a 2-D collection, and `axlim_clip` hides the vertices
+    /// outside the view limits.
     pub(crate) fn register_polys(
         &self,
         raw: &RawHandle,
         faces: Vec<Vec<Vec3>>,
         zsort: ZSort,
         lifted: Option<(Vec<Path>, f64)>,
+        axlim_clip: bool,
     ) -> Result<(), Axes3DError> {
         let (facecolors, edgecolors) = raw
             .with_mut::<CollectionArtist, _>(|c| {
@@ -179,17 +184,20 @@ impl Axes3D {
                 edgecolors,
                 templates,
             }),
+            axlim_clip,
         );
         Ok(())
     }
 
     /// Adds a line collection of 3-D polylines (matplotlib's
     /// `Line3DCollection` plus `add_collection`); a `color` in `props`
-    /// colours the lines only.
+    /// colours the lines only, and `axlim_clip` hides the points outside
+    /// the view limits.
     pub(crate) fn add_segments(
         &self,
         segments: Vec<Vec<Vec3>>,
         mut props: CollectionProps,
+        axlim_clip: bool,
     ) -> Collection {
         if let Some(color) = props.color.take() {
             props.edgecolors = Some(EdgeColors::Colors(vec![color]));
@@ -198,7 +206,7 @@ impl Axes3D {
             CollectionArtist::new(CollectionKind::Line, Vec::new(), crate::rc::params());
         props.apply(&mut collection);
         let raw = self.adopt_projected(collection);
-        self.register(raw.id(), Art3D::Segments(segments));
+        self.register(raw.id(), Art3D::Segments(segments), axlim_clip);
         Collection::from_raw(raw)
     }
 }

@@ -82,6 +82,9 @@ pub struct VoxelOptions {
     pub lightsource: Option<LightSource>,
     /// Further properties of every voxel's collection.
     pub props: CollectionProps,
+    /// Whether the corners outside the view limits are hidden, breaking
+    /// the faces reaching them (matplotlib's `axlim_clip`).
+    pub axlim_clip: bool,
 }
 
 impl Default for VoxelOptions {
@@ -92,6 +95,7 @@ impl Default for VoxelOptions {
             shade: true,
             lightsource: None,
             props: CollectionProps::default(),
+            axlim_clip: false,
         }
     }
 }
@@ -214,6 +218,7 @@ impl Axes3D {
                 light,
                 zsort: ZSort::Average,
                 props: options.props.clone(),
+                axlim_clip: options.axlim_clip,
             })?;
             let [xs, ys, zs] = columns(&vertices);
             self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)?;

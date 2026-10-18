@@ -41,6 +41,9 @@ pub struct FillBetween3DOptions {
     /// patch property cycle is used. Face colours (and edge colours given
     /// as such) are shaded, a `color` is applied as is.
     pub props: CollectionProps,
+    /// Whether the points outside the view limits are hidden, breaking the
+    /// polygons reaching them (matplotlib's `axlim_clip`).
+    pub axlim_clip: bool,
 }
 
 impl Axes3D {
@@ -140,6 +143,7 @@ impl Axes3D {
             light,
             zsort: ZSort::Average,
             props,
+            axlim_clip: options.axlim_clip,
         })?;
         let pairs = |i: usize| -> Vec<f64> { line1.iter().chain(&line2).map(|p| p[i]).collect() };
         self.auto_scale_xyz(&pairs(0), &pairs(1), Some(&pairs(2)), had_data)?;

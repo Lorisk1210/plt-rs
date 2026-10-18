@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
-use super::art3d::Art3D;
+use super::art3d::{Art3D, Artist3D};
 use super::camera::{Camera, ProjType, ViewAngles};
 use super::coords::Axis3;
 use super::error::Axes3DError;
@@ -259,16 +259,29 @@ impl Axes3D {
         RawHandle::new(Rc::clone(figure), id)
     }
 
-    /// Adds a 2-D artist of the projection plane with its 3-D geometry.
-    pub(crate) fn add_artist(&self, artist: impl Artist, art: Art3D) -> RawHandle {
+    /// Adds a 2-D artist of the projection plane with its 3-D geometry,
+    /// hiding the points outside the view limits with `axlim_clip`.
+    pub(crate) fn add_artist(
+        &self,
+        artist: impl Artist,
+        art: Art3D,
+        axlim_clip: bool,
+    ) -> RawHandle {
         let raw = self.adopt_projected(artist);
-        self.register(raw.id(), art);
+        self.register(raw.id(), art, axlim_clip);
         raw
     }
 
-    /// Gives an artist already added to the plane its 3-D geometry.
-    pub(crate) fn register(&self, id: ArtistId, art: Art3D) {
-        self.with_mut(|axes| axes.artists.push((id, art)));
+    /// Gives an artist already added to the plane its 3-D geometry,
+    /// hiding the points outside the view limits with `axlim_clip`.
+    pub(crate) fn register(&self, id: ArtistId, art: Art3D, axlim_clip: bool) {
+        self.with_mut(|axes| {
+            axes.artists.push(Artist3D {
+                id,
+                art,
+                axlim_clip,
+            });
+        });
     }
 
     /// Whether data artists were added (matplotlib's `has_data`).

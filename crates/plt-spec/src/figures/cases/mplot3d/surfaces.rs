@@ -74,6 +74,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let options = WireframeOptions {
             sampling: Sampling::Strides { rows: 4, cols: 6 },
             props: CollectionProps::default().color("k").linewidth(0.6),
+            ..WireframeOptions::default()
         };
         fig.subplot_3d().plot_wireframe(&x, &y, &z, options)?;
         Ok(())

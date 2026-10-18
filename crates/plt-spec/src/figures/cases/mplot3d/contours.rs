@@ -35,8 +35,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             let options = Contour3DOptions {
                 zdir,
                 offset: Some(offset),
-                extend3d: None,
                 contour,
+                ..Contour3DOptions::default()
             };
             ax.contour(&x, &y, &z, options)?;
         }

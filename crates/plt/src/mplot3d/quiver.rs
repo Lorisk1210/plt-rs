@@ -24,6 +24,9 @@ pub struct Quiver3DOptions {
     pub normalize: bool,
     /// Line properties.
     pub props: CollectionProps,
+    /// Whether the points outside the view limits are hidden, dropping
+    /// the shafts and barbs reaching them (matplotlib's `axlim_clip`).
+    pub axlim_clip: bool,
 }
 
 impl Default for Quiver3DOptions {
@@ -34,6 +37,7 @@ impl Default for Quiver3DOptions {
             pivot: Pivot::Tail,
             normalize: false,
             props: CollectionProps::default(),
+            axlim_clip: false,
         }
     }
 }
@@ -55,7 +59,7 @@ impl Axes3D {
         check_len("vectors", positions.len(), vectors.len())?;
         let had_data = self.has_data();
         if positions.is_empty() {
-            return Ok(self.add_segments(Vec::new(), options.props));
+            return Ok(self.add_segments(Vec::new(), options.props, options.axlim_clip));
         }
         let length = options.length;
         let shaft_offsets = match options.pivot {
@@ -100,7 +104,7 @@ impl Axes3D {
             .chain(head(0))
             .chain(head(1))
             .collect();
-        let collection = self.add_segments(lines, options.props);
+        let collection = self.add_segments(lines, options.props, options.axlim_clip);
         let [xs, ys, zs] = columns(positions);
         self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)?;
         Ok(collection)

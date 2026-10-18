@@ -3,6 +3,7 @@
 
 mod api;
 mod api_plots;
+mod axlim;
 mod contours;
 mod objects;
 mod scatter;
@@ -11,6 +12,7 @@ mod view;
 
 pub(crate) use api::CASES as API;
 pub(crate) use api_plots::CASES as API_PLOTS;
+pub(crate) use axlim::CASES as AXLIM;
 pub(crate) use contours::CASES as CONTOURS;
 pub(crate) use objects::CASES as OBJECTS;
 pub(crate) use scatter::CASES as SCATTER;

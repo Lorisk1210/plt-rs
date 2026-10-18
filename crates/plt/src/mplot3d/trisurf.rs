@@ -21,6 +21,9 @@ pub struct TrisurfOptions {
     pub lightsource: Option<LightSource>,
     /// Further collection properties (alpha, edge colour, width, ...).
     pub props: CollectionProps,
+    /// Whether the points outside the view limits are hidden, breaking the
+    /// triangles reaching them (matplotlib's `axlim_clip`).
+    pub axlim_clip: bool,
 }
 
 impl Axes3D {
@@ -63,6 +66,7 @@ impl Axes3D {
             light,
             zsort: ZSort::Average,
             props: options.props,
+            axlim_clip: options.axlim_clip,
         })?;
         self.auto_scale_xyz(x, y, Some(z), had_data)?;
         Ok(collection)

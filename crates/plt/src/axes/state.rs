@@ -20,7 +20,7 @@ use crate::patches::PatchShape;
 use crate::polar::{PolarState, PolarView};
 use crate::rc::{Cycler, RcParams};
 use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
-use crate::transforms::{ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
+use crate::transforms::{ResolvedTransform, Step, Transform, bbox_to_unit, unit_to_bbox};
 
 /// State of one axes (matplotlib's `_AxesBase`).
 #[derive(Debug)]
@@ -60,6 +60,14 @@ pub(crate) struct AxesState {
     pub(crate) secondary: Option<Secondary>,
     /// Set when this is a parasite axes drawn by its host (`axes_grid1`).
     pub(crate) parasite: Option<Parasite>,
+    /// Set for the auxiliary axes of an axisartist host: data coordinates
+    /// go through this transform, then the host's data transform
+    /// (matplotlib's parasite `transAux`).
+    pub(crate) aux_transform: Option<ResolvedTransform>,
+    /// A background outline replacing the projection's, in the
+    /// coordinates of its transform (matplotlib's `_gen_axes_patch` of
+    /// floating axes).
+    pub(crate) patch_outline: Option<(Path, Transform)>,
     /// Property cycle for lines and patches.
     pub(crate) prop_cycle: Cycler,
     /// Next property-cycle entry for lines.
@@ -167,6 +175,8 @@ impl AxesState {
             shares: (None, None),
             secondary: None,
             parasite: None,
+            aux_transform: None,
+            patch_outline: None,
             prop_cycle: rc.axes_prop_cycle.clone(),
             line_cycle: 0,
             patch_cycle: 0,

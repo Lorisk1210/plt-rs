@@ -58,7 +58,9 @@ does it without pyplot.
   subplot grids, mosaics, subfigures, constrained and tight layout,
   aligned labels and titles, insets, `axes_grid1` (dividers, image
   grids, inset locators and bbox connectors, host and parasite axes,
-  RGB axes) and `axisartist`.
+  RGB axes) and `axisartist` (axis artists styled part by part and
+  turned by axis direction, curvilinear grids with angle locators and
+  formatters, floating axes and auxiliary axes in curved coordinates).
 * **Interactive**: figure windows with a toolbar (home/back/forward,
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
   options, save), a save dialog (PNG, JPEG, TIFF, GIF, SVG, PDF, PS,

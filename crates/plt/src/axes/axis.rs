@@ -33,6 +33,10 @@ pub struct TickSet {
     pub major: Vec<Tick>,
     /// Minor ticks inside the view (excluding those on major ticks).
     pub minor: Vec<Tick>,
+    /// Every minor tick inside the view, those on major ticks included,
+    /// labelled together (what axisartist draws from matplotlib's
+    /// `minor.locator()`).
+    pub minor_all: Vec<Tick>,
     /// Offset or scale text shown at the end of the axis (e.g. `1e6`).
     pub offset: String,
 }
@@ -488,10 +492,12 @@ impl AxisState {
             ticks.offset = labels.offset;
         }
         if self.minor_style.is_drawn() {
-            let minor_locs =
-                self.without_overlaps(self.minor_locator.locate(&ctx)?, &major_locs, geometry.view);
+            let all_locs = self.minor_locator.locate(&ctx)?;
+            let minor_locs = self.without_overlaps(all_locs.clone(), &major_locs, geometry.view);
             let labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;
             ticks.minor = collect(&minor_locs, labels.labels);
+            let labels = self.minor_formatter.format_ticks(&all_locs, &ctx)?;
+            ticks.minor_all = collect(&all_locs, labels.labels);
         }
         Ok(ticks)
     }

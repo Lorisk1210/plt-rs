@@ -221,10 +221,17 @@ impl FigureState {
     }
 
     /// The display outline of `axes` when its patch is not a rectangle
-    /// (the wedge of polar axes, the ellipse of geographic axes); `None`
-    /// otherwise.
+    /// (an outline of its own, the wedge of polar axes, the ellipse of
+    /// geographic axes); `None` otherwise.
     pub(crate) fn axes_outline(&self, axes: ArtistId) -> Option<ClipPath> {
         let state = self.store.get_as::<AxesState>(axes)?;
+        if let Some((path, transform)) = &state.patch_outline {
+            let (path, transform) = transform.resolve(self).ok()?.split_path(path);
+            return Some(ClipPath {
+                path: path.into_owned(),
+                transform,
+            });
+        }
         if state.projection.is_rectilinear() {
             return None;
         }
@@ -267,13 +274,14 @@ impl TransformContext for FigureState {
         ))
     }
 
+    /// Auxiliary axes map their data through their transform into the
+    /// data of their host.
     fn data_transform(&self, axes: ArtistId) -> Option<ResolvedTransform> {
-        let display = self.axes_bbox(axes)?;
-        Some(
-            self.store
-                .get_as::<AxesState>(axes)?
-                .data_transform(&display),
-        )
+        let state = self.store.get_as::<AxesState>(axes)?;
+        if let Some(aux) = &state.aux_transform {
+            return Some(aux.clone().then(self.data_transform(state.base().parent?)?));
+        }
+        Some(state.data_transform(&self.axes_bbox(axes)?))
     }
 }
 

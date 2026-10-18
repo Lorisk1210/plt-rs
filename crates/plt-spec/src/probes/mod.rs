@@ -292,6 +292,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("animation", areas::animation::OPS),
     ("imsave", areas::imsave::OPS),
     ("axes3d", areas::axes3d::OPS),
+    ("axisartist", areas::axisartist::OPS),
     ("pick", areas::pick::OPS),
     ("cursor", areas::cursor::OPS),
     ("multivar", areas::multivar::OPS),

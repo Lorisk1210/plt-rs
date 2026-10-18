@@ -3,7 +3,8 @@
 
 use plt_core::{Affine2D, Path, Point};
 use plt_text::{
-    BlockLayout, BlockStyle, LineMetrics, PlacedGlyph, TextEngine, TextError, TextRun, layout_block,
+    BlockLayout, BlockStyle, LineMetrics, PlacedGlyph, TextEngine, TextError, TextRun, TextSource,
+    layout_block,
 };
 
 use super::math::{Line, math_style};
@@ -20,6 +21,8 @@ pub struct LaidOutText {
     /// The glyph run of every line, in the same order; its origin is the
     /// left end of the line's baseline.
     pub runs: Vec<TextRun>,
+    /// The alignment and rotation the block was laid out with.
+    pub style: BlockStyle,
 }
 
 /// matplotlib's `get_text_width_height_descent` for one line: with `math`
@@ -107,20 +110,22 @@ impl LaidOutText {
                     return Ok(run.clone());
                 }
                 let path_run = line_run(&Line::classify(line, parse_math), &typeset, PATH_DPI, rc)?;
-                Ok(scaled_run(&path_run, scale, dpi))
+                Ok(scaled_run(&path_run, scale, dpi, run.source.clone()))
             })
             .collect::<Result<Vec<_>, TextError>>()?;
         Ok(Self {
             lines: self.lines.clone(),
             block: self.block.clone(),
             runs,
+            style: self.style,
         })
     }
 }
 
 /// `run` (laid out at the text-path resolution) scaled by `scale` and
-/// expressed at `dpi`: positions, glyph sizes and rules grow by `scale`.
-fn scaled_run(run: &TextRun, scale: f64, dpi: f64) -> TextRun {
+/// expressed at `dpi`: positions, glyph sizes and rules grow by `scale`;
+/// `source` is what the scaled run shows.
+fn scaled_run(run: &TextRun, scale: f64, dpi: f64, source: Option<TextSource>) -> TextRun {
     TextRun {
         glyphs: run
             .glyphs
@@ -141,6 +146,8 @@ fn scaled_run(run: &TextRun, scale: f64, dpi: f64) -> TextRun {
         height: run.height * scale,
         descent: run.descent * scale,
         dpi,
+        source,
+        anchor: None,
     }
 }
 
@@ -161,10 +168,11 @@ fn line_run(
     rc: &RcParams,
 ) -> Result<TextRun, TextError> {
     let engine = TextEngine::global();
-    match line {
+    let run = match line {
         Line::Plain(text) => engine.layout_line(text, &font.request(rc), dpi),
         Line::Math(source) => engine.layout_math(source, &math_style(font, dpi, rc)),
-    }
+    }?;
+    super::metrics::measured(run, dpi)
 }
 
 /// Lays out `text` (lines separated by `\n`) at `dpi` with matplotlib's
@@ -198,6 +206,10 @@ pub(crate) fn lay_out_with_math(
             if line.is_empty() {
                 Ok(TextRun {
                     dpi,
+                    source: Some(TextSource::Plain {
+                        text: String::new(),
+                        font: font.request(rc),
+                    }),
                     ..TextRun::default()
                 })
             } else {
@@ -211,6 +223,7 @@ pub(crate) fn lay_out_with_math(
         lines,
         block: layout_block(&line_metrics, font_metrics, style),
         runs,
+        style: *style,
     })
 }
 

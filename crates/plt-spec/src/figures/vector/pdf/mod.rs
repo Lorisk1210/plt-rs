@@ -1,15 +1,17 @@
 //! PDF documents as drawing items.
 //!
-//! The page's content stream is interpreted ([`interp`]): every painted
+//! Every page's content stream is interpreted ([`interp`]): every painted
 //! path, glyph, image and shading becomes one item carrying the
 //! graphics state that affects it, so redundant or differently ordered
 //! state operators do not matter. The embedded fonts follow as items of
 //! their own: metrics, encoding and glyph procedures.
 
+mod fonts;
 mod interp;
 mod samples;
 mod syntax;
 
+use self::fonts::font_item;
 use self::interp::Interpreter;
 use self::syntax::{Document, Value};
 use super::diff::{Item, Token};
@@ -53,90 +55,53 @@ fn value_tokens(value: &Value, out: &mut Vec<Token>) {
     }
 }
 
-/// An embedded font: its metrics, encoding, glyph procedures and text
-/// mapping.
-fn font_item(doc: &Document, font: &Value) -> Item {
-    let mut item = Item::new("font");
-    let base = font.get("BaseFont").and_then(Value::as_name).unwrap_or("");
-    item.tokens.push(Token::word(base_name(base)));
-    for key in [
-        "Subtype",
-        "FirstChar",
-        "LastChar",
-        "FontBBox",
-        "FontMatrix",
-        "Encoding",
-        "Widths",
-    ] {
-        if let Some(value) = font.get(key) {
-            value_tokens(doc.resolve(value), &mut item.tokens);
-        }
-    }
-    let descriptor = doc.resolve(font.get("FontDescriptor").unwrap_or(&Value::Null));
-    for key in [
-        "Flags",
-        "Ascent",
-        "Descent",
-        "CapHeight",
-        "XHeight",
-        "ItalicAngle",
-        "MaxWidth",
-    ] {
-        if let Some(value) = descriptor.get(key) {
-            value_tokens(value, &mut item.tokens);
-        }
-    }
-    if let Value::Dict(procs) = doc.resolve(font.get("CharProcs").unwrap_or(&Value::Null)) {
-        let mut sorted: Vec<&(String, Value)> = procs.iter().collect();
-        sorted.sort_by(|a, b| a.0.cmp(&b.0));
-        for (name, proc) in sorted {
-            item.tokens.push(Token::word(format!("/{name}")));
-            let mut glyph = Interpreter::new(doc);
-            glyph.run(&Value::Null, &doc.stream(proc).unwrap_or_default());
-            for op in glyph.items {
-                item.tokens.push(Token::word(op.kind));
-                item.tokens.extend(op.tokens);
-            }
-        }
-    }
-    if let Some(cmap) = font.get("ToUnicode").and_then(|c| doc.stream(c)) {
-        let text = String::from_utf8_lossy(&cmap).into_owned();
-        if let Some(ranges) = text
-            .split("beginbfrange")
-            .nth(1)
-            .and_then(|r| r.split("endbfrange").next())
-        {
-            item.tokens
-                .extend(ranges.split_whitespace().map(Token::word));
-        }
-    }
-    item
-}
-
-/// The drawing items of a PDF document: the page size, every painted
-/// element, then the embedded fonts by name.
-pub(super) fn items(document: &[u8]) -> Result<Vec<Item>, String> {
-    let doc = Document::parse(document)?;
-    let root = doc.resolve(doc.trailer.get("Root").ok_or("no root")?);
-    let pages = doc.resolve(root.get("Pages").ok_or("no page tree")?);
-    let page = pages
-        .get("Kids")
-        .and_then(Value::as_array)
-        .and_then(|kids| kids.first())
-        .map(|kid| doc.resolve(kid))
-        .ok_or("no page")?;
-    let mut size = Item::new("page");
+/// The items of one page: its size and annotations, then every painted
+/// element.
+fn page_items(doc: &Document, page: &Value, items: &mut Vec<Item>) -> Result<(), String> {
+    let mut header = Item::new("page");
     if let Some(media) = page.get("MediaBox") {
-        value_tokens(media, &mut size.tokens);
+        value_tokens(media, &mut header.tokens);
     }
+    let annotations = page
+        .get("Annots")
+        .map(|a| doc.resolve(a))
+        .and_then(Value::as_array)
+        .unwrap_or_default();
+    for annotation in annotations {
+        value_tokens(doc.resolve(annotation), &mut header.tokens);
+    }
+    items.push(header);
     let resources = doc.resolve(page.get("Resources").unwrap_or(&Value::Null));
     let contents = doc
         .stream(page.get("Contents").ok_or("no contents")?)
         .ok_or("unreadable contents")?;
-    let mut interpreter = Interpreter::new(&doc);
+    let mut interpreter = Interpreter::new(doc);
     interpreter.run(resources, &contents);
-    let mut items = vec![size];
     items.extend(interpreter.items);
+    Ok(())
+}
+
+/// The drawing items of a PDF document: every page (its size,
+/// annotations and painted elements), then the embedded fonts by name.
+pub(super) fn items(document: &[u8]) -> Result<Vec<Item>, String> {
+    let doc = Document::parse(document)?;
+    let root = doc.resolve(doc.trailer.get("Root").ok_or("no root")?);
+    let tree = doc.resolve(root.get("Pages").ok_or("no page tree")?);
+    let pages: Vec<&Value> = tree
+        .get("Kids")
+        .and_then(Value::as_array)
+        .unwrap_or_default()
+        .iter()
+        .map(|kid| doc.resolve(kid))
+        .collect();
+    let mut items = Vec::new();
+    for page in &pages {
+        page_items(&doc, page, &mut items)?;
+    }
+    // The pages share one resource dictionary.
+    let resources = pages.first().map_or(&Value::Null, |page| {
+        doc.resolve(page.get("Resources").unwrap_or(&Value::Null))
+    });
     if let Value::Dict(fonts) = doc.resolve(resources.get("Font").unwrap_or(&Value::Null)) {
         let mut fonts: Vec<Item> = fonts
             .iter()

@@ -145,6 +145,14 @@ impl ArtistHandle for Axes {
     fn raw(&self) -> &RawHandle {
         &self.raw
     }
+
+    /// Sets the drawing order; among twinned axes, the bottom-most one
+    /// draws the background.
+    fn set_zorder(&self, zorder: f64) -> &Self {
+        self.raw.with_base_mut(|b| b.zorder = zorder);
+        self.update_twinned_patch_visibility();
+        self
+    }
 }
 
 impl Axes {
@@ -411,6 +419,7 @@ impl Axes {
     pub fn set_frame_on(&self, on: bool) -> &Self {
         self.raw
             .with_mut::<AxesState, _>(|a| a.decorations.frame_on = on);
+        self.update_twinned_patch_visibility();
         self
     }
 

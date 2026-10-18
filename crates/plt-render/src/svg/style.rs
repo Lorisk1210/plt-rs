@@ -34,6 +34,8 @@ pub(super) enum TransformOp {
     ScaleXY(f64, f64),
     /// `rotate(a)`, left out when zero.
     Rotate(f64),
+    /// `rotate(a x y)`: a rotation about `(x, y)`, always written.
+    RotateAbout(f64, f64, f64),
     /// `matrix(a b c d e f)`.
     Matrix(Affine2D),
 }
@@ -46,7 +48,7 @@ impl TransformOp {
             Self::Scale(s) => s == 1.0,
             Self::ScaleXY(sx, sy) => sx == 1.0 && sy == 1.0,
             Self::Rotate(a) => a == 0.0,
-            Self::Matrix(_) => false,
+            Self::RotateAbout(..) | Self::Matrix(_) => false,
         }
     }
 }
@@ -60,6 +62,7 @@ pub(super) fn transform_attr(ops: &[TransformOp]) -> String {
             TransformOp::Scale(s) => ("scale", vec![s]),
             TransformOp::ScaleXY(sx, sy) => ("scale", vec![sx, sy]),
             TransformOp::Rotate(a) => ("rotate", vec![a]),
+            TransformOp::RotateAbout(a, x, y) => ("rotate", vec![a, x, y]),
             TransformOp::Matrix(m) => ("matrix", m.values().to_vec()),
         };
         let values: Vec<String> = values.into_iter().map(short).collect();

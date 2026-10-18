@@ -57,7 +57,7 @@ impl PcolorImageArtist {
     /// matplotlib's `PcolorImage.make_image`: every pixel of the axes box,
     /// at `magnification` pixels per display unit, takes the colour of the
     /// cell containing its centre (transparent outside the grid).
-    fn render(
+    pub(super) fn render(
         &self,
         ctx: &DrawContext<'_>,
         magnification: f64,

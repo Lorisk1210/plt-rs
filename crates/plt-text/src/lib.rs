@@ -4,7 +4,7 @@
 //!   text exactly as matplotlib's FreeType/HarfBuzz pipeline does and
 //!   provides glyph outlines to backends.
 //! * [`TextRun`] — laid-out glyphs (and rules) in pixels, independent of
-//!   the output backend.
+//!   the output backend, with the [`TextSource`] they were laid out from.
 //! * [`layout_block`] — matplotlib's multi-line stacking, alignment and
 //!   rotation of a text block.
 //! * [`mathtext`] — matplotlib's TeX-like math typesetting.
@@ -28,4 +28,4 @@ pub use plt_font::{
     AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
     GenericFamilies, GlyphId, Stretch, Weight,
 };
-pub use run::{PlacedGlyph, TextRun};
+pub use run::{GlyphChars, PlacedGlyph, TextAnchor, TextRun, TextSource};

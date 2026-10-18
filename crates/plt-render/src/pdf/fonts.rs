@@ -1,6 +1,7 @@
-//! Embedded fonts (`fontName`, `writeFonts`, `embedTTF` with
-//! `pdf.fonttype = 3`): every used subset of a TrueType font becomes a
-//! Type 3 font whose glyph procedures fill the outlines in 1/1000 em.
+//! Embedded fonts (`fontName`, `writeFonts`, `embedTTF`): every used
+//! subset of a TrueType font becomes a Type 3 font whose glyph procedures
+//! fill the outlines in 1/1000 em or, with `pdf.fonttype = 42`, a Type 0
+//! font over a subset of the font program (see `type42`).
 
 use std::fmt::Write as _;
 
@@ -11,7 +12,7 @@ use plt_text::FontId;
 
 use super::object::Obj;
 use super::writer::PdfWriter;
-use crate::vector::{CharacterTracker, FontCache, FontInfo, Subset, VectorError};
+use crate::vector::{CharacterTracker, FontCache, FontInfo, FontType, Subset, VectorError};
 
 /// The `/Fn` names of the fonts used, in first-use order.
 #[derive(Debug, Default)]
@@ -66,7 +67,7 @@ fn subset_prefix(glyphs: &[u16]) -> String {
 
 /// `cvt`: font units to 1/1000 em, to the nearest integer or rounded away
 /// from zero.
-fn cvt(length: f64, units_per_em: f64, nearest: bool) -> i64 {
+pub(super) fn cvt(length: f64, units_per_em: f64, nearest: bool) -> i64 {
     let value = length / units_per_em * 1000.0;
     if nearest {
         value.round_ties_even() as i64
@@ -113,8 +114,9 @@ fn char_proc(font: &FontInfo, glyph: GlyphId) -> Vec<u8> {
     format!("{} d1\n{ops}f", metrics.join(" ")).into_bytes()
 }
 
-/// The `ToUnicode` `CMap` mapping subset codes back to text.
-fn unicode_cmap(entries: &[(u32, String)]) -> Vec<u8> {
+/// The `ToUnicode` `CMap` mapping subset codes (written with `digits` hex
+/// digits) back to text.
+pub(super) fn unicode_cmap(entries: &[(u32, String)], digits: usize) -> Vec<u8> {
     let mut groups: Vec<Vec<&(u32, String)>> = Vec::new();
     for entry in entries {
         match groups.last_mut() {
@@ -138,7 +140,7 @@ fn unicode_cmap(entries: &[(u32, String)]) -> Vec<u8> {
                 })
                 .collect();
             format!(
-                "<{:02x}> <{:02x}> [{}]",
+                "<{:0digits$x}> <{:0digits$x}> [{}]",
                 group[0].0,
                 group[group.len() - 1].0,
                 values.join(" ")
@@ -205,77 +207,116 @@ fn write_char_procs(
     Ok(refs)
 }
 
-/// The font descriptor of a subset named `ps_name`.
-fn descriptor(font: &FontInfo, ps_name: &str, bbox: Vec<Obj>, max_width: i64) -> Obj {
-    let upem = font.units_per_em();
-    let face = font.face();
-    let (cap_height, x_height) = font.pclt_heights();
-    let flags = i64::from(font.is_fixed_pitch()) | 32 | (i64::from(face.style_flags().italic) << 6);
-    let rounded_out = |v: i16| Obj::Int(cvt(f64::from(v), upem, false));
-    Obj::dict([
-        ("Type", Obj::name("FontDescriptor")),
-        ("FontName", Obj::name(ps_name)),
-        ("Flags", Obj::Int(flags)),
-        ("FontBBox", Obj::Array(bbox)),
-        ("Ascent", rounded_out(face.ascender())),
-        ("Descent", rounded_out(face.descender())),
-        (
-            "CapHeight",
-            Obj::Int(cvt(f64::from(cap_height), upem, false)),
-        ),
-        ("XHeight", Obj::Int(cvt(f64::from(x_height), upem, true))),
-        (
-            "ItalicAngle",
-            Obj::Int(i64::from(font.italic_angle_fraction())),
-        ),
-        ("StemV", Obj::Int(0)),
-        ("MaxWidth", Obj::Int(max_width)),
-    ])
+/// One subset of a font being embedded.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct SubsetFont<'a> {
+    /// The face.
+    pub(super) font: &'a FontInfo,
+    /// Its id in the text engine.
+    pub(super) id: FontId,
+    /// The subset's index.
+    pub(super) index: usize,
+    /// The codes and glyphs of the subset.
+    pub(super) subset: &'a Subset,
 }
 
-/// `embedTTF` / `embedTTFType3` for one subset; returns the font
-/// dictionary's object.
+impl SubsetFont<'_> {
+    /// `_get_subsetted_psname`: the subset tag and the PostScript name,
+    /// non-ASCII characters replaced.
+    pub(super) fn ps_name(&self) -> String {
+        let glyphs: Vec<u16> = self.subset.entries().iter().map(|(_, g)| g.0).collect();
+        format!("{}{}", subset_prefix(&glyphs), self.font.postscript_name())
+            .chars()
+            .map(|c| if c.is_ascii() { c } else { '?' })
+            .collect()
+    }
+
+    /// The font's bounding box in 1/1000 em, rounded outwards.
+    pub(super) fn bbox(&self) -> Vec<Obj> {
+        let upem = self.font.units_per_em();
+        self.font
+            .bbox()
+            .iter()
+            .map(|&v| Obj::Int(cvt(f64::from(v), upem, false)))
+            .collect()
+    }
+
+    /// The width of `glyph` in 1/1000 em.
+    pub(super) fn width(&self, glyph: GlyphId) -> i64 {
+        cvt(
+            f64::from(self.font.advance(glyph)),
+            self.font.units_per_em(),
+            true,
+        )
+    }
+
+    /// The subset's codes, ascending, with the text they stand for.
+    pub(super) fn chars(&self, tracker: &CharacterTracker) -> Vec<(u32, String)> {
+        let mut codes: Vec<u32> = self.subset.entries().iter().map(|(c, _)| *c).collect();
+        codes.sort_unstable();
+        codes
+            .into_iter()
+            .map(|code| {
+                let text = tracker.chars(self.id, self.index, code).unwrap_or_default();
+                (code, text.to_owned())
+            })
+            .collect()
+    }
+
+    /// The font descriptor (without `MaxWidth` and the font file, which
+    /// the caller appends).
+    pub(super) fn descriptor(&self, ps_name: &str) -> Vec<(String, Obj)> {
+        let font = self.font;
+        let upem = font.units_per_em();
+        let face = font.face();
+        let (cap_height, x_height) = font.pclt_heights();
+        let flags =
+            i64::from(font.is_fixed_pitch()) | 32 | (i64::from(face.style_flags().italic) << 6);
+        let rounded_out = |v: i16| Obj::Int(cvt(f64::from(v), upem, false));
+        [
+            ("Type", Obj::name("FontDescriptor")),
+            ("FontName", Obj::name(ps_name)),
+            ("Flags", Obj::Int(flags)),
+            ("FontBBox", Obj::Array(self.bbox())),
+            ("Ascent", rounded_out(face.ascender())),
+            ("Descent", rounded_out(face.descender())),
+            (
+                "CapHeight",
+                Obj::Int(cvt(f64::from(cap_height), upem, false)),
+            ),
+            ("XHeight", Obj::Int(cvt(f64::from(x_height), upem, true))),
+            (
+                "ItalicAngle",
+                Obj::Int(i64::from(font.italic_angle_fraction())),
+            ),
+            ("StemV", Obj::Int(0)),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), value))
+        .collect()
+    }
+}
+
+/// `embedTTFType3` for one subset; returns the font dictionary's object.
 fn embed_type3(
     writer: &mut PdfWriter,
-    font: &FontInfo,
-    id: FontId,
-    subset_index: usize,
-    subset: &Subset,
+    subset_font: SubsetFont<'_>,
     tracker: &CharacterTracker,
 ) -> Result<u32, VectorError> {
-    let upem = font.units_per_em();
-    let glyphs: Vec<u16> = subset.entries().iter().map(|(_, g)| g.0).collect();
-    let ps_name: String = format!("{}{}", subset_prefix(&glyphs), font.postscript_name())
-        .chars()
-        .map(|c| if c.is_ascii() { c } else { '?' })
-        .collect();
-    let bbox: Vec<Obj> = font
-        .bbox()
-        .iter()
-        .map(|&v| Obj::Int(cvt(f64::from(v), upem, false)))
-        .collect();
+    let SubsetFont { font, subset, .. } = subset_font;
+    let ps_name = subset_font.ps_name();
+    let bbox = subset_font.bbox();
     let widths_id = writer.reserve();
     let descriptor_id = writer.reserve();
     let dict_id = writer.reserve();
     let procs_id = writer.reserve();
     let unicode_id = writer.reserve();
-    let mut codes: Vec<u32> = subset.entries().iter().map(|(c, _)| *c).collect();
-    codes.sort_unstable();
-    let (first, last) = (codes[0], codes[codes.len() - 1]);
+    let chars = subset_font.chars(tracker);
+    let (first, last) = (chars[0].0, chars[chars.len() - 1].0);
     let widths: Vec<i64> = (first..=last)
-        .map(|code| {
-            let glyph = subset.glyph(code).unwrap_or_default();
-            cvt(f64::from(font.advance(glyph)), upem, true)
-        })
+        .map(|code| subset_font.width(subset.glyph(code).unwrap_or_default()))
         .collect();
     let proc_refs = write_char_procs(writer, font, subset)?;
-    let chars: Vec<(u32, String)> = codes
-        .iter()
-        .map(|&code| {
-            let text = tracker.chars(id, subset_index, code).unwrap_or_default();
-            (code, text.to_owned())
-        })
-        .collect();
     let font_dict = Obj::dict([
         ("Type", Obj::name("Font")),
         ("BaseFont", Obj::name(ps_name.clone())),
@@ -284,7 +325,7 @@ fn embed_type3(
         ("FontDescriptor", Obj::Ref(descriptor_id)),
         ("Subtype", Obj::name("Type3")),
         ("Name", Obj::name(ps_name.clone())),
-        ("FontBBox", Obj::Array(bbox.clone())),
+        ("FontBBox", Obj::Array(bbox)),
         ("FontMatrix", Obj::reals([0.001, 0.0, 0.0, 0.001, 0.0, 0.0])),
         ("CharProcs", Obj::Ref(procs_id)),
         (
@@ -298,14 +339,16 @@ fn embed_type3(
         ("ToUnicode", Obj::Ref(unicode_id)),
     ]);
     let max_width = widths.iter().copied().max().unwrap_or(0);
+    let mut descriptor = subset_font.descriptor(&ps_name);
+    descriptor.push(("MaxWidth".to_owned(), Obj::Int(max_width)));
     writer.write_object(dict_id, &font_dict)?;
-    writer.write_object(descriptor_id, &descriptor(font, &ps_name, bbox, max_width))?;
+    writer.write_object(descriptor_id, &Obj::Dict(descriptor))?;
     writer.write_object(
         widths_id,
         &Obj::Array(widths.into_iter().map(Obj::Int).collect()),
     )?;
     writer.write_object(procs_id, &Obj::Dict(proc_refs))?;
-    writer.output_stream(unicode_id, &unicode_cmap(&chars), Vec::new())?;
+    writer.output_stream(unicode_id, &unicode_cmap(&chars, 2), Vec::new())?;
     Ok(dict_id)
 }
 
@@ -317,6 +360,7 @@ pub(super) fn write_fonts(
     names: &FontNames,
     tracker: &CharacterTracker,
     dictionary: u32,
+    fonttype: FontType,
 ) -> Result<(), VectorError> {
     let mut used = Vec::new();
     for ((id, subset), name) in &names.names {
@@ -329,8 +373,16 @@ pub(super) fn write_fonts(
         let Some(subset) = tracker.subset(id, subset_index).filter(|s| !s.is_empty()) else {
             continue;
         };
-        let font = fonts.get(id)?;
-        let dict = embed_type3(writer, font, id, subset_index, subset, tracker)?;
+        let subset_font = SubsetFont {
+            font: fonts.get(id)?,
+            id,
+            index: subset_index,
+            subset,
+        };
+        let dict = match fonttype {
+            FontType::Type3 => embed_type3(writer, subset_font, tracker)?,
+            FontType::Type42 => super::type42::embed(writer, subset_font, tracker)?,
+        };
         entries.push((name, Obj::Ref(dict)));
     }
     writer.write_object(dictionary, &Obj::Dict(entries))
@@ -359,11 +411,14 @@ mod tests {
     fn conversions_and_cmaps() {
         assert_eq!(cvt(-1021.4, 1000.0, false), -1022);
         assert_eq!(cvt(1303.0, 2048.0, true), 636);
-        let cmap = String::from_utf8(unicode_cmap(&[
-            (0x2e, ".".to_owned()),
-            (0x30, "0".to_owned()),
-            (0x31, "1".to_owned()),
-        ]))
+        let cmap = String::from_utf8(unicode_cmap(
+            &[
+                (0x2e, ".".to_owned()),
+                (0x30, "0".to_owned()),
+                (0x31, "1".to_owned()),
+            ],
+            2,
+        ))
         .unwrap();
         assert!(
             cmap.contains(

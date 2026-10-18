@@ -15,14 +15,17 @@
 //!
 //! The vector backends draw in points, rasterize images at their own
 //! resolution ([`Renderer::image_magnification`]) and share [`Metadata`]
-//! and [`VectorError`].
+//! and [`VectorError`]. A [`MixedModeRenderer`] around one of them draws
+//! rasterized artists into an image placed in the document.
 #![forbid(unsafe_code)]
 
 mod collection;
 mod gc;
 mod image;
+mod mixed;
 mod pdf;
 mod ps;
+mod quad_mesh;
 mod raster;
 mod renderer;
 mod svg;
@@ -31,12 +34,14 @@ mod vector;
 pub use collection::{CollectionItem, PathCollection};
 pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sketch, SnapMode};
 pub use image::{ImageSizeError, RgbaImage};
+pub use mixed::MixedModeRenderer;
 pub use pdf::{PdfOptions, PdfRenderer};
 pub use ps::{Orientation, Paper, PsOptions, PsRenderer};
+pub use quad_mesh::QuadMesh;
 pub use raster::{RasterBackendError, RasterRenderer};
 pub use renderer::Renderer;
-pub use svg::{SvgOptions, SvgRenderer};
-pub use vector::{Metadata, Timestamp, VectorError, gzip};
+pub use svg::{SvgFontType, SvgOptions, SvgRenderer};
+pub use vector::{FontType, Metadata, Timestamp, Trapped, VectorError, gzip};
 
 use plt_core::{Affine2D, Bbox};
 

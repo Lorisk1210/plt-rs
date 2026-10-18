@@ -2,7 +2,8 @@
 
 use std::rc::Rc;
 
-use plt_core::{Bbox, Path};
+use plt_core::{Bbox, Path, Rgba};
+use plt_render::JoinStyle;
 
 use super::DataLimits;
 use super::aspect::AspectState;
@@ -16,6 +17,8 @@ use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::geo::{self, GeoState};
 use crate::gridspec::SubplotSpec;
+use crate::image::Compositor;
+use crate::legend::LegendArtist;
 use crate::patches::PatchShape;
 use crate::patheffects::with_path_effects;
 use crate::polar::{PolarState, PolarView};
@@ -433,8 +436,25 @@ impl AxesState {
         (polar.is_full_circle_rad() && rmin <= origin).then_some(origin)
     }
 
-    /// Draws children and both axes in z-order (stable for ties, children
-    /// before axes as in matplotlib's `get_children`).
+    /// The spines in the order of matplotlib's `spines` dictionary: left,
+    /// right, bottom, top; for polar axes the outer arc, the start and
+    /// end of the sector, then the inner arc.
+    fn spines_in_children_order(&self) -> impl Iterator<Item = ArtistId> + '_ {
+        // `spines` holds the left, right, bottom and top spine, which polar
+        // axes use as start, end, inner and outer spine.
+        let order = if self.polar_view().is_some() {
+            [3, 0, 1, 2]
+        } else {
+            [0, 1, 2, 3]
+        };
+        order
+            .into_iter()
+            .filter_map(|i| self.spines.get(i).copied())
+    }
+
+    /// Draws children and both axes in z-order, stable for ties in the
+    /// order of matplotlib's `get_children`: plotted artists, spines, both
+    /// axes, the centre, left and right titles, child axes, the legend.
     fn draw_contents(&self, ctx: &mut DrawContext<'_>) {
         enum Item {
             Child(ArtistId),
@@ -442,25 +462,54 @@ impl AxesState {
         }
         let store = ctx.layout().store();
         let framed = self.decorations.framed();
-        let mut items: Vec<(f64, Item)> = self
+        let is_legend = |id: ArtistId| store.get_as::<LegendArtist>(id).is_some();
+        let is_child_axes = |id: ArtistId| store.get_as::<AxesState>(id).is_some();
+        let plotted = self.children.iter().copied().filter(|&id| {
+            !self.spines.contains(&id)
+                && !self.titles.contains(&id)
+                && !is_legend(id)
+                && !is_child_axes(id)
+        });
+        let spines = self.spines_in_children_order().filter(|_| framed);
+        // `titles` holds the left, centre and right title.
+        let titles = [1, 0, 2]
+            .into_iter()
+            .filter_map(|i| self.titles.get(i).copied());
+        let child_axes = self
             .children
             .iter()
-            .filter(|id| framed || !self.spines.contains(id))
-            .filter_map(|&id| Some((store.get(id)?.base().zorder, Item::Child(id))))
-            .collect();
+            .copied()
+            .filter(|&id| is_child_axes(id));
+        let legends = self.children.iter().copied().filter(|&id| is_legend(id));
+        let child = |id: ArtistId| Some((store.get(id)?.base().zorder, Item::Child(id)));
+        let mut items: Vec<(f64, Item)> = plotted.chain(spines).filter_map(child).collect();
         if self.decorations.axis_on {
             items.push((self.axis_zorder, Item::Axis(AxisName::X)));
             items.push((self.axis_zorder, Item::Axis(AxisName::Y)));
         }
+        items.extend(titles.chain(child_axes).chain(legends).filter_map(child));
         items.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let children: Vec<ArtistId> = items
+            .iter()
+            .filter_map(|(_, item)| match item {
+                Item::Child(id) => Some(*id),
+                Item::Axis(_) => None,
+            })
+            .collect();
+        let clip = ctx.layout().axes_extent(self.base.id());
+        let mut compositor = Compositor::new(ctx, &children, (clip, None));
         for (_, item) in items {
             match item {
-                Item::Child(id) => ctx.draw_child(id),
+                Item::Child(id) => compositor.draw(ctx, id),
                 Item::Axis(name) => {
-                    AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc);
+                    compositor.flush(ctx);
+                    ctx.draw_artist(false, |ctx| {
+                        AxisPainter::new(self.base.id(), self, name).draw(ctx, &self.rc);
+                    });
                 }
             }
         }
+        compositor.flush(ctx);
     }
 }
 
@@ -480,15 +529,22 @@ impl Artist for AxesState {
         if self.decorations.framed() && self.patch.visible {
             match self.patch.facecolor.resolve() {
                 Ok(face) => {
+                    // The patch has edge colour 'none' and no width, and is
+                    // left unfilled when transparent.
                     let mut gc = ctx.base_gc(&self.base);
                     gc.linewidth = 0.0;
-                    with_path_effects(ctx, &self.base.path_effects, |ctx| {
-                        ctx.renderer().draw_path(
-                            &gc,
-                            &self.patch_path(),
-                            &unit_to_bbox(&extent),
-                            Some(face),
-                        );
+                    gc.foreground = Rgba::TRANSPARENT;
+                    gc.join = JoinStyle::Miter;
+                    let face = (!face.is_transparent()).then_some(face);
+                    ctx.draw_artist(false, |ctx| {
+                        with_path_effects(ctx, &self.base.path_effects, |ctx| {
+                            ctx.renderer().draw_path(
+                                &gc,
+                                &self.patch_path(),
+                                &unit_to_bbox(&extent),
+                                face,
+                            );
+                        });
                     });
                 }
                 Err(err) => ctx.report(self.base.id(), err),

@@ -8,12 +8,14 @@ use std::str::FromStr;
 use plt_core::path::convert::SimplifySettings;
 use plt_render::{
     Metadata, Orientation, Paper, PdfOptions, PdfRenderer, PsOptions, PsRenderer,
-    RasterBackendError, RasterRenderer, Renderer, SvgOptions, SvgRenderer, VectorError,
+    RasterBackendError, RasterRenderer, Renderer, SvgFontType, SvgOptions, SvgRenderer,
+    VectorError,
 };
 
 use super::print::SaveOptions;
 use super::{DrawErrors, Figure};
 use crate::image::{BitmapError, BitmapFormat, BitmapSettings};
+use crate::rc::FontType;
 
 /// Why a figure could not be rendered or saved.
 #[derive(Debug)]
@@ -138,8 +140,30 @@ impl FromStr for SaveFormat {
     }
 }
 
+/// The settings of a PDF document from the `pdf.*` rcParams, with
+/// `metadata`.
+pub(super) fn pdf_options(metadata: Metadata) -> PdfOptions {
+    let rc = crate::rc::params();
+    PdfOptions {
+        compression: u8::try_from(rc.pdf_compression.clamp(0, 9)).unwrap_or(6),
+        inherit_color: rc.pdf_inheritcolor,
+        metadata,
+        simplify: simplify_settings(),
+        composite_images: rc.image_composite_image,
+        fonttype: embedding(rc.pdf_fonttype),
+    }
+}
+
+/// How a `pdf.fonttype` or `ps.fonttype` setting embeds fonts.
+const fn embedding(fonttype: FontType) -> plt_render::FontType {
+    match fonttype {
+        FontType::Type3 => plt_render::FontType::Type3,
+        FontType::TrueType => plt_render::FontType::Type42,
+    }
+}
+
 /// matplotlib's `path.simplify` settings from the rcParams.
-fn simplify_settings() -> SimplifySettings {
+pub(super) fn simplify_settings() -> SimplifySettings {
     let rc = crate::rc::params();
     SimplifySettings {
         enabled: rc.path_simplify,
@@ -209,9 +233,17 @@ impl Figure {
             metadata: options.metadata.clone().unwrap_or_default(),
             simplify: simplify_settings(),
             composite_images: rc.image_composite_image,
+            fonttype: if rc.svg_fonttype == "none" {
+                SvgFontType::None
+            } else {
+                SvgFontType::Path
+            },
         };
-        self.render_vector_with(options, |width, height, dpi| {
-            SvgRenderer::new(width * 72.0, height * 72.0, dpi, svg)
+        // matplotlib's SVG backend measures text with `TextToPath`.
+        crate::text::with_text_path_metrics(|| {
+            self.render_vector_with(options, |width, height, dpi| {
+                SvgRenderer::new(width * 72.0, height * 72.0, dpi, svg)
+            })
         })?
         .finish()
         .map_err(SaveError::Vector)
@@ -229,14 +261,7 @@ impl Figure {
     ///
     /// When some artists cannot be drawn or the document cannot be written.
     pub fn to_pdf_with(&self, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
-        let rc = crate::rc::params();
-        let pdf = PdfOptions {
-            compression: u8::try_from(rc.pdf_compression.clamp(0, 9)).unwrap_or(6),
-            inherit_color: rc.pdf_inheritcolor,
-            metadata: options.metadata.clone().unwrap_or_default(),
-            simplify: simplify_settings(),
-            composite_images: rc.image_composite_image,
-        };
+        let pdf = pdf_options(options.metadata.clone().unwrap_or_default());
         self.render_vector_with(options, |width, height, dpi| {
             PdfRenderer::new(width, height, dpi, pdf)
         })?
@@ -337,6 +362,7 @@ impl Figure {
             metadata: options.metadata.clone().unwrap_or_default(),
             simplify: simplify_settings(),
             composite_images: rc.image_composite_image,
+            fonttype: embedding(rc.ps_fonttype),
         };
         self.render_vector_with(options, |width, height, dpi| {
             PsRenderer::new(width, height, dpi, ps)

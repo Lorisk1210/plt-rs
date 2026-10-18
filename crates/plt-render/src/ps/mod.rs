@@ -1,21 +1,23 @@
-//! The PostScript backend: matplotlib's `RendererPS` with
-//! `ps.fonttype = 3`, writing PostScript (centred on a page of
-//! `ps.papersize`) or Encapsulated PostScript (sized to the figure).
+//! The PostScript backend: matplotlib's `RendererPS`, writing PostScript
+//! (centred on a page of `ps.papersize`) or Encapsulated PostScript (sized
+//! to the figure).
 //!
 //! Every drawing is wrapped in `gsave`/`grestore`; line properties and
 //! the stroke colour are only written when they change. Markers and large
 //! path collections become procedures, clip paths procedures reused while
 //! the same clip comes back, hatches pattern dictionaries, images hex
 //! `colorimage` data and Gouraud triangles type 4 shadings. Fonts are
-//! embedded as Type 3 programs in the prolog. PostScript has no
-//! transparency: partially transparent colours are drawn opaque.
+//! embedded in the prolog as Type 3 programs or, with `ps.fonttype = 42`,
+//! as Type 42 fonts over TrueType subsets. PostScript has no transparency:
+//! partially transparent colours are drawn opaque.
 //!
-//! Not supported: Type 42 font embedding (`ps.fonttype = 42`), AFM fonts
-//! (`ps.useafm`), distillers (`ps.usedistiller`) and `usetex`.
+//! Not supported: AFM fonts (`ps.useafm`), distillers (`ps.usedistiller`)
+//! and `usetex`.
 
 mod draw;
 mod fonts;
 mod text;
+mod type42;
 
 use std::fmt::Write as _;
 
@@ -27,7 +29,9 @@ use crate::collection::PathCollection;
 use crate::gc::{CapStyle, ClipPath, GraphicsContext, JoinStyle};
 use crate::image::RgbaImage;
 use crate::renderer::Renderer;
-use crate::vector::{CharacterTracker, FontCache, Metadata, Problems, VectorError, check_canvas};
+use crate::vector::{
+    CharacterTracker, FontCache, FontType, Metadata, Problems, VectorError, check_canvas,
+};
 
 /// matplotlib's paper sizes in inches (`backend_ps.papersize`).
 const PAPER_SIZES: [(&str, f64, f64); 25] = [
@@ -126,6 +130,8 @@ pub struct PsOptions {
     pub simplify: SimplifySettings,
     /// `image.composite_image`.
     pub composite_images: bool,
+    /// `ps.fonttype`: how TrueType fonts are embedded.
+    pub fonttype: FontType,
 }
 
 impl Default for PsOptions {
@@ -137,6 +143,7 @@ impl Default for PsOptions {
             metadata: Metadata::default(),
             simplify: SimplifySettings::default(),
             composite_images: true,
+            fonttype: FontType::Type3,
         }
     }
 }
@@ -190,7 +197,7 @@ impl PsRenderer {
             hatches: Vec::new(),
             clip_paths: Vec::new(),
             path_collection_id: 0,
-            tracker: CharacterTracker::new(256),
+            tracker: CharacterTracker::new(options.fonttype.subset_size()),
             fonts: FontCache::default(),
             options,
             problems: Problems::default(),
@@ -276,7 +283,10 @@ impl PsRenderer {
         for (id, subsets) in fonts {
             let font = self.fonts.get(id)?;
             for (index, subset) in subsets.iter().enumerate().filter(|(_, s)| !s.is_empty()) {
-                out.push_str(&fonts::type3_font(font, index, subset));
+                match self.options.fonttype {
+                    FontType::Type3 => out.push_str(&fonts::type3_font(font, index, subset)),
+                    FontType::Type42 => out.push_str(&type42::type42_font(font, index, subset)?),
+                }
             }
         }
         out.push_str("end\n%%EndProlog\n");

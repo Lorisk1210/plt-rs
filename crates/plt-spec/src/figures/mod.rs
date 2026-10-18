@@ -129,6 +129,8 @@ impl FigureCase {
     ) -> Result<T, Box<dyn Error>> {
         plt::rc::context(|| {
             let mut rc = plt::rc::RcParams::matplotlib();
+            // `matplotlib.testing.setup` names the font family.
+            rc.set("font.family", "DejaVu Sans")?;
             if let Some(style) = self.style {
                 plt::style::sheet(style)
                     .ok_or_else(|| plt::rc::RcError::UnknownStyle(style.to_owned()))?

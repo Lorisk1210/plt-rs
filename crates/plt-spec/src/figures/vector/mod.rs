@@ -12,13 +12,14 @@ mod diff;
 mod pdf;
 mod ps;
 mod svg;
+mod truetype;
 mod xml;
 
 use std::error::Error;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use plt::figure::{SaveFormat, SaveOptions};
+use plt::figure::{PdfPages, SaveFormat, SaveOptions};
 use plt_render::Metadata;
 
 pub use diff::{Item, Token, VectorReport, compare_items};
@@ -53,7 +54,46 @@ pub const VECTOR_CASES: &[&str] = &[
     "text/mathtext_mixed_sizes",
     "text/rotation_default_mode",
     "text/unicode",
+    "vectors/colorbar_many_colors",
+    "vectors/rasterized_artists",
+    "vectors/text_fonts",
 ];
+
+/// A case saved again with other settings (`VECTOR_VARIANTS` in the
+/// spec's `figures/test_vectors.py`); its goldens are named
+/// `<case>.<name>.<extension>`.
+#[derive(Clone, Copy, Debug)]
+pub struct VectorVariant {
+    /// The figure case.
+    pub case: &'static str,
+    /// The variant's name.
+    pub name: &'static str,
+    /// The rcParams changed.
+    pub rc: &'static [(&'static str, &'static str)],
+    /// The formats saved.
+    pub formats: &'static [VectorFormat],
+}
+
+/// The cases saved with other font settings.
+pub const VECTOR_VARIANTS: &[VectorVariant] = &[
+    VectorVariant {
+        case: "vectors/text_fonts",
+        name: "type42",
+        rc: &[("pdf.fonttype", "42"), ("ps.fonttype", "42")],
+        formats: &[VectorFormat::Pdf, VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "vectors/text_fonts",
+        name: "nofont",
+        rc: &[("svg.fonttype", "none")],
+        formats: &[VectorFormat::Svg],
+    },
+];
+
+/// The cases collected, one per page, into the multi-page golden
+/// `vectors/pages.pdf` (`PDF_PAGES` in the spec), with a note attached to
+/// the second page.
+pub const PDF_PAGES: &[&str] = &["vectors/text_fonts", "vectors/rasterized_artists"];
 
 /// A vector format with goldens.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -112,27 +152,74 @@ impl FigureCase {
             format.extension()
         ))
     }
+
+    /// The golden of this case saved in `format` as `variant`.
+    pub fn variant_path(&self, variant: &str, format: VectorFormat) -> PathBuf {
+        crate::spec_root().join("goldens/figures").join(format!(
+            "{}.{variant}.{}",
+            self.name,
+            format.extension()
+        ))
+    }
+}
+
+/// The save options of the vector goldens: the case's resolution and no
+/// metadata.
+fn golden_options(case: &FigureCase) -> SaveOptions {
+    SaveOptions {
+        dpi: Some(case.dpi),
+        metadata: Some(Metadata::none()),
+        ..SaveOptions::default()
+    }
 }
 
 /// Renders a case as `format` the way the spec saves its goldens: at the
-/// case's resolution, without metadata and with the fixed SVG id salt.
-pub fn render_vector(case: &FigureCase, format: VectorFormat) -> Result<Vec<u8>, Box<dyn Error>> {
+/// case's resolution, without metadata, with the fixed SVG id salt and
+/// the rcParams `rc` on top of the case's.
+pub fn render_vector_with(
+    case: &FigureCase,
+    format: VectorFormat,
+    rc: &[(&str, &str)],
+) -> Result<Vec<u8>, Box<dyn Error>> {
     case.with_figure(|fig| {
         plt::rc::set("svg.hashsalt", "plt-rs")?;
-        let options = SaveOptions {
-            dpi: Some(case.dpi),
-            metadata: Some(Metadata::none()),
-            ..SaveOptions::default()
-        };
-        Ok(fig.to_format(format.save_format(), &options)?)
+        for (key, value) in rc {
+            plt::rc::set(key, value)?;
+        }
+        Ok(fig.to_format(format.save_format(), &golden_options(case))?)
     })
 }
 
-/// Renders a case and compares it with its golden.
-pub fn vector_report(case: &FigureCase, format: VectorFormat) -> Result<VectorReport, String> {
-    let golden =
-        std::fs::read(case.vector_path(format)).map_err(|e| format!("cannot read golden: {e}"))?;
-    let rendered = render_vector(case, format).map_err(|e| format!("render failed: {e}"))?;
+/// Renders a case as `format` the way the spec saves its goldens.
+pub fn render_vector(case: &FigureCase, format: VectorFormat) -> Result<Vec<u8>, Box<dyn Error>> {
+    render_vector_with(case, format, &[])
+}
+
+/// Collects `cases` into one PDF document, one page each, the way the
+/// spec writes `vectors/pages.pdf`: titled "Pages", without other
+/// metadata, a note attached to the second page.
+pub fn render_pdf_pages(cases: &[FigureCase]) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mut pages = PdfPages::with_metadata(Metadata {
+        title: Some("Pages".to_owned()),
+        ..Metadata::none()
+    })?;
+    for (page, case) in cases.iter().enumerate() {
+        if page == 1 {
+            pages.attach_note("the second page");
+        }
+        case.with_figure(|fig| Ok(pages.savefig_with(fig, &golden_options(case))?))?;
+    }
+    Ok(pages.finish()?)
+}
+
+/// Compares a rendering with the golden at `golden` in `format`.
+pub fn compare_documents(
+    format: VectorFormat,
+    golden: &Path,
+    rendered: Result<Vec<u8>, Box<dyn Error>>,
+) -> Result<VectorReport, String> {
+    let golden = std::fs::read(golden).map_err(|e| format!("cannot read golden: {e}"))?;
+    let rendered = rendered.map_err(|e| format!("render failed: {e}"))?;
     let expected = format
         .items(&golden)
         .map_err(|e| format!("cannot read golden: {e}"))?;
@@ -140,4 +227,13 @@ pub fn vector_report(case: &FigureCase, format: VectorFormat) -> Result<VectorRe
         .items(&rendered)
         .map_err(|e| format!("cannot read rendering: {e}"))?;
     Ok(compare_items(&expected, &actual))
+}
+
+/// Renders a case and compares it with its golden.
+pub fn vector_report(case: &FigureCase, format: VectorFormat) -> Result<VectorReport, String> {
+    compare_documents(
+        format,
+        &case.vector_path(format),
+        render_vector(case, format),
+    )
 }

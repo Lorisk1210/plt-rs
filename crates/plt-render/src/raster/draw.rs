@@ -12,6 +12,7 @@ use super::condition::{Conditioning, cached_mask, mpl_round, sketch_params, snap
 use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
+use crate::quad_mesh::QuadMesh;
 use crate::renderer::Renderer;
 
 /// Whether an 8-bit colour would draw anything.
@@ -312,6 +313,15 @@ impl Renderer for RasterRenderer {
     /// the `text` module.
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
         self.draw_text_run(gc, run, origin, angle);
+    }
+
+    /// Agg's quad mesh generator walks every cell down its first column
+    /// first.
+    fn draw_quad_mesh(&mut self, gc: &GraphicsContext, mesh: &QuadMesh<'_>) {
+        let paths = mesh.agg_cell_paths();
+        let widths = [gc.linewidth];
+        let flags = [mesh.antialiased];
+        self.draw_path_collection(gc, &mesh.collection(&paths, &widths, &flags));
     }
 
     /// Agg composites each image straight onto the canvas.

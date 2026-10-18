@@ -7,7 +7,7 @@ use std::rc::Rc;
 use plt_core::Bbox;
 
 use super::artist::{canvas_bbox, draw_rendered, split_alpha};
-use super::make::{ImageCore, Placement};
+use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::Resampling;
 use super::{ColorizerOptions, Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle};
@@ -34,7 +34,7 @@ pub struct FigimageOptions {
 #[derive(Debug)]
 pub(crate) struct FigureImageArtist {
     base: ArtistBase,
-    core: ImageCore,
+    pub(super) core: ImageCore,
     /// Pixel offset of the bottom-left corner.
     offset: (f64, f64),
 }
@@ -48,9 +48,22 @@ impl Artist for FigureImageArtist {
         &mut self.base
     }
 
-    /// matplotlib's `FigureImage.make_image`: one image pixel per figure
-    /// pixel at the figure's resolution, scaled for other resolutions.
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        let magnification = ctx.renderer().image_magnification();
+        let rendered = self.render(ctx, magnification);
+        draw_rendered(ctx, &self.base, rendered);
+    }
+}
+
+impl FigureImageArtist {
+    /// matplotlib's `FigureImage.make_image` at `magnification`: one
+    /// image pixel per figure pixel at the figure's resolution, scaled for
+    /// other resolutions.
+    pub(super) fn render(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        magnification: f64,
+    ) -> Result<Option<RenderedImage>, ImageError> {
         let canvas = canvas_bbox(ctx);
         let fac = ctx.renderer().dpi() / ctx.layout().dpi();
         let (rows, cols) = self.core.data.shape();
@@ -62,11 +75,10 @@ impl Artist for FigureImageArtist {
             out_bbox: Bbox::from_extents(x0, y0, x1, y1),
             clip: canvas,
             round_to_pixels: false,
-            magnification: 1.0 / fac,
+            magnification: magnification / fac,
         };
         let alpha = self.core.alpha(self.base.alpha);
-        let rendered = self.core.make_image(&placement, alpha.as_ref());
-        draw_rendered(ctx, &self.base, rendered);
+        self.core.make_image(&placement, alpha.as_ref())
     }
 }
 

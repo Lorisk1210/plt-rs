@@ -59,6 +59,7 @@ dependencies = [
  "plt",
  "plt-codec",
  "plt-core",
+ "plt-font",
  "plt-render",
 ]
 

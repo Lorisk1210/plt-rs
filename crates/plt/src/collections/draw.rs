@@ -193,7 +193,8 @@ fn graphics_context(
     let rc = c.rc();
     let mut gc = ctx.base_gc(c.base());
     gc.alpha = None;
-    if let Some(pattern) = &c.hatch {
+    // matplotlib only hands the renderer non-empty hatches.
+    if let Some(pattern) = c.hatch.as_ref().filter(|p| !p.is_empty()) {
         let color = match edges.first() {
             Some(&edge) => edge,
             None => rc.patch_edgecolor.resolve().map_err(|e| e.to_string())?,

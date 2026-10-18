@@ -1,13 +1,13 @@
-//! The SVG backend: matplotlib's `RendererSVG` with `svg.fonttype =
-//! "path"`.
+//! The SVG backend: matplotlib's `RendererSVG`.
 //!
 //! The document mirrors matplotlib's: paths with inline CSS styles,
 //! markers and large path collections as reusable `<defs>`, glyphs defined
 //! once as paths in `FreeType` units and placed with `<use>`, clip paths and
 //! hatch patterns written at the end, images inlined as base64 PNG and
-//! Gouraud triangles emulated with three linear gradients. Text is always
-//! written as paths (`svg.fonttype = "none"` is not supported) and images
-//! are always inlined (`svg.image_inline`).
+//! Gouraud triangles emulated with three linear gradients. Text is written
+//! as glyph paths or, with `svg.fonttype = "none"`, as text elements
+//! styled with CSS font properties. Images are always inlined
+//! (`svg.image_inline`).
 
 mod defs;
 mod draw;
@@ -15,6 +15,7 @@ mod gouraud;
 mod metadata;
 mod style;
 mod text;
+mod text_elements;
 mod xml;
 
 use std::collections::{HashMap, HashSet};
@@ -38,6 +39,16 @@ const PROLOG: &str = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"
 <!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\"\n  \
 \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\n";
 
+/// How an SVG document writes text (matplotlib's `svg.fonttype`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum SvgFontType {
+    /// Glyphs as paths (`"path"`).
+    #[default]
+    Path,
+    /// Text elements, rendered with the viewer's fonts (`"none"`).
+    None,
+}
+
 /// Settings of an SVG document (matplotlib's `svg.*` rcParams and the
 /// `metadata` argument of `savefig`).
 #[derive(Clone, Debug, PartialEq)]
@@ -55,6 +66,8 @@ pub struct SvgOptions {
     /// `image.composite_image`: whether images of one axes are composited
     /// into one before drawing.
     pub composite_images: bool,
+    /// `svg.fonttype`: glyphs as paths or text elements.
+    pub fonttype: SvgFontType,
 }
 
 impl Default for SvgOptions {
@@ -65,6 +78,7 @@ impl Default for SvgOptions {
             metadata: Metadata::default(),
             simplify: SimplifySettings::default(),
             composite_images: true,
+            fonttype: SvgFontType::Path,
         }
     }
 }

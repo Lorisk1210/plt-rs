@@ -6,16 +6,17 @@
 use std::fmt::Write as _;
 
 use plt_core::Point;
-use plt_text::TextRun;
+use plt_text::{PlacedGlyph, TextRun};
 
 use super::PsRenderer;
 use crate::gc::GraphicsContext;
-use crate::vector::{RunKind, general, glyph_chars, kind, repr};
+use crate::vector::{VectorError, general, glyph_chars, in_points, repr};
 
 impl PsRenderer {
-    /// The subset font name and glyph name of a glyph, recording its use.
-    fn glyph_names(&mut self, glyph: &plt_text::PlacedGlyph) -> (String, String) {
-        let chars = glyph_chars(glyph, &mut self.fonts);
+    /// The subset font name and glyph name of a glyph of `run`, recording
+    /// its use.
+    fn glyph_names(&mut self, run: &TextRun, glyph: &PlacedGlyph) -> (String, String) {
+        let chars = glyph_chars(run, glyph);
         let (subset, _) = self.tracker.track(glyph.font, &chars, glyph.glyph);
         let names = self.fonts.get(glyph.font).map(|font| {
             let ps_name: String = font
@@ -31,21 +32,26 @@ impl PsRenderer {
         }
     }
 
-    /// `draw_text` for plain text: one block per run of glyphs from the
-    /// same font subset.
-    fn plain_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
-        let to_points = 72.0 / run.dpi;
+    /// `draw_text` for plain text laid out in points: one block per run of
+    /// glyphs from the same font subset.
+    fn plain_text(
+        &mut self,
+        gc: &GraphicsContext,
+        run: &TextRun,
+        size: f64,
+        origin: Point,
+        angle: f64,
+    ) {
         let stream: Vec<(String, f64, f64, String)> = run
             .glyphs
             .iter()
             .map(|glyph| {
-                let (font, name) = self.glyph_names(glyph);
-                (font, glyph.x * to_points, glyph.y * to_points, name)
+                let (font, name) = self.glyph_names(run, glyph);
+                (font, glyph.x, glyph.y, name)
             })
             .collect();
         let rgb = gc.stroke_color();
         self.set_color([rgb.r, rgb.g, rgb.b], true);
-        let size = run.glyphs.first().map_or(0.0, |g| g.size);
         for group in stream.chunk_by(|a, b| a.0 == b.0) {
             let _ = writeln!(self.body, "/{} {size:.3} selectfont", group[0].0);
             let shown: Vec<String> = group
@@ -66,9 +72,9 @@ impl PsRenderer {
         }
     }
 
-    /// `draw_mathtext`: glyphs moved to one by one, then the rules.
+    /// `draw_mathtext` for math typeset in points: glyphs moved to one by
+    /// one, then the rules.
     fn math_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
-        let to_points = 72.0 / run.dpi;
         let rgb = gc.stroke_color();
         self.set_color([rgb.r, rgb.g, rgb.b], true);
         let _ = writeln!(
@@ -80,7 +86,7 @@ impl PsRenderer {
         );
         let mut last_font = None;
         for glyph in &run.glyphs {
-            let (font, name) = self.glyph_names(glyph);
+            let (font, name) = self.glyph_names(run, glyph);
             let key = (font.clone(), glyph.size.to_bits());
             if last_font.as_ref() != Some(&key) {
                 let _ = writeln!(self.body, "/{font} {} selectfont", repr(glyph.size));
@@ -89,19 +95,20 @@ impl PsRenderer {
             let _ = writeln!(
                 self.body,
                 "{} {} moveto\n/{name} glyphshow",
-                general(glyph.x * to_points),
-                general(glyph.y * to_points)
+                general(glyph.x),
+                general(glyph.y)
             );
         }
         for rect in &run.rects {
             let (x, y, w, h) = rect.bounds();
-            let values = [x, y, w, h].map(|v| repr(v * to_points));
+            let values = [x, y, w, h].map(repr);
             let _ = writeln!(self.body, "{} rectfill", values.join(" "));
         }
         self.body.push_str("grestore\n");
     }
 
-    /// `draw_text`: fully transparent text is not drawn.
+    /// `draw_text`: fully transparent text is not drawn; runs without a
+    /// source are filled as paths.
     pub(super) fn ps_text(
         &mut self,
         gc: &GraphicsContext,
@@ -112,9 +119,20 @@ impl PsRenderer {
         if gc.stroke_color().a == 0.0 {
             return;
         }
-        match kind(run, &mut self.fonts) {
-            RunKind::Plain => self.plain_text(gc, run, origin, angle),
-            RunKind::Math => self.math_text(gc, run, origin, angle),
+        let Some(source) = &run.source else {
+            crate::renderer::fill_text(self, gc, run, origin, angle);
+            return;
+        };
+        let Some(points) = self
+            .problems
+            .record(in_points(run, source, &self.fonts).map_err(VectorError::from))
+        else {
+            return;
+        };
+        if source.is_math() {
+            self.math_text(gc, &points, origin, angle);
+        } else {
+            self.plain_text(gc, &points, source.size(), origin, angle);
         }
     }
 }

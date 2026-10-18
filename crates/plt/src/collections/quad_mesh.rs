@@ -3,7 +3,7 @@
 //! from the vertices).
 
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_render::PathCollection;
+use plt_render::QuadMesh;
 
 use super::style::resolve_colors;
 use super::{CollectionArtist, CollectionKind};
@@ -47,22 +47,18 @@ impl CollectionArtist {
     }
 }
 
-/// The outline of every cell as Agg's `QuadMeshGenerator` walks it:
-/// `(r, c) → (r + 1, c) → (r + 1, c + 1) → (r, c + 1) → (r, c)`.
+/// The outline of every cell, row by row, as matplotlib's
+/// `QuadMesh.get_paths` gives them.
 fn cell_paths(coordinates: &Grid<Point>) -> Vec<Path> {
-    let (rows, cols) = coordinates.shape();
-    (0..rows.saturating_sub(1))
-        .flat_map(|r| (0..cols.saturating_sub(1)).map(move |c| (r, c)))
-        .map(|(r, c)| {
-            Path::polyline(vec![
-                coordinates[(r, c)],
-                coordinates[(r + 1, c)],
-                coordinates[(r + 1, c + 1)],
-                coordinates[(r, c + 1)],
-                coordinates[(r, c)],
-            ])
-        })
-        .collect()
+    QuadMesh {
+        master_transform: Affine2D::IDENTITY,
+        columns: coordinates.shape().1.saturating_sub(1),
+        coordinates: coordinates.as_slice(),
+        facecolors: &[],
+        edgecolors: &[],
+        antialiased: false,
+    }
+    .cell_paths()
 }
 
 /// matplotlib's `QuadMesh.draw`: non-affine transforms are applied to the
@@ -102,19 +98,15 @@ pub(super) fn draw_quad_mesh(
         .open_group("QuadMesh", c.base().gid.as_deref());
     match mesh.shading {
         MeshShading::Flat => {
-            let paths = cell_paths(&coordinates);
-            let widths = [gc.linewidth];
-            let flags = [antialiased];
-            let collection = PathCollection {
+            let mesh = QuadMesh {
                 master_transform: master,
-                paths: &paths,
+                columns: coordinates.shape().1.saturating_sub(1),
+                coordinates: coordinates.as_slice(),
                 facecolors: &faces,
                 edgecolors: &edges,
-                linewidths: &widths,
-                antialiased: &flags,
-                ..PathCollection::default()
+                antialiased,
             };
-            ctx.renderer().draw_path_collection(&gc, &collection);
+            ctx.renderer().draw_quad_mesh(&gc, &mesh);
         }
         MeshShading::Gouraud => {
             let masked = c.mapping.as_ref().map(|m| {
@@ -191,16 +183,16 @@ mod tests {
     }
 
     #[test]
-    fn cells_follow_agg_vertex_order() {
+    fn cells_follow_matplotlib_vertex_order() {
         let paths = cell_paths(&unit_grid());
         assert_eq!(paths.len(), 2);
         assert_eq!(
             paths[1].vertices(),
             &[
                 Point::new(1.0, 0.0),
-                Point::new(1.0, 1.0),
-                Point::new(2.0, 1.0),
                 Point::new(2.0, 0.0),
+                Point::new(2.0, 1.0),
+                Point::new(1.0, 1.0),
                 Point::new(1.0, 0.0)
             ]
         );

@@ -36,7 +36,7 @@ impl SvgRenderer {
         transform: Affine2D,
         face: Option<Rgba>,
     ) {
-        let clip = face.is_none() && gc.active_hatch().is_none();
+        let clip = face.is_none() && gc.hatch.is_none();
         let d = path.convert_to_string(&StringOptions {
             transform: transform.then(self.flip()),
             clip: clip.then(|| Bbox::from_extents(0.0, 0.0, self.width, self.height)),

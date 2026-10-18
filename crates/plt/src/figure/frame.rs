@@ -1,9 +1,11 @@
 //! The figure frame artist: the root figure and every subfigure.
 
 use plt_core::{Bbox, Path, Rgba};
+use plt_render::JoinStyle;
 
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext};
 use crate::gridspec::{SubplotParams, SubplotSpec};
+use crate::image::Compositor;
 use crate::patheffects::with_path_effects;
 use crate::transforms::unit_to_bbox;
 
@@ -79,21 +81,37 @@ impl Artist for FigureFrame {
         if self.frameon
             && let Some(extent) = ctx.layout().frame_patch_extent(self.base.id())
         {
+            // The figure patch is a `Rectangle`: mitred, without an edge
+            // when it has no colour, unfilled when transparent, and drawn
+            // without anti-aliasing.
             let mut gc = ctx.base_gc(&self.base);
-            gc.linewidth = self.linewidth;
+            gc.linewidth = if self.edgecolor.is_transparent() {
+                0.0
+            } else {
+                self.linewidth
+            };
             gc.foreground = self.edgecolor;
-            // matplotlib draws the figure patch without anti-aliasing.
+            gc.join = JoinStyle::Miter;
             gc.antialiased = false;
-            with_path_effects(ctx, &self.base.path_effects, |ctx| {
-                ctx.renderer().draw_path(
-                    &gc,
-                    &Path::unit_rectangle(),
-                    &unit_to_bbox(&extent),
-                    Some(self.facecolor),
-                );
+            let face = (!self.facecolor.is_transparent()).then_some(self.facecolor);
+            ctx.draw_artist(false, |ctx| {
+                with_path_effects(ctx, &self.base.path_effects, |ctx| {
+                    ctx.renderer().draw_path(
+                        &gc,
+                        &Path::unit_rectangle(),
+                        &unit_to_bbox(&extent),
+                        face,
+                    );
+                });
             });
         }
-        ctx.draw_children_sorted(&self.children);
+        let children = ctx.sorted_children(&self.children);
+        let clip = ctx.layout().frame_extent(self.base.id());
+        let mut compositor = Compositor::new(ctx, &children, (clip, None));
+        for id in children {
+            compositor.draw(ctx, id);
+        }
+        compositor.flush(ctx);
     }
 
     fn children(&self) -> Vec<ArtistId> {

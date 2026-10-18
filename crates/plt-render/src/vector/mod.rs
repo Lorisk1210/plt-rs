@@ -26,11 +26,40 @@ pub(crate) use digest::sha256_hex;
 pub(crate) use font::{FontCache, FontInfo};
 pub(crate) use format::{general, hex, hex_color, repr, repr_bytes, repr_str, short, trimmed};
 pub(crate) use image::{flipped_rows, png_idat};
-pub use metadata::{Metadata, Timestamp};
-pub(crate) use text::{
-    RunKind, base_size, glyph_chars, kind, prev_kerns, shaped_positions, source_text,
-};
+pub use metadata::{Metadata, Timestamp, Trapped};
+pub(crate) use text::{POINTS_DPI, glyph_chars, in_points, prev_kerns};
 pub(crate) use tracker::{CharacterTracker, Subset};
+
+/// How PDF and PostScript documents embed TrueType fonts (matplotlib's
+/// `pdf.fonttype` and `ps.fonttype`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum FontType {
+    /// Type 3 fonts drawing the glyph outlines, 256 glyphs per font.
+    #[default]
+    Type3,
+    /// Type 42 fonts: subsets of the TrueType font program itself.
+    Type42,
+}
+
+impl FontType {
+    /// The font type numbered `number` (3 or 42).
+    pub const fn from_number(number: u32) -> Option<Self> {
+        match number {
+            3 => Some(Self::Type3),
+            42 => Some(Self::Type42),
+            _ => None,
+        }
+    }
+
+    /// How many character codes one embedded font may use (matplotlib's
+    /// `_FONT_MAX_GLYPH`).
+    pub(crate) const fn subset_size(self) -> u32 {
+        match self {
+            Self::Type3 => 256,
+            Self::Type42 => 65536,
+        }
+    }
+}
 
 /// Why a vector document could not be produced.
 #[derive(Debug)]

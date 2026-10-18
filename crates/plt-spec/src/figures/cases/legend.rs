@@ -8,8 +8,9 @@ use plt::collections::{CollectionProps, EdgeColors};
 use plt::colors::{Color, colormaps};
 use plt::fonts::RelativeSize;
 use plt::gridspec::SubplotOverrides;
-use plt::legend::{LegendAlignment, LegendMode, LegendOptions};
+use plt::legend::{HandlerTuple, LegendAlignment, LegendHandle, LegendMode, LegendOptions};
 use plt::lines::StepWhere;
+use plt::markers::Marker;
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions, HistType};
 
@@ -461,4 +462,51 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.legend(LegendOptions::default())?;
         Ok(())
     }),
+    FigureCase::new("legend/proxy_and_tuple_handles", |fig| {
+        let ax = fig.subplot();
+        let line = ax.plot_with(t(), map(&t(), f64::sin), LineProps::default().color("C0"))?;
+        let sparse: Vec<f64> = t().into_iter().step_by(5).collect();
+        let options = ScatterOptions {
+            colors: ScatterColors::Single(Color::from("C1")),
+            ..ScatterOptions::default()
+        };
+        let dots = ax.scatter_with(sparse.clone(), map(&sparse, f64::sin), options)?;
+        dots.set_zorder(3.0);
+        let red = LegendHandle::patch(
+            PatchProps::default()
+                .facecolor("tab:red")
+                .edgecolor("k")
+                .hatch("//")
+                .label("red patch"),
+        );
+        let stars = LegendHandle::line(
+            LineProps::default()
+                .color("purple")
+                .marker("*".parse::<Marker>()?)
+                .linestyle(LineStyle::None)
+                .markersize(10.0)
+                .label("stars"),
+        );
+        let (line, dots) = (LegendHandle::from(&line), LegendHandle::from(&dots));
+        let divided = |pad| HandlerTuple { ndivide: None, pad };
+        let handles = [
+            red.clone(),
+            stars.clone(),
+            LegendHandle::tuple([line.clone(), dots.clone()], HandlerTuple::default()),
+            LegendHandle::tuple([dots, line.clone()], divided(Some(0.3))),
+            LegendHandle::tuple([red, stars, line], divided(None)),
+        ];
+        let labels = [
+            "red patch",
+            "stars",
+            "overlaid",
+            "side by side",
+            "three parts",
+        ];
+        let mut options = LegendOptions::default().handles(handles).labels(labels);
+        options.loc = Some("lower left".into());
+        ax.legend(options)?;
+        Ok(())
+    })
+    .sized(5.0, 3.5, 100.0),
 ];

@@ -15,7 +15,7 @@ mod stem;
 use std::rc::Rc;
 
 use super::LegendError;
-use super::handle::Source;
+use super::handle::{HandlerTuple, Proxy, Source};
 use super::settings::Settings;
 use crate::artist::{Artist, ArtistBase, ArtistStore};
 use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
@@ -152,7 +152,13 @@ pub(crate) fn create(
             Ok(Some(patch::patch(ctx, first, area)))
         }
         Source::Container(ContainerIds::Errorbar(ids)) => errorbar::errorbar(ctx, ids, area),
-        Source::Proxy(line) => Ok(Some(line::line2d(ctx, &line.0, area))),
+        Source::Proxy(Proxy::Line(line)) => Ok(Some(line::line2d(ctx, line, area))),
+        Source::Proxy(Proxy::Patch(proxy)) => Ok(Some(patch::patch(
+            ctx,
+            proxy.as_patch().map(|view| (proxy.base(), view)),
+            area,
+        ))),
+        Source::Tuple(sources, layout) => tuple(ctx, sources, *layout, area),
         Source::Container(ContainerIds::Stem {
             markerline,
             stemlines,
@@ -160,6 +166,39 @@ pub(crate) fn create(
             ..
         }) => stem::stem(ctx, [*markerline, *stemlines, *baseline], area),
     }
+}
+
+/// The handles of a tuple side by side in `layout.ndivide` parts of the
+/// box, cycling, each drawn by its own handler (matplotlib's
+/// `HandlerTuple.create_artists`); `None` when none can be drawn.
+fn tuple(
+    ctx: &HandlerContext<'_>,
+    sources: &[Source],
+    layout: HandlerTuple,
+    area: &HandleBox,
+) -> Result<Option<HandleArtists>, LegendError> {
+    let parts = layout.ndivide.unwrap_or(sources.len()).max(1);
+    let pad = layout.pad.unwrap_or(ctx.settings.borderpad) * ctx.settings.fontsize;
+    let width = if parts > 1 {
+        (area.width - pad * (parts - 1) as f64) / parts as f64
+    } else {
+        area.width
+    };
+    let mut made: Option<HandleArtists> = None;
+    for (i, source) in sources.iter().enumerate() {
+        let part = HandleBox {
+            xdescent: area.xdescent - (width + pad) * (i % parts) as f64,
+            width,
+            ..*area
+        };
+        if let Some(handle) = create(ctx, source, &part)? {
+            match &mut made {
+                Some(made) => made.artists.extend(handle.artists),
+                None => made = Some(handle),
+            }
+        }
+    }
+    Ok(made)
 }
 
 /// Copies the properties matplotlib's `Artist.update_from` copies, except

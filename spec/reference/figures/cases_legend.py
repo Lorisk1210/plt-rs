@@ -267,3 +267,22 @@ def _(fig):
     ax.hist(data + 3, bins=15, histtype="step", label="step")
     ax.hist(data - 3, bins=15, histtype="stepfilled", alpha=0.5, label="stepfilled")
     ax.legend()
+
+
+@case("legend/proxy_and_tuple_handles", figsize=(5, 3.5))
+def _(fig):
+    from matplotlib.legend_handler import HandlerTuple
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    ax = fig.subplots()
+    line, = ax.plot(T, np.sin(T), color="C0")
+    dots = ax.scatter(T[::5], np.sin(T[::5]), color="C1", zorder=3)
+    red = Patch(facecolor="tab:red", edgecolor="k", hatch="//", label="red patch")
+    stars = Line2D([], [], color="purple", marker="*", linestyle="None", markersize=10,
+                   label="stars")
+    ax.legend([red, stars, (line, dots), (dots, line), (red, stars, line)],
+              ["red patch", "stars", "overlaid", "side by side", "three parts"],
+              handler_map={(dots, line): HandlerTuple(ndivide=None, pad=0.3),
+                           (red, stars, line): HandlerTuple(ndivide=None)},
+              loc="lower left")

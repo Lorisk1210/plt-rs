@@ -43,7 +43,7 @@ use std::rc::Rc;
 
 pub(crate) use artist::LegendArtist;
 pub use error::LegendError;
-pub use handle::LegendHandle;
+pub use handle::{HandlerTuple, LegendHandle};
 pub(crate) use layout::lay_out_legends;
 pub use options::{
     BboxToAnchor, LegendAlignment, LegendLabelColor, LegendLoc, LegendMode, LegendOptions,

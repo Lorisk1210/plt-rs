@@ -10,6 +10,7 @@ mod save;
 mod state;
 mod subfigure;
 mod subplots;
+mod svg;
 #[cfg(test)]
 mod tests;
 

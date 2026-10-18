@@ -113,6 +113,29 @@ fn markers_are_defined_once() {
 }
 
 #[test]
+fn images_go_beside_the_document_when_not_inline() {
+    let options = SvgOptions {
+        hashsalt: Some("plt-rs".into()),
+        image_files: Some("out.svg".into()),
+        ..SvgOptions::default()
+    };
+    let mut r = SvgRenderer::new(100.0, 50.0, 72.0, options).expect("a canvas");
+    let image = RgbaImage::new(2, 1, vec![255, 0, 0, 255, 0, 0, 255, 255]).expect("2x1");
+    r.draw_image(
+        &GraphicsContext::default(),
+        Point::new(5.0, 5.0),
+        &image,
+        None,
+    );
+    let (svg, images) = r.finish_with_images().expect("document");
+    // matplotlib's id: 'Im_' + _make_id('image', filename).
+    assert!(svg.contains("xlink:href=\"out.svg.image0.png\" id=\"Im_imagebe253fa883\""));
+    assert_eq!(images.len(), 1);
+    assert_eq!(images[0].name, "out.svg.image0.png");
+    assert!(images[0].png.starts_with(b"\x89PNG"));
+}
+
+#[test]
 fn images_are_inlined() {
     let mut r = renderer();
     let image = RgbaImage::new(2, 1, vec![255, 0, 0, 255, 0, 0, 255, 255]).expect("2x1");

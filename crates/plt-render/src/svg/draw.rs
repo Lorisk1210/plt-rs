@@ -10,9 +10,9 @@ use plt_codec::png::{self, ImageRef};
 use plt_core::path::convert::{StringCodes, StringOptions};
 use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 
-use super::SvgRenderer;
 use super::defs::path_data;
 use super::style::{TransformOp, css, style_dict, transform_attr};
+use super::{ImageFile, SvgRenderer};
 use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
@@ -177,7 +177,27 @@ impl SvgRenderer {
         self.path_collection_id += 1;
     }
 
-    /// `draw_image`: a base64 PNG, flipped back by its transform.
+    /// Where the document finds an image and its id: a data URI, or with
+    /// `image_files` a PNG file beside the document (matplotlib's
+    /// `svg.image_inline`).
+    fn image_reference(&mut self, gid: Option<String>, file: Vec<u8>) -> (String, String) {
+        if let Some(base) = &self.options.image_files {
+            let name = format!("{base}.image{}.png", self.images.len());
+            let id = gid.unwrap_or_else(|| format!("Im_{}", self.make_id("image", &name)));
+            self.images.push(ImageFile {
+                name: name.clone(),
+                png: file,
+            });
+            (name, id)
+        } else {
+            let id = gid.unwrap_or_else(|| self.make_id("image", &repr_bytes(&file)));
+            let href = format!("data:image/png;base64,\n{}", base64_encode(&file));
+            (href, id)
+        }
+    }
+
+    /// `draw_image`: a base64 PNG (or a PNG file beside the document),
+    /// flipped back by its transform.
     pub(super) fn svg_image(
         &mut self,
         gc: &GraphicsContext,
@@ -199,18 +219,9 @@ impl SvgRenderer {
             .and_then(png::encode)
             .map_err(VectorError::from);
         if let Some(file) = self.problems.record(encoded) {
-            let id = gc
-                .gid
-                .clone()
-                .filter(|gid| !gid.is_empty())
-                .unwrap_or_else(|| self.make_id("image", &repr_bytes(&file)));
-            let mut attributes = vec![
-                (
-                    "xlink:href",
-                    format!("data:image/png;base64,\n{}", base64_encode(&file)),
-                ),
-                ("id", id),
-            ];
+            let gid = gc.gid.clone().filter(|gid| !gid.is_empty());
+            let (href, id) = self.image_reference(gid, file);
+            let mut attributes = vec![("xlink:href", href), ("id", id)];
             let (w, h) = (w as f64, h as f64);
             match transform {
                 None => {

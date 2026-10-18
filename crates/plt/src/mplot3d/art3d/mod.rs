@@ -23,7 +23,7 @@ use crate::artist::{ArtistId, ArtistStore};
 use crate::collections::CollectionArtist;
 use crate::lines::LineArtist;
 use crate::patches::{PatchArtist, PatchShape};
-use crate::text::TextArtist;
+use crate::text::{AngleReduction, TextArtist};
 
 /// The outline of a 3-D patch as projected by the last layout pass
 /// (matplotlib's `Patch3D`, which unlike a `PathPatch` has no edge by
@@ -141,6 +141,7 @@ impl Art3D {
                 let angle = (end[1] - anchor[1]).atan2(end[0] - anchor[0]).to_degrees();
                 text.position = Point::new(anchor[0], anchor[1]);
                 text.rotation = norm_text_angle(angle);
+                text.rotation_reduction = AngleReduction::AsIs;
                 Some(f64::NAN)
             }
             Self::Paths(paths) => {

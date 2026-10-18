@@ -102,18 +102,16 @@ impl Default for TickerSettings {
 impl From<&crate::rc::RcParams> for TickerSettings {
     /// The ticker-relevant subset of the given rcParams.
     fn from(rc: &crate::rc::RcParams) -> Self {
-        let limit = |i: usize| {
-            rc.axes_formatter_limits
-                .get(i)
-                .map_or(0, |&v| i32::try_from(v).unwrap_or(0))
-        };
+        let [low, high] = rc
+            .axes_formatter_limits
+            .map(|limit| i32::try_from(limit).unwrap_or(0));
         let ndivs = |text: &str| {
             text.parse()
                 .map_or(MinorDivisions::Auto, MinorDivisions::Count)
         };
         Self {
             axes_unicode_minus: rc.axes_unicode_minus,
-            axes_formatter_limits: (limit(0), limit(1)),
+            axes_formatter_limits: (low, high),
             axes_formatter_offset_threshold: i32::try_from(rc.axes_formatter_offset_threshold)
                 .unwrap_or(4),
             axes_formatter_useoffset: rc.axes_formatter_useoffset,

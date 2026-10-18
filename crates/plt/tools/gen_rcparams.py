@@ -14,12 +14,6 @@ import matplotlib.rcsetup as rcsetup
 OUT = pathlib.Path(__file__).resolve().parents[1] / "src" / "rc" / "table.rs"
 SKIP = {"backend"}
 
-# Parameters whose validator checks a fixed length that its name does not
-# tell: key -> (Rust type, extra validation expression or None).
-KEY_TYPES = {
-    "figure.figsize": ("[f64; 2]", None),
-}
-
 # validator name -> (Rust type, extra validation expression or None)
 TYPES = {
     "validate_bool": ("bool", None),
@@ -61,7 +55,7 @@ TYPES = {
     "validate_axisbelow": ("AxisBelow", None),
     "_validate_legend_loc": ("String", "validate::legend_loc"),
     "_validate_minor_tick_ndivs": ("String", "validate::minor_ndivs"),
-    "validate_bbox": ("Option<String>", 'validate::optional_one_of(&["tight", "standard"])'),
+    "validate_bbox": ("String", None),
     "_validate_date": ("String", None),
     "_validate_pathlike": ("String", None),
     "_validate_toolbar": ("String", 'validate::one_of(&["None", "toolbar2", "toolmanager"])'),
@@ -126,6 +120,25 @@ def doc(comment, key):
     return f"`{key}`: {comment}."
 
 
+# validator name -> parser replacing the type's own rc-file parsing, for
+# validators that accept a syntax of their own.
+PARSERS = {
+    "validate_sketch": "validate::sketch",
+    "validate_bbox": "validate::bbox",
+}
+
+# Fixed-length lists (`_listify_validator(..., n=N)`): element type by name.
+FIXED_LISTS = {"validate_floatlist": "f64", "validate_intlist": "i64"}
+
+
+def fixed_length(validator):
+    """The ``n`` a ``_listify_validator`` list must have, if any."""
+    closure = getattr(validator, "__closure__", None) or ()
+    cells = dict(zip(validator.__code__.co_freevars, (c.cell_contents for c in closure))) \
+        if closure else {}
+    return cells.get("n")
+
+
 def main():
     entries = rc_file_entries()
     rows = []
@@ -140,11 +153,11 @@ def main():
             allowed = sorted(validator.valid.values()) if isinstance(validator.valid, dict) else sorted(validator.valid)
             fn = "one_of_ignore_case" if validator.ignorecase else "one_of"
             rust_type, check = "String", f"validate::{fn}(&[{', '.join(rust_str(a) for a in allowed)}])"
-        elif key in KEY_TYPES:
-            rust_type, check = KEY_TYPES[key]
+        elif name in FIXED_LISTS and fixed_length(validator) is not None:
+            rust_type, check = f"[{FIXED_LISTS[name]}; {fixed_length(validator)}]", None
         else:
             rust_type, check = TYPES[name]
-        rows.append((key, rust_type, value, check, doc(comment, key)))
+        rows.append((key, rust_type, value, PARSERS.get(name), check, doc(comment, key)))
 
     lines = [
         "//! Every rcParam with its type, default and validation.",
@@ -167,10 +180,12 @@ def main():
         "",
         "rc_params! {",
     ]
-    for key, rust_type, value, check, docline in rows:
+    for key, rust_type, value, parser, check, docline in rows:
         lines.append(f"    /// {docline}")
+        parser_part = f" using {parser}" if parser else ""
         check_part = f" where {check}" if check else ""
-        lines.append(f"    {field_name(key)}: {rust_type} = {rust_str(value)} => {rust_str(key)}{check_part};")
+        lines.append(f"    {field_name(key)}: {rust_type} = {rust_str(value)} => {rust_str(key)}"
+                     f"{parser_part}{check_part};")
     lines.append("}")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines) + "\n")

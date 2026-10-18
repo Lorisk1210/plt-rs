@@ -306,7 +306,7 @@ rc_params! {
     /// `axes.labelcolor`.
     axes_labelcolor: Color = "black" => "axes.labelcolor";
     /// `axes.formatter.limits`: Use scientific notation if log10.
-    axes_formatter_limits: Vec<i64> = "-5, 6" => "axes.formatter.limits";
+    axes_formatter_limits: [i64; 2] = "-5, 6" => "axes.formatter.limits";
     /// `axes.formatter.use_locale`: When True, format tick labels.
     axes_formatter_use_locale: bool = "False" => "axes.formatter.use_locale";
     /// `axes.formatter.use_mathtext`: When True, use mathtext for scientific.
@@ -586,7 +586,7 @@ rc_params! {
     /// `savefig.format`: {png, ps, pdf, svg}.
     savefig_format: String = "png" => "savefig.format";
     /// `savefig.bbox`: {tight, standard}.
-    savefig_bbox: Option<String> = "standard" => "savefig.bbox" where validate::optional_one_of(&["tight", "standard"]);
+    savefig_bbox: String = "standard" => "savefig.bbox" using validate::bbox;
     /// `savefig.pad_inches`: Padding to be used, when bbox is set to 'tight'.
     savefig_pad_inches: f64 = "0.1" => "savefig.pad_inches";
     /// `savefig.directory`: Default directory in savefig dialog, gets updated after.
@@ -636,7 +636,7 @@ rc_params! {
     /// `path.snap`: When True, rectilinear axis-aligned paths will be snapped.
     path_snap: bool = "True" => "path.snap";
     /// `path.sketch`: May be None, or a tuple of the form:.
-    path_sketch: Option<[f64; 3]> = "None" => "path.sketch";
+    path_sketch: Option<[f64; 3]> = "None" => "path.sketch" using validate::sketch;
     /// `path.effects`.
     path_effects: Vec<PathEffect> = "" => "path.effects";
     /// `agg.path.chunksize`: 0 to disable; values in the range.

@@ -2,15 +2,28 @@
 //!
 //! [`RcParams`]: super::RcParams
 
+/// The rc-file parser of a parameter: its own, or the type's.
+macro_rules! rc_parser {
+    ($ty:ty) => {
+        <$ty as super::value::RcValue>::parse_rc
+    };
+    ($ty:ty, $parse:path) => {
+        $parse
+    };
+}
+
 /// Declares every rcParam as a typed field plus string-keyed access.
 ///
-/// Each entry reads `field: Type = "default" => "key" [where check];` where
-/// the default is written in rc-file syntax and `check` is an optional
-/// extra validator `Fn(&Type) -> Result<(), String>`.
+/// Each entry reads `field: Type = "default" => "key" [using parse]
+/// [where check];` where the default is written in rc-file syntax, `parse`
+/// an optional `fn(&str) -> Result<Type, String>` replacing the type's own
+/// rc-file parsing (for validators with a syntax of their own) and `check`
+/// an optional extra validator `Fn(&Type) -> Result<(), String>`.
 macro_rules! rc_params {
     ($(
         $(#[$doc:meta])*
-        $field:ident : $ty:ty = $default:literal => $key:literal $(where $check:expr)? ;
+        $field:ident : $ty:ty = $default:literal => $key:literal
+            $(using $parse:path)? $(where $check:expr)? ;
     )*) => {
         /// Every runtime configuration parameter (matplotlib's `rcParams`),
         /// one typed field per key.
@@ -29,6 +42,7 @@ macro_rules! rc_params {
                     $( $field: super::value::parse_checked::<$ty>(
                         $key,
                         $default,
+                        rc_parser!($ty $(, $parse)?),
                         |_value: &$ty| -> Result<(), String> { $( ($check)(_value)?; )? Ok(()) },
                     ).expect("generated rc defaults are valid"), )*
                 }
@@ -42,6 +56,7 @@ macro_rules! rc_params {
                         self.$field = super::value::parse_checked::<$ty>(
                             $key,
                             value,
+                            rc_parser!($ty $(, $parse)?),
                             |_value: &$ty| -> Result<(), String> { $( ($check)(_value)?; )? Ok(()) },
                         )?;
                         Ok(())

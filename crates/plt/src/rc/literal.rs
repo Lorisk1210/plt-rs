@@ -12,7 +12,9 @@ pub(crate) enum Expr {
     None,
     /// `True` / `False`.
     Bool(bool),
-    /// An int or float literal.
+    /// An integer literal.
+    Int(i64),
+    /// A float literal.
     Number(f64),
     /// A string literal.
     Str(String),
@@ -69,9 +71,10 @@ impl Expr {
         }
     }
 
-    /// The value of a number literal.
+    /// The value of a number literal, integer or float.
     pub(crate) fn as_number(&self) -> Option<f64> {
         match self {
+            Self::Int(n) => Some(*n as f64),
             Self::Number(n) => Some(*n),
             _ => None,
         }
@@ -80,6 +83,7 @@ impl Expr {
 
 #[derive(Clone, Debug, PartialEq)]
 enum Token {
+    Int(i64),
     Number(f64),
     Str(String),
     Ident(String),
@@ -89,6 +93,7 @@ enum Token {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Int(n) => write!(f, "integer {n}"),
             Self::Number(n) => write!(f, "number {n}"),
             Self::Str(s) => write!(f, "string {s:?}"),
             Self::Ident(name) => write!(f, "name {name}"),
@@ -128,10 +133,16 @@ fn tokenize(text: &str) -> Result<Vec<Token>, String> {
                     i += 1;
                 }
                 let literal: String = chars[start..i].iter().filter(|&&d| d != '_').collect();
-                let value = literal
-                    .parse::<f64>()
-                    .map_err(|_| format!("malformed number {literal:?}"))?;
-                tokens.push(Token::Number(value));
+                // Python's int literals are digits only; anything else
+                // that parses is a float.
+                let token = match literal.parse::<i64>() {
+                    Ok(value) => Token::Int(value),
+                    Err(_) => literal
+                        .parse::<f64>()
+                        .map(Token::Number)
+                        .map_err(|_| format!("malformed number {literal:?}"))?,
+                };
+                tokens.push(token);
             }
             c if c.is_alphabetic() || c == '_' => {
                 let start = i;
@@ -219,8 +230,8 @@ impl Parser {
             let mut bounds = [None; 3];
             let mut colons = 0;
             for (slot, bound) in bounds.iter_mut().enumerate() {
-                if let Some(Token::Number(n)) = self.peek() {
-                    *bound = Some(*n as i64);
+                if let Some(Token::Int(n)) = self.peek() {
+                    *bound = Some(*n);
                     self.pos += 1;
                 }
                 if slot == 2 || !self.eat(':') {
@@ -242,6 +253,7 @@ impl Parser {
 
     fn primary(&mut self) -> Result<Expr, String> {
         match self.next().ok_or("unexpected end of expression")? {
+            Token::Int(n) => Ok(Expr::Int(n)),
             Token::Number(n) => Ok(Expr::Number(n)),
             Token::Str(s) => Ok(Expr::Str(s)),
             Token::Ident(name) => match name.as_str() {
@@ -312,17 +324,16 @@ mod tests {
         assert_eq!(Expr::parse("-1.5e-3"), Ok(Expr::Number(-1.5e-3)));
         assert_eq!(Expr::parse("'a b'"), Ok(Expr::Str("a b".into())));
         assert_eq!(
-            Expr::parse("(0, (3, 1))"),
+            Expr::parse("(0, (3.5, 1))"),
             Ok(Expr::Tuple(vec![
-                Expr::Number(0.0),
-                Expr::Tuple(vec![Expr::Number(3.0), Expr::Number(1.0)])
+                Expr::Int(0),
+                Expr::Tuple(vec![Expr::Number(3.5), Expr::Int(1)])
             ]))
         );
-        assert_eq!(
-            Expr::parse("(5,)"),
-            Ok(Expr::Tuple(vec![Expr::Number(5.0)]))
-        );
-        assert_eq!(Expr::parse("(5)"), Ok(Expr::Number(5.0)));
+        assert_eq!(Expr::parse("(5,)"), Ok(Expr::Tuple(vec![Expr::Int(5)])));
+        assert_eq!(Expr::parse("(5)"), Ok(Expr::Int(5)));
+        assert_eq!(Expr::parse("5.0"), Ok(Expr::Number(5.0)));
+        assert_eq!(Expr::parse("1_000"), Ok(Expr::Int(1000)));
         assert_eq!(Expr::parse("[]"), Ok(Expr::List(Vec::new())));
     }
 

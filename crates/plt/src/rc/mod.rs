@@ -175,7 +175,7 @@ mod tests {
         assert_eq!(rc.figure_figsize, [6.4, 4.8]);
         assert_eq!(rc.font_size, 10.0);
         assert_eq!(rc.axes_prop_cycle.len(), 10);
-        assert_eq!(rc.axes_formatter_limits, vec![-5, 6]);
+        assert_eq!(rc.axes_formatter_limits, [-5, 6]);
         assert_eq!(rc.path_simplify_threshold, 0.111_111_111_111);
     }
 

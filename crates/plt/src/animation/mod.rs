@@ -1,7 +1,8 @@
-//! Animations (matplotlib's `animation.FuncAnimation`): a function updates
-//! the figure for each frame; a figure window plays the frames on a timer,
-//! and the animation can be saved as an animated PNG or GIF or as a web
-//! page with matplotlib's JavaScript player.
+//! Animations (matplotlib's `animation.FuncAnimation` and
+//! `ArtistAnimation`): a function updates the figure for each frame, or
+//! each frame shows prepared artists. A figure window plays the frames on
+//! a timer, and the animation can be saved as an animated PNG or GIF or as
+//! a web page with matplotlib's JavaScript player.
 //!
 //! ```
 //! use plt::animation::{AnimationOptions, Frames, FuncAnimation};
@@ -30,6 +31,7 @@ use plt_codec::png::EncodeError;
 use crate::events::TimerKey;
 use crate::figure::{Figure, SaveError};
 
+mod artists;
 mod html;
 mod html_template;
 mod save;

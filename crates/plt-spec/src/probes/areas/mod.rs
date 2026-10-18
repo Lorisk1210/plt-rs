@@ -15,6 +15,7 @@ pub(crate) mod imread;
 pub(crate) mod imsave;
 pub(crate) mod lightsource;
 pub(crate) mod markers;
+pub(crate) mod multivar;
 pub(crate) mod norms;
 pub(crate) mod path;
 pub(crate) mod pick;

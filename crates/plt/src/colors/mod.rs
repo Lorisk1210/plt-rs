@@ -30,6 +30,7 @@ pub mod colormaps;
 mod hsv;
 mod light;
 mod mappable;
+pub mod multivar;
 mod named;
 mod named_data;
 mod norm;

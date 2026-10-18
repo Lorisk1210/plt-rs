@@ -4,6 +4,7 @@
 //! implemented yet and every probe in it reports as missing.
 
 pub(crate) mod animation;
+pub(crate) mod axes3d;
 pub(crate) mod colormap_luts;
 pub(crate) mod colormaps;
 pub(crate) mod colors;

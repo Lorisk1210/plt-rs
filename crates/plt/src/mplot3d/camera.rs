@@ -11,7 +11,7 @@ use super::math::{
 
 /// Distance of the camera from the centre of the box (matplotlib's
 /// `_dist`).
-const DIST: f64 = 10.0;
+pub(crate) const DIST: f64 = 10.0;
 
 /// The default box aspect, x:y:z.
 const DEFAULT_BOX_ASPECT: Vec3 = [4.0, 4.0, 3.0];
@@ -180,9 +180,7 @@ impl Camera {
         let box_aspect = self.box_aspect();
         let world = world_transformation(limits, box_aspect);
         let center = scaled(box_aspect, 0.5);
-        let (elev, azim) = (self.angles.elev.to_radians(), self.angles.azim.to_radians());
-        let direction =
-            self.vertical_order([elev.cos() * azim.cos(), elev.cos() * azim.sin(), elev.sin()]);
+        let direction = self.direction();
         let eye = add(center, scaled(direction, DIST));
         let [u, v, w] = self.view_axes(eye);
         let (view, projection) = if self.is_ortho() {
@@ -201,6 +199,31 @@ impl Camera {
             matrix: projection.dot(&view.dot(&world)),
             perspective: !self.is_ortho(),
         }
+    }
+
+    /// The unit vector from the centre of the box towards the camera.
+    fn direction(&self) -> Vec3 {
+        let (elev, azim) = (self.angles.elev.to_radians(), self.angles.azim.to_radians());
+        self.vertical_order([elev.cos() * azim.cos(), elev.cos() * azim.sin(), elev.sin()])
+    }
+
+    /// The view axes `u` (screen right), `v` (screen up) and `w` (out of
+    /// the screen) in world coordinates (matplotlib's `_view_u`, `_view_v`
+    /// and `_view_w`).
+    pub(crate) fn view_frame(&self) -> [Vec3; 3] {
+        let center = scaled(self.box_aspect(), 0.5);
+        self.view_axes(add(center, scaled(self.direction(), DIST)))
+    }
+
+    /// The box aspect as stored, before rolling to the vertical axis
+    /// (matplotlib's `_box_aspect`).
+    pub(crate) fn stored_box_aspect(&self) -> Vec3 {
+        self.box_aspect
+    }
+
+    /// The focal length; infinite for an orthographic projection.
+    pub(crate) fn focal_length(&self) -> f64 {
+        self.focal_length
     }
 
     /// The view axes for an eye at `eye` (matplotlib's `_calc_view_axes`).

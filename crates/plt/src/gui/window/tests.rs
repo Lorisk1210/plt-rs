@@ -109,6 +109,27 @@ fn shows_the_figure_and_pans_it() {
 }
 
 #[test]
+fn dragging_rotates_3d_axes() {
+    let figure = Figure::with_size(4.0, 3.0, 100.0);
+    let ax = figure.subplot_3d();
+    let (mut event_loop, handle) = EventLoop::headless();
+    let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+        .expect("the window opens");
+    assert!(pump(&mut event_loop, &mut window));
+    let id = window.id();
+    mouse(&handle, id, ButtonState::Pressed, (200.0, 150.0));
+    mouse(&handle, id, ButtonState::Released, (240.0, 140.0));
+    pump(&mut event_loop, &mut window);
+    let turned = ax.view();
+    assert_ne!(turned.azim, -60.0, "the drag turned the view");
+    key(&handle, id, 'h');
+    pump(&mut event_loop, &mut window);
+    assert_eq!(ax.view().azim, -60.0, "home restores the view");
+    key(&handle, id, 'q');
+    assert!(!pump(&mut event_loop, &mut window));
+}
+
+#[test]
 fn the_subplot_tool_adjusts_the_figure() {
     let figure = Figure::with_size(4.0, 3.0, 100.0);
     figure.subplots(2, 2).expect("a 2×2 grid has cells");

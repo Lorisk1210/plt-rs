@@ -109,6 +109,14 @@ fn changes(figure: &Figure, axes: &[Axes], key: DragKey) -> Vec<Changes> {
         .collect()
 }
 
+/// Whether a zoom box dragged from `start` to `at` is too small to count:
+/// under 5 pixels across a side that `key` does not fix (matplotlib's
+/// cancelled `release_zoom`).
+pub(super) fn is_click(start: Point, at: Point, key: DragKey) -> bool {
+    ((at.x - start.x).abs() < MIN_DRAG && key != DragKey::Y)
+        || ((at.y - start.y).abs() < MIN_DRAG && key != DragKey::X)
+}
+
 /// Zooms `axes` to the box dragged from `start` to `at` with `button`;
 /// returns whether the view changed (matplotlib's `release_zoom`).
 pub(super) fn zoom_to_rect(
@@ -119,9 +127,7 @@ pub(super) fn zoom_to_rect(
     button: PointerButton,
     key: DragKey,
 ) -> bool {
-    if ((at.x - start.x).abs() < MIN_DRAG && key != DragKey::Y)
-        || ((at.y - start.y).abs() < MIN_DRAG && key != DragKey::X)
-    {
+    if is_click(start, at, key) {
         return false;
     }
     let direction = if button == PointerButton::Left {

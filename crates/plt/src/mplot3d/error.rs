@@ -47,6 +47,9 @@ pub enum Axes3DError {
     Tri(TriError),
     /// An invalid subplot grid or cell.
     Grid(GridSpecError),
+    /// A mouse rotation style other than `azel`, `trackball`, `sphere` and
+    /// `arcball`.
+    UnknownRotationStyle(String),
 }
 
 impl fmt::Display for Axes3DError {
@@ -72,6 +75,10 @@ impl fmt::Display for Axes3DError {
                 "{argument} has {actual} elements where {expected} were expected"
             ),
             Self::NoStride => f.write_str("either rstride or cstride must be non zero"),
+            Self::UnknownRotationStyle(name) => write!(
+                f,
+                "{name:?} is not a mouse rotation style (azel, trackball, sphere or arcball)"
+            ),
             Self::Ticker(message) => write!(f, "cannot autoscale: {message}"),
             Self::Color(err) => err.fmt(f),
             Self::Style(message) => f.write_str(message),

@@ -347,6 +347,12 @@ impl Axes3D {
         self.with(|axes| axes.limits.inverted(axis))
     }
 
+    /// Whether one axis follows the data (matplotlib's
+    /// `get_autoscalex_on`).
+    pub fn autoscale(&self, axis: Axis3) -> bool {
+        self.with(|axes| axes.limits.autoscale[axis.index()])
+    }
+
     /// Turns autoscaling of one axis on or off.
     pub fn set_autoscale(&self, axis: Axis3, on: bool) -> &Self {
         self.with_mut(|axes| axes.limits.autoscale[axis.index()] = on);

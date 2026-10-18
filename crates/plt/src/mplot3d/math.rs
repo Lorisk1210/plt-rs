@@ -88,6 +88,34 @@ impl Matrix4 {
             .map(|row| row[0] * v[0] + row[1] * v[1] + row[2] * v[2] + row[3] * v[3])
     }
 
+    /// The inverse matrix, by Gauss-Jordan elimination with partial
+    /// pivoting, or `None` when the matrix is singular.
+    pub fn inverse(&self) -> Option<Self> {
+        let mut a = self.0;
+        let mut inv = Self::IDENTITY.0;
+        for col in 0..4 {
+            let pivot = (col..4).max_by(|&i, &j| a[i][col].abs().total_cmp(&a[j][col].abs()))?;
+            if a[pivot][col] == 0.0 || !a[pivot][col].is_finite() {
+                return None;
+            }
+            a.swap(col, pivot);
+            inv.swap(col, pivot);
+            let p = a[col][col];
+            for k in 0..4 {
+                a[col][k] /= p;
+                inv[col][k] /= p;
+            }
+            for row in (0..4).filter(|&row| row != col) {
+                let factor = a[row][col];
+                for k in 0..4 {
+                    a[row][k] -= factor * a[col][k];
+                    inv[row][k] -= factor * inv[col][k];
+                }
+            }
+        }
+        Some(Self(inv))
+    }
+
     /// Projects a point: `self · [x, y, z, 1]` divided by its last
     /// component (matplotlib's `proj_transform`).
     pub fn project(&self, p: Vec3) -> Vec3 {
@@ -186,6 +214,24 @@ pub fn ortho_transformation(zfront: f64, zback: f64) -> Matrix4 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inverses_undo_the_matrix() {
+        let m = Matrix4::from_rows([
+            [2.0, 0.0, 1.0, 3.0],
+            [0.0, 1.0, 0.0, -1.0],
+            [1.0, 4.0, 0.0, 0.0],
+            [0.0, 0.0, 0.5, 1.0],
+        ]);
+        let product = m.dot(&m.inverse().unwrap());
+        for (i, row) in product.rows().iter().enumerate() {
+            for (j, &cell) in row.iter().enumerate() {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert!((cell - expected).abs() < 1e-12, "({i}, {j}): {cell}");
+            }
+        }
+        assert_eq!(Matrix4::from_rows([[0.0; 4]; 4]).inverse(), None);
+    }
 
     fn close(a: f64, b: f64) -> bool {
         (a - b).abs() < 1e-12

@@ -47,10 +47,12 @@ plt::show()?;
   aligned labels, insets, `axes_grid1` and `axisartist`.
 * **Interactive**: figure windows with a toolbar (home/back/forward,
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
-  options, save), a save dialog (PNG, JPEG, TIFF, GIF, SVG, PDF, PS, EPS), matplotlib's
-  keyboard shortcuts, a live coordinate readout, figure events
-  (`connect`), timers and `FuncAnimation` (saved as animated PNG or GIF, or as an
-  HTML page with matplotlib's JavaScript player, `to_jshtml`);
+  options, save), a save dialog (PNG, JPEG, TIFF, GIF, SVG, PDF, PS,
+  EPS), matplotlib's keyboard shortcuts, a live coordinate readout, 3-D
+  axes that rotate (arcball, trackball, sphere or azimuth/elevation), pan
+  and zoom with the mouse, figure events (`connect`), timers and
+  `FuncAnimation`/`ArtistAnimation` (saved as animated PNG or GIF, or as
+  an HTML page with matplotlib's JavaScript player, `to_jshtml`);
   pyplot's interactive mode with `pause`, `ginput` and
   `waitforbuttonpress`.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF

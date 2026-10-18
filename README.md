@@ -139,3 +139,7 @@ cargo xtask render polar/rose --vectors         # ... with the case's SVG, PDF a
 ```
 
 See `CLAUDE.md` for the coding conventions.
+
+plt-rs ports code from matplotlib, Anti-Grain Geometry, FreeType,
+HarfBuzz, Qhull, Pillow and libjpeg-turbo, and bundles fonts and colour
+data; see `THIRD_PARTY.md` for their licences.

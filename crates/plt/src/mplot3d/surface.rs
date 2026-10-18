@@ -80,6 +80,9 @@ pub struct SurfaceOptions {
     pub lightsource: Option<LightSource>,
     /// Further collection properties (alpha, edge colour, width, ...).
     pub props: CollectionProps,
+    /// Whether the points outside the view limits are hidden, breaking the
+    /// faces reaching them (matplotlib's `axlim_clip`).
+    pub axlim_clip: bool,
 }
 
 /// Options of [`Axes3D::plot_wireframe`].
@@ -90,6 +93,9 @@ pub struct WireframeOptions {
     pub sampling: Sampling,
     /// Line properties.
     pub props: CollectionProps,
+    /// Whether the points outside the view limits are hidden, breaking the
+    /// lines there (matplotlib's `axlim_clip`).
+    pub axlim_clip: bool,
 }
 
 /// The x, y and z grids of a surface, checked to share one shape.
@@ -244,6 +250,7 @@ impl Axes3D {
             light,
             zsort: ZSort::Average,
             props: options.props,
+            axlim_clip: options.axlim_clip,
         })?;
         self.auto_scale_xyz(x.as_slice(), y.as_slice(), Some(z.as_slice()), had_data)?;
         Ok(collection)
@@ -290,7 +297,7 @@ impl Axes3D {
             self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)?;
         }
         let lines = row_lines.into_iter().chain(col_lines).collect();
-        Ok(self.add_segments(lines, options.props))
+        Ok(self.add_segments(lines, options.props, options.axlim_clip))
     }
 }
 

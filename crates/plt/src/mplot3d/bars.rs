@@ -76,6 +76,9 @@ pub struct Bar3DOptions {
     pub lightsource: Option<LightSource>,
     /// Further collection properties (alpha, edge colour, width, ...).
     pub props: CollectionProps,
+    /// Whether the points outside the view limits are hidden, breaking the
+    /// faces reaching them (matplotlib's `axlim_clip`).
+    pub axlim_clip: bool,
 }
 
 impl Default for Bar3DOptions {
@@ -86,6 +89,7 @@ impl Default for Bar3DOptions {
             shade: true,
             lightsource: None,
             props: CollectionProps::default(),
+            axlim_clip: false,
         }
     }
 }
@@ -180,6 +184,7 @@ impl Axes3D {
                 .then(|| options.lightsource.unwrap_or_else(LightSource::mplot3d)),
             zsort: options.zsort,
             props: options.props,
+            axlim_clip: options.axlim_clip,
         })?;
         let [xs, ys, zs] = limits;
         self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)?;
@@ -189,6 +194,9 @@ impl Axes3D {
     /// Flat vertical bars at `left` with heights `height`, placed in the
     /// plane normal to `zdir` at `zs` (one per bar or one for all;
     /// matplotlib's `ax.bar(left, height, zs=..., zdir=...)`).
+    /// [`Axes3D::set_axlim_clip`] on a bar hides it where it reaches
+    /// beyond the view limits (matplotlib's `axlim_clip`, which matplotlib
+    /// 3.11 fails to draw once a corner is hidden).
     ///
     /// # Errors
     ///
@@ -234,7 +242,7 @@ impl Axes3D {
         let mut patch = PatchArtist::new(ProjectedOutline(Path::default()), crate::rc::params());
         patch.style = style;
         *patch.base_mut() = base;
-        Patch::from_raw(self.add_artist(patch, Art3D::Patch(outline)))
+        Patch::from_raw(self.add_artist(patch, Art3D::Patch(outline), false))
     }
 }
 

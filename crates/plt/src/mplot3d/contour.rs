@@ -40,8 +40,33 @@ pub struct Contour3DOptions {
     /// `stride`, by default 5). The ribbons stand along z whatever
     /// `zdir`, as in matplotlib; filled contours have no such option.
     pub extend3d: Option<NonZeroUsize>,
+    /// Whether the contour points outside the view limits are hidden,
+    /// breaking the lines and fills there (matplotlib's `axlim_clip`,
+    /// which matplotlib 3.11 fails to draw once a point is hidden); the
+    /// ribbons of `extend3d` are never hidden, as in matplotlib.
+    pub axlim_clip: bool,
     /// The 2-D contour options: levels, colours, widths, ...
     pub contour: ContourOptions,
+}
+
+/// Where the contour paths of a set go in 3-D, and whether they are
+/// clipped to the view limits.
+#[derive(Clone, Copy, Debug)]
+struct Placement {
+    zdir: Axis3,
+    offset: Option<f64>,
+    axlim_clip: bool,
+}
+
+impl Contour3DOptions {
+    /// The placement these options ask for.
+    fn placement(&self) -> Placement {
+        Placement {
+            zdir: self.zdir,
+            offset: self.offset,
+            axlim_clip: self.axlim_clip,
+        }
+    }
 }
 
 impl Axes3D {
@@ -61,9 +86,10 @@ impl Axes3D {
     ) -> Result<ContourSet, Axes3DError> {
         let grid = SurfaceGrid::new(x, y, z)?;
         let had_data = self.has_data();
+        let placement = options.placement();
         let field = rotated_field(&grid, options.zdir);
         let set = self.plane().contour(&field, options.contour)?;
-        self.add_contour_set(&set, options.zdir, options.offset, options.extend3d)?;
+        self.add_contour_set(&set, placement, options.extend3d)?;
         self.auto_scale_xyz(x.as_slice(), y.as_slice(), Some(z.as_slice()), had_data)?;
         Ok(set)
     }
@@ -85,9 +111,10 @@ impl Axes3D {
         let grid = SurfaceGrid::new(x, y, z)?;
         let had_data = self.has_data();
         let extend = options.contour.extend;
+        let placement = options.placement();
         let field = rotated_field(&grid, options.zdir);
         let set = self.plane().contourf(&field, options.contour)?;
-        let middles = self.add_contourf_set(&set, extend, options.zdir, options.offset);
+        let middles = self.add_contourf_set(&set, extend, placement);
         let data = [x.as_slice(), y.as_slice(), z.as_slice()];
         self.auto_scale_contourf(data, options.zdir, &middles, had_data)?;
         Ok(set)
@@ -121,9 +148,10 @@ impl Axes3D {
     ) -> Result<ContourSet, Axes3DError> {
         check_len("z", tri.npoints(), z.len())?;
         let had_data = self.has_data();
+        let placement = options.placement();
         let (rotated, jz) = rotated_triangulation(tri, z, options.zdir)?;
         let set = self.plane().tricontour(&rotated, &jz, options.contour)?;
-        self.add_contour_set(&set, options.zdir, options.offset, options.extend3d)?;
+        self.add_contour_set(&set, placement, options.extend3d)?;
         self.auto_scale_xyz(tri.x(), tri.y(), Some(z), had_data)?;
         Ok(set)
     }
@@ -144,9 +172,10 @@ impl Axes3D {
         check_len("z", tri.npoints(), z.len())?;
         let had_data = self.has_data();
         let extend = options.contour.extend;
+        let placement = options.placement();
         let (rotated, jz) = rotated_triangulation(tri, z, options.zdir)?;
         let set = self.plane().tricontourf(&rotated, &jz, options.contour)?;
-        let middles = self.add_contourf_set(&set, extend, options.zdir, options.offset);
+        let middles = self.add_contourf_set(&set, extend, placement);
         self.auto_scale_contourf([tri.x(), tri.y(), z], options.zdir, &middles, had_data)?;
         Ok(set)
     }
@@ -156,27 +185,20 @@ impl Axes3D {
     fn add_contour_set(
         &self,
         set: &ContourSet,
-        zdir: Axis3,
-        offset: Option<f64>,
+        placement: Placement,
         extend3d: Option<NonZeroUsize>,
     ) -> Result<(), Axes3DError> {
         if let Some(stride) = extend3d {
             return self.extend_contour(set, stride);
         }
-        self.lift(set, zdir, offset, &set.levels());
+        self.lift(set, placement, &set.levels());
         Ok(())
     }
 
     /// Places filled contours in 3-D at the middles of their bands, the
     /// extended ends half a band beyond the outer levels, and returns
     /// those positions (matplotlib's `_add_contourf_set`).
-    fn add_contourf_set(
-        &self,
-        set: &ContourSet,
-        extend: Extend,
-        zdir: Axis3,
-        offset: Option<f64>,
-    ) -> Vec<f64> {
+    fn add_contourf_set(&self, set: &ContourSet, extend: Extend, placement: Placement) -> Vec<f64> {
         let levels = set.levels();
         let mut middles: Vec<f64> = levels
             .windows(2)
@@ -188,7 +210,7 @@ impl Axes3D {
         if let ([.., before, last], true) = (levels.as_slice(), extend.extends_max()) {
             middles.push(last + (last - before) / 2.0);
         }
-        self.lift(set, zdir, offset, &middles);
+        self.lift(set, placement, &middles);
         middles
     }
 
@@ -217,28 +239,29 @@ impl Axes3D {
     }
 
     /// Places the contour paths of `set` in 3-D: path `i` in the plane at
-    /// `offset`, or at `positions[i]`, along `zdir` (matplotlib's
-    /// `collection_2d_to_3d`).
-    fn lift(&self, set: &ContourSet, zdir: Axis3, offset: Option<f64>, positions: &[f64]) {
+    /// the placement's offset, or at `positions[i]`, along its `zdir`
+    /// (matplotlib's `collection_2d_to_3d`).
+    fn lift(&self, set: &ContourSet, placement: Placement, positions: &[f64]) {
         let mut index = 0;
         for collection in set.collections() {
             let paths = collection
                 .paths()
                 .into_iter()
                 .map(|path| {
-                    let along = offset
+                    let along = placement
+                        .offset
                         .or_else(|| positions.get(index).copied())
                         .unwrap_or(f64::NAN);
                     index += 1;
                     let vertices = path
                         .vertices()
                         .iter()
-                        .map(|v| zdir.unrotate([v.x, v.y, along]))
+                        .map(|v| placement.zdir.unrotate([v.x, v.y, along]))
                         .collect();
                     Path3D::new(path, vertices)
                 })
                 .collect();
-            self.register(collection.id(), Art3D::Paths(paths));
+            self.register(collection.id(), Art3D::Paths(paths), placement.axlim_clip);
         }
     }
 
@@ -273,6 +296,7 @@ impl Axes3D {
             light: Some(LightSource::mplot3d()),
             zsort: ZSort::Average,
             props: CollectionProps::default(),
+            axlim_clip: false,
         })?;
         if !points.is_empty() {
             let [xs, ys, zs] = columns(&points);

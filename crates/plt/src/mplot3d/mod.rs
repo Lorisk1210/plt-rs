@@ -17,6 +17,11 @@
 //! panning, zooming and the status-bar readout work in the transformed
 //! coordinates, as in matplotlib 3.11.
 //!
+//! Artists draw beyond the panes when the data exceed the view limits,
+//! unless clipped to them (matplotlib 3.10's `axlim_clip`: an option field
+//! of the plotting methods, or [`Axes3D::set_axlim_clip`]): their points
+//! outside the limits are then hidden.
+//!
 //! * [`math`] — homogeneous projection matrices (matplotlib's `proj3d`).
 //! * [`Axes3D`] — limits, bounds, margins, scales, equal aspects
 //!   ([`Aspect3D`]), labels, view and decoration settings, sharing of axes
@@ -49,6 +54,7 @@ mod aspect;
 mod axis3d;
 mod axis_draw;
 mod axis_handle;
+mod axlim;
 mod bars;
 mod bounds;
 mod camera;

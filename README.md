@@ -45,10 +45,11 @@ does it without pyplot.
   spectral plots, images (`imshow`, `pcolormesh`, `hexbin`, ...), contours
   and triangulations, quiver/barbs/streamplot, Sankey diagrams, polar and
   geographic axes (Aitoff, Hammer, Lambert, Mollweide), 3-D axes (surfaces,
-  wireframes, 3-D scatter and bars, voxels), annotations, fancy boxes and
-  arrows, path effects, image filters on artists (`set_agg_filter`),
-  tables, legends, colorbars; matplotlib's colormaps, norms and colour
-  sequences, including the multivariate and bivariate colormaps.
+  wireframes, 3-D scatter and bars, voxels, data clipped to the view limits
+  with `axlim_clip`), annotations, fancy boxes and arrows, path effects,
+  image filters on artists (`set_agg_filter`), tables, legends,
+  colorbars; matplotlib's colormaps, norms and colour sequences,
+  including the multivariate and bivariate colormaps.
 * **Text**: TrueType fonts with OpenType shaping, right-to-left and
   Arabic text, and mathtext in every matplotlib fontset (DejaVu Sans and
   Serif, Computer Modern, STIX, STIX sans, custom), placing every glyph

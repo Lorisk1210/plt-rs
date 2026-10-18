@@ -41,6 +41,8 @@ impl Axes3D {
     /// Plots a line with explicit properties; the 2-D points `(x, y)` lie
     /// in the plane normal to `zdir`, at `z` along it (matplotlib's
     /// `ax.plot(xs, ys, zs, zdir=..., **kwargs)`).
+    /// [`Axes3D::set_axlim_clip`] on the line hides its points outside the
+    /// view limits (matplotlib's `axlim_clip`).
     ///
     /// # Errors
     ///
@@ -58,7 +60,7 @@ impl Axes3D {
         let had_data = self.has_data();
         let line = self.plane().cycled_line(x.to_vec(), y.to_vec(), props);
         let points = juggled(x, y, &z, zdir);
-        let raw = self.add_artist(line, Art3D::Line(points.clone()));
+        let raw = self.add_artist(line, Art3D::Line(points.clone()), false);
         let [xs, ys, zs] = columns(&points);
         self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)?;
         Ok(Line2D::from_raw(raw))
@@ -84,7 +86,9 @@ impl Axes3D {
 
     /// Adds text at `(x, y, z)` in data coordinates; with a `zdir` the
     /// baseline follows that axis as seen on screen (matplotlib's
-    /// `ax.text(x, y, z, s, zdir=...)`).
+    /// `ax.text(x, y, z, s, zdir=...)`). [`Axes3D::set_axlim_clip`] on
+    /// the text hides it while its anchor is outside the view limits
+    /// (matplotlib's `axlim_clip`).
     pub fn text(
         &self,
         x: f64,
@@ -100,6 +104,7 @@ impl Axes3D {
                 position: [x, y, z],
                 direction: zdir.map_or([0.0; 3], Axis3::unit),
             },
+            false,
         );
         handle
     }

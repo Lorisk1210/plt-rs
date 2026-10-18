@@ -63,6 +63,8 @@ pub enum Axes3DError {
     OtherFigure,
     /// Only polygon and line collections can be lifted to 3-D.
     UnsupportedCollection,
+    /// The artist is not a 3-D artist of the axes.
+    Not3DArtist,
 }
 
 impl fmt::Display for Axes3DError {
@@ -101,6 +103,7 @@ impl fmt::Display for Axes3DError {
             Self::UnsupportedCollection => {
                 f.write_str("only polygon and line collections can be added to 3-D axes")
             }
+            Self::Not3DArtist => f.write_str("the artist is not a 3-D artist of these axes"),
             Self::Scale(err) => err.fmt(f),
             Self::Ticker(message) => write!(f, "cannot autoscale: {message}"),
             Self::Color(err) => err.fmt(f),

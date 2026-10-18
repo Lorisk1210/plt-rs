@@ -17,6 +17,10 @@ impl Axes3D {
     /// `add_collection3d`). Lifted polygons keep their path codes and are
     /// ordered among the other collections by the depth of the lowest
     /// position; lines lose their non-finite points.
+    /// [`Axes3D::set_axlim_clip`] on the result hides the points outside
+    /// the view limits (matplotlib's `axlim_clip`; where a lifted polygon
+    /// keeps only some of its vertices, matplotlib 3.11 fails to draw, here
+    /// the hidden vertices leave gaps).
     ///
     /// ```
     /// use plt::collections::CollectionSpec;
@@ -68,9 +72,15 @@ impl Axes3D {
         let raw = self.adopt_projected(artist);
         if kind == CollectionKind::Poly {
             let sort_zpos = zs.iter().copied().reduce(f64::min).unwrap_or(0.0);
-            self.register_polys(&raw, lifted, ZSort::Average, Some((paths, sort_zpos)))?;
+            self.register_polys(
+                &raw,
+                lifted,
+                ZSort::Average,
+                Some((paths, sort_zpos)),
+                false,
+            )?;
         } else {
-            self.register(raw.id(), Art3D::Segments(lifted));
+            self.register(raw.id(), Art3D::Segments(lifted), false);
         }
         if autolim && !points.is_empty() {
             let [xs, ys, zs] = columns(&points);
@@ -106,7 +116,7 @@ mod tests {
         .unwrap();
         let (low, high) = ax.zlim();
         assert!(low < -5.0 && high > 5.0);
-        let art = ax.with(|axes| axes.artists[0].1.clone());
+        let art = ax.with(|axes| axes.artists[0].art.clone());
         let Art3D::Segments(lines) = art else {
             panic!("a line collection");
         };

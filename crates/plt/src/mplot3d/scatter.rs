@@ -23,6 +23,10 @@ pub struct Scatter3DOptions {
     /// The alpha factor of the deepest markers; default
     /// `axes3d.depthshade_minalpha`.
     pub depthshade_minalpha: Option<f64>,
+    /// Whether the markers outside the view limits are hidden; the depth
+    /// shading then spans the visible markers only (matplotlib's
+    /// `axlim_clip`).
+    pub axlim_clip: bool,
     /// The 2-D scatter options: sizes, colours, marker, edges, alpha.
     pub scatter: ScatterOptions,
 }
@@ -86,7 +90,7 @@ impl Axes3D {
                 })
             },
         )?;
-        self.register(collection.id(), Art3D::Points(points));
+        self.register(collection.id(), Art3D::Points(points), options.axlim_clip);
         self.with_mut(|axes| {
             let zmargin = &mut axes.limits.margins[Axis3::Z.index()];
             if *zmargin < SCATTER_ZMARGIN && !x.is_empty() {

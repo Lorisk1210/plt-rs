@@ -19,7 +19,7 @@ use crate::figures::FigureCase;
 
 /// `_polar_points()`: five rings of twelve points, each ring turned by
 /// its radius, with `z = cos(3x) sin(2y) + x`.
-fn polar_points() -> [Vec<f64>; 3] {
+pub(super) fn polar_points() -> [Vec<f64>; 3] {
     let step = 2.0 * PI / 12.0;
     let points: Vec<(f64, f64)> = linspace(0.25, 1.0, 5)
         .into_iter()

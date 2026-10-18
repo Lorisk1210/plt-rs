@@ -7,6 +7,11 @@
 //! here a 2-D artist stays what it is and its 3-D geometry is kept next to
 //! it. Projecting writes the projected geometry (and, for depth-sorted
 //! collections, the reordered colours and sizes) into the 2-D artist.
+//!
+//! An artist clipped to the view limits (matplotlib 3.10's `axlim_clip`)
+//! is projected by a projection hiding the points outside them: they
+//! become NaN, which breaks lines, drops markers and texts, and leaves
+//! polygons with gaps, the way matplotlib's masked points do.
 
 mod points;
 mod polys;
@@ -63,6 +68,18 @@ impl Path3D {
         debug_assert_eq!(template.len(), vertices.len());
         Self { template, vertices }
     }
+}
+
+/// A 2-D artist of the projection plane with its 3-D geometry.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Artist3D {
+    /// The 2-D artist the geometry is projected onto.
+    pub(crate) id: ArtistId,
+    /// The geometry.
+    pub(crate) art: Art3D,
+    /// Whether the points outside the view limits are hidden
+    /// (matplotlib's `axlim_clip`).
+    pub(crate) axlim_clip: bool,
 }
 
 /// The 3-D geometry of one artist of the projection plane.
@@ -153,7 +170,15 @@ impl Art3D {
                         let mut projected = path.template.clone();
                         for (vertex, &p) in projected.vertices_mut().iter_mut().zip(&path.vertices)
                         {
-                            *vertex = depth.project(projection, p);
+                            // matplotlib gathers the depths with
+                            // `np.concatenate`, which drops the mask:
+                            // hidden vertices still count.
+                            let q = depth.include(projection.project_hidden_too(p));
+                            *vertex = if projection.hides(p) {
+                                Point::new(f64::NAN, f64::NAN)
+                            } else {
+                                q
+                            };
                         }
                         projected
                     })
@@ -233,5 +258,61 @@ impl Depth {
     /// The smallest depth, or `empty` when nothing was projected.
     fn min_or(self, empty: f64) -> f64 {
         if self.any { self.min } else { empty }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::collections::CollectionKind;
+    use crate::mplot3d::camera::{Camera, ProjType};
+
+    /// An orthographic projection of the unit cube.
+    fn unit_projection() -> Projection {
+        Camera::new(ProjType::Ortho)
+            .expect("valid camera")
+            .projection([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+    }
+
+    /// The paths `art` projects into a collection when the points outside
+    /// the unit cube are hidden, and the depth it reports.
+    fn project_hidden(art: &Art3D) -> (Vec<Path>, f64) {
+        let projection = unit_projection().hiding_outside([(0.0, 1.0); 3]);
+        let mut store = ArtistStore::default();
+        let collection =
+            CollectionArtist::new(CollectionKind::Line, Vec::new(), crate::rc::params());
+        let id = store.insert(Box::new(collection));
+        let depth = art
+            .project(id, &mut store, &projection)
+            .expect("a collection");
+        let paths = store
+            .get_as::<CollectionArtist>(id)
+            .expect("a collection")
+            .paths
+            .clone();
+        (paths, depth)
+    }
+
+    #[test]
+    fn hidden_vertices_leave_gaps_but_still_deepen_contours() {
+        let depth_of = |p: Vec3| unit_projection().project(p)[2];
+        let inside = [0.5, 0.5, 0.5];
+        // The hidden vertex is the one in front, so that it sets the depth.
+        let outside = [[0.5, 0.5, 9.0], [0.5, 0.5, -8.0]]
+            .into_iter()
+            .min_by(|a, b| depth_of(*a).total_cmp(&depth_of(*b)))
+            .expect("two candidates");
+        let (near, far) = (depth_of(inside), depth_of(outside));
+        assert!(far < near);
+        let template = Path::polyline(vec![Point::ORIGIN; 2]);
+        let contour = Art3D::Paths(vec![Path3D::new(template, vec![inside, outside])]);
+        let (paths, depth) = project_hidden(&contour);
+        assert!(paths[0].vertices()[0].is_finite());
+        assert!(!paths[0].vertices()[1].is_finite());
+        assert_eq!(depth, far, "matplotlib drops the mask of contours");
+        let lines = Art3D::Segments(vec![vec![inside, outside]]);
+        let (paths, depth) = project_hidden(&lines);
+        assert!(!paths[0].vertices()[1].is_finite());
+        assert_eq!(depth, near, "line collections keep it");
     }
 }

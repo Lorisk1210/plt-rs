@@ -21,6 +21,7 @@ pub(crate) mod lightsource;
 pub(crate) mod markers;
 pub(crate) mod mathtext;
 pub(crate) mod multivar;
+pub(crate) mod navigation;
 pub(crate) mod norms;
 pub(crate) mod path;
 pub(crate) mod pick;

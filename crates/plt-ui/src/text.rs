@@ -9,6 +9,26 @@ use crate::geometry::Size;
 /// the desktop convention.
 const UI_DPI: f64 = 96.0;
 
+/// A family of the bundled fonts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FontFamily {
+    /// Proportional text (`DejaVu Sans`).
+    #[default]
+    SansSerif,
+    /// Fixed-width text (`DejaVu Sans Mono`), e.g. for key names.
+    Monospace,
+}
+
+impl FontFamily {
+    /// The generic family name the font manager resolves.
+    fn generic_name(self) -> &'static str {
+        match self {
+            Self::SansSerif => "sans-serif",
+            Self::Monospace => "monospace",
+        }
+    }
+}
+
 /// How text is set.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStyle {
@@ -16,15 +36,32 @@ pub struct TextStyle {
     pub size: f64,
     /// Font weight.
     pub weight: Weight,
+    /// Font family.
+    pub family: FontFamily,
 }
 
 impl TextStyle {
-    /// Normal-weight text of `size` points.
+    /// Normal-weight sans-serif text of `size` points.
     pub fn new(size: f64) -> Self {
         Self {
             size,
             weight: Weight::NORMAL,
+            family: FontFamily::SansSerif,
         }
+    }
+
+    /// The style in bold.
+    #[must_use]
+    pub fn bold(mut self) -> Self {
+        self.weight = Weight::BOLD;
+        self
+    }
+
+    /// The style in the fixed-width family.
+    #[must_use]
+    pub fn monospace(mut self) -> Self {
+        self.family = FontFamily::Monospace;
+        self
     }
 }
 
@@ -47,6 +84,7 @@ impl TextLayout {
     /// does not depend on the host.
     pub fn new(text: &str, style: &TextStyle, scale_factor: f64) -> Result<Self, UiError> {
         let query = FontQuery {
+            families: vec![style.family.generic_name().to_owned()],
             size: style.size,
             weight: style.weight,
             ..FontQuery::default()
@@ -102,6 +140,17 @@ mod tests {
         let tall = TextLayout::new("Ågy", &style, 1.0).unwrap();
         assert_eq!(flat.size().height, tall.size().height);
         assert_eq!(flat.baseline(), tall.baseline());
+    }
+
+    #[test]
+    fn monospace_text_has_even_advances() {
+        let style = TextStyle::new(10.0).monospace();
+        let narrow = TextLayout::new("iiii", &style, 1.0).unwrap();
+        let wide = TextLayout::new("MMMM", &style, 1.0).unwrap();
+        assert!((narrow.size().width - wide.size().width).abs() < 1e-9);
+        let bold = TextLayout::new("Home", &TextStyle::new(10.0).bold(), 1.0).unwrap();
+        let normal = TextLayout::new("Home", &TextStyle::new(10.0), 1.0).unwrap();
+        assert!(bold.size().width > normal.size().width);
     }
 
     #[test]

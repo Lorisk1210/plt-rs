@@ -8,18 +8,18 @@ mod toolbar;
 
 use plt_core::Point;
 use plt_platform::{
-    Context, CursorIcon, LogicalSize, PhysicalSize, TimerId, WindowEvent, WindowId, WindowOptions,
+    Context, CursorIcon, LogicalSize, PhysicalSize, TimerId, WindowEvent, WindowId,
 };
 use plt_ui::{Flex, Surface, SurfaceEvent, UiWindow, WidgetId};
 
 use super::help_dialog::HelpDialog;
 use super::options::{self, OptionsDialog};
 use super::save_dialog::{Outcome, SaveDialog};
-use super::{GuiError, icons};
+use super::subplot_dialog::SubplotDialog;
+use super::{GuiError, dialog};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
 use crate::figure::{Figure, SaveError};
 use crate::navigation::{NavMode, Navigation};
-use crate::widgets::SubplotTool;
 use toolbar::{Tool, Toolbar};
 
 /// What the widgets of a figure window report.
@@ -33,22 +33,13 @@ pub(super) enum Message {
     Canvas(SurfaceEvent),
 }
 
-/// The subplot configuration tool of a figure window, in its own window.
-#[derive(Debug)]
-struct SubplotToolWindow {
-    window: Box<FigureWindow>,
-    /// Keeps the sliders connected while the window is open.
-    _tool: SubplotTool,
-}
-
 /// A window showing one figure, with pan/zoom navigation.
 #[derive(Debug)]
 pub struct FigureWindow {
     figure: Figure,
     window: UiWindow<Message>,
     canvas: WidgetId,
-    /// The toolbar; tool windows have none.
-    toolbar: Option<Toolbar>,
+    toolbar: Toolbar,
     navigation: Navigation,
     /// Turns canvas input into figure events for connected callbacks.
     events: EventSource,
@@ -67,7 +58,7 @@ pub struct FigureWindow {
     fullscreen: bool,
     title: String,
     /// The subplot tool opened from the toolbar, while it is open.
-    subplot_tool: Option<SubplotToolWindow>,
+    subplot_tool: Option<SubplotDialog>,
     /// The save dialog opened from the toolbar, while it is open.
     save_dialog: Option<SaveDialog>,
     /// The figure options dialog opened from the toolbar, while it is open.
@@ -87,26 +78,16 @@ impl FigureWindow {
     ///
     /// When the window cannot be created.
     pub fn open(cx: &mut Context<'_>, figure: &Figure, title: &str) -> Result<Self, GuiError> {
-        Self::build(cx, figure, title, true)
-    }
-
-    /// Opens a window showing `figure`, with or without the toolbar.
-    fn build(
-        cx: &mut Context<'_>,
-        figure: &Figure,
-        title: &str,
-        with_toolbar: bool,
-    ) -> Result<Self, GuiError> {
         let mut root = Flex::column();
         let canvas = root.push(Surface::new(|event| Some(Message::Canvas(event))), 1.0);
-        let toolbar = with_toolbar.then(|| Toolbar::build(&mut root, figure.tool_specs()));
+        let toolbar = Toolbar::build(&mut root, figure.tool_specs());
         let (width, height) = figure.size_inches();
         let dpi = figure.dpi();
-        let toolbar_height = if with_toolbar { toolbar::HEIGHT } else { 0.0 };
-        let options = WindowOptions::new(title)
-            .with_app_id("plt-rs")
-            .with_icon(icons::window_icon()?)
-            .with_inner_size(LogicalSize::new(width * dpi, height * dpi + toolbar_height))
+        let options = dialog::window_options(title)?
+            .with_inner_size(LogicalSize::new(
+                width * dpi,
+                height * dpi + toolbar::height(),
+            ))
             .with_min_inner_size(LogicalSize::new(240.0, 160.0));
         let mut window = UiWindow::open(cx, &options, root)?;
         // Keys reach the figure from the start, as in matplotlib's windows.
@@ -176,7 +157,7 @@ impl FigureWindow {
             || self
                 .subplot_tool
                 .as_ref()
-                .is_some_and(|tool| tool.window.owns_window(window))
+                .is_some_and(|tool| tool.id() == window)
     }
 
     /// Handles an event of this window or of a tool window it opened (see
@@ -232,15 +213,15 @@ impl FigureWindow {
             }
             return Ok(true);
         }
-        if window != self.id() {
-            if let Some(tool) = &mut self.subplot_tool
-                && tool.window.owns_window(window)
-                && !tool.window.handle(cx, window, event)?
-            {
+        if let Some(tool) = self.subplot_tool.as_mut().filter(|t| t.id() == window) {
+            if !tool.handle(cx, event)? {
                 self.close_subplot_tool(cx)?;
             }
             // The tool adjusts this window's figure.
             self.refresh(cx)?;
+            return Ok(true);
+        }
+        if window != self.id() {
             return Ok(true);
         }
         if *event == WindowEvent::CloseRequested {
@@ -281,9 +262,7 @@ impl FigureWindow {
                 true
             }
             Message::Hint(tool) => {
-                let hint = tool
-                    .zip(self.toolbar.as_ref())
-                    .map_or_else(String::new, |(tool, toolbar)| toolbar.hint(tool));
+                let hint = tool.map_or_else(String::new, |tool| self.toolbar.hint(tool));
                 self.set_status(cx, hint)?;
                 true
             }
@@ -306,9 +285,8 @@ impl FigureWindow {
     }
 
     /// Keeps platform timers running for the figure's timers and redraws
-    /// the figure if it changed, here and in the tool windows. Call it when
-    /// the figure may have been changed from elsewhere (another window's
-    /// callbacks, a timer).
+    /// the figure if it changed. Call it when the figure may have been
+    /// changed from elsewhere (another window's callbacks, a timer).
     ///
     /// # Errors
     ///
@@ -319,38 +297,27 @@ impl FigureWindow {
         if self.figure.is_stale() {
             self.render(cx)?;
         }
-        match &mut self.subplot_tool {
-            Some(tool) => tool.window.refresh(cx),
-            None => Ok(()),
-        }
+        Ok(())
     }
 
-    /// Whether platform timer `timer` belongs to this window or its tool
-    /// windows.
+    /// Whether platform timer `timer` belongs to this window: its
+    /// figure's timers and its tooltips.
     pub fn owns_timer(&self, timer: TimerId) -> bool {
-        self.timers.iter().any(|(id, _)| *id == timer)
-            || self
-                .subplot_tool
-                .as_ref()
-                .is_some_and(|tool| tool.window.owns_timer(timer))
+        self.timers.iter().any(|(id, _)| *id == timer) || self.window.owns_timer(timer)
     }
 
-    /// Runs the figure timer behind platform timer `timer` and redraws
-    /// what the tick changed.
+    /// Runs the figure timer behind platform timer `timer` (or shows the
+    /// tooltip it was waiting for) and redraws what the tick changed.
     ///
     /// # Errors
     ///
     /// When rendering a figure fails.
     pub fn tick(&mut self, cx: &mut Context<'_>, timer: TimerId) -> Result<(), GuiError> {
-        match self.timers.iter().find(|(id, _)| *id == timer) {
-            Some(&(_, key)) => {
-                self.figure.fire_timer(key);
-            }
-            None => {
-                if let Some(tool) = &mut self.subplot_tool {
-                    tool.window.tick(cx, timer)?;
-                }
-            }
+        if self.window.owns_timer(timer) {
+            return Ok(self.window.handle_timer(cx, timer)?);
+        }
+        if let Some(&(_, key)) = self.timers.iter().find(|(id, _)| *id == timer) {
+            self.figure.fire_timer(key);
         }
         self.refresh(cx)
     }
@@ -385,11 +352,7 @@ impl FigureWindow {
             Tool::Save => return self.save_figure(cx),
             Tool::Help => return self.show_help(cx),
             Tool::User(index) => {
-                let name = self
-                    .toolbar
-                    .as_ref()
-                    .and_then(|toolbar| toolbar.user_tool(index))
-                    .map(str::to_owned);
+                let name = self.toolbar.user_tool(index).map(str::to_owned);
                 if let Some(name) = name {
                     self.figure.trigger_tool(&name);
                 }
@@ -414,15 +377,14 @@ impl FigureWindow {
 
     /// Updates the toolbar buttons and the cursor.
     fn refresh_tools(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        if let Some(toolbar) = &self.toolbar {
-            let toggled: Vec<String> = self
-                .figure
-                .tool_names()
-                .into_iter()
-                .filter(|name| self.figure.tool_toggled(name) == Some(true))
-                .collect();
-            toolbar.refresh(&mut self.window, cx, &self.navigation, &toggled)?;
-        }
+        let toggled: Vec<String> = self
+            .figure
+            .tool_names()
+            .into_iter()
+            .filter(|name| self.figure.tool_toggled(name) == Some(true))
+            .collect();
+        self.toolbar
+            .refresh(&mut self.window, cx, &self.navigation, &toggled)?;
         self.sync_cursor(cx)
     }
 
@@ -441,12 +403,9 @@ impl FigureWindow {
         Ok(())
     }
 
-    /// Shows `text` in the status line, if there is a toolbar.
+    /// Shows `text` in the status line.
     fn set_status(&mut self, cx: &mut Context<'_>, text: String) -> Result<(), GuiError> {
-        match &self.toolbar {
-            Some(toolbar) => toolbar.set_status(&mut self.window, cx, text),
-            None => Ok(()),
-        }
+        self.toolbar.set_status(&mut self.window, cx, text)
     }
 
     /// Puts the figure, as the window shows it, on the clipboard as a PNG

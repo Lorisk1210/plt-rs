@@ -3,13 +3,15 @@
 use std::fmt;
 use std::rc::Rc;
 
-use plt_core::{Point, Rgba};
+use plt_core::Point;
 use plt_platform::{ButtonState, Key, KeyEvent, MouseButton};
 
+use super::frame::paint_frame;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::text::{TextLayout, TextStyle};
+use crate::theme::Spacing;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
 /// Makes the message sent with the field's text.
@@ -170,6 +172,9 @@ impl<M> TextInput<M> {
                     self.text.replace_range(start..self.caret, "");
                     self.caret = start;
                 }
+                // A click leaves an empty selection behind: drop it with
+                // the edit, or it would span the changed text.
+                self.anchor = None;
                 return KeyOutcome::Changed;
             }
             Key::Delete => {
@@ -177,6 +182,7 @@ impl<M> TextInput<M> {
                     let end = self.next(self.caret);
                     self.text.replace_range(self.caret..end, "");
                 }
+                self.anchor = None;
                 return KeyOutcome::Changed;
             }
             Key::Character('a' | 'A') if event.modifiers.control() => {
@@ -197,6 +203,7 @@ impl<M> TextInput<M> {
                 self.delete_selection();
                 self.text.insert_str(self.caret, text);
                 self.caret += text.len();
+                self.anchor = None;
                 return KeyOutcome::Changed;
             }
         }
@@ -262,31 +269,22 @@ impl<M: 'static> Widget<M> for TextInput<M> {
         cx: &mut LayoutCx<'_, M>,
         constraints: Constraints,
     ) -> Result<Size, UiError> {
-        let style = TextStyle::new(cx.theme().font_size);
+        let theme = cx.theme();
+        let style = TextStyle::new(theme.font_size);
         let scale = cx.scale_factor();
         let layout = TextLayout::new(&self.text, &style, scale)?;
-        let padding = cx.theme().padding * scale;
-        let height = layout.size().height + padding;
         self.layout = Some((layout, style, scale));
-        self.padding = padding;
-        // A field asks for room for about 24 characters and takes what it
-        // gets.
-        Ok(constraints.constrain(Size::new(24.0 * cx.theme().font_size * scale, height)))
+        self.padding = theme.space(Spacing::Sm) * scale;
+        // A field asks for the theme's field width and takes what it gets.
+        let natural = Size::new(theme.field_width * scale, theme.control_height * scale);
+        Ok(constraints.constrain(natural))
     }
 
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError> {
         let theme = cx.theme();
         let scale = cx.scale_factor();
         let focused = cx.status().focused;
-        let radius = theme.corner_radius * scale;
-        let border = if focused {
-            theme.accent
-        } else {
-            theme.separator
-        };
-        cx.canvas().fill_rounded_rect(rect, radius, border)?;
-        cx.canvas()
-            .fill_rounded_rect(rect.inset(scale), radius - scale, theme.surface)?;
+        paint_frame(cx, rect, theme.corner_radius * scale, theme.surface)?;
         let Some((layout, _, _)) = &self.layout else {
             return Ok(());
         };
@@ -295,11 +293,12 @@ impl<M: 'static> Widget<M> for TextInput<M> {
         let left = area.x - self.scroll;
         if let (true, Some((start, end))) = (focused, self.selection()) {
             let (x0, x1) = (self.x_of(start), self.x_of(end));
-            let highlight = Rgba::new(theme.accent.r, theme.accent.g, theme.accent.b, 0.25);
             let band = Rect::new(left + x0, top, x1 - x0, layout.size().height);
-            cx.canvas().fill_rect(band.intersect(area), highlight)?;
+            cx.canvas()
+                .fill_rect(band.intersect(area), theme.selection)?;
         }
         cx.canvas()
+            .clipped(area)
             .draw_text(layout, Point::new(left, top), theme.text)?;
         if focused {
             let x = (left + self.x_of(self.caret)).round();
@@ -361,6 +360,11 @@ impl<M: 'static> Widget<M> for TextInput<M> {
     fn accepts_focus(&self) -> bool {
         true
     }
+
+    fn focused_by_keyboard(&mut self) {
+        self.anchor = Some(0);
+        self.caret = self.text.len();
+    }
 }
 
 #[cfg(test)]
@@ -416,6 +420,26 @@ mod tests {
             press(&mut input, Key::Enter, None, Modifiers::NONE),
             KeyOutcome::Submitted
         );
+    }
+
+    #[test]
+    fn editing_after_a_click_keeps_every_character() {
+        let mut input = TextInput::new("#1f77b4ff", |text| text);
+        // What a click at the end leaves: an empty selection there.
+        input.anchor = Some(input.caret);
+        press(&mut input, Key::Backspace, None, Modifiers::NONE);
+        press(&mut input, Key::Backspace, None, Modifiers::NONE);
+        assert_eq!(input.text(), "#1f77b4");
+        assert_eq!(input.selection(), None);
+        input.anchor = Some(input.caret);
+        press(&mut input, Key::Character('a'), Some("a"), Modifiers::NONE);
+        press(&mut input, Key::Character('b'), Some("b"), Modifiers::NONE);
+        assert_eq!(input.text(), "#1f77b4ab");
+        input.anchor = Some(0);
+        input.caret = 0;
+        press(&mut input, Key::Delete, None, Modifiers::NONE);
+        press(&mut input, Key::Delete, None, Modifiers::NONE);
+        assert_eq!(input.text(), "f77b4ab");
     }
 
     #[test]

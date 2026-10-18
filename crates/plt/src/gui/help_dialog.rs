@@ -2,15 +2,13 @@
 //! keyboard shortcut, from the `keymap.*` rcParams and the figure's own
 //! tools.
 
-use plt_platform::{ButtonState, Context, Key, LogicalSize, WindowEvent, WindowId, WindowOptions};
-use plt_ui::{Button, Flex, Label, UiWindow};
+use plt_platform::{Context, WindowEvent, WindowId};
+use plt_ui::{Form, Keycaps, UiWindow};
 
+use super::GuiError;
+use super::dialog::{self, Dialog};
 use super::tools::ToolSpec;
-use super::{GuiError, icons};
 use crate::rc::RcParams;
-
-/// Width of the shortcut column in logical pixels.
-const KEYS_WIDTH: f64 = 170.0;
 
 /// What the help window's widgets report.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,40 +17,75 @@ pub(super) enum HelpMessage {
     Close,
 }
 
-/// The shortcuts listed: what they do and their keys.
-fn shortcuts(rc: &RcParams, tools: &[ToolSpec]) -> Vec<(String, Vec<String>)> {
-    let builtin = [
-        ("Reset original view", &rc.keymap_home),
-        ("Back to previous view", &rc.keymap_back),
-        ("Forward to next view", &rc.keymap_forward),
-        ("Pan and zoom with the mouse", &rc.keymap_pan),
-        ("Zoom to a rectangle", &rc.keymap_zoom),
-        ("Save the figure", &rc.keymap_save),
-        ("Copy the figure to the clipboard", &rc.keymap_copy),
-        ("Toggle full screen", &rc.keymap_fullscreen),
-        ("Cycle the major grids", &rc.keymap_grid),
-        ("Cycle the minor grids", &rc.keymap_grid_minor),
-        ("Toggle a log x axis", &rc.keymap_xscale),
-        ("Toggle a log y axis", &rc.keymap_yscale),
-        ("Close the window", &rc.keymap_quit),
-        ("Close every figure window", &rc.keymap_quit_all),
-        ("Show this help", &rc.keymap_help),
-    ];
+/// A shortcut: what it does and its keys.
+type Shortcut = (String, Vec<String>);
+
+/// The shortcuts listed, in groups: the group's name and its shortcuts.
+/// Unbound actions and empty groups are left out.
+fn shortcuts(rc: &RcParams, tools: &[ToolSpec]) -> Vec<(&'static str, Vec<Shortcut>)> {
     let keyboard = |keys: &[String]| -> Vec<String> {
         keys.iter()
             .filter(|key| !key.starts_with("MouseButton."))
             .cloned()
             .collect()
     };
-    builtin
-        .into_iter()
-        .map(|(action, keys)| (action.to_owned(), keyboard(keys)))
-        .chain(
+    let group = |actions: &[(&str, &Vec<String>)]| -> Vec<Shortcut> {
+        actions
+            .iter()
+            .map(|&(action, keys)| (action.to_owned(), keyboard(keys)))
+            .collect()
+    };
+    let groups = [
+        (
+            "Navigation",
+            group(&[
+                ("Reset original view", &rc.keymap_home),
+                ("Back to previous view", &rc.keymap_back),
+                ("Forward to next view", &rc.keymap_forward),
+                ("Pan and zoom with the mouse", &rc.keymap_pan),
+                ("Zoom to a rectangle", &rc.keymap_zoom),
+            ]),
+        ),
+        (
+            "Figure",
+            group(&[
+                ("Save the figure", &rc.keymap_save),
+                ("Copy the figure to the clipboard", &rc.keymap_copy),
+                ("Toggle full screen", &rc.keymap_fullscreen),
+            ]),
+        ),
+        (
+            "Axes under the pointer",
+            group(&[
+                ("Cycle the major grids", &rc.keymap_grid),
+                ("Cycle the minor grids", &rc.keymap_grid_minor),
+                ("Toggle a log x axis", &rc.keymap_xscale),
+                ("Toggle a log y axis", &rc.keymap_yscale),
+            ]),
+        ),
+        (
+            "Window",
+            group(&[
+                ("Close the window", &rc.keymap_quit),
+                ("Close every figure window", &rc.keymap_quit_all),
+                ("Show this help", &rc.keymap_help),
+            ]),
+        ),
+        (
+            "Tools",
             tools
                 .iter()
-                .map(|tool| (tool.description.clone(), keyboard(&tool.keys))),
-        )
-        .filter(|(_, keys)| !keys.is_empty())
+                .map(|tool| (tool.description.clone(), keyboard(&tool.keys)))
+                .collect(),
+        ),
+    ];
+    groups
+        .into_iter()
+        .map(|(name, rows)| {
+            let bound = rows.into_iter().filter(|(_, keys)| !keys.is_empty());
+            (name, bound.collect::<Vec<_>>())
+        })
+        .filter(|(_, rows)| !rows.is_empty())
         .collect()
 }
 
@@ -69,33 +102,18 @@ impl HelpDialog {
     ///
     /// When the window cannot be created.
     pub(super) fn open(cx: &mut Context<'_>, tools: &[ToolSpec]) -> Result<Self, GuiError> {
-        let mut root = Flex::column().with_padding(12.0).with_spacing(6.0);
-        let mut header = Flex::row().with_spacing(8.0);
-        header.push(
-            Label::new("Shortcut").bold().with_min_width(KEYS_WIDTH),
-            0.0,
-        );
-        header.push(Label::new("Action").bold(), 1.0);
-        root.push(header, 0.0);
-        let rows = shortcuts(&crate::rc::params(), tools);
-        for (action, keys) in &rows {
-            let mut row = Flex::row().with_spacing(8.0);
-            row.push(Label::new(keys.join(", ")).with_min_width(KEYS_WIDTH), 0.0);
-            row.push(Label::new(action.clone()), 1.0);
-            root.push(row, 0.0);
+        let mut form = Form::new();
+        for (group, rows) in shortcuts(&crate::rc::params(), tools) {
+            form.section(group);
+            for (action, keys) in rows {
+                form.row(action, Keycaps::new(keys));
+            }
         }
-        let mut buttons = Flex::row();
-        buttons.push(Label::new(""), 1.0);
-        buttons.push(Button::new("Close", HelpMessage::Close).primary(), 0.0);
-        root.push(buttons, 0.0);
-        let height = 90.0 + 26.0 * f64::from(u32::try_from(rows.len()).unwrap_or(u32::MAX));
-        let options = WindowOptions::new("Help")
-            .with_app_id("plt-rs")
-            .with_icon(icons::window_icon()?)
-            .with_inner_size(LogicalSize::new(480.0, height))
-            .with_min_inner_size(LogicalSize::new(320.0, 200.0));
+        let mut chrome = Dialog::without_status();
+        chrome.primary("Close", HelpMessage::Close);
+        let options = dialog::window_options("Help")?;
         Ok(Self {
-            window: UiWindow::open(cx, &options, root)?,
+            window: UiWindow::open_fitted(cx, &options, chrome.finish(form))?,
         })
     }
 
@@ -114,14 +132,8 @@ impl HelpDialog {
         cx: &mut Context<'_>,
         event: &WindowEvent,
     ) -> Result<bool, GuiError> {
-        match event {
-            WindowEvent::CloseRequested => return Ok(false),
-            WindowEvent::Key(key)
-                if key.key == Key::Escape && key.state == ButtonState::Pressed =>
-            {
-                return Ok(false);
-            }
-            _ => {}
+        if dialog::dismissed(event, self.window.ui()) {
+            return Ok(false);
         }
         let open = !self.window.handle(cx, event)?.contains(&HelpMessage::Close);
         cx.request_redraw(self.window.id())?;
@@ -155,7 +167,8 @@ mod tests {
             keys: vec!["m".into()],
             kind: ToolKind::Trigger,
         };
-        let rows = shortcuts(&RcParams::matplotlib(), &[tool]);
+        let groups = shortcuts(&RcParams::matplotlib(), &[tool]);
+        let rows: Vec<&Shortcut> = groups.iter().flat_map(|(_, rows)| rows).collect();
         let back = rows
             .iter()
             .find(|(action, _)| action == "Back to previous view");
@@ -165,12 +178,19 @@ mod tests {
             "mouse buttons are not keys"
         );
         assert_eq!(
-            rows.last(),
-            Some(&("Mark the peak".into(), vec!["m".into()]))
+            groups.last(),
+            Some(&("Tools", vec![("Mark the peak".into(), vec!["m".into()])]))
         );
         assert!(
             !rows.iter().any(|(_, keys)| keys.is_empty()),
             "unbound actions are left out"
+        );
+        let without_tools = shortcuts(&RcParams::matplotlib(), &[]);
+        assert!(
+            without_tools
+                .iter()
+                .all(|(name, rows)| *name != "Tools" && !rows.is_empty()),
+            "empty groups are left out"
         );
     }
 }

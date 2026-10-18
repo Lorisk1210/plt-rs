@@ -1,7 +1,7 @@
 //! The curves and images of an axes in the figure options dialog: their
 //! fields, how the fields are read, and how the settings are applied.
 
-use plt_ui::{Flex, List, ListItem, Stack, UiWindow, WidgetId};
+use plt_ui::{Flex, List, ListItem, Spacing, Stack, UiWindow, WidgetId};
 
 use super::OptionsMessage;
 use super::fields::{
@@ -96,19 +96,31 @@ pub(super) fn edited_lines(axes: &Axes) -> Vec<Line2D> {
         .collect()
 }
 
+/// A list of an axes' artists named `names` beside a stack of pages, the
+/// fields of the selected artist: the list sends `message(index)` when
+/// another is selected. Returns the panel and the stack.
+fn master_detail(
+    names: Vec<ListItem>,
+    message: impl Fn(usize) -> OptionsMessage + 'static,
+    pages: Stack<OptionsMessage>,
+) -> (Flex<OptionsMessage>, WidgetId) {
+    let mut panel = Flex::row().with_spacing(Spacing::Lg);
+    let mut list = List::new(names, message);
+    list.set_selected(Some(0));
+    panel.push(list, 0.0);
+    let pages = panel.push(pages, 1.0);
+    (panel, pages)
+}
+
 /// A list of curves beside the fields of the selected one.
 pub(super) fn curves_panel(
     lines: &[Line2D],
     page: usize,
 ) -> (Vec<CurveFields>, Flex<OptionsMessage>, WidgetId) {
-    let mut panel = Flex::row().with_spacing(8.0);
     let items = lines
         .iter()
         .map(|line| ListItem::new(shown_label(&line.label())))
         .collect();
-    let mut list = List::new(items, move |index| OptionsMessage::Curve { page, index });
-    list.set_selected(Some(0));
-    panel.push(list, 1.0);
     let mut pages = Stack::new();
     let fields = lines
         .iter()
@@ -118,15 +130,17 @@ pub(super) fn curves_panel(
             fields
         })
         .collect();
-    let pages = panel.push(pages, 3.0);
+    let message = move |index| OptionsMessage::Curve { page, index };
+    let (panel, pages) = master_detail(items, message, pages);
     (fields, panel, pages)
 }
 
 /// The fields of one curve.
-fn curve_form(line: &Line2D) -> (CurveFields, Flex<OptionsMessage>) {
+fn curve_form(line: &Line2D) -> (CurveFields, plt_ui::Form<OptionsMessage>) {
     let mut form = Form::new();
+    form.section("");
     let label = form.text("Label", line.label());
-    form.heading("Line");
+    form.section("Line");
     let current = line.linestyle();
     let mut styles: Vec<&str> = LINE_STYLES.iter().map(|(name, _)| *name).collect();
     let style_index = LINE_STYLES
@@ -148,15 +162,17 @@ fn curve_form(line: &Line2D) -> (CurveFields, Flex<OptionsMessage>) {
     let names: Vec<&str> = DRAW_STYLES.iter().map(|(name, _)| *name).collect();
     let draw_style = form.choice("Draw style", &names, draw_index);
     let width = form.text("Width", number_text(line.linewidth()));
-    let color = form.text("Color (RGBA)", line.rgba().map(hex).unwrap_or_default());
-    form.heading("Marker");
-    let marker = form.text("Style", marker_text(&line.marker()));
-    let marker_size = form.text("Size", number_text(line.markersize()));
-    let face = form.text(
+    let color = form.color("Color (RGBA)", line.rgba().map(hex).unwrap_or_default());
+    form.section("Marker");
+    let (marker, marker_size) = form.pair(
+        ("Style", marker_text(&line.marker())),
+        ("Size", number_text(line.markersize())),
+    );
+    let face = form.color(
         "Face color (RGBA)",
         marker_color(line, line.markerfacecolor()),
     );
-    let edge = form.text(
+    let edge = form.color(
         "Edge color (RGBA)",
         hex(line
             .effective_markeredgecolor()
@@ -192,34 +208,46 @@ pub(super) fn images_panel(
     images: &[AxesImage],
     page: usize,
 ) -> (Vec<ImageFields>, Flex<OptionsMessage>, WidgetId) {
-    let mut panel = Flex::row().with_spacing(8.0);
     let items = images
         .iter()
         .map(|image| ListItem::new(shown_label(&image.label())))
         .collect();
-    let mut list = List::new(items, move |index| OptionsMessage::Image { page, index });
-    list.set_selected(Some(0));
-    panel.push(list, 1.0);
     let mut pages = Stack::new();
     let fields = images
         .iter()
         .map(|image| {
-            let mut form = Form::new();
-            let (low, high) = image.clim();
-            let fields = ImageFields {
-                image: image.clone(),
-                label: form.text("Label", image.label()),
-                cmap: form.text("Colormap", image.cmap().name()),
-                min: form.text("Min. value", low.map(number_text).unwrap_or_default()),
-                max: form.text("Max. value", high.map(number_text).unwrap_or_default()),
-                interpolation: form.text("Interpolation", image.interpolation().name()),
-            };
-            pages.push(form.finish());
+            let (fields, form) = image_form(image);
+            pages.push(form);
             fields
         })
         .collect();
-    let pages = panel.push(pages, 3.0);
+    let message = move |index| OptionsMessage::Image { page, index };
+    let (panel, pages) = master_detail(items, message, pages);
     (fields, panel, pages)
+}
+
+/// The fields of one image.
+fn image_form(image: &AxesImage) -> (ImageFields, plt_ui::Form<OptionsMessage>) {
+    let mut form = Form::new();
+    form.section("");
+    let label = form.text("Label", image.label());
+    form.section("Image");
+    let cmap = form.text("Colormap", image.cmap().name());
+    let (low, high) = image.clim();
+    let (min, max) = form.pair(
+        ("Min. value", low.map(number_text).unwrap_or_default()),
+        ("Max. value", high.map(number_text).unwrap_or_default()),
+    );
+    let interpolation = form.text("Interpolation", image.interpolation().name());
+    let fields = ImageFields {
+        image: image.clone(),
+        label,
+        cmap,
+        min,
+        max,
+        interpolation,
+    };
+    (fields, form.finish())
 }
 
 pub(super) fn read_curve(

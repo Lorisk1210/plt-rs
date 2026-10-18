@@ -2,10 +2,11 @@
 
 use plt_core::Rgba;
 use plt_platform::{Key, KeyEvent, Modifiers, MouseButton, PhysicalPosition, ScrollDelta};
+use plt_raster::Rgba8;
 
 use super::*;
 use crate::icon::Icon;
-use crate::widget::EventCx;
+use crate::widget::{EventCx, PaintCx};
 use crate::widgets::{Button, Flex, Label, Separator, Surface, SurfaceEvent, ToolButton};
 
 /// A widget reporting every event it receives as a message

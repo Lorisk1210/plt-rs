@@ -1,21 +1,27 @@
 //! The UI engine: owns the widget tree and the framebuffer, lays out,
-//! paints and routes input (see [`routing`]).
+//! paints (see [`painting`]) and routes input (see [`routing`] and
+//! [`focus`]), and shows tooltips (see [`tooltip`]).
 
+mod focus;
+#[cfg(test)]
+mod layer_tests;
+mod painting;
 mod routing;
 #[cfg(test)]
 mod tests;
+mod tooltip;
 
 use plt_core::Point;
 use plt_platform::{ButtonState, Frame, PhysicalSize, WindowEvent};
-use plt_raster::{Painter, Pixmap, Rgba8};
+use plt_raster::{Painter, Pixmap};
 
-use crate::canvas::Canvas;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::theme::Theme;
-use crate::widget::{LayoutCx, PaintCx, Widget, WidgetId, WidgetPod};
+use crate::widget::{LayoutCx, Widget, WidgetId, WidgetPod};
 use routing::Routing;
+use tooltip::Tooltip;
 
 /// A widget tree shown in a window-sized RGBA framebuffer.
 ///
@@ -31,6 +37,7 @@ pub struct Ui<M> {
     framebuffer: Pixmap,
     painter: Painter,
     routing: Routing,
+    tooltip: Tooltip,
     /// Messages emitted outside of [`Ui::handle`] (during layout).
     messages: Vec<M>,
     needs_layout: bool,
@@ -53,6 +60,7 @@ impl<M: 'static> Ui<M> {
             framebuffer: Pixmap::new(size.width, size.height)?,
             painter: Painter::new(),
             routing: Routing::default(),
+            tooltip: Tooltip::default(),
             messages: Vec::new(),
             needs_layout: true,
             needs_paint: true,
@@ -92,6 +100,13 @@ impl<M: 'static> Ui<M> {
     /// The widget that receives key events, if any.
     pub fn focus(&self) -> Option<WidgetId> {
         self.routing.focus
+    }
+
+    /// Whether a widget's popup is open (see
+    /// [`EventCx::open_popup`](crate::EventCx::open_popup)), so that, for
+    /// instance, Escape should close it rather than the window.
+    pub fn has_popup(&self) -> bool {
+        self.routing.popup.is_some()
     }
 
     /// Gives keyboard focus to widget `id`, if it accepts focus, or takes
@@ -195,28 +210,35 @@ impl<M: 'static> Ui<M> {
                 };
                 self.deliver(self.routing.pointer_target(), &wheel);
             }
-            WindowEvent::Key(key) => {
-                self.deliver(self.routing.key_target(), &UiEvent::Key(key.clone()));
-            }
+            WindowEvent::Key(key) => self.key(key),
             _ => {}
         }
         Ok(self.take_messages())
     }
 
-    /// Lays out if needed, paints every widget and returns the frame to
-    /// present.
+    /// The size the widget tree asks for when nothing constrains it, in
+    /// physical pixels: what a window fitted to its content needs (see
+    /// [`UiWindow::open_fitted`](crate::UiWindow::open_fitted)).
+    pub fn natural_size(&mut self) -> Result<Size, UiError> {
+        let mut cx = LayoutCx {
+            scale_factor: self.scale_factor,
+            theme: &self.theme,
+            messages: &mut self.messages,
+            window: Size::INFINITE,
+        };
+        let size = self
+            .root
+            .measure(&mut cx, Constraints::loose(Size::INFINITE))?;
+        // The next layout measures again within the framebuffer.
+        self.request_layout();
+        Ok(size)
+    }
+
+    /// Lays out if needed, paints every widget (and the open popup and
+    /// the tooltip shown, on top) and returns the frame to present.
     pub fn paint(&mut self) -> Result<Frame<'_>, UiError> {
         self.layout()?;
-        self.framebuffer.fill(Rgba8::from(self.theme.background));
-        let full = Rect::new(0.0, 0.0, f64::INFINITY, f64::INFINITY);
-        let mut painting = Painting {
-            target: &mut self.framebuffer,
-            painter: &mut self.painter,
-            theme: &self.theme,
-            routing: &self.routing,
-            scale_factor: self.scale_factor,
-        };
-        painting.paint(&self.root, full)?;
+        self.paint_layers()?;
         self.needs_paint = false;
         let size = self.size();
         Ok(Frame::new(
@@ -226,53 +248,29 @@ impl<M: 'static> Ui<M> {
         )?)
     }
 
+    /// The framebuffer's size.
+    fn window_size(&self) -> Size {
+        let size = self.size();
+        Size::new(f64::from(size.width), f64::from(size.height))
+    }
+
     /// Measures and arranges the tree to fill the framebuffer, if needed.
     fn layout(&mut self) -> Result<(), UiError> {
         if !self.needs_layout {
             return Ok(());
         }
-        let size = self.size();
-        let size = Size::new(f64::from(size.width), f64::from(size.height));
+        let size = self.window_size();
         let mut cx = LayoutCx {
             scale_factor: self.scale_factor,
             theme: &self.theme,
             messages: &mut self.messages,
+            window: size,
         };
         self.root.measure(&mut cx, Constraints::tight(size))?;
         self.root
             .arrange(&mut cx, Rect::from_origin_size(Point::ORIGIN, size))?;
         self.needs_layout = false;
         self.needs_paint = true;
-        Ok(())
-    }
-}
-
-/// The state of one paint pass.
-struct Painting<'a> {
-    target: &'a mut Pixmap,
-    painter: &'a mut Painter,
-    theme: &'a Theme,
-    routing: &'a Routing,
-    scale_factor: f64,
-}
-
-impl Painting<'_> {
-    /// Paints `pod` and then its children, each clipped to its rectangle
-    /// and its ancestors' `clip`.
-    fn paint<M: 'static>(&mut self, pod: &WidgetPod<M>, clip: Rect) -> Result<(), UiError> {
-        let clip = clip.intersect(pod.rect());
-        if clip.is_empty() {
-            return Ok(());
-        }
-        let mut cx = PaintCx {
-            canvas: Canvas::new(self.target, self.painter, clip, self.scale_factor),
-            theme: self.theme,
-            status: self.routing.status(pod.id()),
-        };
-        pod.widget().paint(&mut cx, pod.rect())?;
-        for child in pod.widget().children() {
-            self.paint(child, clip)?;
-        }
         Ok(())
     }
 }

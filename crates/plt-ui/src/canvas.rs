@@ -45,6 +45,17 @@ impl<'a> Canvas<'a> {
         self.scale_factor
     }
 
+    /// A canvas drawing into the same framebuffer, clipped further to
+    /// `rect` (e.g. text scrolled inside a field).
+    pub fn clipped(&mut self, rect: Rect) -> Canvas<'_> {
+        Canvas {
+            target: self.target,
+            painter: self.painter,
+            clip: self.clip.intersect(rect),
+            scale_factor: self.scale_factor,
+        }
+    }
+
     /// Fills a rectangle.
     pub fn fill_rect(&mut self, rect: Rect, color: Rgba) -> Result<(), UiError> {
         let corners = [
@@ -66,10 +77,31 @@ impl<'a> Canvas<'a> {
         self.fill_path(&rounded_rect(rect, radius), color)
     }
 
+    /// Outlines a rectangle with corners rounded to `radius` pixels with a
+    /// line `width` pixels wide, kept inside the rectangle. The line is
+    /// filled as one shape, so translucent colours stay even.
+    pub fn stroke_rounded_rect(
+        &mut self,
+        rect: Rect,
+        radius: f64,
+        width: f64,
+        color: Rgba,
+    ) -> Result<(), UiError> {
+        let inner = rect.inset(width);
+        let ring = Path::builder()
+            .extend(&rounded_rect(rect, radius))
+            .extend(&rounded_rect(inner, (radius - width).max(0.0)))
+            .build();
+        self.fill_with_rule(&ring, color, FillRule::EvenOdd)
+    }
+
     /// Fills an arbitrary path given in window pixels.
     pub fn fill_path(&mut self, path: &Path, color: Rgba) -> Result<(), UiError> {
+        self.fill_with_rule(path, color, FillRule::NonZero)
+    }
+
+    fn fill_with_rule(&mut self, path: &Path, color: Rgba, rule: FillRule) -> Result<(), UiError> {
         let clip = Clip::rect(self.clip_box());
-        let rule = FillRule::NonZero;
         self.painter
             .fill_path(self.target, path, color, rule, Antialias::On, &clip)?;
         Ok(())
@@ -219,9 +251,16 @@ mod tests {
         canvas
             .fill_rect(Rect::new(2.0, 2.0, 4.0, 4.0), RED)
             .unwrap();
+        canvas
+            .clipped(Rect::new(0.0, 0.0, 8.0, 1.0))
+            .fill_rect(Rect::new(0.0, 0.0, 8.0, 8.0), RED)
+            .unwrap();
         assert_eq!(pixel(&target, 3, 3), [255, 0, 0, 255]);
         assert_eq!(pixel(&target, 4, 3), [255; 4], "outside the clip");
         assert_eq!(pixel(&target, 1, 3), [255; 4], "outside the rectangle");
+        assert_eq!(pixel(&target, 0, 0), [255, 0, 0, 255]);
+        assert_eq!(pixel(&target, 0, 1), [255; 4], "clipped further");
+        assert_eq!(pixel(&target, 6, 0), [255; 4], "within the first clip");
     }
 
     #[test]
@@ -240,6 +279,23 @@ mod tests {
         assert_eq!(pixel(&target, 0, 0), [255; 4]);
         assert_eq!(pixel(&target, 10, 10), [255, 0, 0, 255]);
         assert_eq!(pixel(&target, 10, 0), [255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn rounded_outlines_leave_the_inside_alone() {
+        let mut target = Pixmap::filled(20, 20, Rgba8::new(255, 255, 255, 255)).unwrap();
+        let mut painter = Painter::new();
+        let rect = Rect::new(0.0, 0.0, 20.0, 20.0);
+        let mut canvas = Canvas::new(&mut target, &mut painter, rect, 1.0);
+        let translucent = Rgba::new(1.0, 0.0, 0.0, 0.5);
+        canvas
+            .stroke_rounded_rect(rect, 6.0, 2.0, translucent)
+            .unwrap();
+        assert_eq!(pixel(&target, 10, 10), [255; 4], "the inside is untouched");
+        let edge = pixel(&target, 10, 0);
+        assert_eq!(edge, pixel(&target, 0, 10), "the line is even");
+        assert!(edge[1] > 100 && edge[1] < 160, "half covered: {edge:?}");
+        assert_eq!(pixel(&target, 0, 0), [255; 4], "rounded corner");
     }
 
     #[test]

@@ -6,11 +6,12 @@ mod artists;
 mod axes_page;
 mod fields;
 
-use plt_platform::{ButtonState, Context, Key, LogicalSize, WindowEvent, WindowId, WindowOptions};
-use plt_ui::{Button, Choice, Flex, Label, Stack, UiWindow, WidgetId};
+use plt_platform::{Context, WindowEvent, WindowId};
+use plt_ui::{Dropdown, Flex, Label, Spacing, Stack, Swatch, UiWindow, WidgetId};
 
 use self::axes_page::AxesPage;
-use super::{GuiError, icons};
+use super::GuiError;
+use super::dialog::{self, Dialog};
 use crate::axes::TitleLocation;
 use crate::figure::Figure;
 
@@ -42,6 +43,13 @@ pub(super) enum OptionsMessage {
     },
     /// A field changed (read when applying).
     Edited,
+    /// A colour field changed: its swatch shows the colour typed.
+    Color {
+        /// The swatch beside the field.
+        swatch: WidgetId,
+        /// The text typed.
+        text: String,
+    },
     /// Apply the fields and keep the dialog open.
     Apply,
     /// Apply the fields and close.
@@ -100,14 +108,18 @@ impl OptionsDialog {
         if axes.is_empty() {
             return Ok(None);
         }
-        let mut root = Flex::column().with_padding(10.0).with_spacing(8.0);
+        let mut content = Flex::column().with_spacing(dialog::GAP);
         if axes.len() > 1 {
             let names = axes
                 .iter()
                 .enumerate()
                 .map(|(i, ax)| axes_name(&ax.title(TitleLocation::Center), i))
                 .collect();
-            root.push(Choice::new(names, OptionsMessage::Axes), 0.0);
+            let chooser = Flex::row()
+                .with_spacing(Spacing::Md)
+                .with_child(Label::new("Axes"))
+                .with_child(Dropdown::new(names, OptionsMessage::Axes));
+            content.push(chooser, 0.0);
         }
         let mut stack = Stack::new();
         let pages = axes
@@ -119,19 +131,13 @@ impl OptionsDialog {
                 page
             })
             .collect();
-        let axes_pages = root.push(stack, 1.0);
-        let mut buttons = Flex::row().with_spacing(8.0);
-        let status = buttons.push(Label::new(""), 1.0);
-        buttons.push(Button::new("Cancel", OptionsMessage::Cancel), 0.0);
-        buttons.push(Button::new("Apply", OptionsMessage::Apply), 0.0);
-        buttons.push(Button::new("OK", OptionsMessage::Ok).primary(), 0.0);
-        root.push(buttons, 0.0);
-        let options = WindowOptions::new("Figure options")
-            .with_app_id("plt-rs")
-            .with_icon(icons::window_icon()?)
-            .with_inner_size(LogicalSize::new(700.0, 560.0))
-            .with_min_inner_size(LogicalSize::new(460.0, 420.0));
-        let window = UiWindow::open(cx, &options, root)?;
+        let axes_pages = content.push(stack, 1.0);
+        let (mut chrome, status) = Dialog::with_status();
+        chrome.button("Cancel", OptionsMessage::Cancel);
+        chrome.button("Apply", OptionsMessage::Apply);
+        chrome.primary("OK", OptionsMessage::Ok);
+        let options = dialog::window_options("Figure options")?;
+        let window = UiWindow::open_fitted(cx, &options, chrome.finish(content))?;
         Ok(Some(Self {
             window,
             pages,
@@ -155,14 +161,8 @@ impl OptionsDialog {
         cx: &mut Context<'_>,
         event: &WindowEvent,
     ) -> Result<Outcome, GuiError> {
-        match event {
-            WindowEvent::CloseRequested => return Ok(Outcome::Cancelled),
-            WindowEvent::Key(key)
-                if key.key == Key::Escape && key.state == ButtonState::Pressed =>
-            {
-                return Ok(Outcome::Cancelled);
-            }
-            _ => {}
+        if dialog::dismissed(event, self.window.ui()) {
+            return Ok(Outcome::Cancelled);
         }
         let mut outcome = Outcome::Open;
         for message in self.window.handle(cx, event)? {
@@ -196,6 +196,12 @@ impl OptionsDialog {
                     Outcome::Open
                 }
                 OptionsMessage::Edited => Outcome::Open,
+                OptionsMessage::Color { swatch, text } => {
+                    if let Some(swatch) = self.window.ui_mut().widget_mut::<Swatch>(swatch) {
+                        swatch.set_color(fields::swatch_color(&text));
+                    }
+                    Outcome::Open
+                }
                 OptionsMessage::Apply => self.apply(cx, false)?,
                 OptionsMessage::Ok => self.apply(cx, true)?,
                 OptionsMessage::Cancel => Outcome::Cancelled,

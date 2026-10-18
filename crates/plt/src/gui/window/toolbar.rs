@@ -3,15 +3,30 @@
 //! status line.
 
 use plt_platform::Context;
-use plt_ui::{Flex, Label, Separator, ToolButton, UiWindow, WidgetId};
+use plt_ui::{
+    Align, Flex, Label, Overflow, Separator, Spacing, Theme, Tone, ToolButton, UiWindow, WidgetId,
+};
 
 use super::Message;
 use crate::gui::tools::{ToolKind, ToolSpec};
 use crate::gui::{GuiError, icons};
 use crate::navigation::{NavMode, Navigation};
 
-/// Height of the toolbar in logical pixels, separator included.
-pub(super) const HEIGHT: f64 = 37.0;
+/// The space left and right of the toolbar's contents.
+const PADDING_X: Spacing = Spacing::Sm;
+/// The space above and below the buttons.
+const PADDING_Y: Spacing = Spacing::Xs;
+/// The space between neighbouring buttons.
+const BUTTON_GAP: Spacing = Spacing::Xxs;
+/// The space between the last button and the status line.
+const STATUS_GAP: Spacing = Spacing::Md;
+
+/// Height of the toolbar in logical pixels, the hairline above it
+/// included.
+pub(super) fn height() -> f64 {
+    let theme = Theme::default();
+    theme.tool_button_size + 2.0 * theme.space(PADDING_Y) + 1.0
+}
 
 /// A toolbar button.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -39,6 +54,22 @@ pub(in crate::gui) enum Tool {
 }
 
 impl Tool {
+    /// A built-in tool's name and shortcut, for its tooltip.
+    fn builtin_tooltip(self) -> &'static str {
+        match self {
+            Self::Home => "Home (h)",
+            Self::Back => "Back (c)",
+            Self::Forward => "Forward (v)",
+            Self::Pan => "Pan (p)",
+            Self::Zoom => "Zoom (o)",
+            Self::Subplots => "Subplots",
+            Self::Options => "Figure options",
+            Self::Save => "Save (s)",
+            Self::Help => "Help (F1)",
+            Self::User(_) => "",
+        }
+    }
+
     /// What a built-in tool does and its shortcut, for the status line.
     fn builtin_hint(self) -> &'static str {
         match self {
@@ -74,33 +105,51 @@ impl Toolbar {
     /// Appends a separator and the toolbar to `root`, in matplotlib's
     /// button order, the figure's `tools` after the built-in buttons.
     pub(super) fn build(root: &mut Flex<Message>, tools: Vec<ToolSpec>) -> Self {
-        let mut row = Flex::row().with_padding(2.0).with_spacing(2.0);
-        let button = |row: &mut Flex<Message>, icon, tool| {
+        let mut row = Flex::row()
+            .with_padding_xy(PADDING_X, PADDING_Y)
+            .with_spacing(BUTTON_GAP);
+        let button = |row: &mut Flex<Message>, icon, tool: Tool, tooltip: String| {
             let button = ToolButton::new(icon, Message::Tool(tool))
-                .with_hover_messages(Message::Hint(Some(tool)), Message::Hint(None));
+                .with_hover_messages(Message::Hint(Some(tool)), Message::Hint(None))
+                .with_tooltip(tooltip);
             row.push(button, 0.0)
         };
-        button(&mut row, icons::home(), Tool::Home);
-        let back = button(&mut row, icons::back(), Tool::Back);
-        let forward = button(&mut row, icons::forward(), Tool::Forward);
+        let builtin = |row: &mut Flex<Message>, icon, tool: Tool| {
+            button(row, icon, tool, tool.builtin_tooltip().to_owned())
+        };
+        builtin(&mut row, icons::home(), Tool::Home);
+        let back = builtin(&mut row, icons::back(), Tool::Back);
+        let forward = builtin(&mut row, icons::forward(), Tool::Forward);
         row.push(Separator::vertical(), 0.0);
-        let pan = button(&mut row, icons::pan(), Tool::Pan);
-        let zoom = button(&mut row, icons::zoom(), Tool::Zoom);
-        button(&mut row, icons::subplots(), Tool::Subplots);
-        button(&mut row, icons::options(), Tool::Options);
+        let pan = builtin(&mut row, icons::pan(), Tool::Pan);
+        let zoom = builtin(&mut row, icons::zoom(), Tool::Zoom);
+        builtin(&mut row, icons::subplots(), Tool::Subplots);
+        builtin(&mut row, icons::options(), Tool::Options);
         row.push(Separator::vertical(), 0.0);
-        button(&mut row, icons::save(), Tool::Save);
+        builtin(&mut row, icons::save(), Tool::Save);
         if !tools.is_empty() {
             row.push(Separator::vertical(), 0.0);
         }
-        let user = tools
+        let user: Vec<(WidgetId, ToolSpec)> = tools
             .into_iter()
             .enumerate()
-            .map(|(index, tool)| (button(&mut row, tool.icon.clone(), Tool::User(index)), tool))
+            .map(|(index, tool)| {
+                let tooltip = user_hint(&tool);
+                let id = button(&mut row, tool.icon.clone(), Tool::User(index), tooltip);
+                (id, tool)
+            })
             .collect();
         row.push(Separator::vertical(), 0.0);
-        button(&mut row, icons::help(), Tool::Help);
-        let status = row.push(Label::new(""), 1.0);
+        builtin(&mut row, icons::help(), Tool::Help);
+        let mut status_area = Flex::row().with_padding_xy(STATUS_GAP, Spacing::None);
+        let status = status_area.push(
+            Label::new("")
+                .with_tone(Tone::Secondary)
+                .with_align(Align::End)
+                .with_overflow(Overflow::ElideEnd),
+            1.0,
+        );
+        row.push(status_area, 1.0);
         root.push(Separator::horizontal(), 0.0);
         root.push(row, 0.0);
         Self {
@@ -123,13 +172,9 @@ impl Toolbar {
         let Tool::User(index) = tool else {
             return tool.builtin_hint().to_owned();
         };
-        self.user.get(index).map_or_else(String::new, |(_, tool)| {
-            if tool.keys.is_empty() {
-                tool.description.clone()
-            } else {
-                format!("{} ({})", tool.description, tool.keys.join(", "))
-            }
-        })
+        self.user
+            .get(index)
+            .map_or_else(String::new, |(_, tool)| user_hint(tool))
     }
 
     /// Enables the history buttons that lead somewhere and checks the
@@ -171,5 +216,14 @@ impl Toolbar {
     ) -> Result<(), GuiError> {
         window.update(cx, self.status, |label: &mut Label| label.set_text(text))?;
         Ok(())
+    }
+}
+
+/// What a figure's tool does and its shortcuts.
+fn user_hint(tool: &ToolSpec) -> String {
+    if tool.keys.is_empty() {
+        tool.description.clone()
+    } else {
+        format!("{} ({})", tool.description, tool.keys.join(", "))
     }
 }

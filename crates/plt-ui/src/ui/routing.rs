@@ -18,6 +18,10 @@ pub(super) struct Routing {
     buttons_held: u32,
     /// The widget receiving key events.
     pub(super) focus: Option<WidgetId>,
+    /// The widget whose popup is open: it receives every event.
+    pub(super) popup: Option<WidgetId>,
+    /// The last pointer position in the window.
+    pointer: Option<Point>,
 }
 
 impl Routing {
@@ -30,16 +34,25 @@ impl Routing {
         }
     }
 
-    /// The target of pointer events: the capturing widget, else the
-    /// innermost widget under the pointer.
+    /// The target of pointer events: the widget with a popup open, else
+    /// the capturing widget, else the innermost widget under the pointer.
     pub(super) fn pointer_target(&self) -> Option<WidgetId> {
-        self.active.or_else(|| self.hot.last().copied())
+        self.popup
+            .or(self.active)
+            .or_else(|| self.hot.last().copied())
     }
 
-    /// The target of key events: the focused widget, else the innermost
-    /// widget under the pointer.
+    /// The target of key events: the widget with a popup open, else the
+    /// focused widget, else the innermost widget under the pointer.
     pub(super) fn key_target(&self) -> Option<WidgetId> {
-        self.focus.or_else(|| self.hot.last().copied())
+        self.popup
+            .or(self.focus)
+            .or_else(|| self.hot.last().copied())
+    }
+
+    /// The widgets under the pointer, outermost first.
+    pub(super) fn hot(&self) -> &[WidgetId] {
+        &self.hot
     }
 }
 
@@ -61,6 +74,7 @@ impl<M: 'static> Ui<M> {
         click_count: u32,
     ) {
         self.update_hot(Some(position));
+        self.dismiss_tooltip();
         let target = self.routing.pointer_target();
         if self.routing.active.is_none() {
             self.routing.active = target;
@@ -71,7 +85,7 @@ impl<M: 'static> Ui<M> {
                 .find(id)
                 .is_some_and(|pod| pod.widget().accepts_focus())
         });
-        if focusable.is_some() {
+        if focusable.is_some() && self.routing.popup.is_none() {
             self.routing.focus = focusable;
         }
         self.needs_paint = true;
@@ -105,9 +119,15 @@ impl<M: 'static> Ui<M> {
     }
 
     /// Recomputes the widgets under the pointer (`None`: outside the
-    /// window) and tells those that the pointer left or entered.
+    /// window) and tells those that the pointer left or entered. While a
+    /// popup is open, only its widget (and its ancestors) count as under
+    /// the pointer.
     pub(super) fn update_hot(&mut self, position: Option<Point>) {
-        let path = position.map_or_else(Vec::new, |p| hit_path(&self.root, p));
+        self.routing.pointer = position;
+        let path = match self.routing.popup {
+            Some(owner) => path_to(&self.root, owner),
+            None => position.map_or_else(Vec::new, |p| hit_path(&self.root, p)),
+        };
         let left: Vec<WidgetId> = self
             .routing
             .hot
@@ -125,6 +145,7 @@ impl<M: 'static> Ui<M> {
         }
         self.routing.hot = path;
         self.needs_paint = true;
+        self.update_tooltip();
         for id in left.into_iter().rev() {
             self.deliver(Some(id), &UiEvent::PointerLeave);
         }
@@ -140,6 +161,7 @@ impl<M: 'static> Ui<M> {
         let Some(pod) = target.and_then(|id| self.root.find_mut(id)) else {
             return;
         };
+        let id = pod.id();
         let rect = pod.rect();
         let mut cx = EventCx::new(&mut self.messages);
         pod.widget_mut().event(&mut cx, event, rect);
@@ -149,7 +171,35 @@ impl<M: 'static> Ui<M> {
         if cx.paint_requested || cx.layout_requested {
             self.needs_paint = true;
         }
+        let popup = match cx.popup {
+            Some(true) => Some(id),
+            Some(false) if self.routing.popup == Some(id) => None,
+            _ => return,
+        };
+        if popup != self.routing.popup {
+            self.routing.popup = popup;
+            self.update_hot(self.routing.pointer);
+        }
     }
+}
+
+/// The widgets from the root down to `target` (empty when `target` is not
+/// shown).
+fn path_to<M: 'static>(pod: &WidgetPod<M>, target: WidgetId) -> Vec<WidgetId> {
+    if pod.id() == target {
+        return vec![pod.id()];
+    }
+    pod.widget()
+        .children()
+        .iter()
+        .find_map(|child| {
+            let mut path = path_to(child, target);
+            (!path.is_empty()).then(|| {
+                path.insert(0, pod.id());
+                path
+            })
+        })
+        .unwrap_or_default()
 }
 
 /// The widgets containing `point`, outermost first, following the topmost

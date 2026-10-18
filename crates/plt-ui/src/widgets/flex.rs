@@ -4,6 +4,7 @@ use plt_core::Rgba;
 
 use crate::error::UiError;
 use crate::geometry::{Constraints, Rect, Size};
+use crate::theme::Spacing;
 use crate::widget::{LayoutCx, PaintCx, Widget, WidgetId, WidgetPod};
 
 /// The direction children are laid out in.
@@ -45,12 +46,30 @@ impl Axis {
     }
 }
 
+/// Empty space sharing the free space of a [`Flex`].
+#[derive(Debug)]
+struct Gap;
+
+impl<M> Widget<M> for Gap {
+    fn measure(
+        &mut self,
+        _cx: &mut LayoutCx<'_, M>,
+        constraints: Constraints,
+    ) -> Result<Size, UiError> {
+        Ok(constraints.constrain(Size::ZERO))
+    }
+
+    fn paint(&self, _cx: &mut PaintCx<'_>, _rect: Rect) -> Result<(), UiError> {
+        Ok(())
+    }
+}
+
 /// Lays children out in a row or a column.
 ///
 /// Children with a flex factor of 0 get their natural size; the space
 /// left is shared among the others in proportion to their factors.
-/// Children stretch across the cross axis. Padding and spacing are in
-/// logical pixels.
+/// Children stretch across the cross axis and are placed on whole
+/// pixels. Padding and spacing are steps of the theme's spacing scale.
 pub struct Flex<M> {
     axis: Axis,
     children: Vec<WidgetPod<M>>,
@@ -58,8 +77,11 @@ pub struct Flex<M> {
     factors: Vec<f64>,
     /// Main-axis extents from the last measure.
     extents: Vec<f64>,
-    padding: f64,
-    spacing: f64,
+    /// Space left and right of the children.
+    padding_x: Spacing,
+    /// Space above and below the children.
+    padding_y: Spacing,
+    spacing: Spacing,
     background: Option<Rgba>,
 }
 
@@ -80,8 +102,9 @@ impl<M: 'static> Flex<M> {
             children: Vec::new(),
             factors: Vec::new(),
             extents: Vec::new(),
-            padding: 0.0,
-            spacing: 0.0,
+            padding_x: Spacing::None,
+            padding_y: Spacing::None,
+            spacing: Spacing::None,
             background: None,
         }
     }
@@ -94,6 +117,12 @@ impl<M: 'static> Flex<M> {
         self.children.push(pod);
         self.factors.push(if flex > 0.0 { flex } else { 0.0 });
         id
+    }
+
+    /// Adds empty space taking a share `flex` of the free space, e.g. to
+    /// push the children after it to the end.
+    pub fn push_spacer(&mut self, flex: f64) {
+        self.push(Gap, flex);
     }
 
     /// Adds a child of natural size.
@@ -110,16 +139,31 @@ impl<M: 'static> Flex<M> {
         self
     }
 
-    /// Sets the space around the children, in logical pixels.
+    /// Adds empty space taking a share `flex` of the free space.
     #[must_use]
-    pub fn with_padding(mut self, padding: f64) -> Self {
-        self.padding = padding;
+    pub fn with_spacer(mut self, flex: f64) -> Self {
+        self.push_spacer(flex);
         self
     }
 
-    /// Sets the space between children, in logical pixels.
+    /// Sets the space around the children.
     #[must_use]
-    pub fn with_spacing(mut self, spacing: f64) -> Self {
+    pub fn with_padding(self, padding: Spacing) -> Self {
+        self.with_padding_xy(padding, padding)
+    }
+
+    /// Sets the space left and right (`horizontal`) and above and below
+    /// (`vertical`) the children.
+    #[must_use]
+    pub fn with_padding_xy(mut self, horizontal: Spacing, vertical: Spacing) -> Self {
+        self.padding_x = horizontal;
+        self.padding_y = vertical;
+        self
+    }
+
+    /// Sets the space between children.
+    #[must_use]
+    pub fn with_spacing(mut self, spacing: Spacing) -> Self {
         self.spacing = spacing;
         self
     }
@@ -130,6 +174,17 @@ impl<M: 'static> Flex<M> {
         self.background = Some(color);
         self
     }
+
+    /// The padding along the main and the cross axis, in pixels.
+    fn paddings(&self, cx: &LayoutCx<'_, M>) -> (f64, f64) {
+        let theme = cx.theme();
+        let x = theme.space(self.padding_x) * cx.scale_factor();
+        let y = theme.space(self.padding_y) * cx.scale_factor();
+        match self.axis {
+            Axis::Horizontal => (x, y),
+            Axis::Vertical => (y, x),
+        }
+    }
 }
 
 impl<M: 'static> Widget<M> for Flex<M> {
@@ -139,11 +194,11 @@ impl<M: 'static> Widget<M> for Flex<M> {
         constraints: Constraints,
     ) -> Result<Size, UiError> {
         let axis = self.axis;
-        let padding = self.padding * cx.scale_factor();
+        let (pad_main, pad_cross) = self.paddings(cx);
         let gaps = self.children.len().saturating_sub(1) as f64;
-        let spacing = self.spacing * cx.scale_factor() * gaps;
-        let max_main = (axis.main(constraints.max) - 2.0 * padding - spacing).max(0.0);
-        let max_cross = (axis.cross(constraints.max) - 2.0 * padding).max(0.0);
+        let spacing = cx.theme().space(self.spacing) * cx.scale_factor() * gaps;
+        let max_main = (axis.main(constraints.max) - 2.0 * pad_main - spacing).max(0.0);
+        let max_cross = (axis.cross(constraints.max) - 2.0 * pad_cross).max(0.0);
         self.extents = vec![0.0; self.children.len()];
         let mut used = 0.0;
         let mut cross: f64 = 0.0;
@@ -179,26 +234,24 @@ impl<M: 'static> Widget<M> for Flex<M> {
         let main = if total_flex > 0.0 && max_main.is_finite() {
             axis.main(constraints.max)
         } else {
-            content + 2.0 * padding
+            content + 2.0 * pad_main
         };
-        Ok(constraints.constrain(axis.size(main, cross + 2.0 * padding)))
+        Ok(constraints.constrain(axis.size(main, cross + 2.0 * pad_cross)))
     }
 
     fn arrange(&mut self, cx: &mut LayoutCx<'_, M>, rect: Rect) -> Result<(), UiError> {
         let axis = self.axis;
-        let padding = self.padding * cx.scale_factor();
-        let spacing = self.spacing * cx.scale_factor();
+        let (pad_main, pad_cross) = self.paddings(cx);
+        let spacing = cx.theme().space(self.spacing) * cx.scale_factor();
         let (main_start, cross_start) = match axis {
             Axis::Horizontal => (rect.x, rect.y),
             Axis::Vertical => (rect.y, rect.x),
         };
-        let cross = (axis.cross(rect.size()) - 2.0 * padding).max(0.0);
-        let mut position = main_start + padding;
+        let cross = (axis.cross(rect.size()) - 2.0 * pad_cross).max(0.0);
+        let mut position = main_start + pad_main;
         for (child, &extent) in self.children.iter_mut().zip(&self.extents) {
-            child.arrange(
-                cx,
-                axis.rect(position, cross_start + padding, extent, cross),
-            )?;
+            let placed = axis.rect(position, cross_start + pad_cross, extent, cross);
+            child.arrange(cx, placed.snapped())?;
             position += extent + spacing;
         }
         Ok(())
@@ -239,11 +292,7 @@ mod tests {
     fn layout(flex: &mut Flex<()>, size: Size, scale_factor: f64) -> Size {
         let theme = Theme::default();
         let mut messages = Vec::new();
-        let mut cx = LayoutCx {
-            scale_factor,
-            theme: &theme,
-            messages: &mut messages,
-        };
+        let mut cx = LayoutCx::for_tests(&theme, &mut messages, scale_factor);
         let measured = flex.measure(&mut cx, Constraints::tight(size)).unwrap();
         flex.arrange(&mut cx, Rect::new(0.0, 0.0, size.width, size.height))
             .unwrap();
@@ -257,8 +306,8 @@ mod tests {
     #[test]
     fn row_shares_free_space_by_flex_factor() {
         let mut row = Flex::row()
-            .with_padding(5.0)
-            .with_spacing(10.0)
+            .with_padding(Spacing::Xs)
+            .with_spacing(Spacing::Sm)
             .with_child(Fixed(Size::new(50.0, 20.0)))
             .with_flex_child(Fixed(Size::ZERO), 1.0)
             .with_flex_child(Fixed(Size::ZERO), 3.0);
@@ -266,13 +315,14 @@ mod tests {
             layout(&mut row, Size::new(300.0, 40.0), 1.0),
             Size::new(300.0, 40.0)
         );
-        // 300 - 2·5 padding - 2·10 spacing - 50 fixed = 220 free: 55 + 165.
+        // 300 - 2·4 padding - 2·8 spacing - 50 fixed = 226 free: 56.5 +
+        // 169.5, on whole pixels.
         assert_eq!(
             rects(&row),
             [
-                Rect::new(5.0, 5.0, 50.0, 30.0),
-                Rect::new(65.0, 5.0, 55.0, 30.0),
-                Rect::new(130.0, 5.0, 165.0, 30.0),
+                Rect::new(4.0, 4.0, 50.0, 32.0),
+                Rect::new(62.0, 4.0, 57.0, 32.0),
+                Rect::new(127.0, 4.0, 169.0, 32.0),
             ]
         );
     }
@@ -280,16 +330,16 @@ mod tests {
     #[test]
     fn column_scales_padding_and_spacing() {
         let mut column = Flex::column()
-            .with_padding(2.0)
-            .with_spacing(1.0)
+            .with_padding_xy(Spacing::Xs, Spacing::Xxs)
+            .with_spacing(Spacing::Xxs)
             .with_child(Fixed(Size::new(10.0, 10.0)))
             .with_child(Fixed(Size::new(10.0, 10.0)));
         layout(&mut column, Size::new(100.0, 100.0), 2.0);
         assert_eq!(
             rects(&column),
             [
-                Rect::new(4.0, 4.0, 92.0, 10.0),
-                Rect::new(4.0, 16.0, 92.0, 10.0)
+                Rect::new(8.0, 4.0, 84.0, 10.0),
+                Rect::new(8.0, 18.0, 84.0, 10.0)
             ]
         );
     }
@@ -297,20 +347,25 @@ mod tests {
     #[test]
     fn natural_size_without_flex_children() {
         let mut row: Flex<()> = Flex::row()
-            .with_padding(1.0)
+            .with_padding(Spacing::Xxs)
             .with_child(Fixed(Size::new(10.0, 5.0)))
             .with_child(Fixed(Size::new(20.0, 8.0)));
         let theme = Theme::default();
         let mut messages = Vec::new();
-        let mut cx = LayoutCx {
-            scale_factor: 1.0,
-            theme: &theme,
-            messages: &mut messages,
-        };
+        let mut cx = LayoutCx::for_tests(&theme, &mut messages, 1.0);
         let size = row
             .measure(&mut cx, Constraints::loose(Size::INFINITE))
             .unwrap();
-        assert_eq!(size, Size::new(32.0, 10.0));
+        assert_eq!(size, Size::new(34.0, 12.0));
+    }
+
+    #[test]
+    fn spacers_push_children_to_the_end() {
+        let mut row = Flex::row()
+            .with_spacer(1.0)
+            .with_child(Fixed(Size::new(30.0, 10.0)));
+        layout(&mut row, Size::new(100.0, 10.0), 1.0);
+        assert_eq!(rects(&row)[1], Rect::new(70.0, 0.0, 30.0, 10.0));
     }
 
     #[test]

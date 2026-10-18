@@ -84,8 +84,19 @@ impl Rect {
         point.x >= self.x && point.x < self.max_x() && point.y >= self.y && point.y < self.max_y()
     }
 
+    /// A rectangle of `size` centred in this one.
+    #[must_use]
+    pub fn centered(self, size: Size) -> Self {
+        Self::new(
+            self.x + (self.width - size.width) / 2.0,
+            self.y + (self.height - size.height) / 2.0,
+            size.width,
+            size.height,
+        )
+    }
+
     /// The rectangle shrunk by `amount` on every side (never below an
-    /// empty rectangle at the centre).
+    /// empty rectangle at the centre); a negative `amount` grows it.
     #[must_use]
     pub fn inset(self, amount: f64) -> Self {
         let dx = amount.min(self.width / 2.0);
@@ -96,6 +107,15 @@ impl Rect {
             self.width - 2.0 * dx,
             self.height - 2.0 * dy,
         )
+    }
+
+    /// The rectangle with its edges moved to the nearest whole pixels, so
+    /// that outlines drawn along them stay crisp.
+    #[must_use]
+    pub fn snapped(self) -> Self {
+        let (x0, y0) = (self.x.round(), self.y.round());
+        let (x1, y1) = (self.max_x().round(), self.max_y().round());
+        Self::new(x0, y0, x1 - x0, y1 - y0)
     }
 
     /// The overlap of two rectangles (empty if they are disjoint).
@@ -175,6 +195,15 @@ mod tests {
         assert!(!rect.contains(Point::new(f64::NAN, 30.0)));
         assert_eq!(rect.inset(5.0), Rect::new(15.0, 25.0, 20.0, 30.0));
         assert_eq!(rect.inset(100.0), Rect::new(25.0, 40.0, 0.0, 0.0));
+        assert_eq!(rect.inset(-2.0), Rect::new(8.0, 18.0, 34.0, 44.0));
+        assert_eq!(
+            Rect::new(0.4, 0.6, 10.2, 9.8).snapped(),
+            Rect::new(0.0, 1.0, 11.0, 9.0)
+        );
+        assert_eq!(
+            rect.centered(Size::new(10.0, 20.0)),
+            Rect::new(20.0, 30.0, 10.0, 20.0)
+        );
     }
 
     #[test]

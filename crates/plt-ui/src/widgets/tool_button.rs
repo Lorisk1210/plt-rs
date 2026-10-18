@@ -9,18 +9,18 @@ use crate::geometry::{Constraints, Rect, Size};
 use crate::icon::Icon;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
-/// The side of the icon in logical pixels.
-const ICON_SIZE: f64 = 20.0;
-
 /// An icon button that sends a message when clicked (pressed and released
-/// with the left button over it). A checked button shows the accent
-/// colour; a disabled one is greyed out and ignores the pointer.
+/// with the left button over it). It is flat until the pointer is over
+/// it; a checked button shows an accent wash and an accent icon, and a
+/// disabled one is greyed out and ignores clicks. It may have a
+/// [tooltip](ToolButton::with_tooltip).
 #[derive(Debug)]
 pub struct ToolButton<M> {
     icon: Icon,
     message: M,
     /// Messages sent when the pointer enters and leaves the button.
     hover: Option<(M, M)>,
+    tooltip: Option<String>,
     checked: bool,
     enabled: bool,
     /// Whether the left button went down on this button and is held.
@@ -34,6 +34,7 @@ impl<M> ToolButton<M> {
             icon,
             message,
             hover: None,
+            tooltip: None,
             checked: false,
             enabled: true,
             pressed: false,
@@ -45,6 +46,13 @@ impl<M> ToolButton<M> {
     #[must_use]
     pub fn with_hover_messages(mut self, enter: M, leave: M) -> Self {
         self.hover = Some((enter, leave));
+        self
+    }
+
+    /// Shows `text` in a tooltip when the pointer rests on the button.
+    #[must_use]
+    pub fn with_tooltip(mut self, text: impl Into<String>) -> Self {
+        self.tooltip = Some(text.into());
         self
     }
 
@@ -78,7 +86,7 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
         cx: &mut LayoutCx<'_, M>,
         constraints: Constraints,
     ) -> Result<Size, UiError> {
-        let side = (ICON_SIZE + 2.0 * cx.theme().padding) * cx.scale_factor();
+        let side = cx.theme().tool_button_size * cx.scale_factor();
         Ok(constraints.constrain(Size::new(side, side)))
     }
 
@@ -86,30 +94,24 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
         let status = cx.status();
         let theme = cx.theme();
         let scale = cx.scale_factor();
-        let face = if !self.enabled {
-            None
-        } else if status.active && self.pressed {
-            Some(theme.button_active)
-        } else if self.checked {
-            Some(theme.button_checked)
-        } else if status.hot {
-            Some(theme.button_hot)
-        } else {
-            None
-        };
         let side = rect.width.min(rect.height);
-        let square = Rect::new(
-            rect.center().x - side / 2.0,
-            rect.center().y - side / 2.0,
-            side,
-            side,
-        );
-        if let Some(face) = face {
-            cx.canvas().fill_rounded_rect(
-                square.inset(scale),
-                theme.corner_radius * scale,
-                face,
-            )?;
+        let square = rect.centered(Size::new(side, side));
+        let radius = theme.corner_radius * scale;
+        if self.enabled {
+            if self.checked {
+                cx.canvas()
+                    .fill_rounded_rect(square, radius, theme.selection)?;
+            }
+            let wash = if status.active && self.pressed {
+                Some(theme.pressed)
+            } else if status.hot {
+                Some(theme.hover)
+            } else {
+                None
+            };
+            if let Some(wash) = wash {
+                cx.canvas().fill_rounded_rect(square, radius, wash)?;
+            }
         }
         let color = if !self.enabled {
             theme.text_disabled
@@ -118,8 +120,9 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
         } else {
             theme.text
         };
-        let icon = square.inset(theme.padding * scale);
-        self.icon.paint(cx.canvas(), icon, color)
+        let icon = theme.icon_size * scale;
+        self.icon
+            .paint(cx.canvas(), square.centered(Size::new(icon, icon)), color)
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
@@ -161,5 +164,9 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
             }
             _ => {}
         }
+    }
+
+    fn tooltip(&self) -> Option<&str> {
+        self.tooltip.as_deref()
     }
 }

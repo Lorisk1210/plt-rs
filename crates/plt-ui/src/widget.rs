@@ -29,9 +29,16 @@ impl WidgetId {
 /// Layout has two passes: [`measure`](Self::measure) picks a size within
 /// the parent's constraints (containers measure their children), then
 /// [`arrange`](Self::arrange) receives the final rectangle (containers
-/// arrange their children inside it). The engine paints a widget before
-/// its children and routes each event to a single widget; see
-/// [`UiEvent`] for the routing rules.
+/// arrange their children inside it). Measured with unbounded
+/// constraints, a widget reports its natural size, which
+/// [`Ui::natural_size`](crate::Ui::natural_size) uses to fit windows to
+/// their content.
+///
+/// The engine paints a widget before its children, clipped to its
+/// rectangle grown by the theme's
+/// [`focus_ring_width`](crate::Theme::focus_ring_width) (room for a focus
+/// ring), and routes each event to a single widget; see [`UiEvent`] for
+/// the routing rules.
 pub trait Widget<M>: Any {
     /// Chooses a size within `constraints`.
     fn measure(
@@ -48,12 +55,36 @@ pub trait Widget<M>: Any {
     /// Paints the widget (not its children) into `rect`.
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError>;
 
+    /// Paints the widget's popup over every other widget, while it is
+    /// open (see [`EventCx::open_popup`]); `rect` is the widget's
+    /// rectangle and the canvas covers the window.
+    fn paint_popup(&self, _cx: &mut PaintCx<'_>, _rect: Rect) -> Result<(), UiError> {
+        Ok(())
+    }
+
     /// Reacts to an input event; `rect` is the widget's rectangle.
     fn event(&mut self, _cx: &mut EventCx<'_, M>, _event: &UiEvent, _rect: Rect) {}
 
-    /// Whether clicking the widget gives it keyboard focus.
+    /// Whether clicking the widget gives it keyboard focus. Tab and
+    /// Shift+Tab also move the focus between such widgets.
     fn accepts_focus(&self) -> bool {
         false
+    }
+
+    /// Whether the widget, when focused, receives Tab presses instead of
+    /// the focus moving on (e.g. a canvas forwarding every key).
+    fn wants_tab(&self) -> bool {
+        false
+    }
+
+    /// Tells the widget that Tab or Shift+Tab gave it the focus (a text
+    /// field selects its text, ready to be typed over).
+    fn focused_by_keyboard(&mut self) {}
+
+    /// The text of the tooltip shown when the pointer rests on the
+    /// widget, if it has one.
+    fn tooltip(&self) -> Option<&str> {
+        None
     }
 
     /// The child widgets, in painting order (later ones are on top).
@@ -173,12 +204,31 @@ pub struct LayoutCx<'a, M> {
     pub(crate) scale_factor: f64,
     pub(crate) theme: &'a Theme,
     pub(crate) messages: &'a mut Vec<M>,
+    pub(crate) window: Size,
+}
+
+#[cfg(test)]
+impl<'a, M> LayoutCx<'a, M> {
+    /// A context for tests, in an unbounded window.
+    pub(crate) fn for_tests(theme: &'a Theme, messages: &'a mut Vec<M>, scale_factor: f64) -> Self {
+        Self {
+            scale_factor,
+            theme,
+            messages,
+            window: Size::INFINITE,
+        }
+    }
 }
 
 impl<'a, M> LayoutCx<'a, M> {
     /// The window's scale factor.
     pub fn scale_factor(&self) -> f64 {
         self.scale_factor
+    }
+
+    /// The window's size, e.g. to keep a popup inside it.
+    pub fn window_size(&self) -> Size {
+        self.window
     }
 
     /// The theme.
@@ -248,6 +298,8 @@ pub struct EventCx<'a, M> {
     pub(crate) messages: &'a mut Vec<M>,
     pub(crate) paint_requested: bool,
     pub(crate) layout_requested: bool,
+    /// Whether the widget opened (`Some(true)`) or closed its popup.
+    pub(crate) popup: Option<bool>,
 }
 
 impl<'a, M> EventCx<'a, M> {
@@ -256,7 +308,23 @@ impl<'a, M> EventCx<'a, M> {
             messages,
             paint_requested: false,
             layout_requested: false,
+            popup: None,
         }
+    }
+
+    /// Opens the widget's popup: until [closed](Self::close_popup), the
+    /// widget receives every pointer and key event wherever the pointer
+    /// is, and paints its popup over the window (see
+    /// [`Widget::paint_popup`]).
+    pub fn open_popup(&mut self) {
+        self.popup = Some(true);
+        self.paint_requested = true;
+    }
+
+    /// Closes the widget's popup.
+    pub fn close_popup(&mut self) {
+        self.popup = Some(false);
+        self.paint_requested = true;
     }
 
     /// Sends a message to the application.
@@ -281,6 +349,7 @@ impl<M> fmt::Debug for EventCx<'_, M> {
         f.debug_struct("EventCx")
             .field("paint_requested", &self.paint_requested)
             .field("layout_requested", &self.layout_requested)
+            .field("popup", &self.popup)
             .finish_non_exhaustive()
     }
 }

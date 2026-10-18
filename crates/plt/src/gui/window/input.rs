@@ -113,8 +113,7 @@ impl FigureWindow {
     }
 
     /// Delivers a key to the figure's callbacks, then runs its `keymap.*`
-    /// shortcut unless the figure captures keys; the navigation and save
-    /// shortcuts need the toolbar, as in matplotlib.
+    /// shortcut unless the figure captures keys.
     fn key(&mut self, cx: &mut Context<'_>, event: &KeyEvent) -> Result<bool, GuiError> {
         if let Key::Character(c @ ('x' | 'y')) = event.key {
             self.held = (event.state == ButtonState::Pressed).then_some(c);
@@ -159,7 +158,6 @@ impl FigureWindow {
                     actions::apply_to_axes(&ax, action);
                 }
             }
-            _ if self.toolbar.is_none() => {}
             KeyAction::Home => self.use_tool(cx, Tool::Home)?,
             KeyAction::Back => self.use_tool(cx, Tool::Back)?,
             KeyAction::Forward => self.use_tool(cx, Tool::Forward)?,

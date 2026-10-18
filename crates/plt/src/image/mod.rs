@@ -15,7 +15,8 @@
 //!   [`ImageAlpha`] — how images are oriented, placed and resampled.
 //! * [`imread`] and [`imsave`] — PNG, JPEG, TIFF and GIF files to image
 //!   arrays, and arrays to PNG, JPEG, TIFF, GIF or raw files
-//!   ([`BitmapFormat`]).
+//!   ([`BitmapFormat`]); [`thumbnail`] writes a scaled copy of an image
+//!   file.
 //!
 //! Drawing follows matplotlib's `_make_image` exactly: the image is
 //! clipped to its clip box, rounded to whole pixels, resampled with Agg's
@@ -37,6 +38,7 @@ mod options;
 mod pcolor_image;
 mod resample;
 mod stages;
+mod thumbnail;
 mod unsampled;
 
 pub use artist::AxesImage;
@@ -59,6 +61,7 @@ pub use pcolor_image::PcolorImage;
 pub(crate) use pcolor_image::PcolorImageArtist;
 pub(crate) use resample::Resampling;
 pub(crate) use stages::normalize as normalize_scalars;
+pub use thumbnail::{ThumbnailError, ThumbnailOptions, thumbnail};
 
 use crate::rc::RcParams;
 

@@ -19,10 +19,16 @@ Ops
 ``image.imsave``  {data, dtype?, format, cmap?, vmin?, vmax?, origin?, dpi?,
                   quality?} -> str
     the file's bytes in base64; errors are ``{"error": "<ExceptionType>"}``.
+``image.thumbnail``  {data, scale, interpolation} -> {shape: [rows, cols], rgba: str}
+    the colour image ``data`` (floats) saved as PNG, passed through
+    ``thumbnail(infile, thumbfile.png, scale, interpolation)``, and the
+    thumbnail read back: its shape and RGBA bytes in base64.
 """
 
 import base64
 import io
+import os
+import tempfile
 
 import numpy as np
 from matplotlib import image
@@ -89,3 +95,20 @@ def test_refused_formats():
     for format in ["tif", "raw", "rgba"]:
         assert isinstance(probes.probe("image.imsave", _imsave, data=_ramp(2, 2), format=format),
                           Exception)
+
+
+def _thumbnail(data, scale, interpolation):
+    with tempfile.TemporaryDirectory() as tmp:
+        source, target = os.path.join(tmp, "image.png"), os.path.join(tmp, "thumb.png")
+        image.imsave(source, np.asarray(data, dtype=float))
+        image.thumbnail(source, target, scale=scale, interpolation=interpolation)
+        thumb = (image.imread(target) * 255).round().astype(np.uint8)
+    return {"shape": list(thumb.shape[:2]), "rgba": base64.b64encode(thumb.tobytes()).decode()}
+
+
+def test_thumbnails():
+    data = _colours(40, 60, True)
+    for scale, interpolation in [(0.1, "bilinear"), (0.5, "bilinear"), (0.25, "nearest"),
+                                 (0.3, "hanning"), (2.0, "bicubic")]:
+        probes.probe("image.thumbnail", _thumbnail, data=data, scale=scale,
+                     interpolation=interpolation)

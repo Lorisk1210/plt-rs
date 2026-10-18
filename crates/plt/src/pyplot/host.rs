@@ -1,0 +1,169 @@
+//! What shows pyplot's figures: the window session, the web server, or
+//! nothing, as the backend says.
+
+use std::time::Duration;
+
+use super::backend::Backend;
+use crate::events::GinputOptions;
+use crate::figure::Figure;
+use crate::gui::{GuiError, Session};
+use crate::web::{self, WebOptions, WebServer};
+
+/// A figure to show: its number, the figure and its title.
+pub(super) type Shown = (u32, Figure, String);
+
+/// What stands in for windows that cannot open (matplotlib's backend
+/// fallback). Where plt-rs has a window system (X11), that means a machine
+/// without a display, where matplotlib falls back to `agg` and nothing is
+/// shown; elsewhere (macOS, Windows) the browser plays the part of the
+/// native GUI backends matplotlib would use.
+fn fallback() -> Backend {
+    if cfg!(all(unix, not(target_os = "macos"))) {
+        Backend::Agg
+    } else {
+        Backend::WebAgg
+    }
+}
+
+/// The running backend.
+#[derive(Debug)]
+pub(super) enum Host {
+    /// Figure windows.
+    Windows(Session),
+    /// The web server.
+    Web(WebServer),
+    /// Nothing is displayed.
+    Agg,
+}
+
+impl Host {
+    /// Starts `backend`; returns the host and the backend it runs, which
+    /// is the [`fallback`] when windows were asked for but cannot open and
+    /// `backend_fallback` is on.
+    pub(super) fn start(backend: Backend) -> Result<(Self, Backend), GuiError> {
+        match backend {
+            Backend::Agg => Ok((Self::Agg, Backend::Agg)),
+            Backend::WebAgg => Ok((Self::web()?, Backend::WebAgg)),
+            Backend::Windows => match Session::new() {
+                Ok(session) => Ok((Self::Windows(session), Backend::Windows)),
+                Err(GuiError::Platform(_)) if crate::rc::params().backend_fallback => {
+                    Self::start(fallback())
+                }
+                Err(err) => Err(err),
+            },
+        }
+    }
+
+    /// Starts the web server the `webagg.*` rcParams describe and tells
+    /// the user where it is.
+    fn web() -> Result<Self, GuiError> {
+        let options = WebOptions::from_rc()?;
+        let server = WebServer::bind(&options)?;
+        web::announce(&server, options.open_in_browser);
+        Ok(Self::Web(server))
+    }
+
+    /// Shows the figures not shown yet and redraws the changed ones.
+    pub(super) fn show(&mut self, figures: &[Shown]) -> Result<(), GuiError> {
+        match self {
+            Self::Windows(session) => {
+                let titled: Vec<(Figure, String)> = figures
+                    .iter()
+                    .map(|(_, figure, title)| (figure.clone(), title.clone()))
+                    .collect();
+                session.show(&titled)
+            }
+            Self::Web(server) => figures.iter().try_for_each(|(number, figure, title)| {
+                server
+                    .add_figure_as(*number, figure, title)
+                    .map_err(GuiError::from)
+            }),
+            Self::Agg => Ok(()),
+        }
+    }
+
+    /// Stops showing `figure`.
+    pub(super) fn close(&mut self, figure: &Figure) -> Result<(), GuiError> {
+        match self {
+            Self::Windows(session) => session.close(figure),
+            Self::Web(server) => {
+                server.close(figure);
+                Ok(())
+            }
+            Self::Agg => Ok(()),
+        }
+    }
+
+    /// The figures the user closed since the last call.
+    pub(super) fn take_closed(&mut self) -> Vec<Figure> {
+        match self {
+            Self::Windows(session) => session.take_closed(),
+            Self::Web(server) => server.take_closed(),
+            Self::Agg => Vec::new(),
+        }
+    }
+
+    /// Runs until every shown figure is closed.
+    pub(super) fn run(&mut self) -> Result<(), GuiError> {
+        match self {
+            Self::Windows(session) => session.run(None, || false),
+            Self::Web(server) => {
+                server.run(None, || false);
+                Ok(())
+            }
+            Self::Agg => Ok(()),
+        }
+    }
+
+    /// Keeps the figures responsive for `duration`.
+    pub(super) fn pause(&mut self, duration: Duration) -> Result<(), GuiError> {
+        match self {
+            Self::Windows(session) => session.pause(duration),
+            Self::Web(server) => {
+                server.pause(duration);
+                Ok(())
+            }
+            Self::Agg => {
+                std::thread::sleep(duration);
+                Ok(())
+            }
+        }
+    }
+
+    /// `ginput` in the shown `figure`.
+    pub(super) fn ginput(
+        &mut self,
+        figure: &Figure,
+        n: usize,
+        timeout: Option<Duration>,
+        options: GinputOptions,
+    ) -> Result<Vec<(f64, f64)>, GuiError> {
+        match self {
+            Self::Windows(session) => session.ginput(figure, n, timeout, options),
+            Self::Web(server) => Ok(server.ginput(figure, n, timeout, options)),
+            Self::Agg => Ok(Vec::new()),
+        }
+    }
+
+    /// `waitforbuttonpress` in the shown `figure`.
+    pub(super) fn wait_for_button_press(
+        &mut self,
+        figure: &Figure,
+        timeout: Option<Duration>,
+    ) -> Result<Option<bool>, GuiError> {
+        match self {
+            Self::Windows(session) => session.wait_for_button_press(figure, timeout),
+            Self::Web(server) => Ok(server.wait_for_button_press(figure, timeout)),
+            Self::Agg => Ok(None),
+        }
+    }
+
+    /// Opens the subplot configuration tool of `figure`'s window; the web
+    /// and non-interactive backends have none.
+    pub(super) fn configure_subplots(&mut self, figure: &Figure) -> Result<(), GuiError> {
+        match self {
+            Self::Windows(session) => session.configure_subplots(figure),
+            Self::Web(_) | Self::Agg => Err(GuiError::NotShown),
+        }
+    }
+}

@@ -9,7 +9,7 @@ use crate::rc::RcParams;
 /// What a key press asks a figure window to do (matplotlib's
 /// `key_press_handler`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) enum KeyAction {
+pub(crate) enum KeyAction {
     /// Toggle full screen (`keymap.fullscreen`).
     Fullscreen,
     /// Restore the original view (`keymap.home`).
@@ -86,7 +86,7 @@ pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
 }
 
 /// The action bound to key `name` under `rc`.
-pub(super) fn action(name: &str, rc: &RcParams) -> Option<KeyAction> {
+pub(crate) fn action(name: &str, rc: &RcParams) -> Option<KeyAction> {
     [
         (&rc.keymap_fullscreen, KeyAction::Fullscreen),
         (&rc.keymap_home, KeyAction::Home),

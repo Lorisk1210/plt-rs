@@ -5,73 +5,88 @@
 use std::cell::RefCell;
 use std::time::Duration;
 
+use super::backend::{get_backend, record_backend};
+use super::host::{Host, Shown};
 use super::registry::{gcf, get_fignums, with_registry};
 use crate::events::{ConnectionId, Event, EventKind};
 use crate::figure::Figure;
-use crate::gui::{GinputOptions, GuiError, Session};
+use crate::gui::{GinputOptions, GuiError};
 
 thread_local! {
-    /// The windows of the figures, once shown.
-    static SESSION: RefCell<Option<Session>> = const { RefCell::new(None) };
+    /// What shows the figures, once started.
+    static SESSION: RefCell<Option<Host>> = const { RefCell::new(None) };
 }
 
-/// Shows every open figure in the thread's window session (started on
-/// first use), runs `f` with it, then closes the figures whose windows
-/// were closed. The session is not borrowed while `f` runs, so figure
-/// callbacks may use pyplot.
-fn with_session<R>(f: impl FnOnce(&mut Session) -> Result<R, GuiError>) -> Result<R, GuiError> {
+/// Shows every open figure with the thread's backend (started on first
+/// use), runs `f` with it, then closes the figures the user closed. The
+/// host is not borrowed while `f` runs, so figure callbacks may use
+/// pyplot.
+fn with_session<R>(f: impl FnOnce(&mut Host) -> Result<R, GuiError>) -> Result<R, GuiError> {
     let stored = SESSION.with(|session| session.borrow_mut().take());
-    let mut session = match stored {
-        Some(session) => session,
-        None => Session::new()?,
+    let mut host = if let Some(host) = stored {
+        host
+    } else {
+        let (host, backend) = Host::start(get_backend())?;
+        record_backend(backend);
+        host
     };
-    let figures: Vec<(Figure, String)> = with_registry(|registry| {
+    let figures: Vec<Shown> = with_registry(|registry| {
         registry
             .figures
             .iter()
-            .map(|entry| (entry.figure.clone(), entry.title()))
+            .map(|entry| (entry.num, entry.figure.clone(), entry.title()))
             .collect()
     });
-    let result = session.show(&figures).and_then(|()| f(&mut session));
-    let closed = session.take_closed();
+    let result = host.show(&figures).and_then(|()| f(&mut host));
+    let closed = host.take_closed();
     with_registry(|registry| registry.remove_where(|entry| closed.contains(&entry.figure)));
-    SESSION.with(|stored| *stored.borrow_mut() = Some(session));
+    SESSION.with(|stored| *stored.borrow_mut() = Some(host));
     result
 }
 
+/// Stops showing the figures: their windows close, or the web server
+/// stops (for [`switch_backend`](super::switch_backend)).
+pub(super) fn forget_session() {
+    let stopped = SESSION.with(|session| session.borrow_mut().take());
+    drop(stopped);
+}
+
 /// In interactive mode, shows new figures and redraws changed ones
-/// (matplotlib's `draw_if_interactive`). Best effort: without a window
-/// system nothing is shown, and `show` or `pause` report why.
+/// (matplotlib's `draw_if_interactive`). Best effort: when the backend
+/// cannot start, nothing is shown, and `show` or `pause` report why.
 pub fn draw_if_interactive() {
     if isinteractive() {
         let _ = with_session(|_| Ok(()));
     }
 }
 
-/// Closes the windows of `figures`. Best effort: a window system that
-/// fails here takes the windows with it.
+/// Stops showing `figures`. Best effort: a window system that fails here
+/// takes the windows with it.
 pub(super) fn close_windows(figures: &[Figure]) {
     SESSION.with(|session| {
-        if let Some(session) = session.borrow_mut().as_mut() {
+        if let Some(host) = session.borrow_mut().as_mut() {
             for figure in figures {
-                let _ = session.close(figure);
+                let _ = host.close(figure);
             }
         }
     });
 }
 
-/// Shows every open figure in a window (matplotlib's `show()`): outside
-/// interactive mode it returns once all windows are closed, closing their
-/// figures; in interactive mode it returns at once.
+/// Shows every open figure with the backend ([`get_backend`]; matplotlib's
+/// `show()`): in a window each, or on web pages whose address is printed.
+/// Outside interactive mode it returns once all windows (or pages, with
+/// `q`) are closed, closing their figures; in interactive mode it returns
+/// at once.
 ///
 /// # Errors
 ///
-/// When there is no window system or a window fails.
+/// When the backend cannot start (no window system and no fallback, or a
+/// busy web port) or a window fails.
 pub fn show() -> Result<(), GuiError> {
     if isinteractive() {
         return with_session(|_| Ok(()));
     }
-    with_session(|session| session.run(None, || false))
+    with_session(Host::run)
 }
 
 /// Turns interactive mode on (matplotlib's `ion`): new figures open their
@@ -90,7 +105,8 @@ pub fn isinteractive() -> bool {
     with_registry(|registry| registry.interactive)
 }
 
-/// Redraws the shown figures that changed (matplotlib's `draw`).
+/// Redraws the shown figures that changed (matplotlib's `draw`); web
+/// pages update while the server runs.
 ///
 /// # Errors
 ///
@@ -104,24 +120,25 @@ pub fn draw() -> Result<(), GuiError> {
     }
 }
 
-/// Shows the figures and keeps their windows responsive for `seconds`;
-/// without figures it just sleeps (matplotlib's `pause`).
+/// Shows the figures and keeps their windows (or web pages) responsive for
+/// `seconds`; without figures it just sleeps (matplotlib's `pause`).
 ///
 /// # Errors
 ///
-/// When there is no window system or a window fails.
+/// When the backend cannot start or a window fails.
 pub fn pause(seconds: f64) -> Result<(), GuiError> {
     let duration = Duration::try_from_secs_f64(seconds).unwrap_or(Duration::ZERO);
     if get_fignums().is_empty() {
         std::thread::sleep(duration);
         return Ok(());
     }
-    with_session(|session| session.pause(duration))
+    with_session(|host| host.pause(duration))
 }
 
 /// Waits for up to `n` clicks in the current figure (all until stopped
 /// when `n` is 0) for at most `timeout`, and returns their data
-/// coordinates (matplotlib's `ginput`; see [`Session::ginput`]).
+/// coordinates (matplotlib's `ginput`; see
+/// [`Session::ginput`](crate::gui::Session::ginput)).
 ///
 /// # Errors
 ///
@@ -132,7 +149,7 @@ pub fn ginput(
     options: GinputOptions,
 ) -> Result<Vec<(f64, f64)>, GuiError> {
     let figure = gcf();
-    with_session(|session| session.ginput(&figure, n, timeout, options))
+    with_session(|host| host.ginput(&figure, n, timeout, options))
 }
 
 /// Waits for a key press (`Some(true)`), a click (`Some(false)`) in the
@@ -144,7 +161,7 @@ pub fn ginput(
 /// When there is no window system or a window fails.
 pub fn waitforbuttonpress(timeout: Option<Duration>) -> Result<Option<bool>, GuiError> {
     let figure = gcf();
-    with_session(|session| session.wait_for_button_press(&figure, timeout))
+    with_session(|host| host.wait_for_button_press(&figure, timeout))
 }
 
 /// Opens the subplot configuration tool for `targetfig`, by default the
@@ -164,10 +181,11 @@ pub fn waitforbuttonpress(timeout: Option<Duration>) -> Result<Option<bool>, Gui
 /// # Errors
 ///
 /// When there is no window system, a window fails, or `targetfig` is not
-/// a pyplot figure, which has no window ([`GuiError::NotShown`]).
+/// a pyplot figure, which has no window ([`GuiError::NotShown`], also
+/// with the web and non-interactive backends).
 pub fn subplot_tool(targetfig: Option<&Figure>) -> Result<(), GuiError> {
     let figure = targetfig.cloned().unwrap_or_else(gcf);
-    with_session(|session| session.configure_subplots(&figure))
+    with_session(|host| host.configure_subplots(&figure))
 }
 
 /// Calls `callback` on every event of `kind` in the current figure

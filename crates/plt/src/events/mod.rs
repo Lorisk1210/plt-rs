@@ -30,7 +30,8 @@
 //!
 //! [`Figure::add_timer`](crate::figure::Figure::add_timer) calls back
 //! periodically while the figure is shown
-//! (the basis of [`crate::animation`]).
+//! (the basis of [`crate::animation`]). [`GinputOptions`] configures
+//! pyplot's `ginput`, which waits for clicks in a shown figure.
 //!
 //! Interactive tools share the pointer through the figure's widget lock
 //! ([`Figure::lock_widgets`](crate::figure::Figure::lock_widgets)) and ask
@@ -47,6 +48,7 @@ mod pick;
 mod registry;
 mod source;
 mod timers;
+pub(crate) mod wait;
 
 use crate::axes::Axes;
 use crate::navigation::PointerButton;
@@ -58,6 +60,7 @@ pub use registry::ConnectionId;
 pub use source::EventSource;
 pub use timers::TimerKey;
 pub(crate) use timers::TimerRegistry;
+pub use wait::GinputOptions;
 
 /// What an event is about (matplotlib's event names).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

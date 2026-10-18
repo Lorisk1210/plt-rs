@@ -58,19 +58,28 @@
 //! and keys in them; [`subplot_tool`] opens the sliders adjusting the
 //! subplot layout of a figure.
 //!
+//! The backend decides how figures are shown ([`switch_backend`],
+//! [`get_backend`], or the `MPLBACKEND` environment variable with
+//! matplotlib's backend names): plt-rs's windows ([`Backend::Windows`]);
+//! a web browser ([`Backend::WebAgg`], matplotlib's `webagg`, which the
+//! windows fall back to without a window system); or nothing
+//! ([`Backend::Agg`]).
+//!
 //! matplotlib's introspection helpers (`setp`, `getp`, `get`,
-//! `get_plot_commands`) and its backend machinery (`switch_backend`,
-//! `new_figure_manager`, `get_current_fig_manager`, the REPL display
+//! `get_plot_commands`) and the rest of its backend machinery
+//! (`new_figure_manager`, `get_current_fig_manager`, the REPL display
 //! hooks, `set_loglevel`) have no counterpart: Rust's types and the
 //! window session take their place.
 //!
 //! [`Axes`]: crate::axes::Axes
 //! [`Figure`]: crate::figure::Figure
 
+mod backend;
 mod config;
 mod decorations;
 mod error;
 mod fields;
+mod host;
 mod images;
 mod interactive;
 mod layout;
@@ -81,6 +90,7 @@ mod spectral;
 mod stats;
 mod subplots;
 
+pub use backend::*;
 pub use config::*;
 pub use decorations::*;
 pub use error::PyplotError;

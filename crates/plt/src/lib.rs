@@ -68,7 +68,8 @@
 //!   and GIF files, HTML players and (through ffmpeg) videos.
 //! * [`navigation`] — interactive pan, zoom and view history, independent
 //!   of any window system; [`gui`] shows figures in windows with a
-//!   toolbar ([`gui::show`]).
+//!   toolbar ([`gui::show`]), and [`web`] in a web browser, like
+//!   matplotlib's `WebAgg` backend ([`web::serve`]).
 //! * [`layout`] — layout engines (constrained and tight layout) placing
 //!   the axes so that their decorations fit, and aligned labels.
 //! * [`inset`] — rectangles marking the area an inset axes enlarges.
@@ -138,4 +139,5 @@ pub mod ticker;
 pub mod transforms;
 pub mod tri;
 pub mod units;
+pub mod web;
 pub mod widgets;

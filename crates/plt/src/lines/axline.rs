@@ -2,7 +2,7 @@
 
 use plt_core::{Bbox, Path, Point};
 
-use crate::artist::{ArtistId, DrawContext};
+use crate::artist::{ArtistId, LayoutContext};
 use crate::transforms::ResolvedTransform;
 
 /// What fixes an infinite line besides its first point.
@@ -27,12 +27,12 @@ impl InfiniteLine {
     /// image of scaled data space, so straight lines stay straight.
     pub(crate) fn display_segment(
         &self,
-        ctx: &DrawContext<'_>,
+        layout: LayoutContext<'_>,
         resolved: &ResolvedTransform,
         axes: Option<ArtistId>,
     ) -> Result<Path, String> {
         let view = axes
-            .and_then(|axes| ctx.layout().axes_extent(axes))
+            .and_then(|axes| layout.axes_extent(axes))
             .ok_or("an infinite line needs an axes")?;
         let (p1, p2) = match self.through {
             AxLineThrough::Point(xy2) => (

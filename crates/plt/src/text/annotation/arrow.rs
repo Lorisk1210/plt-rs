@@ -1,6 +1,6 @@
 //! The arrow of an annotation (matplotlib's `arrowprops`).
 
-use plt_core::{Bbox, Point};
+use plt_core::{Bbox, Path, Point};
 
 use crate::artist::{ArtistBase, DrawContext, LayoutContext};
 use crate::patches::{
@@ -237,6 +237,29 @@ impl AnnotationArrow {
         let linewidth = self.style.linewidth.unwrap_or(rc.patch_linewidth);
         let path = spec.route(begin, end, dpi_cor)?;
         spec.display_paths(&path, dpi_cor, linewidth)
+    }
+
+    /// Whether display point `at` lies in a piece of the arrow, within the
+    /// edge width when the edge is visible (`FancyArrowPatch.contains`).
+    pub(crate) fn contains(
+        &self,
+        layout: LayoutContext<'_>,
+        rc: &RcParams,
+        target: ArrowTarget,
+        at: Point,
+    ) -> bool {
+        let (Ok(paths), Ok(resolved)) = (
+            self.display_paths(layout, rc, target),
+            self.style.resolve(rc, self.alpha, true),
+        ) else {
+            return false;
+        };
+        let displayed: Vec<Path> = paths.iter().map(DisplayPath::to_display).collect();
+        ClipRegion {
+            path: Path::compound(&displayed),
+            radius: resolved.hit_radius(),
+        }
+        .contains(at)
     }
 
     /// Draws the arrow (never clipped, like matplotlib's arrow patch,

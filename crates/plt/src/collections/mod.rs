@@ -160,6 +160,9 @@ pub(crate) struct CollectionArtist {
     pub(crate) capstyle: Option<CapStyle>,
     pub(crate) joinstyle: Option<JoinStyle>,
     pub(crate) mapping: Option<Mapped>,
+    /// How far from an item's outline, in pixels, a pick still hits it; a
+    /// pick must fall inside an item when it is not positive.
+    pickradius: f64,
     /// The vertex grid of a quad mesh, drawn as a mesh.
     mesh: Option<MeshGeometry>,
     /// Replaces `paths` and the artist transform when drawing.
@@ -195,6 +198,7 @@ impl CollectionArtist {
             capstyle: None,
             joinstyle: None,
             mapping: None,
+            pickradius: 5.0,
             mesh: None,
             draw_time: None,
             rc,
@@ -320,6 +324,25 @@ impl Artist for CollectionArtist {
         }
         Some(Bbox::from_points(offsets))
     }
+
+    /// matplotlib's `Collection.contains`: the items whose outline passes
+    /// within the pick radius of `at`, or that enclose it when the radius
+    /// is not positive.
+    fn pick_hit(
+        &self,
+        ctx: &LayoutContext<'_>,
+        at: Point,
+        radius: Option<f64>,
+    ) -> Option<Vec<usize>> {
+        if !self.base.visible {
+            return None;
+        }
+        let radius = radius.unwrap_or(self.pickradius);
+        let (shapes, transform) = self.current_shapes(*ctx).ok()?;
+        let geometry = draw::Geometry::new(self, *ctx, &shapes, &transform).ok()?;
+        let hits = geometry.hits(at, radius, radius <= 0.0);
+        (!hits.is_empty()).then_some(hits)
+    }
 }
 
 /// A handle to a collection (matplotlib's `Collection` subclasses).
@@ -389,6 +412,18 @@ impl Collection {
     /// Sets the cap style of every edge.
     pub fn set_capstyle(&self, capstyle: CapStyle) -> &Self {
         self.update(|c| c.capstyle = Some(capstyle))
+    }
+
+    /// Sets how far from an item's outline, in pixels, a pick still hits
+    /// it (matplotlib's `set_pickradius`); when not positive, a pick must
+    /// fall inside an item.
+    pub fn set_pickradius(&self, pickradius: f64) -> &Self {
+        self.update(|c| c.pickradius = pickradius)
+    }
+
+    /// The pick radius in pixels.
+    pub fn pickradius(&self) -> f64 {
+        self.raw.with::<CollectionArtist, _>(|c| c.pickradius)
     }
 
     /// Sets a hatch pattern for every item.

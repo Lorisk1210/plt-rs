@@ -185,6 +185,25 @@ impl AnnotationState {
         text.draw_at(ctx, anchor)
     }
 
+    /// Whether display point `at` hits the text or the arrow of a shown
+    /// annotation (`Annotation.contains`).
+    pub(crate) fn contains(&self, text: &TextArtist, layout: LayoutContext<'_>, at: Point) -> bool {
+        let Ok(point) = self.point(text, layout) else {
+            return false;
+        };
+        if !self.shown(text, layout, point) {
+            return false;
+        }
+        let Ok(anchor) = self.anchor(text, layout, point) else {
+            return false;
+        };
+        text.contains_at(layout, anchor, at)
+            || self.arrow.as_ref().is_some_and(|arrow| {
+                Self::target(text, layout, point, anchor)
+                    .is_ok_and(|target| arrow.contains(layout, &text.rc, target, at))
+            })
+    }
+
     /// The extent of the text and arrow (`Annotation.get_window_extent`;
     /// the unit box when the annotation is hidden).
     pub(crate) fn extent(

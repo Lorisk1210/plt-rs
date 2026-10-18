@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use plt_core::{Bbox, Path, Rgba};
+use plt_core::{Bbox, Path, Point, Rgba};
 use plt_render::JoinStyle;
 
 use super::DataLimits;
@@ -563,6 +563,11 @@ impl Artist for AxesState {
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         ctx.axes_extent(self.base.id())
+    }
+
+    /// matplotlib's `Axes.contains`: over the background patch.
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        ctx.axes_contains(self.base.id(), point)
     }
 }
 

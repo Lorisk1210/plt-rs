@@ -218,6 +218,25 @@ impl TextArtist {
         Ok(laid_out.block.bbox.translated(anchor.x, anchor.y))
     }
 
+    /// Whether display point `at` falls in the text's extent or on its box
+    /// when the text is anchored at `anchor` (`Text.contains`; hidden
+    /// texts are never hit).
+    pub(crate) fn contains_at(&self, ctx: LayoutContext<'_>, anchor: Point, at: Point) -> bool {
+        if !self.base.visible {
+            return false;
+        }
+        let in_text = self
+            .extent_at(ctx, anchor)
+            .is_ok_and(|extent| extent.contains(at));
+        in_text
+            || self
+                .box_placement(ctx, anchor)
+                .ok()
+                .flatten()
+                .and_then(|(bbox, placement)| bbox.clip_region(&self.rc, &placement).ok())
+                .is_some_and(|region| region.contains(at))
+    }
+
     /// The box and where it goes for the text anchored at `anchor`
     /// (`update_bbox_position_size`).
     pub(crate) fn box_placement(
@@ -302,6 +321,17 @@ impl Artist for TextArtist {
         match &self.annotation {
             Some(annotation) => annotation.extent(self, *ctx).ok(),
             None => self.extent_at(*ctx, self.anchor(*ctx)?).ok(),
+        }
+    }
+
+    /// matplotlib's `Text.contains` (and `Annotation.contains`, which adds
+    /// the arrow).
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        match &self.annotation {
+            Some(annotation) => annotation.contains(self, *ctx, point),
+            None => self
+                .anchor(*ctx)
+                .is_some_and(|anchor| self.contains_at(*ctx, anchor, point)),
         }
     }
 }

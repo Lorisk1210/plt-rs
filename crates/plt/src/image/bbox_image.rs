@@ -1,7 +1,7 @@
 //! Images stretched over a box of the canvas (matplotlib's `BboxImage`),
 //! as offset boxes draw them.
 
-use plt_core::{Affine2D, Bbox};
+use plt_core::{Affine2D, Bbox, Point};
 
 use super::artist::{canvas_bbox, draw_rendered};
 use super::make::{CoreSettings, ImageCore, Placement};
@@ -120,5 +120,10 @@ impl Artist for BboxImageArtist {
 
     fn window_extent(&self, _ctx: &LayoutContext<'_>) -> Option<Bbox> {
         self.bbox
+    }
+
+    /// matplotlib's `BboxImage.contains`: a shown image's box.
+    fn contains(&self, _ctx: &LayoutContext<'_>, point: Point) -> bool {
+        self.base.visible && self.bbox.is_some_and(|bbox| bbox.contains(point))
     }
 }

@@ -16,6 +16,7 @@ pub(crate) mod lightsource;
 pub(crate) mod markers;
 pub(crate) mod norms;
 pub(crate) mod path;
+pub(crate) mod pick;
 pub(crate) mod scales;
 pub(crate) mod stats;
 pub(crate) mod text_metrics;

@@ -12,6 +12,7 @@
 mod base;
 mod context;
 mod handle;
+mod pick;
 #[macro_use]
 mod properties;
 mod store;
@@ -28,6 +29,8 @@ pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
 pub use context::{DrawContext, DrawError, LayoutContext};
 pub use handle::{ArtistHandle, RawHandle};
+pub(crate) use pick::segment_hits;
+pub use pick::{PickFn, Picker};
 pub use properties::BaseProps;
 pub use store::{ArtistId, ArtistStore};
 
@@ -64,6 +67,18 @@ pub trait Artist: Any + Debug {
     /// Whether a display-space point hits the artist (for picking).
     fn contains(&self, _ctx: &LayoutContext<'_>, _point: Point) -> bool {
         false
+    }
+
+    /// Whether display point `at` picks the artist, and which of its items
+    /// (matplotlib's `contains` as `Artist.pick` asks it): `radius` is the
+    /// tolerance a [`Picker::Radius`] gives. `None` when the pointer misses.
+    fn pick_hit(
+        &self,
+        ctx: &LayoutContext<'_>,
+        at: Point,
+        _radius: Option<f64>,
+    ) -> Option<Vec<usize>> {
+        self.contains(ctx, at).then(Vec::new)
     }
 
     /// The artist as a patch, whatever its shape (matplotlib's

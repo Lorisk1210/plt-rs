@@ -3,7 +3,7 @@
 use plt_core::Path;
 use plt_render::Sketch;
 
-use super::ArtistId;
+use super::{ArtistId, Picker};
 use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -63,6 +63,8 @@ pub struct ArtistBase {
     pub gid: Option<String>,
     /// Hyperlink for vector output.
     pub url: Option<String>,
+    /// How mouse presses pick the artist; `None` leaves it unpickable.
+    pub picker: Option<Picker>,
     /// Values autoscaling must not expand past (`x`, `y`).
     pub sticky_edges: (Vec<f64>, Vec<f64>),
     /// The containing artist (axes, figure, legend, ...).
@@ -139,6 +141,7 @@ impl Default for ArtistBase {
             path_effects: rc.path_effects.clone(),
             gid: None,
             url: None,
+            picker: None,
             sticky_edges: (Vec::new(), Vec::new()),
             parent: None,
             id: None,

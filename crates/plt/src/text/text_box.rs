@@ -168,14 +168,9 @@ impl TextBox {
         let resolved = self
             .style
             .resolve(rc, self.alpha, FancyBboxPatch::EDGE_DEFAULT)?;
-        let radius = if resolved.edge.a == 0.0 {
-            0.0
-        } else {
-            resolved.linewidth
-        };
         Ok(ClipRegion {
             path: shape.path().transformed(&transform),
-            radius,
+            radius: resolved.hit_radius(),
         })
     }
 }

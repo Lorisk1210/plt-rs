@@ -10,40 +10,36 @@ use crate::artist::{Artist, ArtistId, DrawContext, LayoutContext};
 use crate::axes::AxesState;
 use crate::transforms::Transform;
 
-/// A collection resolved for one draw: shapes after the non-affine part
-/// of the transform, offsets in display space and per-item styles.
-struct Batch {
+/// Where a collection's items are for one draw: the shapes after the
+/// non-affine part of the transform, its affine rest, the per-item shape
+/// transforms and the offsets in display space.
+pub(super) struct Geometry {
     paths: Vec<Path>,
     master: Affine2D,
     transforms: Vec<Affine2D>,
     offsets: Vec<Point>,
-    faces: Vec<Rgba>,
-    edges: Vec<Rgba>,
-    widths: Vec<f64>,
-    dashes: Vec<Dashes>,
-    antialiased: Vec<bool>,
 }
 
-impl Batch {
-    fn new(
+impl Geometry {
+    pub(super) fn new(
         c: &CollectionArtist,
-        ctx: &DrawContext<'_>,
+        layout: LayoutContext<'_>,
         shapes: &[Path],
         transform: &Transform,
     ) -> Result<Self, String> {
-        let resolved = ctx
+        let resolved = layout
             .resolve(transform)
             .ok_or("its coordinate system no longer exists")?;
         let paths = shapes
             .iter()
             .map(|p| resolved.split_path(p).0.into_owned())
             .collect();
-        let dpi = ctx.layout().dpi();
+        let dpi = layout.dpi();
         let mut master = resolved.affine_part();
         let transforms = match (&c.ellipses, &c.sizes) {
             (Some(ellipses), _) => {
                 let axes = c.base().parent;
-                let scales = ellipse_scales(ellipses.units, *ctx.layout(), axes)
+                let scales = ellipse_scales(ellipses.units, layout, axes)
                     .ok_or("its axes no longer exist")?;
                 if let Some(data) = scales.data {
                     master = data;
@@ -66,13 +62,74 @@ impl Batch {
         };
         let offsets = match &c.offset_transform {
             Some(t) => {
-                let r = ctx
+                let r = layout
                     .resolve(t)
                     .ok_or("its offset coordinate system no longer exists")?;
                 c.offsets.iter().map(|&p| r.transform_point(p)).collect()
             }
             None => vec![Point::ORIGIN],
         };
+        Ok(Self {
+            paths,
+            master,
+            transforms,
+            offsets,
+        })
+    }
+
+    /// The items within `radius` pixels of display point `at` — on their
+    /// outline stroked `2 * radius` wide, or inside them when `filled`
+    /// (matplotlib's `point_in_path_collection`).
+    pub(super) fn hits(&self, at: Point, radius: f64, filled: bool) -> Vec<usize> {
+        if self.paths.is_empty() {
+            return Vec::new();
+        }
+        let count = self.paths.len().max(self.offsets.len());
+        (0..count)
+            .filter(|&i| {
+                let path = &self.paths[i % self.paths.len()];
+                let offset = self.offsets[i % self.offsets.len()];
+                let transform = cycled(&self.transforms, i)
+                    .copied()
+                    .unwrap_or_default()
+                    .then(self.master)
+                    .then(Affine2D::translation(offset.x, offset.y));
+                if filled {
+                    path.contains_point(at, Some(&transform), radius)
+                } else {
+                    path.stroke_contains_point(at, &transform, radius)
+                }
+            })
+            .collect()
+    }
+}
+
+/// A collection resolved for one draw: its geometry and per-item styles.
+struct Batch {
+    paths: Vec<Path>,
+    master: Affine2D,
+    transforms: Vec<Affine2D>,
+    offsets: Vec<Point>,
+    faces: Vec<Rgba>,
+    edges: Vec<Rgba>,
+    widths: Vec<f64>,
+    dashes: Vec<Dashes>,
+    antialiased: Vec<bool>,
+}
+
+impl Batch {
+    fn new(
+        c: &CollectionArtist,
+        ctx: &DrawContext<'_>,
+        shapes: &[Path],
+        transform: &Transform,
+    ) -> Result<Self, String> {
+        let Geometry {
+            paths,
+            master,
+            transforms,
+            offsets,
+        } = Geometry::new(c, *ctx.layout(), shapes, transform)?;
         let (faces, edges) = resolve_colors(c)?;
         let rc = c.rc();
         let line_defaults = c.kind == CollectionKind::Line;

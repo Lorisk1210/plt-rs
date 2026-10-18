@@ -43,6 +43,7 @@
 //! enter/leave events as the pointer moves.
 
 mod lock;
+mod pick;
 mod registry;
 mod source;
 mod timers;
@@ -51,6 +52,7 @@ use crate::axes::Axes;
 use crate::navigation::PointerButton;
 
 pub use lock::{CursorShape, LockError, LockOwner};
+pub use pick::PickEvent;
 pub(crate) use registry::CallbackRegistry;
 pub use registry::ConnectionId;
 pub use source::EventSource;
@@ -84,6 +86,8 @@ pub enum EventKind {
     Resize,
     /// The figure's window is closing (`close_event`).
     Close,
+    /// A press or scroll picked an artist (`pick_event`).
+    Pick,
 }
 
 /// Where the pointer is (matplotlib's `LocationEvent` attributes); an
@@ -159,6 +163,8 @@ pub enum Event {
     },
     /// The figure's window is closing.
     Close,
+    /// A press or scroll picked an artist that has a picker.
+    Pick(PickEvent),
 }
 
 impl Event {
@@ -177,6 +183,7 @@ impl Event {
             Self::FigureLeave => EventKind::FigureLeave,
             Self::Resize { .. } => EventKind::Resize,
             Self::Close => EventKind::Close,
+            Self::Pick(_) => EventKind::Pick,
         }
     }
 
@@ -186,7 +193,8 @@ impl Event {
             Self::ButtonPress(mouse)
             | Self::ButtonRelease(mouse)
             | Self::Motion(mouse)
-            | Self::Scroll(mouse) => Some(&mouse.location),
+            | Self::Scroll(mouse)
+            | Self::Pick(PickEvent { mouse, .. }) => Some(&mouse.location),
             Self::KeyPress(key) | Self::KeyRelease(key) => Some(&key.location),
             Self::AxesEnter(location) | Self::AxesLeave(location) | Self::FigureEnter(location) => {
                 Some(location)

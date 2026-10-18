@@ -6,22 +6,22 @@ use std::f64::consts::{PI, TAU};
 
 use plt_core::{Bbox, Point};
 
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, LayoutContext};
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::figure::{Figure, FigureState};
 use crate::ticker::{ScalarFormatter, TickContext, g_sig_digits, pyfmt};
 use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// The axes under display point `at`: the visible axes whose background
-/// contains it, the highest z-order first and, among equals, the first
-/// created (matplotlib's `canvas.inaxes`).
+/// contains it, the highest z-order first and, among equals, the last
+/// created, which is drawn on top (matplotlib's `canvas.inaxes`).
 pub fn axes_at(figure: &Figure, at: Point) -> Option<Axes> {
     figure
         .axes()
         .into_iter()
         .filter(|ax| ax.visible() && contains(ax, at))
         .fold(None, |best: Option<Axes>, ax| match best {
-            Some(best) if best.zorder() >= ax.zorder() => Some(best),
+            Some(best) if best.zorder() > ax.zorder() => Some(best),
             _ => Some(ax),
         })
 }
@@ -41,14 +41,7 @@ pub(super) fn contains(ax: &Axes, at: Point) -> bool {
     let figure = ax.raw().figure_state();
     let mut state = figure.borrow_mut();
     state.prepare();
-    if let Some(outline) = state.axes_outline(ax.id()) {
-        return outline
-            .path
-            .contains_point(at, Some(&outline.transform), 0.0);
-    }
-    state
-        .axes_bbox(ax.id())
-        .is_some_and(|bbox| bbox.contains(at))
+    LayoutContext::new(&state).axes_contains(ax.id(), at)
 }
 
 /// The display box of `ax`, brought up to date.
@@ -183,8 +176,17 @@ mod tests {
         let fig = Figure::new();
         let grid = fig.subplots(1, 2).unwrap();
         let right = grid[(0, 1)].clone();
-        assert_eq!(axes_at(&fig, display(&right, 0.5, 0.5)), Some(right));
+        assert_eq!(
+            axes_at(&fig, display(&right, 0.5, 0.5)),
+            Some(right.clone())
+        );
         assert_eq!(axes_at(&fig, Point::new(1.0, 1.0)), None);
+        let twin = right.twinx();
+        assert_eq!(
+            axes_at(&fig, display(&right, 0.5, 0.5)),
+            Some(twin),
+            "the twin is drawn on top"
+        );
     }
 
     #[test]

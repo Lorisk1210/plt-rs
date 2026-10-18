@@ -122,10 +122,18 @@ impl Epoch {
 static EPOCH: Mutex<Option<Epoch>> = Mutex::new(None);
 
 /// The epoch used by the module-level conversions (`dates.get_epoch`);
-/// reading it latches the default if none was set.
+/// reading it latches `date.epoch` if none was set.
 pub fn get_epoch() -> Epoch {
     let mut epoch = EPOCH.lock().unwrap_or_else(PoisonError::into_inner);
-    epoch.get_or_insert_with(Epoch::default).clone()
+    epoch
+        .get_or_insert_with(|| rc_epoch(&crate::rc::params().date_epoch))
+        .clone()
+}
+
+/// The epoch an rc `date.epoch` value names, or the default when it does
+/// not parse.
+fn rc_epoch(text: &str) -> Epoch {
+    Epoch::parse(text).unwrap_or_default()
 }
 
 /// Sets the epoch (`dates.set_epoch`); fails once the epoch has been used.
@@ -311,6 +319,12 @@ mod tests {
             assert_eq!(zoned.strftime("%Z"), name);
             assert_eq!(epoch.date2num(zoned.to_utc().unwrap()), x);
         }
+    }
+
+    #[test]
+    fn epochs_come_from_the_rc_value() {
+        assert_eq!(rc_epoch("2000-01-01T00:00:00").text, "2000-01-01T00:00:00");
+        assert_eq!(rc_epoch("not a date"), Epoch::default());
     }
 
     #[test]

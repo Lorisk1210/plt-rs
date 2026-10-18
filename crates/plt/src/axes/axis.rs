@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use super::ticks::{Sides, TickStyle};
 use crate::colors::Color;
-use crate::dates::{AutoDateFormatter, AutoDateLocator};
+use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter};
 use crate::fonts::FontProperties;
 use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
@@ -360,12 +360,20 @@ impl AxisState {
         let names = match values {
             AxisValues::Numbers(values) => return values,
             AxisValues::Dates(numbers) => {
-                // matplotlib's DateConverter.axisinfo.
+                // matplotlib's DateConverter (or ConciseDateConverter, as
+                // `date.converter` says) axisinfo.
+                let rc = crate::rc::params();
+                let locator =
+                    || AutoDateLocator::new().with_interval_multiples(rc.date_interval_multiples);
                 if self.default_major.0 {
-                    self.major_locator = self.for_role(Rc::new(AutoDateLocator::new()));
+                    self.major_locator = self.for_role(Rc::new(locator()));
                 }
                 if self.default_major.1 {
-                    self.major_formatter = Rc::new(AutoDateFormatter::new(AutoDateLocator::new()));
+                    self.major_formatter = if rc.date_converter == "concise" {
+                        Rc::new(ConciseDateFormatter::new())
+                    } else {
+                        Rc::new(AutoDateFormatter::new(locator()))
+                    };
                 }
                 return numbers;
             }
@@ -504,6 +512,24 @@ mod tests {
             length_points: 357.12,
             tick_floor: None,
         }
+    }
+
+    #[test]
+    fn date_axes_follow_the_date_converter() {
+        let formatter = |converter: &str| {
+            crate::rc::context(|| {
+                crate::rc::set("date.converter", converter).unwrap();
+                let mut axis = AxisState::new(AxisName::X, &RcParams::matplotlib());
+                axis.convert_units(AxisValues::Dates(vec![18_262.0, 18_300.0]));
+                let formatter: &dyn std::any::Any = axis.major_formatter.as_ref();
+                (
+                    formatter.is::<ConciseDateFormatter>(),
+                    formatter.is::<AutoDateFormatter>(),
+                )
+            })
+        };
+        assert_eq!(formatter("auto"), (false, true));
+        assert_eq!(formatter("concise"), (true, false));
     }
 
     #[test]

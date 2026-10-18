@@ -62,6 +62,19 @@ plt::show()?;
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
   lasso and polygon selectors.
 
+## Gallery
+
+`crates/plt/examples/gallery/` holds short, commented examples grouped
+like matplotlib's gallery: lines and areas, bars, statistics, images and
+fields, text and annotations, layout, projections (polar, geographic,
+3-D) and style sheets.
+
+```sh
+cargo run -p plt --example gallery -- target/gallery
+```
+
+writes every figure as a PNG with an `index.html` showing them all.
+
 ## Crates
 
 | crate          | responsibility                                                    |

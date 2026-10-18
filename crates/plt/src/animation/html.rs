@@ -75,6 +75,22 @@ impl FuncAnimation {
         Ok(self.page(&embedded_frames(&frames, format), frames.len(), *options))
     }
 
+    /// The animation's representation in a notebook, as
+    /// `animation.html` selects it (matplotlib's `_repr_html_`): an HTML5
+    /// video (`"html5"`), the JavaScript player (`"jshtml"`), or nothing
+    /// (`"none"`, the default).
+    ///
+    /// # Errors
+    ///
+    /// As [`FuncAnimation::to_html5_video`] or [`FuncAnimation::to_jshtml`].
+    pub fn repr_html(&self) -> Result<Option<String>, AnimationError> {
+        match crate::rc::params().animation_html.as_str() {
+            "html5" => self.to_html5_video().map(Some),
+            "jshtml" => self.to_jshtml(&HtmlOptions::default()).map(Some),
+            _ => Ok(None),
+        }
+    }
+
     /// Writes the animation as an HTML page at `path` (`.html` or
     /// `.htm`) with its frames in the directory `<stem>_frames` beside it,
     /// named `frame0000000.png` and so on (matplotlib's `HTMLWriter`, the
@@ -318,6 +334,17 @@ mod tests {
         });
         assert!(html.contains("new Array(0);"));
         assert!(!html.contains("base64,"));
+    }
+
+    #[test]
+    fn notebooks_get_what_animation_html_asks_for() {
+        let anim = animation(1, AnimationOptions::default());
+        assert_eq!(anim.repr_html().unwrap(), None);
+        let page = crate::rc::context(|| {
+            crate::rc::set("animation.html", "jshtml").unwrap();
+            anim.repr_html().unwrap()
+        });
+        assert!(page.is_some_and(|page| page.contains("new Array(1);")));
     }
 
     #[test]

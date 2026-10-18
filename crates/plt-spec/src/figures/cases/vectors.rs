@@ -1,7 +1,7 @@
 //! `figures/cases_vectors.py`: rasterized artists, a colorbar with enough
 //! colours to be rasterized, and text to embed fonts for.
 
-use plt::artist::ArtistHandle;
+use plt::artist::{AggFilter, ArtistHandle, FilterImage, Filtered};
 use plt::axes::{ImshowOptions, MappedColors, Mesh, PcolorOptions, ScatterOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::figure::Figure;
@@ -55,6 +55,33 @@ fn rasterization_zorder(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
+/// `_half_opacity`: the image at half opacity, `dpi / 25` to the right.
+fn half_opacity(image: &FilterImage, dpi: f64) -> Filtered {
+    let mut out = image.clone();
+    out.pixels_mut()
+        .iter_mut()
+        .for_each(|pixel| pixel[3] *= 0.5);
+    Filtered {
+        image: out,
+        offset: (dpi / 25.0, 0.0),
+    }
+}
+
+fn agg_filter(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let x = linspace(0.0, 11.0, 30);
+    let filter = AggFilter::new(half_opacity);
+    let wide = || LineProps::default().linewidth(4.0);
+    let rising: Vec<f64> = x.iter().map(|v| 0.6 * v).collect();
+    ax.plot_with(x.clone(), rising, wide())?
+        .set_rasterized(true)
+        .set_agg_filter(Some(filter.clone()));
+    let falling: Vec<f64> = x.iter().map(|v| 6.0 - 0.5 * v).collect();
+    ax.plot_with(x, falling, wide())?
+        .set_agg_filter(Some(filter));
+    Ok(())
+}
+
 fn colorbar_many_colors(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let image = ax.imshow(cells(), ImshowOptions::default())?;
@@ -71,6 +98,7 @@ fn colorbar_many_colors(fig: &Figure) -> CaseResult {
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("vectors/rasterized_artists", rasterized_artists).sized(2.4, 1.6, 50.0),
     FigureCase::new("vectors/rasterization_zorder", rasterization_zorder).sized(2.4, 1.6, 50.0),
+    FigureCase::new("vectors/agg_filter", agg_filter).sized(2.4, 1.6, 50.0),
     FigureCase::new("vectors/colorbar_many_colors", colorbar_many_colors).sized(2.4, 1.6, 50.0),
     FigureCase::new("vectors/text_fonts", |fig| {
         for (x, y, text) in [

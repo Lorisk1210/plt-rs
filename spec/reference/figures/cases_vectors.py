@@ -34,6 +34,23 @@ def _(fig):
     ax.plot(x, 4 + 2 * np.sin(x))
 
 
+def _half_opacity(image, dpi):
+    """The image at half opacity, dpi/25 to the right."""
+    out = image.copy()
+    out[..., 3] = out[..., 3] * 0.5
+    return out, dpi / 25, 0
+
+
+@case("vectors/agg_filter", figsize=(2.4, 1.6), dpi=50)
+def _(fig):
+    ax = fig.subplots()
+    x = np.linspace(0, 11, 30)
+    filtered, = ax.plot(x, 0.6 * x, linewidth=4, rasterized=True)
+    filtered.set_agg_filter(_half_opacity)
+    ignored, = ax.plot(x, 6 - 0.5 * x, linewidth=4)
+    ignored.set_agg_filter(_half_opacity)
+
+
 @case("vectors/colorbar_many_colors", figsize=(2.4, 1.6), dpi=50)
 def _(fig):
     ax = fig.subplots()

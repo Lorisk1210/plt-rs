@@ -4,6 +4,7 @@ use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_text::{TextEngine, TextRun};
 
 use crate::collection::PathCollection;
+use crate::filter::FilterFn;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
@@ -124,6 +125,16 @@ pub trait Renderer {
     /// [`start_rasterizing`](Self::start_rasterizing) in the output as an
     /// image and resumes drawing directly.
     fn stop_rasterizing(&mut self) {}
+
+    /// Sends the following drawing to a fresh transparent canvas until
+    /// [`stop_filter`](Self::stop_filter) (matplotlib's `start_filter`).
+    /// Only raster canvases filter; other backends draw as usual.
+    fn start_filter(&mut self) {}
+
+    /// Hands what was drawn since [`start_filter`](Self::start_filter),
+    /// cropped to its visible pixels, to `filter` and draws the image it
+    /// returns in its place (matplotlib's `stop_filter`).
+    fn stop_filter(&mut self, _filter: &FilterFn<'_>) {}
 
     /// When `true`, images are drawn one by one instead of being
     /// composited into a single image first.

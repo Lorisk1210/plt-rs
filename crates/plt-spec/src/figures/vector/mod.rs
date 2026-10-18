@@ -57,6 +57,7 @@ pub const VECTOR_CASES: &[&str] = &[
     "vectors/colorbar_many_colors",
     "vectors/rasterized_artists",
     "vectors/rasterization_zorder",
+    "vectors/agg_filter",
     "vectors/text_fonts",
 ];
 

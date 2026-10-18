@@ -10,6 +10,7 @@ use plt_text::TextRun;
 use super::RasterRenderer;
 use super::condition::{Conditioning, cached_mask, mpl_round, sketch_params, snap_mode};
 use crate::collection::PathCollection;
+use crate::filter::FilterFn;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
@@ -322,6 +323,14 @@ impl Renderer for RasterRenderer {
         let widths = [gc.linewidth];
         let flags = [mesh.antialiased];
         self.draw_path_collection(gc, &mesh.collection(&paths, &widths, &flags));
+    }
+
+    fn start_filter(&mut self) {
+        self.start_filtering();
+    }
+
+    fn stop_filter(&mut self, filter: &FilterFn<'_>) {
+        self.stop_filtering(filter);
     }
 
     /// Agg composites each image straight onto the canvas.

@@ -343,6 +343,34 @@ def _(fig):
         ax.plot(_wave(20) + i)
 
 
+def _fade_and_shift(image, dpi):
+    """Inverted colours at half opacity, dpi/10 to the right and dpi/20 down."""
+    out = image.copy()
+    out[..., :3] = 1 - out[..., :3]
+    out[..., 3] = out[..., 3] * 0.5
+    return out, dpi / 10, -dpi / 20
+
+
+def _box_blur(image, dpi):
+    """A separable 3-pixel box blur over a 3-pixel transparent border."""
+    padded = np.pad(image, ((3, 3), (3, 3), (0, 0)))
+    rows = (padded[:-2] + padded[1:-1] + padded[2:]) / 3
+    blurred = (rows[:, :-2] + rows[:, 1:-1] + rows[:, 2:]) / 3
+    return blurred, -2, -2
+
+
+@case("misc/agg_filter", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    x = np.linspace(0, 2 * np.pi, 50)
+    shadow, = ax.plot(x, np.sin(x), lw=4, color="tab:blue")
+    shadow.set_agg_filter(_fade_and_shift)
+    ax.plot(x, np.sin(x), lw=2, color="tab:blue")
+    for bar in ax.bar([1, 3, 5], [0.5, -0.4, 0.8], color="tab:orange"):
+        bar.set_agg_filter(_box_blur)
+    ax.text(3, -0.8, "filtered", size=14).set_agg_filter(_box_blur)
+
+
 # --- widgets (initial rendering only)
 
 @case("misc/widgets_sliders_button", figsize=(5, 3))

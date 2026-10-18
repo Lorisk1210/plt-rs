@@ -18,6 +18,7 @@ use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_text::{TextEngine, TextRun};
 
 use crate::collection::PathCollection;
+use crate::filter::FilterFn;
 use crate::gc::{ClipPath, GraphicsContext};
 use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
@@ -204,40 +205,18 @@ impl Renderer for RasterLayer {
         self.canvas.option_image_nocomposite()
     }
 
+    fn start_filter(&mut self) {
+        self.canvas.start_filter();
+    }
+
+    fn stop_filter(&mut self, filter: &FilterFn<'_>) {
+        self.canvas.stop_filter(filter);
+    }
+
     /// Images are resampled at the raster resolution.
     fn image_magnification(&self) -> f64 {
         self.scale
     }
-}
-
-/// The smallest box holding every pixel of `image` that is not fully
-/// transparent, as `(left, top, right, bottom)` pixel bounds (matplotlib's
-/// `cbook._get_nonzero_slices`), or `None` when there is none.
-fn opaque_bounds(image: &RgbaImage) -> Option<(usize, usize, usize, usize)> {
-    let (width, height) = (image.width(), image.height());
-    let alpha = |x: usize, y: usize| image.data()[(y * width + x) * 4 + 3];
-    let rows: Vec<usize> = (0..height)
-        .filter(|&y| (0..width).any(|x| alpha(x, y) != 0))
-        .collect();
-    let columns: Vec<usize> = (0..width)
-        .filter(|&x| (0..height).any(|y| alpha(x, y) != 0))
-        .collect();
-    Some((
-        *columns.first()?,
-        *rows.first()?,
-        *columns.last()? + 1,
-        *rows.last()? + 1,
-    ))
-}
-
-/// The part `(left, top, right, bottom)` of `image`.
-fn crop(image: &RgbaImage, (left, top, right, bottom): (usize, usize, usize, usize)) -> RgbaImage {
-    let width = image.width();
-    let data: Vec<u8> = (top..bottom)
-        .flat_map(|y| image.data()[(y * width + left) * 4..(y * width + right) * 4].iter())
-        .copied()
-        .collect();
-    RgbaImage::new(right - left, bottom - top, data).expect("the crop holds its own pixels")
 }
 
 /// A vector renderer that draws rasterized artists into a raster canvas
@@ -375,6 +354,17 @@ impl Renderer for MixedModeRenderer<'_> {
         self.active().open_group(name, gid);
     }
 
+    /// Filters only while rasterizing, where the raster canvas draws
+    /// (matplotlib's mixed renderer hands `start_filter` to its current
+    /// renderer).
+    fn start_filter(&mut self) {
+        self.active().start_filter();
+    }
+
+    fn stop_filter(&mut self, filter: &FilterFn<'_>) {
+        self.active().stop_filter(filter);
+    }
+
     fn close_group(&mut self, name: &str) {
         self.active().close_group(name);
     }
@@ -404,7 +394,7 @@ impl Renderer for MixedModeRenderer<'_> {
             return;
         };
         let image = layer.canvas.to_image();
-        let Some(bounds) = opaque_bounds(&image) else {
+        let Some(bounds) = image.opaque_bounds() else {
             return;
         };
         let (left, _, _, bottom) = bounds;
@@ -417,7 +407,7 @@ impl Renderer for MixedModeRenderer<'_> {
         self.vector.draw_image(
             &GraphicsContext::default(),
             origin,
-            &crop(&image, bounds),
+            &image.crop(bounds),
             None,
         );
     }
@@ -483,15 +473,5 @@ mod tests {
         mixed.finish().unwrap();
         let document = svg.finish().unwrap();
         assert!(!document.contains("<image"));
-    }
-
-    #[test]
-    fn crops_to_the_opaque_pixels() {
-        let mut data = vec![0; 4 * 3 * 4];
-        data[(4 + 2) * 4 + 3] = 255;
-        let image = RgbaImage::new(4, 3, data).unwrap();
-        assert_eq!(opaque_bounds(&image), Some((2, 1, 3, 2)));
-        assert_eq!(crop(&image, (2, 1, 3, 2)).data(), &[0, 0, 0, 255]);
-        assert_eq!(opaque_bounds(&RgbaImage::transparent(2, 2)), None);
     }
 }

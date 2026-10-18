@@ -20,6 +20,7 @@
 #![forbid(unsafe_code)]
 
 mod collection;
+mod filter;
 mod gc;
 mod image;
 mod mixed;
@@ -32,6 +33,7 @@ mod svg;
 mod vector;
 
 pub use collection::{CollectionItem, PathCollection};
+pub use filter::{FilterFn, FilterImage, Filtered};
 pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sketch, SnapMode};
 pub use image::{ImageSizeError, RgbaImage};
 pub use mixed::MixedModeRenderer;

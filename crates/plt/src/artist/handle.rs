@@ -6,7 +6,9 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
-use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext, Picker};
+use super::{
+    AggFilter, Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext, Picker,
+};
 use crate::figure::FigureState;
 use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
@@ -193,6 +195,21 @@ pub trait ArtistHandle {
     /// artist.
     fn mouseover(&self) -> bool {
         self.raw().with_base(|b| b.mouseover)
+    }
+
+    /// Sets (or clears) the image filter for what the artist draws
+    /// (matplotlib's `set_agg_filter`; see [`AggFilter`]).
+    fn set_agg_filter(&self, filter: Option<AggFilter>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.agg_filter = filter);
+        self
+    }
+
+    /// The image filter, if any.
+    fn agg_filter(&self) -> Option<AggFilter> {
+        self.raw().with_base(|b| b.agg_filter.clone())
     }
 
     /// Sets (or clears) the opacity override.

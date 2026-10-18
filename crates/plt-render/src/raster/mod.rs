@@ -7,6 +7,7 @@
 
 mod condition;
 mod draw;
+mod filter;
 mod glyph;
 mod text;
 
@@ -70,6 +71,8 @@ pub struct RasterRenderer {
     dpi: f64,
     simplify: SimplifySettings,
     clip_cache: Option<CachedClip>,
+    /// Canvases set aside while filtered artists draw.
+    set_aside: Vec<Pixmap>,
     errors: Vec<RasterError>,
 }
 
@@ -88,6 +91,7 @@ impl RasterRenderer {
             dpi,
             simplify: SimplifySettings::default(),
             clip_cache: None,
+            set_aside: Vec::new(),
             errors: Vec::new(),
         })
     }

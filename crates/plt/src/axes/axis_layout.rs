@@ -8,7 +8,8 @@
 use plt_core::{Bbox, Point, Rgba};
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
-use super::axis::{AxisState, LabelLoc, Tick};
+use super::axis::{AxisState, Tick};
+use super::axis_label::LabelLoc;
 use super::state::AxesState;
 use super::ticks::TickStyle;
 use crate::artist::{Artist, ArtistId, LayoutContext};

@@ -4,7 +4,8 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use super::axis::{AxisState, LabelLoc};
+use super::axis::AxisState;
+use super::axis_label::LabelLoc;
 use super::ticks::{GridOptions, Sides, TickPosition};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;

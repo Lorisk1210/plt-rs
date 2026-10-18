@@ -109,6 +109,43 @@ pub struct BarContainer {
     pub label: Option<String>,
 }
 
+impl BarContainer {
+    /// Each bar's start and extent along its position and its value
+    /// direction: `((x, width), (y, height))` of vertical bars swapped for
+    /// horizontal ones.
+    fn spans(&self) -> impl Iterator<Item = ((f64, f64), (f64, f64))> + '_ {
+        self.patches.iter().map(|patch| {
+            let Rectangle {
+                xy, width, height, ..
+            } = patch.shape();
+            match self.orientation {
+                Orientation::Vertical => ((xy.x, width), (xy.y, height)),
+                Orientation::Horizontal => ((xy.y, height), (xy.x, width)),
+            }
+        })
+    }
+
+    /// The value at the base of each bar (matplotlib's `bottoms`).
+    pub fn bottoms(&self) -> Vec<f64> {
+        self.spans().map(|(_, (base, _))| base).collect()
+    }
+
+    /// The value at the end of each bar (matplotlib's `tops`).
+    pub fn tops(&self) -> Vec<f64> {
+        self.spans()
+            .map(|(_, (base, value))| base + value)
+            .collect()
+    }
+
+    /// The position of the middle of each bar across the value direction
+    /// (matplotlib's `position_centers`).
+    pub fn position_centers(&self) -> Vec<f64> {
+        self.spans()
+            .map(|((start, thickness), _)| start + thickness / 2.0)
+            .collect()
+    }
+}
+
 /// One bar's geometry along the position and value directions.
 struct BarGeometry {
     start: f64,

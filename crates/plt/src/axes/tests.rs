@@ -106,3 +106,28 @@ fn draw_style_changes_the_path() {
     line.set_drawstyle(DrawStyle::StepsPost);
     assert_eq!(line.path().map(|p| p.len()), Ok(5));
 }
+
+#[test]
+fn bar_containers_report_bottoms_tops_and_centres() {
+    use super::{BarAlign, BarOptions};
+
+    let (_fig, ax) = axes();
+    let options = BarOptions {
+        base: vec![0.0, 1.0, 0.0],
+        thickness: vec![0.6],
+        align: BarAlign::Edge,
+        ..BarOptions::default()
+    };
+    let bars = ax.bar([1.0, 2.0, 3.0], [0.5, -0.4, 0.8], options).unwrap();
+    assert_eq!(bars.bottoms(), [0.0, 1.0, 0.0]);
+    assert_eq!(bars.tops(), [0.5, 0.6, 0.8]);
+    assert_eq!(bars.position_centers(), [1.3, 2.3, 3.3]);
+    let options = BarOptions {
+        base: vec![1.0, 0.0],
+        ..BarOptions::default()
+    };
+    let horizontal = ax.barh([1.0, 2.0], [2.0, -3.0], options).unwrap();
+    assert_eq!(horizontal.bottoms(), [1.0, 0.0]);
+    assert_eq!(horizontal.tops(), [3.0, -3.0]);
+    assert_eq!(horizontal.position_centers(), [1.0, 2.0]);
+}

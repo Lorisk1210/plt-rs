@@ -182,6 +182,7 @@ impl FontProperties {
                 fantasy: rc.font_fantasy.clone(),
                 monospace: rc.font_monospace.clone(),
             },
+            last_resort: rc.font_enable_last_resort,
         }
     }
 }

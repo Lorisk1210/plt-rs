@@ -20,6 +20,10 @@ pub struct FontRequest {
     pub query: FontQuery,
     /// Preference lists for generic family names.
     pub generics: GenericFamilies,
+    /// Whether characters no family covers come from the Last Resort font
+    /// rather than the first family's missing-glyph box (matplotlib's
+    /// `font.enable_last_resort`).
+    pub last_resort: bool,
 }
 
 impl FontRequest {
@@ -28,6 +32,7 @@ impl FontRequest {
         Self {
             query,
             generics: GenericFamilies::default(),
+            last_resort: true,
         }
     }
 }
@@ -95,7 +100,7 @@ impl TextEngine {
     ) -> Result<TextRun, TextError> {
         let query = &request.query;
         let fonts = self.db.find_fonts_with(query, &request.generics)?;
-        let chain = self.db.font_chain(&fonts, true)?;
+        let chain = self.db.font_chain(&fonts, request.last_resort)?;
         let paragraph = first_paragraph(text);
         let layout = chain.layout(paragraph, query.size, dpi, &ShapeOptions::default())?;
         let resort = self.db.last_resort();
@@ -289,6 +294,24 @@ mod tests {
             size,
             ..FontQuery::families(["DejaVu Sans"])
         })
+    }
+
+    #[test]
+    fn missing_characters_fall_back_as_asked() {
+        let engine = TextEngine::global();
+        let resort = engine.db.last_resort();
+        let font_of = |last_resort: bool| {
+            let request = FontRequest {
+                last_resort,
+                ..dejavu(12.0)
+            };
+            let run = engine.layout_line("\u{4e00}", &request, 72.0).unwrap();
+            (Some(run.glyphs[0].font), run.glyphs[0].glyph)
+        };
+        assert_eq!(font_of(true).0, resort, "the Last Resort font draws it");
+        let (font, glyph) = font_of(false);
+        assert_ne!(font, resort);
+        assert_eq!(glyph.0, 0, "the missing-glyph box of DejaVu Sans");
     }
 
     #[test]

@@ -303,6 +303,7 @@ mod tests {
         let font = FontRequest {
             query: FontQuery::families(["sans", "Comic Neue"]),
             generics,
+            last_resort: true,
         };
         assert_eq!(
             font_families(&font),

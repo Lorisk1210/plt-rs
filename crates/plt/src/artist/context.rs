@@ -5,6 +5,7 @@ use plt_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
 use super::{ArtistBase, ArtistId, ArtistStore, ClipPathSpec};
 use crate::figure::FigureState;
+use crate::layout::Aligned;
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 
@@ -88,7 +89,12 @@ impl<'a> LayoutContext<'a> {
     /// [`Figure::align_labels`](crate::figure::Figure::align_labels)).
     pub(crate) fn label_siblings(self, axes: ArtistId, axis: AxisName) -> Vec<ArtistId> {
         match self.store().get(axes).and_then(|a| a.base().parent) {
-            Some(frame) => self.figure.layout.label_groups.siblings(frame, axis, axes),
+            Some(frame) => {
+                self.figure
+                    .layout
+                    .label_groups
+                    .siblings(frame, Aligned::Labels(axis), axes)
+            }
             None => vec![axes],
         }
     }

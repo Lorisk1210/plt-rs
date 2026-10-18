@@ -275,6 +275,20 @@ def _(fig):
     fig.align_labels()
 
 
+@case("layout/align_titles", figsize=(7, 3))
+def _(fig):
+    fig.subplots_adjust(top=0.7)
+    axs = fig.subplots(1, 3)
+    axs[0].plot([0, 1], [0, 1])
+    axs[0].set_aspect("equal")
+    axs[1].xaxis.tick_top()
+    axs[1].xaxis.set_label_position("top")
+    axs[1].set_xlabel("top label")
+    for i, ax in enumerate(axs):
+        ax.set_title(f"Title {i}")
+    fig.align_titles()
+
+
 # --- figure canvas ---------------------------------------------------------
 
 

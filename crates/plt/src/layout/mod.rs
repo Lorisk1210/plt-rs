@@ -28,7 +28,7 @@ mod tight;
 pub use constrained::ConstrainedLayout;
 pub use tight::{TightLayout, TightLayoutError};
 
-pub(crate) use align::LabelGroups;
+pub(crate) use align::{Aligned, LabelGroups};
 
 use plt_core::Anchor;
 
@@ -91,7 +91,8 @@ pub(crate) struct LayoutState {
     pub(crate) colorbars: Vec<ColorbarLayout>,
     /// Whether the engine must run before positions are used.
     pub(crate) pending: bool,
-    /// The axes whose labels align ([`Figure::align_labels`]).
+    /// The axes whose labels or titles align ([`Figure::align_labels`],
+    /// [`Figure::align_titles`]).
     pub(crate) label_groups: LabelGroups,
     /// The dividers placing axes (`axes_grid1`), indexed by their ids.
     pub(crate) dividers: Vec<Divider>,

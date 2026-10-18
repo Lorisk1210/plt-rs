@@ -1,7 +1,9 @@
-//! Aligned axis labels (matplotlib's `Figure.align_labels`): the x labels
-//! of subplots ending on the same grid row, and the y labels of subplots
-//! starting on the same column, are placed beyond the tick labels of the
-//! whole group, so that they line up.
+//! Aligned axis labels and titles (matplotlib's `Figure.align_labels` and
+//! `align_titles`): the x labels of subplots ending on the same grid row,
+//! and the y labels of subplots starting on the same column, are placed
+//! beyond the tick labels of the whole group; the titles of subplots
+//! starting on the same row clear the decorations of the whole row. Either
+//! way they line up.
 
 use std::ops::Range;
 
@@ -10,25 +12,37 @@ use crate::axes::{Axes, AxesState, Grouper};
 use crate::figure::Figure;
 use crate::ticker::AxisName;
 
-/// The axes whose labels align, per (sub)figure and axis (matplotlib's
-/// `_align_label_groups` of each figure).
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct LabelGroups {
-    frames: Vec<(ArtistId, [Grouper; 2])>,
+/// What a figure lines up across its subplots.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Aligned {
+    /// The labels of the x or the y axis.
+    Labels(AxisName),
+    /// The titles.
+    Titles,
 }
 
-/// The index of an axis among a figure's groupers.
-fn slot(name: AxisName) -> usize {
-    match name {
-        AxisName::X => 0,
-        AxisName::Y => 1,
+impl Aligned {
+    /// The index of the group among a figure's groupers.
+    fn slot(self) -> usize {
+        match self {
+            Self::Labels(AxisName::X) => 0,
+            Self::Labels(AxisName::Y) => 1,
+            Self::Titles => 2,
+        }
     }
 }
 
+/// The axes whose labels or titles align, per (sub)figure (matplotlib's
+/// `_align_label_groups` of each figure).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct LabelGroups {
+    frames: Vec<(ArtistId, [Grouper; 3])>,
+}
+
 impl LabelGroups {
-    /// Aligns the `name` labels of `a` and `b`, and of everything aligned
+    /// Aligns the `aligned` texts of `a` and `b`, and of everything aligned
     /// with either, in the figure `frame` (matplotlib's `Grouper.join`).
-    fn join(&mut self, frame: ArtistId, name: AxisName, a: ArtistId, b: ArtistId) {
+    fn join(&mut self, frame: ArtistId, aligned: Aligned, a: ArtistId, b: ArtistId) {
         let index = self
             .frames
             .iter()
@@ -37,21 +51,21 @@ impl LabelGroups {
                 self.frames.push((frame, Default::default()));
                 self.frames.len() - 1
             });
-        self.frames[index].1[slot(name)].join(a, b);
+        self.frames[index].1[aligned.slot()].join(a, b);
     }
 
-    /// The axes whose `name` labels align with those of `axes` in its
+    /// The axes whose `aligned` texts align with those of `axes` in its
     /// figure `frame`, `axes` included (matplotlib's
     /// `Grouper.get_siblings`).
     pub(crate) fn siblings(
         &self,
         frame: ArtistId,
-        name: AxisName,
+        aligned: Aligned,
         axes: ArtistId,
     ) -> Vec<ArtistId> {
         self.frames.iter().find(|(f, _)| *f == frame).map_or_else(
             || vec![axes],
-            |(_, groups)| groups[slot(name)].siblings(axes),
+            |(_, groups)| groups[aligned.slot()].siblings(axes),
         )
     }
 }
@@ -91,11 +105,60 @@ impl Figure {
         self.align(AxisName::Y, axes)
     }
 
-    fn align(&self, name: AxisName, axes: Option<&[Axes]>) -> &Self {
-        let ids: Vec<ArtistId> = match axes {
+    /// Aligns the titles of subplots that start on the same grid row, for
+    /// every later draw, unless their position was set by hand (matplotlib's
+    /// `align_titles`). `None` aligns every axes of the figure; axes outside
+    /// grids are left alone.
+    ///
+    /// ```
+    /// use plt::axes::TickPosition;
+    /// use plt::prelude::*;
+    /// use plt::spines::SpineSide;
+    /// let fig = Figure::new();
+    /// let axs = fig.subplots(1, 2)?;
+    /// axs[(0, 0)].set_title("left");
+    /// axs[(0, 1)].set_title("right");
+    /// // The right title rises above the tick labels on top; the left
+    /// // one follows.
+    /// axs[(0, 1)].xaxis().set_ticks_position(TickPosition::Side(SpineSide::Top))?;
+    /// fig.align_titles(None);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn align_titles(&self, axes: Option<&[Axes]>) -> &Self {
+        let ids = self.axes_ids(axes);
+        let frame = self.raw().id();
+        let mut state = self.raw().figure_state().borrow_mut();
+        let rows: Vec<(ArtistId, usize)> = ids
+            .into_iter()
+            .filter_map(|id| {
+                let spec = state.store.get_as::<AxesState>(id)?.subplot_spec.as_ref()?;
+                Some((id, spec.rows().start))
+            })
+            .collect();
+        for (id, row) in &rows {
+            for (other, other_row) in &rows {
+                if row == other_row {
+                    state
+                        .layout
+                        .label_groups
+                        .join(frame, Aligned::Titles, *id, *other);
+                }
+            }
+        }
+        state.stale = true;
+        self
+    }
+
+    /// The ids of `axes`, or of every axes of the figure.
+    fn axes_ids(&self, axes: Option<&[Axes]>) -> Vec<ArtistId> {
+        match axes {
             Some(axes) => axes.iter().map(ArtistHandle::id).collect(),
             None => self.axes().iter().map(ArtistHandle::id).collect(),
-        };
+        }
+    }
+
+    fn align(&self, name: AxisName, axes: Option<&[Axes]>) -> &Self {
+        let ids = self.axes_ids(axes);
         let frame = self.raw().id();
         let mut state = self.raw().figure_state().borrow_mut();
         let placed: Vec<(ArtistId, bool, Range<usize>)> = ids
@@ -120,7 +183,10 @@ impl Figure {
                     (AxisName::X, false) | (AxisName::Y, true) => span.end == other_span.end,
                 };
                 if high == other_high && aligned {
-                    state.layout.label_groups.join(frame, name, *id, *other);
+                    state
+                        .layout
+                        .label_groups
+                        .join(frame, Aligned::Labels(name), *id, *other);
                 }
             }
         }
@@ -142,10 +208,15 @@ mod tests {
             .collect();
         let (root, other) = (fig.raw().id(), ids[1]);
         let mut groups = LabelGroups::default();
-        groups.join(root, AxisName::X, ids[0], ids[1]);
-        assert_eq!(groups.siblings(root, AxisName::X, ids[0]), ids);
-        assert_eq!(groups.siblings(root, AxisName::Y, ids[0]), vec![ids[0]]);
-        assert_eq!(groups.siblings(other, AxisName::X, ids[0]), vec![ids[0]]);
+        let x = Aligned::Labels(AxisName::X);
+        groups.join(root, x, ids[0], ids[1]);
+        assert_eq!(groups.siblings(root, x, ids[0]), ids);
+        assert_eq!(
+            groups.siblings(root, Aligned::Labels(AxisName::Y), ids[0]),
+            vec![ids[0]]
+        );
+        assert_eq!(groups.siblings(root, Aligned::Titles, ids[0]), vec![ids[0]]);
+        assert_eq!(groups.siblings(other, x, ids[0]), vec![ids[0]]);
     }
 
     #[test]

@@ -13,6 +13,7 @@ use super::state::TitlePlacement;
 use super::tight_bbox::axis_tight_bbox;
 use crate::artist::{Artist, ArtistId, LayoutContext};
 use crate::figure::FigureState;
+use crate::layout::Aligned;
 use crate::spines::SpineSide;
 use crate::text::TextArtist;
 use crate::ticker::{AxisName, NullLocator};
@@ -120,9 +121,17 @@ impl FigureState {
     }
 
     /// The axes whose decorations titles must clear: the twins and the
-    /// insets of `axes`.
+    /// insets of `axes`, and the axes its titles are aligned with
+    /// ([`crate::figure::Figure::align_titles`]).
     fn title_group(&self, axes: ArtistId) -> Vec<ArtistId> {
         let mut group = self.shared.twins(axes);
+        if let Some(frame) = self.store.get(axes).and_then(|a| a.base().parent) {
+            group.extend(
+                self.layout
+                    .label_groups
+                    .siblings(frame, Aligned::Titles, axes),
+            );
+        }
         if let Some(state) = self.store.get_as::<AxesState>(axes) {
             group.extend(
                 state

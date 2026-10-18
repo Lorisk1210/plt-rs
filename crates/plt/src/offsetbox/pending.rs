@@ -159,15 +159,15 @@ impl<'a> Parts<'a> {
     }
 }
 
-/// Adds the box artist `owner` to the axes `axes` and makes it the parent
-/// of its `parts`.
+/// Adds the box artist `owner` to `parent`, an axes or a (sub)figure, and
+/// makes it the parent of its `parts`.
 pub(crate) fn adopt_box(
     state: &mut FigureState,
-    axes: ArtistId,
+    parent: ArtistId,
     owner: Box<dyn Artist>,
     parts: &[ArtistId],
 ) -> ArtistId {
-    let id = state.adopt(axes, owner);
+    let id = state.adopt(parent, owner);
     for &part in parts {
         if let Some(artist) = state.store.get_mut(part) {
             artist.base_mut().parent = Some(id);

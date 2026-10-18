@@ -61,6 +61,9 @@ pub(crate) const CASES: &[FigureCase] = &[
         layouts::multiline_baseline,
     ),
     FigureCase::new("offsetbox/anchored_text_boxstyles", layouts::text_boxstyles),
+    FigureCase::new("offsetbox/figure_anchored", layouts::figure_anchored).sized(4.0, 3.0, 100.0),
+    FigureCase::new("offsetbox/subfigure_anchored", layouts::subfigure_anchored)
+        .sized(5.0, 3.0, 100.0),
     FigureCase::new(
         "offsetbox/annotation_bbox_packed_children",
         pointers::packed_children,

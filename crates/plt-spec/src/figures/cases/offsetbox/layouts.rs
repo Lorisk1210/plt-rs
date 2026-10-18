@@ -2,6 +2,7 @@
 //! alignments and modes, drawing-area descents and multi-line text areas
 //! of `cases_offsetbox.py`.
 
+use plt::figure::SubfigureOptions;
 use plt::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOptions, BoxItem, DrawingArea, OffsetBox, PackAlign, PackMode,
     Packer, TextArea,
@@ -9,8 +10,9 @@ use plt::offsetbox::{
 use plt::patches::{BoxStyle, Circle, Ellipse, Rectangle};
 use plt::prelude::*;
 use plt::text::{HorizontalAlignment, TextProps};
+use plt::transforms::Transform;
 
-use super::{sized, text_area, unit_axes};
+use super::{of_t, sized, t, text_area, unit_axes};
 use crate::figures::CaseResult;
 
 /// `AnchoredText(text, loc="center", bbox_to_anchor=at, bbox_transform=ax.transAxes, prop=props)`.
@@ -194,6 +196,49 @@ pub(super) fn multiline_baseline(fig: &Figure) -> CaseResult {
     );
     framed(&ax, OffsetBox::HPacker(row), AnchorLoc::Center);
     ax.axhline(0.5, LineProps::default().color("0.8"));
+    Ok(())
+}
+
+pub(super) fn figure_anchored(fig: &Figure) -> CaseResult {
+    fig.subplot().plot(t(), of_t(f64::sin))?;
+    let corner = AnchoredOptions {
+        bbox_to_anchor: Some((0.0, 1.0).into()),
+        bbox_transform: Some(Transform::Figure(fig.id())),
+        ..AnchoredOptions::new(AnchorLoc::UpperLeft)
+    };
+    let props = TextProps::default().font(sized(9.0));
+    fig.add_anchored_box(AnchoredBox::text("figure corner", props, corner)?);
+    let pixels = AnchoredOptions {
+        bbox_to_anchor: Some((400.0, 0.0).into()),
+        frameon: false,
+        ..AnchoredOptions::new(AnchorLoc::LowerRight)
+    };
+    fig.add_anchored_box(AnchoredBox::text("pixels", TextProps::default(), pixels)?);
+    let centre = AnchoredOptions {
+        bbox_to_anchor: Some((0.5, 0.95).into()),
+        bbox_transform: Some(Transform::Figure(fig.id())),
+        ..AnchoredOptions::new(AnchorLoc::Center)
+    };
+    fig.add_anchored_box(AnchoredBox::new(
+        text_area("child", TextProps::default()),
+        centre,
+    ));
+    Ok(())
+}
+
+pub(super) fn subfigure_anchored(fig: &Figure) -> CaseResult {
+    let subfigures = fig.subfigures(1, 2, &SubfigureOptions::default())?;
+    for (i, sub) in subfigures.as_slice().iter().enumerate() {
+        let shift = i as f64;
+        sub.subplot().plot(t(), of_t(|t| (t + shift).cos()))?;
+        let options = AnchoredOptions {
+            bbox_to_anchor: Some((1.0, 1.0).into()),
+            bbox_transform: Some(Transform::Figure(sub.id())),
+            ..AnchoredOptions::new(AnchorLoc::UpperRight)
+        };
+        let props = TextProps::default().font(sized(8.0));
+        sub.add_anchored_box(AnchoredBox::text(format!("panel {i}"), props, options)?);
+    }
     Ok(())
 }
 

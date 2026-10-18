@@ -53,7 +53,7 @@ does it without pyplot.
 * **Axes and layout**: scales, tickers and formatters, dates and
   categories, shared and twin axes, secondary axes, aspect handling,
   subplot grids, mosaics, subfigures, constrained and tight layout,
-  aligned labels, insets, `axes_grid1` and `axisartist`.
+  aligned labels and titles, insets, `axes_grid1` and `axisartist`.
 * **Interactive**: figure windows with a toolbar (home/back/forward,
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
   options, save), a save dialog (PNG, JPEG, TIFF, GIF, SVG, PDF, PS,

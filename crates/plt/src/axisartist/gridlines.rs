@@ -10,7 +10,7 @@ use plt_core::{Path, Point};
 use super::floating_axes;
 use super::grid_helper_curvelinear::{GridHelperCurveLinear, info_gridlines};
 use crate::artist::{Artist, ArtistId, LayoutContext};
-use crate::axes::{AxesState, GridOptions, Tick, TickLevel};
+use crate::axes::{AxesState, GridOptions, TickLevel};
 use crate::collections::{CollectionArtist, CollectionKind, DrawTimeShapes, EdgeColors};
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
@@ -88,21 +88,21 @@ impl Gridlines {
         }
     }
 
-    /// The lines of the rectilinear grid: verticals at the x ticks of
-    /// `which`, horizontals at the y ticks whose gridlines are on
+    /// The lines of the rectilinear grid: verticals at the x locator
+    /// positions of `which`, horizontals at the y ones whose gridlines are
+    /// on, including positions beyond the view that the clip hides
     /// (matplotlib's `GridHelperRectlinear.get_gridlines`).
     fn rectilinear(&self, axes: &AxesState) -> Vec<Vec<Point>> {
         let ticks = |name: AxisName, major: bool, minor: bool| -> Vec<f64> {
             let Ok(set) = axes.axis(name).ticks.as_ref() else {
                 return Vec::new();
             };
-            let locs = |ticks: &[Tick]| ticks.iter().map(|t| t.loc).collect::<Vec<_>>();
             let mut values = Vec::new();
             if major {
-                values.extend(locs(&set.major));
+                values.extend(&set.major_locs);
             }
             if minor {
-                values.extend(locs(&set.minor_all));
+                values.extend(&set.minor_locs);
             }
             values
         };

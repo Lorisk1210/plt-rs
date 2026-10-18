@@ -20,6 +20,7 @@ pub(crate) mod imsave;
 pub(crate) mod lightsource;
 pub(crate) mod markers;
 pub(crate) mod mathtext;
+pub(crate) mod mosaic;
 pub(crate) mod multivar;
 pub(crate) mod navigation;
 pub(crate) mod norms;

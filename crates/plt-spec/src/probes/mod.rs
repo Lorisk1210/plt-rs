@@ -313,6 +313,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("fancy", areas::fancy::OPS),
     ("navigation", areas::navigation::OPS),
     ("widgets", areas::widgets::OPS),
+    ("mosaic", areas::mosaic::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

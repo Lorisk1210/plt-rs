@@ -114,6 +114,53 @@ impl From<GridSpecError> for MosaicError {
     }
 }
 
+/// Python's `str.expandtabs()`: each tab advances to the next multiple of
+/// eight columns.
+fn expand_tabs(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut column = 0;
+    for c in line.chars() {
+        if c == '\t' {
+            let spaces = 8 - column % 8;
+            out.extend(std::iter::repeat_n(' ', spaces));
+            column += spaces;
+        } else {
+            out.push(c);
+            column += 1;
+        }
+    }
+    out
+}
+
+/// The lines of `text` as Python's `inspect.cleandoc` leaves them: tabs
+/// expanded, the first line's leading spaces and the common indentation
+/// of the others removed, and blank lines dropped at either end (blank
+/// lines between rows stay, and make the mosaic ragged).
+fn cleandoc(text: &str) -> Vec<String> {
+    let mut lines: Vec<String> = text.split('\n').map(expand_tabs).collect();
+    let indent = |line: &str| line.len() - line.trim_start_matches(' ').len();
+    let margin = lines
+        .iter()
+        .skip(1)
+        .filter(|line| !line.trim_start_matches(' ').is_empty())
+        .map(|line| indent(line))
+        .min();
+    if let Some(first) = lines.first_mut() {
+        *first = first.trim_start_matches(' ').to_owned();
+    }
+    if let Some(margin) = margin {
+        for line in lines.iter_mut().skip(1) {
+            *line = line.get(margin..).unwrap_or_default().to_owned();
+        }
+    }
+    while lines.last().is_some_and(String::is_empty) {
+        lines.pop();
+    }
+    let leading = lines.iter().take_while(|line| line.is_empty()).count();
+    lines.drain(..leading);
+    lines
+}
+
 impl Mosaic {
     /// A mosaic from rows of cells.
     ///
@@ -149,14 +196,10 @@ impl Mosaic {
     ///
     /// As [`Mosaic::new`].
     pub fn parse(layout: &str) -> Result<Self, MosaicError> {
-        let lines: Vec<&str> = if layout.contains('\n') {
-            layout
-                .lines()
-                .map(str::trim)
-                .filter(|line| !line.is_empty())
-                .collect()
+        let lines: Vec<String> = if layout.contains('\n') {
+            cleandoc(layout)
         } else {
-            layout.split(';').collect()
+            layout.split(';').map(str::to_owned).collect()
         };
         Self::new(
             lines
@@ -325,6 +368,27 @@ impl Figure {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn multi_line_layouts_are_dedented_like_docstrings() {
+        let shape = |layout: &str| Mosaic::parse(layout).map(|m| m.shape());
+        assert_eq!(shape("\n    AB\n    CD\n"), Ok((2, 2)));
+        assert_eq!(
+            shape("  AB\n   CD"),
+            Ok((2, 2)),
+            "the first line is stripped"
+        );
+        assert_eq!(shape("\tAB\n\tCD"), Ok((2, 2)));
+        assert_eq!(
+            shape("AB\n\nCD"),
+            Err(MosaicError::Ragged {
+                expected: 2,
+                actual: 0
+            }),
+            "a blank row between rows stays"
+        );
+        assert!(shape("  AB\n  C D").is_err(), "inner spaces are cells");
+    }
 
     #[test]
     fn strings_parse_into_rows() {

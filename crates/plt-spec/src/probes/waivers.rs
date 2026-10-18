@@ -47,8 +47,16 @@ const SMALLER_THAN_A_TOOTH: &str = "a box smaller than one tooth makes matplotli
      linspace for a negative number of samples, which raises; plt-rs draws plain edges rather \
      than failing the figure";
 
+const UNSORTED_BOUNDARIES: &str = "matplotlib's BoundaryNorm does not check that its \
+     boundaries increase and then maps every value outside the colormap; plt-rs rejects them";
+
 /// Every waiver, grouped by area.
 pub const WAIVERS: &[Waiver] = &[
+    Waiver {
+        op: "colors.from_levels_and_colors",
+        args: r#"{"levels": [2.0, 1.0, 0.0]}"#,
+        reason: UNSORTED_BOUNDARIES,
+    },
     Waiver {
         op: "patches.BoxStyle",
         args: r#"{"style": "roundtooth,pad=0.2,tooth_size=1"}"#,

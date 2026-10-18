@@ -6,8 +6,9 @@
 //! and norm areas.
 
 use plt::colors::{
-    Alpha, Color, ColorTable, Colors, NamedColor, color_sequence, color_sequence_names, hsv_to_rgb,
-    is_cycle_reference, named_color_table, rgb_to_hsv, same_color, to_hex, to_rgba_array,
+    Alpha, Color, ColorTable, Colors, Extend, NamedColor, ScalarMappable, color_sequence,
+    color_sequence_names, from_levels_and_colors, hsv_to_rgb, is_cycle_reference,
+    named_color_table, rgb_to_hsv, same_color, to_hex, to_rgba_array,
 };
 use plt_core::Rgba;
 
@@ -33,6 +34,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("colors.get_named_colors_mapping", named_colors_mapping),
     Op::new("colors.color_sequences", color_sequences),
     Op::new("colors.color_sequence", color_sequence_op),
+    Op::new("colors.from_levels_and_colors", from_levels_and_colors_op),
 ];
 
 /// A Python colour argument: a colour, or a `(colour, alpha)` tuple.
@@ -311,4 +313,51 @@ fn color_sequence_op(args: Args<'_>) -> Outcome {
     color_sequence(name)
         .map(|colors| rgba_rows(&colors))
         .ok_or_else(|| ProbeError::rejected(format!("unknown sequence {name:?}")))
+}
+
+/// `cmap(norm(values))` for the colormap and norm of
+/// `from_levels_and_colors`, with the colormap's size, ends and extension.
+fn from_levels_and_colors_op(args: Args<'_>) -> Outcome {
+    let colors = args
+        .json("colors")?
+        .as_array()
+        .ok_or_else(|| ProbeError::BadArgs("colors is malformed".into()))?
+        .iter()
+        .map(|c| c.as_str().map(Color::from))
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| ProbeError::BadArgs("colors is malformed".into()))?;
+    let extend = match args.str("extend")? {
+        "neither" => Extend::Neither,
+        "min" => Extend::Min,
+        "max" => Extend::Max,
+        "both" => Extend::Both,
+        other => return Err(ProbeError::BadArgs(format!("unknown extend {other:?}"))),
+    };
+    let (cmap, norm) = from_levels_and_colors(&args.f64_vec("levels")?, &colors, extend)
+        .map_err(ProbeError::rejected)?;
+    let (n, under, over) = (cmap.n(), cmap.under(), cmap.over());
+    let mut mappable = ScalarMappable::with_norm(cmap, Box::new(norm));
+    let values: Vec<Option<f64>> = args.f64_vec("values")?.into_iter().map(Some).collect();
+    let rgba = mappable
+        .to_rgba(&values, None)
+        .map_err(ProbeError::rejected)?;
+    let extend_name = match extend {
+        Extend::Neither => "neither",
+        Extend::Min => "min",
+        Extend::Max => "max",
+        Extend::Both => "both",
+    };
+    Ok(Json::Object(vec![
+        (
+            "rgba".to_owned(),
+            Json::Array(rgba.into_iter().map(rgba_json).collect()),
+        ),
+        (
+            "N".to_owned(),
+            Json::Integer(i64::try_from(n).unwrap_or(i64::MAX)),
+        ),
+        ("under".to_owned(), rgba_json(under)),
+        ("over".to_owned(), rgba_json(over)),
+        ("extend".to_owned(), Json::String(extend_name.to_owned())),
+    ]))
 }

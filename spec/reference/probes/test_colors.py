@@ -621,3 +621,28 @@ def test_color_sequences():
     for name in names:
         probes.probe("colors.color_sequence", _color_sequence, name=name)
     assert isinstance(probes.probe("colors.color_sequence", _color_sequence, name="nope"), KeyError)
+
+
+def _from_levels_and_colors(levels, colors, extend, values):
+    cmap, norm = mcolors.from_levels_and_colors(levels, colors, extend=extend)
+    rgba = cmap(norm(np.array(values, dtype=float)))
+    return {"rgba": [[float(c) for c in row] for row in rgba], "N": int(cmap.N),
+            "under": [float(c) for c in cmap.get_under()],
+            "over": [float(c) for c in cmap.get_over()], "extend": cmap.colorbar_extend}
+
+
+def test_from_levels_and_colors():
+    # After test_cmap_and_norm_from_levels_and_colors(2) in matplotlib's tests.
+    values = [-2.0, -1.0, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0]
+    levels = [-1.0, 1.0, 2.0, 3.0]
+    for extend, colors in [("neither", ["r", "g", "b"]), ("min", ["k", "r", "g", "b"]),
+                           ("max", ["r", "g", "b", "w"]), ("both", ["k", "r", "g", "b", "w"])]:
+        probes.probe("colors.from_levels_and_colors", _from_levels_and_colors, levels=levels,
+                     colors=colors, extend=extend, values=values)
+    for levels, colors, extend in [([0.0, 1.0], ["r", "g"], "neither"),
+                                   ([0.0, 1.0, 2.0], ["r"], "max"),
+                                   ([1.0], [], "neither"),
+                                   ([2.0, 1.0, 0.0], ["r", "g"], "neither"),
+                                   ([0.0, 1.0, 2.0], ["r", "notacolor"], "neither")]:
+        probes.probe("colors.from_levels_and_colors", _from_levels_and_colors, levels=levels,
+                     colors=colors, extend=extend, values=values)

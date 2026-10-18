@@ -8,6 +8,7 @@ use plt_core::Affine2D;
 use plt_core::Path;
 use plt_render::{CapStyle, JoinStyle};
 
+use super::canon::Canon;
 use crate::json::Json;
 use crate::probes::encode;
 use crate::probes::{Args, Op, Outcome, ProbeError};
@@ -26,7 +27,27 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("lines.Line2D.set_drawstyle", set_drawstyle),
     Op::new("lines.Line2D.get_path", line_path),
     Op::new("lines.markevery", markevery::marker_indices),
+    Op::new("axes._process_plot_format", plot_format),
 ];
+
+/// A format string's `[linestyle, marker, color]` under matplotlib's
+/// defaults, colours resolved against the default property cycle.
+fn plot_format(args: Args<'_>) -> Outcome {
+    let rc = plt::rc::RcParams::matplotlib();
+    let format = plt::lines::FormatString::parse_with(args.str("fmt")?, &rc)
+        .map_err(ProbeError::rejected)?;
+    let color = format
+        .color
+        .map(|color| color.resolve_with(None, &rc.axes_prop_cycle.colors()))
+        .transpose()
+        .map_err(ProbeError::rejected)?
+        .map_or(Json::Null, |c| [c.r, c.g, c.b, c.a].canon());
+    Ok(Json::Array(vec![
+        format.linestyle.canon(),
+        format.marker.canon(),
+        color,
+    ]))
+}
 
 type StepFn = fn(&[f64], &[&[f64]]) -> Result<Vec<Vec<f64>>, plt::lines::StepError>;
 

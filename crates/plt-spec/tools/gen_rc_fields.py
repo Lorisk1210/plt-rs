@@ -29,7 +29,7 @@ def main():
         "",
         "use plt::rc::RcParams;",
         "",
-        "use super::canon::Canon;",
+        "use crate::probes::areas::canon::Canon;",
         "use crate::json::Json;",
         "",
         "/// The canonical value of the parameter `key` in `rc`, if it is probed.",

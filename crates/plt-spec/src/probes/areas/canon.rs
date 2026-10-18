@@ -1,4 +1,4 @@
-//! The canonical form of validated rcParam values (see
+//! The canonical form of styling values shared by probe areas (see
 //! `spec/reference/probes/test_rcsetup.py`): meaning rather than
 //! representation, so that a colour is its RGBA and a line style its name
 //! or dash pattern.
@@ -18,7 +18,7 @@ use plt_render::{CapStyle, JoinStyle};
 use crate::json::Json;
 
 /// A value in the probes' canonical form.
-pub(super) trait Canon {
+pub(crate) trait Canon {
     /// The canonical JSON.
     fn canon(&self) -> Json;
 }

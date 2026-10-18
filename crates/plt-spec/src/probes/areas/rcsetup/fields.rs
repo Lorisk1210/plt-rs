@@ -5,8 +5,8 @@
 
 use plt::rc::RcParams;
 
-use super::canon::Canon;
 use crate::json::Json;
+use crate::probes::areas::canon::Canon;
 
 /// The canonical value of the parameter `key` in `rc`, if it is probed.
 #[allow(clippy::too_many_lines, reason = "generated: one arm per rcParam")]

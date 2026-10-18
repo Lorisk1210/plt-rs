@@ -32,3 +32,4 @@ pub(crate) mod text_metrics;
 pub(crate) mod ticker;
 pub(crate) mod transforms;
 pub(crate) mod tri;
+pub(crate) mod widgets;

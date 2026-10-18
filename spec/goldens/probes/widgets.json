@@ -1,0 +1,2873 @@
+{
+ "area": "widgets",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 103, "y": 82}, {"type": "release", "x": 103, "y": 82, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064515, 1.7096774193548385, 2.0346320346320352, 2.121212121212121],
+    "selects": [[1.6129032258064515, 2.0346320346320352, 1.7096774193548385, 2.121212121212121]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 103, "y": 82}, {"type": "release", "x": 103, "y": 82, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064515, 1.7096774193548385, 2.0346320346320352, 2.121212121212121],
+    "selects": [[1.6129032258064515, 2.0346320346320352, 1.7096774193548385, 2.121212121212121]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 103, "y": 82}, {"type": "release", "x": 103, "y": 82, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064515, 1.7096774193548385, 2.0346320346320352, 2.121212121212121],
+    "selects": [[1.6129032258064515, 2.0346320346320352, 1.7096774193548385, 2.121212121212121]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 103, "y": 82}, {"type": "release", "x": 103, "y": 82, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 1.7096774193548385, 2.0346320346320352, 2.121212121212121], "selects": []}
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 103, "y": 82}, {"type": "release", "x": 103, "y": 82, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064515, 1.7096774193548385, 2.0346320346320352, 2.121212121212121],
+    "selects": [[1.6129032258064515, 2.0346320346320352, 1.7096774193548385, 2.121212121212121]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 150, "y": 120},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 150, "y": 120},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 150, "y": 120},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 150, "y": 120},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 150, "y": 120},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 140, "button": 1},
+     {"type": "motion", "x": 180, "y": 160},
+     {"type": "release", "x": 180, "y": 160, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [2.580645161290322, 5.806451612903224, 2.900432900432901, 8.095238095238095],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [2.580645161290322, 2.900432900432901, 5.806451612903224, 8.095238095238095]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 140, "button": 1},
+     {"type": "motion", "x": 180, "y": 160},
+     {"type": "release", "x": 180, "y": 160, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [2.580645161290322, 5.806451612903224, 2.900432900432901, 8.095238095238095],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [2.580645161290322, 2.900432900432901, 5.806451612903224, 8.095238095238095]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 140, "button": 1},
+     {"type": "motion", "x": 180, "y": 160},
+     {"type": "release", "x": 180, "y": 160, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [2.580645161290322, 5.806451612903224, 2.900432900432901, 8.095238095238095],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [2.580645161290322, 2.900432900432901, 5.806451612903224, 8.095238095238095]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 140, "button": 1},
+     {"type": "motion", "x": 180, "y": 160},
+     {"type": "release", "x": 180, "y": 160, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [3.225806451612904, 4.193548387096774, 4.632034632034633, 5.497835497835498],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [3.225806451612904, 4.632034632034633, 4.193548387096774, 5.497835497835498]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 140, "button": 1},
+     {"type": "motion", "x": 180, "y": 160},
+     {"type": "release", "x": 180, "y": 160, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [3.225806451612904, 4.193548387096774, 4.632034632034633, 5.497835497835498],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [3.225806451612904, 4.632034632034633, 4.193548387096774, 5.497835497835498]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "motion", "x": 240, "y": 140},
+     {"type": "release", "x": 240, "y": 140, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 6.129032258064516, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [1.6129032258064517, 2.0346320346320352, 6.129032258064516, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "motion", "x": 240, "y": 140},
+     {"type": "release", "x": 240, "y": 140, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 6.129032258064516, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [1.6129032258064517, 2.0346320346320352, 6.129032258064516, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "motion", "x": 240, "y": 140},
+     {"type": "release", "x": 240, "y": 140, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 6.129032258064516, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [1.6129032258064517, 2.0346320346320352, 6.129032258064516, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "motion", "x": 240, "y": 140},
+     {"type": "release", "x": 240, "y": 140, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [4.838709677419354, 6.129032258064516, 4.632034632034633, 4.632034632034633],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [4.838709677419354, 4.632034632034633, 6.129032258064516, 4.632034632034633]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "motion", "x": 240, "y": 140},
+     {"type": "release", "x": 240, "y": 140, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [4.838709677419354, 6.129032258064516, 4.632034632034633, 4.632034632034633],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [4.838709677419354, 4.632034632034633, 6.129032258064516, 4.632034632034633]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 200, "button": 1},
+     {"type": "motion", "x": 250, "y": 240},
+     {"type": "release", "x": 250, "y": 240, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 6.451612903225806, 2.0346320346320352, 8.96103896103896],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [1.6129032258064517, 2.0346320346320352, 6.451612903225806, 8.96103896103896]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 200, "button": 1},
+     {"type": "motion", "x": 250, "y": 240},
+     {"type": "release", "x": 250, "y": 240, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 6.451612903225806, 2.0346320346320352, 8.96103896103896],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [1.6129032258064517, 2.0346320346320352, 6.451612903225806, 8.96103896103896]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 200, "button": 1},
+     {"type": "motion", "x": 250, "y": 240},
+     {"type": "release", "x": 250, "y": 240, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 6.451612903225806, 2.0346320346320352, 8.96103896103896],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [1.6129032258064517, 2.0346320346320352, 6.451612903225806, 8.96103896103896]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 200, "button": 1},
+     {"type": "motion", "x": 250, "y": 240},
+     {"type": "release", "x": 250, "y": 240, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [4.838709677419354, 6.451612903225806, 7.229437229437229, 8.96103896103896],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [4.838709677419354, 7.229437229437229, 6.451612903225806, 8.96103896103896]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 200, "y": 200, "button": 1},
+     {"type": "motion", "x": 250, "y": 240},
+     {"type": "release", "x": 250, "y": 240, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [4.838709677419354, 6.451612903225806, 7.229437229437229, 8.96103896103896],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [4.838709677419354, 7.229437229437229, 6.451612903225806, 8.96103896103896]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 300, "y": 50, "button": 1},
+     {"type": "release", "x": 300, "y": 50, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [8.064516129032258, 8.064516129032258, 0.7359307359307363, 0.7359307359307363],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [8.064516129032258, 0.7359307359307363, 8.064516129032258, 0.7359307359307363]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 300, "y": 50, "button": 1},
+     {"type": "release", "x": 300, "y": 50, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 300, "y": 50, "button": 1},
+     {"type": "release", "x": 300, "y": 50, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [8.064516129032258, 8.064516129032258, 0.7359307359307363, 0.7359307359307363],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [8.064516129032258, 0.7359307359307363, 8.064516129032258, 0.7359307359307363]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 300, "y": 50, "button": 1},
+     {"type": "release", "x": 300, "y": 50, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [8.064516129032258, 8.064516129032258, 0.7359307359307363, 0.7359307359307363],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [8.064516129032258, 0.7359307359307363, 8.064516129032258, 0.7359307359307363]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "press", "x": 300, "y": 50, "button": 1},
+     {"type": "release", "x": 300, "y": 50, "button": 1}
+    ]
+   },
+   "value": {
+    "extents": [8.064516129032258, 8.064516129032258, 0.7359307359307363, 0.7359307359307363],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723], [8.064516129032258, 0.7359307359307363, 8.064516129032258, 0.7359307359307363]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 500, "y": 400}, {"type": "release", "x": 500, "y": 400, "button": 1}]
+   },
+   "value": {"extents": [1.612903225806452, 10.0, 2.0346320346320357, 10.0], "selects": [[1.612903225806452, 2.0346320346320357, 10.0, 10.0]]}
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 500, "y": 400}, {"type": "release", "x": 500, "y": 400, "button": 1}]
+   },
+   "value": {"extents": [1.612903225806452, 10.0, 2.0346320346320357, 10.0], "selects": [[1.612903225806452, 2.0346320346320357, 10.0, 10.0]]}
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 500, "y": 400}, {"type": "release", "x": 500, "y": 400, "button": 1}]
+   },
+   "value": {"extents": [1.612903225806452, 10.0, 2.0346320346320357, 10.0], "selects": [[1.612903225806452, 2.0346320346320357, 10.0, 10.0]]}
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 500, "y": 400}, {"type": "release", "x": 500, "y": 400, "button": 1}]
+   },
+   "value": {"extents": [1.612903225806452, 10.0, 2.0346320346320357, 10.0], "selects": [[1.612903225806452, 2.0346320346320357, 10.0, 10.0]]}
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [{"type": "press", "x": 100, "y": 80, "button": 1}, {"type": "motion", "x": 500, "y": 400}, {"type": "release", "x": 500, "y": 400, "button": 1}]
+   },
+   "value": {"extents": [1.612903225806452, 10.0, 2.0346320346320357, 10.0], "selects": [[1.612903225806452, 2.0346320346320357, 10.0, 10.0]]}
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 200, "y": 200, "button": 1}, {"type": "motion", "x": 100, "y": 80}, {"type": "release", "x": 100, "y": 80, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 200, "y": 200, "button": 1}, {"type": "motion", "x": 100, "y": 80}, {"type": "release", "x": 100, "y": 80, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 200, "y": 200, "button": 1}, {"type": "motion", "x": 100, "y": 80}, {"type": "release", "x": 100, "y": 80, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [{"type": "press", "x": 200, "y": 200, "button": 1}, {"type": "motion", "x": 100, "y": 80}, {"type": "release", "x": 100, "y": 80, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [{"type": "press", "x": 200, "y": 200, "button": 1}, {"type": "motion", "x": 100, "y": 80}, {"type": "release", "x": 100, "y": 80, "button": 1}]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320352, 7.22943722943723],
+    "selects": [[1.6129032258064517, 2.0346320346320352, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "key_press", "key": "control"},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "key_release", "key": "control"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064528, 4.838709677419354, 2.900432900432901, 7.22943722943723],
+    "selects": [[1.6129032258064528, 2.900432900432901, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "key_press", "key": "control"},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "key_release", "key": "control"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064528, 4.838709677419354, 2.900432900432901, 7.22943722943723],
+    "selects": [[1.6129032258064528, 2.900432900432901, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [
+     {"type": "key_press", "key": "control"},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "key_release", "key": "control"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064528, 4.838709677419354, 2.900432900432901, 7.22943722943723],
+    "selects": [[1.6129032258064528, 2.900432900432901, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [
+     {"type": "key_press", "key": "control"},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "key_release", "key": "control"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064528, 4.838709677419354, 2.900432900432901, 7.22943722943723],
+    "selects": [[1.6129032258064528, 2.900432900432901, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [
+     {"type": "key_press", "key": "control"},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 200},
+     {"type": "release", "x": 200, "y": 200, "button": 1},
+     {"type": "key_release", "key": "control"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064528, 4.838709677419354, 2.900432900432901, 7.22943722943723],
+    "selects": [[1.6129032258064528, 2.900432900432901, 4.838709677419354, 7.22943722943723]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "key_press", "key": "shift"},
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "key_release", "key": "shift"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320357, 6.363636363636363],
+    "selects": [[1.6129032258064517, 2.0346320346320357, 4.838709677419354, 6.363636363636363]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "key_press", "key": "shift"},
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "key_release", "key": "shift"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320357, 6.363636363636363],
+    "selects": [[1.6129032258064517, 2.0346320346320357, 4.838709677419354, 6.363636363636363]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"interactive": true},
+    "events": [
+     {"type": "key_press", "key": "shift"},
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "key_release", "key": "shift"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320357, 6.363636363636363],
+    "selects": [[1.6129032258064517, 2.0346320346320357, 4.838709677419354, 6.363636363636363]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {"minspanx": 1.0, "minspany": 1.0},
+    "events": [
+     {"type": "key_press", "key": "shift"},
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "key_release", "key": "shift"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320357, 6.363636363636363],
+    "selects": [[1.6129032258064517, 2.0346320346320357, 4.838709677419354, 6.363636363636363]]
+   }
+  },
+  {
+   "op": "widgets.RectangleSelector",
+   "args": {
+    "options": {},
+    "events": [
+     {"type": "key_press", "key": "shift"},
+     {"type": "press", "x": 100, "y": 80, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "key_release", "key": "shift"}
+    ]
+   },
+   "value": {
+    "extents": [1.6129032258064517, 4.838709677419354, 2.0346320346320357, 6.363636363636363],
+    "selects": [[1.6129032258064517, 2.0346320346320357, 4.838709677419354, 6.363636363636363]]
+   }
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": false,
+    "closedmax": false,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 100, "y": 135, "button": 1},
+     {"type": "motion", "x": 60, "y": 135},
+     {"type": "motion", "x": 350, "y": 135},
+     {"type": "release", "x": 350, "y": 135, "button": 1}
+    ]
+   },
+   "value": {"val": 0.833333333333333, "changes": [0.833333333333333]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": false,
+    "closedmax": false,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 150, "y": 60, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "motion", "x": 150, "y": 10},
+     {"type": "release", "x": 150, "y": 10, "button": 1}
+    ]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": false,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 100, "y": 135, "button": 1},
+     {"type": "motion", "x": 60, "y": 135},
+     {"type": "motion", "x": 350, "y": 135},
+     {"type": "release", "x": 350, "y": 135, "button": 1}
+    ]
+   },
+   "value": {"val": 0.0, "changes": [0.833333333333333, 0.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": false,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 150, "y": 60, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "motion", "x": 150, "y": 10},
+     {"type": "release", "x": 150, "y": 10, "button": 1}
+    ]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": false,
+    "closedmax": true,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 100, "y": 135, "button": 1},
+     {"type": "motion", "x": 60, "y": 135},
+     {"type": "motion", "x": 350, "y": 135},
+     {"type": "release", "x": 350, "y": 135, "button": 1}
+    ]
+   },
+   "value": {"val": 10.0, "changes": [0.833333333333333, 10.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": false,
+    "closedmax": true,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 150, "y": 60, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "motion", "x": 150, "y": 10},
+     {"type": "release", "x": 150, "y": 10, "button": 1}
+    ]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 2.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": false,
+    "events": [
+     {"type": "press", "x": 100, "y": 135, "button": 1},
+     {"type": "motion", "x": 200, "y": 140},
+     {"type": "motion", "x": 250, "y": 135},
+     {"type": "release", "x": 250, "y": 135, "button": 1}
+    ]
+   },
+   "value": {"val": 0.833333333333333, "changes": [0.833333333333333]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 2.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": false,
+    "events": [
+     {"type": "press", "x": 150, "y": 60, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "motion", "x": 150, "y": 10},
+     {"type": "release", "x": 150, "y": 10, "button": 1}
+    ]
+   },
+   "value": {"val": 2.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 100, "y": 135, "button": 1},
+     {"type": "motion", "x": 200, "y": 140},
+     {"type": "motion", "x": 250, "y": 160},
+     {"type": "motion", "x": 400, "y": 140},
+     {"type": "release", "x": 400, "y": 140, "button": 1}
+    ]
+   },
+   "value": {"val": 10.0, "changes": [1.5, 4.5, 7.5, 10.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 100, "y": 135, "button": 1},
+     {"type": "motion", "x": 200, "y": 140},
+     {"type": "motion", "x": 250, "y": 160},
+     {"type": "motion", "x": 400, "y": 140},
+     {"type": "release", "x": 400, "y": 140, "button": 1}
+    ]
+   },
+   "value": {"val": 10.0, "changes": [0.0, 7.0, 10.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 100, "y": 135, "button": 1},
+     {"type": "motion", "x": 200, "y": 140},
+     {"type": "motion", "x": 250, "y": 160},
+     {"type": "motion", "x": 400, "y": 140},
+     {"type": "release", "x": 400, "y": 140, "button": 1}
+    ]
+   },
+   "value": {"val": 10.0, "changes": [0.833333333333333, 4.999999999999999, 7.083333333333333, 10.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 140, "y": 135, "button": 1}, {"type": "release", "x": 140, "y": 135, "button": 1}]
+   },
+   "value": {"val": 3.0, "changes": [3.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 140, "y": 135, "button": 1}, {"type": "release", "x": 140, "y": 135, "button": 1}]
+   },
+   "value": {"val": 2.5, "changes": [2.5]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 140, "y": 135, "button": 1}, {"type": "release", "x": 140, "y": 135, "button": 1}]
+   },
+   "value": {"val": 2.5, "changes": [2.5]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "release", "x": 150, "y": 100, "button": 1}]
+   },
+   "value": {"val": 4.5, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "release", "x": 150, "y": 100, "button": 1}]
+   },
+   "value": {"val": 7.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "release", "x": 150, "y": 100, "button": 1}]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 150, "y": 270, "button": 1}, {"type": "release", "x": 150, "y": 270, "button": 1}]
+   },
+   "value": {"val": 4.5, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 150, "y": 270, "button": 1}, {"type": "release", "x": 150, "y": 270, "button": 1}]
+   },
+   "value": {"val": 7.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 150, "y": 270, "button": 1}, {"type": "release", "x": 150, "y": 270, "button": 1}]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 150, "y": 60, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "motion", "x": 150, "y": 10},
+     {"type": "release", "x": 150, "y": 10, "button": 1}
+    ]
+   },
+   "value": {"val": 4.5, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 150, "y": 60, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "motion", "x": 150, "y": 10},
+     {"type": "release", "x": 150, "y": 10, "button": 1}
+    ]
+   },
+   "value": {"val": 7.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "vertical",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [
+     {"type": "press", "x": 150, "y": 60, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "motion", "x": 150, "y": 10},
+     {"type": "release", "x": 150, "y": 10, "button": 1}
+    ]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 200, "y": 50, "button": 1}, {"type": "release", "x": 200, "y": 50, "button": 1}]
+   },
+   "value": {"val": 4.5, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 200, "y": 50, "button": 1}, {"type": "release", "x": 200, "y": 50, "button": 1}]
+   },
+   "value": {"val": 7.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 200, "y": 50, "button": 1}, {"type": "release", "x": 200, "y": 50, "button": 1}]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 300, "y": 135, "button": 1}, {"type": "release", "x": 300, "y": 135, "button": 1}]
+   },
+   "value": {"val": 9.0, "changes": [9.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 300, "y": 135, "button": 1}, {"type": "release", "x": 300, "y": 135, "button": 1}]
+   },
+   "value": {"val": 10.0, "changes": [10.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 300, "y": 135, "button": 1}, {"type": "release", "x": 300, "y": 135, "button": 1}]
+   },
+   "value": {"val": 9.166666666666668, "changes": [9.166666666666668]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 330, "y": 135, "button": 1}, {"type": "release", "x": 330, "y": 135, "button": 1}]
+   },
+   "value": {"val": 4.5, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 330, "y": 135, "button": 1}, {"type": "release", "x": 330, "y": 135, "button": 1}]
+   },
+   "value": {"val": 7.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 330, "y": 135, "button": 1}, {"type": "release", "x": 330, "y": 135, "button": 1}]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 81, "y": 135, "button": 1}, {"type": "release", "x": 81, "y": 135, "button": 1}]
+   },
+   "value": {"val": 0.0, "changes": [0.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 81, "y": 135, "button": 1}, {"type": "release", "x": 81, "y": 135, "button": 1}]
+   },
+   "value": {"val": 0.0, "changes": [0.0]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 81, "y": 135, "button": 1}, {"type": "release", "x": 81, "y": 135, "button": 1}]
+   },
+   "value": {"val": 0.04166666666666696, "changes": [0.04166666666666696]}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": 1.5,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 200, "y": 135, "button": 3}, {"type": "release", "x": 200, "y": 135, "button": 3}]
+   },
+   "value": {"val": 4.5, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": [0.0, 2.0, 2.5, 7.0, 10.0],
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 200, "y": 135, "button": 3}, {"type": "release", "x": 200, "y": 135, "button": 3}]
+   },
+   "value": {"val": 7.0, "changes": []}
+  },
+  {
+   "op": "widgets.Slider",
+   "args": {
+    "orientation": "horizontal",
+    "valinit": 5.0,
+    "valstep": null,
+    "closedmin": true,
+    "closedmax": true,
+    "dragging": true,
+    "events": [{"type": "press", "x": 200, "y": 135, "button": 3}, {"type": "release", "x": 200, "y": 135, "button": 3}]
+   },
+   "value": {"val": 5.0, "changes": []}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 102, "y": 150}, {"type": "release", "x": 102, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 1.6774193548387095], "selects": [[1.6129032258064515, 1.6774193548387095]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 102, "y": 150}, {"type": "release", "x": 102, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 1.6774193548387095], "selects": [[1.6129032258064515, 1.6774193548387095]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 102, "y": 150}, {"type": "release", "x": 102, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 1.6774193548387095], "selects": [[1.6129032258064515, 1.6774193548387095]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 102, "y": 150}, {"type": "release", "x": 102, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 1.6774193548387095], "selects": []}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 102, "y": 150}, {"type": "release", "x": 102, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.0, 1.0], "selects": []}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 102, "y": 150}, {"type": "release", "x": 102, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 1.6774193548387095], "selects": [[1.6129032258064515, 1.6774193548387095]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 60, "y": 150},
+     {"type": "release", "x": 60, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.3225806451612905, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354], [0.3225806451612905, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 60, "y": 150},
+     {"type": "release", "x": 60, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.3225806451612905, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354], [0.3225806451612905, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 60, "y": 150},
+     {"type": "release", "x": 60, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.3225806451612905, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354], [0.3225806451612905, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 60, "y": 150},
+     {"type": "release", "x": 60, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.3225806451612905, 1.6129032258064515], "selects": [[1.6129032258064515, 4.838709677419354], [0.3225806451612905, 1.6129032258064515]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 60, "y": 150},
+     {"type": "release", "x": 60, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.0, 1.0], "selects": [[1.0, 5.0], [0.0, 1.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 60, "y": 150},
+     {"type": "release", "x": 60, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.3225806451612905, 1.6129032258064515], "selects": [[1.6129032258064515, 4.838709677419354], [0.3225806451612905, 1.6129032258064515]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 180, "y": 150},
+     {"type": "release", "x": 180, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.580645161290322, 5.806451612903224], "selects": [[1.6129032258064515, 4.838709677419354], [2.580645161290322, 5.806451612903224]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 180, "y": 150},
+     {"type": "release", "x": 180, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.6129032258064515, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 180, "y": 150},
+     {"type": "release", "x": 180, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [3.2258064516129035, 4.193548387096774], "selects": [[1.6129032258064515, 4.838709677419354], [3.2258064516129035, 4.193548387096774]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 180, "y": 150},
+     {"type": "release", "x": 180, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [3.2258064516129035, 4.193548387096774], "selects": [[1.6129032258064515, 4.838709677419354], [3.2258064516129035, 4.193548387096774]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 180, "y": 150},
+     {"type": "release", "x": 180, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.5, 4.0], "selects": [[1.0, 5.0], [2.5, 4.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 180, "y": 150},
+     {"type": "release", "x": 180, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [3.2258064516129035, 4.193548387096774], "selects": [[1.6129032258064515, 4.838709677419354], [3.2258064516129035, 4.193548387096774]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 200, "y": 150, "button": 1},
+     {"type": "motion", "x": 250, "y": 150},
+     {"type": "release", "x": 250, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.6129032258064515, 6.451612903225806], "selects": [[1.6129032258064515, 4.838709677419354], [1.6129032258064515, 6.451612903225806]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 200, "y": 150, "button": 1},
+     {"type": "motion", "x": 250, "y": 150},
+     {"type": "release", "x": 250, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.6129032258064515, 6.451612903225806], "selects": [[1.6129032258064515, 4.838709677419354], [1.6129032258064515, 6.451612903225806]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 200, "y": 150, "button": 1},
+     {"type": "motion", "x": 250, "y": 150},
+     {"type": "release", "x": 250, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.6129032258064515, 6.451612903225806], "selects": [[1.6129032258064515, 4.838709677419354], [1.6129032258064515, 6.451612903225806]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 200, "y": 150, "button": 1},
+     {"type": "motion", "x": 250, "y": 150},
+     {"type": "release", "x": 250, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [4.838709677419354, 6.451612903225806], "selects": [[1.6129032258064515, 4.838709677419354], [4.838709677419354, 6.451612903225806]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 200, "y": 150, "button": 1},
+     {"type": "motion", "x": 250, "y": 150},
+     {"type": "release", "x": 250, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [5.0, 7.5], "selects": [[1.0, 5.0], [5.0, 7.5]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 200, "y": 150, "button": 1},
+     {"type": "motion", "x": 250, "y": 150},
+     {"type": "release", "x": 250, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [4.838709677419354, 6.451612903225806], "selects": [[1.6129032258064515, 4.838709677419354], [4.838709677419354, 6.451612903225806]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 300, "y": 150, "button": 1},
+     {"type": "release", "x": 300, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [8.064516129032258, 8.064516129032258], "selects": [[1.6129032258064515, 4.838709677419354], [8.064516129032258, 8.064516129032258]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 300, "y": 150, "button": 1},
+     {"type": "release", "x": 300, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.6129032258064515, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 300, "y": 150, "button": 1},
+     {"type": "release", "x": 300, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [8.064516129032258, 8.064516129032258], "selects": [[1.6129032258064515, 4.838709677419354], [8.064516129032258, 8.064516129032258]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 300, "y": 150, "button": 1},
+     {"type": "release", "x": 300, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [8.064516129032258, 8.064516129032258], "selects": [[1.6129032258064515, 4.838709677419354], [8.064516129032258, 8.064516129032258]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 300, "y": 150, "button": 1},
+     {"type": "release", "x": 300, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [7.5, 7.5], "selects": [[1.0, 5.0], [7.5, 7.5]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 100, "y": 150, "button": 1},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1},
+     {"type": "press", "x": 300, "y": 150, "button": 1},
+     {"type": "release", "x": 300, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [8.064516129032258, 8.064516129032258], "selects": [[1.6129032258064515, 4.838709677419354], [8.064516129032258, 8.064516129032258]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 500, "y": 150}, {"type": "release", "x": 500, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 10.0], "selects": [[1.6129032258064515, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 500, "y": 150}, {"type": "release", "x": 500, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 10.0], "selects": [[1.6129032258064515, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 500, "y": 150}, {"type": "release", "x": 500, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 10.0], "selects": [[1.6129032258064515, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 500, "y": 150}, {"type": "release", "x": 500, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 10.0], "selects": [[1.6129032258064515, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 500, "y": 150}, {"type": "release", "x": 500, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.0, 10.0], "selects": [[1.0, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 1}, {"type": "motion", "x": 500, "y": 150}, {"type": "release", "x": 500, "y": 150, "button": 1}]
+   },
+   "value": {"extents": [1.6129032258064515, 10.0], "selects": [[1.6129032258064515, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 200, "y": 150, "button": 1}, {"type": "motion", "x": 120, "y": 140}, {"type": "release", "x": 120, "y": 140, "button": 1}]
+   },
+   "value": {"extents": [2.2580645161290325, 4.838709677419354], "selects": [[2.2580645161290325, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 200, "y": 150, "button": 1}, {"type": "motion", "x": 120, "y": 140}, {"type": "release", "x": 120, "y": 140, "button": 1}]
+   },
+   "value": {"extents": [2.2580645161290325, 4.838709677419354], "selects": [[2.2580645161290325, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 200, "y": 150, "button": 1}, {"type": "motion", "x": 120, "y": 140}, {"type": "release", "x": 120, "y": 140, "button": 1}]
+   },
+   "value": {"extents": [2.2580645161290325, 4.838709677419354], "selects": [[2.2580645161290325, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [{"type": "press", "x": 200, "y": 150, "button": 1}, {"type": "motion", "x": 120, "y": 140}, {"type": "release", "x": 120, "y": 140, "button": 1}]
+   },
+   "value": {"extents": [2.2580645161290325, 4.838709677419354], "selects": [[2.2580645161290325, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [{"type": "press", "x": 200, "y": 150, "button": 1}, {"type": "motion", "x": 120, "y": 140}, {"type": "release", "x": 120, "y": 140, "button": 1}]
+   },
+   "value": {"extents": [2.5, 5.0], "selects": [[2.5, 5.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [{"type": "press", "x": 200, "y": 150, "button": 1}, {"type": "motion", "x": 120, "y": 140}, {"type": "release", "x": 120, "y": 140, "button": 1}]
+   },
+   "value": {"extents": [2.2580645161290325, 4.838709677419354], "selects": [[2.2580645161290325, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 80, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 160},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.967741935483871, 4.838709677419354], "selects": [[0.967741935483871, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 80, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 160},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.967741935483871, 4.838709677419354], "selects": [[0.967741935483871, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 80, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 160},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.967741935483871, 4.838709677419354], "selects": [[0.967741935483871, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 80, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 160},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.967741935483871, 4.838709677419354], "selects": [[0.967741935483871, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 80, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 160},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.0, 5.0], "selects": [[1.0, 5.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 80, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 160},
+     {"type": "motion", "x": 200, "y": 150},
+     {"type": "release", "x": 200, "y": 150, "button": 1}
+    ]
+   },
+   "value": {"extents": [0.967741935483871, 4.838709677419354], "selects": [[0.967741935483871, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 3}, {"type": "motion", "x": 200, "y": 150}, {"type": "release", "x": 200, "y": 150, "button": 3}]
+   },
+   "value": {"extents": [1.6129032258064515, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 3}, {"type": "motion", "x": 200, "y": 150}, {"type": "release", "x": 200, "y": 150, "button": 3}]
+   },
+   "value": {"extents": [1.6129032258064515, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 3}, {"type": "motion", "x": 200, "y": 150}, {"type": "release", "x": 200, "y": 150, "button": 3}]
+   },
+   "value": {"extents": [1.6129032258064515, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"minspan": 1.0},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 3}, {"type": "motion", "x": 200, "y": 150}, {"type": "release", "x": 200, "y": 150, "button": 3}]
+   },
+   "value": {"extents": [1.6129032258064515, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 3}, {"type": "motion", "x": 200, "y": 150}, {"type": "release", "x": 200, "y": 150, "button": 3}]
+   },
+   "value": {"extents": [1.0, 5.0], "selects": [[1.0, 5.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "horizontal",
+    "options": {},
+    "events": [{"type": "press", "x": 100, "y": 150, "button": 3}, {"type": "motion", "x": 200, "y": 150}, {"type": "release", "x": 200, "y": 150, "button": 3}]
+   },
+   "value": {"extents": [1.6129032258064515, 4.838709677419354], "selects": [[1.6129032258064515, 4.838709677419354]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 102}, {"type": "release", "x": 150, "y": 102, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 2.987012987012988], "selects": [[2.900432900432901, 2.987012987012988]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 102}, {"type": "release", "x": 150, "y": 102, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 2.987012987012988], "selects": [[2.900432900432901, 2.987012987012988]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 102}, {"type": "release", "x": 150, "y": 102, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 2.987012987012988], "selects": [[2.900432900432901, 2.987012987012988]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 102}, {"type": "release", "x": 150, "y": 102, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 2.987012987012988], "selects": []}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 102}, {"type": "release", "x": 150, "y": 102, "button": 1}]
+   },
+   "value": {"extents": [2.5, 2.5], "selects": []}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 102}, {"type": "release", "x": 150, "y": 102, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 2.987012987012988], "selects": [[2.900432900432901, 2.987012987012988]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 60},
+     {"type": "release", "x": 150, "y": 60, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.1688311688311692, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723], [1.1688311688311692, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 60},
+     {"type": "release", "x": 150, "y": 60, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.1688311688311692, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723], [1.1688311688311692, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 60},
+     {"type": "release", "x": 150, "y": 60, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.1688311688311692, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723], [1.1688311688311692, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 60},
+     {"type": "release", "x": 150, "y": 60, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.1688311688311692, 2.900432900432901], "selects": [[2.900432900432901, 7.22943722943723], [1.1688311688311692, 2.900432900432901]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 60},
+     {"type": "release", "x": 150, "y": 60, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.0, 2.5], "selects": [[2.5, 7.5], [1.0, 2.5]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 60},
+     {"type": "release", "x": 150, "y": 60, "button": 1}
+    ]
+   },
+   "value": {"extents": [1.1688311688311692, 2.900432900432901], "selects": [[2.900432900432901, 7.22943722943723], [1.1688311688311692, 2.900432900432901]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 180},
+     {"type": "release", "x": 150, "y": 180, "button": 1}
+    ]
+   },
+   "value": {"extents": [4.1991341991342, 8.528138528138529], "selects": [[2.900432900432901, 7.22943722943723], [4.1991341991342, 8.528138528138529]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 180},
+     {"type": "release", "x": 150, "y": 180, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 180},
+     {"type": "release", "x": 150, "y": 180, "button": 1}
+    ]
+   },
+   "value": {"extents": [5.0649350649350655, 6.363636363636364], "selects": [[2.900432900432901, 7.22943722943723], [5.0649350649350655, 6.363636363636364]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 180},
+     {"type": "release", "x": 150, "y": 180, "button": 1}
+    ]
+   },
+   "value": {"extents": [5.0649350649350655, 6.363636363636364], "selects": [[2.900432900432901, 7.22943722943723], [5.0649350649350655, 6.363636363636364]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 180},
+     {"type": "release", "x": 150, "y": 180, "button": 1}
+    ]
+   },
+   "value": {"extents": [5.0, 7.5], "selects": [[2.5, 7.5], [5.0, 7.5]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 150, "button": 1},
+     {"type": "motion", "x": 150, "y": 180},
+     {"type": "release", "x": 150, "y": 180, "button": 1}
+    ]
+   },
+   "value": {"extents": [5.0649350649350655, 6.363636363636364], "selects": [[2.900432900432901, 7.22943722943723], [5.0649350649350655, 6.363636363636364]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 200, "button": 1},
+     {"type": "motion", "x": 150, "y": 250},
+     {"type": "release", "x": 150, "y": 250, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 9.393939393939393], "selects": [[2.900432900432901, 7.22943722943723], [2.900432900432901, 9.393939393939393]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 200, "button": 1},
+     {"type": "motion", "x": 150, "y": 250},
+     {"type": "release", "x": 150, "y": 250, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 9.393939393939393], "selects": [[2.900432900432901, 7.22943722943723], [2.900432900432901, 9.393939393939393]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 200, "button": 1},
+     {"type": "motion", "x": 150, "y": 250},
+     {"type": "release", "x": 150, "y": 250, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 9.393939393939393], "selects": [[2.900432900432901, 7.22943722943723], [2.900432900432901, 9.393939393939393]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 200, "button": 1},
+     {"type": "motion", "x": 150, "y": 250},
+     {"type": "release", "x": 150, "y": 250, "button": 1}
+    ]
+   },
+   "value": {"extents": [7.22943722943723, 9.393939393939393], "selects": [[2.900432900432901, 7.22943722943723], [7.22943722943723, 9.393939393939393]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 200, "button": 1},
+     {"type": "motion", "x": 150, "y": 250},
+     {"type": "release", "x": 150, "y": 250, "button": 1}
+    ]
+   },
+   "value": {"extents": [7.5, 10.0], "selects": [[2.5, 7.5], [7.5, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 200, "button": 1},
+     {"type": "motion", "x": 150, "y": 250},
+     {"type": "release", "x": 150, "y": 250, "button": 1}
+    ]
+   },
+   "value": {"extents": [7.22943722943723, 9.393939393939393], "selects": [[2.900432900432901, 7.22943722943723], [7.22943722943723, 9.393939393939393]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 300, "button": 1},
+     {"type": "release", "x": 150, "y": 300, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 300, "button": 1},
+     {"type": "release", "x": 150, "y": 300, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 300, "button": 1},
+     {"type": "release", "x": 150, "y": 300, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 300, "button": 1},
+     {"type": "release", "x": 150, "y": 300, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 300, "button": 1},
+     {"type": "release", "x": 150, "y": 300, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.5, 7.5], "selects": [[2.5, 7.5]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 150, "y": 100, "button": 1},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1},
+     {"type": "press", "x": 150, "y": 300, "button": 1},
+     {"type": "release", "x": 150, "y": 300, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 500}, {"type": "release", "x": 150, "y": 500, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 10.0], "selects": [[2.900432900432901, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 500}, {"type": "release", "x": 150, "y": 500, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 10.0], "selects": [[2.900432900432901, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 500}, {"type": "release", "x": 150, "y": 500, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 10.0], "selects": [[2.900432900432901, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 500}, {"type": "release", "x": 150, "y": 500, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 10.0], "selects": [[2.900432900432901, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 500}, {"type": "release", "x": 150, "y": 500, "button": 1}]
+   },
+   "value": {"extents": [2.5, 10.0], "selects": [[2.5, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 1}, {"type": "motion", "x": 150, "y": 500}, {"type": "release", "x": 150, "y": 500, "button": 1}]
+   },
+   "value": {"extents": [2.900432900432901, 10.0], "selects": [[2.900432900432901, 10.0]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 150, "y": 200, "button": 1}, {"type": "motion", "x": 140, "y": 120}, {"type": "release", "x": 140, "y": 120, "button": 1}]
+   },
+   "value": {"extents": [3.766233766233767, 7.22943722943723], "selects": [[3.766233766233767, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 150, "y": 200, "button": 1}, {"type": "motion", "x": 140, "y": 120}, {"type": "release", "x": 140, "y": 120, "button": 1}]
+   },
+   "value": {"extents": [3.766233766233767, 7.22943722943723], "selects": [[3.766233766233767, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 150, "y": 200, "button": 1}, {"type": "motion", "x": 140, "y": 120}, {"type": "release", "x": 140, "y": 120, "button": 1}]
+   },
+   "value": {"extents": [3.766233766233767, 7.22943722943723], "selects": [[3.766233766233767, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [{"type": "press", "x": 150, "y": 200, "button": 1}, {"type": "motion", "x": 140, "y": 120}, {"type": "release", "x": 140, "y": 120, "button": 1}]
+   },
+   "value": {"extents": [3.766233766233767, 7.22943722943723], "selects": [[3.766233766233767, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [{"type": "press", "x": 150, "y": 200, "button": 1}, {"type": "motion", "x": 140, "y": 120}, {"type": "release", "x": 140, "y": 120, "button": 1}]
+   },
+   "value": {"extents": [4.0, 7.5], "selects": [[4.0, 7.5]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [{"type": "press", "x": 150, "y": 200, "button": 1}, {"type": "motion", "x": 140, "y": 120}, {"type": "release", "x": 140, "y": 120, "button": 1}]
+   },
+   "value": {"extents": [3.766233766233767, 7.22943722943723], "selects": [[3.766233766233767, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 80, "button": 1},
+     {"type": "motion", "x": 160, "y": 150},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.0346320346320352, 7.22943722943723], "selects": [[2.0346320346320352, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 80, "button": 1},
+     {"type": "motion", "x": 160, "y": 150},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.0346320346320352, 7.22943722943723], "selects": [[2.0346320346320352, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [
+     {"type": "press", "x": 150, "y": 80, "button": 1},
+     {"type": "motion", "x": 160, "y": 150},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.0346320346320352, 7.22943722943723], "selects": [[2.0346320346320352, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [
+     {"type": "press", "x": 150, "y": 80, "button": 1},
+     {"type": "motion", "x": 160, "y": 150},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.0346320346320352, 7.22943722943723], "selects": [[2.0346320346320352, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [
+     {"type": "press", "x": 150, "y": 80, "button": 1},
+     {"type": "motion", "x": 160, "y": 150},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.5, 7.5], "selects": [[2.5, 7.5]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [
+     {"type": "press", "x": 150, "y": 80, "button": 1},
+     {"type": "motion", "x": 160, "y": 150},
+     {"type": "motion", "x": 150, "y": 200},
+     {"type": "release", "x": 150, "y": 200, "button": 1}
+    ]
+   },
+   "value": {"extents": [2.0346320346320352, 7.22943722943723], "selects": [[2.0346320346320352, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 3}, {"type": "motion", "x": 150, "y": 200}, {"type": "release", "x": 150, "y": 200, "button": 3}]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 3}, {"type": "motion", "x": 150, "y": 200}, {"type": "release", "x": 150, "y": 200, "button": 3}]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 3}, {"type": "motion", "x": 150, "y": 200}, {"type": "release", "x": 150, "y": 200, "button": 3}]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"minspan": 1.0},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 3}, {"type": "motion", "x": 150, "y": 200}, {"type": "release", "x": 150, "y": 200, "button": 3}]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {"snap_values": [0.0, 1.0, 2.5, 4.0, 5.0, 7.5, 10.0]},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 3}, {"type": "motion", "x": 150, "y": 200}, {"type": "release", "x": 150, "y": 200, "button": 3}]
+   },
+   "value": {"extents": [2.5, 7.5], "selects": [[2.5, 7.5]]}
+  },
+  {
+   "op": "widgets.SpanSelector",
+   "args": {
+    "direction": "vertical",
+    "options": {},
+    "events": [{"type": "press", "x": 150, "y": 100, "button": 3}, {"type": "motion", "x": 150, "y": 200}, {"type": "release", "x": 150, "y": 200, "button": 3}]
+   },
+   "value": {"extents": [2.900432900432901, 7.22943722943723], "selects": [[2.900432900432901, 7.22943722943723]]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "a"},
+     {"type": "key_press", "key": "b"},
+     {"type": "key_press", "key": "c"},
+     {"type": "key_press", "key": "enter"}
+    ]
+   },
+   "value": {"text": "abc", "changes": ["a", "ab", "abc", "abc"], "submits": ["abc"]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "hello",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "a"},
+     {"type": "key_press", "key": "b"},
+     {"type": "key_press", "key": "c"},
+     {"type": "key_press", "key": "enter"}
+    ]
+   },
+   "value": {"text": "helloabc", "changes": ["helloa", "helloab", "helloabc", "helloabc"], "submits": ["helloabc"]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "backspace"},
+     {"type": "key_press", "key": "backspace"},
+     {"type": "key_press", "key": "x"},
+     {"type": "key_press", "key": "escape"}
+    ]
+   },
+   "value": {"text": "x", "changes": ["", "", "x", "x"], "submits": []}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "hello",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "backspace"},
+     {"type": "key_press", "key": "backspace"},
+     {"type": "key_press", "key": "x"},
+     {"type": "key_press", "key": "escape"}
+    ]
+   },
+   "value": {"text": "helx", "changes": ["hell", "hel", "helx", "helx"], "submits": []}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "home"},
+     {"type": "key_press", "key": "q"},
+     {"type": "key_press", "key": "end"},
+     {"type": "key_press", "key": "r"},
+     {"type": "key_press", "key": "enter"}
+    ]
+   },
+   "value": {"text": "qr", "changes": ["", "q", "q", "qr", "qr"], "submits": ["qr"]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "hello",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "home"},
+     {"type": "key_press", "key": "q"},
+     {"type": "key_press", "key": "end"},
+     {"type": "key_press", "key": "r"},
+     {"type": "key_press", "key": "enter"}
+    ]
+   },
+   "value": {"text": "qhellor", "changes": ["hello", "qhello", "qhello", "qhellor", "qhellor"], "submits": ["qhellor"]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "left"},
+     {"type": "key_press", "key": "left"},
+     {"type": "key_press", "key": "Z"},
+     {"type": "key_press", "key": "right"},
+     {"type": "key_press", "key": "delete"},
+     {"type": "key_press", "key": "enter"}
+    ]
+   },
+   "value": {"text": "Z", "changes": ["", "", "Z", "Z", "Z", "Z"], "submits": ["Z"]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "hello",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "left"},
+     {"type": "key_press", "key": "left"},
+     {"type": "key_press", "key": "Z"},
+     {"type": "key_press", "key": "right"},
+     {"type": "key_press", "key": "delete"},
+     {"type": "key_press", "key": "enter"}
+    ]
+   },
+   "value": {"text": "helZl", "changes": ["hello", "hello", "helZlo", "helZlo", "helZl", "helZl"], "submits": ["helZl"]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "shift"},
+     {"type": "key_press", "key": "A"},
+     {"type": "key_release", "key": "shift"},
+     {"type": "key_press", "key": " "},
+     {"type": "key_press", "key": "enter"},
+     {"type": "key_press", "key": "x"}
+    ]
+   },
+   "value": {"text": "A x", "changes": ["", "A", "A ", "A ", "A x"], "submits": ["A "]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "hello",
+    "events": [
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "shift"},
+     {"type": "key_press", "key": "A"},
+     {"type": "key_release", "key": "shift"},
+     {"type": "key_press", "key": " "},
+     {"type": "key_press", "key": "enter"},
+     {"type": "key_press", "key": "x"}
+    ]
+   },
+   "value": {"text": "helloA x", "changes": ["hello", "helloA", "helloA ", "helloA ", "helloA x"], "submits": ["helloA "]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "",
+    "events": [
+     {"type": "key_press", "key": "a"},
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "b"},
+     {"type": "press", "x": 20, "y": 20, "button": 1},
+     {"type": "release", "x": 20, "y": 20, "button": 1},
+     {"type": "key_press", "key": "c"}
+    ]
+   },
+   "value": {"text": "b", "changes": ["b"], "submits": ["b"]}
+  },
+  {
+   "op": "widgets.TextBox",
+   "args": {
+    "initial": "hello",
+    "events": [
+     {"type": "key_press", "key": "a"},
+     {"type": "press", "x": 200, "y": 140, "button": 1},
+     {"type": "release", "x": 200, "y": 140, "button": 1},
+     {"type": "key_press", "key": "b"},
+     {"type": "press", "x": 20, "y": 20, "button": 1},
+     {"type": "release", "x": 20, "y": 20, "button": 1},
+     {"type": "key_press", "key": "c"}
+    ]
+   },
+   "value": {"text": "hellob", "changes": ["hellob"], "submits": ["hellob"]}
+  }
+ ]
+}

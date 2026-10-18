@@ -165,7 +165,6 @@ under ``DEFAULT``); CFF fonts are not probed.
 
 from __future__ import annotations
 
-import logging
 import math
 import os
 
@@ -178,9 +177,9 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 from matplotlib.ft2font import FT2Font, LoadFlags
-from matplotlib.mathtext import MathTextParser
 
 from spec_support import ProbeSet
+from spec_support.fonts import bundled_fonts_only
 
 probes = ProbeSet("text_metrics")
 
@@ -204,39 +203,11 @@ FONTSETS = ["dejavusans", "dejavuserif", "stix", "stixsans", "cm", "custom"]
 # Font database restricted to matplotlib's bundled fonts (host independence)
 # --------------------------------------------------------------------------
 
-def _bundled_font_files(fontext):
-    dirs = [cbook._get_data_path("fonts", d) for d in ("ttf", "afm", "pdfcorefonts")]
-    return sorted(font_manager.findSystemFonts(dirs, fontext=fontext), key=os.path.basename)
-
-
-def _clear_font_caches():
-    fm = font_manager.fontManager
-    fm._findfont_cached.cache_clear()
-    font_manager._get_font.cache_clear()
-    MathTextParser._parse_cached.cache_clear()
-
-
 @pytest.fixture(scope="module", autouse=True)
 def _bundled_fonts_only():
     """Pretend only mpl-data fonts are installed; restore the host list afterwards."""
-    fm = font_manager.fontManager
-    saved = fm.ttflist, fm.afmlist
-    logger = logging.getLogger("matplotlib.font_manager")
-    saved_level = logger.level
-    logger.setLevel(logging.ERROR)
-    fm.ttflist, fm.afmlist = [], []
-    try:
-        for fontext in ("afm", "ttf"):
-            for path in _bundled_font_files(fontext):
-                fm.addfont(path)
-        _clear_font_caches()
-        data = os.path.realpath(matplotlib.get_data_path()) + os.sep
-        assert all(os.path.realpath(f.fname).startswith(data) for f in fm.ttflist + fm.afmlist)
+    with bundled_fonts_only():
         yield
-    finally:
-        fm.ttflist, fm.afmlist = saved
-        _clear_font_caches()
-        logger.setLevel(saved_level)
 
 
 # --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 //! Rendering a collection (matplotlib's `Collection.draw`).
 
-use plt_core::{Affine2D, Path, Point, Rgba};
+use plt_core::{Affine2D, Path, PathCode, Point, Rgba};
 use plt_render::{Dashes, GraphicsContext, Hatch, PathCollection};
 
 use super::spec::{EllipseUnits, Ellipses};
@@ -174,8 +174,16 @@ impl Batch {
             .copied()
             .unwrap_or_default()
             .then(self.master);
-        let extents = self.paths[0].transformed(&combined).extents();
-        (extents.width() < canvas.0 && extents.height() < canvas.1).then_some(combined)
+        let path = self.paths[0].transformed(&combined);
+        // matplotlib's `get_extents` takes NumPy minima and maxima, which a
+        // non-finite vertex turns NaN or infinite: no shortcut then.
+        let finite = path
+            .vertices()
+            .iter()
+            .zip(path.resolved_codes())
+            .all(|(vertex, code)| code == PathCode::ClosePoly || vertex.is_finite());
+        let extents = path.extents();
+        (finite && extents.width() < canvas.0 && extents.height() < canvas.1).then_some(combined)
     }
 }
 

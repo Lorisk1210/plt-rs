@@ -210,6 +210,12 @@ pub(crate) fn grid_gc(
         linewidth: grid.linewidth,
         antialiased: rc.lines_antialiased,
         sketch: rc_sketch(rc),
+        // Gridlines are lines without a snap setting of their own.
+        snap: if rc.path_snap {
+            SnapMode::Auto
+        } else {
+            SnapMode::Never
+        },
         ..GraphicsContext::default()
     };
     (gc.cap, gc.join) = if grid.linestyle.is_dashed() {

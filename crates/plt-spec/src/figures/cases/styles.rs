@@ -105,6 +105,26 @@ pub(crate) const SHEETS: &[FigureCase] = sheet_cases![
 ];
 
 pub(crate) const CASES: &[FigureCase] = &[
+    FigureCase::new("styles/rc_path_snap_off", |fig| {
+        let ax = fig.subplot();
+        ax.plot_with(
+            vec![0.13, 0.13, 0.87, 0.87, 0.13],
+            vec![0.21, 0.79, 0.79, 0.21, 0.21],
+            LineProps::default().linewidth(1.0),
+        )?;
+        ax.bar(
+            vec![0.3, 0.55],
+            [0.4, 0.6],
+            BarOptions {
+                thickness: vec![0.17],
+                ..BarOptions::default()
+            },
+        )?;
+        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0)
+    .with_rc(&[("path.snap", "False"), ("axes.grid", "True")]),
     FigureCase::new("styles/rc_prop_cycle_color_and_linestyle", |fig| {
         let ax = fig.subplot();
         for i in 0..5 {

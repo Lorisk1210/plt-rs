@@ -24,16 +24,20 @@
 //! ```
 
 mod actions;
+mod help_dialog;
 mod icons;
 mod keys;
 mod options;
 mod save_dialog;
 mod session;
+pub(crate) mod tools;
 mod window;
 
 use std::fmt;
 
+pub use plt_ui::Icon;
 pub use session::{GinputOptions, Session};
+pub use tools::{ToolError, ToolEvent, ToolKind, ToolSpec};
 pub use window::FigureWindow;
 
 use crate::figure::{Figure, SaveError};

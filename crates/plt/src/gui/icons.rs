@@ -158,3 +158,20 @@ pub(super) fn save() -> Icon {
             (19.5, 15.5),
         ]))
 }
+
+/// A question mark in a circle: the keyboard shortcuts.
+pub(super) fn help() -> Icon {
+    Icon::new(GRID)
+        .stroke(Path::circle(p(12.0, 12.0), 8.5))
+        .stroke(line(&[
+            (9.5, 9.5),
+            (10.2, 8.0),
+            (12.0, 7.3),
+            (13.8, 8.0),
+            (14.5, 9.5),
+            (14.0, 11.0),
+            (12.0, 12.5),
+            (12.0, 14.0),
+        ]))
+        .fill(Path::circle(p(12.0, 16.8), 1.0))
+}

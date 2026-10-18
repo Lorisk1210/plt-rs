@@ -126,6 +126,11 @@ impl FigureWindow {
         if self.figure.captures_keys() {
             return Ok(true);
         }
+        // The figure's own tools come first, as they were bound on purpose.
+        if let Some(tool) = self.figure.tool_for_key(&name) {
+            self.figure.trigger_tool(&tool);
+            return self.refresh_tools(cx).map(|()| true);
+        }
         let rc = crate::rc::params();
         let Some(action) = keys::action(&name, &rc) else {
             return Ok(true);
@@ -151,6 +156,7 @@ impl FigureWindow {
             KeyAction::Pan => self.use_tool(cx, Tool::Pan)?,
             KeyAction::Zoom => self.use_tool(cx, Tool::Zoom)?,
             KeyAction::Save => self.use_tool(cx, Tool::Save)?,
+            KeyAction::Help => self.use_tool(cx, Tool::Help)?,
         }
         Ok(true)
     }

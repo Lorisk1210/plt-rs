@@ -174,21 +174,28 @@ pub(super) fn simplify_settings() -> SimplifySettings {
 impl Figure {
     /// A raster canvas for this figure — `size_inches × dpi` pixels
     /// (truncated, as `FigureCanvasAgg` does) with the current
-    /// `path.simplify` settings — ready to be drawn into.
+    /// `path.simplify` and `agg.path.chunksize` settings — ready to be
+    /// drawn into.
     pub fn raster_canvas(&self) -> Result<RasterRenderer, SaveError> {
         let (width, height) = self.size_inches();
         Self::raster_canvas_sized(width, height, self.dpi())
     }
 
     /// A raster canvas of `width × height` inches at `dpi` with the
-    /// current `path.simplify` settings.
+    /// current `path.simplify` and `agg.path.chunksize` settings.
     pub(crate) fn raster_canvas_sized(
         width: f64,
         height: f64,
         dpi: f64,
     ) -> Result<RasterRenderer, SaveError> {
+        // Negative sizes never split, as matplotlib's `npts > nmax > 100`.
+        let chunksize = usize::try_from(crate::rc::params().agg_path_chunksize).unwrap_or(0);
         RasterRenderer::new(width * dpi, height * dpi, dpi)
-            .map(|canvas| canvas.with_simplify(simplify_settings()))
+            .map(|canvas| {
+                canvas
+                    .with_simplify(simplify_settings())
+                    .with_path_chunksize(chunksize)
+            })
             .map_err(SaveError::Backend)
     }
 

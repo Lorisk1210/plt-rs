@@ -54,6 +54,7 @@ VECTOR_CASES = [
     "text/unicode",
     "vectors/colorbar_many_colors",
     "vectors/rasterized_artists",
+    "vectors/rasterization_zorder",
     "vectors/text_fonts",
 ]
 

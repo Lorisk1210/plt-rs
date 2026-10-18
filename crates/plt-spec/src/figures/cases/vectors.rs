@@ -42,6 +42,19 @@ fn rasterized_artists(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
+fn rasterization_zorder(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    ax.set_rasterization_zorder(Some(1.5));
+    ax.pcolormesh(Mesh::new(cells()), PcolorOptions::default())?;
+    let x = linspace(0.0, 11.0, 30);
+    let line: Vec<f64> = x.iter().map(|v| 0.6 * v).collect();
+    ax.plot_with(x.clone(), line, LineProps::default().color("k"))?
+        .set_zorder(1.5);
+    let wave: Vec<f64> = x.iter().map(|v| 4.0 + 2.0 * v.sin()).collect();
+    ax.plot(x, wave)?;
+    Ok(())
+}
+
 fn colorbar_many_colors(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let image = ax.imshow(cells(), ImshowOptions::default())?;
@@ -57,6 +70,7 @@ fn colorbar_many_colors(fig: &Figure) -> CaseResult {
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("vectors/rasterized_artists", rasterized_artists).sized(2.4, 1.6, 50.0),
+    FigureCase::new("vectors/rasterization_zorder", rasterization_zorder).sized(2.4, 1.6, 50.0),
     FigureCase::new("vectors/colorbar_many_colors", colorbar_many_colors).sized(2.4, 1.6, 50.0),
     FigureCase::new("vectors/text_fonts", |fig| {
         for (x, y, text) in [

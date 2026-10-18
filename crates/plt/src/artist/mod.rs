@@ -21,6 +21,7 @@ mod store;
 use std::any::Any;
 use std::fmt::Debug;
 
+use plt_core::path::DataLimits;
 use plt_core::{Bbox, Point};
 use plt_render::ClipPath;
 
@@ -35,6 +36,29 @@ pub(crate) use pick::segment_hits;
 pub use pick::{PickFn, Picker};
 pub use properties::BaseProps;
 pub use store::{ArtistId, ArtistStore};
+
+/// The points an artist adds to its axes' data limits, in its own
+/// coordinates, and whether their x and y are data values (matplotlib's
+/// `_update_line_limits`, `_update_patch_limits`, `_update_image_limits`
+/// and `_update_collection_limits`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LimitPoints {
+    /// The points.
+    pub points: Vec<Point>,
+    /// Whether the x and the y of the points are data values.
+    pub directions: (bool, bool),
+}
+
+impl LimitPoints {
+    /// The corners and smallest positive point of `limits`; `None` when
+    /// they are empty.
+    pub fn from_limits(limits: DataLimits, directions: (bool, bool)) -> Option<Self> {
+        (!limits.bbox.is_null()).then(|| Self {
+            points: vec![limits.bbox.p0, limits.bbox.p1, limits.minpos],
+            directions,
+        })
+    }
+}
 
 /// Behaviour shared by every drawable object.
 pub trait Artist: Any + Debug {
@@ -81,6 +105,13 @@ pub trait Artist: Any + Debug {
         _radius: Option<f64>,
     ) -> Option<Vec<usize>> {
         self.contains(ctx, at).then(Vec::new)
+    }
+
+    /// What the artist adds to the data limits of `axes`, when it is added
+    /// and when the axes recompute them ([`crate::axes::Axes::relim`]);
+    /// `None` for artists that do not count.
+    fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
+        None
     }
 
     /// What a status bar shows of the artist's data under display point

@@ -35,8 +35,8 @@ use plt_core::{Affine2D, Bbox, Path, Point};
 use plt_render::{CapStyle, JoinStyle};
 
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistStore, DrawContext, LayoutContext, RawHandle,
-    format_values,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, DrawContext, LayoutContext,
+    LimitPoints, RawHandle, format_values,
 };
 use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Color, Colormap, Norm, NormError, Normalized, ScalarMappable};
@@ -343,6 +343,12 @@ impl Artist for CollectionArtist {
         let geometry = draw::Geometry::new(self, *ctx, &shapes, &transform).ok()?;
         let hits = geometry.hits(at, radius, radius <= 0.0);
         (!hits.is_empty()).then_some(hits)
+    }
+
+    /// matplotlib's `_update_collection_limits`.
+    fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
+        let (limits, directions) = self.data_limits(axes);
+        LimitPoints::from_limits(limits, directions)
     }
 
     /// matplotlib's `QuadMesh.get_cursor_data`: the values of the cells

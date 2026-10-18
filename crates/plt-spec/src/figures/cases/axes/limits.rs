@@ -61,6 +61,20 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/relim", |fig| {
+        let grid = fig.subplots(1, 2)?;
+        let (ax1, ax2) = (&grid[(0, 0)], &grid[(0, 1)]);
+        let line = ax1.plot([0.0, 1.0], [0.0, 1.0])?;
+        ax1.bar([2.0], [1.0], BarOptions::default())?;
+        ax1.scatter([3.5], [-1.5])?;
+        line.set_data(&[0.0, 4.0], &[-2.0, 3.0]);
+        ax1.relim(false).autoscale_view(None);
+        ax2.plot([0.0, 1.0], [0.0, 1.0])?;
+        ax2.plot([-5.0, 5.0], [-5.0, 5.0])?.set_visible(false);
+        ax2.relim(true).autoscale_view(None);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0),
     FigureCase::new("axes/aspect_equal_box", |fig| {
         let ax = fig.subplot();
         ellipse(&ax)?;

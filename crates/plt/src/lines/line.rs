@@ -10,7 +10,8 @@ use super::{
     DrawStyle, LineStyle, MarkEvery, MarkEveryError, StepError, inverse_dashes, line_vertices,
 };
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle, segment_hits,
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
+    segment_hits,
 };
 use crate::colors::Color;
 use crate::markers::{FillStyle, Marker, MarkerStyle, marker_sketch};
@@ -353,6 +354,20 @@ impl Artist for LineArtist {
                 ctx.report(self.base.id(), problem.to_string());
             }
         }
+    }
+
+    /// The drawn vertices, in the directions where the line's coordinates
+    /// are data values; infinite lines do not count (matplotlib's
+    /// `_update_line_limits`).
+    fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
+        if self.infinite.is_some() {
+            return None;
+        }
+        let directions = self.transform().data_directions(axes);
+        (directions != (false, false)).then(|| LimitPoints {
+            points: self.drawn_points(),
+            directions,
+        })
     }
 
     /// matplotlib's `Line2D.contains`: the vertices within the pick radius

@@ -21,11 +21,7 @@ impl Axes {
         }
         // matplotlib's add_patch extends the data limits without
         // autoscaling the view.
-        let update = DataUpdate {
-            points: patch.data_points(),
-            update: (true, true),
-            autoscale: (false, false),
-        };
+        let update = DataUpdate::extending(patch.limit_points(self.id()));
         Patch::from_raw(self.adopt(patch, &update))
     }
 

@@ -7,8 +7,8 @@ use super::resample::PixelMap;
 use super::unsampled::UnsampledImage;
 use super::{Extent, ImageAlpha, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistStore, ClipPathSpec, DrawContext, LayoutContext,
-    RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, ClipPathSpec, DrawContext,
+    LayoutContext, LimitPoints, RawHandle,
 };
 use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
@@ -203,6 +203,20 @@ impl Artist for AxesImageArtist {
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         self.out_bbox(*ctx)
+    }
+
+    /// The corners of the extent (matplotlib's `_update_image_limits`).
+    fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
+        let Extent {
+            left,
+            right,
+            bottom,
+            top,
+        } = self.extent;
+        Some(LimitPoints {
+            points: vec![Point::new(left, bottom), Point::new(right, top)],
+            directions: (true, true),
+        })
     }
 
     /// matplotlib's `AxesImage.contains`: over the axes background and

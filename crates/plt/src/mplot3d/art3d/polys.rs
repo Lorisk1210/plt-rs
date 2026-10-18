@@ -21,17 +21,26 @@ pub enum ZSort {
     Max,
 }
 
+/// numpy's default fill value for floats (`np.ma.default_fill_value(1.0)`),
+/// which its masked `min` and `max` leave in the data of a fully masked row.
+const MASKED_FILL: f64 = 1e20;
+
 impl ZSort {
     /// The depth of a polygon whose vertices have depths `zs`, ignoring
     /// the vertices that could not be projected (matplotlib's masked
-    /// vertices); NaN when none could.
+    /// vertices). When none could, it is what numpy's masked reductions
+    /// leave in the data matplotlib sorts by: 0 for the mean and
+    /// [`MASKED_FILL`] for the extremes.
     fn reduce(self, zs: impl Iterator<Item = f64>) -> f64 {
         let (count, sum, min, max) = zs.filter(|z| !z.is_nan()).fold(
             (0_u32, 0.0, f64::INFINITY, f64::NEG_INFINITY),
             |(n, sum, min, max), z| (n + 1, sum + z, min.min(z), max.max(z)),
         );
         if count == 0 {
-            return f64::NAN;
+            return match self {
+                Self::Average => 0.0,
+                Self::Min | Self::Max => MASKED_FILL,
+            };
         }
         match self {
             Self::Average => sum / f64::from(count),
@@ -74,13 +83,7 @@ impl Polys3D {
             .iter()
             .map(|face| face.iter().map(|&p| projection.project(p)).collect())
             .collect();
-        let face_z: Vec<f64> = projected
-            .iter()
-            .map(|face| self.zsort.reduce(face.iter().map(|p| p[2])))
-            .collect();
-        let mut order: Vec<usize> = (0..face_z.len()).collect();
-        order.sort_by(|&a, &b| face_z[a].total_cmp(&face_z[b]));
-        order.reverse();
+        let order = self.depth_order(&projected);
         collection.paths = match &self.templates {
             Some(templates) => order
                 .iter()
@@ -107,6 +110,20 @@ impl Polys3D {
                 .reduce(f64::min)
                 .unwrap_or(f64::NAN),
         }
+    }
+
+    /// The order the `projected` faces are drawn in, deepest first
+    /// (matplotlib's `argsort(face_z)[::-1]`; numpy's sort is not stable,
+    /// so faces of equal depth may come in another order there).
+    fn depth_order(&self, projected: &[Vec<Vec3>]) -> Vec<usize> {
+        let face_z: Vec<f64> = projected
+            .iter()
+            .map(|face| self.zsort.reduce(face.iter().map(|p| p[2])))
+            .collect();
+        let mut order: Vec<usize> = (0..face_z.len()).collect();
+        order.sort_by(|&a, &b| face_z[a].total_cmp(&face_z[b]));
+        order.reverse();
+        order
     }
 
     /// The face and edge colours of the polygons drawn in `order`
@@ -181,7 +198,33 @@ mod tests {
         assert_eq!(ZSort::Max.reduce(zs.into_iter()), 6.0);
         let masked = [f64::NAN, 2.0, 4.0];
         assert_eq!(ZSort::Average.reduce(masked.into_iter()), 3.0);
-        assert!(ZSort::Min.reduce([f64::NAN].into_iter()).is_nan());
+        // numpy: np.average(masked row).data == 0, np.min/np.max == 1e20.
+        let hidden = [f64::NAN, f64::NAN];
+        assert_eq!(ZSort::Average.reduce(hidden.into_iter()), 0.0);
+        assert_eq!(ZSort::Min.reduce(hidden.into_iter()), 1e20);
+        assert_eq!(ZSort::Max.reduce(std::iter::empty()), 1e20);
+    }
+
+    #[test]
+    fn hidden_polygons_sort_by_numpys_masked_depths() {
+        // Triangles at depths 1 and -2 around one hidden entirely, whose
+        // mean depth 0 puts it between them and whose extreme depth 1e20
+        // puts it first.
+        let polys = |zsort| Polys3D {
+            faces: vec![Vec::new(); 3],
+            zsort,
+            sort_zpos: None,
+            facecolors: Vec::new(),
+            edgecolors: Vec::new(),
+            templates: None,
+        };
+        let projected = [
+            vec![[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [0.0, 1.0, 1.0]],
+            vec![[f64::NAN; 3]; 3],
+            vec![[0.0, 0.0, -2.0], [1.0, 0.0, -2.0], [0.0, 1.0, -2.0]],
+        ];
+        assert_eq!(polys(ZSort::Average).depth_order(&projected), [0, 1, 2]);
+        assert_eq!(polys(ZSort::Max).depth_order(&projected), [1, 0, 2]);
     }
 
     #[test]

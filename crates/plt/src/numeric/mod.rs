@@ -43,6 +43,11 @@ pub fn linspace_with(start: f64, stop: f64, num: usize, endpoint: bool) -> Vec<f
 
 /// Values `start, start + step, ...` strictly before `stop` (numpy `arange`).
 ///
+/// numpy stores `start` and `start + step`, then fills the rest with
+/// `start + i * delta` where `delta = (start + step) - start`, which can
+/// differ from `step` in the last bits: `arange(-3.0, 3.0, 0.025)[173]` is
+/// `1.324999999999985`, not `1.3250000000000002`.
+///
 /// Returns an empty vector for a zero or wrongly-signed step.
 pub fn arange(start: f64, stop: f64, step: f64) -> Vec<f64> {
     if step == 0.0 || !step.is_finite() {
@@ -52,8 +57,14 @@ pub fn arange(start: f64, stop: f64, step: f64) -> Vec<f64> {
     if !count.is_finite() || count <= 0.0 {
         return Vec::new();
     }
+    let next = start + step;
+    let delta = next - start;
     (0..count as usize)
-        .map(|i| start + i as f64 * step)
+        .map(|i| match i {
+            0 => start,
+            1 => next,
+            _ => start + i as f64 * delta,
+        })
         .collect()
 }
 
@@ -150,6 +161,12 @@ mod tests {
         assert_eq!(arange(0.0, 1.0, -1.0), Vec::<f64>::new());
         assert_eq!(arange(0.0, 1.0, 0.0), Vec::<f64>::new());
         assert_eq!(arange(0.0, 0.3, 0.1).len(), 3);
+        // numpy fills with (start + step) - start, not step.
+        let grid = arange(-3.0, 3.0, 0.025);
+        assert_eq!(grid.len(), 240);
+        assert_eq!(grid[1], -2.975);
+        assert_eq!(grid[173], 1.324_999_999_999_985);
+        assert_eq!(arange(0.1, 1.0, 0.2)[2], 0.500_000_000_000_000_1);
     }
 
     #[test]

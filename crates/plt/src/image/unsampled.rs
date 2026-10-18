@@ -55,7 +55,9 @@ impl ImageCore {
         let Some(display_to_array) = array_to_display.inverted() else {
             return Ok(None);
         };
-        let subset = clip.transformed(&display_to_array);
+        // The clip box's corners in the array, all four of them for a
+        // rotated or skewed image (matplotlib's `TransformedBbox`).
+        let subset = clip.transformed_enclosing(&display_to_array);
         let (x0, y0, x1, y1) = subset.extents();
         let (lo_x, lo_y, hi_x, hi_y) = (x0.min(x1), y0.min(y1), x0.max(x1), y0.max(y1));
         let first_col = lo_x.max(0.0) as usize;
@@ -84,5 +86,38 @@ impl ImageCore {
             origin: Point::new(clipped.x0(), clipped.y0()),
             transform,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::image::make::CoreSettings;
+    use crate::numeric::Grid;
+
+    #[test]
+    fn rotated_images_keep_every_cell_inside_the_clip_box() {
+        // `images/affine_transforms`: a 24 × 24 image rotated by 30° in
+        // axes spanning [-5, 5] × [-4, 4], wholly inside them.
+        let settings = CoreSettings {
+            origin: Some(Origin::Lower),
+            ..CoreSettings::default()
+        };
+        let data = Grid::from_fn(24, 24, |i, j| (i * 24 + j) as f64);
+        let (core, _) = ImageCore::build(data, settings, &crate::rc::params()).unwrap();
+        let to_display = Affine2D::identity()
+            .rotate_deg(30.0)
+            .translate(5.0, 4.0)
+            .scale(15.12, 15.12)
+            .translate(63.163_636, 183.168);
+        let extent = Extent::new(-2.0, 4.0, -3.0, 2.0);
+        let out_bbox = Bbox::from_extents(-2.0, -3.0, 4.0, 2.0).transformed_enclosing(&to_display);
+        let clip = Bbox::from_extents(63.163_636, 183.168, 214.363_636, 304.128);
+        let image = core
+            .unsampled(extent, to_display, out_bbox, clip)
+            .unwrap()
+            .expect("visible");
+        assert_eq!((image.pixels.width(), image.pixels.height()), (24, 24));
+        assert_eq!(image.origin, Point::new(out_bbox.x0(), out_bbox.y0()));
     }
 }

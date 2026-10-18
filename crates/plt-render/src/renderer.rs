@@ -126,6 +126,14 @@ pub trait Renderer {
     /// image and resumes drawing directly.
     fn stop_rasterizing(&mut self) {}
 
+    /// The resolution of the raster canvas drawing goes to while a vector
+    /// renderer is rasterizing, `None` otherwise. Artists drawn meanwhile
+    /// compute their geometry at it, in canvas pixels (matplotlib changes
+    /// the figure's dpi in `start_rasterizing`).
+    fn raster_dpi(&self) -> Option<f64> {
+        None
+    }
+
     /// Sends the following drawing to a fresh transparent canvas until
     /// [`stop_filter`](Self::stop_filter) (matplotlib's `start_filter`).
     /// Only raster canvases filter; other backends draw as usual.

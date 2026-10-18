@@ -164,7 +164,7 @@ impl FigureState {
         };
         let (width, height) = match locator.extent {
             InsetExtent::Sized { width, height } => {
-                let dpi = self.dpi;
+                let dpi = self.dpi();
                 let mut length = |spec: SizeSpec, of: f64| {
                     let (relative, inches) = spec.resolve(&Size::Scaled(1.0)).evaluate(self);
                     of * relative + inches * dpi
@@ -183,7 +183,7 @@ impl FigureState {
                 ((shown.width() * zoom).abs(), (shown.height() * zoom).abs())
             }
         };
-        let fontsize = locator.fontsize * self.dpi / 72.0;
+        let fontsize = locator.fontsize * self.dpi() / 72.0;
         let corner = anchored_bbox(
             locator.loc,
             &Bbox::from_bounds(0.0, 0.0, width, height),

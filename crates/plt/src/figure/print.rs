@@ -152,7 +152,7 @@ impl Figure {
     /// whole figure when nothing is drawn.
     pub fn tight_bbox(&self) -> Bbox {
         let mut state = self.state_mut();
-        let dpi = state.dpi;
+        let dpi = state.dpi();
         state.figure_tight_bbox().map_or_else(
             || {
                 let (w, h) = state.size_inches;
@@ -222,14 +222,7 @@ impl Figure {
         };
         let (width, height) =
             window.map_or_else(|| self.size_inches(), |b| (b.width(), b.height()));
-        self.state_mut().print_window = window.map(|b| {
-            Bbox::from_extents(
-                b.x0() * canvas_dpi,
-                b.y0() * canvas_dpi,
-                b.x1() * canvas_dpi,
-                b.y1() * canvas_dpi,
-            )
-        });
+        self.state_mut().print_window = window;
         (saving, Page { width, height, dpi })
     }
 

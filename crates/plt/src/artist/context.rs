@@ -27,12 +27,12 @@ impl<'a> LayoutContext<'a> {
 
     /// Canvas resolution.
     pub fn dpi(&self) -> f64 {
-        self.figure.dpi
+        self.figure.dpi()
     }
 
     /// Converts points to pixels at the canvas resolution.
     pub fn points_to_pixels(&self, points: f64) -> f64 {
-        points * self.figure.dpi / 72.0
+        points * self.figure.dpi() / 72.0
     }
 
     /// Resolves a transform; `None` if it refers to removed artists.
@@ -134,12 +134,15 @@ impl std::error::Error for DrawError {}
 /// Where drawing stands with respect to rasterized artists (the
 /// `_raster_depth` and `_rasterizing` attributes matplotlib keeps on the
 /// renderer).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Rasterization {
     /// How many rasterized artists are being drawn, one inside the other.
     depth: usize,
     /// Whether the renderer draws into a raster canvas.
     active: bool,
+    /// The figure's resolution to restore when rasterizing stops, while
+    /// the figure is drawn at the raster canvas's.
+    figure_dpi: Option<f64>,
 }
 
 /// Everything an artist needs while drawing: the renderer plus read-only
@@ -238,13 +241,11 @@ impl<'a> DrawContext<'a> {
         let outermost = self.rasterization.depth == 0;
         if rasterized {
             if outermost && !self.rasterization.active {
-                self.renderer.start_rasterizing();
-                self.rasterization.active = true;
+                self.start_rasterizing();
             }
             self.rasterization.depth += 1;
-        } else if outermost && self.rasterization.active {
-            self.renderer.stop_rasterizing();
-            self.rasterization.active = false;
+        } else if outermost {
+            self.finish_rasterizing();
         }
         let result = draw(self);
         if rasterized {
@@ -253,12 +254,30 @@ impl<'a> DrawContext<'a> {
         result
     }
 
-    /// Places what is still being rasterized once the figure is drawn
-    /// (matplotlib's `_finalize_rasterization`).
+    /// Sends the drawing to the renderer's raster canvas, if it has one,
+    /// and draws the figure at the canvas's resolution meanwhile
+    /// (matplotlib's `MixedModeRenderer.start_rasterizing`).
+    fn start_rasterizing(&mut self) {
+        self.renderer.start_rasterizing();
+        self.rasterization.active = true;
+        if let Some(dpi) = self.renderer.raster_dpi() {
+            let figure = self.layout.figure;
+            self.rasterization.figure_dpi = Some(figure.dpi());
+            figure.set_dpi(dpi);
+        }
+    }
+
+    /// Places what is being rasterized, if anything, and restores the
+    /// figure's resolution (matplotlib's `stop_rasterizing`, also its
+    /// `_finalize_rasterization` once the figure is drawn).
     pub(crate) fn finish_rasterizing(&mut self) {
-        if self.rasterization.active {
-            self.renderer.stop_rasterizing();
-            self.rasterization.active = false;
+        if !self.rasterization.active {
+            return;
+        }
+        self.renderer.stop_rasterizing();
+        self.rasterization.active = false;
+        if let Some(dpi) = self.rasterization.figure_dpi.take() {
+            self.layout.figure.set_dpi(dpi);
         }
     }
 
@@ -352,5 +371,105 @@ impl<'a> DrawContext<'a> {
             ClipPathSpec::Artist(id) => self.layout.store().get(*id)?.outline(&self.layout),
             ClipPathSpec::BoundingBox { .. } => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use plt_core::{Affine2D, Path, Point, Rgba};
+    use plt_render::{GraphicsContext, Renderer, RgbaImage};
+
+    use crate::artist::ArtistHandle;
+    use crate::figure::Figure;
+
+    /// A page in points whose rasterized parts go to a canvas at twice
+    /// its resolution; records where every path starts and whether it was
+    /// rasterized.
+    #[derive(Debug, Default)]
+    struct Page {
+        rasterizing: bool,
+        starts: Vec<(bool, Point)>,
+    }
+
+    impl Renderer for Page {
+        fn canvas_size(&self) -> (f64, f64) {
+            if self.rasterizing {
+                (288.0, 144.0)
+            } else {
+                (144.0, 72.0)
+            }
+        }
+
+        fn dpi(&self) -> f64 {
+            144.0
+        }
+
+        fn points_to_pixels(&self, points: f64) -> f64 {
+            if self.rasterizing {
+                points * 2.0
+            } else {
+                points
+            }
+        }
+
+        fn draw_path(&mut self, _: &GraphicsContext, path: &Path, t: &Affine2D, _: Option<Rgba>) {
+            let start = t.transform_point(path.vertices()[0]);
+            self.starts.push((self.rasterizing, start));
+        }
+
+        fn draw_gouraud_triangles(
+            &mut self,
+            _: &GraphicsContext,
+            _: &[[Point; 3]],
+            _: &[[Rgba; 3]],
+            _: &Affine2D,
+        ) {
+        }
+
+        fn draw_image(
+            &mut self,
+            _: &GraphicsContext,
+            _: Point,
+            _: &RgbaImage,
+            _: Option<&Affine2D>,
+        ) {
+        }
+
+        fn start_rasterizing(&mut self) {
+            self.rasterizing = true;
+        }
+
+        fn stop_rasterizing(&mut self) {
+            self.rasterizing = false;
+        }
+
+        fn raster_dpi(&self) -> Option<f64> {
+            self.rasterizing.then_some(144.0)
+        }
+    }
+
+    #[test]
+    fn rasterized_artists_are_drawn_at_the_raster_resolution() {
+        let fig = Figure::with_size(2.0, 1.0, 72.0);
+        let ax = fig.subplot();
+        let line = ax.plot(vec![0.25, 0.75], vec![0.25, 0.75]).unwrap();
+        line.set_rasterized(true);
+        let mut page = Page::default();
+        fig.draw(&mut page).unwrap();
+        let at_72_dpi = fig
+            .resolve_transform(&ax.trans_data())
+            .unwrap()
+            .transform_point(Point::new(0.25, 0.25));
+        let rasterized: Vec<Point> = page
+            .starts
+            .iter()
+            .filter_map(|&(rasterized, start)| rasterized.then_some(start))
+            .collect();
+        assert_eq!(
+            rasterized,
+            [Point::new(at_72_dpi.x * 2.0, at_72_dpi.y * 2.0)]
+        );
+        assert!(page.starts.iter().any(|&(rasterized, _)| !rasterized));
+        assert_eq!(fig.dpi(), 72.0, "the figure's resolution is restored");
     }
 }

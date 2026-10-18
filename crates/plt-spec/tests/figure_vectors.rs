@@ -41,7 +41,20 @@ const KNOWN_GAPS: &[(&str, &str)] = &[
         "contour/tripcolor_gouraud",
         "Delaunay triangles come in a different order than qhull's (same triangles)",
     ),
+    (
+        "hist/hist2d_lognorm_range",
+        "numpy's AVX-512 log10/power round two LogNorm colorbar boundaries lying on pixel \
+         centres one ulp differently from libm; with numpy limited to AVX2 matplotlib matches",
+    ),
+    ("mplot3d/axlim_bar3d", EQUAL_DEPTH_ORDER),
+    ("mplot3d/axlim_fill_between", EQUAL_DEPTH_ORDER),
+    ("mplot3d/axlim_surface", EQUAL_DEPTH_ORDER),
 ];
+
+/// Why some `axlim_clip` cases order their hidden faces differently.
+const EQUAL_DEPTH_ORDER: &str = "Poly3DCollection sorts faces with numpy's unstable argsort, \
+     whose order for faces of equal depth (fully hidden ones, partly hidden ones sharing their \
+     visible vertices) depends on the CPU's SIMD sort; only invisible or degenerate faces differ";
 
 /// Why a report fails the acceptance policy, if it does.
 fn problems(report: &VectorReport) -> Option<String> {

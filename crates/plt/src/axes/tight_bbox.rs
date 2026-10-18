@@ -35,7 +35,7 @@ impl FigureState {
         let for_layout_only = for_layout_only && parasites_of(&self.store, axes).is_empty();
         self.lay_out_axes(axes);
         let extent = self.axes_bbox(axes)?;
-        let dpi = self.dpi;
+        let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);
         let state = self.store.get_as_mut::<AxesState>(axes)?;
         state.update_ticks(&extent, dpi, shared);

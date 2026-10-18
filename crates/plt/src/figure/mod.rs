@@ -84,7 +84,7 @@ impl fmt::Debug for Figure {
         let state = self.state.borrow();
         f.debug_struct("Figure")
             .field("size_inches", &state.size_inches)
-            .field("dpi", &state.dpi)
+            .field("dpi", &state.dpi())
             .finish_non_exhaustive()
     }
 }
@@ -141,13 +141,13 @@ impl Figure {
 
     /// Canvas resolution in dots per inch.
     pub fn dpi(&self) -> f64 {
-        self.state.borrow().dpi
+        self.state.borrow().dpi()
     }
 
     /// Changes the canvas resolution.
     pub fn set_dpi(&self, dpi: f64) -> &Self {
         let mut state = self.state.borrow_mut();
-        state.dpi = dpi;
+        state.set_dpi(dpi);
         state.stale = true;
         self
     }

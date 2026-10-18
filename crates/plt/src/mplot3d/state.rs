@@ -275,7 +275,7 @@ pub(crate) fn prepare_axes3d(figure: &mut FigureState) {
         .ids()
         .filter(|&id| figure.store.get_as::<Axes3DState>(id).is_some())
         .collect();
-    let dpi = figure.dpi;
+    let dpi = figure.dpi();
     for id in ids {
         let Some(extent) = figure.axes_bbox(id) else {
             continue;

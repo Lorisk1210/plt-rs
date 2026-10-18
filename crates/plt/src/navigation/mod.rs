@@ -10,6 +10,10 @@
 //!   labels or scale the radius instead);
 //! * in [`NavMode::Zoom`], dragging a rectangle zooms into it (left
 //!   button) or out of it (right button);
+//! * on 3-D axes, outside the toolbar modes, the left button rotates the
+//!   view, the middle one pans and the right one zooms (matplotlib's
+//!   `Axes3D.mouse_init`); the pan mode pans them and the zoom mode zooms
+//!   to a rectangle;
 //! * the wheel zooms around the pointer in any mode;
 //! * every completed change is pushed on a view history browsed with
 //!   [`Navigation::home`], [`Navigation::back`] and [`Navigation::forward`].
@@ -18,6 +22,7 @@
 //! for a status bar (matplotlib's `format_coord`).
 
 mod history;
+mod orbit;
 mod pan;
 mod readout;
 mod zoom;
@@ -25,11 +30,13 @@ mod zoom;
 use plt_core::{Bbox, Point};
 
 use self::history::ViewStack;
+use self::orbit::Orbit;
 use self::pan::PanStart;
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::events::{LockError, LockOwner};
 use crate::figure::Figure;
+use crate::mplot3d::Axes3D;
 
 pub use self::readout::axes_at;
 
@@ -93,6 +100,14 @@ enum Drag {
         button: PointerButton,
         start: Point,
         axes: Vec<Axes>,
+    },
+    /// Rotating, panning or zooming a 3-D axes.
+    Orbit(Orbit),
+    /// Zooming a 3-D axes to a rectangle started at `start`.
+    Zoom3D {
+        button: PointerButton,
+        start: Point,
+        axes: Axes3D,
     },
 }
 
@@ -184,13 +199,23 @@ impl Navigation {
     /// A button went down at display point `at`; returns whether an
     /// interaction started.
     pub fn press(&mut self, figure: &Figure, at: Point, button: PointerButton) -> bool {
-        if button == PointerButton::Middle || self.mode == NavMode::None {
+        if self.mode == NavMode::None {
+            // 3-D axes turn, pan and zoom with the mouse outside the
+            // toolbar modes, recording the home view first.
+            let Some(orbit) = Orbit::start(figure, at, button) else {
+                return false;
+            };
+            self.record_home(figure);
+            self.drag = Some(Drag::Orbit(orbit));
+            return true;
+        }
+        if button == PointerButton::Middle {
             return false;
         }
         let zoom = self.mode == NavMode::Zoom;
         let axes = self.interaction_axes(figure, at, zoom);
         if axes.is_empty() {
-            return false;
+            return self.press_3d(figure, at, button, zoom);
         }
         self.drag = Some(if zoom {
             Drag::Zoom {
@@ -208,12 +233,38 @@ impl Navigation {
         true
     }
 
+    /// A press in the pan or zoom mode over a 3-D axes (and no 2-D one):
+    /// panning with either button, or zooming to a rectangle.
+    fn press_3d(&mut self, figure: &Figure, at: Point, button: PointerButton, zoom: bool) -> bool {
+        let drag = if zoom {
+            orbit::axes3d_at(figure, at).map(|axes| Drag::Zoom3D {
+                button,
+                start: at,
+                axes,
+            })
+        } else {
+            Orbit::pan(figure, at).map(Drag::Orbit)
+        };
+        if drag.is_some() {
+            self.record_home(figure);
+        }
+        self.drag = drag;
+        self.drag.is_some()
+    }
+
+    /// Records the current view as the home view if nothing was recorded.
+    fn record_home(&mut self, figure: &Figure) {
+        if self.history.is_empty() {
+            self.history.push(figure);
+        }
+    }
+
     /// The pointer moved to `at` with `key` held; returns the zoom
     /// rectangle to show, if zooming.
     pub fn drag(&mut self, at: Point, key: DragKey) -> Option<Rubberband> {
-        match self.drag.as_ref()? {
+        match self.drag.as_mut()? {
             Drag::Pan { button, axes } => {
-                for (ax, start) in axes {
+                for (ax, start) in axes.iter() {
                     start.drag(ax, *button, key, at);
                 }
                 None
@@ -222,6 +273,11 @@ impl Navigation {
                 let ax = axes.first()?;
                 zoom::rubberband(ax, *start, at, key)
             }
+            Drag::Orbit(orbit) => {
+                orbit.drag(at, key);
+                None
+            }
+            Drag::Zoom3D { start, axes, .. } => zoom::rubberband(&axes.plane(), *start, at, key),
         }
     }
 
@@ -229,7 +285,15 @@ impl Navigation {
     /// interaction and records the new view.
     pub fn release(&mut self, figure: &Figure, at: Point, key: DragKey) {
         match self.drag.take() {
-            Some(Drag::Pan { .. }) => self.history.push(figure),
+            Some(Drag::Pan { .. } | Drag::Orbit(_)) => self.history.push(figure),
+            Some(Drag::Zoom3D {
+                button,
+                start,
+                axes,
+            }) if !zoom::is_click(start, at, key) => {
+                orbit::zoom_to_rect(&axes, start, at, button != PointerButton::Left, key);
+                self.history.push(figure);
+            }
             Some(Drag::Zoom {
                 button,
                 start,
@@ -237,7 +301,7 @@ impl Navigation {
             }) if zoom::zoom_to_rect(figure, &axes, start, at, button, key) => {
                 self.history.push(figure);
             }
-            Some(Drag::Zoom { .. }) | None => {}
+            Some(Drag::Zoom { .. } | Drag::Zoom3D { .. }) | None => {}
         }
     }
 
@@ -249,21 +313,40 @@ impl Navigation {
     /// Zooms around display point `at` by `steps` wheel steps (positive
     /// zooms in) and records the new view.
     pub fn wheel(&mut self, figure: &Figure, at: Point, steps: f64) {
-        let axes = self.interaction_axes(figure, at, true);
-        if axes.is_empty() || steps == 0.0 {
+        if steps == 0.0 {
             return;
         }
         let scale = WHEEL_ZOOM.powf(steps);
-        zoom::zoom_around(figure, &axes, at, scale);
+        let axes = self.interaction_axes(figure, at, true);
+        if !axes.is_empty() {
+            zoom::zoom_around(figure, &axes, at, scale);
+        } else if let Some(ax) = orbit::axes3d_at(figure, at) {
+            self.record_home(figure);
+            // Limits only fail to update for degenerate scales, which
+            // leave the view as it was.
+            let _ = ax.scale_limits([1.0 / scale; 3]);
+        } else {
+            return;
+        }
         self.history.push(figure);
     }
 
     /// The text for a status bar with the pointer at `at`: the data
     /// coordinates under it, or an empty string outside every axes.
     pub fn readout(&self, figure: &Figure, at: Point) -> String {
-        axes_at(figure, at)
-            .filter(Axes::navigate)
-            .map_or_else(String::new, |ax| readout::format_coord(&ax, at))
+        if let Some(Drag::Orbit(orbit)) = &self.drag
+            && orbit.is_rotating()
+        {
+            return orbit::readout(orbit.axes(), at, true);
+        }
+        if let Some(ax) = axes_at(figure, at) {
+            return if ax.navigate() {
+                readout::format_coord(&ax, at)
+            } else {
+                String::new()
+            };
+        }
+        orbit::axes3d_at(figure, at).map_or_else(String::new, |ax| orbit::readout(&ax, at, false))
     }
 
     /// The axes an interaction at `at` acts on (matplotlib's
@@ -283,9 +366,7 @@ impl Navigation {
         if candidates.is_empty() {
             return candidates;
         }
-        if self.history.is_empty() {
-            self.history.push(figure);
-        }
+        self.record_home(figure);
         let mut zorders: Vec<f64> = candidates.iter().map(ArtistHandle::zorder).collect();
         zorders.sort_by(|a, b| b.total_cmp(a));
         zorders.dedup();

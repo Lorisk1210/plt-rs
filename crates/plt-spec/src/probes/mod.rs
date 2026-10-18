@@ -291,6 +291,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("lightsource", areas::lightsource::OPS),
     ("animation", areas::animation::OPS),
     ("imsave", areas::imsave::OPS),
+    ("axes3d", areas::axes3d::OPS),
     ("ticker", areas::ticker::OPS),
     ("scales", areas::scales::OPS),
     ("dates", areas::dates::OPS),

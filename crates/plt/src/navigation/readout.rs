@@ -4,7 +4,7 @@
 use std::any::Any;
 use std::f64::consts::{PI, TAU};
 
-use plt_core::Point;
+use plt_core::{Bbox, Point};
 
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, AxesState, AxisName};
@@ -51,8 +51,16 @@ pub(super) fn contains(ax: &Axes, at: Point) -> bool {
         .is_some_and(|bbox| bbox.contains(at))
 }
 
+/// The display box of `ax`, brought up to date.
+pub(super) fn display_bbox(ax: &Axes) -> Option<Bbox> {
+    let figure = ax.raw().figure_state();
+    let mut state = figure.borrow_mut();
+    state.prepare();
+    state.axes_bbox(ax.id())
+}
+
 /// The data → display transform of `ax`, brought up to date.
-fn data_transform(ax: &Axes) -> Option<ResolvedTransform> {
+pub(super) fn data_transform(ax: &Axes) -> Option<ResolvedTransform> {
     let figure = ax.raw().figure_state();
     let mut state = figure.borrow_mut();
     state.prepare();

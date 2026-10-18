@@ -6,6 +6,7 @@ use plt_core::Bbox;
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::figure::Figure;
+use crate::mplot3d::{Axes3D, Axis3, ViewAngles};
 
 /// What restores the view of one axes (matplotlib's `_get_view` plus its
 /// original position).
@@ -48,8 +49,41 @@ impl AxesView {
     }
 }
 
+/// What restores the view of one 3-D axes (matplotlib's `Axes3D._get_view`).
+#[derive(Clone, Debug, PartialEq)]
+struct Axes3DView {
+    limits: [(f64, f64); 3],
+    autoscale: [bool; 3],
+    angles: ViewAngles,
+}
+
+impl Axes3DView {
+    /// The current view of `ax`.
+    fn of(ax: &Axes3D) -> Self {
+        Self {
+            limits: Axis3::ALL.map(|axis| ax.limits(axis)),
+            autoscale: Axis3::ALL.map(|axis| ax.autoscale(axis)),
+            angles: ax.view(),
+        }
+    }
+
+    /// Applies the view to `ax` (matplotlib's `Axes3D._set_view`).
+    fn apply(&self, ax: &Axes3D) {
+        for ((axis, (lo, hi)), on) in Axis3::ALL.into_iter().zip(self.limits).zip(self.autoscale) {
+            // Recorded limits are finite, so setting them cannot fail.
+            let _ = ax.set_limits(axis, lo, hi);
+            ax.set_autoscale(axis, on);
+        }
+        ax.view_init(self.angles.elev, self.angles.azim, self.angles.roll);
+    }
+}
+
 /// One entry: the view of every axes of the figure.
-type Snapshot = Vec<(Axes, AxesView)>;
+#[derive(Clone, Debug, Default)]
+struct Snapshot {
+    axes: Vec<(Axes, AxesView)>,
+    axes3d: Vec<(Axes3D, Axes3DView)>,
+}
 
 /// Snapshots with a movable cursor, like a browser's history.
 #[derive(Debug, Default)]
@@ -72,7 +106,7 @@ impl ViewStack {
 
     /// Records the current views after the cursor, discarding later ones.
     pub(super) fn push(&mut self, figure: &Figure) {
-        let snapshot = figure
+        let axes = figure
             .axes()
             .into_iter()
             .map(|ax| {
@@ -80,7 +114,15 @@ impl ViewStack {
                 (ax, view)
             })
             .collect();
-        self.insert(snapshot);
+        let axes3d = figure
+            .axes3d()
+            .into_iter()
+            .map(|ax| {
+                let view = Axes3DView::of(&ax);
+                (ax, view)
+            })
+            .collect();
+        self.insert(Snapshot { axes, axes3d });
     }
 
     fn insert(&mut self, snapshot: Snapshot) {
@@ -126,7 +168,12 @@ impl ViewStack {
         let Some(snapshot) = self.snapshots.get(self.position) else {
             return;
         };
-        for (ax, view) in snapshot {
+        for (ax, view) in &snapshot.axes {
+            if ax.raw().is_alive() {
+                view.apply(ax);
+            }
+        }
+        for (ax, view) in &snapshot.axes3d {
             if ax.raw().is_alive() {
                 view.apply(ax);
             }
@@ -163,5 +210,22 @@ mod tests {
         stack.back();
         stack.restore(&fig);
         assert_eq!(ax.xlim(), (5.0, 6.0));
+    }
+
+    #[test]
+    fn three_d_views_are_recorded() {
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        let mut stack = ViewStack::default();
+        stack.push(&fig);
+        ax.view_init(10.0, 20.0, 30.0).set_zlim(0.0, 5.0).unwrap();
+        stack.push(&fig);
+        stack.back();
+        stack.restore(&fig);
+        assert_eq!(ax.view(), ViewAngles::default());
+        assert!(ax.autoscale(Axis3::Z), "autoscaling comes back too");
+        stack.forward();
+        stack.restore(&fig);
+        assert_eq!((ax.view().roll, ax.zlim()), (30.0, (0.0, 5.0)));
     }
 }

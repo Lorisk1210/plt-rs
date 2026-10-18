@@ -11,6 +11,7 @@ use super::axis3d::Axis3D;
 use super::camera::{Camera, Projection};
 use super::coords::Axis3;
 use super::limits::Limits3D;
+use super::mouse::MouseButtons;
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
 use crate::axes::AxesState;
 use crate::colors::Color;
@@ -53,6 +54,8 @@ pub(crate) struct Axes3DState {
     pub(crate) facecolor: Color,
     /// The 3-D geometry of the plane's artists, in insertion order.
     pub(crate) artists: Vec<(ArtistId, Art3D)>,
+    /// The mouse buttons that rotate, pan and zoom the axes.
+    pub(crate) mouse: MouseButtons,
     /// z-order of the axes artists (`axes.axisbelow`); computed z-orders
     /// start just above it.
     axis_zorder: f64,
@@ -81,6 +84,7 @@ impl Axes3DState {
             computed_zorder: true,
             facecolor: rc.axes_facecolor.clone(),
             artists: Vec::new(),
+            mouse: MouseButtons::default(),
             axis_zorder: rc.axes_axisbelow.zorder(),
             rc,
         }

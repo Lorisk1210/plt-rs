@@ -2,47 +2,13 @@
 //! [`show`](super::show), pyplot's interactive mode, `pause`, `ginput` and
 //! `waitforbuttonpress`.
 
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use plt_platform::{Context, Event, EventLoop, HeadlessHandle};
 
 use super::{FigureWindow, GuiError};
-use crate::artist::{Artist, ArtistHandle};
-use crate::events::{Event as FigureEvent, EventKind};
+use crate::events::{GinputOptions, wait};
 use crate::figure::Figure;
-use crate::lines::{Line2D, LineArtist, LineProps};
-use crate::markers::MarkerSymbol;
-use crate::navigation::PointerButton;
-
-/// The mouse buttons of [`Session::ginput`] (matplotlib's `mouse_add`,
-/// `mouse_pop` and `mouse_stop`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GinputOptions {
-    /// Whether each point is marked with a red cross until the input ends
-    /// (`show_clicks`).
-    pub show_clicks: bool,
-    /// The button adding a point.
-    pub add: PointerButton,
-    /// The button removing the last point.
-    pub pop: PointerButton,
-    /// The button ending the input.
-    pub stop: PointerButton,
-}
-
-impl Default for GinputOptions {
-    /// matplotlib's defaults: the left button adds, the right removes, the
-    /// middle stops, and points are marked.
-    fn default() -> Self {
-        Self {
-            show_clicks: true,
-            add: PointerButton::Left,
-            pop: PointerButton::Right,
-            stop: PointerButton::Middle,
-        }
-    }
-}
 
 /// An event loop and the figure windows it runs.
 #[derive(Debug)]
@@ -190,31 +156,11 @@ impl Session {
         timeout: Option<Duration>,
         options: GinputOptions,
     ) -> Result<Vec<(f64, f64)>, GuiError> {
-        let input = Rc::new(RefCell::new(Ginput {
-            points: Vec::new(),
-            marks: Vec::new(),
-            done: false,
-        }));
-        let ids: Vec<_> = [EventKind::ButtonPress, EventKind::KeyPress]
-            .into_iter()
-            .map(|kind| {
-                let input = Rc::clone(&input);
-                figure.connect(kind, move |event| {
-                    input.borrow_mut().handle(event, n, options);
-                })
-            })
-            .collect();
-        let deadline = timeout.and_then(|timeout| Instant::now().checked_add(timeout));
-        let result = self.run_while_shown(figure, deadline, || input.borrow().done);
-        for id in ids {
-            figure.disconnect(id);
-        }
-        let input = input.take();
-        for mark in &input.marks {
-            mark.remove();
-        }
+        let points = wait::ginput(figure, n, timeout, options, &mut |deadline, done| {
+            self.run_while_shown(figure, deadline, done)
+        });
         self.refresh()?;
-        result.map(|()| input.points)
+        points
     }
 
     /// Waits for a key press (`Some(true)`) or a mouse click
@@ -229,20 +175,9 @@ impl Session {
         figure: &Figure,
         timeout: Option<Duration>,
     ) -> Result<Option<bool>, GuiError> {
-        let pressed: Rc<Cell<Option<bool>>> = Rc::default();
-        let ids: Vec<_> = [(EventKind::ButtonPress, false), (EventKind::KeyPress, true)]
-            .into_iter()
-            .map(|(kind, is_key)| {
-                let pressed = Rc::clone(&pressed);
-                figure.connect(kind, move |_| pressed.set(Some(is_key)))
-            })
-            .collect();
-        let deadline = timeout.and_then(|timeout| Instant::now().checked_add(timeout));
-        let result = self.run_while_shown(figure, deadline, || pressed.get().is_some());
-        for id in ids {
-            figure.disconnect(id);
-        }
-        result.map(|()| pressed.get())
+        wait::wait_for_button_press(figure, timeout, &mut |deadline, done| {
+            self.run_while_shown(figure, deadline, done)
+        })
     }
 
     /// Runs until `done`, `deadline`, or the window of `figure` closes.
@@ -324,51 +259,6 @@ fn dispatch(
         // Callbacks may change figures shown in other windows.
         Event::AboutToWait => windows.iter_mut().try_for_each(|window| window.refresh(cx)),
         _ => Ok(()),
-    }
-}
-
-/// The state of a `ginput` call.
-#[derive(Debug, Default)]
-struct Ginput {
-    points: Vec<(f64, f64)>,
-    /// The crosses marking the points.
-    marks: Vec<Line2D>,
-    done: bool,
-}
-
-impl Ginput {
-    /// matplotlib's `ginput` handler.
-    fn handle(&mut self, event: &FigureEvent, n: usize, options: GinputOptions) {
-        let (button, key, location) = match event {
-            FigureEvent::ButtonPress(mouse) => (mouse.button, None, &mouse.location),
-            FigureEvent::KeyPress(key) => (None, Some(key.key.as_str()), &key.location),
-            _ => return,
-        };
-        if button == Some(options.stop) || matches!(key, Some("escape" | "enter")) {
-            self.done = true;
-        } else if button == Some(options.pop) || matches!(key, Some("backspace" | "delete")) {
-            if self.points.pop().is_some()
-                && let Some(mark) = self.marks.pop()
-            {
-                mark.remove();
-            }
-        } else if (button == Some(options.add) || key.is_some())
-            && let (Some(ax), Some(x), Some(y)) = (&location.inaxes, location.xdata, location.ydata)
-        {
-            self.points.push((x, y));
-            if options.show_clicks {
-                let mut line = LineArtist::new(vec![x], vec![y], crate::rc::params());
-                LineProps::default()
-                    .marker(MarkerSymbol::Plus)
-                    .color("r")
-                    .apply(&mut line);
-                line.base_mut().transform = Some(ax.trans_data());
-                self.marks.push(ax.add_line_artist(line));
-            }
-        }
-        if n > 0 && self.points.len() == n {
-            self.done = true;
-        }
     }
 }
 

@@ -90,6 +90,18 @@ impl EventSource {
         figure.process_event(&Event::ButtonPress(event));
     }
 
+    /// A double click at display point `(x, y)`, reported after the
+    /// second click's release, as browsers do: a press event with
+    /// `dblclick` set, leaving no button held (matplotlib's `WebAgg`
+    /// `dblclick` message).
+    pub fn double_click(&mut self, figure: &Figure, x: f64, y: f64, button: PointerButton) {
+        let event = MouseEvent {
+            dblclick: true,
+            ..self.mouse(locate(figure, x, y), Some(button))
+        };
+        figure.process_event(&Event::ButtonPress(event));
+    }
+
     /// A button went up at display point `(x, y)`.
     pub fn button_release(&mut self, figure: &Figure, x: f64, y: f64, button: PointerButton) {
         self.button = None;

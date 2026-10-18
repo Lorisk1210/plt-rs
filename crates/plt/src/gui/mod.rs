@@ -23,10 +23,10 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-mod actions;
+pub(crate) mod actions;
 mod help_dialog;
 mod icons;
-mod keys;
+pub(crate) mod keys;
 mod options;
 mod save_dialog;
 mod session;
@@ -35,23 +35,27 @@ mod window;
 
 use std::fmt;
 
+pub use crate::events::GinputOptions;
 pub use plt_ui::Icon;
-pub use session::{GinputOptions, Session};
+pub use session::Session;
 pub use tools::{ToolError, ToolEvent, ToolKind, ToolSpec};
 pub use window::FigureWindow;
 
 use crate::figure::{Figure, SaveError};
 
-/// Why a figure window failed.
+/// Why showing figures failed, in windows or in a browser.
 #[derive(Debug)]
 pub enum GuiError {
     /// The windowing system refused (no display, lost connection, ...).
     Platform(plt_platform::Error),
+    /// The web backend failed (see [`crate::web`]).
+    Web(crate::web::WebError),
     /// The UI could not be laid out or painted.
     Ui(plt_ui::UiError),
     /// The figure could not be rendered.
     Render(SaveError),
-    /// The figure is not shown in a window (`subplot_tool`).
+    /// The figure is not shown in a window (`subplot_tool`; the web
+    /// backend has no windows).
     NotShown,
 }
 
@@ -59,6 +63,7 @@ impl fmt::Display for GuiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Platform(err) => write!(f, "window system error: {err}"),
+            Self::Web(err) => err.fmt(f),
             Self::Ui(err) => write!(f, "user interface error: {err}"),
             Self::Render(err) => write!(f, "cannot render the figure: {err}"),
             Self::NotShown => f.write_str("the figure is not shown in a window"),
@@ -70,6 +75,7 @@ impl std::error::Error for GuiError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Platform(err) => Some(err),
+            Self::Web(err) => Some(err),
             Self::Ui(err) => Some(err),
             Self::Render(err) => Some(err),
             Self::NotShown => None,
@@ -80,6 +86,12 @@ impl std::error::Error for GuiError {
 impl From<plt_platform::Error> for GuiError {
     fn from(err: plt_platform::Error) -> Self {
         Self::Platform(err)
+    }
+}
+
+impl From<crate::web::WebError> for GuiError {
+    fn from(err: crate::web::WebError) -> Self {
+        Self::Web(err)
     }
 }
 

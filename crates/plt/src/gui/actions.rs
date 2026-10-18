@@ -15,7 +15,7 @@ fn next_grids(state: (bool, bool)) -> (bool, bool) {
 }
 
 /// Applies a grid or scale shortcut to the axes under the pointer.
-pub(super) fn apply_to_axes(ax: &Axes, action: KeyAction) {
+pub(crate) fn apply_to_axes(ax: &Axes, action: KeyAction) {
     match action {
         KeyAction::Grid => {
             let (x, y) = next_grids((

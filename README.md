@@ -30,6 +30,14 @@ plt::title("Squares");
 plt::show()?;
 ```
 
+On systems without X11 (macOS, Windows), `show()` serves the figures to a
+web browser instead, like matplotlib's WebAgg backend, and prints their
+address; on an X11 system without a display it shows nothing, as
+matplotlib falls back to `agg`. `MPLBACKEND=webagg` (or
+`plt::switch_backend(Backend::WebAgg)`) picks the browser everywhere (a
+remote machine, WSL), and `plt::web::serve(&[fig], &WebOptions::from_rc()?)`
+does it without pyplot.
+
 ## What is there
 
 * **Plots**: lines and markers, scatter, bars and histograms, error bars,
@@ -58,7 +66,10 @@ plt::show()?;
   HTML page with matplotlib's JavaScript player, `to_jshtml`, or as a
   video through an installed ffmpeg, `to_html5_video`);
   pyplot's interactive mode with `pause`, `ginput` and
-  `waitforbuttonpress`.
+  `waitforbuttonpress`; the same figures in a web browser (matplotlib's
+  WebAgg protocol and client over plt-rs's own HTTP and WebSocket
+  server): pan, zoom, history, readout, mouse and key events, timers and
+  downloads in every output format.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF
   byte-identical to Pillow's for the same pixels, GIF and raw RGBA; and
   SVG, PDF and PostScript/EPS documents structured like matplotlib's.
@@ -84,14 +95,14 @@ writes every figure as a PNG with an `index.html` showing them all.
 | crate          | responsibility                                                    |
 |----------------|-------------------------------------------------------------------|
 | `plt-core`     | points, affine transforms, bounding boxes, paths, colours         |
-| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF read and write |
+| `plt-codec`    | CRC32/Adler32, SHA-1, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF read and write |
 | `plt-font`     | TrueType/OpenType parsing, shaping (GSUB/GPOS), font manager      |
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `plt-text`     | text layout and the mathtext parser and typesetter                |
 | `plt-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS |
 | `plt-platform` | windows, input and the event loop (X11; headless for tests)       |
 | `plt-ui`       | the retained-mode UI engine used by figure windows                |
-| `plt`          | the matplotlib model: figures, axes, artists, pyplot, GUI         |
+| `plt`          | the matplotlib model: figures, axes, artists, pyplot, GUI, web    |
 | `plt-spec`     | the conformance harness                                           |
 | `xtask`        | developer automation                                              |
 
@@ -101,6 +112,7 @@ writes every figure as a PNG with an `index.html` showing them all.
 cargo build --workspace
 cargo test --workspace
 cargo run -p plt --example figure_window        # needs an X server
+cargo run -p plt --example web_figure           # an animated figure in a browser
 cargo run -p plt --example widgets              # sliders and a span selector
 ```
 

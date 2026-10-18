@@ -93,6 +93,8 @@ pub enum EventKind {
     Close,
     /// A press or scroll picked an artist (`pick_event`).
     Pick,
+    /// The figure was drawn (`draw_event`).
+    Draw,
 }
 
 /// Where the pointer is (matplotlib's `LocationEvent` attributes); an
@@ -170,6 +172,9 @@ pub enum Event {
     Close,
     /// A press or scroll picked an artist that has a picker.
     Pick(PickEvent),
+    /// [`Figure::draw`](crate::figure::Figure::draw) finished drawing the
+    /// figure: on screen, into a file or for the layout alone.
+    Draw,
 }
 
 impl Event {
@@ -189,6 +194,7 @@ impl Event {
             Self::Resize { .. } => EventKind::Resize,
             Self::Close => EventKind::Close,
             Self::Pick(_) => EventKind::Pick,
+            Self::Draw => EventKind::Draw,
         }
     }
 
@@ -204,7 +210,7 @@ impl Event {
             Self::AxesEnter(location) | Self::AxesLeave(location) | Self::FigureEnter(location) => {
                 Some(location)
             }
-            Self::FigureLeave | Self::Resize { .. } | Self::Close => None,
+            Self::FigureLeave | Self::Resize { .. } | Self::Close | Self::Draw => None,
         }
     }
 }

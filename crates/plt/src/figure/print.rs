@@ -48,6 +48,9 @@ pub struct SaveOptions {
     /// Document metadata of the vector formats (plt-rs as creator and
     /// the current or `SOURCE_DATE_EPOCH` date by default).
     pub metadata: Option<Metadata>,
+    /// JPEG quality from 1 to 100 (Pillow's `quality` in matplotlib's
+    /// `pil_kwargs`; 75 by default).
+    pub jpeg_quality: Option<u8>,
 }
 
 impl FigureState {

@@ -9,6 +9,7 @@ pub(crate) mod colormaps;
 pub(crate) mod colors;
 pub(crate) mod contour;
 pub(crate) mod dates;
+pub(crate) mod imsave;
 pub(crate) mod lightsource;
 pub(crate) mod markers;
 pub(crate) mod norms;

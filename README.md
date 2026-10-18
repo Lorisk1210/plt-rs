@@ -47,14 +47,15 @@ plt::show()?;
   aligned labels, insets, `axes_grid1` and `axisartist`.
 * **Interactive**: figure windows with a toolbar (home/back/forward,
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
-  options, save), a save dialog (PNG, SVG, PDF, PS, EPS), matplotlib's
+  options, save), a save dialog (PNG, JPEG, TIFF, GIF, SVG, PDF, PS, EPS), matplotlib's
   keyboard shortcuts, a live coordinate readout, figure events
   (`connect`), timers and `FuncAnimation` (saved as animated PNG or GIF, or as an
   HTML page with matplotlib's JavaScript player, `to_jshtml`);
   pyplot's interactive mode with `pause`, `ginput` and
   `waitforbuttonpress`.
-* **Output**: PNG pixel-identical to matplotlib's Agg, and SVG, PDF and
-  PostScript/EPS documents structured like matplotlib's.
+* **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF
+  byte-identical to Pillow's for the same pixels, GIF and raw RGBA; and
+  SVG, PDF and PostScript/EPS documents structured like matplotlib's.
 * **Widgets**: buttons, sliders and range sliders, check and radio
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
   lasso and polygon selectors.
@@ -64,7 +65,7 @@ plt::show()?;
 | crate          | responsibility                                                    |
 |----------------|-------------------------------------------------------------------|
 | `plt-core`     | points, affine transforms, bounding boxes, paths, colours         |
-| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, PNG/APNG, animated GIF, base64       |
+| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, base64    |
 | `plt-font`     | TrueType/OpenType parsing, shaping (GSUB/GPOS), font manager      |
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `plt-text`     | text layout and the mathtext parser and typesetter                |

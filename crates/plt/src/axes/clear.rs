@@ -27,6 +27,7 @@ impl AxesState {
         fresh.titles.clone_from(&self.titles);
         fresh.children = self.spines.iter().chain(&self.titles).copied().collect();
         fresh.navigate = self.navigate;
+        fresh.forward_navigation = self.forward_navigation;
         fresh.patch.facecolor = self.patch.facecolor.clone();
         fresh.decorations.frame_on = self.decorations.frame_on;
         fresh.axis_zorder = self.axis_zorder;

@@ -39,6 +39,30 @@ impl Axes {
             .with_mut::<AxesState, _>(|state| state.navigate = navigate);
         self
     }
+
+    /// Sets whether panning and zooming on this axes also act on the axes
+    /// below it (at a lower or equal z-order): `Some(true)` always,
+    /// `Some(false)` never, `None` (matplotlib's `"auto"`) when its
+    /// background is hidden (matplotlib's `set_forward_navigation_events`).
+    pub fn set_forward_navigation_events(&self, forward: Option<bool>) -> &Self {
+        self.raw()
+            .with_mut::<AxesState, _>(|state| state.forward_navigation = forward);
+        self
+    }
+
+    /// Whether panning and zooming reach the axes below; `None` is
+    /// `"auto"`.
+    pub fn forward_navigation_events(&self) -> Option<bool> {
+        self.raw()
+            .with::<AxesState, _>(|state| state.forward_navigation)
+    }
+
+    /// Whether this axes keeps pan and zoom from the axes below
+    /// (matplotlib's `_capture_events`).
+    pub(super) fn captures_navigation(&self) -> bool {
+        self.forward_navigation_events()
+            .map_or_else(|| self.patch_visible(), |forward| !forward)
+    }
 }
 
 /// The axes box and data transform of `ax`, brought up to date.

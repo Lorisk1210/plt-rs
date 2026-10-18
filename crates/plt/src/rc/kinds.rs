@@ -3,21 +3,30 @@
 use super::literal::Expr;
 use super::value::{RcValue, split_list};
 use crate::colors::Color;
+use crate::legend::LegendLoc;
+use crate::ticker::MinorDivisions;
+
+/// A colour written as a name, `"none"` or hex code, which may omit the
+/// `#` when it has six or eight digits (matplotlib's `validate_color`
+/// before it evaluates tuple strings).
+fn color_spec(text: &str) -> Option<Color> {
+    if text.eq_ignore_ascii_case("none") {
+        return Some(Color::Spec("none".to_owned()));
+    }
+    if matches!(text.len(), 6 | 8) {
+        let hashed = format!("#{text}");
+        if Color::parse(&hashed).is_ok() {
+            return Some(Color::Spec(hashed));
+        }
+    }
+    Color::parse(text).ok()
+}
 
 impl RcValue for Color {
     /// matplotlib's `validate_color`: `none` is normalised, six- or
     /// eight-digit hex may omit the `#`, and tuple strings are evaluated.
     fn parse_rc(text: &str) -> Result<Self, String> {
-        if text.eq_ignore_ascii_case("none") {
-            return Ok(Self::Spec("none".to_owned()));
-        }
-        if matches!(text.len(), 6 | 8) {
-            let hashed = format!("#{text}");
-            if Self::parse(&hashed).is_ok() {
-                return Ok(Self::Spec(hashed));
-            }
-        }
-        if let Ok(color) = Self::parse(text) {
+        if let Some(color) = color_spec(text) {
             return Ok(color);
         }
         let tuple = Expr::parse(text)
@@ -60,8 +69,10 @@ macro_rules! color_with_keywords {
         }
 
         impl RcValue for $name {
+            /// The keywords exactly as spelled (matplotlib's `_str_equal`),
+            /// otherwise a colour.
             fn parse_rc(text: &str) -> Result<Self, String> {
-                $( if [$($spelling),+].iter().any(|s| text.eq_ignore_ascii_case(s)) {
+                $( if [$($spelling),+].contains(&text) {
                     return Ok(Self::$variant);
                 } )+
                 Color::parse_rc(text).map(Self::Color)
@@ -121,17 +132,147 @@ color_with_keywords! {
     }
 }
 
-color_with_keywords! {
-    /// The colour of legend labels.
-    LabelColor {
-        /// Use the text colour (`None`).
-        Unset => ["None"],
-        /// The colour of the corresponding line.
-        LineColor => ["linecolor"],
-        /// The marker face colour.
-        MarkerFaceColor => ["markerfacecolor", "mfc"],
-        /// The marker edge colour.
-        MarkerEdgeColor => ["markeredgecolor", "mec"],
+/// The colour of legend labels.
+#[derive(Clone, Debug, PartialEq)]
+pub enum LabelColor {
+    /// Use the text colour (`None`).
+    Unset,
+    /// The colour of the corresponding line.
+    LineColor,
+    /// The marker face colour.
+    MarkerFaceColor,
+    /// The marker edge colour.
+    MarkerEdgeColor,
+    /// An explicit colour.
+    Color(Color),
+}
+
+impl RcValue for LabelColor {
+    /// matplotlib's `_validate_color_or_linecolor`: the keywords exactly
+    /// as spelled, `none` in any case for the text colour, otherwise a
+    /// colour by name or hex code (tuple strings are not evaluated).
+    fn parse_rc(text: &str) -> Result<Self, String> {
+        Ok(match text {
+            "linecolor" => Self::LineColor,
+            "markerfacecolor" | "mfc" => Self::MarkerFaceColor,
+            "markeredgecolor" | "mec" => Self::MarkerEdgeColor,
+            _ if text.eq_ignore_ascii_case("none") => Self::Unset,
+            _ => Self::Color(
+                color_spec(text)
+                    .ok_or_else(|| format!("{text:?} does not look like a color arg"))?,
+            ),
+        })
+    }
+
+    fn format_rc(&self) -> String {
+        match self {
+            Self::Unset => "None".to_owned(),
+            Self::LineColor => "linecolor".to_owned(),
+            Self::MarkerFaceColor => "markerfacecolor".to_owned(),
+            Self::MarkerEdgeColor => "markeredgecolor".to_owned(),
+            Self::Color(color) => color.format_rc(),
+        }
+    }
+}
+
+/// `savefig.bbox`: the area `savefig` saves.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SavefigBbox {
+    /// The whole figure (`standard`, which matplotlib stores as `None`).
+    #[default]
+    Standard,
+    /// The tight box around what is drawn (`tight`).
+    Tight,
+}
+
+impl RcValue for SavefigBbox {
+    /// matplotlib's `validate_bbox`: `tight` or `standard`, in any case.
+    fn parse_rc(text: &str) -> Result<Self, String> {
+        match text.to_ascii_lowercase().as_str() {
+            "tight" => Ok(Self::Tight),
+            "standard" => Ok(Self::Standard),
+            _ => Err(format!(
+                "bbox should be 'tight' or 'standard', not {text:?}"
+            )),
+        }
+    }
+
+    fn format_rc(&self) -> String {
+        match self {
+            Self::Standard => "standard",
+            Self::Tight => "tight",
+        }
+        .to_owned()
+    }
+}
+
+/// The location names `legend.loc` takes (matplotlib's
+/// `_validate_named_legend_loc`).
+const LEGEND_LOCATIONS: [&str; 11] = [
+    "best",
+    "upper right",
+    "upper left",
+    "lower left",
+    "lower right",
+    "right",
+    "center left",
+    "center right",
+    "lower center",
+    "upper center",
+    "center",
+];
+
+impl RcValue for LegendLoc {
+    /// matplotlib's `_validate_legend_loc`: a location name in any case, a
+    /// code from 0 to 10, or an `(x, y)` tuple.
+    fn parse_rc(text: &str) -> Result<Self, String> {
+        if let Some(name) = LEGEND_LOCATIONS
+            .iter()
+            .find(|name| name.eq_ignore_ascii_case(text))
+        {
+            return Ok(Self::Name((*name).to_owned()));
+        }
+        match Expr::parse(text) {
+            Ok(Expr::Int(code)) if (0..=10).contains(&code) => Ok(Self::Code(code)),
+            Ok(Expr::Tuple(items)) => match items.as_slice() {
+                [x, y] => match (x.as_number(), y.as_number()) {
+                    (Some(x), Some(y)) => Ok(Self::Point(x, y)),
+                    _ => Err(format!("{text} is not a valid legend location")),
+                },
+                _ => Err(format!("{text} is not a valid legend location")),
+            },
+            _ => Err(format!("{text} is not a valid legend location")),
+        }
+    }
+
+    fn format_rc(&self) -> String {
+        match self {
+            Self::Name(name) => name.clone(),
+            Self::Code(code) => code.to_string(),
+            Self::Point(x, y) => format!("({}, {})", x.format_rc(), y.format_rc()),
+        }
+    }
+}
+
+impl RcValue for MinorDivisions {
+    /// matplotlib's `_validate_minor_tick_ndivs`: `auto` in any case or a
+    /// non-negative integer.
+    fn parse_rc(text: &str) -> Result<Self, String> {
+        if text.eq_ignore_ascii_case("auto") {
+            return Ok(Self::Auto);
+        }
+        i64::parse_rc(text)
+            .ok()
+            .and_then(|count| u32::try_from(count).ok())
+            .map(Self::Count)
+            .ok_or_else(|| "'tick.minor.ndivs' must be 'auto' or non-negative int".to_owned())
+    }
+
+    fn format_rc(&self) -> String {
+        match self {
+            Self::Auto => "auto".to_owned(),
+            Self::Count(count) => count.to_string(),
+        }
     }
 }
 

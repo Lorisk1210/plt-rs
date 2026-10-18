@@ -11,7 +11,7 @@ use super::{DrawErrors, Figure, FigureState};
 use crate::artist::{ArtistId, LayoutContext};
 use crate::axes::{Axes, AxesState};
 use crate::colors::Color;
-use crate::rc::{ColorOrAuto, Dpi};
+use crate::rc::{ColorOrAuto, Dpi, SavefigBbox};
 
 /// Which part of the figure is saved (matplotlib's `bbox_inches`).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -211,7 +211,7 @@ impl Figure {
         }
         let bbox = options
             .bbox_inches
-            .or_else(|| (rc.savefig_bbox == "tight").then_some(BboxInches::Tight));
+            .or_else(|| (rc.savefig_bbox == SavefigBbox::Tight).then_some(BboxInches::Tight));
         let window = match bbox {
             None => None,
             Some(BboxInches::Inches(bbox)) => Some(bbox),

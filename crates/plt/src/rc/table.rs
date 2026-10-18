@@ -6,14 +6,16 @@
 use super::cycler::Cycler;
 use super::kinds::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, Distiller, Dpi, FontType,
-    HistBins, LabelColor, Whiskers,
+    HistBins, LabelColor, SavefigBbox, Whiskers,
 };
 use super::validate;
 use crate::colors::Color;
 use crate::fonts::{FontSize, FontStretch, FontWeight};
+use crate::legend::LegendLoc;
 use crate::lines::LineStyle;
 use crate::markers::Marker;
 use crate::patheffects::PathEffect;
+use crate::ticker::MinorDivisions;
 use plt_render::{CapStyle, JoinStyle};
 
 rc_params! {
@@ -22,7 +24,7 @@ rc_params! {
     /// `figure.hooks`: List of `dotted.module.name`:`dotted.callable.name`.
     figure_hooks: Vec<String> = "" => "figure.hooks";
     /// `toolbar`: {None, toolbar2, toolmanager}.
-    toolbar: String = "toolbar2" => "toolbar" where validate::one_of(&["None", "toolbar2", "toolmanager"]);
+    toolbar: String = "toolbar2" => "toolbar" using(validate::one_of_ignore_case(&["None", "toolbar2", "toolmanager"]));
     /// `interactive`.
     interactive: bool = "False" => "interactive";
     /// `timezone`: A pytz timezone string, `e.g`., US/Central or Europe/Paris.
@@ -228,7 +230,7 @@ rc_params! {
     /// `mathtext.default`: The default font to use for math.
     mathtext_default: String = "normal" => "mathtext.default" where validate::one_of(&["bb", "bf", "bfit", "cal", "default", "frak", "it", "normal", "regular", "rm", "scr", "sf", "tt"]);
     /// `mathtext.fallback`: Select fallback font from ['cm' (Computer Modern), 'stix'.
-    mathtext_fallback: Option<String> = "cm" => "mathtext.fallback" where validate::optional_one_of(&["cm", "stix", "stixsans"]);
+    mathtext_fallback: Option<String> = "cm" => "mathtext.fallback" using(validate::mathtext_fallback);
     /// `image.aspect`: {equal, auto} or a number.
     image_aspect: Aspect = "equal" => "image.aspect";
     /// `image.interpolation`: See help(imshow) for options.
@@ -358,7 +360,7 @@ rc_params! {
     /// `scatter.edgecolors`: The default edge colors for scatter plots.
     scatter_edgecolors: String = "face" => "scatter.edgecolors";
     /// `date.epoch`.
-    date_epoch: String = "1970-01-01T00:00:00" => "date.epoch";
+    date_epoch: String = "1970-01-01T00:00:00" => "date.epoch" where validate::numpy_datetime;
     /// `date.autoformatter.year`.
     date_autoformatter_year: String = "%Y" => "date.autoformatter.year";
     /// `date.autoformatter.month`.
@@ -380,7 +382,7 @@ rc_params! {
     /// `legend.fancybox`: If True, use a rounded box for the.
     legend_fancybox: bool = "True" => "legend.fancybox";
     /// `legend.loc`.
-    legend_loc: String = "best" => "legend.loc" where validate::legend_loc;
+    legend_loc: LegendLoc = "best" => "legend.loc";
     /// `legend.numpoints`: The number of marker points in the legend line.
     legend_numpoints: i64 = "1" => "legend.numpoints";
     /// `legend.scatterpoints`: Number of scatter points.
@@ -454,7 +456,7 @@ rc_params! {
     /// `xtick.major.bottom`: Draw x axis bottom major ticks.
     xtick_major_bottom: bool = "True" => "xtick.major.bottom";
     /// `xtick.minor.ndivs`: Number of minor ticks between the major ticks on x-axis.
-    xtick_minor_ndivs: String = "auto" => "xtick.minor.ndivs" where validate::minor_ndivs;
+    xtick_minor_ndivs: MinorDivisions = "auto" => "xtick.minor.ndivs";
     /// `xtick.labelsize`: Font size of the tick labels.
     xtick_labelsize: FontSize = "medium" => "xtick.labelsize";
     /// `xtick.direction`: Direction: {in, out, inout}.
@@ -496,7 +498,7 @@ rc_params! {
     /// `ytick.major.right`: Draw y axis right major ticks.
     ytick_major_right: bool = "True" => "ytick.major.right";
     /// `ytick.minor.ndivs`: Number of minor ticks between the major ticks on y-axis.
-    ytick_minor_ndivs: String = "auto" => "ytick.minor.ndivs" where validate::minor_ndivs;
+    ytick_minor_ndivs: MinorDivisions = "auto" => "ytick.minor.ndivs";
     /// `ytick.labelsize`: Font size of the tick labels.
     ytick_labelsize: FontSize = "medium" => "ytick.labelsize";
     /// `ytick.direction`: Direction: {in, out, inout}.
@@ -586,7 +588,7 @@ rc_params! {
     /// `savefig.format`: {png, ps, pdf, svg}.
     savefig_format: String = "png" => "savefig.format";
     /// `savefig.bbox`: {tight, standard}.
-    savefig_bbox: String = "standard" => "savefig.bbox" using validate::bbox;
+    savefig_bbox: SavefigBbox = "standard" => "savefig.bbox";
     /// `savefig.pad_inches`: Padding to be used, when bbox is set to 'tight'.
     savefig_pad_inches: f64 = "0.1" => "savefig.pad_inches";
     /// `savefig.directory`: Default directory in savefig dialog, gets updated after.
@@ -596,7 +598,7 @@ rc_params! {
     /// `tk.window_focus`: Maintain shell focus for `TkAgg`.
     tk_window_focus: bool = "False" => "tk.window_focus";
     /// `ps.papersize`: {figure, letter, legal, ledger, A0-A10, B0-B10}.
-    ps_papersize: String = "letter" => "ps.papersize" where validate::one_of_ignore_case(&["a0", "a1", "a10", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "b0", "b1", "b10", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "figure", "ledger", "legal", "letter"]);
+    ps_papersize: String = "letter" => "ps.papersize" using(validate::one_of_ignore_case(&["a0", "a1", "a10", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "b0", "b1", "b10", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "figure", "ledger", "legal", "letter"]));
     /// `ps.useafm`: Use AFM fonts, results in small files.
     ps_useafm: bool = "False" => "ps.useafm";
     /// `ps.usedistiller`: {ghostscript, xpdf, None}.
@@ -636,7 +638,7 @@ rc_params! {
     /// `path.snap`: When True, rectilinear axis-aligned paths will be snapped.
     path_snap: bool = "True" => "path.snap";
     /// `path.sketch`: May be None, or a tuple of the form:.
-    path_sketch: Option<[f64; 3]> = "None" => "path.sketch" using validate::sketch;
+    path_sketch: Option<[f64; 3]> = "None" => "path.sketch" using(validate::sketch);
     /// `path.effects`.
     path_effects: Vec<PathEffect> = "" => "path.effects";
     /// `agg.path.chunksize`: 0 to disable; values in the range.

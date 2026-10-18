@@ -4,7 +4,7 @@
 use super::{LegendError, LegendLoc, LegendOptions};
 use crate::fonts::FontProperties;
 use crate::offsetbox::AnchorLoc;
-use crate::rc::{Expr, RcParams};
+use crate::rc::RcParams;
 
 /// A validated legend location (matplotlib's `_loc`).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -110,27 +110,6 @@ impl Location {
                 .ok_or_else(|| LegendError::InvalidLocation(code.to_string())),
             LegendLoc::Point(x, y) => Ok(Self::Point(*x, *y)),
         }
-    }
-
-    /// The location `legend.loc` names: a name in any case, a code or an
-    /// `(x, y)` pair (matplotlib's `_validate_legend_loc`).
-    pub(crate) fn from_rc(text: &str) -> Result<Self, LegendError> {
-        let invalid = || LegendError::InvalidLocation(format!("{text:?}"));
-        let lowered = text.to_ascii_lowercase();
-        if let Ok(location) = Self::parse(&LegendLoc::Name(lowered)) {
-            return Ok(location);
-        }
-        if let Ok(code) = text.trim().parse::<i64>() {
-            return Self::parse(&LegendLoc::Code(code));
-        }
-        let pair = Expr::parse(text).ok().and_then(|expr| {
-            let items = expr.as_sequence()?;
-            match items {
-                [x, y] => Some((x.as_number()?, y.as_number()?)),
-                _ => None,
-            }
-        });
-        pair.map(|(x, y)| Self::Point(x, y)).ok_or_else(invalid)
     }
 }
 
@@ -263,13 +242,18 @@ mod tests {
 
     #[test]
     fn rc_locations_ignore_case_and_accept_pairs() {
+        let location = |text: &str| {
+            let mut rc = RcParams::matplotlib();
+            rc.set("legend.loc", text).ok()?;
+            Location::parse(&rc.legend_loc).ok()
+        };
         assert_eq!(
-            Location::from_rc("Upper Left"),
-            Ok(Location::Anchored(AnchorLoc::UpperLeft))
+            location("Upper Left"),
+            Some(Location::Anchored(AnchorLoc::UpperLeft))
         );
-        assert_eq!(Location::from_rc("0"), Ok(Location::Best));
-        assert_eq!(Location::from_rc("(0.5, 1)"), Ok(Location::Point(0.5, 1.0)));
-        assert!(Location::from_rc("middle").is_err());
+        assert_eq!(location("0"), Some(Location::Best));
+        assert_eq!(location("(0.5, 1)"), Some(Location::Point(0.5, 1.0)));
+        assert_eq!(location("middle"), None);
     }
 
     #[test]

@@ -53,14 +53,14 @@ TYPES = {
     "validate_dpi": ("Dpi", None),
     "validate_aspect": ("Aspect", None),
     "validate_axisbelow": ("AxisBelow", None),
-    "_validate_legend_loc": ("String", "validate::legend_loc"),
-    "_validate_minor_tick_ndivs": ("String", "validate::minor_ndivs"),
-    "validate_bbox": ("String", None),
-    "_validate_date": ("String", None),
+    "_validate_legend_loc": ("LegendLoc", None),
+    "_validate_minor_tick_ndivs": ("MinorDivisions", None),
+    "validate_bbox": ("SavefigBbox", None),
+    "_validate_date": ("String", "validate::numpy_datetime"),
     "_validate_pathlike": ("String", None),
-    "_validate_toolbar": ("String", 'validate::one_of(&["None", "toolbar2", "toolmanager"])'),
+    "_validate_toolbar": ("String", None),
     "validate_ps_distiller": ("Distiller", None),
-    "_validate_mathtext_fallback": ("Option<String>", 'validate::optional_one_of(&["cm", "stix", "stixsans"])'),
+    "_validate_mathtext_fallback": ("Option<String>", None),
     "_validate_cmap": ("String", None),
 }
 
@@ -124,7 +124,8 @@ def doc(comment, key):
 # validators that accept a syntax of their own.
 PARSERS = {
     "validate_sketch": "validate::sketch",
-    "validate_bbox": "validate::bbox",
+    "_validate_mathtext_fallback": "validate::mathtext_fallback",
+    "_validate_toolbar": 'validate::one_of_ignore_case(&["None", "toolbar2", "toolmanager"])',
 }
 
 # Fixed-length lists (`_listify_validator(..., n=N)`): element type by name.
@@ -149,15 +150,20 @@ def main():
         # Hidden parameters are not documented in matplotlibrc.
         value, comment = entries.get(key) or (
             str(rcsetup._hardcoded_defaults[key]), "Matplotlib 1.x behaviour")
+        parser = PARSERS.get(name)
         if name == "ValidateInStrings":
             allowed = sorted(validator.valid.values()) if isinstance(validator.valid, dict) else sorted(validator.valid)
-            fn = "one_of_ignore_case" if validator.ignorecase else "one_of"
-            rust_type, check = "String", f"validate::{fn}(&[{', '.join(rust_str(a) for a in allowed)}])"
+            choices = f"(&[{', '.join(rust_str(a) for a in allowed)}])"
+            rust_type, check = "String", None
+            if validator.ignorecase:
+                parser = f"validate::one_of_ignore_case{choices}"
+            else:
+                check = f"validate::one_of{choices}"
         elif name in FIXED_LISTS and fixed_length(validator) is not None:
             rust_type, check = f"[{FIXED_LISTS[name]}; {fixed_length(validator)}]", None
         else:
             rust_type, check = TYPES[name]
-        rows.append((key, rust_type, value, PARSERS.get(name), check, doc(comment, key)))
+        rows.append((key, rust_type, value, parser, check, doc(comment, key)))
 
     lines = [
         "//! Every rcParam with its type, default and validation.",
@@ -168,21 +174,23 @@ def main():
         "use super::cycler::Cycler;",
         "use super::kinds::{",
         "    Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, Distiller, Dpi, FontType,",
-        "    HistBins, LabelColor, Whiskers,",
+        "    HistBins, LabelColor, SavefigBbox, Whiskers,",
         "};",
         "use super::validate;",
         "use crate::colors::Color;",
         "use crate::fonts::{FontSize, FontStretch, FontWeight};",
+        "use crate::legend::LegendLoc;",
         "use crate::lines::LineStyle;",
         "use crate::markers::Marker;",
         "use crate::patheffects::PathEffect;",
+        "use crate::ticker::MinorDivisions;",
         "use plt_render::{CapStyle, JoinStyle};",
         "",
         "rc_params! {",
     ]
     for key, rust_type, value, parser, check, docline in rows:
         lines.append(f"    /// {docline}")
-        parser_part = f" using {parser}" if parser else ""
+        parser_part = f" using({parser})" if parser else ""
         check_part = f" where {check}" if check else ""
         lines.append(f"    {field_name(key)}: {rust_type} = {rust_str(value)} => {rust_str(key)}"
                      f"{parser_part}{check_part};")

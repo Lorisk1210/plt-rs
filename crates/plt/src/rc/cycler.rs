@@ -31,7 +31,8 @@ pub enum CycleValue {
 /// default `cycler(color='tab10')`.
 ///
 /// Like Python's `cycler`, rows are combined with [`zip`](Self::zip) (`+`),
-/// [`product`](Self::product) (`*`) and [`concat`](Self::concat).
+/// [`product`](Self::product) (`*`) and [`concat`](Self::concat), and
+/// repeated with [`repeat`](Self::repeat) (`* n`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cycler {
     keys: Vec<String>,
@@ -149,6 +150,18 @@ impl Cycler {
         Ok(Self { keys, rows })
     }
 
+    /// The entries repeated `times` times, none for `times <= 0`
+    /// (`cycle * n` and `n * cycle`, which repeat every value list).
+    #[must_use]
+    pub fn repeat(self, times: i64) -> Self {
+        let times = usize::try_from(times).unwrap_or(0);
+        let rows = std::iter::repeat_n(&self.rows, times)
+            .flatten()
+            .cloned()
+            .collect();
+        Self { rows, ..self }
+    }
+
     /// The entries of `self` followed by those of `other` (same keys).
     pub fn concat(mut self, other: Self) -> Result<Self, String> {
         if self.keys != other.keys {
@@ -178,14 +191,13 @@ impl Cycler {
 
     fn from_expr(expr: &Expr) -> Result<Self, String> {
         match expr {
-            Expr::BinOp { add, left, right } => {
-                let (left, right) = (Self::from_expr(left)?, Self::from_expr(right)?);
-                if *add {
-                    left.zip(right)
-                } else {
-                    left.product(right)
+            Expr::BinOp { add, left, right } => match (*add, &**left, &**right) {
+                (false, Expr::Int(times), cycle) | (false, cycle, Expr::Int(times)) => {
+                    Ok(Self::from_expr(cycle)?.repeat(*times))
                 }
-            }
+                (true, left, right) => Self::from_expr(left)?.zip(Self::from_expr(right)?),
+                (false, left, right) => Self::from_expr(left)?.product(Self::from_expr(right)?),
+            },
             Expr::Slice {
                 value,
                 bounds: [start, stop, step],
@@ -235,6 +247,7 @@ fn property_cycle(property: &str, values: &Expr) -> Result<Cycler, String> {
         })?,
         "marker" => items(values, |item| match item {
             Expr::Str(code) => code.parse().ok().map(CycleValue::Marker),
+            Expr::Int(n) => Marker::from_code(*n).ok().map(CycleValue::Marker),
             Expr::Number(n) => Marker::from_code(*n as i64).ok().map(CycleValue::Marker),
             _ => None,
         })?,
@@ -246,6 +259,7 @@ fn property_cycle(property: &str, values: &Expr) -> Result<Cycler, String> {
         "joinstyle" | "capstyle" | "fillstyle" | "hatch" | "markevery" => {
             items(values, |item| match item {
                 Expr::Str(text) => Some(CycleValue::Text(text.clone())),
+                Expr::Int(n) => Some(CycleValue::Text(n.to_string())),
                 Expr::Number(n) => Some(CycleValue::Text(n.to_string())),
                 _ => None,
             })?
@@ -393,6 +407,22 @@ mod tests {
 
     fn parse(text: &str) -> Result<Cycler, String> {
         Cycler::parse_rc(text)
+    }
+
+    #[test]
+    fn integers_repeat_cycles() {
+        let twice = parse("cycler('color', 'rg') * 2").unwrap();
+        assert_eq!(
+            twice,
+            parse("cycler('color', ['r', 'g', 'r', 'g'])").unwrap()
+        );
+        assert_eq!(parse("2 * cycler('color', 'rg')").unwrap(), twice);
+        assert_eq!(parse("0 * cycler('color', 'rg')").unwrap().len(), 0);
+        assert!(
+            parse("2.0 * cycler('color', 'rg')").is_err(),
+            "floats do not repeat"
+        );
+        assert!(parse("cycler('color', 'rg') + 2").is_err());
     }
 
     #[test]

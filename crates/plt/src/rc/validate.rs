@@ -31,6 +31,34 @@ pub(crate) fn optional_one_of(
     move |value| value.as_ref().map_or(Ok(()), &check)
 }
 
+/// `savefig.bbox`: `tight` or `standard`, in any case, kept lower-case
+/// (matplotlib's `validate_bbox`, which returns `None` for `standard`).
+pub(crate) fn bbox(text: &str) -> Result<String, String> {
+    let lower = text.to_ascii_lowercase();
+    match lower.as_str() {
+        "tight" | "standard" => Ok(lower),
+        _ => Err(format!(
+            "bbox should be 'tight' or 'standard', not {text:?}"
+        )),
+    }
+}
+
+/// `path.sketch`: `none` in any case, or three numbers, optionally in
+/// parentheses (matplotlib's `validate_sketch`).
+pub(crate) fn sketch(text: &str) -> Result<Option<[f64; 3]>, String> {
+    let lower = text.trim().to_ascii_lowercase();
+    let inner = lower
+        .strip_prefix('(')
+        .and_then(|t| t.strip_suffix(')'))
+        .unwrap_or(&lower);
+    if inner == "none" {
+        return Ok(None);
+    }
+    <[f64; 3] as super::value::RcValue>::parse_rc(inner)
+        .map(Some)
+        .map_err(|_| format!("expected a (scale, length, randomness) tuple, not {text:?}"))
+}
+
 /// Accepts values in `[0, 1]`.
 pub(crate) fn unit_interval() -> impl Fn(&f64) -> Result<(), String> {
     |value| {
@@ -85,4 +113,26 @@ pub(crate) fn minor_ndivs(value: &str) -> Result<(), String> {
     (value.eq_ignore_ascii_case("auto") || value.parse::<u32>().is_ok())
         .then_some(())
         .ok_or_else(|| "'tick.minor.ndivs' must be 'auto' or non-negative int".to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bbox_takes_tight_or_standard_in_any_case() {
+        assert_eq!(bbox("Tight"), Ok("tight".to_owned()));
+        assert_eq!(bbox("STANDARD"), Ok("standard".to_owned()));
+        assert!(bbox("None").is_err());
+    }
+
+    #[test]
+    fn sketch_takes_none_or_three_numbers() {
+        assert_eq!(sketch("none"), Ok(None));
+        assert_eq!(sketch("(None)"), Ok(None));
+        assert_eq!(sketch("(1, 100, 2)"), Ok(Some([1.0, 100.0, 2.0])));
+        assert_eq!(sketch("1, 100, 2"), Ok(Some([1.0, 100.0, 2.0])));
+        assert!(sketch("[1, 100, 2]").is_err());
+        assert!(sketch("1, 2").is_err());
+    }
 }

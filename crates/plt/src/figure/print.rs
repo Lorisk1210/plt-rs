@@ -211,7 +211,7 @@ impl Figure {
         }
         let bbox = options
             .bbox_inches
-            .or_else(|| (rc.savefig_bbox.as_deref() == Some("tight")).then_some(BboxInches::Tight));
+            .or_else(|| (rc.savefig_bbox == "tight").then_some(BboxInches::Tight));
         let window = match bbox {
             None => None,
             Some(BboxInches::Inches(bbox)) => Some(bbox),

@@ -13,10 +13,12 @@ pub(crate) trait RcValue: Sized {
     fn format_rc(&self) -> String;
 }
 
-/// Parses `text` for `key` and runs the parameter's extra validation.
-pub(crate) fn parse_checked<T: RcValue>(
+/// Parses `text` for `key` with `parse` and runs the parameter's extra
+/// validation.
+pub(crate) fn parse_checked<T>(
     key: &str,
     text: &str,
+    parse: impl Fn(&str) -> Result<T, String>,
     check: impl Fn(&T) -> Result<(), String>,
 ) -> Result<T, RcError> {
     let invalid = |reason: String| RcError::InvalidValue {
@@ -24,7 +26,7 @@ pub(crate) fn parse_checked<T: RcValue>(
         value: text.to_owned(),
         reason,
     };
-    let value = T::parse_rc(text.trim()).map_err(invalid)?;
+    let value = parse(text.trim()).map_err(invalid)?;
     check(&value).map_err(invalid)?;
     Ok(value)
 }
@@ -86,17 +88,19 @@ impl<T: RcValue> RcValue for Option<T> {
 }
 
 /// Splits a comma-separated list, dropping empty items (matplotlib's
-/// `_listify_validator`); surrounding brackets are tolerated.
+/// `_listify_validator`, which takes no brackets).
 pub(crate) fn split_list(text: &str) -> impl Iterator<Item = &str> {
-    let inner = text
-        .strip_prefix(['[', '('])
-        .and_then(|t| t.strip_suffix([']', ')']))
-        .unwrap_or(text);
-    inner
-        .split(',')
+    text.split(',')
         .map(str::trim)
         .filter(|item| !item.is_empty())
 }
+
+/// The numbers rc lists hold.
+pub(crate) trait ListItem: RcValue {}
+
+impl ListItem for f64 {}
+
+impl ListItem for i64 {}
 
 impl RcValue for Vec<String> {
     fn parse_rc(text: &str) -> Result<Self, String> {
@@ -112,41 +116,32 @@ impl RcValue for Vec<String> {
     }
 }
 
-impl RcValue for Vec<f64> {
+impl<T: ListItem> RcValue for Vec<T> {
     fn parse_rc(text: &str) -> Result<Self, String> {
-        split_list(text).map(f64::parse_rc).collect()
+        split_list(text).map(T::parse_rc).collect()
     }
     fn format_rc(&self) -> String {
-        self.iter()
-            .map(RcValue::format_rc)
-            .collect::<Vec<_>>()
-            .join(", ")
+        format_list(self)
     }
 }
 
-impl RcValue for Vec<i64> {
+impl<T: ListItem, const N: usize> RcValue for [T; N] {
     fn parse_rc(text: &str) -> Result<Self, String> {
-        split_list(text).map(i64::parse_rc).collect()
+        let values = Vec::<T>::parse_rc(text)?;
+        <[T; N]>::try_from(values).map_err(|v| format!("expected {N} values, got {}", v.len()))
     }
     fn format_rc(&self) -> String {
-        self.iter()
-            .map(RcValue::format_rc)
-            .collect::<Vec<_>>()
-            .join(", ")
+        format_list(self)
     }
 }
 
-impl<const N: usize> RcValue for [f64; N] {
-    fn parse_rc(text: &str) -> Result<Self, String> {
-        let values = Vec::<f64>::parse_rc(text)?;
-        <[f64; N]>::try_from(values).map_err(|v| format!("expected {N} values, got {}", v.len()))
-    }
-    fn format_rc(&self) -> String {
-        self.iter()
-            .map(RcValue::format_rc)
-            .collect::<Vec<_>>()
-            .join(", ")
-    }
+/// The rc-file text of a list of numbers.
+fn format_list<T: RcValue>(items: &[T]) -> String {
+    items
+        .iter()
+        .map(RcValue::format_rc)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 impl RcValue for CapStyle {
@@ -207,7 +202,9 @@ mod tests {
     #[test]
     fn lists_and_options() {
         assert_eq!(Vec::<f64>::parse_rc("3.7, 1.6"), Ok(vec![3.7, 1.6]));
-        assert_eq!(Vec::<f64>::parse_rc("[1, 2]"), Ok(vec![1.0, 2.0]));
+        assert!(Vec::<f64>::parse_rc("[1, 2]").is_err(), "no brackets");
+        assert_eq!(<[i64; 2]>::parse_rc("-5, 6"), Ok([-5, 6]));
+        assert!(<[i64; 2]>::parse_rc("-5").is_err());
         assert_eq!(
             Vec::<String>::parse_rc("a, , b"),
             Ok(vec!["a".to_owned(), "b".to_owned()])

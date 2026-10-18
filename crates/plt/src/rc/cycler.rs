@@ -171,18 +171,34 @@ impl Cycler {
         Ok(self)
     }
 
-    /// Python slice `[start:stop:step]` of the entries.
+    /// Python slice `[start:stop:step]` of the entries: negative indices
+    /// count from the end and a negative step walks backwards. A zero step
+    /// selects nothing (Python rejects it, and so does parsing an rc value).
     #[must_use]
     pub fn slice(&self, start: Option<i64>, stop: Option<i64>, step: Option<i64>) -> Self {
         let len = self.rows.len() as i64;
-        let step = step.unwrap_or(1).max(1);
-        let clamp = |i: i64| if i < 0 { (i + len).max(0) } else { i.min(len) };
-        let start = start.map_or(0, clamp);
-        let stop = stop.map_or(len, clamp);
-        let rows = (start..stop)
-            .step_by(step as usize)
-            .map(|i| self.rows[i as usize].clone())
-            .collect();
+        let step = step.unwrap_or(1);
+        let backwards = step < 0;
+        // Python's `PySlice_AdjustIndices`.
+        let adjust = |index: i64| match index {
+            i if i < 0 => (i + len).max(if backwards { -1 } else { 0 }),
+            i if i >= len => {
+                if backwards {
+                    len - 1
+                } else {
+                    len
+                }
+            }
+            i => i,
+        };
+        let start = start.map_or(if backwards { len - 1 } else { 0 }, adjust);
+        let stop = stop.map_or(if backwards { -1 } else { len }, adjust);
+        let mut rows = Vec::new();
+        let mut index = start;
+        while (step > 0 && index < stop) || (backwards && index > stop) {
+            rows.push(self.rows[index as usize].clone());
+            index += step;
+        }
         Self {
             keys: self.keys.clone(),
             rows,
@@ -198,6 +214,10 @@ impl Cycler {
                 (true, left, right) => Self::from_expr(left)?.zip(Self::from_expr(right)?),
                 (false, left, right) => Self::from_expr(left)?.product(Self::from_expr(right)?),
             },
+            Expr::Slice {
+                bounds: [_, _, Some(0)],
+                ..
+            } => Err("slice step cannot be zero".to_owned()),
             Expr::Slice {
                 value,
                 bounds: [start, stop, step],
@@ -407,6 +427,28 @@ mod tests {
 
     fn parse(text: &str) -> Result<Cycler, String> {
         Cycler::parse_rc(text)
+    }
+
+    #[test]
+    fn slices_follow_python() {
+        let rgb = || parse("cycler('color', 'rgb')").unwrap();
+        assert_eq!(
+            parse("cycler('color', 'rgb')[::-1]").unwrap(),
+            parse("cycler('color', 'bgr')").unwrap()
+        );
+        assert_eq!(
+            rgb().slice(Some(-2), None, None),
+            parse("cycler('color', 'gb')").unwrap()
+        );
+        assert_eq!(
+            rgb().slice(None, Some(0), Some(-1)),
+            parse("cycler('color', 'bg')").unwrap()
+        );
+        assert_eq!(
+            rgb().slice(Some(10), None, Some(-2)),
+            parse("cycler('color', 'br')").unwrap()
+        );
+        assert!(parse("cycler('color', 'rgb')[::0]").is_err());
     }
 
     #[test]

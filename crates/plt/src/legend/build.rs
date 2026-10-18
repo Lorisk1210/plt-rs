@@ -205,7 +205,7 @@ fn placement(
     if let Some(loc) = &options.loc {
         return Placement::parse(loc, figure);
     }
-    let location = match Location::from_rc(&rc.legend_loc)? {
+    let location = match Location::parse(&rc.legend_loc)? {
         Location::Best if figure => Location::Anchored(AnchorLoc::UpperRight),
         location => location,
     };

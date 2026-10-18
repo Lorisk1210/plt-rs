@@ -105,10 +105,6 @@ impl From<&crate::rc::RcParams> for TickerSettings {
         let [low, high] = rc
             .axes_formatter_limits
             .map(|limit| i32::try_from(limit).unwrap_or(0));
-        let ndivs = |text: &str| {
-            text.parse()
-                .map_or(MinorDivisions::Auto, MinorDivisions::Count)
-        };
         Self {
             axes_unicode_minus: rc.axes_unicode_minus,
             axes_formatter_limits: (low, high),
@@ -124,8 +120,8 @@ impl From<&crate::rc::RcParams> for TickerSettings {
                 AutolimitMode::Data
             },
             classic_mode: rc.internal_classic_mode,
-            xtick_minor_ndivs: ndivs(&rc.xtick_minor_ndivs),
-            ytick_minor_ndivs: ndivs(&rc.ytick_minor_ndivs),
+            xtick_minor_ndivs: rc.xtick_minor_ndivs,
+            ytick_minor_ndivs: rc.ytick_minor_ndivs,
             xtick_minor_visible: rc.xtick_minor_visible,
             ytick_minor_visible: rc.ytick_minor_visible,
         }

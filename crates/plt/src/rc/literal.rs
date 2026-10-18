@@ -50,17 +50,30 @@ pub(crate) enum Expr {
 }
 
 impl Expr {
-    /// Parses a complete expression.
+    /// Parses a complete expression; comma-separated expressions without
+    /// brackets make a tuple, as in Python (`4, 2` is `(4, 2)`).
     pub(crate) fn parse(text: &str) -> Result<Self, String> {
         let mut parser = Parser {
             tokens: tokenize(text)?,
             pos: 0,
         };
-        let expr = parser.sum()?;
-        match parser.peek() {
-            None => Ok(expr),
-            Some(token) => Err(format!("unexpected {token} after expression")),
+        let first = parser.sum()?;
+        if !parser.eat(',') {
+            return match parser.peek() {
+                None => Ok(first),
+                Some(token) => Err(format!("unexpected {token} after expression")),
+            };
         }
+        let mut items = vec![first];
+        while parser.peek().is_some() {
+            items.push(parser.sum()?);
+            if !parser.eat(',')
+                && let Some(token) = parser.peek()
+            {
+                return Err(format!("unexpected {token} after expression"));
+            }
+        }
+        Ok(Self::Tuple(items))
     }
 
     /// The elements of a tuple or list literal.
@@ -334,6 +347,12 @@ mod tests {
         assert_eq!(Expr::parse("(5)"), Ok(Expr::Int(5)));
         assert_eq!(Expr::parse("5.0"), Ok(Expr::Number(5.0)));
         assert_eq!(Expr::parse("1_000"), Ok(Expr::Int(1000)));
+        assert_eq!(
+            Expr::parse("4, 2"),
+            Ok(Expr::Tuple(vec![Expr::Int(4), Expr::Int(2)]))
+        );
+        assert_eq!(Expr::parse("4,"), Ok(Expr::Tuple(vec![Expr::Int(4)])));
+        assert!(Expr::parse("4, 2 3").is_err());
         assert_eq!(Expr::parse("[]"), Ok(Expr::List(Vec::new())));
     }
 

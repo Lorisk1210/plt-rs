@@ -7,23 +7,23 @@ macro_rules! rc_parser {
     ($ty:ty) => {
         <$ty as super::value::RcValue>::parse_rc
     };
-    ($ty:ty, $parse:path) => {
+    ($ty:ty, $parse:expr) => {
         $parse
     };
 }
 
 /// Declares every rcParam as a typed field plus string-keyed access.
 ///
-/// Each entry reads `field: Type = "default" => "key" [using parse]
+/// Each entry reads `field: Type = "default" => "key" [using(parse)]
 /// [where check];` where the default is written in rc-file syntax, `parse`
-/// an optional `fn(&str) -> Result<Type, String>` replacing the type's own
+/// an optional `Fn(&str) -> Result<Type, String>` replacing the type's own
 /// rc-file parsing (for validators with a syntax of their own) and `check`
 /// an optional extra validator `Fn(&Type) -> Result<(), String>`.
 macro_rules! rc_params {
     ($(
         $(#[$doc:meta])*
         $field:ident : $ty:ty = $default:literal => $key:literal
-            $(using $parse:path)? $(where $check:expr)? ;
+            $(using($parse:expr))? $(where $check:expr)? ;
     )*) => {
         /// Every runtime configuration parameter (matplotlib's `rcParams`),
         /// one typed field per key.

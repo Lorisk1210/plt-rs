@@ -22,6 +22,7 @@ pub(crate) mod multivar;
 pub(crate) mod norms;
 pub(crate) mod path;
 pub(crate) mod pick;
+pub(crate) mod rcsetup;
 pub(crate) mod scales;
 pub(crate) mod stats;
 pub(crate) mod text_metrics;

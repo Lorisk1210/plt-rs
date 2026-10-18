@@ -35,7 +35,7 @@ pub use cycler::{CycleValue, Cycler};
 pub use file::{RcEntry, parse_rc_text};
 pub use kinds::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, Distiller, Dpi, FontType,
-    HistBins, LabelColor, Whiskers,
+    HistBins, LabelColor, SavefigBbox, Whiskers,
 };
 pub use table::RcParams;
 

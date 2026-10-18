@@ -10,37 +10,37 @@ pub(crate) fn one_of(allowed: &'static [&'static str]) -> impl Fn(&String) -> Re
     }
 }
 
-/// Accepts one of `allowed`, ignoring ASCII case.
+/// Parses one of `allowed` in any ASCII case, keeping `allowed`'s spelling
+/// (matplotlib's `ValidateInStrings(..., ignorecase=True)`).
 pub(crate) fn one_of_ignore_case(
     allowed: &'static [&'static str],
-) -> impl Fn(&String) -> Result<(), String> {
-    move |value| {
+) -> impl Fn(&str) -> Result<String, String> {
+    move |text| {
         allowed
             .iter()
-            .any(|a| a.eq_ignore_ascii_case(value))
-            .then_some(())
-            .ok_or_else(|| format!("{value:?} is not one of {allowed:?}"))
+            .find(|a| a.eq_ignore_ascii_case(text))
+            .map(|a| (*a).to_owned())
+            .ok_or_else(|| format!("{text:?} is not one of {allowed:?}"))
     }
 }
 
-/// Accepts `None` or one of `allowed`.
-pub(crate) fn optional_one_of(
-    allowed: &'static [&'static str],
-) -> impl Fn(&Option<String>) -> Result<(), String> {
-    let check = one_of(allowed);
-    move |value| value.as_ref().map_or(Ok(()), &check)
-}
-
-/// `savefig.bbox`: `tight` or `standard`, in any case, kept lower-case
-/// (matplotlib's `validate_bbox`, which returns `None` for `standard`).
-pub(crate) fn bbox(text: &str) -> Result<String, String> {
+/// `mathtext.fallback`: `cm`, `stix`, `stixsans` or `none`, in any case
+/// (matplotlib's `_validate_mathtext_fallback`).
+pub(crate) fn mathtext_fallback(text: &str) -> Result<Option<String>, String> {
     let lower = text.to_ascii_lowercase();
     match lower.as_str() {
-        "tight" | "standard" => Ok(lower),
-        _ => Err(format!(
-            "bbox should be 'tight' or 'standard', not {text:?}"
-        )),
+        "none" => Ok(None),
+        "cm" | "stix" | "stixsans" => Ok(Some(lower)),
+        _ => Err(format!("{text:?} is not a valid fallback font name")),
     }
+}
+
+/// Accepts what numpy's `datetime64` parses, `NaT` included (matplotlib's
+/// `_validate_date`).
+pub(crate) fn numpy_datetime(value: &str) -> Result<(), String> {
+    crate::dates::Datetime64::parse(value)
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }
 
 /// `path.sketch`: `none` in any case, or three numbers, optionally in
@@ -78,52 +78,19 @@ pub(crate) fn above_minus_half() -> impl Fn(&f64) -> Result<(), String> {
     }
 }
 
-/// Legend locations: a name, a code `0..=10`, or an `(x, y)` pair.
-pub(crate) fn legend_loc(value: &str) -> Result<(), String> {
-    const NAMES: [&str; 11] = [
-        "best",
-        "upper right",
-        "upper left",
-        "lower left",
-        "lower right",
-        "right",
-        "center left",
-        "center right",
-        "lower center",
-        "upper center",
-        "center",
-    ];
-    if NAMES.iter().any(|n| n.eq_ignore_ascii_case(value)) {
-        return Ok(());
-    }
-    if value.parse::<u8>().is_ok_and(|code| code <= 10) {
-        return Ok(());
-    }
-    let pair = super::literal::Expr::parse(value).ok().and_then(|e| {
-        e.as_sequence()
-            .map(|items| items.iter().all(|i| i.as_number().is_some()) && items.len() == 2)
-    });
-    pair.unwrap_or(false)
-        .then_some(())
-        .ok_or_else(|| format!("{value} is not a valid legend location"))
-}
-
-/// Minor tick divisions: `auto` or a non-negative integer.
-pub(crate) fn minor_ndivs(value: &str) -> Result<(), String> {
-    (value.eq_ignore_ascii_case("auto") || value.parse::<u32>().is_ok())
-        .then_some(())
-        .ok_or_else(|| "'tick.minor.ndivs' must be 'auto' or non-negative int".to_owned())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn bbox_takes_tight_or_standard_in_any_case() {
-        assert_eq!(bbox("Tight"), Ok("tight".to_owned()));
-        assert_eq!(bbox("STANDARD"), Ok("standard".to_owned()));
-        assert!(bbox("None").is_err());
+    fn choices_keep_their_spelling() {
+        let papers = one_of_ignore_case(&["a0", "letter"]);
+        assert_eq!(papers("A0"), Ok("a0".to_owned()));
+        assert!(papers("a11").is_err());
+        assert_eq!(mathtext_fallback("STIX"), Ok(Some("stix".to_owned())));
+        assert_eq!(mathtext_fallback("None"), Ok(None));
+        assert!(numpy_datetime("1970-01-01T00:00").is_ok());
+        assert!(numpy_datetime("bogus").is_err());
     }
 
     #[test]

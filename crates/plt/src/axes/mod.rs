@@ -32,6 +32,7 @@ mod image;
 mod inset;
 mod limits;
 mod lines;
+mod paint;
 mod patches;
 mod pcolor;
 mod pcolorfast;

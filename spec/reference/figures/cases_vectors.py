@@ -24,6 +24,16 @@ def _(fig):
     ax.set_title("rasterized")
 
 
+@case("vectors/rasterization_zorder", figsize=(2.4, 1.6), dpi=50)
+def _(fig):
+    ax = fig.subplots()
+    ax.set_rasterization_zorder(1.5)
+    ax.pcolormesh(_cells())
+    x = np.linspace(0, 11, 30)
+    ax.plot(x, 0.6 * x, color="k", zorder=1.5)
+    ax.plot(x, 4 + 2 * np.sin(x))
+
+
 @case("vectors/colorbar_many_colors", figsize=(2.4, 1.6), dpi=50)
 def _(fig):
     ax = fig.subplots()

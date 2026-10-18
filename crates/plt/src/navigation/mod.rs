@@ -332,7 +332,10 @@ impl Navigation {
     }
 
     /// The text for a status bar with the pointer at `at`: the data
-    /// coordinates under it, or an empty string outside every axes.
+    /// coordinates under it, then on a second line the value of an image
+    /// (or other artist with `mouseover` set) under it, as `[0.532]`; an
+    /// empty string outside every axes (matplotlib's
+    /// `_mouse_event_to_message`).
     pub fn readout(&self, figure: &Figure, at: Point) -> String {
         if let Some(Drag::Orbit(orbit)) = &self.drag
             && orbit.is_rotating()
@@ -340,10 +343,14 @@ impl Navigation {
             return orbit::readout(orbit.axes(), at, true);
         }
         if let Some(ax) = axes_at(figure, at) {
-            return if ax.navigate() {
-                readout::format_coord(&ax, at)
-            } else {
-                String::new()
+            if !ax.navigate() {
+                return String::new();
+            }
+            let coords = readout::format_coord(&ax, at);
+            let coords = coords.trim_end();
+            return match readout::cursor_text(&ax, at) {
+                Some(data) => format!("{coords}\n{data}"),
+                None => coords.to_owned(),
             };
         }
         orbit::axes3d_at(figure, at).map_or_else(String::new, |ax| orbit::readout(&ax, at, false))

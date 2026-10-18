@@ -293,6 +293,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("imsave", areas::imsave::OPS),
     ("axes3d", areas::axes3d::OPS),
     ("pick", areas::pick::OPS),
+    ("cursor", areas::cursor::OPS),
     ("imread", areas::imread::OPS),
     ("ticker", areas::ticker::OPS),
     ("scales", areas::scales::OPS),

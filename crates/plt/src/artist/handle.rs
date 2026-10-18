@@ -178,6 +178,23 @@ pub trait ArtistHandle {
         self.raw().with_base(|b| b.picker.is_some())
     }
 
+    /// Sets whether a status bar shows the data under the pointer when it
+    /// is over the artist (matplotlib's `set_mouseover`; on by default for
+    /// images).
+    fn set_mouseover(&self, mouseover: bool) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.mouseover = mouseover);
+        self
+    }
+
+    /// Whether a status bar shows the data under the pointer over the
+    /// artist.
+    fn mouseover(&self) -> bool {
+        self.raw().with_base(|b| b.mouseover)
+    }
+
     /// Sets (or clears) the opacity override.
     fn set_alpha(&self, alpha: Option<f64>) -> &Self
     where

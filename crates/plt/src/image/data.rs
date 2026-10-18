@@ -2,6 +2,8 @@
 //! (matplotlib's image array `A` after `_normalize_image_array`).
 
 use super::ImageError;
+use crate::artist::{format_mapped, format_values};
+use crate::colors::ScalarMappable;
 use crate::numeric::Grid;
 
 /// What kind of numbers a scalar image holds; it decides the precision
@@ -154,6 +156,22 @@ impl ImageData {
         match self {
             Self::Scalar(field) => Some(field),
             _ => None,
+        }
+    }
+
+    /// What a status bar shows of the element at `(row, column)`: the
+    /// colour-mapped value (`[]` when masked) or the colour channels
+    /// (matplotlib's `format_cursor_data` of `get_cursor_data`).
+    pub(crate) fn cursor_text(&self, at: (usize, usize), mappable: &ScalarMappable) -> String {
+        match self {
+            Self::Scalar(field) => {
+                let value = (!field.mask()[at]).then(|| field.values()[at]);
+                format_mapped(mappable, value)
+            }
+            Self::Rgb(grid) => format_values(grid[at]),
+            Self::Rgba(grid) => format_values(grid[at]),
+            Self::RgbBytes(grid) => format_values(grid[at].map(f64::from)),
+            Self::RgbaBytes(grid) => format_values(grid[at].map(f64::from)),
         }
     }
 

@@ -65,6 +65,9 @@ pub struct ArtistBase {
     pub url: Option<String>,
     /// How mouse presses pick the artist; `None` leaves it unpickable.
     pub picker: Option<Picker>,
+    /// Whether a status bar shows the data under the pointer when it is
+    /// over the artist (matplotlib's `mouseover`).
+    pub mouseover: bool,
     /// Values autoscaling must not expand past (`x`, `y`).
     pub sticky_edges: (Vec<f64>, Vec<f64>),
     /// The containing artist (axes, figure, legend, ...).
@@ -142,6 +145,7 @@ impl Default for ArtistBase {
             gid: None,
             url: None,
             picker: None,
+            mouseover: false,
             sticky_edges: (Vec::new(), Vec::new()),
             parent: None,
             id: None,

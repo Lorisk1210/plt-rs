@@ -45,8 +45,10 @@ impl PcolorImageArtist {
             y.reverse();
             flip_y = true;
         }
+        let mut base = ArtistBase::with_zorder(0.0);
+        base.mouseover = true;
         Self {
-            base: ArtistBase::with_zorder(0.0),
+            base,
             data: flipped(data, flip_x, flip_y),
             mappable: RefCell::new(mappable),
             x,
@@ -208,6 +210,40 @@ impl Artist for PcolorImageArtist {
             corners.map(|(&x, &y)| resolved.transform_point(Point::new(x, y))),
         ))
     }
+
+    /// matplotlib's `AxesImage.contains` with the grid as extent.
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        self.base
+            .parent
+            .is_some_and(|axes| ctx.axes_contains(axes, point))
+            && self
+                .window_extent(ctx)
+                .is_some_and(|bbox| bbox.contains(point))
+    }
+
+    /// matplotlib's `PcolorImage.get_cursor_data`: the value of the cell
+    /// under `at`.
+    fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
+        let data = ctx
+            .resolve(self.base.transform.as_ref()?)?
+            .inverted()?
+            .transform_point(at);
+        let element = (cell_of(&self.y, data.y)?, cell_of(&self.x, data.x)?);
+        Some(self.data.cursor_text(element, &self.mappable.borrow()))
+    }
+}
+
+/// The cell between `edges` holding `value`: the lower one on an inner
+/// edge, and the last one on the first edge, where matplotlib's
+/// `searchsorted(value) - 1` wraps around as a negative index.
+fn cell_of(edges: &[f64], value: f64) -> Option<usize> {
+    let (&first, &last) = (edges.first()?, edges.last()?);
+    if !(first..=last).contains(&value) {
+        return None;
+    }
+    let cells = edges.len() - 1;
+    let below = edges.partition_point(|&edge| edge < value);
+    Some((below + cells - 1) % cells)
 }
 
 /// A handle to an image with non-uniform cells (matplotlib's

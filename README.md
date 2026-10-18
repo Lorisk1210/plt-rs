@@ -42,18 +42,21 @@ does it without pyplot.
 
 * **Plots**: lines and markers, scatter, bars and histograms, error bars,
   fills, stems, event plots, stack plots, box and violin plots, pies,
-  spectral plots, images (`imshow`, `pcolormesh`, `hexbin`, ...), contours
-  and triangulations, quiver/barbs/streamplot, Sankey diagrams, polar and
-  geographic axes (Aitoff, Hammer, Lambert, Mollweide), 3-D axes (surfaces,
-  wireframes, 3-D scatter and bars, voxels, data clipped to the view limits
-  with `axlim_clip`), annotations, fancy boxes and arrows, path effects,
-  image filters on artists (`set_agg_filter`), tables, legends,
-  colorbars; matplotlib's colormaps, norms and colour sequences,
-  including the multivariate and bivariate colormaps.
+  spectral plots, images (`imshow`, `pcolormesh`, `hexbin`, images on
+  non-uniform grids, ...), contours and triangulations,
+  quiver/barbs/streamplot, Sankey diagrams, polar and geographic axes
+  (Aitoff, Hammer, Lambert, Mollweide), 3-D axes (surfaces, wireframes,
+  3-D scatter and bars, voxels, data clipped to the view limits with
+  `axlim_clip`), annotations, fancy boxes and arrows, path effects, image
+  filters on artists (`set_agg_filter`), tables, legends, colorbars;
+  matplotlib's colormaps, norms and colour sequences, including the
+  multivariate and bivariate colormaps.
 * **Text**: TrueType fonts with OpenType shaping, right-to-left and
-  Arabic text, and mathtext in every matplotlib fontset (DejaVu Sans and
-  Serif, Computer Modern, STIX, STIX sans, custom), placing every glyph
-  and rule where matplotlib does on its own mathtext test suite.
+  Arabic text, every `text.hinting` mode with FreeType's own bytecode
+  interpreter and autohinter, and mathtext in every matplotlib fontset
+  (DejaVu Sans and Serif, Computer Modern, STIX, STIX sans, custom),
+  placing every glyph and rule where matplotlib does on its own mathtext
+  test suite.
 * **Axes and layout**: scales, tickers and formatters, dates and
   categories, shared and twin axes, secondary axes, aspect handling,
   subplot grids, mosaics, subfigures, constrained and tight layout,
@@ -65,22 +68,21 @@ does it without pyplot.
 * **Interactive**: figure windows with a toolbar (home/back/forward,
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
   options, save), a save dialog (PNG, JPEG, TIFF, GIF, SVG, PDF, PS,
-  EPS), matplotlib's keyboard shortcuts with a help window, toolbar
-  tools of your own (`Figure::add_tool`), a live coordinate readout
-  with the image value under the pointer, 3-D axes that rotate
-  (arcball, trackball, sphere or azimuth/elevation), pan and zoom with
-  the mouse, figure events (`connect`), picking artists with the mouse
+  EPS), copying the figure to the clipboard, matplotlib's keyboard
+  shortcuts with a help window, toolbar tools of your own
+  (`Figure::add_tool`), a live coordinate readout with the image value
+  under the pointer, 3-D axes that rotate (arcball, trackball, sphere or
+  azimuth/elevation), pan and zoom with the mouse, figure events
+  (`connect`, including draw events), picking artists with the mouse
   (`set_picker` and pick events), draggable legends, annotations and
-  offset boxes,
-  timers and
-  `FuncAnimation`/`ArtistAnimation` (saved as animated PNG or GIF, as an
-  HTML page with matplotlib's JavaScript player, `to_jshtml`, or as a
-  video through an installed ffmpeg, `to_html5_video`);
-  pyplot's interactive mode with `pause`, `ginput` and
-  `waitforbuttonpress`; the same figures in a web browser (matplotlib's
-  WebAgg protocol and client over plt-rs's own HTTP and WebSocket
-  server): pan, zoom, history, readout, mouse and key events, timers and
-  downloads in every output format.
+  offset boxes, timers and `FuncAnimation`/`ArtistAnimation` (saved as
+  animated PNG or GIF, as an HTML page with matplotlib's JavaScript
+  player, `to_jshtml`, or as a video through an installed ffmpeg,
+  `to_html5_video`); pyplot's interactive mode with `pause`, `ginput`
+  and `waitforbuttonpress`; the same figures in a web browser
+  (matplotlib's WebAgg protocol and client over plt-rs's own HTTP and
+  WebSocket server): pan, zoom, history, readout, mouse and key events,
+  timers and downloads in every output format.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF
   byte-identical to Pillow's for the same pixels, GIF and raw RGBA; and
   SVG, PDF and PostScript/EPS documents structured like matplotlib's.

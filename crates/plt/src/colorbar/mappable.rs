@@ -109,6 +109,17 @@ pub(crate) struct ContourLevels {
     pub(crate) colors: Vec<Rgba>,
     /// The line width of every level.
     pub(crate) linewidths: Vec<f64>,
+    /// The hatch of every band, the colorbar's blocks from the lower
+    /// extension to the upper one (`None` throughout unless the bands of a
+    /// filled set are hatched).
+    pub(crate) hatches: Vec<Option<String>>,
+}
+
+impl ContourLevels {
+    /// Whether the colorbar draws hatched patches instead of a mesh.
+    pub(crate) fn hatched(&self) -> bool {
+        self.hatches.iter().any(Option::is_some)
+    }
 }
 
 /// The colour-mapped artist a colorbar follows, by id in the colorbar's
@@ -175,6 +186,9 @@ impl MappableLink {
                             filled: state.filled,
                             colors: state.colors.iter().map(|&c| state.with_alpha(c)).collect(),
                             linewidths: state.linewidths.clone(),
+                            hatches: (0..state.extended.len().saturating_sub(1))
+                                .map(|band| state.hatched().then(|| state.hatch(band)).flatten())
+                                .collect(),
                         }),
                     })
             }

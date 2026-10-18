@@ -148,6 +148,9 @@ artist_properties! {
         color, set_color: Color;
         /// Counter-clockwise rotation in degrees.
         rotation, set_rotation: f64;
+        /// Whether the rotation is a direction in the text's coordinates,
+        /// turned by its transform (matplotlib's `transform_rotates_text`).
+        transform_rotates_text, set_transform_rotates_text: bool;
         /// Horizontal alignment relative to the position.
         halign, set_halign: HAlign;
         /// Vertical alignment relative to the position.

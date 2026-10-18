@@ -5,7 +5,7 @@ use std::any::Any;
 use std::rc::Rc;
 
 use super::axis::{AxisState, LabelLoc};
-use super::ticks::{GridOptions, GridStyle, Sides, TickPosition};
+use super::ticks::{GridOptions, Sides, TickPosition};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
@@ -162,28 +162,45 @@ impl Axis {
         Ok(self)
     }
 
+    /// Labels the minor ticks with `labels`, like
+    /// [`set_ticklabels`](Self::set_ticklabels) does the major ones
+    /// (matplotlib's `Axis.set_ticklabels(..., minor=True)`).
+    ///
+    /// # Errors
+    ///
+    /// When the minor ticks were set explicitly and their number differs
+    /// from the number of labels.
+    pub fn set_minor_ticklabels<S: Into<String>>(
+        &self,
+        labels: impl IntoIterator<Item = S>,
+    ) -> Result<&Self, PlotError> {
+        let labels: Vec<String> = labels.into_iter().map(Into::into).collect();
+        let formatter =
+            self.read(|axis| tick_label_formatter(axis.minor_locator.as_ref(), labels))?;
+        self.update_shared(|axis| axis.minor_formatter = Rc::clone(&formatter));
+        Ok(self)
+    }
+
+    /// Whether minor ticks falling on major ticks are dropped (the
+    /// default) or drawn too (matplotlib's `Axis.remove_overlapping_locs`).
+    pub fn set_remove_overlapping_locs(&self, remove: bool) -> &Self {
+        self.update(|axis| axis.remove_overlapping_locs = remove);
+        self
+    }
+
     /// Shows (`visible`) or hides the gridlines of `options.which`,
     /// restyled by `options` (matplotlib's `Axis.grid`; `options.axis` is
     /// ignored here).
     pub fn grid(&self, visible: bool, options: &GridOptions) -> &Self {
-        let rc = crate::rc::params();
         self.update(|axis| {
-            for (major, on) in [
-                (true, options.which.major()),
-                (false, options.which.minor()),
+            for (style, on) in [
+                (&mut axis.major_style, options.which.major()),
+                (&mut axis.minor_style, options.which.minor()),
             ] {
-                if !on {
-                    continue;
+                if on {
+                    style.grid_on = visible;
+                    options.restyle(&mut style.grid);
                 }
-                let style = if major {
-                    &mut axis.major_style
-                } else {
-                    &mut axis.minor_style
-                };
-                let current = style.grid.take();
-                style.grid = visible.then(|| {
-                    options.restyle(current.unwrap_or_else(|| GridStyle::from_rc(major, &rc)))
-                });
             }
         });
         self
@@ -414,7 +431,7 @@ impl Axes {
             } else {
                 &axis.minor_style
             };
-            style.grid.is_some()
+            style.grid_on
         })
     }
 

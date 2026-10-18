@@ -26,7 +26,7 @@ use plt_core::path::DataLimits;
 use plt_core::{Bbox, Point};
 use plt_render::ClipPath;
 
-use crate::patches::PatchView;
+use crate::patches::{ClipRegion, PatchView};
 
 pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
@@ -96,6 +96,14 @@ pub trait Artist: Any + Debug {
     /// Whether a display-space point hits the artist (for picking).
     fn contains(&self, _ctx: &LayoutContext<'_>, _point: Point) -> bool {
         false
+    }
+
+    /// The region in display space that clips the end of a connection
+    /// starting or ending at the artist (matplotlib's `patchA` and
+    /// `patchB`, tested with `Patch.contains`): a patch's outline or a
+    /// text's box; `None` for other artists.
+    fn connection_region(&self, _ctx: &LayoutContext<'_>) -> Option<ClipRegion> {
+        None
     }
 
     /// Whether display point `at` picks the artist, and which of its items

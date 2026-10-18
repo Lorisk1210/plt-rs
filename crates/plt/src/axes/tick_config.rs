@@ -9,10 +9,11 @@ use std::rc::Rc;
 use plt_text::{HAlign, RotationMode, VAlign};
 
 use super::axis_handle::Axis;
-use super::ticks::{TickDirection, TickLevel, TickStyle};
+use super::ticks::{GridOptions, TickDirection, TickLevel, TickStyle};
 use super::{Axes, AxesState, AxisName, PlotError};
 use crate::colors::Color;
 use crate::fonts::FontSize;
+use crate::lines::LineStyle;
 use crate::rc::{AxisBelow, RcParams};
 use crate::scale::{ScaleError, ScaleOptions, scale_factory};
 use crate::ticker::{
@@ -183,6 +184,14 @@ pub struct TickParams {
     pub labelleft: Option<bool>,
     /// Labels on the right side.
     pub labelright: Option<bool>,
+    /// Gridline colour (`grid_color`).
+    pub grid_color: Option<Color>,
+    /// Gridline opacity (`grid_alpha`).
+    pub grid_alpha: Option<f64>,
+    /// Gridline width in points (`grid_linewidth`).
+    pub grid_linewidth: Option<f64>,
+    /// Gridline style (`grid_linestyle`).
+    pub grid_linestyle: Option<LineStyle>,
 }
 
 impl TickParams {
@@ -220,6 +229,14 @@ impl TickParams {
         if let Some(color) = labelcolor {
             style.label_color = color.clone();
         }
+        GridOptions {
+            color: self.grid_color.clone(),
+            alpha: self.grid_alpha,
+            linewidth: self.grid_linewidth,
+            linestyle: self.grid_linestyle.clone(),
+            ..GridOptions::default()
+        }
+        .restyle(&mut style.grid);
         let (low, high, label_low, label_high) = match name {
             AxisName::X => (self.bottom, self.top, self.labelbottom, self.labeltop),
             AxisName::Y => (self.left, self.right, self.labelleft, self.labelright),
@@ -239,7 +256,7 @@ impl TickParams {
 
 /// Text properties of tick labels (the keyword arguments of matplotlib's
 /// `set_ticklabels`); unset fields keep their current value.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TickLabelProps {
     /// Rotation in degrees.
     pub rotation: Option<f64>,
@@ -249,6 +266,12 @@ pub struct TickLabelProps {
     pub halign: Option<HAlign>,
     /// Vertical alignment.
     pub valign: Option<VAlign>,
+    /// Alignment of the lines of multi-line labels (`multialignment`).
+    pub multialign: Option<HAlign>,
+    /// Text colour.
+    pub color: Option<Color>,
+    /// Font size.
+    pub fontsize: Option<FontSize>,
 }
 
 /// Options of [`Axes::locator_params`]; unset fields keep the locator's
@@ -276,6 +299,11 @@ impl Axis {
         self.update(|axis| {
             if params.which.major() {
                 params.apply(name, true, &mut axis.major_style, &rc);
+                // The tick-space heuristic follows the major label size of
+                // the tick parameters (matplotlib's `_get_tick_label_size`).
+                if params.reset || params.labelsize.is_some() {
+                    axis.label_size = axis.major_style.label_size;
+                }
             }
             if params.which.minor() {
                 params.apply(name, false, &mut axis.minor_style, &rc);
@@ -286,6 +314,7 @@ impl Axis {
 
     /// Changes the text properties of the labels of one tick level.
     pub fn set_ticklabel_props(&self, which: TickLevel, props: &TickLabelProps) -> &Self {
+        let base_size = crate::rc::params().font_size;
         let apply = |style: &mut TickStyle| {
             if let Some(rotation) = props.rotation {
                 style.label_rotation = rotation;
@@ -298,6 +327,15 @@ impl Axis {
             }
             if props.valign.is_some() {
                 style.label_valign = props.valign;
+            }
+            if props.multialign.is_some() {
+                style.label_multialign = props.multialign;
+            }
+            if let Some(color) = &props.color {
+                style.label_color = color.clone();
+            }
+            if let Some(size) = props.fontsize {
+                style.label_size = size.to_points(base_size);
             }
         };
         self.update(|axis| {

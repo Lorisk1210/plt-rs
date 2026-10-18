@@ -120,8 +120,8 @@ impl Gridlines {
             let yaxis = axes.axis(AxisName::Y);
             let ys = ticks(
                 AxisName::Y,
-                yaxis.major_style.grid.is_some(),
-                yaxis.minor_style.grid.is_some(),
+                yaxis.major_style.grid_on,
+                yaxis.minor_style.grid_on,
             );
             lines.extend(
                 ys.into_iter()

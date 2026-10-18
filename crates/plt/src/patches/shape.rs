@@ -51,6 +51,13 @@ pub trait PatchShape: Debug + Clone + 'static {
     fn placed_path(&self) -> Path {
         self.path().transformed(&self.patch_transform())
     }
+
+    /// Whether a clip to this shape clips to its bounding box instead of
+    /// its outline (matplotlib's `set_clip_path` makes a `Rectangle` the
+    /// clip box).
+    fn clips_to_bounding_box(&self) -> bool {
+        false
+    }
 }
 
 /// Where a patch is being drawn: what [`PatchShape::display_paths`] may

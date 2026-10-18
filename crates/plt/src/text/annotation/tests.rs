@@ -168,3 +168,53 @@ fn texts_can_be_annotated_points() {
     let extent = below.window_extent().expect("an extent");
     assert!(close(extent.x0(), reference.x0()));
 }
+
+/// The right edge of an arrowed annotation from the empty text at `(1, 5)`
+/// to `(9, 5)`, clipped at its end by `patch_b`.
+fn arrow_end(ax: &Axes, patch_b: Option<crate::artist::ArtistId>) -> f64 {
+    let props = FancyArrowProps {
+        shrink_b: 0.0,
+        patch_b,
+        ..FancyArrowProps::new("-".parse().expect("valid style"))
+    };
+    let note = ax
+        .annotate(
+            "",
+            (9.0, 5.0),
+            AnnotateOptions {
+                xytext: Some(Point::new(1.0, 5.0)),
+                arrowprops: Some(ArrowProps::Fancy(props)),
+                ..AnnotateOptions::default()
+            },
+        )
+        .expect("valid");
+    note.window_extent().expect("an extent").x1()
+}
+
+#[test]
+fn patch_b_clips_the_arrow_at_the_point() {
+    let (_, ax) = axes();
+    let unclipped = arrow_end(&ax, None);
+    assert!(close(unclipped, display(9.0, 5.0).x));
+    // An unstroked circle of radius 1 around the point.
+    let circle = ax.add_patch(crate::patches::Circle::new((9.0, 5.0), 1.0));
+    let clipped = arrow_end(&ax, Some(circle.id()));
+    assert!((clipped - display(8.0, 5.0).x).abs() < 0.5, "{clipped}");
+}
+
+#[test]
+fn a_text_box_clips_like_its_bbox_patch() {
+    let (_, ax) = axes();
+    let target = ax
+        .annotate("target", (9.0, 5.0), AnnotateOptions::default())
+        .expect("valid");
+    target.set_halign(plt_text::HAlign::Center);
+    assert!(
+        close(arrow_end(&ax, Some(target.id())), display(9.0, 5.0).x),
+        "a text without a box does not clip"
+    );
+    target.set_bbox(Some(crate::text::TextBoxProps::default()));
+    let clipped = arrow_end(&ax, Some(target.id()));
+    let extent = target.window_extent().expect("an extent");
+    assert!(clipped < extent.x0(), "stops at the padded box");
+}

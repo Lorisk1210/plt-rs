@@ -70,6 +70,10 @@ impl PatchShape for Rectangle {
         Path::unit_rectangle()
     }
 
+    fn clips_to_bounding_box(&self) -> bool {
+        true
+    }
+
     fn patch_transform(&self) -> Affine2D {
         let bbox = self.bbox();
         let pivot = match self.rotation_point {

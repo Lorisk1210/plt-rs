@@ -2,12 +2,14 @@
 
 mod collections;
 mod fancy;
+mod gallery;
 mod hatching;
 mod shapes;
 mod styles;
 
 pub(crate) use collections::CASES as COLLECTIONS;
 pub(crate) use fancy::CASES as FANCY;
+pub(crate) use gallery::CASES as GALLERY;
 pub(crate) use hatching::CASES as HATCHING;
 pub(crate) use shapes::CASES as SHAPES;
 pub(crate) use styles::CASES as STYLES;

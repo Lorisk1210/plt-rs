@@ -5,6 +5,9 @@
 
 use std::ops::Range;
 
+use plt_core::Bbox;
+
+use super::compress::actual_parent_position;
 use super::reposition::{place, pos_and_bbox};
 use super::tree::LayoutTree;
 use crate::axes::AxesState;
@@ -25,12 +28,14 @@ pub(super) struct Offsets {
 impl LayoutTree {
     /// matplotlib's `reposition_colorbar`: the colorbar goes beyond the
     /// decorations of its parents, past the padding and the colorbars
-    /// already placed on that side.
+    /// already placed on that side; in a `compress`ed layout a single
+    /// parent's actual box sets its length.
     pub(super) fn reposition_colorbar(
         &self,
         fig: &mut FigureState,
         colorbar: &ColorbarLayout,
         offsets: &mut Offsets,
+        compress: bool,
     ) {
         let (Some(grid), Some((rows, cols)), Some(pad), Some((cbpos, cbbbox))) = (
             self.parents_grid(fig, colorbar),
@@ -42,7 +47,19 @@ impl LayoutTree {
         };
         let grid = self.grids.get(grid);
         let parent = grid.bbox_for_cb(&rows, &cols);
-        let pb = grid.inner_bbox(&rows, &cols);
+        let mut pb = grid.inner_bbox(&rows, &cols);
+        if let ([only], true) = (colorbar.parents.as_slice(), compress)
+            && let Some(actual) = actual_parent_position(fig, *only)
+        {
+            pb = match colorbar.location {
+                SpineSide::Left | SpineSide::Right => {
+                    Bbox::from_extents(pb.x0(), actual.y0(), pb.x1(), actual.y1())
+                }
+                SpineSide::Top | SpineSide::Bottom => {
+                    Bbox::from_extents(actual.x0(), pb.y0(), actual.x1(), pb.y1())
+                }
+            };
+        }
         let (fraction, shrink, anchor) = (colorbar.fraction, colorbar.shrink, colorbar.anchor);
         let placed = match colorbar.location {
             SpineSide::Right => {

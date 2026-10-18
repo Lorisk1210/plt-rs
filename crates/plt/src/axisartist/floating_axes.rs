@@ -232,7 +232,10 @@ impl FloatingAxes {
         // (matplotlib's `gridlines.set_clip_path(orig_patch)`, which turns
         // a rectangle into a clip box).
         if let Some(gridlines) = axes.gridlines() {
-            gridlines.set_clip_path(Some(ClipPathSpec::Rectangle(Transform::Axes(id))));
+            gridlines.set_clip_path(Some(ClipPathSpec::BoundingBox {
+                path: Path::unit_rectangle(),
+                transform: Transform::Axes(id),
+            }));
         }
         let floating = Self { axes };
         floating.adjust_axes_lim();

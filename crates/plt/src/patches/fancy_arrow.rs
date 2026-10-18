@@ -7,7 +7,7 @@ use plt_render::{CapStyle, JoinStyle};
 use super::arrow_style::ArrowStyle;
 use super::connection_style::{ClipRegion, ConnectionStyle};
 use super::{DisplayPath, PatchError, PatchShape, PatchStyle, ShapeFrame};
-use crate::artist::ArtistBase;
+use crate::artist::{ArtistBase, ArtistId};
 
 /// How an arrow is built between its ends: the shared part of
 /// [`FancyArrowPatch`], [`ConnectionPatch`](super::ConnectionPatch) and
@@ -101,23 +101,38 @@ pub struct FancyArrowPatch {
     pub route: ArrowRoute,
     /// How it is built.
     pub spec: ArrowSpec,
+    /// The patches whose outlines, as drawn, clip the start and the end
+    /// of the connection (matplotlib's `patchA` and `patchB`); they take
+    /// precedence over the fixed regions of [`ArrowSpec`].
+    pub patches: (Option<ArtistId>, Option<ArtistId>),
 }
 
 impl FancyArrowPatch {
     /// A default (`simple`) arrow from `a` to `b`.
     pub fn between(a: impl Into<Point>, b: impl Into<Point>) -> Self {
-        Self {
-            route: ArrowRoute::Between(a.into(), b.into()),
-            spec: ArrowSpec::default(),
-        }
+        Self::on(ArrowRoute::Between(a.into(), b.into()))
     }
 
     /// A default arrow along `path`.
     pub fn along(path: Path) -> Self {
+        Self::on(ArrowRoute::Along(path))
+    }
+
+    fn on(route: ArrowRoute) -> Self {
         Self {
-            route: ArrowRoute::Along(path),
+            route,
             spec: ArrowSpec::default(),
+            patches: (None, None),
         }
+    }
+
+    /// The same arrow clipped to the outlines of the patches (or the
+    /// boxes of the texts) `a` at its start and `b` at its end
+    /// (matplotlib's `patchA` and `patchB`).
+    #[must_use]
+    pub fn with_patches(mut self, a: Option<ArtistId>, b: Option<ArtistId>) -> Self {
+        self.patches = (a, b);
+        self
     }
 
     /// The same arrow in another style.
@@ -176,11 +191,22 @@ impl PatchShape for FancyArrowPatch {
     fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
         let dpi_cor = frame.layout.points_to_pixels(1.0);
         let path = match &self.route {
-            ArrowRoute::Between(a, b) => self.spec.route(
-                frame.transform.transform_point(*a),
-                frame.transform.transform_point(*b),
-                dpi_cor,
-            )?,
+            ArrowRoute::Between(a, b) => {
+                let region = |patch: Option<ArtistId>| {
+                    let artist = frame.layout.store().get(patch?)?;
+                    artist.connection_region(&frame.layout)
+                };
+                let spec = ArrowSpec {
+                    patch_a: region(self.patches.0).or_else(|| self.spec.patch_a.clone()),
+                    patch_b: region(self.patches.1).or_else(|| self.spec.patch_b.clone()),
+                    ..self.spec.clone()
+                };
+                spec.route(
+                    frame.transform.transform_point(*a),
+                    frame.transform.transform_point(*b),
+                    dpi_cor,
+                )?
+            }
             ArrowRoute::Along(path) => frame.transform.transform_path(path),
         };
         self.spec.display_paths(&path, dpi_cor, frame.linewidth)
@@ -211,6 +237,23 @@ mod tests {
         let bounds = extent(plain);
         assert!((bounds.x0() - 110.0).abs() < 0.02, "{bounds:?}");
         assert!((bounds.x1() - 880.0).abs() < 0.02);
+    }
+
+    #[test]
+    fn patches_clip_the_ends_where_they_are_drawn() {
+        let fig = Figure::with_size(1000.0 / 72.0, 1000.0 / 72.0, 72.0);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        // Unstroked circles of radius 1 at both ends: 100 px.
+        let start = ax.add_patch(crate::patches::Circle::new((1.0, 5.0), 1.0));
+        let end = ax.add_patch(crate::patches::Circle::new((9.0, 5.0), 1.0));
+        let arrow = FancyArrowPatch::between((1.0, 5.0), (9.0, 5.0))
+            .with_arrowstyle(ArrowStyle::curve(CurveEnd::Plain, CurveEnd::Plain))
+            .with_shrink(0.0, 0.0)
+            .with_patches(Some(start.id()), Some(end.id()));
+        let bounds = ax.add_patch(arrow).window_extent().expect("an extent");
+        assert!((bounds.x0() - 200.0).abs() < 1.0, "{bounds:?}");
+        assert!((bounds.x1() - 800.0).abs() < 1.0);
     }
 
     #[test]

@@ -417,3 +417,133 @@ def _(fig):
     im = ax.imshow(_bump(40))
     circle = patches.Circle((20, 20), 15, transform=ax.transData)
     im.set_clip_path(circle)
+
+
+# --- transforms, nonlinear axes, clipping and compositing
+
+@case("images/log_axes_resampled", figsize=(5, 2.5))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    z = np.zeros((10, 10))
+    z[::2] = 1
+    ax1.imshow(z, extent=[1, 100, 1, 100], cmap="viridis", vmax=1, vmin=-1, aspect="auto")
+    ax1.set(yscale="log")
+    ax2.imshow(_bump(30), extent=[1, 1000, 0, 1], aspect="auto", interpolation="bilinear")
+    ax2.set_xscale("log")
+
+
+def _affine_image():
+    x = np.arange(-3.0, 3.0, 0.25)
+    xx, yy = np.meshgrid(x, x)
+    return np.exp(-xx**2 - yy**2) - np.exp(-(xx - 1) ** 2 - (yy - 1) ** 2)
+
+
+def _affine_plot(ax, transform):
+    im = ax.imshow(_affine_image(), interpolation="none", origin="lower", extent=[-2, 4, -3, 2], clip_on=True)
+    trans_data = transform + ax.transData
+    im.set_transform(trans_data)
+    x1, x2, y1, y2 = im.get_extent()
+    ax.plot([x1, x2, x2, x1, x1], [y1, y1, y2, y2, y1], "y--", transform=trans_data)
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-4, 4)
+
+
+@case("images/affine_transforms")
+def _(fig):
+    from matplotlib import transforms
+
+    axs = fig.subplots(2, 2)
+    _affine_plot(axs[0, 0], transforms.Affine2D().rotate_deg(30))
+    _affine_plot(axs[0, 1], transforms.Affine2D().skew_deg(30, 15))
+    _affine_plot(axs[1, 0], transforms.Affine2D().scale(-1, 0.5))
+    _affine_plot(axs[1, 1], transforms.Affine2D().rotate_deg(30).skew_deg(30, 15).scale(-1, 0.5).translate(0.5, -1))
+
+
+def _with_holes():
+    data = _bump(12)
+    data[2:4, 3:7] = np.nan
+    data[8, 8] = np.inf
+    data[9, 2] = -np.inf
+    return data
+
+
+@case("images/nan_inf_interpolation_stages", figsize=(6, 2.5))
+def _(fig):
+    axs = fig.subplots(1, 3)
+    cmap = mpl.colormaps["viridis"].with_extremes(bad="magenta", under="k", over="w")
+    axs[0].imshow(_with_holes(), cmap=cmap, interpolation="nearest")
+    axs[1].imshow(_with_holes(), cmap=cmap, interpolation="bilinear", interpolation_stage="data")
+    axs[2].imshow(_with_holes(), cmap=cmap, interpolation="bilinear", interpolation_stage="rgba")
+
+
+@case("images/resample_factors", figsize=(6, 2.2))
+def _(fig):
+    axs = fig.subplots(1, 3)
+    axs[0].imshow(_rings(60))
+    axs[1].imshow(_small())
+    axs[2].imshow(_rings(250), interpolation_stage="auto")
+    axs[2].set_xlim(0, 120)
+
+
+@case("images/origin_extent_grid", figsize=(6, 4))
+def _(fig):
+    axs = fig.subplots(2, 3)
+    data = np.arange(12).reshape(3, 4)
+    for row, origin in enumerate(["upper", "lower"]):
+        for col, extent in enumerate([None, (0, 10, 0, 6), (10, 0, 6, 0)]):
+            ax = axs[row, col]
+            ax.imshow(data, origin=origin, extent=extent)
+            ax.set_title(f"{origin}, {extent}", fontsize=8)
+
+
+@case("images/clip_off_beyond_axes", figsize=(4, 4))
+def _(fig):
+    ax = fig.subplots()
+    ax.imshow(_bump(20), extent=(-1, 21, -1, 21), clip_on=False, origin="lower")
+    ax.set_xlim(2, 18)
+    ax.set_ylim(2, 18)
+    fig.subplots_adjust(left=0.2, right=0.8, bottom=0.2, top=0.8)
+
+
+@case("images/clip_path_rotated_rectangle", figsize=(4, 4))
+def _(fig):
+    ax = fig.subplots()
+    im = ax.imshow(_bump(40), cmap="plasma")
+    rect = patches.Rectangle((8, 8), 24, 12, angle=30, transform=ax.transData)
+    im.set_clip_path(rect)
+
+
+@case("images/composite_alpha", figsize=(5, 4))
+def _(fig):
+    ax = fig.subplots()
+    arr = np.zeros((11, 21, 4))
+    arr[:, :, 0] = 1
+    arr[:, :, 3] = np.concatenate((np.arange(0, 1.1, 0.1), np.arange(0, 1, 0.1)[::-1]))
+    arr2 = np.zeros((21, 11, 4))
+    arr2[:, :, 0] = 1
+    arr2[:, :, 1] = 1
+    arr2[:, :, 3] = np.concatenate((np.arange(0, 1.1, 0.1), np.arange(0, 1, 0.1)[::-1]))[:, np.newaxis]
+    ax.imshow(arr, extent=[1, 2, 5, 0], alpha=0.3)
+    ax.imshow(arr, extent=[2, 3, 5, 0], alpha=0.6)
+    ax.imshow(arr, extent=[3, 4, 5, 0])
+    ax.imshow(arr2, extent=[0, 5, 1, 2])
+    ax.imshow(arr2, extent=[0, 5, 2, 3], alpha=0.6)
+    ax.imshow(arr2, extent=[0, 5, 3, 4], alpha=0.3)
+    ax.set_facecolor((0, 0.5, 0, 1))
+    ax.set_xlim(0, 5)
+    ax.set_ylim(5, 0)
+
+
+@case("images/bool_and_integer_arrays", figsize=(6, 2.5))
+def _(fig):
+    axs = fig.subplots(1, 3)
+    axs[0].imshow(_small() > 0.5)
+    axs[1].imshow((np.arange(48).reshape(6, 8) * 37 % 101).astype(np.int16), cmap="tab20")
+    axs[2].imshow((_small() * 60000).astype(np.uint16), cmap="gray", vmin=0, vmax=65535)
+
+
+@case("images/pcolorfast_nonuniform_alpha", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    ax.plot([0, 10], [0, 5], color="k", lw=4)
+    ax.pcolorfast([0, 1, 3, 6, 10], [0, 2, 3, 5], np.arange(12).reshape(3, 4), cmap="plasma", alpha=0.5)

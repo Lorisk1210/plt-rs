@@ -344,6 +344,13 @@ impl Spine {
             .with_mut::<SpineArtist, _>(|s| s.style.linestyle = style);
         self
     }
+
+    /// Sets how the spine ends are drawn (projecting by default).
+    pub fn set_capstyle(&self, capstyle: CapStyle) -> &Self {
+        self.raw
+            .with_mut::<SpineArtist, _>(|s| s.style.capstyle = capstyle);
+        self
+    }
 }
 
 /// The four spines of an axes.
@@ -449,5 +456,16 @@ mod tests {
             .with::<SpineArtist, _>(|spine| spine.style.clone());
         assert_eq!(style.linestyle, LineStyle::Dashed);
         assert_eq!(style.linewidth, Some(2.0));
+    }
+
+    #[test]
+    fn spines_project_their_caps_unless_told_otherwise() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let cap = |spine: &Spine| spine.raw().with::<SpineArtist, _>(|s| s.style.capstyle);
+        assert_eq!(cap(&ax.spines().left), CapStyle::Projecting);
+        ax.spines().left.set_capstyle(CapStyle::Round);
+        assert_eq!(cap(&ax.spines().left), CapStyle::Round);
+        assert_eq!(cap(&ax.spines().right), CapStyle::Projecting);
     }
 }

@@ -3,10 +3,10 @@
 
 use std::rc::Rc;
 
-use plt_core::{Bbox, Rgba};
+use plt_core::Rgba;
 
-use super::artists::{Extensions, Painter};
-use super::mappable::{MappableLink, Source};
+use super::artists::{Block, Extensions, Painter};
+use super::mappable::{ContourLevels, MappableLink, Source};
 use super::placement::{Placement, default_ticklocation, orientation_of};
 use super::state::{BlockSettings, ColorbarArtist, ColorbarState, Drawn};
 use super::ticking::{self, Tickers};
@@ -147,10 +147,39 @@ impl ColorbarState {
             let values = &self.blocks.values[skip_low..end];
             let painter = self.painter(ax);
             painter.remove(self.drawn.solids.take());
-            self.drawn.solids = Some(painter.solids(&self.edges, values, &self.mapping)?);
+            painter.remove(std::mem::take(&mut self.drawn.solids_patches));
+            if self.contours.as_ref().is_some_and(ContourLevels::hatched) {
+                let blocks = (skip_low..end)
+                    .map(|index| self.block(index))
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.drawn.solids_patches = painter.solids_patches(&self.edges, blocks);
+            } else {
+                self.drawn.solids = Some(painter.solids(&self.edges, values, &self.mapping)?);
+            }
             self.update_dividers(ax);
         }
         Ok(())
+    }
+
+    /// The colour and hatch of block `index`, counting the extensions.
+    fn block(&mut self, index: usize) -> Result<Block, ColorbarError> {
+        Ok(Block {
+            color: self.block_color(index)?,
+            hatch: self.band_hatch(index),
+        })
+    }
+
+    /// The colour of the value of block `index`.
+    fn block_color(&mut self, index: usize) -> Result<Rgba, ColorbarError> {
+        let value = self.blocks.values[index];
+        Ok(self.mapping.to_rgba(&[Some(value)], None)?[0])
+    }
+
+    /// The hatch of contour band `band`, if the bands are hatched.
+    fn band_hatch(&self, band: usize) -> Option<String> {
+        self.contours
+            .as_ref()
+            .and_then(|levels| levels.hatches.get(band).cloned().flatten())
     }
 
     /// matplotlib's `_do_extends`: the outline and the extension patches.
@@ -172,21 +201,31 @@ impl ColorbarState {
             } else {
                 (0, last)
             };
-            let lower = self.end_color(self.blocks.lower, low)?;
-            let upper = self.end_color(self.blocks.upper, high)?;
+            // The extensions take the colours of the end values and the
+            // hatches of the end bands.
+            let lower = self.end_block(self.blocks.lower, low, 0)?;
+            let upper = self.end_block(self.blocks.upper, high, last)?;
             self.drawn.extensions = painter.extension_patches(&extensions, lower, upper);
         }
         self.update_dividers(ax);
         Ok(())
     }
 
-    /// The colour of block `index` when the end it fills is extended.
-    fn end_color(&mut self, extended: bool, index: usize) -> Result<Option<Rgba>, ColorbarError> {
+    /// When the end it fills is extended, the block coloured by value
+    /// `index` and hatched as band `band`.
+    fn end_block(
+        &mut self,
+        extended: bool,
+        index: usize,
+        band: usize,
+    ) -> Result<Option<Block>, ColorbarError> {
         if !extended {
             return Ok(None);
         }
-        let value = self.blocks.values[index];
-        Ok(Some(self.mapping.to_rgba(&[Some(value)], None)?[0]))
+        Ok(Some(Block {
+            color: self.block_color(index)?,
+            hatch: self.band_hatch(band),
+        }))
     }
 
     /// matplotlib's `_update_dividers`: with `drawedges`, lines between
@@ -266,11 +305,13 @@ impl ColorbarState {
         let aspect = self.settings.aspect;
         let locator = match self.orientation {
             Orientation::Vertical => AxesLocator {
-                fraction: Bbox::from_bounds(0.0, offset, 1.0, shrink),
+                shrink: (1.0, shrink),
+                offset: (0.0, offset),
                 box_aspect: aspect.map(|a| a * shrink),
             },
             Orientation::Horizontal => AxesLocator {
-                fraction: Bbox::from_bounds(offset, 0.0, shrink, 1.0),
+                shrink: (shrink, 1.0),
+                offset: (offset, 0.0),
                 box_aspect: aspect.map(|a| 1.0 / (a * shrink)),
             },
         };

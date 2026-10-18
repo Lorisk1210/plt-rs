@@ -77,22 +77,24 @@ impl<'a> LayoutContext<'a> {
         self.axes_extent(owner).or_else(|| self.frame_extent(owner))
     }
 
+    /// The display rectangle an artist is clipped to (matplotlib's clip
+    /// box): the bounding box of a [`ClipPathSpec::BoundingBox`], else
+    /// the extent of the frame in `base.clip_box`. Clipping being on is
+    /// not checked.
+    pub fn clip_rect(&self, base: &ArtistBase) -> Option<Bbox> {
+        match &base.clip_path {
+            Some(ClipPathSpec::BoundingBox { path, transform }) => {
+                Some(self.resolve(transform)?.transform_path(path).extents())
+            }
+            _ => base.clip_box.and_then(|owner| self.clip_extent(owner)),
+        }
+    }
+
     /// The outline artists clipped to `owner` are clipped to when it is
     /// not a rectangle (the wedge of polar axes, the ellipse of
     /// geographic axes).
     pub fn clip_outline(&self, owner: ArtistId) -> Option<ClipPath> {
         self.figure.axes_outline(owner)
-    }
-
-    /// The display box of the unit square in `transform` (matplotlib's
-    /// `TransformedBbox(Bbox.unit(), transform)`), the clip box of a
-    /// [`ClipPathSpec::Rectangle`].
-    pub(crate) fn unit_box(self, transform: &Transform) -> Option<Bbox> {
-        let resolved = self.resolve(transform)?;
-        Some(Bbox::from_points([
-            resolved.transform_point(Point::new(0.0, 0.0)),
-            resolved.transform_point(Point::new(1.0, 1.0)),
-        ]))
     }
 
     /// The axes whose `axis` labels align with those of `axes` in its
@@ -325,21 +327,14 @@ impl<'a> DrawContext<'a> {
             ..GraphicsContext::default()
         };
         if base.clip_on {
-            if let Some(ClipPathSpec::Rectangle(transform)) = &base.clip_path {
-                gc.clip_rect = self.layout.unit_box(transform);
-            } else {
-                gc.clip_rect = base
+            gc.clip_rect = self.layout.clip_rect(base);
+            gc.clip_path = match &base.clip_path {
+                Some(ClipPathSpec::BoundingBox { .. }) => None,
+                Some(spec) => self.clip_path(spec),
+                None => base
                     .clip_box
-                    .and_then(|owner| self.layout.clip_extent(owner));
-                gc.clip_path = base
-                    .clip_path
-                    .as_ref()
-                    .and_then(|spec| self.clip_path(spec))
-                    .or_else(|| {
-                        base.clip_box
-                            .and_then(|owner| self.layout.clip_outline(owner))
-                    });
-            }
+                    .and_then(|owner| self.layout.clip_outline(owner)),
+            };
         }
         gc
     }
@@ -355,7 +350,7 @@ impl<'a> DrawContext<'a> {
                 })
             }
             ClipPathSpec::Artist(id) => self.layout.store().get(*id)?.outline(&self.layout),
-            ClipPathSpec::Rectangle(_) => None,
+            ClipPathSpec::BoundingBox { .. } => None,
         }
     }
 }

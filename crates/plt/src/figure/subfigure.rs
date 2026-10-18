@@ -63,9 +63,11 @@ impl Figure {
                 hspace: options.hspace,
             },
         )?;
-        // Without spacing matplotlib places subfigures by their ratios
-        // alone; with spacing, by the grid's cell positions.
-        let spaced = options.wspace.is_some() || options.hspace.is_some();
+        // matplotlib places subfigures by their ratios alone, unless
+        // spacing is given and no layout engine (which leaves the room
+        // between them itself) is set: then by the grid's cell positions.
+        let spaced = (options.wspace.is_some() || options.hspace.is_some())
+            && self.layout_engine().is_none();
         let positions = if spaced {
             Some(grid.grid_positions(&self.subplot_params())?)
         } else {
@@ -161,5 +163,22 @@ mod tests {
             .root
             .with::<FigureFrame, _>(|f| f.relative_extent);
         assert!(left.x1() < 0.5);
+    }
+
+    #[test]
+    fn layout_engines_leave_the_spacing_to_themselves() {
+        let fig = Figure::new();
+        fig.set_layout_engine(Some(crate::layout::LayoutEngine::Constrained(
+            crate::layout::ConstrainedLayout::default(),
+        )));
+        let options = SubfigureOptions {
+            wspace: Some(0.1),
+            ..SubfigureOptions::default()
+        };
+        let parts = fig.subfigures(1, 2, &options).unwrap();
+        let left = parts[(0, 0)]
+            .root
+            .with::<FigureFrame, _>(|f| f.relative_extent);
+        assert_eq!(left.x1(), 0.5, "placed by the ratios alone");
     }
 }

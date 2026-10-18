@@ -11,7 +11,9 @@
 //! * [`ContourSet`] — what `Axes::contour`, `contourf`, `tricontour` and
 //!   `tricontourf` return: the chosen levels, the bands of filled contours,
 //!   one compound path per level or band, their colours and styles, and
-//!   [`ContourSet::clabel`] to label line contours. Changing its colormap,
+//!   [`ContourSet::clabel`] to label line contours and
+//!   [`ContourSet::legend_elements`] to describe them in a legend.
+//!   Changing its colormap,
 //!   norm or limits recolours the contours, their labels and colorbars.
 //!
 //! ```
@@ -32,6 +34,7 @@ mod error;
 mod grid;
 mod handle;
 mod label;
+mod legend;
 mod levels;
 mod mpl2014;
 mod options;

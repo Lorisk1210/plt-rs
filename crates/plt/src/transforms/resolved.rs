@@ -229,6 +229,20 @@ impl ResolvedTransform {
         self.affine.transform_point(p)
     }
 
+    /// The direction, in degrees, that `angle` (degrees) at `point` takes
+    /// after the transform: the angle of the segment from `point` to a
+    /// point pushed `1e-5` along `angle` (matplotlib's `transform_angles`
+    /// with its default push-off).
+    pub fn transform_angle(&self, angle: f64, point: Point) -> f64 {
+        let radians = angle.to_radians();
+        let pushed = Point::new(
+            point.x + 1e-5 * radians.cos(),
+            point.y + 1e-5 * radians.sin(),
+        );
+        let (from, to) = (self.transform_point(point), self.transform_point(pushed));
+        (to.y - from.y).atan2(to.x - from.x).to_degrees()
+    }
+
     /// Maps a slice of points in place.
     pub fn transform_points(&self, points: &mut [Point]) {
         for p in points {
@@ -302,6 +316,17 @@ mod tests {
             Step::Separable(Some(Rc::new(Log10)), None),
             Affine2D::scaling(100.0, 2.0),
         )
+    }
+
+    #[test]
+    fn angles_turn_with_the_transform() {
+        let stretch = ResolvedTransform::affine(Affine2D::scaling(1.0, 2.0));
+        let turned = stretch.transform_angle(45.0, Point::new(3.0, 4.0));
+        assert!((turned - 2f64.atan().to_degrees()).abs() < 1e-6);
+        let identity = ResolvedTransform::affine(Affine2D::IDENTITY);
+        assert!((identity.transform_angle(-30.0, Point::new(1.0, 1.0)) + 30.0).abs() < 1e-6);
+        let log = log_x_then_scale();
+        assert!((log.transform_angle(90.0, Point::new(10.0, 1.0)) - 90.0).abs() < 1e-6);
     }
 
     #[test]

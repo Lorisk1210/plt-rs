@@ -8,6 +8,7 @@ mod basic;
 mod colorbar;
 mod contour;
 mod fields;
+mod figure;
 mod geo;
 mod hinting;
 mod hist;
@@ -24,9 +25,11 @@ mod polar;
 mod pyplot;
 mod scatter;
 mod selectors;
+mod spines;
 mod stats;
 mod styles;
 mod text;
+mod ticks;
 mod toolkits;
 mod vectors;
 mod widgets;
@@ -53,6 +56,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         fields::BARBS,
         fields::QUIVER,
         fields::STREAMPLOT,
+        figure::CASES,
         geo::ARTISTS,
         geo::CASES,
         geo::GRIDS,
@@ -90,6 +94,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         offsetbox::CASES,
         patches::COLLECTIONS,
         patches::FANCY,
+        patches::GALLERY,
         patches::HATCHING,
         patches::SHAPES,
         patches::STYLES,
@@ -101,6 +106,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         scatter::LEGENDS,
         scatter::VARIANTS,
         selectors::CASES,
+        spines::CASES,
         stats::BOXPLOT,
         stats::ERRORBAR,
         stats::EVENTS,
@@ -112,10 +118,12 @@ pub(crate) fn all() -> Vec<FigureCase> {
         text::ANNOTATE,
         text::BOXES,
         text::EFFECTS,
+        text::GALLERY,
         text::LAYOUT,
         text::MATH,
         text::TABLES,
         text::TABLE_CELLS,
+        ticks::CASES,
         toolkits::CASES,
         vectors::CASES,
         widgets::CASES,

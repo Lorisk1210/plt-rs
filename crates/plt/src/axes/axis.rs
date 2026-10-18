@@ -178,7 +178,8 @@ pub(crate) struct AxisState {
     categories: Option<Categories>,
     pub(crate) settings: TickerSettings,
     pub(crate) autoscale: AutoscaleState,
-    /// Size of tick labels in points (drives the tick-space heuristic).
+    /// Size of the major tick labels in points as set by the rc and the
+    /// tick parameters (drives the tick-space heuristic).
     pub(crate) label_size: f64,
     /// Ticks computed by the last prepare pass, or why they could not be.
     pub(crate) ticks: Result<TickSet, String>,
@@ -195,6 +196,8 @@ pub(crate) struct AxisState {
     pub(crate) offset_side: SpineSide,
     /// Whether the offset text is drawn.
     pub(crate) offset_visible: bool,
+    /// Whether minor ticks on major ticks are dropped.
+    pub(crate) remove_overlapping_locs: bool,
 }
 
 impl AxisState {
@@ -244,6 +247,7 @@ impl AxisState {
             visible: true,
             offset_side: SpineSide::of(name, false),
             offset_visible: true,
+            remove_overlapping_locs: true,
         }
     }
 
@@ -499,7 +503,11 @@ impl AxisState {
         }
         if self.minor_style.is_drawn() {
             let all_locs = self.minor_locator.locate(&ctx)?;
-            let minor_locs = self.without_overlaps(all_locs.clone(), &major_locs, geometry.view);
+            let minor_locs = if self.remove_overlapping_locs {
+                self.without_overlaps(all_locs.clone(), &major_locs, geometry.view)
+            } else {
+                all_locs.clone()
+            };
             let labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;
             ticks.minor = collect(&minor_locs, labels.labels);
             let labels = self.minor_formatter.format_ticks(&all_locs, &ctx)?;

@@ -2,7 +2,7 @@
 
 use plt_core::{Bbox, Path, Point};
 
-use crate::artist::{ArtistBase, DrawContext, LayoutContext};
+use crate::artist::{ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::patches::{
     ArrowSpec, ArrowStyle, ClipRegion, ConnectionStyle, DisplayPath, PatchError, PatchProps,
     PatchStyle, paint_paths, round_ends,
@@ -27,6 +27,10 @@ pub struct FancyArrowProps {
     pub mutation_scale: Option<f64>,
     /// Vertical squeeze while the arrow is built.
     pub mutation_aspect: f64,
+    /// The artist whose outline clips the arrow at the annotated point
+    /// (matplotlib's `patchB`): a patch, or a text whose box then clips
+    /// (as `get_bbox_patch()` does).
+    pub patch_b: Option<ArtistId>,
     /// Colours, widths... of the arrow patch.
     pub patch: PatchProps,
 }
@@ -42,6 +46,7 @@ impl FancyArrowProps {
             shrink_b: 2.0,
             mutation_scale: None,
             mutation_aspect: 1.0,
+            patch_b: None,
             patch: PatchProps::default(),
         }
     }
@@ -133,6 +138,8 @@ pub(crate) struct ArrowTarget {
 pub(crate) struct AnnotationArrow {
     placement: Placement,
     spec: ArrowSpec,
+    /// The artist clipping the arrow at the annotated point.
+    patch_b: Option<ArtistId>,
     style: PatchStyle,
     alpha: Option<f64>,
 }
@@ -142,6 +149,10 @@ impl AnnotationArrow {
     pub(crate) fn new(props: ArrowProps, rc: &RcParams) -> Self {
         let mut style = PatchStyle::from_rc(rc);
         round_ends(&mut style);
+        let patch_b = match &props {
+            ArrowProps::Fancy(fancy) => fancy.patch_b,
+            ArrowProps::Legacy(_) => None,
+        };
         let (placement, spec, patch) = match props {
             ArrowProps::Fancy(fancy) => (
                 Placement::Fancy {
@@ -176,6 +187,7 @@ impl AnnotationArrow {
         Self {
             placement,
             spec,
+            patch_b,
             style,
             alpha: base.alpha,
         }
@@ -234,6 +246,9 @@ impl AnnotationArrow {
             bbox.y0() + bbox.height() * relpos.1,
         );
         spec.patch_a = target.start_region;
+        spec.patch_b = self
+            .patch_b
+            .and_then(|id| layout.store().get(id)?.connection_region(&layout));
         let linewidth = self.style.linewidth.unwrap_or(rc.patch_linewidth);
         let path = spec.route(begin, end, dpi_cor)?;
         spec.display_paths(&path, dpi_cor, linewidth)

@@ -1,0 +1,32 @@
+{
+ "size_px": [500, 250],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.352273, 0.77],
+   "title": "",
+   "xlim": [1.0, 100.0],
+   "ylim": [1.0, 100.0],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]],
+   "yticks": [[1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"], [100.0, "$\\mathdefault{10^{2}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.547727, 0.11, 0.352273, 0.77],
+   "title": "",
+   "xlim": [1.0, 1000.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "log",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"], [100.0, "$\\mathdefault{10^{2}}$"], [1000.0, "$\\mathdefault{10^{3}}$"]],
+   "yticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"]]
+  }
+ ]
+}

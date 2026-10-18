@@ -83,10 +83,12 @@ impl AxesImageArtist {
         let canvas = canvas_bbox(ctx);
         let layout = ctx.layout();
         let clip = if self.base.clip_on {
-            self.base
-                .clip_box
-                .or(self.base.parent)
-                .and_then(|owner| layout.clip_extent(owner))
+            layout.clip_rect(&self.base).or_else(|| {
+                self.base
+                    .parent
+                    .filter(|_| self.base.clip_box.is_none())
+                    .and_then(|owner| layout.clip_extent(owner))
+            })
         } else {
             None
         };
@@ -372,10 +374,24 @@ impl AxesImage {
     }
 
     /// Clips the image to the outline of a patch shape placed in
-    /// `transform` coordinates (matplotlib's `set_clip_path(patch)`).
+    /// `transform` coordinates (matplotlib's `set_clip_path(patch)`); a
+    /// rectangle replaces the clip box with its bounding box instead.
     pub fn set_clip_patch(&self, shape: &impl PatchShape, transform: Transform) -> &Self {
         let placed = Transform::Affine(shape.patch_transform()).then(transform);
-        self.set_clip_path(shape.path(), placed)
+        let path = shape.path();
+        let spec = if shape.clips_to_bounding_box() {
+            ClipPathSpec::BoundingBox {
+                path,
+                transform: placed,
+            }
+        } else {
+            ClipPathSpec::Path {
+                path,
+                transform: placed,
+            }
+        };
+        self.raw.with_base_mut(|base| base.clip_path = Some(spec));
+        self
     }
 }
 
@@ -385,5 +401,42 @@ pub(crate) fn split_alpha(alpha: Option<ImageAlpha>) -> (Option<f64>, Option<Gri
         None => (None, None),
         Some(ImageAlpha::Uniform(a)) => (Some(a), None),
         Some(ImageAlpha::Each(grid)) => (None, Some(grid)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::axes::ImshowOptions;
+    use crate::figure::Figure;
+    use crate::patches::{Circle, Rectangle, RotationPoint};
+
+    #[test]
+    fn rectangles_clip_to_their_bounding_box_and_other_shapes_to_their_outline() {
+        let fig = Figure::with_size(4.0, 4.0, 100.0);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let image = ax
+            .imshow(Grid::filled(4, 4, 1.0), ImshowOptions::default())
+            .unwrap();
+        ax.set_xlim(0.0, 4.0).set_ylim(0.0, 4.0);
+        // A 2 × 1 rectangle at (1, 1) turned by 90°: its box spans x in
+        // [0, 1] and y in [1, 3] (one data unit is 100 pixels).
+        let rect = Rectangle::new((1.0, 1.0), 2.0, 1.0).rotated(90.0, RotationPoint::Xy);
+        image.set_clip_patch(&rect, ax.trans_data());
+        let base = image.raw().with_base(Clone::clone);
+        assert!(matches!(
+            base.clip_path,
+            Some(ClipPathSpec::BoundingBox { .. })
+        ));
+        let state = fig.raw().figure_state();
+        let clip = LayoutContext::new(&state.borrow())
+            .clip_rect(&base)
+            .expect("a clip box");
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
+        assert!(close(clip.x0(), 0.0) && close(clip.x1(), 100.0));
+        assert!(close(clip.y0(), 100.0) && close(clip.y1(), 300.0));
+        image.set_clip_patch(&Circle::new((2.0, 2.0), 1.0), ax.trans_data());
+        let base = image.raw().with_base(Clone::clone);
+        assert!(matches!(base.clip_path, Some(ClipPathSpec::Path { .. })));
     }
 }

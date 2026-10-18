@@ -229,8 +229,10 @@ impl<'a> AxisPainter<'a> {
         let block = BlockStyle {
             halign,
             valign: style.label_valign.unwrap_or(valign),
-            multialign: halign,
-            rotation: style.label_rotation,
+            multialign: style.label_multialign.unwrap_or(halign),
+            // Tick labels are texts, whose rotation matplotlib reduces
+            // modulo 360 (which the `xtick` and `ytick` modes rely on).
+            rotation: style.label_rotation.rem_euclid(360.0),
             rotation_mode,
             ..BlockStyle::default()
         };

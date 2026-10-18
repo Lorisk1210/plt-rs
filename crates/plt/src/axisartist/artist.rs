@@ -4,7 +4,7 @@
 
 use std::rc::Rc;
 
-use plt_core::{Bbox, Point};
+use plt_core::{Bbox, Path, Point};
 use plt_render::GraphicsContext;
 
 use super::handles::LabelDirection;
@@ -375,7 +375,10 @@ impl AxisArtistState {
         let mut base = ArtistBase::default();
         base.alpha = self.base.alpha;
         if self.line.clipped {
-            base.clip_path = Some(ClipPathSpec::Rectangle(Transform::Axes(self.axes)));
+            base.clip_path = Some(ClipPathSpec::BoundingBox {
+                path: Path::unit_rectangle(),
+                transform: Transform::Axes(self.axes),
+            });
         }
         base
     }

@@ -31,8 +31,9 @@ impl LayoutTree {
     /// matplotlib's `reposition_axes` for the frame `frame`: each
     /// subfigure moves to the outer box of its grid and is laid out in
     /// turn, then every grid-placed axes moves to the inner box of its
-    /// cells and its colorbars follow.
-    pub(super) fn reposition_axes(&self, fig: &mut FigureState, frame: usize) {
+    /// cells and its colorbars follow (sized to their parent's actual box
+    /// in a `compress`ed layout).
+    pub(super) fn reposition_axes(&self, fig: &mut FigureState, frame: usize, compress: bool) {
         let Some(extent) = frame_extent(fig, self.frames[frame].id) else {
             return;
         };
@@ -44,7 +45,7 @@ impl LayoutTree {
             if let Some(subfig) = fig.store.get_as_mut::<FigureFrame>(self.frames[sub].id) {
                 subfig.relative_extent = to_frame(&bbox, &extent);
             }
-            self.reposition_axes(fig, sub);
+            self.reposition_axes(fig, sub, compress);
         }
         for ax in &self.frames[frame].axes {
             let Some(spec) = ax.cells() else { continue };
@@ -56,7 +57,7 @@ impl LayoutTree {
             let mut offsets = Offsets::default();
             for colorbar in fig.colorbars_of(ax.id).iter().rev() {
                 if colorbar.parents.first() == Some(&ax.id) {
-                    self.reposition_colorbar(fig, colorbar, &mut offsets);
+                    self.reposition_colorbar(fig, colorbar, &mut offsets, compress);
                 }
             }
         }

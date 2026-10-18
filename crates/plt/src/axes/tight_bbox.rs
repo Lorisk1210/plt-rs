@@ -163,11 +163,7 @@ fn clipped(layout: LayoutContext<'_>, base: &ArtistBase, bbox: Bbox) -> Option<B
     if !base.clip_on {
         return Some(bbox);
     }
-    let clip_box = match base.clip_path.as_ref() {
-        Some(ClipPathSpec::Rectangle(transform)) => layout.unit_box(transform),
-        _ => base.clip_box.and_then(|owner| layout.clip_extent(owner)),
-    };
-    let bbox = match clip_box {
+    let bbox = match layout.clip_rect(base) {
         Some(clip) => bbox.intersection(&clip)?,
         None => bbox,
     };
@@ -179,7 +175,7 @@ fn clipped(layout: LayoutContext<'_>, base: &ArtistBase, bbox: Bbox) -> Option<B
             let outline = layout.store().get(*id)?.outline(&layout)?;
             Some(outline.path.transformed(&outline.transform).extents())
         }
-        Some(ClipPathSpec::Rectangle(_)) | None => None,
+        Some(ClipPathSpec::BoundingBox { .. }) | None => None,
     };
     match clip_path {
         Some(clip) => bbox.intersection(&clip),

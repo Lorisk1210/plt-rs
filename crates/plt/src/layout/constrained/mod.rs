@@ -13,6 +13,7 @@
 //! collapsed.
 
 mod colorbars;
+mod compress;
 mod margins;
 mod reposition;
 mod tree;
@@ -37,6 +38,9 @@ pub struct ConstrainedLayout {
     /// The part of the figure laid out, `[left, bottom, width, height]` in
     /// figure fractions.
     pub rect: [f64; 4],
+    /// Close the gaps fixed-aspect axes leave in their cells afterwards
+    /// (matplotlib's `layout="compressed"`).
+    pub compress: bool,
 }
 
 impl ConstrainedLayout {
@@ -49,6 +53,7 @@ impl ConstrainedLayout {
             wspace: rc.figure_constrained_layout_wspace,
             hspace: rc.figure_constrained_layout_hspace,
             rect: [0.0, 0.0, 1.0, 1.0],
+            compress: false,
         }
     }
 }
@@ -87,7 +92,14 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) {
         tree.match_submerged_margins(FIGURE);
         tree.grids.solve();
         if tree.no_collapsed_axes() {
-            tree.reposition_axes(fig, FIGURE);
+            tree.reposition_axes(fig, FIGURE, false);
+            if params.compress && tree.compress_fixed_aspect(fig) {
+                tree.grids.solve();
+                if tree.no_collapsed_axes() {
+                    tree.reposition_axes(fig, FIGURE, true);
+                }
+                tree.place_suptitle(fig, pads.h_pad);
+            }
         }
         tree.reset_margins();
     }

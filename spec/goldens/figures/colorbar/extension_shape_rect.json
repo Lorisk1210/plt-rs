@@ -1,0 +1,110 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.831875, 0.336957, 0.048125],
+   "title": "",
+   "xlim": [-5.0, 3.5],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.141046, 0.59125, 0.320911, 0.048125],
+   "title": "",
+   "xlim": [-2.5, 3.5],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.350625, 0.320911, 0.048125],
+   "title": "",
+   "xlim": [-5.0, 1.5],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.140316, 0.11, 0.306324, 0.048125],
+   "title": "",
+   "xlim": [-2.5, 1.5],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.563043, 0.831875, 0.336957, 0.048125],
+   "title": "",
+   "xlim": [-5.0, 3.5],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.579089, 0.59125, 0.320911, 0.048125],
+   "title": "",
+   "xlim": [-2.5, 3.5],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.563043, 0.350625, 0.320911, 0.048125],
+   "title": "",
+   "xlim": [-5.0, 1.5],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.57836, 0.11, 0.306324, 0.048125],
+   "title": "",
+   "xlim": [-2.5, 1.5],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

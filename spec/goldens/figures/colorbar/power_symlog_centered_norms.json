@@ -1,0 +1,84 @@
+{
+ "size_px": [800, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.251863, 0.182353, 0.486275],
+   "title": "",
+   "xlim": [-0.5, 39.5],
+   "ylim": [39.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [20.0, "20"]],
+   "yticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.398529, 0.251863, 0.182353, 0.486275],
+   "title": "",
+   "xlim": [-0.5, 39.5],
+   "ylim": [39.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [20.0, "20"]],
+   "yticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.672059, 0.251863, 0.182353, 0.486275],
+   "title": "",
+   "xlim": [-0.5, 39.5],
+   "ylim": [39.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [20.0, "20"]],
+   "yticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.31875, 0.11, 0.014437, 0.77],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.004751, 2.506033],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[0.5, "0.5"], [1.0, "1.0"], [1.5, "1.5"], [2.0, "2.0"], [2.5, "2.5"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.592279, 0.11, 0.014437, 0.77],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-30.0, 30.0],
+   "xscale": "linear",
+   "yscale": "symlog",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[-10.0, "$\\mathdefault{-10^{1}}$"], [-1.0, "$\\mathdefault{-10^{0}}$"], [-0.1, "$\\mathdefault{-10^{-1}}$"], [0.0, "$\\mathdefault{0}$"], [0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.865809, 0.145, 0.014437, 0.7],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-1.5, 2.5],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[-1.0, "−1"], [0.0, "0"], [1.0, "1"], [2.0, "2"]]
+  }
+ ]
+}

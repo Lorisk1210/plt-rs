@@ -231,3 +231,119 @@ def _(fig):
     tc = ax.tripcolor(t, _tri_z(t), shading="gouraud", cmap="magma")
     fig.colorbar(tc, ax=ax)
     tc.set_clim(-1.5, 1.5)
+
+
+# --- gallery: contourf extensions, hatching legends, label formats
+
+
+def _wave(nx=150, ny=120):
+    x = np.linspace(-3, 5, nx)
+    y = np.linspace(-3, 5, ny)
+    xx, yy = np.meshgrid(x, y)
+    return xx, yy, np.cos(xx) + np.sin(yy)
+
+
+@case("contour/contourf_extend_variants_colorbars", figsize=(6.4, 5))
+def _(fig):
+    fig.set_layout_engine("constrained")
+    axs = fig.subplots(2, 2)
+    cmap = mpl.colormaps["winter"].with_extremes(under="yellow", over="cyan")
+    xx, yy, zz = _xyz(40, 30)
+    levels = [-1.5, -1, -0.5, 0, 0.5, 1]
+    for ax, extend in zip(axs.flat, ["neither", "both", "min", "max"]):
+        cs = ax.contourf(xx, yy, zz, levels, cmap=cmap, extend=extend)
+        fig.colorbar(cs, ax=ax, shrink=0.9)
+        ax.set_title(f"extend = {extend}")
+
+
+@case("contour/contourf_hatching_legend", figsize=(7, 3.5))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    xx, yy, zz = _wave()
+    cs = ax1.contourf(xx, yy, zz, hatches=["-", "/", "\\", "//"], cmap="gray", extend="both", alpha=0.5)
+    fig.colorbar(cs, ax=ax1)
+    ax2.contour(xx, yy, zz, 6, colors="black", linestyles="-")
+    cs = ax2.contourf(xx, yy, zz, 6, colors="none", hatches=[".", "/", "\\", None, "\\\\", "*"])
+    artists, labels = cs.legend_elements(str_format="{:2.1f}".format)
+    ax2.legend(artists, labels, handleheight=2, framealpha=1)
+
+
+@case("contour/line_contour_legend", figsize=(5, 3.5))
+def _(fig):
+    ax = fig.subplots()
+    cs = ax.contour(*_xyz(), levels=5, cmap="viridis", linewidths=2)
+    artists, labels = cs.legend_elements()
+    ax.legend(artists, labels, loc="upper left", fontsize=8)
+
+
+@case("contour/contourf_lognorm_levels_colorbar", figsize=(5, 3.5))
+def _(fig):
+    from matplotlib import colors
+
+    ax = fig.subplots()
+    x = np.linspace(-3.0, 3.0, 60)
+    xx, yy = np.meshgrid(x, x)
+    zz = np.exp(-(xx**2) - yy**2) * 1e3 + np.exp(-((xx - 1.5) ** 2) - (yy - 1) ** 2) * 50 + 1e-2
+    cs = ax.contourf(xx, yy, zz, levels=np.logspace(-2, 3, 11), norm=colors.LogNorm(), cmap="PuBu_r")
+    fig.colorbar(cs, ax=ax)
+
+
+def _percent_fmt(x):
+    s = f"{x:.1f}"
+    if s.endswith("0"):
+        s = f"{x:.0f}"
+    return f"{s} %"
+
+
+@case("contour/clabel_label_demo", figsize=(7, 3))
+def _(fig):
+    ax1, ax2, ax3 = fig.subplots(1, 3)
+    delta = 0.025
+    x = np.arange(-3.0, 3.0, delta)
+    y = np.arange(-2.0, 2.0, delta)
+    xx, yy = np.meshgrid(x, y)
+    # The gallery's field, with the second bump stretched along x so that
+    # the zero contour is not a straight line through grid points (where
+    # every label position is equally good).
+    z1 = np.exp(-(xx**2) - yy**2)
+    z2 = np.exp(-((xx - 1) ** 2) / 1.5 - (yy - 1) ** 2)
+    zz = (z1 - z2) * 2
+    cs = ax1.contour(xx, yy, zz)
+    ax1.clabel(cs, cs.levels, fmt=_percent_fmt, fontsize=10)
+    cs = ax2.contour(xx, yy, zz)
+    names = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh"]
+    ax2.clabel(cs, cs.levels[::2], fmt=dict(zip(cs.levels, names)), fontsize=10)
+    cs = ax3.contour(xx, yy, 100**zz, locator=ticker.LogLocator())
+    fmt = ticker.LogFormatterMathtext()
+    fmt.create_dummy_axis()
+    ax3.clabel(cs, cs.levels, fmt=fmt)
+
+
+@case("contour/clabel_manual_rightside_up", figsize=(6, 3))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    xx, yy, zz = _xyz()
+    cs = ax1.contour(xx, yy, zz, levels=[-1.5, -0.5, 0.5, 1.5], colors="k")
+    ax1.clabel(cs, manual=[(-1.0, 0.5), (0.5, -0.5), (1.5, 1.2), (-2.0, -1.5)], inline_spacing=12)
+    cs = ax2.contour(xx, yy, zz, levels=[-1.0, 0.0, 1.0], cmap="coolwarm")
+    ax2.clabel(cs, rightside_up=False, fontsize=8, fmt="%.1f")
+
+
+@case(
+    "contour/negative_linestyle_and_width_rc",
+    figsize=(4, 3),
+    rc={"contour.negative_linestyle": "dashdot", "contour.linewidth": 2.0},
+)
+def _(fig):
+    ax = fig.subplots()
+    ax.contour(*_xyz(), levels=8, colors="k")
+
+
+@case("contour/levels_outside_and_constant_field", figsize=(6, 2.5))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    xx, yy, zz = _xyz(30, 20)
+    ax1.contourf(xx, yy, zz, levels=[-0.5, 0.0, 0.5, 5.0, 6.0], cmap="viridis")
+    ax1.contour(xx, yy, zz, levels=[5.0, 6.0], colors="r")
+    ax2.contourf(xx, yy, np.full_like(zz, 0.5))
+    ax2.contour(xx, yy, np.full_like(zz, 0.5), colors="k")

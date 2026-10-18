@@ -293,6 +293,42 @@ fn colorbars_in_other_figures_keep_a_copy() {
 }
 
 #[test]
+fn hatched_contours_get_hatched_blocks_and_extensions() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let field = QuadField::new(Grid::from_fn(4, 5, |i, j| (i + j) as f64));
+    let options = ContourOptions {
+        levels: Levels::Values(vec![1.0, 3.0, 5.0]),
+        extend: crate::colors::Extend::Both,
+        hatches: vec![Some("/".into()), None, Some("x".into())],
+        ..ContourOptions::default()
+    };
+    let contours = ax.contourf(&field, options).unwrap();
+    let colorbar = fig.colorbar(&contours, ColorbarOptions::default()).unwrap();
+    let (solids, patches, extensions) = colorbar.read(|state| {
+        (
+            state.drawn.solids,
+            state.drawn.solids_patches.clone(),
+            state.drawn.extensions.clone(),
+        )
+    });
+    assert!(solids.is_none(), "patches replace the mesh");
+    let figure = fig.raw().figure_state().borrow();
+    let hatch = |id: ArtistId| {
+        figure
+            .store
+            .get(id)
+            .and_then(crate::artist::Artist::as_patch)
+            .and_then(|patch| patch.style.hatch.clone())
+    };
+    // Bands: under (/), [1, 3] (none), [3, 5] (x), over (/).
+    let inner: Vec<_> = patches.into_iter().map(hatch).collect();
+    assert_eq!(inner, [None, Some("x".into())]);
+    let ends: Vec<_> = extensions.into_iter().map(hatch).collect();
+    assert_eq!(ends, [Some("/".into()), Some("/".into())]);
+}
+
+#[test]
 fn removed_mappables_have_no_colorbar() {
     let (fig, _, image) = image_figure();
     image.remove();

@@ -86,6 +86,15 @@ impl Extensions {
     }
 }
 
+/// How one colour block of a colorbar is filled.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Block {
+    /// The colour of its value.
+    pub(crate) color: Rgba,
+    /// Its hatch, for hatched contour sets.
+    pub(crate) hatch: Option<String>,
+}
+
 /// Draws a colorbar's artists into its axes.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Painter<'a> {
@@ -125,30 +134,60 @@ impl Painter<'_> {
         self.ax.adopt(outline, &DataUpdate::default()).id()
     }
 
-    /// Fills the extensions with the under and over colours, just behind
-    /// the axes background (matplotlib's `_do_extends`).
+    /// Fills the extensions with the under and over colours and their
+    /// hatches, just behind the axes background (matplotlib's
+    /// `_do_extends`).
     pub(crate) fn extension_patches(
         &self,
         extensions: &Extensions,
-        lower: Option<Rgba>,
-        upper: Option<Rgba>,
+        lower: Option<Block>,
+        upper: Option<Block>,
     ) -> Vec<ArtistId> {
         let mut patches = Vec::new();
-        for (is_upper, color) in [(false, lower), (true, upper)] {
-            let Some(color) = color else { continue };
-            let path = Path::polyline(self.points(&extensions.patch(is_upper)));
-            let mut patch = PatchArtist::new(PathShape(path), crate::rc::params());
-            patch.style.facecolor = Some(Color::from(color));
-            patch.style.linewidth = Some(0.0);
-            patch.style.antialiased = Some(false);
+        for (is_upper, block) in [(false, lower), (true, upper)] {
+            let Some(block) = block else { continue };
+            let mut patch = self.block_patch(&extensions.patch(is_upper), block);
             let base = patch.base_mut();
-            base.alpha = self.alpha;
             base.transform = Some(self.ax.trans_axes());
             base.clip_on = false;
             base.zorder = 1.0_f64.next_down();
             patches.push(self.ax.adopt(patch, &DataUpdate::default()).id());
         }
         patches
+    }
+
+    /// One hatched patch per colour block between consecutive `edges`
+    /// (matplotlib's `_add_solids_patches`, used for hatched contour sets).
+    pub(crate) fn solids_patches(&self, edges: &[f64], blocks: Vec<Block>) -> Vec<ArtistId> {
+        edges
+            .windows(2)
+            .zip(blocks)
+            .map(|(pair, block)| {
+                let corners = [
+                    (pair[0], 0.0),
+                    (pair[0], 1.0),
+                    (pair[1], 1.0),
+                    (pair[1], 0.0),
+                ];
+                let mut patch = self.block_patch(&corners, block);
+                patch.base_mut().transform = Some(self.ax.trans_data());
+                self.ax.adopt(patch, &DataUpdate::default()).id()
+            })
+            .collect()
+    }
+
+    /// An unstroked, aliased patch through the `(along, across)` points
+    /// (an open path, as matplotlib's `PathPatch(Path(xy))`), filled and
+    /// hatched as `block` says.
+    fn block_patch(&self, along_across: &[(f64, f64)], block: Block) -> PatchArtist<PathShape> {
+        let path = Path::polyline(self.points(along_across));
+        let mut patch = PatchArtist::new(PathShape(path), crate::rc::params());
+        patch.style.facecolor = Some(Color::from(block.color));
+        patch.style.hatch = block.hatch;
+        patch.style.linewidth = Some(0.0);
+        patch.style.antialiased = Some(false);
+        patch.base_mut().alpha = self.alpha;
+        patch
     }
 
     /// Lines across the colorbar at `positions` along it, in the axes

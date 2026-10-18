@@ -1,5 +1,7 @@
 //! `figures/cases_contour.py`.
 
+mod gallery;
+
 use plt::axes::{Axes, ColorizingArtist, ImshowOptions, TriShading, TriValues, TripcolorOptions};
 use plt::collections::{CollectionProps, EdgeColors};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
@@ -422,4 +424,41 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 3.5, 100.0),
+    FigureCase::new(
+        "contour/contourf_extend_variants_colorbars",
+        gallery::contourf_extend_variants_colorbars,
+    )
+    .sized(6.4, 5.0, 100.0),
+    FigureCase::new(
+        "contour/contourf_hatching_legend",
+        gallery::contourf_hatching_legend,
+    )
+    .sized(7.0, 3.5, 100.0),
+    FigureCase::new("contour/line_contour_legend", gallery::line_contour_legend)
+        .sized(5.0, 3.5, 100.0),
+    FigureCase::new(
+        "contour/contourf_lognorm_levels_colorbar",
+        gallery::contourf_lognorm_levels_colorbar,
+    )
+    .sized(5.0, 3.5, 100.0),
+    FigureCase::new("contour/clabel_label_demo", gallery::clabel_label_demo).sized(7.0, 3.0, 100.0),
+    FigureCase::new(
+        "contour/clabel_manual_rightside_up",
+        gallery::clabel_manual_rightside_up,
+    )
+    .sized(6.0, 3.0, 100.0),
+    FigureCase::new(
+        "contour/negative_linestyle_and_width_rc",
+        gallery::negative_linestyle_and_width_rc,
+    )
+    .sized(4.0, 3.0, 100.0)
+    .with_rc(&[
+        ("contour.negative_linestyle", "dashdot"),
+        ("contour.linewidth", "2.0"),
+    ]),
+    FigureCase::new(
+        "contour/levels_outside_and_constant_field",
+        gallery::levels_outside_and_constant_field,
+    )
+    .sized(6.0, 2.5, 100.0),
 ];

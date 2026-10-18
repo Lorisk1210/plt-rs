@@ -156,8 +156,8 @@ pub struct GridOptions {
 }
 
 impl GridOptions {
-    /// `style` with the set options applied.
-    pub(crate) fn restyle(&self, mut style: GridStyle) -> GridStyle {
+    /// Applies the set options to `style`.
+    pub(crate) fn restyle(&self, style: &mut GridStyle) {
         if let Some(color) = &self.color {
             style.color = color.clone();
         }
@@ -170,7 +170,6 @@ impl GridOptions {
         if let Some(linestyle) = &self.linestyle {
             style.linestyle = linestyle.clone();
         }
-        style
     }
 }
 
@@ -207,8 +206,14 @@ pub struct TickStyle {
     pub label_halign: Option<HAlign>,
     /// Vertical label alignment replacing the side's default.
     pub label_valign: Option<VAlign>,
-    /// Gridlines, if shown.
-    pub grid: Option<GridStyle>,
+    /// Alignment of the lines of multi-line labels (`None` follows the
+    /// horizontal alignment).
+    pub label_multialign: Option<HAlign>,
+    /// Whether gridlines are drawn at the ticks.
+    pub grid_on: bool,
+    /// How the gridlines are drawn; kept while they are off, like
+    /// matplotlib's `grid_*` tick parameters.
+    pub grid: GridStyle,
 }
 
 impl TickStyle {
@@ -250,7 +255,9 @@ impl TickStyle {
             label_rotation_mode: RotationMode::Default,
             label_halign: None,
             label_valign: None,
-            grid: grid_from_rc(axis, major, rc),
+            label_multialign: None,
+            grid_on: grid_on_from_rc(axis, major, rc),
+            grid: GridStyle::from_rc(major, rc),
         }
     }
 
@@ -261,7 +268,7 @@ impl TickStyle {
             || self.ticks.second
             || self.labels.first
             || self.labels.second
-            || self.grid.is_some()
+            || self.grid_on
     }
 
     /// Distance from the axes edge to the labels in points: the pad plus
@@ -333,7 +340,8 @@ fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
     (ticks, labels)
 }
 
-fn grid_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> Option<GridStyle> {
+/// Whether `axes.grid*` turns the gridlines of a tick level on.
+fn grid_on_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> bool {
     let which = rc.axes_grid_which.as_str();
     let level_on = if major {
         matches!(which, "major" | "both")
@@ -345,10 +353,7 @@ fn grid_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> Option<GridStyle>
         "x" => axis == AxisName::X,
         _ => axis == AxisName::Y,
     };
-    if !(rc.axes_grid && level_on && axis_on) {
-        return None;
-    }
-    Some(GridStyle::from_rc(major, rc))
+    rc.axes_grid && level_on && axis_on
 }
 
 #[cfg(test)]
@@ -375,7 +380,7 @@ mod tests {
                 second: false
             }
         );
-        assert!(major.grid.is_none());
+        assert!(!major.grid_on);
         let minor = TickStyle::from_rc(AxisName::Y, false, &rc);
         assert_eq!((minor.size, minor.width), (2.0, 0.6));
     }
@@ -385,13 +390,12 @@ mod tests {
         let mut rc = RcParams::matplotlib();
         rc.set("axes.grid", "True").expect("valid");
         rc.set("axes.grid.axis", "y").expect("valid");
-        assert!(TickStyle::from_rc(AxisName::X, true, &rc).grid.is_none());
-        let grid = TickStyle::from_rc(AxisName::Y, true, &rc)
-            .grid
-            .expect("y grid");
-        assert_eq!(grid.linewidth, 0.8);
+        assert!(!TickStyle::from_rc(AxisName::X, true, &rc).grid_on);
+        let y = TickStyle::from_rc(AxisName::Y, true, &rc);
+        assert!(y.grid_on);
+        assert_eq!(y.grid.linewidth, 0.8);
         assert!(
-            TickStyle::from_rc(AxisName::Y, false, &rc).grid.is_none(),
+            !TickStyle::from_rc(AxisName::Y, false, &rc).grid_on,
             "minor grid needs which=minor/both"
         );
     }

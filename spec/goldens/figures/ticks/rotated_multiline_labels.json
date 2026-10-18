@@ -1,0 +1,19 @@
+{
+ "size_px": [600, 450],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.25, 0.7, 0.63],
+   "title": "",
+   "xlim": [-0.2, 4.2],
+   "ylim": [0.8, 5.2],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "category",
+   "ylabel": "",
+   "xticks": [[0, "one\nline"], [1, "two\nlines\nhere"], [2, "three"], [3, "four\n4"], [4, "five"]],
+   "yticks": [[1, "low\nvalue"], [3, "mid"], [5, "high\nvalue"]]
+  }
+ ]
+}

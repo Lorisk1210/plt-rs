@@ -92,6 +92,8 @@ pub(crate) struct ContourState {
     pub(crate) alpha: Option<f64>,
     pub(crate) linewidths: Vec<f64>,
     pub(crate) linestyles: Vec<LineStyle>,
+    /// The hatch patterns cycled over the bands (matplotlib's `hatches`).
+    pub(crate) hatches: Vec<Option<String>>,
     pub(crate) warnings: Vec<ContourWarning>,
     /// The labels added by `clabel`, in creation order.
     pub(crate) labels: Vec<LabelRecord>,
@@ -184,6 +186,7 @@ impl ContourPlan {
             alpha: options.alpha,
             linewidths,
             linestyles,
+            hatches: options.hatches.clone(),
             warnings: source.warnings,
             labels: Vec::new(),
             label_widths: Vec::new(),
@@ -214,7 +217,7 @@ impl ContourState {
         data_lim: (Point, Point),
     ) -> Vec<CollectionArtist> {
         let colors: Vec<Color> = self.colors.iter().map(|&c| Color::from(c)).collect();
-        if !(self.filled && options.hatches.iter().any(Option::is_some)) {
+        if !self.hatched() {
             return vec![self.collection(paths, colors, None, options.antialiased, data_lim)];
         }
         paths
@@ -222,10 +225,23 @@ impl ContourState {
             .enumerate()
             .map(|(i, path)| {
                 let color = colors.get(i).cloned().into_iter().collect();
-                let hatch = options.hatches[i % options.hatches.len()].clone();
+                let hatch = self.hatch(i);
                 self.collection(vec![path], color, hatch, options.antialiased, data_lim)
             })
             .collect()
+    }
+
+    /// Whether the bands of a filled contour set are hatched.
+    pub(crate) fn hatched(&self) -> bool {
+        self.filled && self.hatches.iter().any(Option::is_some)
+    }
+
+    /// The hatch of band `index`, cycling through the patterns.
+    pub(crate) fn hatch(&self, index: usize) -> Option<String> {
+        if self.hatches.is_empty() {
+            return None;
+        }
+        self.hatches[index % self.hatches.len()].clone()
     }
 
     /// A collection drawing `paths` in `colors`: unstroked fills, or lines

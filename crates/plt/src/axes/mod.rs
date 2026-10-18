@@ -57,6 +57,8 @@ mod table;
 #[cfg(test)]
 mod tests;
 mod tick_config;
+#[cfg(test)]
+mod tick_tests;
 mod ticks;
 mod tight_bbox;
 mod title_position;

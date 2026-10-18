@@ -157,23 +157,34 @@ impl<S: PatchShape> PatchArtist<S> {
     /// the edge width of its outline when the edge shows (matplotlib's
     /// `Patch.contains` with its default radius).
     pub(crate) fn contains_unpicked(&self, ctx: LayoutContext<'_>, point: Point) -> bool {
+        self.hit_region(ctx)
+            .is_some_and(|region| region.contains(point))
+    }
+
+    /// The outline in display space with the edge width as tolerance when
+    /// the edge shows (matplotlib's `Patch.contains` with its default
+    /// radius).
+    fn hit_region(&self, ctx: LayoutContext<'_>) -> Option<ClipRegion> {
         let radius = self
             .style
             .resolve(&self.rc, self.base.alpha, S::EDGE_DEFAULT)
             .map_or(0.0, |resolved| resolved.hit_radius());
-        self.encloses(ctx, point, radius)
+        self.region(ctx, radius)
+    }
+
+    /// The outline in display space with tolerance `radius`.
+    fn region(&self, ctx: LayoutContext<'_>, radius: f64) -> Option<ClipRegion> {
+        self.outline(&ctx).map(|clip| ClipRegion {
+            path: clip.path.transformed(&clip.transform),
+            radius,
+        })
     }
 
     /// Whether display point `point` lies within `radius` of a sub-path of
     /// the outline (matplotlib's `Patch.contains`).
     fn encloses(&self, ctx: LayoutContext<'_>, point: Point, radius: f64) -> bool {
-        self.outline(&ctx).is_some_and(|clip| {
-            ClipRegion {
-                path: clip.path.transformed(&clip.transform),
-                radius,
-            }
-            .contains(point)
-        })
+        self.region(ctx, radius)
+            .is_some_and(|region| region.contains(point))
     }
 }
 
@@ -219,6 +230,10 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     /// `Patch.contains` with a zero radius).
     fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
         self.encloses(*ctx, point, 0.0)
+    }
+
+    fn connection_region(&self, ctx: &LayoutContext<'_>) -> Option<ClipRegion> {
+        self.hit_region(*ctx)
     }
 
     /// matplotlib's `Patch.contains` as picking asks it: within the

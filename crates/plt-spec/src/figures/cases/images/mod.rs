@@ -7,6 +7,8 @@ mod data;
 mod imshow;
 mod meshes;
 mod nonuniform;
+mod placement;
+mod values;
 
 use plt::image::{Interpolation, InterpolationStage};
 
@@ -176,4 +178,34 @@ pub(crate) const CASES: &[FigureCase] = &[
     small("images/hexbin_log", meshes::hexbin_log),
     small("images/hexbin_mincnt_extent", meshes::hexbin_mincnt_extent),
     small("images/hexbin_reduce_mean", meshes::hexbin_reduce_mean),
+    interp("images/log_axes_resampled", placement::log_axes_resampled),
+    FigureCase::new("images/affine_transforms", placement::affine_transforms),
+    FigureCase::new(
+        "images/nan_inf_interpolation_stages",
+        values::nan_inf_interpolation_stages,
+    )
+    .sized(6.0, 2.5, 100.0),
+    FigureCase::new("images/resample_factors", values::resample_factors).sized(6.0, 2.2, 100.0),
+    FigureCase::new("images/origin_extent_grid", placement::origin_extent_grid)
+        .sized(6.0, 4.0, 100.0),
+    FigureCase::new(
+        "images/clip_off_beyond_axes",
+        placement::clip_off_beyond_axes,
+    )
+    .sized(4.0, 4.0, 100.0),
+    FigureCase::new(
+        "images/clip_path_rotated_rectangle",
+        placement::clip_path_rotated_rectangle,
+    )
+    .sized(4.0, 4.0, 100.0),
+    FigureCase::new("images/composite_alpha", values::composite_alpha).sized(5.0, 4.0, 100.0),
+    FigureCase::new(
+        "images/bool_and_integer_arrays",
+        values::bool_and_integer_arrays,
+    )
+    .sized(6.0, 2.5, 100.0),
+    small(
+        "images/pcolorfast_nonuniform_alpha",
+        values::pcolorfast_nonuniform_alpha,
+    ),
 ];

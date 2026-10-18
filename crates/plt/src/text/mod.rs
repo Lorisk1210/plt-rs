@@ -28,6 +28,7 @@ use plt_text::{BlockStyle, HAlign, RotationMode, TextAnchor, TextRun, VAlign};
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
+use crate::patches::ClipRegion;
 use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -60,6 +61,10 @@ pub(crate) enum AngleReduction {
 /// State of a text artist (matplotlib's `Text`, and `Annotation` when
 /// `annotation` is set).
 #[derive(Debug)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "mirrors matplotlib's independent boolean text properties"
+)]
 pub(crate) struct TextArtist {
     base: ArtistBase,
     pub(crate) text: String,
@@ -69,6 +74,9 @@ pub(crate) struct TextArtist {
     pub(crate) rotation: f64,
     /// How `rotation` is reduced before drawing.
     pub(crate) rotation_reduction: AngleReduction,
+    /// Whether `rotation` is a direction in the text's coordinates, which
+    /// the transform turns (matplotlib's `transform_rotates_text`).
+    pub(crate) transform_rotates_text: bool,
     pub(crate) halign: HAlign,
     pub(crate) valign: VAlign,
     /// Alignment of lines within the block; `None` follows `halign`.
@@ -99,6 +107,7 @@ impl TextArtist {
             font: FontProperties::from_rc(&rc),
             rotation: 0.0,
             rotation_reduction: AngleReduction::Modulo360,
+            transform_rotates_text: false,
             halign: HAlign::Left,
             valign: VAlign::Baseline,
             multialign: None,
@@ -113,15 +122,29 @@ impl TextArtist {
         }
     }
 
+    /// The rotation drawn in degrees (matplotlib's `get_rotation`): turned
+    /// by the transform at the text's position when the transform rotates
+    /// the text.
+    fn drawn_rotation(&self, ctx: LayoutContext<'_>) -> f64 {
+        let rotation = match self.rotation_reduction {
+            AngleReduction::Modulo360 => self.rotation.rem_euclid(360.0),
+            AngleReduction::AsIs => self.rotation,
+        };
+        if !self.transform_rotates_text {
+            return rotation;
+        }
+        ctx.resolve(&self.transform())
+            .map_or(rotation, |transform| {
+                transform.transform_angle(rotation, self.position)
+            })
+    }
+
     /// Alignment and rotation of the block. Wrapped text always aligns
     /// before rotating (matplotlib switches it to the `anchor` rotation
     /// mode when wrapping).
-    pub(crate) fn block_style(&self) -> BlockStyle {
+    pub(crate) fn block_style(&self, ctx: LayoutContext<'_>) -> BlockStyle {
         BlockStyle {
-            rotation: match self.rotation_reduction {
-                AngleReduction::Modulo360 => self.rotation.rem_euclid(360.0),
-                AngleReduction::AsIs => self.rotation,
-            },
+            rotation: self.drawn_rotation(ctx),
             halign: self.halign,
             valign: self.valign,
             multialign: self.multialign.unwrap_or(self.halign),
@@ -164,7 +187,7 @@ impl TextArtist {
         let Some(figure) = self.figure_box(ctx).filter(|_| self.wrap) else {
             return Ok(self.text.clone());
         };
-        let style = self.block_style();
+        let style = self.block_style(ctx);
         let width = wrap::wrap_width(anchor, &figure, style.rotation, style.halign);
         wrap::wrap_text(&self.text, width, |line| {
             let math = plt_text::mathtext::is_math_text(line);
@@ -184,7 +207,7 @@ impl TextArtist {
         lay_out_with_math(
             &self.wrapped_at(ctx, anchor)?,
             &self.font,
-            &self.block_style(),
+            &self.block_style(ctx),
             ctx.dpi(),
             &self.rc,
             self.parse_math,
@@ -198,7 +221,7 @@ impl TextArtist {
             None => lay_out_with_math(
                 &self.text,
                 &self.font,
-                &self.block_style(),
+                &self.block_style(ctx),
                 ctx.dpi(),
                 &self.rc,
                 self.parse_math,
@@ -256,7 +279,7 @@ impl TextArtist {
                 anchor,
                 corner,
                 size,
-                rotation: self.block_style().rotation,
+                rotation: self.block_style(ctx).rotation,
                 fontsize_px: ctx.points_to_pixels(self.font.size),
             },
         )))
@@ -288,7 +311,7 @@ impl TextArtist {
         gc.antialiased = self.antialiased;
         // matplotlib never sketches glyphs, even as paths.
         gc.sketch = None;
-        let rotation = self.block_style().rotation;
+        let rotation = self.block_style(layout).rotation;
         with_path_effects(ctx, &self.base.path_effects, |ctx| {
             draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);
         });
@@ -323,6 +346,17 @@ impl Artist for TextArtist {
             Some(annotation) => annotation.extent(self, *ctx).ok(),
             None => self.extent_at(*ctx, self.anchor(*ctx)?).ok(),
         }
+    }
+
+    /// The text's box, where it is drawn (what matplotlib's
+    /// `get_bbox_patch()` clips connections to); `None` without a box.
+    fn connection_region(&self, ctx: &LayoutContext<'_>) -> Option<ClipRegion> {
+        let anchor = match &self.annotation {
+            Some(annotation) => annotation.text_display(self, *ctx).ok()?,
+            None => self.anchor(*ctx)?,
+        };
+        let (bbox, placement) = self.box_placement(*ctx, anchor).ok()??;
+        bbox.clip_region(&self.rc, &placement).ok()
     }
 
     /// matplotlib's `Text.contains` (and `Annotation.contains`, which adds
@@ -364,5 +398,28 @@ pub(crate) fn draw_laid_out(
     for (line, run) in laid_out.block.lines.iter().zip(&laid_out.runs) {
         ctx.renderer()
             .draw_text(gc, run, anchor + line.origin, angle);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::figure::Figure;
+
+    #[test]
+    fn rotations_can_follow_the_transform() {
+        let fig = Figure::new();
+        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+        // 49.6 pixels per unit along x, 369.6 along y.
+        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1.0);
+        let text = ax.text(5.0, 0.5, "slope");
+        text.set_rotation(45.0).set_transform_rotates_text(true);
+        let rotation = text.layout().expect("laid out").style.rotation;
+        let expected = (369.6_f64 / 49.6).atan().to_degrees();
+        assert!(
+            (rotation - expected).abs() < 1e-6,
+            "{rotation} vs {expected}"
+        );
+        text.set_transform_rotates_text(false);
+        assert_eq!(text.layout().expect("laid out").style.rotation, 45.0);
     }
 }

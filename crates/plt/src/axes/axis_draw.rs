@@ -70,8 +70,8 @@ impl AxisPainter<'_> {
         style: &TickStyle,
         rc: &crate::rc::RcParams,
     ) {
-        if let Some(grid) = &style.grid {
-            self.draw_gridline(ctx, loc, grid, rc);
+        if style.grid_on {
+            self.draw_gridline(ctx, loc, &style.grid, rc);
         }
         let (mark1, mark2) = tick_markers(self.name, style.direction);
         if style.ticks.first {

@@ -1,0 +1,45 @@
+{
+ "size_px": [700, 350],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.088175, 0.110317, 0.238016, 0.786811],
+   "title": "symlog",
+   "xlim": [-33.15, 630.15],
+   "ylim": [-5.258877, 1051.775347],
+   "xscale": "linear",
+   "yscale": "symlog",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [250.0, "250"], [500.0, "500"]],
+   "yticks": [[-1.0, "$\\mathdefault{-10^{0}}$"], [0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"], [100.0, "$\\mathdefault{10^{2}}$"], [1000.0, "$\\mathdefault{10^{3}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.414365, 0.110317, 0.238016, 0.786811],
+   "title": "asinh",
+   "xlim": [-33.15, 630.15],
+   "ylim": [-4.758163, 936.693634],
+   "xscale": "linear",
+   "yscale": "asinh",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [250.0, "250"], [500.0, "500"]],
+   "yticks": [[-1.0, "$\\mathdefault{-10^{0}}$"], [0.0, "$\\mathdefault{0}$"], [0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"], [100.0, "$\\mathdefault{10^{2}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.740556, 0.110317, 0.238016, 0.786811],
+   "title": "asinh, base 2",
+   "xlim": [-33.15, 630.15],
+   "ylim": [-5.036852, 1002.928971],
+   "xscale": "linear",
+   "yscale": "asinh",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [250.0, "250"], [500.0, "500"]],
+   "yticks": [[-4.0, "$\\mathdefault{-2^{2}}$"], [-1.0, "$\\mathdefault{-2^{0}}$"], [-0.25, "$\\mathdefault{-2^{-2}}$"], [0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{2^{0}}$"], [2.0, "$\\mathdefault{2^{1}}$"], [8.0, "$\\mathdefault{2^{3}}$"], [32.0, "$\\mathdefault{2^{5}}$"], [64.0, "$\\mathdefault{2^{6}}$"], [256.0, "$\\mathdefault{2^{8}}$"], [512.0, "$\\mathdefault{2^{9}}$"]]
+  }
+ ]
+}

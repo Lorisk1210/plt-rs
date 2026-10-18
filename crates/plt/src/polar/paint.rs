@@ -153,12 +153,12 @@ pub(crate) fn draw_tick_lines(
     ) else {
         return;
     };
-    if let Some(grid) = &style.grid {
+    if style.grid_on {
         let clip = ClipPath {
             path: polar.patch().path(),
             transform: unit_to_bbox(&display),
         };
-        draw_gridline(ctx, axes, &ptick, grid, clip, rc);
+        draw_gridline(ctx, axes, &ptick, &style.grid, clip, rc);
     }
     match name {
         AxisName::X => draw_theta_marks(ctx, axes, &ptick, style),

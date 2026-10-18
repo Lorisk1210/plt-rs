@@ -123,8 +123,15 @@ impl Axes {
     /// grid (matplotlib's `label_outer`). Axes not placed on a grid are
     /// left alone.
     pub fn label_outer(&self) -> &Self {
-        self.label_outer_axis(AxisName::X, false);
-        self.label_outer_axis(AxisName::Y, false);
+        self.label_outer_with(false)
+    }
+
+    /// [`label_outer`](Self::label_outer), also removing the inner tick
+    /// marks when `remove_inner_ticks` is set (matplotlib's
+    /// `label_outer(remove_inner_ticks=True)`).
+    pub fn label_outer_with(&self, remove_inner_ticks: bool) -> &Self {
+        self.label_outer_axis(AxisName::X, remove_inner_ticks);
+        self.label_outer_axis(AxisName::Y, remove_inner_ticks);
         self
     }
 
@@ -276,6 +283,21 @@ mod tests {
         assert_eq!(labels(0, 0), (String::new(), "y".into(), (false, true)));
         assert_eq!(labels(1, 1), ("x".into(), String::new(), (true, false)));
         assert_eq!(labels(0, 1), (String::new(), String::new(), (false, false)));
+    }
+
+    #[test]
+    fn label_outer_can_remove_the_inner_ticks_too() {
+        let fig = Figure::new();
+        let axs = fig.subplots(2, 1).unwrap();
+        let ticks = |row: usize| {
+            axs[(row, 0)]
+                .raw()
+                .with::<AxesState, _>(|state| state.xaxis.major_style.ticks.first)
+        };
+        axs[(0, 0)].label_outer();
+        assert!(ticks(0), "label_outer keeps the tick marks");
+        axs[(0, 0)].label_outer_with(true);
+        assert!(!ticks(0) && ticks(1));
     }
 
     #[test]

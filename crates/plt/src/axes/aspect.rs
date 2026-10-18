@@ -75,19 +75,27 @@ pub(crate) struct AspectState {
 /// room for their extensions (`_ColorbarAxesLocator`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct AxesLocator {
-    /// The part of the original position used, in fractions of it.
-    pub(crate) fraction: Bbox,
+    /// The factors the original width and height are scaled by.
+    pub(crate) shrink: (f64, f64),
+    /// The shift of the scaled box, in fractions of the original width
+    /// and height.
+    pub(crate) offset: (f64, f64),
     /// The box aspect to use instead of the axes' own.
     pub(crate) box_aspect: Option<f64>,
 }
 
 impl AxesLocator {
-    /// `fraction` of `original`, computed like matplotlib's
-    /// `shrunk(...).translated(...)`.
+    /// The part of `original` used, computed exactly as matplotlib's
+    /// `pos.shrunk(sx, sy).translated(ox * pos.width, oy * pos.height)`.
     fn locate(&self, original: &Bbox) -> Bbox {
         let (x0, y0, width, height) = original.bounds();
-        let (fx, fy, fw, fh) = self.fraction.bounds();
-        Bbox::from_bounds(x0 + fx * width, y0 + fy * height, width * fw, height * fh)
+        let (tx, ty) = (self.offset.0 * width, self.offset.1 * height);
+        Bbox::from_extents(
+            x0 + tx,
+            y0 + ty,
+            x0 + self.shrink.0 * width + tx,
+            y0 + self.shrink.1 * height + ty,
+        )
     }
 }
 
@@ -411,6 +419,22 @@ mod tests {
         assert!((x + w / 2.0 - (0.125 + 0.775 / 2.0)).abs() < 1e-12);
         assert_eq!(y, 0.11);
         assert_eq!(ax.original_position().bounds(), (0.125, 0.11, 0.775, 0.77));
+    }
+
+    #[test]
+    fn locators_shrink_and_shift_with_matplotlibs_arithmetic() {
+        // A horizontal colorbar of a 5-inch figure with 5% extensions:
+        // matplotlib's `shrunk(...).translated(...)` puts the extension tip
+        // at 62.49999999999999 pixels, which snapping rounds down.
+        let locator = AxesLocator {
+            shrink: (1.0 / 1.1, 1.0),
+            offset: (0.05 / 1.1, 0.0),
+            box_aspect: None,
+        };
+        let located = locator.locate(&Bbox::from_bounds(0.125, 0.11, 0.775, 0.07));
+        let (x0, width) = (located.x0() * 500.0, located.width() * 500.0);
+        assert_eq!(x0 - 0.05 * width, 62.499_999_999_999_99);
+        assert_eq!(located.y0(), 0.11);
     }
 
     #[test]

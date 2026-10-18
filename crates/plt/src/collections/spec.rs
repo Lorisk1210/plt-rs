@@ -229,6 +229,15 @@ impl CollectionSpec {
         self
     }
 
+    /// The same collection drawn through `transform` instead of the
+    /// axes' data coordinates (matplotlib's `set_transform` before
+    /// `add_collection`, which the data limits then follow).
+    #[must_use]
+    pub fn with_transform(mut self, transform: Transform) -> Self {
+        self.artist.base_mut().transform = Some(transform);
+        self
+    }
+
     /// The same collection with these properties.
     #[must_use]
     pub fn with_props(mut self, props: CollectionProps) -> Self {
@@ -339,6 +348,26 @@ mod tests {
             ax.data_lim().bbox.x1(),
             10.0,
             "offsets count, not the shapes"
+        );
+    }
+
+    #[test]
+    fn a_transform_set_before_adding_decides_the_data_limits() {
+        let fig = crate::figure::Figure::new();
+        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let spiral = vec![vec![Point::new(0.0, 0.0), Point::new(40.0, 30.0)]];
+        let offsets = vec![Point::new(1.0, 2.0), Point::new(3.0, 4.0)];
+        // Shapes in display units at data offsets: only the offsets count,
+        // as for matplotlib's `col.set_transform(...)` before
+        // `add_collection`.
+        let lines = CollectionSpec::lines(spiral)
+            .with_offsets(offsets, ax.trans_data())
+            .with_transform(Transform::Display);
+        ax.add_collection(lines);
+        let limits = ax.data_lim().bbox;
+        assert_eq!(
+            (limits.x0(), limits.y0(), limits.x1(), limits.y1()),
+            (1.0, 2.0, 3.0, 4.0)
         );
     }
 

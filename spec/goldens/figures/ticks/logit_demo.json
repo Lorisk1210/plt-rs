@@ -1,0 +1,90 @@
+{
+ "size_px": [640, 850],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.130816, 0.700327, 0.337448, 0.257314],
+   "title": "logit scale",
+   "xlim": [-11.0, 11.0],
+   "ylim": [1e-05, 0.99999],
+   "xscale": "linear",
+   "yscale": "logit",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-10.0, "−10"], [-5.0, "−5"], [0.0, "0"], [5.0, "5"], [10.0, "10"]],
+   "yticks": [[0.0001, "$\\mathdefault{10^{-4}}$"], [0.01, "$\\mathdefault{10^{-2}}$"], [0.5, "$\\mathdefault{\\frac{1}{2}}$"], [0.99, "$\\mathdefault{1-10^{-2}}$"], [0.9999, "$\\mathdefault{1-10^{-4}}$"]],
+   "legend": ["logistic", "laplacian", "cauchy"]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.625296, 0.700327, 0.337448, 0.257314],
+   "title": "logit scale",
+   "xlim": [0.0, 10.0],
+   "ylim": [0.8, 0.995],
+   "xscale": "linear",
+   "yscale": "logit",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"], [10.0, "10"]],
+   "yticks": [[0.9, "$\\mathdefault{1-10^{-1}}$"], [0.99, "$\\mathdefault{1-10^{-2}}$"]],
+   "legend": ["logistic", "laplacian", "cauchy"]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.130816, 0.372876, 0.337448, 0.257314],
+   "title": "logit scale",
+   "xlim": [-11.0, 11.0],
+   "ylim": [1e-05, 0.99999],
+   "xscale": "linear",
+   "yscale": "logit",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-10.0, "−10"], [-5.0, "−5"], [0.0, "0"], [5.0, "5"], [10.0, "10"]],
+   "yticks": [[0.0001, "$\\mathdefault{10^{-4}}$"], [0.01, "$\\mathdefault{10^{-2}}$"], [0.5, "$\\mathdefault{1/2}$"], [0.99, "$\\mathdefault{\\overline{10^{-2}}}$"], [0.9999, "$\\mathdefault{\\overline{10^{-4}}}$"]],
+   "legend": ["logistic", "laplacian", "cauchy"]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.625296, 0.372876, 0.337448, 0.257314],
+   "title": "logit scale",
+   "xlim": [0.0, 10.0],
+   "ylim": [0.8, 0.995],
+   "xscale": "linear",
+   "yscale": "logit",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"], [10.0, "10"]],
+   "yticks": [[0.9, "$\\mathdefault{\\overline{10^{-1}}}$"], [0.99, "$\\mathdefault{\\overline{10^{-2}}}$"]],
+   "legend": ["logistic", "laplacian", "cauchy"]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.130816, 0.045425, 0.337448, 0.257314],
+   "title": "linear scale",
+   "xlim": [-11.0, 11.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-10.0, "−10"], [-5.0, "−5"], [0.0, "0"], [5.0, "5"], [10.0, "10"]],
+   "yticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"]],
+   "legend": ["logistic", "laplacian", "cauchy"]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.625296, 0.045425, 0.337448, 0.257314],
+   "title": "linear scale",
+   "xlim": [0.0, 10.0],
+   "ylim": [0.8, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"], [10.0, "10"]],
+   "yticks": [[0.8, "0.80"], [0.85, "0.85"], [0.9, "0.90"], [0.95, "0.95"], [1.0, "1.00"]],
+   "legend": ["logistic", "laplacian", "cauchy"]
+  }
+ ]
+}

@@ -1,7 +1,8 @@
 //! `figures/cases_colorbar.py`: colorbar placement (orientation,
 //! location, shrink/aspect/pad/fraction, `cax`, several parents),
 //! extensions, ticks/format/label, discrete and non-linear norms, edges,
-//! contour lines, constrained layout and following the mappable.
+//! contour lines, constrained layout and following the mappable; and
+//! `figures/cases_colorbar_ext.py` (see [`suite`]).
 
 mod constrained;
 mod contours;
@@ -10,6 +11,7 @@ mod extensions;
 mod follow;
 mod norms;
 mod placement;
+mod suite;
 mod ticks;
 
 use crate::figures::{CaseResult, FigureCase};
@@ -79,4 +81,38 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 4.0, 100.0),
     wide("colorbar/follows_set_clim", follow::follows_set_clim),
     wide("colorbar/follows_norm_change", follow::follows_norm_change),
+    FigureCase::new(
+        "colorbar/extension_length_uniform",
+        suite::extension_length_uniform,
+    ),
+    FigureCase::new(
+        "colorbar/extension_length_proportional",
+        suite::extension_length_proportional,
+    ),
+    FigureCase::new("colorbar/extension_shape_rect", suite::extension_shape_rect),
+    FigureCase::new(
+        "colorbar/drawedges_with_extensions",
+        suite::drawedges_with_extensions,
+    )
+    .sized(5.0, 4.0, 100.0),
+    FigureCase::new(
+        "colorbar/boundaries_values_irregular",
+        suite::boundaries_values_irregular,
+    )
+    .sized(6.0, 3.5, 100.0),
+    FigureCase::new(
+        "colorbar/lognorm_extend_minor_custom_ticks",
+        suite::lognorm_extend_minor_custom_ticks,
+    )
+    .sized(6.0, 3.5, 100.0),
+    FigureCase::new(
+        "colorbar/power_symlog_centered_norms",
+        suite::power_symlog_centered_norms,
+    )
+    .sized(8.0, 3.0, 100.0),
+    FigureCase::new(
+        "colorbar/anchor_panchor_ticklocation",
+        suite::anchor_panchor_ticklocation,
+    )
+    .sized(6.0, 4.0, 100.0),
 ];

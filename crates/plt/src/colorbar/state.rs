@@ -41,6 +41,8 @@ pub(crate) struct Drawn {
     pub(crate) outline: Option<ArtistId>,
     pub(crate) extensions: Vec<ArtistId>,
     pub(crate) solids: Option<ArtistId>,
+    /// The hatched blocks drawn instead of `solids` for hatched contours.
+    pub(crate) solids_patches: Vec<ArtistId>,
     pub(crate) dividers: Option<ArtistId>,
     pub(crate) lines: Vec<ArtistId>,
 }

@@ -26,6 +26,8 @@ pub(super) enum KeyAction {
     Save,
     /// Close the window (`keymap.quit`).
     Quit,
+    /// Close every figure window (`keymap.quit_all`).
+    QuitAll,
     /// Cycle the major grids of the axes under the pointer
     /// (`keymap.grid`).
     Grid,
@@ -94,6 +96,7 @@ pub(super) fn action(name: &str, rc: &RcParams) -> Option<KeyAction> {
         (&rc.keymap_zoom, KeyAction::Zoom),
         (&rc.keymap_save, KeyAction::Save),
         (&rc.keymap_quit, KeyAction::Quit),
+        (&rc.keymap_quit_all, KeyAction::QuitAll),
         (&rc.keymap_grid, KeyAction::Grid),
         (&rc.keymap_grid_minor, KeyAction::GridMinor),
         (&rc.keymap_yscale, KeyAction::LogY),

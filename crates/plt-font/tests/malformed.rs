@@ -7,7 +7,8 @@ use std::path::PathBuf;
 
 use common::font_bytes;
 use plt_font::{
-    Face, FontChain, GlyphId, OutlineRecorder, ShapeOptions, Size, face_count, shape, subset,
+    Face, FontChain, GlyphId, Hinting, HintingInstance, OutlineRecorder, ShapeOptions, Size,
+    face_count, shape, subset,
 };
 
 /// `SplitMix64`, for deterministic corruption positions.
@@ -48,12 +49,16 @@ fn exercise(data: &[u8]) {
             face.mappings().len(),
         );
         let size = Size::new(&face, 12.0, 72.0);
+        let hinting = HintingInstance::new(&face, &size);
         let glyphs = u32::from(face.num_glyphs());
         for glyph in (0..glyphs.min(40)).chain((0..glyphs).step_by(97)) {
             let glyph = GlyphId(glyph as u16);
             let mut sink = OutlineRecorder::default();
             let _ = face.outline(glyph, &mut sink);
             let _ = size.glyph_cbox(&face, glyph);
+            if let Ok(hinted) = hinting.load_glyph(&face, glyph) {
+                hinted.outline(&mut sink);
+            }
             let _ = (
                 face.glyph_name(glyph),
                 face.glyph_advance(glyph),
@@ -63,7 +68,10 @@ fn exercise(data: &[u8]) {
         let _ = face.glyph_index_by_name("A");
         let text = "AVATAR office fi éx\u{301} αβγ \u{2212}1";
         let _ = shape(&face, text);
-        let _ = FontChain::new(vec![face]).layout(text, 10.0, 100.0, &ShapeOptions::default());
+        let chain = FontChain::new(vec![face]);
+        for hinting in [Hinting::None, Hinting::Default] {
+            let _ = chain.layout(text, 10.0, 100.0, &ShapeOptions::default(), hinting);
+        }
     }
 }
 

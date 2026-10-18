@@ -91,7 +91,12 @@ fn tiling(
 
 /// Replaces each run of tiles by enough copies to span the preceding
 /// letters of its word (the buffer is in visual order).
-pub(super) fn apply(face: &Face<'_>, scaler: &Scaler, direction: Direction, buffer: &mut Buffer) {
+pub(super) fn apply(
+    face: &Face<'_>,
+    scaler: &Scaler<'_>,
+    direction: Direction,
+    buffer: &mut Buffer,
+) {
     if !buffer.info.iter().any(is_tile) {
         return;
     }

@@ -108,7 +108,7 @@ impl ArabicPlan {
         pause: Pause,
         face: &Face<'_>,
         map: &Map<Pause>,
-        scaler: &Scaler,
+        scaler: &Scaler<'_>,
         direction: Direction,
         buffer: &mut Buffer,
     ) {
@@ -134,7 +134,7 @@ impl ArabicPlan {
 /// Post-processing after positioning: stretches `stch` tiles.
 pub(crate) fn postprocess(
     face: &Face<'_>,
-    scaler: &Scaler,
+    scaler: &Scaler<'_>,
     direction: Direction,
     buffer: &mut Buffer,
 ) {

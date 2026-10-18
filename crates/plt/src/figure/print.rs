@@ -274,11 +274,15 @@ impl Figure {
         options: &SaveOptions,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
     ) -> Result<R, SaveError> {
-        let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
-        let mut renderer = make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
-        self.draw_mixed(&mut renderer, page)?;
-        drop(saving);
-        Ok(renderer)
+        // matplotlib's vector backends lay text out unhinted.
+        crate::text::without_hinting(|| {
+            let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
+            let mut renderer =
+                make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
+            self.draw_mixed(&mut renderer, page)?;
+            drop(saving);
+            Ok(renderer)
+        })
     }
 
     /// Draws the figure as one more page of a PDF document, as
@@ -289,13 +293,15 @@ impl Figure {
         options: &SaveOptions,
         document: &mut PdfRenderer,
     ) -> Result<(), SaveError> {
-        let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
-        document
-            .new_page(page.width, page.height, page.dpi)
-            .map_err(SaveError::Vector)?;
-        self.draw_mixed(document, page)?;
-        drop(saving);
-        Ok(())
+        crate::text::without_hinting(|| {
+            let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
+            document
+                .new_page(page.width, page.height, page.dpi)
+                .map_err(SaveError::Vector)?;
+            self.draw_mixed(document, page)?;
+            drop(saving);
+            Ok(())
+        })
     }
 
     /// Draws the prepared figure into the vector `renderer` of `page`,

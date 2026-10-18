@@ -46,13 +46,10 @@ pub(crate) fn fallback_width(c: char) -> Option<SpaceWidth> {
 pub(crate) fn advance(
     width: SpaceWidth,
     face: &Face<'_>,
-    scaler: &Scaler,
+    scaler: &Scaler<'_>,
     space_advance: i32,
 ) -> i32 {
-    let em = match scaler {
-        Scaler::Units => i64::from(face.units_per_em()),
-        Scaler::Pixels(size) => size.hb_scales().0,
-    };
+    let em = scaler.em(face).0;
     let glyph_advance = |chars: &[char]| {
         chars
             .iter()

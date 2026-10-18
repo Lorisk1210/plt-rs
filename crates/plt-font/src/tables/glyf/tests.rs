@@ -3,6 +3,11 @@ use crate::outline::OutlinePoint;
 
 /// Encodes a simple glyph with uncompressed coordinates.
 pub(crate) fn simple_glyph(contours: &[&[(i16, i16, bool)]]) -> Vec<u8> {
+    instructed_glyph(contours, &[])
+}
+
+/// Encodes a simple glyph with uncompressed coordinates and a program.
+pub(crate) fn instructed_glyph(contours: &[&[(i16, i16, bool)]], instructions: &[u8]) -> Vec<u8> {
     let points: Vec<_> = contours.iter().flat_map(|c| c.iter().copied()).collect();
     let mut out = (contours.len() as i16).to_be_bytes().to_vec();
     let xs = points.iter().map(|p| p.0);
@@ -15,7 +20,8 @@ pub(crate) fn simple_glyph(contours: &[&[(i16, i16, bool)]]) -> Vec<u8> {
         end += contour.len() as u16;
         out.extend_from_slice(&(end - 1).to_be_bytes());
     }
-    out.extend_from_slice(&[0, 0]);
+    out.extend_from_slice(&(instructions.len() as u16).to_be_bytes());
+    out.extend_from_slice(instructions);
     out.extend(points.iter().map(|p| u8::from(p.2)));
     let mut previous = (0i16, 0i16);
     let mut ys = Vec::new();
@@ -109,7 +115,8 @@ fn compressed_flags_and_coordinates() {
     assert_eq!(xy, vec![(5.0, 5.0), (10.0, 10.0), (10.0, 7.0)]);
 }
 
-fn composite(components: &[(u16, u16, &[u8])]) -> Vec<u8> {
+/// Encodes a composite glyph from `(flags, glyph, arguments)` components.
+pub(crate) fn composite(components: &[(u16, u16, &[u8])]) -> Vec<u8> {
     let mut out = vec![0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0];
     for (index, (flags, glyph, args)) in components.iter().enumerate() {
         let more = if index + 1 < components.len() {

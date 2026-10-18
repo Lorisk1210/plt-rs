@@ -7,6 +7,7 @@ mod colorbar;
 mod contour;
 mod fields;
 mod geo;
+mod hinting;
 mod hist;
 mod images;
 mod layout;
@@ -46,6 +47,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         fields::QUIVER,
         fields::STREAMPLOT,
         geo::CASES,
+        hinting::CASES,
         hist::CASES,
         images::CASES,
         layout::CONSTRAINED,

@@ -3,6 +3,7 @@
 
 use crate::error::Result;
 use crate::face::Face;
+use crate::hinting::{HintedFace, Hinting};
 use crate::scale::{Scaler, Size};
 use crate::shape::{ShapeOptions, shape_text};
 use crate::types::{GlyphId, Rect};
@@ -58,15 +59,17 @@ impl<'a> FontChain<'a> {
     }
 
     /// Lays out one line of `text` at `points` / `dpi` like matplotlib's
-    /// `FT2Font.set_text(text, 0, LoadFlags.NO_HINTING)`: runs split by
-    /// bidi level, script and font are shaped separately and placed one
-    /// after the other in visual order.
+    /// `FT2Font.set_text(text, 0, flags)` with the load flags of `hinting`:
+    /// runs split by bidi level, script and font are shaped separately and
+    /// placed one after the other in visual order. Faces `hinting` loads
+    /// with bytecode get hinted advances and extents.
     pub fn layout(
         &self,
         text: &str,
         points: f64,
         dpi: f64,
         options: &ShapeOptions,
+        hinting: Hinting,
     ) -> Result<TextLayout> {
         let mut layout = TextLayout::default();
         if self.faces.is_empty() {
@@ -77,24 +80,38 @@ impl<'a> FontChain<'a> {
             .iter()
             .map(|face| Size::new(face, points, dpi))
             .collect();
+        let hinted: Vec<Option<HintedFace<'_, 'a>>> = self
+            .faces
+            .iter()
+            .zip(&sizes)
+            .map(|(face, size)| {
+                hinting
+                    .uses_bytecode(face, true)
+                    .then(|| HintedFace::new(face, size))
+            })
+            .collect();
         let text: Vec<(usize, char)> = text.char_indices().collect();
         let assignment = self.assign_faces(&text, options);
-        let pixels = |face: usize| Scaler::Pixels(sizes[face]);
+        let scaler = |face: usize| match &hinted[face] {
+            Some(hinted) => Scaler::Hinted(sizes[face], hinted),
+            None => Scaler::Pixels(sizes[face]),
+        };
         let mut bbox: Option<Rect> = None;
         let mut pen = 0i32;
-        for (face_index, glyph) in shape_text(&text, &self.faces, &assignment, options, &pixels) {
-            let (face, size) = (&self.faces[face_index], &sizes[face_index]);
+        for (face_index, glyph) in shape_text(&text, &self.faces, &assignment, options, &scaler) {
             // Positions saturate rather than overflow for absurdly long or
             // large text (FreeType's pen is 64-bit).
             let (x, y) = (pen.saturating_add(glyph.x_offset), glyph.y_offset);
-            let cbox = size
-                .glyph_cbox(face, glyph.glyph_id)?
-                .map_or(Rect::default(), |r| Rect {
-                    x_min: r.x_min.saturating_add(x),
-                    y_min: r.y_min.saturating_add(y),
-                    x_max: r.x_max.saturating_add(x),
-                    y_max: r.y_max.saturating_add(y),
-                });
+            let cbox = match &hinted[face_index] {
+                Some(hinted) => hinted.control_box(glyph.glyph_id)?,
+                None => sizes[face_index].glyph_cbox(&self.faces[face_index], glyph.glyph_id)?,
+            }
+            .map_or(Rect::default(), |r| Rect {
+                x_min: r.x_min.saturating_add(x),
+                y_min: r.y_min.saturating_add(y),
+                x_max: r.x_max.saturating_add(x),
+                y_max: r.y_max.saturating_add(y),
+            });
             bbox = Some(bbox.map_or(cbox, |b| union(b, cbox)));
             layout.glyphs.push(LaidOutGlyph {
                 face: face_index,

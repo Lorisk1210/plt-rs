@@ -8,7 +8,7 @@ use crate::outline::{Midpoint, Outline, OutlineSink};
 use crate::tables::cmap::{CharmapInfo, Cmap};
 use crate::tables::directory::{SfntFlavor, TableDirectory};
 use crate::tables::glyf::{Glyf, Scaling};
-use crate::tables::head::{Head, Hhea, parse_num_glyphs};
+use crate::tables::head::{Head, Hhea, MaxProfile};
 use crate::tables::hmtx::Hmtx;
 use crate::tables::kern::Kern;
 use crate::tables::name::{Name, NameKey, id};
@@ -44,7 +44,7 @@ pub struct Face<'a> {
     directory: TableDirectory<'a>,
     head: Head,
     hhea: Hhea,
-    num_glyphs: u16,
+    maxp: MaxProfile,
     hmtx: Hmtx<'a>,
     cmap: Cmap<'a>,
     charmap: Option<usize>,
@@ -74,11 +74,11 @@ impl<'a> Face<'a> {
         let directory = TableDirectory::parse(data, index)?;
         let head = Head::parse(directory.required(Tag::new(b"head"))?)?;
         let hhea = Hhea::parse(directory.required(Tag::new(b"hhea"))?)?;
-        let num_glyphs = parse_num_glyphs(directory.required(Tag::new(b"maxp"))?)?;
+        let maxp = MaxProfile::parse(directory.required(Tag::new(b"maxp"))?)?;
         let hmtx = Hmtx::parse(
             directory.required(Tag::new(b"hmtx"))?,
             hhea.number_of_h_metrics,
-            num_glyphs,
+            maxp.num_glyphs,
         )?;
         let cmap = match directory.table(Tag::new(b"cmap")) {
             Some(table) => Cmap::parse(table)?,
@@ -90,7 +90,7 @@ impl<'a> Face<'a> {
             index,
             head,
             hhea,
-            num_glyphs,
+            maxp,
             hmtx,
             charmap: cmap.default_index(),
             cmap,
@@ -238,7 +238,7 @@ impl<'a> Face<'a> {
 
     /// Number of glyphs.
     pub const fn num_glyphs(&self) -> u16 {
-        self.num_glyphs
+        self.maxp.num_glyphs
     }
 
     /// All usable character maps, in file order.
@@ -300,8 +300,47 @@ impl<'a> Face<'a> {
         self.hmtx.left_side_bearing(glyph)
     }
 
-    fn check_glyph(&self, glyph: GlyphId) -> Result<()> {
-        if glyph.0 >= self.num_glyphs {
+    /// The `maxp` values, including the bytecode interpreter's limits.
+    pub(crate) const fn max_profile(&self) -> &MaxProfile {
+        &self.maxp
+    }
+
+    /// The TrueType outlines (`loca` + `glyf`), if the face has them.
+    pub(crate) const fn glyf(&self) -> Option<&Glyf<'a>> {
+        match &self.outlines {
+            Outlines::TrueType(glyf) => Some(glyf),
+            Outlines::Cff(_) | Outlines::None => None,
+        }
+    }
+
+    /// Top side bearing and advance height of `glyph` in font units, from
+    /// `vmtx` or, without one, derived from the typographic ascender and
+    /// descender and the glyph's top `y_max` (FreeType's
+    /// `TT_Get_VMetrics`).
+    pub(crate) fn glyph_vertical_metrics(&self, glyph: GlyphId, y_max: i32) -> (i16, u16) {
+        let vmtx = self.table(Tag::new(b"vhea")).and_then(|vhea| {
+            let long_count = Hhea::parse(vhea).ok()?.number_of_h_metrics;
+            let vmtx = self.table(Tag::new(b"vmtx"))?;
+            Hmtx::parse(vmtx, long_count, self.maxp.num_glyphs).ok()
+        });
+        if let Some(vmtx) = vmtx {
+            return (vmtx.left_side_bearing(glyph), vmtx.advance(glyph));
+        }
+        let (ascender, descender) = self
+            .os2
+            .as_ref()
+            .map_or((self.hhea.ascender, self.hhea.descender), |os2| {
+                (os2.typo_ascender, os2.typo_descender)
+            });
+        let ascender = i32::from(ascender);
+        (
+            (ascender - y_max) as i16,
+            (ascender - i32::from(descender)).unsigned_abs() as u16,
+        )
+    }
+
+    pub(crate) fn check_glyph(&self, glyph: GlyphId) -> Result<()> {
+        if glyph.0 >= self.maxp.num_glyphs {
             return Err(FontError::malformed(
                 Tag::new(b"maxp"),
                 "glyph id beyond glyph count",
@@ -390,7 +429,7 @@ impl<'a> Face<'a> {
     /// Glyph with PostScript name `name` (FreeType's `FT_Get_Name_Index`).
     pub fn glyph_index_by_name(&self, name: &str) -> Option<GlyphId> {
         match &self.outlines {
-            Outlines::Cff(_) => (0..self.num_glyphs)
+            Outlines::Cff(_) => (0..self.maxp.num_glyphs)
                 .map(GlyphId)
                 .find(|&glyph| self.glyph_name(glyph) == Some(name)),
             _ => self.post.as_ref()?.glyph_by_name(name),

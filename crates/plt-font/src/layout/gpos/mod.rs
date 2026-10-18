@@ -50,7 +50,7 @@ fn value_size(format: u16) -> usize {
 
 impl Value<'_> {
     /// Adds the value to `pos` (horizontal layout: `YAdvance` is ignored).
-    fn apply(&self, scaler: &Scaler, pos: &mut GlyphPos) {
+    fn apply(&self, scaler: &Scaler<'_>, pos: &mut GlyphPos) {
         let mut fields = self
             .record
             .as_chunks::<2>()

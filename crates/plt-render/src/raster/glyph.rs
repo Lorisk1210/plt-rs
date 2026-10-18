@@ -73,6 +73,14 @@ impl GlyphTransform {
     }
 }
 
+/// Whether the glyph matrix matplotlib sets for `angle` degrees is, in
+/// `FreeType`'s eyes, a rotation by a multiple of 90 degrees (`yx` zero
+/// with `xx` not, or the reverse): the only transforms it autohints.
+pub(super) fn is_axis_aligned(angle: f64) -> bool {
+    let transform = GlyphTransform::new(angle, Point::ORIGIN);
+    (transform.yx == 0 && transform.xx != 0) || (transform.xx == 0 && transform.yx != 0)
+}
+
 /// `LEFT_SHIFT`: a shift of the two's complement bits.
 fn left_shift(a: i64, b: u32) -> i64 {
     ((a as u64) << b) as i64
@@ -231,6 +239,16 @@ mod tests {
 
     fn conic(p0: Point, c: Point, p2: Point) -> Path {
         Path::builder().move_to(p0).quad_to(c, p2).build()
+    }
+
+    #[test]
+    fn quarter_turns_are_axis_aligned() {
+        for angle in [0.0, 90.0, 180.0, 270.0, -90.0, 360.0] {
+            assert!(is_axis_aligned(angle), "{angle}");
+        }
+        for angle in [30.0, 45.0, 135.0, 89.0] {
+            assert!(!is_axis_aligned(angle), "{angle}");
+        }
     }
 
     #[test]

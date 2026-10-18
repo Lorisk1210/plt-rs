@@ -7,7 +7,7 @@ mod common;
 
 use common::{Json, fixture, font_bytes};
 use plt_font::{
-    Direction, Face, Feature, FontChain, ShapeOptions, Size, shape_at_size, shape_with,
+    Direction, Face, Feature, FontChain, Hinting, ShapeOptions, Size, shape_at_size, shape_with,
 };
 
 const LAST_RESORT: &str = "LastResortHE-Regular.ttf";
@@ -30,7 +30,9 @@ fn check_case(chain: &FontChain<'_>, names: &[&str], case: &Json, summary: &mut 
         ..ShapeOptions::default()
     };
     let (size, dpi) = (case.get("size").as_f64(), case.get("dpi").as_f64());
-    let layout = chain.layout(text, size, dpi, &options).expect("layout");
+    let layout = chain
+        .layout(text, size, dpi, &options, Hinting::None)
+        .expect("layout");
     let label = format!(
         "{} {size}/{dpi} {text:?} {:?}",
         names[0],
@@ -143,7 +145,7 @@ fn synthetic_arabic_fonts_match_matplotlib() {
             let text = case.get("text").as_str();
             let (size, dpi) = (case.get("size").as_f64(), case.get("dpi").as_f64());
             let layout = chain
-                .layout(text, size, dpi, &ShapeOptions::default())
+                .layout(text, size, dpi, &ShapeOptions::default(), Hinting::None)
                 .expect("layout");
             let glyphs: Vec<Vec<i64>> = layout
                 .glyphs
@@ -180,7 +182,7 @@ fn arabic_and_mixed_text_in_visual_order() {
     let chain = FontChain::new(vec![Face::parse(&data, 0).unwrap()]);
     let placed = |text: &str| {
         let layout = chain
-            .layout(text, 12.0, 72.0, &ShapeOptions::default())
+            .layout(text, 12.0, 72.0, &ShapeOptions::default(), Hinting::None)
             .unwrap();
         let glyphs: Vec<(u16, i32)> = layout.glyphs.iter().map(|g| (g.glyph_id.0, g.x)).collect();
         (glyphs, layout.width)

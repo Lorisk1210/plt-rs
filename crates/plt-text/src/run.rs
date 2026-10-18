@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 
 use plt_core::{Affine2D, Bbox, Path, Point};
-use plt_font::{FontId, GlyphId};
+use plt_font::{FontId, GlyphId, Hinting};
 
 use crate::block::{HAlign, RotationMode};
 use crate::engine::{FontRequest, TextEngine};
@@ -96,8 +96,9 @@ impl TextSource {
         self.font().query.size
     }
 
-    /// Lays the text out again at `points` and `dpi` (with `points` 100
-    /// and `dpi` 72 this is matplotlib's `TextToPath`).
+    /// Lays the text out again, unhinted, at `points` and `dpi` (with
+    /// `points` 100 and `dpi` 72 this is matplotlib's `TextToPath`, which
+    /// vector backends and path effects use).
     ///
     /// # Errors
     ///
@@ -109,10 +110,12 @@ impl TextSource {
             Self::Plain { text, font } => {
                 let mut font = font.clone();
                 font.query.size = points;
+                font.hinting = Hinting::None;
                 engine.layout_line(text, &font, dpi)
             }
             Self::Math { text, style } => {
-                let style = style.clone().with_size(points).with_dpi(dpi);
+                let mut style = style.clone().with_size(points).with_dpi(dpi);
+                style.font.hinting = Hinting::None;
                 engine.layout_math(text, &style)
             }
         }

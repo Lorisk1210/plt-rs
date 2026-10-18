@@ -9,6 +9,7 @@
 use crate::error::Result;
 use crate::face::Face;
 use crate::fixed::{div_fix, mul_div, mul_fix, pix_round};
+use crate::hinting::HintedFace;
 use crate::outline::{Midpoint, OutlineSink};
 use crate::tables::glyf::Scaling;
 use crate::types::{GlyphId, Rect};
@@ -22,6 +23,7 @@ pub struct Size {
     x_ppem: u16,
     y_ppem: u16,
     units_per_em: u16,
+    resolution: u32,
 }
 
 /// How `FT_Get_Kerning` scales a kerning value.
@@ -45,24 +47,34 @@ impl Size {
     /// `FT_Set_Char_Size(face, char_size, 0, dpi, dpi)` with `char_size` in
     /// 26.6 points.
     ///
-    /// FreeType keeps pixels per em in 16 bits; larger requests are clamped
-    /// to 65 535 pixels per em, which keeps every later fixed-point product
-    /// within 64 bits.
+    /// FreeType keeps pixels per em in 16 bits (and at least one); larger
+    /// requests are clamped to 65 535 pixels per em, which keeps every
+    /// later fixed-point product within 64 bits.
     pub fn from_char_size(face: &Face<'_>, char_size: i64, dpi: u32) -> Self {
         const MAX_SCALED: i64 = (u16::MAX as i64) << 6;
         let char_size = char_size.max(64);
-        let dpi = if dpi == 0 { 72 } else { i64::from(dpi) };
-        let scaled = (char_size.saturating_mul(dpi).saturating_add(36) / 72).min(MAX_SCALED);
+        let resolution = if dpi == 0 { 72 } else { dpi };
+        let scaled = (char_size
+            .saturating_mul(i64::from(resolution))
+            .saturating_add(36)
+            / 72)
+            .min(MAX_SCALED);
         let units_per_em = face.units_per_em();
         let scale = div_fix(scaled, i64::from(units_per_em));
-        let ppem = u16::try_from((scaled + 32) >> 6).unwrap_or(u16::MAX);
+        let ppem = u16::try_from((scaled + 32) >> 6).map_or(u16::MAX, |ppem| ppem.max(1));
         Self {
             x_scale: scale,
             y_scale: scale,
             x_ppem: ppem,
             y_ppem: ppem,
             units_per_em,
+            resolution,
         }
+    }
+
+    /// The device resolution in dots per inch (72 when none was given).
+    pub const fn resolution(&self) -> u32 {
+        self.resolution
     }
 
     /// Horizontal scale from font units to 26.6 pixels, as 16.16.
@@ -220,7 +232,7 @@ impl Size {
 }
 
 /// Divides 26.6 coordinates by 64 on their way to a sink.
-struct PixelSink<'s, S: OutlineSink>(&'s mut S);
+pub(crate) struct PixelSink<'s, S: OutlineSink>(pub(crate) &'s mut S);
 
 impl<S: OutlineSink> OutlineSink for PixelSink<'_, S> {
     fn move_to(&mut self, x: f32, y: f32) {
@@ -247,47 +259,63 @@ impl<S: OutlineSink> OutlineSink for PixelSink<'_, S> {
     }
 }
 
-/// Value scaling used while shaping: raw font units, or HarfBuzz's 26.6
-/// pixel arithmetic at a [`Size`].
+/// Value scaling used while shaping: raw font units, HarfBuzz's 26.6 pixel
+/// arithmetic at a [`Size`], or that arithmetic with the hinted advances
+/// and extents HarfBuzz reads from FreeType under hinting load flags
+/// (`GPOS` values still scale unhinted).
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum Scaler {
+pub(crate) enum Scaler<'h> {
     Units,
     Pixels(Size),
+    Hinted(Size, &'h HintedFace<'h, 'h>),
 }
 
-impl Scaler {
+impl Scaler<'_> {
+    const fn size(&self) -> Option<&Size> {
+        match self {
+            Self::Units => None,
+            Self::Pixels(size) | Self::Hinted(size, _) => Some(size),
+        }
+    }
+
     pub(crate) fn advance(&self, face: &Face<'_>, glyph: GlyphId) -> i32 {
         match self {
             Self::Units => i32::from(face.glyph_advance(glyph)),
             Self::Pixels(size) => size.advance(face, glyph),
+            Self::Hinted(_, hinted) => hinted.advance(glyph),
         }
+    }
+
+    /// The glyph's ink box as HarfBuzz's glyph extents report it.
+    pub(crate) fn extents(&self, face: &Face<'_>, glyph: GlyphId) -> Result<Option<Rect>> {
+        match self {
+            Self::Units => face.glyph_bbox(glyph),
+            Self::Pixels(size) => size.glyph_cbox(face, glyph),
+            Self::Hinted(_, hinted) => hinted.extents(glyph),
+        }
+    }
+
+    /// The em size per axis: font units, or HarfBuzz's font scales.
+    pub(crate) fn em(&self, face: &Face<'_>) -> (i64, i64) {
+        let units = i64::from(face.units_per_em());
+        self.size().map_or((units, units), Size::hb_scales)
     }
 
     pub(crate) fn x(&self, value: i32) -> i32 {
-        match self {
-            Self::Units => value,
-            Self::Pixels(size) => size.em_scale_x(value),
-        }
+        self.size().map_or(value, |size| size.em_scale_x(value))
     }
 
     pub(crate) fn y(&self, value: i32) -> i32 {
-        match self {
-            Self::Units => value,
-            Self::Pixels(size) => size.em_scale_y(value),
-        }
+        self.size().map_or(value, |size| size.em_scale_y(value))
     }
 
     pub(crate) fn fx(&self, value: i32) -> f32 {
-        match self {
-            Self::Units => value as f32,
-            Self::Pixels(size) => size.em_fscale_x(value),
-        }
+        self.size()
+            .map_or(value as f32, |size| size.em_fscale_x(value))
     }
 
     pub(crate) fn fy(&self, value: i32) -> f32 {
-        match self {
-            Self::Units => value as f32,
-            Self::Pixels(size) => size.em_fscale_y(value),
-        }
+        self.size()
+            .map_or(value as f32, |size| size.em_fscale_y(value))
     }
 }

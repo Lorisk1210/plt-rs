@@ -4,6 +4,7 @@ use std::fmt;
 use std::io;
 use std::path::PathBuf;
 
+use crate::hinting::{BytecodeError, BytecodeProgram};
 use crate::types::Tag;
 
 /// Pseudo-tag used for errors in the font file header / table directory.
@@ -58,6 +59,14 @@ pub enum FontError {
     NoMatchingFont(String),
     /// A font id that does not belong to the database.
     UnknownFont(usize),
+    /// The font or control value program of a TrueType font failed, so
+    /// FreeType refuses to load its glyphs hinted.
+    Bytecode {
+        /// The program that failed.
+        program: BytecodeProgram,
+        /// Why it stopped.
+        error: BytecodeError,
+    },
 }
 
 impl FontError {
@@ -88,6 +97,7 @@ impl fmt::Display for FontError {
             Self::Io { path, kind } => write!(f, "cannot read {}: {kind}", path.display()),
             Self::NoMatchingFont(query) => write!(f, "no font matches {query}"),
             Self::UnknownFont(id) => write!(f, "unknown font id {id}"),
+            Self::Bytecode { program, error } => write!(f, "the {program} failed: {error}"),
         }
     }
 }
@@ -109,5 +119,10 @@ mod tests {
         assert!(err.to_string().contains("cmap"));
         let err = FontError::FaceIndexOutOfRange { index: 3, count: 2 };
         assert!(err.to_string().contains('3'));
+        let err = FontError::Bytecode {
+            program: BytecodeProgram::ControlValue,
+            error: BytecodeError::StackOverflow,
+        };
+        assert!(err.to_string().contains("prep"));
     }
 }

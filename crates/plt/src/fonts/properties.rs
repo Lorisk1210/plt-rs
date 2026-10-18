@@ -165,7 +165,9 @@ impl FontProperties {
     }
 
     /// The font request used to pick font files, resolving generic family
-    /// names through the `font.serif`, `font.sans-serif`, ... lists of `rc`.
+    /// names through the `font.serif`, `font.sans-serif`, ... lists of `rc`,
+    /// with the hinting text is laid out with (`text.hinting` unless a
+    /// vector backend draws).
     pub fn request(&self, rc: &RcParams) -> plt_text::FontRequest {
         let mut query = plt_text::FontQuery::families(self.families.iter().cloned());
         query.style = self.style;
@@ -183,6 +185,7 @@ impl FontProperties {
                 monospace: rc.font_monospace.clone(),
             },
             last_resort: rc.font_enable_last_resort,
+            hinting: crate::text::hinting(rc),
         }
     }
 }

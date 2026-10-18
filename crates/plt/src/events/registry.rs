@@ -98,6 +98,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn drawing_the_figure_sends_a_draw_event() {
+        let fig = Figure::with_size(2.0, 1.0, 50.0);
+        fig.subplot();
+        let draws = Rc::new(Cell::new(0));
+        let seen = Rc::clone(&draws);
+        let redraw = fig.clone();
+        fig.connect(EventKind::Draw, move |event| {
+            assert_eq!(event, &Event::Draw);
+            seen.set(seen.get() + 1);
+            // A callback that draws again does not recurse into itself.
+            let mut canvas = redraw.raster_canvas().expect("a canvas");
+            redraw.draw(&mut canvas).expect("drawable");
+        });
+        fig.to_png().expect("saved");
+        assert_eq!(draws.get(), 1);
+    }
+
+    #[test]
     fn callbacks_run_by_kind_until_disconnected() {
         let fig = Figure::new();
         let count = Rc::new(Cell::new(0));

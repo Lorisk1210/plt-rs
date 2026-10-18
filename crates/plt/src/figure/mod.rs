@@ -33,6 +33,7 @@ pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes};
 
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState, PlotError};
+use crate::events::Event;
 use crate::fonts::FontProperties;
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
 use crate::lines::{Line2D, LineArtist, LineProps};
@@ -339,16 +340,20 @@ impl Figure {
             .collect()
     }
 
-    /// Renders the figure through `renderer`.
+    /// Renders the figure through `renderer`, then sends [`Event::Draw`]
+    /// to the figure's callbacks (matplotlib's `draw_event`).
     ///
     /// Everything drawable is drawn; artists with invalid properties (for
     /// example an unknown colour name) are skipped and reported.
     pub fn draw(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
         self.layout();
         let errors = self.state.borrow().draw(renderer);
-        let mut state = self.state.borrow_mut();
-        state.stale = false;
-        state.pending_errors.clear();
+        {
+            let mut state = self.state.borrow_mut();
+            state.stale = false;
+            state.pending_errors.clear();
+        }
+        self.process_event(&Event::Draw);
         if errors.is_empty() {
             Ok(())
         } else {

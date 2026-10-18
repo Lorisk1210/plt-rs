@@ -52,10 +52,14 @@ SKIP = {"backend", "path.effects"}
 
 COLORS = ["red", "#ff0000", "ff0000", "FF000080", "0.5", "1.5", "C3", "C12", "none", "None",
           "(1, 0, 0)", "(1, 0, 0, 0.5)", "(1, 0)", "tab:blue", "xkcd:sky blue", "abc", "#abc",
-          "#abcd", "auto", "inherit", "", "Red", "k"]
+          "#abcd", "auto", "inherit", "", "Red", "k",
+          # From matplotlib's test_rcparams.py.
+          "AABBCC00", "tab:veryblue", "(0, 1, 0, 1, 0)", "(0, 1, none)", '(0, 1, "0.5")',
+          "1, 0, 0"]
 LINESTYLES = ["-", "--", "-.", ":", "solid", "dashed", "dashdot", "dotted", "Dashed", "None",
               "none", " ", "", "(0, (4, 2))", "(1.5, (1, 2, 3, 4))", "(0, [4, 2])", "(0, ())",
-              "(0, None)", "bogus", "[4, 2]", "4, 2"]
+              "(0, None)", "bogus", "[4, 2]", "4, 2", "DoTtEd", "1, 3", "1, 2, 3",
+              '("a", [1, 2])', "(1, [1, 2, 3])", "([1, 2], 1)", "(-1, [1, 2])"]
 FONTSIZES = ["12", "12.5", "large", "x-small", "xx-large", "smaller", "larger", "medium",
              "huge", "-3", "Large", "0"]
 
@@ -80,7 +84,8 @@ CANDIDATES = {
     "_validate_color_or_None": COLORS,
     "_validate_color_or_edge": COLORS + ["edge", "Edge"],
     "_validate_color_or_linecolor": [c for c in COLORS if len(c) != 8 or c.startswith("FF")]
-    + ["linecolor", "markerfacecolor", "mfc", "markeredgecolor", "mec", "LineColor"],
+    + ["linecolor", "markerfacecolor", "mfc", "markeredgecolor", "mec", "LineColor", "line",
+       "marker"],
     "_validate_linestyle": LINESTYLES,
     "_validate_linestyle_or_None": LINESTYLES,
     "validate_fontsize": FONTSIZES,
@@ -121,6 +126,32 @@ CANDIDATES = {
         "__import__('os')",
         "cycler('color', 'rg') + 2",
         "",
+        # From matplotlib's test_rcparams.py (test_validator_valid/invalid).
+        'cycler("color", "Dark2")',
+        'cycler("color", ["r", "g", "b"]) +\n     cycler("mew", [2, 3, 5])',
+        '(cycler("color", ["r", "g", "b"]) +\n     cycler("mew", [2, 3, 5]))',
+        "cycler('color', 'rgb')\n",
+        "cycler('hatch', ['\\x2f', 'x\\\\\\\\'])",
+        "cycler(c='rgb', lw=[1, 2, 3])",
+        "cycler('c', 'rgb') * cycler('linestyle', ['-', '--'])",
+        "2 * cycler('color', 'r' + 'gb')",
+        "cycler(c='r' + 'gb', lw=[1, 2, 3])",
+        "concat(cycler('color', 'rgb'), cycler('color', 'cmk'))",
+        "cycler('color', 'rgbcmk')[:3]",
+        'cycler("bleh, [])',
+        "cycler('color', 'rgb') * * cycler('color', 'rgb')",
+        'Cycler("linewidth", [1, 2, 3])',
+        "cycler('c', [j.__class__(j) for j in ['r', 'b']])",
+        "cycler('color', [x for x in ['r', 'g', 'b']])",
+        "1 + 2",
+        'os.system("echo Gotcha")',
+        "import os",
+        'cycler("waka", [1, 2, 3])',
+        "cycler(c=[1, 2, 3])",
+        "cycler(lw=['a', 'b', 'c'])",
+        "cycler('color', ['C1', 'r', 'g'])",
+        "cycler('hatch', ['--|', '\\\\oO', '/+*/.x', ''])",
+        "cycler('hatch', ['--_'])",
     ],
     "validate_hist_bins": ["auto", "10", "1, 2, 3", "sturges", "fd", "bogus", "2.5", "0"],
     "validate_whiskers": ["1.5", "5, 95", "5", "a", "5, 95, 99", "(5, 95)"],

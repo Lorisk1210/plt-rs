@@ -115,24 +115,89 @@ impl fmt::Display for Token {
     }
 }
 
+/// Reads the string literal whose opening quote is at `chars[start]`,
+/// with Python's escape sequences; returns its text and the index after
+/// the closing quote.
+fn string_literal(chars: &[char], start: usize) -> Result<(String, usize), String> {
+    let quote = chars[start];
+    let mut text = String::new();
+    let mut i = start + 1;
+    loop {
+        match *chars.get(i).ok_or("unterminated string literal")? {
+            c if c == quote => return Ok((text, i + 1)),
+            '\\' => {
+                let escaped = *chars.get(i + 1).ok_or("unterminated string literal")?;
+                i += 2;
+                let hex = |len: usize, i: &mut usize| -> Result<char, String> {
+                    let digits: String = chars
+                        .get(*i..*i + len)
+                        .ok_or("truncated escape")?
+                        .iter()
+                        .collect();
+                    *i += len;
+                    u32::from_str_radix(&digits, 16)
+                        .ok()
+                        .and_then(char::from_u32)
+                        .ok_or_else(|| format!("invalid escape \\{escaped}{digits}"))
+                };
+                match escaped {
+                    '\\' | '\'' | '"' => text.push(escaped),
+                    'n' => text.push('\n'),
+                    't' => text.push('\t'),
+                    'r' => text.push('\r'),
+                    'a' => text.push('\u{7}'),
+                    'b' => text.push('\u{8}'),
+                    'f' => text.push('\u{c}'),
+                    'v' => text.push('\u{b}'),
+                    'x' => text.push(hex(2, &mut i)?),
+                    'u' => text.push(hex(4, &mut i)?),
+                    'U' => text.push(hex(8, &mut i)?),
+                    '\n' => {}
+                    // Python keeps unknown escapes as they are.
+                    other => {
+                        text.push('\\');
+                        text.push(other);
+                    }
+                }
+            }
+            c => {
+                text.push(c);
+                i += 1;
+            }
+        }
+    }
+}
+
 fn tokenize(text: &str) -> Result<Vec<Token>, String> {
     let chars: Vec<char> = text.chars().collect();
     let mut tokens = Vec::new();
     let mut i = 0;
+    // A line break outside brackets ends a Python expression.
+    let mut depth = 0_usize;
+    let mut line_ended = false;
     while let Some(&c) = chars.get(i) {
+        if !c.is_whitespace() && line_ended {
+            return Err("a line break ends the expression".to_owned());
+        }
         match c {
+            '\n' | '\r' => {
+                line_ended = depth == 0 && !tokens.is_empty();
+                i += 1;
+            }
             c if c.is_whitespace() => i += 1,
             '(' | ')' | '[' | ']' | ',' | '=' | '+' | '*' | ':' => {
+                match c {
+                    '(' | '[' => depth += 1,
+                    ')' | ']' => depth = depth.saturating_sub(1),
+                    _ => {}
+                }
                 tokens.push(Token::Punct(c));
                 i += 1;
             }
             '\'' | '"' => {
-                let end = chars[i + 1..]
-                    .iter()
-                    .position(|&q| q == c)
-                    .ok_or("unterminated string literal")?;
-                tokens.push(Token::Str(chars[i + 1..i + 1 + end].iter().collect()));
-                i += end + 2;
+                let (literal, next) = string_literal(&chars, i)?;
+                tokens.push(Token::Str(literal));
+                i = next;
             }
             c if c.is_ascii_digit() || c == '.' || (c == '-' && starts_number(&chars, i + 1)) => {
                 let start = i;
@@ -215,10 +280,22 @@ impl Parser {
         let mut left = self.product()?;
         while self.eat('+') {
             let right = self.product()?;
-            left = Expr::BinOp {
-                add: true,
-                left: Box::new(left),
-                right: Box::new(right),
+            // Python concatenates strings and sequences.
+            left = match (left, right) {
+                (Expr::Str(a), Expr::Str(b)) => Expr::Str(a + &b),
+                (Expr::List(mut a), Expr::List(b)) => {
+                    a.extend(b);
+                    Expr::List(a)
+                }
+                (Expr::Tuple(mut a), Expr::Tuple(b)) => {
+                    a.extend(b);
+                    Expr::Tuple(a)
+                }
+                (left, right) => Expr::BinOp {
+                    add: true,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                },
             };
         }
         Ok(left)
@@ -354,6 +431,34 @@ mod tests {
         assert_eq!(Expr::parse("4,"), Ok(Expr::Tuple(vec![Expr::Int(4)])));
         assert!(Expr::parse("4, 2 3").is_err());
         assert_eq!(Expr::parse("[]"), Ok(Expr::List(Vec::new())));
+    }
+
+    #[test]
+    fn strings_follow_python() {
+        assert_eq!(Expr::parse(r"'a\\b'"), Ok(Expr::Str(r"a\b".into())));
+        assert_eq!(Expr::parse(r"'\x41é\n'"), Ok(Expr::Str("Aé\n".into())));
+        assert_eq!(
+            Expr::parse(r"'\oO'"),
+            Ok(Expr::Str(r"\oO".into())),
+            "unknown escapes stay"
+        );
+        assert_eq!(Expr::parse(r"'it\'s'"), Ok(Expr::Str("it's".into())));
+        assert_eq!(Expr::parse("'r' + 'gb'"), Ok(Expr::Str("rgb".into())));
+        assert_eq!(
+            Expr::parse("[1] + [2]"),
+            Ok(Expr::List(vec![Expr::Int(1), Expr::Int(2)]))
+        );
+    }
+
+    #[test]
+    fn line_breaks_end_expressions_outside_brackets() {
+        assert!(Expr::parse("1 +\n 2").is_err());
+        assert_eq!(Expr::parse("(1 +\n 2)").map(|e| e.as_number()), Ok(None));
+        assert_eq!(
+            Expr::parse("[1,\n 2]").map(|e| e.as_sequence().map(<[Expr]>::len)),
+            Ok(Some(2))
+        );
+        assert_eq!(Expr::parse("3\n"), Ok(Expr::Int(3)));
     }
 
     #[test]

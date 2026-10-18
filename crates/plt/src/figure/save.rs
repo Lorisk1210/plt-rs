@@ -8,8 +8,7 @@ use std::str::FromStr;
 use plt_core::path::convert::SimplifySettings;
 use plt_render::{
     Metadata, Orientation, Paper, PdfOptions, PdfRenderer, PsOptions, PsRenderer,
-    RasterBackendError, RasterRenderer, Renderer, SvgFontType, SvgOptions, SvgRenderer,
-    VectorError,
+    RasterBackendError, RasterRenderer, Renderer, VectorError,
 };
 
 use super::print::SaveOptions;
@@ -221,41 +220,6 @@ impl Figure {
             .map_err(SaveError::Backend)
     }
 
-    /// The figure as an SVG document (matplotlib's `savefig(format="svg")`).
-    pub fn to_svg(&self) -> Result<String, SaveError> {
-        self.to_svg_with(&SaveOptions::default())
-    }
-
-    /// The figure as an SVG document with save options; the `svg.*`
-    /// rcParams configure the document.
-    ///
-    /// # Errors
-    ///
-    /// When some artists cannot be drawn or the document cannot be written.
-    pub fn to_svg_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
-        let rc = crate::rc::params();
-        let svg = SvgOptions {
-            hashsalt: rc.svg_hashsalt.clone(),
-            id: rc.svg_id.clone(),
-            metadata: options.metadata.clone().unwrap_or_default(),
-            simplify: simplify_settings(),
-            composite_images: rc.image_composite_image,
-            fonttype: if rc.svg_fonttype == "none" {
-                SvgFontType::None
-            } else {
-                SvgFontType::Path
-            },
-        };
-        // matplotlib's SVG backend measures text with `TextToPath`.
-        crate::text::with_text_path_metrics(|| {
-            self.render_vector_with(options, |width, height, dpi| {
-                SvgRenderer::new(width * 72.0, height * 72.0, dpi, svg)
-            })
-        })?
-        .finish()
-        .map_err(SaveError::Vector)
-    }
-
     /// The figure as a PDF document (matplotlib's `savefig(format="pdf")`).
     pub fn to_pdf(&self) -> Result<Vec<u8>, SaveError> {
         self.to_pdf_with(&SaveOptions::default())
@@ -341,6 +305,9 @@ impl Figure {
         options: &SaveOptions,
     ) -> Result<(), SaveError> {
         let (path, format) = resolve_format(path.as_ref(), options.format)?;
+        if matches!(format, SaveFormat::Svg | SaveFormat::Svgz) {
+            return self.save_svg(&path, options, format == SaveFormat::Svgz);
+        }
         let document = if matches!(format, SaveFormat::Ps | SaveFormat::Eps) {
             let titled = SaveOptions {
                 metadata: Some(file_metadata(options, &path)),
@@ -516,6 +483,27 @@ mod tests {
         assert_eq!((path, format), (PathBuf::from("plot.png"), SaveFormat::Png));
         let (_, format) = resolve_format(FsPath::new("plot.png"), Some(SaveFormat::Eps)).unwrap();
         assert_eq!(format, SaveFormat::Eps);
+    }
+
+    #[test]
+    fn svg_images_can_go_beside_the_file() {
+        let dir = std::env::temp_dir().join(format!("plt-rs-svg-images-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("figure.svg");
+        crate::rc::context(|| {
+            crate::rc::set("svg.image_inline", "False").unwrap();
+            let fig = Figure::new();
+            let values = crate::numeric::Grid::from_rows(vec![vec![0.0, 1.0]]).unwrap();
+            fig.subplot()
+                .imshow(values, crate::axes::ImshowOptions::default())
+                .unwrap();
+            fig.savefig(&path).unwrap();
+        });
+        let image = dir.join("figure.svg.image0.png");
+        let svg = std::fs::read_to_string(&path).unwrap();
+        assert!(svg.contains(&format!("xlink:href=\"{}\"", image.display())));
+        assert!(std::fs::read(&image).unwrap().starts_with(b"\x89PNG"));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

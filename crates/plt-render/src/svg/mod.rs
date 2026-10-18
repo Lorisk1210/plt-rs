@@ -68,6 +68,20 @@ pub struct SvgOptions {
     pub composite_images: bool,
     /// `svg.fonttype`: glyphs as paths or text elements.
     pub fonttype: SvgFontType,
+    /// `svg.image_inline = False`: the file name of the document, beside
+    /// which images go as `<name>.image<N>.png` files the document links
+    /// to, instead of being embedded (`None`).
+    pub image_files: Option<String>,
+}
+
+/// An image written beside an SVG document instead of being embedded in
+/// it (see [`SvgOptions::image_files`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImageFile {
+    /// The file name the document links to.
+    pub name: String,
+    /// The PNG file.
+    pub png: Vec<u8>,
 }
 
 impl Default for SvgOptions {
@@ -79,6 +93,7 @@ impl Default for SvgOptions {
             simplify: SimplifySettings::default(),
             composite_images: true,
             fonttype: SvgFontType::Path,
+            image_files: None,
         }
     }
 }
@@ -105,6 +120,8 @@ pub struct SvgRenderer {
     gradients: usize,
     glyphs: HashSet<String>,
     fonts: FontCache,
+    /// The images written beside the document, in drawing order.
+    images: Vec<ImageFile>,
     problems: Problems,
 }
 
@@ -161,6 +178,7 @@ impl SvgRenderer {
             gradients: 0,
             glyphs: HashSet::new(),
             fonts: FontCache::default(),
+            images: Vec::new(),
             problems: Problems::default(),
         })
     }
@@ -171,11 +189,24 @@ impl SvgRenderer {
     /// # Errors
     ///
     /// When a font or image met while drawing could not be written.
-    pub fn finish(mut self) -> Result<String, VectorError> {
+    pub fn finish(self) -> Result<String, VectorError> {
+        self.finish_with_images().map(|(document, _)| document)
+    }
+
+    /// Like [`SvgRenderer::finish`], also returning the images to write
+    /// beside the document (empty unless [`SvgOptions::image_files`]).
+    ///
+    /// # Errors
+    ///
+    /// When a font or image met while drawing could not be written.
+    pub fn finish_with_images(mut self) -> Result<(String, Vec<ImageFile>), VectorError> {
         self.clips.write(&mut self.writer);
         self.hatches.write(&mut self.writer);
         self.writer.close(self.root);
-        self.problems.into_result(self.writer.into_string())
+        let images = std::mem::take(&mut self.images);
+        self.problems
+            .into_result(self.writer.into_string())
+            .map(|document| (document, images))
     }
 
     /// `_make_id`: `type` followed by the first ten hex digits of the

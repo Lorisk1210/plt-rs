@@ -42,7 +42,7 @@ pub use ps::{Orientation, Paper, PsOptions, PsRenderer};
 pub use quad_mesh::QuadMesh;
 pub use raster::{RasterBackendError, RasterRenderer};
 pub use renderer::Renderer;
-pub use svg::{SvgFontType, SvgOptions, SvgRenderer};
+pub use svg::{ImageFile, SvgFontType, SvgOptions, SvgRenderer};
 pub use vector::{FontType, Metadata, Timestamp, Trapped, VectorError, gzip};
 
 use plt_core::{Affine2D, Bbox};

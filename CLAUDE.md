@@ -25,7 +25,7 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 | crate          | responsibility                                                       |
 |----------------|----------------------------------------------------------------------|
 | `plt-core`     | `Point`, `Affine2D`, `Bbox`, `Path` (+ path conditioning), `Rgba`    |
-| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, PNG encode/decode                       |
+| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, base64       |
 | `plt-font`     | TrueType/OpenType parsing, outlines, metrics, kerning, font manager  |
 | `plt-raster`   | AA scanline rasterizer, stroker, dashes, clipping, compositing       |
 | `plt-text`     | text layout into glyph runs, mathtext parser + typesetter            |

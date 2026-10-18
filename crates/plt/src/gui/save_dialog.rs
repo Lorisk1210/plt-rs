@@ -11,8 +11,11 @@ use super::{GuiError, icons};
 use crate::figure::{Figure, SaveFormat};
 
 /// The formats offered, in the order shown.
-const FORMATS: [SaveFormat; 5] = [
+const FORMATS: [SaveFormat; 8] = [
     SaveFormat::Png,
+    SaveFormat::Jpeg,
+    SaveFormat::Tiff,
+    SaveFormat::Gif,
     SaveFormat::Svg,
     SaveFormat::Pdf,
     SaveFormat::Ps,
@@ -457,7 +460,9 @@ mod tests {
     fn names_and_formats() {
         assert_eq!(default_name("Figure 1", SaveFormat::Png), "Figure_1.png");
         assert_eq!(default_name("", SaveFormat::Pdf), "image.pdf");
-        assert_eq!(format_of("plot.SVG"), Some(1));
+        assert_eq!(format_of("plot.SVG"), Some(4));
+        assert_eq!(format_of("photo.jpeg"), Some(1));
+        assert_eq!(format_of("scan.tiff"), Some(2));
         assert_eq!(format_of("notes.txt"), None);
         assert_eq!(with_extension("plot.png", SaveFormat::Pdf), "plot.pdf");
         assert_eq!(with_extension("plot.v2", SaveFormat::Eps), "plot.v2.eps");

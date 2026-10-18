@@ -8,11 +8,12 @@ use std::str::FromStr;
 use plt_core::path::convert::SimplifySettings;
 use plt_render::{
     Metadata, Orientation, Paper, PdfOptions, PdfRenderer, PsOptions, PsRenderer,
-    RasterBackendError, RasterRenderer, SvgOptions, SvgRenderer, VectorError,
+    RasterBackendError, RasterRenderer, Renderer, SvgOptions, SvgRenderer, VectorError,
 };
 
 use super::print::SaveOptions;
 use super::{DrawErrors, Figure};
+use crate::image::{BitmapError, BitmapFormat, BitmapSettings};
 
 /// Why a figure could not be rendered or saved.
 #[derive(Debug)]
@@ -21,6 +22,8 @@ pub enum SaveError {
     Backend(RasterBackendError),
     /// A vector document could not be written.
     Vector(VectorError),
+    /// The canvas could not be encoded as a bitmap file.
+    Bitmap(BitmapError),
     /// Some artists could not be drawn.
     Draw(DrawErrors),
     /// The file format is not one plt-rs can write.
@@ -34,10 +37,11 @@ impl fmt::Display for SaveError {
         match self {
             Self::Backend(err) => write!(f, "cannot render the figure: {err}"),
             Self::Vector(err) => write!(f, "cannot write the document: {err}"),
+            Self::Bitmap(err) => write!(f, "cannot write the image: {err}"),
             Self::Draw(err) => err.fmt(f),
             Self::UnsupportedFormat(format) => write!(
                 f,
-                "format {format:?} is not supported (supported formats: eps, pdf, png, ps, svg, svgz)"
+                "format {format:?} is not supported (supported formats: eps, gif, jpeg, jpg, pdf, png, ps, raw, rgba, svg, svgz, tif, tiff)"
             ),
             Self::Io(err) => write!(f, "cannot write the figure: {err}"),
         }
@@ -49,6 +53,7 @@ impl std::error::Error for SaveError {
         match self {
             Self::Backend(err) => Some(err),
             Self::Vector(err) => Some(err),
+            Self::Bitmap(err) => Some(err),
             Self::Draw(err) => Some(err),
             Self::Io(err) => Some(err),
             Self::UnsupportedFormat(_) => None,
@@ -71,6 +76,14 @@ pub enum SaveFormat {
     Ps,
     /// Encapsulated PostScript, sized to the figure.
     Eps,
+    /// JPEG, flattened onto white (`jpg` or `jpeg`).
+    Jpeg,
+    /// Uncompressed TIFF (`tif` or `tiff`).
+    Tiff,
+    /// A single-frame GIF.
+    Gif,
+    /// The bare RGBA bytes of the canvas (`raw` or `rgba`).
+    Raw,
 }
 
 impl SaveFormat {
@@ -83,6 +96,23 @@ impl SaveFormat {
             Self::Pdf => "pdf",
             Self::Ps => "ps",
             Self::Eps => "eps",
+            Self::Jpeg => "jpg",
+            Self::Tiff => "tif",
+            Self::Gif => "gif",
+            Self::Raw => "raw",
+        }
+    }
+
+    /// The bitmap encoding of the raster formats, `None` for the vector
+    /// formats.
+    pub const fn bitmap(self) -> Option<BitmapFormat> {
+        match self {
+            Self::Png => Some(BitmapFormat::Png),
+            Self::Jpeg => Some(BitmapFormat::Jpeg),
+            Self::Tiff => Some(BitmapFormat::Tiff),
+            Self::Gif => Some(BitmapFormat::Gif),
+            Self::Raw => Some(BitmapFormat::Raw),
+            Self::Svg | Self::Svgz | Self::Pdf | Self::Ps | Self::Eps => None,
         }
     }
 }
@@ -99,6 +129,10 @@ impl FromStr for SaveFormat {
             "pdf" => Self::Pdf,
             "ps" => Self::Ps,
             "eps" => Self::Eps,
+            "jpg" | "jpeg" => Self::Jpeg,
+            "tif" | "tiff" => Self::Tiff,
+            "gif" => Self::Gif,
+            "raw" | "rgba" => Self::Raw,
             _ => return Err(SaveError::UnsupportedFormat(name.to_owned())),
         })
     }
@@ -230,12 +264,34 @@ impl Figure {
             SaveFormat::Pdf => self.to_pdf_with(options),
             SaveFormat::Ps => self.to_ps_with(options).map(String::into_bytes),
             SaveFormat::Eps => self.to_eps_with(options).map(String::into_bytes),
+            SaveFormat::Jpeg => self.to_bitmap(BitmapFormat::Jpeg, options),
+            SaveFormat::Tiff => self.to_bitmap(BitmapFormat::Tiff, options),
+            SaveFormat::Gif => self.to_bitmap(BitmapFormat::Gif, options),
+            SaveFormat::Raw => self.to_bitmap(BitmapFormat::Raw, options),
         }
     }
 
+    /// The canvas rendered with save options and encoded as `format`
+    /// (Agg's `print_raw`, and `print_jpg`, `print_tif` and `print_gif`
+    /// through `imsave`): the save resolution recorded, JPEG flattened onto
+    /// white.
+    fn to_bitmap(&self, format: BitmapFormat, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
+        let canvas = self.render_raster_with(options)?;
+        let defaults = BitmapSettings::default();
+        let settings = BitmapSettings {
+            dpi: canvas.dpi(),
+            jpeg_quality: options.jpeg_quality.unwrap_or(defaults.jpeg_quality),
+            ..defaults
+        };
+        let image = canvas.to_image();
+        format
+            .encode(image.width(), image.height(), image.data(), &settings)
+            .map_err(SaveError::Bitmap)
+    }
+
     /// Writes the figure to `path` in the format its extension names
-    /// (PNG, SVG, SVGZ, PDF, PS or EPS; `savefig.format` and an appended
-    /// extension without one).
+    /// (PNG, JPEG, TIFF, GIF, raw RGBA, SVG, SVGZ, PDF, PS or EPS;
+    /// `savefig.format` and an appended extension without one).
     pub fn savefig(&self, path: impl AsRef<FsPath>) -> Result<(), SaveError> {
         self.savefig_with(path, &SaveOptions::default())
     }
@@ -392,10 +448,30 @@ mod tests {
     }
 
     #[test]
+    fn bitmap_formats_record_the_save_resolution() {
+        let fig = Figure::with_size(1.0, 0.5, 50.0);
+        let options = SaveOptions {
+            dpi: Some(30.0),
+            ..SaveOptions::default()
+        };
+        let raw = fig.to_format(SaveFormat::Raw, &options).unwrap();
+        assert_eq!(raw.len(), 30 * 15 * 4);
+        let jpeg = fig.to_format(SaveFormat::Jpeg, &options).unwrap();
+        assert_eq!(&jpeg[6..11], b"JFIF\0");
+        assert_eq!(&jpeg[14..18], [0, 30, 0, 30], "JFIF density");
+        let tiff = fig.to_format(SaveFormat::Tiff, &options).unwrap();
+        assert_eq!(&tiff[190..198], [30, 0, 0, 0, 1, 0, 0, 0], "x resolution");
+        let gif = fig.to_format(SaveFormat::Gif, &options).unwrap();
+        assert_eq!(&gif[..10], b"GIF89a\x1e\0\x0f\0");
+    }
+
+    #[test]
     fn formats_come_from_extensions() {
         assert_eq!("SVG".parse::<SaveFormat>().unwrap(), SaveFormat::Svg);
+        assert_eq!("jpeg".parse::<SaveFormat>().unwrap(), SaveFormat::Jpeg);
+        assert_eq!("rgba".parse::<SaveFormat>().unwrap(), SaveFormat::Raw);
         assert!(matches!(
-            "jpeg".parse::<SaveFormat>(),
+            "webp".parse::<SaveFormat>(),
             Err(SaveError::UnsupportedFormat(_))
         ));
         let (path, format) = resolve_format(FsPath::new("out/plot.pdf"), None).unwrap();
@@ -445,7 +521,7 @@ mod tests {
         let saved = std::fs::read_to_string(dir.join("figure.eps")).unwrap();
         assert!(saved.contains("%%Title: figure.eps\n"));
         assert!(matches!(
-            fig.savefig(dir.join("figure.jpeg")),
+            fig.savefig(dir.join("figure.webp")),
             Err(SaveError::UnsupportedFormat(_))
         ));
     }

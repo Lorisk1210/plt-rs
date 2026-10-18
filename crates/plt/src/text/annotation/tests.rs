@@ -218,3 +218,40 @@ fn a_text_box_clips_like_its_bbox_patch() {
     let extent = target.window_extent().expect("an extent");
     assert!(clipped < extent.x0(), "stops at the padded box");
 }
+
+#[test]
+fn text_can_be_offset_from_another_artist() {
+    let (_, ax) = axes();
+    let anchor = ax
+        .annotate("anchor", (5.0, 5.0), AnnotateOptions::default())
+        .expect("annotated");
+    let options = AnnotateOptions {
+        xytext: Some(Point::new(0.0, 0.0)),
+        textcoords: Some(crate::coords::Coords::OffsetFrom {
+            artist: anchor.id(),
+            reference: Point::new(0.5, 0.0),
+            unit: crate::coords::CoordUnit::Pixels,
+        }),
+        ..AnnotateOptions::default()
+    };
+    let below = ax
+        .annotate("below", (1.0, 1.0), options)
+        .expect("annotated");
+    below
+        .set_halign(crate::text::HorizontalAlignment::Center)
+        .set_valign(crate::text::VerticalAlignment::Top);
+    let (above, under) = (
+        anchor.window_extent().expect("laid out"),
+        below.window_extent().expect("laid out"),
+    );
+    assert!(close(
+        f64::midpoint(under.x0(), under.x1()),
+        f64::midpoint(above.x0(), above.x1())
+    ));
+    assert!(
+        close(under.y1(), above.y0()),
+        "{} vs {}",
+        under.y1(),
+        above.y0()
+    );
+}

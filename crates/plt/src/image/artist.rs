@@ -181,6 +181,15 @@ impl Artist for AxesImageArtist {
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         self.out_bbox(*ctx)
     }
+
+    /// matplotlib's `AxesImage.contains`: over the axes background and
+    /// inside the extent.
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        self.base
+            .parent
+            .is_some_and(|axes| ctx.axes_contains(axes, point))
+            && self.out_bbox(*ctx).is_some_and(|bbox| bbox.contains(point))
+    }
 }
 
 impl ColorMapped for AxesImageArtist {

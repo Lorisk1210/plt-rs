@@ -1,6 +1,6 @@
 //! Contexts handed to artists while measuring and drawing.
 
-use plt_core::Bbox;
+use plt_core::{Bbox, Point};
 use plt_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
 use super::{ArtistBase, ArtistId, ArtistStore, ClipPathSpec};
@@ -53,6 +53,17 @@ impl<'a> LayoutContext<'a> {
     /// Display-space extent of an axes.
     pub fn axes_extent(&self, axes: ArtistId) -> Option<Bbox> {
         self.figure.axes_bbox(axes)
+    }
+
+    /// Whether display point `at` is over the background of `axes`: its
+    /// box, or the wedge of polar axes (matplotlib's `Axes.contains`).
+    pub fn axes_contains(&self, axes: ArtistId, at: Point) -> bool {
+        match self.figure.axes_outline(axes) {
+            Some(outline) => outline
+                .path
+                .contains_point(at, Some(&outline.transform), 0.0),
+            None => self.axes_extent(axes).is_some_and(|bbox| bbox.contains(at)),
+        }
     }
 
     /// Display-space extent of an axes or figure frame used as a clip box

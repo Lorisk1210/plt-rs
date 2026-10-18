@@ -73,11 +73,15 @@ impl Figure {
     }
 
     /// Delivers `event` to the callbacks connected for its kind, in
-    /// connection order (matplotlib's `callbacks.process`). Callbacks may
-    /// change the figure and connect or disconnect callbacks; a callback
-    /// that is already running (an event processed from inside itself) is
-    /// skipped.
+    /// connection order (matplotlib's `callbacks.process`); presses and
+    /// scrolls first pick the artists under the pointer
+    /// ([`Figure::pick`]). Callbacks may change the figure and connect or
+    /// disconnect callbacks; a callback that is already running (an event
+    /// processed from inside itself) is skipped.
     pub fn process_event(&self, event: &Event) {
+        if let Event::ButtonPress(mouse) | Event::Scroll(mouse) = event {
+            self.pick(mouse);
+        }
         let listeners = self.state().callbacks.listeners(event.kind());
         for callback in listeners {
             if let Ok(mut callback) = callback.try_borrow_mut() {

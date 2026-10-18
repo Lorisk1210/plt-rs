@@ -113,6 +113,19 @@ pub(crate) struct ResolvedStyle {
     pub(crate) antialiased: bool,
 }
 
+impl ResolvedStyle {
+    /// How far outside its outline a point still hits the patch when it
+    /// has no picker: the edge width when the edge is visible
+    /// (matplotlib's `Patch._process_radius`).
+    pub(crate) fn hit_radius(&self) -> f64 {
+        if self.edge.a == 0.0 {
+            0.0
+        } else {
+            self.linewidth
+        }
+    }
+}
+
 /// Paints `paths` (each already split into a non-affine part and its
 /// display affine) with the patch's properties, filling every face; see
 /// [`paint_paths`].

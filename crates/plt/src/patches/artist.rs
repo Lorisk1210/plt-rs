@@ -9,7 +9,7 @@ use plt_render::{CapStyle, ClipPath, JoinStyle};
 
 use super::shape::{DisplayPath, PatchShape, ShapeFrame};
 use super::style::{PatchStyle, paint_paths};
-use super::{PatchError, PatchProps};
+use super::{ClipRegion, PatchError, PatchProps};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
 use crate::colors::Color;
 use crate::lines::LineStyle;
@@ -150,6 +150,18 @@ impl<S: PatchShape> PatchArtist<S> {
             .map(|p| placement.transform_point(p))
             .collect()
     }
+
+    /// Whether display point `point` lies within `radius` of a sub-path of
+    /// the outline (matplotlib's `Patch.contains`).
+    fn encloses(&self, ctx: LayoutContext<'_>, point: Point, radius: f64) -> bool {
+        self.outline(&ctx).is_some_and(|clip| {
+            ClipRegion {
+                path: clip.path.transformed(&clip.transform),
+                radius,
+            }
+            .contains(point)
+        })
+    }
 }
 
 impl<S: PatchShape> Artist for PatchArtist<S> {
@@ -178,8 +190,21 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     /// Whether the outline encloses `point` (matplotlib's
     /// `Patch.contains` with a zero radius).
     fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
-        self.outline(ctx)
-            .is_some_and(|clip| clip.path.contains_point(point, Some(&clip.transform), 0.0))
+        self.encloses(*ctx, point, 0.0)
+    }
+
+    /// matplotlib's `Patch.contains` as picking asks it: within the
+    /// picker's radius of a sub-path of the outline, 1 pixel for
+    /// [`Picker::Default`](crate::artist::Picker::Default) (matplotlib's
+    /// `picker=True` counts as the number 1).
+    fn pick_hit(
+        &self,
+        ctx: &LayoutContext<'_>,
+        at: Point,
+        radius: Option<f64>,
+    ) -> Option<Vec<usize>> {
+        self.encloses(*ctx, at, radius.unwrap_or(1.0))
+            .then(Vec::new)
     }
 
     fn as_patch(&self) -> Option<PatchView<'_>> {

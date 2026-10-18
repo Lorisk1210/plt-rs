@@ -9,7 +9,9 @@ use super::axline::InfiniteLine;
 use super::{
     DrawStyle, LineStyle, MarkEvery, MarkEveryError, StepError, inverse_dashes, line_vertices,
 };
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle, segment_hits,
+};
 use crate::colors::Color;
 use crate::markers::{FillStyle, Marker, MarkerStyle, marker_sketch};
 use crate::rc::{ColorOrAuto, RcParams};
@@ -38,6 +40,8 @@ pub(crate) struct LineArtist {
     pub(crate) markerfacecoloralt: Color,
     pub(crate) markevery: Option<MarkEvery>,
     pub(crate) antialiased: bool,
+    /// How far from the line, in points, a pick still hits it.
+    pub(crate) pickradius: f64,
     pub(crate) solid_capstyle: CapStyle,
     pub(crate) solid_joinstyle: JoinStyle,
     pub(crate) dash_capstyle: CapStyle,
@@ -73,6 +77,7 @@ impl LineArtist {
             markerfacecoloralt: Color::none(),
             markevery: None,
             antialiased: rc.lines_antialiased,
+            pickradius: 5.0,
             solid_capstyle: rc.lines_solid_capstyle,
             solid_joinstyle: rc.lines_solid_joinstyle,
             dash_capstyle: rc.lines_dash_capstyle,
@@ -296,6 +301,19 @@ impl LineArtist {
             .unwrap_or_else(|| (0..points.len()).collect()))
     }
 
+    /// The drawn vertices in display space: the visible segment of an
+    /// infinite line.
+    fn display_points(&self, layout: LayoutContext<'_>) -> Option<Vec<Point>> {
+        let resolved = layout.resolve(&self.transform())?;
+        let drawn = match &self.infinite {
+            Some(infinite) => infinite
+                .display_segment(layout, &resolved, self.base.parent)
+                .ok()?,
+            None => resolved.transform_path(self.path.as_ref().ok()?),
+        };
+        Some(drawn.vertices().to_vec())
+    }
+
     fn line_gc(&self, ctx: &DrawContext<'_>) -> GraphicsContext {
         let mut gc = ctx.base_gc(&self.base);
         // Lines bake their alpha into the colours (matplotlib does not set
@@ -321,7 +339,7 @@ impl Artist for LineArtist {
             return;
         };
         if let Some(infinite) = &self.infinite {
-            match infinite.display_segment(ctx, &resolved, self.base.parent) {
+            match infinite.display_segment(*ctx.layout(), &resolved, self.base.parent) {
                 Ok(segment) => {
                     self.draw_paths(ctx, &ResolvedTransform::identity(), &segment, &segment);
                 }
@@ -335,6 +353,31 @@ impl Artist for LineArtist {
                 ctx.report(self.base.id(), problem.to_string());
             }
         }
+    }
+
+    /// matplotlib's `Line2D.contains`: the vertices within the pick radius
+    /// (in points) of a line without a line style, else the segments
+    /// passing within it; step lines report data indices.
+    fn pick_hit(
+        &self,
+        ctx: &LayoutContext<'_>,
+        at: Point,
+        radius: Option<f64>,
+    ) -> Option<Vec<usize>> {
+        let points = self.display_points(*ctx)?;
+        let pixels = ctx.points_to_pixels(radius.unwrap_or(self.pickradius));
+        let hits: Vec<usize> = if self.linestyle.is_visible() {
+            let hits = segment_hits(at, &points, pixels);
+            if self.drawstyle == DrawStyle::Default {
+                hits
+            } else {
+                hits.into_iter().map(|i| i / 2).collect()
+            }
+        } else {
+            let near = |p: &Point| (p.x - at.x).powi(2) + (p.y - at.y).powi(2) <= pixels * pixels;
+            (0..points.len()).filter(|&i| near(&points[i])).collect()
+        };
+        (!hits.is_empty()).then_some(hits)
     }
 }
 
@@ -466,6 +509,9 @@ artist_properties! {
         markevery, set_markevery: Option<MarkEvery>;
         /// Anti-aliasing.
         antialiased, set_antialiased: bool;
+        /// How far from the line, in points, a pick still hits it (see
+        /// [`crate::artist::Picker`]).
+        pickradius, set_pickradius: f64;
         /// Cap style of solid lines.
         solid_capstyle, set_solid_capstyle: CapStyle;
         /// Join style of solid lines.

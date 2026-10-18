@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
-use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext};
+use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext, Picker};
 use crate::figure::FigureState;
 use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
@@ -158,6 +158,26 @@ pub trait ArtistHandle {
         self.raw().with_base(|b| b.visible)
     }
 
+    /// Makes mouse presses and scrolls on the artist fire pick events
+    /// (matplotlib's `set_picker`); `None` makes it unpickable again.
+    fn set_picker(&self, picker: Option<Picker>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.picker = picker);
+        self
+    }
+
+    /// How the artist is picked, if it is pickable.
+    fn picker(&self) -> Option<Picker> {
+        self.raw().with_base(|b| b.picker.clone())
+    }
+
+    /// Whether the artist fires pick events (matplotlib's `pickable`).
+    fn pickable(&self) -> bool {
+        self.raw().with_base(|b| b.picker.is_some())
+    }
+
     /// Sets (or clears) the opacity override.
     fn set_alpha(&self, alpha: Option<f64>) -> &Self
     where
@@ -289,6 +309,11 @@ pub trait ArtistHandle {
         let gid = gid.into();
         self.raw().with_base_mut(|b| b.gid = Some(gid));
         self
+    }
+
+    /// The group id used in vector output, if set.
+    fn gid(&self) -> Option<String> {
+        self.raw().with_base(|b| b.gid.clone())
     }
 
     /// Sets the hyperlink used in vector output.

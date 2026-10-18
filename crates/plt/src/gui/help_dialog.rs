@@ -34,6 +34,7 @@ fn shortcuts(rc: &RcParams, tools: &[ToolSpec]) -> Vec<(String, Vec<String>)> {
         ("Toggle a log x axis", &rc.keymap_xscale),
         ("Toggle a log y axis", &rc.keymap_yscale),
         ("Close the window", &rc.keymap_quit),
+        ("Close every figure window", &rc.keymap_quit_all),
         ("Show this help", &rc.keymap_help),
     ];
     let keyboard = |keys: &[String]| -> Vec<String> {

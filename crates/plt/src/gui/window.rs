@@ -74,6 +74,9 @@ pub struct FigureWindow {
     options_dialog: Option<OptionsDialog>,
     /// The keyboard shortcuts, while they are shown.
     help_dialog: Option<HelpDialog>,
+    /// Whether `keymap.quit_all` closed the window, asking for every
+    /// figure window to close.
+    quit_all: bool,
 }
 
 impl FigureWindow {
@@ -127,6 +130,7 @@ impl FigureWindow {
             save_dialog: None,
             options_dialog: None,
             help_dialog: None,
+            quit_all: false,
         };
         figure_window.refresh_tools(cx)?;
         figure_window.sync_timers(cx);
@@ -146,6 +150,12 @@ impl FigureWindow {
     /// The figure shown.
     pub fn figure(&self) -> &Figure {
         &self.figure
+    }
+
+    /// Whether the window closed because `keymap.quit_all` asks for every
+    /// figure window to close (matplotlib's `Gcf.destroy_all`).
+    pub fn quit_all_requested(&self) -> bool {
+        self.quit_all
     }
 
     /// Whether `window` is this window or a tool window it opened.

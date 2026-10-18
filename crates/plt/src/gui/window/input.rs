@@ -137,6 +137,10 @@ impl FigureWindow {
         };
         match action {
             KeyAction::Quit => return Ok(false),
+            KeyAction::QuitAll => {
+                self.quit_all = true;
+                return Ok(false);
+            }
             KeyAction::Fullscreen => {
                 self.fullscreen = !self.fullscreen;
                 cx.set_fullscreen(self.window.id(), self.fullscreen)?;

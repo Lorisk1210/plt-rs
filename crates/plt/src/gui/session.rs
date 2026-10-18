@@ -310,8 +310,16 @@ fn dispatch(
                 return Ok(());
             }
             let shut = windows.remove(index);
+            let all = shut.quit_all_requested();
             closed.push(shut.figure().clone());
-            shut.close(cx)
+            shut.close(cx)?;
+            if all {
+                for other in windows.drain(..) {
+                    closed.push(other.figure().clone());
+                    other.close(cx)?;
+                }
+            }
+            Ok(())
         }
         // Callbacks may change figures shown in other windows.
         Event::AboutToWait => windows.iter_mut().try_for_each(|window| window.refresh(cx)),
@@ -402,6 +410,40 @@ mod tests {
             };
             handle.inject(id, event).expect("the window exists");
         }
+    }
+
+    #[test]
+    fn quit_all_closes_every_window() {
+        crate::rc::context(|| {
+            crate::rc::set("keymap.quit_all", "W").unwrap();
+            let (mut session, handle) = Session::headless();
+            let figures = [Figure::new(), Figure::new()];
+            let shown: Vec<_> = figures
+                .iter()
+                .enumerate()
+                .map(|(i, f)| (f.clone(), format!("Figure {i}")))
+                .collect();
+            session.show(&shown).expect("the windows open");
+            let id = session.windows[1].id();
+            for state in [ButtonState::Pressed, ButtonState::Released] {
+                let key = KeyEvent {
+                    key: Key::Character('W'),
+                    state,
+                    repeat: false,
+                    text: None,
+                    modifiers: Modifiers::SHIFT,
+                    scancode: 0,
+                };
+                handle
+                    .inject(id, WindowEvent::Key(key))
+                    .expect("the window exists");
+            }
+            session
+                .pause(Duration::from_millis(50))
+                .expect("the loop runs");
+            assert!(session.is_empty(), "every window closed");
+            assert_eq!(session.take_closed().len(), 2);
+        });
     }
 
     #[test]

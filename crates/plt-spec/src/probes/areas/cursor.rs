@@ -2,7 +2,7 @@
 //! coordinates and the data under the pointer).
 
 use plt::artist::ArtistHandle;
-use plt::axes::{Axes, ImshowOptions, Mesh, PcolorOptions, PcolorfastOptions};
+use plt::axes::{Axes, ImshowOptions, Mesh, NonUniformOptions, PcolorOptions, PcolorfastOptions};
 use plt::colors::{BoundaryNorm, Extend, LogNorm, Norm, colormaps};
 use plt::figure::Figure;
 use plt::image::{ColorizerOptions, Extent, ImageData, Origin, ScalarField};
@@ -173,6 +173,12 @@ fn build(ax: &Axes, scene: &str) -> Result<(), ProbeError> {
             let coords = (X_EDGES.to_vec().into(), Y_EDGES.to_vec().into());
             ax.pcolorfast(Some(coords), grid(field), PcolorfastOptions::default())
                 .map_err(ProbeError::rejected)?;
+        }
+        "nonuniform" => {
+            let (x, y) = (&X_EDGES[..8], &Y_EDGES[..6]);
+            ax.nonuniform_image(x, y, grid(field), NonUniformOptions::default())
+                .map_err(ProbeError::rejected)?;
+            ax.set_xlim(-1.0, 10.0).set_ylim(-1.0, 9.0);
         }
         _ => return Err(ProbeError::BadArgs(format!("unknown scene {scene:?}"))),
     }

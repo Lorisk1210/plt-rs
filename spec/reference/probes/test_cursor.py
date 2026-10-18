@@ -33,12 +33,15 @@ Scenes
 ``mesh``         ``pcolormesh(X, Y, FIELD)`` with ``X = [0, 1, 3, 4, 5, 7, 8, 9, 12]``,
                  ``Y = [0, 2, 3, 5, 6, 8, 9]`` and ``set_mouseover(True)``
 ``pcolorfast``   ``pcolorfast(X, Y, FIELD)`` (a ``PcolorImage``)
+``nonuniform``   a ``NonUniformImage`` of ``FIELD`` with centres ``X[:-1]``, ``Y[:-1]``,
+                 viewed over ``xlim=(-1, 10)``, ``ylim=(-1, 9)``
 """
 
 import numpy as np
 from matplotlib.backend_bases import MouseEvent, NavigationToolbar2
 from matplotlib.colors import BoundaryNorm, LogNorm
 from matplotlib.figure import Figure
+from matplotlib.image import NonUniformImage
 
 from spec_support import ProbeSet
 
@@ -77,6 +80,13 @@ def _hidden(ax):
     ax.imshow(np.full((2, 2), 9.0), extent=(2, 6, 4, 1)).set_visible(False)
 
 
+def _nonuniform(ax):
+    im = NonUniformImage(ax)
+    im.set_data(X_EDGES[:-1], Y_EDGES[:-1], FIELD)
+    ax.add_image(im)
+    ax.set(xlim=(-1, 10), ylim=(-1, 9))
+
+
 SCENES = {
     "scalar": lambda ax: ax.imshow(FIELD),
     "lognorm": lambda ax: ax.imshow(10 ** ((8 * ROWS + COLS) / 12 - 1), norm=LogNorm()),
@@ -93,6 +103,7 @@ SCENES = {
     "nomouseover": lambda ax: ax.imshow(FIELD).set_mouseover(False),
     "mesh": lambda ax: ax.pcolormesh(X_EDGES, Y_EDGES, FIELD).set_mouseover(True),
     "pcolorfast": lambda ax: ax.pcolorfast(X_EDGES, Y_EDGES, FIELD),
+    "nonuniform": _nonuniform,
 }
 
 

@@ -1,5 +1,6 @@
-//! Appending axes beside an existing one (matplotlib's
-//! `make_axes_locatable` and `AxesDivider.append_axes`).
+//! Appending axes beside an existing one, and room for decorations around
+//! it (matplotlib's `make_axes_locatable`, `AxesDivider.append_axes` and
+//! `make_axes_area_auto_adjustable`).
 
 use std::rc::Rc;
 
@@ -7,7 +8,7 @@ use plt_core::Bbox;
 
 use super::divider::{Divider, DividerAspect, DividerCell, DividerId, DividerRect, signed};
 use super::size::{Size, SizeSpec};
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId};
 use crate::axes::{Axes, AxesState};
 use crate::figure::insert_axes;
 use crate::spines::SpineSide;
@@ -61,7 +62,45 @@ pub fn make_axes_locatable(axes: &Axes) -> AxesDivider {
     }
 }
 
+/// Makes `axes` divisible and pads it on each of `sides` so that the
+/// decorations of `use_axes` fit inside its original position, `pad`
+/// inches from its edges (matplotlib's `make_axes_area_auto_adjustable`,
+/// which defaults to the axes itself, a pad of 0.1 and all four sides).
+///
+/// ```
+/// use plt::axes_grid1::make_axes_area_auto_adjustable;
+/// use plt::prelude::*;
+/// use plt::spines::SpineSide;
+/// let fig = Figure::new();
+/// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+/// make_axes_area_auto_adjustable(&ax, &[&ax], 0.1, &SpineSide::ALL);
+/// let (x, y, _, _) = ax.position().bounds();
+/// assert!(x > 0.0 && y > 0.0);
+/// ```
+pub fn make_axes_area_auto_adjustable(
+    axes: &Axes,
+    use_axes: &[&Axes],
+    pad: f64,
+    sides: &[SpineSide],
+) -> AxesDivider {
+    let divider = make_axes_locatable(axes);
+    divider.add_auto_adjustable_area(use_axes, pad, sides);
+    divider
+}
+
 impl AxesDivider {
+    /// Pads the divided area on each of `sides` by how far the decorations
+    /// of `use_axes` (tick labels, axis labels, titles) reach past that
+    /// side, plus `pad` inches (matplotlib's `add_auto_adjustable_area`).
+    pub fn add_auto_adjustable_area(&self, use_axes: &[&Axes], pad: f64, sides: &[SpineSide]) {
+        let measured: Vec<ArtistId> = use_axes.iter().map(|axes| axes.id()).collect();
+        let mut state = self.axes.raw().figure_state().borrow_mut();
+        let divider = state.divider_mut(self.divider);
+        for &side in sides {
+            divider.append_size(side, Size::AxesDecorations(measured.clone(), side) + pad);
+        }
+    }
+
     /// The divided axes.
     pub fn axes(&self) -> &Axes {
         &self.axes
@@ -155,5 +194,61 @@ mod tests {
                 assert!((actual - expected).abs() < 1e-9, "{actual} vs {expected}");
             }
         }
+    }
+
+    #[test]
+    fn auto_adjustable_areas_make_room_for_decorations_on_their_side() {
+        let fig = Figure::with_size(5.0, 3.0, 100.0);
+        let ax1 = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let divider = make_axes_locatable(&ax1);
+        let ax2 = divider.append_axes(SpineSide::Right, SizeSpec::Percent(100.0), Some(0.3.into()));
+        ax2.share_y(&ax1).unwrap();
+        ax2.tick_params(&crate::axes::TickParams {
+            labelleft: Some(false),
+            ..Default::default()
+        });
+        divider.add_auto_adjustable_area(&[&ax1], 0.1, &[SpineSide::Left]);
+        divider.add_auto_adjustable_area(&[&ax2], 0.1, &[SpineSide::Right]);
+        divider.add_auto_adjustable_area(&[&ax1, &ax2], 0.1, &[SpineSide::Top, SpineSide::Bottom]);
+        ax1.set_yticks(vec![0.5])
+            .set_yticklabels(["very long label"])
+            .unwrap();
+        ax2.set_title("Title");
+        ax2.set_xlabel("X - Label");
+        // matplotlib 3.11 with its default rcParams,
+        // `make_room_for_ylabel_using_axesgrid`: the positions the divider's
+        // locators give.
+        let expected = [
+            (
+                &ax1,
+                [0.249_444_444, 0.178_344_184, 0.324_277_778, 0.717_211_372],
+            ),
+            (
+                &ax2,
+                [0.633_722_222, 0.178_344_184, 0.324_277_778, 0.717_211_372],
+            ),
+        ];
+        for (axes, bounds) in expected {
+            let (x, y, w, h) = axes.position().bounds();
+            for (actual, expected) in [x, y, w, h].into_iter().zip(bounds) {
+                assert!((actual - expected).abs() < 1e-9, "{actual} vs {expected}");
+            }
+        }
+    }
+
+    #[test]
+    fn measured_axes_keep_their_placement() {
+        let fig = Figure::with_size(5.0, 3.0, 100.0);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        ax.set_ylabel("label");
+        let divider = make_axes_area_auto_adjustable(&ax, &[&ax], 0.1, &SpineSide::ALL);
+        let placed = ax.position();
+        divider.add_auto_adjustable_area(&[&ax], 0.0, &[]);
+        let mut state = fig.raw().figure_state().borrow_mut();
+        let (extent, tight) = state.unlocated_extents(ax.id()).unwrap();
+        assert_eq!(extent, Bbox::from_bounds(0.0, 0.0, 500.0, 300.0));
+        assert!(tight.xmin() < 0.0 && tight.ymin() < 0.0);
+        drop(state);
+        assert_eq!(ax.position(), placed);
     }
 }

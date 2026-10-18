@@ -4,6 +4,7 @@
 use plt_core::Bbox;
 
 use super::AxesState;
+use super::aspect::Placement;
 use super::axis_layout::{AxisPainter, PlacedText};
 use crate::artist::{Artist, ArtistBase, ArtistId, ClipPathSpec, LayoutContext};
 use crate::axes_grid1::parasites_of;
@@ -29,11 +30,45 @@ impl FigureState {
         axes: ArtistId,
         for_layout_only: bool,
     ) -> Option<Bbox> {
+        self.axes_tight_bbox_at(axes, for_layout_only, Placement::Located)
+    }
+
+    /// The box of `axes` and its tight box (with full decorations) at its
+    /// original position, without calling its locators (matplotlib's
+    /// `ax.bbox` after `get_tightbbox(call_axes_locator=False)`), or
+    /// `None` for an invisible axes. The axes keeps its placement and
+    /// ticks: matplotlib measures axes for dividers while drawing, after
+    /// the axes measured were drawn.
+    pub(crate) fn unlocated_extents(&mut self, axes: ArtistId) -> Option<(Bbox, Bbox)> {
+        let state = self.store.get_as::<AxesState>(axes)?;
+        let placed = (
+            state.aspect,
+            state.axis(AxisName::X).ticks.clone(),
+            state.axis(AxisName::Y).ticks.clone(),
+        );
+        let tight = self.axes_tight_bbox_at(axes, false, Placement::Original);
+        let extent = self.axes_bbox(axes);
+        let state = self.store.get_as_mut::<AxesState>(axes)?;
+        let (aspect, x_ticks, y_ticks) = placed;
+        state.aspect = aspect;
+        state.axis_mut(AxisName::X).ticks = x_ticks;
+        state.axis_mut(AxisName::Y).ticks = y_ticks;
+        Some((extent?, tight?))
+    }
+
+    /// [`axes_tight_bbox`](Self::axes_tight_bbox) with the axes placed by
+    /// `placement`.
+    fn axes_tight_bbox_at(
+        &mut self,
+        axes: ArtistId,
+        for_layout_only: bool,
+        placement: Placement,
+    ) -> Option<Bbox> {
         if !self.store.get_as::<AxesState>(axes)?.base().visible {
             return None;
         }
         let for_layout_only = for_layout_only && parasites_of(&self.store, axes).is_empty();
-        self.lay_out_axes(axes);
+        self.lay_out_axes_at(axes, placement);
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);

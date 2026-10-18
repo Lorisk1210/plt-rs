@@ -276,14 +276,16 @@ fn property_cycle(property: &str, values: &Expr) -> Result<Cycler, String> {
                 item.as_sequence()?.iter().map(Expr::as_number).collect();
             pattern.map(CycleValue::Dashes)
         })?,
-        "joinstyle" | "capstyle" | "fillstyle" | "hatch" | "markevery" => {
-            items(values, |item| match item {
-                Expr::Str(text) => Some(CycleValue::Text(text.clone())),
-                Expr::Int(n) => Some(CycleValue::Text(n.to_string())),
-                Expr::Number(n) => Some(CycleValue::Text(n.to_string())),
-                _ => None,
-            })?
-        }
+        "hatch" => items(values, |item| match item {
+            Expr::Str(text) if is_hatch(text) => Some(CycleValue::Text(text.clone())),
+            _ => None,
+        })?,
+        "joinstyle" | "capstyle" | "fillstyle" | "markevery" => items(values, |item| match item {
+            Expr::Str(text) => Some(CycleValue::Text(text.clone())),
+            Expr::Int(n) => Some(CycleValue::Text(n.to_string())),
+            Expr::Number(n) => Some(CycleValue::Text(n.to_string())),
+            _ => None,
+        })?,
         unknown => return Err(format!("unknown artist property: {unknown}")),
     };
     Ok(Cycler::new(key, parsed))
@@ -310,10 +312,22 @@ fn items(
             .as_sequence()
             .ok_or_else(|| format!("expected a sequence, got {other:?}"))?,
     };
+    // matplotlib's list validators skip empty strings.
     elements
         .iter()
+        .filter(|item| !matches!(item, Expr::Str(text) if text.is_empty()))
         .map(|item| convert(item).ok_or_else(|| format!("invalid cycle value {item:?}")))
         .collect()
+}
+
+/// matplotlib's `validate_hatch`: only the hatch pattern characters.
+fn is_hatch(pattern: &str) -> bool {
+    pattern.chars().all(|c| {
+        matches!(
+            c,
+            '\\' | '/' | '|' | '-' | '+' | '*' | '.' | 'x' | 'o' | 'O'
+        )
+    })
 }
 
 /// Colour lists: a sequence of colours, or a string that is a

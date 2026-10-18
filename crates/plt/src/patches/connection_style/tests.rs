@@ -115,3 +115,22 @@ fn routes_start_at_the_edge_of_their_patch() {
     assert!(square.contains(Point::new(5.0, 5.0)));
     assert!(!square.contains(Point::new(15.0, 5.0)));
 }
+
+#[test]
+fn coincident_points_have_no_direction() {
+    for name in [
+        "bar",
+        "bar,angle=45",
+        "arc,angleA=0,angleB=0,armA=30,armB=30",
+    ] {
+        assert_eq!(
+            style(name).connect(A, A),
+            Err(PatchError::CoincidentPoints),
+            "{name}"
+        );
+    }
+    assert!(
+        style("arc3").connect(A, A).is_ok(),
+        "arc3 divides by nothing"
+    );
+}

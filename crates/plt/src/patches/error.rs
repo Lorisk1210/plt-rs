@@ -19,6 +19,9 @@ pub enum PatchError {
     ParallelAngles,
     /// The arrow is too short for its head or tail.
     NotIntersecting,
+    /// Two points of a connection coincide, so its direction is undefined
+    /// (matplotlib divides by their zero distance).
+    CoincidentPoints,
     /// An end's coordinates cannot be resolved.
     Coords(CoordError),
     /// Connection patches do not support offset, font-size, artist or
@@ -37,6 +40,9 @@ impl fmt::Display for PatchError {
             ),
             Self::NotIntersecting => {
                 f.write_str("the arrow path does not cross the circle around its head or tail")
+            }
+            Self::CoincidentPoints => {
+                f.write_str("the connection's points coincide, so its direction is undefined")
             }
             Self::Coords(err) => err.fmt(f),
             Self::UnsupportedCoords => f.write_str(

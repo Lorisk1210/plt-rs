@@ -172,13 +172,13 @@ impl ConnectionStyle {
                 arm_a,
                 arm_b,
                 rad,
-            } => arc_connection(a, b, (angle_a, arm_a), (angle_b, arm_b), rad),
+            } => arc_connection(a, b, (angle_a, arm_a), (angle_b, arm_b), rad)?,
             Self::Bar {
                 arm_a,
                 arm_b,
                 fraction,
                 angle,
-            } => bar_connection(a, b, arm_a, arm_b, fraction, angle),
+            } => bar_connection(a, b, arm_a, arm_b, fraction, angle)?,
         })
     }
 
@@ -221,7 +221,7 @@ fn arc_connection(
     (angle_a, arm_a): (f64, Option<f64>),
     (angle_b, arm_b): (f64, Option<f64>),
     rad: f64,
-) -> Path {
+) -> Result<Path, PatchError> {
     use PathCode::{Curve3, LineTo, MoveTo};
     let arm = |arm: Option<f64>| arm.filter(|&length| length != 0.0);
     let mut segments = vec![(MoveTo, a)];
@@ -229,7 +229,13 @@ fn arc_connection(
     let toward = |from: Point, to: Point, length: f64| {
         let (dx, dy) = (to.x - from.x, to.y - from.y);
         let dd = (dx * dx + dy * dy).sqrt();
-        Point::new(from.x + length * dx / dd, from.y + length * dy / dd)
+        if dd == 0.0 {
+            return Err(PatchError::CoincidentPoints);
+        }
+        Ok(Point::new(
+            from.x + length * dx / dd,
+            from.y + length * dy / dd,
+        ))
     };
     let distance = |from: Point, to: Point| {
         let (dx, dy) = (to.x - from.x, to.y - from.y);
@@ -248,7 +254,7 @@ fn arc_connection(
         let arm_end = Point::new(b.x + arm_b * d.cos, b.y + arm_b * d.sin);
         let from = match rounded.last() {
             Some(&last) => {
-                rounded.push(toward(last, arm_end, rad));
+                rounded.push(toward(last, arm_end, rad)?);
                 segments.push((LineTo, rounded[0]));
                 segments.push((Curve3, rounded[1]));
                 segments.push((Curve3, rounded[2]));
@@ -257,16 +263,16 @@ fn arc_connection(
             None => a,
         };
         let length = distance(from, arm_end) - rad;
-        rounded = vec![toward(from, arm_end, length), arm_end];
+        rounded = vec![toward(from, arm_end, length)?, arm_end];
     }
     if let Some(&last) = rounded.last() {
-        rounded.push(toward(last, b, rad));
+        rounded.push(toward(last, b, rad)?);
         segments.push((LineTo, rounded[0]));
         segments.push((Curve3, rounded[1]));
         segments.push((Curve3, rounded[2]));
     }
     segments.push((LineTo, b));
-    coded(&segments)
+    Ok(coded(&segments))
 }
 
 /// `ConnectionStyle.Bar.connect`.
@@ -277,12 +283,18 @@ fn bar_connection(
     mut arm_b: f64,
     fraction: f64,
     angle: Option<f64>,
-) -> Path {
+) -> Result<Path, PatchError> {
     use PathCode::{LineTo, MoveTo};
+    let unit = |dx: f64, dy: f64| {
+        let dd = (dx * dx + dy * dy).sqrt();
+        if dd == 0.0 {
+            Err(PatchError::CoincidentPoints)
+        } else {
+            Ok((dd, dx / dd, dy / dd))
+        }
+    };
     let theta1 = (b0.y - a.y).atan2(b0.x - a.x);
-    let (dx, dy) = (b0.x - a.x, b0.y - a.y);
-    let dd = (dx * dx + dy * dy).sqrt();
-    let (mut ddx, mut ddy) = (dx / dd, dy / dd);
+    let (dd, mut ddx, mut ddy) = unit(b0.x - a.x, b0.y - a.y)?;
     let mut b = b0;
     if let Some(angle) = angle {
         let theta0 = angle.to_radians();
@@ -291,17 +303,15 @@ fn bar_connection(
         let d_long = dd * dtheta.cos();
         b = Point::new(a.x + d_long * theta0.cos(), a.y + d_long * theta0.sin());
         arm_b -= dl;
-        let (dx, dy) = (b.x - a.x, b.y - a.y);
-        let dd2 = (dx * dx + dy * dy).sqrt();
-        (ddx, ddy) = (dx / dd2, dy / dd2);
+        (_, ddx, ddy) = unit(b.x - a.x, b.y - a.y)?;
     }
     let f = fraction * dd + arm_a.max(arm_b);
-    coded(&[
+    Ok(coded(&[
         (MoveTo, a),
         (LineTo, Point::new(a.x + f * ddy, a.y - f * ddx)),
         (LineTo, Point::new(b.x + f * ddy, b.y - f * ddx)),
         (LineTo, b0),
-    ])
+    ]))
 }
 
 impl FromStr for ConnectionStyle {

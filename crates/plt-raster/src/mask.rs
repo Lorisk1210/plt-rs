@@ -1,7 +1,7 @@
 //! Single-channel 8-bit coverage maps: clip masks and glyph bitmaps.
 
 use crate::error::RasterError;
-use crate::pixmap::pixel_count;
+use crate::pixmap::{filled_buffer, pixel_count};
 
 /// A gray8 image whose values are coverage/opacity in `0..=255`.
 ///
@@ -27,11 +27,10 @@ impl std::fmt::Debug for Mask {
 impl Mask {
     /// Creates an all-zero (fully clipped / empty) mask.
     pub fn new(width: u32, height: u32) -> Result<Self, RasterError> {
-        let n = pixel_count(width, height)?;
         Ok(Self {
             width,
             height,
-            data: vec![0; n],
+            data: filled_buffer(width, height, &[0])?,
         })
     }
 

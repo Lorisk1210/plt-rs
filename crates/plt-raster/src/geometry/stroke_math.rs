@@ -12,6 +12,10 @@ use crate::style::{InnerJoin, LineCap, LineJoin, StrokeStyle};
 
 const INTERSECTION_EPSILON: f64 = 1.0e-30;
 
+/// The most intermediate points of a round cap or join. A stroke as wide as
+/// the largest canvas (2²³ pixels) needs about 6 400 for a half turn.
+const MAX_ARC_POINTS: i32 = 1 << 13;
+
 /// Agg's `cross_product`: which side of the line `1 → 2` the point lies on.
 fn cross_product(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, y: f64) -> f64 {
     (x - x2) * (y2 - y1) - (y - y2) * (x2 - x1)
@@ -81,6 +85,15 @@ impl StrokeMath {
         (self.width_abs / (self.width_abs + 0.125 / self.approx_scale)).acos() * 2.0
     }
 
+    /// Agg's `int(angle / step)` intermediate points of a round cap or join.
+    ///
+    /// Huge widths or approximation scales make the step zero; C++ leaves
+    /// the conversion of the infinite quotient undefined, Rust saturates it
+    /// to `i32::MAX` points. The count is capped at [`MAX_ARC_POINTS`].
+    fn arc_points(angle: f64, step: f64) -> i32 {
+        ((angle / step) as i32).min(MAX_ARC_POINTS)
+    }
+
     #[allow(clippy::too_many_arguments)] // Mirrors Agg's signature one to one.
     fn calc_arc(
         &self,
@@ -100,7 +113,7 @@ impl StrokeMath {
             if a1 > a2 {
                 a2 += 2.0 * PI;
             }
-            let n = ((a2 - a1) / da) as i32;
+            let n = Self::arc_points(a2 - a1, da);
             let da = (a2 - a1) / f64::from(n + 1);
             a1 += da;
             for _ in 0..n {
@@ -114,7 +127,7 @@ impl StrokeMath {
             if a1 < a2 {
                 a2 -= 2.0 * PI;
             }
-            let n = ((a1 - a2) / da) as i32;
+            let n = Self::arc_points(a1 - a2, da);
             let da = (a1 - a2) / f64::from(n + 1);
             a1 -= da;
             for _ in 0..n {
@@ -224,7 +237,7 @@ impl StrokeMath {
         dy1 *= self.width;
         if self.cap == LineCap::Round {
             let da = self.arc_step();
-            let n = (PI / da) as i32;
+            let n = Self::arc_points(PI, da);
             let da = PI / f64::from(n + 1);
             out.push(Point::new(v0.x - dx1, v0.y + dy1));
             if self.width_sign > 0.0 {
@@ -395,6 +408,27 @@ mod tests {
             assert!((p.length() - 10.0).abs() < 1e-9);
             assert!(p.x <= 1e-9);
         }
+    }
+
+    #[test]
+    fn round_caps_and_joins_stay_bounded() {
+        // A zero angular step would ask for i32::MAX points per arc.
+        let mut out = Vec::new();
+        let mut huge = StrokeStyle::new(1e300)
+            .with_cap(LineCap::Round)
+            .with_join(LineJoin::Round);
+        let m = StrokeMath::new(&huge);
+        m.calc_cap(&mut out, &vd(0.0, 0.0), &vd(10.0, 0.0), 10.0);
+        assert_eq!(out.len(), MAX_ARC_POINTS as usize + 2);
+        huge.width = 2.0;
+        huge.approximation_scale = 1e300;
+        let m = StrokeMath::new(&huge);
+        let (a, b, c) = (vd(0.0, 0.0), vd(10.0, 0.0), vd(10.0, -10.0));
+        m.calc_join(&mut out, &a, &b, &c, 10.0, 10.0);
+        assert!(out.len() <= MAX_ARC_POINTS as usize + 2);
+        huge.approximation_scale = f64::NAN;
+        StrokeMath::new(&huge).calc_cap(&mut out, &a, &b, 10.0);
+        assert_eq!(out.len(), 2);
     }
 
     #[test]

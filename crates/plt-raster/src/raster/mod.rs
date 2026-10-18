@@ -241,8 +241,10 @@ impl PathSink for Rasterizer {
         self.status = Status::MoveTo;
     }
 
-    /// Adds an edge. Non-finite points are ignored.
+    /// Adds an edge. Non-finite points are ignored, but still count as work
+    /// against the cell limit, so that strokes of NaN width stay bounded.
     fn line_to(&mut self, p: Point) {
+        self.cells.count_work();
         if !p.is_finite() {
             return;
         }
@@ -253,6 +255,12 @@ impl PathSink for Rasterizer {
 
     fn close(&mut self) {
         self.close_polygon();
+    }
+
+    /// The geometry exceeded the cell limit: the sweep will fail, so
+    /// generators feeding the rasterizer may stop.
+    fn is_saturated(&self) -> bool {
+        self.cells.overflowed()
     }
 }
 

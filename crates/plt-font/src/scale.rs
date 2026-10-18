@@ -44,10 +44,15 @@ impl Size {
 
     /// `FT_Set_Char_Size(face, char_size, 0, dpi, dpi)` with `char_size` in
     /// 26.6 points.
+    ///
+    /// FreeType keeps pixels per em in 16 bits; larger requests are clamped
+    /// to 65 535 pixels per em, which keeps every later fixed-point product
+    /// within 64 bits.
     pub fn from_char_size(face: &Face<'_>, char_size: i64, dpi: u32) -> Self {
+        const MAX_SCALED: i64 = (u16::MAX as i64) << 6;
         let char_size = char_size.max(64);
         let dpi = if dpi == 0 { 72 } else { i64::from(dpi) };
-        let scaled = (char_size * dpi + 36) / 72;
+        let scaled = (char_size.saturating_mul(dpi).saturating_add(36) / 72).min(MAX_SCALED);
         let units_per_em = face.units_per_em();
         let scale = div_fix(scaled, i64::from(units_per_em));
         let ppem = u16::try_from((scaled + 32) >> 6).unwrap_or(u16::MAX);
@@ -117,12 +122,19 @@ impl Size {
 
     /// Scales a horizontal `GPOS` value like HarfBuzz (`em_scale_x`).
     pub fn em_scale_x(&self, value: i32) -> i32 {
-        ((i64::from(value) * self.hb_mult(self.x_scale) + 0x8000) >> 16) as i32
+        Self::em_scale(value, self.hb_mult(self.x_scale))
     }
 
     /// Scales a vertical `GPOS` value like HarfBuzz (`em_scale_y`).
     pub fn em_scale_y(&self, value: i32) -> i32 {
-        ((i64::from(value) * self.hb_mult(self.y_scale) + 0x8000) >> 16) as i32
+        Self::em_scale(value, self.hb_mult(self.y_scale))
+    }
+
+    /// HarfBuzz's `em_mult` product, saturating where values far beyond
+    /// the 16-bit range of font data would overflow.
+    fn em_scale(value: i32, mult: i64) -> i32 {
+        let scaled = i64::from(value).saturating_mul(mult).saturating_add(0x8000) >> 16;
+        scaled.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
     }
 
     /// HarfBuzz's floating-point `em_fscale_x`, used for anchors.

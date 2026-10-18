@@ -40,6 +40,9 @@ pub fn draw_image(
     };
     let mut surface = Surface::new(target, clip.rect, clip.mask)?;
     let width = image.width() as usize;
+    if width == 0 {
+        return Ok(());
+    }
     let (convert_alpha, cover) = if clip.mask.is_some() {
         (true, 255)
     } else {
@@ -251,6 +254,16 @@ mod tests {
         draw_image(&mut target, &img, 0, 0, 0.5, &Clip::NONE.with_mask(&mask)).unwrap();
         assert_eq!(target.pixel(0, 0), Some(Rgba8::new(10, 20, 30, 100)));
         assert_eq!(target.pixel(1, 0), Some(Rgba8::default()));
+    }
+
+    #[test]
+    fn empty_images_draw_nothing() {
+        let mut target = Pixmap::new(2, 2).unwrap();
+        for (w, h) in [(0, 0), (0, 3), (3, 0)] {
+            let img = Pixmap::new(w, h).unwrap();
+            draw_image(&mut target, &img, 0, 0, 1.0, &Clip::NONE).unwrap();
+        }
+        assert_eq!(target, Pixmap::new(2, 2).unwrap());
     }
 
     #[test]

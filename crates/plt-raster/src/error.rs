@@ -6,7 +6,8 @@ use std::fmt;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RasterError {
     /// A pixmap or mask dimension is zero-sized where that is not allowed,
-    /// or too large to address (matplotlib caps each side below 2²³).
+    /// too large to address (matplotlib caps each side below 2²³), or the
+    /// buffer is larger than the system can allocate.
     InvalidDimensions {
         /// Requested width in pixels.
         width: u32,

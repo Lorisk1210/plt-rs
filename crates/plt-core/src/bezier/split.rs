@@ -19,13 +19,20 @@ pub fn inside_circle(center: Point, r: f64) -> impl Fn(Point) -> bool {
     }
 }
 
+/// More bisections than any finite bracket needs before its ends become
+/// adjacent floats (about 2100 halvings from `f64::MAX` to the smallest
+/// subnormal).
+const MAX_BISECTIONS: usize = 4096;
+
 /// Bisects `[t0, t1]` until the curve points at both ends are closer than
 /// `tolerance`, keeping one end inside the closed path and the other
 /// outside (matplotlib's `find_bezier_t_intersecting_with_closedpath`).
 ///
-/// Fails when both ends start on the same side (and differ). Like
-/// matplotlib, the search also stops when a bisection no longer moves an
-/// end point.
+/// Fails when both ends start on the same side (and differ), or when `t0`
+/// or `t1` is not finite. Like matplotlib, the search also stops when a
+/// bisection no longer moves an end point; unlike matplotlib, it gives up
+/// after 4096 steps (returning the current bracket), which
+/// only curves producing NaN points ever reach.
 pub fn find_bezier_t_intersecting_with_closedpath(
     point_at: impl Fn(f64) -> Point,
     inside: impl Fn(Point) -> bool,
@@ -33,13 +40,16 @@ pub fn find_bezier_t_intersecting_with_closedpath(
     mut t1: f64,
     tolerance: f64,
 ) -> Result<(f64, f64), BezierError> {
+    if !(t0.is_finite() && t1.is_finite()) {
+        return Err(BezierError::NotIntersecting);
+    }
     let mut start = point_at(t0);
     let mut end = point_at(t1);
     let mut start_inside = inside(start);
     if start_inside == inside(end) && start != end {
         return Err(BezierError::NotIntersecting);
     }
-    loop {
+    for _ in 0..MAX_BISECTIONS {
         if (start.x - end.x).hypot(start.y - end.y) < tolerance {
             return Ok((t0, t1));
         }
@@ -61,6 +71,7 @@ pub fn find_bezier_t_intersecting_with_closedpath(
             start_inside = middle_inside;
         }
     }
+    Ok((t0, t1))
 }
 
 /// Splits a planar Bézier curve where it crosses the boundary of the
@@ -278,6 +289,21 @@ mod tests {
         assert_eq!(
             pieces[3],
             (vec![p(1.0, 1.0), p(0.0, 0.0)], PathCode::ClosePoly)
+        );
+    }
+
+    #[test]
+    fn nan_curves_stop_bisecting() {
+        // The end that stays NaN never compares equal, so matplotlib's own
+        // termination tests never fire.
+        let half_nan = |t: f64| if t > 0.5 { p(f64::NAN, 0.0) } else { p(t, 0.0) };
+        let inside = |q: Point| q.x.is_nan();
+        let (t0, t1) = find_bezier_t_intersecting_with_closedpath(half_nan, inside, 0.0, 1.0, 0.01)
+            .expect("bracketed");
+        assert!(t0 <= 0.5 && t1 > 0.5);
+        assert_eq!(
+            find_bezier_t_intersecting_with_closedpath(half_nan, inside, f64::NAN, 1.0, 0.01),
+            Err(BezierError::NotIntersecting)
         );
     }
 }

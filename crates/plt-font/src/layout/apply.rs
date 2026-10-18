@@ -337,7 +337,7 @@ impl<'f, 'a> Applier<'f, 'a> {
 
     /// Applies a nested lookup once at the current position.
     fn apply_nested(&mut self, lookup_index: u16) -> bool {
-        if self.nesting >= MAX_NESTING {
+        if self.nesting >= MAX_NESTING || !self.buffer.spend_op() {
             return false;
         }
         let Some(lookup) = self.table.lookup(lookup_index) else {

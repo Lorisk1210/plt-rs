@@ -7,6 +7,10 @@ use crate::reader::Reader;
 
 const MAX_STACK: usize = 48;
 const MAX_CALL_DEPTH: u8 = 10;
+/// The most operators and operands one glyph may execute: subroutines
+/// calling each other several times per level multiply exponentially with
+/// the call depth.
+const MAX_OPERATIONS: u32 = 1 << 20;
 
 /// Subroutine context of one glyph.
 #[derive(Clone, Copy, Debug)]
@@ -109,6 +113,8 @@ struct Interpreter<'a, 'o> {
     stems: usize,
     width_parsed: bool,
     seac: Option<Seac>,
+    /// Operations left before the charstring is rejected.
+    operations_left: u32,
 }
 
 /// Runs `charstring`, appending its contours to `outline`. Returns the
@@ -132,6 +138,7 @@ pub(crate) fn interpret(
         stems: 0,
         width_parsed: false,
         seac: None,
+        operations_left: MAX_OPERATIONS,
     };
     interpreter.run(charstring, 0)?;
     interpreter.builder.close();
@@ -172,6 +179,10 @@ impl Interpreter<'_, '_> {
         }
         let mut r = Reader::new(code, CFF);
         while r.remaining() > 0 {
+            self.operations_left = self
+                .operations_left
+                .checked_sub(1)
+                .ok_or(FontError::malformed(CFF, "charstring runs too long"))?;
             let b0 = r.u8()?;
             let flow = match b0 {
                 28 => {
@@ -506,6 +517,25 @@ mod tests {
             cmds,
             vec![MoveTo(1.0, 1.0), LineTo(6.0, 6.0), LineTo(1.0, 1.0), Close]
         );
+    }
+
+    #[test]
+    fn exponential_subroutine_calls_are_rejected() {
+        // Subr k (17 bytes) calls subr k + 1 eight times; subr 9 draws a
+        // line: 8^9 lines within the nesting limit.
+        let mut index_bytes = vec![0, 10, 1];
+        index_bytes.extend((0..10).map(|k| 1 + 17 * k).chain([158]));
+        index_bytes
+            .extend((1..10).flat_map(|next| [n(next - 107), 10].repeat(8).into_iter().chain([11])));
+        index_bytes.extend([n(1), n(1), 5, 11]);
+        let local = Index::read(&mut Reader::new(&index_bytes, CFF)).unwrap();
+        let subrs = Subrs {
+            global: Index::default(),
+            local,
+        };
+        let mut outline = Outline::default();
+        let code = [n(0), n(0), 21, n(-107), 10, 14];
+        assert!(interpret(&code, subrs, &mut outline).is_err());
     }
 
     #[test]

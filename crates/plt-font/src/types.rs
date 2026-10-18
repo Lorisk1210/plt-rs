@@ -81,12 +81,12 @@ pub struct Rect {
 impl Rect {
     /// Width of the rectangle.
     pub const fn width(&self) -> i32 {
-        self.x_max - self.x_min
+        self.x_max.saturating_sub(self.x_min)
     }
 
     /// Height of the rectangle.
     pub const fn height(&self) -> i32 {
-        self.y_max - self.y_min
+        self.y_max.saturating_sub(self.y_min)
     }
 }
 

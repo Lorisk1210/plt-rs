@@ -108,6 +108,9 @@ fn multiple(ctx: &mut Applier<'_, '_>, data: &[u8]) -> Result<bool> {
         replace(ctx, glyphs.get(0).unwrap_or_default());
         return Ok(true);
     }
+    if !ctx.buffer.can_grow(glyphs.len().saturating_sub(1)) {
+        return Ok(false);
+    }
     let gdef = *ctx.face.gdef();
     let idx = ctx.buffer.idx;
     let template = ctx.buffer.info[idx];

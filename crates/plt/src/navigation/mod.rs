@@ -359,7 +359,9 @@ impl Navigation {
     /// The axes an interaction at `at` acts on (matplotlib's
     /// `_start_event_axes_interaction`): the topmost axes under the
     /// pointer that can pan (or zoom), with their twins, down to the first
-    /// one with a visible background. Records the home view first.
+    /// one that keeps events from those below (by default, one with a
+    /// visible background; see `Axes::set_forward_navigation_events`).
+    /// Records the home view first.
     fn interaction_axes(&mut self, figure: &Figure, at: Point, zoom: bool) -> Vec<Axes> {
         let candidates: Vec<Axes> = figure
             .axes()
@@ -389,7 +391,7 @@ impl Navigation {
                         chosen.push(member);
                     }
                 }
-                if ax.patch_visible() {
+                if ax.captures_navigation() {
                     break 'levels;
                 }
             }
@@ -397,3 +399,6 @@ impl Navigation {
         chosen
     }
 }
+
+#[cfg(test)]
+mod tests;

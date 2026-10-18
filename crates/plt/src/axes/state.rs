@@ -77,6 +77,9 @@ pub(crate) struct AxesState {
     /// Whether the navigation toolbar acts on this axes (matplotlib's
     /// `get_navigate`).
     pub(crate) navigate: bool,
+    /// Whether pan and zoom also reach the axes below (matplotlib's
+    /// `forward_navigation_events`; `None` is `"auto"`).
+    pub(crate) forward_navigation: Option<bool>,
     /// How the titles' height is chosen (matplotlib's `_autotitlepos`).
     pub(crate) title_placement: TitlePlacement,
     /// z-order of the axis artists (`axes.axisbelow`).
@@ -172,6 +175,7 @@ impl AxesState {
             spines: Vec::new(),
             titles: Vec::new(),
             navigate: true,
+            forward_navigation: None,
             title_placement: if rc.axes_titley.is_some() {
                 TitlePlacement::Fixed
             } else {

@@ -444,6 +444,21 @@ impl Axes {
         self.raw.with::<AxesState, _>(|a| a.patch.facecolor.clone())
     }
 
+    /// Sets the z-order of the background patch (matplotlib's
+    /// `ax.patch.set_zorder`). It matters only where a parasite axes
+    /// shares the patch and draws it among its children; as the
+    /// background the patch is always drawn first.
+    pub fn set_patch_zorder(&self, zorder: f64) -> &Self {
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.patch.zorder = zorder);
+        self
+    }
+
+    /// The z-order of the background patch (1 by default).
+    pub fn patch_zorder(&self) -> f64 {
+        self.raw.with::<AxesState, _>(|a| a.patch.zorder)
+    }
+
     /// Sets the gap between the axes top and its titles in points
     /// (matplotlib's `set_title(..., pad=...)`).
     pub fn set_title_pad(&self, pad: f64) -> &Self {

@@ -84,6 +84,17 @@ impl<'a> LayoutContext<'a> {
         self.figure.axes_outline(owner)
     }
 
+    /// The display box of the unit square in `transform` (matplotlib's
+    /// `TransformedBbox(Bbox.unit(), transform)`), the clip box of a
+    /// [`ClipPathSpec::Rectangle`].
+    pub(crate) fn unit_box(self, transform: &Transform) -> Option<Bbox> {
+        let resolved = self.resolve(transform)?;
+        Some(Bbox::from_points([
+            resolved.transform_point(Point::new(0.0, 0.0)),
+            resolved.transform_point(Point::new(1.0, 1.0)),
+        ]))
+    }
+
     /// The axes whose `axis` labels align with those of `axes` in its
     /// figure, `axes` included (see
     /// [`Figure::align_labels`](crate::figure::Figure::align_labels)).
@@ -314,17 +325,21 @@ impl<'a> DrawContext<'a> {
             ..GraphicsContext::default()
         };
         if base.clip_on {
-            gc.clip_rect = base
-                .clip_box
-                .and_then(|owner| self.layout.clip_extent(owner));
-            gc.clip_path = base
-                .clip_path
-                .as_ref()
-                .and_then(|spec| self.clip_path(spec))
-                .or_else(|| {
-                    base.clip_box
-                        .and_then(|owner| self.layout.clip_outline(owner))
-                });
+            if let Some(ClipPathSpec::Rectangle(transform)) = &base.clip_path {
+                gc.clip_rect = self.layout.unit_box(transform);
+            } else {
+                gc.clip_rect = base
+                    .clip_box
+                    .and_then(|owner| self.layout.clip_extent(owner));
+                gc.clip_path = base
+                    .clip_path
+                    .as_ref()
+                    .and_then(|spec| self.clip_path(spec))
+                    .or_else(|| {
+                        base.clip_box
+                            .and_then(|owner| self.layout.clip_outline(owner))
+                    });
+            }
         }
         gc
     }
@@ -340,6 +355,7 @@ impl<'a> DrawContext<'a> {
                 })
             }
             ClipPathSpec::Artist(id) => self.layout.store().get(*id)?.outline(&self.layout),
+            ClipPathSpec::Rectangle(_) => None,
         }
     }
 }

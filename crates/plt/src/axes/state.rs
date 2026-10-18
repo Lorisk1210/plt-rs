@@ -135,6 +135,13 @@ pub(crate) struct AxesPatch {
     pub(crate) facecolor: Color,
     /// Whether it is drawn.
     pub(crate) visible: bool,
+    /// Its z-order where it is drawn among children (a parasite sharing
+    /// it); as the background it is always drawn first.
+    pub(crate) zorder: f64,
+    /// Whether this parasite's patch is its host's (matplotlib's
+    /// `aux.patch = ax.patch`), which the host then draws again among the
+    /// parasite's children.
+    pub(crate) host_owned: bool,
 }
 
 /// What the axes sharing one axis contribute to its autoscaling.
@@ -167,6 +174,8 @@ impl AxesState {
             patch: AxesPatch {
                 facecolor: rc.axes_facecolor.clone(),
                 visible: true,
+                zorder: 1.0,
+                host_owned: false,
             },
             decorations: Decorations {
                 axis_on: true,

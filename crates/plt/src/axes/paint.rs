@@ -3,7 +3,7 @@
 //! the background and everything up to it become one image in vector
 //! output.
 
-use plt_core::{Bbox, Rgba};
+use plt_core::Rgba;
 use plt_render::{ClipPath, JoinStyle};
 
 use super::Axes;
@@ -24,6 +24,8 @@ enum Item {
     Child(ArtistId),
     /// The x or y axis of this axes or of one of its parasites.
     Axis(ArtistId, AxisName),
+    /// The background patch again, as the child of a parasite sharing it.
+    Patch,
 }
 
 /// Child `id` with its z-order, unless it was removed.
@@ -37,18 +39,18 @@ impl AxesState {
     /// rasterized image together with the background, when the lowest
     /// item lies below it.
     pub(super) fn paint(&self, ctx: &mut DrawContext<'_>) {
-        let Some(extent) = ctx.layout().axes_extent(self.base().id()) else {
+        if ctx.layout().axes_extent(self.base().id()).is_none() {
             return;
-        };
+        }
         let items = self.items(ctx.layout().store());
         let (below, above) = items.split_at(self.rasterized_count(&items));
         if below.is_empty() {
-            self.draw_background(ctx, extent);
+            self.draw_background(ctx);
         } else {
             // matplotlib's `_draw_rasterized`: images among them are not
             // composited.
             ctx.draw_artist(true, |ctx| {
-                self.draw_background(ctx, extent);
+                self.draw_background(ctx);
                 for &(_, item) in below {
                     self.draw_item(ctx, item);
                 }
@@ -76,6 +78,9 @@ impl AxesState {
             // matplotlib draws every child of a parasite that is visible:
             // its frame and axis settings do not count.
             items.extend(parasite.decoration_items(store, true, true));
+            if parasite.patch.host_owned {
+                items.push((self.patch.zorder, Item::Patch));
+            }
         }
         items.extend(self.decoration_items(
             store,
@@ -145,12 +150,22 @@ impl AxesState {
         }
     }
 
-    /// Draws the background patch of a framed axes, along its outline.
-    fn draw_background(&self, ctx: &mut DrawContext<'_>, extent: Bbox) {
-        if !(self.decorations.framed() && self.patch.visible) {
+    /// Draws the background patch of a framed axes.
+    fn draw_background(&self, ctx: &mut DrawContext<'_>) {
+        if self.decorations.framed() {
+            self.draw_patch(ctx);
+        }
+    }
+
+    /// Draws the background patch, if visible, along its outline.
+    fn draw_patch(&self, ctx: &mut DrawContext<'_>) {
+        let base = self.base();
+        let Some(extent) = ctx.layout().axes_extent(base.id()) else {
+            return;
+        };
+        if !self.patch.visible {
             return;
         }
-        let base = self.base();
         match self.patch.facecolor.resolve() {
             Ok(face) => {
                 // The patch has edge colour 'none' and no width, and is
@@ -159,6 +174,11 @@ impl AxesState {
                 gc.linewidth = 0.0;
                 gc.foreground = Rgba::TRANSPARENT;
                 gc.join = JoinStyle::Miter;
+                if self.patch_outline.is_some() {
+                    // Floating axes clip their outline to the axes box
+                    // (matplotlib's `patch.set_clip_path(orig_patch)`).
+                    gc.clip_rect = Some(extent);
+                }
                 let face = (!face.is_transparent()).then_some(face);
                 let outline = ctx
                     .layout()
@@ -194,6 +214,7 @@ impl AxesState {
                     });
                 }
             }
+            Item::Patch => self.draw_patch(ctx),
         }
     }
 
@@ -204,7 +225,7 @@ impl AxesState {
             .iter()
             .filter_map(|&(_, item)| match item {
                 Item::Child(id) => Some(id),
-                Item::Axis(..) => None,
+                Item::Axis(..) | Item::Patch => None,
             })
             .collect();
         let clip = ctx.layout().axes_extent(self.base().id());
@@ -212,7 +233,7 @@ impl AxesState {
         for &(_, item) in items {
             match item {
                 Item::Child(id) => compositor.draw(ctx, id),
-                Item::Axis(..) => {
+                Item::Axis(..) | Item::Patch => {
                     compositor.flush(ctx);
                     self.draw_item(ctx, item);
                 }

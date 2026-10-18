@@ -257,3 +257,10 @@ def _(fig):
     ax.bar([0.3, 0.55], [0.4, 0.6], width=0.17)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
+
+
+@case("styles/rc_boxplot_horizontal", figsize=(5, 3), rc={"boxplot.vertical": False})
+def _(fig):
+    ax = fig.subplots()
+    data = [np.sin(X * k) * k for k in (1, 2, 3)]
+    ax.boxplot(data)

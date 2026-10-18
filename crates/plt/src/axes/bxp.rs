@@ -264,6 +264,18 @@ impl Axes {
         options: &BxpOptions,
     ) -> Result<BoxplotArtists, PlotError> {
         let rc = crate::rc::params();
+        // `boxplot.vertical = False` lays every box plot out horizontally,
+        // as matplotlib's (deprecated) `vert` default does.
+        let horizontal;
+        let options = if rc.boxplot_vertical {
+            options
+        } else {
+            horizontal = BxpOptions {
+                orientation: Orientation::Horizontal,
+                ..options.clone()
+            };
+            &horizontal
+        };
         let styles = PartStyles::new(options, &rc);
         let n = stats.len();
         let default_positions = options.positions.is_none();

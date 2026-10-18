@@ -1,7 +1,7 @@
 //! `figures/cases_styles.py`: every bundled style sheet applied to the
 //! same standard plot, and individual rcParams.
 
-use plt::axes::{ErrorbarOptions, HistPlotOptions, MappedColors, ScatterOptions};
+use plt::axes::{BoxplotOptions, ErrorbarOptions, HistPlotOptions, MappedColors, ScatterOptions};
 use plt::legend::LegendOptions;
 use plt::patches::Rectangle;
 use plt::prelude::*;
@@ -105,6 +105,16 @@ pub(crate) const SHEETS: &[FigureCase] = sheet_cases![
 ];
 
 pub(crate) const CASES: &[FigureCase] = &[
+    FigureCase::new("styles/rc_boxplot_horizontal", |fig| {
+        let data: Vec<Vec<f64>> = [1.0, 2.0, 3.0]
+            .into_iter()
+            .map(|k| of_x(|x| (x * k).sin() * k))
+            .collect();
+        fig.subplot().boxplot(&data, &BoxplotOptions::default())?;
+        Ok(())
+    })
+    .sized(5.0, 3.0, 100.0)
+    .with_rc(&[("boxplot.vertical", "False")]),
     FigureCase::new("styles/rc_path_snap_off", |fig| {
         let ax = fig.subplot();
         ax.plot_with(

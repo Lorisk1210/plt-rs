@@ -13,7 +13,8 @@
 //!   normalised values to colours.
 //! * [`Norm`] and its implementations ([`Normalize`], [`LogNorm`],
 //!   [`BoundaryNorm`], ...) — data to colormap positions.
-//! * [`ScalarMappable`] — a norm and a colormap combined.
+//! * [`ScalarMappable`] — a norm and a colormap combined, and
+//!   [`from_levels_and_colors`] for contour-style banded colours.
 //!
 //! ```
 //! use plt::colors::{LogNorm, ScalarMappable, colormaps};
@@ -28,6 +29,7 @@ mod array;
 mod colormap;
 pub mod colormaps;
 mod hsv;
+mod levels;
 mod light;
 mod mappable;
 pub mod multivar;
@@ -45,6 +47,7 @@ pub use colormap::{
     SegmentFn, SegmentProblem,
 };
 pub use hsv::{hsv_to_rgb, rgb_to_hsv};
+pub use levels::{LevelsError, from_levels_and_colors};
 pub use light::{
     BlendMode, LightSource, Relief, ShadeError, ShadeOptions, blend_overlay, blend_soft_light,
 };

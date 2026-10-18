@@ -4,7 +4,7 @@
 //! [`crate::polar`]; geographic axes draw theirs here, in the coordinates
 //! [`crate::geo`] gives them.
 
-use plt_core::{Affine2D, Path};
+use plt_core::{Affine2D, Path, Rgba};
 use plt_render::{GraphicsContext, SnapMode};
 
 use super::AxesState;
@@ -15,6 +15,7 @@ use crate::colors::{Color, ColorError};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
 use crate::patheffects::with_path_effects;
 use crate::polar;
+use crate::rc::{ColorOrAuto, RcParams};
 use crate::text::draw_laid_out;
 use crate::ticker::AxisName;
 
@@ -177,13 +178,16 @@ impl TickMark<'_> {
                     SnapMode::Never
                 }
             });
-        // Tick marks are line markers, sketched like markers of lines made
-        // under the owning axes' rc parameters.
-        let sketch = ctx
-            .layout()
-            .store()
-            .get_as::<AxesState>(owner)
-            .and_then(|axes| rc_sketch(&axes.rc));
+        // Tick marks are line markers, sketched and filled like markers of
+        // lines made under the owning axes' rc parameters.
+        let (sketch, face) = match ctx.layout().store().get_as::<AxesState>(owner) {
+            Some(axes) => (rc_sketch(&axes.rc), tick_face(&axes.rc, color)),
+            None => (None, Ok(color)),
+        };
+        let face = match face {
+            Ok(face) => face,
+            Err(err) => return ctx.report(owner, err),
+        };
         let gc = GraphicsContext {
             foreground: edge,
             linewidth: self.style.width,
@@ -200,8 +204,22 @@ impl TickMark<'_> {
             &marker_transform,
             points,
             affine,
-            Some(color),
+            Some(face),
         );
+    }
+}
+
+/// The face of tick marks made under `rc`: matplotlib's tick lines are
+/// markers that take `lines.markerfacecolor` (`auto` follows the tick
+/// `color`) and `markers.fillstyle` (`none` makes the face transparent).
+/// The marks are open paths, so only vector output shows the face.
+fn tick_face(rc: &RcParams, color: Rgba) -> Result<Rgba, ColorError> {
+    if rc.markers_fillstyle == "none" {
+        return Ok(Rgba::TRANSPARENT);
+    }
+    match &rc.lines_markerfacecolor {
+        ColorOrAuto::Auto => Ok(color),
+        ColorOrAuto::Color(face) => face.resolve(),
     }
 }
 
@@ -252,5 +270,21 @@ fn tick_markers(name: AxisName, direction: TickDirection) -> (MarkerSymbol, Mark
         (AxisName::Y, TickDirection::Out) => (M::TickLeft, M::TickRight),
         (AxisName::Y, TickDirection::In) => (M::TickRight, M::TickLeft),
         (AxisName::Y, TickDirection::InOut) => (M::HLine, M::HLine),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tick_faces_follow_the_marker_rc_parameters() {
+        let black = Rgba::new(0.0, 0.0, 0.0, 1.0);
+        let mut rc = RcParams::matplotlib();
+        assert_eq!(tick_face(&rc, black).unwrap(), black);
+        rc.set("lines.markerfacecolor", "white").unwrap();
+        assert_eq!(tick_face(&rc, black).unwrap(), Rgba::WHITE);
+        rc.set("markers.fillstyle", "none").unwrap();
+        assert_eq!(tick_face(&rc, black).unwrap(), Rgba::TRANSPARENT);
     }
 }

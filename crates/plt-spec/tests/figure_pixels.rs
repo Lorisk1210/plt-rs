@@ -12,7 +12,13 @@ use plt_spec::figures::{self, PixelReport};
 const MAX_RMS: f64 = 1.0;
 
 /// Cases exempt from [`MAX_RMS`] (still reported), with the reason.
-const KNOWN_GAPS: &[(&str, &str)] = &[];
+const KNOWN_GAPS: &[(&str, &str)] = &[(
+    "rc/text_antialiased",
+    "text.antialiased=False: matplotlib renders glyphs with FreeType's monochrome \
+         rasterizer (ftraster.c: pixel centres, its own curve splitting and drop-out \
+         control); plt-rs paints every pixel the outline touches, as Agg does for \
+         paths without anti-aliasing",
+)];
 
 #[test]
 fn figure_cases_match_golden_pixels() {

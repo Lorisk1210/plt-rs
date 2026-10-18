@@ -23,6 +23,7 @@ mod offsetbox;
 mod patches;
 mod polar;
 mod pyplot;
+mod rc;
 mod scatter;
 mod selectors;
 mod shaping;
@@ -103,6 +104,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         polar::RADIAL,
         polar::SECTORS,
         pyplot::CASES,
+        &rc::cases(),
         scatter::CASES,
         scatter::LEGENDS,
         scatter::VARIANTS,

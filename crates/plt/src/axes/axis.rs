@@ -200,6 +200,14 @@ pub(crate) struct AxisState {
     pub(crate) remove_overlapping_locs: bool,
 }
 
+/// The font of axis labels: `axes.labelsize` and `axes.labelweight`
+/// (matplotlib's `Axis.__init__`).
+pub(crate) fn label_font(rc: &RcParams) -> FontProperties {
+    FontProperties::from_rc(rc)
+        .with_size(rc.axes_labelsize, rc.font_size)
+        .with_weight(rc.axes_labelweight)
+}
+
 impl AxisState {
     /// A linear axis configured from `rc`.
     pub(crate) fn new(name: AxisName, rc: &RcParams) -> Self {
@@ -234,7 +242,7 @@ impl AxisState {
             minor_style: TickStyle::from_rc(name, false, rc),
             label: AxisLabel {
                 text: String::new(),
-                font: FontProperties::from_rc(rc).with_size(rc.axes_labelsize, rc.font_size),
+                font: label_font(rc),
                 color: rc.axes_labelcolor.clone(),
                 pad: rc.axes_labelpad,
                 side: SpineSide::of(name, false),
@@ -590,6 +598,16 @@ mod tests {
             ]
         );
         assert!(ticks.minor.is_empty(), "minor ticks are off by default");
+    }
+
+    #[test]
+    fn axis_labels_take_the_rc_size_and_weight() {
+        let mut rc = RcParams::matplotlib();
+        rc.set("axes.labelsize", "large").expect("valid");
+        rc.set("axes.labelweight", "bold").expect("valid");
+        let font = AxisState::new(AxisName::Y, &rc).label.font;
+        assert_eq!(font.size, 12.0);
+        assert_eq!(font.weight, crate::fonts::FontWeight::BOLD);
     }
 
     #[test]

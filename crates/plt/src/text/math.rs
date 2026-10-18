@@ -3,7 +3,9 @@
 
 use std::borrow::Cow;
 
-use plt_text::mathtext::{CustomFonts, MathFallback, MathFont, MathStyle, is_math_text};
+use plt_text::mathtext::{
+    CustomFonts, MathFallback, MathFont, MathStyle, PatternDefaults, is_math_text,
+};
 
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -56,6 +58,7 @@ pub fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
             cal: rc.mathtext_cal.clone(),
         },
         font: font.request(rc),
+        pattern_defaults: PatternDefaults::of(&FontProperties::from_rc(rc).request(rc).query),
         dpi,
     }
 }
@@ -86,5 +89,16 @@ mod tests {
         assert_eq!(style.default, MathFont::Rm);
         assert_eq!(style.fallback, None);
         assert_eq!(style.custom.cal, "cursive");
+    }
+
+    #[test]
+    fn font_patterns_default_to_the_rc_font_not_the_text_font() {
+        let mut rc = RcParams::matplotlib();
+        rc.set("font.style", "italic").expect("valid");
+        rc.set("font.weight", "bold").expect("valid");
+        let upright = FontProperties::from_rc(&RcParams::matplotlib());
+        let defaults = math_style(&upright, 72.0, &rc).pattern_defaults;
+        assert_eq!(defaults.style, plt_text::FontStyle::Italic);
+        assert_eq!(defaults.weight, plt_text::Weight::BOLD);
     }
 }

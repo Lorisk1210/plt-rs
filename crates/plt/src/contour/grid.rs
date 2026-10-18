@@ -107,6 +107,14 @@ impl QuadField {
         self
     }
 
+    /// Whether corners are masked: as asked, else `contour.corner_mask`,
+    /// except that the `mpl2005` algorithm cannot mask corners, so
+    /// matplotlib turns them off for it unless asked.
+    fn effective_corner_mask(&self, rc: &RcParams) -> bool {
+        self.corner_mask
+            .unwrap_or(rc.contour_corner_mask && rc.contour_algorithm != "mpl2005")
+    }
+
     /// Checks the shapes and builds the contour generator, masking invalid
     /// (and, when log-scaled, non-positive) values.
     pub(crate) fn source(
@@ -142,10 +150,15 @@ impl QuadField {
             zmin = extreme(self.z.as_slice(), &mask, f64::min);
         }
         let mask = Grid::from_vec(rows, cols, mask).expect("the mask has the shape of z");
-        let corner_mask = self.corner_mask.unwrap_or(rc.contour_corner_mask);
         let chunk = (self.nchunk, self.nchunk);
-        let generator =
-            QuadContourGenerator::new(&x, &y, &self.z, Some(&mask), corner_mask, chunk)?;
+        let generator = QuadContourGenerator::new(
+            &x,
+            &y,
+            &self.z,
+            Some(&mask),
+            self.effective_corner_mask(rc),
+            chunk,
+        )?;
         Ok(ContourSource {
             generator,
             zmin,
@@ -283,6 +296,22 @@ mod tests {
         let source = QuadField::new(z).source(true, &rc).unwrap();
         assert_eq!(source.zmin, Some(2.0));
         assert_eq!(source.warnings, [ContourWarning::NonPositiveMasked]);
+    }
+
+    #[test]
+    fn mpl2005_masks_no_corners_unless_asked() {
+        let mut rc = RcParams::default();
+        assert!(field(2, 2).effective_corner_mask(&rc));
+        rc.set("contour.algorithm", "mpl2005").unwrap();
+        assert!(!field(2, 2).effective_corner_mask(&rc));
+        let asked = QuadField {
+            corner_mask: Some(true),
+            ..field(2, 2)
+        };
+        assert!(asked.effective_corner_mask(&rc));
+        rc.set("contour.algorithm", "serial").unwrap();
+        rc.set("contour.corner_mask", "False").unwrap();
+        assert!(!field(2, 2).effective_corner_mask(&rc));
     }
 
     #[test]

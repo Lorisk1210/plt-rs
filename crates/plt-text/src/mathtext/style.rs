@@ -1,6 +1,8 @@
 //! Configuration of the mathtext typesetter (matplotlib's `mathtext.*`
 //! rcParams plus the text's font).
 
+use plt_font::{FontQuery, FontStyle, FontVariant, Stretch, Weight};
+
 use crate::engine::FontRequest;
 
 /// The family of math fonts (`mathtext.fontset`, or a text's
@@ -179,6 +181,8 @@ pub struct MathStyle {
     /// its size is the size of the math. Its generic families also resolve
     /// the custom fontset's patterns.
     pub font: FontRequest,
+    /// What the fontset's font patterns leave out.
+    pub pattern_defaults: PatternDefaults,
     /// Output resolution in dots per inch.
     pub dpi: f64,
 }
@@ -191,9 +195,44 @@ impl Default for MathStyle {
             default: MathFont::default(),
             fallback: Some(MathFallback::default()),
             custom: CustomFonts::default(),
-            font: FontRequest::new(plt_font::FontQuery::default()),
+            font: FontRequest::new(FontQuery::default()),
+            pattern_defaults: PatternDefaults::default(),
             dpi: 72.0,
         }
+    }
+}
+
+/// What matplotlib's `FontProperties(pattern)` takes from the `font.*`
+/// rcParams for the properties a font pattern leaves out: `"DejaVu Sans"`
+/// names no style, so `font.style: italic` slants upright math.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PatternDefaults {
+    /// `font.style`.
+    pub style: FontStyle,
+    /// `font.variant`.
+    pub variant: FontVariant,
+    /// `font.weight`.
+    pub weight: Weight,
+    /// `font.stretch`.
+    pub stretch: Stretch,
+}
+
+impl PatternDefaults {
+    /// The style, variant, weight and stretch of `query`.
+    pub fn of(query: &FontQuery) -> Self {
+        Self {
+            style: query.style,
+            variant: query.variant,
+            weight: query.weight,
+            stretch: query.stretch,
+        }
+    }
+}
+
+impl Default for PatternDefaults {
+    /// matplotlib's defaults: normal style, variant, weight and stretch.
+    fn default() -> Self {
+        Self::of(&FontQuery::default())
     }
 }
 

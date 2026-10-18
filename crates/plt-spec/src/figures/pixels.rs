@@ -41,11 +41,17 @@ impl fmt::Display for PixelReport {
     }
 }
 
-/// Renders a case with the raster backend under its rc configuration.
-/// Artists that fail to draw are skipped; their count is returned.
+/// Renders a case with the raster backend under its rc configuration, at
+/// the case's resolution as the spec's `savefig(..., dpi=case.dpi)` does
+/// (so `savefig.dpi` does not apply). Artists that fail to draw are
+/// skipped; their count is returned.
 pub fn render_pixels(case: &FigureCase) -> Result<(RasterRenderer, usize), Box<dyn Error>> {
     case.with_figure(|fig| {
-        let (canvas, problems) = fig.render_raster_partial(&SaveOptions::default())?;
+        let options = SaveOptions {
+            dpi: Some(case.dpi),
+            ..SaveOptions::default()
+        };
+        let (canvas, problems) = fig.render_raster_partial(&options)?;
         Ok((canvas, problems.map_or(0, |errors| errors.0.len())))
     })
 }

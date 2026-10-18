@@ -111,6 +111,7 @@ cargo xtask figures                             # figure structure (limits, tick
 cargo test -p plt-spec --test figure_pixels     # figure pixels, RMS <= 1.0
 cargo test -p plt-spec --test figure_vectors    # SVG/PDF/PS documents, item by item
 cargo xtask render polar/                       # write renderings and diffs to spec/out/
+cargo xtask render polar/rose --vectors         # ... with the case's SVG, PDF and PS
 ```
 
 See `CLAUDE.md` for the coding conventions.

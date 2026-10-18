@@ -153,6 +153,17 @@ impl<S: PatchShape> PatchArtist<S> {
             .collect()
     }
 
+    /// Whether display point `point` hits a patch without a picker: within
+    /// the edge width of its outline when the edge shows (matplotlib's
+    /// `Patch.contains` with its default radius).
+    pub(crate) fn contains_unpicked(&self, ctx: LayoutContext<'_>, point: Point) -> bool {
+        let radius = self
+            .style
+            .resolve(&self.rc, self.base.alpha, S::EDGE_DEFAULT)
+            .map_or(0.0, |resolved| resolved.hit_radius());
+        self.encloses(ctx, point, radius)
+    }
+
     /// Whether display point `point` lies within `radius` of a sub-path of
     /// the outline (matplotlib's `Patch.contains`).
     fn encloses(&self, ctx: LayoutContext<'_>, point: Point, radius: f64) -> bool {

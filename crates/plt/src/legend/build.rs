@@ -142,6 +142,7 @@ pub(crate) fn build(
         texts,
         parts: parts.clone(),
         kept: false,
+        dragger: None,
     };
     let id = state.adopt(parent.id(), Box::new(legend));
     for part in parts {

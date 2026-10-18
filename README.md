@@ -62,7 +62,8 @@ does it without pyplot.
   with the image value under the pointer, 3-D axes that rotate
   (arcball, trackball, sphere or azimuth/elevation), pan and zoom with
   the mouse, figure events (`connect`), picking artists with the mouse
-  (`set_picker` and pick events), timers and
+  (`set_picker` and pick events), draggable legends and annotations,
+  timers and
   `FuncAnimation`/`ArtistAnimation` (saved as animated PNG or GIF, as an
   HTML page with matplotlib's JavaScript player, `to_jshtml`, or as a
   video through an installed ffmpeg, `to_html5_video`);

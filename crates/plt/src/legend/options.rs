@@ -207,6 +207,9 @@ pub struct LegendOptions {
     pub borderaxespad: Option<f64>,
     /// Space between columns, in font sizes (`legend.columnspacing`).
     pub columnspacing: Option<f64>,
+    /// Whether the mouse can drag the legend (see
+    /// [`Legend::set_draggable`](super::Legend::set_draggable)).
+    pub draggable: bool,
 }
 
 impl Default for LegendOptions {
@@ -246,6 +249,7 @@ impl Default for LegendOptions {
             handletextpad: None,
             borderaxespad: None,
             columnspacing: None,
+            draggable: false,
         }
     }
 }

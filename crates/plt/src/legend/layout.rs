@@ -79,7 +79,7 @@ impl From<OffsetBoxError> for LayoutError {
 
 impl LegendArtist {
     /// The display box `loc` refers to (matplotlib's `get_bbox_to_anchor`).
-    fn anchor_box(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
+    pub(crate) fn anchor_box(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
         match &self.anchor {
             None => match self.parent {
                 LegendParent::Axes(id) => ctx.axes_extent(id),

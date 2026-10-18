@@ -29,8 +29,9 @@ Environment every op assumes
   ``matplotlib.rc_context(rc)`` around the *whole* op (object creation and
   measurement).  Keys used: ``mathtext.fontset``, ``font.family``,
   ``font.size``, ``font.weight``, ``font.sans-serif``, ``font.cursive``,
-  ``text.hinting`` (``'default'`` or ``'native'``: the Agg renderer lays
-  text out with FreeType's ``LOAD_DEFAULT`` or ``LOAD_NO_AUTOHINT``).
+  ``text.hinting`` (``'default'``, ``'native'``, ``'force_autohint'`` or
+  ``'auto'``: the Agg renderer lays text out with FreeType's
+  ``LOAD_DEFAULT``, ``LOAD_NO_AUTOHINT`` or ``LOAD_FORCE_AUTOHINT``).
 * Optional arg ``dpi`` (number, default 100): the figure dpi.
 
 Shared argument encodings
@@ -150,12 +151,16 @@ values are lists of str); syntax errors -> ``ValueError``.
 ``ft2font.FT2Font.load_glyph`` -- args ``{file, size, dpi, char, flags}``.
 ``font = FT2Font(<mpl-data>/fonts/ttf/<file>)``, ``font.set_size(size,
 dpi)``, then ``glyph = font.load_glyph(font.get_char_index(ord(char)),
-LoadFlags.<flags>)`` with ``flags`` ``DEFAULT`` or ``NO_AUTOHINT``.
+flags)`` with ``flags`` the ``|``-joined ``LoadFlags`` names: ``DEFAULT``,
+``NO_AUTOHINT`` or ``FORCE_AUTOHINT``, the latter possibly with one of
+``TARGET_LIGHT``, ``TARGET_MONO``, ``TARGET_LCD``, ``TARGET_LCD_V``.
 Returns ``{"advance": glyph.horiAdvance, "path": [[code,
 x, y], ...]}``: the 26.6 advance and ``font.get_path()`` with the vertices
 in 1/64 pixels (integers) and matplotlib's path codes (1 MOVETO, 2 LINETO,
-3 CURVE3, 79 CLOSEPOLY).  Only fonts FreeType hints with their bytecode
-under ``flags`` are probed (no autohinted glyphs).
+3 CURVE3, 79 CLOSEPOLY).  Glyphs are hinted by the font's bytecode or by
+FreeType's autohinter, whichever FreeType picks under ``flags`` (the
+autohinter for ``FORCE_AUTOHINT``, and for fonts without hinting programs
+under ``DEFAULT``); CFF fonts are not probed.
 """
 
 from __future__ import annotations
@@ -307,7 +312,10 @@ def _prop(prop):
 def _load_glyph(file, size, dpi, char, flags):
     font = FT2Font(cbook._get_data_path("fonts", "ttf", file))
     font.set_size(size, dpi)
-    glyph = font.load_glyph(font.get_char_index(ord(char)), getattr(LoadFlags, flags))
+    load_flags = LoadFlags.DEFAULT
+    for name in flags.split("|"):
+        load_flags |= getattr(LoadFlags, name)
+    glyph = font.load_glyph(font.get_char_index(ord(char)), load_flags)
     vertices, codes = font.get_path()
     path = [[int(code), round(x * 64), round(y * 64)]
             for (x, y), code in zip(vertices.tolist(), codes.tolist())]
@@ -973,14 +981,67 @@ HINTED_GLYPHS = [
     ("DejaVuSans.ttf", "NO_AUTOHINT", "Ka"),
 ]
 HINTED_TEXTS = ["Hamburgefonstiv", "AVA To, Wa.", "0123456789", "\u00c5\u00c9\u00e7\u00df ffi"]
+# Glyphs FreeType's autohinter takes: every glyph under FORCE_AUTOHINT, and
+# those of fonts without hinting programs (STIX, Last Resort) under DEFAULT.
+# They cover the latin, CJK (STIX's symbols fall back to it) and dummy
+# writing systems, Greek, Cyrillic, Hebrew and Arabic blue zones, diacritic
+# adjustments (tilde, dot, caron), italic, monospaced and digit advances,
+# and the light, mono and LCD targets.
+AUTOHINTED_GLYPHS = [
+    ("DejaVuSans.ttf", "FORCE_AUTOHINT", "Aa\u00e9gW%&0\u00c3\u00f1\u011a!i\u03b1\u0416\u05e9\u0628"),
+    ("DejaVuSans-Bold.ttf", "FORCE_AUTOHINT", "Rs\u00e9"),
+    ("DejaVuSerif-Italic.ttf", "FORCE_AUTOHINT", "Qgf"),
+    ("DejaVuSansMono.ttf", "FORCE_AUTOHINT", "m@1"),
+    ("cmr10.ttf", "FORCE_AUTOHINT", "Ag="),
+    ("STIXGeneral.ttf", "DEFAULT", "Ag\u00e9\u2211\u222b\u03b1"),
+    ("STIXSizOneSymReg.ttf", "DEFAULT", "(\u2211"),
+    ("LastResortHE-Regular.ttf", "DEFAULT", "A\u4e00"),
+    ("DejaVuSans.ttf", "FORCE_AUTOHINT|TARGET_LIGHT", "Hab"),
+    ("DejaVuSans.ttf", "FORCE_AUTOHINT|TARGET_MONO", "Rg"),
+    ("DejaVuSans.ttf", "FORCE_AUTOHINT|TARGET_LCD", "x"),
+    ("DejaVuSans.ttf", "FORCE_AUTOHINT|TARGET_LCD_V", "x"),
+]
+GLYPH_SIZES = [(6, 72), (9, 100), (12, 100), (17, 150), (24, 72)]
 
 
 def test_hinted_glyphs():
     for file, flags, chars in HINTED_GLYPHS:
-        for size, dpi in [(6, 72), (9, 100), (12, 100), (17, 150), (24, 72)]:
+        for size, dpi in GLYPH_SIZES:
             for char in chars:
                 probes.probe("ft2font.FT2Font.load_glyph", _load_glyph, file=file, size=size,
                              dpi=dpi, char=char, flags=flags)
+
+
+def test_autohinted_glyphs():
+    for file, flags, chars in AUTOHINTED_GLYPHS:
+        for size, dpi in GLYPH_SIZES:
+            for char in chars:
+                probes.probe("ft2font.FT2Font.load_glyph", _load_glyph, file=file, size=size,
+                             dpi=dpi, char=char, flags=flags)
+
+
+def test_autohinted_text_metrics():
+    for hinting in ["force_autohint", "auto"]:
+        rc = {"text.hinting": hinting}
+        for dpi in [72, 100] if hinting == "force_autohint" else [100]:
+            for size in [6, 10, 13, 24]:
+                for text in HINTED_TEXTS + ["\u00c3\u00f1 ij!? \u03b1\u0416"]:
+                    whd(text, font={"size": size}, dpi=dpi, rc=rc)
+            whd("Wa.To", font={"family": "DejaVu Serif", "weight": "bold"}, dpi=dpi, rc=rc)
+            whd("m@1", font={"family": "DejaVu Sans Mono"}, dpi=dpi, rc=rc)
+        for rotation in [0, 30, 90]:
+            extent("Hinted AVA", kw={"size": 11, "rotation": rotation}, rc=rc)
+        layout("two\nlines Wa", kw={"size": 9, "ha": "right"}, rc=rc)
+    # Fonts without bytecode (STIX, the Last Resort font of the fallback)
+    # are autohinted under the default hinting.
+    for size in [8, 12]:
+        whd("Hamburgefonstiv 0123", font={"family": "STIXGeneral", "size": size},
+            rc={"text.hinting": "default"})
+        whd("A一b", font={"size": size}, rc={"text.hinting": "default"})
+    whd("$x^2 + \\alpha$", ismath=True, rc={"text.hinting": "default", "mathtext.fontset": "stix"})
+    native = _load_glyph("DejaVuSans.ttf", 10, 100, "a", "DEFAULT")
+    auto = _load_glyph("DejaVuSans.ttf", 10, 100, "a", "FORCE_AUTOHINT")
+    assert native != auto
 
 
 def test_hinted_text_metrics():

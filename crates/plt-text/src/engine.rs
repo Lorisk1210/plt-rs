@@ -5,8 +5,8 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 
 use plt_core::{Path, PathBuilder, Point};
 use plt_font::{
-    FontDatabase, FontId, FontQuery, GenericFamilies, GlyphId, Hinting, HintingInstance,
-    OutlineSink, ShapeOptions, Size,
+    AutohintTarget, FontDatabase, FontId, FontQuery, GenericFamilies, GlyphId, Hinter, Hinting,
+    HintingInstance, OutlineSink, ShapeOptions, Size,
 };
 
 use crate::block::FontHeightMetrics;
@@ -200,10 +200,10 @@ impl TextEngine {
 
     /// The outline of a glyph as matplotlib's Agg backend renders it with
     /// `hinting` (`FT2Font._render_glyph`): grid-fitted by the font's
-    /// bytecode when `FreeType` would hint it so, unhinted otherwise.
-    /// `axis_aligned` tells whether the glyph is drawn at a rotation by a
-    /// multiple of 90 degrees (only such glyphs get `FreeType`'s autohinter,
-    /// which plt-rs replaces by no hinting). Outlines are cached.
+    /// bytecode or by the autohinter, as `FreeType` would hint it, or
+    /// unhinted. `axis_aligned` tells whether the glyph is drawn at a
+    /// rotation by a multiple of 90 degrees (only such glyphs get
+    /// `FreeType`'s autohinter). Outlines are cached.
     pub fn raster_glyph_outline(
         &self,
         font: FontId,
@@ -240,14 +240,19 @@ impl TextEngine {
         let face = self.db.face(font)?;
         let size = Size::new(&face, size, dpi);
         let mut sink = PathSink::default();
-        let hinted = raster
-            .is_some_and(|(hinting, axis_aligned)| hinting.uses_bytecode(&face, axis_aligned));
-        if hinted {
-            HintingInstance::new(&face, &size)
+        let hinter = raster.map_or(Hinter::Unhinted, |(hinting, axis_aligned)| {
+            hinting.hinter(&face, axis_aligned)
+        });
+        match hinter {
+            Hinter::Bytecode => HintingInstance::new(&face, &size)
                 .load_glyph(&face, glyph)?
-                .outline(&mut sink);
-        } else {
-            size.outline(&face, glyph, &mut sink)?;
+                .outline(&mut sink),
+            Hinter::Autohinter => self
+                .db
+                .autohinter(font)?
+                .load_glyph(&face, &size, glyph, AutohintTarget::Normal)?
+                .outline(&mut sink),
+            Hinter::Unhinted => size.outline(&face, glyph, &mut sink)?,
         }
         let path = sink.finish();
         cache.insert(key, path.clone());
@@ -425,9 +430,11 @@ mod tests {
             .expect("bundled font");
         assert_eq!(outline(Hinting::None, true), unhinted);
         assert_ne!(outline(Hinting::Default, true), unhinted);
-        // The autohinter is not ported: axis-aligned glyphs it would take
-        // stay unhinted, rotated ones get the bytecode as in FreeType.
-        assert_eq!(outline(Hinting::Auto, true), unhinted);
+        // FORCE_AUTOHINT gives axis-aligned glyphs to the autohinter and
+        // rotated ones to the bytecode, as FreeType does.
+        let autohinted = outline(Hinting::Auto, true);
+        assert_ne!(autohinted, unhinted);
+        assert_ne!(autohinted, outline(Hinting::Default, true));
         assert_eq!(
             outline(Hinting::Auto, false),
             outline(Hinting::Native, true)

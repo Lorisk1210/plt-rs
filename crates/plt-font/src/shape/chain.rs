@@ -1,9 +1,11 @@
 //! Multi-font layout: matplotlib's font fallback plus FreeType-style text
 //! extents (`FT2Font.set_text` / `get_width_height` / `get_descent`).
 
+use crate::autofit::Autohinter;
+use crate::db::{FontDatabase, FontId};
 use crate::error::Result;
 use crate::face::Face;
-use crate::hinting::{HintedFace, Hinting};
+use crate::hinting::{HintedFace, Hinter, Hinting};
 use crate::scale::{Scaler, Size};
 use crate::shape::{ShapeOptions, shape_text};
 use crate::types::{GlyphId, Rect};
@@ -15,6 +17,9 @@ use crate::types::{GlyphId, Rect};
 #[derive(Clone, Debug)]
 pub struct FontChain<'a> {
     faces: Vec<Face<'a>>,
+    /// The database the faces come from, with their ids, whose cached
+    /// autohinter analyses layout reuses.
+    database: Option<(&'a FontDatabase, Vec<FontId>)>,
 }
 
 /// One glyph placed by [`FontChain::layout`]; positions in 26.6 pixels.
@@ -50,7 +55,28 @@ pub struct TextLayout {
 impl<'a> FontChain<'a> {
     /// Builds a chain; the first face is the primary one.
     pub fn new(faces: Vec<Face<'a>>) -> Self {
-        Self { faces }
+        Self {
+            faces,
+            database: None,
+        }
+    }
+
+    /// A chain over the faces `ids` of `database`.
+    pub(crate) fn from_database(
+        faces: Vec<Face<'a>>,
+        database: &'a FontDatabase,
+        ids: Vec<FontId>,
+    ) -> Self {
+        Self {
+            faces,
+            database: Some((database, ids)),
+        }
+    }
+
+    /// The database's cached autohinter analysis of face `index`.
+    fn cached_autohinter(&self, index: usize) -> Option<&'a Autohinter> {
+        let (database, ids) = self.database.as_ref()?;
+        database.autohinter(*ids.get(index)?).ok()
     }
 
     /// The faces in fallback order.
@@ -61,8 +87,8 @@ impl<'a> FontChain<'a> {
     /// Lays out one line of `text` at `points` / `dpi` like matplotlib's
     /// `FT2Font.set_text(text, 0, flags)` with the load flags of `hinting`:
     /// runs split by bidi level, script and font are shaped separately and
-    /// placed one after the other in visual order. Faces `hinting` loads
-    /// with bytecode get hinted advances and extents.
+    /// placed one after the other in visual order. Faces `hinting` hints
+    /// (by bytecode or the autohinter) get hinted advances and extents.
     pub fn layout(
         &self,
         text: &str,
@@ -80,14 +106,38 @@ impl<'a> FontChain<'a> {
             .iter()
             .map(|face| Size::new(face, points, dpi))
             .collect();
+        let hinters: Vec<Hinter> = self
+            .faces
+            .iter()
+            .map(|face| hinting.hinter(face, true))
+            .collect();
+        // Faces from outside a database get their analysis for this call.
+        let analyses: Vec<Option<Autohinter>> = self
+            .faces
+            .iter()
+            .zip(&hinters)
+            .enumerate()
+            .map(|(index, (face, &hinter))| {
+                (hinter == Hinter::Autohinter && self.cached_autohinter(index).is_none())
+                    .then(|| Autohinter::new(face))
+            })
+            .collect();
         let hinted: Vec<Option<HintedFace<'_, 'a>>> = self
             .faces
             .iter()
             .zip(&sizes)
-            .map(|(face, size)| {
-                hinting
-                    .uses_bytecode(face, true)
-                    .then(|| HintedFace::new(face, size))
+            .zip(&hinters)
+            .enumerate()
+            .map(|(index, ((face, size), hinter))| match hinter {
+                Hinter::Unhinted => None,
+                Hinter::Bytecode => Some(HintedFace::bytecode(face, size)),
+                Hinter::Autohinter => {
+                    let analysis = self
+                        .cached_autohinter(index)
+                        .or(analyses[index].as_ref())
+                        .expect("autohinted faces have an analysis");
+                    Some(HintedFace::autohinted(face, size, analysis))
+                }
             })
             .collect();
         let text: Vec<(usize, char)> = text.char_indices().collect();

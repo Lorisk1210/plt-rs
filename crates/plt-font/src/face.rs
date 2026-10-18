@@ -253,6 +253,27 @@ impl<'a> Face<'a> {
             .map(|(info, _)| info)
     }
 
+    /// The character map `FT_Select_Charmap(face, FT_ENCODING_UNICODE)`
+    /// activates, as an index into [`Self::charmaps`].
+    pub(crate) fn freetype_unicode_charmap(&self) -> Option<usize> {
+        self.cmap.freetype_unicode_index()
+    }
+
+    /// The character map HarfBuzz's own font functions use, as an index
+    /// into [`Self::charmaps`].
+    pub(crate) fn harfbuzz_charmap(&self) -> Option<usize> {
+        self.cmap.harfbuzz_index()
+    }
+
+    /// This face with character map `index` active; `None` maps no
+    /// character.
+    pub(crate) fn with_charmap(&self, index: Option<usize>) -> Self {
+        Self {
+            charmap: index,
+            ..self.clone()
+        }
+    }
+
     /// Activates character map `index` (an index into [`Self::charmaps`]),
     /// like FreeType's `FT_Set_Charmap`.
     pub fn select_charmap(&mut self, index: usize) -> Result<()> {
@@ -352,24 +373,58 @@ impl<'a> Face<'a> {
     /// Loads the tagged points of `glyph` in the given coordinate space,
     /// with FreeType's origin alignment applied.
     pub(crate) fn load_outline(&self, glyph: GlyphId, scaling: Scaling) -> Result<Outline> {
+        self.load_with_advance(glyph, scaling)
+            .map(|(outline, _)| outline)
+    }
+
+    /// Loads `glyph` like FreeType's `FT_Load_Glyph` with
+    /// `FT_LOAD_NO_SCALE`: the outline in whole font units (TrueType
+    /// composites transformed in fixed point, CFF coordinates floored as
+    /// FreeType's CFF engine stores them) and the advance width in font
+    /// units.
+    pub(crate) fn load_unscaled(&self, glyph: GlyphId) -> Result<(Outline, i64)> {
+        let unit = Scaling::Fixed {
+            x_scale: 0x10000,
+            y_scale: 0x10000,
+        };
+        match &self.outlines {
+            Outlines::Cff(_) => {
+                let (mut outline, advance) = self.load_with_advance(glyph, Scaling::Units)?;
+                for point in &mut outline.points {
+                    point.x = point.x.floor();
+                    point.y = point.y.floor();
+                }
+                Ok((outline, advance))
+            }
+            Outlines::TrueType(_) | Outlines::None => self.load_with_advance(glyph, unit),
+        }
+    }
+
+    /// The outline of `glyph` with the origin aligned, and the advance
+    /// width in font units.
+    fn load_with_advance(&self, glyph: GlyphId, scaling: Scaling) -> Result<(Outline, i64)> {
         self.check_glyph(glyph)?;
         let mut outline = Outline::default();
+        let mut advance = i64::from(self.hmtx.advance(glyph));
         match &self.outlines {
             Outlines::TrueType(glyf) => {
-                let lsb = |g: GlyphId| self.hmtx.left_side_bearing(g);
-                let pp1 = glyf.load(glyph, scaling, &lsb, &mut outline)?;
+                let metrics = |g: GlyphId| (self.hmtx.left_side_bearing(g), self.hmtx.advance(g));
+                let phantoms = glyf.load(glyph, scaling, &metrics, &mut outline)?;
                 let shift = match scaling {
-                    Scaling::Units => pp1 as f64,
-                    Scaling::Fixed { x_scale, .. } => crate::fixed::mul_fix(pp1, x_scale) as f64,
+                    Scaling::Units => phantoms.origin as f64,
+                    Scaling::Fixed { x_scale, .. } => {
+                        crate::fixed::mul_fix(phantoms.origin, x_scale) as f64
+                    }
                 };
                 if shift != 0.0 {
                     outline.translate(-shift, 0.0);
                 }
+                advance = phantoms.advance;
             }
             Outlines::Cff(cff) => cff.load(glyph, scaling, &mut outline)?,
             Outlines::None => {}
         }
-        Ok(outline)
+        Ok((outline, advance))
     }
 
     /// Emits the outline of `glyph` in font units and returns its control

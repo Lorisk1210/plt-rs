@@ -18,6 +18,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+use crate::autofit::Autohinter;
 use crate::error::{FontError, Result};
 use crate::face::Face;
 use crate::shape::FontChain;
@@ -74,6 +75,8 @@ struct StoredFace {
     source: FontSource,
     index: u32,
     data: FontData,
+    /// The autohinter's analysis of the face, made on first use.
+    autohinter: OnceLock<Autohinter>,
 }
 
 /// A catalogue of font faces with matplotlib's matching rules.
@@ -132,6 +135,7 @@ impl FontDatabase {
                 source: source.clone(),
                 index,
                 data: data(),
+                autohinter: OnceLock::new(),
             });
             ids.push(id);
         }
@@ -198,6 +202,17 @@ impl FontDatabase {
     pub fn face(&self, id: FontId) -> Result<Face<'_>> {
         let stored = self.faces.get(id.0).ok_or(FontError::UnknownFont(id.0))?;
         Face::parse(stored.data.bytes()?, stored.index)
+    }
+
+    /// The autohinter's analysis of face `id`, made on first use and kept
+    /// (use it with [`Self::face`]).
+    pub fn autohinter(&self, id: FontId) -> Result<&Autohinter> {
+        let stored = self.faces.get(id.0).ok_or(FontError::UnknownFont(id.0))?;
+        if let Some(analysis) = stored.autohinter.get() {
+            return Ok(analysis);
+        }
+        let face = self.face(id)?;
+        Ok(stored.autohinter.get_or_init(|| Autohinter::new(&face)))
     }
 
     /// The generic family preference lists.
@@ -341,7 +356,7 @@ impl FontDatabase {
                 Ok(face)
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(FontChain::new(faces))
+        Ok(FontChain::from_database(faces, self, ids))
     }
 }
 

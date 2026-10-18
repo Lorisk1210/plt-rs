@@ -17,7 +17,7 @@ const ARGS_ARE_XY_VALUES: u16 = 0x0002;
 const ROUND_XY_TO_GRID: u16 = 0x0004;
 
 /// A TrueType font: glyph records, advances and the hinting tables.
-struct TestFont {
+pub(crate) struct TestFont {
     glyphs: Vec<Vec<u8>>,
     advance: u16,
     fpgm: Vec<u8>,
@@ -26,7 +26,8 @@ struct TestFont {
 }
 
 impl TestFont {
-    fn new(glyphs: Vec<Vec<u8>>) -> Self {
+    /// A font of `glyphs` without hinting programs.
+    pub(crate) fn new(glyphs: Vec<Vec<u8>>) -> Self {
         Self {
             glyphs,
             advance: 500,
@@ -37,7 +38,7 @@ impl TestFont {
     }
 
     /// The sfnt file: 1000 units per em, integer ppem scaling.
-    fn build(&self) -> Vec<u8> {
+    pub(crate) fn build(&self) -> Vec<u8> {
         let be16 = |values: &[i64]| -> Vec<u8> {
             values
                 .iter()
@@ -96,7 +97,7 @@ impl TestFont {
 }
 
 /// A unit square of 100 units with its corner at (`x`, `y`).
-fn square(x: i16, y: i16, instructions: &[u8]) -> Vec<u8> {
+pub(crate) fn square(x: i16, y: i16, instructions: &[u8]) -> Vec<u8> {
     instructed_glyph(
         &[&[
             (x, y, true),
@@ -116,7 +117,7 @@ fn load(font: &[u8], glyph: u16) -> Result<HintedGlyph, FontError> {
 }
 
 /// The on-curve points of a hinted glyph, in 26.6.
-fn points(glyph: &HintedGlyph) -> Vec<(i32, i32)> {
+pub(crate) fn points(glyph: &HintedGlyph) -> Vec<(i32, i32)> {
     let mut recorder = OutlineRecorder::default();
     glyph.outline(&mut recorder);
     recorder
@@ -287,26 +288,37 @@ fn bundled_glyphs_match_freetype() {
 }
 
 #[test]
-fn which_glyphs_get_bytecode() {
+fn which_hinter_glyphs_get() {
     let dejavu = Face::parse(DEJAVU, 0).expect("bundled font");
     let stix = Face::parse(STIX, 0).expect("bundled font");
     let cff = Face::parse(CFF, 0).expect("fixture");
     for aligned in [true, false] {
-        assert!(!Hinting::None.uses_bytecode(&dejavu, aligned));
-        assert!(Hinting::Default.uses_bytecode(&dejavu, aligned));
-        assert!(Hinting::Native.uses_bytecode(&dejavu, aligned));
-        assert!(Hinting::Native.uses_bytecode(&stix, aligned));
-        assert!(
-            !Hinting::Native.uses_bytecode(&cff, aligned),
+        for face in [&dejavu, &stix, &cff] {
+            assert_eq!(Hinting::None.hinter(face, aligned), Hinter::Unhinted);
+        }
+        assert_eq!(Hinting::Default.hinter(&dejavu, aligned), Hinter::Bytecode);
+        assert_eq!(Hinting::Native.hinter(&dejavu, aligned), Hinter::Bytecode);
+        assert_eq!(Hinting::Native.hinter(&stix, aligned), Hinter::Bytecode);
+        assert_eq!(
+            Hinting::Native.hinter(&cff, aligned),
+            Hinter::Unhinted,
+            "no CFF hinter"
+        );
+        assert_eq!(
+            Hinting::Default.hinter(&cff, aligned),
+            Hinter::Unhinted,
             "no CFF hinter"
         );
     }
     // Without bytecode, or forced, axis-aligned glyphs go to the
-    // autohinter (not ported) and others to the interpreter.
-    assert!(!Hinting::Default.uses_bytecode(&stix, true));
-    assert!(Hinting::Default.uses_bytecode(&stix, false));
-    assert!(!Hinting::Auto.uses_bytecode(&dejavu, true));
-    assert!(Hinting::Auto.uses_bytecode(&dejavu, false));
+    // autohinter and others to the native hinter.
+    assert_eq!(Hinting::Default.hinter(&stix, true), Hinter::Autohinter);
+    assert_eq!(Hinting::Default.hinter(&stix, false), Hinter::Bytecode);
+    for face in [&dejavu, &stix, &cff] {
+        assert_eq!(Hinting::Auto.hinter(face, true), Hinter::Autohinter);
+    }
+    assert_eq!(Hinting::Auto.hinter(&dejavu, false), Hinter::Bytecode);
+    assert_eq!(Hinting::Auto.hinter(&cff, false), Hinter::Unhinted);
 }
 
 /// `SplitMix64`, for reproducible corruption.

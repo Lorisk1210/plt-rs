@@ -17,9 +17,9 @@ pub(crate) mod lookup_flag {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct TagRecord {
-    tag: Tag,
-    offset: u16,
+pub(crate) struct TagRecord {
+    pub(crate) tag: Tag,
+    pub(crate) offset: u16,
 }
 
 impl FromBytes for TagRecord {
@@ -193,7 +193,7 @@ pub(crate) struct LangSys<'a> {
 }
 
 impl<'a> LangSys<'a> {
-    fn parse(data: &'a [u8], tag: Tag) -> Result<Self> {
+    pub(crate) fn parse(data: &'a [u8], tag: Tag) -> Result<Self> {
         let mut r = Reader::new(data, tag);
         r.skip(2)?;
         let required = r.u16()?;
@@ -279,9 +279,9 @@ impl<'a> Lookup<'a> {
 /// A `GSUB` or `GPOS` table header with its three lists.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct LayoutTable<'a> {
-    tag: Tag,
-    scripts: &'a [u8],
-    features: &'a [u8],
+    pub(crate) tag: Tag,
+    pub(crate) scripts: &'a [u8],
+    pub(crate) features: &'a [u8],
     lookups: &'a [u8],
     extension_kind: u16,
 }
@@ -310,7 +310,7 @@ impl<'a> LayoutTable<'a> {
         })
     }
 
-    fn records(list: &'a [u8], tag: Tag) -> Result<Array<'a, TagRecord>> {
+    pub(crate) fn records(list: &'a [u8], tag: Tag) -> Result<Array<'a, TagRecord>> {
         let mut r = Reader::new(list, tag);
         let count = r.u16()?;
         r.array(usize::from(count))

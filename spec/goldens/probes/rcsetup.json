@@ -3960,6 +3960,922 @@
   {"op": "rc.validate", "args": {"key": "ytick.right", "value": "maybe"}, "error": "ValueError"},
   {"op": "rc.validate", "args": {"key": "ytick.right", "value": "on"}, "value": true},
   {"op": "rc.validate", "args": {"key": "ytick.right", "value": "t"}, "value": true},
-  {"op": "rc.validate", "args": {"key": "ytick.right", "value": "yes"}, "value": true}
+  {"op": "rc.validate", "args": {"key": "ytick.right", "value": "yes"}, "value": true},
+  {
+   "op": "style.sheet",
+   "args": {"name": "Solarize_Light2"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [0.9333333333333333, 0.9098039215686274, 0.8352941176470589, 1.0],
+    "axes.facecolor": [0.9333333333333333, 0.9098039215686274, 0.8352941176470589, 1.0],
+    "axes.grid": true,
+    "axes.labelcolor": [0.396078431372549, 0.4823529411764706, 0.5137254901960784, 1.0],
+    "axes.labelsize": 12.0,
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.14901960784313725, 0.5450980392156862, 0.8235294117647058, 1.0], [0.16470588235294117, 0.6313725490196078, 0.596078431372549, 1.0], [0.5215686274509804, 0.6, 0.0, 1.0], [0.7098039215686275, 0.5372549019607843, 0.0, 1.0], [0.796078431372549, 0.29411764705882354, 0.08627450980392157, 1.0], [0.8627450980392157, 0.19607843137254902, 0.1843137254901961, 1.0], [0.8274509803921568, 0.21176470588235294, 0.5098039215686274, 1.0], [0.4235294117647059, 0.44313725490196076, 0.7686274509803922, 1.0]]
+      ]
+     ]
+    },
+    "axes.titlesize": 16.0,
+    "figure.facecolor": [0.9921568627450981, 0.9647058823529412, 0.8901960784313725, 1.0],
+    "grid.color": [0.9921568627450981, 0.9647058823529412, 0.8901960784313725, 1.0],
+    "grid.linestyle": "solid",
+    "grid.linewidth": 1.0,
+    "lines.linewidth": 2.0,
+    "lines.solid_capstyle": "butt",
+    "patch.antialiased": true,
+    "xtick.color": [0.396078431372549, 0.4823529411764706, 0.5137254901960784, 1.0],
+    "xtick.direction": "out",
+    "ytick.color": [0.396078431372549, 0.4823529411764706, 0.5137254901960784, 1.0],
+    "ytick.direction": "out"
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "bmh"},
+   "value": {
+    "axes.edgecolor": [0.7372549019607844, 0.7372549019607844, 0.7372549019607844, 1.0],
+    "axes.facecolor": [0.9333333333333333, 0.9333333333333333, 0.9333333333333333, 1.0],
+    "axes.grid": true,
+    "axes.labelsize": "large",
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.20392156862745098, 0.5411764705882353, 0.7411764705882353, 1.0], [0.6509803921568628, 0.023529411764705882, 0.1568627450980392, 1.0], [0.47843137254901963, 0.40784313725490196, 0.6509803921568628, 1.0], [0.27450980392156865, 0.47058823529411764, 0.12941176470588237, 1.0], [0.8352941176470589, 0.3686274509803922, 0.0, 1.0], [0.8, 0.4745098039215686, 0.6549019607843137, 1.0], [0.33725490196078434, 0.7058823529411765, 0.9137254901960784, 1.0], [0.0, 0.6196078431372549, 0.45098039215686275, 1.0], [0.9411764705882353, 0.8941176470588236, 0.25882352941176473, 1.0], [0.0, 0.4470588235294118, 0.6980392156862745, 1.0]]
+      ]
+     ]
+    },
+    "axes.titlesize": "x-large",
+    "grid.color": [0.6980392156862745, 0.6980392156862745, 0.6980392156862745, 1.0],
+    "grid.linestyle": "dashed",
+    "grid.linewidth": 0.5,
+    "legend.fancybox": true,
+    "lines.linewidth": 2.0,
+    "mathtext.fontset": "cm",
+    "patch.antialiased": true,
+    "patch.edgecolor": [0.9333333333333333, 0.9333333333333333, 0.9333333333333333, 1.0],
+    "patch.facecolor": [0.0, 0.0, 1.0, 1.0],
+    "patch.linewidth": 0.5,
+    "xtick.direction": "in",
+    "ytick.direction": "in"
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "classic"},
+   "value": {
+    "_internal.classic_mode": true,
+    "agg.path.chunksize": 0,
+    "animation.bitrate": -1,
+    "animation.codec": "mpeg4",
+    "animation.convert_args": [],
+    "animation.convert_path": "convert",
+    "animation.ffmpeg_args": [],
+    "animation.ffmpeg_path": "ffmpeg",
+    "animation.frame_format": "png",
+    "animation.html": "none",
+    "animation.writer": "ffmpeg",
+    "axes.autolimit_mode": "round_numbers",
+    "axes.axisbelow": false,
+    "axes.edgecolor": [0.0, 0.0, 0.0, 1.0],
+    "axes.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.formatter.limits": [-7, 7],
+    "axes.formatter.offset_threshold": 2,
+    "axes.formatter.use_locale": false,
+    "axes.formatter.use_mathtext": false,
+    "axes.formatter.useoffset": true,
+    "axes.grid": false,
+    "axes.grid.axis": "both",
+    "axes.grid.which": "major",
+    "axes.labelcolor": [0.0, 0.0, 0.0, 1.0],
+    "axes.labelpad": 5.0,
+    "axes.labelsize": "medium",
+    "axes.labelweight": "normal",
+    "axes.linewidth": 1.0,
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.0, 0.0, 1.0, 1.0], [0.0, 0.5, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.75, 0.75, 1.0], [0.75, 0.0, 0.75, 1.0], [0.75, 0.75, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]]
+      ]
+     ]
+    },
+    "axes.spines.bottom": true,
+    "axes.spines.left": true,
+    "axes.spines.right": true,
+    "axes.spines.top": true,
+    "axes.titlepad": 5.0,
+    "axes.titlesize": "large",
+    "axes.titleweight": "normal",
+    "axes.titley": 1.0,
+    "axes.unicode_minus": true,
+    "axes.xmargin": 0.0,
+    "axes.ymargin": 0.0,
+    "axes3d.automargin": false,
+    "axes3d.depthshade": false,
+    "axes3d.depthshade_minalpha": 0.3,
+    "axes3d.grid": true,
+    "boxplot.bootstrap": null,
+    "boxplot.boxprops.color": [0.0, 0.0, 1.0, 1.0],
+    "boxplot.boxprops.linestyle": "solid",
+    "boxplot.boxprops.linewidth": 1.0,
+    "boxplot.capprops.color": [0.0, 0.0, 0.0, 1.0],
+    "boxplot.capprops.linestyle": "solid",
+    "boxplot.capprops.linewidth": 1.0,
+    "boxplot.flierprops.color": [0.0, 0.0, 1.0, 1.0],
+    "boxplot.flierprops.linestyle": "none",
+    "boxplot.flierprops.linewidth": 1.0,
+    "boxplot.flierprops.marker": "+",
+    "boxplot.flierprops.markeredgecolor": [0.0, 0.0, 0.0, 1.0],
+    "boxplot.flierprops.markerfacecolor": "auto",
+    "boxplot.flierprops.markersize": 6.0,
+    "boxplot.meanline": false,
+    "boxplot.meanprops.color": [1.0, 0.0, 0.0, 1.0],
+    "boxplot.meanprops.linestyle": "solid",
+    "boxplot.meanprops.linewidth": 1.0,
+    "boxplot.meanprops.marker": "s",
+    "boxplot.meanprops.markeredgecolor": [0.0, 0.0, 0.0, 1.0],
+    "boxplot.meanprops.markerfacecolor": [1.0, 0.0, 0.0, 1.0],
+    "boxplot.meanprops.markersize": 6.0,
+    "boxplot.medianprops.color": [1.0, 0.0, 0.0, 1.0],
+    "boxplot.medianprops.linestyle": "solid",
+    "boxplot.medianprops.linewidth": 1.0,
+    "boxplot.notch": false,
+    "boxplot.patchartist": false,
+    "boxplot.showbox": true,
+    "boxplot.showcaps": true,
+    "boxplot.showfliers": true,
+    "boxplot.showmeans": false,
+    "boxplot.whiskerprops.color": [0.0, 0.0, 1.0, 1.0],
+    "boxplot.whiskerprops.linestyle": "dashed",
+    "boxplot.whiskerprops.linewidth": 1.0,
+    "boxplot.whiskers": 1.5,
+    "contour.corner_mask": true,
+    "contour.negative_linestyle": "dashed",
+    "date.autoformatter.day": "%b %d %Y",
+    "date.autoformatter.hour": "%H:%M:%S",
+    "date.autoformatter.microsecond": "%H:%M:%S.%f",
+    "date.autoformatter.minute": "%H:%M:%S.%f",
+    "date.autoformatter.month": "%b %Y",
+    "date.autoformatter.second": "%H:%M:%S.%f",
+    "date.autoformatter.year": "%Y",
+    "date.converter": "auto",
+    "errorbar.capsize": 3.0,
+    "figure.autolayout": false,
+    "figure.dpi": 80.0,
+    "figure.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "figure.facecolor": [0.75, 0.75, 0.75, 1.0],
+    "figure.figsize": [8.0, 6.0],
+    "figure.frameon": true,
+    "figure.labelsize": "medium",
+    "figure.labelweight": "normal",
+    "figure.subplot.bottom": 0.1,
+    "figure.subplot.hspace": 0.2,
+    "figure.subplot.left": 0.125,
+    "figure.subplot.right": 0.9,
+    "figure.subplot.top": 0.9,
+    "figure.subplot.wspace": 0.2,
+    "figure.titlesize": "medium",
+    "figure.titleweight": "normal",
+    "font.cursive": ["Apple Chancery", "Textile", "Zapf Chancery", "Sand", "Script MT", "Felipa", "cursive"],
+    "font.family": ["sans-serif"],
+    "font.fantasy": ["Comic Sans MS", "Chicago", "Charcoal", "ImpactWestern", "xkcd script", "fantasy"],
+    "font.monospace": ["DejaVu Sans Mono", "Andale Mono", "Nimbus Mono L", "Courier New", "Courier", "Fixed", "Terminal", "monospace"],
+    "font.sans-serif": ["DejaVu Sans", "Lucida Grande", "Verdana", "Geneva", "Lucid", "Arial", "Helvetica", "Avant Garde", "sans-serif"],
+    "font.serif": ["DejaVu Serif", "New Century Schoolbook", "Century Schoolbook L", "Utopia", "ITC Bookman", "Bookman", "Nimbus Roman No9 L", "Times New Roman", "Times", "Palatino", "Charter", "serif"],
+    "font.size": 12.0,
+    "font.stretch": "normal",
+    "font.style": "normal",
+    "font.variant": "normal",
+    "font.weight": "normal",
+    "grid.alpha": 1.0,
+    "grid.color": [0.0, 0.0, 0.0, 1.0],
+    "grid.linestyle": "dotted",
+    "grid.linewidth": 0.5,
+    "hatch.color": [0.0, 0.0, 0.0, 1.0],
+    "hatch.linewidth": 1.0,
+    "hist.bins": 10,
+    "image.aspect": "equal",
+    "image.cmap": "jet",
+    "image.composite_image": true,
+    "image.interpolation": "bilinear",
+    "image.lut": 256,
+    "image.origin": "upper",
+    "image.resample": false,
+    "keymap.back": ["left", "c", "backspace"],
+    "keymap.forward": ["right", "v"],
+    "keymap.fullscreen": ["f", "ctrl+f"],
+    "keymap.grid": ["g"],
+    "keymap.home": ["h", "r", "home"],
+    "keymap.pan": ["p"],
+    "keymap.quit": ["ctrl+w", "cmd+w"],
+    "keymap.save": ["s", "ctrl+s"],
+    "keymap.xscale": ["k", "L"],
+    "keymap.yscale": ["l"],
+    "keymap.zoom": ["o"],
+    "legend.borderaxespad": 0.5,
+    "legend.borderpad": 0.4,
+    "legend.columnspacing": 2.0,
+    "legend.edgecolor": "inherit",
+    "legend.facecolor": "inherit",
+    "legend.fancybox": false,
+    "legend.fontsize": "large",
+    "legend.framealpha": null,
+    "legend.frameon": true,
+    "legend.handleheight": 0.7,
+    "legend.handlelength": 2.0,
+    "legend.handletextpad": 0.8,
+    "legend.labelspacing": 0.5,
+    "legend.loc": "upper right",
+    "legend.markerscale": 1.0,
+    "legend.numpoints": 2,
+    "legend.scatterpoints": 3,
+    "legend.shadow": false,
+    "lines.antialiased": true,
+    "lines.color": [0.0, 0.0, 1.0, 1.0],
+    "lines.dash_capstyle": "butt",
+    "lines.dash_joinstyle": "round",
+    "lines.dashdot_pattern": [3.0, 5.0, 1.0, 5.0],
+    "lines.dashed_pattern": [6.0, 6.0],
+    "lines.dotted_pattern": [1.0, 3.0],
+    "lines.linestyle": "solid",
+    "lines.linewidth": 1.0,
+    "lines.marker": "None",
+    "lines.markeredgecolor": "auto",
+    "lines.markeredgewidth": 0.5,
+    "lines.markerfacecolor": "auto",
+    "lines.markersize": 6.0,
+    "lines.scale_dashes": false,
+    "lines.solid_capstyle": "projecting",
+    "lines.solid_joinstyle": "round",
+    "markers.fillstyle": "full",
+    "mathtext.bf": "serif:bold",
+    "mathtext.cal": "cursive",
+    "mathtext.default": "normal",
+    "mathtext.fallback": "cm",
+    "mathtext.fontset": "cm",
+    "mathtext.it": "serif:italic",
+    "mathtext.rm": "serif",
+    "mathtext.sf": "sans\\-serif",
+    "mathtext.tt": "monospace",
+    "patch.antialiased": true,
+    "patch.edgecolor": [0.0, 0.0, 0.0, 1.0],
+    "patch.facecolor": [0.0, 0.0, 1.0, 1.0],
+    "patch.force_edgecolor": true,
+    "patch.linewidth": 1.0,
+    "path.simplify": true,
+    "path.simplify_threshold": 0.1111111111111111,
+    "path.sketch": null,
+    "path.snap": true,
+    "pdf.compression": 6,
+    "pdf.fonttype": 3,
+    "pdf.inheritcolor": false,
+    "pdf.use14corefonts": false,
+    "pgf.preamble": "",
+    "pgf.rcfonts": true,
+    "pgf.texsystem": "xelatex",
+    "polaraxes.grid": true,
+    "ps.distiller.res": 6000,
+    "ps.fonttype": 3,
+    "ps.papersize": "letter",
+    "ps.useafm": false,
+    "ps.usedistiller": null,
+    "savefig.bbox": null,
+    "savefig.dpi": 100.0,
+    "savefig.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "savefig.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "savefig.format": "png",
+    "savefig.orientation": "portrait",
+    "savefig.pad_inches": 0.1,
+    "savefig.transparent": false,
+    "scatter.marker": "o",
+    "svg.fonttype": "path",
+    "svg.image_inline": true,
+    "text.antialiased": true,
+    "text.color": [0.0, 0.0, 0.0, 1.0],
+    "text.hinting": "auto",
+    "text.latex.preamble": "",
+    "text.usetex": false,
+    "xtick.alignment": "center",
+    "xtick.bottom": true,
+    "xtick.color": [0.0, 0.0, 0.0, 1.0],
+    "xtick.direction": "in",
+    "xtick.labelsize": "medium",
+    "xtick.major.bottom": true,
+    "xtick.major.pad": 4.0,
+    "xtick.major.size": 4.0,
+    "xtick.major.top": true,
+    "xtick.major.width": 0.5,
+    "xtick.minor.bottom": true,
+    "xtick.minor.pad": 4.0,
+    "xtick.minor.size": 2.0,
+    "xtick.minor.top": true,
+    "xtick.minor.visible": false,
+    "xtick.minor.width": 0.5,
+    "xtick.top": true,
+    "ytick.alignment": "center",
+    "ytick.color": [0.0, 0.0, 0.0, 1.0],
+    "ytick.direction": "in",
+    "ytick.labelsize": "medium",
+    "ytick.left": true,
+    "ytick.major.left": true,
+    "ytick.major.pad": 4.0,
+    "ytick.major.right": true,
+    "ytick.major.size": 4.0,
+    "ytick.major.width": 0.5,
+    "ytick.minor.left": true,
+    "ytick.minor.pad": 4.0,
+    "ytick.minor.right": true,
+    "ytick.minor.size": 2.0,
+    "ytick.minor.visible": false,
+    "ytick.minor.width": 0.5,
+    "ytick.right": true
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "dark_background"},
+   "value": {
+    "axes.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.facecolor": [0.0, 0.0, 0.0, 1.0],
+    "axes.labelcolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.5529411764705883, 0.8274509803921568, 0.7803921568627451, 1.0], [0.996078431372549, 1.0, 0.7019607843137254, 1.0], [0.7490196078431373, 0.7333333333333333, 0.8509803921568627, 1.0], [0.9803921568627451, 0.5058823529411764, 0.4549019607843137, 1.0], [0.5058823529411764, 0.6941176470588235, 0.8235294117647058, 1.0], [0.9921568627450981, 0.7058823529411765, 0.3843137254901961, 1.0], [0.7019607843137254, 0.8705882352941177, 0.4117647058823529, 1.0], [0.7372549019607844, 0.5098039215686274, 0.7411764705882353, 1.0], [0.8, 0.9215686274509803, 0.7686274509803922, 1.0], [1.0, 0.9294117647058824, 0.43529411764705883, 1.0]]
+      ]
+     ]
+    },
+    "boxplot.boxprops.color": [1.0, 1.0, 1.0, 1.0],
+    "boxplot.capprops.color": [1.0, 1.0, 1.0, 1.0],
+    "boxplot.flierprops.color": [1.0, 1.0, 1.0, 1.0],
+    "boxplot.flierprops.markeredgecolor": [1.0, 1.0, 1.0, 1.0],
+    "boxplot.whiskerprops.color": [1.0, 1.0, 1.0, 1.0],
+    "figure.edgecolor": [0.0, 0.0, 0.0, 1.0],
+    "figure.facecolor": [0.0, 0.0, 0.0, 1.0],
+    "grid.color": [1.0, 1.0, 1.0, 1.0],
+    "lines.color": [1.0, 1.0, 1.0, 1.0],
+    "patch.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "text.color": [1.0, 1.0, 1.0, 1.0],
+    "xtick.color": [1.0, 1.0, 1.0, 1.0],
+    "ytick.color": [1.0, 1.0, 1.0, 1.0]
+   }
+  },
+  {"op": "style.sheet", "args": {"name": "fast"}, "value": {"agg.path.chunksize": 10000, "path.simplify": true, "path.simplify_threshold": 1.0}},
+  {
+   "op": "style.sheet",
+   "args": {"name": "fivethirtyeight"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [0.9411764705882353, 0.9411764705882353, 0.9411764705882353, 1.0],
+    "axes.facecolor": [0.9411764705882353, 0.9411764705882353, 0.9411764705882353, 1.0],
+    "axes.grid": true,
+    "axes.labelsize": "large",
+    "axes.linewidth": 3.0,
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.0, 0.5607843137254902, 0.8352941176470589, 1.0], [0.9882352941176471, 0.30980392156862746, 0.18823529411764706, 1.0], [0.8980392156862745, 0.6823529411764706, 0.2196078431372549, 1.0], [0.42745098039215684, 0.5647058823529412, 0.30980392156862746, 1.0], [0.5450980392156862, 0.5450980392156862, 0.5450980392156862, 1.0], [0.5058823529411764, 0.058823529411764705, 0.48627450980392156, 1.0]]
+      ]
+     ]
+    },
+    "axes.titlesize": "x-large",
+    "figure.facecolor": [0.9411764705882353, 0.9411764705882353, 0.9411764705882353, 1.0],
+    "figure.subplot.bottom": 0.07,
+    "figure.subplot.left": 0.08,
+    "figure.subplot.right": 0.95,
+    "font.size": 14.0,
+    "grid.color": [0.796078431372549, 0.796078431372549, 0.796078431372549, 1.0],
+    "grid.linestyle": "solid",
+    "grid.linewidth": 1.0,
+    "legend.fancybox": true,
+    "lines.linewidth": 4.0,
+    "lines.solid_capstyle": "butt",
+    "patch.edgecolor": [0.9411764705882353, 0.9411764705882353, 0.9411764705882353, 1.0],
+    "patch.linewidth": 0.5,
+    "svg.fonttype": "path",
+    "xtick.major.size": 0.0,
+    "xtick.minor.size": 0.0,
+    "ytick.major.size": 0.0,
+    "ytick.minor.size": 0.0
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "ggplot"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.facecolor": [0.8980392156862745, 0.8980392156862745, 0.8980392156862745, 1.0],
+    "axes.grid": true,
+    "axes.labelcolor": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333, 1.0],
+    "axes.labelsize": "large",
+    "axes.linewidth": 1.0,
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.8862745098039215, 0.2901960784313726, 0.2, 1.0], [0.20392156862745098, 0.5411764705882353, 0.7411764705882353, 1.0], [0.596078431372549, 0.5568627450980392, 0.8352941176470589, 1.0], [0.4666666666666667, 0.4666666666666667, 0.4666666666666667, 1.0], [0.984313725490196, 0.7568627450980392, 0.3686274509803922, 1.0], [0.5568627450980392, 0.7294117647058823, 0.25882352941176473, 1.0], [1.0, 0.7098039215686275, 0.7215686274509804, 1.0]]
+      ]
+     ]
+    },
+    "axes.titlesize": "x-large",
+    "figure.edgecolor": [0.5, 0.5, 0.5, 1.0],
+    "figure.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "font.size": 10.0,
+    "grid.color": [1.0, 1.0, 1.0, 1.0],
+    "grid.linestyle": "solid",
+    "patch.antialiased": true,
+    "patch.edgecolor": [0.9333333333333333, 0.9333333333333333, 0.9333333333333333, 1.0],
+    "patch.facecolor": [0.20392156862745098, 0.5411764705882353, 0.7411764705882353, 1.0],
+    "patch.linewidth": 0.5,
+    "xtick.color": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333, 1.0],
+    "xtick.direction": "out",
+    "ytick.color": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333, 1.0],
+    "ytick.direction": "out"
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "grayscale"},
+   "value": {
+    "axes.edgecolor": [0.0, 0.0, 0.0, 1.0],
+    "axes.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.labelcolor": [0.0, 0.0, 0.0, 1.0],
+    "axes.prop_cycle": {"cycler": [["color", [[0.0, 0.0, 0.0, 1.0], [0.4, 0.4, 0.4, 1.0], [0.6, 0.6, 0.6, 1.0], [0.7, 0.7, 0.7, 1.0]]]]},
+    "figure.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "figure.facecolor": [0.75, 0.75, 0.75, 1.0],
+    "grid.color": [0.0, 0.0, 0.0, 1.0],
+    "image.cmap": "gray",
+    "lines.color": [0.0, 0.0, 0.0, 1.0],
+    "patch.edgecolor": [0.0, 0.0, 0.0, 1.0],
+    "patch.facecolor": [0.5019607843137255, 0.5019607843137255, 0.5019607843137255, 1.0],
+    "savefig.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "savefig.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "text.color": [0.0, 0.0, 0.0, 1.0],
+    "xtick.color": [0.0, 0.0, 0.0, 1.0],
+    "ytick.color": [0.0, 0.0, 0.0, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "petroff10"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.24705882352941178, 0.5647058823529412, 0.8549019607843137, 1.0], [1.0, 0.6627450980392157, 0.054901960784313725, 1.0], [0.7411764705882353, 0.12156862745098039, 0.00392156862745098, 1.0], [0.5803921568627451, 0.6431372549019608, 0.6352941176470588, 1.0], [0.5137254901960784, 0.17647058823529413, 0.7137254901960784, 1.0], [0.6627450980392157, 0.4196078431372549, 0.34901960784313724, 1.0], [0.9058823529411765, 0.38823529411764707, 0.0, 1.0], [0.7254901960784313, 0.6745098039215687, 0.4392156862745098, 1.0], [0.44313725490196076, 0.4588235294117647, 0.5058823529411764, 1.0], [0.5725490196078431, 0.8549019607843137, 0.8666666666666667, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.24705882352941178, 0.5647058823529412, 0.8549019607843137, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "petroff6"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.3411764705882353, 0.5647058823529412, 0.9882352941176471, 1.0], [0.9725490196078431, 0.611764705882353, 0.12549019607843137, 1.0], [0.8941176470588236, 0.1450980392156863, 0.21176470588235294, 1.0], [0.5882352941176471, 0.2901960784313726, 0.5450980392156862, 1.0], [0.611764705882353, 0.611764705882353, 0.6313725490196078, 1.0], [0.47843137254901963, 0.12941176470588237, 0.8666666666666667, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.3411764705882353, 0.5647058823529412, 0.9882352941176471, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "petroff8"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.09411764705882353, 0.27058823529411763, 0.984313725490196, 1.0], [1.0, 0.3686274509803922, 0.00784313725490196, 1.0], [0.788235294117647, 0.12156862745098039, 0.08627450980392157, 1.0], [0.7843137254901961, 0.28627450980392155, 0.6627450980392157, 1.0], [0.6784313725490196, 0.6784313725490196, 0.49019607843137253, 1.0], [0.5254901960784314, 0.7843137254901961, 0.8666666666666667, 1.0], [0.3411764705882353, 0.5529411764705883, 1.0, 1.0], [0.396078431372549, 0.38823529411764707, 0.39215686274509803, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.09411764705882353, 0.27058823529411763, 0.984313725490196, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.facecolor": [0.9176470588235294, 0.9176470588235294, 0.9490196078431372, 1.0],
+    "axes.grid": true,
+    "axes.labelcolor": [0.15, 0.15, 0.15, 1.0],
+    "axes.labelsize": 11.0,
+    "axes.linewidth": 0.0,
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.2980392156862745, 0.4470588235294118, 0.6901960784313725, 1.0], [0.3333333333333333, 0.6588235294117647, 0.40784313725490196, 1.0], [0.7686274509803922, 0.3058823529411765, 0.3215686274509804, 1.0], [0.5058823529411764, 0.4470588235294118, 0.6980392156862745, 1.0], [0.8, 0.7254901960784313, 0.4549019607843137, 1.0], [0.39215686274509803, 0.7098039215686275, 0.803921568627451, 1.0]]
+      ]
+     ]
+    },
+    "axes.titlesize": 12.0,
+    "figure.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "figure.figsize": [8.0, 5.5],
+    "font.family": ["sans-serif"],
+    "font.sans-serif": ["Arial", "Liberation Sans", "DejaVu Sans", "Bitstream Vera Sans", "sans-serif"],
+    "grid.color": [1.0, 1.0, 1.0, 1.0],
+    "grid.linestyle": "solid",
+    "grid.linewidth": 1.0,
+    "image.cmap": "Greys",
+    "legend.fontsize": 10.0,
+    "legend.frameon": false,
+    "legend.numpoints": 1,
+    "legend.scatterpoints": 1,
+    "lines.linewidth": 1.75,
+    "lines.markeredgewidth": 0.0,
+    "lines.markersize": 7.0,
+    "lines.solid_capstyle": "round",
+    "patch.facecolor": [0.2980392156862745, 0.4470588235294118, 0.6901960784313725, 1.0],
+    "patch.linewidth": 0.3,
+    "text.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.direction": "out",
+    "xtick.labelsize": 10.0,
+    "xtick.major.pad": 7.0,
+    "xtick.major.size": 0.0,
+    "xtick.major.width": 1.0,
+    "xtick.minor.size": 0.0,
+    "xtick.minor.width": 0.5,
+    "ytick.color": [0.15, 0.15, 0.15, 1.0],
+    "ytick.direction": "out",
+    "ytick.labelsize": 10.0,
+    "ytick.major.pad": 7.0,
+    "ytick.major.size": 0.0,
+    "ytick.major.width": 1.0,
+    "ytick.minor.size": 0.0,
+    "ytick.minor.width": 0.5
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-bright"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.0, 0.24705882352941178, 1.0, 1.0], [0.011764705882352941, 0.9294117647058824, 0.22745098039215686, 1.0], [0.9098039215686274, 0.0, 0.043137254901960784, 1.0], [0.5411764705882353, 0.16862745098039217, 0.8862745098039215, 1.0], [1.0, 0.7686274509803922, 0.0, 1.0], [0.0, 0.8431372549019608, 1.0, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.0, 0.24705882352941178, 1.0, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-colorblind"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.0, 0.4470588235294118, 0.6980392156862745, 1.0], [0.0, 0.6196078431372549, 0.45098039215686275, 1.0], [0.8352941176470589, 0.3686274509803922, 0.0, 1.0], [0.8, 0.4745098039215686, 0.6549019607843137, 1.0], [0.9411764705882353, 0.8941176470588236, 0.25882352941176473, 1.0], [0.33725490196078434, 0.7058823529411765, 0.9137254901960784, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.0, 0.4470588235294118, 0.6980392156862745, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-dark"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.facecolor": [0.9176470588235294, 0.9176470588235294, 0.9490196078431372, 1.0],
+    "axes.grid": false,
+    "axes.labelcolor": [0.15, 0.15, 0.15, 1.0],
+    "axes.linewidth": 0.0,
+    "figure.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "font.family": ["sans-serif"],
+    "font.sans-serif": ["Arial", "Liberation Sans", "DejaVu Sans", "Bitstream Vera Sans", "sans-serif"],
+    "grid.color": [1.0, 1.0, 1.0, 1.0],
+    "grid.linestyle": "solid",
+    "image.cmap": "Greys",
+    "legend.frameon": false,
+    "legend.numpoints": 1,
+    "legend.scatterpoints": 1,
+    "lines.solid_capstyle": "round",
+    "text.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.direction": "out",
+    "xtick.major.size": 0.0,
+    "xtick.minor.size": 0.0,
+    "ytick.color": [0.15, 0.15, 0.15, 1.0],
+    "ytick.direction": "out",
+    "ytick.major.size": 0.0,
+    "ytick.minor.size": 0.0
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-dark-palette"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.0, 0.10980392156862745, 0.4980392156862745, 1.0], [0.00392156862745098, 0.4588235294117647, 0.09019607843137255, 1.0], [0.5490196078431373, 0.03529411764705882, 0.0, 1.0], [0.4627450980392157, 0.0, 0.6313725490196078, 1.0], [0.7215686274509804, 0.5254901960784314, 0.043137254901960784, 1.0], [0.0, 0.38823529411764707, 0.4549019607843137, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.0, 0.10980392156862745, 0.4980392156862745, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-darkgrid"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.facecolor": [0.9176470588235294, 0.9176470588235294, 0.9490196078431372, 1.0],
+    "axes.grid": true,
+    "axes.labelcolor": [0.15, 0.15, 0.15, 1.0],
+    "axes.linewidth": 0.0,
+    "figure.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "font.family": ["sans-serif"],
+    "font.sans-serif": ["Arial", "Liberation Sans", "DejaVu Sans", "Bitstream Vera Sans", "sans-serif"],
+    "grid.color": [1.0, 1.0, 1.0, 1.0],
+    "grid.linestyle": "solid",
+    "image.cmap": "Greys",
+    "legend.frameon": false,
+    "legend.numpoints": 1,
+    "legend.scatterpoints": 1,
+    "lines.solid_capstyle": "round",
+    "text.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.direction": "out",
+    "xtick.major.size": 0.0,
+    "xtick.minor.size": 0.0,
+    "ytick.color": [0.15, 0.15, 0.15, 1.0],
+    "ytick.direction": "out",
+    "ytick.major.size": 0.0,
+    "ytick.minor.size": 0.0
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-deep"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.2980392156862745, 0.4470588235294118, 0.6901960784313725, 1.0], [0.3333333333333333, 0.6588235294117647, 0.40784313725490196, 1.0], [0.7686274509803922, 0.3058823529411765, 0.3215686274509804, 1.0], [0.5058823529411764, 0.4470588235294118, 0.6980392156862745, 1.0], [0.8, 0.7254901960784313, 0.4549019607843137, 1.0], [0.39215686274509803, 0.7098039215686275, 0.803921568627451, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.2980392156862745, 0.4470588235294118, 0.6901960784313725, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-muted"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.2823529411764706, 0.47058823529411764, 0.8117647058823529, 1.0], [0.41568627450980394, 0.8, 0.396078431372549, 1.0], [0.8392156862745098, 0.37254901960784315, 0.37254901960784315, 1.0], [0.7058823529411765, 0.48627450980392156, 0.7803921568627451, 1.0], [0.7686274509803922, 0.6784313725490196, 0.4, 1.0], [0.4666666666666667, 0.7450980392156863, 0.8588235294117647, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.2823529411764706, 0.47058823529411764, 0.8117647058823529, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-notebook"},
+   "value": {
+    "axes.labelsize": 11.0,
+    "axes.titlesize": 12.0,
+    "figure.figsize": [8.0, 5.5],
+    "grid.linewidth": 1.0,
+    "legend.fontsize": 10.0,
+    "lines.linewidth": 1.75,
+    "lines.markeredgewidth": 0.0,
+    "lines.markersize": 7.0,
+    "patch.linewidth": 0.3,
+    "xtick.labelsize": 10.0,
+    "xtick.major.pad": 7.0,
+    "xtick.major.width": 1.0,
+    "xtick.minor.width": 0.5,
+    "ytick.labelsize": 10.0,
+    "ytick.major.pad": 7.0,
+    "ytick.major.width": 1.0,
+    "ytick.minor.width": 0.5
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-paper"},
+   "value": {
+    "axes.labelsize": 8.8,
+    "axes.titlesize": 9.6,
+    "figure.figsize": [6.4, 4.4],
+    "grid.linewidth": 0.8,
+    "legend.fontsize": 8.0,
+    "lines.linewidth": 1.4,
+    "lines.markeredgewidth": 0.0,
+    "lines.markersize": 5.6,
+    "patch.linewidth": 0.24,
+    "xtick.labelsize": 8.0,
+    "xtick.major.pad": 5.6,
+    "xtick.major.width": 0.8,
+    "xtick.minor.width": 0.4,
+    "ytick.labelsize": 8.0,
+    "ytick.major.pad": 5.6,
+    "ytick.major.width": 0.8,
+    "ytick.minor.width": 0.4
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-pastel"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.5725490196078431, 0.7764705882352941, 1.0, 1.0], [0.592156862745098, 0.9411764705882353, 0.6666666666666666, 1.0], [1.0, 0.6235294117647059, 0.6039215686274509, 1.0], [0.8156862745098039, 0.7333333333333333, 1.0, 1.0], [1.0, 0.996078431372549, 0.6392156862745098, 1.0], [0.6901960784313725, 0.8784313725490196, 0.9019607843137255, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.5725490196078431, 0.7764705882352941, 1.0, 1.0]
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-poster"},
+   "value": {
+    "axes.labelsize": 17.6,
+    "axes.titlesize": 19.2,
+    "figure.figsize": [12.8, 8.8],
+    "grid.linewidth": 1.6,
+    "legend.fontsize": 16.0,
+    "lines.linewidth": 2.8,
+    "lines.markeredgewidth": 0.0,
+    "lines.markersize": 11.2,
+    "patch.linewidth": 0.48,
+    "xtick.labelsize": 16.0,
+    "xtick.major.pad": 11.2,
+    "xtick.major.width": 1.6,
+    "xtick.minor.width": 0.8,
+    "ytick.labelsize": 16.0,
+    "ytick.major.pad": 11.2,
+    "ytick.major.width": 1.6,
+    "ytick.minor.width": 0.8
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-talk"},
+   "value": {
+    "axes.labelsize": 14.3,
+    "axes.titlesize": 15.6,
+    "figure.figsize": [10.4, 7.15],
+    "grid.linewidth": 1.3,
+    "legend.fontsize": 13.0,
+    "lines.linewidth": 2.275,
+    "lines.markeredgewidth": 0.0,
+    "lines.markersize": 9.1,
+    "patch.linewidth": 0.39,
+    "xtick.labelsize": 13.0,
+    "xtick.major.pad": 9.1,
+    "xtick.major.width": 1.3,
+    "xtick.minor.width": 0.65,
+    "ytick.labelsize": 13.0,
+    "ytick.major.pad": 9.1,
+    "ytick.major.width": 1.3,
+    "ytick.minor.width": 0.65
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-ticks"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [0.15, 0.15, 0.15, 1.0],
+    "axes.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.grid": false,
+    "axes.labelcolor": [0.15, 0.15, 0.15, 1.0],
+    "axes.linewidth": 1.25,
+    "figure.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "font.family": ["sans-serif"],
+    "font.sans-serif": ["Arial", "Liberation Sans", "DejaVu Sans", "Bitstream Vera Sans", "sans-serif"],
+    "grid.color": [0.8, 0.8, 0.8, 1.0],
+    "grid.linestyle": "solid",
+    "image.cmap": "Greys",
+    "legend.frameon": false,
+    "legend.numpoints": 1,
+    "legend.scatterpoints": 1,
+    "lines.solid_capstyle": "round",
+    "text.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.direction": "out",
+    "xtick.major.size": 6.0,
+    "xtick.minor.size": 3.0,
+    "ytick.color": [0.15, 0.15, 0.15, 1.0],
+    "ytick.direction": "out",
+    "ytick.major.size": 6.0,
+    "ytick.minor.size": 3.0
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-white"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [0.15, 0.15, 0.15, 1.0],
+    "axes.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.grid": false,
+    "axes.labelcolor": [0.15, 0.15, 0.15, 1.0],
+    "axes.linewidth": 1.25,
+    "figure.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "font.family": ["sans-serif"],
+    "font.sans-serif": ["Arial", "Liberation Sans", "DejaVu Sans", "Bitstream Vera Sans", "sans-serif"],
+    "grid.color": [0.8, 0.8, 0.8, 1.0],
+    "grid.linestyle": "solid",
+    "image.cmap": "Greys",
+    "legend.frameon": false,
+    "legend.numpoints": 1,
+    "legend.scatterpoints": 1,
+    "lines.solid_capstyle": "round",
+    "text.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.direction": "out",
+    "xtick.major.size": 0.0,
+    "xtick.minor.size": 0.0,
+    "ytick.color": [0.15, 0.15, 0.15, 1.0],
+    "ytick.direction": "out",
+    "ytick.major.size": 0.0,
+    "ytick.minor.size": 0.0
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "seaborn-v0_8-whitegrid"},
+   "value": {
+    "axes.axisbelow": true,
+    "axes.edgecolor": [0.8, 0.8, 0.8, 1.0],
+    "axes.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "axes.grid": true,
+    "axes.labelcolor": [0.15, 0.15, 0.15, 1.0],
+    "axes.linewidth": 1.0,
+    "figure.facecolor": [1.0, 1.0, 1.0, 1.0],
+    "font.family": ["sans-serif"],
+    "font.sans-serif": ["Arial", "Liberation Sans", "DejaVu Sans", "Bitstream Vera Sans", "sans-serif"],
+    "grid.color": [0.8, 0.8, 0.8, 1.0],
+    "grid.linestyle": "solid",
+    "image.cmap": "Greys",
+    "legend.frameon": false,
+    "legend.numpoints": 1,
+    "legend.scatterpoints": 1,
+    "lines.solid_capstyle": "round",
+    "text.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.color": [0.15, 0.15, 0.15, 1.0],
+    "xtick.direction": "out",
+    "xtick.major.size": 0.0,
+    "xtick.minor.size": 0.0,
+    "ytick.color": [0.15, 0.15, 0.15, 1.0],
+    "ytick.direction": "out",
+    "ytick.major.size": 0.0,
+    "ytick.minor.size": 0.0
+   }
+  },
+  {
+   "op": "style.sheet",
+   "args": {"name": "tableau-colorblind10"},
+   "value": {
+    "axes.prop_cycle": {
+     "cycler": [
+      [
+       "color",
+       [[0.0, 0.4196078431372549, 0.6431372549019608, 1.0], [1.0, 0.5019607843137255, 0.054901960784313725, 1.0], [0.6705882352941176, 0.6705882352941176, 0.6705882352941176, 1.0], [0.34901960784313724, 0.34901960784313724, 0.34901960784313724, 1.0], [0.37254901960784315, 0.6196078431372549, 0.8196078431372549, 1.0], [0.7843137254901961, 0.3215686274509804, 0.0, 1.0], [0.5372549019607843, 0.5372549019607843, 0.5372549019607843, 1.0], [0.6352941176470588, 0.7843137254901961, 0.9254901960784314, 1.0], [1.0, 0.7372549019607844, 0.4745098039215686, 1.0], [0.8117647058823529, 0.8117647058823529, 0.8117647058823529, 1.0]]
+      ]
+     ]
+    },
+    "patch.facecolor": [0.0, 0.4196078431372549, 0.6431372549019608, 1.0]
+   }
+  }
  ]
 }

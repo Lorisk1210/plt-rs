@@ -8,6 +8,8 @@ input.
 Ops
 ---
 ``rc.validate``  {key, value} -> canonical value, or an error when rejected
+``style.sheet``  {name} -> {key: canonical value} for every parameter the
+                 public style sheet ``name`` sets, keys sorted
 
 Canonical values compare meaning rather than Python representation:
 
@@ -35,6 +37,7 @@ rejects when a figure uses them, and eight-character colour names for
 import re
 
 import matplotlib as mpl
+import matplotlib.style
 from cycler import Cycler
 from matplotlib import colors as mcolors
 from matplotlib import rcsetup
@@ -232,3 +235,14 @@ def test_validate():
             continue
         for value in _candidates(key, validator):
             probes.probe("rc.validate", _validate, key=key, value=value)
+
+
+def _sheet(name):
+    sheet = matplotlib.style.library[name]
+    return {key: _canon(_name(mpl.rcParams.validate[key]), value)
+            for key, value in sorted(sheet.items()) if key not in SKIP}
+
+
+def test_style_sheets():
+    for name in matplotlib.style.available:
+        probes.probe("style.sheet", _sheet, name=name)

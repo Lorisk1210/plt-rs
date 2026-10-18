@@ -1,0 +1,106 @@
+//! The windows a figure window opens from its toolbar: the subplot tool,
+//! the save and figure options dialogs, and the keyboard shortcuts.
+
+use plt_platform::Context;
+
+use super::{FigureWindow, SubplotToolWindow};
+use crate::figure::Figure;
+use crate::gridspec::SubplotOverrides;
+use crate::gui::GuiError;
+use crate::gui::help_dialog::HelpDialog;
+use crate::gui::options::OptionsDialog;
+use crate::gui::save_dialog::SaveDialog;
+use crate::widgets::SubplotTool;
+
+impl FigureWindow {
+    /// Opens a window with sliders for the figure's subplot parameters,
+    /// or raises it when it is open (matplotlib's `configure_subplots`).
+    pub(in crate::gui) fn configure_subplots(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Result<(), GuiError> {
+        if let Some(tool) = &self.subplot_tool {
+            cx.raise_window(tool.window.id())?;
+            return Ok(());
+        }
+        let figure = Figure::with_size(6.0, 3.0, crate::rc::params().figure_dpi);
+        let top = SubplotOverrides {
+            top: Some(0.9),
+            ..SubplotOverrides::default()
+        };
+        figure
+            .subplots_adjust(&top)
+            .expect("0.9 is a valid top margin");
+        let tool = SubplotTool::new(&self.figure, &figure);
+        let window = Self::build(cx, &figure, "Subplot configuration tool", false)?;
+        self.subplot_tool = Some(SubplotToolWindow {
+            window: Box::new(window),
+            _tool: tool,
+        });
+        Ok(())
+    }
+
+    /// Opens the save dialog, or raises it when it is open (matplotlib's
+    /// `save_figure`).
+    pub(super) fn save_figure(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match &self.save_dialog {
+            Some(dialog) => cx.raise_window(dialog.id())?,
+            None => self.save_dialog = Some(SaveDialog::open(cx, &self.figure, &self.title)?),
+        }
+        Ok(())
+    }
+
+    /// Opens the figure options dialog, or raises it when it is open
+    /// (matplotlib's `edit_parameters`).
+    pub(super) fn edit_parameters(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        if let Some(dialog) = &self.options_dialog {
+            cx.raise_window(dialog.id())?;
+            return Ok(());
+        }
+        match OptionsDialog::open(cx, &self.figure)? {
+            Some(dialog) => self.options_dialog = Some(dialog),
+            None => self.set_status(cx, "There are no axes to edit".to_owned())?,
+        }
+        Ok(())
+    }
+
+    pub(super) fn close_options_dialog(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match self.options_dialog.take() {
+            Some(dialog) => dialog.close(cx),
+            None => Ok(()),
+        }
+    }
+
+    pub(super) fn close_save_dialog(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match self.save_dialog.take() {
+            Some(dialog) => dialog.close(cx),
+            None => Ok(()),
+        }
+    }
+
+    pub(super) fn close_subplot_tool(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match self.subplot_tool.take() {
+            Some(tool) => tool.window.close(cx),
+            None => Ok(()),
+        }
+    }
+
+    /// Shows the keyboard shortcuts, or raises them when they are shown
+    /// (matplotlib's `ToolHelp`).
+    pub(super) fn show_help(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match &self.help_dialog {
+            Some(dialog) => cx.raise_window(dialog.id())?,
+            None => {
+                self.help_dialog = Some(HelpDialog::open(cx, &self.figure.tool_specs())?);
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn close_help_dialog(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        match self.help_dialog.take() {
+            Some(dialog) => dialog.close(cx),
+            None => Ok(()),
+        }
+    }
+}

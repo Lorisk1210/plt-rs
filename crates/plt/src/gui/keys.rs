@@ -36,6 +36,8 @@ pub(super) enum KeyAction {
     LogY,
     /// Toggle a logarithmic x axis (`keymap.xscale`).
     LogX,
+    /// Show the keyboard shortcuts (`keymap.help`).
+    Help,
 }
 
 /// matplotlib's name of a key press, or `None` for keys it ignores.
@@ -96,6 +98,7 @@ pub(super) fn action(name: &str, rc: &RcParams) -> Option<KeyAction> {
         (&rc.keymap_grid_minor, KeyAction::GridMinor),
         (&rc.keymap_yscale, KeyAction::LogY),
         (&rc.keymap_xscale, KeyAction::LogX),
+        (&rc.keymap_help, KeyAction::Help),
     ]
     .into_iter()
     .find(|(keys, _)| keys.iter().any(|key| key == name))

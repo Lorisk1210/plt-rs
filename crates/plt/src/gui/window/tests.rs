@@ -130,6 +130,46 @@ fn dragging_rotates_3d_axes() {
 }
 
 #[test]
+fn user_tools_and_help_are_on_the_toolbar() {
+    use crate::gui::{Icon, ToolKind, ToolSpec};
+
+    let figure = Figure::with_size(4.0, 3.0, 100.0);
+    figure.subplot();
+    let uses = std::rc::Rc::new(std::cell::Cell::new(0));
+    let count = std::rc::Rc::clone(&uses);
+    let spec = ToolSpec {
+        name: "mark".into(),
+        description: "Mark the peak".into(),
+        icon: Icon::new(24.0),
+        keys: vec!["m".into()],
+        kind: ToolKind::Toggle,
+    };
+    figure
+        .add_tool(spec, move |_| count.set(count.get() + 1))
+        .expect("the tool is new");
+    let (mut event_loop, handle) = EventLoop::headless();
+    let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+        .expect("the window opens");
+    assert!(pump(&mut event_loop, &mut window));
+    let id = window.id();
+    key(&handle, id, 'm');
+    pump(&mut event_loop, &mut window);
+    assert_eq!((uses.get(), figure.tool_toggled("mark")), (1, Some(true)));
+    window
+        .apply(&mut event_loop.context(), Message::Tool(Tool::User(0)))
+        .expect("the button works");
+    assert_eq!((uses.get(), figure.tool_toggled("mark")), (2, Some(false)));
+    let hint = window.toolbar.as_ref().map(|t| t.hint(Tool::User(0)));
+    assert_eq!(hint.as_deref(), Some("Mark the peak (m)"));
+    window
+        .apply(&mut event_loop.context(), Message::Tool(Tool::Help))
+        .expect("help opens");
+    assert!(window.help_dialog.is_some(), "the help window is open");
+    key(&handle, id, 'q');
+    assert!(!pump(&mut event_loop, &mut window));
+}
+
+#[test]
 fn the_subplot_tool_adjusts_the_figure() {
     let figure = Figure::with_size(4.0, 3.0, 100.0);
     figure.subplots(2, 2).expect("a 2×2 grid has cells");

@@ -8,6 +8,7 @@ use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
 use crate::gridspec::SubplotParams;
+use crate::gui::tools::ToolRegistry;
 use crate::layout::LayoutState;
 use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
 
@@ -46,6 +47,8 @@ pub(crate) struct FigureState {
     pub(crate) widget_lock: Option<LockOwner>,
     /// The cursor tools ask the window for (`Figure::set_cursor`).
     pub(crate) cursor: CursorShape,
+    /// The tools the program added to the figure's windows.
+    pub(crate) tools: ToolRegistry,
     /// The part of the figure being printed, in display pixels, while
     /// saving with `bbox_inches` (matplotlib's `adjust_bbox`).
     pub(crate) print_window: Option<Bbox>,
@@ -79,6 +82,7 @@ impl FigureState {
             capture_keys: false,
             widget_lock: None,
             cursor: CursorShape::default(),
+            tools: ToolRegistry::default(),
             print_window: None,
         }
     }

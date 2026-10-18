@@ -2,6 +2,7 @@
 //! navigation tools and a coordinate readout (matplotlib's
 //! `FigureManager` + `NavigationToolbar2`).
 
+mod dialogs;
 mod input;
 mod toolbar;
 
@@ -11,12 +12,12 @@ use plt_platform::{
 };
 use plt_ui::{Flex, Surface, SurfaceEvent, UiWindow, WidgetId};
 
+use super::help_dialog::HelpDialog;
 use super::options::{self, OptionsDialog};
 use super::save_dialog::{Outcome, SaveDialog};
 use super::{GuiError, icons};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
 use crate::figure::Figure;
-use crate::gridspec::SubplotOverrides;
 use crate::navigation::{NavMode, Navigation};
 use crate::widgets::SubplotTool;
 use toolbar::{Tool, Toolbar};
@@ -71,6 +72,8 @@ pub struct FigureWindow {
     save_dialog: Option<SaveDialog>,
     /// The figure options dialog opened from the toolbar, while it is open.
     options_dialog: Option<OptionsDialog>,
+    /// The keyboard shortcuts, while they are shown.
+    help_dialog: Option<HelpDialog>,
 }
 
 impl FigureWindow {
@@ -93,7 +96,7 @@ impl FigureWindow {
     ) -> Result<Self, GuiError> {
         let mut root = Flex::column();
         let canvas = root.push(Surface::new(|event| Some(Message::Canvas(event))), 1.0);
-        let toolbar = with_toolbar.then(|| Toolbar::build(&mut root));
+        let toolbar = with_toolbar.then(|| Toolbar::build(&mut root, figure.tool_specs()));
         let (width, height) = figure.size_inches();
         let dpi = figure.dpi();
         let toolbar_height = if with_toolbar { toolbar::HEIGHT } else { 0.0 };
@@ -123,6 +126,7 @@ impl FigureWindow {
             subplot_tool: None,
             save_dialog: None,
             options_dialog: None,
+            help_dialog: None,
         };
         figure_window.refresh_tools(cx)?;
         figure_window.sync_timers(cx);
@@ -153,6 +157,10 @@ impl FigureWindow {
                 .is_some_and(|dialog| dialog.id() == window)
             || self
                 .options_dialog
+                .as_ref()
+                .is_some_and(|dialog| dialog.id() == window)
+            || self
+                .help_dialog
                 .as_ref()
                 .is_some_and(|dialog| dialog.id() == window)
             || self
@@ -187,6 +195,12 @@ impl FigureWindow {
                     Ok(true)
                 }
             };
+        }
+        if let Some(dialog) = self.help_dialog.as_mut().filter(|d| d.id() == window) {
+            if !dialog.handle(cx, event)? {
+                self.close_help_dialog(cx)?;
+            }
+            return Ok(true);
         }
         if let Some(dialog) = self.options_dialog.as_mut().filter(|d| d.id() == window) {
             match dialog.handle(cx, event)? {
@@ -242,6 +256,7 @@ impl FigureWindow {
         self.close_subplot_tool(cx)?;
         self.close_save_dialog(cx)?;
         self.close_options_dialog(cx)?;
+        self.close_help_dialog(cx)?;
         for (timer, _) in self.timers.drain(..) {
             cx.cancel_timer(timer);
         }
@@ -256,7 +271,10 @@ impl FigureWindow {
                 true
             }
             Message::Hint(tool) => {
-                self.set_status(cx, tool.map_or("", Tool::hint).to_owned())?;
+                let hint = tool
+                    .zip(self.toolbar.as_ref())
+                    .map_or_else(String::new, |(tool, toolbar)| toolbar.hint(tool));
+                self.set_status(cx, hint)?;
                 true
             }
             Message::Canvas(SurfaceEvent::Resized(size)) => {
@@ -355,6 +373,17 @@ impl FigureWindow {
             Tool::Subplots => return self.configure_subplots(cx),
             Tool::Options => return self.edit_parameters(cx),
             Tool::Save => return self.save_figure(cx),
+            Tool::Help => return self.show_help(cx),
+            Tool::User(index) => {
+                let name = self
+                    .toolbar
+                    .as_ref()
+                    .and_then(|toolbar| toolbar.user_tool(index))
+                    .map(str::to_owned);
+                if let Some(name) = name {
+                    self.figure.trigger_tool(&name);
+                }
+            }
         }
         self.refresh_tools(cx)
     }
@@ -373,79 +402,16 @@ impl FigureWindow {
         self.refresh_tools(cx)
     }
 
-    /// Opens a window with sliders for the figure's subplot parameters,
-    /// or raises it when it is open (matplotlib's `configure_subplots`).
-    pub(super) fn configure_subplots(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        if let Some(tool) = &self.subplot_tool {
-            cx.raise_window(tool.window.id())?;
-            return Ok(());
-        }
-        let figure = Figure::with_size(6.0, 3.0, crate::rc::params().figure_dpi);
-        let top = SubplotOverrides {
-            top: Some(0.9),
-            ..SubplotOverrides::default()
-        };
-        figure
-            .subplots_adjust(&top)
-            .expect("0.9 is a valid top margin");
-        let tool = SubplotTool::new(&self.figure, &figure);
-        let window = Self::build(cx, &figure, "Subplot configuration tool", false)?;
-        self.subplot_tool = Some(SubplotToolWindow {
-            window: Box::new(window),
-            _tool: tool,
-        });
-        Ok(())
-    }
-
-    /// Opens the save dialog, or raises it when it is open (matplotlib's
-    /// `save_figure`).
-    fn save_figure(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        match &self.save_dialog {
-            Some(dialog) => cx.raise_window(dialog.id())?,
-            None => self.save_dialog = Some(SaveDialog::open(cx, &self.figure, &self.title)?),
-        }
-        Ok(())
-    }
-
-    /// Opens the figure options dialog, or raises it when it is open
-    /// (matplotlib's `edit_parameters`).
-    fn edit_parameters(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        if let Some(dialog) = &self.options_dialog {
-            cx.raise_window(dialog.id())?;
-            return Ok(());
-        }
-        match OptionsDialog::open(cx, &self.figure)? {
-            Some(dialog) => self.options_dialog = Some(dialog),
-            None => self.set_status(cx, "There are no axes to edit".to_owned())?,
-        }
-        Ok(())
-    }
-
-    fn close_options_dialog(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        match self.options_dialog.take() {
-            Some(dialog) => dialog.close(cx),
-            None => Ok(()),
-        }
-    }
-
-    fn close_save_dialog(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        match self.save_dialog.take() {
-            Some(dialog) => dialog.close(cx),
-            None => Ok(()),
-        }
-    }
-
-    fn close_subplot_tool(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        match self.subplot_tool.take() {
-            Some(tool) => tool.window.close(cx),
-            None => Ok(()),
-        }
-    }
-
     /// Updates the toolbar buttons and the cursor.
     fn refresh_tools(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        if let Some(toolbar) = self.toolbar {
-            toolbar.refresh(&mut self.window, cx, &self.navigation)?;
+        if let Some(toolbar) = &self.toolbar {
+            let toggled: Vec<String> = self
+                .figure
+                .tool_names()
+                .into_iter()
+                .filter(|name| self.figure.tool_toggled(name) == Some(true))
+                .collect();
+            toolbar.refresh(&mut self.window, cx, &self.navigation, &toggled)?;
         }
         self.sync_cursor(cx)
     }
@@ -467,7 +433,7 @@ impl FigureWindow {
 
     /// Shows `text` in the status line, if there is a toolbar.
     fn set_status(&mut self, cx: &mut Context<'_>, text: String) -> Result<(), GuiError> {
-        match self.toolbar {
+        match &self.toolbar {
             Some(toolbar) => toolbar.set_status(&mut self.window, cx, text),
             None => Ok(()),
         }

@@ -48,7 +48,8 @@ plt::show()?;
 * **Interactive**: figure windows with a toolbar (home/back/forward,
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
   options, save), a save dialog (PNG, JPEG, TIFF, GIF, SVG, PDF, PS,
-  EPS), matplotlib's keyboard shortcuts, a live coordinate readout, 3-D
+  EPS), matplotlib's keyboard shortcuts with a help window, toolbar
+  tools of your own (`Figure::add_tool`), a live coordinate readout, 3-D
   axes that rotate (arcball, trackball, sphere or azimuth/elevation), pan
   and zoom with the mouse, figure events (`connect`), timers and
   `FuncAnimation`/`ArtistAnimation` (saved as animated PNG or GIF, as an

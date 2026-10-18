@@ -1,7 +1,4 @@
 //! Streamplot cases of `figures/cases_fields.py`.
-//!
-//! `fields/streamplot_masked` is not translated: it overlays the mask with
-//! `imshow`, which plt-rs does not have yet.
 
 use plt::axes::ImshowOptions;
 use plt::colors::colormaps;

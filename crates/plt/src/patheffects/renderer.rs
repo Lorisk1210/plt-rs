@@ -7,6 +7,12 @@ use plt_text::{TextEngine, TextRun};
 
 use super::PathEffect;
 
+/// The size text outlines are made at (`TextToPath.FONT_SCALE`).
+const TEXT_PATH_POINTS: f64 = 100.0;
+
+/// The resolution text outlines are made at (`TextToPath.DPI`).
+const TEXT_PATH_DPI: f64 = 72.0;
+
 /// Wraps a renderer so that every path drawn goes through each effect in
 /// turn; markers and collections are drawn path by path, once per effect,
 /// and text is drawn as its glyph outlines.
@@ -117,21 +123,27 @@ impl Renderer for PathEffectRenderer<'_> {
     }
 
     /// Text becomes its outlines, filled in the text colour without a
-    /// stroke (matplotlib's `_draw_text_as_path`).
+    /// stroke (matplotlib's `_draw_text_as_path`): the text laid out at
+    /// 100 points and 72 dpi (`TextToPath.get_text_path`), scaled to the
+    /// text size; runs without a source keep their own outlines.
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
-        let placement = Affine2D::identity()
+        let engine = TextEngine::global();
+        let scaled = run.source.as_ref().and_then(|source| {
+            let laid_out = source
+                .layout(engine, TEXT_PATH_POINTS, TEXT_PATH_DPI)
+                .ok()?;
+            let scale = self.points_to_pixels(source.size()) / TEXT_PATH_POINTS;
+            Some((laid_out.outline(engine), scale))
+        });
+        let (outline, scale) = scaled.unwrap_or_else(|| (run.outline(engine), 1.0));
+        let placement = Affine2D::scaling(scale, scale)
             .rotate_deg(angle)
             .translate(origin.x, origin.y);
         let gc = GraphicsContext {
             linewidth: 0.0,
             ..gc.clone()
         };
-        self.draw_path(
-            &gc,
-            &run.outline(TextEngine::global()),
-            &placement,
-            Some(gc.foreground),
-        );
+        self.draw_path(&gc, &outline, &placement, Some(gc.foreground));
     }
 
     fn open_group(&mut self, name: &str, gid: Option<&str>) {

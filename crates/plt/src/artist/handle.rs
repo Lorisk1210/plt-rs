@@ -370,9 +370,12 @@ pub trait ArtistHandle {
         self
     }
 
-    /// The artist's extent in display coordinates, if it occupies space.
+    /// The artist's extent in display coordinates in the figure's current
+    /// layout (laid out first), if it occupies space (matplotlib's
+    /// `get_window_extent`).
     fn window_extent(&self) -> Option<Bbox> {
-        let state = self.raw().figure_state().borrow();
+        let mut state = self.raw().figure_state().borrow_mut();
+        state.prepare();
         let ctx = LayoutContext::new(&state);
         state.store.get(self.id())?.window_extent(&ctx)
     }

@@ -104,3 +104,34 @@ fn draggable_annotations_move_their_text() {
     let moved = note.position();
     assert!((moved.x - 48.8).abs() < 1e-9 && (moved.y - 34.4).abs() < 1e-9);
 }
+
+#[test]
+fn draggable_annotation_boxes_move_in_their_coordinates() {
+    use crate::artist::ArtistHandle;
+    use crate::offsetbox::{AnnotationBboxOptions, TextArea};
+    use crate::text::TextProps;
+
+    let fig = Figure::new();
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    ax.set_xlim(0.0, 640.0).set_ylim(0.0, 480.0);
+    let options = AnnotationBboxOptions {
+        xybox: Some((300.0, 200.0).into()),
+        ..AnnotationBboxOptions::default()
+    };
+    let note = ax
+        .add_annotation_bbox(
+            TextArea::from_text("box", TextProps::default()),
+            (100.0, 100.0),
+            options,
+        )
+        .unwrap();
+    note.set_draggable(true);
+    assert!(note.draggable());
+    let before = note.window_extent().unwrap();
+    let inside = (before.center().x, before.center().y);
+    drag(&fig, inside, (inside.0 + 30.0, inside.1 - 20.0));
+    // Data coordinates are pixels here: the box moved by the drag.
+    let moved = note.xybox();
+    assert!((moved.x - 330.0).abs() < 1e-9 && (moved.y - 180.0).abs() < 1e-9);
+    assert_eq!(note.xy(), plt_core::Point::new(100.0, 100.0));
+}

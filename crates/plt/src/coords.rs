@@ -72,6 +72,18 @@ pub enum Coords {
     Transform(Transform),
     /// Fractions of another artist's extent.
     Artist(ArtistId),
+    /// Units from a reference point given in fractions of another artist's
+    /// extent (matplotlib's `text.OffsetFrom(artist, ref_coord, unit)`,
+    /// which takes points or pixels; font sizes and fractions of the
+    /// artist's extent work too).
+    OffsetFrom {
+        /// The artist whose extent holds the reference point.
+        artist: ArtistId,
+        /// The reference point, in fractions of the artist's extent.
+        reference: Point,
+        /// The unit of the offset.
+        unit: CoordUnit,
+    },
     /// Fractions of the part of another artist's extent inside its clip
     /// box (how `bar_label` centres labels on bars).
     ClippedArtist(ArtistId),
@@ -129,10 +141,25 @@ impl Coords {
                 ResolvedTransform::affine(scale.translate(corner.x, corner.y))
             }
             Self::Transform(transform) => layout.resolve(transform).ok_or(CoordError::Detached)?,
-            Self::Artist(id) => {
-                let artist = layout.store().get(*id).ok_or(CoordError::Detached)?;
-                let extent = artist.window_extent(&layout).ok_or(CoordError::NoExtent)?;
-                ResolvedTransform::affine(unit_to_bbox(&extent))
+            Self::Artist(id) => ResolvedTransform::affine(unit_to_bbox(&extent_of(frame, *id)?)),
+            Self::OffsetFrom {
+                artist,
+                reference,
+                unit,
+            } => {
+                let extent = extent_of(frame, *artist)?;
+                let origin = unit_to_bbox(&extent).transform_point(*reference);
+                let points = layout.points_to_pixels(1.0);
+                let scale = match unit {
+                    CoordUnit::Points => Affine2D::scaling(points, points),
+                    CoordUnit::Pixels => Affine2D::IDENTITY,
+                    CoordUnit::Fontsize => {
+                        let s = frame.fontsize * points;
+                        Affine2D::scaling(s, s)
+                    }
+                    CoordUnit::Fraction => Affine2D::scaling(extent.width(), extent.height()),
+                };
+                ResolvedTransform::affine(scale.translate(origin.x, origin.y))
             }
             Self::ClippedArtist(id) => {
                 let artist = layout.store().get(*id).ok_or(CoordError::Detached)?;
@@ -148,6 +175,13 @@ impl Coords {
             Self::Blended(x, y) => ResolvedTransform::blend(x.resolve(frame)?, y.resolve(frame)?),
         })
     }
+}
+
+/// The display extent of the artist `id`.
+fn extent_of(frame: &CoordFrame<'_>, id: ArtistId) -> Result<Bbox, CoordError> {
+    let layout = frame.layout;
+    let artist = layout.store().get(id).ok_or(CoordError::Detached)?;
+    artist.window_extent(&layout).ok_or(CoordError::NoExtent)
 }
 
 /// Whether the display point lies within the axes box, with matplotlib's

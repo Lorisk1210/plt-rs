@@ -5,7 +5,7 @@
 
 use plt::artist::ArtistHandle;
 use plt::axes::{ScatterColors, ScatterOptions};
-use plt::coords::Coords;
+use plt::coords::{CoordUnit, Coords};
 use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, Ellipse, Rectangle};
 use plt::prelude::*;
 use plt::rc::Aspect;
@@ -432,6 +432,46 @@ fn annotate_annotation_chain(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
+/// After the gallery's `annotate_simple_coord03` (`text.OffsetFrom`).
+fn annotate_offset_from(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let round = || styled_box("round", PatchProps::default().facecolor("w"));
+    let an1 = ax.annotate("Test 1", (0.5, 0.5), AnnotateOptions::default())?;
+    an1.set_valign(VAlign::Center)
+        .set_halign(HAlign::Center)
+        .set_bbox(round()?);
+    let offset_from = |(x, y): (f64, f64), unit: CoordUnit| Coords::OffsetFrom {
+        artist: an1.id(),
+        reference: Point::new(x, y),
+        unit,
+    };
+    let an2 = ax.annotate(
+        "Test 2",
+        (0.1, 0.1),
+        AnnotateOptions {
+            xytext: Some(Point::new(0.0, -10.0)),
+            textcoords: Some(offset_from((0.5, 0.0), CoordUnit::Points)),
+            arrowprops: Some(ArrowProps::Fancy(FancyArrowProps::new("->".parse()?))),
+            ..AnnotateOptions::default()
+        },
+    )?;
+    an2.set_valign(VAlign::Top)
+        .set_halign(HAlign::Center)
+        .set_bbox(round()?);
+    let an3 = ax.annotate(
+        "Test 3",
+        (0.9, 0.8),
+        AnnotateOptions {
+            xytext: Some(Point::new(5.0, 5.0)),
+            textcoords: Some(offset_from((1.0, 1.0), CoordUnit::Pixels)),
+            arrowprops: Some(ArrowProps::Fancy(FancyArrowProps::new("->".parse()?))),
+            ..AnnotateOptions::default()
+        },
+    )?;
+    an3.set_valign(VAlign::Bottom).set_halign(HAlign::Left);
+    Ok(())
+}
+
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("text/alignment_against_box", alignment_against_box).sized(6.0, 4.5, 100.0),
     FigureCase::new("text/rotation_relative_to_line", rotation_relative_to_line)
@@ -443,4 +483,5 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("text/rotated_multiline_boxes", rotated_multiline_boxes).sized(6.0, 4.0, 100.0),
     FigureCase::new("text/annotate_annotation_chain", annotate_annotation_chain)
         .sized(6.0, 4.0, 100.0),
+    FigureCase::new("text/annotate_offset_from", annotate_offset_from).sized(4.0, 3.0, 100.0),
 ];

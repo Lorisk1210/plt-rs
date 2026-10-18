@@ -155,3 +155,18 @@ def _(fig):
     ax.annotate("from 4", xy=(0, 0.5), xycoords=an4, xytext=(-60, -40),
                 textcoords="offset points", ha="right",
                 arrowprops=dict(arrowstyle="<|-", shrinkA=0, shrinkB=0))
+
+
+@case("text/annotate_offset_from", figsize=(4, 3))
+def _(fig):
+    # After the gallery's annotate_simple_coord03 (text.OffsetFrom).
+    from matplotlib.text import OffsetFrom
+    ax = fig.subplots()
+    an1 = ax.annotate("Test 1", xy=(0.5, 0.5), xycoords="data", va="center", ha="center",
+                      bbox=dict(boxstyle="round", fc="w"))
+    ax.annotate("Test 2", xy=(0.1, 0.1), xycoords="data", xytext=(0, -10),
+                textcoords=OffsetFrom(an1, (0.5, 0)), va="top", ha="center",
+                bbox=dict(boxstyle="round", fc="w"), arrowprops=dict(arrowstyle="->"))
+    ax.annotate("Test 3", xy=(0.9, 0.8), xytext=(5, 5),
+                textcoords=OffsetFrom(an1, (1, 1), unit="pixels"), va="bottom", ha="left",
+                arrowprops=dict(arrowstyle="->"))

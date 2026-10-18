@@ -37,6 +37,11 @@ pub struct TickSet {
     /// labelled together (what axisartist draws from matplotlib's
     /// `minor.locator()`).
     pub minor_all: Vec<Tick>,
+    /// Every location the major locator gave, inside the view or not
+    /// (axisartist draws its gridlines at matplotlib's `major.locator()`).
+    pub major_locs: Vec<f64>,
+    /// Every location the minor locator gave, inside the view or not.
+    pub minor_locs: Vec<f64>,
     /// Offset or scale text shown at the end of the axis (e.g. `1e6`).
     pub offset: String,
 }
@@ -490,6 +495,7 @@ impl AxisState {
             let labels = self.major_formatter.format_ticks(&major_locs, &ctx)?;
             ticks.major = collect(&major_locs, labels.labels);
             ticks.offset = labels.offset;
+            ticks.major_locs.clone_from(&major_locs);
         }
         if self.minor_style.is_drawn() {
             let all_locs = self.minor_locator.locate(&ctx)?;
@@ -498,6 +504,7 @@ impl AxisState {
             ticks.minor = collect(&minor_locs, labels.labels);
             let labels = self.minor_formatter.format_ticks(&all_locs, &ctx)?;
             ticks.minor_all = collect(&all_locs, labels.labels);
+            ticks.minor_locs = all_locs;
         }
         Ok(ticks)
     }

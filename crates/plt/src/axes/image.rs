@@ -177,6 +177,8 @@ impl Axes {
         let mut artist = NonUniformImageArtist::new(data, mappable, options.interpolation, x, y)?;
         artist.base_mut().transform = Some(self.trans_data());
         let raw = self.adopt(artist, &DataUpdate::default());
+        // `add_image` leaves the image unclipped: it covers the axes box.
+        raw.with_base_mut(|base| base.clip_box = None);
         Ok(NonUniformImage::from_raw(raw))
     }
 

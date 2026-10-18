@@ -33,16 +33,21 @@ pub struct AutoDateFormatter {
 }
 
 impl AutoDateFormatter {
-    /// A formatter following `locator`'s unit, in UTC.
+    /// A formatter following `locator`'s unit, in UTC, with the formats
+    /// of the `date.autoformatter.*` rcParams.
     pub fn new(locator: impl DateLocator) -> Self {
+        let rc = crate::rc::params();
         let scaled = [
-            (365.0, "%Y"),
-            (30.0, "%Y-%m"),
-            (1.0, "%Y-%m-%d"),
-            (1.0 / 24.0, "%m-%d %H"),
-            (1.0 / 1440.0, "%d %H:%M"),
-            (1.0 / 86_400.0, "%H:%M:%S"),
-            (1.0 / MICROSECONDS_PER_DAY, "%M:%S.%f"),
+            (365.0, rc.date_autoformatter_year.as_str()),
+            (30.0, rc.date_autoformatter_month.as_str()),
+            (1.0, rc.date_autoformatter_day.as_str()),
+            (1.0 / 24.0, rc.date_autoformatter_hour.as_str()),
+            (1.0 / 1440.0, rc.date_autoformatter_minute.as_str()),
+            (1.0 / 86_400.0, rc.date_autoformatter_second.as_str()),
+            (
+                1.0 / MICROSECONDS_PER_DAY,
+                rc.date_autoformatter_microsecond.as_str(),
+            ),
         ];
         let mut formatter = Self {
             locator: Box::new(locator),
@@ -149,5 +154,19 @@ mod tests {
         assert_eq!(weekly.format_for(&ctx), "%Y-%m-%d");
         weekly.set_scaled(1.0, "%d");
         assert_eq!(weekly.format_data(18_262.0, &ctx).unwrap(), "01");
+    }
+
+    #[test]
+    fn formats_come_from_the_rc_params() {
+        let settings = TickerSettings::default();
+        let axis = AxisInfo::with_view(18_262.0, 18_263.0);
+        let ctx = TickContext::new(&axis, &settings);
+        let format = crate::rc::context(|| {
+            crate::rc::set("date.autoformatter.hour", "%H h").unwrap();
+            AutoDateFormatter::new(AutoDateLocator::new())
+                .format_for(&ctx)
+                .to_owned()
+        });
+        assert_eq!(format, "%H h");
     }
 }

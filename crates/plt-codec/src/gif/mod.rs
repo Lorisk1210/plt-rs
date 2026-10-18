@@ -1,13 +1,20 @@
-//! Animated GIF encoding (GIF89a): RGBA frames are reduced to one shared
-//! palette of at most 256 colours, frames identical to the one before are
-//! merged into it, and opaque animations store only the rectangle that
-//! changed from frame to frame.
+//! GIF files.
+//!
+//! * [`GifEncoder`] writes animated GIFs (GIF89a): RGBA frames are reduced
+//!   to one shared palette of at most 256 colours, frames identical to the
+//!   one before are merged into it, and opaque animations store only the
+//!   rectangle that changed from frame to frame.
+//! * [`decode`] reads a file's first frame as Pillow opens it: palette
+//!   indices (local or global table, interlaced or not) with the
+//!   transparent index, on the logical screen.
 
+mod decode;
 mod lzw;
 mod palette;
 
 use std::fmt;
 
+pub use self::decode::{DecodeError, decode};
 use self::palette::Palette;
 
 /// One frame of an animation: RGBA pixels, row by row, and how long the

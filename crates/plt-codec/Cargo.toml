@@ -1,6 +1,6 @@
 [package]
 name = "plt-codec"
-description = "Self-contained DEFLATE/zlib and PNG codecs"
+description = "Self-contained compression and image codecs: DEFLATE/zlib, PNG, JPEG, TIFF and GIF"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -1,5 +1,39 @@
 //! Deterministic test data shared by the unit tests.
 
+use crate::raster::{Pixels, Raster};
+
+/// The bytes of the array matplotlib's `pil_to_array` returns for an image
+/// Pillow opens as `raster`: modes `L`, `I;16` (little-endian), `RGB` and
+/// `RGBA` as they are, every other mode converted to RGBA.
+pub(crate) fn pil_to_array_bytes(raster: &Raster) -> Vec<u8> {
+    match raster.pixels() {
+        Pixels::Gray(levels) => levels.clone(),
+        Pixels::Gray16(levels) => levels.iter().flat_map(|v| v.to_le_bytes()).collect(),
+        Pixels::Rgb(pixels) => pixels.as_flattened().to_vec(),
+        Pixels::Rgba(pixels) => pixels.as_flattened().to_vec(),
+        _ => raster.to_rgba8().as_flattened().to_vec(),
+    }
+}
+
+/// Flips 1 to 4 random bits, bytes or lengths of `data`, or cuts it short,
+/// for fuzz-style tests.
+pub(crate) fn mutate(data: &[u8], rng: &mut Rng) -> Vec<u8> {
+    let mut out = data.to_vec();
+    for _ in 0..=rng.below(4) {
+        if out.is_empty() {
+            break;
+        }
+        let at = rng.below(out.len());
+        match rng.below(4) {
+            0 => out[at] ^= 1 << rng.below(8),
+            1 => out[at] = [0, 0xFF, 0x7F, 0x80][rng.below(4)],
+            2 => out[at] = rng.next_u64() as u8,
+            _ => out.truncate(at),
+        }
+    }
+    out
+}
+
 /// `SplitMix64`: a tiny, high-quality deterministic generator.
 pub(crate) struct Rng(u64);
 

@@ -87,7 +87,12 @@ fn read(gif: &[u8]) -> ReadGif {
                 };
                 assert_eq!(r.byte(), 0, "no local table, not interlaced");
                 let min_code_size = r.byte();
-                let indices = lzw::decompress(&r.sub_blocks(), min_code_size).unwrap();
+                let mut indices = Vec::new();
+                let finish = lzw::decompress(r.sub_blocks(), min_code_size, |index| {
+                    indices.push(index);
+                    false
+                });
+                assert_eq!(finish, Ok(lzw::Finish::EndCode));
                 assert_eq!(
                     indices.len(),
                     usize::from(area.width) * usize::from(area.height)

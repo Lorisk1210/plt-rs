@@ -136,8 +136,8 @@ impl TextArtist {
     }
 
     /// The rotation drawn in degrees (matplotlib's `get_rotation`): turned
-    /// by the transform at the text's position when the transform rotates
-    /// the text.
+    /// by the transform at the text's position, then reduced to `[0, 360)`,
+    /// when the transform rotates the text.
     fn drawn_rotation(&self, ctx: LayoutContext<'_>) -> f64 {
         let rotation = match self.rotation_reduction {
             AngleReduction::Modulo360 => self.rotation.rem_euclid(360.0),
@@ -148,7 +148,9 @@ impl TextArtist {
         }
         ctx.resolve(&self.transform())
             .map_or(rotation, |transform| {
-                transform.transform_angle(rotation, self.position)
+                transform
+                    .transform_angle(rotation, self.position)
+                    .rem_euclid(360.0)
             })
     }
 
@@ -450,5 +452,20 @@ mod tests {
         );
         text.set_transform_rotates_text(false);
         assert_eq!(text.layout().expect("laid out").style.rotation, 45.0);
+    }
+
+    #[test]
+    fn transformed_rotations_stay_in_one_turn() {
+        let fig = Figure::new();
+        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+        ax.set_xlim(0.0, 10.0).set_ylim(1.0, 0.0);
+        let text = ax.text(5.0, 0.5, "down");
+        text.set_rotation(45.0).set_transform_rotates_text(true);
+        let rotation = text.layout().expect("laid out").style.rotation;
+        let expected = 360.0 - (369.6_f64 / 49.6).atan().to_degrees();
+        assert!(
+            (rotation - expected).abs() < 1e-6,
+            "{rotation} vs {expected}"
+        );
     }
 }

@@ -6,9 +6,11 @@ use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::PixelMap;
 use super::{Extent, ImageAlpha, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ClipPathSpec, DrawContext, LayoutContext, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistStore, ClipPathSpec, DrawContext, LayoutContext,
+    RawHandle,
 };
-use crate::colors::{Colormap, Norm};
+use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
+use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
 use crate::numeric::Grid;
 use crate::patches::PatchShape;
 use crate::transforms::Transform;
@@ -126,6 +128,26 @@ impl Artist for AxesImageArtist {
     }
 }
 
+impl ColorMapped for AxesImageArtist {
+    fn mapping_mut(&mut self) -> Option<&mut ScalarMappable> {
+        Some(self.core.mappable.get_mut())
+    }
+
+    /// Images map their data when drawn; a new norm takes its unset limits
+    /// from the whole array, as matplotlib's `_make_image` does.
+    fn remap(&mut self, _others: &mut ArtistStore) -> Result<(), NormError> {
+        if let Some(field) = self.core.data.scalars() {
+            let masked = field.masked_values();
+            self.core
+                .mappable
+                .get_mut()
+                .norm_mut()
+                .autoscale_none(&masked);
+        }
+        Ok(())
+    }
+}
+
 /// A handle to an image in an axes (matplotlib's `AxesImage`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AxesImage {
@@ -196,20 +218,25 @@ impl AxesImage {
         self.read(|image| image.core.mappable.borrow().cmap().clone())
     }
 
-    /// Replaces the colormap.
+    /// Replaces the colormap; the image's colorbars follow.
     pub fn set_cmap(&self, cmap: Colormap) -> &Self {
-        self.update(|image| image.core.mappable.get_mut().set_cmap(cmap))
+        change_mapping::<AxesImageArtist>(&self.raw, MappingChange::Cmap(Box::new(cmap)));
+        self
     }
 
-    /// Replaces the norm.
+    /// Replaces the norm, whose unset limits come from the data; the
+    /// image's colorbars follow with the norm's scale and ticks.
     pub fn set_norm(&self, norm: Box<dyn Norm>) -> &Self {
-        self.update(|image| image.core.mappable.get_mut().set_norm(norm))
+        change_mapping::<AxesImageArtist>(&self.raw, MappingChange::Norm(norm));
+        self
     }
 
     /// Sets the data values mapped to the ends of the colormap
-    /// (matplotlib's `set_clim`); `None` leaves a limit unchanged.
+    /// (matplotlib's `set_clim`); `None` leaves a limit unchanged. The
+    /// image's colorbars follow.
     pub fn set_clim(&self, vmin: Option<f64>, vmax: Option<f64>) -> &Self {
-        self.update(|image| image.core.mappable.get_mut().set_clim(vmin, vmax))
+        change_mapping::<AxesImageArtist>(&self.raw, MappingChange::Clim(vmin, vmax));
+        self
     }
 
     /// The data values mapped to the ends of the colormap.

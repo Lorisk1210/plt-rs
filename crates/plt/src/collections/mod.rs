@@ -22,6 +22,7 @@ use quad_mesh::MeshGeometry;
 pub use quad_mesh::MeshShading;
 pub(crate) use spec::Ellipses;
 pub use spec::{CollectionPatch, CollectionSpec, EllipseUnits};
+pub(crate) use trimesh::TriMeshArtist;
 pub use trimesh::{TriMesh, TriMeshError, TriMeshSpec};
 
 use std::any::Any;
@@ -33,8 +34,11 @@ use plt_core::path::{CollectionGeometry, DataLimits};
 use plt_core::{Affine2D, Bbox, Path, Point};
 use plt_render::{CapStyle, JoinStyle};
 
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
-use crate::colors::{Color, Colormap, Normalized, ScalarMappable};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistStore, DrawContext, LayoutContext, RawHandle,
+};
+use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
+use crate::colors::{Color, Colormap, Norm, NormError, Normalized, ScalarMappable};
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -98,13 +102,22 @@ pub(crate) struct Mapped {
 }
 
 impl Mapped {
-    fn new(mut source: ColorMapping) -> Self {
-        source.mappable.norm_mut().autoscale_none(&source.values);
-        let normalized = source
-            .mappable
-            .normalize(&source.values)
-            .map_err(|e| e.to_string());
-        Self { source, normalized }
+    fn new(source: ColorMapping) -> Self {
+        let mut mapped = Self {
+            source,
+            normalized: Ok(Vec::new()),
+        };
+        mapped.refresh();
+        mapped
+    }
+
+    /// Fills unset limits from the values and normalises them again, after
+    /// the norm or its limits changed (matplotlib's `set_array` followed by
+    /// `update_scalarmappable`).
+    fn refresh(&mut self) {
+        let ColorMapping { values, mappable } = &mut self.source;
+        mappable.norm_mut().autoscale_none(values);
+        self.normalized = mappable.normalize(values).map_err(|e| e.to_string());
     }
 
     /// The mapped colours with `alpha` applied.
@@ -253,6 +266,22 @@ impl CollectionArtist {
     }
 }
 
+impl ColorMapped for CollectionArtist {
+    fn mapping_mut(&mut self) -> Option<&mut ScalarMappable> {
+        self.mapping
+            .as_mut()
+            .map(|mapped| &mut mapped.source.mappable)
+    }
+
+    /// Problems normalising the values are reported when drawing.
+    fn remap(&mut self, _others: &mut ArtistStore) -> Result<(), NormError> {
+        if let Some(mapped) = &mut self.mapping {
+            mapped.refresh();
+        }
+        Ok(())
+    }
+}
+
 pub(crate) fn cycled<T>(items: &[T], i: usize) -> Option<&T> {
     (!items.is_empty()).then(|| &items[i % items.len()])
 }
@@ -368,32 +397,36 @@ impl Collection {
         self.update(|c| c.hatch = Some(pattern))
     }
 
-    /// Maps `values` to face (or, for line collections, edge) colours.
+    /// Maps `values` to face (or, for line collections, edge) colours; the
+    /// collection's colorbars follow the new norm and colormap.
     pub fn set_mapping(&self, mapping: ColorMapping) -> &Self {
         let mapped = Mapped::new(mapping);
-        self.update(|c| c.mapping = Some(mapped))
+        self.update(|c| c.mapping = Some(mapped));
+        colorizer::notify(&self.raw, true);
+        self
     }
 
     /// Replaces the colormap of the colour mapping, if the collection has
-    /// one (matplotlib's `set_cmap`).
+    /// one (matplotlib's `set_cmap`); its colorbars follow.
     pub fn set_cmap(&self, cmap: Colormap) -> &Self {
-        self.update(|c| {
-            if let Some(mapped) = &mut c.mapping {
-                mapped.source.mappable.set_cmap(cmap);
-            }
-        })
+        change_mapping::<CollectionArtist>(&self.raw, MappingChange::Cmap(Box::new(cmap)));
+        self
+    }
+
+    /// Replaces the norm of the colour mapping, if the collection has one
+    /// (matplotlib's `set_norm`); unset limits come from the values and
+    /// its colorbars follow.
+    pub fn set_norm(&self, norm: Box<dyn Norm>) -> &Self {
+        change_mapping::<CollectionArtist>(&self.raw, MappingChange::Norm(norm));
+        self
     }
 
     /// Sets the data values mapped to the ends of the colormap, if the
     /// collection has a colour mapping (matplotlib's `set_clim`); `None`
-    /// leaves a limit unchanged.
+    /// leaves a limit unchanged. Its colorbars follow.
     pub fn set_clim(&self, vmin: Option<f64>, vmax: Option<f64>) -> &Self {
-        self.update(|c| {
-            if let Some(Mapped { mut source, .. }) = c.mapping.take() {
-                source.mappable.set_clim(vmin, vmax);
-                c.mapping = Some(Mapped::new(source));
-            }
-        })
+        change_mapping::<CollectionArtist>(&self.raw, MappingChange::Clim(vmin, vmax));
+        self
     }
 
     /// The data values mapped to the ends of the colormap, `(None, None)`

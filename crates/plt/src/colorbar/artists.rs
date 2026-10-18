@@ -7,11 +7,9 @@ use plt_core::{Path, Point, Rgba};
 use plt_render::CapStyle;
 
 use super::ColorbarError;
-use crate::artist::{Artist, ArtistHandle, BaseProps, ClipPathSpec};
+use crate::artist::{Artist, ArtistHandle, ArtistId, BaseProps, ClipPathSpec};
 use crate::axes::{Axes, DataUpdate, Mesh, MeshCoords, PcolorOptions, Shading};
-use crate::collections::{
-    Collection, CollectionArtist, CollectionKind, CollectionProps, EdgeColors,
-};
+use crate::collections::{CollectionArtist, CollectionKind, CollectionProps, EdgeColors};
 use crate::colors::{Color, ScalarMappable};
 use crate::image::{ColorizerOptions, ScalarField};
 use crate::numeric::Grid;
@@ -109,7 +107,7 @@ impl Painter<'_> {
 
     /// Hides the spines and frames the colorbar with an outline around the
     /// interior and the extensions (matplotlib's `_ColorbarSpine`).
-    pub(crate) fn outline(&self, extensions: &Extensions) {
+    pub(crate) fn outline(&self, extensions: &Extensions) -> ArtistId {
         for spine in self.ax.spines().iter() {
             spine.set_visible(false);
         }
@@ -124,7 +122,7 @@ impl Painter<'_> {
         base.zorder = 2.5;
         base.transform = Some(self.ax.trans_axes());
         base.clip_on = false;
-        self.ax.adopt(outline, &DataUpdate::default());
+        self.ax.adopt(outline, &DataUpdate::default()).id()
     }
 
     /// Fills the extensions with the under and over colours, just behind
@@ -134,7 +132,8 @@ impl Painter<'_> {
         extensions: &Extensions,
         lower: Option<Rgba>,
         upper: Option<Rgba>,
-    ) {
+    ) -> Vec<ArtistId> {
+        let mut patches = Vec::new();
         for (is_upper, color) in [(false, lower), (true, upper)] {
             let Some(color) = color else { continue };
             let path = Path::polyline(self.points(&extensions.patch(is_upper)));
@@ -147,13 +146,14 @@ impl Painter<'_> {
             base.transform = Some(self.ax.trans_axes());
             base.clip_on = false;
             base.zorder = 1.0_f64.next_down();
-            self.ax.adopt(patch, &DataUpdate::default());
+            patches.push(self.ax.adopt(patch, &DataUpdate::default()).id());
         }
+        patches
     }
 
     /// Lines across the colorbar at `positions` along it, in the axes
     /// edge colour (matplotlib's `dividers`).
-    pub(crate) fn dividers(&self, positions: &[f64]) -> Collection {
+    pub(crate) fn dividers(&self, positions: &[f64]) -> ArtistId {
         let rc = crate::rc::params();
         let mut dividers =
             CollectionArtist::new(CollectionKind::Line, self.across(positions), rc.clone());
@@ -162,15 +162,25 @@ impl Painter<'_> {
         let base = dividers.base_mut();
         base.transform = Some(self.ax.trans_data());
         base.clip_on = false;
-        Collection::from_raw(self.ax.adopt(dividers, &DataUpdate::default()))
+        self.ax.adopt(dividers, &DataUpdate::default()).id()
     }
 
     /// Replaces the dividers' positions.
-    pub(crate) fn move_dividers(&self, dividers: &Collection, positions: &[f64]) {
+    pub(crate) fn move_dividers(&self, dividers: ArtistId, positions: &[f64]) {
         let paths = self.across(positions);
-        dividers
-            .raw()
-            .with_mut::<CollectionArtist, _>(|c| c.paths = paths);
+        let mut figure = self.ax.raw().figure_state().borrow_mut();
+        figure.stale = true;
+        if let Some(dividers) = figure.store.get_as_mut::<CollectionArtist>(dividers) {
+            dividers.paths = paths;
+        }
+    }
+
+    /// Removes artists drawn earlier.
+    pub(crate) fn remove(&self, artists: impl IntoIterator<Item = ArtistId>) {
+        let mut figure = self.ax.raw().figure_state().borrow_mut();
+        for artist in artists {
+            figure.remove_artist(artist);
+        }
     }
 
     /// Segments across the colorbar at `positions` in data coordinates.
@@ -188,7 +198,7 @@ impl Painter<'_> {
         edges: &[f64],
         values: &[f64],
         mapping: &ScalarMappable,
-    ) -> Result<Collection, ColorbarError> {
+    ) -> Result<ArtistId, ColorbarError> {
         let n = edges.len();
         let along = Grid::from_fn(n, 2, |r, _| edges[r]);
         let across = Grid::from_fn(n, 2, |_, c| c as f64);
@@ -223,7 +233,7 @@ impl Painter<'_> {
         if n >= RASTERIZE_FROM {
             solids.set_rasterized(true);
         }
-        Ok(solids)
+        Ok(solids.id())
     }
 
     /// Lines across the colorbar at `positions`, clipped to the axes
@@ -234,7 +244,7 @@ impl Painter<'_> {
         positions: &[f64],
         colors: Vec<Color>,
         linewidths: Vec<f64>,
-    ) -> Collection {
+    ) -> ArtistId {
         let widest = linewidths.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let clip = self.clip_path(widest / 72.0);
         let mut lines = CollectionArtist::new(
@@ -253,7 +263,7 @@ impl Painter<'_> {
                 transform: self.ax.trans_axes(),
             });
         });
-        Collection::from_raw(raw)
+        raw.id()
     }
 
     /// The axes rectangle grown by `inches` at the bottom and top, in axes

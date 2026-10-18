@@ -117,6 +117,23 @@ impl Session {
         }
     }
 
+    /// Opens the subplot configuration tool of the window showing
+    /// `figure`, or raises it when it is open (matplotlib's
+    /// `configure_subplots` of the figure's toolbar).
+    ///
+    /// # Errors
+    ///
+    /// [`GuiError::NotShown`] when no window shows the figure, or when the
+    /// tool window cannot be opened.
+    pub fn configure_subplots(&mut self, figure: &Figure) -> Result<(), GuiError> {
+        let mut cx = self.event_loop.context();
+        self.windows
+            .iter_mut()
+            .find(|window| window.figure() == figure)
+            .ok_or(GuiError::NotShown)?
+            .configure_subplots(&mut cx)
+    }
+
     /// Whether `figure` is shown in a window.
     pub fn shows(&self, figure: &Figure) -> bool {
         self.windows.iter().any(|window| window.figure() == figure)
@@ -404,6 +421,23 @@ mod tests {
             .expect("the input runs");
         assert_eq!(points, [(1.0, 1.0), (5.0, 5.0)]);
         assert_eq!(figure.axes()[0].lines().len(), 0, "the marks are gone");
+    }
+
+    #[test]
+    fn the_subplot_tool_opens_once_for_a_shown_figure() {
+        let (mut session, handle, figure, _) = shown();
+        session.configure_subplots(&figure).expect("the tool opens");
+        session
+            .configure_subplots(&figure)
+            .expect("the tool is raised");
+        let windows = handle.windows();
+        assert_eq!(windows.len(), 2);
+        let tool = handle.window(windows[1]).expect("the tool window is open");
+        assert_eq!(tool.title, "Subplot configuration tool");
+        assert!(matches!(
+            session.configure_subplots(&Figure::new()),
+            Err(GuiError::NotShown)
+        ));
     }
 
     #[test]

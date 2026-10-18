@@ -220,3 +220,20 @@ def _(fig):
     for i, ax in enumerate(axs.flat):
         im = ax.imshow(_field(20) * (i + 1), vmin=-2, vmax=2)
     fig.colorbar(im, ax=axs, shrink=0.8, location="bottom")
+
+
+@case("colorbar/follows_set_clim", figsize=(5, 3.5))
+def _(fig):
+    ax = fig.subplots()
+    im = ax.imshow(_field())
+    fig.colorbar(im, ax=ax)
+    im.set_clim(-0.2, 0.4)
+    im.set_cmap("magma")
+
+
+@case("colorbar/follows_norm_change", figsize=(5, 3.5))
+def _(fig):
+    ax = fig.subplots()
+    im = ax.imshow(10.0 ** (2.0 * _field() + 1.0))
+    fig.colorbar(im, ax=ax)
+    im.set_norm(colors.LogNorm())

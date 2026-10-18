@@ -48,6 +48,12 @@ pub(crate) fn long_axis_scale(
     }
 }
 
+/// Whether [`long_axis_scale`] is a function scale through the norm, which
+/// in matplotlib calls the norm itself and so follows its limits.
+pub(crate) fn scale_follows_limits(blocks: &Blocks, norm: &dyn Norm) -> bool {
+    !blocks.explicit && matches!(norm.kind(), NormKind::Identity | NormKind::Other)
+}
+
 /// A function scale through the norm and its inverse.
 fn norm_scale(norm: &dyn Norm) -> Box<dyn Scale> {
     let forward = RefCell::new(norm.clone_box());

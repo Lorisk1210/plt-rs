@@ -16,7 +16,7 @@ use plt_text::{HAlign, VAlign};
 
 use self::split::{LabelGeometry, split_path};
 use super::{ContourError, ContourSet};
-use crate::artist::{Artist, ArtistHandle, LayoutContext, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, LayoutContext, RawHandle};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 use crate::text::{Text, TextArtist};
@@ -98,6 +98,38 @@ pub struct ContourLabel {
     pub artist: Text,
 }
 
+/// What a contour set remembers of one of its labels: a [`ContourLabel`]
+/// with the text artist's id (a handle would keep the figure alive from
+/// inside itself).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct LabelRecord {
+    pub(crate) level: f64,
+    pub(crate) text: String,
+    pub(crate) position: Point,
+    pub(crate) rotation: f64,
+    pub(crate) color: Rgba,
+    pub(crate) artist: ArtistId,
+    /// Index of the labelled level.
+    pub(crate) index: usize,
+    /// Whether the label takes the colour of its level, and is recoloured
+    /// with it (no explicit label colours).
+    pub(crate) follows: bool,
+}
+
+impl LabelRecord {
+    /// The public view of the label, with `artist` the handle to its text.
+    pub(crate) fn label(&self, artist: Text) -> ContourLabel {
+        ContourLabel {
+            level: self.level,
+            text: self.text.clone(),
+            position: self.position,
+            rotation: self.rotation,
+            color: self.color,
+            artist,
+        }
+    }
+}
+
 /// What every label of one level shares.
 #[derive(Clone, Debug)]
 struct LevelLabel {
@@ -108,6 +140,8 @@ struct LevelLabel {
     /// Text width in pixels, used for placement.
     width: f64,
     color: Rgba,
+    /// Whether the colour is that of the level.
+    follows: bool,
 }
 
 impl ContourSet {
@@ -119,16 +153,18 @@ impl ContourSet {
     /// When requested levels are not in the set, a format fails, label
     /// text cannot be laid out, or a manual position has no labelled line
     /// to snap to.
-    pub fn clabel(&mut self, options: &ClabelOptions) -> Result<Vec<Text>, ContourError> {
+    pub fn clabel(&self, options: &ClabelOptions) -> Result<Vec<Text>, ContourError> {
         let rc = crate::rc::params();
         let indices = self.label_indices(options.levels.as_deref())?;
         let font = match options.fontsize {
             Some(size) => FontProperties::from_rc(&rc).with_size(size, rc.font_size),
             None => FontProperties::from_rc(&rc),
         };
-        let levels: Vec<f64> = indices.iter().map(|&i| self.levels()[i]).collect();
+        let all_levels = self.levels();
+        let levels: Vec<f64> = indices.iter().map(|&i| all_levels[i]).collect();
         let texts = label_texts(&levels, &options.fmt, &TickerSettings::from(&*rc))?;
-        let colors = self.label_colors(&indices, options.colors.as_deref())?;
+        let explicit = options.colors.as_deref().filter(|c| !c.is_empty());
+        let colors = self.label_colors(&indices, explicit)?;
         let mut labels = Vec::with_capacity(indices.len());
         for (k, &index) in indices.iter().enumerate() {
             labels.push(LevelLabel {
@@ -137,9 +173,10 @@ impl ContourSet {
                 width: self.text_width(&texts[k], &font)?,
                 text: texts[k].clone(),
                 color: colors[k],
+                follows: explicit.is_none(),
             });
         }
-        self.state_mut().label_widths = labels.iter().map(|l| l.width).collect();
+        self.update(|state| state.label_widths = labels.iter().map(|l| l.width).collect());
         let geometry = self.label_geometry(options.rightside_up)?;
         let style = TextStyle {
             font,
@@ -167,17 +204,18 @@ impl ContourSet {
 
     /// The widths in pixels of the labels of the levels last labelled,
     /// as used for placement.
-    pub fn label_widths(&self) -> &[f64] {
-        &self.state().label_widths
+    pub fn label_widths(&self) -> Vec<f64> {
+        self.read(|state| state.label_widths.clone())
     }
 
     /// Indices of the levels to label: all, or those listed.
     fn label_indices(&self, requested: Option<&[f64]>) -> Result<Vec<usize>, ContourError> {
+        let levels = self.levels();
         let Some(requested) = requested else {
-            return Ok((0..self.levels().len()).collect());
+            return Ok((0..levels.len()).collect());
         };
-        let indices: Vec<usize> = (0..self.levels().len())
-            .filter(|&i| requested.contains(&self.levels()[i]))
+        let indices: Vec<usize> = (0..levels.len())
+            .filter(|&i| requested.contains(&levels[i]))
             .collect();
         if indices.len() < requested.len() {
             return Err(ContourError::UnknownLabelLevels(requested.to_vec()));
@@ -192,8 +230,7 @@ impl ContourSet {
         indices: &[usize],
         colors: Option<&[Color]>,
     ) -> Result<Vec<Rgba>, ContourError> {
-        let state = self.state();
-        match colors.filter(|c| !c.is_empty()) {
+        self.read(|state| match colors {
             None => Ok(indices
                 .iter()
                 .map(|&i| {
@@ -209,7 +246,7 @@ impl ContourSet {
                 .take(indices.len())
                 .map(|c| Ok(state.with_alpha(c.resolve()?)))
                 .collect(),
-        }
+        })
     }
 
     /// The width in pixels of `text` laid out like a label (matplotlib's
@@ -296,7 +333,7 @@ struct TextStyle {
 
 /// Places labels on one contour set.
 struct Placer<'s> {
-    set: &'s mut ContourSet,
+    set: &'s ContourSet,
     geometry: LabelGeometry,
     style: TextStyle,
     /// Display positions of the labels of this call, which new labels
@@ -397,17 +434,21 @@ impl Placer<'_> {
         base.clip_box = Some(axes.id());
         let figure = Rc::clone(axes.raw().figure_state());
         let id = figure.borrow_mut().adopt(axes.id(), Box::new(artist));
-        let text = Text::from_raw(RawHandle::new(figure, id));
         self.positions.push(at);
-        self.set.state_mut().labels.push(ContourLabel {
-            level: label.level,
-            text: label.text.clone(),
-            position: at,
-            rotation: crate::ticker::pymath::py_mod(rotation, 360.0),
-            color: label.color,
-            artist: text.clone(),
+        self.set.update(|state| {
+            state.labels.push(LabelRecord {
+                level: label.level,
+                text: label.text.clone(),
+                position: at,
+                rotation: crate::ticker::pymath::py_mod(rotation, 360.0),
+                color: label.color,
+                artist: id,
+                index: label.index,
+                follows: label.follows,
+            });
         });
-        self.created.push(text);
+        self.created
+            .push(Text::from_raw(RawHandle::new(figure, id)));
     }
 }
 
@@ -451,7 +492,7 @@ mod tests {
 
     #[test]
     fn automatic_labels_are_upright_and_cut_the_lines() {
-        let mut cs = bowl(&[0.5, 1.0]);
+        let cs = bowl(&[0.5, 1.0]);
         let before = subpath_count(&cs);
         let texts = cs.clabel(&ClabelOptions::default()).unwrap();
         assert_eq!(texts.len(), cs.labels().len());
@@ -478,7 +519,7 @@ mod tests {
 
     #[test]
     fn manual_labels_snap_to_the_nearest_line() {
-        let mut cs = bowl(&[0.5, 1.0]);
+        let cs = bowl(&[0.5, 1.0]);
         let before = subpath_count(&cs);
         let options = ClabelOptions {
             manual: Some(vec![(0.7, 0.0)]),
@@ -487,7 +528,8 @@ mod tests {
             ..ClabelOptions::default()
         };
         cs.clabel(&options).unwrap();
-        let [label] = cs.labels() else {
+        let labels = cs.labels();
+        let [label] = labels.as_slice() else {
             panic!("one label expected");
         };
         assert_eq!((label.level, label.text.as_str()), (0.5, "half"));
@@ -513,7 +555,7 @@ mod tests {
 
     #[test]
     fn unknown_levels_and_missing_lines_are_errors() {
-        let mut cs = bowl(&[0.5, 1.0]);
+        let cs = bowl(&[0.5, 1.0]);
         let unknown = ClabelOptions {
             levels: Some(vec![0.7]),
             ..ClabelOptions::default()
@@ -522,7 +564,7 @@ mod tests {
             cs.clabel(&unknown).unwrap_err(),
             ContourError::UnknownLabelLevels(vec![0.7])
         );
-        let mut empty = bowl(&[5.0]);
+        let empty = bowl(&[5.0]);
         let manual = ClabelOptions {
             manual: Some(vec![(0.0, 0.0)]),
             ..ClabelOptions::default()

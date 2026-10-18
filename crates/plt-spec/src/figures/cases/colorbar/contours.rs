@@ -51,13 +51,13 @@ pub(super) fn contourf_add_lines(fig: &Figure) -> CaseResult {
     };
     let cf = ax.contourf(&field, fills)?;
     let lines = ContourOptions {
-        levels: Levels::Values(cf.levels().to_vec()),
+        levels: Levels::Values(cf.levels()),
         colors: Some(vec![Color::from("k")]),
         linewidths: Some(vec![0.8]),
         ..ContourOptions::default()
     };
     let cl = ax.contour(&field, lines)?;
-    let mut colorbar = fig.colorbar(&cf, beside(&ax))?;
+    let colorbar = fig.colorbar(&cf, beside(&ax))?;
     colorbar.add_lines(&cl, true)?;
     Ok(())
 }

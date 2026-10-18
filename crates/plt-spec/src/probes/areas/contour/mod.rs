@@ -70,8 +70,8 @@ fn summary(args: Args<'_>, grid: Grid, filled: bool) -> Outcome {
     let (y0, y1) = ax.ylim();
     let colors = Json::Array(cs.colors().into_iter().map(rgba).collect());
     let mut entries = vec![
-        ("levels", Json::from(cs.levels().to_vec())),
-        ("layers", Json::from(cs.layers().to_vec())),
+        ("levels", Json::from(cs.levels())),
+        ("layers", Json::from(cs.layers())),
         ("zmin", Json::from(cs.zmin())),
         ("zmax", Json::from(cs.zmax())),
         ("logscale", Json::from(cs.logscale())),
@@ -99,7 +99,7 @@ fn summary(args: Args<'_>, grid: Grid, filled: bool) -> Outcome {
                 Json::Array(vec![Json::from(dashes.offset), Json::from(pattern)])
             })
             .collect();
-        entries.push(("linewidths", Json::from(cs.linewidths().to_vec())));
+        entries.push(("linewidths", Json::from(cs.linewidths())));
         entries.push(("linestyles", Json::Array(styles)));
     }
     let warnings = cs

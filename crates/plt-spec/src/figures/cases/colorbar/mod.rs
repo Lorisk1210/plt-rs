@@ -1,12 +1,13 @@
 //! `figures/cases_colorbar.py`: colorbar placement (orientation,
 //! location, shrink/aspect/pad/fraction, `cax`, several parents),
 //! extensions, ticks/format/label, discrete and non-linear norms, edges,
-//! contour lines and constrained layout.
+//! contour lines, constrained layout and following the mappable.
 
 mod constrained;
 mod contours;
 pub(super) mod data;
 mod extensions;
+mod follow;
 mod norms;
 mod placement;
 mod ticks;
@@ -76,4 +77,6 @@ pub(crate) const CASES: &[FigureCase] = &[
         constrained::constrained_shared,
     )
     .sized(6.0, 4.0, 100.0),
+    wide("colorbar/follows_set_clim", follow::follows_set_clim),
+    wide("colorbar/follows_norm_change", follow::follows_norm_change),
 ];

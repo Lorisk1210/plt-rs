@@ -45,6 +45,8 @@ pub enum ColorbarError {
     FilledContours,
     /// The contour set maps no colours (no levels or no colours given).
     NoColors,
+    /// The mappable's artist was removed from its figure.
+    RemovedMappable,
     /// The default colormap is unknown.
     Colormap(ColormapError),
     /// The norm could not map the colorbar's values.
@@ -104,6 +106,7 @@ impl fmt::Display for ColorbarError {
                 "if a single artist is passed to add_lines, it must be a ContourSet of lines",
             ),
             Self::NoColors => f.write_str("the contour set maps no colours"),
+            Self::RemovedMappable => f.write_str("the mappable was removed from its figure"),
             Self::Colormap(err) => write!(f, "{err}"),
             Self::Norm(err) => write!(f, "{err}"),
             Self::GridSpec(err) => write!(f, "{err}"),

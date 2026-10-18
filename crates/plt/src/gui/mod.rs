@@ -47,6 +47,8 @@ pub enum GuiError {
     Ui(plt_ui::UiError),
     /// The figure could not be rendered.
     Render(SaveError),
+    /// The figure is not shown in a window (`subplot_tool`).
+    NotShown,
 }
 
 impl fmt::Display for GuiError {
@@ -55,6 +57,7 @@ impl fmt::Display for GuiError {
             Self::Platform(err) => write!(f, "window system error: {err}"),
             Self::Ui(err) => write!(f, "user interface error: {err}"),
             Self::Render(err) => write!(f, "cannot render the figure: {err}"),
+            Self::NotShown => f.write_str("the figure is not shown in a window"),
         }
     }
 }
@@ -65,6 +68,7 @@ impl std::error::Error for GuiError {
             Self::Platform(err) => Some(err),
             Self::Ui(err) => Some(err),
             Self::Render(err) => Some(err),
+            Self::NotShown => None,
         }
     }
 }

@@ -1,7 +1,8 @@
 //! `figures/cases_contour.py`.
 
-use plt::axes::{ImshowOptions, TriShading, TriValues, TripcolorOptions};
+use plt::axes::{Axes, ColorizingArtist, ImshowOptions, TriShading, TriValues, TripcolorOptions};
 use plt::collections::{CollectionProps, EdgeColors};
+use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::colors::{Color, Extend, colormaps};
 use plt::contour::{
     ClabelOptions, ContourOptions, LabelFormat, Levels, Origin, QuadCoords, QuadField,
@@ -63,6 +64,14 @@ fn random_triangulation(n: usize, seed: u64) -> Result<Triangulation, plt::tri::
     x.extend([-3.0, 3.0, 3.0, -3.0]);
     y.extend([-2.0, -2.0, 2.0, 2.0]);
     Triangulation::delaunay(&x, &y)
+}
+
+/// Colorbar options stealing space from `ax` (`fig.colorbar(..., ax=ax)`).
+fn beside(ax: &Axes) -> ColorbarOptions {
+    ColorbarOptions {
+        axes: ColorbarAxes::Parent(ax.clone()),
+        ..ColorbarOptions::default()
+    }
 }
 
 /// The bumps at the points of a triangulation (`_tri_z`).
@@ -200,7 +209,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(4.0, 3.0, 100.0),
     FigureCase::new("contour/clabel_default", |fig| {
-        let mut cs = fig.subplot().contour(&bumps(60, 45), count(8))?;
+        let cs = fig.subplot().contour(&bumps(60, 45), count(8))?;
         cs.clabel(&ClabelOptions::default())?;
         Ok(())
     })
@@ -210,7 +219,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             colors: Some(colors(&["k"])),
             ..values(&[-1.0, -0.5, 0.5, 1.0])
         };
-        let mut cs = fig.subplot().contour(&bumps(60, 45), options)?;
+        let cs = fig.subplot().contour(&bumps(60, 45), options)?;
         cs.clabel(&ClabelOptions {
             fmt: LabelFormat::Printf(PrintfFormat::parse("%1.2f m")?),
             fontsize: Some(FontSize::Points(7.0)),
@@ -221,7 +230,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 3.5, 100.0),
     FigureCase::new("contour/clabel_dict_colors", |fig| {
-        let mut cs = fig
+        let cs = fig
             .subplot()
             .contour(&bumps(60, 45), values(&[-1.0, 0.0, 1.0]))?;
         let texts = [(-1.0, "low"), (0.0, "zero"), (1.0, "high")];
@@ -386,4 +395,31 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
+    FigureCase::new("contour/recolor_set_cmap", |fig| {
+        let ax = fig.subplot();
+        let field = bumps(60, 45);
+        let fills = ax.contourf(&field, count(8))?;
+        let lines = ax.contour(&field, values(&fills.levels()))?;
+        lines.clabel(&ClabelOptions::default())?;
+        fig.colorbar(&fills, beside(&ax))?;
+        fills.set_cmap(colormaps::get("RdBu_r")?);
+        fills.set_clim(Some(-1.5), Some(1.5));
+        lines.set_cmap(colormaps::get("Greys")?);
+        Ok(())
+    })
+    .sized(5.0, 3.5, 100.0),
+    FigureCase::new("contour/tripcolor_gouraud_colorbar", |fig| {
+        let ax = fig.subplot();
+        let tri = random_triangulation(60, 21)?;
+        let options = TripcolorOptions {
+            colors: ColorizerOptions::default().cmap(colormaps::get("magma")?),
+            shading: TriShading::Gouraud,
+            ..TripcolorOptions::default()
+        };
+        let plot = ax.tripcolor(&tri, TriValues::Auto(tri_bumps(&tri)), options)?;
+        fig.colorbar(&plot, beside(&ax))?;
+        ColorizingArtist::from(&plot).set_clim(Some(-1.5), Some(1.5));
+        Ok(())
+    })
+    .sized(5.0, 3.5, 100.0),
 ];

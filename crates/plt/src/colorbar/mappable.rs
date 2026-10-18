@@ -1,16 +1,19 @@
 //! What a colorbar shows: the colour mapping of an image, a collection, a
-//! contour set or a bare norm and colormap (matplotlib's `mappable`).
+//! triangle mesh, a contour set or a bare norm and colormap (matplotlib's
+//! `mappable`), and the link through which a colorbar follows it.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use plt_core::Rgba;
 
 use super::ColorbarError;
-use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
-use crate::axes::{Axes, AxesState};
-use crate::collections::{Collection, CollectionArtist};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore, RawHandle};
+use crate::axes::{Axes, AxesState, Tripcolor};
+use crate::collections::{Collection, CollectionArtist, TriMesh, TriMeshArtist};
 use crate::colors::{Extend, ScalarMappable, colormaps};
-use crate::contour::ContourSet;
+use crate::contour::{ContourSet, ContourSetArtist};
+use crate::figure::FigureState;
 use crate::image::{AxesImage, AxesImageArtist};
 
 /// Something with a colour mapping a colorbar can show.
@@ -27,11 +30,14 @@ use crate::image::{AxesImage, AxesImageArtist};
 pub enum Mappable<'a> {
     /// An image (`imshow`, `matshow`).
     Image(&'a AxesImage),
-    /// A colour-mapped collection (`scatter`, `pcolormesh`, ...).
+    /// A colour-mapped collection (`scatter`, `pcolormesh`, flat
+    /// `tripcolor`, ...).
     Collection(&'a Collection),
+    /// A Gouraud-shaded triangle mesh (`tripcolor`).
+    TriMesh(&'a TriMesh),
     /// Line or filled contours.
     Contour(&'a ContourSet),
-    /// A norm and colormap not drawn anywhere.
+    /// A norm and colormap not drawn anywhere; the colorbar keeps a copy.
     Scalar(&'a ScalarMappable),
 }
 
@@ -47,6 +53,21 @@ impl<'a> From<&'a Collection> for Mappable<'a> {
     }
 }
 
+impl<'a> From<&'a TriMesh> for Mappable<'a> {
+    fn from(mesh: &'a TriMesh) -> Self {
+        Self::TriMesh(mesh)
+    }
+}
+
+impl<'a> From<&'a Tripcolor> for Mappable<'a> {
+    fn from(plot: &'a Tripcolor) -> Self {
+        match plot {
+            Tripcolor::Flat(collection) => Self::Collection(collection),
+            Tripcolor::Gouraud(mesh) => Self::TriMesh(mesh),
+        }
+    }
+}
+
 impl<'a> From<&'a ContourSet> for Mappable<'a> {
     fn from(contours: &'a ContourSet) -> Self {
         Self::Contour(contours)
@@ -59,15 +80,13 @@ impl<'a> From<&'a ScalarMappable> for Mappable<'a> {
     }
 }
 
-/// What a colorbar takes from its mappable.
+/// What a colorbar draws from its mappable.
 #[derive(Clone, Debug)]
 pub(crate) struct Source {
     /// A copy of the colormap and norm.
     pub(crate) mapping: ScalarMappable,
     /// The mappable's uniform opacity.
     pub(crate) alpha: Option<f64>,
-    /// The axes the mappable is drawn in.
-    pub(crate) axes: Option<Axes>,
     /// The levels of a contour set.
     pub(crate) contours: Option<ContourLevels>,
 }
@@ -92,72 +111,134 @@ pub(crate) struct ContourLevels {
     pub(crate) linewidths: Vec<f64>,
 }
 
-impl Mappable<'_> {
-    /// The colormap, norm, opacity, axes and contour levels to draw from.
-    pub(crate) fn source(&self) -> Result<Source, ColorbarError> {
+/// The colour-mapped artist a colorbar follows, by id in the colorbar's
+/// figure (a handle would keep the figure alive from inside itself).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MappableLink {
+    Image(ArtistId),
+    Collection(ArtistId),
+    TriMesh(ArtistId),
+    /// The artist keeping a contour set's state.
+    Contour(ArtistId),
+}
+
+impl MappableLink {
+    /// The artist followed.
+    pub(crate) fn id(self) -> ArtistId {
         match self {
-            Self::Image(image) => {
-                let (mapping, alpha) = image.raw().with::<AxesImageArtist, _>(|artist| {
-                    (artist.core.mappable.borrow().clone(), artist.base().alpha)
-                });
-                Ok(Source {
-                    mapping,
-                    alpha,
-                    axes: host_axes(image.raw()),
-                    contours: None,
-                })
+            Self::Image(id) | Self::Collection(id) | Self::TriMesh(id) | Self::Contour(id) => id,
+        }
+    }
+
+    /// What to draw from the artist as it is now; `None` once it is gone.
+    pub(crate) fn source(self, store: &ArtistStore) -> Option<Result<Source, ColorbarError>> {
+        let plain = |mapping: ScalarMappable, alpha| {
+            Ok(Source {
+                mapping,
+                alpha,
+                contours: None,
+            })
+        };
+        Some(match self {
+            Self::Image(id) => {
+                let image = store.get_as::<AxesImageArtist>(id)?;
+                plain(image.core.mappable.borrow().clone(), image.base().alpha)
             }
+            Self::Collection(id) => {
+                let collection = store.get_as::<CollectionArtist>(id)?;
+                let alpha = collection.base().alpha;
+                match &collection.mapping {
+                    Some(mapped) => plain(mapped.source.mappable.clone(), alpha),
+                    None => colormaps::get(&crate::rc::params().image_cmap)
+                        .map_err(ColorbarError::from)
+                        .and_then(|cmap| plain(ScalarMappable::new(cmap), alpha)),
+                }
+            }
+            Self::TriMesh(id) => {
+                let mesh = store.get_as::<TriMeshArtist>(id)?;
+                plain(mesh.mappable().clone(), mesh.base().alpha)
+            }
+            Self::Contour(id) => {
+                let state = &store.get_as::<ContourSetArtist>(id)?.state;
+                state
+                    .mapping
+                    .clone()
+                    .ok_or(ColorbarError::NoColors)
+                    .map(|mapping| Source {
+                        mapping,
+                        alpha: state.alpha,
+                        contours: Some(ContourLevels {
+                            levels: state.levels.clone(),
+                            extended: state.extended.clone(),
+                            cvalues: state.cvalues.clone(),
+                            extend: state.extend,
+                            filled: state.filled,
+                            colors: state.colors.iter().map(|&c| state.with_alpha(c)).collect(),
+                            linewidths: state.linewidths.clone(),
+                        }),
+                    })
+            }
+        })
+    }
+}
+
+impl Mappable<'_> {
+    /// The figure and artist of a drawn mappable, or the norm and colormap
+    /// of a bare one.
+    fn target(&self) -> Result<(&Rc<RefCell<FigureState>>, MappableLink), &ScalarMappable> {
+        let (raw, link) = match self {
+            Self::Image(image) => (image.raw(), MappableLink::Image(image.id())),
             Self::Collection(collection) => {
-                let (mapping, alpha) = collection.raw().with::<CollectionArtist, _>(|artist| {
-                    let mapping = artist
-                        .mapping
-                        .as_ref()
-                        .map(|mapped| mapped.source.mappable.clone());
-                    (mapping, artist.base().alpha)
-                });
-                let mapping = match mapping {
-                    Some(mapping) => mapping,
-                    None => ScalarMappable::new(colormaps::get(&crate::rc::params().image_cmap)?),
-                };
-                Ok(Source {
-                    mapping,
-                    alpha,
-                    axes: host_axes(collection.raw()),
-                    contours: None,
-                })
+                (collection.raw(), MappableLink::Collection(collection.id()))
             }
+            Self::TriMesh(mesh) => (mesh.raw(), MappableLink::TriMesh(mesh.id())),
             Self::Contour(contours) => {
-                let state = contours.state();
-                let mapping = state.mapping.clone().ok_or(ColorbarError::NoColors)?;
-                Ok(Source {
-                    mapping,
-                    alpha: state.alpha,
-                    axes: Some(contours.axes().clone()),
-                    contours: Some(ContourLevels {
-                        levels: state.levels.clone(),
-                        extended: state.extended.clone(),
-                        cvalues: state.cvalues.clone(),
-                        extend: state.extend,
-                        filled: state.filled,
-                        colors: contours.colors(),
-                        linewidths: state.linewidths.clone(),
-                    }),
-                })
+                (contours.axes().raw(), MappableLink::Contour(contours.id()))
             }
-            Self::Scalar(mapping) => Ok(Source {
-                mapping: (*mapping).clone(),
+            Self::Scalar(mapping) => return Err(mapping),
+        };
+        Ok((raw.figure_state(), link))
+    }
+
+    /// The figure and artist a colorbar follows; `None` for a bare norm
+    /// and colormap.
+    pub(crate) fn link(&self) -> Option<(&Rc<RefCell<FigureState>>, MappableLink)> {
+        self.target().ok()
+    }
+
+    /// The colormap, norm, opacity and contour levels to draw from.
+    pub(crate) fn source(&self) -> Result<Source, ColorbarError> {
+        match self.target() {
+            Ok((figure, link)) => link
+                .source(&figure.borrow().store)
+                .unwrap_or(Err(ColorbarError::RemovedMappable)),
+            Err(mapping) => Ok(Source {
+                mapping: mapping.clone(),
                 alpha: None,
-                axes: None,
                 contours: None,
             }),
+        }
+    }
+
+    /// The axes the mappable is drawn in.
+    pub(crate) fn axes(&self) -> Option<Axes> {
+        match self {
+            Self::Image(image) => host_axes(image.raw()),
+            Self::Collection(collection) => host_axes(collection.raw()),
+            Self::TriMesh(mesh) => host_axes(mesh.raw()),
+            Self::Contour(contours) => Some(contours.axes().clone()),
+            Self::Scalar(_) => None,
         }
     }
 }
 
 /// The axes an artist is drawn in, if its parent is one.
 fn host_axes(raw: &RawHandle) -> Option<Axes> {
-    let parent: ArtistId = raw.with_base(|base| base.parent)?;
     let figure = raw.figure_state();
-    let is_axes = figure.borrow().store.get_as::<AxesState>(parent).is_some();
-    is_axes.then(|| Axes::from_raw(RawHandle::new(Rc::clone(figure), parent)))
+    let parent = {
+        let state = figure.borrow();
+        let parent = state.store.get(raw.id())?.base().parent?;
+        state.store.get_as::<AxesState>(parent).map(|_| parent)
+    }?;
+    Some(Axes::from_raw(RawHandle::new(Rc::clone(figure), parent)))
 }

@@ -12,6 +12,11 @@
 //!   levels;
 //! * a long axis whose scale, ticks and labels follow the norm.
 //!
+//! The colorbar follows its mappable: changing the colormap, norm or
+//! limits of the image, collection, triangle mesh or contour set redraws
+//! it (matplotlib's `update_normal`). A new norm also brings its own scale
+//! and ticks; new limits or colormaps keep the ticks.
+//!
 //! ```
 //! use plt::axes::ImshowOptions;
 //! use plt::colorbar::ColorbarOptions;
@@ -23,6 +28,8 @@
 //! let colorbar = fig.colorbar(&image, ColorbarOptions::default())?;
 //! assert_eq!(colorbar.ax().ylim(), (0.0, 9.0));
 //! assert_eq!(fig.axes().len(), 2);
+//! image.set_clim(Some(1.0), Some(5.0));
+//! assert_eq!(colorbar.ax().ylim(), (1.0, 5.0));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
@@ -33,6 +40,7 @@ mod error;
 mod mappable;
 mod options;
 mod placement;
+mod state;
 mod ticking;
 
 pub use error::ColorbarError;
@@ -40,33 +48,26 @@ pub use mappable::Mappable;
 pub use options::{
     ColorbarAxes, ColorbarFormat, ColorbarOptions, ColorbarTicks, ExtendFrac, ParentAnchor, Spacing,
 };
+pub(crate) use state::follow;
 
-use crate::artist::ArtistHandle;
-use crate::axes::{Axes, Axis, AxisName, GridOptions, LabelLoc, TickLevel};
-use crate::collections::Collection;
-use crate::colors::{Color, Extend, ScalarMappable};
+use std::rc::Rc;
+
+use crate::artist::{ArtistHandle, RawHandle};
+use crate::axes::{Axes, AxesState, Axis, AxisName, GridOptions, LabelLoc, TickLevel};
+use crate::colors::{Color, Extend};
 use crate::contour::ContourSet;
 use crate::figure::Figure;
 use crate::layout::LayoutEngine;
 use crate::orientation::Orientation;
-use artists::Painter;
-use blocks::Blocks;
+use state::{ColorbarArtist, ColorbarState};
 
-/// A colorbar drawn in its own axes (matplotlib's `Colorbar`).
-#[derive(Debug)]
+/// A colorbar drawn in its own axes (matplotlib's `Colorbar`): a handle
+/// to what the colorbar keeps in its axes. Clones refer to the same
+/// colorbar.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Colorbar {
     ax: Axes,
-    orientation: Orientation,
-    extend: Extend,
-    /// A copy of the mappable's colormap and norm.
-    mapping: ScalarMappable,
-    blocks: Blocks,
-    /// The block edges along the long axis (matplotlib's `_y`).
-    edges: Vec<f64>,
-    alpha: Option<f64>,
-    drawedges: bool,
-    dividers: Option<Collection>,
-    lines: Vec<Collection>,
+    raw: RawHandle,
 }
 
 /// The axes a colorbar takes space from.
@@ -81,22 +82,31 @@ impl Figure {
     /// Adds a colorbar showing the colour mapping of `mappable`
     /// (matplotlib's `Figure.colorbar`): in the axes `options.axes` names
     /// with [`ColorbarAxes::Cax`], otherwise in a new axes that takes
-    /// space from the parent axes.
+    /// space from the parent axes. The colorbar follows later changes of
+    /// the mappable's colour mapping, unless the mappable is a bare
+    /// [`ScalarMappable`](crate::colors::ScalarMappable) or is drawn in
+    /// another figure.
     ///
     /// # Errors
     ///
     /// When there is no axes to take space from, the options contradict
-    /// each other, or the norm cannot map the colorbar's values.
+    /// each other, the norm cannot map the colorbar's values, or the
+    /// mappable was removed from its figure.
     pub fn colorbar<'a>(
         &self,
         mappable: impl Into<Mappable<'a>>,
         mut options: ColorbarOptions,
     ) -> Result<Colorbar, ColorbarError> {
-        let source = mappable.into().source()?;
+        let mappable = mappable.into();
+        let source = mappable.source()?;
+        let link = mappable
+            .link()
+            .filter(|(figure, _)| Rc::ptr_eq(figure, self.raw().figure_state()))
+            .map(|(_, link)| link);
         let parents = match std::mem::take(&mut options.axes) {
-            ColorbarAxes::Cax(cax) => return Colorbar::new(cax, source, &options, None),
+            ColorbarAxes::Cax(cax) => return Colorbar::new(cax, source, link, &options, None),
             ColorbarAxes::FromMappable => {
-                Parents::One(source.axes.clone().ok_or(ColorbarError::NoAxes)?)
+                Parents::One(mappable.axes().ok_or(ColorbarError::NoAxes)?)
             }
             ColorbarAxes::Parent(ax) => Parents::One(ax),
             ColorbarAxes::Parents(axes) if axes.is_empty() => return Err(ColorbarError::NoAxes),
@@ -127,17 +137,46 @@ impl Figure {
                 ..GridOptions::default()
             },
         );
-        Colorbar::new(placement.cax.clone(), source, &options, Some(&placement))
+        Colorbar::new(
+            placement.cax.clone(),
+            source,
+            link,
+            &options,
+            Some(&placement),
+        )
     }
 }
 
 impl Colorbar {
-    fn painter(&self) -> Painter<'_> {
-        Painter {
-            ax: &self.ax,
-            orientation: self.orientation,
-            alpha: self.alpha,
-        }
+    /// The colorbar whose state is the artist behind `raw`, drawn in the
+    /// axes that is its parent; `None` once that is gone.
+    fn from_raw(raw: RawHandle) -> Option<Self> {
+        let parent = {
+            let figure = raw.figure_state().borrow();
+            let parent = figure.store.get(raw.id())?.base().parent?;
+            figure.store.get_as::<AxesState>(parent).map(|_| parent)
+        }?;
+        let ax = Axes::from_raw(RawHandle::new(Rc::clone(raw.figure_state()), parent));
+        Some(Self { ax, raw })
+    }
+
+    fn read<R>(&self, f: impl FnOnce(&ColorbarState) -> R) -> R {
+        self.raw
+            .with::<ColorbarArtist, _>(|colorbar| f(&colorbar.state))
+    }
+
+    /// Runs `f` on a copy of the state, while `f` may draw in the axes,
+    /// and keeps the copy even when `f` fails part way (it records the
+    /// artists drawn so far).
+    fn edit<R>(
+        &self,
+        f: impl FnOnce(&mut ColorbarState) -> Result<R, ColorbarError>,
+    ) -> Result<R, ColorbarError> {
+        let mut state = self.read(Clone::clone);
+        let result = f(&mut state);
+        self.raw
+            .with_mut::<ColorbarArtist, _>(|colorbar| colorbar.state = state);
+        result
     }
 
     /// The axes the colorbar is drawn in.
@@ -147,45 +186,38 @@ impl Colorbar {
 
     /// The colorbar's orientation.
     pub fn orientation(&self) -> Orientation {
-        self.orientation
+        self.read(|state| state.orientation)
     }
 
     /// Which ends have extensions.
     pub fn extend(&self) -> Extend {
-        self.extend
+        self.read(|state| state.extend)
     }
 
     /// The axis along the colorbar, which carries its ticks and label.
     pub fn long_axis(&self) -> Axis {
-        self.ax.axis_of(long_axis(self.orientation))
-    }
-
-    /// The axis across the colorbar.
-    fn short_axis(&self) -> Axis {
-        self.ax.axis_of(match self.orientation {
-            Orientation::Vertical => AxisName::X,
-            Orientation::Horizontal => AxisName::Y,
-        })
+        self.ax.axis_of(long_axis(self.orientation()))
     }
 
     /// The edges of the colour blocks, extensions included.
-    pub fn boundaries(&self) -> &[f64] {
-        &self.blocks.boundaries
+    pub fn boundaries(&self) -> Vec<f64> {
+        self.read(|state| state.blocks.boundaries.clone())
     }
 
     /// The value coloured in each block.
-    pub fn values(&self) -> &[f64] {
-        &self.blocks.values
+    pub fn values(&self) -> Vec<f64> {
+        self.read(|state| state.blocks.values.clone())
     }
 
     /// Labels the long axis, at `loc` along it (`None` = the rc default)
     /// (matplotlib's `set_label`).
     pub fn set_label(&self, text: impl Into<String>, loc: Option<LabelLoc>) -> &Self {
-        set_label(&self.ax, self.orientation, text.into(), loc);
+        set_label(&self.ax, self.orientation(), text.into(), loc);
         self
     }
 
-    /// Puts the major ticks exactly at `ticks` (matplotlib's `set_ticks`).
+    /// Puts the major ticks exactly at `ticks` (matplotlib's `set_ticks`);
+    /// they stay when the mappable's limits or colormap change.
     pub fn set_ticks(&self, ticks: Vec<f64>) -> &Self {
         self.long_axis().set_ticks(ticks);
         self
@@ -194,8 +226,7 @@ impl Colorbar {
     /// Turns minor ticks on along the colorbar (matplotlib's
     /// `minorticks_on`).
     pub fn minorticks_on(&self) -> &Self {
-        self.ax.minorticks_on();
-        self.short_axis().minorticks_off();
+        minorticks_on(&self.ax, self.orientation());
         self
     }
 
@@ -213,21 +244,12 @@ impl Colorbar {
     /// # Errors
     ///
     /// When the contours are filled.
-    pub fn add_lines(
-        &mut self,
-        contours: &ContourSet,
-        erase: bool,
-    ) -> Result<&mut Self, ColorbarError> {
+    pub fn add_lines(&self, contours: &ContourSet, erase: bool) -> Result<&Self, ColorbarError> {
         if contours.filled() {
             return Err(ColorbarError::FilledContours);
         }
         let colors = contours.colors().into_iter().map(Color::from).collect();
-        self.add_level_lines(
-            contours.levels(),
-            colors,
-            contours.linewidths().to_vec(),
-            erase,
-        )
+        self.add_level_lines(&contours.levels(), colors, contours.linewidths(), erase)
     }
 
     /// Draws lines across the colorbar at the data values `levels`, with
@@ -239,41 +261,14 @@ impl Colorbar {
     ///
     /// When the norm cannot map the levels.
     pub fn add_level_lines(
-        &mut self,
+        &self,
         levels: &[f64],
         colors: Vec<Color>,
         linewidths: Vec<f64>,
         erase: bool,
-    ) -> Result<&mut Self, ColorbarError> {
-        let y = self
-            .blocks
-            .locate(self.mapping.norm_mut(), &self.edges, levels)?;
-        let (first, last) = (self.edges[0], self.edges[self.edges.len() - 1]);
-        let rtol = (last - first) * 1e-10;
-        let keep: Vec<usize> = (0..y.len())
-            .filter(|&i| y[i] < last + rtol && y[i] > first - rtol)
-            .collect();
-        let positions: Vec<f64> = keep.iter().map(|&i| y[i]).collect();
-        let colors = per_level(colors, &keep, y.len());
-        let linewidths = per_level(linewidths, &keep, y.len());
-        if erase {
-            for lines in self.lines.drain(..) {
-                lines.remove();
-            }
-        }
-        let lines = self.painter().lines(&positions, colors, linewidths);
-        self.lines.push(lines);
+    ) -> Result<&Self, ColorbarError> {
+        self.edit(|state| state.add_level_lines(&self.ax, levels, colors, linewidths, erase))?;
         Ok(self)
-    }
-}
-
-/// The entries of a per-level list at the `keep` indices; lists of
-/// another length are cycled over the levels and kept whole.
-fn per_level<T: Clone>(items: Vec<T>, keep: &[usize], levels: usize) -> Vec<T> {
-    if items.len() == levels {
-        keep.iter().map(|&i| items[i].clone()).collect()
-    } else {
-        items
     }
 }
 
@@ -283,6 +278,20 @@ fn long_axis(orientation: Orientation) -> AxisName {
         Orientation::Vertical => AxisName::Y,
         Orientation::Horizontal => AxisName::X,
     }
+}
+
+/// The axis across a colorbar of `orientation` drawn in `ax`.
+fn short_axis(ax: &Axes, orientation: Orientation) -> Axis {
+    ax.axis_of(match orientation {
+        Orientation::Vertical => AxisName::X,
+        Orientation::Horizontal => AxisName::Y,
+    })
+}
+
+/// Turns minor ticks on along a colorbar of `orientation` drawn in `ax`.
+fn minorticks_on(ax: &Axes, orientation: Orientation) {
+    ax.minorticks_on();
+    short_axis(ax, orientation).minorticks_off();
 }
 
 /// Labels the long axis of a colorbar at `loc`, by default the

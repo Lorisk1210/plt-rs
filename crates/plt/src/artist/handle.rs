@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
-use super::{Artist, ArtistBase, ArtistId, ClipPathSpec, LayoutContext};
+use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext};
 use crate::figure::FigureState;
 use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
@@ -75,6 +75,21 @@ impl RawHandle {
             .get_as_mut::<T>(self.id)
             .unwrap_or_else(|| self.gone());
         f(artist)
+    }
+
+    /// Mutates the artist as concrete type `T` together with the rest of
+    /// the figure's artists (see [`ArtistStore::with_detached`]) and
+    /// marks the figure stale.
+    pub(crate) fn with_detached<T: Artist, R>(
+        &self,
+        f: impl FnOnce(&mut T, &mut ArtistStore) -> R,
+    ) -> R {
+        let mut state = self.figure.borrow_mut();
+        state.stale = true;
+        state
+            .store
+            .with_detached(self.id, f)
+            .unwrap_or_else(|| self.gone())
     }
 
     /// Reads the common artist properties.

@@ -1,29 +1,34 @@
 //! Filling a colorbar axes (matplotlib's `Colorbar.__init__`,
-//! `_draw_all`, `_do_extends` and `_ColorbarAxesLocator`).
+//! `_draw_all`, `_do_extends`, `add_lines` and `_ColorbarAxesLocator`).
 
 use std::rc::Rc;
 
 use plt_core::{Bbox, Rgba};
 
-use super::artists::Extensions;
-use super::blocks::{BlockSpec, Blocks};
-use super::mappable::{ContourLevels, Source};
+use super::artists::{Extensions, Painter};
+use super::mappable::{MappableLink, Source};
 use super::placement::{Placement, default_ticklocation, orientation_of};
+use super::state::{BlockSettings, ColorbarArtist, ColorbarState, Drawn};
 use super::ticking::{self, Tickers};
-use super::{Colorbar, ColorbarError, ColorbarOptions, ColorbarTicks, long_axis, set_label};
+use super::{
+    Colorbar, ColorbarError, ColorbarOptions, ColorbarTicks, long_axis, minorticks_on, set_label,
+    short_axis,
+};
 use crate::artist::ArtistHandle;
-use crate::axes::{Axes, AxesLocator, AxesState, AxisName, TickPosition};
+use crate::axes::{Axes, AxesLocator, AxesState, AxisName, DataUpdate, TickPosition};
 use crate::colors::{Color, Extend, NormKind, ScalarMappable};
 use crate::orientation::Orientation;
 use crate::spines::SpineSide;
 use crate::ticker::FixedLocator;
 
 impl Colorbar {
-    /// Draws a colorbar of `source` into `ax`; `placement` describes the
-    /// axes when the colorbar made it.
+    /// Draws a colorbar of `source` into `ax`, following the artist
+    /// `link` when given; `placement` describes the axes when the colorbar
+    /// made it.
     pub(super) fn new(
         ax: Axes,
         source: Source,
+        link: Option<MappableLink>,
         options: &ColorbarOptions,
         placement: Option<&Placement>,
     ) -> Result<Self, ColorbarError> {
@@ -35,30 +40,23 @@ impl Colorbar {
             mut mapping,
             alpha,
             contours,
-            ..
         } = source;
         let extend = match (&contours, options.extend) {
             (Some(levels), _) => levels.extend,
             (None, Some(extend)) => extend,
             (None, None) => default_extend(&mapping),
         };
-        let long = ax.axis_of(long_axis(orientation));
-        let spec = BlockSpec {
-            ncolors: mapping.cmap().n(),
-            boundaries: contours
-                .as_ref()
-                .map(|levels| levels.extended.as_slice())
-                .or(options.boundaries.as_deref()),
-            values: contours
-                .as_ref()
-                .map(|levels| levels.cvalues.as_slice())
-                .or(options.values.as_deref()),
-            extend,
-            inverted: long.inverted(),
-            extendfrac: options.extendfrac,
+        let settings = BlockSettings {
+            boundaries: options.boundaries.clone(),
+            values: options.values.clone(),
             spacing: options.spacing,
+            extendfrac: options.extendfrac,
+            extendrect: options.extendrect,
+            drawedges: options.drawedges,
+            aspect: placement.map(|_| options.aspect),
         };
-        let blocks = Blocks::new(&spec, mapping.norm_mut())?;
+        let long = ax.axis_of(long_axis(orientation));
+        let blocks = settings.blocks(contours.as_ref(), extend, long.inverted(), &mut mapping)?;
         set_label(&ax, orientation, options.label.clone(), None);
         let scale =
             ticking::long_axis_scale(&blocks, mapping.norm(), options.spacing, contours.is_some());
@@ -77,40 +75,40 @@ impl Colorbar {
             options.format.as_ref(),
         )?;
         let edges = blocks.edges(mapping.norm_mut())?;
-        let mut colorbar = Self {
-            ax,
+        let mut state = ColorbarState {
+            link,
             orientation,
+            ticklocation,
             extend,
             mapping,
+            alpha,
+            contours,
+            settings,
             blocks,
             edges,
-            alpha,
-            drawedges: options.drawedges,
-            dividers: None,
-            lines: Vec::new(),
+            drawn: Drawn::default(),
         };
-        colorbar.draw_all(
-            ticklocation,
-            &tickers,
-            options.extendrect,
-            contours.as_ref(),
-        )?;
-        if let Some(levels) = contours.filter(|levels| !levels.filled) {
-            let colors = levels.colors.iter().map(|&c| Color::from(c)).collect();
-            colorbar.add_level_lines(&levels.levels, colors, levels.linewidths, true)?;
+        state.redraw(&ax, Some(&tickers))?;
+        let raw = ax.adopt(ColorbarArtist::new(state), &DataUpdate::default());
+        Ok(Self { ax, raw })
+    }
+}
+
+impl ColorbarState {
+    fn painter<'a>(&self, ax: &'a Axes) -> Painter<'a> {
+        Painter {
+            ax,
+            orientation: self.orientation,
+            alpha: self.alpha,
         }
-        colorbar.install_locator(placement.map(|_| options.aspect))?;
-        Ok(colorbar)
     }
 
     /// matplotlib's `_draw_all`: ticks, outline and extensions, limits,
     /// then the colour blocks.
-    fn draw_all(
+    pub(super) fn draw_all(
         &mut self,
-        ticklocation: SpineSide,
-        tickers: &Tickers,
-        extendrect: bool,
-        contours: Option<&ContourLevels>,
+        ax: &Axes,
+        tickers: Option<&Tickers>,
     ) -> Result<(), ColorbarError> {
         let rc = crate::rc::params();
         let minor_visible = match self.orientation {
@@ -118,60 +116,67 @@ impl Colorbar {
             Orientation::Horizontal => rc.xtick_minor_visible,
         };
         if minor_visible {
-            self.minorticks_on();
+            minorticks_on(ax, self.orientation);
         }
-        let long = self.long_axis();
-        long.set_label_position(ticklocation)
-            .and_then(|axis| axis.set_ticks_position(TickPosition::Side(ticklocation)))
+        let long = ax.axis_of(long_axis(self.orientation));
+        long.set_label_position(self.ticklocation)
+            .and_then(|axis| axis.set_ticks_position(TickPosition::Side(self.ticklocation)))
             .map_err(|_| ColorbarError::TickLocation {
-                ticklocation,
+                ticklocation: self.ticklocation,
                 orientation: self.orientation,
             })?;
-        let short = self.short_axis();
+        let short = short_axis(ax, self.orientation);
         short.set_ticks(Vec::<f64>::new());
         short.set_minor_ticks(Vec::<f64>::new());
-        let filled = contours.is_none_or(|levels| levels.filled);
-        self.do_extends(extendrect, filled)?;
+        let filled = self.contours.as_ref().is_none_or(|levels| levels.filled);
+        self.do_extends(ax, filled)?;
         let (lower, upper) = self.blocks.limits();
         let (lower, upper) = if long.inverted() {
             (upper, lower)
         } else {
             (lower, upper)
         };
-        self.ax.set_limits(short.name(), 0.0, 1.0);
-        self.ax.set_limits(long.name(), lower, upper);
-        tickers.install(&long);
+        ax.set_limits(short.name(), 0.0, 1.0);
+        ax.set_limits(long.name(), lower, upper);
+        if let Some(tickers) = tickers {
+            tickers.install(&long);
+        }
         if filled {
             let skip_low = usize::from(self.blocks.lower);
             let end = self.blocks.values.len() - usize::from(self.blocks.upper);
             let values = &self.blocks.values[skip_low..end];
-            self.painter().solids(&self.edges, values, &self.mapping)?;
-            self.update_dividers();
+            let painter = self.painter(ax);
+            painter.remove(self.drawn.solids.take());
+            self.drawn.solids = Some(painter.solids(&self.edges, values, &self.mapping)?);
+            self.update_dividers(ax);
         }
         Ok(())
     }
 
     /// matplotlib's `_do_extends`: the outline and the extension patches.
-    fn do_extends(&mut self, rect: bool, filled: bool) -> Result<(), ColorbarError> {
+    fn do_extends(&mut self, ax: &Axes, filled: bool) -> Result<(), ColorbarError> {
         let (_, lengths) = self.blocks.proportional_y(self.mapping.norm_mut())?;
         let extensions = Extensions {
             lower: if self.blocks.lower { lengths[0] } else { 0.0 },
             upper: if self.blocks.upper { lengths[1] } else { 0.0 },
-            rect,
+            rect: self.settings.extendrect,
         };
-        self.painter().outline(&extensions);
+        let painter = self.painter(ax);
+        painter.remove(self.drawn.outline.take());
+        painter.remove(std::mem::take(&mut self.drawn.extensions));
+        self.drawn.outline = Some(painter.outline(&extensions));
         if filled {
             let last = self.blocks.values.len() - 1;
-            let (low, high) = if self.long_axis().inverted() {
+            let (low, high) = if ax.axis_of(long_axis(self.orientation)).inverted() {
                 (last, 0)
             } else {
                 (0, last)
             };
             let lower = self.end_color(self.blocks.lower, low)?;
             let upper = self.end_color(self.blocks.upper, high)?;
-            self.painter().extension_patches(&extensions, lower, upper);
+            self.drawn.extensions = painter.extension_patches(&extensions, lower, upper);
         }
-        self.update_dividers();
+        self.update_dividers(ax);
         Ok(())
     }
 
@@ -186,13 +191,13 @@ impl Colorbar {
 
     /// matplotlib's `_update_dividers`: with `drawedges`, lines between
     /// the colours inside the view and at the ends of the extensions.
-    fn update_dividers(&mut self) {
-        if !self.drawedges {
+    fn update_dividers(&mut self, ax: &Axes) {
+        if !self.settings.drawedges {
             return;
         }
-        let (lo, hi) = match self.long_axis().name() {
-            AxisName::X => self.ax.xlim(),
-            AxisName::Y => self.ax.ylim(),
+        let (lo, hi) = match long_axis(self.orientation) {
+            AxisName::X => ax.xlim(),
+            AxisName::Y => ax.ylim(),
         };
         let mut positions: Vec<f64> = self
             .edges
@@ -206,18 +211,49 @@ impl Colorbar {
         if self.blocks.upper {
             positions.push(hi);
         }
-        let painter = self.painter();
-        match &self.dividers {
+        let painter = self.painter(ax);
+        match self.drawn.dividers {
             Some(dividers) => painter.move_dividers(dividers, &positions),
-            None => self.dividers = Some(painter.dividers(&positions)),
+            None => self.drawn.dividers = Some(painter.dividers(&positions)),
         }
     }
 
+    /// matplotlib's `add_lines(levels, colors, linewidths)`: lines across
+    /// the colorbar at the data values `levels`, leaving out those beyond
+    /// it; `erase` removes the lines added before.
+    pub(super) fn add_level_lines(
+        &mut self,
+        ax: &Axes,
+        levels: &[f64],
+        colors: Vec<Color>,
+        linewidths: Vec<f64>,
+        erase: bool,
+    ) -> Result<(), ColorbarError> {
+        let y = self
+            .blocks
+            .locate(self.mapping.norm_mut(), &self.edges, levels)?;
+        let (first, last) = (self.edges[0], self.edges[self.edges.len() - 1]);
+        let rtol = (last - first) * 1e-10;
+        let keep: Vec<usize> = (0..y.len())
+            .filter(|&i| y[i] < last + rtol && y[i] > first - rtol)
+            .collect();
+        let positions: Vec<f64> = keep.iter().map(|&i| y[i]).collect();
+        let colors = per_level(colors, &keep, y.len());
+        let linewidths = per_level(linewidths, &keep, y.len());
+        let painter = self.painter(ax);
+        if erase {
+            painter.remove(std::mem::take(&mut self.drawn.lines));
+        }
+        self.drawn
+            .lines
+            .push(painter.lines(&positions, colors, linewidths));
+        Ok(())
+    }
+
     /// Shrinks the axes to leave room for the extensions (matplotlib's
-    /// `_ColorbarAxesLocator`); `aspect` is the long-to-short ratio of a
-    /// colorbar that made its own axes, whose box aspect follows the
-    /// shrinking.
-    fn install_locator(&self, aspect: Option<f64>) -> Result<(), ColorbarError> {
+    /// `_ColorbarAxesLocator`); a colorbar that made its own axes keeps
+    /// its long-to-short ratio on the shrunk axes.
+    pub(super) fn install_locator(&self, ax: &Axes) -> Result<(), ColorbarError> {
         if self.extend == Extend::Neither {
             return Ok(());
         }
@@ -227,6 +263,7 @@ impl Colorbar {
         let upper = if self.blocks.upper { lengths[1] } else { 0.0 };
         let total = lower + upper + 1.0;
         let (shrink, offset) = (1.0 / total, lower / total);
+        let aspect = self.settings.aspect;
         let locator = match self.orientation {
             Orientation::Vertical => AxesLocator {
                 fraction: Bbox::from_bounds(0.0, offset, 1.0, shrink),
@@ -237,10 +274,19 @@ impl Colorbar {
                 box_aspect: aspect.map(|a| 1.0 / (a * shrink)),
             },
         };
-        self.ax
-            .raw()
+        ax.raw()
             .with_mut::<AxesState, _>(|axes| axes.aspect.locator = Some(locator));
         Ok(())
+    }
+}
+
+/// The entries of a per-level list at the `keep` indices; lists of
+/// another length are cycled over the levels and kept whole.
+fn per_level<T: Clone>(items: Vec<T>, keep: &[usize], levels: usize) -> Vec<T> {
+    if items.len() == levels {
+        keep.iter().map(|&i| items[i].clone()).collect()
+    } else {
+        items
     }
 }
 
@@ -311,5 +357,15 @@ mod tests {
             ..ColorbarOptions::default()
         };
         assert!(resolve_orientation(&clash).is_err());
+    }
+
+    #[test]
+    fn per_level_lists_keep_the_levels_inside() {
+        assert_eq!(per_level(vec![1, 2, 3], &[0, 2], 3), [1, 3]);
+        assert_eq!(
+            per_level(vec![7], &[0, 2], 3),
+            [7],
+            "cycled lists stay whole"
+        );
     }
 }

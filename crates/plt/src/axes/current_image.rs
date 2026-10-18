@@ -4,11 +4,12 @@
 
 use std::rc::Rc;
 
-use super::{Axes, AxesState, PlotError};
+use super::{Axes, AxesState, PlotError, Tripcolor};
 use crate::artist::{ArtistHandle, ArtistId, RawHandle};
-use crate::collections::Collection;
+use crate::collections::{Collection, TriMesh};
 use crate::colorbar::Mappable;
-use crate::contour::{ContourSet, ContourState};
+use crate::colors::Colormap;
+use crate::contour::ContourSet;
 use crate::figure::Figure;
 use crate::image::AxesImage;
 
@@ -21,9 +22,10 @@ pub enum ColorizingArtist {
     /// A collection (`scatter`, `pcolor`, `pcolormesh`, `hexbin`,
     /// `hist2d`, `quiver`, `streamplot`, flat `tripcolor`).
     Collection(Collection),
-    /// Line or filled contours as they were when made current: labels
-    /// added afterwards are not part of the copy.
-    Contour(Box<ContourSet>),
+    /// A Gouraud-shaded triangle mesh (`tripcolor` with Gouraud shading).
+    TriMesh(TriMesh),
+    /// Line or filled contours.
+    Contour(ContourSet),
 }
 
 impl From<AxesImage> for ColorizingArtist {
@@ -50,15 +52,36 @@ impl From<&Collection> for ColorizingArtist {
     }
 }
 
+impl From<TriMesh> for ColorizingArtist {
+    fn from(mesh: TriMesh) -> Self {
+        Self::TriMesh(mesh)
+    }
+}
+
+impl From<&TriMesh> for ColorizingArtist {
+    fn from(mesh: &TriMesh) -> Self {
+        Self::TriMesh(mesh.clone())
+    }
+}
+
+impl From<&Tripcolor> for ColorizingArtist {
+    fn from(plot: &Tripcolor) -> Self {
+        match plot {
+            Tripcolor::Flat(collection) => collection.into(),
+            Tripcolor::Gouraud(mesh) => mesh.into(),
+        }
+    }
+}
+
 impl From<ContourSet> for ColorizingArtist {
     fn from(contours: ContourSet) -> Self {
-        Self::Contour(Box::new(contours))
+        Self::Contour(contours)
     }
 }
 
 impl From<&ContourSet> for ColorizingArtist {
     fn from(contours: &ContourSet) -> Self {
-        Self::Contour(Box::new(contours.clone()))
+        Self::Contour(contours.clone())
     }
 }
 
@@ -67,6 +90,7 @@ impl<'a> From<&'a ColorizingArtist> for Mappable<'a> {
         match artist {
             ColorizingArtist::Image(image) => Self::Image(image),
             ColorizingArtist::Collection(collection) => Self::Collection(collection),
+            ColorizingArtist::TriMesh(mesh) => Self::TriMesh(mesh),
             ColorizingArtist::Contour(contours) => Self::Contour(contours),
         }
     }
@@ -74,19 +98,57 @@ impl<'a> From<&'a ColorizingArtist> for Mappable<'a> {
 
 /// What an axes remembers of its current image: artist ids rather than
 /// handles, which would keep the figure alive from inside itself.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum CurrentImage {
     Image(ArtistId),
     Collection(ArtistId),
-    Contour {
-        collections: Vec<ArtistId>,
-        /// The levels and colours, without the labels (whose texts are
-        /// handles).
-        state: Box<ContourState>,
-    },
+    TriMesh(ArtistId),
+    /// The artist keeping the contour set's state.
+    Contour(ArtistId),
 }
 
 impl ColorizingArtist {
+    /// Replaces the colormap (matplotlib's `set_cmap`); the artist and
+    /// its colorbars are recoloured.
+    pub fn set_cmap(&self, cmap: Colormap) -> &Self {
+        match self {
+            Self::Image(image) => {
+                image.set_cmap(cmap);
+            }
+            Self::Collection(collection) => {
+                collection.set_cmap(cmap);
+            }
+            Self::TriMesh(mesh) => {
+                mesh.set_cmap(cmap);
+            }
+            Self::Contour(contours) => {
+                contours.set_cmap(cmap);
+            }
+        }
+        self
+    }
+
+    /// Sets the data values mapped to the ends of the colormap
+    /// (matplotlib's `set_clim`); `None` leaves a limit unchanged. The
+    /// artist and its colorbars are recoloured.
+    pub fn set_clim(&self, vmin: Option<f64>, vmax: Option<f64>) -> &Self {
+        match self {
+            Self::Image(image) => {
+                image.set_clim(vmin, vmax);
+            }
+            Self::Collection(collection) => {
+                collection.set_clim(vmin, vmax);
+            }
+            Self::TriMesh(mesh) => {
+                mesh.set_clim(vmin, vmax);
+            }
+            Self::Contour(contours) => {
+                contours.set_clim(vmin, vmax);
+            }
+        }
+        self
+    }
+
     /// Whether the artist is drawn in `axes`.
     fn is_in(&self, axes: &Axes) -> bool {
         let child_of = |raw: &RawHandle| {
@@ -97,7 +159,8 @@ impl ColorizingArtist {
         match self {
             Self::Image(image) => child_of(image.raw()),
             Self::Collection(collection) => child_of(collection.raw()),
-            Self::Contour(contours) => contours.axes() == axes,
+            Self::TriMesh(mesh) => child_of(mesh.raw()),
+            Self::Contour(contours) => contours.axes() == axes && contours.is_alive(),
         }
     }
 
@@ -106,14 +169,8 @@ impl ColorizingArtist {
         match self {
             Self::Image(image) => CurrentImage::Image(image.id()),
             Self::Collection(collection) => CurrentImage::Collection(collection.id()),
-            Self::Contour(contours) => {
-                let mut state = contours.state().clone();
-                state.labels.clear();
-                CurrentImage::Contour {
-                    collections: contours.collections().iter().map(Collection::id).collect(),
-                    state: Box::new(state),
-                }
-            }
+            Self::TriMesh(mesh) => CurrentImage::TriMesh(mesh.id()),
+            Self::Contour(contours) => CurrentImage::Contour(contours.id()),
         }
     }
 }
@@ -143,9 +200,7 @@ impl Axes {
     /// The current image of the axes while it is still drawn here
     /// (matplotlib's `Axes._gci`); clearing the axes forgets it.
     pub fn current_image(&self) -> Option<ColorizingArtist> {
-        let record = self
-            .raw()
-            .with::<AxesState, _>(|axes| axes.current_image.clone())?;
+        let record = self.raw().with::<AxesState, _>(|axes| axes.current_image)?;
         let figure = self.raw().figure_state();
         let handle = |id: ArtistId| {
             let raw = RawHandle::new(Rc::clone(figure), id);
@@ -156,16 +211,9 @@ impl Axes {
             CurrentImage::Collection(id) => {
                 ColorizingArtist::Collection(Collection::from_raw(handle(id)?))
             }
-            CurrentImage::Contour { collections, state } => {
-                let collections = collections
-                    .into_iter()
-                    .map(|id| handle(id).map(Collection::from_raw))
-                    .collect::<Option<Vec<_>>>()?;
-                ColorizingArtist::Contour(Box::new(ContourSet::new(
-                    self.clone(),
-                    collections,
-                    *state,
-                )))
+            CurrentImage::TriMesh(id) => ColorizingArtist::TriMesh(TriMesh::from_raw(handle(id)?)),
+            CurrentImage::Contour(id) => {
+                ColorizingArtist::Contour(ContourSet::from_raw(self.clone(), handle(id)?))
             }
         })
     }
@@ -234,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn contour_sets_are_remembered_without_their_labels() {
+    fn contour_sets_are_remembered_with_their_state() {
         let fig = Figure::new();
         let ax = fig.subplot();
         let field = QuadField::new(ramp());

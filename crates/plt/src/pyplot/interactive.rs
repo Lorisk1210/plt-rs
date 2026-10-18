@@ -147,6 +147,29 @@ pub fn waitforbuttonpress(timeout: Option<Duration>) -> Result<Option<bool>, Gui
     with_session(|session| session.wait_for_button_press(&figure, timeout))
 }
 
+/// Opens the subplot configuration tool for `targetfig`, by default the
+/// current figure, in a window of its own: sliders for the margins and
+/// spacing of the subplots (matplotlib's `subplot_tool`, which triggers
+/// the subplots tool of the figure window's toolbar). The open figures are
+/// shown first; a second call raises the tool window.
+///
+/// ```no_run
+/// use plt::pyplot as plt;
+/// plt::subplots(2, 2)?;
+/// plt::subplot_tool(None)?;
+/// plt::show()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When there is no window system, a window fails, or `targetfig` is not
+/// a pyplot figure, which has no window ([`GuiError::NotShown`]).
+pub fn subplot_tool(targetfig: Option<&Figure>) -> Result<(), GuiError> {
+    let figure = targetfig.cloned().unwrap_or_else(gcf);
+    with_session(|session| session.configure_subplots(&figure))
+}
+
 /// Calls `callback` on every event of `kind` in the current figure
 /// (matplotlib's `connect`, which is `gcf().canvas.mpl_connect`).
 pub fn connect(kind: EventKind, callback: impl FnMut(&Event) + 'static) -> ConnectionId {

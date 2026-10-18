@@ -89,7 +89,7 @@ pub use grouped_bar::{GroupedBarData, GroupedBarError, GroupedBarOptions};
 pub use hexbin::{HexBins, HexGridSize, HexReduce, HexScale, HexbinOptions};
 pub use hist::{HistArtists, HistPlot, HistPlotOptions};
 pub use hist2d::{Hist2d, Hist2dOptions};
-pub use image::ImshowOptions;
+pub use image::{ImshowOptions, NonUniformOptions};
 pub use pcolor::{Mesh, MeshCoords, PcolorOptions, Shading};
 pub use pcolorfast::{PcolorFast, PcolorfastOptions};
 pub use pie::{PieContainer, PieDirection, PieError, PieLabelFormat, PieOptions, PieShadow};

@@ -250,7 +250,7 @@ impl Artist for PcolorImageArtist {
 /// The cell between `edges` holding `value`: the lower one on an inner
 /// edge, and the last one on the first edge, where matplotlib's
 /// `searchsorted(value) - 1` wraps around as a negative index.
-fn cell_of(edges: &[f64], value: f64) -> Option<usize> {
+pub(super) fn cell_of(edges: &[f64], value: f64) -> Option<usize> {
     let (&first, &last) = (edges.first()?, edges.last()?);
     if !(first..=last).contains(&value) {
         return None;

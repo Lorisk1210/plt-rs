@@ -1,10 +1,11 @@
 """Images: imshow (interpolation, stages, origin/extent/aspect, RGB(A), alpha,
 norms, extreme colours, masks), matshow, spy, figimage, pcolor, pcolormesh,
-pcolorfast and hexbin."""
+pcolorfast, NonUniformImage and hexbin."""
 
 import matplotlib as mpl
 import numpy as np
 from matplotlib import colors, patches
+from matplotlib.image import NonUniformImage
 
 from spec_support import case, rng
 
@@ -326,6 +327,46 @@ def _(fig):
     xx, yy = _grid(7, 6)
     xx = xx + 0.3 * yy
     ax.pcolorfast(xx, yy, (xx * yy)[:-1, :-1])
+
+
+
+# --- NonUniformImage
+
+def _nonuniform(ax, interpolation, x, y, data, **kwargs):
+    im = NonUniformImage(ax, interpolation=interpolation, **kwargs)
+    im.set_data(x, y, data)
+    ax.add_image(im)
+
+
+def _cubic_grid():
+    """Centres crowded near 0 along x, even along y, and their radius."""
+    x = np.linspace(-4.0, 4.0, 9) ** 3 / 16.0
+    y = np.linspace(-4.0, 4.0, 7)
+    return x, y, np.sqrt(x[None, :] ** 2 + y[:, None] ** 2)
+
+
+@case("images/nonuniform_nearest", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    _nonuniform(ax, "nearest", *_cubic_grid(), cmap="viridis")
+    ax.set(xlim=(-5, 5), ylim=(-5, 5))
+
+
+@case("images/nonuniform_bilinear_relim", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    _nonuniform(ax, "bilinear", *_cubic_grid(), cmap="magma")
+    ax.relim()
+    ax.autoscale_view()
+
+
+@case("images/nonuniform_rgb_log", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    _nonuniform(ax, "bilinear", [1.0, 3.0, 10.0, 30.0, 100.0], [0.0, 1.0, 3.0, 3.5, 6.0],
+                _rgb_float(5))
+    ax.set_xscale("log")
+    ax.set(xlim=(0.5, 200.0), ylim=(-1.0, 7.0))
 
 
 # --- hexbin

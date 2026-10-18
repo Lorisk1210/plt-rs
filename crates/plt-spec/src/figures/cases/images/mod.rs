@@ -1,10 +1,12 @@
 //! `figures/cases_images.py`: imshow (interpolation, stages,
 //! origin/extent/aspect, RGB(A), alpha, norms, extreme colours, masks),
-//! matshow, spy, figimage, pcolor, pcolormesh, pcolorfast and hexbin.
+//! matshow, spy, figimage, pcolor, pcolormesh, pcolorfast, `NonUniformImage`
+//! and hexbin.
 
 mod data;
 mod imshow;
 mod meshes;
+mod nonuniform;
 
 use plt::image::{Interpolation, InterpolationStage};
 
@@ -160,6 +162,12 @@ pub(crate) const CASES: &[FigureCase] = &[
         meshes::pcolorfast_nonuniform,
     ),
     small("images/pcolorfast_quadmesh", meshes::pcolorfast_quadmesh),
+    small("images/nonuniform_nearest", nonuniform::nearest),
+    small(
+        "images/nonuniform_bilinear_relim",
+        nonuniform::bilinear_relim,
+    ),
+    small("images/nonuniform_rgb_log", nonuniform::rgb_log),
     FigureCase::new("images/hexbin_default", meshes::hexbin_default),
     small(
         "images/hexbin_gridsize_tuple",

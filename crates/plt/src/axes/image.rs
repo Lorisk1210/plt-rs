@@ -1,4 +1,5 @@
-//! Showing images in an axes: `imshow` and `matshow`.
+//! Showing images in an axes: `imshow`, `matshow` and images on
+//! non-uniform grids.
 
 use std::rc::Rc;
 
@@ -9,7 +10,8 @@ use super::{Axes, AxesState, AxisName, TickPosition};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::image::{
     AxesImage, AxesImageArtist, ColorizerOptions, CoreSettings, Extent, ImageAlpha, ImageCore,
-    ImageData, ImageError, Interpolation, InterpolationStage, Origin,
+    ImageData, ImageError, Interpolation, InterpolationStage, NonUniformImage,
+    NonUniformImageArtist, NonUniformInterpolation, Origin,
 };
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
@@ -41,6 +43,16 @@ pub struct ImshowOptions {
     pub filterrad: Option<f64>,
     /// Agg's full resampling when downsampling (`None` = `image.resample`).
     pub resample: Option<bool>,
+}
+
+/// Options of [`Axes::nonuniform_image`] (matplotlib's `NonUniformImage`
+/// keyword arguments).
+#[derive(Debug, Default)]
+pub struct NonUniformOptions {
+    /// Colormap, norm and limits for scalar data.
+    pub colors: ColorizerOptions,
+    /// How pixels between the centres are coloured.
+    pub interpolation: NonUniformInterpolation,
 }
 
 impl Axes {
@@ -122,6 +134,50 @@ impl Axes {
         let image = self.imshow(data, options)?;
         self.style_matrix_axes(SpineSide::Top);
         Ok(image)
+    }
+
+    /// Shows `data` with its pixel centres at the increasing coordinates
+    /// `x` (one per column) and `y` (one per row), which need not be evenly
+    /// spaced (matplotlib's `NonUniformImage`, `set_data` and `add_image`).
+    /// The image fills the whole axes box: pixels beyond the grid repeat
+    /// its edge.
+    ///
+    /// Like `add_image`, this leaves the data and view limits alone; set
+    /// them, or call [`Axes::relim`], to frame the grid.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::axes::NonUniformOptions;
+    /// use plt::image::Extent;
+    /// use plt::numeric::Grid;
+    /// let ax = Figure::new().subplot();
+    /// let data = Grid::from_fn(2, 3, |r, c| (r * 3 + c) as f64);
+    /// let image = ax.nonuniform_image(&[0.0, 1.0, 4.0], &[0.0, 2.0], data, NonUniformOptions::default())?;
+    /// assert_eq!(image.extent(), Some(Extent::new(0.0, 4.0, 0.0, 2.0)));
+    /// assert_eq!(ax.xlim(), (0.0, 1.0));
+    /// # Ok::<(), plt::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the grid does not fit the data or the colormap options are
+    /// invalid.
+    pub fn nonuniform_image(
+        &self,
+        x: &[f64],
+        y: &[f64],
+        data: impl Into<ImageData>,
+        options: NonUniformOptions,
+    ) -> Result<NonUniformImage, ImageError> {
+        let data = data.into().normalized();
+        let mut mappable = options.colors.into_mappable(&crate::rc::params())?;
+        if let Some(field) = data.scalars() {
+            mappable.norm_mut().autoscale_none(&field.masked_values());
+        }
+        let mut artist = NonUniformImageArtist::new(data, mappable, options.interpolation, x, y)?;
+        artist.base_mut().transform = Some(self.trans_data());
+        let raw = self.adopt(artist, &DataUpdate::default());
+        Ok(NonUniformImage::from_raw(raw))
     }
 
     /// The axis styling `matshow` and `spy` share: the title nudged up,

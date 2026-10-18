@@ -5,6 +5,8 @@
 //!   or explicit RGB(A) colours, as floats or bytes.
 //! * [`AxesImage`] — an image on a regular grid in data coordinates, as
 //!   made by `imshow`, `matshow`, `spy` and `pcolorfast`.
+//! * [`NonUniformImage`] and [`PcolorImage`] — images whose pixel centres
+//!   or cell edges lie on non-uniform rectilinear grids.
 //! * [`FigureImage`] — an image placed in figure pixels by
 //!   [`Figure::figimage`](crate::figure::Figure::figimage).
 //! * [`BboxImageOptions`] — an image stretched over a box of the canvas,
@@ -30,6 +32,7 @@ mod figure_image;
 mod imread;
 mod io;
 mod make;
+mod nonuniform_image;
 mod options;
 mod pcolor_image;
 mod resample;
@@ -49,6 +52,8 @@ pub use figure_image::{FigimageOptions, FigureImage};
 pub use imread::{ImreadFormat, imread, imread_bytes, imread_png};
 pub use io::{ImageIoError, ImsaveOptions, imsave, imsave_bytes, imsave_format, imsave_png};
 pub(crate) use make::{CoreSettings, ImageCore};
+pub(crate) use nonuniform_image::NonUniformImageArtist;
+pub use nonuniform_image::{NonUniformImage, NonUniformInterpolation};
 pub use options::{Extent, ImageAlpha, Interpolation, InterpolationStage, Origin, UnknownName};
 pub use pcolor_image::PcolorImage;
 pub(crate) use pcolor_image::PcolorImageArtist;

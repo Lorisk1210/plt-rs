@@ -46,7 +46,8 @@ does it without pyplot.
   and triangulations, quiver/barbs/streamplot, Sankey diagrams, polar and
   geographic axes (Aitoff, Hammer, Lambert, Mollweide), 3-D axes (surfaces,
   wireframes, 3-D scatter and bars, voxels), annotations, fancy boxes and
-  arrows, path effects, tables, legends, colorbars.
+  arrows, path effects, image filters on artists (`set_agg_filter`),
+  tables, legends, colorbars.
 * **Text**: TrueType fonts with OpenType shaping, right-to-left and
   Arabic text, and mathtext.
 * **Axes and layout**: scales, tickers and formatters, dates and

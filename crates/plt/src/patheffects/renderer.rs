@@ -2,7 +2,7 @@
 //! `PathEffectRenderer`).
 
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_render::{GraphicsContext, PathCollection, Renderer, RgbaImage};
+use plt_render::{FilterFn, GraphicsContext, PathCollection, Renderer, RgbaImage};
 use plt_text::{TextEngine, TextRun};
 
 use super::PathEffect;
@@ -160,6 +160,14 @@ impl Renderer for PathEffectRenderer<'_> {
 
     fn stop_rasterizing(&mut self) {
         self.inner.stop_rasterizing();
+    }
+
+    fn start_filter(&mut self) {
+        self.inner.start_filter();
+    }
+
+    fn stop_filter(&mut self, filter: &FilterFn<'_>) {
+        self.inner.stop_filter(filter);
     }
 
     fn option_image_nocomposite(&self) -> bool {

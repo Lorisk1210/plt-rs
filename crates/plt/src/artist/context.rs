@@ -243,9 +243,9 @@ impl<'a> DrawContext<'a> {
         }
     }
 
-    /// Draws a child artist if it exists and is not animated; an
-    /// invisible child draws nothing but still ends rasterizing like any
-    /// artist that is not rasterized.
+    /// Draws a child artist if it exists and is not animated, through its
+    /// image filter if it has one; an invisible child draws nothing but
+    /// still ends rasterizing like any artist that is not rasterized.
     pub fn draw_child(&mut self, id: ArtistId) {
         let Some(artist) = self.layout.store().get(id) else {
             return;
@@ -255,9 +255,15 @@ impl<'a> DrawContext<'a> {
             return;
         }
         self.draw_artist(base.rasterized, |ctx| {
-            if base.visible {
-                artist.draw(ctx);
+            if !base.visible {
+                return;
             }
+            let Some(filter) = &base.agg_filter else {
+                return artist.draw(ctx);
+            };
+            ctx.renderer().start_filter();
+            artist.draw(ctx);
+            ctx.renderer().stop_filter(filter.function());
         });
     }
 

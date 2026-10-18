@@ -92,6 +92,38 @@ impl RgbaImage {
         self.data
     }
 
+    /// The smallest box `(left, top, right, bottom)` (ends exclusive)
+    /// holding every pixel that is not fully transparent; `None` when all
+    /// are (matplotlib's `cbook._get_nonzero_slices` of the alpha
+    /// channel).
+    pub fn opaque_bounds(&self) -> Option<(usize, usize, usize, usize)> {
+        let alpha = |x: usize, y: usize| self.data[(y * self.width + x) * 4 + 3];
+        let rows: Vec<usize> = (0..self.height)
+            .filter(|&y| (0..self.width).any(|x| alpha(x, y) != 0))
+            .collect();
+        let columns: Vec<usize> = (0..self.width)
+            .filter(|&x| (0..self.height).any(|y| alpha(x, y) != 0))
+            .collect();
+        Some((
+            *columns.first()?,
+            *rows.first()?,
+            *columns.last()? + 1,
+            *rows.last()? + 1,
+        ))
+    }
+
+    /// The part `(left, top, right, bottom)` (ends exclusive) of the
+    /// image, which must lie inside it.
+    pub(crate) fn crop(&self, (left, top, right, bottom): (usize, usize, usize, usize)) -> Self {
+        let data: Vec<u8> = (top..bottom)
+            .flat_map(|y| {
+                self.data[(y * self.width + left) * 4..(y * self.width + right) * 4].iter()
+            })
+            .copied()
+            .collect();
+        Self::new(right - left, bottom - top, data).expect("the crop holds its own pixels")
+    }
+
     /// The pixel at `(x, y)` (top-left origin), if in bounds.
     pub fn pixel(&self, x: usize, y: usize) -> Option<[u8; 4]> {
         (x < self.width && y < self.height).then(|| {
@@ -109,6 +141,16 @@ impl RgbaImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn crops_to_the_opaque_pixels() {
+        let mut data = vec![0; 4 * 3 * 4];
+        data[(4 + 2) * 4 + 3] = 255;
+        let image = RgbaImage::new(4, 3, data).unwrap();
+        assert_eq!(image.opaque_bounds(), Some((2, 1, 3, 2)));
+        assert_eq!(image.crop((2, 1, 3, 2)).data(), &[0, 0, 0, 255]);
+        assert_eq!(RgbaImage::transparent(2, 2).opaque_bounds(), None);
+    }
 
     #[test]
     fn size_validation_and_access() {

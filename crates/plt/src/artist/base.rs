@@ -3,7 +3,7 @@
 use plt_core::Path;
 use plt_render::Sketch;
 
-use super::{ArtistId, Picker};
+use super::{AggFilter, ArtistId, Picker};
 use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -68,6 +68,9 @@ pub struct ArtistBase {
     /// Whether a status bar shows the data under the pointer when it is
     /// over the artist (matplotlib's `mouseover`).
     pub mouseover: bool,
+    /// An image filter for what the artist draws (matplotlib's
+    /// `agg_filter`).
+    pub agg_filter: Option<AggFilter>,
     /// Values autoscaling must not expand past (`x`, `y`).
     pub sticky_edges: (Vec<f64>, Vec<f64>),
     /// The containing artist (axes, figure, legend, ...).
@@ -146,6 +149,7 @@ impl Default for ArtistBase {
             url: None,
             picker: None,
             mouseover: false,
+            agg_filter: None,
             sticky_edges: (Vec::new(), Vec::new()),
             parent: None,
             id: None,

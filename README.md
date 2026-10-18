@@ -52,11 +52,12 @@ does it without pyplot.
   matplotlib's colormaps, norms and colour sequences, including the
   multivariate and bivariate colormaps.
 * **Text**: TrueType fonts with OpenType shaping, right-to-left and
-  Arabic text, every `text.hinting` mode with FreeType's own bytecode
-  interpreter and autohinter, and mathtext in every matplotlib fontset
-  (DejaVu Sans and Serif, Computer Modern, STIX, STIX sans, custom),
-  placing every glyph and rule where matplotlib does on its own mathtext
-  test suite.
+  Arabic text, font features and BCP 47 languages per text
+  (`set_fontfeatures`, `set_language`), every `text.hinting` mode with
+  FreeType's own bytecode interpreter and autohinter, and mathtext in
+  every matplotlib fontset (DejaVu Sans and Serif, Computer Modern, STIX,
+  STIX sans, custom), placing every glyph and rule where matplotlib does
+  on its own mathtext test suite.
 * **Axes and layout**: scales, tickers and formatters, dates and
   categories, shared and twin axes, secondary axes, aspect handling,
   subplot grids, mosaics, subfigures, constrained and tight layout,
@@ -85,7 +86,8 @@ does it without pyplot.
   timers and downloads in every output format.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF
   byte-identical to Pillow's for the same pixels, GIF and raw RGBA; and
-  SVG, PDF and PostScript/EPS documents structured like matplotlib's.
+  SVG, PDF and PostScript/EPS documents structured like matplotlib's,
+  including the 14 core fonts of `pdf.use14corefonts` and `ps.useafm`.
 * **Widgets**: buttons, sliders and range sliders, check and radio
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
   lasso and polygon selectors.

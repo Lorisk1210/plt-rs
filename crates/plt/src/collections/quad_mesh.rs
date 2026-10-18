@@ -39,6 +39,8 @@ impl CollectionArtist {
         rc: std::rc::Rc<RcParams>,
     ) -> Self {
         let mut mesh = Self::new(CollectionKind::QuadMesh, cell_paths(&coordinates), rc);
+        // Picks fall inside the cells.
+        mesh.pickradius = 0.0;
         mesh.mesh = Some(MeshGeometry {
             coordinates,
             shading,

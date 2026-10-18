@@ -36,6 +36,7 @@ use plt_render::{CapStyle, JoinStyle};
 
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistStore, DrawContext, LayoutContext, RawHandle,
+    format_values,
 };
 use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Color, Colormap, Norm, NormError, Normalized, ScalarMappable};
@@ -342,6 +343,19 @@ impl Artist for CollectionArtist {
         let geometry = draw::Geometry::new(self, *ctx, &shapes, &transform).ok()?;
         let hits = geometry.hits(at, radius, radius <= 0.0);
         (!hits.is_empty()).then_some(hits)
+    }
+
+    /// matplotlib's `QuadMesh.get_cursor_data`: the values of the cells
+    /// under `at` (other collections have none).
+    fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
+        self.mesh.as_ref()?;
+        let values = &self.mapping.as_ref()?.source.values;
+        let cells = self.pick_hit(ctx, at, None)?;
+        Some(format_values(
+            cells
+                .into_iter()
+                .filter_map(|i| values.get(i).copied().flatten()),
+        ))
     }
 }
 

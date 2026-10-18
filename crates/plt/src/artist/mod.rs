@@ -11,6 +11,7 @@
 
 mod base;
 mod context;
+mod cursor;
 mod handle;
 mod pick;
 #[macro_use]
@@ -28,6 +29,7 @@ use crate::patches::PatchView;
 pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
 pub use context::{DrawContext, DrawError, LayoutContext};
+pub(crate) use cursor::{format_mapped, format_values};
 pub use handle::{ArtistHandle, RawHandle};
 pub(crate) use pick::segment_hits;
 pub use pick::{PickFn, Picker};
@@ -79,6 +81,14 @@ pub trait Artist: Any + Debug {
         _radius: Option<f64>,
     ) -> Option<Vec<usize>> {
         self.contains(ctx, at).then(Vec::new)
+    }
+
+    /// What a status bar shows of the artist's data under display point
+    /// `at`, such as `[0.532]` (matplotlib's `format_cursor_data` of
+    /// `get_cursor_data`); asked only of artists with
+    /// [`ArtistBase::mouseover`] set that contain the point.
+    fn cursor_text(&self, _ctx: &LayoutContext<'_>, _at: Point) -> Option<String> {
+        None
     }
 
     /// The artist as a patch, whatever its shape (matplotlib's

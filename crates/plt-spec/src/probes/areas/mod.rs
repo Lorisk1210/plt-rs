@@ -9,6 +9,7 @@ pub(crate) mod colormap_luts;
 pub(crate) mod colormaps;
 pub(crate) mod colors;
 pub(crate) mod contour;
+pub(crate) mod cursor;
 pub(crate) mod dates;
 pub(crate) mod imread;
 pub(crate) mod imsave;

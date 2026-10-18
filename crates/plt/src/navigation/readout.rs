@@ -44,6 +44,37 @@ pub(super) fn contains(ax: &Axes, at: Point) -> bool {
     LayoutContext::new(&state).axes_contains(ax.id(), at)
 }
 
+/// What a status bar shows of the data under display point `at` in `ax`:
+/// the cursor text of the topmost visible artist of `ax` that has
+/// `mouseover` set and contains the point, the last added among equal
+/// z-orders (the second line of matplotlib's `_mouse_event_to_message`).
+pub(super) fn cursor_text(ax: &Axes, at: Point) -> Option<String> {
+    let figure = ax.raw().figure_state();
+    let mut state = figure.borrow_mut();
+    state.prepare();
+    let layout = LayoutContext::new(&state);
+    let store = layout.store();
+    let topmost = store
+        .get(ax.id())?
+        .children()
+        .into_iter()
+        .filter_map(|id| store.get(id))
+        .filter(|artist| {
+            let base = artist.base();
+            base.mouseover && base.visible && artist.pick_hit(&layout, at, None).is_some()
+        })
+        .reduce(|best, artist| {
+            if best.base().zorder > artist.base().zorder {
+                best
+            } else {
+                artist
+            }
+        })?;
+    let text = topmost.cursor_text(&layout, at)?;
+    let text = text.trim_end();
+    (!text.is_empty()).then(|| text.to_owned())
+}
+
 /// The display box of `ax`, brought up to date.
 pub(super) fn display_bbox(ax: &Axes) -> Option<Bbox> {
     let figure = ax.raw().figure_state();
@@ -187,6 +218,25 @@ mod tests {
             Some(twin),
             "the twin is drawn on top"
         );
+    }
+
+    #[test]
+    fn images_add_the_value_under_the_pointer() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let values = crate::numeric::Grid::from_rows(vec![vec![0.25, 0.5]]).unwrap();
+        let image = ax
+            .imshow(values, crate::axes::ImshowOptions::default())
+            .unwrap();
+        let at = display(&ax, 1.0, 0.0);
+        assert_eq!(cursor_text(&ax, at).as_deref(), Some("[0.5000]"));
+        assert_eq!(
+            cursor_text(&ax, display(&ax, 1.0, 1.0)),
+            None,
+            "off the image"
+        );
+        image.set_mouseover(false);
+        assert_eq!(cursor_text(&ax, at), None);
     }
 
     #[test]

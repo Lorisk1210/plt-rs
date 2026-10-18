@@ -52,7 +52,12 @@ impl FigureWindow {
                     let rubberband = self.navigation.drag(at, self.drag_key(*modifiers));
                     self.show_rubberband(cx, rubberband)?;
                 }
-                let readout = self.navigation.readout(&self.figure, at);
+                // The status line has room for one line: the data value
+                // follows the coordinates.
+                let readout = self
+                    .navigation
+                    .readout(&self.figure, at)
+                    .replace('\n', "   ");
                 self.set_status(cx, readout)?;
             }
             UiEvent::PointerDown {

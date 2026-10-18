@@ -27,11 +27,34 @@ pub(crate) struct AxesImageArtist {
 impl AxesImageArtist {
     /// An image at z-order 0 covering `extent`.
     pub(crate) fn new(core: ImageCore, extent: Extent) -> Self {
-        Self {
-            base: ArtistBase::with_zorder(0.0),
-            core,
-            extent,
+        let mut base = ArtistBase::with_zorder(0.0);
+        // Status bars show the value under the pointer, as for matplotlib's
+        // images.
+        base.mouseover = true;
+        Self { base, core, extent }
+    }
+
+    /// The `(row, column)` of the array element under display point `at`
+    /// (matplotlib's `AxesImage.get_cursor_data`, which truncates towards
+    /// zero).
+    fn element_at(&self, ctx: LayoutContext<'_>, at: Point) -> Option<(usize, usize)> {
+        let data = ctx
+            .resolve(&self.transform())?
+            .inverted()?
+            .transform_point(at);
+        let Extent {
+            left,
+            right,
+            mut bottom,
+            mut top,
+        } = self.extent;
+        if self.core.resampling.origin == Origin::Upper {
+            std::mem::swap(&mut bottom, &mut top);
         }
+        let (rows, columns) = self.core.data.shape();
+        let row = (data.y - bottom) / (top - bottom) * rows as f64;
+        let column = (data.x - left) / (right - left) * columns as f64;
+        index_below(row, rows).zip(index_below(column, columns))
     }
 
     pub(super) fn transform(&self) -> Transform {
@@ -190,6 +213,23 @@ impl Artist for AxesImageArtist {
             .is_some_and(|axes| ctx.axes_contains(axes, point))
             && self.out_bbox(*ctx).is_some_and(|bbox| bbox.contains(point))
     }
+
+    fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
+        let element = self.element_at(*ctx, at)?;
+        Some(
+            self.core
+                .data
+                .cursor_text(element, &self.core.mappable.borrow()),
+        )
+    }
+}
+
+/// `value` truncated towards zero as an index below `len` (numpy's
+/// `astype(int)` followed by a bounds check).
+fn index_below(value: f64, len: usize) -> Option<usize> {
+    let index = value.trunc();
+    // The range check rejects NaN; the cast is exact below `len`.
+    (0.0..len as f64).contains(&index).then_some(index as usize)
 }
 
 impl ColorMapped for AxesImageArtist {

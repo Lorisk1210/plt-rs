@@ -4,7 +4,7 @@
 
 use std::rc::Rc;
 
-use plt_core::{Bbox, Path, Point};
+use plt_core::{Bbox, Point};
 use plt_render::GraphicsContext;
 
 use super::handles::LabelDirection;
@@ -368,19 +368,14 @@ impl AxisArtistState {
     }
 
     /// The artist properties of the line: the artist's opacity, clipped
-    /// to the axes box if asked (by a clip path when the axes clips to an
-    /// outline of its own).
-    fn line_base(&self, layout: LayoutContext<'_>) -> ArtistBase {
+    /// to the axes box if asked, even when the axes clips its plotted
+    /// artists to an outline of its own (matplotlib's
+    /// `line.set_clip_box(axes.bbox)`).
+    fn line_base(&self) -> ArtistBase {
         let mut base = ArtistBase::default();
         base.alpha = self.base.alpha;
         if self.line.clipped {
-            base.clip_box = Some(self.axes);
-            if layout.clip_outline(self.axes).is_some() {
-                base.clip_path = Some(ClipPathSpec::Path {
-                    path: Path::unit_rectangle(),
-                    transform: Transform::Axes(self.axes),
-                });
-            }
+            base.clip_path = Some(ClipPathSpec::Rectangle(Transform::Axes(self.axes)));
         }
         base
     }
@@ -430,7 +425,7 @@ impl Artist for AxisArtistState {
         let (style, edge_default) = self.line.patch_style(&self.rc);
         if let Err(err) = paint_paths(
             ctx,
-            &self.line_base(layout),
+            &self.line_base(),
             &style,
             &self.rc,
             edge_default,

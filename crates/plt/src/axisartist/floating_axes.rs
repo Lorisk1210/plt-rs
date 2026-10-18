@@ -229,15 +229,10 @@ impl FloatingAxes {
             state.patch_outline = Some((outline.clone(), Transform::Data(id)));
         });
         // The gridlines are clipped to the axes box, not to the outline
-        // (matplotlib's `gridlines.set_clip_path(orig_patch)`).
+        // (matplotlib's `gridlines.set_clip_path(orig_patch)`, which turns
+        // a rectangle into a clip box).
         if let Some(gridlines) = axes.gridlines() {
-            gridlines
-                .set_clip_path(Some(ClipPathSpec::Path {
-                    path: Path::unit_rectangle(),
-                    transform: Transform::Axes(id),
-                }))
-                .raw()
-                .with_base_mut(|base| base.clip_box = None);
+            gridlines.set_clip_path(Some(ClipPathSpec::Rectangle(Transform::Axes(id))));
         }
         let floating = Self { axes };
         floating.adjust_axes_lim();
@@ -262,16 +257,21 @@ impl FloatingAxes {
             .set_ylim(bbox.ymin(), bbox.ymax());
     }
 
-    /// Clips what is plotted on `aux` from now on to the background
-    /// outline instead of the axes box (matplotlib's `aux_ax.patch =
-    /// ax.patch`).
+    /// Gives `aux` the background patch of these axes (matplotlib's
+    /// `aux_ax.patch = ax.patch`): what is plotted on `aux` from now on is
+    /// clipped to the background outline instead of the axes box, and the
+    /// patch is drawn again among the children of `aux` at its z-order
+    /// ([`Axes::set_patch_zorder`](crate::axes::Axes::set_patch_zorder);
+    /// matplotlib's gallery lowers it to 0.9 so that it stays below them).
     pub fn share_patch(&self, aux: &crate::axes::Axes) {
         let outline = self
             .ax()
             .raw()
             .with::<AxesState, _>(|state| state.patch_outline.clone());
-        aux.raw()
-            .with_mut::<AxesState, _>(|state| state.patch_outline = outline);
+        aux.raw().with_mut::<AxesState, _>(|state| {
+            state.patch_outline = outline;
+            state.patch.host_owned = true;
+        });
     }
 }
 
@@ -367,5 +367,18 @@ mod tests {
             .with::<AxesState, _>(|state| state.patch_outline.is_some());
         assert!(shared);
         assert!(fig.to_svg().is_ok());
+    }
+
+    #[test]
+    fn a_shared_patch_is_drawn_again_among_the_children() {
+        let fig = Figure::with_size(3.0, 3.0, 72.0);
+        let ax = FloatingAxes::new(fig.subplot(), quarter_annulus()).unwrap();
+        // The white background, and the figure's.
+        let whites = |svg: &str| svg.matches("fill: #ffffff").count();
+        let alone = whites(&fig.to_svg().unwrap());
+        let aux = ax.get_aux_axes(&AuxTransform::polar());
+        ax.share_patch(&aux);
+        ax.ax().set_patch_zorder(0.9);
+        assert_eq!(whites(&fig.to_svg().unwrap()), alone + 1);
     }
 }

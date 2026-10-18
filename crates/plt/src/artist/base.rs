@@ -20,6 +20,10 @@ pub enum ClipPathSpec {
     },
     /// Clip to the current outline of another artist (a patch).
     Artist(ArtistId),
+    /// Clip to the unit square in the coordinates of a transform, as a
+    /// clip box rather than a clip path: what matplotlib makes of a
+    /// `Rectangle` clip patch (e.g. `Transform::Axes(id)` for an axes box).
+    Rectangle(Transform),
 }
 
 /// The state matplotlib's `Artist` base class carries.

@@ -225,9 +225,9 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
     let ax2 = FloatingAxes::new(fig.add_subplot(1, 3, 2)?, helper2)?;
     ax2.grid(true, &GridOptions::default());
     let aux2 = ax2.get_aux_axes(&tr2);
-    // `aux_ax.patch = ax.patch`; the patch drawn again at z-order 0.9
-    // (`ax.patch.zorder = 0.9`) covers nothing but itself.
+    // `aux2.patch = ax2.patch` and `ax2.patch.zorder = 0.9`.
     ax2.share_patch(&aux2);
+    ax2.ax().set_patch_zorder(0.9);
     let theta: Vec<f64> = data
         .uniform(10, 0.0, 1.0)
         .iter()
@@ -267,6 +267,7 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
     ax3.grid(true, &GridOptions::default());
     let aux3 = ax3.get_aux_axes(&tr3);
     ax3.share_patch(&aux3);
+    ax3.ax().set_patch_zorder(0.9);
     let theta: Vec<f64> = data
         .uniform(10, 0.0, 1.0)
         .iter()

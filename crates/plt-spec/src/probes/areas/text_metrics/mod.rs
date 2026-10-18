@@ -1,6 +1,6 @@
 //! Probe operations for the `text_metrics` area: the font manager
 //! (`findfont`, font lists, `FontProperties`, fontconfig patterns), text
-//! extents and layout, wrapping and mathtext metrics.
+//! extents and layout, wrapping, mathtext metrics and hinted glyphs.
 //!
 //! Every op runs under the reference configuration documented in
 //! `spec/reference/probes/test_text_metrics.py`. Font lookups use only
@@ -10,6 +10,7 @@
 
 mod args;
 mod fonts;
+mod glyphs;
 mod text;
 
 use crate::probes::Op;
@@ -34,4 +35,5 @@ pub(crate) const OPS: &[Op] = &[
         "backend_agg.RendererAgg.get_text_width_height_descent",
         text::width_height_descent,
     ),
+    Op::new("ft2font.FT2Font.load_glyph", glyphs::load_glyph),
 ];

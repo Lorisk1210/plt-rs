@@ -8,6 +8,7 @@ use plt_text::{
 };
 
 use super::math::{Line, math_style};
+use super::metrics::without_hinting;
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
 
@@ -53,8 +54,8 @@ const PATH_DPI: f64 = 72.0;
 /// The outline of one line of `text` with its baseline starting at `xy`,
 /// in the units of `xy` with the font `size` units tall (`None` = the
 /// font's size): typeset with `font` (as mathtext when it holds math and
-/// `text.parse_math` is on) at 100 points and 72 dpi, then scaled
-/// (matplotlib's `TextPath(xy, text, size, prop)`).
+/// `text.parse_math` is on) at 100 points and 72 dpi, unhinted, then
+/// scaled (matplotlib's `TextPath(xy, text, size, prop)`).
 ///
 /// # Errors
 ///
@@ -68,12 +69,14 @@ pub fn text_path(
     let rc = crate::rc::params();
     let mut typeset = font.clone();
     typeset.size = PATH_FONT_SCALE;
-    let run = line_run(
-        &Line::classify(text, rc.text_parse_math),
-        &typeset,
-        PATH_DPI,
-        &rc,
-    )?;
+    let run = without_hinting(|| {
+        line_run(
+            &Line::classify(text, rc.text_parse_math),
+            &typeset,
+            PATH_DPI,
+            &rc,
+        )
+    })?;
     let scale = size.unwrap_or(font.size) / PATH_FONT_SCALE;
     Ok(run
         .outline(TextEngine::global())
@@ -83,8 +86,8 @@ pub fn text_path(
 impl LaidOutText {
     /// The same text with the glyphs of each line placed as matplotlib
     /// draws text through path effects (`RendererBase._draw_text_as_path`):
-    /// typeset by `TextToPath` at 100 points and 72 dpi, then scaled to
-    /// `font`'s size at `dpi`. The lines stay where they are; only the
+    /// typeset by `TextToPath` at 100 points and 72 dpi, unhinted, then
+    /// scaled to `font`'s size at `dpi`. The lines stay where they are; only the
     /// glyph positions within them change, as advances and kerning round
     /// differently at that size.
     ///
@@ -109,7 +112,9 @@ impl LaidOutText {
                 if line.is_empty() {
                     return Ok(run.clone());
                 }
-                let path_run = line_run(&Line::classify(line, parse_math), &typeset, PATH_DPI, rc)?;
+                let path_run = without_hinting(|| {
+                    line_run(&Line::classify(line, parse_math), &typeset, PATH_DPI, rc)
+                })?;
                 Ok(scaled_run(&path_run, scale, dpi, run.source.clone()))
             })
             .collect::<Result<Vec<_>, TextError>>()?;
@@ -231,9 +236,11 @@ pub(crate) fn lay_out_with_math(
 mod tests {
     use super::*;
 
+    /// The spec's reference configuration (`matplotlib.testing.setup`).
     fn reference() -> RcParams {
         let mut rc = RcParams::matplotlib();
         rc.font_family = vec!["DejaVu Sans".to_owned()];
+        rc.text_hinting = "none".to_owned();
         rc
     }
 

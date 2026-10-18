@@ -3,16 +3,19 @@
 //!
 //! matplotlib renders each glyph with `FreeType` at its pen position rounded
 //! to 1/64 pixel and blits the coverage bitmap unsnapped; here the glyph
-//! outline is filled at that same quantized position (never snapped).
+//! outline is filled at that same quantized position (never snapped). The
+//! outline is grid-fitted as `text.hinting` asked when the run was laid
+//! out (its source's font request), as matplotlib loads glyphs with
+//! `get_hinting_flag()`.
 //! Rules (mathtext fraction bars and the like) are drawn as paths with the
 //! text's snapping, grown to at least one pixel as matplotlib does.
 
 use plt_core::{Affine2D, Path, Point};
 use plt_raster::CoverageRounding;
-use plt_text::{TextEngine, TextRun};
+use plt_text::{Hinting, TextEngine, TextRun};
 
 use super::RasterRenderer;
-use super::glyph::freetype_polygon;
+use super::glyph::{freetype_polygon, is_axis_aligned};
 use crate::gc::{Dashes, GraphicsContext, SnapMode};
 use crate::renderer::Renderer;
 
@@ -44,12 +47,23 @@ impl RasterRenderer {
             snap: SnapMode::Never,
             ..fill_gc.clone()
         };
+        let hinting = run
+            .source
+            .as_ref()
+            .map_or(Hinting::None, |source| source.font().hinting);
+        let axis_aligned = is_axis_aligned(angle);
         // Glyphs are rendered by FreeType, which rounds coverage its own way.
         self.painter
             .set_coverage_rounding(CoverageRounding::FreeType);
         for glyph in &run.glyphs {
-            let Ok(outline) = engine.glyph_outline(glyph.font, glyph.glyph, glyph.size, run.dpi)
-            else {
+            let Ok(outline) = engine.raster_glyph_outline(
+                glyph.font,
+                glyph.glyph,
+                glyph.size,
+                run.dpi,
+                hinting,
+                axis_aligned,
+            ) else {
                 continue;
             };
             let pen = placement.transform_point(Point::new(glyph.x, glyph.y));

@@ -100,6 +100,13 @@ mod tests {
 
     #[test]
     fn titles_labels_and_suptitle_get_room() {
+        crate::rc::context(titles_labels_and_suptitle_get_room_unhinted);
+    }
+
+    /// The body of `titles_labels_and_suptitle_get_room` under the spec's
+    /// reference configuration, which turns text hinting off.
+    fn titles_labels_and_suptitle_get_room_unhinted() {
+        crate::rc::set("text.hinting", "none").expect("valid setting");
         let fig = Figure::new();
         fig.set_layout_engine(Some(super::super::LayoutEngine::Constrained(
             ConstrainedLayout::from_rc(&RcParams::matplotlib()),

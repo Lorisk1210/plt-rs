@@ -28,7 +28,9 @@ Environment every op assumes
 * Optional arg ``rc`` (dict, default ``{}``): rcParams applied with
   ``matplotlib.rc_context(rc)`` around the *whole* op (object creation and
   measurement).  Keys used: ``mathtext.fontset``, ``font.family``,
-  ``font.size``, ``font.weight``, ``font.sans-serif``, ``font.cursive``.
+  ``font.size``, ``font.weight``, ``font.sans-serif``, ``font.cursive``,
+  ``text.hinting`` (``'default'`` or ``'native'``: the Agg renderer lays
+  text out with FreeType's ``LOAD_DEFAULT`` or ``LOAD_NO_AUTOHINT``).
 * Optional arg ``dpi`` (number, default 100): the figure dpi.
 
 Shared argument encodings
@@ -144,6 +146,16 @@ Python ``str()`` of the values, e.g. ``size=10.0``); invalid values ->
 ``_fontconfig_pattern.parse_fontconfig_pattern`` -- args ``{pattern}``.
 Returns the parsed dict (keys among family/size/weight/slant/width/...;
 values are lists of str); syntax errors -> ``ValueError``.
+
+``ft2font.FT2Font.load_glyph`` -- args ``{file, size, dpi, char, flags}``.
+``font = FT2Font(<mpl-data>/fonts/ttf/<file>)``, ``font.set_size(size,
+dpi)``, then ``glyph = font.load_glyph(font.get_char_index(ord(char)),
+LoadFlags.<flags>)`` with ``flags`` ``DEFAULT`` or ``NO_AUTOHINT``.
+Returns ``{"advance": glyph.horiAdvance, "path": [[code,
+x, y], ...]}``: the 26.6 advance and ``font.get_path()`` with the vertices
+in 1/64 pixels (integers) and matplotlib's path codes (1 MOVETO, 2 LINETO,
+3 CURVE3, 79 CLOSEPOLY).  Only fonts FreeType hints with their bytecode
+under ``flags`` are probed (no autohinted glyphs).
 """
 
 from __future__ import annotations
@@ -160,6 +172,7 @@ from matplotlib._fontconfig_pattern import parse_fontconfig_pattern
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
+from matplotlib.ft2font import FT2Font, LoadFlags
 from matplotlib.mathtext import MathTextParser
 
 from spec_support import ProbeSet
@@ -177,7 +190,7 @@ TEXT_KW_KEYS = {
 }
 RC_KEYS = {
     "mathtext.fontset", "font.family", "font.size", "font.weight", "font.sans-serif",
-    "font.cursive",
+    "font.cursive", "text.hinting",
 }
 FONTSETS = ["dejavusans", "dejavuserif", "stix", "stixsans", "cm", "custom"]
 
@@ -289,6 +302,16 @@ def _text_whd(s, ismath, font=None, dpi=100, rc=None):
 
 def _prop(prop):
     return prop if isinstance(prop, str) else _font(prop)
+
+
+def _load_glyph(file, size, dpi, char, flags):
+    font = FT2Font(cbook._get_data_path("fonts", "ttf", file))
+    font.set_size(size, dpi)
+    glyph = font.load_glyph(font.get_char_index(ord(char)), getattr(LoadFlags, flags))
+    vertices, codes = font.get_path()
+    path = [[int(code), round(x * 64), round(y * 64)]
+            for (x, y), code in zip(vertices.tolist(), codes.tolist())]
+    return {"advance": glyph.horiAdvance, "path": path}
 
 
 def _findfont(prop, fontext="ttf", fallback_to_default=True, rc=None):
@@ -932,3 +955,46 @@ def test_fontproperties_family_and_patterns():
     assert fontprops({"family": "Foo-12"})["size"] == 12.0
     assert fontprops({"family": "Foo,Bar:style=italic"})["family"] == ["Foo"]
     assert math.isclose(fontprops({"family": ":size=small"})["size"], 8.33)
+
+
+# --------------------------------------------------------------------------
+# Hinting (text.hinting other than the reference 'none')
+# --------------------------------------------------------------------------
+
+HINTED_GLYPHS = [
+    ("DejaVuSans.ttf", "DEFAULT", "AaégW%&§0"),
+    ("DejaVuSans-Bold.ttf", "DEFAULT", "Rsé"),
+    ("DejaVuSerif.ttf", "DEFAULT", "Qgfé"),
+    ("DejaVuSansMono.ttf", "DEFAULT", "m@1"),
+    ("DejaVuSans-Oblique.ttf", "DEFAULT", "αx"),
+    ("cmr10.ttf", "DEFAULT", "Ag="),
+    ("cmmi10.ttf", "DEFAULT", "xπ"),
+    ("STIXGeneral.ttf", "NO_AUTOHINT", "Agé"),
+    ("DejaVuSans.ttf", "NO_AUTOHINT", "Ka"),
+]
+HINTED_TEXTS = ["Hamburgefonstiv", "AVA To, Wa.", "0123456789", "\u00c5\u00c9\u00e7\u00df ffi"]
+
+
+def test_hinted_glyphs():
+    for file, flags, chars in HINTED_GLYPHS:
+        for size, dpi in [(6, 72), (9, 100), (12, 100), (17, 150), (24, 72)]:
+            for char in chars:
+                probes.probe("ft2font.FT2Font.load_glyph", _load_glyph, file=file, size=size,
+                             dpi=dpi, char=char, flags=flags)
+
+
+def test_hinted_text_metrics():
+    for hinting in ["default", "native"]:
+        rc = {"text.hinting": hinting}
+        for dpi in [72, 100, 150]:
+            for size in [6, 8, 10, 13, 18, 24]:
+                for text in HINTED_TEXTS:
+                    whd(text, font={"size": size}, dpi=dpi, rc=rc)
+            whd("Wa.To", font={"family": "DejaVu Serif", "weight": "bold"}, dpi=dpi, rc=rc)
+            whd("$x^2 + \\alpha$", ismath=True, dpi=dpi, rc=rc)
+        for rotation in [0, 30, 90]:
+            extent("Hinted AVA", kw={"size": 11, "rotation": rotation}, rc=rc)
+        layout("two\nlines Wa", kw={"size": 9, "ha": "right"}, rc=rc)
+    unhinted = whd("Hamburgefonstiv", font={"size": 10})
+    hinted = whd("Hamburgefonstiv", font={"size": 10}, rc={"text.hinting": "default"})
+    assert unhinted[0] != hinted[0]

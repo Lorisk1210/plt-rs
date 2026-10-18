@@ -6,7 +6,8 @@ mod common;
 
 use common::font_bytes;
 use plt_font::{
-    Face, FontChain, GlyphId, KerningMode, OutlineRecorder, ShapeOptions, Size, shape_at_size,
+    Face, FontChain, GlyphId, Hinting, HintingInstance, KerningMode, OutlineRecorder, ShapeOptions,
+    Size, shape_at_size,
 };
 
 const SIZES: [f64; 10] = [
@@ -31,7 +32,11 @@ fn extreme_sizes_do_not_panic() {
         for points in SIZES {
             for dpi in [72.0, 0.0, -1.0, 1e12, f64::NAN] {
                 let size = Size::new(&face, points, dpi);
+                let hinting = HintingInstance::new(&face, &size);
                 for glyph in [GlyphId(0), GlyphId(36), GlyphId(68)] {
+                    if let Ok(hinted) = hinting.load_glyph(&face, glyph) {
+                        hinted.outline(&mut OutlineRecorder::default());
+                    }
                     let _ = size.glyph_cbox(&face, glyph);
                     let _ = size.outline(&face, glyph, &mut OutlineRecorder::default());
                     let _ = (
@@ -42,7 +47,10 @@ fn extreme_sizes_do_not_panic() {
                     let _ = (size.em_scale_x(i32::MAX), size.em_scale_y(i32::MIN));
                 }
                 let _ = shape_at_size(&face, "AVATAR fi", &size, &ShapeOptions::default());
-                let _ = chain.layout("Wide text", points, dpi, &ShapeOptions::default());
+                for hinting in [Hinting::None, Hinting::Native] {
+                    let _ =
+                        chain.layout("Wide text", points, dpi, &ShapeOptions::default(), hinting);
+                }
             }
         }
     }
@@ -55,6 +63,6 @@ fn long_strings_at_huge_sizes_do_not_overflow() {
     let chain = FontChain::new(vec![face]);
     let text = "W".repeat(5_000);
     for points in [1e4, 1e6, f64::MAX] {
-        let _ = chain.layout(&text, points, 1e4, &ShapeOptions::default());
+        let _ = chain.layout(&text, points, 1e4, &ShapeOptions::default(), Hinting::None);
     }
 }

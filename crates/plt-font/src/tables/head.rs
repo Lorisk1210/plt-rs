@@ -112,17 +112,57 @@ impl Hhea {
     }
 }
 
-/// Reads the glyph count from `maxp`.
-pub(crate) fn parse_num_glyphs(data: &[u8]) -> Result<u16> {
-    let mut r = Reader::new(data, MAXP);
-    let version = r.u32()?;
-    if version != 0x0000_5000 && version != 0x0001_0000 {
-        return Err(FontError::UnsupportedFormat {
-            table: MAXP,
-            format: version,
-        });
+/// The `maxp` values FreeType uses: the glyph count plus the TrueType
+/// interpreter's resource limits, adjusted like `tt_face_load_maxp`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) struct MaxProfile {
+    /// Number of glyphs.
+    pub(crate) num_glyphs: u16,
+    /// Points in the twilight zone (at most `0xFFFF - 4`).
+    pub(crate) max_twilight_points: u16,
+    /// Storage area locations.
+    pub(crate) max_storage: u16,
+    /// Function definitions (at least 64).
+    pub(crate) max_function_defs: u16,
+    /// Instruction definitions.
+    pub(crate) max_instruction_defs: u16,
+    /// Interpreter stack depth.
+    pub(crate) max_stack_elements: u16,
+}
+
+impl MaxProfile {
+    /// Parses a version 0.5 (CFF) or 1.0 (TrueType) `maxp` table; the
+    /// limits of a truncated version 1.0 table read as zero.
+    pub(crate) fn parse(data: &[u8]) -> Result<Self> {
+        let mut r = Reader::new(data, MAXP);
+        let version = r.u32()?;
+        if version != 0x0000_5000 && version != 0x0001_0000 {
+            return Err(FontError::UnsupportedFormat {
+                table: MAXP,
+                format: version,
+            });
+        }
+        let num_glyphs = r.u16()?;
+        let mut profile = Self {
+            num_glyphs,
+            ..Self::default()
+        };
+        if version == 0x0001_0000 {
+            let mut limits = [0u16; 13];
+            for limit in &mut limits {
+                match r.u16() {
+                    Ok(value) => *limit = value,
+                    Err(_) => return Ok(profile),
+                }
+            }
+            profile.max_twilight_points = limits[5].min(0xFFFF - 4);
+            profile.max_storage = limits[6];
+            profile.max_function_defs = limits[7].max(64);
+            profile.max_instruction_defs = limits[8];
+            profile.max_stack_elements = limits[9];
+        }
+        Ok(profile)
     }
-    r.u16()
 }
 
 #[cfg(test)]
@@ -189,8 +229,26 @@ mod tests {
         assert_eq!(hhea.caret_slope_rise, 1);
         assert!(Hhea::parse(&data[..30]).is_err());
 
-        assert_eq!(parse_num_glyphs(&[0, 0, 0x50, 0, 1, 2]), Ok(258));
-        assert!(parse_num_glyphs(&[0, 2, 0, 0, 1, 2]).is_err());
-        assert!(parse_num_glyphs(&[0, 0, 0x50, 0, 1]).is_err());
+        let maxp = |data: &[u8]| MaxProfile::parse(data).map(|p| p.num_glyphs);
+        assert_eq!(maxp(&[0, 0, 0x50, 0, 1, 2]), Ok(258));
+        assert!(maxp(&[0, 2, 0, 0, 1, 2]).is_err());
+        assert!(maxp(&[0, 0, 0x50, 0, 1]).is_err());
+    }
+
+    #[test]
+    fn maxp_limits_are_adjusted_like_freetype() {
+        let mut data = vec![0, 1, 0, 0, 0, 9];
+        for value in [0u16, 0, 0, 0, 2, 0xFFFF, 7, 3, 1, 200, 0, 0, 0] {
+            data.extend_from_slice(&value.to_be_bytes());
+        }
+        let profile = MaxProfile::parse(&data).unwrap();
+        assert_eq!(profile.num_glyphs, 9);
+        assert_eq!(profile.max_twilight_points, 0xFFFB);
+        assert_eq!(profile.max_storage, 7);
+        assert_eq!(profile.max_function_defs, 64, "at least 64 functions");
+        assert_eq!(profile.max_instruction_defs, 1);
+        assert_eq!(profile.max_stack_elements, 200);
+        let truncated = MaxProfile::parse(&data[..10]).unwrap();
+        assert_eq!((truncated.num_glyphs, truncated.max_stack_elements), (9, 0));
     }
 }

@@ -19,7 +19,7 @@ pub(crate) fn position(
     face: &Face<'_>,
     plan: &ShapePlan,
     direction: Direction,
-    scaler: &Scaler,
+    scaler: &Scaler<'_>,
     spaces: &[(usize, SpaceWidth)],
     buffer: &mut Buffer,
 ) {
@@ -81,7 +81,7 @@ pub(crate) fn position(
 
 /// HarfBuzz's kern-table machine: kerns each glyph with the next non-mark
 /// glyph, splitting the value between the two advances.
-fn apply_kern_table(face: &Face<'_>, scaler: &Scaler, buffer: &mut Buffer) {
+fn apply_kern_table(face: &Face<'_>, scaler: &Scaler<'_>, buffer: &mut Buffer) {
     let skippable = |info: &GlyphInfo| info.is_mark() || info.is_default_ignorable();
     for subtable in face
         .kern_table()

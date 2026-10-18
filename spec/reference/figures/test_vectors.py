@@ -32,6 +32,7 @@ VECTOR_CASES = [
     "bars/hatches",
     "basic/line",
     "contour/tripcolor_gouraud",
+    "hinting/axes_100dpi",
     "images/clip_path_circle",
     "images/imshow_default",
     "images/pcolormesh_gouraud",

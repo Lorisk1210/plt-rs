@@ -102,7 +102,7 @@ fn shape_scaled(
     face: &Face<'_>,
     text: &str,
     options: &ShapeOptions,
-    scaler: Scaler,
+    scaler: Scaler<'_>,
 ) -> Vec<ShapedGlyph> {
     let text: Vec<(usize, char)> = text.char_indices().collect();
     let faces = std::slice::from_ref(face);
@@ -115,12 +115,12 @@ fn shape_scaled(
 /// Shapes `text` with `faces[assignment[i]]` for character `i`; returns
 /// `(face index, glyph)` in visual order. `scaler` gives each face's
 /// scaling.
-fn shape_text(
+fn shape_text<'h>(
     text: &[(usize, char)],
     faces: &[Face<'_>],
     assignment: &[usize],
     options: &ShapeOptions,
-    scaler: &dyn Fn(usize) -> Scaler,
+    scaler: &dyn Fn(usize) -> Scaler<'h>,
 ) -> Vec<(usize, ShapedGlyph)> {
     let chars: Vec<char> = text.iter().map(|&(_, c)| c).collect();
     let scripts = scripts(&chars, options.script);

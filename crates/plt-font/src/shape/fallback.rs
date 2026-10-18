@@ -78,13 +78,10 @@ struct Extents {
 }
 
 /// Ink extents of `glyph` as HarfBuzz's FreeType integration reports them
-/// (the unhinted control box), `None` when the glyph cannot be loaded.
-fn extents(face: &Face<'_>, scaler: &Scaler, glyph: GlyphId) -> Option<Extents> {
-    let rect = match scaler {
-        Scaler::Units => face.glyph_bbox(glyph),
-        Scaler::Pixels(size) => size.glyph_cbox(face, glyph),
-    }
-    .ok()?;
+/// (the control box, grid-fitted when hinting), `None` when the glyph
+/// cannot be loaded.
+fn extents(face: &Face<'_>, scaler: &Scaler<'_>, glyph: GlyphId) -> Option<Extents> {
+    let rect = scaler.extents(face, glyph).ok()?;
     Some(rect.map_or_else(Extents::default, |r| Extents {
         x_bearing: r.x_min,
         y_bearing: r.y_max,
@@ -94,17 +91,14 @@ fn extents(face: &Face<'_>, scaler: &Scaler, glyph: GlyphId) -> Option<Extents> 
 }
 
 /// Vertical gap between stacked marks: 1/16 em.
-fn y_gap(face: &Face<'_>, scaler: &Scaler) -> i32 {
-    match scaler {
-        Scaler::Units => i32::from(face.units_per_em()) / 16,
-        Scaler::Pixels(size) => (size.hb_scales().1 / 16) as i32,
-    }
+fn y_gap(face: &Face<'_>, scaler: &Scaler<'_>) -> i32 {
+    (scaler.em(face).1 / 16) as i32
 }
 
 /// What the fallback positioner needs besides the buffer.
 struct Context<'f, 'a> {
     face: &'f Face<'a>,
-    scaler: &'f Scaler,
+    scaler: &'f Scaler<'f>,
     direction: Direction,
     adjust_offsets: bool,
 }
@@ -306,7 +300,7 @@ fn position_cluster(context: &Context<'_, '_>, buffer: &mut Buffer, start: usize
 /// `direction` (logical order).
 pub(crate) fn position_marks(
     face: &Face<'_>,
-    scaler: &Scaler,
+    scaler: &Scaler<'_>,
     direction: Direction,
     adjust_offsets: bool,
     buffer: &mut Buffer,

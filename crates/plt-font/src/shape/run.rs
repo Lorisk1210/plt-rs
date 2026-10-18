@@ -183,7 +183,7 @@ pub(crate) fn shape_run(
     text: &[(usize, char)],
     range: Range<usize>,
     plan: &ShapePlan,
-    scaler: Scaler,
+    scaler: Scaler<'_>,
 ) -> Vec<ShapedGlyph> {
     let (items, direction) = prepare(face, text, range, plan);
     let spaces: Vec<(usize, SpaceWidth)> = items

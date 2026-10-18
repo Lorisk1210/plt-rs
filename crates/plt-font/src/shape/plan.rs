@@ -194,7 +194,7 @@ impl ShapePlan {
     pub(crate) fn substitute(
         &self,
         face: &Face<'_>,
-        scaler: &Scaler,
+        scaler: &Scaler<'_>,
         direction: Direction,
         buffer: &mut Buffer,
     ) {
@@ -216,7 +216,7 @@ impl ShapePlan {
     pub(crate) fn postprocess(
         &self,
         face: &Face<'_>,
-        scaler: &Scaler,
+        scaler: &Scaler<'_>,
         direction: Direction,
         buffer: &mut Buffer,
     ) {

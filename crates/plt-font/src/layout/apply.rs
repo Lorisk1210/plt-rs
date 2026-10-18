@@ -58,7 +58,7 @@ pub(crate) struct SequenceLookup {
 /// State for applying lookups of one table to a buffer.
 pub(crate) struct Applier<'f, 'a> {
     pub(crate) face: &'f Face<'a>,
-    pub(crate) scaler: &'f Scaler,
+    pub(crate) scaler: &'f Scaler<'f>,
     pub(crate) buffer: &'f mut Buffer,
     /// Direction of the run being shaped.
     pub(crate) direction: Direction,
@@ -78,7 +78,7 @@ impl<'f, 'a> Applier<'f, 'a> {
         face: &'f Face<'a>,
         table: LayoutTable<'f>,
         kind: TableKind,
-        scaler: &'f Scaler,
+        scaler: &'f Scaler<'f>,
         direction: Direction,
         buffer: &'f mut Buffer,
     ) -> Self {

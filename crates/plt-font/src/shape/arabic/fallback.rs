@@ -112,7 +112,7 @@ impl FallbackPlan {
     pub(super) fn apply(
         &self,
         face: &Face<'_>,
-        scaler: &Scaler,
+        scaler: &Scaler<'_>,
         direction: Direction,
         buffer: &mut Buffer,
     ) {

@@ -8,6 +8,9 @@
 //!   emitted through an [`OutlineSink`], names, kerning and glyph names.
 //! * [`Size`] — FreeType-compatible scaling, so scaled advances, outlines
 //!   and bounding boxes agree with matplotlib to the 1/64 pixel.
+//! * [`HintingInstance`] — FreeType's TrueType bytecode interpreter (version
+//!   40) for the grid-fitted outlines and advances matplotlib draws text
+//!   with by default ([`Hinting`]).
 //! * [`shape`] / [`shape_at_size`] — libraqm/HarfBuzz-style shaping: the
 //!   Unicode Bidirectional Algorithm with visual reordering of right-to-left
 //!   runs, HarfBuzz's Arabic (joining forms, presentation-form fallback) and
@@ -24,6 +27,7 @@ mod db;
 mod error;
 mod face;
 mod fixed;
+mod hinting;
 mod layout;
 mod outline;
 mod reader;
@@ -39,6 +43,7 @@ pub use db::{
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};
+pub use hinting::{BytecodeError, BytecodeProgram, HintedGlyph, Hinting, HintingInstance};
 pub use layout::feature::{Feature, ParseFeatureError};
 pub use outline::{OutlineRecorder, OutlineSink, PathCommand};
 pub use scale::{KerningMode, Size};

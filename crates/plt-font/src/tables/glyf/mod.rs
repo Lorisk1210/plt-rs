@@ -1,24 +1,28 @@
 //! `loca` + `glyf`: TrueType glyph outlines, simple and composite.
+//!
+//! Glyph records decode into [`SimpleGlyph`]s and [`Component`] lists that
+//! both the unhinted loader here and the hinting loader
+//! ([`crate::hinting`]) build outlines from.
 
 use crate::error::{FontError, Result};
-use crate::fixed::{hypot, mul_fix};
+use crate::fixed::{mul_fix, vector_length};
 use crate::outline::{Outline, PointKind};
 use crate::reader::{Array, Reader, slice, tail};
 use crate::types::{GlyphId, Rect, Tag};
 
-const GLYF: Tag = Tag::new(b"glyf");
+pub(crate) const GLYF: Tag = Tag::new(b"glyf");
 const LOCA: Tag = Tag::new(b"loca");
 
 /// Deepest composite nesting accepted (guards against reference cycles).
-const MAX_COMPONENT_DEPTH: u8 = 16;
+pub(crate) const MAX_COMPONENT_DEPTH: u8 = 16;
 
 /// The most components one glyph load visits. Components shared between
 /// the levels of a composite multiply exponentially with the nesting depth
 /// (and empty components add no points to stop at).
-const MAX_COMPONENTS: u32 = 0xFFFF;
+pub(crate) const MAX_COMPONENTS: u32 = 0xFFFF;
 
 /// The most points one glyph may have (FreeType's `FT_OUTLINE_POINTS_MAX`).
-const MAX_POINTS: usize = 0xFFFF;
+pub(crate) const MAX_POINTS: usize = 0xFFFF;
 
 /// What one glyph load has used up so far.
 #[derive(Default)]
@@ -38,11 +42,16 @@ const Y_SAME_OR_POSITIVE: u8 = 0x20;
 
 const ARGS_ARE_WORDS: u16 = 0x0001;
 const ARGS_ARE_XY_VALUES: u16 = 0x0002;
+/// The component offset is rounded to the pixel grid when hinting.
+pub(crate) const ROUND_XY_TO_GRID: u16 = 0x0004;
 const HAVE_SCALE: u16 = 0x0008;
 const MORE_COMPONENTS: u16 = 0x0020;
 const HAVE_XY_SCALE: u16 = 0x0040;
 const HAVE_TWO_BY_TWO: u16 = 0x0080;
-const USE_MY_METRICS: u16 = 0x0200;
+/// Instructions follow the last component.
+pub(crate) const WE_HAVE_INSTRUCTIONS: u16 = 0x0100;
+/// The component supplies the composite's metrics.
+pub(crate) const USE_MY_METRICS: u16 = 0x0200;
 const SCALED_COMPONENT_OFFSET: u16 = 0x0800;
 
 /// Coordinate space in which glyph points are produced.
@@ -74,35 +83,40 @@ impl Scaling {
 /// A component's 2×2 matrix as 2.14 values: `[xx, yx, xy, yy]` where
 /// `x' = xx*x + xy*y` and `y' = yx*x + yy*y`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct Matrix([i16; 4]);
+pub(crate) struct Matrix([i16; 4]);
 
 impl Matrix {
     const IDENTITY: Self = Self([0x4000, 0, 0, 0x4000]);
 
+    /// Transforms a point in the space of `scaling`.
     fn apply(self, scaling: Scaling, x: f64, y: f64) -> (f64, f64) {
-        let [xx, yx, xy, yy] = self.0;
         match scaling {
             Scaling::Units => {
-                let f = |v: i16| f64::from(v) / 16384.0;
-                (f(xx) * x + f(xy) * y, f(yx) * x + f(yy) * y)
+                let [xx, yx, xy, yy] = self.0.map(|v| f64::from(v) / 16384.0);
+                (xx * x + xy * y, yx * x + yy * y)
             }
             Scaling::Fixed { .. } => {
-                // FT_Vector_Transform with the matrix widened to 16.16.
-                let f = |v: i16| i64::from(v) << 2;
-                let (x, y) = (x as i64, y as i64);
-                (
-                    (mul_fix(x, f(xx)) + mul_fix(y, f(xy))) as f64,
-                    (mul_fix(x, f(yx)) + mul_fix(y, f(yy))) as f64,
-                )
+                let (x, y) = self.transform_fixed(x as i64, y as i64);
+                (x as f64, y as f64)
             }
         }
+    }
+
+    /// Transforms a 26.6 point like `FT_Vector_Transform` with the matrix
+    /// widened to 16.16.
+    pub(crate) fn transform_fixed(self, x: i64, y: i64) -> (i64, i64) {
+        let [xx, yx, xy, yy] = self.0.map(|v| i64::from(v) << 2);
+        (
+            mul_fix(x, xx).wrapping_add(mul_fix(y, xy)),
+            mul_fix(x, yx).wrapping_add(mul_fix(y, yy)),
+        )
     }
 
     /// Scale factors applied to offsets of `SCALED_COMPONENT_OFFSET`
     /// components, as 16.16 values.
     fn offset_scales(self) -> (i64, i64) {
         let [xx, yx, xy, yy] = self.0.map(|v| i64::from(v) << 2);
-        (hypot(xx, xy), hypot(yy, yx))
+        (vector_length(xx, xy), vector_length(yy, yx))
     }
 }
 
@@ -162,8 +176,9 @@ impl<'a> Glyf<'a> {
         slice(self.data, start, end - start, GLYF)
     }
 
-    /// The record header and the body that follows it.
-    fn record(&self, glyph: GlyphId) -> Result<Option<(GlyphHeader, &'a [u8])>> {
+    /// The record header and the body that follows it; `None` for glyphs
+    /// without outline.
+    pub(crate) fn record(&self, glyph: GlyphId) -> Result<Option<(GlyphHeader, &'a [u8])>> {
         let data = self.data(glyph)?;
         if data.is_empty() {
             return Ok(None);
@@ -231,9 +246,8 @@ impl<'a> Glyf<'a> {
         mut pp1: i64,
     ) -> Result<i64> {
         let base_points = out.points.len();
-        let mut r = Reader::new(body, GLYF);
-        loop {
-            let component = Component::parse(&mut r)?;
+        let (components, _) = parse_components(body)?;
+        for component in components {
             let start = out.points.len();
             budget.components += 1;
             if budget.components > MAX_COMPONENTS {
@@ -260,28 +274,27 @@ impl<'a> Glyf<'a> {
                     point.y += dy;
                 }
             }
-            if component.flags & MORE_COMPONENTS == 0 {
-                return Ok(pp1);
-            }
         }
+        Ok(pp1)
     }
 }
 
 /// How a component is positioned.
 #[derive(Clone, Copy, Debug)]
-enum Placement {
+pub(crate) enum Placement {
     /// Offset in font units.
     Offset(i64, i64),
     /// Align child point `.1` with parent point `.0`.
     Anchor(usize, usize),
 }
 
+/// One component reference of a composite glyph.
 #[derive(Clone, Copy, Debug)]
-struct Component {
-    flags: u16,
-    glyph: GlyphId,
-    placement: Placement,
-    matrix: Matrix,
+pub(crate) struct Component {
+    pub(crate) flags: u16,
+    pub(crate) glyph: GlyphId,
+    pub(crate) placement: Placement,
+    pub(crate) matrix: Matrix,
 }
 
 impl Component {
@@ -327,6 +340,23 @@ impl Component {
         })
     }
 
+    /// Whether the component carries a scale or 2×2 matrix (FreeType
+    /// transforms its points then, whatever the matrix values).
+    pub(crate) const fn has_transform(&self) -> bool {
+        self.flags & (HAVE_SCALE | HAVE_XY_SCALE | HAVE_TWO_BY_TWO) != 0
+    }
+
+    /// The offset `(x, y)` in font units, scaled by the matrix for
+    /// `SCALED_COMPONENT_OFFSET` components.
+    pub(crate) fn matrix_scaled_offset(&self, x: i64, y: i64) -> (i64, i64) {
+        if self.has_transform() && self.flags & SCALED_COMPONENT_OFFSET != 0 {
+            let (sx, sy) = self.matrix.offset_scales();
+            (mul_fix(x, sx), mul_fix(y, sy))
+        } else {
+            (x, y)
+        }
+    }
+
     /// Translation to apply to the component points (already transformed)
     /// that start at index `start` in `out`.
     fn offset(
@@ -337,16 +367,9 @@ impl Component {
         start: usize,
     ) -> Result<(f64, f64)> {
         match self.placement {
-            Placement::Offset(mut x, mut y) => {
-                if x == 0 && y == 0 {
-                    return Ok((0.0, 0.0));
-                }
-                let have_scale = self.flags & (HAVE_SCALE | HAVE_XY_SCALE | HAVE_TWO_BY_TWO) != 0;
-                if have_scale && self.flags & SCALED_COMPONENT_OFFSET != 0 {
-                    let (sx, sy) = self.matrix.offset_scales();
-                    x = mul_fix(x, sx);
-                    y = mul_fix(y, sy);
-                }
+            Placement::Offset(0, 0) => Ok((0.0, 0.0)),
+            Placement::Offset(x, y) => {
+                let (x, y) = self.matrix_scaled_offset(x, y);
                 Ok((scaling.x(x), scaling.y(y)))
             }
             Placement::Anchor(parent, child) => {
@@ -357,22 +380,61 @@ impl Component {
                 let child = out.points.get(start..).and_then(|points| points.get(child));
                 match (parent, child) {
                     (Some(p), Some(c)) => Ok((p.x - c.x, p.y - c.y)),
-                    _ => Err(FontError::malformed(
-                        GLYF,
-                        "component anchor point out of range",
-                    )),
+                    _ => Err(bad_anchor()),
                 }
             }
         }
     }
 }
 
+/// The error for a component anchor point that does not exist.
+pub(crate) const fn bad_anchor() -> FontError {
+    FontError::malformed(GLYF, "component anchor point out of range")
+}
+
+/// The components of a composite glyph body (after the 10-byte header)
+/// and the bytes that follow them (the instructions, if any).
+pub(crate) fn parse_components(body: &[u8]) -> Result<(Vec<Component>, &[u8])> {
+    let mut r = Reader::new(body, GLYF);
+    let mut components = Vec::new();
+    loop {
+        let component = Component::parse(&mut r)?;
+        components.push(component);
+        if component.flags & MORE_COMPONENTS == 0 {
+            return Ok((components, tail(body, r.pos(), GLYF)?));
+        }
+    }
+}
+
+/// One point of a simple glyph in font units.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct RawPoint {
+    pub(crate) x: i64,
+    pub(crate) y: i64,
+    pub(crate) on_curve: bool,
+}
+
+/// A decoded simple glyph.
+#[derive(Clone, Debug)]
+pub(crate) struct SimpleGlyph<'a> {
+    /// Index of the last point of each contour (strictly increasing).
+    pub(crate) ends: Array<'a, u16>,
+    /// The glyph program.
+    pub(crate) instructions: &'a [u8],
+    /// The points, in font units.
+    pub(crate) points: Vec<RawPoint>,
+}
+
 /// Decodes a simple glyph body (after the 10-byte header).
-fn load_simple(body: &[u8], contours: usize, scaling: Scaling, out: &mut Outline) -> Result<()> {
+pub(crate) fn parse_simple(body: &[u8], contours: usize) -> Result<SimpleGlyph<'_>> {
     let mut r = Reader::new(body, GLYF);
     let ends: Array<'_, u16> = r.array(contours)?;
     let Some(last) = ends.last() else {
-        return Ok(());
+        return Ok(SimpleGlyph {
+            ends,
+            instructions: &[],
+            points: Vec::new(),
+        });
     };
     let mut previous: Option<u16> = None;
     for end in ends.iter() {
@@ -385,11 +447,8 @@ fn load_simple(body: &[u8], contours: usize, scaling: Scaling, out: &mut Outline
         previous = Some(end);
     }
     let count = usize::from(last) + 1;
-    if out.points.len() + count > MAX_POINTS {
-        return Err(FontError::malformed(GLYF, "glyph has too many points"));
-    }
-    let instructions = usize::from(r.u16()?);
-    r.skip(instructions)?;
+    let instruction_count = usize::from(r.u16()?);
+    let instructions = r.bytes(instruction_count)?;
 
     let mut flags = Vec::with_capacity(count);
     while flags.len() < count {
@@ -402,17 +461,38 @@ fn load_simple(body: &[u8], contours: usize, scaling: Scaling, out: &mut Outline
     }
     let xs = read_coordinates(&mut r, &flags, X_SHORT, X_SAME_OR_POSITIVE)?;
     let ys = read_coordinates(&mut r, &flags, Y_SHORT, Y_SAME_OR_POSITIVE)?;
+    let points = flags
+        .iter()
+        .zip(xs.into_iter().zip(ys))
+        .map(|(&flag, (x, y))| RawPoint {
+            x,
+            y,
+            on_curve: flag & ON_CURVE != 0,
+        })
+        .collect();
+    Ok(SimpleGlyph {
+        ends,
+        instructions,
+        points,
+    })
+}
 
+/// Decodes a simple glyph body into `out`, scaled by `scaling`.
+fn load_simple(body: &[u8], contours: usize, scaling: Scaling, out: &mut Outline) -> Result<()> {
+    let glyph = parse_simple(body, contours)?;
+    if out.points.len() + glyph.points.len() > MAX_POINTS {
+        return Err(FontError::malformed(GLYF, "glyph has too many points"));
+    }
     let mut contour_start = 0;
-    for end in ends.iter() {
+    for end in glyph.ends.iter() {
         let end = usize::from(end) + 1;
-        for index in contour_start..end {
-            let kind = if flags[index] & ON_CURVE != 0 {
+        for point in &glyph.points[contour_start..end] {
+            let kind = if point.on_curve {
                 PointKind::OnCurve
             } else {
                 PointKind::Quadratic
             };
-            out.push(scaling.x(xs[index]), scaling.y(ys[index]), kind);
+            out.push(scaling.x(point.x), scaling.y(point.y), kind);
         }
         out.end_contour();
         contour_start = end;
@@ -449,4 +529,4 @@ fn read_coordinates(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

@@ -26,6 +26,6 @@ pub use engine::{FontRequest, TextEngine};
 pub use error::TextError;
 pub use plt_font::{
     AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
-    GenericFamilies, GlyphId, Stretch, Weight,
+    GenericFamilies, GlyphId, Hinting, Stretch, Weight,
 };
 pub use run::{GlyphChars, PlacedGlyph, TextAnchor, TextRun, TextSource};

@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-use plt_core::Bbox;
+use plt_core::{Bbox, Point};
 
 use super::{
     AggFilter, Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext, Picker,
@@ -113,6 +113,16 @@ impl RawHandle {
             .get_mut(self.id)
             .unwrap_or_else(|| self.gone())
             .base_mut())
+    }
+
+    /// Whether display point `at` hits the artist in the figure's current
+    /// layout, and which of its items (matplotlib's `contains`); `None`
+    /// when it misses.
+    pub(crate) fn hit_test(&self, at: Point) -> Option<Vec<usize>> {
+        let mut state = self.figure.borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        layout.store().get(self.id)?.pick_hit(&layout, at, None)
     }
 
     fn gone(&self) -> ! {

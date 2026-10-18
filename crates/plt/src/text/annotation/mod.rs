@@ -8,6 +8,7 @@
 //! properties.
 
 mod arrow;
+mod drag;
 
 use std::ops::Deref;
 
@@ -19,6 +20,7 @@ pub use arrow::{ArrowProps, FancyArrowProps, LegacyArrowProps};
 use super::{Text, TextArtist, TextDrawError};
 use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle};
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
+use crate::events::Dragger;
 use crate::patches::{ClipRegion, DisplayPath};
 
 /// The options of [`Axes::annotate`](crate::axes::Axes::annotate)
@@ -47,6 +49,8 @@ pub(crate) struct AnnotationState {
     pub(crate) textcoords: Coords,
     pub(crate) arrow: Option<AnnotationArrow>,
     pub(crate) annotation_clip: Option<bool>,
+    /// The callbacks dragging the annotation, while it is draggable.
+    pub(crate) dragger: Option<Dragger>,
 }
 
 impl AnnotationState {
@@ -70,6 +74,7 @@ impl AnnotationState {
                 .arrowprops
                 .map(|props| AnnotationArrow::new(props, rc)),
             annotation_clip: options.annotation_clip,
+            dragger: None,
         })
     }
 
@@ -113,6 +118,34 @@ impl AnnotationState {
             .textcoords
             .resolve(&Self::frame(text, layout, Some(point)))?
             .transform_point(text.position))
+    }
+
+    /// The display position of the text (matplotlib's
+    /// `get_transform().transform(xyann)`).
+    pub(crate) fn text_display(
+        &self,
+        text: &TextArtist,
+        layout: LayoutContext<'_>,
+    ) -> Result<Point, CoordError> {
+        let point = self.point(text, layout)?;
+        self.anchor(text, layout, point)
+    }
+
+    /// The text position, in the text coordinates, that puts the text at
+    /// display position `at`; `None` when the coordinates cannot be
+    /// inverted.
+    pub(crate) fn text_position_at(
+        &self,
+        text: &TextArtist,
+        layout: LayoutContext<'_>,
+        at: Point,
+    ) -> Option<Point> {
+        let point = self.point(text, layout).ok()?;
+        let transform = self
+            .textcoords
+            .resolve(&Self::frame(text, layout, Some(point)))
+            .ok()?;
+        Some(transform.inverted()?.transform_point(at))
     }
 
     /// Whether the annotation is drawn (`_check_xy`).

@@ -43,6 +43,7 @@
 //! coordinates there, remembers the held button and key, and emits axes
 //! enter/leave events as the pointer moves.
 
+mod drag;
 mod lock;
 mod pick;
 mod registry;
@@ -53,6 +54,7 @@ pub(crate) mod wait;
 use crate::axes::Axes;
 use crate::navigation::PointerButton;
 
+pub(crate) use drag::{DragTarget, Dragger};
 pub use lock::{CursorShape, LockError, LockOwner};
 pub use pick::PickEvent;
 pub(crate) use registry::CallbackRegistry;

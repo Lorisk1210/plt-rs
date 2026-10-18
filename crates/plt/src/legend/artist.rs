@@ -1,14 +1,16 @@
 //! The legend artist: a frame, a title and one handle plus label per
 //! entry, laid out by an offset-box tree (matplotlib's `Legend`).
 
-use plt_core::Bbox;
+use plt_core::{Bbox, Point};
 
 use super::LegendMode;
 use super::handlers::Attach;
 use super::settings::{Location, OutsideEdge, Settings};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
 use crate::collections::CollectionArtist;
+use crate::events::Dragger;
 use crate::offsetbox::{ArtistRef, OffsetBox};
+use crate::patches::{FancyBboxPatch, PatchArtist};
 use crate::transforms::Transform;
 
 /// What a legend is placed in.
@@ -109,6 +111,8 @@ pub(crate) struct LegendArtist {
     /// (matplotlib's `ax.add_artist(legend)`): a new axes legend does not
     /// replace it and it is no longer the axes' legend.
     pub(crate) kept: bool,
+    /// The callbacks dragging the legend, while it is draggable.
+    pub(crate) dragger: Option<Dragger>,
 }
 
 impl LegendArtist {
@@ -155,5 +159,12 @@ impl Artist for LegendArtist {
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         self.layout(*ctx).ok().map(|layout| layout.extent)
+    }
+
+    /// matplotlib's `Legend.contains`: on the frame.
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        ctx.store()
+            .get_as::<PatchArtist<FancyBboxPatch>>(self.frame)
+            .is_some_and(|frame| frame.contains_unpicked(*ctx, point))
     }
 }

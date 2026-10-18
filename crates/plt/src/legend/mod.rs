@@ -29,6 +29,7 @@
 mod artist;
 mod best;
 mod build;
+mod drag;
 mod error;
 mod handle;
 mod handlers;
@@ -39,6 +40,7 @@ mod settings;
 #[cfg(test)]
 mod tests;
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub(crate) use artist::LegendArtist;
@@ -76,6 +78,15 @@ impl ArtistHandle for Legend {
 impl Legend {
     fn handle(&self, id: ArtistId) -> RawHandle {
         RawHandle::new(Rc::clone(self.raw.figure_state()), id)
+    }
+
+    /// The handle of the new legend `id`, draggable if asked.
+    fn made(figure: &Rc<RefCell<FigureState>>, id: ArtistId, draggable: bool) -> Self {
+        let legend = Self {
+            raw: RawHandle::new(Rc::clone(figure), id),
+        };
+        legend.set_draggable(draggable);
+        legend
     }
 
     fn read<R>(&self, f: impl FnOnce(&LegendArtist) -> R) -> R {
@@ -221,9 +232,8 @@ impl Axes {
         for old in previous {
             state.remove_artist(old);
         }
-        Ok(Legend {
-            raw: RawHandle::new(Rc::clone(figure), id),
-        })
+        drop(state);
+        Ok(Legend::made(figure, id, options.draggable))
     }
 
     /// The axes legend, if it has one (matplotlib's `get_legend`).
@@ -282,9 +292,8 @@ impl Figure {
             entries,
             &options,
         )?;
-        Ok(Legend {
-            raw: RawHandle::new(Rc::clone(figure), id),
-        })
+        drop(state);
+        Ok(Legend::made(figure, id, options.draggable))
     }
 
     /// The figure legends in the order they were made (matplotlib's

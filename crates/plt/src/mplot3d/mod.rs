@@ -82,6 +82,7 @@ mod share;
 mod state;
 mod stem;
 mod surface;
+mod test_data;
 mod trisurf;
 mod voxels;
 
@@ -106,6 +107,7 @@ pub use scatter::Scatter3DOptions;
 pub use shade::LightSource;
 pub use stem::{Stem3D, Stem3DOptions};
 pub use surface::{Sampling, SurfaceOptions, WireframeOptions};
+pub use test_data::test_data;
 pub use trisurf::TrisurfOptions;
 pub use voxels::{Array3, VoxelColors, VoxelOptions};
 

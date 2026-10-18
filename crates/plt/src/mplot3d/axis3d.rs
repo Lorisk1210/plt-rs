@@ -188,7 +188,7 @@ impl Axis3DState {
             settings,
             label: AxisLabel3D {
                 text: String::new(),
-                font: crate::axes::axis::label_font(rc),
+                font: crate::axes::axis_label::label_font(rc),
                 color: rc.axes_labelcolor.clone(),
                 pad: rc.axes_labelpad,
                 rotate: None,

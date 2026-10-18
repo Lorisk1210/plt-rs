@@ -12,6 +12,7 @@ plt-codec.workspace = true
 plt-core.workspace = true
 plt-font.workspace = true
 plt-render.workspace = true
+plt-text.workspace = true
 
 [lints]
 workspace = true

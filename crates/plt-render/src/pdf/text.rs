@@ -173,7 +173,9 @@ impl PdfRenderer {
             return;
         };
         self.check_gc(gc, Some(gc.stroke_color()));
-        if let TextSource::Plain { text, font } = source
+        // Core-font text ignores the features and language, as matplotlib
+        // does.
+        if let TextSource::Plain { text, font, .. } = source
             && self.options.core_fonts
         {
             self.core_font_text(text, font, origin, angle);

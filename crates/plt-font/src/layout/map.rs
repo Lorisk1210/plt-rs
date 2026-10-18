@@ -94,6 +94,7 @@ struct FeatureMap {
     index: [Option<u16>; 2],
     stage: [usize; 2],
     mask: Mask,
+    shift: u32,
     one_mask: Mask,
     needs_fallback: bool,
     auto_zwnj: bool,
@@ -124,11 +125,12 @@ pub(crate) struct MapBuilder<'a, P> {
 }
 
 impl<'a, P: Copy> MapBuilder<'a, P> {
-    /// A builder for text in `script` (OpenType tag) and `language`.
-    pub(crate) fn new(face: &Face<'a>, script: Option<Tag>, language: Option<Tag>) -> Self {
+    /// A builder for text whose script and language look for the OpenType
+    /// tags `scripts` and `languages`, most preferred first.
+    pub(crate) fn new(face: &Face<'a>, scripts: &[Tag], languages: &[Tag]) -> Self {
         let select = |table: Option<&LayoutTable<'a>>| {
             let table = *table?;
-            let (script, lang_sys) = select_lang_sys(&table, script, language)?;
+            let (script, lang_sys) = select_lang_sys(&table, scripts, languages)?;
             Some(Selected {
                 table,
                 script,
@@ -267,6 +269,7 @@ impl<'a, P: Copy> MapBuilder<'a, P> {
                 index,
                 stage: info.stage,
                 mask,
+                shift,
                 one_mask: (1 << shift) & mask,
                 needs_fallback: !found,
                 auto_zwnj: !info.flags.contains(FeatureFlags::MANUAL_ZWNJ),
@@ -365,6 +368,14 @@ impl<P> Map<P> {
         self.features.iter().find(|map| map.tag == tag)
     }
 
+    /// The mask bits of feature `tag` and `value` in them (HarfBuzz's
+    /// `get_mask` with the value shifted into place), `None` when the
+    /// feature is not in the map.
+    pub(crate) fn value_bits(&self, tag: Tag, value: u32) -> Option<(Mask, Mask)> {
+        self.feature(tag)
+            .map(|map| (map.mask, (value << map.shift) & map.mask))
+    }
+
     /// Mask bits enabling feature `tag` with value 1 (0 when the feature is
     /// not in the map).
     pub(crate) fn one_mask(&self, tag: Tag) -> Mask {
@@ -397,7 +408,7 @@ mod tests {
 
     fn selected(data: &[u8]) -> Selected<'_> {
         let table = LayoutTable::parse(data, Tag::new(b"GSUB"), 7).unwrap();
-        let (script, lang_sys) = select_lang_sys(&table, Some(Tag::new(b"arab")), None).unwrap();
+        let (script, lang_sys) = select_lang_sys(&table, &[Tag::new(b"arab")], &[]).unwrap();
         Selected {
             table,
             script,
@@ -488,5 +499,12 @@ mod tests {
         let mask = map.one_mask(Tag::new(b"aalt"));
         assert_eq!(mask, 1 << FIRST_FEATURE_BIT);
         assert_eq!(map.global_mask() & mask, mask);
+        let bits = 0b11 << FIRST_FEATURE_BIT;
+        assert_eq!(
+            map.value_bits(Tag::new(b"aalt"), 2),
+            Some((bits, 0b10 << FIRST_FEATURE_BIT))
+        );
+        assert_eq!(map.value_bits(Tag::new(b"aalt"), 7), Some((bits, bits)));
+        assert_eq!(map.value_bits(Tag::new(b"kern"), 1), None);
     }
 }

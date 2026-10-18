@@ -9,6 +9,15 @@ pub enum TextError {
     Font(String),
     /// A mathtext expression is malformed.
     Math(String),
+    /// A language range reaches outside the text it was given for.
+    LanguageRange {
+        /// The range's language, as written.
+        language: String,
+        /// Index of its first character.
+        start: usize,
+        /// Index one past its last character.
+        end: usize,
+    },
 }
 
 impl fmt::Display for TextError {
@@ -16,6 +25,15 @@ impl fmt::Display for TextError {
         match self {
             Self::Font(why) => write!(f, "font error: {why}"),
             Self::Math(why) => write!(f, "mathtext error: {why}"),
+            Self::LanguageRange {
+                language,
+                start,
+                end,
+            } => write!(
+                f,
+                "failed to set language between {start} and {end} characters to '{language}' \
+                 for layout"
+            ),
         }
     }
 }

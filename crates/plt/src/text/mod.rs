@@ -10,6 +10,11 @@
 //!
 //! A text may draw a box behind itself ([`TextBoxProps`]) and, as an
 //! [`Annotation`], an arrow to the point it annotates.
+//!
+//! A text drawn on a single line is shaped with its OpenType [`Feature`]s
+//! and its [`Language`] (`text.language` unless set), in every backend
+//! that shapes text; its measured extent ignores both, as matplotlib's
+//! does.
 
 mod annotation;
 mod error;
@@ -23,7 +28,7 @@ mod wrap;
 use std::rc::Rc;
 
 use plt_core::{Bbox, Point};
-use plt_text::{BlockStyle, HAlign, RotationMode, TextAnchor, TextRun, VAlign};
+use plt_text::{BlockStyle, HAlign, RotationMode, Shaping, TextAnchor, TextRun, VAlign};
 
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
 use crate::colors::Color;
@@ -37,13 +42,15 @@ pub use annotation::{AnnotateOptions, Annotation, ArrowProps, FancyArrowProps, L
 pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget};
 pub use error::TextDrawError;
 pub use handle::{Text, TextProps};
+use layout::rc_language;
 pub use layout::{LaidOutText, measure_text, text_path};
 pub(crate) use layout::{lay_out, lay_out_with_math};
 pub use math::math_style;
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
 pub use plt_text::{
-    BlockLayout, HAlign as HorizontalAlignment, LineMetrics, LinePlacement, LineSpacing,
-    RotationMode as TextRotationMode, TextError, VAlign as VerticalAlignment,
+    BlockLayout, Feature, HAlign as HorizontalAlignment, Language, LanguageRange, LanguageTag,
+    LineMetrics, LinePlacement, LineSpacing, ParseFeatureError, RotationMode as TextRotationMode,
+    TextError, VAlign as VerticalAlignment,
 };
 pub use text_box::TextBoxProps;
 pub(crate) use text_box::{BoxPlacement, TextBox};
@@ -88,6 +95,10 @@ pub(crate) struct TextArtist {
     pub(crate) wrap: bool,
     /// Whether `$...$` is typeset as math.
     pub(crate) parse_math: bool,
+    /// OpenType feature settings for drawing the text on one line.
+    pub(crate) fontfeatures: Vec<Feature>,
+    /// The language of the text (`text.language` when the text was made).
+    pub(crate) language: Option<Language>,
     /// The box drawn behind the text.
     pub(crate) bbox: Option<TextBox>,
     /// What makes the text an annotation.
@@ -116,6 +127,8 @@ impl TextArtist {
             antialiased: rc.text_antialiased,
             wrap: false,
             parse_math: rc.text_parse_math,
+            fontfeatures: Vec::new(),
+            language: rc_language(&rc),
             bbox: None,
             annotation: None,
             rc,
@@ -137,6 +150,22 @@ impl TextArtist {
             .map_or(rotation, |transform| {
                 transform.transform_angle(rotation, self.position)
             })
+    }
+
+    /// `set_language(None)` means `text.language` (matplotlib's
+    /// `_val_or_rc`).
+    fn resolve_language(&mut self) {
+        if self.language.is_none() {
+            self.language = rc_language(&self.rc);
+        }
+    }
+
+    /// The features and language the text is drawn with.
+    fn shaping(&self) -> Shaping {
+        Shaping {
+            features: self.fontfeatures.clone(),
+            language: self.language.clone(),
+        }
     }
 
     /// Alignment and rotation of the block. Wrapped text always aligns
@@ -300,7 +329,7 @@ impl TextArtist {
             bbox.draw(ctx, &self.base, &self.rc, &placement)
                 .map_err(TextDrawError::Box)?;
         }
-        let mut laid_out = self.layout_at(layout, anchor)?;
+        let mut laid_out = self.layout_at(layout, anchor)?.shaped(&self.shaping())?;
         if !self.base.path_effects.is_empty() {
             laid_out =
                 laid_out.as_text_paths(&self.font, self.parse_math, layout.dpi(), &self.rc)?;

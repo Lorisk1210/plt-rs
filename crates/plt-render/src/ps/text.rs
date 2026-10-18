@@ -141,7 +141,8 @@ impl PsRenderer {
             crate::renderer::fill_text(self, gc, run, origin, angle);
             return;
         };
-        if let (TextSource::Plain { text, font }, Some(directory)) =
+        // AFM text ignores the features and language, as matplotlib does.
+        if let (TextSource::Plain { text, font, .. }, Some(directory)) =
             (source, self.options.afm_directory())
         {
             self.afm_text(gc, text, font, directory, origin, angle);

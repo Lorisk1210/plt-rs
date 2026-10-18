@@ -324,9 +324,10 @@ impl<'a> LayoutTable<'a> {
             .map(|record| record.tag)
     }
 
-    /// The language system for `script`/`language`, falling back to the
-    /// script's default language system.
-    pub(crate) fn lang_sys(&self, script: Tag, language: Option<Tag>) -> Option<LangSys<'a>> {
+    /// The language system of `script` for the first of `languages` it
+    /// has, else its language system tagged `dflt`, else its default
+    /// language system (HarfBuzz's `hb_ot_layout_script_select_language`).
+    pub(crate) fn lang_sys(&self, script: Tag, languages: &[Tag]) -> Option<LangSys<'a>> {
         let records = Self::records(self.scripts, self.tag).ok()?;
         let record = records.iter().find(|record| record.tag == script)?;
         let script_data = self.scripts.get(usize::from(record.offset)..)?;
@@ -339,15 +340,14 @@ impl<'a> LayoutTable<'a> {
                 .get(usize::from(offset)..)
                 .and_then(|d| LangSys::parse(d, self.tag).ok())
         };
-        if let Some(lang) =
-            language.and_then(|language| lang_records.iter().find(|record| record.tag == language))
-        {
-            return parse_at(lang.offset);
-        }
-        if default_offset == 0 {
-            None
-        } else {
-            parse_at(default_offset)
+        let chosen = languages
+            .iter()
+            .chain(&[Tag::new(b"dflt")])
+            .find_map(|&language| lang_records.iter().find(|record| record.tag == language));
+        match chosen {
+            Some(record) => parse_at(record.offset),
+            None if default_offset == 0 => None,
+            None => parse_at(default_offset),
         }
     }
 
@@ -474,15 +474,45 @@ pub(crate) mod tests {
         features: &[(&[u8; 4], &[u16])],
         lookups: &[Vec<u8>],
     ) -> Vec<u8> {
+        layout_table_with_languages(script, &[], features, lookups)
+    }
+
+    /// [`layout_table`] whose script also has the language systems
+    /// `languages`, each enabling the listed features.
+    pub(crate) fn layout_table_with_languages(
+        script: [u8; 4],
+        languages: &[(&[u8; 4], &[u16])],
+        features: &[(&[u8; 4], &[u16])],
+        lookups: &[Vec<u8>],
+    ) -> Vec<u8> {
+        let lang_sys = |indices: &[u16]| {
+            let mut out = vec![0, 0, 0xFF, 0xFF];
+            out.extend_from_slice(&(indices.len() as u16).to_be_bytes());
+            for index in indices {
+                out.extend_from_slice(&index.to_be_bytes());
+            }
+            out
+        };
+        let every: Vec<u16> = (0..features.len() as u16).collect();
+        let tables: Vec<Vec<u8>> = std::iter::once(lang_sys(&every))
+            .chain(languages.iter().map(|(_, indices)| lang_sys(indices)))
+            .collect();
+        let mut offsets = Vec::new();
+        let mut at = 4 + 6 * languages.len();
+        for table in &tables {
+            offsets.push(at as u16);
+            at += table.len();
+        }
         let mut script_list = vec![0, 1];
         script_list.extend_from_slice(&script);
         script_list.extend_from_slice(&8u16.to_be_bytes());
-        script_list.extend_from_slice(&[0, 4, 0, 0]);
-        script_list.extend_from_slice(&[0, 0, 0xFF, 0xFF]);
-        script_list.extend_from_slice(&(features.len() as u16).to_be_bytes());
-        for index in 0..features.len() as u16 {
-            script_list.extend_from_slice(&index.to_be_bytes());
+        script_list.extend_from_slice(&offsets[0].to_be_bytes());
+        script_list.extend_from_slice(&(languages.len() as u16).to_be_bytes());
+        for ((tag, _), offset) in languages.iter().zip(&offsets[1..]) {
+            script_list.extend_from_slice(*tag);
+            script_list.extend_from_slice(&offset.to_be_bytes());
         }
+        script_list.extend(tables.concat());
         let mut feature_list = (features.len() as u16).to_be_bytes().to_vec();
         let mut feature_body = Vec::new();
         let header = 2 + 6 * features.len();
@@ -553,11 +583,11 @@ pub(crate) mod tests {
             vec![Tag::new(b"latn")]
         );
         let lang = table
-            .lang_sys(Tag::new(b"latn"), Some(Tag::new(b"ENG ")))
+            .lang_sys(Tag::new(b"latn"), &[Tag::new(b"ENG ")])
             .unwrap();
         assert_eq!(lang.feature_indices.len(), 2);
         assert!(lang.required_feature.is_none());
-        assert!(table.lang_sys(Tag::new(b"grek"), None).is_none());
+        assert!(table.lang_sys(Tag::new(b"grek"), &[]).is_none());
         let (tag, lookups) = table.feature(1).unwrap();
         assert_eq!((tag, lookups.get(0)), (Tag::new(b"kern"), Some(1)));
         let ext = table.lookup(1).unwrap();

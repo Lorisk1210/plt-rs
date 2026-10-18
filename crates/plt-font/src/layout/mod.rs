@@ -16,4 +16,5 @@ pub(crate) mod gdef;
 pub(crate) mod gpos;
 pub(crate) mod gsub;
 pub(crate) mod map;
+pub(crate) mod ot_tags;
 pub(crate) mod synthetic;

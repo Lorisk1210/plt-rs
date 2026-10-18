@@ -1,10 +1,15 @@
 //! Measuring and laying out the lines of a text block, with mathtext for
 //! the lines matplotlib treats as math.
+//!
+//! Lines are measured without the text's features and language
+//! (matplotlib's `get_text_width_height_descent` never sees them); a text
+//! drawn as a single plain line is laid out again with them for drawing,
+//! as matplotlib's backends receive them with single-line texts only.
 
 use plt_core::{Affine2D, Path, Point};
 use plt_text::{
-    BlockLayout, BlockStyle, LineMetrics, PlacedGlyph, TextEngine, TextError, TextRun, TextSource,
-    layout_block,
+    BlockLayout, BlockStyle, Language, LineMetrics, PlacedGlyph, Shaping, TextEngine, TextError,
+    TextRun, TextSource, layout_block,
 };
 
 use super::math::{Line, math_style};
@@ -84,10 +89,33 @@ pub fn text_path(
 }
 
 impl LaidOutText {
+    /// The same text as drawn with `shaping`: a block of a single plain
+    /// line has that line laid out again, in the same font, with the
+    /// features and language (matplotlib's backends lay out the line they
+    /// draw with the artist's settings, and only receive the artist for
+    /// single-line texts). The placement of the lines does not change: it
+    /// comes from the measurement, which never sees the settings.
+    ///
+    /// # Errors
+    ///
+    /// When a language range reaches outside the line.
+    pub(crate) fn shaped(mut self, shaping: &Shaping) -> Result<Self, TextError> {
+        if shaping.is_default() {
+            return Ok(self);
+        }
+        if let [run] = self.runs.as_mut_slice()
+            && let Some(TextSource::Plain { text, font, .. }) = &run.source
+        {
+            *run = TextEngine::global().layout_line_with(text, font, shaping, run.dpi)?;
+        }
+        Ok(self)
+    }
+
     /// The same text with the glyphs of each line placed as matplotlib
     /// draws text through path effects (`RendererBase._draw_text_as_path`):
-    /// typeset by `TextToPath` at 100 points and 72 dpi, unhinted, then
-    /// scaled to `font`'s size at `dpi`. The lines stay where they are; only the
+    /// typeset by `TextToPath` at 100 points and 72 dpi, unhinted (with the
+    /// features and language a line was drawn with), then scaled to
+    /// `font`'s size at `dpi`. The lines stay where they are; only the
     /// glyph positions within them change, as advances and kerning round
     /// differently at that size.
     ///
@@ -112,9 +140,14 @@ impl LaidOutText {
                 if line.is_empty() {
                     return Ok(run.clone());
                 }
-                let path_run = without_hinting(|| {
-                    line_run(&Line::classify(line, parse_math), &typeset, PATH_DPI, rc)
-                })?;
+                let path_run = match &run.source {
+                    Some(source @ TextSource::Plain { shaping, .. }) if !shaping.is_default() => {
+                        source.layout(TextEngine::global(), PATH_FONT_SCALE, PATH_DPI)
+                    }
+                    _ => without_hinting(|| {
+                        line_run(&Line::classify(line, parse_math), &typeset, PATH_DPI, rc)
+                    }),
+                }?;
                 Ok(scaled_run(&path_run, scale, dpi, run.source.clone()))
             })
             .collect::<Result<Vec<_>, TextError>>()?;
@@ -183,7 +216,8 @@ fn line_run(
 /// Lays out `text` (lines separated by `\n`) at `dpi` with matplotlib's
 /// line metrics, stacking and alignment rules; lines with math (see
 /// [`Line::classify`]) are typeset as mathtext when `rc` enables
-/// `text.parse_math`.
+/// `text.parse_math`. A single plain line is drawn in the language of
+/// `text.language`, which matplotlib gives every text it creates.
 pub(crate) fn lay_out(
     text: &str,
     font: &FontProperties,
@@ -191,7 +225,16 @@ pub(crate) fn lay_out(
     dpi: f64,
     rc: &RcParams,
 ) -> Result<LaidOutText, TextError> {
-    lay_out_with_math(text, font, style, dpi, rc, rc.text_parse_math)
+    let shaping = Shaping {
+        features: Vec::new(),
+        language: rc_language(rc),
+    };
+    lay_out_with_math(text, font, style, dpi, rc, rc.text_parse_math)?.shaped(&shaping)
+}
+
+/// The language matplotlib gives the texts it creates: `text.language`.
+pub(crate) fn rc_language(rc: &RcParams) -> Option<Language> {
+    rc.text_language.as_deref().map(Language::from)
 }
 
 /// [`lay_out`] with math parsing switched on or off explicitly (a text's
@@ -214,6 +257,7 @@ pub(crate) fn lay_out_with_math(
                     source: Some(TextSource::Plain {
                         text: String::new(),
                         font: font.request(rc),
+                        shaping: Shaping::default(),
                     }),
                     ..TextRun::default()
                 })
@@ -274,6 +318,52 @@ mod tests {
         let dollars = measure_text("price $5", &font, false, 100.0, &rc).expect("plain");
         assert_eq!(laid_out.runs[1].width, dollars.width);
         assert!(laid_out.runs[2].is_empty());
+    }
+
+    #[test]
+    fn shaping_relays_out_single_plain_lines_only() {
+        let rc = reference();
+        let font = FontProperties::from_rc(&rc);
+        let style = BlockStyle::default();
+        let lay = |text: &str| lay_out(text, &font, &style, 100.0, &rc).expect("valid text");
+        let shaping = Shaping {
+            features: vec!["-liga".parse().expect("valid feature")],
+            language: None,
+        };
+        let single = lay("office");
+        assert_eq!(single.runs[0].glyphs.len(), 4, "o, ffi, c, e");
+        let shaped = single.clone().shaped(&shaping).expect("valid text");
+        assert_eq!(shaped.runs[0].glyphs.len(), 6);
+        assert_eq!(shaped.block, single.block, "placed as measured");
+        let paths = shaped
+            .as_text_paths(&font, true, 100.0, &rc)
+            .expect("valid text");
+        assert_eq!(paths.runs[0].glyphs.len(), 6, "paths keep the features");
+        for unshaped in [lay("office\noffice"), lay("$office$")] {
+            let again = unshaped.clone().shaped(&shaping);
+            assert_eq!(again, Ok(unshaped));
+        }
+        let outside = Shaping {
+            features: Vec::new(),
+            language: Some(vec![plt_text::LanguageRange::new("sr", 0, 9)].into()),
+        };
+        assert!(matches!(
+            single.shaped(&outside),
+            Err(TextError::LanguageRange { .. })
+        ));
+    }
+
+    #[test]
+    fn the_rc_language_shapes_laid_out_lines() {
+        let mut rc = reference();
+        rc.text_language = Some("ca".to_owned());
+        let font = FontProperties::from_rc(&rc);
+        let laid_out =
+            lay_out("office", &font, &BlockStyle::default(), 100.0, &rc).expect("valid text");
+        // DejaVu Sans' Catalan language system has no ligatures.
+        assert_eq!(laid_out.runs[0].glyphs.len(), 6);
+        assert_eq!(rc_language(&rc), Some(Language::from("ca")));
+        assert_eq!(rc_language(&reference()), None);
     }
 
     #[test]

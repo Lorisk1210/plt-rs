@@ -85,10 +85,12 @@ impl<'a> FontChain<'a> {
     }
 
     /// Lays out one line of `text` at `points` / `dpi` like matplotlib's
-    /// `FT2Font.set_text(text, 0, flags)` with the load flags of `hinting`:
-    /// runs split by bidi level, script and font are shaped separately and
-    /// placed one after the other in visual order. Faces `hinting` hints
-    /// (by bytecode or the autohinter) get hinted advances and extents.
+    /// `FT2Font.set_text(text, 0, flags, features, language)` with the load
+    /// flags of `hinting` and the features and languages of `options`:
+    /// runs split by bidi level, script, font and language are shaped
+    /// separately and placed one after the other in visual order. Faces
+    /// `hinting` hints (by bytecode or the autohinter) get hinted advances
+    /// and extents.
     pub fn layout(
         &self,
         text: &str,

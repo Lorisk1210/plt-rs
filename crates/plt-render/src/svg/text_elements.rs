@@ -281,7 +281,9 @@ impl SvgRenderer {
         angle: f64,
     ) {
         match source {
-            TextSource::Plain { text, font } => {
+            // `<text>` elements carry no features or language, as in
+            // matplotlib.
+            TextSource::Plain { text, font, .. } => {
                 self.plain_text_element(gc, run, text, font, origin, angle);
             }
             TextSource::Math { text, .. } => self.math_text_element(gc, run, text, origin, angle),

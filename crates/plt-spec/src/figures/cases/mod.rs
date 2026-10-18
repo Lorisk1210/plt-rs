@@ -25,6 +25,7 @@ mod polar;
 mod pyplot;
 mod scatter;
 mod selectors;
+mod shaping;
 mod spines;
 mod stats;
 mod styles;
@@ -107,6 +108,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         scatter::VARIANTS,
         selectors::CASES,
         spines::CASES,
+        shaping::CASES,
         stats::BOXPLOT,
         stats::ERRORBAR,
         stats::EVENTS,

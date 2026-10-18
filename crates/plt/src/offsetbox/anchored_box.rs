@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use plt_core::Bbox;
+use plt_core::{Bbox, Point};
 
 use super::pending::{Parts, adopt_box, frame_patch};
 use super::{
@@ -14,6 +14,7 @@ use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
 };
 use crate::axes::Axes;
+use crate::events::Dragger;
 use crate::figure::Figure;
 use crate::fonts::FontProperties;
 use crate::patches::{BoxShape, BoxStyle, FancyBboxPatch, Patch, PatchProps};
@@ -123,6 +124,8 @@ enum PadFont {
 pub(crate) struct BoxLayout {
     /// The framed box, in display pixels.
     pub(crate) extent: Bbox,
+    /// Where the child box's origin goes (matplotlib's `get_offset`).
+    pub(crate) offset: Point,
     /// Where the frame, the texts, the artists and the images go.
     pub(crate) placements: Vec<Placement<ArtistId>>,
 }
@@ -146,6 +149,12 @@ pub(crate) struct AnchoredBoxArtist {
     frame: ArtistId,
     /// Every part, for removal with the box.
     parts: Vec<ArtistId>,
+    /// Where the child box's origin was pinned by dragging, in display
+    /// pixels; the box no longer follows its anchor then (matplotlib's
+    /// `set_offset` from `DraggableOffsetBox`).
+    pub(crate) pinned: Option<Point>,
+    /// The callbacks dragging the box, while it is draggable.
+    pub(crate) dragger: Option<Dragger>,
 }
 
 impl AnchoredBoxArtist {
@@ -173,12 +182,14 @@ impl AnchoredBoxArtist {
         }
     }
 
-    /// Lays the box out for the current figure geometry (matplotlib's
-    /// `AnchoredOffsetbox.draw`).
-    pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<BoxLayout, OffsetBoxError> {
-        let fontsize = ctx.points_to_pixels(self.font_size(ctx)?);
-        let pad = self.pad * fontsize;
-        let bbox = self.child.bbox(ctx)?.padded(pad, pad);
+    /// Where the padded child box `bbox`'s origin goes for the box to sit
+    /// at `loc` in its anchor (matplotlib's `get_offset`).
+    fn anchored_offset(
+        &self,
+        ctx: LayoutContext<'_>,
+        bbox: &Bbox,
+        fontsize: f64,
+    ) -> Result<Point, OffsetBoxError> {
         let anchor = self.anchor_box(ctx).ok_or(OffsetBoxError::Detached)?;
         let corner = anchored_bbox(
             self.loc,
@@ -187,7 +198,18 @@ impl AnchoredBoxArtist {
             self.borderpad.0 * fontsize,
             self.borderpad.1 * fontsize,
         );
-        let offset = corner - bbox.p0;
+        Ok(corner - bbox.p0)
+    }
+
+    /// Lays the box out for the current figure geometry (matplotlib's
+    /// `AnchoredOffsetbox.draw`).
+    pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<BoxLayout, OffsetBoxError> {
+        let fontsize = ctx.points_to_pixels(self.font_size(ctx)?);
+        let pad = self.pad * fontsize;
+        let bbox = self.child.bbox(ctx)?.padded(pad, pad);
+        let offset = self
+            .pinned
+            .map_or_else(|| self.anchored_offset(ctx, &bbox, fontsize), Ok)?;
         let extent = bbox.translated(offset.x, offset.y);
         let mut placements = vec![Placement::Frame {
             frame: self.frame,
@@ -195,7 +217,11 @@ impl AnchoredBoxArtist {
             mutation_scale: Some(fontsize),
         }];
         placements.extend(self.child.place(ctx, offset)?);
-        Ok(BoxLayout { extent, placements })
+        Ok(BoxLayout {
+            extent,
+            offset,
+            placements,
+        })
     }
 }
 
@@ -226,6 +252,14 @@ impl Artist for AnchoredBoxArtist {
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         self.layout(*ctx).ok().map(|layout| layout.extent)
+    }
+
+    /// matplotlib's `OffsetBox.contains`: on an artist of the child box.
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        self.child
+            .artists()
+            .into_iter()
+            .any(|&id| ctx.store().get(id).is_some_and(|a| a.contains(ctx, point)))
     }
 }
 
@@ -375,6 +409,8 @@ fn add_anchored(owner: &RawHandle, spec: AnchoredBox) -> AnchoredOffsetbox {
         owner: owner.id(),
         frame,
         parts: parts.clone(),
+        pinned: None,
+        dragger: None,
     };
     let id = adopt_box(&mut state, owner.id(), Box::new(artist), &parts);
     drop(state);

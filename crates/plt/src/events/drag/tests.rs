@@ -135,3 +135,32 @@ fn draggable_annotation_boxes_move_in_their_coordinates() {
     assert!((moved.x - 330.0).abs() < 1e-9 && (moved.y - 180.0).abs() < 1e-9);
     assert_eq!(note.xy(), plt_core::Point::new(100.0, 100.0));
 }
+
+#[test]
+fn dragged_anchored_boxes_stay_where_dropped() {
+    use crate::artist::ArtistHandle;
+    use crate::offsetbox::{AnchorLoc, AnchoredBox, AnchoredOptions};
+    use crate::text::TextProps;
+
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let label = AnchoredBox::text(
+        "label",
+        TextProps::default(),
+        AnchoredOptions::new(AnchorLoc::UpperLeft),
+    )
+    .unwrap();
+    let anchored = ax.add_anchored_box(label);
+    anchored.set_draggable(true);
+    assert!(anchored.draggable());
+    let before = anchored.window_extent().unwrap();
+    let text = anchored.texts()[0].window_extent().unwrap();
+    let inside = (text.center().x, text.center().y);
+    drag(&fig, inside, (inside.0 + 25.0, inside.1 - 15.0));
+    let after = anchored.window_extent().unwrap();
+    assert!((after.x0() - before.x0() - 25.0).abs() < 1e-9);
+    assert!((after.y0() - before.y0() + 15.0).abs() < 1e-9);
+    // It no longer follows the axes.
+    fig.set_size_inches(8.0, 6.0);
+    assert_eq!(anchored.window_extent().unwrap(), after);
+}

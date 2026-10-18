@@ -1,6 +1,7 @@
 //! Rust translations of the spec's figure cases, one module per group.
 
 mod axes;
+mod axisartist;
 mod bars;
 mod basic;
 mod colorbar;
@@ -42,6 +43,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         axes::SPINES,
         axes::TICKS,
         axes::TWINS,
+        axisartist::CASES,
         bars::CASES,
         basic::CASES,
         colorbar::CASES,

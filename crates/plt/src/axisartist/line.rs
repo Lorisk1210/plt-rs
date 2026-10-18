@@ -11,6 +11,95 @@ use plt_render::{CapStyle, JoinStyle};
 use crate::colors::Color;
 use crate::patches::{ArrowStyle, CurveEnd, DisplayPath, PatchError, PatchStyle};
 use crate::rc::RcParams;
+use crate::transforms::ResolvedTransform;
+
+/// The line of an axis artist (matplotlib's `AxisArtist.line`: a
+/// `PathPatch`, or a `FancyArrowPatch` with an axis line style).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct LineState {
+    /// The arrow style; `None` draws a plain line.
+    pub(crate) style: Option<AxislineStyle>,
+    /// Whether the line is clipped to the axes box.
+    pub(crate) clipped: bool,
+    pub(crate) visible: bool,
+    /// The colour (`None` = `axes.edgecolor`, or the arrow's default).
+    pub(crate) color: Option<Color>,
+    /// The width in points (`None` = `axes.linewidth`, or
+    /// `patch.linewidth` for arrows).
+    pub(crate) linewidth: Option<f64>,
+}
+
+impl Default for LineState {
+    /// A visible plain line, unclipped.
+    fn default() -> Self {
+        Self {
+            style: None,
+            clipped: false,
+            visible: true,
+            color: None,
+            linewidth: None,
+        }
+    }
+}
+
+impl LineState {
+    /// The line `path` (in `transform`'s coordinates) as display paths:
+    /// the path itself, or the arrow of the style for tick labels of
+    /// `label_size` points (matplotlib's `_draw_line`).
+    pub(crate) fn display_paths(
+        &self,
+        path: &Path,
+        transform: &ResolvedTransform,
+        label_size: f64,
+        rc: &RcParams,
+        dpi_cor: f64,
+    ) -> Result<Vec<DisplayPath>, String> {
+        match &self.style {
+            None => {
+                let (path, affine) = transform.split_path(path);
+                Ok(vec![DisplayPath::filled(path.into_owned(), affine)])
+            }
+            Some(style) => style
+                .display_paths(
+                    &transform.transform_path(path),
+                    label_size,
+                    self.linewidth.unwrap_or(rc.patch_linewidth),
+                    dpi_cor,
+                )
+                .map_err(|e| e.to_string()),
+        }
+    }
+
+    /// The look of the line and whether its edge takes the patch default:
+    /// a `PathPatch` in `axes.edgecolor` and `axes.linewidth`, unfilled,
+    /// or the arrow's `FancyArrowPatch`, with the colour and width set
+    /// (matplotlib's `_init_line`).
+    pub(crate) fn patch_style(&self, rc: &RcParams) -> (PatchStyle, bool) {
+        let (mut style, edge_default) = match &self.style {
+            None => (
+                PatchStyle {
+                    edgecolor: Some(rc.axes_edgecolor.clone()),
+                    facecolor: Some(rc.axes_edgecolor.clone()),
+                    fill: false,
+                    linewidth: Some(rc.axes_linewidth),
+                    capstyle: rc.lines_solid_capstyle,
+                    joinstyle: rc.lines_solid_joinstyle,
+                    ..PatchStyle::from_rc(rc)
+                },
+                false,
+            ),
+            Some(style) => (style.patch_style(rc), true),
+        };
+        if let Some(color) = &self.color {
+            style.edgecolor = Some(color.clone());
+            style.facecolor = Some(color.clone());
+        }
+        if let Some(width) = self.linewidth {
+            style.linewidth = Some(width);
+        }
+        (style, edge_default)
+    }
+}
 
 /// How the line of an axis artist is drawn (matplotlib's
 /// `AxislineStyle`).

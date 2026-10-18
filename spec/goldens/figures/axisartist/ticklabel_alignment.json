@@ -1,0 +1,45 @@
+{
+ "size_px": [300, 500],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.5, 0.705, 0.4, 0.175],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "va=baseline",
+   "ylabel": "ha=right",
+   "xticks": [[0.2, "$\\frac{1}{2}\\pi$"], [0.8, "$\\pi$"]],
+   "yticks": [[0.2, "short"], [0.8, "loooong"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.5, 0.4075, 0.4, 0.175],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "va=top",
+   "ylabel": "ha=center",
+   "xticks": [[0.2, "$\\frac{1}{2}\\pi$"], [0.8, "$\\pi$"]],
+   "yticks": [[0.2, "short"], [0.8, "loooong"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.5, 0.11, 0.4, 0.175],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "va=bottom",
+   "ylabel": "ha=left",
+   "xticks": [[0.2, "$\\frac{1}{2}\\pi$"], [0.8, "$\\pi$"]],
+   "yticks": [[0.2, "short"], [0.8, "loooong"]]
+  }
+ ]
+}

@@ -4,7 +4,7 @@
 //! output.
 
 use plt_core::{Bbox, Rgba};
-use plt_render::JoinStyle;
+use plt_render::{ClipPath, JoinStyle};
 
 use super::Axes;
 use super::axis_layout::AxisPainter;
@@ -145,7 +145,7 @@ impl AxesState {
         }
     }
 
-    /// Draws the background patch of a framed axes.
+    /// Draws the background patch of a framed axes, along its outline.
     fn draw_background(&self, ctx: &mut DrawContext<'_>, extent: Bbox) {
         if !(self.decorations.framed() && self.patch.visible) {
             return;
@@ -160,14 +160,17 @@ impl AxesState {
                 gc.foreground = Rgba::TRANSPARENT;
                 gc.join = JoinStyle::Miter;
                 let face = (!face.is_transparent()).then_some(face);
+                let outline = ctx
+                    .layout()
+                    .clip_outline(base.id())
+                    .unwrap_or_else(|| ClipPath {
+                        path: self.patch_path(),
+                        transform: unit_to_bbox(&extent),
+                    });
                 ctx.draw_artist(false, |ctx| {
                     with_path_effects(ctx, &base.path_effects, |ctx| {
-                        ctx.renderer().draw_path(
-                            &gc,
-                            &self.patch_path(),
-                            &unit_to_bbox(&extent),
-                            face,
-                        );
+                        ctx.renderer()
+                            .draw_path(&gc, &outline.path, &outline.transform, face);
                     });
                 });
             }

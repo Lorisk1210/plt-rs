@@ -47,6 +47,14 @@ pub(crate) struct PolarMap {
 }
 
 impl PolarMap {
+    /// matplotlib's `PolarTransform()` without an axis: radii are drawn
+    /// as they are, from the origin.
+    pub(crate) const PLAIN: Self = Self {
+        scaled_origin: 0.0,
+        origin: 0.0,
+        sign: 1.0,
+    };
+
     /// The distance from the centre of a scaled radius (negative inside
     /// the origin).
     fn radius(&self, r: f64) -> f64 {

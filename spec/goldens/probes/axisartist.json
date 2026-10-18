@@ -1,0 +1,1603 @@
+{
+ "area": "axisartist",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 7, "ny": 9, "lon_cycle": 360, "lat_cycle": 360, "lon_minmax": [-90, 90], "lat_minmax": [-90, 90], "transform": "polar_degrees", "bbox": [-3, -4, -1, 4]},
+   "value": [82.3323130301912, 0.5555555555555554, 90.0, 5.444444444444445]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {
+    "nx": 20,
+    "ny": 20,
+    "lon_cycle": 360,
+    "lat_cycle": null,
+    "lon_minmax": null,
+    "lat_minmax": [0, Infinity],
+    "transform": "polar_degrees",
+    "bbox": [-3, -4, -1, 4]
+   },
+   "value": [96.43986781471912, 0.8230164332049987, 263.56013218528085, 5.198903979371191]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 20, "ny": 20, "lon_cycle": null, "lat_cycle": null, "lon_minmax": null, "lat_minmax": null, "transform": "polar", "bbox": [-3, -4, -1, 4]},
+   "value": [1.6831932235549574, 0.8230164332049987, 4.599992083624629, 5.198903979371191]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 7, "ny": 9, "lon_cycle": 360, "lat_cycle": 360, "lon_minmax": [-90, 90], "lat_minmax": [-90, 90], "transform": "polar_degrees", "bbox": [-5, -5, 12, 10]},
+   "value": [-90.0, -0.7202539928190109, 90.0, 17.25457468627654]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {
+    "nx": 20,
+    "ny": 20,
+    "lon_cycle": 360,
+    "lat_cycle": null,
+    "lon_minmax": null,
+    "lat_minmax": [0, Infinity],
+    "transform": "polar_degrees",
+    "bbox": [-5, -5, 12, 10]
+   },
+   "value": [-194.53612282273278, 0.0, 165.46387717726722, 16.37888662133281]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 20, "ny": 20, "lon_cycle": null, "lat_cycle": null, "lon_minmax": null, "lat_minmax": null, "transform": "polar", "bbox": [-5, -5, 12, 10]},
+   "value": [-0.2670398142421199, -0.30563330809620554, 6.572130369048543, 16.37888662133281]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 7, "ny": 9, "lon_cycle": 360, "lat_cycle": 360, "lon_minmax": [-90, 90], "lat_minmax": [-90, 90], "transform": "polar_degrees", "bbox": [0, 0, 10, 10]},
+   "value": [-12.857142857142854, -1.5713484026367723, 90.0, 15.713484026367723]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 20, "ny": 20, "lon_cycle": 360, "lat_cycle": null, "lon_minmax": null, "lat_minmax": [0, Infinity], "transform": "polar_degrees", "bbox": [0, 0, 10, 10]},
+   "value": [-4.500000000000007, 0.0, 94.5, 14.849242404917499]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 20, "ny": 20, "lon_cycle": null, "lat_cycle": null, "lon_minmax": null, "lat_minmax": null, "transform": "polar", "bbox": [0, 0, 10, 10]},
+   "value": [-0.07853981633974494, -0.7071067811865479, 1.6493361431346414, 14.849242404917499]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 7, "ny": 9, "lon_cycle": 360, "lat_cycle": 360, "lon_minmax": [-90, 90], "lat_minmax": [-90, 90], "transform": "polar_degrees", "bbox": [1, 1, 3, 2]},
+   "value": [12.006377394350583, 1.1707315942518846, 69.86352025149344, 3.8490332435851995]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 20, "ny": 20, "lon_cycle": 360, "lat_cycle": null, "lon_minmax": null, "lat_minmax": [0, Infinity], "transform": "polar_degrees", "bbox": [1, 1, 3, 2]},
+   "value": [16.184948822922006, 1.3046466767185503, 65.68494882292201, 3.715118161118534]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 20, "ny": 20, "lon_cycle": null, "lat_cycle": null, "lon_minmax": null, "lat_minmax": null, "transform": "polar", "bbox": [1, 1, 3, 2]},
+   "value": [0.2824806462267697, 1.3046466767185503, 1.1464186259639628, 3.715118161118534]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 7, "ny": 9, "lon_cycle": 360, "lat_cycle": 360, "lon_minmax": [-90, 90], "lat_minmax": [-90, 90], "transform": "polar_degrees", "bbox": [12, -5, -5, 10]},
+   "value": [-90.0, -0.7202539928190116, 90.0, 17.25457468627654]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {
+    "nx": 20,
+    "ny": 20,
+    "lon_cycle": 360,
+    "lat_cycle": null,
+    "lon_minmax": null,
+    "lat_minmax": [0, Infinity],
+    "transform": "polar_degrees",
+    "bbox": [12, -5, -5, 10]
+   },
+   "value": [-194.53612282273278, 0.0, 165.46387717726722, 16.37888662133281]
+  },
+  {
+   "op": "angle_helper.ExtremeFinderCycle",
+   "args": {"nx": 20, "ny": 20, "lon_cycle": null, "lat_cycle": null, "lon_minmax": null, "lat_minmax": null, "transform": "polar", "bbox": [12, -5, -5, 10]},
+   "value": [-0.2670398142421199, -0.30563330809620554, 6.572130369048543, 16.37888662133281]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 1, "values": [0, 30, 60, 90, -30, -150]},
+   "value": ["$0^{\\circ}$", "$30^{\\circ}$", "$60^{\\circ}$", "$90^{\\circ}$", "$-30^{\\circ}$", "$-150^{\\circ}$"]
+  },
+  {"op": "angle_helper.Formatter", "args": {"kind": "DMS", "direction": "bottom", "factor": 1, "values": []}, "value": []},
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 1, "values": [-15.0, 0.0, 15.0, 30.0]},
+   "value": ["$-1^\\mathrm{h}$", "$0^\\mathrm{h}$", "$1^\\mathrm{h}$", "$2^\\mathrm{h}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 1, "values": [0, 30, 60, 90, -30, -150]},
+   "value": ["$0^\\mathrm{h}$", "$2^\\mathrm{h}$", "$4^\\mathrm{h}$", "$6^\\mathrm{h}$", "$-2^\\mathrm{h}$", "$-10^\\mathrm{h}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 1, "values": [120.0, 135.0, 150.0, 165.0, 180.0, 195.0]},
+   "value": ["$8^\\mathrm{h}$", "$9^\\mathrm{h}$", "$10^\\mathrm{h}$", "$11^\\mathrm{h}$", "$12^\\mathrm{h}$", "$13^\\mathrm{h}$"]
+  },
+  {"op": "angle_helper.Formatter", "args": {"kind": "HMS", "direction": "bottom", "factor": 1, "values": []}, "value": []},
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 10, "values": [0, 5, 15, -25, 120]},
+   "value": ["$0.0^{\\circ}$", "$0.5^{\\circ}$", "$1.5^{\\circ}$", "$-2.5^{\\circ}$", "$12.0^{\\circ}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 10, "values": [0, 5, 15, -25, 120]},
+   "value": ["$0.0^\\mathrm{h}$", "$0.0^\\mathrm{h}$", "$0.1^\\mathrm{h}$", "$0.1^\\mathrm{h}$", "$0.8^\\mathrm{h}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 100, "values": [0, 5, 15, -25, 1234]},
+   "value": ["$0.00^{\\circ}$", "$0.05^{\\circ}$", "$0.15^{\\circ}$", "$0.25^{\\circ}$", "$12.34^{\\circ}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 100, "values": [0, 5, 15, -25, 1234]},
+   "value": ["$0.00^\\mathrm{h}$", "$0.00^\\mathrm{h}$", "$0.01^\\mathrm{h}$", "$0.01^\\mathrm{h}$", "$0.82^\\mathrm{h}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 3600, "values": [-7230, -3630, -3600, 0]},
+   "value": ["$-2^{\\circ}\\,00^{\\prime}\\,30^{\\prime\\prime}$", "$-1^{\\circ}\\,00^{\\prime}\\,30^{\\prime\\prime}$", "$-00^{\\prime\\prime}$", "$0^{\\circ}\\,00^{\\prime}\\,00^{\\prime\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 3600, "values": [0, 30, 1800, 3600, 3630, 7230]},
+   "value": ["$0^{\\circ}\\,00^{\\prime}\\,00^{\\prime\\prime}$", "$30^{\\prime\\prime}$", "$0^{\\circ}\\,30^{\\prime}\\,00^{\\prime\\prime}$", "$1^{\\circ}\\,00^{\\prime}\\,00^{\\prime\\prime}$", "$30^{\\prime\\prime}$", "$2^{\\circ}\\,00^{\\prime}\\,30^{\\prime\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 3600, "values": [-7230, -3630, -3600, 0]},
+   "value": ["$-0^\\mathrm{h}\\,08^\\mathrm{m}\\,02^\\mathrm{s}$", "$-0^\\mathrm{h}\\,04^\\mathrm{m}\\,02^\\mathrm{s}$", "$-00^\\mathrm{s}$", "$0^\\mathrm{h}\\,00^\\mathrm{m}\\,00^\\mathrm{s}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 3600, "values": [0, 30, 1800, 3600, 3630, 7230]},
+   "value": ["$0^\\mathrm{h}\\,00^\\mathrm{m}\\,00^\\mathrm{s}$", "$02^\\mathrm{s}$", "$0^\\mathrm{h}\\,02^\\mathrm{m}\\,00^\\mathrm{s}$", "$0^\\mathrm{h}\\,04^\\mathrm{m}\\,00^\\mathrm{s}$", "$02^\\mathrm{s}$", "$0^\\mathrm{h}\\,08^\\mathrm{m}\\,02^\\mathrm{s}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 36000, "values": [0, 5, 15, -25, 36015]},
+   "value": ["$0^{\\circ}\\,00^{\\prime}\\,00.0^{\\prime\\prime}$", "$00.5^{\\prime\\prime}$", "$01.5^{\\prime\\prime}$", "$-0^{\\circ}\\,00^{\\prime}\\,02.5^{\\prime\\prime}$", "$1^{\\circ}\\,00^{\\prime}\\,01.5^{\\prime\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 36000, "values": [0, 5, 15, -25, 36015]},
+   "value": ["$0^\\mathrm{h}\\,00^\\mathrm{m}\\,00.0^\\mathrm{s}$", "$00.0^\\mathrm{s}$", "$00.1^\\mathrm{s}$", "$-0^\\mathrm{h}\\,00^\\mathrm{m}\\,00.1^\\mathrm{s}$", "$0^\\mathrm{h}\\,04^\\mathrm{m}\\,00.1^\\mathrm{s}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 360000, "values": [0, 5, 15, 125]},
+   "value": ["$0^{\\circ}\\,00^{\\prime}\\,00.00^{\\prime\\prime}$", "$00.05^{\\prime\\prime}$", "$00.15^{\\prime\\prime}$", "$01.25^{\\prime\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 360000, "values": [0, 5, 15, 125]},
+   "value": ["$0^\\mathrm{h}\\,00^\\mathrm{m}\\,00.00^\\mathrm{s}$", "$00.00^\\mathrm{s}$", "$00.01^\\mathrm{s}$", "$00.08^\\mathrm{s}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 60, "values": [0, 30, 90, 150, -45, 600]},
+   "value": ["$0^{\\circ}\\,00^{\\prime}$", "$0^{\\circ}\\,30^{\\prime}$", "$1^{\\circ}\\,30^{\\prime}$", "$2^{\\circ}\\,30^{\\prime}$", "$-0^{\\circ}\\,45^{\\prime}$", "$10^{\\circ}\\,00^{\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 60, "values": [0, 30, 90, 150, -45, 600]},
+   "value": ["$0^\\mathrm{h}\\,00^\\mathrm{m}$", "$0^\\mathrm{h}\\,02^\\mathrm{m}$", "$0^\\mathrm{h}\\,06^\\mathrm{m}$", "$0^\\mathrm{h}\\,10^\\mathrm{m}$", "$-0^\\mathrm{h}\\,03^\\mathrm{m}$", "$0^\\mathrm{h}\\,40^\\mathrm{m}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 600, "values": [0, 5, 15, -25, 1234]},
+   "value": ["$0^{\\circ}\\,00.0^{\\prime}$", "$0^{\\circ}\\,00.5^{\\prime}$", "$0^{\\circ}\\,01.5^{\\prime}$", "$-0^{\\circ}\\,02.5^{\\prime}$", "$2^{\\circ}\\,03.4^{\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 600, "values": [0, 5, 15, -25, 1234]},
+   "value": ["$0^\\mathrm{h}\\,00.0^\\mathrm{m}$", "$0^\\mathrm{h}\\,00.0^\\mathrm{m}$", "$0^\\mathrm{h}\\,00.1^\\mathrm{m}$", "$-0^\\mathrm{h}\\,00.1^\\mathrm{m}$", "$0^\\mathrm{h}\\,08.2^\\mathrm{m}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "bottom", "factor": 7200, "values": [0, 1, 2, 3]},
+   "value": ["$0.0^{\\circ}$", "$1.0^{\\circ}$", "$2.0^{\\circ}$", "$3.0^{\\circ}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "bottom", "factor": 7200, "values": [0, 1, 2, 3]},
+   "value": ["$0.0^{\\circ}$", "$0.06666666666666667^{\\circ}$", "$0.13333333333333333^{\\circ}$", "$0.2^{\\circ}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 1, "values": [0, 30, 60, 90, -30, -150]},
+   "value": ["$0^{\\circ}$", "$30^{\\circ}$", "$60^{\\circ}$", "$90^{\\circ}$", "$-30^{\\circ}$", "$-150^{\\circ}$"]
+  },
+  {"op": "angle_helper.Formatter", "args": {"kind": "DMS", "direction": "left", "factor": 1, "values": []}, "value": []},
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 1, "values": [0, 30, 60, 90, -30, -150]},
+   "value": ["$0^\\mathrm{h}$", "$2^\\mathrm{h}$", "$4^\\mathrm{h}$", "$6^\\mathrm{h}$", "$-2^\\mathrm{h}$", "$-10^\\mathrm{h}$"]
+  },
+  {"op": "angle_helper.Formatter", "args": {"kind": "HMS", "direction": "left", "factor": 1, "values": []}, "value": []},
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 10, "values": [0, 5, 15, -25, 120]},
+   "value": ["$0.0^{\\circ}$", "$0.5^{\\circ}$", "$1.5^{\\circ}$", "$-2.5^{\\circ}$", "$12.0^{\\circ}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 10, "values": [0, 5, 15, -25, 120]},
+   "value": ["$0.0^\\mathrm{h}$", "$0.0^\\mathrm{h}$", "$0.1^\\mathrm{h}$", "$0.1^\\mathrm{h}$", "$0.8^\\mathrm{h}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 100, "values": [0, 5, 15, -25, 1234]},
+   "value": ["$0.00^{\\circ}$", "$0.05^{\\circ}$", "$0.15^{\\circ}$", "$0.25^{\\circ}$", "$12.34^{\\circ}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 100, "values": [0, 5, 15, -25, 1234]},
+   "value": ["$0.00^\\mathrm{h}$", "$0.00^\\mathrm{h}$", "$0.01^\\mathrm{h}$", "$0.01^\\mathrm{h}$", "$0.82^\\mathrm{h}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 3600, "values": [-7230, -3630, -3600, 0]},
+   "value": ["$-2^{\\circ}\\,00^{\\prime}\\,30^{\\prime\\prime}$", "$-1^{\\circ}\\,00^{\\prime}\\,30^{\\prime\\prime}$", "$-00^{\\prime\\prime}$", "$0^{\\circ}\\,00^{\\prime}\\,00^{\\prime\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 3600, "values": [0, 30, 1800, 3600, 3630, 7230]},
+   "value": ["$0^{\\circ}\\,00^{\\prime}\\,00^{\\prime\\prime}$", "$30^{\\prime\\prime}$", "$0^{\\circ}\\,30^{\\prime}\\,00^{\\prime\\prime}$", "$1^{\\circ}\\,00^{\\prime}\\,00^{\\prime\\prime}$", "$30^{\\prime\\prime}$", "$2^{\\circ}\\,00^{\\prime}\\,30^{\\prime\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 3600, "values": [-7230, -3630, -3600, 0]},
+   "value": ["$-0^\\mathrm{h}\\,08^\\mathrm{m}\\,02^\\mathrm{s}$", "$-0^\\mathrm{h}\\,04^\\mathrm{m}\\,02^\\mathrm{s}$", "$-00^\\mathrm{s}$", "$0^\\mathrm{h}\\,00^\\mathrm{m}\\,00^\\mathrm{s}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 3600, "values": [0, 30, 1800, 3600, 3630, 7230]},
+   "value": ["$0^\\mathrm{h}\\,00^\\mathrm{m}\\,00^\\mathrm{s}$", "$02^\\mathrm{s}$", "$0^\\mathrm{h}\\,02^\\mathrm{m}\\,00^\\mathrm{s}$", "$0^\\mathrm{h}\\,04^\\mathrm{m}\\,00^\\mathrm{s}$", "$02^\\mathrm{s}$", "$0^\\mathrm{h}\\,08^\\mathrm{m}\\,02^\\mathrm{s}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 36000, "values": [0, 5, 15, -25, 36015]},
+   "value": ["$0^{\\circ}\\,00^{\\prime}\\,00.0^{\\prime\\prime}$", "$00.5^{\\prime\\prime}$", "$01.5^{\\prime\\prime}$", "$-0^{\\circ}\\,00^{\\prime}\\,02.5^{\\prime\\prime}$", "$1^{\\circ}\\,00^{\\prime}\\,01.5^{\\prime\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 36000, "values": [0, 5, 15, -25, 36015]},
+   "value": ["$0^\\mathrm{h}\\,00^\\mathrm{m}\\,00.0^\\mathrm{s}$", "$00.0^\\mathrm{s}$", "$00.1^\\mathrm{s}$", "$-0^\\mathrm{h}\\,00^\\mathrm{m}\\,00.1^\\mathrm{s}$", "$0^\\mathrm{h}\\,04^\\mathrm{m}\\,00.1^\\mathrm{s}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 360000, "values": [0, 5, 15, 125]},
+   "value": ["$0^{\\circ}\\,00^{\\prime}\\,00.00^{\\prime\\prime}$", "$00.05^{\\prime\\prime}$", "$00.15^{\\prime\\prime}$", "$01.25^{\\prime\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 360000, "values": [0, 5, 15, 125]},
+   "value": ["$0^\\mathrm{h}\\,00^\\mathrm{m}\\,00.00^\\mathrm{s}$", "$00.00^\\mathrm{s}$", "$00.01^\\mathrm{s}$", "$00.08^\\mathrm{s}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 60, "values": [0, 30, 90, 150, -45, 600]},
+   "value": ["$0^{\\circ}\\,00^{\\prime}$", "$0^{\\circ}\\,30^{\\prime}$", "$1^{\\circ}\\,30^{\\prime}$", "$2^{\\circ}\\,30^{\\prime}$", "$-0^{\\circ}\\,45^{\\prime}$", "$10^{\\circ}\\,00^{\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 60, "values": [0, 30, 90, 150, -45, 600]},
+   "value": ["$0^\\mathrm{h}\\,00^\\mathrm{m}$", "$0^\\mathrm{h}\\,02^\\mathrm{m}$", "$0^\\mathrm{h}\\,06^\\mathrm{m}$", "$0^\\mathrm{h}\\,10^\\mathrm{m}$", "$-0^\\mathrm{h}\\,03^\\mathrm{m}$", "$0^\\mathrm{h}\\,40^\\mathrm{m}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 600, "values": [0, 5, 15, -25, 1234]},
+   "value": ["$0^{\\circ}\\,00.0^{\\prime}$", "$0^{\\circ}\\,00.5^{\\prime}$", "$0^{\\circ}\\,01.5^{\\prime}$", "$-0^{\\circ}\\,02.5^{\\prime}$", "$2^{\\circ}\\,03.4^{\\prime}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 600, "values": [0, 5, 15, -25, 1234]},
+   "value": ["$0^\\mathrm{h}\\,00.0^\\mathrm{m}$", "$0^\\mathrm{h}\\,00.0^\\mathrm{m}$", "$0^\\mathrm{h}\\,00.1^\\mathrm{m}$", "$-0^\\mathrm{h}\\,00.1^\\mathrm{m}$", "$0^\\mathrm{h}\\,08.2^\\mathrm{m}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "DMS", "direction": "left", "factor": 7200, "values": [0, 1, 2, 3]},
+   "value": ["$0.0^{\\circ}$", "$1.0^{\\circ}$", "$2.0^{\\circ}$", "$3.0^{\\circ}$"]
+  },
+  {
+   "op": "angle_helper.Formatter",
+   "args": {"kind": "HMS", "direction": "left", "factor": 7200, "values": [0, 1, 2, 3]},
+   "value": ["$0.0^{\\circ}$", "$0.06666666666666667^{\\circ}$", "$0.13333333333333333^{\\circ}$", "$0.2^{\\circ}$"]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "D", "nbins": 12, "v1": -180.0, "v2": 180.0, "include_last": false},
+   "value": [[-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DM", "nbins": 12, "v1": -180.0, "v2": 180.0, "include_last": false},
+   "value": [[-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 12, "v1": -180.0, "v2": 180.0, "include_last": false},
+   "value": [[-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "H", "nbins": 12, "v1": -180.0, "v2": 180.0, "include_last": false},
+   "value": [[-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HM", "nbins": 12, "v1": -180.0, "v2": 180.0, "include_last": false},
+   "value": [[-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 12, "v1": -180.0, "v2": 180.0, "include_last": false},
+   "value": [[-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "D", "nbins": 12, "v1": -0.001, "v2": 0.0005},
+   "value": [[-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5], 16, 10000.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "D", "nbins": 12, "v1": -13.7, "v2": 62.4},
+   "value": [[-15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65], 17, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "D", "nbins": 12, "v1": 0.0, "v2": 360.0},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "D", "nbins": 12, "v1": 10.0, "v2": 10.5},
+   "value": [[1000, 1005, 1010, 1015, 1020, 1025, 1030, 1035, 1040, 1045, 1050], 11, 100.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "D", "nbins": 12, "v1": 120.0, "v2": 210.0},
+   "value": [[120, 130, 140, 150, 160, 170, 180, 190, 200, 210], 10, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "D", "nbins": 12, "v1": 210.0, "v2": 120.0},
+   "value": [[120, 130, 140, 150, 160, 170, 180, 190, 200, 210], 10, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "D", "nbins": 12, "v1": 44.99, "v2": 45.01},
+   "value": [[44990, 44992, 44994, 44996, 44998, 45000, 45002, 45004, 45006, 45008, 45010], 11, 1000.0]
+  },
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 3, "v1": -0.001, "v2": 0.0005}, "value": [[-10, -5, 0, 5], 4, 10000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 3, "v1": -13.7, "v2": 62.4}, "value": [[-30, 0, 30, 60, 90], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 3, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 3, "v1": 10.0, "v2": 10.5}, "value": [[100, 102, 104, 106], 4, 10.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 3, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 3, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 3, "v1": 44.99, "v2": 45.01}, "value": [[44990, 44995, 45000, 45005, 45010], 5, 1000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 4, "v1": -0.001, "v2": 0.0005}, "value": [[-10, -5, 0, 5], 4, 10000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 4, "v1": -13.7, "v2": 62.4}, "value": [[-15, 0, 15, 30, 45, 60, 75], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 4, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 4, "v1": 10.0, "v2": 10.5}, "value": [[100, 101, 102, 103, 104, 105], 6, 10.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 4, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 4, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "D", "nbins": 4, "v1": 44.99, "v2": 45.01}, "value": [[44990, 44995, 45000, 45005, 45010], 5, 1000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 12, "v1": -0.001, "v2": 0.0005}, "value": [[-6, -5, -4, -3, -2, -1, 0, 1, 2, 3], 10, 6000.0]},
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DM", "nbins": 12, "v1": -13.7, "v2": 62.4},
+   "value": [[-15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65], 17, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DM", "nbins": 12, "v1": 0.0, "v2": 360.0},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DM", "nbins": 12, "v1": 10.0, "v2": 10.5},
+   "value": [[600, 602, 604, 606, 608, 610, 612, 614, 616, 618, 620, 622, 624, 626, 628, 630], 16, 60.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DM", "nbins": 12, "v1": 120.0, "v2": 210.0},
+   "value": [[120, 130, 140, 150, 160, 170, 180, 190, 200, 210], 10, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DM", "nbins": 12, "v1": 210.0, "v2": 120.0},
+   "value": [[120, 130, 140, 150, 160, 170, 180, 190, 200, 210], 10, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DM", "nbins": 12, "v1": 44.99, "v2": 45.01},
+   "value": [[26994, 26995, 26996, 26997, 26998, 26999, 27000, 27001, 27002, 27003, 27004, 27005, 27006], 13, 600.0]
+  },
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 3, "v1": -0.001, "v2": 0.0005}, "value": [[-6, -4, -2, 0, 2, 4], 6, 6000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 3, "v1": -13.7, "v2": 62.4}, "value": [[-30, 0, 30, 60, 90], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 3, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 3, "v1": 10.0, "v2": 10.5}, "value": [[600, 610, 620, 630], 4, 60.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 3, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 3, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 3, "v1": 44.99, "v2": 45.01}, "value": [[26990, 26995, 27000, 27005, 27010], 5, 600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 4, "v1": -0.001, "v2": 0.0005}, "value": [[-6, -4, -2, 0, 2, 4], 6, 6000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 4, "v1": -13.7, "v2": 62.4}, "value": [[-15, 0, 15, 30, 45, 60, 75], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 4, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 4, "v1": 10.0, "v2": 10.5}, "value": [[600, 605, 610, 615, 620, 625, 630], 7, 60.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 4, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DM", "nbins": 4, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DM", "nbins": 4, "v1": 44.99, "v2": 45.01},
+   "value": [[26994, 26996, 26998, 27000, 27002, 27004, 27006], 7, 600.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 12, "v1": -0.001, "v2": 0.0005},
+   "value": [[-40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20], 13, 36000.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 12, "v1": -13.7, "v2": 62.4},
+   "value": [[-15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65], 17, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 12, "v1": 0.0, "v2": 360.0},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 12, "v1": 10.0, "v2": 10.5},
+   "value": [[600, 602, 604, 606, 608, 610, 612, 614, 616, 618, 620, 622, 624, 626, 628, 630], 16, 60.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 12, "v1": 120.0, "v2": 210.0},
+   "value": [[120, 130, 140, 150, 160, 170, 180, 190, 200, 210], 10, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 12, "v1": 210.0, "v2": 120.0},
+   "value": [[120, 130, 140, 150, 160, 170, 180, 190, 200, 210], 10, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 12, "v1": 44.99, "v2": 45.01},
+   "value": [[161960, 161965, 161970, 161975, 161980, 161985, 161990, 161995, 162000, 162005, 162010, 162015, 162020, 162025, 162030, 162035, 162040], 17, 3600.0]
+  },
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 3, "v1": -0.001, "v2": 0.0005}, "value": [[-4, -2, 0, 2], 4, 3600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 3, "v1": -13.7, "v2": 62.4}, "value": [[-30, 0, 30, 60, 90], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 3, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 3, "v1": 10.0, "v2": 10.5}, "value": [[600, 610, 620, 630], 4, 60.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 3, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 3, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 3, "v1": 44.99, "v2": 45.01}, "value": [[161960, 161980, 162000, 162020, 162040], 5, 3600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 4, "v1": -0.001, "v2": 0.0005}, "value": [[-4, -3, -2, -1, 0, 1, 2], 7, 3600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 4, "v1": -13.7, "v2": 62.4}, "value": [[-15, 0, 15, 30, 45, 60, 75], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 4, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 4, "v1": 10.0, "v2": 10.5}, "value": [[600, 605, 610, 615, 620, 625, 630], 7, 60.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 4, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "DMS", "nbins": 4, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "DMS", "nbins": 4, "v1": 44.99, "v2": 45.01},
+   "value": [[161955, 161970, 161985, 162000, 162015, 162030, 162045], 7, 3600.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "H", "nbins": 12, "v1": -0.001, "v2": 0.0005},
+   "value": [[-105, -90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60], 12, 100000.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "H", "nbins": 12, "v1": -13.7, "v2": 62.4},
+   "value": [[-150, -75, 0, 75, 150, 225, 300, 375, 450, 525, 600, 675], 12, 10.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "H", "nbins": 12, "v1": 0.0, "v2": 360.0},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "H", "nbins": 12, "v1": 10.0, "v2": 10.5},
+   "value": [[9990, 10020, 10050, 10080, 10110, 10140, 10170, 10200, 10230, 10260, 10290, 10320, 10350, 10380, 10410, 10440, 10470, 10500], 18, 1000.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "H", "nbins": 12, "v1": 120.0, "v2": 210.0},
+   "value": [[1200, 1275, 1350, 1425, 1500, 1575, 1650, 1725, 1800, 1875, 1950, 2025, 2100], 13, 10.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "H", "nbins": 12, "v1": 210.0, "v2": 120.0},
+   "value": [[1200, 1275, 1350, 1425, 1500, 1575, 1650, 1725, 1800, 1875, 1950, 2025, 2100], 13, 10.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "H", "nbins": 12, "v1": 44.99, "v2": 45.01},
+   "value": [[449895, 449910, 449925, 449940, 449955, 449970, 449985, 450000, 450015, 450030, 450045, 450060, 450075, 450090, 450105], 15, 10000.0]
+  },
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 3, "v1": -0.001, "v2": 0.0005}, "value": [[-150, -75, 0, 75], 4, 99999.99999999999]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 3, "v1": -13.7, "v2": 62.4}, "value": [[-30, 0, 30, 60, 90], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 3, "v1": 0.0, "v2": 360.0}, "value": [[0, 120, 240, 360], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 3, "v1": 10.0, "v2": 10.5}, "value": [[990, 1005, 1020, 1035, 1050], 5, 100.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 3, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 3, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 3, "v1": 44.99, "v2": 45.01}, "value": [[449850, 449925, 450000, 450075, 450150], 5, 10000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 4, "v1": -0.001, "v2": 0.0005}, "value": [[-120, -90, -60, -30, 0, 30, 60], 7, 99999.99999999999]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 4, "v1": -13.7, "v2": 62.4}, "value": [[-15, 0, 15, 30, 45, 60, 75], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 4, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 4, "v1": 10.0, "v2": 10.5}, "value": [[990, 1005, 1020, 1035, 1050], 5, 100.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 4, "v1": 120.0, "v2": 210.0}, "value": [[120, 135, 150, 165, 180, 195, 210], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 4, "v1": 210.0, "v2": 120.0}, "value": [[120, 135, 150, 165, 180, 195, 210], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "H", "nbins": 4, "v1": 44.99, "v2": 45.01}, "value": [[449850, 449925, 450000, 450075, 450150], 5, 10000.0]},
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HM", "nbins": 12, "v1": -0.001, "v2": 0.0005},
+   "value": [[-600, -525, -450, -375, -300, -225, -150, -75, 0, 75, 150, 225, 300], 13, 600000.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HM", "nbins": 12, "v1": -13.7, "v2": 62.4},
+   "value": [[-900, -450, 0, 450, 900, 1350, 1800, 2250, 2700, 3150, 3600, 4050], 12, 60.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HM", "nbins": 12, "v1": 0.0, "v2": 360.0},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HM", "nbins": 12, "v1": 10.0, "v2": 10.5},
+   "value": [[6000, 6030, 6060, 6090, 6120, 6150, 6180, 6210, 6240, 6270, 6300], 11, 600.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HM", "nbins": 12, "v1": 120.0, "v2": 210.0},
+   "value": [[7200, 7650, 8100, 8550, 9000, 9450, 9900, 10350, 10800, 11250, 11700, 12150, 12600], 13, 60.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HM", "nbins": 12, "v1": 210.0, "v2": 120.0},
+   "value": [[7200, 7650, 8100, 8550, 9000, 9450, 9900, 10350, 10800, 11250, 11700, 12150, 12600], 13, 60.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HM", "nbins": 12, "v1": 44.99, "v2": 45.01},
+   "value": [[2699400, 2699475, 2699550, 2699625, 2699700, 2699775, 2699850, 2699925, 2700000, 2700075, 2700150, 2700225, 2700300, 2700375, 2700450, 2700525, 2700600], 17, 60000.0]
+  },
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 3, "v1": -0.001, "v2": 0.0005}, "value": [[-60, -30, 0, 30], 4, 60000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 3, "v1": -13.7, "v2": 62.4}, "value": [[-30, 0, 30, 60, 90], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 3, "v1": 0.0, "v2": 360.0}, "value": [[0, 120, 240, 360], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 3, "v1": 10.0, "v2": 10.5}, "value": [[6000, 6075, 6150, 6225, 6300], 5, 600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 3, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 3, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 3, "v1": 44.99, "v2": 45.01}, "value": [[269940, 269970, 270000, 270030, 270060], 5, 6000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 4, "v1": -0.001, "v2": 0.0005}, "value": [[-60, -45, -30, -15, 0, 15, 30], 7, 60000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 4, "v1": -13.7, "v2": 62.4}, "value": [[-15, 0, 15, 30, 45, 60, 75], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 4, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 4, "v1": 10.0, "v2": 10.5}, "value": [[6000, 6075, 6150, 6225, 6300], 5, 600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 4, "v1": 120.0, "v2": 210.0}, "value": [[120, 135, 150, 165, 180, 195, 210], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 4, "v1": 210.0, "v2": 120.0}, "value": [[120, 135, 150, 165, 180, 195, 210], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HM", "nbins": 4, "v1": 44.99, "v2": 45.01}, "value": [[269940, 269970, 270000, 270030, 270060], 5, 6000.0]},
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 12, "v1": -0.001, "v2": 0.0005},
+   "value": [[-375, -300, -225, -150, -75, 0, 75, 150, 225], 9, 360000.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 12, "v1": -13.7, "v2": 62.4},
+   "value": [[-900, -450, 0, 450, 900, 1350, 1800, 2250, 2700, 3150, 3600, 4050], 12, 60.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 12, "v1": 0.0, "v2": 360.0},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 12, "v1": 10.0, "v2": 10.5},
+   "value": [[36000, 36150, 36300, 36450, 36600, 36750, 36900, 37050, 37200, 37350, 37500, 37650, 37800], 13, 3600.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 12, "v1": 120.0, "v2": 210.0},
+   "value": [[7200, 7650, 8100, 8550, 9000, 9450, 9900, 10350, 10800, 11250, 11700, 12150, 12600], 13, 60.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 12, "v1": 210.0, "v2": 120.0},
+   "value": [[7200, 7650, 8100, 8550, 9000, 9450, 9900, 10350, 10800, 11250, 11700, 12150, 12600], 13, 60.0]
+  },
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 12, "v1": 44.99, "v2": 45.01},
+   "value": [[1619625, 1619700, 1619775, 1619850, 1619925, 1620000, 1620075, 1620150, 1620225, 1620300, 1620375], 11, 36000.0]
+  },
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 3, "v1": -0.001, "v2": 0.0005}, "value": [[-45, -30, -15, 0, 15, 30], 6, 36000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 3, "v1": -13.7, "v2": 62.4}, "value": [[-30, 0, 30, 60, 90], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 3, "v1": 0.0, "v2": 360.0}, "value": [[0, 120, 240, 360], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 3, "v1": 10.0, "v2": 10.5}, "value": [[36000, 36450, 36900, 37350, 37800], 5, 3600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 3, "v1": 120.0, "v2": 210.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 3, "v1": 210.0, "v2": 120.0}, "value": [[120, 150, 180, 210], 4, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 3, "v1": 44.99, "v2": 45.01}, "value": [[161940, 161970, 162000, 162030, 162060], 5, 3600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 4, "v1": -0.001, "v2": 0.0005}, "value": [[-45, -30, -15, 0, 15, 30], 6, 36000.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 4, "v1": -13.7, "v2": 62.4}, "value": [[-15, 0, 15, 30, 45, 60, 75], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 4, "v1": 0.0, "v2": 360.0}, "value": [[0, 90, 180, 270, 360], 5, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 4, "v1": 10.0, "v2": 10.5}, "value": [[36000, 36450, 36900, 37350, 37800], 5, 3600.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 4, "v1": 120.0, "v2": 210.0}, "value": [[120, 135, 150, 165, 180, 195, 210], 7, 1.0]},
+  {"op": "angle_helper.Locator", "args": {"kind": "HMS", "nbins": 4, "v1": 210.0, "v2": 120.0}, "value": [[120, 135, 150, 165, 180, 195, 210], 7, 1.0]},
+  {
+   "op": "angle_helper.Locator",
+   "args": {"kind": "HMS", "nbins": 4, "v1": 44.99, "v2": 45.01},
+   "value": [[161955, 161970, 161985, 162000, 162015, 162030, 162045], 7, 3600.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "hour": false, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[-10, 0, 10, 20, 30, 40, 50, 60, 70, 80], 10, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 3000, "nv": 12, "hour": false, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[0, 180], 2, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "hour": false, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "hour": false, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[0, 1, 2, 3, 4], 5, 360000.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "hour": false, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[3, 4, 5, 6, 7, 8], 6, 3600.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 359, "v2": 1, "nv": 4, "hour": false, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[0, 90, 180, 270], 4, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "hour": false, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[630, 631, 632, 633, 634, 635, 636], 7, 60.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "hour": false, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[-90, -60, -30, 0, 30, 60, 90], 7, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "hour": false, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[-10, 0, 10, 20, 30, 40, 50, 60, 70, 80], 10, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 3000, "nv": 12, "hour": false, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[0, 180, 360], 3, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "hour": false, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "hour": false, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[0, 1, 2, 3, 4], 5, 360000.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "hour": false, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[3, 4, 5, 6, 7, 8], 6, 3600.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 359, "v2": 1, "nv": 4, "hour": false, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[0, 90, 180, 270, 360], 5, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "hour": false, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[630, 631, 632, 633, 634, 635, 636], 7, 60.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "hour": false, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[-90, -60, -30, 0, 30, 60, 90], 7, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "hour": true, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[-16, -8, 0], 3, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 3000, "nv": 12, "hour": true, "include_last": false, "threshold_factor": 3600.0},
+   "error": "IndexError"
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "hour": true, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[0], 1, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "hour": true, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[0, 1, 2, 3, 4], 5, 360000.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "hour": true, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[3, 4, 5, 6, 7, 8], 6, 3600.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 359, "v2": 1, "nv": 4, "hour": true, "include_last": false, "threshold_factor": 3600.0},
+   "error": "IndexError"
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "hour": true, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[630, 631, 632, 633, 634, 635, 636], 7, 60.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "hour": true, "include_last": false, "threshold_factor": 3600.0},
+   "value": [[-96], 1, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "hour": true, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[-16, -8, 0, 8], 4, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 3000, "nv": 12, "hour": true, "include_last": true, "threshold_factor": 3600.0},
+   "error": "IndexError"
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "hour": true, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[0, 24], 2, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "hour": true, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[0, 1, 2, 3, 4], 5, 360000.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "hour": true, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[3, 4, 5, 6, 7, 8], 6, 3600.0]
+  },
+  {"op": "angle_helper.select_step", "args": {"v1": 359, "v2": 1, "nv": 4, "hour": true, "include_last": true, "threshold_factor": 3600.0}, "error": "IndexError"},
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "hour": true, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[630, 631, 632, 633, 634, 635, 636], 7, 60.0]
+  },
+  {
+   "op": "angle_helper.select_step",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "hour": true, "include_last": true, "threshold_factor": 3600.0},
+   "value": [[-96, -72], 2, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "include_last": true, "threshold_factor": 1},
+   "value": [[-150, -75, 0, 75, 150, 225, 300, 375, 450, 525, 600, 675, 750, 825], 14, 10.0]
+  },
+  {"op": "angle_helper.select_step24", "args": {"v1": 0, "v2": 3000, "nv": 12, "include_last": true, "threshold_factor": 1}, "value": [[0, 270], 2, 1.0]},
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "include_last": true, "threshold_factor": 1},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "include_last": true, "threshold_factor": 3600},
+   "value": [[-900, -450, 0, 450, 900, 1350, 1800, 2250, 2700, 3150, 3600, 4050, 4500, 4950], 14, 60.0]
+  },
+  {"op": "angle_helper.select_step24", "args": {"v1": 0, "v2": 3000, "nv": 12, "include_last": true, "threshold_factor": 3600}, "value": [[0, 270], 2, 1.0]},
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "include_last": true, "threshold_factor": 3600},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "include_last": true, "threshold_factor": 60},
+   "value": [[-900, -450, 0, 450, 900, 1350, 1800, 2250, 2700, 3150, 3600, 4050, 4500, 4950], 14, 60.0]
+  },
+  {"op": "angle_helper.select_step24", "args": {"v1": 0, "v2": 3000, "nv": 12, "include_last": true, "threshold_factor": 60}, "value": [[0, 270], 2, 1.0]},
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "include_last": true, "threshold_factor": 60},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360], 13, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "include_last": true, "threshold_factor": 1},
+   "value": [[0, 30, 60, 90, 120], 5, 10000000.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "include_last": true, "threshold_factor": 3600},
+   "value": [[0, 15, 30, 45], 4, 3600000.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "include_last": true, "threshold_factor": 60},
+   "value": [[0, 15, 30, 45, 60], 5, 5999999.999999999]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "include_last": true, "threshold_factor": 1},
+   "value": [[90, 120, 150, 180, 210], 5, 99999.99999999999]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 359, "v2": 1, "nv": 4, "include_last": true, "threshold_factor": 1},
+   "value": [[0, 90, 180, 270, 360], 5, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "include_last": true, "threshold_factor": 3600},
+   "value": [[300, 375, 450, 525, 600, 675, 750, 825], 8, 360000.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 359, "v2": 1, "nv": 4, "include_last": true, "threshold_factor": 3600},
+   "value": [[0, 90, 180, 270, 360], 5, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "include_last": true, "threshold_factor": 60},
+   "value": [[60, 75, 90, 105, 120, 135], 6, 60000.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 359, "v2": 1, "nv": 4, "include_last": true, "threshold_factor": 60},
+   "value": [[0, 90, 180, 270, 360], 5, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "include_last": true, "threshold_factor": 1},
+   "value": [[10500, 10515, 10530, 10545, 10560, 10575, 10590, 10605], 8, 1000.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "include_last": true, "threshold_factor": 3600},
+   "value": [[37800, 37875, 37950, 38025, 38100, 38175], 6, 3600.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "include_last": true, "threshold_factor": 60},
+   "value": [[6300, 6315, 6330, 6345, 6360], 5, 600.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "include_last": true, "threshold_factor": 1},
+   "value": [[-90, -60, -30, 0, 30, 60, 90], 7, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "include_last": true, "threshold_factor": 3600},
+   "value": [[-90, -60, -30, 0, 30, 60, 90], 7, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step24",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "include_last": true, "threshold_factor": 60},
+   "value": [[-90, -60, -30, 0, 30, 60, 90], 7, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "include_last": false, "threshold_factor": 1},
+   "value": [[-10, 0, 10, 20, 30, 40, 50, 60, 70, 80], 10, 1.0]
+  },
+  {"op": "angle_helper.select_step360", "args": {"v1": 0, "v2": 3000, "nv": 12, "include_last": false, "threshold_factor": 1}, "value": [[0, 180], 2, 1.0]},
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "include_last": false, "threshold_factor": 1},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "include_last": false, "threshold_factor": 3600},
+   "value": [[-10, 0, 10, 20, 30, 40, 50, 60, 70, 80], 10, 1.0]
+  },
+  {"op": "angle_helper.select_step360", "args": {"v1": 0, "v2": 3000, "nv": 12, "include_last": false, "threshold_factor": 3600}, "value": [[0, 180], 2, 1.0]},
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "include_last": false, "threshold_factor": 3600},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": -10, "v2": 80, "nv": 12, "include_last": false, "threshold_factor": 60},
+   "value": [[-10, 0, 10, 20, 30, 40, 50, 60, 70, 80], 10, 1.0]
+  },
+  {"op": "angle_helper.select_step360", "args": {"v1": 0, "v2": 3000, "nv": 12, "include_last": false, "threshold_factor": 60}, "value": [[0, 180], 2, 1.0]},
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0, "v2": 360, "nv": 12, "include_last": false, "threshold_factor": 60},
+   "value": [[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330], 12, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "include_last": false, "threshold_factor": 1},
+   "value": [[0, 5, 10], 3, 1000000.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "include_last": false, "threshold_factor": 3600},
+   "value": [[0, 1, 2, 3, 4], 5, 360000.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0, "v2": 1e-05, "nv": 3, "include_last": false, "threshold_factor": 60},
+   "value": [[0, 2, 4, 6, 8], 5, 600000.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "include_last": false, "threshold_factor": 1},
+   "value": [[10, 12, 14, 16, 18, 20, 22], 7, 10000.0]
+  },
+  {"op": "angle_helper.select_step360", "args": {"v1": 359, "v2": 1, "nv": 4, "include_last": false, "threshold_factor": 1}, "value": [[0, 90, 180, 270], 4, 1.0]},
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "include_last": false, "threshold_factor": 3600},
+   "value": [[3, 4, 5, 6, 7, 8], 6, 3600.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 359, "v2": 1, "nv": 4, "include_last": false, "threshold_factor": 3600},
+   "value": [[0, 90, 180, 270], 4, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 0.001, "v2": 0.0021, "nv": 4, "include_last": false, "threshold_factor": 60},
+   "value": [[6, 8, 10, 12, 14], 5, 6000.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 359, "v2": 1, "nv": 4, "include_last": false, "threshold_factor": 60},
+   "value": [[0, 90, 180, 270], 4, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "include_last": false, "threshold_factor": 1},
+   "value": [[1050, 1052, 1054, 1056, 1058, 1060], 6, 100.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "include_last": false, "threshold_factor": 3600},
+   "value": [[630, 631, 632, 633, 634, 635, 636], 7, 60.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": 10.5, "v2": 10.6, "nv": 5, "include_last": false, "threshold_factor": 60},
+   "value": [[630, 631, 632, 633, 634, 635, 636], 7, 60.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "include_last": false, "threshold_factor": 1},
+   "value": [[-90, -60, -30, 0, 30, 60, 90], 7, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "include_last": false, "threshold_factor": 3600},
+   "value": [[-90, -60, -30, 0, 30, 60, 90], 7, 1.0]
+  },
+  {
+   "op": "angle_helper.select_step360",
+   "args": {"v1": -90, "v2": 90, "nv": 6, "include_last": false, "threshold_factor": 60},
+   "value": [[-90, -60, -30, 0, 30, 60, 90], 7, 1.0]
+  },
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 0.0001}, "value": [1, 3600.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 0.0003}, "value": [1, 3600.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 0.01}, "value": [30, 3600.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 0.03}, "value": [2, 60.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 0.2}, "value": [15, 60.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 1.0}, "value": [1, 1.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 1.5}, "value": [1, 1.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 100.0}, "value": [90, 1.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 2.9}, "value": [2, 1.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 25.0}, "value": [30, 1.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 400.0}, "value": [360, 1.0]},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 600.0}, "error": "IndexError"},
+  {"op": "angle_helper.select_step_degree", "args": {"dv": 7.0}, "value": [5, 1.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 0.0001}, "value": [1, 3600.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 0.0003}, "value": [1, 3600.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 0.01}, "value": [30, 3600.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 0.03}, "value": [2, 60.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 0.2}, "value": [12, 60.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 1.0}, "value": [1, 1.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 1.5}, "value": [1, 1.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 100.0}, "error": "IndexError"},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 2.9}, "value": [3, 1.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 25.0}, "value": [24, 1.0]},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 400.0}, "error": "IndexError"},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 600.0}, "error": "IndexError"},
+  {"op": "angle_helper.select_step_hour", "args": {"dv": 7.0}, "value": [6, 1.0]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 0.012}, "value": [1, 100.0]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 0.03}, "value": [2, 100.0]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 0.07}, "value": [5, 100.0]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 0.09}, "value": [1, 10.0]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 1.2}, "value": [1, 1.0]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 150.0}, "value": [1, 0.010000000000000002]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 2.5}, "value": [1, 1.0]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 6.9}, "value": [1, 1.0]},
+  {"op": "angle_helper.select_step_sub", "args": {"dv": 8.0}, "value": [1, 1.0]},
+  {
+   "op": "grid_finder.DictFormatter",
+   "args": {
+    "format_dict": [[0.0, "$0$"], [0.7853981633974483, "$\\frac{1}{4}\\pi$"], [1.5707963267948966, "$\\frac{1}{2}\\pi$"]],
+    "values": [0.0, 0.7853981633974483, 1.0, 1.5707963267948966],
+    "fallback": false
+   },
+   "value": ["$0$", "$\\frac{1}{4}\\pi$", "", "$\\frac{1}{2}\\pi$"]
+  },
+  {
+   "op": "grid_finder.DictFormatter",
+   "args": {
+    "format_dict": [[0.0, "$0$"], [0.7853981633974483, "$\\frac{1}{4}\\pi$"], [1.5707963267948966, "$\\frac{1}{2}\\pi$"]],
+    "values": [0.0, 0.7853981633974483, 1.0, 1.5707963267948966],
+    "fallback": true
+   },
+   "value": ["$0$", "$\\frac{1}{4}\\pi$", "$\\mathdefault{1.000}$", "$\\frac{1}{2}\\pi$"]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "polar", "bbox": [-3, -4, -1, 4]},
+   "value": [1.6831932235549574, 0.8230164332049987, 4.599992083624629, 5.198903979371191]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "rotated", "bbox": [-3, -4, -1, 4]},
+   "value": [-2.4423393758658802, -3.360511776651531, 0.7102885682970026, 5.3605117766515304]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "shear", "bbox": [-3, -4, -1, 4]},
+   "value": [-3.1, -7.5, -0.8999999999999999, 3.5]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "sqrt", "bbox": [-3, -4, -1, 4]},
+   "value": [-9.4, -4.4, -0.5999999999999996, 4.4]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 5, "ny": 3, "transform": "shear", "bbox": [-3, -4, -1, 4]},
+   "value": [-3.4, -10.333333333333332, -0.6000000000000001, 6.333333333333332]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "polar", "bbox": [-5, -5, 12, 10]},
+   "value": [-0.2670398142421199, -0.30563330809620554, 6.572130369048543, 16.37888662133281]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "rotated", "bbox": [-5, -5, 12, 10]},
+   "value": [-3.9706243060694835, -11.40464607176052, 8.251713219315018, 12.234773090682717]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "shear", "bbox": [-5, -5, 12, 10]},
+   "value": [-5.850000000000001, -11.600000000000001, 12.850000000000001, 23.6]
+  },
+  {"op": "grid_finder.ExtremeFinderSimple", "args": {"nx": 20, "ny": 20, "transform": "sqrt", "bbox": [-5, -5, 12, 10]}, "value": [-33.45, -5.75, 152.45, 10.75]},
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 5, "ny": 3, "transform": "shear", "bbox": [-5, -5, 12, 10]},
+   "value": [-8.399999999999999, -20.666666666666664, 15.399999999999999, 32.666666666666664]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "polar", "bbox": [0, 0, 10, 10]},
+   "value": [-0.07853981633974494, -0.7071067811865479, 1.6493361431346414, 14.849242404917499]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "rotated", "bbox": [0, 0, 10, 10]},
+   "value": [-0.3415063509461098, -5.683012701892219, 7.171633369868303, 9.343266739736606]
+  },
+  {"op": "grid_finder.ExtremeFinderSimple", "args": {"nx": 20, "ny": 20, "transform": "shear", "bbox": [0, 0, 10, 10]}, "value": [-0.5, -1.0, 10.5, 21.0]},
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "sqrt", "bbox": [0, 0, 10, 10]},
+   "value": [-5.000000000000007, -0.5, 105.0, 10.5]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 5, "ny": 3, "transform": "shear", "bbox": [0, 0, 10, 10]},
+   "value": [-2.0, -6.666666666666664, 12.0, 26.666666666666664]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "polar", "bbox": [1, 1, 3, 2]},
+   "value": [0.2824806462267697, 1.3046466767185503, 1.1464186259639628, 3.715118161118534]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "rotated", "bbox": [1, 1, 3, 2]},
+   "value": [0.6272114317029973, -0.7272758664047828, 1.8548393758658799, 1.3253520777580996]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "shear", "bbox": [1, 1, 3, 2]},
+   "value": [0.8999999999999999, 1.8499999999999999, 3.1, 5.15]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "sqrt", "bbox": [1, 1, 3, 2]},
+   "value": [0.5999999999999996, 0.95, 9.4, 2.05]
+  },
+  {"op": "grid_finder.ExtremeFinderSimple", "args": {"nx": 5, "ny": 3, "transform": "shear", "bbox": [1, 1, 3, 2]}, "value": [0.6000000000000001, 1.0, 3.4, 6.0]},
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "polar", "bbox": [12, -5, -5, 10]},
+   "value": [-0.2670398142421199, -0.30563330809620554, 6.572130369048543, 16.37888662133281]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "rotated", "bbox": [12, -5, -5, 10]},
+   "value": [-3.9706243060694835, -11.40464607176052, 8.251713219315018, 12.234773090682717]
+  },
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 20, "ny": 20, "transform": "shear", "bbox": [12, -5, -5, 10]},
+   "value": [-5.850000000000001, -11.600000000000001, 12.850000000000001, 23.6]
+  },
+  {"op": "grid_finder.ExtremeFinderSimple", "args": {"nx": 20, "ny": 20, "transform": "sqrt", "bbox": [12, -5, -5, 10]}, "value": [-33.45, -5.75, 152.45, 10.75]},
+  {
+   "op": "grid_finder.ExtremeFinderSimple",
+   "args": {"nx": 5, "ny": 3, "transform": "shear", "bbox": [12, -5, -5, 10]},
+   "value": [-8.399999999999999, -20.666666666666664, 15.399999999999999, 32.666666666666664]
+  },
+  {"op": "grid_finder.FixedLocator", "args": {"locs": [0, 0.5, 1.5, 3, 7], "v1": -2.3, "v2": 7.9}, "value": [[0.0, 0.5, 1.5, 3.0, 7.0], 5, 1.0]},
+  {"op": "grid_finder.FixedLocator", "args": {"locs": [0, 0.5, 1.5, 3, 7], "v1": 0, "v2": 10}, "value": [[0.0, 0.5, 1.5, 3.0, 7.0], 5, 1.0]},
+  {"op": "grid_finder.FixedLocator", "args": {"locs": [0, 0.5, 1.5, 3, 7], "v1": 0.001, "v2": 0.003}, "value": [[], 0, 1.0]},
+  {"op": "grid_finder.FixedLocator", "args": {"locs": [0, 0.5, 1.5, 3, 7], "v1": 10, "v2": -10}, "value": [[0.0, 0.5, 1.5, 3.0, 7.0], 5, 1.0]},
+  {"op": "grid_finder.FixedLocator", "args": {"locs": [0, 0.5, 1.5, 3, 7], "v1": 12345, "v2": 12346}, "value": [[], 0, 1.0]},
+  {"op": "grid_finder.FixedLocator", "args": {"locs": [0, 0.5, 1.5, 3, 7], "v1": 5, "v2": 5}, "value": [[], 0, 1.0]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [-1.5, 0, 1.5], "useMathText": false}, "value": ["−1.5", "0.0", "1.5"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [0, 2.5, 5, 7.5, 10], "useMathText": false}, "value": ["0.0", "2.5", "5.0", "7.5", "10.0"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [0.1, 0.25, 1.0, 4.0], "useMathText": false}, "value": ["0.10", "0.25", "1.00", "4.00"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [1000000.0, 2000000.0], "useMathText": false}, "value": ["1000000", "2000000"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [12345.6, 12345.7], "useMathText": false}, "value": ["12345.6", "12345.7"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [1e-05, 2e-05, 3e-05], "useMathText": false}, "value": ["1", "2", "3"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [3, 3], "useMathText": false}, "value": ["3", "3"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [], "useMathText": false}, "value": []},
+  {
+   "op": "grid_finder.FormatterPrettyPrint",
+   "args": {"values": [-1.5, 0, 1.5]},
+   "value": ["$\\mathdefault{−1.5}$", "$\\mathdefault{0.0}$", "$\\mathdefault{1.5}$"]
+  },
+  {
+   "op": "grid_finder.FormatterPrettyPrint",
+   "args": {"values": [0, 2.5, 5, 7.5, 10]},
+   "value": ["$\\mathdefault{0.0}$", "$\\mathdefault{2.5}$", "$\\mathdefault{5.0}$", "$\\mathdefault{7.5}$", "$\\mathdefault{10.0}$"]
+  },
+  {
+   "op": "grid_finder.FormatterPrettyPrint",
+   "args": {"values": [0.1, 0.25, 1.0, 4.0]},
+   "value": ["$\\mathdefault{0.10}$", "$\\mathdefault{0.25}$", "$\\mathdefault{1.00}$", "$\\mathdefault{4.00}$"]
+  },
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [1000000.0, 2000000.0]}, "value": ["$\\mathdefault{1000000}$", "$\\mathdefault{2000000}$"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [12345.6, 12345.7]}, "value": ["$\\mathdefault{12345.6}$", "$\\mathdefault{12345.7}$"]},
+  {
+   "op": "grid_finder.FormatterPrettyPrint",
+   "args": {"values": [1e-05, 2e-05, 3e-05]},
+   "value": ["$\\mathdefault{1}$", "$\\mathdefault{2}$", "$\\mathdefault{3}$"]
+  },
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": [3, 3]}, "value": ["$\\mathdefault{3}$", "$\\mathdefault{3}$"]},
+  {"op": "grid_finder.FormatterPrettyPrint", "args": {"values": []}, "value": []},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": -2.3, "v2": 7.9, "integer": true}, "value": [[-3.0, 0.0, 3.0, 6.0, 9.0], 5, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 0, "v2": 10, "integer": true}, "value": [[0.0, 2.0, 4.0, 6.0, 8.0, 10.0], 6, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 5, "v1": 0.001, "v2": 0.003, "integer": true},
+   "value": [[0.0008, 0.0012000000000000001, 0.0016, 0.002, 0.0024000000000000002, 0.0028, 0.0032], 7, 1.0]
+  },
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 10, "v2": -10, "integer": true}, "value": [[-12.0, -8.0, -4.0, 0.0, 4.0, 8.0, 12.0], 7, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 12345, "v2": 12346, "integer": true}, "value": [[12345.0, 12346.0], 2, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 5, "v1": 5, "v2": 5, "integer": true},
+   "value": [[4.9999999999995, 4.9999999999997495, 5.0, 5.00000000000025, 5.0000000000005], 5, 1.0]
+  },
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 10, "v1": -2.3, "v2": 7.9}, "value": [[-3.0, -1.5, 0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0], 9, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 10, "v1": 0, "v2": 10}, "value": [[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0], 11, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 10, "v1": 0.001, "v2": 0.003},
+   "value": [[0.001, 0.0012000000000000001, 0.0014000000000000002, 0.0016, 0.0018, 0.002, 0.0022, 0.0024000000000000002, 0.0026000000000000003, 0.0028, 0.003], 11, 1.0]
+  },
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 10, "v1": 10, "v2": -10},
+   "value": [[-10.0, -8.0, -6.0, -4.0, -2.0, 0.0, 2.0, 4.0, 6.0, 8.0, 10.0], 11, 1.0]
+  },
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 10, "v1": 12345, "v2": 12346},
+   "value": [[12345.0, 12345.1, 12345.2, 12345.3, 12345.4, 12345.5, 12345.6, 12345.7, 12345.8, 12345.9, 12346.0], 11, 1.0]
+  },
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 10, "v1": 5, "v2": 5},
+   "value": [[4.999999999999451, 4.9999999999996, 4.999999999999751, 4.9999999999999005, 5.000000000000051, 5.000000000000201, 5.000000000000351, 5.000000000000501], 8, 1.0]
+  },
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 2, "v1": -2.3, "v2": 7.9}, "value": [[-6.0, 0.0, 6.0, 12.0], 4, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 2, "v1": 0, "v2": 10}, "value": [[0.0, 5.0, 10.0], 3, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 2, "v1": 0.001, "v2": 0.003}, "value": [[0.001, 0.002, 0.003], 3, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 2, "v1": 10, "v2": -10}, "value": [[-10.0, 0.0, 10.0], 3, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 2, "v1": 12345, "v2": 12346}, "value": [[12345.0, 12345.5, 12346.0], 3, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 2, "v1": 5, "v2": 5}, "value": [[4.9999999999996, 5.000000000000201], 2, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 4, "v1": -2.3, "v2": 7.9}, "value": [[-3.0, 0.0, 3.0, 6.0, 9.0], 5, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 4, "v1": 0, "v2": 10}, "value": [[0.0, 2.5, 5.0, 7.5, 10.0], 5, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 4, "v1": 0.001, "v2": 0.003}, "value": [[0.001, 0.0015, 0.002, 0.0025, 0.003], 5, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 4, "v1": 10, "v2": -10}, "value": [[-10.0, -5.0, 0.0, 5.0, 10.0], 5, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 4, "v1": 12345, "v2": 12346}, "value": [[12345.0, 12345.25, 12345.5, 12345.75, 12346.0], 5, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 4, "v1": 5, "v2": 5},
+   "value": [[4.9999999999996, 4.9999999999999005, 5.000000000000201, 5.000000000000501], 4, 1.0]
+  },
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": -2.3, "v2": 7.9, "symmetric": true, "prune": "both"}, "value": [[-4.0, 0.0, 4.0], 3, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 0, "v2": 10, "symmetric": true, "prune": "both"}, "value": [[-8.0, -4.0, 0.0, 4.0, 8.0], 5, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 5, "v1": 0.001, "v2": 0.003, "symmetric": true, "prune": "both"},
+   "value": [[-0.0015, 0.0, 0.0015000000000000005], 3, 1.0]
+  },
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 10, "v2": -10, "symmetric": true, "prune": "both"}, "value": [[-8.0, -4.0, 0.0, 4.0, 8.0], 5, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 5, "v1": 12345, "v2": 12346, "symmetric": true, "prune": "both"},
+   "value": [[-10000.0, -5000.0, 0.0, 5000.0, 10000.0], 5, 1.0]
+  },
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 5, "v2": 5, "symmetric": true, "prune": "both"}, "value": [[-4.0, -2.0, 0.0, 2.0, 4.0], 5, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": -2.3, "v2": 7.9, "steps": [1, 3, 10]}, "value": [[-3.0, 0.0, 3.0, 6.0, 9.0], 5, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 0, "v2": 10, "steps": [1, 3, 10]}, "value": [[0.0, 3.0, 6.0, 9.0, 12.0], 5, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 0.001, "v2": 0.003, "steps": [1, 3, 10]}, "value": [[0.001, 0.002, 0.003], 3, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 5, "v1": 10, "v2": -10, "steps": [1, 3, 10]}, "value": [[-10.0, 0.0, 10.0], 3, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 5, "v1": 12345, "v2": 12346, "steps": [1, 3, 10]},
+   "value": [[12344.8, 12345.1, 12345.4, 12345.7, 12346.0], 5, 1.0]
+  },
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 5, "v1": 5, "v2": 5, "steps": [1, 3, 10]},
+   "value": [[4.9999999999996, 4.9999999999999005, 5.000000000000201, 5.000000000000501], 4, 1.0]
+  },
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 6, "v1": -2.3, "v2": 7.9}, "value": [[-4.0, -2.0, 0.0, 2.0, 4.0, 6.0, 8.0], 7, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 6, "v1": 0, "v2": 10}, "value": [[0.0, 2.0, 4.0, 6.0, 8.0, 10.0], 6, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 6, "v1": 0.001, "v2": 0.003},
+   "value": [[0.0008, 0.0012000000000000001, 0.0016, 0.002, 0.0024000000000000002, 0.0028, 0.0032], 7, 1.0]
+  },
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 6, "v1": 10, "v2": -10}, "value": [[-12.0, -8.0, -4.0, 0.0, 4.0, 8.0, 12.0], 7, 1.0]},
+  {"op": "grid_finder.MaxNLocator", "args": {"nbins": 6, "v1": 12345, "v2": 12346}, "value": [[12345.0, 12345.2, 12345.4, 12345.6, 12345.8, 12346.0], 6, 1.0]},
+  {
+   "op": "grid_finder.MaxNLocator",
+   "args": {"nbins": 6, "v1": 5, "v2": 5},
+   "value": [[4.9999999999994, 4.9999999999996, 4.9999999999998, 5.0, 5.0000000000002, 5.0000000000004, 5.0000000000006], 7, 1.0]
+  },
+  {
+   "op": "grid_finder.get_grid_info",
+   "args": {"grid": "sqrt", "bbox": [-0.5, -0.5, 4.5, 4.5]},
+   "value": {
+    "extremes": [-1.2750000000000004, -0.75, 21.275, 4.75],
+    "lon": {
+     "lines": [
+      [[-2.0, -0.75], [-2.0, 4.75]],
+      [[0.0, -0.75], [0.0, 4.75]],
+      [[2.0, -0.75], [2.0, 4.75]],
+      [[2.8284271247461903, -0.75], [2.8284271247461903, 4.75]],
+      [[3.4641016151377544, -0.75], [3.4641016151377544, 4.75]],
+      [[4.0, -0.75], [4.0, 4.75]],
+      [[4.47213595499958, -0.75], [4.47213595499958, 4.75]],
+      [[4.898979485566356, -0.75], [4.898979485566356, 4.75]]
+     ],
+     "ticks": {
+      "left": [],
+      "right": [],
+      "bottom": [[0.0, -0.5000000005, 90.0, "$\\mathdefault{0}$"], [2.0, -0.5000000005, 90.0, "$\\mathdefault{4}$"], [2.8284271247461903, -0.5000000005, 90.0, "$\\mathdefault{8}$"], [3.4641016151377544, -0.5000000005, 90.0, "$\\mathdefault{12}$"], [4.0, -0.5000000005, 90.0, "$\\mathdefault{16}$"], [4.47213595499958, -0.5000000005, 90.0, "$\\mathdefault{20}$"]],
+      "top": [[0.0, 4.5000000005, 90.0, "$\\mathdefault{0}$"], [2.0, 4.5000000005, 90.0, "$\\mathdefault{4}$"], [2.8284271247461903, 4.5000000005, 90.0, "$\\mathdefault{8}$"], [3.4641016151377544, 4.5000000005, 90.0, "$\\mathdefault{12}$"], [4.0, 4.5000000005, 90.0, "$\\mathdefault{16}$"], [4.47213595499958, 4.5000000005, 90.0, "$\\mathdefault{20}$"]]
+     }
+    },
+    "lat": {
+     "lines": [
+      [[-1.1291589790636216, -1.0], [4.612483062299525, -1.0]],
+      [[-1.1291589790636216, 0.0], [4.612483062299525, 0.0]],
+      [[-1.1291589790636216, 1.0], [4.612483062299525, 1.0]],
+      [[-1.1291589790636216, 2.0], [4.612483062299525, 2.0]],
+      [[-1.1291589790636216, 3.0], [4.612483062299525, 3.0]],
+      [[-1.1291589790636216, 4.0], [4.612483062299525, 4.0]],
+      [[-1.1291589790636216, 5.0], [4.612483062299525, 5.0]]
+     ],
+     "ticks": {
+      "left": [[-0.5000000005, 0.0, 0.0, "$\\mathdefault{0}$"], [-0.5000000005, 1.0, 0.0, "$\\mathdefault{1}$"], [-0.5000000005, 2.0, 0.0, "$\\mathdefault{2}$"], [-0.5000000005, 3.0, 0.0, "$\\mathdefault{3}$"], [-0.5000000005, 4.0, 0.0, "$\\mathdefault{4}$"]],
+      "right": [[4.5000000005, 0.0, 0.0, "$\\mathdefault{0}$"], [4.5000000005, 1.0, 0.0, "$\\mathdefault{1}$"], [4.5000000005, 2.0, 0.0, "$\\mathdefault{2}$"], [4.5000000005, 3.0, 0.0, "$\\mathdefault{3}$"], [4.5000000005, 4.0, 0.0, "$\\mathdefault{4}$"]],
+      "bottom": [],
+      "top": []
+     }
+    }
+   }
+  },
+  {
+   "op": "grid_finder.get_grid_info",
+   "args": {"grid": "polar", "bbox": [-5, -5, 12, 10]},
+   "value": {
+    "extremes": [-194.53612282273278, 0.0, 165.46387717726722, 16.37888662133281],
+    "lon": {
+     "lines": [
+      [[0.0, 0.0], [-14.184531899779287, 8.189443310666407]],
+      [[0.0, 0.0], [-16.37888662133281, -2.0058351074412634e-15]],
+      [[0.0, 0.0], [-14.184531899779289, -8.189443310666404]],
+      [[0.0, 0.0], [-8.189443310666402, -14.184531899779289]],
+      [[0.0, 0.0], [1.0029175537206317e-15, -16.37888662133281]],
+      [[0.0, 0.0], [8.189443310666407, -14.184531899779287]],
+      [[0.0, 0.0], [14.184531899779289, -8.189443310666404]],
+      [[0.0, 0.0], [16.37888662133281, 0.0]],
+      [[0.0, 0.0], [14.184531899779289, 8.189443310666404]],
+      [[0.0, 0.0], [8.189443310666407, 14.184531899779287]],
+      [[0.0, 0.0], [1.0029175537206317e-15, 16.37888662133281]],
+      [[0.0, 0.0], [-8.189443310666402, 14.184531899779289]],
+      [[0.0, 0.0], [-14.184531899779289, 8.189443310666404]]
+     ],
+     "ticks": {
+      "left": [[-5.0000000017, 2.886751346929625, 149.99999999999997, "$-210^{\\circ}$"], [-5.0000000017, -6.123233997818666e-16, -180.0, "$-180^{\\circ}$"], [-5.0000000017, -2.8867513469296235, -149.99999999999997, "$-150^{\\circ}$"], [-5.0000000017, 8.660254040788878, 119.99999999999976, "$120^{\\circ}$"], [-5.0000000017, 2.8867513469296235, 149.99999999999997, "$150^{\\circ}$"]],
+      "right": [[12.0000000017, 0.0, 0.0, "$0^{\\circ}$"], [12.0000000017, 6.928203231257004, 30.00000000000003, "$30^{\\circ}$"]],
+      "bottom": [[-2.886751346814153, -5.0000000015, -120.00000000000001, "$-120^{\\circ}$"], [3.061616998786868e-16, -5.0000000015, -90.0, "$-90^{\\circ}$"], [2.886751346814155, -5.0000000015, -59.999999999999986, "$-60^{\\circ}$"], [8.660254040442465, -5.0000000015, -30.00000000000003, "$-30^{\\circ}$"]],
+      "top": [[5.773502692762285, 10.0000000015, 59.999999999999986, "$60^{\\circ}$"], [6.123233996655251e-16, 10.0000000015, 90.0, "$90^{\\circ}$"]]
+     }
+    },
+    "lat": {
+     "lines": [
+      [[0.0, 0.0], [0.0, 0.0]],
+      [[-1.9359791857030473, 0.5019806694730051], [-1.935979185703047, 0.5019806694730056]],
+      [[-3.8719583714060946, 1.0039613389460103], [-3.871958371406094, 1.0039613389460111]],
+      [[-5.807937557109142, 1.5059420084190154], [-5.807937557109141, 1.5059420084190167]],
+      [[-7.743916742812189, 2.0079226778920205], [-7.743916742812188, 2.0079226778920223]],
+      [[-9.679895928515236, 2.5099033473650256], [-9.679895928515235, 2.509903347365028]],
+      [[-11.615875114218284, 3.0118840168380308], [-11.615875114218282, 3.0118840168380334]],
+      [[-13.551854299921331, 3.513864686311036], [-13.55185429992133, 3.513864686311039]],
+      [[-15.487833485624378, 4.015845355784041], [-15.487833485624376, 4.015845355784045]],
+      [[-17.423812671327426, 4.517826025257046], [-17.423812671327422, 4.51782602525705]]
+     ],
+     "ticks": {
+      "left": [[-5.0000000017, -3.312902035604958, -55.44521373182381, "$\\mathdefault{6}$"], [-5.0000000017, 3.312840821193184, -124.53612282273284, "$\\mathdefault{6}$"], [-5.0000000017, 6.2429379031397385, -142.717941004551, "$\\mathdefault{8}$"], [-5.0000000017, 8.65444021543491, -149.9906682772782, "$\\mathdefault{10}$"]],
+      "right": [[12.0000000017, 7.209922078079944, 122.7366044499944, "$\\mathdefault{14}$"]],
+      "bottom": [[-3.311178078161999, -5.0000000015, -33.62703191364187, "$\\mathdefault{6}$"], [3.316081464276786, -5.0000000015, 31.827513540903748, "$\\mathdefault{6}$"], [6.242463787130759, -5.0000000015, 50.009331722721726, "$\\mathdefault{8}$"], [8.65596320625394, -5.0000000015, 60.91842263181257, "$\\mathdefault{10}$"], [10.903385539011254, -5.0000000015, 64.55478626817633, "$\\mathdefault{12}$"]],
+      "top": [[6.632387426542024, 10.0000000015, 148.19114990454003, "$\\mathdefault{12}$"], [9.796624168386135, 10.0000000015, 137.28205899544903, "$\\mathdefault{14}$"]]
+     }
+    }
+   }
+  },
+  {
+   "op": "grid_finder.get_grid_info",
+   "args": {"grid": "polar5", "bbox": [-5, -5, 12, 10]},
+   "value": {
+    "extremes": [-194.53612282273278, 0.0, 165.46387717726722, 16.37888662133281],
+    "lon": {
+     "lines": [
+      [[0.0, 0.0], [-14.184531899779287, 8.189443310666407]],
+      [[0.0, 0.0], [-16.37888662133281, -2.0058351074412634e-15]],
+      [[0.0, 0.0], [-14.184531899779289, -8.189443310666404]],
+      [[0.0, 0.0], [-8.189443310666402, -14.184531899779289]],
+      [[0.0, 0.0], [1.0029175537206317e-15, -16.37888662133281]],
+      [[0.0, 0.0], [8.189443310666407, -14.184531899779287]],
+      [[0.0, 0.0], [14.184531899779289, -8.189443310666404]],
+      [[0.0, 0.0], [16.37888662133281, 0.0]],
+      [[0.0, 0.0], [14.184531899779289, 8.189443310666404]],
+      [[0.0, 0.0], [8.189443310666407, 14.184531899779287]],
+      [[0.0, 0.0], [1.0029175537206317e-15, 16.37888662133281]],
+      [[0.0, 0.0], [-8.189443310666402, 14.184531899779289]],
+      [[0.0, 0.0], [-14.184531899779289, 8.189443310666404]]
+     ],
+     "ticks": {
+      "left": [[-5.0000000017, 2.886751346929625, 149.99999999999997, "$-210^{\\circ}$"], [-5.0000000017, -6.123233997818666e-16, -180.0, "$-180^{\\circ}$"], [-5.0000000017, -2.8867513469296235, -149.99999999999997, "$-150^{\\circ}$"], [-5.0000000017, 8.660254040788878, 119.99999999999976, "$120^{\\circ}$"], [-5.0000000017, 2.8867513469296235, 149.99999999999997, "$150^{\\circ}$"]],
+      "right": [[12.0000000017, 0.0, 0.0, "$0^{\\circ}$"], [12.0000000017, 6.928203231257004, 30.00000000000003, "$30^{\\circ}$"]],
+      "bottom": [[-2.886751346814153, -5.0000000015, -120.00000000000001, "$-120^{\\circ}$"], [3.061616998786868e-16, -5.0000000015, -90.0, "$-90^{\\circ}$"], [2.886751346814155, -5.0000000015, -59.999999999999986, "$-60^{\\circ}$"], [8.660254040442465, -5.0000000015, -30.00000000000003, "$-30^{\\circ}$"]],
+      "top": [[5.773502692762285, 10.0000000015, 59.999999999999986, "$60^{\\circ}$"], [6.123233996655251e-16, 10.0000000015, 90.0, "$90^{\\circ}$"]]
+     }
+    },
+    "lat": {
+     "lines": [
+      [[0.0, 0.0], [0.0, 0.0]],
+      [[-3.8719583714060946, 1.0039613389460103], [-3.871958371406094, 1.0039613389460111]],
+      [[-7.743916742812189, 2.0079226778920205], [-7.743916742812188, 2.0079226778920223]],
+      [[-11.615875114218284, 3.0118840168380308], [-11.615875114218282, 3.0118840168380334]],
+      [[-15.487833485624378, 4.015845355784041], [-15.487833485624376, 4.015845355784045]],
+      [[-19.359791857030473, 5.019806694730051], [-19.35979185703047, 5.019806694730056]]
+     ],
+     "ticks": {
+      "left": [[-5.0000000017, 6.2429379031397385, -142.717941004551, "$\\mathdefault{8}$"]],
+      "right": [],
+      "bottom": [[6.242463787130759, -5.0000000015, 50.009331722721726, "$\\mathdefault{8}$"], [10.903385539011254, -5.0000000015, 64.55478626817633, "$\\mathdefault{12}$"]],
+      "top": [[6.632387426542024, 10.0000000015, 148.19114990454003, "$\\mathdefault{12}$"]]
+     }
+    }
+   }
+  },
+  {
+   "op": "grid_finder.get_grid_info",
+   "args": {"grid": "shear", "bbox": [0, 0, 10, 10]},
+   "value": {
+    "extremes": [-0.5, -1.0, 10.5, 21.0],
+    "lon": {
+     "lines": [
+      [[-1.5, 0.5], [-1.5, 22.5]],
+      [[0.0, -1.0], [0.0, 21.0]],
+      [[1.5, -2.5], [1.5, 19.5]],
+      [[3.0, -4.0], [3.0, 18.0]],
+      [[4.5, -5.5], [4.5, 16.5]],
+      [[6.0, -7.0], [6.0, 15.0]],
+      [[7.5, -8.5], [7.5, 13.5]],
+      [[9.0, -10.0], [9.0, 12.0]],
+      [[10.5, -11.5], [10.5, 10.5]]
+     ],
+     "ticks": {
+      "left": [],
+      "right": [],
+      "bottom": [[0.0, -1.000000082740371e-09, 90.0, "$\\mathdefault{0.0}$"], [1.5, -1.000000082740371e-09, 90.0, "$\\mathdefault{1.5}$"], [3.0, -1.000000082740371e-09, 90.0, "$\\mathdefault{3.0}$"], [4.5, -1.000000082740371e-09, 90.0, "$\\mathdefault{4.5}$"], [6.0, -1.000000082740371e-09, 90.0, "$\\mathdefault{6.0}$"], [7.5, -1.000000082740371e-09, 90.0, "$\\mathdefault{7.5}$"], [9.0, -1.000000082740371e-09, 90.0, "$\\mathdefault{9.0}$"]],
+      "top": [[0.0, 10.000000001, 90.0, "$\\mathdefault{0.0}$"], [1.5, 10.000000001, 90.0, "$\\mathdefault{1.5}$"], [3.0, 10.000000001, 90.0, "$\\mathdefault{3.0}$"], [4.5, 10.000000001, 90.0, "$\\mathdefault{4.5}$"], [6.0, 10.000000001, 90.0, "$\\mathdefault{6.0}$"], [7.5, 10.000000001, 90.0, "$\\mathdefault{7.5}$"], [9.0, 10.000000001, 90.0, "$\\mathdefault{9.0}$"]]
+     }
+    },
+    "lat": {
+     "lines": [
+      [[-0.5, -2.0], [10.5, -13.0]],
+      [[-0.5, 0.5], [10.5, -10.5]],
+      [[-0.5, 3.0], [10.5, -8.0]],
+      [[-0.5, 5.5], [10.5, -5.5]],
+      [[-0.5, 8.0], [10.5, -3.0]],
+      [[-0.5, 10.5], [10.5, -0.5]],
+      [[-0.5, 13.0], [10.5, 2.0]],
+      [[-0.5, 15.5], [10.5, 4.5]],
+      [[-0.5, 18.0], [10.5, 7.0]],
+      [[-0.5, 20.5], [10.5, 9.5]],
+      [[-0.5, 23.0], [10.5, 12.0]]
+     ],
+     "ticks": {
+      "left": [[-1.000000082740371e-09, 1.000000082740371e-09, -45.0, "$\\mathdefault{0.0}$"], [-1.000000082740371e-09, 2.500000001, -44.999999999999886, "$\\mathdefault{2.5}$"], [-1.000000082740371e-09, 5.000000001, -44.999999999999886, "$\\mathdefault{5.0}$"], [-1.000000082740371e-09, 7.500000001, -44.999999999999886, "$\\mathdefault{7.5}$"], [-1.000000082740371e-09, 10.000000001, -44.999999999999886, "$\\mathdefault{10.0}$"]],
+      "right": [[10.000000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{10.0}$"], [10.000000001, 2.499999999, -45.0, "$\\mathdefault{12.5}$"], [10.000000001, 4.999999999, -45.0, "$\\mathdefault{15.0}$"], [10.000000001, 7.499999999, -45.0, "$\\mathdefault{17.5}$"], [10.000000001, 9.999999999, -45.0, "$\\mathdefault{20.0}$"]],
+      "bottom": [[1.000000082740371e-09, -1.000000082740371e-09, -45.0, "$\\mathdefault{0.0}$"], [2.500000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{2.5}$"], [5.000000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{5.0}$"], [7.500000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{7.5}$"], [10.000000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{10.0}$"]],
+      "top": [[-1.000000082740371e-09, 10.000000001, -44.999999999999886, "$\\mathdefault{10.0}$"], [2.499999999, 10.000000001, -44.999999999999886, "$\\mathdefault{12.5}$"], [4.999999999, 10.000000001, -45.00000000000023, "$\\mathdefault{15.0}$"], [7.499999999, 10.000000001, -44.99999999999977, "$\\mathdefault{17.5}$"], [9.999999999, 10.000000001, -45.0, "$\\mathdefault{20.0}$"]]
+     }
+    }
+   }
+  },
+  {
+   "op": "grid_finder.get_grid_info",
+   "args": {"grid": "shear", "bbox": [10, 0, 0, 10]},
+   "value": {
+    "extremes": [-0.5, -1.0, 10.5, 21.0],
+    "lon": {
+     "lines": [
+      [[-1.5, 0.5], [-1.5, 22.5]],
+      [[0.0, -1.0], [0.0, 21.0]],
+      [[1.5, -2.5], [1.5, 19.5]],
+      [[3.0, -4.0], [3.0, 18.0]],
+      [[4.5, -5.5], [4.5, 16.5]],
+      [[6.0, -7.0], [6.0, 15.0]],
+      [[7.5, -8.5], [7.5, 13.5]],
+      [[9.0, -10.0], [9.0, 12.0]],
+      [[10.5, -11.5], [10.5, 10.5]]
+     ],
+     "ticks": {
+      "left": [],
+      "right": [],
+      "bottom": [[0.0, -1.000000082740371e-09, 90.0, "$\\mathdefault{0.0}$"], [1.5, -1.000000082740371e-09, 90.0, "$\\mathdefault{1.5}$"], [3.0, -1.000000082740371e-09, 90.0, "$\\mathdefault{3.0}$"], [4.5, -1.000000082740371e-09, 90.0, "$\\mathdefault{4.5}$"], [6.0, -1.000000082740371e-09, 90.0, "$\\mathdefault{6.0}$"], [7.5, -1.000000082740371e-09, 90.0, "$\\mathdefault{7.5}$"], [9.0, -1.000000082740371e-09, 90.0, "$\\mathdefault{9.0}$"]],
+      "top": [[0.0, 10.000000001, 90.0, "$\\mathdefault{0.0}$"], [1.5, 10.000000001, 90.0, "$\\mathdefault{1.5}$"], [3.0, 10.000000001, 90.0, "$\\mathdefault{3.0}$"], [4.5, 10.000000001, 90.0, "$\\mathdefault{4.5}$"], [6.0, 10.000000001, 90.0, "$\\mathdefault{6.0}$"], [7.5, 10.000000001, 90.0, "$\\mathdefault{7.5}$"], [9.0, 10.000000001, 90.0, "$\\mathdefault{9.0}$"]]
+     }
+    },
+    "lat": {
+     "lines": [
+      [[-0.5, -2.0], [10.5, -13.0]],
+      [[-0.5, 0.5], [10.5, -10.5]],
+      [[-0.5, 3.0], [10.5, -8.0]],
+      [[-0.5, 5.5], [10.5, -5.5]],
+      [[-0.5, 8.0], [10.5, -3.0]],
+      [[-0.5, 10.5], [10.5, -0.5]],
+      [[-0.5, 13.0], [10.5, 2.0]],
+      [[-0.5, 15.5], [10.5, 4.5]],
+      [[-0.5, 18.0], [10.5, 7.0]],
+      [[-0.5, 20.5], [10.5, 9.5]],
+      [[-0.5, 23.0], [10.5, 12.0]]
+     ],
+     "ticks": {
+      "left": [[-1.000000082740371e-09, 1.000000082740371e-09, -45.0, "$\\mathdefault{0.0}$"], [-1.000000082740371e-09, 2.500000001, -44.999999999999886, "$\\mathdefault{2.5}$"], [-1.000000082740371e-09, 5.000000001, -44.999999999999886, "$\\mathdefault{5.0}$"], [-1.000000082740371e-09, 7.500000001, -44.999999999999886, "$\\mathdefault{7.5}$"], [-1.000000082740371e-09, 10.000000001, -44.999999999999886, "$\\mathdefault{10.0}$"]],
+      "right": [[10.000000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{10.0}$"], [10.000000001, 2.499999999, -45.0, "$\\mathdefault{12.5}$"], [10.000000001, 4.999999999, -45.0, "$\\mathdefault{15.0}$"], [10.000000001, 7.499999999, -45.0, "$\\mathdefault{17.5}$"], [10.000000001, 9.999999999, -45.0, "$\\mathdefault{20.0}$"]],
+      "bottom": [[1.000000082740371e-09, -1.000000082740371e-09, -45.0, "$\\mathdefault{0.0}$"], [2.500000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{2.5}$"], [5.000000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{5.0}$"], [7.500000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{7.5}$"], [10.000000001, -1.000000082740371e-09, -45.0, "$\\mathdefault{10.0}$"]],
+      "top": [[-1.000000082740371e-09, 10.000000001, -44.999999999999886, "$\\mathdefault{10.0}$"], [2.499999999, 10.000000001, -44.999999999999886, "$\\mathdefault{12.5}$"], [4.999999999, 10.000000001, -45.00000000000023, "$\\mathdefault{15.0}$"], [7.499999999, 10.000000001, -44.99999999999977, "$\\mathdefault{17.5}$"], [9.999999999, 10.000000001, -45.0, "$\\mathdefault{20.0}$"]]
+     }
+    }
+   }
+  },
+  {
+   "op": "grid_finder.get_grid_info",
+   "args": {"grid": "polar", "bbox": [2, 1, 9, 6]},
+   "value": {
+    "extremes": [3.0789487743515, 1.80703868505518, 74.8262941486364, 11.245683118836578],
+    "lon": {
+     "lines": [
+      [[1.80703868505518, 0.0], [11.245683118836578, 0.0]],
+      [[1.80016235729865, 0.15749379876973577], [11.202889899404845, 0.9801258649270029]],
+      [[1.779585707035327, 0.31378897463347805], [11.07483592334877, 1.9527923802057332]],
+      [[1.7454653349982363, 0.4676960269292964], [10.862495758747247, 2.9105969663428204]],
+      [[1.698060917821024, 0.6180436300576007], [10.567485442467392, 3.8462501520995396]],
+      [[1.6377332317419782, 0.7636875479762194], [10.19205018114819, 4.752631051769442]],
+      [[1.5649414068790135, 0.9035193425275899], [9.739047263822293, 5.622841559418288]],
+      [[1.4802394329722424, 1.0364748093224305], [9.211924316221188, 6.450258847635401]],
+      [[1.3842719431875457, 1.1615420769777263], [8.614693062261658, 7.22858577124923]],
+      [[1.2777693080689398, 1.2777693080689396], [7.951898792404427, 7.951898792404426]],
+      [[1.1615420769777265, 1.3842719431875457], [7.2285857712492305, 8.614693062261658]],
+      [[1.0364748093224305, 1.4802394329722424], [6.450258847635403, 9.211924316221188]],
+      [[0.9035193425275903, 1.5649414068790133], [5.62284155941829, 9.739047263822291]],
+      [[0.7636875479762194, 1.6377332317419782], [4.752631051769442, 10.19205018114819]],
+      [[0.6180436300576008, 1.6980609178210238], [3.8462501520995405, 10.56748544246739]],
+      [[0.4676960269292964, 1.7454653349982363], [2.9105969663428204, 10.862495758747247]]
+     ],
+     "ticks": {
+      "left": [[1.9999999993, 1.154700537975106, 29.999999999999993, "$30^{\\circ}$"], [1.9999999993, 1.4004150759292742, 34.99999999999992, "$35^{\\circ}$"], [1.9999999993, 1.6781992617671901, 40.00000000000009, "$40^{\\circ}$"], [1.9999999993, 1.9999999992999995, 44.99999999999991, "$45^{\\circ}$"], [1.9999999993, 2.383507184354192, 50.00000000000011, "$50^{\\circ}$"], [1.9999999993, 2.856296012484525, 55.000000000000014, "$55^{\\circ}$"], [1.9999999993, 3.464101613925318, 60.00000000000001, "$60^{\\circ}$"], [1.9999999993, 4.289013839517962, 64.99999999999997, "$65^{\\circ}$"], [1.9999999993, 5.494954836986008, 69.99999999999991, "$70^{\\circ}$"]],
+      "right": [[9.0000000007, 1.5869428264996137, 10.000000000000053, "$10^{\\circ}$"], [9.0000000007, 2.4115427320676686, 15.000000000000314, "$15^{\\circ}$"], [9.0000000007, 3.2757321086506, 19.99999999999978, "$20^{\\circ}$"], [9.0000000007, 4.196768923721403, 24.999999999999805, "$25^{\\circ}$"], [9.0000000007, 5.196152423110776, 29.99999999999984, "$30^{\\circ}$"]],
+      "bottom": [[5.671281816782069, 0.9999999995, 10.000000000000053, "$10^{\\circ}$"], [3.732050805702852, 0.9999999995, 14.99999999999999, "$15^{\\circ}$"], [2.7474774180808836, 0.9999999995, 20.000000000000053, "$20^{\\circ}$"], [2.144506919437305, 0.9999999995, 24.99999999999992, "$25^{\\circ}$"]],
+      "top": [[8.568888041166762, 6.0000000005, 35.00000000000014, "$35^{\\circ}$"], [7.150521556161138, 6.0000000005, 39.99999999999993, "$40^{\\circ}$"], [6.000000000500001, 6.0000000005, 45.0, "$45^{\\circ}$"], [5.03459778748323, 6.0000000005, 49.99999999999967, "$50^{\\circ}$"], [4.201245229608363, 6.0000000005, 55.0000000000003, "$55^{\\circ}$"], [3.464101615426431, 6.0000000005, 59.99999999999989, "$60^{\\circ}$"], [2.7978459491631456, 6.0000000005, 64.99999999999997, "$65^{\\circ}$"], [2.1838214057792, 6.0000000005, 70.00000000000023, "$70^{\\circ}$"]]
+     }
+    },
+    "lat": {
+     "lines": [
+      [[0.99855647219799, 0.05371193379040385], [0.2617462861909834, 0.96513671656674]],
+      [[1.99711294439598, 0.1074238675808077], [0.5234925723819668, 1.93027343313348]],
+      [[2.9956694165939703, 0.16113580137121156], [0.7852388585729502, 2.8954101497002203]],
+      [[3.99422588879196, 0.2148477351616154], [1.0469851447639336, 3.86054686626696]],
+      [[4.99278236098995, 0.26855966895201927], [1.308731430954917, 4.8256835828337]],
+      [[5.991338833187941, 0.3222716027424231], [1.5704777171459003, 5.7908202994004405]],
+      [[6.9898953053859305, 0.37598353653282696], [1.8322240033368837, 6.75595701596718]],
+      [[7.98845177758392, 0.4296954703232308], [2.093970289527867, 7.72109373253392]],
+      [[8.98700824978191, 0.48340740411363464], [2.3557165757188505, 8.68623044910066]],
+      [[9.9855647219799, 0.5371193379040385], [2.617462861909834, 9.6513671656674]],
+      [[10.98412119417789, 0.5908312716944424], [2.8792091481008173, 10.61650388223414]],
+      [[11.982677666375881, 0.6445432054848462], [3.1409554342918007, 11.581640598800881]]
+     ],
+     "ticks": {
+      "left": [[1.9999999993, 2.236008478864299, 138.37399004599615, "$\\mathdefault{3}$"], [1.9999999993, 3.464009870244866, 149.96952061153698, "$\\mathdefault{4}$"], [1.9999999993, 4.582470741751858, 156.4920065546536, "$\\mathdefault{5}$"], [1.9999999993, 5.656821123883567, 160.84033051673126, "$\\mathdefault{6}$"]],
+      "right": [[9.0000000007, 4.358456275914519, 115.90764957526036, "$\\mathdefault{10}$"]],
+      "bottom": [[2.828367110011933, 0.9999999995, 109.3851636321435, "$\\mathdefault{3}$"], [3.8729179880697355, 0.9999999995, 104.31211900971964, "$\\mathdefault{4}$"], [4.898889366627142, 0.9999999995, 101.41323636833384, "$\\mathdefault{5}$"], [5.916074890595869, 0.9999999995, 99.23907438729526, "$\\mathdefault{6}$"], [6.928159442797113, 0.9999999995, 98.5143537269489, "$\\mathdefault{7}$"], [7.937109195161821, 0.9999999995, 97.06491240625625, "$\\mathdefault{8}$"], [8.944092929975291, 0.9999999995, 96.34019174590982, "$\\mathdefault{9}$"]],
+      "top": [[3.605405249911457, 6.0000000005, 149.24479995119052, "$\\mathdefault{7}$"], [5.291347657277444, 6.0000000005, 138.37399004599604, "$\\mathdefault{8}$"], [6.707965417527811, 6.0000000005, 131.85150410287943, "$\\mathdefault{9}$"], [7.999766211824075, 6.0000000005, 126.77845948045476, "$\\mathdefault{10}$"]]
+     }
+    }
+   }
+  }
+ ]
+}

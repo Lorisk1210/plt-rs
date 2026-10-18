@@ -70,6 +70,9 @@ pub struct RasterRenderer {
     size: (f64, f64),
     dpi: f64,
     simplify: SimplifySettings,
+    /// Long unfilled paths are drawn in pieces of at most this many
+    /// vertices (matplotlib's `agg.path.chunksize`; 0 never splits).
+    chunksize: usize,
     clip_cache: Option<CachedClip>,
     /// Canvases set aside while filtered artists draw.
     set_aside: Vec<Pixmap>,
@@ -90,6 +93,7 @@ impl RasterRenderer {
             size: (width, height),
             dpi,
             simplify: SimplifySettings::default(),
+            chunksize: 0,
             clip_cache: None,
             set_aside: Vec::new(),
             errors: Vec::new(),
@@ -101,6 +105,16 @@ impl RasterRenderer {
     #[must_use]
     pub fn with_simplify(mut self, settings: SimplifySettings) -> Self {
         self.simplify = settings;
+        self
+    }
+
+    /// Draws unfilled, unhatched paths that would be simplified in pieces
+    /// of at most `chunksize` vertices when they have more, as matplotlib
+    /// does with `agg.path.chunksize` (0, the default, never splits; nor do
+    /// sizes up to 100).
+    #[must_use]
+    pub fn with_path_chunksize(mut self, chunksize: usize) -> Self {
+        self.chunksize = chunksize;
         self
     }
 

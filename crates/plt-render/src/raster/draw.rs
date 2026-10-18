@@ -3,7 +3,7 @@
 
 use plt_core::hatch;
 use plt_core::path::convert::{SnapMode as PathSnap, VertexSource};
-use plt_core::{Affine2D, Path, Point, Rgba};
+use plt_core::{Affine2D, Path, PathCode, Point, Rgba};
 use plt_raster::{Antialias, Clip, ClipBox, FillRule, Pixmap, Rgba8};
 use plt_text::TextRun;
 
@@ -149,29 +149,18 @@ impl Renderer for RasterRenderer {
         transform: &Affine2D,
         fill: Option<Rgba>,
     ) {
-        let face = fill.map(|c| gc.fill_color(c)).filter(|c| c.a != 0.0);
-        let rect = self.clip_box(gc);
-        let masked = self.prepare_clip_mask(gc, Some(rect.unwrap_or_else(|| self.full_box())));
-        let clip = face.is_none() && gc.hatch.is_none();
-        let snap_width = if gc.stroke_color().a == 0.0 {
-            0.0
+        let chunked = fill.is_none()
+            && gc.hatch.is_none()
+            && self.chunksize > 100
+            && path.len() > self.chunksize
+            && self.simplify.applies_to(path);
+        if chunked {
+            for chunk in chunks(path, self.chunksize) {
+                self.draw_whole_path(gc, &chunk, transform, None);
+            }
         } else {
-            self.px(gc.linewidth)
-        };
-        let conditioning = Conditioning {
-            has_codes: path.codes().is_some(),
-            clip,
-            snap: snap_mode(gc.snap),
-            snap_width,
-            simplify: if clip {
-                self.simplify.for_path(path)
-            } else {
-                None
-            },
-            sketch: sketch_params(gc.sketch),
-        };
-        let conditioned = self.condition(path, self.to_device(transform), &conditioning);
-        self.draw_conditioned(gc, &conditioned, face, rect, masked);
+            self.draw_whole_path(gc, path, transform, fill);
+        }
     }
 
     fn draw_markers(
@@ -337,4 +326,67 @@ impl Renderer for RasterRenderer {
     fn option_image_nocomposite(&self) -> bool {
         true
     }
+}
+
+impl RasterRenderer {
+    /// Draws `path` in one piece (matplotlib's `_renderer.draw_path`).
+    fn draw_whole_path(
+        &mut self,
+        gc: &GraphicsContext,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    ) {
+        let face = fill.map(|c| gc.fill_color(c)).filter(|c| c.a != 0.0);
+        let rect = self.clip_box(gc);
+        let masked = self.prepare_clip_mask(gc, Some(rect.unwrap_or_else(|| self.full_box())));
+        let clip = face.is_none() && gc.hatch.is_none();
+        let snap_width = if gc.stroke_color().a == 0.0 {
+            0.0
+        } else {
+            self.px(gc.linewidth)
+        };
+        let conditioning = Conditioning {
+            has_codes: path.codes().is_some(),
+            clip,
+            snap: snap_mode(gc.snap),
+            snap_width,
+            simplify: if clip {
+                self.simplify.for_path(path)
+            } else {
+                None
+            },
+            sketch: sketch_params(gc.sketch),
+        };
+        let conditioned = self.condition(path, self.to_device(transform), &conditioning);
+        self.draw_conditioned(gc, &conditioned, face, rect, masked);
+    }
+}
+
+/// The pieces matplotlib's `RendererAgg.draw_path` splits a long path into
+/// for `agg.path.chunksize`: equal runs of vertices, each starting with a
+/// move, where the vertex before each run's start is left out.
+fn chunks(path: &Path, chunksize: usize) -> Vec<Path> {
+    let points = path.len();
+    let count = points.div_ceil(chunksize);
+    let size = points.div_ceil(count);
+    let starts: Vec<usize> = (0..points).step_by(size).collect();
+    starts
+        .iter()
+        .enumerate()
+        .map(|(i, &start)| {
+            let end = starts.get(i + 1).map_or(points, |next| next - 1);
+            let vertices = path.vertices()[start..end].to_vec();
+            match path.codes() {
+                Some(codes) => {
+                    let mut codes = codes[start..end].to_vec();
+                    if let Some(first) = codes.first_mut() {
+                        *first = PathCode::MoveTo;
+                    }
+                    Path::new(vertices, codes).expect("chunks start with a move")
+                }
+                None => Path::polyline(vertices),
+            }
+        })
+        .collect()
 }

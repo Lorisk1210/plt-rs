@@ -259,6 +259,14 @@ def _(fig):
     ax.set_ylim(0, 1)
 
 
+@case("styles/rc_agg_path_chunksize", figsize=(5, 3), rc={"agg.path.chunksize": 200})
+def _(fig):
+    ax = fig.subplots()
+    x = np.linspace(0, 10, 2000)
+    ax.plot(x, np.sin(x) + 0.3 * np.sin(37 * x), linewidth=2)
+    ax.fill_between(x[:400], np.sin(x[:400]) - 1, -1.5, alpha=0.3)
+
+
 @case("styles/rc_boxplot_horizontal", figsize=(5, 3), rc={"boxplot.vertical": False})
 def _(fig):
     ax = fig.subplots()

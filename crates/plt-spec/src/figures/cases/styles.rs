@@ -1,7 +1,11 @@
 //! `figures/cases_styles.py`: every bundled style sheet applied to the
 //! same standard plot, and individual rcParams.
 
-use plt::axes::{BoxplotOptions, ErrorbarOptions, HistPlotOptions, MappedColors, ScatterOptions};
+use plt::axes::{
+    BoxplotOptions, ErrorbarOptions, FillBetweenOptions, HistPlotOptions, MappedColors,
+    ScatterOptions,
+};
+use plt::collections::CollectionProps;
 use plt::legend::LegendOptions;
 use plt::patches::Rectangle;
 use plt::prelude::*;
@@ -135,6 +139,22 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(4.0, 3.0, 100.0)
     .with_rc(&[("path.snap", "False"), ("axes.grid", "True")]),
+    FigureCase::new("styles/rc_agg_path_chunksize", |fig| {
+        let ax = fig.subplot();
+        let x = linspace(0.0, 10.0, 2000);
+        let wave: Vec<f64> = x.iter().map(|v| v.sin() + 0.3 * (37.0 * v).sin()).collect();
+        ax.plot_with(x.clone(), wave, LineProps::default().linewidth(2.0))?;
+        let head = &x[..400];
+        let lower: Vec<f64> = head.iter().map(|v| v.sin() - 1.0).collect();
+        let options = FillBetweenOptions {
+            props: CollectionProps::default().alpha(0.3),
+            ..FillBetweenOptions::default()
+        };
+        ax.fill_between(head, &lower, [-1.5], options)?;
+        Ok(())
+    })
+    .sized(5.0, 3.0, 100.0)
+    .with_rc(&[("agg.path.chunksize", "200")]),
     FigureCase::new("styles/rc_prop_cycle_color_and_linestyle", |fig| {
         let ax = fig.subplot();
         for i in 0..5 {

@@ -13,7 +13,7 @@ use crate::mathtext::data::{
 };
 use crate::mathtext::font_name::FontName;
 use crate::mathtext::pattern::parse_pattern;
-use crate::mathtext::style::{MathFallback, MathStyle};
+use crate::mathtext::style::{MathFallback, MathStyle, PatternDefaults};
 
 /// The glyph source for a symbol (before sizing).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,6 +69,8 @@ pub(crate) struct Finder<'a> {
     pub(crate) db: &'a FontDatabase,
     /// `font.serif`, `font.sans-serif`, ... lists.
     pub(crate) generics: &'a GenericFamilies,
+    /// What a pattern leaves out ([`MathStyle::pattern_defaults`]).
+    pub(crate) defaults: PatternDefaults,
 }
 
 impl Finder<'_> {
@@ -76,9 +78,9 @@ impl Finder<'_> {
         Ok(self.db.find_font_with(query, self.generics)?)
     }
 
-    /// `findfont(pattern)`.
+    /// `findfont(FontProperties(pattern))`.
     fn find(self, pattern: &str) -> Result<FontId, TextError> {
-        self.query(&parse_pattern(pattern)?)
+        self.query(&parse_pattern(pattern, self.defaults)?)
     }
 
     fn find_all(self, entries: &[(FontName, &str)]) -> Result<Vec<(FontName, FontId)>, TextError> {
@@ -151,6 +153,7 @@ impl GlyphSet {
         let finder = Finder {
             db,
             generics: &style.font.generics,
+            defaults: style.pattern_defaults,
         };
         let math_default = style.default.into();
         match MathFonts::of(style) {

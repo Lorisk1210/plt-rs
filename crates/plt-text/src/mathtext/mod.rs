@@ -26,7 +26,7 @@ mod pattern;
 mod style;
 
 pub use output::{MathGlyph, MathLayout, MathRect, RasterExtents};
-pub use style::{CustomFonts, Fontset, MathFallback, MathFont, MathStyle};
+pub use style::{CustomFonts, Fontset, MathFallback, MathFont, MathStyle, PatternDefaults};
 
 use crate::engine::TextEngine;
 use crate::error::TextError;

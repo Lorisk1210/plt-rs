@@ -304,8 +304,10 @@ fn tick_dimensions(axis: AxisName, major: bool, rc: &RcParams) -> (f64, f64, f64
     }
 }
 
-/// The sides with ticks (side enabled and this tick level enabled) and
-/// the sides with labels.
+/// The sides with ticks and the sides with labels: a side needs both its
+/// own switch and this tick level's (matplotlib's `Axes.__init__` calls
+/// `tick_params(bottom=xtick.bottom and xtick.major.bottom,
+/// labelbottom=xtick.labelbottom and xtick.major.bottom, ...)`).
 fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
     let (sides, levels, labels) = match (axis, major) {
         (AxisName::X, true) => (
@@ -334,8 +336,8 @@ fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
         second: sides.1 && levels.1,
     };
     let labels = Sides {
-        first: labels.0,
-        second: labels.1,
+        first: labels.0 && levels.0,
+        second: labels.1 && levels.1,
     };
     (ticks, labels)
 }
@@ -383,6 +385,20 @@ mod tests {
         assert!(!major.grid_on);
         let minor = TickStyle::from_rc(AxisName::Y, false, &rc);
         assert_eq!((minor.size, minor.width), (2.0, 0.6));
+    }
+
+    #[test]
+    fn a_disabled_tick_level_hides_its_labels_too() {
+        let mut rc = RcParams::matplotlib();
+        rc.set("xtick.major.bottom", "False").expect("valid");
+        rc.set("ytick.labelright", "True").expect("valid");
+        rc.set("ytick.minor.right", "False").expect("valid");
+        let x = TickStyle::from_rc(AxisName::X, true, &rc);
+        assert!(!x.ticks.first && !x.labels.first);
+        assert!(TickStyle::from_rc(AxisName::X, false, &rc).labels.first);
+        let y_major = TickStyle::from_rc(AxisName::Y, true, &rc);
+        assert!(y_major.labels.second, "major right labels stay on");
+        assert!(!TickStyle::from_rc(AxisName::Y, false, &rc).labels.second);
     }
 
     #[test]

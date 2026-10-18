@@ -27,6 +27,20 @@ fn plot_autoscales_like_matplotlib() {
 }
 
 #[test]
+fn round_number_limits_fit_the_ticks_the_axis_has_room_for() {
+    // spec/goldens/figures/rc/axes_autolimit_mode.json: on a 3 in wide
+    // axes five x ticks fit, so the limits round to steps of 2.
+    crate::rc::context(|| {
+        crate::rc::set("axes.autolimit_mode", "round_numbers").expect("valid");
+        let fig = Figure::with_size(3.0, 2.0, 100.0);
+        let ax = fig.subplot();
+        ax.plot([0.0, 6.0], [-1.0, 1.0]).expect("same length");
+        assert_eq!(ax.xlim(), (-2.0, 8.0));
+        assert_eq!(ax.ylim(), (-2.0, 2.0));
+    });
+}
+
+#[test]
 fn empty_axes_keep_unit_limits() {
     let (_, ax) = axes();
     assert_eq!(ax.xlim(), (0.0, 1.0));

@@ -7,7 +7,7 @@ use std::rc::Rc;
 use super::PlotError;
 use super::axis::{AxisRole, AxisState};
 use super::limits::oriented;
-use super::state::{AxesState, SharedData};
+use super::state::{AxesState, AxisSpace, SharedData};
 use crate::artist::{ArtistId, DrawError};
 use crate::figure::FigureState;
 use crate::scale::Scale;
@@ -42,14 +42,20 @@ impl FigureState {
                 .axis(name)
                 .ticker_owner
                 .filter(|&owner| owner != axes)?;
-            let extent = self.axes_bbox(owner)?;
-            let pixels = match name {
-                AxisName::X => extent.width(),
-                AxisName::Y => extent.height(),
-            };
-            let points = pixels.abs() / self.dpi() * 72.0;
+            let points = self.axis_length_points(owner, name)?;
             Some(self.axes_state(owner)?.axis(name).tick_space(points))
         })
+    }
+
+    /// The length of axis `name` of `axes` in points, once the axes has a
+    /// box.
+    fn axis_length_points(&self, axes: ArtistId, name: AxisName) -> Option<f64> {
+        let extent = self.axes_bbox(axes)?;
+        let pixels = match name {
+            AxisName::X => extent.width(),
+            AxisName::Y => extent.height(),
+        };
+        Some(pixels.abs() / self.dpi() * 72.0)
     }
 
     /// Applies `update` to axis `name` of `axes` and of every axes sharing
@@ -130,7 +136,16 @@ impl FigureState {
             let (v0, v1) = state.view_interval(name);
             v0 > v1
         };
-        match state.autoscale_bound(name, &shared) {
+        // Round-number limits depend on how many ticks fit along the axis.
+        let [x_space, y_space] = self.shared_tick_spaces(axes);
+        let space = AxisSpace {
+            length_points: self.axis_length_points(axes, name).unwrap_or(0.0),
+            tick_space: match name {
+                AxisName::X => x_space,
+                AxisName::Y => y_space,
+            },
+        };
+        match state.autoscale_bound(name, &shared, space) {
             Ok(Some(bound)) => {
                 let (v0, v1) = oriented(bound, inverted);
                 self.set_axis_limits(axes, name, (v0, v1), None, true);

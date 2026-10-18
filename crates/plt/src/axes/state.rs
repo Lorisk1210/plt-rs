@@ -155,6 +155,17 @@ pub(crate) struct SharedData {
     pub(crate) stickies: Vec<f64>,
 }
 
+/// How long an axis is and how many ticks fit along it, which
+/// round-number autoscaling needs (matplotlib's `get_tick_space`).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct AxisSpace {
+    /// The length of the axis in points.
+    pub(crate) length_points: f64,
+    /// How many ticks fit along the axis of another axes the locator is
+    /// bound to (`None` measures this axis).
+    pub(crate) tick_space: Option<usize>,
+}
+
 impl AxesState {
     /// Axes at `position` (frame fractions) configured from `rc`.
     pub(crate) fn new(position: Bbox, rc: Rc<RcParams>) -> Self {
@@ -385,12 +396,14 @@ impl AxesState {
     }
 
     /// The autoscaled `(lower, upper)` bound of one axis (matplotlib's
-    /// `handle_single_axis` in `autoscale_view`), or `None` when there is
-    /// no data and the view was set explicitly (matplotlib keeps it).
+    /// `handle_single_axis` in `autoscale_view`) along an axis of `space`,
+    /// or `None` when there is no data and the view was set explicitly
+    /// (matplotlib keeps it).
     pub(crate) fn autoscale_bound(
         &self,
         name: AxisName,
         shared: &SharedData,
+        space: AxisSpace,
     ) -> Result<Option<(f64, f64)>, TickerError> {
         let data = match shared.interval {
             Some(interval) => interval,
@@ -405,8 +418,8 @@ impl AxesState {
                 view: self.view_interval(name),
                 data,
                 minpos,
-                length_points: 0.0,
-                tick_space: None,
+                length_points: space.length_points,
+                tick_space: space.tick_space,
                 tick_floor: None,
             })
         };

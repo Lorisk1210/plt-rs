@@ -146,7 +146,8 @@ pub(super) fn zoom_to_rect(ax: &Axes3D, start: Point, end: Point, out: bool, key
     let scale_u = (x0 - x1).abs() / (bbox.x1() - bbox.x0());
     let scale_v = (y0 - y1).abs() / (bbox.y1() - bbox.y0());
     let scale = scale_u.max(scale_v);
-    let _ = ax.scale_limits([if out { 1.0 / scale } else { scale }; 3]);
+    let scale = if out { 1.0 / scale } else { scale };
+    let _ = ax.zoom_data_limits(scale, scale, scale);
 }
 
 /// The status-bar text over `ax` at display point `at`: the view angles

@@ -7,11 +7,11 @@ use std::str::FromStr;
 use plt_core::Point;
 
 use super::camera::{DIST, ViewAngles};
-use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::math::{Vec3, norm};
 use super::quaternion::Quaternion;
+use super::state::Axes3DState;
 use crate::navigation::PointerButton;
 use crate::rc::RcParams;
 
@@ -238,15 +238,16 @@ impl Axes3D {
         (hi - lo, hi - lo)
     }
 
-    /// Turns the view as dragging the rotate button from `start` to `end`
-    /// does (projected coordinates of the view window, as matplotlib's
-    /// `event.xdata`), following `axes3d.mouserotationstyle`; `snap`
-    /// (control held) rounds the angles to `axes3d.snap_rotation`.
+    /// Turns the view, and that of the axes sharing it, as dragging the
+    /// rotate button from `start` to `end` does (projected coordinates of
+    /// the view window, as matplotlib's `event.xdata`), following
+    /// `axes3d.mouserotationstyle`; `snap` (control held) rounds the
+    /// angles to `axes3d.snap_rotation`.
     pub fn drag_rotate(&self, start: Point, end: Point, snap: bool) -> &Self {
         let settings = RotationSettings::from_rc(&crate::rc::params());
         let size = Self::view_window_size();
         if let Some(view) = rotated(self.view(), start, end, size, &settings, snap) {
-            self.view_init(view.elev, view.azim, view.roll);
+            self.view_init_shared(view.elev, view.azim, view.roll);
         }
         self
     }
@@ -264,13 +265,14 @@ impl Axes3D {
     }
 
     /// Scales the limits of each axis about their centre, by more than 1
-    /// to zoom out (matplotlib's `_scale_axis_limits`).
+    /// to zoom out, in transformed coordinates (matplotlib's
+    /// `_scale_axis_limits`).
     ///
     /// # Errors
     ///
     /// When a limit becomes infinite or NaN.
     pub fn scale_limits(&self, scale: [f64; 3]) -> Result<&Self, Axes3DError> {
-        let limits = self.with(|axes| axes.limits.scaled());
+        let limits = self.with(Axes3DState::scaled_limits);
         let scaled = |i: usize| {
             let (lo, hi) = (limits[2 * i], limits[2 * i + 1]);
             let (center, range) = (f64::midpoint(hi, lo), hi - lo);
@@ -284,7 +286,8 @@ impl Axes3D {
 
     /// Moves the view by `(du, dv)` in projected coordinates, as panning
     /// does (matplotlib's `drag_pan`): the motion on the screen becomes a
-    /// shift of the limits along the view axes.
+    /// shift of the limits along the view axes, in transformed
+    /// coordinates.
     ///
     /// # Errors
     ///
@@ -297,7 +300,7 @@ impl Axes3D {
             (
                 axes.camera.view_frame(),
                 axes.camera.stored_box_aspect(),
-                axes.limits.scaled(),
+                axes.scaled_limits(),
             )
         });
         let shift = |j: usize| {
@@ -312,22 +315,11 @@ impl Axes3D {
         self.set_limits_from_transformed([moved(0), moved(1), moved(2)])
     }
 
-    /// Sets the limits of the three axes, keeping their autoscaling
-    /// (matplotlib's `_set_lims_from_transformed` for linear scales).
+    /// Sets the limits of the three axes from transformed coordinates,
+    /// keeping their autoscaling (matplotlib's
+    /// `_set_lims_from_transformed`).
     fn set_limits_from_transformed(&self, limits: [(f64, f64); 3]) -> Result<&Self, Axes3DError> {
-        // Checked first so that a failure leaves every axis unchanged.
-        if let Some(&(lo, hi)) = limits
-            .iter()
-            .find(|(lo, hi)| !(lo.is_finite() && hi.is_finite()))
-        {
-            return Err(Axes3DError::NonFiniteLimits(lo, hi));
-        }
-        self.with_mut(|axes| {
-            Axis3::ALL
-                .into_iter()
-                .zip(limits)
-                .try_for_each(|(axis, (lo, hi))| axes.set_lim3d(axis, lo, hi, None, None))
-        })?;
+        self.with_mut(|axes| axes.set_lims_from_transformed(limits))?;
         Ok(self)
     }
 }

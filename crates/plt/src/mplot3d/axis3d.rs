@@ -1,18 +1,25 @@
-//! One axis of a 3-D axes: its tick helpers, label, pane and appearance
-//! (the state of matplotlib's `axis3d.Axis`).
+//! One axis of a 3-D axes: its scale, tick helpers, tick styles, label,
+//! pane and appearance (the state of matplotlib's `axis3d.Axis`).
 
-use crate::axes::{Tick, TickSet};
+use std::rc::Rc;
+
+use crate::axes::{Tick, TickSet, TickStyle};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::lines::LineStyle;
-use crate::rc::{ColorOrInherit, RcParams};
-use crate::scale::{AxisTickers, LinearScale, Scale};
+use crate::rc::RcParams;
+use crate::scale::{AxisTickers, Scale};
 use crate::ticker::{
-    AxisInfo, AxisName, Formatter, Locator, ScaleHint, TickContext, TickerSettings,
+    AxisInfo, AxisName, Formatter, Locator, NullLocator, TickContext, TickerError, TickerSettings,
 };
 use crate::transforms::interval_contains_close;
 
 use super::coords::Axis3;
+use super::scaling::AxisScale;
+
+/// The view inset matplotlib checks tick visibility against with
+/// `axes3d.automargin` (`1/48 * 23/24`, in `Axis._update_ticks`).
+const AUTOMARGIN_TICK_INSET: f64 = 0.019_965_277_777_777_776;
 
 /// The label of a 3-D axis.
 #[derive(Clone, Debug, PartialEq)]
@@ -38,8 +45,8 @@ impl AxisLabel3D {
     }
 }
 
-/// How the lines and texts of a 3-D axis look (matplotlib's `_axinfo`
-/// plus the tick properties).
+/// How the axis line, the gridlines and the tick marks of a 3-D axis are
+/// drawn whatever the tick parameters say (matplotlib's `_axinfo`).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct AxisStyle {
     /// Width of the axis line in points (`axes.linewidth`).
@@ -52,27 +59,21 @@ pub(crate) struct AxisStyle {
     pub(crate) grid_width: f64,
     /// Gridline style (`grid.linestyle`).
     pub(crate) grid_style: LineStyle,
-    /// Width of the tick marks in points (`xtick.major.width` for x and
-    /// z, `ytick.major.width` for y).
-    pub(crate) tick_width: f64,
-    /// Colour of the tick marks (`xtick.color`).
-    pub(crate) tick_color: Color,
-    /// Distance between tick marks and labels in points
-    /// (`xtick.major.pad`).
-    pub(crate) tick_pad: f64,
-    /// Font of the tick labels (`xtick.labelsize`).
-    pub(crate) tick_font: FontProperties,
-    /// Colour of the tick labels (`xtick.labelcolor`).
-    pub(crate) tick_label_color: Color,
+    /// Width of the major tick marks in points (`xtick.major.width` for x
+    /// and z, `ytick.major.width` for y).
+    pub(crate) major_tick_width: f64,
+    /// Width of the minor tick marks in points (`xtick.minor.width` for x
+    /// and z, `ytick.minor.width` for y).
+    pub(crate) minor_tick_width: f64,
 }
 
 impl AxisStyle {
-    /// matplotlib's defaults for axis `dir` under `rc` (every 3-D axis
-    /// is an `XAxis` with `XTick`s).
+    /// matplotlib's defaults for axis `dir` under `rc`.
     fn from_rc(dir: Axis3, rc: &RcParams) -> Self {
-        let tick_label_color = match &rc.xtick_labelcolor {
-            ColorOrInherit::Inherit => rc.xtick_color.clone(),
-            ColorOrInherit::Color(color) => color.clone(),
+        let (major_tick_width, minor_tick_width) = if dir == Axis3::Y {
+            (rc.ytick_major_width, rc.ytick_minor_width)
+        } else {
+            (rc.xtick_major_width, rc.xtick_minor_width)
         };
         Self {
             line_width: rc.axes_linewidth,
@@ -80,15 +81,8 @@ impl AxisStyle {
             grid_color: rc.grid_color.clone(),
             grid_width: rc.grid_linewidth,
             grid_style: rc.grid_linestyle.clone(),
-            tick_width: if dir == Axis3::Y {
-                rc.ytick_major_width
-            } else {
-                rc.xtick_major_width
-            },
-            tick_color: rc.xtick_color.clone(),
-            tick_pad: rc.xtick_major_pad,
-            tick_font: FontProperties::from_rc(rc).with_size(rc.xtick_labelsize, rc.font_size),
-            tick_label_color,
+            major_tick_width,
+            minor_tick_width,
         }
     }
 }
@@ -104,33 +98,84 @@ pub(crate) struct AxisSpan {
     pub(crate) minpos: f64,
 }
 
+/// A tick to draw with the style of its level.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct DrawnTick<'a> {
+    pub(crate) tick: &'a Tick,
+    /// The tick parameters of its level (colour, pad, label font).
+    pub(crate) style: &'a TickStyle,
+    /// The width of its mark in points.
+    pub(crate) width: f64,
+}
+
+/// The tick locators and formatters of an axis, shared with the axes
+/// sharing it (matplotlib's `major` and `minor` `Ticker`s).
+#[derive(Clone, Debug)]
+pub(crate) struct Tickers3D {
+    pub(crate) major_locator: Rc<dyn Locator>,
+    pub(crate) major_formatter: Rc<dyn Formatter>,
+    pub(crate) minor_locator: Rc<dyn Locator>,
+    pub(crate) minor_formatter: Rc<dyn Formatter>,
+}
+
+impl Tickers3D {
+    /// The default tick helpers of `scale` on axis `dir` (matplotlib's
+    /// `set_default_locators_and_formatters`; its linear scale only turns
+    /// minor ticks on for axes named x or y).
+    fn defaults(scale: &dyn Scale, dir: Axis3, settings: &TickerSettings) -> Self {
+        let AxisTickers {
+            major_locator,
+            minor_locator,
+            major_formatter,
+            minor_formatter,
+        } = match dir {
+            Axis3::X => scale.default_tickers(AxisName::X, settings),
+            Axis3::Y => scale.default_tickers(AxisName::Y, settings),
+            Axis3::Z => scale.default_tickers(
+                AxisName::X,
+                &TickerSettings {
+                    xtick_minor_visible: false,
+                    ..settings.clone()
+                },
+            ),
+        };
+        Self {
+            major_locator: Rc::from(major_locator),
+            major_formatter: Rc::from(major_formatter),
+            minor_locator: Rc::from(minor_locator),
+            minor_formatter: Rc::from(minor_formatter),
+        }
+    }
+}
+
 /// State of one axis of a 3-D axes.
 #[derive(Debug)]
-pub(crate) struct Axis3D {
+pub(crate) struct Axis3DState {
     pub(crate) dir: Axis3,
-    pub(crate) major_locator: Box<dyn Locator>,
-    pub(crate) major_formatter: Box<dyn Formatter>,
+    pub(crate) scale: AxisScale,
+    pub(crate) tickers: Tickers3D,
     pub(crate) settings: TickerSettings,
     pub(crate) label: AxisLabel3D,
     /// Fill and edge colour of the pane behind the data.
     pub(crate) pane_color: Color,
     pub(crate) style: AxisStyle,
-    /// Size of the tick labels in points (drives the tick-space
-    /// heuristic).
-    tick_label_size: f64,
+    /// The tick parameters of the major ticks (every 3-D tick is an
+    /// `XTick`).
+    pub(crate) major_style: TickStyle,
+    /// The tick parameters of the minor ticks.
+    pub(crate) minor_style: TickStyle,
+    /// Colour of the offset text (`xtick.color`, then the tick label
+    /// colour set by tick parameters).
+    pub(crate) offset_color: Color,
     /// Ticks computed by the last layout pass, or why they could not be.
     pub(crate) ticks: Result<TickSet, String>,
 }
 
-impl Axis3D {
+impl Axis3DState {
     /// A linear axis configured from `rc`.
     pub(crate) fn new(dir: Axis3, rc: &RcParams) -> Self {
         let settings = TickerSettings::from(rc);
-        let AxisTickers {
-            major_locator,
-            major_formatter,
-            ..
-        } = LinearScale.default_tickers(AxisName::X, &settings);
+        let scale = AxisScale::default();
         let pane_color = match dir {
             Axis3::X => &rc.axes3d_xaxis_panecolor,
             Axis3::Y => &rc.axes3d_yaxis_panecolor,
@@ -138,8 +183,8 @@ impl Axis3D {
         };
         Self {
             dir,
-            major_locator,
-            major_formatter,
+            tickers: Tickers3D::defaults(scale.scale().as_ref(), dir, &settings),
+            scale,
             settings,
             label: AxisLabel3D {
                 text: String::new(),
@@ -150,9 +195,25 @@ impl Axis3D {
             },
             pane_color: pane_color.clone(),
             style: AxisStyle::from_rc(dir, rc),
-            tick_label_size: rc.xtick_labelsize.to_points(rc.font_size),
+            major_style: TickStyle::from_rc(AxisName::X, true, rc),
+            minor_style: TickStyle::from_rc(AxisName::X, false, rc),
+            offset_color: rc.xtick_color.clone(),
             ticks: Ok(TickSet::default()),
         }
+    }
+
+    /// Whether the offset text is drawn: with the major tick labels
+    /// (matplotlib's offset text visibility following `label1On` and
+    /// `label2On`).
+    pub(crate) fn offset_visible(&self) -> bool {
+        self.major_style.labels.first || self.major_style.labels.second
+    }
+
+    /// Replaces the scale and installs its default tick helpers
+    /// (matplotlib's `Axis._set_scale`).
+    pub(crate) fn set_scale(&mut self, scale: AxisScale) {
+        self.tickers = Tickers3D::defaults(scale.scale().as_ref(), self.dir, &self.settings);
+        self.scale = scale;
     }
 
     /// What tick helpers know about the axis.
@@ -164,7 +225,7 @@ impl Axis3D {
             minpos: span.minpos,
             tick_space: self.tick_space(length_points),
             major_ticks: Vec::new(),
-            scale: ScaleHint::Linear,
+            scale: self.scale.scale().hint(),
             three_d: true,
         }
     }
@@ -172,7 +233,7 @@ impl Axis3D {
     /// How many ticks fit along an axis `length_points` long (matplotlib's
     /// `XAxis.get_tick_space`, which every 3-D axis inherits).
     fn tick_space(&self, length_points: f64) -> usize {
-        let size = self.tick_label_size * 3.0;
+        let size = self.major_style.label_size * 3.0;
         if size > 0.0 {
             (length_points / size).floor().max(0.0) as usize
         } else {
@@ -184,7 +245,7 @@ impl Axis3D {
     pub(crate) fn nonsingular(&self, span: &AxisSpan, v0: f64, v1: f64) -> (f64, f64) {
         let info = self.info(span, 0.0);
         let ctx = TickContext::new(&info, &self.settings);
-        self.major_locator.nonsingular(v0, v1, &ctx)
+        self.tickers.major_locator.nonsingular(v0, v1, &ctx)
     }
 
     /// The major locator's view limits for data spanning `(v0, v1)`.
@@ -196,51 +257,136 @@ impl Axis3D {
     ) -> Result<(f64, f64), String> {
         let info = self.info(span, 0.0);
         let ctx = TickContext::new(&info, &self.settings);
-        self.major_locator
+        self.tickers
+            .major_locator
             .view_limits(v0, v1, &ctx)
             .map_err(|e| e.to_string())
     }
 
-    /// Recomputes the major ticks inside the view (matplotlib's
-    /// `Axis._update_ticks`) for an axes `length_points` wide.
-    pub(crate) fn update_ticks(&mut self, span: &AxisSpan, length_points: f64) {
-        self.ticks = self.compute_ticks(span, length_points);
+    /// Recomputes the major and minor ticks inside the view (matplotlib's
+    /// `Axis._update_ticks`) for an axes `length_points` wide; with
+    /// `automargin` the view is inset as `axes3d.automargin` asks.
+    pub(crate) fn update_ticks(&mut self, span: &AxisSpan, length_points: f64, automargin: bool) {
+        self.ticks = self
+            .compute_ticks(span, length_points, automargin)
+            .map_err(|e| e.to_string());
     }
 
-    fn compute_ticks(&self, span: &AxisSpan, length_points: f64) -> Result<TickSet, String> {
+    fn compute_ticks(
+        &self,
+        span: &AxisSpan,
+        length_points: f64,
+        automargin: bool,
+    ) -> Result<TickSet, TickerError> {
         let mut info = self.info(span, length_points);
-        let locs = {
+        let major_locs = {
             let ctx = TickContext::new(&info, &self.settings);
-            self.major_locator.locate(&ctx).map_err(|e| e.to_string())?
+            self.tickers.major_locator.locate(&ctx)?
         };
-        info.major_ticks.clone_from(&locs);
+        info.major_ticks.clone_from(&major_locs);
         let ctx = TickContext::new(&info, &self.settings);
-        let labels = self
-            .major_formatter
-            .format_ticks(&locs, &ctx)
-            .map_err(|e| e.to_string())?;
-        let major = locs
-            .iter()
-            .zip(labels.labels)
-            .filter(|(loc, _)| interval_contains_close(span.view, **loc, 1e-10))
-            .map(|(&loc, label)| Tick { loc, label })
-            .collect();
-        Ok(TickSet {
-            major,
-            minor: Vec::new(),
-            offset: labels.offset,
-        })
+        let visible = self.visibility(span.view, automargin);
+        let collect = |locs: &[f64], labels: Vec<String>| -> Vec<Tick> {
+            locs.iter()
+                .zip(labels)
+                .filter(|(loc, _)| visible(**loc))
+                .map(|(&loc, label)| Tick { loc, label })
+                .collect()
+        };
+        let mut ticks = TickSet::default();
+        if Self::level_computed(&self.major_style, self.tickers.major_locator.as_ref()) {
+            let labels = self
+                .tickers
+                .major_formatter
+                .format_ticks(&major_locs, &ctx)?;
+            ticks.major = collect(&major_locs, labels.labels);
+            ticks.offset = labels.offset;
+        }
+        if Self::level_computed(&self.minor_style, self.tickers.minor_locator.as_ref()) {
+            let minor = self.tickers.minor_locator.locate(&ctx)?;
+            let minor_locs = self.without_overlaps(minor, &major_locs, span.view);
+            let labels = self
+                .tickers
+                .minor_formatter
+                .format_ticks(&minor_locs, &ctx)?;
+            ticks.minor = collect(&minor_locs, labels.labels);
+        }
+        Ok(ticks)
     }
 
-    /// The major ticks drawn, empty when they could not be computed.
-    pub(crate) fn drawn_ticks(&self) -> &[Tick] {
-        self.ticks.as_ref().map_or(&[], |ticks| &ticks.major)
+    /// Whether a tick level is computed: something of it is shown and its
+    /// locator places ticks (matplotlib's `_tick_group_visible` and
+    /// `NullLocator` check).
+    fn level_computed(style: &TickStyle, locator: &dyn Locator) -> bool {
+        let any: &dyn std::any::Any = locator;
+        style.is_drawn() && !any.is::<NullLocator>()
     }
+
+    /// Whether a tick at a location is inside the view, compared in
+    /// transformed coordinates.
+    fn visibility(&self, view: (f64, f64), automargin: bool) -> impl Fn(f64) -> bool + '_ {
+        let (mut lo, mut hi) = if view.0 > view.1 {
+            (view.1, view.0)
+        } else {
+            view
+        };
+        if automargin {
+            let delta = hi - lo;
+            (lo, hi) = (
+                lo + delta * AUTOMARGIN_TICK_INSET,
+                hi - delta * AUTOMARGIN_TICK_INSET,
+            );
+        }
+        let interval = (self.scale.forward(lo), self.scale.forward(hi));
+        move |loc| interval_contains_close(interval, self.scale.forward(loc), 1e-10)
+    }
+
+    /// Drops minor ticks that coincide with major ones (matplotlib's
+    /// `get_minorticklocs` with `np.isclose(atol=span * 1e-5)` in
+    /// transformed coordinates).
+    fn without_overlaps(&self, minor: Vec<f64>, major: &[f64], view: (f64, f64)) -> Vec<f64> {
+        let (lo, hi) = (self.scale.forward(view.0), self.scale.forward(view.1));
+        let tolerance = (hi - lo).abs() * 1e-5;
+        let major: Vec<f64> = major.iter().map(|&m| self.scale.forward(m)).collect();
+        minor
+            .into_iter()
+            .filter(|&m| {
+                let t = self.scale.forward(m);
+                !major.iter().any(|&j| (t - j).abs() <= tolerance)
+            })
+            .collect()
+    }
+
+    /// The ticks drawn, major ones first; none when they could not be
+    /// computed.
+    pub(crate) fn drawn_ticks(&self) -> impl Iterator<Item = DrawnTick<'_>> {
+        let (major, minor): (&[Tick], &[Tick]) = match &self.ticks {
+            Ok(ticks) => (&ticks.major, &ticks.minor),
+            Err(_) => (&[], &[]),
+        };
+        level(major, &self.major_style, self.style.major_tick_width).chain(level(
+            minor,
+            &self.minor_style,
+            self.style.minor_tick_width,
+        ))
+    }
+}
+
+/// The ticks of one level with its style and mark width.
+fn level<'a>(
+    ticks: &'a [Tick],
+    style: &'a TickStyle,
+    width: f64,
+) -> impl Iterator<Item = DrawnTick<'a>> {
+    ticks
+        .iter()
+        .map(move |tick| DrawnTick { tick, style, width })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scale::LogScale;
 
     fn span(view: (f64, f64)) -> AxisSpan {
         AxisSpan {
@@ -250,22 +396,21 @@ mod tests {
         }
     }
 
+    fn labels(axis: &Axis3DState) -> Vec<&str> {
+        axis.drawn_ticks().map(|t| t.tick.label.as_str()).collect()
+    }
+
     #[test]
     fn default_ticks_match_matplotlib() {
         // An empty 3-D axes: limits (-1/48, 1 + 1/48), axes 266.112 pt wide.
-        let mut axis = Axis3D::new(Axis3::Z, &RcParams::matplotlib());
-        axis.update_ticks(&span((-1.0 / 48.0, 1.0 + 1.0 / 48.0)), 266.112);
-        let labels: Vec<&str> = axis
-            .drawn_ticks()
-            .iter()
-            .map(|t| t.label.as_str())
-            .collect();
-        assert_eq!(labels, ["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"]);
+        let mut axis = Axis3DState::new(Axis3::Z, &RcParams::matplotlib());
+        axis.update_ticks(&span((-1.0 / 48.0, 1.0 + 1.0 / 48.0)), 266.112, false);
+        assert_eq!(labels(&axis), ["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"]);
     }
 
     #[test]
     fn labels_rotate_when_long() {
-        let mut label = Axis3D::new(Axis3::X, &RcParams::matplotlib()).label;
+        let mut label = Axis3DState::new(Axis3::X, &RcParams::matplotlib()).label;
         label.text = "abcd".into();
         assert!(!label.rotated());
         label.text = "X axis".into();
@@ -276,18 +421,44 @@ mod tests {
 
     #[test]
     fn inverted_views_keep_their_ticks() {
-        let mut axis = Axis3D::new(Axis3::X, &RcParams::matplotlib());
-        axis.update_ticks(&span((1.0, 0.0)), 266.112);
-        assert_eq!(axis.drawn_ticks().len(), 6);
+        let mut axis = Axis3DState::new(Axis3::X, &RcParams::matplotlib());
+        axis.update_ticks(&span((1.0, 0.0)), 266.112, false);
+        assert_eq!(axis.drawn_ticks().count(), 6);
+    }
+
+    #[test]
+    fn automargin_insets_the_view() {
+        let mut axis = Axis3DState::new(Axis3::X, &RcParams::matplotlib());
+        axis.update_ticks(&span((0.0, 1.0)), 266.112, true);
+        assert_eq!(labels(&axis), ["0.2", "0.4", "0.6", "0.8"]);
     }
 
     #[test]
     fn steps_are_a_little_finer_than_in_2d() {
         // matplotlib's z ticks for zlim (-0.1458, 7.1458) on a 4 in axes
         // (tick space 7): a step of 1, where a 2-D axis would take 2.
-        let mut axis = Axis3D::new(Axis3::Z, &RcParams::matplotlib());
-        axis.update_ticks(&span((-7.0 / 48.0, 7.0 + 7.0 / 48.0)), 221.76);
-        let locs: Vec<f64> = axis.drawn_ticks().iter().map(|t| t.loc).collect();
+        let mut axis = Axis3DState::new(Axis3::Z, &RcParams::matplotlib());
+        axis.update_ticks(&span((-7.0 / 48.0, 7.0 + 7.0 / 48.0)), 221.76, false);
+        let locs: Vec<f64> = axis.drawn_ticks().map(|t| t.tick.loc).collect();
         assert_eq!(locs, [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
+    }
+
+    #[test]
+    fn log_axes_draw_minor_ticks_after_the_major_ones() {
+        let mut axis = Axis3DState::new(Axis3::Z, &RcParams::matplotlib());
+        axis.set_scale(AxisScale::new(Rc::new(LogScale::new(10.0).expect("base"))));
+        // matplotlib's z view after plotting z from 1 to 1000.
+        let view = (0.604_296_390_238_132_8, 1_654.817_099_943_182);
+        axis.update_ticks(&span(view), 266.112, false);
+        let ticks: Vec<(f64, bool)> = axis
+            .drawn_ticks()
+            .map(|t| (t.tick.loc, t.tick.label.is_empty()))
+            .collect();
+        assert_eq!(
+            &ticks[..4],
+            [(1.0, false), (10.0, false), (100.0, false), (1000.0, false)]
+        );
+        assert_eq!(ticks.len(), 31, "27 unlabelled minor ticks follow");
+        assert!(ticks[4..].iter().all(|&(_, empty)| empty));
     }
 }

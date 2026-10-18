@@ -63,6 +63,8 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::SPECTRAL,
         misc::UNITS,
         misc::WIDGETS,
+        mplot3d::API,
+        mplot3d::API_PLOTS,
         mplot3d::CONTOURS,
         mplot3d::OBJECTS,
         mplot3d::SCATTER,

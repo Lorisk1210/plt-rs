@@ -9,7 +9,7 @@ use super::surface;
 use crate::figures::FigureCase;
 
 /// `levels=n, cmap=name`.
-fn levels(n: i64, cmap: &str) -> Result<ContourOptions, plt::colors::ColormapError> {
+pub(super) fn levels(n: i64, cmap: &str) -> Result<ContourOptions, plt::colors::ColormapError> {
     Ok(ContourOptions {
         levels: Levels::Count(n),
         cmap: Some(colormaps::get(cmap)?),
@@ -35,6 +35,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             let options = Contour3DOptions {
                 zdir,
                 offset: Some(offset),
+                extend3d: None,
                 contour,
             };
             ax.contour(&x, &y, &z, options)?;

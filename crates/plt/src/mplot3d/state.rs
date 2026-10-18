@@ -6,12 +6,14 @@ use std::rc::Rc;
 use plt_core::{Anchor, Bbox, Path};
 
 use super::art3d::{Art3D, SortKind};
+use super::aspect::AspectSettings;
 use super::axis_draw::draw_axes;
-use super::axis3d::Axis3D;
+use super::axis3d::Axis3DState;
 use super::camera::{Camera, Projection};
 use super::coords::Axis3;
 use super::limits::Limits3D;
 use super::mouse::MouseButtons;
+use super::share::{LimitChange, Shares};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
 use crate::axes::AxesState;
 use crate::colors::Color;
@@ -42,8 +44,14 @@ pub(crate) struct Axes3DState {
     pub(crate) plane: ArtistId,
     pub(crate) camera: Camera,
     pub(crate) limits: Limits3D,
+    /// Which axes have equal data scales and how.
+    pub(crate) aspect: AspectSettings,
+    /// The axes sharing an axis or the view with this one.
+    pub(crate) shares: Shares,
+    /// Limit changes the axes sharing them have yet to follow.
+    pub(crate) emitted: Vec<LimitChange>,
     /// The x, y and z axes.
-    pub(crate) axes: [Axis3D; 3],
+    pub(crate) axes: [Axis3DState; 3],
     /// Whether gridlines are drawn on the panes.
     pub(crate) grid_on: bool,
     /// Whether panes, gridlines and axes are drawn.
@@ -78,7 +86,10 @@ impl Axes3DState {
             plane,
             camera,
             limits: Limits3D::new(zmargin, &rc),
-            axes: Axis3::ALL.map(|dir| Axis3D::new(dir, &rc)),
+            aspect: AspectSettings::default(),
+            shares: Shares::default(),
+            emitted: Vec::new(),
+            axes: Axis3::ALL.map(|dir| Axis3DState::new(dir, &rc)),
             grid_on: rc.axes3d_grid,
             axis_on: true,
             computed_zorder: true,
@@ -101,12 +112,12 @@ impl Axes3DState {
     }
 
     /// The axis along `dir`.
-    pub(crate) fn axis(&self, dir: Axis3) -> &Axis3D {
+    pub(crate) fn axis(&self, dir: Axis3) -> &Axis3DState {
         &self.axes[dir.index()]
     }
 
     /// Mutable access to the axis along `dir`.
-    pub(crate) fn axis_mut(&mut self, dir: Axis3) -> &mut Axis3D {
+    pub(crate) fn axis_mut(&mut self, dir: Axis3) -> &mut Axis3DState {
         &mut self.axes[dir.index()]
     }
 
@@ -122,10 +133,12 @@ impl Axes3DState {
             })
     }
 
-    /// The projection for the current limits and camera (matplotlib's
-    /// `get_proj`).
+    /// The projection of data points for the current scales, limits and
+    /// camera (matplotlib's `get_proj` after the scale transforms).
     pub(crate) fn projection(&self) -> Projection {
-        self.camera.projection(self.limits.scaled())
+        self.camera
+            .projection(self.scaled_limits())
+            .with_scales(self.axes.each_ref().map(|axis| axis.scale.clone()))
     }
 
     /// Whether data artists were added (matplotlib's `has_data`).
@@ -143,7 +156,7 @@ impl Axes3DState {
         let width_points = extent.width().abs() / dpi * 72.0;
         for dir in Axis3::ALL {
             let span = self.limits.span(dir);
-            self.axes[dir.index()].update_ticks(&span, width_points);
+            self.axes[dir.index()].update_ticks(&span, width_points, self.limits.automargin);
         }
         let projection = self.projection();
         let mut depths: Vec<(ArtistId, SortKind, f64)> = Vec::new();

@@ -22,15 +22,21 @@ pub enum ZSort {
 }
 
 impl ZSort {
-    /// The depth of a polygon whose vertices have depths `zs`.
+    /// The depth of a polygon whose vertices have depths `zs`, ignoring
+    /// the vertices that could not be projected (matplotlib's masked
+    /// vertices); NaN when none could.
     fn reduce(self, zs: impl Iterator<Item = f64>) -> f64 {
+        let (count, sum, min, max) = zs.filter(|z| !z.is_nan()).fold(
+            (0_u32, 0.0, f64::INFINITY, f64::NEG_INFINITY),
+            |(n, sum, min, max), z| (n + 1, sum + z, min.min(z), max.max(z)),
+        );
+        if count == 0 {
+            return f64::NAN;
+        }
         match self {
-            Self::Average => {
-                let (sum, count) = zs.fold((0.0, 0_u32), |(sum, n), z| (sum + z, n + 1));
-                sum / f64::from(count)
-            }
-            Self::Min => zs.fold(f64::INFINITY, f64::min),
-            Self::Max => zs.fold(f64::NEG_INFINITY, f64::max),
+            Self::Average => sum / f64::from(count),
+            Self::Min => min,
+            Self::Max => max,
         }
     }
 }
@@ -48,6 +54,11 @@ pub(crate) struct Polys3D {
     pub(crate) facecolors: Vec<Rgba>,
     /// Edge colours in polygon order (matplotlib's `_edgecolor3d`).
     pub(crate) edgecolors: Vec<Rgba>,
+    /// The 2-D paths whose codes the projected polygons keep, one per
+    /// face with one vertex per face point, for polygons lifted from a
+    /// 2-D collection (matplotlib's `_codes3d`); `None` closes every
+    /// polygon instead.
+    pub(crate) templates: Option<Vec<Path>>,
 }
 
 impl Polys3D {
@@ -70,28 +81,25 @@ impl Polys3D {
         let mut order: Vec<usize> = (0..face_z.len()).collect();
         order.sort_by(|&a, &b| face_z[a].total_cmp(&face_z[b]));
         order.reverse();
-        // matplotlib stores ragged polygons in one array padded with NaN
-        // up to the longest one, then closes every polygon: the padding
-        // makes path conversion drop the closure of the shorter ones.
-        let longest = projected.iter().map(Vec::len).max().unwrap_or(0);
-        collection.paths = order
-            .iter()
-            .map(|&i| {
-                let face = &projected[i];
-                let mut vertices: Vec<Point> =
-                    face.iter().map(|p| Point::new(p[0], p[1])).collect();
-                if let Some(&first) = vertices.first() {
-                    vertices.resize(longest, Point::new(f64::NAN, f64::NAN));
-                    vertices.push(first);
-                }
-                Path::closed(vertices)
-            })
-            .collect();
+        collection.paths = match &self.templates {
+            Some(templates) => order
+                .iter()
+                .map(|&i| {
+                    let mut path = templates[i].clone();
+                    for (vertex, p) in path.vertices_mut().iter_mut().zip(&projected[i]) {
+                        *vertex = Point::new(p[0], p[1]);
+                    }
+                    path
+                })
+                .collect(),
+            None => closed_polygons(&projected, &order),
+        };
         let (faces, edges) = self.sorted_colors(&order);
         collection.facecolors = Some(faces.into_iter().map(Color::from).collect());
         collection.edgecolors = EdgeColors::Colors(edges.into_iter().map(Color::from).collect());
         match self.sort_zpos {
-            Some(z) => projection.project([0.0, 0.0, z])[2],
+            // matplotlib projects the sort position without the scales.
+            Some(z) => projection.project_transformed([0.0, 0.0, z])[2],
             None => projected
                 .iter()
                 .flatten()
@@ -126,6 +134,28 @@ impl Polys3D {
     }
 }
 
+/// The projected faces in `order` as closed polygons. matplotlib stores
+/// ragged polygons in one array padded with NaN up to the longest one,
+/// then closes every polygon: the padding makes path conversion drop the
+/// closure of the shorter ones.
+fn closed_polygons(projected: &[Vec<Vec3>], order: &[usize]) -> Vec<Path> {
+    let longest = projected.iter().map(Vec::len).max().unwrap_or(0);
+    order
+        .iter()
+        .map(|&i| {
+            let mut vertices: Vec<Point> = projected[i]
+                .iter()
+                .map(|p| Point::new(p[0], p[1]))
+                .collect();
+            if let Some(&first) = vertices.first() {
+                vertices.resize(longest, Point::new(f64::NAN, f64::NAN));
+                vertices.push(first);
+            }
+            Path::closed(vertices)
+        })
+        .collect()
+}
+
 /// `colors` itself when it has `n` entries, otherwise each colour
 /// repeated `n` times (numpy's `repeat(n, axis=0)`).
 fn repeat_to(colors: &[Rgba], n: usize) -> Vec<Rgba> {
@@ -149,6 +179,9 @@ mod tests {
         assert_eq!(ZSort::Average.reduce(zs.into_iter()), 3.0);
         assert_eq!(ZSort::Min.reduce(zs.into_iter()), 1.0);
         assert_eq!(ZSort::Max.reduce(zs.into_iter()), 6.0);
+        let masked = [f64::NAN, 2.0, 4.0];
+        assert_eq!(ZSort::Average.reduce(masked.into_iter()), 3.0);
+        assert!(ZSort::Min.reduce([f64::NAN].into_iter()).is_nan());
     }
 
     #[test]
@@ -161,6 +194,7 @@ mod tests {
             sort_zpos: None,
             facecolors: vec![red, blue],
             edgecolors: Vec::new(),
+            templates: None,
         };
         let (faces, edges) = polys.sorted_colors(&[1, 0]);
         assert_eq!(faces, [blue, red]);

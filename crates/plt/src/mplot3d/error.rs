@@ -7,6 +7,7 @@ use crate::axes::PlotError;
 use crate::colors::ColorError;
 use crate::contour::ContourError;
 use crate::gridspec::GridSpecError;
+use crate::scale::ScaleError;
 use crate::tri::TriError;
 
 /// An invalid argument to a 3-D axes or one of its plotting methods.
@@ -50,6 +51,18 @@ pub enum Axes3DError {
     /// A mouse rotation style other than `azel`, `trackball`, `sphere` and
     /// `arcball`.
     UnknownRotationStyle(String),
+    /// An aspect other than `auto`, `equal`, `equalxy`, `equalxz` and
+    /// `equalyz`.
+    UnknownAspect(String),
+    /// A scale that cannot be created.
+    Scale(ScaleError),
+    /// An axis or the view is already shared with another axes (what is
+    /// shared, as matplotlib names it).
+    AlreadyShared(&'static str),
+    /// Axes of different figures cannot share an axis or the view.
+    OtherFigure,
+    /// Only polygon and line collections can be lifted to 3-D.
+    UnsupportedCollection,
 }
 
 impl fmt::Display for Axes3DError {
@@ -79,6 +92,16 @@ impl fmt::Display for Axes3DError {
                 f,
                 "{name:?} is not a mouse rotation style (azel, trackball, sphere or arcball)"
             ),
+            Self::UnknownAspect(name) => write!(
+                f,
+                "{name:?} is not a 3-D aspect (auto, equal, equalxy, equalxz or equalyz)"
+            ),
+            Self::AlreadyShared(what) => write!(f, "{what} is already shared"),
+            Self::OtherFigure => f.write_str("axes of another figure cannot be shared with"),
+            Self::UnsupportedCollection => {
+                f.write_str("only polygon and line collections can be added to 3-D axes")
+            }
+            Self::Scale(err) => err.fmt(f),
             Self::Ticker(message) => write!(f, "cannot autoscale: {message}"),
             Self::Color(err) => err.fmt(f),
             Self::Style(message) => f.write_str(message),
@@ -98,8 +121,15 @@ impl std::error::Error for Axes3DError {
             Self::Contour(err) => Some(err),
             Self::Tri(err) => Some(err),
             Self::Grid(err) => Some(err),
+            Self::Scale(err) => Some(err),
             _ => None,
         }
+    }
+}
+
+impl From<ScaleError> for Axes3DError {
+    fn from(err: ScaleError) -> Self {
+        Self::Scale(err)
     }
 }
 

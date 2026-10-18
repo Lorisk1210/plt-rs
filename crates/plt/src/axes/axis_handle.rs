@@ -335,7 +335,7 @@ impl Axis {
 }
 
 /// The formatter showing `labels` at the ticks `locator` places.
-fn tick_label_formatter(
+pub(crate) fn tick_label_formatter(
     locator: &dyn Locator,
     labels: Vec<String>,
 ) -> Result<Rc<dyn Formatter>, PlotError> {

@@ -1,5 +1,5 @@
 //! The [`Axes3D`] handle, the figure methods creating 3-D axes, and the
-//! view, limit and decoration settings of a 3-D axes.
+//! view and decoration settings of a 3-D axes.
 
 use std::rc::Rc;
 
@@ -10,6 +10,7 @@ use super::camera::{Camera, ProjType, ViewAngles};
 use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::math::Vec3;
+use super::share::replay;
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
 use crate::axes::Axes;
@@ -21,7 +22,7 @@ use crate::transforms::{Transform, TransformContext};
 
 /// How a new 3-D axes is set up (matplotlib's `Axes3D` keyword
 /// arguments).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Axes3DOptions {
     /// The initial view angles.
     pub view: ViewAngles,
@@ -34,6 +35,16 @@ pub struct Axes3DOptions {
     /// Whether collections and patches are drawn in depth order rather
     /// than by their own z-order.
     pub computed_zorder: bool,
+    /// An axes of the same figure to share the x axis with (matplotlib's
+    /// `sharex`).
+    pub sharex: Option<Axes3D>,
+    /// An axes of the same figure to share the y axis with (`sharey`).
+    pub sharey: Option<Axes3D>,
+    /// An axes of the same figure to share the z axis with (`sharez`).
+    pub sharez: Option<Axes3D>,
+    /// An axes of the same figure to rotate together with (`shareview`);
+    /// the new axes keeps its own initial view until either is turned.
+    pub shareview: Option<Axes3D>,
 }
 
 impl Default for Axes3DOptions {
@@ -44,6 +55,10 @@ impl Default for Axes3DOptions {
             proj_type: ProjType::default(),
             box_aspect: None,
             computed_zorder: true,
+            sharex: None,
+            sharey: None,
+            sharez: None,
+            shareview: None,
         }
     }
 }
@@ -71,7 +86,8 @@ impl Figure {
     ///
     /// # Errors
     ///
-    /// When the focal length or the box aspect is invalid.
+    /// When the focal length or the box aspect is invalid, or an axes to
+    /// share with belongs to another figure.
     pub fn subplot_3d_with(&self, options: Axes3DOptions) -> Result<Axes3D, Axes3DError> {
         self.add_subplot_3d(1, 1, 1, options)
     }
@@ -159,7 +175,6 @@ fn insert_axes3d(
     let mut axes = Axes3DState::new(position, plane.id(), camera, crate::rc::params());
     axes.subplot_spec = spec;
     axes.computed_zorder = options.computed_zorder;
-    axes.autoscale_view()?;
     let mut figure_state = state.borrow_mut();
     let id = figure_state.adopt(frame, Box::new(axes));
     // The plane is drawn by the 3-D axes, not by the frame.
@@ -170,7 +185,16 @@ fn insert_axes3d(
         plane.base_mut().parent = Some(id);
     }
     drop(figure_state);
-    Ok(Axes3D::from_raw(RawHandle::new(Rc::clone(state), id)))
+    let axes = Axes3D::from_raw(RawHandle::new(Rc::clone(state), id));
+    // As in matplotlib, the axes joins its groups before its first
+    // autoscaling, which the axes sharing its limits follow.
+    let shared = [options.sharex, options.sharey, options.sharez];
+    axes.join_initial(
+        shared.each_ref().map(Option::as_ref),
+        options.shareview.as_ref(),
+    )?;
+    axes.with_mut(Axes3DState::autoscale_view)?;
+    Ok(axes)
 }
 
 /// A handle to a 3-D axes of a figure (matplotlib's `Axes3D`).
@@ -204,8 +228,17 @@ impl Axes3D {
         self.raw.with::<Axes3DState, _>(f)
     }
 
+    /// Changes the axes, then lets the axes sharing its limits follow the
+    /// limits it set (matplotlib's `emit=True`).
     pub(crate) fn with_mut<R>(&self, f: impl FnOnce(&mut Axes3DState) -> R) -> R {
-        self.raw.with_mut::<Axes3DState, _>(f)
+        let (result, changes) = self.raw.with_mut::<Axes3DState, _>(|axes| {
+            let result = f(axes);
+            (result, axes.take_limit_changes())
+        });
+        if !changes.is_empty() {
+            replay(&mut self.raw.figure_state().borrow_mut(), &changes);
+        }
+        result
     }
 
     /// The 2-D axes whose data coordinates are the projected coordinates.
@@ -276,87 +309,6 @@ impl Axes3D {
     /// The grid cell the axes occupies, if it was placed on a grid.
     pub fn subplot_spec(&self) -> Option<SubplotSpec> {
         self.with(|axes| axes.subplot_spec.clone())
-    }
-
-    /// The view limits of one axis; decreasing when inverted.
-    pub fn limits(&self, axis: Axis3) -> (f64, f64) {
-        self.with(|axes| axes.limits.view(axis))
-    }
-
-    /// The x view limits.
-    pub fn xlim(&self) -> (f64, f64) {
-        self.limits(Axis3::X)
-    }
-
-    /// The y view limits.
-    pub fn ylim(&self) -> (f64, f64) {
-        self.limits(Axis3::Y)
-    }
-
-    /// The z view limits.
-    pub fn zlim(&self) -> (f64, f64) {
-        self.limits(Axis3::Z)
-    }
-
-    /// Sets the view limits of one axis and turns its autoscaling off;
-    /// `low > high` inverts the axis (matplotlib's `set_xlim`).
-    ///
-    /// # Errors
-    ///
-    /// When a limit is infinite or NaN.
-    pub fn set_limits(&self, axis: Axis3, low: f64, high: f64) -> Result<&Self, Axes3DError> {
-        self.with_mut(|axes| axes.set_lim3d(axis, low, high, Some(false), None))?;
-        Ok(self)
-    }
-
-    /// Sets the x view limits.
-    ///
-    /// # Errors
-    ///
-    /// As [`Axes3D::set_limits`].
-    pub fn set_xlim(&self, left: f64, right: f64) -> Result<&Self, Axes3DError> {
-        self.set_limits(Axis3::X, left, right)
-    }
-
-    /// Sets the y view limits.
-    ///
-    /// # Errors
-    ///
-    /// As [`Axes3D::set_limits`].
-    pub fn set_ylim(&self, bottom: f64, top: f64) -> Result<&Self, Axes3DError> {
-        self.set_limits(Axis3::Y, bottom, top)
-    }
-
-    /// Sets the z view limits.
-    ///
-    /// # Errors
-    ///
-    /// As [`Axes3D::set_limits`].
-    pub fn set_zlim(&self, bottom: f64, top: f64) -> Result<&Self, Axes3DError> {
-        self.set_limits(Axis3::Z, bottom, top)
-    }
-
-    /// Flips the direction of one axis (matplotlib's `invert_xaxis`).
-    pub fn invert(&self, axis: Axis3) -> &Self {
-        self.with_mut(|axes| axes.invert(axis));
-        self
-    }
-
-    /// Whether one axis runs from high to low values.
-    pub fn inverted(&self, axis: Axis3) -> bool {
-        self.with(|axes| axes.limits.inverted(axis))
-    }
-
-    /// Whether one axis follows the data (matplotlib's
-    /// `get_autoscalex_on`).
-    pub fn autoscale(&self, axis: Axis3) -> bool {
-        self.with(|axes| axes.limits.autoscale[axis.index()])
-    }
-
-    /// Turns autoscaling of one axis on or off.
-    pub fn set_autoscale(&self, axis: Axis3, on: bool) -> &Self {
-        self.with_mut(|axes| axes.limits.autoscale[axis.index()] = on);
-        self
     }
 
     /// Sets the label of one axis (matplotlib's `set_xlabel`).
@@ -444,6 +396,12 @@ impl Axes3D {
         Ok(self)
     }
 
+    /// The x, y and z lengths of the box edges in the units the camera
+    /// sees them (matplotlib's `_box_aspect` rolled to the vertical axis).
+    pub fn box_aspect(&self) -> Vec3 {
+        self.with(|axes| axes.camera.box_aspect())
+    }
+
     /// Shows or hides the gridlines on the panes (matplotlib's `grid`).
     pub fn grid(&self, visible: bool) -> &Self {
         self.with_mut(|axes| axes.grid_on = visible);
@@ -482,27 +440,5 @@ impl Axes3D {
     pub fn set_computed_zorder(&self, computed: bool) -> &Self {
         self.with_mut(|axes| axes.computed_zorder = computed);
         self
-    }
-
-    /// Sets the autoscaling margin of one axis as a fraction of the data
-    /// span and autoscales (matplotlib's `set_xmargin`).
-    ///
-    /// # Errors
-    ///
-    /// When the margin is not above -0.5 or a locator fails.
-    pub fn set_margin(&self, axis: Axis3, margin: f64) -> Result<&Self, Axes3DError> {
-        if margin.is_nan() || margin <= -0.5 {
-            return Err(Axes3DError::Margin(margin));
-        }
-        self.with_mut(|axes| {
-            axes.limits.margins[axis.index()] = margin;
-            axes.autoscale_view()
-        })?;
-        Ok(self)
-    }
-
-    /// The autoscaling margin of one axis.
-    pub fn margin(&self, axis: Axis3) -> f64 {
-        self.with(|axes| axes.limits.margins[axis.index()])
     }
 }

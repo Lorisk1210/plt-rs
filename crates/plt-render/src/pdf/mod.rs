@@ -10,11 +10,14 @@
 //! `PdfPages`), with text notes attached to them.
 //!
 //! TrueType fonts are embedded as Type 3 fonts or, with `pdf.fonttype =
-//! 42`, as `CIDFontType2` subsets of the font program.
+//! 42`, as `CIDFontType2` subsets of the font program. With
+//! `pdf.use14corefonts`, text that is not mathtext is shown in one of the
+//! 14 PDF core fonts instead, referenced by name and never embedded (see
+//! `core_fonts`).
 //!
-//! Not supported: the 14 core fonts (`pdf.use14corefonts`) and link
-//! annotations for URLs.
+//! Not supported: link annotations for URLs.
 
+mod core_fonts;
 mod draw;
 mod fonts;
 mod image;
@@ -28,7 +31,7 @@ mod writer;
 
 use plt_core::path::convert::{SimplifySettings, SketchParams, StringCodes, StringOptions};
 use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
-use plt_text::TextRun;
+use plt_text::{AfmDirectory, TextRun};
 
 use self::fonts::FontNames;
 use self::object::Obj;
@@ -60,6 +63,9 @@ pub struct PdfOptions {
     pub composite_images: bool,
     /// `pdf.fonttype`: how TrueType fonts are embedded.
     pub fonttype: FontType,
+    /// `pdf.use14corefonts`: text that is not mathtext is drawn in the 14
+    /// PDF core fonts, measured with their metrics.
+    pub core_fonts: bool,
 }
 
 impl Default for PdfOptions {
@@ -71,7 +77,17 @@ impl Default for PdfOptions {
             simplify: SimplifySettings::default(),
             composite_images: true,
             fonttype: FontType::Type3,
+            core_fonts: false,
         }
+    }
+}
+
+impl PdfOptions {
+    /// The AFM fonts text that is not mathtext is drawn in, and must be
+    /// measured with, if any (`RendererPdf._afm_font_dir` when
+    /// `pdf.use14corefonts` is set).
+    pub fn afm_directory(&self) -> Option<AfmDirectory> {
+        self.core_fonts.then_some(AfmDirectory::PdfCore)
     }
 }
 
@@ -264,6 +280,12 @@ impl PdfRenderer {
     /// (matplotlib's `PdfPages.infodict`).
     pub fn metadata_mut(&mut self) -> &mut Metadata {
         &mut self.options.metadata
+    }
+
+    /// The AFM fonts the document draws text that is not mathtext in, if
+    /// any (see [`PdfOptions::afm_directory`]).
+    pub fn afm_directory(&self) -> Option<AfmDirectory> {
+        self.options.afm_directory()
     }
 
     /// Restores the graphics state and closes the content stream of the

@@ -8,12 +8,15 @@
 //! the same clip comes back, hatches pattern dictionaries, images hex
 //! `colorimage` data and Gouraud triangles type 4 shadings. Fonts are
 //! embedded in the prolog as Type 3 programs or, with `ps.fonttype = 42`,
-//! as Type 42 fonts over TrueType subsets. PostScript has no transparency:
-//! partially transparent colours are drawn opaque.
+//! as Type 42 fonts over TrueType subsets. With `ps.useafm`, text that is
+//! not mathtext is shown in standard PostScript fonts placed by their AFM
+//! metrics instead, and no font is embedded at all (see `afm`).
+//! PostScript has no transparency: partially transparent colours are drawn
+//! opaque.
 //!
-//! Not supported: AFM fonts (`ps.useafm`), distillers (`ps.usedistiller`)
-//! and `usetex`.
+//! Not supported: distillers (`ps.usedistiller`) and `usetex`.
 
+mod afm;
 mod draw;
 mod fonts;
 mod text;
@@ -23,7 +26,7 @@ use std::fmt::Write as _;
 
 use plt_core::path::convert::SimplifySettings;
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_text::TextRun;
+use plt_text::{AfmDirectory, TextRun};
 
 use crate::collection::PathCollection;
 use crate::gc::{CapStyle, ClipPath, GraphicsContext, JoinStyle};
@@ -132,6 +135,10 @@ pub struct PsOptions {
     pub composite_images: bool,
     /// `ps.fonttype`: how TrueType fonts are embedded.
     pub fonttype: FontType,
+    /// `ps.useafm`: text that is not mathtext is drawn in standard
+    /// PostScript fonts, measured with their AFM metrics, and no font is
+    /// embedded.
+    pub afm: bool,
 }
 
 impl Default for PsOptions {
@@ -144,7 +151,23 @@ impl Default for PsOptions {
             simplify: SimplifySettings::default(),
             composite_images: true,
             fonttype: FontType::Type3,
+            afm: false,
         }
+    }
+}
+
+impl PsOptions {
+    /// The AFM fonts text that is not mathtext is drawn in, and must be
+    /// measured with, if any (`RendererPS._afm_font_dir` when `ps.useafm`
+    /// is set).
+    ///
+    /// matplotlib reads these metrics from `mpl-data/fonts/afm` (the 35
+    /// standard PostScript fonts); the notices of those files do not
+    /// permit redistribution, so plt-rs uses the metrics of the 14 PDF
+    /// core fonts, which describe the same Courier, Helvetica, Times,
+    /// Symbol and `ZapfDingbats` fonts.
+    pub fn afm_directory(&self) -> Option<AfmDirectory> {
+        self.afm.then_some(AfmDirectory::PdfCore)
     }
 }
 
@@ -269,11 +292,16 @@ impl PsRenderer {
             urx.ceil() as i64,
             ury.ceil() as i64
         );
-        let fonts: Vec<_> = self
-            .tracker
-            .fonts()
-            .map(|(id, subsets)| (id, subsets.to_vec()))
-            .collect();
+        // With `ps.useafm` matplotlib embeds no font, not even the fonts
+        // mathtext was drawn with.
+        let fonts: Vec<_> = if self.options.afm {
+            Vec::new()
+        } else {
+            self.tracker
+                .fonts()
+                .map(|(id, subsets)| (id, subsets.to_vec()))
+                .collect()
+        };
         let dictionary_size = PS_DEFS.len() + fonts.iter().map(|(_, s)| s.len()).sum::<usize>();
         let _ = writeln!(
             out,

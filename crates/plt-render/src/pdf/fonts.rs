@@ -8,26 +8,45 @@ use std::fmt::Write as _;
 use plt_core::path::convert::{StringCodes, StringOptions};
 use plt_core::{Path, PathCode, Point};
 use plt_font::GlyphId;
-use plt_text::FontId;
+use plt_text::{AfmFont, FontId};
 
 use super::object::Obj;
 use super::writer::PdfWriter;
 use crate::vector::{CharacterTracker, FontCache, FontInfo, FontType, Subset, VectorError};
 
+/// A font a document names: a subset of an embedded TrueType font, or a
+/// core font referenced by name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FontKey {
+    /// One subset of a TrueType font.
+    Embedded(FontId, usize),
+    /// One of the 14 PDF core fonts (`pdf.use14corefonts`).
+    Core(&'static AfmFont),
+}
+
 /// The `/Fn` names of the fonts used, in first-use order.
 #[derive(Debug, Default)]
 pub(super) struct FontNames {
-    names: Vec<((FontId, usize), String)>,
+    names: Vec<(FontKey, String)>,
 }
 
 impl FontNames {
     /// `fontName`: the name of `subset` of `font`, assigned on first use.
     pub(super) fn name(&mut self, font: FontId, subset: usize) -> String {
-        if let Some((_, name)) = self.names.iter().find(|(key, _)| *key == (font, subset)) {
+        self.name_of(FontKey::Embedded(font, subset))
+    }
+
+    /// `fontName` for a core font, assigned on first use.
+    pub(super) fn core_name(&mut self, font: &'static AfmFont) -> String {
+        self.name_of(FontKey::Core(font))
+    }
+
+    fn name_of(&mut self, key: FontKey) -> String {
+        if let Some((_, name)) = self.names.iter().find(|(known, _)| *known == key) {
             return name.clone();
         }
         let name = format!("F{}", self.names.len() + 1);
-        self.names.push(((font, subset), name.clone()));
+        self.names.push((key, name.clone()));
         name
     }
 }
@@ -352,8 +371,10 @@ fn embed_type3(
     Ok(dict_id)
 }
 
-/// `writeFonts`: embeds every used subset, sorted by font file and subset,
-/// and writes the font resource dictionary as object `dictionary`.
+/// `writeFonts`: references the core fonts used (matplotlib's data
+/// directory sorts them before its TrueType fonts), embeds every used
+/// subset, sorted by font file and subset, and writes the font resource
+/// dictionary as object `dictionary`.
 pub(super) fn write_fonts(
     writer: &mut PdfWriter,
     fonts: &mut FontCache,
@@ -362,13 +383,24 @@ pub(super) fn write_fonts(
     dictionary: u32,
     fonttype: FontType,
 ) -> Result<(), VectorError> {
+    let mut core = Vec::new();
     let mut used = Vec::new();
-    for ((id, subset), name) in &names.names {
-        let key = fonts.get(*id)?.sort_key().to_owned();
-        used.push((key, *subset, *id, name.clone()));
+    for (key, name) in &names.names {
+        match *key {
+            FontKey::Core(font) => core.push((font, name.clone())),
+            FontKey::Embedded(id, subset) => {
+                let sort_key = fonts.get(id)?.sort_key().to_owned();
+                used.push((sort_key, subset, id, name.clone()));
+            }
+        }
     }
+    core.sort_by_key(|(font, _)| font.file);
     used.sort_by(|a, b| (&a.0, a.1).cmp(&(&b.0, b.1)));
     let mut entries = Vec::new();
+    for (font, name) in core {
+        let dict = super::core_fonts::write_core_font(writer, font)?;
+        entries.push((name, Obj::Ref(dict)));
+    }
     for (_, subset_index, id, name) in used {
         let Some(subset) = tracker.subset(id, subset_index).filter(|s| !s.is_empty()) else {
             continue;

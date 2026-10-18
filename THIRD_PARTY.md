@@ -38,6 +38,7 @@ engine, windowing layer and conformance suite.
 | DejaVu fonts | Bitstream Vera / DejaVu licence | `crates/plt-font/fonts/LICENSE_DEJAVU` |
 | STIX fonts | SIL OFL 1.1 | `crates/plt-font/fonts/LICENSE_STIX` |
 | BaKoMa Computer Modern fonts (`cm*.ttf`) and their metrics | BaKoMa Fonts Licence (`matplotlib.txt`, "BaKoMa Fonts") | `crates/plt-font/fonts`, `crates/plt-text/src/mathtext/data` |
+| Adobe Core 14 font metrics (`*.afm`) | Adobe's notice in `readme.txt`: copy and distribute with the notices kept and the readme alongside | `crates/plt-font/fonts/pdfcorefonts` |
 | Last Resort HE font | SIL OFL 1.1 (`matplotlib.txt`, "Last Resort fonts") | `crates/plt-font/fonts` |
 | ColorBrewer colour schemes | Apache-2.0 (`matplotlib.txt`, "ColorBrewer Color Schemes") | `crates/plt/src/colors/colormaps` |
 | Yorick colormaps (`gist_*`) | Yorick licence (`matplotlib.txt`, "Yorick Colormaps") | `crates/plt/src/colors/colormaps` |

@@ -126,6 +126,49 @@ fn text_embeds_type3_fonts() {
 }
 
 #[test]
+fn afm_text_is_placed_by_its_metrics_and_nothing_is_embedded() {
+    let mut r = PsRenderer::new(
+        6.4,
+        4.8,
+        100.0,
+        PsOptions {
+            eps: true,
+            metadata: Metadata::none(),
+            afm: true,
+            ..PsOptions::default()
+        },
+    )
+    .expect("valid figure");
+    assert_eq!(r.options.afm_directory(), Some(AfmDirectory::PdfCore));
+    let run = TextEngine::global()
+        .layout_line(
+            "AV",
+            &FontRequest::new(FontQuery {
+                size: 10.0,
+                ..FontQuery::families(["DejaVu Sans"])
+            }),
+            72.0,
+        )
+        .expect("bundled font");
+    let gc = GraphicsContext::default();
+    r.draw_text(&gc, &run, Point::new(1.0, 2.0), 0.0);
+    let math = TextEngine::global()
+        .layout_math("$x$", &plt_text::mathtext::MathStyle::default())
+        .expect("valid math");
+    r.draw_text(&gc, &math, Point::new(1.0, 1.0), 0.0);
+    let ps = r.finish().expect("document");
+    assert!(ps.contains(
+        "/Helvetica 10.000 selectfont\ngsave\n\n1 2 translate\n0 rotate\n\
+         0 0 m /A glyphshow\n5.97 0 m /V glyphshow\ngrestore\n"
+    ));
+    assert!(ps.contains("/mpldict 8 dict def"));
+    assert!(
+        !ps.contains("/FontName"),
+        "not even mathtext's fonts are embedded"
+    );
+}
+
+#[test]
 fn images_and_shadings() {
     let mut r = renderer(true);
     let image = RgbaImage::new(2, 1, vec![255, 0, 0, 255, 0, 0, 255, 128]).expect("2x1");

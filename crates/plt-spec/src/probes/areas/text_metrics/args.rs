@@ -14,7 +14,7 @@ use crate::probes::{Args, ProbeError};
 
 /// Runs `f` under the reference configuration (`matplotlib.testing.setup()`
 /// plus `text.hinting = none`) with the probe's `rc` overrides applied.
-pub(super) fn with_rc<T>(
+pub(crate) fn with_rc<T>(
     args: Args<'_>,
     f: impl FnOnce() -> Result<T, ProbeError>,
 ) -> Result<T, ProbeError> {
@@ -164,7 +164,7 @@ const FONT_KEYS: [&str; 7] = [
 
 /// A "font dict": `FontProperties()` followed by the setters of the keys
 /// present, in [`FONT_KEYS`] order (`null` means the defaults).
-pub(super) fn font_dict(value: Option<&Json>) -> Result<FontProperties, ProbeError> {
+pub(crate) fn font_dict(value: Option<&Json>) -> Result<FontProperties, ProbeError> {
     let rc = rc::params();
     let mut font = FontProperties::from_rc(&rc);
     let Some(dict) = value else {

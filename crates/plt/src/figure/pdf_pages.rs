@@ -170,6 +170,27 @@ mod tests {
     }
 
     #[test]
+    fn core_fonts_are_shared_by_the_pages() {
+        let mut pages = crate::rc::context(|| {
+            crate::rc::set("pdf.use14corefonts", "True").unwrap();
+            crate::rc::set("pdf.compression", "0").unwrap();
+            PdfPages::new().unwrap()
+        });
+        for title in ["one", "two"] {
+            let fig = Figure::with_size(2.0, 1.0, 50.0);
+            fig.text(0.5, 0.5, title)
+                .set_halign(crate::text::HorizontalAlignment::Center);
+            pages.savefig(&fig).unwrap();
+        }
+        let pdf = pages.finish().unwrap();
+        // Centred by Helvetica's AFM widths.
+        assert_eq!(count(&pdf, "63.66 36 Td\n(one) Tj"), 1);
+        assert_eq!(count(&pdf, "64.27 36 Td\n(two) Tj"), 1);
+        assert_eq!(count(&pdf, "/Subtype /Type1 /BaseFont /Helvetica"), 1);
+        assert_eq!(count(&pdf, "/Subtype /Type3"), 0);
+    }
+
+    #[test]
     fn empty_documents_have_no_pages() {
         let pdf = PdfPages::new().unwrap().finish().unwrap();
         assert_eq!(count(&pdf, "/Kids [ ] /Count 0"), 1);

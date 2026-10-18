@@ -21,8 +21,12 @@
 //!   fallback and text extents.
 //! * [`FontDatabase`] — the bundled matplotlib fonts plus optional system
 //!   fonts, with matplotlib's `findfont` scoring.
+//! * [`AfmFont`] / [`AfmMetrics`] — matplotlib's catalogue of Adobe Font
+//!   Metrics and its AFM parser, with the bundled metrics of the 14 PDF
+//!   core fonts, for text measured and drawn in standard PostScript fonts.
 #![forbid(unsafe_code)]
 
+mod afm;
 mod autofit;
 mod cff;
 mod db;
@@ -39,10 +43,14 @@ mod subset;
 mod tables;
 mod types;
 
+pub use afm::{
+    AfmError, AfmMetrics, AfmSection, CharMetrics, CompositePart, StrBbox, bundled_metrics,
+    type1_name,
+};
 pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
-    AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
-    GenericFamilies, GenericFamily, Stretch, Weight,
+    AfmDirectory, AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle,
+    FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};

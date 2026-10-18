@@ -1,9 +1,11 @@
 //! Text (`draw_text`, `draw_mathtext`): plain text as `TJ` arrays with the
 //! kerning between glyphs, mathtext glyph by glyph, both in one-byte codes
-//! of 256-glyph Type 3 font subsets or two-byte codes of Type 42 fonts.
+//! of 256-glyph Type 3 font subsets or two-byte codes of Type 42 fonts
+//! (plain text in the core fonts of `pdf.use14corefonts` is `core_fonts`'
+//! business).
 
 use plt_core::Point;
-use plt_text::TextRun;
+use plt_text::{TextRun, TextSource};
 
 use super::PdfRenderer;
 use super::object::Obj;
@@ -156,8 +158,9 @@ impl PdfRenderer {
         self.output(&[Obj::op("Q")]);
     }
 
-    /// `draw_text`: the text colour fills glyphs; runs without a source
-    /// are filled as paths.
+    /// `draw_text`: the text colour fills glyphs; text that is not
+    /// mathtext goes in a core font with `pdf.use14corefonts`; runs without
+    /// a source are filled as paths.
     pub(super) fn pdf_text(
         &mut self,
         gc: &GraphicsContext,
@@ -170,6 +173,12 @@ impl PdfRenderer {
             return;
         };
         self.check_gc(gc, Some(gc.stroke_color()));
+        if let TextSource::Plain { text, font } = source
+            && self.options.core_fonts
+        {
+            self.core_font_text(text, font, origin, angle);
+            return;
+        }
         let Some(points) = self
             .problems
             .record(in_points(run, source, &self.fonts).map_err(VectorError::from))

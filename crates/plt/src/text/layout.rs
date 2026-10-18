@@ -223,7 +223,7 @@ pub(crate) fn lay_out_with_math(
         })
         .collect::<Result<Vec<_>, _>>()?;
     let line_metrics: Vec<LineMetrics> = runs.iter().map(metrics).collect();
-    let font_metrics = TextEngine::global().font_height_metrics(&font.request(rc), dpi)?;
+    let font_metrics = super::metrics::font_height_metrics(&font.request(rc), dpi)?;
     Ok(LaidOutText {
         lines,
         block: layout_block(&line_metrics, font_metrics, style),

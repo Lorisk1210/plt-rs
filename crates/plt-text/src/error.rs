@@ -27,3 +27,9 @@ impl From<plt_font::FontError> for TextError {
         Self::Font(err.to_string())
     }
 }
+
+impl From<plt_font::AfmError> for TextError {
+    fn from(err: plt_font::AfmError) -> Self {
+        Self::Font(err.to_string())
+    }
+}

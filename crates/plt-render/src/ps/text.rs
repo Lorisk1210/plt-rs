@@ -6,7 +6,7 @@
 use std::fmt::Write as _;
 
 use plt_core::Point;
-use plt_text::{PlacedGlyph, TextRun};
+use plt_text::{PlacedGlyph, TextRun, TextSource};
 
 use super::PsRenderer;
 use crate::gc::GraphicsContext;
@@ -53,23 +53,40 @@ impl PsRenderer {
         let rgb = gc.stroke_color();
         self.set_color([rgb.r, rgb.g, rgb.b], true);
         for group in stream.chunk_by(|a, b| a.0 == b.0) {
-            let _ = writeln!(self.body, "/{} {size:.3} selectfont", group[0].0);
-            let shown: Vec<String> = group
+            let glyphs: Vec<(f64, f64, &str)> = group
                 .iter()
-                .map(|(_, x, y, name)| {
-                    format!("{} {} m /{name} glyphshow", general(*x), general(*y))
-                })
+                .map(|(_, x, y, name)| (*x, *y, name.as_str()))
                 .collect();
-            let clip = self.clip_cmd(gc);
-            let _ = writeln!(
-                self.body,
-                "gsave\n{clip}\n{} {} translate\n{} rotate\n{}\ngrestore",
-                general(origin.x),
-                general(origin.y),
-                general(angle),
-                shown.join("\n")
-            );
+            self.show_glyphs(gc, &group[0].0, size, origin, angle, &glyphs);
         }
+    }
+
+    /// Shows glyphs of the font `font` at `size` by name, each at its
+    /// `(x, y)` relative to `origin`, the whole rotated by `angle`: one
+    /// `selectfont` and one clipped `gsave` block of `glyphshow`s.
+    pub(super) fn show_glyphs(
+        &mut self,
+        gc: &GraphicsContext,
+        font: &str,
+        size: f64,
+        origin: Point,
+        angle: f64,
+        glyphs: &[(f64, f64, &str)],
+    ) {
+        let _ = writeln!(self.body, "/{font} {size:.3} selectfont");
+        let shown: Vec<String> = glyphs
+            .iter()
+            .map(|(x, y, name)| format!("{} {} m /{name} glyphshow", general(*x), general(*y)))
+            .collect();
+        let clip = self.clip_cmd(gc);
+        let _ = writeln!(
+            self.body,
+            "gsave\n{clip}\n{} {} translate\n{} rotate\n{}\ngrestore",
+            general(origin.x),
+            general(origin.y),
+            general(angle),
+            shown.join("\n")
+        );
     }
 
     /// `draw_mathtext` for math typeset in points: glyphs moved to one by
@@ -107,7 +124,8 @@ impl PsRenderer {
         self.body.push_str("grestore\n");
     }
 
-    /// `draw_text`: fully transparent text is not drawn; runs without a
+    /// `draw_text`: fully transparent text is not drawn; text that is not
+    /// mathtext is shown in an AFM font with `ps.useafm`; runs without a
     /// source are filled as paths.
     pub(super) fn ps_text(
         &mut self,
@@ -123,6 +141,12 @@ impl PsRenderer {
             crate::renderer::fill_text(self, gc, run, origin, angle);
             return;
         };
+        if let (TextSource::Plain { text, font }, Some(directory)) =
+            (source, self.options.afm_directory())
+        {
+            self.afm_text(gc, text, font, directory, origin, angle);
+            return;
+        }
         let Some(points) = self
             .problems
             .record(in_points(run, source, &self.fonts).map_err(VectorError::from))

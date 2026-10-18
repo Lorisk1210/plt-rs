@@ -4,6 +4,7 @@ use std::fmt;
 use std::io;
 use std::path::PathBuf;
 
+use crate::afm::AfmError;
 use crate::hinting::{BytecodeError, BytecodeProgram};
 use crate::types::Tag;
 
@@ -67,6 +68,8 @@ pub enum FontError {
         /// Why it stopped.
         error: BytecodeError,
     },
+    /// Adobe Font Metrics could not be read or lack what was asked for.
+    Afm(AfmError),
 }
 
 impl FontError {
@@ -98,11 +101,25 @@ impl fmt::Display for FontError {
             Self::NoMatchingFont(query) => write!(f, "no font matches {query}"),
             Self::UnknownFont(id) => write!(f, "unknown font id {id}"),
             Self::Bytecode { program, error } => write!(f, "the {program} failed: {error}"),
+            Self::Afm(err) => write!(f, "{err}"),
         }
     }
 }
 
-impl std::error::Error for FontError {}
+impl std::error::Error for FontError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Afm(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<AfmError> for FontError {
+    fn from(err: AfmError) -> Self {
+        Self::Afm(err)
+    }
+}
 
 /// Convenience alias used throughout the crate.
 pub type Result<T, E = FontError> = std::result::Result<T, E>;

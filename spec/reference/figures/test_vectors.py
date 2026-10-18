@@ -1,9 +1,10 @@
 """Save a representative subset of the figure cases as SVG, PDF and PostScript
 and compare with (or write) the vector goldens next to their PNG goldens.
 
-The subset covers lines, markers, dashes, alpha, text and mathtext, images,
-clipping, hatches, Gouraud shading, polar axes, collections, rasterized
-artists and colorbars. Some cases are saved again with other font settings
+The subset covers lines, markers, dashes, alpha, text and mathtext, text in
+the standard PostScript fonts (``pdf.use14corefonts``, ``ps.useafm``),
+images, clipping, hatches, Gouraud shading, polar axes, collections,
+rasterized artists and colorbars. Some cases are saved again with other font settings
 (Type 42 fonts, SVG text as text), and two cases are collected into one
 multi-page PDF. plt-rs compares its own documents with these structurally
 (plt-spec's ``figure_vectors`` test); keep the lists in sync with
@@ -27,6 +28,10 @@ for module in sorted(pathlib.Path(__file__).parent.glob("cases_*.py")):
     importlib.import_module(f"figures.{module.stem}")
 
 VECTOR_CASES = [
+    "afm/core_fonts_layout",
+    "afm/core_fonts_text",
+    "afm/ps_fonts_layout",
+    "afm/ps_fonts_text",
     "axes/grid_major_minor_styles",
     "axes/mathtext_labels",
     "bars/hatches",

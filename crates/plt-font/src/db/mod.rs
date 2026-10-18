@@ -2,13 +2,14 @@
 //! matplotlib's `findfont` matching.
 
 mod afm;
+mod afm_catalogue;
 mod bundled;
 mod entry;
 mod query;
 mod score;
 mod system;
 
-pub use afm::AfmFont;
+pub use afm::{AfmDirectory, AfmFont};
 pub use entry::{FontEntry, FontId};
 pub use query::{
     FontQuery, FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,

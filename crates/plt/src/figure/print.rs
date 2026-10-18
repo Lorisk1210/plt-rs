@@ -293,14 +293,17 @@ impl Figure {
         options: &SaveOptions,
         document: &mut PdfRenderer,
     ) -> Result<(), SaveError> {
-        crate::text::without_hinting(|| {
-            let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
-            document
-                .new_page(page.width, page.height, page.dpi)
-                .map_err(SaveError::Vector)?;
-            self.draw_mixed(document, page)?;
-            drop(saving);
-            Ok(())
+        let core_fonts = document.afm_directory();
+        crate::text::with_afm_metrics(core_fonts, || {
+            crate::text::without_hinting(|| {
+                let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
+                document
+                    .new_page(page.width, page.height, page.dpi)
+                    .map_err(SaveError::Vector)?;
+                self.draw_mixed(document, page)?;
+                drop(saving);
+                Ok(())
+            })
         })
     }
 

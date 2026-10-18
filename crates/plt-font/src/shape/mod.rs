@@ -112,6 +112,28 @@ fn shape_scaled(
         .collect()
 }
 
+/// Shapes `text` as a single segment the way FreeType's autohinter calls
+/// HarfBuzz (`hb_buffer_guess_segment_properties` then `hb_shape`): the
+/// script is that of the first character with a script of its own (none
+/// for text of Common and Inherited characters only), the direction the
+/// script's, the language system the default one, and no
+/// beginning-of-text dotted circle is inserted. `features` apply on top
+/// of HarfBuzz's defaults; positions are in font units, glyphs in visual
+/// order.
+pub(crate) fn shape_segment(face: &Face<'_>, text: &str, features: &[Feature]) -> Vec<ShapedGlyph> {
+    let text: Vec<(usize, char)> = text.char_indices().collect();
+    let script = text
+        .iter()
+        .map(|&(_, c)| Script::of(c))
+        .find(|script| script.opentype_tag().is_some())
+        .unwrap_or(Script::COMMON);
+    let direction = script
+        .horizontal_direction()
+        .unwrap_or(Direction::LeftToRight);
+    let plan = ShapePlan::new(face, script, direction, None, features);
+    shape_run(face, &text, 0..text.len(), &plan, Scaler::Units, false)
+}
+
 /// Shapes `text` with `faces[assignment[i]]` for character `i`; returns
 /// `(face index, glyph)` in visual order. `scaler` gives each face's
 /// scaling.
@@ -134,7 +156,14 @@ fn shape_text<'h>(
             options.language,
             &options.features,
         );
-        let shaped = shape_run(face, text, run.start..run.end, &plan, scaler(run.face));
+        let shaped = shape_run(
+            face,
+            text,
+            run.start..run.end,
+            &plan,
+            scaler(run.face),
+            run.start == 0,
+        );
         glyphs.extend(shaped.into_iter().map(|glyph| (run.face, glyph)));
     }
     glyphs

@@ -40,11 +40,11 @@ impl Match<'_> {
 
 /// One rule: backtrack (closest first), input after the first glyph, and
 /// lookahead sequences plus the lookups to apply.
-struct Rule<'a> {
-    backtrack: Array<'a, u16>,
-    input: Array<'a, u16>,
-    lookahead: Array<'a, u16>,
-    lookups: Array<'a, SequenceLookup>,
+pub(crate) struct Rule<'a> {
+    pub(crate) backtrack: Array<'a, u16>,
+    pub(crate) input: Array<'a, u16>,
+    pub(crate) lookahead: Array<'a, u16>,
+    pub(crate) lookups: Array<'a, SequenceLookup>,
 }
 
 /// Tries `rule`; on success applies its lookups and returns true.
@@ -84,14 +84,14 @@ fn apply_rule(
     true
 }
 
-fn read_sequence<'a>(r: &mut Reader<'a>) -> Result<Array<'a, u16>> {
+pub(crate) fn read_sequence<'a>(r: &mut Reader<'a>) -> Result<Array<'a, u16>> {
     let count = r.u16()?;
     r.array(usize::from(count))
 }
 
 /// Parses a non-chained rule (`glyphCount, lookupCount, input, records`)
 /// or a chained rule (`backtrack, input, lookahead, records`).
-fn parse_rule(data: &[u8], chained: bool, tag: Tag) -> Result<Rule<'_>> {
+pub(crate) fn parse_rule(data: &[u8], chained: bool, tag: Tag) -> Result<Rule<'_>> {
     let mut r = Reader::new(data, tag);
     if chained {
         let backtrack = read_sequence(&mut r)?;

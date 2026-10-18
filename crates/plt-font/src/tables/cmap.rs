@@ -363,6 +363,43 @@ impl<'a> Cmap<'a> {
         self.maps.get(index).copied()
     }
 
+    /// The subtable `FT_Select_Charmap(face, FT_ENCODING_UNICODE)` picks
+    /// (`find_unicode_charmap`): the last UCS-4 subtable (`(3, 10)`,
+    /// `(0, 4)`, or `(0, 6)` in format 13), else the last Unicode one.
+    pub(crate) fn freetype_unicode_index(&self) -> Option<usize> {
+        let ucs4 = |info: &CharmapInfo| match (info.platform_id, info.encoding_id) {
+            (3, 10) | (0, 4) => true,
+            (0, 6) => info.format == 13,
+            _ => false,
+        };
+        self.maps
+            .iter()
+            .rposition(|(info, _)| info.is_unicode() && ucs4(info))
+            .or_else(|| self.maps.iter().rposition(|(info, _)| info.is_unicode()))
+    }
+
+    /// The subtable HarfBuzz's own character map uses
+    /// (`find_best_subtable`): a Windows symbol subtable first, then the
+    /// 32-bit and 16-bit Unicode encodings in HarfBuzz's order.
+    pub(crate) fn harfbuzz_index(&self) -> Option<usize> {
+        const ORDER: [(u16, u16); 9] = [
+            (3, 0),
+            (3, 10),
+            (0, 6),
+            (0, 4),
+            (3, 1),
+            (0, 3),
+            (0, 2),
+            (0, 1),
+            (0, 0),
+        ];
+        ORDER.iter().find_map(|&(platform, encoding)| {
+            self.maps
+                .iter()
+                .position(|(info, _)| (info.platform_id, info.encoding_id) == (platform, encoding))
+        })
+    }
+
     /// FreeType's default charmap choice: the last UCS-4 Unicode subtable,
     /// else the last Unicode subtable, else a Windows symbol subtable.
     pub(crate) fn default_index(&self) -> Option<usize> {

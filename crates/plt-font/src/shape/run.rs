@@ -65,12 +65,14 @@ fn native_direction(plan: &ShapePlan, items: &[ClusterChar]) -> Direction {
 }
 
 /// The characters of `text[range]` after HarfBuzz's pre-shaping steps, in
-/// the order they are shaped, plus that direction.
+/// the order they are shaped, plus that direction. A mark at the
+/// `beginning_of_text` gets a dotted circle to sit on.
 fn prepare(
     face: &Face<'_>,
     text: &[(usize, char)],
     range: Range<usize>,
     plan: &ShapePlan,
+    beginning_of_text: bool,
 ) -> (Vec<ClusterChar>, Direction) {
     let mask = plan.map.global_mask();
     let mut items: Vec<ClusterChar> = text[range.clone()]
@@ -80,7 +82,7 @@ fn prepare(
     if let Some(first) = items
         .first()
         .copied()
-        .filter(|first| range.start == 0 && first.props.is_mark())
+        .filter(|first| beginning_of_text && first.props.is_mark())
         .filter(|_| face.glyph_index(DOTTED_CIRCLE).is_some())
     {
         items.insert(
@@ -177,15 +179,17 @@ fn hide_default_ignorables(face: &Face<'_>, buffer: &mut Buffer) {
 }
 
 /// Shapes `text[range]` (the rest of `text` is context) with `plan`;
-/// glyphs come out in visual order.
+/// glyphs come out in visual order. `beginning_of_text` is HarfBuzz's
+/// `HB_BUFFER_FLAG_BOT`.
 pub(crate) fn shape_run(
     face: &Face<'_>,
     text: &[(usize, char)],
     range: Range<usize>,
     plan: &ShapePlan,
     scaler: Scaler<'_>,
+    beginning_of_text: bool,
 ) -> Vec<ShapedGlyph> {
-    let (items, direction) = prepare(face, text, range, plan);
+    let (items, direction) = prepare(face, text, range, plan, beginning_of_text);
     let spaces: Vec<(usize, SpaceWidth)> = items
         .iter()
         .filter_map(|item| Some((item.cluster, item.space?)))

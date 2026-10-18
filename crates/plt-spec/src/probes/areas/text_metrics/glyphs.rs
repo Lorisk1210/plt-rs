@@ -1,9 +1,12 @@
-//! Glyph probes: hinted outlines and advances as matplotlib's `FT2Font`
-//! loads them from the bundled fonts.
+//! Glyph probes: hinted and autohinted outlines and advances as
+//! matplotlib's `FT2Font` loads them from the bundled fonts.
 
 use std::sync::OnceLock;
 
-use plt_font::{FontDatabase, FontSource, GlyphId, Hinting, HintingInstance, OutlineSink, Size};
+use plt_font::{
+    AutohintTarget, FontDatabase, FontSource, GlyphId, Hinter, Hinting, HintingInstance,
+    OutlineSink, Size,
+};
 
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
@@ -64,14 +67,32 @@ impl OutlineSink for PathCodes {
     fn close(&mut self) {}
 }
 
-/// `ft2font.FT2Font.load_glyph`: a glyph of a bundled font hinted with
-/// `LoadFlags.DEFAULT` or `LoadFlags.NO_AUTOHINT`.
-pub(super) fn load_glyph(args: Args<'_>) -> Outcome {
-    let hinting = match args.str("flags")? {
+/// The hinting mode and autohinter target of `LoadFlags` names joined
+/// with `|`.
+fn load_flags(flags: &str) -> Result<(Hinting, AutohintTarget), ProbeError> {
+    let (mode, target) = flags.split_once('|').unwrap_or((flags, ""));
+    let hinting = match mode {
         "DEFAULT" => Hinting::Default,
         "NO_AUTOHINT" => Hinting::Native,
-        other => return Err(ProbeError::BadArgs(format!("unsupported flags {other:?}"))),
+        "FORCE_AUTOHINT" => Hinting::Auto,
+        _ => return Err(ProbeError::BadArgs(format!("unsupported flags {flags:?}"))),
     };
+    let target = match (hinting, target) {
+        (_, "") => AutohintTarget::Normal,
+        (Hinting::Auto, "TARGET_LIGHT") => AutohintTarget::Light,
+        (Hinting::Auto, "TARGET_MONO") => AutohintTarget::Mono,
+        (Hinting::Auto, "TARGET_LCD") => AutohintTarget::Lcd,
+        (Hinting::Auto, "TARGET_LCD_V") => AutohintTarget::LcdVertical,
+        _ => return Err(ProbeError::BadArgs(format!("unsupported flags {flags:?}"))),
+    };
+    Ok((hinting, target))
+}
+
+/// `ft2font.FT2Font.load_glyph`: a glyph of a bundled font hinted with
+/// `LoadFlags.DEFAULT`, `NO_AUTOHINT` or `FORCE_AUTOHINT` (with a target),
+/// by the font's bytecode or the autohinter as `FreeType` picks.
+pub(super) fn load_glyph(args: Args<'_>) -> Outcome {
+    let (hinting, target) = load_flags(args.str("flags")?)?;
     let file = args.str("file")?;
     let db = database();
     let font = db
@@ -87,15 +108,19 @@ pub(super) fn load_glyph(args: Args<'_>) -> Outcome {
         .next()
         .ok_or_else(|| ProbeError::BadArgs("empty char".to_owned()))?;
     let glyph = face.glyph_index(c).unwrap_or(GlyphId::NOTDEF);
-    if !hinting.uses_bytecode(&face, true) {
-        return Err(ProbeError::BadArgs(format!(
-            "FreeType autohints {file} under {hinting:?}"
-        )));
-    }
     let size = Size::new(&face, args.f64("size")?, args.f64("dpi")?);
-    let hinted = HintingInstance::new(&face, &size)
-        .load_glyph(&face, glyph)
-        .map_err(ProbeError::rejected)?;
+    let hinted = match hinting.hinter(&face, true) {
+        Hinter::Bytecode => HintingInstance::new(&face, &size).load_glyph(&face, glyph),
+        Hinter::Autohinter => db
+            .autohinter(font)
+            .and_then(|hinter| hinter.load_glyph(&face, &size, glyph, target)),
+        Hinter::Unhinted => {
+            return Err(ProbeError::BadArgs(format!(
+                "FreeType's CFF hinter takes {file} under {hinting:?}"
+            )));
+        }
+    }
+    .map_err(ProbeError::rejected)?;
     let mut path = PathCodes::default();
     hinted.outline(&mut path);
     Ok(Json::Object(vec![

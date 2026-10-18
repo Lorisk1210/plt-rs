@@ -32,6 +32,12 @@ pub struct HintedGlyph {
 }
 
 impl HintedGlyph {
+    /// A glyph from its grid-fitted outline (26.6, origin at the rounded
+    /// left phantom point) and rounded advance.
+    pub(crate) const fn new(outline: Outline, advance: i32) -> Self {
+        Self { outline, advance }
+    }
+
     /// The advance width in 26.6 pixels, rounded to a whole pixel
     /// (FreeType's grid-fitted `advance.x`).
     pub const fn advance(&self) -> i32 {
@@ -399,9 +405,9 @@ impl GlyphLoad<'_, '_> {
             start = end + 1;
         }
         let advance = pix_round(pp2.x.wrapping_sub(pp1.x));
-        HintedGlyph {
+        HintedGlyph::new(
             outline,
-            advance: advance.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
-        }
+            advance.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
+        )
     }
 }

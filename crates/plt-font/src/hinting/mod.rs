@@ -1,4 +1,5 @@
-//! TrueType hinting as matplotlib's bundled FreeType 2.14 does it.
+//! TrueType hinting as matplotlib's bundled FreeType 2.14 does it, and
+//! FreeType's choice between its hinters.
 //!
 //! matplotlib's default `text.hinting` loads glyphs with FreeType's
 //! `FT_LOAD_DEFAULT`, which runs a TrueType font's bytecode with the
@@ -9,23 +10,25 @@
 //! interpreter (`ttinterp.c`) and the parts of the TrueType driver around
 //! it (`ttobjs.c`, `ttgload.c`): the font and control value programs, the
 //! control value scaling, phantom points, the twilight zone, composite
-//! glyph hinting and the grid-fitted advance.
+//! glyph hinting and the grid-fitted advance. Fonts without bytecode, and
+//! every font under `FT_LOAD_FORCE_AUTOHINT`, go to FreeType's autohinter
+//! instead ([`Autohinter`](crate::Autohinter)).
 //!
-//! * [`Hinting`] — FreeType's load flags behind `text.hinting`, and which
-//!   glyphs they load with the interpreter.
+//! * [`Hinting`] — FreeType's load flags behind `text.hinting`, and
+//!   [`Hinter`], which hinter they load a face's glyphs with.
 //! * [`HintingInstance`] — one face at one size after its font and control
 //!   value programs ran; [`HintingInstance::load_glyph`] hints glyphs.
 //! * [`HintedGlyph`] — the grid-fitted outline and advance.
 //!
-//! What is left out, deliberately: FreeType's autohinter (glyphs FreeType
-//! would autohint load unhinted) and the CFF hinter; the bytecode of
-//! "tricky" fonts (a handful of CJK fonts FreeType recognises by name);
-//! variation fonts; the `hdmx` advances fonts outside backward
-//! compatibility mode may use; and non-square pixels, which plt-rs never
-//! asks for. Every glyph starts from the state the control value program
-//! left (FreeType keeps twilight points and some control value writes from
-//! one glyph to the next until the size is set again, which matplotlib
-//! does before rendering every glyph).
+//! What is left out, deliberately: FreeType's CFF hinter (CFF glyphs it
+//! would hint load unhinted); the bytecode of "tricky" fonts (a handful of
+//! CJK fonts FreeType recognises by name); variation fonts; the `hdmx`
+//! advances fonts outside backward compatibility mode may use; and
+//! non-square pixels, which plt-rs never asks for. Every glyph starts from
+//! the state the control value program left (FreeType keeps twilight
+//! points and some control value writes from one glyph to the next until
+//! the size is set again, which matplotlib does before rendering every
+//! glyph).
 //!
 //! The bytecode comes from untrusted font files: it runs within FreeType's
 //! limits (a million instructions per program, bounded loops, calls and
@@ -40,7 +43,7 @@ mod loader;
 mod program;
 mod state;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod zone;
 
 pub use error::{BytecodeError, BytecodeProgram};
@@ -69,23 +72,42 @@ pub enum Hinting {
     Auto,
 }
 
+/// The hinter FreeType loads a glyph with.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub enum Hinter {
+    /// No hinting: none was asked for, or the glyph would go to FreeType's
+    /// CFF hinter, which is not ported.
+    Unhinted,
+    /// The TrueType bytecode interpreter ([`HintingInstance`]).
+    Bytecode,
+    /// The autohinter ([`Autohinter`](crate::Autohinter)).
+    Autohinter,
+}
+
 impl Hinting {
-    /// Whether FreeType loads `face`'s glyphs with the TrueType bytecode
-    /// interpreter in this mode. `axis_aligned` tells whether the glyph
-    /// transform is a rotation by a multiple of 90 degrees: FreeType only
-    /// autohints such glyphs and hints all others natively.
+    /// The hinter FreeType's `FT_Load_Glyph` gives `face`'s glyphs in this
+    /// mode. `axis_aligned` tells whether the glyph transform is a rotation
+    /// by a multiple of 90 degrees: FreeType autohints only such glyphs and
+    /// hints all others natively.
     ///
-    /// Glyphs FreeType would give to its autohinter, or to its CFF hinter,
-    /// are loaded unhinted: those hinters are not ported.
-    pub fn uses_bytecode(self, face: &Face<'_>, axis_aligned: bool) -> bool {
-        if face.glyf().is_none() {
-            return false;
-        }
+    /// The autohinter takes every axis-aligned glyph under
+    /// [`Hinting::Auto`], and those of TrueType fonts without hinting
+    /// programs under [`Hinting::Default`]; native hinting is the bytecode
+    /// for TrueType fonts and the (unported) CFF hinter for CFF fonts.
+    pub fn hinter(self, face: &Face<'_>, axis_aligned: bool) -> Hinter {
+        let native = if face.glyf().is_some() {
+            Hinter::Bytecode
+        } else {
+            Hinter::Unhinted
+        };
+        let autohint = axis_aligned && face.has_outlines();
         match self {
-            Self::None => false,
-            Self::Native => true,
-            Self::Default => !axis_aligned || has_bytecode(face),
-            Self::Auto => !axis_aligned,
+            Self::None => Hinter::Unhinted,
+            Self::Auto if autohint => Hinter::Autohinter,
+            Self::Default if autohint && native == Hinter::Bytecode && !has_bytecode(face) => {
+                Hinter::Autohinter
+            }
+            Self::Native | Self::Auto | Self::Default => native,
         }
     }
 }

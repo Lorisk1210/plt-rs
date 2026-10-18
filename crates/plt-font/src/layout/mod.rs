@@ -8,6 +8,7 @@
 
 pub(crate) mod apply;
 pub(crate) mod buffer;
+pub(crate) mod collect;
 pub(crate) mod common;
 pub(crate) mod context;
 pub(crate) mod feature;

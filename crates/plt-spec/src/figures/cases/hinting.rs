@@ -1,6 +1,7 @@
-//! Hinted text, `figures/cases_hinting.py`: `text.hinting` "default" and
-//! "native" at several sizes and resolutions, with tick labels, titles,
-//! rotated text and mathtext.
+//! Hinted text, `figures/cases_hinting.py`: `text.hinting` "default",
+//! "native" and "`force_autohint`"/"auto" at several sizes and resolutions,
+//! with tick labels, titles, rotated text and mathtext (STIX mathtext is
+//! autohinted under "default").
 
 use plt::fonts::{FontStyle, FontWeight};
 use plt::legend::LegendOptions;
@@ -11,6 +12,7 @@ use crate::figures::{CaseResult, FigureCase};
 
 const DEFAULT: &[(&str, &str)] = &[("text.hinting", "default")];
 const NATIVE: &[(&str, &str)] = &[("text.hinting", "native")];
+const AUTOHINT: &[(&str, &str)] = &[("text.hinting", "force_autohint")];
 
 /// `SAMPLE`: letters, figures, accents, a ligature and kerning pairs.
 const SAMPLE: &str = "Hamburgefonstiv 0123456789 \u{c5}\u{c9}\u{e7}\u{df} ffi Wa.To, (x)";
@@ -57,6 +59,58 @@ fn math(fig: &Figure) {
     }
 }
 
+/// The serif and monospaced cases: both families in three styles, each
+/// label followed by `suffix`.
+fn serif_and_mono(fig: &Figure, suffix: &str) {
+    let styles = [
+        (9.0, FontWeight::NORMAL, FontStyle::Normal),
+        (11.0, FontWeight::BOLD, FontStyle::Normal),
+        (13.0, FontWeight::NORMAL, FontStyle::Italic),
+    ];
+    for (i, family) in ["DejaVu Serif", "DejaVu Sans Mono"].into_iter().enumerate() {
+        for (j, (size, weight, style)) in styles.into_iter().enumerate() {
+            fig.text(
+                0.02 + 0.5 * i as f64,
+                0.9 - 0.3 * j as f64,
+                format!("{family} {size}{suffix}"),
+            )
+            .set_fontsize(size)
+            .set_family([family])
+            .set_weight(weight)
+            .set_style(style)
+            .set_valign(VerticalAlignment::Top);
+        }
+    }
+}
+
+/// The rotated cases: labels at eight angles.
+fn rotated(fig: &Figure) {
+    let ax = fig.subplot();
+    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_axis_off();
+    for (i, angle) in [0, 15, 30, 45, 90, 135, 180, 270].into_iter().enumerate() {
+        ax.text(0.6 + 1.2 * i as f64, 5.0, format!("rot {angle} Wa"))
+            .set_rotation(f64::from(angle))
+            .set_fontsize(10.0 + i as f64)
+            .set_halign(HorizontalAlignment::Center)
+            .set_valign(VerticalAlignment::Center);
+    }
+}
+
+/// The STIX cases: the sample in STIX General at three sizes, then a
+/// formula.
+fn stix(fig: &Figure, formula: &str) {
+    for (i, size) in [7.0, 10.0, 14.0].into_iter().enumerate() {
+        fig.text(0.03, 0.92 - 0.2 * i as f64, format!("{size} pt {SAMPLE}"))
+            .set_fontsize(size)
+            .set_family(["STIXGeneral"])
+            .set_valign(VerticalAlignment::Top);
+    }
+    fig.text(0.03, 0.3, formula)
+        .set_fontsize(12.0)
+        .set_valign(VerticalAlignment::Top);
+}
+
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("hinting/sizes_100dpi", |fig| {
         sizes(fig, &SIZES, None);
@@ -77,25 +131,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(4.5, 3.4, 150.0)
     .with_rc(DEFAULT),
     FigureCase::new("hinting/serif_and_mono", |fig| {
-        let styles = [
-            (9.0, FontWeight::NORMAL, FontStyle::Normal),
-            (11.0, FontWeight::BOLD, FontStyle::Normal),
-            (13.0, FontWeight::NORMAL, FontStyle::Italic),
-        ];
-        for (i, family) in ["DejaVu Serif", "DejaVu Sans Mono"].into_iter().enumerate() {
-            for (j, (size, weight, style)) in styles.into_iter().enumerate() {
-                fig.text(
-                    0.02 + 0.5 * i as f64,
-                    0.9 - 0.3 * j as f64,
-                    format!("{family} {size}"),
-                )
-                .set_fontsize(size)
-                .set_family([family])
-                .set_weight(weight)
-                .set_style(style)
-                .set_valign(VerticalAlignment::Top);
-            }
-        }
+        serif_and_mono(fig, "");
         Ok(())
     })
     .sized(6.0, 3.0, 100.0)
@@ -110,16 +146,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         .sized(4.0, 3.0, 150.0)
         .with_rc(DEFAULT),
     FigureCase::new("hinting/rotated", |fig| {
-        let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-        ax.set_axis_off();
-        for (i, angle) in [0, 15, 30, 45, 90, 135, 180, 270].into_iter().enumerate() {
-            ax.text(0.6 + 1.2 * i as f64, 5.0, format!("rot {angle} Wa"))
-                .set_rotation(f64::from(angle))
-                .set_fontsize(10.0 + i as f64)
-                .set_halign(HorizontalAlignment::Center)
-                .set_valign(VerticalAlignment::Center);
-        }
+        rotated(fig);
         Ok(())
     })
     .sized(6.0, 3.0, 100.0)
@@ -140,19 +167,10 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 3.0, 100.0)
     .with_rc(&[("text.hinting", "default"), ("mathtext.fontset", "cm")]),
     FigureCase::new("hinting/native_stix", |fig| {
-        for (i, size) in [7.0, 10.0, 14.0].into_iter().enumerate() {
-            fig.text(0.03, 0.92 - 0.2 * i as f64, format!("{size} pt {SAMPLE}"))
-                .set_fontsize(size)
-                .set_family(["STIXGeneral"])
-                .set_valign(VerticalAlignment::Top);
-        }
-        fig.text(
-            0.03,
-            0.3,
+        stix(
+            fig,
             r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b}$ and DejaVu text",
-        )
-        .set_fontsize(12.0)
-        .set_valign(VerticalAlignment::Top);
+        );
         Ok(())
     })
     .sized(6.0, 3.0, 100.0)
@@ -160,4 +178,46 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("hinting/native_axes", axes)
         .sized(5.0, 3.75, 100.0)
         .with_rc(NATIVE),
+    FigureCase::new("hinting/autohint_sizes_100dpi", |fig| {
+        sizes(fig, &SIZES, None);
+        Ok(())
+    })
+    .sized(6.0, 4.5, 100.0)
+    .with_rc(AUTOHINT),
+    FigureCase::new("hinting/autohint_sizes_150dpi", |fig| {
+        sizes(fig, &[6, 8, 10, 12, 14, 18, 24], None);
+        Ok(())
+    })
+    .sized(4.5, 3.4, 150.0)
+    .with_rc(&[("text.hinting", "auto")]),
+    FigureCase::new("hinting/autohint_axes_72dpi", axes)
+        .sized(5.0, 3.75, 72.0)
+        .with_rc(AUTOHINT),
+    FigureCase::new("hinting/autohint_serif_and_mono", |fig| {
+        serif_and_mono(fig, " 0123 \u{c3}\u{f1}");
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(AUTOHINT),
+    FigureCase::new("hinting/autohint_rotated", |fig| {
+        rotated(fig);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(AUTOHINT),
+    FigureCase::new("hinting/mathtext_stix", |fig| {
+        math(fig);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(&[("text.hinting", "default"), ("mathtext.fontset", "stix")]),
+    FigureCase::new("hinting/stix_default", |fig| {
+        stix(
+            fig,
+            r"$\sum_{i=0}^{n} \sqrt{x_i} \int f\,dx$ and DejaVu text",
+        );
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(&[("text.hinting", "default"), ("mathtext.fontset", "stix")]),
 ];

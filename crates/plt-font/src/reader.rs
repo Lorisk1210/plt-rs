@@ -244,6 +244,11 @@ impl<'a, T: FromBytes> Array<'a, T> {
         self.data.len() / T::SIZE
     }
 
+    /// Whether the array has no complete record.
+    pub(crate) const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Decodes record `index`.
     pub(crate) fn get(&self, index: usize) -> Option<T> {
         if index >= self.len() {

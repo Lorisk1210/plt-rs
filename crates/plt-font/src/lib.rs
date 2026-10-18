@@ -10,7 +10,8 @@
 //!   and bounding boxes agree with matplotlib to the 1/64 pixel.
 //! * [`HintingInstance`] — FreeType's TrueType bytecode interpreter (version
 //!   40) for the grid-fitted outlines and advances matplotlib draws text
-//!   with by default ([`Hinting`]).
+//!   with by default ([`Hinting`]), and [`Autohinter`] — FreeType's
+//!   autohinter, for fonts without bytecode and `text.hinting: auto`.
 //! * [`shape`] / [`shape_at_size`] — libraqm/HarfBuzz-style shaping: the
 //!   Unicode Bidirectional Algorithm with visual reordering of right-to-left
 //!   runs, HarfBuzz's Arabic (joining forms, presentation-form fallback) and
@@ -22,6 +23,7 @@
 //!   fonts, with matplotlib's `findfont` scoring.
 #![forbid(unsafe_code)]
 
+mod autofit;
 mod cff;
 mod db;
 mod error;
@@ -37,13 +39,14 @@ mod subset;
 mod tables;
 mod types;
 
+pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
     AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
     GenericFamilies, GenericFamily, Stretch, Weight,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};
-pub use hinting::{BytecodeError, BytecodeProgram, HintedGlyph, Hinting, HintingInstance};
+pub use hinting::{BytecodeError, BytecodeProgram, HintedGlyph, Hinter, Hinting, HintingInstance};
 pub use layout::feature::{Feature, ParseFeatureError};
 pub use outline::{OutlineRecorder, OutlineSink, PathCommand};
 pub use scale::{KerningMode, Size};

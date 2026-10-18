@@ -7,8 +7,8 @@ use std::path::PathBuf;
 
 use common::font_bytes;
 use plt_font::{
-    Face, FontChain, GlyphId, Hinting, HintingInstance, OutlineRecorder, ShapeOptions, Size,
-    face_count, shape, subset,
+    AutohintTarget, Autohinter, Face, FontChain, GlyphId, Hinting, HintingInstance,
+    OutlineRecorder, ShapeOptions, Size, face_count, shape, subset,
 };
 
 /// `SplitMix64`, for deterministic corruption positions.
@@ -50,6 +50,7 @@ fn exercise(data: &[u8]) {
         );
         let size = Size::new(&face, 12.0, 72.0);
         let hinting = HintingInstance::new(&face, &size);
+        let autohinter = Autohinter::new(&face);
         let glyphs = u32::from(face.num_glyphs());
         for glyph in (0..glyphs.min(40)).chain((0..glyphs).step_by(97)) {
             let glyph = GlyphId(glyph as u16);
@@ -57,6 +58,9 @@ fn exercise(data: &[u8]) {
             let _ = face.outline(glyph, &mut sink);
             let _ = size.glyph_cbox(&face, glyph);
             if let Ok(hinted) = hinting.load_glyph(&face, glyph) {
+                hinted.outline(&mut sink);
+            }
+            if let Ok(hinted) = autohinter.load_glyph(&face, &size, glyph, AutohintTarget::Normal) {
                 hinted.outline(&mut sink);
             }
             let _ = (
@@ -69,7 +73,7 @@ fn exercise(data: &[u8]) {
         let text = "AVATAR office fi éx\u{301} αβγ \u{2212}1";
         let _ = shape(&face, text);
         let chain = FontChain::new(vec![face]);
-        for hinting in [Hinting::None, Hinting::Default] {
+        for hinting in [Hinting::None, Hinting::Default, Hinting::Auto] {
             let _ = chain.layout(text, 10.0, 100.0, &ShapeOptions::default(), hinting);
         }
     }
@@ -394,6 +398,13 @@ fn hostile_substitutions_stay_bounded() {
     // Unbounded, the buffer would hold 64^6 glyphs after 8^64 nested steps.
     let glyphs = shape(&face, "A");
     assert!(glyphs.len() > 64 && glyphs.len() <= 16_384);
+    // The autohinter's coverage and substitution walks over the same table.
+    let autohinter = Autohinter::new(&face);
+    let size = Size::new(&face, 12.0, 72.0);
+    let hinted = autohinter
+        .load_glyph(&face, &size, glyph, AutohintTarget::Normal)
+        .expect("intact glyph");
+    assert!(hinted.advance() > 0);
 }
 
 #[test]

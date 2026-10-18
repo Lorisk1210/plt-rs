@@ -197,42 +197,50 @@ impl<'a> Glyf<'a> {
         )))
     }
 
-    /// Loads `glyph` into `out` and returns the x position of its first
-    /// phantom point relative to the outline (FreeType's `pp1.x`, in font
-    /// units), which the caller uses to align the origin.
+    /// Loads `glyph` into `out` and returns its phantom points, which the
+    /// caller uses to align the origin. `metrics` gives a glyph's left
+    /// side bearing and advance width (from `hmtx`).
     pub(crate) fn load(
         &self,
         glyph: GlyphId,
         scaling: Scaling,
-        lsb: &dyn Fn(GlyphId) -> i16,
+        metrics: &dyn Fn(GlyphId) -> (i16, u16),
         out: &mut Outline,
-    ) -> Result<i64> {
-        self.load_recursive(glyph, scaling, lsb, out, &mut LoadBudget::default())
+    ) -> Result<Phantoms> {
+        self.load_recursive(glyph, scaling, metrics, out, &mut LoadBudget::default())
     }
 
     fn load_recursive(
         &self,
         glyph: GlyphId,
         scaling: Scaling,
-        lsb: &dyn Fn(GlyphId) -> i16,
+        metrics: &dyn Fn(GlyphId) -> (i16, u16),
         out: &mut Outline,
         budget: &mut LoadBudget,
-    ) -> Result<i64> {
+    ) -> Result<Phantoms> {
         if budget.depth > MAX_COMPONENT_DEPTH {
             return Err(FontError::malformed(
                 GLYF,
                 "composite glyphs nested too deeply",
             ));
         }
+        let (lsb, advance) = metrics(glyph);
+        let advance = i64::from(advance);
         let Some((header, body)) = self.record(glyph)? else {
-            return Ok(-i64::from(lsb(glyph)));
+            return Ok(Phantoms {
+                origin: -i64::from(lsb),
+                advance,
+            });
         };
-        let pp1 = i64::from(header.bbox.x_min) - i64::from(lsb(glyph));
+        let phantoms = Phantoms {
+            origin: i64::from(header.bbox.x_min) - i64::from(lsb),
+            advance,
+        };
         if header.contours >= 0 {
             load_simple(body, header.contours as usize, scaling, out)?;
-            Ok(pp1)
+            Ok(phantoms)
         } else {
-            self.load_composite(body, scaling, lsb, out, budget, pp1)
+            self.load_composite(body, scaling, metrics, out, budget, phantoms)
         }
     }
 
@@ -240,11 +248,11 @@ impl<'a> Glyf<'a> {
         &self,
         body: &[u8],
         scaling: Scaling,
-        lsb: &dyn Fn(GlyphId) -> i16,
+        metrics: &dyn Fn(GlyphId) -> (i16, u16),
         out: &mut Outline,
         budget: &mut LoadBudget,
-        mut pp1: i64,
-    ) -> Result<i64> {
+        mut phantoms: Phantoms,
+    ) -> Result<Phantoms> {
         let base_points = out.points.len();
         let (components, _) = parse_components(body)?;
         for component in components {
@@ -257,10 +265,11 @@ impl<'a> Glyf<'a> {
                 ));
             }
             budget.depth += 1;
-            let component_pp1 = self.load_recursive(component.glyph, scaling, lsb, out, budget)?;
+            let component_phantoms =
+                self.load_recursive(component.glyph, scaling, metrics, out, budget)?;
             budget.depth -= 1;
             if component.flags & USE_MY_METRICS != 0 {
-                pp1 = component_pp1;
+                phantoms = component_phantoms;
             }
             if component.matrix != Matrix::IDENTITY {
                 for point in &mut out.points[start..] {
@@ -275,8 +284,18 @@ impl<'a> Glyf<'a> {
                 }
             }
         }
-        Ok(pp1)
+        Ok(phantoms)
     }
+}
+
+/// The horizontal phantom points of a loaded glyph, in font units: the
+/// origin relative to the outline (FreeType's `pp1.x`) and the advance
+/// width (`pp2.x - pp1.x`), both from the component that supplies the
+/// metrics in composites.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct Phantoms {
+    pub(crate) origin: i64,
+    pub(crate) advance: i64,
 }
 
 /// How a component is positioned.

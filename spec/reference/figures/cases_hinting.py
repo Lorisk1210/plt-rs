@@ -1,9 +1,12 @@
 """Hinted text: matplotlib's default ``text.hinting`` ("default", FreeType's
-``FT_LOAD_DEFAULT``) and "native" (``FT_LOAD_NO_AUTOHINT``) instead of the
+``FT_LOAD_DEFAULT``), "native" (``FT_LOAD_NO_AUTOHINT``) and
+"force_autohint"/"auto" (``FT_LOAD_FORCE_AUTOHINT``) instead of the
 reference configuration's unhinted text. The bundled TrueType fonts with
 bytecode (DejaVu, the BaKoMa Computer Modern fonts) are hinted by FreeType's
-version 40 interpreter in both modes; fonts without bytecode (STIX) are only
-used under "native", since "default" hands them to FreeType's autohinter.
+version 40 interpreter under "default" and "native"; fonts without bytecode
+(STIX) get FreeType's autohinter under "default" and the interpreter under
+"native"; "force_autohint" autohints every glyph drawn upright or at a
+multiple of 90 degrees.
 
 Plain text, tick labels, titles, labels, legends, rotated text and mathtext
 are drawn at several sizes (6-24 pt) and resolutions (72, 100 and 150 dpi).
@@ -15,6 +18,7 @@ from spec_support import case
 
 DEFAULT = {"text.hinting": "default"}
 NATIVE = {"text.hinting": "native"}
+AUTOHINT = {"text.hinting": "force_autohint"}
 
 SAMPLE = "Hamburgefonstiv 0123456789 ÅÉçß ffi Wa.To, (x)"
 SIZES = [6, 7, 8, 9, 10, 11, 12, 14, 17, 20, 24]
@@ -116,3 +120,55 @@ def _(fig):
 @case("hinting/native_axes", figsize=(5, 3.75), rc=NATIVE)
 def _(fig):
     _axes(fig)
+
+
+@case("hinting/autohint_sizes_100dpi", figsize=(6, 4.5), rc=AUTOHINT)
+def _(fig):
+    _sizes(fig)
+
+
+@case("hinting/autohint_sizes_150dpi", figsize=(4.5, 3.4), dpi=150, rc={"text.hinting": "auto"})
+def _(fig):
+    _sizes(fig, sizes=[6, 8, 10, 12, 14, 18, 24])
+
+
+@case("hinting/autohint_axes_72dpi", figsize=(5, 3.75), dpi=72, rc=AUTOHINT)
+def _(fig):
+    _axes(fig)
+
+
+@case("hinting/autohint_serif_and_mono", figsize=(6, 3), rc=AUTOHINT)
+def _(fig):
+    for i, family in enumerate(["DejaVu Serif", "DejaVu Sans Mono"]):
+        for j, (size, weight, style) in enumerate([(9, "normal", "normal"),
+                                                   (11, "bold", "normal"),
+                                                   (13, "normal", "italic")]):
+            fig.text(0.02 + 0.5 * i, 0.9 - 0.3 * j, f"{family} {size} 0123 Ãñ",
+                     fontsize=size, family=family, weight=weight, style=style, va="top")
+
+
+@case("hinting/autohint_rotated", figsize=(6, 3), rc=AUTOHINT)
+def _(fig):
+    ax = fig.subplots()
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 10)
+    ax.set_axis_off()
+    for i, angle in enumerate([0, 15, 30, 45, 90, 135, 180, 270]):
+        ax.text(0.6 + 1.2 * i, 5, f"rot {angle} Wa", rotation=angle, fontsize=10 + i,
+                ha="center", va="center")
+
+
+@case("hinting/mathtext_stix", figsize=(6, 3), rc={**DEFAULT, "mathtext.fontset": "stix"})
+def _(fig):
+    for i, size in enumerate([8, 11, 15, 20]):
+        fig.text(0.03, 0.9 - 0.23 * i, r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b} - \pi r^2$",
+                 fontsize=size, va="top")
+
+
+@case("hinting/stix_default", figsize=(6, 3), rc={**DEFAULT, "mathtext.fontset": "stix"})
+def _(fig):
+    for i, size in enumerate([7, 10, 14]):
+        fig.text(0.03, 0.92 - 0.2 * i, f"{size} pt {SAMPLE}", fontsize=size, family="STIXGeneral",
+                 va="top")
+    fig.text(0.03, 0.3, r"$\sum_{i=0}^{n} \sqrt{x_i} \int f\,dx$ and DejaVu text",
+             fontsize=12, va="top")

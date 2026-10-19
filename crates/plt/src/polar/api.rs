@@ -362,6 +362,16 @@ impl Figure {
     }
 }
 
+impl Axes {
+    /// Adds polar inset axes at `[left, bottom, width, height]` in this
+    /// axes' fractions (matplotlib's `inset_axes(..., polar=True)`; see
+    /// [`Axes::inset_axes`]).
+    #[must_use]
+    pub fn polar_inset_axes(&self, bounds: [f64; 4]) -> PolarAxes {
+        PolarAxes::convert(self.inset_axes(bounds))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -376,6 +386,47 @@ mod tests {
         assert_eq!(ax.rlabel_position(), 22.5);
         assert!(fig.subplot().as_polar().is_none());
         assert_eq!(fig.axes()[0].as_polar(), Some(ax));
+    }
+
+    #[test]
+    fn reference_lines_and_spans_follow_the_polar_grid() {
+        // matplotlib's test_axhvlinespan_interpolation: a fraction across
+        // the data axis is a fraction of the view range there.
+        let fig = Figure::with_size(2.0, 2.0, 72.0);
+        let ax = fig.add_polar_axes([0.0, 0.0, 1.0, 1.0]);
+        ax.set_ylim(0.0, 2.0);
+        let close = |a: plt_core::Point, b: (f64, f64)| {
+            (a.x - b.0).abs() < 1e-9 && (a.y - b.1).abs() < 1e-9
+        };
+        // A quarter of the angular range at radius 1: straight up, half
+        // way to the edge.
+        let yaxis = fig.resolve_transform(&ax.trans_yaxis()).unwrap();
+        assert!(close(
+            yaxis.transform_point(plt_core::Point::new(0.25, 1.0)),
+            (72.0, 108.0)
+        ));
+        // Half the radial range at θ = 0: half way to the right edge.
+        let xaxis = fig.resolve_transform(&ax.trans_xaxis()).unwrap();
+        assert!(close(
+            xaxis.transform_point(plt_core::Point::new(0.0, 0.5)),
+            (108.0, 72.0)
+        ));
+        let circle = ax.axhline(1.0, crate::lines::LineProps::default());
+        assert_eq!(
+            circle.path().unwrap().interpolation_steps(),
+            super::super::GRIDLINE_INTERPOLATION_STEPS
+        );
+    }
+
+    #[test]
+    fn polar_insets_are_child_axes() {
+        let fig = Figure::new();
+        let host = fig.subplot();
+        let inset = host.polar_inset_axes([0.5, 0.1, 0.45, 0.45]);
+        assert_eq!(inset.projection(), ProjectionKind::Polar);
+        assert_eq!(inset.zorder(), 5.0);
+        assert_eq!(host.child_axes(), [inset.axes]);
+        assert_eq!(fig.axes(), [host]);
     }
 
     #[test]

@@ -21,7 +21,7 @@ use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 
 /// Segments per gridline, so that projections can bend them
 /// (matplotlib's `GRIDLINE_INTERPOLATION_STEPS`).
-const GRIDLINE_INTERPOLATION_STEPS: usize = 180;
+pub(crate) const GRIDLINE_INTERPOLATION_STEPS: usize = 180;
 
 /// Extra θ label padding in points, keeping matplotlib's look of
 /// centred labels (`ThetaTick.update_position`).

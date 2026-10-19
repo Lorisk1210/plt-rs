@@ -20,6 +20,9 @@ pub enum SecondaryLocation {
     Side(SpineSide),
     /// At this fraction of the host across the axis.
     Fraction(f64),
+    /// At this data value of the host across the axis, following the
+    /// host's limits (matplotlib's location with `transform=ax.transData`).
+    Data(f64),
 }
 
 /// What makes an axes a secondary axis of a host (matplotlib's
@@ -30,6 +33,9 @@ pub(crate) struct Secondary {
     host: ArtistId,
     /// The axis this one mirrors.
     orientation: AxisName,
+    /// The host data value across the axis it sits at, if it follows the
+    /// host's data rather than a fixed fraction.
+    data_location: Option<f64>,
     /// Host units to secondary units and back.
     functions: FuncTransform,
     /// The host scale the current scale was built for.
@@ -95,18 +101,12 @@ impl Axes {
                 });
             }
             SecondaryLocation::Side(side) => f64::from(u8::from(side.is_high())),
-            SecondaryLocation::Fraction(pos) => pos,
-        };
-        let bounds = match orientation {
-            AxisName::X => Bbox::from_bounds(0.0, pos, 1.0, 1e-10),
-            AxisName::Y => Bbox::from_bounds(pos, 0.0, 1e-10, 1.0),
+            // Placed at the host's data value when synchronised below.
+            SecondaryLocation::Fraction(pos) | SecondaryLocation::Data(pos) => pos,
         };
         let figure = self.raw().figure_state();
-        let secondary = insert_axes(figure, self.id(), bounds, None);
-        let other = match orientation {
-            AxisName::X => AxisName::Y,
-            AxisName::Y => AxisName::X,
-        };
+        let secondary = insert_axes(figure, self.id(), secondary_bounds(orientation, pos), None);
+        let other = across(orientation);
         secondary
             .axis_of(other)
             .set_major_locator(NullLocator)
@@ -125,6 +125,10 @@ impl Axes {
             axes.secondary = Some(Secondary {
                 host: self.id(),
                 orientation,
+                data_location: match location {
+                    SecondaryLocation::Data(value) => Some(value),
+                    SecondaryLocation::Side(_) | SecondaryLocation::Fraction(_) => None,
+                },
                 functions: functions.unwrap_or_else(FuncTransform::identity),
                 host_scale: None,
             });
@@ -153,6 +157,21 @@ impl FigureState {
         };
         let host_scale = host.axis(link.orientation).scale().name();
         let (low, high) = host.view_interval(link.orientation);
+        let placed = link.data_location.map(|value| {
+            // Where the value sits across the host, in its scaled view.
+            let other = across(link.orientation);
+            let (start, end) = host.view_interval(other);
+            let scaled = host.axis(other).scale().forward(&[value, start, end]);
+            secondary_bounds(
+                link.orientation,
+                (scaled[0] - scaled[1]) / (scaled[2] - scaled[1]),
+            )
+        });
+        if let Some(bounds) = placed
+            && let Some(state) = self.store.get_as_mut::<AxesState>(axes)
+        {
+            state.position = bounds;
+        }
         if link.host_scale != Some(host_scale) {
             let reversed = link.functions.reversed();
             let scale: Rc<dyn Scale> = if host_scale == "log" {
@@ -172,6 +191,23 @@ impl FigureState {
             (v0, v1) = (v1, v0);
         }
         self.set_axis_limits(axes, link.orientation, (v0, v1), Some(false), true);
+    }
+}
+
+/// The axis across `orientation`.
+const fn across(orientation: AxisName) -> AxisName {
+    match orientation {
+        AxisName::X => AxisName::Y,
+        AxisName::Y => AxisName::X,
+    }
+}
+
+/// The box of a secondary axis at fraction `pos` of its host across the
+/// axis: infinitely thin, spanning the host along it.
+fn secondary_bounds(orientation: AxisName, pos: f64) -> Bbox {
+    match orientation {
+        AxisName::X => Bbox::from_bounds(0.0, pos, 1.0, 1e-10),
+        AxisName::Y => Bbox::from_bounds(pos, 0.0, 1e-10, 1.0),
     }
 }
 
@@ -204,5 +240,22 @@ mod tests {
         let placed = sec.raw.with::<AxesState, _>(|a| a.position);
         assert_eq!(placed.x0(), 0.3);
         assert!(host.width() > 0.0);
+    }
+
+    #[test]
+    fn data_locations_follow_the_host_view() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_ylim(0.0, 10.0);
+        let sec = ax
+            .secondary_xaxis(SecondaryLocation::Data(2.5), None)
+            .unwrap();
+        let placed = || sec.raw.with::<AxesState, _>(|a| a.position.y0());
+        fig.layout();
+        assert_eq!(placed(), 0.25);
+        ax.set_ylim(0.0, 5.0);
+        fig.layout();
+        assert_eq!(placed(), 0.5);
+        assert_eq!(sec.xaxis().label_position(), SpineSide::Top);
     }
 }

@@ -12,7 +12,7 @@ use super::axis_handle::Axis;
 use super::ticks::{GridOptions, TickDirection, TickLevel, TickStyle};
 use super::{Axes, AxesState, AxisName, PlotError};
 use crate::colors::Color;
-use crate::fonts::FontSize;
+use crate::fonts::{FontSize, FontWeight};
 use crate::lines::LineStyle;
 use crate::rc::{AxisBelow, RcParams};
 use crate::scale::{ScaleError, ScaleOptions, scale_factory};
@@ -168,6 +168,8 @@ pub struct TickParams {
     pub labelrotation: Option<f64>,
     /// How rotated labels are aligned.
     pub labelrotation_mode: Option<RotationMode>,
+    /// Label font family (`labelfontfamily`).
+    pub labelfontfamily: Option<String>,
     /// Ticks on the bottom side.
     pub bottom: Option<bool>,
     /// Ticks on the top side.
@@ -218,6 +220,9 @@ impl TickParams {
         }
         if let Some(mode) = self.labelrotation_mode {
             style.label_rotation_mode = mode;
+        }
+        if let Some(family) = &self.labelfontfamily {
+            style.label_family = Some(family.clone());
         }
         let (color, labelcolor) = match &self.colors {
             Some(both) => (Some(both), Some(both)),
@@ -272,6 +277,8 @@ pub struct TickLabelProps {
     pub color: Option<Color>,
     /// Font size.
     pub fontsize: Option<FontSize>,
+    /// Font weight.
+    pub fontweight: Option<FontWeight>,
 }
 
 /// Options of [`Axes::locator_params`]; unset fields keep the locator's
@@ -336,6 +343,9 @@ impl Axis {
             }
             if let Some(size) = props.fontsize {
                 style.label_size = size.to_points(base_size);
+            }
+            if props.fontweight.is_some() {
+                style.label_weight = props.fontweight;
             }
         };
         self.update(|axis| {

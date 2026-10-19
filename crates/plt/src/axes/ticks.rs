@@ -3,6 +3,7 @@
 use std::str::FromStr;
 
 use crate::colors::Color;
+use crate::fonts::{FontProperties, FontWeight};
 use crate::lines::LineStyle;
 use crate::rc::{ColorOrInherit, RcParams};
 use crate::spines::SpineSide;
@@ -209,6 +210,11 @@ pub struct TickStyle {
     /// Alignment of the lines of multi-line labels (`None` follows the
     /// horizontal alignment).
     pub label_multialign: Option<HAlign>,
+    /// Font family of the labels in place of `font.family` (matplotlib's
+    /// `labelfontfamily`).
+    pub label_family: Option<String>,
+    /// Font weight of the labels in place of `font.weight`.
+    pub label_weight: Option<FontWeight>,
     /// Whether gridlines are drawn at the ticks.
     pub grid_on: bool,
     /// How the gridlines are drawn; kept while they are off, like
@@ -256,6 +262,8 @@ impl TickStyle {
             label_halign: None,
             label_valign: None,
             label_multialign: None,
+            label_family: None,
+            label_weight: None,
             grid_on: grid_on_from_rc(axis, major, rc),
             grid: GridStyle::from_rc(major, rc),
         }
@@ -269,6 +277,21 @@ impl TickStyle {
             || self.labels.first
             || self.labels.second
             || self.grid_on
+    }
+
+    /// The font of the labels: `rc`'s, at the label size and with the
+    /// label family and weight when set.
+    pub(crate) fn label_font(&self, rc: &RcParams) -> FontProperties {
+        let font = FontProperties::from_rc(rc);
+        FontProperties {
+            size: self.label_size,
+            families: self
+                .label_family
+                .clone()
+                .map_or_else(|| font.families.clone(), |family| vec![family]),
+            weight: self.label_weight.unwrap_or(font.weight),
+            ..font
+        }
     }
 
     /// Distance from the axes edge to the labels in points: the pad plus

@@ -41,17 +41,22 @@ impl RasterRenderer {
         let rotation = Affine2D::identity().rotate_deg(angle);
         let placement = rotation.translate(origin.x, origin.y);
         let color = gc.stroke_color();
-        // matplotlib draws rules with a fresh, anti-aliased context.
+        // matplotlib draws rules with a fresh, anti-aliased context, which
+        // clips nothing.
         let fill_gc = GraphicsContext {
             linewidth: 0.0,
             dashes: Dashes::solid(),
             hatch: None,
             sketch: None,
             antialiased: true,
+            clip_rect: None,
+            clip_path: None,
             ..gc.clone()
         };
+        // Agg's `draw_text_image` clips glyphs to the clip rectangle only.
         let glyph_gc = GraphicsContext {
             snap: SnapMode::Never,
+            clip_rect: gc.clip_rect,
             ..fill_gc.clone()
         };
         let hinting = run
@@ -119,6 +124,43 @@ impl RasterRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Whether drawing "W" with `gc` paints any pixel.
+    fn paints_glyph(gc: &GraphicsContext) -> bool {
+        let run = TextEngine::global()
+            .layout_line(
+                "W",
+                &plt_text::FontRequest::new(plt_text::FontQuery {
+                    size: 20.0,
+                    ..plt_text::FontQuery::families(["DejaVu Sans"])
+                }),
+                72.0,
+            )
+            .expect("bundled font");
+        let mut r = RasterRenderer::new(40.0, 40.0, 72.0).expect("valid canvas");
+        r.draw_text(gc, &run, Point::new(5.0, 10.0), 0.0);
+        let pixmap = r.pixmap();
+        (0..40).any(|x| (0..40).any(|y| pixmap.pixel(x, y).is_some_and(|p| p.a > 0)))
+    }
+
+    #[test]
+    fn glyphs_ignore_clip_paths_but_not_clip_rectangles() {
+        let nowhere = plt_core::Bbox::from_extents(100.0, 100.0, 101.0, 101.0);
+        let clip_path = Some(crate::gc::ClipPath {
+            path: Path::unit_rectangle(),
+            transform: Affine2D::identity().translate(100.0, 100.0),
+        });
+        let path_clipped = GraphicsContext {
+            clip_path,
+            ..GraphicsContext::default()
+        };
+        assert!(paints_glyph(&path_clipped), "Agg ignores the clip path");
+        let rect_clipped = GraphicsContext {
+            clip_rect: Some(nowhere),
+            ..GraphicsContext::default()
+        };
+        assert!(!paints_glyph(&rect_clipped));
+    }
 
     #[test]
     fn pen_positions_round_like_python() {

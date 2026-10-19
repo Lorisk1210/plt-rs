@@ -3,7 +3,7 @@
 use plt_core::{Bbox, Path, Point};
 
 use crate::artist::{ArtistId, LayoutContext};
-use crate::transforms::ResolvedTransform;
+use crate::transforms::{ResolvedTransform, Transform};
 
 /// What fixes an infinite line besides its first point.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -24,15 +24,18 @@ pub(crate) struct InfiniteLine {
 impl InfiniteLine {
     /// The part of the line inside the axes, in display coordinates
     /// (matplotlib's `AxLine.get_transform`). Display space is an affine
-    /// image of scaled data space, so straight lines stay straight.
+    /// image of scaled data space, so straight lines stay straight; a
+    /// slope is a slope in scaled data space, whatever coordinates the
+    /// line's point is given in.
     pub(crate) fn display_segment(
         &self,
         layout: LayoutContext<'_>,
         resolved: &ResolvedTransform,
         axes: Option<ArtistId>,
     ) -> Result<Path, String> {
-        let view = axes
-            .and_then(|axes| layout.axes_extent(axes))
+        let axes = axes.ok_or("an infinite line needs an axes")?;
+        let view = layout
+            .axes_extent(axes)
             .ok_or("an infinite line needs an axes")?;
         let (p1, p2) = match self.through {
             AxLineThrough::Point(xy2) => (
@@ -40,16 +43,24 @@ impl InfiniteLine {
                 resolved.transform_point(xy2),
             ),
             AxLineThrough::Slope(slope) => {
-                let scaled = resolved.transform_point_non_affine(self.xy1);
+                // Scaled data to display: the affine part of the axes'
+                // data transform (matplotlib's `transLimits + transAxes`).
+                let scaled_to_display = layout
+                    .resolve(&Transform::Data(axes))
+                    .ok_or("the axes' data coordinates are unavailable")?
+                    .affine_part();
+                let to_scaled = scaled_to_display
+                    .inverted()
+                    .ok_or("the axes' data coordinates are singular")?;
+                let scaled = to_scaled.transform_point(resolved.transform_point(self.xy1));
                 let step = if slope.is_infinite() {
                     Point::new(0.0, 1.0)
                 } else {
                     Point::new(1.0, slope)
                 };
-                let affine = resolved.affine_part();
                 (
-                    affine.transform_point(scaled),
-                    affine.transform_point(scaled + step),
+                    scaled_to_display.transform_point(scaled),
+                    scaled_to_display.transform_point(scaled + step),
                 )
             }
         };

@@ -68,6 +68,9 @@ pub(crate) struct LineArtist {
     pub(crate) markerfacecolor: ColorOrAuto,
     pub(crate) markerfacecoloralt: Color,
     pub(crate) markevery: Option<MarkEvery>,
+    /// Straight pieces each segment is split into before a non-affine
+    /// transform bends it (1: drawn straight).
+    pub(crate) interpolation_steps: usize,
     pub(crate) antialiased: bool,
     /// How far from the line, in points, a pick still hits it.
     pub(crate) pickradius: f64,
@@ -108,6 +111,7 @@ impl LineArtist {
             markerfacecolor: rc.lines_markerfacecolor.clone(),
             markerfacecoloralt: Color::none(),
             markevery: None,
+            interpolation_steps: 1,
             antialiased: rc.lines_antialiased,
             pickradius: 5.0,
             solid_capstyle: rc.lines_solid_capstyle,
@@ -124,7 +128,9 @@ impl LineArtist {
 
     /// Rebuilds the drawn path after data or draw-style changes.
     pub(crate) fn recache(&mut self) {
-        self.path = line_vertices(&self.xdata, &self.ydata, self.drawstyle).map(Path::polyline);
+        let steps = self.interpolation_steps;
+        self.path = line_vertices(&self.xdata, &self.ydata, self.drawstyle)
+            .map(|vertices| Path::polyline(vertices).with_interpolation_steps(steps));
     }
 
     /// The vertices actually drawn, in the line's coordinates.
@@ -262,7 +268,9 @@ impl Artist for LineArtist {
                 let (x, y) = (&self.xdata[range.clone()], &self.ydata[range]);
                 line_vertices(x, y, self.drawstyle).and_then(|drawn| {
                     let points = line_vertices(x, y, DrawStyle::Default)?;
-                    Ok((Path::polyline(drawn), Path::polyline(points)))
+                    let drawn =
+                        Path::polyline(drawn).with_interpolation_steps(self.interpolation_steps);
+                    Ok((drawn, Path::polyline(points)))
                 })
             }
             None => self
@@ -448,6 +456,11 @@ artist_properties! {
         markerfacecoloralt, set_markerfacecoloralt: Color;
         /// Which points get markers (`None` = all).
         markevery, set_markevery: Option<MarkEvery>;
+        /// How many straight pieces each segment is split into before a
+        /// non-affine transform such as the polar one bends it
+        /// (matplotlib's `get_path()._interpolation_steps`; 1 draws the
+        /// segments straight).
+        interpolation_steps, set_interpolation_steps: usize => recache;
         /// Anti-aliasing.
         antialiased, set_antialiased: bool;
         /// How far from the line, in points, a pick still hits it (see
@@ -490,6 +503,38 @@ mod tests {
         assert_eq!(
             flat.window_extent(),
             Some(Bbox::from_extents(0.0, 72.0, 144.0, 72.0))
+        );
+    }
+
+    #[test]
+    fn interpolation_steps_reach_the_drawn_path() {
+        let line = Figure::new()
+            .subplot()
+            .plot([0.0, 1.0], [1.0, 2.0])
+            .unwrap();
+        assert_eq!(line.path().unwrap().interpolation_steps(), 1);
+        line.set_interpolation_steps(100_usize);
+        assert_eq!(line.interpolation_steps(), 100);
+        assert_eq!(line.path().unwrap().interpolation_steps(), 100);
+    }
+
+    #[test]
+    fn slopes_are_in_data_units_whatever_the_point_coordinates() {
+        // matplotlib's test_axline_transaxes_panzoom.
+        let fig = Figure::with_size(2.0, 2.0, 72.0);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let line = ax.axline(
+            Point::new(0.5, 0.5),
+            AxLineThrough::Slope(2.0),
+            LineProps::default(),
+        );
+        line.set_transform(ax.trans_axes());
+        ax.set_xlim(0.0, 5.0).set_ylim(0.0, 10.0);
+        // Through the data point (2.5, 5) with slope 2: y = 2x, from the
+        // bottom-left corner to the top-right one.
+        assert_eq!(
+            line.window_extent(),
+            Some(Bbox::from_extents(0.0, 0.0, 144.0, 144.0))
         );
     }
 }

@@ -1,10 +1,12 @@
 //! Inset axes: an axes placed inside another one (matplotlib's
 //! `Axes.inset_axes`).
 
+use std::rc::Rc;
+
 use plt_core::Bbox;
 
-use super::Axes;
-use crate::artist::ArtistHandle;
+use super::{Axes, AxesState};
+use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::figure::insert_axes;
 
 /// The z-order of inset axes within their parent (matplotlib's default).
@@ -35,6 +37,31 @@ impl Axes {
         let inset = insert_axes(self.raw().figure_state(), self.id(), position, None);
         inset.set_zorder(INSET_ZORDER);
         inset
+    }
+
+    /// The axes placed inside this one, in creation order: its insets and
+    /// secondary axes (matplotlib's `child_axes`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let inset = ax.inset_axes([0.6, 0.6, 0.35, 0.3]);
+    /// assert_eq!(ax.child_axes(), [inset]);
+    /// ```
+    pub fn child_axes(&self) -> Vec<Self> {
+        let figure = self.raw().figure_state();
+        let state = figure.borrow();
+        state
+            .store
+            .ids()
+            .filter(|&id| {
+                state
+                    .store
+                    .get_as::<AxesState>(id)
+                    .is_some_and(|axes| axes.base().parent == Some(self.id()))
+            })
+            .map(|id| Self::from_raw(RawHandle::new(Rc::clone(figure), id)))
+            .collect()
     }
 }
 

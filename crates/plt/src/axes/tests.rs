@@ -145,3 +145,35 @@ fn bar_containers_report_bottoms_tops_and_centres() {
     assert_eq!(horizontal.tops(), [3.0, -3.0]);
     assert_eq!(horizontal.position_centers(), [1.0, 2.0]);
 }
+
+#[test]
+fn segments_with_a_missing_coordinate_are_missing_entirely() {
+    // matplotlib's `_combine_masks` in `vlines` and `hlines`.
+    let (_fig, ax) = axes();
+    let low = [0.0, 0.0, f64::NAN, 0.0];
+    ax.vlines([1.0, 2.0, 3.0, f64::NAN], low, [1.0, 9.0, 20.0, 30.0])
+        .unwrap();
+    let limits = ax.data_lim().bbox;
+    assert_eq!((limits.x0(), limits.x1()), (1.0, 2.0));
+    assert_eq!((limits.y0(), limits.y1()), (0.0, 9.0));
+}
+
+#[test]
+fn decreasing_function_scales_keep_the_axis_orientation() {
+    // matplotlib's `TransformedBbox` keeps the orientation of the view.
+    use crate::scale::{FuncScale, FuncTransform};
+    use crate::transforms::Point;
+
+    let fig = Figure::with_size(2.0, 2.0, 72.0);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let inverse = FuncTransform::new(f64::recip, f64::recip);
+    ax.set_scale(
+        super::AxisName::X,
+        Box::new(FuncScale::from_transform(inverse)),
+    );
+    ax.set_xlim(0.1, 0.5);
+    let data = fig.resolve_transform(&ax.trans_data()).unwrap();
+    let x = |value: f64| data.transform_point(Point::new(value, 0.0)).x;
+    assert!(x(0.5).abs() < 1e-9, "the larger value on the left");
+    assert!((x(0.1) - 144.0).abs() < 1e-9);
+}

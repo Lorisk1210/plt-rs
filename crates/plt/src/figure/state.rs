@@ -2,7 +2,7 @@
 
 use std::cell::Cell;
 
-use plt_core::{Bbox, Rgba};
+use plt_core::{Affine2D, Bbox, Rgba};
 use plt_render::{ClipPath, Renderer};
 
 use super::frame::FigureFrame;
@@ -12,6 +12,7 @@ use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
 use crate::gridspec::{GridSpecError, SubplotParams};
 use crate::gui::tools::ToolRegistry;
 use crate::layout::LayoutState;
+use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
 
 /// Everything a figure owns: its artists and its canvas geometry.
@@ -310,6 +311,21 @@ impl TransformContext for FigureState {
             return Some(aux.clone().then(self.data_transform(state.base().parent?)?));
         }
         Some(state.data_transform(&self.axes_bbox(axes)?))
+    }
+
+    /// Polar axes map the fraction across the data axis onto its view
+    /// range before their data transform: a radial fraction is a radius, an
+    /// angular one an angle (matplotlib's `PolarAxes._xaxis_transform` and
+    /// `_yaxis_transform`).
+    fn axis_transform(&self, axes: ArtistId, data_axis: AxisName) -> Option<ResolvedTransform> {
+        let state = self.store.get_as::<AxesState>(axes)?;
+        state.polar()?;
+        let view = state.view_lim;
+        let fraction_to_view = match data_axis {
+            AxisName::X => Affine2D::from_values(1.0, 0.0, 0.0, view.height(), 0.0, view.y0()),
+            AxisName::Y => Affine2D::from_values(view.width(), 0.0, 0.0, 1.0, view.x0(), 0.0),
+        };
+        Some(ResolvedTransform::affine(fraction_to_view).then(self.data_transform(axes)?))
     }
 }
 

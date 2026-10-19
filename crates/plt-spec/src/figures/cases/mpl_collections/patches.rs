@@ -82,7 +82,7 @@ pub(super) fn clip_to_bbox(fig: &Figure) -> CaseResult {
 
 /// A unit circle with a six-pointed star cut out (the star's vertices
 /// reversed, its codes kept), and the same moved by `(1, 1)`.
-fn cut_stars() -> Result<(Path, Path), PathError> {
+pub(in crate::figures::cases) fn cut_stars() -> Result<(Path, Path), PathError> {
     let star = Path::unit_regular_star(6, 0.5);
     let circle = Path::unit_circle();
     let vertices: Vec<Point> = circle

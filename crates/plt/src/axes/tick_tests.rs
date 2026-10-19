@@ -1,6 +1,6 @@
 //! Tick parameters, tick label properties (of a level and of single
-//! ticks), minor tick labels, overlapping minor ticks and the rotation of
-//! tick labels.
+//! ticks), minor tick labels, overlapping minor ticks, the rotation of
+//! tick labels and tick labels out of the layout.
 
 use plt_core::{Point, Rgba};
 use plt_text::{HAlign, RotationMode};
@@ -10,6 +10,7 @@ use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::figure::Figure;
 use crate::fonts::{FontSize, FontWeight, RelativeSize};
+use crate::layout::{ConstrainedLayout, LayoutEngine};
 use crate::lines::LineStyle;
 use crate::testing::{Call, RecordingRenderer};
 use crate::ticker::MultipleLocator;
@@ -332,4 +333,58 @@ fn single_tick_label_properties_accumulate_on_the_major_style() {
     assert_eq!(own.label_rotation, 30.0);
     assert_eq!(own.label_size, 12.0, "large against font.size 10");
     assert_eq!(other, base, "other ticks keep the major style");
+}
+
+/// The position of a constrained subplot whose x ticks at 0 and 1 are
+/// labelled `labels`, the second label taken out of the layout after a
+/// first layout when `out_of_layout`.
+fn constrained_position(labels: [&str; 2], out_of_layout: bool) -> plt_core::Bbox {
+    let fig = Figure::new();
+    fig.set_layout_engine(Some(
+        LayoutEngine::Constrained(ConstrainedLayout::default()),
+    ));
+    let ax = fig.subplot();
+    ax.set_xticks([0.0, 1.0]).set_xticklabels(labels).unwrap();
+    fig.layout();
+    if out_of_layout {
+        let props = TickLabelProps {
+            in_layout: Some(false),
+            ..TickLabelProps::default()
+        };
+        ax.xaxis().set_major_ticklabel_props(1, &props);
+    }
+    ax.position()
+}
+
+#[test]
+fn a_tick_label_out_of_the_layout_takes_no_room() {
+    // matplotlib's test_tick_not_in_layout: the layout is as if the label
+    // were empty.
+    let long = "a very, very long tick label";
+    let ignored = constrained_position(["short", long], true);
+    assert_eq!(ignored, constrained_position(["short", ""], false));
+    assert_ne!(ignored, constrained_position(["short", long], false));
+}
+
+#[test]
+fn a_tick_label_out_of_the_layout_leaves_the_axis_label_alone() {
+    // matplotlib's `_get_ticklabel_bboxes` skips labels not in the layout
+    // when it places the axis label beyond the tick labels.
+    let figure_bottom = |out_of_layout: bool| {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_xticks([0.0, 1.0])
+            .set_xticklabels(["short", "tall\nlabel"])
+            .unwrap();
+        ax.set_xlabel("x");
+        if out_of_layout {
+            let props = TickLabelProps {
+                in_layout: Some(false),
+                ..TickLabelProps::default()
+            };
+            ax.xaxis().set_major_ticklabel_props(1, &props);
+        }
+        fig.tight_bbox().y0()
+    };
+    assert!(figure_bottom(true) > figure_bottom(false));
 }

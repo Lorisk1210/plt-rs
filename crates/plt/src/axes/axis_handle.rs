@@ -52,6 +52,14 @@ impl Axis {
             .with_mut::<AxesState, _>(|axes| f(axes.axis_mut(self.name)))
     }
 
+    /// Changes the styles of this axis's tick labels; the layout engine
+    /// runs again before positions are next used, as their extents may
+    /// have changed (matplotlib lays out at every draw).
+    pub(super) fn update_labels(&self, f: impl FnOnce(&mut AxisState)) {
+        self.update(f);
+        self.axes.raw().figure_state().borrow_mut().layout.pending = true;
+    }
+
     /// Applies `f` to this axis and to the same axis of every axes
     /// sharing it (matplotlib shares the tickers between them).
     pub(super) fn update_shared(&self, f: impl FnMut(&mut AxisState)) {

@@ -15,6 +15,8 @@ mod collections;
 mod events;
 mod patches;
 
+pub(super) use patches::cut_stars;
+
 use super::mpl_tests::classic;
 pub(super) use super::mpl_tests::remove_ticks_and_titles;
 use crate::figures::FigureCase;

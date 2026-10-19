@@ -291,6 +291,9 @@ pub struct TickLabelProps {
     pub fontsize: Option<FontSize>,
     /// Font weight.
     pub fontweight: Option<FontWeight>,
+    /// Whether the labels count in layouts and push the axis label and
+    /// the offset text away (matplotlib's `set_in_layout`).
+    pub in_layout: Option<bool>,
 }
 
 impl TickLabelProps {
@@ -314,6 +317,7 @@ impl TickLabelProps {
             color: newer.color.clone().or_else(|| self.color.clone()),
             fontsize: newer.fontsize.or(self.fontsize),
             fontweight: newer.fontweight.or(self.fontweight),
+            in_layout: newer.in_layout.or(self.in_layout),
         }
     }
 
@@ -343,6 +347,9 @@ impl TickLabelProps {
         }
         if self.fontweight.is_some() {
             style.label_weight = self.fontweight;
+        }
+        if let Some(in_layout) = self.in_layout {
+            style.label_in_layout = in_layout;
         }
     }
 }
@@ -404,7 +411,7 @@ impl Axis {
     /// Changes the text properties of the labels of one tick level.
     pub fn set_ticklabel_props(&self, which: TickLevel, props: &TickLabelProps) -> &Self {
         let props = props.with_absolute_size(crate::rc::params().font_size);
-        self.update(|axis| {
+        self.update_labels(|axis| {
             if which.major() {
                 props.apply(&mut axis.major_style);
             }
@@ -431,7 +438,7 @@ impl Axis {
     /// ```
     pub fn set_major_ticklabel_props(&self, index: usize, props: &TickLabelProps) -> &Self {
         let props = props.with_absolute_size(crate::rc::params().font_size);
-        self.update(|axis| {
+        self.update_labels(|axis| {
             let overrides = &mut axis.major_label_overrides;
             if overrides.len() <= index {
                 overrides.resize_with(index + 1, TickLabelProps::default);

@@ -148,7 +148,7 @@ fn names(list: &[&str]) -> Vec<String> {
 
 /// Preference lists for the generic families (`font.serif`,
 /// `font.sans-serif`, ... rcParams).
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct GenericFamilies {
     /// `font.serif`.
     pub serif: Vec<String>,

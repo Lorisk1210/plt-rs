@@ -28,7 +28,7 @@ mod style;
 pub use output::{MathGlyph, MathLayout, MathRect, RasterExtents};
 pub use style::{CustomFonts, Fontset, MathFallback, MathFont, MathStyle, PatternDefaults};
 
-use crate::engine::TextEngine;
+use crate::engine::{FormulaKey, TextEngine};
 use crate::error::TextError;
 use crate::run::{TextRun, TextSource};
 
@@ -84,12 +84,22 @@ impl TextEngine {
     /// # Ok::<(), plt_text::TextError>(())
     /// ```
     pub fn layout_math(&self, source: &str, style: &MathStyle) -> Result<TextRun, TextError> {
-        let mut run = self.typeset_math(source, style)?.to_text_run();
-        run.source = Some(TextSource::Math {
-            text: source.to_owned(),
-            style: style.clone(),
-        });
-        Ok(run)
+        self.formulas.get_or_compute(
+            crate::memo::fingerprint(&style.font, (source, style.dpi.to_bits())),
+            |key| key.source == source && key.style == *style,
+            || FormulaKey {
+                source: source.to_owned(),
+                style: style.clone(),
+            },
+            || {
+                let mut run = self.typeset_math(source, style)?.to_text_run();
+                run.source = Some(TextSource::Math {
+                    text: source.to_owned(),
+                    style: style.clone(),
+                });
+                Ok(run)
+            },
+        )
     }
 }
 

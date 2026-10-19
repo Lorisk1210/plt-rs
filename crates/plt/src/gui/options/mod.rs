@@ -137,7 +137,7 @@ impl OptionsDialog {
         chrome.button("Apply", OptionsMessage::Apply);
         chrome.primary("OK", OptionsMessage::Ok);
         let options = dialog::window_options("Figure options")?;
-        let window = UiWindow::open_fitted(cx, &options, chrome.finish(content))?;
+        let window = dialog::open_fitted(cx, figure, &options, chrome.finish(content))?;
         Ok(Some(Self {
             window,
             pages,

@@ -75,7 +75,7 @@ impl FigureWindow {
         match &self.help_dialog {
             Some(dialog) => cx.raise_window(dialog.id())?,
             None => {
-                self.help_dialog = Some(HelpDialog::open(cx, &self.figure.tool_specs())?);
+                self.help_dialog = Some(HelpDialog::open(cx, &self.figure)?);
             }
         }
         Ok(())

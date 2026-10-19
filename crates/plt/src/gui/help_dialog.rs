@@ -8,6 +8,7 @@ use plt_ui::{Form, Keycaps, UiWindow};
 use super::GuiError;
 use super::dialog::{self, Dialog};
 use super::tools::ToolSpec;
+use crate::figure::Figure;
 use crate::rc::RcParams;
 
 /// What the help window's widgets report.
@@ -101,9 +102,9 @@ impl HelpDialog {
     /// # Errors
     ///
     /// When the window cannot be created.
-    pub(super) fn open(cx: &mut Context<'_>, tools: &[ToolSpec]) -> Result<Self, GuiError> {
+    pub(super) fn open(cx: &mut Context<'_>, figure: &Figure) -> Result<Self, GuiError> {
         let mut form = Form::new();
-        for (group, rows) in shortcuts(&crate::rc::params(), tools) {
+        for (group, rows) in shortcuts(&crate::rc::params(), &figure.tool_specs()) {
             form.section(group);
             for (action, keys) in rows {
                 form.row(action, Keycaps::new(keys));
@@ -113,7 +114,7 @@ impl HelpDialog {
         chrome.primary("Close", HelpMessage::Close);
         let options = dialog::window_options("Help")?;
         Ok(Self {
-            window: UiWindow::open_fitted(cx, &options, chrome.finish(form))?,
+            window: dialog::open_fitted(cx, figure, &options, chrome.finish(form))?,
         })
     }
 

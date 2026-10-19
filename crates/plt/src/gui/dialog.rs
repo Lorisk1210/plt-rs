@@ -1,10 +1,13 @@
 //! What the windows opened from a figure window's toolbar share: their
-//! window options, margins, and the footer holding their buttons.
+//! window options, theme, margins, and the footer holding their buttons.
 
-use plt_platform::{ButtonState, Key, WindowEvent, WindowOptions};
-use plt_ui::{Button, Flex, Label, Separator, Spacing, Tone, Ui, Widget, WidgetId};
+use plt_platform::{ButtonState, Context, Key, WindowEvent, WindowOptions};
+use plt_ui::{
+    Button, Flex, Label, Separator, Spacing, Theme, Tone, Ui, UiWindow, Widget, WidgetId,
+};
 
 use super::{GuiError, icons};
+use crate::figure::Figure;
 
 /// The space around a dialog's content.
 pub(super) const MARGIN: Spacing = Spacing::Lg;
@@ -17,6 +20,41 @@ pub(super) fn window_options(title: &str) -> Result<WindowOptions, GuiError> {
     Ok(WindowOptions::new(title)
         .with_app_id("plt-rs")
         .with_icon(icons::window_icon()?))
+}
+
+/// The theme of the windows of `figure`: plt-rs' dark look when the
+/// figure is drawn on a dark background (such as the `dark_background`
+/// style's), its light look otherwise.
+pub(super) fn chrome_theme(figure: &Figure) -> Theme {
+    let face = figure.facecolor();
+    // The relative luminance of the sRGB colour, as WCAG defines it.
+    let linear = |c: f64| {
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    let luminance = 0.2126 * linear(face.r) + 0.7152 * linear(face.g) + 0.0722 * linear(face.b);
+    // Below mid grey (L* = 50) on an opaque background.
+    if face.a >= 0.5 && luminance < 0.18 {
+        Theme::dark()
+    } else {
+        Theme::modern()
+    }
+}
+
+/// Opens a dialog of the window of `figure` at its content's natural
+/// size, in the figure's [theme](chrome_theme).
+pub(super) fn open_fitted<M: 'static>(
+    cx: &mut Context<'_>,
+    figure: &Figure,
+    options: &WindowOptions,
+    root: impl Widget<M>,
+) -> Result<UiWindow<M>, GuiError> {
+    let mut window = UiWindow::open_fitted(cx, options, root)?;
+    window.ui_mut().set_theme(chrome_theme(figure));
+    Ok(window)
 }
 
 /// Whether `event` asks the dialog showing `ui` to close without acting:
@@ -89,6 +127,21 @@ mod tests {
     use plt_ui::Dropdown;
 
     use super::*;
+    use plt_core::Rgba;
+
+    #[test]
+    fn dark_figures_get_dark_windows() {
+        let figure = Figure::new();
+        assert_eq!(chrome_theme(&figure), Theme::modern());
+        figure.set_facecolor(Rgba::new(0.0, 0.0, 0.0, 1.0));
+        assert_eq!(chrome_theme(&figure), Theme::dark());
+        figure.set_facecolor(Rgba::new(0.4, 0.4, 0.4, 1.0));
+        assert_eq!(chrome_theme(&figure), Theme::dark(), "below mid grey");
+        figure.set_facecolor(Rgba::new(0.6, 0.6, 0.6, 1.0));
+        assert_eq!(chrome_theme(&figure), Theme::modern());
+        figure.set_facecolor(Rgba::new(0.0, 0.0, 0.0, 0.0));
+        assert_eq!(chrome_theme(&figure), Theme::modern(), "transparent");
+    }
 
     #[test]
     fn escape_closes_dialogs_unless_a_popup_is_open() {

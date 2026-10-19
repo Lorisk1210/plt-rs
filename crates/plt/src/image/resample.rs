@@ -1,6 +1,9 @@
-//! matplotlib's `_resample`: picks the kernel for adaptive interpolation,
-//! breaks nearest-neighbour ties towards the left/upper pixel and runs
-//! the Agg resampler of `plt-raster`.
+//! matplotlib's `_resample`: keeps huge data within Agg's limits, picks
+//! the kernel for adaptive interpolation, breaks nearest-neighbour ties
+//! towards the left/upper pixel and runs the Agg resampler of
+//! `plt-raster`.
+
+use std::borrow::Cow;
 
 use plt_core::{Affine2D, Point};
 use plt_raster::resample::{self as raster, Pixel, PixelTransform, ResampleParams};
@@ -133,9 +136,9 @@ impl Resampling {
         map: &PixelMap,
         resample: Option<bool>,
     ) -> Result<Grid<P>, ImageError> {
+        let (data, mut map) = within_agg_limits(data, map);
         let (rows, cols) = data.shape();
-        let interpolation = self.resolved_interpolation(rows, cols, map);
-        let mut map = map.clone();
+        let interpolation = self.resolved_interpolation(rows, cols, &map);
         let mut flipped = None;
         // Agg picks the right-hand pixel on exact ties; flipping the data
         // and the transform makes it pick the left (and upper) one.
@@ -150,7 +153,7 @@ impl Resampling {
                 map = map.after(Affine2D::translation(0.0, -(rows as f64)).scale(1.0, -1.0));
             }
         }
-        let source = flipped.as_ref().unwrap_or(data);
+        let source = flipped.as_ref().unwrap_or(&data);
         let (out_rows, out_cols) = out_shape;
         let src = raster::Grid::from_vec(cols, rows, source.as_slice().to_vec())?;
         let mut dst = raster::Grid::filled(out_cols, out_rows, P::default())?;
@@ -165,6 +168,32 @@ impl Resampling {
         Ok(Grid::from_vec(out_rows, out_cols, dst.into_vec())
             .expect("the destination grid has the requested shape"))
     }
+}
+
+/// The most columns and rows Agg resamples: its coordinates are 24-bit
+/// signed integers.
+const AGG_LIMITS: (usize, usize) = (1 << 24, 1 << 23);
+
+/// `data` with only every `step`-th row and column kept where it has more
+/// rows or columns than Agg handles, and `map` scaled to match
+/// (matplotlib's `_resample` downsamples such data, with a warning).
+fn within_agg_limits<'a, P: Pixel>(
+    data: &'a Grid<P>,
+    map: &PixelMap,
+) -> (Cow<'a, Grid<P>>, PixelMap) {
+    let (rows, cols) = data.shape();
+    let step = |n: usize, limit: usize| if n > limit { n.div_ceil(limit) } else { 1 };
+    let (row_step, col_step) = (step(rows, AGG_LIMITS.0), step(cols, AGG_LIMITS.1));
+    if (row_step, col_step) == (1, 1) {
+        return (Cow::Borrowed(data), map.clone());
+    }
+    let kept = Grid::from_fn(rows.div_ceil(row_step), cols.div_ceil(col_step), |r, c| {
+        data[(r * row_step, c * col_step)]
+    });
+    let scaled = map
+        .clone()
+        .after(Affine2D::scaling(col_step as f64, row_step as f64));
+    (Cow::Owned(kept), scaled)
 }
 
 #[cfg(test)]
@@ -225,6 +254,20 @@ mod tests {
         let none = settings(Interpolation::None, Origin::Lower);
         let out = none.run(&data, (3, 3), &map, None).unwrap();
         assert_eq!(out.row(0), &[1.0, 2.0, 2.0], "none keeps Agg's tie rule");
+    }
+
+    #[test]
+    fn data_beyond_agg_limits_keeps_every_other_column() {
+        // Odd columns are 1: keeping only the even ones leaves zeros.
+        let cols = (1 << 23) + 2;
+        let data = Grid::from_fn(1, cols, |_, c| (c % 2) as f64);
+        let map = PixelMap::Affine(Affine2D::scaling(8.0 / cols as f64, 1.0));
+        let nearest = settings(Interpolation::Nearest, Origin::Lower);
+        let out = nearest.run(&data, (1, 8), &map, None).unwrap();
+        assert_eq!(out.row(0), &[0.0; 8]);
+        let (kept, scaled) = within_agg_limits(&data, &map);
+        assert_eq!(kept.shape(), (1, (1 << 22) + 1));
+        assert_eq!(scaled.apply(Point::new(1.0, 1.0)).x, 16.0 / cols as f64);
     }
 
     #[test]

@@ -69,11 +69,14 @@ impl FigureImageArtist {
         let (rows, cols) = self.core.data.shape();
         let (x0, y0) = (self.offset.0 / fac, self.offset.1 / fac);
         let (x1, y1) = (x0 + cols as f64, y0 + rows as f64);
+        // Like the image, the clip box is the figure at the renderer's
+        // resolution rather than at the 72 dpi vector canvases measure in.
+        let clip = Bbox::from_extents(0.0, 0.0, canvas.width() * fac, canvas.height() * fac);
         let placement = Placement {
             extent: Extent::new(x0, x1, y0, y1),
             transform: None,
             out_bbox: Bbox::from_extents(x0, y0, x1, y1),
-            clip: canvas,
+            clip,
             round_to_pixels: false,
             magnification: magnification / fac,
         };
@@ -190,5 +193,21 @@ mod tests {
             .unwrap();
         assert_eq!(fig.size_pixels(), (80.0, 50.0));
         assert_eq!(image.shape(), (50, 80));
+    }
+
+    #[test]
+    fn vector_output_keeps_images_reaching_into_the_upper_half() {
+        // 200 × 200 pixels: the image covers the right half in full,
+        // though at 72 dpi its offset of 100 pixels is 72 points.
+        let fig = Figure::with_size(2.0, 2.0, 100.0);
+        fig.set_suppress_composite(Some(true));
+        let options = FigimageOptions {
+            xo: 100.0,
+            ..FigimageOptions::default()
+        };
+        fig.figimage(Grid::filled(100, 100, 1.0), options).unwrap();
+        let svg = fig.to_svg().unwrap();
+        let image = &svg[svg.find("<image").unwrap()..];
+        assert!(image.contains("width=\"72\""), "{image:.120}");
     }
 }

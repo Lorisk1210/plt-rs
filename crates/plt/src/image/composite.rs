@@ -13,7 +13,8 @@ use super::figure_image::FigureImageArtist;
 use super::make::RenderedImage;
 use super::pcolor_image::PcolorImageArtist;
 use super::{ImageError, Interpolation};
-use crate::artist::{Artist, ArtistId, DrawContext, LayoutContext};
+use crate::artist::{Artist, ArtistHandle, ArtistId, DrawContext, LayoutContext};
+use crate::figure::Figure;
 use crate::transforms::Transform;
 
 /// An image artist that may join a composite.
@@ -178,6 +179,31 @@ fn composite(parts: &[Part], magnification: f64) -> Result<Option<RenderedImage>
     }))
 }
 
+impl Figure {
+    /// Keeps adjacent images apart (`Some(true)`) or composites them into
+    /// one (`Some(false)`) in every part of the figure, or lets the output
+    /// format decide (`None`: only vector formats composite); matplotlib's
+    /// `suppressComposite`.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let fig = Figure::new();
+    /// assert_eq!(fig.suppress_composite(), None);
+    /// fig.set_suppress_composite(Some(true));
+    /// assert_eq!(fig.suppress_composite(), Some(true));
+    /// ```
+    pub fn set_suppress_composite(&self, suppress: Option<bool>) -> &Self {
+        self.raw().figure_state().borrow_mut().suppress_composite = suppress;
+        self
+    }
+
+    /// Whether adjacent images are kept apart or composited (`None` = as
+    /// the output format prefers).
+    pub fn suppress_composite(&self) -> Option<bool> {
+        self.raw().figure_state().borrow().suppress_composite
+    }
+}
+
 /// Draws the children of a figure or axes in order, compositing adjacent
 /// images into one when the renderer asks for it (matplotlib's
 /// `_draw_list_compositing_images`); `clip` is the parent's box and clip
@@ -201,8 +227,12 @@ impl Compositor {
         let has_images = children
             .iter()
             .any(|&id| store.get(id).is_some_and(|a| as_image(a).is_some()));
+        let suppressed = match ctx.layout().suppress_composite() {
+            Some(suppress) => suppress,
+            None => ctx.renderer().option_image_nocomposite(),
+        };
         Self {
-            enabled: has_images && !ctx.renderer().option_image_nocomposite(),
+            enabled: has_images && !suppressed,
             magnification: ctx.renderer().image_magnification(),
             clip,
             group: Vec::new(),
@@ -273,5 +303,37 @@ impl Compositor {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::axes::ImshowOptions;
+    use crate::figure::Figure;
+    use crate::image::Extent;
+    use crate::numeric::Grid;
+
+    /// The `<image` elements of an SVG of two images side by side, with
+    /// compositing left to the format or forced either way.
+    fn svg_images(suppress: Option<bool>) -> usize {
+        let fig = Figure::new();
+        fig.set_suppress_composite(suppress);
+        let ax = fig.subplot();
+        for left in [0.0, 2.0] {
+            let options = ImshowOptions {
+                extent: Some(Extent::new(left, left + 1.0, 0.0, 1.0)),
+                ..ImshowOptions::default()
+            };
+            ax.imshow(Grid::filled(2, 2, left), options).unwrap();
+        }
+        ax.set_xlim(0.0, 3.0);
+        fig.to_svg().unwrap().matches("<image").count()
+    }
+
+    #[test]
+    fn suppressing_composites_keeps_images_apart() {
+        assert_eq!(svg_images(None), 1, "vector formats composite");
+        assert_eq!(svg_images(Some(true)), 2);
+        assert_eq!(svg_images(Some(false)), 1);
     }
 }

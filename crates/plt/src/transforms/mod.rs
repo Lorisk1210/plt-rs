@@ -17,6 +17,7 @@
 
 mod bbox_maps;
 mod blend;
+mod custom;
 mod interval;
 mod nonsingular;
 mod offset;
@@ -27,6 +28,7 @@ use std::fmt;
 
 pub use bbox_maps::{bbox_to_unit, bbox_transform, bbox_transform_from, unit_to_bbox};
 pub use blend::blended_affine;
+pub use custom::CustomMap;
 pub use interval::{interval_contains, interval_contains_close, interval_contains_open};
 pub use nonsingular::nonsingular;
 pub use offset::{OffsetUnits, scaled_translation};
@@ -71,12 +73,37 @@ pub enum Transform {
     /// The affine part of a transform without its translation, for
     /// displacements such as collection offsets (`AffineDeltaTransform`).
     AffineDelta(Box<Transform>),
+    /// A non-affine map of the plane defined by the program (a matplotlib
+    /// `Transform` subclass); see [`Transform::custom`].
+    Custom(CustomMap),
 }
 
 impl Transform {
     /// `x` in `x_coords`, `y` in `y_coords`.
     pub fn blended(x_coords: Self, y_coords: Self) -> Self {
         Self::Blended(Box::new(x_coords), Box::new(y_coords))
+    }
+
+    /// The non-affine map `map` (matplotlib's own `Transform` subclasses),
+    /// typically followed by a standard coordinate system:
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::transforms::{Point, PointMap, Transform};
+    /// #[derive(Debug)]
+    /// struct Swap;
+    /// impl PointMap for Swap {
+    ///     fn forward(&self, p: Point) -> Point { Point::new(p.y, p.x) }
+    ///     fn inverse(&self, p: Point) -> Point { Point::new(p.y, p.x) }
+    /// }
+    /// let fig = Figure::new();
+    /// let swapped = fig.resolve_transform(&Transform::custom(Swap))?;
+    /// assert!(!swapped.is_affine());
+    /// assert_eq!(swapped.transform_point(Point::new(1.0, 2.0)), Point::new(2.0, 1.0));
+    /// # Ok::<(), plt::transforms::TransformError>(())
+    /// ```
+    pub fn custom(map: impl PointMap + 'static) -> Self {
+        Self::Custom(CustomMap::new(map))
     }
 
     /// Applies `self`, then `next` (matplotlib's `self + next`).
@@ -202,6 +229,9 @@ impl Transform {
             Self::AffineDelta(inner) => {
                 let [a, b, c, d, _, _] = inner.resolve(ctx)?.affine_part().values();
                 ResolvedTransform::affine(Affine2D::from_values(a, b, c, d, 0.0, 0.0))
+            }
+            Self::Custom(map) => {
+                ResolvedTransform::with_step(Step::Plane(map.map()), Affine2D::IDENTITY)
             }
         })
     }

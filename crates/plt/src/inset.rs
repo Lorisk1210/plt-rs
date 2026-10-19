@@ -49,7 +49,9 @@ impl InsetIndicator {
     }
 
     /// The visible connector lines in display pixels (matplotlib's
-    /// `_update_connectors`); `rect` is the rectangle in display pixels.
+    /// `_update_connectors`); `rect` is the rectangle as matplotlib
+    /// measures it to choose them, in display pixels (see
+    /// [`measured_rectangle`]).
     fn connectors(
         &self,
         frame: &ShapeFrame<'_>,
@@ -99,6 +101,23 @@ impl InsetIndicator {
     }
 }
 
+/// The rectangle `[x, y, width, height]` as matplotlib measures it to
+/// choose the connectors: `Bbox.from_bounds(x, y, width, height)` mapped by
+/// the rectangle's `get_transform()`, whose patch transform maps the unit
+/// square onto the bounds once more, so the corners compared are
+/// `(x + x·width, y + y·height)` and `(x + (x + width)·width, y + (y +
+/// height)·height)` in data coordinates. Not normalised, like matplotlib's
+/// `Bbox.transformed`: on inverted axes the first corner may lie right of
+/// or above the second.
+fn measured_rectangle(frame: &ShapeFrame<'_>, [x, y, width, height]: [f64; 4]) -> Bbox {
+    let corner = |(cx, cy): (f64, f64)| {
+        frame
+            .transform
+            .transform_point(Point::new(x + cx * width, y + cy * height))
+    };
+    Bbox::new(corner((x, y)), corner((x + width, y + height)))
+}
+
 /// Which of the connectors to the inset's lower-left, upper-left,
 /// lower-right and upper-right corners are drawn, so that they do not
 /// cross the indicated rectangle (both boxes in display pixels).
@@ -144,11 +163,8 @@ impl PatchShape for InsetIndicator {
             .into_iter()
             .map(|(cx, cy)| frame.transform.transform_point(Point::new(cx, cy)))
             .collect();
-        // Not normalised, like matplotlib's `Bbox.transformed`: on inverted
-        // axes the first corner may lie right of or above the second.
-        let rect = Bbox::new(vertices[0], vertices[2]);
         let mut outlines = vec![Path::closed(vertices)];
-        outlines.extend(self.connectors(frame, bounds, &rect)?);
+        outlines.extend(self.connectors(frame, bounds, &measured_rectangle(frame, bounds))?);
         Ok(vec![DisplayPath::display(Path::compound(&outlines), true)])
     }
 }
@@ -241,6 +257,24 @@ mod tests {
             visible_connectors(&above_left, &inset),
             [true, false, false, true]
         );
+    }
+
+    #[test]
+    fn connectors_are_chosen_from_the_rectangle_mapped_twice() {
+        // matplotlib 3.11 (test_streamplot.py's test_integration_options):
+        // the rectangle (-1.2, -0.8, 0.5, 0.4) reaches right of the inset's
+        // right edge, but measured as (-1.8, -1.12)..(-1.55, -0.96) it does
+        // not, so the lower-right connector is drawn, not the upper-right.
+        let fig = Figure::new();
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        ax.set_xlim(-2.0, 2.0).set_ylim(-1.5, 1.5);
+        let inset = ax.inset_axes([0.0, 0.7, 0.18, 0.3]);
+        inset.set_xlim(-1.2, -0.7).set_ylim(-0.8, -0.4);
+        let marker = ax.indicate_inset_zoom(&inset, PatchProps::default());
+        let extent = marker.window_extent().expect("drawn");
+        // The lower-right connector ends at the rectangle's bottom; the
+        // upper-right one would reach the inset's top at y = 480.
+        assert!(extent.y1() < 480.0 - 1.0, "{extent:?}");
     }
 
     #[test]

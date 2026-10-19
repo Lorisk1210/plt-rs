@@ -7,6 +7,7 @@ use crate::patches::{
     ArrowSpec, ArrowStyle, ClipRegion, ConnectionStyle, DisplayPath, PatchError, PatchProps,
     PatchStyle, paint_paths, round_ends,
 };
+use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
 
 /// An annotation arrow with an explicit arrow style (matplotlib's
@@ -142,6 +143,9 @@ pub(crate) struct AnnotationArrow {
     patch_b: Option<ArtistId>,
     style: PatchStyle,
     alpha: Option<f64>,
+    /// The arrow's own path effects (not the text's): `path.effects` when
+    /// it was made, unless given.
+    path_effects: Vec<PathEffect>,
 }
 
 impl AnnotationArrow {
@@ -190,6 +194,7 @@ impl AnnotationArrow {
             patch_b,
             style,
             alpha: base.alpha,
+            path_effects: base.path_effects.unwrap_or_else(|| rc.path_effects.clone()),
         }
     }
 
@@ -288,6 +293,7 @@ impl AnnotationArrow {
         let paths = self.display_paths(*ctx.layout(), rc, target)?;
         let mut base = ArtistBase::default();
         base.alpha = self.alpha;
+        base.path_effects.clone_from(&self.path_effects);
         paint_paths(ctx, &base, &self.style, rc, true, &paths)?;
         Ok(())
     }

@@ -5,6 +5,7 @@ use std::str::FromStr;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontWeight};
 use crate::lines::LineStyle;
+use crate::patheffects::PathEffect;
 use crate::rc::{ColorOrInherit, RcParams};
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
@@ -83,6 +84,9 @@ pub struct GridStyle {
     pub linewidth: f64,
     /// Line style.
     pub linestyle: LineStyle,
+    /// Effects the gridlines are drawn through (`path.effects` by
+    /// default, as for any line).
+    pub path_effects: Vec<PathEffect>,
 }
 
 impl GridStyle {
@@ -110,6 +114,7 @@ impl GridStyle {
             linestyle: linestyle
                 .clone()
                 .unwrap_or_else(|| rc.grid_linestyle.clone()),
+            path_effects: rc.path_effects.clone(),
         }
     }
 }
@@ -154,6 +159,9 @@ pub struct GridOptions {
     pub linewidth: Option<f64>,
     /// Line style.
     pub linestyle: Option<LineStyle>,
+    /// Effects the gridlines are drawn through (matplotlib's
+    /// `grid(path_effects=...)`).
+    pub path_effects: Option<Vec<PathEffect>>,
 }
 
 impl GridOptions {
@@ -170,6 +178,9 @@ impl GridOptions {
         }
         if let Some(linestyle) = &self.linestyle {
             style.linestyle = linestyle.clone();
+        }
+        if let Some(effects) = &self.path_effects {
+            style.path_effects.clone_from(effects);
         }
     }
 }

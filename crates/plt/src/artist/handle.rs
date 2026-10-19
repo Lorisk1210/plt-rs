@@ -327,7 +327,9 @@ pub trait ArtistHandle {
         self
     }
 
-    /// Marks the artist as animated (skipped by normal draws).
+    /// Marks the artist as animated: left out of normal draws (for
+    /// blitting), though an animated artist of an axes is drawn when the
+    /// figure is saved, as in matplotlib.
     fn set_animated(&self, animated: bool) -> &Self
     where
         Self: Sized,

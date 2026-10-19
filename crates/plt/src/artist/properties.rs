@@ -2,6 +2,7 @@
 //! sets passed when creating artists (matplotlib's `**kwargs`).
 
 use super::{ArtistBase, ClipPathSpec};
+use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
 
 /// Common artist properties to set on creation (`None` = default).
@@ -30,6 +31,8 @@ pub struct BaseProps {
     /// A clip path set before the artist is added (matplotlib's
     /// `clip_path`): the axes then do not clip it to their box.
     pub clip_path: Option<ClipPathSpec>,
+    /// Effects the artist is drawn through (matplotlib's `path_effects`).
+    pub path_effects: Option<Vec<PathEffect>>,
 }
 
 impl BaseProps {
@@ -47,6 +50,7 @@ impl BaseProps {
             url: overrides.url.or(self.url),
             transform: overrides.transform.or(self.transform),
             clip_path: overrides.clip_path.or(self.clip_path),
+            path_effects: overrides.path_effects.or(self.path_effects),
         }
     }
 
@@ -81,6 +85,9 @@ impl BaseProps {
         }
         if self.clip_path.is_some() {
             base.clip_path = self.clip_path;
+        }
+        if let Some(effects) = self.path_effects {
+            base.path_effects = effects;
         }
     }
 }
@@ -136,6 +143,14 @@ macro_rules! base_prop_builders {
         #[must_use]
         pub fn clip_path(mut self, clip: $crate::artist::ClipPathSpec) -> Self {
             self.base.clip_path = Some(clip);
+            self
+        }
+
+        /// Effects the artist is drawn through (matplotlib's
+        /// `path_effects`).
+        #[must_use]
+        pub fn path_effects(mut self, effects: Vec<$crate::patheffects::PathEffect>) -> Self {
+            self.base.path_effects = Some(effects);
             self
         }
     };

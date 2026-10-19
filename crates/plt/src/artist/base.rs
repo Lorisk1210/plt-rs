@@ -59,7 +59,8 @@ pub struct ArtistBase {
     pub clip_path: Option<ClipPathSpec>,
     /// Rasterize this artist even in vector output.
     pub rasterized: bool,
-    /// Exclude from the normal draw (used for blitting animations).
+    /// Exclude from the normal draw (used for blitting animations); axes
+    /// still draw it when the figure is saved.
     pub animated: bool,
     /// Whether layout engines account for this artist's extent.
     pub in_layout: bool,

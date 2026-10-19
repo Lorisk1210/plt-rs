@@ -37,7 +37,7 @@ impl DataUpdate {
     }
 
     /// What an artist adds to the data limits, without autoscaling the
-    /// view (matplotlib's `add_patch`).
+    /// view (matplotlib's `add_patch` and `add_line`).
     pub(crate) fn extending(limits: Option<LimitPoints>) -> Self {
         let LimitPoints { points, directions } = limits.unwrap_or_default();
         Self {
@@ -48,7 +48,7 @@ impl DataUpdate {
     }
 
     /// What an artist adds to the data limits, autoscaling the view
-    /// (matplotlib's `add_line` and `add_collection`).
+    /// (matplotlib's `add_collection`).
     pub(crate) fn autoscaled(limits: Option<LimitPoints>) -> Self {
         Self {
             autoscale: (true, true),

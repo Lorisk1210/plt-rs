@@ -243,7 +243,8 @@ impl Artist for Axes3DState {
         let Some(plane) = ctx.layout().store().get_as::<AxesState>(self.plane) else {
             return;
         };
-        let children = Self::plane_children(plane);
+        let mut children = Self::plane_children(plane);
+        children.retain(|&id| !ctx.layout().skips_animated(id, true));
         ctx.draw_children_sorted(&children);
     }
 

@@ -255,7 +255,10 @@ impl Figure {
         };
         let (width, height) =
             window.map_or_else(|| self.size_inches(), |b| (b.width(), b.height()));
-        self.state_mut().print_window = window;
+        let mut state = self.state_mut();
+        state.print_window = window;
+        state.saving = true;
+        drop(state);
         (saving, Page { width, height, dpi })
     }
 

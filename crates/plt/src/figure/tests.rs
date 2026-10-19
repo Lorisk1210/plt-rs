@@ -102,6 +102,42 @@ fn hidden_artists_are_not_drawn() {
     );
 }
 
+/// The figure of the animation tests: axes with a line and a figure-level
+/// rectangle, both animated when `animated`.
+fn animation_figure(animated: bool) -> Figure {
+    let fig = Figure::new();
+    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    ax.plot([0.0, 1.0], [0.0, 1.0])
+        .expect("plottable")
+        .set_animated(animated);
+    fig.add_artist(crate::patches::Rectangle::new((0.0, 0.0), 0.5, 0.5))
+        .set_animated(animated);
+    fig
+}
+
+#[test]
+fn animated_artists_are_drawn_only_into_saved_axes() {
+    let draw_calls = |fig: &Figure| {
+        let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+        fig.draw(&mut renderer).expect("drawable");
+        renderer.calls.len()
+    };
+    let (still, animated) = (animation_figure(false), animation_figure(true));
+    assert_eq!(
+        draw_calls(&animated),
+        draw_calls(&still) - 2,
+        "a normal draw leaves both out"
+    );
+    let saved = animated.to_svg().expect("savable");
+    assert!(saved.contains("id=\"line2d_1\""), "the axes draw the line");
+    let patches = |svg: &str| svg.matches("<g id=\"patch_").count();
+    assert_eq!(
+        patches(&saved),
+        patches(&still.to_svg().expect("savable")) - 1,
+        "the figure leaves the rectangle out"
+    );
+}
+
 #[test]
 fn subplots_follow_the_grid() {
     let fig = Figure::new();

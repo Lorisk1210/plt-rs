@@ -22,6 +22,9 @@ use crate::transforms::Transform;
 pub(crate) struct TextStyle {
     pub(super) font: FontProperties,
     pub(super) zorder: f64,
+    /// Whether the rotations are kept in data coordinates
+    /// (`use_clabeltext`).
+    pub(super) rotates_with_data: bool,
     pub(super) rc: Rc<crate::rc::RcParams>,
 }
 
@@ -169,7 +172,12 @@ impl<'s> Placer<'s> {
         let data = self.geometry.to_data.transform_point(at);
         let mut artist = TextArtist::new(data, label.text.clone(), Rc::clone(&style.rc));
         artist.font = style.font.clone();
-        artist.rotation = rotation;
+        if style.rotates_with_data {
+            artist.rotation = self.geometry.to_data.transform_angle(rotation, at);
+            artist.transform_rotates_text = true;
+        } else {
+            artist.rotation = rotation;
+        }
         artist.halign = HAlign::Center;
         artist.valign = VAlign::Center;
         artist.color = Color::from(label.color);

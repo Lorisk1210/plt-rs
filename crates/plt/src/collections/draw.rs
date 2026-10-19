@@ -11,6 +11,7 @@ use super::style::{
 use super::{CollectionArtist, CollectionKind, cycled};
 use crate::artist::{Artist, ArtistId, DrawContext, LayoutContext};
 use crate::axes::AxesState;
+use crate::patheffects::with_path_effects;
 use crate::transforms::{ResolvedTransform, Transform};
 
 /// Where a collection's items are for one draw: the shapes after the
@@ -199,10 +200,10 @@ impl Batch {
     }
 }
 
-/// Draws the collection, using `draw_markers` when every item shares one
-/// shape and style (matplotlib's single-path optimisation). A collection
-/// placed at offsets but without any (an empty scatter plot) only opens
-/// and closes its group, as in matplotlib.
+/// Draws the collection through its path effects, using `draw_markers`
+/// when every item shares one shape and style (matplotlib's single-path
+/// optimisation). A collection placed at offsets but without any (an
+/// empty scatter plot) only opens and closes its group, as in matplotlib.
 pub(super) fn draw_collection(
     c: &CollectionArtist,
     ctx: &mut DrawContext<'_>,
@@ -223,7 +224,9 @@ pub(super) fn draw_collection(
     };
     ctx.renderer().open_group(name, c.base().gid.as_deref());
     if !batch.offsets.is_empty() {
-        draw_items(ctx, gc, &batch, &hatches, c.hatch.is_some());
+        with_path_effects(ctx, &c.base().path_effects, |ctx| {
+            draw_items(ctx, gc, &batch, &hatches, c.hatch.is_some());
+        });
     }
     ctx.renderer().close_group(name);
     Ok(())

@@ -256,7 +256,6 @@ impl Compositor {
         layout.store().get(id).is_some_and(|artist| {
             let base = artist.base();
             base.visible
-                && !base.animated
                 && base.clip_on
                 && ctx.base_gc(base).clip_path.is_none()
                 && as_image(artist).is_some_and(|image| image.can_composite(*layout))

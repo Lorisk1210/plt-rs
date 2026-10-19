@@ -108,6 +108,12 @@ impl Collection {
         self.update(|c| c.sizes = Some(sizes))
     }
 
+    /// The marker areas in points² (cycled), if set (matplotlib's
+    /// `get_sizes`).
+    pub fn sizes(&self) -> Option<Vec<f64>> {
+        self.raw.with::<CollectionArtist, _>(|c| c.sizes.clone())
+    }
+
     /// Sets the cap style of every edge.
     pub fn set_capstyle(&self, capstyle: CapStyle) -> &Self {
         self.update(|c| c.capstyle = Some(capstyle))

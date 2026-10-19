@@ -37,6 +37,7 @@ impl Axes {
     /// in size, or the colours cannot be mapped.
     pub fn quiver(&self, field: VectorField, options: QuiverOptions) -> Result<Quiver, PlotError> {
         let rc = crate::rc::params();
+        let scalar_components = field.u.len() == 1 && field.v.len() == 1;
         let mut points = field.into_points(&rc)?;
         let n = points.xy.len();
         if let Angles::Degrees(degrees) = &options.angles
@@ -78,13 +79,10 @@ impl Axes {
         };
         let mut limits = DataLimits::NULL;
         limits.update_from_points(&data_positions.unwrap_or_default(), true, true);
-        collection.draw_time = Some(Box::new(QuiverGeometry::new(
-            self.id(),
-            points.xy,
-            (points.u, points.v),
-            mask,
-            sizing,
-        )));
+        let geometry =
+            QuiverGeometry::new(self.id(), points.xy, (points.u, points.v), mask, sizing)
+                .with_scalar_components(scalar_components);
+        collection.draw_time = Some(Box::new(geometry));
         let quiver = Collection::from_raw(self.adopt(collection, &DataUpdate::limits(limits)));
         if let Some(mapping) = mapping {
             quiver.set_mapping(mapping);

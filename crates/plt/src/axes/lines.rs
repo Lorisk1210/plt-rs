@@ -118,14 +118,20 @@ impl Axes {
         }
     }
 
+    /// Adds a data line styled by `props` and the property cycle and
+    /// autoscales the view (matplotlib's `plot`, which requests
+    /// autoscaling after `add_line`).
     fn add_cycled_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> Line2D {
-        let line = self.cycled_line(x, y, props);
-        self.add_line_artist(line)
+        let line = self.add_line_artist(self.cycled_line(x, y, props));
+        self.raw()
+            .with_mut::<AxesState, _>(|axes| axes.request_autoscale(true, true));
+        line
     }
 
     /// Adds a line through `(x, y)` in data coordinates, styled from the
     /// rc parameters and `props` without the property cycle, extending the
-    /// data limits and autoscaling (matplotlib's `ax.add_line(Line2D(...))`).
+    /// data limits without autoscaling the view (matplotlib's
+    /// `ax.add_line(Line2D(...))`).
     ///
     /// ```
     /// use plt::prelude::*;
@@ -193,15 +199,15 @@ impl Axes {
             .collect()
     }
 
-    /// Adds a line, in data coordinates unless it has a transform, extends
-    /// the data limits to its drawn vertices and autoscales (matplotlib's
-    /// `add_line`).
+    /// Adds a line, in data coordinates unless it has a transform, and
+    /// extends the data limits to its drawn vertices without autoscaling
+    /// the view (matplotlib's `add_line`).
     pub(crate) fn add_line_artist(&self, mut line: LineArtist) -> Line2D {
         let base = line.base_mut();
         if base.transform.is_none() {
             base.transform = Some(self.trans_data());
         }
-        let update = DataUpdate::autoscaled(line.limit_points(self.id()));
+        let update = DataUpdate::extending(line.limit_points(self.id()));
         Line2D::from_raw(self.adopt(line, &update))
     }
 

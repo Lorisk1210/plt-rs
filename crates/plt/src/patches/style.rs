@@ -3,7 +3,7 @@
 use std::rc::Rc;
 
 use plt_core::{Affine2D, Path, Rgba};
-use plt_render::{CapStyle, GraphicsContext, Hatch, JoinStyle};
+use plt_render::{CapStyle, Dashes, GraphicsContext, Hatch, JoinStyle};
 
 use super::DisplayPath;
 use crate::artist::{ArtistBase, DrawContext};
@@ -157,53 +157,102 @@ pub(crate) fn paint_paths(
     edge_default: bool,
     paths: &[DisplayPath],
 ) -> Result<(), ColorError> {
-    let resolved = style.resolve(rc, base.alpha, edge_default)?;
-    let mut gc: GraphicsContext = ctx.base_gc(base);
-    let linewidth = if resolved.edge.is_transparent() || !style.linestyle.is_visible() {
-        0.0
-    } else {
-        resolved.linewidth
-    };
-    gc.linewidth = linewidth;
-    gc.cap = style.capstyle;
-    gc.join = style.joinstyle;
-    gc.antialiased = resolved.antialiased;
-    // matplotlib only hands the renderer non-empty hatches.
-    if let Some(pattern) = style.hatch.as_ref().filter(|p| !p.is_empty()) {
-        gc.hatch = Some(Hatch {
-            pattern: pattern.clone(),
-            color: resolved.hatch_color,
-            linewidth: style.hatch_linewidth,
-        });
-    }
-    let face = (!resolved.face.is_transparent()).then_some(resolved.face);
-    let dashes = style.linestyle.scaled_dashes(resolved.linewidth, rc);
-
+    let paint = PatchPaint::new(style, rc, base.alpha, edge_default)?;
+    let gc = ctx.base_gc(base);
     ctx.renderer().open_group("patch", base.gid.as_deref());
     with_path_effects(ctx, &base.path_effects, |ctx| {
-        let draw_all = |ctx: &mut DrawContext<'_>, gc: &GraphicsContext| {
+        paint.paint(gc, |gc, face| {
             for path in paths {
                 let fill = face.filter(|_| path.filled);
                 ctx.renderer().draw_path(gc, &path.path, &path.affine, fill);
             }
-        };
-        if let (true, true, Some(gap)) =
-            (linewidth > 0.0, style.linestyle.is_dashed(), resolved.gap)
-        {
-            gc.foreground = gap;
-            gc.dashes = inverse_dashes(&dashes);
-            draw_all(ctx, &gc);
-        }
-        gc.foreground = resolved.edge;
-        gc.dashes = if linewidth > 0.0 {
-            dashes
-        } else {
-            plt_render::Dashes::solid()
-        };
-        draw_all(ctx, &gc);
+        });
     });
     ctx.renderer().close_group("patch");
     Ok(())
+}
+
+/// What matplotlib's `Patch._draw_paths_with_artist_properties` puts in
+/// the graphics context, resolved from a [`PatchStyle`]: colours, edge
+/// width and dashes, caps, joins and hatch.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PatchPaint {
+    /// The face, `None` when transparent.
+    face: Option<Rgba>,
+    edge: Rgba,
+    /// The colour of the gaps of a dashed edge (`None` = empty gaps).
+    gap: Option<Rgba>,
+    /// The edge width, 0 when the edge does not show.
+    linewidth: f64,
+    dashes: Dashes,
+    dashed: bool,
+    cap: CapStyle,
+    join: JoinStyle,
+    antialiased: bool,
+    hatch: Option<Hatch>,
+}
+
+impl PatchPaint {
+    /// `style` resolved against `rc` and the artist's `alpha`.
+    pub(crate) fn new(
+        style: &PatchStyle,
+        rc: &RcParams,
+        alpha: Option<f64>,
+        edge_default: bool,
+    ) -> Result<Self, ColorError> {
+        let resolved = style.resolve(rc, alpha, edge_default)?;
+        let edge_shows = !resolved.edge.is_transparent() && style.linestyle.is_visible();
+        // matplotlib only hands the renderer non-empty hatches.
+        let hatch = style
+            .hatch
+            .as_ref()
+            .filter(|pattern| !pattern.is_empty())
+            .map(|pattern| Hatch {
+                pattern: pattern.clone(),
+                color: resolved.hatch_color,
+                linewidth: style.hatch_linewidth,
+            });
+        Ok(Self {
+            face: (!resolved.face.is_transparent()).then_some(resolved.face),
+            edge: resolved.edge,
+            gap: resolved.gap,
+            linewidth: if edge_shows { resolved.linewidth } else { 0.0 },
+            dashes: style.linestyle.scaled_dashes(resolved.linewidth, rc),
+            dashed: style.linestyle.is_dashed(),
+            cap: style.capstyle,
+            join: style.joinstyle,
+            antialiased: resolved.antialiased,
+            hatch,
+        })
+    }
+
+    /// Completes `gc` with the patch's properties and calls `draw` with it
+    /// and the face colour: first for the gaps of a dashed edge when they
+    /// have a colour, then for the face, its hatch and the edge.
+    pub(crate) fn paint(
+        &self,
+        mut gc: GraphicsContext,
+        mut draw: impl FnMut(&GraphicsContext, Option<Rgba>),
+    ) {
+        gc.linewidth = self.linewidth;
+        gc.cap = self.cap;
+        gc.join = self.join;
+        gc.antialiased = self.antialiased;
+        gc.hatch.clone_from(&self.hatch);
+        let edged = self.linewidth > 0.0;
+        if let (true, true, Some(gap)) = (edged, self.dashed, self.gap) {
+            gc.foreground = gap;
+            gc.dashes = inverse_dashes(&self.dashes);
+            draw(&gc, self.face);
+        }
+        gc.foreground = self.edge;
+        gc.dashes = if edged {
+            self.dashes.clone()
+        } else {
+            Dashes::solid()
+        };
+        draw(&gc, self.face);
+    }
 }
 
 #[cfg(test)]

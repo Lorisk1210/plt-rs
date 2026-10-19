@@ -20,6 +20,7 @@ mod legend;
 mod lines;
 mod mathtext;
 mod misc;
+mod modern;
 mod mpl_3d_a;
 mod mpl_3d_b;
 mod mpl_axes_a;
@@ -108,6 +109,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::WIDGETS,
         &matplotlib_tests(),
         &gallery_examples(),
+        modern::CASES,
         mplot3d::API,
         mplot3d::API_PLOTS,
         mplot3d::AXLIM,

@@ -135,12 +135,28 @@ impl Tail {
         };
         let (flags, rest) = divmod(magnitude, inc.flag);
         let (barbs, rest) = divmod(rest, inc.full);
-        let tail = Self {
-            flags: flags as usize,
-            barbs: barbs as usize,
-            half: rest >= inc.half,
-        };
-        (tail.half || tail.flags > 0 || tail.barbs > 0).then_some(tail)
+        let half = rest >= inc.half;
+        // matplotlib decides emptiness on the float counts, then draws
+        // `range(count.astype(int))` features.
+        (half || flags > 0.0 || barbs > 0.0).then(|| Self {
+            flags: feature_count(flags),
+            barbs: feature_count(barbs),
+            half,
+        })
+    }
+}
+
+/// How many features `range(count.astype(int))` draws: numpy's cast to
+/// `int64` truncates, and turns NaN and counts out of its range into
+/// `i64::MIN` (as x86-64 does), for which there are none.
+fn feature_count(count: f64) -> usize {
+    // 2^63, the first float above the range of `i64`.
+    const LIMIT: f64 = 9_223_372_036_854_775_808.0;
+    if (-LIMIT..LIMIT).contains(&count) {
+        // Truncation, exact within the range.
+        usize::try_from(count as i64).unwrap_or(0)
+    } else {
+        0
     }
 }
 
@@ -356,6 +372,17 @@ mod tests {
         );
         assert_eq!(tail(3.0, false), None, "truncated below a half barb");
         assert_eq!(tail(f64::NAN, true), None);
+    }
+
+    #[test]
+    fn huge_magnitudes_draw_no_flags() {
+        // numpy's astype(int) of 2e298 flags is i64::MIN: range() is empty,
+        // but the barb is not, as its float count is positive.
+        let huge = tail(1e300, true).expect("not empty");
+        assert_eq!(huge.flags, 0);
+        assert_eq!(feature_count(f64::NAN), 0);
+        assert_eq!(feature_count(-3.0), 0);
+        assert_eq!(feature_count(3.9), 3);
     }
 
     #[test]

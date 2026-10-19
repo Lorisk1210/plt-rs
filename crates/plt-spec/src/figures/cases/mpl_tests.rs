@@ -28,11 +28,17 @@ pub(super) const fn classic(name: &'static str, build: fn(&Figure) -> CaseResult
 
 /// matplotlib's `remove_ticks_and_titles` (what `remove_text=True` does):
 /// empty suptitle, and no titles or tick labels on any axes or the axes
-/// inside them.
+/// inside them, the z axis of 3-D axes included.
 pub(super) fn remove_ticks_and_titles(fig: &Figure) {
     fig.suptitle("");
     for ax in fig.axes() {
         remove_ticks(&ax);
+    }
+    for ax in fig.axes3d() {
+        for axis in [ax.xaxis(), ax.yaxis(), ax.zaxis()] {
+            axis.set_major_formatter(NullFormatter)
+                .set_minor_formatter(NullFormatter);
+        }
     }
 }
 

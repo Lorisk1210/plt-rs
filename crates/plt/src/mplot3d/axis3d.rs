@@ -3,6 +3,8 @@
 
 use std::rc::Rc;
 
+use plt_core::Rgba;
+
 use crate::axes::{Tick, TickSet, TickStyle};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
@@ -70,6 +72,19 @@ pub(crate) struct AxisStyle {
 impl AxisStyle {
     /// matplotlib's defaults for axis `dir` under `rc`.
     fn from_rc(dir: Axis3, rc: &RcParams) -> Self {
+        if rc.internal_classic_mode {
+            // Fixed thin black axis lines, light solid gridlines and tick
+            // marks as wide as lines.
+            return Self {
+                line_width: 0.75,
+                line_color: Rgba::BLACK.into(),
+                grid_color: Rgba::opaque(0.9, 0.9, 0.9).into(),
+                grid_width: 1.0,
+                grid_style: LineStyle::Solid,
+                major_tick_width: rc.lines_linewidth,
+                minor_tick_width: rc.lines_linewidth,
+            };
+        }
         let (major_tick_width, minor_tick_width) = if dir == Axis3::Y {
             (rc.ytick_major_width, rc.ytick_minor_width)
         } else {
@@ -406,6 +421,20 @@ mod tests {
         let mut axis = Axis3DState::new(Axis3::Z, &RcParams::matplotlib());
         axis.update_ticks(&span((-1.0 / 48.0, 1.0 + 1.0 / 48.0)), 266.112, false);
         assert_eq!(labels(&axis), ["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"]);
+    }
+
+    #[test]
+    fn classic_mode_draws_thin_axis_lines_and_light_solid_grids() {
+        let mut rc = RcParams::matplotlib();
+        rc.set("_internal.classic_mode", "True").unwrap();
+        rc.set("lines.linewidth", "1.5").unwrap();
+        let style = Axis3DState::new(Axis3::Y, &rc).style;
+        assert_eq!(style.line_width, 0.75);
+        assert_eq!(style.grid_style, LineStyle::Solid);
+        assert_eq!(style.grid_color, Rgba::opaque(0.9, 0.9, 0.9).into());
+        assert_eq!((style.major_tick_width, style.minor_tick_width), (1.5, 1.5));
+        let default = Axis3DState::new(Axis3::Y, &RcParams::matplotlib()).style;
+        assert_eq!(default.line_width, RcParams::matplotlib().axes_linewidth);
     }
 
     #[test]

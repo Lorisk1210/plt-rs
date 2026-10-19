@@ -22,6 +22,7 @@ mod mpl_axes_a;
 mod mpl_axes_b;
 mod mpl_axes_c;
 mod mpl_axes_d;
+mod mpl_collections;
 mod mpl_image;
 mod mpl_lines;
 mod mpl_small;
@@ -93,13 +94,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::SPECTRAL,
         misc::UNITS,
         misc::WIDGETS,
-        mpl_axes_a::CASES,
-        &mpl_axes_b::cases(),
-        &mpl_axes_c::cases(),
-        &mpl_axes_d::cases(),
-        &mpl_image::cases(),
-        &mpl_lines::cases(),
-        &mpl_small::cases(),
+        &matplotlib_tests(),
         mplot3d::API,
         mplot3d::API_PLOTS,
         mplot3d::AXLIM,
@@ -146,6 +141,21 @@ pub(crate) fn all() -> Vec<FigureCase> {
         toolkits::CASES,
         vectors::CASES,
         widgets::CASES,
+    ]
+    .concat()
+}
+
+/// The cases porting matplotlib's own image tests (the `mpl_*` groups).
+fn matplotlib_tests() -> Vec<FigureCase> {
+    [
+        mpl_axes_a::CASES,
+        &mpl_axes_b::cases(),
+        &mpl_axes_c::cases(),
+        &mpl_axes_d::cases(),
+        &mpl_collections::cases(),
+        &mpl_image::cases(),
+        &mpl_lines::cases(),
+        &mpl_small::cases(),
     ]
     .concat()
 }

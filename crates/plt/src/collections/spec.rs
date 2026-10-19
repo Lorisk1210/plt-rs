@@ -143,6 +143,12 @@ impl CollectionSpec {
         Ok(spec)
     }
 
+    /// Arbitrary paths in data coordinates (matplotlib's `PathCollection`
+    /// without sizes).
+    pub fn paths(paths: Vec<Path>) -> Self {
+        Self::new(CollectionKind::Path, paths)
+    }
+
     /// Polylines in data coordinates (matplotlib's `LineCollection`).
     pub fn lines(segments: Vec<Vec<Point>>) -> Self {
         Self::new(

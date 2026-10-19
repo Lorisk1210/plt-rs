@@ -6,7 +6,7 @@ use plt_core::{Path, Point};
 use super::broadcast::{broadcast, common_length};
 use super::children::DataUpdate;
 use super::{Axes, DataLimits, PlotError};
-use crate::artist::Artist;
+use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, CollectionProps};
 use crate::lines::{DrawStyle, StepWhere};
 use crate::orientation::Orientation;
@@ -100,27 +100,101 @@ impl Axes {
         if !props.sets_face() {
             props = props.facecolor(self.next_patch_color());
         }
-        let place = |t: f64, f: f64| {
-            let (x, y) = orientation.place(t, f);
-            Point::new(x, y)
+        let geometry = FillGeometry {
+            orientation,
+            step: options.step,
+            interpolate: options.interpolate,
         };
-        let paths = contiguous_regions(&curves.fill)
-            .into_iter()
-            .map(|(start, stop)| {
-                let outline = curves.region(start, stop, options.step, options.interpolate);
-                Path::polygon(outline.into_iter().map(|(t, f)| place(t, f)))
-            })
-            .collect();
         let mut limits = DataLimits::NULL;
-        limits.update_from_points(&curves.selected_points(place), true, true);
-        let mut collection =
-            CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
+        limits.update_from_points(
+            &curves.selected_points(|t, f| geometry.place(t, f)),
+            true,
+            true,
+        );
+        let mut collection = CollectionArtist::new(
+            CollectionKind::Poly,
+            geometry.polygons(curves),
+            crate::rc::params(),
+        );
+        collection.fill_geometry = Some(geometry);
         props.apply(&mut collection);
         collection
             .base_mut()
             .transform
             .get_or_insert_with(|| self.trans_data());
         Collection::from_raw(self.adopt(collection, &DataUpdate::limits(limits)))
+    }
+}
+
+/// How a `fill_between` collection turns its curves into polygons
+/// (the state of matplotlib's `FillBetweenPolyCollection`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct FillGeometry {
+    /// `Vertical` fills along x between y values (`fill_between`),
+    /// `Horizontal` along y between x values (`fill_betweenx`).
+    orientation: Orientation,
+    step: Option<StepWhere>,
+    interpolate: bool,
+}
+
+impl FillGeometry {
+    /// The point at parameter `t` with value `f`.
+    fn place(self, t: f64, f: f64) -> Point {
+        let (x, y) = self.orientation.place(t, f);
+        Point::new(x, y)
+    }
+
+    /// One polygon per contiguous filled region (matplotlib's
+    /// `_make_verts`).
+    fn polygons(self, curves: &Curves) -> Vec<Path> {
+        contiguous_regions(&curves.fill)
+            .into_iter()
+            .map(|(start, stop)| {
+                let outline = curves.region(start, stop, self.step, self.interpolate);
+                Path::polygon(outline.into_iter().map(|(t, f)| self.place(t, f)))
+            })
+            .collect()
+    }
+}
+
+impl Collection {
+    /// Replaces the curves of a collection made by [`Axes::fill_between`]
+    /// (`t` along x) or [`Axes::fill_betweenx`] (`t` along y), keeping its
+    /// steps and interpolation; `mask` selects where to fill as the
+    /// `fill_between` option does. The data limits stay as they were
+    /// (matplotlib's `FillBetweenPolyCollection.set_data`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::axes::FillBetweenOptions;
+    /// let ax = Figure::new().subplot();
+    /// let fill = ax.fill_between([0.0, 1.0], [0.0], [1.0], FillBetweenOptions::default())?;
+    /// fill.set_fill_between_data(&[0.0, 1.0, 2.0], &[0.0], &[2.0, 1.0, 2.0], None)?;
+    /// // Along y1 and back along y2, closed: 2 · 3 + 2 + 1 vertices.
+    /// assert_eq!(fill.paths()[0].vertices().len(), 9);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the collection was not made by `fill_between` or
+    /// `fill_betweenx`, or as [`Axes::fill_between`].
+    pub fn set_fill_between_data(
+        &self,
+        t: &[f64],
+        f1: &[f64],
+        f2: &[f64],
+        mask: Option<&[bool]>,
+    ) -> Result<&Self, PlotError> {
+        let geometry = self
+            .raw()
+            .with::<CollectionArtist, _>(|c| c.fill_geometry)
+            .ok_or(PlotError::NotFillBetween)?;
+        let curves = Curves::new(geometry.orientation, t, f1, f2, mask)?;
+        let paths = geometry.polygons(&curves);
+        self.raw()
+            .with_mut::<CollectionArtist, _>(|c| c.paths = paths);
+        Ok(self)
     }
 }
 
@@ -293,6 +367,35 @@ fn contiguous_regions(mask: &[bool]) -> Vec<(usize, usize)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_curves_keep_the_steps_and_the_data_limits() {
+        use crate::figure::Figure;
+
+        let ax = Figure::new().subplot();
+        let options = FillBetweenOptions {
+            step: Some(StepWhere::Pre),
+            ..FillBetweenOptions::default()
+        };
+        let fill = ax
+            .fill_between([0.0, 1.0, 2.0], [0.0], [1.0], options)
+            .unwrap();
+        let limits = ax.data_lim();
+        fill.set_fill_between_data(&[0.0, 1.0, 2.0], &[0.0], &[5.0, 6.0, 7.0], None)
+            .unwrap();
+        assert_eq!(ax.data_lim(), limits, "the data limits stay");
+        let outline = fill.paths()[0].vertices().to_vec();
+        // Two stepped curves of 2 · 3 - 1 points, their ends and the closure.
+        assert_eq!(outline.len(), 2 * 5 + 2 + 1);
+        assert!(outline.iter().any(|p| (p.y - 7.0).abs() < 1e-12));
+        let lines = ax.vlines([1.0], [0.0], [1.0]).unwrap();
+        assert_eq!(
+            lines
+                .set_fill_between_data(&[0.0], &[0.0], &[1.0], None)
+                .err(),
+            Some(PlotError::NotFillBetween)
+        );
+    }
 
     #[test]
     fn regions_follow_the_mask() {

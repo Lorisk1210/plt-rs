@@ -94,6 +94,7 @@ pub use error::PlotError;
 pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarOptions};
 pub use eventplot::EventplotOptions;
 pub use fill_between::FillBetweenOptions;
+pub(crate) use fill_between::FillGeometry;
 pub use grouped_bar::{GroupedBarData, GroupedBarError, GroupedBarOptions};
 pub use hexbin::{HexBins, HexGridSize, HexReduce, HexScale, HexbinOptions};
 pub use hist::{HistArtists, HistPlot, HistPlotOptions};

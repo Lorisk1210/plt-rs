@@ -258,6 +258,59 @@ impl Annulus {
         self.angle
     }
 
+    /// Moves the centre (matplotlib's `set_center`).
+    pub fn set_center(&mut self, center: impl Into<Point>) {
+        self.center = center.into();
+    }
+
+    /// Sets the outer semi-axes `(a, b)` (matplotlib's `set_radii`); like
+    /// matplotlib, the width is not checked against them.
+    pub fn set_radii(&mut self, (a, b): (f64, f64)) {
+        self.semi_axes = (a, b);
+    }
+
+    /// Sets the outer semi-axis along the unrotated x direction
+    /// (matplotlib's `set_semimajor`).
+    pub fn set_semimajor(&mut self, a: f64) {
+        self.semi_axes.0 = a;
+    }
+
+    /// Sets the outer semi-axis along the unrotated y direction
+    /// (matplotlib's `set_semiminor`).
+    pub fn set_semiminor(&mut self, b: f64) {
+        self.semi_axes.1 = b;
+    }
+
+    /// Sets the ring thickness (matplotlib's `set_width`); fails, leaving
+    /// the ring as it was, if it exceeds the smaller semi-axis.
+    ///
+    /// ```
+    /// use plt::patches::Annulus;
+    /// let mut ring = Annulus::new((0.0, 0.0), 1.0, 0.5)?;
+    /// ring.set_width(0.25)?;
+    /// assert_eq!(ring.width(), 0.25);
+    /// assert!(ring.set_width(2.0).is_err());
+    /// # Ok::<(), plt::patches::ShapeError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`ShapeError::AnnulusTooWide`] when `width` is larger than the
+    /// smaller semi-axis.
+    pub fn set_width(&mut self, width: f64) -> Result<(), ShapeError> {
+        let (a, b) = self.semi_axes;
+        if width > a.min(b) {
+            return Err(ShapeError::AnnulusTooWide);
+        }
+        self.width = width;
+        Ok(())
+    }
+
+    /// Sets the rotation in degrees (matplotlib's `set_angle`).
+    pub fn set_angle(&mut self, angle: f64) {
+        self.angle = angle;
+    }
+
     fn placed(&self, vertices: impl Iterator<Item = Point>, a: f64, b: f64) -> Vec<Point> {
         let placement = Affine2D::scaling(a, b)
             .rotate_deg(self.angle)
@@ -343,5 +396,24 @@ mod tests {
         let inner_start = path.vertices()[outer];
         assert!(((inner_start - Point::new(5.0, 5.0)).length() - 1.5).abs() < 1e-9);
         assert_eq!(path.code_at(path.len() - 1), PathCode::ClosePoly);
+    }
+
+    #[test]
+    fn annulus_setters_reshape_the_ring() {
+        let mut ring = Annulus::new((0.0, 0.0), 0.2, 0.01).unwrap();
+        ring.set_center((0.5, 0.5));
+        ring.set_radii((0.5, 0.3));
+        ring.set_width(0.1).unwrap();
+        ring.set_angle(45.0);
+        assert_eq!(
+            ring,
+            Annulus::elliptical((0.5, 0.5), (0.5, 0.3), 0.1, 45.0).unwrap()
+        );
+        ring.set_semimajor(0.05);
+        assert_eq!(ring.semi_axes(), (0.05, 0.3), "semi-axes are not checked");
+        assert_eq!(ring.set_width(0.2), Err(ShapeError::AnnulusTooWide));
+        ring.set_semiminor(0.4);
+        assert_eq!(ring.semi_axes(), (0.05, 0.4));
+        assert_eq!(ring.width(), 0.1, "a rejected width is not kept");
     }
 }

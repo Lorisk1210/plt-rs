@@ -239,6 +239,7 @@ impl Axes {
             linewidths.get_or_insert_with(|| vec![rc.lines_linewidth]);
         }
         collection.offsets = masked_offsets(x, y, &sizes, mapping.as_ref(), options.plot_nonfinite);
+        collection.offsets_masked = true;
         collection.sizes = Some(sizes);
         collection.facecolors = faces;
         collection.edgecolors = edges;

@@ -11,6 +11,8 @@ use plt_font::{
 
 use crate::block::FontHeightMetrics;
 use crate::error::TextError;
+use crate::mathtext::MathStyle;
+use crate::memo::{self, Memo};
 use crate::run::{GlyphChars, PlacedGlyph, TextRun, TextSource};
 use crate::shaping::Shaping;
 
@@ -45,11 +47,31 @@ impl FontRequest {
     }
 }
 
-/// Fonts plus layout services shared by every figure and backend.
+/// Fonts plus layout services shared by every figure and backend; the
+/// layouts it makes are kept and given again for the same inputs.
 #[derive(Debug)]
 pub struct TextEngine {
     db: FontDatabase,
     outlines: Mutex<HashMap<OutlineKey, Path>>,
+    lines: Memo<LineKey, TextRun>,
+    pub(crate) formulas: Memo<FormulaKey, TextRun>,
+    heights: Memo<(FontRequest, u64), FontHeightMetrics>,
+}
+
+/// The inputs of a single-line layout.
+#[derive(Debug)]
+struct LineKey {
+    text: String,
+    request: FontRequest,
+    shaping: Shaping,
+    dpi_bits: u64,
+}
+
+/// The inputs of a mathtext layout.
+#[derive(Debug)]
+pub(crate) struct FormulaKey {
+    pub(crate) source: String,
+    pub(crate) style: MathStyle,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -69,6 +91,9 @@ impl TextEngine {
         Self {
             db,
             outlines: Mutex::new(HashMap::new()),
+            lines: Memo::new(),
+            formulas: Memo::new(),
+            heights: Memo::new(),
         }
     }
 
@@ -128,6 +153,39 @@ impl TextEngine {
         shaping: &Shaping,
         dpi: f64,
     ) -> Result<TextRun, TextError> {
+        let dpi_bits = dpi.to_bits();
+        let extra = (
+            text,
+            shaping.features.len(),
+            shaping.language.is_some(),
+            dpi_bits,
+        );
+        self.lines.get_or_compute(
+            memo::fingerprint(request, extra),
+            |key| {
+                key.dpi_bits == dpi_bits
+                    && key.text == text
+                    && key.request == *request
+                    && key.shaping == *shaping
+            },
+            || LineKey {
+                text: text.to_owned(),
+                request: request.clone(),
+                shaping: shaping.clone(),
+                dpi_bits,
+            },
+            || self.shape_line(text, request, shaping, dpi),
+        )
+    }
+
+    /// [`layout_line_with`](Self::layout_line_with) without the memo.
+    fn shape_line(
+        &self,
+        text: &str,
+        request: &FontRequest,
+        shaping: &Shaping,
+        dpi: f64,
+    ) -> Result<TextRun, TextError> {
         let options = shaping.shape_options(text)?;
         let query = &request.query;
         let fonts = self.db.find_fonts_with(query, &request.generics)?;
@@ -178,6 +236,21 @@ impl TextEngine {
     /// the primary font's `OS/2` typo metrics (else `hhea`), as
     /// matplotlib's `Text._get_layout` computes them.
     pub fn font_height_metrics(
+        &self,
+        request: &FontRequest,
+        dpi: f64,
+    ) -> Result<FontHeightMetrics, TextError> {
+        let dpi_bits = dpi.to_bits();
+        self.heights.get_or_compute(
+            memo::fingerprint(request, dpi_bits),
+            |(stored, bits)| *bits == dpi_bits && stored == request,
+            || (request.clone(), dpi_bits),
+            || self.measure_font_height(request, dpi),
+        )
+    }
+
+    /// [`font_height_metrics`](Self::font_height_metrics) without the memo.
+    fn measure_font_height(
         &self,
         request: &FontRequest,
         dpi: f64,
@@ -535,6 +608,31 @@ mod tests {
         assert_eq!(first_paragraph("a\u{2029}b"), "a\u{2029}");
         assert_eq!(first_paragraph("a\tb"), "a\tb");
         assert_eq!(first_paragraph(""), "");
+    }
+
+    #[test]
+    fn layouts_are_kept_by_their_inputs() {
+        let engine = TextEngine::new(FontDatabase::with_bundled_fonts());
+        let request = FontRequest::new(FontQuery {
+            size: 10.0,
+            ..FontQuery::families(["DejaVu Sans"])
+        });
+        let first = engine.layout_line("Kept", &request, 100.0).unwrap();
+        let again = engine.layout_line("Kept", &request, 100.0).unwrap();
+        let fresh = engine
+            .shape_line("Kept", &request, &Shaping::default(), 100.0)
+            .unwrap();
+        assert_eq!((&first, &again), (&fresh, &fresh));
+        let denser = engine.layout_line("Kept", &request, 200.0).unwrap();
+        assert!(
+            denser.width > first.width,
+            "another resolution is another layout"
+        );
+        let heights = engine.font_height_metrics(&request, 100.0).unwrap();
+        assert_eq!(
+            heights,
+            engine.measure_font_height(&request, 100.0).unwrap()
+        );
     }
 
     #[test]

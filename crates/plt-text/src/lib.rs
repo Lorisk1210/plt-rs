@@ -23,6 +23,7 @@ mod engine;
 mod error;
 pub mod fontconfig;
 pub mod mathtext;
+mod memo;
 mod run;
 mod shaping;
 

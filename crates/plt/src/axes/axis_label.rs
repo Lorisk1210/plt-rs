@@ -1,6 +1,7 @@
 //! The label of an axis: its text, font and placement (matplotlib's
 //! `Axis.label`).
 
+use plt_core::Point;
 use plt_text::{HAlign, VAlign};
 
 use super::axis_handle::Axis;
@@ -8,6 +9,7 @@ use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
+use crate::text::TextBox;
 
 /// Where an axis label sits along its axis (matplotlib's `loc` of
 /// `set_xlabel`/`set_ylabel`).
@@ -76,6 +78,11 @@ pub(crate) struct AxisLabel {
     pub(crate) rotation: Option<f64>,
     /// Vertical alignment instead of the one that comes with the side.
     pub(crate) valign: Option<VAlign>,
+    /// A fixed anchor in axes fractions instead of the automatic place
+    /// beyond the tick labels (matplotlib's `set_label_coords`).
+    pub(crate) coords: Option<Point>,
+    /// The box drawn behind the label (matplotlib's `label.set_bbox`).
+    pub(crate) bbox: Option<TextBox>,
 }
 
 impl AxisLabel {

@@ -11,6 +11,8 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
+use crate::artist::ArtistHandle;
+use crate::figure::Figure;
 use crate::rc::RcParams;
 
 /// The margins and spacing of a subplot grid, in figure fractions
@@ -213,8 +215,51 @@ impl GridSpec {
     }
 
     /// Replaces the margins and spacing given in `changes`, keeping the
-    /// others (matplotlib's `GridSpec.update`, without moving the axes).
-    pub(crate) fn update(&self, changes: &SubplotOverrides) {
+    /// others, and moves the axes of `figure` placed on the grid to match
+    /// (matplotlib's `GridSpec.update`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::gridspec::{GridSpec, SubplotOverrides};
+    /// let fig = Figure::new();
+    /// fig.set_layout_engine(None);
+    /// let grid = GridSpec::new(2, 1)?;
+    /// let ax = fig.add_subplot_spec(&grid.cell(0, 0)?)?;
+    /// let lower_top = SubplotOverrides { top: Some(0.5), ..SubplotOverrides::default() };
+    /// grid.update(&fig, &lower_top)?;
+    /// assert_eq!(grid.overrides().top, Some(0.5));
+    /// let (_, y, _, height) = ax.position().bounds();
+    /// assert!((y + height - 0.5).abs() < 1e-12);
+    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the new margins leave no room for the grid, which is then left
+    /// unchanged.
+    pub fn update(
+        &self,
+        figure: &Figure,
+        changes: &SubplotOverrides,
+    ) -> Result<&Self, GridSpecError> {
+        let previous = self.overrides();
+        self.merge_overrides(changes);
+        let params = figure.subplot_params();
+        if let Err(err) = self.subplot_params(&params) {
+            self.data.overrides.set(previous);
+            return Err(err);
+        }
+        figure
+            .raw()
+            .figure_state()
+            .borrow_mut()
+            .set_subplot_params(params)?;
+        Ok(self)
+    }
+
+    /// Replaces the margins and spacing given in `changes`, keeping the
+    /// others, without moving any axes.
+    pub(crate) fn merge_overrides(&self, changes: &SubplotOverrides) {
         let o = self.overrides();
         self.data.overrides.set(SubplotOverrides {
             left: changes.left.or(o.left),

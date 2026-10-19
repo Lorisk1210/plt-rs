@@ -1,0 +1,58 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.070635, 0.564815, 0.417646, 0.36459],
+   "title": "not equal, looks like ellipse",
+   "xlim": [-3.298414, 3.299924],
+   "ylim": [-3.299585, 3.299585],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"]],
+   "yticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.558917, 0.564815, 0.417646, 0.36459],
+   "title": "equal, looks like circle",
+   "xlim": [-5.038907, 5.040417],
+   "ylim": [-3.299585, 3.299585],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-4.0, "−4"], [-2.0, "−2"], [0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.070635, 0.08044, 0.417646, 0.36459],
+   "title": "still a circle, even after changing limits",
+   "xlim": [-4.582087, 4.582087],
+   "ylim": [-3.0, 3.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-4.0, "−4"], [-2.0, "−2"], [0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[-3.0, "−3"], [-2.0, "−2"], [-1.0, "−1"], [0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.631035, 0.08044, 0.273408, 0.36459],
+   "title": "still a circle, auto-adjusted data limits",
+   "xlim": [-3.298414, 3.299924],
+   "ylim": [-3.299585, 3.299585],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"]],
+   "yticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"]]
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.103646, 0.10348, 0.889843, 0.756231],
+   "title": "Random spectrum",
+   "xlim": [0.016463, 1.190518],
+   "ylim": [2.3e-05, 16.325295],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "f [Hz]",
+   "ylabel": "PSD",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]],
+   "yticks": [[0.0001, "$\\mathdefault{10^{-4}}$"], [0.001, "$\\mathdefault{10^{-3}}$"], [0.01, "$\\mathdefault{10^{-2}}$"], [0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]]
+  }
+ ]
+}

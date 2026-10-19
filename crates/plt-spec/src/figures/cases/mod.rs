@@ -12,6 +12,7 @@ mod fields;
 mod figure;
 mod gallery_images;
 mod gallery_lines;
+mod gallery_subplots;
 mod gallery_text;
 mod geo;
 mod hinting;
@@ -193,6 +194,7 @@ fn gallery_examples() -> Vec<FigureCase> {
     [
         gallery_images::cases(),
         gallery_lines::cases(),
+        gallery_subplots::cases(),
         gallery_text::cases(),
     ]
     .concat()

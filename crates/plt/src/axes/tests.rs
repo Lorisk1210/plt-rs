@@ -177,3 +177,22 @@ fn decreasing_function_scales_keep_the_axis_orientation() {
     assert!(x(0.5).abs() < 1e-9, "the larger value on the left");
     assert!((x(0.1) - 144.0).abs() < 1e-9);
 }
+
+#[test]
+fn only_artists_without_a_clip_path_clip_to_the_axes_box() {
+    use crate::artist::ClipPathSpec;
+    use crate::patches::{PatchProps, Rectangle};
+    use plt_core::Path;
+
+    let (_, ax) = axes();
+    let unit = || Rectangle::new((0.0, 0.0), 1.0, 1.0);
+    let boxed = ax.add_patch(unit());
+    assert_eq!(boxed.raw().with_base(|b| b.clip_box), Some(ax.id()));
+    let clip = ClipPathSpec::Path {
+        path: Path::unit_rectangle(),
+        transform: ax.trans_data(),
+    };
+    let clipped = ax.add_patch_with(unit(), PatchProps::default().clip_path(clip));
+    assert_eq!(clipped.raw().with_base(|b| b.clip_box), None);
+    assert!(clipped.raw().with_base(|b| b.clip_path.is_some()));
+}

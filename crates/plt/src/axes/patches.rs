@@ -5,14 +5,23 @@ use super::lines::cycle_color;
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
-use crate::patches::{FancyArrow, Patch, PatchArtist, PatchShape};
+use crate::patches::{FancyArrow, Patch, PatchArtist, PatchProps, PatchShape};
 
 impl Axes {
     /// Adds a patch in data coordinates, clipped to the axes, and extends
     /// the data limits to cover it without autoscaling the view
     /// (matplotlib's `add_patch`).
     pub fn add_patch<S: PatchShape>(&self, shape: S) -> Patch<S> {
+        self.add_patch_with(shape, PatchProps::default())
+    }
+
+    /// [`add_patch`](Self::add_patch) for a patch styled by `props` before
+    /// it is added, as matplotlib adds a patch made with its keyword
+    /// arguments: a `transform` places it (and its data limits), a
+    /// `clip_path` replaces the axes clip box.
+    pub fn add_patch_with<S: PatchShape>(&self, shape: S, props: PatchProps) -> Patch<S> {
         let mut patch = PatchArtist::new(shape, crate::rc::params());
+        props.apply(&mut patch);
         // Like matplotlib's `_set_artist_props`, keep a transform the
         // shape already chose (a shadow inherits its source's).
         let base = patch.base_mut();

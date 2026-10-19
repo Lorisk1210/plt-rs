@@ -396,6 +396,25 @@ impl<'a> DrawContext<'a> {
     }
 }
 
+/// The pixels per point an arrow was last drawn at (matplotlib's
+/// `FancyArrowPatch._dpi_cor`, which each draw of the arrow sets): an
+/// arrow measured after drawing, even earlier in the same draw, uses it.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct DrawnDpiCor(std::cell::Cell<Option<f64>>);
+
+impl DrawnDpiCor {
+    /// Records a draw at `dpi_cor` pixels per point.
+    pub(crate) fn record(&self, dpi_cor: f64) {
+        self.0.set(Some(dpi_cor));
+    }
+
+    /// The pixels per point the arrow is measured at: those of its last
+    /// draw, or until it draws [`LayoutContext::measured_dpi_cor`].
+    pub(crate) fn measured(&self, layout: LayoutContext<'_>) -> f64 {
+        self.0.get().unwrap_or_else(|| layout.measured_dpi_cor())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use plt_core::{Affine2D, Path, Point, Rgba};

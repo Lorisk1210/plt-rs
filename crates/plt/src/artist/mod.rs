@@ -31,6 +31,7 @@ use crate::transforms::Transform;
 
 pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
+pub(crate) use context::DrawnDpiCor;
 pub use context::{DrawContext, DrawError, LayoutContext};
 pub(crate) use cursor::format_values;
 pub use filter::AggFilter;

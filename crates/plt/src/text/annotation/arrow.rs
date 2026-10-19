@@ -2,7 +2,7 @@
 
 use plt_core::{Bbox, Path, Point};
 
-use crate::artist::{ArtistBase, ArtistId, DrawContext, LayoutContext};
+use crate::artist::{ArtistBase, ArtistId, DrawContext, DrawnDpiCor, LayoutContext};
 use crate::patches::{
     ArrowSpec, ArrowStyle, ClipRegion, ConnectionStyle, DisplayPath, PatchError, PatchProps,
     PatchStyle, paint_paths, round_ends,
@@ -146,6 +146,8 @@ pub(crate) struct AnnotationArrow {
     /// The arrow's own path effects (not the text's): `path.effects` when
     /// it was made, unless given.
     path_effects: Vec<PathEffect>,
+    /// The resolution of the arrow's last draw.
+    dpi_cor: DrawnDpiCor,
 }
 
 impl AnnotationArrow {
@@ -195,20 +197,33 @@ impl AnnotationArrow {
             style,
             alpha: base.alpha,
             path_effects: base.path_effects.unwrap_or_else(|| rc.path_effects.clone()),
+            dpi_cor: DrawnDpiCor::default(),
         }
     }
 
-    /// The arrow's pieces in display pixels (`Annotation.update_positions`
-    /// followed by `FancyArrowPatch._get_path_in_displaycoord`).
-    pub(crate) fn display_paths(
+    /// The arrow's pieces in display pixels as measured, between draws
+    /// (see [`DrawnDpiCor`]).
+    pub(crate) fn measured_paths(
         &self,
         layout: LayoutContext<'_>,
         rc: &RcParams,
         target: ArrowTarget,
     ) -> Result<Vec<DisplayPath>, PatchError> {
+        self.display_paths(layout, rc, target, self.dpi_cor.measured(layout))
+    }
+
+    /// The arrow's pieces in display pixels (`Annotation.update_positions`
+    /// followed by `FancyArrowPatch._get_path_in_displaycoord`), its sizes
+    /// scaled by `dpi_cor` pixels per point.
+    fn display_paths(
+        &self,
+        layout: LayoutContext<'_>,
+        rc: &RcParams,
+        target: ArrowTarget,
+        dpi_cor: f64,
+    ) -> Result<Vec<DisplayPath>, PatchError> {
         let bbox = target.text_bbox;
         let end = target.point;
-        let dpi_cor = layout.points_to_pixels(1.0);
         let mut spec = self.spec.clone();
         let relpos = match self.placement {
             Placement::Fancy {
@@ -240,7 +255,9 @@ impl AnnotationArrow {
                     end.y,
                     [bbox.y0(), f64::midpoint(bbox.y0(), bbox.y1()), bbox.y1()],
                 );
-                let shrink_points = shrink * (y - end.y).hypot(x - end.x) / dpi_cor;
+                // In points at the canvas resolution, whatever `dpi_cor` is.
+                let distance = (y - end.y).hypot(x - end.x);
+                let shrink_points = shrink * distance / layout.points_to_pixels(1.0);
                 spec.shrink_a = shrink_points;
                 spec.shrink_b = shrink_points;
                 (relx, rely)
@@ -269,7 +286,7 @@ impl AnnotationArrow {
         at: Point,
     ) -> bool {
         let (Ok(paths), Ok(resolved)) = (
-            self.display_paths(layout, rc, target),
+            self.measured_paths(layout, rc, target),
             self.style.resolve(rc, self.alpha, true),
         ) else {
             return false;
@@ -290,7 +307,10 @@ impl AnnotationArrow {
         rc: &RcParams,
         target: ArrowTarget,
     ) -> Result<(), PatchError> {
-        let paths = self.display_paths(*ctx.layout(), rc, target)?;
+        let layout = *ctx.layout();
+        let dpi_cor = layout.points_to_pixels(1.0);
+        self.dpi_cor.record(dpi_cor);
+        let paths = self.display_paths(layout, rc, target, dpi_cor)?;
         let mut base = ArtistBase::default();
         base.alpha = self.alpha;
         base.path_effects.clone_from(&self.path_effects);

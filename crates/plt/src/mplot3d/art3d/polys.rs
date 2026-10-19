@@ -6,6 +6,7 @@ use crate::collections::{CollectionArtist, EdgeColors};
 use crate::colors::Color;
 use crate::mplot3d::camera::Projection;
 use crate::mplot3d::math::Vec3;
+use crate::numeric::argsort;
 
 /// How the depth of a polygon is computed from the projected depths of
 /// its vertices, for drawing polygons back to front (matplotlib's
@@ -113,15 +114,14 @@ impl Polys3D {
     }
 
     /// The order the `projected` faces are drawn in, deepest first
-    /// (matplotlib's `argsort(face_z)[::-1]`; numpy's sort is not stable,
-    /// so faces of equal depth may come in another order there).
+    /// (matplotlib's `argsort(face_z)[::-1]`, faces of equal depth in
+    /// numpy's order).
     fn depth_order(&self, projected: &[Vec<Vec3>]) -> Vec<usize> {
         let face_z: Vec<f64> = projected
             .iter()
             .map(|face| self.zsort.reduce(face.iter().map(|p| p[2])))
             .collect();
-        let mut order: Vec<usize> = (0..face_z.len()).collect();
-        order.sort_by(|&a, &b| face_z[a].total_cmp(&face_z[b]));
+        let mut order = argsort(&face_z);
         order.reverse();
         order
     }

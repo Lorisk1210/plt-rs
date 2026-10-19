@@ -1,12 +1,15 @@
-//! numpy-style numeric helpers: ranges, grids and NaN-aware reductions.
+//! numpy-style numeric helpers: ranges, grids, NaN-aware reductions and
+//! numpy's (unstable) `argsort`.
 //!
 //! The range constructors reproduce numpy's floating-point arithmetic
 //! exactly (`linspace` computes `i * step + start` and pins the endpoint),
 //! because matplotlib's results depend on those precise values.
 
+mod argsort;
 mod grid;
 mod interp;
 
+pub use argsort::argsort;
 pub use grid::{Grid, GridError};
 pub use interp::interp;
 

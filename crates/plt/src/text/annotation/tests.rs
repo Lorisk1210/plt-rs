@@ -255,3 +255,29 @@ fn text_can_be_offset_from_another_artist() {
         above.y0()
     );
 }
+
+#[test]
+fn arrows_are_measured_at_their_last_drawn_resolution() {
+    let (fig, ax) = axes();
+    let note = ax
+        .annotate(
+            "a",
+            (5.0, 5.0),
+            AnnotateOptions {
+                xytext: Some(Point::new(1.0, 1.0)),
+                arrowprops: Some(arrow("simple")),
+                ..AnnotateOptions::default()
+            },
+        )
+        .expect("valid annotation");
+    // Before any draw, matplotlib's arrow (its heads and the shrinking at
+    // its ends) is one pixel per point; afterwards 100/72.
+    let measured = note.window_extent().expect("an extent");
+    fig.draw(&mut RecordingRenderer::new(640.0, 480.0, 100.0))
+        .expect("draws");
+    let drawn = note.window_extent().expect("an extent");
+    assert!(
+        !close(drawn.x1(), measured.x1()),
+        "{measured:?} then {drawn:?}"
+    );
+}

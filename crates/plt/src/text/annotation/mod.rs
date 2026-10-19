@@ -255,7 +255,7 @@ impl AnnotationState {
         };
         let target = Self::target(text, layout, point, anchor)?;
         let paths = arrow
-            .display_paths(layout, &text.rc, target)
+            .measured_paths(layout, &text.rc, target)
             .map_err(TextDrawError::Box)?;
         let displayed: Vec<plt_core::Path> = paths.iter().map(DisplayPath::to_display).collect();
         Ok(text_bbox.union(&plt_core::Path::compound(&displayed).extents()))

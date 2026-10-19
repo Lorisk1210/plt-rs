@@ -266,7 +266,7 @@ impl AnnotationBboxArtist {
         }
         if let Some(arrow) = &self.arrow {
             let target = self.arrow_target(layout, &geometry).ok()?;
-            let paths = arrow.display_paths(layout, &self.rc, target).ok()?;
+            let paths = arrow.measured_paths(layout, &self.rc, target).ok()?;
             let displayed: Vec<plt_core::Path> =
                 paths.iter().map(DisplayPath::to_display).collect();
             extent = extent.union(&plt_core::Path::compound(&displayed).extents());

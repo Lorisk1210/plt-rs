@@ -4,7 +4,7 @@
 
 use super::registry::gca;
 use crate::axes::{
-    BandAlign, BarContainer, BarLabelError, BarLabelOptions, BarOptions, BoxplotArtists,
+    BandAlign, BandRange, BarContainer, BarLabelError, BarLabelOptions, BarOptions, BoxplotArtists,
     BoxplotOptions, GroupedBarData, GroupedBarError, GroupedBarOptions, HistPlot, HistPlotOptions,
     PieContainer, PieLabelOptions, PieLabels, PieOptions, PlotError, ViolinParts,
     ViolinplotOptions,
@@ -40,9 +40,13 @@ pub fn barh(
     gca().barh(y, width, options)
 }
 
-/// Draws horizontal bands `xranges` (start, width) at `position` with
-/// `height` on the current axes (matplotlib's `broken_barh`).
-pub fn broken_barh(xranges: &[(f64, f64)], band: (f64, f64), align: BandAlign) -> Collection {
+/// Draws horizontal bands `xranges` (start, width) at the band's position
+/// with its height on the current axes (matplotlib's `broken_barh`).
+pub fn broken_barh(
+    xranges: &[(f64, f64)],
+    band: impl Into<BandRange>,
+    align: BandAlign,
+) -> Collection {
     gca().broken_barh(xranges, band, align)
 }
 

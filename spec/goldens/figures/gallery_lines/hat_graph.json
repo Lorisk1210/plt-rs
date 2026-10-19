@@ -1,0 +1,20 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.079721, 0.09838, 0.913768, 0.849178],
+   "title": "Scores by number of game and players",
+   "xlim": [-0.592857, 4.592857],
+   "ylim": [0.0, 60.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Games",
+   "ylabel": "Score",
+   "xticks": [[0, "I"], [1, "II"], [2, "III"], [3, "IV"], [4, "V"]],
+   "yticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"], [40.0, "40"], [50.0, "50"], [60.0, "60"]],
+   "legend": ["Player A", "Player B"]
+  }
+ ]
+}

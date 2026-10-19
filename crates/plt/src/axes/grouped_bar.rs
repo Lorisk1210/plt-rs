@@ -44,6 +44,10 @@ pub struct GroupedBarOptions {
     pub group_spacing: f64,
     /// Gap between the bars of a group, in bar widths (default 0).
     pub bar_spacing: f64,
+    /// Where the bars of every dataset start along the value direction:
+    /// one value or one per category (`bottom` of vertical bars, `left`
+    /// of horizontal ones; default 0).
+    pub base: Vec<f64>,
     /// Category labels at the group centres (empty: ticks unchanged).
     pub tick_labels: Vec<String>,
     /// Dataset labels for the legend (empty: none).
@@ -72,6 +76,7 @@ impl Default for GroupedBarOptions {
             positions: None,
             group_spacing: 1.5,
             bar_spacing: 0.0,
+            base: vec![0.0],
             tick_labels: Vec::new(),
             labels: Vec::new(),
             orientation: Orientation::Vertical,
@@ -283,6 +288,7 @@ impl Axes {
                 let face = cycled(&options.facecolor, i).or_else(|| cycled(&options.colors, i));
                 let bar = BarOptions {
                     thickness: vec![width],
+                    base: options.base.clone(),
                     align: BarAlign::Edge,
                     label,
                     color: face.into_iter().collect(),
@@ -336,6 +342,21 @@ mod tests {
         let expected = 1.0 - 0.5 + 0.25 * width + (width + 0.1 * width);
         assert!((second.xy.y - expected).abs() < 1e-15);
         assert_eq!(bars[0].label.as_deref(), Some("a"));
+    }
+
+    #[test]
+    fn every_dataset_starts_at_the_base() {
+        let ax = Figure::new().subplot();
+        let options = GroupedBarOptions {
+            base: vec![5.0, 15.0],
+            ..GroupedBarOptions::default()
+        };
+        let data = vec![vec![0.0, 0.0], vec![20.0, 17.0]];
+        let bars = ax.grouped_bar(data, options).unwrap();
+        for container in &bars {
+            assert_eq!(container.bottoms(), [5.0, 15.0]);
+        }
+        assert_eq!(bars[1].tops(), [25.0, 32.0]);
     }
 
     #[test]

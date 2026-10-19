@@ -84,7 +84,7 @@ pub use axis_label::LabelLoc;
 pub(crate) use axis_layout::{PlacedText, place_text};
 pub use axis_mode::AxisMode;
 pub use bar_label::{BarLabelError, BarLabelFormat, BarLabelOptions, BarLabelType};
-pub use bars::{BandAlign, BarAlign, BarContainer, BarOptions};
+pub use bars::{BandAlign, BandRange, BarAlign, BarContainer, BarOptions};
 pub use boxplot::BoxplotOptions;
 pub use bxp::{BoxArtist, BoxStyle, BoxplotArtists, BxpOptions};
 pub(crate) use children::DataUpdate;

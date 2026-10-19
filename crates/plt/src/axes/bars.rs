@@ -37,6 +37,40 @@ pub enum BandAlign {
     Top,
 }
 
+/// The vertical extent of an [`Axes::broken_barh`] band (matplotlib's
+/// `yrange`): a position on the y axis, a number or a category name, and
+/// a height.
+///
+/// ```
+/// use plt::axes::BandRange;
+/// assert_ne!(BandRange::from((20.0, 9.0)), BandRange::from(("CPU 1", 9.0)));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub struct BandRange {
+    /// Where the band sits: always a single value.
+    position: AxisValues,
+    /// The extent of the band along y.
+    height: f64,
+}
+
+impl From<(f64, f64)> for BandRange {
+    fn from((position, height): (f64, f64)) -> Self {
+        Self {
+            position: AxisValues::Numbers(vec![position]),
+            height,
+        }
+    }
+}
+
+impl From<(&str, f64)> for BandRange {
+    fn from((category, height): (&str, f64)) -> Self {
+        Self {
+            position: AxisValues::Categories(vec![category.to_owned()]),
+            height,
+        }
+    }
+}
+
 /// Options of [`Axes::bar`] and [`Axes::barh`] (matplotlib's keywords).
 ///
 /// Per-bar lists hold one value for all bars or one value per bar;
@@ -209,8 +243,9 @@ impl Axes {
     }
 
     /// A horizontal band of rectangles, one per `(start, width)` in
-    /// `xranges`, spanning `height` vertically at `position` (matplotlib's
-    /// `broken_barh`). Style it through the returned collection.
+    /// `xranges`, spanning the band's height vertically at its position, a
+    /// number or a category of the y axis (matplotlib's `broken_barh`).
+    /// Style it through the returned collection.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -218,13 +253,21 @@ impl Axes {
     /// let ax = Figure::new().subplot();
     /// let band = ax.broken_barh(&[(10.0, 50.0), (100.0, 20.0)], (20.0, 9.0), BandAlign::Bottom);
     /// band.set_facecolor("tab:blue");
+    ///
+    /// let ax = Figure::new().subplot();
+    /// ax.broken_barh(&[(0.0, 3.0)], ("CPU 1", 0.4), BandAlign::Center);
+    /// ax.broken_barh(&[(1.0, 1.5)], ("disk", 0.4), BandAlign::Center);
+    /// assert_eq!(ax.yaxis().ticklocs(false)?, [0.0, 1.0]);
+    /// # Ok::<(), String>(())
     /// ```
     pub fn broken_barh(
         &self,
         xranges: &[(f64, f64)],
-        (position, height): (f64, f64),
+        band: impl Into<BandRange>,
         align: BandAlign,
     ) -> Collection {
+        let BandRange { position, height } = band.into();
+        let position = self.yaxis().convert_units(position)[0];
         let (y0, y1) = match align {
             BandAlign::Bottom => (position, position + height),
             BandAlign::Center => (position - height / 2.0, position + height / 2.0),

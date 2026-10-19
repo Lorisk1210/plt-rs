@@ -11,6 +11,7 @@ use plt::prelude::*;
 
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
+use crate::figures::cases::common::markevery_sine;
 
 /// `_markevery_styles`: four marker styles (after `line`, `""` or `"-"`)
 /// with no, default, every-10th and every-20th-from-5 markers, and a
@@ -119,17 +120,6 @@ fn markevery_grid(fig: &Figure, x: &[f64], y: &[f64], kind: GridAxes) -> CaseRes
     }
     remove_ticks_and_titles(fig);
     Ok(())
-}
-
-/// `_markevery_sine`: 200 points of a raised sine.
-fn markevery_sine() -> (Vec<f64>, Vec<f64>) {
-    let delta = 0.11;
-    let x: Vec<f64> = linspace(0.0, 10.0 - 2.0 * delta, 200)
-        .into_iter()
-        .map(|x| x + delta)
-        .collect();
-    let y = x.iter().map(|x| x.sin() + 1.0 + delta).collect();
-    (x, y)
 }
 
 pub(super) fn markevery_linear_scales(fig: &Figure) -> CaseResult {

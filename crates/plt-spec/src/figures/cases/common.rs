@@ -2,12 +2,13 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::Axes;
+use plt::axes::{Axes, BarLabelOptions};
 use plt::axisartist::AuxTransform;
 use plt::colors::Color;
 use plt::contour::{ContourOptions, Levels};
 use plt::figure::Figure;
 use plt::fonts::{FontProperties, FontSize};
+use plt::numeric::linspace;
 use plt::text::{Language, LanguageRange};
 use plt::transforms::Affine2D;
 
@@ -34,6 +35,39 @@ pub(super) fn polar_degrees() -> AuxTransform {
 pub(super) fn tickless(ax: &Axes) {
     ax.set_xticks(Vec::<f64>::new())
         .set_yticks(Vec::<f64>::new());
+}
+
+/// `f` applied to each value.
+pub(super) fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
+    values.iter().copied().map(f).collect()
+}
+
+/// Running sums of `values` (`np.cumsum`).
+pub(super) fn cumsum(values: &[f64]) -> Vec<f64> {
+    values
+        .iter()
+        .scan(0.0, |sum, v| {
+            *sum += v;
+            Some(*sum)
+        })
+        .collect()
+}
+
+/// `bar_label` options with only `padding` set.
+pub(super) fn padded(padding: f64) -> BarLabelOptions {
+    BarLabelOptions {
+        padding: vec![padding],
+        ..BarLabelOptions::default()
+    }
+}
+
+/// The raised sine of matplotlib's `markevery` tests and demo: 200 points
+/// of `sin(x) + 1.11` for `x` in `[0.11, 9.89]` (`_markevery_sine`).
+pub(super) fn markevery_sine() -> (Vec<f64>, Vec<f64>) {
+    let delta = 0.11;
+    let x = map(&linspace(0.0, 10.0 - 2.0 * delta, 200), |x| x + delta);
+    let y = map(&x, |x| x.sin() + 1.0 + delta);
+    (x, y)
 }
 
 /// One axes with both limits `(0, 10)` (`plt.axis([0, 10, 0, 10])`).

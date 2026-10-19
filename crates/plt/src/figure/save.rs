@@ -176,18 +176,26 @@ pub(super) fn simplify_settings() -> SimplifySettings {
     }
 }
 
+/// The whole pixels a canvas `size` pixels long holds: truncated, but
+/// rounded up within 1e-8 of the next pixel to undo floating-point error
+/// (matplotlib's `FigureCanvasBase.get_width_height`).
+pub(super) fn whole_pixels(size: f64) -> u32 {
+    // The conversion saturates: negative and NaN sizes give 0.
+    (size + 1e-8) as u32
+}
+
 impl Figure {
-    /// A raster canvas for this figure — `size_inches × dpi` pixels
-    /// (truncated, as `FigureCanvasAgg` does) with the current
-    /// `path.simplify` and `agg.path.chunksize` settings — ready to be
-    /// drawn into.
+    /// A raster canvas for this figure — [`Figure::width_height`] pixels,
+    /// as `FigureCanvasAgg` makes — with the current `path.simplify` and
+    /// `agg.path.chunksize` settings, ready to be drawn into.
     pub fn raster_canvas(&self) -> Result<RasterRenderer, SaveError> {
         let (width, height) = self.size_inches();
         Self::raster_canvas_sized(width, height, self.dpi())
     }
 
-    /// A raster canvas of `width × height` inches at `dpi` with the
-    /// current `path.simplify` and `agg.path.chunksize` settings.
+    /// A raster canvas of `width × height` inches at `dpi`, in whole
+    /// pixels, with the current `path.simplify` and `agg.path.chunksize`
+    /// settings.
     pub(crate) fn raster_canvas_sized(
         width: f64,
         height: f64,
@@ -195,7 +203,8 @@ impl Figure {
     ) -> Result<RasterRenderer, SaveError> {
         // Negative sizes never split, as matplotlib's `npts > nmax > 100`.
         let chunksize = usize::try_from(crate::rc::params().agg_path_chunksize).unwrap_or(0);
-        RasterRenderer::new(width * dpi, height * dpi, dpi)
+        let (width, height) = (whole_pixels(width * dpi), whole_pixels(height * dpi));
+        RasterRenderer::new(f64::from(width), f64::from(height), dpi)
             .map(|canvas| {
                 canvas
                     .with_simplify(simplify_settings())
@@ -440,6 +449,18 @@ mod tests {
         assert_eq!(&pixmap.data()[(3 * 20 + 3) * 4..][..4], &[255; 4]);
         let png = fig.to_png().unwrap();
         assert_eq!(&png[1..4], b"PNG");
+    }
+
+    #[test]
+    fn canvases_round_up_sizes_a_rounding_error_short_of_a_pixel() {
+        assert_eq!(whole_pixels(9.2 * 100.0), 920);
+        assert_eq!(whole_pixels(255.5), 255);
+        assert_eq!((whole_pixels(-1.0), whole_pixels(f64::NAN)), (0, 0));
+        let pixmap = Figure::with_size(9.2, 0.1, 100.0)
+            .render_raster()
+            .unwrap()
+            .into_pixmap();
+        assert_eq!((pixmap.width(), pixmap.height()), (920, 10));
     }
 
     #[test]

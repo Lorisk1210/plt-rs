@@ -230,6 +230,9 @@ fn copy_line(dst: &mut LineArtist, src: &LineArtist) {
     dst.solid_joinstyle = src.solid_joinstyle;
     dst.marker = src.marker.clone();
     dst.fillstyle = src.fillstyle;
+    dst.marker_transform = src.marker_transform;
+    dst.marker_capstyle = src.marker_capstyle;
+    dst.marker_joinstyle = src.marker_joinstyle;
     dst.drawstyle = src.drawstyle;
     dst.recache();
 }

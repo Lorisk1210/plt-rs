@@ -317,6 +317,20 @@ mod tests {
     }
 
     #[test]
+    fn a_colour_only_colours_the_lines_of_line_collections() {
+        let events = CollectionSpec::events(&[1.0], Orientation::Horizontal, 0.0, 1.0)
+            .with_props(CollectionProps::default().color("r"));
+        assert_eq!(events.artist.facecolors, None);
+        assert_eq!(
+            events.artist.edgecolors,
+            EdgeColors::Colors(vec![Color::from("r")])
+        );
+        let polygons = CollectionSpec::polygons(vec![vec![Point::new(0.0, 0.0); 3]])
+            .with_props(CollectionProps::default().color("r"));
+        assert_eq!(polygons.artist.facecolors, Some(vec![Color::from("r")]));
+    }
+
+    #[test]
     fn matched_patches_keep_their_colours() {
         let patches = [
             CollectionPatch::new(

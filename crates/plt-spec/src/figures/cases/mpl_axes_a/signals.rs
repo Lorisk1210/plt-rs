@@ -8,21 +8,11 @@ use plt::numeric::Grid;
 use plt::prelude::*;
 
 use crate::figures::CaseResult;
+use crate::figures::cases::common::cumsum;
 use crate::rng::SpecRng;
 
 /// The seed the tests give `np.random.seed`.
 const SEED: u64 = 19_680_801;
-
-/// Running sums of `values` (`np.cumsum`).
-fn cumsum(values: &[f64]) -> Vec<f64> {
-    values
-        .iter()
-        .scan(0.0, |sum, v| {
-            *sum += v;
-            Some(*sum)
-        })
-        .collect()
-}
 
 /// `ax.acorr(x, maxlags=len(x) - 1)` on a new subplot.
 fn acorr_all_lags(fig: &Figure, x: &[f64]) -> CaseResult {

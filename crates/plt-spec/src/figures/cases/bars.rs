@@ -11,6 +11,7 @@ use plt::numeric::arange;
 use plt::orientation::Orientation;
 
 use crate::figures::FigureCase;
+use crate::figures::cases::common::padded;
 
 const HEIGHTS: [f64; 5] = [3.0, 7.0, 5.0, 2.0, 6.0];
 
@@ -22,14 +23,6 @@ fn x() -> Vec<f64> {
 /// `HEIGHTS` scaled by `factor`.
 fn heights(factor: f64) -> Vec<f64> {
     HEIGHTS.iter().map(|h| h * factor).collect()
-}
-
-/// `bar_label` options with only `padding` set.
-fn padded(padding: f64) -> BarLabelOptions {
-    BarLabelOptions {
-        padding: vec![padding],
-        ..BarLabelOptions::default()
-    }
 }
 
 /// `bar_label` options formatting values with `template`.

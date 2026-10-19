@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.052447, 0.160083, 0.924116, 0.726723],
+   "title": "$\\ddot{o}\\acute{e}\\grave{e}\\hat{O}\\breve{i}\\bar{A}\\tilde{n}\\vec{q}$",
+   "xlim": [-0.45, 9.45],
+   "ylim": [-0.45, 9.45],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "$\\\"o\\ddot o \\'e\\`e\\~n\\.x\\^y$",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"]],
+   "yticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"]]
+  }
+ ]
+}

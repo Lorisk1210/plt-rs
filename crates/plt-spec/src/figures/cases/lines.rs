@@ -14,15 +14,12 @@ use plt::transforms::Point;
 use plt_render::{CapStyle, JoinStyle};
 
 use crate::figures::FigureCase;
+use crate::figures::cases::common::map;
 use crate::rng::SpecRng;
 
 /// `X = np.linspace(0, 2 * np.pi, 50)`.
 fn big_x() -> Vec<f64> {
     linspace(0.0, TAU, 50)
-}
-
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().map(|&v| f(v)).collect()
 }
 
 fn props() -> LineProps {

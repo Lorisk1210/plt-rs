@@ -13,16 +13,12 @@ use plt::numeric::{Grid, linspace};
 use plt::prelude::*;
 
 use crate::figures::FigureCase;
+use crate::figures::cases::common::map;
 use crate::rng::SpecRng;
 
 /// `T`: the abscissa of the line plots.
 fn t() -> Vec<f64> {
     linspace(0.0, 10.0, 40)
-}
-
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().copied().map(f).collect()
 }
 
 /// `_field(seed)`: a smooth 30 × 30 field in about `[-2.5, 2.5]` whose

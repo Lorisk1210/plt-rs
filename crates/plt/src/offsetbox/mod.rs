@@ -19,7 +19,9 @@
 //!   [`Axes::add_anchored_box`](crate::axes::Axes::add_anchored_box);
 //! * placed at a point, possibly away from an annotated point with an
 //!   arrow pointing to it ([`AnnotationBbox`]), see
-//!   [`Axes::add_annotation_bbox`](crate::axes::Axes::add_annotation_bbox).
+//!   [`Axes::add_annotation_bbox`](crate::axes::Axes::add_annotation_bbox)
+//!   (or [`Figure::add_annotation_bbox`](crate::figure::Figure::add_annotation_bbox)
+//!   for a box of the figure).
 //!
 //! ```
 //! use plt::prelude::*;

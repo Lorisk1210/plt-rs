@@ -4,6 +4,7 @@ use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_render::{CapStyle, GraphicsContext, JoinStyle};
 
 use super::axline::InfiniteLine;
+use super::hit_region::hit_region;
 use super::line_markers::MarkerError;
 use super::subslice::visible_range;
 use super::{DrawStyle, LineStyle, MarkEvery, StepError, inverse_dashes, line_vertices};
@@ -13,6 +14,7 @@ use crate::artist::{
 };
 use crate::colors::Color;
 use crate::markers::{FillStyle, Marker};
+use crate::patches::ClipRegion;
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::transforms::{ResolvedTransform, Transform};
 
@@ -330,6 +332,16 @@ impl Artist for LineArtist {
             return None;
         }
         LimitPoints::through(&self.transform(), axes, || self.drawn_points())
+    }
+
+    /// matplotlib's `Line2D.contains` as a region: the surroundings of the
+    /// vertices (of a line without a line style) or of the segments within
+    /// the pick radius, which clip the arrows of annotations that are
+    /// given the line as `patchA` or `patchB`.
+    fn connection_region(&self, ctx: &LayoutContext<'_>) -> Option<ClipRegion> {
+        let points = self.display_points(*ctx)?;
+        let pixels = ctx.points_to_pixels(self.pickradius);
+        Some(hit_region(&points, pixels, self.linestyle.is_visible()))
     }
 
     /// matplotlib's `Line2D.contains`: the vertices within the pick radius

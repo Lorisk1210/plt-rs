@@ -13,11 +13,21 @@ use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 #[derive(Clone, Copy, Debug)]
 pub struct LayoutContext<'a> {
     figure: &'a FigureState,
+    /// Artists measured as drawn at the canvas resolution: those that
+    /// draw before what is being placed for the coming draw.
+    drawn: &'a [ArtistId],
 }
 
 impl<'a> LayoutContext<'a> {
     pub(crate) fn new(figure: &'a FigureState) -> Self {
-        Self { figure }
+        Self { figure, drawn: &[] }
+    }
+
+    /// The same context, measuring the arrows of `drawn` as drawn at the
+    /// canvas resolution: what matplotlib measures while drawing sees the
+    /// artists drawn earlier in the same draw that way.
+    pub(crate) fn with_drawn(self, drawn: &'a [ArtistId]) -> Self {
+        Self { drawn, ..self }
     }
 
     /// Every artist of the figure.
@@ -408,9 +418,14 @@ impl DrawnDpiCor {
         self.0.set(Some(dpi_cor));
     }
 
-    /// The pixels per point the arrow is measured at: those of its last
-    /// draw, or until it draws [`LayoutContext::measured_dpi_cor`].
-    pub(crate) fn measured(&self, layout: LayoutContext<'_>) -> f64 {
+    /// The pixels per point the arrow of artist `owner` is measured at:
+    /// the canvas resolution when `layout` counts the artist as drawn
+    /// (see [`LayoutContext::with_drawn`]), else that of its last draw, or
+    /// until it draws [`LayoutContext::measured_dpi_cor`].
+    pub(crate) fn measured(&self, layout: LayoutContext<'_>, owner: ArtistId) -> f64 {
+        if layout.drawn.contains(&owner) {
+            return layout.points_to_pixels(1.0);
+        }
         self.0.get().unwrap_or_else(|| layout.measured_dpi_cor())
     }
 }

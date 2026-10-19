@@ -18,22 +18,10 @@ pub(crate) use math::CASES as MATH;
 pub(crate) use table_cells::CASES as TABLE_CELLS;
 pub(crate) use tables::CASES as TABLES;
 
-use crate::figures::cases::common::blank;
-use plt::patches::{BoxStyle, PatchProps};
-use plt::text::TextBoxProps;
+use crate::figures::cases::common::{blank, styled_box};
 
 /// `LOREM`: the filler paragraph of the wrapping cases.
 const LOREM: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod \
                      tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim \
                      veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea \
                      commodo consequat.";
-
-/// `bbox=dict(boxstyle=style, **patch)`.
-pub(super) fn styled_box(
-    style: &str,
-    patch: PatchProps,
-) -> Result<Option<TextBoxProps>, Box<dyn std::error::Error>> {
-    Ok(Some(
-        TextBoxProps::new(style.parse::<BoxStyle>()?).with_patch(patch),
-    ))
-}

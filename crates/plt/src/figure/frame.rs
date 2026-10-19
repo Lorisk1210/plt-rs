@@ -132,7 +132,7 @@ impl Artist for FigureFrame {
 /// `children` in the order matplotlib's `Figure.get_children` lists them,
 /// which its z-order sort keeps among equal z-orders: artists added with
 /// `add_artist`, axes, texts, figure images, legends, then subfigures.
-fn listing_order(store: &ArtistStore, children: &[ArtistId]) -> Vec<ArtistId> {
+pub(super) fn listing_order(store: &ArtistStore, children: &[ArtistId]) -> Vec<ArtistId> {
     let group = |id: ArtistId| -> u8 {
         if store.get_as::<AxesState>(id).is_some() || is_axes3d(store, id) {
             1

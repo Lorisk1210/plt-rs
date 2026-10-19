@@ -1,0 +1,45 @@
+{
+ "size_px": [1200, 400],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.003472, 0.010417, 0.326388, 0.926652],
+   "title": "flux encoded as arrow length",
+   "xlim": [-0.25, 1.25],
+   "ylim": [-0.25, 1.25],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.336806, 0.010417, 0.326388, 0.926652],
+   "title": "flux encoded as arrow width",
+   "xlim": [-0.25, 1.25],
+   "ylim": [-0.25, 1.25],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.670139, 0.010417, 0.326388, 0.926652],
+   "title": "flux encoded as arrow alpha",
+   "xlim": [-0.25, 1.25],
+   "ylim": [-0.25, 1.25],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

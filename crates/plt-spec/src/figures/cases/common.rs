@@ -9,7 +9,10 @@ use plt::contour::{ContourOptions, Levels};
 use plt::figure::Figure;
 use plt::fonts::{FontProperties, FontSize};
 use plt::numeric::linspace;
-use plt::text::{Language, LanguageRange};
+use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchProps};
+use plt::text::{
+    ArrowProps, FancyArrowProps, Language, LanguageRange, LegacyArrowProps, TextBoxProps,
+};
 use plt::transforms::Affine2D;
 
 /// Character ranges of a language.
@@ -101,4 +104,36 @@ pub(super) fn colors(names: &[&str]) -> Vec<Color> {
 /// Hatch patterns, `None` leaving a band plain (`hatches=[...]`).
 pub(super) fn hatches(patterns: &[Option<&str>]) -> Vec<Option<String>> {
     patterns.iter().map(|p| p.map(str::to_owned)).collect()
+}
+
+/// `bbox=dict(boxstyle=style, **patch)`.
+pub(super) fn styled_box(
+    style: &str,
+    patch: PatchProps,
+) -> Result<Option<TextBoxProps>, Box<dyn std::error::Error>> {
+    Ok(Some(
+        TextBoxProps::new(style.parse::<BoxStyle>()?).with_patch(patch),
+    ))
+}
+
+/// The legacy annotation arrow of matplotlib's examples and tests,
+/// `arrowprops=dict(facecolor='black', shrink=0.05)`: black, shortened by
+/// 5%.
+pub(super) fn black_arrow() -> ArrowProps {
+    ArrowProps::Legacy(LegacyArrowProps {
+        shrink: 0.05,
+        patch: PatchProps::default().facecolor("black"),
+        ..LegacyArrowProps::default()
+    })
+}
+
+/// `arrowprops=dict(arrowstyle=style, connectionstyle=connection)`.
+pub(super) fn arrow(
+    style: &str,
+    connection: &str,
+) -> Result<FancyArrowProps, Box<dyn std::error::Error>> {
+    Ok(FancyArrowProps {
+        connectionstyle: connection.parse::<ConnectionStyle>()?,
+        ..FancyArrowProps::new(style.parse::<ArrowStyle>()?)
+    })
 }

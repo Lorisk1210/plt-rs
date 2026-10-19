@@ -1,8 +1,9 @@
 //! The label of an axis: its text, font and placement (matplotlib's
 //! `Axis.label`).
 
-use plt_text::VAlign;
+use plt_text::{HAlign, VAlign};
 
+use super::axis_handle::Axis;
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -39,6 +40,16 @@ impl LabelLoc {
             Self::End => 1.0,
         }
     }
+
+    /// The label's alignment along the axis: the text's horizontal
+    /// alignment, before any rotation.
+    pub(crate) fn halign(self) -> HAlign {
+        match self {
+            Self::Start => HAlign::Left,
+            Self::Center => HAlign::Center,
+            Self::End => HAlign::Right,
+        }
+    }
 }
 
 /// The label of an axis (matplotlib's `Axis.label`).
@@ -56,6 +67,9 @@ pub(crate) struct AxisLabel {
     pub(crate) side: SpineSide,
     /// Where along the axis the label sits.
     pub(crate) loc: LabelLoc,
+    /// The alignment of the lines of a multi-line label (`None` follows
+    /// the alignment along the axis, as matplotlib's `multialignment`).
+    pub(crate) multialign: Option<HAlign>,
     /// Whether the label is drawn (matplotlib's `label.set_visible`).
     pub(crate) visible: bool,
     /// Rotation in degrees instead of the axis default (0 for x, 90 for y).
@@ -79,4 +93,55 @@ pub(crate) fn label_font(rc: &RcParams) -> FontProperties {
     FontProperties::from_rc(rc)
         .with_size(rc.axes_labelsize, rc.font_size)
         .with_weight(rc.axes_labelweight)
+}
+
+impl Axis {
+    /// Sets the font families of the axis label (matplotlib's
+    /// `set_xlabel(..., family=...)`).
+    pub fn set_label_family<I: IntoIterator<Item = S>, S: Into<String>>(
+        &self,
+        families: I,
+    ) -> &Self {
+        let families: Vec<String> = families.into_iter().map(Into::into).collect();
+        self.update(|axis| axis.label.font.families = families);
+        self
+    }
+
+    /// Aligns the lines of a multi-line axis label (matplotlib's
+    /// `set_xlabel(..., multialignment=...)`); `None` aligns them like the
+    /// label itself.
+    pub fn set_label_multialign(&self, align: Option<HAlign>) -> &Self {
+        self.update(|axis| axis.label.multialign = align);
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::artist::ArtistHandle;
+    use crate::axes::AxesState;
+    use crate::figure::Figure;
+
+    #[test]
+    fn label_family_and_multialign_change_only_that_label() {
+        let ax = Figure::new().subplot();
+        ax.xaxis()
+            .set_label_family(["serif"])
+            .set_label_multialign(Some(HAlign::Left));
+        let (x, y) = ax
+            .raw()
+            .with::<AxesState, _>(|axes| (axes.xaxis.label.clone(), axes.yaxis.label.clone()));
+        assert_eq!(x.font.families, ["serif"]);
+        assert_eq!(x.multialign, Some(HAlign::Left));
+        assert_ne!(y.font.families, ["serif"]);
+        assert_eq!(y.multialign, None);
+    }
+
+    #[test]
+    fn labels_align_along_their_axis() {
+        assert_eq!(LabelLoc::Start.halign(), HAlign::Left);
+        assert_eq!(LabelLoc::Center.halign(), HAlign::Center);
+        assert_eq!(LabelLoc::End.halign(), HAlign::Right);
+    }
 }

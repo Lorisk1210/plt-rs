@@ -18,6 +18,7 @@ use plt::figure::Figure;
 use plt::gridspec::SubplotOverrides;
 use plt::numeric::linspace;
 
+use crate::figures::cases::common::map;
 use crate::figures::{CaseResult, FigureCase};
 
 /// Every case of the group.
@@ -70,11 +71,6 @@ use rc_cases;
 /// `T = np.linspace(0, 6, 25)`.
 fn t() -> Vec<f64> {
     linspace(0.0, 6.0, 25)
-}
-
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().copied().map(f).collect()
 }
 
 /// `_curve`: one curve.

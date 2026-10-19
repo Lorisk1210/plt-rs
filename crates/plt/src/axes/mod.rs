@@ -133,11 +133,13 @@ use std::rc::Rc;
 use crate::artist::Artist;
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::colors::Color;
+use crate::rc::ColorOrAuto;
 use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
 use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
 use plt_core::Point;
+use plt_text::{HAlign, VAlign};
 
 /// Where an axes title sits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -149,6 +151,18 @@ pub enum TitleLocation {
     Center,
     /// Flush right.
     Right,
+}
+
+impl TitleLocation {
+    /// The horizontal alignment of a title here (matplotlib aligns titles
+    /// by their location name).
+    fn halign(self) -> HAlign {
+        match self {
+            Self::Left => HAlign::Left,
+            Self::Center => HAlign::Center,
+            Self::Right => HAlign::Right,
+        }
+    }
 }
 
 /// Which position of an axes [`Axes::set_position_which`] sets
@@ -286,12 +300,33 @@ impl Axes {
     }
 
     /// Sets the title at `location` and returns it. Like matplotlib's
-    /// `set_title`, this resets the gap of all titles to `axes.titlepad`;
-    /// call [`Axes::set_title_pad`] afterwards to change it.
+    /// `set_title`, this resets the gap of all titles to `axes.titlepad`,
+    /// the title's height to `axes.titley` (which, when set, also stops
+    /// lifting the titles above decorations on top) and its size, weight,
+    /// colour and alignment to the `axes.title*` defaults; change them on
+    /// the returned title, or with [`Axes::set_title_pad`] and
+    /// [`Axes::set_title_y`], afterwards.
     pub fn set_title_at(&self, location: TitleLocation, text: impl Into<String>) -> Text {
-        self.set_title_pad(crate::rc::params().axes_titlepad);
+        let rc = crate::rc::params();
+        self.set_title_pad(rc.axes_titlepad);
         let title = self.title_handle(location);
-        title.set_text(text);
+        match rc.axes_titley {
+            Some(y) => {
+                self.set_title_y(location, y);
+            }
+            None => {
+                title.set_y(1.0);
+            }
+        }
+        title
+            .set_text(text)
+            .set_size(rc.axes_titlesize)
+            .set_weight(rc.axes_titleweight)
+            .set_valign(VAlign::Baseline)
+            .set_halign(location.halign());
+        if let ColorOrAuto::Color(color) = &rc.axes_titlecolor {
+            title.set_color(color.clone());
+        }
         title
     }
 

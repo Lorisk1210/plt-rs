@@ -52,7 +52,8 @@ impl BoxGeometry {
         let mins = bounds.map(|b| b.0);
         let maxs = bounds.map(|b| b.1);
         let [(x0, x1), (y0, y1), (z0, z1)] = bounds;
-        let corners = [
+        // Projected together, as matplotlib's `_transformed_cube`.
+        let projected = projection.project_transformed_all(&[
             [x0, y0, z0],
             [x1, y0, z0],
             [x1, y1, z0],
@@ -61,8 +62,8 @@ impl BoxGeometry {
             [x1, y0, z1],
             [x1, y1, z1],
             [x0, y1, z1],
-        ]
-        .map(|p| projection.project_transformed(p));
+        ]);
+        let corners: [Vec3; 8] = std::array::from_fn(|k| projected[k]);
         let mean_depth = |plane: usize| {
             PLANES[plane]
                 .iter()

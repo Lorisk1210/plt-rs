@@ -30,13 +30,26 @@ Ops
 ``axes3d.zoom_data``    {view?, limits?, aspect?, scale} -> limits
     ``_zoom_data_limits(*scale)`` after ``set_aspect(aspect)`` (box).
 
+``axes3d.project``      {view, limits, vertical_axis?, focal_length?, box_aspect?, points}
+                        -> {matrix, projected}
+    ``get_proj()`` after ``view_init(*view, vertical_axis=...)``,
+    ``set_proj_type("persp", focal_length=...)`` (orthographic without) and
+    ``set_box_aspect(box_aspect)``, and ``proj3d.proj_transform`` of
+    ``points`` (``[[x, y, z], ...]``) projected together, or as scalars
+    when there is one. Exact: the rounding of numpy's ``dot`` decides
+    which projected depths tie, and so the order 3-D artists draw in.
+
 ``zoom``, ``pan``, ``zoom_box`` and ``format_coord`` also take ``scales``.
 """
+
+import itertools
 
 from types import SimpleNamespace
 
 import matplotlib as mpl
+import numpy as np
 from matplotlib.figure import Figure
+from mpl_toolkits.mplot3d import proj3d
 
 from spec_support import ProbeSet
 
@@ -206,3 +219,44 @@ def test_scaled_navigation():
         for pixel in pixels:
             probes.probe("axes3d.format_coord", _format_coord, pixel=pixel, limits=limits,
                          scales=scales)
+
+
+def _project(points, view, limits, vertical_axis="z", focal_length=None, box_aspect=None):
+    fig = Figure(figsize=(4, 3), dpi=100)
+    ax = fig.add_subplot(projection="3d")
+    ax.view_init(*view, vertical_axis=vertical_axis)
+    if focal_length is not None:
+        ax.set_proj_type("persp", focal_length=focal_length)
+    if box_aspect is not None:
+        ax.set_box_aspect(box_aspect)
+    ax.set_xlim(*limits[0])
+    ax.set_ylim(*limits[1])
+    ax.set_zlim(*limits[2])
+    matrix = ax.get_proj()
+    pts = np.asarray(points, dtype=float)
+    if len(pts) == 1:
+        projected = [proj3d.proj_transform(*pts[0], matrix)]
+    else:
+        projected = np.column_stack(proj3d.proj_transform(pts[:, 0], pts[:, 1], pts[:, 2], matrix))
+    return {"matrix": matrix.tolist(), "projected": [[float(c) for c in p] for p in projected]}
+
+
+GRID = [list(map(float, p)) for p in itertools.product(range(5), range(5), range(5))]
+PROJECTIONS = [
+    {"view": [30, -60, 0], "limits": [[0, 4], [0, 4], [0, 4]]},
+    {"view": [30, -60, 0], "limits": [[-0.2, 4.2], [-0.2, 4.2], [-0.2, 4.2]]},
+    {"view": [25, 40, 30], "limits": [[0, 4], [0, 4], [0, 4]]},
+    {"view": [15, 130, 0], "limits": [[-1, 5], [0, 4], [-2, 6]], "vertical_axis": "y"},
+    {"view": [-20, 75, -45], "limits": [[0, 4], [-3, 3], [0, 8]], "vertical_axis": "x"},
+    {"view": [30, -60, 0], "limits": [[0, 4], [0, 4], [0, 4]], "focal_length": 1.0},
+    {"view": [50, 20, 10], "limits": [[0, 4], [0, 4], [0, 4]], "focal_length": 0.4},
+    {"view": [30, -60, 0], "limits": [[0, 4], [0, 4], [0, 4]], "box_aspect": [1, 2, 1.5]},
+    {"view": [105, 200, 0], "limits": [[0, 4], [0, 4], [0, 4]], "box_aspect": [3, 1, 1],
+     "focal_length": 2.0},
+]
+
+
+def test_projections():
+    for scene in PROJECTIONS:
+        probes.probe("axes3d.project", _project, points=GRID, **scene)
+        probes.probe("axes3d.project", _project, points=[[1.0, 2.0, 3.0]], **scene)

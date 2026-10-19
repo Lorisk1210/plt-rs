@@ -9,7 +9,7 @@ use super::art3d::{Art3D, Artist3D};
 use super::camera::{Camera, ProjType, ViewAngles};
 use super::coords::Axis3;
 use super::error::Axes3DError;
-use super::math::Vec3;
+use super::math::{Matrix4, Vec3};
 use super::share::replay;
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
@@ -378,6 +378,20 @@ impl Axes3D {
     /// The view angles.
     pub fn view(&self) -> ViewAngles {
         self.with(|axes| axes.camera.angles)
+    }
+
+    /// The projection matrix of the current view and limits, from
+    /// transformed data coordinates to projected ones (matplotlib's
+    /// `get_proj`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let projected = ax.get_proj().project([0.5, 0.5, 0.5]);
+    /// assert!(projected.iter().all(|c| c.is_finite()));
+    /// ```
+    pub fn get_proj(&self) -> Matrix4 {
+        self.with(|axes| axes.projection().matrix)
     }
 
     /// Chooses the axis displayed vertically (matplotlib's

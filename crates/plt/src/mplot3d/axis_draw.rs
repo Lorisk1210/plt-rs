@@ -229,20 +229,21 @@ impl<'a> Painter<'a> {
         let i = dir.index();
         let (a, b) = ((i + 1) % 3, (i + 2) % 3);
         let (far, near) = (self.geometry.far_corner(), self.geometry.near_corner());
-        let paths = axis
+        let points: Vec<Vec3> = axis
             .drawn_ticks()
-            .map(|drawn| {
+            .flat_map(|drawn| {
                 let mut corner = far;
                 corner[i] = axis.scale.masked_forward(drawn.tick.loc);
                 let (mut start, mut end) = (corner, corner);
                 start[a] = near[a];
                 end[b] = near[b];
-                Path::polyline(vec![
-                    self.project(start),
-                    self.project(corner),
-                    self.project(end),
-                ])
+                [start, corner, end]
             })
+            .collect();
+        // matplotlib's gridlines are one collection, projected at once.
+        let projected = self.projection.project_transformed_all(&points);
+        let paths = (projected.as_chunks::<3>().0.iter())
+            .map(|line| Path::polyline(line.iter().map(|q| Point::new(q[0], q[1])).collect()))
             .collect();
         let style = &axis.style;
         let mut grid =
@@ -271,7 +272,8 @@ impl<'a> Painter<'a> {
             (axis.label.pad + AXIS_LABEL_OFFSET) * deltas_per_point,
         );
         let edges = self.geometry.axis_line(dir, self.axes.camera.vertical);
-        let ends = edges.map(|p| self.projection.project_transformed(p));
+        let projected = self.projection.project_transformed_all(&edges);
+        let ends = [projected[0], projected[1]];
         // The text angle follows the axis in axes coordinates.
         let (dx, dy) = (
             (ends[1][0] - ends[0][0]) * width,

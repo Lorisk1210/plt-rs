@@ -236,6 +236,7 @@ impl Cell {
             rc,
             shape: &shape,
             interpolation_steps: 1,
+            drawn: None,
         }
         .paint(ctx)
         .map_err(TextDrawError::Box)?;

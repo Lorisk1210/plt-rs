@@ -234,8 +234,7 @@ impl LineArtist {
             .resolve_alpha(alpha)
             .map_err(|e| e.to_string())?;
         let mut edge = self
-            .markeredgecolor
-            .or(&self.color)
+            .marker_edge()
             .resolve_alpha(alpha)
             .map_err(|e| e.to_string())?;
         // An automatic edge takes the line colour but the face's alpha.
@@ -514,10 +513,11 @@ impl Line2D {
             .with::<LineArtist, _>(|line| line.marker_indices(LayoutContext::new(&state)))
     }
 
-    /// The colour of the marker edges (the line colour when automatic).
+    /// The colour of the marker edges (matplotlib's `get_markeredgecolor`):
+    /// when automatic, the line colour, or black for filled markers in
+    /// classic mode.
     pub fn effective_markeredgecolor(&self) -> Color {
-        self.raw
-            .with::<LineArtist, _>(|line| line.markeredgecolor.or(&line.color).clone())
+        self.raw.with::<LineArtist, _>(LineArtist::marker_edge)
     }
 
     /// The resolved line colour.

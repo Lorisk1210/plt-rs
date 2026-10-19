@@ -157,20 +157,13 @@ impl Axes {
     /// several variates are Gouraud-shaded (which matplotlib 3.11 cannot
     /// draw).
     pub fn pcolormesh(&self, mesh: Mesh, options: PcolorOptions) -> Result<Collection, ImageError> {
-        let shading = default_shading(options.shading);
-        let mesh = pcolor_args(mesh, shading, true)?;
-        let mut props = options.props;
-        props
-            .edgecolors
-            .get_or_insert(EdgeColors::Colors(vec![Color::none()]));
-        props.antialiased.get_or_insert(vec![false]);
-        let snap = options.snap.unwrap_or(crate::rc::params().pcolormesh_snap);
+        let mesh = pcolor_args(mesh, default_shading(options.shading), true)?;
         match &mesh.values {
             MeshValues::Scalar(values) => {
                 let mappable = mesh_mappable(options.colors, values)?;
                 let values = values.masked_values();
-                let artist = self.quad_mesh_artist(&mesh, props, Some(snap));
-                let handle = self.add_mesh(artist, &mesh, options.transform);
+                let handle =
+                    self.add_pcolormesh(&mesh, options.props, options.snap, options.transform);
                 handle.set_mapping(ColorMapping { values, mappable });
                 Ok(handle)
             }
@@ -178,11 +171,31 @@ impl Axes {
                 if mesh.shading == MeshShading::Gouraud {
                     return Err(ImageError::MultivariateNotSupported("gouraud shading"));
                 }
+                let mut props = options.props;
                 multivariate_faces(field, options.colors, &mut props)?;
-                let artist = self.quad_mesh_artist(&mesh, props, Some(snap));
-                Ok(self.add_mesh(artist, &mesh, options.transform))
+                Ok(self.add_pcolormesh(&mesh, props, options.snap, options.transform))
             }
         }
+    }
+
+    /// The `QuadMesh` of `pcolormesh` over a prepared grid, placed in
+    /// `transform` (default the data coordinates): without edges or
+    /// anti-aliasing unless `props` set them, snapped as `snap` (or
+    /// `pcolormesh.snap`) says.
+    pub(super) fn add_pcolormesh(
+        &self,
+        mesh: &PreparedMesh,
+        mut props: CollectionProps,
+        snap: Option<bool>,
+        transform: Option<Transform>,
+    ) -> Collection {
+        props
+            .edgecolors
+            .get_or_insert(EdgeColors::Colors(vec![Color::none()]));
+        props.antialiased.get_or_insert(vec![false]);
+        let snap = snap.unwrap_or(crate::rc::params().pcolormesh_snap);
+        let artist = self.quad_mesh_artist(mesh, props, Some(snap));
+        self.add_mesh(artist, mesh, transform)
     }
 
     /// A `QuadMesh` in data coordinates over the prepared grid, styled by
@@ -229,7 +242,7 @@ impl Axes {
 }
 
 /// The shading, `pcolor.shading` when unset.
-fn default_shading(shading: Option<Shading>) -> Shading {
+pub(super) fn default_shading(shading: Option<Shading>) -> Shading {
     shading.unwrap_or_else(|| {
         crate::rc::params()
             .pcolor_shading

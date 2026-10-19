@@ -3,6 +3,7 @@
 use plt_core::{Path, Point};
 
 use super::children::DataUpdate;
+use super::hexbin_marginals::Marginals;
 use super::{Axes, AxesState, AxisName};
 use crate::artist::Artist;
 use crate::collections::{
@@ -72,7 +73,7 @@ pub enum HexReduce {
 }
 
 impl HexReduce {
-    fn apply(self, values: &[f64]) -> f64 {
+    pub(super) fn apply(self, values: &[f64]) -> f64 {
         match self {
             Self::Mean => crate::stats::mean(values),
             Self::Sum => crate::stats::pairwise_sum(values),
@@ -108,6 +109,14 @@ pub struct HexbinOptions {
     /// Edge colours (default: the face colours) and widths, opacity,
     /// z-order.
     pub props: CollectionProps,
+    /// Also draw bars along the bottom and the left edge of the axes
+    /// (matplotlib's `marginals`): the values of the points in each of
+    /// `nx` bins of x and `2 ny` bins of y, combined by `reduce` (counts
+    /// when there are no values) and coloured through the hexagons'
+    /// colormap — and through their norm when one is given or `bins` is
+    /// [`HexBins::Log`], else through their own. The bars keep the colours
+    /// they are created with.
+    pub marginals: bool,
 }
 
 /// The hexagon lattice: two interleaved rectangular grids.
@@ -159,6 +168,33 @@ impl Lattice {
     fn len(&self) -> usize {
         (self.nx + 1) * (self.ny + 1) + self.nx * self.ny
     }
+
+    /// The outline of a hexagon around the origin, in data units.
+    fn hexagon(&self, xscale: HexScale, yscale: HexScale) -> Path {
+        let corners = [
+            (0.5, -0.5),
+            (0.5, 0.5),
+            (0.0, 1.0),
+            (-0.5, 0.5),
+            (-0.5, -0.5),
+            (0.0, -1.0),
+        ];
+        Path::polygon(corners.map(|(vx, vy)| {
+            Point::new(
+                unscale(self.sx * vx, xscale),
+                unscale(self.sy / 3.0 * vy, yscale),
+            )
+        }))
+    }
+
+    /// The lower-left and upper-right corners of the binned region, in
+    /// data units.
+    fn corners(&self, xscale: HexScale, yscale: HexScale) -> [Point; 2] {
+        [
+            Point::new(unscale(self.xmin, xscale), unscale(self.ymin, yscale)),
+            Point::new(unscale(self.xmax, xscale), unscale(self.ymax, yscale)),
+        ]
+    }
 }
 
 impl Axes {
@@ -185,7 +221,11 @@ impl Axes {
         y: &[f64],
         options: HexbinOptions,
     ) -> Result<Collection, ImageError> {
-        let Points { x, y, values } = kept_points(x, y, options.values.as_deref())?;
+        let Points {
+            x,
+            y,
+            values: weights,
+        } = kept_points(x, y, options.values.as_deref())?;
         let (nx, ny) = match options.gridsize {
             HexGridSize::Count(nx) => (nx, (nx as f64 / 3.0_f64.sqrt()) as usize),
             HexGridSize::Shape(nx, ny) => (nx, ny),
@@ -196,11 +236,11 @@ impl Axes {
         let tx = scaled(&x, options.xscale)?;
         let ty = scaled(&y, options.yscale)?;
         let lattice = lattice(&tx, &ty, options.extent, nx, ny)?;
-        let mut accum = accumulate(
+        let accum = accumulate(
             &lattice,
             &tx,
             &ty,
-            values.as_deref(),
+            weights.as_deref(),
             options.reduce,
             options.mincnt,
         );
@@ -208,43 +248,15 @@ impl Axes {
             .filter(|&k| !accum[k].is_nan())
             .map(|k| (lattice.centre(k), accum[k]))
             .unzip();
-        accum = kept;
 
-        let mut colors = options.colors;
-        match options.bins {
-            Some(HexBins::Log) if colors.norm.is_none() => {
-                let mut norm = LogNorm::default();
-                if let Some(vmin) = colors.vmin.take() {
-                    norm = norm.with_vmin(vmin);
-                }
-                if let Some(vmax) = colors.vmax.take() {
-                    norm = norm.with_vmax(vmax);
-                }
-                colors = colors.norm(norm);
-            }
-            Some(HexBins::Count(n)) => accum = discretise(&accum, &equal_bins(&accum, n)),
-            Some(HexBins::Edges(edges)) => accum = discretise(&accum, &edges),
-            _ => {}
-        }
+        let (colors, accum) = binned(options.colors, options.bins, kept);
+        let shared_norm = colors.norm.is_some();
         let mut mappable = colors.into_mappable(&crate::rc::params())?;
         let values: Vec<Option<f64>> = accum.iter().map(|&v| Some(v)).collect();
         mappable.norm_mut().autoscale_none(&values);
 
-        let polygon = Path::polygon(
-            [
-                (0.5, -0.5),
-                (0.5, 0.5),
-                (0.0, 1.0),
-                (-0.5, 0.5),
-                (-0.5, -0.5),
-                (0.0, -1.0),
-            ]
-            .map(|(vx, vy)| {
-                let p = Point::new(lattice.sx * vx, lattice.sy / 3.0 * vy);
-                Point::new(unscale(p.x, options.xscale), unscale(p.y, options.yscale))
-            }),
-        );
-        let mut props = options.props;
+        let polygon = lattice.hexagon(options.xscale, options.yscale);
+        let mut props = options.props.clone();
         props.edgecolors.get_or_insert(EdgeColors::Face);
         props
             .linewidths
@@ -262,18 +274,22 @@ impl Axes {
                 self.set_scale(name, Box::new(log));
             }
         }
-        let corners = vec![
-            Point::new(
-                unscale(lattice.xmin, options.xscale),
-                unscale(lattice.ymin, options.yscale),
-            ),
-            Point::new(
-                unscale(lattice.xmax, options.xscale),
-                unscale(lattice.ymax, options.yscale),
-            ),
-        ];
-        let handle = Collection::from_raw(self.adopt(collection, &DataUpdate::data(corners)));
+        let corners = lattice.corners(options.xscale, options.yscale);
+        let handle =
+            Collection::from_raw(self.adopt(collection, &DataUpdate::data(corners.to_vec())));
         self.raw.with_mut::<AxesState, _>(|axes| axes.tight = true);
+        if options.marginals {
+            let marginals = Marginals {
+                x: &x,
+                y: &y,
+                weights: weights.as_deref(),
+                corners,
+                gridsize: (nx, ny),
+                scales: (options.xscale, options.yscale),
+                reduce: options.reduce,
+            };
+            self.add_hexbin_marginals(&marginals, &mappable, shared_norm, &options.props);
+        }
         handle.set_mapping(ColorMapping { values, mappable });
         Ok(handle)
     }
@@ -413,6 +429,34 @@ fn accumulate(
             }
         })
         .collect()
+}
+
+/// The colour options and hexagon values after `bins`: a log norm (taking
+/// over `vmin` and `vmax`) unless a norm is given, or the values replaced
+/// by their bin indices.
+fn binned(
+    mut colors: ColorizerOptions,
+    bins: Option<HexBins>,
+    accum: Vec<f64>,
+) -> (ColorizerOptions, Vec<f64>) {
+    match bins {
+        Some(HexBins::Log) if colors.norm.is_none() => {
+            let mut norm = LogNorm::default();
+            if let Some(vmin) = colors.vmin.take() {
+                norm = norm.with_vmin(vmin);
+            }
+            if let Some(vmax) = colors.vmax.take() {
+                norm = norm.with_vmax(vmax);
+            }
+            (colors.norm(norm), accum)
+        }
+        Some(HexBins::Count(n)) => {
+            let edges = equal_bins(&accum, n);
+            (colors, discretise(&accum, &edges))
+        }
+        Some(HexBins::Edges(edges)) => (colors, discretise(&accum, &edges)),
+        _ => (colors, accum),
+    }
 }
 
 /// `n` equal-width bin edges from the smallest to the largest value,

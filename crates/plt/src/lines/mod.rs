@@ -2,6 +2,7 @@
 //! subsampling (matplotlib.lines).
 
 mod axline;
+mod edge;
 mod format;
 mod line;
 mod linestyle;

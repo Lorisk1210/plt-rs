@@ -189,11 +189,17 @@ impl Painter<'_> {
             .windows(2)
             .zip(blocks)
             .map(|(pair, block)| {
+                // matplotlib takes the corners from its mesh, whose x and y
+                // swap for horizontal colorbars, so these start across.
+                let (near, far) = match self.orientation {
+                    Orientation::Vertical => (0.0, 1.0),
+                    Orientation::Horizontal => (1.0, 0.0),
+                };
                 let corners = [
-                    (pair[0], 0.0),
-                    (pair[0], 1.0),
-                    (pair[1], 1.0),
-                    (pair[1], 0.0),
+                    (pair[0], near),
+                    (pair[0], far),
+                    (pair[1], far),
+                    (pair[1], near),
                 ];
                 let mut patch = self.block_patch(&corners, block);
                 patch.base_mut().transform = Some(self.ax.trans_data());

@@ -2,6 +2,7 @@
 //! `axis3d.Axis`): tick helpers, tick positions and labels, and the tick
 //! parameters 3-D axes honour.
 
+use std::any::Any;
 use std::rc::Rc;
 
 use super::axis3d::Tickers3D;
@@ -12,8 +13,10 @@ use super::handle::Axes3D;
 use super::share::ShareKey;
 use super::state::Axes3DState;
 use crate::artist::ArtistHandle;
-use crate::axes::{TickParams, TickSet, TickStyle, tick_label_formatter};
-use crate::ticker::{AutoMinorLocator, AxisName, FixedLocator, Formatter, Locator, NullLocator};
+use crate::axes::{TickParams, TickSet, TickStyle, TicklabelFormat, tick_label_formatter};
+use crate::ticker::{
+    AutoMinorLocator, AxisName, FixedLocator, Formatter, Locator, NullLocator, ScalarFormatter,
+};
 
 /// One axis of a 3-D axes, from [`Axes3D::xaxis`], [`Axes3D::yaxis`],
 /// [`Axes3D::zaxis`] or [`Axes3D::axis`].
@@ -75,6 +78,54 @@ impl Axes3D {
             self.axis(dir).set_tick_params(params);
         }
         self
+    }
+
+    /// Changes how the default major tick labels of one axis (`None`:
+    /// all three) are formatted (matplotlib's `ticklabel_format(axis=...)`
+    /// with `'both'` meaning all three); `format.axis` is ignored. The
+    /// axes sharing an axis follow.
+    ///
+    /// ```
+    /// use plt::axes::TicklabelFormat;
+    /// use plt::figure::Figure;
+    /// use plt::mplot3d::Axis3;
+    /// use plt::ticker::OffsetMode;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_xlim(1e7, 1e7 + 10.0)?;
+    /// let plain = TicklabelFormat {
+    ///     scientific: Some(false),
+    ///     use_offset: Some(OffsetMode::Off),
+    ///     ..TicklabelFormat::default()
+    /// };
+    /// ax.ticklabel_format(Some(Axis3::X), &plain)?;
+    /// let ticks = ax.xaxis().ticks()?;
+    /// assert!(ticks.offset.is_empty());
+    /// assert!(ticks.major.iter().any(|tick| tick.label == "10000002"));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When an affected axis does not label its ticks with a
+    /// `ScalarFormatter`.
+    pub fn ticklabel_format(
+        &self,
+        axis: Option<Axis3>,
+        format: &TicklabelFormat,
+    ) -> Result<&Self, Axes3DError> {
+        for dir in Axis3::ALL
+            .into_iter()
+            .filter(|&dir| axis.is_none_or(|only| only == dir))
+        {
+            let current = self.with(|axes| {
+                let formatter: &dyn Any = axes.axis(dir).tickers.major_formatter.as_ref();
+                formatter.downcast_ref::<ScalarFormatter>().cloned()
+            });
+            let formatter = current.ok_or(Axes3DError::NotScalarFormatter(dir))?;
+            self.axis(dir)
+                .set_major_formatter(format.applied_to(formatter));
+        }
+        Ok(self)
     }
 }
 
@@ -164,13 +215,96 @@ impl Axis3D {
         &self,
         labels: impl IntoIterator<Item = S>,
     ) -> Result<&Self, Axes3DError> {
-        let labels: Vec<String> = labels.into_iter().map(Into::into).collect();
+        self.set_level_ticklabels(true, labels.into_iter().map(Into::into).collect())
+    }
+
+    /// Labels the minor ticks with `labels`, like
+    /// [`Axis3D::set_ticklabels`] does the major ones (matplotlib's
+    /// `Axis.set_ticklabels(..., minor=True)`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.xaxis().set_minor_ticks(&[0.25]).set_minor_ticklabels(["quarter"])?;
+    /// assert_eq!(ax.xaxis().ticks()?.minor[0].label, "quarter");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the minor ticks were set explicitly and their number differs
+    /// from the number of labels.
+    pub fn set_minor_ticklabels<S: Into<String>>(
+        &self,
+        labels: impl IntoIterator<Item = S>,
+    ) -> Result<&Self, Axes3DError> {
+        self.set_level_ticklabels(false, labels.into_iter().map(Into::into).collect())
+    }
+
+    /// Labels the major (or minor) ticks with `labels`.
+    fn set_level_ticklabels(&self, major: bool, labels: Vec<String>) -> Result<&Self, Axes3DError> {
         let dir = self.dir;
-        let locator = self
-            .axes
-            .with(|axes| Rc::clone(&axes.axis(dir).tickers.major_locator));
+        let locator = self.axes.with(|axes| {
+            let tickers = &axes.axis(dir).tickers;
+            Rc::clone(if major {
+                &tickers.major_locator
+            } else {
+                &tickers.minor_locator
+            })
+        });
         let formatter = tick_label_formatter(locator.as_ref(), labels)?;
-        Ok(self.set_tickers(|t| t.major_formatter = Rc::clone(&formatter)))
+        Ok(self.set_tickers(|t| {
+            let level = if major {
+                &mut t.major_formatter
+            } else {
+                &mut t.minor_formatter
+            };
+            *level = Rc::clone(&formatter);
+        }))
+    }
+
+    /// Sets the distance of the axis label from the axis in points, on
+    /// top of the fixed offset 3-D axes keep (matplotlib's `labelpad`).
+    pub fn set_label_pad(&self, pad: f64) -> &Self {
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).label.pad = pad);
+        self
+    }
+
+    /// The label pads of the major ticks in the current view, one per
+    /// location the major locator gives (inside the view or not), after
+    /// a layout pass (matplotlib's `tick.get_pad()` for every tick of
+    /// `get_major_ticks()`).
+    ///
+    /// # Errors
+    ///
+    /// When a locator or formatter fails, with its message.
+    pub fn major_tick_pads(&self) -> Result<Vec<f64>, String> {
+        self.ticks()?;
+        let dir = self.dir;
+        Ok(self.axes.with(|axes| axes.axis(dir).major_tick_pads()))
+    }
+
+    /// Gives the major ticks their own label pads, in the order of
+    /// [`Axis3D::major_tick_pads`]: like matplotlib's `Tick` objects
+    /// after `tick.set_pad`, the ticks past the end take the first pad.
+    /// Tick parameters setting a pad give every tick that pad again.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let pads = ax.yaxis().major_tick_pads()?;
+    /// let shifted: Vec<f64> = pads.iter().enumerate().map(|(i, pad)| pad - i as f64).collect();
+    /// ax.yaxis().set_major_tick_pads(shifted.clone());
+    /// assert_eq!(ax.yaxis().major_tick_pads()?, shifted);
+    /// # Ok::<(), String>(())
+    /// ```
+    pub fn set_major_tick_pads(&self, pads: Vec<f64>) -> &Self {
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).major_pads = pads);
+        self
     }
 
     /// Turns minor ticks on with the locator matplotlib picks for the
@@ -291,6 +425,9 @@ impl Axis3D {
             let axis = axes.axis_mut(dir);
             if params.which.major() {
                 apply(true, &mut axis.major_style);
+                if params.reset || params.pad.is_some() {
+                    axis.major_pads.clear();
+                }
             }
             if params.which.minor() {
                 apply(false, &mut axis.minor_style);

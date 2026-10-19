@@ -58,6 +58,7 @@ mod axlim;
 mod bars;
 mod bounds;
 mod camera;
+mod clear;
 mod collections3d;
 mod contour;
 mod coords;
@@ -66,10 +67,12 @@ mod errorbar;
 mod fill_between;
 mod geometry;
 mod handle;
+mod layout;
 mod lift;
 mod limits;
 pub mod math;
 mod mouse;
+mod path_patch;
 mod plot;
 mod quaternion;
 mod quiver;
@@ -86,7 +89,7 @@ mod test_data;
 mod trisurf;
 mod voxels;
 
-pub use art3d::{ProjectedOutline, ZSort};
+pub use art3d::{ProjectedOutline, ProjectedPath, ZSort};
 pub use aspect::Aspect3D;
 pub use axis_handle::Axis3D;
 pub use bars::{Bar3DOptions, Boxes};
@@ -99,6 +102,7 @@ pub use errorbar::{Errorbar3D, Errorbar3DOptions};
 pub use fill_between::{FillBetween3DOptions, FillMode};
 pub use geometry::AxisPosition;
 pub use handle::{Axes3D, Axes3DOptions};
+pub use lift::Poly3DOptions;
 pub use math::Vec3;
 pub(crate) use mouse::MouseAction;
 pub use mouse::{MouseButtons, RotationStyle};
@@ -112,6 +116,7 @@ pub use test_data::test_data;
 pub use trisurf::TrisurfOptions;
 pub use voxels::{Array3, VoxelColors, VoxelOptions};
 
+pub(crate) use layout::{axes3d_layout_extents, axes3d_placement, set_axes3d_position};
 pub(crate) use state::{
     axes3d_bbox, axes3d_fresh_tight_bbox, axes3d_ids, axes3d_subplot_spec, axes3d_tight_bbox,
     is_axes3d, place_axes3d, prepare_axes3d,

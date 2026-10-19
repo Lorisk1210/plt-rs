@@ -6,7 +6,7 @@ use plt_core::Bbox;
 
 use super::colorbars::Offsets;
 use super::tree::{LayoutTree, frame_extent, from_frame, to_frame};
-use crate::artist::{Artist, ArtistId};
+use crate::artist::ArtistId;
 use crate::axes::AxesState;
 use crate::figure::{FigureFrame, FigureState};
 
@@ -66,17 +66,20 @@ impl LayoutTree {
 
 /// The extent of the frame holding `axes`, in figure fractions.
 fn axes_frame_extent(fig: &FigureState, axes: ArtistId) -> Option<Bbox> {
-    let frame = fig.store.get_as::<AxesState>(axes)?.base().parent?;
+    let frame = fig.store.get(axes)?.base().parent?;
     frame_extent(fig, frame)
 }
 
-/// matplotlib's `get_pos_and_bbox`: an axes' original position and its
-/// extent with decorations, both in figure fractions.
+/// matplotlib's `get_pos_and_bbox`: an axes' (2-D or 3-D) original
+/// position and its extent with decorations, both in figure fractions.
 pub(super) fn pos_and_bbox(fig: &mut FigureState, axes: ArtistId) -> Option<(Bbox, Bbox)> {
-    let local = fig.store.get_as::<AxesState>(axes)?.position;
+    let (local, tight) = match fig.store.get_as::<AxesState>(axes) {
+        Some(state) => (state.position, fig.axes_tight_bbox(axes, true)),
+        None => crate::mplot3d::axes3d_layout_extents(fig, axes)?,
+    };
     let position = from_frame(&local, &axes_frame_extent(fig, axes)?);
     let (width, height) = fig.size_pixels();
-    let bbox = fig.axes_tight_bbox(axes, true).map_or(position, |tight| {
+    let bbox = tight.map_or(position, |tight| {
         Bbox::from_extents(
             tight.x0() / width,
             tight.y0() / height,
@@ -94,6 +97,9 @@ pub(super) fn place(fig: &mut FigureState, axes: ArtistId, position: &Bbox) {
         return;
     };
     let local = to_frame(position, &frame);
+    if crate::mplot3d::set_axes3d_position(fig, axes, local) {
+        return;
+    }
     for twin in fig.shared.twins(axes) {
         if let Some(state) = fig.store.get_as_mut::<AxesState>(twin) {
             state.position = local;

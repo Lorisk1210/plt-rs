@@ -1,7 +1,7 @@
 //! The 3-D geometry of the projection plane's artists and its projection
 //! onto them (matplotlib's `art3d`: `Line3D`, `Text3D`, `Collection3D`,
-//! `Line3DCollection`, `Path3DCollection`, `Poly3DCollection` and
-//! `Patch3D`).
+//! `Line3DCollection`, `Path3DCollection`, `Poly3DCollection`, `Patch3D`
+//! and `PathPatch3D`).
 //!
 //! matplotlib turns 2-D artists into 3-D ones by changing their class;
 //! here a 2-D artist stays what it is and its 3-D geometry is kept next to
@@ -37,6 +37,20 @@ use crate::text::{AngleReduction, TextArtist};
 pub struct ProjectedOutline(pub Path);
 
 impl PatchShape for ProjectedOutline {
+    fn path(&self) -> Path {
+        self.0.clone()
+    }
+}
+
+/// The path of a 3-D path patch as projected by the last layout pass,
+/// its codes kept (matplotlib's `PathPatch3D`, which, like a `PathPatch`,
+/// draws an edge by default).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ProjectedPath(pub Path);
+
+impl PatchShape for ProjectedPath {
+    const EDGE_DEFAULT: bool = true;
+
     fn path(&self) -> Path {
         self.0.clone()
     }
@@ -105,6 +119,8 @@ pub(crate) enum Art3D {
     Polys(Polys3D),
     /// The outline of a flat patch (`Patch3D`).
     Patch(Vec<Vec3>),
+    /// The path of a patch, codes kept (`PathPatch3D`).
+    PathPatch(Path3D),
 }
 
 impl Art3D {
@@ -121,7 +137,7 @@ impl Art3D {
             Self::Paths(_) | Self::Segments(_) | Self::Points(_) | Self::Polys(_) => {
                 Some(SortKind::Collection)
             }
-            Self::Patch(_) => Some(SortKind::Patch),
+            Self::Patch(_) | Self::PathPatch(_) => Some(SortKind::Patch),
         }
     }
 
@@ -214,6 +230,17 @@ impl Art3D {
                     .map(|q| q.map_or(Point::new(f64::NAN, f64::NAN), |q| depth.include(q)))
                     .collect();
                 patch.shape = ProjectedOutline(Path::polyline(points));
+                Some(depth.min_or(f64::NAN))
+            }
+            Self::PathPatch(path) => {
+                let patch = store.get_as_mut::<PatchArtist<ProjectedPath>>(id)?;
+                let mut depth = Depth::default();
+                let mut projected = path.template.clone();
+                let points = projection.project_clipped_all(&path.vertices);
+                for (vertex, q) in projected.vertices_mut().iter_mut().zip(points) {
+                    *vertex = q.map_or(Point::new(f64::NAN, f64::NAN), |q| depth.include(q));
+                }
+                patch.shape = ProjectedPath(projected);
                 Some(depth.min_or(f64::NAN))
             }
         }

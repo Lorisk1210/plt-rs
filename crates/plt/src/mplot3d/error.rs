@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use super::coords::Axis3;
 use super::math::Vec3;
 use crate::axes::PlotError;
 use crate::colors::ColorError;
@@ -65,6 +66,8 @@ pub enum Axes3DError {
     UnsupportedCollection,
     /// The artist is not a 3-D artist of the axes.
     Not3DArtist,
+    /// The axis does not label its major ticks with a `ScalarFormatter`.
+    NotScalarFormatter(Axis3),
 }
 
 impl fmt::Display for Axes3DError {
@@ -104,6 +107,11 @@ impl fmt::Display for Axes3DError {
                 f.write_str("only polygon and line collections can be added to 3-D axes")
             }
             Self::Not3DArtist => f.write_str("the artist is not a 3-D artist of these axes"),
+            Self::NotScalarFormatter(axis) => write!(
+                f,
+                "the {}-axis tick labels do not use a ScalarFormatter",
+                axis.name()
+            ),
             Self::Scale(err) => err.fmt(f),
             Self::Ticker(message) => write!(f, "cannot autoscale: {message}"),
             Self::Color(err) => err.fmt(f),

@@ -6,6 +6,7 @@ use crate::collections::{CollectionArtist, DepthSorted};
 use crate::mplot3d::camera::Projection;
 use crate::mplot3d::math::Vec3;
 use crate::numeric::argsort;
+use crate::stats::pairwise_sum;
 
 /// How the depth of a polygon is computed from the projected depths of
 /// its vertices, for drawing polygons back to front (matplotlib's
@@ -30,11 +31,13 @@ impl ZSort {
     /// the vertices that could not be projected (matplotlib's masked
     /// vertices). When none could, it is what numpy's masked reductions
     /// leave in the data matplotlib sorts by: 0 for the mean and
-    /// [`MASKED_FILL`] for the extremes.
+    /// [`MASKED_FILL`] for the extremes. The mean sums like numpy's: in
+    /// pairwise order, the hidden depths filled with zeros.
     fn reduce(self, zs: impl Iterator<Item = f64>) -> f64 {
-        let (count, sum, min, max) = zs.filter(|z| !z.is_nan()).fold(
-            (0_u32, 0.0, f64::INFINITY, f64::NEG_INFINITY),
-            |(n, sum, min, max), z| (n + 1, sum + z, min.min(z), max.max(z)),
+        let zs: Vec<f64> = zs.collect();
+        let (count, min, max) = zs.iter().filter(|z| !z.is_nan()).fold(
+            (0_u32, f64::INFINITY, f64::NEG_INFINITY),
+            |(n, min, max), &z| (n + 1, min.min(z), max.max(z)),
         );
         if count == 0 {
             return match self {
@@ -43,7 +46,13 @@ impl ZSort {
             };
         }
         match self {
-            Self::Average => sum / f64::from(count),
+            Self::Average => {
+                let filled: Vec<f64> = zs
+                    .iter()
+                    .map(|&z| if z.is_nan() { 0.0 } else { z })
+                    .collect();
+                pairwise_sum(&filled) / f64::from(count)
+            }
             Self::Min => min,
             Self::Max => max,
         }
@@ -69,9 +78,13 @@ pub(crate) struct Polys3D {
     pub(crate) edgecolors: Vec<Rgba>,
     /// The 2-D paths whose codes the projected polygons keep, one per
     /// face with one vertex per face point, for polygons lifted from a
-    /// 2-D collection (matplotlib's `_codes3d`); `None` closes every
-    /// polygon instead.
+    /// 2-D collection (matplotlib's `_codes3d`); `None` makes polygons
+    /// of the faces instead.
     pub(crate) templates: Option<Vec<Path>>,
+    /// Whether the polygons made of the faces are closed (matplotlib's
+    /// `closed`); open ones are filled but not stroked along their last
+    /// edge.
+    pub(crate) closed: bool,
 }
 
 impl Polys3D {
@@ -99,7 +112,7 @@ impl Polys3D {
                     path
                 })
                 .collect(),
-            None => closed_polygons(&projected, &order),
+            None => polygons(&projected, &order, self.closed),
         };
         collection.depth_sorted = Some(DepthSorted {
             colors: Some(self.sorted_colors(collection, &order)),
@@ -119,11 +132,16 @@ impl Polys3D {
 
     /// The order the `projected` faces are drawn in, deepest first
     /// (matplotlib's `argsort(face_z)[::-1]`, faces of equal depth in
-    /// numpy's order).
+    /// numpy's order). matplotlib pads shorter faces with masked vertices
+    /// up to the longest, which its reductions see.
     fn depth_order(&self, projected: &[Vec<Vec3>]) -> Vec<usize> {
+        let longest = projected.iter().map(Vec::len).max().unwrap_or(0);
         let face_z: Vec<f64> = projected
             .iter()
-            .map(|face| self.zsort.reduce(face.iter().map(|p| p[2])))
+            .map(|face| {
+                let padding = std::iter::repeat_n(f64::NAN, longest - face.len());
+                self.zsort.reduce(face.iter().map(|p| p[2]).chain(padding))
+            })
             .collect();
         let mut order = argsort(&face_z);
         order.reverse();
@@ -178,11 +196,12 @@ fn sort_colors(
     (sorted_faces, sorted_edges)
 }
 
-/// The projected faces in `order` as closed polygons. matplotlib stores
-/// ragged polygons in one array padded with NaN up to the longest one,
-/// then closes every polygon: the padding makes path conversion drop the
-/// closure of the shorter ones.
-fn closed_polygons(projected: &[Vec<Vec3>], order: &[usize]) -> Vec<Path> {
+/// The projected faces in `order` as closed or open polygons
+/// (matplotlib's `PolyCollection.set_verts(..., closed)`). matplotlib
+/// stores ragged polygons in one array padded with NaN up to the longest
+/// one, then closes every polygon: the padding makes path conversion drop
+/// the closure of the shorter ones.
+fn polygons(projected: &[Vec<Vec3>], order: &[usize], closed: bool) -> Vec<Path> {
     let longest = projected.iter().map(Vec::len).max().unwrap_or(0);
     order
         .iter()
@@ -191,11 +210,16 @@ fn closed_polygons(projected: &[Vec<Vec3>], order: &[usize]) -> Vec<Path> {
                 .iter()
                 .map(|p| Point::new(p[0], p[1]))
                 .collect();
-            if let Some(&first) = vertices.first() {
-                vertices.resize(longest, Point::new(f64::NAN, f64::NAN));
+            let Some(&first) = vertices.first() else {
+                return Path::polyline(vertices);
+            };
+            vertices.resize(longest, Point::new(f64::NAN, f64::NAN));
+            if closed {
                 vertices.push(first);
+                Path::closed(vertices)
+            } else {
+                Path::polyline(vertices)
             }
-            Path::closed(vertices)
         })
         .collect()
 }
@@ -216,6 +240,7 @@ fn repeat_to(colors: &[Rgba], n: usize) -> Vec<Rgba> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use plt_core::PathCode;
 
     #[test]
     fn zsort_reductions() {
@@ -230,6 +255,10 @@ mod tests {
         assert_eq!(ZSort::Average.reduce(hidden.into_iter()), 0.0);
         assert_eq!(ZSort::Min.reduce(hidden.into_iter()), 1e20);
         assert_eq!(ZSort::Max.reduce(std::iter::empty()), 1e20);
+        // numpy sums eight depths pairwise, where adding them in turn
+        // would keep the second 1 (matplotlib's `np.average(pzs, -1)`).
+        let cancelling = [1e16, 1.0, -1e16, 1.0, 0.0, 0.0, 0.0, 0.0];
+        assert_eq!(ZSort::Average.reduce(cancelling.into_iter()), 0.0);
     }
 
     #[test]
@@ -244,6 +273,7 @@ mod tests {
             facecolors: Vec::new(),
             edgecolors: Vec::new(),
             templates: None,
+            closed: true,
         };
         let projected = [
             vec![[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [0.0, 1.0, 1.0]],
@@ -266,6 +296,20 @@ mod tests {
             sort_colors(2, &[1, 0], &[red, blue], &[red, blue]).1,
             [blue, red]
         );
+    }
+
+    #[test]
+    fn open_polygons_are_not_closed() {
+        let triangle = vec![vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]];
+        let closed = polygons(&triangle, &[0], true);
+        assert_eq!(closed[0].len(), 4);
+        assert_eq!(
+            closed[0].resolved_codes().last(),
+            Some(&PathCode::ClosePoly)
+        );
+        let open = polygons(&triangle, &[0], false);
+        assert_eq!(open[0].len(), 3);
+        assert!(!open[0].resolved_codes().contains(&PathCode::ClosePoly));
     }
 
     #[test]

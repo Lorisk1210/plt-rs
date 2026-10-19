@@ -13,6 +13,11 @@ use crate::collections::{Collection, CollectionArtist};
 /// classic mode, the smallest x and y margins).
 const SCATTER_MARGIN: f64 = 0.05;
 
+/// The marker area of 3-D scatter plots in points² when none is given
+/// (the `s=20` default of matplotlib's `Axes3D.scatter`, whatever
+/// `lines.markersize` says).
+const DEFAULT_SIZE: f64 = 20.0;
+
 /// Options of [`Axes3D::scatter_with`].
 #[derive(Debug, Default)]
 pub struct Scatter3DOptions {
@@ -33,9 +38,6 @@ pub struct Scatter3DOptions {
     /// `Axes3D.scatter(s=20)`), whatever the style.
     pub scatter: ScatterOptions,
 }
-
-/// The marker area of 3-D scatter plots that set none, in points².
-const DEFAULT_SIZE: f64 = 20.0;
 
 impl Axes3D {
     /// A scatter plot of the points `(x, y, z)` with default styling;

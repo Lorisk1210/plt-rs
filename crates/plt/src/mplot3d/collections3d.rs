@@ -9,7 +9,7 @@ use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::math::Vec3;
 use super::shade::{LightSource, polygon_normal, shade_colors};
-use crate::artist::RawHandle;
+use crate::artist::{Artist, RawHandle};
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors,
 };
@@ -158,6 +158,11 @@ impl Axes3D {
     /// `lifted` holds the 2-D paths and the sort position of polygons
     /// lifted from a 2-D collection, and `axlim_clip` hides the vertices
     /// outside the view limits.
+    ///
+    /// The collection's alpha fades the faces; the edges keep their own
+    /// alpha, as matplotlib's `Poly3DCollection.set_alpha` leaves
+    /// `_edgecolor3d` alone, unless they were lifted from a 2-D
+    /// collection, whose `set_alpha` faded them already.
     pub(crate) fn register_polys(
         &self,
         raw: &RawHandle,
@@ -167,7 +172,15 @@ impl Axes3D {
         axlim_clip: bool,
     ) -> Result<(), Axes3DError> {
         let (facecolors, edgecolors) = raw
-            .with::<CollectionArtist, _>(CollectionArtist::resolved_colors)
+            .with_mut::<CollectionArtist, _>(|c| {
+                let (faces, edges) = c.resolved_colors()?;
+                let edges = if lifted.is_some() {
+                    edges
+                } else {
+                    unfaded_edges(c)?
+                };
+                Ok((faces, edges))
+            })
             .map_err(Axes3DError::Style)?;
         let (templates, sort_zpos) = lifted.unzip();
         self.register(
@@ -179,6 +192,7 @@ impl Axes3D {
                 facecolors,
                 edgecolors,
                 templates,
+                closed: true,
             }),
             axlim_clip,
         );
@@ -205,6 +219,16 @@ impl Axes3D {
         self.register(raw.id(), Art3D::Segments(segments), axlim_clip);
         Collection::from_raw(raw)
     }
+}
+
+/// The edge colours of `collection` without its alpha.
+fn unfaded_edges(collection: &mut CollectionArtist) -> Result<Vec<Rgba>, String> {
+    let alpha = collection.base_mut().alpha.take();
+    let alphas = collection.alphas.take();
+    let edges = collection.resolved_colors().map(|(_, edges)| edges);
+    collection.base_mut().alpha = alpha;
+    collection.alphas = alphas;
+    edges
 }
 
 /// Resolves colours without alpha changes.

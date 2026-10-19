@@ -84,7 +84,7 @@ trait Sink {
     fn axis_line(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color);
     /// A tick mark, in projected coordinates.
     fn tick_mark(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color);
-    /// A tick label, label or offset text.
+    /// A tick label or offset text.
     fn text(&mut self, painter: &Painter<'_>, text: &PlacedText<'_>);
     /// Whether the axis labels go to the sink too.
     fn takes_labels(&self) -> bool {
@@ -382,7 +382,13 @@ impl<'a> Painter<'a> {
             base - TICK_INWARD * tickdelta,
         );
         let points = scaled(self.geometry.deltas, deltas_per_point);
-        for DrawnTick { tick, style, width } in axis.drawn_ticks() {
+        for DrawnTick {
+            tick,
+            style,
+            width,
+            pad,
+        } in axis.drawn_ticks()
+        {
             let mut p = origin;
             p[dir.index()] = axis.scale.masked_forward(tick.loc);
             p[tickdir] = outward;
@@ -390,7 +396,7 @@ impl<'a> Painter<'a> {
             p[tickdir] = inward;
             let in_end = self.project(p);
             p[tickdir] = base;
-            let label_deltas = scaled(points, style.pad + TICK_LABEL_OFFSET);
+            let label_deltas = scaled(points, pad + TICK_LABEL_OFFSET);
             let label_at = self.geometry.move_from_center(p, label_deltas, dir);
             // The marks are always drawn, as wide as the axis says
             // (matplotlib's `_tick_update_position`).

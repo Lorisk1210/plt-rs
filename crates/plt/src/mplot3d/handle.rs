@@ -16,7 +16,7 @@ use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
 use crate::axes::Axes;
 use crate::colors::Color;
 use crate::figure::{Figure, insert_axes};
-use crate::gridspec::{GridSpec, SubplotSpec};
+use crate::gridspec::SubplotSpec;
 use crate::text::Text;
 use crate::transforms::{Transform, TransformContext};
 
@@ -106,7 +106,7 @@ impl Figure {
         index: usize,
         options: Axes3DOptions,
     ) -> Result<Axes3D, Axes3DError> {
-        let spec = GridSpec::new(nrows, ncols)?.numbered(index)?;
+        let spec = self.numbered_cell(nrows, ncols, index)?;
         self.add_subplot_spec_3d(&spec, options)
     }
 

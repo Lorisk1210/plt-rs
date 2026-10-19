@@ -6,7 +6,7 @@ use plt::axes::{Axes, BarLabelOptions};
 use plt::axisartist::AuxTransform;
 use plt::colors::Color;
 use plt::contour::{ContourOptions, Levels};
-use plt::figure::Figure;
+use plt::figure::{Figure, Mosaic, MosaicCell, MosaicError};
 use plt::fonts::{FontProperties, FontSize};
 use plt::numeric::linspace;
 use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchProps};
@@ -136,4 +136,18 @@ pub(super) fn arrow(
         connectionstyle: connection.parse::<ConnectionStyle>()?,
         ..FancyArrowProps::new(style.parse::<ArrowStyle>()?)
     })
+}
+
+/// A mosaic of labelled cells (`"."` for an empty one), as nested lists
+/// of labels give it.
+pub(super) fn mosaic(rows: &[&[&str]]) -> Result<Mosaic, MosaicError> {
+    let cell = |label: &&str| match *label {
+        "." => MosaicCell::Empty,
+        label => MosaicCell::Label(label.to_owned()),
+    };
+    Mosaic::new(
+        rows.iter()
+            .map(|row| row.iter().map(cell).collect())
+            .collect(),
+    )
 }

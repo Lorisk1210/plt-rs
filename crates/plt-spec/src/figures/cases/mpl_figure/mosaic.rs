@@ -7,6 +7,7 @@ use plt::layout::LayoutEngine;
 use plt::prelude::*;
 
 use super::{Fallible, classic};
+use crate::figures::cases::common::mosaic as grid;
 use crate::figures::{CaseResult, FigureCase};
 
 pub(super) const CASES: &[FigureCase] = &[
@@ -72,20 +73,6 @@ pub(super) const CASES: &[FigureCase] = &[
         plain(fig, &grid(&[&["A", "B"]])?)
     }),
 ];
-
-/// A mosaic of labelled cells (`"."` for an empty one), as nested lists
-/// of labels give it.
-fn grid(rows: &[&[&str]]) -> Fallible<Mosaic> {
-    let cell = |label: &&str| match *label {
-        "." => MosaicCell::Empty,
-        label => MosaicCell::Label(label.to_owned()),
-    };
-    Ok(Mosaic::new(
-        rows.iter()
-            .map(|row| row.iter().map(cell).collect())
-            .collect(),
-    )?)
-}
 
 /// `[["F"], [inner]]`: an axes above a nested mosaic.
 fn f_over(inner: Mosaic) -> Fallible<Mosaic> {

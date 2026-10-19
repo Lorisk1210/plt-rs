@@ -18,6 +18,12 @@ use crate::spines::{SpineArtist, SpineSide};
 use crate::text::TextArtist;
 use crate::transforms::Transform;
 
+/// The figure-level grid that `grid` lies in, through its parents.
+fn topmost_grid(grid: &GridSpec) -> GridSpec {
+    grid.parent()
+        .map_or_else(|| grid.clone(), |cell| topmost_grid(cell.gridspec()))
+}
+
 /// Which axes of a subplot grid share an axis (matplotlib's `sharex` and
 /// `sharey` arguments of `subplots`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -89,9 +95,9 @@ impl Figure {
     /// right` or `bottom >= top`), where matplotlib's `Figure()` raises,
     /// the axes fill the figure and drawing it reports the error.
     pub fn subplot(&self) -> Axes {
-        let spec = GridSpec::new(1, 1)
-            .and_then(|grid| grid.cell(0, 0))
-            .expect("a 1x1 grid has a cell (0, 0)");
+        let spec = self
+            .numbered_cell(1, 1, 1)
+            .expect("a 1x1 grid has a cell 1");
         self.add_subplot_spec(&spec).unwrap_or_else(|_| {
             let whole = Bbox::from_extents(0.0, 0.0, 1.0, 1.0);
             insert_axes(&self.state, self.root.id(), whole, Some(spec))
@@ -99,15 +105,44 @@ impl Figure {
     }
 
     /// Adds axes in cell `index` (1-based, row-major) of an
-    /// `nrows × ncols` grid (`fig.add_subplot(nrows, ncols, index)`).
+    /// `nrows × ncols` grid (`fig.add_subplot(nrows, ncols, index)`); the
+    /// grid is the one the figure's other subplots of that shape are on.
     pub fn add_subplot(
         &self,
         nrows: usize,
         ncols: usize,
         index: usize,
     ) -> Result<Axes, GridSpecError> {
-        let spec = GridSpec::new(nrows, ncols)?.numbered(index)?;
+        let spec = self.numbered_cell(nrows, ncols, index)?;
         self.add_subplot_spec(&spec)
+    }
+
+    /// Cell `index` (1-based, row-major) of the figure's `nrows × ncols`
+    /// grid: the grid an axes of the figure is already placed on, so that
+    /// layout engines see a single grid, or a new one (matplotlib's
+    /// `SubplotSpec._from_subplot_args`).
+    pub(crate) fn numbered_cell(
+        &self,
+        nrows: usize,
+        ncols: usize,
+        index: usize,
+    ) -> Result<SubplotSpec, GridSpecError> {
+        let grid = match self.existing_gridspec(nrows, ncols) {
+            Some(grid) => grid,
+            None => GridSpec::new(nrows, ncols)?,
+        };
+        grid.numbered(index)
+    }
+
+    /// The topmost grid of shape `(nrows, ncols)` an axes of the figure is
+    /// placed on (matplotlib's `GridSpec._check_gridspec_exists`).
+    pub(crate) fn existing_gridspec(&self, nrows: usize, ncols: usize) -> Option<GridSpec> {
+        let planar = self.axes().into_iter().filter_map(|ax| ax.subplot_spec());
+        let spatial = self.axes3d().into_iter().filter_map(|ax| ax.subplot_spec());
+        planar
+            .chain(spatial)
+            .map(|spec| topmost_grid(spec.gridspec()))
+            .find(|grid| grid.shape() == (nrows, ncols))
     }
 
     /// Adds axes covering a grid cell or block (`fig.add_subplot(gs[...])`).
@@ -316,5 +351,24 @@ mod tests {
         assert_eq!(Share::All.target(0, 0, 3), None);
         assert_eq!(Share::Row.target(1, 0, 3), None);
         assert_eq!(Share::Col.target(0, 2, 3), None);
+    }
+
+    #[test]
+    fn numbered_subplots_of_one_shape_share_a_grid() {
+        let fig = Figure::new();
+        let grid_of = |ax: &Axes| ax.subplot_spec().expect("a subplot").gridspec().clone();
+        let top = fig.add_subplot(2, 1, 1).expect("cell 1");
+        let bottom = fig.add_subplot(2, 1, 2).expect("cell 2");
+        assert!(grid_of(&top).is_same(&grid_of(&bottom)));
+        let side = fig.add_subplot(1, 2, 2).expect("cell 2");
+        assert!(!grid_of(&side).is_same(&grid_of(&top)));
+        // A grid nested in a cell counts as the grid it lies in.
+        let nested = grid_of(&side).cell(0, 0).expect("a cell");
+        let inner =
+            GridSpec::nested(&nested, 2, 2, None, None, (None, None)).expect("a nested grid");
+        fig.add_subplot_spec(&inner.cell(1, 1).expect("a cell"))
+            .expect("room for it");
+        let later = fig.add_subplot(1, 2, 1).expect("cell 1");
+        assert!(grid_of(&later).is_same(&grid_of(&side)));
     }
 }

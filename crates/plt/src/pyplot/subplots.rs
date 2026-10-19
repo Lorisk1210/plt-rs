@@ -51,7 +51,7 @@ pub fn subplots_shared(
 /// When the grid is empty or `index` is outside it.
 pub fn subplot(nrows: usize, ncols: usize, index: usize) -> Result<Axes, GridSpecError> {
     let fig = gcf();
-    let spec = GridSpec::new(nrows, ncols)?.numbered(index)?;
+    let spec = fig.numbered_cell(nrows, ncols, index)?;
     let existing = fig
         .axes()
         .into_iter()
@@ -79,29 +79,13 @@ pub fn subplot2grid(
     colspan: usize,
 ) -> Result<Axes, GridSpecError> {
     let fig = gcf();
-    let grid = match existing_grid(&fig, shape) {
+    let grid = match fig.existing_gridspec(shape.0, shape.1) {
         Some(grid) => grid,
         None => GridSpec::new(shape.0, shape.1)?,
     };
     let (row, col) = loc;
     let spec = grid.span(row..row + rowspan, col..col + colspan)?;
     fig.add_subplot_spec(&spec)
-}
-
-/// The topmost grid of shape `(rows, columns)` an axes of `fig` is placed
-/// on (matplotlib's `GridSpec._check_gridspec_exists`).
-fn existing_grid(fig: &Figure, shape: (usize, usize)) -> Option<GridSpec> {
-    fig.axes()
-        .iter()
-        .filter_map(Axes::subplot_spec)
-        .map(|spec| {
-            let mut grid = spec.gridspec().clone();
-            while let Some(parent) = grid.parent().map(|cell| cell.gridspec().clone()) {
-                grid = parent;
-            }
-            grid
-        })
-        .find(|grid| grid.shape() == shape)
 }
 
 /// A new current figure with axes laid out by `mosaic` (matplotlib's

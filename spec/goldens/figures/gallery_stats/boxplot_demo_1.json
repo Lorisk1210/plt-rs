@@ -1,0 +1,84 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.08, 0.545833, 0.25, 0.354167],
+   "title": "basic plot",
+   "xlim": [0.5, 1.5],
+   "ylim": [-101.922767, 192.951883],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "1"]],
+   "yticks": [[-100.0, "−100"], [-50.0, "−50"], [0.0, "0"], [50.0, "50"], [100.0, "100"], [150.0, "150"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.405, 0.545833, 0.25, 0.354167],
+   "title": "notched plot",
+   "xlim": [0.5, 1.5],
+   "ylim": [-101.922767, 192.951883],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "1"]],
+   "yticks": [[-100.0, "−100"], [-50.0, "−50"], [0.0, "0"], [50.0, "50"], [100.0, "100"], [150.0, "150"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.73, 0.545833, 0.25, 0.354167],
+   "title": "change outlier\npoint symbols",
+   "xlim": [0.5, 1.5],
+   "ylim": [-101.922767, 192.951883],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "1"]],
+   "yticks": [[-100.0, "−100"], [-50.0, "−50"], [0.0, "0"], [50.0, "50"], [100.0, "100"], [150.0, "150"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.08, 0.05, 0.25, 0.354167],
+   "title": "don't show\noutlier points",
+   "xlim": [0.5, 1.5],
+   "ylim": [-14.800124, 130.996895],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "1"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"], [125.0, "125"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.405, 0.05, 0.25, 0.354167],
+   "title": "horizontal boxes",
+   "xlim": [-101.922767, 192.951883],
+   "ylim": [0.5, 1.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-100.0, "−100"], [0.0, "0"], [100.0, "100"]],
+   "yticks": [[1, "1"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.73, 0.05, 0.25, 0.354167],
+   "title": "change whisker length",
+   "xlim": [-101.922767, 192.951883],
+   "ylim": [0.5, 1.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-100.0, "−100"], [0.0, "0"], [100.0, "100"]],
+   "yticks": [[1, "1"]]
+  }
+ ]
+}

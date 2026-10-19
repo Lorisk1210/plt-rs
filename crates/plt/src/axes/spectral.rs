@@ -6,7 +6,8 @@ use crate::collections::Collection;
 use crate::lines::{Line2D, LineProps, LineStyle};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::mlab::{
-    self, Complex, Correlation, SpectralOptions, Spectrum, SpectrumOptions, XcorrOptions,
+    self, Complex, Correlation, SignalValue, SpectralOptions, Spectrum, SpectrumOptions,
+    XcorrOptions,
 };
 use crate::numeric::arange;
 
@@ -57,12 +58,18 @@ pub enum CorrelationArtists {
 }
 
 impl Axes {
-    /// Plots the power spectral density in decibels (matplotlib's `psd`).
+    /// Plots the power spectral density in decibels (matplotlib's `psd`)
+    /// of real or [`Complex`] samples; the spectrum of complex samples is
+    /// two-sided by default.
     ///
     /// # Errors
     ///
     /// When the estimate's options are invalid for `x`.
-    pub fn psd(&self, x: &[f64], options: &SpectralPlotOptions) -> Result<Spectrum, PlotError> {
+    pub fn psd<S: SignalValue>(
+        &self,
+        x: &[S],
+        options: &SpectralPlotOptions,
+    ) -> Result<Spectrum, PlotError> {
         let spectrum = mlab::psd(x, &options.spectral).map_err(PlotError::Mlab)?;
         let db: Vec<f64> = spectrum.values.iter().map(|p| 10.0 * p.log10()).collect();
         self.plot_with(
@@ -311,6 +318,22 @@ mod tests {
             .map(|w| w[1].loc - w[0].loc)
             .collect();
         assert!(steps.iter().all(|&s| s >= 1.0 && s.fract() == 0.0));
+    }
+
+    #[test]
+    fn psd_of_complex_samples_is_two_sided() {
+        let ax = Figure::new().subplot();
+        let samples: Vec<Complex> = (0..256)
+            .map(|i| {
+                let phase = f64::from(i) * 0.7;
+                Complex::new(phase.cos(), phase.sin())
+            })
+            .collect();
+        let spectrum = ax.psd(&samples, &SpectralPlotOptions::default()).unwrap();
+        assert_eq!(spectrum.freqs.len(), 256);
+        assert_eq!(spectrum.freqs[0], -1.0);
+        let lines = ax.lines();
+        assert_eq!(lines[0].xdata(), spectrum.freqs);
     }
 
     #[test]

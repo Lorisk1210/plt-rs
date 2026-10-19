@@ -1,0 +1,32 @@
+{
+ "size_px": [900, 400],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.352273, 0.77],
+   "title": "Violin plot",
+   "xlim": [0.575, 4.425],
+   "ylim": [-28.6534, 28.234165],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Four separate samples",
+   "ylabel": "Observed values",
+   "xticks": [[1, "x1"], [2, "x2"], [3, "x3"], [4, "x4"]],
+   "yticks": [[-20.0, "−20"], [-10.0, "−10"], [0.0, "0"], [10.0, "10"], [20.0, "20"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.547727, 0.11, 0.352273, 0.77],
+   "title": "Box plot",
+   "xlim": [0.5, 4.5],
+   "ylim": [-28.6534, 28.234165],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Four separate samples",
+   "ylabel": "Observed values",
+   "xticks": [[1, "x1"], [2, "x2"], [3, "x3"], [4, "x4"]],
+   "yticks": [[-20.0, "−20"], [-10.0, "−10"], [0.0, "0"], [10.0, "10"], [20.0, "20"]]
+  }
+ ]
+}

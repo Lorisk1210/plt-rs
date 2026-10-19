@@ -1,0 +1,45 @@
+{
+ "size_px": [900, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.15, 0.25, 0.73],
+   "title": "Default violin plot",
+   "xlim": [0.25, 4.75],
+   "ylim": [-12.734845, 12.548518],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Sample name",
+   "ylabel": "Observed values",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[-10.0, "−10"], [-5.0, "−5"], [0.0, "0"], [5.0, "5"], [10.0, "10"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.3875, 0.15, 0.25, 0.73],
+   "title": "Set colors of violins",
+   "xlim": [0.25, 4.75],
+   "ylim": [-12.734845, 12.548518],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Sample name",
+   "ylabel": "Observed values",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[-10.0, "−10"], [-5.0, "−5"], [0.0, "0"], [5.0, "5"], [10.0, "10"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.65, 0.15, 0.25, 0.73],
+   "title": "Customized violin plot",
+   "xlim": [0.25, 4.75],
+   "ylim": [-12.734845, 12.548518],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Sample name",
+   "ylabel": "",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[-10.0, "−10"], [-5.0, "−5"], [0.0, "0"], [5.0, "5"], [10.0, "10"]]
+  }
+ ]
+}

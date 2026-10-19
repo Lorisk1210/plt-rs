@@ -153,7 +153,8 @@ impl Axes3D {
 
     /// Gives a polygon collection already added to the plane its 3-D
     /// faces, resolving its colours once (matplotlib's
-    /// `set_3d_properties` keeping `_facecolor3d` and `_edgecolor3d`);
+    /// `set_3d_properties` keeping `_facecolor3d` and `_edgecolor3d`;
+    /// colour-mapped ones are mapped again at every projection);
     /// `lifted` holds the 2-D paths and the sort position of polygons
     /// lifted from a 2-D collection, and `axlim_clip` hides the vertices
     /// outside the view limits.
@@ -166,12 +167,7 @@ impl Axes3D {
         axlim_clip: bool,
     ) -> Result<(), Axes3DError> {
         let (facecolors, edgecolors) = raw
-            .with_mut::<CollectionArtist, _>(|c| {
-                let colors = c.resolved_colors();
-                // The sorted colours are written at every projection.
-                c.mapping = None;
-                colors
-            })
+            .with::<CollectionArtist, _>(CollectionArtist::resolved_colors)
             .map_err(Axes3DError::Style)?;
         let (templates, sort_zpos) = lifted.unzip();
         self.register(

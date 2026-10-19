@@ -87,9 +87,9 @@ impl From<GridSpecError> for TightLayoutError {
 
 impl Figure {
     /// Adjusts the subplot parameters once so that the decorations of the
-    /// grid-placed axes (tick labels, axis labels, titles) and the figure
-    /// title and labels fit (matplotlib's `tight_layout`). Any layout
-    /// engine is removed, as matplotlib does.
+    /// grid-placed axes, 3-D ones included (tick labels, axis labels,
+    /// titles), and the figure title and labels fit (matplotlib's
+    /// `tight_layout`). Any layout engine is removed, as matplotlib does.
     ///
     /// Axes outside grids, and grids with margins of their own, are left
     /// out.
@@ -111,7 +111,9 @@ impl Figure {
     /// # Ok::<(), plt::layout::TightLayoutError>(())
     /// ```
     pub fn tight_layout(&self, params: &TightLayout) -> Result<&Self, TightLayoutError> {
-        let axes: Vec<ArtistId> = self.axes().iter().map(ArtistHandle::id).collect();
+        let axes: Vec<ArtistId> = (self.axes().iter().map(ArtistHandle::id))
+            .chain(self.axes3d().iter().map(ArtistHandle::id))
+            .collect();
         let mut state = self.raw().figure_state().borrow_mut();
         state.layout.engine = None;
         state.layout.pending = true;
@@ -223,6 +225,7 @@ fn blocks(
             .store
             .get_as::<AxesState>(id)
             .and_then(|state| state.subplot_spec.as_ref())
+            .or_else(|| crate::mplot3d::axes3d_subplot_spec(&fig.store, id))
             .map(topmost)
             .filter(included)
         else {
@@ -472,6 +475,7 @@ struct SuperExtents {
 mod tests {
     use super::*;
     use crate::gridspec::GridSpec;
+    use crate::layout::LayoutEngine;
 
     fn cell(rows: Range<usize>, cols: Range<usize>, position: Bbox, tight: Bbox) -> Cell {
         Cell {
@@ -551,5 +555,37 @@ mod tests {
         assert!(w < 0.5 && h < 0.5 && y > 0.5, "{y} {w} {h}");
         let params = fig.subplot_params();
         assert!(params.wspace > 0.0 && params.hspace > 0.0);
+    }
+
+    #[test]
+    fn three_d_axes_are_laid_out_too() {
+        use crate::mplot3d::{Axes3DOptions, ProjType};
+        // matplotlib's test_tight_layout_text: one 3-D axes moves into
+        // the room the default margins leave.
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        fig.tight_layout(&TightLayout::default()).unwrap();
+        assert!(ax.position().bounds().0 < 0.2, "{:?}", ax.position());
+        // test_axes3d_primary_views: the engine lays out a grid of
+        // orthographic views, edge-on ones included, at every draw.
+        let fig = Figure::new();
+        fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout::default())));
+        let options = Axes3DOptions {
+            proj_type: ProjType::Ortho,
+            ..Axes3DOptions::default()
+        };
+        let views = [(90.0, -90.0), (0.0, -90.0), (0.0, 0.0)];
+        let axs: Vec<_> = (1..=3)
+            .map(|i| fig.add_subplot_3d(1, 3, i, options.clone()).unwrap())
+            .collect();
+        for (ax, (elev, azim)) in axs.iter().zip(views) {
+            ax.set_zlabel("z").view_init(elev, azim, 0.0);
+        }
+        fig.layout();
+        assert!(
+            axs[0].position().bounds().0 < 0.1,
+            "{:?}",
+            axs[0].position()
+        );
     }
 }

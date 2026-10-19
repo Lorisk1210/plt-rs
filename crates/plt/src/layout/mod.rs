@@ -182,7 +182,8 @@ impl FigureState {
         match self.layout.engine {
             Some(LayoutEngine::Constrained(params)) => constrained::execute(self, &params),
             Some(LayoutEngine::Tight(params)) => {
-                let axes = self.all_axes();
+                let mut axes = self.all_axes();
+                axes.extend(crate::mplot3d::axes3d_ids(&self.store));
                 // A figure tight layout cannot fit keeps its parameters,
                 // as matplotlib's engine does (after a warning).
                 let _ = self.tight_layout_pass(self.root, &axes, &params);

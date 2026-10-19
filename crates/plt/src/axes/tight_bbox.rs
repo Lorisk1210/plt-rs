@@ -24,12 +24,17 @@ impl FigureState {
     /// labels along their axis and the titles horizontally, so that their
     /// length does not count. Axes with parasites measure their full
     /// decorations, as matplotlib's `HostAxes.get_tightbbox` has no
-    /// `for_layout_only`; their parasites count like insets.
+    /// `for_layout_only`; their parasites count like insets. 3-D axes
+    /// measure their box, axes and titles, `for_layout_only` leaving out
+    /// the axis labels.
     pub(crate) fn axes_tight_bbox(
         &mut self,
         axes: ArtistId,
         for_layout_only: bool,
     ) -> Option<Bbox> {
+        if crate::mplot3d::is_axes3d(&self.store, axes) {
+            return crate::mplot3d::axes3d_fresh_tight_bbox(self, axes, for_layout_only);
+        }
         self.axes_tight_bbox_at(axes, for_layout_only, Placement::Located)
     }
 

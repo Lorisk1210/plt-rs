@@ -17,6 +17,7 @@ use crate::ticker::{
 use crate::transforms::interval_contains_close;
 
 use super::coords::Axis3;
+use super::geometry::AxisPosition;
 use super::scaling::AxisScale;
 
 /// The view inset matplotlib checks tick visibility against with
@@ -184,6 +185,13 @@ pub(crate) struct Axis3DState {
     pub(crate) offset_color: Color,
     /// Ticks computed by the last layout pass, or why they could not be.
     pub(crate) ticks: Result<TickSet, String>,
+    /// Whether the axis line is drawn (matplotlib's `axis.line` visibility).
+    pub(crate) line_visible: bool,
+    /// The edges carrying the line, tick marks, tick labels and offset
+    /// text.
+    pub(crate) tick_position: AxisPosition,
+    /// The edges carrying the label.
+    pub(crate) label_position: AxisPosition,
 }
 
 impl Axis3DState {
@@ -214,6 +222,9 @@ impl Axis3DState {
             minor_style: TickStyle::from_rc(AxisName::X, false, rc),
             offset_color: rc.xtick_color.clone(),
             ticks: Ok(TickSet::default()),
+            line_visible: true,
+            tick_position: AxisPosition::Default,
+            label_position: AxisPosition::Default,
         }
     }
 

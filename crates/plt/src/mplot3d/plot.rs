@@ -97,16 +97,71 @@ impl Axes3D {
         text: impl Into<String>,
         zdir: Option<Axis3>,
     ) -> Text {
+        self.text_along(x, y, z, text, zdir.map_or([0.0; 3], Axis3::unit))
+    }
+
+    /// Adds text at `(x, y, z)` whose baseline follows `direction` as
+    /// seen on screen; a zero direction keeps it horizontal (matplotlib's
+    /// `ax.text(x, y, z, s, zdir=(dx, dy, dz))`).
+    pub fn text_along(
+        &self,
+        x: f64,
+        y: f64,
+        z: f64,
+        text: impl Into<String>,
+        direction: Vec3,
+    ) -> Text {
         let handle = self.plane().text(x, y, text);
         self.register(
             handle.id(),
             Art3D::Text {
                 position: [x, y, z],
-                direction: zdir.map_or([0.0; 3], Axis3::unit),
+                direction,
             },
             false,
         );
         handle
+    }
+
+    /// Moves a text placed with [`Axes3D::text`] or [`Axes3D::text_along`]
+    /// to `position`, its baseline following `direction` when given and
+    /// keeping its direction otherwise (matplotlib's
+    /// `Text3D.set_position_3d`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let label = ax.text(0.0, 0.0, 0.0, "moved", None);
+    /// ax.set_text_position(&label, [1.0, 2.0, 3.0], Some([1.0, 1.0, 0.0]))?;
+    /// # Ok::<(), plt::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `text` is not a 3-D text of this axes.
+    pub fn set_text_position(
+        &self,
+        text: &Text,
+        position: Vec3,
+        direction: Option<Vec3>,
+    ) -> Result<&Self, Axes3DError> {
+        let id = self.own_id(text);
+        let found = self.with_mut(|axes| {
+            let entry = axes.artists.iter_mut().find(|a| Some(a.id) == id)?;
+            let Art3D::Text {
+                position: anchor,
+                direction: baseline,
+            } = &mut entry.art
+            else {
+                return None;
+            };
+            *anchor = position;
+            if let Some(direction) = direction {
+                *baseline = direction;
+            }
+            Some(())
+        });
+        found.map(|()| self).ok_or(Axes3DError::Not3DArtist)
     }
 
     /// Adds text at `(x, y)` in axes coordinates, over the 3-D scene
@@ -190,5 +245,29 @@ mod tests {
         let (y0, y1) = ax.ylim();
         assert!(y0 < 5.0 && y1 > 5.0, "the line lies at y = 5");
         assert!(ax.plot(&[1.0], &[1.0, 2.0], &[0.0]).is_err());
+    }
+
+    #[test]
+    fn moved_texts_land_where_placed_texts_do() {
+        // matplotlib's test_text3d_modification.
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        let placed = ax.text_along(1.0, 2.0, 3.0, "placed", [1.0, 1.0, 0.0]);
+        let moved = ax.text(0.0, 0.0, 0.0, "moved", None);
+        ax.set_text_position(&moved, [1.0, 2.0, 3.0], Some([1.0, 1.0, 0.0]))
+            .unwrap();
+        let kept = ax.text(0.0, 0.0, 0.0, "kept", Some(Axis3::Y));
+        ax.set_text_position(&kept, [1.0, 2.0, 3.0], None).unwrap();
+        let along_y = ax.text(1.0, 2.0, 3.0, "along y", Some(Axis3::Y));
+        fig.layout();
+        assert_eq!(moved.position(), placed.position());
+        assert_eq!(moved.rotation(), placed.rotation());
+        assert_eq!(kept.rotation(), along_y.rotation());
+        assert_ne!(kept.rotation(), placed.rotation());
+        let flat = ax.text2d(0.5, 0.5, "2-D");
+        assert_eq!(
+            ax.set_text_position(&flat, [0.0; 3], None).err(),
+            Some(Axes3DError::Not3DArtist)
+        );
     }
 }

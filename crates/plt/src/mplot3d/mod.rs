@@ -97,6 +97,7 @@ pub use coords::Axis3;
 pub use error::Axes3DError;
 pub use errorbar::{Errorbar3D, Errorbar3DOptions};
 pub use fill_between::{FillBetween3DOptions, FillMode};
+pub use geometry::AxisPosition;
 pub use handle::{Axes3D, Axes3DOptions};
 pub use math::Vec3;
 pub(crate) use mouse::MouseAction;
@@ -111,4 +112,7 @@ pub use test_data::test_data;
 pub use trisurf::TrisurfOptions;
 pub use voxels::{Array3, VoxelColors, VoxelOptions};
 
-pub(crate) use state::{axes3d_bbox, axes3d_tight_bbox, is_axes3d, prepare_axes3d};
+pub(crate) use state::{
+    axes3d_bbox, axes3d_fresh_tight_bbox, axes3d_ids, axes3d_subplot_spec, axes3d_tight_bbox,
+    is_axes3d, place_axes3d, prepare_axes3d,
+};

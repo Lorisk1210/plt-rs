@@ -18,7 +18,7 @@ use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, Layo
 use crate::axes::AxesState;
 use crate::colors::Color;
 use crate::figure::FigureState;
-use crate::gridspec::SubplotSpec;
+use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
 use crate::rc::RcParams;
 use crate::transforms::{TransformContext, unit_to_bbox};
 
@@ -273,10 +273,40 @@ pub(crate) fn is_axes3d(store: &ArtistStore, id: ArtistId) -> bool {
     store.get_as::<Axes3DState>(id).is_some()
 }
 
+/// The grid cell of a 3-D axes, if it was placed on a grid.
+pub(crate) fn axes3d_subplot_spec(store: &ArtistStore, id: ArtistId) -> Option<&SubplotSpec> {
+    store.get_as::<Axes3DState>(id)?.subplot_spec.as_ref()
+}
+
+/// Moves artist `id`, if it is a 3-D axes placed on a grid, to its cell
+/// under the subplot parameters `params`.
+pub(crate) fn place_axes3d(
+    store: &mut ArtistStore,
+    id: ArtistId,
+    params: &SubplotParams,
+) -> Result<(), GridSpecError> {
+    if let Some(axes) = store.get_as_mut::<Axes3DState>(id)
+        && let Some(spec) = &axes.subplot_spec
+    {
+        axes.position = spec.position(params)?;
+    }
+    Ok(())
+}
+
+/// The 3-D axes of a figure, in creation order.
+pub(crate) fn axes3d_ids(store: &ArtistStore) -> Vec<ArtistId> {
+    store.ids().filter(|&id| is_axes3d(store, id)).collect()
+}
+
 /// The extent of a visible 3-D axes for tight boxes: its box, the lines
-/// and texts of its axes when shown, and its titles (matplotlib's
+/// and texts of its axes when shown (without their labels when
+/// `for_layout_only`), and its titles (matplotlib's
 /// `Axes3D.get_tightbbox`).
-pub(crate) fn axes3d_tight_bbox(figure: &FigureState, id: ArtistId) -> Option<Bbox> {
+pub(crate) fn axes3d_tight_bbox(
+    figure: &FigureState,
+    id: ArtistId,
+    for_layout_only: bool,
+) -> Option<Bbox> {
     let axes = figure.store.get_as::<Axes3DState>(id)?;
     if !axes.base.visible {
         return None;
@@ -285,7 +315,7 @@ pub(crate) fn axes3d_tight_bbox(figure: &FigureState, id: ArtistId) -> Option<Bb
     let layout = LayoutContext::new(figure);
     let mut boxes = vec![extent];
     if axes.axis_on {
-        boxes.extend(axis_extents(axes, layout, &extent));
+        boxes.extend(axis_extents(axes, layout, &extent, for_layout_only));
     }
     if let Some(plane) = figure.store.get_as::<AxesState>(axes.plane) {
         boxes.extend(
@@ -301,23 +331,34 @@ pub(crate) fn axes3d_tight_bbox(figure: &FigureState, id: ArtistId) -> Option<Bb
     boxes.into_iter().reduce(|a, b| a.union(&b))
 }
 
+/// [`axes3d_tight_bbox`] after a layout pass of the axes where it is now,
+/// as matplotlib computes the ticks afresh when it measures an axes.
+pub(crate) fn axes3d_fresh_tight_bbox(
+    figure: &mut FigureState,
+    id: ArtistId,
+    for_layout_only: bool,
+) -> Option<Bbox> {
+    prepare_one(figure, id);
+    axes3d_tight_bbox(figure, id, for_layout_only)
+}
+
 /// The layout pass of every 3-D axes of a figure (called from
 /// [`FigureState::prepare`]).
 pub(crate) fn prepare_axes3d(figure: &mut FigureState) {
-    let ids: Vec<ArtistId> = figure
-        .store
-        .ids()
-        .filter(|&id| figure.store.get_as::<Axes3DState>(id).is_some())
-        .collect();
-    let dpi = figure.dpi();
-    for id in ids {
-        let Some(extent) = figure.axes_bbox(id) else {
-            continue;
-        };
-        figure
-            .store
-            .with_detached::<Axes3DState, _>(id, |axes, store| axes.prepare(store, &extent, dpi));
+    for id in axes3d_ids(&figure.store) {
+        prepare_one(figure, id);
     }
+}
+
+/// The layout pass of the 3-D axes `id`.
+fn prepare_one(figure: &mut FigureState, id: ArtistId) {
+    let Some(extent) = figure.axes_bbox(id) else {
+        return;
+    };
+    let dpi = figure.dpi();
+    figure
+        .store
+        .with_detached::<Axes3DState, _>(id, |axes, store| axes.prepare(store, &extent, dpi));
 }
 
 #[cfg(test)]

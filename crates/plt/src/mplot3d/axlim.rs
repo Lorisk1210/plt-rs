@@ -59,7 +59,7 @@ impl Axes3D {
     }
 
     /// The id of `artist` if it belongs to the figure of this axes.
-    fn own_id(&self, artist: &impl ArtistHandle) -> Option<ArtistId> {
+    pub(super) fn own_id(&self, artist: &impl ArtistHandle) -> Option<ArtistId> {
         Rc::ptr_eq(self.raw().figure_state(), artist.raw().figure_state()).then(|| artist.id())
     }
 }

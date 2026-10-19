@@ -246,24 +246,26 @@ impl Axes3D {
     }
 }
 
-/// The outline of a rectangle as a closed polygon whose last vertex
-/// repeats the first (matplotlib's `_get_patch_verts`).
+/// The outline of a rectangle as a closed polygon, whose first vertex is
+/// repeated at the end unless the last one already is the first, as for
+/// a rectangle of no height (matplotlib's `_get_patch_verts`, through
+/// `Path.to_polygons`).
 fn polygon(rectangle: &Rectangle) -> Vec<Point> {
     let path = rectangle.path();
     let placement = rectangle.patch_transform();
-    let first = path.vertices().first().copied().unwrap_or(Point::ORIGIN);
-    path.vertices()
+    let mut points: Vec<Point> = path
+        .vertices()
         .iter()
         .zip(path.resolved_codes())
-        .map(|(&v, code)| {
-            let v = if code == PathCode::ClosePoly {
-                first
-            } else {
-                v
-            };
-            placement.transform_point(v)
-        })
-        .collect()
+        .filter(|&(_, code)| code != PathCode::ClosePoly)
+        .map(|(&v, _)| placement.transform_point(v))
+        .collect();
+    if let (Some(&first), Some(&last)) = (points.first(), points.last())
+        && first != last
+    {
+        points.push(first);
+    }
+    points
 }
 
 #[cfg(test)]
@@ -276,6 +278,10 @@ mod tests {
         assert_eq!(outline.first(), outline.last());
         assert_eq!(outline.len(), 5);
         assert!(outline.contains(&Point::new(4.0, 6.0)));
+        // A bar of no height ends where it starts already.
+        let flat = polygon(&Rectangle::new((1.0, 2.0), 3.0, 0.0));
+        assert_eq!(flat.len(), 4);
+        assert_eq!(flat.first(), flat.last());
     }
 
     #[test]

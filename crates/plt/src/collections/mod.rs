@@ -80,6 +80,21 @@ pub enum EdgeColors {
     Colors(Vec<Color>),
 }
 
+/// The item styles of a collection worked out by a 3-D projection, in
+/// depth order (matplotlib's `Path3DCollection` sorting its colours, sizes
+/// and widths at each projection); the collection keeps its own in data
+/// order.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct DepthSorted {
+    /// Face and edge colours, shaded with depth (`None` when the
+    /// collection's colours cannot be resolved, which drawing reports).
+    pub(crate) colors: Option<(Vec<Rgba>, Vec<Rgba>)>,
+    /// Marker areas (`None`: the collection's own).
+    pub(crate) sizes: Option<Vec<f64>>,
+    /// Edge widths (`None`: the collection's own).
+    pub(crate) linewidths: Option<Vec<f64>>,
+}
+
 /// Values mapped to colours through a norm and colormap.
 #[derive(Debug)]
 pub struct ColorMapping {
@@ -181,9 +196,9 @@ pub(crate) struct CollectionArtist {
     /// How a `fill_between` collection makes its polygons, kept for new
     /// curves (`None` for other collections).
     pub(crate) fill_geometry: Option<FillGeometry>,
-    /// Face and edge colours worked out by a 3-D projection (sorted by
-    /// depth and shaded), replacing the resolved ones when set.
-    pub(crate) projected_colors: Option<(Vec<Rgba>, Vec<Rgba>)>,
+    /// The item styles worked out by a 3-D projection, replacing the
+    /// collection's own when set.
+    pub(crate) depth_sorted: Option<DepthSorted>,
     pub(crate) mapping: Option<Mapped>,
     /// How far from an item's outline, in pixels, a pick still hits it; a
     /// pick must fall inside an item when it is not positive.
@@ -231,7 +246,7 @@ impl CollectionArtist {
             joinstyle: None,
             gapcolors: None,
             fill_geometry: None,
-            projected_colors: None,
+            depth_sorted: None,
             mapping: None,
             pickradius: 5.0,
             mesh: None,
@@ -278,6 +293,24 @@ impl CollectionArtist {
                 self.rc.patch_linewidth
             }]
         })
+    }
+
+    /// The edge widths to draw: those of the last 3-D projection, or else
+    /// [`Self::linewidths_or_default`].
+    pub(crate) fn drawn_linewidths(&self) -> Vec<f64> {
+        self.depth_sorted
+            .as_ref()
+            .and_then(|sorted| sorted.linewidths.clone())
+            .unwrap_or_else(|| self.linewidths_or_default())
+    }
+
+    /// The marker areas to draw: those of the last 3-D projection, or
+    /// else the collection's own.
+    pub(crate) fn drawn_sizes(&self) -> Option<&[f64]> {
+        self.depth_sorted
+            .as_ref()
+            .and_then(|sorted| sorted.sizes.as_deref())
+            .or(self.sizes.as_deref())
     }
 
     /// The face and edge colours after defaults, colour mapping and alpha

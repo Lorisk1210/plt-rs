@@ -11,7 +11,7 @@ use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 use super::axis3d::{Axis3DState, DrawnTick};
 use super::camera::{Projection, norm_text_angle};
 use super::coords::Axis3;
-use super::geometry::{BoxGeometry, juggled, static_tick_direction, tick_direction};
+use super::geometry::{AxisPosition, BoxGeometry, juggled, static_tick_direction, tick_direction};
 use super::math::{Vec3, add, scaled};
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
@@ -52,18 +52,21 @@ pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &
 }
 
 /// The display extents of the axes of a 3-D axes: their lines, offset
-/// texts, tick labels and labels, empty tick labels counting as boxes of
-/// no size at their anchors (matplotlib's `Axis3D.get_tightbbox`).
+/// texts, tick labels and, unless `for_layout_only`, labels, empty tick
+/// labels counting as boxes of no size at their anchors (matplotlib's
+/// `Axis3D.get_tightbbox`).
 pub(crate) fn axis_extents(
     axes: &Axes3DState,
     layout: LayoutContext<'_>,
     extent: &Bbox,
+    for_layout_only: bool,
 ) -> Vec<Bbox> {
     let Some(painter) = Painter::new(axes, layout, extent) else {
         return Vec::new();
     };
     let mut extents = Extents {
         layout,
+        labels: !for_layout_only,
         boxes: Vec::new(),
     };
     for dir in Axis3::ALL {
@@ -83,6 +86,10 @@ trait Sink {
     fn tick_mark(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color);
     /// A tick label, label or offset text.
     fn text(&mut self, painter: &Painter<'_>, text: &PlacedText<'_>);
+    /// Whether the axis labels go to the sink too.
+    fn takes_labels(&self) -> bool {
+        true
+    }
 }
 
 impl Sink for DrawContext<'_> {
@@ -106,12 +113,18 @@ impl Sink for DrawContext<'_> {
 /// The extents of the lines and texts of axes, without their tick marks.
 struct Extents<'a> {
     layout: LayoutContext<'a>,
+    /// Whether the axis labels are measured.
+    labels: bool,
     boxes: Vec<Bbox>,
 }
 
 impl Sink for Extents<'_> {
     fn dpi(&self) -> f64 {
         self.layout.dpi()
+    }
+
+    fn takes_labels(&self) -> bool {
+        self.labels
     }
 
     /// The extent of the line's vertices (matplotlib's
@@ -153,6 +166,25 @@ struct Painter<'a> {
     /// Projected coordinates to display pixels.
     plane: ResolvedTransform,
     extent: Bbox,
+}
+
+/// A box edge along an axis.
+struct AxisEdge {
+    /// Its end points in transformed coordinates.
+    points: [Vec3; 2],
+    /// The same, projected.
+    ends: [Vec3; 2],
+    /// From the first projected end to the second, in axes pixels.
+    delta: (f64, f64),
+}
+
+impl AxisEdge {
+    /// The angle of the edge on screen in degrees, turned to read left to
+    /// right (what texts along it are rotated by).
+    fn angle(&self) -> f64 {
+        let (dx, dy) = self.delta;
+        norm_text_angle(dy.atan2(dx).to_degrees())
+    }
 }
 
 /// A text placed in projected coordinates.
@@ -197,13 +229,13 @@ impl<'a> Painter<'a> {
             Ok(rgba) => rgba.a,
             Err(err) => return self.report(ctx, err),
         };
-        let outline: Vec<Point> = self
-            .geometry
-            .pane(dir)
-            .iter()
-            .map(|q| Point::new(q[0], q[1]))
-            .collect();
-        let outline = Path::polyline(outline);
+        let outline = Path::polyline(open_polygon(
+            self.geometry
+                .pane(dir)
+                .iter()
+                .map(|q| Point::new(q[0], q[1]))
+                .collect(),
+        ));
         let (path, affine) = self.plane.split_path(&outline);
         let style = PatchStyle {
             facecolor: Some(color.clone()),
@@ -257,8 +289,9 @@ impl<'a> Painter<'a> {
         }
     }
 
-    /// Draws the line, tick marks, tick labels, offset text and label of
-    /// `dir` (matplotlib's `Axis.draw`).
+    /// Draws the line, tick marks, tick labels and offset text of `dir`
+    /// along each edge its tick position names, then its label along each
+    /// edge its label position names (matplotlib's `Axis.draw`).
     fn draw_axis(&self, sink: &mut impl Sink, dir: Axis3) {
         let axis = self.axes.axis(dir);
         let (width, height) = (self.extent.width(), self.extent.height());
@@ -271,38 +304,58 @@ impl<'a> Painter<'a> {
             self.geometry.deltas,
             (axis.label.pad + AXIS_LABEL_OFFSET) * deltas_per_point,
         );
-        let edges = self.geometry.axis_line(dir, self.axes.camera.vertical);
-        let projected = self.projection.project_transformed_all(&edges);
-        let ends = [projected[0], projected[1]];
-        // The text angle follows the axis in axes coordinates.
-        let (dx, dy) = (
-            (ends[1][0] - ends[0][0]) * width,
-            (ends[1][1] - ends[0][1]) * height,
-        );
-        let line = Path::polyline(ends.iter().map(|q| Point::new(q[0], q[1])).collect());
-        sink.axis_line(self, &line, axis.style.line_width, &axis.style.line_color);
-        self.draw_ticks(sink, axis, edges[0], deltas_per_point);
-        self.draw_offset_text(sink, axis, edges, ends, label_deltas, (dx, dy));
-        if axis.label.text.is_empty() {
+        for &position in axis.tick_position.edges() {
+            let edge = self.edge(dir, position);
+            if axis.line_visible {
+                let line =
+                    Path::polyline(edge.ends.iter().map(|q| Point::new(q[0], q[1])).collect());
+                sink.axis_line(self, &line, axis.style.line_width, &axis.style.line_color);
+            }
+            self.draw_ticks(sink, axis, edge.points[0], deltas_per_point, position);
+            self.draw_offset_text(sink, axis, &edge, label_deltas);
+        }
+        if axis.label.text.is_empty() || !sink.takes_labels() {
             return;
         }
-        let middle = scaled(add(edges[0], edges[1]), 0.5);
-        let at = self.geometry.move_from_center(middle, label_deltas, dir);
-        let rotation = if axis.label.rotated() {
-            norm_text_angle(dy.atan2(dx).to_degrees())
-        } else {
-            0.0
-        };
-        sink.text(
-            self,
-            &PlacedText {
-                text: &axis.label.text,
-                font: &axis.label.font,
-                color: &axis.label.color,
-                block: anchored(rotation, HAlign::Center),
-                position: self.project(at),
-            },
+        for &position in axis.label_position.edges() {
+            let edge = self.edge(dir, position);
+            let middle = scaled(add(edge.points[0], edge.points[1]), 0.5);
+            let at = self.geometry.move_from_center(middle, label_deltas, dir);
+            let rotation = if axis.label.rotated() {
+                edge.angle()
+            } else {
+                0.0
+            };
+            sink.text(
+                self,
+                &PlacedText {
+                    text: &axis.label.text,
+                    font: &axis.label.font,
+                    color: &axis.label.color,
+                    block: anchored(rotation, HAlign::Center),
+                    position: self.project(at),
+                },
+            );
+        }
+    }
+
+    /// The box edge along `dir` at `position`.
+    fn edge(&self, dir: Axis3, position: AxisPosition) -> AxisEdge {
+        let points = self
+            .geometry
+            .axis_line(dir, self.axes.camera.vertical, position);
+        let projected = self.projection.project_transformed_all(&points);
+        let ends = [projected[0], projected[1]];
+        // Texts along the edge follow it in axes coordinates.
+        let delta = (
+            (ends[1][0] - ends[0][0]) * self.extent.width(),
+            (ends[1][1] - ends[0][1]) * self.extent.height(),
         );
+        AxisEdge {
+            points,
+            ends,
+            delta,
+        }
     }
 
     /// Draws each tick mark and its label (matplotlib's
@@ -313,9 +366,10 @@ impl<'a> Painter<'a> {
         axis: &Axis3DState,
         origin: Vec3,
         deltas_per_point: f64,
+        position: AxisPosition,
     ) {
         let dir = axis.dir;
-        let tickdir = tick_direction(dir, &self.axes.camera);
+        let tickdir = tick_direction(dir, &self.axes.camera, position);
         let delta = self.geometry.deltas[tickdir];
         let tickdelta = if self.geometry.highs[tickdir] {
             delta
@@ -380,10 +434,8 @@ impl<'a> Painter<'a> {
         &self,
         sink: &mut impl Sink,
         axis: &Axis3DState,
-        edges: [Vec3; 2],
-        ends: [Vec3; 2],
+        edge: &AxisEdge,
         label_deltas: Vec3,
-        (dx, dy): (f64, f64),
     ) {
         let Ok(ticks) = &axis.ticks else {
             return;
@@ -397,12 +449,12 @@ impl<'a> Painter<'a> {
         let outer = usize::from(juggled(dir)[2] != 2);
         let at = self
             .geometry
-            .move_from_center(edges[outer], label_deltas, dir);
+            .move_from_center(edge.points[outer], label_deltas, dir);
         let center = self.projection.project_transformed(self.geometry.centers);
-        let edge = ends[outer];
+        let end = edge.ends[outer];
         let even_highs = self.geometry.highs.iter().filter(|&&h| h).count() % 2 == 0;
-        let halign = if center[tickdir] > edge[tickdir] {
-            if center[index] <= edge[index] && even_highs {
+        let halign = if center[tickdir] > end[tickdir] {
+            if center[index] <= end[index] && even_highs {
                 if self.geometry.highs == [false, true, true] && index != 0 {
                     HAlign::Left
                 } else {
@@ -411,7 +463,7 @@ impl<'a> Painter<'a> {
             } else {
                 HAlign::Left
             }
-        } else if center[index] > edge[index] && even_highs {
+        } else if center[index] > end[index] && even_highs {
             if index == 2 {
                 HAlign::Right
             } else {
@@ -428,7 +480,7 @@ impl<'a> Painter<'a> {
                 text: &ticks.offset,
                 font: &font,
                 color: &axis.offset_color,
-                block: anchored(norm_text_angle(dy.atan2(dx).to_degrees()), halign),
+                block: anchored(edge.angle(), halign),
                 position: self.project(at),
             },
         );
@@ -480,6 +532,16 @@ impl<'a> Painter<'a> {
     }
 }
 
+/// The vertices of an open polygon: without the last one when it repeats
+/// the first, as for a pane seen edge-on (matplotlib's `Polygon.set_xy`
+/// with `closed=False`).
+fn open_polygon(mut vertices: Vec<Point>) -> Vec<Point> {
+    if vertices.len() > 2 && vertices.first() == vertices.last() {
+        vertices.pop();
+    }
+    vertices
+}
+
 /// A block centred vertically, rotated about its alignment point
 /// (matplotlib's 3-D axis label and offset text settings).
 fn anchored(rotation: f64, halign: HAlign) -> BlockStyle {
@@ -490,5 +552,19 @@ fn anchored(rotation: f64, halign: HAlign) -> BlockStyle {
         multialign: halign,
         rotation_mode: RotationMode::Anchor,
         ..BlockStyle::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn edge_on_panes_drop_their_closing_vertex() {
+        let (a, b) = (Point::new(0.0, 0.0), Point::new(1.0, 0.0));
+        assert_eq!(open_polygon(vec![a, b, b, a]), [a, b, b]);
+        let square = vec![a, b, Point::new(1.0, 1.0), Point::new(0.0, 1.0)];
+        assert_eq!(open_polygon(square.clone()), square);
+        assert_eq!(open_polygon(vec![a, a]), [a, a]);
     }
 }

@@ -7,6 +7,7 @@ use std::rc::Rc;
 use super::axis3d::Tickers3D;
 use super::coords::Axis3;
 use super::error::Axes3DError;
+use super::geometry::AxisPosition;
 use super::handle::Axes3D;
 use super::share::ShareKey;
 use super::state::Axes3DState;
@@ -210,6 +211,52 @@ impl Axis3D {
         self.axes.with(|axes| axes.axis(dir).ticks.clone())
     }
 
+    /// Shows or hides the axis line (matplotlib's
+    /// `axis.line.set_visible`).
+    pub fn set_line_visible(&self, visible: bool) -> &Self {
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).line_visible = visible);
+        self
+    }
+
+    /// Chooses the box edges carrying the axis line, tick marks, tick
+    /// labels and offset text (matplotlib's `set_ticks_position`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::mplot3d::AxisPosition;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.zaxis().set_ticks_position(AxisPosition::Both);
+    /// assert_eq!(ax.zaxis().ticks_position(), AxisPosition::Both);
+    /// ```
+    pub fn set_ticks_position(&self, position: AxisPosition) -> &Self {
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).tick_position = position);
+        self
+    }
+
+    /// The edges carrying the tick marks (matplotlib's
+    /// `get_ticks_position`).
+    pub fn ticks_position(&self) -> AxisPosition {
+        self.axes.with(|axes| axes.axis(self.dir).tick_position)
+    }
+
+    /// Chooses the box edges carrying the axis label (matplotlib's
+    /// `set_label_position`).
+    pub fn set_label_position(&self, position: AxisPosition) -> &Self {
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).label_position = position);
+        self
+    }
+
+    /// The edges carrying the label (matplotlib's `get_label_position`).
+    pub fn label_position(&self) -> AxisPosition {
+        self.axes.with(|axes| axes.axis(self.dir).label_position)
+    }
+
     /// Changes the tick parameters of this axis (matplotlib's
     /// `Axis.set_tick_params`); `params.axis` is ignored. The x axis
     /// takes the `bottom`/`top` switches, y and z the `left`/`right` ones,
@@ -280,6 +327,24 @@ mod tests {
             .map(|t| t.label)
             .collect();
         assert_eq!(labels, ["a", "b"]);
+    }
+
+    #[test]
+    fn positions_choose_the_edges_drawn() {
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot_3d();
+        let shown = fig.tight_bbox();
+        for axis in [ax.xaxis(), ax.yaxis(), ax.zaxis()] {
+            axis.set_ticks_position(AxisPosition::None)
+                .set_label_position(AxisPosition::Upper)
+                .set_line_visible(false);
+        }
+        assert_eq!(ax.zaxis().ticks_position(), AxisPosition::None);
+        assert_eq!(ax.zaxis().label_position(), AxisPosition::Upper);
+        assert!(!ax.with(|axes| axes.axis(Axis3::Z).line_visible));
+        // Without tick labels the axes take less room.
+        let hidden = fig.tight_bbox();
+        assert!(hidden.width() < shown.width(), "{hidden:?} vs {shown:?}");
     }
 
     #[test]

@@ -22,6 +22,38 @@ pub(crate) const PLANES: [[usize; 4]; 6] = [
 /// reference (matplotlib 3.9's `1/12 * 24/25`).
 const DELTA_SCALE: f64 = 0.08;
 
+/// Which of the box edges along an axis carry its line, tick marks, tick
+/// labels and offset text, or its label (matplotlib's
+/// `Axis.set_ticks_position` and `set_label_position` for 3-D axes).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum AxisPosition {
+    /// The edge matplotlib picks for the view.
+    #[default]
+    Default,
+    /// The lower of the two edges along the axis next to the panes.
+    Lower,
+    /// The upper of those edges.
+    Upper,
+    /// Both of them.
+    Both,
+    /// No edge: those parts are not drawn.
+    None,
+}
+
+impl AxisPosition {
+    /// The edges drawn, each named by its own position (matplotlib's
+    /// `_get_all_axis_line_edge_points`).
+    pub(crate) const fn edges(self) -> &'static [Self] {
+        match self {
+            Self::Default => &[Self::Default],
+            Self::Lower => &[Self::Lower],
+            Self::Upper => &[Self::Upper],
+            Self::Both => &[Self::Lower, Self::Upper],
+            Self::None => &[],
+        }
+    }
+}
+
 /// The projected data box of one draw, in transformed coordinates (the
 /// axis scales applied).
 #[derive(Clone, Debug, PartialEq)]
@@ -125,9 +157,15 @@ impl BoxGeometry {
         PLANES[plane].map(|k| self.corners[k])
     }
 
-    /// The end points of the line of `axis` (matplotlib's
-    /// `_get_axis_line_edge_points` at the default position).
-    pub(crate) fn axis_line(&self, axis: Axis3, vertical: Axis3) -> [Vec3; 2] {
+    /// The end points of the line of `axis` along the edge `position`
+    /// ([`AxisPosition::Default`], [`AxisPosition::Lower`] or
+    /// [`AxisPosition::Upper`]; matplotlib's `_get_axis_line_edge_points`).
+    pub(crate) fn axis_line(
+        &self,
+        axis: Axis3,
+        vertical: Axis3,
+        position: AxisPosition,
+    ) -> [Vec3; 2] {
         let (minmax, maxmin) = (self.far_corner(), self.near_corner());
         let forward = [minmax, maxmin];
         let backward = [maxmin, minmax];
@@ -138,8 +176,18 @@ impl BoxGeometry {
         ];
         let [start, end] = table[vertical.index()][axis.index()];
         let juggled = juggled(axis);
+        let last = juggled[2];
+        let across_last = match position {
+            AxisPosition::Lower => end[last] < start[last],
+            AxisPosition::Upper => end[last] > start[last],
+            _ => false,
+        };
         let mut p0 = start;
-        p0[juggled[0]] = end[juggled[0]];
+        if across_last {
+            p0[last] = end[last];
+        } else {
+            p0[juggled[0]] = end[juggled[0]];
+        }
         let mut p1 = p0;
         p1[juggled[1]] = end[juggled[1]];
         [p0, p1]
@@ -168,12 +216,33 @@ pub(crate) const fn juggled(axis: Axis3) -> [usize; 3] {
     }
 }
 
-/// The coordinate tick marks of `axis` extend along at the default
-/// position (matplotlib's `_get_tickdir('default')`).
-pub(crate) fn tick_direction(axis: Axis3, camera: &Camera) -> usize {
-    const BASE: [f64; 3] = [1.0, 0.0, 0.0];
+/// The coordinate the tick marks of `axis` extend along on the edge
+/// `position` ([`AxisPosition::Default`], [`AxisPosition::Lower`] or
+/// [`AxisPosition::Upper`]; matplotlib's `_get_tickdir`).
+pub(crate) fn tick_direction(axis: Axis3, camera: &Camera, position: AxisPosition) -> usize {
+    let looking_down = (camera.angles.elev + 180.0).rem_euclid(360.0) - 180.0 >= 0.0;
+    let azim_below_180 = camera.angles.azim.rem_euclid(360.0) < 180.0;
+    let base = match position {
+        AxisPosition::Upper => {
+            let [x, y, _] = if looking_down {
+                [2.0, 2.0, 0.0]
+            } else {
+                [1.0, 0.0, 0.0]
+            };
+            [x, y, if azim_below_180 { 1.0 } else { 0.0 }]
+        }
+        AxisPosition::Lower => {
+            let [x, y, z] = if looking_down {
+                [1.0, 0.0, 1.0]
+            } else {
+                [2.0, 2.0, 1.0]
+            };
+            [x, y, if azim_below_180 { 0.0 } else { z }]
+        }
+        _ => [1.0, 0.0, 0.0],
+    };
     let shift = camera.vertical.index() as isize - 2;
-    let rolled = roll(BASE, shift);
+    let rolled = roll(base, shift);
     let base = rolled[axis.index()] as isize;
     (base + shift).rem_euclid(3) as usize
 }
@@ -212,13 +281,13 @@ mod tests {
     fn axis_lines_run_along_their_axis() {
         let (geometry, camera) = default_box();
         for axis in Axis3::ALL {
-            let [p0, p1] = geometry.axis_line(axis, camera.vertical);
+            let [p0, p1] = geometry.axis_line(axis, camera.vertical, AxisPosition::Default);
             let differing: Vec<usize> = (0..3).filter(|&i| (p0[i] - p1[i]).abs() > 0.0).collect();
             assert_eq!(differing, [axis.index()]);
         }
         // matplotlib's x axis line runs along y = 0, z = 0.
         assert_eq!(
-            geometry.axis_line(Axis3::X, camera.vertical),
+            geometry.axis_line(Axis3::X, camera.vertical, AxisPosition::Default),
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]
         );
     }
@@ -228,7 +297,7 @@ mod tests {
         let (_, camera) = default_box();
         let dirs: Vec<usize> = Axis3::ALL
             .iter()
-            .map(|&a| tick_direction(a, &camera))
+            .map(|&a| tick_direction(a, &camera, AxisPosition::Default))
             .collect();
         assert_eq!(dirs, [1, 0, 0]);
     }
@@ -238,5 +307,55 @@ mod tests {
         let (geometry, _) = default_box();
         let moved = geometry.move_from_center([0.0, 1.0, 0.5], [0.1, 0.1, 0.1], Axis3::X);
         assert_eq!(moved, [0.0, 1.1, 0.6]);
+    }
+
+    #[test]
+    fn axis_positions_pick_matplotlibs_edges() {
+        // matplotlib's _get_axis_line_edge_points and _get_tickdir in the
+        // default view.
+        let (geometry, camera) = default_box();
+        let cases = [
+            (
+                Axis3::X,
+                AxisPosition::Lower,
+                [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
+                1,
+            ),
+            (
+                Axis3::X,
+                AxisPosition::Upper,
+                [[0.0, 1.0, 1.0], [1.0, 1.0, 1.0]],
+                2,
+            ),
+            (
+                Axis3::Y,
+                AxisPosition::Upper,
+                [[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]],
+                2,
+            ),
+            (
+                Axis3::Z,
+                AxisPosition::Lower,
+                [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+                1,
+            ),
+            (
+                Axis3::Z,
+                AxisPosition::Upper,
+                [[1.0, 1.0, 0.0], [1.0, 1.0, 1.0]],
+                0,
+            ),
+        ];
+        for (axis, position, edge, tickdir) in cases {
+            let line = geometry.axis_line(axis, camera.vertical, position);
+            assert_eq!(line, edge, "{axis:?} {position:?}");
+            let direction = tick_direction(axis, &camera, position);
+            assert_eq!(direction, tickdir, "{axis:?} {position:?}");
+        }
+        assert_eq!(AxisPosition::None.edges(), []);
+        assert_eq!(
+            AxisPosition::Both.edges(),
+            [AxisPosition::Lower, AxisPosition::Upper]
+        );
     }
 }

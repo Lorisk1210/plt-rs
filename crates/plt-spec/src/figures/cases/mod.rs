@@ -19,6 +19,7 @@ mod legend;
 mod lines;
 mod mathtext;
 mod misc;
+mod mpl_3d_a;
 mod mpl_axes_a;
 mod mpl_axes_b;
 mod mpl_axes_c;
@@ -157,6 +158,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
 /// The cases porting matplotlib's own image tests (the `mpl_*` groups).
 fn matplotlib_tests() -> Vec<FigureCase> {
     [
+        &mpl_3d_a::cases(),
         mpl_axes_a::CASES,
         &mpl_axes_b::cases(),
         &mpl_axes_c::cases(),

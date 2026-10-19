@@ -2,8 +2,7 @@
 
 use plt_core::{Path, Point, Rgba};
 
-use crate::collections::{CollectionArtist, EdgeColors};
-use crate::colors::Color;
+use crate::collections::{CollectionArtist, DepthSorted};
 use crate::mplot3d::camera::Projection;
 use crate::mplot3d::math::Vec3;
 use crate::numeric::argsort;
@@ -52,6 +51,10 @@ impl ZSort {
 }
 
 /// The 3-D state of a polygon collection.
+///
+/// The 2-D collection keeps its colours (and colour mapping) in polygon
+/// order; projecting writes its paths sorted by depth and its colours
+/// sorted alike ([`DepthSorted`]).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Polys3D {
     /// The polygons, possibly with different numbers of vertices.
@@ -98,9 +101,10 @@ impl Polys3D {
                 .collect(),
             None => closed_polygons(&projected, &order),
         };
-        let (faces, edges) = self.sorted_colors(&order);
-        collection.facecolors = Some(faces.into_iter().map(Color::from).collect());
-        collection.edgecolors = EdgeColors::Colors(edges.into_iter().map(Color::from).collect());
+        collection.depth_sorted = Some(DepthSorted {
+            colors: Some(self.sorted_colors(collection, &order)),
+            ..DepthSorted::default()
+        });
         match self.sort_zpos {
             // matplotlib projects the sort position without the scales.
             Some(z) => projection.project_transformed([0.0, 0.0, z])[2],
@@ -127,28 +131,51 @@ impl Polys3D {
     }
 
     /// The face and edge colours of the polygons drawn in `order`
-    /// (matplotlib's colour handling in `do_3d_projection`).
-    fn sorted_colors(&self, order: &[usize]) -> (Vec<Rgba>, Vec<Rgba>) {
-        let n = self.faces.len();
-        let faces = repeat_to(&self.facecolors, n);
-        let edges = match self.edgecolors.len() {
-            len if len == n => self.edgecolors.clone(),
-            0 => faces.clone(),
-            _ => repeat_to(&self.edgecolors, n),
-        };
-        let pick = |colors: &[Rgba]| -> Vec<Rgba> { order.iter().map(|&i| colors[i]).collect() };
-        let sorted_faces = if faces.is_empty() {
-            faces.clone()
-        } else {
-            pick(&faces)
-        };
-        let sorted_edges = if self.edgecolors.len() == faces.len() && !edges.is_empty() {
-            pick(&edges)
-        } else {
-            self.edgecolors.clone()
-        };
-        (sorted_faces, sorted_edges)
+    /// (matplotlib's colour handling in `do_3d_projection`): those of a
+    /// colour-mapped `collection` worked out afresh, as matplotlib's
+    /// `update_scalarmappable`, or else the ones kept.
+    fn sorted_colors(
+        &self,
+        collection: &CollectionArtist,
+        order: &[usize],
+    ) -> (Vec<Rgba>, Vec<Rgba>) {
+        let mapped = (collection.mapping.is_some())
+            .then(|| collection.base_colors().ok())
+            .flatten();
+        let (facecolors, edgecolors) = mapped.as_ref().map_or(
+            (self.facecolors.as_slice(), self.edgecolors.as_slice()),
+            |(faces, edges)| (faces.as_slice(), edges.as_slice()),
+        );
+        sort_colors(self.faces.len(), order, facecolors, edgecolors)
     }
+}
+
+/// The face and edge colours of `n` polygons drawn in `order`, from one
+/// colour or one per polygon (no edge colours: none).
+fn sort_colors(
+    n: usize,
+    order: &[usize],
+    facecolors: &[Rgba],
+    edgecolors: &[Rgba],
+) -> (Vec<Rgba>, Vec<Rgba>) {
+    let faces = repeat_to(facecolors, n);
+    let edges = match edgecolors.len() {
+        len if len == n => edgecolors.to_vec(),
+        0 => faces.clone(),
+        _ => repeat_to(edgecolors, n),
+    };
+    let pick = |colors: &[Rgba]| -> Vec<Rgba> { order.iter().map(|&i| colors[i]).collect() };
+    let sorted_faces = if faces.is_empty() {
+        faces.clone()
+    } else {
+        pick(&faces)
+    };
+    let sorted_edges = if edgecolors.len() == faces.len() && !edges.is_empty() {
+        pick(&edges)
+    } else {
+        edgecolors.to_vec()
+    };
+    (sorted_faces, sorted_edges)
 }
 
 /// The projected faces in `order` as closed polygons. matplotlib stores
@@ -231,27 +258,14 @@ mod tests {
     fn colours_follow_matplotlib() {
         let red = Rgba::new(1.0, 0.0, 0.0, 1.0);
         let blue = Rgba::new(0.0, 0.0, 1.0, 1.0);
-        let polys = Polys3D {
-            faces: vec![Vec::new(); 2],
-            zsort: ZSort::Average,
-            sort_zpos: None,
-            facecolors: vec![red, blue],
-            edgecolors: Vec::new(),
-            templates: None,
-        };
-        let (faces, edges) = polys.sorted_colors(&[1, 0]);
+        let (faces, edges) = sort_colors(2, &[1, 0], &[red, blue], &[]);
         assert_eq!(faces, [blue, red]);
         assert!(edges.is_empty(), "no edge colours stay none");
-        let single_edge = Polys3D {
-            edgecolors: vec![red],
-            ..polys.clone()
-        };
-        assert_eq!(single_edge.sorted_colors(&[1, 0]).1, [red]);
-        let per_face = Polys3D {
-            edgecolors: vec![red, blue],
-            ..polys
-        };
-        assert_eq!(per_face.sorted_colors(&[1, 0]).1, [blue, red]);
+        assert_eq!(sort_colors(2, &[1, 0], &[red, blue], &[red]).1, [red]);
+        assert_eq!(
+            sort_colors(2, &[1, 0], &[red, blue], &[red, blue]).1,
+            [blue, red]
+        );
     }
 
     #[test]

@@ -264,6 +264,8 @@ fn annotation_with_arrow() -> Outcome {
         ..placed(Some((50.0, 50.0)), "figure pixels", None)?
     };
     let ann = annotate(&ax, "test", (0.0, 50.0), options)?;
+    // `fig.canvas.draw()`: drawn arrows measure at the canvas dpi.
+    fig.layout();
     Ok(object([
         ("text", extent(text.window_extent())),
         ("annotation", extent(ann.window_extent())),
@@ -277,6 +279,7 @@ fn arrow_annotation() -> Outcome {
         ..placed(Some((50.0, 50.0)), "figure pixels", None)?
     };
     let ann = annotate(&fig.subplot(), "", (0.0, 50.0), options)?;
+    fig.layout();
     Ok(extent(ann.window_extent()))
 }
 

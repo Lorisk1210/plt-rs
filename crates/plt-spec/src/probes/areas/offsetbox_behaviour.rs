@@ -150,6 +150,8 @@ fn extents(args: Args<'_>) -> Outcome {
                     ..AnnotationBboxOptions::default()
                 },
             ))?;
+            // `fig.canvas.draw()`: drawn arrows measure at the canvas dpi.
+            fig.layout();
             Ok(Json::Array(vec![
                 extent(annotation.window_extent()),
                 extent(drawing.window_extent()),

@@ -244,6 +244,17 @@ impl CollectionSpec {
         self
     }
 
+    /// The same collection taking no part in the data and view limits
+    /// (matplotlib's `add_collection(..., autolim=False)`): adding it
+    /// neither extends nor autoscales them, and [`relim`] leaves it out.
+    ///
+    /// [`relim`]: crate::axes::Axes::relim
+    #[must_use]
+    pub fn without_autolim(mut self) -> Self {
+        self.artist.in_autoscale = false;
+        self
+    }
+
     /// The same collection with these properties.
     #[must_use]
     pub fn with_props(mut self, props: CollectionProps) -> Self {
@@ -355,6 +366,19 @@ mod tests {
             10.0,
             "offsets count, not the shapes"
         );
+    }
+
+    #[test]
+    fn collections_without_autolim_leave_the_limits_alone() {
+        let fig = crate::figure::Figure::new();
+        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
+        let before = (ax.data_lim(), ax.xlim(), ax.ylim());
+        let far = vec![vec![Point::new(-50.0, 20.0), Point::new(80.0, 90.0)]];
+        ax.add_collection(CollectionSpec::lines(far).without_autolim());
+        assert_eq!((ax.data_lim(), ax.xlim(), ax.ylim()), before);
+        ax.relim(false);
+        assert_eq!(ax.data_lim(), before.0, "relim leaves it out too");
     }
 
     #[test]

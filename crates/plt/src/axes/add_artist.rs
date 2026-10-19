@@ -30,14 +30,19 @@ impl Axes {
 
     /// Adds a collection, in data coordinates unless it is drawn in display
     /// space at offsets, clipped to the axes, and extends the data limits
-    /// and autoscales to cover it (matplotlib's `add_collection`).
+    /// and autoscales to cover it (matplotlib's `add_collection`) unless it
+    /// was made [`without_autolim`](CollectionSpec::without_autolim).
     pub fn add_collection(&self, spec: CollectionSpec) -> Collection {
         let mut artist = spec.artist;
         let base = artist.base_mut();
         if base.transform.is_none() {
             base.transform = Some(self.trans_data());
         }
-        let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
+        let update = if artist.in_autoscale {
+            DataUpdate::autoscaled(artist.limit_points(self.id()))
+        } else {
+            DataUpdate::default()
+        };
         Collection::from_raw(self.adopt(artist, &update))
     }
 

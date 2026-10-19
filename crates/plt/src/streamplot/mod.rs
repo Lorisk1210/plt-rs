@@ -43,6 +43,7 @@ use plt_core::Point;
 use crate::collections::Collection;
 use crate::colors::{Color, Colormap, Norm};
 use crate::numeric::Grid;
+use crate::transforms::Transform;
 
 /// A vector field sampled on an evenly spaced grid (streamplot's `x, y,
 /// u, v`). Non-finite components are masked: streamlines stop there.
@@ -157,6 +158,11 @@ pub struct StreamplotOptions {
     pub integration_max_error_scale: f64,
     /// Arrows per streamline, spaced evenly along its integration steps.
     pub num_arrows: usize,
+    /// The coordinates of the grid (matplotlib's `transform`; default the
+    /// axes' data coordinates). When they end in the data coordinates
+    /// after a fixed affine map, the streamlines bound the data mapped
+    /// into them; in other coordinates they do not bound the data.
+    pub transform: Option<Transform>,
 }
 
 impl Default for StreamplotOptions {
@@ -176,6 +182,7 @@ impl Default for StreamplotOptions {
             integration_max_step_scale: 1.0,
             integration_max_error_scale: 1.0,
             num_arrows: 1,
+            transform: None,
         }
     }
 }

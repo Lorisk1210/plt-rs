@@ -2,7 +2,7 @@
 //! (matplotlib's `QuadContourSet._contour_args`, `_check_xyz` and
 //! `_initialize_x_y`).
 
-use plt_core::Point;
+use plt_core::{Affine2D, Point};
 
 use super::set::{ContourSource, ContourWarning};
 use super::{ContourError, QuadContourGenerator};
@@ -116,11 +116,14 @@ impl QuadField {
     }
 
     /// Checks the shapes and builds the contour generator, masking invalid
-    /// (and, when log-scaled, non-positive) values.
+    /// (and, when log-scaled, non-positive) values. The data limits cover
+    /// the points mapped by `to_data` when the grid is not in data
+    /// coordinates.
     pub(crate) fn source(
         &self,
         logscale: bool,
         rc: &RcParams,
+        to_data: Option<&Affine2D>,
     ) -> Result<ContourSource<QuadContourGenerator>, ContourError> {
         let (rows, cols) = self.z.shape();
         if rows < 2 || cols < 2 {
@@ -163,10 +166,7 @@ impl QuadField {
             generator,
             zmin,
             zmax,
-            data_lim: (
-                Point::new(np_min(x.as_slice()), np_min(y.as_slice())),
-                Point::new(np_max(x.as_slice()), np_max(y.as_slice())),
-            ),
+            data_lim: data_lim(&x, &y, to_data),
             boolean: self.boolean,
             warnings,
         })
@@ -265,6 +265,27 @@ fn np_max(values: &[f64]) -> f64 {
         .unwrap_or(f64::NAN)
 }
 
+/// The corners of the bounding box of the grid points, mapped by
+/// `to_data` first (matplotlib's `_mins` and `_maxs`).
+fn data_lim(x: &Grid<f64>, y: &Grid<f64>, to_data: Option<&Affine2D>) -> (Point, Point) {
+    let (xs, ys): (Vec<f64>, Vec<f64>) = match to_data {
+        Some(to_data) => x
+            .as_slice()
+            .iter()
+            .zip(y.as_slice())
+            .map(|(&x, &y)| {
+                let p = to_data.transform_point(Point::new(x, y));
+                (p.x, p.y)
+            })
+            .unzip(),
+        None => (x.as_slice().to_vec(), y.as_slice().to_vec()),
+    };
+    (
+        Point::new(np_min(&xs), np_min(&ys)),
+        Point::new(np_max(&xs), np_max(&ys)),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -290,10 +311,10 @@ mod tests {
         let mut z = field(3, 3).z;
         z[(0, 0)] = f64::NAN;
         let rc = RcParams::default();
-        let source = QuadField::new(z.clone()).source(false, &rc).unwrap();
+        let source = QuadField::new(z.clone()).source(false, &rc, None).unwrap();
         assert_eq!((source.zmin, source.zmax), (Some(1.0), Some(8.0)));
         z[(0, 1)] = -2.0;
-        let source = QuadField::new(z).source(true, &rc).unwrap();
+        let source = QuadField::new(z).source(true, &rc, None).unwrap();
         assert_eq!(source.zmin, Some(2.0));
         assert_eq!(source.warnings, [ContourWarning::NonPositiveMasked]);
     }
@@ -318,7 +339,7 @@ mod tests {
     fn shape_errors() {
         let rc = RcParams::default();
         assert!(matches!(
-            field(1, 3).source(false, &rc),
+            field(1, 3).source(false, &rc, None),
             Err(ContourError::GridTooSmall { .. })
         ));
         let wrong_x = field(3, 3).with_coords(QuadCoords::Axes {
@@ -326,11 +347,11 @@ mod tests {
             y: vec![0.0, 1.0, 2.0],
         });
         assert!(matches!(
-            wrong_x.source(false, &rc),
+            wrong_x.source(false, &rc, None),
             Err(ContourError::XLength { len: 2, cols: 3 })
         ));
         let all_nan = QuadField::new(Grid::filled(2, 2, f64::NAN))
-            .source(false, &rc)
+            .source(false, &rc, None)
             .unwrap();
         assert_eq!((all_nan.zmin, all_nan.zmax), (None, None));
     }

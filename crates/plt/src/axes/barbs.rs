@@ -3,7 +3,7 @@
 use plt_core::Path;
 
 use super::children::DataUpdate;
-use super::scatter::data_offsets;
+use super::data_coords::data_offsets;
 use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};

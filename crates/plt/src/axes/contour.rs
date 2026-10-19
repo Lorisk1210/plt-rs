@@ -1,7 +1,10 @@
 //! Contour plots (matplotlib's `contour`, `contourf`, `tricontour` and
 //! `tricontourf`).
 
+use plt_core::Affine2D;
+
 use super::children::DataUpdate;
+use super::data_coords::affine_before_data;
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::contour::{
@@ -34,7 +37,11 @@ impl Axes {
         field: &QuadField,
         options: ContourOptions,
     ) -> Result<ContourSet, ContourError> {
-        let source = field.source(options.logscale(), &crate::rc::params())?;
+        let source = field.source(
+            options.logscale(),
+            &crate::rc::params(),
+            self.grid_to_data(&options).as_ref(),
+        )?;
         self.add_contour_set(false, options, source)
     }
 
@@ -49,7 +56,11 @@ impl Axes {
         field: &QuadField,
         options: ContourOptions,
     ) -> Result<ContourSet, ContourError> {
-        let source = field.source(options.logscale(), &crate::rc::params())?;
+        let source = field.source(
+            options.logscale(),
+            &crate::rc::params(),
+            self.grid_to_data(&options).as_ref(),
+        )?;
         self.add_contour_set(true, options, source)
     }
 
@@ -86,6 +97,14 @@ impl Axes {
         self.add_contour_set(true, options, source)
     }
 
+    /// The map from the coordinates of a quadrilateral grid to the data
+    /// coordinates, when they differ (matplotlib's `trans_to_data` in
+    /// `QuadContourSet._process_args`; triangulations are never mapped).
+    fn grid_to_data(&self, options: &ContourOptions) -> Option<Affine2D> {
+        let transform = options.transform.as_ref()?;
+        affine_before_data(transform, self.id()).filter(|map| *map != Affine2D::IDENTITY)
+    }
+
     /// Computes the contour set and adds its collection, extending the
     /// data limits to the grid and autoscaling tightly onto it.
     fn add_contour_set<G: Generator>(
@@ -94,12 +113,16 @@ impl Axes {
         options: ContourOptions,
         source: ContourSource<G>,
     ) -> Result<ContourSet, ContourError> {
+        let transform = options
+            .transform
+            .clone()
+            .unwrap_or_else(|| self.trans_data());
         let plan = ContourPlan::new(filled, options, source)?;
         let (mins, maxs) = plan.data_lim;
         let mut update = DataUpdate::data(vec![mins, maxs]);
         let mut collections = Vec::with_capacity(plan.collections.len());
         for mut collection in plan.collections {
-            collection.base_mut().transform = Some(self.trans_data());
+            collection.base_mut().transform = Some(transform.clone());
             collections.push(self.adopt(collection, &update).id());
             update = DataUpdate::default();
         }
@@ -109,5 +132,27 @@ impl Axes {
         );
         self.raw().with_mut::<AxesState, _>(|a| a.tight = true);
         Ok(ContourSet::from_raw(self.clone(), set))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::figure::Figure;
+    use crate::numeric::Grid;
+    use crate::transforms::Transform;
+
+    #[test]
+    fn transformed_grids_bound_the_data_where_they_land() {
+        let ax = Figure::new().subplot();
+        let times10 =
+            Transform::Affine(Affine2D::identity().scale(10.0, 10.0)).then(ax.trans_data());
+        let options = ContourOptions {
+            transform: Some(times10),
+            ..ContourOptions::default()
+        };
+        let z = Grid::from_fn(3, 4, |r, c| (r + c) as f64);
+        ax.contourf(&QuadField::new(z), options).unwrap();
+        assert_eq!((ax.xlim(), ax.ylim()), ((0.0, 30.0), (0.0, 20.0)));
     }
 }

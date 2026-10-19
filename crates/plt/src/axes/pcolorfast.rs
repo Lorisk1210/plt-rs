@@ -7,7 +7,8 @@ use std::cell::RefCell;
 use plt_core::Point;
 
 use super::children::DataUpdate;
-use super::pcolor::{MeshCoords, MeshValues, PreparedMesh, multivariate_faces};
+use super::mesh::{MeshCoords, MeshValues, PreparedMesh};
+use super::pcolor::multivariate_faces;
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionProps, ColorMapping, EdgeColors, MeshShading};

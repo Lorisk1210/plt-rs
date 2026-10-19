@@ -5,6 +5,7 @@ use super::levels::is_log_locator;
 use crate::colors::{Color, Colormap, Extend, Norm};
 use crate::lines::LineStyle;
 use crate::ticker::Locator;
+use crate::transforms::Transform;
 
 /// The normalisation mapping layers to colormap positions.
 #[derive(Debug, Default)]
@@ -63,6 +64,11 @@ pub struct ContourOptions {
     /// Hatch patterns cycled over the bands of filled contours (`None` =
     /// unhatched).
     pub hatches: Vec<Option<String>>,
+    /// The coordinates of the grid (matplotlib's `transform`; default the
+    /// axes' data coordinates). When they end in the data coordinates
+    /// after a fixed affine map, the data limits and sticky edges cover
+    /// the grid mapped into them.
+    pub transform: Option<Transform>,
 }
 
 impl ContourOptions {

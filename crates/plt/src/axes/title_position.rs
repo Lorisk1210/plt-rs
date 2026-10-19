@@ -206,6 +206,19 @@ mod tests {
     use crate::spines::SpineSide;
 
     #[test]
+    fn the_shown_title_prefers_the_usual_location() {
+        let ax = Figure::new().subplot();
+        assert_eq!(ax.shown_title(), (TitleLocation::Center, String::new()));
+        ax.set_title_at(TitleLocation::Right, "right");
+        assert_eq!(ax.shown_title(), (TitleLocation::Right, "right".to_owned()));
+        crate::rc::context(|| {
+            crate::rc::set("axes.titlelocation", "left").unwrap();
+            ax.set_title("left");
+            assert_eq!(ax.shown_title(), (TitleLocation::Left, "left".to_owned()));
+        });
+    }
+
+    #[test]
     fn setting_a_title_restores_its_defaults() {
         // matplotlib's `set_title` resets the size, weight and alignment
         // and the height, to `axes.titley` when set, which also stops

@@ -154,6 +154,17 @@ pub enum TitleLocation {
 }
 
 impl TitleLocation {
+    /// The location [`Axes::set_title`] uses: `axes.titlelocation`.
+    pub fn from_rc(rc: &crate::rc::RcParams) -> Self {
+        match rc.axes_titlelocation.as_str() {
+            "left" => Self::Left,
+            "right" => Self::Right,
+            _ => Self::Center,
+        }
+    }
+}
+
+impl TitleLocation {
     /// The horizontal alignment of a title here (matplotlib aligns titles
     /// by their location name).
     fn halign(self) -> HAlign {
@@ -291,12 +302,24 @@ impl Axes {
     /// Sets the title at the `axes.titlelocation` position (centre by
     /// default; matplotlib's `set_title`) and returns it.
     pub fn set_title(&self, text: impl Into<String>) -> Text {
-        let location = match crate::rc::params().axes_titlelocation.as_str() {
-            "left" => TitleLocation::Left,
-            "right" => TitleLocation::Right,
-            _ => TitleLocation::Center,
-        };
-        self.set_title_at(location, text)
+        self.set_title_at(TitleLocation::from_rc(&crate::rc::params()), text)
+    }
+
+    /// The title shown, and where: the one at `axes.titlelocation` if
+    /// set, else the first set at the centre, left or right (empty at
+    /// `axes.titlelocation` when none is).
+    pub fn shown_title(&self) -> (TitleLocation, String) {
+        let usual = TitleLocation::from_rc(&crate::rc::params());
+        [
+            usual,
+            TitleLocation::Center,
+            TitleLocation::Left,
+            TitleLocation::Right,
+        ]
+        .into_iter()
+        .map(|location| (location, self.title(location)))
+        .find(|(_, title)| !title.is_empty())
+        .unwrap_or((usual, String::new()))
     }
 
     /// Sets the title at `location` and returns it. Like matplotlib's

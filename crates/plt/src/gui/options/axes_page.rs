@@ -50,6 +50,8 @@ pub(super) struct AxesPage {
     axes: Axes,
     panels: WidgetId,
     title: WidgetId,
+    /// Where the edited title sits.
+    title_location: TitleLocation,
     axis_fields: [AxisFields; 2],
     legend: WidgetId,
     curves: Vec<CurveFields>,
@@ -78,7 +80,8 @@ impl AxesPage {
             );
         }
         let mut panels = Stack::new();
-        let (title, axis_fields, legend, general) = general_form(axes);
+        let (title_location, shown) = axes.shown_title();
+        let (title, axis_fields, legend, general) = general_form(axes, &shown);
         panels.push(general);
         let (curves, curve_pages) = if lines.is_empty() {
             (Vec::new(), None)
@@ -99,6 +102,7 @@ impl AxesPage {
             axes: axes.clone(),
             panels,
             title,
+            title_location,
             axis_fields,
             legend,
             curves,
@@ -163,7 +167,7 @@ impl AxesPage {
     pub(super) fn apply(&self, plan: PagePlan) -> bool {
         let ax = &self.axes;
         let before = (ax.xlim(), ax.ylim());
-        ax.set_title(plan.title);
+        ax.set_title_at(self.title_location, plan.title);
         for axis in plan.axes {
             let (min, max) = axis.limits;
             // An unknown scale cannot come from the fixed choices.
@@ -207,6 +211,7 @@ fn show(window: &mut UiWindow<OptionsMessage>, stack: WidgetId, index: usize) {
 /// The title, both axes and the legend switch.
 fn general_form(
     axes: &Axes,
+    shown_title: &str,
 ) -> (
     WidgetId,
     [AxisFields; 2],
@@ -215,7 +220,7 @@ fn general_form(
 ) {
     let mut form = Form::new();
     form.section("");
-    let title = form.text("Title", axes.title(TitleLocation::Center));
+    let title = form.text("Title", shown_title);
     let mut axis = |name: AxisName| {
         let (heading, (min, max), scale) = match name {
             AxisName::X => ("X axis", axes.xlim(), axes.xscale()),
@@ -305,5 +310,38 @@ mod tests {
         assert_eq!(ax.title(TitleLocation::Center), "Edited");
         assert_eq!(ax.xlim().1, 10.0);
         assert_eq!(line.linewidth(), 3.0);
+    }
+
+    #[test]
+    fn the_title_is_edited_where_it_is_shown() {
+        use plt_platform::{EventLoop, WindowOptions};
+        use plt_ui::TextInput;
+
+        // The modern look puts titles on the left.
+        let ax = Figure::new().subplot();
+        ax.set_title_at(TitleLocation::Left, "Left");
+        let (page, root) = AxesPage::build(&ax, 0);
+        assert_eq!(page.title_location, TitleLocation::Left);
+        let (mut event_loop, _handle) = EventLoop::headless();
+        let mut window = UiWindow::open(
+            &mut event_loop.context(),
+            &WindowOptions::new("options"),
+            root,
+        )
+        .unwrap();
+        assert_eq!(text_of(&mut window, page.title), "Left");
+        window
+            .ui_mut()
+            .widget_mut::<TextInput<OptionsMessage>>(page.title)
+            .unwrap()
+            .set_text("Moved");
+        let plan = page.read(&mut window).unwrap();
+        page.apply(plan);
+        assert_eq!(ax.title(TitleLocation::Left), "Moved");
+        assert_eq!(
+            ax.title(TitleLocation::Center),
+            "",
+            "nothing appears elsewhere"
+        );
     }
 }

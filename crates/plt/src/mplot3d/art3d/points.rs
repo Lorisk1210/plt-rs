@@ -4,7 +4,7 @@
 use plt_core::{Point, Rgba};
 
 use crate::artist::Artist;
-use crate::collections::CollectionArtist;
+use crate::collections::{CollectionArtist, DepthSorted};
 use crate::mplot3d::camera::Projection;
 use crate::mplot3d::math::Vec3;
 use crate::mplot3d::shade::depth_alphas;
@@ -12,18 +12,14 @@ use crate::numeric::argsort;
 
 /// The 3-D state of a scatter collection.
 ///
-/// The sizes and widths are kept in the order of the points; projecting
-/// writes them into the 2-D collection sorted by depth, with its colours
-/// (worked out afresh each time, so that later colour changes show)
-/// faded and sorted alike.
+/// The 2-D collection keeps its sizes, widths and colours in the order of
+/// the points; projecting writes its offsets sorted by depth and, worked
+/// out afresh each time so that later changes show, its sizes, widths and
+/// faded colours sorted alike ([`DepthSorted`]).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Points3D {
     /// One position per marker.
     pub(crate) positions: Vec<Vec3>,
-    /// Marker areas in points² (one, or one per marker).
-    pub(crate) sizes: Option<Vec<f64>>,
-    /// Edge widths in points (one, or one per marker).
-    pub(crate) linewidths: Option<Vec<f64>>,
     /// Whether markers fade with depth.
     pub(crate) depthshade: bool,
     /// The alpha factor of the deepest markers.
@@ -62,18 +58,20 @@ impl Points3D {
                 shaded
             }
         };
-        collection.projected_colors = collection
-            .base_colors()
-            .ok()
-            .map(|(faces, edges)| (shade(&faces), shade(&edges)));
+        collection.depth_sorted = Some(DepthSorted {
+            colors: collection
+                .base_colors()
+                .ok()
+                .map(|(faces, edges)| (shade(&faces), shade(&edges))),
+            sizes: collection.sizes.as_deref().map(reorder),
+            linewidths: collection.linewidths.as_deref().map(reorder),
+        });
         collection.offsets = order
             .iter()
             .map(|&i| {
                 projected[i].map_or(Point::new(f64::NAN, f64::NAN), |p| Point::new(p[0], p[1]))
             })
             .collect();
-        collection.sizes = self.sizes.as_deref().map(reorder);
-        collection.linewidths = self.linewidths.as_deref().map(reorder);
         depths
             .iter()
             .copied()
@@ -161,8 +159,6 @@ mod tests {
     fn shading_applies_alpha_twice_like_matplotlib() {
         let points = Points3D {
             positions: Vec::new(),
-            sizes: None,
-            linewidths: None,
             depthshade: true,
             min_alpha: 0.3,
         };

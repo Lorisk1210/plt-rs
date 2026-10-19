@@ -8,8 +8,10 @@ use plt::mplot3d::Axes3D;
 use crate::compare::{Tolerance, compare};
 use crate::json::Json;
 
-/// The facts plt-rs can report about a figure, in the golden layout.
+/// The facts plt-rs can report about a figure, in the golden layout,
+/// after a layout pass (matplotlib's are taken once the figure is drawn).
 pub fn figure_facts(fig: &Figure) -> Json {
+    fig.layout();
     let (width, height) = fig.size_pixels();
     Json::Object(vec![
         (

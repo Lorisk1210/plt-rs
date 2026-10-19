@@ -73,7 +73,7 @@ impl FigureState {
                 } else if self.store.get_as::<AxesState>(child).is_some() {
                     axes.push(child);
                 } else if crate::mplot3d::is_axes3d(&self.store, child) {
-                    boxes.extend(crate::mplot3d::axes3d_tight_bbox(self, child));
+                    boxes.extend(crate::mplot3d::axes3d_tight_bbox(self, child, false));
                 } else {
                     boxes.extend(self.artist_extent(child));
                 }

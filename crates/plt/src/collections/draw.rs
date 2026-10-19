@@ -40,7 +40,7 @@ impl Geometry {
             .collect();
         let dpi = layout.dpi();
         let mut master = resolved.affine_part();
-        let transforms = match (&c.ellipses, &c.sizes) {
+        let transforms = match (&c.ellipses, c.drawn_sizes()) {
             (Some(ellipses), _) => {
                 let axes = c.base().parent;
                 let scales = ellipse_scales(ellipses.units, layout, axes)
@@ -145,7 +145,7 @@ impl Batch {
         let gaps = resolve_gap_colors(c)?;
         let rc = c.rc();
         let line_defaults = c.kind == CollectionKind::Line;
-        let widths = c.linewidths_or_default();
+        let widths = c.drawn_linewidths();
         let (widths, dashes) = broadcast_widths_and_dashes(&widths, &c.linestyles, rc);
         let antialiased = c.antialiased.clone().unwrap_or_else(|| {
             vec![if line_defaults {

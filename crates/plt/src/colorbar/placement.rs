@@ -8,11 +8,12 @@ use std::rc::Rc;
 use plt_core::{Anchor, Bbox};
 
 use super::{ColorbarError, ColorbarOptions, ParentAnchor};
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, ArtistId, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::figure::Figure;
 use crate::gridspec::{GridSpec, SubplotSpec};
 use crate::layout::ColorbarLayout;
+use crate::mplot3d::Axes3D;
 use crate::orientation::Orientation;
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
@@ -78,6 +79,71 @@ impl LocationDefaults {
     }
 }
 
+/// An axes a colorbar takes its space from: a 2-D axes, or a 3-D axes
+/// (whose projection plane draws the mappable).
+#[derive(Clone, Debug)]
+pub(crate) enum Parent {
+    /// A 2-D axes.
+    Axes(Axes),
+    /// A 3-D axes.
+    Axes3D(Axes3D),
+}
+
+impl Parent {
+    /// The parent for a mappable drawn in `ax`: the 3-D axes when `ax` is
+    /// the projection plane of one.
+    pub(crate) fn of(ax: Axes) -> Self {
+        Axes3D::of_plane(&ax).map_or(Self::Axes(ax), Self::Axes3D)
+    }
+
+    fn raw(&self) -> &RawHandle {
+        match self {
+            Self::Axes(ax) => ax.raw(),
+            Self::Axes3D(ax) => ax.raw(),
+        }
+    }
+
+    fn id(&self) -> ArtistId {
+        self.raw().id()
+    }
+
+    /// The grid cell of the parent, if it was placed on a grid.
+    pub(crate) fn subplot_spec(&self) -> Option<SubplotSpec> {
+        match self {
+            Self::Axes(ax) => ax.subplot_spec(),
+            Self::Axes3D(ax) => ax.subplot_spec(),
+        }
+    }
+
+    fn original_position(&self) -> Bbox {
+        match self {
+            Self::Axes(ax) => ax.original_position(),
+            Self::Axes3D(ax) => ax.original_position(),
+        }
+    }
+
+    /// Replaces the parent's original position, keeping its corners
+    /// exactly (matplotlib's `_set_position`), and its grid cell when
+    /// `spec` is given.
+    fn place(&self, position: Bbox, spec: Option<SubplotSpec>) {
+        match self {
+            Self::Axes(ax) => place(ax, position, spec),
+            Self::Axes3D(ax) => ax.place(position, spec),
+        }
+    }
+
+    fn set_anchor(&self, anchor: Anchor) {
+        match self {
+            Self::Axes(ax) => {
+                ax.set_anchor(anchor);
+            }
+            Self::Axes3D(ax) => {
+                ax.set_anchor(anchor);
+            }
+        }
+    }
+}
+
 /// A colorbar axes made by stealing space from parent axes, with what
 /// the colorbar needs to know about it.
 #[derive(Clone, Debug)]
@@ -124,7 +190,7 @@ impl<'a> Request<'a> {
     /// Anchors the parents, shapes the colorbar axes and records where
     /// the colorbar took its space for layout engines (matplotlib's
     /// `_colorbar_info`).
-    fn finish(self, cax: Axes, parents: &[Axes], pad: f64) -> Result<Placement, ColorbarError> {
+    fn finish(self, cax: Axes, parents: &[Parent], pad: f64) -> Result<Placement, ColorbarError> {
         if let Some(panchor) = self.panchor {
             for parent in parents {
                 parent.set_anchor(panchor);
@@ -137,7 +203,7 @@ impl<'a> Request<'a> {
             .expect("the auto aspect is always valid");
         let layout = ColorbarLayout {
             cax: cax.id(),
-            parents: parents.iter().map(ArtistHandle::id).collect(),
+            parents: parents.iter().map(Parent::id).collect(),
             location: self.defaults.location,
             fraction: self.options.fraction,
             shrink: self.options.shrink,
@@ -160,17 +226,22 @@ impl<'a> Request<'a> {
 }
 
 /// Replaces an axes' original position, keeping its corners exactly
-/// (matplotlib's `_set_position`).
-fn place(ax: &Axes, position: Bbox) {
-    ax.raw()
-        .with_mut::<AxesState, _>(|axes| axes.position = position);
+/// (matplotlib's `_set_position`), and its grid cell when `spec` is
+/// given.
+fn place(ax: &Axes, position: Bbox, spec: Option<SubplotSpec>) {
+    ax.raw().with_mut::<AxesState, _>(|axes| {
+        axes.position = position;
+        if spec.is_some() {
+            axes.subplot_spec = spec;
+        }
+    });
 }
 
 /// matplotlib's `make_axes`: shrinks the parents within their bounding box
 /// and puts a new colorbar axes in the space freed on `location`.
 pub(crate) fn make_axes(
     figure: &Figure,
-    parents: &[Axes],
+    parents: &[Parent],
     options: &ColorbarOptions,
     constrained: bool,
 ) -> Result<Placement, ColorbarError> {
@@ -187,7 +258,7 @@ pub(crate) fn make_axes(
         request.defaults.pad
     };
     let pad = options.pad.unwrap_or(pad0);
-    let originals: Vec<Bbox> = parents.iter().map(Axes::original_position).collect();
+    let originals: Vec<Bbox> = parents.iter().map(Parent::original_position).collect();
     let bounds = Bbox::union_all(&originals).ok_or(ColorbarError::NoAxes)?;
     let (fraction, shrink) = (options.fraction, options.shrink);
     let anchor = request.anchor;
@@ -211,17 +282,17 @@ pub(crate) fn make_axes(
     };
     let shrinking = bbox_transform(&bounds, &parent_box);
     for (parent, original) in parents.iter().zip(&originals) {
-        place(
-            parent,
+        parent.place(
             Bbox::new(
                 shrinking.transform_point(original.p0),
                 shrinking.transform_point(original.p1),
             ),
+            None,
         );
     }
     let (left, bottom, width, height) = colorbar_box.bounds();
     let cax = figure.add_axes([left, bottom, width, height]);
-    place(&cax, colorbar_box);
+    place(&cax, colorbar_box, None);
     request.finish(cax, parents, pad)
 }
 
@@ -234,7 +305,7 @@ fn split3(pieces: &[Bbox]) -> [Bbox; 3] {
 /// into the parent's new cell and the colorbar's.
 pub(crate) fn make_axes_gridspec(
     figure: &Figure,
-    parent: Axes,
+    parent: Parent,
     spec: &SubplotSpec,
     options: &ColorbarOptions,
 ) -> Result<Placement, ColorbarError> {
@@ -287,10 +358,7 @@ pub(crate) fn make_axes_gridspec(
         }
     };
     let position = main.position(&figure.subplot_params())?;
-    parent.raw().with_mut::<AxesState, _>(|axes| {
-        axes.subplot_spec = Some(main);
-        axes.position = position;
-    });
+    parent.place(position, Some(main));
     let cax = figure.add_subplot_spec(&colorbar)?;
     request.finish(cax, &[parent], pad)
 }
@@ -324,7 +392,7 @@ mod tests {
         let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
         let placed = make_axes(
             &fig,
-            std::slice::from_ref(&ax),
+            &[Parent::Axes(ax.clone())],
             &ColorbarOptions::default(),
             false,
         )
@@ -347,7 +415,7 @@ mod tests {
             location: Some(SpineSide::Bottom),
             ..ColorbarOptions::default()
         };
-        let placed = make_axes_gridspec(&fig, ax.clone(), &spec, &options).unwrap();
+        let placed = make_axes_gridspec(&fig, Parent::Axes(ax.clone()), &spec, &options).unwrap();
         assert_eq!(placed.orientation, Orientation::Horizontal);
         let (_, y, _, h) = placed.cax.original_position().bounds();
         // The bottom row: 0.15 of the cell height below a 0.15 pad.

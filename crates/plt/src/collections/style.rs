@@ -13,7 +13,11 @@ use crate::rc::{ColorOrEdge, RcParams};
 /// Face and edge colours to draw: those of the last 3-D projection, or
 /// else [`resolve_base_colors`].
 pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
-    match &c.projected_colors {
+    match c
+        .depth_sorted
+        .as_ref()
+        .and_then(|sorted| sorted.colors.as_ref())
+    {
         Some(colors) => Ok(colors.clone()),
         None => resolve_base_colors(c),
     }

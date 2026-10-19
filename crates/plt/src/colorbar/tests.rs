@@ -385,3 +385,31 @@ fn singular_limits_widened_by_the_colorbar_reach_the_mappable() {
     assert!((vmin.unwrap() - 45.0).abs() < 1e-9);
     assert!((vmax.unwrap() - 55.0).abs() < 1e-9);
 }
+
+#[test]
+fn surfaces_of_3d_axes_take_room_from_the_3d_axes() {
+    use crate::mplot3d::{FaceColormap, FaceColors, SurfaceOptions};
+    // matplotlib's test_surface3d: the colorbar maps the surface's mean
+    // heights and steals its room from the 3-D axes, whose square box
+    // keeps to the right of what is left.
+    let fig = Figure::new();
+    let ax = fig.subplot_3d();
+    let x = Grid::from_fn(3, 3, |_, c| c as f64);
+    let y = Grid::from_fn(3, 3, |r, _| r as f64);
+    let z = Grid::from_fn(3, 3, |r, c| (r + c) as f64);
+    let options = SurfaceOptions {
+        colors: FaceColors::Mapped(Box::new(FaceColormap::new(
+            colormaps::get("coolwarm").unwrap(),
+        ))),
+        ..SurfaceOptions::default()
+    };
+    let surface = ax.plot_surface(&x, &y, &z, options).unwrap();
+    let colorbar = fig.colorbar(&surface, ColorbarOptions::default()).unwrap();
+    fig.layout();
+    assert_eq!(colorbar.ax().ylim(), (1.0, 3.0));
+    assert!(close(ax.position().bounds(), [0.1675, 0.11, 0.5775, 0.77]));
+    assert!(close(
+        colorbar.ax().position().bounds(),
+        [0.783_75, 0.11, 0.028_875, 0.77]
+    ));
+}

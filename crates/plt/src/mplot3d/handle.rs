@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use plt_core::Bbox;
+use plt_core::{Anchor, Bbox};
 
 use super::art3d::{Art3D, Artist3D};
 use super::camera::{Camera, ProjType, ViewAngles};
@@ -322,6 +322,49 @@ impl Axes3D {
     /// The grid cell the axes occupies, if it was placed on a grid.
     pub fn subplot_spec(&self) -> Option<SubplotSpec> {
         self.with(|axes| axes.subplot_spec.clone())
+    }
+
+    /// The placement as a fraction of the figure before the box is made
+    /// square (matplotlib's `get_position(original=True)`).
+    pub fn original_position(&self) -> Bbox {
+        self.with(|axes| axes.position)
+    }
+
+    /// Where the square box goes in its placement (matplotlib's
+    /// `set_anchor`; [`Anchor::C`] by default).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt_core::Anchor;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_anchor(Anchor::W);
+    /// assert_eq!(ax.position().x0(), ax.original_position().x0());
+    /// ```
+    pub fn set_anchor(&self, anchor: Anchor) -> &Self {
+        self.with_mut(|axes| axes.anchor = anchor);
+        self
+    }
+
+    /// Moves the axes to `position` (figure fractions), in grid cell
+    /// `spec` when given (what making room for a colorbar does).
+    pub(crate) fn place(&self, position: Bbox, spec: Option<SubplotSpec>) {
+        self.with_mut(|axes| {
+            axes.position = position;
+            if spec.is_some() {
+                axes.subplot_spec = spec;
+            }
+        });
+    }
+
+    /// The 3-D axes whose projection plane `ax` is, if any.
+    pub(crate) fn of_plane(ax: &Axes) -> Option<Self> {
+        let figure = ax.raw().figure_state();
+        let parent = {
+            let state = figure.borrow();
+            let parent = state.store.get(ax.id())?.base().parent?;
+            state.store.get_as::<Axes3DState>(parent).map(|_| parent)
+        }?;
+        Some(Self::from_raw(RawHandle::new(Rc::clone(figure), parent)))
     }
 
     /// Sets the label of one axis (matplotlib's `set_xlabel`).

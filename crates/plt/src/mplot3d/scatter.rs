@@ -28,9 +28,14 @@ pub struct Scatter3DOptions {
     /// shading then spans the visible markers only (matplotlib's
     /// `axlim_clip`).
     pub axlim_clip: bool,
-    /// The 2-D scatter options: sizes, colours, marker, edges, alpha.
+    /// The 2-D scatter options: sizes, colours, marker, edges, alpha;
+    /// the marker areas default to 20 points² (matplotlib's
+    /// `Axes3D.scatter(s=20)`), whatever the style.
     pub scatter: ScatterOptions,
 }
+
+/// The marker area of 3-D scatter plots that set none, in points².
+const DEFAULT_SIZE: f64 = 20.0;
 
 impl Axes3D {
     /// A scatter plot of the points `(x, y, z)` with default styling;
@@ -62,9 +67,11 @@ impl Axes3D {
         let z = broadcast("z", z, x.len())?;
         let had_data = self.has_data();
         let rc = crate::rc::params();
-        let collection = self
-            .plane()
-            .scatter_with(x.to_vec(), y.to_vec(), options.scatter)?;
+        let scatter = ScatterOptions {
+            sizes: Some(options.scatter.sizes.unwrap_or_else(|| vec![DEFAULT_SIZE])),
+            ..options.scatter
+        };
+        let collection = self.plane().scatter_with(x.to_vec(), y.to_vec(), scatter)?;
         let points =
             collection
                 .raw()
@@ -79,8 +86,6 @@ impl Axes3D {
                             .zip(&z)
                             .map(|(o, &z)| options.zdir.juggle([o.x, o.y, z]))
                             .collect(),
-                        sizes: c.sizes.clone(),
-                        linewidths: c.linewidths.clone(),
                         depthshade: options.depthshade.unwrap_or(rc.axes3d_depthshade),
                         min_alpha: options
                             .depthshade_minalpha
@@ -107,12 +112,44 @@ impl Axes3D {
         self.auto_scale_xyz(x, y, Some(&z), had_data)?;
         Ok(collection)
     }
+
+    /// Turns the depth shading of a scatter plot of this axes on or off
+    /// (matplotlib's `Path3DCollection.set_depthshade`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let points = ax.scatter(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0])?;
+    /// ax.set_depthshade(&points, false)?;
+    /// # Ok::<(), plt::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `scatter` is not a scatter plot of this axes.
+    pub fn set_depthshade(
+        &self,
+        scatter: &Collection,
+        depthshade: bool,
+    ) -> Result<&Self, Axes3DError> {
+        let id = self.own_id(scatter);
+        let found = self.with_mut(|axes| {
+            let entry = axes.artists.iter_mut().find(|a| Some(a.id) == id)?;
+            let Art3D::Points(points) = &mut entry.art else {
+                return None;
+            };
+            points.depthshade = depthshade;
+            Some(())
+        });
+        found.map(|()| self).ok_or(Axes3DError::Not3DArtist)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::axes::MappedColors;
+    use crate::collections::CollectionProps;
     use crate::colors::colormaps;
     use crate::figure::Figure;
 
@@ -140,6 +177,43 @@ mod tests {
         faces.sort_by(|a, b| a.r.total_cmp(&b.r));
         let ends = [viridis.lut()[0], viridis.lut()[viridis.n() - 1]];
         assert_eq!(faces, ends, "the markers take the new colormap");
+    }
+
+    #[test]
+    fn later_sizes_widths_and_shading_are_drawn_in_depth_order() {
+        // matplotlib's test_scatter3d_modification and
+        // test_scatter3d_linewidth_modification.
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        // From the nearest marker to the deepest in the default view.
+        let x = [2.0, 1.0, 0.0];
+        let points = ax.scatter(&x, &x, &x).unwrap();
+        assert_eq!(points.sizes(), Some(vec![DEFAULT_SIZE]));
+        points
+            .set_sizes(vec![10.0, 20.0, 30.0])
+            .set_linewidths(vec![1.0, 2.0, 3.0]);
+        ax.set_depthshade(&points, false).unwrap();
+        fig.layout();
+        let (sizes, widths, alphas) = points.raw().with::<CollectionArtist, _>(|c| {
+            let faces = c.resolved_colors().unwrap().0;
+            (
+                c.drawn_sizes().map(<[f64]>::to_vec).unwrap(),
+                c.drawn_linewidths(),
+                faces.iter().map(|face| face.a).collect::<Vec<_>>(),
+            )
+        });
+        assert_eq!(sizes, [30.0, 20.0, 10.0], "drawn back to front");
+        assert_eq!(widths, [3.0, 2.0, 1.0]);
+        assert_eq!(alphas, [1.0], "one colour, not faded with depth");
+        assert_eq!(points.sizes(), Some(vec![10.0, 20.0, 30.0]));
+        let segments = vec![vec![[0.0; 3], [1.0; 3]]];
+        let lines = ax
+            .add_line_collection3d(segments, CollectionProps::default(), false)
+            .unwrap();
+        assert_eq!(
+            ax.set_depthshade(&lines, true).err(),
+            Some(Axes3DError::Not3DArtist)
+        );
     }
 
     #[test]

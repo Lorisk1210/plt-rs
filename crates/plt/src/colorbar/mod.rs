@@ -60,6 +60,7 @@ use crate::contour::ContourSet;
 use crate::figure::Figure;
 use crate::layout::LayoutEngine;
 use crate::orientation::Orientation;
+use placement::Parent;
 use state::{ColorbarArtist, ColorbarState};
 
 /// A colorbar drawn in its own axes (matplotlib's `Colorbar`): a handle
@@ -74,9 +75,9 @@ pub struct Colorbar {
 /// The axes a colorbar takes space from.
 enum Parents {
     /// One axes, placed through its grid cell when it has one.
-    One(Axes),
+    One(Parent),
     /// The bounding box of several axes.
-    Many(Vec<Axes>),
+    Many(Vec<Parent>),
 }
 
 impl Figure {
@@ -107,11 +108,13 @@ impl Figure {
         let parents = match std::mem::take(&mut options.axes) {
             ColorbarAxes::Cax(cax) => return Colorbar::new(cax, source, link, &options, None),
             ColorbarAxes::FromMappable => {
-                Parents::One(mappable.axes().ok_or(ColorbarError::NoAxes)?)
+                Parents::One(Parent::of(mappable.axes().ok_or(ColorbarError::NoAxes)?))
             }
-            ColorbarAxes::Parent(ax) => Parents::One(ax),
+            ColorbarAxes::Parent(ax) => Parents::One(Parent::Axes(ax)),
             ColorbarAxes::Parents(axes) if axes.is_empty() => return Err(ColorbarError::NoAxes),
-            ColorbarAxes::Parents(axes) => Parents::Many(axes),
+            ColorbarAxes::Parents(axes) => {
+                Parents::Many(axes.into_iter().map(Parent::Axes).collect())
+            }
         };
         let engine = self.layout_engine();
         let use_gridspec = options.use_gridspec && engine.is_none_or(|e| e.colorbar_gridspec());

@@ -15,8 +15,13 @@ use crate::numeric::Grid;
 
 /// How densely a grid is sampled (matplotlib's `rstride`/`cstride` and
 /// `rcount`/`ccount`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Sampling {
+    /// matplotlib's default: at most 50 samples each way, except in the
+    /// classic style, which takes every 10th row and column of a surface
+    /// and every row and column of a wireframe.
+    #[default]
+    Auto,
     /// At most this many samples along the rows and the columns.
     Counts {
         /// Samples down the rows.
@@ -33,18 +38,24 @@ pub enum Sampling {
     },
 }
 
-impl Default for Sampling {
-    /// At most 50 samples each way.
-    fn default() -> Self {
-        Self::Counts { rows: 50, cols: 50 }
-    }
-}
-
 impl Sampling {
+    /// The default number of samples each way.
+    const DEFAULT_COUNT: usize = 50;
+
     /// The row and column strides for a grid of `rows × cols`; a count of
     /// zero gives a stride of zero (no lines in that direction).
-    fn strides(self, rows: usize, cols: usize) -> (usize, usize) {
+    /// [`Sampling::Auto`] takes `classic_stride` each way in the classic
+    /// style.
+    fn strides(self, rows: usize, cols: usize, classic_stride: usize) -> (usize, usize) {
         match self {
+            Self::Auto if crate::rc::params().internal_classic_mode => {
+                (classic_stride, classic_stride)
+            }
+            Self::Auto => Self::Counts {
+                rows: Self::DEFAULT_COUNT,
+                cols: Self::DEFAULT_COUNT,
+            }
+            .strides(rows, cols, classic_stride),
             Self::Strides { rows, cols } => (rows, cols),
             Self::Counts {
                 rows: row_count,
@@ -53,6 +64,12 @@ impl Sampling {
         }
     }
 }
+
+/// The row and column stride of surfaces in the classic style.
+const CLASSIC_SURFACE_STRIDE: usize = 10;
+
+/// The row and column stride of wireframes in the classic style.
+const CLASSIC_WIREFRAME_STRIDE: usize = 1;
 
 /// The stride sampling `len` values at most `count` times.
 fn count_stride(len: usize, count: usize) -> usize {
@@ -208,7 +225,10 @@ impl Axes3D {
     ) -> Result<Collection, Axes3DError> {
         let grid = SurfaceGrid::new(x, y, z)?;
         let had_data = self.has_data();
-        let (rstride, cstride) = options.sampling.strides(z.rows(), z.cols());
+        let (rstride, cstride) =
+            options
+                .sampling
+                .strides(z.rows(), z.cols(), CLASSIC_SURFACE_STRIDE);
         if rstride == 0 || cstride == 0 {
             return Err(Axes3DError::NoStride);
         }
@@ -285,7 +305,10 @@ impl Axes3D {
     ) -> Result<Collection, Axes3DError> {
         let grid = SurfaceGrid::new(x, y, z)?;
         let had_data = self.has_data();
-        let (rstride, cstride) = options.sampling.strides(z.rows(), z.cols());
+        let (rstride, cstride) =
+            options
+                .sampling
+                .strides(z.rows(), z.cols(), CLASSIC_WIREFRAME_STRIDE);
         if rstride == 0 && cstride == 0 {
             return Err(Axes3DError::NoStride);
         }
@@ -311,15 +334,27 @@ mod tests {
 
     #[test]
     fn strides_follow_matplotlib() {
-        assert_eq!(Sampling::default().strides(40, 120), (1, 3));
+        assert_eq!(Sampling::default().strides(40, 120, 10), (1, 3));
         assert_eq!(
-            Sampling::Counts { rows: 0, cols: 50 }.strides(40, 40),
+            Sampling::Counts { rows: 0, cols: 50 }.strides(40, 40, 10),
             (0, 1)
         );
         assert_eq!(
-            Sampling::Strides { rows: 4, cols: 6 }.strides(40, 40),
+            Sampling::Strides { rows: 4, cols: 6 }.strides(40, 40, 10),
             (4, 6)
         );
+    }
+
+    #[test]
+    fn the_classic_style_samples_by_stride() {
+        crate::rc::context(|| {
+            crate::rc::update(|rc| rc.internal_classic_mode = true);
+            assert_eq!(Sampling::Auto.strides(40, 120, 10), (10, 10));
+            assert_eq!(
+                Sampling::Counts { rows: 4, cols: 6 }.strides(40, 120, 10),
+                (10, 20)
+            );
+        });
     }
 
     #[test]

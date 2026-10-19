@@ -89,10 +89,12 @@ impl FigureState {
         for id in ids {
             if let Some(frame) = self.store.get_as_mut::<FigureFrame>(id) {
                 frame.subplot_params = params;
-            } else if let Some(axes) = self.store.get_as_mut::<AxesState>(id)
-                && let Some(spec) = &axes.subplot_spec
-            {
-                axes.position = spec.position(&params)?;
+            } else if let Some(axes) = self.store.get_as_mut::<AxesState>(id) {
+                if let Some(spec) = &axes.subplot_spec {
+                    axes.position = spec.position(&params)?;
+                }
+            } else {
+                crate::mplot3d::place_axes3d(&mut self.store, id, &params)?;
             }
         }
         self.stale = true;

@@ -139,6 +139,29 @@ pub struct ColorbarOptions {
     pub values: Option<Vec<f64>>,
 }
 
+impl ColorbarOptions {
+    /// The default options for a colorbar stealing space from `ax`
+    /// (matplotlib's `fig.colorbar(mappable, ax=ax)`).
+    ///
+    /// ```
+    /// use plt::axes::ImshowOptions;
+    /// use plt::colorbar::ColorbarOptions;
+    /// use plt::numeric::Grid;
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let image = ax.imshow(Grid::from_fn(2, 2, |i, j| (i + j) as f64), ImshowOptions::default())?;
+    /// fig.colorbar(&image, ColorbarOptions::beside(&ax))?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn beside(ax: &Axes) -> Self {
+        Self {
+            axes: ColorbarAxes::Parent(ax.clone()),
+            ..Self::default()
+        }
+    }
+}
+
 impl Default for ColorbarOptions {
     fn default() -> Self {
         Self {

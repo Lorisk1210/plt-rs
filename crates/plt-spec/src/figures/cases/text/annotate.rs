@@ -5,7 +5,7 @@ use std::f64::consts::PI;
 
 use plt::coords::Coords;
 use plt::gridspec::SubplotOverrides;
-use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle};
+use plt::patches::{BoxStyle, ConnectionStyle};
 use plt::prelude::*;
 use plt::text::{
     AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment, LegacyArrowProps,
@@ -24,14 +24,9 @@ const LINE_ARROWSTYLES: [&str; 10] = [
 /// `FILLED_ARROWSTYLES`: the arrow styles with filled parts.
 const FILLED_ARROWSTYLES: [&str; 6] = ["-|>", "<|-", "<|-|>", "simple", "fancy", "wedge"];
 
-/// `dict(arrowstyle=style)`.
-fn arrow(style: &str) -> Result<FancyArrowProps, Box<dyn std::error::Error>> {
-    Ok(FancyArrowProps::new(style.parse::<ArrowStyle>()?))
-}
-
 /// `dict(arrowstyle=style)` as annotation options.
 fn arrowprops(style: &str) -> Result<Option<ArrowProps>, Box<dyn std::error::Error>> {
-    Ok(Some(ArrowProps::Fancy(arrow(style)?)))
+    Ok(Some(ArrowProps::Fancy(style.parse::<FancyArrowProps>()?)))
 }
 
 /// A coordinate system by its matplotlib name.
@@ -207,7 +202,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             let (x, y) = (0.5 + 5.0 * (i / 5) as f64, 9.0 - 2.0 * (i % 5) as f64);
             let props = FancyArrowProps {
                 mutation_scale: Some(15.0),
-                ..arrow(style)?
+                ..style.parse::<FancyArrowProps>()?
             };
             ax.annotate(
                 style,
@@ -231,7 +226,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             let props = FancyArrowProps {
                 mutation_scale: Some(20.0),
                 patch: PatchProps::default().facecolor("tab:orange").edgecolor("k"),
-                ..arrow(style)?
+                ..style.parse::<FancyArrowProps>()?
             };
             ax.annotate(
                 style,
@@ -265,7 +260,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             let props = FancyArrowProps {
                 mutation_scale: Some(15.0),
                 patch: PatchProps::default().facecolor("w"),
-                ..arrow(style)?
+                ..style.parse::<FancyArrowProps>()?
             };
             let name = style.split(',').next().unwrap_or_default();
             ax.annotate(
@@ -309,7 +304,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 connectionstyle: style.parse::<ConnectionStyle>()?,
                 shrink_a: 4.0,
                 shrink_b: 4.0,
-                ..arrow("->")?
+                .."->".parse::<FancyArrowProps>()?
             };
             ax.annotate(
                 "",
@@ -338,7 +333,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             let props = FancyArrowProps {
                 shrink_a: sa,
                 shrink_b: sb,
-                ..arrow("->")?
+                .."->".parse::<FancyArrowProps>()?
             };
             ax.annotate(
                 format!("shrinkA={sa} shrinkB={sb}"),
@@ -353,7 +348,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         }
         let props = FancyArrowProps {
             connectionstyle: "arc3,rad=0.4".parse::<ConnectionStyle>()?,
-            ..arrow("-|>")?
+            .."-|>".parse::<FancyArrowProps>()?
         };
         ax.annotate(
             "boxed",

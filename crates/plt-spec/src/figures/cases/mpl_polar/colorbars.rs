@@ -20,7 +20,7 @@ use plt::orientation::Orientation;
 use plt::prelude::*;
 use plt::spines::SpineSide;
 
-use super::{RAMP_LEVELS, beside, ramp, ramp_levels, remove_ticks_and_titles};
+use super::{RAMP_LEVELS, ramp, ramp_levels, remove_ticks_and_titles};
 use crate::figures::CaseResult;
 use crate::rng::SpecRng;
 
@@ -186,7 +186,7 @@ pub(super) fn colorbar_change_lim_scale(fig: &Figure) -> CaseResult {
     let ax = fig.subplots(1, 2)?;
     let extended = |ax: &Axes| ColorbarOptions {
         extend: Some(Extend::Both),
-        ..beside(ax)
+        ..ColorbarOptions::beside(ax)
     };
     let pc = mesh(&ax[(0, 0)], hundred(1.0), ColorizerOptions::default())?;
     let cb = fig.colorbar(&pc, extended(&ax[(0, 0)]))?;
@@ -262,7 +262,7 @@ pub(super) fn proportional_colorbars(fig: &Figure) -> CaseResult {
                 &cs,
                 ColorbarOptions {
                     spacing,
-                    ..beside(&axs[(i, j)])
+                    ..ColorbarOptions::beside(&axs[(i, j)])
                 },
             )?;
         }
@@ -365,7 +365,7 @@ pub(super) fn colorbar_contourf_extend_patches(fig: &Figure) -> CaseResult {
                     fraction: 0.4,
                     extendfrac: ExtendFrac::Both(0.2),
                     aspect: 5.0,
-                    ..beside(ax)
+                    ..ColorbarOptions::beside(ax)
                 },
             )?;
         }
@@ -405,7 +405,7 @@ pub(super) fn boundaries(fig: &Figure) -> CaseResult {
         &pc,
         ColorbarOptions {
             boundaries: Some(linspace(-3.0, 3.0, 7)),
-            ..beside(&ax)
+            ..ColorbarOptions::beside(&ax)
         },
     )?;
     remove_ticks_and_titles(fig);

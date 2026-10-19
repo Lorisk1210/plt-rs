@@ -16,7 +16,7 @@ use plt::numeric::{Grid, arange, linspace, logspace, meshgrid};
 use plt::ticker::pyfmt::{self, PrintfFormat};
 use plt::ticker::{FuncFormatter, LogFormatter, LogLabelStyle, LogLocator};
 
-use super::{beside, bumps, colors, count, hatches, values};
+use super::{bumps, colors, count, hatches, values};
 use crate::figures::CaseResult;
 
 /// `_wave()`: `cos(x) + sin(y)` on a 150 × 120 grid over `[-3, 5]²`.
@@ -51,7 +51,7 @@ pub(super) fn contourf_extend_variants_colorbars(fig: &Figure) -> CaseResult {
             &cs,
             ColorbarOptions {
                 shrink: 0.9,
-                ..beside(ax)
+                ..ColorbarOptions::beside(ax)
             },
         )?;
         ax.set_title(format!("extend = {name}"));
@@ -71,7 +71,7 @@ pub(super) fn contourf_hatching_legend(fig: &Figure) -> CaseResult {
         ..ContourOptions::default()
     };
     let cs = ax1.contourf(&field, options)?;
-    fig.colorbar(&cs, beside(ax1))?;
+    fig.colorbar(&cs, ColorbarOptions::beside(ax1))?;
     let lines = ContourOptions {
         colors: Some(colors(&["black"])),
         linestyles: Some(vec![LineStyle::Solid]),
@@ -138,7 +138,7 @@ pub(super) fn contourf_lognorm_levels_colorbar(fig: &Figure) -> CaseResult {
         ..values(&logspace(-2.0, 3.0, 11, 10.0))
     };
     let cs = ax.contourf(&field, options)?;
-    fig.colorbar(&cs, beside(&ax))?;
+    fig.colorbar(&cs, ColorbarOptions::beside(&ax))?;
     Ok(())
 }
 

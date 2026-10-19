@@ -9,17 +9,12 @@ use plt::fonts::FontSize;
 use plt::image::{BboxImageOptions, ColorizerOptions, Interpolation, ScalarField};
 use plt::numeric::Grid;
 use plt::offsetbox::{AnnotationBboxOptions, BoxItem, DrawingArea, OffsetImage};
-use plt::patches::{ArrowStyle, BoxStyle, Circle, ConnectionStyle, Rectangle};
+use plt::patches::{BoxStyle, Circle, ConnectionStyle, Rectangle};
 use plt::prelude::*;
 use plt::text::{FancyArrowProps, TextProps};
 
 use super::{gradient, text_area, unit_axes};
 use crate::figures::CaseResult;
-
-/// `dict(arrowstyle=style)`.
-fn arrow(style: &str) -> Result<FancyArrowProps, Box<dyn Error>> {
-    Ok(FancyArrowProps::new(style.parse::<ArrowStyle>()?))
-}
 
 /// A coordinate system by its matplotlib name.
 fn coords(name: &str) -> Result<Coords, Box<dyn Error>> {
@@ -41,7 +36,7 @@ pub(super) fn text(fig: &Figure) -> CaseResult {
         AnnotationBboxOptions {
             xybox: Some((-20.0, 40.0).into()),
             boxcoords: Some(coords("offset points")?),
-            arrowprops: Some(arrow("->")?),
+            arrowprops: Some("->".parse::<FancyArrowProps>()?),
             boxstyle: Some("sawtooth".parse::<BoxStyle>()?),
             ..AnnotationBboxOptions::default()
         },
@@ -53,14 +48,14 @@ pub(super) fn text(fig: &Figure) -> CaseResult {
             xybox: Some((1.02, xy.1).into()),
             boxcoords: Some(axes_x_data_y()?),
             box_alignment: (0.0, 0.5),
-            arrowprops: Some(arrow("->")?),
+            arrowprops: Some("->".parse::<FancyArrowProps>()?),
             ..AnnotationBboxOptions::default()
         },
     )?;
     let curved = FancyArrowProps {
         connectionstyle: "arc3,rad=0.3".parse::<ConnectionStyle>()?,
         patch: PatchProps::default().color("tab:red"),
-        ..arrow("-|>")?
+        .."-|>".parse::<FancyArrowProps>()?
     };
     ax.add_annotation_bbox(
         text_area("fontsize 14,\nround box", TextProps::default()),
@@ -92,7 +87,7 @@ pub(super) fn text(fig: &Figure) -> CaseResult {
             frameon: false,
             arrowprops: Some(FancyArrowProps {
                 relpos: (1.0, 0.5),
-                ..arrow("-[")?
+                .."-[".parse::<FancyArrowProps>()?
             }),
             ..AnnotationBboxOptions::default()
         },
@@ -117,7 +112,7 @@ pub(super) fn image(fig: &Figure) -> CaseResult {
             xybox: Some((-50.0, 50.0).into()),
             boxcoords: Some(coords("offset points")?),
             pad: 0.3,
-            arrowprops: Some(arrow("->")?),
+            arrowprops: Some("->".parse::<FancyArrowProps>()?),
             ..AnnotationBboxOptions::default()
         },
     )?;
@@ -149,7 +144,7 @@ pub(super) fn image(fig: &Figure) -> CaseResult {
             bboxprops: PatchProps::default().edgecolor("tab:blue").linewidth(2.0),
             arrowprops: Some(FancyArrowProps {
                 patch: PatchProps::default().color("0.5"),
-                ..arrow("fancy")?
+                .."fancy".parse::<FancyArrowProps>()?
             }),
             ..AnnotationBboxOptions::default()
         },
@@ -172,7 +167,7 @@ pub(super) fn drawing_area(fig: &Figure) -> CaseResult {
             xybox: Some((1.0, xy.1).into()),
             boxcoords: Some(axes_x_data_y()?),
             box_alignment: (0.2, 0.5),
-            arrowprops: Some(arrow("->")?),
+            arrowprops: Some("->".parse::<FancyArrowProps>()?),
             bboxprops: PatchProps::default().alpha(0.5),
             ..AnnotationBboxOptions::default()
         },
@@ -190,7 +185,7 @@ pub(super) fn drawing_area(fig: &Figure) -> CaseResult {
         shrink_a: 0.0,
         shrink_b: 5.0,
         mutation_scale: Some(20.0),
-        ..arrow("-|>")?
+        .."-|>".parse::<FancyArrowProps>()?
     };
     ax.add_annotation_bbox(
         bars,
@@ -209,7 +204,7 @@ pub(super) fn drawing_area(fig: &Figure) -> CaseResult {
             xybox: Some((80.0, 60.0).into()),
             boxcoords: Some(coords("figure pixels")?),
             box_alignment: (0.0, 0.0),
-            arrowprops: Some(arrow("wedge")?),
+            arrowprops: Some("wedge".parse::<FancyArrowProps>()?),
             ..AnnotationBboxOptions::default()
         },
     )?;

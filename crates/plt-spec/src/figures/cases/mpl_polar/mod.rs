@@ -15,8 +15,6 @@ mod contours;
 mod polar;
 mod positioning;
 
-use plt::axes::Axes;
-use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::colors::Color;
 use plt::contour::{ContourOptions, Levels, QuadField};
 use plt::numeric::Grid;
@@ -28,14 +26,6 @@ use crate::figures::FigureCase;
 /// Colours by name.
 fn colors(names: &[&str]) -> Vec<Color> {
     names.iter().map(|&name| Color::from(name)).collect()
-}
-
-/// Colorbar options stealing space from `ax` (`fig.colorbar(..., ax=ax)`).
-fn beside(ax: &Axes) -> ColorbarOptions {
-    ColorbarOptions {
-        axes: ColorbarAxes::Parent(ax.clone()),
-        ..ColorbarOptions::default()
-    }
 }
 
 /// The levels most colorbar tests contour [`ramp`] at.

@@ -9,17 +9,12 @@ use plt::offsetbox::{
     AnnotationBboxOptions, AuxTransformBox, BoxItem, DrawingArea, OffsetBox, PackAlign, Packer,
     PaddedBox,
 };
-use plt::patches::{ArrowStyle, BoxStyle, Circle, ConnectionStyle, Rectangle};
+use plt::patches::{BoxStyle, Circle, ConnectionStyle, Rectangle};
 use plt::prelude::*;
 use plt::text::{FancyArrowProps, TextProps};
 
 use super::{of_t, t, text_area, unit_axes};
 use crate::figures::CaseResult;
-
-/// `dict(arrowstyle=style)`.
-fn arrow(style: &str) -> Result<FancyArrowProps, Box<dyn Error>> {
-    Ok(FancyArrowProps::new(style.parse::<ArrowStyle>()?))
-}
 
 /// A coordinate system by its matplotlib name.
 fn coords(name: &str) -> Result<Coords, Box<dyn Error>> {
@@ -55,7 +50,7 @@ pub(super) fn packed_children(fig: &Figure) -> CaseResult {
     );
     let curved = FancyArrowProps {
         connectionstyle: "arc3,rad=-0.2".parse::<ConnectionStyle>()?,
-        ..arrow("->")?
+        .."->".parse::<FancyArrowProps>()?
     };
     ax.add_annotation_bbox(
         OffsetBox::VPacker(card),
@@ -80,7 +75,7 @@ pub(super) fn packed_children(fig: &Figure) -> CaseResult {
     );
     let green = FancyArrowProps {
         patch: PatchProps::default().color("tab:green"),
-        ..arrow("-|>")?
+        .."-|>".parse::<FancyArrowProps>()?
     };
     ax.add_annotation_bbox(
         OffsetBox::HPacker(row),
@@ -113,7 +108,7 @@ pub(super) fn aux_and_padded(fig: &Figure) -> CaseResult {
         (2.0, 1.0),
         AnnotationBboxOptions {
             xybox: Some((6.0, 3.5).into()),
-            arrowprops: Some(arrow("->")?),
+            arrowprops: Some("->".parse::<FancyArrowProps>()?),
             ..AnnotationBboxOptions::default()
         },
     )?;
@@ -131,7 +126,7 @@ pub(super) fn aux_and_padded(fig: &Figure) -> CaseResult {
         AnnotationBboxOptions {
             xybox: Some((8.0, 2.5).into()),
             frameon: false,
-            arrowprops: Some(arrow("-[")?),
+            arrowprops: Some("-[".parse::<FancyArrowProps>()?),
             ..AnnotationBboxOptions::default()
         },
     )?;
@@ -150,13 +145,13 @@ pub(super) fn mixed_coords(fig: &Figure) -> CaseResult {
             xycoords: data_x_axes_y.clone(),
             xybox: Some((2.0, 0.6).into()),
             boxcoords: Some(data_x_axes_y),
-            arrowprops: Some(arrow("->")?),
+            arrowprops: Some("->".parse::<FancyArrowProps>()?),
             ..AnnotationBboxOptions::default()
         },
     )?;
     let wedge = FancyArrowProps {
         patch: PatchProps::default().facecolor("0.8").edgecolor("0.4"),
-        ..arrow("wedge,tail_width=0.5")?
+        .."wedge,tail_width=0.5".parse::<FancyArrowProps>()?
     };
     ax.add_annotation_bbox(
         text_area("figure fraction", TextProps::default()),
@@ -172,7 +167,7 @@ pub(super) fn mixed_coords(fig: &Figure) -> CaseResult {
     )?;
     let shrunk = FancyArrowProps {
         shrink_b: 8.0,
-        ..arrow("->")?
+        .."->".parse::<FancyArrowProps>()?
     };
     ax.add_annotation_bbox(
         text_area("axes pixels", TextProps::default()),

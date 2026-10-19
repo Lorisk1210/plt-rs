@@ -22,7 +22,7 @@ use plt::ticker::{FixedLocator, LogLocator};
 use plt::transforms::Transform;
 use plt_core::{Affine2D, Path, PathCode, Point};
 
-use super::{beside, colors, remove_ticks_and_titles};
+use super::{colors, remove_ticks_and_titles};
 use crate::figures::CaseResult;
 use crate::rng::SpecRng;
 
@@ -137,7 +137,7 @@ pub(super) fn given_colors_levels_and_extends(fig: &Figure) -> CaseResult {
                 },
             )?
         };
-        fig.colorbar(&cs, beside(ax))?;
+        fig.colorbar(&cs, ColorbarOptions::beside(ax))?;
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -172,7 +172,7 @@ pub(super) fn log_locator_levels(fig: &Figure) -> CaseResult {
         ..ContourOptions::default()
     };
     let c = ax.contourf(&QuadField::new(data), options)?;
-    fig.colorbar(&c, beside(&ax))?;
+    fig.colorbar(&c, ColorbarOptions::beside(&ax))?;
     Ok(())
 }
 
@@ -329,7 +329,7 @@ pub(super) fn contourf_log_extension(fig: &Figure) -> CaseResult {
     let c2 = axs[(0, 1)].contourf(&data, banded(Extend::Neither))?;
     let c3 = axs[(0, 2)].contourf(&data, banded(Extend::Both))?;
     for (cs, ax) in [c1, c2, c3].iter().zip(axs.as_slice()) {
-        fig.colorbar(cs, beside(ax))?;
+        fig.colorbar(cs, ColorbarOptions::beside(ax))?;
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -363,7 +363,7 @@ pub(super) fn contour_uneven(fig: &Figure) -> CaseResult {
             &cs,
             ColorbarOptions {
                 spacing,
-                ..beside(ax)
+                ..ColorbarOptions::beside(ax)
             },
         )?;
     }

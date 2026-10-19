@@ -3,10 +3,14 @@
 use plt_core::{Bbox, Path, Rgba};
 use plt_render::JoinStyle;
 
-use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext};
+use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext};
+use crate::axes::AxesState;
 use crate::gridspec::{SubplotParams, SubplotSpec};
-use crate::image::Compositor;
+use crate::image::{Compositor, FigureImageArtist};
+use crate::legend::LegendArtist;
+use crate::mplot3d::is_axes3d;
 use crate::patheffects::with_path_effects;
+use crate::text::TextArtist;
 use crate::transforms::unit_to_bbox;
 
 /// A rectangular region that owns axes and figure-level artists: the
@@ -105,7 +109,8 @@ impl Artist for FigureFrame {
                 });
             });
         }
-        let mut children = ctx.sorted_children(&self.children);
+        let mut children =
+            ctx.sorted_children(&listing_order(ctx.layout().store(), &self.children));
         children.retain(|&id| !ctx.layout().skips_animated(id, false));
         let clip = ctx.layout().frame_extent(self.base.id());
         let mut compositor = Compositor::new(ctx, &children, (clip, None));
@@ -121,5 +126,54 @@ impl Artist for FigureFrame {
 
     fn remove_child(&mut self, child: ArtistId) {
         self.children.retain(|&id| id != child);
+    }
+}
+
+/// `children` in the order matplotlib's `Figure.get_children` lists them,
+/// which its z-order sort keeps among equal z-orders: artists added with
+/// `add_artist`, axes, texts, figure images, legends, then subfigures.
+fn listing_order(store: &ArtistStore, children: &[ArtistId]) -> Vec<ArtistId> {
+    let group = |id: ArtistId| -> u8 {
+        if store.get_as::<AxesState>(id).is_some() || is_axes3d(store, id) {
+            1
+        } else if store.get_as::<TextArtist>(id).is_some() {
+            2
+        } else if store.get_as::<FigureImageArtist>(id).is_some() {
+            3
+        } else if store.get_as::<LegendArtist>(id).is_some() {
+            4
+        } else if store.get_as::<FigureFrame>(id).is_some() {
+            5
+        } else {
+            0
+        }
+    };
+    let mut ordered = children.to_vec();
+    ordered.sort_by_key(|&id| group(id));
+    ordered
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::artist::ArtistHandle;
+    use crate::figure::Figure;
+    use crate::gridspec::GridSpec;
+
+    #[test]
+    fn subfigures_come_after_axes_and_texts() {
+        let fig = Figure::new();
+        let cell = GridSpec::new(1, 2)
+            .and_then(|grid| grid.cell(0, 0))
+            .expect("a cell");
+        let sub = fig.add_subfigure(&cell);
+        let text = fig.text(0.5, 0.5, "t");
+        let ax = fig.subplot();
+        let state = fig.raw().figure_state().borrow();
+        let created = [sub.id(), text.id(), ax.id()];
+        assert_eq!(
+            listing_order(&state.store, &created),
+            [ax.id(), text.id(), sub.id()]
+        );
     }
 }

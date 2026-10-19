@@ -59,6 +59,7 @@ pub(crate) use composite::Compositor;
 pub(crate) use data::Precision;
 pub use data::{ImageData, ScalarField, ScalarKind};
 pub use error::ImageError;
+pub(crate) use figure_image::FigureImageArtist;
 pub use figure_image::{FigimageOptions, FigureImage};
 pub use imread::{ImreadFormat, imread, imread_bytes, imread_png};
 pub use io::{ImageIoError, ImsaveOptions, imsave, imsave_bytes, imsave_format, imsave_png};

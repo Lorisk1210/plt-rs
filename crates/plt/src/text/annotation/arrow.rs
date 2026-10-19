@@ -1,11 +1,13 @@
 //! The arrow of an annotation (matplotlib's `arrowprops`).
 
+use std::str::FromStr;
+
 use plt_core::{Bbox, Path, Point};
 
 use crate::artist::{ArtistBase, ArtistId, DrawContext, DrawnDpiCor, LayoutContext};
 use crate::patches::{
     ArrowSpec, ArrowStyle, ClipRegion, ConnectionStyle, DisplayPath, PatchError, PatchProps,
-    PatchStyle, paint_paths, round_ends,
+    PatchStyle, StyleError, paint_paths, round_ends,
 };
 use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
@@ -50,6 +52,23 @@ impl FancyArrowProps {
             patch_b: None,
             patch: PatchProps::default(),
         }
+    }
+}
+
+impl FromStr for FancyArrowProps {
+    type Err = StyleError;
+
+    /// An arrow of the arrow style `description` (as [`ArrowStyle`]
+    /// parses it) with matplotlib's defaults: `dict(arrowstyle=...)`.
+    ///
+    /// ```
+    /// use plt::text::FancyArrowProps;
+    /// let arrow: FancyArrowProps = "->".parse()?;
+    /// assert_eq!(arrow.shrink_a, 2.0);
+    /// # Ok::<(), plt::patches::StyleError>(())
+    /// ```
+    fn from_str(description: &str) -> Result<Self, Self::Err> {
+        description.parse().map(Self::new)
     }
 }
 

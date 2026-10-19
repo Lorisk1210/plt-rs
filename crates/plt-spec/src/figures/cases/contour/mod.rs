@@ -2,9 +2,9 @@
 
 mod gallery;
 
-use plt::axes::{Axes, ColorizingArtist, ImshowOptions, TriShading, TriValues, TripcolorOptions};
+use plt::axes::{ColorizingArtist, ImshowOptions, TriShading, TriValues, TripcolorOptions};
 use plt::collections::{CollectionProps, EdgeColors};
-use plt::colorbar::{ColorbarAxes, ColorbarOptions};
+use plt::colorbar::ColorbarOptions;
 use plt::colors::{Color, Extend, colormaps};
 use plt::contour::{
     ClabelOptions, ContourOptions, LabelFormat, Levels, Origin, QuadCoords, QuadField,
@@ -66,14 +66,6 @@ fn random_triangulation(n: usize, seed: u64) -> Result<Triangulation, plt::tri::
     x.extend([-3.0, 3.0, 3.0, -3.0]);
     y.extend([-2.0, -2.0, 2.0, 2.0]);
     Triangulation::delaunay(&x, &y)
-}
-
-/// Colorbar options stealing space from `ax` (`fig.colorbar(..., ax=ax)`).
-fn beside(ax: &Axes) -> ColorbarOptions {
-    ColorbarOptions {
-        axes: ColorbarAxes::Parent(ax.clone()),
-        ..ColorbarOptions::default()
-    }
 }
 
 /// The bumps at the points of a triangulation (`_tri_z`).
@@ -403,7 +395,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let fills = ax.contourf(&field, count(8))?;
         let lines = ax.contour(&field, values(&fills.levels()))?;
         lines.clabel(&ClabelOptions::default())?;
-        fig.colorbar(&fills, beside(&ax))?;
+        fig.colorbar(&fills, ColorbarOptions::beside(&ax))?;
         fills.set_cmap(colormaps::get("RdBu_r")?);
         fills.set_clim(Some(-1.5), Some(1.5));
         lines.set_cmap(colormaps::get("Greys")?);
@@ -419,7 +411,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..TripcolorOptions::default()
         };
         let plot = ax.tripcolor(&tri, TriValues::Auto(tri_bumps(&tri)), options)?;
-        fig.colorbar(&plot, beside(&ax))?;
+        fig.colorbar(&plot, ColorbarOptions::beside(&ax))?;
         ColorizingArtist::from(&plot).set_clim(Some(-1.5), Some(1.5));
         Ok(())
     })

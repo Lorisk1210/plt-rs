@@ -44,7 +44,7 @@ pub(super) const CASES: &[FigureCase] = &[
                 &pcm,
                 ColorbarOptions {
                     pad: Some(pad),
-                    ..beside(ax)
+                    ..ColorbarOptions::beside(ax)
                 },
             )?;
         }
@@ -185,14 +185,6 @@ pub(super) const CASES: &[FigureCase] = &[
         Ok(())
     }),
 ];
-
-/// Colorbar options stealing space from `ax`.
-fn beside(ax: &Axes) -> ColorbarOptions {
-    ColorbarOptions {
-        axes: ColorbarAxes::Parent(ax.clone()),
-        ..ColorbarOptions::default()
-    }
-}
 
 /// Colorbar options stealing space from all of `axs`.
 fn around(axs: &[Axes]) -> ColorbarOptions {
@@ -364,7 +356,7 @@ fn padded_colorbars(
                 shrink: 0.6,
                 aspect: 20.0,
                 pad: Some(0.02),
-                ..beside(ax)
+                ..ColorbarOptions::beside(ax)
             },
         )?;
     }
@@ -402,7 +394,12 @@ fn colorbar_location(fig: &Figure) -> CaseResult {
             Some(0.05),
         ),
         (around(&block(2..3, 3..5)), 0.5, Some(SpineSide::Top), None),
-        (beside(&axs[(0, 0)]), 0.5, Some(SpineSide::Left), None),
+        (
+            ColorbarOptions::beside(&axs[(0, 0)]),
+            0.5,
+            Some(SpineSide::Left),
+            None,
+        ),
         (
             around(&block(1..3, 2..3)),
             0.5,
@@ -448,7 +445,7 @@ fn colorbars_no_overlap(fig: &Figure, orientation: Orientation) -> CaseResult {
             &image,
             ColorbarOptions {
                 orientation: Some(orientation),
-                ..beside(ax)
+                ..ColorbarOptions::beside(ax)
             },
         )?;
     }
@@ -472,7 +469,7 @@ fn compressed_colorbars(
             &image,
             ColorbarOptions {
                 orientation: Some(orientation),
-                ..beside(ax)
+                ..ColorbarOptions::beside(ax)
             },
         )?;
     }

@@ -5,7 +5,7 @@ use plt_core::Bbox;
 
 use super::{AnchoredBoxArtist, AnnotationBboxArtist, ArtistRef, OffsetBox, Placement};
 use crate::artist::{Artist, ArtistId, ArtistStore, ClipPathSpec, DrawError, LayoutContext};
-use crate::figure::FigureState;
+use crate::figure::{FigureState, draws_before};
 use crate::image::BboxImageArtist;
 use crate::patches::{FancyBboxPatch, PatchArtist};
 use crate::text::TextArtist;
@@ -99,12 +99,29 @@ fn tree_mut(store: &mut ArtistStore, id: ArtistId) -> Option<&mut OffsetBox<Arti
         .map(|annotation| &mut annotation.child)
 }
 
+/// The artists the annotation box `id` is placed against that the figure
+/// draws before it: matplotlib places the box as it draws, when their
+/// arrows have just been drawn at the canvas resolution.
+fn drawn_before(state: &FigureState, id: ArtistId) -> Vec<ArtistId> {
+    let store = &state.store;
+    store
+        .get_as::<AnnotationBboxArtist>(id)
+        .map(AnnotationBboxArtist::placing_artists)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|&artist| {
+            store.get(artist).is_some_and(|a| a.base().visible) && draws_before(store, artist, id)
+        })
+        .collect()
+}
+
 /// Where the parts of the anchored or annotation box `id` go.
 fn placements(
     state: &FigureState,
     id: ArtistId,
 ) -> Option<Result<Vec<Placement<ArtistId>>, String>> {
-    let ctx = LayoutContext::new(state);
+    let drawn = drawn_before(state, id);
+    let ctx = LayoutContext::new(state).with_drawn(&drawn);
     let store = &state.store;
     let laid_out = match store.get_as::<AnchoredBoxArtist>(id) {
         Some(anchored) => anchored.layout(ctx).map(|layout| layout.placements),

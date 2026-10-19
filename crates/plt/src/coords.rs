@@ -97,6 +97,17 @@ impl Coords {
         Self::Blended(Box::new(x_coords), Box::new(y_coords))
     }
 
+    /// The artists whose extents these coordinates are relative to.
+    pub(crate) fn artists(&self) -> Vec<ArtistId> {
+        match self {
+            Self::Artist(id) | Self::ClippedArtist(id) | Self::OffsetFrom { artist: id, .. } => {
+                vec![*id]
+            }
+            Self::Blended(x, y) => [x.artists(), y.artists()].concat(),
+            Self::Data | Self::Polar | Self::Relative { .. } | Self::Transform(_) => Vec::new(),
+        }
+    }
+
     /// Whether this is an offset from the annotated point (in either
     /// direction).
     pub fn is_offset(&self) -> bool {

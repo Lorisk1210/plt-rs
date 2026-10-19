@@ -30,6 +30,8 @@ pub struct FancyArrowProps {
     pub mutation_scale: Option<f64>,
     /// Vertical squeeze while the arrow is built.
     pub mutation_aspect: f64,
+    /// What clips the arrow at the text (matplotlib's `patchA`).
+    pub patch_a: ArrowStart,
     /// The artist whose outline clips the arrow at the annotated point
     /// (matplotlib's `patchB`): a patch, or a text whose box then clips
     /// (as `get_bbox_patch()` does).
@@ -49,10 +51,26 @@ impl FancyArrowProps {
             shrink_b: 2.0,
             mutation_scale: None,
             mutation_aspect: 1.0,
+            patch_a: ArrowStart::default(),
             patch_b: None,
             patch: PatchProps::default(),
         }
     }
+}
+
+/// What clips an annotation arrow where it leaves the text (matplotlib's
+/// `patchA`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ArrowStart {
+    /// The text's box, or else its extent padded by 2 points unless the
+    /// text is empty (matplotlib's default, without `patchA`).
+    #[default]
+    TextBox,
+    /// Nothing: the arrow starts right at `relpos` (`patchA=None`).
+    Unclipped,
+    /// The outline of another artist: a patch, or a text whose box then
+    /// clips (`patchA=artist`, `patchA=text.get_bbox_patch()`).
+    Artist(ArtistId),
 }
 
 impl FromStr for FancyArrowProps {
@@ -139,6 +157,9 @@ enum Placement {
 /// What an annotation needs to place its arrow.
 #[derive(Clone, Debug)]
 pub(crate) struct ArrowTarget {
+    /// The artist the arrow belongs to: an annotation or an annotation
+    /// box.
+    pub(crate) owner: ArtistId,
     /// The text's extent in display pixels.
     pub(crate) text_bbox: Bbox,
     /// The annotated point in display pixels.
@@ -158,6 +179,8 @@ pub(crate) struct ArrowTarget {
 pub(crate) struct AnnotationArrow {
     placement: Placement,
     spec: ArrowSpec,
+    /// What clips the arrow at the text.
+    patch_a: ArrowStart,
     /// The artist clipping the arrow at the annotated point.
     patch_b: Option<ArtistId>,
     style: PatchStyle,
@@ -174,9 +197,9 @@ impl AnnotationArrow {
     pub(crate) fn new(props: ArrowProps, rc: &RcParams) -> Self {
         let mut style = PatchStyle::from_rc(rc);
         round_ends(&mut style);
-        let patch_b = match &props {
-            ArrowProps::Fancy(fancy) => fancy.patch_b,
-            ArrowProps::Legacy(_) => None,
+        let (patch_a, patch_b) = match &props {
+            ArrowProps::Fancy(fancy) => (fancy.patch_a, fancy.patch_b),
+            ArrowProps::Legacy(_) => (ArrowStart::TextBox, None),
         };
         let (placement, spec, patch) = match props {
             ArrowProps::Fancy(fancy) => (
@@ -212,6 +235,7 @@ impl AnnotationArrow {
         Self {
             placement,
             spec,
+            patch_a,
             patch_b,
             style,
             alpha: base.alpha,
@@ -228,7 +252,8 @@ impl AnnotationArrow {
         rc: &RcParams,
         target: ArrowTarget,
     ) -> Result<Vec<DisplayPath>, PatchError> {
-        self.display_paths(layout, rc, target, self.dpi_cor.measured(layout))
+        let dpi_cor = self.dpi_cor.measured(layout, target.owner);
+        self.display_paths(layout, rc, target, dpi_cor)
     }
 
     /// The arrow's pieces in display pixels (`Annotation.update_positions`
@@ -286,10 +311,13 @@ impl AnnotationArrow {
             bbox.x0() + bbox.width() * relpos.0,
             bbox.y0() + bbox.height() * relpos.1,
         );
-        spec.patch_a = target.start_region;
-        spec.patch_b = self
-            .patch_b
-            .and_then(|id| layout.store().get(id)?.connection_region(&layout));
+        let region = |id: ArtistId| layout.store().get(id)?.connection_region(&layout);
+        spec.patch_a = match self.patch_a {
+            ArrowStart::TextBox => target.start_region,
+            ArrowStart::Unclipped => None,
+            ArrowStart::Artist(id) => region(id),
+        };
+        spec.patch_b = self.patch_b.and_then(region);
         let linewidth = self.style.linewidth.unwrap_or(rc.patch_linewidth);
         let path = spec.route(begin, end, dpi_cor)?;
         spec.display_paths(&path, dpi_cor, linewidth)

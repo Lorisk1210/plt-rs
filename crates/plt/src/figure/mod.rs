@@ -2,6 +2,7 @@
 
 mod artists;
 mod clear;
+mod draw_order;
 mod frame;
 mod mosaic;
 mod pdf_pages;
@@ -21,6 +22,7 @@ use std::rc::Rc;
 use plt_core::Rgba;
 use plt_render::Renderer;
 
+pub(crate) use draw_order::draws_before;
 pub(crate) use frame::FigureFrame;
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use pdf_pages::PdfPages;

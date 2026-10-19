@@ -11,11 +11,7 @@ use plt::text::{HorizontalAlignment as HAlign, TextRotationMode as RotationMode}
 use plt::ticker::OffsetMode;
 
 use crate::figures::CaseResult;
-
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().copied().map(f).collect()
-}
+use crate::figures::cases::common::map;
 
 pub(super) fn offset_threshold_and_fixed_offset(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 3)?;

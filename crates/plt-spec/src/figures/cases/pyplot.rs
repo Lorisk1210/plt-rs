@@ -19,6 +19,7 @@ use plt::pyplot;
 use plt::stats::{Bins, HistOptions};
 
 use super::colorbar::data::{field, xyz};
+use crate::figures::cases::common::map;
 use crate::figures::{CaseResult, FigureCase};
 
 pub(crate) const CASES: &[FigureCase] = &[
@@ -41,11 +42,6 @@ fn with_current(fig: &Figure, build: impl FnOnce() -> CaseResult) -> CaseResult 
     let result = build();
     pyplot::close_figure(fig);
     result
-}
-
-/// `f` applied to every value.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().map(|&v| f(v)).collect()
 }
 
 fn line_decorations(fig: &Figure) -> CaseResult {

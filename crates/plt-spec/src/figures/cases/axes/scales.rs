@@ -6,11 +6,7 @@ use plt::prelude::*;
 use plt::scale::{FuncScale, FuncTransform, ScaleOptions};
 
 use crate::figures::FigureCase;
-
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().copied().map(f).collect()
-}
+use crate::figures::cases::common::map;
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/xscale_log_minor", |fig| {

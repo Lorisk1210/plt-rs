@@ -1,0 +1,19 @@
+{
+ "size_px": [700, 700],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.01, 0.01, 0.98, 0.9],
+   "title": "Matplotlib's math rendering engine",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

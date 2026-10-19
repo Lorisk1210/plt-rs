@@ -196,9 +196,46 @@ impl FigureState {
 
 #[cfg(test)]
 mod tests {
+    use plt_text::{HAlign, VAlign};
+
+    use super::TitlePlacement;
     use crate::artist::ArtistHandle;
+    use crate::axes::{AxesState, TitleLocation};
     use crate::figure::Figure;
+    use crate::fonts::FontWeight;
     use crate::spines::SpineSide;
+
+    #[test]
+    fn setting_a_title_restores_its_defaults() {
+        // matplotlib's `set_title` resets the size, weight and alignment
+        // and the height, to `axes.titley` when set, which also stops
+        // lifting the titles above the decorations on top.
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let rc = crate::rc::params();
+        let title = ax.set_title_at(TitleLocation::Left, "first");
+        title
+            .set_fontsize(30.0)
+            .set_weight(FontWeight::BOLD)
+            .set_halign(HAlign::Center)
+            .set_y(0.5);
+        ax.set_title_at(TitleLocation::Left, "second");
+        assert_eq!(title.font().size, rc.axes_titlesize.to_points(rc.font_size));
+        assert_eq!(title.font().weight, rc.axes_titleweight);
+        assert_eq!(
+            (title.halign(), title.valign()),
+            (HAlign::Left, VAlign::Baseline)
+        );
+        assert!((title.position().y - 1.0).abs() < f64::EPSILON);
+        let placement = || ax.raw().with::<AxesState, _>(|axes| axes.title_placement);
+        assert_eq!(placement(), TitlePlacement::Auto);
+        crate::rc::context(|| {
+            crate::rc::set("axes.titley", "0.5").expect("a valid height");
+            let centre = ax.set_title("fixed");
+            assert!((centre.position().y - 0.5).abs() < f64::EPSILON);
+        });
+        assert_eq!(placement(), TitlePlacement::Fixed);
+    }
 
     #[test]
     fn titles_clear_tick_labels_on_top() {

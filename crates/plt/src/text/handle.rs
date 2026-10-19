@@ -105,6 +105,14 @@ impl Text {
         self
     }
 
+    /// Sets the font variant: normal or small caps (matplotlib's
+    /// `set_fontvariant`).
+    pub fn set_variant(&self, variant: crate::fonts::FontVariant) -> &Self {
+        self.raw
+            .with_mut::<TextArtist, _>(|t| t.font.variant = variant);
+        self
+    }
+
     /// Sets the font stretch (matplotlib's `set_fontstretch`).
     pub fn set_stretch(&self, stretch: crate::fonts::FontStretch) -> &Self {
         self.raw
@@ -208,6 +216,21 @@ mod tests {
         let text = fig.text(0.5, 0.5, "x");
         assert_eq!(text.language(), None, "text.language defaults to None");
         assert_eq!(text.fontfeatures(), []);
+    }
+
+    #[test]
+    fn variant_changes_only_the_variant() {
+        let fig = Figure::with_size(2.0, 1.0, 72.0);
+        let text = fig.text(0.5, 0.5, "Small caps");
+        let before = text.font();
+        text.set_variant(crate::fonts::FontVariant::SmallCaps);
+        assert_eq!(
+            text.font(),
+            FontProperties {
+                variant: crate::fonts::FontVariant::SmallCaps,
+                ..before
+            }
+        );
     }
 
     #[test]

@@ -4,6 +4,7 @@
 mod axline;
 mod edge;
 mod format;
+mod hit_region;
 mod line;
 mod line_markers;
 mod linestyle;

@@ -15,7 +15,7 @@ use std::ops::Deref;
 use plt_core::{Bbox, Point};
 
 pub(crate) use arrow::{AnnotationArrow, ArrowTarget};
-pub use arrow::{ArrowProps, FancyArrowProps, LegacyArrowProps};
+pub use arrow::{ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps};
 
 use super::{Text, TextArtist, TextDrawError};
 use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle};
@@ -193,6 +193,7 @@ impl AnnotationState {
             }
         };
         Ok(ArrowTarget {
+            owner: text.base().id(),
             text_bbox,
             point,
             fontsize: text.font.size,

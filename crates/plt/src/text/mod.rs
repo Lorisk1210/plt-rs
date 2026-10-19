@@ -38,7 +38,9 @@ use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 
-pub use annotation::{AnnotateOptions, Annotation, ArrowProps, FancyArrowProps, LegacyArrowProps};
+pub use annotation::{
+    AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps,
+};
 pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget};
 pub use error::TextDrawError;
 pub use handle::{Text, TextProps};

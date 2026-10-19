@@ -12,15 +12,14 @@ use plt::patches::Ellipse;
 use plt::polar::{Compass, PolarAxes, ThetaDirection};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{
-    AnnotateOptions, ArrowProps, HorizontalAlignment, LegacyArrowProps, VerticalAlignment,
-};
+use plt::text::{AnnotateOptions, HorizontalAlignment, VerticalAlignment};
 use plt::ticker::FuncFormatter;
 use plt::ticker::pyfmt::FormatSpec;
 use plt_core::Point;
 
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
+use crate::figures::cases::common::black_arrow;
 
 /// `r = np.arange(start, stop, 0.01)` and `θ = 2πr`.
 fn spiral(start: f64, stop: f64) -> (Vec<f64>, Vec<f64>) {
@@ -34,15 +33,6 @@ fn spiral_axes(fig: &Figure, start: f64, stop: f64) -> Result<PolarAxes, PlotErr
     let (theta, r) = spiral(start, stop);
     ax.plot(theta, r)?;
     Ok(ax)
-}
-
-/// The legacy annotation arrow of the tests: black, shortened by 5%.
-fn black_arrow() -> ArrowProps {
-    ArrowProps::Legacy(LegacyArrowProps {
-        shrink: 0.05,
-        patch: PatchProps::default().facecolor("black"),
-        ..LegacyArrowProps::default()
-    })
 }
 
 /// Degrees to radians, element-wise.

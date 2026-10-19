@@ -9,12 +9,8 @@ use plt::prelude::*;
 use plt::spines::{SpinePosition, SpineSide};
 use plt_render::CapStyle;
 
+use crate::figures::cases::common::map;
 use crate::figures::{CaseResult, FigureCase};
-
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().copied().map(f).collect()
-}
 
 /// Hides the top and right spines.
 fn hide_top_right(ax: &Axes) {

@@ -11,7 +11,6 @@ use plt_core::{Bbox, Point, Rgba};
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
 use super::axis::{AxisState, Tick};
-use super::axis_label::LabelLoc;
 use super::state::AxesState;
 use super::ticks::TickStyle;
 use crate::artist::{Artist, ArtistId, LayoutContext};
@@ -319,11 +318,8 @@ impl<'a> AxisPainter<'a> {
             .filter(|(first, _)| *first != high)
             .map(|(_, b)| *b);
         let bounds = boxes.fold(edge, |acc, b| acc.union(&b));
-        let along = match label.loc {
-            LabelLoc::Start => HAlign::Left,
-            LabelLoc::Center => HAlign::Center,
-            LabelLoc::End => HAlign::Right,
-        };
+        let along = label.loc.halign();
+        let multialign = label.multialign.unwrap_or(along);
         let (anchor, block) = match self.name {
             AxisName::X => (
                 Point::new(
@@ -342,7 +338,7 @@ impl<'a> AxisPainter<'a> {
                     } else {
                         VAlign::Top
                     }),
-                    multialign: HAlign::Center,
+                    multialign,
                     ..BlockStyle::default()
                 },
             ),
@@ -361,7 +357,7 @@ impl<'a> AxisPainter<'a> {
                     valign: label
                         .valign
                         .unwrap_or(if high { VAlign::Top } else { VAlign::Bottom }),
-                    multialign: HAlign::Center,
+                    multialign,
                     rotation_mode: RotationMode::Anchor,
                     ..BlockStyle::default()
                 },

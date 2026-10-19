@@ -14,6 +14,7 @@ use crate::artist::{
 use crate::axes::Axes;
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
 use crate::events::Dragger;
+use crate::figure::Figure;
 use crate::fonts::FontSize;
 use crate::patches::{
     BoxShape, BoxStyle, ClipRegion, DisplayPath, FancyBboxPatch, Patch, PatchArtist, PatchProps,
@@ -103,7 +104,9 @@ pub(crate) struct AnnotationBboxArtist {
     /// The frame's mutation scale in points.
     fontsize: f64,
     arrow: Option<AnnotationArrow>,
-    axes: ArtistId,
+    /// The axes of data coordinates and of the clipping check; `None` for
+    /// a box of a (sub)figure.
+    axes: Option<ArtistId>,
     /// The frame (matplotlib's `patch`).
     frame: ArtistId,
     /// Every part, for removal with the box.
@@ -121,11 +124,16 @@ impl AnnotationBboxArtist {
     ) -> CoordFrame<'a> {
         CoordFrame {
             layout,
-            axes: Some(self.axes),
+            axes: self.axes,
             owner: self.base.parent,
             offset_origin,
             fontsize: self.fontsize,
         }
+    }
+
+    /// The artists the box is placed against, through its coordinates.
+    pub(crate) fn placing_artists(&self) -> Vec<ArtistId> {
+        [self.xycoords.artists(), self.boxcoords.artists()].concat()
     }
 
     /// The display position of the box anchor (matplotlib's `xybox` in
@@ -215,6 +223,7 @@ impl AnnotationBboxArtist {
         geometry: &Geometry,
     ) -> Result<ArrowTarget, String> {
         Ok(ArrowTarget {
+            owner: self.base.id(),
             text_bbox: geometry.extent,
             point: geometry.point,
             fontsize: self.fontsize,
@@ -231,7 +240,7 @@ impl AnnotationBboxArtist {
             layout,
             self.annotation_clip,
             &self.xycoords,
-            Some(self.axes),
+            self.axes,
             geometry.point,
         ) {
             return Ok(());
@@ -314,7 +323,7 @@ impl Artist for AnnotationBboxArtist {
             *ctx,
             self.annotation_clip,
             &self.xycoords,
-            Some(self.axes),
+            self.axes,
             geometry.point,
         );
         shown
@@ -410,161 +419,109 @@ impl Axes {
         xy: impl Into<Point>,
         options: AnnotationBboxOptions,
     ) -> Result<AnnotationBbox, CoordError> {
-        if options.xycoords.is_offset() {
-            return Err(CoordError::NoOffset);
-        }
-        let xy = xy.into();
-        let rc = crate::rc::params();
-        let fontsize = options
-            .fontsize
-            .unwrap_or(rc.legend_fontsize)
-            .to_points(rc.font_size);
-        let boxstyle = options
-            .boxstyle
-            .unwrap_or(BoxStyle::new(BoxShape::Square).with_pad(options.pad));
-        let arrow = options
-            .arrowprops
-            .map(|props| AnnotationArrow::new(ArrowProps::Fancy(props), &rc));
-        let figure = self.raw().figure_state();
-        let mut state = figure.borrow_mut();
-        let mut parts = Parts::new(&mut state.store);
-        let frame = parts.insert(frame_patch(boxstyle, options.frameon, options.bboxprops));
-        let child = parts.insert_tree(child.into());
-        let parts = parts.into_ids();
-        let artist = AnnotationBboxArtist {
-            base: ArtistBase::with_zorder(ANNOTATION_BBOX_ZORDER),
-            child,
-            xy,
-            xybox: options.xybox.unwrap_or(xy),
-            boxcoords: options
-                .boxcoords
-                .unwrap_or_else(|| options.xycoords.clone()),
-            xycoords: options.xycoords,
-            box_alignment: options.box_alignment,
-            annotation_clip: options.annotation_clip,
-            fontsize,
-            arrow,
-            axes: self.id(),
-            frame,
-            parts: parts.clone(),
-            rc,
-            dragger: None,
-        };
-        let id = adopt_box(&mut state, self.id(), Box::new(artist), &parts);
-        drop(state);
-        Ok(AnnotationBbox {
-            raw: RawHandle::new(Rc::clone(figure), id),
-        })
+        add_annotation_bbox(
+            self.raw(),
+            Some(self.id()),
+            child.into(),
+            xy.into(),
+            options,
+        )
     }
+}
+
+impl Figure {
+    /// Adds `child` as a box of the figure at `options.xybox` that
+    /// annotates the point `xy`, optionally with an arrow to it
+    /// (matplotlib's `fig.add_artist` of an `AnnotationBbox`). Without an
+    /// axes, the point is given in figure coordinates or relative to
+    /// another artist, such as a [`ConnectionPatch`] joining two axes.
+    /// Fails when `options.xycoords` is an offset.
+    ///
+    /// [`ConnectionPatch`]: crate::patches::ConnectionPatch
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::offsetbox::{AnnotationBboxOptions, TextArea};
+    /// use plt::text::{FancyArrowProps, TextProps};
+    /// let fig = Figure::new();
+    /// let note = fig.add_annotation_bbox(
+    ///     TextArea::from_text("corner", TextProps::default()),
+    ///     (0.1, 0.1),
+    ///     AnnotationBboxOptions {
+    ///         xycoords: "figure fraction".parse()?,
+    ///         xybox: Some((30.0, 30.0).into()),
+    ///         boxcoords: Some("offset points".parse()?),
+    ///         arrowprops: Some("->".parse::<FancyArrowProps>()?),
+    ///         ..AnnotationBboxOptions::default()
+    ///     },
+    /// )?;
+    /// assert_eq!(note.xybox(), (30.0, 30.0).into());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn add_annotation_bbox(
+        &self,
+        child: impl Into<OffsetBox<BoxItem>>,
+        xy: impl Into<Point>,
+        options: AnnotationBboxOptions,
+    ) -> Result<AnnotationBbox, CoordError> {
+        add_annotation_bbox(self.raw(), None, child.into(), xy.into(), options)
+    }
+}
+
+/// Adds the box `child` annotating `xy` to `owner`, an axes (also given as
+/// `axes`) or a (sub)figure.
+fn add_annotation_bbox(
+    owner: &RawHandle,
+    axes: Option<ArtistId>,
+    child: OffsetBox<BoxItem>,
+    xy: Point,
+    options: AnnotationBboxOptions,
+) -> Result<AnnotationBbox, CoordError> {
+    if options.xycoords.is_offset() {
+        return Err(CoordError::NoOffset);
+    }
+    let rc = crate::rc::params();
+    let fontsize = options
+        .fontsize
+        .unwrap_or(rc.legend_fontsize)
+        .to_points(rc.font_size);
+    let boxstyle = options
+        .boxstyle
+        .unwrap_or(BoxStyle::new(BoxShape::Square).with_pad(options.pad));
+    let arrow = options
+        .arrowprops
+        .map(|props| AnnotationArrow::new(ArrowProps::Fancy(props), &rc));
+    let figure = owner.figure_state();
+    let mut state = figure.borrow_mut();
+    let mut parts = Parts::new(&mut state.store);
+    let frame = parts.insert(frame_patch(boxstyle, options.frameon, options.bboxprops));
+    let child = parts.insert_tree(child);
+    let parts = parts.into_ids();
+    let artist = AnnotationBboxArtist {
+        base: ArtistBase::with_zorder(ANNOTATION_BBOX_ZORDER),
+        child,
+        xy,
+        xybox: options.xybox.unwrap_or(xy),
+        boxcoords: options
+            .boxcoords
+            .unwrap_or_else(|| options.xycoords.clone()),
+        xycoords: options.xycoords,
+        box_alignment: options.box_alignment,
+        annotation_clip: options.annotation_clip,
+        fontsize,
+        arrow,
+        axes,
+        frame,
+        parts: parts.clone(),
+        rc,
+        dragger: None,
+    };
+    let id = adopt_box(&mut state, owner.id(), Box::new(artist), &parts);
+    drop(state);
+    Ok(AnnotationBbox {
+        raw: RawHandle::new(Rc::clone(figure), id),
+    })
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::figure::Figure;
-    use crate::offsetbox::{DrawingArea, TextArea};
-    use crate::patches::Rectangle;
-    use crate::testing::{Call, RecordingRenderer};
-    use crate::text::TextProps;
-
-    /// A 640 × 480 px figure with one axes over `(0, 10)²`.
-    fn axes() -> (Figure, Axes) {
-        let fig = Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-        (fig, ax)
-    }
-
-    /// The display position of a data point of `axes()`.
-    fn display(x: f64, y: f64) -> Point {
-        Point::new(80.0 + x * 49.6, 52.8 + y * 36.96)
-    }
-
-    fn draw(fig: &Figure) -> Vec<Call> {
-        let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
-        fig.draw(&mut renderer).expect("drawable");
-        renderer.calls
-    }
-
-    fn close(a: Point, b: Point) -> bool {
-        (a - b).length() < 1e-9
-    }
-
-    #[test]
-    fn boxes_are_aligned_on_their_offset_position() {
-        let (fig, ax) = axes();
-        let note = ax
-            .add_annotation_bbox(
-                TextArea::from_text("note", TextProps::default()),
-                (5.0, 5.0),
-                AnnotationBboxOptions {
-                    xybox: Some((10.0, 20.0).into()),
-                    boxcoords: Some("offset points".parse().expect("valid coords")),
-                    box_alignment: (0.0, 0.0),
-                    ..AnnotationBboxOptions::default()
-                },
-            )
-            .expect("valid annotation");
-        draw(&fig);
-        let anchor = display(5.0, 5.0) + Point::new(10.0, 20.0) * (100.0 / 72.0);
-        assert!(close(note.patch().shape().xy, anchor));
-        assert_eq!(note.texts()[0].text(), "note");
-        note.set_xybox((0.0, 0.0));
-        draw(&fig);
-        assert!(close(note.patch().shape().xy, display(5.0, 5.0)));
-        assert_eq!(note.xybox(), Point::ORIGIN);
-    }
-
-    #[test]
-    fn arrows_reach_the_point_and_hidden_points_hide_the_box() {
-        let (fig, ax) = axes();
-        let area = || {
-            DrawingArea::new(10.0, 10.0, 0.0, 0.0).with_artist(BoxItem::patch(
-                Rectangle::new((0.0, 0.0), 10.0, 10.0),
-                PatchProps::default().facecolor("r"),
-            ))
-        };
-        let arrow = FancyArrowProps::new("-|>".parse().expect("valid style"));
-        let note = ax
-            .add_annotation_bbox(
-                area(),
-                (8.0, 8.0),
-                AnnotationBboxOptions {
-                    xybox: Some((2.0, 2.0).into()),
-                    arrowprops: Some(arrow),
-                    ..AnnotationBboxOptions::default()
-                },
-            )
-            .expect("valid annotation");
-        let calls = draw(&fig);
-        let extent = note.window_extent().expect("an extent");
-        let point = display(8.0, 8.0);
-        assert!(
-            extent.x1() < point.x && extent.x1() > point.x - 5.0,
-            "{extent:?}"
-        );
-        let red = plt_core::Rgba::new(1.0, 0.0, 0.0, 1.0);
-        let reds = |calls: &[Call]| {
-            calls
-                .iter()
-                .filter(|c| matches!(c, Call::Path { fill: Some(f), .. } if *f == red))
-                .count()
-        };
-        assert_eq!(reds(&calls), 1);
-        note.set_xy((20.0, 8.0));
-        assert_eq!(
-            reds(&draw(&fig)),
-            0,
-            "data points outside the axes hide the box"
-        );
-        let result = ax.add_annotation_bbox(
-            area(),
-            (0.0, 0.0),
-            AnnotationBboxOptions {
-                xycoords: "offset points".parse().expect("valid coords"),
-                ..AnnotationBboxOptions::default()
-            },
-        );
-        assert_eq!(result.err(), Some(CoordError::NoOffset));
-    }
-}
+mod tests;

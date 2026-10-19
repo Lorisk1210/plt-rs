@@ -15,6 +15,7 @@ mod violins;
 use plt::figure::Figure;
 
 use super::mpl_tests::{classic, remove_ticks_and_titles};
+use crate::figures::cases::common::map;
 use crate::figures::{CaseResult, FigureCase};
 
 /// Every case of the group.
@@ -33,9 +34,4 @@ pub(crate) fn cases() -> Vec<FigureCase> {
 /// A case in the default style saved at `savefig_kwarg={'dpi': 40}`.
 const fn at_40_dpi(name: &'static str, build: fn(&Figure) -> CaseResult) -> FigureCase {
     FigureCase::new(name, build).sized(6.4, 4.8, 40.0)
-}
-
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().copied().map(f).collect()
 }

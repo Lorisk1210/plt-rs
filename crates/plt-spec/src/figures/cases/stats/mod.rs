@@ -14,6 +14,7 @@ pub(crate) use fill_between::CASES as FILL_BETWEEN;
 pub(crate) use pie::CASES as PIE;
 pub(crate) use violin::CASES as VIOLIN;
 
+use crate::figures::cases::common::map;
 use crate::rng::SpecRng;
 
 /// `SAMPLES`: three normal samples, the last with outliers appended.
@@ -25,9 +26,4 @@ fn samples() -> Vec<Vec<f64>> {
         SpecRng::new(201).normal(80, 1.0, 0.5),
         third,
     ]
-}
-
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().copied().map(f).collect()
 }

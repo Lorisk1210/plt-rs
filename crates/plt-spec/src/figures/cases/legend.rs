@@ -14,17 +14,13 @@ use plt::markers::Marker;
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions, HistType};
 
+use crate::figures::cases::common::map;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 /// `T = np.linspace(0, 10, 40)`.
 fn t() -> Vec<f64> {
     linspace(0.0, 10.0, 40)
-}
-
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().copied().map(f).collect()
 }
 
 /// A line labelled `label`.

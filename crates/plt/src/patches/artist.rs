@@ -70,9 +70,10 @@ impl<S: PatchShape> PatchParts<'_, S> {
     /// The extent of the outlines in display space, as measured (see
     /// [`DrawnDpiCor`]).
     pub(crate) fn extent(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
-        let dpi_cor = self
-            .drawn
-            .map_or_else(|| layout.measured_dpi_cor(), |drawn| drawn.measured(layout));
+        let dpi_cor = self.drawn.map_or_else(
+            || layout.measured_dpi_cor(),
+            |drawn| drawn.measured(layout, self.base.id()),
+        );
         self.display_paths(layout, dpi_cor)
             .ok()?
             .iter()

@@ -7,7 +7,7 @@ use super::styled_box;
 use plt::artist::ArtistHandle;
 use plt::axes::{ScatterColors, ScatterOptions};
 use plt::coords::{CoordUnit, Coords};
-use plt::patches::{ArrowStyle, ConnectionStyle, Ellipse, Rectangle};
+use plt::patches::{Ellipse, Rectangle};
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::text::{
@@ -16,16 +16,9 @@ use plt::text::{
 };
 use plt::transforms::Point;
 
+use crate::figures::cases::common::arrow;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
-
-/// `arrowprops=dict(arrowstyle=style, connectionstyle=connection)`.
-fn arrow(style: &str, connection: &str) -> Result<FancyArrowProps, Box<dyn std::error::Error>> {
-    Ok(FancyArrowProps {
-        connectionstyle: connection.parse::<ConnectionStyle>()?,
-        ..FancyArrowProps::new(style.parse::<ArrowStyle>()?)
-    })
-}
 
 #[expect(
     clippy::unnecessary_wraps,

@@ -4,6 +4,7 @@ use plt_core::{Bbox, Point};
 use plt_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
 use super::{ArtistBase, ArtistId, ArtistStore, ClipPathSpec};
+use crate::axes::AxesState;
 use crate::figure::FigureState;
 use crate::layout::Aligned;
 use crate::ticker::AxisName;
@@ -34,6 +35,16 @@ impl<'a> LayoutContext<'a> {
     /// (`None` = as the renderer prefers; matplotlib's `suppressComposite`).
     pub(crate) fn suppress_composite(self) -> Option<bool> {
         self.figure.suppress_composite
+    }
+
+    /// Whether the animated artist `base` is drawn: only while the figure
+    /// is saved, and only in axes (matplotlib's `Axes.draw` keeps animated
+    /// artists while `canvas.is_saving()`; figures never draw them).
+    pub(crate) fn draws_animated(self, base: &ArtistBase) -> bool {
+        self.figure.saving
+            && base
+                .parent
+                .is_some_and(|parent| self.store().get_as::<AxesState>(parent).is_some())
     }
 
     /// Converts points to pixels at the canvas resolution.
@@ -287,15 +298,17 @@ impl<'a> DrawContext<'a> {
         }
     }
 
-    /// Draws a child artist if it exists and is not animated, through its
-    /// image filter if it has one; an invisible child draws nothing but
-    /// still ends rasterizing like any artist that is not rasterized.
+    /// Draws a child artist if it exists and is not animated (animated
+    /// artists of axes are drawn while the figure is saved, as matplotlib's
+    /// `Axes.draw` does), through its image filter if it has one; an
+    /// invisible child draws nothing but still ends rasterizing like any
+    /// artist that is not rasterized.
     pub fn draw_child(&mut self, id: ArtistId) {
         let Some(artist) = self.layout.store().get(id) else {
             return;
         };
         let base = artist.base();
-        if base.animated {
+        if base.animated && !self.layout.draws_animated(base) {
             return;
         }
         self.draw_artist(base.rasterized, |ctx| {

@@ -17,7 +17,7 @@ use plt_core::Bbox;
 use crate::artist::{Artist, ArtistHandle, ArtistId, LayoutContext};
 use crate::axes::AxesState;
 use crate::figure::{Figure, FigureFrame, FigureState};
-use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams, SubplotSpec};
+use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotParams, SubplotSpec};
 use crate::text::TextArtist;
 
 /// The parameters of tight layout (matplotlib's `tight_layout` arguments).
@@ -132,7 +132,7 @@ impl FigureState {
         let Some(subplot_params) = self.subplot_params_of(frame) else {
             return Ok(());
         };
-        let measured = Measured::new(self, axes, &subplot_params)?;
+        let measured = Measured::new(self, axes, &subplot_params, None)?;
         if let Some(overrides) = adjusted_params(self, &measured, params)? {
             self.set_subplot_params(subplot_params.updated(&overrides)?)?;
         }
@@ -153,7 +153,7 @@ struct Cell {
 }
 
 /// The blocks of the grid-placed axes on a common grid, measured.
-struct Measured {
+pub(super) struct Measured {
     /// The common grid: the largest row and column counts (`None` without
     /// grid-placed axes).
     shape: Option<(usize, usize)>,
@@ -162,13 +162,14 @@ struct Measured {
 
 impl Measured {
     /// matplotlib's `get_tight_layout_figure` up to the margins, over
-    /// `axes`.
-    fn new(
+    /// `axes` (only those on `grid` when given).
+    pub(super) fn new(
         fig: &mut FigureState,
         axes: &[ArtistId],
         subplot_params: &SubplotParams,
+        grid: Option<&GridSpec>,
     ) -> Result<Self, TightLayoutError> {
-        let blocks = blocks(fig, axes);
+        let blocks = blocks(fig, axes, grid);
         let shapes = || blocks.iter().map(|(spec, _)| spec.gridspec().shape());
         let (Some(max_rows), Some(max_cols)) = (
             shapes().map(|(rows, _)| rows).max(),
@@ -204,17 +205,26 @@ impl Measured {
 }
 
 /// The axes on grids grouped by their topmost block of cells, in the
-/// order the blocks first appear; axes off grids or on grids with margins
-/// of their own are left out (matplotlib's `get_subplotspec_list`).
-fn blocks(fig: &FigureState, axes: &[ArtistId]) -> Vec<(SubplotSpec, Vec<ArtistId>)> {
+/// order the blocks first appear; axes off grids are left out, and so are
+/// those on grids with margins of their own, or, when `grid` is given,
+/// those on other grids (matplotlib's `get_subplotspec_list`).
+fn blocks(
+    fig: &FigureState,
+    axes: &[ArtistId],
+    grid: Option<&GridSpec>,
+) -> Vec<(SubplotSpec, Vec<ArtistId>)> {
     let mut blocks: Vec<(SubplotSpec, Vec<ArtistId>)> = Vec::new();
+    let included = |spec: &&SubplotSpec| match grid {
+        Some(grid) => spec.gridspec().is_same(grid),
+        None => !spec.gridspec().locally_modified(),
+    };
     for &id in axes {
         let Some(spec) = fig
             .store
             .get_as::<AxesState>(id)
             .and_then(|state| state.subplot_spec.as_ref())
             .map(topmost)
-            .filter(|spec| !spec.gridspec().locally_modified())
+            .filter(included)
         else {
             continue;
         };
@@ -309,7 +319,7 @@ fn largest(values: impl Iterator<Item = f64>) -> f64 {
 /// matplotlib's `get_tight_layout_figure` from the margins on: the
 /// subplot parameters (`None` without grid-placed axes), fitted into
 /// `params.rect` by a second pass if given.
-fn adjusted_params(
+pub(super) fn adjusted_params(
     fig: &FigureState,
     measured: &Measured,
     params: &TightLayout,
@@ -507,9 +517,12 @@ mod tests {
         let free = fig.add_axes([0.1, 0.1, 0.2, 0.2]);
         let ids = [a.id(), b.id(), c.id(), free.id()];
         let state = fig.raw().figure_state().borrow();
-        let found = blocks(&state, &ids);
+        let found = blocks(&state, &ids, None);
         assert_eq!(found.len(), 2);
         assert_eq!(found[0].1, vec![a.id(), b.id()]);
+        let other = GridSpec::new(1, 2).unwrap();
+        assert_eq!(blocks(&state, &ids, Some(&other)).len(), 0);
+        assert_eq!(blocks(&state, &ids, Some(&grid)).len(), 2);
     }
 
     #[test]

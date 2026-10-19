@@ -72,7 +72,9 @@ impl FigureState {
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;
         };
-        let titles = state.titles.clone();
+        // The order matters: a title the y offset text pushes up lowers
+        // the obstacle for the titles after it.
+        let titles: Vec<ArtistId> = state.titles_centre_first().collect();
         if state.title_placement == TitlePlacement::Fixed
             || !titles.iter().any(|&title| self.has_text(title))
         {
@@ -213,5 +215,33 @@ mod tests {
             .expect("top is a side of the x axis");
         let lifted = bottom(&title);
         assert!(lifted > plain + 5.0, "{lifted} vs {plain}");
+    }
+
+    #[test]
+    fn an_offset_text_under_the_left_title_does_not_lower_aligned_titles() {
+        // matplotlib's test_align_titles: the left title meets the y
+        // offset text, but the centre title, placed first, already cleared
+        // the tick labels on top of the aligned axes, and all three follow.
+        let fig = Figure::new();
+        let axs = fig.subplots(1, 2).expect("a 1 x 2 grid");
+        let (left, right) = (&axs[(0, 0)], &axs[(0, 1)]);
+        left.plot([0.0, 1.0], [0.0, 1e6]).expect("equal lengths");
+        let titles = [
+            crate::axes::TitleLocation::Left,
+            crate::axes::TitleLocation::Center,
+            crate::axes::TitleLocation::Right,
+        ]
+        .map(|location| left.set_title_at(location, "title"));
+        let aligned = right.set_title("aligned");
+        right
+            .xaxis()
+            .tick_to(SpineSide::Top)
+            .expect("top is a side of the x axis");
+        fig.align_titles(None);
+        fig.layout();
+        let ymin = |title: &crate::text::Text| title.window_extent().expect("laid out").ymin();
+        for title in &titles {
+            assert!((ymin(title) - ymin(&aligned)).abs() < 1e-9);
+        }
     }
 }

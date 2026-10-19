@@ -234,6 +234,14 @@ impl AxesState {
         }
     }
 
+    /// The titles in matplotlib's order (`title`, `_left_title`,
+    /// `_right_title`): the centre one first, then the left and the right.
+    pub(crate) fn titles_centre_first(&self) -> impl Iterator<Item = ArtistId> + '_ {
+        [1, 0, 2]
+            .into_iter()
+            .filter_map(|i| self.titles.get(i).copied())
+    }
+
     /// The view interval of one axis.
     pub(crate) fn view_interval(&self, name: AxisName) -> (f64, f64) {
         match name {

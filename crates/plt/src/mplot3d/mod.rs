@@ -111,4 +111,4 @@ pub use test_data::test_data;
 pub use trisurf::TrisurfOptions;
 pub use voxels::{Array3, VoxelColors, VoxelOptions};
 
-pub(crate) use state::{axes3d_bbox, prepare_axes3d};
+pub(crate) use state::{axes3d_bbox, axes3d_tight_bbox, is_axes3d, prepare_axes3d};

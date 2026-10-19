@@ -7,7 +7,7 @@ use std::rc::Rc;
 use plt_core::{Bbox, Rgba};
 
 use super::{Figure, FigureFrame};
-use crate::artist::RawHandle;
+use crate::artist::{ArtistId, RawHandle};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotSpec};
 use crate::numeric::Grid;
 
@@ -94,6 +94,27 @@ impl Figure {
     #[must_use]
     pub fn add_subfigure(&self, spec: &SubplotSpec) -> Self {
         self.insert_subfigure(ratio_extent(spec), spec.clone())
+    }
+
+    /// Every subfigure inside this figure, nested ones included.
+    pub(crate) fn subfigures_nested(&self) -> Vec<Self> {
+        let state = self.state.borrow();
+        let inside = |mut id: ArtistId| loop {
+            match state.store.get(id).and_then(|artist| artist.base().parent) {
+                Some(parent) if parent == self.root.id() => break true,
+                Some(parent) => id = parent,
+                None => break false,
+            }
+        };
+        state
+            .store
+            .ids()
+            .filter(|&id| state.store.get_as::<FigureFrame>(id).is_some() && inside(id))
+            .map(|id| Self {
+                state: Rc::clone(&self.state),
+                root: RawHandle::new(Rc::clone(&self.state), id),
+            })
+            .collect()
     }
 
     fn insert_subfigure(&self, extent: Bbox, spec: SubplotSpec) -> Self {

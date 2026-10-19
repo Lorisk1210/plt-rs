@@ -330,6 +330,12 @@ impl LayoutGrid {
             y -= height;
             e.bottoms[r] = y;
         }
+        // The outer edges equal the parent's exactly, as the constraints
+        // say, whatever the rounding of the sizes added up to them.
+        if let (Some(last_right), Some(last_bottom)) = (e.rights.last_mut(), e.bottoms.last_mut()) {
+            *last_right = right;
+            *last_bottom = bottom;
+        }
         e.margins = margins;
     }
 }
@@ -438,6 +444,25 @@ mod tests {
         grids.solve();
         let top = grids.get(1).outer_bbox(&(0..1), &(0..1));
         assert_eq!((top.y0(), top.y1()), (0.5, 1.0));
+    }
+
+    #[test]
+    fn outer_edges_are_the_parents_exactly() {
+        // 0.4825 - 0.1 + 0.1 rounds to 0.48249999999999993: added up, the
+        // cell sizes would miss the parent's right edge.
+        let mut grids = LayoutGrids::default();
+        grids.push(LayoutGrid::single(Parent::Rect([0.0, 0.0, 0.4825, 0.7])));
+        grids.push(LayoutGrid::single(Parent::Cells {
+            grid: 0,
+            rows: 0..1,
+            cols: 0..1,
+            inner: true,
+        }));
+        grids.get_mut(1).edit_margin_min(Margin::Left, 0.1, 0);
+        grids.get_mut(1).edit_margin_min(Margin::Bottom, 0.3, 0);
+        grids.solve();
+        let outer = grids.get(1).outer_bbox(&(0..1), &(0..1));
+        assert_eq!(outer.extents(), (0.0, 0.0, 0.4825, 0.7));
     }
 
     #[test]

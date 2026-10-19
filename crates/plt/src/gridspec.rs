@@ -4,6 +4,7 @@
 //! [`SubplotSpec`] selects a rectangular block of cells and computes the
 //! axes position exactly as matplotlib's `get_grid_positions` does.
 
+use std::cell::Cell;
 use std::fmt;
 use std::ops::Range;
 use std::rc::Rc;
@@ -123,7 +124,9 @@ struct GridData {
     ncols: usize,
     width_ratios: Vec<f64>,
     height_ratios: Vec<f64>,
-    overrides: SubplotOverrides,
+    /// The grid's own margins and spacing; tight layout of the grid
+    /// changes them ([`GridSpec::tight_layout`]).
+    overrides: Cell<SubplotOverrides>,
     /// For nested grids: the cell block this grid subdivides.
     parent: Option<SubplotSpec>,
 }
@@ -176,7 +179,7 @@ impl GridSpec {
                 ncols,
                 width_ratios: ratios(width_ratios, ncols)?,
                 height_ratios: ratios(height_ratios, nrows)?,
-                overrides,
+                overrides: Cell::new(overrides),
                 parent,
             }),
         })
@@ -199,14 +202,35 @@ impl GridSpec {
 
     /// The `(wspace, hspace)` the grid sets itself, if any.
     pub fn spacing(&self) -> (Option<f64>, Option<f64>) {
-        (self.data.overrides.wspace, self.data.overrides.hspace)
+        let o = self.overrides();
+        (o.wspace, o.hspace)
+    }
+
+    /// The margins and spacing the grid sets itself (matplotlib's `left`,
+    /// `bottom`, `right`, `top`, `wspace` and `hspace` of a grid).
+    pub fn overrides(&self) -> SubplotOverrides {
+        self.data.overrides.get()
+    }
+
+    /// Replaces the margins and spacing given in `changes`, keeping the
+    /// others (matplotlib's `GridSpec.update`, without moving the axes).
+    pub(crate) fn update(&self, changes: &SubplotOverrides) {
+        let o = self.overrides();
+        self.data.overrides.set(SubplotOverrides {
+            left: changes.left.or(o.left),
+            bottom: changes.bottom.or(o.bottom),
+            right: changes.right.or(o.right),
+            top: changes.top.or(o.top),
+            wspace: changes.wspace.or(o.wspace),
+            hspace: changes.hspace.or(o.hspace),
+        });
     }
 
     /// Whether the grid sets non-zero margins or spacings of its own
     /// (matplotlib's `locally_modified_subplot_params`, which tests them
     /// for truth).
     pub fn locally_modified(&self) -> bool {
-        let o = &self.data.overrides;
+        let o = self.overrides();
         [o.left, o.bottom, o.right, o.top, o.wspace, o.hspace]
             .into_iter()
             .any(|value| value.is_some_and(|v| v != 0.0))
@@ -287,7 +311,7 @@ impl GridSpec {
     /// The layout parameters in effect: the parent cell's extent for nested
     /// grids, otherwise the figure's parameters, then this grid's overrides.
     pub fn subplot_params(&self, figure: &SubplotParams) -> Result<SubplotParams, GridSpecError> {
-        let o = &self.data.overrides;
+        let o = &self.overrides();
         let base = match &self.data.parent {
             Some(parent) => {
                 let (left, bottom, right, top) = parent.position(figure)?.extents();

@@ -14,7 +14,7 @@ use super::coords::Axis3;
 use super::geometry::{BoxGeometry, juggled, static_tick_direction, tick_direction};
 use super::math::{Vec3, add, scaled};
 use super::state::Axes3DState;
-use crate::artist::{Artist, ArtistBase, DrawContext};
+use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
 use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
@@ -35,16 +35,8 @@ const AXIS_LABEL_OFFSET: f64 = 21.0;
 /// Draws the panes, then the gridlines, then the axes (matplotlib's
 /// order in `Axes3D.draw`).
 pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &Bbox) {
-    let Some(plane) = ctx.resolve(&Transform::Data(axes.plane)) else {
+    let Some(painter) = Painter::new(axes, *ctx.layout(), extent) else {
         return;
-    };
-    let projection = axes.projection();
-    let painter = Painter {
-        axes,
-        geometry: BoxGeometry::new(axes.scaled_limits(), &projection),
-        projection,
-        plane,
-        extent: *extent,
     };
     for dir in Axis3::ALL {
         painter.draw_pane(ctx, dir);
@@ -56,6 +48,99 @@ pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &
     }
     for dir in Axis3::ALL {
         painter.draw_axis(ctx, dir);
+    }
+}
+
+/// The display extents of the axes of a 3-D axes: their lines, offset
+/// texts, tick labels and labels, empty tick labels counting as boxes of
+/// no size at their anchors (matplotlib's `Axis3D.get_tightbbox`).
+pub(crate) fn axis_extents(
+    axes: &Axes3DState,
+    layout: LayoutContext<'_>,
+    extent: &Bbox,
+) -> Vec<Bbox> {
+    let Some(painter) = Painter::new(axes, layout, extent) else {
+        return Vec::new();
+    };
+    let mut extents = Extents {
+        layout,
+        boxes: Vec::new(),
+    };
+    for dir in Axis3::ALL {
+        painter.draw_axis(&mut extents, dir);
+    }
+    extents.boxes
+}
+
+/// What the parts of an axis go to: a renderer drawing them, or
+/// [`Extents`] measuring them.
+trait Sink {
+    /// The canvas resolution.
+    fn dpi(&self) -> f64;
+    /// The axis line, in projected coordinates.
+    fn axis_line(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color);
+    /// A tick mark, in projected coordinates.
+    fn tick_mark(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color);
+    /// A tick label, label or offset text.
+    fn text(&mut self, painter: &Painter<'_>, text: &PlacedText<'_>);
+}
+
+impl Sink for DrawContext<'_> {
+    fn dpi(&self) -> f64 {
+        self.layout().dpi()
+    }
+
+    fn axis_line(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color) {
+        painter.stroke(self, path, width, color);
+    }
+
+    fn tick_mark(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color) {
+        painter.stroke(self, path, width, color);
+    }
+
+    fn text(&mut self, painter: &Painter<'_>, text: &PlacedText<'_>) {
+        painter.draw_text(self, text);
+    }
+}
+
+/// The extents of the lines and texts of axes, without their tick marks.
+struct Extents<'a> {
+    layout: LayoutContext<'a>,
+    boxes: Vec<Bbox>,
+}
+
+impl Sink for Extents<'_> {
+    fn dpi(&self) -> f64 {
+        self.layout.dpi()
+    }
+
+    /// The extent of the line's vertices (matplotlib's
+    /// `Line2D.get_window_extent`).
+    fn axis_line(&mut self, painter: &Painter<'_>, path: &Path, _width: f64, _color: &Color) {
+        self.boxes
+            .push(painter.plane.transform_path(path).extents());
+    }
+
+    fn tick_mark(&mut self, _painter: &Painter<'_>, _path: &Path, _width: f64, _color: &Color) {}
+
+    fn text(&mut self, painter: &Painter<'_>, text: &PlacedText<'_>) {
+        let anchor = painter.plane.transform_point(text.position);
+        if !anchor.is_finite() {
+            return;
+        }
+        if text.text.is_empty() {
+            self.boxes
+                .push(Bbox::from_extents(anchor.x, anchor.y, anchor.x, anchor.y));
+        } else if let Ok(laid_out) = lay_out(
+            text.text,
+            text.font,
+            &text.block,
+            self.dpi(),
+            painter.axes.rc(),
+        ) {
+            self.boxes
+                .push(laid_out.block.bbox.translated(anchor.x, anchor.y));
+        }
     }
 }
 
@@ -79,7 +164,21 @@ struct PlacedText<'t> {
     position: Point,
 }
 
-impl Painter<'_> {
+impl<'a> Painter<'a> {
+    /// The painter of `axes` spanning `extent`, unless its projection
+    /// plane is gone.
+    fn new(axes: &'a Axes3DState, layout: LayoutContext<'_>, extent: &Bbox) -> Option<Self> {
+        let plane = layout.resolve(&Transform::Data(axes.plane))?;
+        let projection = axes.projection();
+        Some(Self {
+            axes,
+            geometry: BoxGeometry::new(axes.scaled_limits(), &projection),
+            projection,
+            plane,
+            extent: *extent,
+        })
+    }
+
     fn report(&self, ctx: &mut DrawContext<'_>, problem: impl std::fmt::Display) {
         ctx.report(self.axes.base_id(), problem);
     }
@@ -159,10 +258,10 @@ impl Painter<'_> {
 
     /// Draws the line, tick marks, tick labels, offset text and label of
     /// `dir` (matplotlib's `Axis.draw`).
-    fn draw_axis(&self, ctx: &mut DrawContext<'_>, dir: Axis3) {
+    fn draw_axis(&self, sink: &mut impl Sink, dir: Axis3) {
         let axis = self.axes.axis(dir);
         let (width, height) = (self.extent.width(), self.extent.height());
-        let dpi = ctx.layout().dpi();
+        let dpi = sink.dpi();
         // A rough estimate; points are ambiguous since 3-D plots rotate.
         let to_inches = 1.0 / dpi;
         let points_estimate = 72.0 * (width * to_inches) + 72.0 * (height * to_inches);
@@ -179,35 +278,36 @@ impl Painter<'_> {
             (ends[1][1] - ends[0][1]) * height,
         );
         let line = Path::polyline(ends.iter().map(|q| Point::new(q[0], q[1])).collect());
-        self.stroke(ctx, &line, axis.style.line_width, &axis.style.line_color);
-        self.draw_ticks(ctx, axis, edges[0], deltas_per_point);
-        self.draw_offset_text(ctx, axis, edges, ends, label_deltas, (dx, dy));
-        if !axis.label.text.is_empty() {
-            let middle = scaled(add(edges[0], edges[1]), 0.5);
-            let at = self.geometry.move_from_center(middle, label_deltas, dir);
-            let rotation = if axis.label.rotated() {
-                norm_text_angle(dy.atan2(dx).to_degrees())
-            } else {
-                0.0
-            };
-            self.draw_text(
-                ctx,
-                &PlacedText {
-                    text: &axis.label.text,
-                    font: &axis.label.font,
-                    color: &axis.label.color,
-                    block: anchored(rotation, HAlign::Center),
-                    position: self.project(at),
-                },
-            );
+        sink.axis_line(self, &line, axis.style.line_width, &axis.style.line_color);
+        self.draw_ticks(sink, axis, edges[0], deltas_per_point);
+        self.draw_offset_text(sink, axis, edges, ends, label_deltas, (dx, dy));
+        if axis.label.text.is_empty() {
+            return;
         }
+        let middle = scaled(add(edges[0], edges[1]), 0.5);
+        let at = self.geometry.move_from_center(middle, label_deltas, dir);
+        let rotation = if axis.label.rotated() {
+            norm_text_angle(dy.atan2(dx).to_degrees())
+        } else {
+            0.0
+        };
+        sink.text(
+            self,
+            &PlacedText {
+                text: &axis.label.text,
+                font: &axis.label.font,
+                color: &axis.label.color,
+                block: anchored(rotation, HAlign::Center),
+                position: self.project(at),
+            },
+        );
     }
 
     /// Draws each tick mark and its label (matplotlib's
     /// `_get_updated_ticks` followed by `Tick.draw`).
     fn draw_ticks(
         &self,
-        ctx: &mut DrawContext<'_>,
+        sink: &mut impl Sink,
         axis: &Axis3DState,
         origin: Vec3,
         deltas_per_point: f64,
@@ -238,8 +338,8 @@ impl Painter<'_> {
             let label_at = self.geometry.move_from_center(p, label_deltas, dir);
             // The marks are always drawn, as wide as the axis says
             // (matplotlib's `_tick_update_position`).
-            self.stroke(
-                ctx,
+            sink.tick_mark(
+                self,
                 &Path::polyline(vec![out_end, in_end]),
                 width,
                 &style.color,
@@ -252,8 +352,8 @@ impl Painter<'_> {
                 ..FontProperties::from_rc(self.axes.rc())
             };
             let halign = style.label_halign.unwrap_or(HAlign::Center);
-            self.draw_text(
-                ctx,
+            sink.text(
+                self,
                 &PlacedText {
                     text: &tick.label,
                     font: &font,
@@ -276,7 +376,7 @@ impl Painter<'_> {
     /// matplotlib's trial-and-error rules (`_update_offset_text`).
     fn draw_offset_text(
         &self,
-        ctx: &mut DrawContext<'_>,
+        sink: &mut impl Sink,
         axis: &Axis3DState,
         edges: [Vec3; 2],
         ends: [Vec3; 2],
@@ -320,8 +420,8 @@ impl Painter<'_> {
         };
         let rc = self.axes.rc();
         let font = FontProperties::from_rc(rc).with_size(rc.xtick_labelsize, rc.font_size);
-        self.draw_text(
-            ctx,
+        sink.text(
+            self,
             &PlacedText {
                 text: &ticks.offset,
                 font: &font,

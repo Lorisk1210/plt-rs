@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.22375, 0.11, 0.5775, 0.77],
+   "title": "",
+   "xlim": [-0.5, 9.5],
+   "ylim": [9.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, ""], [2.0, ""], [4.0, ""], [6.0, ""], [8.0, ""]],
+   "yticks": [[0.0, ""], [2.0, ""], [4.0, ""], [6.0, ""], [8.0, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.260588, 0.634532, 0.05775, 0.231],
+   "title": "",
+   "xlim": [0.0, 99.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, ""], [50.0, ""]],
+   "yticks": []
+  }
+ ]
+}

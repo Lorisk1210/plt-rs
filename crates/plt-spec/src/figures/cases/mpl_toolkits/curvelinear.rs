@@ -2,7 +2,7 @@
 //! `test_floating_axes.py`: curvilinear grids with floating axes, and
 //! floating axes over a range of polar coordinates.
 
-use std::f64::consts::PI;
+use crate::figures::cases::common::polar_degrees;
 
 use plt::artist::ClipPathSpec;
 use plt::axes::{AxisName, GridOptions};
@@ -19,7 +19,6 @@ use plt::numeric::linspace;
 use plt::prelude::ArtistHandle;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
-use plt::transforms::Affine2D;
 
 use super::axislines::artist;
 use crate::figures::{CaseResult, FigureCase};
@@ -35,11 +34,6 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_toolkits/curvelinear3", curvelinear3).sized(5.0, 5.0, 100.0),
     FigureCase::new("mpl_toolkits/curvelinear4", curvelinear4).sized(5.0, 5.0, 100.0),
 ];
-
-/// `Affine2D().scale(np.pi / 180, 1) + PolarAxes.PolarTransform()`.
-fn polar_degrees() -> AuxTransform {
-    AuxTransform::affine(Affine2D::scaling(PI / 180.0, 1.0)).then(AuxTransform::polar())
-}
 
 /// The extreme finder of the polar tests: angles cycle over 360°, radii
 /// stay positive.

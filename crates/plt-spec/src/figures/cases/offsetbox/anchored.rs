@@ -17,7 +17,7 @@ use plt::patches::{BoxStyle, Circle, Ellipse, Rectangle};
 use plt::prelude::*;
 use plt::text::{HorizontalAlignment, TextProps};
 
-use super::{gradient, of_t, sized, t, text_area};
+use super::{filled, gradient, of_t, sized, t, text_area};
 use crate::figures::CaseResult;
 
 /// `AnchoredText(text, loc=loc, prop=props, **options)`.
@@ -28,11 +28,6 @@ fn anchored_text_box(
     options: AnchoredOptions,
 ) -> Result<plt::offsetbox::AnchoredOffsetbox, Box<dyn std::error::Error>> {
     Ok(ax.add_anchored_box(AnchoredBox::text(text, props, options)?))
-}
-
-/// A patch of `shape` with face colour `face`.
-fn filled<S: plt::patches::PatchShape>(shape: S, face: &str) -> BoxItem {
-    BoxItem::patch(shape, PatchProps::default().facecolor(face))
 }
 
 /// `Ellipse(center, width, height, angle=angle)`.

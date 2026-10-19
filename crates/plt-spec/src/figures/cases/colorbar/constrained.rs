@@ -1,12 +1,14 @@
 //! Colorbars under constrained layout.
 
+use plt::axes::ImshowOptions;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
+use plt::colors::colormaps;
 use plt::figure::Figure;
 use plt::image::ColorizerOptions;
 use plt::layout::LayoutEngine;
 use plt::spines::SpineSide;
 
-use super::data::{cmap, colored, field};
+use super::data::field;
 use crate::figures::CaseResult;
 
 /// `_field(20) * gain`.
@@ -18,7 +20,10 @@ pub(super) fn constrained_layout(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
     let axs = fig.subplots(2, 2)?;
     for (i, ax) in axs.as_slice().iter().enumerate() {
-        let im = ax.imshow(scaled_field(i as f64 + 1.0), cmap("viridis")?)?;
+        let im = ax.imshow(
+            scaled_field(i as f64 + 1.0),
+            ImshowOptions::default().cmap(colormaps::get("viridis")?),
+        )?;
         let options = ColorbarOptions {
             axes: ColorbarAxes::Parent(ax.clone()),
             ..ColorbarOptions::default()
@@ -31,7 +36,9 @@ pub(super) fn constrained_layout(fig: &Figure) -> CaseResult {
 pub(super) fn constrained_shared(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
     let axs = fig.subplots(2, 2)?;
-    let limits = || colored(ColorizerOptions::default().limits(Some(-2.0), Some(2.0)));
+    let limits = || {
+        ImshowOptions::default().colors(ColorizerOptions::default().limits(Some(-2.0), Some(2.0)))
+    };
     let mut last = None;
     for (i, ax) in axs.as_slice().iter().enumerate() {
         last = Some(ax.imshow(scaled_field(i as f64 + 1.0), limits())?);

@@ -1,5 +1,6 @@
 //! The wrapping and tick label rotation cases of `test_text.py`.
 
+use crate::figures::cases::common::blank;
 use plt::axes::{AxisName, TickLabelProps, TickLevel};
 use plt::fonts::{FontStyle, FontWeight};
 use plt::gridspec::SubplotOverrides;
@@ -13,13 +14,6 @@ const WRAPPED: &str = "This is a really long string that I'd rather have wrapped
                        doesn't go outside of the figure, but if it's long enough it will go off \
                        the top or bottom!";
 
-/// The axes of the wrapping tests (`plt.axis([0, 10, 0, 10])`).
-fn wrapping_axes(fig: &Figure) -> Axes {
-    let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-    ax
-}
-
 /// The long string at `(x, y)`, aligned by `halign` and wrapped.
 fn wrapped(ax: &Axes, x: f64, y: f64, halign: HorizontalAlignment) -> Text {
     let text = ax.text(x, y, WRAPPED);
@@ -31,7 +25,7 @@ fn wrapped(ax: &Axes, x: f64, y: f64, halign: HorizontalAlignment) -> Text {
 /// different ways, some running off the figure.
 fn basic_wrap(fig: &Figure) {
     use HorizontalAlignment::{Center, Left, Right};
-    let ax = wrapping_axes(fig);
+    let ax = blank(fig);
     wrapped(&ax, 4.0, 1.0, Left).set_rotation(15.0);
     wrapped(&ax, 6.0, 5.0, Left).set_rotation(15.0);
     wrapped(&ax, 5.0, 5.0, Right).set_rotation(-15.0);
@@ -49,7 +43,7 @@ fn basic_wrap(fig: &Figure) {
 /// sizes.
 fn font_wrap(fig: &Figure) -> CaseResult {
     use HorizontalAlignment::{Center, Left, Right};
-    let ax = wrapping_axes(fig);
+    let ax = blank(fig);
     wrapped(&ax, 4.0, -1.0, Left)
         .set_fontsize(18.0)
         .set_family(["serif"])

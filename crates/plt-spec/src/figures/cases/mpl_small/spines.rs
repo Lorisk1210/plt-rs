@@ -1,5 +1,6 @@
 //! The cases from `test_spines.py` and `test_scale.py`.
 
+use crate::figures::cases::common::tickless;
 use std::f64::consts::TAU;
 
 use plt::axes::{AxisName, ErrorbarOptions, FillBetweenOptions, HistPlotOptions, TickParams};
@@ -66,13 +67,6 @@ fn nonlinear_data_positions(fig: &Figure) -> CaseResult {
         ..TickParams::default()
     });
     Ok(())
-}
-
-/// `test_spines_capstyle` and `test_spines_black_axes`: an axes without
-/// ticks.
-fn tickless(ax: &plt::axes::Axes) {
-    ax.set_xticks(Vec::<f64>::new())
-        .set_yticks(Vec::<f64>::new());
 }
 
 /// `test_log_scales`: lines across log and symlog axes.

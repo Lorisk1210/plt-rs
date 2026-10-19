@@ -1,18 +1,19 @@
 //! Triangular and rectangular extensions for out-of-range values.
 
+use plt::axes::ImshowOptions;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions, ExtendFrac};
 use plt::colors::{Extend, colormaps};
 use plt::figure::Figure;
 use plt::image::ColorizerOptions;
 use plt::orientation::Orientation;
 
-use super::data::{colored, field};
+use super::data::field;
 use crate::figures::CaseResult;
 
 /// An image of the field coloured by `colors`, with a colorbar beside it.
 fn extended(fig: &Figure, colors: ColorizerOptions, options: ColorbarOptions) -> CaseResult {
     let ax = fig.subplot();
-    let im = ax.imshow(field(40), colored(colors))?;
+    let im = ax.imshow(field(40), ImshowOptions::default().colors(colors))?;
     let options = ColorbarOptions {
         axes: ColorbarAxes::Parent(ax),
         ..options

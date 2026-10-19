@@ -11,7 +11,7 @@ use plt::image::{ColorizerOptions, Extent, Interpolation, Origin, ScalarField};
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
 
-use super::{classic, gaussians, interpolated, remove_ticks_and_titles, uniform};
+use super::{classic, gaussians, remove_ticks_and_titles, uniform};
 use crate::figures::{CaseResult, FigureCase};
 
 /// `rcParams['image.interpolation'] = 'nearest'`.
@@ -23,10 +23,16 @@ pub(crate) const CASES: &[FigureCase] = &[
         let axs = fig.subplots(1, 2)?;
         let mut with_nan = Grid::filled(5, 5, 1.0);
         with_nan[(1, 1)] = f64::NAN;
-        axs[(0, 0)].imshow(with_nan, interpolated(Interpolation::Nearest))?;
+        axs[(0, 0)].imshow(
+            with_nan,
+            ImshowOptions::default().interpolation(Interpolation::Nearest),
+        )?;
         let mask = Grid::from_fn(5, 5, |r, c| (r, c) == (1, 1));
         let masked = ScalarField::integers(&Grid::filled(5, 5, 1)).with_mask(&mask)?;
-        axs[(0, 1)].imshow(masked, interpolated(Interpolation::Nearest))?;
+        axs[(0, 1)].imshow(
+            masked,
+            ImshowOptions::default().interpolation(Interpolation::Nearest),
+        )?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -39,7 +45,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 ImshowOptions {
                     colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
                     origin: Some(Origin::Lower),
-                    ..interpolated(Interpolation::Nearest)
+                    ..ImshowOptions::default().interpolation(Interpolation::Nearest)
                 },
             )?;
         }
@@ -53,7 +59,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_image/imshow_flatfield", |fig| {
         let image = fig.subplot().imshow(
             Grid::filled(5, 5, 1.0),
-            interpolated(Interpolation::Nearest),
+            ImshowOptions::default().interpolation(Interpolation::Nearest),
         )?;
         image.set_clim(Some(0.5), Some(1.5));
         remove_ticks_and_titles(fig);
@@ -128,7 +134,7 @@ fn mask_image_over_under(fig: &Figure) -> CaseResult {
     let placed = |interpolation: Interpolation| ImshowOptions {
         origin: Some(Origin::Lower),
         extent: Some(Extent::new(-3.0, 3.0, -3.0, 3.0)),
-        ..interpolated(interpolation)
+        ..ImshowOptions::default().interpolation(interpolation)
     };
     let image = ax1.imshow(
         ScalarField::masked(z.clone(), &mask)?,
@@ -192,7 +198,7 @@ fn imshow_masked_interpolation(fig: &Figure) -> CaseResult {
                 colors: ColorizerOptions::default()
                     .cmap(cmap.clone())
                     .norm(Normalize::new(0.0, 399.0)),
-                ..interpolated(name.parse()?)
+                ..ImshowOptions::default().interpolation(name.parse()?)
             },
         )?;
         ax.set_axis_off();
@@ -226,7 +232,7 @@ fn norm_change(fig: &Figure) -> CaseResult {
                     .cmap(cmap.clone())
                     .norm(LogNorm::new(0.5, 1.0)),
                 extent: Some(extent),
-                ..interpolated(Interpolation::Nearest)
+                ..ImshowOptions::default().interpolation(Interpolation::Nearest)
             },
         )?;
         image.set_norm(Box::new(Normalize::new(-2.0, 2.0)));
@@ -245,7 +251,7 @@ fn huge_range_log(fig: &Figure, x: f64) -> CaseResult {
             colors: ColorizerOptions::default()
                 .cmap(colormaps::get("viridis")?)
                 .norm(LogNorm::new(1.0, 1e20)),
-            ..interpolated(Interpolation::Nearest)
+            ..ImshowOptions::default().interpolation(Interpolation::Nearest)
         },
     )?;
     Ok(())

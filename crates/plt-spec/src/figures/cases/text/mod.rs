@@ -18,17 +18,22 @@ pub(crate) use math::CASES as MATH;
 pub(crate) use table_cells::CASES as TABLE_CELLS;
 pub(crate) use tables::CASES as TABLES;
 
-use plt::prelude::*;
-
-/// `_blank(fig)`: one axes with both limits `(0, 10)`.
-fn blank(fig: &Figure) -> Axes {
-    let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-    ax
-}
+use crate::figures::cases::common::blank;
+use plt::patches::{BoxStyle, PatchProps};
+use plt::text::TextBoxProps;
 
 /// `LOREM`: the filler paragraph of the wrapping cases.
 const LOREM: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod \
                      tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim \
                      veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea \
                      commodo consequat.";
+
+/// `bbox=dict(boxstyle=style, **patch)`.
+pub(super) fn styled_box(
+    style: &str,
+    patch: PatchProps,
+) -> Result<Option<TextBoxProps>, Box<dyn std::error::Error>> {
+    Ok(Some(
+        TextBoxProps::new(style.parse::<BoxStyle>()?).with_patch(patch),
+    ))
+}

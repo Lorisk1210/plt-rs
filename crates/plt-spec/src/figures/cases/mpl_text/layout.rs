@@ -1,6 +1,7 @@
 //! The font, multi-line, alignment, title and text box cases of
 //! `test_text.py`.
 
+use crate::figures::cases::common::tickless;
 use plt::axes::TitleLocation;
 use plt::fonts::{FontStyle, FontWeight};
 use plt::patches::{BoxStyle, Rectangle};
@@ -12,12 +13,6 @@ use plt::transforms::Point;
 
 use super::remove_ticks_and_titles;
 use crate::figures::{CaseResult, FigureCase};
-
-/// Clears both axes of ticks (`ax.set_xticks([])`, `ax.set_yticks([])`).
-fn tickless(ax: &Axes) {
-    ax.set_xticks(Vec::<f64>::new())
-        .set_yticks(Vec::<f64>::new());
-}
 
 /// One font request of `test_font_styles`: text, family, style, weight
 /// and stretch.

@@ -1,8 +1,9 @@
 //! `figures/cases_widgets.py`: widgets drawn in their default and styled
 //! states.
 
+use crate::figures::cases::common::sized;
 use plt::colors::Color;
-use plt::fonts::{FontProperties, FontSize, FontWeight};
+use plt::fonts::FontWeight;
 use plt::patches::PatchProps;
 use plt::prelude::*;
 use plt::text::{HorizontalAlignment, TextProps};
@@ -33,12 +34,6 @@ const COLORS: [&str; 4] = ["tab:red", "tab:green", "tab:blue", "k"];
 /// Colours by name.
 fn colors(names: &[&str]) -> Vec<Color> {
     names.iter().copied().map(Color::from).collect()
-}
-
-/// The default font at `points`.
-fn sized(points: f64) -> FontProperties {
-    let rc = plt::rc::params();
-    FontProperties::from_rc(&rc).with_size(FontSize::Points(points), rc.font_size)
 }
 
 fn check_styled(fig: &Figure) -> CaseResult {

@@ -1,9 +1,6 @@
 //! The deterministic fields of `figures/cases_colorbar.py`.
 
-use plt::axes::ImshowOptions;
-use plt::colors::colormaps;
 use plt::contour::{QuadCoords, QuadField};
-use plt::image::ColorizerOptions;
 use plt::numeric::{Grid, linspace, meshgrid};
 
 /// The field's formula.
@@ -23,19 +20,4 @@ pub(in crate::figures::cases) fn xyz() -> QuadField {
     let (xx, yy) = meshgrid(&x, &x);
     let z = Grid::from_fn(40, 40, |r, c| wave(xx[(r, c)], yy[(r, c)]));
     QuadField::new(z).with_coords(QuadCoords::Mesh { x: xx, y: yy })
-}
-
-/// `imshow` options with only the colouring set.
-pub(super) fn colored(colors: ColorizerOptions) -> ImshowOptions {
-    ImshowOptions {
-        colors,
-        ..ImshowOptions::default()
-    }
-}
-
-/// `imshow` options with a named colormap.
-pub(super) fn cmap(name: &str) -> Result<ImshowOptions, plt::colors::ColormapError> {
-    Ok(colored(
-        ColorizerOptions::default().cmap(colormaps::get(name)?),
-    ))
 }

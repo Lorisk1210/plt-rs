@@ -16,7 +16,7 @@ use std::f64::consts::PI;
 
 use plt::axes::ImshowOptions;
 use plt::colors::{ColormapError, colormaps};
-use plt::image::{ColorizerOptions, ImageData, Interpolation, ScalarField};
+use plt::image::{ColorizerOptions, ImageData, ScalarField};
 use plt::numeric::{Grid, arange};
 
 use super::mpl_tests::{classic, remove_ticks_and_titles};
@@ -40,14 +40,6 @@ pub(crate) fn cases() -> Vec<FigureCase> {
 fn uniform(seed: u64, rows: usize, cols: usize) -> Grid<f64> {
     let values = SpecRng::new(seed).uniform(rows * cols, 0.0, 1.0);
     Grid::from_vec(rows, cols, values).expect("rows × cols draws")
-}
-
-/// `imshow` options with only the interpolation set.
-fn interpolated(interpolation: Interpolation) -> ImshowOptions {
-    ImshowOptions {
-        interpolation: Some(interpolation),
-        ..ImshowOptions::default()
-    }
 }
 
 /// `imshow` options with only the colormap `name` set.

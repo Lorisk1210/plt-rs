@@ -3,13 +3,14 @@
 
 use plt::axes::{Axes, ImshowOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
+use plt::colors::colormaps;
 use plt::figure::Figure;
 use plt::image::ColorizerOptions;
 use plt::orientation::Orientation;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
 
-use super::data::{cmap, colored, field};
+use super::data::field;
 use crate::figures::CaseResult;
 
 /// `fig.colorbar(imshow(_field()), ax=ax, ...)` on a single subplot.
@@ -37,7 +38,11 @@ pub(super) fn horizontal(fig: &Figure) -> CaseResult {
         orientation: Some(Orientation::Horizontal),
         ..ColorbarOptions::default()
     };
-    image_colorbar(fig, cmap("plasma")?, options)
+    image_colorbar(
+        fig,
+        ImshowOptions::default().cmap(colormaps::get("plasma")?),
+        options,
+    )
 }
 
 pub(super) fn location_top(fig: &Figure) -> CaseResult {
@@ -80,7 +85,9 @@ pub(super) fn fraction(fig: &Figure) -> CaseResult {
 
 pub(super) fn multiple_axes(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(2, 1)?;
-    let limits = || colored(ColorizerOptions::default().limits(Some(-1.0), Some(1.0)));
+    let limits = || {
+        ImshowOptions::default().colors(ColorizerOptions::default().limits(Some(-1.0), Some(1.0)))
+    };
     let im = axs[(0, 0)].imshow(field(40), limits())?;
     axs[(1, 0)].imshow(field(40).map(|v| -v), limits())?;
     let options = ColorbarOptions {

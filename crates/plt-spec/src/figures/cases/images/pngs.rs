@@ -11,14 +11,6 @@ use plt_codec::png::{BitDepth, ColorType, Encoder, ImageRef};
 
 use crate::figures::CaseResult;
 
-/// `imshow` options with only the interpolation set.
-fn interpolated(interpolation: Interpolation) -> ImshowOptions {
-    ImshowOptions {
-        interpolation: Some(interpolation),
-        ..ImshowOptions::default()
-    }
-}
-
 pub(super) fn imread_rgba_interpolation(fig: &Figure) -> CaseResult {
     let axes = fig.subplots(1, 2)?;
     let rgba = Grid::from_fn(12, 16, |r, c| {
@@ -41,7 +33,10 @@ pub(super) fn imread_rgba_interpolation(fig: &Figure) -> CaseResult {
             [0.0, 11.0],
             LineProps::default().color("k").linewidth(5.0),
         )?;
-        ax.imshow(image.clone(), interpolated(interpolation))?;
+        ax.imshow(
+            image.clone(),
+            ImshowOptions::default().interpolation(interpolation),
+        )?;
     }
     Ok(())
 }
@@ -63,9 +58,12 @@ pub(super) fn imread_gray_float32(fig: &Figure) -> CaseResult {
         colors: ColorizerOptions::default()
             .cmap(colormaps::get("gray")?)
             .limits(Some(0.1), Some(0.9)),
-        ..interpolated(Interpolation::Bilinear)
+        ..ImshowOptions::default().interpolation(Interpolation::Bilinear)
     };
     axes[(0, 0)].imshow(gray.clone(), limited)?;
-    axes[(0, 1)].imshow(gray, interpolated(Interpolation::Nearest))?;
+    axes[(0, 1)].imshow(
+        gray,
+        ImshowOptions::default().interpolation(Interpolation::Nearest),
+    )?;
     Ok(())
 }

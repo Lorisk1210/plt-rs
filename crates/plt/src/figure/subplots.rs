@@ -84,12 +84,18 @@ impl Figure {
     }
 
     /// Adds axes filling the default subplot area (`fig.add_subplot()`).
+    ///
+    /// When the `figure.subplot.*` parameters leave no room (`left >=
+    /// right` or `bottom >= top`), where matplotlib's `Figure()` raises,
+    /// the axes fill the figure and drawing it reports the error.
     pub fn subplot(&self) -> Axes {
         let spec = GridSpec::new(1, 1)
             .and_then(|grid| grid.cell(0, 0))
             .expect("a 1x1 grid has a cell (0, 0)");
-        self.add_subplot_spec(&spec)
-            .expect("the default subplot parameters are valid")
+        self.add_subplot_spec(&spec).unwrap_or_else(|_| {
+            let whole = Bbox::from_extents(0.0, 0.0, 1.0, 1.0);
+            insert_axes(&self.state, self.root.id(), whole, Some(spec))
+        })
     }
 
     /// Adds axes in cell `index` (1-based, row-major) of an
@@ -286,6 +292,18 @@ pub(crate) fn axes_title(axes: ArtistId, x: f64, halign: HAlign, rc: &Rc<RcParam
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn margins_without_room_are_reported_not_panicked_on() {
+        crate::rc::context(|| {
+            crate::rc::set("figure.subplot.right", "0.1").expect("a float");
+            let fig = Figure::new();
+            let ax = fig.subplot();
+            assert_eq!(ax.position(), Bbox::from_extents(0.0, 0.0, 1.0, 1.0));
+            let err = fig.to_png().expect_err("matplotlib refuses such a figure");
+            assert!(err.to_string().contains("left cannot be >= right"), "{err}");
+        });
+    }
 
     #[test]
     fn share_targets_follow_matplotlib() {

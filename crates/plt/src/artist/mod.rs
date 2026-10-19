@@ -23,10 +23,11 @@ use std::any::Any;
 use std::fmt::Debug;
 
 use plt_core::path::DataLimits;
-use plt_core::{Bbox, Point};
+use plt_core::{Affine2D, Bbox, Point};
 use plt_render::ClipPath;
 
 use crate::patches::{ClipRegion, PatchView};
+use crate::transforms::Transform;
 
 pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
@@ -40,7 +41,7 @@ pub use plt_render::{FilterImage, Filtered};
 pub use properties::BaseProps;
 pub use store::{ArtistId, ArtistStore};
 
-/// The points an artist adds to its axes' data limits, in its own
+/// The points an artist adds to its axes' data limits, in data
 /// coordinates, and whether their x and y are data values (matplotlib's
 /// `_update_line_limits`, `_update_patch_limits`, `_update_image_limits`
 /// and `_update_collection_limits`).
@@ -53,6 +54,30 @@ pub struct LimitPoints {
 }
 
 impl LimitPoints {
+    /// The points in the coordinates of `transform` as data limits of
+    /// `axes`: in the directions where they are data values, mapped by the
+    /// fixed affine map in front of the data transform (matplotlib's
+    /// `trf_to_data = transform - ax.transData`); `None` when no direction
+    /// is a data value.
+    pub(crate) fn through(
+        transform: &Transform,
+        axes: ArtistId,
+        points: impl FnOnce() -> Vec<Point>,
+    ) -> Option<Self> {
+        let directions = transform.data_directions(axes);
+        if directions == (false, false) {
+            return None;
+        }
+        let points = match transform.affine_before_data(axes) {
+            Some(to_data) if to_data != Affine2D::IDENTITY => points()
+                .into_iter()
+                .map(|p| to_data.transform_point(p))
+                .collect(),
+            _ => points(),
+        };
+        Some(Self { points, directions })
+    }
+
     /// The corners and smallest positive point of `limits`; `None` when
     /// they are empty.
     pub fn from_limits(limits: DataLimits, directions: (bool, bool)) -> Option<Self> {

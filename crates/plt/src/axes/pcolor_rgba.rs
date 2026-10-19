@@ -85,7 +85,7 @@ impl Axes {
                 .map(Color::from)
                 .collect(),
         );
-        Ok(self.add_pcolormesh(&prepared, props, options.snap, options.transform))
+        Ok(self.add_pcolormesh(&prepared, props, options.snap))
     }
 }
 

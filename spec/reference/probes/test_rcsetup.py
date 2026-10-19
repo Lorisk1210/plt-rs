@@ -122,6 +122,8 @@ CANDIDATES = {
         "cycler('color', ['notacolor'])",
         "cycler('lw', ['a'])",
         "cycler('dashes', [[1, 2], [3, 4]])",
+        "cycler(markevery=[None, 8, (30, 8), [16, 24, 30], 0.1, (0.45, 0.1)])",
+        "cycler('markevery', [(1, 0.5)])",
         "cycler('facecolor', ['r', 'none'])",
         "__import__('os')",
         "cycler('color', 'rg') + 2",

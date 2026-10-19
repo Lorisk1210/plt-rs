@@ -7,22 +7,6 @@ use plt_core::{Affine2D, Point};
 use crate::artist::ArtistId;
 use crate::transforms::Transform;
 
-/// The fixed affine map `transform` applies before the data transform of
-/// `axes` it ends with, or `None` when it ends elsewhere.
-pub(super) fn affine_before_data(transform: &Transform, axes: ArtistId) -> Option<Affine2D> {
-    match transform {
-        Transform::Data(id) => (*id == axes).then_some(Affine2D::IDENTITY),
-        Transform::Composite(first, last) => {
-            let rest = affine_before_data(last, axes)?;
-            match first.as_ref() {
-                Transform::Affine(affine) => Some(affine.then(rest)),
-                _ => None,
-            }
-        }
-        _ => None,
-    }
-}
-
 /// The offsets in the data coordinates of `axes` when their transform
 /// passes through the axes' data transform last, after a fixed affine map
 /// (matplotlib's `Collection.get_datalim`, which maps them by
@@ -32,7 +16,7 @@ pub(super) fn data_offsets(
     axes: ArtistId,
     offsets: &[Point],
 ) -> Option<Vec<Point>> {
-    let to_data = affine_before_data(transform, axes)?;
+    let to_data = transform.affine_before_data(axes)?;
     Some(
         offsets
             .iter()
@@ -50,7 +34,7 @@ pub(super) fn grid_points_in_data(
     axes: ArtistId,
     points: Vec<Point>,
 ) -> Vec<Point> {
-    match transform.and_then(|t| affine_before_data(t, axes)) {
+    match transform.and_then(|t| t.affine_before_data(axes)) {
         Some(to_data) if to_data != Affine2D::IDENTITY => points
             .into_iter()
             .map(|p| to_data.transform_point(p))
@@ -82,5 +66,21 @@ mod tests {
             point
         );
         assert_eq!(data_offsets(&axes, ax.id(), &point), None);
+    }
+
+    #[test]
+    fn artists_given_a_transform_bound_the_data_where_they_land() {
+        let ax = Figure::new().subplot();
+        let shifted =
+            Transform::Affine(Affine2D::identity().translate(2000.0, 0.0)).then(ax.trans_data());
+        let props = crate::lines::LineProps::default().transform(shifted.clone());
+        ax.plot_with([0.0, 10.0], [0.0, 1.0], props).unwrap();
+        let bar = crate::axes::BarOptions {
+            props: crate::patches::PatchProps::default().transform(shifted),
+            ..crate::axes::BarOptions::default()
+        };
+        ax.bar(vec![20.0], [1.0], bar).unwrap();
+        let limits = ax.data_lim().bbox;
+        assert_eq!((limits.p0.x, limits.p1.x), (2000.0, 2020.4));
     }
 }

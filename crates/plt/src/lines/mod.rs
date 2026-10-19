@@ -8,6 +8,7 @@ mod line;
 mod linestyle;
 mod markevery;
 mod steps;
+mod subslice;
 
 pub use axline::AxLineThrough;
 pub(crate) use axline::InfiniteLine;

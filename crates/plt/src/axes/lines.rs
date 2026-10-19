@@ -178,7 +178,9 @@ impl Axes {
             apply_cycle(&mut line, &key, value);
         }
         props.apply(&mut line);
-        line.base_mut().transform = Some(self.trans_data());
+        line.base_mut()
+            .transform
+            .get_or_insert_with(|| self.trans_data());
         line
     }
 
@@ -254,6 +256,12 @@ fn apply_cycle(line: &mut LineArtist, key: &str, value: CycleValue) {
         ("alpha", CycleValue::Number(alpha)) => line.base_mut().alpha = Some(alpha),
         ("dashes", CycleValue::Dashes(pattern)) => {
             line.linestyle = crate::lines::LineStyle::dashes(0.0, pattern);
+        }
+        ("markevery", CycleValue::MarkEvery(markevery)) => line.markevery = markevery,
+        ("fillstyle", CycleValue::Text(fillstyle)) => {
+            if let Ok(fillstyle) = fillstyle.parse() {
+                line.fillstyle = fillstyle;
+            }
         }
         _ => {}
     }

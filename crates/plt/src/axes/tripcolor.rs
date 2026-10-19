@@ -197,7 +197,7 @@ impl Axes {
                     })?;
                 let base = mesh.artist.base_mut();
                 props.base.apply(base);
-                base.transform = Some(self.trans_data());
+                base.transform.get_or_insert_with(|| self.trans_data());
                 Tripcolor::Gouraud(TriMesh::from_raw(self.add_unscaled(mesh.artist, tri)))
             }
             (TriShading::Flat, placement) => {
@@ -217,7 +217,10 @@ impl Axes {
                 let mut collection =
                     CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
                 props.apply(&mut collection);
-                collection.base_mut().transform = Some(self.trans_data());
+                collection
+                    .base_mut()
+                    .transform
+                    .get_or_insert_with(|| self.trans_data());
                 let handle = Collection::from_raw(self.add_unscaled(collection, tri));
                 handle.set_mapping(ColorMapping {
                     values: masked(colors),

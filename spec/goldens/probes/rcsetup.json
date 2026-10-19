@@ -430,6 +430,7 @@
   {"op": "rc.validate", "args": {"key": "axes.prop_cycle", "value": "cycler('lw', ['a'])"}, "error": "ValueError"},
   {"op": "rc.validate", "args": {"key": "axes.prop_cycle", "value": "cycler('lw', [1, 2])"}, "value": {"cycler": [["linewidth", [1.0, 2.0]]]}},
   {"op": "rc.validate", "args": {"key": "axes.prop_cycle", "value": "cycler('marker', ['o', 4, '$x$'])"}, "value": {"cycler": [["marker", ["o", 4, "$x$"]]]}},
+  {"op": "rc.validate", "args": {"key": "axes.prop_cycle", "value": "cycler('markevery', [(1, 0.5)])"}, "error": "ValueError"},
   {"op": "rc.validate", "args": {"key": "axes.prop_cycle", "value": "cycler(\"bleh, [])"}, "error": "ValueError"},
   {
    "op": "rc.validate",
@@ -471,6 +472,11 @@
    "value": {"cycler": [["color", [[1.0, 0.0, 0.0, 1.0], [0.0, 0.5, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]]]}
   },
   {"op": "rc.validate", "args": {"key": "axes.prop_cycle", "value": "cycler(lw=['a', 'b', 'c'])"}, "error": "ValueError"},
+  {
+   "op": "rc.validate",
+   "args": {"key": "axes.prop_cycle", "value": "cycler(markevery=[None, 8, (30, 8), [16, 24, 30], 0.1, (0.45, 0.1)])"},
+   "value": {"cycler": [["markevery", [null, 8, [30, 8], [16, 24, 30], 0.1, [0.45, 0.1]]]]}
+  },
   {"op": "rc.validate", "args": {"key": "axes.prop_cycle", "value": "import os"}, "error": "ValueError"},
   {"op": "rc.validate", "args": {"key": "axes.prop_cycle", "value": "os.system(\"echo Gotcha\")"}, "error": "ValueError"},
   {"op": "rc.validate", "args": {"key": "axes.spines.bottom", "value": ""}, "error": "ValueError"},

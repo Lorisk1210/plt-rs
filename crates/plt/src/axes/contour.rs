@@ -4,7 +4,6 @@
 use plt_core::Affine2D;
 
 use super::children::DataUpdate;
-use super::data_coords::affine_before_data;
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::contour::{
@@ -102,7 +101,9 @@ impl Axes {
     /// `QuadContourSet._process_args`; triangulations are never mapped).
     fn grid_to_data(&self, options: &ContourOptions) -> Option<Affine2D> {
         let transform = options.transform.as_ref()?;
-        affine_before_data(transform, self.id()).filter(|map| *map != Affine2D::IDENTITY)
+        transform
+            .affine_before_data(self.id())
+            .filter(|map| *map != Affine2D::IDENTITY)
     }
 
     /// Computes the contour set and adds its collection, extending the

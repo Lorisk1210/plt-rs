@@ -441,7 +441,10 @@ impl Axes {
         });
         let mut patch = PatchArtist::new(PathShape(Path::polygon(corners)), crate::rc::params());
         props.clone().apply(&mut patch);
-        patch.base_mut().transform = Some(self.trans_data());
+        patch
+            .base_mut()
+            .transform
+            .get_or_insert_with(|| self.trans_data());
         Patch::from_raw(self.adopt(patch, &DataUpdate::default()))
     }
 

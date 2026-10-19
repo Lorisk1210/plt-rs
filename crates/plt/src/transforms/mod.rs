@@ -129,6 +129,24 @@ impl Transform {
         }
     }
 
+    /// The fixed affine map applied before the data transform of `axes`
+    /// that the transform ends with (matplotlib's `transform -
+    /// ax.transData` when it is affine), or `None` when the transform ends
+    /// elsewhere or is not such a chain.
+    pub(crate) fn affine_before_data(&self, axes: ArtistId) -> Option<Affine2D> {
+        match self {
+            Self::Data(id) => (*id == axes).then_some(Affine2D::IDENTITY),
+            Self::Composite(first, last) => {
+                let rest = last.affine_before_data(axes)?;
+                match first.as_ref() {
+                    Self::Affine(affine) => Some(affine.then(rest)),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
     /// Whether the transform ends with `axes`' data transform
     /// (matplotlib's `contains_branch`).
     fn ends_in_data(&self, axes: ArtistId) -> bool {

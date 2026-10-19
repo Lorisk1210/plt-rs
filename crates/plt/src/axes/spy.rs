@@ -127,7 +127,9 @@ impl Axes {
             .unwrap_or(Marker::Symbol(MarkerSymbol::Square));
         line.markersize = options.markersize.unwrap_or(10.0);
         options.line.clone().apply(&mut line);
-        line.base_mut().transform = Some(self.trans_data());
+        line.base_mut()
+            .transform
+            .get_or_insert_with(|| self.trans_data());
         let line = self.add_line_artist(line);
         let (rows, cols) = (rows as f64, cols as f64);
         self.set_limits(AxisName::X, -0.5, cols - 0.5);

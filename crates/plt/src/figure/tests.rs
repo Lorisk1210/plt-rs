@@ -54,6 +54,19 @@ fn draw_emits_figure_then_axes_backgrounds() {
 }
 
 #[test]
+fn a_figure_without_frame_draws_no_background() {
+    let fig = Figure::new();
+    assert!(fig.frameon(), "drawn unless turned off");
+    fig.set_frameon(false);
+    assert!(!fig.frameon());
+    let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+    ax.set_axis_off();
+    let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+    fig.draw(&mut renderer).expect("drawable");
+    assert!(renderer.calls.is_empty(), "drew {:?}", renderer.calls);
+}
+
+#[test]
 fn data_transform_maps_view_limits_onto_axes_box() {
     let fig = Figure::new();
     let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);

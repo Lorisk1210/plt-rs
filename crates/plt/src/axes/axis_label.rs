@@ -1,6 +1,8 @@
 //! The label of an axis: its text, font and placement (matplotlib's
 //! `Axis.label`).
 
+use plt_text::VAlign;
+
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -56,6 +58,19 @@ pub(crate) struct AxisLabel {
     pub(crate) loc: LabelLoc,
     /// Whether the label is drawn (matplotlib's `label.set_visible`).
     pub(crate) visible: bool,
+    /// Rotation in degrees instead of the axis default (0 for x, 90 for y).
+    pub(crate) rotation: Option<f64>,
+    /// Vertical alignment instead of the one that comes with the side.
+    pub(crate) valign: Option<VAlign>,
+}
+
+impl AxisLabel {
+    /// Moves the label to `side`, which brings back the vertical alignment
+    /// of that side (matplotlib's `set_label_position`).
+    pub(crate) fn move_to(&mut self, side: SpineSide) {
+        self.side = side;
+        self.valign = None;
+    }
 }
 
 /// The font of axis labels: `axes.labelsize` and `axes.labelweight`

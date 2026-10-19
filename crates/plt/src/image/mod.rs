@@ -51,8 +51,8 @@ mod variates;
 
 pub use artist::AxesImage;
 pub(crate) use artist::AxesImageArtist;
-pub(crate) use bbox_image::BboxImageArtist;
 pub use bbox_image::{BboxImage, BboxImageOptions};
+pub(crate) use bbox_image::{BboxImageArtist, Region};
 pub use bitmap::{BitmapError, BitmapFormat, BitmapSettings};
 pub use colorize::{ColorizerOptions, MultivarColorizerOptions};
 pub(crate) use composite::Compositor;

@@ -133,7 +133,7 @@ impl Axes {
             axes.axis_mut(shared).visible = false;
             let axis = axes.axis_mut(own);
             axis.tick_to(true);
-            axis.label.side = SpineSide::of(own, true);
+            axis.label.move_to(SpineSide::of(own, true));
         });
         self.raw
             .with_mut::<AxesState, _>(|axes| axes.axis_mut(own).tick_to(false));

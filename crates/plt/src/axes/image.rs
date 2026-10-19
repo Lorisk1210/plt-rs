@@ -13,6 +13,7 @@ use crate::image::{
     AxesImage, AxesImageArtist, BboxImage, BboxImageArtist, BboxImageOptions, ColorizerOptions,
     CoreSettings, Extent, ImageAlpha, ImageCore, ImageData, ImageError, Interpolation,
     InterpolationStage, NonUniformImage, NonUniformImageArtist, NonUniformInterpolation, Origin,
+    Region,
 };
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
@@ -280,8 +281,47 @@ impl Axes {
         coords: Transform,
         options: BboxImageOptions,
     ) -> Result<BboxImage, ImageError> {
+        self.add_region_image(data, Region::Transformed(bbox, coords), options)
+    }
+
+    /// Adds an image stretched over the box `artist` covers on the canvas
+    /// whenever the image is drawn (matplotlib's
+    /// `add_artist(BboxImage(artist.get_window_extent))`), such as a
+    /// gradient behind a text; otherwise like [`Axes::add_bbox_image`].
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::image::BboxImageOptions;
+    /// use plt::numeric::Grid;
+    /// let ax = Figure::new().subplot();
+    /// let text = ax.text(0.5, 0.5, "backed");
+    /// let ramp = Grid::from_fn(1, 256, |_, c| c as f64);
+    /// let image = ax.add_bbox_image_over(ramp, &text, BboxImageOptions::default())?;
+    /// assert_eq!(image.window_extent(), text.window_extent());
+    /// # Ok::<(), plt::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the colormap, norm or filter radius is invalid.
+    pub fn add_bbox_image_over(
+        &self,
+        data: impl Into<ImageData>,
+        artist: &impl ArtistHandle,
+        options: BboxImageOptions,
+    ) -> Result<BboxImage, ImageError> {
+        self.add_region_image(data, Region::ExtentOf(artist.id()), options)
+    }
+
+    /// Adds an image filling `region` as `add_artist` adds artists.
+    fn add_region_image(
+        &self,
+        data: impl Into<ImageData>,
+        region: Region,
+        options: BboxImageOptions,
+    ) -> Result<BboxImage, ImageError> {
         let mut artist = BboxImageArtist::new(data, options, &crate::rc::params())?;
-        artist.region = Some((bbox, coords));
+        artist.region = Some(region);
         Ok(BboxImage::from_raw(
             self.adopt(artist, &DataUpdate::default()),
         ))

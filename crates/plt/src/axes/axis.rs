@@ -205,6 +205,8 @@ impl AxisState {
                     AxisName::Y => &rc.yaxis_labellocation,
                 }),
                 visible: true,
+                rotation: None,
+                valign: None,
             },
             visible: true,
             offset_side: SpineSide::of(name, false),

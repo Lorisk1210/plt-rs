@@ -180,6 +180,22 @@ impl Figure {
         self
     }
 
+    /// Sets whether the background and the frame around the canvas are
+    /// drawn (matplotlib's `set_frameon`); without them the canvas stays
+    /// transparent where nothing else is drawn.
+    pub fn set_frameon(&self, frameon: bool) -> &Self {
+        self.root
+            .with_mut::<FigureFrame, _>(|frame| frame.frameon = frameon);
+        self
+    }
+
+    /// Whether the background and the frame around the canvas are drawn;
+    /// initially they are, whatever `figure.frameon` says, as in figures
+    /// made by pyplot's `figure`.
+    pub fn frameon(&self) -> bool {
+        self.root.with::<FigureFrame, _>(|frame| frame.frameon)
+    }
+
     /// The background colour.
     pub fn facecolor(&self) -> Rgba {
         self.root.with::<FigureFrame, _>(|frame| frame.facecolor)

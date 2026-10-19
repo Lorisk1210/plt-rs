@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.084091, 0.09838, 0.733572, 0.849178],
+   "title": "Nonsense (3 masked regions)",
+   "xlim": [-3.0, 3.0],
+   "ylim": [-3.0, 3.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "word length anomaly",
+   "ylabel": "sentence length anomaly",
+   "xticks": [[-3.0, "−3"], [-2.0, "−2"], [-1.0, "−1"], [0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"]],
+   "yticks": [[-3.0, "−3"], [-2.0, "−2"], [-1.0, "−1"], [0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.861251, 0.09838, 0.031844, 0.849178],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-1.8, 1.8],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "verbosity coefficient",
+   "xticks": [],
+   "yticks": [[-1.8, "−1.8"], [-1.2, "−1.2"], [-0.6, "−0.6"], [0.0, "0.0"], [0.6, "0.6"], [1.2, "1.2"], [1.8, "1.8"]]
+  }
+ ]
+}

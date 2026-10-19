@@ -327,6 +327,47 @@ impl ContourSet {
         self
     }
 
+    /// Sets the line widths in points, cycled over the levels (matplotlib's
+    /// `set_linewidth` on a line contour set); colorbars and legends made
+    /// afterwards show them. Filled contours, which are not stroked, and
+    /// an empty `widths` are left alone.
+    pub fn set_linewidths(&self, widths: &[f64]) -> &Self {
+        if widths.is_empty() || self.filled() {
+            return self;
+        }
+        let widths = self.update(|state| {
+            let cycled = widths.iter().copied().cycle();
+            state.linewidths = cycled.take(state.linewidths.len()).collect();
+            state.linewidths.clone()
+        });
+        self.restyle_lines(|c| c.linewidths = Some(widths.clone()));
+        self
+    }
+
+    /// Sets the line styles, cycled over the levels (matplotlib's
+    /// `set_linestyle` on a line contour set), replacing the dashes of
+    /// negative levels; filled contours and an empty `styles` are left
+    /// alone.
+    pub fn set_linestyles(&self, styles: &[LineStyle]) -> &Self {
+        if styles.is_empty() || self.filled() {
+            return self;
+        }
+        let styles = self.update(|state| {
+            let cycled = styles.iter().cloned().cycle();
+            state.linestyles = cycled.take(state.linestyles.len()).collect();
+            state.linestyles.clone()
+        });
+        self.restyle_lines(|c| c.linestyles.clone_from(&styles));
+        self
+    }
+
+    /// Applies `f` to the collections drawing the lines.
+    fn restyle_lines(&self, f: impl Fn(&mut CollectionArtist)) {
+        for collection in &self.collections {
+            collection.raw().with_mut::<CollectionArtist, _>(&f);
+        }
+    }
+
     /// Replaces the paths, one per level (lines) or band (fills), keeping
     /// their colours and styles (matplotlib's `set_paths`).
     pub fn set_paths(&self, paths: Vec<Path>) -> &Self {
@@ -402,6 +443,38 @@ mod tests {
             (Some(1.0), Some(5.0)),
             "autoscaled to the levels"
         );
+    }
+
+    #[test]
+    fn line_widths_and_styles_cycle_over_the_levels() {
+        let cs = lines(ContourOptions {
+            levels: Levels::Values(vec![1.0, 3.0, 5.0]),
+            colors: Some(vec![Color::from("k")]),
+            ..ContourOptions::default()
+        });
+        cs.set_linewidths(&[1.0, 4.0]);
+        assert_eq!(cs.linewidths(), [1.0, 4.0, 1.0]);
+        cs.set_linestyles(&[LineStyle::Dashed]);
+        assert_eq!(cs.linestyles(), [const { LineStyle::Dashed }; 3]);
+        let (widths, styles) = cs.collections()[0]
+            .raw()
+            .with::<CollectionArtist, _>(|c| (c.linewidths.clone(), c.linestyles.clone()));
+        assert_eq!(widths, Some(vec![1.0, 4.0, 1.0]));
+        assert_eq!(styles, cs.linestyles());
+        cs.set_linewidths(&[]);
+        assert_eq!(cs.linewidths(), [1.0, 4.0, 1.0], "nothing to cycle");
+    }
+
+    #[test]
+    fn filled_contours_have_no_lines_to_style() {
+        let field = QuadField::new(Grid::from_fn(4, 5, |i, j| (i + j) as f64));
+        let cs = Figure::new()
+            .subplot()
+            .contourf(&field, ContourOptions::default())
+            .unwrap();
+        cs.set_linewidths(&[3.0])
+            .set_linestyles(&[LineStyle::Dotted]);
+        assert!(cs.linewidths().is_empty() && cs.linestyles().is_empty());
     }
 
     #[test]

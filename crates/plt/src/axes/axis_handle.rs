@@ -12,6 +12,7 @@ use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::fonts::{FontSize, FontWeight};
 use crate::spines::SpineSide;
+use crate::text::VerticalAlignment;
 use crate::ticker::{
     AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator, NullFormatter,
 };
@@ -333,15 +334,35 @@ impl Axis {
         }
     }
 
-    /// Puts the axis label on `side` (matplotlib's `set_label_position`).
+    /// Puts the axis label on `side` (matplotlib's `set_label_position`),
+    /// with the vertical alignment of that side.
     ///
     /// # Errors
     ///
     /// When `side` is not a side of this axis (e.g. `Left` for x).
     pub fn set_label_position(&self, side: SpineSide) -> Result<&Self, PlotError> {
         self.check_side(side)?;
-        self.update(|axis| axis.label.side = side);
+        self.update(|axis| axis.label.move_to(side));
         Ok(self)
+    }
+
+    /// Rotates the axis label by `degrees` counter-clockwise, reduced to
+    /// `[0, 360)` (matplotlib's `set_ylabel(..., rotation=...)`);
+    /// unrotated, x labels are horizontal and y labels vertical.
+    pub fn set_label_rotation(&self, degrees: f64) -> &Self {
+        self.update(|axis| axis.label.rotation = Some(degrees.rem_euclid(360.0)));
+        self
+    }
+
+    /// Aligns the axis label vertically on its anchor (matplotlib's
+    /// `set_ylabel(..., va=...)`) until the label moves to another side.
+    /// By default x labels hang from their anchor below the axes (`Top`)
+    /// and sit on it above (`Baseline`); y labels sit on it left of the
+    /// axes (`Bottom`) and hang from it on the right (`Top`), in their
+    /// rotated frame.
+    pub fn set_label_valign(&self, valign: VerticalAlignment) -> &Self {
+        self.update(|axis| axis.label.valign = Some(valign));
+        self
     }
 
     /// Colours the axis label (matplotlib's `set_xlabel(..., color=...)`).
@@ -580,5 +601,19 @@ mod tests {
             (axes.xaxis.label.font.weight, axes.yaxis.label.font.weight)
         });
         assert_eq!(weights, (FontWeight::NORMAL, FontWeight::BOLD));
+    }
+
+    #[test]
+    fn label_rotations_are_reduced_to_a_turn() {
+        let ax = Figure::new().subplot();
+        let rotation = || {
+            ax.raw()
+                .with::<AxesState, _>(|axes| axes.yaxis.label.rotation)
+        };
+        assert_eq!(rotation(), None);
+        ax.yaxis().set_label_rotation(-90.0);
+        assert_eq!(rotation(), Some(270.0));
+        ax.yaxis().set_label_rotation(450.0);
+        assert_eq!(rotation(), Some(90.0));
     }
 }

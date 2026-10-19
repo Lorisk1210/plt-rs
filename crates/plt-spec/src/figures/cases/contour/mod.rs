@@ -5,10 +5,8 @@ mod gallery;
 use plt::axes::{ColorizingArtist, ImshowOptions, TriShading, TriValues, TripcolorOptions};
 use plt::collections::{CollectionProps, EdgeColors};
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, Extend, colormaps};
-use plt::contour::{
-    ClabelOptions, ContourOptions, LabelFormat, Levels, Origin, QuadCoords, QuadField,
-};
+use plt::colors::{Extend, colormaps};
+use plt::contour::{ClabelOptions, ContourOptions, LabelFormat, Origin, QuadCoords, QuadField};
 use plt::fonts::FontSize;
 use plt::image::{ColorizerOptions, Extent};
 use plt::lines::{LineProps, LineStyle};
@@ -19,6 +17,7 @@ use plt::ticker::pyfmt::PrintfFormat;
 use plt::tri::Triangulation;
 
 use crate::figures::FigureCase;
+use crate::figures::cases::common::{colors, count, hatches, values};
 use crate::rng::SpecRng;
 
 /// Two Gaussian bumps of opposite sign on an `nx × ny` grid (`_xyz`).
@@ -31,30 +30,6 @@ fn bumps(nx: usize, ny: usize) -> QuadField {
         (z1 - z2) * 2.0
     });
     QuadField::new(z).with_coords(QuadCoords::Mesh { x: xx, y: yy })
-}
-
-/// About `n` automatic levels.
-fn count(n: i64) -> ContourOptions {
-    ContourOptions {
-        levels: Levels::Count(n),
-        ..ContourOptions::default()
-    }
-}
-
-/// Explicit levels.
-fn values(levels: &[f64]) -> ContourOptions {
-    ContourOptions {
-        levels: Levels::Values(levels.to_vec()),
-        ..ContourOptions::default()
-    }
-}
-
-fn colors(names: &[&str]) -> Vec<Color> {
-    names.iter().map(|&name| Color::from(name)).collect()
-}
-
-fn hatches(patterns: &[Option<&str>]) -> Vec<Option<String>> {
-    patterns.iter().map(|p| p.map(str::to_owned)).collect()
 }
 
 /// 60 random points in `[-3, 3] × [-2, 2]` plus the corners, Delaunay

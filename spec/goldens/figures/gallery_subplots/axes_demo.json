@@ -1,0 +1,45 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "Gaussian colored noise",
+   "xlim": [0.0, 1.0],
+   "ylim": [-0.020723, 0.029079],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "time (s)",
+   "ylabel": "current (nA)",
+   "xticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"]],
+   "yticks": [[-0.02, "−0.02"], [-0.01, "−0.01"], [0.0, "0.00"], [0.01, "0.01"], [0.02, "0.02"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.65, 0.6, 0.2, 0.2],
+   "title": "Probability",
+   "xlim": [-0.020508, 0.016208],
+   "ylim": [0.0, 103.179778],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.6, 0.2, 0.2],
+   "title": "Impulse response",
+   "xlim": [0.0, 0.2],
+   "ylim": [-0.05, 1.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

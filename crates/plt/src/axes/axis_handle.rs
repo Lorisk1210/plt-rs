@@ -6,16 +6,18 @@ use std::rc::Rc;
 
 use super::axis::AxisState;
 use super::axis_label::LabelLoc;
+use super::axis_layout::{AxisPainter, AxisTexts, PlacedText};
 use super::ticks::{GridOptions, Sides, TickPosition, TickStyle};
 use super::{Axes, AxesState, PlotError};
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::{FontSize, FontWeight};
 use crate::spines::SpineSide;
-use crate::text::VerticalAlignment;
+use crate::text::{TextBox, TextBoxProps, VerticalAlignment};
 use crate::ticker::{
     AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator, NullFormatter,
 };
+use crate::transforms::{Bbox, Point};
 use crate::units::AxisValues;
 
 /// One axis of an axes, from [`Axes::xaxis`], [`Axes::yaxis`] or
@@ -268,6 +270,46 @@ impl Axis {
         })
     }
 
+    /// The display boxes of the shown major tick labels with text in the
+    /// figure's current layout (laid out first): those on the first side
+    /// (bottom or left), then those on the second, in tick order
+    /// (matplotlib's `[label.get_window_extent() for label in
+    /// axis.get_ticklabels()]`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_yticks([1.0, 2.0]).set_yticklabels(["short", "a longer label"])?;
+    /// let boxes = ax.yaxis().ticklabel_extents();
+    /// assert_eq!(boxes.len(), 2);
+    /// assert!(boxes[1].width() > boxes[0].width());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn ticklabel_extents(&self) -> Vec<Bbox> {
+        self.with_texts(|texts, axis| {
+            let majors = axis.ticks.as_ref().map_or(0, |ticks| ticks.major.len());
+            let on_side = |first_side: bool| {
+                (texts.tick_labels.iter())
+                    .filter(move |label| label.tick < majors && label.first_side == first_side)
+                    .map(|label| label.text.bbox())
+            };
+            on_side(true).chain(on_side(false)).collect()
+        })
+        .unwrap_or_default()
+    }
+
+    /// Runs `f` on this axis and its texts laid out in the figure's
+    /// current layout (laid out first).
+    fn with_texts<R>(&self, f: impl FnOnce(&AxisTexts, &AxisState) -> R) -> Option<R> {
+        let mut state = self.axes.raw().figure_state().borrow_mut();
+        state.prepare();
+        let state = &*state;
+        let axes = state.store.get_as::<AxesState>(self.axes.id())?;
+        let texts = AxisPainter::new(self.axes.id(), axes, self.name)
+            .texts(LayoutContext::new(state), &axes.rc);
+        Some(f(&texts, axes.axis(self.name)))
+    }
+
     /// Whether the offset (or scale) text is shown (matplotlib's
     /// `offsetText.get_visible`); [`Axes::label_outer`] hides it on inner
     /// edges.
@@ -389,6 +431,46 @@ impl Axis {
     pub fn set_label_pad(&self, pad: f64) -> &Self {
         self.update(|axis| axis.label.pad = pad);
         self
+    }
+
+    /// Anchors the axis label at `(x, y)` in axes fractions instead of
+    /// beyond the tick labels, keeping its alignment (matplotlib's
+    /// `set_label_coords`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.set_ylabel("depth");
+    /// ax.yaxis().set_label_coords(-0.3, 0.5);
+    /// let label = ax.yaxis().label_extent().expect("a label");
+    /// let (x0, _, width, _) = ax.position().bounds();
+    /// let anchor = (x0 - 0.3 * width) * fig.size_pixels().0;
+    /// assert!((label.x1() - anchor).abs() < 1e-9);
+    /// ```
+    pub fn set_label_coords(&self, x: f64, y: f64) -> &Self {
+        self.update_labels(|axis| axis.label.coords = Some(Point::new(x, y)));
+        self
+    }
+
+    /// Draws a box behind the axis label, or none (matplotlib's
+    /// `set_xlabel(..., bbox=...)`); its padding in font sizes is fixed
+    /// for the label's current font size, as for any text.
+    pub fn set_label_bbox(&self, props: Option<TextBoxProps>) -> &Self {
+        self.axes.raw().with_mut::<AxesState, _>(|axes| {
+            let rc = Rc::clone(&axes.rc);
+            let label = &mut axes.axis_mut(self.name).label;
+            label.bbox = props.map(|props| TextBox::new(props, label.font.size, &rc));
+        });
+        self
+    }
+
+    /// The display box of the axis label in the figure's current layout
+    /// (laid out first), if it is shown (matplotlib's
+    /// `axis.label.get_window_extent()`).
+    pub fn label_extent(&self) -> Option<Bbox> {
+        self.with_texts(|texts, _| texts.label.as_ref().map(PlacedText::bbox))
+            .flatten()
     }
 
     /// Sets the font size of the axis label.

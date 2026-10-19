@@ -320,7 +320,7 @@ impl<'a> AxisPainter<'a> {
         let bounds = boxes.fold(edge, |acc, b| acc.union(&b));
         let along = label.loc.halign();
         let multialign = label.multialign.unwrap_or(along);
-        let (anchor, block) = match self.name {
+        let (automatic, block) = match self.name {
             AxisName::X => (
                 Point::new(
                     extent.x0() + label.loc.fraction() * extent.width(),
@@ -363,6 +363,12 @@ impl<'a> AxisPainter<'a> {
                 },
             ),
         };
+        let anchor = label.coords.map_or(automatic, |at| {
+            Point::new(
+                extent.x0() + at.x * extent.width(),
+                extent.y0() + at.y * extent.height(),
+            )
+        });
         Some(place_text(
             layout,
             &label.text,

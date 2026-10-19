@@ -10,13 +10,13 @@ use plt_render::{GraphicsContext, SnapMode};
 use super::AxesState;
 use super::axis_layout::{AxisPainter, PlacedText};
 use super::ticks::{GridStyle, TickDirection, TickStyle};
-use crate::artist::{ArtistId, DrawContext, rc_sketch};
+use crate::artist::{ArtistBase, ArtistId, DrawContext, rc_sketch};
 use crate::colors::{Color, ColorError};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
 use crate::patheffects::with_path_effects;
 use crate::polar;
 use crate::rc::{ColorOrAuto, RcParams};
-use crate::text::draw_laid_out;
+use crate::text::{BoxPlacement, draw_laid_out};
 use crate::ticker::AxisName;
 
 impl AxisPainter<'_> {
@@ -50,11 +50,37 @@ impl AxisPainter<'_> {
                 }
             });
         }
+        if let Some(label) = &texts.label {
+            self.draw_label_box(ctx, label, rc);
+        }
         with_path_effects(ctx, &rc.path_effects, |ctx| {
             for text in [&texts.label, &texts.offset].into_iter().flatten() {
                 draw_text(ctx, text, rc);
             }
         });
+    }
+
+    /// The box behind the axis label `label`, if it has one (drawn first
+    /// by matplotlib's `Text.draw`, with the box's own path effects).
+    fn draw_label_box(&self, ctx: &mut DrawContext<'_>, label: &PlacedText, rc: &RcParams) {
+        let Some(bbox) = &self.axis.label.bbox else {
+            return;
+        };
+        let (corner, size) = label.laid_out.block.frame;
+        let placement = BoxPlacement {
+            anchor: label.anchor,
+            corner,
+            size,
+            rotation: label.rotation,
+            fontsize_px: ctx.layout().points_to_pixels(self.axis.label.font.size),
+        };
+        // Axis labels are not clipped.
+        let mut owner = ArtistBase::default();
+        owner.clip_on = false;
+        owner.parent = Some(self.axes_id);
+        if let Err(err) = bbox.draw(ctx, &owner, rc, &placement) {
+            ctx.report(self.axes_id, err);
+        }
     }
 
     /// The gridline and the tick marks of the tick at `loc`.
@@ -273,7 +299,40 @@ fn tick_markers(name: AxisName, direction: TickDirection) -> (MarkerSymbol, Mark
 
 #[cfg(test)]
 mod tests {
+    use plt_core::Bbox;
+
     use super::*;
+    use crate::figure::Figure;
+    use crate::patches::PatchProps;
+    use crate::testing::{Call, RecordingRenderer};
+    use crate::text::TextBoxProps;
+
+    #[test]
+    fn a_label_box_is_drawn_around_the_label() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_ylabel("depth");
+        ax.yaxis().set_label_bbox(Some(TextBoxProps {
+            patch: PatchProps::default().facecolor("yellow"),
+            ..TextBoxProps::default()
+        }));
+        let label = ax.yaxis().label_extent().expect("a label");
+        let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+        fig.draw(&mut renderer).expect("drawable");
+        let yellow = Some(Rgba::new(1.0, 1.0, 0.0, 1.0));
+        let boxes: Vec<Bbox> = (renderer.calls.into_iter())
+            .filter_map(|call| match call {
+                Call::Path { points, fill, .. } if fill == yellow => {
+                    Some(Bbox::from_points(points))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(boxes.len(), 1);
+        let around = boxes[0];
+        assert!(around.x0() < label.x0() && around.x1() > label.x1());
+        assert!(around.y0() < label.y0() && around.y1() > label.y1());
+    }
 
     #[test]
     fn tick_faces_follow_the_marker_rc_parameters() {

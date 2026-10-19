@@ -1,29 +1,34 @@
-//! Generational arena owning every artist of a figure.
+//! Arena owning every artist of a figure.
 
 use std::any::Any;
+use std::collections::BTreeMap;
 use std::fmt;
 
 use super::Artist;
 
 /// Identifies an artist within its figure's [`ArtistStore`].
 ///
-/// Ids are generational: once an artist is removed, stale ids never alias a
-/// newer artist that reuses the slot.
+/// Every insertion gets a new serial number, so once an artist is removed,
+/// stale ids never alias a newer artist that reuses the slot; ids compare
+/// in the order their artists were created.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ArtistId {
+    /// When the artist was inserted, counting from 0.
+    serial: u64,
+    /// Its slot in the store.
     index: u32,
-    generation: u32,
 }
 
 impl fmt::Display for ArtistId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "#{}v{}", self.index, self.generation)
+        write!(f, "#{}v{}", self.index, self.serial)
     }
 }
 
 #[derive(Debug)]
 struct Slot {
-    generation: u32,
+    /// The serial of the artist in the slot, or of the last one.
+    serial: u64,
     artist: Option<Box<dyn Artist>>,
 }
 
@@ -32,29 +37,35 @@ struct Slot {
 pub struct ArtistStore {
     slots: Vec<Slot>,
     free: Vec<u32>,
+    /// The slots of the live artists by serial: the order the artists were
+    /// created in, which slot order stops being once the slots of removed
+    /// artists are reused.
+    order: BTreeMap<u64, u32>,
+    next_serial: u64,
 }
 
 impl ArtistStore {
     /// Takes ownership of `artist` and returns its id.
     pub fn insert(&mut self, mut artist: Box<dyn Artist>) -> ArtistId {
-        let id = if let Some(index) = self.free.pop() {
-            ArtistId {
-                index,
-                generation: self.slots[index as usize].generation,
-            }
-        } else {
+        let index = self.free.pop().unwrap_or_else(|| {
             let index = u32::try_from(self.slots.len()).expect("fewer than 2^32 artists");
             self.slots.push(Slot {
-                generation: 0,
+                serial: 0,
                 artist: None,
             });
-            ArtistId {
-                index,
-                generation: 0,
-            }
+            index
+        });
+        let id = ArtistId {
+            serial: self.next_serial,
+            index,
         };
+        self.next_serial += 1;
         artist.base_mut().assign_id(id);
-        self.slots[id.index as usize].artist = Some(artist);
+        self.order.insert(id.serial, index);
+        self.slots[index as usize] = Slot {
+            serial: id.serial,
+            artist: Some(artist),
+        };
         id
     }
 
@@ -87,9 +98,8 @@ impl ArtistStore {
 
     /// Removes the artist and, recursively, every artist it owns.
     pub fn remove(&mut self, id: ArtistId) -> Option<Box<dyn Artist>> {
-        let slot = self.slot_mut(id)?;
-        let artist = slot.artist.take()?;
-        slot.generation = slot.generation.wrapping_add(1);
+        let artist = self.slot_mut(id)?.artist.take()?;
+        self.order.remove(&id.serial);
         self.free.push(id.index);
         for child in artist.children() {
             self.remove(child);
@@ -129,13 +139,13 @@ impl ArtistStore {
         result
     }
 
-    /// The ids of every live artist.
+    /// The ids of every live artist, in the order they were inserted.
     pub fn ids(&self) -> impl Iterator<Item = ArtistId> + '_ {
-        self.slots.iter().zip(0..).filter_map(|(slot, index)| {
-            slot.artist.as_ref().map(|_| ArtistId {
-                index,
-                generation: slot.generation,
-            })
+        self.order.iter().filter_map(|(&serial, &index)| {
+            self.slots[index as usize]
+                .artist
+                .as_ref()
+                .map(|_| ArtistId { serial, index })
         })
     }
 
@@ -152,13 +162,13 @@ impl ArtistStore {
     fn slot(&self, id: ArtistId) -> Option<&Slot> {
         self.slots
             .get(id.index as usize)
-            .filter(|s| s.generation == id.generation)
+            .filter(|s| s.serial == id.serial)
     }
 
     fn slot_mut(&mut self, id: ArtistId) -> Option<&mut Slot> {
         self.slots
             .get_mut(id.index as usize)
-            .filter(|s| s.generation == id.generation)
+            .filter(|s| s.serial == id.serial)
     }
 }
 
@@ -196,15 +206,26 @@ mod tests {
     }
 
     #[test]
-    fn ids_are_generational() {
+    fn stale_ids_do_not_alias_reused_slots() {
         let mut store = ArtistStore::default();
         let first = store.insert(Node::boxed(Vec::new()));
         assert_eq!(store.get(first).map(|a| a.base().id()), Some(first));
         store.remove(first);
         let second = store.insert(Node::boxed(Vec::new()));
-        assert_ne!(first, second, "the reused slot gets a new generation");
+        assert_ne!(first, second, "the reused slot gets a new serial");
         assert!(!store.contains(first));
         assert!(store.contains(second));
+    }
+
+    #[test]
+    fn ids_follow_insertion_order_when_slots_are_reused() {
+        let mut store = ArtistStore::default();
+        let first = store.insert(Node::boxed(Vec::new()));
+        let second = store.insert(Node::boxed(Vec::new()));
+        store.remove(first);
+        let third = store.insert(Node::boxed(Vec::new()));
+        assert_eq!(store.ids().collect::<Vec<_>>(), [second, third]);
+        assert!(second < third, "ids compare in creation order");
     }
 
     #[test]

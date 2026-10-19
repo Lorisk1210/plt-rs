@@ -44,7 +44,7 @@ impl GridSpec {
         };
         let measured = Measured::new(&mut state, &axes, &subplot_params, Some(self))?;
         if let Some(overrides) = adjusted_params(&state, &measured, params)? {
-            self.update(&overrides);
+            self.merge_overrides(&overrides);
             state.set_subplot_params(subplot_params)?;
         }
         Ok(self)

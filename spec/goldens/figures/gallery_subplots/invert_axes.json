@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 400],
+ "suptitle": "Inverted axis with ...",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.056248, 0.118056, 0.433787, 0.756489],
+   "title": "fixed limits: set_xlim(4, 0)",
+   "xlim": [4.0, 0.0],
+   "ylim": [-0.030078, 1.038627],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "decreasing x ⟶",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"]],
+   "yticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.559702, 0.118056, 0.433787, 0.756489],
+   "title": "autoscaling: set_inverted(True)",
+   "xlim": [4.189, -0.189],
+   "ylim": [-0.030078, 1.038627],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "decreasing x ⟶",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"]],
+   "yticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"]]
+  }
+ ]
+}

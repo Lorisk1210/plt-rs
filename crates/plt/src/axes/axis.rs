@@ -208,6 +208,8 @@ impl AxisState {
                 visible: true,
                 rotation: None,
                 valign: None,
+                coords: None,
+                bbox: None,
             },
             visible: true,
             offset_side: SpineSide::of(name, false),

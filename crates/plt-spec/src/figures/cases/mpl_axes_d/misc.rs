@@ -156,26 +156,30 @@ fn preset_clip_paths(fig: &Figure) -> CaseResult {
             .linewidth(2.0)
             .alpha(0.5),
     );
-    let clip = || Some(ClipPathSpec::Artist(diamond.id()));
-    ax.add_line(&[-1.0, 1.0], &[0.5, 0.5], LineProps::default())?
-        .set_clip_on(true)
-        .set_clip_path(clip())
-        .set_path_effects(vec![
-            PathEffect::with_ticked_stroke(TickedStroke::default()),
-        ]);
-    ax.add_line(&[-1.0, 1.0], &[-0.5, -0.5], LineProps::default().color("r"))?
-        .set_clip_on(true)
-        .set_clip_path(clip());
-    ax.add_artist(polygon(&[(-1.0, 1.0), (0.0, 1.0), (0.0, -0.25)]))
-        .update_props(
-            PatchProps::default()
-                .facecolor("#beefc0")
-                .alpha(0.3)
-                .edgecolor("#faded0")
-                .linewidth(2.0),
-        )
-        .set_clip_on(true)
-        .set_clip_path(clip());
+    // Like the test, the clip paths are set before the artists are added,
+    // so the axes do not clip them to their box.
+    let clip = || ClipPathSpec::Artist(diamond.id());
+    let ticked = PathEffect::with_ticked_stroke(TickedStroke::default());
+    ax.add_line(
+        &[-1.0, 1.0],
+        &[0.5, 0.5],
+        LineProps::default().clip_path(clip()),
+    )?
+    .set_path_effects(vec![ticked]);
+    ax.add_line(
+        &[-1.0, 1.0],
+        &[-0.5, -0.5],
+        LineProps::default().color("r").clip_path(clip()),
+    )?;
+    ax.add_artist_with(
+        polygon(&[(-1.0, 1.0), (0.0, 1.0), (0.0, -0.25)]),
+        PatchProps::default()
+            .facecolor("#beefc0")
+            .alpha(0.3)
+            .edgecolor("#faded0")
+            .linewidth(2.0)
+            .clip_path(clip()),
+    );
     let arrow = LegacyArrowProps {
         patch: PatchProps::default().color("k"),
         ..LegacyArrowProps::default()
@@ -190,7 +194,7 @@ fn preset_clip_paths(fig: &Figure) -> CaseResult {
         },
     )?
     .set_clip_on(true)
-    .set_clip_path(clip());
+    .set_clip_path(Some(clip()));
     fig.add_artist(polygon(&[(0.0, 0.0), (0.0, 0.5), (0.5, 0.5), (0.5, 0.0)]))
         .update_props(
             PatchProps::default()
@@ -200,7 +204,7 @@ fn preset_clip_paths(fig: &Figure) -> CaseResult {
                 .alpha(0.3),
         )
         .set_clip_on(true)
-        .set_clip_path(clip());
+        .set_clip_path(Some(clip()));
     ax.set_xlim(-1.0, 1.0).set_ylim(-1.0, 1.0);
     remove_ticks_and_titles(fig);
     Ok(())

@@ -76,6 +76,10 @@ must reproduce them.
   `np.random`, never wall-clock dates, never sample data files.
 * The reference configuration is `matplotlib.testing.setup()` plus
   `text.hinting = "none"`.
+* plt-rs draws in its modern look by default (`plt::look`: the
+  `plt-modern` style sheet, Inter, the modern chrome). Parity is with
+  matplotlib's look: the spec harness and `plt`'s unit tests use it, and
+  `PLT_LOOK=matplotlib` selects it anywhere else (doctests, examples).
 * Checking plt-rs against the goldens: `cargo xtask spec [AREA] [--failures]`
   (probes), `cargo xtask figures [GROUP] [--failures]` (structural facts),
   `cargo test -p plt-spec --test figure_pixels` (pixels, RMS ≤ 1.0),

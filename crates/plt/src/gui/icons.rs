@@ -16,7 +16,7 @@ fn line(points: &[(f64, f64)]) -> Path {
 }
 
 /// A house: back to the original view.
-pub(super) fn home() -> Icon {
+pub(crate) fn home() -> Icon {
     Icon::new(GRID)
         .stroke(line(&[(3.5, 11.5), (12.0, 4.0), (20.5, 11.5)]))
         .stroke(line(&[(6.0, 9.5), (6.0, 20.0), (18.0, 20.0), (18.0, 9.5)]))
@@ -37,17 +37,17 @@ fn arrow(sign: f64) -> Icon {
 }
 
 /// A left arrow: the previous view.
-pub(super) fn back() -> Icon {
+pub(crate) fn back() -> Icon {
     arrow(-1.0)
 }
 
 /// A right arrow: the next view.
-pub(super) fn forward() -> Icon {
+pub(crate) fn forward() -> Icon {
     arrow(1.0)
 }
 
 /// Four arrows from the centre: pan.
-pub(super) fn pan() -> Icon {
+pub(crate) fn pan() -> Icon {
     let heads = [
         [(9.5, 6.0), (12.0, 3.5), (14.5, 6.0)],
         [(9.5, 18.0), (12.0, 20.5), (14.5, 18.0)],
@@ -63,7 +63,7 @@ pub(super) fn pan() -> Icon {
 }
 
 /// A magnifying glass: zoom to a rectangle.
-pub(super) fn zoom() -> Icon {
+pub(crate) fn zoom() -> Icon {
     Icon::new(GRID)
         .stroke(Path::circle(p(10.5, 10.5), 6.0))
         .stroke(line(&[(15.0, 15.0), (20.0, 20.0)]))
@@ -147,7 +147,7 @@ pub(super) fn options() -> Icon {
 }
 
 /// A tray with a downward arrow: save the figure.
-pub(super) fn save() -> Icon {
+pub(crate) fn save() -> Icon {
     Icon::new(GRID)
         .stroke(line(&[(12.0, 4.0), (12.0, 15.0)]))
         .stroke(line(&[(7.5, 10.5), (12.0, 15.0), (16.5, 10.5)]))

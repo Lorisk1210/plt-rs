@@ -317,7 +317,16 @@ impl Axes {
         artist.base_mut().transform = Some(self.trans_data());
         let image = AxesImage::from_raw(self.adopt(artist, &DataUpdate::default()));
         self.fit_image(&image, extent);
+        self.hide_grid_under_image();
         image
+    }
+
+    /// Turns the grid off when `plt.images_hide_grid` asks images to hide
+    /// it: images lie below even the gridlines `axes.axisbelow` lowers.
+    pub(crate) fn hide_grid_under_image(&self) {
+        if crate::rc::params().plt_images_hide_grid {
+            self.grid(false);
+        }
     }
 
     /// Makes `image` cover `extent`: its sticky edges are the extent's
@@ -375,6 +384,22 @@ mod tests {
         assert_eq!(ax.ylim(), (0.0, 4.0));
         assert_eq!(image.sticky_edges(), (vec![8.0, 0.0], vec![0.0, 4.0]));
         assert_eq!(ax.aspect(), Aspect::Ratio(1.0));
+    }
+
+    #[test]
+    fn images_hide_the_grid_only_when_asked() {
+        let gridded_after_image = |hide: &str| {
+            crate::rc::context(|| {
+                crate::rc::set("axes.grid", "True").unwrap();
+                crate::rc::set("plt.images_hide_grid", hide).unwrap();
+                let ax = Figure::new().subplot();
+                ax.imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())
+                    .unwrap();
+                ax.has_grid(AxisName::X, true) || ax.has_grid(AxisName::Y, true)
+            })
+        };
+        assert!(gridded_after_image("False"), "matplotlib keeps the grid");
+        assert!(!gridded_after_image("True"));
     }
 
     #[test]

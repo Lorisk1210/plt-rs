@@ -56,7 +56,7 @@ pub use afm::{
 pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
     AfmDirectory, AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle,
-    FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
+    FontVariant, GenericFamilies, GenericFamily, Stretch, Weight, bundled_font_data,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};

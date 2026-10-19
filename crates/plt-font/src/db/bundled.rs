@@ -1,9 +1,15 @@
-//! The fonts matplotlib ships in `mpl-data/fonts/ttf`, embedded in the binary.
+//! The fonts matplotlib ships in `mpl-data/fonts/ttf`, plus Inter (the
+//! typeface of plt-rs' modern look), embedded in the binary.
+//!
+//! Inter is copyright the Inter Project Authors and distributed under the
+//! SIL Open Font License 1.1 (`fonts/LICENSE_INTER`). Its family name
+//! appears in none of matplotlib's default font lists, so `findfont` only
+//! picks it when a style names it.
 
 /// `(file name, contents)` of every bundled font, in the order matplotlib
 /// adds them (Python string order of the file names: upper case sorts
 /// before lower case and `-` before `.`), which decides `findfont` ties.
-pub(crate) const BUNDLED_FONTS: [(&str, &[u8]); 40] = [
+pub(crate) const BUNDLED_FONTS: [(&str, &[u8]); 45] = [
     (
         "DejaVuSans-Bold.ttf",
         include_bytes!("../../fonts/DejaVuSans-Bold.ttf"),
@@ -59,6 +65,26 @@ pub(crate) const BUNDLED_FONTS: [(&str, &[u8]); 40] = [
     (
         "DejaVuSerifDisplay.ttf",
         include_bytes!("../../fonts/DejaVuSerifDisplay.ttf"),
+    ),
+    (
+        "Inter-Bold.ttf",
+        include_bytes!("../../fonts/Inter-Bold.ttf"),
+    ),
+    (
+        "Inter-BoldItalic.ttf",
+        include_bytes!("../../fonts/Inter-BoldItalic.ttf"),
+    ),
+    (
+        "Inter-Italic.ttf",
+        include_bytes!("../../fonts/Inter-Italic.ttf"),
+    ),
+    (
+        "Inter-Regular.ttf",
+        include_bytes!("../../fonts/Inter-Regular.ttf"),
+    ),
+    (
+        "Inter-SemiBold.ttf",
+        include_bytes!("../../fonts/Inter-SemiBold.ttf"),
     ),
     (
         "LastResortHE-Regular.ttf",

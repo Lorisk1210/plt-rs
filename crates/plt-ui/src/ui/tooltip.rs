@@ -6,7 +6,7 @@ use super::Ui;
 use crate::canvas::Canvas;
 use crate::error::UiError;
 use crate::geometry::{Rect, Size};
-use crate::text::{TextLayout, TextStyle};
+use crate::text::TextLayout;
 use crate::theme::{Spacing, Theme};
 use crate::widget::WidgetId;
 
@@ -128,7 +128,7 @@ pub(super) fn paint(
     window: Size,
 ) -> Result<(), UiError> {
     let scale = canvas.scale_factor();
-    let layout = TextLayout::new(text, &TextStyle::new(theme.font_size), scale)?;
+    let layout = TextLayout::new(text, &theme.text_style(), scale)?;
     let text_size = layout.size();
     let padding = Size::new(
         theme.space(PADDING_X) * scale,

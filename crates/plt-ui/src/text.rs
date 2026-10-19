@@ -1,4 +1,4 @@
-//! Single lines of text laid out with matplotlib's bundled fonts.
+//! Single lines of text laid out with the fonts bundled with plt-rs.
 
 use plt_text::{FontQuery, FontRequest, TextEngine, TextRun, Weight};
 
@@ -12,7 +12,10 @@ const UI_DPI: f64 = 96.0;
 /// A family of the bundled fonts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FontFamily {
-    /// Proportional text (`DejaVu Sans`).
+    /// plt-rs' interface typeface (`Inter`), with `DejaVu Sans` for the
+    /// characters it lacks.
+    Interface,
+    /// matplotlib's proportional text (`DejaVu Sans`).
     #[default]
     SansSerif,
     /// Fixed-width text (`DejaVu Sans Mono`), e.g. for key names.
@@ -20,12 +23,14 @@ pub enum FontFamily {
 }
 
 impl FontFamily {
-    /// The generic family name the font manager resolves.
-    fn generic_name(self) -> &'static str {
-        match self {
-            Self::SansSerif => "sans-serif",
-            Self::Monospace => "monospace",
-        }
+    /// The family names the font manager resolves, in order of preference.
+    fn names(self) -> Vec<String> {
+        let names: &[&str] = match self {
+            Self::Interface => &["Inter", "DejaVu Sans"],
+            Self::SansSerif => &["sans-serif"],
+            Self::Monospace => &["monospace"],
+        };
+        names.iter().map(|&name| name.to_owned()).collect()
     }
 }
 
@@ -84,7 +89,7 @@ impl TextLayout {
     /// does not depend on the host.
     pub fn new(text: &str, style: &TextStyle, scale_factor: f64) -> Result<Self, UiError> {
         let query = FontQuery {
-            families: vec![style.family.generic_name().to_owned()],
+            families: style.family.names(),
             size: style.size,
             weight: style.weight,
             ..FontQuery::default()
@@ -151,6 +156,19 @@ mod tests {
         let bold = TextLayout::new("Home", &TextStyle::new(10.0).bold(), 1.0).unwrap();
         let normal = TextLayout::new("Home", &TextStyle::new(10.0), 1.0).unwrap();
         assert!(bold.size().width > normal.size().width);
+    }
+
+    #[test]
+    fn interface_text_is_set_in_inter() {
+        let interface = TextStyle {
+            family: FontFamily::Interface,
+            ..TextStyle::new(10.0)
+        };
+        let inter = TextLayout::new("Home", &interface, 1.0).unwrap();
+        let dejavu = TextLayout::new("Home", &TextStyle::new(10.0), 1.0).unwrap();
+        // Inter is the narrower face.
+        assert!(inter.size().width < dejavu.size().width);
+        assert_eq!(inter.run().glyphs.len(), 4);
     }
 
     #[test]

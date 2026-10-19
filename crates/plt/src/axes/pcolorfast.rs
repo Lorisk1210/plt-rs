@@ -146,6 +146,9 @@ impl Axes {
             }
         };
         self.finish_pcolorfast(&drawn, bounds);
+        if !matches!(drawn, PcolorFast::QuadMesh(_)) {
+            self.hide_grid_under_image();
+        }
         Ok(drawn)
     }
 

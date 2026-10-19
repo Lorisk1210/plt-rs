@@ -1,0 +1,71 @@
+# plt-rs' modern look on a charcoal background (see `plt::look`): the
+# `plt-modern` sheet with light ink, and the same palette stepped for the
+# dark surface.
+
+## Figure: a 16:10 charcoal card with room around its axes
+figure.figsize: 7.2, 4.5
+figure.facecolor: 1e2024
+figure.edgecolor: 1e2024
+figure.titlesize: 14
+figure.titleweight: semibold
+figure.labelsize: 11
+figure.constrained_layout.use: True
+figure.constrained_layout.h_pad: 0.0833
+figure.constrained_layout.w_pad: 0.0833
+
+## Type
+font.family: sans-serif
+font.sans-serif: Inter, DejaVu Sans, Bitstream Vera Sans, Arial, Helvetica, sans-serif
+font.size: 10
+text.color: e6e9ed
+
+## Axes: no frame, a light baseline, the grid below the data
+axes.facecolor: 1e2024
+axes.edgecolor: 464b53
+axes.linewidth: 0.8
+axes.grid: True
+axes.axisbelow: True
+axes.spines.top: False
+axes.spines.right: False
+axes.titlesize: 12
+axes.titleweight: semibold
+axes.titlelocation: left
+axes.titlepad: 10
+axes.labelsize: 10.5
+axes.labelcolor: 9ea6b0
+axes.labelpad: 6
+# Blue, orange, aqua, yellow, magenta, green, violet, red: every adjacent
+# pair stays apart for protan, deutan and tritan vision.
+axes.prop_cycle: cycler('color', ['3987e5', 'd95926', '199e70', 'c98500', 'd55181', '008300', '9085e9', 'e66767'])
+
+grid.color: 33373d
+grid.linestyle: -
+grid.linewidth: 0.8
+# Images lie below even lowered gridlines: they turn the grid off.
+plt.images_hide_grid: True
+
+## Ticks: labels only, the grid marks the positions
+xtick.color: 9ea6b0
+xtick.major.size: 0
+xtick.minor.size: 0
+xtick.major.pad: 6
+ytick.color: 9ea6b0
+ytick.major.size: 0
+ytick.minor.size: 0
+ytick.major.pad: 6
+
+## Marks: the edges of patches (annotation arrows, text boxes) in ink
+lines.color: e6e9ed
+patch.edgecolor: e6e9ed
+lines.linewidth: 1.75
+lines.solid_capstyle: round
+boxplot.boxprops.color: 9ea6b0
+boxplot.whiskerprops.color: 9ea6b0
+boxplot.capprops.color: 9ea6b0
+boxplot.flierprops.markeredgecolor: 9ea6b0
+
+## Legend: no box, the swatches carry identity
+legend.frameon: False
+legend.fontsize: 9.5
+legend.title_fontsize: 10
+legend.handlelength: 1.6

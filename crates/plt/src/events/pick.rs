@@ -51,7 +51,7 @@ impl Figure {
     /// use plt::figure::Figure;
     /// use plt::navigation::PointerButton;
     ///
-    /// let fig = Figure::new();
+    /// let fig = Figure::with_size(6.4, 4.8, 100.0);
     /// let ax = fig.subplot();
     /// let line = ax.plot([0.0, 1.0], [0.0, 1.0])?;
     /// line.set_picker(Some(Picker::Radius(5.0)));
@@ -62,8 +62,11 @@ impl Figure {
     ///         log.borrow_mut().push(pick.ind.clone());
     ///     }
     /// });
-    /// // The diagonal runs through the middle of the axes, at (328, 237.6).
-    /// EventSource::new().button_press(&fig, 328.0, 237.0, PointerButton::Left, false);
+    /// // The diagonal runs through the middle of the laid-out axes.
+    /// fig.layout();
+    /// let (x0, y0, width, height) = ax.position().bounds();
+    /// let (x, y) = ((x0 + width / 2.0) * 640.0, (y0 + height / 2.0) * 480.0);
+    /// EventSource::new().button_press(&fig, x, y, PointerButton::Left, false);
     /// assert_eq!(*picked.borrow(), [vec![0]]);
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```

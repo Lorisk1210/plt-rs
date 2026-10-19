@@ -26,11 +26,20 @@ use crate::shape::FontChain;
 use crate::tables::directory::face_count;
 use bundled::{BUNDLED_FONTS, LAST_RESORT};
 
+/// The contents of the bundled font file called `file_name` (such as
+/// `"Inter-Regular.ttf"`), for embedding it elsewhere (web pages).
+pub fn bundled_font_data(file_name: &str) -> Option<&'static [u8]> {
+    BUNDLED_FONTS
+        .iter()
+        .find(|(name, _)| *name == file_name)
+        .map(|&(_, data)| data)
+}
+
 /// Where a face's bytes come from.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum FontSource {
     /// A font embedded in the crate (file name as in matplotlib's
-    /// `mpl-data/fonts/ttf`).
+    /// `mpl-data/fonts/ttf`, or as Inter's release names it).
     Bundled(&'static str),
     /// A font file on disk.
     File(PathBuf),
@@ -107,7 +116,8 @@ impl FontDatabase {
         }
     }
 
-    /// A database with every bundled font (matplotlib's `mpl-data` fonts).
+    /// A database with every bundled font (matplotlib's `mpl-data` fonts
+    /// and Inter).
     pub fn with_bundled_fonts() -> Self {
         let mut db = Self::new();
         for (name, data) in BUNDLED_FONTS {
@@ -414,6 +424,34 @@ mod tests {
             FontDatabase::new().find_font(&FontQuery::default()),
             Err(FontError::NoMatchingFont(FontQuery::default().to_string()))
         );
+    }
+
+    #[test]
+    fn bundled_files_are_available_by_name() {
+        let inter = bundled_font_data("Inter-Regular.ttf").unwrap();
+        assert_eq!(face_count(inter), Ok(1));
+        assert!(bundled_font_data("Inter-Thin.ttf").is_none());
+    }
+
+    #[test]
+    fn inter_is_found_by_name_only() {
+        let db = FontDatabase::with_bundled_fonts();
+        let name = |query: &FontQuery| {
+            let id = db.find_font(query).unwrap();
+            db.source(id)
+                .and_then(FontSource::file_name)
+                .unwrap()
+                .to_owned()
+        };
+        let semibold = FontQuery::families(["Inter", "DejaVu Sans"]).with_weight(Weight(600));
+        assert_eq!(name(&semibold), "Inter-SemiBold.ttf");
+        let italic = FontQuery::families(["Inter"]).with_style(FontStyle::Italic);
+        assert_eq!(name(&italic), "Inter-Italic.ttf");
+        // matplotlib's lists do not name Inter: their queries are unchanged.
+        let sans = FontQuery::families(["sans-serif"]).with_weight(Weight(600));
+        assert_eq!(name(&sans), "DejaVuSans-Bold.ttf");
+        let unknown = FontQuery::families(["Helvetica"]).with_weight(Weight(600));
+        assert_eq!(name(&unknown), "DejaVuSans-Bold.ttf");
     }
 
     #[test]

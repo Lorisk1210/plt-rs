@@ -215,7 +215,7 @@ impl<M: 'static> Form<M> {
 
     /// Lays out the labels and titles; returns the label column's width.
     fn lay_out_captions(&mut self, theme: &Theme, scale_factor: f64) -> Result<f64, UiError> {
-        let style = TextStyle::new(theme.font_size);
+        let style = theme.text_style();
         let mut widest: Option<f64> = None;
         for label in self.rows.iter_mut().filter_map(|row| row.label.as_mut()) {
             let width = label.lay_out(&style, scale_factor)?.width;

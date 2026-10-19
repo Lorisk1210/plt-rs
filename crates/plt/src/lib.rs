@@ -1,8 +1,10 @@
 //! Matplotlib, reimagined in Rust: figures, axes, artists and a pyplot-style API.
 //!
 //! plt-rs follows matplotlib's architecture and semantics closely so that
-//! anything you can draw with matplotlib can be drawn the same way here,
-//! and its PNG output is pixel-identical to matplotlib's.
+//! anything you can draw with matplotlib can be drawn the same way here.
+//! Figures take plt-rs' modern [look] unless told otherwise; in
+//! matplotlib's look (`PLT_LOOK=matplotlib`) its PNG output is
+//! pixel-identical to matplotlib's.
 //!
 //! # Quick start
 //!
@@ -82,8 +84,9 @@
 //!   packers they are laid out with (also anchored and annotation boxes
 //!   of texts, images and artists), and the artist groups of bar, error
 //!   bar and stem plots they list.
-//! * [`rc`] / [`style`] — runtime configuration, the bundled style sheets
-//!   and the xkcd sketch style.
+//! * [`rc`] / [`style`] / [`look`] — runtime configuration, the bundled
+//!   style sheets and the xkcd sketch style; the modern and matplotlib
+//!   looks of figures and windows.
 #![forbid(unsafe_code)]
 
 pub mod animation;
@@ -111,6 +114,7 @@ pub mod inset;
 pub mod layout;
 pub mod legend;
 pub mod lines;
+pub mod look;
 pub mod markers;
 pub mod mlab;
 pub mod mplot3d;

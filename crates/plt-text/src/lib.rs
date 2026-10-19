@@ -35,7 +35,7 @@ pub use error::TextError;
 pub use plt_font::{
     AfmDirectory, AfmFont, AfmMetrics, Feature, FontDatabase, FontEntry, FontId, FontQuery,
     FontSource, FontStyle, FontVariant, GenericFamilies, GlyphId, Hinting, LanguageRange,
-    LanguageTag, ParseFeatureError, Stretch, Weight,
+    LanguageTag, ParseFeatureError, Stretch, Weight, bundled_font_data,
 };
 pub use run::{GlyphChars, PlacedGlyph, TextAnchor, TextRun, TextSource};
 pub use shaping::{Language, Shaping};

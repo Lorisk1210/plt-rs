@@ -8,6 +8,16 @@
 //!
 //! With `--screenshot PATH`, the window is drawn off screen (no display
 //! server needed), its contents are saved as a PNG and the example quits.
+//!
+//! The figure and the window take plt-rs' modern look; the `PLT_LOOK`,
+//! `PLT_FIGURE_LOOK` and `PLT_CHROME_LOOK` environment variables choose
+//! matplotlib's instead (see `plt::look`):
+//!
+//! ```text
+//! PLT_LOOK=matplotlib cargo run -p plt --example figure_window
+//! PLT_FIGURE_LOOK=matplotlib cargo run -p plt --example figure_window
+//! PLT_FIGURE_LOOK=modern-dark cargo run -p plt --example figure_window
+//! ```
 
 #![expect(
     clippy::print_stdout,

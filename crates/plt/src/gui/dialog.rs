@@ -22,26 +22,10 @@ pub(super) fn window_options(title: &str) -> Result<WindowOptions, GuiError> {
         .with_icon(icons::window_icon()?))
 }
 
-/// The theme of the windows of `figure`: plt-rs' dark look when the
-/// figure is drawn on a dark background (such as the `dark_background`
-/// style's), its light look otherwise.
+/// The theme of the windows of `figure`: the chrome [look](crate::look)
+/// for the figure's background.
 pub(super) fn chrome_theme(figure: &Figure) -> Theme {
-    let face = figure.facecolor();
-    // The relative luminance of the sRGB colour, as WCAG defines it.
-    let linear = |c: f64| {
-        if c <= 0.04045 {
-            c / 12.92
-        } else {
-            ((c + 0.055) / 1.055).powf(2.4)
-        }
-    };
-    let luminance = 0.2126 * linear(face.r) + 0.7152 * linear(face.g) + 0.0722 * linear(face.b);
-    // Below mid grey (L* = 50) on an opaque background.
-    if face.a >= 0.5 && luminance < 0.18 {
-        Theme::dark()
-    } else {
-        Theme::modern()
-    }
+    crate::look::appearance().chrome.theme(figure.facecolor())
 }
 
 /// Opens a dialog of the window of `figure` at its content's natural
@@ -130,17 +114,11 @@ mod tests {
     use plt_core::Rgba;
 
     #[test]
-    fn dark_figures_get_dark_windows() {
+    fn windows_take_the_chrome_look() {
         let figure = Figure::new();
-        assert_eq!(chrome_theme(&figure), Theme::modern());
         figure.set_facecolor(Rgba::new(0.0, 0.0, 0.0, 1.0));
-        assert_eq!(chrome_theme(&figure), Theme::dark());
-        figure.set_facecolor(Rgba::new(0.4, 0.4, 0.4, 1.0));
-        assert_eq!(chrome_theme(&figure), Theme::dark(), "below mid grey");
-        figure.set_facecolor(Rgba::new(0.6, 0.6, 0.6, 1.0));
-        assert_eq!(chrome_theme(&figure), Theme::modern());
-        figure.set_facecolor(Rgba::new(0.0, 0.0, 0.0, 0.0));
-        assert_eq!(chrome_theme(&figure), Theme::modern(), "transparent");
+        let chrome = crate::look::appearance().chrome;
+        assert_eq!(chrome_theme(&figure), chrome.theme(figure.facecolor()));
     }
 
     #[test]

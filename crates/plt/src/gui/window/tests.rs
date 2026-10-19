@@ -207,7 +207,7 @@ fn the_subplot_tool_adjusts_the_figure() {
         .ui()
         .widget_rect(left.slider)
         .expect("the slider is laid out");
-    let radius = plt_ui::Theme::default().checkbox_size / 2.0;
+    let radius = tool.window().ui().theme().checkbox_size / 2.0;
     let at = (
         track.x + radius + 0.3 * (track.width - 2.0 * radius),
         track.center().y,

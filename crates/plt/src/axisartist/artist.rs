@@ -189,8 +189,9 @@ impl AxisArtistState {
     }
 
     /// Lays out everything the artist draws (matplotlib's `_draw_ticks`,
-    /// `_draw_line` and `_draw_label`).
-    fn drawing(&self, layout: LayoutContext<'_>) -> Result<Drawing, String> {
+    /// `_draw_line` and `_draw_label`), an arrowed line at `dpi_cor`
+    /// pixels per point.
+    fn drawing(&self, layout: LayoutContext<'_>, dpi_cor: f64) -> Result<Drawing, String> {
         let axes = layout.store().get_as::<AxesState>(self.axes).ok_or(GONE)?;
         let ctx = HelperContext {
             layout,
@@ -247,7 +248,7 @@ impl AxisArtistState {
         Ok(Drawing {
             levels,
             offset,
-            line: self.line_paths(layout, ctx)?,
+            line: self.line_paths(layout, ctx, dpi_cor)?,
             label: self.axis_label(layout, ctx, axislabel_pad)?,
         })
     }
@@ -298,12 +299,14 @@ impl AxisArtistState {
         .map(Some)
     }
 
-    /// The line in display pixels, plain or arrowed (matplotlib's
-    /// `_draw_line`).
+    /// The line in display pixels, plain or arrowed with arrow sizes at
+    /// `dpi_cor` pixels per point (matplotlib's `_draw_line`; the arrow is
+    /// a `FancyArrowPatch`).
     fn line_paths(
         &self,
         layout: LayoutContext<'_>,
         ctx: HelperContext<'_>,
+        dpi_cor: f64,
     ) -> Result<Vec<DisplayPath>, String> {
         if !self.line.visible {
             return Ok(Vec::new());
@@ -315,7 +318,7 @@ impl AxisArtistState {
             &transform,
             self.major_ticklabels.size,
             &self.rc,
-            layout.points_to_pixels(1.0),
+            dpi_cor,
         )
     }
 
@@ -396,7 +399,7 @@ impl Artist for AxisArtistState {
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let id = self.base.id();
         let layout = *ctx.layout();
-        let drawing = match self.drawing(layout) {
+        let drawing = match self.drawing(layout, layout.points_to_pixels(1.0)) {
             Ok(drawing) => drawing,
             Err(problem) => return ctx.report(id, problem),
         };
@@ -443,7 +446,7 @@ impl Artist for AxisArtistState {
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        let drawing = self.drawing(*ctx).ok()?;
+        let drawing = self.drawing(*ctx, ctx.measured_dpi_cor()).ok()?;
         drawing
             .levels
             .iter()

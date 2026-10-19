@@ -18,9 +18,10 @@ pub struct InsetMarks {
 
 /// Outlines the area of `parent` that `inset` shows and joins corners
 /// `first` and `second` of the inset to the same corners of the area,
-/// styled by `props` (matplotlib's `mark_inset`). The marks are filled
-/// only when `props` give a face colour or a colour, as in matplotlib;
-/// the outline is clipped to the parent, the lines are not clipped.
+/// styled by `props` (matplotlib's `mark_inset`). Unless `props` say
+/// whether to fill them, the marks are filled only when `props` give a
+/// face colour or a colour, as in matplotlib; the outline is clipped to
+/// the parent, the lines are not clipped.
 ///
 /// ```
 /// use plt::axes_grid1::{Corner, InsetOptions, mark_inset, zoomed_inset_axes};
@@ -39,7 +40,9 @@ pub fn mark_inset(
     second: Corner,
     props: PatchProps,
 ) -> InsetMarks {
-    let fill = props.is_set("facecolor") || props.is_set("color");
+    let fill = props
+        .fill
+        .unwrap_or(props.is_set("facecolor") || props.is_set("color"));
     let styled = PatchProps {
         fill: Some(fill),
         ..props
@@ -112,5 +115,21 @@ mod tests {
                 .iter()
                 .any(|p| p == &[Point::new(320.0, 400.0), Point::new(40.0, 80.0)])
         );
+    }
+
+    #[test]
+    fn a_face_colour_fills_the_marks_unless_told_otherwise() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let zoomed = zoomed_inset_axes(&ax, 2.0, &InsetOptions::default());
+        let mark = |props: PatchProps| {
+            let marks = mark_inset(&ax, &zoomed, Corner::UpperLeft, Corner::LowerRight, props);
+            (marks.area.style().fill, marks.connectors[0].style().fill)
+        };
+        assert_eq!(mark(PatchProps::default()), (false, false));
+        assert_eq!(mark(PatchProps::default().facecolor("g")), (true, true));
+        assert_eq!(mark(PatchProps::default().color("g")), (true, true));
+        let unfilled = PatchProps::default().facecolor("g").fill(false);
+        assert_eq!(mark(unfilled), (false, false));
     }
 }

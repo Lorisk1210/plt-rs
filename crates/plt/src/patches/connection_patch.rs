@@ -171,7 +171,7 @@ impl PatchShape for ConnectionPatch {
         if !(show_a && show_b) {
             return Ok(Vec::new());
         }
-        let dpi_cor = layout.points_to_pixels(1.0);
+        let dpi_cor = frame.dpi_cor;
         let path = self.spec.route(pos_a, pos_b, dpi_cor)?;
         self.spec.display_paths(&path, dpi_cor, frame.linewidth)
     }

@@ -68,6 +68,10 @@ pub struct ShapeFrame<'a> {
     pub layout: LayoutContext<'a>,
     /// The artist transform (the patch's coordinates to display pixels).
     pub transform: ResolvedTransform,
+    /// Pixels per point of the sizes of arrows (matplotlib's `_dpi_cor`):
+    /// the canvas resolution's while drawing,
+    /// [`LayoutContext::measured_dpi_cor`] while measuring.
+    pub dpi_cor: f64,
     /// The edge width in points.
     pub linewidth: f64,
     /// The axes or figure containing the patch.

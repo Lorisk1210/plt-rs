@@ -189,7 +189,7 @@ impl PatchShape for FancyArrowPatch {
 
     /// `FancyArrowPatch._get_path_in_displaycoord`.
     fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
-        let dpi_cor = frame.layout.points_to_pixels(1.0);
+        let dpi_cor = frame.dpi_cor;
         let path = match &self.route {
             ArrowRoute::Between(a, b) => {
                 let region = |patch: Option<ArtistId>| {
@@ -254,6 +254,27 @@ mod tests {
         let bounds = ax.add_patch(arrow).window_extent().expect("an extent");
         assert!((bounds.x0() - 200.0).abs() < 1.0, "{bounds:?}");
         assert!((bounds.x1() - 800.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn arrows_are_measured_at_one_pixel_per_point_until_drawn() {
+        // matplotlib's `_dpi_cor` is 1 until the arrow is drawn.
+        let fig = Figure::with_size(2.0, 2.0, 144.0);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let simple = ArrowStyle::Simple {
+            head_length: 10.0,
+            head_width: 10.0,
+            tail_width: 2.0,
+        };
+        let arrow = ax.add_patch(
+            FancyArrowPatch::between((0.2, 0.5), (0.8, 0.5))
+                .with_arrowstyle(simple)
+                .with_shrink(0.0, 0.0),
+        );
+        let height = || arrow.window_extent().expect("an extent").height();
+        assert!((height() - 10.0).abs() < 1e-6, "{}", height());
+        fig.layout();
+        assert!((height() - 20.0).abs() < 1e-6, "{}", height());
     }
 
     #[test]

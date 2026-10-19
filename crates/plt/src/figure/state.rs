@@ -62,6 +62,11 @@ pub(crate) struct FigureState {
     /// (`false`); `None` lets the renderer decide (matplotlib's
     /// `suppressComposite`).
     pub(crate) suppress_composite: Option<bool>,
+    /// The resolution the figure was last drawn, or laid out as if drawn,
+    /// at: arrows are measured at it, or at one pixel per point before the
+    /// first draw (see
+    /// [`LayoutContext::measured_dpi_cor`](crate::artist::LayoutContext::measured_dpi_cor)).
+    pub(crate) last_draw_dpi: Option<f64>,
 }
 
 impl FigureState {
@@ -140,6 +145,7 @@ impl FigureState {
             print_window: None,
             saving: false,
             suppress_composite: None,
+            last_draw_dpi: None,
         }
     }
 

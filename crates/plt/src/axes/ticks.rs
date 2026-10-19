@@ -229,6 +229,9 @@ pub struct TickStyle {
     pub label_family: Option<String>,
     /// Font weight of the labels in place of `font.weight`.
     pub label_weight: Option<FontWeight>,
+    /// Whether the labels count in layouts and in placing the axis label
+    /// and the offset text (matplotlib's `set_in_layout` on tick labels).
+    pub label_in_layout: bool,
     /// Whether gridlines are drawn at the ticks.
     pub grid_on: bool,
     /// How the gridlines are drawn; kept while they are off, like
@@ -279,6 +282,7 @@ impl TickStyle {
             label_multialign: None,
             label_family: None,
             label_weight: None,
+            label_in_layout: true,
             grid_on: grid_on_from_rc(axis, major, rc),
             grid: GridStyle::from_rc(major, rc),
         }

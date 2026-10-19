@@ -66,6 +66,9 @@ pub(crate) struct TickLabel {
     pub(crate) tick: usize,
     /// Whether the label is on the first (bottom or left) side.
     pub(crate) first_side: bool,
+    /// Whether the label counts in layouts and in placing the axis label
+    /// and the offset text.
+    pub(crate) in_layout: bool,
     /// The label.
     pub(crate) text: PlacedText,
 }
@@ -152,15 +155,18 @@ impl<'a> AxisPainter<'a> {
                     continue;
                 };
                 if tick.label.is_empty() {
-                    texts
-                        .empty_label_anchors
-                        .push((first_side, placement.anchor));
+                    if style.label_in_layout {
+                        texts
+                            .empty_label_anchors
+                            .push((first_side, placement.anchor));
+                    }
                     continue;
                 }
                 match lay_out_tick_label(layout, tick, &style, &placement, rc) {
                     Ok(text) => texts.tick_labels.push(TickLabel {
                         tick: index,
                         first_side,
+                        in_layout: style.label_in_layout,
                         text,
                     }),
                     Err(problem) => texts.problems.push(problem),
@@ -532,8 +538,9 @@ fn lay_out_tick_label(
     )
 }
 
-/// The extents of the tick labels of `texts`, each with whether it is on
-/// the first side; labels without text are empty boxes at their anchors.
+/// The extents of the tick labels of `texts` that count in layouts, each
+/// with whether it is on the first side; labels without text are empty
+/// boxes at their anchors.
 fn label_boxes(texts: &AxisTexts) -> Vec<(bool, Bbox)> {
     let empty = texts
         .empty_label_anchors
@@ -542,6 +549,7 @@ fn label_boxes(texts: &AxisTexts) -> Vec<(bool, Bbox)> {
     texts
         .tick_labels
         .iter()
+        .filter(|label| label.in_layout)
         .map(|label| (label.first_side, label.text.bbox()))
         .chain(empty)
         .collect()

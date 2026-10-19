@@ -33,10 +33,16 @@ pub use options::{
 use outline::{Direction, Geometry, PlacedFlow};
 
 use crate::axes::{Adjustable, Axes};
+use crate::colors::Color;
 use crate::patches::{PatchProps, PathShape};
 use crate::rc::Aspect;
 use crate::text::{HorizontalAlignment, Text, VerticalAlignment};
 use crate::ticker::pyfmt::PrintfFormat;
+
+/// The face colour of outlines in the classic mode.
+const CLASSIC_FACE: &str = "#bfd1d4";
+/// The edge width of outlines in the classic mode, in points.
+const CLASSIC_LINEWIDTH: f64 = 0.5;
 
 /// A Sankey diagram under construction on an axes (matplotlib's `Sankey`).
 #[derive(Debug)]
@@ -125,18 +131,10 @@ impl Sankey {
             Some(prior) => self.connected(&placement, prior, sub.connect)?,
         };
         let text = self.centered_text(center, sub.patchlabel);
-        let face = sub
-            .props
-            .facecolor
-            .clone()
-            .unwrap_or_else(|| self.axes.next_patch_color());
         let path =
             Path::new(placement.vertices.clone(), codes).expect("the outline starts with a move");
         let patch = self.axes.add_patch(PathShape(path));
-        patch.update_props(PatchProps {
-            facecolor: Some(face),
-            ..sub.props
-        });
+        patch.update_props(self.outline_props(sub.props));
         let texts = sub
             .flows
             .iter()
@@ -325,6 +323,25 @@ impl Sankey {
         label.push_str(&quantity);
         label.push_str(unit);
         Ok(label)
+    }
+
+    /// The style of an outline: `props`, with the face colour defaulting
+    /// to the next colour of the property cycle, or in the classic mode
+    /// (`_internal.classic_mode`) to a grey blue with half-point edges.
+    fn outline_props(&self, props: PatchProps) -> PatchProps {
+        let classic = crate::rc::params().internal_classic_mode;
+        let face = props.facecolor.clone().unwrap_or_else(|| {
+            if classic {
+                Color::from(CLASSIC_FACE)
+            } else {
+                self.axes.next_patch_color()
+            }
+        });
+        PatchProps {
+            facecolor: Some(face),
+            linewidth: props.linewidth.or(classic.then_some(CLASSIC_LINEWIDTH)),
+            ..props
+        }
     }
 
     /// A text centred on `at` in data coordinates.

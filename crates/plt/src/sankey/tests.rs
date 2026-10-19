@@ -149,3 +149,20 @@ fn per_flow_arguments_must_match_the_flows() {
         })
     ));
 }
+
+#[test]
+fn outlines_take_the_cycle_colour_or_the_classic_grey_blue() {
+    let outline_style = |classic: &str| {
+        crate::rc::context(|| {
+            crate::rc::set("_internal.classic_mode", classic).unwrap();
+            let (_, mut chart) = sankey(SankeyOptions::default());
+            chart.add(Subdiagram::default()).unwrap();
+            let patch = &chart.diagrams()[0].patch;
+            (patch.colors().unwrap().face, patch.style().linewidth)
+        })
+    };
+    let blue = Color::from("#1f77b4").resolve().unwrap();
+    assert_eq!(outline_style("False"), (blue, None));
+    let grey_blue = Color::from(CLASSIC_FACE).resolve().unwrap();
+    assert_eq!(outline_style("True"), (grey_blue, Some(0.5)));
+}

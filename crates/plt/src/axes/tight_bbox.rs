@@ -139,7 +139,11 @@ pub(super) fn axis_tight_bbox(
         .offset
         .iter()
         .map(PlacedText::bbox)
-        .chain(texts.tick_labels.iter().map(|label| label.text.bbox()))
+        .chain(
+            (texts.tick_labels.iter())
+                .filter(|label| label.in_layout)
+                .map(|label| label.text.bbox()),
+        )
         .chain(label)
         .filter(has_area)
         .reduce(|a, b| a.union(&b))

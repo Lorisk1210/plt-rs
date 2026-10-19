@@ -6,6 +6,7 @@
 use super::error::BytecodeProgram;
 use super::interp::{Definitions, Exec, Metrics, Resources, State};
 use super::program::{HintingInstance, Prepared};
+use super::state::GraphicsState;
 use super::zone::{TAG_ON, TAG_TOUCH_BOTH, Vector, Zone};
 use crate::error::{FontError, Result};
 use crate::face::Face;
@@ -13,6 +14,7 @@ use crate::fixed::{mul_fix, pix_round};
 use crate::outline::{Midpoint, Outline, OutlineSink, PointKind};
 use crate::reader::Reader;
 use crate::scale::PixelSink;
+use crate::scan::{Dropouts, ScanOutline, ScanRules};
 use crate::tables::glyf::{
     Component, GLYF, Glyf, MAX_COMPONENT_DEPTH, MAX_COMPONENTS, MAX_POINTS, Placement,
     ROUND_XY_TO_GRID, USE_MY_METRICS, WE_HAVE_INSTRUCTIONS, bad_anchor, parse_components,
@@ -24,18 +26,24 @@ use crate::types::{GlyphId, Rect};
 const MAX_CONTOURS: usize = 0xFFF;
 
 /// A glyph loaded with hinting: its grid-fitted outline in 26.6 pixels,
-/// with the origin at the first phantom point, and its advance.
+/// with the origin at the first phantom point, its advance, and how it is
+/// scan-converted without anti-aliasing.
 #[derive(Clone, Debug, PartialEq)]
 pub struct HintedGlyph {
     outline: Outline,
     advance: i32,
+    rules: ScanRules,
 }
 
 impl HintedGlyph {
     /// A glyph from its grid-fitted outline (26.6, origin at the rounded
-    /// left phantom point) and rounded advance.
-    pub(crate) const fn new(outline: Outline, advance: i32) -> Self {
-        Self { outline, advance }
+    /// left phantom point), rounded advance and scan-conversion rules.
+    pub(crate) const fn new(outline: Outline, advance: i32, rules: ScanRules) -> Self {
+        Self {
+            outline,
+            advance,
+            rules,
+        }
     }
 
     /// The advance width in 26.6 pixels, rounded to a whole pixel
@@ -60,6 +68,12 @@ impl HintedGlyph {
     pub fn outline(&self, sink: &mut impl OutlineSink) {
         self.outline
             .decompose(&mut PixelSink(sink), Midpoint::Truncated);
+    }
+
+    /// The outline with the rules its loader set, for monochrome
+    /// rendering.
+    pub fn scan_outline(&self) -> ScanOutline {
+        self.outline.scan_outline(self.rules)
     }
 }
 
@@ -87,6 +101,8 @@ impl<'f> HintingInstance<'f> {
             ends: Vec::new(),
             phantoms: [Vector::default(); 4],
             components: 0,
+            scan_control: prepared.graphics_state.scan_control,
+            scan_type: prepared.graphics_state.scan_type,
         };
         load.load(glyph, 0)?;
         Ok(load.finish())
@@ -110,6 +126,12 @@ struct GlyphLoad<'a, 'f> {
     phantoms: [Vector; 4],
     /// Components visited.
     components: u32,
+    /// The scan control a glyph program last left, which lasts from one
+    /// program of the glyph to the next (FreeType keeps the execution
+    /// context's graphics state).
+    scan_control: bool,
+    /// The scan type a glyph program last left.
+    scan_type: i32,
 }
 
 impl GlyphLoad<'_, '_> {
@@ -246,10 +268,15 @@ impl GlyphLoad<'_, '_> {
                 num_glyphs: self.instance.num_glyphs,
                 stack_size: prepared.stack_size,
             };
+            let graphics_state = GraphicsState {
+                scan_control: self.scan_control,
+                scan_type: self.scan_type,
+                ..prepared.graphics_state
+            };
             let mut exec = Exec::new(
                 state,
                 zone,
-                prepared.graphics_state,
+                graphics_state,
                 prepared.ranges(instructions),
                 BytecodeProgram::Glyph,
                 composite,
@@ -257,6 +284,8 @@ impl GlyphLoad<'_, '_> {
             // Like FreeType without pedantic hinting, a failing glyph
             // program keeps what it did.
             let _ = exec.run();
+            let left = exec.graphics_state();
+            (self.scan_control, self.scan_type) = (left.scan_control, left.scan_type);
         }
         // Outside backward compatibility mode the program may move the
         // phantom points, and so the bearings and the advance.
@@ -405,9 +434,14 @@ impl GlyphLoad<'_, '_> {
             start = end + 1;
         }
         let advance = pix_round(pp2.x.wrapping_sub(pp1.x));
+        let rules = ScanRules {
+            high_precision: self.instance.y_ppem < 24,
+            dropouts: Dropouts::from_scan_type(self.scan_control, self.scan_type),
+        };
         HintedGlyph::new(
             outline,
             advance.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
+            rules,
         )
     }
 }

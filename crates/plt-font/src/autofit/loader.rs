@@ -14,6 +14,7 @@ use crate::fixed::{mul_fix, pix_round};
 use crate::hinting::HintedGlyph;
 use crate::outline::{Outline, PointKind};
 use crate::scale::Size;
+use crate::scan::ScanRules;
 use crate::types::GlyphId;
 
 impl Autohinter {
@@ -132,7 +133,7 @@ fn finish(
         0
     };
     let advance = pix_round(advance).clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
-    HintedGlyph::new(hinted, advance)
+    HintedGlyph::new(hinted, advance, ScanRules::UNSCALED)
 }
 
 /// The rounded phantom points (origin and advance) of a glyph hinted

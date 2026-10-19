@@ -1,7 +1,7 @@
 //! Hinted text, `figures/cases_hinting.py`: `text.hinting` "default",
 //! "native" and "`force_autohint`"/"auto" at several sizes and resolutions,
 //! with tick labels, titles, rotated text and mathtext (STIX mathtext is
-//! autohinted under "default").
+//! autohinted under "default"), also without anti-aliasing.
 
 use plt::fonts::{FontStyle, FontWeight};
 use plt::legend::LegendOptions;
@@ -13,6 +13,7 @@ use crate::figures::{CaseResult, FigureCase};
 const DEFAULT: &[(&str, &str)] = &[("text.hinting", "default")];
 const NATIVE: &[(&str, &str)] = &[("text.hinting", "native")];
 const AUTOHINT: &[(&str, &str)] = &[("text.hinting", "force_autohint")];
+const ALIASED: &[(&str, &str)] = &[("text.antialiased", "False")];
 
 /// `SAMPLE`: letters, figures, accents, a ligature and kerning pairs.
 const SAMPLE: &str = "Hamburgefonstiv 0123456789 \u{c5}\u{c9}\u{e7}\u{df} ffi Wa.To, (x)";
@@ -109,6 +110,13 @@ fn stix(fig: &Figure, formula: &str) {
     fig.text(0.03, 0.3, formula)
         .set_fontsize(12.0)
         .set_valign(VerticalAlignment::Top);
+}
+
+/// The aliased large case: glyphs too tall for high precision, and a W
+/// whose profiles overflow `FreeType`'s render pool.
+fn large(fig: &Figure) {
+    fig.text(0.02, 0.1, "BW%").set_fontsize(150.0);
+    fig.text(0.62, 0.05, "W").set_fontsize(300.0);
 }
 
 pub(crate) const CASES: &[FigureCase] = &[
@@ -220,4 +228,60 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 3.0, 100.0)
     .with_rc(&[("text.hinting", "default"), ("mathtext.fontset", "stix")]),
+    FigureCase::new("hinting/aliased_sizes", |fig| {
+        sizes(fig, &SIZES, None);
+        Ok(())
+    })
+    .sized(6.0, 4.5, 100.0)
+    .with_rc(&[("text.hinting", "default"), ("text.antialiased", "False")]),
+    FigureCase::new("hinting/aliased_unhinted_sizes", |fig| {
+        sizes(fig, &SIZES, None);
+        Ok(())
+    })
+    .sized(6.0, 4.5, 100.0)
+    .with_rc(ALIASED),
+    FigureCase::new("hinting/aliased_unhinted_rotated", |fig| {
+        rotated(fig);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(ALIASED),
+    FigureCase::new("hinting/aliased_autohint_rotated", |fig| {
+        rotated(fig);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(&[
+        ("text.hinting", "force_autohint"),
+        ("text.antialiased", "False"),
+    ]),
+    FigureCase::new("hinting/aliased_mathtext_cm", |fig| {
+        math(fig);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(&[
+        ("text.hinting", "default"),
+        ("text.antialiased", "False"),
+        ("mathtext.fontset", "cm"),
+    ]),
+    FigureCase::new("hinting/aliased_native_stix", |fig| {
+        stix(
+            fig,
+            r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b}$ and DejaVu text",
+        );
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(&[
+        ("text.hinting", "native"),
+        ("text.antialiased", "False"),
+        ("mathtext.fontset", "stix"),
+    ]),
+    FigureCase::new("hinting/aliased_large", |fig| {
+        large(fig);
+        Ok(())
+    })
+    .sized(6.0, 3.0, 100.0)
+    .with_rc(ALIASED),
 ];

@@ -36,7 +36,7 @@ fn mul_fix(a: i64, b: i64) -> i64 {
 /// The transform `FreeType` applies to a glyph outline loaded after
 /// `FT_Set_Transform`: a 16.16 rotation matrix, then a 26.6 translation.
 #[derive(Clone, Copy, Debug)]
-struct GlyphTransform {
+pub(super) struct GlyphTransform {
     xx: i64,
     xy: i64,
     yx: i64,
@@ -48,7 +48,7 @@ struct GlyphTransform {
 impl GlyphTransform {
     /// matplotlib's `_set_transform` for a glyph rotated by `angle` degrees
     /// with its origin at `pen` (display pixels, already on the 26.6 grid).
-    fn new(angle: f64, pen: Point) -> Self {
+    pub(super) fn new(angle: f64, pen: Point) -> Self {
         let (sin, cos) = angle.to_radians().sin_cos();
         let fixed = |v: f64| (65536.0 * v).round_ties_even() as i64;
         Self {
@@ -61,15 +61,20 @@ impl GlyphTransform {
         }
     }
 
+    /// An outline point in 26.6 transformed and translated
+    /// (`FT_Vector_Transform`, `FT_Outline_Translate`).
+    pub(super) fn transform(&self, x: i64, y: i64) -> (i64, i64) {
+        (
+            mul_fix(x, self.xx) + mul_fix(y, self.xy) + self.dx,
+            mul_fix(x, self.yx) + mul_fix(y, self.yy) + self.dy,
+        )
+    }
+
     /// An outline point (pixels, a multiple of 1/64) transformed and
-    /// upscaled to 24.8 (`FT_Vector_Transform`, `FT_Outline_Translate`,
-    /// `UPSCALE`).
+    /// upscaled to 24.8 (`UPSCALE`).
     fn apply(&self, p: Point) -> Fixed {
-        let (x, y) = ((p.x * 64.0).round() as i64, (p.y * 64.0).round() as i64);
-        Fixed {
-            x: (mul_fix(x, self.xx) + mul_fix(y, self.xy) + self.dx) * 4,
-            y: (mul_fix(x, self.yx) + mul_fix(y, self.yy) + self.dy) * 4,
-        }
+        let (x, y) = self.transform((p.x * 64.0).round() as i64, (p.y * 64.0).round() as i64);
+        Fixed { x: x * 4, y: y * 4 }
     }
 }
 

@@ -64,6 +64,8 @@ pub struct HintingInstance<'f> {
     pub(crate) y_scale: i64,
     pub(crate) metrics: Metrics,
     pub(crate) num_glyphs: u16,
+    /// Vertical pixels per em, which decide the scan-conversion precision.
+    pub(crate) y_ppem: u16,
     pub(crate) prepared: Result<Prepared<'f>>,
 }
 
@@ -91,6 +93,7 @@ impl<'f> HintingInstance<'f> {
             y_scale,
             metrics,
             num_glyphs,
+            y_ppem: size.y_ppem(),
             prepared: prepare(face, metrics, num_glyphs),
         }
     }

@@ -15,7 +15,7 @@ The full texts are in [`LICENSES/`](LICENSES):
 |---|---|---|
 | matplotlib 3.11 | Matplotlib License, PSF-based (`matplotlib.txt`) | the figure model, artists, layout engines, ticker, scales, styles, colormaps, mathtext and backends (`plt`, `plt-text`, `plt-render`) |
 | Anti-Grain Geometry 2.4 | Agg 2.4 notice (`agg.txt`) | the rasterizer, stroker, dashes, compositing and image resampling (`plt-raster`, `crates/plt/src/image`) |
-| FreeType 2.14 | FTL or GPL-2.0-or-later; plt-rs uses the FTL (`matplotlib.txt`, "FreeType") | the TrueType bytecode interpreter (`crates/plt-font/src/hinting`), the autohinter (`crates/plt-font/src/autofit`) and glyph loading |
+| FreeType 2.14 | FTL or GPL-2.0-or-later; plt-rs uses the FTL (`matplotlib.txt`, "FreeType") | the TrueType bytecode interpreter (`crates/plt-font/src/hinting`), the autohinter (`crates/plt-font/src/autofit`), glyph loading, and the monochrome rasterizer (`crates/plt-render/src/raster/mono`) |
 | HarfBuzz 14 | MIT-Modern-Variant (`matplotlib.txt`, "HarfBuzz") | OpenType shaping and layout tables (`crates/plt-font/src/shape`, `crates/plt-font/src/layout`); the BCP 47 to OpenType language tag table `crates/plt-font/src/layout/ot_tags/tables.rs`, generated from HarfBuzz's `hb-ot-tag-table.hh` (itself built from the IANA Language Subtag Registry and Microsoft's OpenType language tag list) |
 | libraqm | MIT (`matplotlib.txt`, "libraqm") | text run layout (`crates/plt-font/src/shape`, `plt-text`) |
 | Qhull | Qhull licence (`matplotlib.txt`, "QHull") | Delaunay triangulation (`crates/plt/src/tri/delaunay`) |

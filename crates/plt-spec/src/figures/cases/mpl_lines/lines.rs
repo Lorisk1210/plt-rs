@@ -278,7 +278,7 @@ pub(super) const CASES: &[FigureCase] = &[
     classic("mpl_lines/odd_dashes", |fig| {
         let odd = LineStyle::Dashes {
             offset: 0.0,
-            pattern: vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0],
+            pattern: vec![1.0, 2.0, 3.0],
         };
         plot_y(
             &fig.subplot(),

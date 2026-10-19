@@ -38,10 +38,15 @@ impl Axes {
         let xy = xy.into();
         let rc = crate::rc::params();
         let xytext = options.xytext.unwrap_or(xy);
+        let clip_on = options.clip_on;
         let state = AnnotationState::new(xy, options, &rc)?;
         let mut artist = TextArtist::new(xytext, text, rc);
         artist.annotation = Some(Box::new(state));
-        artist.base_mut().transform = Some(Transform::Display);
+        let base = artist.base_mut();
+        base.transform = Some(Transform::Display);
+        if clip_on {
+            base.clip_box = Some(self.id());
+        }
         let figure = self.raw().figure_state();
         let id = figure.borrow_mut().adopt(self.id(), Box::new(artist));
         Ok(Annotation::from_raw(RawHandle::new(Rc::clone(figure), id)))

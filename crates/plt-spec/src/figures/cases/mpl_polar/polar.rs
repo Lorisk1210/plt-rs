@@ -95,12 +95,13 @@ pub(super) fn polar_coord_annotations(fig: &Figure) -> CaseResult {
         xycoords: "polar".parse()?,
         textcoords: Some("polar".parse()?),
         arrowprops: Some(black_arrow()),
+        // matplotlib clips to the axes patch when `annotate` gets it.
+        clip_on: true,
         ..AnnotateOptions::default()
     };
     ax.annotate("the top", (FRAC_PI_2, 10.0), options)?
         .set_halign(HorizontalAlignment::Left)
-        .set_valign(VerticalAlignment::Baseline)
-        .set_clip_on(true);
+        .set_valign(VerticalAlignment::Baseline);
     ax.set_xlim(-20.0, 20.0).set_ylim(-20.0, 20.0);
     remove_ticks_and_titles(fig);
     Ok(())

@@ -39,6 +39,10 @@ pub struct AnnotateOptions {
     /// always (`Some(true)`), never (`Some(false)`), or for points in data
     /// coordinates (`None`).
     pub annotation_clip: Option<bool>,
+    /// Clips the text to the axes (matplotlib's `clip_on=True` passed to
+    /// `annotate`, which clips to the axes patch; the arrow is not
+    /// clipped).
+    pub clip_on: bool,
 }
 
 /// What makes a text an annotation.

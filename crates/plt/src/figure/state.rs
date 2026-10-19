@@ -9,7 +9,7 @@ use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
-use crate::gridspec::{GridSpecError, SubplotParams};
+use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
 use crate::gui::tools::ToolRegistry;
 use crate::layout::LayoutState;
 use crate::ticker::AxisName;
@@ -230,6 +230,15 @@ impl FigureState {
         ctx.draw_child(self.root);
         ctx.finish_rasterizing();
         let mut errors = self.pending_errors.clone();
+        // matplotlib refuses to make a figure whose subplot parameters
+        // leave no room; plt-rs reports them whenever the figure draws.
+        let params = self.subplot_params_of(self.root);
+        if let Some(Err(err)) = params.map(|p| p.updated(&SubplotOverrides::default())) {
+            errors.push(DrawError {
+                artist: self.root,
+                message: err.to_string(),
+            });
+        }
         errors.extend(ctx.into_errors());
         errors
     }

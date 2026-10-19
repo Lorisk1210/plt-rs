@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::Path;
 
 use plt_codec::png::DecodeError;
-use plt_codec::{gif, jpeg, tiff};
+use plt_codec::{gif, jpeg, tiff, webp};
 use plt_core::Rgba;
 
 use super::normalize::normalize_in;
@@ -27,6 +27,8 @@ pub enum ImageIoError {
     Tiff(tiff::DecodeError),
     /// The file is not a valid GIF.
     Gif(gif::DecodeError),
+    /// The file is not a valid WebP.
+    Webp(webp::DecodeError),
     /// The data is not in any format that can be read (Pillow's
     /// `UnidentifiedImageError`).
     UnidentifiedImage,
@@ -51,6 +53,7 @@ impl fmt::Display for ImageIoError {
             Self::Jpeg(err) => write!(f, "cannot read the JPEG: {err}"),
             Self::Tiff(err) => write!(f, "cannot read the TIFF: {err}"),
             Self::Gif(err) => write!(f, "cannot read the GIF: {err}"),
+            Self::Webp(err) => write!(f, "cannot read the WebP: {err}"),
             Self::UnidentifiedImage => f.write_str("cannot identify the image file"),
             Self::Bitmap(err) => write!(f, "cannot write the image: {err}"),
             Self::UnsupportedFormat(format) => write!(
@@ -74,6 +77,7 @@ impl std::error::Error for ImageIoError {
             Self::Jpeg(err) => Some(err),
             Self::Tiff(err) => Some(err),
             Self::Gif(err) => Some(err),
+            Self::Webp(err) => Some(err),
             Self::Bitmap(err) => Some(err),
             Self::Colormap(err) => Some(err),
             Self::Norm(err) => Some(err),
@@ -109,6 +113,12 @@ impl From<tiff::DecodeError> for ImageIoError {
 impl From<gif::DecodeError> for ImageIoError {
     fn from(err: gif::DecodeError) -> Self {
         Self::Gif(err)
+    }
+}
+
+impl From<webp::DecodeError> for ImageIoError {
+    fn from(err: webp::DecodeError) -> Self {
+        Self::Webp(err)
     }
 }
 

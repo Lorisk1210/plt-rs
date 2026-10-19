@@ -1,5 +1,5 @@
-//! Probe operations for the `imread` area (`matplotlib.image.imread` of
-//! JPEG, TIFF and GIF files).
+//! Probe operations for the `imread` and `imread_webp` areas
+//! (`matplotlib.image.imread` of JPEG, TIFF, GIF and WebP files).
 
 use plt::image::{ImageData, imread_bytes};
 use plt_codec::base64;

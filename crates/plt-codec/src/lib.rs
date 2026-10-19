@@ -16,9 +16,11 @@
 //!   decompressor.
 //! * [`tiff`] — uncompressed RGBA TIFF files, laid out as Pillow writes them,
 //!   and decoding of the TIFF layouts and compressions Pillow reads.
-//! * [`raster`] — decoded JPEG, TIFF and GIF images in the Pillow mode the
-//!   same file opens in, convertible to RGBA as Pillow converts them.
+//! * [`raster`] — decoded JPEG, TIFF, GIF and WebP images in the Pillow mode
+//!   the same file opens in, convertible to RGBA as Pillow converts them.
 //! * [`sha1`] — the SHA-1 digest, as the WebSocket handshake needs it.
+//! * [`webp`] — decoding of WebP files as Pillow opens them: lossless
+//!   (VP8L) and lossy (VP8, with alpha) bitstreams, still or animated.
 //! * [`zlib`] — the RFC 1950 container (header and Adler-32 trailer) around
 //!   DEFLATE, in both directions.
 //! * [`png`] — a PNG encoder (grey, grey + alpha, RGB and RGBA at 8 or 16 bits,
@@ -56,6 +58,7 @@ pub mod png;
 pub mod raster;
 pub mod sha1;
 pub mod tiff;
+pub mod webp;
 pub mod zlib;
 
 pub use deflate::CompressionLevel;

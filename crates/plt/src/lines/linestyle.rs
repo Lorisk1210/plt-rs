@@ -25,7 +25,9 @@ pub enum LineStyle {
     Dashes {
         /// Distance into the pattern where drawing starts.
         offset: f64,
-        /// Alternating on/off lengths (an even number of entries).
+        /// Alternating on/off lengths; an odd list is gone through twice,
+        /// its ons becoming offs the second time (as in PDF, PS and SVG,
+        /// which receive it as given).
         pattern: Vec<f64>,
     },
 }

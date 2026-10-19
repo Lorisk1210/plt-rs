@@ -20,50 +20,20 @@ mod meshes;
 mod signals;
 mod twins;
 
-use plt::figure::Figure;
 use plt::rc::RcParams;
-use plt::ticker::NullFormatter;
 
+use super::mpl_tests::{classic, remove_ticks_and_titles};
 use crate::figures::{CaseResult, FigureCase};
-
-/// `_classic_test_patch`: what the test suite changes on top of `classic`.
-const CLASSIC_TEST_PATCH: &[(&str, &str)] = &[
-    ("ytick.alignment", "center_baseline"),
-    ("hatch.color", "edge"),
-    ("text.hinting", "default"),
-];
 
 /// `image.interpolation: nearest`, set by the imshow tests "to match the
 /// existing baseline image".
 const NEAREST: &[(&str, &str)] = &[("image.interpolation", "nearest")];
-
-/// A case in the test suite's default style: `classic` plus
-/// `_classic_test_patch`, on classic's 8 × 6 in figure saved at 100 dpi.
-const fn classic(name: &'static str, build: fn(&Figure) -> CaseResult) -> FigureCase {
-    FigureCase::new(name, build)
-        .sized(8.0, 6.0, 100.0)
-        .with_style("classic")
-        .with_rc(CLASSIC_TEST_PATCH)
-}
 
 /// `pcolormesh.snap: False`, set by the pcolormesh tests until their
 /// baseline images are regenerated.
 fn unsnapped(rc: &mut RcParams) -> CaseResult {
     rc.set("pcolormesh.snap", "False")?;
     Ok(())
-}
-
-/// matplotlib's `remove_ticks_and_titles` (what `remove_text=True` does):
-/// empty suptitle and titles, no tick labels on any axis.
-fn remove_ticks_and_titles(fig: &Figure) {
-    fig.suptitle("");
-    for ax in fig.axes() {
-        ax.set_title("");
-        for axis in [ax.xaxis(), ax.yaxis()] {
-            axis.set_major_formatter(NullFormatter)
-                .set_minor_formatter(NullFormatter);
-        }
-    }
 }
 
 pub(crate) const CASES: &[FigureCase] = &[

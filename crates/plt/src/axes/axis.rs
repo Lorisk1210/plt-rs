@@ -41,6 +41,13 @@ pub struct TickSet {
     pub major_locs: Vec<f64>,
     /// Every location the minor locator gave, inside the view or not.
     pub minor_locs: Vec<f64>,
+    /// Every major tick with its label, inside the view or not
+    /// (matplotlib's `get_majorticklocs` and `get_majorticklabels`).
+    pub major_unclipped: Vec<Tick>,
+    /// Every minor tick not on a major one (unless overlapping locations
+    /// are kept) with its label, inside the view or not (matplotlib's
+    /// `get_minorticklocs` and `get_minorticklabels`).
+    pub minor_unclipped: Vec<Tick>,
     /// Offset or scale text shown at the end of the axis (e.g. `1e6`).
     pub offset: String,
 }
@@ -432,11 +439,17 @@ impl AxisState {
         let ctx = TickContext::new(&info, &self.settings);
         let (lo, hi) = (self.forward(geometry.view.0), self.forward(geometry.view.1));
         let visible = |loc: f64| interval_contains_close((lo, hi), self.forward(loc), 1e-10);
-        let collect = |locs: &[f64], labels: Vec<String>| {
+        let unclipped = |locs: &[f64], labels: Vec<String>| -> Vec<Tick> {
             locs.iter()
                 .zip(labels)
-                .filter(|(loc, _)| visible(**loc))
                 .map(|(&loc, label)| Tick { loc, label })
+                .collect()
+        };
+        let collect = |ticks: &[Tick]| {
+            ticks
+                .iter()
+                .filter(|tick| visible(tick.loc))
+                .cloned()
                 .collect()
         };
         // Like matplotlib's `_tick_group_visible`, a tick level whose
@@ -444,7 +457,8 @@ impl AxisState {
         let mut ticks = TickSet::default();
         if self.major_style.is_drawn() {
             let labels = self.major_formatter.format_ticks(&major_locs, &ctx)?;
-            ticks.major = collect(&major_locs, labels.labels);
+            ticks.major_unclipped = unclipped(&major_locs, labels.labels);
+            ticks.major = collect(&ticks.major_unclipped);
             ticks.offset = labels.offset;
             ticks.major_locs.clone_from(&major_locs);
         }
@@ -456,9 +470,10 @@ impl AxisState {
                 all_locs.clone()
             };
             let labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;
-            ticks.minor = collect(&minor_locs, labels.labels);
+            ticks.minor_unclipped = unclipped(&minor_locs, labels.labels);
+            ticks.minor = collect(&ticks.minor_unclipped);
             let labels = self.minor_formatter.format_ticks(&all_locs, &ctx)?;
-            ticks.minor_all = collect(&all_locs, labels.labels);
+            ticks.minor_all = collect(&unclipped(&all_locs, labels.labels));
             ticks.minor_locs = all_locs;
         }
         Ok(ticks)

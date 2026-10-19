@@ -195,8 +195,12 @@ pub fn minorticks_off() {
 
 /// Sets the autoscaling margins of the current axes as fractions of the
 /// data ranges (matplotlib's `margins(x, y)`).
-pub fn margins(x: f64, y: f64) {
-    gca().set_margins(x, y);
+///
+/// # Errors
+///
+/// When a margin is -0.5 or less, or not finite.
+pub fn margins(x: f64, y: f64) -> Result<(), PlotError> {
+    gca().set_margins(x, y).map(|_| ())
 }
 
 /// Autoscales one axis, or both when `None`, of the current axes
@@ -346,13 +350,17 @@ mod tests {
             ticklabel_format(&TicklabelFormat::default()).is_err(),
             "fixed labels now"
         );
+        let steps = LocatorParams {
+            steps: Some(vec![1.0, 2.0]),
+            ..LocatorParams::default()
+        };
         assert!(
-            locator_params(&LocatorParams::default()).is_err(),
-            "fixed ticks now"
+            locator_params(&steps).is_err(),
+            "fixed ticks take only nbins now"
         );
         minorticks_on();
         minorticks_off();
-        margins(0.1, 0.2);
+        margins(0.1, 0.2).unwrap();
         autoscale(Some(AxisName::X), Some(true));
         axis(AxisMode::Equal);
         r#box(None);

@@ -179,7 +179,7 @@ mod tests {
         assert_eq!(parts.fliers[0].ydata(), [20.0]);
         assert_eq!(parts.medians[0].color(), Color::from("C1"));
         assert_eq!(parts.medians[0].zorder(), 2.1);
-        ax.set_margins(0.0, 0.05);
+        ax.set_margins(0.0, 0.05).unwrap();
         assert_eq!(ax.xlim(), (0.5, 2.5));
         let ticks = ax.ticks(AxisName::X).unwrap();
         let labels: Vec<&str> = ticks.major.iter().map(|t| t.label.as_str()).collect();

@@ -372,40 +372,25 @@ impl Axes {
         self
     }
 
-    /// Changes the parameters of the default major locators (matplotlib's
-    /// `locator_params`) and re-autoscales the affected axes.
+    /// Changes the parameters of the major locators (matplotlib's
+    /// `locator_params`) and re-autoscales the affected axes. A
+    /// `MaxNLocator` (or `AutoLocator`) takes every parameter, a
+    /// `FixedLocator` (from [`Axis::set_ticks`]) only a fixed `nbins`,
+    /// which subsamples its ticks.
     ///
     /// # Errors
     ///
-    /// When an affected axis does not place its major ticks with a
-    /// `MaxNLocator` (or `AutoLocator`), or `steps` are invalid.
+    /// When an affected axis places its major ticks with another locator,
+    /// its locator does not take a given parameter, or `steps` are
+    /// invalid.
     pub fn locator_params(&self, params: &LocatorParams) -> Result<&Self, PlotError> {
         for name in [AxisName::X, AxisName::Y] {
             if params.axis.is_some_and(|only| only != name) {
                 continue;
             }
             let axis = self.axis_of(name);
-            let current = axis.read(|state| {
-                let locator: &dyn Any = state.major_locator.as_ref();
-                locator
-                    .downcast_ref::<AutoLocator>()
-                    .map(|auto| auto.as_max_n().clone())
-                    .or_else(|| locator.downcast_ref::<MaxNLocator>().cloned())
-            });
-            let mut locator = current.ok_or(PlotError::NotMaxNLocator(name))?;
-            if let Some(nbins) = params.nbins {
-                locator = locator.with_nbins(nbins);
-            }
-            if let Some(steps) = &params.steps {
-                locator = locator.with_steps(steps).map_err(PlotError::Ticker)?;
-            }
-            if let Some(integer) = params.integer {
-                locator = locator.with_integer(integer);
-            }
-            if let Some(symmetric) = params.symmetric {
-                locator = locator.with_symmetric(symmetric);
-            }
-            let locator: Rc<dyn Locator> = Rc::new(locator);
+            let locator = axis.read(|state| with_params(state.major_locator.as_ref(), params));
+            let locator = locator.ok_or(PlotError::NotMaxNLocator(name))??;
             axis.update_shared(|state| {
                 state.major_locator = Rc::clone(&locator);
                 state.autoscale.stale = true;
@@ -413,4 +398,42 @@ impl Axes {
         }
         Ok(self)
     }
+}
+
+/// `locator` with `params` applied (its `set_params`), `None` when it
+/// does not take them.
+fn with_params(
+    locator: &dyn Locator,
+    params: &LocatorParams,
+) -> Option<Result<Rc<dyn Locator>, PlotError>> {
+    let any: &dyn Any = locator;
+    if let Some(fixed) = any.downcast_ref::<FixedLocator>() {
+        let only_nbins =
+            params.steps.is_none() && params.integer.is_none() && params.symmetric.is_none();
+        return match (params.nbins, only_nbins) {
+            (Some(Nbins::Fixed(nbins)), true) => Some(Ok(Rc::new(fixed.clone().with_nbins(nbins)))),
+            (None, true) => Some(Ok(Rc::new(fixed.clone()))),
+            _ => None,
+        };
+    }
+    let mut locator = any
+        .downcast_ref::<AutoLocator>()
+        .map(|auto| auto.as_max_n().clone())
+        .or_else(|| any.downcast_ref::<MaxNLocator>().cloned())?;
+    if let Some(nbins) = params.nbins {
+        locator = locator.with_nbins(nbins);
+    }
+    if let Some(steps) = &params.steps {
+        locator = match locator.with_steps(steps) {
+            Ok(locator) => locator,
+            Err(err) => return Some(Err(PlotError::Ticker(err))),
+        };
+    }
+    if let Some(integer) = params.integer {
+        locator = locator.with_integer(integer);
+    }
+    if let Some(symmetric) = params.symmetric {
+        locator = locator.with_symmetric(symmetric);
+    }
+    Some(Ok(Rc::new(locator)))
 }

@@ -110,6 +110,12 @@ impl AspectState {
         }
     }
 
+    /// Draws the axes at `active` until the aspect is next applied to the
+    /// `original` position.
+    pub(crate) fn set_active(&mut self, original: Bbox, active: Bbox) {
+        self.active = Some((original, active));
+    }
+
     fn anchor(&self) -> Anchor {
         self.anchor.unwrap_or(Anchor::C)
     }
@@ -171,6 +177,33 @@ impl Axes {
         Ok(self)
     }
 
+    /// Sets the aspect and the adjustable of this axes and of every axes
+    /// sharing its x or y axis (matplotlib's `set_aspect(...,
+    /// adjustable=..., share=True)`).
+    ///
+    /// # Errors
+    ///
+    /// When a numeric ratio is not finite and positive.
+    pub fn set_shared_aspect(
+        &self,
+        aspect: Aspect,
+        adjustable: Adjustable,
+    ) -> Result<&Self, AspectError> {
+        let ratio = ratio_of(aspect)?;
+        let figure = self.raw.figure_state();
+        let mut state = figure.borrow_mut();
+        let mut group = state.siblings(AxisName::X, self.id());
+        group.extend(state.siblings(AxisName::Y, self.id()));
+        for id in group {
+            if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+                axes.aspect.ratio = ratio;
+                axes.aspect.adjustable = adjustable;
+            }
+        }
+        state.stale = true;
+        Ok(self)
+    }
+
     /// The aspect: [`Aspect::Auto`] or the fixed [`Aspect::Ratio`].
     pub fn aspect(&self) -> Aspect {
         self.raw
@@ -203,9 +236,9 @@ impl Axes {
         self.raw.with::<AxesState, _>(|axes| axes.aspect.anchor())
     }
 
-    /// Fixes the height/width ratio of the axes box itself, independent of
-    /// the data (matplotlib's `set_box_aspect`); a ratio switches the
-    /// adjustable to [`Adjustable::Datalim`].
+    /// Fixes the height/width ratio of the box of this axes and of its
+    /// twins, independent of the data (matplotlib's `set_box_aspect`); a
+    /// ratio switches their adjustable to [`Adjustable::Datalim`].
     ///
     /// # Errors
     ///
@@ -214,12 +247,14 @@ impl Axes {
         if let Some(ratio) = ratio {
             ratio_of(Aspect::Ratio(ratio))?;
         }
-        self.raw.with_mut::<AxesState, _>(|axes| {
-            if ratio.is_some() {
-                axes.aspect.adjustable = Adjustable::Datalim;
-            }
-            axes.aspect.box_aspect = ratio;
-        });
+        for twin in self.twins() {
+            twin.raw.with_mut::<AxesState, _>(|axes| {
+                if ratio.is_some() {
+                    axes.aspect.adjustable = Adjustable::Datalim;
+                }
+                axes.aspect.box_aspect = ratio;
+            });
+        }
         Ok(self)
     }
 
@@ -332,7 +367,11 @@ impl FigureState {
             .and_then(|locator| locator.box_aspect)
             .or(settings.box_aspect);
         let data_ratio = state.data_ratio();
-        let frame = state.base().parent.and_then(|f| self.frame_bbox(f));
+        // Insets and secondary axes are placed in their host axes.
+        let frame = state
+            .base()
+            .parent
+            .and_then(|f| self.frame_bbox(f).or_else(|| self.axes_bbox(f)));
         let active = if settings.ratio.is_none() && box_aspect.is_none() {
             Some(located)
         } else if let Some(frame) = frame {
@@ -541,5 +580,27 @@ mod tests {
     fn data_ratio_uses_scaled_bounds() {
         let (_fig, ax) = axes_with_limits((0.0, 4.0), (2.0, 0.0));
         assert_eq!(ax.data_ratio(), 0.5);
+    }
+
+    #[test]
+    fn a_shared_aspect_reaches_the_axes_sharing_an_axis() {
+        // matplotlib's test_shared_with_aspect_1.
+        let fig = Figure::new();
+        let axs = fig
+            .subplots_shared(2, 1, crate::figure::Share::All, crate::figure::Share::None)
+            .unwrap();
+        let (top, bottom) = (&axs[(0, 0)], &axs[(1, 0)]);
+        top.set_aspect(Aspect::Ratio(2.0)).unwrap();
+        assert_eq!(bottom.aspect(), Aspect::Auto, "unshared by default");
+        top.set_shared_aspect(Aspect::Ratio(2.0), Adjustable::Datalim)
+            .unwrap();
+        assert_eq!(
+            (bottom.aspect(), bottom.adjustable()),
+            (Aspect::Ratio(2.0), Adjustable::Datalim)
+        );
+        assert!(
+            top.set_shared_aspect(Aspect::Ratio(-1.0), Adjustable::Box)
+                .is_err()
+        );
     }
 }

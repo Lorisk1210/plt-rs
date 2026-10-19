@@ -89,9 +89,14 @@ impl FigureState {
             }
         }
         for (name, share) in [(AxisName::X, shares.0), (AxisName::Y, shares.1)] {
-            if let Some(other) = share {
+            match share {
                 // Sharing again with the same partner cannot fail.
-                let _ = self.share_axis(name, id, other);
+                Some(other) => {
+                    let _ = self.share_axis(name, id, other);
+                }
+                // matplotlib's `axis._set_lim(0, 1, auto=True)`, which the
+                // axes sharing this one follow.
+                None => self.set_axis_limits(id, name, (0.0, 1.0), Some(true), true),
             }
         }
         self.stale = true;
@@ -162,6 +167,22 @@ mod tests {
         assert_eq!(bottom.xlim(), (2.0, 3.0));
         bottom.set_xlim(4.0, 5.0);
         assert_eq!(top.xlim(), (4.0, 5.0), "still shared");
+    }
+
+    #[test]
+    fn clearing_the_leader_resets_its_followers() {
+        // matplotlib's test_inverted_cla: the leader's `_set_lim(0, 1)`
+        // reaches the axes sharing its y axis.
+        let fig = Figure::new();
+        let leader = fig.add_subplot(2, 1, 1).unwrap();
+        let follower = fig.add_subplot(2, 1, 2).unwrap();
+        follower.share_y(&leader).unwrap();
+        leader.yaxis().set_inverted(true);
+        follower.plot([0.0, 1.0], [5.0, 6.0]).unwrap();
+        assert!(follower.yaxis().inverted());
+        leader.clear();
+        assert_eq!(follower.ylim(), (0.0, 1.0));
+        assert!(follower.autoscale_on(Some(AxisName::Y)));
     }
 
     #[test]

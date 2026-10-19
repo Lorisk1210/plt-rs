@@ -88,6 +88,10 @@ pub enum PlotError {
         /// Number of datasets.
         datasets: usize,
     },
+    /// A view limit that is NaN or infinite.
+    NonFiniteLimit(AxisName),
+    /// An autoscaling margin of -0.5 or less, or not finite.
+    InvalidMargin(f64),
     /// A side that the axis cannot be drawn on (e.g. `Left` for x).
     WrongSide {
         /// The axis.
@@ -166,6 +170,15 @@ impl fmt::Display for PlotError {
                     "{:?} is not a side of the {}-axis",
                     side.name(),
                     axis.name()
+                )
+            }
+            Self::NonFiniteLimit(axis) => {
+                write!(f, "{}-axis limits cannot be NaN or Inf", axis.name())
+            }
+            Self::InvalidMargin(margin) => {
+                write!(
+                    f,
+                    "margin must be finite and greater than -0.5, got {margin}"
                 )
             }
             Self::NormWithLimits => f.write_str(

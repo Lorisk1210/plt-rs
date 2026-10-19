@@ -318,6 +318,18 @@ impl AxesState {
             }
         }
         let reverse = v0 > v1;
+        let (v0, v1) = self.nonsingular(name, v0, v1);
+        let (_, minpos) = self.data_interval(name);
+        let (v0, v1) = axis.scale().limit_range_for_scale(v0, v1, minpos);
+        let (low, high) = if v0 <= v1 { (v0, v1) } else { (v1, v0) };
+        if reverse { (high, low) } else { (low, high) }
+    }
+
+    /// The interval `(v0, v1)` made safe for one axis by its major locator
+    /// (matplotlib's `locator.nonsingular`); `(-inf, inf)` gives the
+    /// locator's default limits.
+    pub(crate) fn nonsingular(&self, name: AxisName, v0: f64, v1: f64) -> (f64, f64) {
+        let axis = self.axis(name);
         let (data, minpos) = self.data_interval(name);
         let info = axis.info(&AxisGeometry {
             view: self.view_interval(name),
@@ -328,10 +340,7 @@ impl AxesState {
             tick_floor: None,
         });
         let ctx = TickContext::new(&info, &axis.settings);
-        let (v0, v1) = axis.major_locator.nonsingular(v0, v1, &ctx);
-        let (v0, v1) = axis.scale().limit_range_for_scale(v0, v1, minpos);
-        let (low, high) = if v0 <= v1 { (v0, v1) } else { (v1, v0) };
-        if reverse { (high, low) } else { (low, high) }
+        axis.major_locator.nonsingular(v0, v1, &ctx)
     }
 
     /// Widens the view interval of one axis to include `low..=high`,

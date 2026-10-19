@@ -67,6 +67,7 @@ mod tripcolor;
 mod triplot;
 mod twins;
 mod view;
+mod view_limits;
 mod violin;
 
 pub use crate::ticker::AxisName;
@@ -114,6 +115,7 @@ pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
 pub use tripcolor::{TriShading, TriValues, Tripcolor, TripcolorError, TripcolorOptions};
 pub use triplot::TriplotLines;
+pub use view_limits::Limits;
 pub use violin::{ViolinDrawOptions, ViolinParts, ViolinSide, ViolinplotOptions};
 
 use plt_core::Bbox;
@@ -139,6 +141,19 @@ pub enum TitleLocation {
     Center,
     /// Flush right.
     Right,
+}
+
+/// Which position of an axes [`Axes::set_position_which`] sets
+/// (matplotlib's `which`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum WhichPosition {
+    /// The original and the active position.
+    #[default]
+    Both,
+    /// The position before any aspect adjustment.
+    Original,
+    /// The position drawn, until the aspect is next applied.
+    Active,
 }
 
 /// A handle to one axes of a figure.
@@ -200,19 +215,54 @@ impl Axes {
     }
 
     /// Placement as a fraction of the figure (or subfigure), after the
-    /// aspect adjustment (matplotlib's `get_position`).
+    /// aspect adjustment (matplotlib's `get_position`). Insets and
+    /// secondary axes, which are placed in their host axes, are reported
+    /// in the host's figure fractions too.
     pub fn position(&self) -> Bbox {
+        let host = self.host().map(|host| host.position());
         self.apply_aspect();
-        self.raw
-            .with::<AxesState, _>(|a| a.aspect.active_position(&a.position))
+        let active = self
+            .raw
+            .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));
+        host.map_or(active, |host| {
+            active.transformed(&crate::transforms::unit_to_bbox(&host))
+        })
     }
 
-    /// Moves the axes to `[left, bottom, width, height]` in figure fractions.
+    /// The axes this one is placed in (insets, secondary axes).
+    fn host(&self) -> Option<Self> {
+        let figure = self.raw.figure_state();
+        let parent = self.raw.with::<AxesState, _>(|a| a.base().parent)?;
+        let is_axes = figure.borrow().store.get_as::<AxesState>(parent).is_some();
+        is_axes.then(|| Self::from_raw(RawHandle::new(Rc::clone(figure), parent)))
+    }
+
+    /// Moves the axes and its twins to `[left, bottom, width, height]` in
+    /// figure fractions, out of the layout engine's control (matplotlib's
+    /// `set_position`).
     pub fn set_position(&self, rect: [f64; 4]) -> &Self {
+        self.set_position_which(rect, WhichPosition::Both)
+    }
+
+    /// Moves the axes and its twins to `[left, bottom, width, height]` in
+    /// figure fractions: the position before any aspect adjustment, the
+    /// one drawn until the aspect is next applied, or both (matplotlib's
+    /// `set_position(pos, which=...)`). The layout engine leaves this axes
+    /// alone from now on.
+    pub fn set_position_which(&self, rect: [f64; 4], which: WhichPosition) -> &Self {
+        self.set_in_layout(false);
         let [left, bottom, width, height] = rect;
-        self.raw.with_mut::<AxesState, _>(|a| {
-            a.position = Bbox::from_bounds(left, bottom, width, height);
-        });
+        let position = Bbox::from_bounds(left, bottom, width, height);
+        for twin in self.twins() {
+            twin.raw.with_mut::<AxesState, _>(|a| {
+                if which != WhichPosition::Active {
+                    a.position = position;
+                }
+                if which != WhichPosition::Original {
+                    a.aspect.set_active(a.position, position);
+                }
+            });
+        }
         self
     }
 
@@ -337,67 +387,6 @@ impl Axes {
     /// `bottom > top` inverts the axis.
     pub fn set_ylim(&self, bottom: f64, top: f64) -> &Self {
         self.set_limits(AxisName::Y, bottom, top)
-    }
-
-    /// Sets the view limits of one axis, and of the axes sharing it, and
-    /// turns its autoscaling off (matplotlib's `set_xlim(..., auto=False)`).
-    /// Singular limits are expanded and limits a log axis cannot show are
-    /// ignored, as in matplotlib.
-    pub fn set_limits(&self, axis: AxisName, low: f64, high: f64) -> &Self {
-        self.raw.figure_state().borrow_mut().set_axis_limits(
-            self.id(),
-            axis,
-            (low, high),
-            Some(false),
-            true,
-        );
-        self
-    }
-
-    /// Sets the padding added around the data when autoscaling, as a
-    /// fraction of the data span (matplotlib's `margins`).
-    pub fn set_margins(&self, x: f64, y: f64) -> &Self {
-        self.raw.with_mut::<AxesState, _>(|a| {
-            a.xaxis.autoscale.margin = x;
-            a.yaxis.autoscale.margin = y;
-            a.xaxis.autoscale.stale = true;
-            a.yaxis.autoscale.stale = true;
-        });
-        self
-    }
-
-    /// Turns autoscaling of both axes on or off.
-    pub fn set_autoscale_on(&self, on: bool) -> &Self {
-        self.raw.with_mut::<AxesState, _>(|a| {
-            a.xaxis.autoscale.enabled = on;
-            a.yaxis.autoscale.enabled = on;
-            a.xaxis.autoscale.stale = on;
-            a.yaxis.autoscale.stale = on;
-        });
-        self
-    }
-
-    /// Autoscales one axis (or both) from now on (matplotlib's
-    /// `autoscale(enable=True, axis=..., tight=...)`); `tight` drops the
-    /// margins and skips rounding the view to ticks.
-    pub fn autoscale(&self, axis: Option<AxisName>, tight: Option<bool>) -> &Self {
-        self.raw.with_mut::<AxesState, _>(|a| {
-            for name in [AxisName::X, AxisName::Y] {
-                if axis.is_some_and(|only| only != name) {
-                    continue;
-                }
-                let autoscale = &mut a.axis_mut(name).autoscale;
-                autoscale.enabled = true;
-                autoscale.stale = true;
-                if tight == Some(true) {
-                    autoscale.margin = 0.0;
-                }
-            }
-            if let Some(tight) = tight {
-                a.tight = tight;
-            }
-        });
-        self
     }
 
     /// Hides the patch, spines and both axes, leaving titles and plotted

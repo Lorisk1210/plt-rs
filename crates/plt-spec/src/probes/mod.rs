@@ -315,6 +315,9 @@ const AREAS: &[(&str, &[Op])] = &[
     ("navigation", areas::navigation::OPS),
     ("widgets", areas::widgets::OPS),
     ("mosaic", areas::mosaic::OPS),
+    ("axes_behaviour", areas::axes_behaviour::OPS),
+    ("legend_behaviour", areas::legend_behaviour::OPS),
+    ("colorbar_behaviour", areas::colorbar_behaviour::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

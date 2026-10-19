@@ -163,7 +163,7 @@ fn subplot2grid_twin(fig: &Figure) -> CaseResult {
         };
         pyplot::scatter_with(&x, map(&x, |v| (3.0 * v).sin()), colors)?;
         pyplot::xticks(vec![0.0, 1.5, 3.0], &["start", "middle", "end"])?;
-        pyplot::margins(0.2, 0.1);
+        pyplot::margins(0.2, 0.1)?;
         pyplot::subplot2grid((3, 3), (1, 2), 2, 1)?;
         let head = &x[..8];
         pyplot::step(

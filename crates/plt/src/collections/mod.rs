@@ -523,6 +523,27 @@ impl Collection {
         self.raw.with::<CollectionArtist, _>(|c| c.offsets.clone())
     }
 
+    /// Moves the items to `offsets`; the data limits of the axes follow
+    /// at the next [`Axes::relim`](crate::axes::Axes::relim) (matplotlib's
+    /// `set_offsets`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let dots = ax.scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// dots.set_offsets(vec![Point::new(10.0, 20.0), Point::new(30.0, 40.0)]);
+    /// assert_eq!(ax.data_lim().bbox.p1, Point::new(2.0, 4.0), "until relim");
+    /// ax.relim(false);
+    /// assert_eq!(ax.data_lim().bbox.p1, Point::new(30.0, 40.0));
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn set_offsets(&self, offsets: Vec<Point>) -> &Self {
+        self.raw
+            .with_mut::<CollectionArtist, _>(|c| c.offsets = offsets);
+        self
+    }
+
     /// The item shapes.
     pub fn paths(&self) -> Vec<Path> {
         self.raw.with::<CollectionArtist, _>(|c| c.paths.clone())

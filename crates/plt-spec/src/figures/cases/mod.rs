@@ -22,6 +22,7 @@ mod mpl_axes_a;
 mod mpl_axes_b;
 mod mpl_axes_c;
 mod mpl_small;
+mod mpl_tests;
 mod mplot3d;
 mod offsetbox;
 mod patches;

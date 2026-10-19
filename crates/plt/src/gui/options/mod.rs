@@ -12,7 +12,6 @@ use plt_ui::{Dropdown, Flex, Label, Spacing, Stack, Swatch, UiWindow, WidgetId};
 use self::axes_page::AxesPage;
 use super::GuiError;
 use super::dialog::{self, Dialog};
-use crate::axes::TitleLocation;
 use crate::figure::Figure;
 
 /// What the dialog's widgets report.
@@ -113,7 +112,7 @@ impl OptionsDialog {
             let names = axes
                 .iter()
                 .enumerate()
-                .map(|(i, ax)| axes_name(&ax.title(TitleLocation::Center), i))
+                .map(|(i, ax)| axes_name(&ax.shown_title().1, i))
                 .collect();
             let chooser = Flex::row()
                 .with_spacing(Spacing::Md)

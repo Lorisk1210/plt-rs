@@ -10,7 +10,7 @@ use super::ticks::{GridOptions, Sides, TickPosition, TickStyle};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
-use crate::fonts::FontSize;
+use crate::fonts::{FontSize, FontWeight};
 use crate::spines::SpineSide;
 use crate::ticker::{
     AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator, NullFormatter,
@@ -369,6 +369,13 @@ impl Axis {
         self
     }
 
+    /// Sets the font weight of the axis label (matplotlib's
+    /// `set_xlabel(..., fontweight=...)`).
+    pub fn set_label_weight(&self, weight: FontWeight) -> &Self {
+        self.update(|axis| axis.label.font.weight = weight);
+        self
+    }
+
     /// The side the axis label sits on.
     pub fn label_position(&self) -> SpineSide {
         self.axes
@@ -547,5 +554,23 @@ impl Axes {
     ) -> Result<&Self, PlotError> {
         self.yaxis().set_ticklabels(labels)?;
         Ok(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::artist::ArtistHandle;
+    use crate::axes::AxesState;
+    use crate::figure::Figure;
+    use crate::fonts::FontWeight;
+
+    #[test]
+    fn label_weight_changes_only_that_axis_label() {
+        let ax = Figure::new().subplot();
+        ax.yaxis().set_label_weight(FontWeight::BOLD);
+        let weights = ax.raw().with::<AxesState, _>(|axes| {
+            (axes.xaxis.label.font.weight, axes.yaxis.label.font.weight)
+        });
+        assert_eq!(weights, (FontWeight::NORMAL, FontWeight::BOLD));
     }
 }

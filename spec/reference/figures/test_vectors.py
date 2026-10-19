@@ -4,7 +4,9 @@ and compare with (or write) the vector goldens next to their PNG goldens.
 The subset covers lines, markers, dashes, alpha, text and mathtext, text in
 the standard PostScript fonts (``pdf.use14corefonts``, ``ps.useafm``), text
 shaped with OpenType features and languages, images, clipping, hatches,
-Gouraud shading, polar axes, collections, rasterized artists and colorbars.
+Gouraud shading, polar axes, collections, rasterized artists and colorbars,
+plus the figures of matplotlib's own PDF, PostScript and SVG backend tests
+(``mpl_backends``).
 Some cases are saved again with other font settings (Type 42 fonts, SVG text
 as text, standard PostScript fonts), and two cases are collected into one
 multi-page PDF. plt-rs compares its own documents with these structurally
@@ -46,6 +48,32 @@ VECTOR_CASES = [
     "lines/joinstyles",
     "lines/linestyles_dash_tuples",
     "lines/markers_filled",
+    "mpl_backends/multi_font",
+    "mpl_backends/pdf_eps_savefig_when_color_is_none",
+    "mpl_backends/pdf_grayscale_alpha",
+    "mpl_backends/pdf_hatching_legend",
+    "mpl_backends/pdf_hexbin_negative_offsets",
+    "mpl_backends/pdf_kerning",
+    "mpl_backends/pdf_scatter_large_markers_partial_clip",
+    "mpl_backends/pdf_scatter_logscale",
+    "mpl_backends/pdf_scatter_mixed_onoff_axis",
+    "mpl_backends/pdf_scatter_offaxis_colored_visual",
+    "mpl_backends/pdf_scatter_polar",
+    "mpl_backends/pdf_use14corefonts",
+    "mpl_backends/ps_colorbar_shift",
+    "mpl_backends/ps_colored_hatch_zero_linewidth",
+    "mpl_backends/ps_path_collection",
+    "mpl_backends/ps_text_clip",
+    "mpl_backends/ps_transparency",
+    "mpl_backends/ps_type42_font_without_prep",
+    "mpl_backends/ps_useafm",
+    "mpl_backends/svg_bold_font_output",
+    "mpl_backends/svg_bold_font_output_with_none_fonttype",
+    "mpl_backends/svg_fill_black_with_alpha",
+    "mpl_backends/svg_noscale",
+    "mpl_backends/svg_prevent_rasterization",
+    "mpl_backends/svg_rasterized",
+    "mpl_backends/svg_rasterized_ordering",
     "patches/clip_path_artists",
     "patches/hatches_basic",
     "patches/linecollection_styles",
@@ -78,6 +106,8 @@ VECTOR_VARIANTS = [
     ("vectors/text_fonts", "nofont", {"svg.fonttype": "none"}, ["svg"]),
     ("shaping/features", "type42", {"pdf.fonttype": 42, "ps.fonttype": 42}, ["pdf", "ps"]),
     ("shaping/features", "afm", {"pdf.use14corefonts": True, "ps.useafm": True}, ["pdf", "ps"]),
+    ("mpl_backends/multi_font", "type42", {"pdf.fonttype": 42, "ps.fonttype": 42}, ["pdf", "ps"]),
+    ("mpl_backends/multi_font", "astext", {"svg.fonttype": "none"}, ["svg"]),
 ]
 
 #: Cases collected, one per page, into ``vectors/pages.pdf``; a note is

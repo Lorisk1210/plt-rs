@@ -49,6 +49,7 @@ pub use handle::{HandlerTuple, LegendHandle};
 pub(crate) use layout::lay_out_legends;
 pub use options::{
     BboxToAnchor, LegendAlignment, LegendLabelColor, LegendLoc, LegendMode, LegendOptions,
+    LegendShadow, LegendShadowStyle,
 };
 pub(crate) use settings::OutsideEdge;
 
@@ -141,7 +142,7 @@ impl Legend {
     /// Shows or hides the frame and its shadow (matplotlib's
     /// `set_frame_on`).
     pub fn set_frame_on(&self, on: bool) -> &Self {
-        let (frame, shadow) = self.read(|legend| (legend.frame, legend.shadow));
+        let (frame, shadow) = self.read(|legend| (legend.frame, legend.shadow_id()));
         for id in std::iter::once(frame).chain(shadow) {
             self.handle(id).with_base_mut(|base| base.visible = on);
         }

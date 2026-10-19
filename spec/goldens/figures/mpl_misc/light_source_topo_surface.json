@@ -1,0 +1,123 @@
+{
+ "size_px": [800, 600],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.165441, 0.664706, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.438971, 0.664706, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.7125, 0.664706, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.165441, 0.382353, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.438971, 0.382353, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.7125, 0.382353, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.165441, 0.1, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.438971, 0.1, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.7125, 0.1, 0.147059, 0.235294],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [119.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

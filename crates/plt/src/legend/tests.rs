@@ -6,6 +6,7 @@ use super::*;
 use crate::axes::{BarOptions, ErrorbarOptions};
 use crate::colors::Color;
 use crate::lines::LineProps;
+use crate::patches::{PatchProps, Shadow};
 
 fn labelled(label: &str) -> LineProps {
     LineProps::default().label(label)
@@ -218,6 +219,53 @@ fn invalid_options_are_errors() {
         LegendError::Color(_)
     ));
     assert_eq!(ax.get_legend(), None, "failed legends leave nothing behind");
+}
+
+#[test]
+fn shadow_styles_move_and_recolour_the_shadow() {
+    let (fig, ax) = canvas();
+    ax.plot_with([0.0, 1.0], [0.0, 1.0], labelled("line"))
+        .unwrap();
+    let style = LegendShadowStyle {
+        ox: 10.0,
+        oy: -5.0,
+        props: PatchProps::default().color("red").alpha(0.1),
+        ..LegendShadowStyle::default()
+    };
+    let legend = ax.legend(LegendOptions::default().shadow(style)).unwrap();
+    let frame = frame_extent(&fig, &legend);
+    let id = legend.read(LegendArtist::shadow_id).expect("a shadow");
+    let shadow = Patch::<Shadow<FancyBboxPatch>>::from_raw(legend.handle(id));
+    let red = Color::from("red").resolve().unwrap();
+    assert_eq!(shadow.colors().unwrap().face, red.with_alpha(0.1));
+    let moved = shadow.window_extent().unwrap();
+    assert!((moved.x0() - frame.x0() - 10.0).abs() < 1e-9);
+    assert!((moved.y0() - frame.y0() + 5.0).abs() < 1e-9);
+    assert_eq!(
+        legend.frame().alpha(),
+        Some(1.0),
+        "a shadow makes the frame opaque"
+    );
+}
+
+#[test]
+fn shadows_follow_the_option_over_the_rc_parameter() {
+    let (_, ax) = canvas();
+    ax.plot_with([0.0, 1.0], [0.0, 1.0], labelled("line"))
+        .unwrap();
+    let shadowless = |options: LegendOptions| {
+        let legend = ax.legend(options).unwrap();
+        legend.read(LegendArtist::shadow_id).is_none()
+    };
+    assert!(shadowless(LegendOptions::default()));
+    assert!(!shadowless(LegendOptions::default().shadow(true)));
+    crate::rc::context(|| {
+        crate::rc::set("legend.shadow", "True").unwrap();
+        assert!(!shadowless(LegendOptions::default()));
+        assert!(shadowless(
+            LegendOptions::default().shadow(LegendShadow::Off)
+        ));
+    });
 }
 
 #[test]

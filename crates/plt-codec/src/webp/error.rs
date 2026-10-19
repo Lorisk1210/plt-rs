@@ -1,4 +1,4 @@
-//! Why WebP data could not be decoded.
+//! Why WebP data could not be decoded or encoded.
 
 use std::fmt;
 
@@ -72,3 +72,41 @@ impl fmt::Display for DecodeError {
 }
 
 impl std::error::Error for DecodeError {}
+
+/// Why pixels could not be encoded as WebP.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EncodeError {
+    /// A side is zero or larger than WebP's 16 384 pixels.
+    InvalidDimensions {
+        /// The requested width.
+        width: u32,
+        /// The requested height.
+        height: u32,
+    },
+    /// The pixel data does not have `width × height × 4` bytes.
+    DataLengthMismatch {
+        /// The bytes needed.
+        expected: usize,
+        /// The bytes given.
+        actual: usize,
+    },
+    /// An animation without frames.
+    NoFrames,
+}
+
+impl fmt::Display for EncodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidDimensions { width, height } => write!(
+                f,
+                "a WebP cannot be {width} × {height} pixels (each side must be 1 to 16384)"
+            ),
+            Self::DataLengthMismatch { expected, actual } => {
+                write!(f, "{actual} bytes of pixel data, expected {expected}")
+            }
+            Self::NoFrames => f.write_str("an animation needs at least one frame"),
+        }
+    }
+}
+
+impl std::error::Error for EncodeError {}

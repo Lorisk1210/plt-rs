@@ -5,7 +5,9 @@
 //! Pixels are ARGB words: alpha in the top byte, then red, green, blue.
 
 /// Opaque black, the prediction of the first pixel.
-const BLACK: u32 = 0xFF00_0000;
+pub(super) const BLACK: u32 = 0xFF00_0000;
+/// The predictor modes a tile can use.
+pub(super) const PREDICTOR_MODES: u32 = 14;
 
 /// A transform read from the bitstream, with what undoing it needs.
 #[derive(Clone, Debug)]
@@ -103,7 +105,7 @@ impl Transform {
 }
 
 /// Adds two pixels channel by channel, modulo 256.
-fn add_pixels(a: u32, b: u32) -> u32 {
+pub(super) fn add_pixels(a: u32, b: u32) -> u32 {
     let alpha_green = (a & 0xFF00_FF00).wrapping_add(b & 0xFF00_FF00);
     let red_blue = (a & 0x00FF_00FF).wrapping_add(b & 0x00FF_00FF);
     (alpha_green & 0xFF00_FF00) | (red_blue & 0x00FF_00FF)
@@ -149,10 +151,17 @@ fn clamped_add_subtract_half(a: u32, b: u32, c: u32) -> u32 {
     }))
 }
 
+/// Subtracts pixel `b` from `a` channel by channel, modulo 256.
+pub(super) fn sub_pixels(a: u32, b: u32) -> u32 {
+    let alpha_green = (a | 0x00FF_00FF).wrapping_sub(b & 0xFF00_FF00);
+    let red_blue = (a | 0xFF00_FF00).wrapping_sub(b & 0x00FF_00FF);
+    (alpha_green & 0xFF00_FF00) | (red_blue & 0x00FF_00FF)
+}
+
 /// The prediction of mode `mode` for the pixel at `index` of rows of
 /// `width`, from its decoded neighbours. The top-right neighbour of a
 /// row's last pixel is the first pixel of its own row, as in libwebp.
-fn predict(mode: u32, pixels: &[u32], index: usize, width: usize) -> u32 {
+pub(super) fn predict(mode: u32, pixels: &[u32], index: usize, width: usize) -> u32 {
     let left = pixels[index - 1];
     let top = pixels[index - width];
     let top_left = pixels[index - width - 1];
@@ -218,6 +227,17 @@ fn recorrelate(tiles: &TileImage, pixels: &mut [u32]) {
     }
 }
 
+/// Subtracts green from red and blue, each modulo 256.
+pub(super) fn subtract_green(pixel: u32) -> u32 {
+    let [alpha, red, green, blue] = pixel.to_be_bytes();
+    u32::from_be_bytes([
+        alpha,
+        red.wrapping_sub(green),
+        green,
+        blue.wrapping_sub(green),
+    ])
+}
+
 /// Adds green back to red and blue.
 fn add_green(pixel: u32) -> u32 {
     let green = (pixel >> 8) & 0xFF;
@@ -262,6 +282,16 @@ mod tests {
             argb(127, 1, 254, 10)
         );
         assert_eq!(add_green(argb(9, 250, 10, 1)), argb(9, 4, 10, 11));
+        assert_eq!(subtract_green(argb(9, 4, 10, 11)), argb(9, 250, 10, 1));
+        // A blue below green must not borrow from red.
+        assert_eq!(subtract_green(argb(0, 50, 20, 5)), argb(0, 30, 20, 241));
+        assert_eq!(
+            add_green(subtract_green(argb(7, 50, 20, 5))),
+            argb(7, 50, 20, 5)
+        );
+        let (a, b) = (argb(3, 200, 0, 7), argb(250, 201, 1, 255));
+        assert_eq!(add_pixels(sub_pixels(a, b), b), a);
+        assert_eq!(sub_pixels(a, b), argb(9, 255, 255, 8));
     }
 
     #[test]

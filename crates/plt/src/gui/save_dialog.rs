@@ -15,11 +15,12 @@ use crate::figure::{Figure, SaveFormat};
 const LISTED_ROWS: usize = 10;
 
 /// The formats offered, in the order shown.
-const FORMATS: [SaveFormat; 8] = [
+const FORMATS: [SaveFormat; 9] = [
     SaveFormat::Png,
     SaveFormat::Jpeg,
     SaveFormat::Tiff,
     SaveFormat::Gif,
+    SaveFormat::Webp,
     SaveFormat::Svg,
     SaveFormat::Pdf,
     SaveFormat::Ps,
@@ -456,7 +457,8 @@ mod tests {
     fn names_and_formats() {
         assert_eq!(default_name("Figure 1", SaveFormat::Png), "Figure_1.png");
         assert_eq!(default_name("", SaveFormat::Pdf), "image.pdf");
-        assert_eq!(format_of("plot.SVG"), Some(4));
+        assert_eq!(format_of("plot.SVG"), Some(5));
+        assert_eq!(format_of("frame.webp"), Some(4));
         assert_eq!(format_of("photo.jpeg"), Some(1));
         assert_eq!(format_of("scan.tiff"), Some(2));
         assert_eq!(format_of("notes.txt"), None);

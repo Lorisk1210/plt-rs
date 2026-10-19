@@ -83,6 +83,8 @@ pub enum SaveFormat {
     Tiff,
     /// A single-frame GIF.
     Gif,
+    /// Lossless WebP.
+    Webp,
     /// The bare RGBA bytes of the canvas (`raw` or `rgba`).
     Raw,
 }
@@ -100,6 +102,7 @@ impl SaveFormat {
             Self::Jpeg => "jpg",
             Self::Tiff => "tif",
             Self::Gif => "gif",
+            Self::Webp => "webp",
             Self::Raw => "raw",
         }
     }
@@ -112,6 +115,7 @@ impl SaveFormat {
             Self::Jpeg => Some(BitmapFormat::Jpeg),
             Self::Tiff => Some(BitmapFormat::Tiff),
             Self::Gif => Some(BitmapFormat::Gif),
+            Self::Webp => Some(BitmapFormat::Webp),
             Self::Raw => Some(BitmapFormat::Raw),
             Self::Svg | Self::Svgz | Self::Pdf | Self::Ps | Self::Eps => None,
         }
@@ -133,6 +137,7 @@ impl FromStr for SaveFormat {
             "jpg" | "jpeg" => Self::Jpeg,
             "tif" | "tiff" => Self::Tiff,
             "gif" => Self::Gif,
+            "webp" => Self::Webp,
             "raw" | "rgba" => Self::Raw,
             _ => return Err(SaveError::UnsupportedFormat(name.to_owned())),
         })
@@ -267,6 +272,7 @@ impl Figure {
             SaveFormat::Jpeg => self.to_bitmap(BitmapFormat::Jpeg, options),
             SaveFormat::Tiff => self.to_bitmap(BitmapFormat::Tiff, options),
             SaveFormat::Gif => self.to_bitmap(BitmapFormat::Gif, options),
+            SaveFormat::Webp => self.to_bitmap(BitmapFormat::Webp, options),
             SaveFormat::Raw => self.to_bitmap(BitmapFormat::Raw, options),
         }
     }
@@ -290,7 +296,7 @@ impl Figure {
     }
 
     /// Writes the figure to `path` in the format its extension names
-    /// (PNG, JPEG, TIFF, GIF, raw RGBA, SVG, SVGZ, PDF, PS or EPS;
+    /// (PNG, JPEG, TIFF, GIF, WebP, raw RGBA, SVG, SVGZ, PDF, PS or EPS;
     /// `savefig.format` and an appended extension without one).
     pub fn savefig(&self, path: impl AsRef<FsPath>) -> Result<(), SaveError> {
         self.savefig_with(path, &SaveOptions::default())
@@ -471,6 +477,10 @@ mod tests {
         assert_eq!(&tiff[190..198], [30, 0, 0, 0, 1, 0, 0, 0], "x resolution");
         let gif = fig.to_format(SaveFormat::Gif, &options).unwrap();
         assert_eq!(&gif[..10], b"GIF89a\x1e\0\x0f\0");
+        // WebP is lossless: it decodes to the canvas.
+        let webp = fig.to_format(SaveFormat::Webp, &options).unwrap();
+        let decoded = plt_codec::webp::decode(&webp).unwrap().to_rgba8().concat();
+        assert_eq!(decoded, raw);
     }
 
     #[test]
@@ -478,8 +488,9 @@ mod tests {
         assert_eq!("SVG".parse::<SaveFormat>().unwrap(), SaveFormat::Svg);
         assert_eq!("jpeg".parse::<SaveFormat>().unwrap(), SaveFormat::Jpeg);
         assert_eq!("rgba".parse::<SaveFormat>().unwrap(), SaveFormat::Raw);
+        assert_eq!("WebP".parse::<SaveFormat>().unwrap(), SaveFormat::Webp);
         assert!(matches!(
-            "webp".parse::<SaveFormat>(),
+            "avif".parse::<SaveFormat>(),
             Err(SaveError::UnsupportedFormat(_))
         ));
         let (path, format) = resolve_format(FsPath::new("out/plot.pdf"), None).unwrap();
@@ -571,7 +582,7 @@ mod tests {
         let saved = std::fs::read_to_string(dir.join("figure.eps")).unwrap();
         assert!(saved.contains("%%Title: figure.eps\n"));
         assert!(matches!(
-            fig.savefig(dir.join("figure.webp")),
+            fig.savefig(dir.join("figure.avif")),
             Err(SaveError::UnsupportedFormat(_))
         ));
     }

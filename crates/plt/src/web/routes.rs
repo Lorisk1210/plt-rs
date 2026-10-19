@@ -92,6 +92,7 @@ fn content_type(format: SaveFormat) -> &'static str {
         SaveFormat::Jpeg => "image/jpeg",
         SaveFormat::Tiff => "image/tiff",
         SaveFormat::Gif => "image/gif",
+        SaveFormat::Webp => "image/webp",
         SaveFormat::Raw => "application/octet-stream",
     }
 }
@@ -202,6 +203,10 @@ mod tests {
             Route::Download(2, SaveFormat::Jpeg)
         );
         assert!(matches!(route("/favicon.ico"), Route::Static(_)));
+        assert_eq!(
+            route("/2/download.webp"),
+            Route::Download(2, SaveFormat::Webp)
+        );
         for missing in [
             "/2/",
             "/x",
@@ -209,7 +214,7 @@ mod tests {
             "/99999999999",
             "/2/download.",
             "/2/download.PNG",
-            "/2/download.webp",
+            "/2/download.avif",
             "/2/ws/more",
             "//",
             "/_static/js/mpl.js",

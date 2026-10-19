@@ -1,8 +1,9 @@
 //! The bitmap file formats that figures and image arrays are written in:
-//! PNG, raw RGBA buffers (Agg's `print_raw`), and JPEG, TIFF and GIF, which
-//! matplotlib writes through Pillow (`print_jpg`, `print_tif`,
-//! `print_gif` and `image.imsave`). JPEG and TIFF files match Pillow's byte
-//! for byte.
+//! PNG, raw RGBA buffers (Agg's `print_raw`), and JPEG, TIFF, GIF and
+//! WebP, which matplotlib writes through Pillow (`print_jpg`, `print_tif`,
+//! `print_gif`, `print_webp` and `image.imsave`). JPEG and TIFF files
+//! match Pillow's byte for byte; WebP files are lossless, where Pillow
+//! writes lossy ones by default.
 
 use std::fmt;
 
@@ -10,6 +11,7 @@ use plt_codec::gif::{GifEncoder, GifError, GifFrame};
 use plt_codec::jpeg::{JpegError, JpegOptions, encode_rgb8};
 use plt_codec::png::{self, EncodeError, ImageRef};
 use plt_codec::tiff::{TiffError, encode_rgba8};
+use plt_codec::webp;
 
 /// A bitmap file format.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -22,6 +24,8 @@ pub enum BitmapFormat {
     Tiff,
     /// A single-frame GIF of at most 256 colours.
     Gif,
+    /// Lossless WebP, with transparency.
+    Webp,
     /// The bare RGBA bytes, row by row, with no header.
     Raw,
 }
@@ -59,6 +63,8 @@ pub enum BitmapError {
     Tiff(TiffError),
     /// As a GIF.
     Gif(GifError),
+    /// As a WebP.
+    Webp(webp::EncodeError),
     /// The pixel data does not have `width × height × 4` bytes.
     DataLengthMismatch,
 }
@@ -70,6 +76,7 @@ impl fmt::Display for BitmapError {
             Self::Jpeg(err) => write!(f, "cannot encode the JPEG: {err}"),
             Self::Tiff(err) => write!(f, "cannot encode the TIFF: {err}"),
             Self::Gif(err) => write!(f, "cannot encode the GIF: {err}"),
+            Self::Webp(err) => write!(f, "cannot encode the WebP: {err}"),
             Self::DataLengthMismatch => f.write_str("the pixel data does not match the image size"),
         }
     }
@@ -82,6 +89,7 @@ impl std::error::Error for BitmapError {
             Self::Jpeg(err) => Some(err),
             Self::Tiff(err) => Some(err),
             Self::Gif(err) => Some(err),
+            Self::Webp(err) => Some(err),
             Self::DataLengthMismatch => None,
         }
     }
@@ -131,6 +139,7 @@ impl BitmapFormat {
                     .encode(columns, rows, &[frame])
                     .map_err(BitmapError::Gif)
             }
+            Self::Webp => webp::encode_rgba8(columns, rows, rgba).map_err(BitmapError::Webp),
             Self::Raw => Ok(rgba.to_vec()),
         }
     }
@@ -191,6 +200,8 @@ mod tests {
         assert!(encode(BitmapFormat::Jpeg).starts_with(&[0xFF, 0xD8, 0xFF, 0xE0]));
         assert!(encode(BitmapFormat::Tiff).starts_with(b"II*\0"));
         assert!(encode(BitmapFormat::Gif).starts_with(b"GIF89a"));
+        let webp = encode(BitmapFormat::Webp);
+        assert!(webp.starts_with(b"RIFF") && &webp[8..16] == b"WEBPVP8L");
         assert_eq!(encode(BitmapFormat::Raw), pixels);
     }
 

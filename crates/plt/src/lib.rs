@@ -9,8 +9,8 @@
 //! # Quick start
 //!
 //! The object-oriented interface: make a [`figure::Figure`], add axes and
-//! plot on them, then save the figure (PNG, JPEG, TIFF, GIF, SVG, PDF or
-//! PostScript, chosen from the file name).
+//! plot on them, then save the figure (PNG, JPEG, TIFF, GIF, WebP, SVG,
+//! PDF or PostScript, chosen from the file name).
 //!
 //! ```
 //! use plt::prelude::*;

@@ -185,8 +185,8 @@ pub fn delaxes(ax: Option<&Axes>) {
     }
 }
 
-/// Saves the current figure in the format its extension names (PNG, SVG,
-/// PDF, PS or EPS; matplotlib's `savefig`).
+/// Saves the current figure in the format its extension names (PNG, JPEG,
+/// TIFF, GIF, WebP, SVG, PDF, PS or EPS; matplotlib's `savefig`).
 ///
 /// # Errors
 ///

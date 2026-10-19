@@ -111,7 +111,7 @@ const TOOLBAR: [Option<[&str; 4]>; 8] = [
 
 /// The download formats offered, one extension per format in
 /// matplotlib's order (the formats of its list plt-rs writes).
-const DOWNLOADS: [SaveFormat; 9] = [
+const DOWNLOADS: [SaveFormat; 10] = [
     SaveFormat::Eps,
     SaveFormat::Gif,
     SaveFormat::Jpeg,
@@ -121,6 +121,7 @@ const DOWNLOADS: [SaveFormat; 9] = [
     SaveFormat::Raw,
     SaveFormat::Svg,
     SaveFormat::Tiff,
+    SaveFormat::Webp,
 ];
 
 /// The extension a format is offered under (matplotlib's first extension
@@ -222,7 +223,7 @@ mod tests {
         );
         assert!(script.contains(r#"["", "", "", ""], ["Pan", "Left button pans, Right button zooms\nx/y fixes axis, CTRL fixes aspect", "move", "pan"]"#));
         assert!(script.contains(
-            r#"mpl.extensions = ["eps", "gif", "jpeg", "pdf", "png", "ps", "raw", "svg", "tif"];"#
+            r#"mpl.extensions = ["eps", "gif", "jpeg", "pdf", "png", "ps", "raw", "svg", "tif", "webp"];"#
         ));
         assert!(script.ends_with(r#"mpl.default_extension = "png";"#));
         for format in DOWNLOADS {

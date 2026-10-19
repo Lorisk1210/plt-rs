@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use crate::artist::ArtistId;
 
+use super::TickLabelProps;
 use super::axis_label::{AxisLabel, LabelLoc, label_font};
 use super::ticks::{Sides, TickStyle};
 use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter};
@@ -44,6 +45,9 @@ pub struct TickSet {
     /// Every major tick with its label, inside the view or not
     /// (matplotlib's `get_majorticklocs` and `get_majorticklabels`).
     pub major_unclipped: Vec<Tick>,
+    /// The position of each of `major` in `major_unclipped` (the index of
+    /// its tick in matplotlib's `majorTicks`).
+    pub(crate) major_index: Vec<usize>,
     /// Every minor tick not on a major one (unless overlapping locations
     /// are kept) with its label, inside the view or not (matplotlib's
     /// `get_minorticklocs` and `get_minorticklabels`).
@@ -141,6 +145,9 @@ pub(crate) struct AxisState {
     pub(crate) major_style: TickStyle,
     /// Appearance of the minor ticks.
     pub(crate) minor_style: TickStyle,
+    /// Label properties of single major ticks, by tick index, on top of
+    /// `major_style`.
+    pub(crate) major_label_overrides: Vec<TickLabelProps>,
     /// The axis label.
     pub(crate) label: AxisLabel,
     /// Whether ticks, tick labels, the label and the offset text are drawn.
@@ -186,6 +193,7 @@ impl AxisState {
             ticks: Ok(TickSet::default()),
             major_style: TickStyle::from_rc(name, true, rc),
             minor_style: TickStyle::from_rc(name, false, rc),
+            major_label_overrides: Vec::new(),
             label: AxisLabel {
                 text: String::new(),
                 font: label_font(rc),
@@ -458,7 +466,10 @@ impl AxisState {
         if self.major_style.is_drawn() {
             let labels = self.major_formatter.format_ticks(&major_locs, &ctx)?;
             ticks.major_unclipped = unclipped(&major_locs, labels.labels);
-            ticks.major = collect(&ticks.major_unclipped);
+            (ticks.major_index, ticks.major) = (ticks.major_unclipped.iter().enumerate())
+                .filter(|(_, tick)| visible(tick.loc))
+                .map(|(index, tick)| (index, tick.clone()))
+                .unzip();
             ticks.offset = labels.offset;
             ticks.major_locs.clone_from(&major_locs);
         }

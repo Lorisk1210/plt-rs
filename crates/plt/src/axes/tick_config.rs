@@ -4,10 +4,12 @@
 //! `ticklabel_format`).
 
 use std::any::Any;
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use plt_text::{HAlign, RotationMode, VAlign};
 
+use super::axis::AxisState;
 use super::axis_handle::Axis;
 use super::ticks::{GridOptions, TickDirection, TickLevel, TickStyle};
 use super::{Axes, AxesState, AxisName, PlotError};
@@ -281,6 +283,76 @@ pub struct TickLabelProps {
     pub fontweight: Option<FontWeight>,
 }
 
+impl TickLabelProps {
+    /// The same properties with a relative font size turned into points
+    /// against `base_size` (font sizes are resolved when they are set).
+    fn with_absolute_size(&self, base_size: f64) -> Self {
+        Self {
+            fontsize: (self.fontsize).map(|size| FontSize::Points(size.to_points(base_size))),
+            ..self.clone()
+        }
+    }
+
+    /// `self` with every property set in `newer` replaced.
+    fn overlay(&self, newer: &Self) -> Self {
+        Self {
+            rotation: newer.rotation.or(self.rotation),
+            rotation_mode: newer.rotation_mode.or(self.rotation_mode),
+            halign: newer.halign.or(self.halign),
+            valign: newer.valign.or(self.valign),
+            multialign: newer.multialign.or(self.multialign),
+            color: newer.color.clone().or_else(|| self.color.clone()),
+            fontsize: newer.fontsize.or(self.fontsize),
+            fontweight: newer.fontweight.or(self.fontweight),
+        }
+    }
+
+    /// Sets the label properties of `style` that are set here; font sizes
+    /// must be absolute ([`Self::with_absolute_size`]).
+    fn apply(&self, style: &mut TickStyle) {
+        if let Some(rotation) = self.rotation {
+            style.label_rotation = rotation;
+        }
+        if let Some(mode) = self.rotation_mode {
+            style.label_rotation_mode = mode;
+        }
+        if self.halign.is_some() {
+            style.label_halign = self.halign;
+        }
+        if self.valign.is_some() {
+            style.label_valign = self.valign;
+        }
+        if self.multialign.is_some() {
+            style.label_multialign = self.multialign;
+        }
+        if let Some(color) = &self.color {
+            style.label_color = color.clone();
+        }
+        if let Some(size) = self.fontsize {
+            style.label_size = size.to_points(style.label_size);
+        }
+        if self.fontweight.is_some() {
+            style.label_weight = self.fontweight;
+        }
+    }
+}
+
+impl AxisState {
+    /// The style of the major tick at `index` (counting every tick the
+    /// major locator places): the major style with that tick's label
+    /// properties on top.
+    pub(crate) fn major_tick_style(&self, index: usize) -> Cow<'_, TickStyle> {
+        match self.major_label_overrides.get(index) {
+            Some(props) if *props != TickLabelProps::default() => {
+                let mut style = self.major_style.clone();
+                props.apply(&mut style);
+                Cow::Owned(style)
+            }
+            _ => Cow::Borrowed(&self.major_style),
+        }
+    }
+}
+
 /// Options of [`Axes::locator_params`]; unset fields keep the locator's
 /// current setting.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -321,40 +393,40 @@ impl Axis {
 
     /// Changes the text properties of the labels of one tick level.
     pub fn set_ticklabel_props(&self, which: TickLevel, props: &TickLabelProps) -> &Self {
-        let base_size = crate::rc::params().font_size;
-        let apply = |style: &mut TickStyle| {
-            if let Some(rotation) = props.rotation {
-                style.label_rotation = rotation;
-            }
-            if let Some(mode) = props.rotation_mode {
-                style.label_rotation_mode = mode;
-            }
-            if props.halign.is_some() {
-                style.label_halign = props.halign;
-            }
-            if props.valign.is_some() {
-                style.label_valign = props.valign;
-            }
-            if props.multialign.is_some() {
-                style.label_multialign = props.multialign;
-            }
-            if let Some(color) = &props.color {
-                style.label_color = color.clone();
-            }
-            if let Some(size) = props.fontsize {
-                style.label_size = size.to_points(base_size);
-            }
-            if props.fontweight.is_some() {
-                style.label_weight = props.fontweight;
-            }
-        };
+        let props = props.with_absolute_size(crate::rc::params().font_size);
         self.update(|axis| {
             if which.major() {
-                apply(&mut axis.major_style);
+                props.apply(&mut axis.major_style);
             }
             if which.minor() {
-                apply(&mut axis.minor_style);
+                props.apply(&mut axis.minor_style);
             }
+        });
+        self
+    }
+
+    /// Changes the text properties of the labels of the major tick at
+    /// `index` among those the major locator places, in view or not
+    /// (matplotlib's `axis.get_major_ticks()[index].label1.set(...)` and
+    /// the same on `label2`). They apply on top of the properties of the
+    /// major tick labels, to that tick only.
+    ///
+    /// ```
+    /// use plt::axes::TickLabelProps;
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_xticks([0.0, 0.5, 1.0]);
+    /// let tilted = TickLabelProps { rotation: Some(45.0), ..TickLabelProps::default() };
+    /// ax.xaxis().set_major_ticklabel_props(1, &tilted);
+    /// ```
+    pub fn set_major_ticklabel_props(&self, index: usize, props: &TickLabelProps) -> &Self {
+        let props = props.with_absolute_size(crate::rc::params().font_size);
+        self.update(|axis| {
+            let overrides = &mut axis.major_label_overrides;
+            if overrides.len() <= index {
+                overrides.resize_with(index + 1, TickLabelProps::default);
+            }
+            overrides[index] = overrides[index].overlay(&props);
         });
         self
     }

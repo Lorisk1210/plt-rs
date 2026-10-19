@@ -1,14 +1,17 @@
-//! Tick parameters, tick label properties, minor tick labels, overlapping
-//! minor ticks and the rotation of tick labels.
+//! Tick parameters, tick label properties (of a level and of single
+//! ticks), minor tick labels, overlapping minor ticks and the rotation of
+//! tick labels.
 
+use plt_core::{Point, Rgba};
 use plt_text::{HAlign, RotationMode};
 
 use super::{AxesState, AxisName, GridOptions, GridStyle, TickLabelProps, TickLevel, TickParams};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::figure::Figure;
-use crate::fonts::{FontSize, FontWeight};
+use crate::fonts::{FontSize, FontWeight, RelativeSize};
 use crate::lines::LineStyle;
+use crate::testing::{Call, RecordingRenderer};
 use crate::ticker::MultipleLocator;
 
 fn axes() -> super::Axes {
@@ -235,4 +238,76 @@ fn a_scale_autoscales_with_its_own_locator() {
     let (low, high) = ax.xlim();
     assert!((low - 0.891_250_938_133_745_5).abs() < 1e-12, "{low}");
     assert!((high - 11.220_184_543_019_636).abs() < 1e-12, "{high}");
+}
+
+#[test]
+fn a_single_major_tick_label_takes_its_own_properties() {
+    // matplotlib's `ax.xaxis.majorTicks[2].label1.set_color("red")`: the
+    // index counts every located tick, the one left of the view included.
+    let fig = Figure::with_size(4.0, 3.0, 100.0);
+    let ax = fig.subplot();
+    ax.set_xticks(vec![-1.0, 0.0, 1.0, 2.0, 3.0]);
+    ax.set_xlim(-0.5, 2.5);
+    let red = Rgba::opaque(1.0, 0.0, 0.0);
+    ax.xaxis().set_major_ticklabel_props(
+        2,
+        &TickLabelProps {
+            color: Some(Color::from(red)),
+            ..TickLabelProps::default()
+        },
+    );
+    let mut renderer = RecordingRenderer::new(400.0, 300.0, 100.0);
+    fig.draw(&mut renderer).expect("drawable");
+    let red_x: Vec<f64> = (renderer.calls.iter())
+        .filter_map(|call| match call {
+            Call::Path {
+                points,
+                fill: Some(fill),
+                ..
+            } if *fill == red => Some(points.iter().map(|p| p.x)),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    let tick_x = (fig.resolve_transform(&ax.trans_data()))
+        .expect("resolvable")
+        .transform_point(Point::new(1.0, 0.0))
+        .x;
+    assert!(!red_x.is_empty(), "the label of 1.0 is drawn in red");
+    assert!(
+        red_x.iter().all(|x| (x - tick_x).abs() < 15.0),
+        "only the label of 1.0 (at {tick_x}) is red: {red_x:?}"
+    );
+}
+
+#[test]
+fn single_tick_label_properties_accumulate_on_the_major_style() {
+    let ax = axes();
+    let axis = ax.xaxis();
+    axis.set_major_ticklabel_props(
+        1,
+        &TickLabelProps {
+            color: Some(Color::from("red")),
+            ..TickLabelProps::default()
+        },
+    );
+    axis.set_major_ticklabel_props(
+        1,
+        &TickLabelProps {
+            rotation: Some(30.0),
+            fontsize: Some(FontSize::Relative(RelativeSize::Large)),
+            ..TickLabelProps::default()
+        },
+    );
+    let (base, own, other) = ax.raw().with::<AxesState, _>(|a| {
+        (
+            a.xaxis.major_style.clone(),
+            a.xaxis.major_tick_style(1).into_owned(),
+            a.xaxis.major_tick_style(0).into_owned(),
+        )
+    });
+    assert_eq!(own.label_color, Color::from("red"));
+    assert_eq!(own.label_rotation, 30.0);
+    assert_eq!(own.label_size, 12.0, "large against font.size 10");
+    assert_eq!(other, base, "other ticks keep the major style");
 }

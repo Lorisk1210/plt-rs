@@ -2,10 +2,9 @@
 //! `print_label`, `locate_label`, `too_close` and
 //! `_find_closest_point_on_path`).
 
-use std::cmp::Ordering;
-
 use plt_core::Point;
 
+use crate::numeric::argsort;
 use crate::stats::pairwise_sum;
 
 /// Whether a line of `line.len()` vertices is long enough to hold a label
@@ -72,9 +71,7 @@ pub(super) fn locate(line: &[Point], width: f64, labels: &[Point]) -> (Point, us
         })
         .collect();
     let half = block_size / 2;
-    let mut order: Vec<usize> = (0..n_blocks).collect();
-    // numpy's argsort: NaN last (small inputs sort stably).
-    order.sort_by(|&a, &b| nan_last(distances[a], distances[b]));
+    let order = argsort(&distances);
     let candidates = order.iter().chain(order.first()).copied();
     let mut chosen = (at(order[0], half), order[0]);
     for block in candidates {
@@ -84,15 +81,6 @@ pub(super) fn locate(line: &[Point], width: f64, labels: &[Point]) -> (Point, us
         }
     }
     (chosen.0, (chosen.1 * block_size + half) % size)
-}
-
-fn nan_last(a: f64, b: f64) -> Ordering {
-    match (a.is_nan(), b.is_nan()) {
-        (false, false) => a.partial_cmp(&b).unwrap_or(Ordering::Equal),
-        (true, true) => Ordering::Equal,
-        (true, false) => Ordering::Greater,
-        (false, true) => Ordering::Less,
-    }
 }
 
 /// The point of the polyline `line` closest to `p`: its squared distance,

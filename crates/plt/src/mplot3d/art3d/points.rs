@@ -8,6 +8,7 @@ use crate::collections::CollectionArtist;
 use crate::mplot3d::camera::Projection;
 use crate::mplot3d::math::Vec3;
 use crate::mplot3d::shade::depth_alphas;
+use crate::numeric::argsort;
 
 /// The 3-D state of a scatter collection.
 ///
@@ -114,12 +115,11 @@ impl Points3D {
 /// nearest) to the nearest, unprojectable points first (numpy's
 /// `ma.argsort(vzs)[::-1]`).
 fn deepest_first(depths: &[f64]) -> Vec<usize> {
-    let key = |i: usize| {
-        let z = depths[i];
-        if z.is_nan() { f64::INFINITY } else { z }
-    };
-    let mut order: Vec<usize> = (0..depths.len()).collect();
-    order.sort_by(|&a, &b| key(a).total_cmp(&key(b)));
+    let filled: Vec<f64> = depths
+        .iter()
+        .map(|&z| if z.is_nan() { f64::INFINITY } else { z })
+        .collect();
+    let mut order = argsort(&filled);
     order.reverse();
     order
 }

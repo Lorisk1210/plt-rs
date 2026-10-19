@@ -6,6 +6,7 @@ use std::fmt;
 use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
 use crate::lines::{DrawStyle, Line2D, LineProps};
+use crate::numeric::argsort;
 use crate::orientation::Orientation;
 use crate::stats::pairwise_sum;
 
@@ -81,8 +82,7 @@ fn cumulative(
     if x.iter().any(|v| v.is_nan()) {
         return Err(EcdfError::Nan);
     }
-    let mut order: Vec<usize> = (0..x.len()).collect();
-    order.sort_by(|&a, &b| x[a].total_cmp(&x[b]));
+    let order = argsort(x);
     let sorted: Vec<f64> = order.iter().map(|&i| x[i]).collect();
     let fractions: Vec<f64> = match weights {
         // Ending at exactly 1, like matplotlib.

@@ -31,6 +31,7 @@
 //! ```
 
 mod assemble;
+mod chunks;
 mod error;
 mod given;
 mod grid;
@@ -38,8 +39,11 @@ mod handle;
 mod label;
 mod legend;
 mod levels;
+mod mpl2005;
 mod mpl2014;
 mod options;
+mod quad;
+mod serial;
 mod set;
 mod style;
 
@@ -48,8 +52,8 @@ pub use grid::{Origin, QuadCoords, QuadField};
 pub use handle::ContourSet;
 pub use label::{ClabelOptions, ContourLabel, LabelFormat};
 pub use levels::Levels;
-pub use mpl2014::QuadContourGenerator;
 pub use options::{ContourNorm, ContourOptions};
+pub use quad::{ContourAlgorithm, QuadContourGenerator};
 pub use set::ContourWarning;
 
 pub(crate) use assemble::LevelPath;

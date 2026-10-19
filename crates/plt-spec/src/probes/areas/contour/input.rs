@@ -84,6 +84,9 @@ pub(super) fn quad_field(args: Args<'_>) -> Result<QuadField, ProbeError> {
     if let Some(nchunk) = args.opt_i64("nchunk")? {
         field.nchunk = usize::try_from(nchunk).map_err(ProbeError::rejected)?;
     }
+    if let Some(algorithm) = args.opt_str("algorithm")? {
+        field.algorithm = Some(algorithm.parse().map_err(ProbeError::rejected)?);
+    }
     Ok(field)
 }
 

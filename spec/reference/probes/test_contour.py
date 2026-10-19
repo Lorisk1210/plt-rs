@@ -23,13 +23,14 @@ Common input args (quad ops ``Axes.contour`` / ``Axes.contourf``)
   ``ax.contour(Z, **kw)`` (then ``origin``/``extent`` place the grid).
 * Passed through unchanged as keyword arguments when present: ``levels``
   (int or list), ``extend``, ``origin``, ``extent``, ``corner_mask``, ``vmin``,
-  ``vmax``, ``nchunk``, ``colors`` (colour string or list of colour strings).
+  ``vmax``, ``nchunk``, ``colors`` (colour string or list of colour strings),
+  ``algorithm``.
 * ``locator`` (optional): ``{"name": "MaxNLocator", **kw}`` or
   ``{"name": "LogLocator", **kw}`` -> ``ticker.<name>(**kw)``.
 * ``norm`` (optional): ``"log"`` -> ``colors.LogNorm()``.
 * ``rc`` (optional): dict of rcParams applied with ``matplotlib.rc_context``
   around the call (e.g. ``image.origin``, ``contour.corner_mask``,
-  ``contour.negative_linestyle``, ``contour.linewidth``).
+  ``contour.algorithm``, ``contour.negative_linestyle``, ``contour.linewidth``).
 
 Tri ops (``Axes.tricontour`` / ``Axes.tricontourf``) take ``x``, ``y`` (1D
 lists, one per point), ``triangles`` (list of [i, j, k] point indices),
@@ -259,7 +260,8 @@ def raw_path(path: Path) -> dict:
 # Adapters
 # ---------------------------------------------------------------------------
 
-_PASS = ("levels", "extend", "origin", "extent", "corner_mask", "vmin", "vmax", "nchunk", "colors")
+_PASS = ("levels", "extend", "origin", "extent", "corner_mask", "vmin", "vmax", "nchunk", "colors",
+         "algorithm")
 
 
 def _kwargs(args: dict) -> dict:
@@ -666,6 +668,22 @@ def test_quad_raw(case_id):
     args = dict(QUAD_CASES)[case_id]
     for func in ("contour", "contourf"):
         _ok(probes.probe("ContourSet.get_paths", raw_paths_op, func=func, **args))
+
+
+ALGORITHM_CASES = ["pit_closed_loop", "saddle5", "checker3_mask_corner", "peaks_nan_interior",
+                   "ripple_explicit", "int_origin_upper"]
+
+
+@pytest.mark.parametrize("case_id", ALGORITHM_CASES)
+@pytest.mark.parametrize("algorithm", ["mpl2005", "serial", "threaded"])
+def test_quad_algorithms(case_id, algorithm):
+    """The paths of every contouring algorithm, chosen by keyword and by
+    ``contour.algorithm`` (mpl2005 turns corner masking off unless asked)."""
+    args = dict(QUAD_CASES)[case_id]
+    for func in ("contour", "contourf"):
+        probes.probe("ContourSet.get_paths", raw_paths_op, func=func, algorithm=algorithm, **args)
+        probes.probe("ContourSet.get_paths", raw_paths_op, func=func,
+                     rc={"contour.algorithm": algorithm}, **args)
 
 
 # ---------------------------------------------------------------------------

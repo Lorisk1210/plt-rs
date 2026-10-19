@@ -94,6 +94,26 @@ impl<'a> Args<'a> {
             .ok_or_else(|| wrong_type(key, "an array of numbers"))
     }
 
+    /// A required 2-D array of numbers, row by row.
+    pub fn rows(&self, key: &str) -> Result<Vec<Vec<f64>>, ProbeError> {
+        self.json(key)?
+            .as_array()
+            .and_then(|rows| rows.iter().map(Json::as_f64_vec).collect())
+            .ok_or_else(|| wrong_type(key, "a 2-D array of numbers"))
+    }
+
+    /// A required 2-D array of booleans, row by row.
+    pub fn bool_rows(&self, key: &str) -> Result<Vec<Vec<bool>>, ProbeError> {
+        self.json(key)?
+            .as_array()
+            .and_then(|rows| {
+                rows.iter()
+                    .map(|row| row.as_array()?.iter().map(Json::as_bool).collect())
+                    .collect()
+            })
+            .ok_or_else(|| wrong_type(key, "a 2-D array of booleans"))
+    }
+
     /// A required array of number pairs (e.g. points).
     pub fn pairs(&self, key: &str) -> Result<Vec<(f64, f64)>, ProbeError> {
         self.json(key)?
@@ -121,12 +141,18 @@ mod tests {
 
     #[test]
     fn typed_getters() {
-        let raw = Json::parse(r#"{"x": 1.5, "n": 3, "s": "a", "p": [[1, 2]], "z": null}"#).unwrap();
+        let raw = Json::parse(
+            r#"{"x": 1.5, "n": 3, "s": "a", "p": [[1, 2]], "z": null, "m": [[true], [false]]}"#,
+        )
+        .unwrap();
         let args = Args::new(&raw);
         assert_eq!(args.f64("x"), Ok(1.5));
         assert_eq!(args.i64("n"), Ok(3));
         assert_eq!(args.str("s"), Ok("a"));
         assert_eq!(args.pairs("p"), Ok(vec![(1.0, 2.0)]));
+        assert_eq!(args.rows("p"), Ok(vec![vec![1.0, 2.0]]));
+        assert_eq!(args.bool_rows("m"), Ok(vec![vec![true], vec![false]]));
+        assert!(matches!(args.bool_rows("p"), Err(ProbeError::BadArgs(_))));
         assert_eq!(args.opt_f64("z"), Ok(None));
         assert_eq!(args.opt_f64("missing"), Ok(None));
         assert!(matches!(args.i64("x"), Err(ProbeError::BadArgs(_))));

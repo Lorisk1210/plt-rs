@@ -329,6 +329,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("artist_behaviour", areas::artist_behaviour::OPS),
     ("image_behaviour", areas::image_behaviour::OPS),
     ("contour_behaviour", areas::contour_behaviour::OPS),
+    ("contour_generator", areas::contour_generator::OPS),
     ("quiver_behaviour", areas::quiver_behaviour::OPS),
     ("polar_behaviour", areas::polar_behaviour::OPS),
     ("tri_behaviour", areas::tri_behaviour::OPS),

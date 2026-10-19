@@ -53,6 +53,10 @@ pub enum ContourError {
     NoTriangles,
     /// A level is NaN.
     NanLevel,
+    /// No contouring algorithm has this name.
+    UnknownAlgorithm(String),
+    /// Corners are to be masked by an algorithm that cannot mask them.
+    CornerMaskUnsupported(super::ContourAlgorithm),
     /// A filled contour's lower level is not below its upper level.
     LevelOrder {
         /// Lower level.
@@ -135,6 +139,15 @@ impl fmt::Display for ContourError {
             }
             Self::NoTriangles => f.write_str("the triangulation has no unmasked triangles"),
             Self::NanLevel => f.write_str("contour levels cannot be NaN"),
+            Self::UnknownAlgorithm(name) => {
+                write!(f, "unrecognised contour generator name: {name}")
+            }
+            Self::CornerMaskUnsupported(algorithm) => {
+                write!(
+                    f,
+                    "{algorithm} contour generator does not support corner_mask=True"
+                )
+            }
             Self::LevelOrder { lower, upper } => {
                 write!(
                     f,

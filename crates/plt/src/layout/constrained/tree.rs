@@ -106,14 +106,14 @@ impl LayoutTree {
                 }));
                 let sub = self.add_frame(fig, child, sub_grid, Some(spec));
                 self.frames[index].subfigs.push(sub);
-            } else if let Some(axes) = fig.store.get_as::<AxesState>(child) {
-                if let Some(spec) = &axes.subplot_spec {
+            } else if let Some((spec, in_layout)) = placement(fig, child) {
+                if let Some(spec) = &spec {
                     self.add_gridspec(spec.gridspec(), grid);
                 }
                 self.frames[index].axes.push(Placed {
                     id: child,
-                    spec: axes.subplot_spec.clone(),
-                    in_layout: axes.base().in_layout,
+                    spec,
+                    in_layout,
                 });
             }
         }
@@ -173,6 +173,15 @@ impl LayoutTree {
     /// Every axes of every frame.
     pub(super) fn all_axes(&self) -> impl Iterator<Item = &Placed> {
         self.frames.iter().flat_map(|frame| &frame.axes)
+    }
+}
+
+/// The grid cell of the 2-D or 3-D axes `id` and whether it takes part in
+/// the layout; `None` for other artists.
+fn placement(fig: &FigureState, id: ArtistId) -> Option<(Option<SubplotSpec>, bool)> {
+    match fig.store.get_as::<AxesState>(id) {
+        Some(axes) => Some((axes.subplot_spec.clone(), axes.base().in_layout)),
+        None => crate::mplot3d::axes3d_placement(&fig.store, id),
     }
 }
 

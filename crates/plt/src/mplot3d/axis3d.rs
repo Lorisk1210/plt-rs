@@ -118,10 +118,12 @@ pub(crate) struct AxisSpan {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct DrawnTick<'a> {
     pub(crate) tick: &'a Tick,
-    /// The tick parameters of its level (colour, pad, label font).
+    /// The tick parameters of its level (colour, label font).
     pub(crate) style: &'a TickStyle,
     /// The width of its mark in points.
     pub(crate) width: f64,
+    /// The distance of its label in points (its own pad).
+    pub(crate) pad: f64,
 }
 
 /// The tick locators and formatters of an axis, shared with the axes
@@ -192,6 +194,15 @@ pub(crate) struct Axis3DState {
     pub(crate) tick_position: AxisPosition,
     /// The edges carrying the label.
     pub(crate) label_position: AxisPosition,
+    /// The label pads of the first major ticks in the order the major
+    /// locator places them: matplotlib's `Tick` objects keep their own
+    /// pads, and the ticks it adds later copy the first one. Empty when
+    /// every major tick has the pad of [`Self::major_style`].
+    pub(crate) major_pads: Vec<f64>,
+    /// How many major ticks the last layout pass placed, inside the view
+    /// or not (the length of matplotlib's `get_major_ticks()`), and the
+    /// position among them of each major tick in [`Self::ticks`].
+    major_slots: (usize, Vec<usize>),
 }
 
 impl Axis3DState {
@@ -225,6 +236,8 @@ impl Axis3DState {
             line_visible: true,
             tick_position: AxisPosition::Default,
             label_position: AxisPosition::Default,
+            major_pads: Vec::new(),
+            major_slots: (0, Vec::new()),
         }
     }
 
@@ -293,17 +306,43 @@ impl Axis3DState {
     /// `Axis._update_ticks`) for an axes `length_points` wide; with
     /// `automargin` the view is inset as `axes3d.automargin` asks.
     pub(crate) fn update_ticks(&mut self, span: &AxisSpan, length_points: f64, automargin: bool) {
-        self.ticks = self
-            .compute_ticks(span, length_points, automargin)
-            .map_err(|e| e.to_string());
+        match self.compute_ticks(span, length_points, automargin) {
+            Ok((ticks, slots)) => {
+                self.ticks = Ok(ticks);
+                self.major_slots = slots;
+            }
+            Err(e) => {
+                self.ticks = Err(e.to_string());
+                self.major_slots = (0, Vec::new());
+            }
+        }
     }
 
+    /// The label pad of the major tick at `slot` in the locator's order.
+    fn major_pad(&self, slot: usize) -> f64 {
+        (self.major_pads.get(slot))
+            .or(self.major_pads.first())
+            .copied()
+            .unwrap_or(self.major_style.pad)
+    }
+
+    /// The label pads of the major ticks the last layout pass placed,
+    /// inside the view or not (matplotlib's `get_pad` of every tick of
+    /// `get_major_ticks()`).
+    pub(crate) fn major_tick_pads(&self) -> Vec<f64> {
+        (0..self.major_slots.0)
+            .map(|slot| self.major_pad(slot))
+            .collect()
+    }
+
+    /// The ticks inside the view and, for the major ones, how many the
+    /// locator placed and the position among them of each one kept.
     fn compute_ticks(
         &self,
         span: &AxisSpan,
         length_points: f64,
         automargin: bool,
-    ) -> Result<TickSet, TickerError> {
+    ) -> Result<(TickSet, (usize, Vec<usize>)), TickerError> {
         let mut info = self.info(span, length_points);
         let major_locs = {
             let ctx = TickContext::new(&info, &self.settings);
@@ -320,6 +359,7 @@ impl Axis3DState {
                 .collect()
         };
         let mut ticks = TickSet::default();
+        let mut slots = (0, Vec::new());
         if Self::level_computed(&self.major_style, self.tickers.major_locator.as_ref()) {
             let labels = self
                 .tickers
@@ -327,6 +367,11 @@ impl Axis3DState {
                 .format_ticks(&major_locs, &ctx)?;
             ticks.major = collect(&major_locs, labels.labels);
             ticks.offset = labels.offset;
+            let kept = (major_locs.iter().enumerate())
+                .filter(|(_, loc)| visible(**loc))
+                .map(|(slot, _)| slot)
+                .collect();
+            slots = (major_locs.len(), kept);
         }
         if Self::level_computed(&self.minor_style, self.tickers.minor_locator.as_ref()) {
             let minor = self.tickers.minor_locator.locate(&ctx)?;
@@ -337,7 +382,7 @@ impl Axis3DState {
                 .format_ticks(&minor_locs, &ctx)?;
             ticks.minor = collect(&minor_locs, labels.labels);
         }
-        Ok(ticks)
+        Ok((ticks, slots))
     }
 
     /// Whether a tick level is computed: something of it is shown and its
@@ -390,23 +435,21 @@ impl Axis3DState {
             Ok(ticks) => (&ticks.major, &ticks.minor),
             Err(_) => (&[], &[]),
         };
-        level(major, &self.major_style, self.style.major_tick_width).chain(level(
-            minor,
-            &self.minor_style,
-            self.style.minor_tick_width,
-        ))
+        let (style, width) = (&self.major_style, self.style.major_tick_width);
+        let majors = (major.iter().zip(&self.major_slots.1)).map(move |(tick, &slot)| DrawnTick {
+            tick,
+            style,
+            width,
+            pad: self.major_pad(slot),
+        });
+        let (style, width) = (&self.minor_style, self.style.minor_tick_width);
+        majors.chain(minor.iter().map(move |tick| DrawnTick {
+            tick,
+            style,
+            width,
+            pad: style.pad,
+        }))
     }
-}
-
-/// The ticks of one level with its style and mark width.
-fn level<'a>(
-    ticks: &'a [Tick],
-    style: &'a TickStyle,
-    width: f64,
-) -> impl Iterator<Item = DrawnTick<'a>> {
-    ticks
-        .iter()
-        .map(move |tick| DrawnTick { tick, style, width })
 }
 
 #[cfg(test)]

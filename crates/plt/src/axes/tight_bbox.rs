@@ -262,7 +262,7 @@ fn has_area(bbox: &Bbox) -> bool {
 }
 
 /// `bbox` narrowed to one pixel around its horizontal centre.
-fn collapse_x(bbox: &Bbox) -> Bbox {
+pub(crate) fn collapse_x(bbox: &Bbox) -> Bbox {
     let x0 = f64::midpoint(bbox.x0(), bbox.x1()) - 0.5;
     Bbox::from_extents(x0, bbox.y0(), x0 + 1.0, bbox.y1())
 }

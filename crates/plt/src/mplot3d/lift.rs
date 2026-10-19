@@ -13,6 +13,37 @@ use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, CollectionSpec,
 };
 
+/// Options of [`Axes3D::add_poly_collection3d_with`] (matplotlib's
+/// `Poly3DCollection` keywords, and `add_collection3d`'s `autolim` and
+/// `axlim_clip`).
+#[derive(Clone, Debug)]
+pub struct Poly3DOptions {
+    /// Colours, widths and the other collection properties.
+    pub props: CollectionProps,
+    /// How the depth of a polygon is computed from its vertices.
+    pub zsort: ZSort,
+    /// Whether the outlines are closed; open polygons are filled but not
+    /// stroked along their last edge (matplotlib's `closed`).
+    pub closed: bool,
+    /// Whether the data limits extend to every vertex.
+    pub autolim: bool,
+    /// Whether the vertices outside the view limits are hidden
+    /// (matplotlib's `axlim_clip`).
+    pub axlim_clip: bool,
+}
+
+impl Default for Poly3DOptions {
+    fn default() -> Self {
+        Self {
+            props: CollectionProps::default(),
+            zsort: ZSort::Average,
+            closed: true,
+            autolim: true,
+            axlim_clip: false,
+        }
+    }
+}
+
 impl Axes3D {
     /// Places the paths of a 2-D polygon or line collection in the planes
     /// normal to `zdir` at `zs` (one position, or one per path) and adds
@@ -127,14 +158,54 @@ impl Axes3D {
         props: CollectionProps,
         autolim: bool,
     ) -> Result<Collection, Axes3DError> {
+        let options = Poly3DOptions {
+            props,
+            autolim,
+            ..Poly3DOptions::default()
+        };
+        self.add_poly_collection3d_with(polygons, options)
+    }
+
+    /// Adds polygons through 3-D vertices as `options` say (matplotlib's
+    /// `add_collection3d` of a `Poly3DCollection` made with keywords),
+    /// ordered among the other collections by the depth `options.zsort`
+    /// picks.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::mplot3d::Poly3DOptions;
+    /// let ax = Figure::new().subplot_3d();
+    /// let triangle = vec![vec![[0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 0.0]]];
+    /// let open = Poly3DOptions { closed: false, autolim: false, ..Poly3DOptions::default() };
+    /// ax.add_poly_collection3d_with(triangle, open)?;
+    /// assert_eq!(ax.zlim(), (-1.0 / 48.0, 49.0 / 48.0), "the limits stay");
+    /// # Ok::<(), plt::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a colour cannot be resolved or autoscaling fails.
+    pub fn add_poly_collection3d_with(
+        &self,
+        polygons: Vec<Vec<Vec3>>,
+        options: Poly3DOptions,
+    ) -> Result<Collection, Axes3DError> {
         let had_data = self.has_data();
         let points: Vec<Vec3> = polygons.iter().flatten().copied().collect();
         let mut artist =
             CollectionArtist::new(CollectionKind::Poly, Vec::new(), crate::rc::params());
-        props.apply(&mut artist);
+        options.props.apply(&mut artist);
         let raw = self.adopt_projected(artist);
-        self.register_polys(&raw, polygons, ZSort::Average, None, false)?;
-        if autolim {
+        self.register_polys(&raw, polygons, options.zsort, None, options.axlim_clip)?;
+        if !options.closed {
+            self.with_mut(|axes| {
+                let entry = axes.artists.iter_mut().find(|a| a.id == raw.id());
+                if let Some(Art3D::Polys(polys)) = entry.map(|a| &mut a.art) {
+                    polys.closed = false;
+                }
+            });
+        }
+        if options.autolim {
             self.scale_to(&points, had_data)?;
         }
         Ok(Collection::from_raw(raw))
@@ -200,6 +271,37 @@ mod tests {
         ax.add_collection3d(poly(), &[7.0], Axis3::Z, false)
             .unwrap();
         assert_eq!(ax.zlim(), before, "without autolim the limits stay");
+    }
+
+    #[test]
+    fn alpha_fades_the_edges_of_lifted_polygons_only() {
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        let props = || {
+            CollectionProps::default()
+                .facecolor("b")
+                .edgecolor("k")
+                .alpha(0.5)
+        };
+        let triangle = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
+        let made = ax
+            .add_poly_collection3d(vec![triangle], props(), true)
+            .unwrap();
+        let flat = vec![vec![
+            Point::new(0.0, 0.0),
+            Point::new(1.0, 0.0),
+            Point::new(0.0, 1.0),
+        ]];
+        let spec = CollectionSpec::polygons(flat).with_props(props());
+        let lifted = ax.add_collection3d(spec, &[0.0], Axis3::Z, true).unwrap();
+        fig.layout();
+        let alphas = |c: &Collection| {
+            let colors = c.colors().unwrap();
+            (colors.faces[0].a, colors.edges[0].a)
+        };
+        // matplotlib's `Poly3DCollection.set_alpha` leaves `_edgecolor3d`.
+        assert_eq!(alphas(&made), (0.5, 1.0));
+        assert_eq!(alphas(&lifted), (0.5, 0.5));
     }
 
     #[test]

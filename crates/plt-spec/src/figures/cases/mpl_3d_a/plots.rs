@@ -162,7 +162,11 @@ pub(super) fn fill_between_quad(fig: &Figure) -> CaseResult {
     let options = FillBetween3DOptions {
         mask: Some(mask),
         mode: FillMode::Auto,
-        props: CollectionProps::default().alpha(0.5).edgecolor("k"),
+        // The alpha fades the faces only; matplotlib also fades the edges
+        // here because `edgecolor` follows `alpha` among the keywords.
+        props: CollectionProps::default()
+            .alpha(0.5)
+            .edgecolor((0.0, 0.0, 0.0, 0.5)),
         ..FillBetween3DOptions::default()
     };
     fig.subplot_3d()

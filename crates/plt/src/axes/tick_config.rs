@@ -42,6 +42,25 @@ pub struct TicklabelFormat {
     pub use_mathtext: Option<bool>,
 }
 
+impl TicklabelFormat {
+    /// `formatter` with the settings this format sets changed.
+    pub(crate) fn applied_to(&self, mut formatter: ScalarFormatter) -> ScalarFormatter {
+        if let Some(scientific) = self.scientific {
+            formatter = formatter.with_scientific(scientific);
+        }
+        if let Some(limits) = self.scilimits {
+            formatter = formatter.with_powerlimits(limits);
+        }
+        if let Some(mode) = self.use_offset {
+            formatter = formatter.with_use_offset(mode);
+        }
+        if let Some(mathtext) = self.use_mathtext {
+            formatter = formatter.with_use_mathtext(mathtext);
+        }
+        formatter
+    }
+}
+
 impl Axis {
     /// Turns minor ticks on with the locator matplotlib picks for the
     /// scale: the scale's own minor locator for log, symlog, asinh and
@@ -119,20 +138,8 @@ impl Axes {
                 let formatter: &dyn Any = state.major_formatter.as_ref();
                 formatter.downcast_ref::<ScalarFormatter>().cloned()
             });
-            let mut formatter = current.ok_or(PlotError::NotScalarFormatter(name))?;
-            if let Some(scientific) = format.scientific {
-                formatter = formatter.with_scientific(scientific);
-            }
-            if let Some(limits) = format.scilimits {
-                formatter = formatter.with_powerlimits(limits);
-            }
-            if let Some(mode) = format.use_offset {
-                formatter = formatter.with_use_offset(mode);
-            }
-            if let Some(mathtext) = format.use_mathtext {
-                formatter = formatter.with_use_mathtext(mathtext);
-            }
-            let formatter: Rc<dyn Formatter> = Rc::new(formatter);
+            let formatter = current.ok_or(PlotError::NotScalarFormatter(name))?;
+            let formatter: Rc<dyn Formatter> = Rc::new(format.applied_to(formatter));
             axis.update_shared(|state| state.major_formatter = Rc::clone(&formatter));
         }
         Ok(self)

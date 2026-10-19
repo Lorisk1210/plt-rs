@@ -308,9 +308,12 @@ impl Axes3D {
     }
 
     /// Placement as a fraction of the figure after the box was made
-    /// square (matplotlib's `get_position`).
+    /// square, in the figure's current layout (laid out first, so that a
+    /// layout engine has placed the axes: matplotlib's `get_position`
+    /// once the figure was drawn).
     pub fn position(&self) -> Bbox {
-        let state = self.raw.figure_state().borrow();
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
         let axes = state
             .store
             .get_as::<Axes3DState>(self.id())

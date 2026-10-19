@@ -120,7 +120,7 @@ pub use stem::{StemContainer, StemOptions};
 pub use steps::StairsOptions;
 pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat};
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
-pub(crate) use tight_bbox::clipped_extent;
+pub(crate) use tight_bbox::{clipped_extent, collapse_x};
 pub use tripcolor::{TriShading, TriValues, Tripcolor, TripcolorError, TripcolorOptions};
 pub use triplot::TriplotLines;
 pub use view_limits::Limits;

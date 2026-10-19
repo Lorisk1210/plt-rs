@@ -15,7 +15,7 @@ use super::limits::Limits3D;
 use super::mouse::MouseButtons;
 use super::share::{LimitChange, Shares};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
-use crate::axes::AxesState;
+use crate::axes::{AxesState, collapse_x};
 use crate::colors::Color;
 use crate::figure::FigureState;
 use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
@@ -152,7 +152,7 @@ impl Axes3DState {
     /// clipped to them) and, with computed z-order, collections and
     /// patches ordered by depth above the axes (matplotlib's
     /// `Axes3D.draw` before drawing).
-    fn prepare(&mut self, store: &mut ArtistStore, extent: &Bbox, dpi: f64) {
+    pub(crate) fn prepare(&mut self, store: &mut ArtistStore, extent: &Bbox, dpi: f64) {
         self.artists.retain(|artist| store.contains(artist.id));
         let width_points = extent.width().abs() / dpi * 72.0;
         for dir in Axis3::ALL {
@@ -318,6 +318,13 @@ pub(crate) fn axes3d_tight_bbox(
         boxes.extend(axis_extents(axes, layout, &extent, for_layout_only));
     }
     if let Some(plane) = figure.store.get_as::<AxesState>(axes.plane) {
+        let narrowed = |bbox: Bbox| {
+            if for_layout_only && bbox.width() > 0.0 {
+                collapse_x(&bbox)
+            } else {
+                bbox
+            }
+        };
         boxes.extend(
             plane
                 .titles
@@ -325,6 +332,7 @@ pub(crate) fn axes3d_tight_bbox(
                 .filter_map(|&title| figure.store.get(title))
                 .filter(|title| title.base().visible)
                 .filter_map(|title| title.window_extent(&layout))
+                .map(narrowed)
                 .filter(|bbox| bbox.width() != 0.0 || bbox.height() != 0.0),
         );
     }

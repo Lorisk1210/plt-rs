@@ -8,6 +8,7 @@ use std::ops::Range;
 
 use super::{ColorbarError, ExtendFrac, Spacing};
 use crate::colors::{Extend, Norm, NormError, NormKind, Normalized};
+use crate::image::ScalarKind;
 use crate::numeric::{interp, linspace};
 use crate::transforms::nonsingular;
 
@@ -48,6 +49,9 @@ pub(crate) struct BlockSpec<'a> {
     pub(crate) boundaries: Option<&'a [f64]>,
     /// Explicit block values.
     pub(crate) values: Option<&'a [f64]>,
+    /// What the explicit values hold: integers (contour colour indices)
+    /// index the colormap under `NoNorm`.
+    pub(crate) value_kind: ScalarKind,
     /// The extended ends.
     pub(crate) extend: Extend,
     /// Whether the long axis is inverted (extensions swap ends).
@@ -65,6 +69,9 @@ pub(crate) struct Blocks {
     pub(crate) boundaries: Vec<f64>,
     /// The value coloured in each block (`_values`).
     pub(crate) values: Vec<f64>,
+    /// What the values hold: integers index the colormap under `NoNorm`
+    /// (numpy's integer `_values`).
+    pub(crate) kind: ScalarKind,
     /// The edges inside the extensions (`_inside`).
     pub(crate) inside: Range<usize>,
     /// Whether the lower end is extended.
@@ -91,6 +98,7 @@ impl Blocks {
         let mut blocks = Self {
             boundaries: Vec::new(),
             values: Vec::new(),
+            kind: ScalarKind::Float,
             inside: 0..0,
             lower: spec.extend == Extend::Both || spec.extend == lower_end,
             upper: spec.extend == Extend::Both || spec.extend == upper_end,
@@ -116,6 +124,7 @@ impl Blocks {
     fn process(&mut self, spec: &BlockSpec<'_>, norm: &mut dyn Norm) -> Result<(), ColorbarError> {
         if let Some(values) = spec.values {
             self.values = values.to_vec();
+            self.kind = spec.value_kind;
             self.boundaries = match spec.boundaries {
                 Some(boundaries) => boundaries.to_vec(),
                 None => bracket(values)?,
@@ -158,6 +167,7 @@ impl Blocks {
             for value in &mut self.values {
                 *value = (*value + 0.00001).trunc();
             }
+            self.kind = ScalarKind::Integer;
         }
         self.boundaries = b;
         Ok(())
@@ -378,6 +388,7 @@ mod tests {
             ncolors,
             boundaries: None,
             values: None,
+            value_kind: ScalarKind::Float,
             extend: Extend::Neither,
             inverted: false,
             extendfrac: ExtendFrac::Default,
@@ -461,6 +472,7 @@ mod tests {
         let blocks = Blocks::new(&spec(3), &mut norm).unwrap();
         assert_eq!(blocks.boundaries, [-0.5, 0.5, 1.5, 2.5]);
         assert_eq!(blocks.values, [0.0, 1.0, 2.0]);
+        assert_eq!(blocks.kind, ScalarKind::Integer, "the values index colours");
     }
 
     #[test]
@@ -483,6 +495,7 @@ mod tests {
         // matplotlib extrapolates from a zero-filled array, in its order.
         let blocks = Blocks::new(&given, &mut norm).unwrap();
         assert_eq!(blocks.boundaries, [0.0, 1.5, 3.0, 4.5]);
+        assert_eq!(blocks.kind, ScalarKind::Float);
         assert_eq!(bracket(&[1.0, 3.0]).unwrap(), [4.0, 2.0, 0.0]);
         let one = BlockSpec {
             values: Some(&values[..1]),

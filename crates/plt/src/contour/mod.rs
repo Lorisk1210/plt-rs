@@ -8,8 +8,9 @@
 //!   colours, colormap and norm, line widths and styles.
 //! * [`QuadField`] — z on a grid, with optional mask and coordinates
 //!   (explicit, or placed like an image with `origin`/`extent`).
-//! * [`ContourSet`] — what `Axes::contour`, `contourf`, `tricontour` and
-//!   `tricontourf` return: the chosen levels, the bands of filled contours,
+//! * [`ContourSet`] — what `Axes::contour`, `contourf`, `tricontour`,
+//!   `tricontourf` and `contour_segments` (contours given as paths)
+//!   return: the chosen levels, the bands of filled contours,
 //!   one compound path per level or band, their colours and styles, and
 //!   [`ContourSet::clabel`] to label line contours and
 //!   [`ContourSet::legend_elements`] to describe them in a legend.
@@ -31,6 +32,7 @@
 
 mod assemble;
 mod error;
+mod given;
 mod grid;
 mod handle;
 mod label;
@@ -51,5 +53,6 @@ pub use options::{ContourNorm, ContourOptions};
 pub use set::ContourWarning;
 
 pub(crate) use assemble::LevelPath;
+pub(crate) use given::given_source;
 pub(crate) use handle::ContourSetArtist;
 pub(crate) use set::{ContourPlan, ContourSource, Generator};

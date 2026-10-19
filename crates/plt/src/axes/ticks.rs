@@ -201,6 +201,9 @@ pub struct TickStyle {
     pub labels: Sides,
     /// Rotation of the labels in degrees.
     pub label_rotation: f64,
+    /// Whether the labels of polar axes turn with their ticks, with
+    /// `label_rotation` added (matplotlib's `labelrotation="auto"`).
+    pub label_rotation_auto: bool,
     /// How rotated labels are aligned.
     pub label_rotation_mode: RotationMode,
     /// Horizontal label alignment replacing the side's default.
@@ -258,6 +261,7 @@ impl TickStyle {
             ticks,
             labels,
             label_rotation: 0.0,
+            label_rotation_auto: false,
             label_rotation_mode: RotationMode::Default,
             label_halign: None,
             label_valign: None,

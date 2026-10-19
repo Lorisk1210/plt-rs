@@ -276,10 +276,21 @@ fn draw_mark(
     .draw(ctx, axes, &points, &affine);
 }
 
-/// Where the first or second label of a tick of polar axes goes, with
-/// its default alignment (labels rotate about that anchor). `None` when
-/// the side has no label (the second radial side of a full circle) or
-/// the axes is no longer laid out.
+/// Where a tick label of polar axes goes, how it is aligned about that
+/// anchor and turned (labels rotate about the anchor).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct PolarLabel {
+    /// The anchor in display pixels.
+    pub(crate) anchor: Point,
+    /// The default alignment about the anchor.
+    pub(crate) align: (HAlign, VAlign),
+    /// Counter-clockwise rotation in degrees.
+    pub(crate) rotation: f64,
+}
+
+/// Where the first or second label of a tick of polar axes goes. `None`
+/// when the side has no label (the second radial side of a full circle)
+/// or the axes is no longer laid out.
 pub(crate) fn tick_label_anchor(
     layout: LayoutContext<'_>,
     axes: ArtistId,
@@ -288,8 +299,17 @@ pub(crate) fn tick_label_anchor(
     tick: &Tick,
     style: &TickStyle,
     first: bool,
-) -> Option<(Point, (HAlign, VAlign))> {
+) -> Option<PolarLabel> {
     let ptick = polar_tick(layout, axes, polar, name, tick)?;
+    // matplotlib's `_labelrotation`: turned with the tick plus the user's
+    // angle in `auto` mode, else the user's angle alone.
+    let rotation = |auto_angle: f64| {
+        if style.label_rotation_auto {
+            auto_angle + style.label_rotation
+        } else {
+            style.label_rotation
+        }
+    };
     match name {
         AxisName::X => {
             let angle = ptick.theta_angle();
@@ -299,14 +319,26 @@ pub(crate) fn tick_label_anchor(
             // outer edge, pushed outwards; label 2 on the inner edge.
             let across = if first { 1.0 } else { 0.0 };
             let edge = ptick.along().transform_point(Point::new(tick.loc, across));
-            let anchor = if first { edge + shift } else { edge - shift };
-            Some((anchor, (HAlign::Center, VAlign::Center)))
+            Some(PolarLabel {
+                anchor: if first { edge + shift } else { edge - shift },
+                align: (HAlign::Center, VAlign::Center),
+                rotation: rotation(theta_label_angle(angle.to_degrees())),
+            })
         }
         AxisName::Y => {
             let side = ptick.radial_side(first)?;
             let base = side.transform.transform_point(side.point);
             if side.full {
-                return Some((base, (HAlign::Left, VAlign::Bottom)));
+                let settings = polar.settings();
+                let angle = (settings.rlabel_position.to_degrees() * polar.direction()
+                    + settings.theta_offset.to_degrees())
+                .rem_euclid(360.0)
+                    - 90.0;
+                return Some(PolarLabel {
+                    anchor: base,
+                    align: (HAlign::Left, VAlign::Bottom),
+                    rotation: rotation(radial_label_angle(angle)),
+                });
             }
             let at_start = first == (polar.direction() > 0.0);
             let real = polar.real_view();
@@ -318,9 +350,34 @@ pub(crate) fn tick_label_anchor(
             // matplotlib's `_ThetaShift`: away from the edge.
             let pad = layout.points_to_pixels(style.label_offset());
             let shift = Point::new(pad * edge.cos(), pad * edge.sin());
-            Some((base + shift, sector_anchor(side.angle, at_start)))
+            Some(PolarLabel {
+                anchor: base + shift,
+                align: sector_anchor(side.angle, at_start, style.label_rotation_auto),
+                rotation: rotation(radial_label_angle(side.angle)),
+            })
         }
     }
+}
+
+/// The automatic rotation of a θ label whose tick points `angle` degrees
+/// anticlockwise from east: along the circle, kept upright
+/// (matplotlib's `ThetaTick.update_position`).
+fn theta_label_angle(angle: f64) -> f64 {
+    let along = angle.rem_euclid(360.0) - 90.0;
+    if along > 90.0 {
+        along - 180.0
+    } else if along < -90.0 {
+        along + 180.0
+    } else {
+        along
+    }
+}
+
+/// The automatic rotation of a radial label on an edge at `angle`
+/// degrees (the edge's direction minus 90°): along the edge, within
+/// ±90° (matplotlib's `RadialTick.update_position`).
+fn radial_label_angle(angle: f64) -> f64 {
+    (angle + 90.0).rem_euclid(180.0) - 90.0
 }
 
 /// The marker transform of a θ tick mark pointing along `angle`
@@ -344,11 +401,16 @@ fn radial_mark(symbol: MarkerSymbol, angle: f64) -> Affine2D {
 }
 
 /// The alignment of a radial label on a sector edge at `angle` degrees
-/// (the edge's direction minus 90°), on the start or the end edge
-/// (matplotlib's `RadialTick._determine_anchor` without auto rotation).
-fn sector_anchor(angle: f64, start: bool) -> (HAlign, VAlign) {
+/// (the edge's direction minus 90°), on the start or the end edge:
+/// facing away from the edge, or along it for labels turned with their
+/// ticks (`auto`; matplotlib's `RadialTick._determine_anchor`).
+fn sector_anchor(angle: f64, start: bool, auto: bool) -> (HAlign, VAlign) {
     use HAlign::{Center as Middle, Left, Right};
     use VAlign::{Bottom, Center, Top};
+    if auto {
+        let facing_east = (-90.0..=90.0).contains(&angle);
+        return (if facing_east == start { Left } else { Right }, Center);
+    }
     let (at_start, at_end) = if angle < -68.5 {
         ((Middle, Top), (Middle, Bottom))
     } else if angle < -23.5 {
@@ -377,10 +439,46 @@ mod tests {
 
     #[test]
     fn sector_labels_face_away_from_the_edge() {
-        assert_eq!(sector_anchor(-45.0, true), (HAlign::Left, VAlign::Top));
-        assert_eq!(sector_anchor(-45.0, false), (HAlign::Right, VAlign::Bottom));
-        assert_eq!(sector_anchor(0.0, true), (HAlign::Left, VAlign::Center));
-        assert_eq!(sector_anchor(260.0, true), (HAlign::Center, VAlign::Top));
+        assert_eq!(
+            sector_anchor(-45.0, true, false),
+            (HAlign::Left, VAlign::Top)
+        );
+        assert_eq!(
+            sector_anchor(-45.0, false, false),
+            (HAlign::Right, VAlign::Bottom)
+        );
+        assert_eq!(
+            sector_anchor(0.0, true, false),
+            (HAlign::Left, VAlign::Center)
+        );
+        assert_eq!(
+            sector_anchor(260.0, true, false),
+            (HAlign::Center, VAlign::Top)
+        );
+    }
+
+    #[test]
+    fn auto_rotated_labels_run_along_their_ticks() {
+        assert_eq!(
+            sector_anchor(-45.0, true, true),
+            (HAlign::Left, VAlign::Center)
+        );
+        assert_eq!(
+            sector_anchor(135.0, true, true),
+            (HAlign::Right, VAlign::Center)
+        );
+        assert_eq!(
+            sector_anchor(135.0, false, true),
+            (HAlign::Left, VAlign::Center)
+        );
+        // θ labels stay upright: at 0° the text runs down the circle.
+        assert_eq!(theta_label_angle(0.0), -90.0);
+        assert_eq!(theta_label_angle(90.0), 0.0);
+        assert_eq!(theta_label_angle(270.0), 0.0);
+        assert_eq!(theta_label_angle(225.0), -45.0);
+        // Radial labels follow their edge within ±90°.
+        assert_eq!(radial_label_angle(225.0), 45.0);
+        assert_eq!(radial_label_angle(-75.0), -75.0);
     }
 
     #[test]

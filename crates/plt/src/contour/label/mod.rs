@@ -4,25 +4,26 @@
 //! generator traced them, puts a label on each line long enough for it at
 //! its straightest stretch (skipping spots too close to earlier labels),
 //! and with `inline` cuts the line around the label. Manual placement
-//! labels the nearest line point to each given position.
+//! labels the nearest line point to each given position, and
+//! [`ContourSet::add_label_near`] adds such labels later.
 
 mod place;
+mod placer;
 mod split;
 
-use std::rc::Rc;
+use plt_core::{Point, Rgba};
 
-use plt_core::{Path, Point, Rgba};
-use plt_text::{HAlign, VAlign};
-
-use self::split::{LabelGeometry, split_path};
+use self::placer::{Placer, TextStyle};
 use super::{ContourError, ContourSet};
-use crate::artist::{Artist, ArtistHandle, ArtistId, LayoutContext, RawHandle};
+use crate::artist::{ArtistHandle, ArtistId, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 use crate::text::{Text, TextArtist};
 use crate::ticker::pyfmt::PrintfFormat;
 use crate::ticker::{Formatter, OffsetMode, ScalarFormatter, TickContext, TickerSettings};
 use crate::transforms::Transform;
+
+pub(crate) use placer::LabelSetup;
 
 /// How label texts are made from levels.
 #[derive(Debug, Default)]
@@ -176,36 +177,73 @@ impl ContourSet {
                 follows: explicit.is_none(),
             });
         }
-        self.update(|state| state.label_widths = labels.iter().map(|l| l.width).collect());
-        let geometry = self.label_geometry(options.rightside_up)?;
-        let style = TextStyle {
-            font,
-            zorder: options.zorder.unwrap_or(2.0 + self.zorder()),
-            rc,
+        let setup = LabelSetup {
+            labels,
+            style: TextStyle {
+                font,
+                zorder: options.zorder.unwrap_or(2.0 + self.zorder()),
+                rc,
+            },
+            rightside_up: options.rightside_up,
         };
+        self.update(|state| state.label_setup = Some(setup.clone()));
         let spacing = options.inline_spacing;
-        let mut placer = Placer {
-            set: self,
-            geometry,
-            style,
-            positions: Vec::new(),
-            created: Vec::new(),
-        };
+        let mut placer = Placer::new(self, &setup)?;
         match &options.manual {
             Some(points) => {
                 for &(x, y) in points {
-                    placer.label_near(Point::new(x, y), &labels, options.inline, spacing)?;
+                    let target = placer.to_display(Point::new(x, y));
+                    placer.label_near(target, options.inline, spacing)?;
                 }
             }
-            None => placer.label_all(&labels, options.inline, spacing),
+            None => placer.label_all(options.inline, spacing),
         }
-        Ok(placer.created)
+        Ok(placer.into_created())
+    }
+
+    /// Labels the labelled line nearest to `point`, given in the
+    /// coordinates of `transform` (data: the axes' `trans_data`; display
+    /// pixels: [`Transform::Display`]), the way the last
+    /// [`ContourSet::clabel`] call labelled the set, and returns the new
+    /// text (matplotlib's `add_label_near`). With `inline` the line is cut
+    /// under the label, leaving `inline_spacing` pixels on each side.
+    ///
+    /// # Errors
+    ///
+    /// When the set has not been labelled yet, `transform` cannot be
+    /// resolved, or there is no labelled line to snap to.
+    pub fn add_label_near(
+        &self,
+        point: Point,
+        transform: &Transform,
+        inline: bool,
+        inline_spacing: f64,
+    ) -> Result<Text, ContourError> {
+        let setup = self
+            .read(|state| state.label_setup.clone())
+            .ok_or(ContourError::Unlabelled)?;
+        let mut placer = Placer::new(self, &setup)?;
+        let target = {
+            let figure = self.axes().raw().figure_state().borrow();
+            transform.resolve(&*figure)?.transform_point(point)
+        };
+        placer.label_near(target, inline, inline_spacing)?;
+        placer
+            .into_created()
+            .pop()
+            .ok_or(ContourError::NoContourToLabel)
     }
 
     /// The widths in pixels of the labels of the levels last labelled,
     /// as used for placement.
     pub fn label_widths(&self) -> Vec<f64> {
-        self.read(|state| state.label_widths.clone())
+        self.read(|state| {
+            state
+                .label_setup
+                .as_ref()
+                .map(LabelSetup::widths)
+                .unwrap_or_default()
+        })
     }
 
     /// Indices of the levels to label: all, or those listed.
@@ -262,22 +300,6 @@ impl ContourSet {
             .width())
     }
 
-    /// The data ↔ display transforms of the axes as they are now.
-    fn label_geometry(&self, rightside_up: bool) -> Result<LabelGeometry, ContourError> {
-        let axes = self.axes();
-        axes.unstale_view();
-        let figure = axes.raw().figure_state().borrow();
-        let to_display = Transform::Data(axes.id()).resolve(&*figure)?;
-        let to_data = to_display
-            .inverted()
-            .ok_or(crate::transforms::TransformError::Singular)?;
-        Ok(LabelGeometry {
-            to_display,
-            to_data,
-            rightside_up,
-        })
-    }
-
     fn zorder(&self) -> f64 {
         self.collections()
             .first()
@@ -320,145 +342,6 @@ fn label_texts(
                     .map_or_else(|| "%1.3f".to_owned(), |(_, text)| text.clone())
             })
             .collect()),
-    }
-}
-
-/// The font and z-order of the label texts.
-#[derive(Debug)]
-struct TextStyle {
-    font: FontProperties,
-    zorder: f64,
-    rc: Rc<crate::rc::RcParams>,
-}
-
-/// Places labels on one contour set.
-struct Placer<'s> {
-    set: &'s ContourSet,
-    geometry: LabelGeometry,
-    style: TextStyle,
-    /// Display positions of the labels of this call, which new labels
-    /// keep away from.
-    positions: Vec<Point>,
-    created: Vec<Text>,
-}
-
-impl Placer<'_> {
-    /// Automatic placement (matplotlib's `labels`).
-    fn label_all(&mut self, labels: &[LevelLabel], inline: bool, spacing: f64) {
-        let mut paths = self.set.paths();
-        for label in labels {
-            let mut additions = Vec::new();
-            for subpath in components(&paths[label.index]) {
-                let screen: Vec<Point> = subpath
-                    .vertices()
-                    .iter()
-                    .map(|&p| self.geometry.to_display.transform_point(p))
-                    .collect();
-                if !place::long_enough(&screen, label.width) {
-                    additions.push(subpath);
-                    continue;
-                }
-                let (at, index) = place::locate(&screen, label.width, &self.positions);
-                let (rotation, cut) =
-                    split_path(&self.geometry, &subpath, index, at, (label.width, spacing));
-                self.add(label, at, rotation);
-                additions.push(if inline { cut } else { subpath });
-            }
-            if inline {
-                paths[label.index] = Path::compound(&additions);
-            }
-        }
-        if inline {
-            self.set.set_paths(paths);
-        }
-    }
-
-    /// Labels the labelled line nearest to `data` (matplotlib's
-    /// `add_label_near`).
-    fn label_near(
-        &mut self,
-        data: Point,
-        labels: &[LevelLabel],
-        inline: bool,
-        spacing: f64,
-    ) -> Result<(), ContourError> {
-        let target = self.geometry.to_display.transform_point(data);
-        let mut paths = self.set.paths();
-        let mut best: Option<(f64, usize, usize, Point)> = None;
-        for (k, label) in labels.iter().enumerate() {
-            let mut start = 0;
-            for subpath in components(&paths[label.index]) {
-                let screen: Vec<Point> = subpath
-                    .vertices()
-                    .iter()
-                    .map(|&p| self.geometry.to_display.transform_point(p))
-                    .collect();
-                if let Some((d2, proj, leg)) = place::closest_point(&screen, target)
-                    && best.is_none_or(|(min, ..)| d2 < min)
-                {
-                    best = Some((d2, k, start + leg, proj));
-                }
-                start += screen.len();
-            }
-        }
-        let (_, k, vertex, proj) = best.ok_or(ContourError::NoContourToLabel)?;
-        let label = &labels[k];
-        let (rotation, cut) = split_path(
-            &self.geometry,
-            &paths[label.index],
-            vertex,
-            proj,
-            (label.width, spacing),
-        );
-        self.add(label, proj, rotation);
-        if inline {
-            paths[label.index] = cut;
-            self.set.set_paths(paths);
-        }
-        Ok(())
-    }
-
-    /// Adds the text artist of a label centred at display point `at`.
-    fn add(&mut self, label: &LevelLabel, at: Point, rotation: f64) {
-        let axes = self.set.axes().clone();
-        let data = self.geometry.to_data.transform_point(at);
-        let mut artist = TextArtist::new(data, label.text.clone(), Rc::clone(&self.style.rc));
-        artist.font = self.style.font.clone();
-        artist.rotation = rotation;
-        artist.halign = HAlign::Center;
-        artist.valign = VAlign::Center;
-        artist.color = Color::from(label.color);
-        let base = artist.base_mut();
-        base.zorder = self.style.zorder;
-        base.transform = Some(axes.trans_data());
-        base.clip_box = Some(axes.id());
-        let figure = Rc::clone(axes.raw().figure_state());
-        let id = figure.borrow_mut().adopt(axes.id(), Box::new(artist));
-        self.positions.push(at);
-        self.set.update(|state| {
-            state.labels.push(LabelRecord {
-                level: label.level,
-                text: label.text.clone(),
-                position: at,
-                rotation: crate::ticker::pymath::py_mod(rotation, 360.0),
-                color: label.color,
-                artist: id,
-                index: label.index,
-                follows: label.follows,
-            });
-        });
-        self.created
-            .push(Text::from_raw(RawHandle::new(figure, id)));
-    }
-}
-
-/// The connected components of a path (matplotlib's
-/// `_iter_connected_components`): a path without codes is one component.
-fn components(path: &Path) -> Vec<Path> {
-    if path.codes().is_none() {
-        vec![path.clone()]
-    } else {
-        path.subpaths()
     }
 }
 
@@ -573,5 +456,37 @@ mod tests {
             empty.clabel(&manual).unwrap_err(),
             ContourError::NoContourToLabel
         );
+    }
+
+    #[test]
+    fn labels_added_near_a_point_follow_the_last_clabel() {
+        let cs = bowl(&[0.5, 1.0]);
+        let data = cs.axes().trans_data();
+        assert_eq!(
+            cs.add_label_near(Point::new(0.7, 0.0), &data, true, 5.0)
+                .unwrap_err(),
+            ContourError::Unlabelled
+        );
+        let options = ClabelOptions {
+            fmt: LabelFormat::Map(vec![(0.5, "half".to_owned()), (1.0, "one".to_owned())]),
+            ..ClabelOptions::default()
+        };
+        let automatic = cs.clabel(&options).unwrap().len();
+        let near = cs
+            .add_label_near(Point::new(0.0, 0.98), &data, true, 5.0)
+            .unwrap();
+        let labels = cs.labels();
+        assert_eq!(labels.len(), automatic + 1);
+        let last = &labels[labels.len() - 1];
+        assert_eq!((last.level, last.text.as_str()), (1.0, "one"));
+        assert_eq!(last.artist, near);
+        // A display point labels the line nearest to it on screen.
+        let display = data
+            .resolve(&*cs.axes().raw().figure_state().borrow())
+            .unwrap()
+            .transform_point(Point::new(0.7, 0.0));
+        cs.add_label_near(display, &Transform::Display, false, 5.0)
+            .unwrap();
+        assert_eq!(cs.labels().last().unwrap().level, 0.5);
     }
 }

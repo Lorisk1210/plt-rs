@@ -327,18 +327,35 @@ impl ContourSet {
         self
     }
 
-    /// Replaces the paths (one per level or band) in the collections.
-    pub(crate) fn set_paths(&self, paths: Vec<Path>) {
+    /// Replaces the paths, one per level (lines) or band (fills), keeping
+    /// their colours and styles (matplotlib's `set_paths`).
+    pub fn set_paths(&self, paths: Vec<Path>) -> &Self {
         if let [only] = self.collections.as_slice() {
             only.raw()
                 .with_mut::<CollectionArtist, _>(|c| c.paths = paths);
-            return;
+            return self;
         }
         for (collection, path) in self.collections.iter().zip(paths) {
             collection
                 .raw()
                 .with_mut::<CollectionArtist, _>(|c| c.paths = vec![path]);
         }
+        self
+    }
+
+    /// Sets the edge colours, cycled over the levels or bands
+    /// (matplotlib's `set_edgecolors`): filled contours then get outlines,
+    /// and hatches take the colour of their band's edge when
+    /// `hatch.color` is `edge`.
+    pub fn set_edgecolors(&self, colors: Vec<Color>) -> &Self {
+        if let [only] = self.collections.as_slice() {
+            only.set_edgecolors(EdgeColors::Colors(colors));
+            return self;
+        }
+        for (collection, color) in self.collections.iter().zip(colors.iter().cycle()) {
+            collection.set_edgecolor(color.clone());
+        }
+        self
     }
 }
 
@@ -400,6 +417,55 @@ mod tests {
         let viridis = colormaps::get("viridis").unwrap();
         cs.set_cmap(viridis.clone());
         assert_eq!(cs.colors(), [viridis.lut()[0], viridis.lut()[1]]);
+    }
+
+    #[test]
+    fn edge_colours_cycle_over_hatched_bands() {
+        let field = QuadField::new(Grid::from_fn(4, 5, |i, j| (i + j) as f64));
+        let options = ContourOptions {
+            levels: Levels::Values(vec![0.0, 2.0, 4.0, 7.0]),
+            hatches: vec![Some("/".to_owned())],
+            ..ContourOptions::default()
+        };
+        let cs = Figure::new().subplot().contourf(&field, options).unwrap();
+        assert_eq!(
+            cs.collections().len(),
+            3,
+            "hatched bands are drawn one by one"
+        );
+        cs.set_edgecolors(vec![Color::from("r"), Color::from("b")]);
+        let edges: Vec<Rgba> = cs
+            .collections()
+            .iter()
+            .map(|c| {
+                c.raw()
+                    .with::<CollectionArtist, _>(|c| c.resolved_colors().unwrap().1[0])
+            })
+            .collect();
+        let (red, blue) = (
+            Color::from("r").resolve().unwrap(),
+            Color::from("b").resolve().unwrap(),
+        );
+        assert_eq!(edges, [red, blue, red]);
+        let lines = lines(ContourOptions::default());
+        lines.set_edgecolors(vec![Color::from("r")]);
+        assert!(edge_colors(&lines).iter().all(|&c| c == red));
+    }
+
+    #[test]
+    fn replaced_paths_keep_the_styles() {
+        let cs = lines(ContourOptions {
+            levels: Levels::Values(vec![1.0, 3.0]),
+            ..ContourOptions::default()
+        });
+        let colors = cs.colors();
+        let other = lines(ContourOptions {
+            levels: Levels::Values(vec![2.0, 5.0]),
+            ..ContourOptions::default()
+        });
+        cs.set_paths(other.paths());
+        assert_eq!(cs.paths(), other.paths());
+        assert_eq!(cs.colors(), colors);
     }
 
     #[test]

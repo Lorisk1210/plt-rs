@@ -1,0 +1,110 @@
+{
+ "size_px": [1000, 400],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.090909, 0.754348, 0.818182, 0.195652],
+   "title": "",
+   "xlim": [1.1, 2.9],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[2, ""]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.092857, 0.519565, 0.857143, 0.195652],
+   "title": "",
+   "xlim": [1.1, 2.9],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[2, ""]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.05, 0.284783, 0.857143, 0.195652],
+   "title": "",
+   "xlim": [1.1, 2.9],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[2, ""]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.05, 0.05, 0.9, 0.195652],
+   "title": "",
+   "xlim": [1.1, 2.9],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[2, ""]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.05, 0.090909, 0.195652, 0.818182],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [1.1, 2.9],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[2, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.284783, 0.092857, 0.195652, 0.857143],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [1.1, 2.9],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[2, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.519565, 0.05, 0.195652, 0.857143],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [1.1, 2.9],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[2, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.754348, 0.05, 0.195652, 0.9],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [1.1, 2.9],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[2, ""]]
+  }
+ ]
+}

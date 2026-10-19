@@ -16,6 +16,7 @@ use super::{Axes, AxesState, AxisName, PlotError};
 use crate::colors::Color;
 use crate::fonts::{FontSize, FontWeight};
 use crate::lines::LineStyle;
+use crate::polar::ThetaLocator;
 use crate::rc::{AxisBelow, RcParams};
 use crate::scale::{ScaleError, ScaleOptions, scale_factory};
 use crate::ticker::{
@@ -168,6 +169,12 @@ pub struct TickParams {
     pub colors: Option<Color>,
     /// Label rotation in degrees.
     pub labelrotation: Option<f64>,
+    /// Whether the labels of polar axes turn with their ticks, with
+    /// `labelrotation` (default 0) added: matplotlib's
+    /// `labelrotation="auto"` (or `("auto", angle)`) for `Some(true)` and
+    /// `"default"` for `Some(false)`. A `labelrotation` given alone is a
+    /// fixed rotation.
+    pub labelrotation_auto: Option<bool>,
     /// How rotated labels are aligned.
     pub labelrotation_mode: Option<RotationMode>,
     /// Label font family (`labelfontfamily`).
@@ -213,7 +220,10 @@ impl TickParams {
         set(&mut style.size, self.length);
         set(&mut style.width, self.width);
         set(&mut style.pad, self.pad);
-        set(&mut style.label_rotation, self.labelrotation);
+        if self.labelrotation.is_some() || self.labelrotation_auto.is_some() {
+            style.label_rotation = self.labelrotation.unwrap_or(0.0);
+            style.label_rotation_auto = self.labelrotation_auto.unwrap_or(false);
+        }
         if let Some(direction) = self.direction {
             style.direction = direction;
         }
@@ -458,7 +468,9 @@ impl Axes {
     /// `locator_params`) and re-autoscales the affected axes. A
     /// `MaxNLocator` (or `AutoLocator`) takes every parameter, a
     /// `FixedLocator` (from [`Axis::set_ticks`]) only a fixed `nbins`,
-    /// which subsamples its ticks.
+    /// which subsamples its ticks. The default θ locator of polar axes
+    /// passes them to the locator it uses for sectors (matplotlib's
+    /// `ThetaLocator.base.set_params`).
     ///
     /// # Errors
     ///
@@ -489,6 +501,10 @@ fn with_params(
     params: &LocatorParams,
 ) -> Option<Result<Rc<dyn Locator>, PlotError>> {
     let any: &dyn Any = locator;
+    if let Some(theta) = any.downcast_ref::<ThetaLocator>() {
+        return with_params(theta.base(), params)
+            .map(|base| base.map(|base| Rc::new(ThetaLocator::wrapping(base)) as Rc<dyn Locator>));
+    }
     if let Some(fixed) = any.downcast_ref::<FixedLocator>() {
         let only_nbins =
             params.steps.is_none() && params.integer.is_none() && params.symmetric.is_none();

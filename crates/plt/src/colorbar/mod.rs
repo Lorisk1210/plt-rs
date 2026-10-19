@@ -36,6 +36,7 @@
 mod artists;
 mod blocks;
 mod build;
+mod dividers;
 mod error;
 mod mappable;
 mod options;

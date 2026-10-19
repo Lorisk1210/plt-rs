@@ -29,9 +29,7 @@ pub(crate) fn theta_tickers(settings: &TickerSettings) -> (Rc<dyn Locator>, Rc<d
         .with_steps(&THETA_STEPS)
         .expect("the theta steps are increasing within [1, 10]");
     (
-        Rc::new(ThetaLocator {
-            base: Box::new(base),
-        }),
+        Rc::new(ThetaLocator::wrapping(Rc::new(base))),
         Rc::new(ThetaFormatter),
     )
 }
@@ -50,8 +48,21 @@ fn in_degrees(axis: &AxisInfo) -> AxisInfo {
 /// θ ticks every 45° on a full circle, else the base locator's ticks
 /// computed in degrees (matplotlib's `ThetaLocator`).
 #[derive(Debug)]
-struct ThetaLocator {
-    base: Box<dyn Locator>,
+pub(crate) struct ThetaLocator {
+    base: Rc<dyn Locator>,
+}
+
+impl ThetaLocator {
+    /// The θ locator around `base`, which works in degrees.
+    pub(crate) fn wrapping(base: Rc<dyn Locator>) -> Self {
+        Self { base }
+    }
+
+    /// The locator placing the ticks of sectors, in degrees (matplotlib's
+    /// `ThetaLocator.base`).
+    pub(crate) fn base(&self) -> &dyn Locator {
+        self.base.as_ref()
+    }
 }
 
 impl Locator for ThetaLocator {

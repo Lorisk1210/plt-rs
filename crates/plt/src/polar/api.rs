@@ -459,6 +459,34 @@ mod tests {
     }
 
     #[test]
+    fn locator_params_reach_the_sector_locator() {
+        use crate::axes::LocatorParams;
+
+        let ax = Figure::new().polar_subplot();
+        ax.set_thetamin(15.0).set_thetamax(50.0);
+        let degrees = |ax: &PolarAxes| -> Vec<f64> {
+            let ticks = ax.ticks(AxisName::X).unwrap();
+            ticks
+                .major
+                .iter()
+                .map(|t| (t.loc.to_degrees() * 1e6).round() / 1e6)
+                .collect()
+        };
+        assert!(degrees(&ax).contains(&22.5), "steps of 4.5°");
+        // matplotlib's test_polar_theta_limits sets the base's steps.
+        ax.locator_params(&LocatorParams {
+            axis: Some(AxisName::X),
+            steps: Some(vec![1.0, 2.0, 2.5, 5.0, 10.0]),
+            ..LocatorParams::default()
+        })
+        .unwrap();
+        assert_eq!(
+            degrees(&ax),
+            [15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0]
+        );
+    }
+
+    #[test]
     fn drawing_decides_the_visibility_of_the_sector_spines() {
         let fig = Figure::new();
         let ax = fig.polar_subplot();

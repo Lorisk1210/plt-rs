@@ -5,7 +5,8 @@ use std::rc::Rc;
 
 use plt_core::Rgba;
 
-use super::artists::{Block, Extensions, Painter};
+use super::artists::{Block, Extensions, Painter, SolidFill};
+use super::dividers::Dividers;
 use super::mappable::{ContourLevels, MappableLink, Source};
 use super::placement::{Placement, default_ticklocation, orientation_of};
 use super::state::{BlockSettings, ColorbarArtist, ColorbarState, Drawn};
@@ -15,8 +16,9 @@ use super::{
     short_axis,
 };
 use crate::artist::ArtistHandle;
-use crate::axes::{Axes, AxesLocator, AxesState, AxisName, DataUpdate, TickPosition};
+use crate::axes::{Axes, AxesLocator, AxesState, DataUpdate, TickPosition};
 use crate::colors::{Color, Extend, NormKind, ScalarMappable};
+use crate::image::{ScalarKind, normalize_scalars};
 use crate::orientation::Orientation;
 use crate::spines::SpineSide;
 use crate::ticker::FixedLocator;
@@ -56,7 +58,14 @@ impl Colorbar {
             aspect: placement.map(|_| options.aspect),
         };
         let long = ax.axis_of(long_axis(orientation));
+        let limits = |mapping: &ScalarMappable| (mapping.norm().vmin(), mapping.norm().vmax());
+        let given = limits(&mapping);
         let blocks = settings.blocks(contours.as_ref(), extend, long.inverted(), &mut mapping)?;
+        if let (Some(link), (Some(vmin), Some(vmax))) = (link, limits(&mapping))
+            && limits(&mapping) != given
+        {
+            link.share_limits(ax.raw().figure_state(), vmin, vmax);
+        }
         set_label(&ax, orientation, options.label.clone(), None);
         let scale =
             ticking::long_axis_scale(&blocks, mapping.norm(), options.spacing, contours.is_some());
@@ -144,7 +153,6 @@ impl ColorbarState {
         if filled {
             let skip_low = usize::from(self.blocks.lower);
             let end = self.blocks.values.len() - usize::from(self.blocks.upper);
-            let values = &self.blocks.values[skip_low..end];
             let painter = self.painter(ax);
             painter.remove(self.drawn.solids.take());
             painter.remove(std::mem::take(&mut self.drawn.solids_patches));
@@ -153,8 +161,15 @@ impl ColorbarState {
                     .map(|index| self.block(index))
                     .collect::<Result<Vec<_>, _>>()?;
                 self.drawn.solids_patches = painter.solids_patches(&self.edges, blocks);
+            } else if self.blocks.kind == ScalarKind::Integer {
+                let colors = (skip_low..end)
+                    .map(|index| self.block_color(index))
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.drawn.solids = Some(painter.solids(&self.edges, SolidFill::Colors(&colors))?);
             } else {
-                self.drawn.solids = Some(painter.solids(&self.edges, values, &self.mapping)?);
+                let values = &self.blocks.values[skip_low..end];
+                let fill = SolidFill::Mapped(values, &self.mapping);
+                self.drawn.solids = Some(painter.solids(&self.edges, fill)?);
             }
             self.update_dividers(ax);
         }
@@ -172,7 +187,8 @@ impl ColorbarState {
     /// The colour of the value of block `index`.
     fn block_color(&mut self, index: usize) -> Result<Rgba, ColorbarError> {
         let value = self.blocks.values[index];
-        Ok(self.mapping.to_rgba(&[Some(value)], None)?[0])
+        let normalized = normalize_scalars(&mut self.mapping, &[Some(value)], self.blocks.kind)?;
+        Ok(self.mapping.cmap().lookup(normalized[0], None))
     }
 
     /// The hatch of contour band `band`, if the bands are hatched.
@@ -229,31 +245,23 @@ impl ColorbarState {
     }
 
     /// matplotlib's `_update_dividers`: with `drawedges`, lines between
-    /// the colours inside the view and at the ends of the extensions.
+    /// the colours inside the view and at the ends of the extensions,
+    /// placed from the view as it is when drawn.
     fn update_dividers(&mut self, ax: &Axes) {
         if !self.settings.drawedges {
             return;
         }
-        let (lo, hi) = match long_axis(self.orientation) {
-            AxisName::X => ax.xlim(),
-            AxisName::Y => ax.ylim(),
+        let placement = Dividers {
+            axes: ax.id(),
+            orientation: self.orientation,
+            edges: self.edges.clone(),
+            lower: self.blocks.lower,
+            upper: self.blocks.upper,
         };
-        let mut positions: Vec<f64> = self
-            .edges
-            .iter()
-            .copied()
-            .filter(|&y| lo < y && y < hi)
-            .collect();
-        if self.blocks.lower {
-            positions.insert(0, lo);
-        }
-        if self.blocks.upper {
-            positions.push(hi);
-        }
         let painter = self.painter(ax);
         match self.drawn.dividers {
-            Some(dividers) => painter.move_dividers(dividers, &positions),
-            None => self.drawn.dividers = Some(painter.dividers(&positions)),
+            Some(dividers) => painter.move_dividers(dividers, placement),
+            None => self.drawn.dividers = Some(painter.dividers(placement)),
         }
     }
 

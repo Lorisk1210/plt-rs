@@ -48,9 +48,9 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/margins", |fig| {
         let axs = fig.subplots(1, 2)?;
         line(&axs[(0, 0)])?;
-        axs[(0, 0)].set_margins(0.25, 0.25);
+        axs[(0, 0)].set_margins(0.25, 0.25)?;
         line(&axs[(0, 1)])?;
-        axs[(0, 1)].set_margins(0.0, -0.25);
+        axs[(0, 1)].set_margins(0.0, -0.25)?;
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),

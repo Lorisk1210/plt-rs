@@ -4,12 +4,14 @@ use super::frame::SuperTexts;
 use super::{Figure, FigureFrame, FigureState};
 use crate::artist::{ArtistHandle, ArtistId};
 use crate::axes::{Axes, AxesState};
+use crate::gridspec::SubplotParams;
 
 impl FigureState {
     /// Removes everything in frame `frame` (matplotlib's
     /// `FigureBase.clear`): each axes is cleared, which resets the scales
     /// of axes shared with it, then removed with the subfigures, texts,
-    /// legends and other artists.
+    /// legends and other artists; the subplot parameters return to the
+    /// rc defaults.
     fn clear_frame(&mut self, frame: ArtistId) {
         let Some(node) = self.store.get_as::<FigureFrame>(frame) else {
             return;
@@ -25,14 +27,15 @@ impl FigureState {
         }
         if let Some(node) = self.store.get_as_mut::<FigureFrame>(frame) {
             node.super_texts = SuperTexts::default();
+            node.subplot_params = SubplotParams::from_rc(&crate::rc::params());
         }
     }
 }
 
 impl Figure {
-    /// Removes the axes, subfigures, texts, legends and every other artist,
-    /// keeping the size, colours, subplot parameters and layout engine
-    /// (matplotlib's `Figure.clear`).
+    /// Removes the axes, subfigures, texts, legends and every other artist
+    /// and resets the subplot parameters to `figure.subplot.*`, keeping
+    /// the size, colours and layout engine (matplotlib's `Figure.clear`).
     pub fn clear(&self) -> &Self {
         self.state_mut().clear_frame(self.id());
         self
@@ -72,5 +75,21 @@ mod tests {
         assert_eq!(fig.axes(), std::slice::from_ref(&ax));
         fig.delaxes(&ax);
         assert_eq!(fig.axes(), Vec::<Axes>::new());
+    }
+
+    #[test]
+    fn clearing_resets_the_subplot_parameters() {
+        // matplotlib's test_clf_subplotpars.
+        let fig = Figure::new();
+        let defaults = fig.subplot_params();
+        fig.subplots_adjust(&crate::gridspec::SubplotOverrides {
+            left: Some(0.2),
+            hspace: Some(0.5),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_ne!(fig.subplot_params(), defaults);
+        fig.clf();
+        assert_eq!(fig.subplot_params(), defaults);
     }
 }

@@ -1,0 +1,733 @@
+{
+ "area": "legend_behaviour",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFigureFunction.test_legend_handle_label",
+    "steps": [["fig", "subplots"], [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]], ["fig", "legend", ["@1"], ["hello world"]], ["@2", "get_texts"]]
+   },
+   "value": [null, null, null, ["hello world"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFigureFunction.test_legend_kw_args",
+    "steps": [
+     ["fig", "subplots", 1, 2],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "first"}],
+     [1, "plot", [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0], {"label": "second"}],
+     ["fig", "legend", {"loc": "right"}],
+     ["@3", "get_texts"]
+    ]
+   },
+   "value": [null, null, null, null, ["first", "second"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFigureFunction.test_legend_label_arg",
+    "steps": [["fig", "subplots"], [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]], ["fig", "legend", ["foobar"]], ["@2", "get_texts"]]
+   },
+   "value": [null, null, null, ["foobar"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFigureFunction.test_legend_no_args",
+    "steps": [["fig", "subplots"], [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "hello world"}], ["fig", "legend"], ["@2", "get_texts"]]
+   },
+   "value": [null, null, null, ["hello world"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFunction.test_legend_kwargs_handles_labels",
+    "steps": [
+     ["fig", "subplots"],
+     [
+      0,
+      "plot",
+      [0.0, 0.09973310011396169, 0.19946620022792338, 0.2991993003418851, 0.39893240045584677, 0.49866550056980846, 0.5983986006837702, 0.6981317007977319, 0.7978648009116935, 0.8975979010256552, 0.9973310011396169, 1.0970641012535787, 1.1967972013675403, 1.296530301481502, 1.3962634015954638, 1.4959965017094254, 1.595729601823387, 1.6954627019373487, 1.7951958020513104, 1.8949289021652722, 1.9946620022792338, 2.0943951023931957, 2.1941282025071573, 2.293861302621119, 2.3935944027350806, 2.4933275028490423, 2.593060602963004, 2.6927937030769655, 2.7925268031909276, 2.8922599033048892, 2.991993003418851, 3.0917261035328125, 3.191459203646774, 3.291192303760736, 3.3909254038746974, 3.490658503988659, 3.5903916041026207, 3.690124704216583, 3.7898578043305444, 3.889590904444506, 3.9893240045584677, 4.089057104672429, 4.188790204786391, 4.288523304900353, 4.388256405014315, 4.487989505128276, 4.587722605242238, 4.687455705356199, 4.787188805470161, 4.886921905584123, 4.9866550056980845, 5.086388105812047, 5.186121205926008, 5.28585430603997, 5.385587406153931, 5.485320506267893, 5.585053606381855, 5.684786706495816, 5.7845198066097785, 5.88425290672374, 5.983986006837702, 6.083719106951663, 6.183452207065625, 6.283185307179586],
+      [0.0, 0.09956784659581666, 0.19814614319939758, 0.2947551744109042, 0.38843479627469474, 0.47825397862131824, 0.5633200580636221, 0.6427876096865394, 0.7158668492597184, 0.7818314824680298, 0.8400259231507714, 0.8898718088114687, 0.9308737486442042, 0.962624246950012, 0.9848077530122081, 0.9972037971811801, 0.9996891820008162, 0.9922392066001721, 0.9749279121818236, 0.9479273461671317, 0.9115058523116731, 0.8660254037844385, 0.8119380057158564, 0.7497812029677341, 0.6801727377709194, 0.6038044103254774, 0.5214352033794981, 0.43388373911755823, 0.3420201433256685, 0.24675739769029342, 0.14904226617617428, 0.04984588566069704, -0.04984588566069723, -0.14904226617617447, -0.24675739769029362, -0.34202014332566866, -0.433883739117558, -0.5214352033794983, -0.6038044103254775, -0.6801727377709195, -0.7497812029677342, -0.8119380057158565, -0.8660254037844388, -0.9115058523116731, -0.9479273461671318, -0.9749279121818236, -0.9922392066001721, -0.9996891820008162, -0.9972037971811801, -0.984807753012208, -0.962624246950012, -0.9308737486442041, -0.8898718088114687, -0.8400259231507713, -0.7818314824680299, -0.7158668492597183, -0.6427876096865389, -0.563320058063622, -0.4782539786213178, -0.38843479627469474, -0.2947551744109039, -0.19814614319939772, -0.09956784659581641, -2.4492935982947064e-16],
+      {"label": "sin"}
+     ],
+     [
+      0,
+      "plot",
+      [0.0, 0.09973310011396169, 0.19946620022792338, 0.2991993003418851, 0.39893240045584677, 0.49866550056980846, 0.5983986006837702, 0.6981317007977319, 0.7978648009116935, 0.8975979010256552, 0.9973310011396169, 1.0970641012535787, 1.1967972013675403, 1.296530301481502, 1.3962634015954638, 1.4959965017094254, 1.595729601823387, 1.6954627019373487, 1.7951958020513104, 1.8949289021652722, 1.9946620022792338, 2.0943951023931957, 2.1941282025071573, 2.293861302621119, 2.3935944027350806, 2.4933275028490423, 2.593060602963004, 2.6927937030769655, 2.7925268031909276, 2.8922599033048892, 2.991993003418851, 3.0917261035328125, 3.191459203646774, 3.291192303760736, 3.3909254038746974, 3.490658503988659, 3.5903916041026207, 3.690124704216583, 3.7898578043305444, 3.889590904444506, 3.9893240045584677, 4.089057104672429, 4.188790204786391, 4.288523304900353, 4.388256405014315, 4.487989505128276, 4.587722605242238, 4.687455705356199, 4.787188805470161, 4.886921905584123, 4.9866550056980845, 5.086388105812047, 5.186121205926008, 5.28585430603997, 5.385587406153931, 5.485320506267893, 5.585053606381855, 5.684786706495816, 5.7845198066097785, 5.88425290672374, 5.983986006837702, 6.083719106951663, 6.183452207065625, 6.283185307179586],
+      [1.0, 0.9950307753654014, 0.9801724878485438, 0.9555728057861407, 0.9214762118704076, 0.8782215733702285, 0.8262387743159949, 0.766044443118978, 0.6982368180860729, 0.6234898018587336, 0.5425462638657594, 0.4562106573531629, 0.365341024366395, 0.27084046814300516, 0.17364817766693022, 0.07473009358642417, -0.024930691738072913, -0.12434370464748516, -0.22252093395631434, -0.31848665025168454, -0.41128710313061156, -0.5000000000000002, -0.58374367223479, -0.6616858375968595, -0.7330518718298263, -0.7971325072229225, -0.8532908816321556, -0.900968867902419, -0.9396926207859084, -0.969077286229078, -0.9888308262251285, -0.9987569212189223, -0.9987569212189223, -0.9888308262251285, -0.969077286229078, -0.9396926207859084, -0.9009688679024191, -0.8532908816321555, -0.7971325072229224, -0.7330518718298262, -0.6616858375968594, -0.5837436722347898, -0.4999999999999996, -0.4112871031306116, -0.3184866502516841, -0.2225209339563146, -0.12434370464748495, -0.024930691738073156, 0.07473009358642436, 0.17364817766693083, 0.2708404681430051, 0.3653410243663954, 0.45621065735316285, 0.5425462638657597, 0.6234898018587334, 0.698236818086073, 0.7660444431189785, 0.8262387743159949, 0.8782215733702288, 0.9214762118704076, 0.9555728057861408, 0.9801724878485438, 0.9950307753654014, 1.0],
+      {"label": "cos"}
+     ],
+     [0, "legend", {"labels": ["a", "b"], "handles": ["@2", "@1"]}],
+     ["@3", "get_texts"],
+     [0, "get_legend_handles_labels"]
+    ]
+   },
+   "value": [null, null, null, null, ["a", "b"], [["@1", "@2"], ["sin", "cos"]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFunction.test_legend_kwargs_handles_only",
+    "steps": [
+     ["fig", "subplots"],
+     [
+      0,
+      "plot",
+      [0.0, 0.1, 0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 1.0],
+      [0.0, 0.1, 0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 1.0],
+      {"label": "x"}
+     ],
+     [
+      0,
+      "plot",
+      [0.0, 0.1, 0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 1.0],
+      [0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 1.0, 1.2000000000000002, 1.4000000000000001, 1.6, 1.8, 2.0],
+      {"label": "2x"}
+     ],
+     [
+      0,
+      "plot",
+      [0.0, 0.1, 0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 1.0],
+      [0.0, 0.30000000000000004, 0.6000000000000001, 0.9000000000000001, 1.2000000000000002, 1.5, 1.8000000000000003, 2.1, 2.4000000000000004, 2.7, 3.0],
+      {"label": "3x"}
+     ],
+     [0, "legend", {"handles": ["@3", "@2"]}],
+     ["@4", "get_texts"]
+    ]
+   },
+   "value": [null, null, null, null, null, ["3x", "2x"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFunction.test_legend_kwargs_labels_only",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0.0, 0.1, 0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 1.0]],
+     [0, "plot", [0.0, 0.1, 0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 1.0], [0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 1.0, 1.2000000000000002, 1.4000000000000001, 1.6, 1.8, 2.0]],
+     [0, "legend", {"labels": ["x", "2x"]}],
+     ["@3", "get_texts"],
+     [0, "get_legend_handles_labels"]
+    ]
+   },
+   "value": [null, null, null, null, ["x", "2x"], [[], []]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFunction.test_legend_no_args",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "hello world"}],
+     [0, "legend"],
+     ["@2", "get_texts"],
+     [0, "get_legend_handles_labels"]
+    ]
+   },
+   "value": [null, null, null, ["hello world"], [["@1"], ["hello world"]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFunction.test_legend_positional_handles_labels",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
+     [0, "legend", ["@1"], ["hello world"]],
+     ["@2", "get_texts"],
+     [0, "get_legend_handles_labels"]
+    ]
+   },
+   "value": [null, null, null, ["hello world"], [[], []]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFunction.test_legend_positional_labels_only",
+    "steps": [["fig", "subplots"], [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "hello world"}], [0, "legend", ["foobar"]], ["@2", "get_texts"]]
+   },
+   "value": [null, null, null, ["foobar"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFunction.test_legend_three_args",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "hello world"}],
+     [0, "legend", ["@1"], ["foobar"], {"loc": "right"}],
+     ["@2", "get_texts"]
+    ]
+   },
+   "value": [null, null, null, ["foobar"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "TestLegendFunction.test_legend_warns_on_unequal_number_of_handles_and_labels",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [1, 2]],
+     [0, "plot", [3, 4]],
+     [0, "legend", ["@1", "@2"], ["only_one"]],
+     ["@3", "get_texts"],
+     [0, "legend", ["@1"], ["label_a", "label_b"]],
+     ["@5", "get_texts"]
+    ]
+   },
+   "value": [null, null, null, null, ["only_one"], null, ["label_a"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_empty_bar_chart_with_legend", "steps": [["fig", "subplots"], [0, "bar", [], [], {"label": "test"}], [0, "legend"], ["@2", "get_texts"]]},
+   "value": [null, null, null, ["test"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_fig_legend_set_loc/outside right",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "test"}],
+     ["fig", "legend"],
+     ["@2", "set_loc", "outside right"],
+     ["@2", "get_texts"]
+    ]
+   },
+   "value": [null, null, null, null, ["test"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_fig_legend_set_loc/right",
+    "steps": [["fig", "subplots"], [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "test"}], ["fig", "legend"], ["@2", "set_loc", "right"], ["@2", "get_texts"]]
+   },
+   "value": [null, null, null, null, ["test"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_auto4",
+    "steps": [
+     ["fig", "subplots", 1, 3],
+     [0, "set_title", "bar"],
+     [0, "hist", [0, 9, 9, 9, 9, 9], {"bins": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "label": "Legend", "histtype": "bar"}],
+     [0, "legend", {"loc": "best"}],
+     [1, "set_title", "step"],
+     [1, "hist", [0, 9, 9, 9, 9, 9], {"bins": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "label": "Legend", "histtype": "step"}],
+     [1, "legend", {"loc": "best"}],
+     [2, "set_title", "stepfilled"],
+     [2, "hist", [0, 9, 9, 9, 9, 9], {"bins": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "label": "Legend", "histtype": "stepfilled"}],
+     [2, "legend", {"loc": "best"}],
+     ["fig", "draw"],
+     ["@3", "get_window_extent"],
+     ["@6", "get_window_extent"],
+     ["@9", "get_window_extent"]
+    ],
+    "figure": {"figsize": [6.4, 2.4]}
+   },
+   "value": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    [[86.94444444444444, 179.25555555555553], [187.94444444444446, 204.25555555555553]],
+    [[262.0032679738562, 179.25555555555553], [363.0032679738562, 204.25555555555553]],
+    [[437.062091503268, 179.25555555555553], [538.062091503268, 204.25555555555553]]
+   ],
+   "tol": 1e-06
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_handle_label_mismatch",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
+     [0, "legend", {"handles": ["@1", "@2"], "labels": ["pl1", "pl2", "pl3"]}],
+     ["@3", "get_texts"]
+    ]
+   },
+   "value": [null, null, null, null, ["pl1", "pl2"]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_linecolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1", "color": "r"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2", "color": "g"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3", "color": "b"}],
+     [0, "legend", {"labelcolor": "linecolor"}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.0, 0.0, 1.0, 1]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_list",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3"}],
+     [0, "legend", {"labelcolor": ["r", "g", "b"]}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1.0], [0.0, 0.5, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_markeredgecolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1", "markeredgecolor": "r"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2", "markeredgecolor": "g"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3", "markeredgecolor": "b"}],
+     [0, "legend", {"labelcolor": "markeredgecolor"}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.0, 0.0, 1.0, 1]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_markerfacecolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1", "markerfacecolor": "r"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2", "markerfacecolor": "g"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3", "markerfacecolor": "b"}],
+     [0, "legend", {"labelcolor": "markerfacecolor"}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.0, 0.0, 1.0, 1]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_rcparam_linecolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1", "color": "r"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2", "color": "g"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3", "color": "b"}],
+     [0, "legend"],
+     ["@4", "get_texts.get_color"]
+    ],
+    "rc": {"legend.labelcolor": "linecolor"}
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.0, 0.0, 1.0, 1]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_rcparam_markeredgecolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1", "markeredgecolor": "r"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2", "markeredgecolor": "g"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3", "markeredgecolor": "b"}],
+     [0, "legend"],
+     ["@4", "get_texts.get_color"]
+    ],
+    "rc": {"legend.labelcolor": "markeredgecolor"}
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.0, 0.0, 1.0, 1]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_rcparam_markerfacecolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1", "markerfacecolor": "r"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2", "markerfacecolor": "g"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3", "markerfacecolor": "b"}],
+     [0, "legend"],
+     ["@4", "get_texts.get_color"]
+    ],
+    "rc": {"legend.labelcolor": "markerfacecolor"}
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.0, 0.0, 1.0, 1]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_single/gray",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3"}],
+     [0, "legend", {"labelcolor": [0.5, 0.5, 0.5]}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[0.5, 0.5, 0.5, 1.0], [0.5, 0.5, 0.5, 1.0], [0.5, 0.5, 0.5, 1.0]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_single/none",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3"}],
+     [0, "legend", {"labelcolor": "none"}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_labelcolor_single/red",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2"}],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3"}],
+     [0, "legend", {"labelcolor": "red"}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_loc_polycollection",
+    "steps": [
+     ["fig", "subplots", 1, 2],
+     [0, "fill_between", [3, 4, 5], [1, 1, 1], [5, 5, 5], {"color": "gray", "alpha": 0.5, "label": "Shaded Area"}],
+     [0, "set_xlim", 0, 6],
+     [0, "set_ylim", -1, 5],
+     [0, "legend", {"loc": "best"}],
+     [1, "fill_between", [3, 4, 5], [1, 1, 1], [5, 5, 5], {"color": "gray", "alpha": 0.5, "label": "Shaded Area"}],
+     [1, "set_xlim", 0, 6],
+     [1, "set_ylim", -1, 5],
+     [1, "legend", {"loc": "lower left"}],
+     ["fig", "draw"],
+     ["@4", "get_window_extent"],
+     ["@8", "get_window_extent"]
+    ],
+    "figure": {"figsize": [10, 5]}
+   },
+   "value": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    [[131.94444444444446, 408.05555555555554], [270.61631944444446, 433.05555555555554]],
+    [[554.6717171717171, 61.94444444444443], [693.3435921717171, 86.94444444444443]]
+   ],
+   "tol": 1e-06
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_nolabels_draw",
+    "steps": [["fig", "subplots"], [0, "plot", [1, 2, 3]], [0, "legend"], [0, "get_legend.get_texts"], [0, "get_legend_handles_labels"]]
+   },
+   "value": [null, null, null, [], [[], []]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_pathcollection_labelcolor_linecolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "scatter", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1", "c": "r"}],
+     [0, "scatter", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2", "c": "g"}],
+     [0, "scatter", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3", "c": "b"}],
+     [0, "legend", {"labelcolor": "linecolor"}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1.0], [0.0, 0.5, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_pathcollection_labelcolor_linecolor_cmap",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "scatter", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"c": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], "label": "#1"}],
+     [0, "legend", {"labelcolor": "linecolor"}],
+     ["@2", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, [[0.0, 0.0, 0.0, 1.0]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_pathcollection_labelcolor_markeredgecolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "scatter", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "#1", "edgecolor": "r"}],
+     [0, "scatter", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18], {"label": "#2", "edgecolor": "g"}],
+     [0, "scatter", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], {"label": "#3", "edgecolor": "b"}],
+     [0, "legend", {"labelcolor": "markeredgecolor"}],
+     ["@4", "get_texts.get_color"]
+    ]
+   },
+   "value": [null, null, null, null, null, [[1.0, 0.0, 0.0, 1.0], [0.0, 0.5, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_remove",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
+     ["fig", "legend", ["@1"], ["test"]],
+     ["@2", "remove"],
+     ["fig", "legends"],
+     [0, "legend", ["test"]],
+     ["@5", "remove"],
+     [0, "get_legend"]
+    ]
+   },
+   "value": [null, null, null, null, [], null, null, null]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_text",
+    "steps": [
+     ["fig", "subplots", 1, 2],
+     [0, "plot", [1, 2], [2, 1], {"label": "plot name"}],
+     [0, "text", 1.5, 2, "some text blahblah", {"verticalalignment": "top"}],
+     [0, "legend", {"loc": "best"}],
+     [1, "plot", [1, 2], [2, 1], {"label": "plot name"}],
+     [1, "text", 1.5, 2, "some text blahblah", {"verticalalignment": "top"}],
+     [1, "legend", {"loc": "lower left"}],
+     ["fig", "draw"],
+     ["@3", "get_window_extent"],
+     ["@6", "get_window_extent"]
+    ],
+    "figure": {"figsize": [10, 5]}
+   },
+   "value": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    [[131.94444444444446, 61.94444444444443], [252.38194444444446, 86.94444444444443]],
+    [[554.6717171717171, 61.94444444444443], [675.1092171717171, 86.94444444444443]]
+   ],
+   "tol": 1e-06
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_legend_title_empty",
+    "steps": [["fig", "subplots"], [0, "plot", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {"label": "mock data"}], [0, "legend"], ["@2", "get_title"], ["@2", "get_title.get_visible"]]
+   },
+   "value": [null, null, null, "", false]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_invalid_list_exception", "steps": [["fig", "subplots"], [0, "legend", {"loc": [1.1, 2.2, 3.3], "labels": ["mock data"]}]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_invalid_tuple_exception/tuple_1", "steps": [["fig", "subplots"], [0, "legend", {"loc": [1.1], "labels": ["mock data"]}]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_invalid_tuple_exception/tuple_3", "steps": [["fig", "subplots"], [0, "legend", {"loc": [0.481, 0.4227, 0.4523], "labels": ["mock data"]}]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_invalid_tuple_exception/tuple_text", "steps": [["fig", "subplots"], [0, "legend", {"loc": [0.481, "go blue"], "labels": ["mock data"]}]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_valid_list/[0.481, 0.442]",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": [0.481, 0.442], "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_valid_list/[1, 2]", "steps": [["fig", "subplots"], [0, "legend", {"loc": [1, 2], "labels": ["mock data"]}], ["@1", "get_texts"]]},
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_validation_numeric_value/-1", "steps": [["fig", "subplots"], [0, "legend", {"loc": -1, "labels": ["mock data"]}], ["@1", "get_texts"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_validation_numeric_value/0", "steps": [["fig", "subplots"], [0, "legend", {"loc": 0, "labels": ["mock data"]}], ["@1", "get_texts"]]},
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_validation_numeric_value/1", "steps": [["fig", "subplots"], [0, "legend", {"loc": 1, "labels": ["mock data"]}], ["@1", "get_texts"]]},
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_validation_numeric_value/10", "steps": [["fig", "subplots"], [0, "legend", {"loc": 10, "labels": ["mock data"]}], ["@1", "get_texts"]]},
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_validation_numeric_value/11", "steps": [["fig", "subplots"], [0, "legend", {"loc": 11, "labels": ["mock data"]}], ["@1", "get_texts"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_validation_numeric_value/5", "steps": [["fig", "subplots"], [0, "legend", {"loc": 5, "labels": ["mock data"]}], ["@1", "get_texts"]]},
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {"case": "test_loc_validation_string_value/best", "steps": [["fig", "subplots"], [0, "legend", {"loc": "best", "labels": ["mock data"]}], ["@1", "get_texts"]]},
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/center left",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "center left", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/center right",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "center right", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/center",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "center", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/lower center",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "lower center", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/lower left",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "lower left", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/lower right",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "lower right", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/right",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "right", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/upper center",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "upper center", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/upper left",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "upper left", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/upper right",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "upper right", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "value": [null, null, []]
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_loc_validation_string_value/wrong",
+    "steps": [["fig", "subplots"], [0, "legend", {"loc": "wrong", "labels": ["mock data"]}], ["@1", "get_texts"]]
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "legend_behaviour.run",
+   "args": {
+    "case": "test_reverse_legend_handles_and_labels",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "plot", 1, 1, ".", {"label": "First label"}],
+     [0, "plot", 1, 1, ",", {"label": "Second label"}],
+     [0, "plot", 1, 1, "o", {"label": "Third label"}],
+     [0, "legend", {"reverse": true}],
+     ["@4", "get_texts"]
+    ]
+   },
+   "value": [null, null, null, null, null, ["Third label", "Second label", "First label"]]
+  }
+ ]
+}

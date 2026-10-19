@@ -142,3 +142,70 @@ fn minor_ticks_take_labels_and_label_properties() {
     assert_eq!(style.label_size, 7.0);
     assert_eq!(style.label_multialign, Some(HAlign::Right));
 }
+
+#[test]
+fn ticklocs_and_labels_reach_beyond_the_view() {
+    // matplotlib's test_tick_label_update: labels of every located tick.
+    let ax = axes();
+    ax.set_xticks(vec![-1.0, 0.0, 1.0, 2.0, 3.0]);
+    ax.set_xlim(-0.5, 2.5);
+    ax.xaxis()
+        .set_ticklabels(["", "", "unit value", "", ""])
+        .unwrap();
+    let axis = ax.xaxis();
+    assert_eq!(axis.ticklocs(false).unwrap(), [-1.0, 0.0, 1.0, 2.0, 3.0]);
+    assert_eq!(
+        axis.ticklabels(false).unwrap(),
+        ["", "", "unit value", "", ""]
+    );
+    axis.set_tick_params(&TickParams {
+        labeltop: Some(true),
+        ..TickParams::default()
+    });
+    assert_eq!(axis.ticklabels(false).unwrap().len(), 10, "both sides");
+    assert!(axis.ticklocs(true).unwrap().is_empty(), "no minor ticks");
+}
+
+#[test]
+fn fixed_ticks_are_subsampled_by_locator_params() {
+    // matplotlib's test_subsampled_ticklabels.
+    let ax = axes();
+    let ticks: Vec<f64> = (0..10).map(|i| f64::from(i) + 0.1).collect();
+    ax.xaxis().set_ticks(ticks);
+    ax.locator_params(&super::LocatorParams {
+        nbins: Some(crate::ticker::Nbins::Fixed(5)),
+        ..super::LocatorParams::default()
+    })
+    .unwrap();
+    let labels: Vec<String> = "bcdefghijk".chars().map(String::from).collect();
+    ax.xaxis().set_ticklabels(labels).unwrap();
+    assert_eq!(
+        ax.xaxis().ticklocs(false).unwrap(),
+        [0.1, 2.1, 4.1, 6.1, 8.1]
+    );
+    assert_eq!(
+        ax.xaxis().ticklabels(false).unwrap(),
+        ["b", "d", "f", "h", "j"]
+    );
+    let steps = super::LocatorParams {
+        steps: Some(vec![1.0, 2.0]),
+        ..super::LocatorParams::default()
+    };
+    assert!(
+        ax.locator_params(&steps).is_err(),
+        "fixed ticks take only nbins"
+    );
+}
+
+#[test]
+fn a_scale_autoscales_with_its_own_locator() {
+    // matplotlib's test_log_scales_no_data: the log locator's default
+    // limits stay when the locator is replaced afterwards.
+    let ax = Figure::new().subplot();
+    ax.set_xscale("log").unwrap();
+    ax.xaxis()
+        .set_major_locator(MultipleLocator::new(1.0).unwrap());
+    let (low, high) = ax.xlim();
+    assert!((low - 0.891_250_938_133_745_5).abs() < 1e-12, "{low}");
+    assert!((high - 11.220_184_543_019_636).abs() < 1e-12, "{high}");
+}

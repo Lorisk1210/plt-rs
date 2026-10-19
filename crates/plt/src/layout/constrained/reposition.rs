@@ -87,13 +87,16 @@ pub(super) fn pos_and_bbox(fig: &mut FigureState, axes: ArtistId) -> Option<(Bbo
     Some((position, bbox))
 }
 
-/// Moves an axes to `position` in figure fractions (matplotlib's
-/// `_set_position` after `trans_fig_to_subfig`).
+/// Moves an axes and its twins to `position` in figure fractions
+/// (matplotlib's `_set_position` after `trans_fig_to_subfig`).
 pub(super) fn place(fig: &mut FigureState, axes: ArtistId, position: &Bbox) {
     let Some(frame) = axes_frame_extent(fig, axes) else {
         return;
     };
-    if let Some(state) = fig.store.get_as_mut::<AxesState>(axes) {
-        state.position = to_frame(position, &frame);
+    let local = to_frame(position, &frame);
+    for twin in fig.shared.twins(axes) {
+        if let Some(state) = fig.store.get_as_mut::<AxesState>(twin) {
+            state.position = local;
+        }
     }
 }

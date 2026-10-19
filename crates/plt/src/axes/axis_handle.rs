@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::axis::AxisState;
 use super::axis_label::LabelLoc;
-use super::ticks::{GridOptions, Sides, TickPosition};
+use super::ticks::{GridOptions, Sides, TickPosition, TickStyle};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
@@ -207,6 +207,65 @@ impl Axis {
         self
     }
 
+    /// Every major (or minor) tick location of the current view, inside
+    /// it or not; minor locations on major ticks are left out unless
+    /// overlapping locations are kept (matplotlib's `Axis.get_ticklocs`).
+    ///
+    /// # Errors
+    ///
+    /// When the locator fails.
+    pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, String> {
+        let ticks = self.axes.ticks(self.name)?;
+        let ticks = if minor {
+            ticks.minor_unclipped
+        } else {
+            ticks.major_unclipped
+        };
+        Ok(ticks.into_iter().map(|tick| tick.loc).collect())
+    }
+
+    /// The labels of the [`ticklocs`](Self::ticklocs): those on the first
+    /// side (bottom or left), then those on the second, for the sides that
+    /// show labels (matplotlib's `Axis.get_ticklabels`).
+    ///
+    /// # Errors
+    ///
+    /// When the locator or the formatter fails.
+    pub fn ticklabels(&self, minor: bool) -> Result<Vec<String>, String> {
+        let ticks = self.axes.ticks(self.name)?;
+        let (ticks, sides) = if minor {
+            (ticks.minor_unclipped, self.read(|a| a.minor_style.labels))
+        } else {
+            (ticks.major_unclipped, self.read(|a| a.major_style.labels))
+        };
+        let labels = ticks.into_iter().map(|tick| tick.label);
+        Ok([sides.first, sides.second]
+            .into_iter()
+            .filter(|&shown| shown)
+            .flat_map(|_| labels.clone())
+            .collect())
+    }
+
+    /// The appearance of the major (or minor) ticks: sides with marks and
+    /// labels, sizes, colours and gridlines (matplotlib's
+    /// `get_tick_params`).
+    pub fn tick_style(&self, minor: bool) -> TickStyle {
+        self.read(|axis| {
+            if minor {
+                axis.minor_style.clone()
+            } else {
+                axis.major_style.clone()
+            }
+        })
+    }
+
+    /// Whether the offset (or scale) text is shown (matplotlib's
+    /// `offsetText.get_visible`); [`Axes::label_outer`] hides it on inner
+    /// edges.
+    pub fn offset_text_visible(&self) -> bool {
+        self.read(|axis| axis.offset_visible)
+    }
+
     /// Whether the axis runs from high to low values (matplotlib's
     /// `Axis.get_inverted`).
     pub fn inverted(&self) -> bool {
@@ -289,6 +348,11 @@ impl Axis {
     pub fn set_label_loc(&self, loc: LabelLoc) -> &Self {
         self.update(|axis| axis.label.loc = loc);
         self
+    }
+
+    /// Where along the axis its label sits.
+    pub fn label_loc(&self) -> LabelLoc {
+        self.read(|axis| axis.label.loc)
     }
 
     /// Sets the gap between the tick labels and the axis label in points

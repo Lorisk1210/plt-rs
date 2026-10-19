@@ -76,6 +76,8 @@ impl FigureState {
 
     /// Installs `scale` on axis `name` of `axes` and its siblings, each
     /// with fresh default tick helpers (matplotlib's `_set_axes_scale`).
+    /// When the new locator's default limits differ, `axes` autoscales
+    /// that axis now, while the scale's locator is still in place.
     pub(crate) fn set_shared_scale(
         &mut self,
         axes: ArtistId,
@@ -97,10 +99,16 @@ impl FigureState {
             });
             return;
         }
-        self.update_shared_axis(axes, name, |axis| {
-            axis.set_scale(Rc::clone(scale));
-            axis.autoscale.stale = true;
-        });
+        let default_limits = |state: &Self| {
+            state
+                .axes_state(axes)
+                .map(|a| a.nonsingular(name, f64::NEG_INFINITY, f64::INFINITY))
+        };
+        let before = default_limits(self);
+        self.update_shared_axis(axes, name, |axis| axis.set_scale(Rc::clone(scale)));
+        if default_limits(self) != before {
+            self.autoscale_axis(axes, name);
+        }
     }
 
     /// Recomputes the stale autoscaled view limits of `axes` (matplotlib's

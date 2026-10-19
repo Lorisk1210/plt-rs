@@ -55,6 +55,26 @@ impl Axes {
         Ok(self)
     }
 
+    /// This axes and the axes sharing axis `name` with it (matplotlib's
+    /// `get_shared_x_axes().get_siblings(ax)`).
+    ///
+    /// ```
+    /// use plt::figure::{Figure, Share};
+    /// use plt::ticker::AxisName;
+    /// let fig = Figure::new();
+    /// let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
+    /// assert_eq!(axs[(0, 0)].shared_axes(AxisName::Y).len(), 2);
+    /// assert_eq!(axs[(0, 0)].shared_axes(AxisName::X), [axs[(0, 0)].clone()]);
+    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// ```
+    pub fn shared_axes(&self, name: AxisName) -> Vec<Self> {
+        let figure = self.raw.figure_state();
+        let ids = figure.borrow().siblings(name, self.id());
+        ids.into_iter()
+            .map(|id| Self::from_raw(RawHandle::new(Rc::clone(figure), id)))
+            .collect()
+    }
+
     /// This axes and the axes twinned with it by [`Axes::twinx`] and
     /// [`Axes::twiny`] (matplotlib's `_twinned_axes.get_siblings`).
     pub fn twins(&self) -> Vec<Self> {
@@ -69,20 +89,22 @@ impl Axes {
     /// on the right (matplotlib's `twinx`).
     #[must_use]
     pub fn twinx(&self) -> Self {
-        self.twin(AxisName::X)
+        self.twin_with(AxisName::X, 0.0)
     }
 
     /// A new axes on top of this one sharing its y axis, with its x axis
     /// on top (matplotlib's `twiny`).
     #[must_use]
     pub fn twiny(&self) -> Self {
-        self.twin(AxisName::Y)
+        self.twin_with(AxisName::Y, 0.0)
     }
 
-    /// matplotlib's `_make_twin_axes` followed by the `twinx`/`twiny`
-    /// set-up: the twin shares `shared`, draws its other axis on the far
-    /// side and has no background.
-    fn twin(&self, shared: AxisName) -> Self {
+    /// A new axes on top of this one sharing axis `shared`, with its other
+    /// axis on the far side, drawn `delta_zorder` above this one; of the
+    /// twins only the bottom-most draws the background (matplotlib's
+    /// `_make_twin_axes` and the `twinx`/`twiny(delta_zorder=...)` set-up).
+    #[must_use]
+    pub fn twin_with(&self, shared: AxisName, delta_zorder: f64) -> Self {
         let own = match shared {
             AxisName::X => AxisName::Y,
             AxisName::Y => AxisName::X,
@@ -104,7 +126,7 @@ impl Axes {
         figure.borrow_mut().shared.join_twins(self.id(), twin.id());
         self.set_adjustable(Adjustable::Datalim);
         twin.set_adjustable(Adjustable::Datalim);
-        twin.set_zorder(zorder);
+        twin.set_zorder(zorder + delta_zorder);
         twin.update_twinned_patch_visibility();
         twin.raw.with_mut::<AxesState, _>(|axes| {
             axes.axis_mut(shared).autoscale.enabled = autoscale;
@@ -219,6 +241,7 @@ impl Axes {
 
 #[cfg(test)]
 mod tests {
+    use crate::artist::Artist;
     use crate::axes::{AxesState, AxisName};
     use crate::figure::{Figure, Share};
     use crate::prelude::*;
@@ -318,5 +341,56 @@ mod tests {
                 .with::<AxesState, _>(|state| state.xaxis.major_style.labels.first)
         };
         assert!(!shown(0) && shown(1));
+    }
+
+    #[test]
+    fn a_twin_below_draws_the_background() {
+        // matplotlib's test_twinning_patch_visibility_respects_delta_zorder.
+        let ax = Figure::new().subplot();
+        let below = ax.twin_with(AxisName::X, -1.0);
+        assert_eq!(below.zorder(), ax.zorder() - 1.0);
+        assert!(below.patch_visible() && !ax.patch_visible());
+        assert_eq!(ax.twins().len(), 2);
+    }
+
+    #[test]
+    fn twins_move_and_reshape_together() {
+        // matplotlib's set_position and set_box_aspect act on every twin.
+        let ax = Figure::new().subplot();
+        let twin = ax.twinx();
+        ax.set_position([0.2, 0.2, 0.5, 0.5]);
+        assert_eq!(twin.original_position(), ax.original_position());
+        assert!(
+            !ax.raw()
+                .with::<AxesState, _>(|state| state.base().in_layout)
+        );
+        twin.set_box_aspect(Some(1.0)).unwrap();
+        assert_eq!(ax.box_aspect(), Some(1.0));
+        assert_eq!(twin.position(), ax.position());
+    }
+
+    #[test]
+    fn twins_follow_constrained_layout_together() {
+        // matplotlib's test_twin_stays_aligned_after_constrained_layout: the
+        // host left the layout, the twin did not, and moves it along.
+        let fig = Figure::new();
+        fig.set_layout_engine(Some(crate::layout::LayoutEngine::Constrained(
+            crate::layout::ConstrainedLayout::default(),
+        )));
+        let ax = fig.subplot();
+        ax.set_position([0.2, 0.2, 0.5, 0.5]);
+        let twin = ax.twinx();
+        fig.layout();
+        assert_eq!(ax.position(), twin.position());
+        assert!(ax.position().width() > 0.5, "the layout took over");
+    }
+
+    #[test]
+    fn shared_axes_list_the_group() {
+        let fig = Figure::new();
+        let axs = fig.subplots_shared(2, 2, Share::All, Share::Row).unwrap();
+        assert_eq!(axs[(0, 0)].shared_axes(AxisName::X).len(), 4);
+        assert_eq!(axs[(0, 0)].shared_axes(AxisName::Y).len(), 2);
+        assert!(axs[(1, 1)].shared_axes(AxisName::Y).contains(&axs[(1, 0)]));
     }
 }

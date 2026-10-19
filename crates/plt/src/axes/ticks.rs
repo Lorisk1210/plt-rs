@@ -335,6 +335,8 @@ fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
         first: sides.0 && levels.0,
         second: sides.1 && levels.1,
     };
+    // Like matplotlib's `Axes.clear`, a level switched off on a side
+    // (`xtick.major.bottom`) loses its labels there too.
     let labels = Sides {
         first: labels.0 && levels.0,
         second: labels.1 && levels.1,
@@ -399,6 +401,23 @@ mod tests {
         let y_major = TickStyle::from_rc(AxisName::Y, true, &rc);
         assert!(y_major.labels.second, "major right labels stay on");
         assert!(!TickStyle::from_rc(AxisName::Y, false, &rc).labels.second);
+    }
+
+    #[test]
+    fn levels_switched_off_lose_their_labels() {
+        // matplotlib's test_rc_major_minor_tick.
+        let mut rc = RcParams::matplotlib();
+        rc.set("xtick.top", "True").expect("valid");
+        rc.set("xtick.major.bottom", "False").expect("valid");
+        let major = TickStyle::from_rc(AxisName::X, true, &rc);
+        let both_off_but_top = Sides {
+            first: false,
+            second: true,
+        };
+        assert_eq!(major.ticks, both_off_but_top);
+        assert_eq!(major.labels, Sides::default(), "labeltop is off by default");
+        let minor = TickStyle::from_rc(AxisName::X, false, &rc);
+        assert!(minor.ticks.first && minor.labels.first);
     }
 
     #[test]

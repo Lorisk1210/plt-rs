@@ -257,6 +257,33 @@ impl GridSpec {
         self.cell(i / ncols, i % ncols)
     }
 
+    /// The block from cell `first` to cell `last` (1-based, row-major,
+    /// inclusive): every row between theirs and every column between
+    /// theirs (matplotlib's `add_subplot(nrows, ncols, (first, last))`).
+    ///
+    /// ```
+    /// use plt::gridspec::GridSpec;
+    /// let spec = GridSpec::new(3, 2)?.numbered_span(4, 5)?;
+    /// assert_eq!((spec.rows(), spec.cols()), (1..3, 0..2));
+    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a cell is outside the grid or `last` comes before `first`.
+    pub fn numbered_span(&self, first: usize, last: usize) -> Result<SubplotSpec, GridSpecError> {
+        let (nrows, ncols) = self.shape();
+        if first == 0 || first > last || last > nrows * ncols {
+            return Err(GridSpecError::OutOfRange);
+        }
+        let (a, b) = (first - 1, last - 1);
+        let (col_a, col_b) = (a % ncols, b % ncols);
+        self.span(
+            a / ncols..b / ncols + 1,
+            col_a.min(col_b)..col_a.max(col_b) + 1,
+        )
+    }
+
     /// The layout parameters in effect: the parent cell's extent for nested
     /// grids, otherwise the figure's parameters, then this grid's overrides.
     pub fn subplot_params(&self, figure: &SubplotParams) -> Result<SubplotParams, GridSpecError> {

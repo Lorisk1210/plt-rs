@@ -206,7 +206,7 @@ mod tests {
         let ax = Figure::new().subplot();
         ax.eventplot(&[vec![0.0, 10.0]], &EventplotOptions::default())
             .unwrap();
-        ax.set_margins(0.0, 0.0);
+        ax.set_margins(0.0, 0.0).unwrap();
         assert_eq!(ax.xlim(), (0.0, 10.0));
         assert_eq!(ax.ylim(), (0.0, 2.0));
     }

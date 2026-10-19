@@ -11,7 +11,7 @@ use plt_core::{Bbox, Point};
 use super::artist::{HandleRef, LegendArtist, LegendParent};
 use super::best::best_position;
 use super::settings::Location;
-use super::{LegendError, LegendMode};
+use super::{LegendError, LegendMode, LegendShadowStyle};
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawError, LayoutContext};
 use crate::figure::FigureState;
 use crate::offsetbox::{
@@ -20,26 +20,39 @@ use crate::offsetbox::{
 use crate::patches::{FancyBboxPatch, PatchArtist, PatchShape, PatchStyle, Shadow, ShadowError};
 use crate::transforms::Transform;
 
-/// Offset of the frame's shadow in points (matplotlib's `_shadow_props`).
-const SHADOW_OFFSET: (f64, f64) = (2.0, -2.0);
-
-/// How much darker the shadow is than the frame (matplotlib's `Shadow`
-/// default).
-const SHADOW_SHADE: f64 = 0.7;
-
-/// The shadow of a frame of `shape` painted with `style` (matplotlib's
-/// `Shadow(legendPatch, 2, -2)`).
+/// The shadow of a frame of `shape` painted with `style`, offset and
+/// shaded as `shadow` says (matplotlib's `Shadow(legendPatch,
+/// **_shadow_props)`; the other properties are applied by
+/// [`restyle_shadow`]).
 pub(super) fn frame_shadow(
     shape: FancyBboxPatch,
     style: &PatchStyle,
+    shadow: &LegendShadowStyle,
 ) -> Result<Shadow<FancyBboxPatch>, ShadowError> {
     Shadow::new(
         shape,
         style,
         Some(Transform::Display),
-        SHADOW_OFFSET,
-        SHADOW_SHADE,
+        (shadow.ox, shadow.oy),
+        shadow.shade,
     )
+}
+
+/// Gives the shadow patch the outline `outline` and the look matplotlib
+/// gives a fresh `Shadow`: the frame's darkened colours at half opacity,
+/// overridden by the properties of `shadow`, shown when the frame is.
+pub(super) fn restyle_shadow(
+    patch: &mut PatchArtist<Shadow<FancyBboxPatch>>,
+    outline: Shadow<FancyBboxPatch>,
+    shadow: &LegendShadowStyle,
+    visible: bool,
+) {
+    let mut base = patch.base().clone();
+    outline.init_style(&mut patch.style, &mut base);
+    base.visible = visible;
+    *patch.base_mut() = base;
+    patch.shape = outline;
+    shadow.props.clone().apply(patch);
 }
 
 /// Where a legend and its parts go.
@@ -140,7 +153,7 @@ pub(crate) fn lay_out_legends(state: &mut FigureState) {
                 legend
                     .layout(ctx)
                     .map_err(|err| err.to_string())
-                    .map(|layout| (layout, legend.frame, legend.shadow))
+                    .map(|layout| (layout, legend.frame, legend.shadow.clone()))
             })
         };
         let applied = match outcome {
@@ -165,7 +178,7 @@ fn apply(
     store: &mut ArtistStore,
     layout: LegendLayout,
     frame: ArtistId,
-    shadow: Option<ArtistId>,
+    shadow: Option<(ArtistId, LegendShadowStyle)>,
 ) -> Result<(), LegendError> {
     let extent = layout.extent;
     let framed = store
@@ -181,15 +194,11 @@ fn apply(
                 patch.base().visible,
             )
         });
-    if let (Some(id), Some((shape, style, visible))) = (shadow, framed) {
+    if let (Some((id, shadow)), Some((shape, style, visible))) = (shadow, framed) {
         // matplotlib makes the shadow from the frame at every draw.
-        let outline = frame_shadow(shape, &style)?;
+        let outline = frame_shadow(shape, &style, &shadow)?;
         if let Some(patch) = store.get_as_mut::<PatchArtist<Shadow<FancyBboxPatch>>>(id) {
-            let mut base = patch.base().clone();
-            outline.init_style(&mut patch.style, &mut base);
-            base.visible = visible;
-            *patch.base_mut() = base;
-            patch.shape = outline;
+            restyle_shadow(patch, outline, &shadow, visible);
         }
     }
     apply_placements(store, layout.placements);

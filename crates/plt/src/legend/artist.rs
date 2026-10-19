@@ -3,9 +3,9 @@
 
 use plt_core::{Bbox, Point};
 
-use super::LegendMode;
 use super::handlers::Attach;
 use super::settings::{Location, OutsideEdge, Settings};
+use super::{LegendMode, LegendShadowStyle};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
 use crate::collections::CollectionArtist;
 use crate::events::Dragger;
@@ -99,8 +99,8 @@ pub(crate) struct LegendArtist {
     pub(crate) legend_box: OffsetBox<HandleRef>,
     /// The frame (matplotlib's `legendPatch`).
     pub(crate) frame: ArtistId,
-    /// The frame's shadow, if any.
-    pub(crate) shadow: Option<ArtistId>,
+    /// The frame's shadow and its style, if any.
+    pub(crate) shadow: Option<(ArtistId, LegendShadowStyle)>,
     /// The title text.
     pub(crate) title: ArtistId,
     /// One label per entry.
@@ -116,6 +116,11 @@ pub(crate) struct LegendArtist {
 }
 
 impl LegendArtist {
+    /// The frame's shadow, if any.
+    pub(crate) fn shadow_id(&self) -> Option<ArtistId> {
+        self.shadow.as_ref().map(|(id, _)| *id)
+    }
+
     /// The title box (the first child of the legend box).
     pub(crate) fn title_box_mut(&mut self) -> Option<&mut OffsetBox<HandleRef>> {
         match &mut self.legend_box {
@@ -139,7 +144,7 @@ impl Artist for LegendArtist {
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         ctx.renderer()
             .open_group("legend", self.base.gid.as_deref());
-        if let Some(shadow) = self.shadow {
+        if let Some(shadow) = self.shadow_id() {
             ctx.draw_child(shadow);
         }
         ctx.draw_child(self.frame);

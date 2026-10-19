@@ -4,6 +4,7 @@ use super::handle::LegendHandle;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 pub use crate::offsetbox::BboxToAnchor;
+use crate::patches::PatchProps;
 use crate::rc::LabelColor;
 use crate::transforms::Transform;
 
@@ -78,6 +79,74 @@ pub enum LegendAlignment {
     Left,
     /// Flush right.
     Right,
+}
+
+/// Whether and how a legend casts a shadow (matplotlib's `shadow`: a
+/// bool, or a dict of `Shadow` arguments, which turns the shadow on).
+///
+/// ```
+/// use plt::legend::{LegendShadow, LegendShadowStyle};
+/// use plt::patches::PatchProps;
+/// let default = LegendShadow::On(Box::default());
+/// assert_eq!(LegendShadow::from(true), default);
+/// // matplotlib's `shadow={"color": "red", "ox": 10}`.
+/// let red = LegendShadowStyle {
+///     ox: 10.0,
+///     props: PatchProps::default().color("red"),
+///     ..LegendShadowStyle::default()
+/// };
+/// assert_eq!(LegendShadow::from(red.clone()), LegendShadow::On(Box::new(red)));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub enum LegendShadow {
+    /// No shadow (`shadow=False`).
+    Off,
+    /// A shadow in this style (`shadow=True` is the default style).
+    On(Box<LegendShadowStyle>),
+}
+
+impl From<bool> for LegendShadow {
+    fn from(on: bool) -> Self {
+        if on {
+            Self::On(Box::default())
+        } else {
+            Self::Off
+        }
+    }
+}
+
+impl From<LegendShadowStyle> for LegendShadow {
+    fn from(style: LegendShadowStyle) -> Self {
+        Self::On(Box::new(style))
+    }
+}
+
+/// The look of a legend's shadow: the frame's outline, offset and painted
+/// half transparent in a darker shade of the frame's face colour
+/// (matplotlib's `Shadow` arguments in the `shadow` dict).
+#[derive(Clone, Debug, PartialEq)]
+pub struct LegendShadowStyle {
+    /// Horizontal offset in points (`ox`).
+    pub ox: f64,
+    /// Vertical offset in points (`oy`).
+    pub oy: f64,
+    /// How much darker than the frame the shadow is, in `[0, 1]`.
+    pub shade: f64,
+    /// Properties overriding the shadow's (the other keys of the dict,
+    /// such as `color` or `alpha`).
+    pub props: PatchProps,
+}
+
+impl Default for LegendShadowStyle {
+    /// matplotlib's legend shadow: 2 points right and down, shade 0.7.
+    fn default() -> Self {
+        Self {
+            ox: 2.0,
+            oy: -2.0,
+            shade: 0.7,
+            props: PatchProps::default(),
+        }
+    }
 }
 
 /// The colour of the legend labels (matplotlib's `labelcolor`).
@@ -170,8 +239,8 @@ pub struct LegendOptions {
     pub frameon: Option<bool>,
     /// Round the frame's corners (`legend.fancybox`).
     pub fancybox: Option<bool>,
-    /// Draw a shadow under the frame (`legend.shadow`).
-    pub shadow: Option<bool>,
+    /// Draw a shadow under the frame, and how (`legend.shadow`).
+    pub shadow: Option<LegendShadow>,
     /// Opacity of the frame (`legend.framealpha`; 1 with a shadow).
     pub framealpha: Option<f64>,
     /// Frame fill (`legend.facecolor`; `"inherit"` uses `axes.facecolor`).
@@ -295,7 +364,7 @@ impl LegendOptions {
         /// Sets [`LegendOptions::fancybox`].
         fancybox: bool;
         /// Sets [`LegendOptions::shadow`].
-        shadow: bool;
+        shadow: LegendShadow;
         /// Sets [`LegendOptions::framealpha`].
         framealpha: f64;
         /// Sets [`LegendOptions::facecolor`].

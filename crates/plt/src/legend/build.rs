@@ -10,8 +10,11 @@ use super::artist::{HandleRef, LegendArtist, LegendParent};
 use super::handle::Source;
 use super::handlers::{self, HandleArtists, HandleBox, HandlerContext};
 use super::labelcolor::{HandleView, label_colors};
+use super::layout;
 use super::settings::{Location, Placement, Settings};
-use super::{LegendAlignment, LegendError, LegendMode, LegendOptions};
+use super::{
+    LegendAlignment, LegendError, LegendMode, LegendOptions, LegendShadow, LegendShadowStyle,
+};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore};
 use crate::colors::Color;
 use crate::figure::FigureState;
@@ -105,11 +108,14 @@ pub(crate) fn build(
         (_, ncols) => ncols,
     };
     let frame = frame(options, &settings, &rc)?;
-    let shadow = options
+    let shadow = match options
         .shadow
-        .unwrap_or(rc.legend_shadow)
-        .then(|| frame_shadow(&frame))
-        .transpose()?;
+        .clone()
+        .unwrap_or_else(|| rc.legend_shadow.into())
+    {
+        LegendShadow::Off => None,
+        LegendShadow::On(style) => Some((frame_shadow(&frame, &style)?, *style)),
+    };
     let title = title_text(options, &rc)?;
     let has_title = title.base().visible;
     let area = handle_box(&settings);
@@ -121,7 +127,7 @@ pub(crate) fn build(
         ids: Vec::new(),
     };
     let frame = parts.insert(Box::new(frame));
-    let shadow = shadow.map(|shadow| parts.insert(Box::new(shadow)));
+    let shadow = shadow.map(|(patch, style)| (parts.insert(Box::new(patch)), style));
     let title = parts.insert(Box::new(title));
     let (texts, items) = parts.insert_entries(made, colors, &area);
     let parts = parts.ids;
@@ -276,24 +282,28 @@ fn frame(
     frame.style.linewidth = options.linewidth.or(rc.legend_linewidth);
     let base = frame.base_mut();
     // With a shadow the frame is opaque unless told otherwise.
-    base.alpha = options.framealpha.or(if options.shadow == Some(true) {
-        Some(1.0)
-    } else {
-        rc.legend_framealpha
-    });
+    base.alpha = options
+        .framealpha
+        .or(if matches!(options.shadow, Some(LegendShadow::On(_))) {
+            Some(1.0)
+        } else {
+            rc.legend_framealpha
+        });
     base.snap = Some(true);
     base.visible = options.frameon.unwrap_or(rc.legend_frameon);
     base.transform = Some(Transform::Display);
     Ok(frame)
 }
 
-/// The frame's shadow, placed with the frame at layout time.
+/// The frame's shadow in the style `shadow`, placed with the frame at
+/// layout time.
 fn frame_shadow(
     frame: &PatchArtist<FancyBboxPatch>,
+    shadow: &LegendShadowStyle,
 ) -> Result<PatchArtist<Shadow<FancyBboxPatch>>, LegendError> {
-    let shadow = super::layout::frame_shadow(frame.shape.clone(), &frame.style)?;
-    let mut patch = PatchArtist::new(shadow, crate::rc::params());
-    patch.base_mut().visible = frame.base().visible;
+    let outline = layout::frame_shadow(frame.shape.clone(), &frame.style, shadow)?;
+    let mut patch = PatchArtist::new(outline.clone(), crate::rc::params());
+    layout::restyle_shadow(&mut patch, outline, shadow, frame.base().visible);
     Ok(patch)
 }
 

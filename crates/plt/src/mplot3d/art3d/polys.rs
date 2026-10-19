@@ -79,10 +79,10 @@ impl Polys3D {
         collection: &mut CollectionArtist,
         projection: &Projection,
     ) -> f64 {
-        let projected: Vec<Vec<Vec3>> = self
-            .faces
-            .iter()
-            .map(|face| face.iter().map(|&p| projection.project(p)).collect())
+        // matplotlib projects the vertices of every face at once.
+        let mut vertices = projection.project_all(&self.faces.concat()).into_iter();
+        let projected: Vec<Vec<Vec3>> = (self.faces.iter())
+            .map(|face| vertices.by_ref().take(face.len()).collect())
             .collect();
         let order = self.depth_order(&projected);
         collection.paths = match &self.templates {

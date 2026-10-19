@@ -39,11 +39,7 @@ impl Points3D {
         collection: &mut CollectionArtist,
         projection: &Projection,
     ) -> f64 {
-        let projected: Vec<Option<Vec3>> = self
-            .positions
-            .iter()
-            .map(|&p| projection.project_clipped(p))
-            .collect();
+        let projected = projection.project_clipped_all(&self.positions);
         let depths: Vec<f64> = projected
             .iter()
             .map(|p| p.map_or(f64::NAN, |p| p[2]))

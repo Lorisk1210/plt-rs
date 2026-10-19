@@ -3,6 +3,13 @@
 //! Points are row-free `[x, y, z]` arrays and matrices act on homogeneous
 //! column vectors, exactly as in matplotlib, so that the projection of a
 //! point is `M · [x, y, z, 1]` followed by the perspective divide.
+//!
+//! matplotlib's products go through numpy's `dot`, that is `OpenBLAS`,
+//! whose kernels round in their own ways: matrix products and dot products of
+//! vectors sum with fused multiply-adds in order, a matrix times a single
+//! vector sums its products in pairs. The functions here round the same
+//! way, so that projected depths tie (or not) exactly as in matplotlib,
+//! which decides the order faces and points are drawn in.
 
 /// A point or direction in 3-D space.
 pub type Vec3 = [f64; 3];
@@ -22,9 +29,26 @@ pub(crate) fn scaled(a: Vec3, s: f64) -> Vec3 {
     [a[0] * s, a[1] * s, a[2] * s]
 }
 
-/// The dot product.
+/// The dot product summed in order (numpy's element-wise products
+/// reduced along an axis).
 pub(crate) fn dot(a: Vec3, b: Vec3) -> f64 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+/// numpy's `dot` of two 1-D vectors, or of a row and a column in a matrix
+/// product (`OpenBLAS`'s `ddot` and `dgemm`): the products summed in order
+/// with fused multiply-adds.
+pub(crate) fn blas_dot<const N: usize>(a: [f64; N], b: [f64; N]) -> f64 {
+    a.iter()
+        .zip(&b)
+        .skip(1)
+        .fold(a[0] * b[0], |sum, (x, y)| x.mul_add(*y, sum))
+}
+
+/// numpy's `linalg.norm` of one vector: the square root of its
+/// [`blas_dot`] with itself.
+pub(crate) fn blas_norm(a: Vec3) -> f64 {
+    blas_dot(a, a).sqrt()
 }
 
 /// The cross product (numpy's `cross`).
@@ -36,15 +60,34 @@ pub(crate) fn cross(a: Vec3, b: Vec3) -> Vec3 {
     ]
 }
 
-/// The Euclidean length (numpy's `linalg.norm`).
+/// The Euclidean length with the squares summed in order (numpy's
+/// `linalg.norm` along an axis of an array of vectors).
 pub(crate) fn norm(a: Vec3) -> f64 {
     dot(a, a).sqrt()
 }
 
-/// `a` divided by its length.
+/// `a` divided by its length ([`blas_norm`]).
 fn normalized(a: Vec3) -> Vec3 {
-    let n = norm(a);
+    let n = blas_norm(a);
     [a[0] / n, a[1] / n, a[2] / n]
+}
+
+/// How many points numpy's `dot` multiplies by a matrix at once, which
+/// decides how `OpenBLAS` sums the products of each row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Batch {
+    /// A single point: the matrix-vector kernel, `(p0 + p2) + (p1 + p3)`.
+    One,
+    /// Two points or more: the matrix-matrix kernel, fused multiply-adds
+    /// in order.
+    Many,
+}
+
+impl Batch {
+    /// The batch of `len` points multiplied together.
+    pub fn of(len: usize) -> Self {
+        if len == 1 { Self::One } else { Self::Many }
+    }
 }
 
 /// A 4×4 matrix acting on homogeneous column vectors.
@@ -73,19 +116,23 @@ impl Matrix4 {
     /// The matrix product `self · other` (numpy's `dot`).
     #[must_use]
     pub fn dot(&self, other: &Self) -> Self {
-        let mut out = [[0.0; 4]; 4];
-        for (row, out_row) in self.0.iter().zip(&mut out) {
-            for (j, cell) in out_row.iter_mut().enumerate() {
-                *cell = (0..4).map(|k| row[k] * other.0[k][j]).sum();
-            }
-        }
-        Self(out)
+        Self(
+            self.0
+                .map(|row| [0, 1, 2, 3].map(|j| blas_dot(row, other.0.map(|r| r[j])))),
+        )
     }
 
-    /// `self · v` for a homogeneous vector.
+    /// `self · v` for a single homogeneous vector (numpy's `dot`).
     pub fn transform(&self, v: [f64; 4]) -> [f64; 4] {
-        self.0
-            .map(|row| row[0] * v[0] + row[1] * v[1] + row[2] * v[2] + row[3] * v[3])
+        self.transform_in(Batch::One, v)
+    }
+
+    /// `self · v` for a homogeneous vector multiplied in `batch`.
+    pub fn transform_in(&self, batch: Batch, v: [f64; 4]) -> [f64; 4] {
+        self.0.map(|row| match batch {
+            Batch::One => (row[0] * v[0] + row[2] * v[2]) + (row[1] * v[1] + row[3] * v[3]),
+            Batch::Many => blas_dot(row, v),
+        })
     }
 
     /// The inverse matrix, by Gauss-Jordan elimination with partial
@@ -116,11 +163,23 @@ impl Matrix4 {
         Some(Self(inv))
     }
 
-    /// Projects a point: `self · [x, y, z, 1]` divided by its last
-    /// component (matplotlib's `proj_transform`).
+    /// Projects a single point: `self · [x, y, z, 1]` divided by its last
+    /// component (matplotlib's `proj_transform` of scalars).
     pub fn project(&self, p: Vec3) -> Vec3 {
-        let [x, y, z, w] = self.transform([p[0], p[1], p[2], 1.0]);
+        self.project_in(Batch::One, p)
+    }
+
+    /// Projects a point multiplied in `batch`.
+    pub fn project_in(&self, batch: Batch, p: Vec3) -> Vec3 {
+        let [x, y, z, w] = self.transform_in(batch, [p[0], p[1], p[2], 1.0]);
         [x / w, y / w, z / w]
+    }
+
+    /// Projects `points` together (matplotlib's `proj_transform` of
+    /// arrays).
+    pub fn project_all(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let batch = Batch::of(points.len());
+        points.iter().map(|&p| self.project_in(batch, p)).collect()
     }
 }
 
@@ -165,7 +224,9 @@ pub fn view_axes(eye: Vec3, center: Vec3, vertical: Vec3, roll: f64) -> [Vec3; 3
     }
     // A positive rotation of the camera is a negative rotation of the world.
     let r = rotation_about_vector(w, -roll);
-    let rotate = |a: Vec3| r.map(|row| dot(row, a));
+    // `OpenBLAS`'s matrix-vector kernel for three columns starts from the
+    // middle product.
+    let rotate = |a: Vec3| r.map(|row| row[2].mul_add(a[2], row[0].mul_add(a[0], row[1] * a[1])));
     [rotate(u), rotate(v), w]
 }
 

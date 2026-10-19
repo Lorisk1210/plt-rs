@@ -137,13 +137,8 @@ impl Art3D {
         match self {
             Self::Line(points) => {
                 let line = store.get_as_mut::<LineArtist>(id)?;
-                (line.xdata, line.ydata) = points
-                    .iter()
-                    .map(|&p| {
-                        projection
-                            .project_clipped(p)
-                            .map_or((f64::NAN, f64::NAN), |q| (q[0], q[1]))
-                    })
+                (line.xdata, line.ydata) = (projection.project_clipped_all(points).into_iter())
+                    .map(|q| q.map_or((f64::NAN, f64::NAN), |q| (q[0], q[1])))
                     .unzip();
                 line.recache();
                 Some(f64::NAN)
@@ -153,8 +148,9 @@ impl Art3D {
                 direction,
             } => {
                 let text = store.get_as_mut::<TextArtist>(id)?;
-                let anchor = projection.project(*position);
-                let end = projection.project(add(*position, *direction));
+                let [anchor, end] = [*position, add(*position, *direction)];
+                let projected = projection.project_all(&[anchor, end]);
+                let (anchor, end) = (projected[0], projected[1]);
                 let angle = (end[1] - anchor[1]).atan2(end[0] - anchor[0]).to_degrees();
                 text.position = Point::new(anchor[0], anchor[1]);
                 text.rotation = norm_text_angle(angle);
@@ -168,12 +164,17 @@ impl Art3D {
                     .iter()
                     .map(|path| {
                         let mut projected = path.template.clone();
-                        for (vertex, &p) in projected.vertices_mut().iter_mut().zip(&path.vertices)
+                        let points = projection.project_hidden_too_all(&path.vertices);
+                        for ((vertex, &p), q) in projected
+                            .vertices_mut()
+                            .iter_mut()
+                            .zip(&path.vertices)
+                            .zip(points)
                         {
                             // matplotlib gathers the depths with
                             // `np.concatenate`, which drops the mask:
                             // hidden vertices still count.
-                            let q = depth.include(projection.project_hidden_too(p));
+                            let q = depth.include(q);
                             *vertex = if projection.hides(p) {
                                 Point::new(f64::NAN, f64::NAN)
                             } else {
@@ -188,15 +189,12 @@ impl Art3D {
             Self::Segments(segments) => {
                 let collection = store.get_as_mut::<CollectionArtist>(id)?;
                 let mut depth = Depth::default();
-                collection.paths = segments
-                    .iter()
+                // matplotlib projects the points of every segment at once.
+                let mut points = projection.project_all(&segments.concat()).into_iter();
+                collection.paths = (segments.iter())
                     .map(|segment| {
-                        Path::polyline(
-                            segment
-                                .iter()
-                                .map(|&p| depth.project(projection, p))
-                                .collect(),
-                        )
+                        let projected = points.by_ref().take(segment.len());
+                        Path::polyline(projected.map(|q| depth.include(q)).collect())
                     })
                     .collect();
                 Some(depth.min_or(f64::NAN).min(1e9))
@@ -212,12 +210,8 @@ impl Art3D {
             Self::Patch(outline) => {
                 let patch = store.get_as_mut::<PatchArtist<ProjectedOutline>>(id)?;
                 let mut depth = Depth::default();
-                let points = outline
-                    .iter()
-                    .map(|&p| match projection.project_clipped(p) {
-                        Some(q) => depth.include(q),
-                        None => Point::new(f64::NAN, f64::NAN),
-                    })
+                let points = (projection.project_clipped_all(outline).into_iter())
+                    .map(|q| q.map_or(Point::new(f64::NAN, f64::NAN), |q| depth.include(q)))
                     .collect();
                 patch.shape = ProjectedOutline(Path::polyline(points));
                 Some(depth.min_or(f64::NAN))
@@ -243,11 +237,6 @@ impl Default for Depth {
 }
 
 impl Depth {
-    /// Projects `p` without clipping, recording its depth.
-    fn project(&mut self, projection: &Projection, p: Vec3) -> Point {
-        self.include(projection.project(p))
-    }
-
     /// Records the depth of a projected point and returns its 2-D part.
     fn include(&mut self, q: Vec3) -> Point {
         self.min = self.min.min(q[2]);
@@ -295,7 +284,7 @@ mod tests {
 
     #[test]
     fn hidden_vertices_leave_gaps_but_still_deepen_contours() {
-        let depth_of = |p: Vec3| unit_projection().project(p)[2];
+        let depth_of = |p: Vec3| unit_projection().project_all(&[p])[0][2];
         let inside = [0.5, 0.5, 0.5];
         // The hidden vertex is the one in front, so that it sets the depth.
         let outside = [[0.5, 0.5, 9.0], [0.5, 0.5, -8.0]]

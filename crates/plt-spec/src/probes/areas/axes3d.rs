@@ -3,7 +3,7 @@
 
 use plt::axes::Adjustable;
 use plt::figure::Figure;
-use plt::mplot3d::{Aspect3D, Axes3D, Axis3};
+use plt::mplot3d::{Aspect3D, Axes3D, Axis3, ProjType};
 use plt::navigation::{DragKey, NavMode, Navigation, PointerButton};
 use plt_core::Point;
 
@@ -19,6 +19,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("axes3d.format_coord", format_coord),
     Op::new("axes3d.set_aspect", set_aspect),
     Op::new("axes3d.zoom_data", zoom_data),
+    Op::new("axes3d.project", project),
 ];
 
 fn bad(what: &str) -> ProbeError {
@@ -55,6 +56,23 @@ fn scene(args: Args<'_>) -> Result<(Figure, Axes3D), ProbeError> {
             }
             _ => return Err(bad("view")),
         }
+    }
+    if let Some(name) = args.get("vertical_axis") {
+        ax.set_vertical_axis(axis_named(
+            name.as_str().ok_or_else(|| bad("vertical_axis"))?,
+        )?);
+    }
+    if let Some(focal_length) = args.get("focal_length") {
+        let focal_length = focal_length.as_f64().ok_or_else(|| bad("focal_length"))?;
+        ax.set_proj_type(ProjType::Persp { focal_length })
+            .map_err(ProbeError::rejected)?;
+    }
+    if args.get("box_aspect").is_some() {
+        let &[x, y, z] = args.f64_vec("box_aspect")?.as_slice() else {
+            return Err(bad("box_aspect"));
+        };
+        ax.set_box_aspect(Some([x, y, z]), 1.0)
+            .map_err(ProbeError::rejected)?;
     }
     if let Some(scales) = args.get("scales") {
         for (name, scale) in scales.as_object().ok_or_else(|| bad("scales"))? {
@@ -190,4 +208,35 @@ fn zoom_data(args: Args<'_>) -> Outcome {
     };
     ax.zoom_data_limits(u, v, w).map_err(ProbeError::rejected)?;
     limits(&ax)
+}
+
+/// The projection matrix, and `points` projected together (alone when
+/// there is one).
+fn project(args: Args<'_>) -> Outcome {
+    let (_fig, ax) = scene(args)?;
+    let points = (args
+        .json("points")?
+        .as_array()
+        .ok_or_else(|| bad("points"))?
+        .iter())
+    .map(|p| match p.as_f64_vec().as_deref() {
+        Some(&[x, y, z]) => Ok([x, y, z]),
+        _ => Err(bad("points")),
+    })
+    .collect::<Result<Vec<_>, _>>()?;
+    let matrix = ax.get_proj();
+    let projected = matrix.project_all(&points);
+    Ok(Json::Object(vec![
+        ("matrix".into(), rows(matrix.rows())),
+        ("projected".into(), rows(&projected)),
+    ]))
+}
+
+/// Rows of numbers as nested JSON arrays.
+fn rows<const N: usize>(rows: &[[f64; N]]) -> Json {
+    Json::Array(
+        rows.iter()
+            .map(|row| Json::Array(row.iter().copied().map(Json::Number).collect()))
+            .collect(),
+    )
 }

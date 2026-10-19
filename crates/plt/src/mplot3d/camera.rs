@@ -5,7 +5,7 @@
 use super::coords::{Axis3, roll};
 use super::error::Axes3DError;
 use super::math::{
-    Matrix4, Vec3, add, ortho_transformation, persp_transformation, scaled, view_axes,
+    Batch, Matrix4, Vec3, add, ortho_transformation, persp_transformation, scaled, view_axes,
     view_transformation, world_transformation,
 };
 use super::scaling::AxisScale;
@@ -147,33 +147,51 @@ impl Projection {
         [0, 1, 2].map(|i| self.scales[i].masked_forward(p[i]))
     }
 
-    /// Projects a data point even if the projection hides it, as
-    /// matplotlib does for the masked vertices whose depth still counts.
-    pub(crate) fn project_hidden_too(&self, p: Vec3) -> Vec3 {
-        self.matrix.project(self.scale_transform(p))
+    /// Projects data points together even where the projection hides
+    /// them, as matplotlib does for the masked vertices whose depth still
+    /// counts.
+    pub(crate) fn project_hidden_too_all(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let batch = Batch::of(points.len());
+        (points.iter())
+            .map(|&p| self.matrix.project_in(batch, self.scale_transform(p)))
+            .collect()
     }
 
-    /// Projects a data point (matplotlib's `_scale_proj_transform`).
-    pub(crate) fn project(&self, p: Vec3) -> Vec3 {
-        self.matrix.project(self.transform(p))
+    /// Projects a data point multiplied in `batch`.
+    fn project_in(&self, batch: Batch, p: Vec3) -> Vec3 {
+        self.matrix.project_in(batch, self.transform(p))
     }
 
-    /// Projects a point already in transformed coordinates (matplotlib's
-    /// `proj_transform`).
+    /// Projects data points together (matplotlib's `_scale_proj_transform`
+    /// of arrays).
+    pub(crate) fn project_all(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let batch = Batch::of(points.len());
+        points.iter().map(|&p| self.project_in(batch, p)).collect()
+    }
+
+    /// Projects a single point already in transformed coordinates
+    /// (matplotlib's `proj_transform` of scalars).
     pub(crate) fn project_transformed(&self, q: Vec3) -> Vec3 {
         self.matrix.project(q)
     }
 
-    /// Projects a data point, or `None` when a perspective projection puts
-    /// it outside the view frustum (matplotlib's
+    /// Projects points already in transformed coordinates together
+    /// (matplotlib's `proj_transform` of arrays).
+    pub(crate) fn project_transformed_all(&self, points: &[Vec3]) -> Vec<Vec3> {
+        self.matrix.project_all(points)
+    }
+
+    /// Projects data points together, each `None` when a perspective
+    /// projection puts it outside the view frustum (matplotlib's
     /// `_scale_proj_transform_clip`).
-    pub(crate) fn project_clipped(&self, p: Vec3) -> Option<Vec3> {
-        let projected = self.project(p);
-        let [x, y, z] = projected;
-        let inside = !self.perspective
-            || ((-1.0..=1.0).contains(&x) && (-1.0..=1.0).contains(&y) && z <= 0.0);
-        let finite = projected.iter().all(|c| c.is_finite());
-        (inside && finite).then_some(projected)
+    pub(crate) fn project_clipped_all(&self, points: &[Vec3]) -> Vec<Option<Vec3>> {
+        let inside = |[x, y, z]: Vec3| {
+            !self.perspective
+                || ((-1.0..=1.0).contains(&x) && (-1.0..=1.0).contains(&y) && z <= 0.0)
+        };
+        (self.project_all(points).into_iter())
+            .map(|q| (inside(q) && q.iter().all(|c| c.is_finite())).then_some(q))
+            .collect()
     }
 }
 
@@ -216,7 +234,7 @@ impl Camera {
         if aspect.iter().any(|a| !(a.is_finite() && *a > 0.0)) {
             return Err(Axes3DError::BoxAspect(aspect));
         }
-        let length = super::math::norm(aspect);
+        let length = super::math::blas_norm(aspect);
         let factor = BOX_SCALE * zoom / length;
         self.box_aspect = self.storage_order(scaled(aspect, factor));
         Ok(())
@@ -385,9 +403,14 @@ mod tests {
     fn perspective_clips_points_outside_the_frustum() {
         let camera = Camera::new(ProjType::default()).expect("valid camera");
         let projection = camera.projection([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-        assert!(projection.project_clipped([0.5, 0.5, 0.5]).is_some());
-        assert!(projection.project_clipped([500.0, 0.5, 0.5]).is_none());
-        assert!(projection.project_clipped([f64::NAN, 0.5, 0.5]).is_none());
+        let clipped = projection.project_clipped_all(&[
+            [0.5, 0.5, 0.5],
+            [500.0, 0.5, 0.5],
+            [f64::NAN, 0.5, 0.5],
+        ]);
+        assert!(clipped[0].is_some());
+        assert!(clipped[1].is_none());
+        assert!(clipped[2].is_none());
     }
 
     #[test]
@@ -400,11 +423,11 @@ mod tests {
         assert!(hiding.hides(outside));
         assert!(!hiding.hides([1.0, 0.0, 0.5]), "the limits are inside");
         assert!(!hiding.hides([f64::NAN, 0.5, 0.5]));
-        assert!(hiding.project(outside).iter().all(|c| c.is_nan()));
-        assert!(hiding.project_clipped(outside).is_none());
+        assert!(hiding.project_all(&[outside])[0].iter().all(|c| c.is_nan()));
+        assert_eq!(hiding.project_clipped_all(&[outside]), [None]);
         assert_eq!(
-            hiding.project_hidden_too(outside),
-            projection.project(outside)
+            hiding.project_hidden_too_all(&[outside]),
+            projection.project_all(&[outside])
         );
     }
 

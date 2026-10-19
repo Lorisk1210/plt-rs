@@ -241,9 +241,13 @@ impl Figure {
         let bbox = options
             .bbox_inches
             .or_else(|| (rc.savefig_bbox == SavefigBbox::Tight).then_some(BboxInches::Tight));
-        if bbox.is_some() {
+        match bbox {
+            // matplotlib draws the figure once without rendering to measure
+            // it.
+            Some(BboxInches::Tight) => self.layout(),
             // The layout the window is cut from, at the print resolution.
-            self.layout();
+            Some(BboxInches::Inches(_)) => self.prepare_layout(),
+            None => {}
         }
         let window = match bbox {
             None => None,

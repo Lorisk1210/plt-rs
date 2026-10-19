@@ -49,6 +49,17 @@ impl<'a> LayoutContext<'a> {
         points * self.figure.dpi() / 72.0
     }
 
+    /// Pixels per point of the sizes of an arrow (its head, width and
+    /// shrinking) when it is measured rather than drawn. matplotlib's
+    /// `FancyArrowPatch` scales them by a `_dpi_cor` that only drawing
+    /// sets, so an arrow measured before the figure was first drawn (by
+    /// the layout engine, or by an anchored box laid out in the first
+    /// draw) is measured at one pixel per point; afterwards at the
+    /// resolution of the last draw.
+    pub fn measured_dpi_cor(&self) -> f64 {
+        self.figure.last_draw_dpi.map_or(1.0, |dpi| dpi / 72.0)
+    }
+
     /// Resolves a transform; `None` if it refers to removed artists.
     pub fn resolve(&self, transform: &Transform) -> Option<ResolvedTransform> {
         transform.resolve(self.figure).ok()

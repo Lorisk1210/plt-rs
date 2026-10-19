@@ -7,6 +7,7 @@ use std::ops::Deref;
 use crate::text::{HorizontalAlignment, VerticalAlignment};
 
 use super::artist::{AxisArtistState, Level};
+use super::axes::adopt_axis_artist;
 use super::helper::AxisHelper;
 use super::labels::LabelState;
 use super::line::{AxislineStyle, LineState};
@@ -78,6 +79,27 @@ impl ArtistHandle for AxisArtist {
 impl AxisArtist {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
+    }
+
+    /// Adds an axis artist along the edge `loc` of any axes, ticked and
+    /// labelled from the axes' own axis on that side, with every part
+    /// shown and the tick labels and label facing `loc` (matplotlib's
+    /// `ax.add_artist(AxisArtist(ax, AxisArtistHelperRectlinear.Fixed(ax,
+    /// loc), axis_direction=loc))`). Unlike the edges of axisartist
+    /// [`Axes`](super::Axes), the axes keeps its spines and axes; hide
+    /// those as needed.
+    ///
+    /// ```
+    /// use plt::axisartist::AxisArtist;
+    /// use plt::prelude::*;
+    /// use plt::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// let right = AxisArtist::add_fixed(&ax, SpineSide::Right);
+    /// assert!(right.major_ticklabels().visible() && right.label().visible());
+    /// assert_eq!(right.name(), "right");
+    /// ```
+    pub fn add_fixed(ax: &crate::axes::Axes, loc: SpineSide) -> Self {
+        adopt_axis_artist(ax, loc.name(), AxisHelper::Fixed(loc), (loc, (0.0, 0.0)))
     }
 
     pub(crate) fn update(&self, f: impl FnOnce(&mut AxisArtistState)) -> &Self {
@@ -163,6 +185,17 @@ impl AxisArtist {
         self.update(|state| {
             if let AxisHelper::CurveFixed { nth_ticks, .. } = &mut state.helper {
                 *nth_ticks = nth;
+            }
+        })
+    }
+
+    /// Limits a floating axis line of a curvilinear grid to where its
+    /// varying coordinate lies between `min` and `max` (matplotlib's
+    /// `get_helper().set_extremes(min, max)`). Other axis lines ignore it.
+    pub fn set_extremes(&self, min: f64, max: f64) -> &Self {
+        self.update(|state| {
+            if let AxisHelper::CurveFloating { line, .. } = &mut state.helper {
+                line.extremes = (min, max);
             }
         })
     }

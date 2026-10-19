@@ -33,15 +33,18 @@ pub(crate) struct PatchParts<'a, S> {
 }
 
 impl<S: PatchShape> PatchParts<'_, S> {
-    /// The outlines in display space.
+    /// The outlines in display space, with arrow sizes at `dpi_cor`
+    /// pixels per point.
     pub(crate) fn display_paths(
         &self,
         layout: LayoutContext<'_>,
+        dpi_cor: f64,
     ) -> Result<Vec<DisplayPath>, PatchError> {
         let transform = self.base.transform.clone().unwrap_or(Transform::Display);
         let frame = ShapeFrame {
             layout,
             transform: layout.resolve(&transform).ok_or(PatchError::Detached)?,
+            dpi_cor,
             linewidth: self.style.linewidth.unwrap_or(self.rc.patch_linewidth),
             parent: self.base.parent,
             interpolation_steps: self.interpolation_steps,
@@ -51,14 +54,16 @@ impl<S: PatchShape> PatchParts<'_, S> {
 
     /// Draws the patch (matplotlib's `Patch.draw`).
     pub(crate) fn paint(&self, ctx: &mut DrawContext<'_>) -> Result<(), PatchError> {
-        let paths = self.display_paths(*ctx.layout())?;
+        let layout = *ctx.layout();
+        let paths = self.display_paths(layout, layout.points_to_pixels(1.0))?;
         paint_paths(ctx, self.base, self.style, self.rc, S::EDGE_DEFAULT, &paths)?;
         Ok(())
     }
 
-    /// The extent of the outlines in display space.
+    /// The extent of the outlines in display space, as measured (see
+    /// [`LayoutContext::measured_dpi_cor`]).
     pub(crate) fn extent(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
-        self.display_paths(layout)
+        self.display_paths(layout, layout.measured_dpi_cor())
             .ok()?
             .iter()
             .map(|path| path.to_display().extents())
@@ -67,7 +72,9 @@ impl<S: PatchShape> PatchParts<'_, S> {
 
     /// The outline as a clip region.
     pub(crate) fn outline(&self, layout: LayoutContext<'_>) -> Option<ClipPath> {
-        let mut paths = self.display_paths(layout).ok()?;
+        let mut paths = self
+            .display_paths(layout, layout.points_to_pixels(1.0))
+            .ok()?;
         if paths.len() == 1 {
             let only = paths.remove(0);
             return Some(ClipPath {

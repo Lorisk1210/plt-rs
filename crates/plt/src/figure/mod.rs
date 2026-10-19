@@ -345,11 +345,12 @@ impl Figure {
     /// Everything drawable is drawn; artists with invalid properties (for
     /// example an unknown colour name) are skipped and reported.
     pub fn draw(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
-        self.layout();
+        self.prepare_layout();
         let errors = self.state.borrow().draw(renderer);
         {
             let mut state = self.state.borrow_mut();
             state.stale = false;
+            state.last_draw_dpi = Some(state.dpi());
             state.pending_errors.clear();
         }
         self.process_event(&Event::Draw);
@@ -362,8 +363,16 @@ impl Figure {
 
     /// Runs the layout pass (the layout engine, autoscaling and tick
     /// placement) without drawing, so positions, limits and ticks can be
-    /// queried.
+    /// queried; from then on the figure counts as drawn (matplotlib's
+    /// `draw_without_rendering`, or `canvas.draw()`).
     pub fn layout(&self) {
+        self.prepare_layout();
+        let mut state = self.state.borrow_mut();
+        state.last_draw_dpi = Some(state.dpi());
+    }
+
+    /// The layout pass of [`Figure::layout`], before a draw.
+    pub(crate) fn prepare_layout(&self) {
         let mut state = self.state.borrow_mut();
         state.layout.pending = true;
         state.prepare();

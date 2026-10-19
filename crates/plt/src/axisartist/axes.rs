@@ -77,31 +77,50 @@ impl Axes {
     /// artists along the four edges take over, those at the top and right
     /// without labels (matplotlib's `axislines.Axes(grid_helper=...)`).
     pub fn with_grid_helper(ax: crate::axes::Axes, grid_helper: impl Into<GridHelper>) -> Self {
-        let spines = ax.spines();
-        for spine in [&spines.left, &spines.right, &spines.bottom, &spines.top] {
-            spine.set_visible(false);
-        }
-        ax.xaxis().set_visible(false);
-        ax.yaxis().set_visible(false);
         let helper = match grid_helper.into() {
             GridHelper::Rectilinear => SharedGridHelper::Rectilinear,
             GridHelper::CurveLinear(grid) => SharedGridHelper::CurveLinear(Rc::new(grid)),
             GridHelper::Floating(grid) => SharedGridHelper::Floating(Rc::new(grid)),
         };
         let axes = Self { ax };
-        let gridlines = Gridlines::collection(axes.ax.id(), helper, &axes.rc());
-        axes.ax
+        axes.install(helper);
+        axes
+    }
+
+    /// Removes everything drawn in the axes and resets it as
+    /// [`crate::axes::Axes::clear`] does, then gives it new gridlines and
+    /// axis artists along the four edges from the same grid helper
+    /// (matplotlib's `axislines.Axes.clear`): floating axis lines and
+    /// restyled edges are gone.
+    pub fn clear(&self) -> &Self {
+        let helper = self.grid_helper();
+        self.ax.clear();
+        self.install(helper);
+        self
+    }
+
+    /// Hides the spines and axes of the underlying axes and adds hidden
+    /// gridlines and the four edge artists placed by `helper`.
+    fn install(&self, helper: SharedGridHelper) {
+        let spines = self.ax.spines();
+        for spine in [&spines.left, &spines.right, &spines.bottom, &spines.top] {
+            spine.set_visible(false);
+        }
+        self.ax.xaxis().set_visible(false);
+        self.ax.yaxis().set_visible(false);
+        let gridlines = Gridlines::collection(self.ax.id(), helper, &axes_rc(&self.ax));
+        self.ax
             .raw()
             .figure_state()
             .borrow_mut()
-            .adopt(axes.ax.id(), Box::new(gridlines));
+            .adopt(self.ax.id(), Box::new(gridlines));
         for side in [
             SpineSide::Bottom,
             SpineSide::Top,
             SpineSide::Left,
             SpineSide::Right,
         ] {
-            let artist = axes.new_fixed_axis(side.name(), side, (0.0, 0.0));
+            let artist = self.new_fixed_axis(side.name(), side, (0.0, 0.0));
             if side.is_high() {
                 artist.toggle(&Toggle {
                     ticklabels: Some(false),
@@ -110,7 +129,6 @@ impl Axes {
                 });
             }
         }
-        axes
     }
 
     /// [`Axes::new`] plus hidden axis lines through the data origin, `xzero`
@@ -131,12 +149,6 @@ impl Axes {
     /// The underlying axes.
     pub fn ax(&self) -> &crate::axes::Axes {
         &self.ax
-    }
-
-    fn rc(&self) -> Rc<crate::rc::RcParams> {
-        self.ax
-            .raw()
-            .with::<AxesState, _>(|state| Rc::clone(&state.rc))
     }
 
     /// The children of the axes.
@@ -186,7 +198,7 @@ impl Axes {
     }
 
     /// The grid helper shared by the axis artists and the gridlines.
-    fn grid_helper(&self) -> SharedGridHelper {
+    pub(super) fn grid_helper(&self) -> SharedGridHelper {
         self.gridlines()
             .and_then(|gridlines| {
                 gridlines.raw().with::<CollectionArtist, _>(|collection| {
@@ -314,18 +326,36 @@ impl Axes {
         if let Some(existing) = existing {
             existing.remove();
         }
-        let figure = self.ax.raw().figure_state();
-        let artist =
-            AxisArtistState::new(name, self.ax.id(), helper, (direction, offset), self.rc());
-        let id: ArtistId = figure.borrow_mut().adopt(self.ax.id(), Box::new(artist));
+        let artist = adopt_axis_artist(&self.ax, name, helper, (direction, offset));
         if let Some(rank) = rank {
+            let id = artist.raw().id();
             self.ax.raw().with_mut::<AxesState, _>(|state| {
                 state.children.retain(|&child| child != id);
                 state.children.insert(rank.min(state.children.len()), id);
             });
         }
-        AxisArtist::from_raw(RawHandle::new(Rc::clone(figure), id))
+        artist
     }
+}
+
+/// The rcParams `ax` was made under.
+fn axes_rc(ax: &crate::axes::Axes) -> Rc<crate::rc::RcParams> {
+    ax.raw().with::<AxesState, _>(|state| Rc::clone(&state.rc))
+}
+
+/// Adds an axis artist of `ax` under `name` along `helper`, created facing
+/// `direction` and displaced by `offset` points, styled from the axes'
+/// rcParams.
+pub(super) fn adopt_axis_artist(
+    ax: &crate::axes::Axes,
+    name: &str,
+    helper: AxisHelper,
+    (direction, offset): (SpineSide, (f64, f64)),
+) -> AxisArtist {
+    let figure = ax.raw().figure_state();
+    let artist = AxisArtistState::new(name, ax.id(), helper, (direction, offset), axes_rc(ax));
+    let id: ArtistId = figure.borrow_mut().adopt(ax.id(), Box::new(artist));
+    AxisArtist::from_raw(RawHandle::new(Rc::clone(figure), id))
 }
 
 #[cfg(test)]
@@ -361,6 +391,58 @@ mod tests {
         assert_eq!(ax.axis("xzero"), Some(replacement.clone()));
         let names: Vec<String> = ax.axis_artists().iter().map(AxisArtist::name).collect();
         assert_eq!(names[4], "xzero", "the replacement keeps the rank");
+    }
+
+    #[test]
+    fn clearing_starts_over_with_the_edges_of_the_grid_helper() {
+        let fig = Figure::new();
+        let ax = Axes::new(fig.subplot());
+        ax.new_floating_axis("y=0", AxisName::X, 0.0);
+        ax.ax().plot([0.0, 1.0], [0.0, 2.0]).expect("a line");
+        ax.clear();
+        let names: Vec<String> = ax.axis_artists().iter().map(AxisArtist::name).collect();
+        assert_eq!(names, ["bottom", "top", "left", "right"]);
+        assert!(ax.ax().lines().is_empty() && ax.gridlines().is_some());
+        assert!(!ax.ax().spines().left.visible() && !ax.ax().xaxis().visible());
+        let right = ax.axis("right").expect("an edge");
+        assert!(!right.major_ticklabels().visible() && right.major_ticks().visible());
+    }
+
+    #[test]
+    fn floating_lines_of_curvilinear_grids_take_extremes() {
+        let fig = Figure::new();
+        let polar = GridHelperCurveLinear::new(
+            AuxTransform::polar(),
+            crate::axisartist::grid_finder::GridFinderOptions::default(),
+        );
+        let ax = Axes::with_grid_helper(fig.subplot(), polar);
+        ax.ax().set_xlim(-1.0, 1.0).set_ylim(-1.0, 1.0);
+        // The ray at angle 0 from the centre to the right edge.
+        let ray = ax.new_floating_axis("ray", AxisName::X, 0.0);
+        ray.toggle(&Toggle {
+            all: Some(false),
+            ..Toggle::default()
+        });
+        let width = |artist: &AxisArtist| artist.window_extent().expect("drawn").width();
+        let whole = width(&ray);
+        ray.set_extremes(0.5, 2.0);
+        assert!(width(&ray) < whole, "from r = 0.5 on");
+        ray.set_extremes(f64::NEG_INFINITY, f64::INFINITY);
+        assert_eq!(width(&ray), whole);
+        let bottom = ax.axis("bottom").expect("an edge");
+        let before = bottom.window_extent();
+        bottom.set_extremes(0.5, 2.0);
+        assert_eq!(bottom.window_extent(), before, "edges ignore extremes");
+    }
+
+    #[test]
+    fn fixed_artists_join_plain_axes() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let left = AxisArtist::add_fixed(&ax, SpineSide::Left);
+        assert!(ax.spines().left.visible() && ax.yaxis().visible());
+        assert!(left.window_extent().is_some());
+        assert!(left.major_ticklabels().visible() && left.label().visible());
     }
 
     #[test]

@@ -14,6 +14,7 @@ use super::grid_finder::{
     CoordinateGrid, ExtremeFinder, GridError, GridFinder, GridFinderOptions, GridInfo,
 };
 use super::grid_helper_curvelinear::{self as curvelinear, AxisGrid, FloatingLine};
+use super::gridlines::SharedGridHelper;
 use crate::artist::{ArtistHandle, ClipPathSpec};
 use crate::axes::{AspectError, AxesState};
 use crate::rc::Aspect;
@@ -221,26 +222,48 @@ impl FloatingAxes {
         ax: crate::axes::Axes,
         grid_helper: GridHelperCurveLinear,
     ) -> Result<Self, FloatingAxesError> {
-        let outline = grid_helper.outline();
         grid_helper.grid_finder().extremes(Bbox::UNIT)?;
-        let axes = Axes::with_grid_helper(ax, GridHelper::Floating(grid_helper));
-        let id = axes.ax().id();
-        axes.ax().raw().with_mut::<AxesState, _>(|state| {
-            state.patch_outline = Some((outline.clone(), Transform::Data(id)));
+        let outline = grid_helper.outline();
+        let floating = Self {
+            axes: Axes::with_grid_helper(ax, GridHelper::Floating(grid_helper)),
+        };
+        floating.fit_outline(outline);
+        floating.ax().set_aspect(Aspect::Equal)?;
+        Ok(floating)
+    }
+
+    /// Removes everything drawn in the axes and gives it new axis artists
+    /// along the edges of the range, as
+    /// [`axisartist::Axes::clear`](Axes::clear) does, then outlines the
+    /// range and fits the limits around it again; the equal aspect stays
+    /// (matplotlib's `FloatingAxesBase.clear`).
+    pub fn clear(&self) -> &Self {
+        self.axes.clear();
+        if let SharedGridHelper::Floating(grid) = self.axes.grid_helper() {
+            self.fit_outline(grid.outline());
+        }
+        self
+    }
+
+    /// Makes `outline` (data coordinates) the background and the clip
+    /// outline of the plotted artists, clips the gridlines to the axes
+    /// box and fits the limits around the outline (what
+    /// `FloatingAxesBase.clear` adds to the axislines axes).
+    fn fit_outline(&self, outline: Path) {
+        let id = self.ax().id();
+        self.ax().raw().with_mut::<AxesState, _>(|state| {
+            state.patch_outline = Some((outline, Transform::Data(id)));
         });
         // The gridlines are clipped to the axes box, not to the outline
         // (matplotlib's `gridlines.set_clip_path(orig_patch)`, which turns
         // a rectangle into a clip box).
-        if let Some(gridlines) = axes.gridlines() {
+        if let Some(gridlines) = self.gridlines() {
             gridlines.set_clip_path(Some(ClipPathSpec::BoundingBox {
                 path: Path::unit_rectangle(),
                 transform: Transform::Axes(id),
             }));
         }
-        let floating = Self { axes };
-        floating.adjust_axes_lim();
-        floating.ax().set_aspect(Aspect::Equal)?;
-        Ok(floating)
+        self.adjust_axes_lim();
     }
 
     /// The background outline in data coordinates.
@@ -370,6 +393,19 @@ mod tests {
             .with::<AxesState, _>(|state| state.patch_outline.is_some());
         assert!(shared);
         assert!(fig.to_svg().is_ok());
+    }
+
+    #[test]
+    fn clearing_restores_the_outline_and_the_limits() {
+        let fig = Figure::new();
+        let ax = FloatingAxes::new(fig.subplot(), quarter_annulus()).unwrap();
+        let limits = (ax.ax().xlim(), ax.ax().ylim());
+        ax.ax().set_xlim(-5.0, 5.0);
+        ax.new_floating_axis("r", AxisName::Y, 1.5);
+        ax.clear();
+        assert_eq!((ax.ax().xlim(), ax.ax().ylim()), limits);
+        assert!(ax.patch_path().has_curves());
+        assert!(ax.axis("r").is_none() && ax.axis("left").is_some());
     }
 
     #[test]

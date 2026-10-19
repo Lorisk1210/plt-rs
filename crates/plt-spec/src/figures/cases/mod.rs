@@ -33,6 +33,7 @@ mod mpl_rendering;
 mod mpl_small;
 mod mpl_tests;
 mod mpl_text;
+mod mpl_toolkits;
 mod mplot3d;
 mod offsetbox;
 mod patches;
@@ -168,6 +169,7 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_rendering::cases(),
         &mpl_small::cases(),
         &mpl_text::cases(),
+        &mpl_toolkits::cases(),
     ]
     .concat()
 }

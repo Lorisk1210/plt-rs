@@ -170,6 +170,8 @@ impl CbarAxes {
 pub struct ImageGrid {
     axes: Vec<Axes>,
     cbar_axes: Vec<CbarAxes>,
+    /// The index in `cbar_axes` of the colorbar axes of each axes.
+    caxes: Vec<usize>,
 }
 
 /// matplotlib's `AxesGrid`, the same class as [`ImageGrid`].
@@ -221,7 +223,14 @@ impl ImageGrid {
                 location: options.cbar_location,
             })
             .collect();
-        let grid = Self { axes, cbar_axes };
+        let caxes = (0..n_axes)
+            .map(|index| layout.cax_index(index, options))
+            .collect();
+        let grid = Self {
+            axes,
+            cbar_axes,
+            caxes,
+        };
         let rows = layout.rows(&grid.axes);
         grid.init_locators(id, &layout, &rows, options);
         apply_label_mode(&rows, options.label_mode);
@@ -238,6 +247,34 @@ impl ImageGrid {
     /// use are hidden (matplotlib's `cbar_axes`).
     pub fn cbar_axes(&self) -> &[CbarAxes] {
         &self.cbar_axes
+    }
+
+    /// The colorbar axes of the `index`-th axes (matplotlib's `ax.cax`):
+    /// its own in the `Each` mode or without colorbars, the one of its row
+    /// (colorbars left or right) or column (top or bottom) in the `Edge`
+    /// mode, the only one in the `Single` mode; `None` past the last axes.
+    ///
+    /// ```
+    /// use plt::axes_grid1::{CbarMode, GridRect, ImageGrid, ImageGridOptions};
+    /// use plt::prelude::*;
+    /// use plt::spines::SpineSide;
+    /// let fig = Figure::new();
+    /// let options = ImageGridOptions {
+    ///     cbar_mode: Some(CbarMode::Edge),
+    ///     cbar_location: SpineSide::Right,
+    ///     ..ImageGridOptions::default()
+    /// };
+    /// let grid = ImageGrid::new(&fig, &GridRect::Rect([0.1, 0.1, 0.8, 0.8]), (2, 2), &options)?;
+    /// // Row by row: the axes of the second row share the second colorbar.
+    /// assert_eq!(grid.cax(3), Some(&grid.cbar_axes()[1]));
+    /// assert_eq!(grid.cax(1), Some(&grid.cbar_axes()[0]));
+    /// assert_eq!(grid.cax(4), None);
+    /// # Ok::<(), plt::axes_grid1::AxesGridError>(())
+    /// ```
+    pub fn cax(&self, index: usize) -> Option<&CbarAxes> {
+        self.caxes
+            .get(index)
+            .and_then(|&cax| self.cbar_axes.get(cax))
     }
 
     /// matplotlib's `ImageGrid._init_locators`: the divider's columns and
@@ -312,6 +349,23 @@ impl Layout {
         }
     }
 
+    /// The index of the colorbar axes of the `n`-th axes (matplotlib's
+    /// `ax.cax` assignment at the end of `_init_locators`).
+    fn cax_index(&self, n: usize, options: &ImageGridOptions) -> usize {
+        match options.cbar_mode {
+            Some(CbarMode::Single) => 0,
+            Some(CbarMode::Edge) => {
+                let (col, row) = self.col_row(n);
+                if matches!(options.cbar_location, SpineSide::Left | SpineSide::Right) {
+                    row
+                } else {
+                    col
+                }
+            }
+            Some(CbarMode::Each) | None => n,
+        }
+    }
+
     /// Creates the axes at `position`, columns sharing x and rows sharing
     /// y (or all sharing both).
     fn create_axes(&self, fig: &Figure, position: plt_core::Bbox, share_all: bool) -> Vec<Axes> {
@@ -374,6 +428,38 @@ mod tests {
         );
         let empty = ImageGrid::new(&fig, &rect, (0, 2), &ImageGridOptions::default());
         assert_eq!(empty.unwrap_err(), AxesGridError::Empty);
+    }
+
+    #[test]
+    fn every_axes_names_its_colorbar_axes() {
+        let fig = Figure::new();
+        let rect = GridRect::Rect([0.1, 0.1, 0.8, 0.8]);
+        let caxes = |cbar_mode, direction, cbar_location| {
+            let options = ImageGridOptions {
+                direction,
+                cbar_mode,
+                cbar_location,
+                ..ImageGridOptions::default()
+            };
+            let grid = ImageGrid::new(&fig, &rect, (2, 3), &options).unwrap();
+            (0..6)
+                .map(|i| {
+                    let cax = grid.cax(i).expect("a colorbar axes");
+                    grid.cbar_axes().iter().position(|c| c == cax)
+                })
+                .collect::<Option<Vec<usize>>>()
+                .unwrap()
+        };
+        let edge = Some(CbarMode::Edge);
+        // Column by column, the colorbars at the bottom follow the columns.
+        let columns = caxes(edge, GridDirection::Column, SpineSide::Bottom);
+        assert_eq!(columns, [0, 0, 1, 1, 2, 2]);
+        let rows = caxes(edge, GridDirection::Column, SpineSide::Left);
+        assert_eq!(rows, [0, 1, 0, 1, 0, 1]);
+        let single = caxes(Some(CbarMode::Single), GridDirection::Row, SpineSide::Right);
+        assert_eq!(single, [0; 6]);
+        let own = caxes(None, GridDirection::Row, SpineSide::Right);
+        assert_eq!(own, [0, 1, 2, 3, 4, 5]);
     }
 
     #[test]

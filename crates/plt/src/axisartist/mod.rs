@@ -10,7 +10,9 @@
 //! side. Besides the four edges, floating axis lines can run through the
 //! data ([`Axes::new_floating_axis`], or `xzero` and `yzero` of
 //! [`Axes::zero`]), lines can end in arrow heads ([`AxislineStyle`]), and
-//! [`Axes::grid`] draws gridlines through the grid helper.
+//! [`Axes::grid`] draws gridlines through the grid helper. Outside such
+//! axes, [`AxisArtist::add_fixed`] puts an axis artist on an edge of any
+//! axes, and [`TickMarks`] are tick marks drawn on their own.
 //!
 //! A grid helper can make the grid curvilinear: with a
 //! [`grid_helper_curvelinear::GridHelperCurveLinear`] the grid lines,
@@ -36,6 +38,7 @@ mod handles;
 mod helper;
 mod labels;
 mod line;
+mod tick_marks;
 mod ticks;
 
 pub use aux_transform::AuxTransform;
@@ -44,3 +47,4 @@ pub use handles::{
     AxisArtist, AxisLabel, AxisLine, LabelBase, LabelDirection, TickLabels, Ticks, Toggle,
 };
 pub use line::{AxislineStyle, AxislineStyleError};
+pub use tick_marks::{TickMarks, TickMarksArtist};

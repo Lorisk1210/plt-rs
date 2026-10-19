@@ -1,0 +1,58 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "Variable errorbars",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.53, 0.352273, 0.35],
+   "title": "Vert. symmetric",
+   "xlim": [-0.409355, 5.005056],
+   "ylim": [-0.528161, 1.144095],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.547727, 0.53, 0.352273, 0.35],
+   "title": "Hor. symmetric w/ alpha",
+   "xlim": [-0.409355, 5.005056],
+   "ylim": [-0.016552, 0.948713],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.352273, 0.35],
+   "title": "H, V asymmetric",
+   "xlim": [-0.409355, 5.005056],
+   "ylim": [-0.536324, 1.315502],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.547727, 0.11, 0.352273, 0.35],
+   "title": "Mixed sym., log y",
+   "xlim": [-0.409355, 5.005056],
+   "ylim": [0.01, 10.0],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[0.01, "$\\mathdefault{10^{-2}}$"], [0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]]
+  }
+ ]
+}

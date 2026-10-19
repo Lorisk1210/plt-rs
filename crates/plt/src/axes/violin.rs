@@ -164,18 +164,30 @@ impl Axes {
                 });
             }
         };
-        let next = (options.facecolors.is_empty() || options.linecolors.is_empty())
-            .then(|| self.next_line_color());
-        let faces = cycled(&options.facecolors, next.as_ref(), n);
-        let lines = cycled(&options.linecolors, next.as_ref(), n);
-        let body_alpha = options.facecolors.is_empty().then_some(0.3);
+        // Classic mode draws yellow bodies with translucent black edges and
+        // red lines, and leaves the property cycle alone.
+        let classic = crate::rc::params().internal_classic_mode;
+        let (face_default, line_default) = if classic {
+            (Some(Color::from("y")), Some(Color::from("r")))
+        } else {
+            let next = (options.facecolors.is_empty() || options.linecolors.is_empty())
+                .then(|| self.next_line_color());
+            (next.clone(), next)
+        };
+        let faces = cycled(&options.facecolors, face_default.as_ref(), n);
+        let lines = cycled(&options.linecolors, line_default.as_ref(), n);
 
         let mut parts = ViolinParts::default();
         for (((stats, &pos), &width), face) in stats.iter().zip(&positions).zip(&widths).zip(faces)
         {
+            let style = BodyStyle {
+                face,
+                alpha: options.facecolors.is_empty().then_some(0.3),
+                edge: classic.then(|| Color::from((0.0, 0.0, 0.0, 0.3))),
+            };
             parts
                 .bodies
-                .push(self.violin_body(stats, pos, width, face, body_alpha, options)?);
+                .push(self.violin_body(stats, pos, width, style, options)?);
         }
         let (low, high) = options.side.line_ends();
         let starts: Vec<f64> = positions
@@ -230,8 +242,7 @@ impl Axes {
         stats: &ViolinStats,
         pos: f64,
         width: f64,
-        face: Color,
-        alpha: Option<f64>,
+        style: BodyStyle,
         options: &ViolinDrawOptions,
     ) -> Result<Collection, PlotError> {
         let peak = stats.vals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
@@ -245,9 +256,12 @@ impl Axes {
             .iter()
             .map(|&v| side(v, options.side != ViolinSide::Low))
             .collect();
-        let mut props = CollectionProps::default().facecolor(face);
-        if let Some(alpha) = alpha {
+        let mut props = CollectionProps::default().facecolor(style.face);
+        if let Some(alpha) = style.alpha {
             props = props.alpha(alpha);
+        }
+        if let Some(edge) = style.edge {
+            props = props.edgecolor(edge);
         }
         let fill = FillBetweenOptions {
             props,
@@ -258,6 +272,15 @@ impl Axes {
             Orientation::Horizontal => self.fill_between(&stats.coords, low, high, fill),
         }
     }
+}
+
+/// The colours of one violin body.
+struct BodyStyle {
+    face: Color,
+    /// Opacity of the whole body, edges included.
+    alpha: Option<f64>,
+    /// Edge colour (`None`: the collection default).
+    edge: Option<Color>,
 }
 
 /// `colors` cycled over `n` violins, or `fallback` for all when empty.
@@ -324,6 +347,8 @@ impl LinePainter<'_> {
 
 #[cfg(test)]
 mod tests {
+    use plt_core::Rgba;
+
     use super::*;
     use crate::figure::Figure;
 
@@ -343,6 +368,25 @@ mod tests {
         // One line-cycle colour for faces and lines.
         let next = ax.plot([0.0], [0.0]).unwrap().rgba().unwrap();
         assert_eq!(next, Color::from("C1").resolve().unwrap());
+    }
+
+    #[test]
+    fn classic_mode_colours_leave_the_cycle_alone() {
+        crate::rc::context(|| {
+            crate::rc::set("_internal.classic_mode", "True").unwrap();
+            let ax = Figure::new().subplot();
+            let parts = ax
+                .violinplot(&data(), &ViolinplotOptions::default())
+                .unwrap();
+            let body = parts.bodies[0].colors().unwrap();
+            let yellow = Color::from("y").resolve_alpha(Some(0.3)).unwrap();
+            assert_eq!(body.faces, [yellow]);
+            assert_eq!(body.edges, [Rgba::new(0.0, 0.0, 0.0, 0.3)]);
+            let bars = parts.cbars.unwrap().colors().unwrap();
+            assert_eq!(bars.edges, [Rgba::opaque(1.0, 0.0, 0.0); 2]);
+            let next = ax.plot([0.0], [0.0]).unwrap().rgba().unwrap();
+            assert_eq!(next, Color::from("C0").resolve().unwrap());
+        });
     }
 
     #[test]

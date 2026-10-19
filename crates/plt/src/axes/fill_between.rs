@@ -116,7 +116,10 @@ impl Axes {
         let mut collection =
             CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
         props.apply(&mut collection);
-        collection.base_mut().transform = Some(self.trans_data());
+        collection
+            .base_mut()
+            .transform
+            .get_or_insert_with(|| self.trans_data());
         Collection::from_raw(self.adopt(collection, &DataUpdate::limits(limits)))
     }
 }

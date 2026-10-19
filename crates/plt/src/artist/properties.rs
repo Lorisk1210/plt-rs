@@ -2,6 +2,7 @@
 //! sets passed when creating artists (matplotlib's `**kwargs`).
 
 use super::ArtistBase;
+use crate::transforms::Transform;
 
 /// Common artist properties to set on creation (`None` = default).
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -22,6 +23,10 @@ pub struct BaseProps {
     pub gid: Option<String>,
     /// Hyperlink for vector output.
     pub url: Option<String>,
+    /// The coordinates of the artist's data (matplotlib's `transform`;
+    /// `None` keeps the default of the method adding it, usually the
+    /// axes' data coordinates).
+    pub transform: Option<Transform>,
 }
 
 impl BaseProps {
@@ -37,6 +42,7 @@ impl BaseProps {
             rasterized: overrides.rasterized.or(self.rasterized),
             gid: overrides.gid.or(self.gid),
             url: overrides.url.or(self.url),
+            transform: overrides.transform.or(self.transform),
         }
     }
 
@@ -65,6 +71,9 @@ impl BaseProps {
         }
         if self.url.is_some() {
             base.url = self.url;
+        }
+        if self.transform.is_some() {
+            base.transform = self.transform;
         }
     }
 }
@@ -105,6 +114,13 @@ macro_rules! base_prop_builders {
         #[must_use]
         pub fn clip_on(mut self, clip_on: bool) -> Self {
             self.base.clip_on = Some(clip_on);
+            self
+        }
+
+        /// The coordinates of the artist's data (matplotlib's `transform`).
+        #[must_use]
+        pub fn transform(mut self, transform: $crate::transforms::Transform) -> Self {
+            self.base.transform = Some(transform);
             self
         }
     };

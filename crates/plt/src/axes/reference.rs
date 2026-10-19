@@ -49,7 +49,9 @@ impl Axes {
         let mut line = LineArtist::new(x, y, crate::rc::params());
         line.infinite = Some(InfiniteLine { xy1, through });
         props.apply(&mut line);
-        line.base_mut().transform = Some(self.trans_data());
+        line.base_mut()
+            .transform
+            .get_or_insert_with(|| self.trans_data());
         Line2D::from_raw(self.adopt(line, &DataUpdate::data(points)))
     }
 

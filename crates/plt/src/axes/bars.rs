@@ -359,12 +359,11 @@ impl Axes {
             Orientation::Vertical => sticky.1.push(bar.base),
             Orientation::Horizontal => sticky.0.push(bar.base),
         }
-        patch.base_mut().transform = Some(self.trans_data());
-        let update = DataUpdate {
-            points: patch.data_points(),
-            update: (true, true),
-            autoscale: (false, false),
-        };
+        patch
+            .base_mut()
+            .transform
+            .get_or_insert_with(|| self.trans_data());
+        let update = DataUpdate::extending(patch.limit_points(self.id()));
         Patch::from_raw(self.adopt(patch, &update))
     }
 

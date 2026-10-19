@@ -7,7 +7,7 @@ use plt_core::Rgba;
 use super::literal::Expr;
 use super::value::RcValue;
 use crate::colors::{Color, color_sequence};
-use crate::lines::LineStyle;
+use crate::lines::{LineStyle, MarkEvery};
 use crate::markers::Marker;
 
 /// One property value inside a cycle.
@@ -23,6 +23,8 @@ pub enum CycleValue {
     Marker(Marker),
     /// A dash pattern in points (`dashes`).
     Dashes(Vec<f64>),
+    /// Which points get markers (`markevery`; `None` marks every point).
+    MarkEvery(Option<MarkEvery>),
     /// Any other textual value (`joinstyle`, `capstyle`, `fillstyle`, `hatch`, ...).
     Text(String),
 }
@@ -280,7 +282,8 @@ fn property_cycle(property: &str, values: &Expr) -> Result<Cycler, String> {
             Expr::Str(text) if is_hatch(text) => Some(CycleValue::Text(text.clone())),
             _ => None,
         })?,
-        "joinstyle" | "capstyle" | "fillstyle" | "markevery" => items(values, |item| match item {
+        "markevery" => items(values, markevery)?,
+        "joinstyle" | "capstyle" | "fillstyle" => items(values, |item| match item {
             Expr::Str(text) => Some(CycleValue::Text(text.clone())),
             Expr::Int(n) => Some(CycleValue::Text(n.to_string())),
             Expr::Number(n) => Some(CycleValue::Text(n.to_string())),
@@ -289,6 +292,80 @@ fn property_cycle(property: &str, values: &Expr) -> Result<Cycler, String> {
         unknown => return Err(format!("unknown artist property: {unknown}")),
     };
     Ok(Cycler::new(key, parsed))
+}
+
+/// matplotlib's `_validate_markevery`: `None`, an integer step, a float
+/// distance, a pair of integers or of floats, a list of integers or a
+/// `slice(...)`.
+fn markevery(item: &Expr) -> Option<CycleValue> {
+    let ints = |items: &[Expr]| -> Option<Vec<i64>> {
+        items
+            .iter()
+            .map(|e| match e {
+                Expr::Int(n) => Some(*n),
+                _ => None,
+            })
+            .collect()
+    };
+    let floats = |items: &[Expr]| -> Option<Vec<f64>> {
+        items
+            .iter()
+            .map(|e| match e {
+                Expr::Number(x) => Some(*x),
+                _ => None,
+            })
+            .collect()
+    };
+    Some(CycleValue::MarkEvery(Some(match item {
+        Expr::None => return Some(CycleValue::MarkEvery(None)),
+        Expr::Int(step) => MarkEvery::Every {
+            start: 0,
+            step: *step,
+        },
+        Expr::Number(step) => MarkEvery::Distance {
+            start: 0.0,
+            step: *step,
+        },
+        Expr::Tuple(pair) if pair.len() == 2 => match (ints(pair), floats(pair)) {
+            (Some(i), _) => MarkEvery::Every {
+                start: i[0],
+                step: i[1],
+            },
+            (_, Some(f)) => MarkEvery::Distance {
+                start: f[0],
+                step: f[1],
+            },
+            _ => return None,
+        },
+        Expr::List(indices) => MarkEvery::Indices(ints(indices)?),
+        Expr::Call { name, args, kwargs } if name == "slice" && kwargs.is_empty() => {
+            let bound = |e: &Expr| match e {
+                Expr::None => Some(None),
+                Expr::Int(n) => Some(Some(*n)),
+                _ => None,
+            };
+            let bounds: Option<Vec<Option<i64>>> = args.iter().map(bound).collect();
+            match bounds?.as_slice() {
+                [stop] => MarkEvery::Slice {
+                    start: None,
+                    stop: *stop,
+                    step: None,
+                },
+                [start, stop] => MarkEvery::Slice {
+                    start: *start,
+                    stop: *stop,
+                    step: None,
+                },
+                [start, stop, step] => MarkEvery::Slice {
+                    start: *start,
+                    stop: *stop,
+                    step: *step,
+                },
+                _ => return None,
+            }
+        }
+        _ => return None,
+    })))
 }
 
 /// Applies `convert` to each element of a sequence, or to each
@@ -431,7 +508,36 @@ fn format_value(value: &CycleValue) -> String {
             }
             text + "]"
         }
+        CycleValue::MarkEvery(markevery) => format_markevery(markevery.as_ref()),
         CycleValue::Text(text) => format!("'{text}'"),
+    }
+}
+
+/// A `markevery` value in Python syntax.
+fn format_markevery(markevery: Option<&MarkEvery>) -> String {
+    let join = |items: Vec<String>| items.join(", ");
+    match markevery {
+        None => "None".to_owned(),
+        Some(MarkEvery::Every { start: 0, step }) => step.to_string(),
+        Some(MarkEvery::Every { start, step }) => format!("({start}, {step})"),
+        Some(MarkEvery::Slice { start, stop, step }) => {
+            let bound = |b: &Option<i64>| b.map_or_else(|| "None".to_owned(), |b| b.to_string());
+            format!("slice({}, {}, {})", bound(start), bound(stop), bound(step))
+        }
+        Some(MarkEvery::Indices(indices)) => {
+            format!(
+                "[{}]",
+                join(indices.iter().map(ToString::to_string).collect())
+            )
+        }
+        Some(MarkEvery::Mask(mask)) => {
+            let flag = |set: &bool| if *set { "True" } else { "False" }.to_owned();
+            format!("[{}]", join(mask.iter().map(flag).collect()))
+        }
+        Some(MarkEvery::Distance { start, step }) if *start == 0.0 => step.format_rc(),
+        Some(MarkEvery::Distance { start, step }) => {
+            format!("({}, {})", start.format_rc(), step.format_rc())
+        }
     }
 }
 
@@ -441,6 +547,38 @@ mod tests {
 
     fn parse(text: &str) -> Result<Cycler, String> {
         Cycler::parse_rc(text)
+    }
+
+    #[test]
+    fn markevery_cycles_take_every_kind_of_value() {
+        let cycle = parse(
+            "cycler(markevery=[None, 8, (30, 8), [16, 24], slice(100, 200, 3), 0.1, (0.0, 0.1)])",
+        )
+        .unwrap();
+        let values: Vec<CycleValue> = cycle.rows.iter().map(|row| row[0].clone()).collect();
+        assert_eq!(values[0], CycleValue::MarkEvery(None));
+        assert_eq!(
+            values[2],
+            CycleValue::MarkEvery(Some(MarkEvery::Every { start: 30, step: 8 }))
+        );
+        assert_eq!(
+            values[4],
+            CycleValue::MarkEvery(Some(MarkEvery::Slice {
+                start: Some(100),
+                stop: Some(200),
+                step: Some(3)
+            }))
+        );
+        assert_eq!(
+            values[6],
+            CycleValue::MarkEvery(Some(MarkEvery::Distance {
+                start: 0.0,
+                step: 0.1
+            }))
+        );
+        assert!(parse("cycler(markevery=[(1, 0.5)])").is_err());
+        assert!(parse("cycler(markevery=[[1.5]])").is_err());
+        assert_eq!(parse(&cycle.format_rc()).unwrap(), cycle);
     }
 
     #[test]

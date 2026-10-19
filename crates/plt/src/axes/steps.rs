@@ -4,8 +4,9 @@ use crate::units::AxisValues;
 use plt_core::Point;
 
 use super::children::DataUpdate;
+use super::data_coords::grid_points_in_data;
 use super::{Axes, PlotError};
-use crate::artist::Artist;
+use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
 use crate::lines::{Line2D, LineProps, StepWhere};
 use crate::orientation::Orientation;
@@ -79,7 +80,12 @@ impl Axes {
             let (x, y) = options.orientation.place(first_edge, low);
             points.push(Point::new(x, y));
         }
-        patch.base_mut().transform = Some(self.trans_data());
+        let transform = patch
+            .base_mut()
+            .transform
+            .get_or_insert_with(|| self.trans_data())
+            .clone();
+        let points = grid_points_in_data(Some(&transform), self.id(), points);
         Ok(Patch::from_raw(
             self.adopt(patch, &DataUpdate::data(points)),
         ))

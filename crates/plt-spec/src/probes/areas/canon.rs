@@ -6,7 +6,7 @@
 use plt::colors::Color;
 use plt::fonts::{FontSize, FontStretch, FontWeight};
 use plt::legend::LegendLoc;
-use plt::lines::LineStyle;
+use plt::lines::{LineStyle, MarkEvery};
 use plt::markers::{Marker, MarkerKey, MarkerSymbol};
 use plt::rc::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, CycleValue, Cycler, Distiller,
@@ -301,7 +301,35 @@ impl Canon for CycleValue {
             Self::LineStyle(style) => style.canon(),
             Self::Marker(marker) => marker.canon(),
             Self::Dashes(dashes) => dashes.canon(),
+            Self::MarkEvery(markevery) => markevery.canon(),
             Self::Text(value) => text(value),
+        }
+    }
+}
+
+/// `None`, a step, a distance or a list, as Python's `_plain` leaves a
+/// `markevery` value (pairs as lists).
+impl Canon for Option<MarkEvery> {
+    fn canon(&self) -> Json {
+        let ints = |values: &[i64]| Json::Array(values.iter().map(|&v| Json::Integer(v)).collect());
+        match self {
+            None => Json::Null,
+            Some(MarkEvery::Every { start: 0, step }) => Json::Integer(*step),
+            Some(MarkEvery::Every { start, step }) => ints(&[*start, *step]),
+            Some(MarkEvery::Indices(indices)) => ints(indices),
+            Some(MarkEvery::Mask(mask)) => {
+                Json::Array(mask.iter().map(|&m| Json::Bool(m)).collect())
+            }
+            Some(MarkEvery::Slice { start, stop, step }) => Json::Array(
+                [start, stop, step]
+                    .iter()
+                    .map(|b| b.map_or(Json::Null, Json::Integer))
+                    .collect(),
+            ),
+            Some(MarkEvery::Distance { start, step }) if *start == 0.0 => step.canon(),
+            Some(MarkEvery::Distance { start, step }) => {
+                Json::Array(vec![start.canon(), step.canon()])
+            }
         }
     }
 }

@@ -59,7 +59,10 @@ impl Axes {
             apply_cycle(&mut patch, &key, value);
         }
         props.apply(&mut patch);
-        patch.base_mut().transform = Some(self.trans_data());
+        patch
+            .base_mut()
+            .transform
+            .get_or_insert_with(|| self.trans_data());
         let update = DataUpdate::data(patch.data_points());
         Patch::from_raw(self.adopt(patch, &update))
     }

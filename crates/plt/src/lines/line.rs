@@ -6,6 +6,7 @@ use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_render::{CapStyle, GraphicsContext, JoinStyle, SnapMode};
 
 use super::axline::InfiniteLine;
+use super::subslice::visible_range;
 use super::{
     DrawStyle, LineStyle, MarkEvery, MarkEveryError, StepError, inverse_dashes, line_vertices,
 };
@@ -380,11 +381,32 @@ impl Artist for LineArtist {
             }
             return;
         }
-        match (&self.path, &self.points()) {
-            (Ok(drawn), Ok(points)) => self.draw_paths(ctx, &resolved, drawn, points),
-            (Err(problem), _) | (_, Err(problem)) => {
-                ctx.report(self.base.id(), problem.to_string());
+        let visible = (self.xdata.len() == self.ydata.len())
+            .then(|| {
+                visible_range(
+                    *ctx.layout(),
+                    &self.base,
+                    &self.xdata,
+                    self.markevery.is_some(),
+                )
+            })
+            .flatten();
+        let paths = match visible {
+            Some(range) => {
+                let (x, y) = (&self.xdata[range.clone()], &self.ydata[range]);
+                line_vertices(x, y, self.drawstyle).and_then(|drawn| {
+                    let points = line_vertices(x, y, DrawStyle::Default)?;
+                    Ok((Path::polyline(drawn), Path::polyline(points)))
+                })
             }
+            None => self
+                .path
+                .clone()
+                .and_then(|drawn| Ok((drawn, self.points()?))),
+        };
+        match paths {
+            Ok((drawn, points)) => self.draw_paths(ctx, &resolved, &drawn, &points),
+            Err(problem) => ctx.report(self.base.id(), problem.to_string()),
         }
     }
 
@@ -420,18 +442,14 @@ impl Artist for LineArtist {
         Some(extent.padded(pad, pad))
     }
 
-    /// The drawn vertices, in the directions where the line's coordinates
-    /// are data values; infinite lines do not count (matplotlib's
-    /// `_update_line_limits`).
+    /// The drawn vertices in data coordinates, in the directions where the
+    /// line's coordinates are data values; infinite lines do not count
+    /// (matplotlib's `_update_line_limits`).
     fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
         if self.infinite.is_some() {
             return None;
         }
-        let directions = self.transform().data_directions(axes);
-        (directions != (false, false)).then(|| LimitPoints {
-            points: self.drawn_points(),
-            directions,
-        })
+        LimitPoints::through(&self.transform(), axes, || self.drawn_points())
     }
 
     /// matplotlib's `Line2D.contains`: the vertices within the pick radius

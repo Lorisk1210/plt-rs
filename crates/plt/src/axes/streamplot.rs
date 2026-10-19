@@ -6,7 +6,6 @@ use plt_core::Affine2D;
 
 use super::Axes;
 use super::children::DataUpdate;
-use super::data_coords::affine_before_data;
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Color, Normalize, ScalarMappable, colormaps};
@@ -143,7 +142,7 @@ impl Axes {
         );
         // matplotlib's `Collection.get_datalim`: the paths through
         // `transform - transData`, or nothing outside the data coordinates.
-        let update = match affine_before_data(transform, self.id()) {
+        let update = match transform.affine_before_data(self.id()) {
             _ if lines.paths.is_empty() => DataUpdate::data(Vec::new()),
             Some(to_data) if to_data == Affine2D::IDENTITY => {
                 DataUpdate::limits(lines.shape_extents())

@@ -231,15 +231,7 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     /// patch's coordinates are data values (matplotlib's
     /// `_update_patch_limits`).
     fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
-        let directions = self
-            .base
-            .transform
-            .as_ref()
-            .map_or((false, false), |transform| transform.data_directions(axes));
-        (directions != (false, false)).then(|| LimitPoints {
-            points: self.data_points(),
-            directions,
-        })
+        LimitPoints::through(self.base.transform.as_ref()?, axes, || self.data_points())
     }
 
     /// Whether the outline encloses `point` (matplotlib's

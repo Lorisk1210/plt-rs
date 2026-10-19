@@ -1,6 +1,7 @@
 //! The cases from `test_subplots.py` and `test_transforms.py`.
 
 use plt::axes::{HistPlotOptions, Mesh, PcolorOptions, ScatterOptions};
+use plt::collections::CollectionProps;
 use plt::contour::{ContourOptions, QuadField};
 use plt::figure::{Figure, Mosaic, MosaicOptions, Share};
 use plt::gridspec::{GridSpec, SubplotOverrides};
@@ -74,7 +75,7 @@ fn pre_transform(fig: &Figure) -> CaseResult {
     ax.pcolormesh(
         Mesh::with_coords(linspace(0.0, 4.0, 7), linspace(5.5, 8.0, 9), counting(8, 6)),
         PcolorOptions {
-            transform: Some(times10.clone()),
+            props: CollectionProps::default().transform(times10.clone()),
             ..PcolorOptions::default()
         },
     )?;

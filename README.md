@@ -54,7 +54,8 @@ does it without pyplot.
 * **Text**: TrueType fonts with OpenType shaping, right-to-left and
   Arabic text, font features and BCP 47 languages per text
   (`set_fontfeatures`, `set_language`), every `text.hinting` mode with
-  FreeType's own bytecode interpreter and autohinter, and mathtext in
+  FreeType's own bytecode interpreter and autohinter, text without
+  anti-aliasing through FreeType's monochrome rasterizer, and mathtext in
   every matplotlib fontset (DejaVu Sans and Serif, Computer Modern, STIX,
   STIX sans, custom), placing every glyph and rule where matplotlib does
   on its own mathtext test suite.

@@ -9,6 +9,7 @@ mod condition;
 mod draw;
 mod filter;
 mod glyph;
+mod mono;
 mod text;
 
 use std::fmt;

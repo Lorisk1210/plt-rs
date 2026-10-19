@@ -5,8 +5,8 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 
 use plt_core::{Path, PathBuilder, Point};
 use plt_font::{
-    AutohintTarget, FontDatabase, FontId, FontQuery, GenericFamilies, GlyphId, Hinter, Hinting,
-    HintingInstance, OutlineSink, Size,
+    AutohintTarget, Face, FontDatabase, FontId, FontQuery, GenericFamilies, GlyphId, HintedGlyph,
+    Hinter, Hinting, HintingInstance, OutlineSink, ScanOutline, Size,
 };
 
 use crate::block::FontHeightMetrics;
@@ -231,6 +231,58 @@ impl TextEngine {
         self.outline(font, glyph, size, dpi, Some((hinting, axis_aligned)))
     }
 
+    /// The outline of a glyph loaded as [`raster_glyph_outline`] loads it,
+    /// as `FreeType`'s monochrome rasterizer receives it: tagged points in
+    /// 26.6 pixels with the drop-out rules the loader set (matplotlib's
+    /// `text.antialiased: False`).
+    ///
+    /// [`raster_glyph_outline`]: Self::raster_glyph_outline
+    ///
+    /// # Errors
+    ///
+    /// When the font cannot be read or the glyph cannot be loaded.
+    pub fn scan_glyph_outline(
+        &self,
+        font: FontId,
+        glyph: GlyphId,
+        size: f64,
+        dpi: f64,
+        hinting: Hinting,
+        axis_aligned: bool,
+    ) -> Result<ScanOutline, TextError> {
+        let face = self.db.face(font)?;
+        let size = Size::new(&face, size, dpi);
+        Ok(
+            match self.hinted_glyph(&face, &size, font, glyph, hinting, axis_aligned)? {
+                Some(hinted) => hinted.scan_outline(),
+                None => size.scan_outline(&face, glyph)?,
+            },
+        )
+    }
+
+    /// `glyph` loaded with the hinter `hinting` picks for it, or `None`
+    /// when it stays unhinted.
+    fn hinted_glyph(
+        &self,
+        face: &Face<'_>,
+        size: &Size,
+        font: FontId,
+        glyph: GlyphId,
+        hinting: Hinting,
+        axis_aligned: bool,
+    ) -> Result<Option<HintedGlyph>, TextError> {
+        Ok(match hinting.hinter(face, axis_aligned) {
+            Hinter::Bytecode => Some(HintingInstance::new(face, size).load_glyph(face, glyph)?),
+            Hinter::Autohinter => Some(self.db.autohinter(font)?.load_glyph(
+                face,
+                size,
+                glyph,
+                AutohintTarget::Normal,
+            )?),
+            Hinter::Unhinted => None,
+        })
+    }
+
     /// A glyph outline in pixels, unhinted or as the raster backend loads
     /// it, from the cache when possible.
     fn outline(
@@ -255,19 +307,15 @@ impl TextEngine {
         let face = self.db.face(font)?;
         let size = Size::new(&face, size, dpi);
         let mut sink = PathSink::default();
-        let hinter = raster.map_or(Hinter::Unhinted, |(hinting, axis_aligned)| {
-            hinting.hinter(&face, axis_aligned)
-        });
-        match hinter {
-            Hinter::Bytecode => HintingInstance::new(&face, &size)
-                .load_glyph(&face, glyph)?
-                .outline(&mut sink),
-            Hinter::Autohinter => self
-                .db
-                .autohinter(font)?
-                .load_glyph(&face, &size, glyph, AutohintTarget::Normal)?
-                .outline(&mut sink),
-            Hinter::Unhinted => size.outline(&face, glyph, &mut sink)?,
+        let hinted = match raster {
+            Some((hinting, axis_aligned)) => {
+                self.hinted_glyph(&face, &size, font, glyph, hinting, axis_aligned)?
+            }
+            None => None,
+        };
+        match hinted {
+            Some(hinted) => hinted.outline(&mut sink),
+            None => size.outline(&face, glyph, &mut sink)?,
         }
         let path = sink.finish();
         cache.insert(key, path.clone());

@@ -9,7 +9,8 @@ version 40 interpreter under "default" and "native"; fonts without bytecode
 multiple of 90 degrees.
 
 Plain text, tick labels, titles, labels, legends, rotated text and mathtext
-are drawn at several sizes (6-24 pt) and resolutions (72, 100 and 150 dpi).
+are drawn at several sizes (6-24 pt) and resolutions (72, 100 and 150 dpi),
+also without anti-aliasing (FreeType's monochrome rasterizer).
 """
 
 import numpy as np
@@ -41,6 +42,32 @@ def _axes(fig):
     ax.set_xlabel("time [s]")
     ax.set_ylabel("amplitude")
     ax.legend(loc="upper right")
+
+
+def _rotated(fig):
+    """Labels at eight angles."""
+    ax = fig.subplots()
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 10)
+    ax.set_axis_off()
+    for i, angle in enumerate([0, 15, 30, 45, 90, 135, 180, 270]):
+        ax.text(0.6 + 1.2 * i, 5, f"rot {angle} Wa", rotation=angle, fontsize=10 + i,
+                ha="center", va="center")
+
+
+def _math(fig):
+    """The formula at four sizes."""
+    for i, size in enumerate([8, 11, 15, 20]):
+        fig.text(0.03, 0.9 - 0.23 * i, r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b} - \pi r^2$",
+                 fontsize=size, va="top")
+
+
+def _stix(fig, formula):
+    """The sample in STIX General at three sizes, then a formula."""
+    for i, size in enumerate([7, 10, 14]):
+        fig.text(0.03, 0.92 - 0.2 * i, f"{size} pt {SAMPLE}", fontsize=size, family="STIXGeneral",
+                 va="top")
+    fig.text(0.03, 0.3, formula, fontsize=12, va="top")
 
 
 @case("hinting/sizes_100dpi", figsize=(6, 4.5), rc=DEFAULT)
@@ -85,36 +112,22 @@ def _(fig):
 
 @case("hinting/rotated", figsize=(6, 3), rc=DEFAULT)
 def _(fig):
-    ax = fig.subplots()
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 10)
-    ax.set_axis_off()
-    for i, angle in enumerate([0, 15, 30, 45, 90, 135, 180, 270]):
-        ax.text(0.6 + 1.2 * i, 5, f"rot {angle} Wa", rotation=angle, fontsize=10 + i,
-                ha="center", va="center")
+    _rotated(fig)
 
 
 @case("hinting/mathtext_dejavusans", figsize=(6, 3), rc={**DEFAULT, "mathtext.fontset": "dejavusans"})
 def _(fig):
-    for i, size in enumerate([8, 11, 15, 20]):
-        fig.text(0.03, 0.9 - 0.23 * i, r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b} - \pi r^2$",
-                 fontsize=size, va="top")
+    _math(fig)
 
 
 @case("hinting/mathtext_cm", figsize=(6, 3), rc={**DEFAULT, "mathtext.fontset": "cm"})
 def _(fig):
-    for i, size in enumerate([8, 11, 15, 20]):
-        fig.text(0.03, 0.9 - 0.23 * i, r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b} - \pi r^2$",
-                 fontsize=size, va="top")
+    _math(fig)
 
 
 @case("hinting/native_stix", figsize=(6, 3), rc={**NATIVE, "mathtext.fontset": "stix"})
 def _(fig):
-    for i, size in enumerate([7, 10, 14]):
-        fig.text(0.03, 0.92 - 0.2 * i, f"{size} pt {SAMPLE}", fontsize=size, family="STIXGeneral",
-                 va="top")
-    fig.text(0.03, 0.3, r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b}$ and DejaVu text",
-             fontsize=12, va="top")
+    _stix(fig, r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b}$ and DejaVu text")
 
 
 @case("hinting/native_axes", figsize=(5, 3.75), rc=NATIVE)
@@ -149,26 +162,60 @@ def _(fig):
 
 @case("hinting/autohint_rotated", figsize=(6, 3), rc=AUTOHINT)
 def _(fig):
-    ax = fig.subplots()
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 10)
-    ax.set_axis_off()
-    for i, angle in enumerate([0, 15, 30, 45, 90, 135, 180, 270]):
-        ax.text(0.6 + 1.2 * i, 5, f"rot {angle} Wa", rotation=angle, fontsize=10 + i,
-                ha="center", va="center")
+    _rotated(fig)
 
 
 @case("hinting/mathtext_stix", figsize=(6, 3), rc={**DEFAULT, "mathtext.fontset": "stix"})
 def _(fig):
-    for i, size in enumerate([8, 11, 15, 20]):
-        fig.text(0.03, 0.9 - 0.23 * i, r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b} - \pi r^2$",
-                 fontsize=size, va="top")
+    _math(fig)
 
 
 @case("hinting/stix_default", figsize=(6, 3), rc={**DEFAULT, "mathtext.fontset": "stix"})
 def _(fig):
-    for i, size in enumerate([7, 10, 14]):
-        fig.text(0.03, 0.92 - 0.2 * i, f"{size} pt {SAMPLE}", fontsize=size, family="STIXGeneral",
-                 va="top")
-    fig.text(0.03, 0.3, r"$\sum_{i=0}^{n} \sqrt{x_i} \int f\,dx$ and DejaVu text",
-             fontsize=12, va="top")
+    _stix(fig, r"$\sum_{i=0}^{n} \sqrt{x_i} \int f\,dx$ and DejaVu text")
+
+
+# --- without anti-aliasing: FreeType's monochrome rasterizer, with the
+# drop-out rules each loader sets (bytecode scan control, none, autohinter)
+
+ALIASED = {"text.antialiased": False}
+
+
+@case("hinting/aliased_sizes", figsize=(6, 4.5), rc={**DEFAULT, **ALIASED})
+def _(fig):
+    _sizes(fig)
+
+
+@case("hinting/aliased_unhinted_sizes", figsize=(6, 4.5), rc=ALIASED)
+def _(fig):
+    _sizes(fig)
+
+
+@case("hinting/aliased_unhinted_rotated", figsize=(6, 3), rc=ALIASED)
+def _(fig):
+    _rotated(fig)
+
+
+@case("hinting/aliased_autohint_rotated", figsize=(6, 3), rc={**AUTOHINT, **ALIASED})
+def _(fig):
+    _rotated(fig)
+
+
+@case("hinting/aliased_mathtext_cm", figsize=(6, 3),
+      rc={**DEFAULT, **ALIASED, "mathtext.fontset": "cm"})
+def _(fig):
+    _math(fig)
+
+
+@case("hinting/aliased_native_stix", figsize=(6, 3),
+      rc={**NATIVE, **ALIASED, "mathtext.fontset": "stix"})
+def _(fig):
+    _stix(fig, r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b}$ and DejaVu text")
+
+
+@case("hinting/aliased_large", figsize=(6, 3), rc=ALIASED)
+def _(fig):
+    # Glyphs too tall for high precision, and a W whose profiles overflow
+    # FreeType's render pool, so that it is rendered in bands.
+    fig.text(0.02, 0.1, "BW%", fontsize=150)
+    fig.text(0.62, 0.05, "W", fontsize=300)

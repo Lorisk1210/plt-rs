@@ -12,6 +12,8 @@
 //!   40) for the grid-fitted outlines and advances matplotlib draws text
 //!   with by default ([`Hinting`]), and [`Autohinter`] — FreeType's
 //!   autohinter, for fonts without bytecode and `text.hinting: auto`.
+//!   Loaded glyphs also give their [`ScanOutline`]: the tagged points and
+//!   drop-out rules FreeType's monochrome rasterizer works from.
 //! * [`shape`] / [`shape_at_size`] — libraqm/HarfBuzz-style shaping: the
 //!   Unicode Bidirectional Algorithm with visual reordering of right-to-left
 //!   runs, HarfBuzz's Arabic (joining forms, presentation-form fallback) and
@@ -41,6 +43,7 @@ mod layout;
 mod outline;
 mod reader;
 mod scale;
+mod scan;
 mod shape;
 mod subset;
 mod tables;
@@ -61,6 +64,7 @@ pub use hinting::{BytecodeError, BytecodeProgram, HintedGlyph, Hinter, Hinting, 
 pub use layout::feature::{Feature, ParseFeatureError};
 pub use outline::{OutlineRecorder, OutlineSink, PathCommand};
 pub use scale::{KerningMode, Size};
+pub use scan::{Dropouts, ScanOutline, ScanPoint, ScanPointKind, ScanRules};
 pub use shape::{
     FontChain, LaidOutGlyph, LanguageRange, LanguageTag, Script, ShapeOptions, ShapedGlyph,
     TextLayout, shape, shape_at_size, shape_with,

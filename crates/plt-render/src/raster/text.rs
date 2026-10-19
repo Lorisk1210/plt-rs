@@ -7,15 +7,20 @@
 //! outline is grid-fitted as `text.hinting` asked when the run was laid
 //! out (its source's font request), as matplotlib loads glyphs with
 //! `get_hinting_flag()`.
-//! Rules (mathtext fraction bars and the like) are drawn as paths with the
-//! text's snapping, grown to at least one pixel as matplotlib does.
+//! Without anti-aliasing, glyphs are rendered by a port of `FreeType`'s
+//! monochrome rasterizer ([`mono`](super::mono)) and their pixels painted
+//! at full coverage, as matplotlib blits the bitmap.
+//! Rules (mathtext fraction bars and the like) are drawn as anti-aliased
+//! paths with the text's snapping, grown to at least one pixel as
+//! matplotlib does.
 
 use plt_core::{Affine2D, Path, Point};
 use plt_raster::CoverageRounding;
 use plt_text::{Hinting, TextEngine, TextRun};
 
 use super::RasterRenderer;
-use super::glyph::{freetype_polygon, is_axis_aligned};
+use super::glyph::{GlyphTransform, freetype_polygon, is_axis_aligned};
+use super::mono;
 use crate::gc::{Dashes, GraphicsContext, SnapMode};
 use crate::renderer::Renderer;
 
@@ -36,11 +41,13 @@ impl RasterRenderer {
         let rotation = Affine2D::identity().rotate_deg(angle);
         let placement = rotation.translate(origin.x, origin.y);
         let color = gc.stroke_color();
+        // matplotlib draws rules with a fresh, anti-aliased context.
         let fill_gc = GraphicsContext {
             linewidth: 0.0,
             dashes: Dashes::solid(),
             hatch: None,
             sketch: None,
+            antialiased: true,
             ..gc.clone()
         };
         let glyph_gc = GraphicsContext {
@@ -56,19 +63,36 @@ impl RasterRenderer {
         self.painter
             .set_coverage_rounding(CoverageRounding::FreeType);
         for glyph in &run.glyphs {
-            let Ok(outline) = engine.raster_glyph_outline(
-                glyph.font,
-                glyph.glyph,
-                glyph.size,
-                run.dpi,
-                hinting,
-                axis_aligned,
-            ) else {
-                continue;
-            };
             let pen = placement.transform_point(Point::new(glyph.x, glyph.y));
             let pen = Point::new(quantize(pen.x), quantize(pen.y));
-            let polygon = freetype_polygon(&outline, angle, pen);
+            let polygon = if gc.antialiased {
+                let Ok(outline) = engine.raster_glyph_outline(
+                    glyph.font,
+                    glyph.glyph,
+                    glyph.size,
+                    run.dpi,
+                    hinting,
+                    axis_aligned,
+                ) else {
+                    continue;
+                };
+                freetype_polygon(&outline, angle, pen)
+            } else {
+                let Ok(outline) = engine.scan_glyph_outline(
+                    glyph.font,
+                    glyph.glyph,
+                    glyph.size,
+                    run.dpi,
+                    hinting,
+                    axis_aligned,
+                ) else {
+                    continue;
+                };
+                let Some(bitmap) = mono::render(&outline, &GlyphTransform::new(angle, pen)) else {
+                    continue;
+                };
+                bitmap.to_path()
+            };
             self.draw_path(&glyph_gc, &polygon, &Affine2D::IDENTITY, Some(color));
         }
         self.painter.set_coverage_rounding(CoverageRounding::Agg);

@@ -11,6 +11,7 @@ use crate::face::Face;
 use crate::fixed::{div_fix, mul_div, mul_fix, pix_round};
 use crate::hinting::HintedFace;
 use crate::outline::{Midpoint, OutlineSink};
+use crate::scan::{ScanOutline, ScanRules};
 use crate::tables::glyf::Scaling;
 use crate::types::{GlyphId, Rect};
 
@@ -196,6 +197,18 @@ impl Size {
         face.load_outline(glyph, self.scaling())?
             .decompose(&mut pixels, Midpoint::Truncated);
         Ok(())
+    }
+
+    /// The unhinted outline FreeType loads at this size with the rules
+    /// its loader sets, for monochrome rendering.
+    ///
+    /// # Errors
+    ///
+    /// When the glyph is missing or its outline data is malformed.
+    pub fn scan_outline(&self, face: &Face<'_>, glyph: GlyphId) -> Result<ScanOutline> {
+        Ok(face
+            .load_outline(glyph, self.scaling())?
+            .scan_outline(ScanRules::scaled(self.y_ppem)))
     }
 
     pub(crate) const fn scaling(&self) -> Scaling {

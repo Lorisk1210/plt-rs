@@ -33,13 +33,35 @@ Ops
 
 ``<Norm>`` is one of Normalize, LogNorm, SymLogNorm, PowerNorm, BoundaryNorm,
 TwoSlopeNorm, CenteredNorm, AsinhNorm, NoNorm.
+
+Multivariate data
+-----------------
+``norms`` lists one norm per variate: a scale name (``"linear"``, ``"log"``,
+...) or ``{"class": <Norm>, "params": {...}}``. ``values`` holds one list per
+variate (each optionally masked by the matching list of ``masks``), or one
+number per variate (the scalar code path; results are numbers). ``vmin``,
+``vmax`` and ``clip`` are the ``MultiNorm`` keyword lists.
+
+``colors.MultiNorm``            {norms, vmin?, vmax?, clip?} -> {n_components, vmin, vmax, clip, scaled}
+``colors.MultiNorm.__call__``   {norms, values, masks?, vmin?, vmax?, clip?, call_clip?}
+                                -> {result, vmin, vmax}; ``call_clip`` is the call-time list.
+``colors.MultiNorm.inverse``    {norms, values, vmin?, vmax?} -> result
+``colors.MultiNorm.autoscale``  {norms, data, vmin?, vmax?} -> {vmin, vmax}
+``colors.MultiNorm.autoscale_None`` {norms, data, vmin?, vmax?} -> {vmin, vmax}
+``colorizer.Colorizer.to_rgba`` {cmap, values, masks?, norm?, vmin?, vmax?, alpha?} -> RGBA rows
+                                A ``Colorizer`` with the bivariate or multivariate ``cmap`` and
+                                the ``norm`` list maps ``values`` as a ``QuadMesh`` does:
+                                ``_ensure_multivariate_data``, ``safe_masked_invalid``,
+                                ``_scale_norm(norm, vmin, vmax)`` and ``to_rgba(alpha=)``.
 """
 
 import math
 
 import matplotlib.cm as mcm
+import matplotlib.colorizer as mcolorizer
 import matplotlib.colors as mcolors
 import numpy as np
+from matplotlib import cbook
 
 from spec_support import ProbeSet
 
@@ -423,3 +445,178 @@ def test_scalar_mappable_to_rgba():
                  values=[0.0, 0.25, 0.5, 1.0, 1.5, -0.5, NAN], apply_norm=False)
     probes.probe("cm.ScalarMappable.to_rgba", scalar_mappable_to_rgba, cmap=None, norm=None, values=[0.0, 1.0, 2.0])
     probes.probe("cm.ScalarMappable.to_rgba", scalar_mappable_to_rgba, cmap="viridis", norm=None, values=4.0)
+
+
+# --------------------------------------------------------------------------
+# MultiNorm and multivariate colouring
+# --------------------------------------------------------------------------
+
+
+def _norm_spec(spec):
+    """One norm of a MultiNorm: a scale name, or a norm class and its parameters."""
+    return spec if isinstance(spec, str) else NORMS[spec["class"]](**spec["params"])
+
+
+def _multi_norm(norms, vmin=None, vmax=None, clip=None):
+    specs = norms if isinstance(norms, str) else [_norm_spec(n) for n in norms]
+    return mcolors.MultiNorm(specs, vmin=vmin, vmax=vmax, clip=clip)
+
+
+def _variates(values, masks=None):
+    """One array per variate (masked as ``masks`` say), or one number each."""
+    if not isinstance(values, list) or not all(isinstance(v, list) for v in values):
+        return tuple(values) if isinstance(values, list) else values
+    masks = masks or [None] * len(values)
+    return tuple(_values(v, m) for v, m in zip(values, masks))
+
+
+def _multi_attrs(norms, vmin=None, vmax=None, clip=None):
+    norm = _multi_norm(norms, vmin, vmax, clip)
+    return {"n_components": norm.n_components, "vmin": norm.vmin, "vmax": norm.vmax,
+            "clip": norm.clip, "scaled": norm.scaled()}
+
+
+def _multi_call(norms, values, masks=None, vmin=None, vmax=None, clip=None, call_clip=None):
+    norm = _multi_norm(norms, vmin, vmax, clip)
+    result = norm(_variates(values, masks), clip=call_clip)
+    return {"result": result, "vmin": norm.vmin, "vmax": norm.vmax}
+
+
+def _multi_inverse(norms, values, vmin=None, vmax=None):
+    return _multi_norm(norms, vmin, vmax).inverse(_variates(values))
+
+
+def _multi_autoscale(method):
+    def autoscale(norms, data, vmin=None, vmax=None):
+        norm = _multi_norm(norms, vmin, vmax)
+        getattr(norm, method)(_variates(data))
+        return {"vmin": norm.vmin, "vmax": norm.vmax}
+
+    return autoscale
+
+
+def _colorizer_to_rgba(cmap, values, masks=None, norm=None, vmin=None, vmax=None, alpha=None):
+    norms = None if norm is None else [_norm_spec(n) for n in norm]
+    colorizer = mcolorizer.Colorizer(cmap=cmap, norm=norms)
+    data = mcolorizer._ensure_multivariate_data(_variates(values, masks), colorizer.norm.n_components)
+    data = cbook.safe_masked_invalid(data, copy=True)
+    colorizer._scale_norm(norms, vmin, vmax, data)
+    return colorizer.to_rgba(data, alpha=alpha)
+
+
+LIN_LOG = ["linear", "log"]
+MULTI_DATA = [[-1.0, 0.0, 0.5, 1.0, 2.0, NAN], [0.0, 1.0, 10.0, 100.0, 1000.0, INF]]
+LIN_LOG_LIMITS = {"vmin": [0.0, 1.0], "vmax": [1.0, 100.0]}
+
+
+def test_multi_norm_construction():
+    for norms, kwargs in [
+        (["linear"], {}),
+        (LIN_LOG, {}),
+        (["linear", "log", "symlog", "asinh", "logit"], {}),
+        (["linear", {"class": "LogNorm", "params": {"vmin": 1.0, "vmax": 100.0}}], {}),
+        ([{"class": "TwoSlopeNorm", "params": {"vcenter": 0.0}}, "linear"], {"clip": [True, True]}),
+        (LIN_LOG, {**LIN_LOG_LIMITS, "clip": [True, False]}),
+        (LIN_LOG, {"vmin": [0.0, None]}),
+        (LIN_LOG, {"vmin": [0.0]}),
+        (LIN_LOG, {"vmax": [1.0, 2.0, 3.0]}),
+        (LIN_LOG, {"vmin": 0.5}),
+        (LIN_LOG, {"clip": [True]}),
+        ([], {}),
+        ("linear", {}),
+        (["nope"], {}),
+        (["function"], {}),
+        (["functionlog"], {}),
+    ]:
+        probes.probe("colors.MultiNorm", _multi_attrs, norms=norms, **kwargs)
+
+
+def test_multi_norm_call():
+    for norms in [
+        LIN_LOG,
+        ["linear", "linear"],
+        ["symlog", "asinh"],
+        ["logit", "linear"],
+        [{"class": "Normalize", "params": {}}, "log"],
+        [{"class": "PowerNorm", "params": {"gamma": 2.0, "vmin": 0.0, "vmax": 2.0}},
+         {"class": "TwoSlopeNorm", "params": {"vcenter": 10.0}}],
+        [{"class": "BoundaryNorm", "params": {"boundaries": [-1.0, 0.0, 1.0, 2.0], "ncolors": 3}}, "log"],
+    ]:
+        probes.probe("colors.MultiNorm.__call__", _multi_call, norms=norms, values=MULTI_DATA)
+    for kwargs in [
+        LIN_LOG_LIMITS,
+        {**LIN_LOG_LIMITS, "clip": [True, True]},
+        {**LIN_LOG_LIMITS, "call_clip": [True, False]},
+        {**LIN_LOG_LIMITS, "clip": [True, True], "call_clip": [False, False]},
+        {"vmin": [None, 1.0]},
+        {"vmax": [0.5, None]},
+        {"masks": [[False, True, False, False, False, False], [False, False, False, True, False, False]]},
+    ]:
+        probes.probe("colors.MultiNorm.__call__", _multi_call, norms=LIN_LOG, values=MULTI_DATA, **kwargs)
+    probes.probe("colors.MultiNorm.__call__", _multi_call, norms=LIN_LOG, values=[0.5, 10.0], **LIN_LOG_LIMITS)
+    probes.probe("colors.MultiNorm.__call__", _multi_call, norms=["linear"] * 3,
+                 values=[[0.0, 1.0, 2.0], [3.0, 4.0, 5.0], [6.0, 7.0, 9.0]])
+    probes.probe("colors.MultiNorm.__call__", _multi_call, norms=["linear"], values=[[1.0, 3.0, 2.0]])
+    # Errors: the number of variates and clip flags, scalars, inverted and invalid limits.
+    for kwargs in [
+        {"values": [[1.0, 2.0]]},
+        {"values": [[1.0], [2.0], [3.0]]},
+        {"values": MULTI_DATA, "call_clip": [True]},
+        {"values": 5.0},
+        {"values": MULTI_DATA, "vmin": [2.0, 1.0], "vmax": [1.0, 100.0]},
+        {"values": MULTI_DATA, "vmin": [0.0, -1.0], "vmax": [1.0, 100.0]},
+    ]:
+        probes.probe("colors.MultiNorm.__call__", _multi_call, norms=LIN_LOG, **kwargs)
+
+
+def test_multi_norm_inverse():
+    unit = [[0.0, 0.25, 0.5, 1.0, 1.5], [0.0, 0.5, 1.0, -0.5, NAN]]
+    for norms, vmin, vmax in [
+        (LIN_LOG, [0.0, 1.0], [2.0, 100.0]),
+        (["symlog", "asinh"], [-10.0, -5.0], [10.0, 5.0]),
+        (["logit", "linear"], [0.1, 0.0], [0.9, 1.0]),
+        ([{"class": "PowerNorm", "params": {"gamma": 2.0}}, "linear"], [0.0, 0.0], [4.0, 1.0]),
+    ]:
+        probes.probe("colors.MultiNorm.inverse", _multi_inverse, norms=norms, vmin=vmin, vmax=vmax, values=unit)
+    probes.probe("colors.MultiNorm.inverse", _multi_inverse, norms=LIN_LOG, vmin=[0.0, 1.0], vmax=[2.0, 100.0],
+                 values=[0.5, 0.5])
+    probes.probe("colors.MultiNorm.inverse", _multi_inverse, norms=LIN_LOG, values=[[0.5], [0.5]])
+    probes.probe("colors.MultiNorm.inverse", _multi_inverse, norms=LIN_LOG, vmin=[0.0, 1.0], vmax=[2.0, 100.0],
+                 values=[[0.5]])
+
+
+def test_multi_norm_autoscale():
+    data = [[3.0, -1.0, NAN, 2.0], [0.0, -5.0, 0.5, 20.0]]
+    for method in ["autoscale", "autoscale_None"]:
+        op = f"colors.MultiNorm.{method}"
+        for norms, kwargs in [
+            (LIN_LOG, {}),
+            (LIN_LOG, {"vmin": [0.5, None], "vmax": [None, 5.0]}),
+            (["linear", {"class": "Normalize", "params": {}}], {}),
+            (["symlog", "logit"], {}),
+        ]:
+            probes.probe(op, _multi_autoscale(method), norms=norms, data=data, **kwargs)
+        probes.probe(op, _multi_autoscale(method), norms=LIN_LOG, data=[[1.0]])
+
+
+def test_colorizer_to_rgba():
+    v2 = [[0.0, 0.25, 0.5, 0.75, 1.0, NAN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]]
+    v3 = v2 + [[0.5, 0.5, 1.0, 0.0, 0.25, 0.75, 0.1]]
+    op = "colorizer.Colorizer.to_rgba"
+    for cmap in ["BiPeak", "BiOrangeBlue", "BiCone", "2VarAddA", "2VarSubA"]:
+        probes.probe(op, _colorizer_to_rgba, cmap=cmap, values=v2)
+    probes.probe(op, _colorizer_to_rgba, cmap="3VarAddA", values=v3)
+    probes.probe(op, _colorizer_to_rgba, cmap="3VarAddA", values=v3, norm=["linear", "symlog", "asinh"],
+                 vmin=[None, -1.0, None])
+    probes.probe(op, _colorizer_to_rgba, cmap="BiPeak", values=v2, norm=LIN_LOG)
+    probes.probe(op, _colorizer_to_rgba, cmap="BiOrangeBlue", values=v2, vmin=[0.0, None], vmax=[1.0, None],
+                 alpha=0.5)
+    probes.probe(op, _colorizer_to_rgba, cmap="2VarAddA", values=v2, alpha=0.5,
+                 masks=[[False] * 6 + [True], [True] + [False] * 6])
+    probes.probe(op, _colorizer_to_rgba, cmap="BiCone", values=v2,
+                 norm=[{"class": "Normalize", "params": {"vmin": 0.0, "vmax": 1.0}}, "linear"],
+                 vmin=[None, -0.5], vmax=[None, 1.5])
+    # Errors: variates, norms or limits that do not fit the colormap.
+    probes.probe(op, _colorizer_to_rgba, cmap="3VarAddA", values=v2)
+    probes.probe(op, _colorizer_to_rgba, cmap="BiPeak", values=v2, norm=["linear"])
+    probes.probe(op, _colorizer_to_rgba, cmap="BiPeak", values=v2, vmin=[0.0])

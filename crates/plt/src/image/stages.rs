@@ -3,16 +3,18 @@
 //! premultiplied colours (*RGBA* stage).
 //!
 //! The arithmetic follows matplotlib's numpy dtypes: masks resample in
-//! single precision, 8-bit colours become `float32`, and mixing with
-//! `float64` arrays widens, so that the 8-bit output matches bit for bit.
+//! single precision, 8-bit colours become `float32`, `float32` colours stay
+//! so, and mixing with `float64` arrays widens, so that the 8-bit output
+//! matches bit for bit.
 
 use std::ops::{Div, Mul};
 
 use plt_raster::resample::Pixel;
 
+use super::normalize::normalize_in;
 use super::resample::{PixelMap, Resampling};
-use super::{ImageAlpha, ImageData, ImageError, ScalarField, ScalarKind};
-use crate::colors::{NormError, Normalized, ScalarMappable};
+use super::{ImageAlpha, ImageData, ImageError, Precision, ScalarField};
+use crate::colors::ScalarMappable;
 use crate::numeric::Grid;
 
 /// The data stage for scalar images: resample the values, the mask and a
@@ -26,7 +28,12 @@ pub(crate) fn data_stage(
     map: &PixelMap,
 ) -> Result<Grid<[u8; 4]>, ImageError> {
     let values = field.values();
-    let resampled: Vec<f64> = if field.resamples_in_f32() {
+    let precision = if field.resamples_in_f32() {
+        Precision::Single
+    } else {
+        Precision::Double
+    };
+    let resampled: Vec<f64> = if precision == Precision::Single {
         let single = values.map(|&v| v as f32);
         resampling
             .run(&single, out_shape, map, None)?
@@ -61,7 +68,7 @@ pub(crate) fn data_stage(
         .zip(&out_mask)
         .map(|(v, &masked)| (!masked).then_some(v))
         .collect();
-    let normalized = normalize(mappable, &masked, field.kind())?;
+    let normalized = normalize_in(mappable, &masked, field.kind(), precision)?;
     let cmap = mappable.cmap();
     // A Python float multiplies a float32 array in single precision.
     let scalar_alpha = alpha.map_or(1.0, ImageAlpha::scalar) as f32;
@@ -74,30 +81,6 @@ pub(crate) fn data_stage(
         })
         .collect();
     Ok(Grid::from_vec(out_shape.0, out_shape.1, pixels).expect("one pixel per output cell"))
-}
-
-/// The norm applied to scalar image data. Integer data under an identity
-/// norm (matplotlib's `NoNorm`) indexes the colormap, after numpy's cast
-/// back to the data's dtype: booleans become 0 or 1, integers truncate.
-pub(crate) fn normalize(
-    mappable: &mut ScalarMappable,
-    values: &[Option<f64>],
-    kind: ScalarKind,
-) -> Result<Vec<Normalized>, NormError> {
-    if kind == ScalarKind::Float || !mappable.norm().is_identity() {
-        return mappable.normalize(values);
-    }
-    Ok(values
-        .iter()
-        .map(|v| {
-            v.map_or(Normalized::Masked, |v| {
-                Normalized::Index(match kind {
-                    ScalarKind::Boolean => i64::from(v != 0.0),
-                    ScalarKind::Integer | ScalarKind::Float => v as i64,
-                })
-            })
-        })
-        .collect())
 }
 
 /// The RGBA stage: colours (mapped scalars or explicit RGB(A)) with the
@@ -125,7 +108,7 @@ pub(crate) fn rgba_stage(
     let colors = match data {
         ImageData::Scalar(field) => {
             let values = field.masked_values();
-            let normalized = normalize(mappable, &values, field.kind())?;
+            let normalized = normalize_in(mappable, &values, field.kind(), field.precision())?;
             let cmap = mappable.cmap();
             let rgba = normalized
                 .into_iter()
@@ -134,11 +117,13 @@ pub(crate) fn rgba_stage(
             Colors::F64(Grid::from_vec(shape.0, shape.1, rgba).expect("same shape"))
         }
         ImageData::Rgb(grid) => return finish_rgb(grid, alpha, resampling, out_shape, map),
+        ImageData::RgbF32(grid) => return finish_rgb(grid, alpha, resampling, out_shape, map),
         ImageData::RgbBytes(grid) => {
             let single = grid.map(|p| p.map(unit_f32));
             return finish_rgb(&single, alpha, resampling, out_shape, map);
         }
         ImageData::Rgba(grid) => Colors::F64(grid.clone()),
+        ImageData::RgbaF32(grid) => Colors::F32(grid.clone()),
         ImageData::RgbaBytes(grid) => Colors::F32(grid.map(|p| p.map(unit_f32))),
     };
     match (colors, grid_alpha) {
@@ -421,6 +406,35 @@ mod tests {
     }
 
     #[test]
+    fn single_precision_colours_stay_single() {
+        // 3/255 premultiplied by an alpha of 11/255 and demultiplied comes
+        // back just below 3/255 in float32 (byte 2), exactly in float64.
+        let (level, alpha) = (3.0_f32 / 255.0, 11.0_f32 / 255.0);
+        let run = |data: ImageData| {
+            rgba_stage(
+                &data,
+                None,
+                &mut gray(),
+                &resampling(Interpolation::Nearest),
+                (1, 1),
+                &identity(),
+            )
+            .unwrap()
+            .as_slice()[0]
+        };
+        let single = Grid::from_vec(1, 1, vec![[level, 0.0, 0.0, alpha]]).unwrap();
+        let double = single.map(|p| p.map(f64::from));
+        assert_eq!(run(ImageData::RgbaF32(single))[0], 2);
+        assert_eq!(run(ImageData::Rgba(double))[0], 3);
+        let rgb = Grid::from_vec(1, 1, vec![[level, 1.0, 0.0]]).unwrap();
+        assert_eq!(
+            run(ImageData::RgbF32(rgb)),
+            [3, 255, 0, 255],
+            "widened with ones"
+        );
+    }
+
+    #[test]
     fn nan_colours_become_transparent() {
         let rgba = Grid::from_vec(1, 1, vec![[f64::NAN, 0.0, 0.0, 1.0]]).unwrap();
         let out = rgba_stage(
@@ -433,30 +447,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(out.as_slice()[0], [0; 4]);
-    }
-
-    #[test]
-    fn identity_norms_index_with_integers() {
-        use crate::colors::{Colormap, NoNorm};
-        let cmap = Colormap::listed("rgb", vec!["r", "g", "b"]).unwrap();
-        let mut mappable = ScalarMappable::with_norm(cmap, Box::new(NoNorm::default()));
-        let values = [Some(0.0), Some(2.9), None];
-        assert_eq!(
-            normalize(&mut mappable, &values, ScalarKind::Integer).unwrap(),
-            [
-                Normalized::Index(0),
-                Normalized::Index(2),
-                Normalized::Masked
-            ]
-        );
-        assert_eq!(
-            normalize(&mut mappable, &[Some(0.5)], ScalarKind::Boolean).unwrap(),
-            [Normalized::Index(1)]
-        );
-        assert_eq!(
-            normalize(&mut mappable, &[Some(1.0)], ScalarKind::Float).unwrap(),
-            [Normalized::Fraction(1.0)]
-        );
     }
 
     #[test]

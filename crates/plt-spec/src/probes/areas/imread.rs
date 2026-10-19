@@ -45,7 +45,7 @@ fn imread(args: Args<'_>) -> Outcome {
         }),
         ImageData::RgbBytes(grid) => nested(shape, grid.as_slice(), |pixel| channels(pixel)),
         ImageData::RgbaBytes(grid) => nested(shape, grid.as_slice(), |pixel| channels(pixel)),
-        ImageData::Rgb(_) | ImageData::Rgba(_) => {
+        ImageData::Rgb(_) | ImageData::Rgba(_) | ImageData::RgbF32(_) | ImageData::RgbaF32(_) => {
             return Err(ProbeError::BadArgs(
                 "a PNG file: imread returns floats".to_owned(),
             ));

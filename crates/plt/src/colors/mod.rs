@@ -15,6 +15,8 @@
 //!   [`BoundaryNorm`], ...) — data to colormap positions.
 //! * [`ScalarMappable`] — a norm and a colormap combined, and
 //!   [`from_levels_and_colors`] for contour-style banded colours.
+//! * [`MultiNorm`] — one norm per variate of multivariate data, mapped to
+//!   colours with the colormaps of [`multivar`].
 //!
 //! ```
 //! use plt::colors::{LogNorm, ScalarMappable, colormaps};
@@ -37,6 +39,7 @@ mod named;
 mod named_data;
 mod norm;
 mod npmath;
+mod readout;
 mod sequence_data;
 mod sequences;
 mod spec;
@@ -54,8 +57,9 @@ pub use light::{
 pub use mappable::ScalarMappable;
 pub use named::{ColorTable, NamedColor, named_color_table, named_colors};
 pub use norm::{
-    AsinhNorm, BoundaryNorm, CenteredNorm, FuncNorm, LogNorm, NoNorm, Norm, NormClone, NormError,
-    NormKind, NormTransform, Normalize, PowerNorm, ScaleNorm, SymLogNorm, TwoSlopeNorm,
+    AsinhNorm, BoundaryNorm, CenteredNorm, FuncNorm, LogNorm, MultiNorm, NoNorm, Norm, NormClone,
+    NormError, NormKind, NormName, NormSpec, NormTransform, Normalize, PowerNorm, ScaleNorm,
+    SymLogNorm, TwoSlopeNorm,
 };
 pub use sequences::{color_sequence, color_sequence_names};
 pub use spec::{Color, ColorError, is_color_like, is_cycle_reference, to_hex, to_rgba};

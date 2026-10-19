@@ -85,7 +85,9 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When the colormap, norm, aspect or filter radius is invalid.
+    /// When the colormap, norm, aspect or filter radius is invalid, or the
+    /// colour options are for data of several variates, which images do not
+    /// take (matplotlib 3.11 maps it in `pcolormesh` only).
     pub fn imshow(
         &self,
         data: impl Into<ImageData>,
@@ -292,6 +294,16 @@ mod tests {
             ax.imshow(Grid::filled(1, 1, 0.0), bad_aspect),
             Err(ImageError::Aspect(_))
         ));
+        let cmap = crate::colors::multivar::MultiColormap::get("BiPeak").unwrap();
+        let bivariate = ImshowOptions {
+            colors: ColorizerOptions::default()
+                .multivariate(crate::image::MultivarColorizerOptions::new(cmap)),
+            ..ImshowOptions::default()
+        };
+        assert_eq!(
+            ax.imshow(Grid::filled(2, 2, 0.0), bivariate).err(),
+            Some(ImageError::MultivariateColormap)
+        );
     }
 
     #[test]

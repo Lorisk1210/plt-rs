@@ -31,7 +31,7 @@ use crate::patches::{ClipRegion, PatchView};
 pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
 pub use context::{DrawContext, DrawError, LayoutContext};
-pub(crate) use cursor::{format_mapped, format_values};
+pub(crate) use cursor::format_values;
 pub use filter::AggFilter;
 pub use handle::{ArtistHandle, RawHandle};
 pub(crate) use pick::segment_hits;

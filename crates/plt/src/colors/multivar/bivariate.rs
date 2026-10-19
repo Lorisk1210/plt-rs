@@ -238,8 +238,13 @@ impl BivarColormap {
             BivarShape::Square => (clip_square(x0, n), clip_square(x1, m)),
             BivarShape::Ignore => (clip_ignore(x0, n), clip_ignore(x1, m)),
             BivarShape::Circle | BivarShape::CircleIgnore => {
-                let (Normalized::Fraction(f0), Normalized::Fraction(f1)) = (x0, x1) else {
-                    return Err(MultivarError::CircleNeedsFractions);
+                let (f0, f1) = match (x0, x1) {
+                    (Normalized::Fraction(f0), Normalized::Fraction(f1)) => (f0, f1),
+                    (Normalized::Index(_), _) | (_, Normalized::Index(_)) => {
+                        return Err(MultivarError::CircleNeedsFractions);
+                    }
+                    // Masked fractions keep their place: they are bad.
+                    _ => return Ok((x0, x1)),
                 };
                 let radius_sqr = (f0 - 0.5).powi(2) + (f1 - 0.5).powi(2);
                 if radius_sqr <= 0.25 {

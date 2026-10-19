@@ -135,7 +135,7 @@ fn thumbnail_op(args: Args<'_>) -> Outcome {
     let (rows, cols) = thumb.shape();
     // As the Python side reads it: imread's floats, times 255, rounded.
     let bytes: Vec<u8> = match thumb {
-        ImageData::Rgba(pixels) => pixels
+        ImageData::RgbaF32(pixels) => pixels
             .as_slice()
             .iter()
             .flatten()

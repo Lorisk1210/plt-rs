@@ -119,17 +119,17 @@ fn integers(shape: (usize, usize), values: Vec<i64>) -> ImageData {
 }
 
 /// Decodes PNG bytes into an image array the way matplotlib's `imread`
-/// does: greyscale becomes scalars in `[0, 1]`, RGB stays RGB and every
-/// other format (palette, grey with alpha, RGBA) becomes RGBA, with float
-/// channels in `[0, 1]` computed in single precision; 16-bit colour
-/// channels keep their high byte, as Pillow does.
+/// does: greyscale becomes single-precision scalars in `[0, 1]`, RGB stays
+/// RGB and every other format (palette, grey with alpha, RGBA) becomes
+/// RGBA, with single-precision channels in `[0, 1]` (numpy's `float32`);
+/// 16-bit colour channels keep their high byte, as Pillow does.
 ///
 /// ```
 /// use plt::image::{ImageData, ImsaveOptions, imread_png, imsave_png};
 /// use plt::numeric::Grid;
 /// let gray = Grid::from_vec(1, 2, vec![0.0, 1.0])?;
 /// let png = imsave_png(gray, &ImsaveOptions::default())?;
-/// let ImageData::Rgba(pixels) = imread_png(&png)? else { unreachable!() };
+/// let ImageData::RgbaF32(pixels) = imread_png(&png)? else { unreachable!() };
 /// assert_eq!(pixels.shape(), (1, 2));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
@@ -153,7 +153,8 @@ pub fn imread_png(png: &[u8]) -> Result<ImageData, ImageIoError> {
     let byte_unit = |value: u16| unit(value >> 8, 255.0);
     Ok(match image.color_type() {
         ColorType::Gray => {
-            Grid::from_fn(rows, cols, |row, col| unit(pixel(row, col)[0], 65535.0)).into()
+            let levels = Grid::from_fn(rows, cols, |row, col| unit(pixel(row, col)[0], 65535.0));
+            ImageData::Scalar(ScalarField::single(&levels))
         }
         ColorType::Rgb => Grid::from_fn(rows, cols, |row, col| {
             let [r, g, b, _] = pixel(row, col);
@@ -167,8 +168,8 @@ pub fn imread_png(png: &[u8]) -> Result<ImageData, ImageIoError> {
 }
 
 /// `value / max` in single precision, as matplotlib's float32 arrays.
-fn unit(value: u16, max: f32) -> f64 {
-    f64::from(f32::from(value) / max)
+fn unit(value: u16, max: f32) -> f32 {
+    f32::from(value) / max
 }
 
 #[cfg(test)]
@@ -189,16 +190,17 @@ mod tests {
             field.values().as_slice(),
             [0.0, f64::from(51.0_f32 / 255.0)]
         );
+        assert_eq!(field.kind(), crate::image::ScalarKind::Float32);
         let rgba = [255, 0, 0, 255, 0, 0, 255, 51];
         let png = Encoder::new()
             .encode(ImageRef::rgba8(2, 1, &rgba).unwrap())
             .unwrap();
-        let ImageData::Rgba(pixels) = imread_png(&png).unwrap() else {
+        let ImageData::RgbaF32(pixels) = imread_png(&png).unwrap() else {
             panic!("RGBA reads as RGBA");
         };
-        assert_eq!(pixels.as_slice()[1][3], f64::from(51.0_f32 / 255.0));
+        assert_eq!(pixels.as_slice()[1][3], 51.0_f32 / 255.0);
         assert!(imread_png(b"not a png").is_err());
-        assert!(matches!(imread_bytes(&png).unwrap(), ImageData::Rgba(_)));
+        assert!(matches!(imread_bytes(&png).unwrap(), ImageData::RgbaF32(_)));
     }
 
     #[test]
@@ -258,13 +260,10 @@ mod tests {
             &ImsaveOptions::default(),
         )
         .unwrap();
-        let ImageData::Rgba(pixels) = imread(dir.join("tiny.png")).unwrap() else {
+        let ImageData::RgbaF32(pixels) = imread(dir.join("tiny.png")).unwrap() else {
             panic!("imsave writes RGBA");
         };
-        assert_eq!(
-            pixels.as_slice()[0],
-            [0.0, f64::from(128.0_f32 / 255.0), 1.0, 1.0]
-        );
+        assert_eq!(pixels.as_slice()[0], [0.0, 128.0_f32 / 255.0, 1.0, 1.0]);
         imsave(
             dir.join("tiny.jpeg"),
             data.clone(),
@@ -279,7 +278,7 @@ mod tests {
         std::fs::copy(dir.join("tiny.png"), dir.join("renamed.gif")).unwrap();
         assert!(matches!(
             imread(dir.join("renamed.gif")).unwrap(),
-            ImageData::Rgba(_)
+            ImageData::RgbaF32(_)
         ));
         std::fs::copy(dir.join("tiny.jpeg"), dir.join("renamed.png")).unwrap();
         assert!(matches!(

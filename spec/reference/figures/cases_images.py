@@ -1,11 +1,15 @@
 """Images: imshow (interpolation, stages, origin/extent/aspect, RGB(A), alpha,
 norms, extreme colours, masks), matshow, spy, figimage, pcolor, pcolormesh,
-pcolorfast, NonUniformImage and hexbin."""
+pcolorfast, NonUniformImage, hexbin, multivariate data and imread'd PNGs."""
+
+import io
 
 import matplotlib as mpl
 import numpy as np
-from matplotlib import colors, patches
+from matplotlib import colors, image, patches
+from matplotlib.colorizer import _ensure_multivariate_data
 from matplotlib.image import NonUniformImage
+from PIL import Image
 
 from spec_support import case, rng
 
@@ -547,3 +551,94 @@ def _(fig):
     ax = fig.subplots()
     ax.plot([0, 10], [0, 5], color="k", lw=4)
     ax.pcolorfast([0, 1, 3, 6, 10], [0, 2, 3, 5], np.arange(12).reshape(3, 4), cmap="plasma", alpha=0.5)
+
+
+# --- multivariate data: matplotlib 3.11 maps it in pcolormesh and in
+# --- quad-mesh pcolorfast (images reject it)
+
+def _variates(*parts):
+    """The multivariate array of equally shaped ``parts``."""
+    return _ensure_multivariate_data(tuple(parts), len(parts))
+
+
+def _variate_fields():
+    """Three smooth 8 x 12 fields: a wave, a positive exponential, a saddle."""
+    xx, yy = _grid(12, 8)
+    return np.sin(xx) * np.cos(yy), np.exp(0.5 * (xx + yy)), xx * yy / 6.0
+
+
+@case("images/pcolormesh_bivariate", figsize=(6, 2.5))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    a, b, _ = _variate_fields()
+    ax1.pcolormesh(_variates(a, b), cmap="BiPeak")
+    xx, yy = _grid(13, 9)
+    ax2.pcolormesh(xx, yy, _variates(a, b), cmap="BiOrangeBlue", norm=["linear", "log"],
+                   vmin=[-0.5, None], vmax=[0.5, None])
+
+
+@case("images/pcolormesh_bicone_masked_alpha", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    ax.plot([-3, 3], [-2, 2], color="k", lw=4)
+    a, _, c = _variate_fields()
+    a = np.where(np.arange(96).reshape(8, 12) % 7 == 0, np.nan, a)
+    ax.pcolormesh(np.linspace(-3, 3, 12), np.linspace(-2, 2, 8), _variates(a, c), cmap="BiCone",
+                  shading="nearest", alpha=0.6, norm=[colors.Normalize(vmin=-1, vmax=1), "linear"])
+
+
+@case("images/pcolormesh_multivariate", figsize=(6, 2.2))
+def _(fig):
+    axs = fig.subplots(1, 3)
+    a, b, c = _variate_fields()
+    axs[0].pcolormesh(_variates(a, c), cmap="2VarAddA")
+    axs[1].pcolormesh(_variates(b, a), cmap="2VarSubA", norm=[colors.PowerNorm(gamma=0.5), "linear"])
+    axs[2].pcolormesh(_variates(a, b, c), cmap="3VarAddA", norm=["linear", "log", "linear"],
+                      vmin=[-0.5, None, None], vmax=[0.5, None, 0.5])
+
+
+@case("images/pcolorfast_multivariate_quadmesh", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    xx, yy = _grid(13, 9)
+    a, b, c = _variate_fields()
+    ax.pcolorfast(xx + 0.3 * yy, yy, _variates(a, b, c), cmap="3VarAddA",
+                  norm=["linear", "symlog", "asinh"])
+
+
+# --- PNGs read back with imread: float32 colours and greyscale
+
+def _png_roundtrip(array):
+    """``array`` written by ``imsave`` and read back by ``imread``."""
+    buffer = io.BytesIO()
+    image.imsave(buffer, array, format="png")
+    buffer.seek(0)
+    return image.imread(buffer)
+
+
+def _gray_png_roundtrip(levels):
+    """8-bit grey ``levels`` written as a greyscale PNG and read back by ``imread``."""
+    buffer = io.BytesIO()
+    Image.fromarray(levels).save(buffer, format="png")
+    buffer.seek(0)
+    return image.imread(buffer)
+
+
+@case("images/imread_rgba_interpolation", figsize=(6, 2.5))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    r, c = np.mgrid[0:12, 0:16]
+    rgba = np.stack([(37 * r + 11 * c) % 256, 255 - 15 * c, 20 * r, (40 + 13 * r + 9 * c) % 256], axis=-1)
+    img = _png_roundtrip(rgba.astype(np.uint8))
+    for ax, interpolation in [(ax1, "nearest"), (ax2, "bilinear")]:
+        ax.plot([0, 15], [0, 11], color="k", lw=5)
+        ax.imshow(img, interpolation=interpolation)
+
+
+@case("images/imread_gray_float32", figsize=(5, 2.5))
+def _(fig):
+    ax1, ax2 = fig.subplots(1, 2)
+    r, c = np.mgrid[0:10, 0:12]
+    gray = _gray_png_roundtrip(((19 * r + 23 * c) % 256).astype(np.uint8))
+    ax1.imshow(gray, cmap="gray", vmin=0.1, vmax=0.9, interpolation="bilinear")
+    ax2.imshow(gray, interpolation="nearest")

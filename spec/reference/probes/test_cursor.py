@@ -10,6 +10,13 @@ the message for a pointer motion at each display pixel of ``pixels``
 Ops
 ---
 ``cursor.message``  {scene, pixels} -> [str, ...]
+``cursor.format_cursor_data``  {cmap, variates, norm?, vmin?, vmax?} -> [str, ...]
+    ``pcolormesh`` of the multivariate data made of the named ``variates``
+    (6 × 8 arrays, below) through the bivariate or multivariate ``cmap``, the
+    ``norm`` list (scale names or ``{"class", "params"}``) and the ``vmin`` and
+    ``vmax`` lists; then ``format_cursor_data`` of every element of its array,
+    row by row (matplotlib 3.11's per-variate readout; the status bar shows
+    ``[]`` for multivariate meshes).
 
 Scenes
 ------
@@ -35,10 +42,19 @@ Scenes
 ``pcolorfast``   ``pcolorfast(X, Y, FIELD)`` (a ``PcolorImage``)
 ``nonuniform``   a ``NonUniformImage`` of ``FIELD`` with centres ``X[:-1]``, ``Y[:-1]``,
                  viewed over ``xlim=(-1, 10)``, ``ylim=(-1, 9)``
+
+Variates
+--------
+``field``   ``FIELD``
+``log``     ``10 ** ((8 r + c) / 12 - 1)``
+``masked``  ``FIELD`` with NaN where ``(r + c) % 5 == 0``
+``ramp``    ``(r + 2 c) / 20``
 """
 
 import numpy as np
+from matplotlib import colors as mcolors
 from matplotlib.backend_bases import MouseEvent, NavigationToolbar2
+from matplotlib.colorizer import _ensure_multivariate_data
 from matplotlib.colors import BoundaryNorm, LogNorm
 from matplotlib.figure import Figure
 from matplotlib.image import NonUniformImage
@@ -120,3 +136,41 @@ def test_messages():
         for y in range(6, 300, 17):
             probes.probe("cursor.message", _messages, scene=scene,
                          pixels=[[x, y] for x in range(5, 400, 17)])
+
+
+VARIATES = {
+    "field": FIELD,
+    "log": 10 ** ((8 * ROWS + COLS) / 12 - 1),
+    "masked": _masked(),
+    "ramp": (ROWS + 2 * COLS) / 20,
+}
+
+
+def _norm_spec(spec):
+    if isinstance(spec, str):
+        return spec
+    return getattr(mcolors, spec["class"])(**spec["params"])
+
+
+def _format_cursor_data(cmap, variates, norm=None, vmin=None, vmax=None):
+    fig = Figure(figsize=(4, 3), dpi=100)
+    data = _ensure_multivariate_data(tuple(VARIATES[name] for name in variates), len(variates))
+    norm = None if norm is None else [_norm_spec(n) for n in norm]
+    mesh = fig.add_subplot().pcolormesh(data, cmap=cmap, norm=norm, vmin=vmin, vmax=vmax)
+    array = mesh.get_array()
+    return [mesh.format_cursor_data(array[r, c]) for r in range(6) for c in range(8)]
+
+
+def test_multivariate_readout():
+    boundary = {"class": "BoundaryNorm",
+                "params": {"boundaries": [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5], "ncolors": 256}}
+    for cmap, variates, kwargs in [
+        ("BiPeak", ["field", "log"], {"norm": ["linear", "log"]}),
+        ("BiOrangeBlue", ["field", "masked"], {}),
+        ("BiCone", ["ramp", "field"], {"vmin": [0.5, None], "vmax": [0.5, None]}),
+        ("2VarAddA", ["log", "field"], {"vmin": [None, 0.0], "vmax": [100.0, None]}),
+        ("2VarSubA", ["masked", "ramp"], {"norm": [{"class": "PowerNorm", "params": {"gamma": 0.5}}, "linear"]}),
+        ("3VarAddA", ["field", "log", "ramp"], {"norm": [boundary, "symlog", "linear"]}),
+        ("3VarAddA", ["field", "log"], {}),
+    ]:
+        probes.probe("cursor.format_cursor_data", _format_cursor_data, cmap=cmap, variates=variates, **kwargs)

@@ -6,8 +6,8 @@
 //! cargo run -p plt --example figure_window -- --screenshot window.png
 //! ```
 //!
-//! With `--screenshot PATH`, the window contents are saved as a PNG once
-//! the figure has been shown, and the example quits.
+//! With `--screenshot PATH`, the window is drawn off screen (no display
+//! server needed), its contents are saved as a PNG and the example quits.
 
 #![expect(
     clippy::print_stdout,
@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if screenshot.is_none() {
         return Ok(plt::gui::show(&[figure])?);
     }
-    let mut event_loop = EventLoop::new()?;
+    let (mut event_loop, _headless) = EventLoop::headless();
     let mut window: Option<FigureWindow> = None;
     let mut failure: Option<Box<dyn Error>> = None;
     event_loop.run(|cx, event| {

@@ -66,6 +66,15 @@ impl AxisMap for LogTransform {
         }
     }
 
+    /// Non-positive values are masked whatever `nonpositive` says.
+    fn forward_masked(&self, value: f64) -> f64 {
+        if value > 0.0 {
+            self.forward(value)
+        } else {
+            f64::NAN
+        }
+    }
+
     fn inverse(&self, value: f64) -> f64 {
         if self.base == std::f64::consts::E {
             value.exp()
@@ -174,6 +183,15 @@ impl AxisMap for LogitTransform {
             NonPositive::Clip if value <= 0.0 => -CLIPPED,
             NonPositive::Clip if value >= 1.0 => CLIPPED,
             _ => out,
+        }
+    }
+
+    /// Values outside `(0, 1)` are masked whatever `nonpositive` says.
+    fn forward_masked(&self, value: f64) -> f64 {
+        if 0.0 < value && value < 1.0 {
+            self.forward(value)
+        } else {
+            f64::NAN
         }
     }
 
@@ -294,6 +312,10 @@ impl AxisMap for FuncLogTransform {
         self.log.forward(self.func.forward(value))
     }
 
+    fn forward_masked(&self, value: f64) -> f64 {
+        self.log.forward_masked(self.func.forward(value))
+    }
+
     fn inverse(&self, value: f64) -> f64 {
         self.func.inverse(self.log.inverse(value))
     }
@@ -315,6 +337,20 @@ mod tests {
         assert!(mask.forward(-1.0).is_nan());
         assert!((clip.inverse(2.0) - 100.0).abs() < 1e-12);
         assert!(LogTransform::new(1.0, NonPositive::Clip).is_err());
+    }
+
+    #[test]
+    fn masked_arrays_lose_the_values_outside_the_domain() {
+        let log = LogTransform::new(10.0, NonPositive::Clip).unwrap();
+        assert!(log.forward_masked(0.0).is_nan());
+        assert!(log.forward_masked(-1.0).is_nan());
+        assert_eq!(log.forward_masked(100.0), 2.0);
+        let logit = LogitTransform::new(NonPositive::Clip);
+        assert!(logit.forward_masked(0.0).is_nan());
+        assert!(logit.forward_masked(1.0).is_nan());
+        assert_eq!(logit.forward_masked(0.5), 0.0);
+        let symlog = SymmetricalLogTransform::new(10.0, 1.0, 1.0).unwrap();
+        assert_eq!(symlog.forward_masked(0.0), 0.0, "symlog masks nothing");
     }
 
     #[test]

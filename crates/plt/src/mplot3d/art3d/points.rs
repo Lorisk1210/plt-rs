@@ -3,31 +3,26 @@
 
 use plt_core::{Point, Rgba};
 
-use crate::collections::{CollectionArtist, EdgeColors};
-use crate::colors::Color;
+use crate::artist::Artist;
+use crate::collections::CollectionArtist;
 use crate::mplot3d::camera::Projection;
 use crate::mplot3d::math::Vec3;
 use crate::mplot3d::shade::depth_alphas;
 
 /// The 3-D state of a scatter collection.
 ///
-/// The colours, sizes and widths are kept in the order of the points;
-/// projecting writes them into the 2-D collection sorted by depth.
+/// The sizes and widths are kept in the order of the points; projecting
+/// writes them into the 2-D collection sorted by depth, with its colours
+/// (worked out afresh each time, so that later colour changes show)
+/// faded and sorted alike.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Points3D {
     /// One position per marker.
     pub(crate) positions: Vec<Vec3>,
-    /// Face colours (one, or one per marker).
-    pub(crate) faces: Vec<Rgba>,
-    /// Edge colours (none, one, or one per marker).
-    pub(crate) edges: Vec<Rgba>,
     /// Marker areas in points² (one, or one per marker).
     pub(crate) sizes: Option<Vec<f64>>,
     /// Edge widths in points (one, or one per marker).
     pub(crate) linewidths: Option<Vec<f64>>,
-    /// The collection's alpha, which matplotlib applies once more on top
-    /// of the depth shading.
-    pub(crate) alpha: Option<f64>,
     /// Whether markers fade with depth.
     pub(crate) depthshade: bool,
     /// The alpha factor of the deepest markers.
@@ -36,7 +31,8 @@ pub(crate) struct Points3D {
 
 impl Points3D {
     /// Writes the projected, depth-sorted markers into `collection` and
-    /// returns the depth of the nearest one.
+    /// returns the depth of the nearest one. Colours the collection cannot
+    /// resolve are left to be reported when it is drawn.
     pub(crate) fn project(
         &self,
         collection: &mut CollectionArtist,
@@ -60,15 +56,19 @@ impl Points3D {
             }
         };
         let data_scale = data_scale(&projected);
-        let shade = |colors: &[Rgba]| -> Vec<Color> {
-            let shaded = self.shaded(colors, &depths, data_scale);
-            let sorted: Vec<Rgba> = if shaded.len() > 1 {
+        let alpha = collection.base().alpha;
+        let shade = |colors: &[Rgba]| -> Vec<Rgba> {
+            let shaded = self.shaded(colors, &depths, data_scale, alpha);
+            if shaded.len() > 1 {
                 order.iter().map(|&i| shaded[i]).collect()
             } else {
                 shaded
-            };
-            sorted.into_iter().map(Color::from).collect()
+            }
         };
+        collection.projected_colors = collection
+            .base_colors()
+            .ok()
+            .map(|(faces, edges)| (shade(&faces), shade(&edges)));
         collection.offsets = order
             .iter()
             .map(|&i| {
@@ -77,8 +77,6 @@ impl Points3D {
             .collect();
         collection.sizes = self.sizes.as_deref().map(reorder);
         collection.linewidths = self.linewidths.as_deref().map(reorder);
-        collection.facecolors = Some(shade(&self.faces));
-        collection.edgecolors = EdgeColors::Colors(shade(&self.edges));
         depths
             .iter()
             .copied()
@@ -88,9 +86,15 @@ impl Points3D {
     }
 
     /// `colors` faded with depth (one colour per marker then) when depth
-    /// shading is on, with the collection alpha applied on top
-    /// (matplotlib's `_maybe_depth_shade_and_sort_colors`).
-    fn shaded(&self, colors: &[Rgba], depths: &[f64], data_scale: f64) -> Vec<Rgba> {
+    /// shading is on, with the collection's `alpha` applied once more on
+    /// top, as matplotlib does (`_maybe_depth_shade_and_sort_colors`).
+    fn shaded(
+        &self,
+        colors: &[Rgba],
+        depths: &[f64],
+        data_scale: f64,
+        alpha: Option<f64>,
+    ) -> Vec<Rgba> {
         if !self.depthshade || colors.is_empty() || depths.is_empty() {
             return colors.to_vec();
         }
@@ -99,8 +103,8 @@ impl Points3D {
             .enumerate()
             .map(|(i, factor)| {
                 let color = colors[if colors.len() == 1 { 0 } else { i }];
-                let alpha = color.a * factor;
-                color.with_alpha(self.alpha.map_or(alpha, |a| a * alpha))
+                let faded = color.a * factor;
+                color.with_alpha(alpha.map_or(faded, |a| a * faded))
             })
             .collect()
     }
@@ -161,16 +165,13 @@ mod tests {
     fn shading_applies_alpha_twice_like_matplotlib() {
         let points = Points3D {
             positions: Vec::new(),
-            faces: Vec::new(),
-            edges: Vec::new(),
             sizes: None,
             linewidths: None,
-            alpha: Some(0.5),
             depthshade: true,
             min_alpha: 0.3,
         };
         let red = Rgba::new(1.0, 0.0, 0.0, 0.5);
-        let shaded = points.shaded(&[red], &[0.0, 1.0], 2.0);
+        let shaded = points.shaded(&[red], &[0.0, 1.0], 2.0, Some(0.5));
         assert_eq!(shaded[0].a, 0.25);
         assert_eq!(shaded[1].a, 0.125);
     }

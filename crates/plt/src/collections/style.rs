@@ -10,31 +10,22 @@ use crate::colors::{Alpha, Color, ColorError, to_rgba_array};
 use crate::lines::LineStyle;
 use crate::rc::{ColorOrEdge, RcParams};
 
+/// Face and edge colours to draw: those of the last 3-D projection, or
+/// else [`resolve_base_colors`].
+pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
+    match &c.projected_colors {
+        Some(colors) => Ok(colors.clone()),
+        None => resolve_base_colors(c),
+    }
+}
+
 /// Face and edge colours after defaults, colour mapping and alpha
 /// (matplotlib's `_set_facecolor`, `_set_edgecolor` and
 /// `update_scalarmappable`).
-pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
+pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
     let rc = c.rc();
-    let alpha = c
-        .alphas
-        .clone()
-        .map_or_else(|| Alpha::from(c.base().alpha), Alpha::Each);
-    // A lone "none" means no colours at all (matplotlib's `to_rgba_array`).
-    let resolve = |colors: &[Color]| -> Result<Vec<Rgba>, String> {
-        if let [only] = colors
-            && only.is_none()
-        {
-            return Ok(Vec::new());
-        }
-        match &alpha {
-            Alpha::Each(_) => to_rgba_array(colors.to_vec(), alpha.clone()),
-            _ => colors
-                .iter()
-                .map(|color| color.resolve_alpha(c.base().alpha))
-                .collect(),
-        }
-        .map_err(|e| e.to_string())
-    };
+    let alpha = collection_alpha(c);
+    let resolve = |colors: &[Color]| with_alpha(c, &alpha, colors);
     let face_spec = c.facecolors.clone().unwrap_or_else(|| {
         vec![if c.kind == CollectionKind::Line {
             Color::none()
@@ -71,6 +62,40 @@ pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgb
         }
     };
     Ok((faces, edges))
+}
+
+/// The colours drawn in the gaps of dashed edges, with the collection's
+/// alpha (matplotlib's `_set_gapcolor`); `None` when the gaps stay empty.
+pub(super) fn resolve_gap_colors(c: &CollectionArtist) -> Result<Option<Vec<Rgba>>, String> {
+    c.gapcolors
+        .as_deref()
+        .map(|colors| with_alpha(c, &collection_alpha(c), colors))
+        .transpose()
+}
+
+/// The collection's opacity: one per item, or the artist's single alpha.
+fn collection_alpha(c: &CollectionArtist) -> Alpha {
+    c.alphas
+        .clone()
+        .map_or_else(|| Alpha::from(c.base().alpha), Alpha::Each)
+}
+
+/// `colors` with `alpha` applied (matplotlib's `to_rgba_array(colors,
+/// alpha)`); a lone "none" means no colours at all.
+fn with_alpha(c: &CollectionArtist, alpha: &Alpha, colors: &[Color]) -> Result<Vec<Rgba>, String> {
+    if let [only] = colors
+        && only.is_none()
+    {
+        return Ok(Vec::new());
+    }
+    match alpha {
+        Alpha::Each(_) => to_rgba_array(colors.to_vec(), alpha.clone()),
+        _ => colors
+            .iter()
+            .map(|color| color.resolve_alpha(c.base().alpha))
+            .collect(),
+    }
+    .map_err(|e| e.to_string())
 }
 
 /// The hatch colours of a collection (matplotlib's `hatchcolor`).

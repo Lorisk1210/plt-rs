@@ -3,12 +3,15 @@
 use plt_core::{Affine2D, Path, PathCode, Point, Rgba};
 use plt_render::{Dashes, GraphicsContext, Hatch, PathCollection};
 
+use super::gaps::inverse_paths_and_dashes;
 use super::spec::{EllipseUnits, Ellipses};
-use super::style::{broadcast_widths_and_dashes, resolve_colors, resolve_hatch_colors};
+use super::style::{
+    broadcast_widths_and_dashes, resolve_colors, resolve_gap_colors, resolve_hatch_colors,
+};
 use super::{CollectionArtist, CollectionKind, cycled};
 use crate::artist::{Artist, ArtistId, DrawContext, LayoutContext};
 use crate::axes::AxesState;
-use crate::transforms::Transform;
+use crate::transforms::{ResolvedTransform, Transform};
 
 /// Where a collection's items are for one draw: the shapes after the
 /// non-affine part of the transform, its affine rest, the per-item shape
@@ -65,7 +68,12 @@ impl Geometry {
                 let r = layout
                     .resolve(t)
                     .ok_or("its offset coordinate system no longer exists")?;
-                c.offsets.iter().map(|&p| r.transform_point(p)).collect()
+                let place = if c.offsets_masked {
+                    ResolvedTransform::transform_point_masked
+                } else {
+                    ResolvedTransform::transform_point
+                };
+                c.offsets.iter().map(|&p| place(&r, p)).collect()
             }
             None => vec![Point::ORIGIN],
         };
@@ -112,6 +120,8 @@ struct Batch {
     offsets: Vec<Point>,
     faces: Vec<Rgba>,
     edges: Vec<Rgba>,
+    /// The colours of the gaps of dashed edges (`None` = empty gaps).
+    gaps: Option<Vec<Rgba>>,
     widths: Vec<f64>,
     dashes: Vec<Dashes>,
     antialiased: Vec<bool>,
@@ -131,6 +141,7 @@ impl Batch {
             offsets,
         } = Geometry::new(c, *ctx.layout(), shapes, transform)?;
         let (faces, edges) = resolve_colors(c)?;
+        let gaps = resolve_gap_colors(c)?;
         let rc = c.rc();
         let line_defaults = c.kind == CollectionKind::Line;
         let widths = c.linewidths_or_default();
@@ -149,6 +160,7 @@ impl Batch {
             offsets,
             faces,
             edges,
+            gaps,
             widths,
             dashes,
             antialiased,
@@ -256,6 +268,18 @@ fn draw_items(
             antialiased: &batch.antialiased,
             urls: &[],
         };
+        if let Some(gaps) = &batch.gaps {
+            // The gaps first, with transparent faces, as matplotlib does.
+            let (paths, dashes) = inverse_paths_and_dashes(&batch.paths, &batch.dashes);
+            let gap_pass = PathCollection {
+                paths: &paths,
+                facecolors: &[Rgba::TRANSPARENT],
+                edgecolors: gaps,
+                dashes: &dashes,
+                ..collection
+            };
+            ctx.renderer().draw_path_collection(&gc, &gap_pass);
+        }
         ctx.renderer().draw_path_collection(&gc, &collection);
     }
 }
@@ -332,15 +356,20 @@ fn ellipse_scales(
     }
 }
 
-/// One affine per ellipse: the unit circle stretched to its half axes
-/// (scaled by `scale`) and rotated.
+/// One affine per width: the unit circle stretched to its half axes
+/// (scaled by `scale`) and rotated, a single height or angle serving every
+/// ellipse as numpy broadcasts it.
 fn ellipse_transforms(ellipses: &Ellipses, scale: f64) -> Vec<Affine2D> {
+    let (heights, angles) = (&ellipses.half_heights, &ellipses.angles);
+    if heights.is_empty() || angles.is_empty() {
+        return Vec::new();
+    }
     ellipses
         .half_widths
         .iter()
-        .zip(&ellipses.half_heights)
-        .zip(&ellipses.angles)
-        .map(|((w, h), angle)| {
+        .enumerate()
+        .map(|(i, w)| {
+            let (h, angle) = (heights[i % heights.len()], angles[i % angles.len()]);
             let (w, h) = (w * scale, h * scale);
             let (sin, cos) = (angle.sin(), angle.cos());
             Affine2D::from_values(w * cos, w * sin, h * -sin, h * cos, 0.0, 0.0)
@@ -408,6 +437,26 @@ mod tests {
         let without = calls(None, "none");
         assert_eq!(calls(Some(LineStyle::Dashed), "blue"), without);
         assert_eq!(calls(Some(LineStyle::Solid), "none"), without);
+    }
+
+    #[test]
+    fn one_ellipse_per_width_with_heights_and_angles_broadcast() {
+        let ellipses = Ellipses {
+            half_widths: vec![1.0, 2.0],
+            half_heights: vec![3.0],
+            angles: vec![0.0],
+            units: EllipseUnits::Xy,
+        };
+        let transforms = ellipse_transforms(&ellipses, 2.0);
+        assert_eq!(
+            transforms,
+            [Affine2D::scaling(2.0, 6.0), Affine2D::scaling(4.0, 6.0)]
+        );
+        let no_heights = Ellipses {
+            half_heights: Vec::new(),
+            ..ellipses
+        };
+        assert_eq!(ellipse_transforms(&no_heights, 1.0), Vec::<Affine2D>::new());
     }
 
     #[test]

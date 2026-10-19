@@ -69,6 +69,8 @@ pub enum PlotError {
     ForeignAxes,
     /// The artist is not drawn in this axes.
     NotInAxes,
+    /// The collection was not made by `fill_between` or `fill_betweenx`.
+    NotFillBetween,
     /// The axis does not label its major ticks with a `ScalarFormatter`.
     NotScalarFormatter(AxisName),
     /// The axis does not place its major ticks with a `MaxNLocator`.
@@ -138,6 +140,9 @@ impl fmt::Display for PlotError {
             Self::AlreadyShared(axis) => write!(f, "{}-axis is already shared", axis.name()),
             Self::ForeignAxes => f.write_str("the axes belong to different figures"),
             Self::NotInAxes => f.write_str("Argument must be an image or collection in this Axes"),
+            Self::NotFillBetween => {
+                f.write_str("the collection was not made by fill_between or fill_betweenx")
+            }
             Self::NotMaxNLocator(axis) => write!(
                 f,
                 "the {}-axis ticks are not placed by a MaxNLocator",

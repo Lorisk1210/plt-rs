@@ -11,6 +11,7 @@
 //! [`TriMeshSpec`] builds a Gouraud-shaded [`TriMesh`].
 
 mod draw;
+mod gaps;
 mod legend_elements;
 mod props;
 mod quad_mesh;
@@ -41,6 +42,7 @@ use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, DrawContext, LayoutContext,
     LimitPoints, RawHandle, format_values,
 };
+use crate::axes::FillGeometry;
 use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Alpha, Color, Colormap, Norm, NormError, Normalized, ScalarMappable};
 use crate::lines::LineStyle;
@@ -153,6 +155,9 @@ pub(crate) struct CollectionArtist {
     pub(crate) offsets: Vec<Point>,
     /// Coordinate system of `offsets` (`None` = no offsets).
     pub(crate) offset_transform: Option<Transform>,
+    /// Whether the offsets are a masked array (scatter's are), which loses
+    /// the values a non-linear scale cannot map instead of clipping them.
+    pub(crate) offsets_masked: bool,
     /// Face colours (`None` = the kind's default).
     pub(crate) facecolors: Option<Vec<Color>>,
     pub(crate) edgecolors: EdgeColors,
@@ -169,6 +174,14 @@ pub(crate) struct CollectionArtist {
     pub(crate) hatchcolors: HatchColors,
     pub(crate) capstyle: Option<CapStyle>,
     pub(crate) joinstyle: Option<JoinStyle>,
+    /// Colours drawn in the gaps of dashed edges (`None` = empty gaps).
+    pub(crate) gapcolors: Option<Vec<Color>>,
+    /// How a `fill_between` collection makes its polygons, kept for new
+    /// curves (`None` for other collections).
+    pub(crate) fill_geometry: Option<FillGeometry>,
+    /// Face and edge colours worked out by a 3-D projection (sorted by
+    /// depth and shaded), replacing the resolved ones when set.
+    pub(crate) projected_colors: Option<(Vec<Rgba>, Vec<Rgba>)>,
     pub(crate) mapping: Option<Mapped>,
     /// How far from an item's outline, in pixels, a pick still hits it; a
     /// pick must fall inside an item when it is not positive.
@@ -199,6 +212,7 @@ impl CollectionArtist {
             ellipses: None,
             offsets: Vec::new(),
             offset_transform: None,
+            offsets_masked: false,
             facecolors: None,
             edgecolors: EdgeColors::Default,
             linewidths: None,
@@ -209,6 +223,9 @@ impl CollectionArtist {
             hatchcolors: HatchColors::from_rc(&rc),
             capstyle: None,
             joinstyle: None,
+            gapcolors: None,
+            fill_geometry: None,
+            projected_colors: None,
             mapping: None,
             pickradius: 5.0,
             mesh: None,
@@ -257,11 +274,16 @@ impl CollectionArtist {
     }
 
     /// The face and edge colours after defaults, colour mapping and alpha
-    /// (matplotlib's `get_facecolor` and `get_edgecolor`).
-    pub(crate) fn resolved_colors(
-        &self,
-    ) -> Result<(Vec<plt_core::Rgba>, Vec<plt_core::Rgba>), String> {
+    /// (matplotlib's `get_facecolor` and `get_edgecolor`), or those of the
+    /// last 3-D projection.
+    pub(crate) fn resolved_colors(&self) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
         style::resolve_colors(self)
+    }
+
+    /// The face and edge colours after defaults, colour mapping and
+    /// alpha, ignoring any 3-D projection: what a projection shades.
+    pub(crate) fn base_colors(&self) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
+        style::resolve_base_colors(self)
     }
 
     /// The shapes to draw now and their transform: the stored paths, or
@@ -486,6 +508,11 @@ impl Collection {
     /// Sets the cap style of every edge.
     pub fn set_capstyle(&self, capstyle: CapStyle) -> &Self {
         self.update(|c| c.capstyle = Some(capstyle))
+    }
+
+    /// Sets the join style of every edge.
+    pub fn set_joinstyle(&self, joinstyle: JoinStyle) -> &Self {
+        self.update(|c| c.joinstyle = Some(joinstyle))
     }
 
     /// Sets how far from an item's outline, in pixels, a pick still hits

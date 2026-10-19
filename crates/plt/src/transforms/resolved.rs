@@ -14,6 +14,15 @@ pub trait AxisMap: fmt::Debug {
     fn forward(&self, value: f64) -> f64;
     /// Inverse map.
     fn inverse(&self, value: f64) -> f64;
+    /// The forward map of an element of a masked array: NaN (masked)
+    /// where numpy's masked operations leave the domain of the map, such
+    /// as a logarithm of a non-positive value, which [`forward`] may clip
+    /// instead (matplotlib maps scatter offsets, masked arrays, this way).
+    ///
+    /// [`forward`]: AxisMap::forward
+    fn forward_masked(&self, value: f64) -> f64 {
+        self.forward(value)
+    }
 }
 
 /// An invertible map of the plane (e.g. a polar projection).
@@ -61,6 +70,19 @@ impl Step {
                 x.transform_point_non_affine(p).x,
                 y.transform_point_non_affine(p).y,
             ),
+        }
+    }
+
+    /// [`apply`](Self::apply) to an element of a masked array (see
+    /// [`AxisMap::forward_masked`]).
+    fn apply_masked(&self, p: Point) -> Point {
+        match self {
+            Self::Separable(x, y) => Point::new(
+                x.as_ref().map_or(p.x, |m| m.forward_masked(p.x)),
+                y.as_ref().map_or(p.y, |m| m.forward_masked(p.y)),
+            ),
+            Self::Blend(x, y) => Point::new(x.non_affine_masked(p).x, y.non_affine_masked(p).y),
+            Self::Affine(_) | Self::Plane(_) => self.apply(p),
         }
     }
 
@@ -229,6 +251,17 @@ impl ResolvedTransform {
         self.affine.transform_point(p)
     }
 
+    /// Maps one point of a masked array: NaN where a non-linear scale
+    /// masks it (see [`AxisMap::forward_masked`]).
+    pub fn transform_point_masked(&self, p: Point) -> Point {
+        self.affine.transform_point(self.non_affine_masked(p))
+    }
+
+    /// The non-affine steps applied to one point of a masked array.
+    fn non_affine_masked(&self, p: Point) -> Point {
+        self.steps.iter().fold(p, |p, step| step.apply_masked(p))
+    }
+
     /// The direction, in degrees, that `angle` (degrees) at `point` takes
     /// after the transform: the angle of the segment from `point` to a
     /// point pushed `1e-5` along `angle` (matplotlib's `transform_angles`
@@ -316,6 +349,30 @@ mod tests {
             Step::Separable(Some(Rc::new(Log10)), None),
             Affine2D::scaling(100.0, 2.0),
         )
+    }
+
+    #[test]
+    fn masked_points_outside_a_log_scale_are_lost() {
+        use crate::scale::{LogTransform, NonPositive};
+
+        let log = LogTransform::new(10.0, NonPositive::Clip).expect("a valid base");
+        let log_y = ResolvedTransform::with_step(
+            Step::Separable(None, Some(Rc::new(log))),
+            Affine2D::scaling(1.0, 2.0),
+        );
+        let zero = Point::new(1.0, 0.0);
+        assert_eq!(log_y.transform_point(zero), Point::new(1.0, -2000.0));
+        assert!(log_y.transform_point_masked(zero).y.is_nan());
+        assert_eq!(
+            log_y.transform_point_masked(Point::new(1.0, 100.0)),
+            Point::new(1.0, 4.0)
+        );
+        let blended = ResolvedTransform::blend(ResolvedTransform::identity(), log_y);
+        assert!(blended.transform_point_masked(zero).y.is_nan());
+        assert_eq!(
+            blended.transform_point_masked(Point::new(1.0, 10.0)),
+            Point::new(1.0, 2.0)
+        );
     }
 
     #[test]

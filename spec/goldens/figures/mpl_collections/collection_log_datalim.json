@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "",
+   "xlim": [4e-06, 0.00014],
+   "ylim": [0.072002, 99.024807],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1e-05, "$\\mathdefault{10^{-5}}$"], [0.0001, "$\\mathdefault{10^{-4}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]]
+  }
+ ]
+}

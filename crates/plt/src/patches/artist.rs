@@ -11,8 +11,8 @@ use super::shape::{DisplayPath, PatchShape, ShapeFrame};
 use super::style::{PatchStyle, paint_paths};
 use super::{ClipRegion, PatchError, PatchProps};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, Picker,
-    RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, DrawnDpiCor, LayoutContext,
+    LimitPoints, Picker, RawHandle,
 };
 use crate::colors::{Color, ColorError};
 use crate::lines::LineStyle;
@@ -30,6 +30,9 @@ pub(crate) struct PatchParts<'a, S> {
     /// Pieces each outline segment is cut into for projections that bend
     /// lines (matplotlib's `get_path()._interpolation_steps`).
     pub(crate) interpolation_steps: usize,
+    /// The resolution the patch last drew at, for patches whose arrow
+    /// sizes follow it (`FancyArrowPatch._dpi_cor`).
+    pub(crate) drawn: Option<&'a DrawnDpiCor>,
 }
 
 impl<S: PatchShape> PatchParts<'_, S> {
@@ -55,15 +58,22 @@ impl<S: PatchShape> PatchParts<'_, S> {
     /// Draws the patch (matplotlib's `Patch.draw`).
     pub(crate) fn paint(&self, ctx: &mut DrawContext<'_>) -> Result<(), PatchError> {
         let layout = *ctx.layout();
-        let paths = self.display_paths(layout, layout.points_to_pixels(1.0))?;
+        let dpi_cor = layout.points_to_pixels(1.0);
+        if let Some(drawn) = self.drawn {
+            drawn.record(dpi_cor);
+        }
+        let paths = self.display_paths(layout, dpi_cor)?;
         paint_paths(ctx, self.base, self.style, self.rc, S::EDGE_DEFAULT, &paths)?;
         Ok(())
     }
 
     /// The extent of the outlines in display space, as measured (see
-    /// [`LayoutContext::measured_dpi_cor`]).
+    /// [`DrawnDpiCor`]).
     pub(crate) fn extent(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
-        self.display_paths(layout, layout.measured_dpi_cor())
+        let dpi_cor = self
+            .drawn
+            .map_or_else(|| layout.measured_dpi_cor(), |drawn| drawn.measured(layout));
+        self.display_paths(layout, dpi_cor)
             .ok()?
             .iter()
             .map(|path| path.to_display().extents())
@@ -113,6 +123,8 @@ pub(crate) struct PatchArtist<S: PatchShape> {
     /// lines (matplotlib's `get_path()._interpolation_steps`).
     pub(crate) interpolation_steps: usize,
     rc: Rc<RcParams>,
+    /// The resolution of the patch's last draw.
+    dpi_cor: DrawnDpiCor,
 }
 
 impl<S: PatchShape> PatchArtist<S> {
@@ -128,6 +140,7 @@ impl<S: PatchShape> PatchArtist<S> {
             shape,
             interpolation_steps: 1,
             rc,
+            dpi_cor: DrawnDpiCor::default(),
         }
     }
 
@@ -138,6 +151,7 @@ impl<S: PatchShape> PatchArtist<S> {
             rc: &self.rc,
             shape: &self.shape,
             interpolation_steps: self.interpolation_steps,
+            drawn: Some(&self.dpi_cor),
         }
     }
 

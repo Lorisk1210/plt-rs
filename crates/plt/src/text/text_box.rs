@@ -158,6 +158,7 @@ impl TextBox {
             rc,
             shape: &shape,
             interpolation_steps: 1,
+            drawn: None,
         }
         .paint(ctx)
     }

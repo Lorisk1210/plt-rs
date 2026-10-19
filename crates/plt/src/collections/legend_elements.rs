@@ -10,7 +10,7 @@ use crate::colors::Color;
 use crate::legend::LegendHandle;
 use crate::lines::{LineArtist, LineStyle};
 use crate::markers::Marker;
-use crate::numeric::{interp, linspace};
+use crate::numeric::{argsort, interp, linspace};
 use crate::ticker::{
     AxisInfo, FixedLocator, Formatter, Locator, MaxNLocator, Nbins, OffsetMode, ScalarFormatter,
     TickContext, TickerError, TickerSettings,
@@ -232,8 +232,7 @@ fn located(
         .into_iter()
         .filter(|&v| v >= low && v <= high)
         .collect();
-    let mut order: Vec<usize> = (0..mapped.len()).collect();
-    order.sort_by(|&a, &b| mapped[a].total_cmp(&mapped[b]));
+    let order = argsort(&mapped);
     let xp: Vec<f64> = order.iter().map(|&i| mapped[i]).collect();
     let fp: Vec<f64> = order.iter().map(|&i| shown[i]).collect();
     let values = label_values

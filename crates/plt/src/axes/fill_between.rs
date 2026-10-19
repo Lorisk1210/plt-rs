@@ -9,6 +9,7 @@ use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, CollectionProps};
 use crate::lines::{DrawStyle, StepWhere};
+use crate::numeric::argsort;
 use crate::orientation::Orientation;
 
 /// Options of [`Axes::fill_between`] and [`Axes::fill_betweenx`].
@@ -311,9 +312,7 @@ impl Curves {
     reason = "numpy returns the sample itself when x hits it exactly"
 )]
 fn interp_sorted(x: f64, xp: &[f64], fp: &[f64]) -> f64 {
-    let mut order: Vec<usize> = (0..xp.len()).collect();
-    order.sort_by(|&a, &b| xp[a].total_cmp(&xp[b]));
-    let (xs, fs): (Vec<f64>, Vec<f64>) = order.iter().map(|&i| (xp[i], fp[i])).unzip();
+    let (xs, fs): (Vec<f64>, Vec<f64>) = argsort(xp).into_iter().map(|i| (xp[i], fp[i])).unzip();
     let (Some(&first), Some(&last)) = (xs.first(), xs.last()) else {
         return f64::NAN;
     };

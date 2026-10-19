@@ -1,0 +1,84 @@
+{
+ "size_px": [600, 600],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.559167, 0.227941, 0.320833],
+   "title": "Default",
+   "xlim": [0.5, 4.5],
+   "ylim": [0.015412, 422.524174],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[0.1, ""], [1.0, ""], [10.0, ""], [100.0, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.398529, 0.559167, 0.227941, 0.320833],
+   "title": "showmeans=True",
+   "xlim": [0.5, 4.5],
+   "ylim": [0.015412, 422.524174],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[0.1, ""], [1.0, ""], [10.0, ""], [100.0, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.672059, 0.559167, 0.227941, 0.320833],
+   "title": "showmeans=True,\nmeanline=True",
+   "xlim": [0.5, 4.5],
+   "ylim": [0.015412, 422.524174],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[0.1, ""], [1.0, ""], [10.0, ""], [100.0, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.227941, 0.320833],
+   "title": "Tufte Style \n(showbox=False,\nshowcaps=False)",
+   "xlim": [0.5, 4.5],
+   "ylim": [0.015412, 422.524174],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[0.1, ""], [1.0, ""], [10.0, ""], [100.0, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.398529, 0.11, 0.227941, 0.320833],
+   "title": "notch=True,\nbootstrap=10000",
+   "xlim": [0.5, 4.5],
+   "ylim": [0.015412, 422.524174],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[0.1, ""], [1.0, ""], [10.0, ""], [100.0, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.672059, 0.11, 0.227941, 0.320833],
+   "title": "showfliers=False",
+   "xlim": [0.5, 4.5],
+   "ylim": [0.015412, 422.524174],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[1, "A"], [2, "B"], [3, "C"], [4, "D"]],
+   "yticks": [[0.1, ""], [1.0, ""], [10.0, ""], [100.0, ""]]
+  }
+ ]
+}

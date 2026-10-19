@@ -1,0 +1,33 @@
+{
+ "size_px": [900, 500],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.14625, 0.3875, 0.6975],
+   "title": "",
+   "xlim": [-1.25, 1.25],
+   "ylim": [-1.25, 1.25],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.5125, 0.11, 0.3875, 0.77],
+   "title": "Age of approvers",
+   "xlim": [-0.5, 0.5],
+   "ylim": [-0.0, 1.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-0.4, "−0.4"], [-0.2, "−0.2"], [0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"]],
+   "yticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"]],
+   "legend": ["Over 65", "50-65", "35-49", "Under 35"]
+  }
+ ]
+}

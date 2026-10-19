@@ -54,7 +54,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .with_rc(&[("figure.autolayout", "True")]),
     FigureCase::new("layout/tight_engine_colorbar", |fig| {
-        fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout::default())));
+        fig.set_layout_engine(LayoutEngine::tight());
         for (i, ax) in fig.subplots(1, 2)?.as_slice().iter().enumerate() {
             let shift = i as f64;
             let mesh = ax.pcolormesh(

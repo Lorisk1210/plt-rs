@@ -9,7 +9,6 @@ mod subfigures;
 
 use plt::axes::PcolorOptions;
 use plt::image::ColorizerOptions;
-use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::numeric::{Grid, linspace};
 use plt::prelude::*;
 
@@ -51,14 +50,6 @@ fn field_mesh(
             ..PcolorOptions::default()
         },
     )?)
-}
-
-/// `fig.set_layout_engine("constrained")`, compressed or not.
-fn constrained(fig: &Figure, compress: bool) {
-    fig.set_layout_engine(Some(LayoutEngine::Constrained(ConstrainedLayout {
-        compress,
-        ..ConstrainedLayout::default()
-    })));
 }
 
 pub(crate) const CASES: &[FigureCase] = &[

@@ -15,7 +15,6 @@ use plt::collections::Collection;
 use plt::colors::colormaps;
 use plt::fonts::FontSize;
 use plt::image::ColorizerOptions;
-use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::ticker::Nbins;
@@ -45,14 +44,6 @@ const TIGHT_BBOX: (&str, &str) = ("savefig.bbox", "tight");
 
 /// `savefig_kwarg={"facecolor": "teal"}`.
 const TEAL: (&str, &str) = ("savefig.facecolor", "teal");
-
-/// `fig.set_layout_engine("constrained")` (or `"compressed"`).
-fn constrained(fig: &Figure, compress: bool) {
-    fig.set_layout_engine(Some(LayoutEngine::Constrained(ConstrainedLayout {
-        compress,
-        ..ConstrainedLayout::from_rc(&plt::rc::params())
-    })));
-}
 
 /// `np.random.randn(n, n)` drawn from `stream`.
 fn randn(stream: &mut SpecRng, n: usize) -> Fallible<Grid<f64>> {

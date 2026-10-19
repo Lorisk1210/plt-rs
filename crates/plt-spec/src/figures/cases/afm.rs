@@ -3,7 +3,7 @@
 //! (`ps.useafm`) measure, lay out and draw with Adobe Font Metrics.
 
 use plt::fonts::{FontStyle, FontWeight};
-use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::prelude::*;
 use plt::text::{HorizontalAlignment, TextRotationMode, VerticalAlignment};
@@ -69,9 +69,7 @@ fn gallery(fig: &Figure) {
 /// `_layout`: a title, labels, tick labels, a legend and a suptitle placed
 /// by the constrained layout engine, which measures text at draw time.
 fn layout(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(
-        LayoutEngine::Constrained(ConstrainedLayout::default()),
-    ));
+    fig.set_layout_engine(LayoutEngine::constrained());
     let ax = fig.subplot();
     let x = linspace(-3.0, 3.0, 40);
     let sin: Vec<f64> = x.iter().map(|v| v.sin()).collect();

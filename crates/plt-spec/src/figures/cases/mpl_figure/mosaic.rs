@@ -3,9 +3,10 @@
 //! per-axes face colours.
 
 use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicOptions};
+use plt::layout::LayoutEngine;
 use plt::prelude::*;
 
-use super::{Fallible, classic, constrained};
+use super::{Fallible, classic};
 use crate::figures::{CaseResult, FigureCase};
 
 pub(super) const CASES: &[FigureCase] = &[
@@ -16,7 +17,7 @@ pub(super) const CASES: &[FigureCase] = &[
         titled(fig, &grid(&[&["1", "1", "2"], &["3", "4", "2"]])?)
     }),
     classic("mpl_figure/subplot_mosaic_all_nested", |fig| {
-        constrained(fig, false);
+        fig.set_layout_engine(LayoutEngine::constrained());
         let x = grid(&[&["A", "B"], &["C", "D"]])?;
         let y = grid(&[&["E", "F"], &["G", "H"]])?;
         titled(
@@ -25,7 +26,7 @@ pub(super) const CASES: &[FigureCase] = &[
         )
     }),
     classic("mpl_figure/subplot_mosaic_nested", |fig| {
-        constrained(fig, false);
+        fig.set_layout_engine(LayoutEngine::constrained());
         titled(fig, &f_over(grid(&[&["A", "B"], &["C", "D"]])?)?)
     }),
     classic("mpl_figure/subplot_mosaic_nested_tuple", |fig| {

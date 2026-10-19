@@ -4,7 +4,7 @@ use plt::axes::{AxisName, FillBetweenOptions, StairsOptions, TickLabelProps, Tic
 use plt::collections::CollectionProps;
 use plt::dates::iso::Datetime64;
 use plt::figure::Figure;
-use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::lines::{DrawStyle, LineProps, LineStyle, StepWhere};
 use plt::numeric::linspace;
@@ -237,9 +237,7 @@ fn stairs_options(fig: &Figure) -> CaseResult {
 /// `test_stairs_datetime`: daily date edges under constrained layout with
 /// rotated tick labels.
 fn stairs_datetime(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(
-        LayoutEngine::Constrained(ConstrainedLayout::default()),
-    ));
+    fig.set_layout_engine(LayoutEngine::constrained());
     let ax = fig.subplot();
     let first = Datetime64::parse("2001-12-27")?.ok_or("not a time")?;
     let days: Vec<Datetime64> = (0..37)

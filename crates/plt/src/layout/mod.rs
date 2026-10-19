@@ -13,7 +13,7 @@
 //! use plt::layout::{ConstrainedLayout, LayoutEngine};
 //! use plt::prelude::*;
 //! let fig = Figure::new();
-//! fig.set_layout_engine(Some(LayoutEngine::Constrained(ConstrainedLayout::default())));
+//! fig.set_layout_engine(LayoutEngine::constrained());
 //! let ax = fig.subplot();
 //! ax.set_title("title");
 //! let (x, _, w, _) = ax.position().bounds();
@@ -51,6 +51,25 @@ pub enum LayoutEngine {
 }
 
 impl LayoutEngine {
+    /// Constrained layout with its defaults (`layout="constrained"`).
+    pub fn constrained() -> Self {
+        Self::Constrained(ConstrainedLayout::default())
+    }
+
+    /// Constrained layout closing the gaps of fixed-aspect axes
+    /// (`layout="compressed"`).
+    pub fn compressed() -> Self {
+        Self::Constrained(ConstrainedLayout {
+            compress: true,
+            ..ConstrainedLayout::default()
+        })
+    }
+
+    /// Tight layout with its defaults (`layout="tight"`).
+    pub fn tight() -> Self {
+        Self::Tight(TightLayout::default())
+    }
+
     /// Whether colorbars of grid-placed axes may take their space from the
     /// axes' grid cell (matplotlib's `colorbar_gridspec`).
     pub fn colorbar_gridspec(&self) -> bool {
@@ -108,7 +127,7 @@ impl LayoutState {
     /// matplotlib's `set_layout_engine(None)`.
     pub(crate) fn from_rc(rc: &RcParams) -> Self {
         let engine = if rc.figure_autolayout {
-            Some(LayoutEngine::Tight(TightLayout::default()))
+            Some(LayoutEngine::tight())
         } else {
             rc.figure_constrained_layout_use
                 .then(|| LayoutEngine::Constrained(ConstrainedLayout::from_rc(rc)))
@@ -127,9 +146,18 @@ impl LayoutState {
 impl Figure {
     /// Chooses how the figure arranges its axes when drawn (matplotlib's
     /// `set_layout_engine`); `None` keeps the axes where they are.
-    pub fn set_layout_engine(&self, engine: Option<LayoutEngine>) -> &Self {
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::layout::LayoutEngine;
+    /// let fig = Figure::new();
+    /// fig.set_layout_engine(LayoutEngine::constrained());
+    /// assert!(fig.layout_engine().is_some());
+    /// fig.set_layout_engine(None);
+    /// ```
+    pub fn set_layout_engine(&self, engine: impl Into<Option<LayoutEngine>>) -> &Self {
         let mut state = self.raw().figure_state().borrow_mut();
-        state.layout.engine = engine;
+        state.layout.engine = engine.into();
         state.layout.pending = true;
         state.stale = true;
         self

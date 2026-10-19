@@ -8,7 +8,7 @@ use plt::colorbar::Colorbar;
 use plt::contour::ContourSet;
 use plt::figure::Figure;
 use plt::image::AxesImage;
-use plt::layout::{ConstrainedLayout, LayoutEngine, TightLayout};
+use plt::layout::LayoutEngine;
 use plt::legend::{Legend, LegendHandle};
 
 use super::call::Call;
@@ -118,10 +118,10 @@ impl Scene {
                     _ => return Err(bad()),
                 },
                 ("layout", Json::String(name)) if name == "constrained" => {
-                    engine = Some(LayoutEngine::Constrained(ConstrainedLayout::default()));
+                    engine = Some(LayoutEngine::constrained());
                 }
                 ("layout", Json::String(name)) if name == "tight" => {
-                    engine = Some(LayoutEngine::Tight(TightLayout::default()));
+                    engine = Some(LayoutEngine::tight());
                 }
                 _ => return Err(bad()),
             }

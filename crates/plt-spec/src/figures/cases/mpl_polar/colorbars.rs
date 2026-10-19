@@ -14,7 +14,7 @@ use plt::contour::{ContourNorm, ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::SubfigureOptions;
 use plt::gridspec::SubplotOverrides;
 use plt::image::{ColorizerOptions, ImageAlpha, Interpolation, ScalarField};
-use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
 use plt::prelude::*;
@@ -180,9 +180,7 @@ pub(super) fn keeping_xlabel(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn colorbar_change_lim_scale(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(
-        LayoutEngine::Constrained(ConstrainedLayout::default()),
-    ));
+    fig.set_layout_engine(LayoutEngine::constrained());
     let ax = fig.subplots(1, 2)?;
     let extended = |ax: &Axes| ColorbarOptions {
         extend: Some(Extend::Both),

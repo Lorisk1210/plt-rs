@@ -3,7 +3,7 @@
 use std::f64::consts::TAU;
 
 use plt::colors::{Color, colormaps};
-use plt::layout::{LayoutEngine, TightLayout};
+use plt::layout::LayoutEngine;
 use plt::numeric::linspace;
 use plt::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOptions, BoxItem, DrawingArea, PaddedBox, TextArea,
@@ -224,7 +224,7 @@ fn diff_cell_table(fig: &Figure) -> CaseResult {
         "B",
         "L",
     ];
-    fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout::default())));
+    fig.set_layout_engine(LayoutEngine::tight());
     let axes = fig.subplots(cells.len(), 1)?;
     for (ax, edges) in axes.as_slice().iter().zip(cells) {
         ax.table(&TableOptions {

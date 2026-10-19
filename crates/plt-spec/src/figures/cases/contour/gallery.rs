@@ -9,7 +9,7 @@ use plt::contour::{
 };
 use plt::figure::Figure;
 use plt::fonts::FontSize;
-use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::lines::LineStyle;
 use plt::numeric::{Grid, arange, linspace, logspace, meshgrid};
@@ -27,9 +27,7 @@ fn wave() -> QuadField {
 }
 
 pub(super) fn contourf_extend_variants_colorbars(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(
-        LayoutEngine::Constrained(ConstrainedLayout::default()),
-    ));
+    fig.set_layout_engine(LayoutEngine::constrained());
     let axs = fig.subplots(2, 2)?;
     let cmap = colormaps::get("winter")?
         .with_under("yellow")?

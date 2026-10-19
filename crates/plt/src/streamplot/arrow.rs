@@ -13,10 +13,10 @@ use plt_core::bezier::{inside_circle, split_path_inout};
 use plt_core::{Affine2D, Path, PathCode, Point};
 use plt_render::{CapStyle, JoinStyle};
 
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle};
+use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
 use crate::colors::Color;
 use crate::rc::RcParams;
-use crate::transforms::Transform;
+use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 
 /// An arrow head of a [`StreamArrowStyle`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -134,16 +134,55 @@ impl StreamArrowArtist {
     /// The paths in display coordinates, each with whether it is filled.
     fn display_paths(&self, ctx: &DrawContext<'_>) -> Option<Vec<(Path, bool)>> {
         let transform = ctx.resolve(self.base.transform.as_ref()?)?;
+        Some(self.paths_through(&transform, ctx.points_to_pixels(1.0)))
+    }
+
+    /// The paths with the ends placed by `transform` (to display) and the
+    /// sizes at `dpi_cor` pixels per point.
+    fn paths_through(&self, transform: &ResolvedTransform, dpi_cor: f64) -> Vec<(Path, bool)> {
         let a = transform.transform_point(self.tail);
         let b = transform.transform_point(self.head);
-        let dpi_cor = ctx.points_to_pixels(1.0);
         let connection = shrunk(arc3(a, b), (a, b), SHRINK * dpi_cor);
-        Some(transmute(
+        transmute(
             &connection,
             self.look.style,
             self.look.mutation_scale * dpi_cor,
             self.look.linewidth * dpi_cor,
-        ))
+        )
+    }
+
+    /// The points bounding the arrow in the data coordinates of `axes`
+    /// (the ends and axis extrema of its outline), laid out in display
+    /// coordinates in the axes' view of the moment, or `None` when the
+    /// arrow is not placed in data coordinates (matplotlib's
+    /// `_update_patch_limits` on a `FancyArrowPatch`, whose path goes
+    /// through display coordinates). Like a patch never drawn, it takes
+    /// its sizes in points for pixels (`_dpi_cor` is 1 until the first
+    /// draw).
+    pub(crate) fn outline_data_points(
+        &self,
+        ctx: &dyn TransformContext,
+        axes: ArtistId,
+    ) -> Option<Vec<Point>> {
+        let transform = self.base.transform.as_ref()?;
+        if transform.data_directions(axes) == (false, false) {
+            return None;
+        }
+        let to_display = transform.resolve(ctx).ok()?;
+        let to_data = ctx.data_transform(axes)?.inverted()?;
+        let points = self
+            .paths_through(&to_display, 1.0)
+            .iter()
+            .flat_map(|(path, _)| path.beziers().collect::<Vec<_>>())
+            .flat_map(|curve| {
+                let mut ts = vec![0.0];
+                ts.extend(curve.axis_aligned_extrema());
+                ts.push(1.0);
+                ts.into_iter().map(move |t| curve.eval(t))
+            })
+            .map(|p| to_data.transform_point(p))
+            .collect();
+        Some(points)
     }
 }
 
@@ -344,6 +383,47 @@ impl StreamArrow {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::figure::Figure;
+
+    #[test]
+    fn outlines_count_in_data_coordinates_only() {
+        let fig = Figure::with_size(4.0, 4.0, 100.0);
+        let ax = fig.subplot();
+        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let look = ArrowLook {
+            style: StreamArrowStyle::default(),
+            mutation_scale: 10.0,
+            linewidth: 1.0,
+            color: Color::from("C0"),
+        };
+        let arrow = |transform| {
+            StreamArrowArtist::new(
+                (Point::new(4.0, 5.0), Point::new(6.0, 5.0)),
+                look.clone(),
+                transform,
+                2.0,
+            )
+        };
+        let state = fig.raw().figure_state().borrow();
+        let points = arrow(ax.trans_data())
+            .outline_data_points(&*state, ax.id())
+            .unwrap();
+        let (x_min, x_max) = points
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| {
+                (lo.min(p.x), hi.max(p.x))
+            });
+        // Shrunk by 2 points at both ends, the head at the far end.
+        assert!(
+            x_min > 4.0 && x_max < 6.0 && x_max > 5.85,
+            "{x_min} {x_max}"
+        );
+        assert!(points.iter().any(|p| p.y > 5.0) && points.iter().any(|p| p.y < 5.0));
+        assert_eq!(
+            arrow(ax.trans_axes()).outline_data_points(&*state, ax.id()),
+            None
+        );
+    }
 
     #[test]
     fn styles_parse_like_matplotlib() {

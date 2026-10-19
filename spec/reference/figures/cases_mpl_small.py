@@ -15,6 +15,7 @@ from matplotlib import collections as mcollections
 from matplotlib import markers
 from matplotlib import patches as mpatches
 from matplotlib import path as mpath
+from matplotlib import transforms as mtransforms
 from matplotlib.ticker import NullFormatter
 
 from spec_support import case, rng
@@ -291,6 +292,26 @@ def _(fig):
 
 
 # --- test_transforms.py --------------------------------------------------
+
+
+@case("mpl_small/pre_transform_data")
+def _(fig):
+    ax = fig.add_subplot()
+    times10 = mtransforms.Affine2D().scale(10)
+    ax.contourf(np.arange(48).reshape(6, 8), transform=times10 + ax.transData)
+    ax.pcolormesh(np.linspace(0, 4, 7), np.linspace(5.5, 8, 9), np.arange(48).reshape(8, 6),
+                  transform=times10 + ax.transData)
+    ax.scatter(np.linspace(0, 10), np.linspace(10, 0), transform=times10 + ax.transData)
+    x = np.linspace(8, 10, 20)
+    y = np.linspace(1, 5, 20)
+    u = 2 * np.sin(x) + np.cos(y[:, np.newaxis])
+    v = np.sin(x) - np.cos(y[:, np.newaxis])
+    ax.streamplot(x, y, u, v, transform=times10 + ax.transData, linewidth=np.hypot(u, v))
+    x, y = x[::3], y[::3]
+    u, v = u[::3, ::3], v[::3, ::3]
+    ax.quiver(x, y + 5, u, v, transform=times10 + ax.transData)
+    ax.barbs(x - 3, y + 5, u**2, v**2, transform=times10 + ax.transData)
+    _remove_text(fig)
 
 
 @case("mpl_small/scale_swapping")

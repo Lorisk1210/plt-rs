@@ -2,11 +2,12 @@
 
 use std::rc::Rc;
 
-use plt_core::{Affine2D, Point};
+use plt_core::Point;
 
 use super::children::DataUpdate;
+use super::data_coords::data_offsets;
 use super::{Axes, AxesState, PlotError};
-use crate::artist::{Artist, ArtistHandle, ArtistId};
+use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Alpha, Color, Colormap, Norm, ScalarMappable, colormaps};
 use crate::markers::{FillStyle, MarkerStyle};
@@ -273,40 +274,6 @@ impl Axes {
     }
 }
 
-/// The offsets in the data coordinates of `axes` when their transform
-/// passes through the axes' data transform last, after a fixed affine map
-/// (matplotlib's `Collection.get_datalim`, which maps them by
-/// `offset_trf - transData`); `None` when they are in other coordinates.
-pub(super) fn data_offsets(
-    transform: &Transform,
-    axes: ArtistId,
-    offsets: &[Point],
-) -> Option<Vec<Point>> {
-    let to_data = affine_before_data(transform, axes)?;
-    Some(
-        offsets
-            .iter()
-            .map(|&p| to_data.transform_point(p))
-            .collect(),
-    )
-}
-
-/// The fixed affine map a transform applies before the data transform of
-/// `axes` it ends with.
-fn affine_before_data(transform: &Transform, axes: ArtistId) -> Option<Affine2D> {
-    match transform {
-        Transform::Data(id) => (*id == axes).then_some(Affine2D::IDENTITY),
-        Transform::Composite(first, last) => {
-            let rest = affine_before_data(last, axes)?;
-            match first.as_ref() {
-                Transform::Affine(affine) => Some(affine.then(rest)),
-                _ => None,
-            }
-        }
-        _ => None,
-    }
-}
-
 /// The points as offsets, with points that have a non-finite coordinate,
 /// size or (unless `plot_nonfinite`) mapped value moved to NaN so they are
 /// neither drawn nor counted in the data limits (matplotlib's
@@ -368,6 +335,8 @@ fn scatter_edges(setting: &str) -> EdgeColors {
 
 #[cfg(test)]
 mod tests {
+    use plt_core::Affine2D;
+
     use super::*;
     use crate::figure::Figure;
 

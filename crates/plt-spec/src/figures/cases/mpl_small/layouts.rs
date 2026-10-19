@@ -1,10 +1,16 @@
 //! The cases from `test_subplots.py` and `test_transforms.py`.
 
-use plt::axes::HistPlotOptions;
+use plt::axes::{HistPlotOptions, Mesh, PcolorOptions, ScatterOptions};
+use plt::contour::{ContourOptions, QuadField};
 use plt::figure::{Figure, Mosaic, MosaicOptions, Share};
 use plt::gridspec::{GridSpec, SubplotOverrides};
-use plt::numeric::{arange, linspace};
+use plt::numeric::{Grid, arange, linspace, meshgrid};
+use plt::quiver::{BarbsOptions, QuiverOptions, VectorField};
 use plt::stats::HistOptions;
+use plt::streamplot::{StreamField, StreamWidths, StreamplotOptions};
+use plt::transforms::{Affine2D, Transform};
+
+use super::remove_text;
 
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
@@ -51,6 +57,73 @@ fn scale_swapping(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
+/// `test_pre_transform_plotting`: every kind of plot placed through an
+/// affine map in front of the data transform, which the data limits
+/// follow.
+fn pre_transform(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let times10 = Transform::Affine(Affine2D::identity().scale(10.0, 10.0)).then(ax.trans_data());
+    let counting = |rows, cols| Grid::from_fn(rows, cols, |r, c| (r * cols + c) as f64);
+    ax.contourf(
+        &QuadField::new(counting(6, 8)),
+        ContourOptions {
+            transform: Some(times10.clone()),
+            ..ContourOptions::default()
+        },
+    )?;
+    ax.pcolormesh(
+        Mesh::with_coords(linspace(0.0, 4.0, 7), linspace(5.5, 8.0, 9), counting(8, 6)),
+        PcolorOptions {
+            transform: Some(times10.clone()),
+            ..PcolorOptions::default()
+        },
+    )?;
+    ax.scatter_with(
+        linspace(0.0, 10.0, 50),
+        linspace(10.0, 0.0, 50),
+        ScatterOptions {
+            offset_transform: Some(times10.clone()),
+            ..ScatterOptions::default()
+        },
+    )?;
+    let (x, y) = (linspace(8.0, 10.0, 20), linspace(1.0, 5.0, 20));
+    let u = Grid::from_fn(20, 20, |r, c| 2.0 * x[c].sin() + y[r].cos());
+    let v = Grid::from_fn(20, 20, |r, c| x[c].sin() - y[r].cos());
+    let speed = Grid::from_fn(20, 20, |r, c| u[(r, c)].hypot(v[(r, c)]));
+    ax.streamplot(
+        &StreamField::new(x.clone(), y.clone(), u.clone(), v.clone()),
+        StreamplotOptions {
+            linewidth: Some(StreamWidths::Varying(speed)),
+            transform: Some(times10.clone()),
+            ..StreamplotOptions::default()
+        },
+    )?;
+    let every_third = |values: &[f64]| values.iter().step_by(3).copied().collect::<Vec<_>>();
+    let thinned = |grid: &Grid<f64>| Grid::from_fn(7, 7, |r, c| grid[(3 * r, 3 * c)]);
+    let (x, y) = (every_third(&x), every_third(&y));
+    let (u, v) = (thinned(&u), thinned(&v));
+    let shifted = |values: &[f64], by: f64| values.iter().map(|v| v + by).collect::<Vec<_>>();
+    let (qx, qy) = meshgrid(&x, &shifted(&y, 5.0));
+    ax.quiver(
+        VectorField::on_mesh(&qx, &qy, &u, &v),
+        QuiverOptions {
+            transform: Some(times10.clone()),
+            ..QuiverOptions::default()
+        },
+    )?;
+    let (bx, by) = meshgrid(&shifted(&x, -3.0), &shifted(&y, 5.0));
+    let square = |grid: &Grid<f64>| Grid::from_fn(7, 7, |r, c| grid[(r, c)].powi(2));
+    ax.barbs(
+        VectorField::on_mesh(&bx, &by, &square(&u), &square(&v)),
+        BarbsOptions {
+            transform: Some(times10),
+            ..BarbsOptions::default()
+        },
+    )?;
+    remove_text(fig);
+    Ok(())
+}
+
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_small/subplots_offset_text", offset_text),
     FigureCase::new("mpl_small/width_and_height_ratios", |fig| {
@@ -73,5 +146,6 @@ pub(super) const CASES: &[FigureCase] = &[
         fig.subplot_mosaic(&Mosaic::parse("ABB;ACD")?, &options)?;
         Ok(())
     }),
+    FigureCase::new("mpl_small/pre_transform_data", pre_transform),
     FigureCase::new("mpl_small/scale_swapping", scale_swapping),
 ];

@@ -6,7 +6,7 @@ use std::rc::Rc;
 use plt_core::Point;
 
 use super::children::DataUpdate;
-use super::scatter::data_offsets;
+use super::data_coords::data_offsets;
 use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle, ArtistId};
 use crate::collections::{Collection, CollectionArtist, CollectionKind};

@@ -2,9 +2,12 @@
 
 use std::rc::Rc;
 
+use plt_core::Affine2D;
+
 use super::Axes;
 use super::children::DataUpdate;
-use crate::artist::Artist;
+use super::data_coords::affine_before_data;
+use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Color, Normalize, ScalarMappable, colormaps};
 use crate::numeric::{nanmax, nanmin};
@@ -13,6 +16,7 @@ use crate::streamplot::{
     ArrowLook, StreamArrow, StreamArrowArtist, StreamColors, StreamField, StreamPlan, StreamWidths,
     StreamplotError, StreamplotOptions, StreamplotSet,
 };
+use crate::transforms::Transform;
 
 /// The z-order and default width shared by streamlines and arrows.
 struct Shared {
@@ -54,6 +58,10 @@ impl Axes {
     ) -> Result<StreamplotSet, StreamplotError> {
         let rc = crate::rc::params();
         let mut plan = StreamPlan::new(field, &options)?;
+        let transform = options
+            .transform
+            .clone()
+            .unwrap_or_else(|| self.trans_data());
         let shared = Shared {
             zorder: options.zorder.unwrap_or(2.0),
             width: match &options.linewidth {
@@ -62,7 +70,14 @@ impl Axes {
             },
         };
         let colors = self.stream_colors(options.color, &rc)?;
-        let (lines, arrow_colors) = self.add_streamlines(&mut plan, colors, &shared, rc)?;
+        // matplotlib's `add_collection` brings the view up to date before
+        // the streamlines count; the arrows are then measured in that view.
+        self.raw()
+            .figure_state()
+            .borrow_mut()
+            .unstale_axes(self.id());
+        let (lines, arrow_colors) =
+            self.add_streamlines(&mut plan, colors, &shared, &transform, rc)?;
         let arrows = plan
             .arrows
             .iter()
@@ -77,22 +92,27 @@ impl Axes {
                 let artist = StreamArrowArtist::new(
                     (arrow.tail, arrow.head),
                     look,
-                    self.trans_data(),
+                    transform.clone(),
                     shared.zorder,
                 );
-                StreamArrow::from_raw(self.adopt(artist, &DataUpdate::default()))
+                let outline =
+                    artist.outline_data_points(&*self.raw().figure_state().borrow(), self.id());
+                let update = outline.map_or_else(DataUpdate::default, DataUpdate::data);
+                StreamArrow::from_raw(self.adopt(artist, &update))
             })
             .collect();
         Ok(StreamplotSet { lines, arrows })
     }
 
-    /// Adds the streamlines of `plan` as a line collection that sticks to
-    /// the grid edges; returns it with the colour of each planned arrow.
+    /// Adds the streamlines of `plan` as a line collection in `transform`
+    /// that sticks to the grid edges; returns it with the colour of each
+    /// planned arrow.
     fn add_streamlines(
         &self,
         plan: &mut StreamPlan,
         colors: LineColors,
         shared: &Shared,
+        transform: &Transform,
         rc: Rc<RcParams>,
     ) -> Result<(Collection, Vec<Color>), StreamplotError> {
         let mut lines =
@@ -115,16 +135,28 @@ impl Axes {
         lines.linewidths = Some(plan.widths.take().unwrap_or_else(|| vec![shared.width]));
         let base = lines.base_mut();
         base.zorder = shared.zorder;
-        base.transform = Some(self.trans_data());
+        base.transform = Some(transform.clone());
         let grid = plan.grid;
         base.sticky_edges = (
             vec![grid.origin.x, grid.origin.x + grid.width],
             vec![grid.origin.y, grid.origin.y + grid.height],
         );
-        let update = if lines.paths.is_empty() {
-            DataUpdate::data(Vec::new())
-        } else {
-            DataUpdate::limits(lines.shape_extents())
+        // matplotlib's `Collection.get_datalim`: the paths through
+        // `transform - transData`, or nothing outside the data coordinates.
+        let update = match affine_before_data(transform, self.id()) {
+            _ if lines.paths.is_empty() => DataUpdate::data(Vec::new()),
+            Some(to_data) if to_data == Affine2D::IDENTITY => {
+                DataUpdate::limits(lines.shape_extents())
+            }
+            Some(to_data) => DataUpdate::data(
+                lines
+                    .paths
+                    .iter()
+                    .flat_map(|path| path.vertices().iter())
+                    .map(|&v| to_data.transform_point(v))
+                    .collect(),
+            ),
+            None => DataUpdate::data(Vec::new()),
         };
         let lines = Collection::from_raw(self.adopt(lines, &update));
         if let Some(mapping) = mapping {

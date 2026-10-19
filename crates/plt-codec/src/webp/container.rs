@@ -87,6 +87,74 @@ pub(super) struct Container<'a> {
     pub(super) frame: Frame<'a>,
 }
 
+/// Appends a chunk with its padding.
+fn push_chunk(out: &mut Vec<u8>, fourcc: [u8; 4], payload: &[u8]) {
+    out.extend(fourcc);
+    out.extend((payload.len() as u32).to_le_bytes());
+    out.extend(payload);
+    if payload.len() % 2 == 1 {
+        out.push(0);
+    }
+}
+
+/// A RIFF `WEBP` file around `body`.
+fn riff(body: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(12 + body.len());
+    out.extend(b"RIFF");
+    out.extend((4 + body.len() as u32).to_le_bytes());
+    out.extend(b"WEBP");
+    out.extend(body);
+    out
+}
+
+/// The low three bytes of `value`, little-endian.
+fn le24(value: u32) -> [u8; 3] {
+    let [a, b, c, _] = value.to_le_bytes();
+    [a, b, c]
+}
+
+/// A simple WebP file holding the bitstream `payload` in a `fourcc` chunk.
+pub(super) fn write(fourcc: [u8; 4], payload: &[u8]) -> Vec<u8> {
+    let mut body = Vec::with_capacity(9 + payload.len());
+    push_chunk(&mut body, fourcc, payload);
+    riff(&body)
+}
+
+/// An animation of full-canvas VP8L `frames` (bitstream and duration in
+/// milliseconds) on a `width × height` canvas, played `loops` times
+/// (0: forever); frames replace the canvas without blending.
+pub(super) fn write_animation(
+    width: u32,
+    height: u32,
+    uses_alpha: bool,
+    loops: u16,
+    frames: &[(Vec<u8>, u32)],
+) -> Vec<u8> {
+    const DO_NOT_BLEND: u8 = 0x02;
+    let mut body = Vec::new();
+    let flags = ANIMATION_FLAG | if uses_alpha { ALPHA_FLAG } else { 0 };
+    let mut vp8x = vec![flags, 0, 0, 0];
+    vp8x.extend(le24(width - 1));
+    vp8x.extend(le24(height - 1));
+    push_chunk(&mut body, *b"VP8X", &vp8x);
+    // A transparent background, and the loop count.
+    let mut anim = vec![0; 4];
+    anim.extend(loops.to_le_bytes());
+    push_chunk(&mut body, *b"ANIM", &anim);
+    for (bitstream, duration) in frames {
+        let mut anmf = Vec::with_capacity(24 + bitstream.len());
+        anmf.extend(le24(0));
+        anmf.extend(le24(0));
+        anmf.extend(le24(width - 1));
+        anmf.extend(le24(height - 1));
+        anmf.extend(le24((*duration).min(0xFF_FFFF)));
+        anmf.push(DO_NOT_BLEND);
+        push_chunk(&mut anmf, *b"VP8L", bitstream);
+        push_chunk(&mut body, *b"ANMF", &anmf);
+    }
+    riff(&body)
+}
+
 /// Parses a WebP file.
 pub(super) fn parse(data: &[u8]) -> Result<Container<'_>, DecodeError> {
     if data.len() < 12 || &data[..4] != b"RIFF" || &data[8..12] != b"WEBP" {

@@ -25,11 +25,12 @@
 //! ```
 
 mod bit_reader;
-mod bit_writer;
+pub(crate) mod bit_writer;
 mod block;
+pub(crate) mod code_lengths;
 mod decode_table;
 mod error;
-mod huffman;
+pub(crate) mod huffman;
 mod inflate;
 mod level;
 mod lz77;

@@ -28,6 +28,7 @@ use std::time::{Duration, Instant};
 
 use plt_codec::gif::GifError;
 use plt_codec::png::EncodeError;
+use plt_codec::webp;
 
 use crate::events::TimerKey;
 use plt_core::Bbox;
@@ -88,6 +89,8 @@ pub enum AnimationError {
     Encode(EncodeError),
     /// The frames could not be encoded as a GIF.
     Gif(GifError),
+    /// The frames could not be encoded as a WebP.
+    Webp(webp::EncodeError),
     /// The file name's extension names no format animations are saved in.
     UnsupportedFormat(String),
     /// An HTML page was to be written to a file not named `.html` or
@@ -103,9 +106,10 @@ impl fmt::Display for AnimationError {
             Self::Save(err) => write!(f, "cannot save the animation: {err}"),
             Self::Encode(err) => write!(f, "cannot encode the animation: {err}"),
             Self::Gif(err) => write!(f, "cannot encode the animation as a GIF: {err}"),
+            Self::Webp(err) => write!(f, "cannot encode the animation as a WebP: {err}"),
             Self::UnsupportedFormat(extension) => write!(
                 f,
-                "cannot save animations as {extension:?} (supported: apng, gif, htm, html, png)"
+                "cannot save animations as {extension:?} (supported: apng, gif, htm, html, png, webp)"
             ),
             Self::Movie(err) => err.fmt(f),
             Self::NotHtml(path) => write!(
@@ -123,6 +127,7 @@ impl std::error::Error for AnimationError {
             Self::Save(err) => Some(err),
             Self::Encode(err) => Some(err),
             Self::Gif(err) => Some(err),
+            Self::Webp(err) => Some(err),
             Self::Movie(err) => Some(err),
             Self::UnsupportedFormat(_) | Self::NotHtml(_) => None,
         }

@@ -1,11 +1,12 @@
 //! Saving animations as files: animated PNG, animated GIF (matplotlib's
-//! `PillowWriter`) and HTML pages, chosen from the file name as
-//! `Animation.save` does.
+//! `PillowWriter`), lossless animated WebP and HTML pages, chosen from the
+//! file name as `Animation.save` does.
 
 use std::path::Path;
 
 use plt_codec::gif::{GifEncoder, GifError, GifFrame};
 use plt_codec::png::{AnimatedEncoder, EncodeError, Frame, ImageRef};
+use plt_codec::webp::{self, AnimationFrame};
 use plt_render::RgbaImage;
 
 use super::{
@@ -16,7 +17,8 @@ use crate::figure::SaveError;
 impl FuncAnimation {
     /// Writes the animation to `path` in the format its extension names
     /// (matplotlib's `Animation.save`): `.png` or `.apng` for an animated
-    /// PNG, `.gif` for an animated GIF, `.html` or `.htm` for a page with
+    /// PNG, `.gif` for an animated GIF, `.webp` for a lossless animated
+    /// WebP, `.html` or `.htm` for a page with
     /// the JavaScript player, and any other extension for a video encoded
     /// by ffmpeg ([`FuncAnimation::save_movie`], matplotlib's default
     /// `animation.writer`).
@@ -35,6 +37,7 @@ impl FuncAnimation {
         match extension.as_str() {
             "png" | "apng" => self.save_apng(path),
             "gif" => self.save_gif(path),
+            "webp" => self.save_webp(path),
             "html" | "htm" => self.save_html(path, &HtmlOptions::default()),
             "" => Err(AnimationError::UnsupportedFormat(extension)),
             _ => self.save_movie(path, &MovieOptions::default()),
@@ -116,6 +119,44 @@ impl FuncAnimation {
         write(path.as_ref(), &self.to_gif()?)
     }
 
+    /// Renders every saved frame and encodes them as a lossless animated
+    /// WebP showing each frame for one interval, looping if the animation
+    /// repeats.
+    ///
+    /// # Errors
+    ///
+    /// When a frame cannot be rendered or the frames cannot be encoded.
+    pub fn to_webp(&self) -> Result<Vec<u8>, AnimationError> {
+        let images = self.frame_images()?;
+        let interval = interval_millis(self.player.borrow().options.interval);
+        // Whole milliseconds, as WebP stores them.
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "rounded and clamped to the range WebP stores"
+        )]
+        let duration_ms = interval.round().clamp(0.0, f64::from(0xFF_FFFF)) as u32;
+        let frames: Vec<AnimationFrame<'_>> = images
+            .iter()
+            .map(|image| AnimationFrame {
+                pixels: image.data(),
+                duration_ms,
+            })
+            .collect();
+        let (width, height) = images.first().map_or((0, 0), image_size);
+        webp::encode_animation_rgba8(width, height, &frames, u16::from(self.plays_once()))
+            .map_err(AnimationError::Webp)
+    }
+
+    /// Writes [`FuncAnimation::to_webp`] to `path`.
+    ///
+    /// # Errors
+    ///
+    /// As [`FuncAnimation::to_webp`], and when the file cannot be written.
+    pub fn save_webp(&self, path: impl AsRef<Path>) -> Result<(), AnimationError> {
+        write(path.as_ref(), &self.to_webp()?)
+    }
+
     /// Every saved frame rendered as `savefig` would.
     fn frame_images(&self) -> Result<Vec<RgbaImage>, AnimationError> {
         let mut images = Vec::new();
@@ -193,6 +234,21 @@ mod tests {
     }
 
     #[test]
+    fn webps_hold_every_frame_and_open_on_the_first() {
+        let anim = animation(AnimationOptions::default());
+        let webp = anim.to_webp().unwrap();
+        assert_eq!(&webp[8..16], b"WEBPVP8X");
+        let frames = webp.windows(4).filter(|w| *w == b"ANMF").count();
+        assert_eq!(frames, 3);
+        let first = plt_codec::webp::decode(&webp).unwrap();
+        assert_eq!((first.width(), first.height()), (20, 20));
+        assert_eq!(
+            first.to_rgba8().concat(),
+            anim.frame_images().unwrap()[0].data()
+        );
+    }
+
+    #[test]
     fn single_runs_do_not_loop() {
         let once = AnimationOptions {
             repeat: false,
@@ -209,6 +265,12 @@ mod tests {
         let anim = animation(AnimationOptions::default());
         anim.save(dir.join("a.gif")).unwrap();
         anim.save(dir.join("a.APNG")).unwrap();
+        anim.save(dir.join("a.webp")).unwrap();
+        assert!(
+            std::fs::read(dir.join("a.webp"))
+                .unwrap()
+                .starts_with(b"RIFF")
+        );
         assert!(
             std::fs::read(dir.join("a.gif"))
                 .unwrap()

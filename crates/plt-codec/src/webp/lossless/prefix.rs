@@ -3,18 +3,13 @@
 //! and decoding symbols through a two-level lookup table.
 
 use super::bit_reader::BitReader;
+use super::format::{CODE_LENGTH_CODES, CODE_LENGTH_ORDER};
 use crate::webp::DecodeError;
 
 /// The bits the root table resolves at once.
 const ROOT_BITS: u32 = 8;
 /// The longest code.
 const MAX_LENGTH: u32 = 15;
-/// The alphabet of code lengths: 0–15, then the three repeat codes.
-const CODE_LENGTH_CODES: usize = 19;
-/// The order in which the code-length code's lengths are stored.
-const CODE_LENGTH_ORDER: [usize; CODE_LENGTH_CODES] = [
-    17, 18, 0, 1, 2, 3, 4, 5, 16, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-];
 /// The length repeated by code 16 before any non-zero length was read.
 const DEFAULT_LENGTH: u8 = 8;
 

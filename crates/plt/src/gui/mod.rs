@@ -10,8 +10,9 @@
 //! shortcuts (`h` home, `p` pan, `o` zoom, `g` grids, `l`/`k` log scales,
 //! `s` save, `f` full screen, `q` close, ...). The window resizes the
 //! figure with it and renders at the screen's scale factor. Saving opens a
-//! dialog to pick the directory, the file name and the format (PNG, SVG,
-//! PDF, PS or EPS); the figure options dialog edits the titles, limits,
+//! dialog to pick the directory, the file name and the format (PNG, JPEG,
+//! TIFF, GIF, WebP, SVG, PDF, PS or EPS); the figure options dialog edits
+//! the titles, limits,
 //! labels and scales of the axes, the style of their curves and the
 //! colormaps of their images.
 //!

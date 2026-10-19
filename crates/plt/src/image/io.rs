@@ -1,4 +1,4 @@
-//! Writing images as PNG, JPEG, TIFF, GIF or raw files (matplotlib.image's
+//! Writing images as PNG, JPEG, TIFF, GIF, WebP or raw files (matplotlib.image's
 //! `imsave`), and the errors of reading and writing them.
 
 use std::fmt;
@@ -58,7 +58,7 @@ impl fmt::Display for ImageIoError {
             Self::Bitmap(err) => write!(f, "cannot write the image: {err}"),
             Self::UnsupportedFormat(format) => write!(
                 f,
-                "format {format:?} is not supported (imsave writes gif, jpeg, jpg, png and tiff)"
+                "format {format:?} is not supported (imsave writes gif, jpeg, jpg, png, tiff and webp)"
             ),
             Self::Colormap(err) => err.fmt(f),
             Self::Norm(err) => err.fmt(f),
@@ -197,8 +197,8 @@ pub fn imsave(
 
 /// The format [`imsave`] writes for a format name or file extension,
 /// ignoring case: the names Pillow saves under (`png`, `jpg`, `jpeg`,
-/// `tiff` and `gif`), so `tif`, `raw` and `rgba` are refused as matplotlib
-/// refuses them.
+/// `tiff`, `gif` and `webp`), so `tif`, `raw` and `rgba` are refused as
+/// matplotlib refuses them.
 ///
 /// # Errors
 ///
@@ -209,6 +209,7 @@ pub fn imsave_format(name: &str) -> Result<BitmapFormat, ImageIoError> {
         "jpg" | "jpeg" => Ok(BitmapFormat::Jpeg),
         "tiff" => Ok(BitmapFormat::Tiff),
         "gif" => Ok(BitmapFormat::Gif),
+        "webp" => Ok(BitmapFormat::Webp),
         other => Err(ImageIoError::UnsupportedFormat(other.to_owned())),
     }
 }

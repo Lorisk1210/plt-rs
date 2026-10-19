@@ -3,34 +3,13 @@
 //! codes, colour cache and backward references.
 
 use super::bit_reader::BitReader;
+use super::format::{
+    CODE_TO_PLANE, DISTANCE_CODES, LENGTH_CODES, LITERALS, MAX_CACHE_BITS, SIGNATURE, cache_index,
+};
 use super::prefix::{PrefixCode, read_prefix_code};
 use super::transform::{Palette, TileImage, Transform, subsample};
 use crate::raster::MAX_PIXELS;
 use crate::webp::DecodeError;
-
-/// The first byte of a VP8L bitstream.
-const SIGNATURE: u8 = 0x2F;
-/// Green values, and literal symbols of the other channels.
-const LITERALS: usize = 256;
-/// Symbols of backward-reference lengths, after the green literals.
-const LENGTH_CODES: usize = 24;
-/// Symbols of backward-reference distances.
-const DISTANCE_CODES: usize = 40;
-/// The largest colour cache, in bits of its index.
-const MAX_CACHE_BITS: u32 = 11;
-
-/// The short distances: for distance codes 1–120, the offset to the
-/// referenced pixel as `(rows up) << 4 | (8 - columns left)`.
-const CODE_TO_PLANE: [u8; 120] = [
-    0x18, 0x07, 0x17, 0x19, 0x28, 0x06, 0x27, 0x29, 0x16, 0x1a, 0x26, 0x2a, 0x38, 0x05, 0x37, 0x39,
-    0x15, 0x1b, 0x36, 0x3a, 0x25, 0x2b, 0x48, 0x04, 0x47, 0x49, 0x14, 0x1c, 0x35, 0x3b, 0x46, 0x4a,
-    0x24, 0x2c, 0x58, 0x45, 0x4b, 0x34, 0x3c, 0x03, 0x57, 0x59, 0x13, 0x1d, 0x56, 0x5a, 0x23, 0x2d,
-    0x44, 0x4c, 0x55, 0x5b, 0x33, 0x3d, 0x68, 0x02, 0x67, 0x69, 0x12, 0x1e, 0x66, 0x6a, 0x22, 0x2e,
-    0x54, 0x5c, 0x43, 0x4d, 0x65, 0x6b, 0x32, 0x3e, 0x78, 0x01, 0x77, 0x79, 0x53, 0x5d, 0x11, 0x1f,
-    0x64, 0x6c, 0x42, 0x4e, 0x76, 0x7a, 0x21, 0x2f, 0x75, 0x7b, 0x31, 0x3f, 0x63, 0x6d, 0x52, 0x5e,
-    0x00, 0x74, 0x7c, 0x41, 0x4f, 0x10, 0x20, 0x62, 0x6e, 0x30, 0x73, 0x7d, 0x51, 0x5f, 0x40, 0x72,
-    0x7e, 0x61, 0x6f, 0x50, 0x71, 0x7f, 0x60, 0x70,
-];
 
 /// The size and alpha hint of a VP8L header (libwebp's `VP8LGetInfo`).
 pub(crate) fn read_info(data: &[u8]) -> Result<(u32, u32, bool), DecodeError> {
@@ -255,7 +234,7 @@ fn read_codes(
 /// A colour cache: recently decoded colours, indexed by a hash.
 #[derive(Debug)]
 struct ColorCache {
-    shift: u32,
+    bits: u32,
     colors: Vec<u32>,
 }
 
@@ -263,13 +242,13 @@ impl ColorCache {
     /// A cache of `1 << bits` colours.
     fn new(bits: u32) -> Self {
         Self {
-            shift: 32 - bits,
+            bits,
             colors: vec![0; 1 << bits],
         }
     }
 
     fn insert(&mut self, argb: u32) {
-        self.colors[(0x1E35_A7BD_u32.wrapping_mul(argb) >> self.shift) as usize] = argb;
+        self.colors[cache_index(argb, self.bits)] = argb;
     }
 }
 

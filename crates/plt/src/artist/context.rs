@@ -30,6 +30,12 @@ impl<'a> LayoutContext<'a> {
         self.figure.dpi()
     }
 
+    /// Whether the figure keeps adjacent images apart or composites them
+    /// (`None` = as the renderer prefers; matplotlib's `suppressComposite`).
+    pub(crate) fn suppress_composite(self) -> Option<bool> {
+        self.figure.suppress_composite
+    }
+
     /// Converts points to pixels at the canvas resolution.
     pub fn points_to_pixels(&self, points: f64) -> f64 {
         points * self.figure.dpi() / 72.0

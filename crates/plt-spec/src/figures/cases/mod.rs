@@ -21,6 +21,7 @@ mod misc;
 mod mpl_axes_a;
 mod mpl_axes_b;
 mod mpl_axes_c;
+mod mpl_image;
 mod mpl_lines;
 mod mpl_small;
 mod mpl_tests;
@@ -94,6 +95,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         mpl_axes_a::CASES,
         &mpl_axes_b::cases(),
         &mpl_axes_c::cases(),
+        &mpl_image::cases(),
         &mpl_lines::cases(),
         &mpl_small::cases(),
         mplot3d::API,

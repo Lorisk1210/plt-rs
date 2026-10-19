@@ -54,6 +54,10 @@ pub(crate) struct FigureState {
     /// The part of the figure being printed, in inches, while saving with
     /// `bbox_inches` (matplotlib's `adjust_bbox`).
     pub(crate) print_window: Option<Bbox>,
+    /// Whether adjacent images are kept apart (`true`) or composited
+    /// (`false`); `None` lets the renderer decide (matplotlib's
+    /// `suppressComposite`).
+    pub(crate) suppress_composite: Option<bool>,
 }
 
 impl FigureState {
@@ -130,6 +134,7 @@ impl FigureState {
             cursor: CursorShape::default(),
             tools: ToolRegistry::default(),
             print_window: None,
+            suppress_composite: None,
         }
     }
 

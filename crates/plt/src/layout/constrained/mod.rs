@@ -145,4 +145,22 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn empty_suptitles_take_no_room() {
+        let positions = |suptitle: Option<&str>| {
+            let fig = Figure::new();
+            fig.set_layout_engine(Some(super::super::LayoutEngine::Constrained(
+                ConstrainedLayout::from_rc(&RcParams::matplotlib()),
+            )));
+            let ax = fig.subplot();
+            if let Some(text) = suptitle {
+                fig.suptitle(text);
+            }
+            fig.layout();
+            ax.position()
+        };
+        assert_eq!(positions(Some("")), positions(None));
+        assert!(positions(Some("title")).y1() < positions(None).y1());
+    }
 }

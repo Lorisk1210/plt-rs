@@ -176,6 +176,11 @@ impl LayoutTree {
                 Margin::Bottom => text.position.y = h_pad_local,
                 _ => text.position.x = w_pad_local,
             }
+            // matplotlib measures with `Text.get_tightbbox`, which is null
+            // for an empty or hidden text: such a text takes no room.
+            if text.text.is_empty() || !text.base().visible {
+                continue;
+            }
             let layout = LayoutContext::new(fig);
             let Some(bbox) = id
                 .and_then(|id| layout.store().get(id))

@@ -1,17 +1,17 @@
-//! Showing images in an axes: `imshow`, `matshow` and images on
-//! non-uniform grids.
+//! Showing images in an axes: `imshow`, `matshow`, images on
+//! non-uniform grids and images stretched over boxes.
 
 use std::rc::Rc;
 
-use plt_core::{Path, Point};
+use plt_core::{Bbox, Path, Point};
 
 use super::children::DataUpdate;
 use super::{Axes, AxesState, AxisName, TickPosition};
 use crate::artist::{Artist, ArtistHandle, ClipPathSpec, RawHandle};
 use crate::image::{
-    AxesImage, AxesImageArtist, ColorizerOptions, CoreSettings, Extent, ImageAlpha, ImageCore,
-    ImageData, ImageError, Interpolation, InterpolationStage, NonUniformImage,
-    NonUniformImageArtist, NonUniformInterpolation, Origin,
+    AxesImage, AxesImageArtist, BboxImage, BboxImageArtist, BboxImageOptions, ColorizerOptions,
+    CoreSettings, Extent, ImageAlpha, ImageCore, ImageData, ImageError, Interpolation,
+    InterpolationStage, NonUniformImage, NonUniformImageArtist, NonUniformInterpolation, Origin,
 };
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
@@ -210,6 +210,48 @@ impl Axes {
         Ok(NonUniformImage::from_raw(raw))
     }
 
+    /// Adds an image stretched over `bbox`, a box in `coords` (matplotlib's
+    /// `add_artist(BboxImage(TransformedBbox(bbox, coords)))`): the image
+    /// is flipped along the directions in which the box is inverted. Like
+    /// `add_artist`, this leaves the data limits alone and clips the image
+    /// to the axes unless clipping is turned off.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::image::BboxImageOptions;
+    /// use plt::numeric::Grid;
+    /// use plt::transforms::{Bbox, Transform};
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let corner = Bbox::from_extents(0.1, 0.1, 0.3, 0.2);
+    /// let image = ax.add_bbox_image(
+    ///     Grid::filled(2, 3, 1.0),
+    ///     corner,
+    ///     Transform::Figure(fig.id()),
+    ///     BboxImageOptions::default(),
+    /// )?;
+    /// assert_eq!(image.shape(), (2, 3));
+    /// assert_eq!(ax.xlim(), (0.0, 1.0));
+    /// # Ok::<(), plt::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the colormap, norm or filter radius is invalid.
+    pub fn add_bbox_image(
+        &self,
+        data: impl Into<ImageData>,
+        bbox: Bbox,
+        coords: Transform,
+        options: BboxImageOptions,
+    ) -> Result<BboxImage, ImageError> {
+        let mut artist = BboxImageArtist::new(data, options, &crate::rc::params())?;
+        artist.region = Some((bbox, coords));
+        Ok(BboxImage::from_raw(
+            self.adopt(artist, &DataUpdate::default()),
+        ))
+    }
+
     /// The axis styling `matshow` and `spy` share: the title nudged up,
     /// x ticks labelled on `x_side` with marks on both sides, and integer
     /// tick locators.
@@ -381,6 +423,44 @@ mod tests {
             assert_eq!(base.clip_box, None);
             assert!(matches!(base.clip_path, Some(ClipPathSpec::Path { .. })));
         });
+    }
+
+    #[test]
+    fn bbox_images_fill_their_box_in_display_pixels() {
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot();
+        ax.set_xlim(0.0, 100.0).set_ylim(0.0, 100.0);
+        let inverted = ax
+            .add_bbox_image(
+                Grid::filled(2, 2, 0.0),
+                Bbox::from_extents(100.0, 100.0, 0.0, 0.0),
+                ax.trans_data(),
+                BboxImageOptions::default(),
+            )
+            .unwrap();
+        let axes = fig.resolve_transform(&ax.trans_axes()).unwrap();
+        let extent = inverted.window_extent().unwrap();
+        assert_eq!(
+            (extent.p0, extent.p1),
+            (
+                axes.transform_point(Point::new(1.0, 1.0)),
+                axes.transform_point(Point::ORIGIN)
+            ),
+            "the box keeps its orientation"
+        );
+        assert_eq!(inverted.zorder(), 0.0);
+        let in_figure = ax
+            .add_bbox_image(
+                Grid::filled(2, 2, 0.0),
+                Bbox::from_extents(0.25, 0.5, 0.5, 1.0),
+                Transform::Figure(fig.id()),
+                BboxImageOptions::default(),
+            )
+            .unwrap();
+        assert_eq!(
+            in_figure.window_extent(),
+            Some(Bbox::from_extents(100.0, 150.0, 200.0, 300.0))
+        );
     }
 
     #[test]

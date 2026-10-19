@@ -14,8 +14,9 @@
 //!   or cell edges lie on non-uniform rectilinear grids.
 //! * [`FigureImage`] — an image placed in figure pixels by
 //!   [`Figure::figimage`](crate::figure::Figure::figimage).
-//! * [`BboxImageOptions`] — an image stretched over a box of the canvas,
-//!   as an [`OffsetImage`](crate::offsetbox::OffsetImage) draws it.
+//! * [`BboxImage`] and [`BboxImageOptions`] — an image stretched over a
+//!   box, as an [`OffsetImage`](crate::offsetbox::OffsetImage) draws it or
+//!   [`Axes::add_bbox_image`](crate::axes::Axes::add_bbox_image) adds it.
 //! * [`Interpolation`], [`InterpolationStage`], [`Origin`], [`Extent`] and
 //!   [`ImageAlpha`] — how images are oriented, placed and resampled.
 //! * [`imread`] and [`imsave`] — PNG, JPEG, TIFF and GIF files to image
@@ -51,7 +52,7 @@ mod variates;
 pub use artist::AxesImage;
 pub(crate) use artist::AxesImageArtist;
 pub(crate) use bbox_image::BboxImageArtist;
-pub use bbox_image::BboxImageOptions;
+pub use bbox_image::{BboxImage, BboxImageOptions};
 pub use bitmap::{BitmapError, BitmapFormat, BitmapSettings};
 pub use colorize::{ColorizerOptions, MultivarColorizerOptions};
 pub(crate) use composite::Compositor;

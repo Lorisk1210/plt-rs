@@ -56,18 +56,37 @@ impl ScalarField {
     ///
     /// When the mask's shape differs from the data's.
     pub fn masked(values: Grid<f64>, mask: &Grid<bool>) -> Result<Self, ImageError> {
-        if mask.shape() != values.shape() {
+        Self::new(values).with_mask(mask)
+    }
+
+    /// The same data with the cells of `mask` (`true` = masked) masked
+    /// too, keeping the kind of numbers (a masked integer array, say).
+    ///
+    /// ```
+    /// use plt::image::{ScalarField, ScalarKind};
+    /// use plt::numeric::Grid;
+    /// let mask = Grid::from_fn(1, 2, |_, c| c == 1);
+    /// let field = ScalarField::integers(&Grid::filled(1, 2, 7)).with_mask(&mask)?;
+    /// assert_eq!(field.kind(), ScalarKind::Integer);
+    /// assert_eq!(field.masked_values(), [Some(7.0), None]);
+    /// # Ok::<(), plt::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the mask's shape differs from the data's.
+    pub fn with_mask(mut self, mask: &Grid<bool>) -> Result<Self, ImageError> {
+        if mask.shape() != self.values.shape() {
             return Err(ImageError::ShapeMismatch {
                 what: "mask",
-                expected: values.shape(),
+                expected: self.values.shape(),
                 actual: mask.shape(),
             });
         }
-        let mut field = Self::new(values);
-        for (masked, &extra) in field.masked.as_mut_slice().iter_mut().zip(mask.as_slice()) {
+        for (masked, &extra) in self.masked.as_mut_slice().iter_mut().zip(mask.as_slice()) {
             *masked |= extra;
         }
-        Ok(field)
+        Ok(self)
     }
 
     /// Integer data.

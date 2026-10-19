@@ -2,11 +2,11 @@
 
 use std::rc::Rc;
 
-use plt_core::Point;
+use plt_core::{Affine2D, Point};
 
 use super::children::DataUpdate;
 use super::{Axes, AxesState, PlotError};
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Alpha, Color, Colormap, Norm, ScalarMappable, colormaps};
 use crate::markers::{FillStyle, MarkerStyle};
@@ -258,18 +258,52 @@ impl Axes {
         }
         // Marker shapes live in screen space: only the offsets bound the
         // data, and only when they are in data coordinates.
-        let update = if let Some(transform) = options.offset_transform {
-            collection.offset_transform = Some(transform);
-            DataUpdate::data(Vec::new())
-        } else {
-            collection.offset_transform = Some(self.trans_data());
-            DataUpdate::data(collection.offsets.clone())
-        };
+        let transform = options
+            .offset_transform
+            .unwrap_or_else(|| self.trans_data());
+        let update = DataUpdate::data(
+            data_offsets(&transform, self.id(), &collection.offsets).unwrap_or_default(),
+        );
+        collection.offset_transform = Some(transform);
         let handle = Collection::from_raw(self.adopt(collection, &update));
         if let Some(mapping) = mapping {
             handle.set_mapping(mapping);
         }
         Ok(handle)
+    }
+}
+
+/// The offsets in the data coordinates of `axes` when their transform
+/// passes through the axes' data transform last, after a fixed affine map
+/// (matplotlib's `Collection.get_datalim`, which maps them by
+/// `offset_trf - transData`); `None` when they are in other coordinates.
+pub(super) fn data_offsets(
+    transform: &Transform,
+    axes: ArtistId,
+    offsets: &[Point],
+) -> Option<Vec<Point>> {
+    let to_data = affine_before_data(transform, axes)?;
+    Some(
+        offsets
+            .iter()
+            .map(|&p| to_data.transform_point(p))
+            .collect(),
+    )
+}
+
+/// The fixed affine map a transform applies before the data transform of
+/// `axes` it ends with.
+fn affine_before_data(transform: &Transform, axes: ArtistId) -> Option<Affine2D> {
+    match transform {
+        Transform::Data(id) => (*id == axes).then_some(Affine2D::IDENTITY),
+        Transform::Composite(first, last) => {
+            let rest = affine_before_data(last, axes)?;
+            match first.as_ref() {
+                Transform::Affine(affine) => Some(affine.then(rest)),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 
@@ -329,5 +363,30 @@ fn scatter_edges(setting: &str) -> EdgeColors {
         EdgeColors::Face
     } else {
         EdgeColors::Colors(vec![Color::from(setting)])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::figure::Figure;
+
+    #[test]
+    fn offsets_in_data_coordinates_count_for_autoscaling() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let at = |transform: Transform| ScatterOptions {
+            offset_transform: Some(transform),
+            ..ScatterOptions::default()
+        };
+        ax.scatter_with(vec![0.0], vec![0.0], at(ax.trans_data()))
+            .unwrap();
+        let shifted = Transform::Affine(Affine2D::translation(5.0, 6.0)).then(ax.trans_data());
+        ax.scatter_with(vec![0.0], vec![0.0], at(shifted)).unwrap();
+        ax.scatter_with(vec![9.0], vec![9.0], at(ax.trans_axes()))
+            .unwrap();
+        let limits = ax.data_lim().bbox;
+        assert_eq!((limits.x0(), limits.y0()), (0.0, 0.0));
+        assert_eq!((limits.x1(), limits.y1()), (5.0, 6.0));
     }
 }

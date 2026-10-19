@@ -1,0 +1,256 @@
+{
+ "area": "collection_behaviour",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "collection.colors",
+   "args": {"scene": "alpha_colors"},
+   "value": [
+    {
+     "faces": [[1.0, 0.0, 0.0, 0.0], [0.0, 0.5, 0.0, 0.2], [0.0, 0.0, 1.0, 0.4], [0.0, 0.75, 0.75, 0.6], [0.75, 0.0, 0.75, 0.8]],
+     "edges": [[1.0, 0.0, 0.0, 0.0], [0.0, 0.5, 0.0, 0.2], [0.0, 0.0, 1.0, 0.4], [0.0, 0.75, 0.75, 0.6], [0.75, 0.0, 0.75, 0.8]]
+    },
+    {
+     "faces": [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.2], [1.0, 0.0, 0.0, 0.4], [1.0, 0.0, 0.0, 0.6], [1.0, 0.0, 0.0, 0.8]],
+     "edges": [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.2], [1.0, 0.0, 0.0, 0.4], [1.0, 0.0, 0.0, 0.6], [1.0, 0.0, 0.0, 0.8]]
+    }
+   ]
+  },
+  {
+   "op": "collection.colors",
+   "args": {"scene": "alpha_colors_set"},
+   "value": [
+    {
+     "faces": [[1.0, 0.0, 0.0, 0.0], [0.0, 0.5, 0.0, 0.2], [0.0, 0.0, 1.0, 0.4], [0.0, 0.75, 0.75, 0.6], [0.75, 0.0, 0.75, 0.8]],
+     "edges": [[1.0, 0.0, 0.0, 0.0], [0.0, 0.5, 0.0, 0.2], [0.0, 0.0, 1.0, 0.4], [0.0, 0.75, 0.75, 0.6], [0.75, 0.0, 0.75, 0.8]]
+    },
+    {
+     "faces": [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.2], [1.0, 0.0, 0.0, 0.4], [1.0, 0.0, 0.0, 0.6], [1.0, 0.0, 0.0, 0.8]],
+     "edges": [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.2], [1.0, 0.0, 0.0, 0.4], [1.0, 0.0, 0.0, 0.6], [1.0, 0.0, 0.0, 0.8]]
+    }
+   ]
+  },
+  {
+   "op": "collection.colors",
+   "args": {"scene": "alpha_mapped"},
+   "value": [
+    {
+     "faces": [[0.267004, 0.004874, 0.329415, 0.0], [0.229739, 0.322361, 0.545706, 0.2], [0.127568, 0.566949, 0.550556, 0.4], [0.369214, 0.788888, 0.382914, 0.6], [0.993248, 0.906157, 0.143936, 0.8]],
+     "edges": [[0.267004, 0.004874, 0.329415, 0.0], [0.229739, 0.322361, 0.545706, 0.2], [0.127568, 0.566949, 0.550556, 0.4], [0.369214, 0.788888, 0.382914, 0.6], [0.993248, 0.906157, 0.143936, 0.8]]
+    },
+    {
+     "faces": [[0.267004, 0.004874, 0.329415, 0.0], [0.229739, 0.322361, 0.545706, 0.2], [0.127568, 0.566949, 0.550556, 0.4], [0.369214, 0.788888, 0.382914, 0.6], [0.993248, 0.906157, 0.143936, 0.8]],
+     "edges": [[0.267004, 0.004874, 0.329415, 0.0], [0.229739, 0.322361, 0.545706, 0.2], [0.127568, 0.566949, 0.550556, 0.4], [0.369214, 0.788888, 0.382914, 0.6], [0.993248, 0.906157, 0.143936, 0.8]]
+    }
+   ]
+  },
+  {
+   "op": "collection.colors",
+   "args": {"scene": "line_collection"},
+   "value": [
+    {"faces": [[0.0, 1.0, 0.0, 1.0]], "edges": [[1.0, 0.0, 0.0, 1.0]]},
+    {"faces": [], "edges": [[0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1.0]]}
+   ]
+  },
+  {
+   "op": "collection.colors",
+   "args": {"scene": "mesh_alpha"},
+   "value": [
+    {
+     "faces": [[0.267004, 0.004874, 0.329415, 0.0], [0.278826, 0.17549, 0.483397, 0.125], [0.229739, 0.322361, 0.545706, 0.25], [0.172719, 0.448791, 0.557885, 0.375], [0.127568, 0.566949, 0.550556, 0.5], [0.157851, 0.683765, 0.501686, 0.625], [0.369214, 0.788888, 0.382914, 0.75], [0.678489, 0.863742, 0.189503, 0.875], [0.993248, 0.906157, 0.143936, 1.0]],
+     "edges": []
+    },
+    {
+     "faces": [[0.267004, 0.004874, 0.329415, 0.0], [0.278826, 0.17549, 0.483397, 0.125], [0.229739, 0.322361, 0.545706, 0.25], [0.172719, 0.448791, 0.557885, 0.375], [0.127568, 0.566949, 0.550556, 0.5], [0.157851, 0.683765, 0.501686, 0.625], [0.369214, 0.788888, 0.382914, 0.75], [0.678489, 0.863742, 0.189503, 0.875], [0.993248, 0.906157, 0.143936, 1.0]],
+     "edges": []
+    }
+   ]
+  },
+  {
+   "op": "collection.colors",
+   "args": {"scene": "mesh_clim"},
+   "value": [{"faces": [[0.940015, 0.975158, 0.131326, 1.0]], "edges": []}, {"faces": [[0.050383, 0.029803, 0.527975, 1.0]], "edges": []}]
+  },
+  {
+   "op": "collection.colors",
+   "args": {"scene": "pcolor_edges"},
+   "value": [{"faces": [], "edges": [[1.0, 0.0, 0.0, 1.0]]}, {"faces": [], "edges": [[1.0, 0.0, 0.0, 1.0]]}, {"faces": [], "edges": [[1.0, 0.0, 0.0, 0.5]]}]
+  },
+  {
+   "op": "collection.contains",
+   "args": {"scene": "mesh_concave", "points": [[-0.5, 0.25], [0, 0.25], [0.5, 0.25], [0, -0.25], [0, 0.9], [0.9, -0.9]]},
+   "value": [[0], null, [0], [0], null, null]
+  },
+  {
+   "op": "collection.contains",
+   "args": {"scene": "scatter", "points": [[0, 0], [0.0045, 0], [0.0047, 0.0], [0.01, 0], [0, 0.005], [0, 0.006]]},
+   "value": [[0], [0], [0], null, [0], [0]]
+  },
+  {
+   "op": "collection.contains",
+   "args": {"scene": "mesh", "points": [[0.5, 0.5], [1.5, 1.5], [2.5, 0.5], [0.5, 2.5], [2.9, 2.9], [3.1, 1]]},
+   "value": [[0], [5], [2], [8], [10], [3]]
+  },
+  {"op": "collection.cursor", "args": {"pixel": [100, 300]}, "value": "(x, y) = (1.040, 1.669)"},
+  {"op": "collection.cursor", "args": {"pixel": [200, 100]}, "value": "(x, y) = (1.242, 1.128)"},
+  {"op": "collection.cursor", "args": {"pixel": [328, 237]}, "value": "(x, y) = (1.500, 1.498)"},
+  {"op": "collection.cursor", "args": {"pixel": [500, 400]}, "value": "(x, y) = (1.847, 1.939)"},
+  {
+   "op": "collection.hatchcolors",
+   "args": {"kw": {"edgecolor": ["purple", "red", "green", "yellow"], "hatchcolor": "edge"}, "steps": [], "rcparams": {}},
+   "value": [[0.5019607843137255, 0.0, 0.5019607843137255, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.5019607843137255, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {
+    "kw": {"edgecolor": ["purple", "red", "green", "yellow"], "hatchcolor": ["orange", "cyan", "blue", "magenta"]},
+    "steps": [],
+    "rcparams": {"hatch.color": "edge"}
+   },
+   "value": [[1.0, 0.6470588235294118, 0.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {
+    "kw": {"edgecolor": ["purple", "red", "green", "yellow"], "hatchcolor": ["orange", "cyan", "blue", "magenta"]},
+    "steps": [],
+    "rcparams": {"hatch.color": "green"}
+   },
+   "value": [[1.0, 0.6470588235294118, 0.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {"kw": {"edgecolor": ["purple", "red", "green", "yellow"]}, "steps": [], "rcparams": {"hatch.color": "edge"}},
+   "value": [[0.5019607843137255, 0.0, 0.5019607843137255, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.5019607843137255, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {"kw": {"hatchcolor": ["orange", "cyan", "blue", "magenta"]}, "steps": [], "rcparams": {"hatch.color": "green"}},
+   "value": [[1.0, 0.6470588235294118, 0.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {
+    "kw": {},
+    "steps": [["set_edgecolor", ["purple", "red", "green", "yellow"]], ["set_hatchcolor", ["orange", "cyan", "blue", "magenta"]]],
+    "rcparams": {"hatch.color": "edge"}
+   },
+   "value": [[1.0, 0.6470588235294118, 0.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {"kw": {}, "steps": [["set_edgecolor", ["purple", "red", "green", "yellow"]]], "rcparams": {"hatch.color": "edge"}},
+   "value": [[0.5019607843137255, 0.0, 0.5019607843137255, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.5019607843137255, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {
+    "kw": {},
+    "steps": [["set_hatchcolor", ["orange", "cyan", "blue", "magenta"]], ["set_edgecolor", ["purple", "red", "green", "yellow"]]],
+    "rcparams": {"hatch.color": "edge"}
+   },
+   "value": [[1.0, 0.6470588235294118, 0.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {"kw": {}, "steps": [["set_hatchcolor", ["orange", "cyan", "blue", "magenta"]]], "rcparams": {"hatch.color": "edge"}},
+   "value": [[1.0, 0.6470588235294118, 0.0, 1.0], [0.0, 1.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "collection.hatchcolors",
+   "args": {"kw": {}, "steps": [["set_edgecolor", ["purple", "red", "green", "yellow"]]], "rcparams": {"hatch.color": "green"}},
+   "value": [[0.0, 0.5019607843137255, 0.0, 1.0]]
+  },
+  {"op": "collection.hatchcolors", "args": {"kw": {}, "steps": [], "rcparams": {"hatch.color": "green"}}, "value": [[0.0, 0.5019607843137255, 0.0, 1.0]]},
+  {"op": "collection.hatchcolors", "args": {"kw": {}, "steps": [], "rcparams": {}}, "value": [[0.0, 0.0, 0.0, 1.0]]},
+  {
+   "op": "collection.legend_elements",
+   "args": {"sizes": [12, 45, 290, 103, 45, 210, 12, 77, 290, 160], "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2], "options": {"prop": "sizes", "alpha": 0.5, "color": "red"}},
+   "value": {
+    "labels": ["$\\mathdefault{12}$", "$\\mathdefault{45}$", "$\\mathdefault{77}$", "$\\mathdefault{103}$", "$\\mathdefault{160}$", "$\\mathdefault{210}$", "$\\mathdefault{290}$"],
+    "handles": 7
+   }
+  },
+  {
+   "op": "collection.legend_elements",
+   "args": {
+    "sizes": [12, 45, 290, 103, 45, 210, 12, 77, 290, 160],
+    "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2],
+    "options": {"prop": "sizes", "num": 4, "fmt": "{x:.2f}", "func": "double"}
+   },
+   "value": {"labels": ["100.00", "200.00", "300.00", "400.00", "500.00"], "handles": 5}
+  },
+  {
+   "op": "collection.legend_elements",
+   "args": {
+    "sizes": [12, 45, 290, 103, 45, 210, 12, 77, 290, 160],
+    "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2],
+    "options": {"num": [-1, 0, 55.4, 260], "prop": "sizes", "fmt": "{x:g}"}
+   },
+   "value": {"labels": ["55.4", "260"], "handles": 2}
+  },
+  {
+   "op": "collection.legend_elements",
+   "args": {"sizes": [12, 45, 290, 103, 45, 210, 12, 77, 290, 160], "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2], "options": {"fmt": "{x:g}"}},
+   "value": {"labels": ["0", "1", "2", "3", "4"], "handles": 5}
+  },
+  {
+   "op": "collection.legend_elements",
+   "args": {
+    "sizes": [12, 45, 290, 103, 45, 210, 12, 77, 290, 160],
+    "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2],
+    "options": {"prop": "sizes", "num": [0.2, 0.4, 0.6, 0.8], "func": "inverse5"}
+   },
+   "value": {"labels": ["$\\mathdefault{0.2}$", "$\\mathdefault{0.4}$"], "handles": 2}
+  },
+  {
+   "op": "collection.legend_elements",
+   "args": {
+    "sizes": [12.230612629533702, 19.93220529762078, 12.365160441693645, 21.31461323213481, 7.263099700564406, 7.652541207902118, 18.271756051775114, 19.163499770554772, 6.669444465309861, 18.356435583171038],
+    "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2],
+    "options": {"prop": "sizes", "num": [0.2, 0.4, 0.6, 0.8], "func": "inverse5"}
+   },
+   "value": {"labels": ["$\\mathdefault{0.4}$", "$\\mathdefault{0.6}$"], "handles": 2}
+  },
+  {
+   "op": "collection.legend_elements",
+   "args": {"sizes": [12, 45, 290, 103, 45, 210, 12, 77, 290, 160], "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2], "options": {"num": "auto", "prop": "sizes"}},
+   "value": {
+    "labels": ["$\\mathdefault{12}$", "$\\mathdefault{45}$", "$\\mathdefault{77}$", "$\\mathdefault{103}$", "$\\mathdefault{160}$", "$\\mathdefault{210}$", "$\\mathdefault{290}$"],
+    "handles": 7
+   }
+  },
+  {
+   "op": "collection.legend_elements",
+   "args": {"sizes": [12, 45, 290, 103, 45, 210, 12, 77, 290, 160], "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2], "options": {"num": 9}},
+   "value": {
+    "labels": ["$\\mathdefault{0.0}$", "$\\mathdefault{0.5}$", "$\\mathdefault{1.0}$", "$\\mathdefault{1.5}$", "$\\mathdefault{2.0}$", "$\\mathdefault{2.5}$", "$\\mathdefault{3.0}$", "$\\mathdefault{3.5}$", "$\\mathdefault{4.0}$"],
+    "handles": 9
+   }
+  },
+  {
+   "op": "collection.legend_elements",
+   "args": {"sizes": [12, 45, 290, 103, 45, 210, 12, 77, 290, 160], "values": [0, 3, 1, 4, 2, 0, 1, 3, 4, 2], "options": {}},
+   "value": {"labels": ["$\\mathdefault{0}$", "$\\mathdefault{1}$", "$\\mathdefault{2}$", "$\\mathdefault{3}$", "$\\mathdefault{4}$"], "handles": 5}
+  },
+  {
+   "op": "collection.limits",
+   "args": {"scene": "blended"},
+   "value": {"datalim": [[0.9999999999999999, 0.4], [4.999999999999999, 0.6]], "xlim": [0.7999999999999999, 5.199999999999999], "ylim": [0.39, 0.61]}
+  },
+  {"op": "collection.limits", "args": {"scene": "empty_scatter"}, "value": {"datalim": [[0.0, 0.0], [1.0, 1.0]], "xlim": [-0.05, 1.05], "ylim": [-0.05, 1.05]}},
+  {"op": "collection.limits", "args": {"scene": "paths_no_offsets"}, "value": {"datalim": [[-1.0, -3.0], [1.0, 2.0]], "xlim": [-1.1, 1.1], "ylim": [-3.25, 2.25]}},
+  {"op": "collection.limits", "args": {"scene": "scatter"}, "value": {"datalim": [[0.0, 0.0], [1.0, 1.0]], "xlim": [-0.05, 1.05], "ylim": [-0.05, 1.05]}},
+  {
+   "op": "collection.limits",
+   "args": {"scene": "singleton"},
+   "value": {"datalim": [[0.0, 0.0], [0.0, 0.0]], "xlim": [-0.05500000000000001, 0.05500000000000001], "ylim": [-0.05500000000000001, 0.05500000000000001]}
+  },
+  {"op": "collection.limits", "args": {"scene": "zeros_axes"}, "value": {"datalim": [[3.0, 3.0], [3.0, 3.0]], "xlim": [2.835, 3.165], "ylim": [2.835, 3.165]}},
+  {
+   "op": "collection.limits",
+   "args": {"scene": "zeros_data"},
+   "value": {"datalim": [[0.0, 0.0], [3.0, 3.0]], "xlim": [-0.15000000000000002, 3.15], "ylim": [-0.15000000000000002, 3.15]}
+  }
+ ]
+}

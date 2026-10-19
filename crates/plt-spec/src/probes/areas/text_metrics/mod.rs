@@ -13,7 +13,7 @@ mod fonts;
 mod glyphs;
 mod text;
 
-pub(crate) use args::{font_dict, with_rc};
+pub(crate) use args::{apply_text_kw, font_dict, rotation, with_rc};
 
 use crate::probes::Op;
 

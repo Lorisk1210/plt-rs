@@ -1,0 +1,58 @@
+{
+ "area": "tri_behaviour",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "tri.delaunay_offset", "args": {"offset": 0.0}, "value": 4},
+  {"op": "tri.delaunay_offset", "args": {"offset": 10000000000.0}, "value": 4},
+  {
+   "op": "tri.tripcolor",
+   "args": {"points": "diamond", "shading": "flat", "c": [0.5, 0.25, 4.0, -1.0], "clim": [0.0, 1.0]},
+   "value": {"kind": "flat", "clim": [0.0, 1.0], "faces": [[0.993248, 0.906157, 0.143936, 1.0], [0.267004, 0.004874, 0.329415, 1.0]]}
+  },
+  {
+   "op": "tri.tripcolor",
+   "args": {
+    "points": "random",
+    "shading": "flat",
+    "c": [0.7398170143550824, 0.44631372071427877, 0.05634290060212577, 0.10553884946949965, 0.5507421965815703, 0.8236880225223017, 0.19262026152797296, 0.20265946614874297, 0.11787766040917302, 0.9087449781683198],
+    "clim": [0.25, 0.75]
+   },
+   "value": {
+    "kind": "flat",
+    "clim": [0.25, 0.75],
+    "faces": [[0.120565, 0.596422, 0.543611, 1.0], [0.440137, 0.811138, 0.340967, 1.0], [0.458674, 0.816363, 0.329727, 1.0], [0.133743, 0.548535, 0.553541, 1.0], [0.197636, 0.391528, 0.554969, 1.0], [0.226397, 0.728888, 0.462789, 1.0], [0.275191, 0.194905, 0.496005, 1.0], [0.252194, 0.269783, 0.531579, 1.0], [0.282623, 0.140926, 0.457517, 1.0], [0.12478, 0.640461, 0.527068, 1.0], [0.143343, 0.522773, 0.556295, 1.0], [0.267004, 0.004874, 0.329415, 1.0]]
+   }
+  },
+  {
+   "op": "tri.tripcolor",
+   "args": {
+    "points": "random",
+    "shading": "gouraud",
+    "c": [0.7398170143550824, 0.44631372071427877, 0.05634290060212577, 0.10553884946949965, 0.5507421965815703, 0.8236880225223017, 0.19262026152797296, 0.20265946614874297, 0.11787766040917302, 0.9087449781683198],
+    "clim": [0.25, 0.75]
+   },
+   "value": {"kind": "gouraud", "clim": [0.25, 0.75], "faces": null}
+  },
+  {
+   "op": "tri.tripcolor",
+   "args": {"points": "diamond", "shading": "flat", "c": [1, 2, 3, 4]},
+   "value": {"kind": "flat", "clim": [2.3333333333333335, 3.0], "faces": [[0.993248, 0.906157, 0.143936, 1.0], [0.267004, 0.004874, 0.329415, 1.0]]}
+  },
+  {"op": "tri.tripcolor", "args": {"points": "diamond", "shading": "gouraud", "c": [1, 2, 3, 4]}, "value": {"kind": "gouraud", "clim": [1.0, 4.0], "faces": null}},
+  {"op": "tri.tripcolor", "args": {"points": "diamond", "shading": "flat", "c": [1, 2, 3]}, "error": "ValueError"},
+  {
+   "op": "tri.tripcolor",
+   "args": {"points": "diamond", "shading": "flat", "c": [1, 2]},
+   "value": {"kind": "flat", "clim": [1.0, 2.0], "faces": [[0.267004, 0.004874, 0.329415, 1.0], [0.993248, 0.906157, 0.143936, 1.0]]}
+  },
+  {"op": "tri.tripcolor", "args": {"points": "diamond", "shading": "gouraud", "c": [1, 2]}, "error": "ValueError"},
+  {"op": "tri.tripcolor", "args": {"points": "diamond", "shading": "flat", "facecolors": [1, 2, 3, 4]}, "error": "ValueError"},
+  {
+   "op": "tri.tripcolor",
+   "args": {"points": "diamond", "shading": "flat", "facecolors": [1, 2]},
+   "value": {"kind": "flat", "clim": [1.0, 2.0], "faces": [[0.267004, 0.004874, 0.329415, 1.0], [0.993248, 0.906157, 0.143936, 1.0]]}
+  },
+  {"op": "tri.tripcolor", "args": {"points": "diamond", "shading": "gouraud", "facecolors": [1, 2]}, "error": "ValueError"},
+  {"op": "tri.triplot_legend", "args": {}, "value": {"labels": ["label"], "handles": 1, "same_artist": true}}
+ ]
+}

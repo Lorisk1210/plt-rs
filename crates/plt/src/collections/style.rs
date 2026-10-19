@@ -1,14 +1,14 @@
-//! Colours, widths and dash patterns of collection items after defaults
-//! and colour mapping.
+//! Colours (faces, edges and hatches), widths and dash patterns of
+//! collection items after defaults and colour mapping.
 
 use plt_core::Rgba;
 use plt_render::Dashes;
 
 use super::{CollectionArtist, CollectionKind, EdgeColors};
 use crate::artist::Artist;
-use crate::colors::{Alpha, Color, to_rgba_array};
+use crate::colors::{Alpha, Color, ColorError, to_rgba_array};
 use crate::lines::LineStyle;
-use crate::rc::RcParams;
+use crate::rc::{ColorOrEdge, RcParams};
 
 /// Face and edge colours after defaults, colour mapping and alpha
 /// (matplotlib's `_set_facecolor`, `_set_edgecolor` and
@@ -64,18 +64,61 @@ pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgb
         (_, _, EdgeColors::Colors(colors)) => resolve(colors)?,
         (_, _, EdgeColors::Default) => {
             if rc.patch_force_edgecolor || edge_default || face_is_none {
-                let default = if c.kind == CollectionKind::Line {
-                    &rc.lines_color
-                } else {
-                    &rc.patch_edgecolor
-                };
-                resolve(std::slice::from_ref(default))?
+                resolve(std::slice::from_ref(default_edge(c)))?
             } else {
                 Vec::new()
             }
         }
     };
     Ok((faces, edges))
+}
+
+/// The hatch colours of a collection (matplotlib's `hatchcolor`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum HatchColors {
+    /// The edge colours, or the default edge colour of a collection
+    /// without edges (matplotlib's `"edge"`).
+    Edge,
+    /// Explicit colours, cycled over the items.
+    Colors(Vec<Color>),
+}
+
+impl HatchColors {
+    /// `hatch.color` as a collection takes it when it is made.
+    pub(super) fn from_rc(rc: &RcParams) -> Self {
+        match &rc.hatch_color {
+            ColorOrEdge::Edge => Self::Edge,
+            ColorOrEdge::Color(color) => Self::Colors(vec![color.clone()]),
+        }
+    }
+}
+
+/// The hatch colour of each item (matplotlib's
+/// `Collection.get_hatchcolor`): the resolved `edges` for
+/// [`HatchColors::Edge`], or the default edge colour when there are none;
+/// both the default and explicit colours take the collection's alpha.
+pub(super) fn resolve_hatch_colors(
+    c: &CollectionArtist,
+    edges: &[Rgba],
+) -> Result<Vec<Rgba>, ColorError> {
+    let alpha = c.base().alpha;
+    match &c.hatchcolors {
+        HatchColors::Edge if edges.is_empty() => Ok(vec![default_edge(c).resolve_alpha(alpha)?]),
+        HatchColors::Edge => Ok(edges.to_vec()),
+        HatchColors::Colors(colors) => colors
+            .iter()
+            .map(|color| color.resolve_alpha(alpha))
+            .collect(),
+    }
+}
+
+/// The edge colour a collection of its kind gets by default.
+fn default_edge(c: &CollectionArtist) -> &Color {
+    if c.kind == CollectionKind::Line {
+        &c.rc().lines_color
+    } else {
+        &c.rc().patch_edgecolor
+    }
 }
 
 /// Pairs line widths with dash patterns (cycling both to their least

@@ -12,7 +12,7 @@ use crate::figure::FigureState;
 use crate::spines::SpineArtist;
 use crate::text::TextArtist;
 use crate::ticker::AxisName;
-use crate::transforms::TransformContext;
+use crate::transforms::{Transform, TransformContext};
 
 impl FigureState {
     /// matplotlib's `ax.get_tightbbox(for_layout_only=...)` in display
@@ -168,7 +168,30 @@ fn child_tight_bbox(
     if fully_clipped(base, axes) {
         return None;
     }
+    if let Some(text) = layout.store().get_as::<TextArtist>(child)
+        && !in_data_domain(state, axes, text)
+    {
+        return None;
+    }
     clipped(layout, base, artist.window_extent(&layout)?)
+}
+
+/// Whether a text sits where its axes can show it: texts placed in the
+/// axes' data coordinates must lie in the domain of both scales (finite,
+/// and positive on a log axis), as matplotlib's `Text.get_tightbbox` asks
+/// `_point_in_data_domain`. Other texts always do.
+fn in_data_domain(state: &AxesState, axes: ArtistId, text: &TextArtist) -> bool {
+    if text.base().transform != Some(Transform::Data(axes)) {
+        return true;
+    }
+    state
+        .axis(AxisName::X)
+        .scale()
+        .val_in_range(text.position.x)
+        && state
+            .axis(AxisName::Y)
+            .scale()
+            .val_in_range(text.position.y)
 }
 
 /// A spine's extent, widened by the ticks of a visible axis drawn on it
@@ -262,6 +285,25 @@ mod tests {
         );
         let full = state.axes_tight_bbox(ax.id(), false).unwrap();
         assert!(full.width() >= tight.width());
+    }
+
+    #[test]
+    fn texts_outside_the_scale_domain_do_not_count() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_yscale("log").unwrap();
+        ax.set_ylim(1.0, 100.0);
+        let tight = |ax: &crate::axes::Axes| {
+            let mut state = ax.raw().figure_state().borrow_mut();
+            state.axes_tight_bbox(ax.id(), false).unwrap()
+        };
+        let without = tight(&ax);
+        for (x, y) in [(0.5, -5.0), (0.5, 0.0), (f64::NAN, 10.0)] {
+            ax.text(x, y, "outside").set_clip_on(false);
+        }
+        assert_eq!(tight(&ax), without);
+        ax.text(0.5, 1e-3, "below").set_clip_on(false);
+        assert!(tight(&ax).y0() < without.y0() - 100.0, "in the domain");
     }
 
     #[test]

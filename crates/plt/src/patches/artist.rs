@@ -4,16 +4,17 @@ use std::any::Any;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use plt_core::{Affine2D, Bbox, Path, Point};
+use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_render::{CapStyle, ClipPath, JoinStyle};
 
 use super::shape::{DisplayPath, PatchShape, ShapeFrame};
 use super::style::{PatchStyle, paint_paths};
 use super::{ClipRegion, PatchError, PatchProps};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, Picker,
+    RawHandle,
 };
-use crate::colors::Color;
+use crate::colors::{Color, ColorError};
 use crate::lines::LineStyle;
 use crate::rc::{ColorOrEdge, RcParams};
 use crate::transforms::Transform;
@@ -165,11 +166,26 @@ impl<S: PatchShape> PatchArtist<S> {
     /// the edge shows (matplotlib's `Patch.contains` with its default
     /// radius).
     fn hit_region(&self, ctx: LayoutContext<'_>) -> Option<ClipRegion> {
-        let radius = self
-            .style
+        self.region(ctx, self.edge_radius())
+    }
+
+    /// The edge width when the edge shows, else 0.
+    fn edge_radius(&self) -> f64 {
+        self.style
             .resolve(&self.rc, self.base.alpha, S::EDGE_DEFAULT)
-            .map_or(0.0, |resolved| resolved.hit_radius());
-        self.region(ctx, radius)
+            .map_or(0.0, |resolved| resolved.hit_radius())
+    }
+
+    /// The tolerance of a hit test given no radius (matplotlib's
+    /// `_process_radius(None)`): a numeric picker's radius, 1 pixel for
+    /// `picker=True` (the number 1 to Python), else the edge width when
+    /// the edge shows.
+    fn default_radius(&self) -> f64 {
+        match &self.base.picker {
+            Some(Picker::Radius(radius)) => *radius,
+            Some(Picker::Default) => 1.0,
+            Some(Picker::Custom(_)) | None => self.edge_radius(),
+        }
     }
 
     /// The outline in display space with tolerance `radius`.
@@ -236,18 +252,19 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
         self.hit_region(*ctx)
     }
 
-    /// matplotlib's `Patch.contains` as picking asks it: within the
-    /// picker's radius of a sub-path of the outline, 1 pixel for
-    /// [`Picker::Default`](crate::artist::Picker::Default) (matplotlib's
-    /// `picker=True` counts as the number 1).
+    /// matplotlib's `Patch.contains`: within `radius` of a sub-path of the
+    /// outline, or within the radius the picker implies (1 pixel for
+    /// [`Picker::Default`], as matplotlib's `picker=True` counts as the
+    /// number 1; the edge width of a visible edge without a numeric
+    /// picker).
     fn pick_hit(
         &self,
         ctx: &LayoutContext<'_>,
         at: Point,
         radius: Option<f64>,
     ) -> Option<Vec<usize>> {
-        self.encloses(*ctx, at, radius.unwrap_or(1.0))
-            .then(Vec::new)
+        let radius = radius.unwrap_or_else(|| self.default_radius());
+        self.encloses(*ctx, at, radius).then(Vec::new)
     }
 
     fn as_patch(&self) -> Option<PatchView<'_>> {
@@ -257,6 +274,17 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
             shape: &self.shape,
         })
     }
+}
+
+/// The colours a patch is painted with ([`Patch::colors`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PatchColors {
+    /// The face (transparent when the patch is not filled).
+    pub face: Rgba,
+    /// The edge.
+    pub edge: Rgba,
+    /// The hatch lines.
+    pub hatch: Rgba,
 }
 
 /// A handle to a patch whose geometry is an `S` (e.g. `Patch<Rectangle>`).
@@ -316,6 +344,24 @@ impl<S: PatchShape> Patch<S> {
     /// A copy of the edge/face/hatch properties.
     pub fn style(&self) -> PatchStyle {
         self.read(|p| p.style.clone())
+    }
+
+    /// The colours the patch is painted with, defaults and alpha applied
+    /// (matplotlib's `get_facecolor`, `get_edgecolor` and
+    /// `get_hatchcolor`).
+    ///
+    /// # Errors
+    ///
+    /// When a colour cannot be resolved.
+    pub fn colors(&self) -> Result<PatchColors, ColorError> {
+        self.read(|p| {
+            let resolved = p.style.resolve(&p.rc, p.base.alpha, S::EDGE_DEFAULT)?;
+            Ok(PatchColors {
+                face: resolved.face,
+                edge: resolved.edge,
+                hatch: resolved.hatch_color,
+            })
+        })
     }
 
     /// Sets every property `props` sets.
@@ -410,5 +456,43 @@ impl<S: PatchShape> Patch<S> {
     /// Enables or disables anti-aliasing.
     pub fn set_antialiased(&self, antialiased: bool) -> &Self {
         self.update(|p| p.style.antialiased = Some(antialiased))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::figure::Figure;
+    use crate::patches::Rectangle;
+
+    #[test]
+    fn colors_apply_the_default_rules() {
+        let fig = Figure::new();
+        let rect = fig.add_patch(Rectangle::new((0.0, 0.0), 0.5, 0.5));
+        rect.set_hatch("//").set_facecolor("none");
+        let colors = rect.colors().unwrap();
+        assert_eq!(colors.face, Rgba::TRANSPARENT);
+        assert_eq!(colors.edge.a, 0.0, "no edge without force_edgecolor");
+        assert_eq!(colors.hatch, Rgba::BLACK, "patch.edgecolor stands in");
+        rect.set_edgecolor("red");
+        assert_eq!(rect.colors().unwrap().hatch, Rgba::new(1.0, 0.0, 0.0, 1.0));
+        rect.set_hatchcolor("blue");
+        assert_eq!(rect.colors().unwrap().hatch, Rgba::new(0.0, 0.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn hit_tests_take_the_radius_the_picker_implies() {
+        let fig = Figure::with_size(2.0, 2.0, 100.0);
+        let rect = fig.add_patch(Rectangle::new((0.25, 0.25), 0.5, 0.5));
+        // The rectangle spans pixels 50 to 150; a radius r widens it by
+        // r / 2, as a stroke r wide would.
+        let near = Point::new(150.4, 100.0);
+        assert_eq!(rect.contains(near), None, "no edge, no tolerance");
+        rect.set_picker(Some(Picker::Default));
+        assert_eq!(rect.contains(near), Some(Vec::new()), "picker=True is 1 px");
+        rect.set_picker(None).set_edgecolor("black");
+        rect.set_linewidth(2.0);
+        assert!(rect.contains(Point::new(150.9, 100.0)).is_some());
+        assert_eq!(rect.contains(Point::new(151.1, 100.0)), None);
     }
 }

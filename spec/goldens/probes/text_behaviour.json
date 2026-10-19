@@ -1,0 +1,200 @@
+{
+ "area": "text_behaviour",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "text.annotate_coords", "args": {"xycoords": "axes foo"}, "error": "ValueError"},
+  {"op": "text.annotate_coords", "args": {"xycoords": "axes fraction"}, "value": true},
+  {"op": "text.annotate_coords", "args": {"xycoords": "data"}, "value": true},
+  {"op": "text.annotate_coords", "args": {"xycoords": "figure pixels"}, "value": true},
+  {"op": "text.annotate_coords", "args": {"xycoords": "foo bar"}, "error": "ValueError"},
+  {"op": "text.annotate_coords", "args": {"xycoords": "foo"}, "error": "ValueError"},
+  {"op": "text.annotate_coords", "args": {"xycoords": "offset foo"}, "error": "ValueError"},
+  {"op": "text.annotate_coords", "args": {"xycoords": "offset fraction"}, "error": "ValueError"},
+  {"op": "text.annotate_coords", "args": {"xycoords": "offset points"}, "error": "ValueError"},
+  {"op": "text.annotate_coords", "args": {"xycoords": "subfigure points"}, "value": true},
+  {"op": "text.get_rotation", "args": {"rotation": "horizontal"}, "value": 0.0},
+  {"op": "text.get_rotation", "args": {"rotation": "hozirontal"}, "error": "ValueError"},
+  {"op": "text.get_rotation", "args": {"rotation": "invalid string"}, "error": "ValueError"},
+  {"op": "text.get_rotation", "args": {"rotation": "vertical"}, "value": 90.0},
+  {"op": "text.get_rotation", "args": {"rotation": -30.0}, "value": 330.0},
+  {"op": "text.get_rotation", "args": {"rotation": -720.5}, "value": 359.5},
+  {"op": "text.get_rotation", "args": {"rotation": 0.0, "transform": [["rotate_deg", -45]]}, "value": 315.0},
+  {"op": "text.get_rotation", "args": {"rotation": 0.0, "transform": [["rotate_deg", 30]]}, "value": 29.999999999999993},
+  {"op": "text.get_rotation", "args": {"rotation": 0.0, "transform": [["skew_deg", 20, 0]]}, "value": 0.0},
+  {"op": "text.get_rotation", "args": {"rotation": 0.0}, "value": 0.0},
+  {"op": "text.get_rotation", "args": {"rotation": 10.0, "transform": [["rotate_deg", 30]]}, "value": 40.0},
+  {"op": "text.get_rotation", "args": {"rotation": 15.0}, "value": 15.0},
+  {"op": "text.get_rotation", "args": {"rotation": 16.7}, "value": 16.7},
+  {"op": "text.get_rotation", "args": {"rotation": 16}, "value": 16.0},
+  {"op": "text.get_rotation", "args": {"rotation": 30.0, "transform": [["scale", -1, 1]]}, "value": 150.0},
+  {"op": "text.get_rotation", "args": {"rotation": 359.9}, "value": 359.9},
+  {"op": "text.get_rotation", "args": {"rotation": 360.0}, "value": 0.0},
+  {"op": "text.get_rotation", "args": {"rotation": 377.0}, "value": 17.0},
+  {"op": "text.get_rotation", "args": {"rotation": 41}, "value": 41.0},
+  {"op": "text.get_rotation", "args": {"rotation": 45.0, "transform": [["scale", 1, 3]]}, "value": 71.56505117707799},
+  {"op": "text.get_rotation", "args": {"rotation": 67}, "value": 67.0},
+  {"op": "text.get_rotation", "args": {"rotation": 77.4}, "value": 77.4},
+  {"op": "text.get_rotation", "args": {"rotation": 897.2}, "value": 177.20000000000005},
+  {"op": "text.get_rotation", "args": {"rotation": Infinity}, "value": NaN},
+  {"op": "text.get_rotation", "args": {"rotation": NaN}, "value": NaN},
+  {"op": "text.get_rotation", "args": {"rotation": [90]}, "error": "ValueError"},
+  {"op": "text.get_rotation", "args": {"rotation": null}, "value": 0.0},
+  {"op": "text.scene", "args": {"scene": "annotation_contains"}, "value": [false, false, false, true, false, true, false]},
+  {
+   "op": "text.scene",
+   "args": {"scene": "annotation_text_only"},
+   "value": {"annotation": [[0.0, -3.336588541666668], [26.6875, 10.552300347222221]], "text": [[0.0, -3.336588541666668], [26.6875, 10.552300347222221]]}
+  },
+  {
+   "op": "text.scene",
+   "args": {"scene": "annotation_update"},
+   "value": {
+    "before": [[328.0, 234.2634114583333], [403.1875, 248.1523003472222]],
+    "after": [[330.38845486111114, 245.83089192708334], [405.57595486111114, 259.71978081597223]]
+   }
+  },
+  {
+   "op": "text.scene",
+   "args": {"scene": "annotation_with_arrow"},
+   "value": {"text": [[80.0, 49.463411458333326], [106.6875, 63.35230034722222]], "annotation": [[0.0, 34.339117792801154], [76.6875, 63.44105908420902]]}
+  },
+  {
+   "op": "text.scene",
+   "args": {"scene": "antialiased"},
+   "value": {"text": true, "set_false": false, "set_true": true, "annotation": true, "annotation_false": false}
+  },
+  {"op": "text.scene", "args": {"scene": "arrow_annotation"}, "value": [[0.0, 43.05555555555556], [50.0, 56.94444444444444]]},
+  {"op": "text.scene", "args": {"scene": "empty_annotation"}, "value": [[0.0, 50.0], [0.0, 50.0]]},
+  {
+   "op": "text.scene",
+   "args": {"scene": "non_default_dpi"},
+   "value": [
+    [[[328.0, 237.59999999999997], [328.0, 237.59999999999997]], [[3280.0, 2376.0], [3280.0, 2376.0]]],
+    [[[328.0, 237.59999999999997], [338.9375, 251.48888888888885]], [[3280.0, 2376.0], [3290.9375, 2514.8888888888887]]]
+   ],
+   "tol": 0.05
+  },
+  {"op": "text.scene", "args": {"scene": "nonfinite_positions"}, "value": "drawn"},
+  {
+   "op": "text.scene",
+   "args": {"scene": "null_rotation"},
+   "value": [
+    ["center", "center", [[314.65625, 230.6555555555555], [341.34375, 244.54444444444442]], [[314.65625, 230.6555555555555], [341.34375, 244.54444444444442]]],
+    ["center", "top", [[314.65625, 223.71111111111108], [341.34375, 237.59999999999997]], [[314.65625, 223.71111111111108], [341.34375, 237.59999999999997]]],
+    ["center", "bottom", [[314.65625, 237.59999999999997], [341.34375, 251.48888888888885]], [[314.65625, 237.59999999999997], [341.34375, 251.48888888888885]]],
+    ["center", "baseline", [[314.65625, 234.2634114583333], [341.34375, 248.1523003472222]], [[314.65625, 234.2634114583333], [341.34375, 248.1523003472222]]],
+    [
+     "center",
+     "center_baseline",
+     [[314.65625, 228.9872612847222], [341.34375, 242.87615017361108]],
+     [[314.65625, 228.9872612847222], [341.34375, 242.87615017361108]]
+    ],
+    ["right", "center", [[301.3125, 230.6555555555555], [328.0, 244.54444444444442]], [[301.3125, 230.6555555555555], [328.0, 244.54444444444442]]],
+    ["right", "top", [[301.3125, 223.71111111111108], [328.0, 237.59999999999997]], [[301.3125, 223.71111111111108], [328.0, 237.59999999999997]]],
+    ["right", "bottom", [[301.3125, 237.59999999999997], [328.0, 251.48888888888885]], [[301.3125, 237.59999999999997], [328.0, 251.48888888888885]]],
+    ["right", "baseline", [[301.3125, 234.2634114583333], [328.0, 248.1523003472222]], [[301.3125, 234.2634114583333], [328.0, 248.1523003472222]]],
+    ["right", "center_baseline", [[301.3125, 228.9872612847222], [328.0, 242.87615017361108]], [[301.3125, 228.9872612847222], [328.0, 242.87615017361108]]],
+    ["left", "center", [[328.0, 230.6555555555555], [354.6875, 244.54444444444442]], [[328.0, 230.6555555555555], [354.6875, 244.54444444444442]]],
+    ["left", "top", [[328.0, 223.71111111111108], [354.6875, 237.59999999999997]], [[328.0, 223.71111111111108], [354.6875, 237.59999999999997]]],
+    ["left", "bottom", [[328.0, 237.59999999999997], [354.6875, 251.48888888888885]], [[328.0, 237.59999999999997], [354.6875, 251.48888888888885]]],
+    ["left", "baseline", [[328.0, 234.2634114583333], [354.6875, 248.1523003472222]], [[328.0, 234.2634114583333], [354.6875, 248.1523003472222]]],
+    ["left", "center_baseline", [[328.0, 228.9872612847222], [354.6875, 242.87615017361108]], [[328.0, 228.9872612847222], [354.6875, 242.87615017361108]]]
+   ]
+  },
+  {
+   "op": "text.scene",
+   "args": {"scene": "offset_fontsize"},
+   "value": [
+    [[341.8888888888889, 248.1523003472222], [368.5763888888889, 262.04118923611105]],
+    [[341.8888888888889, 248.1523003472222], [368.5763888888889, 262.04118923611105]]
+   ]
+  },
+  {
+   "op": "text.scene",
+   "args": {"scene": "parse_math"},
+   "value": {"parse_math_false": "drawn", "parse_math_true": "error", "rc_default": "error", "rc_false": "drawn"}
+  },
+  {
+   "op": "text.scene",
+   "args": {"scene": "set_position"},
+   "value": {"before": [[0.0, -3.336588541666668], [26.6875, 10.552300347222221]], "after": [[15.0, 11.663411458333332], [41.6875, 25.55230034722222]]}
+  },
+  {
+   "op": "text.scene",
+   "args": {"scene": "suptitle_wrapped"},
+   "value": {"wrapped": [[12.484375, 253.97526041666666], [287.515625, 294.0]], "explicit": [[59.4765625, 253.97526041666666], [240.5234375, 294.0]]}
+  },
+  {"op": "text.scene", "args": {"scene": "tightbbox_log_domain"}, "value": [[0.4527777777777777, 0.29188888888888886], [5.8705468750000005, 4.289]]},
+  {
+   "op": "text.wrapped",
+   "args": {
+    "figsize": [18, 18],
+    "subfigure": true,
+    "x": 0.5,
+    "y": 0.7,
+    "text": "This is a very long text that should be wrapped multiple times.",
+    "kw": {"rotation": 0, "ha": "center"}
+   },
+   "value": "This is a very long text that should be wrapped multiple times."
+  },
+  {
+   "op": "text.wrapped",
+   "args": {
+    "figsize": [18, 18],
+    "subfigure": true,
+    "x": 0.7,
+    "y": 0.7,
+    "text": "This is a very long text that should be wrapped multiple times.",
+    "kw": {"rotation": 0, "ha": "left"}
+   },
+   "value": "This is a very long text\nthat should be wrapped\nmultiple times."
+  },
+  {
+   "op": "text.wrapped",
+   "args": {
+    "figsize": [18, 18],
+    "subfigure": true,
+    "x": 0.3,
+    "y": 0.7,
+    "text": "This is a very long text that should be wrapped multiple times.",
+    "kw": {"rotation": 185, "ha": "left"}
+   },
+   "value": "This is a very long text\nthat should be wrapped\nmultiple times."
+  },
+  {
+   "op": "text.wrapped",
+   "args": {
+    "figsize": [18, 18],
+    "subfigure": true,
+    "x": 0.5,
+    "y": 0.7,
+    "text": "This is a very long text that should be wrapped multiple times.",
+    "kw": {"rotation": 95, "ha": "left"}
+   },
+   "value": "This is a very long text\nthat should be wrapped\nmultiple times."
+  },
+  {
+   "op": "text.wrapped",
+   "args": {
+    "figsize": [18, 18],
+    "subfigure": true,
+    "x": 0.3,
+    "y": 0.7,
+    "text": "This is a very long text that should be wrapped multiple times.",
+    "kw": {"rotation": 0, "ha": "right"}
+   },
+   "value": "This is a very long text\nthat should be wrapped\nmultiple times."
+  },
+  {
+   "op": "text.wrapped",
+   "args": {"figsize": [5, 4], "subfigure": false, "x": 0, "y": 0.5, "text": "This is a very $\\overline{\\mathrm{long}}$ line of Mathtext.", "kw": {"size": 40}},
+   "value": "This is a very\n$\\overline{\\mathrm{long}}$ line of\nMathtext."
+  },
+  {
+   "op": "text.wrapped",
+   "args": {"figsize": [6, 4], "subfigure": false, "x": 9.5, "y": 8, "text": "Alonglineoftexttowrap", "kw": {}},
+   "value": "Alonglineoftexttowrap"
+  },
+  {"op": "text.wrapped", "args": {"figsize": [6, 4], "subfigure": false, "x": 0, "y": 0, "text": "non wrapped text", "kw": {}}, "value": "non wrapped text"}
+ ]
+}

@@ -24,16 +24,17 @@ use quad_mesh::MeshGeometry;
 pub use quad_mesh::MeshShading;
 pub(crate) use spec::Ellipses;
 pub use spec::{CollectionPatch, CollectionSpec, EllipseUnits};
+pub use style::HatchColors;
 pub(crate) use trimesh::TriMeshArtist;
 pub use trimesh::{TriMesh, TriMeshError, TriMeshSpec};
 
 use std::any::Any;
 use std::borrow::Cow;
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 use std::rc::Rc;
 
 use plt_core::path::{CollectionGeometry, DataLimits};
-use plt_core::{Affine2D, Bbox, Path, Point};
+use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_render::{CapStyle, JoinStyle};
 
 use crate::artist::{
@@ -163,6 +164,9 @@ pub(crate) struct CollectionArtist {
     pub(crate) alphas: Option<Vec<f64>>,
     pub(crate) antialiased: Option<Vec<bool>>,
     pub(crate) hatch: Option<String>,
+    /// The colours of the hatches (`hatch.color` when the collection was
+    /// made, unless set).
+    pub(crate) hatchcolors: HatchColors,
     pub(crate) capstyle: Option<CapStyle>,
     pub(crate) joinstyle: Option<JoinStyle>,
     pub(crate) mapping: Option<Mapped>,
@@ -202,6 +206,7 @@ impl CollectionArtist {
             alphas: None,
             antialiased: None,
             hatch: None,
+            hatchcolors: HatchColors::from_rc(&rc),
             capstyle: None,
             joinstyle: None,
             mapping: None,
@@ -383,6 +388,31 @@ impl Artist for CollectionArtist {
     }
 }
 
+/// The face, edge and hatch colours of a collection's items
+/// ([`Collection::colors`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct CollectionColors {
+    /// The face colours, cycled over the items.
+    pub faces: Vec<Rgba>,
+    /// The edge colours, cycled over the items.
+    pub edges: Vec<Rgba>,
+    /// The hatch colours, cycled over the items.
+    pub hatches: Vec<Rgba>,
+}
+
+/// Why the colours of a collection cannot be resolved: an invalid colour,
+/// or values the norm cannot map.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CollectionColorError(pub String);
+
+impl fmt::Display for CollectionColorError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "cannot resolve the collection's colours: {}", self.0)
+    }
+}
+
+impl std::error::Error for CollectionColorError {}
+
 /// A handle to a collection (matplotlib's `Collection` subclasses).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Collection {
@@ -476,6 +506,12 @@ impl Collection {
         self.update(|c| c.hatch = Some(pattern))
     }
 
+    /// Sets the hatch colours: the edge colours, or explicit colours
+    /// cycled over the items (matplotlib's `set_hatchcolor`).
+    pub fn set_hatchcolors(&self, colors: HatchColors) -> &Self {
+        self.update(|c| c.hatchcolors = colors)
+    }
+
     /// Maps `values` to face (or, for line collections, edge) colours; the
     /// collection's colorbars follow the new norm and colormap.
     pub fn set_mapping(&self, mapping: ColorMapping) -> &Self {
@@ -515,6 +551,27 @@ impl Collection {
             c.mapping
                 .as_ref()
                 .map_or((None, None), |mapped| mapped.source.mappable.clim())
+        })
+    }
+
+    /// The colours of the items, after defaults, colour mapping and alpha
+    /// (matplotlib's `get_facecolor`, `get_edgecolor` and `get_hatchcolor`
+    /// after `update_scalarmappable`); a lone `"none"` gives no face or
+    /// edge colours.
+    ///
+    /// # Errors
+    ///
+    /// When a colour is invalid or the norm cannot map the values.
+    pub fn colors(&self) -> Result<CollectionColors, CollectionColorError> {
+        self.raw.with::<CollectionArtist, _>(|c| {
+            let (faces, edges) = c.resolved_colors().map_err(CollectionColorError)?;
+            let hatches = style::resolve_hatch_colors(c, &edges)
+                .map_err(|err| CollectionColorError(err.to_string()))?;
+            Ok(CollectionColors {
+                faces,
+                edges,
+                hatches,
+            })
         })
     }
 

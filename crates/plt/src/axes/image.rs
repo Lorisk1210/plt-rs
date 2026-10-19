@@ -17,6 +17,7 @@ use crate::rc::Aspect;
 use crate::spines::SpineSide;
 use crate::text::Text;
 use crate::ticker::{MaxNLocator, Nbins};
+use crate::transforms::Transform;
 
 /// Options of [`Axes::imshow`] (matplotlib's keyword arguments); unset
 /// ones follow the `image.*` rc parameters.
@@ -43,6 +44,10 @@ pub struct ImshowOptions {
     pub filterrad: Option<f64>,
     /// Agg's full resampling when downsampling (`None` = `image.resample`).
     pub resample: Option<bool>,
+    /// The coordinates the extent is in (`None` = the axes' data
+    /// coordinates); outside data coordinates, the axes aspect is only set
+    /// when `aspect` is given (matplotlib's `transform`).
+    pub transform: Option<Transform>,
 }
 
 /// Options of [`Axes::nonuniform_image`] (matplotlib's `NonUniformImage`
@@ -105,14 +110,24 @@ impl Axes {
             alpha: options.alpha,
         };
         let (core, uniform) = ImageCore::build(data, settings, &rc)?;
-        self.set_aspect(options.aspect.unwrap_or(rc.image_aspect))?;
+        let in_data = options
+            .transform
+            .as_ref()
+            .is_none_or(|transform| transform.data_directions(self.id()) == (true, true));
+        if let Some(aspect) = options.aspect.or(in_data.then_some(rc.image_aspect)) {
+            self.set_aspect(aspect)?;
+        }
         let (rows, cols) = core.data.shape();
         let extent = options
             .extent
             .unwrap_or_else(|| Extent::default_for(rows, cols, core.resampling.origin));
         let mut artist = AxesImageArtist::new(core, extent);
         artist.base_mut().alpha = uniform;
-        Ok(self.add_image(artist))
+        let image = self.add_image(artist);
+        if let Some(transform) = options.transform {
+            image.set_transform(transform);
+        }
+        Ok(image)
     }
 
     /// Shows a matrix with row 0 on top, square cells, nearest-neighbour
@@ -262,6 +277,34 @@ mod tests {
         assert_eq!(ax.xlim(), (8.0, 0.0), "a reversed extent inverts x");
         assert_eq!(ax.ylim(), (0.0, 4.0));
         assert_eq!(image.sticky_edges(), (vec![8.0, 0.0], vec![0.0, 4.0]));
+        assert_eq!(ax.aspect(), Aspect::Ratio(1.0));
+    }
+
+    #[test]
+    fn images_outside_data_coordinates_leave_the_aspect_alone() {
+        let ax = Figure::new().subplot();
+        let at = |transform: Transform, aspect: Option<Aspect>| ImshowOptions {
+            transform: Some(transform),
+            aspect,
+            ..ImshowOptions::default()
+        };
+        let image = ax
+            .imshow(Grid::filled(2, 2, 1.0), at(ax.trans_axes(), None))
+            .unwrap();
+        assert_eq!(ax.aspect(), Aspect::Auto);
+        assert_eq!(
+            image.raw().with_base(|b| b.transform.clone()),
+            Some(ax.trans_axes())
+        );
+        ax.imshow(
+            Grid::filled(2, 2, 1.0),
+            at(ax.trans_axes(), Some(Aspect::Ratio(2.0))),
+        )
+        .unwrap();
+        assert_eq!(ax.aspect(), Aspect::Ratio(2.0));
+        let scaled = Transform::Affine(plt_core::Affine2D::scaling(2.0, 2.0)).then(ax.trans_data());
+        ax.imshow(Grid::filled(2, 2, 1.0), at(scaled, None))
+            .unwrap();
         assert_eq!(ax.aspect(), Aspect::Ratio(1.0));
     }
 

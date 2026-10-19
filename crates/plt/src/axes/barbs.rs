@@ -3,8 +3,9 @@
 use plt_core::Path;
 
 use super::children::DataUpdate;
+use super::scatter::data_offsets;
 use super::{Axes, DataLimits, PlotError};
-use crate::artist::Artist;
+use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
 use crate::colors::Color;
 use crate::quiver::{BarbFlip, BarbsOptions, VectorField, barb_outlines, retained};
@@ -76,9 +77,11 @@ impl Axes {
         collection.sizes = Some(vec![options.length * options.length / 4.0]);
         collection.base_mut().transform = Some(Transform::Display);
         collection.offsets.clone_from(&points.xy);
-        collection.offset_transform = Some(self.trans_data());
+        let positions = options.transform.unwrap_or_else(|| self.trans_data());
+        let data_positions = data_offsets(&positions, self.id(), &points.xy);
+        collection.offset_transform = Some(positions);
         let mut limits = DataLimits::NULL;
-        limits.update_from_points(&points.xy, true, true);
+        limits.update_from_points(&data_positions.unwrap_or_default(), true, true);
         let barbs = Collection::from_raw(self.adopt(collection, &DataUpdate::limits(limits)));
         if let Some(mapping) = points.colors.take() {
             barbs.set_mapping(mapping);
@@ -91,7 +94,8 @@ impl Axes {
 mod tests {
     use crate::axes::MappedColors;
     use crate::figure::Figure;
-    use crate::quiver::{BarbsOptions, VectorField};
+    use crate::quiver::{BarbsOptions, QuiverOptions, VectorField};
+    use crate::transforms::Transform;
 
     #[test]
     fn masked_barbs_are_dropped_with_their_flags() {
@@ -114,6 +118,29 @@ mod tests {
         // the rotation into a westerly wind turns it to -y.
         let first = &barbs.paths()[0];
         assert!(first.vertices().iter().any(|p| p.y < -1.0));
+    }
+
+    #[test]
+    fn positions_count_where_their_transform_puts_them() {
+        let ax = Figure::new().subplot();
+        let shifted =
+            Transform::Affine(plt_core::Affine2D::translation(25.0, 32.0)).then(ax.trans_data());
+        let options = BarbsOptions {
+            transform: Some(shifted),
+            ..BarbsOptions::default()
+        };
+        let field = VectorField::new([-5.0, 10.0], [-2.0, 4.0], [1.0, 1.0], [1.0, 1.0]);
+        ax.barbs(field, options).unwrap();
+        let limits = ax.data_lim().bbox;
+        assert_eq!((limits.p0.x, limits.p0.y), (20.0, 30.0));
+        assert_eq!((limits.p1.x, limits.p1.y), (35.0, 36.0));
+        let options = QuiverOptions {
+            transform: Some(ax.trans_axes()),
+            ..QuiverOptions::default()
+        };
+        let field = VectorField::new([100.0], [100.0], [1.0], [1.0]);
+        ax.quiver(field, options).unwrap();
+        assert_eq!(ax.data_lim().bbox, limits, "axes positions do not count");
     }
 
     #[test]

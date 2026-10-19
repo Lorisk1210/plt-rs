@@ -1,6 +1,6 @@
 //! Property sets for new collections (matplotlib's collection `**kwargs`).
 
-use super::{CollectionArtist, EdgeColors};
+use super::{CollectionArtist, EdgeColors, HatchColors};
 use crate::artist::{Artist, BaseProps};
 use crate::colors::Color;
 use crate::lines::LineStyle;
@@ -23,6 +23,8 @@ pub struct CollectionProps {
     pub linestyles: Option<Vec<LineStyle>>,
     /// Hatch pattern of every item.
     pub hatch: Option<String>,
+    /// Hatch colours (default: `hatch.color`).
+    pub hatchcolors: Option<HatchColors>,
     /// Anti-aliasing per item.
     pub antialiased: Option<Vec<bool>>,
 }
@@ -98,6 +100,9 @@ impl CollectionProps {
         }
         if self.hatch.is_some() {
             collection.hatch = self.hatch;
+        }
+        if let Some(colors) = self.hatchcolors {
+            collection.hatchcolors = colors;
         }
         if self.antialiased.is_some() {
             collection.antialiased = self.antialiased;

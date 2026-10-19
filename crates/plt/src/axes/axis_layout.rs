@@ -572,3 +572,40 @@ pub(crate) fn place_text(
         color,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::artist::ArtistHandle;
+    use crate::axes::{Axes, TickParams};
+    use crate::figure::Figure;
+
+    /// The top of the x axis label of `ax`.
+    fn xlabel_top(fig: &Figure, ax: &Axes) -> f64 {
+        fig.layout();
+        let state = fig.raw().figure_state().borrow();
+        let axes = state.store.get_as::<AxesState>(ax.id()).expect("an axes");
+        let texts = AxisPainter::new(ax.id(), axes, AxisName::X)
+            .texts(LayoutContext::new(&state), &axes.rc);
+        texts.label.expect("a label").bbox().y1()
+    }
+
+    #[test]
+    fn empty_tick_labels_keep_the_axis_label_beyond_their_anchors() {
+        // matplotlib measures an empty tick label as a box of no size at
+        // its anchor, the tick pad below the ticks.
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_xlabel("x");
+        ax.set_xticklabels(Vec::<String>::new())
+            .expect("no labels fit any ticks");
+        let empty = xlabel_top(&fig, &ax);
+        ax.tick_params(&TickParams {
+            labelbottom: Some(false),
+            ..TickParams::default()
+        });
+        let hidden = xlabel_top(&fig, &ax);
+        let pad = 3.5 * fig.dpi() / 72.0;
+        assert!((hidden - empty - pad).abs() < 1e-9, "{hidden} - {empty}");
+    }
+}

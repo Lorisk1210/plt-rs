@@ -116,10 +116,7 @@ impl AxesState {
             items.push((self.axis_zorder, Item::Axis(id, AxisName::X)));
             items.push((self.axis_zorder, Item::Axis(id, AxisName::Y)));
         }
-        // `titles` holds the left, centre and right title.
-        let titles = [1, 0, 2]
-            .into_iter()
-            .filter_map(|i| self.titles.get(i).copied());
+        let titles = self.titles_centre_first();
         let child_axes =
             self.children.iter().copied().filter(|&child| {
                 store.get_as::<Self>(child).is_some() && !is_parasite(store, child)

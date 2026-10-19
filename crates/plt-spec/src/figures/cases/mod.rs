@@ -24,6 +24,7 @@ mod mpl_axes_c;
 mod mpl_axes_d;
 mod mpl_backends;
 mod mpl_collections;
+mod mpl_figure;
 mod mpl_image;
 mod mpl_lines;
 mod mpl_polar;
@@ -157,6 +158,7 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_axes_d::cases(),
         &mpl_backends::cases(),
         &mpl_collections::cases(),
+        &mpl_figure::cases(),
         &mpl_image::cases(),
         &mpl_lines::cases(),
         &mpl_polar::cases(),

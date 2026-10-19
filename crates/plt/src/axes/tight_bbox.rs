@@ -173,7 +173,7 @@ fn child_tight_bbox(
     {
         return None;
     }
-    clipped(layout, base, artist.window_extent(&layout)?)
+    clipped_extent(layout, base, artist.window_extent(&layout)?)
 }
 
 /// Whether a text sits where its axes can show it: texts placed in the
@@ -216,8 +216,13 @@ fn fully_clipped(base: &ArtistBase, axes: ArtistId) -> bool {
     base.clip_on && base.clip_path.is_none() && base.clip_box == Some(axes)
 }
 
-/// `bbox` reduced by the artist's clip box and clip path.
-fn clipped(layout: LayoutContext<'_>, base: &ArtistBase, bbox: Bbox) -> Option<Bbox> {
+/// `bbox` reduced by the artist's clip box and clip path (the clipping
+/// part of matplotlib's `Artist.get_tightbbox`).
+pub(crate) fn clipped_extent(
+    layout: LayoutContext<'_>,
+    base: &ArtistBase,
+    bbox: Bbox,
+) -> Option<Bbox> {
     if !base.clip_on {
         return Some(bbox);
     }

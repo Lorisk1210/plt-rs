@@ -34,6 +34,9 @@ pub struct MosaicOptions {
     pub sharex: bool,
     /// Share the y axis of every axes with the first one.
     pub sharey: bool,
+    /// Make every axes polar (matplotlib's
+    /// `subplot_kw={"projection": "polar"}`).
+    pub polar: bool,
 }
 
 /// The axes of a mosaic, by label, in creation order.
@@ -316,7 +319,7 @@ impl Figure {
             SubplotOverrides::default(),
         )?;
         let mut entries = Vec::new();
-        self.lay_out_mosaic(&grid, mosaic, &mut entries)?;
+        self.lay_out_mosaic(&grid, mosaic, options.polar, &mut entries)?;
         if let Some((_, first)) = entries.first().cloned() {
             for (share, name) in [(options.sharex, AxisName::X), (options.sharey, AxisName::Y)] {
                 if !share {
@@ -336,6 +339,7 @@ impl Figure {
         &self,
         grid: &GridSpec,
         mosaic: &Mosaic,
+        polar: bool,
         entries: &mut Vec<(String, Axes)>,
     ) -> Result<(), MosaicError> {
         for region in mosaic.regions()? {
@@ -344,7 +348,13 @@ impl Figure {
                     if entries.iter().any(|(name, _)| name == label) {
                         return Err(MosaicError::Duplicate(label.to_owned()));
                     }
-                    let ax = self.add_subplot_spec(&grid.span(rows, cols)?)?;
+                    let spec = grid.span(rows, cols)?;
+                    let ax = if polar {
+                        let polar_axes = self.add_polar_subplot_spec(&spec)?;
+                        Axes::clone(&polar_axes)
+                    } else {
+                        self.add_subplot_spec(&spec)?
+                    };
                     entries.push((label.to_owned(), ax));
                 }
                 Region::Nested { row, col, inner } => {
@@ -357,7 +367,7 @@ impl Figure {
                         None,
                         (None, None),
                     )?;
-                    self.lay_out_mosaic(&sub, inner, entries)?;
+                    self.lay_out_mosaic(&sub, inner, polar, entries)?;
                 }
             }
         }

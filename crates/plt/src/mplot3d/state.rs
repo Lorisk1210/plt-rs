@@ -7,7 +7,7 @@ use plt_core::{Anchor, Bbox, Path};
 
 use super::art3d::{Artist3D, SortKind};
 use super::aspect::AspectSettings;
-use super::axis_draw::draw_axes;
+use super::axis_draw::{axis_extents, draw_axes};
 use super::axis3d::Axis3DState;
 use super::camera::{Camera, Projection};
 use super::coords::Axis3;
@@ -267,6 +267,39 @@ pub(crate) fn axes3d_bbox(figure: &FigureState, id: ArtistId) -> Option<Bbox> {
     )
 }
 
+/// Whether artist `id` is a 3-D axes.
+pub(crate) fn is_axes3d(store: &ArtistStore, id: ArtistId) -> bool {
+    store.get_as::<Axes3DState>(id).is_some()
+}
+
+/// The extent of a visible 3-D axes for tight boxes: its box, the lines
+/// and texts of its axes when shown, and its titles (matplotlib's
+/// `Axes3D.get_tightbbox`).
+pub(crate) fn axes3d_tight_bbox(figure: &FigureState, id: ArtistId) -> Option<Bbox> {
+    let axes = figure.store.get_as::<Axes3DState>(id)?;
+    if !axes.base.visible {
+        return None;
+    }
+    let extent = figure.axes_bbox(id)?;
+    let layout = LayoutContext::new(figure);
+    let mut boxes = vec![extent];
+    if axes.axis_on {
+        boxes.extend(axis_extents(axes, layout, &extent));
+    }
+    if let Some(plane) = figure.store.get_as::<AxesState>(axes.plane) {
+        boxes.extend(
+            plane
+                .titles
+                .iter()
+                .filter_map(|&title| figure.store.get(title))
+                .filter(|title| title.base().visible)
+                .filter_map(|title| title.window_extent(&layout))
+                .filter(|bbox| bbox.width() != 0.0 || bbox.height() != 0.0),
+        );
+    }
+    boxes.into_iter().reduce(|a, b| a.union(&b))
+}
+
 /// The layout pass of every 3-D axes of a figure (called from
 /// [`FigureState::prepare`]).
 pub(crate) fn prepare_axes3d(figure: &mut FigureState) {
@@ -283,5 +316,32 @@ pub(crate) fn prepare_axes3d(figure: &mut FigureState) {
         figure
             .store
             .with_detached::<Axes3DState, _>(id, |axes, store| axes.prepare(store, &extent, dpi));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::figure::Figure;
+
+    #[test]
+    fn tight_boxes_take_in_the_axes_of_3d_axes() {
+        // matplotlib's test_tightbbox_box_aspect: the tick labels of the
+        // axes reach beyond the box of the 3-D axes, a label further.
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot_3d();
+        ax.set_axis_off();
+        let bare = fig.tight_bbox();
+        ax.set_axis_on();
+        let with_axes = fig.tight_bbox();
+        assert!(
+            with_axes.width() > bare.width() + 0.1,
+            "{with_axes:?} vs {bare:?}"
+        );
+        ax.set_zlabel("z");
+        let labelled = fig.tight_bbox();
+        assert!(
+            labelled.x1() > with_axes.x1(),
+            "{labelled:?} vs {with_axes:?}"
+        );
     }
 }

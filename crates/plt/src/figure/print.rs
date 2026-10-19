@@ -9,7 +9,7 @@ use super::frame::FigureFrame;
 use super::save::{SaveError, SaveFormat};
 use super::{DrawErrors, Figure, FigureState};
 use crate::artist::{ArtistId, LayoutContext};
-use crate::axes::{Axes, AxesState};
+use crate::axes::{Axes, AxesState, clipped_extent};
 use crate::colors::Color;
 use crate::rc::{ColorOrAuto, Dpi, SavefigBbox};
 
@@ -72,6 +72,8 @@ impl FigureState {
                     frames.push(child);
                 } else if self.store.get_as::<AxesState>(child).is_some() {
                     axes.push(child);
+                } else if crate::mplot3d::is_axes3d(&self.store, child) {
+                    boxes.extend(crate::mplot3d::axes3d_tight_bbox(self, child));
                 } else {
                     boxes.extend(self.artist_extent(child));
                 }
@@ -92,13 +94,16 @@ impl FigureState {
     }
 
     /// The extent of a visible figure-level artist that takes part in
-    /// layout.
+    /// layout, reduced by its clipping (matplotlib's
+    /// `Artist.get_tightbbox`).
     fn artist_extent(&self, id: ArtistId) -> Option<Bbox> {
         let artist = self.store.get(id)?;
         let base = artist.base();
-        (base.visible && base.in_layout)
-            .then(|| artist.window_extent(&LayoutContext::new(self)))
-            .flatten()
+        if !(base.visible && base.in_layout) {
+            return None;
+        }
+        let layout = LayoutContext::new(self);
+        clipped_extent(layout, base, artist.window_extent(&layout)?)
     }
 }
 
@@ -108,16 +113,48 @@ struct Saving<'a> {
     figure: &'a Figure,
     dpi: f64,
     colors: (Rgba, Rgba),
+    /// The background and border colours of the subfigures made
+    /// transparent.
+    subfigure_colors: Vec<(Figure, Rgba, Rgba)>,
+    /// The backgrounds of the axes made transparent.
     axes_faces: Vec<(Axes, Color)>,
+}
+
+impl Saving<'_> {
+    /// Leaves out the backgrounds of every subfigure and axes, insets
+    /// included, for a transparent save (matplotlib's
+    /// `_recursively_make_subfig_transparent` and
+    /// `_recursively_make_axes_transparent`).
+    fn make_transparent(&mut self) {
+        for sub in self.figure.subfigures_nested() {
+            self.subfigure_colors
+                .push((sub.clone(), sub.facecolor(), sub.edgecolor()));
+            sub.set_facecolor(Rgba::TRANSPARENT)
+                .set_edgecolor(Rgba::TRANSPARENT);
+        }
+        let mut pending = self.figure.axes();
+        while let Some(ax) = pending.pop() {
+            pending.extend(ax.child_axes());
+            self.axes_faces.push((ax.clone(), ax.facecolor()));
+            ax.set_facecolor(Color::none());
+        }
+    }
 }
 
 impl Drop for Saving<'_> {
     fn drop(&mut self) {
         let figure = self.figure;
-        figure.state_mut().print_window = None;
+        {
+            let mut state = figure.state_mut();
+            state.print_window = None;
+            state.saving = false;
+        }
         figure.set_dpi(self.dpi);
         figure.set_facecolor(self.colors.0);
         figure.set_edgecolor(self.colors.1);
+        for (sub, face, edge) in &self.subfigure_colors {
+            sub.set_facecolor(*face).set_edgecolor(*edge);
+        }
         for (ax, face) in &self.axes_faces {
             ax.set_facecolor(face.clone());
         }
@@ -175,22 +212,17 @@ impl Figure {
         });
         let canvas_dpi = canvas_dpi.unwrap_or(dpi);
         let transparent = options.transparent.unwrap_or(rc.savefig_transparent);
-        let saving = Saving {
+        let mut saving = Saving {
             figure: self,
             dpi: self.dpi(),
             colors: (self.facecolor(), self.edgecolor()),
-            axes_faces: if transparent {
-                self.axes()
-                    .into_iter()
-                    .map(|ax| {
-                        let face = ax.facecolor();
-                        (ax, face)
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            },
+            subfigure_colors: Vec::new(),
+            axes_faces: Vec::new(),
         };
+        self.state_mut().saving = true;
+        if transparent {
+            saving.make_transparent();
+        }
         let (face, edge) = if transparent {
             (Rgba::TRANSPARENT, Rgba::TRANSPARENT)
         } else {
@@ -206,12 +238,13 @@ impl Figure {
         self.set_dpi(canvas_dpi)
             .set_facecolor(face)
             .set_edgecolor(edge);
-        for (ax, _) in &saving.axes_faces {
-            ax.set_facecolor(Color::none());
-        }
         let bbox = options
             .bbox_inches
             .or_else(|| (rc.savefig_bbox == SavefigBbox::Tight).then_some(BboxInches::Tight));
+        if bbox.is_some() {
+            // The layout the window is cut from, at the print resolution.
+            self.layout();
+        }
         let window = match bbox {
             None => None,
             Some(BboxInches::Inches(bbox)) => Some(bbox),
@@ -319,6 +352,7 @@ impl Figure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::artist::{ArtistHandle, ClipPathSpec};
 
     #[test]
     fn tight_saves_crop_to_the_drawing() {
@@ -336,6 +370,50 @@ mod tests {
         // The background reaches the corners and the figure is restored.
         assert_eq!(cropped.pixel(0, 0), Some([255, 255, 255, 255]));
         assert_eq!(fig.size_pixels(), (300.0, 200.0));
+    }
+
+    #[test]
+    fn tight_boxes_take_the_clipping_of_figure_artists() {
+        // matplotlib's test_bbox_inches_tight_clipping: a huge patch
+        // clipped to a small path adds only the path's extent.
+        let fig = Figure::with_size(4.0, 3.0, 50.0);
+        let patch = fig.add_patch(crate::patches::Rectangle::new((-50.0, -50.0), 100.0, 100.0));
+        patch.set_clip_path(Some(ClipPathSpec::Path {
+            path: plt_core::Path::unit_rectangle(),
+            transform: crate::transforms::Transform::Inches,
+        }));
+        assert_eq!(fig.tight_bbox(), Bbox::from_extents(0.0, 0.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn tight_saves_keep_the_layout_they_were_cut_from() {
+        // matplotlib's test_bboxtight: the layout engine does not run again
+        // on the cropped canvas, so the window still frames the axes.
+        let fig = Figure::with_size(4.0, 3.0, 50.0);
+        let layout = crate::layout::ConstrainedLayout::from_rc(&crate::rc::params());
+        fig.set_layout_engine(Some(crate::layout::LayoutEngine::Constrained(layout)));
+        let ax = fig.subplot();
+        ax.set_aspect(crate::rc::Aspect::Ratio(1.0)).unwrap();
+        ax.set_facecolor("k");
+        ax.set_xticks(Vec::<f64>::new())
+            .set_yticks(Vec::<f64>::new());
+        let options = SaveOptions {
+            bbox_inches: Some(BboxInches::Tight),
+            pad_inches: Some(0.0),
+            ..SaveOptions::default()
+        };
+        let image = fig.render_raster_with(&options).unwrap().to_image();
+        let (w, h) = (image.width(), image.height());
+        for (x, y) in [
+            (1, 1),
+            (w - 2, 1),
+            (1, h - 2),
+            (w - 2, h - 2),
+            (w / 2, h / 2),
+        ] {
+            let pixel = image.pixel(x, y).unwrap();
+            assert!(pixel[0] < 64, "({x}, {y}) is {pixel:?}");
+        }
     }
 
     #[test]
@@ -360,6 +438,56 @@ mod tests {
             Color::none(),
             "axes colour restored"
         );
+    }
+
+    #[test]
+    fn transparency_reaches_insets_and_subfigures() {
+        // matplotlib's test_savefig_transparent: nothing of the inset
+        // axes or of the coloured subfigure is drawn.
+        let fig = Figure::with_size(2.0, 2.0, 50.0);
+        let grid = crate::gridspec::GridSpec::new(1, 1).unwrap();
+        let sub = fig.add_subfigure(&grid.cell(0, 0).unwrap());
+        sub.set_facecolor(Rgba::new(1.0, 0.0, 0.0, 1.0));
+        let ax = sub.add_axes([0.0, 0.0, 1.0, 1.0]);
+        ax.set_axis_off();
+        let inset = ax.inset_axes([0.25, 0.25, 0.5, 0.5]);
+        let nested = inset.inset_axes([0.25, 0.25, 0.5, 0.5]);
+        for inner in [&inset, &nested] {
+            inner
+                .set_xticks(Vec::<f64>::new())
+                .set_yticks(Vec::<f64>::new());
+            for spine in inner.spines().iter() {
+                spine.set_visible(false);
+            }
+        }
+        let options = SaveOptions {
+            transparent: Some(true),
+            ..SaveOptions::default()
+        };
+        let image = fig.render_raster_with(&options).unwrap().to_image();
+        assert_eq!(image.pixel(50, 50).map(|p| p[3]), Some(0), "centre");
+        assert_eq!(image.pixel(5, 5).map(|p| p[3]), Some(0), "subfigure");
+        assert_eq!(sub.facecolor(), Rgba::new(1.0, 0.0, 0.0, 1.0), "restored");
+        assert_ne!(inset.facecolor(), Color::none(), "inset restored");
+    }
+
+    #[test]
+    fn saves_draw_the_animated_artists_of_axes() {
+        // matplotlib's test_animated_with_canvas_change: blitting leaves
+        // animated artists to the program, saving draws them.
+        let fig = Figure::with_size(1.0, 1.0, 50.0);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        ax.set_axis_off();
+        let props = crate::lines::LineProps::default().linewidth(20.0);
+        ax.plot_with(vec![0.0, 1.0], vec![0.5, 0.5], props)
+            .unwrap()
+            .set_animated(true);
+        let centre = |canvas: &RasterRenderer| canvas.to_image().pixel(25, 25);
+        let mut canvas = fig.raster_canvas().unwrap();
+        fig.draw(&mut canvas).unwrap();
+        assert_eq!(centre(&canvas), Some([255, 255, 255, 255]), "left out");
+        let saved = fig.render_raster().unwrap();
+        assert_ne!(centre(&saved), Some([255, 255, 255, 255]), "drawn");
     }
 
     #[test]

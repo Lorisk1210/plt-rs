@@ -24,6 +24,7 @@ mod align;
 mod constrained;
 mod grid;
 mod tight;
+mod tight_grid;
 
 pub use constrained::ConstrainedLayout;
 pub use tight::{TightLayout, TightLayoutError};
@@ -144,7 +145,10 @@ impl FigureState {
     /// Runs the layout engine if a layout pass is due: after the figure
     /// changed, and before every draw.
     pub(crate) fn run_pending_layout(&mut self) {
-        if !std::mem::take(&mut self.layout.pending) {
+        // A window of the figure being printed was measured on the last
+        // layout, which the print keeps (matplotlib turns the layout
+        // engine off while printing).
+        if !std::mem::take(&mut self.layout.pending) || self.print_window.is_some() {
             return;
         }
         match self.layout.engine {

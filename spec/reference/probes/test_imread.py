@@ -24,57 +24,24 @@ Ops
     ``(M, N, 4)`` for RGBA; errors are ``{"error": "<ExceptionType>"}``.
 """
 
-import base64
-import io
 import struct
 import zlib
 
 import numpy as np
-from matplotlib import image
 from PIL import Image
 
 from spec_support import ProbeSet, rng
+from spec_support.images import noise, pillow_bytes, probe_imread, ramp_rgb
 
 probes = ProbeSet("imread")
 
 
-def _imread(data, format, case):
-    return image.imread(io.BytesIO(base64.b64decode(data)), format=format).tolist()
+def _gray(width, height, seed=2):
+    return ramp_rgb(width, height, seed)[:, :, 1]
 
 
 def _probe(format, case, data):
-    return probes.probe("image.imread", _imread, data=base64.b64encode(data).decode("ascii"),
-                        format=format, case=case)
-
-
-# --------------------------------------------------------------------------
-# Pixels
-
-def _rgb(width, height, seed=1):
-    """Smooth colour ramps with some deterministic noise."""
-    y, x = np.mgrid[0:height, 0:width]
-    base = np.stack([
-        128 + 100 * np.sin(0.35 * x + 0.1 * y),
-        (9 * x + 5 * y) % 256,
-        128 + 90 * np.cos(0.2 * x - 0.3 * y),
-    ], axis=-1)
-    noise = rng(seed).integers(width * height * 3, -24, 24).reshape(height, width, 3)
-    return np.clip(base + noise, 0, 255).astype(np.uint8)
-
-
-def _noise(width, height, channels, seed):
-    values = rng(seed).integers(width * height * channels, 0, 256)
-    return values.astype(np.uint8).reshape(height, width, channels)
-
-
-def _gray(width, height, seed=2):
-    return _rgb(width, height, seed)[:, :, 1]
-
-
-def _pillow(im, format, **options):
-    buffer = io.BytesIO()
-    im.save(buffer, format, **options)
-    return buffer.getvalue()
+    return probe_imread(probes, format, case, data)
 
 
 # --------------------------------------------------------------------------
@@ -82,13 +49,13 @@ def _pillow(im, format, **options):
 
 def _jpeg(array, **options):
     """A JPEG of an (H, W) or (H, W, 3) uint8 array written by Pillow."""
-    return _pillow(Image.fromarray(array), "JPEG", **options)
+    return pillow_bytes(Image.fromarray(array), "JPEG", **options)
 
 
 def _cmyk(array, **options):
     """A CMYK JPEG of an (H, W, 4) uint8 array written by Pillow."""
     height, width, _ = array.shape
-    return _pillow(Image.frombytes("CMYK", (width, height), array.tobytes()), "JPEG", **options)
+    return pillow_bytes(Image.frombytes("CMYK", (width, height), array.tobytes()), "JPEG", **options)
 
 
 def _segments(data):
@@ -156,29 +123,29 @@ def _scan_offsets(data):
 def test_jpeg_baseline():
     for quality in (10, 50, 75, 95):
         for subsampling in ("4:4:4", "4:2:2", "4:2:0"):
-            data = _jpeg(_rgb(17, 9), quality=quality, subsampling=subsampling)
+            data = _jpeg(ramp_rgb(17, 9), quality=quality, subsampling=subsampling)
             _probe("jpeg", f"baseline q{quality} {subsampling} 17x9", data)
     for width, height in ((1, 1), (33, 2), (2, 33), (3, 5)):
         for subsampling in ("4:2:2", "4:2:0"):
-            data = _jpeg(_rgb(width, height, 3), subsampling=subsampling)
+            data = _jpeg(ramp_rgb(width, height, 3), subsampling=subsampling)
             _probe("jpeg", f"baseline {subsampling} {width}x{height}", data)
-    _probe("jpeg", "baseline q85 4:2:0 260x6", _jpeg(_rgb(260, 6, 4), quality=85))
-    _probe("jpeg", "baseline q1 noise", _jpeg(_noise(16, 16, 3, 5), quality=1, subsampling="4:4:4"))
-    _probe("jpeg", "optimized tables", _jpeg(_rgb(19, 11, 6), optimize=True))
-    _probe("jpeg", "Adobe RGB", _jpeg(_rgb(9, 7, 7), keep_rgb=True))
+    _probe("jpeg", "baseline q85 4:2:0 260x6", _jpeg(ramp_rgb(260, 6, 4), quality=85))
+    _probe("jpeg", "baseline q1 noise", _jpeg(noise(16, 16, 3, 5), quality=1, subsampling="4:4:4"))
+    _probe("jpeg", "optimized tables", _jpeg(ramp_rgb(19, 11, 6), optimize=True))
+    _probe("jpeg", "Adobe RGB", _jpeg(ramp_rgb(9, 7, 7), keep_rgb=True))
 
 
 def test_jpeg_progressive():
     for subsampling in ("4:4:4", "4:2:2", "4:2:0"):
-        data = _jpeg(_rgb(33, 17, 8), progressive=True, subsampling=subsampling)
+        data = _jpeg(ramp_rgb(33, 17, 8), progressive=True, subsampling=subsampling)
         _probe("jpeg", f"progressive {subsampling} 33x17", data)
     for width, height in ((1, 1), (17, 9), (33, 2)):
-        data = _jpeg(_rgb(width, height, 9), progressive=True, quality=90)
+        data = _jpeg(ramp_rgb(width, height, 9), progressive=True, quality=90)
         _probe("jpeg", f"progressive q90 {width}x{height}", data)
-    data = _jpeg(_rgb(250, 5, 10), progressive=True, subsampling="4:2:2", optimize=True)
+    data = _jpeg(ramp_rgb(250, 5, 10), progressive=True, subsampling="4:2:2", optimize=True)
     _probe("jpeg", "progressive optimized 4:2:2 250x5", data)
     # Cut after a few scans, the image is block-smoothed by libjpeg.
-    data = _jpeg(_rgb(40, 24, 11), progressive=True, quality=85)
+    data = _jpeg(ramp_rgb(40, 24, 11), progressive=True, quality=85)
     offsets = _scan_offsets(data)
     for kept in (1, 2, 5):
         cut = data[:offsets[kept]] + b"\xff\xd9"
@@ -187,20 +154,20 @@ def test_jpeg_progressive():
 
 def test_jpeg_restarts():
     for blocks in (1, 3):
-        data = _jpeg(_rgb(35, 18, 12), restart_marker_blocks=blocks)
+        data = _jpeg(ramp_rgb(35, 18, 12), restart_marker_blocks=blocks)
         _probe("jpeg", f"restart every {blocks} MCUs", data)
-        data = _jpeg(_rgb(35, 18, 12), restart_marker_blocks=blocks, progressive=True)
+        data = _jpeg(ramp_rgb(35, 18, 12), restart_marker_blocks=blocks, progressive=True)
         _probe("jpeg", f"progressive restart every {blocks} MCUs", data)
-    data = _jpeg(_rgb(35, 18, 12), restart_marker_rows=1, subsampling="4:4:4")
+    data = _jpeg(ramp_rgb(35, 18, 12), restart_marker_rows=1, subsampling="4:4:4")
     _probe("jpeg", "restart every MCU row", data)
 
 
 def test_jpeg_grey_and_cmyk():
     _probe("jpeg", "grey 17x9", _jpeg(_gray(17, 9)))
     _probe("jpeg", "grey progressive 20x13", _jpeg(_gray(20, 13), progressive=True))
-    _probe("jpeg", "grey q5 noise", _jpeg(_noise(13, 11, 1, 13)[:, :, 0], quality=5))
+    _probe("jpeg", "grey q5 noise", _jpeg(noise(13, 11, 1, 13)[:, :, 0], quality=5))
     _probe("jpeg", "grey 1x1", _jpeg(_gray(1, 1)))
-    cmyk = np.dstack([_rgb(9, 7, 14), _noise(9, 7, 1, 15)])
+    cmyk = np.dstack([ramp_rgb(9, 7, 14), noise(9, 7, 1, 15)])
     _probe("jpeg", "CMYK", _cmyk(cmyk, quality=80))
     _probe("jpeg", "CMYK progressive", _cmyk(cmyk, progressive=True))
 
@@ -208,16 +175,16 @@ def test_jpeg_grey_and_cmyk():
 def test_jpeg_sampling_and_tables():
     # 4:2:2 MCUs (two luma blocks across) become 4:4:0 ones (two down),
     # 4:2:0 ones (four luma blocks) 4:1:1 ones (four across).
-    data = _jpeg(_rgb(34, 18, 16), subsampling="4:2:2", quality=85)
+    data = _jpeg(ramp_rgb(34, 18, 16), subsampling="4:2:2", quality=85)
     _probe("jpeg", "4:4:0", _resample(data, (0x12, 0x11, 0x11), (17, 36)))
-    data = _jpeg(_rgb(34, 18, 16), subsampling="4:2:0", quality=85)
+    data = _jpeg(ramp_rgb(34, 18, 16), subsampling="4:2:0", quality=85)
     _probe("jpeg", "4:1:1", _resample(data, (0x41, 0x11, 0x11), (68, 9)))
-    data = _jpeg(_rgb(16, 8, 17), quality=100, subsampling="4:4:4")
+    data = _jpeg(ramp_rgb(16, 8, 17), quality=100, subsampling="4:4:4")
     _probe("jpeg", "16-bit quantization tables", _wide_quant_tables(data))
 
 
 def test_jpeg_errors():
-    data = _jpeg(_rgb(17, 9, 18))
+    data = _jpeg(ramp_rgb(17, 9, 18))
     _probe("jpeg", "truncated", data[:len(data) // 2])
     _probe("jpeg", "not an image", b"\xff\xd8\xff" + bytes(range(40)))
 
@@ -442,8 +409,8 @@ def _colormap(entries, seed):
 
 
 def test_tiff_pillow_modes():
-    rgb = _rgb(13, 7, 20)
-    rgba = np.dstack([rgb, _noise(13, 7, 1, 21)])
+    rgb = ramp_rgb(13, 7, 20)
+    rgba = np.dstack([rgb, noise(13, 7, 1, 21)])
     levels16 = (rgb[:, :, 0].astype(np.uint16) << 8) | rgb[:, :, 1]
     images = {
         "1": Image.fromarray(_gray(13, 7, 22) > 128),
@@ -459,25 +426,25 @@ def test_tiff_pillow_modes():
     for mode, im in images.items():
         for compression in ("raw", "packbits", "tiff_lzw", "tiff_adobe_deflate"):
             try:
-                data = _pillow(im, "TIFF", compression=compression)
+                data = pillow_bytes(im, "TIFF", compression=compression)
             except (ValueError, OSError):
                 continue
             _probe("tiff", f"Pillow {mode} {compression}", data)
-    im = Image.fromarray(_rgb(21, 10, 24))
+    im = Image.fromarray(ramp_rgb(21, 10, 24))
     for compression in ("tiff_lzw", "tiff_adobe_deflate"):
-        data = _pillow(im, "TIFF", compression=compression, tiffinfo={317: 2})
+        data = pillow_bytes(im, "TIFF", compression=compression, tiffinfo={317: 2})
         _probe("tiff", f"Pillow RGB {compression} predictor", data)
-    data = _pillow(images["I;16"], "TIFF", compression="tiff_lzw", tiffinfo={317: 2})
+    data = pillow_bytes(images["I;16"], "TIFF", compression="tiff_lzw", tiffinfo={317: 2})
     _probe("tiff", "Pillow I;16 LZW predictor", data)
-    data = _pillow(im, "TIFF", compression="tiff_lzw", strip_size=64)
+    data = pillow_bytes(im, "TIFF", compression="tiff_lzw", strip_size=64)
     _probe("tiff", "Pillow RGB LZW small strips", data)
 
 
 def test_tiff_layouts():
-    rgb = _rgb(11, 6, 30)
-    alpha = _noise(11, 6, 1, 31)
+    rgb = ramp_rgb(11, 6, 30)
+    alpha = noise(11, 6, 1, 31)
     rgba = np.dstack([rgb, alpha])
-    wide = rgb.astype(np.uint16) * 257 + _noise(11, 6, 3, 32)
+    wide = rgb.astype(np.uint16) * 257 + noise(11, 6, 3, 32)
     wide_alpha = np.dstack([wide, alpha.astype(np.uint16) * 256 + 7])
     premultiplied = np.dstack([(rgb.astype(np.uint16) * alpha // 255).astype(np.uint8), alpha])
     for order, name in (("<", "LE"), (">", "BE")):
@@ -534,21 +501,21 @@ def test_tiff_grey_bilevel_and_palettes():
     _probe("tiff", "palette 8-bit BE", data)
     data = _tiff(_rows(levels), 13, 5, (8,), 3, colormap=_colormap(16, 46))
     _probe("tiff", "palette 8-bit with 16 colours", data)
-    indexed_alpha = np.dstack([levels >> 4, _noise(13, 5, 1, 47)[:, :, 0]])
+    indexed_alpha = np.dstack([levels >> 4, noise(13, 5, 1, 47)[:, :, 0]])
     data = _tiff(_rows(indexed_alpha), 13, 5, (8, 8), 3, extra=(2,), colormap=_colormap(256, 48))
     _probe("tiff", "palette with alpha", data)
     bilevel = _bit_rows(levels > 120, 1)
     for compression in ("raw", "packbits", "lzw"):
         data = _tiff(bilevel, 13, 5, (1,), 0, compression=compression, fill_order=2)
         _probe("tiff", f"bilevel fill order 2 {compression}", data)
-    data = _tiff(_rows(_rgb(13, 5, 49)), 13, 5, (8, 8, 8), 2, fill_order=2)
+    data = _tiff(_rows(ramp_rgb(13, 5, 49)), 13, 5, (8, 8, 8), 2, fill_order=2)
     _probe("tiff", "RGB fill order 2", data)
     data = _tiff(_rows(levels), 13, 5, (8,), 1, sample_format=2)
     _probe("tiff", "signed 8-bit grey", data)
 
 
 def test_tiff_tiles_and_structure():
-    rgb = _rgb(37, 21, 50)
+    rgb = ramp_rgb(37, 21, 50)
     for compression in ("raw", "deflate", "lzw", "packbits"):
         data = _tiff(_rows(rgb), 37, 21, (8, 8, 8), 2, compression=compression, tiles=(16, 16),
                      predictor=2 if compression == "lzw" else None)
@@ -560,7 +527,7 @@ def test_tiff_tiles_and_structure():
     _probe("tiff", "bilevel tiles", data)
     data = _tiff(_rows(levels), 37, 21, (8,), 1, rows_per_strip=1, compression="lzw-old")
     _probe("tiff", "old-style LZW", data)
-    small = _rgb(9, 5, 52)
+    small = ramp_rgb(9, 5, 52)
     for orientation in range(1, 9):
         data = _tiff(_rows(small), 9, 5, (8, 8, 8), 2, orientation=orientation)
         _probe("tiff", f"orientation {orientation}", data)
@@ -644,20 +611,20 @@ def _palette_image(width, height, colours, seed):
 def test_gif():
     for colours in (2, 7, 200):
         im = _palette_image(17, 9, colours, 60 + colours)
-        _probe("gif", f"{colours} colours", _pillow(im, "GIF", optimize=False))
-        _probe("gif", f"{colours} colours transparent", _pillow(im, "GIF", transparency=1,
+        _probe("gif", f"{colours} colours", pillow_bytes(im, "GIF", optimize=False))
+        _probe("gif", f"{colours} colours transparent", pillow_bytes(im, "GIF", transparency=1,
                                                                optimize=False))
     im = _palette_image(23, 21, 16, 70)
-    _probe("gif", "interlaced", _pillow(im, "GIF", interlace=True, optimize=False))
-    _probe("gif", "not interlaced", _pillow(im, "GIF", interlace=False, optimize=False))
-    data = _pillow(im, "GIF", interlace=True, transparency=3, optimize=False)
+    _probe("gif", "interlaced", pillow_bytes(im, "GIF", interlace=True, optimize=False))
+    _probe("gif", "not interlaced", pillow_bytes(im, "GIF", interlace=False, optimize=False))
+    data = pillow_bytes(im, "GIF", interlace=True, transparency=3, optimize=False)
     _probe("gif", "interlaced transparent local table", _local_table(data))
-    _probe("gif", "local table", _local_table(_pillow(im, "GIF", optimize=False)))
-    _probe("gif", "RGB quantized", _pillow(Image.fromarray(_rgb(19, 12, 71)), "GIF"))
-    _probe("gif", "grey ramp", _pillow(Image.fromarray(_gray(15, 6, 72)), "GIF", optimize=False))
-    small = _pillow(_palette_image(6, 4, 5, 73), "GIF", optimize=False)
+    _probe("gif", "local table", _local_table(pillow_bytes(im, "GIF", optimize=False)))
+    _probe("gif", "RGB quantized", pillow_bytes(Image.fromarray(ramp_rgb(19, 12, 71)), "GIF"))
+    _probe("gif", "grey ramp", pillow_bytes(Image.fromarray(_gray(15, 6, 72)), "GIF", optimize=False))
+    small = pillow_bytes(_palette_image(6, 4, 5, 73), "GIF", optimize=False)
     _probe("gif", "frame inside a larger screen", _reframed(small, (11, 9), (3, 2)))
-    small_transparent = _pillow(_palette_image(6, 4, 5, 73), "GIF", transparency=0,
+    small_transparent = pillow_bytes(_palette_image(6, 4, 5, 73), "GIF", transparency=0,
                                 optimize=False)
     _probe("gif", "transparent frame inside a larger screen",
            _reframed(small_transparent, (11, 9), (3, 2)))

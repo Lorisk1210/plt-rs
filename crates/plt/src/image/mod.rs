@@ -19,8 +19,8 @@
 //!   [`Axes::add_bbox_image`](crate::axes::Axes::add_bbox_image) adds it.
 //! * [`Interpolation`], [`InterpolationStage`], [`Origin`], [`Extent`] and
 //!   [`ImageAlpha`] — how images are oriented, placed and resampled.
-//! * [`imread`] and [`imsave`] — PNG, JPEG, TIFF and GIF files to image
-//!   arrays, and arrays to PNG, JPEG, TIFF, GIF or raw files
+//! * [`imread`] and [`imsave`] — PNG, JPEG, TIFF, GIF and WebP files to
+//!   image arrays, and arrays to PNG, JPEG, TIFF, GIF or raw files
 //!   ([`BitmapFormat`]); [`thumbnail`] writes a scaled copy of an image
 //!   file.
 //!

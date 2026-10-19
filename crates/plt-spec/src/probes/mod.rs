@@ -299,6 +299,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("cursor", areas::cursor::OPS),
     ("multivar", areas::multivar::OPS),
     ("imread", areas::imread::OPS),
+    ("imread_webp", areas::imread::OPS),
     ("ticker", areas::ticker::OPS),
     ("scales", areas::scales::OPS),
     ("dates", areas::dates::OPS),

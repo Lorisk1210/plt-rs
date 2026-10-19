@@ -1,12 +1,12 @@
 //! Reading image files into arrays (matplotlib.image's `imread`): PNG as
-//! matplotlib's own reader does, JPEG, TIFF and GIF as Pillow opens them
-//! (`pil_to_array`).
+//! matplotlib's own reader does, JPEG, TIFF, GIF and WebP as Pillow opens
+//! them (`pil_to_array`).
 
 use std::path::Path;
 
 use plt_codec::png::{self, ColorType};
 use plt_codec::raster::{Pixels, Raster};
-use plt_codec::{gif, jpeg, tiff};
+use plt_codec::{gif, jpeg, tiff, webp};
 
 use super::{ImageData, ImageIoError, ScalarField};
 use crate::numeric::Grid;
@@ -22,6 +22,8 @@ pub enum ImreadFormat {
     Tiff,
     /// GIF.
     Gif,
+    /// WebP, lossy or lossless, still or animated.
+    Webp,
 }
 
 impl ImreadFormat {
@@ -37,6 +39,8 @@ impl ImreadFormat {
             Some(Self::Gif)
         } else if TIFF.iter().any(|prefix| data.starts_with(prefix)) {
             Some(Self::Tiff)
+        } else if data.starts_with(b"RIFF") && data.get(8..12) == Some(b"WEBP") {
+            Some(Self::Webp)
         } else {
             None
         }
@@ -67,7 +71,7 @@ pub fn imread(path: impl AsRef<Path>) -> Result<ImageData, ImageIoError> {
 
 /// Decodes an image file held in memory, recognising its format by its
 /// contents as Pillow's `Image.open` does: PNG as [`imread_png`] does, and
-/// JPEG, TIFF and GIF into byte arrays as matplotlib's `pil_to_array`
+/// JPEG, TIFF, GIF and WebP into byte arrays as matplotlib's `pil_to_array`
 /// returns them — greyscale (8- or 16-bit) as integer scalars, RGB as RGB
 /// bytes, and every other mode converted to RGBA bytes (palettes with
 /// their transparent index, CMYK, bilevel and grey with alpha).
@@ -90,6 +94,7 @@ pub fn imread_bytes(data: &[u8]) -> Result<ImageData, ImageIoError> {
         Some(ImreadFormat::Jpeg) => jpeg::decode(data)?,
         Some(ImreadFormat::Tiff) => tiff::decode(data)?,
         Some(ImreadFormat::Gif) => gif::decode(data)?,
+        Some(ImreadFormat::Webp) => webp::decode(data)?,
         None => return Err(ImageIoError::UnidentifiedImage),
     };
     Ok(pil_to_array(raster))
@@ -214,6 +219,11 @@ mod tests {
             Some(ImreadFormat::Tiff)
         );
         assert_eq!(ImreadFormat::sniff(b"GIF87a"), Some(ImreadFormat::Gif));
+        assert_eq!(
+            ImreadFormat::sniff(b"RIFF\x10\0\0\0WEBPVP8L"),
+            Some(ImreadFormat::Webp)
+        );
+        assert_eq!(ImreadFormat::sniff(b"RIFF\x10\0\0\0WAVE"), None);
         assert_eq!(ImreadFormat::sniff(b"BM"), None);
         assert!(matches!(
             imread_bytes(b"BM\0\0"),

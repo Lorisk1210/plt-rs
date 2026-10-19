@@ -137,6 +137,10 @@ impl Norm for BoundaryNorm {
         self.limits.clip
     }
 
+    fn set_clip(&mut self, clip: bool) {
+        self.limits.clip = clip;
+    }
+
     fn autoscale_none(&mut self, data: &[Option<f64>]) {
         self.limits.autoscale_none(data);
     }

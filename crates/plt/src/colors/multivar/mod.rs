@@ -7,20 +7,27 @@
 //!   (darker): `2VarAddA`, `2VarSubA` and `3VarAddA`.
 //! * A [`BivarColormap`] looks colours up from value pairs in a 2-D table:
 //!   `BiPeak`, `BiOrangeBlue` and `BiCone`.
+//! * A [`MultiColormap`] is either kind, and a [`MultiMappable`] maps data
+//!   of several variates through a [`MultiNorm`](crate::colors::MultiNorm)
+//!   and one.
 //!
 //! Values are given as [`Normalized`](crate::colors::Normalized): fractions
 //! in `[0, 1]`, indices into the tables, or masked.
 
 mod bivariate;
+mod colormap;
 mod data;
+mod mappable;
 mod multivariate;
 
 use std::fmt;
 
 pub use bivariate::{BivarAxis, BivarColormap, BivarShape};
+pub use colormap::MultiColormap;
+pub use mappable::MultiMappable;
 pub use multivariate::{CombinationMode, MultivarColormap};
 
-use crate::colors::{ColorError, Colormap, ColormapError};
+use crate::colors::{ColorError, Colormap, ColormapError, NormError};
 use crate::numeric::Grid;
 
 /// Why a multivariate colormap could not be made or used.
@@ -49,6 +56,22 @@ pub enum MultivarError {
     Color(ColorError),
     /// A component colormap could not be made.
     Colormap(ColormapError),
+    /// The norms cannot map the data.
+    Norm(NormError),
+    /// The number of norms differs from the number of variates.
+    NormCount {
+        /// The variates of the colormap.
+        variates: usize,
+        /// The norms given.
+        norms: usize,
+    },
+    /// The variates of the data have different lengths.
+    Lengths {
+        /// The length of the first variate.
+        first: usize,
+        /// The length of another one.
+        other: usize,
+    },
 }
 
 impl fmt::Display for MultivarError {
@@ -71,11 +94,35 @@ impl fmt::Display for MultivarError {
             Self::Unknown(name) => write!(f, "no colormap is registered as {name:?}"),
             Self::Color(err) => err.fmt(f),
             Self::Colormap(err) => err.fmt(f),
+            Self::Norm(err) => err.fmt(f),
+            Self::NormCount { variates, norms } => write!(
+                f,
+                "a colormap of {variates} variates needs {variates} norms, got {norms}"
+            ),
+            Self::Lengths { first, other } => write!(
+                f,
+                "every variate needs the same number of values, got {first} and {other}"
+            ),
         }
     }
 }
 
-impl std::error::Error for MultivarError {}
+impl std::error::Error for MultivarError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Color(err) => Some(err),
+            Self::Colormap(err) => Some(err),
+            Self::Norm(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<NormError> for MultivarError {
+    fn from(err: NormError) -> Self {
+        Self::Norm(err)
+    }
+}
 
 impl From<ColorError> for MultivarError {
     fn from(err: ColorError) -> Self {

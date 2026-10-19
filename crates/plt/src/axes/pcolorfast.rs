@@ -7,21 +7,54 @@ use std::cell::RefCell;
 use plt_core::Point;
 
 use super::children::DataUpdate;
-use super::pcolor::{MeshCoords, PreparedMesh};
+use super::pcolor::{MeshCoords, MeshValues, PreparedMesh, multivariate_faces};
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionProps, ColorMapping, EdgeColors, MeshShading};
-use crate::colors::Color;
+use crate::colors::{Color, ScalarMappable};
 use crate::image::{
     AxesImage, AxesImageArtist, ColorizerOptions, Extent, ImageCore, ImageData, ImageError,
-    Interpolation, Origin, PcolorImage, PcolorImageArtist, Resampling, ScalarField, rc_defaults,
+    Interpolation, MultiField, Origin, PcolorImage, PcolorImageArtist, Resampling, ScalarField,
+    rc_defaults,
 };
 use crate::numeric::Grid;
+
+/// The values of a [`Axes::pcolorfast`] plot (matplotlib's `C`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum FastValues {
+    /// Scalars or colours, as an image holds them.
+    Image(ImageData),
+    /// Several variates for a bivariate or multivariate colormap, which
+    /// only quad meshes draw (as in matplotlib 3.11).
+    Multivariate(MultiField),
+}
+
+impl FastValues {
+    /// `(rows, columns)`.
+    pub fn shape(&self) -> (usize, usize) {
+        match self {
+            Self::Image(data) => data.shape(),
+            Self::Multivariate(field) => field.shape(),
+        }
+    }
+}
+
+impl<T: Into<ImageData>> From<T> for FastValues {
+    fn from(data: T) -> Self {
+        Self::Image(data.into())
+    }
+}
+
+impl From<MultiField> for FastValues {
+    fn from(field: MultiField) -> Self {
+        Self::Multivariate(field)
+    }
+}
 
 /// Options of [`Axes::pcolorfast`].
 #[derive(Debug, Default)]
 pub struct PcolorfastOptions {
-    /// Colormap, norm and limits for scalar data.
+    /// Colormap, norm and limits, for scalar data or several variates.
     pub colors: ColorizerOptions,
     /// Uniform opacity.
     pub alpha: Option<f64>,
@@ -38,6 +71,9 @@ pub enum PcolorFast {
     QuadMesh(Collection),
 }
 
+/// `(left, right, bottom, top)` of what `pcolorfast` drew.
+type Bounds = (f64, f64, f64, f64);
+
 /// The grid kinds `pcolorfast` distinguishes.
 enum Style {
     Image(Vec<f64>, Vec<f64>),
@@ -49,7 +85,8 @@ impl Axes {
     /// A pseudocolour plot drawn as cheaply as the grid allows (matplotlib's
     /// `pcolorfast`): with no coordinates or `(min, max)` pairs, or evenly
     /// spaced 1-D edges, an image; with other 1-D edges a
-    /// [`PcolorImage`]; with 2-D corner grids a quad mesh.
+    /// [`PcolorImage`]; with 2-D corner grids a quad mesh. Values of
+    /// several variates are drawn on quad meshes only.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -66,68 +103,36 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When the coordinates do not fit the data or the colormap options
-    /// are invalid.
+    /// When the coordinates do not fit the data, the colormap options are
+    /// invalid or do not fit the data, or values of several variates are
+    /// given on a rectangular grid (which matplotlib 3.11 draws as an image,
+    /// and rejects).
     pub fn pcolorfast(
         &self,
         coords: Option<(MeshCoords, MeshCoords)>,
-        values: impl Into<ImageData>,
+        values: impl Into<FastValues>,
         options: PcolorfastOptions,
     ) -> Result<PcolorFast, ImageError> {
-        let data = values.into().normalized();
-        let (nr, nc) = data.shape();
-        let style = classify(coords, nr, nc)?;
-        let scalars = data.scalars().cloned();
-        let mut mappable = options.colors.into_mappable(&crate::rc::params())?;
-        if let Some(field) = &scalars {
-            mappable.norm_mut().autoscale_none(&field.masked_values());
-        }
-        let (bounds, drawn) = match style {
-            Style::QuadMesh(x, y) => {
-                if x.shape() != y.shape() {
-                    return Err(ImageError::IncompatibleCoordinates);
-                }
-                if x.shape() != (nr + 1, nc + 1) {
-                    return Err(ImageError::MeshShape {
-                        shading: "flat",
-                        values: (nr, nc),
-                        nx: x.cols(),
-                        ny: x.rows(),
-                    });
-                }
-                let mesh = PreparedMesh {
-                    x,
-                    y,
-                    values: scalars.unwrap_or_else(|| ScalarField::new(Grid::filled(nr, nc, 0.0))),
-                    shading: MeshShading::Flat,
-                };
-                let mut props = CollectionProps {
-                    edgecolors: Some(EdgeColors::Colors(vec![Color::none()])),
-                    antialiased: Some(vec![false]),
-                    ..CollectionProps::default()
-                };
-                let colours = mesh_colours(&data, options.alpha);
-                if colours.is_none() {
-                    props.base.alpha = options.alpha;
-                }
-                props.facecolors = colours;
-                let artist = self.quad_mesh_artist(&mesh, props, None);
-                let handle = Collection::from_raw(self.adopt(artist, &DataUpdate::default()));
-                if data.scalars().is_some() {
-                    let values = mesh.values.masked_values();
-                    handle.set_mapping(ColorMapping { values, mappable });
-                }
-                (
-                    bounds_of(&mesh.finite_points()),
-                    PcolorFast::QuadMesh(handle),
-                )
+        let values = values.into();
+        let (nr, nc) = values.shape();
+        let (bounds, drawn) = match (classify(coords, nr, nc)?, values) {
+            (Style::QuadMesh(x, y), values) => {
+                let (bounds, mesh) = self.pcolorfast_mesh(x, y, values, options)?;
+                (bounds, PcolorFast::QuadMesh(mesh))
             }
-            Style::Image(x, y) => {
+            (_, FastValues::Multivariate(_)) => {
+                return Err(ImageError::MultivariateNotSupported(
+                    "pcolorfast on a rectangular grid",
+                ));
+            }
+            (Style::Image(x, y), FastValues::Image(data)) => {
+                let (data, mappable) = image_colors(data, options.colors)?;
                 let extent = edges_extent(&x, &y);
                 let image = self.image_for_pcolorfast(data, mappable, extent, options.alpha);
                 (extent_bounds(extent), PcolorFast::Image(image))
             }
-            Style::PcolorImage(x, y) => {
+            (Style::PcolorImage(x, y), FastValues::Image(data)) => {
+                let (data, mappable) = image_colors(data, options.colors)?;
                 let extent = edges_extent(&x, &y);
                 let mut artist = PcolorImageArtist::new(data, mappable, x, y);
                 artist.base_mut().alpha = options.alpha;
@@ -143,12 +148,77 @@ impl Axes {
         Ok(drawn)
     }
 
+    /// The quad mesh of `pcolorfast` over the corner grids `x` and `y`,
+    /// without edges or anti-aliasing, and the bounds of its vertices:
+    /// scalars colour-mapped, colours as they are (with `alpha` filling a
+    /// missing alpha channel), several variates through their colormap.
+    fn pcolorfast_mesh(
+        &self,
+        x: Grid<f64>,
+        y: Grid<f64>,
+        values: FastValues,
+        options: PcolorfastOptions,
+    ) -> Result<(Bounds, Collection), ImageError> {
+        let (nr, nc) = values.shape();
+        if x.shape() != y.shape() {
+            return Err(ImageError::IncompatibleCoordinates);
+        }
+        if x.shape() != (nr + 1, nc + 1) {
+            return Err(ImageError::MeshShape {
+                shading: "flat",
+                values: (nr, nc),
+                nx: x.cols(),
+                ny: x.rows(),
+            });
+        }
+        let mut props = CollectionProps {
+            edgecolors: Some(EdgeColors::Colors(vec![Color::none()])),
+            antialiased: Some(vec![false]),
+            ..CollectionProps::default()
+        };
+        props.base.alpha = options.alpha;
+        let (values, mapping) = match values {
+            FastValues::Multivariate(field) => {
+                multivariate_faces(&field, options.colors, &mut props)?;
+                (MeshValues::Multivariate(field), None)
+            }
+            FastValues::Image(data) => {
+                let (data, mappable) = image_colors(data, options.colors)?;
+                props.facecolors = mesh_colours(&data, options.alpha);
+                if props.facecolors.is_some() {
+                    props.base.alpha = None;
+                }
+                let field = match data {
+                    ImageData::Scalar(field) => field,
+                    _ => ScalarField::new(Grid::filled(nr, nc, 0.0)),
+                };
+                let mapping = props.facecolors.is_none().then(|| ColorMapping {
+                    values: field.masked_values(),
+                    mappable,
+                });
+                (MeshValues::Scalar(field), mapping)
+            }
+        };
+        let mesh = PreparedMesh {
+            x,
+            y,
+            values,
+            shading: MeshShading::Flat,
+        };
+        let artist = self.quad_mesh_artist(&mesh, props, None);
+        let handle = Collection::from_raw(self.adopt(artist, &DataUpdate::default()));
+        if let Some(mapping) = mapping {
+            handle.set_mapping(mapping);
+        }
+        Ok((bounds_of(&mesh.finite_points()), handle))
+    }
+
     /// An `AxesImage` over `extent` with nearest-neighbour sampling, origin
     /// lower and without resampling, as `pcolorfast` builds it.
     fn image_for_pcolorfast(
         &self,
         data: ImageData,
-        mappable: crate::colors::ScalarMappable,
+        mappable: ScalarMappable,
         extent: Extent,
         alpha: Option<f64>,
     ) -> AxesImage {
@@ -174,7 +244,7 @@ impl Axes {
 
     /// The common tail of `pcolorfast`: sticky edges, data limits and a
     /// tight autoscale request.
-    fn finish_pcolorfast(&self, drawn: &PcolorFast, (xl, xr, yb, yt): (f64, f64, f64, f64)) {
+    fn finish_pcolorfast(&self, drawn: &PcolorFast, (xl, xr, yb, yt): Bounds) {
         let raw = match drawn {
             PcolorFast::Image(image) => image.raw(),
             PcolorFast::PcolorImage(image) => image.raw(),
@@ -234,9 +304,24 @@ fn is_uniform(edges: &[f64]) -> bool {
     max - min < 0.01 * mean.abs()
 }
 
+/// Image data ready to draw and its colormap and norm, autoscaled to
+/// scalar data (matplotlib's `_normalize_image_array` and `_scale_norm`).
+fn image_colors(
+    data: ImageData,
+    colors: ColorizerOptions,
+) -> Result<(ImageData, ScalarMappable), ImageError> {
+    let data = data.normalized();
+    let mut mappable = colors.into_mappable(&crate::rc::params())?;
+    if let Some(field) = data.scalars() {
+        mappable.norm_mut().autoscale_none(&field.masked_values());
+    }
+    Ok((data, mappable))
+}
+
 /// The face colours of a mesh of RGB(A) cells (matplotlib's `to_rgba(A,
-/// alpha)`: `alpha` fills a missing alpha channel, NaN cells become
-/// transparent), or `None` for scalar data.
+/// alpha)`: `alpha` fills a missing alpha channel, in the colours'
+/// precision, and NaN cells become transparent), or `None` for scalar
+/// data.
 fn mesh_colours(data: &ImageData, alpha: Option<f64>) -> Option<Vec<Color>> {
     let fill = alpha.unwrap_or(1.0);
     let byte = |v: u8| f64::from(f32::from(v) / 255.0);
@@ -248,6 +333,15 @@ fn mesh_colours(data: &ImageData, alpha: Option<f64>) -> Option<Vec<Color>> {
             .map(|&[r, g, b]| [r, g, b, fill])
             .collect(),
         ImageData::Rgba(grid) => grid.as_slice().to_vec(),
+        ImageData::RgbF32(grid) => {
+            let fill = f64::from(fill as f32);
+            grid.as_slice()
+                .iter()
+                .map(|&[r, g, b]| [r, g, b].map(f64::from))
+                .map(|[r, g, b]| [r, g, b, fill])
+                .collect()
+        }
+        ImageData::RgbaF32(grid) => grid.as_slice().iter().map(|p| p.map(f64::from)).collect(),
         ImageData::RgbBytes(grid) => {
             let alpha = byte((fill * 255.0) as u8);
             grid.as_slice()
@@ -284,12 +378,12 @@ fn edges_extent(x: &[f64], y: &[f64]) -> Extent {
     Extent::new(left, right, bottom, top)
 }
 
-fn extent_bounds(extent: Extent) -> (f64, f64, f64, f64) {
+fn extent_bounds(extent: Extent) -> Bounds {
     (extent.left, extent.right, extent.bottom, extent.top)
 }
 
 /// `(x.min(), x.max(), y.min(), y.max())` of the mesh vertices.
-fn bounds_of(points: &[Point]) -> (f64, f64, f64, f64) {
+fn bounds_of(points: &[Point]) -> Bounds {
     points.iter().fold(
         (
             f64::INFINITY,
@@ -371,5 +465,46 @@ mod tests {
             .unwrap();
         assert!(matches!(drawn, PcolorFast::QuadMesh(_)));
         assert_eq!(ax.xlim(), (0.0, 2.5));
+    }
+
+    /// Three variates coloured through `3VarAddA`.
+    fn three_variates() -> PcolorfastOptions {
+        use crate::colors::multivar::MultiColormap;
+        use crate::image::MultivarColorizerOptions;
+        let cmap = MultiColormap::get("3VarAddA").unwrap();
+        PcolorfastOptions {
+            colors: ColorizerOptions::default().multivariate(MultivarColorizerOptions::new(cmap)),
+            ..PcolorfastOptions::default()
+        }
+    }
+
+    #[test]
+    fn several_variates_need_a_quad_mesh() {
+        let ax = Figure::new().subplot();
+        let field = MultiField::new([values(1, 2), values(1, 2), values(1, 2)]).unwrap();
+        let options = three_variates();
+        assert_eq!(
+            ax.pcolorfast(None, field.clone(), options).err(),
+            Some(ImageError::MultivariateNotSupported(
+                "pcolorfast on a rectangular grid"
+            ))
+        );
+        let x = Grid::from_fn(2, 3, |_, c| c as f64);
+        let y = Grid::from_fn(2, 3, |r, _| r as f64);
+        let options = PcolorfastOptions {
+            alpha: Some(0.5),
+            ..three_variates()
+        };
+        let drawn = ax
+            .pcolorfast(Some((x.into(), y.into())), field, options)
+            .unwrap();
+        let PcolorFast::QuadMesh(mesh) = drawn else {
+            panic!("a quad mesh")
+        };
+        let faces = mesh
+            .raw()
+            .with::<crate::collections::CollectionArtist, _>(|c| c.facecolors.clone());
+        assert_eq!(faces.map(|faces| faces.len()), Some(2));
+        assert_eq!(FastValues::from(values(2, 3)).shape(), (2, 3));
     }
 }

@@ -4,8 +4,8 @@
 use super::{Limits, Norm, NormError, NormKind, map_unmasked, np_clip, zeros};
 use crate::colors::Normalized;
 use crate::scale::{
-    AsinhScale, AsinhTransform, FuncScale, FuncTransform, LogScale, LogTransform, NonPositive,
-    Scale, SymmetricalLogScale, SymmetricalLogTransform,
+    AsinhScale, AsinhTransform, FuncScale, FuncTransform, LinearScale, LogScale, LogTransform,
+    LogitScale, LogitTransform, NonPositive, Scale, SymmetricalLogScale, SymmetricalLogTransform,
 };
 use crate::transforms::AxisMap;
 
@@ -26,6 +26,35 @@ impl NormTransform for LogTransform {
     fn scale(&self) -> Box<dyn Scale> {
         let scale = LogScale::new(self.base()).expect("the transform has a valid base");
         Box::new(scale.with_nonpositive(self.nonpositive()))
+    }
+}
+
+/// The identity map of the linear scale: a norm made from it is linear
+/// but, unlike [`Normalize`](super::Normalize), masks NaN and infinite
+/// values and leaves them out of autoscaling (matplotlib's norm for the
+/// scale name `"linear"`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) struct LinearTransform;
+
+impl AxisMap for LinearTransform {
+    fn forward(&self, value: f64) -> f64 {
+        value
+    }
+
+    fn inverse(&self, value: f64) -> f64 {
+        value
+    }
+}
+
+impl NormTransform for LinearTransform {
+    fn scale(&self) -> Box<dyn Scale> {
+        Box::new(LinearScale)
+    }
+}
+
+impl NormTransform for LogitTransform {
+    fn scale(&self) -> Box<dyn Scale> {
+        Box::new(LogitScale::new(self.nonpositive()))
     }
 }
 

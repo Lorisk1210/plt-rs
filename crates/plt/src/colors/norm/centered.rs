@@ -19,6 +19,8 @@ pub struct TwoSlopeNorm {
     vcenter: f64,
     vmin: Option<f64>,
     vmax: Option<f64>,
+    /// The `clip` attribute, which normalising ignores.
+    clip: bool,
 }
 
 impl TwoSlopeNorm {
@@ -32,6 +34,7 @@ impl TwoSlopeNorm {
             vcenter,
             vmin,
             vmax,
+            clip: false,
         })
     }
 
@@ -58,9 +61,13 @@ impl Norm for TwoSlopeNorm {
         self.vmax = vmax;
     }
 
-    /// Two-slope norms never clip.
+    /// The `clip` flag; two-slope norms never clip when normalising.
     fn clip(&self) -> bool {
-        false
+        self.clip
+    }
+
+    fn set_clip(&mut self, clip: bool) {
+        self.clip = clip;
     }
 
     /// Fills unset limits from `data`, then moves a limit on the wrong side
@@ -237,6 +244,10 @@ impl Norm for CenteredNorm {
 
     fn clip(&self) -> bool {
         self.limits.clip
+    }
+
+    fn set_clip(&mut self, clip: bool) {
+        self.limits.clip = clip;
     }
 
     /// Sets the half-range to the data's largest distance from the centre

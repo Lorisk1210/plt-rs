@@ -2,21 +2,34 @@
 //! (matplotlib's image array `A` after `_normalize_image_array`).
 
 use super::ImageError;
-use crate::artist::{format_mapped, format_values};
+use crate::artist::format_values;
 use crate::colors::ScalarMappable;
 use crate::numeric::Grid;
 
 /// What kind of numbers a scalar image holds; it decides the precision
-/// of data-stage resampling, as matplotlib's dtype does.
+/// of resampling and normalisation, as matplotlib's dtype does.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ScalarKind {
     /// Floating-point data (`float64`).
     #[default]
     Float,
+    /// Single-precision floating-point data (`float32`, as `imread`
+    /// returns greyscale PNGs), resampled and normalised in single
+    /// precision.
+    Float32,
     /// Integer data.
     Integer,
     /// Boolean data (`false` = 0, `true` = 1).
     Boolean,
+}
+
+/// The precision numpy computes in: `float64` or `float32` arrays.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum Precision {
+    /// `float64`.
+    Double,
+    /// `float32`.
+    Single,
 }
 
 /// Scalar data to be colour-mapped, with its mask (a numpy masked array).
@@ -67,6 +80,11 @@ impl ScalarField {
         Self::with_kind(values.map(|&v| f64::from(u8::from(v))), ScalarKind::Boolean)
     }
 
+    /// Single-precision data; NaN and infinite values are masked.
+    pub fn single(values: &Grid<f32>) -> Self {
+        Self::with_kind(values.map(|&v| f64::from(v)), ScalarKind::Float32)
+    }
+
     fn with_kind(values: Grid<f64>, kind: ScalarKind) -> Self {
         let masked = values.map(|v| !v.is_finite());
         Self {
@@ -102,15 +120,28 @@ impl ScalarField {
     }
 
     /// Whether data-stage resampling runs in single precision: matplotlib
-    /// resamples integer data as `float32` unless its range exceeds 1e8.
+    /// resamples `float32` data as it is, and integer data as `float32`
+    /// unless its range exceeds 1e8.
     pub(crate) fn resamples_in_f32(&self) -> bool {
-        if self.kind == ScalarKind::Float {
-            return false;
+        match self.kind {
+            ScalarKind::Float => false,
+            ScalarKind::Float32 => true,
+            ScalarKind::Integer | ScalarKind::Boolean => {
+                let values = self.values.as_slice();
+                let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+                max - min <= 1e8
+            }
         }
-        let values = self.values.as_slice();
-        let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let min = values.iter().copied().fold(f64::INFINITY, f64::min);
-        max - min <= 1e8
+    }
+
+    /// The precision the norm sees the data in when it is mapped without
+    /// resampling: numpy's norms keep `float32` and turn booleans into it.
+    pub(crate) fn precision(&self) -> Precision {
+        match self.kind {
+            ScalarKind::Float32 | ScalarKind::Boolean => Precision::Single,
+            ScalarKind::Float | ScalarKind::Integer => Precision::Double,
+        }
     }
 }
 
@@ -118,7 +149,9 @@ impl ScalarField {
 ///
 /// Float colour channels are in `[0, 1]` and are clipped into that range
 /// (unless the data holds NaN, which matplotlib leaves alone); NaN colour
-/// pixels are drawn transparent.
+/// pixels are drawn transparent. Single-precision colours (what `imread`
+/// returns for PNGs) are resampled and converted to bytes in single
+/// precision, as matplotlib's `float32` arrays are.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ImageData {
     /// Scalars mapped to colours through the image's norm and colormap.
@@ -127,6 +160,10 @@ pub enum ImageData {
     Rgb(Grid<[f64; 3]>),
     /// RGBA colours with float channels.
     Rgba(Grid<[f64; 4]>),
+    /// RGB colours with single-precision float channels.
+    RgbF32(Grid<[f32; 3]>),
+    /// RGBA colours with single-precision float channels.
+    RgbaF32(Grid<[f32; 4]>),
     /// RGB colours with 8-bit channels.
     RgbBytes(Grid<[u8; 3]>),
     /// RGBA colours with 8-bit channels.
@@ -140,6 +177,8 @@ impl ImageData {
             Self::Scalar(field) => field.values.shape(),
             Self::Rgb(grid) => grid.shape(),
             Self::Rgba(grid) => grid.shape(),
+            Self::RgbF32(grid) => grid.shape(),
+            Self::RgbaF32(grid) => grid.shape(),
             Self::RgbBytes(grid) => grid.shape(),
             Self::RgbaBytes(grid) => grid.shape(),
         }
@@ -166,10 +205,12 @@ impl ImageData {
         match self {
             Self::Scalar(field) => {
                 let value = (!field.mask()[at]).then(|| field.values()[at]);
-                format_mapped(mappable, value)
+                mappable.format_cursor_data(value)
             }
             Self::Rgb(grid) => format_values(grid[at]),
             Self::Rgba(grid) => format_values(grid[at]),
+            Self::RgbF32(grid) => format_values(grid[at].map(f64::from)),
+            Self::RgbaF32(grid) => format_values(grid[at].map(f64::from)),
             Self::RgbBytes(grid) => format_values(grid[at].map(f64::from)),
             Self::RgbaBytes(grid) => format_values(grid[at].map(f64::from)),
         }
@@ -181,17 +222,40 @@ impl ImageData {
         match self {
             Self::Rgb(grid) => Self::Rgb(clip_unit(grid)),
             Self::Rgba(grid) => Self::Rgba(clip_unit(grid)),
+            Self::RgbF32(grid) => Self::RgbF32(clip_unit(grid)),
+            Self::RgbaF32(grid) => Self::RgbaF32(clip_unit(grid)),
             other => other,
         }
     }
 }
 
-/// `np.clip(A, 0, 1)` unless the range check fails on NaN.
-fn clip_unit<const N: usize>(grid: Grid<[f64; N]>) -> Grid<[f64; N]> {
-    if grid.as_slice().iter().flatten().any(|v| v.is_nan()) {
+/// `np.clip(A, 0, 1)` in the array's precision, unless the range check
+/// fails on NaN.
+fn clip_unit<T, const N: usize>(grid: Grid<[T; N]>) -> Grid<[T; N]>
+where
+    T: Copy + PartialOrd + From<u8>,
+{
+    // NaN is the one value unordered with itself.
+    if grid
+        .as_slice()
+        .iter()
+        .flatten()
+        .any(|v| v.partial_cmp(v).is_none())
+    {
         return grid;
     }
-    grid.map(|pixel| pixel.map(|v| v.clamp(0.0, 1.0)))
+    let (zero, one) = (T::from(0), T::from(1));
+    grid.map(|pixel| {
+        pixel.map(|v| {
+            if v < zero {
+                zero
+            } else if v > one {
+                one
+            } else {
+                v
+            }
+        })
+    })
 }
 
 impl From<Grid<f64>> for ScalarField {
@@ -221,6 +285,18 @@ impl From<Grid<[f64; 3]>> for ImageData {
 impl From<Grid<[f64; 4]>> for ImageData {
     fn from(grid: Grid<[f64; 4]>) -> Self {
         Self::Rgba(grid)
+    }
+}
+
+impl From<Grid<[f32; 3]>> for ImageData {
+    fn from(grid: Grid<[f32; 3]>) -> Self {
+        Self::RgbF32(grid)
+    }
+}
+
+impl From<Grid<[f32; 4]>> for ImageData {
+    fn from(grid: Grid<[f32; 4]>) -> Self {
+        Self::RgbaF32(grid)
     }
 }
 
@@ -293,5 +369,23 @@ mod tests {
             (0, 3)
         );
         assert!(ImageData::from(Grid::<f64>::filled(0, 3, 0.0)).is_empty());
+        let single = Grid::from_vec(1, 1, vec![[1.5_f32, -0.5, 0.25]]).unwrap();
+        let ImageData::RgbF32(clipped) = ImageData::from(single).normalized() else {
+            unreachable!("stays single-precision RGB")
+        };
+        assert_eq!(clipped.as_slice(), &[[1.0, 0.0, 0.25]]);
+    }
+
+    #[test]
+    fn single_precision_scalars() {
+        let field = ScalarField::single(&Grid::from_vec(1, 2, vec![0.1_f32, f32::NAN]).unwrap());
+        assert_eq!(field.kind(), ScalarKind::Float32);
+        assert_eq!(field.masked_values(), vec![Some(f64::from(0.1_f32)), None]);
+        assert!(field.resamples_in_f32());
+        assert_eq!(field.precision(), Precision::Single);
+        assert_eq!(
+            ScalarField::new(Grid::filled(1, 1, 0.0)).precision(),
+            Precision::Double
+        );
     }
 }

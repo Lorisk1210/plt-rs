@@ -2,7 +2,12 @@
 //! (matplotlib.image).
 //!
 //! * [`ImageData`] — colour-mapped scalars ([`ScalarField`], with masks)
-//!   or explicit RGB(A) colours, as floats or bytes.
+//!   or explicit RGB(A) colours, as floats (double or single precision) or
+//!   bytes.
+//! * [`MultiField`] — data of several variates for bivariate and
+//!   multivariate colormaps ([`MultivarColorizerOptions`]), which
+//!   `pcolormesh` and quad-mesh `pcolorfast` draw; as in matplotlib 3.11,
+//!   images take no multivariate data.
 //! * [`AxesImage`] — an image on a regular grid in data coordinates, as
 //!   made by `imshow`, `matshow`, `spy` and `pcolorfast`.
 //! * [`NonUniformImage`] and [`PcolorImage`] — images whose pixel centres
@@ -34,20 +39,23 @@ mod imread;
 mod io;
 mod make;
 mod nonuniform_image;
+mod normalize;
 mod options;
 mod pcolor_image;
 mod resample;
 mod stages;
 mod thumbnail;
 mod unsampled;
+mod variates;
 
 pub use artist::AxesImage;
 pub(crate) use artist::AxesImageArtist;
 pub(crate) use bbox_image::BboxImageArtist;
 pub use bbox_image::BboxImageOptions;
 pub use bitmap::{BitmapError, BitmapFormat, BitmapSettings};
-pub use colorize::ColorizerOptions;
+pub use colorize::{ColorizerOptions, MultivarColorizerOptions};
 pub(crate) use composite::Compositor;
+pub(crate) use data::Precision;
 pub use data::{ImageData, ScalarField, ScalarKind};
 pub use error::ImageError;
 pub use figure_image::{FigimageOptions, FigureImage};
@@ -56,12 +64,13 @@ pub use io::{ImageIoError, ImsaveOptions, imsave, imsave_bytes, imsave_format, i
 pub(crate) use make::{CoreSettings, ImageCore};
 pub(crate) use nonuniform_image::NonUniformImageArtist;
 pub use nonuniform_image::{NonUniformImage, NonUniformInterpolation};
+pub(crate) use normalize::normalize as normalize_scalars;
 pub use options::{Extent, ImageAlpha, Interpolation, InterpolationStage, Origin, UnknownName};
 pub use pcolor_image::PcolorImage;
 pub(crate) use pcolor_image::PcolorImageArtist;
 pub(crate) use resample::Resampling;
-pub(crate) use stages::normalize as normalize_scalars;
 pub use thumbnail::{ThumbnailError, ThumbnailOptions, thumbnail};
+pub use variates::MultiField;
 
 use crate::rc::RcParams;
 

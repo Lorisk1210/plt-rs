@@ -5,6 +5,7 @@ use std::fmt;
 use plt_raster::resample::ResampleError;
 
 use crate::axes::AspectError;
+use crate::colors::multivar::MultivarError;
 use crate::colors::{ColormapError, NormError};
 use crate::stats::StatsError;
 
@@ -73,6 +74,18 @@ pub enum ImageError {
     Resample(ResampleError),
     /// Invalid two-dimensional histogram input (`hist2d`).
     Histogram(StatsError),
+    /// Multivariate data needs at least two variates.
+    TooFewVariates(usize),
+    /// A bivariate or multivariate colormap was given for scalar data.
+    MultivariateColormap,
+    /// Data of several variates was given without a bivariate or
+    /// multivariate colormap, or with options for scalar data.
+    ScalarColorizer,
+    /// The plotting method (or shading) cannot draw data of several
+    /// variates, as matplotlib 3.11's cannot.
+    MultivariateNotSupported(&'static str),
+    /// The multivariate norms or colormap cannot map the data.
+    Multivar(MultivarError),
 }
 
 impl fmt::Display for ImageError {
@@ -134,6 +147,20 @@ impl fmt::Display for ImageError {
             Self::Aspect(err) => err.fmt(f),
             Self::Resample(err) => err.fmt(f),
             Self::Histogram(err) => err.fmt(f),
+            Self::TooFewVariates(n) => {
+                write!(f, "multivariate data needs at least two variates, got {n}")
+            }
+            Self::MultivariateColormap => {
+                f.write_str("a bivariate or multivariate colormap needs data of several variates")
+            }
+            Self::ScalarColorizer => f.write_str(
+                "data of several variates needs a bivariate or multivariate colormap, \
+                 and no scalar colormap, norm or limits",
+            ),
+            Self::MultivariateNotSupported(what) => {
+                write!(f, "{what} does not support data of several variates")
+            }
+            Self::Multivar(err) => err.fmt(f),
         }
     }
 }
@@ -146,6 +173,7 @@ impl std::error::Error for ImageError {
             Self::Aspect(err) => Some(err),
             Self::Resample(err) => Some(err),
             Self::Histogram(err) => Some(err),
+            Self::Multivar(err) => Some(err),
             _ => None,
         }
     }
@@ -172,6 +200,12 @@ impl From<AspectError> for ImageError {
 impl From<ResampleError> for ImageError {
     fn from(err: ResampleError) -> Self {
         Self::Resample(err)
+    }
+}
+
+impl From<MultivarError> for ImageError {
+    fn from(err: MultivarError) -> Self {
+        Self::Multivar(err)
     }
 }
 

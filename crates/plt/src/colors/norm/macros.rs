@@ -60,5 +60,9 @@ macro_rules! limit_accessors {
         fn clip(&self) -> bool {
             self.limits.clip
         }
+
+        fn set_clip(&mut self, clip: bool) {
+            self.limits.clip = clip;
+        }
     };
 }

@@ -2,7 +2,10 @@
 //! `inverse` and autoscaling, plus `ScalarMappable.to_rgba`.
 //!
 //! `params` are the norm's constructor keywords; `values` is a number (the
-//! scalar code path) or an array, optionally with a `mask`.
+//! scalar code path) or an array, optionally with a `mask`. The `MultiNorm`
+//! and multivariate `Colorizer` operations live in [`multi`].
+
+pub(crate) mod multi;
 
 use plt::colors::{
     Alpha, AsinhNorm, BoundaryNorm, CenteredNorm, Extend, LogNorm, NoNorm, Norm, Normalize,
@@ -29,6 +32,12 @@ macro_rules! norm_ops {
                 }),
             )*
             Op::new("cm.ScalarMappable.to_rgba", scalar_mappable_to_rgba),
+            Op::new("colors.MultiNorm", multi::construct),
+            Op::new("colors.MultiNorm.__call__", multi::call),
+            Op::new("colors.MultiNorm.inverse", multi::inverse),
+            Op::new("colors.MultiNorm.autoscale", |args| multi::autoscale(args, false)),
+            Op::new("colors.MultiNorm.autoscale_None", |args| multi::autoscale(args, true)),
+            Op::new("colorizer.Colorizer.to_rgba", multi::colorizer_to_rgba),
         ]
     };
 }

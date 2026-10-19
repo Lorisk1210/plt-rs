@@ -1,13 +1,15 @@
 //! `figures/cases_images.py`: imshow (interpolation, stages,
 //! origin/extent/aspect, RGB(A), alpha, norms, extreme colours, masks),
-//! matshow, spy, figimage, pcolor, pcolormesh, pcolorfast, `NonUniformImage`
-//! and hexbin.
+//! matshow, spy, figimage, pcolor, pcolormesh, pcolorfast, `NonUniformImage`,
+//! hexbin, multivariate data and `imread`'d PNGs.
 
 mod data;
 mod imshow;
 mod meshes;
+mod multivariate;
 mod nonuniform;
 mod placement;
+mod pngs;
 mod values;
 
 use plt::image::{Interpolation, InterpolationStage};
@@ -208,4 +210,28 @@ pub(crate) const CASES: &[FigureCase] = &[
         "images/pcolorfast_nonuniform_alpha",
         values::pcolorfast_nonuniform_alpha,
     ),
+    FigureCase::new(
+        "images/pcolormesh_bivariate",
+        multivariate::pcolormesh_bivariate,
+    )
+    .sized(6.0, 2.5, 100.0),
+    small(
+        "images/pcolormesh_bicone_masked_alpha",
+        multivariate::pcolormesh_bicone_masked_alpha,
+    ),
+    FigureCase::new(
+        "images/pcolormesh_multivariate",
+        multivariate::pcolormesh_multivariate,
+    )
+    .sized(6.0, 2.2, 100.0),
+    small(
+        "images/pcolorfast_multivariate_quadmesh",
+        multivariate::pcolorfast_multivariate_quadmesh,
+    ),
+    FigureCase::new(
+        "images/imread_rgba_interpolation",
+        pngs::imread_rgba_interpolation,
+    )
+    .sized(6.0, 2.5, 100.0),
+    FigureCase::new("images/imread_gray_float32", pngs::imread_gray_float32).sized(5.0, 2.5, 100.0),
 ];

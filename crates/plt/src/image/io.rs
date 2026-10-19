@@ -8,8 +8,10 @@ use plt_codec::png::DecodeError;
 use plt_codec::{gif, jpeg, tiff};
 use plt_core::Rgba;
 
+use super::normalize::normalize_in;
 use super::{BitmapError, BitmapFormat, BitmapSettings, ImageData, Origin};
 use crate::colors::{Colormap, ColormapError, NormError, ScalarMappable, colormaps};
+use crate::numeric::Grid;
 use crate::rc::ColorOrAuto;
 
 /// Why an image cannot be read or written.
@@ -272,20 +274,6 @@ fn jpeg_background() -> [u8; 3] {
 /// The 8-bit RGBA pixels of `data`, row-major (matplotlib's
 /// `Colorizer.to_rgba(arr, bytes=True)`).
 fn rgba_bytes(data: &ImageData, options: &ImsaveOptions) -> Result<Vec<[u8; 4]>, ImageIoError> {
-    let floats = |channels: &[f64]| {
-        if channels.iter().any(|&v| v < 0.0 || v > 1.0) {
-            Err(ImageIoError::ColorRange)
-        } else {
-            Ok(())
-        }
-    };
-    // Truncation, as numpy's `astype(np.uint8)`.
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "values are in [0, 255]"
-    )]
-    let byte = |v: f64| (v * 255.0) as u8;
     Ok(match data {
         ImageData::Scalar(field) => {
             let cmap = match &options.cmap {
@@ -294,22 +282,18 @@ fn rgba_bytes(data: &ImageData, options: &ImsaveOptions) -> Result<Vec<[u8; 4]>,
             };
             let mut mappable = ScalarMappable::new(cmap);
             mappable.set_clim(options.vmin, options.vmax);
-            mappable.to_rgba_bytes(&field.masked_values(), None)?
-        }
-        ImageData::Rgb(grid) => {
-            floats(grid.as_slice().as_flattened())?;
-            grid.as_slice()
-                .iter()
-                .map(|&[r, g, b]| [byte(r), byte(g), byte(b), 255])
+            let values = field.masked_values();
+            let normalized = normalize_in(&mut mappable, &values, field.kind(), field.precision())?;
+            let cmap = mappable.cmap();
+            normalized
+                .into_iter()
+                .map(|value| cmap.lookup_bytes(value, None))
                 .collect()
         }
-        ImageData::Rgba(grid) => {
-            floats(grid.as_slice().as_flattened())?;
-            grid.as_slice()
-                .iter()
-                .map(|pixel| pixel.map(byte))
-                .collect()
-        }
+        ImageData::Rgb(grid) => float_bytes(grid, |&[r, g, b]| [r, g, b, 1.0], |v| v * 255.0)?,
+        ImageData::Rgba(grid) => float_bytes(grid, |&pixel| pixel, |v| v * 255.0)?,
+        ImageData::RgbF32(grid) => float_bytes(grid, |&[r, g, b]| [r, g, b, 1.0], |v| v * 255.0)?,
+        ImageData::RgbaF32(grid) => float_bytes(grid, |&pixel| pixel, |v| v * 255.0)?,
         ImageData::RgbBytes(grid) => grid
             .as_slice()
             .iter()
@@ -319,10 +303,35 @@ fn rgba_bytes(data: &ImageData, options: &ImsaveOptions) -> Result<Vec<[u8; 4]>,
     })
 }
 
+/// Float colours as bytes: every channel must lie in `[0, 1]`; `rgba`
+/// gives a pixel its alpha and `scale` multiplies by 255 in the colours'
+/// precision before numpy's truncating `astype(np.uint8)`.
+fn float_bytes<P, T>(
+    grid: &Grid<P>,
+    rgba: impl Fn(&P) -> [T; 4],
+    scale: impl Fn(T) -> T,
+) -> Result<Vec<[u8; 4]>, ImageIoError>
+where
+    T: Copy + PartialOrd + From<u8> + Into<f64>,
+{
+    let pixels: Vec<[T; 4]> = grid.as_slice().iter().map(rgba).collect();
+    let (zero, one) = (T::from(0), T::from(1));
+    if pixels.iter().flatten().any(|&v| v < zero || v > one) {
+        return Err(ImageIoError::ColorRange);
+    }
+    // Truncation, as numpy's `astype(np.uint8)`; NaN becomes 0.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "values are in [0, 255]"
+    )]
+    let byte = |v: T| scale(v).into() as u8;
+    Ok(pixels.into_iter().map(|pixel| pixel.map(byte)).collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::numeric::Grid;
     use plt_codec::png;
 
     fn decode(png: &[u8]) -> Vec<u8> {

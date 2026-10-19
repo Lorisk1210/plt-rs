@@ -118,6 +118,7 @@ fn colorizer(call: &Call<'_>) -> Result<ColorizerOptions, ProbeError> {
         norm: call.keyword("norm").map(|n| norm(Ok(n))).transpose()?,
         vmin: call.opt_f64(KEYWORD_ONLY, "vmin")?,
         vmax: call.opt_f64(KEYWORD_ONLY, "vmax")?,
+        ..ColorizerOptions::default()
     })
 }
 

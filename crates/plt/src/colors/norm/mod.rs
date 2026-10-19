@@ -25,6 +25,7 @@ mod macros;
 mod boundary;
 mod centered;
 mod linear;
+mod multi;
 mod power;
 mod scaled;
 
@@ -33,6 +34,7 @@ use std::fmt;
 pub use boundary::BoundaryNorm;
 pub use centered::{CenteredNorm, TwoSlopeNorm};
 pub use linear::{NoNorm, Normalize};
+pub use multi::{MultiNorm, NormName, NormSpec};
 pub use power::PowerNorm;
 pub use scaled::{AsinhNorm, FuncNorm, LogNorm, NormTransform, ScaleNorm, SymLogNorm};
 
@@ -92,6 +94,10 @@ pub trait Norm: fmt::Debug + NormClone {
 
     /// Whether out-of-range values are clipped to the limits by default.
     fn clip(&self) -> bool;
+
+    /// Sets whether out-of-range values are clipped by default
+    /// (matplotlib's `clip` attribute, which is not validated).
+    fn set_clip(&mut self, clip: bool);
 
     /// Whether both limits are set.
     fn scaled(&self) -> bool {
@@ -173,6 +179,22 @@ pub enum NormError {
     ClipWithExtend,
     /// The norm has no inverse.
     NotInvertible,
+    /// No scale of this name makes a norm.
+    UnknownName(String),
+    /// The scale needs forward and inverse functions, which a name alone
+    /// does not give (`"function"`, `"functionlog"`).
+    NeedsFunctions(String),
+    /// A [`MultiNorm`] needs at least one norm.
+    NoNorms,
+    /// A [`MultiNorm`] input does not have one entry per norm.
+    ComponentCount {
+        /// What was given (`"vmin"`, `"vmax"`, `"clip"` or `"data"`).
+        what: &'static str,
+        /// The number of norms.
+        expected: usize,
+        /// The number of entries given.
+        given: usize,
+    },
 }
 
 impl fmt::Display for NormError {
@@ -198,6 +220,21 @@ impl fmt::Display for NormError {
             ),
             Self::ClipWithExtend => f.write_str("clip=True is not compatible with extend"),
             Self::NotInvertible => f.write_str("this norm is not invertible"),
+            Self::UnknownName(name) => write!(f, "{name:?} is not a valid value for norm"),
+            Self::NeedsFunctions(name) => write!(
+                f,
+                "the {name:?} scale needs forward and inverse functions to make a norm"
+            ),
+            Self::NoNorms => f.write_str("a MultiNorm needs at least one norm"),
+            Self::ComponentCount {
+                what,
+                expected,
+                given,
+            } => write!(
+                f,
+                "{what} must have one component for each of the {expected} norms, \
+                 got {given}"
+            ),
         }
     }
 }

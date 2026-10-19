@@ -339,6 +339,98 @@
    "value": [[0.267004, 0.004874, 0.329415, 1.0], [0.127568, 0.566949, 0.550556, 1.0], [0.993248, 0.906157, 0.143936, 1.0]]
   },
   {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {
+    "cmap": "2VarAddA",
+    "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]],
+    "alpha": 0.5,
+    "masks": [[false, false, false, false, false, false, true], [true, false, false, false, false, false, false]]
+   },
+   "value": [[0.0, 0.0, 0.0, 0.0], [0.919835294117647, 0.5846, 0.3128470588235294, 0.5], [0.8330823529411766, 0.6817294117647059, 0.5574823529411764, 0.5], [0.7196588235294118, 0.7605882352941177, 0.7937529411764707, 0.5], [0.6150588235294117, 0.8484941176470588, 1.0, 0.5], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {
+    "cmap": "BiOrangeBlue",
+    "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]],
+    "vmin": [0.0, null],
+    "vmax": [1.0, null],
+    "alpha": 0.5
+   },
+   "value": [[0.0, 0.5, 1.0, 0.5], [0.25098039215686274, 0.5764705882352941, 0.9019607843137254, 0.5], [0.5019607843137255, 0.6274509803921569, 0.7529411764705882, 0.5], [0.7529411764705882, 0.6764705882352942, 0.6, 0.5], [1.0, 0.7509803921568627, 0.5019607843137255, 0.5], [0.0, 0.0, 0.0, 0.0], [1.0, 0.5, 0.0, 0.5]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "2VarAddA", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]]},
+   "value": [[0.813, 0.423, 0.105, 1.0], [0.7757294117647059, 0.47209411764705883, 0.2228235294117647, 1.0], [0.6958235294117647, 0.5056588235294117, 0.3477411764705882, 1.0], [0.6076470588235294, 0.5246470588235295, 0.4558941176470589, 1.0], [0.5588352941176471, 0.5588705882352941, 0.5578705882352941, 1.0], [0.0, 0.0, 0.0, 0.0], [0.187, 0.577, 0.895, 1.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "2VarSubA", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]]},
+   "value": [[0.8010000000000002, 0.42599999999999993, 0.119, 1.0], [0.7101882352941178, 0.4315294117647057, 0.1977294117647057, 1.0], [0.6362823529411763, 0.46143529411764694, 0.3133176470588235, 1.0], [0.5693647058823528, 0.4931411764705882, 0.42774117647058807, 1.0], [0.49612941176470593, 0.49612941176470593, 0.49616470588235284, 1.0], [0.0, 0.0, 0.0, 0.0], [0.19900000000000007, 0.5739999999999998, 0.881, 1.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {
+    "cmap": "3VarAddA",
+    "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0], [0.5, 0.5, 1.0, 0.0, 0.25, 0.75, 0.1]],
+    "norm": ["linear", "symlog", "asinh"],
+    "vmin": [null, -1.0, null]
+   },
+   "value": [[0.6794117647058824, 0.5674941176470588, 0.22861176470588235, 1.0], [0.7013882352941176, 0.5916941176470588, 0.30970588235294116, 1.0], [0.9898235294117648, 0.6277882352941176, 0.5471294117647059, 1.0], [0.3112588235294118, 0.4536352941176471, 0.3093529411764706, 1.0], [0.4739058823529411, 0.5676470588235294, 0.5323882352941176, 1.0], [0.0, 0.0, 0.0, 0.0], [0.09398823529411765, 0.45241176470588235, 0.7152470588235295, 1.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "3VarAddA", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0], [0.5, 0.5, 1.0, 0.0, 0.25, 0.75, 0.1]]},
+   "value": [[0.652235294117647, 0.5612823529411765, 0.21463529411764706, 1.0], [0.6742117647058824, 0.5854823529411766, 0.2957294117647059, 1.0], [0.9898235294117648, 0.6277882352941176, 0.5471294117647059, 1.0], [0.3112588235294118, 0.4536352941176471, 0.3093529411764706, 1.0], [0.45612941176470584, 0.5597647058823529, 0.5205529411764707, 1.0], [0.0, 0.0, 0.0, 0.0], [0.08488235294117646, 0.4471176470588235, 0.7084705882352942, 1.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "3VarAddA", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {
+    "cmap": "BiCone",
+    "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]],
+    "norm": [{"class": "Normalize", "params": {"vmin": 0.0, "vmax": 1.0}}, "linear"],
+    "vmin": [null, -0.5],
+    "vmax": [null, 1.5]
+   },
+   "value": [[0.3302513648596693, 0.7733254901960785, 0.5059372549019608, 1.0], [0.473121568627451, 0.8071372549019609, 0.614951757016532, 1.0], [0.6685058823529411, 0.8594940868896579, 0.8043098039215686, 1.0], [0.7728160553633218, 0.8619803921568627, 0.9181333333333334, 1.0], [0.790756862745098, 0.8040706189926952, 0.9449451287966166, 1.0], [0.0, 0.0, 0.0, 0.0], [0.78863446366782, 0.5779843137254901, 0.956756862745098, 1.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "BiCone", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]]},
+   "value": [[0.48429803921568626, 0.7525764705882353, 0.39315686274509803, 1.0], [0.49885098039215686, 0.7498117647058823, 0.38184444444444443, 1.0], [0.6333882814302191, 0.8070588235294118, 0.5555490196078432, 1.0], [0.8186564705882353, 0.8919764705882353, 0.7924211764705883, 1.0], [0.99272984236832, 0.9731767166474433, 0.9682982852748941, 1.0], [0.0, 0.0, 0.0, 0.0], [0.8356545021145712, 0.5574392156862745, 0.9194274509803921, 1.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "BiOrangeBlue", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]]},
+   "value": [[0.0, 0.5, 1.0, 1.0], [0.12549019607843137, 0.5137254901960785, 0.9019607843137255, 1.0], [0.25098039215686274, 0.5019607843137255, 0.7529411764705882, 1.0], [0.3764705882352941, 0.488235294117647, 0.6, 1.0], [0.5019607843137255, 0.5019607843137255, 0.5019607843137255, 1.0], [0.0, 0.0, 0.0, 0.0], [1.0, 0.5, 0.0, 1.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "BiPeak", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]], "norm": ["linear", "log"]},
+   "value": [[0.25, 0.678, 0.136, 1.0], [0.45647450980392157, 0.7467686274509804, 0.3768431372549018, 1.0], [0.6669636293733181, 0.857529411764706, 0.7554666666666666, 1.0], [0.5144117647058823, 0.6768117647058824, 0.9871882352941177, 1.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "BiPeak", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]], "norm": ["linear"]},
+   "error": "ValueError"
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "BiPeak", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]], "vmin": [0.0]},
+   "error": "ValueError"
+  },
+  {
+   "op": "colorizer.Colorizer.to_rgba",
+   "args": {"cmap": "BiPeak", "values": [[0.0, 0.25, 0.5, 0.75, 1.0, NaN, 2.0], [1.0, 0.8, 0.5, 0.2, 0.0, 0.5, -1.0]]},
+   "value": [[0.25, 0.678, 0.136, 1.0], [0.453964705882353, 0.7317098039215686, 0.3259129565551711, 1.0], [0.6333882814302191, 0.8070588235294118, 0.5555490196078432, 1.0], [0.8186564705882353, 0.8919764705882353, 0.7924211764705883, 1.0], [0.99272984236832, 0.9731767166474433, 0.9682982852748941, 1.0], [0.0, 0.0, 0.0, 0.0], [0.809, 0.354, 0.96, 1.0]]
+  },
+  {
    "op": "colors.AsinhNorm.__call__",
    "args": {"params": {"linear_width": 1.0, "vmin": 0.0, "vmax": 10.0, "clip": true}, "values": [-0.01, 0.01, 2.0, -2.0, NaN, Infinity, -Infinity], "clip": true},
    "value": {"result": [0.0, 0.0033352534173081033, 0.4814970397832952, 0.0, null, 1.0, 0.0], "vmin": 0.0, "vmax": 10.0}
@@ -1563,6 +1655,274 @@
    "op": "colors.LogNorm.inverse",
    "args": {"params": {"vmin": 3.0, "vmax": 7.0}, "values": [0.0, 0.25, 0.5, 0.75, 1.0, -0.5, 1.5, NaN]},
    "value": [3.0000000000000004, 3.707792751067342, 4.582575694955841, 5.66374698099155, 7.000000000000001, 1.9639610121239315, 10.692676621563631, NaN]
+  },
+  {
+   "op": "colors.MultiNorm",
+   "args": {"norms": ["linear", "log"], "vmin": [0.0, 1.0], "vmax": [1.0, 100.0], "clip": [true, false]},
+   "value": {"n_components": 2, "vmin": [0.0, 1.0], "vmax": [1.0, 100.0], "clip": [true, false], "scaled": true}
+  },
+  {
+   "op": "colors.MultiNorm",
+   "args": {"norms": [{"class": "TwoSlopeNorm", "params": {"vcenter": 0.0}}, "linear"], "clip": [true, true]},
+   "value": {"n_components": 2, "vmin": [null, null], "vmax": [null, null], "clip": [true, true], "scaled": false}
+  },
+  {"op": "colors.MultiNorm", "args": {"norms": ["linear", "log"], "clip": [true]}, "error": "ValueError"},
+  {"op": "colors.MultiNorm", "args": {"norms": "linear"}, "error": "ValueError"},
+  {"op": "colors.MultiNorm", "args": {"norms": ["function"]}, "error": "TypeError"},
+  {"op": "colors.MultiNorm", "args": {"norms": ["functionlog"]}, "error": "TypeError"},
+  {
+   "op": "colors.MultiNorm",
+   "args": {"norms": ["linear", "log", "symlog", "asinh", "logit"]},
+   "value": {
+    "n_components": 5,
+    "vmin": [null, null, null, null, null],
+    "vmax": [null, null, null, null, null],
+    "clip": [false, false, false, false, false],
+    "scaled": false
+   }
+  },
+  {"op": "colors.MultiNorm", "args": {"norms": ["linear", "log"], "vmax": [1.0, 2.0, 3.0]}, "error": "ValueError"},
+  {"op": "colors.MultiNorm", "args": {"norms": ["linear", "log"], "vmin": 0.5}, "error": "ValueError"},
+  {
+   "op": "colors.MultiNorm",
+   "args": {"norms": ["linear", "log"], "vmin": [0.0, null]},
+   "value": {"n_components": 2, "vmin": [0.0, null], "vmax": [null, null], "clip": [false, false], "scaled": false}
+  },
+  {"op": "colors.MultiNorm", "args": {"norms": ["linear", "log"], "vmin": [0.0]}, "error": "ValueError"},
+  {
+   "op": "colors.MultiNorm",
+   "args": {"norms": ["linear", "log"]},
+   "value": {"n_components": 2, "vmin": [null, null], "vmax": [null, null], "clip": [false, false], "scaled": false}
+  },
+  {
+   "op": "colors.MultiNorm",
+   "args": {"norms": ["linear", {"class": "LogNorm", "params": {"vmin": 1.0, "vmax": 100.0}}]},
+   "value": {"n_components": 2, "vmin": [null, 1.0], "vmax": [null, 100.0], "clip": [false, false], "scaled": false}
+  },
+  {"op": "colors.MultiNorm", "args": {"norms": ["linear"]}, "value": {"n_components": 1, "vmin": [null], "vmax": [null], "clip": [false], "scaled": false}},
+  {"op": "colors.MultiNorm", "args": {"norms": ["nope"]}, "error": "ValueError"},
+  {"op": "colors.MultiNorm", "args": {"norms": []}, "error": "ValueError"},
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {
+    "norms": ["linear", "log"],
+    "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]],
+    "vmin": [0.0, 1.0],
+    "vmax": [1.0, 100.0],
+    "clip": [true, true],
+    "call_clip": [false, false]
+   },
+   "value": {"result": [[-1.0, 0.0, 0.5, 1.0, 2.0, null], [null, 0.0, 0.5, 1.0, 1.5, null]], "vmin": [0.0, 1.0], "vmax": [1.0, 100.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {
+    "norms": ["linear", "log"],
+    "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]],
+    "vmin": [0.0, 1.0],
+    "vmax": [1.0, 100.0],
+    "call_clip": [true, false]
+   },
+   "value": {"result": [[0.0, 0.0, 0.5, 1.0, 1.0, null], [null, 0.0, 0.5, 1.0, 1.5, null]], "vmin": [0.0, 1.0], "vmax": [1.0, 100.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "log"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]], "call_clip": [true]},
+   "error": "ValueError"
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {
+    "norms": ["linear", "log"],
+    "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]],
+    "vmin": [0.0, 1.0],
+    "vmax": [1.0, 100.0],
+    "clip": [true, true]
+   },
+   "value": {"result": [[0.0, 0.0, 0.5, 1.0, 1.0, null], [0.0, 0.0, 0.5, 1.0, 1.0, 1.0]], "vmin": [0.0, 1.0], "vmax": [1.0, 100.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {
+    "norms": ["linear", "log"],
+    "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]],
+    "masks": [[false, true, false, false, false, false], [false, false, false, true, false, false]]
+   },
+   "value": {"result": [[0.0, null, 0.5, 0.6666666666666666, 1.0, null], [null, 0.0, 0.3333333333333333, null, 1.0, null]], "vmin": [-1.0, 1.0], "vmax": [2.0, 1000.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "linear", "linear"], "values": [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0], [6.0, 7.0, 9.0]]},
+   "value": {"result": [[0.0, 0.5, 1.0], [0.0, 0.5, 1.0], [0.0, 0.3333333333333333, 1.0]], "vmin": [0.0, 3.0, 6.0], "vmax": [2.0, 5.0, 9.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "linear"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]]},
+   "value": {"result": [[0.0, 0.3333333333333333, 0.5, 0.6666666666666666, 1.0, null], [0.0, 0.001, 0.01, 0.1, 1.0, null]], "vmin": [-1.0, 0.0], "vmax": [2.0, 1000.0]}
+  },
+  {"op": "colors.MultiNorm.__call__", "args": {"norms": ["linear", "log"], "values": 5.0}, "error": "ValueError"},
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "log"], "values": [0.5, 10.0], "vmin": [0.0, 1.0], "vmax": [1.0, 100.0]},
+   "value": {"result": [0.5, 0.5], "vmin": [0.0, 1.0], "vmax": [1.0, 100.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "log"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]], "vmax": [0.5, null]},
+   "value": {
+    "result": [[0.0, 0.6666666666666666, 1.0, 1.3333333333333333, 2.0, null], [null, 0.0, 0.3333333333333333, 0.6666666666666666, 1.0, null]],
+    "vmin": [-1.0, 1.0],
+    "vmax": [0.5, 1000.0]
+   }
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "log"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]], "vmin": [0.0, -1.0], "vmax": [1.0, 100.0]},
+   "error": "ValueError"
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "log"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]], "vmin": [0.0, 1.0], "vmax": [1.0, 100.0]},
+   "value": {"result": [[-1.0, 0.0, 0.5, 1.0, 2.0, null], [null, 0.0, 0.5, 1.0, 1.5, null]], "vmin": [0.0, 1.0], "vmax": [1.0, 100.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "log"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]], "vmin": [2.0, 1.0], "vmax": [1.0, 100.0]},
+   "error": "ValueError"
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "log"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]], "vmin": [null, 1.0]},
+   "value": {
+    "result": [[0.0, 0.3333333333333333, 0.5, 0.6666666666666666, 1.0, null], [null, 0.0, 0.3333333333333333, 0.6666666666666666, 1.0, null]],
+    "vmin": [-1.0, 1.0],
+    "vmax": [2.0, 1000.0]
+   }
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear", "log"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]]},
+   "value": {
+    "result": [[0.0, 0.3333333333333333, 0.5, 0.6666666666666666, 1.0, null], [null, 0.0, 0.3333333333333333, 0.6666666666666666, 1.0, null]],
+    "vmin": [-1.0, 1.0],
+    "vmax": [2.0, 1000.0]
+   }
+  },
+  {"op": "colors.MultiNorm.__call__", "args": {"norms": ["linear", "log"], "values": [[1.0, 2.0]]}, "error": "ValueError"},
+  {"op": "colors.MultiNorm.__call__", "args": {"norms": ["linear", "log"], "values": [[1.0], [2.0], [3.0]]}, "error": "ValueError"},
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["linear"], "values": [[1.0, 3.0, 2.0]]},
+   "value": {"result": [[0.0, 1.0, 0.5]], "vmin": [1.0], "vmax": [3.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["logit", "linear"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]]},
+   "value": {"result": [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.001, 0.01, 0.1, 1.0, null]], "vmin": [0.5, 0.0], "vmax": [0.5, 1000.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": ["symlog", "asinh"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]]},
+   "value": {
+    "result": [[0.0, 0.3333333333333333, 0.5, 0.6666666666666666, 1.0, null], [0.0, 0.115956435794539, 0.3944561672305151, 0.6970675152780443, 1.0, null]],
+    "vmin": [-1.0, 0.0],
+    "vmax": [2.0, 1000.0]
+   }
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {
+    "norms": [{"class": "BoundaryNorm", "params": {"boundaries": [-1.0, 0.0, 1.0, 2.0], "ncolors": 3}}, "log"],
+    "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]]
+   },
+   "value": {"result": [[0, 1, 1, 2, 3, 3], [null, 0.0, 0.3333333333333333, 0.6666666666666666, 1.0, null]], "vmin": [-1.0, 1.0], "vmax": [2.0, 1000.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {"norms": [{"class": "Normalize", "params": {}}, "log"], "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]]},
+   "value": {"result": [[NaN, NaN, NaN, NaN, NaN, NaN], [null, 0.0, 0.3333333333333333, 0.6666666666666666, 1.0, null]], "vmin": [NaN, 1.0], "vmax": [NaN, 1000.0]}
+  },
+  {
+   "op": "colors.MultiNorm.__call__",
+   "args": {
+    "norms": [{"class": "PowerNorm", "params": {"gamma": 2.0, "vmin": 0.0, "vmax": 2.0}}, {"class": "TwoSlopeNorm", "params": {"vcenter": 10.0}}],
+    "values": [[-1.0, 0.0, 0.5, 1.0, 2.0, NaN], [0.0, 1.0, 10.0, 100.0, 1000.0, Infinity]]
+   },
+   "value": {"result": [[-0.5, 0.0, 0.0625, 0.25, 1.0, NaN], [0.0, 0.05, 0.5, 0.5, 0.5, 1.0]], "vmin": [0.0, 0.0], "vmax": [2.0, Infinity]}
+  },
+  {"op": "colors.MultiNorm.autoscale", "args": {"norms": ["linear", "log"], "data": [[1.0]]}, "error": "ValueError"},
+  {
+   "op": "colors.MultiNorm.autoscale",
+   "args": {"norms": ["linear", "log"], "data": [[3.0, -1.0, NaN, 2.0], [0.0, -5.0, 0.5, 20.0]], "vmin": [0.5, null], "vmax": [null, 5.0]},
+   "value": {"vmin": [-1.0, 0.5], "vmax": [3.0, 20.0]}
+  },
+  {
+   "op": "colors.MultiNorm.autoscale",
+   "args": {"norms": ["linear", "log"], "data": [[3.0, -1.0, NaN, 2.0], [0.0, -5.0, 0.5, 20.0]]},
+   "value": {"vmin": [-1.0, 0.5], "vmax": [3.0, 20.0]}
+  },
+  {
+   "op": "colors.MultiNorm.autoscale",
+   "args": {"norms": ["linear", {"class": "Normalize", "params": {}}], "data": [[3.0, -1.0, NaN, 2.0], [0.0, -5.0, 0.5, 20.0]]},
+   "value": {"vmin": [-1.0, -5.0], "vmax": [3.0, 20.0]}
+  },
+  {
+   "op": "colors.MultiNorm.autoscale",
+   "args": {"norms": ["symlog", "logit"], "data": [[3.0, -1.0, NaN, 2.0], [0.0, -5.0, 0.5, 20.0]]},
+   "value": {"vmin": [-1.0, 0.5], "vmax": [3.0, 0.5]}
+  },
+  {"op": "colors.MultiNorm.autoscale_None", "args": {"norms": ["linear", "log"], "data": [[1.0]]}, "error": "ValueError"},
+  {
+   "op": "colors.MultiNorm.autoscale_None",
+   "args": {"norms": ["linear", "log"], "data": [[3.0, -1.0, NaN, 2.0], [0.0, -5.0, 0.5, 20.0]], "vmin": [0.5, null], "vmax": [null, 5.0]},
+   "value": {"vmin": [0.5, 0.5], "vmax": [3.0, 5.0]}
+  },
+  {
+   "op": "colors.MultiNorm.autoscale_None",
+   "args": {"norms": ["linear", "log"], "data": [[3.0, -1.0, NaN, 2.0], [0.0, -5.0, 0.5, 20.0]]},
+   "value": {"vmin": [-1.0, 0.5], "vmax": [3.0, 20.0]}
+  },
+  {
+   "op": "colors.MultiNorm.autoscale_None",
+   "args": {"norms": ["linear", {"class": "Normalize", "params": {}}], "data": [[3.0, -1.0, NaN, 2.0], [0.0, -5.0, 0.5, 20.0]]},
+   "value": {"vmin": [-1.0, -5.0], "vmax": [3.0, 20.0]}
+  },
+  {
+   "op": "colors.MultiNorm.autoscale_None",
+   "args": {"norms": ["symlog", "logit"], "data": [[3.0, -1.0, NaN, 2.0], [0.0, -5.0, 0.5, 20.0]]},
+   "value": {"vmin": [-1.0, 0.5], "vmax": [3.0, 0.5]}
+  },
+  {
+   "op": "colors.MultiNorm.inverse",
+   "args": {"norms": ["linear", "log"], "vmin": [0.0, 1.0], "vmax": [2.0, 100.0], "values": [0.5, 0.5]},
+   "value": [1.0, 10.000000000000002]
+  },
+  {
+   "op": "colors.MultiNorm.inverse",
+   "args": {"norms": ["linear", "log"], "vmin": [0.0, 1.0], "vmax": [2.0, 100.0], "values": [[0.0, 0.25, 0.5, 1.0, 1.5], [0.0, 0.5, 1.0, -0.5, NaN]]},
+   "value": [[0.0, 0.5, 1.0, 2.0, 3.0], [1.0, 10.000000000000002, 100.00000000000004, 0.09999999999999998, NaN]]
+  },
+  {"op": "colors.MultiNorm.inverse", "args": {"norms": ["linear", "log"], "values": [[0.5], [0.5]]}, "error": "ValueError"},
+  {"op": "colors.MultiNorm.inverse", "args": {"norms": ["linear", "log"], "vmin": [0.0, 1.0], "vmax": [2.0, 100.0], "values": [[0.5]]}, "error": "ValueError"},
+  {
+   "op": "colors.MultiNorm.inverse",
+   "args": {"norms": ["logit", "linear"], "vmin": [0.1, 0.0], "vmax": [0.9, 1.0], "values": [[0.0, 0.25, 0.5, 1.0, 1.5], [0.0, 0.5, 1.0, -0.5, NaN]]},
+   "value": [[0.1, 0.25000000000000006, 0.5000000000000001, 0.8999999999999999, 0.9878048780487805], [0.0, 0.5, 1.0, -0.5, NaN]]
+  },
+  {
+   "op": "colors.MultiNorm.inverse",
+   "args": {"norms": ["symlog", "asinh"], "vmin": [-10.0, -5.0], "vmax": [10.0, 5.0], "values": [[0.0, 0.25, 0.5, 1.0, 1.5], [0.0, 0.5, 1.0, -0.5, NaN]]},
+   "value": [[-9.999999999999998, -1.6290730039024168, 0.0, 9.999999999999998, 645.7748325074426], [-4.999999999999999, 0.0, 4.999999999999999, -50.990195135927834, null]]
+  },
+  {
+   "op": "colors.MultiNorm.inverse",
+   "args": {
+    "norms": [{"class": "PowerNorm", "params": {"gamma": 2.0}}, "linear"],
+    "vmin": [0.0, 0.0],
+    "vmax": [4.0, 1.0],
+    "values": [[0.0, 0.25, 0.5, 1.0, 1.5], [0.0, 0.5, 1.0, -0.5, NaN]]
+   },
+   "value": [[0.0, 2.0, 2.8284271247461903, 4.0, 4.898979485566356], [0.0, 0.5, 1.0, -0.5, NaN]]
   },
   {
    "op": "colors.NoNorm.__call__",

@@ -8,7 +8,7 @@ use plt_render::RgbaImage;
 
 use super::artist::draw_rendered;
 use super::make::RenderedImage;
-use super::stages::normalize;
+use super::normalize::normalize_in;
 use super::{ImageData, ImageError};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
@@ -151,13 +151,16 @@ fn flipped(data: ImageData, x: bool, y: bool) -> ImageData {
         }
         ImageData::Rgb(grid) => ImageData::Rgb(flip(&grid, x, y)),
         ImageData::Rgba(grid) => ImageData::Rgba(flip(&grid, x, y)),
+        ImageData::RgbF32(grid) => ImageData::RgbF32(flip(&grid, x, y)),
+        ImageData::RgbaF32(grid) => ImageData::RgbaF32(flip(&grid, x, y)),
         ImageData::RgbBytes(grid) => ImageData::RgbBytes(flip(&grid, x, y)),
         ImageData::RgbaBytes(grid) => ImageData::RgbaBytes(flip(&grid, x, y)),
     }
 }
 
 /// matplotlib's `to_rgba(A, bytes=True)`: mapped scalars, or colours
-/// passed through (opaque when without alpha, transparent when NaN).
+/// passed through (opaque when without alpha, transparent when NaN) and
+/// scaled to bytes in their own precision.
 pub(crate) fn cell_colors(
     data: &ImageData,
     mappable: &mut ScalarMappable,
@@ -169,10 +172,18 @@ pub(crate) fn cell_colors(
             pixel.map(|v| (v * 255.0) as u8)
         }
     };
+    let unit_f32 = |pixel: [f32; 4]| {
+        if pixel.iter().any(|v| v.is_nan()) {
+            [0; 4]
+        } else {
+            pixel.map(|v| (v * 255.0) as u8)
+        }
+    };
     Ok(match data {
         ImageData::Scalar(field) => {
             let (rows, cols) = field.values().shape();
-            let normalized = normalize(mappable, &field.masked_values(), field.kind())?;
+            let values = field.masked_values();
+            let normalized = normalize_in(mappable, &values, field.kind(), field.precision())?;
             let cmap = mappable.cmap();
             let colors = normalized
                 .into_iter()
@@ -182,6 +193,8 @@ pub(crate) fn cell_colors(
         }
         ImageData::Rgb(grid) => grid.map(|&[r, g, b]| unit([r, g, b, 1.0])),
         ImageData::Rgba(grid) => grid.map(|&pixel| unit(pixel)),
+        ImageData::RgbF32(grid) => grid.map(|&[r, g, b]| unit_f32([r, g, b, 1.0])),
+        ImageData::RgbaF32(grid) => grid.map(|&pixel| unit_f32(pixel)),
         ImageData::RgbBytes(grid) => grid.map(|&[r, g, b]| [r, g, b, u8::MAX]),
         ImageData::RgbaBytes(grid) => grid.clone(),
     })

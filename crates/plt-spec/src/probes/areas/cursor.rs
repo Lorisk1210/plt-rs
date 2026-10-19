@@ -1,20 +1,25 @@
 //! Probe operations for the `cursor` area (the status bar message: the
-//! coordinates and the data under the pointer).
+//! coordinates and the data under the pointer, and the per-variate
+//! readout of multivariate data).
 
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, ImshowOptions, Mesh, NonUniformOptions, PcolorOptions, PcolorfastOptions};
 use plt::colors::{BoundaryNorm, Extend, LogNorm, Norm, colormaps};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, ImageData, Origin, ScalarField};
+use plt::image::{ColorizerOptions, Extent, ImageData, MultiField, Origin, ScalarField};
 use plt::navigation::Navigation;
 use plt::numeric::Grid;
 use plt_core::Point;
 
+use super::norms::multi::mappable;
 use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.
-pub(crate) const OPS: &[Op] = &[Op::new("cursor.message", message)];
+pub(crate) const OPS: &[Op] = &[
+    Op::new("cursor.message", message),
+    Op::new("cursor.format_cursor_data", format_cursor_data),
+];
 
 const X_EDGES: [f64; 9] = [0.0, 1.0, 3.0, 4.0, 5.0, 7.0, 8.0, 9.0, 12.0];
 const Y_EDGES: [f64; 7] = [0.0, 2.0, 3.0, 5.0, 6.0, 8.0, 9.0];
@@ -39,6 +44,15 @@ fn grid<T>(cell: impl Fn(f64, f64) -> T) -> Grid<T> {
 /// `sin(0.7 r) cos(0.4 c) + 0.1 r`.
 fn field(r: f64, c: f64) -> f64 {
     (0.7 * r).sin() * (0.4 * c).cos() + 0.1 * r
+}
+
+/// `FIELD` with NaN where `(r + c) % 5 == 0`.
+fn masked_field(r: f64, c: f64) -> f64 {
+    if (r + c) % 5.0 == 0.0 {
+        f64::NAN
+    } else {
+        field(r, c)
+    }
 }
 
 /// `value` as numpy's `astype(uint8)` converts it, wrapping modulo 256.
@@ -84,16 +98,7 @@ fn single_image(scene: &str) -> Result<Option<(ImageData, ImshowOptions)>, Probe
             let values = grid(|r, c| 7 * (8 * r as i64 + c as i64) - 100);
             (ScalarField::integers(&values).into(), plain())
         }
-        "masked" => {
-            let masked = |r: f64, c: f64| {
-                if (r + c) % 5.0 == 0.0 {
-                    f64::NAN
-                } else {
-                    field(r, c)
-                }
-            };
-            (grid(masked).into(), plain())
-        }
+        "masked" => (grid(masked_field).into(), plain()),
         "rgb" => {
             let rgb = |r: f64, c: f64| {
                 [
@@ -209,4 +214,37 @@ fn message(args: Args<'_>) -> Outcome {
             .map(|at| Json::String(navigation.readout(&fig, at)))
             .collect(),
     ))
+}
+
+/// The variate of the multivariate readout named `name`.
+fn variate(name: &str) -> Result<Grid<f64>, ProbeError> {
+    Ok(match name {
+        "field" => grid(field),
+        "log" => grid(|r, c| 10f64.powf((8.0 * r + c) / 12.0 - 1.0)),
+        "masked" => grid(masked_field),
+        "ramp" => grid(|r, c| (r + 2.0 * c) / 20.0),
+        other => return Err(ProbeError::BadArgs(format!("unknown variate {other:?}"))),
+    })
+}
+
+/// The readout of every element of a multivariate mesh, row by row.
+fn format_cursor_data(args: Args<'_>) -> Outcome {
+    let names = args
+        .json("variates")?
+        .as_array()
+        .and_then(|names| names.iter().map(Json::as_str).collect::<Option<Vec<_>>>())
+        .ok_or_else(|| ProbeError::BadArgs("variates must be names".into()))?;
+    let variates = names
+        .into_iter()
+        .map(variate)
+        .collect::<Result<Vec<_>, _>>()?;
+    let data = MultiField::new(variates).map_err(ProbeError::rejected)?;
+    let mappable = mappable(args, &data.masked_values())?;
+    let (rows, cols) = data.shape();
+    let readouts = (0..rows)
+        .flat_map(|r| (0..cols).map(move |c| (r, c)))
+        .filter_map(|cell| data.at(cell))
+        .map(|values| Json::String(mappable.format_cursor_data(&values)))
+        .collect();
+    Ok(Json::Array(readouts))
 }

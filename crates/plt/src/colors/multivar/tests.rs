@@ -68,6 +68,11 @@ fn bivariate_shapes_clip_or_mark_the_outside() {
         Err(MultivarError::CircleNeedsFractions)
     );
     assert_eq!(
+        cone.lookup(Masked, Fraction(0.9), None),
+        Ok(cone.bad()),
+        "masked fractions are bad, not rejected"
+    );
+    assert_eq!(
         cone.lut()[(0, 0)][3],
         0.0,
         "corners outside the disc are clear"

@@ -188,7 +188,9 @@ impl Batch {
 }
 
 /// Draws the collection, using `draw_markers` when every item shares one
-/// shape and style (matplotlib's single-path optimisation).
+/// shape and style (matplotlib's single-path optimisation). A collection
+/// placed at offsets but without any (an empty scatter plot) only opens
+/// and closes its group, as in matplotlib.
 pub(super) fn draw_collection(
     c: &CollectionArtist,
     ctx: &mut DrawContext<'_>,
@@ -199,7 +201,7 @@ pub(super) fn draw_collection(
     }
     let batch = Batch::new(c, ctx, &shapes, &transform)?;
     let hatches = resolve_hatch_colors(c, &batch.edges).map_err(|e| e.to_string())?;
-    let mut gc = graphics_context(c, ctx, &hatches);
+    let gc = graphics_context(c, ctx, &hatches);
     let name = match c.kind {
         CollectionKind::Generic => "Collection",
         CollectionKind::Path => "PathCollection",
@@ -208,13 +210,29 @@ pub(super) fn draw_collection(
         CollectionKind::QuadMesh => "QuadMesh",
     };
     ctx.renderer().open_group(name, c.base().gid.as_deref());
+    if !batch.offsets.is_empty() {
+        draw_items(ctx, gc, &batch, &hatches, c.hatch.is_some());
+    }
+    ctx.renderer().close_group(name);
+    Ok(())
+}
+
+/// Draws the items of a collection with at least one offset, each hatched
+/// in its colour of `hatches`.
+fn draw_items(
+    ctx: &mut DrawContext<'_>,
+    mut gc: GraphicsContext,
+    batch: &Batch,
+    hatches: &[Rgba],
+    hatched: bool,
+) {
     let canvas = ctx.renderer().canvas_size();
-    if let Some(combined) = batch.single_marker(c.hatch.is_some(), canvas) {
+    if let Some(combined) = batch.single_marker(hatched, canvas) {
         gc.foreground = batch.edges[0];
         gc.linewidth = batch.widths[0];
         gc.dashes.clone_from(&batch.dashes[0]);
         gc.antialiased = batch.antialiased[0];
-        let positions = Path::polyline(batch.offsets);
+        let positions = Path::polyline(batch.offsets.clone());
         let fill = Some(batch.faces[0]);
         ctx.renderer().draw_markers(
             &gc,
@@ -232,7 +250,7 @@ pub(super) fn draw_collection(
             offsets: &batch.offsets,
             facecolors: &batch.faces,
             edgecolors: &batch.edges,
-            hatchcolors: &hatches,
+            hatchcolors: hatches,
             linewidths: &batch.widths,
             dashes: &batch.dashes,
             antialiased: &batch.antialiased,
@@ -240,8 +258,6 @@ pub(super) fn draw_collection(
         };
         ctx.renderer().draw_path_collection(&gc, &collection);
     }
-    ctx.renderer().close_group(name);
-    Ok(())
 }
 
 /// The shared graphics state: clipping, hatch (in the first of
@@ -359,6 +375,39 @@ mod tests {
             "matplotlib fades the default"
         );
         assert_eq!(resolve_hatch_colors(&square(None), &[]).unwrap()[0].a, 1.0);
+    }
+
+    #[test]
+    fn an_empty_scatter_draws_nothing() {
+        use crate::axes::{ScatterColors, ScatterOptions};
+        use crate::collections::EdgeColors;
+        use crate::figure::Figure;
+        use crate::lines::LineStyle;
+        use crate::testing::RecordingRenderer;
+
+        // Dashed edges and an invisible face rule out the single-marker
+        // shortcut, which has no positions to draw at anyway.
+        let calls = |linestyle: Option<LineStyle>, face: &str| {
+            let fig = Figure::new();
+            let ax = fig.subplot();
+            if let Some(linestyle) = linestyle {
+                let options = ScatterOptions {
+                    colors: ScatterColors::Single(face.into()),
+                    edgecolors: Some(EdgeColors::Colors(vec!["red".into()])),
+                    ..ScatterOptions::default()
+                };
+                ax.scatter_with(Vec::<f64>::new(), Vec::<f64>::new(), options)
+                    .unwrap()
+                    .set_linestyles(vec![linestyle]);
+            }
+            ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+            let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+            fig.draw(&mut renderer).unwrap();
+            renderer.calls
+        };
+        let without = calls(None, "none");
+        assert_eq!(calls(Some(LineStyle::Dashed), "blue"), without);
+        assert_eq!(calls(Some(LineStyle::Solid), "none"), without);
     }
 
     #[test]

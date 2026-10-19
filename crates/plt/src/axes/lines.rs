@@ -68,14 +68,14 @@ impl Axes {
         }
         let x = self.xaxis().convert_units(x);
         let y = self.yaxis().convert_units(y);
-        Ok(self.add_line(x, y, props))
+        Ok(self.add_cycled_line(x, y, props))
     }
 
     /// Plots `y` against its indices `0, 1, 2, ...` (matplotlib's `ax.plot(y)`).
     pub fn plot_y(&self, y: impl AsRef<[f64]>) -> Line2D {
         let y = y.as_ref().to_vec();
         let x = (0..y.len()).map(|i| i as f64).collect();
-        self.add_line(x, y, LineProps::default())
+        self.add_cycled_line(x, y, LineProps::default())
     }
 
     /// Plots on logarithmic x and y axes (matplotlib's `ax.loglog`).
@@ -118,9 +118,40 @@ impl Axes {
         }
     }
 
-    fn add_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> Line2D {
+    fn add_cycled_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> Line2D {
         let line = self.cycled_line(x, y, props);
         self.add_line_artist(line)
+    }
+
+    /// Adds a line through `(x, y)` in data coordinates, styled from the
+    /// rc parameters and `props` without the property cycle, extending the
+    /// data limits and autoscaling (matplotlib's `ax.add_line(Line2D(...))`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// let line = ax.add_line(&[0.0, 1.0], &[0.0, 2.0], LineProps::default().linewidth(3.0))?;
+    /// assert_eq!(line.linewidth(), 3.0);
+    /// assert_eq!(line.color(), Color::from("C0"), "`lines.color`, not the next cycle colour");
+    /// assert_eq!(ax.lines().len(), 2);
+    /// assert_eq!(ax.data_lim().bbox.p1.y, 2.0);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `x` and `y` differ in length.
+    pub fn add_line(&self, x: &[f64], y: &[f64], props: LineProps) -> Result<Line2D, PlotError> {
+        if x.len() != y.len() {
+            return Err(PlotError::LengthMismatch {
+                x: x.len(),
+                y: y.len(),
+            });
+        }
+        let mut line = LineArtist::new(x.to_vec(), y.to_vec(), crate::rc::params());
+        props.apply(&mut line);
+        Ok(self.add_line_artist(line))
     }
 
     /// A new data line styled by `props`, with the property cycle (of the

@@ -27,6 +27,7 @@ mod mpl_image;
 mod mpl_lines;
 mod mpl_small;
 mod mpl_tests;
+mod mpl_text;
 mod mplot3d;
 mod offsetbox;
 mod patches;
@@ -156,6 +157,7 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_image::cases(),
         &mpl_lines::cases(),
         &mpl_small::cases(),
+        &mpl_text::cases(),
     ]
     .concat()
 }

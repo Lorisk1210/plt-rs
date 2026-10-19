@@ -8,9 +8,9 @@ use plt::text::{HorizontalAlignment, Text, VerticalAlignment};
 use crate::figures::FigureCase;
 
 /// `WIDTH`: the figure width of every case, in inches.
-const WIDTH: f64 = 5.25;
+pub(super) const WIDTH: f64 = 5.25;
 /// `ROW`: the height of one row, in inches.
-const ROW: f64 = 0.75;
+pub(super) const ROW: f64 = 0.75;
 
 /// `TESTS_A`: the first ten `math_tests` drawn.
 const TESTS_A: [&str; 10] = [
@@ -74,7 +74,7 @@ macro_rules! delimiter_row {
 
 /// `DELIMITERS`: the `svgastext_math_tests`, every `AutoHeightChar`
 /// substitution.
-const DELIMITERS: [&str; 7] = [
+pub(super) const DELIMITERS: [&str; 7] = [
     "$-$-",
     delimiter_row!("(", ")"),
     delimiter_row!("[", "]"),
@@ -103,7 +103,7 @@ const LIGHTWEIGHT: [&str; 10] = [
 ];
 
 /// `_rows(expressions)`: one centred expression per row, top to bottom.
-fn rows(fig: &Figure, expressions: &[&str]) -> Vec<Text> {
+pub(super) fn rows(fig: &Figure, expressions: &[&str]) -> Vec<Text> {
     let n = expressions.len() as f64;
     expressions
         .iter()

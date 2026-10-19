@@ -5,6 +5,8 @@
 //! `Spine.get_window_extent`). Drawing and tight bounding boxes share
 //! these placements.
 
+use std::borrow::Cow;
+
 use plt_core::{Bbox, Point, Rgba};
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
@@ -93,12 +95,14 @@ impl<'a> AxisPainter<'a> {
 
     /// The axis' ticks with their styles: the major ticks, then the minor
     /// ones (empty when the ticks could not be computed).
-    pub(super) fn styled_ticks(&self) -> Vec<(&'a Tick, &'a TickStyle)> {
+    pub(super) fn styled_ticks(&self) -> Vec<(&'a Tick, Cow<'a, TickStyle>)> {
         let Ok(ticks) = &self.axis.ticks else {
             return Vec::new();
         };
-        let major = ticks.major.iter().map(|t| (t, &self.axis.major_style));
-        let minor = ticks.minor.iter().map(|t| (t, &self.axis.minor_style));
+        let major = (ticks.major.iter())
+            .zip(&ticks.major_index)
+            .map(|(tick, &index)| (tick, self.axis.major_tick_style(index)));
+        let minor = (ticks.minor.iter()).map(|tick| (tick, Cow::Borrowed(&self.axis.minor_style)));
         major.chain(minor).collect()
     }
 
@@ -131,7 +135,7 @@ impl<'a> AxisPainter<'a> {
                 if !enabled || tick.label.is_empty() {
                     continue;
                 }
-                match self.tick_label(layout, tick, style, first_side, rc) {
+                match self.tick_label(layout, tick, &style, first_side, rc) {
                     Some(Ok(text)) => texts.tick_labels.push(TickLabel {
                         tick: index,
                         first_side,

@@ -47,11 +47,11 @@ impl AxisPainter<'_> {
                             polar,
                             self.name,
                             tick,
-                            style,
+                            &style,
                             rc,
                         );
                     }
-                    None => self.draw_tick_lines(ctx, tick.loc, style, rc),
+                    None => self.draw_tick_lines(ctx, tick.loc, &style, rc),
                 }
                 while let Some(label) = labels.next_if(|label| label.tick == index) {
                     draw_text(ctx, &label.text, rc);

@@ -1,0 +1,45 @@
+{
+ "size_px": [900, 300],
+ "suptitle": "Categorical Plotting",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.227941, 0.77],
+   "title": "",
+   "xlim": [-0.59, 3.59],
+   "ylim": [0.0, 21.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "apple"], [1, "orange"], [2, "lemon"], [3, "lime"]],
+   "yticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"], [15.0, "15"], [20.0, "20"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.398529, 0.11, 0.227941, 0.77],
+   "title": "",
+   "xlim": [-0.15, 3.15],
+   "ylim": [0.0, 21.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "apple"], [1, "orange"], [2, "lemon"], [3, "lime"]],
+   "yticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"], [15.0, "15"], [20.0, "20"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.672059, 0.11, 0.227941, 0.77],
+   "title": "",
+   "xlim": [-0.15, 3.15],
+   "ylim": [0.0, 21.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "apple"], [1, "orange"], [2, "lemon"], [3, "lime"]],
+   "yticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"], [15.0, "15"], [20.0, "20"]]
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "",
+   "xlim": [-24.95, 523.95],
+   "ylim": [-0.110781, 1.284819],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "num steps",
+   "ylabel": "position",
+   "xticks": [[0.0, "0"], [100.0, "100"], [200.0, "200"], [300.0, "300"], [400.0, "400"], [500.0, "500"]],
+   "yticks": [[0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"], [1.2, "1.2"]],
+   "legend": ["walker position", "population mean", "1 sigma range"]
+  }
+ ]
+}

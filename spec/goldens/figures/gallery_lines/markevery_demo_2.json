@@ -1,0 +1,123 @@
+{
+ "size_px": [1000, 600],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.046889, 0.717043, 0.281862, 0.241003],
+   "title": "markevery=None",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.380223, 0.717043, 0.281862, 0.241003],
+   "title": "markevery=8",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.713556, 0.717043, 0.281862, 0.241003],
+   "title": "markevery=(30, 8)",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.046889, 0.38371, 0.281862, 0.241003],
+   "title": "markevery=[16, 24, 32]",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.380223, 0.38371, 0.281862, 0.241003],
+   "title": "markevery=[0, -1]",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.713556, 0.38371, 0.281862, 0.241003],
+   "title": "markevery=slice(100, 200, 3)",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.046889, 0.050376, 0.281862, 0.241003],
+   "title": "markevery=0.1",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.380223, 0.050376, 0.281862, 0.241003],
+   "title": "markevery=0.4",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.713556, 0.050376, 0.281862, 0.241003],
+   "title": "markevery=(0.2, 0.4)",
+   "xlim": [0.087842, 12.384728],
+   "ylim": [0.095032, 2.445555],
+   "xscale": "log",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"]],
+   "yticks": [[0.1, "$\\mathdefault{10^{-1}}$"], [1.0, "$\\mathdefault{10^{0}}$"]]
+  }
+ ]
+}

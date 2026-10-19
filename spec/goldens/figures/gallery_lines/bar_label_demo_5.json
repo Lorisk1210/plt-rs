@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "Running speeds",
+   "xlim": [-0.54, 2.54],
+   "ylim": [0.0, 80.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "speed in MPH",
+   "xticks": [[0, "Lion"], [1, "Gazelle"], [2, "Cheetah"]],
+   "yticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"], [30.0, "30"], [40.0, "40"], [50.0, "50"], [60.0, "60"], [70.0, "70"], [80.0, "80"]]
+  }
+ ]
+}

@@ -119,11 +119,17 @@ impl Axes {
         );
         collection.fill_geometry = Some(geometry);
         props.apply(&mut collection);
-        collection
+        let transform = collection
             .base_mut()
             .transform
             .get_or_insert_with(|| self.trans_data());
-        Collection::from_raw(self.adopt(collection, &DataUpdate::limits(limits)))
+        // Only the directions that are data values extend the data limits
+        // (matplotlib's `_update_collection_limits`).
+        let update = DataUpdate {
+            update: transform.data_directions(self.id()),
+            ..DataUpdate::limits(limits)
+        };
+        Collection::from_raw(self.adopt(collection, &update))
     }
 }
 
@@ -394,6 +400,23 @@ mod tests {
                 .err(),
             Some(PlotError::NotFillBetween)
         );
+    }
+
+    #[test]
+    fn only_data_directions_extend_the_data_limits() {
+        use crate::figure::Figure;
+
+        let ax = Figure::new().subplot();
+        let options = FillBetweenOptions {
+            mask: Some(vec![false, true, true, false]),
+            props: CollectionProps::default().transform(ax.trans_xaxis()),
+            ..FillBetweenOptions::default()
+        };
+        ax.fill_between([0.0, 1.0, 2.0, 3.0], [0.0], [1.0], options)
+            .unwrap();
+        let limits = ax.data_lim().bbox;
+        assert_eq!((limits.x0(), limits.x1()), (1.0, 2.0), "the filled x");
+        assert!(limits.y0().is_infinite(), "the heights are axes fractions");
     }
 
     #[test]

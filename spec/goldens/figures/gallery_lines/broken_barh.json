@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "Resource usage",
+   "xlim": [0.0, 10.0],
+   "ylim": [5.47, -0.47],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"], [10.0, "10"]],
+   "yticks": [[0, "CPU 1"], [1, "CPU 2"], [2, "CPU 3"], [3, "CPU 4"], [4, "disk"], [5, "network"]]
+  }
+ ]
+}

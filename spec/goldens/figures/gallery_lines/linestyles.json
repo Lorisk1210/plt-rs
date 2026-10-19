@@ -1,0 +1,32 @@
+{
+ "size_px": [700, 800],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.26625, 0.736872, 0.727797, 0.231663],
+   "title": "Named linestyles",
+   "xlim": [-5.0, 105.0],
+   "ylim": [-0.5, 3.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[0, "dashdot"], [1, "dashed"], [2, "dotted"], [3, "solid"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.26625, 0.005209, 0.727797, 0.694989],
+   "title": "Parametrized linestyles",
+   "xlim": [-5.0, 105.0],
+   "ylim": [-0.5, 12.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[0, "densely dashdotdotted"], [1, "loosely dashdotdotted"], [2, "dashdotdotted"], [3, "densely dashdotted"], [4, "dashdotted"], [5, "loosely dashdotted"], [6, "densely dashed"], [7, "dashed"], [8, "loosely dashed"], [9, "long dash with offset"], [10, "densely dotted"], [11, "dotted"], [12, "loosely dotted"]]
+  }
+ ]
+}

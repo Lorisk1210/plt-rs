@@ -25,6 +25,7 @@ pub(crate) use frame::FigureFrame;
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use pdf_pages::PdfPages;
 pub use print::{BboxInches, SaveOptions};
+use save::whole_pixels;
 pub use save::{SaveError, SaveFormat};
 pub(crate) use state::FigureState;
 pub use subfigure::SubfigureOptions;
@@ -155,6 +156,21 @@ impl Figure {
     /// Canvas size in pixels.
     pub fn size_pixels(&self) -> (f64, f64) {
         self.state.borrow().size_pixels()
+    }
+
+    /// The whole pixels of a raster canvas for this figure (matplotlib's
+    /// `canvas.get_width_height()`): the size in pixels truncated, but
+    /// rounded up when within 1e-8 of the next pixel, so that a 9.2 in
+    /// figure at 100 dpi spans 920 pixels despite floating-point error.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// assert_eq!(Figure::with_size(9.2, 5.0, 100.0).width_height(), (920, 500));
+    /// assert_eq!(Figure::with_size(2.555, 1.0, 100.0).width_height(), (255, 100));
+    /// ```
+    pub fn width_height(&self) -> (u32, u32) {
+        let (width, height) = self.size_pixels();
+        (whole_pixels(width), whole_pixels(height))
     }
 
     /// Sets the background colour.

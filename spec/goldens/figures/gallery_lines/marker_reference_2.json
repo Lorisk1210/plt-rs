@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "Filled markers",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.352273, 0.77],
+   "title": "",
+   "xlim": [-0.4, 2.4],
+   "ylim": [8.4, -1.4],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"]],
+   "yticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.547727, 0.11, 0.352273, 0.77],
+   "title": "",
+   "xlim": [-0.4, 2.4],
+   "ylim": [8.4, -1.4],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"]],
+   "yticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"]]
+  }
+ ]
+}

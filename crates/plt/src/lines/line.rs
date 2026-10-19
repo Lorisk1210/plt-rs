@@ -1,6 +1,6 @@
 //! The `Line2D` artist: a polyline with optional markers.
 
-use plt_core::{Bbox, Path, Point, Rgba};
+use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_render::{CapStyle, GraphicsContext, JoinStyle};
 
 use super::axline::InfiniteLine;
@@ -62,6 +62,9 @@ pub(crate) struct LineArtist {
     pub(crate) gapcolor: Color,
     pub(crate) marker: Marker,
     pub(crate) fillstyle: FillStyle,
+    pub(crate) marker_transform: Option<Affine2D>,
+    pub(crate) marker_capstyle: Option<CapStyle>,
+    pub(crate) marker_joinstyle: Option<JoinStyle>,
     pub(crate) markersize: f64,
     pub(crate) markeredgewidth: f64,
     pub(crate) markeredgecolor: ColorOrAuto,
@@ -105,6 +108,9 @@ impl LineArtist {
                 .markers_fillstyle
                 .parse()
                 .expect("rc validates markers.fillstyle"),
+            marker_transform: None,
+            marker_capstyle: None,
+            marker_joinstyle: None,
             markersize: rc.lines_markersize,
             markeredgewidth: rc.lines_markeredgewidth,
             markeredgecolor: rc.lines_markeredgecolor.clone(),
@@ -444,6 +450,15 @@ artist_properties! {
         marker, set_marker: Marker;
         /// Which part of the marker is filled with the face colour.
         fillstyle, set_fillstyle: FillStyle;
+        /// A transform applied to the marker before it is scaled to
+        /// `markersize` (matplotlib's `MarkerStyle(transform=...)`).
+        marker_transform, set_marker_transform: Option<Affine2D>;
+        /// Cap style of the marker edges, replacing the marker's own
+        /// (matplotlib's `MarkerStyle(capstyle=...)`).
+        marker_capstyle, set_marker_capstyle: Option<CapStyle>;
+        /// Join style of the marker edges, replacing the marker's own where
+        /// the marker chooses one (matplotlib's `MarkerStyle(joinstyle=...)`).
+        marker_joinstyle, set_marker_joinstyle: Option<JoinStyle>;
         /// Marker size in points.
         markersize, set_markersize: f64;
         /// Marker edge width in points.

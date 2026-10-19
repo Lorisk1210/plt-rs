@@ -6,7 +6,7 @@ use std::fmt;
 use plt_core::{Affine2D, Path, Point};
 use plt_render::SnapMode;
 
-use super::line::LineArtist;
+use super::line::{LineArtist, LineProps};
 use super::{MarkEveryError, StepError};
 use crate::artist::{DrawContext, LayoutContext};
 use crate::colors::Color;
@@ -24,8 +24,7 @@ impl LineArtist {
         if self.marker.is_nothing() || self.markersize <= 0.0 || points.is_empty() {
             return Ok(());
         }
-        let mut style =
-            MarkerStyle::new(self.marker.clone(), self.fillstyle).map_err(|e| e.to_string())?;
+        let mut style = self.marker_style().map_err(|e| e.to_string())?;
         if let Some(rotation) = &self.marker_rotation {
             style = style.rotated(rotation.angle(*ctx.layout(), self.base.parent));
         }
@@ -99,6 +98,21 @@ impl LineArtist {
         Ok(())
     }
 
+    /// The marker as drawn: its shape and fill style with the user
+    /// transform, cap and join styles (matplotlib's `Line2D._marker`).
+    fn marker_style(&self) -> Result<MarkerStyle, crate::markers::MarkerError> {
+        let style = MarkerStyle::with_styles(
+            self.marker.clone(),
+            self.fillstyle,
+            self.marker_capstyle,
+            self.marker_joinstyle,
+        )?;
+        Ok(match self.marker_transform {
+            Some(transform) => style.transformed(transform),
+            None => style,
+        })
+    }
+
     /// The face colour of the marker (or its alternate half).
     pub(super) fn marker_face(&self, style: &MarkerStyle, alt: bool) -> Color {
         if style.fillstyle() == FillStyle::None {
@@ -154,6 +168,32 @@ impl LineArtist {
     }
 }
 
+impl LineProps {
+    /// These properties with every part of `style`: the marker, its fill
+    /// style and its user transform, cap and join styles (matplotlib's
+    /// `plot(..., marker=MarkerStyle(...))`).
+    ///
+    /// ```
+    /// use plt::lines::LineProps;
+    /// use plt::markers::{FillStyle, MarkerStyle};
+    /// use plt::transforms::Affine2D;
+    /// let tilted = MarkerStyle::new("o".parse::<plt::markers::Marker>()?, FillStyle::Left)?
+    ///     .rotated_deg(30.0);
+    /// let props = LineProps::default().marker_style(&tilted);
+    /// assert_eq!(props.fillstyle, Some(FillStyle::Left));
+    /// assert_eq!(props.marker_transform, Some(Some(Affine2D::identity().rotate_deg(30.0))));
+    /// # Ok::<(), plt::markers::MarkerError>(())
+    /// ```
+    #[must_use]
+    pub fn marker_style(self, style: &MarkerStyle) -> Self {
+        self.marker(style.marker().clone())
+            .fillstyle(style.fillstyle())
+            .marker_transform(style.user_transform())
+            .marker_capstyle(style.user_capstyle())
+            .marker_joinstyle(style.user_joinstyle())
+    }
+}
+
 /// Why the marker positions of a line cannot be determined.
 #[derive(Clone, Debug, PartialEq)]
 pub enum MarkerError {
@@ -176,3 +216,77 @@ impl fmt::Display for MarkerError {
 }
 
 impl std::error::Error for MarkerError {}
+
+#[cfg(test)]
+mod tests {
+    use plt_core::Point;
+    use plt_render::{CapStyle, JoinStyle};
+
+    use super::LineArtist;
+    use crate::artist::ArtistHandle;
+    use crate::figure::Figure;
+    use crate::lines::LineProps;
+    use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
+    use crate::testing::{Call, RecordingRenderer};
+
+    #[test]
+    fn marker_styles_carry_their_transform_and_edge_styles() {
+        let style = MarkerStyle::with_styles(
+            MarkerSymbol::Star,
+            FillStyle::Left,
+            Some(CapStyle::Round),
+            Some(JoinStyle::Bevel),
+        )
+        .unwrap()
+        .rotated_deg(30.0);
+        let ax = Figure::new().subplot();
+        let line = ax
+            .plot_with([0.0], [0.0], LineProps::default().marker_style(&style))
+            .unwrap();
+        let drawn = line
+            .raw()
+            .with::<LineArtist, _>(LineArtist::marker_style)
+            .unwrap();
+        assert_eq!(drawn.fillstyle(), FillStyle::Left);
+        assert_eq!(drawn.user_transform(), style.user_transform());
+        assert_eq!(
+            (drawn.capstyle(), drawn.joinstyle()),
+            (CapStyle::Round, JoinStyle::Bevel)
+        );
+    }
+
+    #[test]
+    fn markers_are_drawn_through_their_transform() {
+        let fig = Figure::with_size(2.0, 2.0, 72.0);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        let upright = MarkerStyle::new(MarkerSymbol::HLine, FillStyle::Full)
+            .unwrap()
+            .rotated_deg(90.0);
+        let props = LineProps::default().marker_style(&upright).markersize(10.0);
+        ax.plot_with([0.5], [0.5], props).unwrap();
+        let mut renderer = RecordingRenderer::new(144.0, 144.0, 72.0);
+        fig.draw(&mut renderer).unwrap();
+        let near_centre = |points: &[Point]| {
+            points
+                .iter()
+                .all(|p| (p.x - 72.0).abs() <= 6.0 && (p.y - 72.0).abs() <= 6.0)
+        };
+        let mut marker = renderer
+            .calls
+            .iter()
+            .find_map(|call| match call {
+                Call::Path { points, .. } if points.len() == 2 && near_centre(points) => {
+                    Some(points.clone())
+                }
+                _ => None,
+            })
+            .unwrap();
+        marker.sort_by(|a, b| a.y.total_cmp(&b.y));
+        let expected = [Point::new(72.0, 67.0), Point::new(72.0, 77.0)];
+        for (point, expected) in marker.iter().zip(expected) {
+            assert!((point.x - expected.x).abs() < 1e-9, "{point:?}");
+            assert!((point.y - expected.y).abs() < 1e-9, "{point:?}");
+        }
+    }
+}

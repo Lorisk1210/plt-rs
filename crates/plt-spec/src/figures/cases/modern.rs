@@ -5,8 +5,8 @@
 use std::f64::consts::PI;
 
 use plt::axes::{
-    BarLabelOptions, ErrorbarOptions, FillBetweenOptions, HistPlotOptions, ImshowOptions,
-    MappedColors, ScatterOptions,
+    ErrorbarOptions, FillBetweenOptions, HistPlotOptions, ImshowOptions, MappedColors,
+    ScatterOptions,
 };
 use plt::collections::CollectionProps;
 use plt::colorbar::ColorbarOptions;
@@ -20,6 +20,7 @@ use plt::stats::{Bins, HistOptions};
 use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
 use plt_core::Point;
 
+use super::common::{map, padded};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -53,11 +54,6 @@ fn x() -> Vec<f64> {
     linspace(0.0, 10.0, 200)
 }
 
-/// `values` mapped through `f`.
-fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
-    values.iter().map(|&v| f(v)).collect()
-}
-
 /// `_damped`: four phase-shifted waves with a legend.
 fn damped(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
@@ -89,11 +85,7 @@ fn bars(fig: &Figure) -> CaseResult {
             ..BarOptions::default()
         };
         let bars = ax.bar(map(&x, |x| x + offset), values, options)?;
-        let labels = BarLabelOptions {
-            padding: vec![2.0],
-            ..BarLabelOptions::default()
-        };
-        ax.bar_label(&bars, &labels)?;
+        ax.bar_label(&bars, &padded(2.0))?;
     }
     ax.set_xticks(x.to_vec());
     ax.set_xticklabels(["north", "south", "east", "west"])?;

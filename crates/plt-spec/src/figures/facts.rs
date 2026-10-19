@@ -12,12 +12,11 @@ use crate::json::Json;
 /// after a layout pass (matplotlib's are taken once the figure is drawn).
 pub fn figure_facts(fig: &Figure) -> Json {
     fig.layout();
-    let (width, height) = fig.size_pixels();
+    let (width, height) = fig.width_height();
     Json::Object(vec![
         (
             "size_px".into(),
-            // matplotlib's `get_width_height` truncates.
-            Json::from(vec![width.trunc(), height.trunc()]),
+            Json::from(vec![f64::from(width), f64::from(height)]),
         ),
         ("suptitle".into(), fig.suptitle_text().into()),
         ("axes".into(), Json::Array(all_axes_facts(fig))),

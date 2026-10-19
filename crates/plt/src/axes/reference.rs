@@ -40,7 +40,8 @@ impl Axes {
     }
 
     /// An infinite line through `xy1` and a second point or with a slope
-    /// (matplotlib's `axline`).
+    /// (matplotlib's `axline`). Its points extend the data limits unless
+    /// the line is given a transform of its own.
     pub fn axline(&self, xy1: Point, through: AxLineThrough, props: LineProps) -> Line2D {
         let mut points = vec![xy1];
         if let AxLineThrough::Point(xy2) = through {
@@ -49,6 +50,9 @@ impl Axes {
         let (x, y) = points.iter().map(|p| (p.x, p.y)).unzip();
         let mut line = LineArtist::new(x, y, crate::rc::params());
         line.infinite = Some(InfiniteLine { xy1, through });
+        if props.base.transform.is_some() {
+            points.clear();
+        }
         props.apply(&mut line);
         line.base_mut()
             .transform
@@ -141,4 +145,27 @@ fn bent_like_gridlines(span: Patch<Rectangle>) -> Patch<Rectangle> {
         patch.interpolation_steps = GRIDLINE_INTERPOLATION_STEPS;
     });
     span
+}
+
+#[cfg(test)]
+mod tests {
+    use plt_core::Point;
+
+    use crate::figure::Figure;
+    use crate::lines::{AxLineThrough, LineProps};
+
+    #[test]
+    fn axlines_in_their_own_coordinates_leave_the_data_limits_alone() {
+        let ax = Figure::new().subplot();
+        let fractions = LineProps::default().transform(ax.trans_axes());
+        ax.axline(Point::new(0.2, 0.0), AxLineThrough::Slope(0.5), fractions);
+        assert!(ax.data_lim().bbox.x0().is_infinite());
+        ax.axline(
+            Point::new(1.0, 2.0),
+            AxLineThrough::Point(Point::new(3.0, 4.0)),
+            LineProps::default(),
+        );
+        let limits = ax.data_lim().bbox;
+        assert_eq!((limits.x0(), limits.y1()), (1.0, 4.0));
+    }
 }

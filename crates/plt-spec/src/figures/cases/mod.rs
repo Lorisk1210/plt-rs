@@ -11,6 +11,7 @@ mod contour;
 mod fields;
 mod figure;
 mod gallery_images;
+mod gallery_lines;
 mod geo;
 mod hinting;
 mod hist;
@@ -188,5 +189,5 @@ fn matplotlib_tests() -> Vec<FigureCase> {
 /// The cases porting matplotlib's gallery examples (the `gallery_*`
 /// groups).
 fn gallery_examples() -> Vec<FigureCase> {
-    [gallery_images::cases()].concat()
+    [gallery_images::cases(), gallery_lines::cases()].concat()
 }

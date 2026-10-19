@@ -1,6 +1,6 @@
 //! Property sets for new collections (matplotlib's collection `**kwargs`).
 
-use super::{CollectionArtist, EdgeColors, HatchColors};
+use super::{CollectionArtist, CollectionKind, EdgeColors, HatchColors};
 use crate::artist::{Artist, BaseProps};
 use crate::colors::Color;
 use crate::lines::LineStyle;
@@ -11,7 +11,8 @@ use crate::lines::LineStyle;
 pub struct CollectionProps {
     /// Properties common to all artists.
     pub base: BaseProps,
-    /// Face and edge colour, overridden by `facecolors` and `edgecolors`.
+    /// Face and edge colour (only the edge colour of line collections),
+    /// overridden by `facecolors` and `edgecolors`.
     pub color: Option<Color>,
     /// Face colours.
     pub facecolors: Option<Vec<Color>>,
@@ -30,7 +31,7 @@ pub struct CollectionProps {
 }
 
 impl CollectionProps {
-    /// Face and edge colour.
+    /// Face and edge colour (only the edge colour of line collections).
     #[must_use]
     pub fn color(mut self, color: impl Into<Color>) -> Self {
         self.color = Some(color.into());
@@ -83,7 +84,10 @@ impl CollectionProps {
     pub(crate) fn apply(self, collection: &mut CollectionArtist) {
         self.base.apply(collection.base_mut());
         if let Some(color) = self.color {
-            collection.facecolors = Some(vec![color.clone()]);
+            // matplotlib's `LineCollection.set_color` only colours the lines.
+            if collection.kind != CollectionKind::Line {
+                collection.facecolors = Some(vec![color.clone()]);
+            }
             collection.edgecolors = EdgeColors::Colors(vec![color]);
         }
         if self.facecolors.is_some() {

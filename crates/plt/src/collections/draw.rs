@@ -4,12 +4,10 @@ use plt_core::{Affine2D, Path, PathCode, Point, Rgba};
 use plt_render::{Dashes, GraphicsContext, Hatch, PathCollection};
 
 use super::spec::{EllipseUnits, Ellipses};
-use super::style::{broadcast_widths_and_dashes, resolve_colors};
+use super::style::{broadcast_widths_and_dashes, resolve_colors, resolve_hatch_colors};
 use super::{CollectionArtist, CollectionKind, cycled};
 use crate::artist::{Artist, ArtistId, DrawContext, LayoutContext};
 use crate::axes::AxesState;
-use crate::colors::ColorError;
-use crate::rc::ColorOrEdge;
 use crate::transforms::Transform;
 
 /// Where a collection's items are for one draw: the shapes after the
@@ -200,7 +198,8 @@ pub(super) fn draw_collection(
         return Ok(());
     }
     let batch = Batch::new(c, ctx, &shapes, &transform)?;
-    let mut gc = graphics_context(c, ctx, &batch.edges)?;
+    let hatches = resolve_hatch_colors(c, &batch.edges).map_err(|e| e.to_string())?;
+    let mut gc = graphics_context(c, ctx, &hatches);
     let name = match c.kind {
         CollectionKind::Generic => "Collection",
         CollectionKind::Path => "PathCollection",
@@ -233,7 +232,7 @@ pub(super) fn draw_collection(
             offsets: &batch.offsets,
             facecolors: &batch.faces,
             edgecolors: &batch.edges,
-            hatchcolors: &[],
+            hatchcolors: &hatches,
             linewidths: &batch.widths,
             dashes: &batch.dashes,
             antialiased: &batch.antialiased,
@@ -245,22 +244,21 @@ pub(super) fn draw_collection(
     Ok(())
 }
 
-/// The shared graphics state: clipping, hatch, caps and joins.
+/// The shared graphics state: clipping, hatch (in the first of
+/// `hatches`; items take theirs from the collection), caps and joins.
 fn graphics_context(
     c: &CollectionArtist,
     ctx: &DrawContext<'_>,
-    edges: &[Rgba],
-) -> Result<GraphicsContext, String> {
-    let rc = c.rc();
+    hatches: &[Rgba],
+) -> GraphicsContext {
     let mut gc = ctx.base_gc(c.base());
     gc.alpha = None;
     // matplotlib only hands the renderer non-empty hatches.
     if let Some(pattern) = c.hatch.as_ref().filter(|p| !p.is_empty()) {
-        let color = hatch_color(c, edges).map_err(|e| e.to_string())?;
         gc.hatch = Some(Hatch {
             pattern: pattern.clone(),
-            color,
-            linewidth: rc.hatch_linewidth,
+            color: hatches.first().copied().unwrap_or(Rgba::BLACK),
+            linewidth: c.rc().hatch_linewidth,
         });
     }
     if let Some(cap) = c.capstyle {
@@ -269,21 +267,7 @@ fn graphics_context(
     if let Some(join) = c.joinstyle {
         gc.join = join;
     }
-    Ok(gc)
-}
-
-/// The hatch colour (matplotlib's `Collection.get_hatchcolor` with the
-/// `hatch.color` rc): the first edge colour for `"edge"`, the default
-/// edge colour when the collection has no edge colours; both the default
-/// and an explicit colour take the collection's alpha.
-fn hatch_color(c: &CollectionArtist, edges: &[Rgba]) -> Result<Rgba, ColorError> {
-    let rc = c.rc();
-    let alpha = c.base().alpha;
-    match (&rc.hatch_color, edges.first()) {
-        (ColorOrEdge::Edge, Some(&edge)) => Ok(edge),
-        (ColorOrEdge::Edge, None) => rc.patch_edgecolor.resolve_alpha(alpha),
-        (ColorOrEdge::Color(color), _) => color.resolve_alpha(alpha),
-    }
+    gc
 }
 
 /// How the ellipses of a collection are scaled at draw time.
@@ -351,6 +335,7 @@ fn ellipse_transforms(ellipses: &Ellipses, scale: f64) -> Vec<Affine2D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collections::HatchColors;
 
     fn square(alpha: Option<f64>) -> CollectionArtist {
         let path = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(1.0, 1.0)]);
@@ -361,24 +346,31 @@ mod tests {
     }
 
     #[test]
-    fn hatches_take_the_edge_or_the_faded_default_edge_colour() {
-        let edge = Rgba::new(1.0, 0.0, 0.0, 0.5);
-        assert_eq!(hatch_color(&square(Some(0.5)), &[edge]), Ok(edge));
-        let black = hatch_color(&square(Some(0.5)), &[]).unwrap();
+    fn hatches_take_the_edges_or_the_faded_default_edge_colour() {
+        let edges = [Rgba::new(1.0, 0.0, 0.0, 0.5), Rgba::BLACK];
+        assert_eq!(
+            resolve_hatch_colors(&square(Some(0.5)), &edges),
+            Ok(edges.to_vec())
+        );
+        let black = resolve_hatch_colors(&square(Some(0.5)), &[]).unwrap();
         assert_eq!(
             black,
-            Rgba::new(0.0, 0.0, 0.0, 0.5),
+            [Rgba::new(0.0, 0.0, 0.0, 0.5)],
             "matplotlib fades the default"
         );
-        assert_eq!(hatch_color(&square(None), &[]).unwrap().a, 1.0);
+        assert_eq!(resolve_hatch_colors(&square(None), &[]).unwrap()[0].a, 1.0);
     }
 
     #[test]
-    fn an_explicit_hatch_colour_takes_the_alpha() {
+    fn explicit_hatch_colours_take_the_alpha() {
         crate::rc::context(|| {
             crate::rc::set("hatch.color", "blue").unwrap();
-            let color = hatch_color(&square(Some(0.25)), &[Rgba::BLACK]).unwrap();
-            assert_eq!(color, Rgba::new(0.0, 0.0, 1.0, 0.25));
+            let colors = resolve_hatch_colors(&square(Some(0.25)), &[Rgba::BLACK]).unwrap();
+            assert_eq!(colors, [Rgba::new(0.0, 0.0, 1.0, 0.25)]);
         });
+        let mut both = square(None);
+        both.hatchcolors = HatchColors::Colors(vec!["red".into(), "lime".into()]);
+        let colors = resolve_hatch_colors(&both, &[Rgba::BLACK]).unwrap();
+        assert_eq!(colors[1], Rgba::new(0.0, 1.0, 0.0, 1.0));
     }
 }

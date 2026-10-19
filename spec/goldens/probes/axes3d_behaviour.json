@@ -1,0 +1,144 @@
+{
+ "area": "axes3d_behaviour",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "axes3d.box_aspect", "args": {"vertical_axis": "x"}, "value": [1.1904761932899774, 1.1904761932899774, 0.8928571449674831]},
+  {"op": "axes3d.box_aspect", "args": {"vertical_axis": "y"}, "value": [1.1904761932899774, 1.1904761932899774, 0.8928571449674831]},
+  {"op": "axes3d.box_aspect", "args": {"vertical_axis": "z"}, "value": [1.1904761932899774, 1.1904761932899774, 0.8928571449674831]},
+  {"op": "axes3d.errors", "args": {"case": "focal_half"}, "value": true},
+  {"op": "axes3d.errors", "args": {"case": "focal_zero"}, "error": "ValueError"},
+  {"op": "axes3d.errors", "args": {"case": "margin"}, "error": "ValueError"},
+  {"op": "axes3d.errors", "args": {"case": "margin_ok"}, "value": true},
+  {"op": "axes3d.errors", "args": {"case": "wireframe_ok"}, "value": true},
+  {"op": "axes3d.errors", "args": {"case": "wireframe_strides"}, "error": "ValueError"},
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "aspect_datalim"},
+   "value": [
+    [[-0.07291666666666667, 1.0729166666666667], [-0.14583333333333334, 2.1458333333333335], [-0.0625, 3.0625]],
+    [[-1.5833333333333335, 2.5833333333333335], [-1.0833333333333335, 3.0833333333333335], [-0.0625, 3.0625]],
+    [[-0.07291666666666667, 1.0729166666666667], [-0.14583333333333334, 2.1458333333333335], [-0.0625, 3.0625]]
+   ]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "aspect_datalim_untouched"},
+   "value": [
+    [[0.9270833333333333, 2.0729166666666665], [2.9270833333333335, 4.072916666666666], [4.979166666666667, 6.020833333333333]],
+    [[-50.0, 50.0], [2.9270833333333335, 4.072916666666666], [4.979166666666667, 6.020833333333333]]
+   ]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "autoscale"},
+   "value": [
+    [[-0.020833333333333332, 1.0208333333333333], [-0.125, 1.125], [-0.22916666666666669, 1.2291666666666665]],
+    [[-0.020833333333333332, 1.0208333333333333], [-0.125, 1.125], [-0.45833333333333337, 2.458333333333333]],
+    [[-0.041666666666666664, 2.0416666666666665], [-0.125, 1.125], [-0.45833333333333337, 2.458333333333333]]
+   ]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "lines3d"},
+   "value": [[[-0.14583333333333334, 2.1458333333333335], [-0.2916666666666667, 4.291666666666667], [-0.10416666666666666, 5.104166666666667]]]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "lines3d_ragged"},
+   "value": [[[-0.2916666666666667, 4.291666666666667], [-0.21875, 3.21875], [-0.08333333333333333, 4.083333333333333]]]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "polys3d"},
+   "value": [[[-0.07291666666666667, 1.0729166666666667], [-0.07291666666666667, 1.0729166666666667], [-0.08333333333333333, 4.083333333333333]]]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "scale:asinh"},
+   "value": [[[-0.02083333333333334, 1.0208333333333333], [-0.02083333333333334, 1.0208333333333333], [-0.020833333333333332, 1.0208333333333333]]]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "scale:linear"},
+   "value": [[[-0.02083333333333334, 1.0208333333333333], [-0.02083333333333334, 1.0208333333333333], [-0.020833333333333332, 1.0208333333333333]]]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "scale:log"},
+   "value": [[[0.03640537388223389, 1.1918138759519783], [0.03640537388223389, 1.1918138759519783], [0.03640537388223389, 1.1918138759519783]]]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "scale:logit"},
+   "value": [[[0.029640777806688817, 0.9703592221933112], [0.029640777806688817, 0.9703592221933112], [0.029640777806688817, 0.9703592221933112]]]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "scale:symlog"},
+   "value": [[[-0.02083333333333334, 1.0208333333333333], [-0.02083333333333334, 1.0208333333333333], [-0.020833333333333332, 1.0208333333333333]]]
+  },
+  {
+   "op": "axes3d.limits",
+   "args": {"scene": "shared_retick"},
+   "value": [
+    [[-0.07291666666666667, 1.0729166666666667], [-0.07291666666666667, 1.0729166666666667], [-0.5, 2.5]],
+    [[-0.07291666666666667, 1.0729166666666667], [-0.07291666666666667, 1.0729166666666667], [-0.5, 2.5]]
+   ]
+  },
+  {"op": "axes3d.margins", "args": {}, "value": [[0.2, 0.2, 0.2], [0.1, 0.2, 0.3], [0.0, 0.2, 0.3], [0.0, 0.1, 0.3], [0.0, 0.1, 0.0]]},
+  {"op": "axes3d.scatter_nonfinite", "args": {}, "value": {"finite_offsets": 1, "aligned": true}},
+  {
+   "op": "axes3d.set_limit",
+   "args": {"axis": "x", "side": "left", "value": 2.0},
+   "value": [[2.0, 1.0208333333333333], [-0.02083333333333334, 1.0208333333333333], [-0.020833333333333332, 1.0208333333333333]]
+  },
+  {"op": "axes3d.set_limit", "args": {"axis": "x", "side": "left", "value": Infinity}, "error": "ValueError"},
+  {"op": "axes3d.set_limit", "args": {"axis": "x", "side": "left", "value": NaN}, "error": "ValueError"},
+  {
+   "op": "axes3d.set_limit",
+   "args": {"axis": "x", "side": "right", "value": 2.0},
+   "value": [[-0.02083333333333334, 2.0], [-0.02083333333333334, 1.0208333333333333], [-0.020833333333333332, 1.0208333333333333]]
+  },
+  {"op": "axes3d.set_limit", "args": {"axis": "x", "side": "right", "value": Infinity}, "error": "ValueError"},
+  {"op": "axes3d.set_limit", "args": {"axis": "x", "side": "right", "value": NaN}, "error": "ValueError"},
+  {
+   "op": "axes3d.set_limit",
+   "args": {"axis": "y", "side": "bottom", "value": 2.0},
+   "value": [[-0.02083333333333334, 1.0208333333333333], [2.0, 1.0208333333333333], [-0.020833333333333332, 1.0208333333333333]]
+  },
+  {"op": "axes3d.set_limit", "args": {"axis": "y", "side": "bottom", "value": Infinity}, "error": "ValueError"},
+  {"op": "axes3d.set_limit", "args": {"axis": "y", "side": "bottom", "value": NaN}, "error": "ValueError"},
+  {
+   "op": "axes3d.set_limit",
+   "args": {"axis": "y", "side": "top", "value": 2.0},
+   "value": [[-0.02083333333333334, 1.0208333333333333], [-0.02083333333333334, 2.0], [-0.020833333333333332, 1.0208333333333333]]
+  },
+  {"op": "axes3d.set_limit", "args": {"axis": "y", "side": "top", "value": Infinity}, "error": "ValueError"},
+  {"op": "axes3d.set_limit", "args": {"axis": "y", "side": "top", "value": NaN}, "error": "ValueError"},
+  {
+   "op": "axes3d.set_limit",
+   "args": {"axis": "z", "side": "bottom", "value": 2.0},
+   "value": [[-0.02083333333333334, 1.0208333333333333], [-0.02083333333333334, 1.0208333333333333], [2.0, 1.0208333333333333]]
+  },
+  {"op": "axes3d.set_limit", "args": {"axis": "z", "side": "bottom", "value": Infinity}, "error": "ValueError"},
+  {"op": "axes3d.set_limit", "args": {"axis": "z", "side": "bottom", "value": NaN}, "error": "ValueError"},
+  {
+   "op": "axes3d.set_limit",
+   "args": {"axis": "z", "side": "top", "value": 2.0},
+   "value": [[-0.02083333333333334, 1.0208333333333333], [-0.02083333333333334, 1.0208333333333333], [-0.020833333333333332, 2.0]]
+  },
+  {"op": "axes3d.set_limit", "args": {"axis": "z", "side": "top", "value": Infinity}, "error": "ValueError"},
+  {"op": "axes3d.set_limit", "args": {"axis": "z", "side": "top", "value": NaN}, "error": "ValueError"},
+  {
+   "op": "axes3d.zbounds",
+   "args": {},
+   "value": [
+    {"zlim": [0.0, 1.0], "zbound": [0.0, 1.0], "inverted": false},
+    {"zlim": [0.0, 2.0], "zbound": [0.0, 2.0], "inverted": false},
+    {"zlim": [2.0, 0.0], "zbound": [0.0, 2.0], "inverted": true},
+    {"zlim": [1.0, 0.0], "zbound": [0.0, 1.0], "inverted": true},
+    {"zlim": [2.0, 1.0], "zbound": [1.0, 2.0], "inverted": true}
+   ]
+  }
+ ]
+}

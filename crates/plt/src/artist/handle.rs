@@ -380,6 +380,14 @@ pub trait ArtistHandle {
         state.store.get(self.id())?.window_extent(&ctx)
     }
 
+    /// Whether display point `at` hits the artist in the figure's current
+    /// layout (laid out first), as a mouse event there would (matplotlib's
+    /// `contains`): the indices of the items hit (empty for artists hit as
+    /// a whole), or `None` when the point misses.
+    fn contains(&self, at: Point) -> Option<Vec<usize>> {
+        self.raw().hit_test(at)
+    }
+
     /// Removes the artist (and everything it owns) from the figure.
     fn remove(&self) {
         self.raw()

@@ -1,7 +1,7 @@
 //! JSON encodings shared by several probe areas (paths, matrices,
 //! transform operation lists), as documented in the spec's Python modules.
 
-use plt_core::{Affine2D, Bbox, Path, PathCode, Point};
+use plt_core::{Affine2D, Bbox, Path, PathCode, Point, Rgba};
 
 use super::ProbeError;
 use crate::json::Json;
@@ -30,6 +30,11 @@ pub(crate) fn path(path: &Path) -> Json {
 /// `[x, y]`.
 pub(crate) fn point(p: Point) -> Json {
     Json::from(vec![p.x, p.y])
+}
+
+/// `[r, g, b, a]`.
+pub(crate) fn rgba(color: Rgba) -> Json {
+    Json::from(color.to_array().to_vec())
 }
 
 /// `[[x, y], ...]`.

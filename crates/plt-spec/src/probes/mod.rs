@@ -318,6 +318,20 @@ const AREAS: &[(&str, &[Op])] = &[
     ("axes_behaviour", areas::axes_behaviour::OPS),
     ("legend_behaviour", areas::legend_behaviour::OPS),
     ("colorbar_behaviour", areas::colorbar_behaviour::OPS),
+    ("text_behaviour", areas::text_behaviour::OPS),
+    ("line_behaviour", areas::line_behaviour::OPS),
+    ("patch_behaviour", areas::patch_behaviour::OPS),
+    ("collection_behaviour", areas::collection_behaviour::OPS),
+    ("artist_behaviour", areas::artist_behaviour::OPS),
+    ("image_behaviour", areas::image_behaviour::OPS),
+    ("contour_behaviour", areas::contour_behaviour::OPS),
+    ("quiver_behaviour", areas::quiver_behaviour::OPS),
+    ("polar_behaviour", areas::polar_behaviour::OPS),
+    ("tri_behaviour", areas::tri_behaviour::OPS),
+    ("axes3d_behaviour", areas::axes3d_behaviour::OPS),
+    ("offsetbox_behaviour", areas::offsetbox_behaviour::OPS),
+    ("sankey_behaviour", areas::sankey_behaviour::OPS),
+    ("streamplot_behaviour", areas::streamplot_behaviour::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

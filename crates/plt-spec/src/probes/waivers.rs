@@ -50,6 +50,12 @@ const SMALLER_THAN_A_TOOTH: &str = "a box smaller than one tooth makes matplotli
 const UNSORTED_BOUNDARIES: &str = "matplotlib's BoundaryNorm does not check that its \
      boundaries increase and then maps every value outside the colormap; plt-rs rejects them";
 
+const STREAMPLOT_ARROW_LIMITS: &str = "matplotlib adds the outline of every streamline arrow to \
+     the data limits, converted to data coordinates through the view limits of the moment the \
+     arrow is added (the default view, before autoscaling has run), so arrows sized in points \
+     widen the limits by an amount that depends on that stale view; plt-rs counts the \
+     streamlines only";
+
 /// Every waiver, grouped by area.
 pub const WAIVERS: &[Waiver] = &[
     Waiver {
@@ -166,6 +172,21 @@ pub const WAIVERS: &[Waiver] = &[
         op: "mlab.cohere",
         args: r#"{"NFFT": 32, "detrend": "linear", "window": "none"}"#,
         reason: ROUNDING_NOISE_RATIO,
+    },
+    Waiver {
+        op: "streamplot.datalim",
+        args: r#"{"x": [[10, 20], [10, 20]], "y": [[10, 10], [20, 20]], "options": {}}"#,
+        reason: STREAMPLOT_ARROW_LIMITS,
+    },
+    Waiver {
+        op: "streamplot.datalim",
+        args: r#"{"x": [[10, 20], [10, 20]], "y": [[10, 10], [20, 20]], "options": {"integration_max_step_scale": 0.5, "integration_max_error_scale": 2.0}}"#,
+        reason: STREAMPLOT_ARROW_LIMITS,
+    },
+    Waiver {
+        op: "streamplot.datalim",
+        args: r#"{"options": {"start_points": [[1.0, 0.0], [0.0, -0.5]]}}"#,
+        reason: STREAMPLOT_ARROW_LIMITS,
     },
 ];
 

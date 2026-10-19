@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use plt_core::{Affine2D, Path, Point, Rgba};
+use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_render::{CapStyle, GraphicsContext, JoinStyle, SnapMode};
 
 use super::axline::InfiniteLine;
@@ -389,6 +389,38 @@ impl Artist for LineArtist {
         }
     }
 
+    /// matplotlib's `Line2D.get_window_extent`: the display extent of the
+    /// finite data points (of the part inside the axes for an infinite
+    /// line), padded by half the marker size when there is a marker;
+    /// `None` without a finite point.
+    fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        let resolved = ctx.resolve(&self.transform())?;
+        let points: Vec<Point> = match &self.infinite {
+            Some(infinite) => infinite
+                .display_segment(*ctx, &resolved, self.base.parent)
+                .ok()?
+                .vertices()
+                .to_vec(),
+            None => self
+                .points()
+                .ok()?
+                .vertices()
+                .iter()
+                .map(|&p| resolved.transform_point(p))
+                .collect(),
+        };
+        let extent = Bbox::from_points(points.into_iter().filter(|p| p.is_finite()));
+        if extent.is_null() {
+            return None;
+        }
+        let pad = if self.marker.is_nothing() {
+            0.0
+        } else {
+            ctx.points_to_pixels(self.markersize) * 0.5
+        };
+        Some(extent.padded(pad, pad))
+    }
+
     /// The drawn vertices, in the directions where the line's coordinates
     /// are data values; infinite lines do not count (matplotlib's
     /// `_update_line_limits`).
@@ -568,5 +600,35 @@ artist_properties! {
         dash_capstyle, set_dash_capstyle: CapStyle;
         /// Join style of dashed lines.
         dash_joinstyle, set_dash_joinstyle: JoinStyle;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::artist::ArtistHandle;
+    use crate::figure::Figure;
+    use crate::lines::{AxLineThrough, LineProps};
+    use plt_core::{Bbox, Point};
+
+    #[test]
+    fn window_extents_cover_the_finite_points_and_markers() {
+        let fig = Figure::with_size(2.0, 2.0, 72.0);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        let props = LineProps::fmt("o-").unwrap().markersize(10.0);
+        let line = ax.plot_with([0.25, f64::NAN, 0.75], [0.5, 0.2, 1.0], props);
+        let extent = line.unwrap().window_extent().unwrap();
+        assert_eq!(extent, Bbox::from_extents(31.0, 67.0, 113.0, 149.0));
+        let empty = ax.plot([f64::NAN], [1.0]).unwrap();
+        assert_eq!(empty.window_extent(), None);
+        let flat = ax.axline(
+            Point::new(0.0, 0.5),
+            AxLineThrough::Slope(0.0),
+            LineProps::default(),
+        );
+        assert_eq!(
+            flat.window_extent(),
+            Some(Bbox::from_extents(0.0, 72.0, 144.0, 72.0))
+        );
     }
 }

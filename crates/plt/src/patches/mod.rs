@@ -41,7 +41,7 @@ mod style_spec;
 pub use arcs::{Annulus, Arc};
 pub use arrow_style::{ArrowStyle, Bracket, CurveArrow, CurveEnd};
 pub use arrows::{Arrow, ArrowShape, FancyArrow};
-pub use artist::{Patch, PatchView};
+pub use artist::{Patch, PatchColors, PatchView};
 pub(crate) use artist::{PatchArtist, PatchParts};
 pub use box_style::{ArrowHead, BoxShape, BoxStyle, DEFAULT_PAD};
 pub use connection_patch::{ConnectionEnd, ConnectionPatch};

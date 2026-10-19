@@ -196,7 +196,7 @@ pub(super) fn font_properties(kw: &Json) -> Result<FontProperties, ProbeError> {
 }
 
 /// `rotation`: degrees, `"vertical"`, `"horizontal"` or `null`.
-fn rotation(value: &Json) -> Result<f64, ProbeError> {
+pub(crate) fn rotation(value: &Json) -> Result<f64, ProbeError> {
     match value {
         Json::Null => Ok(0.0),
         Json::String(name) => match name.as_str() {
@@ -206,7 +206,7 @@ fn rotation(value: &Json) -> Result<f64, ProbeError> {
         },
         other => other
             .as_f64()
-            .ok_or_else(|| ProbeError::BadArgs(format!("bad rotation {other}"))),
+            .ok_or_else(|| ProbeError::rejected(format!("bad rotation {other}"))),
     }
 }
 
@@ -234,7 +234,7 @@ fn halign(value: &Json) -> Result<HorizontalAlignment, ProbeError> {
 }
 
 /// Applies the keyword arguments of `fig.text(x, y, s, **kw)` in order.
-pub(super) fn apply_text_kw(text: &Text, kw: Option<&Json>) -> Result<(), ProbeError> {
+pub(crate) fn apply_text_kw(text: &Text, kw: Option<&Json>) -> Result<(), ProbeError> {
     let rc = rc::params();
     for (key, value) in kw.and_then(Json::as_object).unwrap_or(&[]) {
         match key.as_str() {

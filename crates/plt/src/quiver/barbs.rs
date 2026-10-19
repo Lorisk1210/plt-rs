@@ -5,6 +5,7 @@ use plt_core::{Affine2D, Point};
 
 use crate::collections::CollectionProps;
 use crate::colors::Color;
+use crate::transforms::Transform;
 
 /// Proportions of barb features relative to the staff length
 /// (matplotlib's `sizes`).
@@ -90,6 +91,11 @@ pub struct BarbsOptions {
     pub flip: Vec<bool>,
     /// Further collection properties (face colour, edge width, ...).
     pub props: CollectionProps,
+    /// The coordinates of the positions (`None` = the axes' data
+    /// coordinates; matplotlib's `transform`), counted for the data limits
+    /// as [`QuiverOptions::transform`](super::QuiverOptions::transform)
+    /// says.
+    pub transform: Option<Transform>,
 }
 
 impl Default for BarbsOptions {
@@ -105,6 +111,7 @@ impl Default for BarbsOptions {
             rounding: true,
             flip: vec![false],
             props: CollectionProps::default(),
+            transform: None,
         }
     }
 }

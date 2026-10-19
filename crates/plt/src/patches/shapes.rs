@@ -63,6 +63,24 @@ impl Rectangle {
     pub fn bbox(&self) -> Bbox {
         Bbox::from_bounds(self.xy.x, self.xy.y, self.width, self.height)
     }
+
+    /// The corners, rotated: `xy` first, then counter-clockwise for a
+    /// positive width and height (matplotlib's `get_corners`).
+    pub fn corners(&self) -> [Point; 4] {
+        placed(self, [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
+    }
+
+    /// The centre, rotated (matplotlib's `get_center`).
+    pub fn center(&self) -> Point {
+        let [center] = placed(self, [(0.5, 0.5)]);
+        center
+    }
+}
+
+/// `points` of a shape's own coordinates, mapped by its patch transform.
+fn placed<const N: usize>(shape: &impl PatchShape, points: [(f64, f64); N]) -> [Point; N] {
+    let transform = shape.patch_transform();
+    points.map(|p| transform.transform_point(p.into()))
 }
 
 impl PatchShape for Rectangle {
@@ -124,6 +142,32 @@ impl Ellipse {
             height,
             angle: 0.0,
             aspect_ratio_correction: 1.0,
+        }
+    }
+
+    /// The corners of the rotated box the ellipse is inscribed in,
+    /// counter-clockwise from the one at `(-width, -height) / 2`
+    /// (matplotlib's `get_corners`).
+    pub fn corners(&self) -> [Point; 4] {
+        placed(self, [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)])
+    }
+
+    /// The ends of the major axis (matplotlib's `get_vertices`; the
+    /// horizontal axis when the ellipse is round).
+    pub fn vertices(&self) -> [Point; 2] {
+        if self.width < self.height {
+            placed(self, [(0.0, 1.0), (0.0, -1.0)])
+        } else {
+            placed(self, [(1.0, 0.0), (-1.0, 0.0)])
+        }
+    }
+
+    /// The ends of the minor axis (matplotlib's `get_co_vertices`).
+    pub fn co_vertices(&self) -> [Point; 2] {
+        if self.width < self.height {
+            placed(self, [(1.0, 0.0), (-1.0, 0.0)])
+        } else {
+            placed(self, [(0.0, 1.0), (0.0, -1.0)])
         }
     }
 }
@@ -413,6 +457,28 @@ mod tests {
         assert!((far - Point::new(1.0, 5.0)).length() < 1e-12);
         let centered = Rectangle::new((0.0, 0.0), 2.0, 2.0).rotated(180.0, RotationPoint::Center);
         assert!((placed(&centered)[0] - Point::new(2.0, 2.0)).length() < 1e-12);
+    }
+
+    #[test]
+    fn corners_centres_and_axis_ends() {
+        let p = Point::new;
+        let rect = Rectangle::new((10.0, 20.0), 1.0, 2.0);
+        assert_eq!(
+            rect.corners(),
+            [p(10.0, 20.0), p(11.0, 20.0), p(11.0, 22.0), p(10.0, 22.0)]
+        );
+        assert_eq!(rect.center(), p(10.5, 21.0));
+        let turned = rect.clone().rotated(90.0, RotationPoint::Xy);
+        let close = |a: Point, b: Point| (a - b).length() < 1e-12;
+        assert!(close(turned.corners()[2], p(8.0, 21.0)));
+        assert!(close(turned.center(), p(9.0, 20.5)));
+        let ellipse = Ellipse::new((10.5, 21.0), 1.0, 2.0);
+        assert_eq!(ellipse.corners(), rect.corners());
+        assert_eq!(ellipse.vertices(), [p(10.5, 22.0), p(10.5, 20.0)]);
+        assert_eq!(ellipse.co_vertices(), [p(11.0, 21.0), p(10.0, 21.0)]);
+        let wide = Ellipse::new((0.0, 0.0), 4.0, 2.0);
+        assert_eq!(wide.vertices(), [p(2.0, 0.0), p(-2.0, 0.0)]);
+        assert_eq!(wide.co_vertices(), [p(0.0, 1.0), p(0.0, -1.0)]);
     }
 
     #[test]

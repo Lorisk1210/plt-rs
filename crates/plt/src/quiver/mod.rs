@@ -49,6 +49,7 @@ pub(crate) use key::{KeyVector, QuiverKeyArtist};
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
+use crate::transforms::Transform;
 
 /// Options of `Axes::quiver` (matplotlib's `quiver` keywords).
 #[derive(Clone, Debug, PartialEq)]
@@ -74,6 +75,12 @@ pub struct QuiverOptions {
     pub color: Color,
     /// Further collection properties (edges, alpha, z-order, ...).
     pub props: CollectionProps,
+    /// The coordinates of the positions (`None` = the axes' data
+    /// coordinates; matplotlib's `transform`). Positions count for the
+    /// data limits where the transform puts them when it passes through
+    /// the data coordinates last, after a fixed affine map; `angles="xy"`
+    /// still follows the data coordinates.
+    pub transform: Option<Transform>,
 }
 
 impl Default for QuiverOptions {
@@ -88,6 +95,7 @@ impl Default for QuiverOptions {
             pivot: Pivot::Tail,
             color: Color::from("k"),
             props: CollectionProps::default(),
+            transform: None,
         }
     }
 }

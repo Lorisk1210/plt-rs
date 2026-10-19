@@ -6,6 +6,7 @@ use std::rc::Rc;
 use plt_core::Point;
 
 use super::children::DataUpdate;
+use super::scatter::data_offsets;
 use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle, ArtistId};
 use crate::collections::{Collection, CollectionArtist, CollectionKind};
@@ -63,7 +64,9 @@ impl Axes {
         options.props.apply(&mut collection);
         collection.base_mut().transform = Some(self.trans_data());
         collection.offsets.clone_from(&points.xy);
-        collection.offset_transform = Some(self.trans_data());
+        let positions = options.transform.unwrap_or_else(|| self.trans_data());
+        let data_positions = data_offsets(&positions, self.id(), &points.xy);
+        collection.offset_transform = Some(positions);
         let sizing = ArrowSizing {
             scale: options.scale,
             scale_units: options.scale_units,
@@ -74,7 +77,7 @@ impl Axes {
             pivot: options.pivot,
         };
         let mut limits = DataLimits::NULL;
-        limits.update_from_points(&points.xy, true, true);
+        limits.update_from_points(&data_positions.unwrap_or_default(), true, true);
         collection.draw_time = Some(Box::new(QuiverGeometry::new(
             self.id(),
             points.xy,

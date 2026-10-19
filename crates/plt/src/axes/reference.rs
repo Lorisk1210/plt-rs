@@ -8,6 +8,7 @@ use super::children::DataUpdate;
 use crate::artist::{Artist, ArtistHandle};
 use crate::lines::{AxLineThrough, InfiniteLine, Line2D, LineArtist, LineProps};
 use crate::patches::{Patch, PatchArtist, PatchShape, Rectangle};
+use crate::polar::GRIDLINE_INTERPOLATION_STEPS;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
 
@@ -65,7 +66,7 @@ impl Axes {
     /// fraction `xmin` to `xmax`.
     pub fn axhspan_between(&self, ymin: f64, ymax: f64, xmin: f64, xmax: f64) -> Patch<Rectangle> {
         let band = Rectangle::new(Point::new(xmin, ymin), xmax - xmin, ymax - ymin);
-        self.add_patch_in(band, self.trans_yaxis(), (false, true))
+        bent_like_gridlines(self.add_patch_in(band, self.trans_yaxis(), (false, true)))
     }
 
     /// A vertical band between data positions `xmin` and `xmax` across the
@@ -78,7 +79,7 @@ impl Axes {
     /// fraction `ymin` to `ymax`.
     pub fn axvspan_between(&self, xmin: f64, xmax: f64, ymin: f64, ymax: f64) -> Patch<Rectangle> {
         let band = Rectangle::new(Point::new(xmin, ymin), xmax - xmin, ymax - ymin);
-        self.add_patch_in(band, self.trans_xaxis(), (true, false))
+        bent_like_gridlines(self.add_patch_in(band, self.trans_xaxis(), (true, false)))
     }
 
     /// Adds a patch whose outline is given in `transform` coordinates,
@@ -117,6 +118,9 @@ impl Axes {
         };
         let outside = at < lo.min(hi) || at > lo.max(hi);
         props.apply(&mut line);
+        // matplotlib bends reference lines like gridlines on projections.
+        line.interpolation_steps = GRIDLINE_INTERPOLATION_STEPS;
+        line.recache();
         let points = line.drawn_points();
         line.base_mut().transform = Some(transform);
         let along_x = axis == AxisName::X;
@@ -127,4 +131,14 @@ impl Axes {
         };
         Line2D::from_raw(self.adopt(line, &update))
     }
+}
+
+/// A span whose outline bends with projections such as the polar one,
+/// like a gridline (matplotlib sets `GRIDLINE_INTERPOLATION_STEPS` on the
+/// paths of `axhspan` and `axvspan`).
+fn bent_like_gridlines(span: Patch<Rectangle>) -> Patch<Rectangle> {
+    span.raw().with_mut::<PatchArtist<Rectangle>, _>(|patch| {
+        patch.interpolation_steps = GRIDLINE_INTERPOLATION_STEPS;
+    });
+    span
 }

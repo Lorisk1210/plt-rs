@@ -1,5 +1,7 @@
 //! Images attached to an axes (matplotlib's `AxesImage`).
 
+use std::rc::Rc;
+
 use plt_core::{Bbox, Path, Point};
 
 use super::make::{ImageCore, Placement, RenderedImage};
@@ -10,6 +12,7 @@ use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, ClipPathSpec, DrawContext,
     LayoutContext, LimitPoints, RawHandle,
 };
+use crate::axes::Axes;
 use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
 use crate::numeric::Grid;
@@ -297,6 +300,22 @@ impl AxesImage {
     /// The data rectangle the image covers.
     pub fn extent(&self) -> Extent {
         self.read(|image| image.extent)
+    }
+
+    /// Moves the image to cover `extent` (matplotlib's `set_extent`): the
+    /// axes' data limits grow to include it and the view limits of the
+    /// axes that autoscale become it.
+    pub fn set_extent(&self, extent: Extent) -> &Self {
+        match self.raw.with_base(|base| base.parent) {
+            Some(axes) => {
+                let figure = Rc::clone(self.raw.figure_state());
+                Axes::from_raw(RawHandle::new(figure, axes)).fit_image(self, extent);
+            }
+            None => {
+                self.update(|image| image.extent = extent);
+            }
+        }
+        self
     }
 
     /// `(rows, columns)` of the image array.

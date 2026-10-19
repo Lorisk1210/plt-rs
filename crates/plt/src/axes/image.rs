@@ -278,21 +278,32 @@ impl Axes {
     /// `add_image`): the extent extends the data limits and becomes the
     /// sticky edges, and each autoscaled axis is fitted to it.
     pub(crate) fn add_image(&self, mut artist: AxesImageArtist) -> AxesImage {
+        let extent = artist.extent;
+        artist.base_mut().transform = Some(self.trans_data());
+        let image = AxesImage::from_raw(self.adopt(artist, &DataUpdate::default()));
+        self.fit_image(&image, extent);
+        image
+    }
+
+    /// Makes `image` cover `extent`: its sticky edges are the extent's
+    /// sides, the data limits grow to include it and the view limits of
+    /// the autoscaled axes become it (matplotlib's `AxesImage.set_extent`).
+    pub(crate) fn fit_image(&self, image: &AxesImage, extent: Extent) {
         let Extent {
             left,
             right,
             bottom,
             top,
-        } = artist.extent;
-        let base = artist.base_mut();
-        base.transform = Some(self.trans_data());
-        base.sticky_edges = (vec![left, right], vec![bottom, top]);
-        let update = DataUpdate {
-            points: vec![Point::new(left, bottom), Point::new(right, top)],
-            update: (true, true),
-            autoscale: (false, false),
-        };
-        let raw = self.adopt(artist, &update);
+        } = extent;
+        image.raw().with_mut::<AxesImageArtist, _>(|artist| {
+            artist.extent = extent;
+            artist.base_mut().sticky_edges = (vec![left, right], vec![bottom, top]);
+        });
+        self.update_datalim(
+            &[Point::new(left, bottom), Point::new(right, top)],
+            true,
+            true,
+        );
         let autoscale = self.raw().with::<AxesState, _>(|axes| {
             (axes.xaxis.autoscale.enabled, axes.yaxis.autoscale.enabled)
         });
@@ -303,8 +314,6 @@ impl Axes {
         if autoscale.1 {
             figure.set_axis_limits(self.id(), AxisName::Y, (bottom, top), None, true);
         }
-        drop(figure);
-        AxesImage::from_raw(raw)
     }
 }
 
@@ -331,6 +340,20 @@ mod tests {
         assert_eq!(ax.ylim(), (0.0, 4.0));
         assert_eq!(image.sticky_edges(), (vec![8.0, 0.0], vec![0.0, 4.0]));
         assert_eq!(ax.aspect(), Aspect::Ratio(1.0));
+    }
+
+    #[test]
+    fn moving_an_image_extends_the_limits_and_moves_the_view() {
+        let ax = Figure::new().subplot();
+        let image = ax
+            .imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())
+            .unwrap();
+        image.set_extent(Extent::new(20.0, 10.0, 5.0, 7.0));
+        assert_eq!(image.extent(), Extent::new(20.0, 10.0, 5.0, 7.0));
+        assert_eq!((ax.xlim(), ax.ylim()), ((20.0, 10.0), (5.0, 7.0)));
+        assert_eq!(image.sticky_edges(), (vec![20.0, 10.0], vec![5.0, 7.0]));
+        let limits = ax.data_lim().bbox;
+        assert_eq!((limits.x0(), limits.x1()), (-0.5, 20.0), "both extents");
     }
 
     #[test]

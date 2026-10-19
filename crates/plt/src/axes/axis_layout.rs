@@ -222,10 +222,7 @@ impl<'a> AxisPainter<'a> {
         if !anchor.is_finite() {
             return None;
         }
-        let font = FontProperties {
-            size: style.label_size,
-            ..FontProperties::from_rc(rc)
-        };
+        let font = style.label_font(rc);
         let halign = style.label_halign.unwrap_or(halign);
         let block = BlockStyle {
             halign,

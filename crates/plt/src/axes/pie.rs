@@ -44,7 +44,7 @@ pub enum PieDirection {
 
 /// The drop shadow drawn under every wedge (matplotlib's `shadow=True`,
 /// or a dict of `Shadow` arguments).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PieShadow {
     /// Horizontal offset in points.
     pub ox: f64,
@@ -52,6 +52,10 @@ pub struct PieShadow {
     pub oy: f64,
     /// How much darker than its wedge the shadow is, in `[0, 1]`.
     pub shade: f64,
+    /// Properties overriding the shadow's, which otherwise copies its
+    /// wedge's in the darker colour (the other keys of matplotlib's
+    /// shadow dict, such as `edgecolor` or `linewidth`).
+    pub props: PatchProps,
 }
 
 impl Default for PieShadow {
@@ -61,6 +65,7 @@ impl Default for PieShadow {
             ox: -0.02,
             oy: -0.02,
             shade: 0.7,
+            props: PatchProps::default(),
         }
     }
 }
@@ -364,8 +369,18 @@ impl Axes {
                 let wedge = self.add_patch(shape);
                 wedge.update_props(props.overlay(options.wedgeprops.clone()));
                 wedge.set_clip_on(false);
-                if let Some(PieShadow { ox, oy, shade }) = options.shadow {
-                    let shadow = self.add_patch(Shadow::of_shaded(&wedge, ox, oy, shade)?);
+                if let Some(label) = options.labels.get(i) {
+                    wedge.set_label(label.clone());
+                }
+                if let Some(PieShadow {
+                    ox,
+                    oy,
+                    shade,
+                    props,
+                }) = &options.shadow
+                {
+                    let shadow = self.add_patch(Shadow::of_shaded(&wedge, *ox, *oy, *shade)?);
+                    shadow.update_props(props.clone());
                     shadow.set_clip_on(false).set_label("_nolegend_");
                 }
                 theta1 = theta2;
@@ -451,5 +466,18 @@ mod tests {
             ..PieOptions::default()
         };
         assert!(ax.pie(&[1.0], &mismatched).is_err());
+    }
+
+    #[test]
+    fn wedges_carry_the_labels_for_legends() {
+        let ax = Figure::new().subplot();
+        let options = PieOptions {
+            labels: vec!["a".into(), "b".into()],
+            labeldistance: None,
+            ..PieOptions::default()
+        };
+        let pie = ax.pie(&[1.0, 2.0], &options).unwrap();
+        assert!(pie.labels.is_empty(), "no labels drawn without a distance");
+        assert_eq!(ax.legend_handles_labels().1, ["a", "b"]);
     }
 }

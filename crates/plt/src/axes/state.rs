@@ -274,14 +274,9 @@ impl AxesState {
         if let Some(geo) = self.geo() {
             return geo.data_transform(display);
         }
-        let (x0, x1) = self.view_lim.interval_x();
-        let (y0, y1) = self.view_lim.interval_y();
-        let scaled_limits = Bbox::from_extents(
-            self.xaxis.forward(x0),
-            self.yaxis.forward(y0),
-            self.xaxis.forward(x1),
-            self.yaxis.forward(y1),
-        );
+        let (x0, x1) = scaled_interval(&self.xaxis, self.view_lim.interval_x());
+        let (y0, y1) = scaled_interval(&self.yaxis, self.view_lim.interval_y());
+        let scaled_limits = Bbox::from_extents(x0, y0, x1, y1);
         let affine = bbox_to_unit(&scaled_limits).then(unit_to_bbox(display));
         let (x_map, y_map) = (self.xaxis.map().cloned(), self.yaxis.map().cloned());
         if x_map.is_none() && y_map.is_none() {
@@ -545,4 +540,14 @@ impl AxesState {
             None => Path::unit_rectangle(),
         }
     }
+}
+
+/// The view interval `(v0, v1)` of `axis` in scaled coordinates. Like
+/// matplotlib's `TransformedBbox` of the view limits, it keeps the
+/// orientation of the data interval: a decreasing scale (a function scale
+/// such as `1 / x`) leaves the axis the way round its limits say.
+fn scaled_interval(axis: &AxisState, (v0, v1): (f64, f64)) -> (f64, f64) {
+    let (a, b) = (axis.forward(v0), axis.forward(v1));
+    let (low, high) = (a.min(b), a.max(b));
+    if v0 > v1 { (high, low) } else { (low, high) }
 }

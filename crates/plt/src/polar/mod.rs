@@ -18,7 +18,7 @@ mod transform;
 use std::f64::consts::PI;
 
 pub use api::{PolarAxes, PolarError};
-pub(crate) use paint::{draw_tick_lines, tick_label_anchor};
+pub(crate) use paint::{GRIDLINE_INTERPOLATION_STEPS, draw_tick_lines, tick_label_anchor};
 pub(crate) use ticker::{RadialLocator, theta_tickers};
 pub(crate) use transform::{PolarMap, PolarView};
 

@@ -37,6 +37,7 @@ pub use resolved::{AxisMap, PointMap, ResolvedTransform, Step};
 pub use tracked_bbox::TrackedBbox;
 
 use crate::artist::ArtistId;
+use crate::ticker::AxisName;
 
 /// A coordinate system, expressed relative to figure/axes geometry.
 #[derive(Clone, Debug, PartialEq)]
@@ -193,6 +194,21 @@ impl Transform {
         }
     }
 
+    /// The axes and its data axis when `x` and `y` blend one axes' data
+    /// coordinates along one axis with its axes fractions along the other
+    /// (the axis transforms [`Axes::trans_xaxis`] and
+    /// [`Axes::trans_yaxis`] build).
+    ///
+    /// [`Axes::trans_xaxis`]: crate::axes::Axes::trans_xaxis
+    /// [`Axes::trans_yaxis`]: crate::axes::Axes::trans_yaxis
+    fn axis_blend(x: &Self, y: &Self) -> Option<(ArtistId, AxisName)> {
+        match (x, y) {
+            (Self::Data(a), Self::Axes(b)) if a == b => Some((*a, AxisName::X)),
+            (Self::Axes(a), Self::Data(b)) if a == b => Some((*a, AxisName::Y)),
+            _ => None,
+        }
+    }
+
     /// Resolves the expression against the current figure geometry.
     pub fn resolve(&self, ctx: &dyn TransformContext) -> Result<ResolvedTransform, TransformError> {
         Ok(match self {
@@ -217,7 +233,12 @@ impl Transform {
             Self::Data(axes) => ctx
                 .data_transform(*axes)
                 .ok_or(TransformError::MissingArtist(*axes))?,
-            Self::Blended(x, y) => ResolvedTransform::blend(x.resolve(ctx)?, y.resolve(ctx)?),
+            Self::Blended(x, y) => match Self::axis_blend(x, y)
+                .and_then(|(axes, data_axis)| ctx.axis_transform(axes, data_axis))
+            {
+                Some(axis) => axis,
+                None => ResolvedTransform::blend(x.resolve(ctx)?, y.resolve(ctx)?),
+            },
             Self::Composite(first, second) => first.resolve(ctx)?.then(second.resolve(ctx)?),
             Self::Translation { dx, dy, units } => {
                 ResolvedTransform::affine(scaled_translation(*dx, *dy, &units.resolve(ctx)?))
@@ -247,6 +268,13 @@ pub trait TransformContext {
     fn axes_bbox(&self, axes: ArtistId) -> Option<Bbox>;
     /// Complete data-to-display transform of an axes.
     fn data_transform(&self, axes: ArtistId) -> Option<ResolvedTransform>;
+    /// The transform of an axes that is data along `data_axis` and axes
+    /// fractions across it, when the axes' projection defines its own
+    /// (matplotlib's `get_xaxis_transform` and `get_yaxis_transform`);
+    /// `None` leaves it to the plain blend of the two coordinate systems.
+    fn axis_transform(&self, _axes: ArtistId, _data_axis: AxisName) -> Option<ResolvedTransform> {
+        None
+    }
 }
 
 /// Why a transform could not be resolved.

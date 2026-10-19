@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use super::{Axes, AxesState, AxisName, ProjectionKind};
+use super::{Axes, AxesState, AxisName, ProjectionKind, TickStyle};
 use crate::artist::{Artist, ArtistHandle, ArtistId};
 use crate::figure::{FigureState, TITLE_PLACES, axes_title};
 use crate::rc::RcParams;
@@ -31,6 +31,21 @@ impl AxesState {
         fresh.patch.facecolor = self.patch.facecolor.clone();
         fresh.decorations.frame_on = self.decorations.frame_on;
         fresh.axis_zorder = self.axis_zorder;
+        for name in [AxisName::X, AxisName::Y] {
+            // matplotlib's `Axis.clear` keeps the tick parameters, except
+            // whether gridlines are on, which restarts from the rc.
+            let (old, new) = (self.axis(name), fresh.axis_mut(name));
+            for (kept, restarted) in [
+                (&old.major_style, &mut new.major_style),
+                (&old.minor_style, &mut new.minor_style),
+            ] {
+                *restarted = TickStyle {
+                    grid_on: restarted.grid_on,
+                    ..kept.clone()
+                };
+            }
+            new.label_size = old.label_size;
+        }
         if self.shares.0.is_some() {
             fresh.xaxis.visible = self.xaxis.visible;
             fresh.patch.visible = self.patch.visible;
@@ -132,7 +147,8 @@ impl Axes {
 
 #[cfg(test)]
 mod tests {
-    use crate::axes::{AxisName, ProjectionKind, TitleLocation};
+    use crate::axes::{AxisName, ProjectionKind, TickParams, TitleLocation};
+    use crate::colors::Color;
     use crate::figure::Figure;
 
     #[test]
@@ -154,6 +170,25 @@ mod tests {
         // The colour cycle restarts.
         let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         assert_eq!(line.rgba(), crate::colors::Color::from("C0").resolve());
+    }
+
+    #[test]
+    fn tick_parameters_survive_but_the_grid_restarts() {
+        // matplotlib's test_axes_clear_behavior.
+        let ax = Figure::new().subplot();
+        ax.tick_params(&TickParams {
+            length: Some(10.0),
+            grid_color: Some(Color::from("r")),
+            labelfontfamily: Some("serif".into()),
+            ..TickParams::default()
+        });
+        ax.grid(true);
+        ax.clear();
+        let style = ax.xaxis().tick_style(false);
+        assert_eq!(style.size, 10.0);
+        assert_eq!(style.label_family.as_deref(), Some("serif"));
+        assert_eq!(style.grid.color, Color::from("r"));
+        assert!(!style.grid_on);
     }
 
     #[test]

@@ -7,7 +7,7 @@ use super::{AxesState, AxisName, GridOptions, GridStyle, TickLabelProps, TickLev
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::figure::Figure;
-use crate::fonts::FontSize;
+use crate::fonts::{FontSize, FontWeight};
 use crate::lines::LineStyle;
 use crate::ticker::MultipleLocator;
 
@@ -141,6 +141,33 @@ fn minor_ticks_take_labels_and_label_properties() {
     assert_eq!(style.label_color, Color::from("tab:red"));
     assert_eq!(style.label_size, 7.0);
     assert_eq!(style.label_multialign, Some(HAlign::Right));
+}
+
+#[test]
+fn tick_labels_take_a_font_family_and_weight() {
+    // matplotlib's `tick_params(labelfontfamily=...)` and
+    // `set_ticks(..., fontweight="bold")`.
+    let ax = axes();
+    ax.tick_params(&TickParams {
+        axis: Some(AxisName::Y),
+        labelfontfamily: Some("serif".into()),
+        ..TickParams::default()
+    });
+    ax.xaxis().set_ticklabel_props(
+        TickLevel::Major,
+        &TickLabelProps {
+            fontweight: Some(FontWeight::BOLD),
+            ..TickLabelProps::default()
+        },
+    );
+    let rc = crate::rc::params();
+    let y_font = ax.yaxis().tick_style(false).label_font(&rc);
+    assert_eq!(y_font.families, ["serif"]);
+    assert_eq!(y_font.weight, FontWeight::NORMAL);
+    let x_font = ax.xaxis().tick_style(false).label_font(&rc);
+    assert_eq!(x_font.families, rc.font_family);
+    assert_eq!(x_font.weight, FontWeight::BOLD);
+    assert_eq!(x_font.size, ax.xaxis().tick_style(false).label_size);
 }
 
 #[test]

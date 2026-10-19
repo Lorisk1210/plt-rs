@@ -9,7 +9,7 @@ use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::colors::{Colormap, ColormapError, Extend, LogNorm, colormaps};
 use plt::figure::{Figure, Share};
 use plt::image::{ColorizerOptions, Interpolation, InterpolationStage, NonUniformInterpolation};
-use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::scale::ScaleOptions;
 
@@ -47,14 +47,6 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_image/downsampling_speckle", downsampling_speckle).sized(5.0, 2.7, 100.0),
     FigureCase::new("mpl_image/upsampling", upsampling).sized(6.5, 3.0, 100.0),
 ];
-
-/// Lays `fig` out with constrained layout, compressed or not.
-fn constrained(fig: &Figure, compress: bool) {
-    fig.set_layout_engine(Some(LayoutEngine::Constrained(ConstrainedLayout {
-        compress,
-        ..ConstrainedLayout::default()
-    })));
-}
 
 /// The test array of the antialiasing tests, `n` pixels square: rows
 /// alternating between -1 and 1 left of column `split`, aliased
@@ -164,7 +156,7 @@ fn rgba_antialias(fig: &Figure) -> CaseResult {
         }
     }
     let axs = fig.subplots(2, 2)?;
-    constrained(fig, false);
+    fig.set_layout_engine(LayoutEngine::constrained());
     let settings = [
         (Interpolation::Nearest, None),
         (Interpolation::Nearest, None),
@@ -198,7 +190,7 @@ fn downsampling(fig: &Figure) -> CaseResult {
     let n = 450;
     let a = rings(n, 5.0, 100.0, n / 3);
     let axs = fig.subplots(2, 3)?;
-    constrained(fig, true);
+    fig.set_layout_engine(LayoutEngine::compressed());
     let zoom = &axs[(0, 0)];
     zoom.imshow(
         a.clone(),
@@ -256,7 +248,7 @@ fn downsampling_speckle(fig: &Figure) -> CaseResult {
     });
     let cmap = colormaps::get("viridis")?.with_over("m")?;
     let axs = fig.subplots_shared(1, 2, Share::All, Share::All)?;
-    constrained(fig, true);
+    fig.set_layout_engine(LayoutEngine::compressed());
     let stages = [
         (
             "interpolation='auto', stage='rgba'",
@@ -286,7 +278,7 @@ fn downsampling_speckle(fig: &Figure) -> CaseResult {
 fn upsampling(fig: &Figure) -> CaseResult {
     let a = uniform(19_680_801 + 9, 4, 4);
     let axs = fig.subplots(1, 3)?;
-    constrained(fig, true);
+    fig.set_layout_engine(LayoutEngine::compressed());
     let panels = [
         (
             None,

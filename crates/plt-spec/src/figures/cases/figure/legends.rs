@@ -4,16 +4,17 @@
 use plt::figure::SubfigureOptions;
 use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::SubplotOverrides;
+use plt::layout::LayoutEngine;
 use plt::legend::{BboxToAnchor, LegendHandle, LegendMode, LegendOptions};
 use plt::prelude::*;
 use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
 use plt::transforms::Transform;
 
-use super::{constrained, map, t};
+use super::{map, t};
 use crate::figures::CaseResult;
 
 pub(super) fn legends_outside_constrained(fig: &Figure) -> CaseResult {
-    constrained(fig, false);
+    fig.set_layout_engine(LayoutEngine::constrained());
     let axs = fig.subplots(2, 2)?;
     let t = t();
     for (i, ax) in axs.as_slice().iter().enumerate() {

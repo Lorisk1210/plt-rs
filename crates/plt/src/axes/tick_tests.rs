@@ -10,7 +10,7 @@ use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::figure::Figure;
 use crate::fonts::{FontSize, FontWeight, RelativeSize};
-use crate::layout::{ConstrainedLayout, LayoutEngine};
+use crate::layout::LayoutEngine;
 use crate::lines::LineStyle;
 use crate::testing::{Call, RecordingRenderer};
 use crate::ticker::MultipleLocator;
@@ -340,9 +340,7 @@ fn single_tick_label_properties_accumulate_on_the_major_style() {
 /// first layout when `out_of_layout`.
 fn constrained_position(labels: [&str; 2], out_of_layout: bool) -> plt_core::Bbox {
     let fig = Figure::new();
-    fig.set_layout_engine(Some(
-        LayoutEngine::Constrained(ConstrainedLayout::default()),
-    ));
+    fig.set_layout_engine(LayoutEngine::constrained());
     let ax = fig.subplot();
     ax.set_xticks([0.0, 1.0]).set_xticklabels(labels).unwrap();
     fig.layout();

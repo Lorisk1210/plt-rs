@@ -1,7 +1,7 @@
 //! Arranging axes: mosaics, twin axes and insets.
 
 use plt::figure::{Mosaic, MosaicOptions};
-use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::prelude::*;
 
@@ -30,9 +30,7 @@ pub(crate) const ENTRIES: &[Entry] = &[
 /// Four panels of different sizes, laid out by name.
 fn mosaic() -> Built {
     let fig = Figure::with_size(7.0, 5.0, 100.0);
-    fig.set_layout_engine(Some(
-        LayoutEngine::Constrained(ConstrainedLayout::default()),
-    ));
+    fig.set_layout_engine(LayoutEngine::constrained());
     let axes = fig.subplot_mosaic(&Mosaic::parse("AAB;CDB")?, &MosaicOptions::default())?;
     let mut samples = Samples::new(3);
     for (name, ax) in axes.iter() {

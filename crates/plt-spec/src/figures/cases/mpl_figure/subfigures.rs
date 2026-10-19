@@ -7,12 +7,13 @@ use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::figure::{Share, SubfigureOptions};
 use plt::fonts::RelativeSize;
 use plt::image::ColorizerOptions;
+use plt::layout::LayoutEngine;
 use plt::legend::{LegendHandle, LegendOptions};
 use plt::prelude::*;
 use plt::spines::SpineSide;
 use plt_core::Rgba;
 
-use super::{Fallible, TEAL, constrained, decorate, randn, remove_ticks_and_titles};
+use super::{Fallible, TEAL, decorate, randn, remove_ticks_and_titles};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -67,7 +68,7 @@ fn meshes_with_colorbar(
 
 fn subfigure(fig: &Figure) -> CaseResult {
     let mut stream = SpecRng::new(SEED);
-    constrained(fig, false);
+    fig.set_layout_engine(LayoutEngine::constrained());
     let sub = fig.subfigures(1, 2, &SubfigureOptions::default())?;
     let (left, right) = (&sub[(0, 0)], &sub[(0, 1)]);
 
@@ -95,7 +96,7 @@ fn subfigure(fig: &Figure) -> CaseResult {
 
 fn subfigure_ss(fig: &Figure) -> CaseResult {
     let mut stream = SpecRng::new(SEED);
-    constrained(fig, false);
+    fig.set_layout_engine(LayoutEngine::constrained());
     let gs = fig.add_gridspec(1, 2)?;
 
     let sub = fig.add_subfigure(&gs.cell(0, 0)?);
@@ -116,7 +117,7 @@ fn subfigure_ss(fig: &Figure) -> CaseResult {
 
 fn subfigure_double(fig: &Figure) -> CaseResult {
     let mut stream = SpecRng::new(SEED);
-    constrained(fig, false);
+    fig.set_layout_engine(LayoutEngine::constrained());
 
     fig.suptitle("fig");
 

@@ -8,7 +8,7 @@ use plt::axes::{Mesh, PcolorOptions};
 use plt::axisartist::{self, AuxTransform, AxisArtist, AxislineStyle};
 use plt::contour::{ContourOptions, QuadCoords, QuadField};
 use plt::figure::Figure;
-use plt::layout::{LayoutEngine, TightLayout};
+use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::prelude::ArtistHandle;
 
@@ -173,7 +173,7 @@ fn axisline_style_size_color(fig: &Figure) -> CaseResult {
 }
 
 fn axisline_style_tight(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout::default())));
+    fig.set_layout_engine(LayoutEngine::tight());
     zero_arrows(fig, 5.0, Some("g"), "->, size=8")
 }
 

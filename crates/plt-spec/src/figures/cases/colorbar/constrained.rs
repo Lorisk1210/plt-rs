@@ -3,18 +3,11 @@
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::figure::Figure;
 use plt::image::ColorizerOptions;
-use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::layout::LayoutEngine;
 use plt::spines::SpineSide;
 
 use super::data::{cmap, colored, field};
 use crate::figures::CaseResult;
-
-/// `fig.set_layout_engine("constrained")`.
-fn constrained(fig: &Figure) {
-    fig.set_layout_engine(Some(
-        LayoutEngine::Constrained(ConstrainedLayout::default()),
-    ));
-}
 
 /// `_field(20) * gain`.
 fn scaled_field(gain: f64) -> plt::numeric::Grid<f64> {
@@ -22,7 +15,7 @@ fn scaled_field(gain: f64) -> plt::numeric::Grid<f64> {
 }
 
 pub(super) fn constrained_layout(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    fig.set_layout_engine(LayoutEngine::constrained());
     let axs = fig.subplots(2, 2)?;
     for (i, ax) in axs.as_slice().iter().enumerate() {
         let im = ax.imshow(scaled_field(i as f64 + 1.0), cmap("viridis")?)?;
@@ -36,7 +29,7 @@ pub(super) fn constrained_layout(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn constrained_shared(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    fig.set_layout_engine(LayoutEngine::constrained());
     let axs = fig.subplots(2, 2)?;
     let limits = || colored(ColorizerOptions::default().limits(Some(-2.0), Some(2.0)));
     let mut last = None;

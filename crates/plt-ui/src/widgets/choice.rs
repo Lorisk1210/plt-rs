@@ -10,7 +10,6 @@ use super::segments::Segments;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
-use crate::text::TextStyle;
 use crate::theme::Spacing;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
@@ -87,7 +86,7 @@ impl<M: 'static> Widget<M> for Choice<M> {
         let scale = cx.scale_factor();
         self.segments.measure(
             &self.options,
-            &TextStyle::new(theme.font_size),
+            &theme.text_style(),
             scale,
             theme.space(PADDING) * scale,
             theme.segment_min_width * scale,

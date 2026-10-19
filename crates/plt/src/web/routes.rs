@@ -6,8 +6,10 @@ use std::time::Duration;
 
 use super::assets::{self, Asset};
 use super::http::{Request, Response, Status};
+use super::modern::{self, ModernFile};
 use super::net::{DownloadError, Inbound, Shared};
 use crate::figure::SaveFormat;
+use crate::look::ChromeLook;
 
 /// How long a download may wait for the server's thread to render it.
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
@@ -17,6 +19,8 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 pub(crate) enum Route {
     /// A static file.
     Static(&'static Asset),
+    /// A file of the modern chrome that matplotlib does not have.
+    Modern(&'static ModernFile),
     /// The client script (`/js/mpl.js`).
     Script,
     /// The page of every figure (`/`).
@@ -43,6 +47,9 @@ fn figure_number(text: &str) -> Option<u32> {
 pub(crate) fn route(path: &str) -> Route {
     if let Some(asset) = assets::find(path) {
         return Route::Static(asset);
+    }
+    if let Some(file) = modern::find(path) {
+        return Route::Modern(file);
     }
     match path {
         "" | "/" => return Route::AllFigures,
@@ -111,7 +118,12 @@ fn ws_uri(request: &Request, shared: &Shared) -> Option<String> {
 /// The answer to a plain (not upgrading) request for `route`.
 pub(crate) fn respond(route: Route, request: &Request, shared: &Shared) -> Response {
     match route {
-        Route::Static(asset) => Response::ok(asset.content_type, asset.bytes),
+        Route::Static(asset) => match modern::find(asset.path) {
+            // The modern chrome replaces matplotlib's toolbar images.
+            Some(file) if shared.chrome == ChromeLook::Modern => modern_file(file),
+            _ => Response::ok(asset.content_type, asset.bytes),
+        },
+        Route::Modern(file) => modern_file(file),
         Route::Script => Response::ok(
             "text/javascript; charset=utf-8",
             shared.script.as_bytes().to_vec(),
@@ -122,10 +134,10 @@ pub(crate) fn respond(route: Route, request: &Request, shared: &Shared) -> Respo
             };
             let page = match route {
                 Route::Figure(number) if shared.serves(number) => {
-                    assets::single_figure_page(&ws_uri, number)
+                    assets::single_figure_page(&ws_uri, number, shared.chrome)
                 }
                 Route::Figure(_) => return Response::error(Status::NotFound),
-                _ => assets::all_figures_page(&ws_uri, &shared.figure_numbers()),
+                _ => assets::all_figures_page(&ws_uri, &shared.figure_numbers(), shared.chrome),
             };
             Response::ok("text/html; charset=utf-8", page.into_bytes())
         }
@@ -134,6 +146,11 @@ pub(crate) fn respond(route: Route, request: &Request, shared: &Shared) -> Respo
         Route::WebSocket(_) => Response::error(Status::BadRequest),
         Route::NotFound => Response::error(Status::NotFound),
     }
+}
+
+/// A file of the modern chrome, as it is.
+fn modern_file(file: &'static ModernFile) -> Response {
+    Response::ok(file.content_type, &*file.bytes)
 }
 
 /// Asks the server's thread to save figure `number` in `format`.

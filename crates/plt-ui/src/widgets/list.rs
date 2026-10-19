@@ -11,7 +11,7 @@ use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::icon::Icon;
-use crate::text::{TextLayout, TextStyle};
+use crate::text::TextLayout;
 use crate::theme::Spacing;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
@@ -296,7 +296,7 @@ impl<M: 'static> Widget<M> for List<M> {
     ) -> Result<Size, UiError> {
         let theme = cx.theme();
         let scale = cx.scale_factor();
-        let style = TextStyle::new(theme.font_size);
+        let style = theme.text_style();
         self.layouts = self
             .items
             .iter()

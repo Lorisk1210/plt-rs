@@ -1,6 +1,7 @@
 //! Font catalogue entries and `findfont` results compared with matplotlib's
 //! font manager restricted to its bundled fonts
-//! (`tests/fixtures/findfont.json`).
+//! (`tests/fixtures/findfont.json`); Inter, which plt-rs bundles besides
+//! them, is left out of the catalogue comparison.
 
 mod common;
 
@@ -21,6 +22,7 @@ fn catalogue_matches_matplotlib_ttflist() {
     let mut actual: Vec<String> = db
         .entries()
         .iter()
+        .filter(|e| !file_of(&db, e.font).starts_with("Inter-"))
         .map(|e| {
             format!(
                 "{}|{}|{:?}|{:?}|{}|{}",

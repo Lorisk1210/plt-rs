@@ -26,7 +26,7 @@
 pub(crate) mod actions;
 mod dialog;
 mod help_dialog;
-mod icons;
+pub(crate) mod icons;
 pub(crate) mod keys;
 mod options;
 mod save_dialog;

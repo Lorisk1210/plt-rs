@@ -158,7 +158,7 @@ impl Axes {
     /// ```
     /// use plt::prelude::*;
     /// use plt::rc::Aspect;
-    /// let fig = Figure::new();
+    /// let fig = Figure::with_size(6.4, 4.8, 100.0);
     /// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
     /// ax.set_xlim(0.0, 2.0).set_ylim(0.0, 1.0);
     /// ax.set_aspect(Aspect::Equal)?;

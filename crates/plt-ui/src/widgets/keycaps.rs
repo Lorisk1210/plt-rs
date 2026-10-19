@@ -4,7 +4,7 @@ use plt_core::Point;
 
 use crate::error::UiError;
 use crate::geometry::{Constraints, Rect, Size};
-use crate::text::{TextLayout, TextStyle};
+use crate::text::TextLayout;
 use crate::theme::Spacing;
 use crate::widget::{LayoutCx, PaintCx, Widget};
 
@@ -47,7 +47,7 @@ impl<M> Widget<M> for Keycaps {
     ) -> Result<Size, UiError> {
         let theme = cx.theme();
         let scale = cx.scale_factor();
-        let style = TextStyle::new(theme.font_size).monospace();
+        let style = theme.text_style().monospace();
         self.layouts = self
             .keys
             .iter()

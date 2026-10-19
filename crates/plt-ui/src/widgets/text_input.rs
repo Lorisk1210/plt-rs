@@ -270,7 +270,7 @@ impl<M: 'static> Widget<M> for TextInput<M> {
         constraints: Constraints,
     ) -> Result<Size, UiError> {
         let theme = cx.theme();
-        let style = TextStyle::new(theme.font_size);
+        let style = theme.text_style();
         let scale = cx.scale_factor();
         let layout = TextLayout::new(&self.text, &style, scale)?;
         self.layout = Some((layout, style, scale));

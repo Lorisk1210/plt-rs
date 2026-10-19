@@ -47,10 +47,17 @@ fn entry_json(entry: &FontListEntry) -> Json {
     ])
 }
 
-/// `font_manager.font_list`: the bundled font database.
+/// `font_manager.font_list`: the bundled font database, without Inter,
+/// which plt-rs bundles beyond matplotlib's fonts for its modern look.
 pub(super) fn font_list(args: Args<'_>) -> Outcome {
     let entries = FontManager::bundled().font_list(font_ext(args)?);
-    Ok(Json::Array(entries.iter().map(entry_json).collect()))
+    Ok(Json::Array(
+        entries
+            .iter()
+            .filter(|entry| !entry.file.starts_with("Inter-"))
+            .map(entry_json)
+            .collect(),
+    ))
 }
 
 /// The `prop` argument: a font dict, `null`, or a fontconfig pattern.

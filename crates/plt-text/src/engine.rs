@@ -72,8 +72,8 @@ impl TextEngine {
         }
     }
 
-    /// The shared engine: matplotlib's bundled fonts plus the fonts
-    /// installed on the system.
+    /// The shared engine: the bundled fonts (matplotlib's and Inter) plus
+    /// the fonts installed on the system.
     pub fn global() -> &'static Self {
         static ENGINE: OnceLock<TextEngine> = OnceLock::new();
         ENGINE.get_or_init(|| {
@@ -83,8 +83,8 @@ impl TextEngine {
         })
     }
 
-    /// An engine over matplotlib's bundled fonts only, ignoring the fonts
-    /// installed on the system (for host-independent results).
+    /// An engine over the bundled fonts only, ignoring the fonts installed
+    /// on the system (for host-independent results).
     pub fn bundled() -> &'static Self {
         static ENGINE: OnceLock<TextEngine> = OnceLock::new();
         ENGINE.get_or_init(|| Self::new(FontDatabase::with_bundled_fonts()))

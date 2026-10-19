@@ -11,6 +11,7 @@
 //! has a writer thread fed by a bounded queue, so that a slow client never
 //! blocks the figures.
 
+use crate::look::ChromeLook;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{self, Write};
@@ -112,6 +113,8 @@ pub(crate) struct Shared {
     pub(crate) script: String,
     /// The address the server listens on.
     pub(crate) local_addr: SocketAddr,
+    /// How the pages look.
+    pub(crate) chrome: ChromeLook,
     connections: Mutex<Connections>,
     stopping: AtomicBool,
 }
@@ -275,6 +278,7 @@ impl Listener {
             figures: Mutex::new(Vec::new()),
             script,
             local_addr,
+            chrome: crate::look::appearance().chrome,
             connections: Mutex::new(Connections::default()),
             stopping: AtomicBool::new(false),
         });

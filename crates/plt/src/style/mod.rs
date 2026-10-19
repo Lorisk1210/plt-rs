@@ -1,12 +1,14 @@
 //! Style sheets: named sets of rcParams that restyle every plot
 //! (`matplotlib.style`).
 //!
-//! The [`library`] bundles matplotlib's built-in sheets, applied with
-//! [`use_style`] (matplotlib's `style.use`) or for a scope with
-//! [`context`] (`style.context`):
+//! The [`library`] bundles matplotlib's built-in sheets and plt-rs' own
+//! `plt-modern` and `plt-modern-dark` (the [looks](crate::look) of
+//! figures), applied with [`use_style`] (matplotlib's `style.use`) or for
+//! a scope with [`context`] (`style.context`):
 //!
 //! ```
 //! use plt::{rc, style};
+//! rc::reset(); // matplotlib's defaults, without grids
 //! style::context("ggplot", || {
 //!     assert!(rc::params().axes_grid);
 //! })?;
@@ -17,9 +19,10 @@
 //! [`apply_xkcd`] sets the parameters of matplotlib's xkcd sketch style;
 //! [`pyplot::xkcd`](crate::pyplot::xkcd) applies them for a scope.
 //!
-//! The sheets in `style/sheets/` are copied verbatim from matplotlib 3.11
-//! (`mpl-data/stylelib`), copyright the Matplotlib Development Team and
-//! distributed under the Matplotlib license; the comments of several
+//! The sheets in `style/sheets/` other than the `plt-*` ones are copied
+//! verbatim from matplotlib 3.11 (`mpl-data/stylelib`), copyright the
+//! Matplotlib Development Team and distributed under the Matplotlib
+//! license; the comments of several
 //! sheets credit the projects their palettes come from (seaborn,
 //! fivethirtyeight, Tableau, Solarized, Petroff's accessible colour
 //! sequences, ...).
@@ -82,6 +85,8 @@ sheets![
     "petroff10",
     "petroff6",
     "petroff8",
+    "plt-modern",
+    "plt-modern-dark",
     "seaborn-v0_8",
     "seaborn-v0_8-bright",
     "seaborn-v0_8-colorblind",
@@ -200,7 +205,7 @@ mod tests {
                 .unwrap_or_else(|err| panic!("{}: {err}", sheet.name()));
             assert!(!sheet.entries().unwrap().is_empty(), "{}", sheet.name());
         }
-        assert_eq!(available().len(), 28);
+        assert_eq!(available().len(), 30);
         let mut names: Vec<&str> = available();
         names.sort_unstable();
         assert_eq!(names, available(), "the library is sorted");

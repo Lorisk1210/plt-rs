@@ -135,7 +135,7 @@ impl Label {
     }
 
     fn style(&self, theme: &Theme) -> TextStyle {
-        let style = TextStyle::new(theme.font_size);
+        let style = theme.text_style();
         if self.bold { style.bold() } else { style }
     }
 

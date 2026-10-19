@@ -11,7 +11,6 @@ use super::segments::Segments;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
-use crate::text::TextStyle;
 use crate::theme::Spacing;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
@@ -85,7 +84,7 @@ impl<M: 'static> Widget<M> for Tabs<M> {
         let scale = cx.scale_factor();
         self.segments.measure(
             &self.labels,
-            &TextStyle::new(theme.font_size),
+            &theme.text_style(),
             scale,
             theme.space(PADDING) * scale,
             0.0,

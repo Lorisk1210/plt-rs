@@ -73,7 +73,7 @@ impl Icon {
     ///
     /// # Errors
     ///
-    /// When `size` is zero or too large for an image.
+    /// When `size` is too large for an image.
     pub fn app_icon(&self, size: u32, background: Rgba, color: Rgba) -> Result<Vec<u8>, UiError> {
         let mut pixmap = Pixmap::new(size, size)?;
         let mut painter = Painter::new();
@@ -82,6 +82,22 @@ impl Icon {
         let mut canvas = Canvas::new(&mut pixmap, &mut painter, rect, 1.0);
         canvas.fill_rounded_rect(rect, side * 0.22, background)?;
         self.paint(&mut canvas, rect.inset(side * 0.14), color)?;
+        Ok(pixmap.data().to_vec())
+    }
+
+    /// The icon drawn in `color` on a transparent `size`-pixel square, as
+    /// straight RGBA bytes, row by row (a toolbar image).
+    ///
+    /// # Errors
+    ///
+    /// When `size` is too large for an image.
+    pub fn render(&self, size: u32, color: Rgba) -> Result<Vec<u8>, UiError> {
+        let mut pixmap = Pixmap::new(size, size)?;
+        let mut painter = Painter::new();
+        let side = f64::from(size);
+        let rect = Rect::new(0.0, 0.0, side, side);
+        let mut canvas = Canvas::new(&mut pixmap, &mut painter, rect, 1.0);
+        self.paint(&mut canvas, rect, color)?;
         Ok(pixmap.data().to_vec())
     }
 
@@ -122,5 +138,20 @@ mod tests {
         assert_eq!(alpha(16, 4), 255);
         let center = (16 * 32 + 16) * 4;
         assert!(rgba[center] > 200, "the stroke is white");
+    }
+
+    #[test]
+    fn rendered_icons_are_strokes_on_transparency() {
+        let icon = Icon::new(24.0).stroke(Path::polyline(vec![
+            plt_core::Point::new(4.0, 12.0),
+            plt_core::Point::new(20.0, 12.0),
+        ]));
+        let rgba = icon.render(24, Rgba::new(0.0, 0.0, 1.0, 1.0)).unwrap();
+        assert_eq!(rgba.len(), 24 * 24 * 4);
+        let pixel = |x: usize, y: usize| &rgba[(y * 24 + x) * 4..(y * 24 + x) * 4 + 4];
+        assert_eq!(pixel(12, 2)[3], 0, "transparent off the stroke");
+        let on = pixel(12, 12);
+        assert_eq!(on[2], 255, "straight blue");
+        assert!(on[3] > 200, "mostly covered");
     }
 }

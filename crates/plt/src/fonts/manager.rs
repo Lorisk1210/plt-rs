@@ -177,8 +177,15 @@ mod tests {
     fn bundled_lists() {
         let manager = FontManager::bundled();
         let ttf = manager.font_list(FontExt::Ttf);
-        assert_eq!(ttf.len(), 40);
+        let (inter, matplotlib): (Vec<_>, Vec<_>) = ttf
+            .iter()
+            .partition(|entry| entry.file.starts_with("Inter-"));
+        assert_eq!(matplotlib.len(), 40);
         assert_eq!(ttf[0].file, "DejaVuSans-Bold.ttf");
+        let mut names: Vec<&str> = inter.iter().map(|entry| entry.name.as_str()).collect();
+        names.dedup();
+        // Five faces; SemiBold is also listed under its legacy family name.
+        assert_eq!((inter.len(), names), (6, vec!["Inter", "Inter SemiBold"]));
         assert_eq!(manager.font_list(FontExt::Afm).len(), 61);
     }
 

@@ -3,15 +3,18 @@
 //! [`RcParams`] holds every parameter as a typed field
 //! (`params.lines_linewidth`) and also offers matplotlib's string-keyed
 //! access ([`RcParams::set`]`("lines.linewidth", "2")`) with identical
-//! validation. The *current* parameters are per thread, like pyplot state:
+//! validation. The *current* parameters are per thread, like pyplot state;
+//! threads start from [`RcParams::startup`], matplotlib's defaults with
+//! the figure [look](crate::look)'s style on top:
 //!
 //! ```
 //! use plt::rc;
+//! let width = rc::params().lines_linewidth;
 //! rc::context(|| {
 //!     rc::set("lines.linewidth", "3").unwrap();
 //!     assert_eq!(rc::params().lines_linewidth, 3.0);
 //! });
-//! assert_eq!(rc::params().lines_linewidth, 1.5);
+//! assert_eq!(rc::params().lines_linewidth, width);
 //! ```
 
 #[macro_use]
@@ -40,13 +43,20 @@ pub use kinds::{
 pub use table::RcParams;
 
 impl Default for RcParams {
-    /// The defaults new threads start from (matplotlib's defaults).
+    /// matplotlib's defaults (`rcParamsDefault`).
     fn default() -> Self {
         Self::matplotlib()
     }
 }
 
 impl RcParams {
+    /// The parameters threads start from: matplotlib's defaults with the
+    /// style of the current figure [look](crate::look) on top (the role of
+    /// matplotlib's `matplotlibrc` file).
+    pub fn startup() -> Self {
+        crate::look::appearance().figures.params()
+    }
+
     /// Applies every assignment of rc-file text (a style sheet), stopping at
     /// the first invalid line.
     pub fn apply_rc_text(&mut self, text: &str) -> Result<(), RcError> {
@@ -117,7 +127,7 @@ impl std::error::Error for RcError {
 }
 
 thread_local! {
-    static CURRENT: RefCell<Rc<RcParams>> = RefCell::new(Rc::new(RcParams::default()));
+    static CURRENT: RefCell<Rc<RcParams>> = RefCell::new(Rc::new(RcParams::startup()));
 }
 
 /// The current parameters (a cheap shared snapshot).
@@ -143,9 +153,15 @@ pub fn replace(params: RcParams) -> Rc<RcParams> {
     CURRENT.with(|current| current.replace(Rc::new(params)))
 }
 
-/// Restores the defaults (matplotlib's `rcdefaults()`).
+/// Restores matplotlib's defaults (matplotlib's `rcdefaults()`).
 pub fn reset() {
     replace(RcParams::default());
+}
+
+/// Restores the parameters threads start from, [`RcParams::startup`]
+/// (matplotlib's `rc_file_defaults()`).
+pub fn restore_startup() {
+    replace(RcParams::startup());
 }
 
 /// Runs `f` and afterwards restores the parameters that were current
@@ -170,7 +186,8 @@ mod tests {
     #[test]
     fn defaults_match_matplotlib() {
         let rc = RcParams::matplotlib();
-        assert_eq!(RcParams::KEYS.len(), 338);
+        // matplotlib's 338 and plt-rs' own `plt.images_hide_grid`.
+        assert_eq!(RcParams::KEYS.len(), 339);
         assert_eq!(rc.lines_linewidth, 1.5);
         assert_eq!(rc.figure_figsize, [6.4, 4.8]);
         assert_eq!(rc.font_size, 10.0);

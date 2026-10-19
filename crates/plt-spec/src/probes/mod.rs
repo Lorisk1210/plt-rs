@@ -261,8 +261,10 @@ impl AreaReport {
     }
 }
 
-/// Runs every probe of `file` against the operation table `ops`.
+/// Runs every probe of `file` against the operation table `ops`, in
+/// matplotlib's look (the reference's defaults).
 pub fn run(file: &ProbeFile, ops: &[Op]) -> AreaReport {
+    plt::look::set_appearance(plt::look::Appearance::MATPLOTLIB);
     let mut report = AreaReport {
         area: file.area.clone(),
         ..AreaReport::default()

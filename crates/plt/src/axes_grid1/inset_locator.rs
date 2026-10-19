@@ -85,7 +85,7 @@ impl Default for InsetOptions {
 /// ```
 /// use plt::axes_grid1::{InsetOptions, SizeSpec, inset_axes};
 /// use plt::prelude::*;
-/// let fig = Figure::new();
+/// let fig = Figure::with_size(6.4, 4.8, 100.0);
 /// let ax = fig.subplot();
 /// let inset = inset_axes(&ax, SizeSpec::Percent(30.0), 1.0.into(), &InsetOptions::default());
 /// let (_, _, width, height) = inset.position().bounds();

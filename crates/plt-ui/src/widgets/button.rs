@@ -6,7 +6,7 @@ use super::frame::paint_frame;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
-use crate::text::{TextLayout, TextStyle};
+use crate::text::TextLayout;
 use crate::theme::Spacing;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
@@ -63,7 +63,7 @@ impl<M: Clone + 'static> Widget<M> for Button<M> {
     ) -> Result<Size, UiError> {
         let theme = cx.theme();
         let scale = cx.scale_factor();
-        let style = TextStyle::new(theme.font_size);
+        let style = theme.text_style();
         let text = TextLayout::new(&self.label, &style, scale)?;
         let padding = theme.space(Spacing::Md) * scale;
         let width = (text.size().width + 2.0 * padding).max(theme.button_min_width * scale);

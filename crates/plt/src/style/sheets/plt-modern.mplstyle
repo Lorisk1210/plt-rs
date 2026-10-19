@@ -1,0 +1,70 @@
+# plt-rs' modern look, the default style of figures (see `plt::look`).
+# Inter type in quiet ink, hairline grids behind the data, no top or right
+# spines and no tick marks, left-aligned titles, constrained layout, and a
+# categorical palette checked for colour-vision deficiencies.
+
+## Figure: a 16:10 white card with room around its axes
+figure.figsize: 7.2, 4.5
+figure.facecolor: white
+figure.edgecolor: white
+figure.titlesize: 14
+figure.titleweight: semibold
+figure.labelsize: 11
+figure.constrained_layout.use: True
+figure.constrained_layout.h_pad: 0.0833
+figure.constrained_layout.w_pad: 0.0833
+
+## Type
+font.family: sans-serif
+font.sans-serif: Inter, DejaVu Sans, Bitstream Vera Sans, Arial, Helvetica, sans-serif
+font.size: 10
+text.color: 1f2328
+
+## Axes: no frame, a light baseline, the grid below the data
+axes.facecolor: white
+axes.edgecolor: d0d5dd
+axes.linewidth: 0.8
+axes.grid: True
+axes.axisbelow: True
+axes.spines.top: False
+axes.spines.right: False
+axes.titlesize: 12
+axes.titleweight: semibold
+axes.titlelocation: left
+axes.titlepad: 10
+axes.labelsize: 10.5
+axes.labelcolor: 606873
+axes.labelpad: 6
+# Blue, orange, aqua, yellow, magenta, green, violet, red: every adjacent
+# pair stays apart for protan, deutan and tritan vision.
+axes.prop_cycle: cycler('color', ['2a78d6', 'eb6834', '1baf7a', 'eda100', 'e87ba4', '008300', '6250d6', 'e34948'])
+
+grid.color: e5e7eb
+grid.linestyle: -
+grid.linewidth: 0.8
+# Images lie below even lowered gridlines: they turn the grid off.
+plt.images_hide_grid: True
+
+## Ticks: labels only, the grid marks the positions
+xtick.color: 606873
+xtick.major.size: 0
+xtick.minor.size: 0
+xtick.major.pad: 6
+ytick.color: 606873
+ytick.major.size: 0
+ytick.minor.size: 0
+ytick.major.pad: 6
+
+## Marks
+lines.linewidth: 1.75
+lines.solid_capstyle: round
+boxplot.boxprops.color: 4b5563
+boxplot.whiskerprops.color: 4b5563
+boxplot.capprops.color: 4b5563
+boxplot.flierprops.markeredgecolor: 4b5563
+
+## Legend: no box, the swatches carry identity
+legend.frameon: False
+legend.fontsize: 9.5
+legend.title_fontsize: 10
+legend.handlelength: 1.6

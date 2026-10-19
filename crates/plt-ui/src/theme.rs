@@ -8,6 +8,8 @@ use std::time::Duration;
 
 use plt_core::Rgba;
 
+use crate::text::{FontFamily, TextStyle};
+
 /// A step of the theme's spacing scale: multiples of
 /// [`Theme::space_unit`] (4 logical pixels in the built-in themes), used
 /// for padding and the gaps between widgets.
@@ -102,6 +104,8 @@ pub struct Theme {
     pub tooltip: Rgba,
     /// Tooltip text.
     pub tooltip_text: Rgba,
+    /// Typeface of text.
+    pub font_family: FontFamily,
     /// Font size of text, in points.
     pub font_size: f64,
     /// The unit of the spacing scale (see [`Spacing`]).
@@ -159,7 +163,7 @@ fn rgba(r: u8, g: u8, b: u8, alpha: f64) -> Rgba {
 impl Theme {
     /// plt-rs' own light look: a quiet off-white chrome with white cards
     /// and fields, flat tool buttons that only show a face when hovered
-    /// or pressed, rounded corners and a blue accent.
+    /// or pressed, rounded corners, a blue accent and Inter type.
     pub fn modern() -> Self {
         Self {
             background: rgb(246, 247, 249),
@@ -187,6 +191,7 @@ impl Theme {
             shadow: rgba(16, 24, 40, 0.12),
             tooltip: rgb(36, 41, 47),
             tooltip_text: rgb(255, 255, 255),
+            font_family: FontFamily::Interface,
             font_size: 9.5,
             space_unit: 4.0,
             control_height: 28.0,
@@ -242,7 +247,7 @@ impl Theme {
     }
 
     /// A light theme close to matplotlib's Tk figure windows: greys,
-    /// square-ish corners.
+    /// square-ish corners and matplotlib's `DejaVu Sans`.
     pub fn classic() -> Self {
         let gray = |level: f64| Rgba::new(level, level, level, 1.0);
         let wash = |alpha: f64| Rgba::new(0.0, 0.0, 0.0, alpha);
@@ -273,6 +278,7 @@ impl Theme {
             shadow: wash(0.15),
             tooltip: Rgba::new(1.0, 1.0, 0.88, 1.0),
             tooltip_text: gray(0.0),
+            font_family: FontFamily::SansSerif,
             font_size: 10.0,
             space_unit: 4.0,
             control_height: 26.0,
@@ -294,6 +300,14 @@ impl Theme {
         }
     }
 
+    /// The style of body text: the theme's typeface at its font size.
+    pub fn text_style(&self) -> TextStyle {
+        TextStyle {
+            family: self.font_family,
+            ..TextStyle::new(self.font_size)
+        }
+    }
+
     /// The length of a step of the spacing scale, in logical pixels.
     pub fn space(&self, step: Spacing) -> f64 {
         step.units() * self.space_unit
@@ -310,6 +324,15 @@ impl Default for Theme {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn modern_themes_set_text_in_inter_and_classic_in_dejavu() {
+        assert_eq!(Theme::modern().text_style().family, FontFamily::Interface);
+        assert_eq!(Theme::dark().text_style().family, FontFamily::Interface);
+        let classic = Theme::classic().text_style();
+        assert_eq!(classic.family, FontFamily::SansSerif);
+        assert_eq!(classic.size, Theme::classic().font_size);
+    }
 
     #[test]
     fn the_spacing_scale_grows_in_units() {

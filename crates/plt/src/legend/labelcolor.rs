@@ -8,7 +8,7 @@ use crate::collections::CollectionArtist;
 use crate::colors::Color;
 use crate::lines::LineArtist;
 use crate::markers::FillStyle;
-use crate::rc::{ColorOrAuto, LabelColor, RcParams};
+use crate::rc::{LabelColor, RcParams};
 
 /// A colour getter of a handle artist, in the order matplotlib's
 /// `color_getters` tries them.
@@ -135,10 +135,7 @@ fn get(artist: &dyn Artist, getter: Getter, rc: &RcParams) -> Got {
         return match getter {
             Getter::MarkerFace if line.fillstyle == FillStyle::None => Got::Single(Color::none()),
             Getter::MarkerFace => Got::Single(line.markerfacecolor.or(&line.color).clone()),
-            Getter::MarkerEdge => Got::Single(match &line.markeredgecolor {
-                ColorOrAuto::Auto => line.color.clone(),
-                ColorOrAuto::Color(color) => color.clone(),
-            }),
+            Getter::MarkerEdge => Got::Single(line.marker_edge()),
             Getter::Color => Got::Single(line.color.clone()),
             Getter::Face | Getter::Edge => Got::Missing,
         };

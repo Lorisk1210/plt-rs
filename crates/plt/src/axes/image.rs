@@ -3,11 +3,11 @@
 
 use std::rc::Rc;
 
-use plt_core::Point;
+use plt_core::{Path, Point};
 
 use super::children::DataUpdate;
 use super::{Axes, AxesState, AxisName, TickPosition};
-use crate::artist::{Artist, ArtistHandle, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ClipPathSpec, RawHandle};
 use crate::image::{
     AxesImage, AxesImageArtist, ColorizerOptions, CoreSettings, Extent, ImageAlpha, ImageCore,
     ImageData, ImageError, Interpolation, InterpolationStage, NonUniformImage,
@@ -48,6 +48,9 @@ pub struct ImshowOptions {
     /// coordinates); outside data coordinates, the axes aspect is only set
     /// when `aspect` is given (matplotlib's `transform`).
     pub transform: Option<Transform>,
+    /// Clip the image to this path, in the coordinates of the transform,
+    /// instead of to the axes (matplotlib's `clip_path=`).
+    pub clip_path: Option<(Path, Transform)>,
 }
 
 /// Options of [`Axes::nonuniform_image`] (matplotlib's `NonUniformImage`
@@ -126,6 +129,14 @@ impl Axes {
         let image = self.add_image(artist);
         if let Some(transform) = options.transform {
             image.set_transform(transform);
+        }
+        if let Some((path, transform)) = options.clip_path {
+            // matplotlib's imshow clips to the axes patch only when no
+            // clip path is given.
+            image.raw().with_base_mut(|base| {
+                base.clip_path = Some(ClipPathSpec::Path { path, transform });
+                base.clip_box = None;
+            });
         }
         Ok(image)
     }
@@ -347,6 +358,29 @@ mod tests {
             ax.imshow(Grid::filled(2, 2, 0.0), bivariate).err(),
             Some(ImageError::MultivariateColormap)
         );
+    }
+
+    #[test]
+    fn a_clip_path_replaces_the_clip_to_the_axes() {
+        let ax = Figure::new().subplot();
+        let plain = ax
+            .imshow(Grid::filled(2, 2, 0.0), ImshowOptions::default())
+            .unwrap();
+        assert_eq!(plain.raw().with_base(|b| b.clip_box), Some(ax.id()));
+        let triangle = Path::polygon(vec![
+            Point::new(0.0, 0.0),
+            Point::new(1.0, 0.0),
+            Point::new(0.0, 1.0),
+        ]);
+        let clipped = ImshowOptions {
+            clip_path: Some((triangle, ax.trans_data())),
+            ..ImshowOptions::default()
+        };
+        let image = ax.imshow(Grid::filled(2, 2, 0.0), clipped).unwrap();
+        image.raw().with_base(|base| {
+            assert_eq!(base.clip_box, None);
+            assert!(matches!(base.clip_path, Some(ClipPathSpec::Path { .. })));
+        });
     }
 
     #[test]

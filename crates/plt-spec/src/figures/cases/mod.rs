@@ -18,6 +18,7 @@ mod legend;
 mod lines;
 mod mathtext;
 mod misc;
+mod mpl_axes_a;
 mod mpl_axes_b;
 mod mpl_small;
 mod mplot3d;
@@ -87,6 +88,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::SPECTRAL,
         misc::UNITS,
         misc::WIDGETS,
+        mpl_axes_a::CASES,
         &mpl_axes_b::cases(),
         &mpl_small::cases(),
         mplot3d::API,

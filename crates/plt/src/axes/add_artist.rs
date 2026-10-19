@@ -5,14 +5,22 @@ use super::Axes;
 use super::children::DataUpdate;
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionSpec, TriMesh, TriMeshSpec};
-use crate::patches::{Patch, PatchArtist, PatchShape};
+use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
 
 impl Axes {
     /// Adds a patch in data coordinates (unless its shape chose others),
     /// clipped to the axes unless the shape turns clipping off, without
     /// touching the data limits (matplotlib's `add_artist`).
     pub fn add_artist<S: PatchShape>(&self, shape: S) -> Patch<S> {
+        self.add_artist_with(shape, PatchProps::default())
+    }
+
+    /// [`add_artist`](Self::add_artist) for a patch styled by `props`
+    /// before it is added, as matplotlib adds a patch made with its
+    /// keyword arguments: a `clip_path` replaces the axes clip box.
+    pub fn add_artist_with<S: PatchShape>(&self, shape: S, props: PatchProps) -> Patch<S> {
         let mut patch = PatchArtist::new(shape, crate::rc::params());
+        props.apply(&mut patch);
         let base = patch.base_mut();
         if base.transform.is_none() {
             base.transform = Some(self.trans_data());

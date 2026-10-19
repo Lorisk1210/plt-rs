@@ -34,29 +34,23 @@ impl AxisPainter<'_> {
             ctx.report(self.axes_id, problem);
         }
         let polar = self.axes.polar_view();
-        // Ticks, labels and gridlines are artists made with the rc path
-        // effects in matplotlib.
-        with_path_effects(ctx, &rc.path_effects, |ctx| {
-            let mut labels = texts.tick_labels.iter().peekable();
-            for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
-                match &polar {
-                    Some(polar) => {
-                        polar::draw_tick_lines(
-                            ctx,
-                            self.axes_id,
-                            polar,
-                            self.name,
-                            tick,
-                            &style,
-                            rc,
-                        );
-                    }
-                    None => self.draw_tick_lines(ctx, tick.loc, &style, rc),
+        // Tick marks and texts are artists made with the rc path effects
+        // in matplotlib; gridlines take those of their style.
+        let mut labels = texts.tick_labels.iter().peekable();
+        for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
+            match &polar {
+                Some(polar) => {
+                    polar::draw_tick_lines(ctx, self.axes_id, polar, self.name, tick, &style, rc);
                 }
+                None => self.draw_tick_lines(ctx, tick.loc, &style, rc),
+            }
+            with_path_effects(ctx, &rc.path_effects, |ctx| {
                 while let Some(label) = labels.next_if(|label| label.tick == index) {
                     draw_text(ctx, &label.text, rc);
                 }
-            }
+            });
+        }
+        with_path_effects(ctx, &rc.path_effects, |ctx| {
             for text in [&texts.label, &texts.offset].into_iter().flatten() {
                 draw_text(ctx, text, rc);
             }
@@ -72,15 +66,19 @@ impl AxisPainter<'_> {
         rc: &crate::rc::RcParams,
     ) {
         if style.grid_on {
-            self.draw_gridline(ctx, loc, &style.grid, rc);
+            with_path_effects(ctx, &style.grid.path_effects, |ctx| {
+                self.draw_gridline(ctx, loc, &style.grid, rc);
+            });
         }
         let (mark1, mark2) = tick_markers(self.name, style.direction);
-        if style.ticks.first {
-            self.draw_tick_mark(ctx, loc, false, mark1, style);
-        }
-        if style.ticks.second {
-            self.draw_tick_mark(ctx, loc, true, mark2, style);
-        }
+        with_path_effects(ctx, &rc.path_effects, |ctx| {
+            if style.ticks.first {
+                self.draw_tick_mark(ctx, loc, false, mark1, style);
+            }
+            if style.ticks.second {
+                self.draw_tick_mark(ctx, loc, true, mark2, style);
+            }
+        });
     }
 
     fn draw_gridline(

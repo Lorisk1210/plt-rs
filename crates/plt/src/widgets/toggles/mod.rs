@@ -1,11 +1,13 @@
 //! Check buttons and radio buttons (matplotlib's `widgets._Buttons`,
 //! `CheckButtons` and `RadioButtons`), in matplotlib's legacy column or
-//! the 3.11 measured layouts, with styled labels and markers.
+//! the 3.11 measured layouts, with labels and markers styled on creation
+//! or restyled later.
 
 mod column;
 mod options;
+mod restyle;
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 pub use options::{
@@ -34,11 +36,12 @@ fn per_button(colors: Option<&Vec<Color>>, fallback: Color, count: usize) -> Vec
 #[derive(Debug)]
 pub struct CheckButtons {
     column: Rc<ButtonColumn>,
+    frames: Collection,
     checks: Collection,
     states: Rc<Vec<Cell<bool>>>,
     /// The colour of each cross when checked (matplotlib's
     /// `_active_check_colors`).
-    active_colors: Rc<Vec<Color>>,
+    active_colors: Rc<RefCell<Vec<Color>>>,
     clicked: Observers<Option<String>>,
     _connections: Connections,
 }
@@ -70,7 +73,7 @@ impl CheckButtons {
             &options.label_props,
         )?);
         let frame = &options.frame_props;
-        column.markers(
+        let frames = column.markers(
             MarkerSymbol::Square,
             MarkerLook {
                 sizes: column.sizes_or_default(frame.sizes.as_ref()),
@@ -88,17 +91,16 @@ impl CheckButtons {
             },
         );
         let check = &options.check_props;
-        let active_colors = Rc::new(per_button(
+        let active_colors = Rc::new(RefCell::new(per_button(
             check.facecolors.as_ref(),
             check.color.clone().unwrap_or_else(|| Color::from("black")),
             labels.len(),
-        ));
-        let check_sizes = column.sizes_or_default(check.sizes.as_ref());
+        )));
         let checks = column.markers(
             MarkerSymbol::X,
             MarkerLook {
-                sizes: check_sizes.clone(),
-                colors: ScatterColors::PerPoint(active_colors.to_vec()),
+                sizes: column.sizes_or_default(check.sizes.as_ref()),
+                colors: ScatterColors::PerPoint(active_colors.borrow().clone()),
                 edgecolors: check.edgecolors.clone().map(EdgeColors::Colors),
                 linewidths: Some(check.linewidths.clone().unwrap_or_else(|| vec![1.0])),
             },
@@ -108,7 +110,7 @@ impl CheckButtons {
                 .map(|i| Cell::new(actives.get(i).copied().unwrap_or(false)))
                 .collect(),
         );
-        show_checks(&checks, &states, &active_colors);
+        show_checks(&checks, &states, &active_colors.borrow());
         let clicked = Observers::default();
         let mut connections = Connections::new(ax.figure());
         {
@@ -120,14 +122,15 @@ impl CheckButtons {
                 clicked.clone(),
             );
             connections.connect(EventKind::ButtonPress, move |event| {
-                if let Some(index) = left_click(event).and_then(|at| column.hit(at, &check_sizes)) {
-                    toggle(&states, &checks, &colors, index, None);
+                if let Some(index) = left_click(event).and_then(|at| column.hit(at, &checks)) {
+                    toggle(&states, &checks, &colors.borrow(), index, None);
                     clicked.process(&Some(column.labels[index].text()));
                 }
             });
         }
         Ok(Self {
             column,
+            frames,
             checks,
             states,
             active_colors,
@@ -148,7 +151,7 @@ impl CheckButtons {
         toggle(
             &self.states,
             &self.checks,
-            &self.active_colors,
+            &self.active_colors.borrow(),
             index,
             state,
         );
@@ -206,7 +209,7 @@ pub struct RadioButtons {
     selected: Rc<Cell<usize>>,
     /// The fill of each button when selected (matplotlib's
     /// `_active_colors`).
-    active_colors: Rc<Vec<Color>>,
+    active_colors: Rc<RefCell<Vec<Color>>>,
     clicked: Observers<String>,
     _connections: Connections,
 }
@@ -242,17 +245,16 @@ impl RadioButtons {
             .activecolor
             .clone()
             .unwrap_or_else(|| Color::from("blue"));
-        let active_colors = Rc::new(per_button(
+        let active_colors = Rc::new(RefCell::new(per_button(
             radio.facecolors.as_ref(),
             radio.color.clone().unwrap_or(activecolor),
             labels.len(),
-        ));
-        let sizes = column.sizes_or_default(radio.sizes.as_ref());
+        )));
         let buttons = column.markers(
             MarkerSymbol::Circle,
             MarkerLook {
-                sizes: sizes.clone(),
-                colors: ScatterColors::PerPoint(active_colors.to_vec()),
+                sizes: column.sizes_or_default(radio.sizes.as_ref()),
+                colors: ScatterColors::PerPoint(active_colors.borrow().clone()),
                 edgecolors: Some(EdgeColors::Colors(per_button(
                     radio.edgecolors.as_ref(),
                     radio.color.clone().unwrap_or_else(|| Color::from("black")),
@@ -262,7 +264,7 @@ impl RadioButtons {
             },
         );
         let selected = Rc::new(Cell::new(active));
-        show_selection(&buttons, &active_colors, active);
+        show_selection(&buttons, &active_colors.borrow(), active);
         let clicked = Observers::default();
         let mut connections = Connections::new(ax.figure());
         {
@@ -274,9 +276,9 @@ impl RadioButtons {
                 clicked.clone(),
             );
             connections.connect(EventKind::ButtonPress, move |event| {
-                if let Some(index) = left_click(event).and_then(|at| column.hit(at, &sizes)) {
+                if let Some(index) = left_click(event).and_then(|at| column.hit(at, &buttons)) {
                     selected.set(index);
-                    show_selection(&buttons, &colors, index);
+                    show_selection(&buttons, &colors.borrow(), index);
                     clicked.process(&column.labels[index].text());
                 }
             });
@@ -306,7 +308,7 @@ impl RadioButtons {
     pub fn set_active(&self, index: usize) -> Option<()> {
         let label = self.column.labels.get(index)?.text();
         self.selected.set(index);
-        show_selection(&self.buttons, &self.active_colors, index);
+        show_selection(&self.buttons, &self.active_colors.borrow(), index);
         self.clicked.process(&label);
         Some(())
     }
@@ -406,7 +408,7 @@ mod tests {
         };
         let radio = RadioButtons::with_options(&ax, &["a", "b", "c"], 1, &options).unwrap();
         assert_eq!(radio.labels()[2].color(), Color::from("red"));
-        assert_eq!(radio.active_colors[1], Color::from("C1"));
+        assert_eq!(radio.active_colors.borrow()[1], Color::from("C1"));
         radio.set_active(2);
         assert_eq!(radio.value_selected(), "c");
     }

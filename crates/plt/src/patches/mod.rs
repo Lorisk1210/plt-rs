@@ -59,4 +59,4 @@ pub use shapes::{
 };
 pub use step::{StepBaseline, StepPatch, StepPatchError};
 pub use style::PatchStyle;
-pub(crate) use style::{draw_patch_paths, paint_paths};
+pub(crate) use style::{PatchPaint, draw_patch_paths, paint_paths};

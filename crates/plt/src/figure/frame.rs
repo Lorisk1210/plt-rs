@@ -105,7 +105,8 @@ impl Artist for FigureFrame {
                 });
             });
         }
-        let children = ctx.sorted_children(&self.children);
+        let mut children = ctx.sorted_children(&self.children);
+        children.retain(|&id| !ctx.layout().skips_animated(id, false));
         let clip = ctx.layout().frame_extent(self.base.id());
         let mut compositor = Compositor::new(ctx, &children, (clip, None));
         for id in children {

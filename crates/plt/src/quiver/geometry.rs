@@ -57,6 +57,8 @@ pub(crate) struct QuiverGeometry {
     v: Vec<f64>,
     mask: Vec<bool>,
     sizing: ArrowSizing,
+    /// Whether `u` and `v` were scalars broadcast to every position.
+    scalar_components: bool,
 }
 
 /// Everything that sizes and orients the arrows of a quiver plot.
@@ -114,7 +116,18 @@ impl QuiverGeometry {
             v: fill(v),
             mask,
             sizing,
+            scalar_components: false,
         }
+    }
+
+    /// Records whether the components were scalars broadcast to every
+    /// position. matplotlib keeps scalar `U` and `V` as they are, so it
+    /// draws one arrow at every position, unless the positions or
+    /// per-arrow angles orient the arrows one by one.
+    #[must_use]
+    pub(crate) fn with_scalar_components(mut self, scalar: bool) -> Self {
+        self.scalar_components = scalar;
+        self
     }
 
     /// The axes the arrows belong to.
@@ -128,6 +141,28 @@ impl QuiverGeometry {
             u: &self.u,
             v: &self.v,
             angles: &self.sizing.angles,
+        }
+    }
+
+    /// The vectors to make arrows of: only the first one when it serves
+    /// every position (see [`Self::with_scalar_components`]).
+    fn arrow_vectors(&self) -> Vectors<'_> {
+        let per_position = self.sizing.scale_units == Some(QuiverUnits::Xy)
+            || match &self.sizing.angles {
+                Angles::Uv => false,
+                Angles::Xy => true,
+                Angles::Degrees(degrees) => degrees.len() > 1,
+            };
+        let uniform_mask = self.mask.windows(2).all(|pair| pair[0] == pair[1]);
+        if self.scalar_components && !per_position && uniform_mask && !self.xy.is_empty() {
+            Vectors {
+                xy: &self.xy[..1],
+                u: &self.u[..1],
+                v: &self.v[..1],
+                angles: &self.sizing.angles,
+            }
+        } else {
+            self.vectors()
         }
     }
 
@@ -277,7 +312,7 @@ impl DrawTimeShapes for QuiverGeometry {
             .outlines(
                 &frame,
                 &resolved,
-                &self.vectors(),
+                &self.arrow_vectors(),
                 self.sizing.pivot,
                 Some(&self.mask),
             )
@@ -442,6 +477,29 @@ mod tests {
         );
         assert!(outlines[0].is_some());
         assert!(outlines[1].is_none());
+    }
+
+    #[test]
+    fn scalar_components_make_one_arrow_unless_positions_orient_them() {
+        let positions = vec![Point::ORIGIN, Point::new(1.0, 0.0), Point::new(2.0, 0.0)];
+        let geometry = |angles: Angles| {
+            let sizing = ArrowSizing { angles, ..sizing() };
+            QuiverGeometry::new(
+                axes(),
+                positions.clone(),
+                (vec![2.0; 3], vec![2.0; 3]),
+                vec![false; 3],
+                sizing,
+            )
+        };
+        assert_eq!(geometry(Angles::Uv).arrow_vectors().xy.len(), 3);
+        let shared = geometry(Angles::Uv).with_scalar_components(true);
+        assert_eq!(shared.arrow_vectors().xy.len(), 1);
+        let oriented = geometry(Angles::Xy).with_scalar_components(true);
+        assert_eq!(oriented.arrow_vectors().xy.len(), 3);
+        let per_arrow =
+            geometry(Angles::Degrees(vec![0.0, 90.0, 180.0])).with_scalar_components(true);
+        assert_eq!(per_arrow.arrow_vectors().xy.len(), 3);
     }
 
     #[test]

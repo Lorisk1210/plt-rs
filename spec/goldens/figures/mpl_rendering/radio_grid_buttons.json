@@ -1,0 +1,45 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.1, 0.05, 0.65, 0.05],
+   "title": "",
+   "xlim": [-0.055, 0.055],
+   "ylim": [-0.055, 0.055],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.1, 0.15, 0.25, 0.15],
+   "title": "",
+   "xlim": [-0.055, 0.055],
+   "ylim": [-0.055, 0.055],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.1, 0.35, 0.2, 0.2],
+   "title": "",
+   "xlim": [-0.055, 0.055],
+   "ylim": [-0.055, 0.055],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

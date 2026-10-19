@@ -42,7 +42,10 @@ impl AxesState {
         if ctx.layout().axes_extent(self.base().id()).is_none() {
             return;
         }
-        let items = self.items(ctx.layout().store());
+        let mut items = self.items(ctx.layout().store());
+        items.retain(
+            |&(_, item)| !matches!(item, Item::Child(id) if ctx.layout().skips_animated(id, true)),
+        );
         let (below, above) = items.split_at(self.rasterized_count(&items));
         if below.is_empty() {
             self.draw_background(ctx);

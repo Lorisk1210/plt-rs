@@ -128,9 +128,10 @@ impl ButtonColumn {
     }
 
     /// The button a click at display point `at` selects: among the
-    /// buttons whose marker (of area `sizes` in points²) or label contains
-    /// it, the closest (matplotlib's `_clicked`).
-    pub(super) fn hit(&self, at: Point, sizes: &[f64]) -> Option<usize> {
+    /// buttons whose marker (one of `markers`, by its current size) or
+    /// label contains it, the closest (matplotlib's `_clicked`).
+    pub(super) fn hit(&self, at: Point, markers: &Collection) -> Option<usize> {
+        let sizes = markers.sizes().unwrap_or_default();
         if !self.ax.contains_point(at) {
             return None;
         }
@@ -148,7 +149,7 @@ impl ButtonColumn {
             })
             .enumerate()
             .filter(|(i, c)| {
-                let size = cycled(sizes, *i).copied().unwrap_or(0.0);
+                let size = cycled(&sizes, *i).copied().unwrap_or(0.0);
                 let reach = (size.sqrt() / 2.0 + PICK_RADIUS) * to_pixels;
                 (c.x - at.x).abs().max((c.y - at.y).abs()) <= reach
                     || self.labels[*i]

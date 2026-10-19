@@ -8,6 +8,7 @@ use crate::patches::{
     BoxShape, BoxStyle, ClipRegion, DEFAULT_PAD, FancyBboxPatch, PatchError, PatchParts,
     PatchProps, PatchShape, PatchStyle,
 };
+use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
 use crate::ticker::pyfmt;
 use crate::transforms::Transform;
@@ -62,6 +63,9 @@ pub(crate) struct TextBox {
     boxstyle: BoxStyle,
     style: PatchStyle,
     alpha: Option<f64>,
+    /// The box's own path effects (not the text's): `path.effects` when it
+    /// was made, unless given.
+    path_effects: Vec<PathEffect>,
 }
 
 impl TextBox {
@@ -87,6 +91,7 @@ impl TextBox {
             boxstyle,
             style,
             alpha: base.alpha,
+            path_effects: base.path_effects.unwrap_or_else(|| rc.path_effects.clone()),
         }
     }
 
@@ -124,10 +129,11 @@ impl TextBox {
     }
 
     /// The artist properties of the box: the text's clipping, the box's
-    /// own alpha.
+    /// own alpha and path effects.
     fn base(&self, text: &ArtistBase, transform: Affine2D) -> ArtistBase {
         let mut base = ArtistBase::default();
         base.alpha = self.alpha;
+        base.path_effects.clone_from(&self.path_effects);
         base.clip_on = text.clip_on;
         base.clip_box = text.clip_box;
         base.clip_path.clone_from(&text.clip_path);

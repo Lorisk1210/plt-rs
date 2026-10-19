@@ -64,6 +64,10 @@ pub struct ClabelOptions {
     pub rightside_up: bool,
     /// Label z-order (default: two above the contours).
     pub zorder: Option<f64>,
+    /// Keep the labels along their lines when the axes change after
+    /// labelling: each rotation is kept in data coordinates and turned
+    /// with them when drawn (matplotlib's `use_clabeltext`).
+    pub use_clabeltext: bool,
 }
 
 impl Default for ClabelOptions {
@@ -78,6 +82,7 @@ impl Default for ClabelOptions {
             manual: None,
             rightside_up: true,
             zorder: None,
+            use_clabeltext: false,
         }
     }
 }
@@ -182,6 +187,7 @@ impl ContourSet {
             style: TextStyle {
                 font,
                 zorder: options.zorder.unwrap_or(2.0 + self.zorder()),
+                rotates_with_data: options.use_clabeltext,
                 rc,
             },
             rightside_up: options.rightside_up,
@@ -417,6 +423,26 @@ mod tests {
         };
         assert_eq!((label.level, label.text.as_str()), (0.5, "half"));
         assert_eq!(subpath_count(&cs), before, "not inline: lines are kept");
+    }
+
+    #[test]
+    fn clabeltext_rotations_follow_the_data() {
+        let cs = bowl(&[0.5]);
+        let options = ClabelOptions {
+            manual: Some(vec![(0.5, 0.5)]),
+            use_clabeltext: true,
+            ..ClabelOptions::default()
+        };
+        let [text] = cs.clabel(&options).unwrap().try_into().unwrap();
+        let displayed = cs.labels()[0].rotation;
+        assert!(text.transform_rotates_text());
+        // Stretching the view vertically turns the data angle further from
+        // the horizontal on screen.
+        cs.axes().set_ylim(-0.5, 0.5);
+        let figure = cs.axes().figure();
+        let data = figure.resolve_transform(&cs.axes().trans_data()).unwrap();
+        let turned = data.transform_angle(text.rotation(), text.position());
+        assert!((turned - displayed).abs() > 1.0, "{turned} vs {displayed}");
     }
 
     #[test]

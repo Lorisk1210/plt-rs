@@ -1,5 +1,6 @@
-//! Path effects (matplotlib.patheffects): extra strokes, shadows and ticks
-//! drawn around the paths of lines, patches and texts.
+//! Path effects (matplotlib.patheffects): extra strokes, shadows, patches
+//! and ticks drawn around the paths of lines, patches, collections and
+//! texts.
 //!
 //! An artist with effects ([`ArtistHandle::set_path_effects`]) draws through
 //! a [`PathEffectRenderer`] wrapping the real renderer: every path the
@@ -17,12 +18,14 @@
 //!
 //! [`ArtistHandle::set_path_effects`]: crate::artist::ArtistHandle::set_path_effects
 
+mod patch;
 mod renderer;
 mod ticked;
 
 use plt_core::{Affine2D, Path, Rgba};
 use plt_render::{CapStyle, GraphicsContext, JoinStyle, Renderer};
 
+pub use patch::PatchEffect;
 pub use renderer::PathEffectRenderer;
 pub use ticked::TickedStroke;
 
@@ -208,6 +211,8 @@ pub enum Effect {
     LineShadow(LineShadow),
     /// Ticks along the path.
     TickedStroke(TickedStroke),
+    /// The path drawn as a patch of its own.
+    PathPatch(PatchEffect),
 }
 
 /// One path effect: an [`Effect`], optionally followed by the unchanged
@@ -266,6 +271,11 @@ impl PathEffect {
     /// Ticks along the path, which is drawn too (`withTickedStroke(...)`).
     pub const fn with_ticked_stroke(ticks: TickedStroke) -> Self {
         Self::of(Effect::TickedStroke(ticks), true)
+    }
+
+    /// The path drawn as a patch of its own (`PathPatchEffect(...)`).
+    pub const fn path_patch(patch: PatchEffect) -> Self {
+        Self::of(Effect::PathPatch(patch), false)
     }
 
     /// Draws `path` (mapped by `affine`) with the effect on `renderer`.
@@ -342,6 +352,7 @@ impl Effect {
                 renderer.draw_path(&gc, path, &placed, None);
             }
             Self::TickedStroke(ticks) => ticks.draw_path(renderer, gc, path, affine, fill),
+            Self::PathPatch(patch) => patch.draw_path(renderer, gc, path, affine),
         }
     }
 }

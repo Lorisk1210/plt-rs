@@ -16,6 +16,7 @@ use crate::axes::axis_draw::{TickMark, grid_gc};
 use crate::axes::{AxisName, GridStyle, Tick, TickDirection, TickStyle};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
 use crate::patches::PatchShape;
+use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
 use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 
@@ -158,12 +159,14 @@ pub(crate) fn draw_tick_lines(
             path: polar.patch().path(),
             transform: unit_to_bbox(&display),
         };
-        draw_gridline(ctx, axes, &ptick, &style.grid, clip, rc);
+        with_path_effects(ctx, &style.grid.path_effects, |ctx| {
+            draw_gridline(ctx, axes, &ptick, &style.grid, clip, rc);
+        });
     }
-    match name {
+    with_path_effects(ctx, &rc.path_effects, |ctx| match name {
         AxisName::X => draw_theta_marks(ctx, axes, &ptick, style),
         AxisName::Y => draw_radial_marks(ctx, axes, &ptick, style),
-    }
+    });
 }
 
 fn draw_gridline(

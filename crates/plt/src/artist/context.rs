@@ -4,7 +4,6 @@ use plt_core::{Bbox, Point};
 use plt_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
 use super::{ArtistBase, ArtistId, ArtistStore, ClipPathSpec};
-use crate::axes::AxesState;
 use crate::figure::FigureState;
 use crate::layout::Aligned;
 use crate::ticker::AxisName;
@@ -37,14 +36,12 @@ impl<'a> LayoutContext<'a> {
         self.figure.suppress_composite
     }
 
-    /// Whether the animated artist `base` is drawn: only while the figure
-    /// is saved, and only in axes (matplotlib's `Axes.draw` keeps animated
-    /// artists while `canvas.is_saving()`; figures never draw them).
-    pub(crate) fn draws_animated(self, base: &ArtistBase) -> bool {
-        self.figure.saving
-            && base
-                .parent
-                .is_some_and(|parent| self.store().get_as::<AxesState>(parent).is_some())
+    /// Whether child `id` is left out of a draw as animated: figures
+    /// never draw animated artists, axes only while the figure is saved
+    /// (matplotlib's `Figure._get_draw_artists` and `_AxesBase.draw`).
+    pub(crate) fn skips_animated(self, id: ArtistId, in_axes: bool) -> bool {
+        let animated = self.store().get(id).is_some_and(|a| a.base().animated);
+        animated && !(in_axes && self.figure.saving)
     }
 
     /// Converts points to pixels at the canvas resolution.
@@ -298,19 +295,14 @@ impl<'a> DrawContext<'a> {
         }
     }
 
-    /// Draws a child artist if it exists and is not animated (animated
-    /// artists of axes are drawn while the figure is saved, as matplotlib's
-    /// `Axes.draw` does), through its image filter if it has one; an
-    /// invisible child draws nothing but still ends rasterizing like any
-    /// artist that is not rasterized.
+    /// Draws a child artist if it exists, through its image filter if it
+    /// has one; an invisible child draws nothing but still ends
+    /// rasterizing like any artist that is not rasterized.
     pub fn draw_child(&mut self, id: ArtistId) {
         let Some(artist) = self.layout.store().get(id) else {
             return;
         };
         let base = artist.base();
-        if base.animated && !self.layout.draws_animated(base) {
-            return;
-        }
         self.draw_artist(base.rasterized, |ctx| {
             if !base.visible {
                 return;

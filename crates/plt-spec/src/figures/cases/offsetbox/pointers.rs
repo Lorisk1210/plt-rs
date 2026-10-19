@@ -6,24 +6,18 @@ use std::error::Error;
 use plt::coords::Coords;
 use plt::fonts::{FontProperties, FontWeight};
 use plt::offsetbox::{
-    AnnotationBboxOptions, AuxTransformBox, BoxItem, DrawingArea, OffsetBox, PackAlign, Packer,
-    PaddedBox,
+    AnnotationBboxOptions, AuxTransformBox, DrawingArea, OffsetBox, PackAlign, Packer, PaddedBox,
 };
 use plt::patches::{BoxStyle, Circle, ConnectionStyle, Rectangle};
 use plt::prelude::*;
 use plt::text::{FancyArrowProps, TextProps};
 
-use super::{of_t, t, text_area, unit_axes};
+use super::{filled, of_t, t, text_area, unit_axes};
 use crate::figures::CaseResult;
 
 /// A coordinate system by its matplotlib name.
 fn coords(name: &str) -> Result<Coords, Box<dyn Error>> {
     Ok(name.parse()?)
-}
-
-/// A patch of `shape` with face colour `face`.
-fn filled<S: plt::patches::PatchShape>(shape: S, face: &str) -> BoxItem {
-    BoxItem::patch(shape, PatchProps::default().facecolor(face))
 }
 
 pub(super) fn packed_children(fig: &Figure) -> CaseResult {

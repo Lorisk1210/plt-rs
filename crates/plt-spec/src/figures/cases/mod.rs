@@ -6,6 +6,7 @@ mod axisartist;
 mod bars;
 mod basic;
 mod colorbar;
+mod common;
 mod contour;
 mod fields;
 mod figure;

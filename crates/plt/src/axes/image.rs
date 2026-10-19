@@ -8,6 +8,7 @@ use plt_core::{Bbox, Path, Point};
 use super::children::DataUpdate;
 use super::{Axes, AxesState, AxisName, TickPosition};
 use crate::artist::{Artist, ArtistHandle, ClipPathSpec, RawHandle};
+use crate::colors::Colormap;
 use crate::image::{
     AxesImage, AxesImageArtist, BboxImage, BboxImageArtist, BboxImageOptions, ColorizerOptions,
     CoreSettings, Extent, ImageAlpha, ImageCore, ImageData, ImageError, Interpolation,
@@ -51,6 +52,40 @@ pub struct ImshowOptions {
     /// Clip the image to this path, in the coordinates of the transform,
     /// instead of to the axes (matplotlib's `clip_path=`).
     pub clip_path: Option<(Path, Transform)>,
+}
+
+impl ImshowOptions {
+    /// These options with the colormap, norm and limits `colors`.
+    #[must_use]
+    pub fn colors(mut self, colors: ColorizerOptions) -> Self {
+        self.colors = colors;
+        self
+    }
+
+    /// These options with the colormap `cmap` (matplotlib's `cmap=`).
+    ///
+    /// ```
+    /// use plt::axes::ImshowOptions;
+    /// use plt::colors::colormaps;
+    /// use plt::image::Interpolation;
+    /// let options = ImshowOptions::default()
+    ///     .cmap(colormaps::get("magma")?)
+    ///     .interpolation(Interpolation::Nearest);
+    /// assert_eq!(options.interpolation, Some(Interpolation::Nearest));
+    /// # Ok::<(), plt::colors::ColormapError>(())
+    /// ```
+    #[must_use]
+    pub fn cmap(mut self, cmap: Colormap) -> Self {
+        self.colors = std::mem::take(&mut self.colors).cmap(cmap);
+        self
+    }
+
+    /// These options with the interpolation `interpolation`.
+    #[must_use]
+    pub fn interpolation(mut self, interpolation: Interpolation) -> Self {
+        self.interpolation = Some(interpolation);
+        self
+    }
 }
 
 /// Options of [`Axes::nonuniform_image`] (matplotlib's `NonUniformImage`

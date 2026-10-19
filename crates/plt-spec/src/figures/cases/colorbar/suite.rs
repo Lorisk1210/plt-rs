@@ -3,6 +3,7 @@
 //! extensions, explicit boundaries and values, log, power, symlog and
 //! centred norms, anchors and tick locations.
 
+use plt::axes::ImshowOptions;
 use plt::axes::{TickLevel, TickParams};
 use plt::colorbar::{
     ColorbarAxes, ColorbarFormat, ColorbarOptions, ColorbarTicks, ExtendFrac, ParentAnchor, Spacing,
@@ -20,7 +21,7 @@ use plt::prelude::*;
 use plt::spines::SpineSide;
 use plt_core::Anchor;
 
-use super::data::{colored, field};
+use super::data::field;
 use crate::figures::CaseResult;
 
 /// The extension kinds in the order of the test suite.
@@ -190,20 +191,12 @@ pub(super) fn drawedges_with_extensions(fig: &Figure) -> CaseResult {
     )
 }
 
-/// The colorbar options stealing space from `ax`.
-fn beside(ax: &Axes) -> ColorbarOptions {
-    ColorbarOptions {
-        axes: ColorbarAxes::Parent(ax.clone()),
-        ..ColorbarOptions::default()
-    }
-}
-
 /// `imshow` options with a colormap and a norm.
 fn normed(
     cmap: &str,
     norm: impl Norm + 'static,
 ) -> Result<plt::axes::ImshowOptions, Box<dyn std::error::Error>> {
-    Ok(colored(
+    Ok(ImshowOptions::default().colors(
         ColorizerOptions::default()
             .cmap(colormaps::get(cmap)?)
             .norm(norm),
@@ -213,7 +206,10 @@ fn normed(
 pub(super) fn boundaries_values_irregular(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
-    let im = ax1.imshow(field(40), super::data::cmap("viridis")?)?;
+    let im = ax1.imshow(
+        field(40),
+        ImshowOptions::default().cmap(colormaps::get("viridis")?),
+    )?;
     fig.colorbar(
         &im,
         ColorbarOptions {
@@ -221,7 +217,7 @@ pub(super) fn boundaries_values_irregular(fig: &Figure) -> CaseResult {
             values: Some(vec![-0.6, -0.25, -0.05, 0.1, 0.5]),
             ticks: Some(ColorbarTicks::Values(vec![-0.8, -0.1, 0.2, 0.8])),
             format: Some(ColorbarFormat::Template("%.2f".into())),
-            ..beside(ax1)
+            ..ColorbarOptions::beside(ax1)
         },
     )?;
     let norm = BoundaryNorm::new([-1.0, -0.3, -0.1, 0.0, 0.1, 0.3, 1.0], 256, Extend::Neither)?;
@@ -233,7 +229,7 @@ pub(super) fn boundaries_values_irregular(fig: &Figure) -> CaseResult {
             spacing: Spacing::Proportional,
             ticks: Some(ColorbarTicks::Values(vec![-1.0, -0.1, 0.1, 1.0])),
             label: "proportional".into(),
-            ..beside(ax2)
+            ..ColorbarOptions::beside(ax2)
         },
     )?;
     Ok(())
@@ -250,13 +246,13 @@ pub(super) fn lognorm_extend_minor_custom_ticks(fig: &Figure) -> CaseResult {
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     let im = ax1.imshow(
         decades(),
-        colored(ColorizerOptions::default().norm(LogNorm::new(10.0, 1e4))),
+        ImshowOptions::default().colors(ColorizerOptions::default().norm(LogNorm::new(10.0, 1e4))),
     )?;
     let cb = fig.colorbar(
         &im,
         ColorbarOptions {
             extend: Some(Extend::Both),
-            ..beside(ax1)
+            ..ColorbarOptions::beside(ax1)
         },
     )?;
     cb.minorticks_on();
@@ -271,7 +267,7 @@ pub(super) fn lognorm_extend_minor_custom_ticks(fig: &Figure) -> CaseResult {
         &im,
         ColorbarOptions {
             orientation: Some(Orientation::Horizontal),
-            ..beside(ax2)
+            ..ColorbarOptions::beside(ax2)
         },
     )?;
     cb.set_ticks(vec![1.0, 100.0, 1e4, 1e6]);
@@ -288,19 +284,19 @@ pub(super) fn power_symlog_centered_norms(fig: &Figure) -> CaseResult {
         data.map(|v| v.abs()),
         normed("cividis", PowerNorm::new(0.5))?,
     )?;
-    fig.colorbar(&im, beside(&axs[(0, 0)]))?;
+    fig.colorbar(&im, ColorbarOptions::beside(&axs[(0, 0)]))?;
     let symlog = SymLogNorm::new(0.3, 1.0, 10.0)?
         .with_vmin(-30.0)
         .with_vmax(30.0);
     let im = axs[(0, 1)].imshow(data.map(|v| v * 10.0), normed("RdBu_r", symlog)?)?;
-    fig.colorbar(&im, beside(&axs[(0, 1)]))?;
+    fig.colorbar(&im, ColorbarOptions::beside(&axs[(0, 1)]))?;
     let centered = CenteredNorm::new(0.5, Some(2.0));
     let im = axs[(0, 2)].imshow(data.map(|v| v + 0.5), normed("PiYG", centered)?)?;
     fig.colorbar(
         &im,
         ColorbarOptions {
             extend: Some(Extend::Both),
-            ..beside(&axs[(0, 2)])
+            ..ColorbarOptions::beside(&axs[(0, 2)])
         },
     )?;
     Ok(())
@@ -309,7 +305,10 @@ pub(super) fn power_symlog_centered_norms(fig: &Figure) -> CaseResult {
 pub(super) fn anchor_panchor_ticklocation(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
-    let im = ax1.imshow(field(40), super::data::cmap("plasma")?)?;
+    let im = ax1.imshow(
+        field(40),
+        ImshowOptions::default().cmap(colormaps::get("plasma")?),
+    )?;
     fig.colorbar(
         &im,
         ColorbarOptions {
@@ -318,10 +317,13 @@ pub(super) fn anchor_panchor_ticklocation(fig: &Figure) -> CaseResult {
             panchor: ParentAnchor::At(Anchor::Fraction(1.0, 0.0)),
             ticklocation: Some(SpineSide::Left),
             label: "left ticks".into(),
-            ..beside(ax1)
+            ..ColorbarOptions::beside(ax1)
         },
     )?;
-    let im = ax2.imshow(field(40), super::data::cmap("plasma")?)?;
+    let im = ax2.imshow(
+        field(40),
+        ImshowOptions::default().cmap(colormaps::get("plasma")?),
+    )?;
     fig.colorbar(
         &im,
         ColorbarOptions {
@@ -330,7 +332,7 @@ pub(super) fn anchor_panchor_ticklocation(fig: &Figure) -> CaseResult {
             panchor: ParentAnchor::Unchanged,
             aspect: 10.0,
             label: "on top".into(),
-            ..beside(ax2)
+            ..ColorbarOptions::beside(ax2)
         },
     )?;
     Ok(())

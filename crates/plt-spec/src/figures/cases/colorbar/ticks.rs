@@ -4,10 +4,11 @@ use std::rc::Rc;
 
 use plt::axes::{ImshowOptions, LabelLoc};
 use plt::colorbar::{ColorbarAxes, ColorbarFormat, ColorbarOptions, ColorbarTicks};
+use plt::colors::colormaps;
 use plt::figure::Figure;
 use plt::ticker::PercentFormatter;
 
-use super::data::{cmap, field};
+use super::data::field;
 use crate::figures::CaseResult;
 
 pub(super) fn ticks_format_label(fig: &Figure) -> CaseResult {
@@ -26,7 +27,10 @@ pub(super) fn ticks_format_label(fig: &Figure) -> CaseResult {
 
 pub(super) fn formatter_minorticks(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    let im = ax.imshow(field(40).map(|v| v.abs()), cmap("magma")?)?;
+    let im = ax.imshow(
+        field(40).map(|v| v.abs()),
+        ImshowOptions::default().cmap(colormaps::get("magma")?),
+    )?;
     let options = ColorbarOptions {
         axes: ColorbarAxes::Parent(ax),
         format: Some(ColorbarFormat::Formatter(Rc::new(PercentFormatter::new(

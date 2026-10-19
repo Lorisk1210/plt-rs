@@ -4,6 +4,7 @@
 //! drawn for single-line texts only and never measured, in the bundled
 //! sans-serif, serif italic and STIX fonts.
 
+use crate::figures::cases::common::ranges;
 use plt::axes::BarOptions;
 use plt::fonts::FontStyle;
 use plt::legend::LegendOptions;
@@ -11,8 +12,8 @@ use plt::patches::ArrowStyle;
 use plt::patheffects::{GcUpdate, PathEffect, Stroke};
 use plt::prelude::*;
 use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, Feature, HorizontalAlignment, Language,
-    LanguageRange, Text, VerticalAlignment,
+    AnnotateOptions, ArrowProps, FancyArrowProps, Feature, HorizontalAlignment, Language, Text,
+    VerticalAlignment,
 };
 
 use crate::figures::{CaseResult, FigureCase};
@@ -43,14 +44,6 @@ type Row<'a> = (&'a str, Font, Option<&'a [&'a str]>, Option<Language>);
 /// Parses `HarfBuzz` feature strings.
 fn features(settings: &[&str]) -> Result<Vec<Feature>, plt::text::ParseFeatureError> {
     settings.iter().map(|setting| setting.parse()).collect()
-}
-
-/// Character ranges of a language.
-fn ranges(ranges: &[(&str, usize, usize)]) -> Language {
-    ranges
-        .iter()
-        .map(|&(tag, start, end)| LanguageRange::new(tag, start, end))
-        .collect()
 }
 
 /// Gives `text` the font of a row.

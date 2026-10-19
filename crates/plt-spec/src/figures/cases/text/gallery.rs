@@ -3,10 +3,11 @@
 //! arrow, simple annotations with `relpos`, rotated multi-line boxes and
 //! annotations of other annotations.
 
+use super::styled_box;
 use plt::artist::ArtistHandle;
 use plt::axes::{ScatterColors, ScatterOptions};
 use plt::coords::{CoordUnit, Coords};
-use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, Ellipse, Rectangle};
+use plt::patches::{ArrowStyle, ConnectionStyle, Ellipse, Rectangle};
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::text::{
@@ -17,16 +18,6 @@ use plt::transforms::Point;
 
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
-
-/// `bbox=dict(boxstyle=style, **patch)`.
-fn styled_box(
-    style: &str,
-    patch: PatchProps,
-) -> Result<Option<TextBoxProps>, Box<dyn std::error::Error>> {
-    Ok(Some(
-        TextBoxProps::new(style.parse::<BoxStyle>()?).with_patch(patch),
-    ))
-}
 
 /// `arrowprops=dict(arrowstyle=style, connectionstyle=connection)`.
 fn arrow(style: &str, connection: &str) -> Result<FancyArrowProps, Box<dyn std::error::Error>> {

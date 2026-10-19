@@ -1,6 +1,7 @@
 //! Colorbars of discrete and non-linear norms, divided colours, a bare
 //! scalar mappable and a scatter plot.
 
+use plt::axes::ImshowOptions;
 use plt::axes::{MappedColors, ScatterOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions, Spacing};
 use plt::colors::{
@@ -10,7 +11,7 @@ use plt::figure::Figure;
 use plt::image::{ColorizerOptions, ImageData};
 use plt::numeric::{Grid, linspace};
 
-use super::data::{colored, field};
+use super::data::field;
 use crate::figures::CaseResult;
 use crate::rng::SpecRng;
 
@@ -22,7 +23,7 @@ fn image_colorbar(
     options: ColorbarOptions,
 ) -> CaseResult {
     let ax = fig.subplot();
-    let im = ax.imshow(data, colored(colors))?;
+    let im = ax.imshow(data, ImshowOptions::default().colors(colors))?;
     let options = ColorbarOptions {
         axes: ColorbarAxes::Parent(ax),
         ..options

@@ -28,14 +28,6 @@ fn colored(cmap: &str) -> Result<PcolorOptions, plt::colors::ColormapError> {
     })
 }
 
-/// Colorbar options stealing space from `ax`.
-fn beside(ax: &Axes) -> ColorbarOptions {
-    ColorbarOptions {
-        axes: ColorbarAxes::Parent(ax.clone()),
-        ..ColorbarOptions::default()
-    }
-}
-
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("layout/constrained_basic", |fig| {
         fig.set_layout_engine(LayoutEngine::constrained());
@@ -50,7 +42,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         fig.set_layout_engine(LayoutEngine::constrained());
         for (i, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
             let mesh = ax.pcolormesh(scaled_grid(i as f64 + 1.0), colored("viridis")?)?;
-            fig.colorbar(&mesh, beside(ax))?;
+            fig.colorbar(&mesh, ColorbarOptions::beside(ax))?;
         }
         Ok(())
     }),
@@ -118,12 +110,12 @@ pub(crate) const CASES: &[FigureCase] = &[
         let axs = fig.subplots(1, 2)?;
         let (left, right) = (&axs[(0, 0)], &axs[(0, 1)]);
         let mesh = left.pcolormesh(scaled_grid(1.0), PcolorOptions::default())?;
-        fig.colorbar(&mesh, beside(left))?;
+        fig.colorbar(&mesh, ColorbarOptions::beside(left))?;
         let mesh = right.pcolormesh(scaled_grid(1.0), colored("magma")?)?;
         let options = ColorbarOptions {
             orientation: Some(Orientation::Horizontal),
             extend: Some(Extend::Both),
-            ..beside(right)
+            ..ColorbarOptions::beside(right)
         };
         fig.colorbar(&mesh, options)?;
         Ok(())

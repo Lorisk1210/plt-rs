@@ -1,10 +1,9 @@
 //! Text box and background cases of `figures/cases_text.py`.
 
-use plt::patches::BoxStyle;
 use plt::prelude::*;
 use plt::text::{HorizontalAlignment, LineSpacing, TextBoxProps, VerticalAlignment};
 
-use super::blank;
+use super::{blank, styled_box};
 use crate::figures::FigureCase;
 
 /// `BOXSTYLES`: every box style.
@@ -27,16 +26,6 @@ fn plain_box(patch: PatchProps) -> TextBoxProps {
         patch,
         ..TextBoxProps::default()
     }
-}
-
-/// `bbox=dict(boxstyle=style, **patch)`.
-fn styled_box(
-    style: &str,
-    patch: PatchProps,
-) -> Result<Option<TextBoxProps>, Box<dyn std::error::Error>> {
-    Ok(Some(
-        TextBoxProps::new(style.parse::<BoxStyle>()?).with_patch(patch),
-    ))
 }
 
 pub(crate) const CASES: &[FigureCase] = &[

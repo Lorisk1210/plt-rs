@@ -2,10 +2,11 @@
 //! fallback, OpenType features and languages, drawn as text and, through
 //! the renderer's fallback, as paths.
 
+use crate::figures::cases::common::ranges;
 use plt::figure::SubfigureOptions;
 use plt::patheffects::PathEffect;
 use plt::prelude::*;
-use plt::text::{Feature, HorizontalAlignment, Language, LanguageRange, Text, VerticalAlignment};
+use plt::text::{Feature, HorizontalAlignment, Language, Text, VerticalAlignment};
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -55,14 +56,6 @@ fn text_features(fig: &Figure) -> Texts {
         texts.push(text);
     }
     Ok(texts)
-}
-
-/// Character ranges in languages.
-fn ranges(ranges: &[(&str, usize, usize)]) -> Language {
-    ranges
-        .iter()
-        .map(|&(tag, start, end)| LanguageRange::new(tag, start, end))
-        .collect()
 }
 
 /// `_test_text_language`: Serbian forms of a Cyrillic letter and Sámi

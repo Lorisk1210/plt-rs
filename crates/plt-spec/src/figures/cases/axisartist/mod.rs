@@ -5,13 +5,12 @@
 mod curvilinear;
 mod directions;
 
-use std::f64::consts::PI;
+use crate::figures::cases::common::polar_degrees;
 
 use plt::axisartist::angle_helper::{ExtremeFinderCycle, FormatterDms, LocatorDms};
 use plt::axisartist::grid_finder::{GridFinderOptions, GridLocator};
 use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
-use plt::axisartist::{self, AuxTransform, AxisArtist};
-use plt::transforms::Affine2D;
+use plt::axisartist::{self, AxisArtist};
 
 use crate::figures::FigureCase;
 
@@ -60,11 +59,6 @@ fn artist(ax: &axisartist::Axes, name: &str) -> Result<AxisArtist, &'static str>
 /// `axis.label.set_text(text); axis.label.set_visible(True)`.
 fn set_text(axis: &AxisArtist, text: &str) {
     axis.label().set_text(text).set_visible(true);
-}
-
-/// `Affine2D().scale(np.pi / 180, 1) + PolarAxes.PolarTransform()`.
-fn polar_degrees() -> AuxTransform {
-    AuxTransform::affine(Affine2D::scaling(PI / 180.0, 1.0)).then(AuxTransform::polar())
 }
 
 /// `_polar_grid_helper(grid_locator2)`: the polar grid in degrees of

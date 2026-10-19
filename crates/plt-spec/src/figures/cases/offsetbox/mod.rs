@@ -8,7 +8,7 @@ mod gaps;
 mod layouts;
 mod pointers;
 
-use plt::fonts::{FontProperties, FontSize};
+use crate::figures::cases::common::sized;
 use plt::numeric::Grid;
 use plt::offsetbox::{BoxItem, OffsetBox, TextArea};
 use plt::prelude::*;
@@ -88,13 +88,6 @@ fn of_t(f: impl Fn(f64) -> f64) -> Vec<f64> {
     t().into_iter().map(f).collect()
 }
 
-/// The default font at `points` (matplotlib's `size=points` text
-/// property, or `FontProperties(size=points)`).
-fn sized(points: f64) -> FontProperties {
-    let rc = plt::rc::params();
-    FontProperties::from_rc(&rc).with_size(FontSize::Points(points), rc.font_size)
-}
-
 /// `TextArea(text, textprops=props)`.
 fn text_area(text: &str, props: TextProps) -> OffsetBox<BoxItem> {
     TextArea::from_text(text, props).into()
@@ -112,4 +105,9 @@ fn unit_axes(fig: &Figure) -> Axes {
     let ax = fig.subplot();
     ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
     ax
+}
+
+/// A patch of `shape` with face colour `face`.
+pub(super) fn filled<S: plt::patches::PatchShape>(shape: S, face: &str) -> BoxItem {
+    BoxItem::patch(shape, PatchProps::default().facecolor(face))
 }

@@ -4,6 +4,7 @@ use super::broadcast::broadcast;
 use super::{Axes, BarAlign, BarContainer, BarOptions, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
+use crate::lines::LineStyle;
 use crate::patches::{Patch, PatchProps, PatchShape, Polygon};
 use crate::rc::HistBins;
 use crate::scale::{LogScale, NonPositive};
@@ -27,6 +28,48 @@ pub struct HistPlotOptions<'a> {
     pub label: Vec<String>,
     /// Properties applied to every patch.
     pub props: PatchProps,
+    /// Face colours cycled over the datasets (matplotlib's sequence of
+    /// `facecolor`s); empty keeps the dataset colours.
+    pub facecolors: Vec<Color>,
+    /// Edge colours cycled over the datasets; empty keeps the patch
+    /// default (the dataset colours for `step` histograms).
+    pub edgecolors: Vec<Color>,
+    /// Hatch patterns cycled over the datasets.
+    pub hatches: Vec<String>,
+    /// Edge widths in points cycled over the datasets.
+    pub linewidths: Vec<f64>,
+    /// Edge styles cycled over the datasets.
+    pub linestyles: Vec<LineStyle>,
+}
+
+impl HistPlotOptions<'_> {
+    /// The properties of the patches of dataset `index`: the shared
+    /// [`props`](Self::props) with the entries of the style sequences for
+    /// that dataset on top (matplotlib's `style_generator`).
+    fn dataset_props(&self, index: usize) -> PatchProps {
+        let mut props = self.props.clone();
+        if let Some(color) = cycled(&self.facecolors, index) {
+            props.facecolor = Some(color.clone());
+        }
+        if let Some(color) = cycled(&self.edgecolors, index) {
+            props.edgecolor = Some(color.clone());
+        }
+        if let Some(hatch) = cycled(&self.hatches, index) {
+            props.hatch = Some(hatch.clone());
+        }
+        if let Some(&width) = cycled(&self.linewidths, index) {
+            props.linewidth = Some(width);
+        }
+        if let Some(style) = cycled(&self.linestyles, index) {
+            props.linestyle = Some(style.clone());
+        }
+        props
+    }
+}
+
+/// Entry `index` of `values` repeated cyclically (`None` when empty).
+fn cycled<T>(values: &[T], index: usize) -> Option<&T> {
+    values.iter().cycle().nth(index)
 }
 
 /// What [`Axes::hist`] computed and drew.
@@ -172,20 +215,21 @@ impl Axes {
 }
 
 impl HistArtists {
-    /// Applies the shared properties to every patch and labels the first
-    /// patch of each dataset (matplotlib's styling loop at the end of
-    /// `hist`).
+    /// Applies the shared properties and the style sequences to every
+    /// patch and labels the first patch of each dataset (matplotlib's
+    /// styling loop at the end of `hist`).
     fn style(&self, options: &HistPlotOptions<'_>) {
         let label = |i: usize| options.label.get(i);
         match self {
             Self::Bars(containers) => {
                 for (i, container) in containers.iter().enumerate() {
-                    style_dataset(&container.patches, label(i), &options.props);
+                    style_dataset(&container.patches, label(i), &options.dataset_props(i));
                 }
             }
             Self::Steps(outlines) => {
                 for (i, outline) in outlines.iter().enumerate() {
-                    style_dataset(std::slice::from_ref(outline), label(i), &options.props);
+                    let props = options.dataset_props(i);
+                    style_dataset(std::slice::from_ref(outline), label(i), &props);
                 }
             }
         }
@@ -215,4 +259,71 @@ fn rc_bins(bins: &HistBins) -> Result<Bins, PlotError> {
         HistBins::Rule(rule) => Bins::Estimator(rule.parse().map_err(PlotError::Stats)?),
         HistBins::Edges(edges) => Bins::Edges(edges.clone()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::figure::Figure;
+    use crate::patches::PatchStyle;
+
+    fn three_datasets() -> Vec<Vec<f64>> {
+        vec![vec![0.0, 1.0], vec![1.0, 2.0], vec![2.0, 3.0]]
+    }
+
+    #[test]
+    fn style_sequences_cycle_over_the_datasets() {
+        let ax = Figure::new().subplot();
+        let options = HistPlotOptions {
+            facecolors: vec![Color::from("b"), Color::from("g")],
+            hatches: vec!["/".into()],
+            linewidths: vec![1.0, 1.5, 2.0],
+            linestyles: vec![LineStyle::Dashed, LineStyle::Dotted],
+            props: PatchProps::default().edgecolor("k"),
+            ..HistPlotOptions::default()
+        };
+        let plot = ax.hist(&three_datasets(), &options).unwrap();
+        let HistArtists::Bars(containers) = plot.artists else {
+            panic!("bars expected");
+        };
+        let styles: Vec<PatchStyle> = containers
+            .iter()
+            .map(|container| container.patches[0].style())
+            .collect();
+        let faces: Vec<_> = styles.iter().map(|s| s.facecolor.clone()).collect();
+        assert_eq!(faces, ["b", "g", "b"].map(|c| Some(Color::from(c))));
+        assert!(styles.iter().all(|s| s.hatch.as_deref() == Some("/")));
+        assert!(styles.iter().all(|s| s.edgecolor == Some(Color::from("k"))));
+        let widths: Vec<_> = styles.iter().map(|s| s.linewidth).collect();
+        assert_eq!(widths, [Some(1.0), Some(1.5), Some(2.0)]);
+        let dashes: Vec<_> = styles.iter().map(|s| s.linestyle.clone()).collect();
+        assert_eq!(
+            dashes,
+            [LineStyle::Dashed, LineStyle::Dotted, LineStyle::Dashed]
+        );
+    }
+
+    #[test]
+    fn step_outlines_take_edge_sequences_over_the_dataset_colours() {
+        let ax = Figure::new().subplot();
+        let step = |edgecolors: Vec<Color>| HistPlotOptions {
+            layout: HistOptions {
+                histtype: HistType::Step,
+                ..HistOptions::default()
+            },
+            color: vec![Color::from("r")],
+            edgecolors,
+            ..HistPlotOptions::default()
+        };
+        let second_edge = |options: &HistPlotOptions<'_>| {
+            let plot = ax.hist(&three_datasets(), options).unwrap();
+            let HistArtists::Steps(outlines) = plot.artists else {
+                panic!("step outlines expected");
+            };
+            outlines[1].style().edgecolor
+        };
+        assert_eq!(second_edge(&step(Vec::new())), Some(Color::from("r")));
+        let sequence = vec![Color::from("b"), Color::from("g")];
+        assert_eq!(second_edge(&step(sequence)), Some(Color::from("g")));
+    }
 }

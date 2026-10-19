@@ -22,6 +22,7 @@ The full texts are in [`LICENSES/`](LICENSES):
 | Pillow 12 | MIT-CMU (`pillow.txt`) | image file reading and writing (`plt-codec`, `crates/plt/src/image`) |
 | libjpeg-turbo / IJG libjpeg | IJG, BSD-3-Clause and zlib (`pillow.txt`, "LIBJPEG") | the JPEG decoder and encoder (`crates/plt-codec/src/jpeg`). This software is based in part on the work of the Independent JPEG Group. |
 | libtiff | libtiff licence (`pillow.txt`, "LIBTIFF") | TIFF decompression (`crates/plt-codec/src/tiff`) |
+| libwebp 1.6 | BSD-3-Clause (`pillow.txt`, "LIBWEBP") | WebP decoding: the VP8 and VP8L decoders, alpha planes, chroma upsampling and the container rules (`crates/plt-codec/src/webp`) |
 
 The FreeType parts are based in part on the work of the FreeType Team
 (https://freetype.org).
@@ -40,6 +41,7 @@ engine, windowing layer and conformance suite.
 | BaKoMa Computer Modern fonts (`cm*.ttf`) and their metrics | BaKoMa Fonts Licence (`matplotlib.txt`, "BaKoMa Fonts") | `crates/plt-font/fonts`, `crates/plt-text/src/mathtext/data` |
 | Adobe Core 14 font metrics (`*.afm`) | Adobe's notice in `readme.txt`: copy and distribute with the notices kept and the readme alongside | `crates/plt-font/fonts/pdfcorefonts` |
 | Last Resort HE font | SIL OFL 1.1 (`matplotlib.txt`, "Last Resort fonts") | `crates/plt-font/fonts` |
+| Inter font (Regular, Italic, SemiBold, Bold, Bold Italic), the typeface of plt-rs' modern look | SIL OFL 1.1 | `crates/plt-font/fonts/LICENSE_INTER` |
 | ColorBrewer colour schemes | Apache-2.0 (`matplotlib.txt`, "ColorBrewer Color Schemes") | `crates/plt/src/colors/colormaps` |
 | Yorick colormaps (`gist_*`) | Yorick licence (`matplotlib.txt`, "Yorick Colormaps") | `crates/plt/src/colors/colormaps` |
 | Solarized palette (`Solarize_Light2`) | MIT (`matplotlib.txt`, "Solarized") | `crates/plt/src/style` |

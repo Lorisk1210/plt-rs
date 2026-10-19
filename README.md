@@ -17,9 +17,27 @@ let x = linspace(0.0, 10.0, 200);
 ax.plot(x.clone(), x.iter().map(|x| x.sin()).collect::<Vec<_>>())?;
 ax.set_title("A sine");
 ax.set_xlabel("x");
-fig.savefig("sine.png")?;      // pixel-identical to matplotlib's Agg output
+fig.savefig("sine.png")?;      // in plt-rs' modern look
 plt::gui::show(&[fig])?;       // or explore it in a window
 ```
+
+Figures and windows take plt-rs' modern look unless told otherwise:
+Inter type, hairline grids behind the data, no top or right spines,
+left-aligned titles, constrained layout and a palette checked for
+colour-vision deficiencies (the `plt-modern` style sheet), in modern
+windows. matplotlib's look is one switch away, for the figures, the
+windows or both, and is what makes PNG output pixel-identical to
+matplotlib's Agg:
+
+```sh
+PLT_LOOK=matplotlib cargo run ...          # matplotlib's figures and windows
+PLT_FIGURE_LOOK=matplotlib cargo run ...   # matplotlib's figures, modern windows
+PLT_FIGURE_LOOK=modern-dark cargo run ...  # the modern look on charcoal
+```
+
+or `plt::look::set_appearance(...)` in code. The modern look is checked
+against matplotlib too: matplotlib drawing the same style sheet with
+Inter gives identical figures.
 
 The `pyplot`-style interface works too:
 
@@ -69,8 +87,8 @@ does it without pyplot.
   formatters, floating axes and auxiliary axes in curved coordinates).
 * **Interactive**: figure windows with a toolbar (home/back/forward,
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
-  options, save), a save dialog (PNG, JPEG, TIFF, GIF, SVG, PDF, PS,
-  EPS), copying the figure to the clipboard, matplotlib's keyboard
+  options, save), a save dialog (PNG, JPEG, TIFF, GIF, WebP, SVG, PDF,
+  PS, EPS), copying the figure to the clipboard, matplotlib's keyboard
   shortcuts with a help window, toolbar tools of your own
   (`Figure::add_tool`), a live coordinate readout with the image value
   under the pointer, 3-D axes that rotate (arcball, trackball, sphere or
@@ -78,7 +96,7 @@ does it without pyplot.
   (`connect`, including draw events), picking artists with the mouse
   (`set_picker` and pick events), draggable legends, annotations and
   offset boxes, timers and `FuncAnimation`/`ArtistAnimation` (saved as
-  animated PNG or GIF, as an HTML page with matplotlib's JavaScript
+  animated PNG, GIF or WebP, as an HTML page with matplotlib's JavaScript
   player, `to_jshtml`, or as a video through an installed ffmpeg,
   `to_html5_video`); pyplot's interactive mode with `pause`, `ginput`
   and `waitforbuttonpress`; the same figures in a web browser
@@ -86,9 +104,11 @@ does it without pyplot.
   WebSocket server): pan, zoom, history, readout, mouse and key events,
   timers and downloads in every output format.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF
-  byte-identical to Pillow's for the same pixels, GIF and raw RGBA; and
-  SVG, PDF and PostScript/EPS documents structured like matplotlib's,
-  including the 14 core fonts of `pdf.use14corefonts` and `ps.useafm`.
+  byte-identical to Pillow's for the same pixels, lossless WebP, GIF and
+  raw RGBA; and SVG, PDF and PostScript/EPS documents structured like
+  matplotlib's, including the 14 core fonts of `pdf.use14corefonts` and
+  `ps.useafm`. `imread` reads PNG, JPEG, TIFF, GIF and WebP (lossy and
+  lossless, still or animated) to the pixels matplotlib gets.
 * **Widgets**: buttons, sliders and range sliders, check and radio
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
   lasso and polygon selectors.
@@ -111,7 +131,7 @@ writes every figure as a PNG with an `index.html` showing them all.
 | crate          | responsibility                                                    |
 |----------------|-------------------------------------------------------------------|
 | `plt-core`     | points, affine transforms, bounding boxes, paths, colours         |
-| `plt-codec`    | CRC32/Adler32, SHA-1, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF read and write |
+| `plt-codec`    | CRC32/Adler32, SHA-1, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF, WebP read and write |
 | `plt-font`     | TrueType/OpenType parsing, shaping (GSUB/GPOS), font manager      |
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `plt-text`     | text layout and the mathtext parser and typesetter                |
@@ -147,5 +167,6 @@ cargo xtask render polar/rose --vectors         # ... with the case's SVG, PDF a
 See `CLAUDE.md` for the coding conventions.
 
 plt-rs ports code from matplotlib, Anti-Grain Geometry, FreeType,
-HarfBuzz, Qhull, Pillow and libjpeg-turbo, and bundles fonts and colour
-data; see `THIRD_PARTY.md` for their licences.
+HarfBuzz, Qhull, Pillow, libjpeg-turbo and libwebp, and bundles fonts
+(including Inter) and colour data; see `THIRD_PARTY.md` for their
+licences.

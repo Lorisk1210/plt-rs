@@ -19,6 +19,7 @@ pub(crate) mod colormaps;
 pub(crate) mod colors;
 pub(crate) mod contour;
 pub(crate) mod contour_behaviour;
+pub(crate) mod contour_generator;
 pub(crate) mod cursor;
 pub(crate) mod dates;
 pub(crate) mod fancy;

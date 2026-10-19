@@ -27,96 +27,45 @@ use self::cache::{Cache, Exists, LevelIndex, VISITED_S, VISITED_W};
 use self::edge::{Edge, QuadEdge, edge_point, is_boundary};
 use self::filled::{ChunkFill, ParentCache};
 use self::trace::{Field, Tracer};
-use super::ContourError;
 use super::assemble::LevelPath;
-use crate::numeric::Grid;
+use super::chunks::{ChunkLimits, Chunks};
+use super::quad::QuadGrid;
 
-/// Contour lines and filled contours of a field on a quadrilateral grid
-/// (contourpy's `Mpl2014ContourGenerator` with matplotlib's line and fill
-/// types).
-///
-/// ```
-/// use plt::contour::QuadContourGenerator;
-/// use plt::numeric::Grid;
-///
-/// let x = Grid::from_rows([[0.0, 1.0], [0.0, 1.0]])?;
-/// let y = Grid::from_rows([[0.0, 0.0], [1.0, 1.0]])?;
-/// let z = Grid::from_rows([[0.0, 1.0], [1.0, 2.0]])?;
-/// let mut generator = QuadContourGenerator::new(&x, &y, &z, None, true, (0, 0))?;
-/// let line = generator.lines(1.5);
-/// assert_eq!(line.vertices().len(), 2);
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// contourpy's `Mpl2014ContourGenerator` with matplotlib's line and fill
+/// types.
 #[derive(Clone, Debug)]
-pub struct QuadContourGenerator {
+pub(super) struct Mpl2014 {
     field: Field,
     corner_mask: bool,
     chunks: Chunks,
     cache: Cache,
 }
 
-impl QuadContourGenerator {
-    /// A generator for the field `z` at points `(x, y)` (all of the same
-    /// shape, at least 2 × 2), with an optional point mask (`true` =
-    /// masked).
-    ///
-    /// With `corner_mask`, a quad with exactly one masked point keeps the
-    /// triangle opposite that point; otherwise any quad touching a masked
-    /// point is left out. `chunk_size` is `(y, x)` in quads; 0 means no
-    /// chunking in that direction.
-    ///
-    /// # Errors
-    ///
-    /// When the shapes disagree or the grid is smaller than 2 × 2.
-    pub fn new(
-        x: &Grid<f64>,
-        y: &Grid<f64>,
-        z: &Grid<f64>,
-        mask: Option<&Grid<bool>>,
-        corner_mask: bool,
-        chunk_size: (usize, usize),
-    ) -> Result<Self, ContourError> {
-        let (ny, nx) = z.shape();
-        if ny < 2 || nx < 2 {
-            return Err(ContourError::GridTooSmall { rows: ny, cols: nx });
-        }
-        let shapes = [x.shape(), y.shape()];
-        if let Some(&shape) = shapes
-            .iter()
-            .chain(mask.map(Grid::shape).as_ref())
-            .find(|&&s| s != (ny, nx))
-        {
-            return Err(ContourError::ShapeMismatch {
-                expected: (ny, nx),
-                actual: shape,
-            });
-        }
-        let chunks = Chunks::new(nx, ny, chunk_size);
-        let mask = mask.map(Grid::as_slice).filter(|m| m.contains(&true));
-        let cache = Cache::new(nx, ny, mask, corner_mask, (chunks.x_size, chunks.y_size));
-        Ok(Self {
+impl Mpl2014 {
+    /// A generator for `grid`, in `chunks`.
+    pub(super) fn new(grid: &QuadGrid<'_>, corner_mask: bool, chunks: Chunks) -> Self {
+        let (nx, ny) = (grid.nx, grid.ny);
+        Self {
             field: Field {
-                x: x.as_slice().to_vec(),
-                y: y.as_slice().to_vec(),
-                z: z.as_slice().to_vec(),
+                x: grid.x.to_vec(),
+                y: grid.y.to_vec(),
+                z: grid.z.to_vec(),
                 nx,
             },
             corner_mask,
             chunks,
-            cache,
-        })
+            cache: Cache::new(
+                nx,
+                ny,
+                grid.mask,
+                corner_mask,
+                (chunks.x_size, chunks.y_size),
+            ),
+        }
     }
 
-    /// Whether quads with one masked point keep their opposite triangle.
-    pub fn corner_mask(&self) -> bool {
-        self.corner_mask
-    }
-
-    /// The contour lines at `level` as one compound path: each line starts
-    /// with a MOVETO and loops end with a CLOSEPOLY when their last point
-    /// is exactly their first (matplotlib's `LineType.SeparateCode`
-    /// concatenated). No lines give an empty path without codes.
-    pub fn lines(&mut self, level: f64) -> Path {
+    /// The lines at `level`.
+    pub(super) fn lines(&mut self, level: f64) -> Path {
         let (chunks, nx) = (self.chunks, self.field.nx);
         let mut path = LevelPath::default();
         let mut tracer = self.tracer(level, level, None);
@@ -136,22 +85,8 @@ impl QuadContourGenerator {
         path.finish()
     }
 
-    /// The filled contour `lower < z <= upper` as one compound path of
-    /// closed rings: every outer polygon (anticlockwise) followed by its
-    /// holes (clockwise), polygon by polygon and chunk by chunk
-    /// (matplotlib's `FillType.OuterCode` concatenated). No polygons give an
-    /// empty path without codes.
-    ///
-    /// # Errors
-    ///
-    /// When a level is NaN or `lower >= upper`.
-    pub fn filled(&mut self, lower: f64, upper: f64) -> Result<Path, ContourError> {
-        if lower.is_nan() || upper.is_nan() {
-            return Err(ContourError::NanLevel);
-        }
-        if lower >= upper {
-            return Err(ContourError::LevelOrder { lower, upper });
-        }
+    /// The region `lower < z <= upper` (`lower < upper`).
+    pub(super) fn filled(&mut self, lower: f64, upper: f64) -> Path {
         let (chunks, nx) = (self.chunks, self.field.nx);
         let parents = ParentCache::new(nx, chunks.x_size + 1, chunks.y_size + 1);
         let mut tracer = self.tracer(lower, upper, Some(parents));
@@ -170,7 +105,7 @@ impl QuadContourGenerator {
                 path.add_ring(ring);
             }
         }
-        Ok(path.finish())
+        path.finish()
     }
 
     fn tracer(&mut self, lower: f64, upper: f64, parents: Option<ParentCache>) -> Tracer<'_> {
@@ -269,92 +204,13 @@ fn start_interior_loop(tracer: &mut Tracer<'_>, quad: usize, path: &mut LevelPat
     tracer.cache.has(quad, level.saddle()) && !tracer.cache.has(quad, level.visited())
 }
 
-/// How the grid is split into independently contoured chunks.
-#[derive(Clone, Copy, Debug)]
-struct Chunks {
-    /// Quads per chunk in x (at least 1).
-    x_size: usize,
-    /// Quads per chunk in y (at least 1).
-    y_size: usize,
-    /// Number of chunks in x.
-    nx: usize,
-    /// Number of chunks in y.
-    ny: usize,
-    /// Grid points in x and y.
-    points: (usize, usize),
-}
-
-impl Chunks {
-    /// Chunks of `(y, x)` quads (0 = the whole grid) of an `nx × ny`
-    /// point grid (contourpy's `calc_chunk_size`/`calc_chunk_count`).
-    fn new(nx: usize, ny: usize, (y_size, x_size): (usize, usize)) -> Self {
-        let size = |points: usize, requested: usize| {
-            let quads = points - 1;
-            if requested > 0 {
-                requested.min(quads)
-            } else {
-                quads
-            }
-            .max(1)
-        };
-        let count = |points: usize, size: usize| (points - 1).div_ceil(size);
-        let (x_size, y_size) = (size(nx, x_size), size(ny, y_size));
-        Self {
-            x_size,
-            y_size,
-            nx: count(nx, x_size),
-            ny: count(ny, y_size),
-            points: (nx, ny),
-        }
-    }
-
-    /// The chunks in sweep order (contourpy's `get_chunk_limits`).
-    fn limits(self) -> impl Iterator<Item = ChunkLimits> {
-        (0..self.nx * self.ny).map(move |ij| {
-            let (ichunk, jchunk) = (ij % self.nx, ij / self.nx);
-            let end = |chunk: usize, count: usize, size: usize, points: usize| {
-                if chunk == count - 1 {
-                    points
-                } else {
-                    (chunk + 1) * size
-                }
-            };
-            ChunkLimits {
-                ichunk,
-                jchunk,
-                istart: ichunk * self.x_size,
-                iend: end(ichunk, self.nx, self.x_size, self.points.0),
-                jstart: jchunk * self.y_size,
-                jend: end(jchunk, self.ny, self.y_size, self.points.1),
-            }
-        })
-    }
-}
-
-/// The index range of one chunk (points `istart..iend` × `jstart..jend`;
-/// the last chunk extends to the grid edge).
-#[derive(Clone, Copy, Debug)]
-struct ChunkLimits {
-    ichunk: usize,
-    jchunk: usize,
-    istart: usize,
-    iend: usize,
-    jstart: usize,
-    jend: usize,
-}
-
-impl ChunkLimits {
-    /// The quads of the chunk, row by row.
-    fn quads(self, nx: usize) -> impl Iterator<Item = usize> {
-        (self.jstart..self.jend).flat_map(move |j| (self.istart + j * nx)..(self.iend + j * nx))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use plt_core::PathCode::{self, ClosePoly as C, LineTo as L, MoveTo as M};
 
     use super::*;
+    use crate::contour::QuadContourGenerator;
+    use crate::numeric::Grid;
 
     /// A generator for `z` at index coordinates.
     fn generator(
@@ -481,26 +337,5 @@ mod tests {
         assert_eq!(chunked.subpaths().len(), 4);
         let area: f64 = ring_areas(&chunked).iter().sum();
         assert_eq!(area, 4.0);
-    }
-
-    #[test]
-    fn invalid_inputs() {
-        let mut generator = generator(&PIT, None, true, 0);
-        assert_eq!(generator.filled(f64::NAN, 1.0), Err(ContourError::NanLevel));
-        assert!(matches!(
-            generator.filled(1.0, 1.0),
-            Err(ContourError::LevelOrder { .. })
-        ));
-        let row = Grid::from_rows([[0.0, 1.0]]).unwrap();
-        let small = QuadContourGenerator::new(&row, &row, &row, None, true, (0, 0));
-        assert!(matches!(
-            small,
-            Err(ContourError::GridTooSmall { rows: 1, cols: 2 })
-        ));
-        let square = Grid::filled(2, 2, 0.0);
-        let mask = Grid::filled(3, 2, false);
-        let mismatch =
-            QuadContourGenerator::new(&square, &square, &square, Some(&mask), true, (0, 0));
-        assert!(matches!(mismatch, Err(ContourError::ShapeMismatch { .. })));
     }
 }

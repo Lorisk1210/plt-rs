@@ -5,7 +5,7 @@
 use plt_core::{Affine2D, Point};
 
 use super::set::{ContourSource, ContourWarning};
-use super::{ContourError, QuadContourGenerator};
+use super::{ContourAlgorithm, ContourError, QuadContourGenerator};
 use crate::numeric::{Grid, linspace, meshgrid};
 use crate::rc::RcParams;
 
@@ -67,6 +67,8 @@ pub struct QuadField {
     pub corner_mask: Option<bool>,
     /// Chunk size in quads in both directions (0 = no chunking).
     pub nchunk: usize,
+    /// The contouring algorithm (default `contour.algorithm`).
+    pub algorithm: Option<ContourAlgorithm>,
 }
 
 impl QuadField {
@@ -82,6 +84,7 @@ impl QuadField {
             boolean: false,
             corner_mask: None,
             nchunk: 0,
+            algorithm: None,
         }
     }
 
@@ -107,12 +110,25 @@ impl QuadField {
         self
     }
 
+    /// The same values contoured by `algorithm`.
+    #[must_use]
+    pub fn with_algorithm(mut self, algorithm: ContourAlgorithm) -> Self {
+        self.algorithm = Some(algorithm);
+        self
+    }
+
+    /// The algorithm: as asked, else `contour.algorithm`.
+    fn effective_algorithm(&self, rc: &RcParams) -> ContourAlgorithm {
+        self.algorithm
+            .unwrap_or_else(|| ContourAlgorithm::from_rc(rc))
+    }
+
     /// Whether corners are masked: as asked, else `contour.corner_mask`,
     /// except that the `mpl2005` algorithm cannot mask corners, so
     /// matplotlib turns them off for it unless asked.
-    fn effective_corner_mask(&self, rc: &RcParams) -> bool {
+    fn effective_corner_mask(&self, algorithm: ContourAlgorithm, rc: &RcParams) -> bool {
         self.corner_mask
-            .unwrap_or(rc.contour_corner_mask && rc.contour_algorithm != "mpl2005")
+            .unwrap_or(rc.contour_corner_mask && algorithm.supports_corner_mask())
     }
 
     /// Checks the shapes and builds the contour generator, masking invalid
@@ -154,12 +170,14 @@ impl QuadField {
         }
         let mask = Grid::from_vec(rows, cols, mask).expect("the mask has the shape of z");
         let chunk = (self.nchunk, self.nchunk);
-        let generator = QuadContourGenerator::new(
+        let algorithm = self.effective_algorithm(rc);
+        let generator = QuadContourGenerator::with_algorithm(
+            algorithm,
             &x,
             &y,
             &self.z,
             Some(&mask),
-            self.effective_corner_mask(rc),
+            self.effective_corner_mask(algorithm, rc),
             chunk,
         )?;
         Ok(ContourSource {
@@ -322,17 +340,30 @@ mod tests {
     #[test]
     fn mpl2005_masks_no_corners_unless_asked() {
         let mut rc = RcParams::default();
-        assert!(field(2, 2).effective_corner_mask(&rc));
+        let corners = |field: &QuadField, rc: &RcParams| {
+            field.effective_corner_mask(field.effective_algorithm(rc), rc)
+        };
+        assert!(corners(&field(2, 2), &rc));
         rc.set("contour.algorithm", "mpl2005").unwrap();
-        assert!(!field(2, 2).effective_corner_mask(&rc));
+        assert!(!corners(&field(2, 2), &rc));
         let asked = QuadField {
             corner_mask: Some(true),
             ..field(2, 2)
         };
-        assert!(asked.effective_corner_mask(&rc));
-        rc.set("contour.algorithm", "serial").unwrap();
+        assert!(corners(&asked, &rc));
+        assert!(
+            matches!(
+                asked.source(false, &rc, None),
+                Err(ContourError::CornerMaskUnsupported(
+                    ContourAlgorithm::Mpl2005
+                ))
+            ),
+            "matplotlib's ValueError"
+        );
+        let serial = field(2, 2).with_algorithm(ContourAlgorithm::Serial);
+        assert!(corners(&serial, &rc), "the keyword overrides the rc");
         rc.set("contour.corner_mask", "False").unwrap();
-        assert!(!field(2, 2).effective_corner_mask(&rc));
+        assert!(!corners(&serial, &rc));
     }
 
     #[test]

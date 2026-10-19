@@ -1,0 +1,58 @@
+{
+ "size_px": [700, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.057744, 0.226611, 0.234333, 0.546778],
+   "title": "interpolation='hanning'\nstage='data'",
+   "xlim": [-0.5, 449.5],
+   "ylim": [449.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [200.0, "200"], [400.0, "400"]],
+   "yticks": [[0.0, "0"], [100.0, "100"], [200.0, "200"], [300.0, "300"], [400.0, "400"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.355773, 0.226611, 0.234333, 0.546778],
+   "title": "interpolation='nearest'\nstage='data'",
+   "xlim": [-0.5, 449.5],
+   "ylim": [449.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [200.0, "200"], [400.0, "400"]],
+   "yticks": [[0.0, "0"], [100.0, "100"], [200.0, "200"], [300.0, "300"], [400.0, "400"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.653803, 0.226611, 0.234333, 0.546778],
+   "title": "interpolation='hanning'\nstage='rgba'\nDefault",
+   "xlim": [-0.5, 449.5],
+   "ylim": [449.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [200.0, "200"], [400.0, "400"]],
+   "yticks": [[0.0, "0"], [100.0, "100"], [200.0, "200"], [300.0, "300"], [400.0, "400"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.929656, 0.146465, 0.016667, 0.707069],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.0, 2.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"], [1.5, "1.5"], [2.0, "2.0"]]
+  }
+ ]
+}

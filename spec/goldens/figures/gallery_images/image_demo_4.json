@@ -1,0 +1,32 @@
+{
+ "size_px": [300, 500],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.1625, 0.53, 0.7, 0.35],
+   "title": "blue should be up",
+   "xlim": [-0.5, 11.5],
+   "ylim": [9.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0.0"], [2.5, "2.5"], [5.0, "5.0"], [7.5, "7.5"], [10.0, "10.0"]],
+   "yticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.1625, 0.11, 0.7, 0.35],
+   "title": "blue should be down",
+   "xlim": [-0.5, 11.5],
+   "ylim": [-0.5, 9.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0.0"], [2.5, "2.5"], [5.0, "5.0"], [7.5, "7.5"], [10.0, "10.0"]],
+   "yticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"]]
+  }
+ ]
+}

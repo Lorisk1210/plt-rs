@@ -1,0 +1,84 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.070635, 0.564815, 0.340534, 0.360174],
+   "title": "Filled contours",
+   "xlim": [-3.0, 4.0],
+   "ylim": [-4.0, 3.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[-4.0, "−4"], [-2.0, "−2"], [0.0, "0"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.621752, 0.564815, 0.270131, 0.360174],
+   "title": "Image, origin 'upper'",
+   "xlim": [-3.0, 4.0],
+   "ylim": [-4.0, 3.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[-4.0, "−4"], [-2.0, "−2"], [0.0, "0"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.148404, 0.08044, 0.270131, 0.360174],
+   "title": "Image, origin 'lower'",
+   "xlim": [-3.0, 4.0],
+   "ylim": [-4.0, 3.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[-4.0, "−4"], [-2.0, "−2"], [0.0, "0"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.614387, 0.08044, 0.270131, 0.360174],
+   "title": "Origin from rc, reversed y-axis",
+   "xlim": [-3.0, 4.0],
+   "ylim": [3.0, -4.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"], [4.0, "4"]],
+   "yticks": [[-4.0, "−4"], [-2.0, "−2"], [0.0, "0"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.432453, 0.564815, 0.013507, 0.360174],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-2.0, 1.6],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[-2.0, "−2.0"], [-1.6, "−1.6"], [-1.2, "−1.2"], [-0.8, "−0.8"], [-0.4, "−0.4"], [-0.0, "0.0"], [0.4, "0.4"], [0.8, "0.8"], [1.2, "1.2"], [1.6, "1.6"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.905801, 0.08044, 0.013507, 0.360174],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-1.729329, 1.729329],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[-1.0, "−1"], [0.0, "0"], [1.0, "1"]]
+  }
+ ]
+}

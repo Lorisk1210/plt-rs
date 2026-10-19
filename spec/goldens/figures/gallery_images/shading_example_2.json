@@ -1,0 +1,58 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "Overlay Blending Looks Best with Rough Surfaces",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.147375, 0.53, 0.307522, 0.35],
+   "title": "",
+   "xlim": [-0.5, 402.5],
+   "ylim": [343.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Colormapped Data",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.570103, 0.53, 0.307522, 0.35],
+   "title": "",
+   "xlim": [-0.5, 402.5],
+   "ylim": [343.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Illumination Intensity",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.147375, 0.11, 0.307522, 0.35],
+   "title": "",
+   "xlim": [-0.5, 402.5],
+   "ylim": [343.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Blend Mode: \"hsv\" (default)",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.570103, 0.11, 0.307522, 0.35],
+   "title": "",
+   "xlim": [-0.5, 402.5],
+   "ylim": [343.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Blend Mode: \"overlay\"",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

@@ -9,6 +9,7 @@ use plt_raster::resample::{self as raster, ResampleParams};
 use plt_render::{ClipPath, GraphicsContext, RgbaImage};
 
 use super::artist::AxesImageArtist;
+use super::bbox_image::BboxImageArtist;
 use super::figure_image::FigureImageArtist;
 use super::make::RenderedImage;
 use super::pcolor_image::PcolorImageArtist;
@@ -69,6 +70,22 @@ impl Compositable for FigureImageArtist {
     }
 }
 
+/// A box image maps the unit square onto the canvas
+/// (`BboxTransformTo`), always without rotation or shear.
+impl Compositable for BboxImageArtist {
+    fn can_composite(&self, _ctx: LayoutContext<'_>) -> bool {
+        self.core.resampling.interpolation != Interpolation::None
+    }
+
+    fn rendered(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        magnification: f64,
+    ) -> Result<Option<RenderedImage>, ImageError> {
+        self.render(ctx, magnification)
+    }
+}
+
 impl Compositable for PcolorImageArtist {
     fn can_composite(&self, ctx: LayoutContext<'_>) -> bool {
         self.base()
@@ -93,6 +110,10 @@ fn as_image(artist: &dyn Artist) -> Option<&dyn Compositable> {
         .map(|a| a as &dyn Compositable)
         .or_else(|| {
             any.downcast_ref::<FigureImageArtist>()
+                .map(|a| a as &dyn Compositable)
+        })
+        .or_else(|| {
+            any.downcast_ref::<BboxImageArtist>()
                 .map(|a| a as &dyn Compositable)
         })
         .or_else(|| {
@@ -307,9 +328,11 @@ impl Compositor {
 
 #[cfg(test)]
 mod tests {
+    use plt_core::Bbox;
+
     use crate::axes::ImshowOptions;
     use crate::figure::Figure;
-    use crate::image::Extent;
+    use crate::image::{BboxImageOptions, Extent, Interpolation};
     use crate::numeric::Grid;
 
     /// The `<image` elements of an SVG of two images side by side, with
@@ -334,5 +357,29 @@ mod tests {
         assert_eq!(svg_images(None), 1, "vector formats composite");
         assert_eq!(svg_images(Some(true)), 2);
         assert_eq!(svg_images(Some(false)), 1);
+    }
+
+    #[test]
+    fn adjacent_box_images_composite_unless_unsampled() {
+        let svg_images = |interpolation: Option<Interpolation>| {
+            let fig = Figure::new();
+            let ax = fig.subplot();
+            for bottom in [0.1, 0.6] {
+                let options = BboxImageOptions {
+                    interpolation,
+                    ..BboxImageOptions::default()
+                };
+                ax.add_bbox_image(
+                    Grid::from_fn(1, 4, |_, j| j as f64),
+                    Bbox::from_extents(0.1, bottom, 0.9, bottom + 0.3),
+                    ax.trans_axes(),
+                    options,
+                )
+                .unwrap();
+            }
+            fig.to_svg().unwrap().matches("<image").count()
+        };
+        assert_eq!(svg_images(None), 1);
+        assert_eq!(svg_images(Some(Interpolation::None)), 2);
     }
 }

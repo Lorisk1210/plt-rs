@@ -4,6 +4,8 @@ use std::f64::consts::PI;
 
 use plt::axes::Axes;
 use plt::axisartist::AuxTransform;
+use plt::colors::Color;
+use plt::contour::{ContourOptions, Levels};
 use plt::figure::Figure;
 use plt::fonts::{FontProperties, FontSize};
 use plt::text::{Language, LanguageRange};
@@ -39,4 +41,30 @@ pub(super) fn blank(fig: &Figure) -> Axes {
     let ax = fig.subplot();
     ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
     ax
+}
+
+/// About `n` automatic contour levels (`levels=n`).
+pub(super) fn count(n: i64) -> ContourOptions {
+    ContourOptions {
+        levels: Levels::Count(n),
+        ..ContourOptions::default()
+    }
+}
+
+/// Explicit contour levels (`levels=[...]`).
+pub(super) fn values(levels: &[f64]) -> ContourOptions {
+    ContourOptions {
+        levels: Levels::Values(levels.to_vec()),
+        ..ContourOptions::default()
+    }
+}
+
+/// Colours by name (`colors=[...]`).
+pub(super) fn colors(names: &[&str]) -> Vec<Color> {
+    names.iter().map(|&name| Color::from(name)).collect()
+}
+
+/// Hatch patterns, `None` leaving a band plain (`hatches=[...]`).
+pub(super) fn hatches(patterns: &[Option<&str>]) -> Vec<Option<String>> {
+    patterns.iter().map(|p| p.map(str::to_owned)).collect()
 }

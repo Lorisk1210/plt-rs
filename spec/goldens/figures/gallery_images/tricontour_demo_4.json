@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.1752, 0.11, 0.5698, 0.77],
+   "title": "Contour plot of user-specified triangulation",
+   "xlim": [-6.589015, 1.890761],
+   "ylim": [49.96192, 58.556287],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Longitude (degrees)",
+   "ylabel": "Latitude (degrees)",
+   "xticks": [[-6.0, "−6"], [-4.0, "−4"], [-2.0, "−2"], [0.0, "0"]],
+   "yticks": [[50.0, "50"], [51.0, "51"], [52.0, "52"], [53.0, "53"], [54.0, "54"], [55.0, "55"], [56.0, "56"], [57.0, "57"], [58.0, "58"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.78375, 0.11, 0.028875, 0.77],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.6, 1.0],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[0.6, "0.60"], [0.65, "0.65"], [0.7, "0.70"], [0.75, "0.75"], [0.8, "0.80"], [0.85, "0.85"], [0.9, "0.90"], [0.95, "0.95"], [1.0, "1.00"]]
+  }
+ ]
+}

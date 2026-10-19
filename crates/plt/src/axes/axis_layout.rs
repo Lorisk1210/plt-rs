@@ -335,8 +335,13 @@ impl<'a> AxisPainter<'a> {
                     },
                 ),
                 BlockStyle {
+                    rotation: label.rotation.unwrap_or(0.0),
                     halign: along,
-                    valign: if high { VAlign::Baseline } else { VAlign::Top },
+                    valign: label.valign.unwrap_or(if high {
+                        VAlign::Baseline
+                    } else {
+                        VAlign::Top
+                    }),
                     multialign: HAlign::Center,
                     ..BlockStyle::default()
                 },
@@ -351,9 +356,11 @@ impl<'a> AxisPainter<'a> {
                     extent.y0() + label.loc.fraction() * extent.height(),
                 ),
                 BlockStyle {
-                    rotation: 90.0,
+                    rotation: label.rotation.unwrap_or(90.0),
                     halign: along,
-                    valign: if high { VAlign::Top } else { VAlign::Bottom },
+                    valign: label
+                        .valign
+                        .unwrap_or(if high { VAlign::Top } else { VAlign::Bottom }),
                     multialign: HAlign::Center,
                     rotation_mode: RotationMode::Anchor,
                     ..BlockStyle::default()
@@ -588,14 +595,56 @@ mod tests {
     use crate::axes::{Axes, TickParams};
     use crate::figure::Figure;
 
-    /// The top of the x axis label of `ax`.
-    fn xlabel_top(fig: &Figure, ax: &Axes) -> f64 {
+    /// The box of the label of axis `name` of `ax`.
+    fn label_box(fig: &Figure, ax: &Axes, name: AxisName) -> Bbox {
         fig.layout();
         let state = fig.raw().figure_state().borrow();
         let axes = state.store.get_as::<AxesState>(ax.id()).expect("an axes");
-        let texts = AxisPainter::new(ax.id(), axes, AxisName::X)
-            .texts(LayoutContext::new(&state), &axes.rc);
-        texts.label.expect("a label").bbox().y1()
+        let texts =
+            AxisPainter::new(ax.id(), axes, name).texts(LayoutContext::new(&state), &axes.rc);
+        texts.label.expect("a label").bbox()
+    }
+
+    /// The top of the x axis label of `ax`.
+    fn xlabel_top(fig: &Figure, ax: &Axes) -> f64 {
+        label_box(fig, ax, AxisName::X).y1()
+    }
+
+    #[test]
+    fn rotated_and_aligned_labels_turn_about_their_anchor() {
+        // A colorbar label as `cbar.ax.set_ylabel(s, rotation=-90,
+        // va="bottom")` sets it: on the right, reading downwards, on the
+        // same side of its anchor as the default upward label.
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_ylabel("label");
+        let yaxis = ax.yaxis();
+        yaxis
+            .set_label_position(SpineSide::Right)
+            .expect("right is a side of y");
+        let upward = label_box(&fig, &ax, AxisName::Y);
+        yaxis
+            .set_label_rotation(-90.0)
+            .set_label_valign(VAlign::Bottom);
+        let downward = label_box(&fig, &ax, AxisName::Y);
+        assert!((downward.x0() - upward.x0()).abs() < 1e-9);
+        assert!((downward.width() - upward.width()).abs() < 1e-9);
+        assert!((downward.height() - upward.height()).abs() < 1e-9);
+        yaxis.set_label_valign(VAlign::Top);
+        let hanging = label_box(&fig, &ax, AxisName::Y);
+        assert!(
+            (hanging.x1() - upward.x0()).abs() < 1e-9,
+            "left of the anchor"
+        );
+        yaxis
+            .set_label_valign(VAlign::Bottom)
+            .set_label_position(SpineSide::Right)
+            .expect("right is a side of y");
+        assert_eq!(
+            label_box(&fig, &ax, AxisName::Y),
+            hanging,
+            "moving the label brings back the alignment of its side"
+        );
     }
 
     #[test]

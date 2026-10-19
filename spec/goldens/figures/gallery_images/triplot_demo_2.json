@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.2276, 0.11, 0.5698, 0.77],
+   "title": "triplot of user-specified triangulation",
+   "xlim": [-7.013003, 2.314749],
+   "ylim": [49.532201, 58.986005],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Longitude (degrees)",
+   "ylabel": "Latitude (degrees)",
+   "xticks": [[-6.0, "−6"], [-4.0, "−4"], [-2.0, "−2"], [0.0, "0"], [2.0, "2"]],
+   "yticks": [[50.0, "50"], [52.0, "52"], [54.0, "54"], [56.0, "56"], [58.0, "58"]]
+  }
+ ]
+}

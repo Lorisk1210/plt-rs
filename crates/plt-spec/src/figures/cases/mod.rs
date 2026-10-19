@@ -10,6 +10,7 @@ mod common;
 mod contour;
 mod fields;
 mod figure;
+mod gallery_images;
 mod geo;
 mod hinting;
 mod hist;
@@ -106,6 +107,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         misc::UNITS,
         misc::WIDGETS,
         &matplotlib_tests(),
+        &gallery_examples(),
         mplot3d::API,
         mplot3d::API_PLOTS,
         mplot3d::AXLIM,
@@ -179,4 +181,10 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_toolkits::cases(),
     ]
     .concat()
+}
+
+/// The cases porting matplotlib's gallery examples (the `gallery_*`
+/// groups).
+fn gallery_examples() -> Vec<FigureCase> {
+    [gallery_images::cases()].concat()
 }

@@ -1,0 +1,110 @@
+{
+ "size_px": [800, 600],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.143459, 0.508066, 0.249741, 0.332989],
+   "title": "",
+   "xlim": [-0.5, 6.5],
+   "ylim": [6.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "Farmer Joe"], [1, "Upland Bros."], [2, "Smith Gardening"], [3, "Agrifun"], [4, "Organiculture"], [5, "BioGoods Ltd."], [6, "Cornylee Corp."]],
+   "yticks": [[0, "cucumber"], [1, "tomato"], [2, "lettuce"], [3, "asparagus"], [4, "potato"], [5, "wheat"], [6, "barley"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.619719, 0.508066, 0.249741, 0.332989],
+   "title": "",
+   "xlim": [-0.5, 6.5],
+   "ylim": [6.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "Store A"], [1, "Store B"], [2, "Store C"], [3, "Store D"], [4, "Store E"], [5, "Store F"], [6, "Store G"]],
+   "yticks": [[0, "Book 1"], [1, "Book 2"], [2, "Book 3"], [3, "Book 4"], [4, "Book 5"], [5, "Book 6"], [6, "Book 7"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.143459, 0.039355, 0.249741, 0.332989],
+   "title": "",
+   "xlim": [-0.5, 5.5],
+   "ylim": [5.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "Cycle 1"], [1, "Cycle 2"], [2, "Cycle 3"], [3, "Cycle 4"], [4, "Cycle 5"], [5, "Cycle 6"]],
+   "yticks": [[0, "Prod. 10"], [1, "Prod. 20"], [2, "Prod. 30"], [3, "Prod. 40"], [4, "Prod. 50"], [5, "Prod. 60"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.619719, 0.039355, 0.249741, 0.332989],
+   "title": "",
+   "xlim": [-0.5, 6.5],
+   "ylim": [6.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "cucumber"], [1, "tomato"], [2, "lettuce"], [3, "asparagus"], [4, "potato"], [5, "wheat"], [6, "barley"]],
+   "yticks": [[0, "cucumber"], [1, "tomato"], [2, "lettuce"], [3, "asparagus"], [4, "potato"], [5, "wheat"], [6, "barley"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.411415, 0.508066, 0.012487, 0.332989],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.0, 6.3],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "harvest [t/year]",
+   "xticks": [],
+   "yticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"], [5.0, "5"], [6.0, "6"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.887675, 0.508066, 0.012487, 0.332989],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [0.0, 99.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "weekly sold copies",
+   "xticks": [],
+   "yticks": [[0.0, "0"], [20.0, "20"], [40.0, "40"], [60.0, "60"], [80.0, "80"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.411415, 0.039355, 0.012487, 0.332989],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-3.5, 3.5],
+   "xscale": "linear",
+   "yscale": "function",
+   "xlabel": "",
+   "ylabel": "Quality Rating",
+   "xticks": [],
+   "yticks": [[-3, "G"], [-2, "F"], [-1, "E"], [0, "D"], [1, "C"], [2, "B"], [3, "A"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.887675, 0.039355, 0.012487, 0.332989],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-1.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "correlation coeff.",
+   "xticks": [],
+   "yticks": [[-1.0, "−1.0"], [-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]]
+  }
+ ]
+}

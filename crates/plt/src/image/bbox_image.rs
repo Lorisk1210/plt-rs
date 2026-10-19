@@ -4,13 +4,15 @@
 use plt_core::{Affine2D, Bbox, Point};
 
 use super::artist::{canvas_bbox, draw_rendered};
-use super::make::{CoreSettings, ImageCore, Placement};
+use super::make::{CoreSettings, ImageCore, Placement, RenderedImage};
 use super::resample::PixelMap;
 use super::{
     ColorizerOptions, Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage,
     Origin,
 };
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
+};
 use crate::offsetbox::transformed_bbox;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -44,12 +46,21 @@ pub struct BboxImageOptions {
 #[derive(Debug)]
 pub(crate) struct BboxImageArtist {
     base: ArtistBase,
-    core: ImageCore,
+    pub(super) core: ImageCore,
     /// The display box the image fills, once its owner placed it.
     pub(crate) bbox: Option<Bbox>,
-    /// A box in other coordinates the image fills instead, mapped to the
-    /// display when drawn (matplotlib's `TransformedBbox`).
-    pub(crate) region: Option<(Bbox, Transform)>,
+    /// The box the image fills instead, found when it is drawn.
+    pub(crate) region: Option<Region>,
+}
+
+/// A box an image added to an axes fills, found when the image is drawn.
+#[derive(Debug)]
+pub(crate) enum Region {
+    /// A box in other coordinates (matplotlib's `TransformedBbox`).
+    Transformed(Bbox, Transform),
+    /// The display box of another artist (a `BboxImage` given that
+    /// artist's `get_window_extent`).
+    ExtentOf(ArtistId),
 }
 
 impl BboxImageArtist {
@@ -90,31 +101,27 @@ impl BboxImageArtist {
     /// inverted where the box is.
     fn display_bbox(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
         match &self.region {
-            Some((bbox, transform)) => Some(transformed_bbox(bbox, &ctx.resolve(transform)?)),
+            Some(Region::Transformed(bbox, transform)) => {
+                Some(transformed_bbox(bbox, &ctx.resolve(transform)?))
+            }
+            Some(Region::ExtentOf(id)) => ctx.store().get(*id)?.window_extent(&ctx),
             None => self.bbox,
         }
     }
-}
-
-impl Artist for BboxImageArtist {
-    fn base(&self) -> &ArtistBase {
-        &self.base
-    }
-
-    fn base_mut(&mut self) -> &mut ArtistBase {
-        &mut self.base
-    }
 
     /// matplotlib's `BboxImage.make_image`: the box, as fractions of the
-    /// canvas, mapped back onto the canvas, clipped to it, at the
-    /// renderer's image magnification (as `_ImageBase.draw` asks).
-    fn draw(&self, ctx: &mut DrawContext<'_>) {
+    /// canvas, mapped back onto the canvas, clipped to it, at
+    /// `magnification`; nothing while the image is not placed.
+    pub(super) fn render(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        magnification: f64,
+    ) -> Result<Option<RenderedImage>, ImageError> {
         let Some(out_bbox) = self.display_bbox(*ctx.layout()) else {
-            return;
+            return Ok(None);
         };
         let canvas = canvas_bbox(ctx);
         let (width, height) = (canvas.width(), canvas.height());
-        let magnification = ctx.renderer().image_magnification();
         let placement = Placement {
             extent: Extent::new(
                 out_bbox.x0() / width,
@@ -129,7 +136,24 @@ impl Artist for BboxImageArtist {
             magnification,
         };
         let alpha = self.core.alpha(self.base.alpha);
-        let rendered = self.core.make_image(&placement, alpha.as_ref());
+        self.core.make_image(&placement, alpha.as_ref())
+    }
+}
+
+impl Artist for BboxImageArtist {
+    fn base(&self) -> &ArtistBase {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut ArtistBase {
+        &mut self.base
+    }
+
+    /// Drawn at the renderer's image magnification, as `_ImageBase.draw`
+    /// asks.
+    fn draw(&self, ctx: &mut DrawContext<'_>) {
+        let magnification = ctx.renderer().image_magnification();
+        let rendered = self.render(ctx, magnification);
         draw_rendered(ctx, &self.base, rendered);
     }
 
@@ -167,5 +191,30 @@ impl BboxImage {
     /// The array's rows and columns.
     pub fn shape(&self) -> (usize, usize) {
         self.raw.with::<BboxImageArtist, _>(BboxImageArtist::shape)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::figure::Figure;
+    use crate::numeric::Grid;
+
+    #[test]
+    fn images_over_an_artist_follow_it_and_vanish_with_it() {
+        let ax = Figure::new().subplot();
+        let text = ax.text(0.2, 0.5, "backed");
+        let ramp = Grid::from_fn(1, 8, |_, c| c as f64);
+        let image = ax
+            .add_bbox_image_over(ramp, &text, BboxImageOptions::default())
+            .unwrap();
+        let before = image.window_extent();
+        assert!(before.is_some());
+        assert_eq!(before, text.window_extent());
+        text.set_x(0.6);
+        assert_eq!(image.window_extent(), text.window_extent());
+        assert_ne!(image.window_extent(), before, "the image moved along");
+        text.remove();
+        assert_eq!(image.window_extent(), None);
     }
 }

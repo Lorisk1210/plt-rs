@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.25946, 0.244667, 0.510241, 0.680322],
+   "title": "Harvest of local farmers (in tons/year)",
+   "xlim": [-0.5, 6.5],
+   "ylim": [6.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "Farmer Joe"], [1, "Upland Bros."], [2, "Smith Gardening"], [3, "Agrifun"], [4, "Organiculture"], [5, "BioGoods Ltd."], [6, "Cornylee Corp."]],
+   "yticks": [[0, "cucumber"], [1, "tomato"], [2, "lettuce"], [3, "asparagus"], [4, "potato"], [5, "wheat"], [6, "barley"]]
+  }
+ ]
+}

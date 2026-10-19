@@ -262,19 +262,14 @@ struct Spaces {
 
 impl Spaces {
     /// Adds up what the decorations of each cell take beyond its edges.
-    fn new((rows, cols): (usize, usize), cells: &[Cell], (width, height): (f64, f64)) -> Self {
+    fn new((rows, cols): (usize, usize), cells: &[Cell], size: (f64, f64)) -> Self {
         let mut spaces = Self {
             vertical: vec![vec![0.0; cols]; rows + 1],
             horizontal: vec![vec![0.0; cols + 1]; rows],
         };
         for cell in cells {
             let Some(tight) = cell.tight else { continue };
-            let tight = Bbox::from_extents(
-                tight.x0() / width,
-                tight.y0() / height,
-                tight.x1() / width,
-                tight.y1() / height,
-            );
+            let tight = figure_fraction(tight, size);
             let ax = cell.position;
             for row in &mut spaces.horizontal[cell.rows.clone()] {
                 row[cell.cols.start] += ax.xmin() - tight.xmin();
@@ -317,6 +312,19 @@ impl Spaces {
 /// The largest value, `-inf` for none.
 fn largest(values: impl Iterator<Item = f64>) -> f64 {
     values.fold(f64::NEG_INFINITY, f64::max)
+}
+
+/// `bbox`, in pixels of a figure `width` × `height`, in figure fractions
+/// as matplotlib's `fig.transFigure.inverted()` maps it: multiplied by the
+/// reciprocal sizes, which rounds differently from dividing by the sizes.
+fn figure_fraction(bbox: Bbox, (width, height): (f64, f64)) -> Bbox {
+    let (sx, sy) = (1.0 / width, 1.0 / height);
+    Bbox::from_extents(
+        bbox.x0() * sx,
+        bbox.y0() * sy,
+        bbox.x1() * sx,
+        bbox.y1() * sy,
+    )
 }
 
 /// matplotlib's `get_tight_layout_figure` from the margins on: the
@@ -437,19 +445,13 @@ impl Grid<'_> {
     fn super_text_extents(&self) -> SuperExtents {
         let fig = self.fig;
         let layout = LayoutContext::new(fig);
-        let (width, height) = fig.size_pixels();
         let extent = |id: Option<ArtistId>| {
             let text = layout.store().get_as::<TextArtist>(id?)?;
             let bbox = text
                 .base()
                 .in_layout
                 .then(|| text.window_extent(&layout))??;
-            Some(Bbox::from_extents(
-                bbox.x0() / width,
-                bbox.y0() / height,
-                bbox.x1() / width,
-                bbox.y1() / height,
-            ))
+            Some(figure_fraction(bbox, fig.size_pixels()))
         };
         let texts = fig
             .store
@@ -476,6 +478,21 @@ mod tests {
     use super::*;
     use crate::gridspec::GridSpec;
     use crate::layout::LayoutEngine;
+
+    #[test]
+    fn figure_fractions_scale_by_reciprocal_sizes() {
+        // 3 / 640 and 100 / 1200 round apart from 3 * (1 / 640) and
+        // 100 * (1 / 1200), which is what matplotlib computes.
+        let bbox = figure_fraction(
+            Bbox::from_extents(3.0, 100.0, 640.0, 1200.0),
+            (640.0, 1200.0),
+        );
+        assert_eq!(bbox.x0(), 3.0 * (1.0 / 640.0));
+        assert_ne!(bbox.x0(), 3.0 / 640.0);
+        assert_eq!(bbox.y0(), 100.0 * (1.0 / 1200.0));
+        assert_ne!(bbox.y0(), 100.0 / 1200.0);
+        assert_eq!((bbox.x1(), bbox.y1()), (1.0, 1.0));
+    }
 
     fn cell(rows: Range<usize>, cols: Range<usize>, position: Bbox, tight: Bbox) -> Cell {
         Cell {

@@ -5,7 +5,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use super::{Collection, CollectionArtist};
-use crate::artist::Artist;
+use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
 use crate::legend::LegendHandle;
 use crate::lines::{LineArtist, LineStyle};
@@ -129,7 +129,7 @@ impl Collection {
         &self,
         options: &LegendElementsOptions,
     ) -> Result<LegendElements, TickerError> {
-        self.raw
+        self.raw()
             .with::<CollectionArtist, _>(|collection| elements(collection, options))
     }
 }

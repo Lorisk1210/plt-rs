@@ -69,19 +69,19 @@ impl FigureState {
             .map(|frame| frame.subplot_params)
     }
 
-    /// Gives figure frame `frame` the subplot parameters `params` and moves
-    /// every grid-placed axes accordingly (`fig.subplots_adjust(...)`).
+    /// Gives the figure the subplot parameters `params` and moves every
+    /// grid-placed axes accordingly (`fig.subplots_adjust(...)`). Like
+    /// matplotlib's subfigures, which share the `SubplotParams` of their
+    /// figure, every frame takes them.
     pub(crate) fn set_subplot_params(
         &mut self,
-        frame: ArtistId,
         params: SubplotParams,
     ) -> Result<(), GridSpecError> {
-        if let Some(frame) = self.store.get_as_mut::<FigureFrame>(frame) {
-            frame.subplot_params = params;
-        }
         let ids: Vec<_> = self.store.ids().collect();
         for id in ids {
-            if let Some(axes) = self.store.get_as_mut::<AxesState>(id)
+            if let Some(frame) = self.store.get_as_mut::<FigureFrame>(id) {
+                frame.subplot_params = params;
+            } else if let Some(axes) = self.store.get_as_mut::<AxesState>(id)
                 && let Some(spec) = &axes.subplot_spec
             {
                 axes.position = spec.position(&params)?;

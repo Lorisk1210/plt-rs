@@ -152,6 +152,22 @@ mod tests {
     }
 
     #[test]
+    fn subfigures_share_the_subplot_parameters_of_their_figure() {
+        let fig = Figure::new();
+        let parts = fig.subfigures(1, 2, &SubfigureOptions::default()).unwrap();
+        let before = parts[(0, 0)].subplot();
+        fig.subplots_adjust(&SubplotOverrides {
+            left: Some(0.05),
+            ..SubplotOverrides::default()
+        })
+        .unwrap();
+        let after = parts[(0, 1)].subplot();
+        assert_eq!(parts[(0, 1)].subplot_params().left, 0.05);
+        assert_eq!(before.position().x0(), 0.05);
+        assert_eq!(after.position().x0(), 0.05);
+    }
+
+    #[test]
     fn spacing_uses_grid_positions() {
         let fig = Figure::new();
         let options = SubfigureOptions {

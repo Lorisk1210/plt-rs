@@ -228,6 +228,28 @@ fn fixed_ticks_are_subsampled_by_locator_params() {
 }
 
 #[test]
+fn tick_labels_without_text_keep_the_axis_label_beyond_their_pad() {
+    // matplotlib counts empty tick labels as empty boxes at their anchors
+    // when it places the axis label (remove_text=True with a label).
+    let label_left = |blank: bool| {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_ylabel("y");
+        if blank {
+            ax.yaxis().set_major_formatter(crate::ticker::NullFormatter);
+        } else {
+            ax.tick_params(&TickParams {
+                labelleft: Some(false),
+                ..TickParams::default()
+            });
+        }
+        fig.tight_bbox().x0()
+    };
+    let pad_inches = 3.5 / 72.0;
+    assert!((label_left(false) - label_left(true) - pad_inches).abs() < 1e-9);
+}
+
+#[test]
 fn a_scale_autoscales_with_its_own_locator() {
     // matplotlib's test_log_scales_no_data: the log locator's default
     // limits stay when the locator is replaced afterwards.

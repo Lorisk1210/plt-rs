@@ -134,7 +134,7 @@ impl FigureState {
         };
         let measured = Measured::new(self, axes, &subplot_params)?;
         if let Some(overrides) = adjusted_params(self, &measured, params)? {
-            self.set_subplot_params(frame, subplot_params.updated(&overrides)?)?;
+            self.set_subplot_params(subplot_params.updated(&overrides)?)?;
         }
         Ok(())
     }

@@ -172,6 +172,7 @@ mod tests {
             ncolors: 8,
             boundaries,
             values: None,
+            value_kind: crate::image::ScalarKind::Float,
             extend: Extend::Neither,
             inverted: false,
             extendfrac: ExtendFrac::Default,

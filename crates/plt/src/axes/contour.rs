@@ -1,14 +1,14 @@
 //! Contour plots (matplotlib's `contour`, `contourf`, `tricontour` and
 //! `tricontourf`).
 
-use plt_core::Affine2D;
+use plt_core::{Affine2D, Path};
 
 use super::children::DataUpdate;
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::contour::{
     ContourError, ContourOptions, ContourPlan, ContourSet, ContourSetArtist, ContourSource,
-    Generator, QuadField,
+    Generator, Levels, QuadField, given_source,
 };
 use crate::tri::{Triangulation, contour_source};
 
@@ -94,6 +94,46 @@ impl Axes {
     ) -> Result<ContourSet, ContourError> {
         let source = contour_source(tri, z, options.logscale())?;
         self.add_contour_set(true, options, source)
+    }
+
+    /// Contours given as segments instead of traced from a field
+    /// (matplotlib's `ContourSet(ax, levels, allsegs, allkinds)`): for
+    /// every level (lines) or band between consecutive levels (`filled`),
+    /// the paths drawn there, joined into one compound path. They are
+    /// coloured and styled like traced contours at `levels`, which replace
+    /// `options.levels`.
+    ///
+    /// ```
+    /// use plt::contour::ContourOptions;
+    /// use plt::prelude::*;
+    /// use plt_core::{Path, Point};
+    ///
+    /// let ax = Figure::new().subplot();
+    /// let line = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(3.0, 4.0)]);
+    /// let cs = ax.contour_segments(&[1.0], &[vec![line]], false, ContourOptions::default())?;
+    /// assert_eq!(cs.levels(), [1.0]);
+    /// assert_eq!((ax.xlim(), ax.ylim()), ((0.0, 3.0), (0.0, 4.0)));
+    /// # Ok::<(), plt::contour::ContourError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When there is not one list of segments per level or band, the
+    /// segments have no points, or as [`Axes::contour`] and
+    /// [`Axes::contourf`].
+    pub fn contour_segments(
+        &self,
+        levels: &[f64],
+        segments: &[Vec<Path>],
+        filled: bool,
+        options: ContourOptions,
+    ) -> Result<ContourSet, ContourError> {
+        let source = given_source(levels, segments, filled)?;
+        let options = ContourOptions {
+            levels: Levels::Values(levels.to_vec()),
+            ..options
+        };
+        self.add_contour_set(filled, options, source)
     }
 
     /// The map from the coordinates of a quadrilateral grid to the data

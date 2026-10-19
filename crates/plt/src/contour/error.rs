@@ -72,6 +72,17 @@ pub enum ContourError {
     UnknownLabelLevels(Vec<f64>),
     /// The label position is not near any labelled contour line.
     NoContourToLabel,
+    /// A label was added near a point before the set was labelled.
+    Unlabelled,
+    /// Given segments are not one list per level (lines) or band (fills).
+    SegmentCount {
+        /// Levels (lines) or bands (fills).
+        expected: usize,
+        /// Lists of segments given.
+        actual: usize,
+    },
+    /// The given segments have no points.
+    NoSegmentPoints,
     /// Level selection failed in the locator.
     Ticker(TickerError),
     /// The colour mapping failed.
@@ -143,6 +154,12 @@ impl fmt::Display for ContourError {
                 )
             }
             Self::NoContourToLabel => f.write_str("no labelled contour line to place a label on"),
+            Self::Unlabelled => f.write_str("label the contour set with clabel first"),
+            Self::SegmentCount { expected, actual } => write!(
+                f,
+                "{actual} lists of segments given for {expected} levels or bands"
+            ),
+            Self::NoSegmentPoints => f.write_str("the contour segments have no points"),
             Self::Ticker(err) => write!(f, "level selection failed: {err}"),
             Self::Norm(err) => write!(f, "colour mapping failed: {err}"),
             Self::Colormap(err) => write!(f, "invalid colormap: {err}"),

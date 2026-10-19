@@ -7,8 +7,9 @@ use plt_core::{Path, Point, Rgba};
 use plt_render::CapStyle;
 
 use super::ColorbarError;
+use super::dividers::Dividers;
 use crate::artist::{Artist, ArtistHandle, ArtistId, BaseProps, ClipPathSpec};
-use crate::axes::{Axes, DataUpdate, Mesh, MeshCoords, PcolorOptions, Shading};
+use crate::axes::{Axes, DataUpdate, Mesh, MeshCoords, PcolorOptions, RgbaMesh, Shading};
 use crate::collections::{CollectionArtist, CollectionKind, CollectionProps, EdgeColors};
 use crate::colors::{Color, ScalarMappable};
 use crate::image::{ColorizerOptions, ScalarField};
@@ -27,6 +28,20 @@ fn place(orientation: Orientation, along: f64, across: f64) -> Point {
         Orientation::Vertical => Point::new(across, along),
         Orientation::Horizontal => Point::new(along, across),
     }
+}
+
+/// Segments across a colorbar of `orientation` at `positions` along it,
+/// in data coordinates.
+pub(super) fn across(orientation: Orientation, positions: &[f64]) -> Vec<Path> {
+    positions
+        .iter()
+        .map(|&at| {
+            Path::polyline(vec![
+                place(orientation, at, 0.0),
+                place(orientation, at, 1.0),
+            ])
+        })
+        .collect()
 }
 
 /// The shape of the extensions.
@@ -93,6 +108,17 @@ pub(crate) struct Block {
     pub(crate) color: Rgba,
     /// Its hatch, for hatched contour sets.
     pub(crate) hatch: Option<String>,
+}
+
+/// How the colour blocks of a colorbar's mesh are coloured.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum SolidFill<'a> {
+    /// Values mapped through a norm and colormap.
+    Mapped(&'a [f64], &'a ScalarMappable),
+    /// Colours worked out already: integer values indexing the colormap
+    /// under `NoNorm` (numpy's integer `_values`), which a mesh of mapped
+    /// floats cannot express.
+    Colors(&'a [Rgba]),
 }
 
 /// Draws a colorbar's artists into its axes.
@@ -192,25 +218,24 @@ impl Painter<'_> {
 
     /// Lines across the colorbar at `positions` along it, in the axes
     /// edge colour (matplotlib's `dividers`).
-    pub(crate) fn dividers(&self, positions: &[f64]) -> ArtistId {
+    pub(crate) fn dividers(&self, placement: Dividers) -> ArtistId {
         let rc = crate::rc::params();
-        let mut dividers =
-            CollectionArtist::new(CollectionKind::Line, self.across(positions), rc.clone());
+        let mut dividers = CollectionArtist::new(CollectionKind::Line, Vec::new(), rc.clone());
         dividers.edgecolors = EdgeColors::Colors(vec![rc.axes_edgecolor.clone()]);
         dividers.linewidths = Some(vec![0.5 * rc.axes_linewidth]);
+        dividers.draw_time = Some(Box::new(placement));
         let base = dividers.base_mut();
         base.transform = Some(self.ax.trans_data());
         base.clip_on = false;
         self.ax.adopt(dividers, &DataUpdate::default()).id()
     }
 
-    /// Replaces the dividers' positions.
-    pub(crate) fn move_dividers(&self, dividers: ArtistId, positions: &[f64]) {
-        let paths = self.across(positions);
+    /// Replaces where the dividers go.
+    pub(crate) fn move_dividers(&self, dividers: ArtistId, placement: Dividers) {
         let mut figure = self.ax.raw().figure_state().borrow_mut();
         figure.stale = true;
         if let Some(dividers) = figure.store.get_as_mut::<CollectionArtist>(dividers) {
-            dividers.paths = paths;
+            dividers.draw_time = Some(Box::new(placement));
         }
     }
 
@@ -222,21 +247,12 @@ impl Painter<'_> {
         }
     }
 
-    /// Segments across the colorbar at `positions` in data coordinates.
-    fn across(&self, positions: &[f64]) -> Vec<Path> {
-        positions
-            .iter()
-            .map(|&at| Path::polyline(self.points(&[(at, 0.0), (at, 1.0)])))
-            .collect()
-    }
-
-    /// The colour blocks between consecutive `edges`, coloured by
-    /// `values` (matplotlib's `_add_solids`).
+    /// The colour blocks between consecutive `edges`, filled as `fill`
+    /// says (matplotlib's `_add_solids`).
     pub(crate) fn solids(
         &self,
         edges: &[f64],
-        values: &[f64],
-        mapping: &ScalarMappable,
+        fill: SolidFill<'_>,
     ) -> Result<ArtistId, ColorbarError> {
         let n = edges.len();
         let along = Grid::from_fn(n, 2, |r, _| edges[r]);
@@ -245,18 +261,7 @@ impl Painter<'_> {
             Orientation::Vertical => (across, along),
             Orientation::Horizontal => (along, across),
         };
-        let colors = Grid::from_vec(values.len(), 1, values.to_vec()).expect("one value per block");
-        let mesh = Mesh::with_coords(
-            MeshCoords::Grid(x),
-            MeshCoords::Grid(y),
-            ScalarField::new(colors),
-        );
-        let options = PcolorOptions {
-            colors: ColorizerOptions {
-                cmap: Some(mapping.cmap().clone()),
-                norm: Some(mapping.norm().clone_box()),
-                ..ColorizerOptions::default()
-            },
+        let mut options = PcolorOptions {
             shading: Some(Shading::Flat),
             props: CollectionProps {
                 edgecolors: Some(EdgeColors::Colors(vec![Color::none()])),
@@ -268,7 +273,26 @@ impl Painter<'_> {
             },
             ..PcolorOptions::default()
         };
-        let solids = self.ax.pcolormesh(mesh, options)?;
+        let (x, y) = (MeshCoords::Grid(x), MeshCoords::Grid(y));
+        let solids = match fill {
+            SolidFill::Mapped(values, mapping) => {
+                options.colors = ColorizerOptions {
+                    cmap: Some(mapping.cmap().clone()),
+                    norm: Some(mapping.norm().clone_box()),
+                    ..ColorizerOptions::default()
+                };
+                let values =
+                    Grid::from_vec(values.len(), 1, values.to_vec()).expect("one value per block");
+                let mesh = Mesh::with_coords(x, y, ScalarField::new(values));
+                self.ax.pcolormesh(mesh, options)?
+            }
+            SolidFill::Colors(colors) => {
+                let colors =
+                    Grid::from_vec(colors.len(), 1, colors.to_vec()).expect("one colour per block");
+                self.ax
+                    .pcolormesh_rgba(RgbaMesh::with_coords(x, y, colors), options)?
+            }
+        };
         if n >= RASTERIZE_FROM {
             solids.set_rasterized(true);
         }
@@ -288,7 +312,7 @@ impl Painter<'_> {
         let clip = self.clip_path(widest / 72.0);
         let mut lines = CollectionArtist::new(
             CollectionKind::Line,
-            self.across(positions),
+            across(self.orientation, positions),
             crate::rc::params(),
         );
         lines.edgecolors = EdgeColors::Colors(colors);

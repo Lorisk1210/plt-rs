@@ -11,10 +11,11 @@ use super::ColorbarError;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore, RawHandle};
 use crate::axes::{Axes, AxesState, Tripcolor};
 use crate::collections::{Collection, CollectionArtist, TriMesh, TriMeshArtist};
+use crate::colorizer::{MappingChange, change_mapping};
 use crate::colors::{Extend, ScalarMappable, colormaps};
 use crate::contour::{ContourSet, ContourSetArtist};
 use crate::figure::FigureState;
-use crate::image::{AxesImage, AxesImageArtist};
+use crate::image::{AxesImage, AxesImageArtist, ScalarKind};
 
 /// Something with a colour mapping a colorbar can show.
 ///
@@ -101,6 +102,8 @@ pub(crate) struct ContourLevels {
     pub(crate) extended: Vec<f64>,
     /// The value coloured between each pair of boundaries.
     pub(crate) cvalues: Vec<f64>,
+    /// Whether the values are levels or colour indices.
+    pub(crate) cvalue_kind: ScalarKind,
     /// Which ends are extended.
     pub(crate) extend: Extend,
     /// Whether the contours are filled.
@@ -138,6 +141,21 @@ impl MappableLink {
     pub(crate) fn id(self) -> ArtistId {
         match self {
             Self::Image(id) | Self::Collection(id) | Self::TriMesh(id) | Self::Contour(id) => id,
+        }
+    }
+
+    /// Gives the artist the norm limits its new colorbar settled on, as
+    /// matplotlib's colorbar does by changing the norm it shares with its
+    /// mappable (`_process_values` fills unset limits and widens singular
+    /// ones); the artist is recoloured and its other colorbars follow.
+    pub(crate) fn share_limits(self, figure: &Rc<RefCell<FigureState>>, vmin: f64, vmax: f64) {
+        let raw = RawHandle::new(Rc::clone(figure), self.id());
+        let change = MappingChange::Clim(Some(vmin), Some(vmax));
+        match self {
+            Self::Image(_) => change_mapping::<AxesImageArtist>(&raw, change),
+            Self::Collection(_) => change_mapping::<CollectionArtist>(&raw, change),
+            Self::TriMesh(_) => change_mapping::<TriMeshArtist>(&raw, change),
+            Self::Contour(_) => change_mapping::<ContourSetArtist>(&raw, change),
         }
     }
 
@@ -182,6 +200,7 @@ impl MappableLink {
                             levels: state.levels.clone(),
                             extended: state.extended.clone(),
                             cvalues: state.cvalues.clone(),
+                            cvalue_kind: state.cvalue_kind,
                             extend: state.extend,
                             filled: state.filled,
                             colors: state.colors.iter().map(|&c| state.with_alpha(c)).collect(),

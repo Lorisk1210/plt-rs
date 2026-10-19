@@ -79,8 +79,21 @@ pub(crate) struct AxisTexts {
     pub(crate) label: Option<PlacedText>,
     /// The offset text, if shown.
     pub(crate) offset: Option<PlacedText>,
+    /// The anchors of the shown tick labels without text, each with
+    /// whether it is on the first side: matplotlib counts them as empty
+    /// boxes there when it places the axis label and the offset text.
+    pub(crate) empty_label_anchors: Vec<(bool, Point)>,
     /// Texts that could not be laid out.
     pub(crate) problems: Vec<String>,
+}
+
+/// Where a tick label goes: its anchor in display coordinates, default
+/// alignment, rotation and rotation mode.
+struct LabelPlacement {
+    anchor: Point,
+    align: (HAlign, VAlign),
+    rotation: f64,
+    rotation_mode: RotationMode,
 }
 
 impl<'a> AxisPainter<'a> {
@@ -111,7 +124,7 @@ impl<'a> AxisPainter<'a> {
     pub(crate) fn texts(&self, layout: LayoutContext<'_>, rc: &RcParams) -> AxisTexts {
         let mut texts = AxisTexts::default();
         self.lay_out_tick_labels(layout, rc, &mut texts);
-        let boxes = label_boxes(&texts.tick_labels);
+        let boxes = label_boxes(&texts);
         let aligned = self.aligned_label_boxes(layout, &boxes);
         for (slot, placed) in [
             (&mut texts.label, self.axis_label(layout, rc, &aligned)),
@@ -132,17 +145,25 @@ impl<'a> AxisPainter<'a> {
         for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
             for (enabled, first_side) in [(style.labels.first, true), (style.labels.second, false)]
             {
-                if !enabled || tick.label.is_empty() {
+                if !enabled {
                     continue;
                 }
-                match self.tick_label(layout, tick, &style, first_side, rc) {
-                    Some(Ok(text)) => texts.tick_labels.push(TickLabel {
+                let Some(placement) = self.label_placement(layout, tick, &style, first_side) else {
+                    continue;
+                };
+                if tick.label.is_empty() {
+                    texts
+                        .empty_label_anchors
+                        .push((first_side, placement.anchor));
+                    continue;
+                }
+                match lay_out_tick_label(layout, tick, &style, &placement, rc) {
+                    Ok(text) => texts.tick_labels.push(TickLabel {
                         tick: index,
                         first_side,
                         text,
                     }),
-                    Some(Err(problem)) => texts.problems.push(problem),
-                    None => {}
+                    Err(problem) => texts.problems.push(problem),
                 }
             }
         }
@@ -164,7 +185,7 @@ impl<'a> AxisPainter<'a> {
                 let mut texts = AxisTexts::default();
                 AxisPainter::new(sibling, axes, self.name)
                     .lay_out_tick_labels(layout, &axes.rc, &mut texts);
-                boxes.extend(label_boxes(&texts.tick_labels));
+                boxes.extend(label_boxes(&texts));
             }
         }
         boxes
@@ -193,18 +214,17 @@ impl<'a> AxisPainter<'a> {
         }
     }
 
-    /// One tick label, unless its anchor is not finite.
-    fn tick_label(
+    /// Where the label of `tick` on its first or second side goes,
+    /// unless its anchor is not finite.
+    fn label_placement(
         &self,
         layout: LayoutContext<'_>,
         tick: &Tick,
         style: &TickStyle,
         first_side: bool,
-        rc: &RcParams,
-    ) -> Option<Result<PlacedText, String>> {
-        let (anchor, (halign, valign), rotation_mode) = if let Some(polar) = self.axes.polar_view()
-        {
-            let (anchor, align) = polar::tick_label_anchor(
+    ) -> Option<LabelPlacement> {
+        let (anchor, align, rotation, rotation_mode) = if let Some(polar) = self.axes.polar_view() {
+            let label = polar::tick_label_anchor(
                 layout,
                 self.axes_id,
                 &polar,
@@ -213,40 +233,37 @@ impl<'a> AxisPainter<'a> {
                 style,
                 first_side,
             )?;
-            (anchor, align, RotationMode::Anchor)
+            (
+                label.anchor,
+                label.align,
+                label.rotation,
+                RotationMode::Anchor,
+            )
         } else if let Some(geo) = self.axes.geo() {
             let display = layout.axes_extent(self.axes_id)?;
             let (anchor, align) =
                 geo::tick_label_anchor(geo, &display, self.name, tick.loc, first_side);
-            (anchor, align, style.label_rotation_mode)
+            (
+                anchor,
+                align,
+                style.label_rotation,
+                style.label_rotation_mode,
+            )
         } else {
             let (anchor, align) = self.cartesian_label_anchor(layout, tick, style, first_side)?;
-            (anchor, align, style.label_rotation_mode)
+            (
+                anchor,
+                align,
+                style.label_rotation,
+                style.label_rotation_mode,
+            )
         };
-        if !anchor.is_finite() {
-            return None;
-        }
-        let font = style.label_font(rc);
-        let halign = style.label_halign.unwrap_or(halign);
-        let block = BlockStyle {
-            halign,
-            valign: style.label_valign.unwrap_or(valign),
-            multialign: style.label_multialign.unwrap_or(halign),
-            // Tick labels are texts, whose rotation matplotlib reduces
-            // modulo 360 (which the `xtick` and `ytick` modes rely on).
-            rotation: style.label_rotation.rem_euclid(360.0),
-            rotation_mode,
-            ..BlockStyle::default()
-        };
-        Some(place_text(
-            layout,
-            &tick.label,
-            &font,
-            &style.label_color,
-            &block,
+        anchor.is_finite().then_some(LabelPlacement {
             anchor,
-            rc,
-        ))
+            align,
+            rotation,
+            rotation_mode,
+        })
     }
 
     /// Where a tick label of rectilinear axes goes: beyond the tick on
@@ -483,11 +500,50 @@ impl<'a> AxisPainter<'a> {
     }
 }
 
-/// The extents of tick labels, each with whether it is on the first side.
-fn label_boxes(labels: &[TickLabel]) -> Vec<(bool, Bbox)> {
-    labels
+/// The label of `tick` in `style`, laid out at `placement`.
+fn lay_out_tick_label(
+    layout: LayoutContext<'_>,
+    tick: &Tick,
+    style: &TickStyle,
+    placement: &LabelPlacement,
+    rc: &RcParams,
+) -> Result<PlacedText, String> {
+    let font = style.label_font(rc);
+    let (halign, valign) = placement.align;
+    let halign = style.label_halign.unwrap_or(halign);
+    let block = BlockStyle {
+        halign,
+        valign: style.label_valign.unwrap_or(valign),
+        multialign: style.label_multialign.unwrap_or(halign),
+        // Tick labels are texts, whose rotation matplotlib reduces modulo
+        // 360 (which the `xtick` and `ytick` modes rely on).
+        rotation: placement.rotation.rem_euclid(360.0),
+        rotation_mode: placement.rotation_mode,
+        ..BlockStyle::default()
+    };
+    place_text(
+        layout,
+        &tick.label,
+        &font,
+        &style.label_color,
+        &block,
+        placement.anchor,
+        rc,
+    )
+}
+
+/// The extents of the tick labels of `texts`, each with whether it is on
+/// the first side; labels without text are empty boxes at their anchors.
+fn label_boxes(texts: &AxisTexts) -> Vec<(bool, Bbox)> {
+    let empty = texts
+        .empty_label_anchors
+        .iter()
+        .map(|&(first, at)| (first, Bbox::from_bounds(at.x, at.y, 0.0, 0.0)));
+    texts
+        .tick_labels
         .iter()
         .map(|label| (label.first_side, label.text.bbox()))
+        .chain(empty)
         .collect()
 }
 

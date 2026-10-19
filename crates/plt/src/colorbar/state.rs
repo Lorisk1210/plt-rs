@@ -13,6 +13,7 @@ use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, DrawError, RawHan
 use crate::axes::Axes;
 use crate::colors::{Color, Extend, ScalarMappable};
 use crate::figure::FigureState;
+use crate::image::ScalarKind;
 use crate::orientation::Orientation;
 use crate::spines::SpineSide;
 
@@ -89,6 +90,7 @@ impl BlockSettings {
             values: contours
                 .map(|levels| levels.cvalues.as_slice())
                 .or(self.values.as_deref()),
+            value_kind: contours.map_or(ScalarKind::Float, |levels| levels.cvalue_kind),
             extend,
             inverted,
             extendfrac: self.extendfrac,

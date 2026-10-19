@@ -337,3 +337,51 @@ fn removed_mappables_have_no_colorbar() {
         Some(ColorbarError::RemovedMappable)
     );
 }
+
+#[test]
+fn explicit_contour_colours_index_the_colorbar_colormap() {
+    // matplotlib's test_given_colors_levels_and_extends: the integer
+    // values of a `NoNorm` contour set pick their colours directly.
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let field = QuadField::new(Grid::from_fn(3, 4, |i, j| (i * 4 + j) as f64));
+    let names = ["yellow", "pink", "blue", "black"];
+    let options = ContourOptions {
+        levels: Levels::Values(vec![2.0, 4.0, 8.0, 10.0]),
+        colors: Some(names.iter().map(|&n| Color::from(n)).collect()),
+        extend: Extend::Max,
+        ..ContourOptions::default()
+    };
+    let fills = ax.contourf(&field, options).unwrap();
+    let colorbar = fig.colorbar(&fills, ColorbarOptions::default()).unwrap();
+    let id = colorbar.read(|state| state.drawn.solids).expect("filled");
+    let figure = colorbar.ax().raw().figure_state().borrow();
+    let faces = figure
+        .store
+        .get_as::<CollectionArtist>(id)
+        .map(|solids| solids.resolved_colors().unwrap().0)
+        .unwrap();
+    let expected: Vec<_> = names[..3]
+        .iter()
+        .map(|&n| Color::from(n).resolve().unwrap())
+        .collect();
+    assert_eq!(faces, expected);
+}
+
+#[test]
+fn singular_limits_widened_by_the_colorbar_reach_the_mappable() {
+    // matplotlib's colorbar changes the norm it shares with the mappable
+    // (test_colorbar_single_scatter).
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let options = ScatterOptions {
+        colors: ScatterColors::from(MappedColors::new(vec![50.0])),
+        ..ScatterOptions::default()
+    };
+    let points = ax.scatter_with(vec![0.0], vec![0.0], options).unwrap();
+    assert_eq!(points.clim(), (Some(50.0), Some(50.0)));
+    fig.colorbar(&points, ColorbarOptions::default()).unwrap();
+    let (vmin, vmax) = points.clim();
+    assert!((vmin.unwrap() - 45.0).abs() < 1e-9);
+    assert!((vmax.unwrap() - 55.0).abs() < 1e-9);
+}

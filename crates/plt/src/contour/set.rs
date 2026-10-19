@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use plt_core::{Path, Point, Rgba};
 
-use super::label::LabelRecord;
+use super::label::{LabelRecord, LabelSetup};
 use super::levels::{self, LevelRequest};
 use super::style::{self, LevelColoring, LineStyling};
 use super::{ContourError, ContourOptions, QuadContourGenerator};
@@ -97,8 +97,8 @@ pub(crate) struct ContourState {
     pub(crate) warnings: Vec<ContourWarning>,
     /// The labels added by `clabel`, in creation order.
     pub(crate) labels: Vec<LabelRecord>,
-    /// The label widths of the last `clabel` call, per labelled level.
-    pub(crate) label_widths: Vec<f64>,
+    /// How the last `clabel` call labelled the set.
+    pub(crate) label_setup: Option<LabelSetup>,
     pub(crate) rc: Rc<RcParams>,
 }
 
@@ -189,7 +189,7 @@ impl ContourPlan {
             hatches: options.hatches.clone(),
             warnings: source.warnings,
             labels: Vec::new(),
-            label_widths: Vec::new(),
+            label_setup: None,
             rc,
         };
         let collections = state.collections(paths, &options, source.data_lim);

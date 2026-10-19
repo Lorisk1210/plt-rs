@@ -6,7 +6,7 @@ use plt::collections::{CollectionProps, CollectionSpec, EdgeColors};
 use plt::colors::Color;
 use plt::figure::{Figure, Share};
 use plt::markers::{FillStyle, Marker, MarkerStyle, PolygonStyle};
-use plt::patches::{PathShape, Rectangle};
+use plt::patches::{PatchProps, PathShape, Rectangle};
 use plt::prelude::*;
 use plt::text::TextBoxProps;
 use plt::transforms::{Affine2D, Point};
@@ -123,29 +123,30 @@ fn clip_path_clipping(fig: &Figure) -> CaseResult {
     let star = Path::unit_regular_star(6, 0.5).transformed(&Affine2D::identity().scale(2.6, 2.6));
     let axs = fig.subplots_shared(1, 2, Share::All, Share::All)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
+    // Like the test, the clip paths are set before the artists are
+    // added, so the axes do not clip them to their box.
+    let clip = |ax: &plt::axes::Axes| ClipPathSpec::Path {
+        path: clip_path.clone(),
+        transform: ax.trans_data(),
+    };
     let props = CollectionProps {
         linewidths: Some(vec![5.0]),
         edgecolors: Some(EdgeColors::Colors(vec![Color::from("blue")])),
         facecolors: Some(vec![Color::from("red")]),
         hatch: Some("*".into()),
         ..CollectionProps::default()
-    };
-    ax1.add_collection(CollectionSpec::polygons(vec![star.vertices().to_vec()]).with_props(props))
-        .set_alpha(Some(0.7))
-        .set_clip_path(Some(ClipPathSpec::Path {
-            path: clip_path.clone(),
-            transform: ax1.trans_data(),
-        }));
-    ax2.add_patch(PathShape(star))
-        .set_linewidth(5.0)
-        .set_edgecolor("blue")
-        .set_facecolor("red")
-        .set_alpha(Some(0.7))
-        .set_hatch("*")
-        .set_clip_path(Some(ClipPathSpec::Path {
-            path: clip_path,
-            transform: ax2.trans_data(),
-        }));
+    }
+    .alpha(0.7)
+    .clip_path(clip(ax1));
+    ax1.add_collection(CollectionSpec::paths(vec![star.clone()]).with_props(props));
+    let props = PatchProps::default()
+        .linewidth(5.0)
+        .edgecolor("blue")
+        .facecolor("red")
+        .hatch("*")
+        .alpha(0.7)
+        .clip_path(clip(ax2));
+    ax2.add_patch_with(PathShape(star), props);
     ax1.set_xlim(-3.0, 3.0).set_ylim(-3.0, 3.0);
     remove_text(fig);
     Ok(())

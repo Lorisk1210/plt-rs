@@ -1,7 +1,7 @@
 //! Generation of property accessors on artist handles and of the property
 //! sets passed when creating artists (matplotlib's `**kwargs`).
 
-use super::ArtistBase;
+use super::{ArtistBase, ClipPathSpec};
 use crate::transforms::Transform;
 
 /// Common artist properties to set on creation (`None` = default).
@@ -27,6 +27,9 @@ pub struct BaseProps {
     /// `None` keeps the default of the method adding it, usually the
     /// axes' data coordinates).
     pub transform: Option<Transform>,
+    /// A clip path set before the artist is added (matplotlib's
+    /// `clip_path`): the axes then do not clip it to their box.
+    pub clip_path: Option<ClipPathSpec>,
 }
 
 impl BaseProps {
@@ -43,6 +46,7 @@ impl BaseProps {
             gid: overrides.gid.or(self.gid),
             url: overrides.url.or(self.url),
             transform: overrides.transform.or(self.transform),
+            clip_path: overrides.clip_path.or(self.clip_path),
         }
     }
 
@@ -74,6 +78,9 @@ impl BaseProps {
         }
         if self.transform.is_some() {
             base.transform = self.transform;
+        }
+        if self.clip_path.is_some() {
+            base.clip_path = self.clip_path;
         }
     }
 }
@@ -121,6 +128,14 @@ macro_rules! base_prop_builders {
         #[must_use]
         pub fn transform(mut self, transform: $crate::transforms::Transform) -> Self {
             self.base.transform = Some(transform);
+            self
+        }
+
+        /// Clips the artist to `clip` instead of its axes' box (matplotlib's
+        /// `clip_path`, set before the artist is added).
+        #[must_use]
+        pub fn clip_path(mut self, clip: $crate::artist::ClipPathSpec) -> Self {
+            self.base.clip_path = Some(clip);
             self
         }
     };

@@ -152,20 +152,20 @@ impl VectorReport {
     /// A multi-line description of the first `limit` differences.
     pub fn details(&self, limit: usize) -> String {
         let mut out = String::new();
-        let short = |text: &str| {
-            let cut: String = text.chars().take(220).collect();
-            if cut.len() < text.len() {
-                format!("{cut}…")
-            } else {
-                cut
-            }
-        };
+        let short = |text: &str| excerpt(text, 0);
         for (item, deviation) in self.numeric.iter().take(limit) {
             let _ = writeln!(out, "    numeric ({deviation:.4}): {}", short(item));
         }
         for (expected, actual) in self.structural.iter().take(limit) {
-            let _ = writeln!(out, "    expected: {}", short(expected));
-            let _ = writeln!(out, "    actual:   {}", short(actual));
+            // Both excerpts start shortly before the first differing character.
+            let start = expected
+                .chars()
+                .zip(actual.chars())
+                .take_while(|(e, a)| e == a)
+                .count()
+                .saturating_sub(EXCERPT_CONTEXT);
+            let _ = writeln!(out, "    expected: {}", excerpt(expected, start));
+            let _ = writeln!(out, "    actual:   {}", excerpt(actual, start));
         }
         for item in self.missing.iter().take(limit) {
             let _ = writeln!(out, "    missing:  {}", short(item));
@@ -192,6 +192,23 @@ impl fmt::Display for VectorReport {
             self.extra.len()
         )
     }
+}
+
+/// The number of characters a report excerpt shows.
+const EXCERPT_LENGTH: usize = 220;
+
+/// How many equal characters a structural excerpt shows before the first
+/// difference.
+const EXCERPT_CONTEXT: usize = 60;
+
+/// At most [`EXCERPT_LENGTH`] characters of `text` from character `start`,
+/// with ellipses marking the parts left out.
+fn excerpt(text: &str, start: usize) -> String {
+    let mut chars = text.chars().skip(start);
+    let cut: String = chars.by_ref().take(EXCERPT_LENGTH).collect();
+    let before = if start > 0 { "…" } else { "" };
+    let after = if chars.next().is_some() { "…" } else { "" };
+    format!("{before}{cut}{after}")
 }
 
 /// One step of an alignment.
@@ -339,6 +356,20 @@ mod tests {
                 .map(|t| t.parse().map_or_else(|_| Token::word(*t), Token::Num))
                 .collect(),
         }
+    }
+
+    #[test]
+    fn excerpts_mark_what_they_leave_out() {
+        assert_eq!(excerpt("short", 0), "short");
+        let long = "x".repeat(EXCERPT_LENGTH + 10);
+        assert_eq!(
+            excerpt(&long, 10),
+            format!("…{}", "x".repeat(EXCERPT_LENGTH))
+        );
+        assert_eq!(
+            excerpt(&long, 0),
+            format!("{}…", "x".repeat(EXCERPT_LENGTH))
+        );
     }
 
     #[test]

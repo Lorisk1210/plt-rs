@@ -75,11 +75,15 @@ impl Axes {
             .collect()
     }
 
-    /// Adds `artist` as a child clipped to the axes and applies `update`
-    /// (matplotlib's `add_line`/`add_patch`/`add_collection` bookkeeping).
+    /// Adds `artist` as a child and applies `update` (matplotlib's
+    /// `add_line`/`add_patch`/`add_collection` bookkeeping): an artist
+    /// without a clip path of its own is clipped to the axes' box.
     pub(crate) fn adopt(&self, mut artist: impl Artist, update: &DataUpdate) -> RawHandle {
         let axes_id = self.id();
-        artist.base_mut().clip_box = Some(axes_id);
+        let base = artist.base_mut();
+        if base.clip_path.is_none() {
+            base.clip_box = Some(axes_id);
+        }
         let figure = self.raw().figure_state();
         let mut state = figure.borrow_mut();
         let id = state.adopt(axes_id, Box::new(artist));

@@ -72,9 +72,14 @@ impl<M: 'static> Ui<M> {
     /// Replaces the theme.
     #[must_use]
     pub fn with_theme(mut self, theme: Theme) -> Self {
+        self.set_theme(theme);
+        self
+    }
+
+    /// Replaces the theme of a UI already shown.
+    pub fn set_theme(&mut self, theme: Theme) {
         self.theme = theme;
         self.request_layout();
-        self
     }
 
     /// The theme.

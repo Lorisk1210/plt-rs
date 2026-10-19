@@ -217,7 +217,7 @@ impl SaveDialog {
         chrome.button("Cancel", DialogMessage::Cancel);
         chrome.primary("Save", DialogMessage::Save);
         let options = dialog::window_options("Save the figure")?;
-        let mut window = UiWindow::open_fitted(cx, &options, chrome.finish(content))?;
+        let mut window = dialog::open_fitted(cx, figure, &options, chrome.finish(content))?;
         window.ui_mut().set_focus(Some(name_field));
         let mut dialog = Self {
             figure: figure.clone(),

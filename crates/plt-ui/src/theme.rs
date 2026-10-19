@@ -208,6 +208,39 @@ impl Theme {
         }
     }
 
+    /// plt-rs' own dark look, for figures on dark backgrounds: the modern
+    /// layout in charcoal, with light text and a brighter accent.
+    pub fn dark() -> Self {
+        Self {
+            background: rgb(30, 32, 36),
+            surface: rgb(40, 43, 48),
+            track: rgb(23, 25, 28),
+            text: rgb(230, 233, 237),
+            text_secondary: rgb(158, 166, 176),
+            text_disabled: rgb(96, 102, 111),
+            text_on_accent: rgb(255, 255, 255),
+            accent: rgb(76, 139, 245),
+            accent_hot: rgb(98, 154, 247),
+            accent_active: rgb(61, 121, 222),
+            border: rgb(70, 75, 83),
+            border_hot: rgb(104, 111, 122),
+            separator: rgb(52, 56, 62),
+            button: rgb(48, 52, 58),
+            button_hot: rgb(57, 61, 68),
+            button_active: rgb(66, 71, 79),
+            hover: rgba(255, 255, 255, 0.08),
+            pressed: rgba(255, 255, 255, 0.14),
+            selection: rgba(76, 139, 245, 0.28),
+            selection_inactive: rgba(76, 139, 245, 0.14),
+            focus_ring: rgba(76, 139, 245, 0.5),
+            danger: rgb(248, 81, 73),
+            shadow: rgba(0, 0, 0, 0.4),
+            tooltip: rgb(232, 234, 237),
+            tooltip_text: rgb(30, 32, 36),
+            ..Self::modern()
+        }
+    }
+
     /// A light theme close to matplotlib's Tk figure windows: greys,
     /// square-ish corners.
     pub fn classic() -> Self {
@@ -295,9 +328,39 @@ mod tests {
         assert!(lengths.windows(2).all(|pair| pair[0] < pair[1]));
     }
 
+    /// The WCAG contrast ratio of two opaque colours.
+    fn contrast(a: Rgba, b: Rgba) -> f64 {
+        let linear = |c: f64| {
+            if c <= 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        let luminance =
+            |c: Rgba| 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
+        let (hi, lo) = (
+            luminance(a).max(luminance(b)),
+            luminance(a).min(luminance(b)),
+        );
+        (hi + 0.05) / (lo + 0.05)
+    }
+
+    #[test]
+    fn text_reads_on_every_background() {
+        for theme in [Theme::modern(), Theme::dark(), Theme::classic()] {
+            for back in [theme.background, theme.surface, theme.button] {
+                assert!(contrast(theme.text, back) > 7.0);
+                assert!(contrast(theme.text_secondary, back) > 3.0);
+            }
+            assert!(contrast(theme.text_on_accent, theme.accent) > 3.0);
+            assert!(contrast(theme.tooltip_text, theme.tooltip) > 7.0);
+        }
+    }
+
     #[test]
     fn controls_fit_the_toolbar_and_the_grid() {
-        for theme in [Theme::modern(), Theme::classic()] {
+        for theme in [Theme::modern(), Theme::dark(), Theme::classic()] {
             assert!(theme.icon_size < theme.tool_button_size);
             assert!(theme.checkbox_size < theme.control_height);
             assert!(theme.corner_radius * 2.0 < theme.control_height);

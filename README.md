@@ -178,6 +178,7 @@ PLT_VECTOR_REFERENCE=/tmp/ref cargo test -p plt-spec --release \
 See `CLAUDE.md` for the coding conventions.
 
 plt-rs ports code from matplotlib, Anti-Grain Geometry, FreeType,
-HarfBuzz, Qhull, Pillow, libjpeg-turbo and libwebp, and bundles fonts
-(including Inter) and colour data; see `THIRD_PARTY.md` for their
-licences.
+HarfBuzz, Qhull, ContourPy, NumPy, CPython, dateutil, fontTools, Pillow,
+libjpeg-turbo, libtiff and libwebp (and one file from libstdc++, under
+GPL-3.0-or-later), and bundles fonts (including Inter) and colour data;
+see `THIRD_PARTY.md` for their licences.

@@ -19,6 +19,12 @@ The full texts are in [`LICENSES/`](LICENSES):
 | HarfBuzz 14 | MIT-Modern-Variant (`matplotlib.txt`, "HarfBuzz") | OpenType shaping and layout tables (`crates/plt-font/src/shape`, `crates/plt-font/src/layout`); the BCP 47 to OpenType language tag table `crates/plt-font/src/layout/ot_tags/tables.rs`, generated from HarfBuzz's `hb-ot-tag-table.hh` (itself built from the IANA Language Subtag Registry and Microsoft's OpenType language tag list) |
 | libraqm | MIT (`matplotlib.txt`, "libraqm") | text run layout (`crates/plt-font/src/shape`, `plt-text`) |
 | Qhull | Qhull licence (`matplotlib.txt`, "QHull") | Delaunay triangulation (`crates/plt/src/tri/delaunay`) |
+| ContourPy 1.4 | BSD-3-Clause (`contourpy.txt`); its `mpl2005` algorithm comes from `gcntr.c` of the GIST package, under the Yorick licence (`matplotlib.txt`, "Yorick Colormaps") | the quad contour generators `mpl2005`, `mpl2014` and `serial` (`crates/plt/src/contour`) |
+| NumPy 2.5 and Intel's x86-simd-sort | BSD-3-Clause (`numpy.txt`) | `argsort` of floats, down to the order of ties (`crates/plt/src/numeric/argsort`), and the exact results of the numpy functions matplotlib calls (`interp`, `searchsorted`, `arange`, `linspace`, quantiles and others; `crates/plt/src/numeric` and throughout `plt`) |
+| libstdc++ (GCC 14) | GPL-3.0-or-later with the GCC Runtime Library Exception 3.1; the original STL code under Hewlett-Packard's and Silicon Graphics' permissive notices (`libstdc++.txt`) | `std::sort`, which x86-simd-sort falls back to (`crates/plt/src/numeric/argsort/introsort.rs`); see the note below |
+| CPython 3.14 | PSF License Agreement (`cpython.txt`) | float formatting (`repr`, `%` and `str.format`, `crates/plt/src/ticker/pyfmt`), `divmod` and `round` (`crates/plt/src/ticker/pymath.rs`), and the `datetime` types (`crates/plt/src/dates`) |
+| dateutil 2.9 | Apache-2.0 and BSD-3-Clause (`dateutil.txt`) | recurrence rules, `relativedelta` and `tzfile` time zones (`crates/plt/src/dates/rrule`, `relativedelta.rs`, `tz`) |
+| fontTools 4.67 | MIT (`fonttools.txt`) | the glyph closure of font subsetting (`crates/plt-font/src/subset`), glyph bounds for Type 42 fonts (`crates/plt-render/src/ps/type42.rs`) and the script data of `crates/plt-font/src/shape/unicode_data.rs` |
 | Pillow 12 | MIT-CMU (`pillow.txt`) | image file reading and writing (`plt-codec`, `crates/plt/src/image`) |
 | libjpeg-turbo / IJG libjpeg | IJG, BSD-3-Clause and zlib (`pillow.txt`, "LIBJPEG") | the JPEG decoder and encoder (`crates/plt-codec/src/jpeg`). This software is based in part on the work of the Independent JPEG Group. |
 | libtiff | libtiff licence (`pillow.txt`, "LIBTIFF") | TIFF decompression (`crates/plt-codec/src/tiff`) |
@@ -26,6 +32,13 @@ The full texts are in [`LICENSES/`](LICENSES):
 
 The FreeType parts are based in part on the work of the FreeType Team
 (https://freetype.org).
+
+`crates/plt/src/numeric/argsort/introsort.rs` is the one part under a
+copyleft licence. The GCC Runtime Library Exception covers programs
+compiled with GCC, not translations of libstdc++'s source, so that file
+stays under GPL-3.0-or-later. It only decides the order of ties in
+arrays with NaN or in degenerate partitions; replacing it with a
+permissively licensed sort would change only that order.
 
 As matplotlib's licence asks, the changes in summary: plt-rs rewrites
 matplotlib and the code above in Rust. It keeps their algorithms and

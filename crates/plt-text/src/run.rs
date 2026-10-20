@@ -198,13 +198,19 @@ impl TextRun {
     /// relative to the origin, glyphs first, each rule a closed rectangle
     /// starting at its bottom-left corner and going up first (matplotlib's
     /// `TextToPath.get_text_path`); glyphs `engine` has no outline for are
-    /// left out.
+    /// left out. Like matplotlib, every glyph is loaded at the size the
+    /// text was laid out at, and the smaller ones of mathtext (sub- and
+    /// superscripts) are scaled down from there.
     pub fn outline(&self, engine: &TextEngine) -> Path {
+        let laid_out_at = self.source.as_ref().map(TextSource::size);
         let glyphs = self.glyphs.iter().filter_map(|glyph| {
+            let loaded_at = laid_out_at.unwrap_or(glyph.size);
             let outline = engine
-                .glyph_outline(glyph.font, glyph.glyph, glyph.size, self.dpi)
+                .glyph_outline(glyph.font, glyph.glyph, loaded_at, self.dpi)
                 .ok()?;
-            Some(outline.transformed(&Affine2D::translation(glyph.x, glyph.y)))
+            let scale = glyph.size / loaded_at;
+            let placement = Affine2D::scaling(scale, scale).translate(glyph.x, glyph.y);
+            Some(outline.transformed(&placement))
         });
         let rects = self.rects.iter().map(|rect| {
             let (x, y, w, h) = rect.bounds();
@@ -327,6 +333,33 @@ mod tests {
         assert_eq!(rule[0], Point::new(bar.x0(), bar.y0()));
         assert_eq!(rule[1], Point::new(bar.x0(), bar.y1()));
         assert_eq!(rule[3], Point::new(bar.x1(), bar.y0()));
+    }
+
+    #[test]
+    fn math_glyphs_are_scaled_from_the_laid_out_size() {
+        let engine = TextEngine::bundled();
+        let run = engine
+            .layout_math(r"$a_a$", &MathStyle::default())
+            .expect("valid math");
+        let base = run.source.as_ref().expect("laid out by the engine").size();
+        let sub = run.glyphs[1];
+        assert!(sub.size < base, "the subscript is smaller");
+        let loaded = engine
+            .glyph_outline(sub.font, sub.glyph, base, run.dpi)
+            .expect("bundled glyph");
+        let scale = sub.size / base;
+        let expected = loaded.transformed(&Affine2D::scaling(scale, scale).translate(sub.x, sub.y));
+        let outline = run.outline(engine);
+        let first = run.glyphs[0];
+        let skip = engine
+            .glyph_outline(first.font, first.glyph, base, run.dpi)
+            .expect("bundled glyph")
+            .vertices()
+            .len();
+        assert_eq!(
+            &outline.vertices()[skip..skip + expected.vertices().len()],
+            expected.vertices()
+        );
     }
 
     #[test]

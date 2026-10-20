@@ -203,14 +203,14 @@ impl Axes {
             (TriShading::Flat, placement) => {
                 let colors = match placement {
                     Placement::Points(values) => tri
-                        .masked_triangles()
+                        .drawn_triangles()
                         .iter()
                         .map(|t| (values[t[0]] + values[t[1]] + values[t[2]]) / 3.0)
                         .collect(),
                     Placement::Faces(values) => tri.unmasked().map(|t| values[t]).collect(),
                 };
                 let paths = tri
-                    .masked_triangles()
+                    .drawn_triangles()
                     .iter()
                     .map(|t| Path::polygon(t.map(|i| tri.point(i))))
                     .collect();

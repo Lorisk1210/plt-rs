@@ -10,7 +10,7 @@ use crate::artist::ArtistHandle;
 use crate::axes::{ErrorbarOptions, ScatterOptions, StemOptions};
 use crate::figure::Figure;
 use crate::legend::{LegendHandle, LegendOptions};
-use crate::lines::{LineProps, MarkEvery};
+use crate::lines::{LineProps, LineStyle, MarkEvery};
 use crate::patches::{FancyBboxPatch, PatchArtist, Rectangle};
 
 /// matplotlib's default handle box: 20 × 7 points, no descent.
@@ -186,6 +186,33 @@ fn texts_have_no_handler() {
     let text = ax.text(0.0, 0.0, "note");
     text.set_label("note");
     assert!(handle(&fig, &artist_source(&text), &LegendOptions::default()).is_none());
+}
+
+#[test]
+fn line_collections_hand_over_their_dash_pattern() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let solid = ax.vlines([1.0, 2.0], [0.0], [1.0]).unwrap();
+    let made = handle(&fig, &artist_source(&solid), &LegendOptions::default()).unwrap();
+    let legline = as_line(&made.artists[0]);
+    assert_eq!(
+        legline.xdata,
+        [0.0, 20.0],
+        "one scatter point: the whole width"
+    );
+    assert_eq!(legline.linestyle, LineStyle::dashes(0.0, Vec::new()));
+    assert!(
+        legline.linestyle.is_dashed(),
+        "drawn with the dash cap style"
+    );
+    let dashed = ax.hlines([1.0], [0.0], [1.0]).unwrap();
+    dashed.set_linestyles(vec![LineStyle::Dashed]);
+    let made = handle(&fig, &artist_source(&dashed), &LegendOptions::default()).unwrap();
+    let pattern = crate::rc::params().lines_dashed_pattern.clone();
+    assert_eq!(
+        as_line(&made.artists[0]).linestyle,
+        LineStyle::dashes(0.0, pattern)
+    );
 }
 
 #[test]

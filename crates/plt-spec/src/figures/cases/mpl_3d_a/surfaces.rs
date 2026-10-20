@@ -2,10 +2,10 @@
 
 use plt::collections::CollectionProps;
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, ColormapError, colormaps};
+use plt::colors::{Color, colormaps};
 use plt::figure::Figure;
 use plt::mplot3d::{
-    FaceColormap, FaceColors, Sampling, SurfaceOptions, TrisurfOptions, WireframeOptions, test_data,
+    FaceColors, Sampling, SurfaceOptions, TrisurfOptions, WireframeOptions, test_data,
 };
 use plt::numeric::{Grid, arange, meshgrid};
 use plt::tri::Triangulation;
@@ -13,20 +13,14 @@ use plt_core::Rgba;
 
 use super::{aliased, disc_points, remove_ticks_and_titles, sinc_surface};
 use crate::figures::CaseResult;
-
-/// `cmap=name`.
-fn mapped(name: &str) -> Result<FaceColors, ColormapError> {
-    Ok(FaceColors::Mapped(Box::new(FaceColormap::new(
-        colormaps::get(name)?,
-    ))))
-}
+use crate::figures::cases::common::face_cmap;
 
 pub(super) fn surface3d(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
     let (x, y, z) = sinc_surface();
     let options = SurfaceOptions {
         sampling: Sampling::Counts { rows: 40, cols: 40 },
-        colors: mapped("coolwarm")?,
+        colors: face_cmap("coolwarm")?,
         props: aliased(0.0),
         ..SurfaceOptions::default()
     };
@@ -55,7 +49,7 @@ pub(super) fn label_offset_tick_position(fig: &Figure) -> CaseResult {
     });
     let options = SurfaceOptions {
         sampling: Sampling::Strides { rows: 2, cols: 2 },
-        colors: mapped("autumn")?,
+        colors: face_cmap("autumn")?,
         ..SurfaceOptions::default()
     };
     ax.plot_surface(&x, &y, &z, options)?;
@@ -177,7 +171,7 @@ fn trisurf(fig: &Figure, colors: FaceColors) -> CaseResult {
 }
 
 pub(super) fn trisurf3d(fig: &Figure) -> CaseResult {
-    trisurf(fig, mapped("jet")?)
+    trisurf(fig, face_cmap("jet")?)
 }
 
 pub(super) fn trisurf3d_shaded(fig: &Figure) -> CaseResult {

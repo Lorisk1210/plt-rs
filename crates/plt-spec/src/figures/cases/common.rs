@@ -5,13 +5,16 @@ use std::f64::consts::PI;
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, AxisName, BarLabelOptions, TickLevel, TickParams};
 use plt::axisartist::AuxTransform;
-use plt::colors::{Color, ColorError};
+use plt::collections::CollectionProps;
+use plt::colors::{Color, ColorError, ColormapError, colormaps};
 use plt::contour::{ContourOptions, ContourSet, Levels};
 use plt::figure::{Figure, Mosaic, MosaicCell, MosaicError};
 use plt::fonts::{FontProperties, FontSize};
+use plt::gridspec::GridSpec;
 use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
 use plt::lines::LineProps;
+use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, FaceColormap, FaceColors};
 use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchProps};
 use plt::patheffects::{GcUpdate, PathEffect, Stroke, TickedStroke};
@@ -536,4 +539,36 @@ pub(super) fn framed_bivariate_normal() -> Grid<f64> {
             .and_then(|(r, c)| z.get(r, c).copied())
             .unwrap_or(0.0)
     })
+}
+
+/// `fig.subplots(nrows, ncols, subplot_kw={"projection": "3d"})`, in
+/// row-major order: the cells of one grid, which layout engines lay out
+/// together.
+pub(super) fn subplots_3d(
+    fig: &Figure,
+    nrows: usize,
+    ncols: usize,
+) -> Result<Vec<Axes3D>, Axes3DError> {
+    let grid = GridSpec::new(nrows, ncols)?;
+    (0..nrows * ncols)
+        .map(|i| {
+            let cell = grid.cell(i / ncols, i % ncols)?;
+            fig.add_subplot_spec_3d(&cell, Axes3DOptions::default())
+        })
+        .collect()
+}
+
+/// Surface faces coloured by the colormap `name` (`cmap=name`).
+pub(super) fn face_cmap(name: &str) -> Result<FaceColors, ColormapError> {
+    Ok(FaceColors::Mapped(Box::new(FaceColormap::new(
+        colormaps::get(name)?,
+    ))))
+}
+
+/// `lw=linewidth, antialiased=False`.
+pub(super) fn aliased(linewidth: f64) -> CollectionProps {
+    CollectionProps {
+        antialiased: Some(vec![false]),
+        ..CollectionProps::default().linewidth(linewidth)
+    }
 }

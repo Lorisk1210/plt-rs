@@ -368,7 +368,7 @@ fn rotated_triangulation(
         .map(|i| zdir.rotate([tri.x()[i], tri.y()[i], z[i]]))
         .collect();
     let [jx, jy, jz] = columns(&points);
-    let rotated = Triangulation::new(&jx, &jy, tri.triangles().to_vec())?
+    let rotated = Triangulation::new(&jx, &jy, tri.given_triangles().to_vec())?
         .with_mask(tri.mask().map(<[bool]>::to_vec))?;
     Ok((rotated, jz))
 }

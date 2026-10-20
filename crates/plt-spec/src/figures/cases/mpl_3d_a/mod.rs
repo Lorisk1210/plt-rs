@@ -17,11 +17,11 @@ mod surfaces;
 
 use std::f64::consts::PI;
 
-use plt::collections::CollectionProps;
 use plt::figure::Figure;
 use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions};
 use plt::numeric::{Grid, arange, linspace, linspace_with, meshgrid};
 
+use super::common::aliased;
 use super::mpl_tests::classic;
 pub(super) use super::mpl_tests::remove_ticks_and_titles;
 use crate::figures::FigureCase;
@@ -166,14 +166,6 @@ fn subplots_3d(fig: &Figure, rows: usize, cols: usize) -> Result<Vec<Axes3D>, Ax
     (1..=rows * cols)
         .map(|index| fig.add_subplot_3d(rows, cols, index, Axes3DOptions::default()))
         .collect()
-}
-
-/// `lw=linewidth, antialiased=False`.
-fn aliased(linewidth: f64) -> CollectionProps {
-    CollectionProps {
-        antialiased: Some(vec![false]),
-        ..CollectionProps::default().linewidth(linewidth)
-    }
 }
 
 /// `np.arange(n)` as floats.

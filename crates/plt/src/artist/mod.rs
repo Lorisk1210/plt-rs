@@ -12,6 +12,7 @@
 mod base;
 mod context;
 mod cursor;
+mod custom;
 mod filter;
 mod handle;
 mod pick;
@@ -34,6 +35,7 @@ pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
 pub(crate) use context::DrawnDpiCor;
 pub use context::{DrawContext, DrawError, LayoutContext};
 pub(crate) use cursor::format_values;
+pub use custom::Custom;
 pub(crate) use filter::FilteredGroupArtist;
 pub use filter::{AggFilter, FilteredGroup};
 pub use handle::{ArtistHandle, RawHandle, TypedHandle};

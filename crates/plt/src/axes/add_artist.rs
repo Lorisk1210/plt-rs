@@ -4,7 +4,7 @@
 use super::Axes;
 use super::children::DataUpdate;
 use crate::artist::{
-    AggFilter, Artist, ArtistHandle, FilteredGroup, FilteredGroupArtist, RawHandle,
+    AggFilter, Artist, ArtistHandle, Custom, FilteredGroup, FilteredGroupArtist, RawHandle,
 };
 use crate::collections::{Collection, CollectionSpec, TriMesh, TriMeshSpec};
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
@@ -28,6 +28,20 @@ impl Axes {
             base.transform = Some(self.trans_data());
         }
         Patch::from_raw(self.adopt(patch, &DataUpdate::default()))
+    }
+
+    /// Adds an artist of your own (matplotlib's `add_artist` of an
+    /// `Artist` subclass; see [`Custom`] for an example): in data
+    /// coordinates unless its base has a transform, clipped to the axes
+    /// unless it has a clip path, drawn with the other children in
+    /// z-order, and leaving the data limits alone (extend them with
+    /// [`Axes::update_datalim`]).
+    pub fn add_custom_artist<A: Artist>(&self, mut artist: A) -> Custom<A> {
+        let base = artist.base_mut();
+        if base.transform.is_none() {
+            base.transform = Some(self.trans_data());
+        }
+        Custom::from_raw(self.adopt(artist, &DataUpdate::default()))
     }
 
     /// Draws `members` a second time, together, through `filter` as one

@@ -64,6 +64,9 @@ pub struct BoxplotArtists {
 pub struct BxpOptions {
     /// Box positions (default `1, 2, ..., n`).
     pub positions: Option<Vec<f64>>,
+    /// Whether the positions are whole numbers given as integers (Python
+    /// `int`s), whose tick labels read `2` rather than `2.0`.
+    pub integer_positions: bool,
     /// Box widths: one for all or one per box (default from the spread
     /// of the positions).
     pub widths: Vec<f64>,
@@ -105,6 +108,7 @@ impl Default for BxpOptions {
     fn default() -> Self {
         Self {
             positions: None,
+            integer_positions: false,
             widths: Vec::new(),
             orientation: Orientation::Vertical,
             boxes: None,
@@ -326,7 +330,7 @@ impl Axes {
                 .zip(&positions)
                 .map(|(s, &p)| match &s.label {
                     Some(label) => label.clone(),
-                    None if default_positions => format!("{p:.0}"),
+                    None if default_positions || options.integer_positions => format!("{p:.0}"),
                     None => pyfmt::repr(p),
                 })
                 .collect();

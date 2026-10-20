@@ -187,6 +187,30 @@ mod tests {
     }
 
     #[test]
+    fn positions_label_their_ticks_as_given() {
+        let labels = |integer_positions: bool| {
+            let ax = Figure::new().subplot();
+            let options = BoxplotOptions {
+                draw: BxpOptions {
+                    positions: Some(vec![2.0, 4.0]),
+                    integer_positions,
+                    ..BxpOptions::default()
+                },
+                ..BoxplotOptions::default()
+            };
+            ax.boxplot(&data(), &options).unwrap();
+            let ticks = ax.ticks(AxisName::X).unwrap();
+            ticks
+                .major
+                .iter()
+                .map(|t| t.label.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(labels(false), ["2.0", "4.0"], "floats");
+        assert_eq!(labels(true), ["2", "4"], "integers");
+    }
+
+    #[test]
     fn patch_boxes_take_colour_as_edge() {
         let ax = Figure::new().subplot();
         let options = BoxplotOptions {

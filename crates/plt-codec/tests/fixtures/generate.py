@@ -1,4 +1,5 @@
-"""Generate the PNG and zlib fixtures used by plt-codec's integration tests.
+"""Generate the PNG, zlib and WebP fixtures used by plt-codec's integration
+tests.
 
 Run from anywhere with the reference environment:
 
@@ -15,6 +16,9 @@ against Pillow wherever its conversion semantics are unambiguous.
 
 zlib fixtures are a mixed corpus and its compression by Python's zlib at
 every level and with each strategy, window size and flush mode.
+
+WebP fixtures are small files libwebp writes through Pillow (lossy, lossy
+with alpha, lossless and an animation), corrupted by the fuzz-style tests.
 """
 
 from __future__ import annotations
@@ -30,6 +34,7 @@ from PIL import Image, PngImagePlugin
 HERE = pathlib.Path(__file__).resolve().parent
 PNG_DIR = HERE / "png"
 ZLIB_DIR = HERE / "zlib"
+WEBP_DIR = HERE / "webp"
 
 MASK64 = (1 << 64) - 1
 
@@ -379,10 +384,25 @@ def zlib_corpus() -> None:
     (ZLIB_DIR / "level9_raw.deflate").write_bytes(raw)
 
 
+def webp_files() -> None:
+    """A gradient image as lossy, lossy-with-alpha, lossless and animated
+    WebP files."""
+    y, x = np.mgrid[0:48, 0:64]
+    rgb = np.stack([x * 4 % 256, y * 5 % 256, (x + y) * 3 % 256], -1).astype(np.uint8)
+    rgba = np.dstack([rgb, (x * y % 256).astype(np.uint8)])
+    Image.fromarray(rgb).save(WEBP_DIR / "lossy.webp", quality=60)
+    Image.fromarray(rgba).save(WEBP_DIR / "lossy_alpha.webp", quality=60)
+    Image.fromarray(rgba).save(WEBP_DIR / "lossless.webp", lossless=True)
+    frames = [Image.fromarray(np.roll(rgb, 8 * k, axis=1)) for k in range(3)]
+    frames[0].save(WEBP_DIR / "animated.webp", save_all=True, append_images=frames[1:],
+                   duration=100, quality=50)
+
+
 def main() -> None:
     PNG_DIR.mkdir(exist_ok=True)
     ZLIB_DIR.mkdir(exist_ok=True)
-    for old in [*PNG_DIR.iterdir(), *ZLIB_DIR.iterdir()]:
+    WEBP_DIR.mkdir(exist_ok=True)
+    for old in [*PNG_DIR.iterdir(), *ZLIB_DIR.iterdir(), *WEBP_DIR.iterdir()]:
         old.unlink()
     rng = Rng(1)
     standard_formats(rng)
@@ -392,7 +412,9 @@ def main() -> None:
     text_metadata(rng)
     pillow_written(rng)
     zlib_corpus()
-    print(f"{len(list(PNG_DIR.glob('*.png')))} PNG fixtures, {len(list(ZLIB_DIR.iterdir()))} zlib fixtures")
+    webp_files()
+    print(f"{len(list(PNG_DIR.glob('*.png')))} PNG fixtures, {len(list(ZLIB_DIR.iterdir()))} zlib fixtures, "
+          f"{len(list(WEBP_DIR.iterdir()))} WebP fixtures")
 
 
 if __name__ == "__main__":

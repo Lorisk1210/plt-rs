@@ -61,10 +61,10 @@ fn boxplot_plot(fig: &Figure) -> CaseResult {
         .edgecolor("white")
         .linewidth(0.5);
     let options = BoxplotOptions {
-        // `positions=[2, 4, 6]` are integers, which label the ticks.
-        tick_labels: Some(POSITIONS.iter().map(|p| format!("{p:.0}")).collect()),
         draw: BxpOptions {
+            // `[2, 4, 6]`: integers.
             positions: Some(POSITIONS.to_vec()),
+            integer_positions: true,
             widths: vec![1.5],
             boxes: Some(BoxStyle::Patch(boxes)),
             showmeans: Some(false),

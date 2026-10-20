@@ -140,8 +140,6 @@ fn boxplot_demo_4(fig: &Figure) -> CaseResult {
     ];
     let ax = fig.subplot();
     let options = BoxplotOptions {
-        // `positions=np.arange(4) + 1` are integers, which label the ticks.
-        tick_labels: Some(strings(&["1", "2", "3", "4"])),
         usermedians: Some(vec![None, None, Some(0.1), Some(0.2)]),
         conf_intervals: Some(vec![
             (None, None),
@@ -150,7 +148,9 @@ fn boxplot_demo_4(fig: &Figure) -> CaseResult {
             (Some(-0.35), Some(0.50)),
         ]),
         draw: BxpOptions {
+            // `np.arange(4) + 1`: integers.
             positions: Some(vec![1.0, 2.0, 3.0, 4.0]),
+            integer_positions: true,
             shownotches: Some(true),
             ..BxpOptions::default()
         },

@@ -163,7 +163,7 @@ impl TriMeshSpec {
             artist: TriMeshArtist {
                 base: ArtistBase::with_zorder(1.0),
                 points: (0..points).map(|i| triangulation.point(i)).collect(),
-                triangles: triangulation.masked_triangles(),
+                triangles: triangulation.drawn_triangles(),
                 mapping: Mapped::new(mapping),
                 rc,
             },

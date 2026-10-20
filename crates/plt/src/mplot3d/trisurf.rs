@@ -45,7 +45,7 @@ impl Axes3D {
         let cycle_color = self.plane().next_line_color().resolve()?;
         let (x, y) = (tri.x(), tri.y());
         let faces: Vec<Vec<Vec3>> = tri
-            .masked_triangles()
+            .drawn_triangles()
             .iter()
             .map(|t| t.iter().map(|&i| [x[i], y[i], z[i]]).collect())
             .collect();

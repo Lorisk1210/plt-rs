@@ -85,6 +85,10 @@ pub struct VoxelOptions {
     /// Whether the corners outside the view limits are hidden, breaking
     /// the faces reaching them (matplotlib's `axlim_clip`).
     pub axlim_clip: bool,
+    /// Where the corners of the cells are: one point per corner, one more
+    /// along each axis than `filled` has cells (matplotlib's `x, y, z`
+    /// arguments); `None` puts corner `[i, j, k]` at `(i, j, k)`.
+    pub corners: Option<Array3<Vec3>>,
 }
 
 impl Default for VoxelOptions {
@@ -96,6 +100,7 @@ impl Default for VoxelOptions {
             lightsource: None,
             props: CollectionProps::default(),
             axlim_clip: false,
+            corners: None,
         }
     }
 }
@@ -111,21 +116,20 @@ const PERMUTATIONS: [fn([usize; 3]) -> [usize; 3]; 3] = [
     |[p, q, r]| [q, r, p],
 ];
 
-/// The visible faces of every filled voxel, in the order matplotlib finds
-/// them: voxels in order of their first face.
-fn visible_faces(filled: &Array3<bool>) -> Vec<([usize; 3], Vec<Vec3>)> {
+/// The visible faces of every filled voxel as the indices of their
+/// corners, four per face, in the order matplotlib finds them: voxels in
+/// order of their first face.
+fn visible_faces(filled: &Array3<bool>) -> Vec<([usize; 3], Vec<[usize; 3]>)> {
     let size = filled.shape();
     let is_filled = |cell: [usize; 3]| filled.get(cell).copied().unwrap_or(false);
-    let mut voxels: Vec<([usize; 3], Vec<Vec3>)> = Vec::new();
+    let mut voxels: Vec<([usize; 3], Vec<[usize; 3]>)> = Vec::new();
     let mut index: HashMap<[usize; 3], usize> = HashMap::new();
     let mut add = |cell: [usize; 3], corner: [usize; 3], square: &[[usize; 3]; 4]| {
         let slot = *index.entry(cell).or_insert_with(|| {
             voxels.push((cell, Vec::new()));
             voxels.len() - 1
         });
-        let face = square
-            .iter()
-            .map(|v| [0, 1, 2].map(|i| (corner[i] + v[i]) as f64));
+        let face = square.iter().map(|v| [0, 1, 2].map(|i| corner[i] + v[i]));
         voxels[slot].1.extend(face);
     };
     for permute in PERMUTATIONS {
@@ -167,14 +171,30 @@ fn visible_faces(filled: &Array3<bool>) -> Vec<([usize; 3], Vec<Vec3>)> {
 }
 
 impl Axes3D {
-    /// Unit cubes in the cells of `filled`, `filled[0, 0, 0]` with its
-    /// lower corner at the origin; faces between two filled cells are not
+    /// Cubes in the cells of `filled`: unit cubes with `filled[0, 0, 0]`'s
+    /// lower corner at the origin, or the hexahedra between the
+    /// [`VoxelOptions::corners`]; faces between two filled cells are not
     /// drawn. Returns one collection per voxel with visible faces, with
-    /// its cell (matplotlib's `voxels(filled, ...)`).
+    /// its cell (matplotlib's `voxels([x, y, z,] filled, ...)`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::mplot3d::{Array3, VoxelOptions};
+    /// let ax = Figure::new().subplot_3d();
+    /// let filled = Array3::from_fn([2, 1, 1], |[i, _, _]| i == 1);
+    /// // Cells half a unit wide along x.
+    /// let corners = Array3::from_fn([3, 2, 2], |[i, j, k]| [i as f64 / 2.0, j as f64, k as f64]);
+    /// let options = VoxelOptions { corners: Some(corners), ..VoxelOptions::default() };
+    /// let voxels = ax.voxels(&filled, options)?;
+    /// assert_eq!(voxels.len(), 1);
+    /// assert!(ax.xlim().1 < 1.1);
+    /// # Ok::<(), plt::mplot3d::Axes3DError>(())
+    /// ```
     ///
     /// # Errors
     ///
-    /// When per-cell colours do not cover the filled cells or a colour is
+    /// When the corners are not one more than the cells along each axis,
+    /// per-cell colours do not cover the filled cells or a colour is
     /// invalid.
     pub fn voxels(
         &self,
@@ -186,10 +206,25 @@ impl Axes3D {
             None => VoxelColors::Single(self.plane().next_patch_color()),
         };
         let [nx, ny, nz] = filled.shape();
+        let corner_shape = [nx + 1, ny + 1, nz + 1];
+        let corners = match options.corners {
+            Some(corners) if corners.shape() == corner_shape => corners,
+            Some(corners) => {
+                return Err(Axes3DError::Shape {
+                    argument: "voxel corners",
+                    expected: corner_shape.iter().product(),
+                    actual: corners.data.len(),
+                });
+            }
+            None => Array3::from_fn(corner_shape, |c| c.map(|v| v as f64)),
+        };
+        let position = |corner: &[usize; 3]| {
+            *corners
+                .get(*corner)
+                .expect("faces only reach the corners of the grid")
+        };
         // Scale to the whole grid of corners, even if only its centre is filled.
-        let corners = Array3::from_fn([nx + 1, ny + 1, nz + 1], |c| c.map(|v| v as f64));
-        let points: Vec<Vec3> = corners.data;
-        let [xs, ys, zs] = columns(&points);
+        let [xs, ys, zs] = columns(&corners.data);
         self.auto_scale_xyz(&xs, &ys, Some(&zs), false)?;
         let light = options
             .shade
@@ -203,7 +238,8 @@ impl Axes3D {
             Ok(color.resolve()?)
         };
         let mut collections = Vec::new();
-        for (cell, vertices) in visible_faces(filled) {
+        for (cell, face_corners) in visible_faces(filled) {
+            let vertices: Vec<Vec3> = face_corners.iter().map(position).collect();
             let had_data = self.has_data();
             let faces: Vec<Vec<Vec3>> = vertices.chunks(4).map(<[Vec3]>::to_vec).collect();
             let shaded_edges = options
@@ -250,6 +286,44 @@ mod tests {
         assert_eq!(faces, 10);
         let empty = Array3::from_fn([2, 2, 2], |_| false);
         assert_eq!(visible_faces(&empty).len(), 0);
+    }
+
+    #[test]
+    fn corners_place_the_cubes() {
+        let ax = crate::figure::Figure::new().subplot_3d();
+        let filled = Array3::from_fn([1, 1, 1], |_| true);
+        let corners = Array3::from_fn([2, 2, 2], |[i, j, k]| {
+            [10.0 + i as f64, 2.0 * j as f64, -(k as f64)]
+        });
+        let options = VoxelOptions {
+            corners: Some(corners),
+            ..VoxelOptions::default()
+        };
+        assert_eq!(ax.voxels(&filled, options).expect("corners fit").len(), 1);
+        let inside = |(low, high): (f64, f64), from: f64, to: f64| {
+            low <= from && high >= to && high - low < 1.2 * (to - from)
+        };
+        assert!(inside(ax.xlim(), 10.0, 11.0));
+        assert!(inside(ax.ylim(), 0.0, 2.0));
+        assert!(inside(ax.zlim(), -1.0, 0.0));
+    }
+
+    #[test]
+    fn corners_must_surround_the_cells() {
+        let ax = crate::figure::Figure::new().subplot_3d();
+        let filled = Array3::from_fn([2, 1, 1], |_| true);
+        let options = VoxelOptions {
+            corners: Some(Array3::from_fn([2, 2, 2], |c| c.map(|v| v as f64))),
+            ..VoxelOptions::default()
+        };
+        assert!(matches!(
+            ax.voxels(&filled, options),
+            Err(Axes3DError::Shape {
+                argument: "voxel corners",
+                expected: 12,
+                actual: 8,
+            })
+        ));
     }
 
     #[test]

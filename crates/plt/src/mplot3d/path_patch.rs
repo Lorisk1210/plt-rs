@@ -7,6 +7,7 @@ use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::plot::broadcast;
 use crate::artist::Artist;
+use crate::colors::Color;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
 
 impl Axes3D {
@@ -17,8 +18,10 @@ impl Axes3D {
     /// `add_artist(PathPatch3D(path, zs=zs, zdir=zdir))`, or
     /// `pathpatch_2d_to_3d` of a patch added with `add_patch`). The patch
     /// keeps the style the shape gives it (an arc is not filled), restyled
-    /// by `props`, draws an edge by default like a `PathPatch`, and leaves
-    /// the data limits alone.
+    /// by `props`, draws an edge by default only if the shape does (a
+    /// [`PathShape`](crate::patches::PathShape) like matplotlib's
+    /// `PathPatch3D` does, a filled circle does not), and leaves the data
+    /// limits alone.
     ///
     /// ```
     /// use plt::figure::Figure;
@@ -53,6 +56,15 @@ impl Axes3D {
         patch.style = styled.style.clone();
         *patch.base_mut() = styled.base().clone();
         props.apply(&mut patch);
+        // matplotlib settles the default edge when the 2-D patch is made,
+        // before it turns into a path patch, which would draw one.
+        if !S::EDGE_DEFAULT
+            && patch.style.edgecolor.is_none()
+            && patch.style.fill
+            && !crate::rc::params().patch_force_edgecolor
+        {
+            patch.style.edgecolor = Some(Color::none());
+        }
         let art = Art3D::PathPatch(Path3D::new(path, vertices));
         Ok(Patch::from_raw(self.add_artist(patch, art, false)))
     }
@@ -64,7 +76,7 @@ mod tests {
 
     use super::*;
     use crate::figure::Figure;
-    use crate::patches::{Arc, PathShape};
+    use crate::patches::{Arc, Circle, PathShape};
 
     #[test]
     fn path_patches_keep_their_codes_and_style() {
@@ -96,5 +108,24 @@ mod tests {
             .unwrap();
         fig.layout();
         assert!(lifted.shape().0.vertices().iter().all(|p| p.is_finite()));
+    }
+
+    #[test]
+    fn lifted_shapes_keep_their_default_edges() {
+        let ax = Figure::new().subplot_3d();
+        let edge_alpha = |patch: Patch<ProjectedPath>| patch.colors().unwrap().edge.a;
+        let circle = Circle::new((5.0, 5.0), 3.0);
+        let lifted = ax.add_path_patch3d(&circle, PatchProps::default(), &[0.0], Axis3::X);
+        assert_eq!(
+            edge_alpha(lifted.unwrap()),
+            0.0,
+            "a filled circle has no edge"
+        );
+        let outlined = PatchProps::default().edgecolor("k");
+        let lifted = ax.add_path_patch3d(&circle, outlined, &[0.0], Axis3::X);
+        assert_eq!(edge_alpha(lifted.unwrap()), 1.0);
+        let path = PathShape(circle.path().transformed(&circle.patch_transform()));
+        let lifted = ax.add_path_patch3d(&path, PatchProps::default(), &[0.0], Axis3::X);
+        assert_eq!(edge_alpha(lifted.unwrap()), 1.0, "path patches have edges");
     }
 }

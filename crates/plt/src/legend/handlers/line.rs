@@ -1,11 +1,13 @@
 //! Handles of lines and line collections (matplotlib's `HandlerLine2D`
 //! and `HandlerLineCollection`).
 
+use plt_render::Dashes;
+
 use super::{HandleArtist, HandleArtists, HandleBox, HandlerContext, copy_line};
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::colors::Color;
 use crate::legend::LegendError;
-use crate::lines::{LineArtist, MarkEvery};
+use crate::lines::{LineArtist, LineStyle, MarkEvery};
 use crate::numeric::linspace;
 
 /// The vertical middle of a handle box, where line handles run.
@@ -42,9 +44,11 @@ pub(super) fn scale_markers(ctx: &HandlerContext<'_>, line: &mut LineArtist) {
     line.markersize *= ctx.settings.markerscale;
 }
 
-/// A line in the colour, width and line style of the first line of
+/// A line in the colour, width and dash pattern of the first line of
 /// `source`, with `scatterpoints` points (matplotlib's
-/// `HandlerLineCollection`).
+/// `HandlerLineCollection`). matplotlib hands the pattern over as an
+/// `(offset, dashes)` tuple, which makes the handle a dashed line: it
+/// takes the dash cap and join styles even when the pattern is solid.
 pub(super) fn line_collection(
     ctx: &HandlerContext<'_>,
     source: &CollectionArtist,
@@ -60,9 +64,9 @@ pub(super) fn line_collection(
         return Ok(None);
     };
     line.color = Color::from(color);
-    if let Some(style) = source.linestyles.first() {
-        line.linestyle = style.clone();
-    }
+    let style = source.linestyles.first().unwrap_or(&LineStyle::Solid);
+    let Dashes { offset, pattern } = style.dash_pattern(source.rc());
+    line.linestyle = LineStyle::dashes(offset, pattern);
     line.linewidth = first_width(source);
     Ok(Some(HandleArtists::unmapped(vec![HandleArtist::placed(
         line,

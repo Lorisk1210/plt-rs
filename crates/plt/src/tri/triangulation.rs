@@ -10,15 +10,20 @@ use super::{TriError, TriFinder, delaunay};
 ///
 /// Triangles are stored anticlockwise: explicit triangles given clockwise
 /// are corrected on construction (`[a, b, c]` becomes `[a, c, b]`; zero-area
-/// triangles are kept as given). Masked triangles are ignored by every
-/// derived quantity ([`Triangulation::edges`],
-/// [`Triangulation::neighbors`], point location, interpolation and
-/// contouring) but keep their index.
+/// triangles are kept as given), as matplotlib's C++ triangulation does;
+/// the vertex order they were given in, which matplotlib's plotting
+/// functions draw, stays available ([`Triangulation::given_triangles`]).
+/// Masked triangles are ignored by every derived quantity
+/// ([`Triangulation::edges`], [`Triangulation::neighbors`], point
+/// location, interpolation and contouring) but keep their index.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Triangulation {
     x: Vec<f64>,
     y: Vec<f64>,
     triangles: Vec<[usize; 3]>,
+    /// The explicit triangles as given, when some had to be turned
+    /// anticlockwise.
+    given: Option<Vec<[usize; 3]>>,
     mask: Option<Vec<bool>>,
     neighbors: Vec<[Option<usize>; 3]>,
     is_delaunay: bool,
@@ -42,6 +47,7 @@ impl Triangulation {
             x: x.to_vec(),
             y: y.to_vec(),
             triangles,
+            given: None,
             mask: None,
             neighbors: Vec::new(),
             is_delaunay: false,
@@ -65,6 +71,7 @@ impl Triangulation {
             x: x.to_vec(),
             y: y.to_vec(),
             triangles: delaunay.triangles,
+            given: None,
             mask: None,
             neighbors: delaunay.neighbors,
             is_delaunay: true,
@@ -120,6 +127,29 @@ impl Triangulation {
     /// All triangles (anticlockwise point indices), masked or not.
     pub fn triangles(&self) -> &[[usize; 3]] {
         &self.triangles
+    }
+
+    /// All triangles, masked or not, in the vertex order they were given
+    /// (matplotlib's `triangles` until its C++ triangulation turns the
+    /// clockwise ones in place).
+    ///
+    /// ```
+    /// use plt::tri::Triangulation;
+    /// let tri = Triangulation::new(&[0.0, 1.0, 0.0], &[0.0, 0.0, 1.0], vec![[0, 2, 1]])?;
+    /// assert_eq!(tri.triangles(), [[0, 1, 2]]);
+    /// assert_eq!(tri.given_triangles(), [[0, 2, 1]]);
+    /// # Ok::<(), plt::tri::TriError>(())
+    /// ```
+    pub fn given_triangles(&self) -> &[[usize; 3]] {
+        self.given.as_deref().unwrap_or(&self.triangles)
+    }
+
+    /// The unmasked triangles in the vertex order they were given, which
+    /// matplotlib's `tripcolor` and `plot_trisurf` draw (they read
+    /// `get_masked_triangles` before anything corrects the orientation).
+    pub(crate) fn drawn_triangles(&self) -> Vec<[usize; 3]> {
+        let given = self.given_triangles();
+        self.unmasked().map(|t| given[t]).collect()
     }
 
     /// The triangle mask, if any.
@@ -248,12 +278,16 @@ impl Triangulation {
 
     /// Makes every positive-area triangle anticlockwise.
     fn correct_orientation(&mut self) {
+        let given = self.triangles.clone();
         for t in 0..self.triangles.len() {
             let [a, b, c] = self.triangles[t].map(|v| self.point(v));
             let (ab, ac) = (b - a, c - a);
             if ab.x * ac.y - ab.y * ac.x < 0.0 {
                 self.triangles[t].swap(1, 2);
             }
+        }
+        if given != self.triangles {
+            self.given = Some(given);
         }
     }
 
@@ -339,6 +373,19 @@ mod tests {
         assert_eq!(tri.triangles(), &[[0, 1, 2]]);
         let flat = Triangulation::new(&[0.0, 1.0, 2.0], &[0.0, 0.0, 0.0], vec![[0, 2, 1]]).unwrap();
         assert_eq!(flat.triangles(), &[[0, 2, 1]]);
+    }
+
+    #[test]
+    fn drawn_triangles_keep_the_given_order() {
+        let (x, y) = ([0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]);
+        let given = vec![[0, 2, 1], [1, 2, 3]];
+        let tri = Triangulation::new(&x, &y, given.clone()).unwrap();
+        assert_eq!(tri.triangles(), &[[0, 1, 2], [1, 3, 2]]);
+        assert_eq!(tri.given_triangles(), given);
+        let tri = tri.with_mask(Some(vec![true, false])).unwrap();
+        assert_eq!(tri.drawn_triangles(), [[1, 2, 3]]);
+        let delaunay = Triangulation::delaunay(&x, &y).unwrap();
+        assert_eq!(delaunay.given_triangles(), delaunay.triangles());
     }
 
     #[test]

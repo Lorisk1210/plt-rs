@@ -18,30 +18,16 @@ mod projections;
 mod quiver;
 mod scales;
 
-use plt::figure::Figure;
-use plt::gridspec::GridSpec;
 use plt::lines::LineProps;
-use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, Axis3, Vec3};
+use plt::mplot3d::{Axes3D, Axes3DError, Axis3, Vec3};
 
+use super::common::subplots_3d;
 use super::mpl_tests::classic;
 pub(super) use super::mpl_tests::remove_ticks_and_titles;
 use crate::figures::FigureCase;
 
 /// What the tests switch on with "Remove when image is regenerated".
 const AUTOMARGIN: &[(&str, &str)] = &[("axes3d.automargin", "True")];
-
-/// `fig.subplots(nrows, ncols, subplot_kw={"projection": "3d"})`, in
-/// row-major order: the cells of one grid, which layout engines lay out
-/// together.
-fn subplots_3d(fig: &Figure, nrows: usize, ncols: usize) -> Result<Vec<Axes3D>, Axes3DError> {
-    let grid = GridSpec::new(nrows, ncols)?;
-    (0..nrows * ncols)
-        .map(|i| {
-            let cell = grid.cell(i / ncols, i % ncols)?;
-            fig.add_subplot_spec_3d(&cell, Axes3DOptions::default())
-        })
-        .collect()
-}
 
 /// `itertools.product(a, b, c)`: every triple, the last element varying
 /// fastest.

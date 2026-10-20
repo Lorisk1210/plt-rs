@@ -2,28 +2,20 @@
 
 use plt::collections::CollectionProps;
 use plt::colors::{Color, colormaps};
-use plt::mplot3d::{
-    FaceColormap, FaceColors, Sampling, SurfaceOptions, TrisurfOptions, WireframeOptions,
-};
+use plt::mplot3d::{FaceColors, Sampling, SurfaceOptions, TrisurfOptions, WireframeOptions};
 use plt::numeric::Grid;
 use plt::tri::Triangulation;
 
 use super::surface;
 use crate::figures::FigureCase;
+use crate::figures::cases::common::face_cmap;
 use crate::rng::SpecRng;
-
-/// `cmap=name`.
-fn mapped(name: &str) -> Result<FaceColors, plt::colors::ColormapError> {
-    Ok(FaceColors::Mapped(Box::new(FaceColormap::new(
-        colormaps::get(name)?,
-    ))))
-}
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mplot3d/plot_surface_cmap", |fig| {
         let (x, y, z) = surface(40);
         let options = SurfaceOptions {
-            colors: mapped("viridis")?,
+            colors: face_cmap("viridis")?,
             ..SurfaceOptions::default()
         };
         fig.subplot_3d().plot_surface(&x, &y, &z, options)?;
@@ -87,7 +79,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let z: Vec<f64> = x.iter().zip(&y).map(|(x, y)| x.cos() * y.sin()).collect();
         let tri = Triangulation::delaunay(&x, &y)?;
         let options = TrisurfOptions {
-            colors: mapped("Spectral")?,
+            colors: face_cmap("Spectral")?,
             props: CollectionProps::default().linewidth(0.2).edgecolor("grey"),
             ..TrisurfOptions::default()
         };

@@ -213,10 +213,10 @@ impl SvgRenderer {
             ],
         );
         self.writer.start("text", &[]);
-        let database = self.fonts.engine().database();
+        let entries = self.fonts.engine().database().entries();
         let mut spans: Vec<(String, Vec<Tspan>)> = Vec::new();
         for glyph in &run.glyphs {
-            let entry = database.entries().iter().find(|e| e.font == glyph.font);
+            let entry = entries.iter().find(|e| e.font == glyph.font);
             let mut style = entry.map_or_else(Style::new, |e| {
                 face_style(e.style, e.variant, Weight(e.weight))
             });

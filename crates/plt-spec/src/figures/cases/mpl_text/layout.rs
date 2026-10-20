@@ -3,7 +3,7 @@
 
 use crate::figures::cases::common::tickless;
 use plt::axes::TitleLocation;
-use plt::fonts::{FontStyle, FontWeight};
+use plt::fonts::{FontExt, FontManager, FontProperties, FontStyle, FontWeight};
 use plt::patches::{BoxStyle, Rectangle};
 use plt::prelude::*;
 use plt::text::{
@@ -24,10 +24,9 @@ type FontRequest = (
     &'static str,
 );
 
-/// `test_font_styles`: annotations in the fonts `findfont` finds for five
-/// requests. The test keeps only the font file of each match
-/// (`FontProperties(fname=path)`), so the requested size of 14 pt is lost;
-/// the texts ask for the same fonts and keep the default size.
+/// `test_font_styles`: annotations in the font files `findfont` finds
+/// among the bundled fonts for five requests (`FontProperties(fname=path)`,
+/// so the texts keep the default family, size, style and weight).
 fn font_styles(fig: &Figure) -> CaseResult {
     const REQUESTS: [FontRequest; 5] = [
         (
@@ -54,17 +53,23 @@ fn font_styles(fig: &Figure) -> CaseResult {
             "100",
         ),
     ];
+    let rc = plt::rc::params();
     let ax = fig.subplot();
     for (i, (text, family, style, weight, stretch)) in REQUESTS.into_iter().enumerate() {
+        let wanted = FontProperties {
+            families: vec![family.to_owned()],
+            style,
+            weight: weight.parse()?,
+            stretch: stretch.parse()?,
+            ..FontProperties::from_rc(&rc)
+        };
+        let file = FontManager::bundled().find_font(&wanted, &rc, FontExt::Ttf, true)?;
         let options = AnnotateOptions {
             xycoords: "axes fraction".parse()?,
             ..AnnotateOptions::default()
         };
         ax.annotate(text, (0.1, 0.1 * (i + 1) as f64), options)?
-            .set_family([family])
-            .set_style(style)
-            .set_weight(weight.parse()?)
-            .set_stretch(stretch.parse()?);
+            .set_font(FontProperties::from_file(file, &rc)?);
     }
     tickless(&ax);
     Ok(())

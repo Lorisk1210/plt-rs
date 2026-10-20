@@ -94,7 +94,7 @@ fn collections_expose_every_face() {
     }
     assert!(Face::parse(&data, 2).is_err());
 
-    let mut db = FontDatabase::new();
+    let db = FontDatabase::new();
     let ids = db.add_file(&path).unwrap();
     assert_eq!(ids.len(), 2);
     for (entry, face_expected) in db.entries().iter().zip(expected.get("ttc").as_array()) {

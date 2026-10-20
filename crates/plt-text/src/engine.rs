@@ -36,6 +36,9 @@ pub struct FontRequest {
     /// PGF backend sets only weights named bold in bold, as matplotlib's
     /// does.
     pub weight_keyword: Option<&'static str>,
+    /// A face to set the text in instead of matching the query
+    /// (matplotlib's `FontProperties(fname=...)`).
+    pub file: Option<FontId>,
 }
 
 impl FontRequest {
@@ -48,7 +51,27 @@ impl FontRequest {
             last_resort: true,
             hinting: Hinting::None,
             weight_keyword: None,
+            file: None,
         }
+    }
+
+    /// The fonts the text is set in, in fallback order: the requested
+    /// file's face, else the best match of each family
+    /// (`_find_fonts_by_props`).
+    pub fn fonts(&self, db: &FontDatabase) -> Result<Vec<FontId>, TextError> {
+        Ok(match self.file {
+            Some(face) => vec![face],
+            None => db.find_fonts_with(&self.query, &self.generics)?,
+        })
+    }
+
+    /// The font of the text: the requested file's face, else the best
+    /// match (`findfont`).
+    pub fn font(&self, db: &FontDatabase) -> Result<FontId, TextError> {
+        Ok(match self.file {
+            Some(face) => face,
+            None => db.find_font_with(&self.query, &self.generics)?,
+        })
     }
 }
 
@@ -107,7 +130,7 @@ impl TextEngine {
     pub fn global() -> &'static Self {
         static ENGINE: OnceLock<TextEngine> = OnceLock::new();
         ENGINE.get_or_init(|| {
-            let mut db = FontDatabase::with_bundled_fonts();
+            let db = FontDatabase::with_bundled_fonts();
             db.add_system_fonts();
             Self::new(db)
         })
@@ -123,6 +146,40 @@ impl TextEngine {
     /// The font catalogue.
     pub fn database(&self) -> &FontDatabase {
         &self.db
+    }
+
+    /// Adds the fonts of the file at `path` to the catalogue (matplotlib's
+    /// `fontManager.addfont`); layouts made before are forgotten, as the
+    /// fonts they matched may have changed.
+    ///
+    /// # Errors
+    ///
+    /// When the file cannot be read or parsed.
+    pub fn add_font_file(
+        &self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<Vec<FontId>, TextError> {
+        let faces = self.db.add_file(path)?;
+        self.forget_layouts();
+        Ok(faces)
+    }
+
+    /// The faces of the font file `path` (or bundled file name) for text
+    /// set in it whatever its query (matplotlib's
+    /// `FontProperties(fname=...)`), read on first use.
+    ///
+    /// # Errors
+    ///
+    /// When the file cannot be read or parsed.
+    pub fn file_faces(&self, path: impl AsRef<std::path::Path>) -> Result<Vec<FontId>, TextError> {
+        Ok(self.db.file_faces(path)?)
+    }
+
+    /// Forgets every memoised layout.
+    fn forget_layouts(&self) {
+        self.lines.clear();
+        self.formulas.clear();
+        self.heights.clear();
     }
 
     /// Lays out a single line of plain text (matplotlib's
@@ -193,7 +250,7 @@ impl TextEngine {
     ) -> Result<TextRun, TextError> {
         let options = shaping.shape_options(text)?;
         let query = &request.query;
-        let fonts = self.db.find_fonts_with(query, &request.generics)?;
+        let fonts = request.fonts(&self.db)?;
         let chain = self.db.font_chain(&fonts, request.last_resort)?;
         let paragraph = first_paragraph(text);
         let layout = chain.layout(paragraph, query.size, dpi, &options, request.hinting)?;
@@ -261,8 +318,7 @@ impl TextEngine {
         dpi: f64,
     ) -> Result<FontHeightMetrics, TextError> {
         let query = &request.query;
-        let fonts = self.db.find_fonts_with(query, &request.generics)?;
-        let face = self.db.face(fonts[0])?;
+        let face = self.db.face(request.font(&self.db)?)?;
         let scale = 1.0 / f64::from(face.units_per_em()) * query.size * dpi / 72.0;
         let (gap, ascent, descent) = face.os2().map_or_else(
             || {
@@ -492,6 +548,31 @@ impl OutlineSink for PathSink {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn added_fonts_are_matched_and_old_layouts_forgotten() {
+        let engine = TextEngine::new(FontDatabase::new());
+        let request = FontRequest::new(FontQuery::families(["DejaVu Sans"]));
+        assert!(
+            engine
+                .layout_line_with("A", &request, &Shaping::default(), 72.0)
+                .is_err()
+        );
+        let path =
+            std::env::temp_dir().join(format!("plt-text-addfont-{}.ttf", std::process::id()));
+        std::fs::write(
+            &path,
+            plt_font::bundled_font_data("DejaVuSans.ttf").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(engine.add_font_file(&path).unwrap().len(), 1);
+        let run = engine
+            .layout_line_with("A", &request, &Shaping::default(), 72.0)
+            .unwrap();
+        assert_eq!(run.glyphs.len(), 1);
+        std::fs::remove_file(&path).unwrap();
+        assert!(engine.add_font_file(&path).is_err());
+    }
 
     fn dejavu(size: f64) -> FontRequest {
         FontRequest::new(FontQuery {

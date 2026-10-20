@@ -56,22 +56,11 @@ fn bundled_face(file: &str) -> Result<(FontDatabase, FontEntry), Box<dyn std::er
     Ok((db, entry))
 }
 
-/// The default font properties with the font of the bundled file `file`
-/// (matplotlib's `FontProperties(fname=...)`, whose size and style are
-/// the defaults).
-fn font_of_file(file: &str) -> Result<FontProperties, Box<dyn std::error::Error>> {
-    let (_, entry) = bundled_face(file)?;
-    Ok(FontProperties {
-        families: vec![entry.name],
-        ..FontProperties::from_rc(&plt::rc::params())
-    })
-}
-
 fn font_file(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let file = "cmr10.ttf";
     ax.set_title(format!("This is a special font: {file}"))
-        .set_font(font_of_file(file)?);
+        .set_font(FontProperties::from_file(file, &plt::rc::params())?);
     ax.set_xlabel("This is the default font");
     Ok(())
 }
@@ -117,7 +106,7 @@ fn font_table(fig: &Figure) -> CaseResult {
                 .collect(),
         )
     })?;
-    let font = font_of_file(&file)?;
+    let font = FontProperties::from_file(&file, &plt::rc::params())?;
     for (row, col) in table.cell_keys() {
         if row > 0
             && col > -1

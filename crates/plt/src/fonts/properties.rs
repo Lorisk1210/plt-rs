@@ -2,10 +2,11 @@
 //! validation and its fontconfig pattern form.
 
 use std::fmt::Write as _;
+use std::path::PathBuf;
 
 use plt_text::fontconfig::{FontconfigPattern, escape_family, escape_value};
 use plt_text::mathtext::Fontset;
-use plt_text::{FontStyle, FontVariant};
+use plt_text::{FontStyle, FontVariant, TextEngine, TextError};
 
 use super::{FontPropertyError, FontSize, FontStretch, FontWeight};
 use crate::rc::RcParams;
@@ -35,6 +36,10 @@ pub struct FontProperties {
     pub size: f64,
     /// The fonts of math text (`mathtext.fontset` by default).
     pub math_fontfamily: Fontset,
+    /// The font file the text is set in whatever the families, style and
+    /// weight (matplotlib's `fname`); a bare file name may also name a
+    /// bundled font. See [`FontProperties::from_file`].
+    pub file: Option<PathBuf>,
 }
 
 /// Parses a font style name exactly as `FontProperties.set_style` accepts
@@ -90,7 +95,24 @@ impl FontProperties {
             stretch: rc.font_stretch,
             size: clamp_size(rc.font_size),
             math_fontfamily: Fontset::parse(&rc.mathtext_fontset).unwrap_or_default(),
+            file: None,
         }
+    }
+
+    /// `FontProperties(fname=path)`: the defaults from `rc`, with text set
+    /// in the font file at `path` (or the bundled font file so named).
+    ///
+    /// # Errors
+    ///
+    /// When the file cannot be read or holds no font. A file set directly
+    /// in [`FontProperties::file`] that cannot be read is ignored.
+    pub fn from_file(path: impl Into<PathBuf>, rc: &RcParams) -> Result<Self, TextError> {
+        let path = path.into();
+        TextEngine::global().file_faces(&path)?;
+        Ok(Self {
+            file: Some(path),
+            ..Self::from_rc(rc)
+        })
     }
 
     /// `FontProperties(pattern)`: the defaults from `rc` overridden by a
@@ -187,6 +209,11 @@ impl FontProperties {
             last_resort: rc.font_enable_last_resort,
             hinting: crate::text::hinting(rc),
             weight_keyword: self.weight.name(),
+            file: self
+                .file
+                .as_ref()
+                .and_then(|path| TextEngine::global().file_faces(path).ok())
+                .and_then(|faces| faces.first().copied()),
         }
     }
 }
@@ -194,7 +221,28 @@ impl FontProperties {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fonts::RelativeSize;
+    use crate::fonts::{FontExt, FontManager, RelativeSize};
+
+    #[test]
+    fn text_is_set_in_the_named_file() {
+        let rc = RcParams::matplotlib();
+        let props = FontProperties::from_file("cmr10.ttf", &rc).unwrap();
+        assert_eq!(
+            props.families,
+            FontProperties::from_rc(&rc).families,
+            "the other properties keep their defaults"
+        );
+        assert!(props.request(&rc).file.is_some());
+        assert!(FontProperties::from_rc(&rc).request(&rc).file.is_none());
+        assert_eq!(
+            FontManager::global()
+                .find_font(&props, &rc, FontExt::Ttf, true)
+                .unwrap(),
+            "cmr10.ttf"
+        );
+        assert!(FontProperties::from_file("/no/such/font.ttf", &rc).is_err());
+        assert!(FontManager::global().add_font("/no/such/font.ttf").is_err());
+    }
 
     #[test]
     fn sizes_are_clamped_and_relative_to_the_base() {

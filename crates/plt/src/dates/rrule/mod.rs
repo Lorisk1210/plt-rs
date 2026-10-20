@@ -9,8 +9,8 @@
 //! Supported: every frequency from yearly to secondly, `interval`,
 //! `dtstart`, `until`, `count`, `wkst`, `bysetpos`, `bymonth`,
 //! `bymonthday` (negative days count from the month's end), `byyearday`,
-//! `byweekday` (with optional `n`-th occurrence), `byhour`, `byminute` and
-//! `bysecond`. Not supported: `byweekno` and dateutil's `byeaster`.
+//! `byweekday` (with optional `n`-th occurrence), `byhour`, `byminute`,
+//! `bysecond` and dateutil's `byeaster`. Not supported: `byweekno`.
 
 mod iter;
 mod yearinfo;
@@ -135,6 +135,9 @@ pub struct RRuleSpec {
     pub byminute: Vec<u32>,
     /// Seconds, 0-59.
     pub bysecond: Vec<u32>,
+    /// Days relative to Western Easter Sunday (`0` = Easter Sunday, `1`
+    /// = Easter Monday; dateutil's `byeaster`).
+    pub byeaster: Vec<i32>,
 }
 
 impl RRuleSpec {
@@ -155,6 +158,7 @@ impl RRuleSpec {
             byhour: Vec::new(),
             byminute: Vec::new(),
             bysecond: Vec::new(),
+            byeaster: Vec::new(),
         }
     }
 }
@@ -178,15 +182,16 @@ pub struct RRule {
     pub(crate) byhour: Vec<u32>,
     pub(crate) byminute: Vec<u32>,
     pub(crate) bysecond: Vec<u32>,
+    pub(crate) byeaster: Vec<i32>,
     /// The times of day for frequencies coarser than hourly.
     pub(crate) timeset: Vec<Time>,
 }
 
 impl RRule {
-    /// Validates `spec` and applies dateutil's defaults: yearly rules
-    /// recur on `dtstart`'s month and day, monthly ones on its day, weekly
-    /// ones on its weekday, and the clock fields default to `dtstart`'s for
-    /// frequencies coarser than them.
+    /// Validates `spec` and applies dateutil's defaults: without any
+    /// day-level rule, yearly rules recur on `dtstart`'s month and day,
+    /// monthly ones on its day and weekly ones on its weekday; the clock
+    /// fields default to `dtstart`'s for frequencies coarser than them.
     pub fn new(spec: &RRuleSpec) -> Result<Self, DateError> {
         let dtstart = spec
             .dtstart
@@ -197,7 +202,11 @@ impl RRule {
         let mut bymonth = spec.bymonth.clone();
         let mut bymonthday = spec.bymonthday.clone();
         let mut byweekday_spec = spec.byweekday.clone();
-        if spec.byyearday.is_empty() && bymonthday.is_empty() && byweekday_spec.is_empty() {
+        if spec.byyearday.is_empty()
+            && bymonthday.is_empty()
+            && byweekday_spec.is_empty()
+            && spec.byeaster.is_empty()
+        {
             match freq {
                 Frequency::Yearly => {
                     if bymonth.is_empty() {
@@ -259,6 +268,7 @@ impl RRule {
             byhour,
             byminute,
             bysecond,
+            byeaster: sorted_unique(spec.byeaster.clone()),
             timeset,
         })
     }
@@ -320,16 +330,15 @@ impl<'a> IntoIterator for &'a RRule {
     }
 }
 
-/// Rejects parameters dateutil would choke on.
+/// Rejects parameters dateutil would choke on. Clock values out of range
+/// are let through, as dateutil does: they never match a clock position,
+/// and only fail as times of day (for frequencies coarser than hourly).
 fn validate(spec: &RRuleSpec) -> Result<(), DateError> {
     let invalid = |why: &str| Err(DateError::InvalidArgument(why.to_owned()));
     if spec.interval == 0 {
         return invalid("rrule interval must be at least 1");
     }
     validate_range("bymonth", &spec.bymonth, 1, 12)?;
-    validate_range("byhour", &spec.byhour, 0, 23)?;
-    validate_range("byminute", &spec.byminute, 0, 59)?;
-    validate_range("bysecond", &spec.bysecond, 0, 59)?;
     if spec
         .bysetpos
         .iter()
@@ -472,6 +481,19 @@ mod tests {
         let mut bad = spec(Frequency::Daily, start);
         bad.bymonth = vec![13];
         assert!(RRule::new(&bad).is_err());
+        let mut bad = spec(Frequency::Daily, start);
+        bad.byhour = vec![24];
+        assert!(RRule::new(&bad).is_err(), "no such time of day");
+    }
+
+    #[test]
+    fn clock_values_out_of_range_never_match() {
+        // matplotlib's `HourLocator(range(0, 25, 6))`.
+        let mut rule = spec(Frequency::Hourly, dt(2000, 3, 2, 0, 0, 0));
+        rule.byhour = vec![0, 6, 12, 18, 24];
+        let rule = RRule::new(&rule).unwrap();
+        let hours: Vec<u32> = rule.iter().take(5).map(|t| t.unwrap().hour()).collect();
+        assert_eq!(hours, [0, 6, 12, 18, 0]);
     }
 
     #[test]

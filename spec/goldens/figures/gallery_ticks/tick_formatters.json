@@ -1,0 +1,123 @@
+{
+ "size_px": [800, 800],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.035277, 0.264819, 0.929446, 0.427247],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0.0 km"], [1.0, "1.0 km"], [2.0, "2.0 km"], [3.0, "3.0 km"], [4.0, "4.0 km"], [5.0, "5.0 km"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.022162, 0.264819, 0.958811, 0.427247],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "-5.0"], [1.0, "-4.0"], [2.0, "-3.0"], [3.0, "-2.0"], [4.0, "-1.0"], [5.0, "0.0"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.031332, 0.859015, 0.937336, 0.079398],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, ""], [1.0, ""], [2.0, ""], [3.0, ""], [4.0, ""], [5.0, ""]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.031332, 0.752519, 0.937336, 0.079398],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0.000"], [1.0, "1.000"], [2.0, "2.000"], [3.0, "3.000"], [4.0, "4.000"], [5.0, "5.000"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.031332, 0.612767, 0.937336, 0.079398],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "#0"], [1.0, "#1"], [2.0, "#2"], [3.0, "#3"], [4.0, "#4"], [5.0, "#5"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.031332, 0.473015, 0.937336, 0.079398],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "[0.00]"], [1.0, "[1.00]"], [2.0, "[2.00]"], [3.0, "[3.00]"], [4.0, "[4.00]"], [5.0, "[5.00]"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.031332, 0.333262, 0.937336, 0.079398],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "A"], [1, "B"], [2, "C"], [3, "D"], [4, "E"], [5, "F"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.031332, 0.19351, 0.937336, 0.079398],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{1}$"], [2.0, "$\\mathdefault{2}$"], [3.0, "$\\mathdefault{3}$"], [4.0, "$\\mathdefault{4}$"], [5.0, "$\\mathdefault{5}$"]],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.031332, 0.052964, 0.937336, 0.079398],
+   "title": "",
+   "xlim": [0.0, 5.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0%"], [1.0, "20%"], [2.0, "40%"], [3.0, "60%"], [4.0, "80%"], [5.0, "100%"]],
+   "yticks": []
+  }
+ ]
+}

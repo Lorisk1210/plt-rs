@@ -302,6 +302,22 @@ mod tests {
     }
 
     #[test]
+    fn the_longer_ticks_pad_a_spine_without_labels() {
+        use crate::ticker::{MultipleLocator, NullFormatter, NullLocator};
+        let fig = Figure::with_size(4.0, 3.0, 72.0);
+        let ax = fig.subplot();
+        ax.xaxis()
+            .set_major_formatter(NullFormatter)
+            .set_minor_locator(MultipleLocator::new(0.1).unwrap());
+        ax.yaxis().set_major_locator(NullLocator);
+        let mut state = ax.raw().figure_state().borrow_mut();
+        let extent = state.axes_bbox(ax.id()).unwrap();
+        let tight = state.axes_tight_bbox(ax.id(), true).unwrap();
+        // The 3.5 pt major ticks, not added to the 2 pt minor ones.
+        assert!((extent.y0() - tight.y0() - 3.5).abs() < 1e-9);
+    }
+
+    #[test]
     fn texts_outside_the_scale_domain_do_not_count() {
         let fig = Figure::new();
         let ax = fig.subplot();

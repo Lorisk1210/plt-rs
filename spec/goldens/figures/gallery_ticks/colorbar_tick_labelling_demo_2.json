@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.310375, 0.341, 0.40425, 0.539],
+   "title": "Gaussian noise with horizontal colorbar",
+   "xlim": [-0.5, 249.5],
+   "ylim": [249.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"], [150.0, "150"], [200.0, "200"]],
+   "yticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"], [150.0, "150"], [200.0, "200"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.173833, 0.775, 0.051667],
+   "title": "",
+   "xlim": [-1.0, 1.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-1, "Low"], [0, "Medium"], [1, "High"]],
+   "yticks": []
+  }
+ ]
+}

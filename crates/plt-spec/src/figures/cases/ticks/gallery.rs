@@ -5,31 +5,19 @@ use plt::layout::TightLayout;
 use plt::prelude::*;
 use plt::spines::SpineSide;
 use plt::ticker::{
-    AutoLocator, AutoMinorLocator, FixedFormatter, FixedLocator, FormatStrFormatter, FuncFormatter,
-    IndexLocator, LinearLocator, LogLocator, MaxNLocator, MultipleLocator, Nbins, NullFormatter,
-    NullLocator, NumTicks, PercentFormatter, ScalarFormatter, StrMethodFormatter, pyfmt,
+    FixedFormatter, FixedLocator, FormatStrFormatter, FuncFormatter, MultipleLocator,
+    NullFormatter, PercentFormatter, ScalarFormatter, StrMethodFormatter, pyfmt,
 };
 
 use crate::figures::CaseResult;
+use crate::figures::cases::common::{locator_strips, tick_strip};
 
 /// `_strip(ax, title)`: only the bottom spine and the x ticks are shown,
 /// over `[0, 5]`, with `title` written above the axis.
 fn strip(ax: &Axes, title: &str) -> CaseResult {
-    ax.yaxis().set_major_locator(NullLocator);
-    let spines = ax.spines();
-    for side in [SpineSide::Left, SpineSide::Right, SpineSide::Top] {
-        spines.get(side).set_visible(false);
-    }
+    tick_strip(ax);
     ax.xaxis()
         .set_ticks_position(TickPosition::Side(SpineSide::Bottom))?;
-    for (which, width, length) in [(TickLevel::Major, 1.0, 5.0), (TickLevel::Minor, 0.75, 2.5)] {
-        ax.tick_params(&TickParams {
-            which,
-            width: Some(width),
-            length: Some(length),
-            ..TickParams::default()
-        });
-    }
     ax.set_xlim(0.0, 5.0).set_ylim(0.0, 1.0);
     ax.set_patch_visible(false);
     ax.text(0.0, 0.2, title)
@@ -40,55 +28,7 @@ fn strip(ax: &Axes, title: &str) -> CaseResult {
 }
 
 pub(super) fn locators_gallery(fig: &Figure) -> CaseResult {
-    let axs = fig.subplots(8, 1)?;
-    let ax = |i: usize| &axs[(i, 0)];
-    strip(ax(0), "NullLocator()")?;
-    ax(0)
-        .xaxis()
-        .set_major_locator(NullLocator)
-        .set_minor_locator(NullLocator);
-    strip(ax(1), "MultipleLocator(0.5, offset=0.2)")?;
-    ax(1)
-        .xaxis()
-        .set_major_locator(MultipleLocator::new(0.5)?.with_offset(0.2))
-        .set_minor_locator(MultipleLocator::new(0.1)?);
-    strip(ax(2), "FixedLocator([0, 1, 5])")?;
-    ax(2)
-        .xaxis()
-        .set_major_locator(FixedLocator::new(vec![0.0, 1.0, 5.0]))
-        .set_minor_locator(FixedLocator::new(linspace(0.2, 0.8, 4)));
-    strip(ax(3), "LinearLocator(numticks=3)")?;
-    ax(3)
-        .xaxis()
-        .set_major_locator(LinearLocator::new(Some(3)))
-        .set_minor_locator(LinearLocator::new(Some(31)));
-    strip(ax(4), "IndexLocator(base=0.5, offset=0.25)")?;
-    ax(4).plot_with(
-        [0.0, 1.0, 2.0, 3.0, 4.0],
-        [0.0; 5],
-        LineProps::default().color("white"),
-    )?;
-    ax(4)
-        .xaxis()
-        .set_major_locator(IndexLocator::new(0.5, 0.25));
-    strip(ax(5), "AutoLocator()")?;
-    ax(5)
-        .xaxis()
-        .set_major_locator(AutoLocator::new())
-        .set_minor_locator(AutoMinorLocator::new(None));
-    strip(ax(6), "MaxNLocator(n=4)")?;
-    ax(6)
-        .xaxis()
-        .set_major_locator(MaxNLocator::new(Nbins::Fixed(4)))
-        .set_minor_locator(MaxNLocator::new(Nbins::Fixed(40)));
-    strip(ax(7), "LogLocator(base=10, numticks=15)")?;
-    ax(7).set_xlim(1e3, 1e10);
-    ax(7).set_xscale("log")?;
-    ax(7)
-        .xaxis()
-        .set_major_locator(LogLocator::new(10.0)?.with_numticks(NumTicks::Fixed(15)));
-    fig.tight_layout(&TightLayout::default())?;
-    Ok(())
+    locator_strips(fig, strip)
 }
 
 pub(super) fn formatters_gallery(fig: &Figure) -> CaseResult {

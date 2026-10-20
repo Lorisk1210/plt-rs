@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 96],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.417879, 0.79, 0.218295],
+   "title": "Original and reversed  colormaps",
+   "xlim": [-0.5, 255.5],
+   "ylim": [1.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"], [150.0, "150"], [200.0, "200"], [250.0, "250"]],
+   "yticks": [[0.0, "0"], [1.0, "1"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.155925, 0.79, 0.218295],
+   "title": "",
+   "xlim": [-0.5, 255.5],
+   "ylim": [1.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"], [150.0, "150"], [200.0, "200"], [250.0, "250"]],
+   "yticks": [[0.0, "0"], [1.0, "1"]]
+  }
+ ]
+}

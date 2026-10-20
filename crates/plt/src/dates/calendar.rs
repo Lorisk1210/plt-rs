@@ -207,6 +207,27 @@ pub fn iso_week(year: i64, month: u32, day: u32) -> (i64, u32) {
     (iso_year, week as u32)
 }
 
+/// The month and day of Western (Gregorian) Easter Sunday in `year`
+/// (dateutil's `easter.easter` with its default `EASTER_WESTERN` method).
+///
+/// ```
+/// use plt::dates::calendar::easter;
+/// assert_eq!(easter(2024), (3, 31));
+/// assert_eq!(easter(1952), (4, 13));
+/// ```
+pub const fn easter(year: i64) -> (u32, u32) {
+    let g = year.rem_euclid(19);
+    let c = year.div_euclid(100);
+    let h = (c - c.div_euclid(4) - (8 * c + 13).div_euclid(25) + 19 * g + 15).rem_euclid(30);
+    let i = h - (h / 28) * (1 - (h / 28) * (29 / (h + 1)) * ((21 - g) / 11));
+    let j = (year + year.div_euclid(4) + i + 2 - c + c.div_euclid(4)).rem_euclid(7);
+    // From -6 to 56: March 22 to May 23.
+    let p = i - j;
+    let day = 1 + (p + 27 + (p + 6).div_euclid(40)).rem_euclid(31);
+    let month = 3 + (p + 26).div_euclid(30);
+    (month as u32, day as u32)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,5 +273,23 @@ mod tests {
         assert_eq!(iso_week(2021, 1, 3), (2020, 53));
         assert_eq!(iso_week(2020, 3, 5), (2020, 10));
         assert_eq!(iso_week(5, 1, 1), (4, 53));
+    }
+
+    #[test]
+    fn easter_sundays() {
+        // dateutil's easter() for these years.
+        for (year, date) in [
+            (1583, (4, 10)),
+            (1818, (3, 22)),
+            (1943, (4, 25)),
+            (2000, (4, 23)),
+            (2019, (4, 21)),
+            (2038, (4, 25)),
+            (2285, (3, 22)),
+        ] {
+            assert_eq!(easter(year), date, "{year}");
+            let days = days_from_civil(year, date.0, date.1);
+            assert_eq!(Weekday::from_days_since_epoch(days), Weekday::Sunday);
+        }
     }
 }

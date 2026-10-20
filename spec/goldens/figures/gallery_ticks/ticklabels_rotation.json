@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.107357, 0.187986, 0.886132, 0.803332],
+   "title": "",
+   "xlim": [-1.19, 16.19],
+   "ylim": [0.0, 1488.3666],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "population (millions)",
+   "xticks": [[0, "India"], [1, "China"], [2, "United States"], [3, "Indonesia"], [4, "Pakistan"], [5, "Nigeria"], [6, "Brazil"], [7, "Bangladesh"], [8, "Russia"], [9, "Mexico"], [10, "Japan"], [11, "Philippines"], [12, "DR Congo"], [13, "Ethiopia"], [14, "Egypt"], [15, "Vietnam"]],
+   "yticks": [[0.0, "0"], [200.0, "200"], [400.0, "400"], [600.0, "600"], [800.0, "800"], [1000.0, "1000"], [1200.0, "1200"], [1400.0, "1400"]]
+  }
+ ]
+}

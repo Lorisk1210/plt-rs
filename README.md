@@ -88,7 +88,7 @@ does it without pyplot.
 * **Interactive**: figure windows with a toolbar (home/back/forward,
   pan, zoom-to-rectangle, wheel zoom, subplot configuration, figure
   options, save), a save dialog (PNG, JPEG, TIFF, GIF, WebP, SVG, PDF,
-  PS, EPS), copying the figure to the clipboard, matplotlib's keyboard
+  PS, EPS, PGF), copying the figure to the clipboard, matplotlib's keyboard
   shortcuts with a help window, toolbar tools of your own
   (`Figure::add_tool`), a live coordinate readout with the image value
   under the pointer, 3-D axes that rotate (arcball, trackball, sphere or
@@ -105,9 +105,10 @@ does it without pyplot.
   timers and downloads in every output format.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF
   byte-identical to Pillow's for the same pixels, lossless WebP, GIF and
-  raw RGBA; and SVG, PDF and PostScript/EPS documents structured like
+  raw RGBA; SVG, PDF and PostScript/EPS documents structured like
   matplotlib's, including the 14 core fonts of `pdf.use14corefonts` and
-  `ps.useafm`. `imread` reads PNG, JPEG, TIFF, GIF and WebP (lossy and
+  `ps.useafm`; and PGF pictures for LaTeX (text typeset by LaTeX, laid
+  out with plt-rs' metrics). `imread` reads PNG, JPEG, TIFF, GIF and WebP (lossy and
   lossless, still or animated) to the pixels matplotlib gets.
 * **Widgets**: buttons, sliders and range sliders, check and radio
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
@@ -135,7 +136,7 @@ writes every figure as a PNG with an `index.html` showing them all.
 | `plt-font`     | TrueType/OpenType parsing, shaping (GSUB/GPOS), font manager      |
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `plt-text`     | text layout and the mathtext parser and typesetter                |
-| `plt-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS |
+| `plt-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS/PGF |
 | `plt-platform` | windows, input and the event loop (X11; headless for tests)       |
 | `plt-ui`       | the retained-mode UI engine used by figure windows                |
 | `plt`          | the matplotlib model: figures, axes, artists, pyplot, GUI, web    |

@@ -24,7 +24,9 @@ use plt_text::TextError;
 pub(crate) use base64::encode as base64_encode;
 pub(crate) use digest::sha256_hex;
 pub(crate) use font::{FontCache, FontInfo};
-pub(crate) use format::{general, hex, hex_color, repr, repr_bytes, repr_str, short, trimmed};
+pub(crate) use format::{
+    fixed, general, hex, hex_color, repr, repr_bytes, repr_str, short, trimmed,
+};
 pub(crate) use image::{flipped_rows, png_idat};
 pub use metadata::{Metadata, Timestamp, Trapped};
 pub(crate) use text::{POINTS_DPI, glyph_chars, in_points, prev_kerns};
@@ -79,6 +81,8 @@ pub enum VectorError {
     Image(EncodeError),
     /// A number the format cannot represent (PDF has no NaN or infinity).
     NonFinite(&'static str),
+    /// Something the format cannot hold.
+    Unsupported(&'static str),
 }
 
 impl fmt::Display for VectorError {
@@ -91,6 +95,7 @@ impl fmt::Display for VectorError {
             Self::Font(err) => write!(f, "cannot embed font: {err}"),
             Self::Image(err) => write!(f, "cannot encode image: {err}"),
             Self::NonFinite(what) => write!(f, "cannot write a non-finite {what}"),
+            Self::Unsupported(what) => f.write_str(what),
         }
     }
 }
@@ -100,7 +105,7 @@ impl std::error::Error for VectorError {
         match self {
             Self::Font(err) => Some(err),
             Self::Image(err) => Some(err),
-            Self::InvalidCanvas { .. } | Self::NonFinite(_) => None,
+            Self::InvalidCanvas { .. } | Self::NonFinite(_) | Self::Unsupported(_) => None,
         }
     }
 }
@@ -153,22 +158,35 @@ impl Problems {
 /// clip=clip, simplify=False)`): the last vertex of every segment after
 /// transforming, dropping non-finite points and clipping to `clip`.
 pub(crate) fn segment_ends(path: &Path, transform: Affine2D, clip: Option<Bbox>) -> Vec<Point> {
+    segment_points(path, transform, clip, false)
+}
+
+/// The first vertex of every segment of `path`, conditioned as for
+/// [`segment_ends`] (where the PGF backend places markers).
+pub(crate) fn segment_starts(path: &Path, transform: Affine2D, clip: Option<Bbox>) -> Vec<Point> {
+    segment_points(path, transform, clip, true)
+}
+
+/// The first or last vertex of every segment of the conditioned path.
+fn segment_points(path: &Path, transform: Affine2D, clip: Option<Bbox>, first: bool) -> Vec<Point> {
     let mut stream = path
         .iter_vertices()
         .transform(transform)
         .remove_nans(true, path.codes().is_some())
         .clip_to(clip);
-    let mut ends = Vec::new();
+    let mut points = Vec::new();
     while let Some(vertex) = stream.next() {
         let mut point = vertex.point;
         for _ in 1..vertex.code.vertex_count() {
-            if let Some(next) = stream.next() {
+            if let Some(next) = stream.next()
+                && !first
+            {
                 point = next.point;
             }
         }
-        ends.push(point);
+        points.push(point);
     }
-    ends
+    points
 }
 
 /// A gzip member (RFC 1952) holding `data`, as Python's `gzip.GzipFile`

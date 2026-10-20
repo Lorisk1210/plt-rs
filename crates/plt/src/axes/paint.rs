@@ -3,7 +3,6 @@
 //! the background and everything up to it become one image in vector
 //! output.
 
-use plt_core::Rgba;
 use plt_render::{ClipPath, JoinStyle};
 
 use super::Axes;
@@ -166,13 +165,20 @@ impl AxesState {
         if !self.patch.visible {
             return;
         }
-        match self.patch.facecolor.resolve() {
-            Ok(face) => {
-                // The patch has edge colour 'none' and no width, and is
-                // left unfilled when transparent.
+        match (
+            self.patch.facecolor.resolve(),
+            self.patch.edgecolor.resolve(),
+        ) {
+            (Ok(face), Ok(edge)) => {
+                // A transparent face is left unfilled, a transparent edge
+                // unstroked.
                 let mut gc = ctx.base_gc(base);
-                gc.linewidth = 0.0;
-                gc.foreground = Rgba::TRANSPARENT;
+                gc.linewidth = if edge.is_transparent() {
+                    0.0
+                } else {
+                    self.patch.linewidth
+                };
+                gc.foreground = edge;
                 gc.join = JoinStyle::Miter;
                 if self.patch_outline.is_some() {
                     // Floating axes clip their outline to the axes box
@@ -194,7 +200,7 @@ impl AxesState {
                     });
                 });
             }
-            Err(err) => ctx.report(base.id(), err),
+            (Err(err), _) | (_, Err(err)) => ctx.report(base.id(), err),
         }
     }
 

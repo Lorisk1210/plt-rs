@@ -308,14 +308,35 @@ impl Figure {
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
     ) -> Result<R, SaveError> {
         // matplotlib's vector backends lay text out unhinted.
-        crate::text::without_hinting(|| {
-            let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
-            let mut renderer =
-                make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
-            self.draw_mixed(&mut renderer, page)?;
-            drop(saving);
-            Ok(renderer)
-        })
+        crate::text::without_hinting(|| self.render_into(options, Some(POINTS_PER_INCH), make))
+    }
+
+    /// Renders the figure into the renderer `make` creates, drawing at the
+    /// save resolution with text measured as on the raster canvas
+    /// (matplotlib's `print_pgf`, whose canvas keeps the figure's
+    /// resolution).
+    pub(crate) fn render_at_save_resolution<R: Renderer>(
+        &self,
+        options: &SaveOptions,
+        make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
+    ) -> Result<R, SaveError> {
+        self.render_into(options, None, make)
+    }
+
+    /// Draws the figure at `canvas_dpi` (default: the save resolution)
+    /// into the renderer `make` creates from the page size in inches and
+    /// the save resolution.
+    fn render_into<R: Renderer>(
+        &self,
+        options: &SaveOptions,
+        canvas_dpi: Option<f64>,
+        make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
+    ) -> Result<R, SaveError> {
+        let (saving, page) = self.begin_print(options, canvas_dpi);
+        let mut renderer = make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
+        self.draw_mixed(&mut renderer, page)?;
+        drop(saving);
+        Ok(renderer)
     }
 
     /// Draws the figure as one more page of a PDF document, as

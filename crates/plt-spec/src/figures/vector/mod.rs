@@ -10,6 +10,7 @@
 
 mod diff;
 mod pdf;
+mod pgf;
 mod ps;
 mod svg;
 mod truetype;
@@ -164,11 +165,17 @@ pub enum VectorFormat {
     Pdf,
     /// PostScript with Type 3 fonts.
     Ps,
+    /// LaTeX PGF pictures (no goldens: compared in the wide comparison
+    /// only, where matplotlib measures text like Agg instead of LaTeX).
+    Pgf,
 }
 
 impl VectorFormat {
-    /// Every format.
+    /// Every format with goldens.
     pub const ALL: [Self; 3] = [Self::Svg, Self::Pdf, Self::Ps];
+
+    /// Every format of the wide comparison.
+    pub const WIDE: [Self; 4] = [Self::Svg, Self::Pdf, Self::Ps, Self::Pgf];
 
     /// The file extension.
     pub const fn extension(self) -> &'static str {
@@ -176,6 +183,7 @@ impl VectorFormat {
             Self::Svg => "svg",
             Self::Pdf => "pdf",
             Self::Ps => "ps",
+            Self::Pgf => "pgf",
         }
     }
 
@@ -184,6 +192,7 @@ impl VectorFormat {
             Self::Svg => SaveFormat::Svg,
             Self::Pdf => SaveFormat::Pdf,
             Self::Ps => SaveFormat::Ps,
+            Self::Pgf => SaveFormat::Pgf,
         }
     }
 
@@ -193,6 +202,7 @@ impl VectorFormat {
             Self::Svg => svg::items(document),
             Self::Pdf => pdf::items(document),
             Self::Ps => ps::items(document),
+            Self::Pgf => pgf::items(document),
         }
     }
 }
@@ -235,7 +245,8 @@ fn golden_options(case: &FigureCase) -> SaveOptions {
 
 /// Renders a case as `format` the way the spec saves its goldens: at the
 /// case's resolution, without metadata, with the fixed SVG id salt and
-/// the rcParams `rc` on top of the case's.
+/// the rcParams `rc` on top of the case's. PGF pictures are saved to a
+/// file, beside which their images go.
 pub fn render_vector_with(
     case: &FigureCase,
     format: VectorFormat,
@@ -246,8 +257,28 @@ pub fn render_vector_with(
         for (key, value) in rc {
             plt::rc::set(key, value)?;
         }
+        if format == VectorFormat::Pgf {
+            return saved_pgf(fig, case);
+        }
         Ok(fig.to_format(format.save_format(), &golden_options(case))?)
     })
+}
+
+/// The PGF picture of `fig` saved to a scratch file named after `case`.
+fn saved_pgf(fig: &plt::figure::Figure, case: &FigureCase) -> Result<Vec<u8>, Box<dyn Error>> {
+    let directory = std::env::temp_dir().join(format!(
+        "plt-spec-pgf-{}-{}",
+        std::process::id(),
+        case.name.replace('/', "__")
+    ));
+    std::fs::create_dir_all(&directory)?;
+    let path = directory.join(format!("{}.pgf", case.name.replace('/', "__")));
+    let saved = fig
+        .savefig_with(&path, &golden_options(case))
+        .map_err(Box::<dyn Error>::from)
+        .and_then(|()| Ok(std::fs::read(&path)?));
+    let _ = std::fs::remove_dir_all(&directory);
+    saved
 }
 
 /// Renders a case as `format` the way the spec saves its goldens.

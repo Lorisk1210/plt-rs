@@ -42,7 +42,7 @@ impl fmt::Display for SaveError {
             Self::Draw(err) => err.fmt(f),
             Self::UnsupportedFormat(format) => write!(
                 f,
-                "format {format:?} is not supported (supported formats: eps, gif, jpeg, jpg, pdf, png, ps, raw, rgba, svg, svgz, tif, tiff)"
+                "format {format:?} is not supported (supported formats: eps, gif, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff, webp)"
             ),
             Self::Io(err) => write!(f, "cannot write the figure: {err}"),
         }
@@ -77,6 +77,8 @@ pub enum SaveFormat {
     Ps,
     /// Encapsulated PostScript, sized to the figure.
     Eps,
+    /// A LaTeX PGF picture.
+    Pgf,
     /// JPEG, flattened onto white (`jpg` or `jpeg`).
     Jpeg,
     /// Uncompressed TIFF (`tif` or `tiff`).
@@ -99,6 +101,7 @@ impl SaveFormat {
             Self::Pdf => "pdf",
             Self::Ps => "ps",
             Self::Eps => "eps",
+            Self::Pgf => "pgf",
             Self::Jpeg => "jpg",
             Self::Tiff => "tif",
             Self::Gif => "gif",
@@ -117,7 +120,7 @@ impl SaveFormat {
             Self::Gif => Some(BitmapFormat::Gif),
             Self::Webp => Some(BitmapFormat::Webp),
             Self::Raw => Some(BitmapFormat::Raw),
-            Self::Svg | Self::Svgz | Self::Pdf | Self::Ps | Self::Eps => None,
+            Self::Svg | Self::Svgz | Self::Pdf | Self::Ps | Self::Eps | Self::Pgf => None,
         }
     }
 }
@@ -134,6 +137,7 @@ impl FromStr for SaveFormat {
             "pdf" => Self::Pdf,
             "ps" => Self::Ps,
             "eps" => Self::Eps,
+            "pgf" => Self::Pgf,
             "jpg" | "jpeg" => Self::Jpeg,
             "tif" | "tiff" => Self::Tiff,
             "gif" => Self::Gif,
@@ -278,6 +282,7 @@ impl Figure {
             SaveFormat::Pdf => self.to_pdf_with(options),
             SaveFormat::Ps => self.to_ps_with(options).map(String::into_bytes),
             SaveFormat::Eps => self.to_eps_with(options).map(String::into_bytes),
+            SaveFormat::Pgf => self.to_pgf_with(options).map(String::into_bytes),
             SaveFormat::Jpeg => self.to_bitmap(BitmapFormat::Jpeg, options),
             SaveFormat::Tiff => self.to_bitmap(BitmapFormat::Tiff, options),
             SaveFormat::Gif => self.to_bitmap(BitmapFormat::Gif, options),
@@ -305,7 +310,8 @@ impl Figure {
     }
 
     /// Writes the figure to `path` in the format its extension names
-    /// (PNG, JPEG, TIFF, GIF, WebP, raw RGBA, SVG, SVGZ, PDF, PS or EPS;
+    /// (PNG, JPEG, TIFF, GIF, WebP, raw RGBA, SVG, SVGZ, PDF, PS, EPS or
+    /// PGF;
     /// `savefig.format` and an appended extension without one).
     pub fn savefig(&self, path: impl AsRef<FsPath>) -> Result<(), SaveError> {
         self.savefig_with(path, &SaveOptions::default())
@@ -324,8 +330,12 @@ impl Figure {
         options: &SaveOptions,
     ) -> Result<(), SaveError> {
         let (path, format) = resolve_format(path.as_ref(), options.format)?;
-        if matches!(format, SaveFormat::Svg | SaveFormat::Svgz) {
-            return self.save_svg(&path, options, format == SaveFormat::Svgz);
+        match format {
+            SaveFormat::Svg | SaveFormat::Svgz => {
+                return self.save_svg(&path, options, format == SaveFormat::Svgz);
+            }
+            SaveFormat::Pgf => return self.save_pgf(&path, options),
+            _ => {}
         }
         let document = if matches!(format, SaveFormat::Ps | SaveFormat::Eps) {
             let titled = SaveOptions {

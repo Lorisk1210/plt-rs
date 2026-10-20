@@ -37,6 +37,7 @@ mod limits;
 mod lines;
 mod mesh;
 mod paint;
+mod patch;
 mod patches;
 mod pcolor;
 mod pcolor_rgba;
@@ -132,7 +133,6 @@ use std::rc::Rc;
 
 use crate::artist::Artist;
 use crate::artist::{ArtistHandle, RawHandle};
-use crate::colors::Color;
 use crate::rc::ColorOrAuto;
 use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
 use crate::spines::{Spine, Spines};
@@ -488,34 +488,6 @@ impl Axes {
     /// `get_frame_on`).
     pub fn frame_on(&self) -> bool {
         self.raw.with::<AxesState, _>(|a| a.decorations.frame_on)
-    }
-
-    /// Sets the background colour (matplotlib's `set_facecolor`).
-    pub fn set_facecolor(&self, color: impl Into<Color>) -> &Self {
-        let color = color.into();
-        self.raw
-            .with_mut::<AxesState, _>(|a| a.patch.facecolor = color);
-        self
-    }
-
-    /// The background colour.
-    pub fn facecolor(&self) -> Color {
-        self.raw.with::<AxesState, _>(|a| a.patch.facecolor.clone())
-    }
-
-    /// Sets the z-order of the background patch (matplotlib's
-    /// `ax.patch.set_zorder`). It matters only where a parasite axes
-    /// shares the patch and draws it among its children; as the
-    /// background the patch is always drawn first.
-    pub fn set_patch_zorder(&self, zorder: f64) -> &Self {
-        self.raw
-            .with_mut::<AxesState, _>(|a| a.patch.zorder = zorder);
-        self
-    }
-
-    /// The z-order of the background patch (1 by default).
-    pub fn patch_zorder(&self) -> f64 {
-        self.raw.with::<AxesState, _>(|a| a.patch.zorder)
     }
 
     /// Sets the gap between the axes top and its titles in points

@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use plt_core::{Affine2D, Bbox, Path, Point};
 use plt_font::{FontId, GlyphId, Hinting};
 
-use crate::block::{HAlign, RotationMode};
+use crate::block::{HAlign, RotationMode, VAlign};
 use crate::engine::{FontRequest, TextEngine};
 use crate::error::TextError;
 use crate::mathtext::MathStyle;
@@ -140,6 +140,8 @@ pub struct TextAnchor {
     pub point: Point,
     /// Horizontal alignment at the anchor.
     pub halign: HAlign,
+    /// Vertical alignment at the anchor.
+    pub valign: VAlign,
     /// How rotation and alignment combine.
     pub rotation_mode: RotationMode,
 }

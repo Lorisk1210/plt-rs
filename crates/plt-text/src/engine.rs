@@ -32,6 +32,10 @@ pub struct FontRequest {
     /// (matplotlib's `text.hinting` for the Agg backend; vector output and
     /// text paths are never hinted).
     pub hinting: Hinting,
+    /// The keyword the weight was given as (`"bold"`, ...), if it was: the
+    /// PGF backend sets only weights named bold in bold, as matplotlib's
+    /// does.
+    pub weight_keyword: Option<&'static str>,
 }
 
 impl FontRequest {
@@ -43,6 +47,7 @@ impl FontRequest {
             generics: GenericFamilies::default(),
             last_resort: true,
             hinting: Hinting::None,
+            weight_keyword: None,
         }
     }
 }

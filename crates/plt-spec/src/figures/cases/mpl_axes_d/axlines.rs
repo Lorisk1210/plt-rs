@@ -189,7 +189,8 @@ fn mixed_collection(fig: &Figure) -> CaseResult {
                 .with_offsets(pixels, Transform::Display),
         )
     };
-    ax.set_facecolor("0.5");
+    // `ax.patch.set_color("0.5")`: face and edge.
+    ax.set_facecolor("0.5").set_patch_edgecolor("0.5");
     ax.add_collection(at_pixels([(0.0, 0.0), (24.0, 24.0)])?)
         .set_linewidths(vec![1.0, 5.0]);
     ax.add_collection(at_pixels([(48.0, 0.0), (-32.0, -16.0)])?)

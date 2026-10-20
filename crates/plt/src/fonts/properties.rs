@@ -186,6 +186,7 @@ impl FontProperties {
             },
             last_resort: rc.font_enable_last_resort,
             hinting: crate::text::hinting(rc),
+            weight_keyword: self.weight.name(),
         }
     }
 }

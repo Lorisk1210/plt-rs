@@ -246,7 +246,7 @@ fn wide_outcome(case: &FigureCase, format: VectorFormat, reference: &Path) -> Op
 }
 
 /// Compares every translated case with the matplotlib documents in the
-/// directory `$PLT_VECTOR_REFERENCE` (`<group>__<name>.<svg|pdf|ps>`, as
+/// directory `$PLT_VECTOR_REFERENCE` (`<group>__<name>.<svg|pdf|ps|pgf>`, as
 /// `spec/reference/figures/render_vectors.py` writes them) and reports per
 /// format how many agree structurally and how many of those exactly.
 #[test]
@@ -263,7 +263,7 @@ fn every_case_matches_matplotlib_structurally() {
         for _ in 0..workers {
             scope.spawn(|| {
                 while let Some(case) = cases.get(next.fetch_add(1, Ordering::Relaxed)) {
-                    for format in VectorFormat::ALL {
+                    for format in VectorFormat::WIDE {
                         if let Some(outcome) = wide_outcome(case, format, &reference) {
                             results
                                 .lock()
@@ -286,7 +286,7 @@ fn every_case_matches_matplotlib_structurally() {
             WideOutcome::Different(problem) => println!("{name} {format}: {problem}"),
         }
     }
-    for format in VectorFormat::ALL {
+    for format in VectorFormat::WIDE {
         let outcomes: Vec<&WideOutcome> = results
             .iter()
             .filter(|(_, f, _)| *f == format)

@@ -6,6 +6,7 @@ mod draw_order;
 mod frame;
 mod mosaic;
 mod pdf_pages;
+mod pgf;
 mod print;
 mod save;
 mod state;

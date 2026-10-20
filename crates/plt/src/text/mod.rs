@@ -420,6 +420,7 @@ pub(crate) fn draw_laid_out(
             anchor: Some(TextAnchor {
                 point: anchor,
                 halign: laid_out.style.halign,
+                valign: laid_out.style.valign,
                 rotation_mode: laid_out.style.rotation_mode,
             }),
             ..run.clone()

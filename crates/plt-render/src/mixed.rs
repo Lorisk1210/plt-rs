@@ -22,7 +22,6 @@ use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
 use crate::raster::{RasterBackendError, RasterRenderer};
 use crate::renderer::Renderer;
-use crate::vector::POINTS_DPI;
 
 /// A vector renderer that draws rasterized artists into a raster canvas
 /// placed in the document as an image (matplotlib's `MixedModeRenderer`).
@@ -206,10 +205,12 @@ impl Renderer for MixedModeRenderer<'_> {
         };
         let (left, _, _, bottom) = bounds;
         let height = self.size.1 * self.dpi;
-        let to_points = POINTS_DPI / self.dpi;
+        // From raster pixels to the vector canvas's units (points, or the
+        // figure's pixels for PGF): matplotlib's `_figdpi / dpi`.
+        let to_canvas = self.vector.canvas_size().1 / self.size.1 / self.dpi;
         let origin = Point::new(
-            left as f64 * to_points,
-            (height - bottom as f64) * to_points,
+            left as f64 * to_canvas,
+            (height - bottom as f64) * to_canvas,
         );
         self.vector.draw_image(
             &GraphicsContext::default(),

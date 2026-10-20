@@ -38,9 +38,8 @@ impl LineArtist {
             }
             None => points.into_owned(),
         };
-        if points.is_empty() {
-            return Ok(());
-        }
+        // Drawn even when `markevery` picks no point, as matplotlib does:
+        // PostScript and PGF still define the marker.
         let alpha = self.base.alpha;
         let face_spec = self.marker_face(&style, false);
         let face = face_spec.resolve_alpha(alpha).map_err(|e| e.to_string())?;

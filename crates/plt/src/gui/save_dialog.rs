@@ -15,7 +15,7 @@ use crate::figure::{Figure, SaveFormat};
 const LISTED_ROWS: usize = 10;
 
 /// The formats offered, in the order shown.
-const FORMATS: [SaveFormat; 9] = [
+const FORMATS: [SaveFormat; 10] = [
     SaveFormat::Png,
     SaveFormat::Jpeg,
     SaveFormat::Tiff,
@@ -25,6 +25,7 @@ const FORMATS: [SaveFormat; 9] = [
     SaveFormat::Pdf,
     SaveFormat::Ps,
     SaveFormat::Eps,
+    SaveFormat::Pgf,
 ];
 
 /// What the dialog's widgets report.

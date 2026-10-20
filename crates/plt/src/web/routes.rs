@@ -89,6 +89,7 @@ fn content_type(format: SaveFormat) -> &'static str {
         SaveFormat::Svg | SaveFormat::Svgz => "image/svg+xml",
         SaveFormat::Pdf => "application/pdf",
         SaveFormat::Ps | SaveFormat::Eps => "application/postscript",
+        SaveFormat::Pgf => "text/plain; charset=utf-8",
         SaveFormat::Jpeg => "image/jpeg",
         SaveFormat::Tiff => "image/tiff",
         SaveFormat::Gif => "image/gif",

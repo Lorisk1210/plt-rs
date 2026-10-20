@@ -3,7 +3,8 @@
 
 use std::rc::Rc;
 
-use plt_core::{Anchor, Bbox, Path};
+use plt_core::{Anchor, Bbox, Path, Rgba};
+use plt_render::JoinStyle;
 
 use super::art3d::{Artist3D, SortKind};
 use super::aspect::AspectSettings;
@@ -226,13 +227,17 @@ impl Artist for Axes3DState {
         };
         match self.facecolor.resolve() {
             Ok(face) => {
+                // The background patch has edge colour 'none' and no width,
+                // and is left unfilled when transparent.
                 let mut gc = ctx.base_gc(&self.base);
                 gc.linewidth = 0.0;
+                gc.foreground = Rgba::TRANSPARENT;
+                gc.join = JoinStyle::Miter;
                 ctx.renderer().draw_path(
                     &gc,
                     &Path::unit_rectangle(),
                     &unit_to_bbox(&extent),
-                    Some(face),
+                    (!face.is_transparent()).then_some(face),
                 );
             }
             Err(err) => ctx.report(self.base.id(), err),

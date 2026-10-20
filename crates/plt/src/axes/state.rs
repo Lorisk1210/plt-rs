@@ -133,6 +133,10 @@ impl Decorations {
 pub(crate) struct AxesPatch {
     /// Fill colour.
     pub(crate) facecolor: Color,
+    /// Edge colour (`"none"` unless set).
+    pub(crate) edgecolor: Color,
+    /// Edge width in points (0 unless set).
+    pub(crate) linewidth: f64,
     /// Whether it is drawn.
     pub(crate) visible: bool,
     /// Its z-order where it is drawn among children (a parasite sharing
@@ -184,6 +188,8 @@ impl AxesState {
             tight: false,
             patch: AxesPatch {
                 facecolor: rc.axes_facecolor.clone(),
+                edgecolor: Color::from("none"),
+                linewidth: 0.0,
                 visible: true,
                 zorder: 1.0,
                 host_owned: false,

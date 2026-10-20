@@ -63,9 +63,11 @@ impl Affine2D {
         Self::from_values(1.0, 0.0, 0.0, 1.0, tx, ty)
     }
 
-    /// A pure scaling about the origin.
+    /// A pure scaling about the origin (matplotlib's
+    /// `Affine2D().scale(sx, sy)`: the identity scaled element by element,
+    /// so a negative factor leaves negative zeros in its row).
     pub const fn scaling(sx: f64, sy: f64) -> Self {
-        Self::from_values(sx, 0.0, 0.0, sy, 0.0, 0.0)
+        Self::from_values(sx, 0.0 * sy, 0.0 * sx, sy, 0.0 * sx, 0.0 * sy)
     }
 
     /// A counter-clockwise rotation about the origin by `theta` radians.

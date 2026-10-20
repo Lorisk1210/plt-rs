@@ -1,4 +1,5 @@
-//! Renderer abstraction with raster (PNG), SVG, PDF and PostScript backends.
+//! Renderer abstraction with raster (PNG), SVG, PDF, PostScript and PGF
+//! backends.
 //!
 //! Artists in the `plt` crate describe what to draw through the
 //! [`Renderer`] trait, using a [`GraphicsContext`] for stroke and clipping
@@ -12,6 +13,8 @@
 //!   `RendererPdf` (text in Type 3 fonts).
 //! * [`PsRenderer`] writes the PostScript and EPS documents of
 //!   matplotlib's `RendererPS` (text in Type 3 fonts).
+//! * [`PgfRenderer`] writes the LaTeX PGF pictures of matplotlib's
+//!   `RendererPgf` (text left to LaTeX).
 //!
 //! The vector backends draw in points, rasterize images at their own
 //! resolution ([`Renderer::image_magnification`]) and share [`Metadata`]
@@ -25,6 +28,7 @@ mod gc;
 mod image;
 mod mixed;
 mod pdf;
+mod pgf;
 mod ps;
 mod quad_mesh;
 mod raster;
@@ -38,6 +42,7 @@ pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sket
 pub use image::{ImageSizeError, RgbaImage};
 pub use mixed::MixedModeRenderer;
 pub use pdf::{PdfOptions, PdfRenderer};
+pub use pgf::{PgfDocument, PgfOptions, PgfRenderer};
 pub use ps::{Orientation, Paper, PsOptions, PsRenderer};
 pub use quad_mesh::QuadMesh;
 pub use raster::{RasterBackendError, RasterRenderer};

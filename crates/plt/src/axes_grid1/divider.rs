@@ -3,7 +3,7 @@
 //! pass, so that axes placed in its cells keep fixed paddings in inches
 //! and the proportions of their data.
 
-use plt_core::{Anchor, Bbox};
+use plt_core::{Anchor, Bbox, Point};
 
 use super::size::Size;
 use crate::artist::ArtistId;
@@ -38,9 +38,23 @@ pub(crate) enum DividerAspect {
     OfAxes(ArtistId),
 }
 
+/// How a divider sizes its cells.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum DividerKind {
+    /// Columns and rows scaled independently (`Divider`).
+    #[default]
+    Grid,
+    /// One row of cells of equal height, the n-th vertical size giving
+    /// the height of the n-th column (`HBoxDivider`).
+    HBox,
+    /// One column of cells of equal width, the n-th horizontal size
+    /// giving the width of the n-th row (`VBoxDivider`).
+    VBox,
+}
+
 /// A rectangle split by sizes (matplotlib's `Divider` and subclasses).
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Divider {
+pub(crate) struct DividerState {
     /// The frame whose fractions the rectangle is in.
     pub(crate) frame: ArtistId,
     pub(crate) rect: DividerRect,
@@ -49,6 +63,7 @@ pub(crate) struct Divider {
     /// Row heights, bottom to top.
     pub(crate) vertical: Vec<Size>,
     pub(crate) aspect: DividerAspect,
+    pub(crate) kind: DividerKind,
     /// Where the rectangle shrunk to the aspect sits.
     pub(crate) anchor: Anchor,
     /// Columns inserted at the start since cells were handed out.
@@ -73,8 +88,8 @@ pub(crate) struct DividerCell {
     pub(crate) ny1: isize,
 }
 
-impl Divider {
-    /// A divider of `rect` in `frame`, without sizes yet.
+impl DividerState {
+    /// A grid divider of `rect` in `frame`, without sizes yet.
     pub(crate) fn new(frame: ArtistId, rect: DividerRect, aspect: DividerAspect) -> Self {
         Self {
             frame,
@@ -82,6 +97,7 @@ impl Divider {
             horizontal: Vec::new(),
             vertical: Vec::new(),
             aspect,
+            kind: DividerKind::Grid,
             anchor: Anchor::C,
             x_ref: 0,
             y_ref: 0,
@@ -132,14 +148,22 @@ pub(crate) fn signed(value: usize) -> isize {
 /// The prefix sums of `sizes` with the relative parts scaled by `k`
 /// (matplotlib's `_calc_offsets`).
 fn offsets(sizes: &[(f64, f64)], k: f64) -> Vec<f64> {
-    let mut sums = Vec::with_capacity(sizes.len() + 1);
+    prefix_sums(
+        sizes
+            .iter()
+            .map(|(relative, absolute)| relative * k + absolute),
+    )
+}
+
+/// `0` followed by the running sums of `lengths` (`np.cumsum([0, ...])`).
+fn prefix_sums(lengths: impl Iterator<Item = f64>) -> Vec<f64> {
     let mut total = 0.0;
-    sums.push(total);
-    for (relative, absolute) in sizes {
-        total += relative * k + absolute;
-        sums.push(total);
-    }
-    sums
+    std::iter::once(0.0)
+        .chain(lengths.map(|length| {
+            total += length;
+            total
+        }))
+        .collect()
 }
 
 /// The scale of relative sizes that makes `sizes` fill `total` inches
@@ -164,6 +188,118 @@ fn at(values: &[f64], index: isize) -> Option<f64> {
         .and_then(|i| values.get(i).copied())
 }
 
+/// Solves `a x = b` by Gaussian elimination with partial pivoting, as
+/// numpy's `linalg.solve` does for the small systems of box dividers;
+/// `None` when `a` is singular.
+fn solve(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Option<Vec<f64>> {
+    let n = b.len();
+    for col in 0..n {
+        // The first of the largest candidates, like LAPACK's `idamax`.
+        let pivot = (col..n).reduce(|best, row| {
+            if a[row][col].abs() > a[best][col].abs() {
+                row
+            } else {
+                best
+            }
+        })?;
+        if a[pivot][col] == 0.0 {
+            return None;
+        }
+        a.swap(col, pivot);
+        b.swap(col, pivot);
+        let (upper, lower) = a.split_at_mut(col + 1);
+        let pivot_row = &upper[col];
+        let (b_upper, b_lower) = b.split_at_mut(col + 1);
+        for (row, rhs) in lower.iter_mut().zip(b_lower) {
+            let factor = row[col] / pivot_row[col];
+            for (value, &above) in row[col..].iter_mut().zip(&pivot_row[col..]) {
+                *value -= factor * above;
+            }
+            *rhs -= factor * b_upper[col];
+        }
+    }
+    let mut x = vec![0.0; n];
+    for row in (0..n).rev() {
+        let known: f64 = a[row][row + 1..]
+            .iter()
+            .zip(&x[row + 1..])
+            .map(|(coefficient, value)| coefficient * value)
+            .sum();
+        x[row] = (b[row] - known) / a[row][row];
+    }
+    Some(x)
+}
+
+/// A row of cells of equal height laid out by a box divider.
+struct BoxRow {
+    /// Lower left corner of the row, in frame fractions.
+    origin: Point,
+    /// Column edges from the row's left, in inches.
+    offsets: Vec<f64>,
+    /// The common height, in frame fractions.
+    height: f64,
+}
+
+/// matplotlib's `_locate` helper of the box dividers, written for an
+/// `HBoxDivider` (a `VBoxDivider` passes everything transposed): the
+/// scales that give every `equal` size the same height while the
+/// `summed` sizes fill the width of `rect` (`size` is the frame in
+/// inches), the height capped at that of `rect`, anchored in `rect`.
+fn box_row(
+    rect: &Bbox,
+    summed: &[(f64, f64)],
+    equal: &[(f64, f64)],
+    (fig_w, fig_h): (f64, f64),
+    anchor: Anchor,
+) -> Option<BoxRow> {
+    let n = equal.len();
+    if summed.len() != n || n == 0 {
+        return None;
+    }
+    let max_height = fig_h * rect.height();
+    // Unknowns k_0, ..., k_{n-1} and the height H:
+    // eq_rel_i * k_i + eq_abs_i = H and sum(sm_rel_i * k_i + sm_abs_i) = width.
+    let mut a = vec![vec![0.0; n + 1]; n + 1];
+    let mut b = vec![0.0; n + 1];
+    for (i, &(relative, absolute)) in equal.iter().enumerate() {
+        a[i][i] = relative;
+        a[i][n] = -1.0;
+        b[i] = -absolute;
+    }
+    for (i, &(relative, _)) in summed.iter().enumerate() {
+        a[n][i] = relative;
+    }
+    b[n] = fig_w * rect.width() - summed.iter().map(|&(_, absolute)| absolute).sum::<f64>();
+    let mut k = solve(a, b)?;
+    let height = k.pop()?;
+    if height > max_height {
+        k = equal
+            .iter()
+            .map(|(relative, absolute)| (max_height - absolute) / relative)
+            .collect();
+    }
+    let offsets = prefix_sums(
+        summed
+            .iter()
+            .zip(&k)
+            .map(|((relative, absolute), k)| relative * k + absolute),
+    );
+    let width = (offsets.last().copied()? - offsets[0]) / fig_w;
+    let height = (k[0] * equal[0].0 + equal[0].1) / fig_h;
+    let shrunk = Bbox::from_bounds(rect.x0(), rect.y0(), width, height);
+    Some(BoxRow {
+        origin: shrunk.anchored(anchor, rect).p0,
+        offsets,
+        height,
+    })
+}
+
+/// `bbox` with x and y swapped.
+fn transposed(bbox: &Bbox) -> Bbox {
+    let (x, y, w, h) = bbox.bounds();
+    Bbox::from_bounds(y, x, h, w)
+}
+
 impl FigureState {
     /// The position of a divided axes in its frame's fractions
     /// (matplotlib's `Divider._locate`), or `None` if the divider or its
@@ -171,43 +307,77 @@ impl FigureState {
     pub(crate) fn locate_in_divider(&mut self, cell: DividerCell) -> Option<Bbox> {
         let divider = self.layout.dividers.get(cell.divider.0)?.clone();
         let frame = self.frame_bbox(divider.frame)?;
-        let (fig_w, fig_h) = (frame.width() / self.dpi(), frame.height() / self.dpi());
-        let (x, y, w, h) = self.divider_rect(&divider)?.bounds();
+        let size = (frame.width() / self.dpi(), frame.height() / self.dpi());
+        let rect = self.divider_rect(&divider)?;
         let horizontal: Vec<(f64, f64)> = divider
             .horizontal
             .iter()
             .map(|s| s.evaluate(self))
             .collect();
         let vertical: Vec<(f64, f64)> = divider.vertical.iter().map(|s| s.evaluate(self)).collect();
-        let k_h = scale(&horizontal, fig_w * w);
-        let k_v = scale(&vertical, fig_h * h);
-        let keep_aspect = match divider.aspect {
-            DividerAspect::Fixed(keep) => keep,
-            DividerAspect::OfAxes(axes) => self
-                .store
-                .get_as::<AxesState>(axes)
-                .is_some_and(|state| state.aspect.ratio().is_some()),
-        };
-        let (ox, oy, x0, y0) = if keep_aspect {
-            let k = k_h.min(k_v);
-            let (ox, oy) = (offsets(&horizontal, k), offsets(&vertical, k));
-            let span = |o: &[f64]| o.last().copied().unwrap_or(0.0) - o[0];
-            let pb = Bbox::from_bounds(x, y, w, h);
-            let shrunk = Bbox::from_bounds(x, y, span(&ox) / fig_w, span(&oy) / fig_h);
-            let p0 = shrunk.anchored(divider.anchor, &pb).p0;
-            (ox, oy, p0.x, p0.y)
-        } else {
-            (offsets(&horizontal, k_h), offsets(&vertical, k_v), x, y)
-        };
         let (x_ref, y_ref) = (signed(divider.x_ref), signed(divider.y_ref));
-        let (left, right) = (at(&ox, cell.nx + x_ref)?, at(&ox, cell.nx1 + x_ref)?);
-        let (bottom, top) = (at(&oy, cell.ny + y_ref)?, at(&oy, cell.ny1 + y_ref)?);
-        Some(Bbox::from_bounds(
-            x0 + left / fig_w,
-            y0 + bottom / fig_h,
-            (right - left) / fig_w,
-            (top - bottom) / fig_h,
-        ))
+        let (fig_w, fig_h) = size;
+        match divider.kind {
+            DividerKind::Grid => {
+                let keep_aspect = match divider.aspect {
+                    DividerAspect::Fixed(keep) => keep,
+                    DividerAspect::OfAxes(axes) => self
+                        .store
+                        .get_as::<AxesState>(axes)
+                        .is_some_and(|state| state.aspect.ratio().is_some()),
+                };
+                grid_cell(
+                    &rect,
+                    &horizontal,
+                    &vertical,
+                    size,
+                    keep_aspect,
+                    divider.anchor,
+                )
+                .and_then(|(origin, ox, oy)| {
+                    let (left, right) = (at(&ox, cell.nx + x_ref)?, at(&ox, cell.nx1 + x_ref)?);
+                    let (bottom, top) = (at(&oy, cell.ny + y_ref)?, at(&oy, cell.ny1 + y_ref)?);
+                    Some(Bbox::from_bounds(
+                        origin.x + left / fig_w,
+                        origin.y + bottom / fig_h,
+                        (right - left) / fig_w,
+                        (top - bottom) / fig_h,
+                    ))
+                })
+            }
+            DividerKind::HBox => {
+                let row = box_row(&rect, &horizontal, &vertical, size, divider.anchor)?;
+                let (left, right) = (
+                    at(&row.offsets, cell.nx + x_ref)?,
+                    at(&row.offsets, cell.nx1 + x_ref)?,
+                );
+                Some(Bbox::from_bounds(
+                    row.origin.x + left / fig_w,
+                    row.origin.y,
+                    (right - left) / fig_w,
+                    row.height,
+                ))
+            }
+            DividerKind::VBox => {
+                let column = box_row(
+                    &transposed(&rect),
+                    &vertical,
+                    &horizontal,
+                    (fig_h, fig_w),
+                    divider.anchor,
+                )?;
+                let (bottom, top) = (
+                    at(&column.offsets, cell.ny + y_ref)?,
+                    at(&column.offsets, cell.ny1 + y_ref)?,
+                );
+                Some(Bbox::from_bounds(
+                    column.origin.y,
+                    column.origin.x + bottom / fig_h,
+                    column.height,
+                    (top - bottom) / fig_h,
+                ))
+            }
+        }
     }
 
     /// The rectangle the divider `id` splits, in its frame's fractions
@@ -217,7 +387,7 @@ impl FigureState {
     }
 
     /// The rectangle a divider splits, in its frame's fractions.
-    fn divider_rect(&self, divider: &Divider) -> Option<Bbox> {
+    fn divider_rect(&self, divider: &DividerState) -> Option<Bbox> {
         match &divider.rect {
             DividerRect::Fixed([left, bottom, width, height]) => {
                 Some(Bbox::from_bounds(*left, *bottom, *width, *height))
@@ -234,14 +404,14 @@ impl FigureState {
     }
 
     /// Registers `divider` with the figure.
-    pub(crate) fn add_divider(&mut self, divider: Divider) -> DividerId {
+    pub(crate) fn add_divider(&mut self, divider: DividerState) -> DividerId {
         self.layout.dividers.push(divider);
         self.stale = true;
         DividerId(self.layout.dividers.len() - 1)
     }
 
     /// The divider `id`, mutably.
-    pub(crate) fn divider_mut(&mut self, id: DividerId) -> &mut Divider {
+    pub(crate) fn divider_mut(&mut self, id: DividerId) -> &mut DividerState {
         self.stale = true;
         self.layout
             .dividers
@@ -257,6 +427,29 @@ impl FigureState {
         }
         self.stale = true;
     }
+}
+
+/// The lower left corner and the column and row edges (in inches) of a
+/// grid divider's cells in `rect` (`size` is the frame in inches),
+/// keeping the proportions of the relative sizes when `keep_aspect`.
+fn grid_cell(
+    rect: &Bbox,
+    horizontal: &[(f64, f64)],
+    vertical: &[(f64, f64)],
+    (fig_w, fig_h): (f64, f64),
+    keep_aspect: bool,
+    anchor: Anchor,
+) -> Option<(Point, Vec<f64>, Vec<f64>)> {
+    let k_h = scale(horizontal, fig_w * rect.width());
+    let k_v = scale(vertical, fig_h * rect.height());
+    if !keep_aspect {
+        return Some((rect.p0, offsets(horizontal, k_h), offsets(vertical, k_v)));
+    }
+    let k = k_h.min(k_v);
+    let (ox, oy) = (offsets(horizontal, k), offsets(vertical, k));
+    let span = |o: &[f64]| Some(o.last().copied()? - o[0]);
+    let shrunk = Bbox::from_bounds(rect.x0(), rect.y0(), span(&ox)? / fig_w, span(&oy)? / fig_h);
+    Some((shrunk.anchored(anchor, rect).p0, ox, oy))
 }
 
 #[cfg(test)]
@@ -277,12 +470,56 @@ mod tests {
         assert_eq!(at(&ox, 4), None);
     }
 
+    #[test]
+    fn linear_systems_pivot_and_detect_singularity() {
+        let x = solve(
+            vec![
+                vec![0.0, 2.0, 1.0],
+                vec![1.0, 1.0, 0.0],
+                vec![3.0, 0.0, 1.0],
+            ],
+            vec![5.0, 3.0, 4.0],
+        )
+        .expect("a regular system");
+        for (actual, expected) in x.iter().zip([1.0, 2.0, 1.0]) {
+            assert!((actual - expected).abs() < 1e-12, "{x:?}");
+        }
+        assert_eq!(
+            solve(vec![vec![1.0, 2.0], vec![2.0, 4.0]], vec![1.0, 2.0]),
+            None
+        );
+    }
+
+    #[test]
+    fn box_rows_give_their_cells_one_height() {
+        // `demo_axes_hbox_divider`: images of 5 × 4 and 4 × 5 data units
+        // with half an inch between them, in the 111 cell of a 6.4 × 4.8
+        // inch figure (matplotlib 3.11).
+        let rect = Bbox::from_bounds(0.125, 0.11, 0.775, 0.77);
+        let summed = [(5.0, 0.0), (0.0, 0.5), (4.0, 0.0)];
+        let equal = [(4.0, 0.0), (1.0, 0.0), (5.0, 0.0)];
+        let row = box_row(&rect, &summed, &equal, (6.4, 4.8), Anchor::C).expect("a row");
+        let k0 = row.offsets[1] / 5.0;
+        let k2 = (row.offsets[3] - row.offsets[2]) / 4.0;
+        assert!((4.0 * k0 - 5.0 * k2).abs() < 1e-12, "equal heights");
+        assert!(
+            (row.offsets[3] - 0.775 * 6.4).abs() < 1e-12,
+            "the width is filled"
+        );
+        assert!((row.height - 4.0 * k0 / 4.8).abs() < 1e-12);
+        assert!((row.origin.x - 0.125).abs() < 1e-12);
+        assert_eq!(
+            box_row(&rect, &summed, &equal[..2], (6.4, 4.8), Anchor::C).map(|r| r.height),
+            None
+        );
+    }
+
     use crate::artist::ArtistHandle;
 
     #[test]
     fn cells_survive_sizes_inserted_before_them() {
         let frame = crate::figure::Figure::new().raw().id();
-        let mut divider = Divider::new(
+        let mut divider = DividerState::new(
             frame,
             DividerRect::Fixed([0.0, 0.0, 1.0, 1.0]),
             DividerAspect::Fixed(false),

@@ -218,7 +218,7 @@ fn image_grid_single_bottom(fig: &Figure) -> CaseResult {
     let options = ImageGridOptions {
         axes_pad: (0.2, 0.15),
         cbar_mode: Some(CbarMode::Single),
-        cbar_pad: Some(0.3),
+        cbar_pad: Some(0.3.into()),
         cbar_location: SpineSide::Bottom,
         cbar_size: SizeSpec::Percent(10.0),
         label_mode: LabelMode::One,

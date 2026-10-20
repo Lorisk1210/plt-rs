@@ -43,11 +43,6 @@ def gallery(name, **options):
 # --- random draws the spec generator lacks -------------------------------------
 
 
-def gamma4(g, n):
-    """``np.random.gamma(4, size=n)``: sums of four exponential draws."""
-    return np.array([sum(-math.log(1.0 - g.next_f64()) for _ in range(4)) for _ in range(n)])
-
-
 def rayleigh(g, scale, n):
     """``np.random.rayleigh(scale, size=n)`` by inversion."""
     return np.array([scale * math.sqrt(-2.0 * math.log(1.0 - g.next_f64())) for _ in range(n)])
@@ -610,7 +605,7 @@ def _(fig):
     for ax, orientation in [(axs[0, 0], "horizontal"), (axs[1, 0], "vertical")]:
         ax.eventplot(data1, colors=colors1, lineoffsets=lineoffsets1,
                      linelengths=linelengths1, orientation=orientation)
-    data2 = gamma4(g, 60 * 50).reshape(60, 50)
+    data2 = g.gamma(60 * 50, 4).reshape(60, 50)
     for ax, orientation in [(axs[0, 1], "horizontal"), (axs[1, 1], "vertical")]:
         ax.eventplot(data2, colors="black", lineoffsets=1, linelengths=1,
                      orientation=orientation)

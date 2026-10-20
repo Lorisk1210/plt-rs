@@ -159,13 +159,6 @@ fn eventcollection_demo(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `np.random.gamma(4, size=n)`: sums of four exponential draws.
-fn gamma4(rng: &mut SpecRng, n: usize) -> Vec<f64> {
-    (0..n)
-        .map(|_| (0..4).fold(0.0, |sum, _| sum - (1.0 - rng.next_f64()).ln()))
-        .collect()
-}
-
 /// `rows × 50` values as one row per dataset.
 fn datasets(values: &[f64]) -> Vec<Vec<f64>> {
     values.chunks(50).map(<[f64]>::to_vec).collect()
@@ -183,7 +176,7 @@ fn eventplot_demo(fig: &Figure) -> CaseResult {
         linelengths: vec![5.0, 2.0, 1.0, 1.0, 3.0, 1.5],
         ..EventplotOptions::default()
     };
-    let data2 = datasets(&gamma4(&mut rng, 60 * 50));
+    let data2 = datasets(&rng.gamma(60 * 50, 4));
     let black = EventplotOptions {
         colors: vec![Color::from("black")],
         ..EventplotOptions::default()

@@ -7,13 +7,12 @@ use plt::figure::{Mosaic, MosaicCell, MosaicOptions, Share};
 use plt::geo::GeoProjection;
 use plt::gridspec::SubplotOverrides;
 use plt::image::{Extent, Origin};
-use plt::numeric::{Grid, meshgrid};
 use plt::prelude::*;
 use plt::spines::SpineSide;
 use plt::transforms::{Bbox, Point, Transform};
 
 use super::{SEED, convolve};
-use crate::figures::cases::common::map;
+use crate::figures::cases::common::{framed_bivariate_normal, map};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -77,30 +76,9 @@ fn axes_zoom_effect(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `_bivariate_normal`: the 15 × 15 grid of
-/// `axes_grid/bivariate_normal.npy`, the difference of two Gaussians over
-/// [-3, 4] × [-4, 3], times ten.
-fn bivariate_normal() -> Grid<f64> {
-    let (x, y) = meshgrid(&arange(-3.0, 4.001, 0.5), &arange(-4.0, 3.001, 0.5));
-    let tau = 2.0 * std::f64::consts::PI;
-    Grid::from_fn(x.rows(), x.cols(), |r, c| {
-        let (x, y) = (x[(r, c)], y[(r, c)]);
-        let z1 = (-(x * x + y * y) / 2.0).exp() / tau;
-        let (dx, dy) = ((x - 1.0) / 1.5, (y - 1.0) / 0.5);
-        let z2 = (-(dx * dx + dy * dy) / 2.0).exp() / (tau * 1.5 * 0.5);
-        (z1 - z2) * 10.0
-    })
-}
-
 fn zoom_inset_axes(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    let z = bivariate_normal();
-    let z2 = Grid::from_fn(150, 150, |r, c| {
-        r.checked_sub(30)
-            .zip(c.checked_sub(30))
-            .and_then(|(r, c)| z.get(r, c).copied())
-            .unwrap_or(0.0)
-    });
+    let z2 = framed_bivariate_normal();
     let image = || ImshowOptions {
         extent: Some(Extent::new(-3.0, 4.0, -4.0, 3.0)),
         origin: Some(Origin::Lower),

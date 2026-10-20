@@ -17,8 +17,9 @@ impl LayoutTree {
     /// matplotlib's `compress_fixed_aspect`: applies every grid-placed
     /// axes' aspect, then widens the figure's margins by half the room
     /// the shrunk axes leave, summed over the columns and rows. Returns
-    /// `false`, changing nothing, when the axes do not all come from one
-    /// grid specification or none does (where matplotlib raises).
+    /// `false`, leaving the margins alone, when the axes do not all come
+    /// from one grid specification or none does (where matplotlib raises
+    /// a `ValueError` that ends the layout).
     pub(super) fn compress_fixed_aspect(&mut self, fig: &mut FigureState) -> bool {
         let placed: Vec<_> = self
             .all_axes()
@@ -172,5 +173,46 @@ mod tests {
             [0.506_511, 0.008_681, 0.342_446, 0.456_595]
         ));
         assert!((title - 0.956_597).abs() < 1e-6, "the suptitle moves down");
+    }
+
+    #[test]
+    fn axes_of_several_grids_stop_the_layout_after_one_placement() {
+        let (line, image) = crate::rc::context(|| {
+            crate::rc::set("text.hinting", "none").expect("valid setting");
+            let fig = Figure::with_size(6.4, 9.6, 100.0);
+            fig.set_layout_engine(Some(LayoutEngine::compressed()));
+            let parts = fig
+                .subfigures(3, 1, &crate::figure::SubfigureOptions::default())
+                .expect("subfigures");
+            let mut first = None;
+            for part in parts.as_slice() {
+                let axs = part.subplots(1, 2).expect("a grid");
+                axs[(0, 0)].plot([-10.0, 10.0], [0.0, 1.5]).expect("a line");
+                axs[(0, 0)].set_xlim(-10.0, 10.0);
+                let data = Grid::from_fn(2, 2, |r, c| (r * 2 + c) as f64);
+                axs[(0, 1)]
+                    .imshow(data, ImshowOptions::default())
+                    .expect("an image");
+                first.get_or_insert((axs[(0, 0)].clone(), axs[(0, 1)].clone()));
+            }
+            fig.layout();
+            let (line, image) = first.expect("three subfigures");
+            let bounds = |ax: &crate::axes::Axes| {
+                let (x, y, w, h) = ax.position().bounds();
+                [x, y, w, h]
+            };
+            (bounds(&line), bounds(&image))
+        });
+        // matplotlib 3.11 after one draw: compressing axes of three grids
+        // raises, which its draw swallows, so the second round of margins
+        // (which would move the line's axes to x = 0.056248) never runs.
+        assert!(
+            close(line, [0.070_066, 0.087_98, 0.398_783, 0.898_822]),
+            "{line:?}"
+        );
+        assert!(
+            close(image, [0.577_433, 0.133_219, 0.398_783, 0.808_344]),
+            "{image:?}"
+        );
     }
 }

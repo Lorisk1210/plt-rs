@@ -4,7 +4,7 @@
 
 use std::fmt;
 
-use super::divider::{Divider, DividerAspect, DividerId, DividerRect};
+use super::divider::{DividerAspect, DividerId, DividerRect, DividerState};
 use super::labels::{LabelMode, apply_label_mode};
 use super::size::{Size, SizeAspect, SizeSpec};
 use crate::artist::ArtistHandle;
@@ -66,9 +66,9 @@ pub struct ImageGridOptions {
     pub cbar_mode: Option<CbarMode>,
     /// The side of the colorbar axes.
     pub cbar_location: SpineSide,
-    /// Padding between axes and colorbars, in inches (`None` = the axes
-    /// padding across the colorbar).
-    pub cbar_pad: Option<f64>,
+    /// Padding between axes and colorbars, in inches or as a percentage
+    /// of the axes (`None` = the axes padding across the colorbar).
+    pub cbar_pad: Option<SizeSpec>,
     /// The thickness of the colorbars.
     pub cbar_size: SizeSpec,
 }
@@ -133,6 +133,12 @@ impl CbarAxes {
         &self.ax
     }
 
+    /// The side of its axes the colorbar is on (matplotlib's
+    /// `CbarAxes.orientation`).
+    pub fn location(&self) -> SpineSide {
+        self.location
+    }
+
     /// Draws a colorbar of `mappable` into this axes, on the grid's
     /// colorbar side (matplotlib's `CbarAxes.colorbar`).
     ///
@@ -172,6 +178,8 @@ pub struct ImageGrid {
     cbar_axes: Vec<CbarAxes>,
     /// The index in `cbar_axes` of the colorbar axes of each axes.
     caxes: Vec<usize>,
+    /// The last axes of the first column.
+    llc: Axes,
 }
 
 /// matplotlib's `AxesGrid`, the same class as [`ImageGrid`].
@@ -208,7 +216,7 @@ impl ImageGrid {
             GridRect::Rect(bounds) => DividerRect::Fixed(*bounds),
             GridRect::Subplot(spec) => DividerRect::Subplot(spec.clone()),
         };
-        let divider = Divider::new(frame, divider_rect, DividerAspect::Fixed(options.aspect));
+        let divider = DividerState::new(frame, divider_rect, DividerAspect::Fixed(options.aspect));
         let figure = fig.raw().figure_state();
         let id = figure.borrow_mut().add_divider(divider);
         let position = figure
@@ -226,12 +234,21 @@ impl ImageGrid {
         let caxes = (0..n_axes)
             .map(|index| layout.cax_index(index, options))
             .collect();
+        let rows = layout.rows(&axes);
+        // Every row starts in the first column: only the last cells of a
+        // grid can be left empty.
+        let llc = rows
+            .iter()
+            .rev()
+            .find_map(|row| row.first())
+            .unwrap_or(&axes[0])
+            .clone();
         let grid = Self {
             axes,
             cbar_axes,
             caxes,
+            llc,
         };
-        let rows = layout.rows(&grid.axes);
         grid.init_locators(id, &layout, &rows, options);
         apply_label_mode(&rows, options.label_mode);
         Ok(grid)
@@ -241,6 +258,22 @@ impl ImageGrid {
     /// `axes_all`).
     pub fn axes(&self) -> &[Axes] {
         &self.axes
+    }
+
+    /// The axes in the lower left corner: the last of the first column
+    /// (matplotlib's `axes_llc`).
+    ///
+    /// ```
+    /// use plt::axes_grid1::{GridRect, ImageGrid, ImageGridOptions};
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let rect = GridRect::Rect([0.1, 0.1, 0.8, 0.8]);
+    /// let grid = ImageGrid::new(&fig, &rect, (2, 3), &ImageGridOptions::default())?;
+    /// assert_eq!(grid.axes_llc(), &grid.axes()[3]);
+    /// # Ok::<(), plt::axes_grid1::AxesGridError>(())
+    /// ```
+    pub fn axes_llc(&self) -> &Axes {
+        &self.llc
     }
 
     /// The colorbar axes, one per axes; those the colorbar mode does not
@@ -468,7 +501,7 @@ mod tests {
         let options = ImageGridOptions {
             axes_pad: (0.1, 0.1),
             cbar_mode: Some(CbarMode::Single),
-            cbar_pad: Some(0.1),
+            cbar_pad: Some(0.1.into()),
             ..ImageGridOptions::default()
         };
         let rect = GridRect::Rect([0.125, 0.11, 0.775, 0.77]);

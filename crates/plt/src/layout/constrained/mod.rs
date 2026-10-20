@@ -93,7 +93,13 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) {
         tree.grids.solve();
         if tree.no_collapsed_axes() {
             tree.reposition_axes(fig, FIGURE, false);
-            if params.compress && tree.compress_fixed_aspect(fig) {
+            if params.compress {
+                // matplotlib raises when the axes do not share one grid
+                // specification, and its draw swallows the error: the
+                // layout ends with this first placement.
+                if !tree.compress_fixed_aspect(fig) {
+                    return;
+                }
                 tree.grids.solve();
                 if tree.no_collapsed_axes() {
                     tree.reposition_axes(fig, FIGURE, true);

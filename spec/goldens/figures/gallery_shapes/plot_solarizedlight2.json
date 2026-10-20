@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "8 Random Lines - Line",
+   "xlim": [-0.5, 10.5],
+   "ylim": [-6.322239, 85.00576],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "x label",
+   "ylabel": "y label",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"], [10.0, "10"]],
+   "yticks": [[0.0, "0"], [20.0, "20"], [40.0, "40"], [60.0, "60"], [80.0, "80"]]
+  }
+ ]
+}

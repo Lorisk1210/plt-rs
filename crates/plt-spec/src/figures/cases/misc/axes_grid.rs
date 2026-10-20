@@ -50,7 +50,7 @@ fn imagegrid_single_cbar(fig: &plt::figure::Figure) -> CaseResult {
         axes_pad: (0.1, 0.1),
         cbar_mode: Some(CbarMode::Single),
         cbar_location: SpineSide::Right,
-        cbar_pad: Some(0.1),
+        cbar_pad: Some(0.1.into()),
         ..ImageGridOptions::default()
     };
     let grid = ImageGrid::new(fig, &subplot_111()?, (2, 2), &options)?;
@@ -74,7 +74,7 @@ fn axesgrid_each_cbar(fig: &plt::figure::Figure) -> CaseResult {
         label_mode: LabelMode::L,
         cbar_mode: Some(CbarMode::Each),
         cbar_location: SpineSide::Top,
-        cbar_pad: Some(0.05),
+        cbar_pad: Some(0.05.into()),
         ..ImageGridOptions::default()
     };
     let grid = ImageGrid::new(fig, &subplot_111()?, (1, 3), &options)?;

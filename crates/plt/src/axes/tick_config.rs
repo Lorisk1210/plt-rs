@@ -506,13 +506,37 @@ impl Axes {
                 continue;
             }
             let axis = self.axis_of(name);
-            let locator = axis.read(|state| with_params(state.major_locator.as_ref(), params));
-            let locator = locator.ok_or(PlotError::NotMaxNLocator(name))??;
-            axis.update_shared(|state| {
-                state.major_locator = Rc::clone(&locator);
-                state.autoscale.stale = true;
-            });
+            axis.set_major_locator_params(params)?;
+            axis.update_shared(|state| state.autoscale.stale = true);
         }
+        Ok(self)
+    }
+}
+
+impl Axis {
+    /// Changes the parameters of this axis' major locator as
+    /// [`Axes::locator_params`] does, but leaves the view limits alone
+    /// (matplotlib's `axis.get_major_locator().set_params(...)`);
+    /// `params.axis` is ignored.
+    ///
+    /// ```
+    /// use plt::axes::LocatorParams;
+    /// use plt::prelude::*;
+    /// use plt::ticker::Nbins;
+    /// let ax = Figure::new().subplot();
+    /// let params = LocatorParams { nbins: Some(Nbins::Fixed(7)), ..LocatorParams::default() };
+    /// ax.xaxis().set_major_locator_params(&params)?;
+    /// assert_eq!(ax.xlim(), (0.0, 1.0), "an empty axes keeps its limits");
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::locator_params`].
+    pub fn set_major_locator_params(&self, params: &LocatorParams) -> Result<&Self, PlotError> {
+        let locator = self.read(|state| with_params(state.major_locator.as_ref(), params));
+        let locator = locator.ok_or(PlotError::NotMaxNLocator(self.name()))??;
+        self.update_shared(|state| state.major_locator = Rc::clone(&locator));
         Ok(self)
     }
 }

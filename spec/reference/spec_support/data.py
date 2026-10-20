@@ -15,7 +15,7 @@ _MASK = (1 << 64) - 1
 
 
 class SpecRng:
-    """SplitMix64 stream with uniform, normal and integer helpers."""
+    """SplitMix64 stream with uniform, normal, gamma and integer helpers."""
 
     def __init__(self, seed: int) -> None:
         self._state = seed & _MASK
@@ -42,6 +42,11 @@ class SpecRng:
             u2 = self.next_f64()
             out[i] = loc + scale * math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
         return out
+
+    def gamma(self, n: int, shape: int) -> np.ndarray:
+        """Gamma draws of integer ``shape`` and unit scale: each the sum of
+        ``shape`` exponential draws made by inversion."""
+        return np.array([sum(-math.log(1.0 - self.next_f64()) for _ in range(shape)) for _ in range(n)])
 
     def integers(self, n: int, low: int, high: int) -> np.ndarray:
         """Integers in [low, high) via multiply-shift (no modulo bias concerns at spec sizes)."""

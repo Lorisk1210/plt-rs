@@ -9,9 +9,9 @@ use plt_text::{HAlign, VAlign};
 use super::{Connections, Observers, left_click};
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
+use crate::collections::Collection;
 use crate::colors::Color;
 use crate::events::{Event, EventKind};
-use crate::lines::{Line2D, LineProps};
 use crate::text::Text;
 use crate::transforms::Transform;
 
@@ -45,7 +45,7 @@ impl Default for TextBoxOptions {
 struct Entry {
     ax: Axes,
     text: Text,
-    cursor: Line2D,
+    cursor: Collection,
     /// Character position of the cursor.
     cursor_index: Cell<usize>,
     typing: Cell<bool>,
@@ -101,7 +101,8 @@ impl Entry {
             let middle = bbox.y0();
             (middle - 6.0, middle + 6.0)
         };
-        self.cursor.set_data(&[x, x], &[bottom, top]);
+        self.cursor
+            .set_segments(vec![vec![Point::new(x, bottom), Point::new(x, top)]]);
         self.cursor.set_visible(true);
     }
 
@@ -182,14 +183,12 @@ impl TextBox {
         ax.set_xticks(Vec::<f64>::new());
         ax.set_yticks(Vec::<f64>::new());
         let cursor = ax
-            .plot_with(
-                vec![0.0, 0.0],
-                vec![0.0, 0.0],
-                LineProps::default().color("k").linewidth(1.0),
-            )
-            .expect("two points make a line");
-        cursor.set_transform(Transform::Display);
-        cursor.set_visible(false);
+            .vlines_in([0.0], [0.0], [0.0], Transform::Display)
+            .expect("one segment from one position and one span");
+        cursor
+            .set_edgecolor("k")
+            .set_linewidths(vec![1.0])
+            .set_visible(false);
         let entry = Rc::new(Entry {
             ax: ax.clone(),
             text,
@@ -253,15 +252,17 @@ impl TextBox {
         self.entry.value()
     }
 
-    /// Replaces the text and runs the change and submit callbacks
-    /// (matplotlib's `set_val`).
+    /// Replaces the text, shows the cursor where it stands in the new text
+    /// and runs the change and submit callbacks (matplotlib's `set_val`);
+    /// does nothing when the text is already `value`.
     pub fn set_val(&self, value: &str) {
-        let old = self.entry.value();
-        self.entry.text.set_text(value);
-        if old != value {
-            self.entry.changed.process(&value.to_owned());
-            self.entry.submitted.process(&value.to_owned());
+        if self.entry.value() == value {
+            return;
         }
+        self.entry.text.set_text(value);
+        self.entry.render_cursor();
+        self.entry.changed.process(&value.to_owned());
+        self.entry.submitted.process(&value.to_owned());
     }
 
     /// The label.
@@ -314,5 +315,29 @@ mod tests {
         source.button_press(&fig, 1.0, 1.0, PointerButton::Left, false);
         assert!(!fig.captures_keys());
         assert_eq!(*submitted.borrow(), ["plt-r!", "plt-r!"]);
+    }
+
+    #[test]
+    fn setting_a_new_value_shows_the_cursor_before_the_callbacks() {
+        let fig = Figure::with_size(6.0, 3.0, 100.0);
+        let entry = TextBox::new(
+            &fig.add_axes([0.1, 0.05, 0.8, 0.075]),
+            "Evaluate",
+            "",
+            TextBoxOptions::default(),
+        );
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let log = Rc::clone(&seen);
+        let cursor = entry.entry.cursor.clone();
+        entry.on_submit(move |text| log.borrow_mut().push((text.to_owned(), cursor.visible())));
+        entry.set_val("t ** 2");
+        entry.set_val("t ** 2");
+        assert_eq!(*seen.borrow(), [("t ** 2".to_owned(), true)]);
+        let text = entry.entry.text.window_extent().expect("laid out");
+        let x = entry.entry.cursor.paths()[0].vertices()[0].x;
+        assert!(
+            (x - text.x0()).abs() < 1e-9,
+            "the cursor stays at the start"
+        );
     }
 }

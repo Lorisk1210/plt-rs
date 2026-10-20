@@ -4,7 +4,10 @@ use std::f64::consts::PI;
 
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, AxisName, BarLabelOptions, TickLevel, TickParams};
-use plt::axisartist::AuxTransform;
+use plt::axisartist::angle_helper::{ExtremeFinderCycle, FormatterDms, LocatorDms};
+use plt::axisartist::grid_finder::{self, GridFinderOptions, GridLocator};
+use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
+use plt::axisartist::{self, AuxTransform, AxisArtist};
 use plt::collections::CollectionProps;
 use plt::colors::{Color, ColorError, ColormapError, colormaps};
 use plt::contour::{ContourOptions, ContourSet, Levels};
@@ -18,6 +21,7 @@ use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, FaceColormap, FaceColors}
 use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchProps};
 use plt::patheffects::{GcUpdate, PathEffect, Stroke, TickedStroke};
+use plt::rc::Aspect;
 use plt::sankey::FlowOrientation;
 use plt::scale::ScaleOptions;
 use plt::spines::SpineSide;
@@ -571,4 +575,50 @@ pub(super) fn aliased(linewidth: f64) -> CollectionProps {
         antialiased: Some(vec![false]),
         ..CollectionProps::default().linewidth(linewidth)
     }
+}
+
+/// The polar grid in degrees of matplotlib's `demo_curvelinear_grid` in
+/// a rectangular box, its radii located by `grid_locator2` (the default
+/// locator when `None`).
+pub(super) fn polar_grid_helper(
+    grid_locator2: Option<Box<dyn GridLocator>>,
+) -> GridHelperCurveLinear {
+    GridHelperCurveLinear::new(
+        polar_degrees(),
+        GridFinderOptions {
+            extreme_finder: Some(Box::new(ExtremeFinderCycle {
+                lat_minmax: Some((0.0, f64::INFINITY)),
+                ..ExtremeFinderCycle::new(20, 20)
+            })),
+            grid_locator1: Some(Box::new(LocatorDms::new(12))),
+            grid_locator2,
+            tick_formatter1: Some(Box::new(FormatterDms)),
+            ..GridFinderOptions::default()
+        },
+    )
+}
+
+/// The `setup_axes` of the axisartist gallery's polar demos: axisartist
+/// axes in cell `index` of a `rows × cols` grid with the polar grid of
+/// [`polar_grid_helper`] (radii by `MaxNLocator(5)`), equal aspect and
+/// limits `(-5, 12)` × `(-5, 10)`.
+pub(super) fn polar_box(
+    fig: &Figure,
+    (rows, cols, index): (usize, usize, usize),
+) -> Result<axisartist::Axes, Box<dyn std::error::Error>> {
+    let helper = polar_grid_helper(Some(Box::new(grid_finder::MaxNLocator::new(5))));
+    let ax = axisartist::Axes::with_grid_helper(fig.add_subplot(rows, cols, index)?, helper);
+    ax.ax().set_aspect(Aspect::Equal)?;
+    ax.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
+    Ok(ax)
+}
+
+/// The axis artist under `name` (`ax.axis[name]`).
+pub(super) fn axis_artist(ax: &axisartist::Axes, name: &str) -> Result<AxisArtist, &'static str> {
+    ax.axis(name).ok_or("no such axis artist")
+}
+
+/// `axis.label.set_text(text); axis.label.set_visible(True)`.
+pub(super) fn show_label(axis: &AxisArtist, text: &str) {
+    axis.label().set_text(text).set_visible(true);
 }

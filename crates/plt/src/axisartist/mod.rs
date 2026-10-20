@@ -21,6 +21,8 @@
 //! [`angle_helper`] locators and formatters. [`floating_axes`] shows a
 //! fixed range of such coordinates in axes bounded by its edges, and
 //! [`Axes::get_aux_axes`] adds axes to plot in curvilinear coordinates.
+//! [`Axes::twinx`], [`Axes::twiny`] and [`Axes::add_parasite_axes`] add
+//! parasite axes whose axis lines are axis artists of their own.
 //!
 //! Tick labels and labels are placed at a distance from their reference
 //! point in the direction away from the line, and turned by that
@@ -38,6 +40,7 @@ mod handles;
 mod helper;
 mod labels;
 mod line;
+mod parasites;
 mod tick_marks;
 mod ticks;
 

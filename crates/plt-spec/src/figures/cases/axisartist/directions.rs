@@ -2,16 +2,14 @@
 //! `figures/cases_axisartist.py`.
 
 use plt::axes::{AxisName, GridOptions, TickDirection, TickLevel};
-use plt::axisartist::grid_finder::MaxNLocator;
 use plt::axisartist::{self, Toggle};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
-use plt::rc::Aspect;
 use plt::spines::SpineSide;
 use plt::text::{HorizontalAlignment, VerticalAlignment};
 
-use super::{artist, polar_grid_helper, set_text};
 use crate::figures::CaseResult;
+use crate::figures::cases::common::{axis_artist, polar_box, show_label};
 
 /// `_ticked(fig, pos)`: axisartist axes in cell `index` of a `rows ×
 /// cols` grid with ticks at 0.2 and 0.8.
@@ -30,10 +28,10 @@ pub(super) fn simple_axis_direction01(fig: &Figure) -> CaseResult {
         right: Some(0.8),
         ..SubplotOverrides::default()
     })?;
-    let left = artist(&ax, "left")?;
+    let left = axis_artist(&ax, "left")?;
     left.major_ticklabels().set_axis_direction(SpineSide::Top);
     left.label().set_text("Left label");
-    let right = artist(&ax, "right")?;
+    let right = axis_artist(&ax, "right")?;
     right.label().set_visible(true);
     right.label().set_text("Right label");
     right.label().set_axis_direction(SpineSide::Left);
@@ -94,8 +92,8 @@ pub(super) fn ticklabel_alignment(fig: &Figure) -> CaseResult {
             "va=bottom",
         ),
     ] {
-        artist(ax, "left")?.major_ticklabels().set_ha(halign);
-        artist(ax, "bottom")?.major_ticklabels().set_va(valign);
+        axis_artist(ax, "left")?.major_ticklabels().set_ha(halign);
+        axis_artist(ax, "bottom")?.major_ticklabels().set_va(valign);
         ax.ax().set_ylabel(ylabel).set_xlabel(xlabel);
     }
     Ok(())
@@ -117,20 +115,22 @@ pub(super) fn ticklabel_direction(fig: &Figure) -> CaseResult {
         ("right", SpineSide::Left),
         ("top", SpineSide::Bottom),
     ] {
-        artist(&ax, name)?.set_axis_direction(direction);
+        axis_artist(&ax, name)?.set_axis_direction(direction);
     }
     let ax = ticked(fig, (1, 3, 3))?;
-    artist(&ax, "left")?.set_axis_direction(SpineSide::Right);
+    axis_artist(&ax, "left")?.set_axis_direction(SpineSide::Right);
     for axis in ax.axis_artists() {
         axis.major_ticks().set_tick_out(true);
     }
-    artist(&ax, "left")?.label().set_text("Long Label Left");
-    artist(&ax, "bottom")?.label().set_text("Label Bottom");
-    let right = artist(&ax, "right")?;
+    axis_artist(&ax, "left")?
+        .label()
+        .set_text("Long Label Left");
+    axis_artist(&ax, "bottom")?.label().set_text("Label Bottom");
+    let right = axis_artist(&ax, "right")?;
     right.label().set_text("Long Label Right");
     right.label().set_visible(true);
-    artist(&ax, "left")?.label().set_pad(0.0);
-    artist(&ax, "bottom")?.label().set_pad(10.0);
+    axis_artist(&ax, "left")?.label().set_pad(0.0);
+    axis_artist(&ax, "bottom")?.label().set_pad(10.0);
     Ok(())
 }
 
@@ -157,7 +157,7 @@ pub(super) fn axis_styling(fig: &Figure) -> CaseResult {
             ..GridOptions::default()
         },
     );
-    let bottom = artist(&ax, "bottom")?;
+    let bottom = axis_artist(&ax, "bottom")?;
     bottom
         .major_ticks()
         .set_color(Some("tab:red".into()))
@@ -180,21 +180,21 @@ pub(super) fn axis_styling(fig: &Figure) -> CaseResult {
         .line()
         .set_color(Some("tab:purple".into()))
         .set_linewidth(Some(2.0));
-    let left = artist(&ax, "left")?;
+    let left = axis_artist(&ax, "left")?;
     left.major_ticks()
         .set_markeredgewidth(Some(2.0))
         .set_ticksize(6.0);
     left.major_ticklabels().set_size(8.0);
     left.minor_ticks().set_visible(false);
     left.label().set_axis_direction(SpineSide::Right);
-    let right = artist(&ax, "right")?;
+    let right = axis_artist(&ax, "right")?;
     right.toggle(&Toggle {
         all: Some(true),
         ..Toggle::default()
     });
     right.label().set_text("right label");
     right.invert_ticklabel_direction();
-    let top = artist(&ax, "top")?;
+    let top = axis_artist(&ax, "top")?;
     top.toggle(&Toggle {
         all: Some(false),
         ticks: Some(true),
@@ -230,11 +230,7 @@ pub(super) fn axis_direction(fig: &Figure) -> CaseResult {
         .into_iter()
         .enumerate()
         {
-            let helper = polar_grid_helper(Some(Box::new(MaxNLocator::new(5))));
-            let ax =
-                axisartist::Axes::with_grid_helper(fig.add_subplot(2, 4, 4 * row + i + 1)?, helper);
-            ax.ax().set_aspect(Aspect::Equal)?;
-            ax.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
+            let ax = polar_box(fig, (2, 4, 4 * row + i + 1))?;
             for axis in ax.axis_artists() {
                 axis.toggle(&Toggle {
                     ticklabels: Some(false),
@@ -249,7 +245,7 @@ pub(super) fn axis_direction(fig: &Figure) -> CaseResult {
                 },
             );
             let axis = ax.new_floating_axis(name, nth, value);
-            set_text(&axis, text);
+            show_label(&axis, text);
             axis.set_axis_direction(direction);
             ax.ax().set_title(direction.name());
         }

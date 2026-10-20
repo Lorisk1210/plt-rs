@@ -2,6 +2,7 @@
 //! of one axis line, drawn instead of the axes' spines and axes
 //! (matplotlib's `axisartist.axis_artist.AxisArtist`).
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use plt_core::{Bbox, Path, Point};
@@ -72,7 +73,22 @@ pub(crate) struct AxisArtistState {
     pub(crate) label: LabelState,
     /// The label text; `None` shows the style axis' label.
     pub(crate) label_text: Option<String>,
+    /// The gap the tick labels left for the label when they were last
+    /// laid out, in pixels (matplotlib's `TickLabels._axislabel_pad`):
+    /// measuring the artist places the label by it before laying the tick
+    /// labels out again, so a first measurement leaves no gap.
+    tick_labels_gap: Cell<f64>,
     rc: Rc<RcParams>,
+}
+
+/// Which gap left by the tick labels places the label.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LabelGap {
+    /// The one the tick labels leave now, as drawing uses.
+    Current,
+    /// The one they left when last laid out, as matplotlib's
+    /// `AxisArtist.get_tightbbox` uses (it updates the label first).
+    Previous,
 }
 
 /// The marks (locations and angles, unless hidden) and labels of one
@@ -144,6 +160,7 @@ impl AxisArtistState {
             minor_ticklabels: tick_labels(minor_pad),
             label: LabelState::new(LabelKind::AxisLabel, direction, LABEL_PAD, label_font),
             label_text: None,
+            tick_labels_gap: Cell::new(0.0),
             rc,
         };
         artist.set_axis_direction(direction);
@@ -190,8 +207,14 @@ impl AxisArtistState {
 
     /// Lays out everything the artist draws (matplotlib's `_draw_ticks`,
     /// `_draw_line` and `_draw_label`), an arrowed line at `dpi_cor`
-    /// pixels per point.
-    fn drawing(&self, layout: LayoutContext<'_>, dpi_cor: f64) -> Result<Drawing, String> {
+    /// pixels per point and the label clear of the tick labels by the gap
+    /// `label_gap` names; remembers the gap they leave now.
+    fn drawing(
+        &self,
+        layout: LayoutContext<'_>,
+        dpi_cor: f64,
+        label_gap: LabelGap,
+    ) -> Result<Drawing, String> {
         let axes = layout.store().get_as::<AxesState>(self.axes).ok_or(GONE)?;
         let ctx = HelperContext {
             layout,
@@ -239,6 +262,10 @@ impl AxisArtistState {
         } else {
             None
         };
+        let previous_gap = self.tick_labels_gap.replace(axislabel_pad);
+        if label_gap == LabelGap::Previous {
+            axislabel_pad = previous_gap;
+        }
         if self.ticklabel_direction != self.axislabel_direction {
             // The label faces away from the tick labels and clears only
             // the inward ticks, measured in points as if pixels (like
@@ -399,7 +426,7 @@ impl Artist for AxisArtistState {
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let id = self.base.id();
         let layout = *ctx.layout();
-        let drawing = match self.drawing(layout, layout.points_to_pixels(1.0)) {
+        let drawing = match self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current) {
             Ok(drawing) => drawing,
             Err(problem) => return ctx.report(id, problem),
         };
@@ -445,8 +472,22 @@ impl Artist for AxisArtistState {
         ctx.renderer().close_group(GROUP);
     }
 
+    /// The box around the tick labels, the label, the offset text and the
+    /// line (matplotlib's `AxisArtist.get_tightbbox`); a line clipped to
+    /// the axes box counts only inside it (`line.get_tightbbox`).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        let drawing = self.drawing(*ctx, ctx.measured_dpi_cor()).ok()?;
+        let drawing = self
+            .drawing(*ctx, ctx.measured_dpi_cor(), LabelGap::Previous)
+            .ok()?;
+        let clip = if self.line.clipped {
+            Some(ctx.axes_extent(self.axes)?)
+        } else {
+            None
+        };
+        let line = drawing.line.iter().filter_map(|path| {
+            let extents = path.to_display().extents();
+            clip.map_or(Some(extents), |clip| extents.intersection(&clip))
+        });
         drawing
             .levels
             .iter()
@@ -454,8 +495,50 @@ impl Artist for AxisArtistState {
             .chain(&drawing.label)
             .chain(&drawing.offset)
             .map(PlacedText::bbox)
-            .chain(drawing.line.iter().map(|p| p.to_display().extents()))
+            .chain(line)
             .filter(|b| b.width() != 0.0 || b.height() != 0.0)
             .reduce(|a, b| a.union(&b))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::artist::ArtistHandle;
+    use crate::axisartist::grid_finder::GridFinderOptions;
+    use crate::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
+    use crate::axisartist::{AuxTransform, Axes, Toggle};
+    use crate::figure::Figure;
+    use crate::ticker::AxisName;
+
+    #[test]
+    fn clipped_lines_count_only_inside_the_axes() {
+        let fig = Figure::new();
+        let polar = GridHelperCurveLinear::new(AuxTransform::polar(), GridFinderOptions::default());
+        let ax = Axes::with_grid_helper(fig.subplot(), polar);
+        ax.ax().set_xlim(-1.0, 1.0).set_ylim(-1.0, 1.0);
+        // The ray at angle 0 runs to r = √2, past the right edge.
+        let ray = ax.new_floating_axis("ray", AxisName::X, 0.0);
+        ray.toggle(&Toggle {
+            all: Some(false),
+            ..Toggle::default()
+        });
+        let extent = ray.window_extent().expect("measured");
+        let axes = ax.ax().window_extent().expect("laid out");
+        assert!((extent.x1() - axes.x1()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn measuring_places_the_label_by_the_previous_tick_label_gap() {
+        let fig = Figure::new();
+        let ax = Axes::new(fig.subplot());
+        ax.ax().set_ylabel("label");
+        let left = ax.axis("left").expect("an edge");
+        let first = left.window_extent().expect("measured");
+        let second = left.window_extent().expect("measured");
+        assert!(
+            second.x0() < first.x0(),
+            "a first measurement leaves no gap"
+        );
+        assert_eq!(left.window_extent(), Some(second));
     }
 }

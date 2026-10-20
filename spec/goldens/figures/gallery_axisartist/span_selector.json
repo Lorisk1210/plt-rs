@@ -1,0 +1,32 @@
+{
+ "size_px": [800, 600],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.53, 0.775, 0.35],
+   "title": "Press left mouse button and drag to select a region in the top graph",
+   "xlim": [-0.2495, 5.2395],
+   "ylim": [-2.0, 2.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"], [5.0, "5"]],
+   "yticks": [[-2.0, "−2"], [-1.0, "−1"], [0.0, "0"], [1.0, "1"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.35],
+   "title": "",
+   "xlim": [-0.055, 0.055],
+   "ylim": [-0.055, 0.055],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-0.04, "−0.04"], [-0.02, "−0.02"], [0.0, "0.00"], [0.02, "0.02"], [0.04, "0.04"]],
+   "yticks": [[-0.04, "−0.04"], [-0.02, "−0.02"], [0.0, "0.00"], [0.02, "0.02"], [0.04, "0.04"]]
+  }
+ ]
+}

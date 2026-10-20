@@ -24,8 +24,10 @@ use plt::text::{HorizontalAlignment, VerticalAlignment};
 use plt::transforms::Affine2D;
 use plt_core::Point;
 
-use super::{artist, polar_degrees, polar_grid_helper, set_text};
 use crate::figures::CaseResult;
+use crate::figures::cases::common::{
+    axis_artist, polar_box, polar_degrees, polar_grid_helper, show_label,
+};
 use crate::rng::SpecRng;
 
 /// numpy's `sign`.
@@ -72,15 +74,12 @@ pub(super) fn simple_axis_pad(fig: &Figure) -> CaseResult {
         }),
     ];
     for (i, (note, adjust)) in adjustments.into_iter().enumerate() {
-        let helper = polar_grid_helper(Some(Box::new(MaxNLocator::new(5))));
-        let ax = axisartist::Axes::with_grid_helper(fig.add_subplot(1, 4, i + 1)?, helper);
+        let ax = polar_box(fig, (1, 4, i + 1))?;
         for axis in ax.axis_artists() {
             axis.set_visible(false);
         }
-        ax.ax().set_aspect(Aspect::Equal)?;
-        ax.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
         let axis = ax.new_floating_axis("lat", AxisName::X, 30.0);
-        set_text(&axis, r"$\theta = 30^{\circ}$");
+        show_label(&axis, r"$\theta = 30^{\circ}$");
         adjust(&axis);
         ax.ax()
             .annotate(
@@ -112,10 +111,12 @@ pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
     let ax2 =
         axisartist::Axes::with_grid_helper(fig.add_subplot(1, 2, 2)?, polar_grid_helper(None));
     for name in ["right", "top"] {
-        artist(&ax2, name)?.major_ticklabels().set_visible(true);
+        axis_artist(&ax2, name)?
+            .major_ticklabels()
+            .set_visible(true);
     }
-    artist(&ax2, "right")?.set_nth_coord_ticks(AxisName::X);
-    artist(&ax2, "bottom")?.set_nth_coord_ticks(AxisName::Y);
+    axis_artist(&ax2, "right")?.set_nth_coord_ticks(AxisName::X);
+    axis_artist(&ax2, "bottom")?.set_nth_coord_ticks(AxisName::Y);
     ax2.ax().set_aspect(Aspect::Equal)?;
     ax2.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
     grid_below(&ax2);
@@ -250,10 +251,11 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
         },
     );
     let ax3 = FloatingAxes::new(fig.add_subplot(1, 3, 3)?, helper3)?;
-    artist(&ax3, "left")?.set_axis_direction(SpineSide::Bottom);
-    artist(&ax3, "right")?.set_axis_direction(SpineSide::Top);
-    artist(&ax3, "bottom")?.set_visible(false);
-    let top = artist(&ax3, "top")?;
+    let left = axis_artist(&ax3, "left")?;
+    left.set_axis_direction(SpineSide::Bottom);
+    axis_artist(&ax3, "right")?.set_axis_direction(SpineSide::Top);
+    axis_artist(&ax3, "bottom")?.set_visible(false);
+    let top = axis_artist(&ax3, "top")?;
     top.set_axis_direction(SpineSide::Bottom);
     top.toggle(&Toggle {
         ticklabels: Some(true),
@@ -262,7 +264,7 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
     });
     top.major_ticklabels().set_axis_direction(SpineSide::Top);
     top.label().set_axis_direction(SpineSide::Top);
-    artist(&ax3, "left")?.label().set_text(r"cz [km$^{-1}$]");
+    left.label().set_text(r"cz [km$^{-1}$]");
     top.label().set_text(r"$\alpha_{1950}$");
     ax3.grid(true, &GridOptions::default());
     let aux3 = ax3.get_aux_axes(&tr3);
@@ -285,7 +287,7 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
 pub(super) fn floating_axis(fig: &Figure) -> CaseResult {
     let ax = axisartist::Axes::with_grid_helper(fig.subplot(), polar_grid_helper(None));
     let lat = ax.new_floating_axis("lat", AxisName::X, 60.0);
-    set_text(&lat, r"$\theta = 60^{\circ}$");
+    show_label(&lat, r"$\theta = 60^{\circ}$");
     let lon = ax.new_floating_axis("lon", AxisName::Y, 6.0);
     lon.label().set_text(r"$r = 6$");
     ax.ax().set_aspect(Aspect::Equal)?;

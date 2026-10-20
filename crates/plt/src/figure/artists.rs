@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::{Figure, FigureState};
-use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, Custom, RawHandle};
 use crate::patches::{Patch, PatchArtist, PatchShape};
 use crate::transforms::Transform;
 
@@ -22,6 +22,18 @@ impl Figure {
         }
         let id = self.state.borrow_mut().adopt(self.id(), Box::new(patch));
         Patch::from_raw(RawHandle::new(Rc::clone(&self.state), id))
+    }
+
+    /// Adds an artist of your own to the figure (matplotlib's
+    /// `Figure.add_artist` of an `Artist` subclass; see [`Custom`]):
+    /// unclipped and in figure fractions unless its base has a transform.
+    pub fn add_custom_artist<A: Artist>(&self, mut artist: A) -> Custom<A> {
+        let base = artist.base_mut();
+        if base.transform.is_none() {
+            base.transform = Some(Transform::Figure(self.id()));
+        }
+        let id = self.state.borrow_mut().adopt(self.id(), Box::new(artist));
+        Custom::from_raw(RawHandle::new(Rc::clone(&self.state), id))
     }
 
     /// The artists of the figure, the figure itself included, for which

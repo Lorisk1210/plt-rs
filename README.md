@@ -154,7 +154,12 @@ cargo run -p plt --example widgets              # sliders and a span selector
 ```
 
 The conformance spec in `spec/` was run against matplotlib 3.11 to
-produce golden values and images:
+produce golden values and images: about 31 000 probes of functions and
+artist behaviour, and some 2 800 figures, among them ports of
+matplotlib's own image tests and of every example in its gallery.
+Every figure matches matplotlib's in its structure and pixels; the
+SVG, PDF, PostScript and PGF documents of all of them can be compared
+with matplotlib's item by item:
 
 ```sh
 cargo xtask spec                                # probes: op(args) -> value
@@ -163,6 +168,11 @@ cargo test -p plt-spec --test figure_pixels     # figure pixels, RMS <= 1.0
 cargo test -p plt-spec --test figure_vectors    # SVG/PDF/PS documents, item by item
 cargo xtask render polar/                       # write renderings and diffs to spec/out/
 cargo xtask render polar/rose --vectors         # ... with the case's SVG, PDF and PS
+
+# every case against matplotlib's documents (written to /tmp/ref first)
+.venv/bin/python spec/reference/figures/render_vectors.py /tmp/ref
+PLT_VECTOR_REFERENCE=/tmp/ref cargo test -p plt-spec --release \
+    --test figure_vectors -- --ignored --nocapture
 ```
 
 See `CLAUDE.md` for the coding conventions.

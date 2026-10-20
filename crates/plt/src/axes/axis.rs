@@ -136,9 +136,11 @@ pub(crate) struct AxisState {
     categories: Option<Categories>,
     pub(crate) settings: TickerSettings,
     pub(crate) autoscale: AutoscaleState,
-    /// Size of the major tick labels in points as set by the rc and the
-    /// tick parameters (drives the tick-space heuristic).
-    pub(crate) label_size: f64,
+    /// Size of the major tick labels in points as set by the tick
+    /// parameters (matplotlib's `_major_tick_kw['labelsize']`), which
+    /// drives the tick-space heuristic; `None` follows the current
+    /// `xtick.labelsize` or `ytick.labelsize`.
+    pub(crate) label_size: Option<f64>,
     /// Ticks computed by the last prepare pass, or why they could not be.
     pub(crate) ticks: Result<TickSet, String>,
     /// Appearance of the major ticks.
@@ -165,9 +167,9 @@ impl AxisState {
     /// A linear axis configured from `rc`.
     pub(crate) fn new(name: AxisName, rc: &RcParams) -> Self {
         let settings = TickerSettings::from(rc);
-        let (margin, label_size) = match name {
-            AxisName::X => (rc.axes_xmargin, rc.xtick_labelsize),
-            AxisName::Y => (rc.axes_ymargin, rc.ytick_labelsize),
+        let margin = match name {
+            AxisName::X => rc.axes_xmargin,
+            AxisName::Y => rc.axes_ymargin,
         };
         let scale: Rc<dyn Scale> = Rc::new(LinearScale);
         let tickers = scale.default_tickers(name, &settings);
@@ -188,7 +190,7 @@ impl AxisState {
                 margin,
                 stale: false,
             },
-            label_size: label_size.to_points(rc.font_size),
+            label_size: None,
             settings,
             ticks: Ok(TickSet::default()),
             major_style: TickStyle::from_rc(name, true, rc),
@@ -416,13 +418,24 @@ impl AxisState {
     }
 
     /// How many ticks fit (matplotlib's `get_tick_space`): tick labels are
-    /// assumed to be at most 3:1 (x) or 2:1 (y) wide.
+    /// assumed to be at most 3:1 (x) or 2:1 (y) wide. Without a label size
+    /// from the tick parameters, the size is the rc's when the ticks are
+    /// laid out, as matplotlib reads it at draw time
+    /// (`_get_tick_label_size`).
     pub(crate) fn tick_space(&self, length_points: f64) -> usize {
+        let label_size = self.label_size.unwrap_or_else(|| {
+            let rc = crate::rc::params();
+            let size = match self.name {
+                AxisName::X => rc.xtick_labelsize,
+                AxisName::Y => rc.ytick_labelsize,
+            };
+            size.to_points(rc.font_size)
+        });
         let ratio = match self.name {
             AxisName::X => 3.0,
             AxisName::Y => 2.0,
         };
-        let size = self.label_size * ratio;
+        let size = label_size * ratio;
         if size > 0.0 {
             (length_points / size).floor().max(0.0) as usize
         } else {

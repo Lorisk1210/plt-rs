@@ -1,9 +1,11 @@
 //! Adding ready-made artists and collections to an axes (`add_artist`,
-//! `add_collection`).
+//! `add_collection`) and filtered groups of artists.
 
 use super::Axes;
 use super::children::DataUpdate;
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::{
+    AggFilter, Artist, ArtistHandle, FilteredGroup, FilteredGroupArtist, RawHandle,
+};
 use crate::collections::{Collection, CollectionSpec, TriMesh, TriMeshSpec};
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
 
@@ -26,6 +28,29 @@ impl Axes {
             base.transform = Some(self.trans_data());
         }
         Patch::from_raw(self.adopt(patch, &DataUpdate::default()))
+    }
+
+    /// Draws `members` a second time, together, through `filter` as one
+    /// rasterized layer, at the z-order of the returned group (0 until
+    /// changed): the agg filter example's `FilteredArtistList`, which
+    /// draws glows behind texts and shadows behind groups of patches. The
+    /// members are drawn on their own as well.
+    ///
+    /// ```
+    /// use plt::artist::{AggFilter, ArtistHandle, Filtered};
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let line = ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// let shifted = AggFilter::new(|image, _dpi| Filtered { image: image.clone(), offset: (3.0, -3.0) });
+    /// ax.add_filtered_group(&[line.raw().clone()], shifted).set_zorder(line.zorder() - 0.1);
+    /// fig.to_png()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn add_filtered_group(&self, members: &[RawHandle], filter: AggFilter) -> FilteredGroup {
+        let ids = members.iter().map(RawHandle::id).collect();
+        let group = FilteredGroupArtist::new(ids, filter);
+        FilteredGroup::from_raw(self.adopt(group, &DataUpdate::default()))
     }
 
     /// Adds a collection, in data coordinates unless it is drawn in display

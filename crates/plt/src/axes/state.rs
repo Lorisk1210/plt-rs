@@ -16,7 +16,6 @@ use crate::axes_grid1::Parasite;
 use crate::colors::Color;
 use crate::geo::{self, GeoState};
 use crate::gridspec::SubplotSpec;
-use crate::patches::PatchShape;
 use crate::polar::{PolarState, PolarView};
 use crate::rc::{Cycler, RcParams};
 use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
@@ -549,7 +548,7 @@ impl AxesState {
     /// square, the wedge of polar axes, or the ellipse of geographic axes.
     pub(crate) fn patch_path(&self) -> Path {
         match self.polar_view() {
-            Some(polar) => polar.patch().path(),
+            Some(polar) => polar.patch_path(),
             None if self.geo().is_some() => geo::outline(),
             None => Path::unit_rectangle(),
         }

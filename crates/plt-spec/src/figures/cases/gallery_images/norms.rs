@@ -13,7 +13,8 @@ use plt::layout::LayoutEngine;
 use plt::numeric::{Grid, interp, linspace};
 use plt::orientation::Orientation;
 
-use super::data::{extremes, mgrid, mgrid_count, on_mesh, spike};
+use super::data::{extremes, mgrid, on_mesh, spike};
+use crate::figures::cases::common::mgrid_count;
 use crate::figures::{CaseResult, FigureCase};
 
 /// `np.mgrid[x0:x1:100j, y0:y1:100j]`: x down the rows, y along them.

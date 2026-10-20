@@ -193,6 +193,9 @@ pub(crate) struct CollectionArtist {
     pub(crate) joinstyle: Option<JoinStyle>,
     /// Colours drawn in the gaps of dashed edges (`None` = empty gaps).
     pub(crate) gapcolors: Option<Vec<Color>>,
+    /// Links of the items in vector output, cycled (matplotlib's
+    /// `_urls`; empty = `[None]`).
+    pub(crate) urls: Vec<Option<String>>,
     /// How a `fill_between` collection makes its polygons, kept for new
     /// curves (`None` for other collections).
     pub(crate) fill_geometry: Option<FillGeometry>,
@@ -245,6 +248,7 @@ impl CollectionArtist {
             capstyle: None,
             joinstyle: None,
             gapcolors: None,
+            urls: Vec::new(),
             fill_geometry: None,
             depth_sorted: None,
             mapping: None,

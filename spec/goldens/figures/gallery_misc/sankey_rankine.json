@@ -1,0 +1,19 @@
+{
+ "size_px": [800, 900],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "Rankine Power Cycle: Example 8.6 from Moran and Shapiro\n\"Fundamentals of Engineering Thermodynamics \", 6th ed., 2008",
+   "xlim": [-2.31414, 6.277772],
+   "ylim": [-2.084877, 7.518664],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  }
+ ]
+}

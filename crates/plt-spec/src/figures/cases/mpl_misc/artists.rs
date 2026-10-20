@@ -1,7 +1,5 @@
 //! The cases from `test_agg.py`, `test_agg_filter.py` and `test_skew.py`.
 
-use std::f64::consts::PI;
-
 use plt::artist::{AggFilter, FilterImage, Filtered};
 use plt::axes::{Adjustable, Mesh, PcolorOptions};
 use plt::colors::colormaps;
@@ -16,56 +14,8 @@ use plt::transforms::Transform;
 use plt_core::Affine2D;
 
 use super::{classic, remove_text};
+use crate::figures::cases::common::smooth2d;
 use crate::figures::{CaseResult, FigureCase};
-
-/// numpy's `hanning(len)`, normalised to sum to 1.
-fn hanning_weights(len: usize) -> Vec<f64> {
-    let span = (len - 1) as f64;
-    let window: Vec<f64> = (0..len)
-        .map(|k| 0.5 + 0.5 * (PI * (2.0 * k as f64 - span) / span).cos())
-        .collect();
-    let total: f64 = window.iter().sum();
-    window.iter().map(|w| w / total).collect()
-}
-
-/// `test_agg_filter`'s `smooth1d`: a moving average weighted by a Hanning
-/// window of `weights.len()` samples, the ends extended by point
-/// reflection.
-fn smooth1d(x: &[f64], weights: &[f64]) -> Vec<f64> {
-    let len = weights.len();
-    let (first, last) = (x[0], x[x.len() - 1]);
-    let reflected: Vec<f64> = (2..=len)
-        .rev()
-        .map(|i| 2.0 * first - x[i])
-        .chain(x.iter().copied())
-        .chain((0..len - 1).map(|i| 2.0 * last - x[x.len() - 1 - i]))
-        .collect();
-    let start = len - 1 - (len - 1) / 2;
-    (0..x.len())
-        .map(|i| {
-            let window = &reflected[start + i..start + i + len];
-            window.iter().zip(weights).map(|(s, w)| s * w).sum()
-        })
-        .collect()
-}
-
-/// `test_agg_filter`'s `smooth2d`: [`smooth1d`] down every column of the
-/// `width`-wide row-major `values`, then along every row.
-fn smooth2d(values: &[f64], width: usize, sigma: f64) -> Vec<f64> {
-    let weights = hanning_weights((sigma as usize).max(3) * 2 + 1);
-    let height = values.len() / width;
-    let mut smoothed = values.to_vec();
-    for col in 0..width {
-        let column: Vec<f64> = (0..height).map(|row| values[row * width + col]).collect();
-        for (row, value) in smooth1d(&column, &weights).into_iter().enumerate() {
-            smoothed[row * width + col] = value;
-        }
-    }
-    smoothed
-        .chunks(width)
-        .flat_map(|row| smooth1d(row, &weights))
-        .collect()
-}
 
 /// `test_agg_filter`'s `DropShadowFilter(4)`: the artist's opacity at
 /// 30 %, blurred over 4 points, in black.

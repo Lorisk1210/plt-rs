@@ -6,11 +6,9 @@ quiver and barbs, streamlines and colormap normalisations.
 Each case ports one figure of an example (``<example>_<n>`` when the
 example draws several). Random data comes from ``spec_support.rng`` seeded
 with the example's seed; sample data files are replaced by synthetic arrays
-of the same shape (see ``_photo``, ``_scan``, ``_logo`` and ``_terrain``).
+of the same shape (see ``_photo`` and ``_logo``, and ``spec_support.gallery_data``).
 ``affine_image`` is covered by ``images/affine_transforms``.
 """
-
-import math
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -22,34 +20,13 @@ from matplotlib.path import Path
 from matplotlib.transforms import Bbox, TransformedBbox
 
 from spec_support import case, rng
+from spec_support.gallery_data import (contour_field, image_field, libm_exp, scan,
+                                       terrain, two_bumps)
 
 SEED = 19680801
 
 
 # --- shared data -----------------------------------------------------------
-
-def _two_bumps(X, Y, exp=np.exp):
-    """The gallery's favourite field: a positive and a negative bump."""
-    Z1 = exp(-X**2 - Y**2)
-    Z2 = exp(-(X - 1)**2 - (Y - 1)**2)
-    return (Z1 - Z2) * 2
-
-
-#: libm's ``exp``, value by value. ``numpy.exp`` takes a SIMD path that
-#: depends on the CPU and differs from libm in the last bit of some values.
-_libm_exp = np.vectorize(math.exp)
-
-
-def _contour_field():
-    """``contour_demo``'s grid: ``_two_bumps`` over [-3, 3) x [-2, 2).
-
-    Its zero contour is the straight line x + y = 1, where every label
-    position is about as good as any other: which one ``clabel`` picks
-    depends on the last bits of the values, so they come from libm's
-    ``exp``, which gives the same bits everywhere."""
-    X, Y = np.meshgrid(np.arange(-3.0, 3.0, 0.025), np.arange(-2.0, 2.0, 0.025))
-    return X, Y, _two_bumps(X, Y, exp=_libm_exp)
-
 
 def _spike(X, Y):
     """A wide bump with a narrow spike fifty times higher on top."""
@@ -133,7 +110,7 @@ def _britain():
 def _wales_bump(x, y):
     """The tri examples' bump over Wales, through libm's ``exp``: the last
     bits of its values decide the colour of a colorbar row."""
-    return _libm_exp(-0.01 * ((x - -5) * (x - -5) + (y - 52) * (y - 52)))
+    return libm_exp(-0.01 * ((x - -5) * (x - -5) + (y - 52) * (y - 52)))
 
 
 def _britain_labels(ax, title):
@@ -153,16 +130,6 @@ def _photo():
     return np.dstack([r, g, b]).astype(np.uint8)
 
 
-def _scan():
-    """A 256 x 256 MRI-like slice in place of ``s1045.ima.gz``: a bright
-    ellipse with darker structures inside."""
-    v = np.linspace(-1.0, 1.0, 256)
-    X, Y = np.meshgrid(v, v)
-    head = np.exp(-((X / 0.75)**2 + (Y / 0.9)**2)**4)
-    folds = 0.5 + 0.5 * np.cos(14 * np.hypot(X - 0.1, Y + 0.05))
-    return 1000.0 * head * (0.6 + 0.4 * folds)
-
-
 def _logo():
     """A 130 x 542 RGBA float image in place of ``logo2.png``: coloured
     stripes on a transparent background."""
@@ -173,15 +140,6 @@ def _logo():
     rgba[..., 2] = 1 - (yy // 26) / 4
     rgba[..., 3] = (((xx // 30) + (yy // 26)) % 3 != 0) * 1.0
     return rgba
-
-
-def _terrain():
-    """A rough 344 x 403 elevation model in place of
-    ``jacksboro_fault_dem.npz``: ridges with noise on top."""
-    yy, xx = np.mgrid[0:344, 0:403]
-    ridges = 600 + 250 * np.sin(xx / 37.0) * np.cos(yy / 53.0) + 0.5 * (xx - yy)
-    noise = rng(SEED).normal(344 * 403, scale=12.0).reshape(344, 403)
-    return ridges + noise
 
 
 # --- barbs -----------------------------------------------------------------
@@ -287,16 +245,9 @@ def _(fig):
     ax.axis('off')
 
 
-def _demo_field():
-    """``image_demo``'s grid: ``_two_bumps`` over [-3, 3)^2."""
-    x = y = np.arange(-3.0, 3.0, 0.025)
-    X, Y = np.meshgrid(x, y)
-    return _two_bumps(X, Y)
-
-
 @case("gallery_images/image_demo_1")
 def _(fig):
-    Z = _demo_field()
+    Z = image_field()
     ax = fig.subplots()
     ax.imshow(Z, interpolation='bilinear', cmap="RdYlBu", origin='lower', extent=[-3, 3, -3, 3],
               vmax=abs(Z).max(), vmin=-abs(Z).max())
@@ -307,7 +258,7 @@ def _(fig):
     ax = fig.subplot_mosaic([['hopper', 'mri']])
     ax['hopper'].imshow(_photo())
     ax['hopper'].axis('off')
-    ax['mri'].imshow(_scan(), cmap="hot", origin='upper', extent=(0, 25, 0, 25))
+    ax['mri'].imshow(scan(), cmap="hot", origin='upper', extent=(0, 25, 0, 25))
     markers = [(15.9, 14.5), (16.8, 15)]
     x, y = zip(*markers)
     ax['mri'].plot(x, y, 'o')
@@ -336,7 +287,7 @@ def _(fig):
 
 @case("gallery_images/image_demo_5")
 def _(fig):
-    Z = _demo_field()
+    Z = image_field()
     path = Path([[0, 1], [1, 0], [0, -1], [-1, 0], [0, 1]])
     patch = PathPatch(path, facecolor='none')
     ax = fig.subplots()
@@ -416,7 +367,7 @@ def _(fig):
     x0, x1 = -5, 5
     y0, y1 = -3, 3
     X, Y = np.meshgrid(np.linspace(x0, x1, 500), np.linspace(y0, y1, 500))
-    Z = _two_bumps(X, Y)
+    Z = two_bumps(X, Y)
     palette = plt.colormaps["gray"].with_extremes(over='r', under='g', bad='b')
     Zm = np.ma.masked_where(Z > 1.2, Z)
     ax1, ax2 = fig.subplots(nrows=2)
@@ -578,7 +529,7 @@ def _(fig):
 
 @case("gallery_images/shading_example_2")
 def _(fig):
-    _compare_shading(fig, _terrain(), plt.colormaps["gist_earth"], ve=0.05)
+    _compare_shading(fig, terrain(), plt.colormaps["gist_earth"], ve=0.05)
     fig.suptitle('Overlay Blending Looks Best with Rough Surfaces', y=0.95)
 
 
@@ -1184,7 +1135,7 @@ def _(fig):
 
 @case("gallery_images/contour_demo_1")
 def _(fig):
-    X, Y, Z = _contour_field()
+    X, Y, Z = contour_field()
     ax = fig.subplots()
     CS = ax.contour(X, Y, Z)
     ax.clabel(CS, fontsize=10)
@@ -1193,7 +1144,7 @@ def _(fig):
 
 @case("gallery_images/contour_demo_2")
 def _(fig):
-    X, Y, Z = _contour_field()
+    X, Y, Z = contour_field()
     ax = fig.subplots()
     CS = ax.contour(X, Y, Z)
     manual_locations = [
@@ -1203,7 +1154,7 @@ def _(fig):
 
 
 def _single_color(fig, title):
-    X, Y, Z = _contour_field()
+    X, Y, Z = contour_field()
     ax = fig.subplots()
     CS = ax.contour(X, Y, Z, 6, colors='k')
     ax.clabel(CS, fontsize=9)
@@ -1226,7 +1177,7 @@ def _(fig):
 
 @case("gallery_images/contour_demo_5", rc=SOLID_NEGATIVE)
 def _(fig):
-    X, Y, Z = _contour_field()
+    X, Y, Z = contour_field()
     ax = fig.subplots()
     CS = ax.contour(X, Y, Z, 6, linewidths=np.arange(.5, 4, .5),
                     colors=('r', 'green', 'blue', (1, 1, 0), '#afeeee', '0.5'))
@@ -1236,7 +1187,7 @@ def _(fig):
 
 @case("gallery_images/contour_demo_6", rc=SOLID_NEGATIVE)
 def _(fig):
-    X, Y, Z = _contour_field()
+    X, Y, Z = contour_field()
     ax = fig.subplots()
     im = ax.imshow(Z, interpolation='bilinear', origin='lower', cmap="gray", extent=(-3, 3, -2, 2))
     levels = np.arange(-1.2, 1.6, 0.2)
@@ -1259,7 +1210,7 @@ def _holey_field():
     masked disc."""
     x = y = np.arange(-3.0, 3.01, 0.025)
     X, Y = np.meshgrid(x, y)
-    Z = _two_bumps(X, Y)
+    Z = two_bumps(X, Y)
     nr, nc = Z.shape
     Z[-nr // 6:, -nc // 6:] = np.nan
     Z = np.ma.array(Z)
@@ -1365,7 +1316,7 @@ def _(fig):
 def _(fig):
     extent = (-3, 4, -4, 3)
     X, Y = np.meshgrid(np.arange(-3.0, 4.001, 0.5), np.arange(-4.0, 3.001, 0.5))
-    Z = _two_bumps(X, Y)
+    Z = two_bumps(X, Y)
     levels = np.arange(-2.0, 1.601, 0.4)
     norm = colors.Normalize(vmax=abs(Z).max(), vmin=-abs(Z).max())
     cmap = plt.colormaps["PRGn"]
@@ -1402,7 +1353,7 @@ def _percent(x):
 
 @case("gallery_images/contour_label_demo_1")
 def _(fig):
-    X, Y, Z = _contour_field()
+    X, Y, Z = contour_field()
     ax = fig.subplots()
     CS = ax.contour(X, Y, Z)
     ax.clabel(CS, CS.levels, fmt=_percent, fontsize=10)
@@ -1410,7 +1361,7 @@ def _(fig):
 
 @case("gallery_images/contour_label_demo_2")
 def _(fig):
-    X, Y, Z = _contour_field()
+    X, Y, Z = contour_field()
     ax1 = fig.subplots()
     CS1 = ax1.contour(X, Y, Z)
     strs = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh']
@@ -1419,7 +1370,7 @@ def _(fig):
 
 @case("gallery_images/contour_label_demo_3")
 def _(fig):
-    X, Y, Z = _contour_field()
+    X, Y, Z = contour_field()
     ax2 = fig.subplots()
     CS2 = ax2.contour(X, Y, 100**Z, locator=ticker.LogLocator())
     fmt = ticker.LogFormatterMathtext()
@@ -1457,7 +1408,7 @@ def _(fig):
     x = g.uniform(npts, -2, 2)
     y = g.uniform(npts, -2, 2)
     # Whether contourpy closes one of the loops depends on the last bits.
-    z = x * _libm_exp(-x**2 - y**2)
+    z = x * libm_exp(-x**2 - y**2)
     ax1, ax2 = fig.subplots(nrows=2)
     xi = np.linspace(-2.1, 2.1, ngridx)
     yi = np.linspace(-2.1, 2.1, ngridy)

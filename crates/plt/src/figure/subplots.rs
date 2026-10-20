@@ -341,6 +341,36 @@ mod tests {
     }
 
     #[test]
+    fn subplots_added_one_by_one_share_their_grid() {
+        let fig = Figure::new();
+        let grid = |ax: &Axes| ax.subplot_spec().expect("a grid cell").gridspec().clone();
+        let first = fig.add_subplot(1, 3, 1).expect("cell 1");
+        let second = fig.add_subplot(1, 3, 2).expect("cell 2");
+        assert!(grid(&first).is_same(&grid(&second)));
+        let other = fig.add_subplot(2, 1, 2).expect("another shape");
+        assert!(!grid(&first).is_same(&grid(&other)));
+    }
+
+    #[test]
+    fn nested_grids_count_as_their_topmost_grid() {
+        let fig = Figure::new();
+        let grid = |ax: &Axes| ax.subplot_spec().expect("a grid cell").gridspec().clone();
+        let outer = GridSpec::new(2, 1).expect("a grid");
+        let parent = outer.cell(1, 0).expect("cell");
+        let nested = GridSpec::nested(&parent, 1, 3, None, None, (None, None)).expect("nested");
+        let inner = fig
+            .add_subplot_spec(&nested.cell(0, 0).expect("cell"))
+            .expect("nested cell");
+        let row = fig.add_subplot(1, 3, 2).expect("a 1 x 3 cell");
+        assert!(
+            !grid(&row).is_same(&grid(&inner)),
+            "the nested grid is not reused"
+        );
+        let top = fig.add_subplot(2, 1, 1).expect("a cell of the outer grid");
+        assert!(grid(&top).is_same(&outer));
+    }
+
+    #[test]
     fn share_targets_follow_matplotlib() {
         // Cell (1, 2) of a 2x3 grid.
         assert_eq!(Share::All.target(1, 2, 3), Some(0));

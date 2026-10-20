@@ -6,7 +6,7 @@ use plt_text::{HAlign, RotationMode, VAlign};
 use super::{
     Feature, LaidOutText, Language, LineSpacing, TextArtist, TextBox, TextBoxProps, TextError,
 };
-use crate::artist::{ArtistHandle, LayoutContext, RawHandle};
+use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 
@@ -19,6 +19,12 @@ pub struct Text {
 impl ArtistHandle for Text {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for Text {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<TextArtist>().then(|| Self::from_raw(raw.clone()))
     }
 }
 

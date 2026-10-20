@@ -126,6 +126,8 @@ struct Batch {
     widths: Vec<f64>,
     dashes: Vec<Dashes>,
     antialiased: Vec<bool>,
+    /// The links of the items, cycled (`[None]` when none are set).
+    urls: Vec<Option<String>>,
 }
 
 impl Batch {
@@ -154,6 +156,11 @@ impl Batch {
                 rc.patch_antialiased
             }]
         });
+        let urls = if c.urls.is_empty() {
+            vec![None]
+        } else {
+            c.urls.clone()
+        };
         Ok(Self {
             paths,
             master,
@@ -165,12 +172,13 @@ impl Batch {
             widths,
             dashes,
             antialiased,
+            urls,
         })
     }
 
     /// The shape transform for drawing every item as the same marker, when
-    /// matplotlib's single-path optimisation applies: one shape, style and
-    /// colour pair, solid, unhatched and smaller than the canvas.
+    /// matplotlib's single-path optimisation applies: one shape, style,
+    /// colour pair and link, solid, unhatched and smaller than the canvas.
     fn single_marker(&self, hatched: bool, canvas: (f64, f64)) -> Option<Affine2D> {
         let uniform = self.paths.len() == 1
             && self.transforms.len() <= 1
@@ -179,6 +187,7 @@ impl Batch {
             && self.widths.len() == 1
             && self.dashes.iter().all(Dashes::is_solid)
             && self.antialiased.len() == 1
+            && self.urls.len() == 1
             && !hatched;
         if !uniform {
             return None;
@@ -247,6 +256,7 @@ fn draw_items(
         gc.linewidth = batch.widths[0];
         gc.dashes.clone_from(&batch.dashes[0]);
         gc.antialiased = batch.antialiased[0];
+        gc.url.clone_from(&batch.urls[0]);
         let positions = Path::polyline(batch.offsets.clone());
         let fill = Some(batch.faces[0]);
         ctx.renderer().draw_markers(
@@ -269,7 +279,7 @@ fn draw_items(
             linewidths: &batch.widths,
             dashes: &batch.dashes,
             antialiased: &batch.antialiased,
-            urls: &[],
+            urls: &batch.urls,
         };
         if let Some(gaps) = &batch.gaps {
             // The gaps first, with transparent faces, as matplotlib does.
@@ -460,6 +470,31 @@ mod tests {
             ..ellipses
         };
         assert_eq!(ellipse_transforms(&no_heights, 1.0), Vec::<Affine2D>::new());
+    }
+
+    #[test]
+    fn item_urls_link_each_item_in_svg() {
+        use crate::figure::Figure;
+
+        let fig = Figure::new();
+        let points = fig
+            .subplot()
+            .scatter([1.0, 2.0, 3.0], [4.0, 5.0, 6.0])
+            .unwrap();
+        let links = |svg: &str| svg.matches("xlink:href=\"https://").count();
+        let plain = fig.to_svg().unwrap();
+        assert_eq!(links(&plain), 0);
+        points.set_urls(vec![
+            Some("https://example.com/a".into()),
+            Some("https://example.com/b".into()),
+            None,
+        ]);
+        assert_eq!(points.urls().len(), 3);
+        let linked = fig.to_svg().unwrap();
+        assert_eq!(links(&linked), 2, "one link per item with a url");
+        points.set_urls(vec![Some("https://example.com/all".into())]);
+        let one = fig.to_svg().unwrap();
+        assert_eq!(links(&one), 1, "one url links all the markers at once");
     }
 
     #[test]

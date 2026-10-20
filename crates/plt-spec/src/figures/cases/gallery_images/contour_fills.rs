@@ -19,8 +19,8 @@ use plt::ticker::pyfmt::{self, PrintfFormat};
 use plt::ticker::{LogLocator, Nbins};
 use plt::tri::{LinearTriInterpolator, TriInterpolator, Triangulation};
 
-use super::data::{SEED, mesh_field, spike, two_bumps};
-use crate::figures::cases::common::{colors, count, hatches, values};
+use super::data::{SEED, mesh_field, spike};
+use crate::figures::cases::common::{colors, count, hatches, two_bumps, values};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 

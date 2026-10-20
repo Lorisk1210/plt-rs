@@ -9,42 +9,11 @@ use plt::prelude::*;
 use plt::spines::{SpinePosition, SpineSide};
 use plt_render::CapStyle;
 
-use crate::figures::cases::common::map;
+use crate::figures::cases::common::{hide_top_right, map, spine_bounds_demo};
 use crate::figures::{CaseResult, FigureCase};
 
-/// Hides the top and right spines.
-fn hide_top_right(ax: &Axes) {
-    let spines = ax.spines();
-    spines.top.set_visible(false);
-    spines.right.set_visible(false);
-}
-
 fn gallery_bounds(fig: &Figure) -> CaseResult {
-    let x = linspace(0.0, 2.0 * std::f64::consts::PI, 100);
-    let y = map(&x, |x| 2.0 * x.sin());
-    let axs = fig.subplots(3, 1)?;
-    for (row, title) in [
-        "normal spines",
-        "bottom-left spines",
-        "spines with bounds limited to data range",
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let ax = &axs[(row, 0)];
-        ax.plot(&x, &y)?;
-        ax.set_title(title);
-    }
-    hide_top_right(&axs[(1, 0)]);
-    let ax2 = &axs[(2, 0)];
-    let (ymin, ymax) = y
-        .iter()
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
-            (lo.min(v), hi.max(v))
-        });
-    ax2.spines().bottom.set_bounds(Some((x[0], x[x.len() - 1])));
-    ax2.spines().left.set_bounds(Some((ymin, ymax)));
-    hide_top_right(ax2);
+    spine_bounds_demo(fig)?;
     fig.tight_layout(&TightLayout::default())?;
     Ok(())
 }

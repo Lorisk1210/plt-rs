@@ -1,0 +1,20 @@
+{
+ "size_px": [750, 750],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.18, 0.68, 0.68],
+   "title": "Anatomy of a figure",
+   "xlim": [0.0, 4.0],
+   "ylim": [0.0, 4.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "x Axis label",
+   "ylabel": "y Axis label",
+   "xticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"]],
+   "yticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"]],
+   "legend": ["Blue signal", "Orange signal"]
+  }
+ ]
+}

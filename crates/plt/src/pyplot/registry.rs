@@ -18,15 +18,28 @@ pub(super) struct Entry {
     pub(super) label: String,
     /// The figure.
     pub(super) figure: Figure,
+    /// The title its manager gave its window, if any.
+    pub(super) window_title: Option<String>,
 }
 
 impl Entry {
-    /// The title of the figure's window: its label, or `Figure <num>`.
+    /// A figure numbered `num`, labelled `label`.
+    fn new(num: u32, label: String, figure: Figure) -> Self {
+        Self {
+            num,
+            label,
+            figure,
+            window_title: None,
+        }
+    }
+
+    /// The title of the figure's window: the one its manager set, else its
+    /// label, else `Figure <num>`.
     pub(super) fn title(&self) -> String {
-        if self.label.is_empty() {
-            format!("Figure {}", self.num)
-        } else {
-            self.label.clone()
+        match &self.window_title {
+            Some(title) => title.clone(),
+            None if self.label.is_empty() => format!("Figure {}", self.num),
+            None => self.label.clone(),
         }
     }
 }
@@ -63,7 +76,7 @@ impl Registry {
     /// current.
     fn add(&mut self, figure: Figure, label: String) -> u32 {
         let num = self.free_number();
-        self.figures.push(Entry { num, label, figure });
+        self.figures.push(Entry::new(num, label, figure));
         self.current = Some(num);
         num
     }
@@ -119,11 +132,9 @@ pub fn figure_num(num: u32) -> Figure {
             fig.clone()
         } else {
             let fig = Figure::new();
-            registry.figures.push(Entry {
-                num,
-                label: String::new(),
-                figure: fig.clone(),
-            });
+            registry
+                .figures
+                .push(Entry::new(num, String::new(), fig.clone()));
             fig
         };
         registry.current = Some(num);

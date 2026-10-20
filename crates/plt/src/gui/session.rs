@@ -56,9 +56,17 @@ impl Session {
         let mut cx = self.event_loop.context();
         let raise = crate::rc::params().figure_raise_window;
         for (figure, title) in figures {
-            match self.windows.iter().find(|window| window.figure() == figure) {
-                Some(window) if raise => cx.raise_window(window.id())?,
-                Some(_) => {}
+            match self
+                .windows
+                .iter_mut()
+                .find(|window| window.figure() == figure)
+            {
+                Some(window) => {
+                    window.retitle(&mut cx, title)?;
+                    if raise {
+                        cx.raise_window(window.id())?;
+                    }
+                }
                 None => self
                     .windows
                     .push(FigureWindow::open(&mut cx, figure, title)?),
@@ -324,6 +332,15 @@ mod tests {
         assert_ne!(handle.stacking_order().last(), Some(&first));
         session.show(&[titled(&figures[0])]).unwrap();
         assert_eq!(handle.stacking_order().last(), Some(&first));
+    }
+
+    #[test]
+    fn showing_again_under_another_title_renames_the_window() {
+        let (mut session, handle, figure, id) = shown();
+        session
+            .show(&[(figure, "My plot".to_owned())])
+            .expect("the window stays");
+        assert_eq!(handle.window(id).expect("open").title, "My plot");
     }
 
     #[test]

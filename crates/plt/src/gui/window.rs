@@ -129,6 +129,19 @@ impl FigureWindow {
         self.window.id()
     }
 
+    /// Renames the window (matplotlib's `manager.set_window_title`).
+    ///
+    /// # Errors
+    ///
+    /// When the window system fails to rename it.
+    pub fn retitle(&mut self, cx: &mut Context<'_>, title: &str) -> Result<(), GuiError> {
+        if self.title != title {
+            cx.set_title(self.id(), title)?;
+            title.clone_into(&mut self.title);
+        }
+        Ok(())
+    }
+
     /// The figure shown.
     pub fn figure(&self) -> &Figure {
         &self.figure

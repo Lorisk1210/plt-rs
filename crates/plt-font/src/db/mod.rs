@@ -3,6 +3,7 @@
 
 mod afm;
 mod afm_catalogue;
+mod arena;
 mod bundled;
 mod entry;
 mod query;
@@ -17,13 +18,14 @@ pub use query::{
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{OnceLock, PoisonError, RwLock, RwLockReadGuard};
 
 use crate::autofit::Autohinter;
 use crate::error::{FontError, Result};
 use crate::face::Face;
 use crate::shape::FontChain;
 use crate::tables::directory::face_count;
+use arena::Arena;
 use bundled::{BUNDLED_FONTS, LAST_RESORT};
 
 /// The contents of the bundled font file called `file_name` (such as
@@ -89,11 +91,12 @@ struct StoredFace {
     autohinter: OnceLock<Autohinter>,
 }
 
-/// A catalogue of font faces with matplotlib's matching rules.
+/// A catalogue of font faces with matplotlib's matching rules. Faces can
+/// be added while the catalogue is shared.
 #[derive(Debug)]
 pub struct FontDatabase {
-    faces: Vec<StoredFace>,
-    entries: Vec<FontEntry>,
+    faces: Arena<StoredFace>,
+    entries: RwLock<Vec<FontEntry>>,
     generics: GenericFamilies,
     default_family: String,
 }
@@ -109,8 +112,8 @@ impl FontDatabase {
     /// `DejaVu Sans` as the default family.
     pub fn new() -> Self {
         Self {
-            faces: Vec::new(),
-            entries: Vec::new(),
+            faces: Arena::new(),
+            entries: RwLock::new(Vec::new()),
             generics: GenericFamilies::default(),
             default_family: "DejaVu Sans".to_owned(),
         }
@@ -119,19 +122,24 @@ impl FontDatabase {
     /// A database with every bundled font (matplotlib's `mpl-data` fonts
     /// and Inter).
     pub fn with_bundled_fonts() -> Self {
-        let mut db = Self::new();
+        let db = Self::new();
         for (name, data) in BUNDLED_FONTS {
             // Bundled fonts are known to parse (see the tests); a failure
             // would only drop that font from the catalogue.
-            let _ = db.add_faces(&FontSource::Bundled(name), data, || FontData::Static(data));
+            let _ = db.add_faces(&FontSource::Bundled(name), data, true, || {
+                FontData::Static(data)
+            });
         }
         db
     }
 
+    /// Adds every face of `bytes`, catalogued for matching unless only
+    /// `catalogue` is unset.
     fn add_faces(
-        &mut self,
+        &self,
         source: &FontSource,
         bytes: &[u8],
+        catalogue: bool,
         data: impl Fn() -> FontData,
     ) -> Result<Vec<FontId>> {
         // Parse every face first so that a broken collection adds nothing.
@@ -140,39 +148,73 @@ impl FontDatabase {
             .collect::<Result<Vec<_>>>()?;
         let mut ids = Vec::new();
         for (index, face) in faces {
-            let id = FontId(self.faces.len());
-            self.entries.extend(entry::entries_for_face(&face, id));
-            self.faces.push(StoredFace {
+            let id = FontId(self.faces.push(StoredFace {
                 source: source.clone(),
                 index,
                 data: data(),
                 autohinter: OnceLock::new(),
-            });
+            }));
+            if catalogue {
+                self.entries
+                    .write()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .extend(entry::entries_for_face(&face, id));
+            }
             ids.push(id);
         }
         Ok(ids)
     }
 
-    /// Adds every face of the font file at `path`. The file is parsed now
-    /// and read again lazily when a face is requested.
-    pub fn add_file(&mut self, path: impl AsRef<Path>) -> Result<Vec<FontId>> {
+    /// Adds every face of the font file at `path` to the catalogue
+    /// (matplotlib's `fontManager.addfont`). The file is parsed now and
+    /// read again lazily when a face is requested.
+    pub fn add_file(&self, path: impl AsRef<Path>) -> Result<Vec<FontId>> {
+        self.load_file(path.as_ref(), true)
+    }
+
+    /// The faces of the font file `path` for text set in it regardless of
+    /// matching (matplotlib's `FontProperties(fname=...)`): read on first
+    /// use without being catalogued. A bare file name may also name a
+    /// bundled font, which has no path on disk.
+    pub fn file_faces(&self, path: impl AsRef<Path>) -> Result<Vec<FontId>> {
         let path = path.as_ref();
+        let bare = path.parent().is_none_or(|dir| dir.as_os_str().is_empty());
+        if let Some(name) = path.to_str().filter(|_| bare) {
+            let bundled = self
+                .faces_where(|source| matches!(source, FontSource::Bundled(file) if *file == name));
+            if !bundled.is_empty() {
+                return Ok(bundled);
+            }
+        }
+        let known = self.faces_from(&FontSource::File(path.to_path_buf()));
+        if known.is_empty() {
+            self.load_file(path, false)
+        } else {
+            Ok(known)
+        }
+    }
+
+    /// Reads the font file at `path` and adds its faces.
+    fn load_file(&self, path: &Path, catalogue: bool) -> Result<Vec<FontId>> {
         let bytes = fs::read(path).map_err(|error| FontError::Io {
             path: path.to_path_buf(),
             kind: error.kind(),
         })?;
-        self.add_faces(&FontSource::File(path.to_path_buf()), &bytes, || {
-            FontData::File {
+        self.add_faces(
+            &FontSource::File(path.to_path_buf()),
+            &bytes,
+            catalogue,
+            || FontData::File {
                 path: path.to_path_buf(),
                 bytes: OnceLock::new(),
-            }
-        })
+            },
+        )
     }
 
     /// Adds all `.ttf`/`.otf`/`.ttc` files below `dir`; files that cannot
     /// be read or parsed are skipped, as matplotlib does. Returns the number
     /// of faces added.
-    pub fn add_directory(&mut self, dir: impl AsRef<Path>) -> usize {
+    pub fn add_directory(&self, dir: impl AsRef<Path>) -> usize {
         system::font_files(dir.as_ref())
             .iter()
             .map(|path| self.add_file(path).map_or(0, |ids| ids.len()))
@@ -181,7 +223,7 @@ impl FontDatabase {
 
     /// Adds the fonts of the standard Unix font directories (see
     /// [`FontDatabase::system_font_directories`]).
-    pub fn add_system_fonts(&mut self) -> usize {
+    pub fn add_system_fonts(&self) -> usize {
         Self::system_font_directories()
             .iter()
             .map(|dir| self.add_directory(dir))
@@ -194,9 +236,29 @@ impl FontDatabase {
         system::font_directories()
     }
 
-    /// All catalogue entries, in insertion order.
-    pub fn entries(&self) -> &[FontEntry] {
-        &self.entries
+    /// All catalogue entries, in insertion order (read-locked while held).
+    pub fn entries(&self) -> RwLockReadGuard<'_, Vec<FontEntry>> {
+        self.entries.read().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The faces added from `source`, in order.
+    pub fn faces_from(&self, source: &FontSource) -> Vec<FontId> {
+        self.faces_where(|candidate| candidate == source)
+    }
+
+    /// The faces whose source passes `wanted`, in order.
+    fn faces_where(&self, wanted: impl Fn(&FontSource) -> bool) -> Vec<FontId> {
+        self.faces
+            .iter()
+            .enumerate()
+            .filter(|(_, face)| wanted(&face.source))
+            .map(|(index, _)| FontId(index))
+            .collect()
+    }
+
+    /// The number of faces, catalogued or not.
+    pub fn face_count(&self) -> usize {
+        self.faces.len()
     }
 
     /// Where face `id` comes from.
@@ -254,7 +316,7 @@ impl FontDatabase {
     /// `None` when no family matches.
     fn best_match(&self, query: &FontQuery, generics: &GenericFamilies) -> Option<FontId> {
         let mut best: Option<(f64, FontId)> = None;
-        for entry in &self.entries {
+        for entry in self.entries().iter() {
             let score = score::total(query, entry, generics);
             if best.is_none_or(|(best_score, _)| score < best_score) {
                 best = Some((score, entry.font));
@@ -379,6 +441,10 @@ mod tests {
     fn bundled_fonts_are_catalogued() {
         let db = FontDatabase::with_bundled_fonts();
         assert_eq!(db.faces.len(), BUNDLED_FONTS.len());
+        assert_eq!(
+            db.faces_from(&FontSource::Bundled(LAST_RESORT)),
+            db.last_resort().into_iter().collect::<Vec<_>>()
+        );
         assert!(db.entries().iter().any(|entry| entry.name == "DejaVu Sans"));
         let resort = db.last_resort().unwrap();
         assert_eq!(
@@ -455,8 +521,29 @@ mod tests {
     }
 
     #[test]
+    fn font_files_can_be_used_without_being_catalogued() {
+        let db = FontDatabase::with_bundled_fonts();
+        let bundled = db.file_faces("cmr10.ttf").unwrap();
+        assert_eq!(
+            bundled,
+            db.faces_where(|source| source.file_name() == Some("cmr10.ttf"))
+        );
+        let count = db.face_count();
+        let path = std::env::temp_dir().join(format!("plt-font-file-{}.ttf", std::process::id()));
+        fs::write(&path, bundled_font_data("DejaVuSans-Bold.ttf").unwrap()).unwrap();
+        let entries = db.entries().len();
+        let faces = db.file_faces(&path).unwrap();
+        assert_eq!((faces.len(), db.face_count()), (1, count + 1));
+        assert_eq!(db.entries().len(), entries, "not catalogued");
+        assert_eq!(db.file_faces(&path).unwrap(), faces, "read once");
+        db.add_file(&path).unwrap();
+        assert!(db.entries().len() > entries, "catalogued by add_file");
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
     fn unreadable_files_are_reported() {
-        let mut db = FontDatabase::new();
+        let db = FontDatabase::new();
         assert!(matches!(
             db.add_file("/nonexistent/font.ttf"),
             Err(FontError::Io { .. })

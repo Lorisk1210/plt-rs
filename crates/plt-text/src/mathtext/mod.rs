@@ -51,7 +51,7 @@ impl TextEngine {
     /// Malformed math yields [`TextError::Math`] with matplotlib's message.
     pub fn typeset_math(&self, source: &str, style: &MathStyle) -> Result<MathLayout, TextError> {
         let db = self.database();
-        let text_font = db.find_font_with(&style.font.query, &style.font.generics)?;
+        let text_font = style.font.font(db)?;
         let mut fonts = fonts::Fonts::new(db, style, text_font)?;
         let root = parser::parse(
             source,

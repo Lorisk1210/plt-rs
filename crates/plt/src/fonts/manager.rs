@@ -112,10 +112,22 @@ impl FontManager {
         }
     }
 
-    /// matplotlib's `findfont`: the file name of the best match for
-    /// `props` (generic families resolved through `rc`). Without a family
-    /// match, the default family (`DejaVu Sans`, or `Helvetica` for AFM) is
-    /// used if `fallback_to_default` is set, else it is an error.
+    /// Adds the fonts of the file at `path` (matplotlib's
+    /// `fontManager.addfont`): they are matched by their family names
+    /// from now on.
+    ///
+    /// # Errors
+    ///
+    /// When the file cannot be read or holds no font.
+    pub fn add_font(self, path: impl AsRef<std::path::Path>) -> Result<(), TextError> {
+        self.engine.add_font_file(path).map(drop)
+    }
+
+    /// matplotlib's `findfont`: the file `props` names, else the file name
+    /// of the best match for `props` (generic families resolved through
+    /// `rc`). Without a family match, the default family (`DejaVu Sans`,
+    /// or `Helvetica` for AFM) is used if `fallback_to_default` is set,
+    /// else it is an error.
     pub fn find_font(
         &self,
         props: &FontProperties,
@@ -123,6 +135,9 @@ impl FontManager {
         ext: FontExt,
         fallback_to_default: bool,
     ) -> Result<String, TextError> {
+        if let Some(file) = &props.file {
+            return Ok(file.display().to_string());
+        }
         let request = props.request(rc);
         let (query, generics) = (&request.query, &request.generics);
         match ext {

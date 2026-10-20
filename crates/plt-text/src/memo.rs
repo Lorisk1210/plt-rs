@@ -77,6 +77,13 @@ impl<K, V: Clone> Memo<K, V> {
         Ok(value)
     }
 
+    /// Forgets every result.
+    pub(crate) fn clear(&self) {
+        let mut entries = self.lock();
+        entries.by_fingerprint.clear();
+        entries.len = 0;
+    }
+
     fn lock(&self) -> std::sync::MutexGuard<'_, Entries<K, V>> {
         self.entries.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -126,5 +133,9 @@ mod tests {
         assert_eq!(failed, Err("bad"));
         let retried = memo.get_or_compute(8, |k| k == "e", || "e".to_owned(), || Ok::<_, &str>(1));
         assert_eq!(retried, Ok(1), "the failure was not kept");
+        memo.clear();
+        let recomputed =
+            memo.get_or_compute(7, |k| k == "abc", || "abc".to_owned(), || compute("abc"));
+        assert_eq!((recomputed, calls.get()), (Ok(3), 3), "cleared");
     }
 }

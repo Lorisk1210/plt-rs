@@ -4,6 +4,7 @@
 //! cargo xtask spec [AREA...] [--failures]        probe conformance vs matplotlib goldens
 //! cargo xtask figures [PREFIX...] [--failures]   figure-case conformance
 //! cargo xtask render PREFIX... [--vectors]       render cases to spec/out
+//! cargo xtask vectors [PREFIX...] [--formats F]  SVG/PDF/PS/PGF of every case vs matplotlib
 //! ```
 #![forbid(unsafe_code)]
 #![allow(clippy::print_stdout, clippy::print_stderr)] // a CLI reports on stdout
@@ -26,13 +27,57 @@ fn main() -> ExitCode {
         {
             render(rest)
         }
+        Some((command, rest)) if command == "vectors" => vectors(rest),
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
             eprintln!("       cargo xtask render PREFIX... [--vectors]");
+            eprintln!("       cargo xtask vectors [PREFIX...] [--formats svg,pdf,ps,pgf]");
             ExitCode::FAILURE
         }
     }
+}
+
+/// The wide comparison of the cases whose names start with a prefix (all
+/// without one): matplotlib writes their documents in the `--formats`
+/// asked for (default all) into `spec/out/vector-reference`
+/// (`render_vectors.py` through the reference venv), then plt-rs's are
+/// compared with them item by item.
+fn vectors(args: &[String]) -> ExitCode {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let reference = root.join("spec/out/vector-reference");
+    let mut python = std::process::Command::new(root.join(".venv/bin/python"));
+    python
+        .arg(root.join("spec/reference/figures/render_vectors.py"))
+        .arg(&reference);
+    let mut prefixes = Vec::new();
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        if arg == "--formats" {
+            python.arg("--formats").args(rest.next());
+        } else {
+            prefixes.push(arg.as_str());
+        }
+    }
+    python.args(&prefixes);
+    match python.status() {
+        Ok(status) if status.success() => {}
+        Ok(status) => {
+            eprintln!("render_vectors.py failed: {status}");
+            return ExitCode::FAILURE;
+        }
+        Err(err) => {
+            eprintln!("cannot run the reference venv's python: {err}");
+            return ExitCode::FAILURE;
+        }
+    }
+    let cases: Vec<_> = figures::translated_cases()
+        .into_iter()
+        .filter(|case| prefixes.is_empty() || prefixes.iter().any(|p| case.name.starts_with(p)))
+        .collect();
+    let results = plt_spec::figures::vector::wide_comparison(&cases, &reference);
+    print!("{}", plt_spec::figures::vector::wide_summary(&results));
+    ExitCode::SUCCESS
 }
 
 /// Renders the translated cases whose names start with a prefix into

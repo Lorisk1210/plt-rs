@@ -16,6 +16,8 @@ pub(super) struct YearInfo {
     pub(super) next_len: i64,
     /// Days from 1970-01-01 to January 1.
     pub(super) start: i64,
+    /// Day index of Western Easter Sunday.
+    pub(super) easter: i64,
     /// The weekday index (Monday = 0) of January 1.
     first_weekday: i64,
     /// Day index of the first day of each month, plus the year length.
@@ -55,6 +57,10 @@ impl YearInfo {
             len,
             next_len: i64::from(calendar::days_in_year(year + 1)),
             start,
+            easter: {
+                let (month, day) = calendar::easter(year);
+                calendar::days_from_civil(year, month, day) - start
+            },
             first_weekday: i64::from(Weekday::from_days_since_epoch(start).index()),
             month_start,
             month,

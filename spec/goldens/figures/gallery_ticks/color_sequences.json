@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 960],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.126292, 0.004341, 0.867197, 0.969438],
+   "title": "Built In Color Sequences",
+   "xlim": [-0.95, 19.95],
+   "ylim": [15.75, -0.75],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0.0"], [2.5, "2.5"], [5.0, "5.0"], [7.5, "7.5"], [10.0, "10.0"], [12.5, "12.5"], [15.0, "15.0"], [17.5, "17.5"]],
+   "yticks": [[0, "tab10"], [1, "tab20"], [2, "tab20b"], [3, "tab20c"], [4, "Pastel1"], [5, "Pastel2"], [6, "Paired"], [7, "Accent"], [8, "okabe_ito"], [9, "Dark2"], [10, "Set1"], [11, "Set2"], [12, "Set3"], [13, "petroff6"], [14, "petroff8"], [15, "petroff10"]]
+  }
+ ]
+}

@@ -3,12 +3,12 @@
 use plt::axes::AxisName;
 use plt::figure::Share;
 use plt::layout::TightLayout;
-use plt::legend::LegendOptions;
 use plt::prelude::*;
 use plt::scale::{FuncScale, FuncTransform, ScaleOptions};
 use plt::ticker::{FixedLocator, NullFormatter};
 
 use crate::figures::CaseResult;
+use crate::figures::cases::common::logit_grid;
 
 /// `_cdfs(x)`: the logistic, Laplace and Cauchy distribution functions.
 fn cdfs(x: &[f64]) -> [Vec<f64>; 3] {
@@ -28,46 +28,16 @@ fn cdfs(x: &[f64]) -> [Vec<f64>; 3] {
 
 pub(super) fn logit_demo(fig: &Figure) -> CaseResult {
     let x = linspace(-10.0, 10.0, 1000);
-    let curves = cdfs(&x);
-    let axs = fig.subplots(3, 2)?;
-    for ax in axs.as_slice() {
-        for (y, label) in curves.iter().zip(["logistic", "laplacian", "cauchy"]) {
-            ax.plot(&x, y)?.set_label(label);
-        }
-        ax.legend(LegendOptions::default())?;
-        ax.grid(true);
-    }
-    let survival = ScaleOptions {
-        one_half: Some("1/2".into()),
-        use_overline: Some(true),
-        ..ScaleOptions::default()
-    };
-    for (row, title) in [(0, "logit scale"), (1, "logit scale"), (2, "linear scale")] {
-        for col in 0..2 {
-            let ax = &axs[(row, col)];
-            ax.set_title(title);
-            match row {
-                0 => {
-                    ax.set_yscale("logit")?;
-                }
-                1 => {
-                    ax.set_scale_with(AxisName::Y, "logit", &survival)?;
-                }
-                _ => {}
-            }
-            if col == 1 {
-                ax.set_xlim(0.0, 10.0);
-            }
-            match (row, col) {
-                (2, 0) => ax.set_ylim(0.0, 1.0),
-                (2, 1) => ax.set_ylim(0.8, 1.0),
-                (_, 0) => ax.set_ylim(1e-5, 1.0 - 1e-5),
-                _ => ax.set_ylim(0.8, 1.0 - 5e-3),
-            };
-        }
-    }
-    fig.tight_layout(&TightLayout::default())?;
-    Ok(())
+    let [logistic, laplacian, cauchy] = cdfs(&x);
+    logit_grid(
+        fig,
+        &x,
+        &[
+            (logistic, "logistic"),
+            (laplacian, "laplacian"),
+            (cauchy, "cauchy"),
+        ],
+    )
 }
 
 pub(super) fn asinh_demo(fig: &Figure) -> CaseResult {

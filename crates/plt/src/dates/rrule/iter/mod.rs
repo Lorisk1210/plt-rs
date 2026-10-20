@@ -152,6 +152,8 @@ impl<'a> RRuleIter<'a> {
                 .nth_mask
                 .as_ref()
                 .is_some_and(|mask| !mask.get(i as usize).copied().unwrap_or(false))
+            || (!rule.byeaster.is_empty()
+                && !i32::try_from(i - info.easter).is_ok_and(|day| rule.byeaster.contains(&day)))
             || ((!rule.bymonthday.is_empty() || !rule.bynmonthday.is_empty())
                 && !rule.bymonthday.contains(&info.month_day(i))
                 && !rule.bynmonthday.contains(&info.neg_month_day(i)))
@@ -486,6 +488,34 @@ mod tests {
                 "2021-01-01T00:00:00",
                 "2021-01-03T00:00:00",
                 "2021-01-08T00:00:00"
+            ]
+        );
+    }
+
+    #[test]
+    fn easter_relative_days() {
+        // dateutil's occurrences of these rules.
+        let mut rule = spec(Frequency::Yearly, dt(1950, 1, 1, 0, 0, 0));
+        rule.byeaster = vec![1];
+        rule.interval = 5;
+        assert_eq!(
+            occurrences(&rule, 4),
+            [
+                "1950-04-10T00:00:00",
+                "1955-04-11T00:00:00",
+                "1960-04-18T00:00:00",
+                "1965-04-19T00:00:00"
+            ]
+        );
+        let mut rule = spec(Frequency::Monthly, dt(2023, 3, 1, 0, 0, 0));
+        rule.byeaster = vec![0, -2];
+        assert_eq!(
+            occurrences(&rule, 4),
+            [
+                "2023-04-07T00:00:00",
+                "2023-04-09T00:00:00",
+                "2024-03-29T00:00:00",
+                "2024-03-31T00:00:00"
             ]
         );
     }

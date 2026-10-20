@@ -479,9 +479,11 @@ impl<'a> AxisPainter<'a> {
     }
 
     /// The spine's extent widened by the outward/inward part of the ticks
-    /// drawn on it (matplotlib's `Spine.get_window_extent`).
+    /// drawn on it (matplotlib's `Spine.get_window_extent`): the major and
+    /// the minor ticks each pad the bare spine, so the longer ones count.
     pub(crate) fn spine_extent(&self, layout: LayoutContext<'_>, side: SpineSide) -> Option<Bbox> {
-        let mut bbox = self.spine(layout, side)?.window_extent(&layout)?;
+        let spine = self.spine(layout, side)?.window_extent(&layout)?;
+        let mut bbox = spine;
         let ticks = self.axis.ticks.as_ref().ok()?;
         for (present, style) in [
             (!ticks.major.is_empty(), &self.axis.major_style),
@@ -500,7 +502,7 @@ impl<'a> AxisPainter<'a> {
                 style.direction.outward_fraction() * length,
                 (1.0 - style.direction.outward_fraction()) * length,
             );
-            let (x0, y0, x1, y1) = (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1());
+            let (x0, y0, x1, y1) = (spine.x0(), spine.y0(), spine.x1(), spine.y1());
             let padded = match side {
                 SpineSide::Bottom => Bbox::from_extents(x0, y0 - out, x1, y1 + inward),
                 SpineSide::Left => Bbox::from_extents(x0 - out, y0, x1 + inward, y1),

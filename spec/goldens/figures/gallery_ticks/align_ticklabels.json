@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.166016, 0.09838, 0.827473, 0.892938],
+   "title": "",
+   "xlim": [0.0, 22.995],
+   "ylim": [-0.69, 5.69],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Population (in millions)",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"], [15.0, "15"], [20.0, "20"]],
+   "yticks": [[0, "Sydney"], [1, "Mexico City"], [2, "São Paulo"], [3, "Istanbul"], [4, "Lagos"], [5, "Shanghai"]]
+  }
+ ]
+}

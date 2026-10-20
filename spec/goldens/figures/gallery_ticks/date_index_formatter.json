@@ -1,0 +1,33 @@
+{
+ "size_px": [600, 600],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.067367, 0.576852, 0.925688, 0.381194],
+   "title": "Plot y at x Coordinates",
+   "xlim": [12648.4, 12661.6],
+   "ylim": [99.513155, 105.684221],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[12649.0, "Thu"], [12650.0, "Fri"], [12651.0, "Sat"], [12652.0, "Sun"], [12653.0, "Mon"], [12654.0, "Tue"], [12655.0, "Wed"], [12656.0, "Thu"], [12657.0, "Fri"], [12658.0, "Sat"], [12659.0, "Sun"], [12660.0, "Mon"], [12661.0, "Tue"]],
+   "yticks": [[100.0, "100"], [101.0, "101"], [102.0, "102"], [103.0, "103"], [104.0, "104"], [105.0, "105"]],
+   "legend": ["Gaps in daily data"]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.067367, 0.046297, 0.925688, 0.381194],
+   "title": "Plot y at Index Coordinates Using Custom Formatter",
+   "xlim": [-0.4, 8.4],
+   "ylim": [99.513155, 105.684221],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "Thu"], [1.0, "Fri"], [2.0, "Mon"], [3.0, "Tue"], [4.0, "Wed"], [5.0, "Thu"], [6.0, "Fri"], [7.0, "Mon"], [8.0, "Tue"]],
+   "yticks": [[100.0, "100"], [101.0, "101"], [102.0, "102"], [103.0, "103"], [104.0, "104"], [105.0, "105"]]
+  }
+ ]
+}

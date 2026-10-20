@@ -1,0 +1,19 @@
+{
+ "size_px": [700, 400],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.049105, 0.149306, 0.944942, 0.840276],
+   "title": "",
+   "xlim": [-0.6, 8.6],
+   "ylim": [-3.193438, 1.589027],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "cats"], [1, "dogs"], [2, "pigs"], [3, "snakes"], [4, "lizards"], [5, "chickens"], [6, "eagles"], [7, "herons"], [8, "buzzards"]],
+   "yticks": [[-3.0, "−3"], [-2.0, "−2"], [-1.0, "−1"], [0.0, "0"], [1.0, "1"]]
+  }
+ ]
+}

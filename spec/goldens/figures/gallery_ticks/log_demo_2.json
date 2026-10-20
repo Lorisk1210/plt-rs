@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "Typical memory sizes",
+   "xlim": [-0.64, 4.64],
+   "ylim": [1.0, 1173480723.964071],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "L1 cache"], [1, "L2 cache"], [2, "L3 cache"], [3, "RAM"], [4, "SSD"]],
+   "yticks": [[1, "kB"], [1024, "MB"], [1048576, "GB"], [1073741824, "TB"]]
+  }
+ ]
+}

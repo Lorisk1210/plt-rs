@@ -14,6 +14,7 @@ mod pgf;
 mod ps;
 mod svg;
 mod truetype;
+mod wide;
 mod xml;
 
 use std::error::Error;
@@ -24,6 +25,7 @@ use plt::figure::{PdfPages, SaveFormat, SaveOptions};
 use plt_render::Metadata;
 
 pub use diff::{Item, Token, VectorReport, compare_items};
+pub use wide::{WideOutcome, WideResult, wide_comparison, wide_outcome, wide_summary, write_items};
 
 use super::FigureCase;
 

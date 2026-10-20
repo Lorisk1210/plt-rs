@@ -83,7 +83,9 @@ must reproduce them.
 * Checking plt-rs against the goldens: `cargo xtask spec [AREA] [--failures]`
   (probes), `cargo xtask figures [GROUP] [--failures]` (structural facts),
   `cargo test -p plt-spec --test figure_pixels` (pixels, RMS ≤ 1.0),
-  `cargo test -p plt-spec --test figure_vectors` (SVG/PDF/PS structure), and
+  `cargo test -p plt-spec --test figure_vectors` (SVG/PDF/PS structure),
+  `cargo xtask vectors [PREFIX...]` (every matching case's SVG/PDF/PS/PGF
+  against documents matplotlib writes for it then and there), and
   `cargo xtask render PREFIX...` to write a case's rendering plus a diff
   against its golden PNG to `spec/out/` for inspection.
 

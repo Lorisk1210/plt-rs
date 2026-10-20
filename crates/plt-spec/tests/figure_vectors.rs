@@ -23,8 +23,6 @@
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Mutex, PoisonError};
 
 use plt_spec::figures::vector::{self, VectorFormat, VectorReport};
 use plt_spec::figures::{self, FigureCase};
@@ -86,7 +84,7 @@ fn dump(stem: &str, format: VectorFormat, golden: &Path, rendered: Option<Vec<u8
         let Some(items) = document.and_then(|d| format.items(&d).ok()) else {
             continue;
         };
-        write_items(&out.join(format!("{stem}.{format}.{suffix}.txt")), &items);
+        vector::write_items(&out.join(format!("{stem}.{format}.{suffix}.txt")), &items);
     }
 }
 
@@ -190,61 +188,6 @@ fn pdf_pages_match_matplotlib_structurally() {
     }
 }
 
-/// How one case compares with matplotlib's document in the wide
-/// comparison.
-enum WideOutcome {
-    /// Same structure, every number within the formatting precision.
-    Exact,
-    /// Same structure; the largest difference between numbers.
-    Numeric(f64),
-    /// A different structure (or no rendering), described.
-    Different(String),
-}
-
-/// Writes a normalized item list, one item per line.
-fn write_items(path: &Path, items: &[vector::Item]) {
-    let text = items.iter().fold(String::new(), |mut text, item| {
-        let _ = writeln!(text, "{item}");
-        text
-    });
-    let _ = std::fs::write(path, text);
-}
-
-/// Compares one case in one format with matplotlib's document in
-/// `reference` (`None` when there is none). Both item lists of a case
-/// that is not exact are written to `spec/out/vector-wide/`.
-fn wide_outcome(case: &FigureCase, format: VectorFormat, reference: &Path) -> Option<WideOutcome> {
-    let name = case.name.replace('/', "__");
-    let golden = std::fs::read(reference.join(format!("{name}.{format}"))).ok()?;
-    let compared = vector::render_vector(case, format)
-        .map_err(|e| format!("render failed: {e}"))
-        .and_then(|rendered| {
-            let items = (format.items(&golden)?, format.items(&rendered)?);
-            Ok((rendered, items))
-        });
-    let (rendered, (expected, actual)) = match compared {
-        Ok(compared) => compared,
-        Err(err) => return Some(WideOutcome::Different(err)),
-    };
-    let report = vector::compare_items(&expected, &actual);
-    let outcome = if !report.is_structurally_equal() {
-        WideOutcome::Different(format!("{report}\n{}", report.details(3)))
-    } else if report.numeric.is_empty() {
-        return Some(WideOutcome::Exact);
-    } else {
-        WideOutcome::Numeric(report.max_deviation())
-    };
-    let out = plt_spec::spec_root().join("out/vector-wide");
-    let _ = std::fs::create_dir_all(&out);
-    write_items(
-        &out.join(format!("{name}.{format}.expected.txt")),
-        &expected,
-    );
-    write_items(&out.join(format!("{name}.{format}.actual.txt")), &actual);
-    let _ = std::fs::write(out.join(format!("{name}.{format}")), rendered);
-    Some(outcome)
-}
-
 /// Compares every translated case with the matplotlib documents in the
 /// directory `$PLT_VECTOR_REFERENCE` (`<group>__<name>.<svg|pdf|ps|pgf>`, as
 /// `spec/reference/figures/render_vectors.py` writes them) and reports per
@@ -255,55 +198,6 @@ fn every_case_matches_matplotlib_structurally() {
     let reference = std::env::var_os("PLT_VECTOR_REFERENCE")
         .map(PathBuf::from)
         .expect("PLT_VECTOR_REFERENCE names the directory of matplotlib's documents");
-    let cases = figures::translated_cases();
-    let workers = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
-    let next = AtomicUsize::new(0);
-    let results = Mutex::new(Vec::new());
-    std::thread::scope(|scope| {
-        for _ in 0..workers {
-            scope.spawn(|| {
-                while let Some(case) = cases.get(next.fetch_add(1, Ordering::Relaxed)) {
-                    for format in VectorFormat::WIDE {
-                        if let Some(outcome) = wide_outcome(case, format, &reference) {
-                            results
-                                .lock()
-                                .unwrap_or_else(PoisonError::into_inner)
-                                .push((case.name, format, outcome));
-                        }
-                    }
-                }
-            });
-        }
-    });
-    let mut results = results.into_inner().unwrap_or_else(PoisonError::into_inner);
-    results.sort_by_key(|(name, format, _)| (*name, format.extension()));
-    for (name, format, outcome) in &results {
-        match outcome {
-            WideOutcome::Exact => {}
-            WideOutcome::Numeric(deviation) => {
-                println!("{name} {format}: numbers differ by up to {deviation:.4}");
-            }
-            WideOutcome::Different(problem) => println!("{name} {format}: {problem}"),
-        }
-    }
-    for format in VectorFormat::WIDE {
-        let outcomes: Vec<&WideOutcome> = results
-            .iter()
-            .filter(|(_, f, _)| *f == format)
-            .map(|(_, _, outcome)| outcome)
-            .collect();
-        let exact = outcomes
-            .iter()
-            .filter(|o| matches!(o, WideOutcome::Exact))
-            .count();
-        let numeric = outcomes
-            .iter()
-            .filter(|o| matches!(o, WideOutcome::Numeric(_)))
-            .count();
-        println!(
-            "{format}: {}/{} structurally equal, {exact} with every number equal",
-            exact + numeric,
-            outcomes.len()
-        );
-    }
+    let results = vector::wide_comparison(&figures::translated_cases(), &reference);
+    print!("{}", vector::wide_summary(&results));
 }

@@ -17,7 +17,8 @@ use plt::spines::SpineSide;
 use plt::ticker::Nbins;
 use plt_core::Bbox;
 
-use super::{bivariate_normal, remove_ticks_and_titles};
+use super::remove_ticks_and_titles;
+use crate::figures::cases::common::{bivariate_normal, framed_bivariate_normal};
 use crate::figures::{CaseResult, FigureCase};
 
 /// The cases of this module.
@@ -67,12 +68,7 @@ fn sample_image(ax: &Axes, image: &Grid<f64>) -> CaseResult {
 /// the parent, and a size bar.
 fn zoomed_demo(fig: &Figure, make_inset: fn(&Axes) -> Axes) -> CaseResult {
     let ax = fig.subplot();
-    let z = bivariate_normal();
-    let (rows, cols) = z.shape();
-    let framed = Grid::from_fn(150, 150, |r, c| {
-        let inside = (30..30 + rows).contains(&r) && (30..30 + cols).contains(&c);
-        if inside { z[(r - 30, c - 30)] } else { 0.0 }
-    });
+    let framed = framed_bivariate_normal();
     sample_image(&ax, &framed)?;
     let axins = make_inset(&ax);
     sample_image(&axins, &framed)?;

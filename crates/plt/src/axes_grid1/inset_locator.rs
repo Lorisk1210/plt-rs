@@ -192,12 +192,14 @@ impl FigureState {
             locator.borderpad.1 * fontsize,
         );
         let frame = self.frame_bbox(self.store.get(axes)?.base().parent?)?;
-        Some(Bbox::from_bounds(
-            (corner.x - frame.x0()) / frame.width(),
-            (corner.y - frame.y0()) / frame.height(),
-            width / frame.width(),
-            height / frame.height(),
-        ))
+        // Like matplotlib's inverse frame transform, scale both corners by
+        // the reciprocal frame size (dividing the size instead can round
+        // the far edge onto the other side of a pixel boundary).
+        let (sx, sy) = (1.0 / frame.width(), 1.0 / frame.height());
+        let to_frame = |x: f64, y: f64| ((x - frame.x0()) * sx, (y - frame.y0()) * sy);
+        let (x0, y0) = to_frame(corner.x, corner.y);
+        let (x1, y1) = to_frame(corner.x + width, corner.y + height);
+        Some(Bbox::from_extents(x0, y0, x1, y1))
     }
 }
 
@@ -231,6 +233,29 @@ mod tests {
             bounds(&inset)
         );
         assert_eq!(fig.axes().len(), 2, "an axes of the figure");
+    }
+
+    #[test]
+    fn far_edges_round_like_matplotlib() {
+        // `demo_colorbar_with_inset_locator`: the colorbar's top edge
+        // lands on a pixel boundary, 148.50000000000003 px in matplotlib
+        // 3.11, which decides the pixel its outline snaps to.
+        let fig = Figure::with_size(6.0, 3.0, 100.0);
+        let axs = fig.subplots(1, 2).unwrap();
+        let ax2 = &axs[(0, 1)];
+        let options = InsetOptions {
+            loc: AnchorLoc::LowerLeft,
+            bbox_to_anchor: Some(BboxToAnchor::Bounds(1.05, 0.0, 1.0, 1.0)),
+            bbox_transform: Some(ax2.trans_axes()),
+            borderpad: (0.0, 0.0),
+        };
+        let inset = inset_axes(
+            ax2,
+            SizeSpec::Percent(5.0),
+            SizeSpec::Percent(50.0),
+            &options,
+        );
+        assert_eq!(inset.position().p1.y, 0.495_000_000_000_000_05);
     }
 
     #[test]

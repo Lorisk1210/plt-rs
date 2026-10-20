@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
-use super::divider::{Divider, DividerAspect, DividerCell, DividerId, DividerRect, signed};
+use super::divider::{DividerAspect, DividerCell, DividerId, DividerRect, DividerState, signed};
 use super::size::{Size, SizeSpec};
 use crate::artist::{Artist, ArtistHandle, ArtistId};
 use crate::axes::{Axes, AxesState};
@@ -45,7 +45,7 @@ pub fn make_axes_locatable(axes: &Axes) -> AxesDivider {
         .get_as::<AxesState>(axes.id())
         .and_then(|a| a.base().parent)
         .unwrap_or(state.root);
-    let mut divider = Divider::new(
+    let mut divider = DividerState::new(
         frame,
         DividerRect::Axes(axes.id()),
         DividerAspect::OfAxes(axes.id()),
@@ -154,7 +154,7 @@ impl AxesDivider {
 /// The cell of an axes just appended on `side`: the outermost column or
 /// row, level with the divided axes (matplotlib's `new_horizontal` and
 /// `new_vertical` locators).
-fn appended_cell(divider: &Divider, id: DividerId, side: SpineSide) -> DividerCell {
+fn appended_cell(divider: &DividerState, id: DividerId, side: SpineSide) -> DividerCell {
     let last = |sizes: &[Size]| signed(sizes.len()) - 1;
     let (x_ref, y_ref) = (signed(divider.x_ref), signed(divider.y_ref));
     let (nx, ny) = match side {

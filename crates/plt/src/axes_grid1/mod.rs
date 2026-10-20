@@ -6,6 +6,8 @@
 //! every layout pass, so paddings stay fixed in inches and image axes keep
 //! their aspect.
 //!
+//! * [`Divider`] splits a rectangle of the figure (or the cells of a
+//!   subplot) into the cells axes are placed in.
 //! * [`make_axes_locatable`] divides the area of an axes, so that
 //!   colorbars or marginal axes can be appended beside it, and
 //!   [`make_axes_area_auto_adjustable`] shrinks an axes until its
@@ -30,6 +32,7 @@ mod axes_divider;
 mod bbox_patches;
 mod cbar_layout;
 mod divider;
+mod figure_divider;
 mod image_grid;
 mod inset_locator;
 mod inset_marks;
@@ -43,7 +46,8 @@ pub use axes_divider::{AxesDivider, make_axes_area_auto_adjustable, make_axes_lo
 pub use bbox_patches::{
     BboxConnector, BboxConnectorPatch, BboxPatch, BboxSource, Corner, connect_bbox,
 };
-pub(crate) use divider::{Divider, DividerCell};
+pub(crate) use divider::{DividerCell, DividerState};
+pub use figure_divider::{Divider, DividerError};
 pub use image_grid::{
     AxesGrid, AxesGridError, CbarAxes, CbarMode, GridDirection, GridRect, ImageGrid,
     ImageGridOptions,
@@ -57,5 +61,5 @@ pub use parasite_axes::{
     HostAxes, ParasiteAxes, ParasiteError, ParasiteLink, host_axes, host_subplot,
 };
 pub(crate) use parasite_axes::{Parasite, is_parasite, parasites_of};
-pub use rgb_axes::RgbAxes;
+pub use rgb_axes::{RgbAxes, make_rgb_axes};
 pub use size::{Size, SizeAspect, SizeSpec};

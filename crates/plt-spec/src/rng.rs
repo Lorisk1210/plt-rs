@@ -4,7 +4,7 @@
 //! Python reference suite and the Rust harness; any change here must be
 //! mirrored in `spec/reference/spec_support/data.py`.
 
-/// `SplitMix64` stream with uniform, normal and integer helpers.
+/// `SplitMix64` stream with uniform, normal, gamma and integer helpers.
 #[derive(Clone, Debug)]
 pub struct SpecRng {
     state: u64,
@@ -48,6 +48,14 @@ impl SpecRng {
             .collect()
     }
 
+    /// `n` gamma samples of integer `shape` and unit scale: each the sum
+    /// of `shape` exponential samples made by inversion.
+    pub fn gamma(&mut self, n: usize, shape: u32) -> Vec<f64> {
+        (0..n)
+            .map(|_| (0..shape).fold(0.0, |sum, _| sum - (1.0 - self.next_f64()).ln()))
+            .collect()
+    }
+
     /// `n` integers in `[low, high)` via multiply-shift.
     pub fn integers(&mut self, n: usize, low: i64, high: i64) -> Vec<i64> {
         let span = u128::from(high.abs_diff(low));
@@ -74,5 +82,13 @@ mod tests {
         let n = rng.normal(2, 0.0, 1.0);
         assert!((n[0] - 0.892_470_39).abs() < 1e-8 && (n[1] - 0.397_051_83).abs() < 1e-8);
         assert_eq!(rng.integers(3, 0, 10), vec![8, 3, 6]);
+    }
+
+    #[test]
+    fn gamma_matches_python_reference_stream() {
+        // Values printed by spec_support.data.rng(7).gamma(2, 3).
+        let g = SpecRng::new(7).gamma(2, 3);
+        assert!((g[0] - 2.821_169_05).abs() < 1e-8 && (g[1] - 1.763_712_99).abs() < 1e-8);
+        assert!(SpecRng::new(7).gamma(3, 0).iter().all(|&v| v == 0.0));
     }
 }

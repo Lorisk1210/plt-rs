@@ -509,3 +509,31 @@ pub(super) fn smooth2d(values: &[f64], width: usize, sigma: f64) -> Vec<f64> {
         .flat_map(|row| smooth1d(row, &weights))
         .collect()
 }
+
+/// `cbook.get_sample_data("axes_grid/bivariate_normal.npy")`: ten times
+/// the difference of two bivariate normal densities, the standard one and
+/// one centred at `(1, 1)` with deviations 1.5 and 0.5, on the 15 × 15
+/// grid `x = -3, -2.5, ..., 4`, `y = -4, -3.5, ..., 3`.
+pub(super) fn bivariate_normal() -> Grid<f64> {
+    let density = |x: f64, y: f64, (sigma_x, sigma_y): (f64, f64), (mu_x, mu_y): (f64, f64)| {
+        let z = (x - mu_x).powi(2) / sigma_x.powi(2) + (y - mu_y).powi(2) / sigma_y.powi(2);
+        (-z / 2.0).exp() / (2.0 * std::f64::consts::PI * sigma_x * sigma_y)
+    };
+    Grid::from_fn(15, 15, |r, c| {
+        let (x, y) = (-3.0 + 0.5 * c as f64, -4.0 + 0.5 * r as f64);
+        (density(x, y, (1.0, 1.0), (0.0, 0.0)) - density(x, y, (1.5, 0.5), (1.0, 1.0))) * 10.0
+    })
+}
+
+/// [`bivariate_normal`] framed by zeros, as the zoom examples show it: a
+/// 150 × 150 grid holding the sample data from row and column 30 on
+/// (`Z2 = np.zeros((150, 150)); Z2[30:30+ny, 30:30+nx] = Z`).
+pub(super) fn framed_bivariate_normal() -> Grid<f64> {
+    let z = bivariate_normal();
+    Grid::from_fn(150, 150, |r, c| {
+        r.checked_sub(30)
+            .zip(c.checked_sub(30))
+            .and_then(|(r, c)| z.get(r, c).copied())
+            .unwrap_or(0.0)
+    })
+}

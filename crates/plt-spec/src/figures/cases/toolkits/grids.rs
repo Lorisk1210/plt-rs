@@ -46,7 +46,7 @@ pub(super) fn cbar_edge(fig: &Figure) -> CaseResult {
         axes_pad: (0.1, 0.1),
         cbar_mode: Some(CbarMode::Edge),
         cbar_location: SpineSide::Right,
-        cbar_pad: Some(0.05),
+        cbar_pad: Some(0.05.into()),
         ..ImageGridOptions::default()
     };
     let grid = ImageGrid::new(fig, &subplot(2, 0)?, (2, 2), &right)?;
@@ -61,7 +61,7 @@ pub(super) fn cbar_edge(fig: &Figure) -> CaseResult {
         axes_pad: (0.1, 0.1),
         cbar_mode: Some(CbarMode::Edge),
         cbar_location: SpineSide::Bottom,
-        cbar_pad: Some(0.25),
+        cbar_pad: Some(0.25.into()),
         cbar_size: SizeSpec::Percent(10.0),
         ..ImageGridOptions::default()
     };
@@ -117,7 +117,7 @@ pub(super) fn each_cbar_left(fig: &Figure) -> CaseResult {
         cbar_mode: Some(CbarMode::Each),
         cbar_location: SpineSide::Left,
         cbar_size: SizeSpec::Percent(10.0),
-        cbar_pad: Some(0.25),
+        cbar_pad: Some(0.25.into()),
         ..ImageGridOptions::default()
     };
     let grid = ImageGrid::new(fig, &subplot(1, 0)?, (1, 3), &options)?;

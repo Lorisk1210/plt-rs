@@ -1,0 +1,84 @@
+{
+ "size_px": [1480, 280],
+ "suptitle": "seaborn-v0_8-poster",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.038739, 0.274307, 0.133161, 0.509482],
+   "title": "Axes title",
+   "xlim": [-2.894034, 3.707964],
+   "ylim": [-2.330441, 3.111115],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "X-label",
+   "ylabel": "",
+   "xticks": [[-2.5, "−2.5"], [0.0, "0.0"], [2.5, "2.5"]],
+   "yticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.195917, 0.274307, 0.096388, 0.509482],
+   "title": "",
+   "xlim": [-0.5, 19.5],
+   "ylim": [19.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": []
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.349227, 0.274307, 0.133161, 0.509482],
+   "title": "",
+   "xlim": [-0.35, 4.6],
+   "ylim": [0.0, 23.1],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.25, "a"], [1.25, "b"], [2.25, "c"], [3.25, "d"], [4.25, "e"]],
+   "yticks": [[0.0, "0"], [10.0, "10"], [20.0, "20"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.511368, 0.274307, 0.133161, 0.509482],
+   "title": "",
+   "xlim": [-10.0, 10.0],
+   "ylim": [-0.074498, 1.564459],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-10.0, "−10"], [0.0, "0"], [10.0, "10"]],
+   "yticks": [[0.0, "0"], [1.0, "1"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.692618, 0.274307, 0.133161, 0.509482],
+   "title": "",
+   "xlim": [-0.036271, 0.992475],
+   "ylim": [0.0, 12.112701],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0.0"], [0.5, "0.5"]],
+   "yticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.878029, 0.274307, 0.105151, 0.509482],
+   "title": "ax.grid(True)",
+   "xlim": [-4.0, 8.0],
+   "ylim": [-5.0, 6.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [5.0, "5"]],
+   "yticks": [[-5.0, "−5"], [0.0, "0"], [5.0, "5"]]
+  }
+ ]
+}

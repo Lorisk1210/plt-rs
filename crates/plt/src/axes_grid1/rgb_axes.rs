@@ -1,7 +1,7 @@
 //! Four image axes showing an RGB image beside its red, green and blue
 //! channels (matplotlib's `axes_grid1.axes_rgb`).
 
-use super::divider::{Divider, DividerAspect, DividerId, DividerRect};
+use super::divider::{DividerAspect, DividerId, DividerRect, DividerState};
 use super::size::Size;
 use crate::artist::{Artist, ArtistHandle};
 use crate::axes::{Axes, AxesState, AxisName, ImshowOptions, TickParams};
@@ -40,7 +40,8 @@ pub struct RgbAxes {
 impl RgbAxes {
     /// The four axes in `rect` (`[left, bottom, width, height]` in figure
     /// fractions), the channel axes `pad` image heights apart (matplotlib's
-    /// `RGBAxes(fig, rect, pad=pad)`).
+    /// `RGBAxes(fig, rect, pad=pad)`, which lays them out with
+    /// [`make_rgb_axes`]).
     ///
     /// ```
     /// use plt::axes::ImshowOptions;
@@ -56,56 +57,7 @@ impl RgbAxes {
     /// ```
     pub fn new(fig: &Figure, rect: [f64; 4], pad: f64) -> Self {
         let rgb = fig.add_axes(rect);
-        let figure = rgb.raw().figure_state();
-        let (frame, position) = {
-            let state = figure.borrow();
-            let axes = state.store.get_as::<AxesState>(rgb.id());
-            (
-                axes.and_then(|a| a.base().parent).unwrap_or(state.root),
-                axes.map_or(plt_core::Bbox::UNIT, |a| a.position),
-            )
-        };
-        let channel = 1.0 - 2.0 * pad;
-        let mut divider = Divider::new(
-            frame,
-            DividerRect::Axes(rgb.id()),
-            DividerAspect::OfAxes(rgb.id()),
-        );
-        let pad_size = Size::axes_y(rgb.id()).times(pad);
-        let height = Size::axes_y(rgb.id()).times(channel / 3.0);
-        divider.horizontal = vec![
-            Size::axes_x(rgb.id()),
-            pad_size.clone(),
-            Size::axes_x(rgb.id()).times(channel / 3.0),
-        ];
-        divider.vertical = vec![
-            height.clone(),
-            pad_size.clone(),
-            height.clone(),
-            pad_size,
-            height,
-        ];
-        let id = DividerId(figure.borrow().layout.dividers.len());
-        let main = divider.cell(id, (0, 1), (0, -1));
-        let channels = [4, 2, 0].map(|ny| divider.cell(id, (2, 3), (ny, ny + 1)));
-        {
-            let mut state = figure.borrow_mut();
-            state.add_divider(divider);
-            state.set_divider_cell(rgb.id(), main);
-        }
-        let [r, g, b] = channels.map(|cell| {
-            let axes = insert_axes(figure, frame, position, None);
-            figure.borrow_mut().set_divider_cell(axes.id(), cell);
-            // Sharing with a fresh axes cannot form a cycle.
-            axes.share_x(&rgb).expect("a fresh axes shares freely");
-            axes.share_y(&rgb).expect("a fresh axes shares freely");
-            axes.tick_params(&TickParams {
-                labelbottom: Some(false),
-                labelleft: Some(false),
-                ..TickParams::default()
-            });
-            axes
-        });
+        let [r, g, b] = make_rgb_axes(&rgb, pad);
         let all = Self { rgb, r, g, b };
         for axes in all.axes() {
             for spine in axes.spines().iter() {
@@ -166,6 +118,76 @@ impl RgbAxes {
             show(&self.b, [false, false, true])?,
         ])
     }
+}
+
+/// Divides the area of `ax` into the image axes and, on its right, three
+/// axes for the red, green and blue channels stacked top to bottom, `pad`
+/// image heights apart; the channel axes share both axes with `ax` and
+/// show no tick labels (matplotlib's `make_rgb_axes`). Returns the red,
+/// green and blue axes.
+///
+/// ```
+/// use plt::axes_grid1::make_rgb_axes;
+/// use plt::prelude::*;
+/// let fig = Figure::new();
+/// let ax = fig.subplot();
+/// let [r, _, b] = make_rgb_axes(&ax, 0.02);
+/// let (x, _, w, _) = ax.position().bounds();
+/// assert!(r.position().bounds().0 >= x + w, "beside the image");
+/// assert!(b.position().bounds().1 < r.position().bounds().1, "blue under red");
+/// assert_eq!(fig.axes().len(), 4);
+/// ```
+pub fn make_rgb_axes(ax: &Axes, pad: f64) -> [Axes; 3] {
+    let figure = ax.raw().figure_state();
+    let (frame, position) = {
+        let state = figure.borrow();
+        let axes = state.store.get_as::<AxesState>(ax.id());
+        (
+            axes.and_then(|a| a.base().parent).unwrap_or(state.root),
+            axes.map_or(plt_core::Bbox::UNIT, |a| a.position),
+        )
+    };
+    let channel = 1.0 - 2.0 * pad;
+    let mut divider = DividerState::new(
+        frame,
+        DividerRect::Axes(ax.id()),
+        DividerAspect::OfAxes(ax.id()),
+    );
+    let pad_size = Size::axes_y(ax.id()).times(pad);
+    let height = Size::axes_y(ax.id()).times(channel / 3.0);
+    divider.horizontal = vec![
+        Size::axes_x(ax.id()),
+        pad_size.clone(),
+        Size::axes_x(ax.id()).times(channel / 3.0),
+    ];
+    divider.vertical = vec![
+        height.clone(),
+        pad_size.clone(),
+        height.clone(),
+        pad_size,
+        height,
+    ];
+    let id = DividerId(figure.borrow().layout.dividers.len());
+    let main = divider.cell(id, (0, 1), (0, -1));
+    let channels = [4, 2, 0].map(|ny| divider.cell(id, (2, 3), (ny, ny + 1)));
+    {
+        let mut state = figure.borrow_mut();
+        state.add_divider(divider);
+        state.set_divider_cell(ax.id(), main);
+    }
+    channels.map(|cell| {
+        let axes = insert_axes(figure, frame, position, None);
+        figure.borrow_mut().set_divider_cell(axes.id(), cell);
+        // Sharing with a fresh axes cannot form a cycle.
+        axes.share_x(ax).expect("a fresh axes shares freely");
+        axes.share_y(ax).expect("a fresh axes shares freely");
+        axes.tick_params(&TickParams {
+            labelbottom: Some(false),
+            labelleft: Some(false),
+            ..TickParams::default()
+        });
+        axes
+    })
 }
 
 #[cfg(test)]

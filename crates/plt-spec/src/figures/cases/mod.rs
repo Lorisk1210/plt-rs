@@ -13,6 +13,7 @@ mod figure;
 mod gallery_images;
 mod gallery_lines;
 mod gallery_misc;
+mod gallery_shapes;
 mod gallery_stats;
 mod gallery_subplots;
 mod gallery_text;
@@ -198,6 +199,7 @@ fn gallery_examples() -> Vec<FigureCase> {
         gallery_images::cases(),
         gallery_lines::cases(),
         gallery_misc::cases(),
+        gallery_shapes::cases(),
         gallery_stats::cases(),
         gallery_subplots::cases(),
         gallery_text::cases(),

@@ -60,8 +60,6 @@ pub(super) fn plan(
     let axes = grid.axes();
     let (h_pad, v_pad) = options.axes_pad;
     let beside = matches!(options.cbar_location, SpineSide::Left | SpineSide::Right);
-    // Every row starts in the first column: only the last cells of a grid
-    // can be left empty.
     let first_row = rows.first().cloned().unwrap_or_default();
     let first_column: Vec<Axes> = rows.iter().filter_map(|row| row.first().cloned()).collect();
     let planner = Planner {
@@ -69,12 +67,10 @@ pub(super) fn plan(
         cbars: grid.cbar_axes().iter().map(|c| c.ax().id()).collect(),
         layout,
         options,
-        cbar_pad: SizeSpec::Inches(
-            options
-                .cbar_pad
-                .unwrap_or(if beside { h_pad } else { v_pad }),
-        ),
-        llc: first_column.last().unwrap_or(&axes[0]).clone(),
+        cbar_pad: options
+            .cbar_pad
+            .unwrap_or(SizeSpec::Inches(if beside { h_pad } else { v_pad })),
+        llc: grid.axes_llc().clone(),
     };
     let mut plan = Plan {
         horizontal: Vec::new(),

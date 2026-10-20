@@ -69,6 +69,33 @@ pub enum CursorShape {
     ResizeVertical,
 }
 
+impl CursorShape {
+    /// Every shape, in the order of matplotlib's `Cursors`.
+    pub const ALL: [Self; 7] = [
+        Self::Pointer,
+        Self::Hand,
+        Self::SelectRegion,
+        Self::Move,
+        Self::Wait,
+        Self::ResizeHorizontal,
+        Self::ResizeVertical,
+    ];
+
+    /// The name of the shape among matplotlib's `Cursors`
+    /// (`Cursors.SELECT_REGION.name` is `"SELECT_REGION"`).
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Pointer => "POINTER",
+            Self::Hand => "HAND",
+            Self::SelectRegion => "SELECT_REGION",
+            Self::Move => "MOVE",
+            Self::Wait => "WAIT",
+            Self::ResizeHorizontal => "RESIZE_HORIZONTAL",
+            Self::ResizeVertical => "RESIZE_VERTICAL",
+        }
+    }
+}
+
 impl Figure {
     /// Reserves the widget lock for `owner` (matplotlib's
     /// `canvas.widgetlock(owner)`); taking it again is allowed.
@@ -146,6 +173,24 @@ mod tests {
         fig.release_widgets(a).unwrap();
         assert!(fig.widgets_available(b));
         fig.release_widgets(b).unwrap();
+    }
+
+    #[test]
+    fn cursor_shapes_carry_matplotlib_names() {
+        let names: Vec<&str> = CursorShape::ALL.iter().map(|shape| shape.name()).collect();
+        assert_eq!(
+            names,
+            [
+                "POINTER",
+                "HAND",
+                "SELECT_REGION",
+                "MOVE",
+                "WAIT",
+                "RESIZE_HORIZONTAL",
+                "RESIZE_VERTICAL"
+            ]
+        );
+        assert_eq!(CursorShape::ALL[0], CursorShape::default());
     }
 
     #[test]

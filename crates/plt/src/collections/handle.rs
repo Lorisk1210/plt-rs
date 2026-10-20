@@ -252,4 +252,20 @@ impl Collection {
     pub fn paths(&self) -> Vec<Path> {
         self.raw.with::<CollectionArtist, _>(|c| c.paths.clone())
     }
+
+    /// Replaces the items with polylines through the points of each
+    /// segment (matplotlib's `LineCollection.set_segments`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let lines = ax.vlines([0.0], [0.0], [1.0])?;
+    /// lines.set_segments(vec![vec![Point::new(2.0, 0.0), Point::new(2.0, 3.0)]]);
+    /// assert_eq!(lines.paths()[0].vertices()[1], Point::new(2.0, 3.0));
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn set_segments(&self, segments: Vec<Vec<Point>>) -> &Self {
+        self.update(|c| c.paths = segments.into_iter().map(Path::polyline).collect())
+    }
 }

@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.074436, 0.535287, 0.919053, 0.367103],
+   "title": "Press 't' to toggle the selectors on and off.\nClick and drag to draw a RectangleSelector.",
+   "xlim": [-0.5, 10.5],
+   "ylim": [-1.1, 1.1],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"], [10.0, "10"]],
+   "yticks": [[-1.0, "−1.0"], [-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.074436, 0.057871, 0.919053, 0.367103],
+   "title": "Click and drag to draw a EllipseSelector.",
+   "xlim": [-0.5, 10.5],
+   "ylim": [-1.1, 1.1],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"], [10.0, "10"]],
+   "yticks": [[-1.0, "−1.0"], [-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]]
+  }
+ ]
+}

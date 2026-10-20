@@ -11,6 +11,7 @@ mod contour;
 mod fields;
 mod figure;
 mod gallery_3d;
+mod gallery_axisartist;
 mod gallery_images;
 mod gallery_lines;
 mod gallery_misc;
@@ -198,6 +199,7 @@ fn matplotlib_tests() -> Vec<FigureCase> {
 fn gallery_examples() -> Vec<FigureCase> {
     [
         gallery_3d::cases(),
+        gallery_axisartist::cases(),
         gallery_images::cases(),
         gallery_lines::cases(),
         gallery_misc::cases(),

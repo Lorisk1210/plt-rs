@@ -18,11 +18,6 @@ pub(super) fn spike(x: f64, y: f64) -> f64 {
     z1 + 50.0 * z2
 }
 
-/// `_func3`: `(1 - x/2 + x⁵ + y³) e^{-(x² + y²)}`.
-pub(super) fn func3(x: f64, y: f64) -> f64 {
-    (1.0 - x / 2.0 + x.powf(5.0) + y.powf(3.0)) * (-(x * x + y * y)).exp()
-}
-
 /// `f` evaluated cell by cell on two grids of the same shape.
 pub(super) fn on_mesh(xx: &Grid<f64>, yy: &Grid<f64>, f: impl Fn(f64, f64) -> f64) -> Grid<f64> {
     Grid::from_fn(xx.rows(), xx.cols(), |r, c| f(xx[(r, c)], yy[(r, c)]))

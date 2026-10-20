@@ -194,6 +194,12 @@ pub(super) fn map(values: &[f64], f: impl Fn(f64) -> f64) -> Vec<f64> {
     values.iter().copied().map(f).collect()
 }
 
+/// The surface many gallery examples sample (`_func3` of the image
+/// demos): `(1 - x/2 + x⁵ + y³) e^{-(x² + y²)}`.
+pub(super) fn func3(x: f64, y: f64) -> f64 {
+    (1.0 - x / 2.0 + x.powf(5.0) + y.powf(3.0)) * (-(x * x + y * y)).exp()
+}
+
 /// Running sums of `values` (`np.cumsum`).
 pub(super) fn cumsum(values: &[f64]) -> Vec<f64> {
     values

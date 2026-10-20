@@ -392,18 +392,26 @@ fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
 
 /// Whether `axes.grid*` turns the gridlines of a tick level on.
 fn grid_on_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> bool {
+    let axis_on = match rc.axes_grid_axis.as_str() {
+        "both" => true,
+        "x" => axis == AxisName::X,
+        _ => axis == AxisName::Y,
+    };
+    grid_level_on(major, rc) && axis_on
+}
+
+/// Whether `axes.grid` and `axes.grid.which` turn the gridlines of the
+/// major (`major = true`) or minor ticks on, whichever axes
+/// `axes.grid.axis` names (matplotlib's `Axis._reset_major_tick_kw` and
+/// `_reset_minor_tick_kw`).
+pub(crate) fn grid_level_on(major: bool, rc: &RcParams) -> bool {
     let which = rc.axes_grid_which.as_str();
     let level_on = if major {
         matches!(which, "major" | "both")
     } else {
         matches!(which, "minor" | "both")
     };
-    let axis_on = match rc.axes_grid_axis.as_str() {
-        "both" => true,
-        "x" => axis == AxisName::X,
-        _ => axis == AxisName::Y,
-    };
-    rc.axes_grid && level_on && axis_on
+    rc.axes_grid && level_on
 }
 
 #[cfg(test)]

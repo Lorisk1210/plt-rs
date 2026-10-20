@@ -15,10 +15,13 @@ use super::geometry::{AxisPosition, BoxGeometry, juggled, static_tick_direction,
 use super::math::{Vec3, add, scaled};
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
+use crate::axes::GridStyle;
+use crate::axes::axis_draw::grid_gc;
 use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::patches::{PatchStyle, draw_patch_paths};
+use crate::patheffects::with_path_effects;
 use crate::text::{draw_laid_out, lay_out};
 use crate::transforms::{ResolvedTransform, Transform};
 
@@ -82,6 +85,9 @@ trait Sink {
     fn dpi(&self) -> f64;
     /// The axis line, in projected coordinates.
     fn axis_line(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color);
+    /// The gridline of a tick of `dir` in `grid` style; nothing by
+    /// default, since it has no extent.
+    fn tick_gridline(&mut self, _painter: &Painter<'_>, _dir: Axis3, _grid: &GridStyle) {}
     /// A tick mark, in projected coordinates.
     fn tick_mark(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color);
     /// A tick label or offset text.
@@ -99,6 +105,10 @@ impl Sink for DrawContext<'_> {
 
     fn axis_line(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color) {
         painter.stroke(self, path, width, color);
+    }
+
+    fn tick_gridline(&mut self, painter: &Painter<'_>, dir: Axis3, grid: &GridStyle) {
+        painter.draw_tick_gridline(self, dir, grid);
     }
 
     fn tick_mark(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color) {
@@ -398,6 +408,9 @@ impl<'a> Painter<'a> {
             p[tickdir] = base;
             let label_deltas = scaled(points, pad + TICK_LABEL_OFFSET);
             let label_at = self.geometry.move_from_center(p, label_deltas, dir);
+            if style.grid_on {
+                sink.tick_gridline(self, dir, &style.grid);
+            }
             // The marks are always drawn, as wide as the axis says
             // (matplotlib's `_tick_update_position`).
             sink.tick_mark(
@@ -492,6 +505,31 @@ impl<'a> Painter<'a> {
         );
     }
 
+    /// Draws the gridline of a tick of `dir`, which a 3-D axis collapses to
+    /// the origin of the projection plane (matplotlib's
+    /// `_tick_update_position` sets `tick.gridline` to the single point
+    /// `(0, 0)`, the 3-D gridlines being drawn by `draw_grid`): a stroke
+    /// with nothing to paint, which only vector documents record. The x
+    /// and y gridlines are clipped to the axes, whose patch `Axes.clear`
+    /// makes the clip path of those two axes only.
+    fn draw_tick_gridline(&self, ctx: &mut DrawContext<'_>, dir: Axis3, grid: &GridStyle) {
+        if !grid.linestyle.is_visible() {
+            return;
+        }
+        let mut gc = match grid_gc(grid, self.axes.rc()) {
+            Ok(gc) => gc,
+            Err(err) => return self.report(ctx, err),
+        };
+        if dir != Axis3::Z {
+            gc.clip_rect = ctx.layout().clip_extent(self.axes.base_id());
+        }
+        let origin = Path::polyline(vec![Point::new(0.0, 0.0)]);
+        let (path, affine) = self.plane.split_path(&origin);
+        with_path_effects(ctx, &grid.path_effects, |ctx| {
+            ctx.renderer().draw_path(&gc, &path, &affine, None);
+        });
+    }
+
     /// Strokes a path in projected coordinates like a solid `Line2D`.
     fn stroke(&self, ctx: &mut DrawContext<'_>, path: &Path, width: f64, color: &Color) {
         let rc = self.axes.rc();
@@ -564,6 +602,37 @@ fn anchored(rotation: f64, halign: HAlign) -> BlockStyle {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The strokes of a lone move-to in the SVG of a default 3-D axes
+    /// drawn with `axes.grid` set to `grid`: `(clipped, unclipped)`.
+    fn lone_point_strokes(grid: &str) -> (usize, usize) {
+        crate::rc::context(|| {
+            crate::rc::set("axes.grid", grid).unwrap();
+            let fig = crate::figure::Figure::new();
+            fig.subplot_3d();
+            let svg = fig.to_svg().unwrap();
+            let lone: Vec<&str> = svg
+                .split("<path ")
+                .filter(|element| {
+                    let d = element
+                        .split_once("d=\"")
+                        .and_then(|(_, rest)| rest.split_once('"'))
+                        .map_or("", |(d, _)| d);
+                    d.starts_with('M') && d.split_whitespace().count() == 3
+                })
+                .collect();
+            let clipped = lone.iter().filter(|e| e.contains("clip-path")).count();
+            (clipped, lone.len() - clipped)
+        })
+    }
+
+    #[test]
+    fn tick_gridlines_collapse_to_the_plane_origin() {
+        assert_eq!(lone_point_strokes("False"), (0, 0));
+        let (clipped, unclipped) = lone_point_strokes("True");
+        // Six ticks per axis; only the x and y axes clip to the axes.
+        assert_eq!((clipped, unclipped), (12, 6));
+    }
 
     #[test]
     fn edge_on_panes_drop_their_closing_vertex() {

@@ -23,8 +23,8 @@ use plt::text::HorizontalAlignment;
 use plt::transforms::{Bbox, Point};
 use plt_core::Path;
 
-use super::data::{SEED, func3, logo, mesh_field, photo, uniform_grid};
-use crate::figures::cases::common::{image_field, scan, tickless};
+use super::data::{SEED, logo, mesh_field, photo, uniform_grid};
+use crate::figures::cases::common::{func3, image_field, scan, tickless};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 

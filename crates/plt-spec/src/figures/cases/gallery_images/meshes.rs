@@ -16,9 +16,8 @@ use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::rc::Aspect;
 use plt::ticker::{Locator, MaxNLocator, Nbins, TickContext};
 
-use super::data::{
-    SEED, extremes, func3, mesh_field, mgrid, mgrid_step, on_mesh, spike, uniform_grid,
-};
+use super::data::{SEED, extremes, mesh_field, mgrid, mgrid_step, on_mesh, spike, uniform_grid};
+use crate::figures::cases::common::func3;
 use crate::figures::{CaseResult, FigureCase};
 
 /// `a[:-1, :-1]`.

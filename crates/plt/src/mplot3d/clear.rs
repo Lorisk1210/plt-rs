@@ -7,6 +7,7 @@ use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::limits::Limits3D;
 use super::state::Axes3DState;
+use crate::axes::TickStyle;
 
 impl Axes3DState {
     /// Forgets the artists and restarts the limits, axes, gridlines and
@@ -21,9 +22,17 @@ impl Axes3DState {
         };
         self.limits = Limits3D::new(zmargin, &rc);
         for axis in &mut self.axes {
+            // `Axis.clear` keeps the tick parameters but takes the
+            // gridlines back from the rc.
             let mut fresh = Axis3DState::new(axis.dir, &rc);
-            fresh.major_style = axis.major_style.clone();
-            fresh.minor_style = axis.minor_style.clone();
+            fresh.major_style = TickStyle {
+                grid_on: fresh.major_style.grid_on,
+                ..axis.major_style.clone()
+            };
+            fresh.minor_style = TickStyle {
+                grid_on: fresh.minor_style.grid_on,
+                ..axis.minor_style.clone()
+            };
             *axis = fresh;
         }
         self.artists.clear();

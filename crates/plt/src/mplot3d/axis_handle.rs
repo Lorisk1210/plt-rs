@@ -5,7 +5,7 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use super::axis3d::Tickers3D;
+use super::axis3d::{Tickers3D, tick_style};
 use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::geometry::AxisPosition;
@@ -415,7 +415,7 @@ impl Axis3D {
         };
         let apply = |major: bool, style: &mut TickStyle| {
             if params.reset {
-                *style = TickStyle::from_rc(AxisName::X, major, &rc);
+                *style = tick_style(major, &rc);
             }
             unreset.apply(sides, major, style, &rc);
         };

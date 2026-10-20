@@ -15,6 +15,7 @@ mod gallery_axisartist;
 mod gallery_images;
 mod gallery_lines;
 mod gallery_misc;
+mod gallery_plot_types;
 mod gallery_shapes;
 mod gallery_stats;
 mod gallery_subplots;
@@ -203,6 +204,7 @@ fn gallery_examples() -> Vec<FigureCase> {
         gallery_images::cases(),
         gallery_lines::cases(),
         gallery_misc::cases(),
+        gallery_plot_types::cases(),
         gallery_shapes::cases(),
         gallery_stats::cases(),
         gallery_subplots::cases(),

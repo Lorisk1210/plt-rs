@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use plt_core::Rgba;
 
-use crate::axes::{Tick, TickSet, TickStyle};
+use crate::axes::{Tick, TickSet, TickStyle, grid_level_on};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::lines::LineStyle;
@@ -23,6 +23,17 @@ use super::scaling::AxisScale;
 /// The view inset matplotlib checks tick visibility against with
 /// `axes3d.automargin` (`1/48 * 23/24`, in `Axis._update_ticks`).
 const AUTOMARGIN_TICK_INSET: f64 = 0.019_965_277_777_777_776;
+
+/// The rc tick parameters of the major (`major = true`) or minor ticks of
+/// a 3-D axis: those of an `XTick`, with gridlines following `axes.grid`
+/// and `axes.grid.which` whatever `axes.grid.axis` says (`Axes3D.grid`
+/// does not take the 2-D axes' `axis` argument).
+pub(crate) fn tick_style(major: bool, rc: &RcParams) -> TickStyle {
+    TickStyle {
+        grid_on: grid_level_on(major, rc),
+        ..TickStyle::from_rc(AxisName::X, major, rc)
+    }
+}
 
 /// The label of a 3-D axis.
 #[derive(Clone, Debug, PartialEq)]
@@ -229,8 +240,8 @@ impl Axis3DState {
             },
             pane_color: pane_color.clone(),
             style: AxisStyle::from_rc(dir, rc),
-            major_style: TickStyle::from_rc(AxisName::X, true, rc),
-            minor_style: TickStyle::from_rc(AxisName::X, false, rc),
+            major_style: tick_style(true, rc),
+            minor_style: tick_style(false, rc),
             offset_color: rc.xtick_color.clone(),
             ticks: Ok(TickSet::default()),
             line_visible: true,
@@ -475,6 +486,19 @@ mod tests {
         let mut axis = Axis3DState::new(Axis3::Z, &RcParams::matplotlib());
         axis.update_ticks(&span((-1.0 / 48.0, 1.0 + 1.0 / 48.0)), 266.112, false);
         assert_eq!(labels(&axis), ["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"]);
+    }
+
+    #[test]
+    fn tick_gridlines_follow_axes_grid_whatever_axis_it_names() {
+        let mut rc = RcParams::matplotlib();
+        assert!(!Axis3DState::new(Axis3::Z, &rc).major_style.grid_on);
+        rc.set("axes.grid", "True").unwrap();
+        rc.set("axes.grid.axis", "y").unwrap();
+        for dir in Axis3::ALL {
+            let axis = Axis3DState::new(dir, &rc);
+            assert!(axis.major_style.grid_on, "{dir:?}");
+            assert!(!axis.minor_style.grid_on, "axes.grid.which is major");
+        }
     }
 
     #[test]

@@ -75,6 +75,8 @@ macro_rules! sheets {
 
 sheets![
     "Solarize_Light2",
+    "_mpl-gallery",
+    "_mpl-gallery-nogrid",
     "bmh",
     "classic",
     "dark_background",
@@ -209,6 +211,16 @@ mod tests {
         let mut names: Vec<&str> = available();
         names.sort_unstable();
         assert_eq!(names, available(), "the library is sorted");
+    }
+
+    #[test]
+    fn private_sheets_are_bundled_but_not_available() {
+        let mut rc = RcParams::matplotlib();
+        sheet("_mpl-gallery").unwrap().apply(&mut rc).unwrap();
+        assert!(rc.axes_grid);
+        assert_eq!(rc.figure_figsize, [2.0, 2.0]);
+        assert!(sheet("_mpl-gallery-nogrid").is_some());
+        assert!(available().iter().all(|name| !name.starts_with('_')));
     }
 
     #[test]

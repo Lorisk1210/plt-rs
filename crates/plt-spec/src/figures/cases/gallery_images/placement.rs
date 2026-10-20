@@ -19,7 +19,8 @@ use plt::patches::{PatchProps, Rectangle};
 use plt::rc::Aspect;
 use plt::transforms::Anchor;
 
-use super::data::{chirp, mesh_field, two_bumps};
+use super::data::{chirp, mesh_field};
+use crate::figures::cases::common::two_bumps;
 use crate::figures::{CaseResult, FigureCase};
 
 /// `image_exact_placement`'s images: A (100 × 300) and B (40 × 200) cut

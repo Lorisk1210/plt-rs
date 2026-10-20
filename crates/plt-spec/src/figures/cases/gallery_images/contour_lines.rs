@@ -18,8 +18,7 @@ use plt::prelude::ArtistHandle;
 use plt::ticker::pyfmt::{self, PrintfFormat};
 use plt::ticker::{FuncFormatter, LogFormatter, LogLabelStyle, LogLocator};
 
-use super::data::contour_field;
-use crate::figures::cases::common::{colors, count, values};
+use crate::figures::cases::common::{colors, contour_field, count, values};
 use crate::figures::{CaseResult, FigureCase};
 
 /// `contour_demo`'s field with its coordinates.

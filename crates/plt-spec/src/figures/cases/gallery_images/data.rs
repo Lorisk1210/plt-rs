@@ -3,21 +3,12 @@
 
 use std::f64::consts::PI;
 
-use plt::numeric::{Grid, arange, linspace, linspace_with, meshgrid};
+use plt::numeric::{Grid, linspace, linspace_with, meshgrid};
 use plt::tri::{TriError, Triangulation};
 
 use crate::rng::SpecRng;
 
-/// The seed of the examples' `np.random.seed(19680801)`.
-pub(super) const SEED: u64 = 19_680_801;
-
-/// The gallery's favourite field: a positive and a negative bump
-/// (`_two_bumps`).
-pub(super) fn two_bumps(x: f64, y: f64) -> f64 {
-    let z1 = (-(x * x) - y * y).exp();
-    let z2 = (-((x - 1.0) * (x - 1.0)) - (y - 1.0) * (y - 1.0)).exp();
-    (z1 - z2) * 2.0
-}
+pub(super) use crate::figures::cases::common::GALLERY_SEED as SEED;
 
 /// A wide bump with a narrow spike fifty times higher on top (`_spike`).
 pub(super) fn spike(x: f64, y: f64) -> f64 {
@@ -58,27 +49,10 @@ pub(super) fn mesh_field(
     (xx, yy, z)
 }
 
-/// `_contour_field()`: `two_bumps` over `[-3, 3) × [-2, 2)` in steps of
-/// 0.025.
-pub(super) fn contour_field() -> (Grid<f64>, Grid<f64>, Grid<f64>) {
-    mesh_field(
-        &arange(-3.0, 3.0, 0.025),
-        &arange(-2.0, 2.0, 0.025),
-        two_bumps,
-    )
-}
-
 /// `np.mgrid[start:stop:step]` along one axis: `i * step + start`.
 pub(super) fn mgrid_step(start: f64, stop: f64, step: f64) -> Vec<f64> {
     let count = ((stop - start) / step).ceil() as usize;
     (0..count).map(|i| i as f64 * step + start).collect()
-}
-
-/// `np.mgrid[start:stop:n*1j]` along one axis: like `linspace`, but the
-/// last value is computed rather than pinned to `stop`.
-pub(super) fn mgrid_count(start: f64, stop: f64, n: usize) -> Vec<f64> {
-    let step = (stop - start) / (n - 1) as f64;
-    (0..n).map(|i| i as f64 * step + start).collect()
 }
 
 /// `np.mgrid[rows, cols]`: the row coordinate down the rows, the column
@@ -355,19 +329,6 @@ pub(super) fn photo() -> Grid<[u8; 3]> {
     })
 }
 
-/// A 256 × 256 MRI-like slice in place of `s1045.ima.gz` (`_scan`): a
-/// bright ellipse with darker rings inside.
-pub(super) fn scan() -> Grid<f64> {
-    let v = linspace(-1.0, 1.0, 256);
-    Grid::from_fn(256, 256, |r, c| {
-        let (x, y) = (v[c], v[r]);
-        let (ex, ey) = (x / 0.75, y / 0.9);
-        let head = (-(ex * ex + ey * ey).powf(4.0)).exp();
-        let folds = 0.5 + 0.5 * (14.0 * (x - 0.1).hypot(y + 0.05)).cos();
-        1000.0 * head * (0.6 + 0.4 * folds)
-    })
-}
-
 /// A 130 × 542 RGBA image in place of `logo2.png` (`_logo`): coloured
 /// stripes on a partly transparent background.
 pub(super) fn logo() -> Grid<[f64; 4]> {
@@ -380,17 +341,6 @@ pub(super) fn logo() -> Grid<[f64; 4]> {
             1.0 - (y / 26) as f64 / 4.0,
             f64::from(u8::from(visible)),
         ]
-    })
-}
-
-/// A rough 344 × 403 elevation model in place of
-/// `jacksboro_fault_dem.npz` (`_terrain`): ridges with noise on top.
-pub(super) fn terrain() -> Grid<f64> {
-    let noise = SpecRng::new(SEED).normal(344 * 403, 0.0, 12.0);
-    Grid::from_fn(344, 403, |y, x| {
-        let (xf, yf) = (x as f64, y as f64);
-        let ridges = 600.0 + 250.0 * (xf / 37.0).sin() * (yf / 53.0).cos() + 0.5 * (xf - yf);
-        ridges + noise[y * 403 + x]
     })
 }
 

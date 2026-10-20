@@ -5,15 +5,17 @@ use std::f64::consts::PI;
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, AxisName, BarLabelOptions, TickLevel, TickParams};
 use plt::axisartist::AuxTransform;
-use plt::colors::Color;
-use plt::contour::{ContourOptions, Levels};
+use plt::colors::{Color, ColorError};
+use plt::contour::{ContourOptions, ContourSet, Levels};
 use plt::figure::{Figure, Mosaic, MosaicCell, MosaicError};
 use plt::fonts::{FontProperties, FontSize};
 use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
 use plt::lines::LineProps;
-use plt::numeric::linspace;
+use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchProps};
+use plt::patheffects::{GcUpdate, PathEffect, Stroke, TickedStroke};
+use plt::sankey::FlowOrientation;
 use plt::scale::ScaleOptions;
 use plt::spines::SpineSide;
 use plt::text::{
@@ -24,6 +26,8 @@ use plt::ticker::{
     MaxNLocator, MultipleLocator, Nbins, NullLocator, NumTicks,
 };
 use plt::transforms::Affine2D;
+
+use crate::rng::SpecRng;
 
 /// Character ranges of a language.
 pub(super) fn ranges(ranges: &[(&str, usize, usize)]) -> Language {
@@ -288,4 +292,220 @@ pub(super) fn mosaic(rows: &[&[&str]]) -> Result<Mosaic, MosaicError> {
             .map(|row| row.iter().map(cell).collect())
             .collect(),
     )
+}
+
+/// Hides the top and right spines
+/// (`ax.spines[['top', 'right']].set_visible(False)`).
+pub(super) fn hide_top_right(ax: &Axes) {
+    let spines = ax.spines();
+    spines.top.set_visible(false);
+    spines.right.set_visible(false);
+}
+
+/// The curve of the gallery's spine examples: `2 sin x` at 100 points of
+/// `[0, 2π]`.
+pub(super) fn double_sine() -> (Vec<f64>, Vec<f64>) {
+    let x = linspace(0.0, 2.0 * PI, 100);
+    let y = map(&x, |x| 2.0 * x.sin());
+    (x, y)
+}
+
+/// The three axes of the gallery's `spines` example: all four spines, the
+/// bottom and left ones only, and those two bounded to the data range.
+pub(super) fn spine_bounds_demo(fig: &Figure) -> Result<(), Box<dyn std::error::Error>> {
+    let (x, y) = double_sine();
+    let axs = fig.subplots(3, 1)?;
+    for (row, title) in [
+        "normal spines",
+        "bottom-left spines",
+        "spines with bounds limited to data range",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let ax = &axs[(row, 0)];
+        ax.plot(&x, &y)?;
+        ax.set_title(title);
+    }
+    hide_top_right(&axs[(1, 0)]);
+    let bounded = &axs[(2, 0)];
+    let (ymin, ymax) = y
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+            (lo.min(v), hi.max(v))
+        });
+    bounded
+        .spines()
+        .bottom
+        .set_bounds(Some((x[0], x[x.len() - 1])));
+    bounded.spines().left.set_bounds(Some((ymin, ymax)));
+    hide_top_right(bounded);
+    Ok(())
+}
+
+/// The seed of the gallery examples' `np.random.seed(19680801)`.
+pub(super) const GALLERY_SEED: u64 = 19_680_801;
+
+/// The gallery's favourite field: a positive and a negative bump
+/// (`spec_support.gallery_data.two_bumps`).
+pub(super) fn two_bumps(x: f64, y: f64) -> f64 {
+    let z1 = (-(x * x) - y * y).exp();
+    let z2 = (-((x - 1.0) * (x - 1.0)) - (y - 1.0) * (y - 1.0)).exp();
+    (z1 - z2) * 2.0
+}
+
+/// `two_bumps` on the grid of `x` and `y`, with the grid (`np.meshgrid`).
+fn bumps_on(x: &[f64], y: &[f64]) -> (Grid<f64>, Grid<f64>, Grid<f64>) {
+    let (xx, yy) = meshgrid(x, y);
+    let z = Grid::from_fn(xx.rows(), xx.cols(), |r, c| {
+        two_bumps(xx[(r, c)], yy[(r, c)])
+    });
+    (xx, yy, z)
+}
+
+/// `contour_demo`'s field: `two_bumps` over `[-3, 3) × [-2, 2)` in steps
+/// of 0.025, with its grid (`contour_field`).
+pub(super) fn contour_field() -> (Grid<f64>, Grid<f64>, Grid<f64>) {
+    bumps_on(&arange(-3.0, 3.0, 0.025), &arange(-2.0, 2.0, 0.025))
+}
+
+/// `image_demo`'s field: `two_bumps` over `[-3, 3)²` in steps of 0.025
+/// (`image_field`).
+pub(super) fn image_field() -> Grid<f64> {
+    let x = arange(-3.0, 3.0, 0.025);
+    bumps_on(&x, &x).2
+}
+
+/// A 256 × 256 MRI-like slice in place of `s1045.ima.gz` (`scan`): a
+/// bright ellipse with darker rings inside, values up to 1000.
+pub(super) fn scan() -> Grid<f64> {
+    let v = linspace(-1.0, 1.0, 256);
+    Grid::from_fn(256, 256, |r, c| {
+        let (x, y) = (v[c], v[r]);
+        let (ex, ey) = (x / 0.75, y / 0.9);
+        let head = (-(ex * ex + ey * ey).powf(4.0)).exp();
+        let folds = 0.5 + 0.5 * (14.0 * (x - 0.1).hypot(y + 0.05)).cos();
+        1000.0 * head * (0.6 + 0.4 * folds)
+    })
+}
+
+/// A rough 344 × 403 elevation model in place of
+/// `jacksboro_fault_dem.npz` (`terrain`): ridges with noise on top.
+pub(super) fn terrain() -> Grid<f64> {
+    let noise = SpecRng::new(GALLERY_SEED).normal(344 * 403, 0.0, 12.0);
+    Grid::from_fn(344, 403, |y, x| {
+        let (xf, yf) = (x as f64, y as f64);
+        let ridges = 600.0 + 250.0 * (xf / 37.0).sin() * (yf / 53.0).cos() + 0.5 * (xf - yf);
+        ridges + noise[y * 403 + x]
+    })
+}
+
+/// Sankey flow orientations from matplotlib's codes `-1`, `0` and `1`.
+pub(super) fn flow_orientations(codes: &[i8]) -> Vec<FlowOrientation> {
+    codes
+        .iter()
+        .map(|code| match code {
+            1 => FlowOrientation::Top,
+            -1 => FlowOrientation::Bottom,
+            _ => FlowOrientation::Side,
+        })
+        .collect()
+}
+
+/// Sankey flow labels, `None` for Python's `None`.
+pub(super) fn flow_labels(texts: &[Option<&str>]) -> Vec<Option<String>> {
+    texts.iter().map(|t| t.map(str::to_owned)).collect()
+}
+
+/// Sankey flow labels that all show text.
+pub(super) fn shown_labels(texts: &[&str]) -> Vec<Option<String>> {
+    texts.iter().map(|&t| Some(t.to_owned())).collect()
+}
+
+/// A stroke `width` points wide in `color` (`Stroke(linewidth=width,
+/// foreground=color)`).
+pub(super) fn stroke(width: f64, color: &str) -> Result<Stroke, ColorError> {
+    Ok(Stroke::new(
+        GcUpdate::default().linewidth(width).foreground(color)?,
+    ))
+}
+
+/// `[withStroke(linewidth=width, foreground=color)]`.
+pub(super) fn with_stroke(width: f64, color: &str) -> Result<Vec<PathEffect>, ColorError> {
+    Ok(vec![PathEffect::with_stroke(stroke(width, color)?)])
+}
+
+/// Sets `effects` on every collection of `contours` (matplotlib's
+/// `ContourSet.set(path_effects=...)`).
+pub(super) fn contour_effects(contours: &ContourSet, effects: &[PathEffect]) {
+    for collection in contours.collections() {
+        collection.set_path_effects(effects.to_vec());
+    }
+}
+
+/// `[withTickedStroke(angle=angle, spacing=spacing, length=length)]`.
+pub(super) fn ticked_stroke(angle: f64, spacing: f64, length: f64) -> Vec<PathEffect> {
+    vec![PathEffect::with_ticked_stroke(TickedStroke {
+        angle,
+        spacing,
+        length,
+        ..TickedStroke::default()
+    })]
+}
+
+/// `np.mgrid[start:stop:n*1j]` along one axis: like `linspace`, but the
+/// last value is computed rather than pinned to `stop`.
+pub(super) fn mgrid_count(start: f64, stop: f64, n: usize) -> Vec<f64> {
+    let step = (stop - start) / (n - 1) as f64;
+    (0..n).map(|i| i as f64 * step + start).collect()
+}
+
+/// numpy's `hanning(len)`, normalised to sum to 1.
+fn hanning_weights(len: usize) -> Vec<f64> {
+    let span = (len - 1) as f64;
+    let window: Vec<f64> = (0..len)
+        .map(|k| 0.5 + 0.5 * (PI * (2.0 * k as f64 - span) / span).cos())
+        .collect();
+    let total: f64 = window.iter().sum();
+    window.iter().map(|w| w / total).collect()
+}
+
+/// `smooth1d` of matplotlib's agg filter test and example: a moving
+/// average weighted by a Hanning window of `weights.len()` samples, the
+/// ends extended by point reflection.
+fn smooth1d(x: &[f64], weights: &[f64]) -> Vec<f64> {
+    let len = weights.len();
+    let (first, last) = (x[0], x[x.len() - 1]);
+    let reflected: Vec<f64> = (2..=len)
+        .rev()
+        .map(|i| 2.0 * first - x[i])
+        .chain(x.iter().copied())
+        .chain((0..len - 1).map(|i| 2.0 * last - x[x.len() - 1 - i]))
+        .collect();
+    let start = len - 1 - (len - 1) / 2;
+    (0..x.len())
+        .map(|i| {
+            let window = &reflected[start + i..start + i + len];
+            window.iter().zip(weights).map(|(s, w)| s * w).sum()
+        })
+        .collect()
+}
+
+/// `smooth2d` of matplotlib's agg filter test and example: [`smooth1d`]
+/// down every column of the `width`-wide row-major `values`, then along
+/// every row.
+pub(super) fn smooth2d(values: &[f64], width: usize, sigma: f64) -> Vec<f64> {
+    let weights = hanning_weights((sigma as usize).max(3) * 2 + 1);
+    let height = values.len() / width;
+    let mut smoothed = values.to_vec();
+    for col in 0..width {
+        let column: Vec<f64> = (0..height).map(|row| values[row * width + col]).collect();
+        for (row, value) in smooth1d(&column, &weights).into_iter().enumerate() {
+            smoothed[row * width + col] = value;
+        }
+    }
+    smoothed
+        .chunks(width)
+        .flat_map(|row| smooth1d(row, &weights))
+        .collect()
 }

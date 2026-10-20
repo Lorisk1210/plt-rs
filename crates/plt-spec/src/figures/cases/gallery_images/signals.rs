@@ -9,8 +9,8 @@ use plt::figure::{Figure, Share};
 use plt::mlab::SpectralOptions;
 use plt::numeric::{Grid, arange};
 
-use super::data::{SEED, mgrid, mgrid_step, terrain};
-use crate::figures::cases::common::tickless;
+use super::data::{SEED, mgrid, mgrid_step};
+use crate::figures::cases::common::{terrain, tickless};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 

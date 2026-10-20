@@ -23,8 +23,8 @@ use plt::text::HorizontalAlignment;
 use plt::transforms::{Bbox, Point};
 use plt_core::Path;
 
-use super::data::{SEED, func3, logo, mesh_field, photo, scan, two_bumps, uniform_grid};
-use crate::figures::cases::common::tickless;
+use super::data::{SEED, func3, logo, mesh_field, photo, uniform_grid};
+use crate::figures::cases::common::{image_field, scan, tickless};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -145,12 +145,6 @@ fn image_clip_path(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `image_demo`'s field: `two_bumps` over `[-3, 3)²` in steps of 0.025.
-fn demo_field() -> Grid<f64> {
-    let x = arange(-3.0, 3.0, 0.025);
-    mesh_field(&x, &x, two_bumps).2
-}
-
 /// The largest magnitude of `z`.
 fn magnitude(z: &Grid<f64>) -> f64 {
     z.as_slice().iter().fold(0.0, |m, v| m.max(v.abs()))
@@ -168,7 +162,7 @@ fn lower_square(colors: ColorizerOptions) -> ImshowOptions {
 }
 
 fn image_demo_1(fig: &Figure) -> CaseResult {
-    let z = demo_field();
+    let z = image_field();
     let top = magnitude(&z);
     let colors = ColorizerOptions::default()
         .cmap(colormaps::get("RdYlBu")?)
@@ -247,7 +241,7 @@ fn image_demo_5(fig: &Figure) -> CaseResult {
         clip_path: Some((diamond, ax.trans_data())),
         ..lower_square(ColorizerOptions::default().cmap(colormaps::get("gray")?))
     };
-    ax.imshow(demo_field(), options)?;
+    ax.imshow(image_field(), options)?;
     Ok(())
 }
 

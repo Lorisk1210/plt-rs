@@ -3,7 +3,7 @@
 use std::str::FromStr;
 
 use crate::colors::Color;
-use crate::fonts::{FontProperties, FontWeight};
+use crate::fonts::{FontProperties, FontStyle, FontWeight};
 use crate::lines::LineStyle;
 use crate::patheffects::PathEffect;
 use crate::rc::{ColorOrInherit, RcParams};
@@ -229,6 +229,8 @@ pub struct TickStyle {
     pub label_family: Option<String>,
     /// Font weight of the labels in place of `font.weight`.
     pub label_weight: Option<FontWeight>,
+    /// Font style of the labels in place of `font.style`.
+    pub label_style: Option<FontStyle>,
     /// Whether the labels count in layouts and in placing the axis label
     /// and the offset text (matplotlib's `set_in_layout` on tick labels).
     pub label_in_layout: bool,
@@ -282,6 +284,7 @@ impl TickStyle {
             label_multialign: None,
             label_family: None,
             label_weight: None,
+            label_style: None,
             label_in_layout: true,
             grid_on: grid_on_from_rc(axis, major, rc),
             grid: GridStyle::from_rc(major, rc),
@@ -299,7 +302,7 @@ impl TickStyle {
     }
 
     /// The font of the labels: `rc`'s, at the label size and with the
-    /// label family and weight when set.
+    /// label family, weight and style when set.
     pub(crate) fn label_font(&self, rc: &RcParams) -> FontProperties {
         let font = FontProperties::from_rc(rc);
         FontProperties {
@@ -309,6 +312,7 @@ impl TickStyle {
                 .clone()
                 .map_or_else(|| font.families.clone(), |family| vec![family]),
             weight: self.label_weight.unwrap_or(font.weight),
+            style: self.label_style.unwrap_or(font.style),
             ..font
         }
     }

@@ -20,6 +20,8 @@ pub struct Shadow<S> {
     style: PatchStyle,
     transform: Option<Transform>,
     zorder: f64,
+    /// Whether the shadow is clipped to its axes, as its source is.
+    clip_on: bool,
 }
 
 /// Why a shadow cannot be made.
@@ -74,27 +76,31 @@ impl<S: PatchShape> Shadow<S> {
             style,
             transform,
             zorder: 1.0,
+            clip_on: true,
         })
     }
 
     /// The shadow of a patch already in a figure, with matplotlib's default
-    /// shade of 0.7, drawn just below it.
+    /// shade of 0.7, drawn just below it and clipped like it.
     pub fn of(patch: &Patch<S>, ox: f64, oy: f64) -> Result<Self, ShadowError> {
         Self::of_shaded(patch, ox, oy, 0.7)
     }
 
     /// [`Shadow::of`] with an explicit shade.
     pub fn of_shaded(patch: &Patch<S>, ox: f64, oy: f64, shade: f64) -> Result<Self, ShadowError> {
-        let (source, style, transform, zorder) = patch.raw().with::<PatchArtist<S>, _>(|p| {
-            (
-                p.shape.clone(),
-                p.style.clone(),
-                p.base().transform.clone(),
-                p.base().zorder,
-            )
-        });
+        let (source, style, transform, zorder, clip_on) =
+            patch.raw().with::<PatchArtist<S>, _>(|p| {
+                (
+                    p.shape.clone(),
+                    p.style.clone(),
+                    p.base().transform.clone(),
+                    p.base().zorder,
+                    p.base().clip_on,
+                )
+            });
         Ok(Self {
             zorder,
+            clip_on,
             ..Self::new(source, &style, transform, (ox, oy), shade)?
         })
     }
@@ -119,6 +125,7 @@ impl<S: PatchShape> PatchShape for Shadow<S> {
         base.alpha = Some(0.5);
         base.zorder = self.zorder.next_down();
         base.transform.clone_from(&self.transform);
+        base.clip_on = self.clip_on;
     }
 
     fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
@@ -171,6 +178,26 @@ mod tests {
                 1.5
             ),
             Err(ShadowError::Shape(ShapeError::ShadeOutOfRange))
+        ));
+    }
+
+    #[test]
+    fn shadows_are_clipped_like_their_source() {
+        let fig = crate::figure::Figure::new();
+        let ax = fig.subplot();
+        let free = ax.add_patch_with(
+            Rectangle::new((0.0, 0.0), 1.0, 1.0),
+            crate::patches::PatchProps::default().clip_on(false),
+        );
+        let clipped = ax.add_patch(Rectangle::new((0.0, 0.0), 1.0, 1.0));
+        let clip_on = |shadow: &crate::patches::Patch<Shadow<Rectangle>>| {
+            shadow.raw().with_base(|base| base.clip_on)
+        };
+        assert!(!clip_on(
+            &ax.add_patch(Shadow::of(&free, 1.0, 1.0).unwrap())
+        ));
+        assert!(clip_on(
+            &ax.add_patch(Shadow::of(&clipped, 1.0, 1.0).unwrap())
         ));
     }
 }

@@ -87,17 +87,20 @@ impl Artist for FigureFrame {
         {
             // The figure patch is a `Rectangle`: mitred, without an edge
             // when it has no colour, unfilled when transparent, and drawn
-            // without anti-aliasing.
+            // without anti-aliasing. Like any patch, its alpha replaces the
+            // alpha of its colours.
+            let with_alpha = |color: Rgba| self.base.alpha.map_or(color, |a| Rgba { a, ..color });
+            let (facecolor, edgecolor) = (with_alpha(self.facecolor), with_alpha(self.edgecolor));
             let mut gc = ctx.base_gc(&self.base);
-            gc.linewidth = if self.edgecolor.is_transparent() {
+            gc.linewidth = if edgecolor.is_transparent() {
                 0.0
             } else {
                 self.linewidth
             };
-            gc.foreground = self.edgecolor;
+            gc.foreground = edgecolor;
             gc.join = JoinStyle::Miter;
             gc.antialiased = false;
-            let face = (!self.facecolor.is_transparent()).then_some(self.facecolor);
+            let face = (!facecolor.is_transparent()).then_some(facecolor);
             ctx.draw_artist(false, |ctx| {
                 with_path_effects(ctx, &self.base.path_effects, |ctx| {
                     ctx.renderer().draw_path(
@@ -175,5 +178,19 @@ mod tests {
             listing_order(&state.store, &created),
             [ax.id(), text.id(), sub.id()]
         );
+    }
+
+    #[test]
+    fn the_alpha_of_the_figure_replaces_that_of_its_colours() {
+        let fig = Figure::with_size(1.0, 1.0, 10.0);
+        let opaque = fig.to_svg().expect("an svg");
+        assert!(opaque.contains("fill: #ffffff"));
+        fig.set_alpha(Some(0.0));
+        let clear = fig.to_svg().expect("an svg");
+        assert!(
+            !clear.contains("fill: #ffffff"),
+            "a transparent face is not filled"
+        );
+        assert!(clear.contains("opacity: 0"));
     }
 }

@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.1, 0.2, 0.8, 0.7],
+   "title": "CLAIMS OF SUPERNATURAL POWERS",
+   "xlim": [-0.5, 1.5],
+   "ylim": [0.0, 110.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "CONFIRMED BY\nEXPERIMENT"], [1, "REFUTED BY\nEXPERIMENT"]],
+   "yticks": []
+  }
+ ]
+}

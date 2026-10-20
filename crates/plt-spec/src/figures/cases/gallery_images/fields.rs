@@ -22,8 +22,8 @@ use plt::streamplot::{StreamColorMap, StreamColors, StreamField, StreamWidths, S
 use plt::text::{HorizontalAlignment, VerticalAlignment};
 use plt::transforms::Point;
 
-use super::data::{mesh_field, mgrid_count};
-use crate::figures::cases::common::tickless;
+use super::data::mesh_field;
+use crate::figures::cases::common::{mgrid_count, tickless};
 use crate::figures::{CaseResult, FigureCase};
 
 /// `x, y, u, v` of `barb_demo`'s six scattered barbs.

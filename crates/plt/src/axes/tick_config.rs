@@ -14,7 +14,7 @@ use super::axis_handle::Axis;
 use super::ticks::{GridOptions, TickDirection, TickLevel, TickStyle};
 use super::{Axes, AxesState, AxisName, PlotError};
 use crate::colors::Color;
-use crate::fonts::{FontSize, FontWeight};
+use crate::fonts::{FontSize, FontStyle, FontWeight};
 use crate::lines::LineStyle;
 use crate::polar::ThetaLocator;
 use crate::rc::{AxisBelow, RcParams};
@@ -298,6 +298,8 @@ pub struct TickLabelProps {
     pub fontsize: Option<FontSize>,
     /// Font weight.
     pub fontweight: Option<FontWeight>,
+    /// Font style (upright, italic or oblique).
+    pub fontstyle: Option<FontStyle>,
     /// Whether the labels count in layouts and push the axis label and
     /// the offset text away (matplotlib's `set_in_layout`).
     pub in_layout: Option<bool>,
@@ -324,6 +326,7 @@ impl TickLabelProps {
             color: newer.color.clone().or_else(|| self.color.clone()),
             fontsize: newer.fontsize.or(self.fontsize),
             fontweight: newer.fontweight.or(self.fontweight),
+            fontstyle: newer.fontstyle.or(self.fontstyle),
             in_layout: newer.in_layout.or(self.in_layout),
         }
     }
@@ -354,6 +357,9 @@ impl TickLabelProps {
         }
         if self.fontweight.is_some() {
             style.label_weight = self.fontweight;
+        }
+        if self.fontstyle.is_some() {
+            style.label_style = self.fontstyle;
         }
         if let Some(in_layout) = self.in_layout {
             style.label_in_layout = in_layout;
@@ -404,8 +410,11 @@ impl Axis {
                 params.apply(name, true, &mut axis.major_style, &rc);
                 // The tick-space heuristic follows the major label size of
                 // the tick parameters (matplotlib's `_get_tick_label_size`).
-                if params.reset || params.labelsize.is_some() {
-                    axis.label_size = axis.major_style.label_size;
+                if params.reset {
+                    axis.label_size = None;
+                }
+                if params.labelsize.is_some() {
+                    axis.label_size = Some(axis.major_style.label_size);
                 }
             }
             if params.which.minor() {

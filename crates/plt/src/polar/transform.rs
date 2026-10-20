@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use plt_core::{Affine2D, Bbox, Path, PathCode, Point};
 
-use super::PolarState;
+use super::{PolarFrame, PolarState};
 use crate::patches::{PatchShape, Wedge};
 use crate::spines::SpineSide;
 use crate::transforms::{AxisMap, PointMap, ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
@@ -44,6 +44,9 @@ pub(crate) struct PolarMap {
     origin: f64,
     /// `1`, or `-1` when the radial axis decreases outwards.
     sign: f64,
+    /// The vertices of a polygon frame, which paths that follow the
+    /// circle follow instead.
+    polygon: Option<usize>,
 }
 
 impl PolarMap {
@@ -53,12 +56,22 @@ impl PolarMap {
         scaled_origin: 0.0,
         origin: 0.0,
         sign: 1.0,
+        polygon: None,
     };
 
     /// The distance from the centre of a scaled radius (negative inside
     /// the origin).
     fn radius(&self, r: f64) -> f64 {
         (r - self.scaled_origin) * self.sign
+    }
+
+    /// The mapped vertices of `path`, joined by straight segments.
+    fn straight_path(&self, path: &Path) -> Path {
+        let mut mapped = path.clone().with_interpolation_steps(1);
+        for p in mapped.vertices_mut() {
+            *p = self.forward(*p);
+        }
+        mapped
     }
 
     /// The mapped `path` drawing constant-radius segments as arcs and
@@ -165,17 +178,18 @@ impl PointMap for PolarMap {
     }
 
     /// matplotlib's `transform_path_non_affine`: paths with more than one
-    /// interpolation step follow the circle.
+    /// interpolation step follow the circle, or, inside a polygon frame,
+    /// are cut into as many straight pieces per segment as the polygon
+    /// has vertices (the radar example's `RadarTransform`).
     fn transform_path(&self, path: &Path) -> Path {
         let steps = path.interpolation_steps();
         if path.is_empty() || steps == 1 {
-            let mut mapped = path.clone();
-            for p in mapped.vertices_mut() {
-                *p = self.forward(*p);
-            }
-            return mapped;
+            return self.straight_path(path);
         }
-        self.curved_path(path, steps)
+        match self.polygon {
+            Some(vertices) => self.straight_path(&path.interpolated(vertices)),
+            None => self.curved_path(path, steps),
+        }
     }
 }
 
@@ -277,6 +291,24 @@ impl<'a> PolarView<'a> {
             scaled_origin: self.scaled(self.rorigin()),
             origin: self.rorigin(),
             sign: self.rsign(),
+            polygon: self.polygon(),
+        }
+    }
+
+    /// The vertices of a polygon frame.
+    fn polygon(&self) -> Option<usize> {
+        match self.settings.frame {
+            PolarFrame::Circle => None,
+            PolarFrame::Polygon(vertices) => Some(vertices),
+        }
+    }
+
+    /// The outline of the background in axes coordinates: the wedge, or
+    /// the polygon of a polygon frame inscribed in the axes square.
+    pub(crate) fn patch_path(&self) -> Path {
+        match self.polygon() {
+            Some(vertices) => inscribed_polygon(vertices),
+            None => self.patch().path(),
         }
     }
 
@@ -379,6 +411,9 @@ impl<'a> PolarView<'a> {
     /// spine always, the start and end spines of sectors and the inner
     /// spine around a hole.
     pub(crate) fn spine_shown(&self, side: SpineSide) -> bool {
+        if self.polygon().is_some() {
+            return side == SpineSide::Top;
+        }
         match side {
             SpineSide::Left | SpineSide::Right => !self.is_full_circle(),
             SpineSide::Bottom => {
@@ -391,13 +426,17 @@ impl<'a> PolarView<'a> {
 
     /// The outer (`Top`) or inner (`Bottom`) arc spine spanning θ
     /// `bounds`, as a path in wedge coordinates and its display affine
-    /// (matplotlib's arc `Spine._adjust_location`).
+    /// (matplotlib's arc `Spine._adjust_location`); the polygon of a
+    /// polygon frame in axes coordinates.
     pub(crate) fn arc_spine(
         &self,
         side: SpineSide,
         bounds: (f64, f64),
         display: &Bbox,
     ) -> (Path, Affine2D) {
+        if let Some(vertices) = self.polygon() {
+            return (inscribed_polygon(vertices), unit_to_bbox(display));
+        }
         let shift = |theta: f64| theta * self.direction() + self.settings.theta_offset;
         let (low, high) = (shift(bounds.0), shift(bounds.1));
         let (low, high) = if low > high { (high, low) } else { (low, high) };
@@ -424,6 +463,14 @@ impl<'a> PolarView<'a> {
     pub(crate) fn radius_fraction(&self) -> Affine2D {
         Affine2D::from_values(1.0, 0.0, 0.0, self.view.height(), 0.0, self.view.y0())
     }
+}
+
+/// The regular polygon with `vertices` vertices inscribed in the axes
+/// square, the first at the top (the radar example's
+/// `RegularPolygon((0.5, 0.5), n, radius=0.5)`).
+fn inscribed_polygon(vertices: usize) -> Path {
+    Path::unit_regular_polygon(vertices)
+        .transformed(&Affine2D::scaling(0.5, 0.5).translate(0.5, 0.5))
 }
 
 #[cfg(test)]
@@ -479,6 +526,33 @@ mod tests {
         let spiral = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(1.0, 2.0)])
             .with_interpolation_steps(4);
         assert_eq!(map.transform_path(&spiral).len(), 5);
+    }
+
+    #[test]
+    fn polygon_frames_straighten_what_follows_the_circle() {
+        let settings = PolarState {
+            frame: PolarFrame::Polygon(4),
+            ..PolarState::default()
+        };
+        let view = PolarView::new(&settings, full_view(), None);
+        let ring = Path::polyline(vec![Point::new(0.0, 1.0), Point::new(TAU, 1.0)])
+            .with_interpolation_steps(180);
+        let square = view.map().transform_path(&ring);
+        assert_eq!(square.len(), 5, "one piece between vertex directions");
+        let corner = square.vertices()[1];
+        assert!(corner.x.abs() < 1e-12 && (corner.y - 1.0).abs() < 1e-12);
+        let line = Path::polyline(vec![Point::new(0.0, 1.0), Point::new(1.0, 2.0)]);
+        assert_eq!(
+            view.map().transform_path(&line).len(),
+            2,
+            "plain lines stay straight"
+        );
+        let outline = view.patch_path();
+        let top = outline.vertices()[0];
+        assert!((top.x - 0.5).abs() < 1e-12 && (top.y - 1.0).abs() < 1e-12);
+        assert_eq!(outline.len(), 5);
+        assert!(view.spine_shown(SpineSide::Top));
+        assert!(!view.spine_shown(SpineSide::Bottom));
     }
 
     #[test]

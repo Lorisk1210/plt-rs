@@ -85,6 +85,20 @@ impl Compass {
     }
 }
 
+/// The outline of polar axes: their background, the clip path of what
+/// they draw and the outer spine.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum PolarFrame {
+    /// A circle (or the wedge of a sector), matplotlib's `PolarAxes`.
+    #[default]
+    Circle,
+    /// A regular polygon with this many vertices, the first one at the
+    /// top of the axes, as in matplotlib's radar chart example: the
+    /// gridlines follow it too, with one straight piece between
+    /// consecutive vertex directions.
+    Polygon(usize),
+}
+
 /// The polar settings of an axes besides its view limits.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PolarState {
@@ -97,6 +111,8 @@ pub(crate) struct PolarState {
     pub(crate) rorigin: Option<f64>,
     /// The angle of the radial tick labels in radians.
     pub(crate) rlabel_position: f64,
+    /// The outline of the axes.
+    pub(crate) frame: PolarFrame,
 }
 
 impl Default for PolarState {
@@ -108,6 +124,7 @@ impl Default for PolarState {
             direction: ThetaDirection::Counterclockwise,
             rorigin: None,
             rlabel_position: 22.5_f64.to_radians(),
+            frame: PolarFrame::Circle,
         }
     }
 }

@@ -355,6 +355,22 @@ impl<S: PatchShape> Patch<S> {
         self.update(|p| f(&mut p.shape))
     }
 
+    /// How many straight pieces each segment of the outline is split into
+    /// before a non-affine transform such as the polar one bends it
+    /// (matplotlib's `get_path()._interpolation_steps`; 1 draws the
+    /// segments straight, bars use 100).
+    pub fn interpolation_steps(&self) -> usize {
+        self.read(|p| p.interpolation_steps)
+    }
+
+    /// Sets [`interpolation_steps`](Self::interpolation_steps). matplotlib's
+    /// rectangles share one unit path, which polar bars give 100 steps:
+    /// after a polar bar chart, a `Rectangle` in polar axes follows the
+    /// circle too.
+    pub fn set_interpolation_steps(&self, steps: usize) -> &Self {
+        self.update(|p| p.interpolation_steps = steps)
+    }
+
     /// A copy of the edge/face/hatch properties.
     pub fn style(&self) -> PatchStyle {
         self.read(|p| p.style.clone())
@@ -492,6 +508,26 @@ mod tests {
         assert_eq!(rect.colors().unwrap().hatch, Rgba::new(1.0, 0.0, 0.0, 1.0));
         rect.set_hatchcolor("blue");
         assert_eq!(rect.colors().unwrap().hatch, Rgba::new(0.0, 0.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn interpolation_steps_bend_rectangles_on_polar_axes() {
+        let fig = Figure::with_size(4.0, 4.0, 100.0);
+        let ax = fig.polar_subplot();
+        ax.set_rmax(1.0);
+        let disk = ax.add_patch(Rectangle::new((0.0, 0.0), 2.0 * std::f64::consts::PI, 1.0));
+        let data = fig.resolve_transform(&ax.trans_data()).unwrap();
+        let inside = data.transform_point(Point::new(std::f64::consts::PI, 0.5));
+        assert_eq!(disk.interpolation_steps(), 1);
+        assert!(
+            !disk.contains_display_point(inside),
+            "straight segments between the corners enclose nothing"
+        );
+        disk.set_interpolation_steps(100);
+        assert!(
+            disk.contains_display_point(inside),
+            "the edges follow the circle"
+        );
     }
 
     #[test]

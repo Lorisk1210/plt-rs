@@ -15,7 +15,6 @@ use crate::artist::{ArtistId, DrawContext, LayoutContext};
 use crate::axes::axis_draw::{TickMark, grid_gc};
 use crate::axes::{AxisName, GridStyle, Tick, TickDirection, TickStyle};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
-use crate::patches::PatchShape;
 use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
 use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
@@ -156,7 +155,7 @@ pub(crate) fn draw_tick_lines(
     };
     if style.grid_on {
         let clip = ClipPath {
-            path: polar.patch().path(),
+            path: polar.patch_path(),
             transform: unit_to_bbox(&display),
         };
         with_path_effects(ctx, &style.grid.path_effects, |ctx| {

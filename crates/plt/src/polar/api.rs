@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
-use super::{Compass, PolarState, ThetaDirection};
+use super::{Compass, PolarFrame, PolarState, ThetaDirection};
 use crate::artist::ArtistHandle;
 use crate::axes::axis::AxisRole;
 use crate::axes::projection::Projection;
@@ -24,12 +24,17 @@ use crate::transforms::Anchor;
 pub enum PolarError {
     /// θ limits more than a full circle apart.
     ThetaRange,
+    /// A polygon frame with fewer than three vertices.
+    PolygonVertices(usize),
 }
 
 impl fmt::Display for PolarError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ThetaRange => f.write_str("The angle range must be less than a full circle"),
+            Self::PolygonVertices(n) => {
+                write!(f, "a polygon frame needs at least 3 vertices, not {n}")
+            }
         }
     }
 }
@@ -140,6 +145,40 @@ impl PolarAxes {
             .raw()
             .with_mut::<AxesState, _>(|state| state.set_view_interval(name, interval));
         self
+    }
+
+    /// Sets the outline of the axes: a circle, or the polygon of matplotlib's
+    /// radar chart example (its `RadarAxes` with `frame='polygon'`), which
+    /// the background, the clipping, the outer spine and the gridlines
+    /// follow.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::polar::{Compass, PolarFrame};
+    /// let fig = Figure::new();
+    /// let ax = fig.polar_subplot();
+    /// ax.set_frame(PolarFrame::Polygon(5))?
+    ///     .set_theta_zero_location(Compass::N, 0.0);
+    /// assert_eq!(ax.frame(), PolarFrame::Polygon(5));
+    /// # Ok::<(), plt::polar::PolarError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`PolarError::PolygonVertices`] for a polygon of fewer than three
+    /// vertices.
+    pub fn set_frame(&self, frame: PolarFrame) -> Result<&Self, PolarError> {
+        if let PolarFrame::Polygon(n) = frame
+            && n < 3
+        {
+            return Err(PolarError::PolygonVertices(n));
+        }
+        Ok(self.update(|settings| settings.frame = frame))
+    }
+
+    /// The outline of the axes.
+    pub fn frame(&self) -> PolarFrame {
+        self.settings(|settings| settings.frame)
     }
 
     /// Sets where θ = 0 points, in radians anticlockwise from east.

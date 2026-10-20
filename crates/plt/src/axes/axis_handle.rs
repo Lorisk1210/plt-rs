@@ -11,7 +11,7 @@ use super::ticks::{GridOptions, Sides, TickPosition, TickStyle};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::colors::Color;
-use crate::fonts::{FontSize, FontWeight};
+use crate::fonts::{FontSize, FontStyle, FontWeight};
 use crate::spines::SpineSide;
 use crate::text::{TextBox, TextBoxProps, VerticalAlignment};
 use crate::ticker::{
@@ -407,6 +407,21 @@ impl Axis {
         self
     }
 
+    /// Colours the tick lines of both levels without their marks' edges
+    /// (matplotlib's `set_color` on the `Line2D`s of the ticks, which
+    /// `Artist.findobj` reaches): the marks are open paths whose edge
+    /// keeps its colour, so only the face, seen in vector output, changes.
+    pub fn set_tick_line_color(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
+        self.update(|axis| {
+            axis.restyle_ticks(|style| {
+                style.edgecolor.get_or_insert_with(|| style.color.clone());
+                style.color = color.clone();
+            });
+        });
+        self
+    }
+
     /// Colours the axis label (matplotlib's `set_xlabel(..., color=...)`).
     pub fn set_label_color(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
@@ -484,6 +499,13 @@ impl Axis {
     /// `set_xlabel(..., fontweight=...)`).
     pub fn set_label_weight(&self, weight: FontWeight) -> &Self {
         self.update(|axis| axis.label.font.weight = weight);
+        self
+    }
+
+    /// Sets the font style of the axis label (matplotlib's
+    /// `set_xlabel(..., fontstyle=...)`).
+    pub fn set_label_style(&self, style: FontStyle) -> &Self {
+        self.update(|axis| axis.label.font.style = style);
         self
     }
 

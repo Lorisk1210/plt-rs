@@ -9,7 +9,7 @@ use super::{AxesState, AxisName, GridOptions, GridStyle, TickLabelProps, TickLev
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::figure::Figure;
-use crate::fonts::{FontSize, FontWeight, RelativeSize};
+use crate::fonts::{FontSize, FontStyle, FontWeight, RelativeSize};
 use crate::layout::LayoutEngine;
 use crate::lines::LineStyle;
 use crate::testing::{Call, RecordingRenderer};
@@ -72,6 +72,27 @@ fn the_tick_space_follows_the_major_label_size() {
         ..TickParams::default()
     });
     assert!(count(&ax) < default, "minor label sizes do not count");
+}
+
+#[test]
+fn the_tick_space_follows_the_rc_label_size_when_laid_out() {
+    // matplotlib reads `xtick.labelsize` when it draws, not when the axes
+    // is made: large labels at creation leave the default room.
+    let count = |ax: &super::Axes| ax.ticks(AxisName::X).map(|t| t.major.len());
+    let default = count(&axes());
+    let made_large = crate::rc::context(|| {
+        crate::rc::set("xtick.labelsize", "40").expect("valid size");
+        axes()
+    });
+    assert_eq!(count(&made_large), default);
+    let laid_out_large = crate::rc::context(|| {
+        crate::rc::set("xtick.labelsize", "40").expect("valid size");
+        count(&axes())
+    });
+    assert!(
+        laid_out_large < default,
+        "large labels leave room for fewer ticks"
+    );
 }
 
 #[test]
@@ -148,9 +169,34 @@ fn minor_ticks_take_labels_and_label_properties() {
 }
 
 #[test]
-fn tick_labels_take_a_font_family_and_weight() {
+fn tick_line_colours_leave_the_mark_edges_alone() {
+    let ax = axes();
+    ax.xaxis().set_tick_line_color("blue");
+    for minor in [false, true] {
+        let style = ax.xaxis().tick_style(minor);
+        assert_eq!(style.color, Color::from("blue"));
+        assert_eq!(style.edgecolor, Some(Color::from("black")));
+    }
+    assert_eq!(ax.yaxis().tick_style(false).edgecolor, None);
+}
+
+#[test]
+fn axis_labels_take_a_font_style() {
+    let ax = axes();
+    ax.set_xlabel("x");
+    ax.xaxis().set_label_style(FontStyle::Italic);
+    let style = |name| {
+        ax.raw()
+            .with::<AxesState, _>(|a| a.axis(name).label.font.style)
+    };
+    assert_eq!(style(AxisName::X), FontStyle::Italic);
+    assert_eq!(style(AxisName::Y), FontStyle::Normal);
+}
+
+#[test]
+fn tick_labels_take_a_font_family_weight_and_style() {
     // matplotlib's `tick_params(labelfontfamily=...)` and
-    // `set_ticks(..., fontweight="bold")`.
+    // `set_ticks(..., fontweight="bold", fontstyle="italic")`.
     let ax = axes();
     ax.tick_params(&TickParams {
         axis: Some(AxisName::Y),
@@ -161,6 +207,7 @@ fn tick_labels_take_a_font_family_and_weight() {
         TickLevel::Major,
         &TickLabelProps {
             fontweight: Some(FontWeight::BOLD),
+            fontstyle: Some(FontStyle::Italic),
             ..TickLabelProps::default()
         },
     );
@@ -168,9 +215,11 @@ fn tick_labels_take_a_font_family_and_weight() {
     let y_font = ax.yaxis().tick_style(false).label_font(&rc);
     assert_eq!(y_font.families, ["serif"]);
     assert_eq!(y_font.weight, FontWeight::NORMAL);
+    assert_eq!(y_font.style, FontStyle::Normal);
     let x_font = ax.xaxis().tick_style(false).label_font(&rc);
     assert_eq!(x_font.families, rc.font_family);
     assert_eq!(x_font.weight, FontWeight::BOLD);
+    assert_eq!(x_font.style, FontStyle::Italic);
     assert_eq!(x_font.size, ax.xaxis().tick_style(false).label_size);
 }
 

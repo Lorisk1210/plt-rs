@@ -59,6 +59,30 @@ impl RawHandle {
         self.figure.borrow().store.contains(self.id)
     }
 
+    /// The typed handle of the artist, if it is of type `H` (matplotlib
+    /// code tests `isinstance`, as in `fig.findobj(Line2D)`).
+    ///
+    /// ```
+    /// use plt::lines::Line2D;
+    /// use plt::prelude::*;
+    /// use plt::text::Text;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.plot([0.0, 1.0], [1.0, 0.0])?;
+    /// let lines: Vec<Line2D> = fig.findobj(|_| true).iter().filter_map(|a| a.downcast()).collect();
+    /// assert_eq!(lines.len(), 1);
+    /// assert!(lines[0].raw().downcast::<Text>().is_none());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn downcast<H: TypedHandle>(&self) -> Option<H> {
+        H::from_raw_handle(self)
+    }
+
+    /// Whether the artist exists and is a `T`.
+    pub(crate) fn is<T: Artist>(&self) -> bool {
+        self.figure.borrow().store.get_as::<T>(self.id).is_some()
+    }
+
     /// Reads the artist as concrete type `T`.
     pub(crate) fn with<T: Artist, R>(&self, f: impl FnOnce(&T) -> R) -> R {
         let state = self.figure.borrow();
@@ -131,6 +155,13 @@ impl RawHandle {
             self.id
         )
     }
+}
+
+/// The handles of one type of artist, which [`RawHandle::downcast`] turns
+/// untyped handles into.
+pub trait TypedHandle: ArtistHandle + Sized {
+    /// The handle of `raw`'s artist, if it is of this type.
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self>;
 }
 
 /// The untyped handle has the properties every artist shares, which is

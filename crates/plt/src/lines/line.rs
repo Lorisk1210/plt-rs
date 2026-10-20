@@ -10,7 +10,7 @@ use super::subslice::visible_range;
 use super::{DrawStyle, LineStyle, MarkEvery, StepError, inverse_dashes, line_vertices};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
-    segment_hits,
+    TypedHandle, segment_hits,
 };
 use crate::colors::Color;
 use crate::markers::{FillStyle, Marker};
@@ -389,6 +389,12 @@ pub struct Line2D {
 impl ArtistHandle for Line2D {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for Line2D {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<LineArtist>().then(|| Self { raw: raw.clone() })
     }
 }
 

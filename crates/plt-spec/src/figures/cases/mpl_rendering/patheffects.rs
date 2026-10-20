@@ -3,10 +3,7 @@
 //! and their labels.
 
 use plt::axes::{AxisMode, GridOptions, ImshowOptions};
-use plt::colors::ColorError;
-use plt::contour::{
-    ClabelOptions, ContourOptions, ContourSet, LabelFormat, Levels, QuadCoords, QuadField,
-};
+use plt::contour::{ClabelOptions, ContourOptions, LabelFormat, Levels, QuadCoords, QuadField};
 use plt::image::{ImageData, Interpolation, ScalarField};
 use plt::legend::{LegendHandle, LegendLoc, LegendOptions};
 use plt::numeric::{Grid, linspace, meshgrid};
@@ -24,28 +21,8 @@ use plt::transforms::Point;
 use plt_core::Path;
 
 use super::super::mpl_tests::{classic, remove_ticks_and_titles};
+use crate::figures::cases::common::{contour_effects, stroke, ticked_stroke, with_stroke};
 use crate::figures::{CaseResult, FigureCase};
-
-/// A stroke `width` points wide in `color` (`Stroke(linewidth=width,
-/// foreground=color)`).
-fn stroke(width: f64, color: &str) -> Result<Stroke, ColorError> {
-    Ok(Stroke::new(
-        GcUpdate::default().linewidth(width).foreground(color)?,
-    ))
-}
-
-/// `[withStroke(linewidth=width, foreground=color)]`.
-fn with_stroke(width: f64, color: &str) -> Result<Vec<PathEffect>, ColorError> {
-    Ok(vec![PathEffect::with_stroke(stroke(width, color)?)])
-}
-
-/// Sets `effects` on every collection of `contours` (matplotlib's
-/// `ContourSet.set(path_effects=...)`).
-fn contour_effects(contours: &ContourSet, effects: &[PathEffect]) {
-    for collection in contours.collections() {
-        collection.set_path_effects(effects.to_vec());
-    }
-}
 
 /// `test_patheffect1`: a stroked annotation with a stroked arrow over an
 /// image, and stroked gridlines.
@@ -246,16 +223,6 @@ fn collection(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `withTickedStroke(...)` with the given angle, spacing and length.
-fn ticked(angle: f64, spacing: f64, length: f64) -> Vec<PathEffect> {
-    vec![PathEffect::with_ticked_stroke(TickedStroke {
-        angle,
-        spacing,
-        length,
-        ..TickedStroke::default()
-    })]
-}
-
 /// The zero contour of `g` on the survey grid of `test_tickedstroke`, in
 /// `color` with ticked strokes.
 fn ticked_contour(
@@ -289,13 +256,13 @@ fn tickedstroke(fig: &Figure) -> CaseResult {
     let (ax1, ax2, ax3) = (&axs[(0, 0)], &axs[(0, 1)], &axs[(0, 2)]);
     ax1.add_patch(PathShape(Path::unit_circle()))
         .update_props(PatchProps::default().facecolor("none").linewidth(2.0))
-        .set_path_effects(ticked(-90.0, 10.0, 1.0));
+        .set_path_effects(ticked_stroke(-90.0, 10.0, 1.0));
     ax1.axis_mode(AxisMode::Equal);
     ax1.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
 
     let default_length = TickedStroke::default().length;
     ax2.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("C0"))?
-        .set_path_effects(ticked(135.0, 7.0, default_length));
+        .set_path_effects(ticked_stroke(135.0, 7.0, default_length));
     let x = linspace(0.0, 1.0, 101);
     let y: Vec<f64> = x.iter().map(|x| 0.3 * (x * 8.0).sin() + 0.4).collect();
     ax2.plot_with(&x, &y, LineProps::default().label("C1"))?
@@ -311,21 +278,21 @@ fn tickedstroke(fig: &Figure) -> CaseResult {
         survey,
         |a, b| -(3.0 * a + b - 5.5),
         "k",
-        &ticked(135.0, 10.0, default_length),
+        &ticked_stroke(135.0, 10.0, default_length),
     )?;
     ticked_contour(
         ax3,
         survey,
         |a, b| -(a + 2.0 * b - 4.0),
         "r",
-        &ticked(60.0, 10.0, 2.0),
+        &ticked_stroke(60.0, 10.0, 2.0),
     )?;
     ticked_contour(
         ax3,
         survey,
         |a, b| 0.8 + a.powi(-3) - b,
         "b",
-        &ticked(45.0, 7.0, default_length),
+        &ticked_stroke(45.0, 7.0, default_length),
     )?;
     ax3.set_xlim(0.0, 4.0).set_ylim(0.0, 4.0);
     remove_ticks_and_titles(fig);

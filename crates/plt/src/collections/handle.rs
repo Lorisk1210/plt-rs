@@ -136,6 +136,17 @@ impl Collection {
         self.raw.with::<CollectionArtist, _>(|c| c.pickradius)
     }
 
+    /// Links the items to `urls` in vector output, cycled over the items
+    /// (matplotlib's `set_urls`); `None` leaves an item unlinked.
+    pub fn set_urls(&self, urls: Vec<Option<String>>) -> &Self {
+        self.update(|c| c.urls = urls)
+    }
+
+    /// The links of the items (matplotlib's `get_urls`).
+    pub fn urls(&self) -> Vec<Option<String>> {
+        self.raw.with::<CollectionArtist, _>(|c| c.urls.clone())
+    }
+
     /// Sets a hatch pattern for every item.
     pub fn set_hatch(&self, pattern: impl Into<String>) -> &Self {
         let pattern = pattern.into();

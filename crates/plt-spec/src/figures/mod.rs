@@ -202,11 +202,13 @@ pub fn judge(case: &FigureCase) -> CaseVerdict {
         Ok(golden) => golden,
         Err(err) => return CaseVerdict::Fail(format!("cannot read golden: {err}")),
     };
-    let fig = match case.build() {
-        Ok(fig) => fig,
+    // The facts are taken under the case's rcParams, as the reference
+    // takes them while drawing inside its `rc_context`.
+    let facts = match case.with_figure(|fig| Ok(figure_facts(fig))) {
+        Ok(facts) => facts,
         Err(err) => return CaseVerdict::Fail(format!("build failed: {err}")),
     };
-    let problems = facts::diff_facts(&golden, &figure_facts(&fig));
+    let problems = facts::diff_facts(&golden, &facts);
     if problems.is_empty() {
         CaseVerdict::Pass
     } else {

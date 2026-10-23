@@ -3,7 +3,7 @@
 
 use std::f64::consts::PI;
 
-use plt::numeric::{Grid, linspace, linspace_with, meshgrid};
+use plt::numeric::{Grid, meshgrid};
 use plt::tri::{TriError, Triangulation};
 
 use crate::rng::SpecRng;
@@ -62,77 +62,6 @@ pub(super) fn mgrid(rows: &[f64], cols: &[f64]) -> (Grid<f64>, Grid<f64>) {
 pub(super) fn uniform_grid(seed: u64, rows: usize, cols: usize) -> Grid<f64> {
     let values = SpecRng::new(seed).uniform(rows * cols, 0.0, 1.0);
     Grid::from_fn(rows, cols, |r, c| values[r * cols + c])
-}
-
-/// Points on staggered rings between a minimum radius and 0.95
-/// (`_annulus`), in cartesian and polar coordinates.
-pub(super) struct Annulus {
-    /// x of every point, ring by ring within each angle.
-    pub x: Vec<f64>,
-    /// y of every point.
-    pub y: Vec<f64>,
-    /// `(radius, angle)` of every point.
-    pub polar: Vec<(f64, f64)>,
-}
-
-impl Annulus {
-    /// `n_radii` rings from `min_radius` out, each of `n_angles` points,
-    /// every other ring turned by half a step.
-    pub(super) fn new(n_angles: usize, n_radii: usize, min_radius: f64) -> Self {
-        let radii = linspace(min_radius, 0.95, n_radii);
-        let angles = linspace_with(0.0, 2.0 * PI, n_angles, false);
-        let polar: Vec<(f64, f64)> = angles
-            .iter()
-            .flat_map(|&angle| {
-                radii.iter().enumerate().map(move |(j, &radius)| {
-                    let staggered = if j % 2 == 1 {
-                        angle + PI / n_angles as f64
-                    } else {
-                        angle
-                    };
-                    (radius, staggered)
-                })
-            })
-            .collect();
-        Self {
-            x: polar.iter().map(|&(r, a)| r * a.cos()).collect(),
-            y: polar.iter().map(|&(r, a)| r * a.sin()).collect(),
-            polar,
-        }
-    }
-
-    /// `(np.cos(radii) * np.cos(3 * angles)).flatten()`.
-    pub(super) fn waves(&self) -> Vec<f64> {
-        self.polar
-            .iter()
-            .map(|&(r, a)| r.cos() * (3.0 * a).cos())
-            .collect()
-    }
-
-    /// The Delaunay triangulation of the points without the triangles
-    /// whose centroid is inside `min_radius` (`_masked_delaunay`).
-    pub(super) fn masked_delaunay(&self, min_radius: f64) -> Result<Triangulation, TriError> {
-        masked_delaunay(&self.x, &self.y, min_radius)
-    }
-}
-
-/// The Delaunay triangulation of `x, y` without the triangles whose
-/// centroid is inside `min_radius`.
-pub(super) fn masked_delaunay(
-    x: &[f64],
-    y: &[f64],
-    min_radius: f64,
-) -> Result<Triangulation, TriError> {
-    let tri = Triangulation::delaunay(x, y)?;
-    let mask = tri
-        .triangles()
-        .iter()
-        .map(|t| {
-            let mean = |v: &[f64]| (v[t[0]] + v[t[1]] + v[t[2]]) / 3.0;
-            mean(x).hypot(mean(y)) < min_radius
-        })
-        .collect();
-    tri.with_mask(Some(mask))
 }
 
 /// The outline of Great Britain in radians (`BRITAIN`).

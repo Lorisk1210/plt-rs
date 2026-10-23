@@ -267,7 +267,7 @@ impl Axes {
             data_offsets(&transform, self.id(), &collection.offsets).unwrap_or_default(),
         );
         collection.offset_transform = Some(transform);
-        let handle = Collection::from_raw(self.adopt(collection, &update));
+        let handle = Collection::from_raw(self.adopt_collection(collection, &update));
         if let Some(mapping) = mapping {
             handle.set_mapping(mapping);
         }

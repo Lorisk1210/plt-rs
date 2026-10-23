@@ -18,7 +18,7 @@ use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
 use plt::lines::LineProps;
 use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, FaceColormap, FaceColors};
-use plt::numeric::{Grid, arange, linspace, meshgrid};
+use plt::numeric::{Grid, arange, linspace, linspace_with, meshgrid};
 use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchProps};
 use plt::patheffects::{GcUpdate, PathEffect, Stroke, TickedStroke};
 use plt::rc::Aspect;
@@ -32,7 +32,9 @@ use plt::ticker::{
     AutoLocator, AutoMinorLocator, FixedLocator, IndexLocator, LinearLocator, LogLocator,
     MaxNLocator, MultipleLocator, Nbins, NullLocator, NumTicks,
 };
-use plt::transforms::Affine2D;
+use plt::transforms::{Affine2D, Point};
+use plt::tri::{TriError, Triangulation};
+use plt_core::{Path, PathCode, PathError};
 
 use crate::rng::SpecRng;
 
@@ -627,4 +629,93 @@ pub(super) fn axis_artist(ax: &axisartist::Axes, name: &str) -> Result<AxisArtis
 /// `axis.label.set_text(text); axis.label.set_visible(True)`.
 pub(super) fn show_label(axis: &AxisArtist, text: &str) {
     axis.label().set_text(text).set_visible(true);
+}
+
+/// Points on staggered rings between a minimum radius and 0.95
+/// (`_annulus`), in cartesian and polar coordinates.
+pub(super) struct Annulus {
+    /// x of every point, ring by ring within each angle.
+    pub x: Vec<f64>,
+    /// y of every point.
+    pub y: Vec<f64>,
+    /// `(radius, angle)` of every point.
+    pub polar: Vec<(f64, f64)>,
+}
+
+impl Annulus {
+    /// `n_radii` rings from `min_radius` out, each of `n_angles` points,
+    /// every other ring turned by half a step.
+    pub(super) fn new(n_angles: usize, n_radii: usize, min_radius: f64) -> Self {
+        let radii = linspace(min_radius, 0.95, n_radii);
+        let angles = linspace_with(0.0, 2.0 * PI, n_angles, false);
+        let polar: Vec<(f64, f64)> = angles
+            .iter()
+            .flat_map(|&angle| {
+                radii.iter().enumerate().map(move |(j, &radius)| {
+                    let staggered = if j % 2 == 1 {
+                        angle + PI / n_angles as f64
+                    } else {
+                        angle
+                    };
+                    (radius, staggered)
+                })
+            })
+            .collect();
+        Self {
+            x: polar.iter().map(|&(r, a)| r * a.cos()).collect(),
+            y: polar.iter().map(|&(r, a)| r * a.sin()).collect(),
+            polar,
+        }
+    }
+
+    /// `(np.cos(radii) * np.cos(3 * angles)).flatten()`.
+    pub(super) fn waves(&self) -> Vec<f64> {
+        self.polar
+            .iter()
+            .map(|&(r, a)| r.cos() * (3.0 * a).cos())
+            .collect()
+    }
+
+    /// The Delaunay triangulation of the points without the triangles
+    /// whose centroid is inside `min_radius` (`_masked_delaunay`).
+    pub(super) fn masked_delaunay(&self, min_radius: f64) -> Result<Triangulation, TriError> {
+        masked_delaunay(&self.x, &self.y, min_radius)
+    }
+}
+
+/// The Delaunay triangulation of `x, y` without the triangles whose
+/// centroid is inside `min_radius`.
+fn masked_delaunay(x: &[f64], y: &[f64], min_radius: f64) -> Result<Triangulation, TriError> {
+    let tri = Triangulation::delaunay(x, y)?;
+    let mask = tri
+        .triangles()
+        .iter()
+        .map(|t| {
+            let mean = |v: &[f64]| (v[t[0]] + v[t[1]] + v[t[2]]) / 3.0;
+            mean(x).hypot(mean(y)) < min_radius
+        })
+        .collect();
+    tri.with_mask(Some(mask))
+}
+
+/// The closed curve of the gallery's `path_patch` and `path_editor`
+/// examples: a cubic Bézier arc, a line and a second arc back to the
+/// start.
+pub(super) fn path_patch_curve() -> Result<Path, PathError> {
+    use PathCode::{ClosePoly, Curve4, LineTo, MoveTo};
+    let vertices = [
+        (1.58, -2.57),
+        (0.35, -1.1),
+        (-1.75, 2.0),
+        (0.375, 2.0),
+        (0.85, 1.15),
+        (2.2, 3.2),
+        (3.0, 0.05),
+        (2.0, -0.5),
+        (1.58, -2.57),
+    ];
+    let codes = vec![
+        MoveTo, Curve4, Curve4, Curve4, LineTo, Curve4, Curve4, Curve4, ClosePoly,
+    ];
+    Path::new(vertices.into_iter().map(Point::from).collect(), codes)
 }

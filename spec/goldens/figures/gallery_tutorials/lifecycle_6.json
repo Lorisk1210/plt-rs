@@ -1,0 +1,19 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.477786, 0.191764, 0.489402, 0.764486],
+   "title": "",
+   "xlim": [0.0, 144219.558],
+   "ylim": [-0.89, 9.89],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [50000.0, "50000"], [100000.0, "100000"]],
+   "yticks": [[0, "Barton LLC"], [1, "Frami, Hills and Schmidt"], [2, "Fritsch, Russel and Anderson"], [3, "Jerde-Hilpert"], [4, "Keeling LLC"], [5, "Koepp Ltd"], [6, "Kulas Inc"], [7, "Trantow-Barrows"], [8, "White-Trantow"], [9, "Will LLC"]]
+  }
+ ]
+}

@@ -77,12 +77,13 @@ impl Axes {
         if base.transform.is_none() {
             base.transform = Some(self.trans_data());
         }
-        let update = if artist.in_autoscale {
-            DataUpdate::autoscaled(artist.limit_points(self.id()))
+        let handle = if artist.in_autoscale {
+            let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
+            self.adopt_collection(artist, &update)
         } else {
-            DataUpdate::default()
+            self.adopt(artist, &DataUpdate::default())
         };
-        Collection::from_raw(self.adopt(artist, &update))
+        Collection::from_raw(handle)
     }
 
     /// Adds a triangle mesh in data coordinates (matplotlib's
@@ -91,6 +92,6 @@ impl Axes {
         let mut artist = spec.artist;
         artist.base_mut().transform = Some(self.trans_data());
         let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
-        TriMesh::from_raw(self.adopt(artist, &update))
+        TriMesh::from_raw(self.adopt_collection(artist, &update))
     }
 }

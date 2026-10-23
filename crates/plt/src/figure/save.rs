@@ -1,5 +1,6 @@
 //! Writing figures: matplotlib's `savefig` with the Agg canvas (PNG) and
-//! the SVG, PDF and PostScript backends, chosen from the file extension.
+//! the SVG, PDF and PostScript backends (the latter in `postscript.rs`),
+//! chosen from the file extension.
 
 use std::fmt;
 use std::path::{Path as FsPath, PathBuf};
@@ -7,8 +8,7 @@ use std::str::FromStr;
 
 use plt_core::path::convert::SimplifySettings;
 use plt_render::{
-    Metadata, Orientation, Paper, PdfOptions, PdfRenderer, PsOptions, PsRenderer,
-    RasterBackendError, RasterRenderer, Renderer, VectorError,
+    Metadata, PdfOptions, PdfRenderer, RasterBackendError, RasterRenderer, Renderer, VectorError,
 };
 
 use super::print::SaveOptions;
@@ -164,7 +164,7 @@ pub(super) fn pdf_options(metadata: Metadata) -> PdfOptions {
 }
 
 /// How a `pdf.fonttype` or `ps.fonttype` setting embeds fonts.
-const fn embedding(fonttype: FontType) -> plt_render::FontType {
+pub(super) const fn embedding(fonttype: FontType) -> plt_render::FontType {
     match fonttype {
         FontType::Type3 => plt_render::FontType::Type3,
         FontType::TrueType => plt_render::FontType::Type42,
@@ -347,66 +347,6 @@ impl Figure {
             self.to_format(format, options)?
         };
         std::fs::write(path, document).map_err(SaveError::Io)
-    }
-
-    /// A PostScript document with save options: `eps` selects
-    /// Encapsulated PostScript; `ps.papersize` and `savefig.orientation`
-    /// place the figure on the page.
-    fn postscript(&self, options: &SaveOptions, eps: bool) -> Result<String, SaveError> {
-        let rc = crate::rc::params();
-        let ps = PsOptions {
-            eps,
-            paper: Paper::from_name(&rc.ps_papersize).unwrap_or(Paper::Figure),
-            orientation: if rc.savefig_orientation == "landscape" {
-                Orientation::Landscape
-            } else {
-                Orientation::Portrait
-            },
-            metadata: options.metadata.clone().unwrap_or_default(),
-            simplify: simplify_settings(),
-            composite_images: rc.image_composite_image,
-            fonttype: embedding(rc.ps_fonttype),
-            afm: rc.ps_useafm,
-        };
-        // Text the backend draws in AFM fonts is laid out with their metrics.
-        crate::text::with_afm_metrics(ps.afm_directory(), || {
-            self.render_vector_with(options, |width, height, dpi| {
-                PsRenderer::new(width, height, dpi, ps)
-            })
-        })?
-        .finish()
-        .map_err(SaveError::Vector)
-    }
-
-    /// The figure as a PostScript document centred on a `ps.papersize`
-    /// page (matplotlib's `savefig(format="ps")`).
-    pub fn to_ps(&self) -> Result<String, SaveError> {
-        self.to_ps_with(&SaveOptions::default())
-    }
-
-    /// The figure as a PostScript document with save options.
-    ///
-    /// # Errors
-    ///
-    /// When some artists cannot be drawn or a font cannot be embedded.
-    pub fn to_ps_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
-        self.postscript(options, false)
-    }
-
-    /// The figure as an Encapsulated PostScript document (matplotlib's
-    /// `savefig(format="eps")`).
-    pub fn to_eps(&self) -> Result<String, SaveError> {
-        self.to_eps_with(&SaveOptions::default())
-    }
-
-    /// The figure as an Encapsulated PostScript document with save
-    /// options.
-    ///
-    /// # Errors
-    ///
-    /// When some artists cannot be drawn or a font cannot be embedded.
-    pub fn to_eps_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
-        self.postscript(options, true)
     }
 }
 
@@ -591,7 +531,7 @@ mod tests {
     }
 
     #[test]
-    fn pdf_and_postscript_documents() {
+    fn pdf_documents() {
         let fig = Figure::with_size(2.0, 1.0, 50.0);
         let ax = fig.subplot();
         ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).unwrap();
@@ -603,15 +543,8 @@ mod tests {
         };
         let cropped = String::from_utf8_lossy(&fig.to_pdf_with(&tight).unwrap()).into_owned();
         assert!(cropped.contains("/MediaBox [ 0 0 72 36 ]"));
-        let ps = fig.to_ps().unwrap();
-        assert!(ps.starts_with("%!PS-Adobe-3.0\n%%DocumentPaperSizes: letter"));
-        let eps = fig.to_eps_with(&tight).unwrap();
-        assert!(eps.contains("%%BoundingBox: 0 0 72 36\n"));
         let dir = std::env::temp_dir().join("plt-rs-save-formats");
         std::fs::create_dir_all(&dir).unwrap();
-        fig.savefig(dir.join("figure.eps")).unwrap();
-        let saved = std::fs::read_to_string(dir.join("figure.eps")).unwrap();
-        assert!(saved.contains("%%Title: figure.eps\n"));
         assert!(matches!(
             fig.savefig(dir.join("figure.avif")),
             Err(SaveError::UnsupportedFormat(_))

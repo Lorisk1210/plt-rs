@@ -403,6 +403,22 @@ impl FigureState {
         }
     }
 
+    /// The grid cells of the divider placing `axes`, if it divides some
+    /// (matplotlib's `AxesLocator.get_subplotspec`): a subplot divider's
+    /// own, or those of the axes an axes divider splits.
+    pub(crate) fn divider_subplot_spec(&self, axes: ArtistId) -> Option<&SubplotSpec> {
+        let cell = self.store.get_as::<AxesState>(axes)?.aspect.divider?;
+        match &self.layout.dividers.get(cell.divider.0)?.rect {
+            DividerRect::Subplot(spec) => Some(spec),
+            DividerRect::Axes(divided) => self
+                .store
+                .get_as::<AxesState>(*divided)?
+                .subplot_spec
+                .as_ref(),
+            DividerRect::Fixed(_) => None,
+        }
+    }
+
     /// Registers `divider` with the figure.
     pub(crate) fn add_divider(&mut self, divider: DividerState) -> DividerId {
         self.layout.dividers.push(divider);

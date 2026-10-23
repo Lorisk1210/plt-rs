@@ -1,0 +1,32 @@
+{
+ "size_px": [900, 400],
+ "suptitle": "Margins are visually constant, even with different data limits and axis scales",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.352273, 0.77],
+   "title": "",
+   "xlim": [-2.0, 12.0],
+   "ylim": [-0.2, 1.2],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-2.0, "−2"], [0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"], [10.0, "10"], [12.0, "12"]],
+   "yticks": [[-0.2, "−0.2"], [0.0, "0.0"], [0.2, "0.2"], [0.4, "0.4"], [0.6, "0.6"], [0.8, "0.8"], [1.0, "1.0"], [1.2, "1.2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.547727, 0.11, 0.352273, 0.77],
+   "title": "",
+   "xlim": [-2.8, 23.8],
+   "ylim": [0.06081, 21687458909.741398],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [5.0, "5"], [10.0, "10"], [15.0, "15"], [20.0, "20"]],
+   "yticks": [[1.0, "$\\mathdefault{10^{0}}$"], [100.0, "$\\mathdefault{10^{2}}$"], [10000.0, "$\\mathdefault{10^{4}}$"], [1000000.0, "$\\mathdefault{10^{6}}$"], [100000000.0, "$\\mathdefault{10^{8}}$"], [10000000000.0, "$\\mathdefault{10^{10}}$"]]
+  }
+ ]
+}

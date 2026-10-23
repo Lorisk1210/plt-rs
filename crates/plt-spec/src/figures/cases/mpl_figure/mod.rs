@@ -10,15 +10,14 @@ mod mosaic;
 mod subfigures;
 mod tight;
 
-use plt::axes::{LocatorParams, Mesh, PcolorOptions};
+use plt::axes::{Mesh, PcolorOptions};
 use plt::collections::Collection;
 use plt::colors::colormaps;
-use plt::fonts::FontSize;
 use plt::image::ColorizerOptions;
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::ticker::Nbins;
 
+use super::common::{decorate, example_plot};
 use super::mpl_tests::{classic, remove_ticks_and_titles};
 use crate::figures::FigureCase;
 use crate::rng::SpecRng;
@@ -48,34 +47,6 @@ const TEAL: (&str, &str) = ("savefig.facecolor", "teal");
 /// `np.random.randn(n, n)` drawn from `stream`.
 fn randn(stream: &mut SpecRng, n: usize) -> Fallible<Grid<f64>> {
     Ok(Grid::from_vec(n, n, stream.normal(n * n, 0.0, 1.0))?)
-}
-
-/// `ax.set_xlabel`, `ax.set_ylabel` and `ax.set_title` in `fontsize`
-/// points, as both layout tests' helpers label their axes.
-fn decorate(ax: &Axes, fontsize: f64) {
-    ax.set_xlabel("x-label").set_ylabel("y-label");
-    for axis in [ax.xaxis(), ax.yaxis()] {
-        axis.set_label_fontsize(FontSize::Points(fontsize));
-    }
-    ax.set_title("Title").set_fontsize(fontsize);
-}
-
-/// The layout tests' `example_plot`: a line with at most three tick
-/// intervals, labelled in `fontsize` points unless `nodec`, in which case
-/// the tick labels are blanked instead.
-fn example_plot(ax: &Axes, fontsize: f64, nodec: bool) -> Fallible<()> {
-    ax.plot_y([1.0, 2.0]);
-    ax.locator_params(&LocatorParams {
-        nbins: Some(Nbins::Fixed(3)),
-        ..LocatorParams::default()
-    })?;
-    if nodec {
-        ax.set_xticklabels(Vec::<String>::new())?;
-        ax.set_yticklabels(Vec::<String>::new())?;
-    } else {
-        decorate(ax, fontsize);
-    }
-    Ok(())
 }
 
 /// The layout tests' `example_pcolor`: a rasterized `RdBu_r` mesh of

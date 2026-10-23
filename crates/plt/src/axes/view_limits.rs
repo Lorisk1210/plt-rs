@@ -5,6 +5,7 @@
 use super::limits::oriented;
 use super::{Axes, AxesState, AxisName, PlotError};
 use crate::artist::ArtistHandle;
+use crate::ticker::AutolimitMode;
 
 /// New view limits for one axis (matplotlib's `set_xlim(left, right,
 /// auto=...)`).
@@ -225,6 +226,41 @@ impl Axes {
     pub fn set_use_sticky_edges(&self, on: bool) -> &Self {
         self.raw
             .with_mut::<AxesState, _>(|a| a.use_sticky_edges = on);
+        self
+    }
+
+    /// Whether autoscaling rounds the view of the x and y axes out to
+    /// ticks (the `axes.autolimit_mode` the axes was created under).
+    pub fn autolimit_mode(&self) -> (AutolimitMode, AutolimitMode) {
+        self.raw.with::<AxesState, _>(|a| {
+            (
+                a.xaxis.settings.axes_autolimit_mode,
+                a.yaxis.settings.axes_autolimit_mode,
+            )
+        })
+    }
+
+    /// Rounds the autoscaled view of both axes out to ticks or not, and
+    /// autoscales them again: matplotlib's `axes.autolimit_mode`, which it
+    /// reads whenever it autoscales, as when `ax.autoscale_view()` runs
+    /// under `rc_context({'axes.autolimit_mode': ...})`.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::ticker::AutolimitMode;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot([0.3, 4.7], [0.3, 4.7])?;
+    /// ax.set_autolimit_mode(AutolimitMode::RoundNumbers);
+    /// assert_eq!(ax.xlim(), (0.0, 5.0));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_autolimit_mode(&self, mode: AutolimitMode) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|a| {
+            for name in [AxisName::X, AxisName::Y] {
+                a.axis_mut(name).settings.axes_autolimit_mode = mode;
+            }
+            a.request_autoscale(true, true);
+        });
         self
     }
 

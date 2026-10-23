@@ -63,6 +63,7 @@ mod table;
 #[cfg(test)]
 mod tests;
 mod tick_config;
+mod tick_lines;
 #[cfg(test)]
 mod tick_tests;
 mod ticks;
@@ -120,6 +121,7 @@ pub(crate) use state::AxesState;
 pub use stem::{StemContainer, StemOptions};
 pub use steps::StairsOptions;
 pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat};
+pub use tick_lines::TickLineProps;
 pub(crate) use ticks::grid_level_on;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
 pub(crate) use tight_bbox::{clipped_extent, collapse_x};
@@ -333,7 +335,7 @@ impl Axes {
     pub fn set_title_at(&self, location: TitleLocation, text: impl Into<String>) -> Text {
         let rc = crate::rc::params();
         self.set_title_pad(rc.axes_titlepad);
-        let title = self.title_handle(location);
+        let title = self.title_text(location);
         match rc.axes_titley {
             Some(y) => {
                 self.set_title_y(location, y);
@@ -358,7 +360,7 @@ impl Axes {
     /// stops lifting this axes' titles above decorations on top
     /// (matplotlib's `set_title(..., y=...)`).
     pub fn set_title_y(&self, location: TitleLocation, y: f64) -> &Self {
-        self.title_handle(location).set_y(y);
+        self.title_text(location).set_y(y);
         self.raw
             .with_mut::<AxesState, _>(|axes| axes.title_placement = state::TitlePlacement::Fixed);
         self
@@ -366,10 +368,12 @@ impl Axes {
 
     /// The title at `location` (empty when unset).
     pub fn title(&self, location: TitleLocation) -> String {
-        self.title_handle(location).text()
+        self.title_text(location).text()
     }
 
-    fn title_handle(&self, location: TitleLocation) -> Text {
+    /// The title text at `location`, to style or hide it (matplotlib's
+    /// `ax.title`, `ax._left_title` and `ax._right_title`).
+    pub fn title_text(&self, location: TitleLocation) -> Text {
         let index = match location {
             TitleLocation::Left => 0,
             TitleLocation::Center => 1,
@@ -499,7 +503,7 @@ impl Axes {
             TitleLocation::Center,
             TitleLocation::Right,
         ] {
-            self.title_handle(location)
+            self.title_text(location)
                 .set_transform(Transform::Axes(self.id()).offset_points(0.0, pad));
         }
         self

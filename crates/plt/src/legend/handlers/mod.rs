@@ -159,6 +159,17 @@ pub(crate) fn create(
             area,
         ))),
         Source::Tuple(sources, layout) => tuple(ctx, sources, *layout, area),
+        Source::Npoints(source, numpoints) => {
+            let settings = Settings {
+                numpoints: *numpoints,
+                ..ctx.settings.clone()
+            };
+            let ctx = HandlerContext {
+                settings: &settings,
+                ..*ctx
+            };
+            create(&ctx, source, area)
+        }
         Source::Container(ContainerIds::Stem {
             markerline,
             stemlines,

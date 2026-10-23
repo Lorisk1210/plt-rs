@@ -12,6 +12,7 @@ mod fields;
 mod figure;
 mod gallery_3d;
 mod gallery_axisartist;
+mod gallery_guides_axes;
 mod gallery_guides_colors_text;
 mod gallery_images;
 mod gallery_lines;
@@ -203,6 +204,7 @@ fn gallery_examples() -> Vec<FigureCase> {
     [
         gallery_3d::cases(),
         gallery_axisartist::cases(),
+        gallery_guides_axes::cases(),
         gallery_guides_colors_text::cases(),
         gallery_images::cases(),
         gallery_lines::cases(),

@@ -1,5 +1,5 @@
 //! Inset axes: an axes placed inside another one (matplotlib's
-//! `Axes.inset_axes`).
+//! `Axes.inset_axes`), in its axes fractions or in other coordinates.
 
 use std::rc::Rc;
 
@@ -7,7 +7,9 @@ use plt_core::Bbox;
 
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
+use crate::axes_grid1::locate_on_bounds;
 use crate::figure::insert_axes;
+use crate::transforms::Transform;
 
 /// The z-order of inset axes within their parent (matplotlib's default).
 const INSET_ZORDER: f64 = 5.0;
@@ -36,6 +38,36 @@ impl Axes {
         let position = Bbox::from_bounds(left, bottom, width, height);
         let inset = insert_axes(self.raw().figure_state(), self.id(), position, None);
         inset.set_zorder(INSET_ZORDER);
+        inset
+    }
+
+    /// Adds an axes at `[left, bottom, width, height]` in the coordinates
+    /// of `transform`, such as this axes' data coordinates, placed there
+    /// anew at every layout pass and drawn above this axes' contents
+    /// (matplotlib's `inset_axes(bounds, transform=...)`). Like
+    /// [`Axes::inset_axes`], it belongs to this axes.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    /// let inset = ax.inset_axes_in([5.0, 5.0, 5.0, 2.5], ax.trans_data());
+    /// let (x, y, width, height) = inset.position().bounds();
+    /// let (px, py, pwidth, pheight) = ax.position().bounds();
+    /// assert!((x - (px + 0.5 * pwidth)).abs() < 1e-12 && (width - 0.5 * pwidth).abs() < 1e-12);
+    /// assert!((y - (py + 0.5 * pheight)).abs() < 1e-12 && (height - 0.25 * pheight).abs() < 1e-12);
+    /// ```
+    #[must_use]
+    pub fn inset_axes_in(&self, bounds: [f64; 4], transform: Transform) -> Self {
+        let inset = self.inset_axes(bounds);
+        let [left, bottom, width, height] = bounds;
+        locate_on_bounds(
+            self,
+            &inset,
+            Bbox::from_bounds(left, bottom, width, height),
+            transform,
+        );
         inset
     }
 

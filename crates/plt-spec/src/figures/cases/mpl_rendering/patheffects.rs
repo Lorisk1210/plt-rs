@@ -21,7 +21,9 @@ use plt::transforms::Point;
 use plt_core::Path;
 
 use super::super::mpl_tests::{classic, remove_ticks_and_titles};
-use crate::figures::cases::common::{contour_effects, stroke, ticked_stroke, with_stroke};
+use crate::figures::cases::common::{
+    contour_effects, hatch_shadow_text, stroke, ticked_stroke, with_stroke,
+};
 use crate::figures::{CaseResult, FigureCase};
 
 /// `test_patheffect1`: a stroked annotation with a stroked arrow over an
@@ -137,25 +139,7 @@ fn patheffect3(fig: &Figure) -> CaseResult {
     text.set_color("white").set_bbox(Some(bbox));
     text.set_path_effects(effects);
 
-    let hatched = PatchEffect::new(
-        (4.0, -4.0),
-        PatchProps::default().hatch("xxxx").facecolor("gray"),
-    )?;
-    let outlined = PatchEffect::new(
-        (0.0, 0.0),
-        PatchProps::default()
-            .edgecolor("white")
-            .facecolor("black")
-            .linewidth(1.1),
-    )?;
-    fig.text(0.02, 0.1, "Hatch shadow")
-        .set_fontsize(75.0)
-        .set_weight("1000".parse()?)
-        .set_valign(VerticalAlignment::Center)
-        .set_path_effects(vec![
-            PathEffect::path_patch(hatched),
-            PathEffect::path_patch(outlined),
-        ]);
+    hatch_shadow_text(&fig.text(0.02, 0.1, "Hatch shadow"))?;
     Ok(())
 }
 

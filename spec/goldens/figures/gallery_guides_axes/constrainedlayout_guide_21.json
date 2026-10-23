@@ -1,0 +1,71 @@
+{
+ "size_px": [400, 600],
+ "suptitle": "Overlapping Gridspecs",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.145575, 0.562508, 0.400776, 0.353856],
+   "title": "Title",
+   "xlim": [-0.05, 1.05],
+   "ylim": [0.95, 2.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "x-label",
+   "ylabel": "y-label",
+   "xticks": [[0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]],
+   "yticks": [[1.0, "1.0"], [1.5, "1.5"], [2.0, "2.0"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.145575, 0.083349, 0.400776, 0.353856],
+   "title": "Title",
+   "xlim": [-0.05, 1.05],
+   "ylim": [0.95, 2.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "x-label",
+   "ylabel": "y-label",
+   "xticks": [[0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]],
+   "yticks": [[1.0, "1.0"], [1.5, "1.5"], [2.0, "2.0"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.588807, 0.722227, 0.400776, 0.194136],
+   "title": "",
+   "xlim": [-0.05, 1.05],
+   "ylim": [0.95, 2.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, ""], [0.5, ""], [1.0, ""]],
+   "yticks": [[1.0, ""], [1.5, ""], [2.0, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.588807, 0.402788, 0.400776, 0.194136],
+   "title": "",
+   "xlim": [-0.05, 1.05],
+   "ylim": [0.95, 2.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, ""], [0.5, ""], [1.0, ""]],
+   "yticks": [[1.0, ""], [1.5, ""], [2.0, ""]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.588807, 0.083349, 0.400776, 0.194136],
+   "title": "",
+   "xlim": [-0.05, 1.05],
+   "ylim": [0.95, 2.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, ""], [0.5, ""], [1.0, ""]],
+   "yticks": [[1.0, ""], [1.5, ""], [2.0, ""]]
+  }
+ ]
+}

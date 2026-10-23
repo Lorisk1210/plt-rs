@@ -37,6 +37,13 @@ pub struct MosaicOptions {
     /// Make every axes polar (matplotlib's
     /// `subplot_kw={"projection": "polar"}`).
     pub polar: bool,
+    /// Labels of axes made polar, the others staying rectilinear
+    /// (matplotlib's `per_subplot_kw={label: {"projection": "polar"}}`).
+    pub polar_labels: Vec<String>,
+    /// The margins and spacing of the outer grid (matplotlib's
+    /// `gridspec_kw` `left`, `right`, `bottom`, `top`, `wspace` and
+    /// `hspace`).
+    pub gridspec: SubplotOverrides,
 }
 
 /// The axes of a mosaic, by label, in creation order.
@@ -316,10 +323,10 @@ impl Figure {
             cols,
             options.width_ratios.clone(),
             options.height_ratios.clone(),
-            SubplotOverrides::default(),
+            options.gridspec,
         )?;
         let mut entries = Vec::new();
-        self.lay_out_mosaic(&grid, mosaic, options.polar, &mut entries)?;
+        self.lay_out_mosaic(&grid, mosaic, options, &mut entries)?;
         if let Some((_, first)) = entries.first().cloned() {
             for (share, name) in [(options.sharex, AxisName::X), (options.sharey, AxisName::Y)] {
                 if !share {
@@ -339,7 +346,7 @@ impl Figure {
         &self,
         grid: &GridSpec,
         mosaic: &Mosaic,
-        polar: bool,
+        options: &MosaicOptions,
         entries: &mut Vec<(String, Axes)>,
     ) -> Result<(), MosaicError> {
         for region in mosaic.regions()? {
@@ -349,6 +356,8 @@ impl Figure {
                         return Err(MosaicError::Duplicate(label.to_owned()));
                     }
                     let spec = grid.span(rows, cols)?;
+                    let polar =
+                        options.polar || options.polar_labels.iter().any(|polar| polar == label);
                     let ax = if polar {
                         let polar_axes = self.add_polar_subplot_spec(&spec)?;
                         Axes::clone(&polar_axes)
@@ -367,7 +376,7 @@ impl Figure {
                         None,
                         (None, None),
                     )?;
-                    self.lay_out_mosaic(&sub, inner, polar, entries)?;
+                    self.lay_out_mosaic(&sub, inner, options, entries)?;
                 }
             }
         }
@@ -378,6 +387,7 @@ impl Figure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::axes::ProjectionKind;
 
     #[test]
     fn multi_line_layouts_are_dedented_like_docstrings() {
@@ -445,5 +455,29 @@ mod tests {
         let main = axes.get("main").unwrap();
         main.set_xlim(0.0, 5.0);
         assert_eq!(axes.get("d").unwrap().xlim(), (0.0, 5.0));
+    }
+
+    #[test]
+    fn labelled_axes_turn_polar_and_the_grid_takes_its_margins() {
+        let fig = Figure::new();
+        let options = MosaicOptions {
+            polar_labels: vec!["B".into()],
+            gridspec: SubplotOverrides {
+                left: Some(0.6),
+                right: Some(0.95),
+                ..SubplotOverrides::default()
+            },
+            ..MosaicOptions::default()
+        };
+        let axes = fig
+            .subplot_mosaic(&Mosaic::parse("AB").unwrap(), &options)
+            .unwrap();
+        let kind = |label: &str| axes.get(label).unwrap().projection();
+        assert_eq!(
+            (kind("A"), kind("B")),
+            (ProjectionKind::Rectilinear, ProjectionKind::Polar)
+        );
+        let (left, _, _, _) = axes.get("A").unwrap().position().bounds();
+        assert!((left - 0.6).abs() < 1e-12, "{left}");
     }
 }

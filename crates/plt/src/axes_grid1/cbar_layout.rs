@@ -187,7 +187,13 @@ impl Planner<'_> {
             if index != 0 {
                 sizes.push(Size::Fixed(pad));
             }
-            let sz = relative_extent(ax, &self.axes[0], horizontal);
+            // A plain grid, without colorbar axes, gives every column and
+            // row the same share (matplotlib's `Grid._init_locators`).
+            let sz = if self.cbars.is_empty() {
+                Size::Scaled(1.0)
+            } else {
+                relative_extent(ax, &self.axes[0], horizontal)
+            };
             if self.wants_bar(index, count - 1, before) {
                 positions.cbars.push(sizes.len());
                 sizes.push(self.options.cbar_size.resolve(&sz));

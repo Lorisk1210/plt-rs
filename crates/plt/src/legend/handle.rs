@@ -61,6 +61,9 @@ pub(crate) enum Source {
     Proxy(Proxy),
     /// Several handles in one entry (matplotlib's tuple handles).
     Tuple(Vec<Source>, HandlerTuple),
+    /// A handle drawn with its own number of markers in place of the
+    /// legend's `numpoints` (matplotlib's `HandlerLine2D(numpoints=...)`).
+    Npoints(Box<Source>, usize),
 }
 
 /// An artist that exists only as a legend handle; handles compare equal
@@ -146,6 +149,25 @@ impl LegendHandle {
             layout,
         ))
     }
+
+    /// The same handle with `numpoints` markers on its line, whatever the
+    /// legend's `numpoints` (matplotlib's
+    /// `handler_map={line: HandlerLine2D(numpoints=...)}`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::legend::{LegendHandle, LegendOptions};
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::fmt("o-")?.label("four"))?;
+    /// let four = LegendHandle::from(&line).with_numpoints(4);
+    /// let legend = ax.legend(LegendOptions::default().handles([four]))?;
+    /// assert_eq!(legend.labels(), ["four"]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn with_numpoints(self, numpoints: usize) -> Self {
+        Self(Source::Npoints(Box::new(self.0), numpoints))
+    }
 }
 
 impl<T: ArtistHandle> From<&T> for LegendHandle {
@@ -192,6 +214,7 @@ impl Source {
             Self::Container(container) => container.label().map(str::to_owned),
             Self::Proxy(proxy) => Some(proxy.base().label.clone()),
             Self::Tuple(..) => None,
+            Self::Npoints(source, _) => source.label(store),
         }
     }
 
@@ -201,6 +224,7 @@ impl Source {
         match self {
             Self::Artist(id) => artist_has_handler(store, *id),
             Self::Container(_) | Self::Proxy(_) | Self::Tuple(..) => true,
+            Self::Npoints(source, _) => source.has_handler(store),
         }
     }
 }

@@ -113,7 +113,7 @@ impl ImageCore {
         };
         let mut mappable = settings.colors.into_mappable(rc)?;
         if let Some(field) = data.scalars() {
-            mappable.norm_mut().autoscale_none(&field.masked_values());
+            field.autoscale(mappable.norm_mut());
         }
         let (uniform, alpha_grid) = split_alpha(settings.alpha);
         let core = Self {

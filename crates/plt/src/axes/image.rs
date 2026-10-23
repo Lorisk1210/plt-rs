@@ -236,7 +236,7 @@ impl Axes {
         let data = data.into().normalized();
         let mut mappable = options.colors.into_mappable(&crate::rc::params())?;
         if let Some(field) = data.scalars() {
-            mappable.norm_mut().autoscale_none(&field.masked_values());
+            field.autoscale(mappable.norm_mut());
         }
         let mut artist = NonUniformImageArtist::new(data, mappable, options.interpolation, x, y)?;
         artist.base_mut().transform = Some(self.trans_data());

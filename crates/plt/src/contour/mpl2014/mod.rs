@@ -154,6 +154,10 @@ fn start_boundary_lines(tracer: &mut Tracer<'_>, quad: usize, path: &mut LevelPa
         Edge::Se,
         Edge::Sw,
     ];
+    // Most quads have no boundary edge to start from.
+    if !tracer.cache.touches_boundary(quad) {
+        return;
+    }
     let visited = LevelIndex::Lower.visited();
     for edge in EDGES {
         let cache = &*tracer.cache;

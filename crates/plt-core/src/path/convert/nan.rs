@@ -101,6 +101,17 @@ impl<I: VertexSource> NanRemover<I> {
                 self.init = vertex.point;
                 self.was_broken = false;
             }
+            // A finite move or line with nothing queued before it passes
+            // straight through: the queue would hand it back unchanged.
+            if !needs_move_to
+                && self.queue.is_empty()
+                && extra_vertices(vertex.code) == 0
+                && vertex.point.is_finite()
+            {
+                self.last_segment_valid = true;
+                self.valid_segment_exists = true;
+                return Some(vertex);
+            }
             if needs_move_to {
                 self.queue.push(Vertex::move_to(vertex.point));
             }
@@ -226,6 +237,21 @@ mod tests {
                 Vertex::line_to(p(0.0, 0.0)),
             ]
         );
+    }
+
+    #[test]
+    fn finite_paths_with_codes_pass_through() {
+        let path = Path::builder()
+            .move_to(p(0.0, 0.0))
+            .line_to(p(1.0, 1.0))
+            .cubic_to(p(1.0, 2.0), p(2.0, 0.0), p(3.0, 3.0))
+            .line_to(p(4.0, 0.0))
+            .close()
+            .move_to(p(5.0, 5.0))
+            .line_to(p(6.0, 5.0))
+            .build();
+        let original: Vec<Vertex> = path.iter_vertices().collect();
+        assert_eq!(run(&path), original);
     }
 
     #[test]

@@ -92,17 +92,26 @@ impl RasterRenderer {
         ))
     }
 
-    /// Runs `path` through the path converters into device pixels.
-    pub(super) fn condition(&self, path: &Path, transform: Affine2D, c: &Conditioning) -> Path {
-        path.iter_vertices()
+    /// Runs `path` through the path converters into device pixels, stored
+    /// in `out`. Stages that would pass every vertex through are left out
+    /// of the chain: most paths, and the many small ones of collections,
+    /// need no clipping, simplification, curve flattening or sketching.
+    pub(super) fn condition_into(
+        &self,
+        path: &Path,
+        transform: Affine2D,
+        c: &Conditioning,
+        out: &mut Path,
+    ) {
+        let source = path
+            .iter_vertices()
             .transform(transform)
-            .remove_nans(true, c.has_codes)
-            .clip_to(c.clip.then(|| self.canvas_bbox()))
-            .snap(c.snap, path.len(), c.snap_width)
-            .simplify(c.simplify)
-            .flatten_curves(true)
-            .sketch(c.sketch)
-            .collect_path()
+            .remove_nans(true, c.has_codes);
+        if c.clip {
+            snap_and_finish(source.clip_to(Some(self.canvas_bbox())), path, c, out);
+        } else {
+            snap_and_finish(source, path, c, out);
+        }
     }
 
     /// Makes the clip mask of `gc` current, rasterizing it with the
@@ -220,6 +229,24 @@ impl RasterRenderer {
             })
             .collect();
         DashPattern::from_lengths(&lengths, gc.dashes.offset * scale).ok()
+    }
+}
+
+/// The rest of [`RasterRenderer::condition_into`] after clipping: snaps
+/// `source` (the stream of `path`), then simplifies, flattens and
+/// sketches it into `out`.
+fn snap_and_finish<S: VertexSource>(source: S, path: &Path, c: &Conditioning, out: &mut Path) {
+    let snapped = source.snap(c.snap, path.len(), c.snap_width);
+    if c.simplify.is_some() || c.sketch.is_some() {
+        snapped
+            .simplify(c.simplify)
+            .flatten_curves(true)
+            .sketch(c.sketch)
+            .collect_path_into(out);
+    } else if path.has_curves() {
+        snapped.flatten_curves(true).collect_path_into(out);
+    } else {
+        snapped.collect_path_into(out);
     }
 }
 

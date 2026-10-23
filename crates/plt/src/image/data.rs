@@ -3,7 +3,7 @@
 
 use super::ImageError;
 use crate::artist::format_values;
-use crate::colors::ScalarMappable;
+use crate::colors::{Norm, ScalarMappable};
 use crate::numeric::Grid;
 
 /// What kind of numbers a scalar image holds; it decides the precision
@@ -126,6 +126,12 @@ impl ScalarField {
     /// The kind of numbers held.
     pub fn kind(&self) -> ScalarKind {
         self.kind
+    }
+
+    /// Fills the unset limits of `norm` from the unmasked values
+    /// (matplotlib's `norm.autoscale_None(A)`).
+    pub fn autoscale(&self, norm: &mut dyn Norm) {
+        norm.autoscale_none_unmasked(self.values.as_slice(), self.masked.as_slice());
     }
 
     /// The values with masked cells as `None`, row-major.

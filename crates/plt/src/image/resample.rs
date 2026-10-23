@@ -144,18 +144,20 @@ impl Resampling {
         // and the transform makes it pick the left (and upper) one.
         if interpolation == Interpolation::Nearest {
             let upper = self.origin == Origin::Upper;
-            flipped = Some(Grid::from_fn(rows, cols, |r, c| {
+            let mut pixels = Vec::with_capacity(rows * cols);
+            for r in 0..rows {
                 let row = if upper { rows - 1 - r } else { r };
-                data[(row, cols - 1 - c)]
-            }));
+                pixels.extend(data.row(row).iter().rev());
+            }
+            flipped = Some(pixels);
             map = map.after(Affine2D::translation(-(cols as f64), 0.0).scale(-1.0, 1.0));
             if upper {
                 map = map.after(Affine2D::translation(0.0, -(rows as f64)).scale(1.0, -1.0));
             }
         }
-        let source = flipped.as_ref().unwrap_or(&data);
+        let source = flipped.as_deref().unwrap_or(data.as_slice());
         let (out_rows, out_cols) = out_shape;
-        let src = raster::Grid::from_vec(cols, rows, source.as_slice().to_vec())?;
+        let src = raster::GridRef::new(cols, rows, source)?;
         let mut dst = raster::Grid::filled(out_cols, out_rows, P::default())?;
         // matplotlib's wrapper passes the radius as a C float.
         let radius = f64::from(self.filterrad as f32);
@@ -164,7 +166,7 @@ impl Resampling {
             .with_resample(resample.unwrap_or(self.resample))
             .with_norm(self.filternorm)
             .with_radius(radius);
-        raster::resample(&src, &mut dst, &params)?;
+        raster::resample(src, &mut dst, &params)?;
         Ok(Grid::from_vec(out_rows, out_cols, dst.into_vec())
             .expect("the destination grid has the requested shape"))
     }

@@ -8,7 +8,7 @@ use crate::color::Rgba8;
 use crate::error::RasterError;
 use crate::geometry::dash::{DashSink, Dasher};
 use crate::geometry::stroke::{StrokeSink, Stroker};
-use crate::geometry::{PathSink, feed_path};
+use crate::geometry::{PathSink, feed_path, is_flat};
 use crate::mask::Mask;
 use crate::pixmap::Pixmap;
 use crate::raster::{CoverageRounding, Gamma, Rasterizer, Scanline};
@@ -89,6 +89,10 @@ impl Painter {
         if color.a == 0 {
             return Ok(());
         }
+        if is_flat(path) {
+            // Nothing to cover (dense meshes snap many cells flat).
+            return check_mask(target, clip.mask);
+        }
         self.begin(target, clip.rect, rule);
         feed_path(path, &mut self.rasterizer);
         self.render_solid(target, color, aa, clip.mask)
@@ -133,6 +137,9 @@ impl Painter {
         let (tw, th) = (i64::from(tile.width()), i64::from(tile.height()));
         if tw == 0 || th == 0 {
             return Ok(());
+        }
+        if is_flat(path) {
+            return check_mask(target, clip.mask);
         }
         self.begin(target, clip.rect, rule);
         feed_path(path, &mut self.rasterizer);
@@ -377,6 +384,14 @@ impl Painter {
     }
 }
 
+/// Fails, as drawing through it would, when `mask` does not cover
+/// `target`.
+fn check_mask(target: &Pixmap, mask: Option<&Mask>) -> Result<(), RasterError> {
+    mask.map_or(Ok(()), |mask| {
+        mask.check_covers(target.width(), target.height())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,6 +424,53 @@ mod tests {
         assert_eq!(alpha_sum(&target), 3 * 6 * 255);
         assert_eq!(target.pixel(3, 3).unwrap().a, 255);
         assert_eq!(target.pixel(4, 3).unwrap().a, 0);
+    }
+
+    #[test]
+    fn flat_paths_cover_nothing_when_rasterized() {
+        // What the fill shortcut relies on, clipped or not: vertical and
+        // horizontal outlines (rectangles snapped to a line) and lines
+        // reaching outside the clip box leave no scanline.
+        let flats = [
+            Path::polygon([p(2.3, 1.0), p(2.3, 1.0), p(2.3, 7.5), p(2.3, 7.5)]),
+            Path::polygon([p(1.0, 3.0), p(6.5, 3.0), p(6.5, 3.0), p(1.0, 3.0)]),
+            Path::polyline(vec![p(-4.0, 2.0), p(-4.0, 9.0), p(-4.0, 4.0)]),
+            Path::polyline(vec![p(3.0, -2.0), p(3.0, 12.0)]),
+        ];
+        for path in &flats {
+            assert!(is_flat(path));
+            for clip in [None, Some((0.0, 0.0, 8.0, 8.0))] {
+                let mut rasterizer = Rasterizer::new();
+                if let Some((x0, y0, x1, y1)) = clip {
+                    rasterizer.set_clip_box(x0, y0, x1, y1);
+                }
+                feed_path(path, &mut rasterizer);
+                let mut covered = false;
+                rasterizer
+                    .sweep(&mut Scanline::default(), |_| covered = true)
+                    .unwrap();
+                assert!(!covered, "{path:?} clipped to {clip:?}");
+            }
+        }
+        let triangle = Path::polygon([p(0.0, 0.0), p(1.0, 0.0), p(1.0, 1.0)]);
+        assert!(!is_flat(&triangle));
+        let curve = Path::builder()
+            .move_to(p(1.0, 0.0))
+            .quad_to(p(1.0, 1.0), p(1.0, 2.0))
+            .build();
+        assert!(!is_flat(&curve), "curves are left to the rasterizer");
+        let mut target = Pixmap::new(8, 8).unwrap();
+        Painter::new()
+            .fill_path(
+                &mut target,
+                &flats[0],
+                Rgba::BLACK,
+                FillRule::NonZero,
+                Antialias::On,
+                &Clip::NONE,
+            )
+            .unwrap();
+        assert_eq!(alpha_sum(&target), 0);
     }
 
     #[test]

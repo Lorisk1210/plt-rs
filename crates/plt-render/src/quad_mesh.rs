@@ -1,6 +1,8 @@
 //! Flat-shaded quadrilateral meshes (the arguments of matplotlib's
 //! `draw_quad_mesh`).
 
+use std::ops::Range;
+
 use plt_core::{Affine2D, Path, Point, Rgba};
 
 use crate::collection::PathCollection;
@@ -22,36 +24,61 @@ pub struct QuadMesh<'a> {
     pub antialiased: bool,
 }
 
+/// The corners numpy outlines a cell through (see [`QuadMesh::cell_paths`]).
+const NUMPY_CORNERS: [(usize, usize); 4] = [(0, 0), (0, 1), (1, 1), (1, 0)];
+
+/// The corners Agg outlines a cell through (see
+/// [`QuadMesh::agg_cell_paths`]).
+const AGG_CORNERS: [(usize, usize); 4] = [(0, 0), (1, 0), (1, 1), (0, 1)];
+
 impl QuadMesh<'_> {
     /// Vertex `(row, col)`.
     fn vertex(&self, row: usize, col: usize) -> Point {
         self.coordinates[row * (self.columns + 1) + col]
     }
 
-    /// The cells, row by row, each outlined through the given corners
-    /// (offsets of row and column from the cell's first vertex).
-    fn cells(&self, corners: [(usize, usize); 4]) -> Vec<Path> {
+    /// Number of cells.
+    pub(crate) fn cell_count(&self) -> usize {
         let stride = self.columns + 1;
-        let rows = (self.coordinates.len() / stride.max(1)).saturating_sub(1);
-        (0..rows)
-            .flat_map(|r| (0..self.columns).map(move |c| (r, c)))
-            .map(|(r, c)| {
-                let [a, b, d, e] = corners.map(|(dr, dc)| self.vertex(r + dr, c + dc));
-                Path::polyline(vec![a, b, d, e, a])
-            })
-            .collect()
+        let rows = (self.coordinates.len() / stride).saturating_sub(1);
+        rows * self.columns
+    }
+
+    /// The closed outline of cell `index` (row by row) through the given
+    /// corners (offsets of row and column from the cell's first vertex).
+    fn outline(&self, index: usize, corners: [(usize, usize); 4]) -> [Point; 5] {
+        let (r, c) = (index / self.columns, index % self.columns);
+        let [a, b, d, e] = corners.map(|(dr, dc)| self.vertex(r + dr, c + dc));
+        [a, b, d, e, a]
     }
 
     /// The cells as matplotlib's `QuadMesh._convert_mesh_to_paths` outlines
     /// them: `(r, c) → (r, c + 1) → (r + 1, c + 1) → (r + 1, c) → (r, c)`.
     pub fn cell_paths(&self) -> Vec<Path> {
-        self.cells([(0, 0), (0, 1), (1, 1), (1, 0)])
+        (0..self.cell_count())
+            .map(|cell| Path::polyline(self.outline(cell, NUMPY_CORNERS).to_vec()))
+            .collect()
     }
 
     /// The cells as Agg's `QuadMeshGenerator` walks them:
     /// `(r, c) → (r + 1, c) → (r + 1, c + 1) → (r, c + 1) → (r, c)`.
     pub(crate) fn agg_cell_paths(&self) -> Vec<Path> {
-        self.cells([(0, 0), (1, 0), (1, 1), (0, 1)])
+        let mut paths = Vec::new();
+        self.agg_cell_paths_into(0..self.cell_count(), &mut paths);
+        paths
+    }
+
+    /// [`agg_cell_paths`](Self::agg_cell_paths) of the cells in `cells`,
+    /// written over `paths` to reuse their allocations.
+    pub(crate) fn agg_cell_paths_into(&self, cells: Range<usize>, paths: &mut Vec<Path>) {
+        paths.truncate(cells.len());
+        for (slot, cell) in cells.enumerate() {
+            let outline = self.outline(cell, AGG_CORNERS);
+            match paths.get_mut(slot) {
+                Some(path) => path.vertices_mut().copy_from_slice(&outline),
+                None => paths.push(Path::polyline(outline.to_vec())),
+            }
+        }
     }
 
     /// The path collection drawing `paths` with the mesh's colours, one
@@ -107,6 +134,11 @@ mod tests {
             ]
         );
         assert_eq!(mesh.agg_cell_paths()[1].vertices()[1], Point::new(1.0, 1.0));
+        assert_eq!(mesh.cell_count(), 2);
+        // Written over earlier paths, a range gives the same outlines.
+        let mut paths = mesh.agg_cell_paths();
+        mesh.agg_cell_paths_into(1..2, &mut paths);
+        assert_eq!(paths, &mesh.agg_cell_paths()[1..]);
         let empty = QuadMesh {
             coordinates: &coordinates[..3],
             ..mesh

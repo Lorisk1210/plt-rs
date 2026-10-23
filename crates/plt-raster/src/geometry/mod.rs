@@ -48,6 +48,34 @@ pub(crate) fn feed_vertices<S: PathSink + ?Sized>(
     }
 }
 
+/// Whether `path` encloses no area: it is made of straight segments whose
+/// vertices (closures aside: they only return to a sub-path start) all lie
+/// on one vertical or one horizontal line. The contributions such a path
+/// makes to each rasterizer cell cancel, so filling it covers no pixel.
+#[expect(
+    clippy::float_cmp,
+    reason = "only exactly equal coordinates make the path flat"
+)]
+pub(crate) fn is_flat(path: &Path) -> bool {
+    let codes = path.codes();
+    let mut first = None;
+    let (mut vertical, mut horizontal) = (true, true);
+    for (i, &p) in path.vertices().iter().enumerate() {
+        match codes.map_or(PathCode::LineTo, |codes| codes[i]) {
+            PathCode::ClosePoly => continue,
+            PathCode::Curve3 | PathCode::Curve4 => return false,
+            PathCode::MoveTo | PathCode::LineTo => {}
+        }
+        let first: Point = *first.get_or_insert(p);
+        vertical &= p.x == first.x;
+        horizontal &= p.y == first.y;
+        if !(vertical || horizontal) {
+            return false;
+        }
+    }
+    true
+}
+
 /// Sends `path` to `sink`, flattening its curves exactly like Agg's
 /// `conv_curve` (plt-core's [`flatten_curves`](VertexSource::flatten_curves)).
 pub(crate) fn feed_path<S: PathSink + ?Sized>(path: &Path, sink: &mut S) {

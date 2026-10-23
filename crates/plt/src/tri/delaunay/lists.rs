@@ -26,6 +26,18 @@ impl Hull {
         f.filter(|&f| self.facet(f).next.is_some())
     }
 
+    /// The facet after `f` in the list, unless that is the tail: the step
+    /// of [`facets_from`](Self::facets_from) for walks that leave the links
+    /// alone.
+    pub(super) fn next_listed(&self, f: FacetId) -> Option<FacetId> {
+        self.listed(self.facet(f).next)
+    }
+
+    /// `v` if it is a vertex of the list rather than the tail.
+    pub(super) fn listed_vertex(&self, v: Option<VertexId>) -> Option<VertexId> {
+        v.filter(|&v| self.vertex(v).next.is_some())
+    }
+
     /// The facets from `start` to the end of the list, snapshot first.
     pub(super) fn facets_from(&self, start: Option<FacetId>) -> Vec<FacetId> {
         let mut out = Vec::new();

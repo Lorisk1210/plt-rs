@@ -5,13 +5,15 @@
 //! cargo xtask figures [PREFIX...] [--failures]   figure-case conformance
 //! cargo xtask render PREFIX... [--vectors]       render cases to spec/out
 //! cargo xtask vectors [PREFIX...] [--formats F]  SVG/PDF/PS/PGF of every case vs matplotlib
+//! cargo xtask bench [PREFIX...] [--reference]     timings of large workloads (vs matplotlib)
 //! ```
 #![forbid(unsafe_code)]
 #![allow(clippy::print_stdout, clippy::print_stderr)] // a CLI reports on stdout
 
-use std::process::ExitCode;
+mod bench;
 
 use std::collections::BTreeMap;
+use std::process::ExitCode;
 
 use plt_spec::figures::vector::{VectorFormat, render_vector};
 use plt_spec::figures::{self, CaseVerdict};
@@ -28,11 +30,13 @@ fn main() -> ExitCode {
             render(rest)
         }
         Some((command, rest)) if command == "vectors" => vectors(rest),
+        Some((command, rest)) if command == "bench" => bench::run(rest),
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
             eprintln!("       cargo xtask render PREFIX... [--vectors]");
             eprintln!("       cargo xtask vectors [PREFIX...] [--formats svg,pdf,ps,pgf]");
+            eprintln!("       cargo xtask bench [PREFIX...] [--reference] [--runs N]");
             ExitCode::FAILURE
         }
     }

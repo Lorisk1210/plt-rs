@@ -36,6 +36,10 @@ impl Norm for Normalize {
         self.limits.autoscale_none(data);
     }
 
+    fn autoscale_none_unmasked(&mut self, values: &[f64], mask: &[bool]) {
+        self.limits.autoscale_none_unmasked(values, mask);
+    }
+
     fn normalize_masked(
         &mut self,
         data: &[Option<f64>],

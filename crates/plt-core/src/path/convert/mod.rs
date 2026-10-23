@@ -171,11 +171,21 @@ pub trait VertexSource: Iterator<Item = Vertex> + Sized {
 
     /// Stores the stream as a path (codes are always present).
     fn collect_path(self) -> Path {
-        let (vertices, codes) = self.map(|v| (v.point, v.code)).unzip();
-        Path {
-            vertices,
-            codes: Some(codes),
-            interpolation_steps: 1,
+        let mut path = Path::default();
+        self.collect_path_into(&mut path);
+        path
+    }
+
+    /// Stores the stream in `path`, replacing what it held but keeping its
+    /// allocations, as [`collect_path`](Self::collect_path) would.
+    fn collect_path_into(self, path: &mut Path) {
+        let codes = path.codes.get_or_insert_with(Vec::new);
+        path.vertices.clear();
+        codes.clear();
+        for vertex in self {
+            path.vertices.push(vertex.point);
+            codes.push(vertex.code);
         }
+        path.interpolation_steps = 1;
     }
 }

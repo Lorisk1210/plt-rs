@@ -253,7 +253,7 @@ impl Norm for CenteredNorm {
     /// Sets the half-range to the data's largest distance from the centre
     /// (no-op for data without unmasked values).
     fn autoscale(&mut self, data: &[Option<f64>]) {
-        if let Some((min, max)) = data_range(data) {
+        if let Some((min, max)) = data_range(data.iter().flatten()) {
             let halfrange = py_max(self.vcenter - min, max - self.vcenter);
             self.set_halfrange(Some(halfrange));
         }

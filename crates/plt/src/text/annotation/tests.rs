@@ -3,7 +3,7 @@ use plt_core::{Bbox, Point, Rgba};
 use super::*;
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
-use crate::coords::CoordError;
+use crate::coords::{CoordError, Coords};
 use crate::figure::Figure;
 use crate::patches::ArrowStyle;
 use crate::testing::{Call, RecordingRenderer};
@@ -366,4 +366,29 @@ fn lines_clip_arrows_within_their_pick_radius() {
     let end = note.window_extent().expect("an extent").x1();
     let clipped = display(9.0, 5.0).x - 5.0 * 100.0 / 72.0;
     assert!((end - clipped).abs() < 0.05, "{end} {clipped}");
+}
+
+#[test]
+fn coordinate_systems_and_clipping_read_back_as_set() {
+    let (_fig, ax) = axes();
+    let note = ax
+        .annotate("note", (5.0, 5.0), AnnotateOptions::default())
+        .expect("valid annotation");
+    assert_eq!(
+        (note.xycoords(), note.textcoords()),
+        (Coords::Data, Coords::Data)
+    );
+    assert_eq!(note.annotation_clip(), None);
+    let fraction: Coords = "axes fraction".parse().expect("valid coords");
+    let offset: Coords = "offset points".parse().expect("valid coords");
+    note.set_textcoords(offset.clone())
+        .set_annotation_clip(Some(false));
+    note.set_xycoords(fraction.clone()).expect("not an offset");
+    assert_eq!(
+        (note.xycoords(), note.textcoords()),
+        (fraction.clone(), offset.clone())
+    );
+    assert_eq!(note.annotation_clip(), Some(false));
+    assert_eq!(note.set_xycoords(offset).err(), Some(CoordError::NoOffset));
+    assert_eq!(note.xycoords(), fraction, "a rejected system leaves it");
 }

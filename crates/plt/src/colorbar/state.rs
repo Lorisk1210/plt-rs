@@ -6,12 +6,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::blocks::{BlockSpec, Blocks};
-use super::mappable::{ContourLevels, MappableLink, Source};
+use super::mappable::{ContourLevels, Mappable, MappableLink, Source};
 use super::ticking::{self, Tickers};
 use super::{Colorbar, ColorbarError, ExtendFrac, Spacing, long_axis};
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, DrawError, RawHandle};
 use crate::axes::Axes;
-use crate::colors::{Color, Extend, ScalarMappable};
+use crate::colors::{Color, Extend, Norm, NormKind, ScalarMappable};
 use crate::figure::FigureState;
 use crate::image::ScalarKind;
 use crate::orientation::Orientation;
@@ -105,7 +105,12 @@ impl ColorbarState {
     /// opacity and levels; when the norm was replaced (`reset`) the long
     /// axis gets the norm's scale and tickers anew, else they are kept.
     /// Then everything is redrawn.
-    fn follow(&mut self, ax: &Axes, source: Source, reset: bool) -> Result<(), ColorbarError> {
+    pub(super) fn follow(
+        &mut self,
+        ax: &Axes,
+        source: Source,
+        reset: bool,
+    ) -> Result<(), ColorbarError> {
         self.mapping = source.mapping;
         self.alpha = source.alpha;
         self.contours = source.contours;
@@ -190,6 +195,57 @@ impl Artist for ColorbarArtist {
 }
 
 impl Colorbar {
+    /// Shows the colour mapping of `mappable` from now on (matplotlib's
+    /// `update_normal`): its colormap, norm, opacity and levels; the
+    /// colorbar then follows the mappable's changes as it follows those of
+    /// the one it was made for. The long axis gets the norm's scale and
+    /// default ticks anew when `mappable` is another artist than the one
+    /// followed, or a bare norm and colormap with a norm of another kind
+    /// than the colorbar's (matplotlib: a norm that is another object);
+    /// otherwise it keeps its ticks.
+    ///
+    /// ```
+    /// use plt::colorbar::ColorbarOptions;
+    /// use plt::colors::{LogNorm, Normalize, ScalarMappable, colormaps};
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let mut sm = ScalarMappable::with_norm(colormaps::get("viridis")?, Box::new(Normalize::new(0.0, 1.0)));
+    /// let colorbar = fig.colorbar(&sm, ColorbarOptions::beside(&ax))?;
+    /// sm.set_norm(Box::new(LogNorm::new(1.0, 100.0)));
+    /// colorbar.update_normal(&sm)?;
+    /// assert_eq!(colorbar.ax().yscale(), "log");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the norm cannot map the colorbar's values, or the mappable was
+    /// removed from its figure.
+    pub fn update_normal<'a>(
+        &self,
+        mappable: impl Into<Mappable<'a>>,
+    ) -> Result<&Self, ColorbarError> {
+        let mappable = mappable.into();
+        let source = mappable.source()?;
+        let link = mappable
+            .link()
+            .filter(|(figure, _)| Rc::ptr_eq(figure, self.raw.figure_state()))
+            .map(|(_, link)| link);
+        let reset = match (self.read(|state| state.link), link) {
+            (Some(old), Some(new)) => old.id() != new.id(),
+            (None, None) => {
+                self.read(|state| norm_replaced(state.mapping.norm(), source.mapping.norm()))
+            }
+            _ => true,
+        };
+        self.edit(|state| {
+            state.link = link;
+            state.follow(&self.ax, source, reset)
+        })?;
+        Ok(self)
+    }
+
     /// Follows the current colour mapping of the mappable, if the colorbar
     /// has one that is still in the figure.
     fn update(&self, reset: bool) -> Result<(), ColorbarError> {
@@ -204,6 +260,15 @@ impl Colorbar {
                 self.edit(|state| state.follow(&self.ax, source, reset))
             }
         }
+    }
+}
+
+/// Whether `new` is a norm of another kind than `old`: another family,
+/// or a norm made from another scale.
+fn norm_replaced(old: &dyn Norm, new: &dyn Norm) -> bool {
+    match (old.kind(), new.kind()) {
+        (NormKind::Scaled(old), NormKind::Scaled(new)) => old.name() != new.name(),
+        (old, new) => std::mem::discriminant(&old) != std::mem::discriminant(&new),
     }
 }
 

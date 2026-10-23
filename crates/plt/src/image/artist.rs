@@ -7,7 +7,7 @@ use plt_core::{Bbox, Path, Point};
 use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::PixelMap;
 use super::unsampled::UnsampledImage;
-use super::{Extent, ImageAlpha, ImageError, Interpolation, InterpolationStage, Origin};
+use super::{Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, ClipPathSpec, DrawContext,
     LayoutContext, LimitPoints, RawHandle,
@@ -343,6 +343,54 @@ impl AxesImage {
         self.update(|image| image.core.stage = stage)
     }
 
+    /// Whether data or colours are resampled, as set (matplotlib's
+    /// `get_interpolation_stage`).
+    pub fn interpolation_stage(&self) -> InterpolationStage {
+        self.read(|image| image.core.stage)
+    }
+
+    /// Sets whether the weights of the resampling kernel are normalised
+    /// (matplotlib's `set_filternorm`).
+    pub fn set_filternorm(&self, filternorm: bool) -> &Self {
+        self.update(|image| image.core.resampling.filternorm = filternorm)
+    }
+
+    /// Whether the weights of the resampling kernel are normalised
+    /// (matplotlib's `get_filternorm`).
+    pub fn filternorm(&self) -> bool {
+        self.read(|image| image.core.resampling.filternorm)
+    }
+
+    /// Sets the radius of the sinc-family kernels (matplotlib's
+    /// `set_filterrad`).
+    ///
+    /// # Errors
+    ///
+    /// When the radius is not positive.
+    pub fn set_filterrad(&self, radius: f64) -> Result<&Self, ImageError> {
+        if radius.is_nan() || radius <= 0.0 {
+            return Err(ImageError::FilterRadius(radius));
+        }
+        Ok(self.update(|image| image.core.resampling.filterrad = radius))
+    }
+
+    /// The radius of the sinc-family kernels (matplotlib's
+    /// `get_filterrad`).
+    pub fn filterrad(&self) -> f64 {
+        self.read(|image| image.core.resampling.filterrad)
+    }
+
+    /// Sets whether downsampling resamples fully (matplotlib's
+    /// `set_resample`).
+    pub fn set_resample(&self, resample: bool) -> &Self {
+        self.update(|image| image.core.resampling.resample = resample)
+    }
+
+    /// Whether downsampling resamples fully (matplotlib's `get_resample`).
+    pub fn resample(&self) -> bool {
+        self.read(|image| image.core.resampling.resample)
+    }
+
     /// Changes the opacity: uniform, or one value per pixel.
     pub fn set_image_alpha(&self, alpha: Option<ImageAlpha>) -> &Self {
         self.update(|image| {
@@ -352,9 +400,55 @@ impl AxesImage {
         })
     }
 
+    /// The opacity: uniform, one value per pixel, or none (matplotlib's
+    /// `get_alpha`).
+    pub fn image_alpha(&self) -> Option<ImageAlpha> {
+        self.read(|image| image.core.alpha(image.base.alpha))
+    }
+
+    /// The image array (matplotlib's `get_array`).
+    pub fn array(&self) -> ImageData {
+        self.read(|image| image.core.data.clone())
+    }
+
+    /// Replaces the image array, keeping the extent; unset limits of the
+    /// norm come from new scalar data (matplotlib's `set_data`).
+    ///
+    /// ```
+    /// use plt::axes::ImshowOptions;
+    /// use plt::numeric::Grid;
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let image = ax.imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())?;
+    /// let extent = image.extent();
+    /// image.set_data(Grid::filled(3, 4, 2.0));
+    /// assert_eq!((image.shape(), image.extent()), ((3, 4), extent));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_data(&self, data: impl Into<ImageData>) -> &Self {
+        let data = data.into().normalized();
+        self.update(|image| {
+            if let Some(field) = data.scalars() {
+                let masked = field.masked_values();
+                image
+                    .core
+                    .mappable
+                    .get_mut()
+                    .norm_mut()
+                    .autoscale_none(&masked);
+            }
+            image.core.data = data;
+        })
+    }
+
     /// The colormap.
     pub fn cmap(&self) -> Colormap {
         self.read(|image| image.core.mappable.borrow().cmap().clone())
+    }
+
+    /// The norm (matplotlib's `norm`).
+    pub fn norm(&self) -> Box<dyn Norm> {
+        self.read(|image| image.core.mappable.borrow().norm().clone_box())
     }
 
     /// Replaces the colormap; the image's colorbars follow.
@@ -429,6 +523,48 @@ mod tests {
     use crate::axes::ImshowOptions;
     use crate::figure::Figure;
     use crate::patches::{Circle, Rectangle, RotationPoint};
+
+    #[test]
+    fn resampling_settings_read_back_and_reject_bad_radii() {
+        let ax = Figure::new().subplot();
+        let image = ax
+            .imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())
+            .unwrap();
+        assert_eq!((image.filternorm(), image.filterrad()), (true, 4.0));
+        assert_eq!(image.interpolation_stage(), InterpolationStage::Auto);
+        image
+            .set_filternorm(false)
+            .set_resample(true)
+            .set_interpolation_stage(InterpolationStage::Rgba);
+        assert_eq!(
+            image.set_filterrad(2.5).ok().map(AxesImage::filterrad),
+            Some(2.5)
+        );
+        for bad in [0.0, -1.0, f64::NAN] {
+            assert!(image.set_filterrad(bad).is_err(), "{bad}");
+        }
+        assert_eq!(image.filterrad(), 2.5);
+        assert!(!image.filternorm() && image.resample());
+        assert_eq!(image.interpolation_stage(), InterpolationStage::Rgba);
+    }
+
+    #[test]
+    fn new_data_keep_the_extent_and_fill_unset_limits() {
+        let ax = Figure::new().subplot();
+        let image = ax
+            .imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())
+            .unwrap();
+        assert_eq!(image.norm().vmin(), Some(1.0));
+        assert_eq!(image.image_alpha(), None);
+        image.set_clim(None, Some(4.0));
+        let extent = image.extent();
+        image.set_data(Grid::from_fn(3, 3, |r, c| (r + c) as f64));
+        assert_eq!((image.shape(), image.extent()), ((3, 3), extent));
+        assert_eq!(image.clim(), (Some(1.0), Some(4.0)), "set limits stay");
+        assert_eq!(image.array().shape(), (3, 3));
+        image.set_image_alpha(Some(ImageAlpha::Uniform(0.5)));
+        assert_eq!(image.image_alpha(), Some(ImageAlpha::Uniform(0.5)));
+    }
 
     #[test]
     fn rectangles_clip_to_their_bounding_box_and_other_shapes_to_their_outline() {

@@ -181,3 +181,47 @@ fn subplots_adjust_moves_grid_axes_only() {
         .is_err()
     );
 }
+
+#[test]
+fn frame_width_reads_back() {
+    let fig = Figure::new();
+    assert_eq!(fig.linewidth(), 0.0, "matplotlib's linewidth=0.0");
+    fig.set_linewidth(2.5);
+    assert_eq!(fig.linewidth(), 2.5);
+}
+
+#[test]
+fn line_data_read_back_as_pairs() {
+    let ax = Figure::new().subplot();
+    let line = ax.plot([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]).expect("a line");
+    assert_eq!(line.data(), (vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]));
+    line.set_data(&[0.0, 1.0], &[2.0]);
+    assert_eq!(
+        line.xydata(),
+        [Point::new(0.0, 2.0)],
+        "as many as the shorter"
+    );
+    line.set_data(&[], &[]);
+    assert_eq!(line.xydata(), Vec::<Point>::new());
+}
+
+#[test]
+fn text_boxes_read_back() {
+    use crate::patches::{BoxShape, BoxStyle};
+    use crate::text::TextBoxProps;
+    let fig = Figure::new();
+    let text = fig.text(0.5, 0.5, "boxed");
+    assert!(text.bbox_patch().is_none());
+    text.set_backgroundcolor("yellow");
+    let patch = text.bbox_patch().expect("a box");
+    assert_eq!(patch.style().facecolor, Some("yellow".into()));
+    let round = BoxStyle::new(BoxShape::Round {
+        rounding_size: None,
+    });
+    text.set_bbox(Some(
+        TextBoxProps::new(round).with_patch(crate::patches::PatchProps::default().alpha(0.5)),
+    ));
+    let patch = text.bbox_patch().expect("a box");
+    assert_eq!(patch.boxstyle().shape, round.shape);
+    assert_eq!(patch.alpha(), Some(0.5));
+}

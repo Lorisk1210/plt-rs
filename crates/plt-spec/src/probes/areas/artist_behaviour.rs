@@ -4,7 +4,7 @@
 //! `spec/reference/probes/test_artist_behaviour.py`). Every op runs under
 //! the reference configuration.
 
-use plt::artist::ArtistHandle;
+use plt::artist::{ArtistHandle, Sketch};
 use plt::axes::{BarOptions, FillBetweenOptions, ImshowOptions, ScatterOptions};
 use plt::collections::CollectionSpec;
 use plt::colors::{Alpha, BoundaryNorm, Extend, colormaps};
@@ -33,6 +33,9 @@ pub(crate) const OPS: &[Op] = &[
         with_rc(args, transform_of_none)
     }),
     Op::new("artist.remove", |args| with_rc(args, remove)),
+    Op::new("artist.base_properties", |args| {
+        with_rc(args, base_properties)
+    }),
     Op::new("artist.alpha", |args| with_rc(args, || alpha(args))),
     Op::new("artist.cursor_boundary", |args| {
         with_rc(args, || cursor_boundary(args))
@@ -131,6 +134,55 @@ fn transform_of_none() -> Outcome {
     .map(|extent| bbox(&extent.unwrap_or(Bbox::NULL)))
     .collect();
     Ok(Json::Array(extents))
+}
+
+/// The properties every artist has, as a line is made and after setting
+/// them, with the figure's frame width.
+fn base_properties() -> Outcome {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let line = made(ax.plot([0.0, 1.0], [0.0, 1.0]))?;
+    fig.layout();
+    let read = |line: &plt::lines::Line2D| {
+        let sketch = line.sketch_params().map_or(Json::Null, |sketch| {
+            Json::from(vec![sketch.scale, sketch.length, sketch.randomness])
+        });
+        object([
+            ("rasterized", line.rasterized().into()),
+            ("animated", line.animated().into()),
+            ("in_layout", line.in_layout().into()),
+            ("snap", line.snap().map_or(Json::Null, Json::Bool)),
+            ("sketch", sketch),
+            ("clip_on", line.clip_on().into()),
+            ("url", line.url().map_or(Json::Null, Json::String)),
+            ("transform_set", line.transform().is_some().into()),
+            (
+                "clip_box_is_axes",
+                line.clip_box()
+                    .map_or(Json::Null, |owner| (owner == ax.id()).into()),
+            ),
+            ("clip_path", line.clip_path().is_some().into()),
+            ("path_effects", Json::from(line.path_effects().len() as f64)),
+        ])
+    };
+    let before = read(&line);
+    line.set_rasterized(true)
+        .set_animated(true)
+        .set_in_layout(false)
+        .set_snap(Some(false))
+        .set_sketch_params(Some(Sketch {
+            scale: 1.0,
+            length: 100.0,
+            randomness: 2.0,
+        }))
+        .set_clip_on(false)
+        .set_clip_box(None)
+        .set_url("u");
+    Ok(object([
+        ("before", before),
+        ("after", read(&line)),
+        ("figure_linewidth", fig.linewidth().into()),
+    ]))
 }
 
 /// Cursor data of an image and a line, and what removing them leaves.

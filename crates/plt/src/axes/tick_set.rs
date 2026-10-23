@@ -38,6 +38,8 @@ pub struct TickSet {
     /// are kept) with its label, inside the view or not (matplotlib's
     /// `get_minorticklocs` and `get_minorticklabels`).
     pub minor_unclipped: Vec<Tick>,
+    /// The position of each of `minor` in `minor_unclipped`.
+    pub(crate) minor_index: Vec<usize>,
     /// Offset or scale text shown at the end of the axis (e.g. `1e6`).
     pub offset: String,
 }

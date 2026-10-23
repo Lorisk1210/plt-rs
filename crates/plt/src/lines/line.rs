@@ -403,6 +403,22 @@ impl Line2D {
         Self { raw }
     }
 
+    /// The line's data (matplotlib's `get_data`).
+    pub fn data(&self) -> (Vec<f64>, Vec<f64>) {
+        self.raw
+            .with::<LineArtist, _>(|line| (line.xdata.clone(), line.ydata.clone()))
+    }
+
+    /// The line's data as points, as many as the shorter of x and y
+    /// (matplotlib's `get_xydata`).
+    pub fn xydata(&self) -> Vec<Point> {
+        self.raw.with::<LineArtist, _>(|line| {
+            (line.xdata.iter().zip(&line.ydata))
+                .map(|(&x, &y)| Point::new(x, y))
+                .collect()
+        })
+    }
+
     /// Replaces the line's data.
     pub fn set_data(&self, x: &[f64], y: &[f64]) -> &Self {
         self.raw.with_mut::<LineArtist, _>(|line| {

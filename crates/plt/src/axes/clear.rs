@@ -20,6 +20,7 @@ impl AxesState {
         let mut fresh = Self::new(self.position, rc);
         *fresh.base_mut() = self.base().clone();
         fresh.aspect = self.aspect;
+        fresh.axes_locator.clone_from(&self.axes_locator);
         fresh.subplot_spec.clone_from(&self.subplot_spec);
         fresh.shares = self.shares;
         fresh.secondary.clone_from(&self.secondary);
@@ -30,7 +31,7 @@ impl AxesState {
         fresh.forward_navigation = self.forward_navigation;
         fresh.patch.facecolor = self.patch.facecolor.clone();
         fresh.decorations.frame_on = self.decorations.frame_on;
-        fresh.axis_zorder = self.axis_zorder;
+        fresh.axisbelow = self.axisbelow;
         for name in [AxisName::X, AxisName::Y] {
             // matplotlib's `Axis.clear` keeps the tick parameters, except
             // whether gridlines are on, which restarts from the rc.

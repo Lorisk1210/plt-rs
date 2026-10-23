@@ -311,7 +311,7 @@ fn graphics_context(
         gc.hatch = Some(Hatch {
             pattern: pattern.clone(),
             color: hatches.first().copied().unwrap_or(Rgba::BLACK),
-            linewidth: c.rc().hatch_linewidth,
+            linewidth: c.hatch_linewidth,
         });
     }
     if let Some(cap) = c.capstyle {

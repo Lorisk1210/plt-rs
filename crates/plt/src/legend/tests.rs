@@ -286,3 +286,32 @@ fn kept_legends_stay_beside_the_next_one() {
     assert!(!second.raw().is_alive(), "the axes legend still is");
     assert_eq!(ax.get_legend(), Some(third));
 }
+
+#[test]
+fn location_and_anchor_read_back_and_move_the_legend() {
+    let (fig, ax) = canvas();
+    ax.plot_with([0.0, 1.0], [0.0, 1.0], labelled("line"))
+        .unwrap();
+    let legend = ax
+        .legend(LegendOptions::default().loc("upper left"))
+        .unwrap();
+    assert_eq!(legend.loc(), LegendLoc::Code(2));
+    assert_eq!(legend.bbox_to_anchor(), None);
+    let inside = frame_extent(&fig, &legend);
+    legend.set_bbox_to_anchor(Some(BboxToAnchor::Point(1.0, 1.0)), None);
+    assert_eq!(
+        legend.bbox_to_anchor(),
+        Some((
+            Bbox::from_bounds(1.0, 1.0, 0.0, 0.0),
+            Transform::Axes(ax.id())
+        ))
+    );
+    let outside = frame_extent(&fig, &legend);
+    assert!(outside.x0() > inside.x0(), "past the right edge");
+    legend.set_bbox_to_anchor(None, None);
+    assert_eq!(frame_extent(&fig, &legend), inside);
+    legend.set_loc((0.25, 0.5)).unwrap();
+    assert_eq!(legend.loc(), LegendLoc::Point(0.25, 0.5));
+    legend.set_loc("best").unwrap();
+    assert_eq!(legend.loc(), LegendLoc::Name("best".into()));
+}

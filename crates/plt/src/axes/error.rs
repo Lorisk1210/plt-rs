@@ -101,6 +101,8 @@ pub enum PlotError {
         /// The requested side.
         side: SpineSide,
     },
+    /// Another unit converter was already set explicitly on the axis.
+    ExplicitConverter(AxisName),
 }
 
 impl fmt::Display for PlotError {
@@ -186,6 +188,11 @@ impl fmt::Display for PlotError {
                     "margin must be finite and greater than -0.5, got {margin}"
                 )
             }
+            Self::ExplicitConverter(axis) => write!(
+                f,
+                "the {}-axis already has an explicit converter set",
+                axis.name()
+            ),
             Self::NormWithLimits => f.write_str(
                 "passing a Normalize instance simultaneously with vmin/vmax is not supported",
             ),

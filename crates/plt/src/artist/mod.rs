@@ -41,7 +41,7 @@ pub use filter::{AggFilter, FilteredGroup};
 pub use handle::{ArtistHandle, RawHandle, TypedHandle};
 pub(crate) use pick::segment_hits;
 pub use pick::{PickFn, Picker};
-pub use plt_render::{FilterImage, Filtered};
+pub use plt_render::{FilterImage, Filtered, Sketch};
 pub use properties::BaseProps;
 pub use store::{ArtistId, ArtistStore};
 

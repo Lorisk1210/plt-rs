@@ -42,7 +42,11 @@ and the like) are ported by recording both. Adaptations:
 * ``test_twin_respects_position_after_set_position/*-twinned_first``
   extends the upstream test to ``set_position`` after twinning;
 * of ``test_axis_method_errors``, ``test_margins_errors`` and
-  ``test_add_subplot_invalid`` only the value errors are ported.
+  ``test_add_subplot_invalid`` only the value errors are ported;
+* of ``test_axisbelow``, ``test_remove_overlapping_locs`` and
+  ``test_date_empty`` only the getters are ported (the drawing, the minor
+  tick filtering and the second epoch are covered elsewhere);
+  ``test_remove_overlapping_locs`` uses the setter rather than ``plt.setp``.
 
 Left out: tests of Python calling conventions and types (``TypeError`` for
 argument counts and mixes, subclass hooks such as ``axes_class``,
@@ -553,6 +557,37 @@ def test_ticks():
                 [0, "set_yscale", yscale], [0, "minorticks_on"], ["fig", "draw"],
                 [0, "get_xticks", {"minor": True}], [0, "get_yticks", {"minor": True}],
             ])
+
+
+# --- axis getters (test_axes.py, test_axis.py, test_ticker.py, test_dates.py) ----------
+
+def test_axis_getters():
+    settings = [False, "line", True]
+    _case("test_axisbelow", [
+        ["fig", "subplots", 1, 3, {"sharex": True, "sharey": True}],
+        *[step for i, setting in enumerate(settings)
+          for step in ([i, "set_axisbelow", setting], [i, "get_axisbelow"])],
+    ])
+    positions = [[0, "xaxis.get_ticks_position"], [0, "yaxis.get_ticks_position"]]
+    _case("test_get_tick_position_rcParams", [["fig", "add_subplot"], *positions],
+          rc={"xtick.top": True, "xtick.labeltop": True, "xtick.bottom": False,
+              "xtick.labelbottom": False, "ytick.right": True, "ytick.labelright": True,
+              "ytick.left": False, "ytick.labelleft": False})
+    _case("test_get_tick_position_tick_top_tick_right", [
+        ["fig", "add_subplot"], [0, "xaxis.tick_top"], [0, "yaxis.tick_right"], *positions,
+    ])
+    _case("test_get_tick_position_tick_params", [
+        ["fig", "add_subplot"],
+        [0, "tick_params", {"top": True, "labeltop": True, "bottom": False,
+                            "labelbottom": False, "right": True, "labelright": True,
+                            "left": False, "labelleft": False}],
+        *positions,
+    ])
+    _case("test_remove_overlapping_locs", [
+        SUBPLOT, [0, "xaxis.get_remove_overlapping_locs"],
+        [0, "xaxis.set_remove_overlapping_locs", False], [0, "xaxis.get_remove_overlapping_locs"],
+    ])
+    _case("test_date_empty", [SUBPLOT, [0, "xaxis_date"], ["fig", "draw"], [0, "get_xlim"]])
 
 
 # --- subplot grids: sharing and outer labels (test_subplots.py) ------------------------

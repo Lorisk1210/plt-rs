@@ -57,9 +57,11 @@ pub(crate) struct BoxPlacement {
     pub(crate) fontsize_px: f64,
 }
 
-/// A text's box: a [`FancyBboxPatch`] fitted around the text at draw time.
+/// A text's box: a [`FancyBboxPatch`] fitted around the text at draw time
+/// (matplotlib's `get_bbox_patch`), made from [`TextBoxProps`] with its
+/// padding fixed for the text's font size at the time.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct TextBox {
+pub struct TextBox {
     boxstyle: BoxStyle,
     style: PatchStyle,
     alpha: Option<f64>,
@@ -114,6 +116,28 @@ impl TextBox {
     /// Changes the face colour (`set_backgroundcolor` on an existing box).
     pub(crate) fn set_facecolor(&mut self, color: Color) {
         self.style.facecolor = Some(color);
+    }
+
+    /// The outline, with the padding in font sizes (matplotlib's
+    /// `get_boxstyle`).
+    pub fn boxstyle(&self) -> BoxStyle {
+        self.boxstyle
+    }
+
+    /// The face, edge and hatch of the box (matplotlib's `get_facecolor`,
+    /// `get_edgecolor`, ... of the patch).
+    pub fn style(&self) -> &PatchStyle {
+        &self.style
+    }
+
+    /// The opacity of the box, if set.
+    pub fn alpha(&self) -> Option<f64> {
+        self.alpha
+    }
+
+    /// The effects the box is drawn through.
+    pub fn path_effects(&self) -> &[PathEffect] {
+        &self.path_effects
     }
 
     /// The box shape and its placement (`update_bbox_position_size`).

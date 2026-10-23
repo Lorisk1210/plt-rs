@@ -3,7 +3,7 @@
 
 use plt_render::Dashes;
 
-use super::{HandleArtist, HandleArtists, HandleBox, HandlerContext, copy_line};
+use super::{HandleBox, HandlerArtist, HandlerContext, copy_line};
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::colors::Color;
 use crate::legend::LegendError;
@@ -22,7 +22,7 @@ pub(super) fn line2d(
     ctx: &HandlerContext<'_>,
     source: &LineArtist,
     area: &HandleBox,
-) -> HandleArtists {
+) -> Vec<HandlerArtist> {
     let numpoints = ctx.settings.numpoints;
     let (mut xdata, _) = ctx.xdata(area, numpoints);
     let mut markevery = None;
@@ -36,7 +36,7 @@ pub(super) fn line2d(
     line.markevery = markevery;
     copy_line(&mut line, source);
     scale_markers(ctx, &mut line);
-    HandleArtists::unmapped(vec![HandleArtist::placed(line)])
+    vec![HandlerArtist::placed(line)]
 }
 
 /// Applies the legend's `markerscale`.
@@ -53,7 +53,7 @@ pub(super) fn line_collection(
     ctx: &HandlerContext<'_>,
     source: &CollectionArtist,
     area: &HandleBox,
-) -> Result<Option<HandleArtists>, LegendError> {
+) -> Result<Vec<HandlerArtist>, LegendError> {
     let (xdata, _) = ctx.xdata(area, ctx.settings.scatterpoints);
     let ydata = vec![middle(area); xdata.len()];
     let mut line = ctx.line(xdata, ydata);
@@ -61,16 +61,14 @@ pub(super) fn line_collection(
         .resolved_colors()
         .map_err(LegendError::HandleColors)?;
     let Some(&color) = edges.first() else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
     line.color = Color::from(color);
     let style = source.linestyles.first().unwrap_or(&LineStyle::Solid);
     let Dashes { offset, pattern } = style.dash_pattern(source.rc());
     line.linestyle = LineStyle::dashes(offset, pattern);
     line.linewidth = first_width(source);
-    Ok(Some(HandleArtists::unmapped(vec![HandleArtist::placed(
-        line,
-    )])))
+    Ok(vec![HandlerArtist::placed(line)])
 }
 
 /// The first edge width of a collection, with its kind's default.

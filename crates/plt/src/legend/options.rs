@@ -1,6 +1,9 @@
 //! The options of a legend (matplotlib's `legend` keyword arguments).
 
+use std::rc::Rc;
+
 use super::handle::LegendHandle;
+use super::handlers::{HandlerKey, HandlerMap, LegendHandler};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 pub use crate::offsetbox::BboxToAnchor;
@@ -279,6 +282,9 @@ pub struct LegendOptions {
     /// Whether the mouse can drag the legend (see
     /// [`Legend::set_draggable`](super::Legend::set_draggable)).
     pub draggable: bool,
+    /// Handlers for kinds of handles, on top of the default handler map
+    /// (matplotlib's `handler_map`).
+    pub handler_map: HandlerMap,
 }
 
 impl Default for LegendOptions {
@@ -319,6 +325,7 @@ impl Default for LegendOptions {
             borderaxespad: None,
             columnspacing: None,
             draggable: false,
+            handler_map: HandlerMap::new(),
         }
     }
 }
@@ -441,6 +448,21 @@ impl LegendOptions {
     #[must_use]
     pub fn alignment(mut self, alignment: LegendAlignment) -> Self {
         self.alignment = alignment;
+        self
+    }
+
+    /// Sets [`LegendOptions::handler_map`].
+    #[must_use]
+    pub fn handler_map(mut self, handler_map: HandlerMap) -> Self {
+        self.handler_map = handler_map;
+        self
+    }
+
+    /// Draws the handles of `key` with `handler` (matplotlib's
+    /// `handler_map={key: handler}`).
+    #[must_use]
+    pub fn handler(mut self, key: HandlerKey, handler: impl LegendHandler + 'static) -> Self {
+        self.handler_map.insert(key, Rc::new(handler));
         self
     }
 }

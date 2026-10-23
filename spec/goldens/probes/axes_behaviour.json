@@ -271,6 +271,22 @@
   {
    "op": "axes_behaviour.run",
    "args": {
+    "case": "test_axisbelow",
+    "steps": [
+     ["fig", "subplots", 1, 3, {"sharex": true, "sharey": true}],
+     [0, "set_axisbelow", false],
+     [0, "get_axisbelow"],
+     [1, "set_axisbelow", "line"],
+     [1, "get_axisbelow"],
+     [2, "set_axisbelow", true],
+     [2, "get_axisbelow"]
+    ]
+   },
+   "value": [null, null, false, null, "line", null, true]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
     "case": "test_bezier_autoscale",
     "steps": [
      ["fig", "subplots"],
@@ -370,6 +386,11 @@
   },
   {
    "op": "axes_behaviour.run",
+   "args": {"case": "test_date_empty", "steps": [["fig", "subplots"], [0, "xaxis_date"], ["fig", "draw"], [0, "get_xlim"]]},
+   "value": [null, null, null, [0.0, 1.0]]
+  },
+  {
+   "op": "axes_behaviour.run",
    "args": {
     "case": "test_empty_shared_subplots",
     "steps": [["fig", "subplots", 1, 2, {"sharex": true, "sharey": true}], [0, "plot", [1, 2, 3], [2, 4, 6]], [1, "get_xlim"], [1, "get_ylim"]]
@@ -434,6 +455,45 @@
    "op": "axes_behaviour.run",
    "args": {"case": "test_get_labels", "steps": [["fig", "subplots"], [0, "set_xlabel", "x label"], [0, "set_ylabel", "y label"], [0, "get_xlabel"], [0, "get_ylabel"]]},
    "value": [null, null, null, "x label", "y label"]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "test_get_tick_position_rcParams",
+    "steps": [["fig", "add_subplot"], [0, "xaxis.get_ticks_position"], [0, "yaxis.get_ticks_position"]],
+    "rc": {
+     "xtick.top": true,
+     "xtick.labeltop": true,
+     "xtick.bottom": false,
+     "xtick.labelbottom": false,
+     "ytick.right": true,
+     "ytick.labelright": true,
+     "ytick.left": false,
+     "ytick.labelleft": false
+    }
+   },
+   "value": [null, "top", "right"]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "test_get_tick_position_tick_params",
+    "steps": [
+     ["fig", "add_subplot"],
+     [0, "tick_params", {"top": true, "labeltop": true, "bottom": false, "labelbottom": false, "right": true, "labelright": true, "left": false, "labelleft": false}],
+     [0, "xaxis.get_ticks_position"],
+     [0, "yaxis.get_ticks_position"]
+    ]
+   },
+   "value": [null, null, "top", "right"]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "test_get_tick_position_tick_top_tick_right",
+    "steps": [["fig", "add_subplot"], [0, "xaxis.tick_top"], [0, "yaxis.tick_right"], [0, "xaxis.get_ticks_position"], [0, "yaxis.get_ticks_position"]]
+   },
+   "value": [null, null, null, "top", "right"]
   },
   {
    "op": "axes_behaviour.run",
@@ -1182,6 +1242,14 @@
     ]
    },
    "value": [null, null, [-0.5, 10.5], [-0.5, 10.5], null, [-11.5, 21.5], [-12.0, 32.0], null, [-11.5, 21.5], [-12.0, 32.0], null, null, [-0.5, 10.5], [-0.5, 10.5]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "test_remove_overlapping_locs",
+    "steps": [["fig", "subplots"], [0, "xaxis.get_remove_overlapping_locs"], [0, "xaxis.set_remove_overlapping_locs", false], [0, "xaxis.get_remove_overlapping_locs"]]
+   },
+   "value": [null, true, null, false]
   },
   {
    "op": "axes_behaviour.run",

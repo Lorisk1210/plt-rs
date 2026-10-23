@@ -67,6 +67,20 @@ pub fn convert_dx(positions: &[f64], deltas: &[f64]) -> Vec<f64> {
     }
 }
 
+/// The unit converter of an axis (matplotlib's `ConversionInterface`s
+/// registered for dates and strings): what plotted values were converted
+/// from, which decides the axis' default tick helpers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum UnitConverter {
+    /// Dates, as date numbers with date ticks (matplotlib's
+    /// `DateConverter`, or `ConciseDateConverter` as `date.converter`
+    /// says).
+    Dates,
+    /// Category names, placed at 0, 1, 2, ... (matplotlib's
+    /// `StrCategoryConverter`).
+    Categories,
+}
+
 /// Plotting values along one axis before unit conversion.
 #[derive(Clone, Debug, PartialEq)]
 pub enum AxisValues {

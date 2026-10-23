@@ -1,7 +1,8 @@
 //! Probe operations for the `navigation` area: the toolbar's
-//! zoom-to-rectangle and pan modes driven by mouse drags.
+//! zoom-to-rectangle and pan modes driven by mouse drags, and what the
+//! status bar shows of data points.
 
-use plt::axes::{Adjustable, Axes};
+use plt::axes::{Adjustable, Axes, AxisName};
 use plt::figure::{Figure, Share};
 use plt::navigation::{DragKey, NavMode, Navigation, PointerButton};
 use plt::rc::Aspect;
@@ -11,7 +12,10 @@ use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.
-pub(crate) const OPS: &[Op] = &[Op::new("navigation.drag", drag)];
+pub(crate) const OPS: &[Op] = &[
+    Op::new("navigation.drag", drag),
+    Op::new("navigation.format_coord", format_coord),
+];
 
 /// Builds `scene` (see `spec/reference/probes/test_navigation.py`).
 fn build(fig: &Figure, scene: &str) -> Result<(), ProbeError> {
@@ -80,6 +84,49 @@ fn drag_key(args: Args<'_>) -> Result<DragKey, ProbeError> {
     })
 }
 
+/// The points of argument `key`, `[[x, y], ...]`.
+fn points(args: Args<'_>, key: &str) -> Result<Vec<Point>, ProbeError> {
+    args.json(key)?
+        .as_array()
+        .and_then(|points| {
+            points
+                .iter()
+                .map(|point| match point.as_array()? {
+                    [x, y] => Some(Point::new(x.as_f64()?, y.as_f64()?)),
+                    _ => None,
+                })
+                .collect::<Option<Vec<_>>>()
+        })
+        .filter(|points| !points.is_empty())
+        .ok_or_else(|| ProbeError::BadArgs(format!("{key} is malformed")))
+}
+
+/// What the status bar shows of each of `points` in the first axes of
+/// `scene`, and of their coordinates.
+fn format_coord(args: Args<'_>) -> Outcome {
+    let fig = Figure::with_size(4.0, 3.0, 100.0);
+    build(&fig, args.str("scene")?)?;
+    fig.layout();
+    let ax = fig
+        .axes()
+        .into_iter()
+        .next()
+        .ok_or_else(|| ProbeError::BadArgs("the scene has no axes".into()))?;
+    let text = |value: Option<String>| value.map_or(Json::Null, Json::String);
+    Ok(Json::Array(
+        points(args, "points")?
+            .into_iter()
+            .map(|p| {
+                Json::Array(vec![
+                    Json::String(ax.format_coord(p.x, p.y)),
+                    text(ax.format_data(AxisName::X, p.x)),
+                    text(ax.format_data(AxisName::Y, p.y)),
+                ])
+            })
+            .collect(),
+    ))
+}
+
 /// Drags along `path` in `mode` and returns the view limits of every axes.
 fn drag(args: Args<'_>) -> Outcome {
     let fig = Figure::with_size(4.0, 3.0, 100.0);
@@ -96,20 +143,7 @@ fn drag(args: Args<'_>) -> Outcome {
         other => return Err(ProbeError::BadArgs(format!("unknown button {other}"))),
     };
     let key = drag_key(args)?;
-    let path = args
-        .json("path")?
-        .as_array()
-        .and_then(|points| {
-            points
-                .iter()
-                .map(|point| match point.as_array()? {
-                    [x, y] => Some(Point::new(x.as_f64()?, y.as_f64()?)),
-                    _ => None,
-                })
-                .collect::<Option<Vec<_>>>()
-        })
-        .filter(|points| !points.is_empty())
-        .ok_or_else(|| ProbeError::BadArgs("path is malformed".into()))?;
+    let path = points(args, "path")?;
     let mut navigation = Navigation::new();
     navigation
         .toggle(&fig, mode)

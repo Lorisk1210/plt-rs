@@ -1,39 +1,64 @@
 //! Legend handlers: the artists drawn as an entry's handle, made from the
 //! artists the entry stands for (`matplotlib.legend_handler`).
 //!
-//! Each handler builds new artists sized in points inside the entry's
-//! handle box and copies the look of the original artists, as matplotlib's
-//! handlers do with `update_from`. The legend places the box at layout
-//! time.
+//! A handler is a [`LegendHandler`]: given an entry ([`HandlerEntry`]:
+//! the original handle, the handle box and the legend's font size), it
+//! returns the [`HandlerArtist`]s to draw, sized in points inside the
+//! handle box; the legend places the box at layout time. A
+//! [`HandlerMap`] says which handler draws which kind of handle
+//! ([`HandlerKey`]). Legends start from the default map
+//! ([`Legend::default_handler_map`](super::Legend::default_handler_map)),
+//! whose built-in handlers copy the look of the original artists into
+//! new ones, as matplotlib's do with `update_from`; the
+//! [`handler_map`](super::LegendOptions::handler_map) of a legend adds to
+//! it, and a handle may carry a handler of its own
+//! ([`LegendHandle::with_handler`](super::LegendHandle::with_handler)).
 
+mod builtin;
 mod collection;
 mod errorbar;
 mod line;
+mod map;
 mod patch;
 mod stem;
 
+use std::any::Any;
 use std::rc::Rc;
 
+pub use builtin::{
+    HandlerErrorbar, HandlerLine2D, HandlerLineCollection, HandlerPatch, HandlerPathCollection,
+    HandlerPolyCollection, HandlerStem, HandlerStepPatch,
+};
+pub use map::{HandlerKey, HandlerMap, TypeKey};
+pub(crate) use map::{
+    default_handlers, set_default_handlers, update_default_handlers, with_defaults,
+};
+
 use super::LegendError;
-use super::handle::{HandlerTuple, Proxy, Source};
+use super::handle::{LegendHandle, Source};
 use super::settings::Settings;
 use crate::artist::{Artist, ArtistBase, ArtistStore};
-use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
+use crate::collections::{CollectionArtist, EdgeColors};
 use crate::colors::Color;
-use crate::container::ContainerIds;
-use crate::lines::LineArtist;
+use crate::lines::{LineArtist, LineProps};
 use crate::numeric::linspace;
-use crate::patches::StepPatch;
+use crate::patches::{PatchArtist, PatchProps, PatchShape};
 use crate::rc::RcParams;
 
-/// The box a handle is drawn in, in points relative to the box's origin
-/// (matplotlib's handle box `DrawingArea`).
+/// The box a handle is drawn in, in points (matplotlib's handle box
+/// `DrawingArea`): handle artists span `-xdescent..width - xdescent`
+/// across and `-ydescent..height - ydescent` up, as matplotlib's
+/// handlers place them.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct HandleBox {
-    pub(crate) xdescent: f64,
-    pub(crate) ydescent: f64,
-    pub(crate) width: f64,
-    pub(crate) height: f64,
+pub struct HandleBox {
+    /// How far the box reaches left of its origin.
+    pub xdescent: f64,
+    /// How far the box reaches below its origin.
+    pub ydescent: f64,
+    /// The width of the box.
+    pub width: f64,
+    /// The height of the box.
+    pub height: f64,
 }
 
 /// How a handle artist follows the box it is drawn in.
@@ -46,46 +71,152 @@ pub(crate) enum Attach {
     Offsets,
 }
 
-/// One artist of a handle and how it follows the handle box.
+/// One artist of a legend handle, in points in the handle box (matplotlib's
+/// artists of `create_artists`, drawn with the handle box's transform).
 #[derive(Debug)]
-pub(crate) struct HandleArtist {
+pub struct HandlerArtist {
     pub(crate) artist: Box<dyn Artist>,
     pub(crate) attach: Attach,
-}
-
-impl HandleArtist {
-    fn placed(artist: impl Artist) -> Self {
-        Self {
-            artist: Box::new(artist),
-            attach: Attach::Transform,
-        }
-    }
-}
-
-/// The artists of one handle, in drawing order; the first one is the
-/// legend handle proper (matplotlib's `legend_handles` entry).
-#[derive(Debug)]
-pub(crate) struct HandleArtists {
-    pub(crate) artists: Vec<HandleArtist>,
-    /// Whether the first artist maps data values to colours (matplotlib's
-    /// `get_array() is not None`).
+    /// Whether the artist maps data values to colours (matplotlib's
+    /// `get_array() is not None`), which label colours follow.
     pub(crate) mapped: bool,
 }
 
-impl HandleArtists {
-    fn unmapped(artists: Vec<HandleArtist>) -> Self {
+impl HandlerArtist {
+    /// A patch of `shape` styled by `props`, with the defaults of the rc
+    /// parameters (matplotlib's `Patch` made in `create_artists`).
+    pub fn patch<S: PatchShape>(shape: S, props: PatchProps) -> Self {
+        let mut patch = PatchArtist::new(shape, crate::rc::params());
+        props.apply(&mut patch);
+        Self::placed(patch)
+    }
+
+    /// A line through `(x, y)` styled by `props`, with the defaults of the
+    /// rc parameters (matplotlib's `Line2D` made in `create_artists`).
+    pub fn line(x: Vec<f64>, y: Vec<f64>, props: LineProps) -> Self {
+        let mut line = LineArtist::new(x, y, crate::rc::params());
+        props.apply(&mut line);
+        Self::placed(line)
+    }
+
+    /// `artist`, placed by the box's transform.
+    pub(crate) fn placed(artist: impl Artist) -> Self {
         Self {
-            artists,
+            artist: Box::new(artist),
+            attach: Attach::Transform,
             mapped: false,
         }
     }
 }
 
-/// What handlers read: the figure's artists and the legend's settings.
+/// Draws the handles of legend entries (matplotlib's `HandlerBase`, whose
+/// `legend_artist` adds the artists of `create_artists` to the handle
+/// box).
+///
+/// matplotlib's legend guide draws an ellipse for a circle
+/// (`HandlerEllipse`):
+///
+/// ```
+/// use plt::legend::{HandlerArtist, HandlerEntry, HandlerKey, LegendError, LegendHandle, LegendHandler, LegendOptions};
+/// use plt::patches::{Circle, Ellipse, PatchProps};
+/// use plt::prelude::*;
+///
+/// #[derive(Debug)]
+/// struct HandlerEllipse;
+///
+/// impl LegendHandler for HandlerEllipse {
+///     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
+///         let area = entry.area();
+///         let center = (0.5 * area.width - 0.5 * area.xdescent, 0.5 * area.height - 0.5 * area.ydescent);
+///         let ellipse = Ellipse::new(center, area.width + area.xdescent, area.height + area.ydescent);
+///         Ok(vec![entry.patch_like_original(ellipse)])
+///     }
+/// }
+///
+/// let ax = Figure::new().subplot();
+/// let c = ax.add_patch_with(Circle::new((0.5, 0.5), 0.25), PatchProps::default().facecolor("green"));
+/// ax.legend(
+///     LegendOptions::default()
+///         .handles([&c])
+///         .labels(["An ellipse, not a rectangle"])
+///         .handler(HandlerKey::of::<Circle>(), HandlerEllipse),
+/// )?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub trait LegendHandler: std::fmt::Debug {
+    /// The artists drawing the handle of `entry` in its handle box
+    /// (matplotlib's `create_artists`); none leaves the entry out of the
+    /// legend.
+    ///
+    /// # Errors
+    ///
+    /// When the look of the original artists cannot be resolved.
+    fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError>;
+}
+
+/// One entry of a legend being made, as its handler sees it
+/// (matplotlib's `legend`, `orig_handle`, `fontsize` and `handlebox`
+/// arguments).
+pub struct HandlerEntry<'a> {
+    pub(crate) ctx: &'a HandlerContext<'a>,
+    pub(crate) source: &'a Source,
+    pub(crate) area: HandleBox,
+}
+
+impl std::fmt::Debug for HandlerEntry<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HandlerEntry")
+            .field("source", self.source)
+            .field("area", &self.area)
+            .finish_non_exhaustive()
+    }
+}
+
+impl HandlerEntry<'_> {
+    /// The handle box.
+    pub fn area(&self) -> HandleBox {
+        self.area
+    }
+
+    /// The legend's font size in points.
+    pub fn fontsize(&self) -> f64 {
+        self.ctx.settings.fontsize
+    }
+
+    /// The handle the entry was made for (matplotlib's `orig_handle`).
+    pub fn handle(&self) -> LegendHandle {
+        LegendHandle(self.source.clone())
+    }
+
+    /// The object of a handle made by
+    /// [`LegendHandle::object`](super::LegendHandle::object), if it is a
+    /// `T`.
+    pub fn object<T: Any>(&self) -> Option<&T> {
+        match self.source {
+            Source::Object(object) => object.value.downcast_ref(),
+            _ => None,
+        }
+    }
+
+    /// A patch of `shape` drawn like the entry's original patch, or the
+    /// first bar of a bar container: its face, edge, hatch and line style,
+    /// visibility, alpha and label (matplotlib's `HandlerPatch.update_prop`,
+    /// which calls `update_from`); a patch in the rc style when the
+    /// original is no patch.
+    pub fn patch_like_original<S: PatchShape>(&self, shape: S) -> HandlerArtist {
+        let mut patch = PatchArtist::new(shape, Rc::clone(self.ctx.rc));
+        patch::copy_original(&mut patch, self.ctx, self.source);
+        HandlerArtist::placed(patch)
+    }
+}
+
+/// What handlers read: the figure's artists, the legend's settings and
+/// the handler map of the legend being made.
 pub(crate) struct HandlerContext<'a> {
     pub(crate) store: &'a ArtistStore,
     pub(crate) settings: &'a Settings,
     pub(crate) rc: &'a Rc<RcParams>,
+    pub(crate) handlers: &'a HandlerMap,
 }
 
 impl HandlerContext<'_> {
@@ -112,54 +243,31 @@ impl HandlerContext<'_> {
     }
 }
 
-/// The handle artists of `source` in `area`, or `None` when legends do not
-/// support it (matplotlib's `get_legend_handler` + `legend_artist`).
+/// The handle artists of `source` in `area`, or `None` when no handler
+/// draws it (matplotlib's `get_legend_handler` + `legend_artist`).
 pub(crate) fn create(
     ctx: &HandlerContext<'_>,
     source: &Source,
     area: &HandleBox,
-) -> Result<Option<HandleArtists>, LegendError> {
+) -> Result<Option<Vec<HandlerArtist>>, LegendError> {
+    match ctx.handlers.handler_for(source, ctx.store) {
+        Some(handler) => draw(ctx, handler.as_ref(), source, area),
+        None => Ok(None),
+    }
+}
+
+/// The artists `handler` makes for `source` in `area`, `None` when it
+/// makes none. A handle's own handler and number of markers are applied
+/// here, so that handlers see the handle itself.
+fn draw(
+    ctx: &HandlerContext<'_>,
+    handler: &dyn LegendHandler,
+    source: &Source,
+    area: &HandleBox,
+) -> Result<Option<Vec<HandlerArtist>>, LegendError> {
     match source {
-        Source::Artist(id) => {
-            let Some(artist) = ctx.store.get(*id) else {
-                return Ok(None);
-            };
-            if let Some(line) = ctx.store.get_as::<LineArtist>(*id) {
-                return Ok(Some(line::line2d(ctx, line, area)));
-            }
-            if let Some(view) = artist.as_patch() {
-                let base = artist.base();
-                return Ok(Some(match view.shape.downcast_ref::<StepPatch>() {
-                    Some(_) => patch::step_patch(ctx, base, view, area)?,
-                    None => patch::patch(ctx, Some((base, view)), area),
-                }));
-            }
-            let Some(collection) = ctx.store.get_as::<CollectionArtist>(*id) else {
-                return Ok(None);
-            };
-            match collection.kind {
-                CollectionKind::Line => line::line_collection(ctx, collection, area),
-                CollectionKind::Path => collection::path_collection(ctx, collection, area),
-                CollectionKind::Poly => patch::poly_collection(ctx, collection, area).map(Some),
-                CollectionKind::Generic | CollectionKind::QuadMesh => Ok(None),
-            }
-        }
-        Source::Container(ContainerIds::Bar { patches, .. }) => {
-            let first = patches
-                .first()
-                .and_then(|&id| ctx.store.get(id))
-                .and_then(|a| Some((a.base(), a.as_patch()?)));
-            Ok(Some(patch::patch(ctx, first, area)))
-        }
-        Source::Container(ContainerIds::Errorbar(ids)) => errorbar::errorbar(ctx, ids, area),
-        Source::Proxy(Proxy::Line(line)) => Ok(Some(line::line2d(ctx, line, area))),
-        Source::Proxy(Proxy::Patch(proxy)) => Ok(Some(patch::patch(
-            ctx,
-            proxy.as_patch().map(|view| (proxy.base(), view)),
-            area,
-        ))),
-        Source::Tuple(sources, layout) => tuple(ctx, sources, *layout, area),
-        Source::Npoints(source, numpoints) => {
+        Source::Handled(inner, _) => draw(ctx, handler, inner, area),
+        Source::Npoints(inner, numpoints) => {
             let settings = Settings {
                 numpoints: *numpoints,
                 ..ctx.settings.clone()
@@ -168,48 +276,18 @@ pub(crate) fn create(
                 settings: &settings,
                 ..*ctx
             };
-            create(&ctx, source, area)
+            draw(&ctx, handler, inner, area)
         }
-        Source::Container(ContainerIds::Stem {
-            markerline,
-            stemlines,
-            baseline,
-            ..
-        }) => stem::stem(ctx, [*markerline, *stemlines, *baseline], area),
-    }
-}
-
-/// The handles of a tuple side by side in `layout.ndivide` parts of the
-/// box, cycling, each drawn by its own handler (matplotlib's
-/// `HandlerTuple.create_artists`); `None` when none can be drawn.
-fn tuple(
-    ctx: &HandlerContext<'_>,
-    sources: &[Source],
-    layout: HandlerTuple,
-    area: &HandleBox,
-) -> Result<Option<HandleArtists>, LegendError> {
-    let parts = layout.ndivide.unwrap_or(sources.len()).max(1);
-    let pad = layout.pad.unwrap_or(ctx.settings.borderpad) * ctx.settings.fontsize;
-    let width = if parts > 1 {
-        (area.width - pad * (parts - 1) as f64) / parts as f64
-    } else {
-        area.width
-    };
-    let mut made: Option<HandleArtists> = None;
-    for (i, source) in sources.iter().enumerate() {
-        let part = HandleBox {
-            xdescent: area.xdescent - (width + pad) * (i % parts) as f64,
-            width,
-            ..*area
-        };
-        if let Some(handle) = create(ctx, source, &part)? {
-            match &mut made {
-                Some(made) => made.artists.extend(handle.artists),
-                None => made = Some(handle),
-            }
+        _ => {
+            let entry = HandlerEntry {
+                ctx,
+                source,
+                area: *area,
+            };
+            let artists = handler.create_artists(&entry)?;
+            Ok((!artists.is_empty()).then_some(artists))
         }
     }
-    Ok(made)
 }
 
 /// Copies the properties matplotlib's `Artist.update_from` copies, except

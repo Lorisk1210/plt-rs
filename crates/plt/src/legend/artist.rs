@@ -3,7 +3,7 @@
 
 use plt_core::{Bbox, Point};
 
-use super::handlers::Attach;
+use super::handlers::{Attach, HandlerMap};
 use super::settings::{Location, OutsideEdge, Settings};
 use super::{LegendMode, LegendShadowStyle};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
@@ -113,6 +113,9 @@ pub(crate) struct LegendArtist {
     pub(crate) kept: bool,
     /// The callbacks dragging the legend, while it is draggable.
     pub(crate) dragger: Option<Dragger>,
+    /// The handlers the legend was given on top of the default ones
+    /// (matplotlib's `_custom_handler_map`).
+    pub(crate) handler_map: HandlerMap,
 }
 
 impl LegendArtist {

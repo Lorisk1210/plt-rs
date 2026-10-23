@@ -19,12 +19,14 @@
 //!
 //! Like matplotlib's `Legend`, a legend is built from an offset-box tree
 //! ([`crate::offsetbox`]): a title above columns of entries, each a handle
-//! box beside a text. The handle of an entry is drawn by the handler of
-//! the original artist's kind (lines, patches and bars, step patches,
-//! polygon, line and path collections, error bar and stem containers),
-//! which copies its look into new artists. Where the legend goes —
-//! including `loc="best"`, the position covering the least data — is
-//! decided in the figure's layout pass.
+//! box beside a text. The handle of an entry is drawn by a
+//! [`LegendHandler`]: the one the [`HandlerMap`] of the legend (on top of
+//! the default map) holds for the original artist's kind — lines,
+//! patches and bars, step patches, polygon, line and path collections,
+//! error bar and stem containers, tuples — which copies its look into new
+//! artists, or one of the user's own. Where the legend goes — including
+//! `loc="best"`, the position covering the least data — is decided in the
+//! figure's layout pass.
 
 mod artist;
 mod best;
@@ -46,6 +48,11 @@ use std::rc::Rc;
 pub(crate) use artist::LegendArtist;
 pub use error::LegendError;
 pub use handle::{HandlerTuple, LegendHandle};
+pub use handlers::{
+    HandleBox, HandlerArtist, HandlerEntry, HandlerErrorbar, HandlerKey, HandlerLine2D,
+    HandlerLineCollection, HandlerMap, HandlerPatch, HandlerPathCollection, HandlerPolyCollection,
+    HandlerStem, HandlerStepPatch, LegendHandler, TypeKey,
+};
 pub(crate) use layout::lay_out_legends;
 pub use options::{
     BboxToAnchor, LegendAlignment, LegendLabelColor, LegendLoc, LegendMode, LegendOptions,
@@ -54,7 +61,7 @@ pub use options::{
 pub(crate) use settings::OutsideEdge;
 
 use artist::LegendParent;
-use settings::Placement;
+use settings::{Location, Placement};
 
 use plt_core::Bbox;
 
@@ -63,6 +70,7 @@ use crate::axes::{Axes, AxesState};
 use crate::figure::{Figure, FigureFrame, FigureState};
 use crate::patches::{FancyBboxPatch, Patch};
 use crate::text::{Text, TextArtist};
+use crate::transforms::Transform;
 
 /// A handle to a legend (matplotlib's `Legend`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -164,6 +172,75 @@ impl Legend {
         });
         Ok(self)
     }
+
+    /// Where the legend goes (matplotlib's `_loc`): `"best"`, the code of
+    /// an anchored position (an `"outside ..."` name gives the position
+    /// inside its edge), or the lower-left corner in fractions of the
+    /// anchor box.
+    pub fn loc(&self) -> LegendLoc {
+        match self.read(|legend| legend.location) {
+            Location::Best => LegendLoc::Name("best".to_owned()),
+            Location::Anchored(anchor) => LegendLoc::Code(i64::from(anchor.code())),
+            Location::Point(x, y) => LegendLoc::Point(x, y),
+        }
+    }
+
+    /// The box `loc` refers to, with its coordinates, when it is not the
+    /// parent axes or figure (matplotlib's `get_bbox_to_anchor`, which
+    /// gives the box in display coordinates).
+    pub fn bbox_to_anchor(&self) -> Option<(Bbox, Transform)> {
+        self.read(|legend| legend.anchor.clone())
+    }
+
+    /// Places the legend relative to `anchor` in the coordinates of
+    /// `transform` (by default fractions of the parent), or back in its
+    /// parent's box with `None` (matplotlib's `set_bbox_to_anchor`).
+    pub fn set_bbox_to_anchor(
+        &self,
+        anchor: Option<BboxToAnchor>,
+        transform: Option<Transform>,
+    ) -> &Self {
+        self.raw.with_mut::<LegendArtist, _>(|legend| {
+            let fractions = legend.parent.fractions();
+            legend.anchor = anchor.map(|anchor| (anchor.bbox(), transform.unwrap_or(fractions)));
+        });
+        self
+    }
+
+    /// The handlers the legend draws with: the default handler map with
+    /// those the legend was given added (matplotlib's
+    /// `get_legend_handler_map`).
+    pub fn handler_map(&self) -> HandlerMap {
+        handlers::with_defaults(&self.read(|legend| legend.handler_map.clone()))
+    }
+
+    /// The handler the legend draws `handle` with, if any: the handle's
+    /// own, else the one its kind has in [`handler_map`](Self::handler_map)
+    /// (matplotlib's `get_legend_handler`).
+    pub fn legend_handler(&self, handle: &LegendHandle) -> Option<Rc<dyn LegendHandler>> {
+        let map = self.handler_map();
+        let state = self.raw.figure_state().borrow();
+        map.handler_for(&handle.0, &state.store)
+    }
+
+    /// The handler map every new legend starts from (matplotlib's
+    /// `Legend.get_default_handler_map`), per thread like the rc
+    /// parameters.
+    pub fn default_handler_map() -> HandlerMap {
+        handlers::default_handlers()
+    }
+
+    /// Replaces the handler map every new legend starts from (matplotlib's
+    /// `Legend.set_default_handler_map`).
+    pub fn set_default_handler_map(map: HandlerMap) {
+        handlers::set_default_handlers(map);
+    }
+
+    /// Adds the handlers of `map` to the handler map every new legend
+    /// starts from (matplotlib's `Legend.update_default_handler_map`).
+    pub fn update_default_handler_map(map: &HandlerMap) {
+        handlers::update_default_handlers(map);
+    }
 }
 
 /// The edges and extents (display pixels) of the `"outside ..."` legends
@@ -216,6 +293,7 @@ impl Axes {
     ///
     /// When an option is invalid.
     pub fn legend(&self, mut options: LegendOptions) -> Result<Legend, LegendError> {
+        let handlers = handlers::with_defaults(&options.handler_map);
         let figure = self.raw().figure_state();
         let mut state = figure.borrow_mut();
         let entries = handle::entries(
@@ -223,13 +301,20 @@ impl Axes {
             &[self.id()],
             options.handles.take(),
             options.labels.take(),
+            &handlers,
         );
         let previous = state
             .store
             .get_as::<AxesState>(self.id())
             .map(|axes| axes_legends(&state, &axes.children))
             .unwrap_or_default();
-        let id = build::build(&mut state, LegendParent::Axes(self.id()), entries, &options)?;
+        let id = build::build(
+            &mut state,
+            LegendParent::Axes(self.id()),
+            entries,
+            &options,
+            &handlers,
+        )?;
         for old in previous {
             state.remove_artist(old);
         }
@@ -261,8 +346,9 @@ impl Axes {
     /// The handles and labels `legend()` would list (matplotlib's
     /// `get_legend_handles_labels`).
     pub fn legend_handles_labels(&self) -> (Vec<LegendHandle>, Vec<String>) {
+        let handlers = handlers::default_handlers();
         let state = self.raw().figure_state().borrow();
-        handle::entries(&state.store, &[self.id()], None, None)
+        handle::entries(&state.store, &[self.id()], None, None, &handlers)
             .into_iter()
             .map(|(source, label)| (LegendHandle(source), label))
             .unzip()
@@ -278,6 +364,7 @@ impl Figure {
     ///
     /// When an option is invalid, including `loc="best"`.
     pub fn legend(&self, mut options: LegendOptions) -> Result<Legend, LegendError> {
+        let handlers = handlers::with_defaults(&options.handler_map);
         let axes: Vec<ArtistId> = self.axes().iter().map(ArtistHandle::id).collect();
         let figure = self.raw().figure_state();
         let mut state = figure.borrow_mut();
@@ -286,12 +373,14 @@ impl Figure {
             &axes,
             options.handles.take(),
             options.labels.take(),
+            &handlers,
         );
         let id = build::build(
             &mut state,
             LegendParent::Figure(self.id()),
             entries,
             &options,
+            &handlers,
         )?;
         drop(state);
         Ok(Legend::made(figure, id, options.draggable))

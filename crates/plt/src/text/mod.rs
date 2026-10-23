@@ -54,8 +54,8 @@ pub use plt_text::{
     LineMetrics, LinePlacement, LineSpacing, ParseFeatureError, RotationMode as TextRotationMode,
     TextError, VAlign as VerticalAlignment,
 };
-pub use text_box::TextBoxProps;
-pub(crate) use text_box::{BoxPlacement, TextBox};
+pub(crate) use text_box::BoxPlacement;
+pub use text_box::{TextBox, TextBoxProps};
 
 /// How a text's rotation is reduced before it is drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

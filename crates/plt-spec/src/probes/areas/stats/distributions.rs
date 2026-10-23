@@ -7,7 +7,7 @@ use super::{datasets, floats, grid_json, object};
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 
-pub(super) fn boxplot_stats(args: Args<'_>) -> Outcome {
+pub(crate) fn boxplot_stats(args: Args<'_>) -> Outcome {
     let as_ndarray = args.opt_bool("X_ndarray")?.unwrap_or(false);
     let (sets, _) = datasets(args.json("X")?, as_ndarray)?;
     let whis = match args.get("whis") {

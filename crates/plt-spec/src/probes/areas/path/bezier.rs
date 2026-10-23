@@ -117,7 +117,7 @@ pub(super) fn find_t(args: Args<'_>) -> Outcome {
     Ok(Json::from(vec![t0, t1]))
 }
 
-pub(super) fn split_bezier(args: Args<'_>) -> Outcome {
+pub(crate) fn split_bezier(args: Args<'_>) -> Outcome {
     let points = encode::parse_points(args.json("bezier")?)?;
     let (left, right) = bezier::split_bezier_intersecting_with_closedpath(
         &points,

@@ -185,8 +185,10 @@ impl OutlineSink for PathSink {
         self.update(|b| b.cubic_to(point(x1, y1), point(x2, y2), point(x, y)));
     }
 
+    /// Closes the contour with a vertex at the glyph origin, as
+    /// matplotlib's `FT2Font.get_path` does.
     fn close(&mut self) {
-        self.update(PathBuilder::close);
+        self.update(|b| b.close_at(Point::ORIGIN));
     }
 }
 

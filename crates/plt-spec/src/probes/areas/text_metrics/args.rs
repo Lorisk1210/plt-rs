@@ -29,9 +29,13 @@ pub(crate) fn with_rc<T>(
     })
 }
 
-/// The rc-file spelling of a JSON rc value (lists are comma-separated).
-fn rc_text(value: &Json) -> Result<String, ProbeError> {
+/// The rc-file spelling of a JSON rc value: booleans as `True`/`False`,
+/// `null` as `None` and lists comma-separated.
+pub(crate) fn rc_text(value: &Json) -> Result<String, ProbeError> {
     match value {
+        Json::Null => Ok("None".to_owned()),
+        Json::Bool(true) => Ok("True".to_owned()),
+        Json::Bool(false) => Ok("False".to_owned()),
         Json::String(text) => Ok(text.clone()),
         Json::Integer(n) => Ok(n.to_string()),
         Json::Number(n) => Ok(n.to_string()),
@@ -81,7 +85,7 @@ fn integer(value: f64) -> Result<i64, ProbeError> {
 }
 
 /// A font weight: a keyword or a number (`set_weight`).
-pub(super) fn weight(value: &Json) -> Result<FontWeight, ProbeError> {
+pub(crate) fn weight(value: &Json) -> Result<FontWeight, ProbeError> {
     match value {
         Json::String(text) => text.parse().map_err(ProbeError::rejected),
         other => {
@@ -180,7 +184,7 @@ pub(crate) fn font_dict(value: Option<&Json>) -> Result<FontProperties, ProbeErr
 
 /// `FontProperties(**kw)`: like a font dict, except that a lone string
 /// `family` is a fontconfig pattern.
-pub(super) fn font_properties(kw: &Json) -> Result<FontProperties, ProbeError> {
+pub(crate) fn font_properties(kw: &Json) -> Result<FontProperties, ProbeError> {
     let rc = rc::params();
     let mut font = font_dict(Some(kw))?;
     let is_set = |key: &str| kw.get(key).is_some_and(|value| !value.is_null());

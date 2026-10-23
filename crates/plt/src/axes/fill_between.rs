@@ -9,7 +9,7 @@ use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, CollectionProps};
 use crate::lines::{DrawStyle, StepWhere};
-use crate::numeric::argsort;
+use crate::numeric::{argsort, contiguous_regions};
 use crate::orientation::Orientation;
 
 /// Options of [`Axes::fill_between`] and [`Axes::fill_betweenx`].
@@ -348,27 +348,6 @@ fn interp_sorted(x: f64, xp: &[f64], fp: &[f64]) -> f64 {
     }
 }
 
-/// The `(start, stop)` index ranges where `mask` is set (matplotlib's
-/// `cbook.contiguous_regions`).
-fn contiguous_regions(mask: &[bool]) -> Vec<(usize, usize)> {
-    let mut regions = Vec::new();
-    let mut start = None;
-    for (i, &on) in mask.iter().enumerate() {
-        match (on, start) {
-            (true, None) => start = Some(i),
-            (false, Some(s)) => {
-                regions.push((s, i));
-                start = None;
-            }
-            _ => {}
-        }
-    }
-    if let Some(s) = start {
-        regions.push((s, mask.len()));
-    }
-    regions
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,16 +396,6 @@ mod tests {
         let limits = ax.data_lim().bbox;
         assert_eq!((limits.x0(), limits.x1()), (1.0, 2.0), "the filled x");
         assert!(limits.y0().is_infinite(), "the heights are axes fractions");
-    }
-
-    #[test]
-    fn regions_follow_the_mask() {
-        assert_eq!(
-            contiguous_regions(&[true, true, false, true, false, false, true]),
-            [(0, 2), (3, 4), (6, 7)]
-        );
-        assert_eq!(contiguous_regions(&[]), Vec::new());
-        assert_eq!(contiguous_regions(&[false]), Vec::new());
     }
 
     #[test]

@@ -29,13 +29,14 @@ mod value;
 
 use std::cell::RefCell;
 use std::fmt;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 pub(crate) use literal::Expr;
 pub(crate) use value::RcValue;
 
-pub use cycler::{CycleValue, Cycler};
-pub use file::{RcEntry, parse_rc_text};
+pub use cycler::{CycleValue, Cycler, CyclerError};
+pub use file::{RcEntry, RcFile, RcWarning, RcWarningKind, parse_rc_text, strip_comment};
 pub use kinds::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, Distiller, Dpi, FontType,
     HistBins, LabelColor, SavefigBbox, Whiskers,
@@ -99,8 +100,17 @@ pub enum RcError {
         /// The underlying error.
         source: Box<RcError>,
     },
-    /// No style sheet with this name.
+    /// No style sheet with this name, and no style file at this path.
     UnknownStyle(String),
+    /// A double quote that is not closed, in this line.
+    UnclosedQuote(String),
+    /// An rc file or style file that cannot be read.
+    Unreadable {
+        /// The file.
+        path: PathBuf,
+        /// Why it cannot be read.
+        reason: String,
+    },
 }
 
 impl fmt::Display for RcError {
@@ -113,6 +123,10 @@ impl fmt::Display for RcError {
             Self::Syntax { line, text } => write!(f, "line {line}: missing colon in {text:?}"),
             Self::AtLine { line, source } => write!(f, "line {line}: {source}"),
             Self::UnknownStyle(name) => write!(f, "{name:?} is not a known style"),
+            Self::UnclosedQuote(text) => write!(f, "missing closing quote in {text:?}"),
+            Self::Unreadable { path, reason } => {
+                write!(f, "cannot read {}: {reason}", path.display())
+            }
         }
     }
 }

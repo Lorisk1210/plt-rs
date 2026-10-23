@@ -202,12 +202,21 @@ impl BezierSegment {
 }
 
 /// matplotlib's `_real_roots_in_01`: the sorted real roots in `[0, 1]` of
-/// `Σ cₖ tᵏ` (ascending coefficients), ignoring near-zero leading terms.
-fn real_roots_in_01(coefficients: &[f64]) -> Vec<f64> {
-    let degree = coefficients
-        .iter()
-        .rposition(|c| c.abs() >= 1e-12)
-        .unwrap_or(0);
+/// `Σ cₖ tᵏ` (ascending coefficients), ignoring near-zero (< 1e-12)
+/// leading terms.
+///
+/// ```
+/// use plt_core::bezier::real_roots_in_01;
+/// // (t - 0.25)(t - 0.75) = t² - t + 0.1875
+/// assert_eq!(real_roots_in_01(&[0.1875, -1.0, 1.0]), [0.25, 0.75]);
+/// assert!(real_roots_in_01(&[5.0]).is_empty());
+/// assert!(real_roots_in_01(&[]).is_empty());
+/// assert!(real_roots_in_01(&[-2.0, 1.0]).is_empty(), "t = 2 is outside");
+/// ```
+pub fn real_roots_in_01(coefficients: &[f64]) -> Vec<f64> {
+    let Some(degree) = coefficients.iter().rposition(|c| c.abs() >= 1e-12) else {
+        return Vec::new();
+    };
     let c = &coefficients[..=degree];
     let mut roots = match degree {
         0 => Vec::new(),

@@ -49,9 +49,11 @@ fn plot_format(args: Args<'_>) -> Outcome {
     ]))
 }
 
-type StepFn = fn(&[f64], &[&[f64]]) -> Result<Vec<Vec<f64>>, plt::lines::StepError>;
+/// One of plt-rs' `pts_to_*step` conversions.
+pub(crate) type StepFn = fn(&[f64], &[&[f64]]) -> Result<Vec<Vec<f64>>, plt::lines::StepError>;
 
-fn steps(args: Args<'_>, step: StepFn) -> Outcome {
+/// A `cbook.pts_to_*step` probe: `{x, ys}` converted by `step`.
+pub(crate) fn steps(args: Args<'_>, step: StepFn) -> Outcome {
     let x = args.f64_vec("x")?;
     let ys: Vec<Vec<f64>> = args
         .json("ys")?

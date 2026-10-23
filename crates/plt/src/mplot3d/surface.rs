@@ -11,7 +11,7 @@ use super::plot::columns;
 use super::shade::LightSource;
 use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
-use crate::numeric::Grid;
+use crate::numeric::{Grid, block_perimeters};
 
 /// How densely a grid is sampled (matplotlib's `rstride`/`cstride` and
 /// `rcount`/`ccount`).
@@ -147,38 +147,20 @@ impl<'a> SurfaceGrid<'a> {
         [0, 1, 2].map(|k| Grid::from_fn(rows, cols, |i, j| zdir.rotate(self.point((i, j)))[k]))
     }
 
-    /// The sampled row (or column) indices: every `stride`-th one plus
-    /// the last (matplotlib's `row_inds` in `plot_surface`).
-    fn sample(len: usize, stride: usize) -> Vec<usize> {
-        if len == 0 {
-            return Vec::new();
-        }
-        let mut indices: Vec<usize> = (0..len - 1).step_by(stride).collect();
-        indices.push(len - 1);
-        indices
-    }
-
     /// One polygon per block between sampled rows and columns, tracing
     /// every grid point on the block's perimeter (matplotlib's
     /// `_array_perimeter`), with the top-left cell of each block.
     fn blocks(&self, rstride: usize, cstride: usize) -> Vec<(Vec<Vec3>, (usize, usize))> {
-        let rows = Self::sample(self.z.rows(), rstride);
-        let cols = Self::sample(self.z.cols(), cstride);
-        let mut blocks = Vec::new();
-        for r in rows.windows(2) {
-            for c in cols.windows(2) {
-                let (r0, r1, c0, c1) = (r[0], r[1], c[0], c[1]);
-                let perimeter = (c0..c1)
-                    .map(|c| (r0, c))
-                    .chain((r0..r1).map(|r| (r, c1)))
-                    .chain((c0 + 1..=c1).rev().map(|c| (r1, c)))
-                    .chain((r0 + 1..=r1).rev().map(|r| (r, c0)))
-                    .map(|cell| self.point(cell))
-                    .collect();
-                blocks.push((perimeter, (r0, c0)));
-            }
-        }
-        blocks
+        block_perimeters(self.z.rows(), self.z.cols(), rstride, cstride)
+            .into_iter()
+            .map(|cells| {
+                let corner = cells[0];
+                (
+                    cells.into_iter().map(|cell| self.point(cell)).collect(),
+                    corner,
+                )
+            })
+            .collect()
     }
 
     /// The lines along every `stride`-th row (or column, `along_rows =

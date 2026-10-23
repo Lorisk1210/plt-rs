@@ -88,7 +88,7 @@ fn complex_list(values: &[Complex]) -> Json {
     Json::Array(values.iter().map(|&z| complex_json(z)).collect())
 }
 
-pub(super) fn psd(args: Args<'_>) -> Outcome {
+pub(crate) fn psd(args: Args<'_>) -> Outcome {
     let opts = spectral_options(args)?;
     let p = on_signal!(signal(args, "x")?, |x| mlab::psd(&x, &opts)).map_err(rejected)?;
     Ok(real_spectrum("Pxx", p))
@@ -113,7 +113,7 @@ fn coherence<S: SignalValue>(x: &[S], y: &SignalArg, opts: &SpectralOptions) -> 
     Ok(real_spectrum("Cxy", c))
 }
 
-pub(super) fn cohere(args: Args<'_>) -> Outcome {
+pub(crate) fn cohere(args: Args<'_>) -> Outcome {
     let opts = spectral_options(args)?;
     let y = signal(args, "y")?;
     on_signal!(signal(args, "x")?, |x| coherence(&x, &y, &opts))

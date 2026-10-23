@@ -3,16 +3,22 @@
 //!
 //! The [`library`] bundles matplotlib's built-in sheets and plt-rs' own
 //! `plt-modern` and `plt-modern-dark` (the [looks](crate::look) of
-//! figures), applied with [`use_style`] (matplotlib's `style.use`) or for
-//! a scope with [`context`] (`style.context`):
+//! figures), plus the sheets of the user library directories
+//! ([`set_user_library_paths`], [`reload_library`]). A [`Style`] names a
+//! library sheet, a style file or a set of parameters; [`use_style`] and
+//! [`use_styles`] apply styles (matplotlib's `style.use`), [`context`] and
+//! [`context_with`] for a scope (`style.context`):
 //!
 //! ```
 //! use plt::{rc, style};
+//! use plt::style::Style;
 //! rc::reset(); // matplotlib's defaults, without grids
 //! style::context("ggplot", || {
 //!     assert!(rc::params().axes_grid);
 //! })?;
 //! assert!(!rc::params().axes_grid);
+//! let styles = [Style::from("ggplot"), Style::params(&[("axes.grid", "False")])];
+//! style::context_with(&styles, || assert!(!rc::params().axes_grid))?;
 //! # Ok::<(), plt::rc::RcError>(())
 //! ```
 //!
@@ -27,20 +33,20 @@
 //! fivethirtyeight, Tableau, Solarized, Petroff's accessible colour
 //! sequences, ...).
 
+mod library;
 mod xkcd;
 
+use std::path::{Path, PathBuf};
+
+pub use library::{
+    StyleSheet, available, library, reload_library, set_user_library_paths, sheet,
+    user_library_paths,
+};
 pub use xkcd::{XkcdError, XkcdSketch, apply_xkcd};
 
-use crate::rc::{RcEntry, RcError, RcParams, parse_rc_text};
+use crate::rc::{RcEntry, RcError, RcFile, RcParams};
 
-/// A bundled style sheet: an entry of matplotlib's `style.library`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct StyleSheet {
-    name: &'static str,
-    text: &'static str,
-}
-
-/// rcParams that are not about style, which [`use_style`] ignores
+/// rcParams that are not about style, which [`use_styles`] ignores
 /// (matplotlib's `STYLE_BLACKLIST`).
 pub const STYLE_BLACKLIST: [&str; 15] = [
     "interactive",
@@ -60,136 +66,166 @@ pub const STYLE_BLACKLIST: [&str; 15] = [
     "date.epoch",
 ];
 
-/// Declares the bundled sheets from `sheets/<name>.mplstyle`.
-macro_rules! sheets {
-    ($($name:literal),* $(,)?) => {
-        /// Every bundled sheet, sorted by name.
-        const LIBRARY: &[StyleSheet] = &[
-            $(StyleSheet {
-                name: $name,
-                text: include_str!(concat!("sheets/", $name, ".mplstyle")),
-            },)*
-        ];
-    };
+/// One style of [`use_styles`] (an item of matplotlib's `style.use`
+/// argument).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Style {
+    /// A library sheet; `"default"` (or `"mpl20"`) for matplotlib's
+    /// defaults and `"mpl15"` for `"classic"`. Any other name is the path
+    /// or `file:` URL of a style file.
+    Named(String),
+    /// A style file, read as matplotlib's `rc_params_from_file` does
+    /// (lines it cannot use are skipped).
+    File(PathBuf),
+    /// Parameters in rc-file syntax, applied in order.
+    Params(Vec<(String, String)>),
 }
 
-sheets![
-    "Solarize_Light2",
-    "_mpl-gallery",
-    "_mpl-gallery-nogrid",
-    "bmh",
-    "classic",
-    "dark_background",
-    "fast",
-    "fivethirtyeight",
-    "ggplot",
-    "grayscale",
-    "petroff10",
-    "petroff6",
-    "petroff8",
-    "plt-modern",
-    "plt-modern-dark",
-    "seaborn-v0_8",
-    "seaborn-v0_8-bright",
-    "seaborn-v0_8-colorblind",
-    "seaborn-v0_8-dark",
-    "seaborn-v0_8-dark-palette",
-    "seaborn-v0_8-darkgrid",
-    "seaborn-v0_8-deep",
-    "seaborn-v0_8-muted",
-    "seaborn-v0_8-notebook",
-    "seaborn-v0_8-paper",
-    "seaborn-v0_8-pastel",
-    "seaborn-v0_8-poster",
-    "seaborn-v0_8-talk",
-    "seaborn-v0_8-ticks",
-    "seaborn-v0_8-white",
-    "seaborn-v0_8-whitegrid",
-    "tableau-colorblind10",
-];
-
-impl StyleSheet {
-    /// The sheet's name.
-    pub fn name(&self) -> &'static str {
-        self.name
+impl Style {
+    /// [`Style::Params`] from `(key, value)` pairs.
+    pub fn params(pairs: &[(&str, &str)]) -> Self {
+        Self::Params(
+            pairs
+                .iter()
+                .map(|&(key, value)| (key.to_owned(), value.to_owned()))
+                .collect(),
+        )
     }
 
-    /// The sheet's rc-file text.
-    pub fn text(&self) -> &'static str {
-        self.text
-    }
-
-    /// The sheet's settings in file order (matplotlib's
-    /// `rc_params_from_file(..., use_default_template=False)`).
-    pub fn entries(&self) -> Result<Vec<RcEntry>, RcError> {
-        parse_rc_text(self.text)
-    }
-
-    /// Applies the sheet's settings to `rc`, all of them, as matplotlib's
-    /// `rcParams.update(library[name])` does.
-    pub fn apply(&self, rc: &mut RcParams) -> Result<(), RcError> {
-        rc.apply_rc_text(self.text)
+    /// The parameters the style sets, in order.
+    fn settings(&self) -> Result<Vec<(String, String)>, RcError> {
+        let pairs = |entries: Vec<RcEntry>| {
+            entries
+                .into_iter()
+                .map(|entry| (entry.key, entry.value))
+                .collect()
+        };
+        match self {
+            Self::Named(name) => match name.as_str() {
+                "default" | "mpl20" => Ok(defaults()),
+                "mpl15" => Self::Named("classic".into()).settings(),
+                name => match sheet(name) {
+                    Some(sheet) => sheet.entries().map(pairs),
+                    None => RcFile::read(style_file(name))
+                        .map(|file| pairs(file.entries))
+                        .map_err(|_| RcError::UnknownStyle(name.to_owned())),
+                },
+            },
+            Self::File(path) => RcFile::read(path).map(|file| pairs(file.entries)),
+            Self::Params(pairs) => Ok(pairs.clone()),
+        }
     }
 }
 
-/// Every bundled sheet, sorted by name (matplotlib's `style.library`).
-pub fn library() -> &'static [StyleSheet] {
-    LIBRARY
+impl From<&str> for Style {
+    fn from(name: &str) -> Self {
+        Self::Named(name.to_owned())
+    }
 }
 
-/// The bundled sheet called `name`.
-pub fn sheet(name: &str) -> Option<StyleSheet> {
-    LIBRARY.iter().copied().find(|sheet| sheet.name == name)
+impl From<&Path> for Style {
+    fn from(path: &Path) -> Self {
+        Self::File(path.to_owned())
+    }
 }
 
-/// The names of the public sheets (matplotlib's `style.available`).
-pub fn available() -> Vec<&'static str> {
-    LIBRARY
+impl From<PathBuf> for Style {
+    fn from(path: PathBuf) -> Self {
+        Self::File(path)
+    }
+}
+
+/// Every parameter at matplotlib's default (the `"default"` style).
+fn defaults() -> Vec<(String, String)> {
+    let defaults = RcParams::matplotlib();
+    RcParams::KEYS
         .iter()
-        .map(|sheet| sheet.name)
-        .filter(|name| !name.starts_with('_'))
+        .filter_map(|&key| Some((key.to_owned(), defaults.get(key)?)))
         .collect()
 }
 
-/// Applies a style to the current parameters (matplotlib's `style.use`):
-/// a sheet of the [`library`], `"default"` (or `"mpl20"`) for matplotlib's
-/// defaults, or `"mpl15"` for `"classic"`. Parameters of the
-/// [`STYLE_BLACKLIST`] are left alone.
-pub fn use_style(name: &str) -> Result<(), RcError> {
-    let name = match name {
-        "mpl20" => "default",
-        "mpl15" => "classic",
-        other => other,
+/// The file a style name that is no library sheet stands for: the path
+/// itself, or the path of a `file:` URL (`file:/dir/a.mplstyle`,
+/// `file:///dir/a.mplstyle`), percent-escapes decoded.
+fn style_file(name: &str) -> PathBuf {
+    let Some(url) = name.strip_prefix("file:") else {
+        return PathBuf::from(name);
     };
-    let entries: Vec<(String, String)> = if name == "default" {
-        let defaults = RcParams::matplotlib();
-        RcParams::KEYS
-            .iter()
-            .filter_map(|&key| Some((key.to_owned(), defaults.get(key)?)))
-            .collect()
-    } else {
-        sheet(name)
-            .ok_or_else(|| RcError::UnknownStyle(name.to_owned()))?
-            .entries()?
-            .into_iter()
-            .map(|entry| (entry.key, entry.value))
-            .collect()
+    let path = match url.strip_prefix("//") {
+        Some(authority_and_path) => authority_and_path
+            .find('/')
+            .map_or("", |slash| &authority_and_path[slash..]),
+        None => url,
     };
-    let mut updated = (*crate::rc::params()).clone();
-    for (key, value) in entries {
-        if !STYLE_BLACKLIST.contains(&key.as_str()) {
-            updated.set(&key, &value)?;
+    PathBuf::from(percent_decode(path))
+}
+
+/// `text` with `%XX` escapes replaced by the bytes they stand for.
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let escaped = (bytes[i] == b'%')
+            .then(|| text.get(i + 1..i + 3))
+            .flatten()
+            .filter(|hex| hex.bytes().all(|b| b.is_ascii_hexdigit()))
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok());
+        if let Some(byte) = escaped {
+            decoded.push(byte);
+            i += 3;
+        } else {
+            decoded.push(bytes[i]);
+            i += 1;
         }
     }
-    crate::rc::replace(updated);
+    String::from_utf8_lossy(&decoded).into_owned()
+}
+
+/// Applies a style to the current parameters (matplotlib's `style.use`
+/// with one name); see [`Style::Named`].
+///
+/// # Errors
+///
+/// As [`use_styles`].
+pub fn use_style(name: &str) -> Result<(), RcError> {
+    use_styles(&[Style::from(name)])
+}
+
+/// Applies styles to the current parameters, first to last (matplotlib's
+/// `style.use`). Parameters of the [`STYLE_BLACKLIST`] are left alone. As
+/// in matplotlib, the parameters set before an invalid one stay set.
+///
+/// # Errors
+///
+/// [`RcError::UnknownStyle`] for a name that is neither a library sheet
+/// nor a readable style file, the read error of a [`Style::File`], and
+/// the first unknown key or invalid value of a style.
+pub fn use_styles(styles: &[Style]) -> Result<(), RcError> {
+    for style in styles {
+        let settings = style.settings()?;
+        let mut updated = (*crate::rc::params()).clone();
+        let applied = settings
+            .iter()
+            .filter(|(key, _)| !STYLE_BLACKLIST.contains(&key.as_str()))
+            .try_for_each(|(key, value)| updated.set(key, value));
+        crate::rc::replace(updated);
+        applied?;
+    }
     Ok(())
 }
 
 /// Runs `f` with a style applied and restores the parameters afterwards
-/// (matplotlib's `style.context`).
+/// (matplotlib's `style.context` with one name).
 pub fn context<R>(name: &str, f: impl FnOnce() -> R) -> Result<R, RcError> {
+    context_with(&[Style::from(name)], f)
+}
+
+/// Runs `f` with styles applied and restores the parameters afterwards,
+/// also when applying them fails (matplotlib's `style.context`).
+pub fn context_with<R>(styles: &[Style], f: impl FnOnce() -> R) -> Result<R, RcError> {
     crate::rc::context(|| {
-        use_style(name)?;
+        use_styles(styles)?;
         Ok(f())
     })
 }
@@ -197,40 +233,6 @@ pub fn context<R>(name: &str, f: impl FnOnce() -> R) -> Result<R, RcError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn every_bundled_sheet_is_valid() {
-        for sheet in library() {
-            let mut rc = RcParams::matplotlib();
-            sheet
-                .apply(&mut rc)
-                .unwrap_or_else(|err| panic!("{}: {err}", sheet.name()));
-            assert!(!sheet.entries().unwrap().is_empty(), "{}", sheet.name());
-        }
-        assert_eq!(available().len(), 30);
-        let mut names: Vec<&str> = available();
-        names.sort_unstable();
-        assert_eq!(names, available(), "the library is sorted");
-    }
-
-    #[test]
-    fn private_sheets_are_bundled_but_not_available() {
-        let mut rc = RcParams::matplotlib();
-        sheet("_mpl-gallery").unwrap().apply(&mut rc).unwrap();
-        assert!(rc.axes_grid);
-        assert_eq!(rc.figure_figsize, [2.0, 2.0]);
-        assert!(sheet("_mpl-gallery-nogrid").is_some());
-        assert!(available().iter().all(|name| !name.starts_with('_')));
-    }
-
-    #[test]
-    fn sheets_change_only_what_they_list() {
-        let mut rc = RcParams::matplotlib();
-        sheet("ggplot").unwrap().apply(&mut rc).unwrap();
-        assert!(rc.axes_grid);
-        assert_eq!(rc.patch_linewidth, 0.5);
-        assert_eq!(rc.lines_linewidth, 1.5, "not in the sheet");
-    }
 
     #[test]
     fn styles_apply_and_reset() {
@@ -243,6 +245,86 @@ mod tests {
                 use_style("no-such-style"),
                 Err(RcError::UnknownStyle("no-such-style".into()))
             );
+        });
+    }
+
+    #[test]
+    fn later_styles_win_and_blacklisted_keys_are_ignored() {
+        crate::rc::context(|| {
+            crate::rc::reset();
+            let styles = [
+                Style::params(&[("image.cmap", "pink"), ("timezone", "Europe/Paris")]),
+                Style::params(&[("image.cmap", "gray")]),
+            ];
+            use_styles(&styles).unwrap();
+            let rc = crate::rc::params();
+            assert_eq!(
+                (rc.image_cmap.as_str(), rc.timezone.as_str()),
+                ("gray", "UTC")
+            );
+        });
+    }
+
+    #[test]
+    fn a_failing_style_keeps_what_it_set_before_but_contexts_restore() {
+        crate::rc::context(|| {
+            crate::rc::reset();
+            let bad = [Style::params(&[("image.cmap", "pink"), ("badparam", "1")])];
+            assert_eq!(
+                use_styles(&bad),
+                Err(RcError::UnknownKey("badparam".into()))
+            );
+            assert_eq!(crate::rc::params().image_cmap, "pink");
+            crate::rc::reset();
+            assert!(context_with(&bad, || ()).is_err());
+            assert_eq!(crate::rc::params().image_cmap, "viridis");
+        });
+    }
+
+    #[test]
+    fn style_files_by_path_and_url() {
+        let dir = std::env::temp_dir().join(format!("plt-style-file-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("my style.mplstyle");
+        std::fs::write(&path, "axes.facecolor: adeade\nfoo: bar\n").unwrap();
+        let url = format!("file://{}", path.display()).replace(' ', "%20");
+        for style in [Style::from(path.as_path()), Style::Named(url)] {
+            let color = context_with(&[style], || crate::rc::params().axes_facecolor.clone());
+            assert_eq!(color, Ok("#adeade".into()));
+        }
+        assert_eq!(
+            style_file("file:/a/b.mplstyle"),
+            PathBuf::from("/a/b.mplstyle")
+        );
+        assert_eq!(
+            style_file("file://host/a%2Fb"),
+            PathBuf::from("/a/b"),
+            "the authority is dropped"
+        );
+        assert_eq!(style_file("file:/a%+1%4"), PathBuf::from("/a%+1%4"));
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(matches!(
+            use_styles(&[Style::from(path.as_path())]),
+            Err(RcError::Unreadable { .. })
+        ));
+    }
+
+    #[test]
+    fn aliases_match_their_styles() {
+        let snapshot = |name: &str| context(name, || (*crate::rc::params()).clone()).unwrap();
+        assert_eq!(snapshot("mpl20"), snapshot("default"));
+        assert_eq!(snapshot("mpl15"), snapshot("classic"));
+    }
+
+    #[test]
+    fn the_blacklist_names_parameters() {
+        // `backend` is pyplot's business in plt-rs, not an rc parameter;
+        // style files may still name it, as they may in matplotlib.
+        for key in STYLE_BLACKLIST.into_iter().filter(|&key| key != "backend") {
+            assert!(RcParams::KEYS.contains(&key), "{key}");
+        }
+        crate::rc::context(|| {
+            use_styles(&[Style::params(&[("backend", "agg")])]).expect("ignored");
         });
     }
 }

@@ -154,40 +154,77 @@ pub(crate) fn entries_for_face(face: &Face<'_>, font: FontId) -> Vec<FontEntry> 
     };
     let primary = FontEntry {
         font,
-        name: name.clone(),
+        name,
         style,
         variant,
         weight: guess_weight(face),
         stretch,
     };
 
-    let mut seen = vec![name];
-    let mut entries = vec![primary.clone()];
+    let alternatives =
+        alternative_family_names(&primary.name, |key, name_id| face.name_string(key, name_id));
+    std::iter::once(primary.clone())
+        .chain(alternatives.into_iter().map(|(name, weight)| FontEntry {
+            name,
+            weight,
+            ..primary.clone()
+        }))
+        .collect()
+}
+
+/// The other family names a face advertises, each with the weight of its
+/// matching subfamily name (matplotlib's `_get_font_alt_names`).
+///
+/// `name(key, name_id)` reads a decoded `name` record. The candidates are
+/// the family name (ID 1), the typographic family (16) and the WWS family
+/// (21), each on the Macintosh then the Windows English record, paired
+/// with the subfamily (2, 17, 22) of the same record, whose weight follows
+/// fontconfig's style names (400 when unrecognised). Names are trimmed;
+/// empty ones and those already seen, `primary` included, are skipped.
+///
+/// ```
+/// use plt_font::{NameKey, alternative_family_names};
+/// let records = [
+///     (NameKey::MAC_ENGLISH, 1, "Test Family"),
+///     (NameKey::WINDOWS_ENGLISH, 1, "Test Family Light"),
+///     (NameKey::MAC_ENGLISH, 2, "Light"),
+///     (NameKey::WINDOWS_ENGLISH, 2, "Regular"),
+/// ];
+/// let lookup = |key, id| {
+///     records.iter().find(|r| r.0 == key && r.1 == id).map(|r| r.2.to_owned())
+/// };
+/// assert_eq!(
+///     alternative_family_names("Test Family", lookup),
+///     [("Test Family Light".to_owned(), 400)]
+/// );
+/// assert_eq!(
+///     alternative_family_names("Test Family Light", lookup),
+///     [("Test Family".to_owned(), 300)]
+/// );
+/// ```
+pub fn alternative_family_names(
+    primary: &str,
+    name: impl Fn(NameKey, u16) -> Option<String>,
+) -> Vec<(String, u16)> {
+    let mut seen = vec![primary.to_owned()];
+    let mut alternatives = Vec::new();
     for (family_id, subfamily_id) in [
         (id::FAMILY, id::SUBFAMILY),
         (id::TYPOGRAPHIC_FAMILY, id::TYPOGRAPHIC_SUBFAMILY),
         (id::WWS_FAMILY, id::WWS_SUBFAMILY),
     ] {
         for key in [NameKey::MAC_ENGLISH, NameKey::WINDOWS_ENGLISH] {
-            let alt = face
-                .name_string(key, family_id)
-                .unwrap_or_default()
-                .trim()
-                .to_owned();
+            let alt = name(key, family_id).unwrap_or_default().trim().to_owned();
             if alt.is_empty() || seen.contains(&alt) {
                 continue;
             }
-            let subfamily = face.name_string(key, subfamily_id).unwrap_or_default();
+            let subfamily = name(key, subfamily_id).unwrap_or_default();
             let weight = weight_from_style(subfamily.trim()).unwrap_or(400);
             seen.push(alt.clone());
-            entries.push(FontEntry {
-                name: alt,
-                weight,
-                ..primary.clone()
-            });
+            alternatives.push((alt, weight));
         }
     }
-    entries
+    alternatives
 }
 
 #[cfg(test)]

@@ -75,7 +75,7 @@ fn fallback(args: Args<'_>) -> Result<bool, ProbeError> {
 }
 
 /// `font_manager.findfont`.
-pub(super) fn findfont(args: Args<'_>) -> Outcome {
+pub(crate) fn findfont(args: Args<'_>) -> Outcome {
     with_rc(args, || {
         let props = prop(args)?;
         FontManager::bundled()
@@ -96,28 +96,35 @@ pub(super) fn find_fonts_by_props(args: Args<'_>) -> Outcome {
     })
 }
 
+/// `FontProperties` read back through its getters: family, style,
+/// variant, weight, stretch, size in points, math font family and
+/// fontconfig pattern.
+pub(crate) fn properties_json(props: &FontProperties) -> Json {
+    Json::Object(vec![
+        ("family".into(), Json::from(props.families.clone())),
+        ("style".into(), style_name(props.style).into()),
+        ("variant".into(), variant_name(props.variant).into()),
+        ("weight".into(), weight_json(props.weight)),
+        ("stretch".into(), stretch_json(props.stretch)),
+        ("size".into(), props.size.into()),
+        (
+            "math_fontfamily".into(),
+            props.math_fontfamily.name().into(),
+        ),
+        ("pattern".into(), props.fontconfig_pattern().into()),
+    ])
+}
+
 /// `font_manager.FontProperties(**kw)` and its getters.
-pub(super) fn font_properties_op(args: Args<'_>) -> Outcome {
+pub(crate) fn font_properties_op(args: Args<'_>) -> Outcome {
     with_rc(args, || {
         let props = font_properties(args.json("kw")?)?;
-        Ok(Json::Object(vec![
-            ("family".into(), Json::from(props.families.clone())),
-            ("style".into(), style_name(props.style).into()),
-            ("variant".into(), variant_name(props.variant).into()),
-            ("weight".into(), weight_json(props.weight)),
-            ("stretch".into(), stretch_json(props.stretch)),
-            ("size".into(), props.size.into()),
-            (
-                "math_fontfamily".into(),
-                props.math_fontfamily.name().into(),
-            ),
-            ("pattern".into(), props.fontconfig_pattern().into()),
-        ]))
+        Ok(properties_json(&props))
     })
 }
 
 /// `_fontconfig_pattern.parse_fontconfig_pattern`.
-pub(super) fn parse_fontconfig_pattern(args: Args<'_>) -> Outcome {
+pub(crate) fn parse_fontconfig_pattern(args: Args<'_>) -> Outcome {
     let parsed = FontconfigPattern::parse(args.str("pattern")?).map_err(ProbeError::rejected)?;
     Ok(Json::Object(
         parsed

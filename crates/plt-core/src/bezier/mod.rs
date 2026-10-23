@@ -16,7 +16,7 @@ pub use parallel::{
     Direction, Parallel, check_if_parallel, find_control_points, get_cos_sin, get_intersection,
     get_normal_points, get_parallels, make_wedged_bezier2,
 };
-pub use segment::{BezierError, BezierSegment};
+pub use segment::{BezierError, BezierSegment, real_roots_in_01};
 pub use split::{
     find_bezier_t_intersecting_with_closedpath, inside_circle,
     split_bezier_intersecting_with_closedpath, split_path_inout,

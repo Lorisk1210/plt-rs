@@ -261,7 +261,12 @@ fn apply_cycle(line: &mut LineArtist, key: &str, value: CycleValue) {
         ("markerfacecolor", CycleValue::Color(color)) => line.markerfacecolor = color.into(),
         ("alpha", CycleValue::Number(alpha)) => line.base_mut().alpha = Some(alpha),
         ("dashes", CycleValue::Dashes(pattern)) => {
-            line.linestyle = crate::lines::LineStyle::dashes(0.0, pattern);
+            // matplotlib's `set_dashes`: an empty sequence draws a solid line.
+            line.linestyle = if pattern.is_empty() {
+                crate::lines::LineStyle::Solid
+            } else {
+                crate::lines::LineStyle::dashes(0.0, pattern)
+            };
         }
         ("markevery", CycleValue::MarkEvery(markevery)) => line.markevery = markevery,
         ("fillstyle", CycleValue::Text(fillstyle)) => {
@@ -270,5 +275,23 @@ fn apply_cycle(line: &mut LineArtist, key: &str, value: CycleValue) {
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::figure::Figure;
+    use crate::lines::LineStyle;
+
+    #[test]
+    fn empty_dash_sequences_in_a_cycle_draw_solid_lines() {
+        let ax = Figure::new().subplot();
+        let cycle = "cycler('dashes', [[], [13, 2]])".parse().expect("valid");
+        ax.set_prop_cycle(Some(cycle));
+        let solid = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).expect("plotted");
+        let dashed = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).expect("plotted");
+        assert_eq!(solid.linestyle(), LineStyle::Solid);
+        assert!(!solid.linestyle().is_dashed(), "solid caps and joins");
+        assert_eq!(dashed.linestyle(), LineStyle::dashes(0.0, vec![13.0, 2.0]));
     }
 }

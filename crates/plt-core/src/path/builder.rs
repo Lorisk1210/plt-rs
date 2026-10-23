@@ -50,14 +50,33 @@ impl PathBuilder {
             .push(PathCode::Curve4, &[c1, c2, end])
     }
 
-    /// Closes the current sub-path.
+    /// Closes the current sub-path, storing its start as the (ignored)
+    /// vertex of the closing command.
     #[must_use]
     pub fn close(self) -> Self {
+        let start = self.subpath_start;
+        self.close_at(start)
+    }
+
+    /// Closes the current sub-path, storing `vertex` as the closing
+    /// command's vertex, which drawing ignores (`FreeType` outlines as
+    /// matplotlib reads them store the glyph origin there).
+    ///
+    /// ```
+    /// use plt_core::{Path, Point};
+    /// let closed = Path::builder()
+    ///     .move_to(Point::new(1.0, 1.0))
+    ///     .line_to(Point::new(2.0, 1.0))
+    ///     .close_at(Point::ORIGIN)
+    ///     .build();
+    /// assert_eq!(closed.vertices()[2], Point::ORIGIN);
+    /// ```
+    #[must_use]
+    pub fn close_at(self, vertex: Point) -> Self {
         if self.codes.is_empty() {
             return self;
         }
-        let start = self.subpath_start;
-        self.push(PathCode::ClosePoly, &[start])
+        self.push(PathCode::ClosePoly, &[vertex])
     }
 
     /// Appends every segment of an existing path.

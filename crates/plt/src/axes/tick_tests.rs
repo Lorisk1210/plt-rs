@@ -12,6 +12,7 @@ use crate::figure::Figure;
 use crate::fonts::{FontSize, FontStyle, FontWeight, RelativeSize};
 use crate::layout::LayoutEngine;
 use crate::lines::LineStyle;
+use crate::rc::AxisBelow;
 use crate::testing::{Call, RecordingRenderer};
 use crate::ticker::MultipleLocator;
 
@@ -434,4 +435,14 @@ fn a_tick_label_out_of_the_layout_leaves_the_axis_label_alone() {
         fig.tight_bbox().y0()
     };
     assert!(figure_bottom(true) > figure_bottom(false));
+}
+
+#[test]
+fn axisbelow_reads_back_and_survives_clearing() {
+    let ax = Figure::new().subplot();
+    assert_eq!(ax.axisbelow(), AxisBelow::Line, "axes.axisbelow");
+    ax.set_axisbelow(AxisBelow::Above);
+    assert_eq!(ax.axisbelow(), AxisBelow::Above);
+    ax.cla();
+    assert_eq!(ax.axisbelow(), AxisBelow::Above);
 }

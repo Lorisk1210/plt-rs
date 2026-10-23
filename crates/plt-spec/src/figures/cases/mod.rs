@@ -2,6 +2,7 @@
 
 mod afm;
 mod api_gaps_a;
+mod api_gaps_b;
 mod axes;
 mod axisartist;
 mod bars;
@@ -79,6 +80,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
     [
         afm::CASES,
         api_gaps_a::CASES,
+        api_gaps_b::CASES,
         axes::FORMATTING,
         axes::GRIDS,
         axes::LABELS,

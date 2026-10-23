@@ -15,6 +15,10 @@ Ops
     order. ``mode`` is ``"zoom"`` or ``"pan"``, ``button`` 1 (left) or 3
     (right), ``key`` the key held (``null``, ``"x"``, ``"y"``, ``"control"``
     or ``"shift"``).
+``navigation.format_coord``  {scene, points} -> ``[[coord, x, y], ...]``
+    for each data point ``(x, y)`` of the first axes, what the status bar
+    shows of it (``ax.format_coord(x, y)``) and of its coordinates
+    (``ax.format_xdata(x)``, ``ax.format_ydata(y)``), after one draw.
 
 Scenes
 ------
@@ -135,6 +139,21 @@ PANS = [
     (3, "x", [[200, 150], [170, 120]]),
     (3, "control", [[200, 150], [230, 170]]),
 ]
+
+
+def _format_coord(scene, points):
+    fig = Figure(figsize=(4, 3), dpi=100)
+    canvas = FigureCanvasAgg(fig)
+    SCENES[scene](fig)
+    canvas.draw()
+    ax = fig.axes[0]
+    return [[ax.format_coord(x, y), ax.format_xdata(x), ax.format_ydata(y)] for x, y in points]
+
+
+def test_format_coord():
+    points = [[2.5, 1.25], [7.0, 0.5], [1.0, 4.0]]
+    for scene in ["linear", "logx", "symlogy", "inverted", "twinx"]:
+        probes.probe("navigation.format_coord", _format_coord, scene=scene, points=points)
 
 
 def test_drags():

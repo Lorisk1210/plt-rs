@@ -109,11 +109,8 @@ pub(super) fn format_coord(ax: &Axes, at: Point) -> String {
     let pairs: Option<Vec<String>> = twins
         .iter()
         .map(|twin| {
-            let (x, y) = (
-                format_value(twin, AxisName::X, at)?,
-                format_value(twin, AxisName::Y, at)?,
-            );
-            Some(format!("({x}, {y})"))
+            let data = data_transform(twin)?.inverted()?.transform_point(at);
+            coordinate_pair(twin, data)
         })
         .collect();
     pairs.map_or_else(String::new, |pairs| {
@@ -121,21 +118,35 @@ pub(super) fn format_coord(ax: &Axes, at: Point) -> String {
     })
 }
 
-/// One coordinate of display point `at` in the data of `ax`, formatted by
-/// the axis' major formatter (`format_xdata`/`format_ydata`).
-fn format_value(ax: &Axes, name: AxisName, at: Point) -> Option<String> {
-    let trans = data_transform(ax)?;
+/// The data point `data` of `ax` as `(x, y)`, each coordinate formatted
+/// by [`format_data`].
+fn coordinate_pair(ax: &Axes, data: Point) -> Option<String> {
+    let x = format_data(ax, AxisName::X, data.x)?;
+    let y = format_data(ax, AxisName::Y, data.y)?;
+    Some(format!("({x}, {y})"))
+}
+
+/// `value` along axis `name` of `ax`, formatted by the axis' major
+/// formatter in its short form; a `ScalarFormatter` gives as many digits
+/// as a screen pixel resolves around the value (matplotlib's
+/// `format_xdata`/`format_ydata` with `format_data_short`, which measures
+/// the pixel in the axis transform).
+fn format_data(ax: &Axes, name: AxisName, value: f64) -> Option<String> {
+    let axis_transform = match name {
+        AxisName::X => ax.trans_xaxis(),
+        AxisName::Y => ax.trans_yaxis(),
+    };
+    let trans = ax.figure().resolve_transform(&axis_transform).ok()?;
     let inverse = trans.inverted()?;
+    let (along, step) = match name {
+        AxisName::X => (Point::new(value, 0.0), Point::new(1.0, 0.0)),
+        AxisName::Y => (Point::new(0.0, value), Point::new(0.0, 1.0)),
+    };
     let pick = |p: Point| match name {
         AxisName::X => p.x,
         AxisName::Y => p.y,
     };
-    let value = pick(inverse.transform_point(at));
-    // ScalarFormatter resolves to the data size of a screen pixel.
-    let step = match name {
-        AxisName::X => Point::new(1.0, 0.0),
-        AxisName::Y => Point::new(0.0, 1.0),
-    };
+    let at = trans.transform_point(along);
     let resolution = [at - step, at + step]
         .into_iter()
         .map(|p| (pick(inverse.transform_point(p)) - value).abs())
@@ -159,6 +170,51 @@ fn format_value(ax: &Axes, name: AxisName, at: Point) -> Option<String> {
             .format_data_short(value, &TickContext::new(&info, &axis.settings))
             .ok()
     })
+}
+
+impl Axes {
+    /// `value` along `axis` as a status bar shows it (matplotlib's
+    /// `format_xdata` and `format_ydata`, as `Axes3D::format_data` for
+    /// 3-D axes): in the short form of the axis' major formatter, which
+    /// for a `ScalarFormatter` has as many digits as a screen pixel
+    /// resolves. The figure is laid out first; `None` when the formatter
+    /// fails or the axes has no extent.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_xlim(0.0, 10.0);
+    /// assert_eq!(ax.format_data(plt::axes::AxisName::X, 2.5).as_deref(), Some("2.50"));
+    /// ```
+    pub fn format_data(&self, axis: AxisName, value: f64) -> Option<String> {
+        format_data(self, axis, value)
+    }
+
+    /// The data point `(x, y)` as a status bar shows it (matplotlib's
+    /// `format_coord`): `(x, y) = (…, …)` with each coordinate as
+    /// [`format_data`](Self::format_data) gives it, followed by the same
+    /// screen point in the data of each twin, in z-order; θ and r for
+    /// polar axes, longitude and latitude for geographic ones. Empty when
+    /// a coordinate cannot be formatted.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1.0);
+    /// assert_eq!(ax.format_coord(2.5, 0.25), "(x, y) = (2.50, 0.250)");
+    /// ```
+    pub fn format_coord(&self, x: f64, y: f64) -> String {
+        if let Some(geo) = self.as_geo() {
+            return geo.format_coord(x, y);
+        }
+        if self.as_polar().is_none() && self.twins().len() == 1 {
+            return coordinate_pair(self, Point::new(x, y))
+                .map_or_else(String::new, |pair| format!("(x, y) = {pair}"));
+        }
+        data_transform(self)
+            .map(|trans| trans.transform_point(Point::new(x, y)))
+            .map_or_else(String::new, |at| format_coord(self, at))
+    }
 }
 
 /// matplotlib's `PolarAxes.format_coord`: θ in half turns and degrees and
@@ -251,6 +307,34 @@ mod tests {
         twin.set_ylim(0.0, 100.0);
         let text = format_coord(&ax, display(&ax, 2.5, 0.25));
         assert_eq!(text, "(x, y) = (2.50, 0.250) | (2.50, 25.0)");
+    }
+
+    #[test]
+    fn data_points_format_like_the_screen_points_over_them() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1.0);
+        assert_eq!(ax.format_data(AxisName::X, 2.5).as_deref(), Some("2.50"));
+        assert_eq!(ax.format_data(AxisName::Y, 0.25).as_deref(), Some("0.250"));
+        assert_eq!(ax.format_coord(2.5, 0.25), "(x, y) = (2.50, 0.250)");
+        assert_eq!(
+            ax.format_data(AxisName::X, f64::NAN).as_deref(),
+            Some("nan")
+        );
+        let twin = ax.twinx();
+        twin.set_ylim(0.0, 100.0);
+        assert_eq!(
+            ax.format_coord(2.5, 0.25),
+            "(x, y) = (2.50, 0.250) | (2.50, 25.0)"
+        );
+        let polar = fig.polar_subplot();
+        polar.set_rlim(0.0, 2.0);
+        assert_eq!(
+            polar.format_coord(PI / 2.0, 1.0),
+            format_coord(&polar, display(&polar, PI / 2.0, 1.0))
+        );
+        let geo = fig.geo_subplot(crate::geo::GeoProjection::Hammer);
+        assert_eq!(geo.format_coord(-PI / 2.0, 0.5), "28.647890°N, 90.000000°W");
     }
 
     #[test]

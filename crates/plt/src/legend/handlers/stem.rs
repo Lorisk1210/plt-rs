@@ -1,7 +1,7 @@
 //! Handles of stem plots (matplotlib's `HandlerStem`).
 
 use super::line::first_width;
-use super::{HandleArtist, HandleArtists, HandleBox, HandlerContext, copy_line};
+use super::{HandleBox, HandlerArtist, HandlerContext, copy_line};
 use crate::artist::ArtistId;
 use crate::collections::CollectionArtist;
 use crate::colors::Color;
@@ -14,14 +14,14 @@ pub(super) fn stem(
     ctx: &HandlerContext<'_>,
     [markerline, stemlines, baseline]: [ArtistId; 3],
     area: &HandleBox,
-) -> Result<Option<HandleArtists>, LegendError> {
+) -> Result<Vec<HandlerArtist>, LegendError> {
     let store = ctx.store;
     let (Some(heads), Some(stems), Some(base)) = (
         store.get_as::<LineArtist>(markerline),
         store.get_as::<CollectionArtist>(stemlines),
         store.get_as::<LineArtist>(baseline),
     ) else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
     let (xdata, xmarkers) = ctx.xdata(area, ctx.settings.numpoints);
     let ydata: Vec<f64> = ctx
@@ -51,14 +51,14 @@ pub(super) fn stem(
             line.color = Color::from(color);
         }
         line.linestyle = LineStyle::dashes(dashes.offset, dashes.pattern.clone());
-        artists.push(HandleArtist::placed(line));
+        artists.push(HandlerArtist::placed(line));
     }
 
     let low = xdata.iter().copied().fold(f64::INFINITY, f64::min);
     let high = xdata.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let mut base_line = ctx.line(vec![low, high], vec![bottom, bottom]);
     copy_line(&mut base_line, base);
-    artists.push(HandleArtist::placed(base_line));
-    artists.push(HandleArtist::placed(head_line));
-    Ok(Some(HandleArtists::unmapped(artists)))
+    artists.push(HandlerArtist::placed(base_line));
+    artists.push(HandlerArtist::placed(head_line));
+    Ok(artists)
 }

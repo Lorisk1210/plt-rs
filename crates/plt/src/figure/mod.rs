@@ -200,6 +200,12 @@ impl Figure {
         self
     }
 
+    /// The width of the frame around the canvas in points (matplotlib's
+    /// `get_linewidth`).
+    pub fn linewidth(&self) -> f64 {
+        self.root.with::<FigureFrame, _>(|frame| frame.linewidth)
+    }
+
     /// Sets whether the background and the frame around the canvas are
     /// drawn (matplotlib's `set_frameon`); without them the canvas stays
     /// transparent where nothing else is drawn.

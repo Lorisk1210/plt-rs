@@ -413,3 +413,47 @@ fn surfaces_of_3d_axes_take_room_from_the_3d_axes() {
         [0.783_75, 0.11, 0.028_875, 0.77]
     ));
 }
+
+#[test]
+fn update_normal_follows_another_mappable_from_then_on() {
+    let (fig, ax, image) = image_figure();
+    let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+    colorbar.set_ticks(vec![0.0, 1.0]);
+    colorbar.update_normal(&image).unwrap();
+    assert_eq!(
+        colorbar.long_axis().ticklocs(false).unwrap(),
+        [0.0, 1.0],
+        "the same artist keeps the ticks"
+    );
+    let other = ax
+        .imshow(
+            Grid::from_fn(2, 2, |r, c| 10.0 * (r + c) as f64),
+            ImshowOptions::default(),
+        )
+        .unwrap();
+    colorbar.update_normal(&other).unwrap();
+    assert_eq!(colorbar.ax().ylim(), (0.0, 20.0));
+    assert_ne!(colorbar.long_axis().ticklocs(false).unwrap(), [0.0, 1.0]);
+    other.set_clim(Some(5.0), Some(15.0));
+    assert_eq!(colorbar.ax().ylim(), (5.0, 15.0), "it follows the new one");
+    image.set_clim(Some(-1.0), Some(1.0));
+    assert_eq!(colorbar.ax().ylim(), (5.0, 15.0), "and no longer the first");
+}
+
+#[test]
+fn update_normal_resets_the_ticks_of_a_bare_mapping_for_a_new_kind_of_norm() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let viridis = colormaps::get("viridis").unwrap();
+    let mut sm = ScalarMappable::with_norm(viridis, Box::new(Normalize::new(1.0, 10.0)));
+    let colorbar = fig.colorbar(&sm, ColorbarOptions::beside(&ax)).unwrap();
+    colorbar.set_ticks(vec![2.0, 4.0]);
+    sm.set_clim(Some(2.0), Some(8.0));
+    colorbar.update_normal(&sm).unwrap();
+    assert_eq!(colorbar.ax().ylim(), (2.0, 8.0));
+    assert_eq!(colorbar.long_axis().ticklocs(false).unwrap(), [2.0, 4.0]);
+    sm.set_norm(Box::new(LogNorm::new(1.0, 100.0)));
+    colorbar.update_normal(&sm).unwrap();
+    assert_eq!(colorbar.ax().yscale(), "log");
+    assert_ne!(colorbar.long_axis().ticklocs(false).unwrap(), [2.0, 4.0]);
+}

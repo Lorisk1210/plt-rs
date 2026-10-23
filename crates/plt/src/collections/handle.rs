@@ -6,11 +6,14 @@ use std::fmt;
 use plt_core::{Path, Point, Rgba};
 use plt_render::{CapStyle, JoinStyle};
 
-use super::{CollectionArtist, ColorMapping, EdgeColors, HatchColors, Mapped, style};
+use super::{
+    CollectionArtist, CollectionStyle, ColorMapping, EdgeColors, HatchColors, Mapped, style,
+};
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::colorizer::{self, MappingChange, change_mapping};
-use crate::colors::{Color, Colormap, Norm};
+use crate::colors::{Color, Colormap, ColormapError, Norm, ScalarMappable, colormaps};
 use crate::lines::LineStyle;
+use crate::transforms::Transform;
 
 /// The face, edge and hatch colours of a collection's items
 /// ([`Collection::colors`]).
@@ -159,6 +162,80 @@ impl Collection {
         self.update(|c| c.hatchcolors = colors)
     }
 
+    /// Sets the width of the hatch lines in points (matplotlib's
+    /// `set_hatch_linewidth`).
+    pub fn set_hatch_linewidth(&self, width: f64) -> &Self {
+        self.update(|c| c.hatch_linewidth = width)
+    }
+
+    /// The look of the items as set: colours, widths, line styles, hatch,
+    /// caps and joins (matplotlib's `get_linewidth`, `get_linestyle`,
+    /// `get_hatch`, `get_hatch_linewidth`, ...).
+    pub fn style(&self) -> CollectionStyle {
+        self.raw.with::<CollectionArtist, _>(CollectionStyle::of)
+    }
+
+    /// The values mapped to colours, `None` without a colour mapping
+    /// (matplotlib's `get_array`).
+    pub fn array(&self) -> Option<Vec<Option<f64>>> {
+        self.raw.with::<CollectionArtist, _>(|c| {
+            c.mapping
+                .as_ref()
+                .map(|mapped| mapped.source.values.clone())
+        })
+    }
+
+    /// Maps `values` to colours with the collection's norm and colormap,
+    /// or with a linear norm and `image.cmap` if it maps none yet
+    /// (matplotlib's `set_array`); unset limits of the norm come from the
+    /// values, and the collection's colorbars follow.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let dots = ax.scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// assert_eq!(dots.array(), None);
+    /// dots.set_array(vec![Some(0.5), None])?;
+    /// assert_eq!(dots.array(), Some(vec![Some(0.5), None]));
+    /// assert_eq!(dots.clim(), (Some(0.5), Some(0.5)));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the collection maps no colours yet and `image.cmap` names no
+    /// colormap.
+    pub fn set_array(&self, values: Vec<Option<f64>>) -> Result<&Self, ColormapError> {
+        let mappable = match self.raw.with::<CollectionArtist, _>(|c| {
+            c.mapping
+                .as_ref()
+                .map(|mapped| mapped.source.mappable.clone())
+        }) {
+            Some(mappable) => mappable,
+            None => ScalarMappable::new(colormaps::get(&crate::rc::params().image_cmap)?),
+        };
+        Ok(self.set_mapping(ColorMapping { values, mappable }))
+    }
+
+    /// The colormap of the colour mapping, if any (matplotlib's
+    /// `get_cmap`).
+    pub fn cmap(&self) -> Option<Colormap> {
+        self.raw.with::<CollectionArtist, _>(|c| {
+            c.mapping
+                .as_ref()
+                .map(|mapped| mapped.source.mappable.cmap().clone())
+        })
+    }
+
+    /// The norm of the colour mapping, if any (matplotlib's `norm`).
+    pub fn norm(&self) -> Option<Box<dyn Norm>> {
+        self.raw.with::<CollectionArtist, _>(|c| {
+            c.mapping
+                .as_ref()
+                .map(|mapped| mapped.source.mappable.norm().clone_box())
+        })
+    }
+
     /// Maps `values` to face (or, for line collections, edge) colours; the
     /// collection's colorbars follow the new norm and colormap.
     pub fn set_mapping(&self, mapping: ColorMapping) -> &Self {
@@ -227,6 +304,19 @@ impl Collection {
         self.raw.with::<CollectionArtist, _>(|c| c.offsets.clone())
     }
 
+    /// The coordinates of the offsets, `None` when the items are placed
+    /// without offsets (matplotlib's `get_offset_transform`).
+    pub fn offset_transform(&self) -> Option<Transform> {
+        self.raw
+            .with::<CollectionArtist, _>(|c| c.offset_transform.clone())
+    }
+
+    /// Places the offsets in other coordinates, or drops them with `None`
+    /// (matplotlib's `set_offset_transform`).
+    pub fn set_offset_transform(&self, transform: Option<Transform>) -> &Self {
+        self.update(|c| c.offset_transform = transform)
+    }
+
     /// Moves the items to `offsets`; the data limits of the axes follow
     /// at the next [`Axes::relim`](crate::axes::Axes::relim) (matplotlib's
     /// `set_offsets`).
@@ -267,5 +357,78 @@ impl Collection {
     /// ```
     pub fn set_segments(&self, segments: Vec<Vec<Point>>) -> &Self {
         self.update(|c| c.paths = segments.into_iter().map(Path::polyline).collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::colors::LogNorm;
+    use crate::figure::Figure;
+
+    #[test]
+    fn style_reads_back_what_was_set() {
+        let ax = Figure::new().subplot();
+        let lines = ax.vlines([0.0, 1.0], [0.0], [1.0]).expect("lines");
+        let before = lines.style();
+        assert_eq!(before.linestyles, [LineStyle::Solid]);
+        assert_eq!(before.hatch_linewidth, crate::rc::params().hatch_linewidth);
+        lines
+            .set_linewidths(vec![2.0, 3.0])
+            .set_linestyles(vec![LineStyle::Dashed])
+            .set_hatch("//")
+            .set_hatch_linewidth(0.5)
+            .set_capstyle(CapStyle::Round)
+            .set_alphas(vec![0.5]);
+        let style = lines.style();
+        assert_eq!(style.linewidths, Some(vec![2.0, 3.0]));
+        assert_eq!(style.linestyles, [LineStyle::Dashed]);
+        assert_eq!(
+            (style.hatch.as_deref(), style.hatch_linewidth),
+            (Some("//"), 0.5)
+        );
+        assert_eq!(
+            (style.capstyle, style.joinstyle),
+            (Some(CapStyle::Round), None)
+        );
+        assert_eq!(style.alphas, Some(vec![0.5]));
+        assert_eq!(style.edgecolors, before.edgecolors, "unchanged");
+    }
+
+    #[test]
+    fn arrays_map_through_the_mapping_or_a_new_one() {
+        let ax = Figure::new().subplot();
+        let dots = ax
+            .scatter(vec![1.0, 2.0, 3.0], vec![1.0, 2.0, 3.0])
+            .expect("dots");
+        assert_eq!(
+            (dots.array(), dots.cmap().is_some(), dots.norm().is_some()),
+            (None, false, false)
+        );
+        dots.set_array(vec![Some(1.0), Some(10.0), None])
+            .expect("viridis");
+        assert_eq!(dots.array(), Some(vec![Some(1.0), Some(10.0), None]));
+        assert_eq!(
+            dots.cmap().map(|cmap| cmap.name().to_owned()).as_deref(),
+            Some("viridis")
+        );
+        assert_eq!(dots.clim(), (Some(1.0), Some(10.0)));
+        dots.set_norm(Box::new(LogNorm::new(1.0, 100.0)));
+        dots.set_array(vec![Some(5.0), Some(50.0), Some(500.0)])
+            .expect("a mapping");
+        assert_eq!(dots.clim(), (Some(1.0), Some(100.0)), "the norm stays");
+        let colors = dots.colors().expect("colours");
+        assert_eq!(colors.faces.len(), 3);
+    }
+
+    #[test]
+    fn offsets_can_move_to_other_coordinates() {
+        let ax = Figure::new().subplot();
+        let dots = ax.scatter(vec![1.0], vec![1.0]).expect("dots");
+        assert_eq!(dots.offset_transform(), Some(ax.trans_data()));
+        dots.set_offset_transform(Some(ax.trans_axes()));
+        assert_eq!(dots.offset_transform(), Some(ax.trans_axes()));
+        dots.set_offset_transform(None);
+        assert_eq!(dots.offset_transform(), None);
     }
 }

@@ -7,7 +7,7 @@
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, ImshowOptions, NonUniformOptions};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, ImageData, Origin, ScalarField};
+use plt::image::{ColorizerOptions, Extent, ImageData, InterpolationStage, Origin, ScalarField};
 use plt::navigation::Navigation;
 use plt::numeric::Grid;
 use plt::rc::{self, Aspect};
@@ -29,7 +29,66 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("image.composite", |args| with_rc(args, || composite(args))),
     Op::new("image.exact_vmin", |args| with_rc(args, exact_vmin)),
     Op::new("image.draw", |args| with_rc(args, || draw(args))),
+    Op::new("image.settings", |args| with_rc(args, settings)),
 ];
+
+/// The resampling settings, limits, extent and shape of an image as made
+/// and after they and the data changed, and whether a zero filter radius
+/// is rejected.
+fn settings() -> Outcome {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let image = made(ax.imshow(
+        Grid::from_fn(3, 4, |r, c| (4 * r + c) as f64),
+        ImshowOptions::default(),
+    ))?;
+    let read = |image: &plt::image::AxesImage| {
+        let (vmin, vmax) = image.clim();
+        let Extent {
+            left,
+            right,
+            bottom,
+            top,
+        } = image.extent();
+        let (rows, columns) = image.array().shape();
+        object([
+            ("filternorm", image.filternorm().into()),
+            ("filterrad", image.filterrad().into()),
+            ("resample", image.resample().into()),
+            (
+                "interpolation_stage",
+                match image.interpolation_stage() {
+                    InterpolationStage::Auto => "auto",
+                    InterpolationStage::Data => "data",
+                    InterpolationStage::Rgba => "rgba",
+                }
+                .into(),
+            ),
+            (
+                "clim",
+                Json::from(vec![vmin.unwrap_or(f64::NAN), vmax.unwrap_or(f64::NAN)]),
+            ),
+            ("extent", Json::from(vec![left, right, bottom, top])),
+            ("shape", Json::from(vec![rows as f64, columns as f64])),
+        ])
+    };
+    let before = read(&image);
+    image
+        .set_filternorm(false)
+        .set_resample(true)
+        .set_interpolation_stage(InterpolationStage::Rgba)
+        .set_data(Grid::from_fn(4, 2, |r, c| (2 * r + c) as f64 * 10.0));
+    made(image.set_filterrad(2.0))?;
+    let after = read(&image);
+    Ok(object([
+        ("before", before),
+        ("after", after),
+        (
+            "zero_radius_rejected",
+            image.set_filterrad(0.0).is_err().into(),
+        ),
+    ]))
+}
 
 fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
     result.map_err(ProbeError::rejected)

@@ -309,14 +309,47 @@ impl Annotation {
         self.update(|a| a.xy = xy)
     }
 
-    /// The coordinates of the text position.
+    /// The coordinates of the text position (matplotlib's
+    /// `get_anncoords`).
     pub fn textcoords(&self) -> Coords {
         self.state(|a| a.textcoords.clone())
+    }
+
+    /// Gives the text position in other coordinates, keeping its numbers
+    /// (matplotlib's `set_anncoords`).
+    pub fn set_textcoords(&self, coords: Coords) -> &Self {
+        self.update(|a| a.textcoords = coords)
+    }
+
+    /// The coordinates of the annotated point (matplotlib's `xycoords`).
+    pub fn xycoords(&self) -> Coords {
+        self.state(|a| a.xycoords.clone())
+    }
+
+    /// Gives the annotated point in other coordinates, keeping its numbers
+    /// (matplotlib's `xycoords` setter).
+    ///
+    /// # Errors
+    ///
+    /// When `coords` is an offset, which the annotated point cannot be
+    /// given in.
+    pub fn set_xycoords(&self, coords: Coords) -> Result<&Self, CoordError> {
+        if coords.is_offset() {
+            return Err(CoordError::NoOffset);
+        }
+        Ok(self.update(|a| a.xycoords = coords))
     }
 
     /// Sets when the annotation hides with its point outside the axes.
     pub fn set_annotation_clip(&self, clip: Option<bool>) -> &Self {
         self.update(|a| a.annotation_clip = clip)
+    }
+
+    /// When the annotation hides with its point outside the axes: always,
+    /// never, or for points in data coordinates (`None`; matplotlib's
+    /// `get_annotation_clip`).
+    pub fn annotation_clip(&self) -> Option<bool> {
+        self.state(|a| a.annotation_clip)
     }
 }
 

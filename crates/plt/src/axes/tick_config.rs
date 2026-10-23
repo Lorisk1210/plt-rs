@@ -106,9 +106,14 @@ impl Axes {
     /// Draws ticks and gridlines below or above the plotted artists
     /// (matplotlib's `set_axisbelow`).
     pub fn set_axisbelow(&self, below: AxisBelow) -> &Self {
-        self.raw
-            .with_mut::<AxesState, _>(|a| a.axis_zorder = below.zorder());
+        self.raw.with_mut::<AxesState, _>(|a| a.axisbelow = below);
         self
+    }
+
+    /// Where ticks and gridlines sit among the plotted artists
+    /// (matplotlib's `get_axisbelow`).
+    pub fn axisbelow(&self) -> AxisBelow {
+        self.raw.with::<AxesState, _>(|a| a.axisbelow)
     }
 
     /// Sets the scale of one axis by name with options (matplotlib's

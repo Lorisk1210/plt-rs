@@ -5,7 +5,7 @@ use std::rc::Rc;
 use plt_core::{Path, Point};
 
 use super::line::{middle, scale_markers};
-use super::{HandleArtist, HandleArtists, HandleBox, HandlerContext, copy_collection, copy_line};
+use super::{HandleBox, HandlerArtist, HandlerContext, copy_collection, copy_line};
 use crate::artist::Artist;
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::container::ErrorbarIds;
@@ -22,7 +22,7 @@ pub(super) fn errorbar(
     ctx: &HandlerContext<'_>,
     ids: &ErrorbarIds,
     area: &HandleBox,
-) -> Result<Option<HandleArtists>, LegendError> {
+) -> Result<Vec<HandlerArtist>, LegendError> {
     let store = ctx.store;
     let (xdata, xmarkers) = ctx.xdata(area, ctx.settings.numpoints);
     let y = middle(area);
@@ -76,7 +76,7 @@ pub(super) fn errorbar(
             let mut collection =
                 CollectionArtist::new(CollectionKind::Line, segments, Rc::clone(ctx.rc));
             copy_collection(&mut collection, bars)?;
-            bar_artists.push(HandleArtist::placed(collection));
+            bar_artists.push(HandlerArtist::placed(collection));
         }
         if let Some(cap) = cap {
             let symbol = if horizontal {
@@ -92,13 +92,13 @@ pub(super) fn errorbar(
                 );
                 copy_line(&mut capline, cap);
                 capline.marker = Marker::Symbol(symbol);
-                cap_artists.push(HandleArtist::placed(capline));
+                cap_artists.push(HandlerArtist::placed(capline));
             }
         }
     }
     let mut artists = bar_artists;
     artists.extend(cap_artists);
-    artists.push(HandleArtist::placed(line));
-    artists.push(HandleArtist::placed(markers));
-    Ok(Some(HandleArtists::unmapped(artists)))
+    artists.push(HandlerArtist::placed(line));
+    artists.push(HandlerArtist::placed(markers));
+    Ok(artists)
 }

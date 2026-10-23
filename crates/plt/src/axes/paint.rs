@@ -115,8 +115,9 @@ impl AxesState {
             .filter_map(|id| zordered(store, id))
             .collect();
         if axes {
-            items.push((self.axis_zorder, Item::Axis(id, AxisName::X)));
-            items.push((self.axis_zorder, Item::Axis(id, AxisName::Y)));
+            let zorder = self.axisbelow.zorder();
+            items.push((zorder, Item::Axis(id, AxisName::X)));
+            items.push((zorder, Item::Axis(id, AxisName::Y)));
         }
         let titles = self.titles_centre_first();
         let child_axes =

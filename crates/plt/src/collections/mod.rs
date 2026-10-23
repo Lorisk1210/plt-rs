@@ -22,7 +22,7 @@ mod trimesh;
 
 pub use handle::{Collection, CollectionColorError, CollectionColors};
 pub use legend_elements::{ElementCount, LegendElements, LegendElementsOptions, LegendProperty};
-pub use props::CollectionProps;
+pub use props::{CollectionProps, CollectionStyle};
 use quad_mesh::MeshGeometry;
 pub use quad_mesh::MeshShading;
 pub(crate) use spec::Ellipses;
@@ -189,6 +189,9 @@ pub(crate) struct CollectionArtist {
     /// The colours of the hatches (`hatch.color` when the collection was
     /// made, unless set).
     pub(crate) hatchcolors: HatchColors,
+    /// The width of the hatch lines in points (`hatch.linewidth` when the
+    /// collection was made, unless set).
+    pub(crate) hatch_linewidth: f64,
     pub(crate) capstyle: Option<CapStyle>,
     pub(crate) joinstyle: Option<JoinStyle>,
     /// Colours drawn in the gaps of dashed edges (`None` = empty gaps).
@@ -245,6 +248,7 @@ impl CollectionArtist {
             antialiased: None,
             hatch: None,
             hatchcolors: HatchColors::from_rc(&rc),
+            hatch_linewidth: rc.hatch_linewidth,
             capstyle: None,
             joinstyle: None,
             gapcolors: None,

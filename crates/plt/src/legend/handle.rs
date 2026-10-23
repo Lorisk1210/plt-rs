@@ -1,18 +1,21 @@
 //! What a legend can list, and how the entries of `legend()` are found
 //! (matplotlib's `_get_legend_handles` and `_parse_legend_args`).
 
+use std::any::Any;
+use std::fmt;
 use std::rc::Rc;
 
+use super::handlers::{HandlerKey, HandlerMap, LegendHandler, TypeKey};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, is_hidden_label};
 use crate::axes::{AxesState, BarContainer, ErrorbarContainer, StemContainer};
 use crate::axes_grid1::parasites_of;
-use crate::collections::{CollectionArtist, CollectionKind};
 use crate::container::{Container, ContainerIds};
 use crate::lines::{LineArtist, LineProps};
 use crate::patches::{PatchArtist, PatchProps, Rectangle};
 
 /// Something a legend can show an entry for: a line, patch or collection,
-/// or a bar, error bar or stem container (matplotlib's legend handles).
+/// a bar, error bar or stem container, or any object a
+/// [`LegendHandler`] draws (matplotlib's legend handles).
 ///
 /// ```
 /// use plt::prelude::*;
@@ -60,10 +63,54 @@ pub(crate) enum Source {
     /// such as the handles of `legend_elements`).
     Proxy(Proxy),
     /// Several handles in one entry (matplotlib's tuple handles).
-    Tuple(Vec<Source>, HandlerTuple),
+    Tuple(Vec<Source>),
     /// A handle drawn with its own number of markers in place of the
     /// legend's `numpoints` (matplotlib's `HandlerLine2D(numpoints=...)`).
     Npoints(Box<Source>, usize),
+    /// A handle drawn by a handler of its own (matplotlib's handler map
+    /// keyed by the handle itself).
+    Handled(Box<Source>, OwnHandler),
+    /// An object that is no artist, drawn by the handler registered for
+    /// its type.
+    Object(LegendObject),
+}
+
+/// The handler of one entry; entries compare equal when they share it.
+#[derive(Clone)]
+pub(crate) struct OwnHandler(pub(crate) Rc<dyn LegendHandler>);
+
+impl fmt::Debug for OwnHandler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl PartialEq for OwnHandler {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+/// An object a legend shows through the handler of its type; handles
+/// compare equal when they share the object.
+#[derive(Clone)]
+pub(crate) struct LegendObject {
+    pub(crate) value: Rc<dyn Any>,
+    pub(crate) key: TypeKey,
+}
+
+impl fmt::Debug for LegendObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LegendObject")
+            .field("key", &self.key)
+            .finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for LegendObject {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.value, &other.value)
+    }
 }
 
 /// An artist that exists only as a legend handle; handles compare equal
@@ -146,7 +193,44 @@ impl LegendHandle {
     pub fn tuple(handles: impl IntoIterator<Item = LegendHandle>, layout: HandlerTuple) -> Self {
         Self(Source::Tuple(
             handles.into_iter().map(|handle| handle.0).collect(),
-            layout,
+        ))
+        .with_handler(layout)
+    }
+
+    /// A handle standing for `object`, which is no artist: the legend
+    /// draws it with the handler registered for its type,
+    /// [`HandlerKey::of::<T>()`](HandlerKey::of), in the
+    /// [`handler_map`](super::LegendOptions::handler_map) or the default
+    /// one (matplotlib's handles of any class, with
+    /// `handler_map={AnyObject: AnyObjectHandler()}`); the handler can
+    /// read the object back through
+    /// [`HandlerEntry::object`](super::HandlerEntry::object). The handle
+    /// has no label of its own: give the entry one.
+    pub fn object<T: Any>(object: T) -> Self {
+        Self(Source::Object(LegendObject {
+            value: Rc::new(object),
+            key: TypeKey::of::<T>(),
+        }))
+    }
+
+    /// The same handle drawn by `handler` whatever the handler map says
+    /// (matplotlib's `handler_map={handle: handler}`, keyed by the handle
+    /// itself).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::legend::{HandlerPatch, LegendHandle, LegendOptions};
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("as a box"))?;
+    /// let boxed = LegendHandle::from(&line).with_handler(HandlerPatch);
+    /// ax.legend(LegendOptions::default().handles([boxed]))?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn with_handler(self, handler: impl LegendHandler + 'static) -> Self {
+        Self(Source::Handled(
+            Box::new(self.0),
+            OwnHandler(Rc::new(handler)),
         ))
     }
 
@@ -213,44 +297,43 @@ impl Source {
             Self::Artist(id) => store.get(*id).map(|a| a.base().label.clone()),
             Self::Container(container) => container.label().map(str::to_owned),
             Self::Proxy(proxy) => Some(proxy.base().label.clone()),
-            Self::Tuple(..) => None,
-            Self::Npoints(source, _) => source.label(store),
+            Self::Tuple(..) | Self::Object(_) => None,
+            Self::Npoints(source, _) | Self::Handled(source, _) => source.label(store),
         }
     }
 
-    /// Whether legends can draw an entry for it (matplotlib's handler map
-    /// lookup).
-    pub(crate) fn has_handler(&self, store: &ArtistStore) -> bool {
+    /// The keys of the handler map that may hold its handler, the most
+    /// specific first (matplotlib's lookup through the class's method
+    /// resolution order).
+    pub(crate) fn handler_keys(&self, store: &ArtistStore) -> Vec<HandlerKey> {
         match self {
-            Self::Artist(id) => artist_has_handler(store, *id),
-            Self::Container(_) | Self::Proxy(_) | Self::Tuple(..) => true,
-            Self::Npoints(source, _) => source.has_handler(store),
+            Self::Artist(id) => HandlerKey::of_artist(store, *id),
+            Self::Container(ContainerIds::Bar { .. }) => vec![HandlerKey::BarContainer],
+            Self::Container(ContainerIds::Errorbar(_)) => vec![HandlerKey::ErrorbarContainer],
+            Self::Container(ContainerIds::Stem { .. }) => vec![HandlerKey::StemContainer],
+            Self::Proxy(Proxy::Line(_)) => vec![HandlerKey::Line],
+            Self::Proxy(Proxy::Patch(_)) => {
+                vec![
+                    HandlerKey::Type(TypeKey::of::<Rectangle>()),
+                    HandlerKey::Patch,
+                ]
+            }
+            Self::Tuple(_) => vec![HandlerKey::Tuple],
+            Self::Object(object) => vec![HandlerKey::Type(object.key)],
+            Self::Npoints(source, _) | Self::Handled(source, _) => source.handler_keys(store),
         }
     }
-}
-
-/// Whether the artist is a line, a patch, or a line, path or polygon
-/// collection (the classes of matplotlib's default handler map).
-fn artist_has_handler(store: &ArtistStore, id: ArtistId) -> bool {
-    let Some(artist) = store.get(id) else {
-        return false;
-    };
-    if store.get_as::<LineArtist>(id).is_some() || artist.as_patch().is_some() {
-        return true;
-    }
-    store.get_as::<CollectionArtist>(id).is_some_and(|c| {
-        matches!(
-            c.kind,
-            CollectionKind::Line | CollectionKind::Path | CollectionKind::Poly
-        )
-    })
 }
 
 /// The artists and containers of `axes` a legend can list, unless
-/// labelled `_nolegend_`, in plotting order with the containers last,
-/// each axes followed by its parasites (matplotlib's
-/// `_get_legend_handles`).
-pub(crate) fn candidates(store: &ArtistStore, axes: &[ArtistId]) -> Vec<Source> {
+/// labelled `_nolegend_` or without a handler in `handlers`, in plotting
+/// order with the containers last, each axes followed by its parasites
+/// (matplotlib's `_get_legend_handles`).
+pub(crate) fn candidates(
+    store: &ArtistStore,
+    axes: &[ArtistId],
+    handlers: &HandlerMap,
+) -> Vec<Source> {
     axes.iter()
         .flat_map(|&id| std::iter::once(id).chain(parasites_of(store, id)))
         .filter_map(|id| store.get_as::<AxesState>(id))
@@ -260,19 +343,21 @@ pub(crate) fn candidates(store: &ArtistStore, axes: &[ArtistId]) -> Vec<Source> 
             artists.chain(containers).collect::<Vec<_>>()
         })
         .filter(|source| {
-            source.has_handler(store) && source.label(store).as_deref() != Some("_nolegend_")
+            handlers.handler_for(source, store).is_some()
+                && source.label(store).as_deref() != Some("_nolegend_")
         })
         .collect()
 }
 
 /// The entries of a legend: the given handles and labels, or the
-/// candidates of `axes` (matplotlib's `_parse_legend_args`). Unequal
-/// lists are cut to the shorter one.
+/// candidates of `axes` that `handlers` can draw (matplotlib's
+/// `_parse_legend_args`). Unequal lists are cut to the shorter one.
 pub(crate) fn entries(
     store: &ArtistStore,
     axes: &[ArtistId],
     handles: Option<Vec<LegendHandle>>,
     labels: Option<Vec<String>>,
+    handlers: &HandlerMap,
 ) -> Vec<(Source, String)> {
     match (handles, labels) {
         (Some(handles), Some(labels)) => handles.into_iter().map(|h| h.0).zip(labels).collect(),
@@ -283,8 +368,11 @@ pub(crate) fn entries(
                 (handle.0, label)
             })
             .collect(),
-        (None, Some(labels)) => candidates(store, axes).into_iter().zip(labels).collect(),
-        (None, None) => candidates(store, axes)
+        (None, Some(labels)) => candidates(store, axes, handlers)
+            .into_iter()
+            .zip(labels)
+            .collect(),
+        (None, None) => candidates(store, axes, handlers)
             .into_iter()
             .filter_map(|source| {
                 let label = source.label(store)?;

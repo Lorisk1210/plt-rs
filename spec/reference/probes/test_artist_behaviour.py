@@ -42,6 +42,16 @@ Ops
     and below its centre, in row-major order: the cursor data are
     formatted with as many significant digits as the boundaries' spacing
     calls for (``test_format_cursor_data_BoundaryNorm``).
+``artist.base_properties``  {} -> {"before", "after", "figure_linewidth"}
+    The properties every artist has, read back from ``ax.plot([0, 1], [0,
+    1])`` as made (``before``) and after ``set_rasterized(True)``,
+    ``set_animated(True)``, ``set_in_layout(False)``, ``set_snap(False)``,
+    ``set_sketch_params(1, 100, 2)``, ``set_clip_on(False)``,
+    ``set_clip_box(None)`` and ``set_url("u")`` (``after``): rasterized,
+    animated, in_layout, snap, sketch, clip_on, url, whether the transform
+    is set, whether the clip box is the axes box (``null`` without one),
+    whether there is a clip path and the number of path effects; and the
+    figure's ``get_linewidth()``.
 ``artist.cull_markers``  {} -> {"pdf_small", "svg_small"}
     20000 ``"k."`` markers at ``spec_support.rng(3)`` points in the unit
     square, viewed over ``xlim=(2, 3)`` (none shown): whether the PDF is
@@ -160,6 +170,36 @@ def _cursor_boundary(data, boundaries, ncolors, clip, extend):
     return messages
 
 
+def _base_properties():
+    fig, ax = _axes()
+    line, = ax.plot([0, 1], [0, 1])
+    fig.canvas.draw()
+
+    def read():
+        box = line.get_clip_box()
+        return {
+            "rasterized": line.get_rasterized(), "animated": line.get_animated(),
+            "in_layout": line.get_in_layout(), "snap": line.get_snap(),
+            "sketch": line.get_sketch_params(), "clip_on": line.get_clip_on(),
+            "url": line.get_url(), "transform_set": line.is_transform_set(),
+            "clip_box_is_axes": None if box is None else bool(
+                np.allclose(box.get_points(), ax.bbox.get_points())),
+            "clip_path": line.get_clip_path() is not None,
+            "path_effects": len(line.get_path_effects()),
+        }
+
+    before = read()
+    line.set_rasterized(True)
+    line.set_animated(True)
+    line.set_in_layout(False)
+    line.set_snap(False)
+    line.set_sketch_params(1, 100, 2)
+    line.set_clip_on(False)
+    line.set_clip_box(None)
+    line.set_url("u")
+    return {"before": before, "after": read(), "figure_linewidth": fig.get_linewidth()}
+
+
 def _cull_markers():
     generator = rng(3)
     x, y = generator.uniform(20000), generator.uniform(20000)
@@ -176,6 +216,7 @@ def test_scenes():
     probes.probe("artist.default_zorder", _default_zorder)
     probes.probe("artist.transform_of_none", _transform_of_none)
     probes.probe("artist.remove", _remove)
+    probes.probe("artist.base_properties", _base_properties)
     probes.probe("artist.cull_markers", _cull_markers)
 
 

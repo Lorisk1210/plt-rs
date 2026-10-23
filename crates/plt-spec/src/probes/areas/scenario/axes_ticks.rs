@@ -1,6 +1,7 @@
 //! Axes steps about scales and ticks.
 
 use plt::axes::{Axes, Axis, AxisName, LocatorParams};
+use plt::dates::TimeZone;
 use plt::scale::{ScaleOptions, scale_factory};
 use plt::ticker::{MultipleLocator, Nbins};
 
@@ -86,6 +87,23 @@ pub(super) fn call(ax: &Axes, call: &Call<'_>) -> Handled {
                 axis.set_major_locator(locator);
                 Produced::Nothing
             })
+        }
+        "xaxis.get_remove_overlapping_locs" | "yaxis.get_remove_overlapping_locs" => {
+            let axis = ax.axis_of(if method.starts_with('x') { X } else { Y });
+            Ok(Produced::Value(axis.remove_overlapping_locs().into()))
+        }
+        "xaxis.set_remove_overlapping_locs" | "yaxis.set_remove_overlapping_locs" => {
+            let axis = ax.axis_of(if method.starts_with('x') { X } else { Y });
+            call.opt_bool(0, "val").and_then(|remove| {
+                let remove = remove.ok_or_else(|| call.bad("missing val"))?;
+                axis.set_remove_overlapping_locs(remove);
+                Ok(Produced::Nothing)
+            })
+        }
+        "xaxis_date" | "yaxis_date" => {
+            ax.axis_of(if method.starts_with('x') { X } else { Y })
+                .axis_date(&TimeZone::Utc);
+            Ok(Produced::Nothing)
         }
         "locator_params" => locator_params(ax, call),
         "minorticks_on" => {

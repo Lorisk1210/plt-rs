@@ -1,7 +1,10 @@
 //! Axes steps about axis labels and the sides ticks and tick labels are
-//! drawn on: `label_outer`, `tick_left` and friends, `get_tick_params`.
+//! drawn on: `label_outer`, `tick_left` and friends, `get_tick_params`,
+//! `get_ticks_position`, and whether ticks go below the artists
+//! (`set_axisbelow`).
 
-use plt::axes::{Axes, AxisName, LabelLoc};
+use plt::axes::{Axes, AxisName, LabelLoc, TickParams, TickPosition};
+use plt::rc::AxisBelow;
 use plt::spines::SpineSide;
 
 use super::call::{Call, KEYWORD_ONLY};
@@ -73,8 +76,59 @@ pub(super) fn call(ax: &Axes, call: &Call<'_>) -> Handled {
         "xaxis.offsetText.get_visible" | "yaxis.offsetText.get_visible" => Ok(Produced::Value(
             ax.axis_of(axis_name).offset_text_visible().into(),
         )),
+        "xaxis.get_ticks_position" | "yaxis.get_ticks_position" => Ok(Produced::Value(
+            ticks_position(ax.axis_of(axis_name).ticks_position()).into(),
+        )),
+        "tick_params" => set_tick_sides(ax, call),
+        "set_axisbelow" => call.required(0, "b").and_then(|setting| {
+            ax.set_axisbelow(axisbelow(setting).ok_or_else(|| call.bad("bad axisbelow"))?);
+            Ok(Produced::Nothing)
+        }),
+        "get_axisbelow" => Ok(Produced::Value(match ax.axisbelow() {
+            AxisBelow::Below => Json::Bool(true),
+            AxisBelow::Line => "line".into(),
+            AxisBelow::Above => Json::Bool(false),
+        })),
         _ => return None,
     })
+}
+
+/// matplotlib's `get_ticks_position` names.
+fn ticks_position(position: Option<TickPosition>) -> &'static str {
+    match position {
+        Some(TickPosition::Side(side)) => side.name(),
+        Some(TickPosition::Default) => "default",
+        Some(TickPosition::Both | TickPosition::None) | None => "unknown",
+    }
+}
+
+/// matplotlib's `set_axisbelow` argument: `True`, `"line"` or `False`.
+fn axisbelow(setting: &Json) -> Option<AxisBelow> {
+    match setting {
+        Json::Bool(true) => Some(AxisBelow::Below),
+        Json::Bool(false) => Some(AxisBelow::Above),
+        Json::String(line) if line == "line" => Some(AxisBelow::Line),
+        _ => None,
+    }
+}
+
+/// matplotlib's `tick_params(top=..., labeltop=..., ...)`: the sides with
+/// tick marks and labels.
+fn set_tick_sides(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
+    let side = |name: &str| call.opt_bool(KEYWORD_ONLY, name);
+    let params = TickParams {
+        bottom: side("bottom")?,
+        top: side("top")?,
+        left: side("left")?,
+        right: side("right")?,
+        labelbottom: side("labelbottom")?,
+        labeltop: side("labeltop")?,
+        labelleft: side("labelleft")?,
+        labelright: side("labelright")?,
+        ..TickParams::default()
+    };
+    ax.tick_params(&params);
+    Ok(Produced::Nothing)
 }
 
 /// matplotlib's `loc` of `set_xlabel` (`left`, `center`, `right`) and

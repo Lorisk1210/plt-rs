@@ -152,6 +152,11 @@ impl Text {
     pub fn has_bbox(&self) -> bool {
         self.raw.with::<TextArtist, _>(|t| t.bbox.is_some())
     }
+
+    /// The box behind the text, if any (matplotlib's `get_bbox_patch`).
+    pub fn bbox_patch(&self) -> Option<TextBox> {
+        self.raw.with::<TextArtist, _>(|t| t.bbox.clone())
+    }
 }
 
 artist_properties! {

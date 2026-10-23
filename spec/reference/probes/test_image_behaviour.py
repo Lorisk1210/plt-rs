@@ -51,6 +51,13 @@ Ops
     ``vmin=0``, ``vmax=100``, ``aspect="auto"``: the middle row of the
     rendered pixels, where values equal to ``vmin`` must not take the under
     colour (``test_exact_vmin``).
+``image.settings``  {} -> {"before", "after", "zero_radius_rejected"}
+    ``ax.imshow(arange(12.0).reshape(3, 4))`` read back as made
+    (``before``) and after ``set_filternorm(False)``, ``set_filterrad(2)``,
+    ``set_resample(True)``, ``set_interpolation_stage("rgba")`` and
+    ``set_data(arange(8.0).reshape(4, 2) * 10)`` (``after``): filternorm,
+    filterrad, resample, interpolation_stage, clim, extent and the shape of
+    ``get_array()``; then whether ``set_filterrad(0)`` is rejected.
 ``image.draw``  {scene} -> "drawn"
     ``all_nan``: ``ax.imshow(full((2, 2), nan))``; ``partly_nan``:
     ``ax.imshow([[1, 2], [3, nan]])`` (``test_mask_image_all``,
@@ -243,6 +250,38 @@ def test_extents_and_limits():
         probes.probe("image.window_extent", _window_extent, transform=transform)
     for scene in ["relim", "axes", "affine", "axes_aspect"]:
         probes.probe("image.limits", _limits, scene=scene)
+
+
+def _settings():
+    fig, ax = _axes()
+    im = ax.imshow(np.arange(12.0).reshape(3, 4))
+
+    def read():
+        return {
+            "filternorm": im.get_filternorm(), "filterrad": float(im.get_filterrad()),
+            "resample": im.get_resample(), "interpolation_stage": im.get_interpolation_stage(),
+            "clim": [float(v) for v in im.get_clim()],
+            "extent": [float(v) for v in im.get_extent()],
+            "shape": list(im.get_array().shape),
+        }
+
+    before = read()
+    im.set_filternorm(False)
+    im.set_filterrad(2)
+    im.set_resample(True)
+    im.set_interpolation_stage("rgba")
+    im.set_data(np.arange(8.0).reshape(4, 2) * 10)
+    after = read()
+    try:
+        im.set_filterrad(0)
+        rejected = False
+    except ValueError:
+        rejected = True
+    return {"before": before, "after": after, "zero_radius_rejected": rejected}
+
+
+def test_settings():
+    probes.probe("image.settings", _settings)
 
 
 def test_output():

@@ -8,7 +8,7 @@ use plt_core::{Bbox, Point};
 
 use super::artist::{HandleRef, LegendArtist, LegendParent};
 use super::handle::Source;
-use super::handlers::{self, HandleArtists, HandleBox, HandlerContext};
+use super::handlers::{self, HandleBox, HandlerArtist, HandlerContext, HandlerMap};
 use super::labelcolor::{HandleView, label_colors};
 use super::layout;
 use super::settings::{Location, Placement, Settings};
@@ -30,7 +30,7 @@ const LEGEND_ZORDER: f64 = 5.0;
 
 /// One entry before its artists join the figure.
 struct Entry {
-    handle: HandleArtists,
+    handle: Vec<HandlerArtist>,
     text: TextArtist,
 }
 
@@ -70,7 +70,6 @@ impl Parts<'_> {
                     DrawingArea::new(area.width, area.height, area.xdescent, area.ydescent);
                 drawing.artists = entry
                     .handle
-                    .artists
                     .into_iter()
                     .map(|handle| HandleRef {
                         id: self.insert(handle.artist),
@@ -88,13 +87,14 @@ impl Parts<'_> {
     }
 }
 
-/// Makes a legend listing `entries` in `parent`, adds it and its parts to
-/// the figure and returns its id.
+/// Makes a legend listing `entries` in `parent`, their handles drawn by
+/// `handlers`, adds it and its parts to the figure and returns its id.
 pub(crate) fn build(
     state: &mut FigureState,
     parent: LegendParent,
     mut entries: Vec<(Source, String)>,
     options: &LegendOptions,
+    handlers: &HandlerMap,
 ) -> Result<ArtistId, LegendError> {
     let rc = crate::rc::params();
     let settings = Settings::resolve(options, &rc)?;
@@ -119,7 +119,13 @@ pub(crate) fn build(
     let title = title_text(options, &rc)?;
     let has_title = title.base().visible;
     let area = handle_box(&settings);
-    let (made, handles) = make_entries(state, &settings, &rc, &entries, &area)?;
+    let ctx = HandlerContext {
+        store: &state.store,
+        settings: &settings,
+        rc: &rc,
+        handlers,
+    };
+    let (made, handles) = make_entries(&ctx, &entries, &area)?;
     let colors = entry_colors(options, &made, &handles, &rc)?;
 
     let mut parts = Parts {
@@ -149,6 +155,7 @@ pub(crate) fn build(
         parts: parts.clone(),
         kept: false,
         dragger: None,
+        handler_map: options.handler_map.clone(),
     };
     let id = state.adopt(parent.id(), Box::new(legend));
     for part in parts {
@@ -169,8 +176,8 @@ fn entry_colors(
     let views: Vec<HandleView<'_>> = handles
         .iter()
         .map(|index| HandleView {
-            artist: index.map(|i| made[i].handle.artists[0].artist.as_ref()),
-            mapped: index.is_some_and(|i| made[i].handle.mapped),
+            artist: index.map(|i| made[i].handle[0].artist.as_ref()),
+            mapped: index.is_some_and(|i| made[i].handle[0].mapped),
         })
         .collect();
     label_colors(options.labelcolor.as_ref(), &views, made.len(), rc)
@@ -323,22 +330,17 @@ fn handle_box(settings: &Settings) -> HandleBox {
 /// The handle artists and label of every supported entry, and for every
 /// entry the index of its made entry (`None` when unsupported).
 fn make_entries(
-    state: &FigureState,
-    settings: &Settings,
-    rc: &Rc<RcParams>,
+    ctx: &HandlerContext<'_>,
     entries: &[(Source, String)],
     area: &HandleBox,
 ) -> Result<(Vec<Entry>, Vec<Option<usize>>), LegendError> {
-    let ctx = HandlerContext {
-        store: &state.store,
-        settings,
-        rc,
-    };
     let mut made = Vec::new();
     let mut indices = Vec::with_capacity(entries.len());
     for (source, label) in entries {
-        match handlers::create(&ctx, source, area)? {
-            Some(handle) if !handle.artists.is_empty() => {
+        match handlers::create(ctx, source, area)? {
+            Some(handle) => {
+                let rc = ctx.rc;
+                let settings = ctx.settings;
                 let mut text = TextArtist::new(Point::ORIGIN, label.clone(), Rc::clone(rc));
                 text.font = settings.prop.clone();
                 indices.push(Some(made.len()));

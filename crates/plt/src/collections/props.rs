@@ -1,9 +1,65 @@
-//! Property sets for new collections (matplotlib's collection `**kwargs`).
+//! Property sets for new collections (matplotlib's collection `**kwargs`)
+//! and the look of existing ones.
+
+use plt_render::{CapStyle, JoinStyle};
 
 use super::{CollectionArtist, CollectionKind, EdgeColors, HatchColors};
 use crate::artist::{Artist, BaseProps};
 use crate::colors::Color;
 use crate::lines::LineStyle;
+
+/// The look of a collection's items as set, before defaults and colour
+/// mapping are applied ([`Collection::style`](super::Collection::style);
+/// matplotlib's `get_linewidth`, `get_linestyle`, `get_hatch`, ...; the
+/// colours drawn come from [`Collection::colors`](super::Collection::colors)).
+/// Lists are cycled over the items.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CollectionStyle {
+    /// Face colours (`None` = the kind's default).
+    pub facecolors: Option<Vec<Color>>,
+    /// Edge colours.
+    pub edgecolors: EdgeColors,
+    /// Edge widths in points (`None` = the kind's default).
+    pub linewidths: Option<Vec<f64>>,
+    /// Edge line styles.
+    pub linestyles: Vec<LineStyle>,
+    /// One opacity per item, replacing the artist's alpha.
+    pub alphas: Option<Vec<f64>>,
+    /// Anti-aliasing (`None` = the rc default).
+    pub antialiased: Option<Vec<bool>>,
+    /// Hatch pattern of every item.
+    pub hatch: Option<String>,
+    /// Hatch colours.
+    pub hatchcolors: HatchColors,
+    /// Width of the hatch lines in points.
+    pub hatch_linewidth: f64,
+    /// Cap style of the edges (`None` = the renderer's default).
+    pub capstyle: Option<CapStyle>,
+    /// Join style of the edges (`None` = the renderer's default).
+    pub joinstyle: Option<JoinStyle>,
+    /// Colours in the gaps of dashed edges (`None` = empty gaps).
+    pub gapcolors: Option<Vec<Color>>,
+}
+
+impl CollectionStyle {
+    /// The style of `collection`.
+    pub(super) fn of(collection: &CollectionArtist) -> Self {
+        Self {
+            facecolors: collection.facecolors.clone(),
+            edgecolors: collection.edgecolors.clone(),
+            linewidths: collection.linewidths.clone(),
+            linestyles: collection.linestyles.clone(),
+            alphas: collection.alphas.clone(),
+            antialiased: collection.antialiased.clone(),
+            hatch: collection.hatch.clone(),
+            hatchcolors: collection.hatchcolors.clone(),
+            hatch_linewidth: collection.hatch_linewidth,
+            capstyle: collection.capstyle,
+            joinstyle: collection.joinstyle,
+            gapcolors: collection.gapcolors.clone(),
+        }
+    }
+}
 
 /// Properties of a new collection; unset ones keep their defaults. Lists
 /// are cycled over the items.

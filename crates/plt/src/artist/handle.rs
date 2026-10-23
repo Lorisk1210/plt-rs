@@ -5,6 +5,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use plt_core::{Bbox, Point};
+use plt_render::Sketch;
 
 use super::{
     AggFilter, Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext, Picker,
@@ -320,6 +321,13 @@ pub trait ArtistHandle {
         self
     }
 
+    /// The coordinate system set on the artist, `None` while it keeps the
+    /// default of the function that made it (matplotlib's `get_transform`
+    /// and `is_transform_set`).
+    fn transform(&self) -> Option<Transform> {
+        self.raw().with_base(|b| b.transform.clone())
+    }
+
     /// Enables or disables clipping.
     fn set_clip_on(&self, clip_on: bool) -> &Self
     where
@@ -327,6 +335,28 @@ pub trait ArtistHandle {
     {
         self.raw().with_base_mut(|b| b.clip_on = clip_on);
         self
+    }
+
+    /// Whether clipping is applied (matplotlib's `get_clip_on`).
+    fn clip_on(&self) -> bool {
+        self.raw().with_base(|b| b.clip_on)
+    }
+
+    /// Clips the artist to the box of the axes or figure `owner` (an
+    /// [`ArtistId`] such as `ax.id()`), or to no box (matplotlib's
+    /// `set_clip_box(ax.bbox)`); clipping must be on for it to apply.
+    fn set_clip_box(&self, owner: Option<ArtistId>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.clip_box = owner);
+        self
+    }
+
+    /// The axes or figure whose box clips the artist, if any (matplotlib's
+    /// `get_clip_box`).
+    fn clip_box(&self) -> Option<ArtistId> {
+        self.raw().with_base(|b| b.clip_box)
     }
 
     /// Clips the artist to a region besides its clip box (matplotlib's
@@ -339,6 +369,12 @@ pub trait ArtistHandle {
         self
     }
 
+    /// The clip region besides the clip box, if any (matplotlib's
+    /// `get_clip_path`).
+    fn clip_path(&self) -> Option<ClipPathSpec> {
+        self.raw().with_base(|b| b.clip_path.clone())
+    }
+
     /// Sets the effects applied when the artist's paths are drawn
     /// (matplotlib's `set_path_effects`).
     fn set_path_effects(&self, effects: Vec<PathEffect>) -> &Self
@@ -349,6 +385,12 @@ pub trait ArtistHandle {
         self
     }
 
+    /// The effects applied when the artist's paths are drawn (matplotlib's
+    /// `get_path_effects`).
+    fn path_effects(&self) -> Vec<PathEffect> {
+        self.raw().with_base(|b| b.path_effects.clone())
+    }
+
     /// Requests rasterization of this artist in vector output.
     fn set_rasterized(&self, rasterized: bool) -> &Self
     where
@@ -356,6 +398,12 @@ pub trait ArtistHandle {
     {
         self.raw().with_base_mut(|b| b.rasterized = rasterized);
         self
+    }
+
+    /// Whether the artist is rasterized in vector output (matplotlib's
+    /// `get_rasterized`).
+    fn rasterized(&self) -> bool {
+        self.raw().with_base(|b| b.rasterized)
     }
 
     /// Marks the artist as animated: left out of normal draws (for
@@ -369,6 +417,11 @@ pub trait ArtistHandle {
         self
     }
 
+    /// Whether the artist is animated (matplotlib's `get_animated`).
+    fn animated(&self) -> bool {
+        self.raw().with_base(|b| b.animated)
+    }
+
     /// Includes or excludes the artist from layout computations.
     fn set_in_layout(&self, in_layout: bool) -> &Self
     where
@@ -376,6 +429,44 @@ pub trait ArtistHandle {
     {
         self.raw().with_base_mut(|b| b.in_layout = in_layout);
         self
+    }
+
+    /// Whether layout computations account for the artist (matplotlib's
+    /// `get_in_layout`).
+    fn in_layout(&self) -> bool {
+        self.raw().with_base(|b| b.in_layout)
+    }
+
+    /// Sets whether the artist's paths snap to the pixel grid: always,
+    /// never, or as the renderer decides with `None` (matplotlib's
+    /// `set_snap`).
+    fn set_snap(&self, snap: Option<bool>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.snap = snap);
+        self
+    }
+
+    /// The pixel snapping preference (matplotlib's `get_snap`).
+    fn snap(&self) -> Option<bool> {
+        self.raw().with_base(|b| b.snap)
+    }
+
+    /// Draws the artist's lines with a hand-drawn wobble, or straight
+    /// with `None` (matplotlib's `set_sketch_params`; a new artist takes
+    /// `path.sketch`).
+    fn set_sketch_params(&self, sketch: Option<Sketch>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.sketch = sketch);
+        self
+    }
+
+    /// The hand-drawn wobble, if any (matplotlib's `get_sketch_params`).
+    fn sketch_params(&self) -> Option<Sketch> {
+        self.raw().with_base(|b| b.sketch)
     }
 
     /// Sets the group id used in vector output.
@@ -403,6 +494,12 @@ pub trait ArtistHandle {
         self
     }
 
+    /// The hyperlink used in vector output, if set (matplotlib's
+    /// `get_url`).
+    fn url(&self) -> Option<String> {
+        self.raw().with_base(|b| b.url.clone())
+    }
+
     /// The artist's extent in display coordinates in the figure's current
     /// layout (laid out first), if it occupies space (matplotlib's
     /// `get_window_extent`).
@@ -427,5 +524,66 @@ pub trait ArtistHandle {
             .figure_state()
             .borrow_mut()
             .remove_artist(self.id());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::figure::Figure;
+    use crate::patheffects::PathEffect;
+
+    #[test]
+    fn base_properties_read_back_as_set() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [0.0, 1.0]).expect("a line");
+        assert_eq!(line.transform(), Some(ax.trans_data()));
+        assert!(line.clip_on() && !line.rasterized() && !line.animated() && line.in_layout());
+        assert_eq!((line.clip_box(), line.clip_path()), (Some(ax.id()), None));
+        assert_eq!(
+            (line.snap(), line.sketch_params(), line.url()),
+            (None, None, None)
+        );
+        assert_eq!(line.path_effects(), Vec::<PathEffect>::new());
+        let sketch = Sketch {
+            scale: 1.0,
+            length: 100.0,
+            randomness: 2.0,
+        };
+        line.set_transform(Transform::Display)
+            .set_clip_on(false)
+            .set_clip_box(None)
+            .set_rasterized(true)
+            .set_animated(true)
+            .set_in_layout(false)
+            .set_snap(Some(false))
+            .set_sketch_params(Some(sketch))
+            .set_path_effects(vec![PathEffect::normal()])
+            .set_url("https://matplotlib.org");
+        assert_eq!(line.transform(), Some(Transform::Display));
+        assert!(!line.clip_on() && line.rasterized() && line.animated() && !line.in_layout());
+        assert_eq!(line.clip_box(), None);
+        assert_eq!(
+            (line.snap(), line.sketch_params()),
+            (Some(false), Some(sketch))
+        );
+        assert_eq!(line.path_effects(), [PathEffect::normal()]);
+        assert_eq!(line.url().as_deref(), Some("https://matplotlib.org"));
+    }
+
+    #[test]
+    fn new_artists_take_the_rc_sketch() {
+        crate::rc::context(|| {
+            crate::rc::set("path.sketch", "(1, 50, 3)").expect("a valid sketch");
+            let fig = Figure::new();
+            let text = fig.text(0.5, 0.5, "x");
+            let sketch = text.sketch_params().expect("the rc sketch");
+            assert_eq!(
+                (sketch.scale, sketch.length, sketch.randomness),
+                (1.0, 50.0, 3.0)
+            );
+            assert_eq!(text.transform(), Some(Transform::Figure(fig.id())));
+        });
     }
 }

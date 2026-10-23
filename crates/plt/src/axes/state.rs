@@ -5,7 +5,7 @@ use std::rc::Rc;
 use plt_core::{Bbox, Path, Point};
 
 use super::DataLimits;
-use super::aspect::AspectState;
+use super::aspect::{AspectState, AxesLocatorFn};
 use super::axis::{AxisGeometry, AxisState};
 use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
@@ -17,7 +17,7 @@ use crate::colors::Color;
 use crate::geo::{self, GeoState};
 use crate::gridspec::SubplotSpec;
 use crate::polar::{PolarState, PolarView};
-use crate::rc::{Cycler, RcParams};
+use crate::rc::{AxisBelow, Cycler, RcParams};
 use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
 use crate::transforms::{ResolvedTransform, Step, Transform, bbox_to_unit, unit_to_bbox};
 
@@ -30,6 +30,9 @@ pub(crate) struct AxesState {
     pub(crate) position: Bbox,
     /// The aspect settings and the active position they produce.
     pub(crate) aspect: AspectState,
+    /// The function placing the axes at layout time, if one was set
+    /// (matplotlib's `_axes_locator`).
+    pub(crate) axes_locator: Option<AxesLocatorFn>,
     /// The grid cell the axes occupies, if placed on a grid.
     pub(crate) subplot_spec: Option<SubplotSpec>,
     /// The coordinate system.
@@ -89,8 +92,8 @@ pub(crate) struct AxesState {
     pub(crate) forward_navigation: Option<bool>,
     /// How the titles' height is chosen (matplotlib's `_autotitlepos`).
     pub(crate) title_placement: TitlePlacement,
-    /// z-order of the axis artists (`axes.axisbelow`).
-    pub(crate) axis_zorder: f64,
+    /// Where the axis artists sit in the z-order (`axes.axisbelow`).
+    pub(crate) axisbelow: AxisBelow,
     /// Children at or below this z-order are rasterized together in
     /// vector output (matplotlib's `rasterization_zorder`).
     pub(crate) rasterization_zorder: Option<f64>,
@@ -176,6 +179,7 @@ impl AxesState {
             base: ArtistBase::default(),
             position,
             aspect: AspectState::default(),
+            axes_locator: None,
             subplot_spec: None,
             projection: Projection::Rectilinear,
             view_lim: Bbox::UNIT,
@@ -216,7 +220,7 @@ impl AxesState {
             } else {
                 TitlePlacement::Auto
             },
-            axis_zorder: rc.axes_axisbelow.zorder(),
+            axisbelow: rc.axes_axisbelow,
             rasterization_zorder: None,
             current_image: None,
             rc,

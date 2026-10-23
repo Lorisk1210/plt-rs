@@ -6,6 +6,7 @@ use std::rc::Rc;
 use crate::artist::ArtistId;
 
 use super::axis_label::{AxisLabel, LabelLoc, label_font};
+use super::axis_units::AxisUnits;
 use super::tick_set::{Tick, TickSet};
 use super::ticks::{Sides, TickStyle};
 use super::{TickLabelProps, TickLineProps};
@@ -16,7 +17,9 @@ use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
 use crate::ticker::{AxisInfo, AxisName, Formatter, Locator, TickContext, TickerSettings};
 use crate::transforms::{AxisMap, interval_contains_close};
-use crate::units::{AxisValues, Categories, CategoryFormatter, CategoryLocator, date_tickers};
+use crate::units::{
+    AxisValues, Categories, CategoryFormatter, CategoryLocator, UnitConverter, date_tickers,
+};
 
 /// Autoscaling configuration and state of one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -96,6 +99,8 @@ pub(crate) struct AxisState {
     default_major: (bool, bool),
     /// Category names, once categorical values were plotted.
     categories: Option<Categories>,
+    /// The unit converter and how it was chosen.
+    pub(crate) units: AxisUnits,
     pub(crate) settings: TickerSettings,
     pub(crate) autoscale: AutoscaleState,
     /// Size of the major tick labels in points as set by the tick
@@ -150,6 +155,7 @@ impl AxisState {
             ticker_owner: None,
             default_major: (true, true),
             categories: None,
+            units: AxisUnits::default(),
             autoscale: AutoscaleState {
                 enabled: true,
                 margin,
@@ -318,17 +324,13 @@ impl AxisState {
         let names = match values {
             AxisValues::Numbers(values) => return values,
             AxisValues::Dates(numbers) => {
-                let (locator, formatter) = date_tickers(&TimeZone::Utc);
-                if self.default_major.0 {
-                    self.major_locator = self.for_role(locator);
-                }
-                if self.default_major.1 {
-                    self.major_formatter = formatter;
-                }
+                self.units.adopt(UnitConverter::Dates);
+                self.use_date_tickers(&TimeZone::Utc);
                 return numbers;
             }
             AxisValues::Categories(names) => names,
         };
+        self.units.adopt(UnitConverter::Categories);
         let categories = self.categories.get_or_insert_with(Categories::default);
         let positions = categories.convert(&names);
         let (locator, formatter) = (
@@ -342,6 +344,19 @@ impl AxisState {
             self.major_formatter = Rc::new(formatter);
         }
         positions
+    }
+
+    /// Installs the tick helpers of dates in `tz` where the defaults are
+    /// still in place (matplotlib's `_update_axisinfo` with the date
+    /// converter's `axisinfo`).
+    pub(crate) fn use_date_tickers(&mut self, tz: &TimeZone) {
+        let (locator, formatter) = date_tickers(tz);
+        if self.default_major.0 {
+            self.major_locator = self.for_role(locator);
+        }
+        if self.default_major.1 {
+            self.major_formatter = formatter;
+        }
     }
 
     /// The non-linear part of the scale (`None` for linear axes).
@@ -436,16 +451,19 @@ impl AxisState {
                 .cloned()
                 .collect()
         };
+        let in_view = |ticks: &[Tick]| -> (Vec<usize>, Vec<Tick>) {
+            (ticks.iter().enumerate())
+                .filter(|(_, tick)| visible(tick.loc))
+                .map(|(index, tick)| (index, tick.clone()))
+                .unzip()
+        };
         // Like matplotlib's `_tick_group_visible`, a tick level whose
         // marks, labels and gridlines are all off is not computed.
         let mut ticks = TickSet::default();
         if self.major_style.is_drawn() {
             let labels = self.major_formatter.format_ticks(&major_locs, &ctx)?;
             ticks.major_unclipped = unclipped(&major_locs, labels.labels);
-            (ticks.major_index, ticks.major) = (ticks.major_unclipped.iter().enumerate())
-                .filter(|(_, tick)| visible(tick.loc))
-                .map(|(index, tick)| (index, tick.clone()))
-                .unzip();
+            (ticks.major_index, ticks.major) = in_view(&ticks.major_unclipped);
             ticks.offset = labels.offset;
             ticks.major_locs.clone_from(&major_locs);
         }
@@ -458,7 +476,7 @@ impl AxisState {
             };
             let labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;
             ticks.minor_unclipped = unclipped(&minor_locs, labels.labels);
-            ticks.minor = collect(&ticks.minor_unclipped);
+            (ticks.minor_index, ticks.minor) = in_view(&ticks.minor_unclipped);
             let labels = self.minor_formatter.format_ticks(&all_locs, &ctx)?;
             ticks.minor_all = collect(&unclipped(&all_locs, labels.labels));
             ticks.minor_locs = all_locs;

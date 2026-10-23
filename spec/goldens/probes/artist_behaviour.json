@@ -34,6 +34,39 @@
   {"op": "artist.alpha", "args": {"kind": "patch", "alpha": null}, "value": null},
   {"op": "artist.alpha", "args": {"kind": "scatter", "alpha": null}, "value": null},
   {"op": "artist.alpha", "args": {"kind": "text", "alpha": null}, "value": null},
+  {
+   "op": "artist.base_properties",
+   "args": {},
+   "value": {
+    "before": {
+     "rasterized": false,
+     "animated": false,
+     "in_layout": true,
+     "snap": null,
+     "sketch": null,
+     "clip_on": true,
+     "url": null,
+     "transform_set": true,
+     "clip_box_is_axes": true,
+     "clip_path": false,
+     "path_effects": 0
+    },
+    "after": {
+     "rasterized": true,
+     "animated": true,
+     "in_layout": false,
+     "snap": false,
+     "sketch": [1, 100, 2],
+     "clip_on": false,
+     "url": "u",
+     "transform_set": true,
+     "clip_box_is_axes": null,
+     "clip_path": false,
+     "path_effects": 0
+    },
+    "figure_linewidth": 0.0
+   }
+  },
   {"op": "artist.cull_markers", "args": {}, "value": {"pdf_small": true, "svg_small": true}},
   {
    "op": "artist.cursor_boundary",

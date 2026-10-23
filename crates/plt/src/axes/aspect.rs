@@ -7,6 +7,7 @@
 //! limits of one axis grow instead.
 
 use std::fmt;
+use std::rc::Rc;
 
 use plt_core::{Anchor, Bbox};
 
@@ -82,6 +83,40 @@ pub(crate) struct AxesLocator {
     pub(crate) offset: (f64, f64),
     /// The box aspect to use instead of the axes' own.
     pub(crate) box_aspect: Option<f64>,
+}
+
+/// A function placing an axes at layout time (matplotlib's axes locator,
+/// a callable of the axes and the renderer): given the position the axes
+/// was given, in fractions of its figure, it returns the position to
+/// place the axes at before its aspect is applied. It runs inside the
+/// layout pass, so it must not call methods of the figure's handles.
+/// Clones share the function.
+#[derive(Clone)]
+pub struct AxesLocatorFn(Rc<dyn Fn(Bbox) -> Bbox>);
+
+impl AxesLocatorFn {
+    /// A locator calling `locate`.
+    pub fn new(locate: impl Fn(Bbox) -> Bbox + 'static) -> Self {
+        Self(Rc::new(locate))
+    }
+
+    /// Where the locator places an axes given `original`.
+    pub fn locate(&self, original: Bbox) -> Bbox {
+        (self.0)(original)
+    }
+}
+
+impl fmt::Debug for AxesLocatorFn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AxesLocatorFn").finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for AxesLocatorFn {
+    /// Locators are equal when they share the function.
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 impl AxesLocator {
@@ -269,6 +304,56 @@ impl Axes {
         self.raw.with::<AxesState, _>(|axes| axes.position)
     }
 
+    /// Draws this axes and its twins at their original positions again,
+    /// undoing the aspect adjustment until the aspect is next applied;
+    /// like [`Axes::set_position`], this takes them out of the layout
+    /// engine's control (matplotlib's `reset_position`).
+    pub fn reset_position(&self) -> &Self {
+        for twin in self.twins() {
+            twin.set_in_layout(false);
+            twin.raw.with_mut::<AxesState, _>(|axes| {
+                axes.aspect.set_active(axes.position, axes.position);
+            });
+        }
+        self
+    }
+
+    /// Places the axes with `locator` at every layout, in place of its
+    /// original position, before its aspect is applied; `None` removes it
+    /// (matplotlib's `set_axes_locator`). An axes has one locator: this
+    /// replaces the placement by a divider, an inset locator or a
+    /// colorbar.
+    ///
+    /// ```
+    /// use plt::axes::AxesLocatorFn;
+    /// use plt::prelude::*;
+    /// use plt::transforms::Bbox;
+    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8]);
+    /// ax.set_axes_locator(Some(AxesLocatorFn::new(|original: Bbox| {
+    ///     let (x0, y0, width, height) = original.bounds();
+    ///     Bbox::from_bounds(x0, y0, width / 2.0, height)
+    /// })));
+    /// let (_, _, width, _) = ax.position().bounds();
+    /// assert!((width - 0.4).abs() < 1e-12);
+    /// ```
+    pub fn set_axes_locator(&self, locator: Option<AxesLocatorFn>) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|axes| {
+            axes.axes_locator = locator;
+            axes.aspect.divider = None;
+            axes.aspect.inset = None;
+            axes.aspect.locator = None;
+        });
+        self.raw.figure_state().borrow_mut().layout.pending = true;
+        self
+    }
+
+    /// The locator set with [`set_axes_locator`](Self::set_axes_locator),
+    /// if any (matplotlib's `get_axes_locator`).
+    pub fn axes_locator(&self) -> Option<AxesLocatorFn> {
+        self.raw
+            .with::<AxesState, _>(|axes| axes.axes_locator.clone())
+    }
+
     /// The ratio of the y to the x view span in scaled coordinates
     /// (matplotlib's `get_data_ratio`).
     pub fn data_ratio(&self) -> f64 {
@@ -346,8 +431,10 @@ impl FigureState {
         };
         let original = state.position;
         let settings = state.aspect;
-        let located = match placement {
-            Placement::Located => {
+        let custom = state.axes_locator.clone();
+        let located = match (placement, custom) {
+            (Placement::Located, Some(locator)) => locator.locate(original),
+            (Placement::Located, None) => {
                 let divided = settings
                     .divider
                     .and_then(|cell| self.locate_in_divider(cell))
@@ -357,7 +444,7 @@ impl FigureState {
                     .locator
                     .map_or(divided, |locator| locator.locate(&divided))
             }
-            Placement::Original => original,
+            (Placement::Original, _) => original,
         };
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;
@@ -465,142 +552,4 @@ impl FigureState {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::figure::Figure;
-
-    fn axes_with_limits(x: (f64, f64), y: (f64, f64)) -> (Figure, Axes) {
-        let fig = Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-        ax.set_xlim(x.0, x.1).set_ylim(y.0, y.1);
-        (fig, ax)
-    }
-
-    #[test]
-    fn box_adjustable_shrinks_and_centres_the_axes() {
-        let (_fig, ax) = axes_with_limits((0.0, 10.0), (0.0, 10.0));
-        ax.set_aspect(Aspect::Equal).unwrap();
-        let (x, y, w, h) = ax.position().bounds();
-        assert!((w * 640.0 - h * 480.0).abs() < 1e-9, "square on screen");
-        assert!((h - 0.77).abs() < 1e-12);
-        assert!((x + w / 2.0 - (0.125 + 0.775 / 2.0)).abs() < 1e-12);
-        assert_eq!(y, 0.11);
-        assert_eq!(ax.original_position().bounds(), (0.125, 0.11, 0.775, 0.77));
-    }
-
-    #[test]
-    fn locators_shrink_and_shift_with_matplotlibs_arithmetic() {
-        // A horizontal colorbar of a 5-inch figure with 5% extensions:
-        // matplotlib's `shrunk(...).translated(...)` puts the extension tip
-        // at 62.49999999999999 pixels, which snapping rounds down.
-        let locator = AxesLocator {
-            shrink: (1.0 / 1.1, 1.0),
-            offset: (0.05 / 1.1, 0.0),
-            box_aspect: None,
-        };
-        let located = locator.locate(&Bbox::from_bounds(0.125, 0.11, 0.775, 0.07));
-        let (x0, width) = (located.x0() * 500.0, located.width() * 500.0);
-        assert_eq!(x0 - 0.05 * width, 62.499_999_999_999_99);
-        assert_eq!(located.y0(), 0.11);
-    }
-
-    #[test]
-    fn anchors_place_the_shrunken_box() {
-        let (_fig, ax) = axes_with_limits((0.0, 10.0), (0.0, 10.0));
-        ax.set_aspect(Aspect::Equal).unwrap().set_anchor(Anchor::W);
-        assert_eq!(ax.position().x0(), 0.125);
-        ax.set_anchor(Anchor::E);
-        assert!((ax.position().x1() - 0.9).abs() < 1e-12);
-    }
-
-    #[test]
-    fn datalim_widens_the_view() {
-        let (_fig, ax) = axes_with_limits((0.0, 1.0), (0.0, 1.0));
-        ax.set_aspect(Aspect::Equal)
-            .unwrap()
-            .set_adjustable(Adjustable::Datalim)
-            .apply_aspect();
-        // Values from matplotlib: without data, y shrinks about its centre.
-        assert_eq!(ax.xlim(), (0.0, 1.0));
-        assert_eq!(
-            ax.ylim(),
-            (0.127_419_354_838_709_7, 0.872_580_645_161_290_3)
-        );
-        assert_eq!(ax.position(), ax.original_position());
-        let (_fig, ax) = axes_with_limits((0.0, 1.0), (0.0, 1.0));
-        ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
-        ax.set_autoscale_on(true);
-        ax.set_aspect(Aspect::Equal)
-            .unwrap()
-            .set_adjustable(Adjustable::Datalim);
-        let (x0, x1) = ax.apply_aspect().xlim();
-        assert!((x0 + 0.238_095_238_095_238_25).abs() < 1e-12);
-        assert!((x1 - 1.238_095_238_095_238_1).abs() < 1e-12);
-        assert_eq!(ax.ylim(), (-0.05, 1.05));
-    }
-
-    #[test]
-    fn box_aspect_fixes_the_box_shape() {
-        let (_fig, ax) = axes_with_limits((0.0, 3.0), (0.0, 1.0));
-        ax.set_box_aspect(Some(1.0)).unwrap();
-        assert_eq!(ax.adjustable(), Adjustable::Datalim);
-        let (_, _, w, h) = ax.position().bounds();
-        assert!((w * 640.0 - h * 480.0).abs() < 1e-9);
-        assert_eq!(ax.xlim(), (0.0, 3.0), "auto aspect leaves the limits");
-    }
-
-    #[test]
-    fn auto_restores_the_original_position() {
-        let (_fig, ax) = axes_with_limits((0.0, 10.0), (0.0, 1.0));
-        ax.set_aspect(Aspect::Ratio(2.0)).unwrap();
-        assert_ne!(ax.position(), ax.original_position());
-        ax.set_aspect(Aspect::Auto).unwrap();
-        assert_eq!(ax.position(), ax.original_position());
-        assert_eq!(ax.aspect(), Aspect::Auto);
-        ax.set_position([0.2, 0.2, 0.5, 0.5]);
-        assert_eq!(ax.position(), Bbox::from_bounds(0.2, 0.2, 0.5, 0.5));
-    }
-
-    #[test]
-    fn invalid_ratios_are_rejected() {
-        let (_fig, ax) = axes_with_limits((0.0, 1.0), (0.0, 1.0));
-        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
-            assert!(ax.set_aspect(Aspect::Ratio(bad)).is_err(), "{bad}");
-            assert!(ax.set_box_aspect(Some(bad)).is_err(), "{bad}");
-        }
-        assert_eq!(ax.aspect(), Aspect::Auto);
-        assert!(
-            AspectError::NotPositive(0.0)
-                .to_string()
-                .contains("positive")
-        );
-    }
-
-    #[test]
-    fn data_ratio_uses_scaled_bounds() {
-        let (_fig, ax) = axes_with_limits((0.0, 4.0), (2.0, 0.0));
-        assert_eq!(ax.data_ratio(), 0.5);
-    }
-
-    #[test]
-    fn a_shared_aspect_reaches_the_axes_sharing_an_axis() {
-        // matplotlib's test_shared_with_aspect_1.
-        let fig = Figure::new();
-        let axs = fig
-            .subplots_shared(2, 1, crate::figure::Share::All, crate::figure::Share::None)
-            .unwrap();
-        let (top, bottom) = (&axs[(0, 0)], &axs[(1, 0)]);
-        top.set_aspect(Aspect::Ratio(2.0)).unwrap();
-        assert_eq!(bottom.aspect(), Aspect::Auto, "unshared by default");
-        top.set_shared_aspect(Aspect::Ratio(2.0), Adjustable::Datalim)
-            .unwrap();
-        assert_eq!(
-            (bottom.aspect(), bottom.adjustable()),
-            (Aspect::Ratio(2.0), Adjustable::Datalim)
-        );
-        assert!(
-            top.set_shared_aspect(Aspect::Ratio(-1.0), Adjustable::Box)
-                .is_err()
-        );
-    }
-}
+mod tests;

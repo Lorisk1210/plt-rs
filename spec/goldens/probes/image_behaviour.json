@@ -48,6 +48,15 @@
   {"op": "image.limits", "args": {"scene": "axes"}, "value": {"xlim": [-0.5, 1.5], "ylim": [1.5, -0.5], "aspect": "auto"}},
   {"op": "image.limits", "args": {"scene": "axes_aspect"}, "value": {"xlim": [-0.5, 1.5], "ylim": [1.5, -0.5], "aspect": 2.0}},
   {"op": "image.limits", "args": {"scene": "relim"}, "value": {"xlim": [0.0, 1.0], "ylim": [0.0, 1.0], "aspect": 1.0}},
+  {
+   "op": "image.settings",
+   "args": {},
+   "value": {
+    "before": {"filternorm": true, "filterrad": 4.0, "resample": true, "interpolation_stage": "auto", "clim": [0.0, 11.0], "extent": [-0.5, 3.5, 2.5, -0.5], "shape": [3, 4]},
+    "after": {"filternorm": false, "filterrad": 2.0, "resample": true, "interpolation_stage": "rgba", "clim": [0.0, 11.0], "extent": [-0.5, 3.5, 2.5, -0.5], "shape": [4, 2]},
+    "zero_radius_rejected": true
+   }
+  },
   {"op": "image.window_extent", "args": {"transform": "axes"}, "value": [[400.0, 200.0], [700.0, 900.0]]},
   {"op": "image.window_extent", "args": {"transform": "data"}, "value": [[400.0, 200.0], [700.0, 900.0]]}
  ]

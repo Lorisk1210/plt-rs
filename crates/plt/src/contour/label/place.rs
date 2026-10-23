@@ -1,6 +1,5 @@
 //! Where labels go along contour lines, in display pixels (matplotlib's
-//! `print_label`, `locate_label`, `too_close` and
-//! `_find_closest_point_on_path`).
+//! `print_label`, `locate_label` and `too_close`).
 
 use plt_core::Point;
 
@@ -83,46 +82,6 @@ pub(super) fn locate(line: &[Point], width: f64, labels: &[Point]) -> (Point, us
     (chosen.0, (chosen.1 * block_size + half) % size)
 }
 
-/// The point of the polyline `line` closest to `p`: its squared distance,
-/// the point, and the vertex index ending the segment it lies on (0 for a
-/// single vertex).
-pub(super) fn closest_point(line: &[Point], p: Point) -> Option<(f64, Point, usize)> {
-    match line {
-        [] => None,
-        [only] => Some(((p.x - only.x).powi(2) + (p.y - only.y).powi(2), *only, 0)),
-        _ => {
-            let candidates = line.windows(2).map(|w| {
-                let (a, b) = (w[0], w[1]);
-                let (dx, dy) = (b.x - a.x, b.y - a.y);
-                let mut norm = dx.powi(2) + dy.powi(2);
-                if norm == 0.0 {
-                    norm = 1.0;
-                }
-                let rel = np_clip(((p.x - a.x) * dx + (p.y - a.y) * dy) / norm);
-                let proj = Point::new(a.x + rel * dx, a.y + rel * dy);
-                ((proj.x - p.x).powi(2) + (proj.y - p.y).powi(2), proj)
-            });
-            // numpy's argmin: the first minimum, or the first NaN.
-            let mut best: Option<(usize, f64, Point)> = None;
-            for (i, (d2, proj)) in candidates.enumerate() {
-                let better = match best {
-                    None => true,
-                    Some((_, current, _)) => !current.is_nan() && (d2.is_nan() || d2 < current),
-                };
-                if better {
-                    best = Some((i, d2, proj));
-                }
-            }
-            best.map(|(i, d2, proj)| (d2, proj, i + 1))
-        }
-    }
-}
-
-/// `np.clip(v, 0, 1)`.
-fn np_clip(v: f64) -> f64 {
-    if v.is_nan() { v } else { v.clamp(0.0, 1.0) }
-}
-
 /// numpy's `max` reduction step: NaN wins.
 fn np_max(a: f64, b: f64) -> f64 {
     if a.is_nan() || b.is_nan() {
@@ -170,17 +129,9 @@ mod tests {
     }
 
     #[test]
-    fn closest_point_projects_onto_segments() {
-        let path = line(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]);
-        let (d2, proj, index) = closest_point(&path, Point::new(4.0, 2.0)).unwrap();
-        assert_eq!((d2, proj, index), (4.0, Point::new(4.0, 0.0), 1));
-        let (_, proj, index) = closest_point(&path, Point::new(12.0, 7.0)).unwrap();
-        assert_eq!((proj, index), (Point::new(10.0, 7.0), 2));
-        assert_eq!(closest_point(&[], Point::ORIGIN), None);
-        assert_eq!(
-            closest_point(&path[..1], Point::new(3.0, 4.0)),
-            Some((25.0, Point::ORIGIN, 0))
-        );
+    fn too_close_within_a_label_width() {
         assert!(too_close(Point::new(1.0, 0.0), 1.0, &[Point::ORIGIN]));
+        assert!(!too_close(Point::new(5.0, 0.0), 1.0, &[Point::ORIGIN]));
+        assert!(!too_close(Point::ORIGIN, 1.0, &[]));
     }
 }

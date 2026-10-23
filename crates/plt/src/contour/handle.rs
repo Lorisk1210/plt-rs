@@ -7,6 +7,7 @@ use std::rc::Rc;
 use plt_core::{Path, Rgba};
 use plt_render::Dashes;
 
+use super::ContourError;
 use super::label::ContourLabel;
 use super::levels;
 use super::set::{ContourState, ContourWarning};
@@ -20,6 +21,7 @@ use crate::colors::{Color, Colormap, Extend, Norm, NormError, ScalarMappable};
 use crate::image::normalize_scalars;
 use crate::lines::LineStyle;
 use crate::text::{Text, TextArtist};
+use crate::transforms::{ResolvedTransform, Transform};
 
 /// The state of a contour set, kept in its axes next to the collections
 /// that draw it. It draws nothing itself.
@@ -179,6 +181,23 @@ impl ContourSet {
     /// The axes the contours are drawn in.
     pub fn axes(&self) -> &Axes {
         &self.axes
+    }
+
+    /// The transform from the coordinates of the contour lines to the
+    /// display (matplotlib's `get_transform`): the axes' data transform,
+    /// unless the set was made with another.
+    pub fn transform(&self) -> Transform {
+        self.collections
+            .first()
+            .and_then(|c| c.raw().with_base(|base| base.transform.clone()))
+            .unwrap_or_else(|| self.axes.trans_data())
+    }
+
+    /// [`ContourSet::transform`] resolved in the axes' current view.
+    pub(crate) fn display_transform(&self) -> Result<ResolvedTransform, ContourError> {
+        self.axes.unstale_view();
+        let figure = self.axes.raw().figure_state().borrow();
+        Ok(self.transform().resolve(&*figure)?)
     }
 
     /// The collections drawing the contours: one, or one per band for

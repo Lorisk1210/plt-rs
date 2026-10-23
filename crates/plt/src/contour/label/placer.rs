@@ -12,10 +12,11 @@ use super::split::{LabelGeometry, split_path};
 use super::{LabelRecord, LevelLabel};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::colors::Color;
+use crate::contour::nearest::{closest_on_lines, components};
 use crate::contour::{ContourError, ContourSet};
 use crate::fonts::FontProperties;
 use crate::text::{Text, TextArtist};
-use crate::transforms::Transform;
+use crate::transforms::{ResolvedTransform, Transform, TransformError};
 
 /// The font and z-order of the label texts.
 #[derive(Clone, Debug)]
@@ -52,6 +53,8 @@ pub(super) struct Placer<'s> {
     set: &'s ContourSet,
     setup: &'s LabelSetup,
     geometry: LabelGeometry,
+    /// Display to data coordinates, where the label texts go.
+    display_to_data: ResolvedTransform,
     /// Display positions of the labels placed so far, which new automatic
     /// labels keep away from.
     positions: Vec<Point>,
@@ -62,13 +65,12 @@ impl<'s> Placer<'s> {
     /// A placer labelling `set` as `setup` says, in the axes' current
     /// geometry.
     pub(super) fn new(set: &'s ContourSet, setup: &'s LabelSetup) -> Result<Self, ContourError> {
-        let axes = set.axes();
-        axes.unstale_view();
-        let figure = axes.raw().figure_state().borrow();
-        let to_display = Transform::Data(axes.id()).resolve(&*figure)?;
-        let to_data = to_display
-            .inverted()
-            .ok_or(crate::transforms::TransformError::Singular)?;
+        let to_display = set.display_transform()?;
+        let to_data = to_display.inverted().ok_or(TransformError::Singular)?;
+        let data_to_display = {
+            let figure = set.axes().raw().figure_state().borrow();
+            Transform::Data(set.axes().id()).resolve(&*figure)?
+        };
         Ok(Self {
             set,
             setup,
@@ -77,14 +79,15 @@ impl<'s> Placer<'s> {
                 to_data,
                 rightside_up: setup.rightside_up,
             },
+            display_to_data: data_to_display.inverted().ok_or(TransformError::Singular)?,
             positions: Vec::new(),
             created: Vec::new(),
         })
     }
 
-    /// The display position of data point `data`.
-    pub(super) fn to_display(&self, data: Point) -> Point {
-        self.geometry.to_display.transform_point(data)
+    /// The display position of `point`, in the coordinates of the lines.
+    fn to_display(&self, point: Point) -> Point {
+        self.geometry.to_display.transform_point(point)
     }
 
     /// The texts added so far.
@@ -122,58 +125,50 @@ impl<'s> Placer<'s> {
         }
     }
 
-    /// Labels the labelled line nearest to display point `target`
-    /// (matplotlib's `add_label_near`).
+    /// Labels the labelled line nearest to display point `target` and
+    /// returns the new text (matplotlib's `add_label_near`).
     pub(super) fn label_near(
         &mut self,
         target: Point,
         inline: bool,
         spacing: f64,
-    ) -> Result<(), ContourError> {
+    ) -> Result<Text, ContourError> {
         let mut paths = self.set.paths();
-        let mut best: Option<(f64, usize, usize, Point)> = None;
-        for (k, label) in self.setup.labels.iter().enumerate() {
-            let mut start = 0;
-            for subpath in components(&paths[label.index]) {
-                let screen: Vec<Point> = subpath
-                    .vertices()
-                    .iter()
-                    .map(|&p| self.to_display(p))
-                    .collect();
-                if let Some((d2, proj, leg)) = place::closest_point(&screen, target)
-                    && best.is_none_or(|(min, ..)| d2 < min)
-                {
-                    best = Some((d2, k, start + leg, proj));
-                }
-                start += screen.len();
-            }
-        }
-        let (_, k, vertex, proj) = best.ok_or(ContourError::NoContourToLabel)?;
-        let label = &self.setup.labels[k];
+        let setup = self.setup;
+        let labelled = setup
+            .labels
+            .iter()
+            .enumerate()
+            .map(|(k, label)| (k, &paths[label.index]));
+        let closest = closest_on_lines(labelled, |p| self.to_display(p), target)
+            .ok_or(ContourError::NoContourToLabel)?;
+        let label = &setup.labels[closest.key];
         let (rotation, cut) = split_path(
             &self.geometry,
             &paths[label.index],
-            vertex,
-            proj,
+            closest.vertex,
+            closest.point,
             (label.width, spacing),
         );
-        self.add(label, proj, rotation);
+        let text = self.add(label, closest.point, rotation);
         if inline {
             paths[label.index] = cut;
             self.set.set_paths(paths);
         }
-        Ok(())
+        Ok(text)
     }
 
-    /// Adds the text artist of a label centred at display point `at`.
-    fn add(&mut self, label: &LevelLabel, at: Point, rotation: f64) {
+    /// Adds the text artist of a label centred at display point `at`,
+    /// turned by `rotation` degrees in the display, and returns it
+    /// (matplotlib's `add_label`).
+    pub(super) fn add(&mut self, label: &LevelLabel, at: Point, rotation: f64) -> Text {
         let style = &self.setup.style;
         let axes = self.set.axes().clone();
-        let data = self.geometry.to_data.transform_point(at);
+        let data = self.display_to_data.transform_point(at);
         let mut artist = TextArtist::new(data, label.text.clone(), Rc::clone(&style.rc));
         artist.font = style.font.clone();
         if style.rotates_with_data {
-            artist.rotation = self.geometry.to_data.transform_angle(rotation, at);
+            artist.rotation = self.display_to_data.transform_angle(rotation, at);
             artist.transform_rotates_text = true;
         } else {
             artist.rotation = rotation;
@@ -200,17 +195,8 @@ impl<'s> Placer<'s> {
                 follows: label.follows,
             });
         });
-        self.created
-            .push(Text::from_raw(RawHandle::new(figure, id)));
-    }
-}
-
-/// The connected components of a path (matplotlib's
-/// `_iter_connected_components`): a path without codes is one component.
-fn components(path: &Path) -> Vec<Path> {
-    if path.codes().is_none() {
-        vec![path.clone()]
-    } else {
-        path.subpaths()
+        let text = Text::from_raw(RawHandle::new(figure, id));
+        self.created.push(text.clone());
+        text
     }
 }

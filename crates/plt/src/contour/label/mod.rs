@@ -5,8 +5,11 @@
 //! its straightest stretch (skipping spots too close to earlier labels),
 //! and with `inline` cuts the line around the label. Manual placement
 //! labels the nearest line point to each given position, and
-//! [`ContourSet::add_label_near`] adds such labels later.
+//! [`ContourSet::add_label_near`] adds such labels later;
+//! [`ContourSet::add_label`] puts one exactly where it is told and
+//! [`ContourSet::pop_label`] removes one.
 
+mod added;
 mod place;
 mod placer;
 mod split;
@@ -21,7 +24,6 @@ use crate::fonts::{FontProperties, FontSize};
 use crate::text::{Text, TextArtist};
 use crate::ticker::pyfmt::PrintfFormat;
 use crate::ticker::{Formatter, OffsetMode, ScalarFormatter, TickContext, TickerSettings};
-use crate::transforms::Transform;
 
 pub(crate) use placer::LabelSetup;
 
@@ -197,47 +199,15 @@ impl ContourSet {
         let mut placer = Placer::new(self, &setup)?;
         match &options.manual {
             Some(points) => {
+                let data = self.axes().trans_data();
                 for &(x, y) in points {
-                    let target = placer.to_display(Point::new(x, y));
+                    let target = self.to_display(Point::new(x, y), &data)?;
                     placer.label_near(target, options.inline, spacing)?;
                 }
             }
             None => placer.label_all(options.inline, spacing),
         }
         Ok(placer.into_created())
-    }
-
-    /// Labels the labelled line nearest to `point`, given in the
-    /// coordinates of `transform` (data: the axes' `trans_data`; display
-    /// pixels: [`Transform::Display`]), the way the last
-    /// [`ContourSet::clabel`] call labelled the set, and returns the new
-    /// text (matplotlib's `add_label_near`). With `inline` the line is cut
-    /// under the label, leaving `inline_spacing` pixels on each side.
-    ///
-    /// # Errors
-    ///
-    /// When the set has not been labelled yet, `transform` cannot be
-    /// resolved, or there is no labelled line to snap to.
-    pub fn add_label_near(
-        &self,
-        point: Point,
-        transform: &Transform,
-        inline: bool,
-        inline_spacing: f64,
-    ) -> Result<Text, ContourError> {
-        let setup = self
-            .read(|state| state.label_setup.clone())
-            .ok_or(ContourError::Unlabelled)?;
-        let mut placer = Placer::new(self, &setup)?;
-        let target = {
-            let figure = self.axes().raw().figure_state().borrow();
-            transform.resolve(&*figure)?.transform_point(point)
-        };
-        placer.label_near(target, inline, inline_spacing)?;
-        placer
-            .into_created()
-            .pop()
-            .ok_or(ContourError::NoContourToLabel)
     }
 
     /// The widths in pixels of the labels of the levels last labelled,
@@ -359,7 +329,7 @@ mod tests {
     use crate::numeric::{Grid, linspace};
 
     /// Circles `x² + y² = level` on a 4 × 4 in figure.
-    fn bowl(levels: &[f64]) -> ContourSet {
+    pub(super) fn bowl(levels: &[f64]) -> ContourSet {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
         let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
         let x = linspace(-1.0, 1.0, 9);
@@ -482,37 +452,5 @@ mod tests {
             empty.clabel(&manual).unwrap_err(),
             ContourError::NoContourToLabel
         );
-    }
-
-    #[test]
-    fn labels_added_near_a_point_follow_the_last_clabel() {
-        let cs = bowl(&[0.5, 1.0]);
-        let data = cs.axes().trans_data();
-        assert_eq!(
-            cs.add_label_near(Point::new(0.7, 0.0), &data, true, 5.0)
-                .unwrap_err(),
-            ContourError::Unlabelled
-        );
-        let options = ClabelOptions {
-            fmt: LabelFormat::Map(vec![(0.5, "half".to_owned()), (1.0, "one".to_owned())]),
-            ..ClabelOptions::default()
-        };
-        let automatic = cs.clabel(&options).unwrap().len();
-        let near = cs
-            .add_label_near(Point::new(0.0, 0.98), &data, true, 5.0)
-            .unwrap();
-        let labels = cs.labels();
-        assert_eq!(labels.len(), automatic + 1);
-        let last = &labels[labels.len() - 1];
-        assert_eq!((last.level, last.text.as_str()), (1.0, "one"));
-        assert_eq!(last.artist, near);
-        // A display point labels the line nearest to it on screen.
-        let display = data
-            .resolve(&*cs.axes().raw().figure_state().borrow())
-            .unwrap()
-            .transform_point(Point::new(0.7, 0.0));
-        cs.add_label_near(display, &Transform::Display, false, 5.0)
-            .unwrap();
-        assert_eq!(cs.labels().last().unwrap().level, 0.5);
     }
 }

@@ -1,6 +1,7 @@
 //! Probe operations for the `contour` area: quad and triangular contour
 //! sets (levels, bands, colours, styles and canonical geometry), their raw
-//! paths, and `clabel` placement.
+//! paths, `clabel` placement, the nearest contour point, and labels
+//! added and removed after `clabel`.
 //!
 //! Every operation builds a fresh `Figure()` with one subplot under the
 //! reference configuration, as `spec/reference/probes/test_contour.py`
@@ -8,6 +9,7 @@
 
 mod canon;
 mod clabel;
+mod edits;
 mod input;
 
 use plt::contour::{ContourError, ContourSet};
@@ -27,6 +29,11 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Axes.tricontourf", |args| summary(args, Grid::Tri, true)),
     Op::new("ContourSet.get_paths", raw_paths),
     Op::new("ContourSet.clabel", clabel::clabel),
+    Op::new(
+        "ContourSet.find_nearest_contour",
+        edits::find_nearest_contour,
+    ),
+    Op::new("ContourSet.label_edits", edits::label_edits),
 ];
 
 /// Which contour function a probe calls.

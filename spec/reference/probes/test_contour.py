@@ -1,4 +1,5 @@
-"""Contouring: ``Axes.contour``/``contourf``, ``Axes.tricontour``/``tricontourf``, ``clabel``.
+"""Contouring: ``Axes.contour``/``contourf``, ``Axes.tricontour``/``tricontourf``, ``clabel``,
+``find_nearest_contour``, ``add_label`` and ``pop_label``.
 
 Quad-grid contours use matplotlib's default ``contour.algorithm`` rcParam,
 ``'mpl2014'`` (contourpy 1.4, ``LineType.SeparateCode`` /
@@ -182,6 +183,29 @@ levels at once.  Returns:
   * ``paths``: canonical geometry of ``cs.get_paths()`` AFTER labelling (with
     ``inline`` the lines are cut around each label; cut loops become open
     polylines).
+
+``ContourSet.find_nearest_contour`` -- the contour point nearest to given
+points (tol 1e-9).  Same figure, axes and contours as ``ContourSet.clabel``
+(with ``filled`` true: ``ax.contourf``, which matplotlib rejects with
+``ValueError``), then ``cs.clabel(**clabel)`` when ``clabel`` is given (its
+inline labels cut the lines the queries then see), then for each query
+``[x, y, indices, pixel]`` ``cs.find_nearest_contour(x, y, indices=indices,
+pixel=pixel)``: ``pixel`` true measures in display pixels through the
+contour transform, false in data coordinates; ``indices`` lists level indices
+or is None for all.  Returns one ``[level, line, index, xmin, ymin, d2]`` per
+query: the level index, the index of the unbroken line within that level, the
+index within that line of the vertex ending the closest segment, the closest
+point and its squared distance (in the measuring space).
+
+``ContourSet.label_edits`` -- labels added and removed after ``clabel``
+(tol 1e-9).  Same figure and contours, ``cs.clabel(**clabel)``, then each edit
+in order: ``["add", x, y, rotation, i]`` calls ``cs.add_label(x, y, rotation,
+cs.levels[i], cs.cvalues[i])`` (x, y in display pixels; level ``i`` must be
+labelled by the clabel call), ``["pop", index]`` calls ``cs.pop_label(index)``
+(``None``: the default, the last label).  Returns the labels left, in order:
+``{"level", "text", "display", "rotation", "color"}`` with ``display`` the
+text's data position through ``transData`` (``pop_label`` does not remove
+``labelXYs`` entries) and ``color`` the text's RGBA.
 """
 
 from __future__ import annotations
@@ -378,17 +402,28 @@ def raw_paths_op(func, **args):
     return [raw_path(p) for p in cs.get_paths()]
 
 
-def clabel_op(figsize, dpi, rect, xlim, ylim, x, y, z, levels, clabel):
-    fig, ax = _fresh_axes(figsize=figsize, dpi=dpi, rect=rect)
-    cs = ax.contour(np.asarray(x, float), np.asarray(y, float), np.asarray(z, float), levels=levels)
+def _contour_in(figsize, dpi, rect, xlim, ylim, x, y, z, levels, filled=False):
+    """Line (or filled) contours in a figure of given size and axes rectangle."""
+    _, ax = _fresh_axes(figsize=figsize, dpi=dpi, rect=rect)
+    fn = ax.contourf if filled else ax.contour
+    cs = fn(np.asarray(x, float), np.asarray(y, float), np.asarray(z, float), levels=levels)
     ax.set_xlim(*xlim)
     ax.set_ylim(*ylim)
+    return ax, cs
+
+
+def _clabel(cs, clabel):
     kw = dict(clabel)
     if isinstance(kw.get("fmt"), list):
         kw["fmt"] = {float(k): v for k, v in kw["fmt"]}
     if "manual" in kw:
         kw["manual"] = [tuple(p) for p in kw["manual"]]
-    texts = cs.clabel(**kw)
+    return cs.clabel(**kw)
+
+
+def clabel_op(clabel, **geometry):
+    _, cs = _contour_in(**geometry)
+    texts = _clabel(cs, clabel)
     labels = []
     for t, xy, cv in zip(texts, cs.labelXYs, cs.labelCValues):
         labels.append({
@@ -403,6 +438,42 @@ def clabel_op(figsize, dpi, rect, xlim, ylim, x, y, z, levels, clabel):
         "label_widths": widths,
         "paths": [canon_path(p) for p in cs.get_paths()],
     }
+
+
+def nearest_op(queries, clabel=None, **geometry):
+    """``find_nearest_contour`` for each ``[x, y, indices, pixel]`` query, after
+    an optional ``clabel`` (whose inline labels cut the lines)."""
+    _, cs = _contour_in(**geometry)
+    if clabel is not None:
+        _clabel(cs, clabel)
+    out = []
+    for x, y, indices, pixel in queries:
+        level, line, index, xmin, ymin, d2 = cs.find_nearest_contour(x, y, indices=indices, pixel=pixel)
+        out.append([int(level), int(line), int(index), float(xmin), float(ymin), float(d2)])
+    return out
+
+
+def label_edits_op(clabel, edits, **geometry):
+    """``clabel``, then ``["add", x, y, rotation, level index]`` (display
+    coordinates) and ``["pop", index or None]`` edits; the labels left.
+    Positions come from the texts: ``pop_label`` leaves ``labelXYs`` behind."""
+    ax, cs = _contour_in(**geometry)
+    _clabel(cs, clabel)
+    for edit in edits:
+        if edit[0] == "add":
+            _, x, y, rotation, i = edit
+            cs.add_label(x, y, rotation, cs.levels[i], cs.cvalues[i])
+        elif edit[1] is None:
+            cs.pop_label()
+        else:
+            cs.pop_label(edit[1])
+    return [{
+        "level": float(cv),
+        "text": t.get_text(),
+        "display": [float(v) for v in ax.transData.transform(t.get_position())],
+        "rotation": float(t.get_rotation()),
+        "color": list(mcolors.to_rgba(t.get_color())),
+    } for t, cv in zip(cs.labelTexts, cs.labelCValues)]
 
 
 def _ok(result):
@@ -1014,3 +1085,65 @@ def test_clabel(case_id, args):
         assert not all(upright)
     else:
         assert all(upright)
+
+
+# ---------------------------------------------------------------------------
+# find_nearest_contour, add_label and pop_label
+# ---------------------------------------------------------------------------
+
+NEAREST_QUERIES = [
+    [0.3, 0.3, None, False],
+    [0.95, -0.2, None, False],
+    [0.0, 0.0, [2], False],
+    [-0.75, 0.6, [0, 2], False],
+    [200.0, 200.0, None, True],
+    [64.5, 300.25, None, True],
+    [340.0, 61.0, [1], True],
+]
+NEAREST_CASES = [
+    ("bowl", {**CLABEL_BASE, "queries": NEAREST_QUERIES}),
+    ("bowl_after_inline_clabel", {**CLABEL_BASE, "queries": NEAREST_QUERIES, "clabel": {}}),
+    ("peaks", {**CLABEL_PEAKS, "queries": [[0.1, 0.2, None, False], [-1.5, 1.0, None, False],
+                                             [240.0, 120.0, None, True], [100.0, 60.0, [0, 5], True]]}),
+    ("peaks_after_clabel", {**CLABEL_PEAKS, "clabel": {"inline_spacing": 2},
+                            "queries": [[0.1, 0.2, None, False], [240.0, 120.0, None, True]]}),
+    ("filled", {**CLABEL_BASE, "filled": True, "queries": [[0.3, 0.3, None, False]]}),
+]
+
+
+@pytest.mark.parametrize("case_id, args", NEAREST_CASES, ids=[c[0] for c in NEAREST_CASES])
+def test_find_nearest_contour(case_id, args):
+    r = probes.probe("ContourSet.find_nearest_contour", nearest_op, tol=1e-9, **args)
+    if case_id == "filled":
+        assert isinstance(r, ValueError)
+        return
+    _ok(r)
+    assert all(0 <= q[0] < len(args["levels"]) for q in r)
+    if case_id == "bowl":
+        assert r[2][0] == 2, "only level 1.5 was asked for"
+
+
+LABEL_EDIT_CASES = [
+    ("add_to_manual", {**CLABEL_BASE, "clabel": {"manual": [[0.3, 0.3]]},
+                       "edits": [["add", 120.0, 250.5, 30.0, 0], ["add", 300.0, 80.0, -45.0, 2]]}),
+    ("add_rotations_wrap", {**CLABEL_BASE, "clabel": {"manual": []},
+                            "edits": [["add", 200.0, 200.0, 400.0, 1], ["add", 50.0, 60.0, -10.0, 1]]}),
+    ("add_with_fmt", {**CLABEL_BASE, "clabel": {"manual": [], "fmt": "%1.2f"},
+                      "edits": [["add", 150.0, 150.0, 0.0, 1]]}),
+    ("pop_last_and_first", {**CLABEL_BASE, "clabel": {"manual": [[0.3, 0.3], [-0.8, 0.1], [0.9, -0.9]]},
+                            "edits": [["pop", None], ["pop", 0]]}),
+    ("pop_automatic_then_add", {**CLABEL_BASE, "clabel": {},
+                                "edits": [["pop", 1], ["add", 210.0, 190.0, 15.0, 2]]}),
+    ("clabeltext_add", {**CLABEL_BASE, "clabel": {"manual": [], "use_clabeltext": True},
+                        "edits": [["add", 210.0, 190.0, 15.0, 2]]}),
+]
+
+
+@pytest.mark.parametrize("case_id, args", LABEL_EDIT_CASES, ids=[c[0] for c in LABEL_EDIT_CASES])
+def test_label_edits(case_id, args):
+    r = _ok(probes.probe("ContourSet.label_edits", label_edits_op, tol=1e-9, **args))
+    if case_id == "add_rotations_wrap":
+        assert [lab["rotation"] for lab in r] == [40.0, 350.0]
+    if case_id == "pop_last_and_first":
+        assert len(r) == 1
+

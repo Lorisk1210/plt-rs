@@ -12,7 +12,9 @@
 //!   `tricontourf` and `contour_segments` (contours given as paths)
 //!   return: the chosen levels, the bands of filled contours,
 //!   one compound path per level or band, their colours and styles, and
-//!   [`ContourSet::clabel`] to label line contours and
+//!   [`ContourSet::clabel`] to label line contours,
+//!   [`ContourSet::find_nearest_contour`] to find the line nearest to a
+//!   point and
 //!   [`ContourSet::legend_elements`] to describe them in a legend.
 //!   Changing its colormap,
 //!   norm or limits recolours the contours, their labels and colorbars.
@@ -41,6 +43,7 @@ mod legend;
 mod levels;
 mod mpl2005;
 mod mpl2014;
+mod nearest;
 mod options;
 mod quad;
 mod serial;
@@ -52,6 +55,7 @@ pub use grid::{Origin, QuadCoords, QuadField};
 pub use handle::ContourSet;
 pub use label::{ClabelOptions, ContourLabel, LabelFormat};
 pub use levels::Levels;
+pub use nearest::{NearestContour, NearestIn};
 pub use options::{ContourNorm, ContourOptions};
 pub use quad::{ContourAlgorithm, QuadContourGenerator};
 pub use set::ContourWarning;

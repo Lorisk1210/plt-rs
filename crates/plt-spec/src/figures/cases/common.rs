@@ -719,3 +719,107 @@ pub(super) fn path_patch_curve() -> Result<Path, PathError> {
     ];
     Path::new(vertices.into_iter().map(Point::from).collect(), codes)
 }
+
+/// A wide bump with a narrow spike fifty times higher on top (`_spike`).
+pub(super) fn spike(x: f64, y: f64) -> f64 {
+    let z1 = (-(x * x) - y * y).exp();
+    let (x10, y10) = (x * 10.0, y * 10.0);
+    let z2 = (-(x10 * x10) - y10 * y10).exp();
+    z1 + 50.0 * z2
+}
+
+/// `f` evaluated cell by cell on two grids of the same shape.
+pub(super) fn on_mesh(xx: &Grid<f64>, yy: &Grid<f64>, f: impl Fn(f64, f64) -> f64) -> Grid<f64> {
+    Grid::from_fn(xx.rows(), xx.cols(), |r, c| f(xx[(r, c)], yy[(r, c)]))
+}
+
+/// The smallest and largest values of `values`.
+pub(super) fn extremes(values: &Grid<f64>) -> (f64, f64) {
+    values
+        .as_slice()
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+            (lo.min(v), hi.max(v))
+        })
+}
+
+/// `np.meshgrid(x, y)` and `f` evaluated on it.
+pub(super) fn mesh_field(
+    x: &[f64],
+    y: &[f64],
+    f: impl Fn(f64, f64) -> f64,
+) -> (Grid<f64>, Grid<f64>, Grid<f64>) {
+    let (xx, yy) = meshgrid(x, y);
+    let z = on_mesh(&xx, &yy, f);
+    (xx, yy, z)
+}
+
+/// `np.mgrid[rows, cols]`: the row coordinate down the rows, the column
+/// coordinate along them.
+pub(super) fn mgrid(rows: &[f64], cols: &[f64]) -> (Grid<f64>, Grid<f64>) {
+    let r = Grid::from_fn(rows.len(), cols.len(), |i, _| rows[i]);
+    let c = Grid::from_fn(rows.len(), cols.len(), |_, j| cols[j]);
+    (r, c)
+}
+
+/// `np.mgrid[x0:x1:100j, y0:y1:100j]`: x down the rows, y along them.
+pub(super) fn mgrid_100(x0: f64, x1: f64, y0: f64, y1: f64) -> (Grid<f64>, Grid<f64>) {
+    mgrid(&mgrid_count(x0, x1, 100), &mgrid_count(y0, y1, 100))
+}
+
+/// Plots `cos(2πt)` for `t = np.arange(0, 5, 0.01)` with `line`.
+pub(super) fn cosine(ax: &Axes, line: LineProps) -> Result<(), Box<dyn std::error::Error>> {
+    let t = arange(0.0, 5.0, 0.01);
+    let s: Vec<f64> = t.iter().map(|t| (2.0 * PI * t).cos()).collect();
+    ax.plot_with(t, s, line)?;
+    Ok(())
+}
+
+/// The black arrow from text at `xytext` in `textcoords` to `xy`.
+pub(super) fn pointing(
+    xytext: (f64, f64),
+    textcoords: &str,
+) -> Result<plt::text::AnnotateOptions, Box<dyn std::error::Error>> {
+    Ok(plt::text::AnnotateOptions {
+        xytext: Some(xytext.into()),
+        textcoords: Some(textcoords.parse()?),
+        arrowprops: Some(black_arrow()),
+        ..plt::text::AnnotateOptions::default()
+    })
+}
+
+/// The first annotation of matplotlib's guides (`annotation_basic`): a
+/// black arrow from "local max" to the maximum of a thick cosine.
+pub(super) fn local_max(fig: &Figure) -> Result<(), Box<dyn std::error::Error>> {
+    let ax = fig.subplot();
+    cosine(&ax, LineProps::default().linewidth(2.0))?;
+    ax.annotate("local max", (2.0, 1.0), pointing((3.0, 1.5), "data")?)?;
+    ax.set_ylim(-2.0, 2.0);
+    Ok(())
+}
+
+/// A centred, 20-point `Test` annotation from `(0.8, 0.8)` to `(0.2,
+/// 0.2)` with the arrow `props` and the box `bbox` (the `Test`
+/// annotations of matplotlib's annotation guide).
+pub(super) fn test_annotation(
+    ax: &Axes,
+    props: FancyArrowProps,
+    bbox: Option<TextBoxProps>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use plt::text::{HorizontalAlignment, VerticalAlignment};
+    let note = ax.annotate(
+        "Test",
+        (0.2, 0.2),
+        plt::text::AnnotateOptions {
+            xytext: Some((0.8, 0.8).into()),
+            textcoords: Some(plt::coords::Coords::Data),
+            arrowprops: Some(ArrowProps::Fancy(props)),
+            ..plt::text::AnnotateOptions::default()
+        },
+    )?;
+    note.set_fontsize(20.0)
+        .set_valign(VerticalAlignment::Center)
+        .set_halign(HorizontalAlignment::Center)
+        .set_bbox(bbox);
+    Ok(())
+}

@@ -140,6 +140,37 @@ fn figure_boxes_annotate_other_artists() {
     );
 }
 
+#[test]
+fn boxes_place_others_relative_to_the_artists_they_draw() {
+    let (fig, ax) = axes();
+    let square = Rectangle::new((0.0, 0.0), 10.0, 10.0);
+    let area = DrawingArea::new(10.0, 10.0, 0.0, 0.0)
+        .with_artist(BoxItem::patch(square, PatchProps::default()));
+    let first = ax
+        .add_annotation_bbox(area, (2.0, 2.0), AnnotationBboxOptions::default())
+        .expect("valid annotation");
+    let artists = first.artist_ids();
+    assert_eq!(artists.len(), 1, "the square only");
+    let second = ax
+        .add_annotation_bbox(
+            TextArea::from_text("beside", TextProps::default()),
+            (5.0, 5.0),
+            AnnotationBboxOptions {
+                xybox: Some((1.0, 0.0).into()),
+                boxcoords: Some(Coords::Artist(artists[0])),
+                box_alignment: (0.0, 0.0),
+                ..AnnotationBboxOptions::default()
+            },
+        )
+        .expect("valid annotation");
+    assert_eq!(first.texts(), Vec::new());
+    assert_eq!(second.artist_ids().len(), 1);
+    draw(&fig);
+    let px = 100.0 / 72.0;
+    let corner = display(2.0, 2.0) + Point::new(5.0, -5.0) * px;
+    assert!(close(second.patch().shape().xy, corner), "{corner:?}");
+}
+
 /// The lower-left corner of a box placed by its lower-left corner at the
 /// upper-right corner of a `->` connection across `fig`, whose z-order
 /// puts it before or after the box; with the arrow's extent once drawn.

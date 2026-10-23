@@ -1,0 +1,19 @@
+{
+ "size_px": [700, 260],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.192308, 0.8327, 0.259103],
+   "title": "",
+   "xlim": [-0.19, 3.99],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Cyclic colormaps",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "twilight"], [1.905051, "twilight_shifted"], [3.305051, "hsv"]],
+   "yticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"]]
+  }
+ ]
+}

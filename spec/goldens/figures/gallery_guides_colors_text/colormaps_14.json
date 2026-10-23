@@ -1,0 +1,45 @@
+{
+ "size_px": [700, 780],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.693639, 0.8327, 0.166404],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "flag"], [1.905051, "prism"], [3.305051, "ocean"], [4.705051, "gist_earth"], [6.105051, "terrain"], [7.505051, "gist_stern"]],
+   "yticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.378871, 0.8327, 0.166404],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "gnuplot"], [1.905051, "gnuplot2"], [3.305051, "CMRmap"], [4.705051, "cubehelix"], [6.105051, "brg"], [7.505051, "gist_rainbow"]],
+   "yticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.064103, 0.8327, 0.166404],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Miscellaneous colormaps",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "rainbow"], [1.905051, "jet"], [3.305051, "turbo"], [4.705051, "nipy_spectral"], [6.105051, "gist_ncar"]],
+   "yticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"]]
+  }
+ ]
+}

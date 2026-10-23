@@ -1,0 +1,45 @@
+{
+ "size_px": [700, 780],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.698912, 0.8327, 0.198535],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "PiYG"], [1.905051, "PRGn"], [3.305051, "BrBG"], [4.705051, "PuOr"], [6.105051, "RdGy"], [7.505051, "RdBu"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.381507, 0.8327, 0.198535],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "RdYlBu"], [1.905051, "RdYlGn"], [3.305051, "Spectral"], [4.705051, "coolwarm"], [6.105051, "bwr"], [7.505051, "seismic"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.064103, 0.8327, 0.198535],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Diverging colormaps",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "berlin"], [1.905051, "managua"], [3.305051, "vanimo"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  }
+ ]
+}

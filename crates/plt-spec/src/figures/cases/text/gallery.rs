@@ -16,7 +16,7 @@ use plt::text::{
 };
 use plt::transforms::Point;
 
-use crate::figures::cases::common::arrow;
+use crate::figures::cases::common::{arrow, test_annotation};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -253,26 +253,6 @@ fn annotation_arrow_anatomy(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// One `Test` annotation of `annotate_simple_relpos` from `(0.8, 0.8)` to
-/// `(0.2, 0.2)`, size 20 and centred.
-fn simple_test(ax: &Axes, props: FancyArrowProps, bbox: Option<TextBoxProps>) -> CaseResult {
-    let note = ax.annotate(
-        "Test",
-        (0.2, 0.2),
-        AnnotateOptions {
-            xytext: Some(Point::new(0.8, 0.8)),
-            textcoords: Some(Coords::Data),
-            arrowprops: Some(ArrowProps::Fancy(props)),
-            ..AnnotateOptions::default()
-        },
-    )?;
-    note.set_fontsize(20.0)
-        .set_valign(VAlign::Center)
-        .set_halign(HAlign::Center)
-        .set_bbox(bbox);
-    Ok(())
-}
-
 fn annotate_simple_relpos(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 3)?;
     for ax in axs.as_slice() {
@@ -280,9 +260,9 @@ fn annotate_simple_relpos(fig: &Figure) -> CaseResult {
         ax.set_xticks(Vec::<f64>::new())
             .set_yticks(Vec::<f64>::new());
     }
-    simple_test(&axs[(0, 0)], arrow("simple", "arc3,rad=-0.2")?, None)?;
+    test_annotation(&axs[(0, 0)], arrow("simple", "arc3,rad=-0.2")?, None)?;
     let white = || PatchProps::default().facecolor("w");
-    simple_test(
+    test_annotation(
         &axs[(0, 1)],
         FancyArrowProps {
             patch: white(),
@@ -291,7 +271,7 @@ fn annotate_simple_relpos(fig: &Figure) -> CaseResult {
         styled_box("round4", white())?,
     )?;
     for (relpos, connection) in [((0.0, 0.0), "arc3,rad=0.2"), ((1.0, 0.0), "arc3,rad=-0.2")] {
-        simple_test(
+        test_annotation(
             &axs[(0, 2)],
             FancyArrowProps {
                 relpos,

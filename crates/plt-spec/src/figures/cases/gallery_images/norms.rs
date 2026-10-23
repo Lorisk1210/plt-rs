@@ -14,13 +14,8 @@ use plt::numeric::{Grid, interp, linspace};
 use plt::orientation::Orientation;
 
 use super::data::{extremes, mgrid, on_mesh, spike};
-use crate::figures::cases::common::mgrid_count;
+use crate::figures::cases::common::{mgrid_100, mgrid_count};
 use crate::figures::{CaseResult, FigureCase};
-
-/// `np.mgrid[x0:x1:100j, y0:y1:100j]`: x down the rows, y along them.
-fn mgrid_100(x0: f64, x1: f64, y0: f64, y1: f64) -> (Grid<f64>, Grid<f64>) {
-    mgrid(&mgrid_count(x0, x1, 100), &mgrid_count(y0, y1, 100))
-}
 
 /// A mesh of the values `z` at the points `x`, `y`.
 fn points_mesh(x: &Grid<f64>, y: &Grid<f64>, z: &Grid<f64>) -> Mesh {

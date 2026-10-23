@@ -1,0 +1,45 @@
+{
+ "size_px": [700, 780],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.672564, 0.8327, 0.200162],
+   "title": "",
+   "xlim": [-0.225, 4.725],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[1.0, "Greys"], [1.7, "Purples"], [2.4, "Blues"], [3.1, "Greens"], [3.8, "Oranges"], [4.5, "Reds"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.368333, 0.8327, 0.200162],
+   "title": "",
+   "xlim": [-0.225, 4.725],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[1.0, "YlOrBr"], [1.7, "YlOrRd"], [2.4, "OrRd"], [3.1, "PuRd"], [3.8, "RdPu"], [4.5, "BuPu"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.064103, 0.8327, 0.200162],
+   "title": "",
+   "xlim": [-0.225, 4.725],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Sequential colormaps",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[1.0, "GnBu"], [1.7, "PuBu"], [2.4, "YlGnBu"], [3.1, "PuBuGn"], [3.8, "BuGn"], [4.5, "YlGn"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  }
+ ]
+}

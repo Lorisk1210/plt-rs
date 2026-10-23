@@ -1,0 +1,19 @@
+{
+ "size_px": [500, 270],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.071997, 0.102882, 0.919669, 0.881685],
+   "title": "",
+   "xlim": [-0.59, 3.59],
+   "ylim": [0.0, 0.696184],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0, "turnips"], [1, "rutabaga"], [2, "cucumber"], [3, "pumpkins"]],
+   "yticks": [[0.0, "0.0"], [0.1, "0.1"], [0.2, "0.2"], [0.3, "0.3"], [0.4, "0.4"], [0.5, "0.5"], [0.6, "0.6"]]
+  }
+ ]
+}

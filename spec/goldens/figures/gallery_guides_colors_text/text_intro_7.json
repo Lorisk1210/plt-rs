@@ -1,0 +1,19 @@
+{
+ "size_px": [500, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.2, 0.7, 0.68],
+   "title": "",
+   "xlim": [-0.25, 5.25],
+   "ylim": [0.770971, 5.809611],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Time (s) \n This was a long experiment",
+   "ylabel": "$\\int\\ Y^2\\ dt\\ \\ (V^2 s)$",
+   "xticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"], [5.0, "5"]],
+   "yticks": [[1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"], [5.0, "5"]]
+  }
+ ]
+}

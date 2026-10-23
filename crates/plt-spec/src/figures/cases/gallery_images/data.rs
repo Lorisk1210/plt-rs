@@ -9,53 +9,12 @@ use plt::tri::{TriError, Triangulation};
 use crate::rng::SpecRng;
 
 pub(super) use crate::figures::cases::common::GALLERY_SEED as SEED;
-
-/// A wide bump with a narrow spike fifty times higher on top (`_spike`).
-pub(super) fn spike(x: f64, y: f64) -> f64 {
-    let z1 = (-(x * x) - y * y).exp();
-    let (x10, y10) = (x * 10.0, y * 10.0);
-    let z2 = (-(x10 * x10) - y10 * y10).exp();
-    z1 + 50.0 * z2
-}
-
-/// `f` evaluated cell by cell on two grids of the same shape.
-pub(super) fn on_mesh(xx: &Grid<f64>, yy: &Grid<f64>, f: impl Fn(f64, f64) -> f64) -> Grid<f64> {
-    Grid::from_fn(xx.rows(), xx.cols(), |r, c| f(xx[(r, c)], yy[(r, c)]))
-}
-
-/// The smallest and largest values of `values`.
-pub(super) fn extremes(values: &Grid<f64>) -> (f64, f64) {
-    values
-        .as_slice()
-        .iter()
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
-            (lo.min(v), hi.max(v))
-        })
-}
-
-/// `np.meshgrid(x, y)` and `f` evaluated on it.
-pub(super) fn mesh_field(
-    x: &[f64],
-    y: &[f64],
-    f: impl Fn(f64, f64) -> f64,
-) -> (Grid<f64>, Grid<f64>, Grid<f64>) {
-    let (xx, yy) = meshgrid(x, y);
-    let z = on_mesh(&xx, &yy, f);
-    (xx, yy, z)
-}
+pub(super) use crate::figures::cases::common::{extremes, mesh_field, mgrid, on_mesh, spike};
 
 /// `np.mgrid[start:stop:step]` along one axis: `i * step + start`.
 pub(super) fn mgrid_step(start: f64, stop: f64, step: f64) -> Vec<f64> {
     let count = ((stop - start) / step).ceil() as usize;
     (0..count).map(|i| i as f64 * step + start).collect()
-}
-
-/// `np.mgrid[rows, cols]`: the row coordinate down the rows, the column
-/// coordinate along them.
-pub(super) fn mgrid(rows: &[f64], cols: &[f64]) -> (Grid<f64>, Grid<f64>) {
-    let r = Grid::from_fn(rows.len(), cols.len(), |i, _| rows[i]);
-    let c = Grid::from_fn(rows.len(), cols.len(), |_, j| cols[j]);
-    (r, c)
 }
 
 /// `n` uniform samples in `[0, 1)` from the examples' seed, as a grid.

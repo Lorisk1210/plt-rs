@@ -1,0 +1,19 @@
+{
+ "size_px": [600, 100],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.171297, 0.472226, 0.657407, 0.486104],
+   "title": "",
+   "xlim": [-1.0, 1.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "Custom extension lengths, some other units",
+   "ylabel": "",
+   "xticks": [[-1.0, "−1.0"], [-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]],
+   "yticks": []
+  }
+ ]
+}

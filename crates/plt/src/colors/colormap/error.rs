@@ -58,6 +58,11 @@ pub enum ColormapError {
     },
     /// No colormap is registered under this name.
     Unknown(String),
+    /// A built-in colormap has this name, so it cannot be registered or
+    /// unregistered.
+    Builtin(String),
+    /// Another colormap is registered under this name.
+    AlreadyRegistered(String),
 }
 
 impl fmt::Display for ColormapError {
@@ -79,6 +84,13 @@ impl fmt::Display for ColormapError {
                 write!(f, "{alphas} alpha values do not match {values} data values")
             }
             Self::Unknown(name) => write!(f, "{name:?} is not a known colormap name"),
+            Self::Builtin(name) => write!(
+                f,
+                "{name:?} is a builtin colormap, which cannot be registered or unregistered"
+            ),
+            Self::AlreadyRegistered(name) => {
+                write!(f, "a colormap named {name:?} is already registered")
+            }
         }
     }
 }

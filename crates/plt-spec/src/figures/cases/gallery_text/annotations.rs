@@ -17,37 +17,8 @@ use plt::text::{
 };
 use plt::transforms::Point;
 
-use crate::figures::cases::common::{arrow, black_arrow, styled_box};
+use crate::figures::cases::common::{arrow, black_arrow, cosine, local_max, pointing, styled_box};
 use crate::figures::{CaseResult, FigureCase};
-
-/// Plots `cos(2πt)` for `t = np.arange(0, 5, 0.01)` with `line`.
-fn cosine(ax: &Axes, line: LineProps) -> CaseResult {
-    let t = arange(0.0, 5.0, 0.01);
-    let s: Vec<f64> = t.iter().map(|t| (2.0 * PI * t).cos()).collect();
-    ax.plot_with(t, s, line)?;
-    Ok(())
-}
-
-/// The black arrow from text at `xytext` in `textcoords` to `xy`.
-fn pointing(
-    xytext: (f64, f64),
-    textcoords: &str,
-) -> Result<AnnotateOptions, Box<dyn std::error::Error>> {
-    Ok(AnnotateOptions {
-        xytext: Some(xytext.into()),
-        textcoords: Some(textcoords.parse()?),
-        arrowprops: Some(black_arrow()),
-        ..AnnotateOptions::default()
-    })
-}
-
-fn annotation_basic(fig: &Figure) -> CaseResult {
-    let ax = fig.subplot();
-    cosine(&ax, LineProps::default().linewidth(2.0))?;
-    ax.annotate("local max", (2.0, 1.0), pointing((3.0, 1.5), "data")?)?;
-    ax.set_ylim(-2.0, 2.0);
-    Ok(())
-}
 
 /// The spiral `r = np.arange(0, 1, 0.001)`, `θ = 4πr` plotted with `line`
 /// on polar axes, its point 800 marked and annotated from the lower left
@@ -523,7 +494,7 @@ fn annotation_demo_6(fig: &Figure) -> CaseResult {
 
 /// The cases of this module.
 pub(super) const CASES: &[FigureCase] = &[
-    FigureCase::new("gallery_text/annotation_basic", annotation_basic),
+    FigureCase::new("gallery_text/annotation_basic", local_max),
     FigureCase::new("gallery_text/annotation_polar", annotation_polar),
     FigureCase::new("gallery_text/annotation_demo_1", annotation_demo_1).sized(4.0, 4.0, 100.0),
     FigureCase::new("gallery_text/annotation_demo_2", annotation_demo_2).sized(3.0, 3.0, 100.0),

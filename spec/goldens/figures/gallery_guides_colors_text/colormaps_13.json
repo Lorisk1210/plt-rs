@@ -1,0 +1,58 @@
+{
+ "size_px": [700, 1040],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.762544, 0.8327, 0.149406],
+   "title": "",
+   "xlim": [-0.26, 5.46],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "Pastel1"], [1.905051, "Pastel2"], [3.305051, "Paired"], [4.705051, "Accent"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.524388, 0.8327, 0.149406],
+   "title": "",
+   "xlim": [-0.26, 5.46],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "okabe_ito"], [1.905051, "Dark2"], [3.305051, "Set1"], [4.705051, "Set2"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.286233, 0.8327, 0.149406],
+   "title": "",
+   "xlim": [-0.26, 5.46],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "Set3"], [1.905051, "tab10"], [3.305051, "tab20"], [4.705051, "tab20b"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.048077, 0.8327, 0.149406],
+   "title": "",
+   "xlim": [-0.26, 5.46],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Qualitative colormaps",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "tab20c"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  }
+ ]
+}

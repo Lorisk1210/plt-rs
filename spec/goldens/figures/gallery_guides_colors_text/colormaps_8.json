@@ -1,0 +1,19 @@
+{
+ "size_px": [700, 260],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.192308, 0.8327, 0.445895],
+   "title": "",
+   "xlim": [-0.33, 6.93],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Perceptually Uniform Sequential colormaps",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[1.0, "viridis"], [2.4, "plasma"], [3.8, "inferno"], [5.2, "magma"], [6.6, "cividis"]],
+   "yticks": [[0.0, "0"], [50.0, "50"], [100.0, "100"]]
+  }
+ ]
+}

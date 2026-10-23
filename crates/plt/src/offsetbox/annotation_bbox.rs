@@ -382,10 +382,17 @@ impl AnnotationBbox {
 
     /// The texts of the box's text areas, in box order.
     pub fn texts(&self) -> Vec<Text> {
-        let artists = self.raw.with::<AnnotationBboxArtist, _>(|ab| {
-            ab.child.artists().into_iter().copied().collect()
-        });
-        texts_of(&self.raw, artists)
+        texts_of(&self.raw, self.artist_ids())
+    }
+
+    /// The artists the box draws (the texts of text areas, the artists of
+    /// drawing areas, images, ...) in drawing order, frames before what
+    /// they frame: what other annotations can be placed relative to, as
+    /// [`Coords::Artist`] (matplotlib passes the artist itself, as in
+    /// `boxcoords=("data", annulus)`).
+    pub fn artist_ids(&self) -> Vec<ArtistId> {
+        self.raw
+            .with::<AnnotationBboxArtist, _>(|ab| ab.child.artists().into_iter().copied().collect())
     }
 }
 

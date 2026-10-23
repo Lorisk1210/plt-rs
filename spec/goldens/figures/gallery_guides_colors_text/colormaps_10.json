@@ -1,0 +1,45 @@
+{
+ "size_px": [700, 780],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.680416, 0.8327, 0.193737],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "gray"], [1.905051, "bone"], [3.305051, "pink"], [4.705051, "spring"], [6.105051, "summer"], [7.505051, "autumn"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.372259, 0.8327, 0.193737],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "winter"], [1.905051, "cool"], [3.305051, "Wistia"], [4.705051, "hot"], [6.105051, "afmhot"], [7.505051, "gist_heat"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.131585, 0.064103, 0.8327, 0.193737],
+   "title": "",
+   "xlim": [-0.4, 8.4],
+   "ylim": [0.0, 100.0],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Sequential (2) colormaps",
+   "ylabel": "Lightness $L^*$",
+   "xticks": [[0.505051, "copper"]],
+   "yticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"], [100.0, "100"]]
+  }
+ ]
+}

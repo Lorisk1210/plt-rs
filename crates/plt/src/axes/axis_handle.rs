@@ -11,7 +11,7 @@ use super::ticks::{GridOptions, Sides, TickPosition, TickStyle};
 use super::{Axes, AxesState, PlotError};
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::colors::Color;
-use crate::fonts::{FontSize, FontStyle, FontWeight};
+use crate::fonts::{FontProperties, FontSize, FontStyle, FontWeight};
 use crate::spines::SpineSide;
 use crate::text::{TextBox, TextBoxProps, VerticalAlignment};
 use crate::ticker::{
@@ -509,6 +509,13 @@ impl Axis {
         self
     }
 
+    /// Sets every font property of the axis label at once, its size
+    /// included (matplotlib's `set_xlabel(..., fontproperties=...)`).
+    pub fn set_label_font(&self, font: FontProperties) -> &Self {
+        self.update(|axis| axis.label.font = font);
+        self
+    }
+
     /// The side the axis label sits on.
     pub fn label_position(&self) -> SpineSide {
         self.axes
@@ -695,7 +702,7 @@ mod tests {
     use crate::artist::ArtistHandle;
     use crate::axes::AxesState;
     use crate::figure::Figure;
-    use crate::fonts::FontWeight;
+    use crate::fonts::{FontProperties, FontSize, FontStyle, FontWeight};
 
     #[test]
     fn label_weight_changes_only_that_axis_label() {
@@ -705,6 +712,23 @@ mod tests {
             (axes.xaxis.label.font.weight, axes.yaxis.label.font.weight)
         });
         assert_eq!(weights, (FontWeight::NORMAL, FontWeight::BOLD));
+    }
+
+    #[test]
+    fn label_font_replaces_every_property_of_that_axis_label() {
+        let ax = Figure::new().subplot();
+        let font = FontProperties {
+            families: vec!["Times New Roman".into()],
+            style: FontStyle::Italic,
+            ..FontProperties::from_rc(&crate::rc::params())
+        };
+        ax.xaxis().set_label_fontsize(FontSize::Points(20.0));
+        ax.yaxis().set_label_font(font.clone());
+        let fonts = ax.raw().with::<AxesState, _>(|axes| {
+            (axes.xaxis.label.font.clone(), axes.yaxis.label.font.clone())
+        });
+        assert_eq!(fonts.0.size, 20.0);
+        assert_eq!(fonts.1, font);
     }
 
     #[test]

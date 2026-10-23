@@ -1,0 +1,84 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "Cyclic colormaps",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.673529, 0.385366, 0.276471],
+   "title": "",
+   "xlim": [-0.5, 255.5],
+   "ylim": [1.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [100.0, "100"], [200.0, "200"]],
+   "yticks": [[0.0, "0"], [1.0, "1"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.604634, 0.673529, 0.385366, 0.276471],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [2.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"]],
+   "yticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.341765, 0.385366, 0.276471],
+   "title": "",
+   "xlim": [-0.5, 255.5],
+   "ylim": [1.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [100.0, "100"], [200.0, "200"]],
+   "yticks": [[0.0, "0"], [1.0, "1"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.604634, 0.341765, 0.385366, 0.276471],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [2.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"]],
+   "yticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.01, 0.385366, 0.276471],
+   "title": "",
+   "xlim": [-0.5, 255.5],
+   "ylim": [1.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [100.0, "100"], [200.0, "200"]],
+   "yticks": [[0.0, "0"], [1.0, "1"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.604634, 0.01, 0.385366, 0.276471],
+   "title": "",
+   "xlim": [-0.5, 99.5],
+   "ylim": [2.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [25.0, "25"], [50.0, "50"], [75.0, "75"]],
+   "yticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"]]
+  }
+ ]
+}

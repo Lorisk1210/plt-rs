@@ -1,0 +1,19 @@
+{
+ "size_px": [500, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.2, 0.15, 0.7, 0.73],
+   "title": "",
+   "xlim": [-0.25, 5.25],
+   "ylim": [-0.689476, 1.080451],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Time (s)",
+   "ylabel": "Damped oscillation (V)",
+   "xticks": [[0.0, "0"], [1.0, "1"], [2.0, "2"], [3.0, "3"], [4.0, "4"], [5.0, "5"]],
+   "yticks": [[-0.5, "−0.5"], [0.0, "0.0"], [0.5, "0.5"], [1.0, "1.0"]]
+  }
+ ]
+}

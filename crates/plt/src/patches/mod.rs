@@ -43,7 +43,7 @@ pub use arrow_style::{ArrowStyle, Bracket, CurveArrow, CurveEnd};
 pub use arrows::{Arrow, ArrowShape, FancyArrow};
 pub use artist::{Patch, PatchColors, PatchView};
 pub(crate) use artist::{PatchArtist, PatchParts};
-pub use box_style::{ArrowHead, BoxShape, BoxStyle, DEFAULT_PAD};
+pub use box_style::{ArrowHead, BoxOutline, BoxShape, BoxStyle, CustomBox, DEFAULT_PAD};
 pub use connection_patch::{ConnectionEnd, ConnectionPatch};
 pub use connection_style::{ClipRegion, ConnectionStyle};
 pub use error::{PatchError, ShapeError, StyleError};

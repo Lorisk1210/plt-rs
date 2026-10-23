@@ -1,0 +1,19 @@
+{
+ "size_px": [600, 100],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.051768, 0.472226, 0.896464, 0.486104],
+   "title": "",
+   "xlim": [-1.0, 15.0],
+   "ylim": [0.0, 1.0],
+   "xscale": "function",
+   "yscale": "linear",
+   "xlabel": "Discrete intervals with extend='both' keyword",
+   "ylabel": "",
+   "xticks": [[-1, "−1"], [2, "2"], [5, "5"], [7, "7"], [12, "12"], [15, "15"]],
+   "yticks": []
+  }
+ ]
+}

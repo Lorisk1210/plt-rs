@@ -49,6 +49,60 @@ pub enum BoxShape {
         /// Size of the teeth.
         tooth_size: Option<f64>,
     },
+    /// An outline drawn by a function of the caller's (matplotlib's
+    /// callable box styles and registered box style classes).
+    Custom(CustomBox),
+}
+
+/// The outline of a [`CustomBox`]: from the boxed rectangle `x0, y0,
+/// width, height` and the padding `pad` (the style's padding times the
+/// mutation size), all in the same units, the closed path around it.
+pub type BoxOutline = fn(x0: f64, y0: f64, width: f64, height: f64, pad: f64) -> Path;
+
+/// A box shape drawn by a [`BoxOutline`] (matplotlib's callable box
+/// styles; a registered box style class with parameters is the same
+/// outline with the style's padding). The name only shows in debug output.
+///
+/// ```
+/// use plt::patches::{BoxShape, BoxStyle, CustomBox};
+/// use plt_core::{Path, Point};
+/// fn diamond(x0: f64, y0: f64, width: f64, height: f64, pad: f64) -> Path {
+///     let (cx, cy) = (x0 + width / 2.0, y0 + height / 2.0);
+///     let (rx, ry) = (width / 2.0 + 2.0 * pad, height / 2.0 + 2.0 * pad);
+///     Path::polygon([(cx - rx, cy), (cx, cy - ry), (cx + rx, cy), (cx, cy + ry)].map(Point::from))
+/// }
+/// let style = BoxStyle::new(BoxShape::Custom(CustomBox::new("diamond", diamond))).with_pad(0.5);
+/// assert_eq!(style.path(0.0, 0.0, 4.0, 2.0, 2.0).extents().x1(), 6.0);
+/// ```
+#[derive(Clone, Copy)]
+pub struct CustomBox {
+    name: &'static str,
+    outline: BoxOutline,
+}
+
+impl CustomBox {
+    /// The shape `outline` draws, called `name`.
+    pub const fn new(name: &'static str, outline: BoxOutline) -> Self {
+        Self { name, outline }
+    }
+
+    /// The shape's name.
+    pub const fn name(&self) -> &'static str {
+        self.name
+    }
+}
+
+impl PartialEq for CustomBox {
+    /// Shapes of the same name drawn by the same function.
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && std::ptr::fn_addr_eq(self.outline, other.outline)
+    }
+}
+
+impl std::fmt::Debug for CustomBox {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("CustomBox").field(&self.name).finish()
+    }
 }
 
 /// The head of an arrow-shaped box.
@@ -151,6 +205,7 @@ impl BoxStyle {
             BoxShape::Roundtooth { tooth_size } => {
                 padded.roundtooth(self.tooth(tooth_size, mutation_size))
             }
+            BoxShape::Custom(custom) => (custom.outline)(x0, y0, width, height, pad),
         }
     }
 
@@ -505,6 +560,45 @@ mod tests {
         }
         let teeth = style("sawtooth").path(0.0, 0.0, 4.0, 2.0, 10.0);
         assert!(teeth.len() > 20);
+    }
+
+    /// A box with a point on its left, as in matplotlib's annotation guide.
+    fn angled(x0: f64, y0: f64, width: f64, height: f64, pad: f64) -> Path {
+        let (x0, y0) = (x0 - pad, y0 - pad);
+        let (x1, y1) = (x0 + width + 2.0 * pad, y0 + height + 2.0 * pad);
+        Path::closed(
+            [
+                (x0, y0),
+                (x1, y0),
+                (x1, y1),
+                (x0, y1),
+                (x0 - pad, f64::midpoint(y0, y1)),
+                (x0, y0),
+            ]
+            .map(|(x, y)| Point::new(x, y))
+            .to_vec(),
+        )
+    }
+
+    #[test]
+    fn custom_outlines_get_the_scaled_padding() {
+        let angled_box = BoxShape::Custom(CustomBox::new("angled", angled));
+        let path = BoxStyle::new(angled_box).path(0.0, 0.0, 4.0, 2.0, 10.0);
+        assert_eq!(path.extents().x0(), -6.0, "default padding of 0.3");
+        let padded = BoxStyle::new(angled_box)
+            .with_pad(0.5)
+            .path(0.0, 0.0, 4.0, 2.0, 10.0);
+        assert_eq!(padded.extents().x0(), -10.0);
+        assert_eq!(padded.code_at(padded.len() - 1), PathCode::ClosePoly);
+    }
+
+    #[test]
+    fn custom_shapes_compare_by_name_and_function() {
+        let angled_box = CustomBox::new("angled", angled);
+        assert_eq!(angled_box, CustomBox::new("angled", angled));
+        assert_ne!(angled_box, CustomBox::new("other", angled));
+        assert_eq!(format!("{angled_box:?}"), "CustomBox(\"angled\")");
+        assert_eq!(angled_box.name(), "angled");
     }
 
     #[test]

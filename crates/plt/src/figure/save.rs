@@ -188,6 +188,22 @@ pub(super) fn whole_pixels(size: f64) -> u32 {
     (size + 1e-8) as u32
 }
 
+/// A raster canvas of `width × height` whole pixels at `dpi`, with the
+/// current `path.simplify` and `agg.path.chunksize` settings.
+pub(super) fn raster_renderer(
+    width: u32,
+    height: u32,
+    dpi: f64,
+) -> Result<RasterRenderer, RasterBackendError> {
+    // Negative sizes never split, as matplotlib's `npts > nmax > 100`.
+    let chunksize = usize::try_from(crate::rc::params().agg_path_chunksize).unwrap_or(0);
+    RasterRenderer::new(f64::from(width), f64::from(height), dpi).map(|canvas| {
+        canvas
+            .with_simplify(simplify_settings())
+            .with_path_chunksize(chunksize)
+    })
+}
+
 impl Figure {
     /// A raster canvas for this figure — [`Figure::width_height`] pixels,
     /// as `FigureCanvasAgg` makes — with the current `path.simplify` and
@@ -205,15 +221,7 @@ impl Figure {
         height: f64,
         dpi: f64,
     ) -> Result<RasterRenderer, SaveError> {
-        // Negative sizes never split, as matplotlib's `npts > nmax > 100`.
-        let chunksize = usize::try_from(crate::rc::params().agg_path_chunksize).unwrap_or(0);
-        let (width, height) = (whole_pixels(width * dpi), whole_pixels(height * dpi));
-        RasterRenderer::new(f64::from(width), f64::from(height), dpi)
-            .map(|canvas| {
-                canvas
-                    .with_simplify(simplify_settings())
-                    .with_path_chunksize(chunksize)
-            })
+        raster_renderer(whole_pixels(width * dpi), whole_pixels(height * dpi), dpi)
             .map_err(SaveError::Backend)
     }
 

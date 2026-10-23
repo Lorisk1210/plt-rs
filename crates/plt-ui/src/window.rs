@@ -1,10 +1,11 @@
 //! A [`Ui`] shown in a `plt-platform` window.
 
 use plt_platform::{
-    Context, LogicalSize, PhysicalSize, TimerId, WindowEvent, WindowId, WindowOptions,
+    Context, LogicalSize, PhysicalRect, PhysicalSize, TimerId, WindowEvent, WindowId, WindowOptions,
 };
 
 use crate::error::UiError;
+use crate::geometry::Rect;
 use crate::ui::Ui;
 use crate::widget::{Widget, WidgetId};
 
@@ -111,6 +112,36 @@ impl<M: 'static> UiWindow<M> {
         Ok(result)
     }
 
+    /// Changes the widget `widget` of type `W` with `change`, which alters
+    /// only how it looks inside `region` (pixels from the widget's
+    /// top-left corner), then repaints that part of the window and
+    /// presents it alone, nothing else of the window being updated
+    /// (matplotlib's `blit`). Returns `None` if there is no such widget.
+    pub fn update_region<W: Widget<M>, R>(
+        &mut self,
+        cx: &mut Context<'_>,
+        widget: WidgetId,
+        region: PhysicalRect,
+        change: impl FnOnce(&mut W) -> R,
+    ) -> Result<Option<R>, UiError> {
+        let Some(origin) = self.ui.widget_rect(widget).map(Rect::origin) else {
+            return Ok(None);
+        };
+        let Some(result) = self.ui.widget_mut_without_layout(widget).map(change) else {
+            return Ok(None);
+        };
+        // Float-to-int `as` casts saturate; widgets lie inside the window.
+        let placed = PhysicalRect::new(
+            region.x.saturating_add(origin.x.round() as u32),
+            region.y.saturating_add(origin.y.round() as u32),
+            region.width,
+            region.height,
+        );
+        let (frame, painted) = self.ui.paint_region(placed)?;
+        cx.present_region(self.id, &frame, painted)?;
+        Ok(Some(result))
+    }
+
     /// Handles an event of this window and returns the messages widgets
     /// emitted.
     pub fn handle(&mut self, cx: &mut Context<'_>, event: &WindowEvent) -> Result<Vec<M>, UiError> {
@@ -170,7 +201,7 @@ mod tests {
     use super::*;
     use crate::icon::Icon;
     use crate::theme::Spacing;
-    use crate::widgets::{Button, Flex, Label, ToolButton};
+    use crate::widgets::{Button, Flex, Label, Surface, ToolButton};
 
     /// Runs one loop iteration, feeding the window's events to `window`.
     fn pump(event_loop: &mut EventLoop, window: &mut UiWindow<&'static str>) -> Vec<&'static str> {
@@ -296,5 +327,56 @@ mod tests {
             "updates and resizes are coalesced into one frame"
         );
         assert_eq!(frames[0].image.size(), PhysicalSize::new(300, 50));
+    }
+
+    #[test]
+    fn region_updates_present_only_their_region() {
+        let (mut event_loop, handle) = EventLoop::headless();
+        let mut column = Flex::column();
+        column.push(Label::new("above"), 0.0);
+        let surface = column.push(Surface::new(|_| None::<&'static str>), 1.0);
+        let options = WindowOptions::new("blit").with_inner_size(PhysicalSize::new(40, 80));
+        let mut window = UiWindow::open(&mut event_loop.context(), &options, column).unwrap();
+        let size = window.ui().widget_rect(surface).unwrap();
+        let black = |width: f64, height: f64| {
+            plt_raster::Pixmap::filled(
+                width as u32,
+                height as u32,
+                plt_raster::Rgba8::new(0, 0, 0, 255),
+            )
+            .unwrap()
+        };
+        let mut cx = event_loop.context();
+        window
+            .update(&mut cx, surface, |shown: &mut Surface<&'static str>| {
+                shown.set_image(black(size.width, size.height));
+            })
+            .unwrap();
+        pump(&mut event_loop, &mut window);
+        handle.take_frames();
+        let white =
+            plt_raster::Pixmap::filled(40, 40, plt_raster::Rgba8::new(255, 255, 255, 255)).unwrap();
+        let region = PhysicalRect::new(5, 6, 10, 4);
+        let mut cx = event_loop.context();
+        let updated = window
+            .update_region(
+                &mut cx,
+                surface,
+                region,
+                |shown: &mut Surface<&'static str>| {
+                    shown.blit(&white, region);
+                },
+            )
+            .unwrap();
+        assert_eq!(updated, Some(()));
+        let frames = handle.take_frames();
+        assert_eq!(frames.len(), 1);
+        let top = size.y.round() as u32;
+        assert_eq!(frames[0].region, PhysicalRect::new(5, top + 6, 10, 4));
+        let image = &frames[0].image;
+        assert_eq!(image.pixel(5, top + 6), Some([255; 4]));
+        assert_eq!(image.pixel(14, top + 9), Some([255; 4]));
+        assert_eq!(image.pixel(15, top + 9), Some([0, 0, 0, 255]), "outside");
+        assert_eq!(image.pixel(5, top + 10), Some([0, 0, 0, 255]));
     }
 }

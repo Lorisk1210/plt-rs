@@ -44,7 +44,7 @@ pub use session::Session;
 pub use tools::{ToolError, ToolEvent, ToolKind, ToolSpec};
 pub use window::FigureWindow;
 
-use crate::figure::{Figure, SaveError};
+use crate::figure::{CanvasError, Figure, SaveError};
 
 /// Why showing figures failed, in windows or in a browser.
 #[derive(Debug)]
@@ -57,6 +57,8 @@ pub enum GuiError {
     Ui(plt_ui::UiError),
     /// The figure could not be rendered.
     Render(SaveError),
+    /// The figure's canvas could not be drawn or shown.
+    Canvas(CanvasError),
     /// The figure is not shown in a window (`subplot_tool`; the web
     /// backend has no windows).
     NotShown,
@@ -69,6 +71,7 @@ impl fmt::Display for GuiError {
             Self::Web(err) => err.fmt(f),
             Self::Ui(err) => write!(f, "user interface error: {err}"),
             Self::Render(err) => write!(f, "cannot render the figure: {err}"),
+            Self::Canvas(err) => write!(f, "cannot show the figure: {err}"),
             Self::NotShown => f.write_str("the figure is not shown in a window"),
         }
     }
@@ -81,6 +84,7 @@ impl std::error::Error for GuiError {
             Self::Web(err) => Some(err),
             Self::Ui(err) => Some(err),
             Self::Render(err) => Some(err),
+            Self::Canvas(err) => Some(err),
             Self::NotShown => None,
         }
     }
@@ -101,6 +105,12 @@ impl From<crate::web::WebError> for GuiError {
 impl From<plt_ui::UiError> for GuiError {
     fn from(err: plt_ui::UiError) -> Self {
         Self::Ui(err)
+    }
+}
+
+impl From<CanvasError> for GuiError {
+    fn from(err: CanvasError) -> Self {
+        Self::Canvas(err)
     }
 }
 

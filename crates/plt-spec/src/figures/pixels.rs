@@ -5,9 +5,9 @@ use std::error::Error;
 use std::fmt;
 
 use plt::figure::SaveOptions;
-use plt_render::RasterRenderer;
+use plt_render::RgbaImage;
 
-use super::FigureCase;
+use super::{Capture, FigureCase};
 
 /// How a rendered case compares with its golden image.
 #[derive(Clone, Debug, PartialEq)]
@@ -43,16 +43,23 @@ impl fmt::Display for PixelReport {
 
 /// Renders a case with the raster backend under its rc configuration, at
 /// the case's resolution as the spec's `savefig(..., dpi=case.dpi)` does
-/// (so `savefig.dpi` does not apply). Artists that fail to draw are
-/// skipped; their count is returned.
-pub fn render_pixels(case: &FigureCase) -> Result<(RasterRenderer, usize), Box<dyn Error>> {
-    case.with_figure(|fig| {
-        let options = SaveOptions {
-            dpi: Some(case.dpi),
-            ..SaveOptions::default()
-        };
-        let (canvas, problems) = fig.render_raster_partial(&options)?;
-        Ok((canvas, problems.map_or(0, |errors| errors.0.len())))
+/// (so `savefig.dpi` does not apply), or takes the figure's canvas for
+/// [`Capture::Canvas`] cases. Artists that fail to draw are skipped; their
+/// count is returned.
+pub fn render_pixels(case: &FigureCase) -> Result<(RgbaImage, usize), Box<dyn Error>> {
+    case.with_figure(|fig| match case.capture {
+        Capture::Savefig => {
+            let options = SaveOptions {
+                dpi: Some(case.dpi),
+                ..SaveOptions::default()
+            };
+            let (canvas, problems) = fig.render_raster_partial(&options)?;
+            Ok((
+                canvas.to_image(),
+                problems.map_or(0, |errors| errors.0.len()),
+            ))
+        }
+        Capture::Canvas => Ok((fig.canvas().buffer_rgba()?, 0)),
     })
 }
 
@@ -72,10 +79,10 @@ impl Rendered {
             std::fs::read(case.png_path()).map_err(|e| format!("cannot read golden: {e}"))?;
         let golden =
             plt_codec::png::decode(&golden).map_err(|e| format!("cannot decode golden: {e}"))?;
-        let (canvas, draw_errors) =
+        let (actual, draw_errors) =
             render_pixels(case).map_err(|e| format!("render failed: {e}"))?;
-        let actual = canvas.pixmap();
-        let size = (actual.width(), actual.height());
+        let side = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
+        let size = (side(actual.width()), side(actual.height()));
         if size != (golden.width(), golden.height()) {
             return Err(format!(
                 "image sizes do not match: rendered {}x{}, golden {}x{}",
@@ -88,7 +95,7 @@ impl Rendered {
         Ok(Self {
             width: size.0,
             height: size.1,
-            actual: actual.data().to_vec(),
+            actual: actual.into_data(),
             golden: golden.to_rgba8(),
             draw_errors,
         })

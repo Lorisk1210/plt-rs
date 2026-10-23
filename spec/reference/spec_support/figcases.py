@@ -21,6 +21,10 @@ class FigureCase:
     ``build`` receives a fresh ``Figure`` (default size 6.4x4.8in at 100 dpi)
     and populates it. ``figsize``/``dpi`` override the canvas when the case
     needs it. ``rc`` holds rcParams applied while the case is built and drawn.
+    ``canvas`` cases draw on the figure's canvas themselves (``canvas.draw()``
+    then blitting: ``copy_from_bbox``, ``restore_region``, ``draw_artist``,
+    ``blit``); their golden image is ``fig.canvas.buffer_rgba()`` once
+    ``build`` returns, rather than the figure saved with ``savefig``.
     """
 
     name: str
@@ -28,6 +32,7 @@ class FigureCase:
     figsize: tuple[float, float] = (6.4, 4.8)
     dpi: float = 100.0
     rc: dict[str, Any] = dataclasses.field(default_factory=dict)
+    canvas: bool = False
 
     @property
     def png_path(self) -> pathlib.Path:
@@ -46,12 +51,16 @@ class FigureCase:
             fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
             try:
                 self.build(fig)
-                buffer = io.BytesIO()
-                fig.savefig(buffer, format="png", dpi=self.dpi, metadata={"Software": None})
+                if self.canvas:
+                    png = canvas_png(fig)
+                else:
+                    buffer = io.BytesIO()
+                    fig.savefig(buffer, format="png", dpi=self.dpi, metadata={"Software": None})
+                    png = buffer.getvalue()
                 facts = figure_facts(fig)
             finally:
                 plt.close(fig)
-        return buffer.getvalue(), facts
+        return png, facts
 
     def vector_path(self, fmt: str) -> pathlib.Path:
         return FIGURE_ROOT / f"{self.name}.{fmt}"
@@ -83,6 +92,16 @@ class FigureCase:
             else:
                 os.environ["SOURCE_DATE_EPOCH"] = previous_epoch
         return buffer.getvalue()
+
+
+def canvas_png(fig: Any) -> bytes:
+    """The pixels of the figure's canvas (``buffer_rgba()``) as a PNG."""
+    import numpy as np
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.fromarray(np.asarray(fig.canvas.buffer_rgba())).save(buffer, format="png")
+    return buffer.getvalue()
 
 
 #: The ``metadata`` passed to ``savefig`` for each vector golden: nothing

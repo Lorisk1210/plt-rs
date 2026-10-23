@@ -7,6 +7,7 @@ mod axes;
 mod axisartist;
 mod bars;
 mod basic;
+mod blitting;
 mod colorbar;
 mod common;
 mod contour;
@@ -92,6 +93,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         axisartist::CASES,
         bars::CASES,
         basic::CASES,
+        &blitting::cases(),
         colorbar::CASES,
         contour::CASES,
         fields::BARBS,

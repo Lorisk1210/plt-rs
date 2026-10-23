@@ -3,7 +3,7 @@
 use std::fmt;
 
 use plt_core::Rgba;
-use plt_platform::PhysicalSize;
+use plt_platform::{PhysicalRect, PhysicalSize};
 use plt_raster::Pixmap;
 
 use crate::error::UiError;
@@ -58,6 +58,31 @@ impl<M> Surface<M> {
     /// surface.
     pub fn set_image(&mut self, image: Pixmap) {
         self.image = Some(image);
+    }
+
+    /// Shows `region` (in pixels from the top-left corner) of `image` in
+    /// place of the same part of the image shown, for the application to
+    /// present just that part (matplotlib's `blit`; see
+    /// [`UiWindow::update_region`](crate::UiWindow::update_region)). When
+    /// the image shown has another size, or there is none, all of `image`
+    /// is shown.
+    pub fn blit(&mut self, image: &Pixmap, region: PhysicalRect) {
+        let size = PhysicalSize::new(image.width(), image.height());
+        let region = region.clip_to(size);
+        match &mut self.image {
+            Some(shown) if shown.width() == image.width() && shown.height() == image.height() => {
+                let (start, end) = (
+                    region.x as usize * 4,
+                    (region.x + region.width) as usize * 4,
+                );
+                for y in region.y..region.y + region.height {
+                    if let (Some(from), Some(to)) = (image.row(y), shown.row_mut(y)) {
+                        to[start..end].copy_from_slice(&from[start..end]);
+                    }
+                }
+            }
+            _ => self.image = Some(image.clone()),
+        }
     }
 
     /// The size from the last layout.

@@ -1,5 +1,7 @@
 //! Headless tests of figure windows.
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Duration;
 
 use plt_platform::{
@@ -8,7 +10,14 @@ use plt_platform::{
 };
 
 use super::*;
+use crate::animation::{AnimationOptions, Frames, FuncAnimation};
+use crate::artist::ArtistHandle;
+use crate::events::EventKind;
 use crate::gui::subplot_dialog::{Param, SubplotMessage};
+use crate::lines::Line2D;
+
+/// An opaque white pixel.
+const WHITE: [u8; 4] = [255; 4];
 
 /// Runs one loop iteration, feeding the events of `window` and its
 /// tool windows to it.
@@ -321,4 +330,101 @@ fn ctrl_c_copies_the_figure_to_the_clipboard() {
     let png = handle.clipboard_image().expect("the figure is copied");
     let image = plt_codec::png::decode(&png).expect("the clipboard holds a PNG");
     assert_eq!((image.width(), image.height()), (200, 150));
+}
+
+/// A 4 × 3 in figure at 100 dpi with an axes and an animated line, shown
+/// in a headless window whose first frame was presented.
+fn shown_with_animated_line() -> (EventLoop, HeadlessHandle, FigureWindow, Line2D) {
+    let figure = Figure::with_size(4.0, 3.0, 100.0);
+    let ax = figure.add_axes([0.25, 0.25, 0.5, 0.5]);
+    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    let line = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).expect("plotted");
+    line.set_animated(true);
+    let (mut event_loop, handle) = EventLoop::headless();
+    let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+        .expect("the window opens");
+    pump(&mut event_loop, &mut window);
+    handle.take_frames();
+    (event_loop, handle, window, line)
+}
+
+/// Where the axes of [`shown_with_animated_line`] lie in the window.
+const AXES_AREA: PhysicalRect = PhysicalRect::new(100, 75, 200, 150);
+
+#[test]
+fn blits_update_only_their_part_of_the_window() {
+    let (mut event_loop, handle, mut window, line) = shown_with_animated_line();
+    let figure = window.figure().clone();
+    let ax = figure.axes()[0].clone();
+    let canvas = figure.canvas();
+    let background = canvas.copy_from_bbox(&figure.bbox()).expect("saved");
+    ax.draw_artist(&line).expect("drawn");
+    canvas.blit(Some(&ax.bbox())).expect("blitted");
+    window.refresh(&mut event_loop.context()).expect("shown");
+    let frames = handle.take_frames();
+    let [frame] = frames.as_slice() else {
+        panic!("one partial update: {frames:?}");
+    };
+    assert_eq!(frame.region, AXES_AREA);
+    assert_ne!(frame.image.pixel(200, 150), Some(WHITE), "the line");
+    canvas.restore_region(&background).expect("restored");
+    canvas.blit(None).expect("blitted");
+    window.refresh(&mut event_loop.context()).expect("shown");
+    let frames = handle.take_frames();
+    assert_eq!(frames[0].region, PhysicalRect::new(0, 0, 400, 300));
+    assert_eq!(frames[0].image.pixel(200, 150), Some(WHITE));
+    assert!(!figure.is_stale(), "no full draw");
+}
+
+#[test]
+fn resizes_reach_callbacks_before_the_figure_is_drawn_again() {
+    let (mut event_loop, handle, mut window, _) = shown_with_animated_line();
+    let seen = Rc::new(RefCell::new(Vec::new()));
+    for kind in [EventKind::Resize, EventKind::Draw] {
+        let log = Rc::clone(&seen);
+        window
+            .figure()
+            .connect(kind, move |event| log.borrow_mut().push(event.kind()));
+    }
+    let resized = WindowEvent::Resized(PhysicalSize::new(500, 340));
+    handle
+        .inject(window.id(), resized)
+        .expect("the window exists");
+    pump(&mut event_loop, &mut window);
+    assert_eq!(seen.borrow().first(), Some(&EventKind::Resize));
+    assert!(seen.borrow().contains(&EventKind::Draw));
+    let image = window.figure().canvas().buffer_rgba().expect("drawn");
+    assert_eq!(image.width(), 500);
+}
+
+#[test]
+fn blitted_animations_play_through_partial_updates() {
+    let (mut event_loop, handle, mut window, line) = shown_with_animated_line();
+    let moved = line.clone();
+    let options = AnimationOptions {
+        blit: true,
+        ..AnimationOptions::default()
+    };
+    let animation = FuncAnimation::new(window.figure(), Frames::Count(4), options, move |i| {
+        let y = [0.0, 0.25, 0.5, 0.75][i % 4];
+        moved.set_data(&[0.0, 1.0], &[y, y]);
+        vec![moved.raw().clone()]
+    });
+    // The window draws the figure, which starts the animation.
+    window
+        .refresh(&mut event_loop.context())
+        .expect("refreshed");
+    pump(&mut event_loop, &mut window);
+    let (timer, _) = window.timers[0];
+    handle.take_frames();
+    let mut cx = event_loop.context();
+    window.tick(&mut cx, timer).expect("ticked");
+    window.tick(&mut cx, timer).expect("ticked");
+    let frames = handle.take_frames();
+    assert_eq!(frames.len(), 2, "one update per frame");
+    assert!(
+        frames.iter().all(|frame| frame.region == AXES_AREA),
+        "only the axes: {frames:?}"
+    );
+    drop(animation);
 }

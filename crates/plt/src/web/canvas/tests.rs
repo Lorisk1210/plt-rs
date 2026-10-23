@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::*;
+use crate::artist::ArtistHandle;
 use crate::events::EventKind;
 use crate::navigation::PointerButton;
 
@@ -103,6 +104,35 @@ fn draws_send_full_then_difference_frames() {
         Output::Event(ServerEvent::ImageMode(ImageMode::Diff))
     );
     assert!(matches!(outputs[1], Output::Frame(_)));
+}
+
+#[test]
+fn blits_send_the_pixels_that_changed() {
+    let (mut canvas, figure) = served();
+    let ax = figure.axes()[0].clone();
+    let line = ax.plot(vec![0.0, 10.0], vec![5.0, 5.0]).expect("plotted");
+    line.set_animated(true);
+    canvas.handle(ClientMessage::Draw);
+    canvas.take_outputs();
+    canvas.idle();
+    assert_eq!(canvas.take_outputs(), [], "nothing new");
+    ax.draw_artist(&line).expect("drawn");
+    figure.canvas().blit(Some(&ax.bbox())).expect("blitted");
+    canvas.idle();
+    let outputs = canvas.take_outputs();
+    let [
+        Output::Event(ServerEvent::ImageMode(ImageMode::Diff)),
+        Output::Frame(png),
+    ] = outputs.as_slice()
+    else {
+        panic!("a difference frame: {outputs:?}");
+    };
+    let image = plt_codec::png::decode(png).expect("a PNG frame");
+    let pixels = image.to_rgba8();
+    let at = |x: usize, y: usize| &pixels[(y * 400 + x) * 4..(y * 400 + x + 1) * 4];
+    assert_ne!(at(200, 150), [0, 0, 0, 0], "the line changed");
+    assert_eq!(at(200, 50), [0, 0, 0, 0], "the rest did not");
+    assert!(!figure.is_stale());
 }
 
 #[test]

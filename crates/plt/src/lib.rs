@@ -38,8 +38,9 @@
 //! The crate is organised like matplotlib's own modules:
 //!
 //! * [`figure`] / [`axes`] / [`gridspec`] — figures, subfigures and
-//!   mosaics; axes with their plotting methods, axis, ticks and spines;
-//!   grids of subplots. [`prelude`] imports the everyday names.
+//!   mosaics, and the canvas a figure keeps between draws for blitting;
+//!   axes with their plotting methods, axis, ticks and spines; grids of
+//!   subplots. [`prelude`] imports the everyday names.
 //! * [`lines`] / [`markers`] / [`collections`] / [`text`] / [`fonts`] —
 //!   the artists most plots are made of.
 //! * [`numeric`] — numpy-style ranges and the [`numeric::Grid`] 2-D array.
@@ -66,8 +67,9 @@
 //! * [`pyplot`] — the stateful `matplotlib.pyplot`-style interface.
 //! * [`widgets`] — buttons, sliders, check/radio buttons and text boxes.
 //! * [`events`] — figure events, callbacks (`mpl_connect`) and timers;
-//!   [`animation`] plays frame functions on them and saves animated PNG
-//!   and GIF files, HTML players and (through ffmpeg) videos.
+//!   [`animation`] plays frame functions on them, redrawing or blitting,
+//!   and saves animated PNG and GIF files, HTML players and (through
+//!   ffmpeg) videos.
 //! * [`navigation`] — interactive pan, zoom and view history, independent
 //!   of any window system; [`gui`] shows figures in windows with a
 //!   toolbar ([`gui::show`]), and [`web`] in a web browser, like

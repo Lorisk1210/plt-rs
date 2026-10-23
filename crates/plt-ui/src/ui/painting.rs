@@ -1,6 +1,6 @@
 //! Painting the widget tree, then the open popup and the tooltip over it.
 
-use plt_core::Point;
+use plt_platform::{PhysicalRect, PhysicalSize};
 use plt_raster::{Painter, Pixmap, Rgba8};
 
 use super::routing::Routing;
@@ -13,9 +13,20 @@ use crate::widget::{PaintCx, WidgetPod};
 
 impl<M: 'static> Ui<M> {
     /// Paints the background, the widgets, the open popup and the shown
-    /// tooltip into the framebuffer.
-    pub(super) fn paint_layers(&mut self) -> Result<(), UiError> {
-        self.framebuffer.fill(Rgba8::from(self.theme.background));
+    /// tooltip into `region` of the framebuffer, leaving the rest as it
+    /// is.
+    pub(super) fn paint_layers(&mut self, region: PhysicalRect) -> Result<(), UiError> {
+        fill(
+            &mut self.framebuffer,
+            region,
+            Rgba8::from(self.theme.background),
+        );
+        let clip = Rect::new(
+            f64::from(region.x),
+            f64::from(region.y),
+            f64::from(region.width),
+            f64::from(region.height),
+        );
         let mut painting = Painting {
             target: &mut self.framebuffer,
             painter: &mut self.painter,
@@ -23,10 +34,8 @@ impl<M: 'static> Ui<M> {
             routing: &self.routing,
             scale_factor: self.scale_factor,
         };
-        let unbounded = Rect::new(0.0, 0.0, f64::INFINITY, f64::INFINITY);
-        painting.paint(&self.root, unbounded)?;
+        painting.paint(&self.root, clip)?;
         let window = self.window_size();
-        let whole = Rect::from_origin_size(Point::ORIGIN, window);
         if let Some(id) = self.routing.popup
             && let Some(pod) = self.root.find(id)
         {
@@ -34,7 +43,7 @@ impl<M: 'static> Ui<M> {
                 canvas: Canvas::new(
                     &mut self.framebuffer,
                     &mut self.painter,
-                    whole,
+                    clip,
                     self.scale_factor,
                 ),
                 theme: &self.theme,
@@ -49,12 +58,34 @@ impl<M: 'static> Ui<M> {
             let mut canvas = Canvas::new(
                 &mut self.framebuffer,
                 &mut self.painter,
-                whole,
+                clip,
                 self.scale_factor,
             );
             tooltip::paint(&mut canvas, &self.theme, text, pod.rect(), window)?;
         }
         Ok(())
+    }
+}
+
+/// Fills `region` of `target` (clipped to it) with `color`.
+fn fill(target: &mut Pixmap, region: PhysicalRect, color: Rgba8) {
+    let whole = PhysicalSize::new(target.width(), target.height());
+    let region = region.clip_to(whole);
+    if region == PhysicalRect::from_size(whole) {
+        target.fill(color);
+        return;
+    }
+    let (start, end) = (
+        region.x as usize * 4,
+        (region.x + region.width) as usize * 4,
+    );
+    for y in region.y..region.y + region.height {
+        if let Some(row) = target.row_mut(y) {
+            row[start..end]
+                .as_chunks_mut::<4>()
+                .0
+                .fill(color.to_array());
+        }
     }
 }
 

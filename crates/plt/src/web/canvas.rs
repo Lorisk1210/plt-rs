@@ -14,7 +14,9 @@ use super::protocol::{
 };
 use super::schedule::TimerSchedule;
 use crate::events::{CursorShape, Event, EventSource};
-use crate::figure::{Figure, SaveError, SaveFormat, SaveOptions};
+use crate::figure::{
+    CanvasError, Figure, Presentation, Presenting, SaveError, SaveFormat, SaveOptions,
+};
 use crate::gui::actions;
 use crate::gui::keys::{self, KeyAction};
 use crate::navigation::{DragKey, NavMode, Navigation, Rubberband, axes_at};
@@ -62,6 +64,8 @@ struct Told {
 #[derive(Debug)]
 pub(crate) struct WebCanvas {
     figure: Figure,
+    /// Keeps the figure's blits and draws recorded for the clients.
+    _presenting: Presenting,
     title: String,
     navigation: Navigation,
     events: EventSource,
@@ -89,6 +93,7 @@ impl WebCanvas {
         timers.sync(figure, Instant::now());
         Self {
             figure: figure.clone(),
+            _presenting: Presenting::new(figure),
             title: title.to_owned(),
             navigation: Navigation::new(),
             events: EventSource::new(),
@@ -183,10 +188,19 @@ impl WebCanvas {
     }
 
     /// Asks the clients for a draw when the figure changed (matplotlib's
-    /// `draw_idle`, which a stale figure triggers).
+    /// `draw_idle`, which a stale figure triggers), or else sends them
+    /// what the program drew or blitted on the figure's canvas since the
+    /// last frame (matplotlib's `blit`, whose frame holds only the pixels
+    /// that changed).
     pub(crate) fn idle(&mut self) {
-        if self.figure.is_stale() && !self.draw_requested {
-            self.request_draw();
+        if self.figure.is_stale() {
+            if !self.draw_requested {
+                self.request_draw();
+            }
+        } else if self.figure.canvas().take_presentation() != Presentation::Nothing
+            && let Err(problem) = self.send_frame()
+        {
+            self.set_message(problem);
         }
     }
 
@@ -246,22 +260,39 @@ impl WebCanvas {
         }
     }
 
-    /// Draws the figure and queues its frame; artists that cannot be drawn
-    /// are skipped and reported.
+    /// Draws the figure onto its canvas and queues the frame; artists
+    /// that cannot be drawn are skipped and reported.
     fn draw_frame(&mut self) -> Result<(), String> {
-        let mut canvas = self.figure.raster_canvas().map_err(|err| err.to_string())?;
-        let drawn = self.figure.draw(&mut canvas);
-        let pixmap = canvas.pixmap();
-        let (mode, png) = self
-            .frames
-            .encode(pixmap.width(), pixmap.height(), pixmap.data())
-            .map_err(|err| err.to_string())?;
+        let figure_canvas = self.figure.canvas();
+        let drawn = match figure_canvas.draw() {
+            Err(CanvasError::Draw(problem)) => Err(problem.to_string()),
+            Err(err) => return Err(err.to_string()),
+            Ok(()) => Ok(()),
+        };
+        // The clients are sent the whole canvas now.
+        figure_canvas.take_presentation();
+        self.send_frame()?;
+        drawn
+    }
+
+    /// Queues a frame of the figure's canvas as it is (matplotlib's
+    /// `get_diff_image`).
+    fn send_frame(&mut self) -> Result<(), String> {
+        let encoded = self
+            .figure
+            .canvas()
+            .with_pixels(|pixmap| {
+                self.frames
+                    .encode(pixmap.width(), pixmap.height(), pixmap.data())
+            })
+            .ok_or_else(|| CanvasError::NotDrawn.to_string())?;
+        let (mode, png) = encoded.map_err(|err| err.to_string())?;
         if mode != self.image_mode {
             self.image_mode = mode;
             self.push(ServerEvent::ImageMode(mode));
         }
         self.outputs.push(Output::Frame(png));
-        drawn.map_err(|err| err.to_string())
+        Ok(())
     }
 
     /// Gives the figure `width × height` physical pixels, within the

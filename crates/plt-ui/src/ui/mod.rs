@@ -12,7 +12,7 @@ mod tests;
 mod tooltip;
 
 use plt_core::Point;
-use plt_platform::{ButtonState, Frame, PhysicalSize, WindowEvent};
+use plt_platform::{ButtonState, Frame, PhysicalRect, PhysicalSize, WindowEvent};
 use plt_raster::{Painter, Pixmap};
 
 use crate::error::UiError;
@@ -147,6 +147,14 @@ impl<M: 'static> Ui<M> {
         self.root.find_mut(id)?.downcast_mut()
     }
 
+    /// The widget `id` as its concrete type, for a change that alters only
+    /// how it looks, not its size or what it holds: nothing is laid out
+    /// again, and only what the caller repaints with [`Ui::paint_region`]
+    /// changes on screen until the next full paint.
+    pub fn widget_mut_without_layout<W: Widget<M>>(&mut self, id: WidgetId) -> Option<&mut W> {
+        self.root.find_mut(id)?.downcast_mut()
+    }
+
     /// Schedules a new layout (and paint) before the next frame.
     pub fn request_layout(&mut self) {
         self.needs_layout = true;
@@ -243,8 +251,33 @@ impl<M: 'static> Ui<M> {
     /// the tooltip shown, on top) and returns the frame to present.
     pub fn paint(&mut self) -> Result<Frame<'_>, UiError> {
         self.layout()?;
-        self.paint_layers()?;
+        self.paint_layers(PhysicalRect::from_size(self.size()))?;
         self.needs_paint = false;
+        self.frame()
+    }
+
+    /// Repaints only `region` of the framebuffer (in window pixels,
+    /// clipped to the window), for a change that alters only how widgets
+    /// look there, and returns the frame with the region to present. When
+    /// the UI has to be laid out first, everything is laid out and
+    /// repainted, and the region is the whole window.
+    pub fn paint_region(
+        &mut self,
+        region: PhysicalRect,
+    ) -> Result<(Frame<'_>, PhysicalRect), UiError> {
+        let painted = if self.needs_layout {
+            self.layout()?;
+            self.needs_paint = false;
+            PhysicalRect::from_size(self.size())
+        } else {
+            region.clip_to(self.size())
+        };
+        self.paint_layers(painted)?;
+        Ok((self.frame()?, painted))
+    }
+
+    /// The framebuffer as a frame to present.
+    fn frame(&self) -> Result<Frame<'_>, UiError> {
         let size = self.size();
         Ok(Frame::new(
             size.width,

@@ -5,6 +5,7 @@ use std::cell::Cell;
 use plt_core::{Affine2D, Bbox, Rgba};
 use plt_render::{ClipPath, Renderer};
 
+use super::CanvasState;
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
@@ -67,6 +68,9 @@ pub(crate) struct FigureState {
     /// first draw (see
     /// [`LayoutContext::measured_dpi_cor`](crate::artist::LayoutContext::measured_dpi_cor)).
     pub(crate) last_draw_dpi: Option<f64>,
+    /// The raster canvas kept between draws, and what the windows showing
+    /// the figure have to present of it.
+    pub(crate) canvas: CanvasState,
 }
 
 impl FigureState {
@@ -148,6 +152,7 @@ impl FigureState {
             saving: false,
             suppress_composite: None,
             last_draw_dpi: None,
+            canvas: CanvasState::default(),
         }
     }
 

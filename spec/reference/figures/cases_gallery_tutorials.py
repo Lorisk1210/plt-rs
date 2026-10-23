@@ -23,7 +23,10 @@ ffmpeg) shows the frame of its first pass. Event handling examples that simulate
 themselves (``cursor_demo``'s mouse move to the data point (0.5, 0.5)) show
 its outcome. The editors' artists that blitting callbacks draw over every
 redraw (``path_editor``, ``poly_editor``) are made ordinary artists, which
-draws them the same way in every output format.
+draws them the same way in every output format; ``path_editor_blitted`` and
+``poly_editor_blitted`` run the editors as written instead (their animated
+artists drawn by their draw callbacks, then a vertex dragged with simulated
+mouse events) and are taken from the canvas.
 
 Covered elsewhere: the fifth and ninth ``pyplot`` figures
 (``gallery_misc/keyword_plotting`` and ``gallery_text/annotation_basic``),
@@ -41,6 +44,7 @@ the ``blitting`` page (its figures hold animated artists only).
 import matplotlib as mpl
 import numpy as np
 from matplotlib import colors as mcolors
+from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.collections import RegularPolyCollection
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, ConnectionPatch, PathPatch, Polygon, Rectangle
@@ -716,9 +720,8 @@ def _(fig):
     ax.set_title("Left click and drag to move looking glass")
 
 
-@tutorial("path_editor")
-def _(fig):
-    ax = fig.subplots()
+def _editor_path():
+    """The path ``path_editor`` edits."""
     pathdata = [
         (Path.MOVETO, (1.58, -2.57)),
         (Path.CURVE4, (0.35, -1.1)),
@@ -731,13 +734,101 @@ def _(fig):
         (Path.CLOSEPOLY, (1.58, -2.57)),
     ]
     codes, verts = zip(*pathdata)
-    patch = PathPatch(Path(verts, codes), facecolor='green', edgecolor='yellow', alpha=0.5)
+    return Path(verts, codes)
+
+
+@tutorial("path_editor")
+def _(fig):
+    ax = fig.subplots()
+    patch = PathPatch(_editor_path(), facecolor='green', edgecolor='yellow', alpha=0.5)
     ax.add_patch(patch)
     x, y = zip(*patch.get_path().vertices)
     ax.plot(x, y, marker='o', markerfacecolor='r')
     ax.set_title('drag vertices to update path')
     ax.set_xlim(-3, 4)
     ax.set_ylim(-3, 4)
+
+
+def _drag(fig, start, end):
+    """Presses the left button at display point ``start``, moves the
+    pointer to ``end`` and releases the button there."""
+    for name, (x, y) in [("button_press_event", start), ("motion_notify_event", end),
+                         ("button_release_event", end)]:
+        MouseEvent(name, fig.canvas, x, y, button=MouseButton.LEFT)._process()
+
+
+class _PathInteractor:
+    """``path_editor``'s ``PathInteractor`` without its key binding: the
+    patch and the vertex markers are animated, drawn by the draw callback
+    over the background it saves, and dragging a vertex redraws them over
+    that background and blits the axes."""
+
+    epsilon = 5
+
+    def __init__(self, pathpatch):
+        self.ax = pathpatch.axes
+        canvas = self.ax.figure.canvas
+        self.pathpatch = pathpatch
+        self.pathpatch.set_animated(True)
+        x, y = zip(*self.pathpatch.get_path().vertices)
+        self.line, = self.ax.plot(x, y, marker='o', markerfacecolor='r', animated=True)
+        self._ind = None
+        canvas.mpl_connect('draw_event', self.on_draw)
+        canvas.mpl_connect('button_press_event', self.on_button_press)
+        canvas.mpl_connect('button_release_event', self.on_button_release)
+        canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+        self.canvas = canvas
+
+    def get_ind_under_point(self, event):
+        xy = self.pathpatch.get_path().vertices
+        xyt = self.pathpatch.get_transform().transform(xy)
+        xt, yt = xyt[:, 0], xyt[:, 1]
+        d = np.sqrt((xt - event.x)**2 + (yt - event.y)**2)
+        ind = d.argmin()
+        return ind if d[ind] < self.epsilon else None
+
+    def on_draw(self, event):
+        self.background = self.canvas.copy_from_bbox(self.ax.bbox)
+        self.ax.draw_artist(self.pathpatch)
+        self.ax.draw_artist(self.line)
+
+    def on_button_press(self, event):
+        if event.inaxes is None or event.button != MouseButton.LEFT:
+            return
+        self._ind = self.get_ind_under_point(event)
+
+    def on_button_release(self, event):
+        if event.button != MouseButton.LEFT:
+            return
+        self._ind = None
+
+    def on_mouse_move(self, event):
+        if self._ind is None or event.inaxes is None or event.button != MouseButton.LEFT:
+            return
+        vertices = self.pathpatch.get_path().vertices
+        vertices[self._ind] = event.xdata, event.ydata
+        self.line.set_data(zip(*vertices))
+        self.canvas.restore_region(self.background)
+        self.ax.draw_artist(self.pathpatch)
+        self.ax.draw_artist(self.line)
+        self.canvas.blit(self.ax.bbox)
+
+
+@tutorial("path_editor_blitted", canvas=True)
+def _(fig):
+    """``path_editor`` as it runs, from its canvas: drawn, then its third
+    vertex (-1.75, 2), at display point (168.6, 316.8), dragged to
+    (250, 400)."""
+    ax = fig.subplots()
+    patch = PathPatch(_editor_path(), facecolor='green', edgecolor='yellow', alpha=0.5)
+    ax.add_patch(patch)
+    interactor = _PathInteractor(patch)
+    ax.set_title('drag vertices to update path')
+    ax.set_xlim(-3, 4)
+    ax.set_ylim(-3, 4)
+    fig.canvas.draw()
+    _drag(fig, (169, 317), (250, 400))
+    del interactor
 
 
 @tutorial("pick_event_demo_1")
@@ -780,11 +871,16 @@ def _(fig):
     _means_and_deviations(fig.subplots(), 1000)
 
 
-@tutorial("poly_editor")
-def _(fig):
+def _editor_circle():
+    """The vertices of the polygon ``poly_editor`` edits."""
     theta = np.arange(0, 2*np.pi, 0.1)
     r = 1.5
-    poly = Polygon(np.column_stack([r * np.cos(theta), r * np.sin(theta)]))
+    return np.column_stack([r * np.cos(theta), r * np.sin(theta)])
+
+
+@tutorial("poly_editor")
+def _(fig):
+    poly = Polygon(_editor_circle())
     ax = fig.subplots()
     ax.add_patch(poly)
     x, y = zip(*poly.xy)
@@ -792,6 +888,88 @@ def _(fig):
     ax.set_title('Click and drag a point to move it')
     ax.set_xlim(-2, 2)
     ax.set_ylim(-2, 2)
+
+
+class _PolygonInteractor:
+    """``poly_editor``'s ``PolygonInteractor`` without its key bindings
+    (and so without the property updates they cause): the markers are
+    animated and, with the animated polygon, drawn by the draw callback
+    over the background it saves; dragging a vertex redraws them over that
+    background and blits the axes."""
+
+    epsilon = 5
+
+    def __init__(self, ax, poly):
+        self.ax = ax
+        canvas = poly.figure.canvas
+        self.poly = poly
+        x, y = zip(*self.poly.xy)
+        self.line = Line2D(x, y, marker='o', markerfacecolor='r', animated=True)
+        self.ax.add_line(self.line)
+        self._ind = None
+        canvas.mpl_connect('draw_event', self.on_draw)
+        canvas.mpl_connect('button_press_event', self.on_button_press)
+        canvas.mpl_connect('button_release_event', self.on_button_release)
+        canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+        self.canvas = canvas
+
+    def on_draw(self, event):
+        self.background = self.canvas.copy_from_bbox(self.ax.bbox)
+        self.ax.draw_artist(self.poly)
+        self.ax.draw_artist(self.line)
+
+    def get_ind_under_point(self, event):
+        xy = np.asarray(self.poly.xy)
+        xyt = self.poly.get_transform().transform(xy)
+        xt, yt = xyt[:, 0], xyt[:, 1]
+        d = np.hypot(xt - event.x, yt - event.y)
+        indseq, = np.nonzero(d == d.min())
+        ind = indseq[0]
+        if d[ind] >= self.epsilon:
+            ind = None
+        return ind
+
+    def on_button_press(self, event):
+        if event.inaxes is None or event.button != 1:
+            return
+        self._ind = self.get_ind_under_point(event)
+
+    def on_button_release(self, event):
+        if event.button != 1:
+            return
+        self._ind = None
+
+    def on_mouse_move(self, event):
+        if self._ind is None or event.inaxes is None or event.button != 1:
+            return
+        x, y = event.xdata, event.ydata
+        self.poly.xy[self._ind] = x, y
+        if self._ind == 0:
+            self.poly.xy[-1] = x, y
+        elif self._ind == len(self.poly.xy) - 1:
+            self.poly.xy[0] = x, y
+        self.line.set_data(zip(*self.poly.xy))
+        self.canvas.restore_region(self.background)
+        self.ax.draw_artist(self.poly)
+        self.ax.draw_artist(self.line)
+        self.canvas.blit(self.ax.bbox)
+
+
+@tutorial("poly_editor_blitted", canvas=True)
+def _(fig):
+    """``poly_editor`` as it runs, from its canvas: drawn, then the
+    vertex at angle 1, at display point (428.5, 354.2), dragged to
+    (480, 420)."""
+    poly = Polygon(_editor_circle(), animated=True)
+    ax = fig.subplots()
+    ax.add_patch(poly)
+    interactor = _PolygonInteractor(ax, poly)
+    ax.set_title('Click and drag a point to move it')
+    ax.set_xlim((-2, 2))
+    ax.set_ylim((-2, 2))
+    fig.canvas.draw()
+    _drag(fig, (428, 354), (480, 420))
+    del interactor
 
 
 @tutorial("resample")

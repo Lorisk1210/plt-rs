@@ -93,30 +93,45 @@ impl RawHandle {
             .unwrap_or_else(|| self.gone()))
     }
 
-    /// Mutates the artist as concrete type `T` and marks the figure stale.
+    /// Mutates the artist as concrete type `T` and marks the figure stale
+    /// (see [`RawHandle::mark_changed`]).
     pub(crate) fn with_mut<T: Artist, R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let mut state = self.figure.borrow_mut();
-        state.stale = true;
         let artist = state
             .store
             .get_as_mut::<T>(self.id)
             .unwrap_or_else(|| self.gone());
-        f(artist)
+        let result = f(artist);
+        self.mark_changed(&mut state);
+        result
     }
 
     /// Mutates the artist as concrete type `T` together with the rest of
     /// the figure's artists (see [`ArtistStore::with_detached`]) and
-    /// marks the figure stale.
+    /// marks the figure stale (see [`RawHandle::mark_changed`]).
     pub(crate) fn with_detached<T: Artist, R>(
         &self,
         f: impl FnOnce(&mut T, &mut ArtistStore) -> R,
     ) -> R {
         let mut state = self.figure.borrow_mut();
-        state.stale = true;
-        state
+        let result = state
             .store
             .with_detached(self.id, f)
-            .unwrap_or_else(|| self.gone())
+            .unwrap_or_else(|| self.gone());
+        self.mark_changed(&mut state);
+        result
+    }
+
+    /// Marks the figure stale after a change to the artist, unless the
+    /// artist is animated: figures leave animated artists out of their
+    /// draws, so a change to one only shows once the program draws it
+    /// (matplotlib's `Artist.stale` does not reach the figure from an
+    /// animated artist).
+    fn mark_changed(&self, state: &mut FigureState) {
+        let animated = state.store.get(self.id).is_some_and(|a| a.base().animated);
+        if !animated {
+            state.stale = true;
+        }
     }
 
     /// Reads the common artist properties.
@@ -129,15 +144,17 @@ impl RawHandle {
             .base())
     }
 
-    /// Mutates the common artist properties.
+    /// Mutates the common artist properties and marks the figure stale
+    /// (see [`RawHandle::mark_changed`]).
     pub(crate) fn with_base_mut<R>(&self, f: impl FnOnce(&mut ArtistBase) -> R) -> R {
         let mut state = self.figure.borrow_mut();
-        state.stale = true;
-        f(state
+        let result = f(state
             .store
             .get_mut(self.id)
             .unwrap_or_else(|| self.gone())
-            .base_mut())
+            .base_mut());
+        self.mark_changed(&mut state);
+        result
     }
 
     /// Whether display point `at` hits the artist in the figure's current
@@ -408,7 +425,11 @@ pub trait ArtistHandle {
 
     /// Marks the artist as animated: left out of normal draws (for
     /// blitting), though an animated artist of an axes is drawn when the
-    /// figure is saved, as in matplotlib.
+    /// figure is saved, as in matplotlib. Changes to an animated artist
+    /// leave the figure as drawn ([`Figure::is_stale`]): the program draws
+    /// it ([`Axes::draw_artist`](crate::axes::Axes::draw_artist)).
+    ///
+    /// [`Figure::is_stale`]: crate::figure::Figure::is_stale
     fn set_animated(&self, animated: bool) -> &Self
     where
         Self: Sized,

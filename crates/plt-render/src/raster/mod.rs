@@ -124,6 +124,12 @@ impl RasterRenderer {
         &self.pixmap
     }
 
+    /// The pixels, for changes made outside drawing calls (matplotlib's
+    /// `restore_region` writes saved pixels back into the canvas).
+    pub fn pixmap_mut(&mut self) -> &mut Pixmap {
+        &mut self.pixmap
+    }
+
     /// Consumes the renderer, returning its pixels.
     pub fn into_pixmap(self) -> Pixmap {
         self.pixmap

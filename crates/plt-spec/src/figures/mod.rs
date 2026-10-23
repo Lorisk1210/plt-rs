@@ -23,6 +23,19 @@ pub type CaseResult = Result<(), Box<dyn Error>>;
 /// Changes a case makes to the rcParams in code.
 pub type RcSetup = fn(&mut plt::rc::RcParams) -> CaseResult;
 
+/// Where a case's image comes from.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Capture {
+    /// The figure saved as PNG after it is built (`savefig`).
+    #[default]
+    Savefig,
+    /// The figure's canvas once the case is built: the case draws on the
+    /// canvas and blits itself, and its image is
+    /// [`FigureCanvas::buffer_rgba`](plt::figure::FigureCanvas::buffer_rgba)
+    /// (a `canvas=True` case in the Python spec).
+    Canvas,
+}
+
 /// A named figure recipe mirroring `@case("group/name")` in the Python spec.
 #[derive(Clone, Copy)]
 pub struct FigureCase {
@@ -43,6 +56,8 @@ pub struct FigureCase {
     pub rc_setup: Option<RcSetup>,
     /// Populates the figure.
     pub build: fn(&Figure) -> CaseResult,
+    /// Where the case's image comes from.
+    pub capture: Capture,
 }
 
 impl fmt::Debug for FigureCase {
@@ -64,6 +79,17 @@ impl FigureCase {
             rc: &[],
             rc_setup: None,
             build,
+            capture: Capture::Savefig,
+        }
+    }
+
+    /// The same case taken from the figure's canvas, on which it draws and
+    /// blits itself.
+    #[must_use]
+    pub const fn from_canvas(self) -> Self {
+        Self {
+            capture: Capture::Canvas,
+            ..self
         }
     }
 

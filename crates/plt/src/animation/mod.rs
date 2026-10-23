@@ -1,9 +1,11 @@
 //! Animations (matplotlib's `animation.FuncAnimation` and
 //! `ArtistAnimation`): a function updates the figure for each frame, or
 //! each frame shows prepared artists. A figure window plays the frames on
-//! a timer, and the animation can be saved as an animated PNG or GIF, as a
-//! web page with matplotlib's JavaScript player, or as a video through
-//! ffmpeg.
+//! a timer once it has drawn the figure, either redrawing the figure for
+//! each frame or blitting: drawing only the artists the frame changed
+//! over the saved background of their axes. The animation can be saved
+//! as an animated PNG or GIF, as a web page with matplotlib's JavaScript
+//! player, or as a video through ffmpeg.
 //!
 //! ```
 //! use plt::animation::{AnimationOptions, Frames, FuncAnimation};
@@ -19,28 +21,56 @@
 //! assert!(apng.windows(4).any(|chunk| chunk == b"acTL"));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! With [`AnimationOptions::blit`], the frame function returns the
+//! artists it changed. They should be animated from the start, so that
+//! the background saved when the figure is first drawn leaves them out:
+//!
+//! ```
+//! use plt::animation::{AnimationOptions, Frames, FuncAnimation};
+//! use plt::artist::ArtistHandle;
+//! use plt::figure::Figure;
+//! let fig = Figure::with_size(2.0, 2.0, 50.0);
+//! let ax = fig.subplot();
+//! let line = ax.plot(vec![0.0, 1.0], vec![0.0, 0.0])?;
+//! line.set_animated(true);
+//! let options = AnimationOptions { blit: true, ..AnimationOptions::default() };
+//! let animation = FuncAnimation::new(&fig, Frames::Count(5), options, move |i| {
+//!     line.set_data(&[0.0, 1.0], &[0.0, i as f64 / 4.0]);
+//!     vec![line.raw().clone()]
+//! });
+//! // The figure was drawn, and the animation started playing.
+//! let (timer, _) = fig.timers()[0];
+//! fig.fire_timer(timer);
+//! assert!(!fig.is_stale(), "the frame was blitted, not redrawn");
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
 
 use std::cell::RefCell;
 use std::fmt;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use plt_codec::gif::GifError;
 use plt_codec::png::EncodeError;
 use plt_codec::webp;
-
-use crate::events::TimerKey;
 use plt_core::Bbox;
 use plt_render::RgbaImage;
 
+use crate::artist::RawHandle;
 use crate::figure::{BboxInches, Figure, SaveError, SaveOptions};
+use player::Player;
 
 mod artists;
+mod blit;
 mod html;
 mod html_template;
 mod movie;
+mod player;
 mod save;
+#[cfg(test)]
+mod tests;
 
 pub use html::{HtmlOptions, PlayMode};
 pub use movie::{MovieError, MovieOptions};
@@ -58,7 +88,8 @@ pub enum Frames {
     Endless,
 }
 
-/// Timing of an animation (matplotlib's `TimedAnimation` arguments).
+/// Timing and drawing of an animation (matplotlib's `TimedAnimation`
+/// arguments).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AnimationOptions {
     /// Time between frames.
@@ -67,16 +98,43 @@ pub struct AnimationOptions {
     pub repeat: bool,
     /// Pause before starting over.
     pub repeat_delay: Duration,
+    /// Whether frames are blitted (matplotlib's `blit`): the artists the
+    /// frame function returns become animated and only they are drawn,
+    /// over the background of their axes saved once, and only those axes
+    /// are shown again. Frames giving no artists are drawn in full.
+    pub blit: bool,
 }
 
 impl Default for AnimationOptions {
-    /// matplotlib's defaults: 200 ms per frame, repeating without pause.
+    /// matplotlib's defaults: 200 ms per frame, repeating without pause,
+    /// without blitting.
     fn default() -> Self {
         Self {
             interval: Duration::from_millis(200),
             repeat: true,
             repeat_delay: Duration::ZERO,
+            blit: false,
         }
+    }
+}
+
+/// What a frame or init function returns: nothing, or the artists it
+/// changed, which blitting draws (matplotlib requires them with
+/// `blit=True`).
+pub trait ChangedArtists {
+    /// The artists changed.
+    fn into_artists(self) -> Vec<RawHandle>;
+}
+
+impl ChangedArtists for () {
+    fn into_artists(self) -> Vec<RawHandle> {
+        Vec::new()
+    }
+}
+
+impl ChangedArtists for Vec<RawHandle> {
+    fn into_artists(self) -> Vec<RawHandle> {
+        self
     }
 }
 
@@ -134,98 +192,70 @@ impl std::error::Error for AnimationError {
     }
 }
 
-/// The frame function and where playback stands.
-struct Player {
-    frames: Frames,
-    options: AnimationOptions,
-    update: Box<dyn FnMut(usize)>,
-    next: usize,
-    /// When playback resumes after the repeat delay.
-    resume_at: Option<Instant>,
-}
-
-impl Player {
-    /// One timer tick: shows the next frame; returns whether playback
-    /// continues.
-    fn step(&mut self) -> bool {
-        if let Some(resume) = self.resume_at {
-            if Instant::now() < resume {
-                return true;
-            }
-            self.resume_at = None;
-        }
-        if let Frames::Count(count) = self.frames
-            && self.next >= count
-        {
-            if !self.options.repeat || count == 0 {
-                return false;
-            }
-            self.next = 0;
-            if !self.options.repeat_delay.is_zero() {
-                self.resume_at = Some(Instant::now() + self.options.repeat_delay);
-                return true;
-            }
-        }
-        (self.update)(self.next);
-        self.next += 1;
-        true
-    }
-}
-
 /// An animation driven by a frame function (matplotlib's
-/// `FuncAnimation`). It plays while its figure is shown in a window; it
-/// stops when dropped.
+/// `FuncAnimation`). It starts playing once its figure is drawn, as when
+/// a window shows it: the initial frame is set up, then a timer goes
+/// through `frames` every interval. It stops when dropped.
 pub struct FuncAnimation {
     figure: Figure,
     player: Rc<RefCell<Player>>,
-    timer: TimerKey,
 }
 
 impl fmt::Debug for FuncAnimation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FuncAnimation")
-            .field("timer", &self.timer)
+            .field("figure", &self.figure)
             .finish_non_exhaustive()
     }
 }
 
 impl FuncAnimation {
-    /// Animates `figure` by calling `update` with each frame number. The
-    /// first frame is drawn right away (matplotlib's default `init_func`);
-    /// playback then goes through `frames` every `options.interval`.
-    pub fn new(
+    /// Animates `figure` by calling `update` with each frame number; the
+    /// first frame is the initial one (matplotlib's default `init_func`).
+    /// With [`AnimationOptions::blit`], `update` returns the artists it
+    /// changed, and the figure is drawn at once to start playing.
+    pub fn new<R: ChangedArtists>(
         figure: &Figure,
         frames: Frames,
         options: AnimationOptions,
-        update: impl FnMut(usize) + 'static,
+        update: impl FnMut(usize) -> R + 'static,
     ) -> Self {
-        let mut update = update;
-        if frames != Frames::Count(0) {
-            update(0);
-        }
-        let player = Rc::new(RefCell::new(Player {
-            frames,
-            options,
-            update: Box::new(update),
-            next: 0,
-            resume_at: None,
-        }));
-        let ticking = Rc::downgrade(&player);
-        let timer = figure.add_timer(options.interval, move || {
-            ticking
-                .upgrade()
-                .is_some_and(|player| player.borrow_mut().step())
-        });
+        Self::build(figure, frames, options, None, update)
+    }
+
+    /// Animates `figure` by calling `update` with each frame number, after
+    /// `init` sets up the initial frame (matplotlib's `init_func`); when
+    /// blitting, both return the artists they changed.
+    pub fn with_init<I: ChangedArtists, R: ChangedArtists>(
+        figure: &Figure,
+        frames: Frames,
+        options: AnimationOptions,
+        mut init: impl FnMut() -> I + 'static,
+        update: impl FnMut(usize) -> R + 'static,
+    ) -> Self {
+        let init: player::InitFn = Box::new(move || init().into_artists());
+        Self::build(figure, frames, options, Some(init), update)
+    }
+
+    fn build<R: ChangedArtists>(
+        figure: &Figure,
+        frames: Frames,
+        options: AnimationOptions,
+        init: Option<player::InitFn>,
+        mut update: impl FnMut(usize) -> R + 'static,
+    ) -> Self {
+        let update: player::FrameFn = Box::new(move |frame| update(frame).into_artists());
         Self {
             figure: figure.clone(),
-            player,
-            timer,
+            player: Player::connect(figure, frames, options, init, update),
         }
     }
 
     /// Stops playback.
     pub fn stop(&self) {
-        self.figure.remove_timer(self.timer);
+        if let Ok(mut player) = self.player.try_borrow_mut() {
+            player.stop();
+        }
     }
 
     /// The number of frames saved: all of them, or matplotlib's default
@@ -237,14 +267,17 @@ impl FuncAnimation {
         }
     }
 
-    /// Shows every saved frame in turn and hands the figure to `visit`
-    /// (matplotlib's `Animation.save` loop).
+    /// Sets up the initial frame, then shows every saved frame in turn and
+    /// hands the figure to `visit` (matplotlib's `Animation.save` loop,
+    /// which draws every frame in full; the figure's own canvas is left
+    /// as it is).
     fn for_each_frame(
         &self,
         mut visit: impl FnMut(&Figure) -> Result<(), SaveError>,
     ) -> Result<(), AnimationError> {
+        self.player.borrow_mut().init_draw();
         for frame in 0..self.save_count() {
-            (self.player.borrow_mut().update)(frame);
+            self.player.borrow_mut().draw_frame(frame);
             visit(&self.figure).map_err(AnimationError::Save)?;
         }
         Ok(())
@@ -274,55 +307,5 @@ fn interval_millis(duration: Duration) -> f64 {
 impl Drop for FuncAnimation {
     fn drop(&mut self) {
         self.stop();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::cell::Cell;
-
-    use super::*;
-
-    #[test]
-    fn frames_play_in_order_and_repeat() {
-        let fig = Figure::new();
-        let seen = Rc::new(RefCell::new(Vec::new()));
-        let log = Rc::clone(&seen);
-        let options = AnimationOptions {
-            repeat: false,
-            ..AnimationOptions::default()
-        };
-        let animation = FuncAnimation::new(&fig, Frames::Count(3), options, move |i| {
-            log.borrow_mut().push(i);
-        });
-        let (timer, _) = fig.timers()[0];
-        while fig.fire_timer(timer) {}
-        assert_eq!(
-            *seen.borrow(),
-            [0, 0, 1, 2],
-            "the first frame is drawn at once"
-        );
-        assert_eq!(fig.timers(), []);
-        drop(animation);
-    }
-
-    #[test]
-    fn dropping_stops_playback() {
-        let fig = Figure::new();
-        let ticks = Rc::new(Cell::new(0));
-        let count = Rc::clone(&ticks);
-        let animation = FuncAnimation::new(
-            &fig,
-            Frames::Endless,
-            AnimationOptions::default(),
-            move |_| {
-                count.set(count.get() + 1);
-            },
-        );
-        let (timer, _) = fig.timers()[0];
-        assert!(fig.fire_timer(timer));
-        drop(animation);
-        assert_eq!(fig.timers(), []);
-        assert_eq!(ticks.get(), 2);
     }
 }

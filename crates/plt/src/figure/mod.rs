@@ -1,6 +1,7 @@
 //! Figures: the top-level container of everything drawn (matplotlib.figure).
 
 mod artists;
+mod canvas;
 mod clear;
 mod draw_order;
 mod frame;
@@ -24,6 +25,8 @@ use std::rc::Rc;
 use plt_core::Rgba;
 use plt_render::Renderer;
 
+pub use canvas::{BufferRegion, CanvasError, FigureCanvas, PixelBox};
+pub(crate) use canvas::{CanvasState, Presentation, Presenting};
 pub(crate) use draw_order::draws_before;
 pub(crate) use frame::FigureFrame;
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
@@ -387,15 +390,20 @@ impl Figure {
     /// Everything drawable is drawn; artists with invalid properties (for
     /// example an unknown colour name) are skipped and reported.
     pub fn draw(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
+        let drawn = self.draw_without_event(renderer);
+        self.process_event(&Event::Draw);
+        drawn
+    }
+
+    /// [`Figure::draw`] without the draw event, for callers that send it
+    /// themselves once they are done.
+    pub(crate) fn draw_without_event(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
         self.prepare_layout();
         let errors = self.state.borrow().draw(renderer);
-        {
-            let mut state = self.state.borrow_mut();
-            state.stale = false;
-            state.last_draw_dpi = Some(state.dpi());
-            state.pending_errors.clear();
-        }
-        self.process_event(&Event::Draw);
+        let mut state = self.state.borrow_mut();
+        state.stale = false;
+        state.last_draw_dpi = Some(state.dpi());
+        state.pending_errors.clear();
         if errors.is_empty() {
             Ok(())
         } else {

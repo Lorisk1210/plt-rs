@@ -4,7 +4,7 @@
 //!
 //! The editors draw their patch and markers as animated artists from a
 //! draw callback; here they are ordinary artists, drawn the same way in
-//! every output format.
+//! every output format (`blitted_editors` runs them as written).
 
 use std::f64::consts::PI;
 
@@ -48,14 +48,14 @@ fn lasso_demo(fig: &Figure) -> CaseResult {
 
 /// The editors' markers: red-faced circles on a line through the
 /// vertices of the outline being edited.
-fn vertex_markers() -> Result<LineProps, MarkerError> {
+pub(super) fn vertex_markers() -> Result<LineProps, MarkerError> {
     Ok(LineProps::default()
         .marker("o".parse::<Marker>()?)
         .markerfacecolor(Color::from("r")))
 }
 
 /// The x and y of `vertices`.
-fn unzipped(vertices: &[Point]) -> (Vec<f64>, Vec<f64>) {
+pub(super) fn unzipped(vertices: &[Point]) -> (Vec<f64>, Vec<f64>) {
     vertices.iter().map(|p| (p.x, p.y)).unzip()
 }
 
@@ -74,12 +74,18 @@ fn path_editor(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-fn poly_editor(fig: &Figure) -> CaseResult {
+/// The vertices of the polygon `poly_editor` edits: a circle of radius
+/// 1.5 every tenth of a radian (`_editor_circle`).
+pub(super) fn editor_circle() -> Vec<Point> {
     let r = 1.5;
-    let circle = arange(0.0, 2.0 * PI, 0.1)
+    arange(0.0, 2.0 * PI, 0.1)
         .into_iter()
-        .map(|theta| Point::new(r * theta.cos(), r * theta.sin()));
-    let poly = Polygon::new(circle, true);
+        .map(|theta| Point::new(r * theta.cos(), r * theta.sin()))
+        .collect()
+}
+
+fn poly_editor(fig: &Figure) -> CaseResult {
+    let poly = Polygon::new(editor_circle(), true);
     let (x, y) = unzipped(poly.vertices());
     let ax = fig.subplot();
     ax.add_patch(poly);

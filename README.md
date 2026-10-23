@@ -155,8 +155,9 @@ cargo run -p plt --example widgets              # sliders and a span selector
 
 The conformance spec in `spec/` was run against matplotlib 3.11 to
 produce golden values and images: about 31 000 probes of functions and
-artist behaviour, and some 2 800 figures, among them ports of
-matplotlib's own image tests and of every example in its gallery.
+artist behaviour, and some 3 200 figures, among them ports of
+matplotlib's own image tests, of every example in its gallery and of
+the figures of its tutorials and user guides.
 Every figure matches matplotlib's in its structure and pixels; the
 SVG, PDF, PostScript and PGF documents of all of them can be compared
 with matplotlib's item by item:

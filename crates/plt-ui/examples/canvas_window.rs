@@ -1,11 +1,11 @@
-//! A matplotlib-style figure window: a canvas showing a figure (drawn
-//! here with `plt-raster`) above a toolbar with a status line. Moving the
-//! pointer over the axes shows data coordinates; toolbar clicks are
-//! printed. Close the window or press Escape to quit.
+//! A matplotlib-style window built from `plt-ui` alone: a canvas showing a
+//! figure (drawn here with `plt-raster`) above a toolbar with a status
+//! line. Moving the pointer over the axes shows data coordinates; toolbar
+//! clicks are printed. Close the window or press Escape to quit.
 //!
 //! ```text
-//! cargo run -p plt-ui --example figure_window
-//! cargo run -p plt-ui --example figure_window -- --screenshot figure.png
+//! cargo run -p plt-ui --example canvas_window
+//! cargo run -p plt-ui --example canvas_window -- --screenshot figure.png
 //! ```
 //!
 //! With `--screenshot PATH`, the window contents are saved as a PNG once
@@ -228,7 +228,7 @@ fn screenshot_path() -> Result<Option<PathBuf>, Box<dyn Error>> {
     match (args.next(), args.next(), args.next()) {
         (None, _, _) => Ok(None),
         (Some(flag), Some(path), None) if flag == "--screenshot" => Ok(Some(path.into())),
-        _ => Err("usage: figure_window [--screenshot PATH]".into()),
+        _ => Err("usage: canvas_window [--screenshot PATH]".into()),
     }
 }
 

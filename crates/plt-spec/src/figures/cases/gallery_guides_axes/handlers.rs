@@ -1,6 +1,6 @@
-//! The last two figures of matplotlib's legend guide: handlers of the
-//! user's own, one for an object that is no artist and one drawing a
-//! circle as an ellipse.
+//! `legend_guide`'s last two figures: legend handlers of the user's own,
+//! one for an object that is no artist and one drawing a circle as an
+//! ellipse.
 
 use plt::legend::{
     HandlerArtist, HandlerEntry, HandlerKey, LegendError, LegendHandle, LegendHandler,

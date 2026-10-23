@@ -22,12 +22,10 @@ Left out: figures identical to an earlier one of the same page
 print the reprs of locator and formatter objects, memory addresses
 included), the ``plot_children`` figures of the constrained layout guide
 (they draw through the private ``matplotlib._layoutgrid``), the cells
-that only print, ``legend_guide_12`` (a handler class of its own drawing
-legend handles as ellipses, which plt-rs has no counterpart for) and
-``arranging_axes_4`` (its left column's tick at x = 0.5 falls on the
-pixel boundary 137.5 px, which kiwisolver's round-off in the constrained
-layout puts 3e-14 px below and plt-rs's exact solution right on, so the
-tick snaps to different pixels) and ``arranging_axes_14`` (kiwisolver
+that only print, ``arranging_axes_4`` (its left column's tick at x = 0.5
+falls on the pixel boundary 137.5 px, which kiwisolver's round-off in the
+constrained layout puts 3e-14 px below and plt-rs's exact solution right
+on, so the tick snaps to different pixels) and ``arranging_axes_14`` (kiwisolver
 solves its 144 nested axes with a round-off that changes from run to run,
 moving about a hundred pixels: matplotlib does not reproduce its own
 image).
@@ -44,7 +42,7 @@ import matplotlib.ticker as ticker
 import matplotlib.transforms as transforms
 import numpy as np
 from cycler import cycler
-from matplotlib.legend_handler import HandlerLine2D, HandlerTuple
+from matplotlib.legend_handler import HandlerLine2D, HandlerPatch, HandlerTuple
 from matplotlib.path import Path
 from mpl_toolkits.axes_grid1 import Grid, make_axes_locatable
 
@@ -1244,6 +1242,30 @@ class _AnyObjectHandler:
 def _(fig):
     ax = fig.subplots()
     ax.legend([_AnyObject()], ["My first handler"], handler_map={_AnyObject: _AnyObjectHandler()})
+
+
+class _HandlerEllipse(HandlerPatch):
+    """``legend_guide``'s handler drawing a patch as an ellipse filling the
+    handle box."""
+
+    def create_artists(self, legend, orig_handle,
+                       xdescent, ydescent, width, height, fontsize, trans):
+        center = 0.5 * width - 0.5 * xdescent, 0.5 * height - 0.5 * ydescent
+        p = mpatches.Ellipse(xy=center, width=width + xdescent,
+                             height=height + ydescent)
+        self.update_prop(p, orig_handle, legend)
+        p.set_transform(trans)
+        return [p]
+
+
+@gallery("legend_guide_12")
+def _(fig):
+    c = mpatches.Circle((0.5, 0.5), 0.25, facecolor="green",
+                        edgecolor="red", linewidth=3)
+    ax = fig.subplots()
+    ax.add_patch(c)
+    ax.legend([c], ["An ellipse, not a rectangle"],
+              handler_map={mpatches.Circle: _HandlerEllipse()})
 
 
 # --- mosaic --------------------------------------------------------------------

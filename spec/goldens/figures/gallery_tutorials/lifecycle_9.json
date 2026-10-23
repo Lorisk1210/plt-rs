@@ -1,0 +1,19 @@
+{
+ "size_px": [600, 800],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.557786, 0.140591, 0.407214, 0.796151],
+   "title": "Company Revenue",
+   "xlim": [-10000.0, 140000.0],
+   "ylim": [-0.89, 9.89],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "Total Revenue",
+   "ylabel": "Company",
+   "xticks": [[0.0, "$0K"], [50000.0, "$50K"], [100000.0, "$100K"]],
+   "yticks": [[0, "Barton LLC"], [1, "Frami, Hills and Schmidt"], [2, "Fritsch, Russel and Anderson"], [3, "Jerde-Hilpert"], [4, "Keeling LLC"], [5, "Koepp Ltd"], [6, "Kulas Inc"], [7, "Trantow-Barrows"], [8, "White-Trantow"], [9, "Will LLC"]]
+  }
+ ]
+}

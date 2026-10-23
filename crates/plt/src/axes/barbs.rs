@@ -82,7 +82,8 @@ impl Axes {
         collection.offset_transform = Some(positions);
         let mut limits = DataLimits::NULL;
         limits.update_from_points(&data_positions.unwrap_or_default(), true, true);
-        let barbs = Collection::from_raw(self.adopt(collection, &DataUpdate::limits(limits)));
+        let barbs =
+            Collection::from_raw(self.adopt_collection(collection, &DataUpdate::limits(limits)));
         if let Some(mapping) = points.colors.take() {
             barbs.set_mapping(mapping);
         }

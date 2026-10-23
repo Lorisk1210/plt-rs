@@ -21,6 +21,7 @@ mod gallery_stats;
 mod gallery_subplots;
 mod gallery_text;
 mod gallery_ticks;
+mod gallery_tutorials;
 mod geo;
 mod hinting;
 mod hist;
@@ -210,6 +211,7 @@ fn gallery_examples() -> Vec<FigureCase> {
         gallery_subplots::cases(),
         gallery_text::cases(),
         gallery_ticks::cases(),
+        gallery_tutorials::cases(),
     ]
     .concat()
 }

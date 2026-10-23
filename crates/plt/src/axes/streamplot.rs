@@ -157,7 +157,7 @@ impl Axes {
             ),
             None => DataUpdate::data(Vec::new()),
         };
-        let lines = Collection::from_raw(self.adopt(lines, &update));
+        let lines = Collection::from_raw(self.adopt_collection(lines, &update));
         if let Some(mapping) = mapping {
             lines.set_mapping(mapping);
         }

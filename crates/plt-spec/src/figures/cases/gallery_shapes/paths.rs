@@ -17,6 +17,7 @@ use plt::transforms::Point;
 use plt_core::{Affine2D, Path, PathCode};
 
 use super::SEED;
+use crate::figures::cases::common::path_patch_curve;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -202,23 +203,10 @@ fn donut(fig: &Figure) -> CaseResult {
 
 fn path_patch(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    let vertices = points(&[
-        (1.58, -2.57),
-        (0.35, -1.1),
-        (-1.75, 2.0),
-        (0.375, 2.0),
-        (0.85, 1.15),
-        (2.2, 3.2),
-        (3.0, 0.05),
-        (2.0, -0.5),
-        (1.58, -2.57),
-    ]);
-    let codes = vec![
-        MoveTo, Curve4, Curve4, Curve4, LineTo, Curve4, Curve4, Curve4, ClosePoly,
-    ];
-    let (x, y): (Vec<f64>, Vec<f64>) = vertices.iter().map(|p| (p.x, p.y)).unzip();
+    let curve = path_patch_curve()?;
+    let (x, y): (Vec<f64>, Vec<f64>) = curve.vertices().iter().map(|p| (p.x, p.y)).unzip();
     let red = PatchProps::default().facecolor("r").alpha(0.5);
-    ax.add_patch_with(PathShape(Path::new(vertices, codes)?), red);
+    ax.add_patch_with(PathShape(curve), red);
     ax.plot_fmt(x, y, "go-")?;
     ax.grid(true);
     ax.axis_mode(AxisMode::Equal);

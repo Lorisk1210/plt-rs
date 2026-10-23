@@ -129,7 +129,7 @@ impl Axes {
             update: transform.data_directions(self.id()),
             ..DataUpdate::limits(limits)
         };
-        Collection::from_raw(self.adopt(collection, &update))
+        Collection::from_raw(self.adopt_collection(collection, &update))
     }
 }
 

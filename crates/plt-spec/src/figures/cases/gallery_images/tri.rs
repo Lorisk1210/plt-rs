@@ -21,8 +21,8 @@ use plt::tri::{
     Triangulation, UniformTriRefiner,
 };
 
-use super::data::{Annulus, SEED, britain, britain_triangulation, wales_bump};
-use crate::figures::cases::common::{colors, hatches, values};
+use super::data::{SEED, britain, britain_triangulation, wales_bump};
+use crate::figures::cases::common::{Annulus, colors, hatches, values};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 

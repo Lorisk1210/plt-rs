@@ -92,6 +92,20 @@ impl Axes {
         RawHandle::new(Rc::clone(figure), id)
     }
 
+    /// Adds a collection as a child the way matplotlib's `add_collection`
+    /// does when it updates the limits (`autolim=True`): pending
+    /// autoscaling is applied to the view first, with the collection among
+    /// the children but not yet in the data limits, and only then does
+    /// `update` extend the data limits and request autoscaling again. So
+    /// the view the earlier artists asked for is kept if autoscaling is
+    /// turned off before the next draw.
+    pub(crate) fn adopt_collection(&self, artist: impl Artist, update: &DataUpdate) -> RawHandle {
+        let handle = self.adopt(artist, &DataUpdate::default());
+        self.unstale_view();
+        self.update_data(update);
+        handle
+    }
+
     /// Recomputes the data limits from the lines, patches, images and
     /// collections of the axes, leaving hidden ones out when
     /// `visible_only` (matplotlib's `relim`). The view follows at the next
@@ -155,5 +169,42 @@ impl Axes {
             let (x, y) = update.autoscale;
             axes.request_autoscale(x, y);
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::axes::{Axes, FillBetweenOptions};
+    use crate::figure::Figure;
+
+    /// Fills between `y1` and `y2` over `x`, from 0 to 1.
+    fn fill(ax: &Axes, y1: f64, y2: f64) {
+        ax.fill_between([0.0, 1.0], [y1], [y2], FillBetweenOptions::default())
+            .expect("valid curves");
+    }
+
+    #[test]
+    fn collections_settle_the_view_of_earlier_artists_first() {
+        // matplotlib's resample example: the line's autoscaled view stays
+        // when autoscaling is turned off after the fill is added.
+        let ax = Figure::new().subplot();
+        ax.plot([0.0, 1.0], [0.0, 1.0]).expect("valid line");
+        fill(&ax, 2.0, 3.0);
+        ax.set_autoscale_on(false);
+        let (bottom, top) = ax.ylim();
+        assert!((bottom + 0.05).abs() < 1e-12 && (top - 1.05).abs() < 1e-12);
+        assert_eq!(
+            ax.data_lim().bbox.y1(),
+            3.0,
+            "the fill is in the data limits"
+        );
+    }
+
+    #[test]
+    fn collections_on_fresh_axes_leave_the_view_alone() {
+        let ax = Figure::new().subplot();
+        fill(&ax, 2.0, 3.0);
+        ax.set_autoscale_on(false);
+        assert_eq!(ax.ylim(), (0.0, 1.0), "nothing was pending before the fill");
     }
 }

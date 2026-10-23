@@ -288,7 +288,7 @@ impl Axes {
         let mut band = CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
         band.base_mut().transform = Some(self.trans_data());
         let update = DataUpdate::limits(band.shape_extents());
-        Collection::from_raw(self.adopt(band, &update))
+        Collection::from_raw(self.adopt_collection(band, &update))
     }
 
     fn bars(

@@ -13,7 +13,7 @@ plt-text.workspace = true
 plt-platform.workspace = true
 
 [dev-dependencies]
-# The figure window example saves screenshots as PNG.
+# The canvas window example saves screenshots as PNG.
 plt-codec.workspace = true
 
 [lints]

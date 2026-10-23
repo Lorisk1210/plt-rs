@@ -226,13 +226,7 @@ impl Axis {
     ///
     /// When the locator fails.
     pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, String> {
-        let ticks = self.axes.ticks(self.name)?;
-        let ticks = if minor {
-            ticks.minor_unclipped
-        } else {
-            ticks.major_unclipped
-        };
-        Ok(ticks.into_iter().map(|tick| tick.loc).collect())
+        Ok(self.axes.ticks(self.name)?.unclipped_locs(minor))
     }
 
     /// The labels of the [`ticklocs`](Self::ticklocs): those on the first
@@ -244,17 +238,14 @@ impl Axis {
     /// When the locator or the formatter fails.
     pub fn ticklabels(&self, minor: bool) -> Result<Vec<String>, String> {
         let ticks = self.axes.ticks(self.name)?;
-        let (ticks, sides) = if minor {
-            (ticks.minor_unclipped, self.read(|a| a.minor_style.labels))
-        } else {
-            (ticks.major_unclipped, self.read(|a| a.major_style.labels))
-        };
-        let labels = ticks.into_iter().map(|tick| tick.label);
-        Ok([sides.first, sides.second]
-            .into_iter()
-            .filter(|&shown| shown)
-            .flat_map(|_| labels.clone())
-            .collect())
+        let sides = self.read(|axis| {
+            if minor {
+                axis.minor_style.labels
+            } else {
+                axis.major_style.labels
+            }
+        });
+        Ok(ticks.unclipped_labels(minor, sides))
     }
 
     /// The appearance of the major (or minor) ticks: sides with marks and

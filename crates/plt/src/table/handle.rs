@@ -76,6 +76,40 @@ impl Table {
             .with::<TableArtist, _>(|t| t.cells.iter().map(|(key, _)| *key).collect())
     }
 
+    /// Adds a cell `width` × `height` axes fractions large at `(row,
+    /// column)` and returns it for styling (matplotlib's `add_cell`). It
+    /// starts with matplotlib's defaults: no text (aligned right), a
+    /// white face and all four edges drawn in black. A cell already at
+    /// that key is replaced and keeps its place among the
+    /// [`cell_keys`](Self::cell_keys); the table lays its rows and columns
+    /// out again at the next draw, so the new cell can grow or extend the
+    /// grid (row 0 is the top row, column -1 the row headers).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::table::TableOptions;
+    /// use plt::text::HorizontalAlignment;
+    /// let ax = Figure::new().subplot();
+    /// let table = ax.table(&TableOptions::with_text(vec![vec!["1".into(), "2".into()]]))?;
+    /// table
+    ///     .add_cell(1, 0, 0.5, 0.05)
+    ///     .set_text("total")
+    ///     .set_text_halign(HorizontalAlignment::Center);
+    /// assert_eq!(table.cell_keys(), [(0, 0), (0, 1), (1, 0)]);
+    /// assert_eq!(table.cell(1, 0).expect("the new cell").text(), "total");
+    /// # Ok::<(), plt::table::TableError>(())
+    /// ```
+    pub fn add_cell(&self, row: i32, column: i32, width: f64, height: f64) -> TableCell {
+        self.update(|t| {
+            let cell = Cell::new(width, height, &t.rc);
+            t.add_cell(row, column, cell);
+        });
+        TableCell {
+            table: self.clone(),
+            key: (row, column),
+        }
+    }
+
     /// The cell at `(row, column)`, if there is one (matplotlib's
     /// `table[row, col]`).
     ///
@@ -246,5 +280,30 @@ mod tests {
             assert_eq!((cell.linewidth, cell.alpha), (Some(2.0), Some(0.5)));
             assert_eq!((cell.edges, cell.height), (CellEdges::OPEN, 0.2));
         });
+    }
+
+    #[test]
+    fn added_cells_start_from_the_defaults_and_replace_in_place() {
+        let ax = Figure::new().subplot();
+        let table = ax
+            .table(&TableOptions {
+                cell_loc: Some(HAlign::Left),
+                edges: CellEdges::OPEN,
+                ..TableOptions::with_text(vec![vec!["1".into(), "2".into()]])
+            })
+            .expect("a valid table");
+        let added = table.add_cell(-3, 5, 0.25, 0.0);
+        assert_eq!(added.key(), (-3, 5));
+        added.read(|cell| {
+            assert_eq!((cell.width, cell.height), (0.25, 0.0));
+            assert_eq!((cell.text.as_str(), cell.loc), ("", HAlign::Right));
+            assert_eq!(cell.edges, CellEdges::CLOSED, "not the table's edges");
+            assert_eq!(cell.facecolor, Color::from("w"));
+        });
+        table.cell(0, 0).expect("a cell").set_text("old");
+        let replaced = table.add_cell(0, 0, 0.5, 0.1);
+        assert_eq!(replaced.text(), "", "a fresh cell");
+        assert_eq!(table.cell_keys(), [(0, 0), (0, 1), (-3, 5)]);
+        assert_eq!(table.len(), 3);
     }
 }

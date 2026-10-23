@@ -7,6 +7,10 @@
 //! steps (scales, projections) followed by a single trailing affine map, the
 //! same split matplotlib uses so renderers only ever see affine transforms.
 //!
+//! Transform expressions answer matplotlib's sub-tree queries
+//! ([`Transform::contains_branch`] and
+//! [`Transform::contains_branch_separately`]) structurally.
+//!
 //! The concrete building blocks of matplotlib's transform tree live here
 //! too, with matplotlib's exact arithmetic: box-to-box maps
 //! ([`bbox_transform`] and friends), [`blended_affine`],
@@ -17,6 +21,7 @@
 
 mod bbox_maps;
 mod blend;
+mod branch;
 mod custom;
 mod interval;
 mod nonsingular;
@@ -142,21 +147,6 @@ impl Transform {
         self.offset_copy(dx, dy, OffsetUnits::Inches)
     }
 
-    /// Whether the x and y outputs pass through the data coordinates of
-    /// `axes` last (matplotlib's `contains_branch_separately(transData)`),
-    /// i.e. which directions of points in this system are data values.
-    pub fn data_directions(&self, axes: ArtistId) -> (bool, bool) {
-        match self {
-            Self::Data(id) => (*id == axes, *id == axes),
-            Self::Blended(x, y) => (x.ends_in_data(axes), y.ends_in_data(axes)),
-            Self::Composite(_, last) => {
-                let both = last.ends_in_data(axes);
-                (both, both)
-            }
-            _ => (false, false),
-        }
-    }
-
     /// The fixed affine map applied before the data transform of `axes`
     /// that the transform ends with (matplotlib's `transform -
     /// ax.transData` when it is affine), or `None` when the transform ends
@@ -172,16 +162,6 @@ impl Transform {
                 }
             }
             _ => None,
-        }
-    }
-
-    /// Whether the transform ends with `axes`' data transform
-    /// (matplotlib's `contains_branch`).
-    fn ends_in_data(&self, axes: ArtistId) -> bool {
-        match self {
-            Self::Data(id) => *id == axes,
-            Self::Composite(_, last) => last.ends_in_data(axes),
-            _ => false,
         }
     }
 

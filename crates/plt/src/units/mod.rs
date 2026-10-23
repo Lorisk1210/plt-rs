@@ -13,9 +13,35 @@
 
 mod category;
 
-use crate::dates::{DateTime, Datetime64, get_epoch};
+use std::rc::Rc;
+
+use crate::dates::{
+    AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, DateTime, Datetime64, TimeZone,
+    get_epoch,
+};
+use crate::ticker::{Formatter, Locator};
 
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
+
+/// The tick helpers of an axis of dates in `tz` (matplotlib's
+/// `DateConverter.axisinfo`, or `ConciseDateConverter`'s when
+/// `date.converter` says so): an `AutoDateLocator` following
+/// `date.interval_multiples`, and an `AutoDateFormatter` or a
+/// `ConciseDateFormatter`.
+pub(crate) fn date_tickers(tz: &TimeZone) -> (Rc<dyn Locator>, Rc<dyn Formatter>) {
+    let rc = crate::rc::params();
+    let locator = || {
+        AutoDateLocator::new()
+            .with_interval_multiples(rc.date_interval_multiples)
+            .with_tz(tz.clone())
+    };
+    let formatter: Rc<dyn Formatter> = if rc.date_converter == "concise" {
+        Rc::new(ConciseDateFormatter::new().with_tz(tz.clone()))
+    } else {
+        Rc::new(AutoDateFormatter::new(locator()).with_tz(tz.clone()))
+    };
+    (Rc::new(locator()), formatter)
+}
 
 /// Extents along an axis re-expressed through the axis origin, the first
 /// finite position (or the first position when none is finite):

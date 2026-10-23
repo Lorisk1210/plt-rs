@@ -4,12 +4,16 @@
 
 use std::any::Any;
 
+use plt_core::Point;
+
 use super::camera::{DIST, norm_angle};
 use super::coords::Axis3;
 use super::geometry::BoxGeometry;
 use super::handle::Axes3D;
 use super::math::Vec3;
+use crate::artist::ArtistHandle;
 use crate::ticker::{AxisInfo, ScalarFormatter, TickContext};
+use crate::transforms::TransformContext;
 
 /// The focal length standing in for an orthographic camera's infinite one
 /// when placing the camera (matplotlib's `_get_camera_loc`).
@@ -90,16 +94,43 @@ impl Axes3D {
         })
     }
 
-    /// A coordinate along `axis` as the status bar shows it: through the
-    /// axis' major formatter, a scalar formatter giving as many digits as
-    /// `resolution` (the data size of a screen pixel) needs (matplotlib's
-    /// `format_xdata`, `format_ydata` and `format_zdata`).
-    pub(crate) fn format_coordinate(
-        &self,
-        axis: Axis3,
-        value: f64,
-        resolution: f64,
-    ) -> Option<String> {
+    /// A coordinate along `axis` as the status bar shows it (matplotlib's
+    /// `format_xdata`, `format_ydata` and `format_zdata`): in the short
+    /// form of the axis' major formatter, which for a `ScalarFormatter`
+    /// has as many digits as a screen pixel resolves. matplotlib's
+    /// formatters take every 3-D axis for an x axis, so that pixel lies
+    /// along the x axis of the projection plane whatever `axis` is. The
+    /// figure is laid out first; `None` when the formatter fails.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// assert_eq!(ax.format_data(Axis3::Z, 0.123456).as_deref(), Some("0.1235"));
+    /// ```
+    pub fn format_data(&self, axis: Axis3, value: f64) -> Option<String> {
+        let plane = self.plane().id();
+        let trans = {
+            let mut state = self.raw().figure_state().borrow_mut();
+            state.prepare();
+            state.data_transform(plane)?
+        };
+        let inverse = trans.inverted()?;
+        let screen = trans.transform_point(Point::new(value, 0.0));
+        let resolution = [-1.0, 1.0]
+            .into_iter()
+            .map(|dx| {
+                let near = inverse.transform_point(Point::new(screen.x + dx, screen.y));
+                (near.x - value).abs()
+            })
+            .fold(0.0, f64::max);
+        self.format_coordinate(axis, value, resolution)
+    }
+
+    /// `value` along `axis` through the axis' major formatter, a scalar
+    /// formatter giving as many digits as `resolution` (the data size of
+    /// a screen pixel) needs.
+    fn format_coordinate(&self, axis: Axis3, value: f64, resolution: f64) -> Option<String> {
         self.with(|axes| {
             let axis3d = axes.axis(axis);
             let formatter = &axis3d.tickers.major_formatter;

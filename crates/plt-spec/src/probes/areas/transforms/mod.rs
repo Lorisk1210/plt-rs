@@ -3,6 +3,7 @@
 //! Affine transforms are built from the spec's TRANSFORM OP LISTs (see
 //! [`encode::apply_affine_ops`]), optionally starting from an explicit
 //! `matrix`; boxes are `[[x0, y0], [x1, y1]]` and are never reordered.
+//! Transform trees name the coordinate systems of a figure with two axes.
 //! The arithmetic itself lives in `plt_core` (`Affine2D`, `Bbox`) and
 //! `plt::transforms`; this module only decodes arguments and encodes
 //! results.
@@ -12,6 +13,7 @@ mod boxes;
 mod derived;
 mod maps;
 mod scalar;
+mod trees;
 mod update;
 
 use plt::transforms::{Affine2D, Bbox, Point};
@@ -75,6 +77,15 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("transforms.blended_transform_factory", maps::blended),
     Op::new("transforms.ScaledTranslation", maps::scaled_translation),
     Op::new("transforms.offset_copy", maps::offset_copy),
+    Op::new(
+        "transforms.Transform.contains_branch",
+        trees::contains_branch,
+    ),
+    Op::new(
+        "transforms.Transform.contains_branch_separately",
+        trees::contains_branch_separately,
+    ),
+    Op::new("transforms.Transform.transform_bbox", trees::transform_bbox),
     Op::new("transforms.nonsingular", scalar::nonsingular),
     Op::new("transforms.interval_contains", scalar::interval_contains),
     Op::new(

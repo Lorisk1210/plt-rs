@@ -54,6 +54,7 @@ mod aspect;
 mod axis3d;
 mod axis_draw;
 mod axis_handle;
+mod axis_ticks;
 mod axlim;
 mod bars;
 mod bounds;

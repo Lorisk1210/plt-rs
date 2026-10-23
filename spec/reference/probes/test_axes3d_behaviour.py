@@ -65,6 +65,32 @@ Ops
     (``test_scatter_masked_color``; matplotlib deletes the non-finite
     points, plt-rs keeps them undrawn, the colours aligned either way).
 
+``axes3d.ticks``  {scene} -> {"x": axis ticks, "y": ..., "z": ...}
+    After a draw, each axis' ``get_ticklocs()``, ``[t.get_text() for t in
+    get_ticklabels()]`` and the same with ``minor=True``, as ``{"locs",
+    "labels", "minor_locs", "minor_labels"}`` (``get_zticks`` and
+    ``get_zticklabels`` for z; every location the locator gives, inside the
+    view or not, minor ones on major ticks left out). Scenes:
+
+    ``default``  an empty axes.
+    ``inset``  ``set_zlim(0.05, 0.95)``: ticks outside the view.
+    ``minor``  ``set_xlim(0, 1)``, ``xaxis.set_minor_locator(
+        MultipleLocator(0.1))`` and ``yaxis.set_tick_params(labelright=True)``
+        (the second label side of the y axis: its labels come twice).
+    ``log``  ``set_zscale("log")`` and ``set_zlim(1, 1000)``.
+    ``dates``  ``plot([0, 1], [0, 1], [19000, 19010])``, then
+        ``zaxis_date()``.
+    ``dates_zlim``  ``set_zlim(19000, 19003)``, then ``zaxis_date()``.
+    ``dates_kept_formatter``  ``zaxis.set_major_formatter(NullFormatter())``,
+        then ``zaxis_date()``: the date locator, the formatter set by hand.
+``axes3d.axis_position``  {elev, azim, roll, inverted?} -> [x, y, z]
+    ``view_init(elev, azim, roll)`` (after ``invert_xaxis()`` when
+    ``inverted``), a draw and ``get_axis_position()``.
+``axes3d.format_data``  {axis, value, scene} -> str
+    ``format_<axis>data(value)`` after a draw (``format_xdata``,
+    ``format_ydata``, ``format_zdata``), for the scenes ``default``,
+    ``log`` and ``dates`` of ``axes3d.ticks``.
+
 Left out: ``test_axes3d_repr`` and ``test_invalid_line_data`` (Python
 API), ``test_bar3d_*`` and ``test_ax3d_tickcolour`` (colours drawn, figure
 goldens), ``test_proj_transform`` and ``test_world`` (private projection
@@ -75,14 +101,14 @@ helpers), ``test_quaternion``, ``test_rotate``, ``test_pan``,
 one enum in plt-rs), ``test_unautoscale`` (``auto=`` of ``set_xlim``),
 ``test_inverted_cla``, ``test_axes3d_set_aspect_deperecated_params``
 (deprecations), ``test_axes3d_focal_length_checks``' orthographic case
-(an orthographic projection has no focal length in plt-rs),
-``test_get_axis_position``, the tight-bbox and offset-text tests, and
-smoke tests.
+(an orthographic projection has no focal length in plt-rs), the
+tight-bbox and offset-text tests, and smoke tests.
 """
 
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+from matplotlib.ticker import MultipleLocator, NullFormatter
 from mpl_toolkits.mplot3d import art3d
 
 from spec_support import ProbeSet
@@ -215,6 +241,63 @@ def _scatter_nonfinite():
             "aligned": len(offsets) == len(colors)}
 
 
+def _tick_scene(scene):
+    fig, ax = _axes()
+    if scene == "inset":
+        ax.set_zlim(0.05, 0.95)
+    elif scene == "minor":
+        ax.set_xlim(0, 1)
+        ax.xaxis.set_minor_locator(MultipleLocator(0.1))
+        ax.yaxis.set_tick_params(labelright=True)
+    elif scene == "log":
+        ax.set_zscale("log")
+        ax.set_zlim(1, 1000)
+    elif scene == "dates":
+        ax.plot([0, 1], [0, 1], [19000, 19010])
+        ax.zaxis_date()
+    elif scene == "dates_zlim":
+        ax.set_zlim(19000, 19003)
+        ax.zaxis_date()
+    elif scene == "dates_kept_formatter":
+        ax.zaxis.set_major_formatter(NullFormatter())
+        ax.zaxis_date()
+    else:
+        assert scene == "default", scene
+    fig.canvas.draw()
+    return ax
+
+
+def _ticks(scene):
+    ax = _tick_scene(scene)
+    observed = {}
+    for name, axis in [("x", ax.xaxis), ("y", ax.yaxis), ("z", ax.zaxis)]:
+        observed[name] = {
+            "locs": list(axis.get_ticklocs()),
+            "labels": [t.get_text() for t in axis.get_ticklabels()],
+            "minor_locs": list(axis.get_ticklocs(minor=True)),
+            "minor_labels": [t.get_text() for t in axis.get_ticklabels(minor=True)],
+        }
+    assert observed["z"]["locs"] == list(ax.get_zticks())
+    return observed
+
+
+def _axis_position(elev, azim, roll, inverted=False):
+    fig, ax = _axes()
+    if inverted:
+        ax.invert_xaxis()
+    ax.view_init(elev, azim, roll)
+    fig.canvas.draw()
+    return [bool(high) for high in ax.get_axis_position()]
+
+
+def _format_data(axis, value, scene):
+    ax = _tick_scene(scene)
+    return getattr(ax, f"format_{axis}data")(value)
+
+
+TICK_SCENES = ["default", "inset", "minor", "log", "dates", "dates_zlim", "dates_kept_formatter"]
+
+
 SCENES = ["aspect_datalim", "aspect_datalim_untouched", "lines3d", "polys3d",
           "lines3d_ragged", "autoscale", "shared_retick",
           *[f"scale:{s}" for s in ["linear", "log", "symlog", "logit", "asinh"]]]
@@ -245,3 +328,20 @@ def test_box_aspect_and_scatter():
     for vertical_axis in ["x", "y", "z"]:
         probes.probe("axes3d.box_aspect", _box_aspect, vertical_axis=vertical_axis)
     probes.probe("axes3d.scatter_nonfinite", _scatter_nonfinite)
+
+
+def test_ticks_and_readout():
+    for scene in TICK_SCENES:
+        probes.probe("axes3d.ticks", _ticks, scene=scene)
+    for elev, azim, roll in [(30, -60, 0), (-30, 120, 0), (10, 45, 0), (60, 200, 30),
+                             (90, -90, 0), (-75, 10, -20)]:
+        probes.probe("axes3d.axis_position", _axis_position, elev=elev, azim=azim, roll=roll)
+    probes.probe("axes3d.axis_position", _axis_position, elev=30, azim=-60, roll=0,
+                 inverted=True)
+    for scene, values in [("default", [0.123456, -0.5, 1234.5678, 3.14159e-5]),
+                          ("log", [0.123456, 42.0, 999.9]), ("dates", [19003.25])]:
+        for axis in ["x", "y", "z"]:
+            for value in values:
+                probes.probe("axes3d.format_data", _format_data, axis=axis, value=value,
+                             scene=scene)
+    assert _axis_position(30, -60, 0) == [False, True, False]

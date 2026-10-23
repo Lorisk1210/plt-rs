@@ -145,6 +145,10 @@ pub(crate) struct Tickers3D {
     pub(crate) major_formatter: Rc<dyn Formatter>,
     pub(crate) minor_locator: Rc<dyn Locator>,
     pub(crate) minor_formatter: Rc<dyn Formatter>,
+    /// Whether the major locator and formatter are still the defaults a
+    /// unit converter may replace (matplotlib's `isDefault_majloc` and
+    /// `isDefault_majfmt`).
+    pub(crate) default_major: (bool, bool),
 }
 
 impl Tickers3D {
@@ -173,6 +177,7 @@ impl Tickers3D {
             major_formatter: Rc::from(major_formatter),
             minor_locator: Rc::from(minor_locator),
             minor_formatter: Rc::from(minor_formatter),
+            default_major: (true, true),
         }
     }
 }
@@ -346,8 +351,9 @@ impl Axis3DState {
             .collect()
     }
 
-    /// The ticks inside the view and, for the major ones, how many the
-    /// locator placed and the position among them of each one kept.
+    /// The ticks of the view, inside it or not, and, for the major ones,
+    /// how many the locator placed and the position among them of each
+    /// one inside.
     fn compute_ticks(
         &self,
         span: &AxisSpan,
@@ -362,11 +368,17 @@ impl Axis3DState {
         info.major_ticks.clone_from(&major_locs);
         let ctx = TickContext::new(&info, &self.settings);
         let visible = self.visibility(span.view, automargin);
-        let collect = |locs: &[f64], labels: Vec<String>| -> Vec<Tick> {
+        let unclipped = |locs: &[f64], labels: Vec<String>| -> Vec<Tick> {
             locs.iter()
                 .zip(labels)
-                .filter(|(loc, _)| visible(**loc))
                 .map(|(&loc, label)| Tick { loc, label })
+                .collect()
+        };
+        let inside = |ticks: &[Tick]| -> Vec<Tick> {
+            ticks
+                .iter()
+                .filter(|tick| visible(tick.loc))
+                .cloned()
                 .collect()
         };
         let mut ticks = TickSet::default();
@@ -376,7 +388,8 @@ impl Axis3DState {
                 .tickers
                 .major_formatter
                 .format_ticks(&major_locs, &ctx)?;
-            ticks.major = collect(&major_locs, labels.labels);
+            ticks.major_unclipped = unclipped(&major_locs, labels.labels);
+            ticks.major = inside(&ticks.major_unclipped);
             ticks.offset = labels.offset;
             let kept = (major_locs.iter().enumerate())
                 .filter(|(_, loc)| visible(**loc))
@@ -391,7 +404,8 @@ impl Axis3DState {
                 .tickers
                 .minor_formatter
                 .format_ticks(&minor_locs, &ctx)?;
-            ticks.minor = collect(&minor_locs, labels.labels);
+            ticks.minor_unclipped = unclipped(&minor_locs, labels.labels);
+            ticks.minor = inside(&ticks.minor_unclipped);
         }
         Ok((ticks, slots))
     }

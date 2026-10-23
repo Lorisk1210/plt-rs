@@ -161,29 +161,9 @@ pub(super) fn readout(ax: &Axes3D, at: Point, rotating: bool) -> String {
 }
 
 fn pane_readout(ax: &Axes3D, at: Point) -> Option<String> {
-    let trans = data_transform(&ax.plane())?;
-    let inverse = trans.inverted()?;
-    let projected = inverse.transform_point(at);
+    let projected = projected(ax, at)?;
     let (point, pane) = ax.pane_point(projected.x, projected.y)?;
-    // Every 3-D axis takes the precision of a screen pixel along the
-    // plane's x axis, as matplotlib's formatter sees them all as x axes.
-    let resolution = |value: f64| {
-        let screen = trans.transform_point(Point::new(value, 0.0));
-        [-1.0, 1.0]
-            .into_iter()
-            .map(|dx| {
-                (inverse
-                    .transform_point(Point::new(screen.x + dx, screen.y))
-                    .x
-                    - value)
-                    .abs()
-            })
-            .fold(0.0, f64::max)
-    };
-    let formatted = Axis3::ALL.map(|axis| {
-        let value = point[axis.index()];
-        ax.format_coordinate(axis, value, resolution(value))
-    });
+    let formatted = Axis3::ALL.map(|axis| ax.format_data(axis, point[axis.index()]));
     let [Some(x), Some(y), Some(z)] = formatted else {
         return None;
     };

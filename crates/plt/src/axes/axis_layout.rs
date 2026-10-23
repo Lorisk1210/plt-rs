@@ -10,8 +10,9 @@ use std::borrow::Cow;
 use plt_core::{Bbox, Point, Rgba};
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
-use super::axis::{AxisState, Tick};
+use super::axis::AxisState;
 use super::state::AxesState;
+use super::tick_set::Tick;
 use super::ticks::TickStyle;
 use crate::artist::{Artist, ArtistId, LayoutContext};
 use crate::colors::Color;

@@ -78,6 +78,18 @@ pub enum ContourError {
     NoContourToLabel,
     /// A label was added near a point before the set was labelled.
     Unlabelled,
+    /// The operation needs line contours, not filled ones.
+    FilledUnsupported,
+    /// A level index is out of range.
+    LevelIndex {
+        /// The index given.
+        index: usize,
+        /// How many levels there are.
+        levels: usize,
+    },
+    /// There is no label to remove: none at the index given, or none at
+    /// all (`None`).
+    NoLabel(Option<usize>),
     /// Given segments are not one list per level (lines) or band (fills).
     SegmentCount {
         /// Levels (lines) or bands (fills).
@@ -168,6 +180,12 @@ impl fmt::Display for ContourError {
             }
             Self::NoContourToLabel => f.write_str("no labelled contour line to place a label on"),
             Self::Unlabelled => f.write_str("label the contour set with clabel first"),
+            Self::FilledUnsupported => f.write_str("method does not support filled contours"),
+            Self::LevelIndex { index, levels } => {
+                write!(f, "level index {index} is out of range for {levels} levels")
+            }
+            Self::NoLabel(Some(index)) => write!(f, "the contour set has no label {index}"),
+            Self::NoLabel(None) => f.write_str("the contour set has no labels"),
             Self::SegmentCount { expected, actual } => write!(
                 f,
                 "{actual} lists of segments given for {expected} levels or bands"

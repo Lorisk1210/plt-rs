@@ -10,9 +10,10 @@ use crate::transforms::ResolvedTransform;
 /// The display geometry shared by all labels of a `clabel` call.
 #[derive(Clone, Debug)]
 pub(super) struct LabelGeometry {
-    /// Data to display coordinates.
+    /// The coordinates of the lines to display coordinates (the set's
+    /// transform).
     pub(super) to_display: ResolvedTransform,
-    /// Display to data coordinates.
+    /// Display coordinates to those of the lines.
     pub(super) to_data: ResolvedTransform,
     /// Keep labels upright (rotations within ±90°).
     pub(super) rightside_up: bool,

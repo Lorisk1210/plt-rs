@@ -1,7 +1,9 @@
 //! `ContourSet.clabel` probes (`clabel_op` in the spec): label placement
 //! on line contours in a figure of given size and axes rectangle.
 
-use plt::contour::{ClabelOptions, ContourOptions, LabelFormat, Levels, QuadCoords, QuadField};
+use plt::contour::{
+    ClabelOptions, ContourOptions, ContourSet, LabelFormat, Levels, QuadCoords, QuadField,
+};
 use plt::figure::Figure;
 use plt::fonts::{FontSize, RelativeSize};
 use plt::numeric::Grid;
@@ -15,41 +17,7 @@ use crate::probes::{Args, Outcome, ProbeError};
 /// widths and the (cut) paths.
 pub(super) fn clabel(args: Args<'_>) -> Outcome {
     input::with_rc(args, || {
-        let size = args.f64_vec("figsize")?;
-        let rect = args.f64_vec("rect")?;
-        let (xlim, ylim) = (args.f64_vec("xlim")?, args.f64_vec("ylim")?);
-        let (&[w, h], &[l, b, rw, rh], &[x0, x1], &[y0, y1]) = (
-            size.as_slice(),
-            rect.as_slice(),
-            xlim.as_slice(),
-            ylim.as_slice(),
-        ) else {
-            return Err(ProbeError::BadArgs("bad figure geometry".into()));
-        };
-        let fig = Figure::with_size(w, h, args.f64("dpi")?);
-        let ax = fig.add_axes([l, b, rw, rh]);
-        let z = args
-            .json("z")?
-            .as_array()
-            .and_then(|rows| {
-                rows.iter()
-                    .map(Json::as_f64_vec)
-                    .collect::<Option<Vec<_>>>()
-            })
-            .ok_or_else(|| ProbeError::BadArgs("bad z".into()))?;
-        let field = QuadField::new(Grid::from_rows(z).map_err(ProbeError::rejected)?).with_coords(
-            QuadCoords::Axes {
-                x: args.f64_vec("x")?,
-                y: args.f64_vec("y")?,
-            },
-        );
-        let options = ContourOptions {
-            levels: Levels::Values(args.f64_vec("levels")?),
-            ..ContourOptions::default()
-        };
-        let cs = ax.contour(&field, options).map_err(ProbeError::rejected)?;
-        ax.set_xlim(x0, x1);
-        ax.set_ylim(y0, y1);
+        let cs = contour_in(args, false)?;
         cs.clabel(&clabel_options(Args::new(args.json("clabel")?))?)
             .map_err(ProbeError::rejected)?;
         let labels = cs
@@ -78,8 +46,55 @@ pub(super) fn clabel(args: Args<'_>) -> Outcome {
     })
 }
 
+/// The line (or, with `filled`, filled) contours of `x`, `y`, `z` at
+/// `levels` in a figure of size `figsize` and `dpi` with the axes at
+/// `rect`, limited to `xlim` and `ylim` afterwards.
+pub(super) fn contour_in(args: Args<'_>, filled: bool) -> Result<ContourSet, ProbeError> {
+    let size = args.f64_vec("figsize")?;
+    let rect = args.f64_vec("rect")?;
+    let (xlim, ylim) = (args.f64_vec("xlim")?, args.f64_vec("ylim")?);
+    let (&[w, h], &[l, b, rw, rh], &[x0, x1], &[y0, y1]) = (
+        size.as_slice(),
+        rect.as_slice(),
+        xlim.as_slice(),
+        ylim.as_slice(),
+    ) else {
+        return Err(ProbeError::BadArgs("bad figure geometry".into()));
+    };
+    let fig = Figure::with_size(w, h, args.f64("dpi")?);
+    let ax = fig.add_axes([l, b, rw, rh]);
+    let z = args
+        .json("z")?
+        .as_array()
+        .and_then(|rows| {
+            rows.iter()
+                .map(Json::as_f64_vec)
+                .collect::<Option<Vec<_>>>()
+        })
+        .ok_or_else(|| ProbeError::BadArgs("bad z".into()))?;
+    let field = QuadField::new(Grid::from_rows(z).map_err(ProbeError::rejected)?).with_coords(
+        QuadCoords::Axes {
+            x: args.f64_vec("x")?,
+            y: args.f64_vec("y")?,
+        },
+    );
+    let options = ContourOptions {
+        levels: Levels::Values(args.f64_vec("levels")?),
+        ..ContourOptions::default()
+    };
+    let cs = if filled {
+        ax.contourf(&field, options)
+    } else {
+        ax.contour(&field, options)
+    }
+    .map_err(ProbeError::rejected)?;
+    ax.set_xlim(x0, x1);
+    ax.set_ylim(y0, y1);
+    Ok(cs)
+}
+
 /// The `clabel` keyword arguments.
-fn clabel_options(args: Args<'_>) -> Result<ClabelOptions, ProbeError> {
+pub(super) fn clabel_options(args: Args<'_>) -> Result<ClabelOptions, ProbeError> {
     let mut options = ClabelOptions::default();
     if let Some(levels) = args.get("levels") {
         options.levels = Some(
@@ -105,6 +120,9 @@ fn clabel_options(args: Args<'_>) -> Result<ClabelOptions, ProbeError> {
     }
     if let Some(upright) = args.opt_bool("rightside_up")? {
         options.rightside_up = upright;
+    }
+    if let Some(data) = args.opt_bool("use_clabeltext")? {
+        options.use_clabeltext = data;
     }
     options.fmt = match args.get("fmt") {
         None => LabelFormat::Scalar,

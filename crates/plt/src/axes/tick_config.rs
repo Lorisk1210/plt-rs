@@ -11,6 +11,7 @@ use plt_text::{HAlign, RotationMode, VAlign};
 
 use super::axis::AxisState;
 use super::axis_handle::Axis;
+use super::tick_lines::TickLineProps;
 use super::ticks::{GridOptions, TickDirection, TickLevel, TickStyle};
 use super::{Axes, AxesState, AxisName, PlotError};
 use crate::colors::Color;
@@ -369,17 +370,24 @@ impl TickLabelProps {
 
 impl AxisState {
     /// The style of the major tick at `index` (counting every tick the
-    /// major locator places): the major style with that tick's label
-    /// properties on top.
+    /// major locator places): the major style with that tick's label,
+    /// mark and gridline properties on top.
     pub(crate) fn major_tick_style(&self, index: usize) -> Cow<'_, TickStyle> {
-        match self.major_label_overrides.get(index) {
-            Some(props) if *props != TickLabelProps::default() => {
-                let mut style = self.major_style.clone();
-                props.apply(&mut style);
-                Cow::Owned(style)
-            }
-            _ => Cow::Borrowed(&self.major_style),
+        let label = (self.major_label_overrides.get(index))
+            .filter(|props| **props != TickLabelProps::default());
+        let line = (self.major_line_overrides.get(index))
+            .filter(|props| **props != TickLineProps::default());
+        if label.is_none() && line.is_none() {
+            return Cow::Borrowed(&self.major_style);
         }
+        let mut style = self.major_style.clone();
+        if let Some(props) = label {
+            props.apply(&mut style);
+        }
+        if let Some(props) = line {
+            props.apply(&mut style);
+        }
+        Cow::Owned(style)
     }
 }
 

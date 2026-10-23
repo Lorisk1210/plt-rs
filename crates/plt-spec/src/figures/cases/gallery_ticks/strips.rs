@@ -2,7 +2,7 @@
 //! named in monospace above it (`tick-locators`, `tick-formatters` and
 //! `date_formatters_locators`).
 
-use plt::axes::{TickLevel, TickParams, TickPosition};
+use plt::axes::{TickLevel, TickParams};
 use plt::dates::rrule::{Frequency, RRuleSpec};
 use plt::dates::{
     AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, DateFormatter, Datetime64,
@@ -12,45 +12,23 @@ use plt::figure::SubfigureOptions;
 use plt::fonts::FontSize;
 use plt::layout::LayoutEngine;
 use plt::prelude::*;
-use plt::spines::SpineSide;
 use plt::text::HorizontalAlignment as HAlign;
 use plt::ticker::{
     FixedFormatter, FixedLocator, FormatStrFormatter, FuncFormatter, Locator, MultipleLocator,
     NullFormatter, PercentFormatter, ScalarFormatter, StrMethodFormatter, pyfmt,
 };
 
-use crate::figures::cases::common::{locator_strips, tick_strip};
+use crate::figures::cases::common::{locator_strips, named_tick_strip, strip_title, tick_strip};
 use crate::figures::{CaseResult, FigureCase};
 
-/// Writes the name of what a strip shows over its axis, in blue
-/// monospace.
-fn strip_title(ax: &Axes, title: &str) {
-    ax.text(0.0, 0.2, title)
-        .set_transform(ax.trans_axes())
-        .set_fontsize(14.0)
-        .set_family(["Monospace"])
-        .set_color(Color::from("tab:blue"));
-}
-
-/// `setup` of `tick-locators`: the bare strip over `[0, 5]` with ticks
-/// at the bottom, named `title`.
-fn strip(ax: &Axes, title: &str) -> CaseResult {
-    tick_strip(ax);
-    ax.xaxis()
-        .set_ticks_position(TickPosition::Side(SpineSide::Bottom))?;
-    ax.set_xlim(0.0, 5.0).set_ylim(0.0, 1.0);
-    strip_title(ax, title);
-    Ok(())
-}
-
 fn tick_locators(fig: &Figure) -> CaseResult {
-    locator_strips(fig, strip)
+    locator_strips(fig, named_tick_strip)
 }
 
 /// `setup` of `tick-formatters`: the strip with major ticks at whole
 /// numbers and labelled minor ticks at quarters.
 fn formatter_strip(ax: &Axes, title: &str) -> CaseResult {
-    strip(ax, title)?;
+    named_tick_strip(ax, title)?;
     ax.xaxis()
         .set_major_locator(MultipleLocator::new(1.0)?)
         .set_minor_locator(MultipleLocator::new(0.25)?);

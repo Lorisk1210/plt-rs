@@ -209,7 +209,9 @@ impl Measured {
 /// The axes on grids grouped by their topmost block of cells, in the
 /// order the blocks first appear; axes off grids are left out, and so are
 /// those on grids with margins of their own, or, when `grid` is given,
-/// those on other grids (matplotlib's `get_subplotspec_list`).
+/// those on other grids (matplotlib's `get_subplotspec_list`). Axes a
+/// divider places count as on its cells, as matplotlib asks their
+/// locators first.
 fn blocks(
     fig: &FigureState,
     axes: &[ArtistId],
@@ -222,9 +224,12 @@ fn blocks(
     };
     for &id in axes {
         let Some(spec) = fig
-            .store
-            .get_as::<AxesState>(id)
-            .and_then(|state| state.subplot_spec.as_ref())
+            .divider_subplot_spec(id)
+            .or_else(|| {
+                fig.store
+                    .get_as::<AxesState>(id)
+                    .and_then(|state| state.subplot_spec.as_ref())
+            })
             .or_else(|| crate::mplot3d::axes3d_subplot_spec(&fig.store, id))
             .map(topmost)
             .filter(included)
@@ -544,6 +549,21 @@ mod tests {
         let other = GridSpec::new(1, 2).unwrap();
         assert_eq!(blocks(&state, &ids, Some(&other)).len(), 0);
         assert_eq!(blocks(&state, &ids, Some(&grid)).len(), 2);
+    }
+
+    #[test]
+    fn divided_axes_count_in_the_cells_of_their_divider() {
+        use crate::axes_grid1::{SizeSpec, make_axes_locatable};
+        use crate::spines::SpineSide;
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let divider = make_axes_locatable(&ax);
+        let cax = divider.append_axes(SpineSide::Right, SizeSpec::Percent(5.0), None);
+        let ids = [ax.id(), cax.id()];
+        let state = fig.raw().figure_state().borrow();
+        let found = blocks(&state, &ids, None);
+        assert_eq!(found.len(), 1, "one cell");
+        assert_eq!(found[0].1, ids.to_vec());
     }
 
     #[test]

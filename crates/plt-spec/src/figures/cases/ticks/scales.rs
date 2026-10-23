@@ -8,7 +8,7 @@ use plt::scale::{FuncScale, FuncTransform, ScaleOptions};
 use plt::ticker::{FixedLocator, NullFormatter};
 
 use crate::figures::CaseResult;
-use crate::figures::cases::common::logit_grid;
+use crate::figures::cases::common::{inverse_mercator, logit_grid, mercator};
 
 /// `_cdfs(x)`: the logistic, Laplace and Cauchy distribution functions.
 fn cdfs(x: &[f64]) -> [Vec<f64>; 3] {
@@ -63,17 +63,6 @@ pub(super) fn asinh_demo(fig: &Figure) -> CaseResult {
     )?;
     fig.tight_layout(&TightLayout::default())?;
     Ok(())
-}
-
-/// `_mercator(a)`: the Mercator projection of latitude `a` in degrees.
-fn mercator(a: f64) -> f64 {
-    let a = a.to_radians();
-    (a.tan() + 1.0 / a.cos()).abs().ln().to_degrees()
-}
-
-/// `_inverse_mercator(a)`.
-fn inverse_mercator(a: f64) -> f64 {
-    a.to_radians().sinh().atan().to_degrees()
 }
 
 pub(super) fn function_scale_mercator(fig: &Figure) -> CaseResult {

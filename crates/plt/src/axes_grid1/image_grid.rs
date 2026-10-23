@@ -194,8 +194,51 @@ impl ImageGrid {
     pub fn new(
         fig: &Figure,
         rect: &GridRect,
+        shape: (usize, usize),
+        options: &ImageGridOptions,
+    ) -> Result<Self, AxesGridError> {
+        Self::build(fig, rect, shape, options, true)
+    }
+
+    /// A grid of `nrows_ncols` axes dividing `rect` of `fig` without
+    /// colorbar axes, its columns and rows all the same size (matplotlib's
+    /// `Grid`, the base of `ImageGrid`); the colorbar options are ignored.
+    ///
+    /// ```
+    /// use plt::axes_grid1::{GridRect, ImageGrid, ImageGridOptions};
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let rect = GridRect::Rect([0.1, 0.1, 0.8, 0.8]);
+    /// let grid = ImageGrid::plain(&fig, &rect, (2, 2), &ImageGridOptions::default())?;
+    /// assert_eq!(fig.axes().len(), 4);
+    /// assert!(grid.cbar_axes().is_empty());
+    /// # Ok::<(), plt::axes_grid1::AxesGridError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the grid is empty or `n_axes` does not fit it.
+    pub fn plain(
+        fig: &Figure,
+        rect: &GridRect,
+        shape: (usize, usize),
+        options: &ImageGridOptions,
+    ) -> Result<Self, AxesGridError> {
+        let options = ImageGridOptions {
+            cbar_mode: None,
+            ..options.clone()
+        };
+        Self::build(fig, rect, shape, &options, false)
+    }
+
+    /// [`ImageGrid::new`], with colorbar axes or (`colorbars` false)
+    /// without.
+    fn build(
+        fig: &Figure,
+        rect: &GridRect,
         (nrows, ncols): (usize, usize),
         options: &ImageGridOptions,
+        colorbars: bool,
     ) -> Result<Self, AxesGridError> {
         if nrows == 0 || ncols == 0 {
             return Err(AxesGridError::Empty);
@@ -224,14 +267,15 @@ impl ImageGrid {
             .divider_position(id)
             .unwrap_or(plt_core::Bbox::UNIT);
         let axes = layout.create_axes(fig, position, options.share_all);
-        let cbar_axes = (0..n_axes)
+        let with_colorbars = if colorbars { n_axes } else { 0 };
+        let cbar_axes = (0..with_colorbars)
             .map(|_| CbarAxes {
                 figure: fig.clone(),
                 ax: insert_axes(figure, frame, position, None),
                 location: options.cbar_location,
             })
             .collect();
-        let caxes = (0..n_axes)
+        let caxes = (0..with_colorbars)
             .map(|index| layout.cax_index(index, options))
             .collect();
         let rows = layout.rows(&axes);
@@ -277,7 +321,7 @@ impl ImageGrid {
     }
 
     /// The colorbar axes, one per axes; those the colorbar mode does not
-    /// use are hidden (matplotlib's `cbar_axes`).
+    /// use are hidden (matplotlib's `cbar_axes`). A plain grid has none.
     pub fn cbar_axes(&self) -> &[CbarAxes] {
         &self.cbar_axes
     }
@@ -285,7 +329,8 @@ impl ImageGrid {
     /// The colorbar axes of the `index`-th axes (matplotlib's `ax.cax`):
     /// its own in the `Each` mode or without colorbars, the one of its row
     /// (colorbars left or right) or column (top or bottom) in the `Edge`
-    /// mode, the only one in the `Single` mode; `None` past the last axes.
+    /// mode, the only one in the `Single` mode; `None` past the last axes
+    /// and in a plain grid.
     ///
     /// ```
     /// use plt::axes_grid1::{CbarMode, GridRect, ImageGrid, ImageGridOptions};
@@ -461,6 +506,26 @@ mod tests {
         );
         let empty = ImageGrid::new(&fig, &rect, (0, 2), &ImageGridOptions::default());
         assert_eq!(empty.unwrap_err(), AxesGridError::Empty);
+    }
+
+    #[test]
+    fn plain_grids_share_the_area_equally_without_colorbar_axes() {
+        let fig = Figure::with_size(5.0, 4.0, 100.0);
+        let rect = GridRect::Rect([0.1, 0.1, 0.8, 0.8]);
+        let options = ImageGridOptions {
+            aspect: false,
+            share_all: false,
+            cbar_mode: Some(CbarMode::Each),
+            ..ImageGridOptions::default()
+        };
+        let grid = ImageGrid::plain(&fig, &rect, (1, 2), &options).unwrap();
+        grid.axes()[0].set_xlim(0.0, 1.0);
+        grid.axes()[1].set_xlim(0.0, 3.0);
+        fig.layout();
+        assert!(grid.cbar_axes().is_empty() && grid.cax(0).is_none());
+        assert_eq!(fig.axes().len(), 2);
+        let widths: Vec<f64> = grid.axes().iter().map(|ax| ax.position().width()).collect();
+        assert!((widths[0] - widths[1]).abs() < 1e-12, "{widths:?}");
     }
 
     #[test]

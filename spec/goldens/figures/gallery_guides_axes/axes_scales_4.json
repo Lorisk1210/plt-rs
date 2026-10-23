@@ -1,0 +1,32 @@
+{
+ "size_px": [640, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.056077, 0.092594, 0.421169, 0.823499],
+   "title": "log base=2",
+   "xlim": [-49.95, 1048.95],
+   "ylim": [0.707981, 1411.054417],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [200.0, "200"], [400.0, "400"], [600.0, "600"], [800.0, "800"], [1000.0, "1000"]],
+   "yticks": [[1.0, "$\\mathdefault{2^{0}}$"], [4.0, "$\\mathdefault{2^{2}}$"], [16.0, "$\\mathdefault{2^{4}}$"], [64.0, "$\\mathdefault{2^{6}}$"], [256.0, "$\\mathdefault{2^{8}}$"], [1024.0, "$\\mathdefault{2^{10}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.57232, 0.092594, 0.421169, 0.823499],
+   "title": "symlog linthresh=100",
+   "xlim": [-549.45, 549.45],
+   "ylim": [-757.705, 757.705],
+   "xscale": "linear",
+   "yscale": "symlog",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-400.0, "−400"], [-200.0, "−200"], [0.0, "0"], [200.0, "200"], [400.0, "400"]],
+   "yticks": [[-100.0, "$\\mathdefault{-10^{2}}$"], [0.0, "$\\mathdefault{0}$"], [100.0, "$\\mathdefault{10^{2}}$"]]
+  }
+ ]
+}

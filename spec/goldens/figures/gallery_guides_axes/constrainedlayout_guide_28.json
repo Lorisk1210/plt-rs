@@ -1,0 +1,32 @@
+{
+ "size_px": [300, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.075777, 0.141611, 0.73253, 0.73253],
+   "title": "Colorbar with layout='compressed'",
+   "xlim": [-0.5, 9.5],
+   "ylim": [9.5, -0.5],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"]],
+   "yticks": [[0.0, "0"], [2.0, "2"], [4.0, "4"], [6.0, "6"], [8.0, "8"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.844933, 0.141611, 0.036627, 0.73253],
+   "title": "",
+   "xlim": [0.0, 1.0],
+   "ylim": [-2.976053, 1.803221],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [],
+   "yticks": [[-2.0, "−2"], [-1.0, "−1"], [0.0, "0"], [1.0, "1"]]
+  }
+ ]
+}

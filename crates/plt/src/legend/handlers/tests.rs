@@ -67,6 +67,32 @@ fn single_point_lines_mark_only_their_middle() {
 }
 
 #[test]
+fn a_handle_can_carry_its_own_number_of_markers() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let line = ax
+        .plot_with([0.0, 1.0], [0.0, 1.0], LineProps::fmt("o-").unwrap())
+        .unwrap();
+    let four = LegendHandle::from(&line).with_numpoints(4);
+    let made = handle(&fig, &four.0, &LegendOptions::default()).unwrap();
+    let legline = as_line(&made.artists[0]);
+    assert_eq!(
+        legline.xdata,
+        linspace(3.0, 17.0, 4),
+        "four markers in the pads"
+    );
+    assert_eq!(legline.markevery, None);
+    let legend = ax
+        .legend(
+            LegendOptions::default()
+                .handles([LegendHandle::from(&line).with_numpoints(4)])
+                .labels(["four"]),
+        )
+        .unwrap();
+    assert_eq!(legend.labels(), ["four"]);
+}
+
+#[test]
 fn scatter_markers_span_the_plotted_sizes() {
     let fig = Figure::new();
     let ax = fig.subplot();

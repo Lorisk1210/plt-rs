@@ -25,6 +25,8 @@ enum InsetExtent {
     /// The inset's view limits measured in the parent's data coordinates,
     /// scaled by `zoom` (matplotlib's `AnchoredZoomLocator`).
     Zoomed { zoom: f64 },
+    /// The anchor box itself (matplotlib's `_TransformedBoundsLocator`).
+    Bounds,
 }
 
 /// Where an inset axes goes at every layout pass (matplotlib's
@@ -141,15 +143,34 @@ fn add_inset(parent: &Axes, extent: InsetExtent, options: &InsetOptions) -> Axes
     };
     let inset = insert_axes(figure, frame, position, None);
     inset.set_navigate(false);
-    let mut state = figure.borrow_mut();
+    register(&inset, locator);
+    inset
+}
+
+/// Places `inset`, an axes inside `parent`, on the box `bounds` in the
+/// coordinates of `transform` at every layout pass (matplotlib's
+/// `Axes.inset_axes(bounds, transform=...)`).
+pub(crate) fn locate_on_bounds(parent: &Axes, inset: &Axes, bounds: Bbox, transform: Transform) {
+    let locator = InsetLocator {
+        extent: InsetExtent::Bounds,
+        loc: AnchorLoc::LowerLeft,
+        parent: parent.id(),
+        anchor: Some((bounds, transform)),
+        borderpad: (0.0, 0.0),
+        fontsize: 0.0,
+    };
+    register(inset, locator);
+}
+
+/// Makes `locator` place `inset` from the next layout pass on.
+fn register(inset: &Axes, locator: InsetLocator) {
+    let mut state = inset.raw().figure_state().borrow_mut();
     state.layout.insets.push(locator);
     let id = InsetLocatorId(state.layout.insets.len() - 1);
     if let Some(axes) = state.store.get_as_mut::<AxesState>(inset.id()) {
         axes.aspect.inset = Some(id);
     }
     state.stale = true;
-    drop(state);
-    inset
 }
 
 impl FigureState {
@@ -158,6 +179,10 @@ impl FigureState {
     /// `None` if its parent, anchor or frame is gone.
     pub(crate) fn locate_inset(&mut self, axes: ArtistId, id: InsetLocatorId) -> Option<Bbox> {
         let locator = self.layout.insets.get(id.0)?.clone();
+        if locator.extent == InsetExtent::Bounds {
+            // The bounds may be in the parent's data coordinates.
+            self.unstale_axes(locator.parent);
+        }
         let anchor = match &locator.anchor {
             None => self.axes_bbox(locator.parent)?,
             Some((bbox, transform)) => transformed_bbox(bbox, &transform.resolve(self).ok()?),
@@ -182,6 +207,7 @@ impl FigureState {
                 let shown = transformed_bbox(&view, &data);
                 ((shown.width() * zoom).abs(), (shown.height() * zoom).abs())
             }
+            InsetExtent::Bounds => (anchor.width(), anchor.height()),
         };
         let fontsize = locator.fontsize * self.dpi() / 72.0;
         let corner = anchored_bbox(
@@ -191,7 +217,8 @@ impl FigureState {
             locator.borderpad.0 * fontsize,
             locator.borderpad.1 * fontsize,
         );
-        let frame = self.frame_bbox(self.store.get(axes)?.base().parent?)?;
+        let parent = self.store.get(axes)?.base().parent?;
+        let frame = self.frame_bbox(parent).or_else(|| self.axes_bbox(parent))?;
         // Like matplotlib's inverse frame transform, scale both corners by
         // the reciprocal frame size (dividing the size instead can round
         // the far edge onto the other side of a pixel boundary).

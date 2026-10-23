@@ -1,0 +1,58 @@
+{
+ "size_px": [640, 480],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.079514, 0.557871, 0.38828, 0.389687],
+   "title": "asinh",
+   "xlim": [-549.45, 549.45],
+   "ylim": [-996.534666, 996.534666],
+   "xscale": "linear",
+   "yscale": "asinh",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-500.0, "−500"], [-250.0, "−250"], [0.0, "0"], [250.0, "250"], [500.0, "500"]],
+   "yticks": [[-100.0, "$\\mathdefault{-10^{2}}$"], [-10.0, "$\\mathdefault{-10^{1}}$"], [-1.0, "$\\mathdefault{-10^{0}}$"], [0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"], [100.0, "$\\mathdefault{10^{2}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.598605, 0.557871, 0.38828, 0.389687],
+   "title": "symlog",
+   "xlim": [-549.45, 549.45],
+   "ylim": [-1120.462055, 1120.462055],
+   "xscale": "linear",
+   "yscale": "symlog",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[-500.0, "−500"], [-250.0, "−250"], [0.0, "0"], [250.0, "250"], [500.0, "500"]],
+   "yticks": [[-1000.0, "$\\mathdefault{-10^{3}}$"], [-100.0, "$\\mathdefault{-10^{2}}$"], [-10.0, "$\\mathdefault{-10^{1}}$"], [-1.0, "$\\mathdefault{-10^{0}}$"], [0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"], [100.0, "$\\mathdefault{10^{2}}$"], [1000.0, "$\\mathdefault{10^{3}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.079514, 0.057871, 0.38828, 0.389687],
+   "title": "log",
+   "xlim": [-49.95, 1048.95],
+   "ylim": [0.707981, 1411.054417],
+   "xscale": "linear",
+   "yscale": "log",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0"], [250.0, "250"], [500.0, "500"], [750.0, "750"], [1000.0, "1000"]],
+   "yticks": [[1.0, "$\\mathdefault{10^{0}}$"], [10.0, "$\\mathdefault{10^{1}}$"], [100.0, "$\\mathdefault{10^{2}}$"], [1000.0, "$\\mathdefault{10^{3}}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.598605, 0.057871, 0.38828, 0.389687],
+   "title": "logit",
+   "xlim": [-0.05, 1.05],
+   "ylim": [0.000502, 0.999498],
+   "xscale": "linear",
+   "yscale": "logit",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "0.00"], [0.25, "0.25"], [0.5, "0.50"], [0.75, "0.75"], [1.0, "1.00"]],
+   "yticks": [[0.01, "$\\mathdefault{10^{-2}}$"], [0.5, "$\\mathdefault{\\frac{1}{2}}$"], [0.99, "$\\mathdefault{1-10^{-2}}$"]]
+  }
+ ]
+}

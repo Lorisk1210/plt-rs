@@ -5,9 +5,9 @@ use std::rc::Rc;
 
 use crate::artist::ArtistId;
 
-use super::TickLabelProps;
 use super::axis_label::{AxisLabel, LabelLoc, label_font};
 use super::ticks::{Sides, TickStyle};
+use super::{TickLabelProps, TickLineProps};
 use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter};
 use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
@@ -150,6 +150,9 @@ pub(crate) struct AxisState {
     /// Label properties of single major ticks, by tick index, on top of
     /// `major_style`.
     pub(crate) major_label_overrides: Vec<TickLabelProps>,
+    /// Mark and gridline properties of single major ticks, by tick index,
+    /// on top of `major_style`.
+    pub(crate) major_line_overrides: Vec<TickLineProps>,
     /// The axis label.
     pub(crate) label: AxisLabel,
     /// Whether ticks, tick labels, the label and the offset text are drawn.
@@ -196,6 +199,7 @@ impl AxisState {
             major_style: TickStyle::from_rc(name, true, rc),
             minor_style: TickStyle::from_rc(name, false, rc),
             major_label_overrides: Vec::new(),
+            major_line_overrides: Vec::new(),
             label: AxisLabel {
                 text: String::new(),
                 font: label_font(rc),

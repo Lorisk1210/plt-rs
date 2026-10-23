@@ -3,7 +3,9 @@
 use std::f64::consts::PI;
 
 use plt::artist::ArtistHandle;
-use plt::axes::{Axes, AxisName, BarLabelOptions, TickLevel, TickParams};
+use plt::axes::{
+    Axes, AxisName, BarLabelOptions, LocatorParams, TickLevel, TickParams, TickPosition,
+};
 use plt::axisartist::angle_helper::{ExtremeFinderCycle, FormatterDms, LocatorDms};
 use plt::axisartist::grid_finder::{self, GridFinderOptions, GridLocator};
 use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
@@ -20,13 +22,14 @@ use plt::lines::LineProps;
 use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, FaceColormap, FaceColors};
 use plt::numeric::{Grid, arange, linspace, linspace_with, meshgrid};
 use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchProps};
-use plt::patheffects::{GcUpdate, PathEffect, Stroke, TickedStroke};
+use plt::patheffects::{GcUpdate, PatchEffect, PathEffect, Stroke, TickedStroke};
 use plt::rc::Aspect;
 use plt::sankey::FlowOrientation;
 use plt::scale::ScaleOptions;
 use plt::spines::SpineSide;
 use plt::text::{
-    ArrowProps, FancyArrowProps, Language, LanguageRange, LegacyArrowProps, TextBoxProps,
+    ArrowProps, FancyArrowProps, Language, LanguageRange, LegacyArrowProps, Text, TextBoxProps,
+    VerticalAlignment,
 };
 use plt::ticker::{
     AutoLocator, AutoMinorLocator, FixedLocator, IndexLocator, LinearLocator, LogLocator,
@@ -821,5 +824,98 @@ pub(super) fn test_annotation(
         .set_valign(VerticalAlignment::Center)
         .set_halign(HorizontalAlignment::Center)
         .set_bbox(bbox);
+    Ok(())
+}
+
+/// The Mercator projection of latitude `a` in degrees, in degrees (the
+/// forward function of matplotlib's function scale examples).
+pub(super) fn mercator(a: f64) -> f64 {
+    let a = a.to_radians();
+    (a.tan() + 1.0 / a.cos()).abs().ln().to_degrees()
+}
+
+/// The latitude in degrees whose Mercator projection is `a` (the inverse
+/// of [`mercator`]).
+pub(super) fn inverse_mercator(a: f64) -> f64 {
+    a.to_radians().sinh().atan().to_degrees()
+}
+
+/// Writes the name of what a tick strip shows over its axis, in blue
+/// monospace.
+pub(super) fn strip_title(ax: &Axes, title: &str) {
+    ax.text(0.0, 0.2, title)
+        .set_transform(ax.trans_axes())
+        .set_fontsize(14.0)
+        .set_family(["Monospace"])
+        .set_color(Color::from("tab:blue"));
+}
+
+/// `setup` of the gallery's `tick-locators` and of the axis ticks guide:
+/// the bare [`tick_strip`] over `[0, 5]` with ticks at the bottom, named
+/// `title`.
+pub(super) fn named_tick_strip(ax: &Axes, title: &str) -> Result<(), Box<dyn std::error::Error>> {
+    tick_strip(ax);
+    ax.xaxis()
+        .set_ticks_position(TickPosition::Side(SpineSide::Bottom))?;
+    ax.set_xlim(0.0, 5.0).set_ylim(0.0, 1.0);
+    strip_title(ax, title);
+    Ok(())
+}
+
+/// `ax.set_xlabel`, `ax.set_ylabel` and `ax.set_title` in `fontsize`
+/// points, as the layout tests and guides label their axes.
+pub(super) fn decorate(ax: &Axes, fontsize: f64) {
+    ax.set_xlabel("x-label").set_ylabel("y-label");
+    for axis in [ax.xaxis(), ax.yaxis()] {
+        axis.set_label_fontsize(FontSize::Points(fontsize));
+    }
+    ax.set_title("Title").set_fontsize(fontsize);
+}
+
+/// The `example_plot` of matplotlib's layout tests and guides: a line
+/// with at most three tick intervals, labelled in `fontsize` points unless
+/// `nodec`, in which case the tick labels are blanked instead.
+pub(super) fn example_plot(
+    ax: &Axes,
+    fontsize: f64,
+    nodec: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    ax.plot_y([1.0, 2.0]);
+    ax.locator_params(&LocatorParams {
+        nbins: Some(Nbins::Fixed(3)),
+        ..LocatorParams::default()
+    })?;
+    if nodec {
+        ax.set_xticklabels(Vec::<String>::new())?;
+        ax.set_yticklabels(Vec::<String>::new())?;
+    } else {
+        decorate(ax, fontsize);
+    }
+    Ok(())
+}
+
+/// matplotlib's "Hatch shadow" text (in its path effects test and guide):
+/// 75 points, weight 1000, centred vertically, drawn as a black patch
+/// outlined in white over a grey shadow hatched `xxxx`, 4 points right
+/// and down (two `PathPatchEffect`s).
+pub(super) fn hatch_shadow_text(text: &Text) -> Result<(), Box<dyn std::error::Error>> {
+    let hatched = PatchEffect::new(
+        (4.0, -4.0),
+        PatchProps::default().hatch("xxxx").facecolor("gray"),
+    )?;
+    let outlined = PatchEffect::new(
+        (0.0, 0.0),
+        PatchProps::default()
+            .edgecolor("white")
+            .facecolor("black")
+            .linewidth(1.1),
+    )?;
+    text.set_fontsize(75.0)
+        .set_weight("1000".parse()?)
+        .set_valign(VerticalAlignment::Center)
+        .set_path_effects(vec![
+            PathEffect::path_patch(hatched),
+            PathEffect::path_patch(outlined),
+        ]);
     Ok(())
 }

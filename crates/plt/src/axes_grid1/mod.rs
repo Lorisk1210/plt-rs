@@ -52,7 +52,7 @@ pub use image_grid::{
     AxesGrid, AxesGridError, CbarAxes, CbarMode, GridDirection, GridRect, ImageGrid,
     ImageGridOptions,
 };
-pub(crate) use inset_locator::{InsetLocator, InsetLocatorId};
+pub(crate) use inset_locator::{InsetLocator, InsetLocatorId, locate_on_bounds};
 pub use inset_locator::{InsetOptions, inset_axes, zoomed_inset_axes};
 pub use inset_marks::{InsetMarks, mark_inset};
 pub use labels::LabelMode;

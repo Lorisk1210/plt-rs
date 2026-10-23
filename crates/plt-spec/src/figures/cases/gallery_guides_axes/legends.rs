@@ -1,6 +1,6 @@
 //! `legend_guide`: proxy artists, legends placed by `bbox_to_anchor`,
-//! figure legends outside the axes, several legends on one axes and
-//! tuple handles.
+//! figure legends outside the axes, several legends on one axes, tuple
+//! handles, and handlers of the user's own (in `handlers`).
 
 use plt::colors::to_rgba;
 use plt::figure::MosaicOptions;
@@ -9,7 +9,7 @@ use plt::legend::{HandlerTuple, LegendHandle, LegendMode, LegendOptions};
 use plt::markers::Marker;
 use plt::prelude::*;
 
-use super::SEED;
+use super::{SEED, handlers};
 use crate::figures::cases::common::mosaic;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
@@ -217,25 +217,6 @@ fn legend_guide_10(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-fn legend_guide_11(fig: &Figure) -> CaseResult {
-    // The page's `AnyObjectHandler` draws a red rectangle hatched with
-    // `xx`, edged black 3 points wide, filling the handle box: what a
-    // proxy patch of that look draws.
-    let any_object = LegendHandle::patch(
-        PatchProps::default()
-            .facecolor("red")
-            .edgecolor("black")
-            .hatch("xx")
-            .linewidth(3.0),
-    );
-    fig.subplot().legend(
-        LegendOptions::default()
-            .handles([any_object])
-            .labels(["My first handler"]),
-    )?;
-    Ok(())
-}
-
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("gallery_guides_axes/legend_guide_1", legend_guide_1),
     FigureCase::new("gallery_guides_axes/legend_guide_2", legend_guide_2),
@@ -247,5 +228,12 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("gallery_guides_axes/legend_guide_8", legend_guide_8),
     FigureCase::new("gallery_guides_axes/legend_guide_9", legend_guide_9),
     FigureCase::new("gallery_guides_axes/legend_guide_10", legend_guide_10),
-    FigureCase::new("gallery_guides_axes/legend_guide_11", legend_guide_11),
+    FigureCase::new(
+        "gallery_guides_axes/legend_guide_11",
+        handlers::legend_guide_11,
+    ),
+    FigureCase::new(
+        "gallery_guides_axes/legend_guide_12",
+        handlers::legend_guide_12,
+    ),
 ];

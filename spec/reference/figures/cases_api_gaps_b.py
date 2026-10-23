@@ -1,15 +1,13 @@
 """Figures drawn through the matplotlib API that plt-rs gained in its
-axes and artist classes: custom legend handlers (the last two figures of
-matplotlib's legend guide, ``galleries/users_explain/axes/legend_guide.py``),
-axes locators, the colour mapping, hatch and offsets of collections set
-after they are made, new image data and resampling settings, and date
-axes without dates.
+axes and artist classes: axes locators, the colour mapping, hatch and
+offsets of collections set after they are made, new image data and
+resampling settings, and date axes without dates. (Its custom legend
+handlers draw the last figures of the legend guide, in
+``cases_gallery_guides_axes``.)
 """
 
-import matplotlib.patches as mpatches
 import matplotlib.transforms as mtransforms
 import numpy as np
-from matplotlib.legend_handler import HandlerPatch
 
 from spec_support import case
 
@@ -19,58 +17,6 @@ G = "api_gaps_b"
 def api(name, **options):
     """Registers a case of this group."""
     return case(f"{G}/{name}", **options)
-
-
-# --- legend_guide ----------------------------------------------------------------
-
-
-class _AnyObject:
-    """``legend_guide``'s handle that is no artist."""
-
-
-class _AnyObjectHandler:
-    """``legend_guide``'s handler of ``_AnyObject``: a red, hatched rectangle
-    filling the handle box."""
-
-    def legend_artist(self, legend, orig_handle, fontsize, handlebox):
-        x0, y0 = handlebox.xdescent, handlebox.ydescent
-        width, height = handlebox.width, handlebox.height
-        patch = mpatches.Rectangle([x0, y0], width, height, facecolor="red",
-                                   edgecolor="black", hatch="xx", lw=3,
-                                   transform=handlebox.get_transform())
-        handlebox.add_artist(patch)
-        return patch
-
-
-@api("legend_guide_11")
-def _(fig):
-    ax = fig.subplots()
-    ax.legend([_AnyObject()], ["My first handler"],
-              handler_map={_AnyObject: _AnyObjectHandler()})
-
-
-class _HandlerEllipse(HandlerPatch):
-    """``legend_guide``'s handler drawing a patch as an ellipse filling the
-    handle box."""
-
-    def create_artists(self, legend, orig_handle,
-                       xdescent, ydescent, width, height, fontsize, trans):
-        center = 0.5 * width - 0.5 * xdescent, 0.5 * height - 0.5 * ydescent
-        p = mpatches.Ellipse(xy=center, width=width + xdescent,
-                             height=height + ydescent)
-        self.update_prop(p, orig_handle, legend)
-        p.set_transform(trans)
-        return [p]
-
-
-@api("legend_guide_12")
-def _(fig):
-    c = mpatches.Circle((0.5, 0.5), 0.25, facecolor="green",
-                        edgecolor="red", linewidth=3)
-    ax = fig.subplots()
-    ax.add_patch(c)
-    ax.legend([c], ["An ellipse, not a rectangle"],
-              handler_map={mpatches.Circle: _HandlerEllipse()})
 
 
 # --- axes, collections, images and dates -----------------------------------------

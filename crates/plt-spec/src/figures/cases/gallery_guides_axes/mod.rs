@@ -8,6 +8,7 @@ mod colorbars;
 mod constrained;
 mod constrained_grids;
 mod extents;
+mod handlers;
 mod legends;
 mod mosaics;
 mod scales;

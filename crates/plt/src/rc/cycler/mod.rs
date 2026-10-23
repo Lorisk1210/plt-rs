@@ -2,6 +2,9 @@
 
 mod values;
 
+use std::fmt;
+use std::str::FromStr;
+
 use plt_core::Rgba;
 
 use self::values::{format_value, property_cycle};
@@ -248,6 +251,42 @@ impl Cycler {
                 .expect("kwargs is non-empty"),
             _ => Err("cycler() takes (label, values), (cycler) or label=values".to_owned()),
         }
+    }
+}
+
+/// A cycler expression that is malformed or names an unknown property or
+/// an invalid value.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CyclerError(String);
+
+impl fmt::Display for CyclerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for CyclerError {}
+
+impl FromStr for Cycler {
+    type Err = CyclerError;
+
+    /// Parses and validates a cycler expression as matplotlib's
+    /// `cycler(...)` and `axes.prop_cycle` do: `cycler(label, values)`,
+    /// `cycler(label=values, ...)` and `cycler(cycler)` calls (property
+    /// aliases such as `c` and `lw` allowed), combined with `+`, `*`,
+    /// slices and `concat(...)`.
+    ///
+    /// ```
+    /// use plt::rc::Cycler;
+    /// let cycle: Cycler = "cycler(c=['r', 'g']) + cycler(marker=['.', 'x'])".parse()?;
+    /// assert_eq!(cycle.keys(), ["color", "marker"]);
+    /// assert!("cycler(foobar=[1, 2])".parse::<Cycler>().is_err());
+    /// assert!("cycler('linewidth', 1)".parse::<Cycler>().is_err());
+    /// assert!("cycler(color='rgb', c='cmy')".parse::<Cycler>().is_err());
+    /// # Ok::<(), plt::rc::CyclerError>(())
+    /// ```
+    fn from_str(text: &str) -> Result<Self, CyclerError> {
+        Self::parse_rc(text).map_err(CyclerError)
     }
 }
 

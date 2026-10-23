@@ -337,6 +337,15 @@ const AREAS: &[(&str, &[Op])] = &[
     ("offsetbox_behaviour", areas::offsetbox_behaviour::OPS),
     ("sankey_behaviour", areas::sankey_behaviour::OPS),
     ("streamplot_behaviour", areas::streamplot_behaviour::OPS),
+    ("mpl_font_manager", areas::mpl_font_manager::OPS),
+    ("mpl_fontconfig_pattern", areas::mpl_fontconfig_pattern::OPS),
+    ("mpl_style", areas::mpl_style::OPS),
+    ("mpl_cycles", areas::mpl_cycles::OPS),
+    ("mpl_cbook", areas::mpl_cbook::OPS),
+    ("mpl_mlab", areas::mpl_mlab::OPS),
+    ("mpl_bezier", areas::mpl_bezier::OPS),
+    ("mpl_textpath", areas::mpl_textpath::OPS),
+    ("mpl_determinism", areas::mpl_determinism::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

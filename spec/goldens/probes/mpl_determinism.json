@@ -1,0 +1,24 @@
+{
+ "area": "mpl_determinism",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "savefig.creation_date", "args": {"format": "pdf", "epoch": -86401}, "value": "D:19691230235959Z"},
+  {"op": "savefig.creation_date", "args": {"format": "ps", "epoch": -86401}, "value": "Tue Dec 30 23:59:59 1969"},
+  {"op": "savefig.creation_date", "args": {"format": "svg", "epoch": -86401}, "value": "1969-12-30T23:59:59+00:00"},
+  {"op": "savefig.creation_date", "args": {"format": "pdf", "epoch": 0}, "value": "D:19700101000000Z"},
+  {"op": "savefig.creation_date", "args": {"format": "ps", "epoch": 0}, "value": "Thu Jan 01 00:00:00 1970"},
+  {"op": "savefig.creation_date", "args": {"format": "svg", "epoch": 0}, "value": "1970-01-01T00:00:00+00:00"},
+  {"op": "savefig.creation_date", "args": {"format": "pdf", "epoch": 1234567890}, "value": "D:20090213233130Z"},
+  {"op": "savefig.creation_date", "args": {"format": "ps", "epoch": 1234567890}, "value": "Fri Feb 13 23:31:30 2009"},
+  {"op": "savefig.creation_date", "args": {"format": "svg", "epoch": 1234567890}, "value": "2009-02-13T23:31:30+00:00"},
+  {"op": "savefig.creation_date", "args": {"format": "pdf", "epoch": 4102444799}, "value": "D:20991231235959Z"},
+  {"op": "savefig.creation_date", "args": {"format": "ps", "epoch": 4102444799}, "value": "Thu Dec 31 23:59:59 2099"},
+  {"op": "savefig.creation_date", "args": {"format": "svg", "epoch": 4102444799}, "value": "2099-12-31T23:59:59+00:00"},
+  {"op": "savefig.creation_date", "args": {"format": "pdf", "epoch": 946684800}, "value": "D:20000101000000Z"},
+  {"op": "savefig.creation_date", "args": {"format": "ps", "epoch": 946684800}, "value": "Sat Jan 01 00:00:00 2000"},
+  {"op": "savefig.creation_date", "args": {"format": "svg", "epoch": 946684800}, "value": "2000-01-01T00:00:00+00:00"},
+  {"op": "savefig.creation_date", "args": {"format": "pdf", "epoch": 951782400}, "value": "D:20000229000000Z"},
+  {"op": "savefig.creation_date", "args": {"format": "ps", "epoch": 951782400}, "value": "Tue Feb 29 00:00:00 2000"},
+  {"op": "savefig.creation_date", "args": {"format": "svg", "epoch": 951782400}, "value": "2000-02-29T00:00:00+00:00"}
+ ]
+}

@@ -1,0 +1,88 @@
+{
+ "area": "mpl_style",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "pyplot.xkcd", "args": {"scoped": false}, "value": [[null], [[1.0, 100.0, 2.0]], [[1.0, 100.0, 2.0]]]},
+  {"op": "pyplot.xkcd", "args": {"scoped": true}, "value": [[null], [[1.0, 100.0, 2.0]], [null]]},
+  {
+   "op": "style.STYLE_BLACKLIST",
+   "args": {},
+   "value": ["backend", "backend_fallback", "date.epoch", "docstring.hardcopy", "figure.max_open_warning", "figure.raise_window", "interactive", "savefig.directory", "timezone", "tk.window_focus", "toolbar", "webagg.address", "webagg.open_in_browser", "webagg.port", "webagg.port_retries"]
+  },
+  {
+   "op": "style.available",
+   "args": {"names": ["_classic_test_patch", "classic", "dummy", "_test_"], "library": {"_test_": "image.cmap: pink", "dummy": "image.cmap: pink"}},
+   "value": [[false, true], [true, true], [true, true], [false, true]]
+  },
+  {
+   "op": "style.available",
+   "args": {"names": ["_classic_test_patch", "classic", "dummy", "_test_"]},
+   "value": [[false, true], [true, true], [false, false], [false, false]]
+  },
+  {
+   "op": "style.context",
+   "args": {"style": "ggplot", "params": ["image.cmap", "axes.facecolor"], "library": {"ggplot": "image.cmap: pink"}},
+   "value": {"failed": false, "inside": ["pink", [0.8980392156862745, 0.8980392156862745, 0.8980392156862745, 1.0]], "after": ["viridis", [1.0, 1.0, 1.0, 1.0]]}
+  },
+  {
+   "op": "style.context",
+   "args": {"style": {"url": "axes.facecolor: adeade"}, "params": ["axes.facecolor"], "library": {"test": "image.cmap: pink"}},
+   "value": {"failed": false, "inside": [[0.6784313725490196, 0.9176470588235294, 0.8705882352941177, 1.0]], "after": [[1.0, 1.0, 1.0, 1.0]]}
+  },
+  {
+   "op": "style.context",
+   "args": {
+    "style": ["test", {"dict": {"text.usetex": true}}],
+    "params": ["image.cmap", "text.usetex"],
+    "rc": {"image.cmap": "gray", "text.usetex": false},
+    "library": {"test": "image.cmap: pink"}
+   },
+   "value": {"failed": false, "inside": ["pink", true], "after": ["gray", false]}
+  },
+  {
+   "op": "style.context",
+   "args": {"style": "test", "params": ["image.cmap"], "rc": {"image.cmap": "gray"}, "library": {"test": "image.cmap: pink"}},
+   "value": {"failed": false, "inside": ["pink"], "after": ["gray"]}
+  },
+  {
+   "op": "style.context",
+   "args": {"style": ["test", {"dict": {"image.cmap": "blue"}}], "params": ["image.cmap"], "rc": {"image.cmap": "gray"}, "library": {"test": "image.cmap: pink"}},
+   "value": {"failed": false, "inside": ["blue"], "after": ["gray"]}
+  },
+  {
+   "op": "style.context",
+   "args": {"style": [{"dict": {"image.cmap": "blue"}}, "test"], "params": ["image.cmap"], "rc": {"image.cmap": "gray"}, "library": {"test": "image.cmap: pink"}},
+   "value": {"failed": false, "inside": ["pink"], "after": ["gray"]}
+  },
+  {
+   "op": "style.context",
+   "args": {"style": {"dict": {"image.cmap": "gray", "badparam": null}}, "params": ["image.cmap"], "rc": {"image.cmap": "blue"}},
+   "value": {"failed": true, "inside": null, "after": ["blue"]}
+  },
+  {
+   "op": "style.context",
+   "args": {"style": {"dict": {"image.cmap": "blue"}}, "params": ["image.cmap"], "rc": {"image.cmap": "gray"}},
+   "value": {"failed": false, "inside": ["blue"], "after": ["gray"]}
+  },
+  {
+   "op": "style.context",
+   "args": {"style": {"path": "image.cmap : pink"}, "params": ["image.cmap"], "rc": {"image.cmap": "gray"}},
+   "value": {"failed": false, "inside": ["pink"], "after": ["gray"]}
+  },
+  {"op": "style.context", "args": {"style": "no-such-style", "params": ["image.cmap"]}, "value": {"failed": true, "inside": null, "after": ["viridis"]}},
+  {
+   "op": "style.context",
+   "args": {"style": {"path": "timezone: Europe/Paris\nlines.linewidth: 3\nfoo: bar"}, "params": ["timezone", "lines.linewidth"]},
+   "value": {"failed": false, "inside": ["UTC", 3.0], "after": ["UTC", 1.5]}
+  },
+  {"op": "style.context.equal", "args": {"styles": ["classic", "default"]}, "value": false},
+  {"op": "style.context.equal", "args": {"styles": ["mpl15", "classic"]}, "value": true},
+  {"op": "style.context.equal", "args": {"styles": ["mpl20", "default"]}, "value": true},
+  {
+   "op": "style.reload_library",
+   "args": {"library": {"a_good": "image.cmap: pink", "b_bad": "lines.linewidth: wide\nimage.cmap: pink"}},
+   "value": ["b_bad.mplstyle"]
+  },
+  {"op": "style.reload_library", "args": {"library": {"basename": "foo: bar"}}, "value": ["basename.mplstyle"]}
+ ]
+}

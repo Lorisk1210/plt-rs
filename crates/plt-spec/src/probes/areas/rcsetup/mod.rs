@@ -15,6 +15,11 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("style.sheet", style_sheet),
 ];
 
+/// The canonical value of the parameter `key` in `rc`, if it is probed.
+pub(crate) fn canonical(rc: &RcParams, key: &str) -> Option<Json> {
+    fields::canonical(rc, key)
+}
+
 /// Sets `key` to the text `value` on matplotlib's defaults and returns
 /// the parameter's canonical value.
 fn validate(args: Args<'_>) -> Outcome {

@@ -1,0 +1,275 @@
+{
+ "area": "mpl_fontconfig_pattern",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": "-12"}, "value": {"family": [""], "size": ["12"]}},
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": ":condensed"}, "value": {"family": [""], "width": ["condensed"]}},
+  {
+   "op": "_fontconfig_pattern.parse_fontconfig_pattern",
+   "args": {"pattern": ":family=A,B:style=oblique"},
+   "value": {"family": ["", "A", "B"], "style": ["oblique"]}
+  },
+  {
+   "op": "_fontconfig_pattern.parse_fontconfig_pattern",
+   "args": {"pattern": ":roman:medium"},
+   "value": {"family": [""], "slant": ["normal"], "weight": ["medium"]}
+  },
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": ":size=12:size=14"}, "value": {"family": [""], "size": ["12", "14"]}},
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": ":style=oblique:style="}, "value": {"family": [""], "style": ["oblique", ""]}},
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": ":weight=thin"}, "value": {"family": [""], "weight": ["thin"]}},
+  {
+   "op": "_fontconfig_pattern.parse_fontconfig_pattern",
+   "args": {"pattern": "Foo,Bar-12:bold:slant=italic"},
+   "value": {"family": ["Foo", "Bar"], "size": ["12"], "weight": ["bold"], "slant": ["italic"]}
+  },
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": "Foo-"}, "error": "ValueError"},
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": "Foo-12,14"}, "value": {"family": ["Foo"], "size": ["12", "14"]}},
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": "Foo-1e3"}, "error": "ValueError"},
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": "Foo:"}, "error": "ValueError"},
+  {"op": "_fontconfig_pattern.parse_fontconfig_pattern", "args": {"pattern": "Foo\\,Bar\\-Baz-8.5"}, "value": {"family": ["Foo,Bar-Baz"], "size": ["8.5"]}},
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "-12"}},
+   "value": {
+    "family": [""],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 12.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": ":style=normal:variant=normal:weight=normal:stretch=normal:size=12.0"
+   }
+  },
+  {"op": "font_manager.FontProperties", "args": {"kw": {"family": ":condensed"}}, "error": "AttributeError"},
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": ":family=A,B:style=oblique"}},
+   "value": {
+    "family": [""],
+    "style": "oblique",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 10.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": ":style=oblique:variant=normal:weight=normal:stretch=normal:size=10.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": ":roman:medium"}},
+   "value": {
+    "family": [""],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "medium",
+    "stretch": "normal",
+    "size": 10.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": ":style=normal:variant=normal:weight=medium:stretch=normal:size=10.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": ":size=12:size=14"}},
+   "value": {
+    "family": [""],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 12.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": ":style=normal:variant=normal:weight=normal:stretch=normal:size=12.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": ":style=oblique:style="}},
+   "value": {
+    "family": [""],
+    "style": "oblique",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 10.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": ":style=oblique:variant=normal:weight=normal:stretch=normal:size=10.0"
+   }
+  },
+  {"op": "font_manager.FontProperties", "args": {"kw": {"family": ":unknown"}}, "error": "ValueError"},
+  {"op": "font_manager.FontProperties", "args": {"kw": {"family": ":weight=thin"}}, "error": "ValueError"},
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "Foo,Bar-12:bold:slant=italic"}},
+   "value": {
+    "family": ["Foo"],
+    "style": "italic",
+    "variant": "normal",
+    "weight": "bold",
+    "stretch": "normal",
+    "size": 12.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "Foo:style=italic:variant=normal:weight=bold:stretch=normal:size=12.0"
+   }
+  },
+  {"op": "font_manager.FontProperties", "args": {"kw": {"family": "Foo-"}}, "error": "ValueError"},
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "Foo-12,14"}},
+   "value": {
+    "family": ["Foo"],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 12.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "Foo:style=normal:variant=normal:weight=normal:stretch=normal:size=12.0"
+   }
+  },
+  {"op": "font_manager.FontProperties", "args": {"kw": {"family": "Foo-1e3"}}, "error": "ValueError"},
+  {"op": "font_manager.FontProperties", "args": {"kw": {"family": "Foo:"}}, "error": "ValueError"},
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "Foo\\,Bar\\-Baz-8.5"}},
+   "value": {
+    "family": ["Foo,Bar-Baz"],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 8.5,
+    "math_fontfamily": "dejavusans",
+    "pattern": "Foo\\,Bar\\-Baz:style=normal:variant=normal:weight=normal:stretch=normal:size=8.5"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "sans-serif", "style": "normal", "variant": "normal", "weight": "normal", "stretch": "normal", "size": 12.0}},
+   "value": {
+    "family": ["sans-serif"],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 12.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "sans\\-serif:style=normal:variant=normal:weight=normal:stretch=normal:size=12.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "sans\\-serif:style=normal:variant=normal:weight=normal:stretch=normal:size=12.0"}},
+   "value": {
+    "family": ["sans-serif"],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 12.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "sans\\-serif:style=normal:variant=normal:weight=normal:stretch=normal:size=12.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "serif", "size": 24, "weight": "bold", "style": "oblique", "variant": "small-caps", "stretch": "expanded"}},
+   "value": {
+    "family": ["serif"],
+    "style": "oblique",
+    "variant": "small-caps",
+    "weight": "bold",
+    "stretch": "expanded",
+    "size": 24.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "serif:style=oblique:variant=small-caps:weight=bold:stretch=expanded:size=24.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "serif-24:style=oblique:variant=small-caps:weight=bold:stretch=expanded"}},
+   "value": {
+    "family": ["serif"],
+    "style": "oblique",
+    "variant": "small-caps",
+    "weight": "bold",
+    "stretch": "expanded",
+    "size": 24.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "serif:style=oblique:variant=small-caps:weight=bold:stretch=expanded:size=24.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties.round_trip",
+   "args": {"kw": {"family": "DejaVu Sans", "size": "x-large", "weight": "ultralight"}},
+   "value": {
+    "family": ["DejaVu Sans"],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "ultralight",
+    "stretch": "normal",
+    "size": 14.399999999999999,
+    "math_fontfamily": "dejavusans",
+    "pattern": "DejaVu Sans:style=normal:variant=normal:weight=ultralight:stretch=normal:size=14.399999999999999"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties.round_trip",
+   "args": {"kw": {"family": "sans-serif", "size": 24, "weight": "bold", "style": "oblique", "variant": "small-caps", "stretch": "expanded"}},
+   "value": {
+    "family": ["sans-serif"],
+    "style": "oblique",
+    "variant": "small-caps",
+    "weight": "bold",
+    "stretch": "expanded",
+    "size": 24.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "sans\\-serif:style=oblique:variant=small-caps:weight=bold:stretch=expanded:size=24.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties.round_trip",
+   "args": {"kw": {"family": "serif", "size": 20, "style": "italic"}},
+   "value": {
+    "family": ["serif"],
+    "style": "italic",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 20.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "serif:style=italic:variant=normal:weight=normal:stretch=normal:size=20.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties.round_trip",
+   "args": {"kw": {"family": ["Foo-Bar", "Baz:Qux", "a,b"], "size": 7.5, "weight": 600, "stretch": 300}},
+   "value": {
+    "family": ["Foo-Bar"],
+    "style": "normal",
+    "variant": "normal",
+    "weight": 600,
+    "stretch": 300,
+    "size": 7.5,
+    "math_fontfamily": "dejavusans",
+    "pattern": "Foo\\-Bar:style=normal:variant=normal:weight=600:stretch=300:size=7.5"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties.round_trip",
+   "args": {"kw": {}},
+   "value": {
+    "family": ["DejaVu Sans"],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 10.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "DejaVu Sans:style=normal:variant=normal:weight=normal:stretch=normal:size=10.0"
+   }
+  }
+ ]
+}

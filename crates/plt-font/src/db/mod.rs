@@ -11,10 +11,11 @@ mod score;
 mod system;
 
 pub use afm::{AfmDirectory, AfmFont};
-pub use entry::{FontEntry, FontId};
+pub use entry::{FontEntry, FontId, alternative_family_names};
 pub use query::{
     FontQuery, FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
 };
+pub use score::weight as score_weight;
 
 use std::fs;
 use std::path::{Path, PathBuf};

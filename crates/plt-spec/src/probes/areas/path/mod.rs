@@ -3,6 +3,8 @@
 
 mod bezier;
 
+pub(crate) use bezier::split_bezier;
+
 use plt_core::path::convert::{CleanupOptions, SimplifySettings, SnapMode};
 use plt_core::path::{CollectionGeometry, PolygonOptions};
 use plt_core::{Affine2D, Bbox, Path, PathCode, Point, hatch};

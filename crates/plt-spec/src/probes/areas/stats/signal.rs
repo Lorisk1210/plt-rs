@@ -7,11 +7,11 @@ use super::{floats, grid_json, number, object};
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 
-pub(super) fn window_hanning(args: Args<'_>) -> Outcome {
+pub(crate) fn window_hanning(args: Args<'_>) -> Outcome {
     Ok(Json::from(mlab::window_hanning(&args.f64_vec("x")?)))
 }
 
-pub(super) fn window_none(args: Args<'_>) -> Outcome {
+pub(crate) fn window_none(args: Args<'_>) -> Outcome {
     Ok(Json::from(mlab::window_none(&args.f64_vec("x")?)))
 }
 

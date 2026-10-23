@@ -112,6 +112,39 @@ impl FontManager {
         }
     }
 
+    /// The family names of the TrueType font list, sorted and without
+    /// duplicates (matplotlib's `get_font_names`, which leaves them
+    /// unordered).
+    pub fn font_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .engine
+            .database()
+            .entries()
+            .iter()
+            .map(|entry| entry.name.clone())
+            .collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+
+    /// matplotlib's `FontManager.score_weight`: 0 when both weights were
+    /// given as the same keyword, else `0.95 · |w₁ − w₂| / 1000 + 0.05` of
+    /// their numeric values (so 0.05 for equal numbers).
+    ///
+    /// ```
+    /// use plt::fonts::{FontManager, FontWeight};
+    /// let regular = FontWeight::from_name("regular").unwrap();
+    /// assert_eq!(FontManager::score_weight(regular, regular), 0.0);
+    /// assert_eq!(FontManager::score_weight(FontWeight::NORMAL, regular), 0.05);
+    /// ```
+    pub fn score_weight(wanted: FontWeight, actual: FontWeight) -> f64 {
+        match (wanted.name(), actual.name()) {
+            (Some(a), Some(b)) if a == b => 0.0,
+            _ => plt_text::score_weight(wanted.value(), actual.value()),
+        }
+    }
+
     /// Adds the fonts of the file at `path` (matplotlib's
     /// `fontManager.addfont`): they are matched by their family names
     /// from now on.

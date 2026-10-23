@@ -1,0 +1,148 @@
+{
+ "area": "mpl_cycles",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "axes.Axes.set_prop_cycle", "args": {"args": ["color", "fish"]}, "error": "ValueError"},
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"args": ["color", "rgywkbcm"], "calls": [{}, {}, {}], "getters": ["get_color", "get_linewidth", "get_dash_pattern"]},
+   "value": {"get_color": [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.75, 0.75, 0.0, 1]], "get_linewidth": [1.5, 1.5, 1.5], "get_dash_pattern": [[0, []], [0, []], [0, []]]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"args": ["color", [[1, 0, 0], [0, 1, 0], [0, 0, 1]]], "calls": [{}, {}, {}], "getters": ["get_color", "get_linewidth", "get_dash_pattern"]},
+   "value": {"get_color": [[1.0, 0.0, 0.0, 1], [0.0, 1.0, 0.0, 1], [0.0, 0.0, 1.0, 1]], "get_linewidth": [1.5, 1.5, 1.5], "get_dash_pattern": [[0, []], [0, []], [0, []]]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"args": ["dashes", [[], [13, 2], [8, 3, 1, 3]]], "calls": [{}, {}, {}], "getters": ["get_color", "get_linewidth", "get_dash_pattern"]},
+   "value": {
+    "get_color": [[0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1], [0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1], [0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1]],
+    "get_linewidth": [1.5, 1.5, 1.5],
+    "get_dash_pattern": [[0, []], [0.0, [13.0, 2.0]], [0.0, [8.0, 3.0, 1.0, 3.0]]]
+   }
+  },
+  {"op": "axes.Axes.set_prop_cycle", "args": {"args": ["foobar", [1, 2]]}, "error": "TypeError"},
+  {"op": "axes.Axes.set_prop_cycle", "args": {"args": ["linewidth", 1]}, "error": "ValueError"},
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"args": ["linewidth", [1, 2]], "calls": [{}, {}, {}], "getters": ["get_color", "get_linewidth", "get_dash_pattern"]},
+   "value": {
+    "get_color": [[0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1], [0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1], [0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1]],
+    "get_linewidth": [1.0, 2.0, 1.0],
+    "get_dash_pattern": [[0, []], [0, []], [0, []]]
+   }
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"args": ["linewidth", [2, 4]], "calls": [{"kw": {"lw": 0.1}}, {"kw": {"lw": 0.1}}, {"kw": {"lw": 0.1}}, {}, {}], "getters": ["get_linewidth"]},
+   "value": {"get_linewidth": [0.1, 0.1, 0.1, 2.0, 4.0]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"args": ["lw", [1, 2]], "calls": [{}, {}, {}], "getters": ["get_color", "get_linewidth", "get_dash_pattern"]},
+   "value": {
+    "get_color": [[0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1], [0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1], [0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1]],
+    "get_linewidth": [1.0, 2.0, 1.0],
+    "get_dash_pattern": [[0, []], [0, []], [0, []]]
+   }
+  },
+  {"op": "axes.Axes.set_prop_cycle", "args": {"args": [1]}, "error": "TypeError"},
+  {"op": "axes.Axes.set_prop_cycle", "args": {"args": [[1, 2]]}, "error": "TypeError"},
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"args": [null], "calls": [{"kw": {"label": "label"}}], "getters": ["get_color", "get_linewidth", "get_linestyle", "get_marker"]},
+   "value": {"get_color": [[0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1]], "get_linewidth": [1.5], "get_linestyle": ["solid"], "get_marker": ["None"]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"args": [null], "calls": [{}, {}, {}], "getters": ["get_color", "get_linewidth", "get_dash_pattern"]},
+   "value": {
+    "get_color": [[0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1], [1.0, 0.4980392156862745, 0.054901960784313725, 1], [0.17254901960784313, 0.6274509803921569, 0.17254901960784313, 1]],
+    "get_linewidth": [1.5, 1.5, 1.5],
+    "get_dash_pattern": [[0, []], [0, []], [0, []]]
+   }
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {
+    "cycle": "cycler('color', ['r', 'g', 'y']) + cycler('hatch', ['xx', 'O', '|-']) + cycler('marker', ['.', '*', 'D'])",
+    "artist": "fill",
+    "calls": [{"fmt": "r", "kw": {"hatch": "xx"}}, {"kw": {"hatch": "O"}}, {}, {}],
+    "getters": ["get_facecolor", "get_hatch"]
+   },
+   "value": {"get_facecolor": [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.75, 0.75, 0.0, 1]], "get_hatch": ["xx", "O", "O", "|-"]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {
+    "kwargs": {"linewidth": [2, 3, 4, 5, 6], "facecolor": "bgcmy"},
+    "artist": "fill",
+    "calls": [{"kw": {"lw": 0.1}}, {"kw": {"lw": 0.1}}, {"kw": {"lw": 0.1}}, {}, {}],
+    "getters": ["get_facecolor", "get_linewidth"]
+   },
+   "value": {
+    "get_facecolor": [[0.0, 0.0, 1.0, 1], [0.0, 0.5, 0.0, 1], [0.0, 0.75, 0.75, 1], [0.75, 0.0, 0.75, 1], [0.75, 0.75, 0.0, 1]],
+    "get_linewidth": [0.1, 0.1, 0.1, 5.0, 6.0]
+   }
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {
+    "cycle": "cycler('c', ['r', 'g', 'y']) + cycler('hatch', ['xx', 'O', '|-']) + cycler('linestyle', ['-', '--', ':'])",
+    "artist": "fill",
+    "calls": [{}, {}, {}, {}],
+    "getters": ["get_facecolor", "get_hatch", "get_linestyle"]
+   },
+   "value": {
+    "get_facecolor": [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.75, 0.75, 0.0, 1], [1.0, 0.0, 0.0, 1]],
+    "get_hatch": ["xx", "O", "|-", "xx"],
+    "get_linestyle": ["solid", "dashed", "dotted", "solid"]
+   }
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"kwargs": {"linewidth": [10, 9, 4]}, "calls": [{"kw": {"label": "label"}}], "getters": ["get_color", "get_linewidth", "get_linestyle", "get_marker"]},
+   "value": {"get_color": [[0.12156862745098039, 0.4666666666666667, 0.7058823529411765, 1]], "get_linewidth": [10.0], "get_linestyle": ["solid"], "get_marker": ["None"]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"cycle": "cycler('c', ['r', 'g', 'y']) + cycler('marker', ['.', '*', 'x'])", "calls": [{}, {}, {}, {}], "getters": ["get_color", "get_marker"]},
+   "value": {"get_color": [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.75, 0.75, 0.0, 1], [1.0, 0.0, 0.0, 1]], "get_marker": [".", "*", "x", "."]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"cycle": "cycler('color', ['r', 'g', 'y'])", "calls": [{}, {}, {}, {}], "getters": ["get_color"]},
+   "value": {"get_color": [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.75, 0.75, 0.0, 1], [1.0, 0.0, 0.0, 1]]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"cycle": "cycler('ls', ['-', '--', ':'])", "calls": [{}, {}, {}, {}], "getters": ["get_linestyle"]},
+   "value": {"get_linestyle": ["solid", "dashed", "dotted", "solid"]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"cycle": "cycler(marker=[1, '+', '.', 4])", "calls": [{}, {}, {}, {}], "getters": ["get_marker"]},
+   "value": {"get_marker": [1, "+", ".", 4]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"kwargs": {"c": ["r", "g", "y"], "marker": [".", "*", "x"]}, "calls": [{}, {}, {}, {}], "getters": ["get_color", "get_marker"]},
+   "value": {"get_color": [[1.0, 0.0, 0.0, 1], [0.0, 0.5, 0.0, 1], [0.75, 0.75, 0.0, 1], [1.0, 0.0, 0.0, 1]], "get_marker": [".", "*", "x", "."]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"cycle": "cycler('linewidth', [1, 2])", "calls": [{}, {}, {}], "getters": ["get_linewidth"]},
+   "value": {"get_linewidth": [1.0, 2.0, 1.0]}
+  },
+  {
+   "op": "axes.Axes.set_prop_cycle",
+   "args": {"kwargs": {"lw": [1, 2], "color": ["k", "w"], "ls": ["-", "--"]}, "calls": [{}, {}, {}], "getters": ["get_color", "get_linewidth", "get_linestyle"]},
+   "value": {"get_color": [[0.0, 0.0, 0.0, 1], [1.0, 1.0, 1.0, 1], [0.0, 0.0, 0.0, 1]], "get_linewidth": [1.0, 2.0, 1.0], "get_linestyle": ["solid", "dashed", "solid"]}
+  },
+  {"op": "axes.Axes.set_prop_cycle", "args": {"cycle": "cycler(color='rgb', c='cmy')"}, "error": "ValueError"},
+  {"op": "axes.Axes.set_prop_cycle", "args": {"cycle": "cycler(foobar=[1, 2])"}, "error": "ValueError"},
+  {"op": "axes.Axes.set_prop_cycle", "args": {"kwargs": {"linewidth": 1, "color": "r"}}, "error": "ValueError"},
+  {"op": "axes.Axes.set_prop_cycle", "args": {"kwargs": {"foobar": [1, 2]}}, "error": "TypeError"}
+ ]
+}

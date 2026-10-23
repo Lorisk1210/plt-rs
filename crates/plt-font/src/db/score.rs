@@ -52,9 +52,16 @@ pub(crate) fn stretch(wanted: Stretch, actual: Stretch) -> f64 {
     f64::from(wanted.0.abs_diff(actual.0)) / 1000.0
 }
 
-/// `score_weight` for TrueType entries (whose weights are numeric, so the
-/// exact-name shortcut never applies).
-pub(crate) fn weight(wanted: u16, actual: u16) -> f64 {
+/// matplotlib's `score_weight` of two numeric weights: 0.05 for equal
+/// weights, growing to 1.0 as they differ (the exact-name shortcut, a
+/// score of 0, never applies to TrueType entries, whose weights are
+/// numeric).
+///
+/// ```
+/// assert_eq!(plt_font::score_weight(400, 400), 0.05);
+/// assert!((plt_font::score_weight(400, 700) - 0.335).abs() < 1e-12);
+/// ```
+pub fn weight(wanted: u16, actual: u16) -> f64 {
     0.95 * (f64::from(wanted.abs_diff(actual)) / 1000.0) + 0.05
 }
 

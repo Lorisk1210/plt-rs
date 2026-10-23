@@ -1,0 +1,252 @@
+{
+ "area": "mpl_font_manager",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "FontManager.score_weight", "args": {"weight1": "bold", "weight2": "bold"}, "value": 0.0},
+  {"op": "FontManager.score_weight", "args": {"weight1": "light", "weight2": 200}, "value": 0.05},
+  {"op": "FontManager.score_weight", "args": {"weight1": "normal", "weight2": "bold"}, "value": 0.33499999999999996},
+  {"op": "FontManager.score_weight", "args": {"weight1": "normal", "weight2": "regular"}, "value": 0.05},
+  {"op": "FontManager.score_weight", "args": {"weight1": "regular", "weight2": "regular"}, "value": 0.0},
+  {"op": "FontManager.score_weight", "args": {"weight1": 300, "weight2": "bold"}, "value": 0.43},
+  {"op": "FontManager.score_weight", "args": {"weight1": 400, "weight2": 400}, "value": 0.05},
+  {
+   "op": "font_manager.FontManager.get_font_names",
+   "args": {},
+   "value": ["DejaVu Sans", "DejaVu Sans Display", "DejaVu Sans Mono", "DejaVu Serif", "DejaVu Serif Display", "Last Resort High-Efficiency", "STIXGeneral", "STIXNonUnicode", "STIXSizeFiveSym", "STIXSizeFourSym", "STIXSizeOneSym", "STIXSizeThreeSym", "STIXSizeTwoSym", "cmb10", "cmex10", "cmmi10", "cmr10", "cmss10", "cmsy10", "cmti10", "cmtt10"]
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "Times", "style": "italic"}},
+   "value": {
+    "family": ["Times"],
+    "style": "italic",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 10.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "Times:style=italic:variant=normal:weight=normal:stretch=normal:size=10.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "Times"}},
+   "value": {
+    "family": ["Times"],
+    "style": "normal",
+    "variant": "normal",
+    "weight": "normal",
+    "stretch": "normal",
+    "size": 10.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "Times:style=normal:variant=normal:weight=normal:stretch=normal:size=10.0"
+   }
+  },
+  {
+   "op": "font_manager.FontProperties",
+   "args": {"kw": {"family": "serif-24:style=oblique:weight=bold"}},
+   "value": {
+    "family": ["serif"],
+    "style": "oblique",
+    "variant": "normal",
+    "weight": "bold",
+    "stretch": "normal",
+    "size": 24.0,
+    "math_fontfamily": "dejavusans",
+    "pattern": "serif:style=oblique:variant=normal:weight=bold:stretch=normal:size=24.0"
+   }
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, ""]], "primary": "Family"},
+   "value": [["Family Alt", 400]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Black"]], "primary": "Family"},
+   "value": [["Family Alt", 900]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Bold"]], "primary": "Family"},
+   "value": [["Family Alt", 700]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Book"]], "primary": "Family"},
+   "value": [["Family Alt", 380]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Demi"]], "primary": "Family"},
+   "value": [["Family Alt", 600]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "DemiBold"]], "primary": "Family"},
+   "value": [["Family Alt", 600]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "DemiLight"]], "primary": "Family"},
+   "value": [["Family Alt", 350]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "ExtraBlack"]], "primary": "Family"},
+   "value": [["Family Alt", 1000]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "ExtraBold"]], "primary": "Family"},
+   "value": [["Family Alt", 800]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "ExtraLight"]], "primary": "Family"},
+   "value": [["Family Alt", 200]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Heavy"]], "primary": "Family"},
+   "value": [["Family Alt", 900]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Hyperbold"]], "primary": "Family"},
+   "value": [["Family Alt", 700]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Light"]], "primary": "Family"},
+   "value": [["Family Alt", 300]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Medium"]], "primary": "Family"},
+   "value": [["Family Alt", 500]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Normal"]], "primary": "Family"},
+   "value": [["Family Alt", 400]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Regular"]], "primary": "Family"},
+   "value": [["Family Alt", 400]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Semi Bold Italic"]], "primary": "Family"},
+   "value": [["Family Alt", 600]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "SemiBold"]], "primary": "Family"},
+   "value": [["Family Alt", 600]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "SemiLight"]], "primary": "Family"},
+   "value": [["Family Alt", 350]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "SuperBlack"]], "primary": "Family"},
+   "value": [["Family Alt", 1000]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "SuperBold"]], "primary": "Family"},
+   "value": [["Family Alt", 800]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Thin"]], "primary": "Family"},
+   "value": [["Family Alt", 100]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "Ultra"]], "primary": "Family"},
+   "value": [["Family Alt", 1000]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "UltraBlack"]], "primary": "Family"},
+   "value": [["Family Alt", 1000]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "UltraBold"]], "primary": "Family"},
+   "value": [["Family Alt", 800]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[3, 1, 1033, 1, "Family Alt"], [3, 1, 1033, 2, "UltraLight"]], "primary": "Family"},
+   "value": [["Family Alt", 200]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {
+    "sfnt": [[1, 0, 0, 21, "  Wws Family  "], [1, 0, 0, 22, "Bold Italic"], [3, 1, 1033, 16, " "], [3, 1, 1033, 1, "Mac And Ms"], [1, 0, 0, 1, "Mac And Ms"], [1, 0, 0, 2, "Black"], [3, 1, 1033, 2, "Thin"]],
+    "primary": "Primary"
+   },
+   "value": [["Mac And Ms", 900], ["Wws Family", 700]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[1, 0, 0, 1, "Test Family"], [3, 1, 1033, 1, "Test Family Light"], [1, 0, 0, 2, "Light"], [3, 1, 1033, 2, "Regular"]], "primary": "Test Family Light"},
+   "value": [["Test Family", 300]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[1, 0, 0, 1, "Test Family"], [3, 1, 1033, 1, "Test Family Light"], [1, 0, 0, 2, "Light"], [3, 1, 1033, 2, "Regular"]], "primary": "Test Family"},
+   "value": [["Test Family Light", 400]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[1, 0, 0, 1, "Test Family"], [3, 1, 1033, 1, "Test Family"], [3, 1, 1033, 16, "Test Family Light"]], "primary": "Test Family"},
+   "value": [["Test Family Light", 400]]
+  },
+  {
+   "op": "font_manager._get_font_alt_names",
+   "args": {"sfnt": [[1, 0, 0, 1, "Test Family"], [3, 1, 1033, 1, "Test Family"]], "primary": "Test Family"},
+   "value": []
+  },
+  {"op": "font_manager._get_font_alt_names", "args": {"sfnt": null, "primary": "Test Family"}, "value": []},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "black"}, "value": 900},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "bold"}, "value": 700},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "book"}, "value": 400},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "demi"}, "value": 600},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "demibold"}, "value": 600},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "extra bold"}, "value": 800},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "heavy"}, "value": 800},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "invalid"}, "error": "KeyError"},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "light"}, "value": 200},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "medium"}, "value": 500},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "normal"}, "value": 400},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "regular"}, "value": 400},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "roman"}, "value": 500},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "semibold"}, "value": 600},
+  {"op": "font_manager._normalize_weight", "args": {"weight": "ultralight"}, "value": 100},
+  {"op": "font_manager._normalize_weight", "args": {"weight": 300}, "value": 300},
+  {"op": "font_manager.findfont", "args": {"prop": "DejaVu Sans", "rc": {"font.weight": "bold"}}, "value": "DejaVuSans-Bold.ttf"},
+  {"op": "font_manager.findfont", "args": {"prop": "DejaVu Sans", "rc": {"font.weight": "normal"}}, "value": "DejaVuSans.ttf"},
+  {"op": "font_manager.findfont", "args": {"prop": "sans", "rc": {"font.sans-serif": ["this-font-does-not-exist"]}}, "value": "DejaVuSans.ttf"},
+  {"op": "font_manager.findfont", "args": {"prop": null}, "value": "DejaVuSans.ttf"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "Bitstream Vera Sans", "weight": 700}}, "value": "DejaVuSans-Bold.ttf"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "STIXGeneral"}}, "value": "STIXGeneral.ttf"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": "no such font family"}}, "value": "DejaVuSans.ttf"},
+  {"op": "font_manager.findfont", "args": {"prop": {"family": ["DejaVu Sans"], "weight": 750}}, "value": "DejaVuSans-Bold.ttf"},
+  {
+   "op": "font_manager.findfont",
+   "args": {"prop": {"family": ["sans-serif"]}, "rc": {"font.sans-serif": ["cmmi10", "Bitstream Vera Sans"]}},
+   "value": "cmmi10.ttf"
+  },
+  {"op": "font_manager.findfont", "args": {"prop": {"weight": "bold"}}, "value": "DejaVuSans-Bold.ttf"},
+  {"op": "font_manager.get_font", "args": {"path": "/nonexistent-plt-rs-dir/non-existent-font-name.ttf"}, "error": "FileNotFoundError"},
+  {"op": "ft2font.FT2Font.get_charmap", "args": {"file": "DejaVuSans.ttf", "codes": [65, 8722]}, "value": {"size": 5906, "glyphs": [36, 3228]}},
+  {"op": "ft2font.FT2Font.get_charmap", "args": {"file": "cmmi10.ttf", "codes": [8729]}, "value": {"size": 131, "glyphs": [30]}}
+ ]
+}

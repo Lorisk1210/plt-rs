@@ -10,6 +10,7 @@ use super::handle::Axes3D;
 use super::math::{Vec3, cross, dot, norm, sub};
 use super::shade::LightSource;
 use crate::collections::{Collection, CollectionProps, EdgeColors};
+use crate::numeric::contiguous_regions;
 
 /// How the area between the two curves is cut into polygons (matplotlib's
 /// `mode`).
@@ -165,27 +166,6 @@ fn polygons(line1: &[Vec3], line2: &[Vec3], selected: &[bool], mode: FillMode) -
     polys
 }
 
-/// The `(start, end)` index ranges of the runs of set flags (matplotlib's
-/// `cbook.contiguous_regions`).
-fn contiguous_regions(flags: &[bool]) -> Vec<(usize, usize)> {
-    let mut regions = Vec::new();
-    let mut start = None;
-    for (i, &on) in flags.iter().enumerate() {
-        match (on, start) {
-            (true, None) => start = Some(i),
-            (false, Some(s)) => {
-                regions.push((s, i));
-                start = None;
-            }
-            _ => {}
-        }
-    }
-    if let Some(s) = start {
-        regions.push((s, flags.len()));
-    }
-    regions
-}
-
 /// Lexicographic order of points, as `np.unique(..., axis=0)` sorts.
 fn lexicographic(a: &Vec3, b: &Vec3) -> Ordering {
     a.iter()
@@ -248,15 +228,6 @@ fn all_points_on_plane(points: Vec<Vec3>, atol: f64) -> bool {
 mod tests {
     use super::*;
     use crate::figure::Figure;
-
-    #[test]
-    fn regions_follow_the_mask() {
-        assert_eq!(
-            contiguous_regions(&[true, true, false, true, false, false, true]),
-            [(0, 2), (3, 4), (6, 7)]
-        );
-        assert_eq!(contiguous_regions(&[false, false]), []);
-    }
 
     #[test]
     fn planes_are_detected_like_matplotlib() {

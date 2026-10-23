@@ -12,8 +12,7 @@ use super::geometry::AxisPosition;
 use super::handle::Axes3D;
 use super::share::ShareKey;
 use super::state::Axes3DState;
-use crate::artist::ArtistHandle;
-use crate::axes::{TickParams, TickSet, TickStyle, TicklabelFormat, tick_label_formatter};
+use crate::axes::{TickParams, TickStyle, TicklabelFormat, tick_label_formatter};
 use crate::ticker::{
     AutoMinorLocator, AxisName, FixedLocator, Formatter, Locator, NullLocator, ScalarFormatter,
 };
@@ -35,8 +34,8 @@ use crate::ticker::{
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Axis3D {
-    axes: Axes3D,
-    dir: Axis3,
+    pub(super) axes: Axes3D,
+    pub(super) dir: Axis3,
 }
 
 impl Axes3D {
@@ -122,8 +121,11 @@ impl Axes3D {
                 formatter.downcast_ref::<ScalarFormatter>().cloned()
             });
             let formatter = current.ok_or(Axes3DError::NotScalarFormatter(dir))?;
+            // Restyling the formatter, as matplotlib does in place, keeps
+            // it the default.
+            let formatter: Rc<dyn Formatter> = Rc::new(format.applied_to(formatter));
             self.axis(dir)
-                .set_major_formatter(format.applied_to(formatter));
+                .set_tickers(|t| t.major_formatter = Rc::clone(&formatter));
         }
         Ok(self)
     }
@@ -141,7 +143,7 @@ impl Axis3D {
     }
 
     /// Changes the tick helpers of this axis and of the axes sharing it.
-    fn set_tickers(&self, set: impl Fn(&mut Tickers3D)) -> &Self {
+    pub(super) fn set_tickers(&self, set: impl Fn(&mut Tickers3D)) -> &Self {
         let dir = self.dir;
         self.update_shared(|axes| set(&mut axes.axis_mut(dir).tickers));
         self
@@ -151,7 +153,10 @@ impl Axis3D {
     /// `set_major_locator`).
     pub fn set_major_locator(&self, locator: impl Locator) -> &Self {
         let locator: Rc<dyn Locator> = Rc::new(locator);
-        self.set_tickers(|t| t.major_locator = Rc::clone(&locator))
+        self.set_tickers(|t| {
+            t.major_locator = Rc::clone(&locator);
+            t.default_major.0 = false;
+        })
     }
 
     /// Places the minor ticks with `locator`; 3-D axes draw minor ticks,
@@ -166,7 +171,10 @@ impl Axis3D {
     /// `set_major_formatter`).
     pub fn set_major_formatter(&self, formatter: impl Formatter) -> &Self {
         let formatter: Rc<dyn Formatter> = Rc::new(formatter);
-        self.set_tickers(|t| t.major_formatter = Rc::clone(&formatter))
+        self.set_tickers(|t| {
+            t.major_formatter = Rc::clone(&formatter);
+            t.default_major.1 = false;
+        })
     }
 
     /// Labels the minor ticks with `formatter` (matplotlib's
@@ -254,12 +262,12 @@ impl Axis3D {
         });
         let formatter = tick_label_formatter(locator.as_ref(), labels)?;
         Ok(self.set_tickers(|t| {
-            let level = if major {
-                &mut t.major_formatter
+            if major {
+                t.major_formatter = Rc::clone(&formatter);
+                t.default_major.1 = false;
             } else {
-                &mut t.minor_formatter
-            };
-            *level = Rc::clone(&formatter);
+                t.minor_formatter = Rc::clone(&formatter);
+            }
         }))
     }
 
@@ -331,18 +339,6 @@ impl Axis3D {
     /// Removes the minor ticks (matplotlib's `Axis.minorticks_off`).
     pub fn minorticks_off(&self) -> &Self {
         self.set_minor_locator(NullLocator)
-    }
-
-    /// The ticks the axis draws in the current view, after a layout pass
-    /// (matplotlib's visible ticks of `_update_ticks`).
-    ///
-    /// # Errors
-    ///
-    /// When a locator or formatter fails, with its message.
-    pub fn ticks(&self) -> Result<TickSet, String> {
-        self.axes.raw().figure_state().borrow_mut().prepare();
-        let dir = self.dir;
-        self.axes.with(|axes| axes.axis(dir).ticks.clone())
     }
 
     /// Shows or hides the axis line (matplotlib's

@@ -6,55 +6,17 @@ use std::rc::Rc;
 use crate::artist::ArtistId;
 
 use super::axis_label::{AxisLabel, LabelLoc, label_font};
+use super::tick_set::{Tick, TickSet};
 use super::ticks::{Sides, TickStyle};
 use super::{TickLabelProps, TickLineProps};
-use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter};
+use crate::dates::TimeZone;
 use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
 use crate::ticker::{AxisInfo, AxisName, Formatter, Locator, TickContext, TickerSettings};
 use crate::transforms::{AxisMap, interval_contains_close};
-use crate::units::{AxisValues, Categories, CategoryFormatter, CategoryLocator};
-
-/// A tick with its label text.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Tick {
-    /// Location in data coordinates.
-    pub loc: f64,
-    /// Label text (possibly empty).
-    pub label: String,
-}
-
-/// The ticks an axis draws in the current view.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct TickSet {
-    /// Major ticks inside the view.
-    pub major: Vec<Tick>,
-    /// Minor ticks inside the view (excluding those on major ticks).
-    pub minor: Vec<Tick>,
-    /// Every minor tick inside the view, those on major ticks included,
-    /// labelled together (what axisartist draws from matplotlib's
-    /// `minor.locator()`).
-    pub minor_all: Vec<Tick>,
-    /// Every location the major locator gave, inside the view or not
-    /// (axisartist draws its gridlines at matplotlib's `major.locator()`).
-    pub major_locs: Vec<f64>,
-    /// Every location the minor locator gave, inside the view or not.
-    pub minor_locs: Vec<f64>,
-    /// Every major tick with its label, inside the view or not
-    /// (matplotlib's `get_majorticklocs` and `get_majorticklabels`).
-    pub major_unclipped: Vec<Tick>,
-    /// The position of each of `major` in `major_unclipped` (the index of
-    /// its tick in matplotlib's `majorTicks`).
-    pub(crate) major_index: Vec<usize>,
-    /// Every minor tick not on a major one (unless overlapping locations
-    /// are kept) with its label, inside the view or not (matplotlib's
-    /// `get_minorticklocs` and `get_minorticklabels`).
-    pub minor_unclipped: Vec<Tick>,
-    /// Offset or scale text shown at the end of the axis (e.g. `1e6`).
-    pub offset: String,
-}
+use crate::units::{AxisValues, Categories, CategoryFormatter, CategoryLocator, date_tickers};
 
 /// Autoscaling configuration and state of one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -356,20 +318,12 @@ impl AxisState {
         let names = match values {
             AxisValues::Numbers(values) => return values,
             AxisValues::Dates(numbers) => {
-                // matplotlib's DateConverter (or ConciseDateConverter, as
-                // `date.converter` says) axisinfo.
-                let rc = crate::rc::params();
-                let locator =
-                    || AutoDateLocator::new().with_interval_multiples(rc.date_interval_multiples);
+                let (locator, formatter) = date_tickers(&TimeZone::Utc);
                 if self.default_major.0 {
-                    self.major_locator = self.for_role(Rc::new(locator()));
+                    self.major_locator = self.for_role(locator);
                 }
                 if self.default_major.1 {
-                    self.major_formatter = if rc.date_converter == "concise" {
-                        Rc::new(ConciseDateFormatter::new())
-                    } else {
-                        Rc::new(AutoDateFormatter::new(locator()))
-                    };
+                    self.major_formatter = formatter;
                 }
                 return numbers;
             }
@@ -531,6 +485,7 @@ impl AxisState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dates::{AutoDateFormatter, ConciseDateFormatter};
 
     fn geometry(view: (f64, f64)) -> AxisGeometry {
         AxisGeometry {

@@ -34,7 +34,7 @@ pub use handle::{Table, TableCell};
 
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
-use crate::fonts::{FontProperties, FontSize};
+use crate::fonts::FontSize;
 use crate::rc::RcParams;
 use crate::transforms::unit_to_bbox;
 use cell::Cell;
@@ -233,9 +233,13 @@ impl TableArtist {
         Ok(table)
     }
 
+    /// Puts `cell` at `(row, col)`; a cell replacing another keeps its
+    /// place in the insertion order, as in matplotlib's dictionary.
     fn add_cell(&mut self, row: i32, col: i32, cell: Cell) {
-        self.cells.retain(|(key, _)| *key != (row, col));
-        self.cells.push(((row, col), cell));
+        match self.cells.iter_mut().find(|(key, _)| *key == (row, col)) {
+            Some((_, old)) => *old = cell,
+            None => self.cells.push(((row, col), cell)),
+        }
     }
 
     fn set_fontsize(&mut self, size: f64) {
@@ -321,20 +325,13 @@ impl TableBuilder {
     /// (column -1).
     fn fill(&self, table: &mut TableArtist, options: &TableOptions, height: f64) {
         let white = || Color::from("w");
-        let font = FontProperties::from_rc(&table.rc);
-        let text_color = table.rc.text_color.clone();
+        let rc = Rc::clone(&table.rc);
         let make = |width: f64, text: &str, facecolor: Color, loc: HAlign| Cell {
-            width,
-            height,
             text: text.to_owned(),
             facecolor,
-            edgecolor: Color::from("k"),
-            linewidth: None,
-            alpha: None,
             loc,
             edges: options.edges,
-            font: font.clone(),
-            text_color: text_color.clone(),
+            ..Cell::new(width, height, &rc)
         };
         let has_col_header = options.col_labels.is_some() || options.col_colours.is_some();
         let offset = i32::from(has_col_header);

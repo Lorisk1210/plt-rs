@@ -163,6 +163,25 @@ pub(crate) struct Cell {
 }
 
 impl Cell {
+    /// A `width` × `height` cell with matplotlib's defaults: no text
+    /// (aligned right), a white face, all four edges drawn in black and
+    /// the font and text colour of `rc` (`Cell(xy, width, height)`).
+    pub(crate) fn new(width: f64, height: f64, rc: &RcParams) -> Self {
+        Self {
+            width,
+            height,
+            text: String::new(),
+            facecolor: Color::from("w"),
+            edgecolor: Color::from("k"),
+            linewidth: None,
+            alpha: None,
+            loc: HAlign::Right,
+            edges: CellEdges::CLOSED,
+            font: FontProperties::from_rc(rc),
+            text_color: rc.text_color.clone(),
+        }
+    }
+
     /// The cell's text laid out at `fontsize` points.
     fn laid_out(
         &self,

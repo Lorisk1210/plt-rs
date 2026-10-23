@@ -3452,6 +3452,148 @@
    "args": {"xt": Infinity, "yt": 0.0, "scale_ops": [], "points": [[0.0, 0.0], [1.0, 2.0], [-3.5, 0.25]]},
    "value": {"matrix": [[1.0, 0.0, Infinity], [0.0, 1.0, NaN], [0.0, 0.0, 1.0]], "transformed": [[Infinity, NaN], [Infinity, NaN], [Infinity, NaN]]}
   },
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": "data", "branch": "axes"}, "value": true},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], "data"], "branch": "axes"}, "value": true},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": "axes", "branch": "data"}, "value": false},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": "data", "branch": "data"}, "value": true},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": ["+", "data", "display"], "branch": "data"}, "value": true},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": ["+", "data", ["affine", [["translate", 1, 2]]]], "branch": "data"}, "value": false},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": ["+", "display", "data"], "branch": "data"}, "value": true},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], "data"], "branch": "data"}, "value": true},
+  {
+   "op": "transforms.Transform.contains_branch",
+   "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], ["blend", "data", "axes"]], "branch": "data"},
+   "value": false
+  },
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": ["blend", "data", "axes"], "branch": "data"}, "value": false},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": "data", "branch": "data2"}, "value": false},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": "data", "branch": "display"}, "value": false},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": "display", "branch": "display"}, "value": true},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": "figure", "branch": "figure"}, "value": true},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": "inches", "branch": "figure"}, "value": false},
+  {"op": "transforms.Transform.contains_branch", "args": {"tree": ["+", "axes", "inches"], "branch": "inches"}, "value": true},
+  {
+   "op": "transforms.Transform.contains_branch",
+   "args": {"tree": ["+", ["+", ["affine", [["translate", 1, 2]]], ["affine", [["scale", 2, 3]]]], "data"], "branch": ["+", ["affine", [["scale", 2, 3]]], "data"]},
+   "value": true
+  },
+  {
+   "op": "transforms.Transform.contains_branch",
+   "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], ["+", ["affine", [["scale", 2, 3]]], "data"]], "branch": ["+", ["affine", [["scale", 2, 3]]], "data"]},
+   "value": true
+  },
+  {
+   "op": "transforms.Transform.contains_branch",
+   "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], "data"], "branch": ["+", ["affine", [["translate", 1, 2]]], "data"]},
+   "value": true
+  },
+  {
+   "op": "transforms.Transform.contains_branch",
+   "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], ["+", ["affine", [["scale", 2, 3]]], "data"]], "branch": ["+", ["affine", [["translate", 1, 2]]], "data"]},
+   "value": false
+  },
+  {
+   "op": "transforms.Transform.contains_branch",
+   "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], ["affine", [["scale", 2, 3]]]], "branch": ["affine", [["scale", 2, 3]]]},
+   "value": true
+  },
+  {
+   "op": "transforms.Transform.contains_branch",
+   "args": {"tree": ["+", "data", ["affine", [["translate", 1, 2]]]], "branch": ["affine", [["translate", 1, 2]]]},
+   "value": true
+  },
+  {
+   "op": "transforms.Transform.contains_branch",
+   "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], ["blend", "data", "axes"]], "branch": ["blend", "data", "axes"]},
+   "value": true
+  },
+  {"op": "transforms.Transform.contains_branch_separately", "args": {"tree": ["blend", "data", "axes"], "branch": "axes"}, "value": [true, true]},
+  {"op": "transforms.Transform.contains_branch_separately", "args": {"tree": "axes", "branch": "data"}, "value": [false, false]},
+  {"op": "transforms.Transform.contains_branch_separately", "args": {"tree": "data", "branch": "data"}, "value": [true, true]},
+  {
+   "op": "transforms.Transform.contains_branch_separately",
+   "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], "data"], "branch": "data"},
+   "value": [true, true]
+  },
+  {
+   "op": "transforms.Transform.contains_branch_separately",
+   "args": {"tree": ["+", ["affine", [["translate", 1, 2]]], ["blend", "data", "axes"]], "branch": "data"},
+   "value": [true, false]
+  },
+  {
+   "op": "transforms.Transform.contains_branch_separately",
+   "args": {"tree": ["+", ["blend", "data", "axes"], ["affine", [["translate", 1, 2]]]], "branch": "data"},
+   "value": [false, false]
+  },
+  {"op": "transforms.Transform.contains_branch_separately", "args": {"tree": ["blend", "axes", "data"], "branch": "data"}, "value": [false, true]},
+  {"op": "transforms.Transform.contains_branch_separately", "args": {"tree": ["blend", "data", "axes"], "branch": "data"}, "value": [true, false]},
+  {
+   "op": "transforms.Transform.contains_branch_separately",
+   "args": {"tree": ["blend", ["+", ["affine", [["translate", 1, 2]]], "data"], "axes"], "branch": "data"},
+   "value": [true, false]
+  },
+  {"op": "transforms.Transform.contains_branch_separately", "args": {"tree": ["blend", "data", "data2"], "branch": "data2"}, "value": [false, true]},
+  {"op": "transforms.Transform.contains_branch_separately", "args": {"tree": ["blend", "axes", "figure"], "branch": "figure"}, "value": [false, true]},
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "symlog", "yscale": "logit", "xlim": [-10, 10], "ylim": [0.01, 0.99], "bbox": [[-5, 0.1], [0.5, 0.9]]},
+   "value": [[121.24425048555119, 149.23514442831333], [366.05845401125674, 325.9648555716866]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "linear", "yscale": "linear", "xlim": [0, 10], "ylim": [-1, 1], "bbox": [[-5, 2], [15, -3]]},
+   "value": [[-168.0, 607.1999999999999], [824.0, -316.8]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "log", "yscale": "linear", "xlim": [1, 1000], "ylim": [0, 1], "bbox": [[0, 0.2], [100, 0.8]]},
+   "value": [[-165253.3333333333, 126.72], [410.66666666666663, 348.48]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "linear", "yscale": "log", "xlim": [0, 1], "ylim": [100, 1], "bbox": [[0.25, -1], [0.75, 10000.0]]},
+   "value": [[204.0, 185222.39999999997], [452.0, -316.79999999999995]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "linear", "yscale": "log", "xlim": [0, 1], "ylim": [100, 1], "bbox": [[0.5, 10], [1, 50]]},
+   "value": [[328.0, 237.6], [576.0, 108.43034319870372]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "linear", "yscale": "linear", "xlim": [0, 10], "ylim": [-1, 1], "bbox": [[1, -0.5], [4, 0.5]]},
+   "value": [[129.6, 145.2], [278.4, 329.99999999999994]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "log", "yscale": "linear", "xlim": [1, 1000], "ylim": [0, 1], "bbox": [[10, 0.2], [100, 0.8]]},
+   "value": [[245.33333333333331, 126.72], [410.66666666666663, 348.48]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "log", "yscale": "linear", "xlim": [1, 1000], "ylim": [0, 1], "bbox": [[1000, 1], [1, 0]]},
+   "value": [[576.0, 422.4], [80.0, 52.8]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "linear", "yscale": "linear", "xlim": [0, 10], "ylim": [-1, 1], "bbox": [[4, 0.5], [1, -0.5]]},
+   "value": [[278.4, 329.99999999999994], [129.6, 145.2]],
+   "tol": 1e-12
+  },
+  {
+   "op": "transforms.Transform.transform_bbox",
+   "args": {"xscale": "linear", "yscale": "linear", "xlim": [0, 10], "ylim": [-1, 1], "bbox": [[NaN, 0], [1, 1]]},
+   "value": [[NaN, NaN], [129.6, 422.4]],
+   "tol": 1e-12
+  },
   {
    "op": "transforms.TransformedBbox",
    "args": {"bbox": [[0, 0], [1, 1]], "ops": [["rotate_deg", 180], ["translate", 1, 1]]},

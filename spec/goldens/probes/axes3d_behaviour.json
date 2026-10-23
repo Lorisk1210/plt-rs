@@ -2,6 +2,13 @@
  "area": "axes3d_behaviour",
  "matplotlib": "3.11.2",
  "probes": [
+  {"op": "axes3d.axis_position", "args": {"elev": 30, "azim": -60, "roll": 0, "inverted": true}, "value": [false, true, false]},
+  {"op": "axes3d.axis_position", "args": {"elev": 30, "azim": -60, "roll": 0}, "value": [false, true, false]},
+  {"op": "axes3d.axis_position", "args": {"elev": 90, "azim": -90, "roll": 0}, "value": [false, false, false]},
+  {"op": "axes3d.axis_position", "args": {"elev": -75, "azim": 10, "roll": -20}, "value": [true, true, true]},
+  {"op": "axes3d.axis_position", "args": {"elev": -30, "azim": 120, "roll": 0}, "value": [true, false, true]},
+  {"op": "axes3d.axis_position", "args": {"elev": 60, "azim": 200, "roll": 30}, "value": [false, false, false]},
+  {"op": "axes3d.axis_position", "args": {"elev": 10, "azim": 45, "roll": 0}, "value": [true, true, true]},
   {"op": "axes3d.box_aspect", "args": {"vertical_axis": "x"}, "value": [1.1904761932899774, 1.1904761932899774, 0.8928571449674831]},
   {"op": "axes3d.box_aspect", "args": {"vertical_axis": "y"}, "value": [1.1904761932899774, 1.1904761932899774, 0.8928571449674831]},
   {"op": "axes3d.box_aspect", "args": {"vertical_axis": "z"}, "value": [1.1904761932899774, 1.1904761932899774, 0.8928571449674831]},
@@ -11,6 +18,30 @@
   {"op": "axes3d.errors", "args": {"case": "margin_ok"}, "value": true},
   {"op": "axes3d.errors", "args": {"case": "wireframe_ok"}, "value": true},
   {"op": "axes3d.errors", "args": {"case": "wireframe_strides"}, "error": "ValueError"},
+  {"op": "axes3d.format_data", "args": {"axis": "x", "value": 19003.25, "scene": "dates"}, "value": "19003.2500"},
+  {"op": "axes3d.format_data", "args": {"axis": "x", "value": -0.5, "scene": "default"}, "value": "−0.5000"},
+  {"op": "axes3d.format_data", "args": {"axis": "x", "value": 0.123456, "scene": "default"}, "value": "0.1235"},
+  {"op": "axes3d.format_data", "args": {"axis": "x", "value": 1234.5678, "scene": "default"}, "value": "1234.5678"},
+  {"op": "axes3d.format_data", "args": {"axis": "x", "value": 3.14159e-05, "scene": "default"}, "value": "3.e−05"},
+  {"op": "axes3d.format_data", "args": {"axis": "x", "value": 0.123456, "scene": "log"}, "value": "0.1235"},
+  {"op": "axes3d.format_data", "args": {"axis": "x", "value": 42.0, "scene": "log"}, "value": "42.0000"},
+  {"op": "axes3d.format_data", "args": {"axis": "x", "value": 999.9, "scene": "log"}, "value": "999.9000"},
+  {"op": "axes3d.format_data", "args": {"axis": "y", "value": 19003.25, "scene": "dates"}, "value": "19003.2500"},
+  {"op": "axes3d.format_data", "args": {"axis": "y", "value": -0.5, "scene": "default"}, "value": "−0.5000"},
+  {"op": "axes3d.format_data", "args": {"axis": "y", "value": 0.123456, "scene": "default"}, "value": "0.1235"},
+  {"op": "axes3d.format_data", "args": {"axis": "y", "value": 1234.5678, "scene": "default"}, "value": "1234.5678"},
+  {"op": "axes3d.format_data", "args": {"axis": "y", "value": 3.14159e-05, "scene": "default"}, "value": "3.e−05"},
+  {"op": "axes3d.format_data", "args": {"axis": "y", "value": 0.123456, "scene": "log"}, "value": "0.1235"},
+  {"op": "axes3d.format_data", "args": {"axis": "y", "value": 42.0, "scene": "log"}, "value": "42.0000"},
+  {"op": "axes3d.format_data", "args": {"axis": "y", "value": 999.9, "scene": "log"}, "value": "999.9000"},
+  {"op": "axes3d.format_data", "args": {"axis": "z", "value": 19003.25, "scene": "dates"}, "value": "2022-01-11"},
+  {"op": "axes3d.format_data", "args": {"axis": "z", "value": -0.5, "scene": "default"}, "value": "−0.5000"},
+  {"op": "axes3d.format_data", "args": {"axis": "z", "value": 0.123456, "scene": "default"}, "value": "0.1235"},
+  {"op": "axes3d.format_data", "args": {"axis": "z", "value": 1234.5678, "scene": "default"}, "value": "1234.5678"},
+  {"op": "axes3d.format_data", "args": {"axis": "z", "value": 3.14159e-05, "scene": "default"}, "value": "3.e−05"},
+  {"op": "axes3d.format_data", "args": {"axis": "z", "value": 0.123456, "scene": "log"}, "value": "0.123456"},
+  {"op": "axes3d.format_data", "args": {"axis": "z", "value": 42.0, "scene": "log"}, "value": "42"},
+  {"op": "axes3d.format_data", "args": {"axis": "z", "value": 999.9, "scene": "log"}, "value": "999.9"},
   {
    "op": "axes3d.limits",
    "args": {"scene": "aspect_datalim"},
@@ -129,6 +160,164 @@
   },
   {"op": "axes3d.set_limit", "args": {"axis": "z", "side": "top", "value": Infinity}, "error": "ValueError"},
   {"op": "axes3d.set_limit", "args": {"axis": "z", "side": "top", "value": NaN}, "error": "ValueError"},
+  {
+   "op": "axes3d.ticks",
+   "args": {"scene": "dates"},
+   "value": {
+    "x": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "y": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "z": {
+     "locs": [19000.0, 19001.0, 19002.0, 19003.0, 19004.0, 19005.0, 19006.0, 19007.0, 19008.0, 19009.0, 19010.0],
+     "labels": ["2022-01-08", "2022-01-09", "2022-01-10", "2022-01-11", "2022-01-12", "2022-01-13", "2022-01-14", "2022-01-15", "2022-01-16", "2022-01-17", "2022-01-18"],
+     "minor_locs": [],
+     "minor_labels": []
+    }
+   }
+  },
+  {
+   "op": "axes3d.ticks",
+   "args": {"scene": "dates_kept_formatter"},
+   "value": {
+    "x": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "y": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "z": {"locs": [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0], "labels": ["", "", "", "", "", "", "", "", ""], "minor_locs": [], "minor_labels": []}
+   }
+  },
+  {
+   "op": "axes3d.ticks",
+   "args": {"scene": "dates_zlim"},
+   "value": {
+    "x": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "y": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "z": {
+     "locs": [19000.0, 19000.5, 19001.0, 19001.5, 19002.0, 19002.5, 19003.0],
+     "labels": ["01-08 00", "01-08 12", "01-09 00", "01-09 12", "01-10 00", "01-10 12", "01-11 00"],
+     "minor_locs": [],
+     "minor_labels": []
+    }
+   }
+  },
+  {
+   "op": "axes3d.ticks",
+   "args": {"scene": "default"},
+   "value": {
+    "x": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "y": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "z": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    }
+   }
+  },
+  {
+   "op": "axes3d.ticks",
+   "args": {"scene": "inset"},
+   "value": {
+    "x": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "y": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "z": {"locs": [0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 1.0], "labels": ["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"], "minor_locs": [], "minor_labels": []}
+   }
+  },
+  {
+   "op": "axes3d.ticks",
+   "args": {"scene": "log"},
+   "value": {
+    "x": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "y": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "z": {
+     "locs": [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0],
+     "labels": ["$\\mathdefault{10^{-1}}$", "$\\mathdefault{10^{0}}$", "$\\mathdefault{10^{1}}$", "$\\mathdefault{10^{2}}$", "$\\mathdefault{10^{3}}$", "$\\mathdefault{10^{4}}$"],
+     "minor_locs": [0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0],
+     "minor_labels": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+    }
+   }
+  },
+  {
+   "op": "axes3d.ticks",
+   "args": {"scene": "minor"},
+   "value": {
+    "x": {
+     "locs": [0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 1.0],
+     "labels": ["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+     "minor_locs": [-0.1, 0.1, 0.30000000000000004, 0.5000000000000001, 0.7000000000000001, 0.9, 1.1],
+     "minor_labels": ["", "", "", "", "", "", ""]
+    },
+    "y": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2", "−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    },
+    "z": {
+     "locs": [-0.2, 0.0, 0.2, 0.4000000000000001, 0.6000000000000001, 0.8, 1.0000000000000002, 1.2000000000000002],
+     "labels": ["−0.2", "0.0", "0.2", "0.4", "0.6", "0.8", "1.0", "1.2"],
+     "minor_locs": [],
+     "minor_labels": []
+    }
+   }
+  },
   {
    "op": "axes3d.zbounds",
    "args": {},

@@ -1,10 +1,11 @@
 //! Where the panes, gridlines and axis lines of a 3-D axes go: the
 //! projected box and the edges facing the camera (matplotlib's
-//! `_get_coord_info`, `_calc_centers_deltas`, `_get_axis_line_edge_points`
-//! and `_get_tickdir`).
+//! `_get_coord_info`, `_calc_centers_deltas`, `_get_axis_line_edge_points`,
+//! `_get_tickdir` and `get_axis_position`).
 
 use super::camera::{Camera, Projection};
 use super::coords::{Axis3, roll};
+use super::handle::Axes3D;
 use super::math::Vec3;
 
 /// The box corners making up the two planes normal to x, y and z (low
@@ -202,6 +203,35 @@ impl BoxGeometry {
             } else {
                 p[i] + 1.0_f64.copysign(p[i] - self.centers[i]) * deltas[i]
             }
+        })
+    }
+}
+
+impl Axes3D {
+    /// matplotlib's `get_axis_position` in the current view: with `(x0,
+    /// x1)`, `(y0, y1)` and `(z0, z1)` the view limits (scaled, in their
+    /// order) and the depth of a corner its projected z (larger is
+    /// farther from the camera), whether the corners `(x1, y0, z0)`, `(x0,
+    /// y1, z0)` and `(x0, y0, z0)` each lie deeper than `(x1, y1, z0)`.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// assert_eq!(ax.axis_highs(), [false, true, false]);
+    /// ax.view_init(-30.0, 120.0, 0.0);
+    /// assert_eq!(ax.axis_highs(), [true, false, true]);
+    /// ```
+    pub fn axis_highs(&self) -> [bool; 3] {
+        self.with(|axes| {
+            let [x0, x1, y0, y1, z0, _] = axes.scaled_limits();
+            let corners = axes.projection().project_transformed_all(&[
+                [x0, y0, z0],
+                [x1, y0, z0],
+                [x1, y1, z0],
+                [x0, y1, z0],
+            ]);
+            let deeper = |k: usize| corners[k][2] > corners[2][2];
+            [deeper(1), deeper(3), deeper(0)]
         })
     }
 }

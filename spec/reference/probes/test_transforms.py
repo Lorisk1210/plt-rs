@@ -235,6 +235,34 @@ Other transforms (all return {"matrix", "transformed", ...})
     -> ``ValueError``.  matrix = ``Translate @ base`` (adds the offset to
     e, f; exact).
 
+Transform trees
+---------------
+``tree``/``branch`` describe transforms of ``fig = Figure()`` with ``ax =
+fig.add_subplot(1, 2, 1)`` and ``ax2 = fig.add_subplot(1, 2, 2)``:
+``"display"`` (``IdentityTransform()``), ``"data"``/``"axes"``
+(``ax.transData``/``ax.transAxes``), ``"data2"`` (``ax2.transData``),
+``"figure"`` (``fig.transFigure``), ``"inches"`` (``fig.dpi_scale_trans``),
+``["affine", ops]`` (a fresh ``Affine2D``), ``["+", a, b]`` (``a + b``,
+dropping an ``IdentityTransform`` side) and ``["blend", x, y]``
+(``blended_transform_factory(x, y)``).  Trees and branches are chosen so
+that matplotlib's equality (by object for most transforms, by matrix for
+affine ones) never confuses two different expressions, and leave out a
+blend containing itself (a generic blend contains no branch at all).
+
+``transforms.Transform.contains_branch`` {tree, branch} -> bool: whether
+    the flattened chain of ``tree`` ends with that of ``branch`` (``a + (b +
+    c)`` and ``(a + b) + c`` both end with ``b + c``); ``transData`` is the
+    chain ``transScale + transLimits + transAxes``, so it ends with
+    ``transAxes``; the identity contains only itself.
+``transforms.Transform.contains_branch_separately`` {tree, branch} ->
+    ``[x, y]``: both when ``tree`` contains ``branch``, otherwise the
+    components of a blend ending the chain on their own, else neither.
+``transforms.Transform.transform_bbox`` {xscale, yscale, xlim, ylim, bbox}
+    -> points: ``ax.transData.transform_bbox(Bbox(bbox))`` for ``ax =
+    Figure().add_subplot()`` after ``set_xscale``, ``set_yscale``,
+    ``set_xlim`` and ``set_ylim``: the two corners mapped through the whole
+    transform (not reordered, not an enclosing box); recorded with ``tol``.
+
 Scalar helpers
 --------------
 ``transforms.nonsingular`` {vmin, vmax, expander?, tiny?, increasing?} ->
@@ -1293,6 +1321,102 @@ def test_offset_copy():
     r = probes.probe("transforms.offset_copy", offset_copy, base_ops=[], x=1.0, y=1.0, units="cm",
                      dpi=100, points=pts)
     assert isinstance(r, ValueError)
+
+
+# ---------------------------------------------------------------------------
+# transform trees
+# ---------------------------------------------------------------------------
+
+def _tree(spec, fig, ax, ax2):
+    if isinstance(spec, str):
+        return {"display": mtransforms.IdentityTransform(), "data": ax.transData,
+                "axes": ax.transAxes, "data2": ax2.transData, "figure": fig.transFigure,
+                "inches": fig.dpi_scale_trans}[spec]
+    kind, *parts = spec
+    if kind == "affine":
+        (ops,) = parts
+        return _affine(ops)
+    a, b = (_tree(part, fig, ax, ax2) for part in parts)
+    return a + b if kind == "+" else mtransforms.blended_transform_factory(a, b)
+
+
+def _trees(tree, branch):
+    fig = Figure()
+    ax, ax2 = fig.add_subplot(1, 2, 1), fig.add_subplot(1, 2, 2)
+    return _tree(tree, fig, ax, ax2), _tree(branch, fig, ax, ax2)
+
+
+def _contains_branch(tree, branch):
+    tree, branch = _trees(tree, branch)
+    return bool(tree.contains_branch(branch))
+
+
+def _contains_branch_separately(tree, branch):
+    tree, branch = _trees(tree, branch)
+    return [bool(b) for b in tree.contains_branch_separately(branch)]
+
+
+SHIFT = ["affine", [["translate", 1, 2]]]
+SCALE = ["affine", [["scale", 2, 3]]]
+SHIFT_DATA = ["+", SHIFT, "data"]
+X_DATA = ["blend", "data", "axes"]
+
+
+def test_contains_branch():
+    cases = [
+        ("data", "data"), ("data", "axes"), ("axes", "data"), ("data", "data2"),
+        ("display", "display"), ("data", "display"), (["+", "display", "data"], "data"),
+        (["+", "data", "display"], "data"), (SHIFT_DATA, "data"), (SHIFT_DATA, SHIFT_DATA),
+        (SHIFT_DATA, "axes"), (["+", "data", SHIFT], "data"), (["+", "data", SHIFT], SHIFT),
+        (["+", SHIFT, ["+", SCALE, "data"]], ["+", SCALE, "data"]),
+        (["+", ["+", SHIFT, SCALE], "data"], ["+", SCALE, "data"]),
+        (["+", SHIFT, ["+", SCALE, "data"]], SHIFT_DATA), (["+", SHIFT, SCALE], SCALE),
+        ("figure", "figure"), ("inches", "figure"), (["+", "axes", "inches"], "inches"),
+        (X_DATA, "data"), (["+", SHIFT, X_DATA], X_DATA), (["+", SHIFT, X_DATA], "data"),
+    ]
+    for tree, branch in cases:
+        probes.probe("transforms.Transform.contains_branch", _contains_branch, tree=tree,
+                     branch=branch)
+    assert _contains_branch(["+", ["+", SHIFT, SCALE], "data"], ["+", SCALE, "data"])
+    assert not _contains_branch("data", "display")
+
+
+def test_contains_branch_separately():
+    cases = [
+        ("data", "data"), ("axes", "data"), (X_DATA, "data"), (["blend", "axes", "data"], "data"),
+        (["blend", SHIFT_DATA, "axes"], "data"), (["+", SHIFT, X_DATA], "data"),
+        (["+", X_DATA, SHIFT], "data"), (SHIFT_DATA, "data"), (["blend", "data", "data2"], "data2"),
+        (["blend", "axes", "figure"], "figure"), (X_DATA, "axes"),
+    ]
+    for tree, branch in cases:
+        probes.probe("transforms.Transform.contains_branch_separately",
+                     _contains_branch_separately, tree=tree, branch=branch)
+    assert _contains_branch_separately(["+", SHIFT, X_DATA], "data") == [True, False]
+
+
+@_errstate
+def _transform_bbox(xscale, yscale, xlim, ylim, bbox):
+    ax = Figure().add_subplot()
+    ax.set_xscale(xscale)
+    ax.set_yscale(yscale)
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    return ax.transData.transform_bbox(_bbox(bbox)).get_points()
+
+
+def test_transform_bbox():
+    scenes = [
+        ("linear", "linear", [0, 10], [-1, 1],
+         [[[1, -0.5], [4, 0.5]], [[4, 0.5], [1, -0.5]], [[NAN, 0], [1, 1]], [[-5, 2], [15, -3]]]),
+        ("log", "linear", [1, 1000], [0, 1],
+         [[[10, 0.2], [100, 0.8]], [[0, 0.2], [100, 0.8]], [[1000, 1], [1, 0]]]),
+        ("linear", "log", [0, 1], [100, 1], [[[0.5, 10], [1, 50]], [[0.25, -1], [0.75, 1e4]]]),
+        ("symlog", "logit", [-10, 10], [0.01, 0.99], [[[-5, 0.1], [0.5, 0.9]]]),
+    ]
+    for xscale, yscale, xlim, ylim, boxes in scenes:
+        for bbox in boxes:
+            probes.probe("transforms.Transform.transform_bbox", _transform_bbox, tol=1e-12,
+                         xscale=xscale, yscale=yscale, xlim=xlim, ylim=ylim, bbox=bbox)
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 //! Rust translations of the spec's figure cases, one module per group.
 
 mod afm;
+mod api_gaps_a;
 mod axes;
 mod axisartist;
 mod bars;
@@ -77,6 +78,7 @@ use super::FigureCase;
 pub(crate) fn all() -> Vec<FigureCase> {
     [
         afm::CASES,
+        api_gaps_a::CASES,
         axes::FORMATTING,
         axes::GRIDS,
         axes::LABELS,

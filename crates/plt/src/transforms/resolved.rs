@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::rc::Rc;
 
-use plt_core::{Affine2D, Path, Point};
+use plt_core::{Affine2D, Bbox, Path, Point};
 
 use super::blend::blend_rows;
 
@@ -288,6 +288,14 @@ impl ResolvedTransform {
         self.steps.iter().fold(p, |p, step| step.apply(p))
     }
 
+    /// The box spanned by the images of the two corners of `bbox`
+    /// (matplotlib's `transform_bbox`): neither ordered nor grown to
+    /// enclose the image of the whole box, which a rotation or a
+    /// non-affine step may bend beyond them.
+    pub fn transform_bbox(&self, bbox: &Bbox) -> Bbox {
+        Bbox::new(self.transform_point(bbox.p0), self.transform_point(bbox.p1))
+    }
+
     /// Splits a path for drawing: the non-affine steps are applied to the
     /// path one after the other (plane maps may turn lines into curves),
     /// and the affine part is returned for the renderer to apply.
@@ -465,6 +473,18 @@ mod tests {
             inverse.transform_point(Point::new(50.0, 25.0)),
             Point::new(0.5, 0.5)
         ));
+    }
+
+    #[test]
+    fn bboxes_map_their_two_corners() {
+        let t = log_x_then_scale();
+        let mapped = t.transform_bbox(&Bbox::from_extents(1000.0, 3.0, 10.0, -1.0));
+        assert!(close(mapped.p0, Point::new(300.0, 6.0)));
+        assert!(close(mapped.p1, Point::new(100.0, -2.0)), "not reordered");
+        let rotated = ResolvedTransform::affine(Affine2D::rotation(std::f64::consts::FRAC_PI_2));
+        let quarter = rotated.transform_bbox(&Bbox::UNIT);
+        assert!(close(quarter.p1, Point::new(-1.0, 1.0)), "corners only");
+        assert!(!t.transform_bbox(&Bbox::NULL).is_finite());
     }
 
     #[test]

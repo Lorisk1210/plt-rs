@@ -169,12 +169,15 @@ cargo test -p plt-spec --test figure_pixels     # figure pixels, RMS <= 1.0
 cargo test -p plt-spec --test figure_vectors    # SVG/PDF/PS documents, item by item
 cargo xtask render polar/                       # write renderings and diffs to spec/out/
 cargo xtask render polar/rose --vectors         # ... with the case's SVG, PDF and PS
-
-# every case against matplotlib's documents (written to /tmp/ref first)
-.venv/bin/python spec/reference/figures/render_vectors.py /tmp/ref
-PLT_VECTOR_REFERENCE=/tmp/ref cargo test -p plt-spec --release \
-    --test figure_vectors -- --ignored --nocapture
+cargo xtask vectors [PREFIX...]                 # every case's SVG/PDF/PS/PGF against
+                                                # documents matplotlib writes then and there
 ```
+
+`cargo xtask bench [PREFIX...] --reference` times 33 large workloads
+(a million-point line, 10⁵-marker scatters, 1000² meshes and contours,
+4000² images, text-heavy layouts, every output format) in plt-rs and in
+matplotlib with its Agg backend; plt-rs is as fast or faster on all of
+them.
 
 See `CLAUDE.md` for the coding conventions.
 

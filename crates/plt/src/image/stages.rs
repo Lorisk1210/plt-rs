@@ -107,13 +107,7 @@ pub(crate) fn rgba_stage(
     };
     let colors = match data {
         ImageData::Scalar(field) => {
-            let values = field.masked_values();
-            let normalized = normalize_in(mappable, &values, field.kind(), field.precision())?;
-            let cmap = mappable.cmap();
-            let rgba = normalized
-                .into_iter()
-                .map(|n| cmap.lookup(n, None).to_array())
-                .collect();
+            let rgba = scalar_colors(field, mappable)?;
             Colors::F64(Grid::from_vec(shape.0, shape.1, rgba).expect("same shape"))
         }
         ImageData::Rgb(grid) => return finish_rgb(grid, alpha, resampling, out_shape, map),
@@ -138,6 +132,45 @@ pub(crate) fn rgba_stage(
         (Colors::F32(rgba), None) => finish(&rgba, uniform(alpha), resampling, out_shape, map),
         (Colors::F64(rgba), None) => finish(&rgba, uniform(alpha), resampling, out_shape, map),
     }
+}
+
+/// Values normalised and looked up at a time by [`scalar_colors`]: few
+/// enough for the intermediate arrays to stay in the cache.
+const COLOR_BLOCK: usize = 4096;
+
+/// The colours of scalar data (matplotlib's `to_rgba` of the whole
+/// array), normalised and looked up a block at a time so that the
+/// intermediate arrays stay small. An unscaled norm autoscales to the
+/// first values it normalises, so it gets all of them at once.
+fn scalar_colors(
+    field: &ScalarField,
+    mappable: &mut ScalarMappable,
+) -> Result<Vec<[f64; 4]>, ImageError> {
+    let (values, mask) = (field.values().as_slice(), field.mask().as_slice());
+    let block = if mappable.norm().scaled() {
+        COLOR_BLOCK
+    } else {
+        values.len().max(1)
+    };
+    let mut rgba = Vec::with_capacity(values.len());
+    let mut masked = Vec::with_capacity(block.min(values.len()));
+    for (values, mask) in values.chunks(block).zip(mask.chunks(block)) {
+        masked.clear();
+        masked.extend(
+            values
+                .iter()
+                .zip(mask)
+                .map(|(&v, &masked)| (!masked).then_some(v)),
+        );
+        let normalized = normalize_in(mappable, &masked, field.kind(), field.precision())?;
+        let cmap = mappable.cmap();
+        rgba.extend(
+            normalized
+                .into_iter()
+                .map(|n| cmap.lookup(n, None).to_array()),
+        );
+    }
+    Ok(rgba)
 }
 
 /// RGBA colours in the precision numpy would hold them.

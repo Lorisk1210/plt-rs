@@ -5,7 +5,7 @@
 //! itself repeated); nearest-neighbour sampling reads through
 //! `image_accessor_clip`, which yields a zero background outside.
 
-use super::grid::Grid;
+use super::grid::GridRef;
 use super::pixel::ops::PixelOps;
 
 /// Agg's `wrap_mode_reflect`, with its unsigned wrap-around arithmetic.
@@ -66,7 +66,7 @@ pub(super) struct ReflectAccessor<'a, P> {
 
 impl<'a, P: Copy> ReflectAccessor<'a, P> {
     /// An accessor over a non-empty grid whose sides fit in `u32 / 2`.
-    pub(super) fn new(grid: &'a Grid<P>) -> Self {
+    pub(super) fn new(grid: GridRef<'a, P>) -> Self {
         Self {
             pixels: grid.as_slice(),
             width: grid.width(),
@@ -98,7 +98,7 @@ impl<'a, P: Copy> ReflectAccessor<'a, P> {
 
 /// `image_accessor_clip` reading a single pixel: the background
 /// (`no_color()`) outside the grid.
-pub(super) fn clipped<P: PixelOps>(grid: &Grid<P>, x: i32, y: i32) -> P {
+pub(super) fn clipped<P: PixelOps>(grid: GridRef<'_, P>, x: i32, y: i32) -> P {
     match (usize::try_from(x), usize::try_from(y)) {
         (Ok(x), Ok(y)) => grid.get(x, y).copied().unwrap_or(P::BACKGROUND),
         _ => P::BACKGROUND,
@@ -107,6 +107,7 @@ pub(super) fn clipped<P: PixelOps>(grid: &Grid<P>, x: i32, y: i32) -> P {
 
 #[cfg(test)]
 mod tests {
+    use super::super::grid::Grid;
     use super::*;
 
     #[test]
@@ -122,7 +123,7 @@ mod tests {
     #[test]
     fn reflect_accessor_walks_rows() {
         let g = Grid::from_vec(2, 2, vec![1, 2, 3, 4]).expect("grid");
-        let mut a = ReflectAccessor::new(&g);
+        let mut a = ReflectAccessor::new(g.view());
         assert_eq!(a.span(-1, -1), 1);
         assert_eq!(a.next_x(), 1);
         assert_eq!(a.next_x(), 2);
@@ -134,8 +135,8 @@ mod tests {
     #[test]
     fn clipped_uses_background_outside() {
         let g = Grid::from_vec(1, 1, vec![[9_u8; 4]]).expect("grid");
-        assert_eq!(clipped(&g, 0, 0), [9; 4]);
-        assert_eq!(clipped(&g, -1, 0), [0; 4]);
-        assert_eq!(clipped(&g, 0, 1), [0; 4]);
+        assert_eq!(clipped(g.view(), 0, 0), [9; 4]);
+        assert_eq!(clipped(g.view(), -1, 0), [0; 4]);
+        assert_eq!(clipped(g.view(), 0, 1), [0; 4]);
     }
 }

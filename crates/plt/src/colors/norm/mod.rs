@@ -39,7 +39,7 @@ pub use power::PowerNorm;
 pub use scaled::{AsinhNorm, FuncNorm, LogNorm, NormTransform, ScaleNorm, SymLogNorm};
 
 use super::Normalized;
-use super::npmath::{nan_max, nan_min, np_clip};
+use super::npmath::np_clip;
 use crate::scale::{Scale, ScaleError};
 
 /// The family a norm belongs to, for code that treats norm classes
@@ -114,6 +114,18 @@ pub trait Norm: fmt::Debug + NormClone {
     /// Fills whichever limits are unset from `data` (masked entries are
     /// ignored; a NaN makes the limit NaN, as numpy's `min`/`max` do).
     fn autoscale_none(&mut self, data: &[Option<f64>]);
+
+    /// [`autoscale_none`](Self::autoscale_none) of `values` without the
+    /// entries `mask` flags. Norms that only need the range of the data
+    /// find it without building the masked data.
+    fn autoscale_none_unmasked(&mut self, values: &[f64], mask: &[bool]) {
+        let data: Vec<Option<f64>> = values
+            .iter()
+            .zip(mask)
+            .map(|(&v, &masked)| (!masked).then_some(v))
+            .collect();
+        self.autoscale_none(&data);
+    }
 
     /// Normalises masked data; `clip` overrides [`Norm::clip`].
     fn normalize_masked(
@@ -273,7 +285,21 @@ impl Limits {
 
     /// matplotlib's `Normalize.autoscale_None`.
     fn autoscale_none(&mut self, data: &[Option<f64>]) {
-        if let Some((min, max)) = data_range(data) {
+        self.fill_from(data_range(data.iter().flatten()));
+    }
+
+    /// [`autoscale_none`](Self::autoscale_none) of the unmasked `values`.
+    fn autoscale_none_unmasked(&mut self, values: &[f64], mask: &[bool]) {
+        let unmasked = values
+            .iter()
+            .zip(mask)
+            .filter_map(|(v, &masked)| (!masked).then_some(v));
+        self.fill_from(data_range(unmasked));
+    }
+
+    /// Sets the unset limits to the data's `range`, if there is one.
+    fn fill_from(&mut self, range: Option<(f64, f64)>) {
+        if let Some((min, max)) = range {
             self.vmin.get_or_insert(min);
             self.vmax.get_or_insert(max);
         }
@@ -286,14 +312,18 @@ impl Limits {
 }
 
 /// numpy's `(min(), max())` over the unmasked entries (NaN propagates),
-/// or `None` when nothing is unmasked.
-fn data_range(data: &[Option<f64>]) -> Option<(f64, f64)> {
-    data.iter().flatten().fold(None, |range, &v| {
-        Some(match range {
-            None => (v, v),
-            Some((lo, hi)) => (nan_min(lo, v), nan_max(hi, v)),
-        })
-    })
+/// or `None` when nothing is unmasked. Any NaN makes both NaN, so the
+/// running extremes skip the NaN checks numpy's reduction makes at every
+/// step (`nan_min` and `nan_max` otherwise reduce to `min` and `max`).
+fn data_range<'a>(mut values: impl Iterator<Item = &'a f64>) -> Option<(f64, f64)> {
+    let first = *values.next()?;
+    let (mut lo, mut hi, mut nan) = (first, first, first.is_nan());
+    for &v in values {
+        nan |= v.is_nan();
+        lo = lo.min(v);
+        hi = hi.max(v);
+    }
+    Some(if nan { (f64::NAN, f64::NAN) } else { (lo, hi) })
 }
 
 /// Every entry 0 (masked entries stay masked): matplotlib's result when
@@ -347,13 +377,26 @@ mod tests {
 
     #[test]
     fn data_range_follows_numpy() {
-        assert_eq!(
-            data_range(&[Some(3.0), None, Some(-1.0)]),
-            Some((-1.0, 3.0))
-        );
-        assert_eq!(data_range(&[None]), None);
-        let (lo, hi) = data_range(&[Some(f64::NAN), Some(1.0)]).unwrap();
+        assert_eq!(data_range([3.0, -1.0].iter()), Some((-1.0, 3.0)));
+        assert_eq!(data_range([].iter()), None);
+        let (lo, hi) = data_range([f64::NAN, 1.0].iter()).unwrap();
         assert!(lo.is_nan() && hi.is_nan());
+    }
+
+    #[test]
+    fn unmasked_autoscaling_matches_masked_data() {
+        let values = [3.0, 7.0, -1.0, 2.0];
+        let mask = [false, true, false, false];
+        let data = [Some(3.0), None, Some(-1.0), Some(2.0)];
+        let mut direct = Limits::new(None, Some(5.0));
+        direct.autoscale_none_unmasked(&values, &mask);
+        let mut masked = Limits::new(None, Some(5.0));
+        masked.autoscale_none(&data);
+        assert_eq!(direct, masked);
+        assert_eq!((direct.vmin, direct.vmax), (Some(-1.0), Some(5.0)));
+        let mut nothing = Limits::new(None, None);
+        nothing.autoscale_none_unmasked(&values, &[true; 4]);
+        assert_eq!((nothing.vmin, nothing.vmax), (None, None));
     }
 
     #[test]

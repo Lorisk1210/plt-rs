@@ -118,15 +118,23 @@ impl<'t, 'a> ChunkFill<'t, 'a> {
     }
 
     /// Starts every polygon that begins in `quad` (matplotlib's
-    /// `single_quad_filled`). Checks go from the S edge up to the N edge.
-    /// z-levels and the grid topology are fixed during a pass, so they are
-    /// read once; visited and saddle flags change as rings are traced.
+    /// `single_quad_filled`). Most quads start none, which is checked
+    /// here, inline in the sweep.
+    #[inline]
     pub(super) fn single_quad(&mut self, quad: usize) {
         let cache = &*self.tracer.cache;
         let exists = cache.exists(quad);
-        if exists == Exists::None {
-            return;
+        if exists != Exists::None && !cache.starts_no_fill(quad) {
+            self.quad_starts(quad, exists);
         }
+    }
+
+    /// The polygon starts of [`single_quad`](Self::single_quad) in a quad
+    /// that may hold some. Checks go from the S edge up to the N edge.
+    /// z-levels and the grid topology are fixed during a pass, so they are
+    /// read once; visited and saddle flags change as rings are traced.
+    fn quad_starts(&mut self, quad: usize, exists: Exists) {
+        let cache = &*self.tracer.cache;
         let p = QuadPoints::new(quad, self.tracer.field.nx);
         let [sw, se, nw, ne] = [p.sw, p.se, p.nw, p.ne].map(|point| cache.z_level(point));
         let s_boundary = cache.boundary_s(quad) && cache.exists_s_edge(quad);
@@ -230,11 +238,14 @@ impl<'t, 'a> ChunkFill<'t, 'a> {
             ),
         ];
         for (applies, level, edge, role) in rules {
+            if !applies {
+                continue;
+            }
             let cache = &*self.tracer.cache;
             // Corners are never saddles, so this only restricts full quads.
             let saddle_ok = !cache.has(quad, level.saddle())
                 || cache.has(quad, level.saddle_left()) == (role == Role::Outer);
-            if applies && saddle_ok && !cache.has(quad, level.visited()) {
+            if saddle_ok && !cache.has(quad, level.visited()) {
                 self.start(QuadEdge::new(quad, edge), level, role, Along::Interior);
             }
         }

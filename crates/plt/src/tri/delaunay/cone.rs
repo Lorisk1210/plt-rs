@@ -35,11 +35,7 @@ impl Hull {
         self.update_vertex_neighbors_cone();
         self.findbestnew = false;
         self.premerge()?;
-        self.findbestnew = self.many_merges()
-            || self
-                .facets_from(self.newfacet_list)
-                .into_iter()
-                .any(|f| !self.facet(f).simplicial);
+        self.findbestnew = self.many_merges() || !self.new_facets_simplicial();
         self.partition_visible()?;
         self.findbestnew = false;
         self.findbest_notsharp = false;
@@ -48,6 +44,18 @@ impl Hull {
         self.all_vertex_merges()?;
         self.merges = None;
         Ok(())
+    }
+
+    /// Whether every new facet is simplicial.
+    fn new_facets_simplicial(&self) -> bool {
+        let mut cursor = self.listed(self.newfacet_list);
+        while let Some(f) = cursor {
+            if !self.facet(f).simplicial {
+                return false;
+            }
+            cursor = self.next_listed(f);
+        }
+        true
     }
 
     /// Moves the facets visible from `point` to the visible list, starting
@@ -114,7 +122,8 @@ impl Hull {
         self.append_vertex(apex);
         let (mut newfacet, mut newfacet2) = (None, None);
         for visible in self.visible_facets() {
-            for n in self.facet(visible).neighbors.clone() {
+            for i in 0..self.facet(visible).neighbors.len() {
+                let n = self.facet(visible).neighbors[i];
                 self.facet_mut(n).seen = false;
             }
             if self.facet(visible).ridge_set {
@@ -167,7 +176,8 @@ impl Hull {
         apex: VertexId,
     ) -> HullResult<Option<FacetId>> {
         let mut newfacet = None;
-        for neighbor in self.facet(visible).neighbors.clone() {
+        for i in 0..self.facet(visible).neighbors.len() {
+            let neighbor = self.facet(visible).neighbors[i];
             let n = self.facet(neighbor);
             if n.seen || n.visible {
                 continue;
@@ -177,9 +187,10 @@ impl Hull {
                 .iter()
                 .position(|&f| f == visible)
                 .ok_or(HullError::Topology)?;
-            let mut vertices = Vec::with_capacity(3);
+            let mut vertices = Vec::with_capacity(n.vertices.len());
             vertices.push(apex);
-            vertices.extend(sets::without_nth(&n.vertices, horizon_skip));
+            vertices.extend_from_slice(&n.vertices[..horizon_skip]);
+            vertices.extend_from_slice(&n.vertices[horizon_skip + 1..]);
             let odd = horizon_skip & 1 == 1;
             let toporient = if n.toporient { odd } else { !odd };
             let coplanar = n.coplanarhorizon;
@@ -255,10 +266,12 @@ impl Hull {
     /// Sets the hyperplanes of the new facets that will not merge into their
     /// horizon (qhull's `qh_makenewplanes`).
     fn make_new_planes(&mut self) {
-        for f in self.facets_from(self.newfacet_list) {
+        let mut cursor = self.listed(self.newfacet_list);
+        while let Some(f) = cursor {
             if !self.facet(f).mergehorizon {
                 self.set_facet_plane(f);
             }
+            cursor = self.next_listed(f);
         }
     }
 
@@ -267,7 +280,8 @@ impl Hull {
     /// `qh_update_vertexneighbors_cone`).
     fn update_vertex_neighbors_cone(&mut self) {
         if self.vertex_neighbors {
-            for v in self.vertices_from(self.newvertex_list) {
+            let mut cursor = self.listed_vertex(self.newvertex_list);
+            while let Some(v) = cursor {
                 let mut i = 0;
                 while let Some(&n) = self.vertex(v).neighbors.get(i) {
                     if self.facet(n).visible {
@@ -276,11 +290,17 @@ impl Hull {
                         i += 1;
                     }
                 }
+                cursor = self.listed_vertex(self.vertex(v).next);
             }
-            for f in self.facets_from(self.newfacet_list) {
-                for v in self.facet(f).vertices.clone() {
-                    self.vertex_mut(v).neighbors.push(f);
+            let mut cursor = self.listed(self.newfacet_list);
+            while let Some(f) = cursor {
+                let Self {
+                    facets, vertices, ..
+                } = &mut *self;
+                for v in &facets[f.index()].vertices {
+                    vertices[v.index()].neighbors.push(f);
                 }
+                cursor = self.next_listed(f);
             }
         }
         self.delete_interior_vertices();
@@ -309,21 +329,30 @@ impl Hull {
     /// Queues the vertices of visible facets that are in no remaining facet
     /// for deletion; others just lose the visible facet as a neighbour.
     fn delete_interior_vertices(&mut self) {
-        for visible in self.visible_facets() {
-            for v in self.facet(visible).vertices.clone() {
-                let vertex = self.vertex(v);
+        let mut cursor = self.visible_list;
+        while let Some(visible) = cursor.filter(|&f| self.facet(f).visible) {
+            let Self {
+                facets,
+                vertices,
+                del_vertices,
+                vertex_neighbors,
+                ..
+            } = &mut *self;
+            for &v in &facets[visible.index()].vertices {
+                let vertex = &mut vertices[v.index()];
                 if vertex.newfacet || vertex.deleted {
                     continue;
                 }
-                let kept = self.vertex_neighbors
-                    && vertex.neighbors.iter().any(|&n| !self.facet(n).visible);
+                let kept = *vertex_neighbors
+                    && vertex.neighbors.iter().any(|&n| !facets[n.index()].visible);
                 if kept {
-                    sets::delete(&mut self.vertex_mut(v).neighbors, visible);
+                    sets::delete(&mut vertex.neighbors, visible);
                 } else {
-                    self.vertex_mut(v).deleted = true;
-                    self.del_vertices.push(v);
+                    vertex.deleted = true;
+                    del_vertices.push(v);
                 }
             }
+            cursor = self.facet(visible).next;
         }
     }
 
@@ -364,21 +393,27 @@ impl Hull {
     /// Clears the new and visible lists and their flags (qhull's
     /// `qh_resetlists`).
     pub(super) fn reset_lists(&mut self, reset_visible: bool) {
-        for v in self.vertices_from(self.newvertex_list) {
+        let mut cursor = self.listed_vertex(self.newvertex_list);
+        while let Some(v) = cursor {
             self.vertex_mut(v).newfacet = false;
+            cursor = self.listed_vertex(self.vertex(v).next);
         }
         self.newvertex_list = None;
-        for f in self.facets_from(self.newfacet_list) {
+        let mut cursor = self.listed(self.newfacet_list);
+        while let Some(f) = cursor {
             let facet = self.facet_mut(f);
             facet.newfacet = false;
             facet.dupridge = false;
+            cursor = self.next_listed(f);
         }
         self.newfacet_list = None;
         if reset_visible {
-            for f in self.visible_facets() {
+            let mut cursor = self.visible_list;
+            while let Some(f) = cursor.filter(|&f| self.facet(f).visible) {
                 let facet = self.facet_mut(f);
                 facet.link = None;
                 facet.visible = false;
+                cursor = facet.next;
             }
             self.num_visible = 0;
         }

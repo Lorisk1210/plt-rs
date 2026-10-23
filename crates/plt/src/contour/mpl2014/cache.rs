@@ -344,6 +344,35 @@ impl Cache {
     pub(super) fn boundary_e(&self, quad: usize) -> bool {
         self.boundary_w(quad + 1)
     }
+
+    /// Whether no filled contour starts in `quad`: a full quad without a
+    /// boundary on its S, W or N side whose NW, NE and SE points are on
+    /// one level.
+    pub(super) fn starts_no_fill(&self, quad: usize) -> bool {
+        let north = quad + self.nx;
+        let item = self.items[quad];
+        let level = |point: usize| self.items[point] & Z_LEVEL;
+        item & EXISTS == EXISTS_QUAD
+            && item & (BOUNDARY_S | BOUNDARY_W) == 0
+            && self.items[north] & BOUNDARY_S == 0
+            && level(north) == level(north + 1)
+            && level(quad + 1) == level(north + 1)
+    }
+
+    /// Whether any edge of `quad` is a boundary: one of its sides, or the
+    /// diagonal of a corner (always one).
+    pub(super) fn touches_boundary(&self, quad: usize) -> bool {
+        match self.exists(quad) {
+            Exists::None => false,
+            Exists::Corner(_) => true,
+            Exists::Quad => {
+                self.boundary_s(quad)
+                    || self.boundary_w(quad)
+                    || self.boundary_n(quad)
+                    || self.boundary_e(quad)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -369,6 +398,31 @@ mod tests {
         assert!(corners.exists_corner(4, Corner::Ne));
         let plain = Cache::new(3, 3, Some(&mask), false, (2, 2));
         assert!((0..9).all(|q| plain.exists(q) == Exists::None));
+    }
+
+    #[test]
+    fn interior_quads_touch_no_boundary() {
+        // 4 × 4 points in one chunk: only the centre quad is interior.
+        let cache = Cache::new(4, 4, None, true, (3, 3));
+        let touching: Vec<usize> = (0..16).filter(|&q| cache.touches_boundary(q)).collect();
+        assert_eq!(touching, [0, 1, 2, 4, 6, 8, 9, 10]);
+        let mask = [false, false, false, false, true, false, false, false, false];
+        let corners = Cache::new(3, 3, Some(&mask), true, (2, 2));
+        assert!([0, 1, 3, 4].iter().all(|&q| corners.touches_boundary(q)));
+    }
+
+    #[test]
+    fn quiet_interior_quads_start_no_fill() {
+        let mut cache = Cache::new(4, 4, None, true, (3, 3));
+        let mut z = [0.0; 16];
+        cache.init_levels(&z, 0.5, 1.5);
+        assert!(cache.starts_no_fill(5), "interior, all on one level");
+        assert!(!cache.starts_no_fill(0), "on the boundary");
+        assert!(!cache.starts_no_fill(3), "no quad");
+        // The NE point of quad 5 between the levels.
+        z[10] = 1.0;
+        cache.init_levels(&z, 0.5, 1.5);
+        assert!(!cache.starts_no_fill(5));
     }
 
     #[test]

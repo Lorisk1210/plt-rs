@@ -108,6 +108,14 @@ pub fn line_vertices(
     y: &[f64],
     style: DrawStyle,
 ) -> Result<Vec<plt_core::Point>, StepError> {
+    if style == DrawStyle::Default && x.len() == y.len() {
+        // The points as they are, without the copies broadcasting takes.
+        return Ok(x
+            .iter()
+            .zip(y)
+            .map(|(&x, &y)| plt_core::Point::new(x, y))
+            .collect());
+    }
     let n = x.len().max(y.len());
     let (x, y) = if x.len() == y.len() || x.is_empty() || y.is_empty() {
         (x.to_vec(), y.to_vec())

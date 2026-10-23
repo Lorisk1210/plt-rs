@@ -260,12 +260,7 @@ impl ColorMapped for AxesImageArtist {
     /// from the whole array, as matplotlib's `_make_image` does.
     fn remap(&mut self, _others: &mut ArtistStore) -> Result<(), NormError> {
         if let Some(field) = self.core.data.scalars() {
-            let masked = field.masked_values();
-            self.core
-                .mappable
-                .get_mut()
-                .norm_mut()
-                .autoscale_none(&masked);
+            field.autoscale(self.core.mappable.get_mut().norm_mut());
         }
         Ok(())
     }

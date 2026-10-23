@@ -44,7 +44,7 @@ mod pixel;
 mod span;
 
 pub use error::ResampleError;
-pub use grid::Grid;
+pub use grid::{Grid, GridRef};
 pub use params::{Interpolation, PixelTransform, ResampleParams};
 pub use pixel::Pixel;
 
@@ -75,11 +75,12 @@ pub const MAX_FILTER_RADIUS: f64 = 256.0;
 /// When the source is empty, a grid side reaches [`MAX_DIMENSION`], the
 /// affine transform is not finite and invertible, a lookup mesh does not
 /// match the destination, or `alpha` / `radius` are out of range.
-pub fn resample<P: Pixel>(
-    src: &Grid<P>,
+pub fn resample<'a, P: Pixel>(
+    src: impl Into<GridRef<'a, P>>,
     dst: &mut Grid<P>,
     params: &ResampleParams,
 ) -> Result<(), ResampleError> {
+    let src = src.into();
     validate(src, dst, params)?;
     if dst.is_empty() {
         return Ok(());
@@ -159,7 +160,11 @@ pub fn resample<P: Pixel>(
 }
 
 /// Checks the arguments the way matplotlib's wrapper and Agg would fail.
-fn validate<P>(src: &Grid<P>, dst: &Grid<P>, params: &ResampleParams) -> Result<(), ResampleError> {
+fn validate<P>(
+    src: GridRef<'_, P>,
+    dst: &Grid<P>,
+    params: &ResampleParams,
+) -> Result<(), ResampleError> {
     if src.is_empty() {
         return Err(ResampleError::EmptySource);
     }
@@ -193,7 +198,7 @@ fn validate<P>(src: &Grid<P>, dst: &Grid<P>, params: &ResampleParams) -> Result<
 /// resampling (axis-aligned edges bumped out to whole pixels when within
 /// half a pixel), otherwise the whole destination.
 fn coverage<P>(
-    src: &Grid<P>,
+    src: GridRef<'_, P>,
     dst: &Grid<P>,
     affine: Option<AggAffine>,
     interpolation: Interpolation,
@@ -316,7 +321,7 @@ enum Generator<'m> {
 
 impl Generator<'_> {
     /// Colours the run of `out.len()` pixels starting at `(x, y)`.
-    fn generate<P: Pixel>(&mut self, src: &Grid<P>, x: i32, y: i32, out: &mut [P::Color]) {
+    fn generate<P: Pixel>(&mut self, src: GridRef<'_, P>, x: i32, y: i32, out: &mut [P::Color]) {
         match self {
             Self::NearestAffine(interpolator) => span::nearest(src, interpolator, x, y, out),
             Self::NearestMesh(interpolator) => span::nearest(src, interpolator, x, y, out),

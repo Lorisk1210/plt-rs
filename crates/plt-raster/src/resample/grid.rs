@@ -30,6 +30,15 @@ impl<P> Grid<P> {
         })
     }
 
+    /// The grid as a borrowed view.
+    pub fn view(&self) -> GridRef<'_, P> {
+        GridRef {
+            width: self.width,
+            height: self.height,
+            data: &self.data,
+        }
+    }
+
     /// Number of columns.
     pub fn width(&self) -> usize {
         self.width
@@ -47,11 +56,7 @@ impl<P> Grid<P> {
 
     /// The pixel at column `x`, row `y`, if inside the grid.
     pub fn get(&self, x: usize, y: usize) -> Option<&P> {
-        if x < self.width && y < self.height {
-            self.data.get(y * self.width + x)
-        } else {
-            None
-        }
+        self.view().get(x, y)
     }
 
     /// Mutable access to the pixel at column `x`, row `y`, if inside.
@@ -104,6 +109,78 @@ impl<P: Clone> Grid<P> {
     }
 }
 
+/// A borrowed `width × height` grid of pixels stored row by row: what
+/// [`resample`](super::resample) reads, so that pixels held elsewhere need
+/// not be copied into a [`Grid`].
+#[derive(Debug, PartialEq)]
+pub struct GridRef<'a, P> {
+    width: usize,
+    height: usize,
+    data: &'a [P],
+}
+
+// A view copies like the reference it holds, whatever the pixels.
+impl<P> Clone for GridRef<'_, P> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<P> Copy for GridRef<'_, P> {}
+
+impl<'a, P> GridRef<'a, P> {
+    /// Views `data` (row-major, `width × height` pixels).
+    pub fn new(width: usize, height: usize, data: &'a [P]) -> Result<Self, ResampleError> {
+        if width.checked_mul(height) != Some(data.len()) {
+            return Err(ResampleError::GridSize {
+                width,
+                height,
+                len: data.len(),
+            });
+        }
+        Ok(Self {
+            width,
+            height,
+            data,
+        })
+    }
+
+    /// Number of columns.
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    /// Number of rows.
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    /// Whether the grid holds no pixels.
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    /// The pixel at column `x`, row `y`, if inside the grid.
+    pub fn get(&self, x: usize, y: usize) -> Option<&'a P> {
+        if x < self.width && y < self.height {
+            self.data.get(y * self.width + x)
+        } else {
+            None
+        }
+    }
+
+    /// All pixels, row-major.
+    pub fn as_slice(&self) -> &'a [P] {
+        self.data
+    }
+}
+
+impl<'a, P> From<&'a Grid<P>> for GridRef<'a, P> {
+    fn from(grid: &'a Grid<P>) -> Self {
+        grid.view()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,6 +212,20 @@ mod tests {
         assert!(!g.is_empty());
         assert_eq!((g.width(), g.height()), (3, 2));
         assert_eq!(g.into_vec().len(), 6);
+    }
+
+    #[test]
+    fn views_borrow_and_check_length() {
+        let pixels = [1, 2, 3, 4, 5, 6];
+        let view = GridRef::new(3, 2, &pixels).expect("view");
+        assert_eq!((view.width(), view.height()), (3, 2));
+        assert_eq!(view.get(0, 1), Some(&4));
+        assert_eq!(view.get(3, 0), None);
+        assert!(!view.is_empty());
+        assert!(GridRef::new(4, 2, &pixels).is_err());
+        let grid = Grid::from_vec(3, 2, pixels.to_vec()).expect("grid");
+        assert_eq!(GridRef::from(&grid), view);
+        assert_eq!(view.as_slice(), grid.as_slice());
     }
 
     #[test]

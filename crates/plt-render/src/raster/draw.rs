@@ -1,6 +1,8 @@
 //! The [`Renderer`] implementation: one method per `RendererAgg` entry
 //! point, each conditioning and clipping exactly like `_backend_agg.h`.
 
+use std::ops::Range;
+
 use plt_core::hatch;
 use plt_core::path::convert::{SnapMode as PathSnap, VertexSource};
 use plt_core::{Affine2D, Path, PathCode, Point, Rgba};
@@ -220,6 +222,7 @@ impl Renderer for RasterRenderer {
         let rect = self.clip_box(gc);
         let masked = self.prepare_clip_mask(gc, Some(rect.unwrap_or_else(|| self.full_box())));
         let clip = collection.facecolors.is_empty() && gc.hatch.is_none();
+        let mut conditioned = std::mem::take(&mut self.conditioned);
         for item in collection.items(gc) {
             let conditioning = Conditioning {
                 has_codes: true,
@@ -229,11 +232,12 @@ impl Renderer for RasterRenderer {
                 simplify: None,
                 sketch: sketch_params(item.gc.sketch),
             };
-            let conditioned =
-                self.condition(item.path, self.to_device(&item.transform), &conditioning);
+            let transform = self.to_device(&item.transform);
+            self.condition_into(item.path, transform, &conditioning, &mut conditioned);
             let face = item.fill.map(|c| item.gc.fill_color(c));
             self.draw_conditioned(&item.gc, &conditioned, face, rect, masked);
         }
+        self.conditioned = conditioned;
     }
 
     fn draw_gouraud_triangles(
@@ -306,12 +310,30 @@ impl Renderer for RasterRenderer {
     }
 
     /// Agg's quad mesh generator walks every cell down its first column
-    /// first.
+    /// first. Colours given per cell (or one for all) are split with the
+    /// cells, which are then drawn a block at a time, so that their
+    /// outlines need not all exist at once.
     fn draw_quad_mesh(&mut self, gc: &GraphicsContext, mesh: &QuadMesh<'_>) {
-        let paths = mesh.agg_cell_paths();
         let widths = [gc.linewidth];
         let flags = [mesh.antialiased];
-        self.draw_path_collection(gc, &mesh.collection(&paths, &widths, &flags));
+        let cells = mesh.cell_count();
+        let splits = |colors: &[Rgba]| colors.len() <= 1 || colors.len() == cells;
+        if !(splits(mesh.facecolors) && splits(mesh.edgecolors)) {
+            let paths = mesh.agg_cell_paths();
+            self.draw_path_collection(gc, &mesh.collection(&paths, &widths, &flags));
+            return;
+        }
+        let mut paths = Vec::new();
+        for start in (0..cells).step_by(MESH_BLOCK) {
+            let block = start..cells.min(start + MESH_BLOCK);
+            mesh.agg_cell_paths_into(block.clone(), &mut paths);
+            let collection = PathCollection {
+                facecolors: block_colors(mesh.facecolors, &block),
+                edgecolors: block_colors(mesh.edgecolors, &block),
+                ..mesh.collection(&paths, &widths, &flags)
+            };
+            self.draw_path_collection(gc, &collection);
+        }
     }
 
     fn start_filter(&mut self) {
@@ -325,6 +347,19 @@ impl Renderer for RasterRenderer {
     /// Agg composites each image straight onto the canvas.
     fn option_image_nocomposite(&self) -> bool {
         true
+    }
+}
+
+/// Cells of a quad mesh drawn as one path collection.
+const MESH_BLOCK: usize = 4096;
+
+/// The colours of the cells in `block`: their own when given per cell,
+/// else the one colour (or none) for all.
+fn block_colors<'a>(colors: &'a [Rgba], block: &Range<usize>) -> &'a [Rgba] {
+    if colors.len() > 1 {
+        &colors[block.clone()]
+    } else {
+        colors
     }
 }
 
@@ -358,8 +393,15 @@ impl RasterRenderer {
             },
             sketch: sketch_params(gc.sketch),
         };
-        let conditioned = self.condition(path, self.to_device(transform), &conditioning);
+        let mut conditioned = std::mem::take(&mut self.conditioned);
+        self.condition_into(
+            path,
+            self.to_device(transform),
+            &conditioning,
+            &mut conditioned,
+        );
         self.draw_conditioned(gc, &conditioned, face, rect, masked);
+        self.conditioned = conditioned;
     }
 }
 

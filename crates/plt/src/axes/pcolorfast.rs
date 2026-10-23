@@ -317,7 +317,7 @@ fn image_colors(
     let data = data.normalized();
     let mut mappable = colors.into_mappable(&crate::rc::params())?;
     if let Some(field) = data.scalars() {
-        mappable.norm_mut().autoscale_none(&field.masked_values());
+        field.autoscale(mappable.norm_mut());
     }
     Ok((data, mappable))
 }

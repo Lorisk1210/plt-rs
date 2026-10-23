@@ -62,7 +62,7 @@ pub(super) fn mesh_mappable(
     values: &ScalarField,
 ) -> Result<ScalarMappable, ImageError> {
     let mut mappable = colors.into_mappable(&crate::rc::params())?;
-    mappable.norm_mut().autoscale_none(&values.masked_values());
+    values.autoscale(mappable.norm_mut());
     Ok(mappable)
 }
 

@@ -10,7 +10,7 @@
 //! All generators sample at destination pixel centres.
 
 use super::accessor::{ReflectAccessor, clipped};
-use super::grid::Grid;
+use super::grid::GridRef;
 use super::interpolator::{LinearInterpolator, SpanInterpolator};
 use super::lut::WeightLut;
 use super::numeric::{FILTER_SCALE, FILTER_SHIFT, SUBPIXEL_MASK, SUBPIXEL_SHIFT, uround};
@@ -35,7 +35,7 @@ fn product(lut: &WeightLut, index_y: i32, index_x: i32) -> i32 {
 
 /// Nearest-neighbour samples with a zero background outside the source.
 pub(super) fn nearest<P: PixelOps>(
-    src: &Grid<P>,
+    src: GridRef<'_, P>,
     interpolator: &mut impl SpanInterpolator,
     x: i32,
     y: i32,
@@ -51,7 +51,7 @@ pub(super) fn nearest<P: PixelOps>(
 
 /// Kernel-filtered samples, `diameter × diameter` taps per pixel.
 pub(super) fn filter<P: PixelOps>(
-    src: &Grid<P>,
+    src: GridRef<'_, P>,
     lut: &WeightLut,
     interpolator: &mut impl SpanInterpolator,
     x: i32,
@@ -128,7 +128,7 @@ impl Footprint {
 /// Area-resampled samples: the kernel is stretched by the footprint and
 /// the result divided by the sum of the weights actually used.
 pub(super) fn resample_affine<P: PixelOps>(
-    src: &Grid<P>,
+    src: GridRef<'_, P>,
     lut: &WeightLut,
     footprint: Footprint,
     interpolator: &mut LinearInterpolator,
@@ -179,6 +179,7 @@ pub(super) fn resample_affine<P: PixelOps>(
 #[cfg(test)]
 mod tests {
     use super::super::filters::FilterShape;
+    use super::super::grid::Grid;
     use super::super::interpolator::NearestInterpolator;
     use super::super::numeric::AggAffine;
     use super::super::params::Interpolation;
@@ -207,7 +208,14 @@ mod tests {
         let src = Grid::from_vec(3, 1, vec![1.0, 2.0, 4.0]).expect("grid");
         let mut out = [<f64 as PixelOps>::Color::default(); 3];
         let mut li = LinearInterpolator::new(AggAffine::IDENTITY);
-        filter(&src, &lut(Interpolation::Bilinear), &mut li, 0, 0, &mut out);
+        filter(
+            src.view(),
+            &lut(Interpolation::Bilinear),
+            &mut li,
+            0,
+            0,
+            &mut out,
+        );
         assert_eq!(values(&out), vec![1.0, 2.0, 4.0]);
     }
 
@@ -216,7 +224,7 @@ mod tests {
         let src = Grid::from_vec(2, 1, vec![5.0, 6.0]).expect("grid");
         let mut out = [<f64 as PixelOps>::Color::default(); 4];
         let mut nn = NearestInterpolator::new(AggAffine::IDENTITY);
-        nearest(&src, &mut nn, -1, 0, &mut out);
+        nearest(src.view(), &mut nn, -1, 0, &mut out);
         assert_eq!(values(&out), vec![0.0, 5.0, 6.0, 0.0]);
     }
 
@@ -265,7 +273,7 @@ mod tests {
         let mut li = LinearInterpolator::new(shrink);
         let fp = Footprint::new(&li);
         resample_affine(
-            &src,
+            src.view(),
             &lut(Interpolation::Hanning),
             fp,
             &mut li,

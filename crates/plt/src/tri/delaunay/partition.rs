@@ -182,14 +182,21 @@ impl Hull {
             if self.facet(target).next.is_none() {
                 return Err(HullError::Topology);
             }
-            for point in self.facet(visible).outside.clone() {
+            // Points never go to visible facets: the sets are lent out
+            // while their points are repartitioned.
+            let outside = std::mem::take(&mut self.facet_mut(visible).outside);
+            for &point in &outside {
                 self.partition_point(point, target)?;
             }
-            for point in self.facet(visible).coplanar.clone() {
+            self.facet_mut(visible).outside = outside;
+            let coplanar = std::mem::take(&mut self.facet_mut(visible).coplanar);
+            for &point in &coplanar {
                 self.partition_coplanar(point, target, None, self.findbestnew)?;
             }
+            self.facet_mut(visible).coplanar = coplanar;
         }
-        for v in self.del_vertices.clone() {
+        for i in 0..self.del_vertices.len() {
+            let v = self.del_vertices[i];
             if !self.vertex(v).partitioned {
                 let target = self.listed(self.newfacet_list).ok_or(HullError::Topology)?;
                 self.partition_coplanar(self.vertex(v).point, target, None, true)?;

@@ -1,5 +1,7 @@
 //! Batched drawing of many paths with per-item properties.
 
+use std::rc::Rc;
+
 use plt_core::{Affine2D, Path, Point, Rgba};
 
 use crate::gc::{Dashes, GraphicsContext};
@@ -46,8 +48,9 @@ pub struct CollectionItem<'a> {
     pub offset: Point,
     /// Full transform to display coordinates (offset included).
     pub transform: Affine2D,
-    /// The graphics context with per-item overrides applied.
-    pub gc: GraphicsContext,
+    /// The graphics context with per-item overrides applied, shared with
+    /// the items before it until an override changes it.
+    pub gc: Rc<GraphicsContext>,
     /// Face colour, or `None` when the item is not filled.
     pub fill: Option<Rgba>,
 }
@@ -109,12 +112,16 @@ impl<'a> PathCollection<'a> {
     /// `RendererBase._iter_collection` does: items with non-finite offsets
     /// are skipped, fully transparent faces become unfilled, and fully
     /// transparent edges disable stroking.
+    ///
+    /// The context is copied only when an override changes it while an
+    /// earlier item still holds it, so items dropped before the next is
+    /// taken share one context.
     pub fn items(&self, base: &GraphicsContext) -> impl Iterator<Item = CollectionItem<'a>> + '_ {
         let count = if self.is_empty() { 0 } else { self.len() };
         let raw_count = self.raw_path_count();
-        let mut gc = base.clone();
+        let mut shared = Rc::new(base.clone());
         if self.edgecolors.is_empty() {
-            gc.linewidth = 0.0;
+            Rc::make_mut(&mut shared).linewidth = 0.0;
         }
         (0..count).filter_map(move |i| {
             let offset = cycled(self.offsets, i).copied().unwrap_or(Point::ORIGIN);
@@ -122,6 +129,7 @@ impl<'a> PathCollection<'a> {
                 return None;
             }
             if let Some(&edge) = cycled(self.edgecolors, i) {
+                let gc = Rc::make_mut(&mut shared);
                 if let Some(&width) = cycled(self.linewidths, i) {
                     gc.linewidth = width;
                 }
@@ -135,12 +143,14 @@ impl<'a> PathCollection<'a> {
                 }
             }
             if let Some(&aa) = cycled(self.antialiased, i) {
-                gc.antialiased = aa;
+                Rc::make_mut(&mut shared).antialiased = aa;
             }
             if let Some(url) = cycled(self.urls, i) {
-                gc.url.clone_from(url);
+                Rc::make_mut(&mut shared).url.clone_from(url);
             }
-            if let (Some(&color), Some(hatch)) = (cycled(self.hatchcolors, i), gc.hatch.as_mut()) {
+            if let Some(&color) = cycled(self.hatchcolors, i)
+                && let Some(hatch) = Rc::make_mut(&mut shared).hatch.as_mut()
+            {
                 hatch.color = color;
             }
             let fill = cycled(self.facecolors, i)
@@ -160,7 +170,7 @@ impl<'a> PathCollection<'a> {
                 path_index,
                 offset,
                 transform,
-                gc: gc.clone(),
+                gc: Rc::clone(&shared),
                 fill,
             })
         })

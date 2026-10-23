@@ -5,6 +5,7 @@ use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 
 use super::*;
 use crate::gc::GraphicsContext;
+use crate::quad_mesh::QuadMesh;
 use crate::renderer::Renderer;
 
 fn square(x0: f64, y0: f64, x1: f64, y1: f64) -> Path {
@@ -129,4 +130,40 @@ fn png_round_trip() {
         r.into_pixmap().pixel(0, 0),
         Some(plt_raster::Rgba8::TRANSPARENT_WHITE)
     );
+}
+
+#[test]
+fn large_quad_meshes_draw_as_one_collection_would() {
+    // More cells than one block, a wavy grid and per-cell colours, some
+    // with edges: drawing block by block must match one collection.
+    let (rows, columns) = (40, 150);
+    let coordinates: Vec<Point> = (0..=rows)
+        .flat_map(|r| {
+            (0..=columns).map(move |c| {
+                let (r, c) = (f64::from(r), f64::from(c));
+                Point::new(c * 0.37 + (r * 0.3).sin(), r * 0.41 + (c * 0.2).cos())
+            })
+        })
+        .collect();
+    let faces: Vec<Rgba> = (0..rows * columns)
+        .map(|i| Rgba::new(f64::from(i % 7) / 7.0, f64::from(i % 11) / 11.0, 0.5, 1.0))
+        .collect();
+    let mesh = QuadMesh {
+        master_transform: Affine2D::scaling(1.1, 1.1),
+        columns: columns as usize,
+        coordinates: &coordinates,
+        facecolors: &faces,
+        edgecolors: &[Rgba::BLACK],
+        antialiased: true,
+    };
+    let gc = GraphicsContext {
+        linewidth: 0.3,
+        ..GraphicsContext::default()
+    };
+    let mut blocks = RasterRenderer::new(64.0, 24.0, 72.0).unwrap();
+    blocks.draw_quad_mesh(&gc, &mesh);
+    let mut whole = RasterRenderer::new(64.0, 24.0, 72.0).unwrap();
+    let paths = mesh.agg_cell_paths();
+    whole.draw_path_collection(&gc, &mesh.collection(&paths, &[0.3], &[true]));
+    assert_eq!(blocks.pixmap(), whole.pixmap());
 }

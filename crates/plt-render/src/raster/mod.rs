@@ -15,6 +15,7 @@ mod text;
 use std::fmt;
 
 use plt_codec::png::{self, EncodeError, ImageRef};
+use plt_core::Path;
 use plt_core::path::convert::SimplifySettings;
 use plt_raster::{Mask, Painter, Pixmap, RasterError, Rgba8};
 
@@ -75,6 +76,8 @@ pub struct RasterRenderer {
     /// vertices (matplotlib's `agg.path.chunksize`; 0 never splits).
     chunksize: usize,
     clip_cache: Option<CachedClip>,
+    /// The last conditioned path, kept for its allocations.
+    conditioned: Path,
     /// Canvases set aside while filtered artists draw.
     set_aside: Vec<Pixmap>,
     errors: Vec<RasterError>,
@@ -96,6 +99,7 @@ impl RasterRenderer {
             simplify: SimplifySettings::default(),
             chunksize: 0,
             clip_cache: None,
+            conditioned: Path::default(),
             set_aside: Vec::new(),
             errors: Vec::new(),
         })

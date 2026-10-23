@@ -124,12 +124,10 @@ impl GaussianKde {
         }
         let n = self.num_points();
         let kernel = |sample: usize, point: usize| {
-            let diff: Vec<f64> = (0..dim)
-                .map(|r| self.dataset[(r, sample)] - points[(r, point)])
-                .collect();
+            let diff = |r: usize| self.dataset[(r, sample)] - points[(r, point)];
             let energy = (0..dim).fold(0.0, |acc, r| {
-                let t = (0..dim).fold(0.0, |s, c| s + self.inv_cov[(r, c)] * diff[c]);
-                acc + diff[r] * t
+                let t = (0..dim).fold(0.0, |s, c| s + self.inv_cov[(r, c)] * diff(c));
+                acc + diff(r) * t
             }) / 2.0;
             (-energy).exp()
         };

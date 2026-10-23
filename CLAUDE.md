@@ -88,6 +88,10 @@ must reproduce them.
   against documents matplotlib writes for it then and there), and
   `cargo xtask render PREFIX...` to write a case's rendering plus a diff
   against its golden PNG to `spec/out/` for inspection.
+* Performance: `cargo xtask bench [PREFIX...] --reference` times large
+  workloads in plt-rs and matplotlib. An optimisation must leave every
+  output byte unchanged: compare the PNG/SVG/PDF/PS of all spec cases
+  before and after.
 
 ## Git
 

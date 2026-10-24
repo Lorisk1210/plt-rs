@@ -68,14 +68,13 @@ Ops
 Left out: ``test_invalid_line_data``, ``test_valid_colors``,
 ``test_valid_linestyles``, ``test_valid_drawstyles`` (Python type and
 string validation; plt-rs takes typed values and the parsers are covered
-by the ``rcsetup`` and ``markers`` areas), ``test_linestyle_variants``
-(tuple line styles are a Python spelling), ``test_set_drawstyle`` and the
-markevery tests (covered by the ``markers`` area),
-``test_axline_setters`` (plt-rs fixes an infinite line's second point or
-slope when it is made, so the setters and their conflicts do not exist),
-``test_marker_as_markerstyle`` and ``test_markerfacecolor_fillstyle``
-(Python getters returning what was set), ``test_set_line_coll_dash``
-(contour line styles, ``contour_behaviour``).
+by the ``rcsetup`` and ``markers`` areas), ``test_set_drawstyle`` and the
+markevery tests (covered by the ``markers`` area, the float ones also by
+``mpl_lines``), ``test_axline_setters`` and
+``test_markerfacecolor_fillstyle`` (the ``mpl_lines`` area),
+``test_linestyle_variants`` (the ``mpl_tests_lines`` figure group),
+``test_marker_as_markerstyle`` (Python getters returning what was set),
+``test_set_line_coll_dash`` (contour line styles, ``contour_behaviour``).
 """
 
 from types import SimpleNamespace

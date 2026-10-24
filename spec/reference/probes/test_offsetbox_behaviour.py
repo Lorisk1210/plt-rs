@@ -35,15 +35,14 @@ Ops
         (``test_annotationbbox_extents``, under the reference rcParams
         rather than ``rcParamsDefault``, with deterministic image data).
 
-Left out: ``test_offsetbox_clip_children`` (figure staleness),
-``test_offsetbox_loc_codes``, ``test_expand_with_tight_layout``,
-``test_paddedbox_default_values``, ``test_remove_draggable`` (smoke
-tests), ``test_picking`` (the ``pick`` area picks offset boxes' kin),
-``test_zorder``, ``test_arrowprops_copied``,
-``test_annotationbbox_properties``, ``test_textarea_properties`` (Python
-attributes), ``test_draggable_in_subfigure`` (a private dragging flag),
-and ``test_packers`` beyond its alignment (child offsets of a packer are
-not observable from outside plt-rs).
+``test_offsetbox_loc_codes`` and ``test_expand_with_tight_layout`` are
+cases of the ``mpl_tests_offsetbox`` figure group;
+``test_annotationbbox_properties``, ``test_remove_draggable`` and
+``test_draggable_in_subfigure`` are probes of the ``mpl_offsetbox`` area,
+which lists the other tests left out. ``test_picking`` is covered by the
+``pick`` area, which picks offset boxes' kin; ``test_packers`` beyond its
+alignment is left out (child offsets of a packer are not observable from
+outside plt-rs).
 """
 
 import numpy as np

@@ -114,7 +114,11 @@ impl VectorField {
 }
 
 /// `values` repeated to `n` entries if it holds one, checked otherwise.
-fn broadcast(argument: &'static str, values: Vec<f64>, n: usize) -> Result<Vec<f64>, PlotError> {
+pub(super) fn broadcast(
+    argument: &'static str,
+    values: Vec<f64>,
+    n: usize,
+) -> Result<Vec<f64>, PlotError> {
     match values.len() {
         len if len == n => Ok(values),
         1 => Ok(vec![values[0]; n]),

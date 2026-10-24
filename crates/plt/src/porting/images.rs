@@ -51,6 +51,7 @@
 //! | `ax.tricontour(tri, z)`, `ax.tricontourf(tri, z)` | [`Axes::tricontour`], [`Axes::tricontourf`]     |
 //! | `ax.quiver(X, Y, U, V, C, scale=, pivot="mid")`  | [`Axes::quiver`] with [`VectorField`] and [`QuiverOptions`] |
 //! | `ax.quiverkey(q, X, Y, U, label)`                | [`Axes::quiverkey`]                              |
+//! | `q.set_UVC(U, V)`                                 | [`Quiver::set_uvc`]                              |
 //! | `ax.barbs(X, Y, U, V)`                           | [`Axes::barbs`] with [`BarbsOptions`]            |
 //! | `ax.streamplot(x, y, U, V, density=, color=)`    | [`Axes::streamplot`] with [`StreamField`] and [`StreamplotOptions`] |
 //! | `plt.imread(path)`, `plt.imsave(path, z, cmap=)` | [`imread`], [`imsave`] with [`ImsaveOptions`]    |
@@ -294,6 +295,7 @@
 //! [`Axes::tricontourf`]: crate::axes::Axes::tricontourf
 //! [`Axes::quiver`]: crate::axes::Axes::quiver
 //! [`Axes::quiverkey`]: crate::axes::Axes::quiverkey
+//! [`Quiver::set_uvc`]: crate::quiver::Quiver::set_uvc
 //! [`Axes::barbs`]: crate::axes::Axes::barbs
 //! [`Axes::streamplot`]: crate::axes::Axes::streamplot
 //! [`Figure::figimage`]: crate::figure::Figure::figimage

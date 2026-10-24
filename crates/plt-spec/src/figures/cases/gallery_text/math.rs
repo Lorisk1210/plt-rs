@@ -5,7 +5,7 @@
 //! `mathtext_examples`, `mathtext_fontfamily_example` and
 //! `stix_fonts_demo`).
 
-use plt::figure::{BboxInches, SaveOptions};
+use plt::figure::{BboxInches, PadInches, SaveOptions};
 use plt::fonts::{FontSize, FontWeight, Fontset};
 use plt::image::FigimageOptions;
 use plt::layout::TightLayout;
@@ -59,7 +59,7 @@ fn text_to_rgba(
         .render_raster_with(SaveOptions {
             dpi: Some(dpi),
             bbox_inches: Some(BboxInches::Tight),
-            pad_inches: Some(0.0),
+            pad_inches: Some(PadInches::Inches(0.0)),
             ..SaveOptions::default()
         })?
         .to_image();

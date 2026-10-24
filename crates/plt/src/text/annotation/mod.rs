@@ -152,7 +152,15 @@ impl AnnotationState {
         Some(transform.inverted()?.transform_point(at))
     }
 
-    /// Whether the annotation is drawn (`_check_xy`).
+    /// Whether the annotation is drawn (`_check_xy`); not when its point
+    /// cannot be placed.
+    pub(crate) fn is_shown(&self, text: &TextArtist, layout: LayoutContext<'_>) -> bool {
+        self.point(text, layout)
+            .is_ok_and(|point| self.shown(text, layout, point))
+    }
+
+    /// Whether the annotation is drawn with its point at `point`
+    /// (`_check_xy`).
     fn shown(&self, text: &TextArtist, layout: LayoutContext<'_>, point: Point) -> bool {
         annotation_shown(
             layout,

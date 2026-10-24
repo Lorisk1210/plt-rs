@@ -1,0 +1,16 @@
+{
+ "area": "mpl_table",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "B"}, "value": [1, 2, 1, 1, 1]},
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "BRL"}, "value": [1, 2, 2, 1, 2]},
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "L"}, "value": [1, 1, 1, 1, 2]},
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "R"}, "value": [1, 1, 2, 1, 1]},
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "T"}, "value": [1, 1, 1, 2, 1]},
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "closed"}, "value": [1, 2, 2, 2, 79]},
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "horizontal"}, "value": [1, 2, 1, 2, 1]},
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "open"}, "value": [1, 1, 1, 1, 1]},
+  {"op": "CustomCell.get_path", "args": {"visible_edges": "vertical"}, "value": [1, 1, 2, 1, 2]},
+  {"op": "Table.fontsize", "args": {"fontsize": 20}, "value": [20.0, 20.0]}
+ ]
+}

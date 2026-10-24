@@ -82,6 +82,7 @@
 //! | `ax.xaxis`, `ax.get_yaxis()`            | [`Axes::xaxis`], [`Axes::yaxis`], [`Axes::axis_of`] |
 //! | `artist.remove()`                       | [`ArtistHandle::remove`]                         |
 //! | `artist.axes`, `artist.figure`          | [`ArtistHandle::axes`], [`ArtistHandle::figure`] |
+//! | `artist.get_figure(root=False)`         | [`ArtistHandle::parent_figure`]                  |
 //! | `artist.findobj(match)`                 | [`ArtistHandle::findobj`]                        |
 //! | `ax.lines`, `ax.patches`, `ax.artists`  | [`Axes::lines`], [`Axes::patches`], [`Axes::artists`] |
 //!
@@ -354,6 +355,7 @@
 //! [`FromStr`]: std::str::FromStr
 //! [`ArtistHandle::axes`]: crate::artist::ArtistHandle::axes
 //! [`ArtistHandle::figure`]: crate::artist::ArtistHandle::figure
+//! [`ArtistHandle::parent_figure`]: crate::artist::ArtistHandle::parent_figure
 //! [`ArtistHandle::findobj`]: crate::artist::ArtistHandle::findobj
 //! [`Axes::plot_with`]: crate::axes::Axes::plot_with
 //! [`MarkerSymbol::Circle`]: crate::markers::MarkerSymbol::Circle

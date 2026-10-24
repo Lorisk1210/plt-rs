@@ -376,6 +376,16 @@ const AREAS: &[(&str, &[Op])] = &[
     ("mpl_backend_ps", areas::mpl_backend_ps::OPS),
     ("mpl_patches", areas::mpl_patches::OPS),
     ("mpl_triangulation", areas::mpl_triangulation::OPS),
+    ("mpl_simplification", areas::mpl_simplification::OPS),
+    ("mpl_bbox_tight", areas::mpl_bbox_tight::OPS),
+    ("mpl_text", areas::mpl_text::OPS),
+    ("mpl_spines", areas::mpl_spines::OPS),
+    ("mpl_lines", areas::mpl_lines::OPS),
+    ("mpl_table", areas::mpl_table::OPS),
+    ("mpl_offsetbox", areas::mpl_offsetbox::OPS),
+    ("mpl_marker", areas::mpl_marker::OPS),
+    ("mpl_arrow_patches", areas::mpl_arrow_patches::OPS),
+    ("mpl_artist", areas::mpl_artist::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

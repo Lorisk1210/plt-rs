@@ -1,6 +1,7 @@
 //! Handles to a table and to its cells (matplotlib's `Table` and the
 //! `Cell`s of `table[row, col]`).
 
+use plt_core::Path;
 use plt_text::HAlign;
 
 use super::TableArtist;
@@ -233,6 +234,18 @@ impl TableCell {
     /// background is filled only when all four are.
     pub fn set_visible_edges(&self, edges: CellEdges) -> &Self {
         self.update(|cell| cell.edges = edges)
+    }
+
+    /// The edges drawn.
+    pub fn visible_edges(&self) -> CellEdges {
+        self.read(|cell| cell.edges)
+    }
+
+    /// The outline of the cell in its own unit square, drawing only its
+    /// visible edges (matplotlib's `Cell.get_path`; see
+    /// [`CellEdges::outline`]).
+    pub fn path(&self) -> Path {
+        self.visible_edges().outline()
     }
 
     /// Sets the width in axes fractions.

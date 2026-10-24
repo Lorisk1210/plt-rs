@@ -1,0 +1,35 @@
+{
+ "area": "mpl_marker",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "MarkerStyle",
+   "args": {"marker": "$\\frac{1}{2}$"},
+   "value": {"filled": true, "fillstyle": "full", "joinstyle": "round", "capstyle": "butt", "user_transform": null}
+  },
+  {
+   "op": "MarkerStyle",
+   "args": {"marker": "$♫$"},
+   "value": {"filled": true, "fillstyle": "full", "joinstyle": "round", "capstyle": "butt", "user_transform": null}
+  },
+  {
+   "op": "MarkerStyle",
+   "args": {"marker": "$|||$", "transform": [["translate", 1, 1]], "steps": [["rotated", {"deg": 10}]]},
+   "value": {
+    "filled": true,
+    "fillstyle": "full",
+    "joinstyle": "round",
+    "capstyle": "butt",
+    "user_transform": [[0.984807753012208, -0.17364817766693033, 0.8111595753452777], [0.17364817766693033, 0.984807753012208, 1.1584559306791384], [0.0, 0.0, 1.0]]
+   }
+  },
+  {
+   "op": "MarkerStyle",
+   "args": {"marker": "$|||$", "transform": [["translate", 1, 1]], "steps": [["transformed", [["translate", 1, 1]]]]},
+   "value": {"filled": true, "fillstyle": "full", "joinstyle": "round", "capstyle": "butt", "user_transform": [[1.0, 0.0, 2.0], [0.0, 1.0, 2.0], [0.0, 0.0, 1.0]]}
+  },
+  {"op": "MarkerStyle", "args": {"marker": "square"}, "error": "ValueError"},
+  {"op": "MarkerStyle", "args": {"marker": [1]}, "error": "ValueError"},
+  {"op": "MarkerStyle", "args": {"marker": [[-0.5, 0, 1, 2, 3]]}, "error": "ValueError"}
+ ]
+}

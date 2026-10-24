@@ -243,7 +243,7 @@ fn child_tight_bbox(
     {
         return None;
     }
-    clipped_extent(layout, base, artist.window_extent(&layout)?)
+    clipped_extent(layout, base, artist.tight_extent(&layout)?)
 }
 
 /// Whether a text sits where its axes can show it: texts placed in the

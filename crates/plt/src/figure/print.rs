@@ -14,6 +14,7 @@ use super::{DrawErrors, Figure, FigureState};
 use crate::artist::{ArtistId, LayoutContext};
 use crate::axes::{Axes, AxesState, clipped_extent};
 use crate::colors::Color;
+use crate::layout::LayoutEngine;
 use crate::rc::{ColorOrAuto, Dpi, SavefigBbox};
 
 /// Which part of the figure is saved (matplotlib's `bbox_inches`).
@@ -23,6 +24,23 @@ pub enum BboxInches {
     Tight,
     /// This box, in inches from the figure's bottom-left corner.
     Inches(Bbox),
+}
+
+/// The padding around a tight saved area (matplotlib's `pad_inches`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PadInches {
+    /// This many inches on every side.
+    Inches(f64),
+    /// The constrained layout's own padding, `w_pad` left and right and
+    /// `h_pad` above and below, when the figure is laid out by constrained
+    /// layout; `savefig.pad_inches` otherwise (`"layout"`).
+    Layout,
+}
+
+impl From<f64> for PadInches {
+    fn from(inches: f64) -> Self {
+        Self::Inches(inches)
+    }
 }
 
 /// Options of [`Figure::savefig_with`]; unset ones follow the `savefig.*`
@@ -35,8 +53,8 @@ pub struct SaveOptions {
     /// The part of the figure saved (`savefig.bbox`, the whole figure by
     /// default).
     pub bbox_inches: Option<BboxInches>,
-    /// Padding around a tight box in inches (`savefig.pad_inches`).
-    pub pad_inches: Option<f64>,
+    /// Padding around a tight box (`savefig.pad_inches` inches by default).
+    pub pad_inches: Option<PadInches>,
     /// Whether the figure and axes backgrounds are left out
     /// (`savefig.transparent`).
     pub transparent: Option<bool>,
@@ -113,7 +131,7 @@ impl FigureState {
             return None;
         }
         let layout = LayoutContext::new(self);
-        clipped_extent(layout, base, artist.window_extent(&layout)?)
+        clipped_extent(layout, base, artist.tight_extent(&layout)?)
     }
 }
 
@@ -269,8 +287,8 @@ impl Figure {
             None => None,
             Some(BboxInches::Inches(bbox)) => Some(bbox),
             Some(BboxInches::Tight) => {
-                let pad = options.pad_inches.unwrap_or(rc.savefig_pad_inches);
-                Some(self.tight_bbox().padded(pad, pad))
+                let (w_pad, h_pad) = self.tight_padding(options.pad_inches, rc.savefig_pad_inches);
+                Some(self.tight_bbox().padded(w_pad, h_pad))
             }
         };
         let (width, height) =
@@ -280,6 +298,19 @@ impl Figure {
         state.saving = true;
         drop(state);
         (saving, Page { width, height, dpi })
+    }
+
+    /// The horizontal and vertical padding, in inches, around a tight saved
+    /// area: `pad`, or `default` (`savefig.pad_inches`) when unset or when
+    /// the layout's padding is asked for without constrained layout.
+    fn tight_padding(&self, pad: Option<PadInches>, default: f64) -> (f64, f64) {
+        match (pad, self.layout_engine()) {
+            (Some(PadInches::Inches(pad)), _) => (pad, pad),
+            (Some(PadInches::Layout), Some(LayoutEngine::Constrained(layout))) => {
+                (layout.w_pad, layout.h_pad)
+            }
+            (Some(PadInches::Layout) | None, _) => (default, default),
+        }
     }
 
     /// Renders the figure as [`Figure::savefig_with`] would for raster
@@ -417,6 +448,47 @@ mod tests {
     }
 
     #[test]
+    fn layout_padding_follows_constrained_layout_only() {
+        // matplotlib's test_bbox_inches_tight_layout_constrained and
+        // _notconstrained: `pad_inches="layout"` takes the constrained
+        // layout's paddings, else falls back to `savefig.pad_inches`.
+        let fig = Figure::with_size(4.0, 3.0, 50.0);
+        let default = crate::rc::params().savefig_pad_inches;
+        assert_eq!(
+            fig.tight_padding(Some(PadInches::Layout), default),
+            (default, default)
+        );
+        assert_eq!(fig.tight_padding(Some(0.3.into()), default), (0.3, 0.3));
+        let layout = crate::layout::ConstrainedLayout {
+            h_pad: 0.5,
+            ..crate::layout::ConstrainedLayout::default()
+        };
+        fig.set_layout_engine(Some(LayoutEngine::Constrained(layout)))
+            .expect("a new figure has no colorbars");
+        assert_eq!(
+            fig.tight_padding(Some(PadInches::Layout), default),
+            (layout.w_pad, 0.5)
+        );
+        assert_eq!(fig.tight_padding(None, default), (default, default));
+    }
+
+    #[test]
+    fn tight_boxes_leave_out_hidden_annotations() {
+        // matplotlib's test_only_on_non_finite_bbox: an annotation whose
+        // point cannot be shown reports the unit box as its window extent
+        // but takes no space in the tight box.
+        let fig = Figure::with_size(8.0, 6.0, 100.0);
+        let ax = fig.subplot();
+        ax.set_axis_off();
+        let before = fig.tight_bbox();
+        let note = ax
+            .annotate("", [0.0, f64::NAN], crate::text::AnnotateOptions::default())
+            .unwrap();
+        assert_eq!(note.window_extent(), Some(Bbox::UNIT));
+        assert_eq!(fig.tight_bbox(), before);
+    }
+
+    #[test]
     fn tight_boxes_take_the_clipping_of_figure_artists() {
         // matplotlib's test_bbox_inches_tight_clipping: a huge patch
         // clipped to a small path adds only the path's extent.
@@ -444,7 +516,7 @@ mod tests {
             .set_yticks(Vec::<f64>::new());
         let options = SaveOptions {
             bbox_inches: Some(BboxInches::Tight),
-            pad_inches: Some(0.0),
+            pad_inches: Some(PadInches::Inches(0.0)),
             ..SaveOptions::default()
         };
         let image = fig.render_raster_with(options).unwrap().to_image();

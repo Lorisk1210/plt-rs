@@ -1,0 +1,11 @@
+{
+ "area": "mpl_bbox_tight",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Figure.savefig", "args": {"style": "mpl20", "scene": "layout_constrained"}, "value": [480, 388]},
+  {"op": "Figure.savefig", "args": {"scene": "layout_notconstrained"}, "value": [528, 686]},
+  {"op": "Figure.savefig", "args": {"scene": "non_finite_annotation"}, "value": [500, 640]},
+  {"op": "Figure.savefig", "args": {"scene": "pcolorfast"}, "value": [528, 697]},
+  {"op": "Figure.savefig.noop", "args": {}, "value": {"shape": [7, 10], "opaque": true, "white": false}}
+ ]
+}

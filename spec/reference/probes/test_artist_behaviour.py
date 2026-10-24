@@ -60,9 +60,10 @@ Ops
 Left out: ``test_collection_transform_of_none`` (``get_offset_transform()``
 identity checks), ``test_properties``, ``test_setp``, ``test_artist_set*``,
 ``test_artist_inspector_*``, ``test_callbacks``, ``test_set_signature``,
-``test_set_is_overwritten``, ``test_auto_no_rasterize``,
-``test_draw_wraper_forward_input`` and ``test_get_figure`` (Python
-introspection, keyword handling and object identity).
+``test_set_is_overwritten``, ``test_auto_no_rasterize`` and
+``test_draw_wraper_forward_input`` (Python introspection, keyword handling
+and object identity); ``test_get_figure`` is a probe of the ``mpl_artist``
+area.
 """
 
 import io

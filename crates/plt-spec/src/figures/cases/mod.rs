@@ -63,7 +63,13 @@ mod mpl_tests_figure;
 mod mpl_tests_ft2font;
 mod mpl_tests_image;
 mod mpl_tests_legend;
+mod mpl_tests_lines;
+mod mpl_tests_marker;
+mod mpl_tests_offsetbox;
 mod mpl_tests_patches;
+mod mpl_tests_quiver;
+mod mpl_tests_table;
+mod mpl_tests_text;
 mod mpl_tests_tightlayout;
 mod mpl_tests_units;
 mod mpl_tests_widgets;
@@ -227,6 +233,12 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_tests_constrainedlayout::cases(),
         &mpl_tests_tightlayout::cases(),
         &mpl_tests_patches::cases(),
+        &mpl_tests_text::cases(),
+        &mpl_tests_lines::cases(),
+        &mpl_tests_quiver::cases(),
+        &mpl_tests_table::cases(),
+        &mpl_tests_offsetbox::cases(),
+        &mpl_tests_marker::cases(),
     ]
     .concat()
 }

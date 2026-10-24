@@ -5,7 +5,7 @@ use std::f64::consts::PI;
 
 use plt::axes::TickPosition;
 use plt::gridspec::SubplotOverrides;
-use plt::mlab::{Complex, fft};
+use plt::mlab::{Complex, blackman, fft};
 use plt::patches::{PathShape, Rectangle};
 use plt::prelude::*;
 use plt::spines::SpineSide;
@@ -210,17 +210,6 @@ fn hatch(fig: &Figure) -> CaseResult {
     ax.set_xlim(0.45, 0.55)?.set_ylim(0.45, 0.55)?;
     remove_ticks_and_titles(fig);
     Ok(())
-}
-
-/// numpy's `blackman(n)` window.
-fn blackman(n: usize) -> Vec<f64> {
-    let m = (n - 1) as f64;
-    (0..n)
-        .map(|i| {
-            let phase = 2.0 * PI * i as f64 / m;
-            0.42 - 0.5 * phase.cos() + 0.08 * (2.0 * phase).cos()
-        })
-        .collect()
 }
 
 /// `test_fft_peaks`: the spectrum of a windowed sine, two sharp peaks on

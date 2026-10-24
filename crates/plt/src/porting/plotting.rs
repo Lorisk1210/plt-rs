@@ -59,6 +59,7 @@
 //! | `ax.axhline(y)`, `ax.axhline(y, xmin, xmax)`       | [`Axes::axhline`], [`Axes::axhline_between`]      |
 //! | `ax.axvspan(a, b)`, `ax.axvspan(a, b, ymin, ymax)` | [`Axes::axvspan`], [`Axes::axvspan_between`]      |
 //! | `ax.axline(p1, p2)`, `ax.axline(p1, slope=s)`      | [`Axes::axline`] with [`AxLineThrough`]           |
+//! | `line.set_xy1(p)`, `set_xy2(p)`, `set_slope(s)`    | [`Line2D::set_axline_xy1`], [`Line2D::set_axline_xy2`], [`Line2D::set_axline_slope`] |
 //! | `ax.hist(x, bins=, range=, density=, histtype=)`   | [`Axes::hist`] with [`HistPlotOptions`] and [`HistOptions`] |
 //! | `ax.hist2d(x, y, bins=)`                           | [`Axes::hist2d`] with [`Hist2dOptions`]           |
 //! | `ax.hexbin(x, y, C=, gridsize=, mincnt=)`          | [`Axes::hexbin`] with [`HexbinOptions`]           |
@@ -386,6 +387,9 @@
 //! [`Line2D`]: crate::lines::Line2D
 //! [`StepWhere`]: crate::lines::StepWhere
 //! [`AxLineThrough`]: crate::lines::AxLineThrough
+//! [`Line2D::set_axline_xy1`]: crate::lines::Line2D::set_axline_xy1
+//! [`Line2D::set_axline_xy2`]: crate::lines::Line2D::set_axline_xy2
+//! [`Line2D::set_axline_slope`]: crate::lines::Line2D::set_axline_slope
 //! [`PatchProps`]: crate::patches::PatchProps
 //! [`Patch`]: crate::patches::Patch
 //! [`CollectionProps`]: crate::collections::CollectionProps

@@ -2,7 +2,7 @@
 //!
 //! * [`fft`] / [`FftPlan`] — arbitrary-length discrete Fourier transforms
 //!   on the crate's own [`Complex`] type, and [`fftfreq`].
-//! * [`Window`], [`hanning`], [`window_hanning`], [`window_none`] —
+//! * [`Window`], [`hanning`], [`blackman`], [`window_hanning`], [`window_none`] —
 //!   segment tapers.
 //! * [`Detrend`], [`detrend_mean`], [`detrend_linear`], [`detrend_none`],
 //!   [`detrend_grid`] — trend removal.
@@ -50,7 +50,7 @@ pub use spectral::{
     phase_spectrum, psd, specgram,
 };
 pub use stride::stride_windows;
-pub use window::{Window, hanning, window_hanning, window_none};
+pub use window::{Window, blackman, hanning, window_hanning, window_none};
 
 /// Why a signal-processing routine rejected its input.
 #[derive(Clone, Debug, PartialEq, Eq)]

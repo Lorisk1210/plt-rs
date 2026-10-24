@@ -1,0 +1,30 @@
+{
+ "area": "mpl_lines",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "AxLine.set", "args": {"through": "point", "steps": [["slope", 3]]}, "error": "ValueError"},
+  {
+   "op": "AxLine.set",
+   "args": {"through": "slope", "steps": [["xy1", [0.2, 0.3]], ["slope", 2.4]]},
+   "value": [{"xy1": [0.1, 0.1], "xy2": null, "slope": 0.6}, {"xy1": [0.2, 0.3], "xy2": null, "slope": 0.6}, {"xy1": [0.2, 0.3], "xy2": null, "slope": 2.4}]
+  },
+  {
+   "op": "AxLine.set",
+   "args": {"through": "point", "steps": [["xy1", [0.3, 0.2]], ["xy2", [0.6, 0.8]]]},
+   "value": [
+    {"xy1": [0.1, 0.1], "xy2": [0.8, 0.4], "slope": null},
+    {"xy1": [0.3, 0.2], "xy2": [0.8, 0.4], "slope": null},
+    {"xy1": [0.3, 0.2], "xy2": [0.6, 0.8], "slope": null}
+   ]
+  },
+  {"op": "AxLine.set", "args": {"through": "slope", "steps": [["xy2", [0.2, 0.3]]]}, "error": "ValueError"},
+  {"op": "Line2D.get_markerfacecolor", "args": {}, "value": ["none", [0.0, 0.0, 0.0, 0.0]]},
+  {"op": "lines._mark_every_path", "args": {"markevery": -0.1, "x": [0, 1]}, "error": "ValueError"},
+  {"op": "lines._mark_every_path", "args": {"markevery": 0.0, "x": [0, 1]}, "error": "ValueError"},
+  {"op": "lines._mark_every_path", "args": {"markevery": 1.0, "x": [0, 0, 2]}, "value": [0.0]},
+  {"op": "lines._mark_every_path", "args": {"markevery": 1.0, "x": [0, 0.5, 1.5]}, "value": [0.0, 0.5]},
+  {"op": "lines._mark_every_path", "args": {"markevery": 1.5, "x": [0, 0.2, 0.8, 1.6, 2.7, 4.1, 5.8, 7.8, 10]}, "value": [0.0, 1.6, 2.7, 4.1, 5.8, 7.8, 10.0]},
+  {"op": "lines._mark_every_path", "args": {"markevery": [-0.2, 1.5], "x": [0, 0.2, 0.8, 1.6, 2.7, 4.1, 5.8, 7.8, 10]}, "value": [0.0, 1.6, 2.7, 4.1, 5.8, 7.8]},
+  {"op": "lines._mark_every_path", "args": {"markevery": [11.0, 1.5], "x": [0, 0.2, 0.8, 1.6, 2.7, 4.1, 5.8, 7.8, 10]}, "value": []}
+ ]
+}

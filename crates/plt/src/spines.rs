@@ -343,6 +343,55 @@ impl Spine {
         self
     }
 
+    /// Limits the spine to the data interval from `low` to `high`, an end
+    /// given as `None` keeping its current value: the bound set before, or
+    /// else the view limit of the spine's axis at the time of the call
+    /// (matplotlib's `set_bounds(low, high)`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_xlim(0.0, 10.0)?;
+    /// let bottom = &ax.spines().bottom;
+    /// bottom.set_bound_ends(Some(2.0), None);
+    /// assert_eq!(bottom.bounds(), Some((2.0, 10.0)));
+    /// bottom.set_bound_ends(None, Some(5.0));
+    /// assert_eq!(bottom.bounds(), Some((2.0, 5.0)));
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn set_bound_ends(&self, low: Option<f64>, high: Option<f64>) -> &Self {
+        let current = self.bounds().or_else(|| {
+            let ax = self.axes()?;
+            Some(match self.side().axis() {
+                AxisName::X => ax.xlim(),
+                AxisName::Y => ax.ylim(),
+            })
+        });
+        if let Some((old_low, old_high)) = current {
+            self.set_bounds(Some((low.unwrap_or(old_low), high.unwrap_or(old_high))));
+        }
+        self
+    }
+
+    /// The data interval the spine is limited to, `None` while it spans
+    /// the view (matplotlib's `get_bounds`).
+    pub fn bounds(&self) -> Option<(f64, f64)> {
+        self.raw.with::<SpineArtist, _>(|s| s.bounds)
+    }
+
+    /// The display box of the spine line alone in the figure's current
+    /// layout (laid out first), without its ticks (matplotlib's
+    /// `get_transform().transform_path(get_path()).get_extents()`).
+    pub fn line_extent(&self) -> Option<Bbox> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        let ctx = LayoutContext::new(&state);
+        state
+            .store
+            .get_as::<SpineArtist>(self.raw.id())?
+            .line_extent(ctx)
+    }
+
     /// Sets the spine colour.
     pub fn set_color(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
@@ -459,6 +508,34 @@ mod tests {
             (segments[2][0].y - (52.8 - 10.0 * 100.0 / 72.0)).abs() < 1e-9,
             "bottom spine 10pt out"
         );
+    }
+
+    #[test]
+    fn missing_bound_ends_take_the_autoscaled_view() {
+        // matplotlib's test_spine_set_bounds_with_none.
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let x = crate::numeric::linspace(0.0, 10.0, 100);
+        let y: Vec<f64> = x.iter().map(|x| x.sin()).collect();
+        ax.plot(x, y).unwrap();
+        let (xlim, ylim) = (ax.xlim(), ax.ylim());
+        let spines = ax.spines();
+        assert_eq!(spines.bottom.bounds(), None);
+        spines.bottom.set_bound_ends(Some(2.0), None);
+        spines.left.set_bound_ends(None, None);
+        assert_eq!(spines.bottom.bounds(), Some((2.0, xlim.1)));
+        assert_eq!(spines.left.bounds(), Some(ylim));
+    }
+
+    #[test]
+    fn line_extents_leave_out_the_ticks() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let left = &ax.spines().left;
+        let line = left.line_extent().expect("a drawn spine");
+        assert!((line.x0() - 80.0).abs() < 1e-9 && line.width() == 0.0);
+        let with_ticks = left.window_extent().expect("a drawn spine");
+        assert!(with_ticks.x0() < line.x0());
     }
 
     #[test]

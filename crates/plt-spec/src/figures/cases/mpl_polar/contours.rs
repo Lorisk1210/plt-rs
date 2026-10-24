@@ -1,7 +1,8 @@
 //! `test_contour.py`: replaced paths, manual and nearby labels, given
 //! colours with extensions, hatch colours, log levels, date axes, corner
 //! masks, log extensions, colorbar lines, closed loops, contours given as
-//! segments, algorithms, clipping and line style aliases.
+//! segments, algorithms, clipping, all four algorithms and line style
+//! aliases.
 
 use std::f64::consts::PI;
 
@@ -9,7 +10,9 @@ use plt::artist::ClipPathSpec;
 use plt::axes::{Mesh, PcolorOptions, TickLabelProps, TickLevel};
 use plt::colorbar::{ColorbarOptions, Spacing};
 use plt::colors::{ColorizerOptions, Extend, LogNorm, colormaps};
-use plt::contour::{ClabelOptions, ContourOptions, ContourSet, Levels, QuadCoords, QuadField};
+use plt::contour::{
+    ClabelOptions, ContourAlgorithm, ContourOptions, ContourSet, Levels, QuadCoords, QuadField,
+};
 use plt::dates::DateTime;
 use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::SubplotOverrides;
@@ -508,6 +511,38 @@ pub(super) fn contourf_rasterize(fig: &Figure) -> CaseResult {
             }))
             .set_rasterized(true);
     }
+    Ok(())
+}
+
+/// `test_all_algorithms`: a noisy wave with one point masked, filled and
+/// outlined by each algorithm.
+pub(super) fn all_algorithms(fig: &Figure) -> CaseResult {
+    let (x, y) = (linspace(0.0, 1.0, 10), linspace(0.0, 1.0, 6));
+    let noise = SpecRng::new(2981).normal(60, 0.0, 0.5);
+    let z = Grid::from_fn(6, 10, |r, c| {
+        (15.0 * x[c]).sin() * (10.0 * y[r]).cos() + noise[r * 10 + c]
+    });
+    let (xx, yy) = meshgrid(&x, &y);
+    let field = QuadField::new(z)
+        .with_coords(QuadCoords::Mesh { x: xx, y: yy })
+        .with_mask(Grid::from_fn(6, 10, |r, c| (r, c) == (3, 7)));
+    let algorithms = [
+        ContourAlgorithm::Mpl2005,
+        ContourAlgorithm::Mpl2014,
+        ContourAlgorithm::Serial,
+        ContourAlgorithm::Threaded,
+    ];
+    for (ax, algorithm) in fig.subplots(2, 2)?.as_slice().iter().zip(algorithms) {
+        let field = field.clone().with_algorithm(algorithm);
+        ax.contourf(&field, ContourOptions::default())?;
+        let black = ContourOptions {
+            colors: Some(colors(&["k"])),
+            ..ContourOptions::default()
+        };
+        ax.contour(&field, black)?;
+        ax.set_title(algorithm.name());
+    }
+    remove_ticks_and_titles(fig);
     Ok(())
 }
 

@@ -7,6 +7,7 @@ use std::str::FromStr;
 use plt_core::Rgba;
 
 use super::MultivarError;
+use crate::colors::colormap::truncate_byte;
 use crate::colors::{Color, Colormap, Normalized};
 use crate::numeric::{Grid, linspace};
 
@@ -51,6 +52,43 @@ impl FromStr for BivarShape {
     }
 }
 
+/// The colour table of a bivariate colormap made from an image
+/// ([`BivarColormap::from_image`]): RGBA or RGB colours, as fractions or
+/// as bytes, which matplotlib divides by 255 in single precision; RGB
+/// colours are opaque.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BivarTable(Grid<[f64; 4]>);
+
+impl From<Grid<[f64; 4]>> for BivarTable {
+    fn from(lut: Grid<[f64; 4]>) -> Self {
+        Self(lut)
+    }
+}
+
+impl From<Grid<[f64; 3]>> for BivarTable {
+    fn from(lut: Grid<[f64; 3]>) -> Self {
+        Self(lut.map(|&[r, g, b]| [r, g, b, 1.0]))
+    }
+}
+
+/// A byte as a fraction, computed in single precision like matplotlib's
+/// `lut.astype(np.float32) / 255`.
+fn byte_fraction(byte: u8) -> f64 {
+    f64::from(f32::from(byte) / 255.0)
+}
+
+impl From<Grid<[u8; 4]>> for BivarTable {
+    fn from(lut: Grid<[u8; 4]>) -> Self {
+        Self(lut.map(|rgba| rgba.map(byte_fraction)))
+    }
+}
+
+impl From<Grid<[u8; 3]>> for BivarTable {
+    fn from(lut: Grid<[u8; 3]>) -> Self {
+        Self(lut.map(|&[r, g, b]| [byte_fraction(r), byte_fraction(g), byte_fraction(b), 1.0]))
+    }
+}
+
 /// One of the two axes of a bivariate colormap.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum BivarAxis {
@@ -61,7 +99,8 @@ pub enum BivarAxis {
 }
 
 /// Colours looked up from value pairs in an `N × M` table (matplotlib's
-/// `BivarColormap`).
+/// `BivarColormap`). Two are equal when their tables, shapes and bad and
+/// outside colours are, whatever their names and origins.
 ///
 /// ```
 /// use plt::colors::Normalized;
@@ -71,7 +110,7 @@ pub enum BivarAxis {
 /// assert_eq!(corner.to_array(), [1.0, 1.0, 1.0, 1.0]);
 /// # Ok::<(), plt::colors::multivar::MultivarError>(())
 /// ```
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct BivarColormap {
     name: String,
     lut: Grid<[f64; 4]>,
@@ -79,6 +118,17 @@ pub struct BivarColormap {
     origin: (f64, f64),
     bad: Rgba,
     outside: Rgba,
+}
+
+impl PartialEq for BivarColormap {
+    /// matplotlib's `BivarColormap.__eq__`: the names and origins do not
+    /// count.
+    fn eq(&self, other: &Self) -> bool {
+        self.lut == other.lut
+            && self.shape == other.shape
+            && self.bad == other.bad
+            && self.outside == other.outside
+    }
 }
 
 impl BivarColormap {
@@ -116,14 +166,25 @@ impl BivarColormap {
         Ok(Self::from_table(name.into(), lut, shape, origin))
     }
 
-    /// A colormap with the given table of RGBA colours (matplotlib's
+    /// A colormap with the given table of colours (matplotlib's
     /// `BivarColormapFromImage`).
+    ///
+    /// ```
+    /// use plt::colors::Normalized::Index;
+    /// use plt::colors::multivar::{BivarColormap, BivarShape};
+    /// use plt::numeric::Grid;
+    /// let image = Grid::from_fn(2, 2, |r, c| [0, 255 * c as u8, 255 * r as u8]);
+    /// let cmap = BivarColormap::from_image("image", image, BivarShape::Square, (0.0, 0.0))?;
+    /// assert_eq!(cmap.lookup(Index(1), Index(1), None)?.to_array(), [0.0, 1.0, 1.0, 1.0]);
+    /// # Ok::<(), plt::colors::multivar::MultivarError>(())
+    /// ```
     pub fn from_image(
         name: impl Into<String>,
-        lut: Grid<[f64; 4]>,
+        lut: impl Into<BivarTable>,
         shape: BivarShape,
         origin: (f64, f64),
     ) -> Result<Self, MultivarError> {
+        let BivarTable(lut) = lut.into();
         if lut.is_empty() {
             return Err(MultivarError::EmptyTable);
         }
@@ -225,6 +286,26 @@ impl BivarColormap {
             }
         }
         Ok(color)
+    }
+
+    /// Like [`BivarColormap::lookup`] but as 8-bit channels, which
+    /// matplotlib truncates (`cmap((x0, x1), alpha, bytes=True)`); `alpha`
+    /// replaces the opacity after the conversion.
+    pub fn lookup_bytes(
+        &self,
+        x0: Normalized,
+        x1: Normalized,
+        alpha: Option<f64>,
+    ) -> Result<[u8; 4], MultivarError> {
+        let bad = x0.is_bad() || x1.is_bad();
+        let mut bytes = self.lookup(x0, x1, None)?.to_array().map(truncate_byte);
+        if let Some(alpha) = alpha {
+            bytes[3] = truncate_byte(alpha.clamp(0.0, 1.0));
+            if bad && self.bad == Rgba::TRANSPARENT {
+                bytes = [0; 4];
+            }
+        }
+        Ok(bytes)
     }
 
     /// The pair after the shape's clipping (matplotlib's `_clip`).

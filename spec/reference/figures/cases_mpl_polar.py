@@ -30,11 +30,6 @@ Deviations from the tests:
   ``colorbar/extension_length_*``; the fourth figure of
   ``test_colorbar_positioning`` (axes lists, which disable ``use_gridspec``)
   is ported once.
-
-Not ported: ``test_all_algorithms``, whose ``mpl2005`` panel depends on the
-direction in which contourpy's legacy ``mpl2005`` generator traces open
-lines (it starts many of them at the other end than ``mpl2014``, which moves
-the dashes of negative levels); plt-rs has the ``mpl2014`` generator only.
 """
 
 import datetime
@@ -539,6 +534,21 @@ def _(fig):
     ax = fig.subplots()
     circle = mpatches.Circle([0.5, 0.5], 0.5, transform=ax.transAxes)
     ax.contourf([[0, 1], [1, 0]], clip_path=circle, rasterized=True)
+
+
+@classic("all_algorithms")
+@without_text
+def _(fig):
+    algorithms = ["mpl2005", "mpl2014", "serial", "threaded"]
+    x, y = np.meshgrid(np.linspace(0.0, 1.0, 10), np.linspace(0.0, 1.0, 6))
+    z = np.sin(15 * x) * np.cos(10 * y) + rng(2981).normal(60, scale=0.5).reshape(6, 10)
+    mask = np.zeros_like(z, dtype=bool)
+    mask[3, 7] = True
+    z = np.ma.array(z, mask=mask)
+    for ax, algorithm in zip(fig.subplots(2, 2).ravel(), algorithms):
+        ax.contourf(x, y, z, algorithm=algorithm)
+        ax.contour(x, y, z, algorithm=algorithm, colors="k")
+        ax.set_title(algorithm)
 
 
 @classic("contour_aliases")

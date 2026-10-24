@@ -1,0 +1,228 @@
+{
+ "area": "mpl_contour",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Axes.contour", "args": {"scene": "bool"}, "value": {"levels": [0.5]}},
+  {"op": "Axes.contour", "args": {"scene": "bool_masked"}, "value": {"levels": [0.5]}},
+  {"op": "Axes.contour", "args": {"scene": "empty_levels"}, "value": {"levels": []}},
+  {"op": "Axes.contour", "args": {"scene": "lognorm:2"}, "value": {"levels": [1e-06, 0.1, 10000.0, 1000000000.0], "visible": 2}},
+  {"op": "Axes.contour", "args": {"scene": "lognorm:3"}, "value": {"levels": [0.0001, 0.1, 100.0, 100000.0], "visible": 2}},
+  {"op": "Axes.contour", "args": {"scene": "lognorm:4"}, "value": {"levels": [0.001, 0.1, 10.0, 1000.0, 100000.0], "visible": 3}},
+  {"op": "Axes.contour", "args": {"scene": "lognorm:5"}, "value": {"levels": [0.001, 0.1, 10.0, 1000.0, 100000.0], "visible": 3}},
+  {"op": "Axes.contour", "args": {"scene": "lognorm:6"}, "value": {"levels": [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0], "visible": 6}},
+  {"op": "Axes.contour", "args": {"scene": "uniform"}, "value": {"levels": [0.99999999999997, 1.0, 1.00000000000003]}},
+  {
+   "op": "Axes.contour",
+   "args": {"scene": "valid_1d"},
+   "value": {"levels": [0.0, 0.15000000000000002, 0.30000000000000004, 0.45000000000000007, 0.6000000000000001, 0.7500000000000001, 0.9000000000000001, 1.0500000000000003]}
+  },
+  {
+   "op": "Axes.contour",
+   "args": {"scene": "valid_2d"},
+   "value": {"levels": [0.0, 0.15000000000000002, 0.30000000000000004, 0.45000000000000007, 0.6000000000000001, 0.7500000000000001, 0.9000000000000001, 1.0500000000000003]}
+  },
+  {"op": "Axes.contour", "args": {"scene": "x2d_shape"}, "error": "TypeError"},
+  {"op": "Axes.contour", "args": {"scene": "x_len"}, "error": "TypeError"},
+  {"op": "Axes.contour", "args": {"scene": "xyz_1x1"}, "error": "TypeError"},
+  {"op": "Axes.contour", "args": {"scene": "y2d_shape"}, "error": "TypeError"},
+  {"op": "Axes.contour", "args": {"scene": "y_len"}, "error": "TypeError"},
+  {"op": "Axes.contour", "args": {"scene": "z_1x1"}, "error": "TypeError"},
+  {"op": "Axes.contourf", "args": {"scene": "algorithm:invalid"}, "error": "ValueError"},
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:mpl2005"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:mpl2005:False"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {"op": "Axes.contourf", "args": {"scene": "algorithm:mpl2005:True"}, "error": "ValueError"},
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:mpl2014"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:mpl2014:False"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:mpl2014:True"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:serial"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:serial:False"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:serial:True"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:threaded"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:threaded:False"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {
+   "op": "Axes.contourf",
+   "args": {"scene": "algorithm:threaded:True"},
+   "value": {"levels": [0.8, 1.2000000000000002, 1.6, 2.0, 2.4000000000000004, 2.8, 3.2, 3.6000000000000005, 4.0]}
+  },
+  {"op": "Axes.contourf", "args": {"scene": "bool"}, "value": {"levels": [0.0, 0.5, 1.0]}},
+  {"op": "Axes.contourf", "args": {"scene": "bool_masked"}, "value": {"levels": [0.0, 0.5, 1.0]}},
+  {"op": "Axes.tricontour", "args": {"scene": "bool"}, "value": {"levels": [0.5]}},
+  {"op": "Axes.tricontourf", "args": {"scene": "bool"}, "value": {"levels": [0.0, 0.5, 1.0]}},
+  {"op": "ContourSet.allsegs", "args": {}, "value": {"allsegs": [5, 4], "allkinds": [5, 4]}},
+  {
+   "op": "ContourSet.clabel",
+   "args": {"scene": "circular"},
+   "value": [
+    {"level": 1.2000000000000002, "text": "1.2", "display": [410.66666666666663, 332.2487719292012], "rotation": 341.12659730636267, "zorder": 4},
+    {"level": 1.5000000000000002, "text": "1.5", "display": [410.66666666666663, 365.1995087314998], "rotation": 341.12659730636267, "zorder": 4},
+    {"level": 1.8000000000000003, "text": "1.8", "display": [410.66666666666663, 398.15024553379845], "rotation": 341.12659730636267, "zorder": 4},
+    {"level": 2.1000000000000005, "text": "2.1", "display": [410.66666666666663, 431.1009823360971], "rotation": 341.12659730636267, "zorder": 4},
+    {"level": 2.4000000000000004, "text": "2.4", "display": [80.0, 124.13922903621028], "rotation": 322.25319461272534, "zorder": 4},
+    {"level": 2.4000000000000004, "text": "2.4", "display": [477.65349582822836, 48.0], "rotation": 37.74680538727458, "zorder": 4},
+    {"level": 2.4000000000000004, "text": "2.4", "display": [178.3465041717716, 432.0], "rotation": 37.74680538727475, "zorder": 4},
+    {"level": 2.4000000000000004, "text": "2.4", "display": [576.0, 355.8607709637897], "rotation": 322.25319461272534, "zorder": 4},
+    {"level": 2.7, "text": "2.7", "display": [80.0, 70.82381693573916], "rotation": 322.2531946127253, "zorder": 4},
+    {"level": 2.7, "text": "2.7", "display": [546.5192364580035, 48.0], "rotation": 37.74680538727458, "zorder": 4},
+    {"level": 2.7, "text": "2.7", "display": [109.4807635419964, 432.0], "rotation": 37.74680538727475, "zorder": 4},
+    {"level": 2.7, "text": "2.7", "display": [576.0, 409.17618306426084], "rotation": 322.25319461272534, "zorder": 4}
+   ]
+  },
+  {
+   "op": "ContourSet.clabel",
+   "args": {"scene": "contour_start"},
+   "value": [
+    {"level": -1.0, "text": "−1.00", "display": [340.4081632653061, 60.0], "rotation": 0.0, "zorder": 4},
+    {"level": -1.0, "text": "−1.00", "display": [479.59183673469386, 540.0], "rotation": 0.0, "zorder": 4},
+    {"level": -0.75, "text": "−0.75", "display": [593.469387755102, 171.83866053207245], "rotation": 328.9647568447073, "zorder": 4},
+    {"level": -0.75, "text": "−0.75", "display": [226.53061224489792, 428.1613394679276], "rotation": 328.96475684470727, "zorder": 4},
+    {"level": -0.5, "text": "−0.50", "display": [264.48979591836735, 189.5450763464926], "rotation": 354.1288238464913, "zorder": 4},
+    {"level": -0.5, "text": "−0.50", "display": [555.5102040816327, 410.4549236535074], "rotation": 354.12882384649123, "zorder": 4},
+    {"level": -0.25, "text": "−0.25", "display": [593.469387755102, 194.83816508418016], "rotation": 345.9290479743266, "zorder": 4},
+    {"level": -0.25, "text": "−0.25", "display": [226.53061224489795, 405.16183491581984], "rotation": 345.92904797432664, "zorder": 4},
+    {"level": 0.0, "text": "0.00", "display": [479.59183673469386, 174.07583526041083], "rotation": 34.453122279631344, "zorder": 4},
+    {"level": 0.0, "text": "0.00", "display": [340.4081632653061, 425.9241647395892], "rotation": 34.453122279631174, "zorder": 4},
+    {"level": 0.25, "text": "0.25", "display": [213.87755102040813, 209.06428200848057], "rotation": 13.438788916294698, "zorder": 4},
+    {"level": 0.25, "text": "0.25", "display": [606.1224489795918, 390.9357179915194], "rotation": 13.43878891629467, "zorder": 4},
+    {"level": 0.5, "text": "0.50", "display": [100.0, 170.05208806214978], "rotation": 4.631833344443535, "zorder": 4},
+    {"level": 0.5, "text": "0.50", "display": [720.0, 429.9479119378502], "rotation": 4.631833344443407, "zorder": 4},
+    {"level": 0.75, "text": "0.75", "display": [466.9387755102041, 215.48343853285328], "rotation": 36.88024134121173, "zorder": 4},
+    {"level": 0.75, "text": "0.75", "display": [353.0612244897959, 384.5165614671467], "rotation": 36.88024134121159, "zorder": 4}
+   ],
+   "tol": 1e-06
+  },
+  {
+   "op": "ContourSet.clabel",
+   "args": {"scene": "large_spacing"},
+   "value": [
+    {"level": 0.01, "text": "0.01", "display": [241.20000000000002, 120.15805637276301], "rotation": 336.58443957264217, "zorder": 4},
+    {"level": 0.2, "text": "0.20", "display": [266.0, 305.5061381319351], "rotation": 29.730985366738622, "zorder": 4},
+    {"level": 0.5, "text": "0.50", "display": [328.0, 293.2915974306067], "rotation": 5.968558980384842e-13, "zorder": 4},
+    {"level": 0.8, "text": "0.80", "display": [303.20000000000005, 216.67952144281122], "rotation": 326.44236874745496, "zorder": 4}
+   ]
+  },
+  {"op": "ContourSet.clabel", "args": {"scene": "outside_levels"}, "value": []},
+  {
+   "op": "ContourSet.clabel",
+   "args": {"scene": "zorder:False:1234"},
+   "value": [
+    {"level": 1.5, "text": "1.5", "display": [162.66666666666666, 90.66666666666666], "rotation": 296.1265973063626, "zorder": 1234.0},
+    {"level": 3.0, "text": "3.0", "display": [245.33333333333331, 176.0], "rotation": 315.0, "zorder": 1234.0},
+    {"level": 4.5, "text": "4.5", "display": [328.0, 218.66666666666663], "rotation": 296.1265973063627, "zorder": 1234.0},
+    {"level": 6.0, "text": "6.0", "display": [410.66666666666663, 304.0], "rotation": 315.0, "zorder": 1234.0},
+    {"level": 7.5, "text": "7.5", "display": [493.3333333333333, 346.66666666666663], "rotation": 296.12659730636256, "zorder": 1234.0}
+   ]
+  },
+  {
+   "op": "ContourSet.clabel",
+   "args": {"scene": "zorder:False:None"},
+   "value": [
+    {"level": 1.5, "text": "1.5", "display": [162.66666666666666, 90.66666666666666], "rotation": 296.1265973063626, "zorder": 125},
+    {"level": 3.0, "text": "3.0", "display": [245.33333333333331, 176.0], "rotation": 315.0, "zorder": 125},
+    {"level": 4.5, "text": "4.5", "display": [328.0, 218.66666666666663], "rotation": 296.1265973063627, "zorder": 125},
+    {"level": 6.0, "text": "6.0", "display": [410.66666666666663, 304.0], "rotation": 315.0, "zorder": 125},
+    {"level": 7.5, "text": "7.5", "display": [493.3333333333333, 346.66666666666663], "rotation": 296.12659730636256, "zorder": 125}
+   ]
+  },
+  {
+   "op": "ContourSet.clabel",
+   "args": {"scene": "zorder:True:1234"},
+   "value": [
+    {"level": 1.5, "text": "1.5", "display": [162.66666666666666, 90.66666666666666], "rotation": 296.12659716802517, "zorder": 1234.0},
+    {"level": 3.0, "text": "3.0", "display": [245.33333333333331, 176.0], "rotation": 315.0000000892958, "zorder": 1234.0},
+    {"level": 4.5, "text": "4.5", "display": [328.0, 218.66666666666663], "rotation": 296.1265971614434, "zorder": 1234.0},
+    {"level": 6.0, "text": "6.0", "display": [410.66666666666663, 304.0], "rotation": 314.9999998455424, "zorder": 1234.0},
+    {"level": 7.5, "text": "7.5", "display": [493.3333333333333, 346.66666666666663], "rotation": 296.1265976735689, "zorder": 1234.0}
+   ]
+  },
+  {
+   "op": "ContourSet.clabel",
+   "args": {"scene": "zorder:True:None"},
+   "value": [
+    {"level": 1.5, "text": "1.5", "display": [162.66666666666666, 90.66666666666666], "rotation": 296.12659716802517, "zorder": 125},
+    {"level": 3.0, "text": "3.0", "display": [245.33333333333331, 176.0], "rotation": 315.0000000892958, "zorder": 125},
+    {"level": 4.5, "text": "4.5", "display": [328.0, 218.66666666666663], "rotation": 296.1265971614434, "zorder": 125},
+    {"level": 6.0, "text": "6.0", "display": [410.66666666666663, 304.0], "rotation": 314.9999998455424, "zorder": 125},
+    {"level": 7.5, "text": "7.5", "display": [493.3333333333333, 346.66666666666663], "rotation": 296.1265976735689, "zorder": 125}
+   ]
+  },
+  {
+   "op": "ContourSet.find_nearest_contour",
+   "args": {"x": 2, "y": 5, "indices": [5, 7], "pixel": false, "filled": false},
+   "value": [5, 0, 16, 2.6282025800267927, 5.0, 0.39463848155231895]
+  },
+  {
+   "op": "ContourSet.find_nearest_contour",
+   "args": {"x": 1, "y": 1, "indices": null, "pixel": false, "filled": false},
+   "value": [1, 0, 33, 1.9659667200500106, 1.9659667200500104, 1.8661834084883506]
+  },
+  {
+   "op": "ContourSet.find_nearest_contour",
+   "args": {"x": 2, "y": 5, "indices": null, "pixel": false, "filled": false},
+   "value": [3, 0, 21, 1.884384791308745, 5.023335388664747, 0.013911416844857237]
+  },
+  {
+   "op": "ContourSet.find_nearest_contour",
+   "args": {"x": 8, "y": 1, "indices": null, "pixel": false, "filled": false},
+   "value": [1, 0, 5, 7.55017314979594, 1.587542988415426, 0.5475509584006351]
+  },
+  {"op": "ContourSet.find_nearest_contour", "args": {"x": 2, "y": 5, "indices": [2, 7], "pixel": true, "filled": true}, "error": "ValueError"},
+  {"op": "ContourSet.find_nearest_contour", "args": {"x": 1, "y": 10, "indices": [5, 7], "pixel": false, "filled": true}, "error": "ValueError"},
+  {"op": "ContourSet.find_nearest_contour", "args": {"x": 1, "y": 1, "indices": null, "pixel": false, "filled": true}, "error": "ValueError"},
+  {"op": "ContourSet.get_clip_path", "args": {}, "value": true},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "default"}, "value": "dashed"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "kwarg:dashdot"}, "value": "dashdot"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "kwarg:dashed"}, "value": "dashed"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "kwarg:dotted"}, "value": "dotted"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "kwarg:solid"}, "value": "solid"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "kwarg_linestyles:dashdot"}, "value": "dashdot"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "kwarg_linestyles:dashed"}, "value": "dashed"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "kwarg_linestyles:dotted"}, "value": "dotted"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "kwarg_linestyles:solid"}, "value": "solid"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "rc:dashdot"}, "value": "dashdot"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "rc:dashed"}, "value": "dashed"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "rc:dotted"}, "value": "dotted"},
+  {"op": "ContourSet.negative_linestyles", "args": {"scene": "rc:solid"}, "value": "solid"},
+  {"op": "ContourSet.remove", "args": {"labels_removed": false}, "value": {"changed": true, "restored": true, "warned": false}},
+  {"op": "ContourSet.remove", "args": {"labels_removed": true}, "value": {"changed": true, "restored": true, "warned": true}}
+ ]
+}

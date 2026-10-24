@@ -6,7 +6,9 @@
 use plt_core::path::DataLimits;
 use plt_core::{Path, Point};
 
-use super::{CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors, Mapped};
+use super::{
+    CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors, EventLines, Mapped,
+};
 use crate::artist::{Artist, ArtistId};
 use crate::colors::{Color, ColorError};
 use crate::orientation::Orientation;
@@ -206,24 +208,22 @@ impl CollectionSpec {
 
     /// One line across `lineoffset` of `linelength` at each position, along
     /// x for [`Orientation::Horizontal`] (matplotlib's `EventCollection`;
-    /// positions are sorted first).
+    /// positions are sorted first). Added to an axes, it is an
+    /// [`EventCollection`](super::EventCollection).
     pub fn events(
         positions: &[f64],
         orientation: Orientation,
         lineoffset: f64,
         linelength: f64,
     ) -> Self {
-        let mut sorted = positions.to_vec();
-        sorted.sort_by(f64::total_cmp);
-        let (high, low) = (lineoffset + linelength / 2.0, lineoffset - linelength / 2.0);
-        let segments = sorted
-            .into_iter()
-            .map(|p| match orientation {
-                Orientation::Horizontal => vec![Point::new(p, high), Point::new(p, low)],
-                Orientation::Vertical => vec![Point::new(high, p), Point::new(low, p)],
-            })
-            .collect();
-        Self::lines(segments)
+        let layout = EventLines {
+            orientation,
+            lineoffset,
+            linelength,
+        };
+        let mut spec = Self::new(CollectionKind::Line, layout.paths(positions));
+        spec.artist.events = Some(layout);
+        spec
     }
 
     /// The same collection with each item translated to an offset in

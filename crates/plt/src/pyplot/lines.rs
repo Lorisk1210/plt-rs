@@ -11,7 +11,7 @@ use crate::axes::{
     FillBetweenOptions, PlotError, ScatterOptions, StackplotOptions, StairsOptions, StemContainer,
     StemOptions,
 };
-use crate::collections::Collection;
+use crate::collections::{Collection, EventCollection};
 use crate::lines::{AxLineThrough, Line2D, LineProps, StepWhere};
 use crate::patches::{FancyArrow, Patch, PatchProps, Polygon, Rectangle, StepPatch};
 use crate::units::{AxisValue, AxisValues};
@@ -183,7 +183,7 @@ pub fn errorbar(
 pub fn eventplot<P: Clone + Into<AxisValues>>(
     positions: &[P],
     options: EventplotOptions,
-) -> Result<Vec<Collection>, PlotError> {
+) -> Result<Vec<EventCollection>, PlotError> {
     gca().eventplot(positions, options)
 }
 

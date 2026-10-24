@@ -46,6 +46,8 @@
 //! | `ax.contourf(Z, levels=10)`                      | [`Axes::contourf`], [`Levels::Count`]            |
 //! | `ax.clabel(cs, fmt="%.2f")`, `cs.clabel(...)`    | [`ContourSet::clabel`] with [`ClabelOptions`] ([`ClabelFormat`]) |
 //! | `cs.levels`, `cs.get_paths()`                    | [`ContourSet::levels`], [`ContourSet::paths`]    |
+//! | `cs.allsegs`, `cs.allkinds`                      | [`ContourSet::allsegs`], [`ContourSet::allkinds`] |
+//! | `cs.set_clip_path(p)`, `cs.remove()`             | [`ContourSet::set_clip_path`], [`ContourSet::remove`] |
 //! | `Triangulation(x, y)`, `Triangulation(x, y, triangles)` | [`Triangulation::delaunay`], [`Triangulation::new`] |
 //! | `ax.triplot(tri, "k-")`, `ax.tripcolor(tri, z)`  | [`Axes::triplot`], [`Axes::tripcolor`] with [`TriValues`] |
 //! | `ax.tricontour(tri, z)`, `ax.tricontourf(tri, z)` | [`Axes::tricontour`], [`Axes::tricontourf`]     |
@@ -313,6 +315,10 @@
 //! [`ClabelFormat`]: crate::contour::ClabelFormat
 //! [`ContourSet::levels`]: crate::contour::ContourSet::levels
 //! [`ContourSet::paths`]: crate::contour::ContourSet::paths
+//! [`ContourSet::allsegs`]: crate::contour::ContourSet::allsegs
+//! [`ContourSet::allkinds`]: crate::contour::ContourSet::allkinds
+//! [`ContourSet::set_clip_path`]: crate::contour::ContourSet::set_clip_path
+//! [`ContourSet::remove`]: crate::contour::ContourSet::remove
 //! [`ClabelOptions`]: crate::contour::ClabelOptions
 //! [`Triangulation`]: crate::tri::Triangulation
 //! [`Triangulation::delaunay`]: crate::tri::Triangulation::delaunay

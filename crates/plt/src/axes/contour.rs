@@ -96,6 +96,64 @@ impl Axes {
         self.add_contour_set(true, options, source)
     }
 
+    /// Contour lines of one boolean per point of a triangulation
+    /// (matplotlib's `tricontour` of a boolean array): `true` counts as 1,
+    /// and the default level is 0.5.
+    ///
+    /// ```
+    /// use plt::contour::ContourOptions;
+    /// use plt::prelude::*;
+    /// use plt::tri::Triangulation;
+    ///
+    /// let tri = Triangulation::new(&[0.0, 1.0, 0.0, 1.0], &[0.0, 0.0, 1.0, 1.0], vec![[0, 1, 2], [1, 3, 2]])?;
+    /// let ax = Figure::new().subplot();
+    /// let cs = ax.tricontour_bools(&tri, &[false, true, true, false], ContourOptions::default())?;
+    /// assert_eq!(cs.levels(), [0.5]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::tricontour`].
+    pub fn tricontour_bools(
+        &self,
+        tri: &Triangulation,
+        z: &[bool],
+        options: ContourOptions,
+    ) -> Result<ContourSet, ContourError> {
+        self.add_boolean_tri_set(false, tri, z, options)
+    }
+
+    /// Filled contours of one boolean per point of a triangulation
+    /// (matplotlib's `tricontourf` of a boolean array): `true` counts as 1,
+    /// and the default levels are 0, 0.5 and 1.
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::tricontourf`].
+    pub fn tricontourf_bools(
+        &self,
+        tri: &Triangulation,
+        z: &[bool],
+        options: ContourOptions,
+    ) -> Result<ContourSet, ContourError> {
+        self.add_boolean_tri_set(true, tri, z, options)
+    }
+
+    /// The contour set of booleans on a triangulation.
+    fn add_boolean_tri_set(
+        &self,
+        filled: bool,
+        tri: &Triangulation,
+        z: &[bool],
+        options: ContourOptions,
+    ) -> Result<ContourSet, ContourError> {
+        let values: Vec<f64> = z.iter().map(|&b| f64::from(u8::from(b))).collect();
+        let mut source = contour_source(tri, &values, options.logscale())?;
+        source.boolean = true;
+        self.add_contour_set(filled, options, source)
+    }
+
     /// Contours given as segments instead of traced from a field
     /// (matplotlib's `ContourSet(ax, levels, allsegs, allkinds)`): for
     /// every level (lines) or band between consecutive levels (`filled`),
@@ -183,6 +241,25 @@ mod tests {
     use crate::figure::Figure;
     use crate::numeric::Grid;
     use crate::transforms::Transform;
+
+    #[test]
+    fn boolean_triangulated_values_get_boolean_levels() {
+        // matplotlib's `test_bool_autolevel`, triangulated.
+        let x = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0];
+        let y = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0];
+        let tri =
+            Triangulation::new(&x, &y, vec![[0, 1, 4], [0, 4, 3], [4, 5, 8], [4, 8, 7]]).unwrap();
+        let z: Vec<bool> = (0..9).map(|i| i % 2 == 1).collect();
+        let ax = Figure::new().subplot();
+        let lines = ax
+            .tricontour_bools(&tri, &z, ContourOptions::default())
+            .unwrap();
+        assert_eq!(lines.levels(), [0.5]);
+        let fills = ax
+            .tricontourf_bools(&tri, &z, ContourOptions::default())
+            .unwrap();
+        assert_eq!(fills.levels(), [0.0, 0.5, 1.0]);
+    }
 
     #[test]
     fn transformed_grids_bound_the_data_where_they_land() {

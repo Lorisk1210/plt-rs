@@ -1,12 +1,14 @@
 //! Event plots (matplotlib's `eventplot`): one row of short lines per
 //! dataset, one line per event.
 
-use plt_core::{Path, Point};
+use plt_core::Point;
 
 use super::children::DataUpdate;
 use super::{Axes, PlotError};
 use crate::artist::Artist;
-use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
+use crate::collections::{
+    CollectionArtist, CollectionKind, EdgeColors, EventCollection, EventLines,
+};
 use crate::colors::Color;
 use crate::lines::LineStyle;
 use crate::orientation::Orientation;
@@ -72,7 +74,7 @@ impl Axes {
         &self,
         positions: &[P],
         options: EventplotOptions,
-    ) -> Result<Vec<Collection>, PlotError> {
+    ) -> Result<Vec<EventCollection>, PlotError> {
         let along = match options.orientation {
             Orientation::Horizontal => self.xaxis(),
             Orientation::Vertical => self.yaxis(),
@@ -101,8 +103,14 @@ impl Axes {
             .iter()
             .enumerate()
             .map(|(i, events)| {
-                let paths = event_lines(events, options.orientation, offsets[i], lengths[i]);
-                let mut row = CollectionArtist::new(CollectionKind::Line, paths, rc.clone());
+                let layout = EventLines {
+                    orientation: options.orientation,
+                    lineoffset: offsets[i],
+                    linelength: lengths[i],
+                };
+                let mut row =
+                    CollectionArtist::new(CollectionKind::Line, layout.paths(events), rc.clone());
+                row.events = Some(layout);
                 let color = colors
                     .get(i)
                     .map_or_else(|| rc.lines_color.clone(), Clone::clone);
@@ -111,7 +119,7 @@ impl Axes {
                 row.linestyles = vec![styles[i].clone()];
                 row.base_mut().alpha = alphas.get(i).copied();
                 row.base_mut().transform = Some(self.trans_data());
-                Collection::from_raw(self.adopt(row, &DataUpdate::default()))
+                EventCollection::from_raw(self.adopt(row, &DataUpdate::default()))
             })
             .collect();
         if positions.iter().any(|row| !row.is_empty()) {
@@ -132,23 +140,6 @@ impl Axes {
         }
         Ok(rows)
     }
-}
-
-/// The sorted events of one row as lines across `offset ± length / 2`.
-fn event_lines(events: &[f64], orientation: Orientation, offset: f64, length: f64) -> Vec<Path> {
-    let mut sorted = events.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    let (start, end) = (offset + length / 2.0, offset - length / 2.0);
-    sorted
-        .into_iter()
-        .map(|at| {
-            let (a, b) = match orientation {
-                Orientation::Horizontal => (Point::new(at, start), Point::new(at, end)),
-                Orientation::Vertical => (Point::new(start, at), Point::new(end, at)),
-            };
-            Path::polyline(vec![a, b])
-        })
-        .collect()
 }
 
 /// The row centres: one per dataset, or `0, o, 2o, ...` from a single `o`.
@@ -209,16 +200,19 @@ mod tests {
     }
 
     #[test]
-    fn events_are_sorted_lines_across_the_offset() {
-        let lines = event_lines(&[3.0, 1.0], Orientation::Horizontal, 1.0, 0.5);
+    fn rows_are_event_collections_of_sorted_lines() {
+        let ax = Figure::new().subplot();
+        let options = EventplotOptions {
+            lineoffsets: vec![1.0],
+            linelengths: vec![0.5],
+            ..EventplotOptions::default()
+        };
+        let rows = ax.eventplot(&[vec![3.0, 1.0]], options).unwrap();
+        assert_eq!(rows[0].positions(), [1.0, 3.0]);
+        assert_eq!((rows[0].lineoffset(), rows[0].linelength()), (1.0, 0.5));
         assert_eq!(
-            lines[0].vertices(),
+            rows[0].paths()[0].vertices(),
             [Point::new(1.0, 1.25), Point::new(1.0, 0.75)]
-        );
-        let vertical = event_lines(&[2.0], Orientation::Vertical, 0.0, 1.0);
-        assert_eq!(
-            vertical[0].vertices(),
-            [Point::new(0.5, 2.0), Point::new(-0.5, 2.0)]
         );
     }
 

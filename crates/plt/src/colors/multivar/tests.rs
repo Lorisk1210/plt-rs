@@ -91,3 +91,72 @@ fn bivariate_tables_resample_reverse_and_transpose() {
     let along = cmap.component(BivarAxis::Second).unwrap();
     assert_eq!((along.n(), along.name()), (256, "BiOrangeBlue_1"));
 }
+
+#[test]
+fn combination_modes_parse_from_matplotlib_names() {
+    assert_eq!("sRGB_add".parse(), Ok(CombinationMode::Add));
+    assert_eq!("sRGB_sub".parse(), Ok(CombinationMode::Sub));
+    assert_eq!(
+        "bad".parse::<CombinationMode>(),
+        Err(MultivarError::UnknownMode("bad".into()))
+    );
+}
+
+#[test]
+fn equality_ignores_names_and_origins() {
+    let add = multivar_colormap("2VarAddA").unwrap();
+    let renamed =
+        MultivarColormap::new("other", add.colormaps().to_vec(), CombinationMode::Add).unwrap();
+    assert_eq!(add, renamed);
+    let sub =
+        MultivarColormap::new("2VarAddA", add.colormaps().to_vec(), CombinationMode::Sub).unwrap();
+    assert_ne!(add, sub);
+    let peak = bivar_colormap("BiPeak").unwrap();
+    let moved = peak
+        .clone()
+        .with_extremes(None, None, None, Some((0.1, 0.9)))
+        .unwrap();
+    assert_eq!(peak, moved);
+    let darker = peak
+        .clone()
+        .with_extremes(Some("k".into()), None, None, None)
+        .unwrap();
+    assert_ne!(peak, darker);
+}
+
+#[test]
+fn bytes_truncate_like_numpy() {
+    let sub = multivar_colormap("2VarSubA").unwrap();
+    assert_eq!(
+        sub.lookup_bytes(&[Fraction(0.0), Fraction(0.0)], None)
+            .unwrap(),
+        [255; 4]
+    );
+    let square = bivar_colormap("BiOrangeBlue").unwrap();
+    let half = square
+        .lookup_bytes(Fraction(1.0), Fraction(1.0), Some(0.5))
+        .unwrap();
+    assert_eq!(half, [255, 255, 255, 127]);
+    assert_eq!(
+        square
+            .lookup_bytes(Masked, Fraction(0.0), Some(0.5))
+            .unwrap(),
+        [0; 4],
+        "transparent bad colours ignore alpha"
+    );
+}
+
+#[test]
+fn image_tables_take_rgb_and_bytes() {
+    let rgb = Grid::from_fn(2, 2, |r, c| [r as f64, c as f64, 0.5]);
+    let cmap = BivarColormap::from_image("rgb", rgb, BivarShape::Square, (0.0, 0.0)).unwrap();
+    assert_eq!(
+        cmap.lookup(Index(1), Index(0), None).unwrap().to_array(),
+        [1.0, 0.0, 0.5, 1.0]
+    );
+    let bytes = Grid::from_fn(1, 2, |_, c| [255, 0, 51 * c as u8]);
+    let cmap = BivarColormap::from_image("bytes", bytes, BivarShape::Square, (0.0, 0.0)).unwrap();
+    let [r, _, b, a] = cmap.lookup(Index(0), Index(1), None).unwrap().to_array();
+    assert_eq!((r, a), (1.0, 1.0));
+    assert_eq!(b, f64::from(51.0_f32 / 255.0));
+}

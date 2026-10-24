@@ -159,7 +159,7 @@ impl Colormap {
 }
 
 /// numpy's `float -> uint8` cast of `value * 255` (truncating; NaN is 0).
-fn truncate_byte(value: f64) -> u8 {
+pub(crate) fn truncate_byte(value: f64) -> u8 {
     (value * 255.0) as u8
 }
 

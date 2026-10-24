@@ -8,18 +8,28 @@
 //! [`CollectionSpec`] builds one of matplotlib's collection classes
 //! (patches, lines, polygons, ellipses, circles, regular polygons, events)
 //! for [`Axes::add_collection`](crate::axes::Axes::add_collection);
-//! [`TriMeshSpec`] builds a Gouraud-shaded [`TriMesh`].
+//! [`TriMeshSpec`] builds a Gouraud-shaded [`TriMesh`]. Event and ellipse
+//! collections downcast to the [`EventCollection`] and
+//! [`EllipseCollection`] handles, which change their events or ellipses.
 
+mod array;
 mod draw;
+mod ellipses;
+mod events;
 mod gaps;
 mod handle;
 mod legend_elements;
 mod props;
 mod quad_mesh;
+mod readback;
 mod spec;
 mod style;
 mod trimesh;
 
+pub use array::ArrayError;
+pub use ellipses::EllipseCollection;
+pub use events::EventCollection;
+pub(crate) use events::EventLines;
 pub use handle::{Collection, CollectionColorError, CollectionColors};
 pub use legend_elements::{ElementCount, LegendElements, LegendElementsOptions, LegendProperty};
 pub use props::{CollectionProps, CollectionStyle};
@@ -172,6 +182,9 @@ pub(crate) struct CollectionArtist {
     /// Ellipses scaled at draw time (`EllipseCollection`); replaces
     /// `transforms` and `sizes`.
     pub(crate) ellipses: Option<Ellipses>,
+    /// The layout of an event collection's lines (`None` for other
+    /// collections).
+    pub(crate) events: Option<EventLines>,
     pub(crate) offsets: Vec<Point>,
     /// Coordinate system of `offsets` (`None` = no offsets).
     pub(crate) offset_transform: Option<Transform>,
@@ -209,6 +222,10 @@ pub(crate) struct CollectionArtist {
     /// collection's own when set.
     pub(crate) depth_sorted: Option<DepthSorted>,
     pub(crate) mapping: Option<Mapped>,
+    /// The norm and colormap of a colour mapping removed by
+    /// [`Collection::clear_array`], which the next
+    /// [`Collection::set_array`] maps through again.
+    pub(crate) parked_mappable: Option<ScalarMappable>,
     /// How far from an item's outline, in pixels, a pick still hits it; a
     /// pick must fall inside an item when it is not positive.
     pickradius: f64,
@@ -240,6 +257,7 @@ impl CollectionArtist {
             size_factor: 1.0,
             size_rotation: 0.0,
             ellipses: None,
+            events: None,
             offsets: Vec::new(),
             offset_transform: None,
             offsets_masked: false,
@@ -259,6 +277,7 @@ impl CollectionArtist {
             fill_geometry: None,
             depth_sorted: None,
             mapping: None,
+            parked_mappable: None,
             pickradius: 5.0,
             mesh: None,
             draw_time: None,
@@ -453,13 +472,7 @@ impl Artist for CollectionArtist {
     /// matplotlib's `QuadMesh.get_cursor_data`: the values of the cells
     /// under `at` (other collections have none).
     fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
-        self.mesh.as_ref()?;
-        let values = &self.mapping.as_ref()?.source.values;
-        let cells = self.pick_hit(ctx, at, None)?;
-        Some(format_values(
-            cells
-                .into_iter()
-                .filter_map(|i| values.get(i).copied().flatten()),
-        ))
+        let values = self.cursor_values(ctx, at)?;
+        Some(format_values(values.into_iter().flatten()))
     }
 }

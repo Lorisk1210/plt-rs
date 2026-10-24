@@ -49,6 +49,19 @@ impl CollectionArtist {
     }
 }
 
+impl CollectionArtist {
+    /// How many values a quad mesh maps to colours: one per cell, or one
+    /// per vertex when Gouraud-shaded (`None` for other collections).
+    pub(super) fn mesh_value_count(&self) -> Option<usize> {
+        let mesh = self.mesh.as_ref()?;
+        let (rows, cols) = mesh.coordinates.shape();
+        Some(match mesh.shading {
+            MeshShading::Flat => rows.saturating_sub(1) * cols.saturating_sub(1),
+            MeshShading::Gouraud => rows * cols,
+        })
+    }
+}
+
 /// The outline of every cell, row by row, as matplotlib's
 /// `QuadMesh.get_paths` gives them.
 fn cell_paths(coordinates: &Grid<Point>) -> Vec<Path> {

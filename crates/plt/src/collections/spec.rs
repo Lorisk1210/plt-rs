@@ -93,12 +93,16 @@ impl CollectionPatch {
 #[derive(Debug)]
 pub struct CollectionSpec {
     pub(crate) artist: CollectionArtist,
+    /// Whether adding the collection updates the data and view limits and
+    /// makes it count in later ones (matplotlib's `autolim`).
+    pub(crate) autolim: bool,
 }
 
 impl CollectionSpec {
     fn new(kind: CollectionKind, paths: Vec<Path>) -> Self {
         Self {
             artist: CollectionArtist::new(kind, paths, crate::rc::params()),
+            autolim: true,
         }
     }
 
@@ -251,7 +255,7 @@ impl CollectionSpec {
     /// [`relim`]: crate::axes::Axes::relim
     #[must_use]
     pub fn without_autolim(mut self) -> Self {
-        self.artist.in_autoscale = false;
+        self.autolim = false;
         self
     }
 

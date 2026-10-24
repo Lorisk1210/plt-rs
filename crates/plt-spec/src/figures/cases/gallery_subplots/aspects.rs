@@ -90,7 +90,7 @@ fn axes_box_aspect_2(fig: &Figure) -> CaseResult {
 
 fn axes_box_aspect_3(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    let ax2 = ax.twinx();
+    let ax2 = ax.twinx()?;
     ax.plot_y([0.0, 10.0]);
     ax2.plot_y([12.0, 10.0]);
     ax.set_box_aspect(Some(1.0))?;

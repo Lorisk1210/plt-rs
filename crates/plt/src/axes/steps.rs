@@ -87,7 +87,7 @@ impl Axes {
             .clone();
         let points = grid_points_in_data(Some(&transform), self.id(), points);
         Ok(Patch::from_raw(
-            self.adopt(patch, &DataUpdate::data(points)),
+            self.adopt_in_autoscale(patch, &DataUpdate::data(points)),
         ))
     }
 }

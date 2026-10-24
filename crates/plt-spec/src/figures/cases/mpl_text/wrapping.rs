@@ -97,7 +97,7 @@ fn rotated_tick_labels(
 fn xtick_rotation_mode(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_yticks(Vec::<f64>::new());
-    let twin = ax.twiny();
+    let twin = ax.twiny()?;
     rotated_tick_labels(&ax, &twin, AxisName::X, TextRotationMode::XTick)?;
     fig.subplots_adjust(&SubplotOverrides {
         left: Some(0.01),
@@ -114,7 +114,7 @@ fn xtick_rotation_mode(fig: &Figure) -> CaseResult {
 fn ytick_rotation_mode(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_xticks(Vec::<f64>::new());
-    let twin = ax.twinx();
+    let twin = ax.twinx()?;
     rotated_tick_labels(&ax, &twin, AxisName::Y, TextRotationMode::YTick)?;
     fig.subplots_adjust(&SubplotOverrides {
         left: Some(0.4),

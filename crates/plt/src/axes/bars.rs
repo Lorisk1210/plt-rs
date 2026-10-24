@@ -468,7 +468,7 @@ impl Axes {
             .transform
             .get_or_insert_with(|| self.trans_data());
         let update = DataUpdate::extending(patch.limit_points(self.id()));
-        Patch::from_raw(self.adopt(patch, &update))
+        Patch::from_raw(self.adopt_in_autoscale(patch, &update))
     }
 
     /// Error bars at the bar tips (matplotlib's `error_kw` handling), in

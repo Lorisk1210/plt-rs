@@ -168,8 +168,10 @@ pub trait Artist: Any + Debug {
     }
 
     /// What the artist adds to the data limits of `axes`, when it is added
-    /// and when the axes recompute them ([`crate::axes::Axes::relim`]);
-    /// `None` for artists that do not count.
+    /// and, for artists the axes added the way matplotlib's `add_line`,
+    /// `add_patch`, `add_image` and `add_collection` add them, when the
+    /// axes recompute them ([`crate::axes::Axes::relim`]); `None` for
+    /// artists that do not count.
     fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
         None
     }

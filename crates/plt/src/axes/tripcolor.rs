@@ -255,6 +255,7 @@ impl Axes {
             autoscale: (false, false),
         });
         self.autoscale_view(None);
+        // Added with `autolim=False`: `relim` leaves the mesh out.
         self.adopt(artist, &DataUpdate::default())
     }
 }

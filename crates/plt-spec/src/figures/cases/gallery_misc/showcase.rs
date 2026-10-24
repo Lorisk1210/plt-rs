@@ -308,9 +308,9 @@ fn pan_zoom_overlap(fig: &Figure) -> CaseResult {
     let ax = fig.add_axes([0.05, 0.05, 0.9, 0.9])?;
     // `ax.patch.set_color(".75")`: face and edge.
     ax.set_facecolor(".75").set_patch_edgecolor(".75");
-    let _twin = ax.twinx();
+    let _twin = ax.twinx()?;
     let ax1 = fig.add_subplot(2, 2, 1)?;
-    let _twin1 = ax1.twinx();
+    let _twin1 = ax1.twinx()?;
     centred_note(
         &ax1,
         "Visible patch\n\nPan/zoom events are NOT\nforwarded to axes below",
@@ -323,7 +323,7 @@ fn pan_zoom_overlap(fig: &Figure) -> CaseResult {
         "Visible patch\n\nOverride capture behavior:\n\nax.set_forward_navigation_events(True)",
     );
     let ax2 = fig.add_subplot(2, 2, 2)?;
-    let _twin2 = ax2.twinx();
+    let _twin2 = ax2.twinx()?;
     ax2.set_patch_visible(false);
     centred_note(
         &ax2,

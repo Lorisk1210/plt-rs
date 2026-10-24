@@ -166,7 +166,7 @@ fn shared_set_units(fig: &Figure) -> CaseResult {
     top.plot(vec![0.0 * km, 10.0 * km], [0.0, 1.0])?;
     bottom.add_patch(DataRectangle::new((2.0 * km, 0.2), 3.0 * km, 0.5)?);
     bottom.text(6.0 * km, 0.5, "shared");
-    let twin = bottom.twinx();
+    let twin = bottom.twinx()?;
     let orange = LineProps::default().color("C1");
     twin.plot_with(vec![1.0 * km, 9.0 * km], [5.0, 3.0], orange)?;
     bottom.set_ylim(0.0, 1.0)?;

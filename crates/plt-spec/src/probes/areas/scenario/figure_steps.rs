@@ -1,7 +1,7 @@
 //! Steps acting on the figure: adding, listing and clearing axes, the
 //! subplot parameters and drawing.
 
-use plt::axes::Axes;
+use plt::axes::{Axes, ProjectionKind};
 use plt::figure::Share;
 use plt::gridspec::{GridSpec, SubplotOverrides, SubplotSpec};
 
@@ -95,7 +95,8 @@ fn grid_count(n: f64) -> Option<usize> {
 
 /// matplotlib's `fig.add_subplot()`, `add_subplot(211)`,
 /// `add_subplot(2, 1, 1)`, `add_subplot(3, 2, (3, 5))` and
-/// `add_subplot(gs[...])`, sharing axes given by keyword.
+/// `add_subplot(gs[...])`, with the `projection` named and sharing axes
+/// given by keyword.
 fn add_subplot(scene: &Scene, call: &Call<'_>) -> Result<Produced, ProbeError> {
     let fig = &scene.fig;
     let spec = match call.arity() {
@@ -111,9 +112,22 @@ fn add_subplot(scene: &Scene, call: &Call<'_>) -> Result<Produced, ProbeError> {
         3 => Some(numbered_cell(call)?),
         _ => return Err(call.bad("unsupported subplot arguments")),
     };
-    let ax = match spec {
-        None => fig.subplot(),
-        Some(spec) => fig.add_subplot_spec(&spec).map_err(ProbeError::rejected)?,
+    let projection = call
+        .opt_str(KEYWORD_ONLY, "projection")?
+        .map(|name| {
+            ProjectionKind::from_name(name)
+                .ok_or_else(|| call.bad(&format!("unknown projection {name:?}")))
+        })
+        .transpose()?;
+    let ax = match (spec, projection) {
+        (None, None) => fig.subplot(),
+        (Some(spec), None) => fig.add_subplot_spec(&spec).map_err(ProbeError::rejected)?,
+        (None, Some(kind)) => fig
+            .subplot_with_projection(kind)
+            .map_err(ProbeError::rejected)?,
+        (Some(spec), Some(kind)) => fig
+            .add_subplot_spec_with_projection(&spec, kind)
+            .map_err(ProbeError::rejected)?,
     };
     share_from_keywords(scene, &ax, call)?;
     Ok(Produced::Object(Object::Axes(ax)))

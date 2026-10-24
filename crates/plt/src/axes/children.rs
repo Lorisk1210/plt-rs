@@ -197,8 +197,11 @@ impl Axes {
     }
 
     /// Adds `artist` as a child and applies `update` (matplotlib's
-    /// `add_line`/`add_patch`/`add_collection` bookkeeping): an artist
-    /// without a clip path of its own is clipped to the axes' box.
+    /// `add_artist` bookkeeping, and that of `add_collection(...,
+    /// autolim=False)`): an artist without a clip path of its own is
+    /// clipped to the axes' box. [`relim`](Self::relim) leaves the artist
+    /// out; [`adopt_in_autoscale`](Self::adopt_in_autoscale) adds one it
+    /// counts.
     pub(crate) fn adopt(&self, mut artist: impl Artist, update: &DataUpdate) -> RawHandle {
         let axes_id = self.id();
         let base = artist.base_mut();
@@ -213,15 +216,28 @@ impl Axes {
         RawHandle::new(Rc::clone(figure), id)
     }
 
+    /// Adds `artist` as [`adopt`](Self::adopt) does, counted by
+    /// [`relim`](Self::relim) from then on (matplotlib's `add_line`,
+    /// `add_patch` and `add_image`, which set `_in_autoscale`).
+    pub(crate) fn adopt_in_autoscale(
+        &self,
+        mut artist: impl Artist,
+        update: &DataUpdate,
+    ) -> RawHandle {
+        artist.base_mut().in_autoscale = true;
+        self.adopt(artist, update)
+    }
+
     /// Adds a collection as a child the way matplotlib's `add_collection`
     /// does when it updates the limits (`autolim=True`): pending
     /// autoscaling is applied to the view first, with the collection among
     /// the children but not yet in the data limits, and only then does
     /// `update` extend the data limits and request autoscaling again. So
     /// the view the earlier artists asked for is kept if autoscaling is
-    /// turned off before the next draw.
+    /// turned off before the next draw. [`relim`](Self::relim) counts the
+    /// collection from then on.
     pub(crate) fn adopt_collection(&self, artist: impl Artist, update: &DataUpdate) -> RawHandle {
-        let handle = self.adopt(artist, &DataUpdate::default());
+        let handle = self.adopt_in_autoscale(artist, &DataUpdate::default());
         self.unstale_view();
         self.update_data(update);
         handle
@@ -231,6 +247,15 @@ impl Axes {
     /// collections of the axes, leaving hidden ones out when
     /// `visible_only` (matplotlib's `relim`). The view follows at the next
     /// [`Axes::autoscale_view`].
+    ///
+    /// As in matplotlib, only the artists added the way `add_line`,
+    /// `add_patch`, `add_image` and `add_collection` add them count:
+    /// patches given to [`Axes::add_artist`], the collections of methods
+    /// that set the data limits once themselves (`hlines`, `vlines`,
+    /// `eventplot`, `hexbin`, `pcolor`, `pcolormesh`, `tripcolor`, contour
+    /// sets, ...), collections made
+    /// [`without_autolim`](crate::collections::CollectionSpec::without_autolim)
+    /// and infinite lines are left out.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -252,7 +277,8 @@ impl Axes {
             .unwrap_or_default();
         let mut limits = DataLimits::NULL;
         for artist in children.into_iter().filter_map(|id| state.artist(id)) {
-            if visible_only && !artist.base().visible {
+            let base = artist.base();
+            if !base.in_autoscale || (visible_only && !base.visible) {
                 continue;
             }
             if let Some(LimitPoints {
@@ -318,8 +344,29 @@ fn listed_by_kind(artist: &dyn Artist) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::axes::{Axes, FillBetweenOptions};
+    use plt_core::Point;
+
+    use crate::artist::{ArtistHandle, RawHandle};
+    use crate::axes::{
+        Axes, BoxArtist, BoxProps, BoxplotOptions, BxpOptions, EventplotOptions,
+        FillBetweenOptions, HexbinOptions, ImshowOptions, Mesh, PcolorOptions,
+    };
+    use crate::contour::{ContourOptions, QuadField};
     use crate::figure::Figure;
+    use crate::lines::{AxLineThrough, LineProps};
+    use crate::numeric::Grid;
+    use crate::patches::{PatchProps, Rectangle};
+
+    /// The data limits as `(x0, y0, x1, y1)`.
+    fn limits(ax: &Axes) -> (f64, f64, f64, f64) {
+        let bbox = ax.data_lim().bbox;
+        (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())
+    }
+
+    /// A unit square at `(x, y)`.
+    fn square(x: f64, y: f64) -> Rectangle {
+        Rectangle::new(Point::new(x, y), 1.0, 1.0)
+    }
 
     /// Fills between `y1` and `y2` over `x`, from 0 to 1.
     fn fill(ax: &Axes, y1: f64, y2: f64) {
@@ -342,6 +389,70 @@ mod tests {
             3.0,
             "the fill is in the data limits"
         );
+    }
+
+    #[test]
+    fn relim_counts_only_what_matplotlib_marks_in_autoscale() {
+        let ax = Figure::new().subplot();
+        let grid = Grid::from_fn(2, 2, |r, c| (r + c) as f64);
+        ax.add_artist(square(10.0, 10.0));
+        ax.hlines([5.0], [0.0], [9.0]).expect("valid segments");
+        ax.eventplot(&[vec![7.0]], EventplotOptions::default())
+            .expect("valid events");
+        ax.hexbin(&[0.0, 8.0], &[0.0, 8.0], HexbinOptions::default())
+            .expect("valid points");
+        ax.pcolormesh(Mesh::new(grid.clone()), PcolorOptions::default())
+            .expect("a valid mesh");
+        ax.contour(&QuadField::new(grid.clone()), ContourOptions::default())
+            .expect("a valid field");
+        let through = AxLineThrough::Point(Point::new(6.0, 6.0));
+        ax.axline(Point::new(0.0, 0.0), through, LineProps::default())
+            .expect("a valid line");
+        assert_eq!(
+            limits(&ax).2,
+            9.0,
+            "the plotting methods set the data limits once, add_artist does not"
+        );
+        ax.relim(false);
+        assert!(ax.data_lim().bbox.x0().is_infinite(), "none of them counts");
+
+        ax.plot([-1.0, 0.0], [-1.0, 0.0]).expect("a valid line");
+        ax.add_patch(square(3.0, 3.0));
+        ax.imshow(grid, ImshowOptions::default())
+            .expect("a valid image");
+        ax.relim(false);
+        assert_eq!(limits(&ax), (-1.0, -1.0, 4.0, 4.0));
+    }
+
+    #[test]
+    fn attached_artists_count() {
+        let ax = Figure::new().subplot();
+        let mesh = ax
+            .pcolormesh(Mesh::new(Grid::filled(2, 3, 1.0)), PcolorOptions::default())
+            .expect("a valid mesh");
+        mesh.remove();
+        ax.attach(&mesh).expect("a removed collection");
+        ax.relim(false);
+        assert_eq!(limits(&ax), (0.0, 0.0, 3.0, 2.0));
+    }
+
+    #[test]
+    fn filled_boxes_are_added_as_artists() {
+        let ax = Figure::new().subplot();
+        let options = BoxplotOptions {
+            draw: BxpOptions {
+                boxes: Some(BoxProps::Patch(PatchProps::default())),
+                ..BxpOptions::default()
+            },
+            ..BoxplotOptions::default()
+        };
+        let drawn = ax.boxplot(&[[1.0, 2.0, 3.0]], options).expect("valid data");
+        let counted = |artist: &RawHandle| artist.with_base(|base| base.in_autoscale);
+        let [BoxArtist::Patch(filled)] = drawn.boxes.as_slice() else {
+            panic!("one filled box, not {:?}", drawn.boxes);
+        };
+        assert!(!counted(filled.raw()), "matplotlib's add_artist");
+        assert!(counted(drawn.medians[0].raw()), "add_line");
     }
 
     #[test]

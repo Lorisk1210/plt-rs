@@ -206,7 +206,8 @@ impl Axes {
     }
 
     /// Computes the contour set and adds its collection, extending the
-    /// data limits to the grid and autoscaling tightly onto it.
+    /// data limits to the grid and autoscaling tightly onto it; the set is
+    /// added with `autolim=False`, so `relim` leaves it out.
     fn add_contour_set<G: Generator>(
         &self,
         filled: bool,

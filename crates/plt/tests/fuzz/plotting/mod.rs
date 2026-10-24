@@ -203,8 +203,8 @@ fn make_axes(
             .add_subplot_with_projection(rows, cols, cell, *projection)
             .ok()?,
         (Kind::Inset(bounds), Some(parent)) => parent.inset_axes(*bounds),
-        (Kind::TwinX, Some(parent)) => parent.twinx(),
-        (Kind::TwinY, Some(parent)) => parent.twiny(),
+        (Kind::TwinX, Some(parent)) => parent.twinx().ok()?,
+        (Kind::TwinY, Some(parent)) => parent.twiny().ok()?,
         (Kind::SharedX, Some(parent)) => {
             let ax = fig.add_subplot(rows, cols, cell).ok()?;
             let _ = ax.share_x(parent);

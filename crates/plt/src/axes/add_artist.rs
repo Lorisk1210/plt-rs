@@ -80,7 +80,7 @@ impl Axes {
         if base.transform.is_none() {
             base.transform = Some(self.trans_data());
         }
-        let handle = if artist.in_autoscale {
+        let handle = if spec.autolim {
             let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
             self.adopt_collection(artist, &update)
         } else {
@@ -103,9 +103,10 @@ impl Axes {
     /// artists it owns (matplotlib's `add_artist`, `add_line`,
     /// `add_patch`, ... of a removed artist): drawn above the children of
     /// equal z-order, clipped to the axes unless it has a clip path, and
-    /// extending the data limits by what it covers, as `add_line` and
-    /// `add_patch` do. It keeps its coordinate system, so an artist moved
-    /// from another axes stays in that one's data coordinates.
+    /// extending the data limits by what it covers and counted by
+    /// [`relim`](Self::relim), as `add_line` and `add_patch` do. It keeps
+    /// its coordinate system, so an artist moved from another axes stays
+    /// in that one's data coordinates.
     ///
     /// ```
     /// use plt::artist::AttachError;
@@ -136,6 +137,7 @@ impl Axes {
                 if base.clip_path.is_none() {
                     base.clip_box = Some(self.id());
                 }
+                base.in_autoscale = true;
                 artist.limit_points(self.id())
             });
         self.update_data(&DataUpdate::extending(limits));

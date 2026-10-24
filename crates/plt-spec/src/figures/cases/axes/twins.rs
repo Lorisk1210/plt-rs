@@ -23,7 +23,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             LineProps::default().color("tab:blue"),
         )?;
         ax.set_ylabel("exp").yaxis().set_label_color("tab:blue");
-        let ax2 = ax.twinx();
+        let ax2 = ax.twinx()?;
         ax2.plot_with(t(), of_t(f64::sin), LineProps::default().color("tab:red"))?;
         ax2.set_ylabel("sin").yaxis().set_label_color("tab:red");
         Ok(())
@@ -32,7 +32,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         line(&ax)?;
         ax.set_xlabel("bottom");
-        let ax2 = ax.twiny();
+        let ax2 = ax.twiny()?;
         ax2.plot_fmt(of_t(|t| t * 100.0), of_t(f64::cos), "C1")?;
         ax2.set_xlabel("top");
         Ok(())
@@ -45,7 +45,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..BarOptions::default()
         };
         ax.bar(arange(0.0, 5.0, 1.0), [3.0, 4.0, 2.0, 5.0, 1.0], bars)?;
-        let ax2 = ax.twinx();
+        let ax2 = ax.twinx()?;
         ax2.plot_with(
             arange(0.0, 5.0, 1.0),
             [10.0, 30.0, 20.0, 40.0, 25.0],

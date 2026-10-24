@@ -233,10 +233,6 @@ pub(crate) struct CollectionArtist {
     mesh: Option<MeshGeometry>,
     /// Replaces `paths` and the artist transform when drawing.
     pub(crate) draw_time: Option<Box<dyn DrawTimeShapes>>,
-    /// Whether the collection takes part in the data and view limits
-    /// (matplotlib's `_in_autoscale`, which `add_collection(...,
-    /// autolim=False)` leaves off).
-    pub(crate) in_autoscale: bool,
     rc: Rc<RcParams>,
 }
 
@@ -281,7 +277,6 @@ impl CollectionArtist {
             pickradius: 5.0,
             mesh: None,
             draw_time: None,
-            in_autoscale: true,
             rc,
         }
     }
@@ -462,9 +457,6 @@ impl Artist for CollectionArtist {
 
     /// matplotlib's `_update_collection_limits`.
     fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
-        if !self.in_autoscale {
-            return None;
-        }
         let (limits, directions) = self.data_limits(axes);
         LimitPoints::from_limits(limits, directions)
     }

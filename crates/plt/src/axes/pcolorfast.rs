@@ -145,7 +145,7 @@ impl Axes {
                 let mut artist = PcolorImageArtist::new(data, mappable, x, y);
                 artist.base_mut().alpha = options.alpha;
                 artist.base_mut().transform = Some(self.trans_data());
-                let raw = self.adopt(artist, &DataUpdate::default());
+                let raw = self.adopt_in_autoscale(artist, &DataUpdate::default());
                 (
                     extent_bounds(extent),
                     PcolorFast::PcolorImage(PcolorImage::from_raw(raw)),
@@ -218,6 +218,7 @@ impl Axes {
             shading: MeshShading::Flat,
         };
         let artist = self.quad_mesh_artist(&mesh, props, None);
+        // Added with `autolim=False`: `relim` leaves the mesh out.
         let handle = Collection::from_raw(self.adopt(artist, &DataUpdate::default()));
         if let Some(mapping) = mapping {
             handle.set_mapping(mapping);
@@ -251,7 +252,7 @@ impl Axes {
         let mut artist = AxesImageArtist::new(core, extent);
         artist.base_mut().alpha = alpha;
         artist.base_mut().transform = Some(self.trans_data());
-        AxesImage::from_raw(self.adopt(artist, &DataUpdate::default()))
+        AxesImage::from_raw(self.adopt_in_autoscale(artist, &DataUpdate::default()))
     }
 
     /// The common tail of `pcolorfast`: sticky edges, data limits and a

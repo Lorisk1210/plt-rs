@@ -4,7 +4,7 @@
 use std::rc::Rc;
 
 use super::aspect::check_adjustable;
-use super::{Adjustable, Axes, AxesState, AxisName, PlotError};
+use super::{Adjustable, AspectError, Axes, AxesState, AxisName, PlotError};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::figure::make_axes;
 use crate::projections::{ProjectionError, ProjectionSpec, Projector};
@@ -97,15 +97,21 @@ impl Axes {
 
     /// A new axes on top of this one sharing its x axis, with its y axis
     /// on the right (matplotlib's `twinx`).
-    #[must_use]
-    pub fn twinx(&self) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// As [`twin_with`](Self::twin_with).
+    pub fn twinx(&self) -> Result<Self, AspectError> {
         self.twin_with(AxisName::X, 0.0)
     }
 
     /// A new axes on top of this one sharing its y axis, with its x axis
     /// on top (matplotlib's `twiny`).
-    #[must_use]
-    pub fn twiny(&self) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// As [`twin_with`](Self::twin_with).
+    pub fn twiny(&self) -> Result<Self, AspectError> {
         self.twin_with(AxisName::Y, 0.0)
     }
 
@@ -115,11 +121,33 @@ impl Axes {
     /// `_make_twin_axes` and the `twinx`/`twiny(delta_zorder=...)` set-up).
     /// The twin of a removed axes is removed too, having no figure to go
     /// in.
-    #[must_use]
-    pub fn twin_with(&self, shared: AxisName, delta_zorder: f64) -> Self {
+    ///
+    /// ```
+    /// use plt::axes::{AspectError, AxisName, ProjectionKind};
+    /// use plt::figure::Figure;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let twin = ax.twin_with(AxisName::X, 0.0)?;
+    /// assert_eq!(ax.twins(), [ax.clone(), twin]);
+    /// let globe = fig.subplot_with_projection(ProjectionKind::Mollweide)?;
+    /// let refused = globe.twin_with(AxisName::X, 0.0);
+    /// assert_eq!(refused, Err(AspectError::FixedDataRatio(ProjectionKind::Mollweide)));
+    /// assert_eq!(fig.axes().len(), 3);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AspectError::FixedDataRatio`] when this axes fixes its data ratio,
+    /// as polar and geographic axes do, so that twins cannot adjust their
+    /// data limits to an aspect together (matplotlib's `ValueError` from
+    /// `set_adjustable("datalim")`); no twin is made.
+    pub fn twin_with(&self, shared: AxisName, delta_zorder: f64) -> Result<Self, AspectError> {
+        self.raw
+            .with::<AxesState, _>(|axes| check_adjustable(axes, Adjustable::Datalim))?;
         let twin = self.new_twin(shared);
         self.join_twin(&twin, shared, delta_zorder);
-        twin
+        Ok(twin)
     }
 
     /// [`twin_with`](Self::twin_with) making the twin with `projection`
@@ -345,7 +373,7 @@ mod tests {
     fn twins_take_over_the_units_of_the_shared_axis() {
         let ax = Figure::new().subplot();
         ax.plot(["0", "1"], ["a", "b"]).unwrap();
-        let (twin_x, twin_y) = (ax.twinx(), ax.twiny());
+        let (twin_x, twin_y) = (ax.twinx().unwrap(), ax.twiny().unwrap());
         assert_eq!(twin_x.xaxis().converter(), Some(UnitConverter::Categories));
         assert_eq!(twin_x.xaxis().convert_units(["1", "0"]), [1.0, 0.0]);
         assert_eq!(twin_y.yaxis().convert_units(["b", "a"]), [1.0, 0.0]);
@@ -358,7 +386,7 @@ mod tests {
         let ax = fig.subplot();
         ax.set_zorder(3.0);
         ax.plot([0.0, 10.0], [0.0, 1.0]).unwrap();
-        let twin = ax.twinx();
+        let twin = ax.twinx().unwrap();
         twin.plot([0.0, 20.0], [5.0, 6.0]).unwrap();
         assert_eq!(ax.xlim(), twin.xlim());
         assert_eq!(ax.xlim(), (-1.0, 21.0));
@@ -378,7 +406,7 @@ mod tests {
     #[test]
     fn twiny_puts_its_x_axis_on_top() {
         let ax = Figure::new().subplot();
-        let twin = ax.twiny();
+        let twin = ax.twiny().unwrap();
         assert!(!twin.yaxis().visible());
         assert_eq!(twin.xaxis().label_position(), SpineSide::Top);
         assert_eq!(
@@ -452,7 +480,7 @@ mod tests {
     fn a_twin_below_draws_the_background() {
         // matplotlib's test_twinning_patch_visibility_respects_delta_zorder.
         let ax = Figure::new().subplot();
-        let below = ax.twin_with(AxisName::X, -1.0);
+        let below = ax.twin_with(AxisName::X, -1.0).unwrap();
         assert_eq!(below.zorder(), ax.zorder() - 1.0);
         assert!(below.patch_visible() && !ax.patch_visible());
         assert_eq!(ax.twins().len(), 2);
@@ -462,7 +490,7 @@ mod tests {
     fn twins_move_and_reshape_together() {
         // matplotlib's set_position and set_box_aspect act on every twin.
         let ax = Figure::new().subplot();
-        let twin = ax.twinx();
+        let twin = ax.twinx().unwrap();
         ax.set_position([0.2, 0.2, 0.5, 0.5]);
         assert_eq!(twin.original_position(), ax.original_position());
         assert!(
@@ -485,7 +513,7 @@ mod tests {
         .unwrap();
         let ax = fig.subplot();
         ax.set_position([0.2, 0.2, 0.5, 0.5]);
-        let twin = ax.twinx();
+        let twin = ax.twinx().unwrap();
         fig.layout();
         assert_eq!(ax.position(), twin.position());
         assert!(ax.position().width() > 0.5, "the layout took over");
@@ -539,5 +567,29 @@ mod tests {
             Figure::new().subplot_mosaic(&mosaic, options),
             Err(MosaicError::Projection(ProjectionError::Share(_)))
         ));
+    }
+
+    #[test]
+    fn axes_fixing_their_data_ratio_have_no_twins_as_in_matplotlib() {
+        use crate::axes::{AspectError, ProjectionKind};
+
+        let fig = Figure::new();
+        let geo = fig
+            .subplot_with_projection(ProjectionKind::Lambert)
+            .unwrap();
+        let refused = Err(AspectError::FixedDataRatio(ProjectionKind::Lambert));
+        assert_eq!(geo.twinx(), refused);
+        assert_eq!(geo.twiny(), refused);
+        let polar = fig.polar_subplot();
+        assert_eq!(
+            polar.twinx(),
+            Err(AspectError::FixedDataRatio(ProjectionKind::Polar))
+        );
+        assert_eq!(
+            fig.axes(),
+            [geo.clone(), (*polar).clone()],
+            "no twin is made"
+        );
+        assert_eq!(geo.twins(), [geo]);
     }
 }

@@ -34,8 +34,8 @@ pub(super) fn twin_axis_locators_formatters(fig: &Figure) -> CaseResult {
         .set_minor_locator(FixedLocator::new(vec![15.0, 35.0, 55.0, 75.0]))
         .set_major_formatter(FormatStrFormatter::new("%05.2lf")?)
         .set_minor_formatter(fixed_labels(&["c", "3", "p", "o"]));
-    let _ = ax1.twiny();
-    let _ = ax1.twinx();
+    let _ = ax1.twiny()?;
+    let _ = ax1.twinx()?;
     Ok(())
 }
 
@@ -52,12 +52,12 @@ fn twin_logscale(fig: &Figure, axis: AxisName) -> CaseResult {
     };
     let x = arange(1.0, 100.0, 1.0);
     let ax = fig.add_subplot(2, 1, 1)?;
-    let twin = twin_of(&ax);
+    let twin = twin_of(&ax)?;
     set_log(&ax)?;
     twin.plot(&x, &x)?;
     let ax = fig.add_subplot(2, 1, 2)?;
     set_log(&ax)?;
-    twin_of(&ax).plot(&x, &x)?;
+    twin_of(&ax)?.plot(&x, &x)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -78,7 +78,7 @@ pub(super) fn twinx_axis_scales(fig: &Figure) -> CaseResult {
         [0.0, 0.25, 0.5],
         LineProps::default().color("blue").linewidth(10.0),
     )?;
-    let ax2 = ax.twinx();
+    let ax2 = ax.twinx()?;
     ax2.plot_with(
         [0.0, 1.0, 2.0],
         [0.0, 2.0, 4.0],

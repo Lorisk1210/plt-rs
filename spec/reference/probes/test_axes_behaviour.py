@@ -48,6 +48,17 @@ and the like) are ported by recording both. Adaptations:
   tick filtering and the second epoch are covered elsewhere);
   ``test_remove_overlapping_locs`` uses the setter rather than ``plt.setp``.
 
+The cases ``relim_in_autoscale/<method>`` mirror no upstream test. They
+record which artists ``relim`` counts (``Artist._get_in_autoscale``, set by
+``add_line``, ``add_patch``, ``add_image`` and ``add_collection`` but not by
+``add_artist`` or ``add_collection(..., autolim=False)``): the data limits
+after ``<method>``, after ``relim()``, and after ``relim()`` with a line
+added. ``relim_in_autoscale/colorbar`` does the same on the axes of a
+colorbar with extensions. Nor do the cases
+``twin_fixed_data_ratio/<projection>/<twin>``: ``twinx`` and ``twiny`` of
+polar and geographic axes, which raise the ``ValueError`` of
+``set_adjustable("datalim")`` on axes overriding ``get_data_ratio``.
+
 Left out: tests of Python calling conventions and types (``TypeError`` for
 argument counts and mixes, subclass hooks such as ``axes_class``,
 ``SubplotBase``, ``cla`` overrides, units, pandas, pickling), private API
@@ -179,6 +190,44 @@ def test_relim():
         SUBPLOT, [0, "scatter", [], []],
         ["@1", "set_offsets", np.column_stack((xs, np.sin(xs))).tolist()],
         [0, "relim"], [0, "autoscale_view"], *_lims(0),
+    ])
+
+
+def test_relim_in_autoscale():
+    def relimmed(ax):
+        return [[ax, "dataLim"], [ax, "relim"], [ax, "dataLim"],
+                [ax, "plot", [-3, -2], [-3, -2]], [ax, "relim"], [ax, "dataLim"]]
+
+    grid = [[1, 2], [3, 4]]
+    z = [[0, 1, 2], [1, 2, 3], [2, 3, 4]]
+    xs, ys = [0, 1, 2, 3, 4], [0, 2, 1, 3, 4]
+    tri = [[0, 1, 0, 1], [0, 0, 1, 1], [1, 2, 3, 4]]
+    patch = {"new": "PathPatch", "args": [[[1, 1], [3, 1], [3, 2], [1, 1]], [1, 2, 2, 79]]}
+    for name, call in [
+        ("hlines", ["hlines", [1, 2], 0, 3]),
+        ("vlines", ["vlines", [1, 2], 0, 3]),
+        ("eventplot", ["eventplot", [[1, 2, 4], [3, 5]]]),
+        ("hexbin", ["hexbin", xs, ys, {"gridsize": 3}]),
+        ("hexbin_marginals", ["hexbin", xs, ys, {"gridsize": 3, "marginals": True}]),
+        ("pcolor", ["pcolor", grid]),
+        ("pcolormesh", ["pcolormesh", grid]),
+        ("pcolorfast_quadmesh", ["pcolorfast", [[0, 1, 3], [0.5, 1.5, 3.5]],
+                                 [[0, 0, 0], [2, 2, 2]], [[1, 2]]]),
+        ("pcolorfast_image", ["pcolorfast", grid]),
+        ("pcolorfast_pcolorimage", ["pcolorfast", [0, 1, 3], [0, 2, 3], grid]),
+        ("contour", ["contour", z]),
+        ("contourf", ["contourf", z]),
+        ("tripcolor", ["tripcolor", *tri]),
+        ("tripcolor_gouraud", ["tripcolor", *tri, {"shading": "gouraud"}]),
+        ("imshow", ["imshow", grid]),
+        ("axline", ["axline", [0, 0], [1, 2]]),
+        ("add_patch", ["add_patch", patch]),
+        ("add_artist", ["add_artist", patch]),
+    ]:
+        _case(f"relim_in_autoscale/{name}", [SUBPLOT, [0, *call], *relimmed(0)])
+    _case("relim_in_autoscale/colorbar", [
+        SUBPLOT, [0, "pcolormesh", grid], ["fig", "colorbar", "@1", {"extend": "both"}],
+        *[["@2", f"ax.{method}", *args] for _, method, *args in relimmed(None)],
     ])
 
 
@@ -345,6 +394,11 @@ def test_twins():
         SUBPLOT, [0, "twinx"], *patch_visibility[:2], [1, "set_zorder", -1],
         *patch_visibility[:2],
     ])
+    for projection in ["aitoff", "hammer", "lambert", "mollweide", "polar"]:
+        for twin in ["twinx", "twiny"]:
+            _case(f"twin_fixed_data_ratio/{projection}/{twin}", [
+                ["fig", "add_subplot", {"projection": projection}], [0, twin],
+            ])
 
 
 def test_twins_and_layout():

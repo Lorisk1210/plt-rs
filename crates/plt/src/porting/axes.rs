@@ -254,7 +254,7 @@
 //! let fig = Figure::new();
 //! let ax = fig.add_subplot(2, 1, 1)?;
 //! ax.set_xlim(0.0, 180.0)?;
-//! let twin = ax.twinx();
+//! let twin = ax.twinx()?;
 //! twin.set_ylabel("°F");
 //! assert_eq!(twin.xlim(), ax.xlim(), "a twin shares the x axis");
 //!

@@ -246,7 +246,10 @@ fn events_scene(fig: &Figure, args: Args<'_>) -> Result<[Axes; 4], ProbeError> {
             };
             (shared(2, &top)?, shared(3, &bottom)?)
         }
-        "twin" => (top.twinx(), bottom.twinx()),
+        "twin" => (
+            top.twinx().map_err(ProbeError::rejected)?,
+            bottom.twinx().map_err(ProbeError::rejected)?,
+        ),
         other => return Err(ProbeError::BadArgs(format!("unknown pairing {other}"))),
     };
     for ax in [&top, &bottom] {

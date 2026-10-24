@@ -59,7 +59,7 @@ fn build(fig: &Figure, scene: &str) -> Result<(), ProbeError> {
         "twinx" => {
             let ax = fig.subplot();
             line(&ax, [0.0, 5.0])?;
-            line(&ax.twinx(), [100.0, 0.0])?;
+            line(&ax.twinx().map_err(ProbeError::rejected)?, [100.0, 0.0])?;
         }
         "sharex" => {
             let axes = fig

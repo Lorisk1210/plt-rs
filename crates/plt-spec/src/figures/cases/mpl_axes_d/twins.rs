@@ -23,8 +23,8 @@ fn twin_spines(fig: &Figure) -> CaseResult {
         ..SubplotOverrides::default()
     })?;
     let host = fig.subplot();
-    let par1 = host.twinx();
-    let par2 = host.twinx();
+    let par1 = host.twinx()?;
+    let par2 = host.twinx()?;
     par2.spines().right.set_position(SpinePosition::Axes(1.2));
     par2.set_frame_on(true).set_patch_visible(false);
     for spine in par2.spines().iter() {
@@ -66,7 +66,7 @@ fn twin_spines_on_top(fig: &Figure) -> CaseResult {
     let ax1 = fig.subplot();
     let x = [1000.0, 1100.0, 1200.0, 1250.0];
     let y = [310.0, 301.0, 360.0, 400.0].map(|v| v / 1e3);
-    let ax2 = ax1.twinx();
+    let ax2 = ax1.twinx()?;
     for (ax, color, alpha) in [(&ax1, "#BEAED4", 0.8), (&ax2, "#7FC97F", 0.5)] {
         ax.plot_with(x, y, plt::lines::LineProps::default().color(color))?;
         let fill = FillBetweenOptions {
@@ -157,8 +157,8 @@ fn axes_clear_behavior(fig: &Figure, which: AxisName) -> CaseResult {
 pub(super) const CASES: &[FigureCase] = &[
     classic("mpl_axes_d/twin_remove", |fig| {
         let ax = fig.subplot();
-        let twinx = ax.twinx();
-        let twiny = ax.twiny();
+        let twinx = ax.twinx()?;
+        let twiny = ax.twiny()?;
         twinx.remove();
         twiny.remove();
         Ok(())

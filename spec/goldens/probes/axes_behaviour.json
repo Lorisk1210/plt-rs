@@ -2,6 +2,312 @@
  "area": "axes_behaviour",
  "matplotlib": "3.11.2",
  "probes": [
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/add_artist",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "add_artist", {"new": "PathPatch", "args": [[[1, 1], [3, 1], [3, 2], [1, 1]], [1, 2, 2, 79]]}],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/add_patch",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "add_patch", {"new": "PathPatch", "args": [[[1, 1], [3, 1], [3, 2], [1, 1]], [1, 2, 2, 79]]}],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[1.0, 1.0], [3.0, 2.0]], null, [[1.0, 1.0], [3.0, 2.0]], null, null, [[-3.0, -3.0], [3.0, 2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/axline",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "axline", [0, 0], [1, 2]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [1.0, 2.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/colorbar",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "pcolormesh", [[1, 2], [3, 4]]],
+     ["fig", "colorbar", "@1", {"extend": "both"}],
+     ["@2", "ax.dataLim"],
+     ["@2", "ax.relim"],
+     ["@2", "ax.dataLim"],
+     ["@2", "ax.plot", [-3, -2], [-3, -2]],
+     ["@2", "ax.relim"],
+     ["@2", "ax.dataLim"]
+    ]
+   },
+   "value": [null, null, null, [[0.0, 1.0], [1.0, 4.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/contour",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "contour", [[0, 1, 2], [1, 2, 3], [2, 3, 4]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [2.0, 2.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/contourf",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "contourf", [[0, 1, 2], [1, 2, 3], [2, 3, 4]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [2.0, 2.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/eventplot",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "eventplot", [[1, 2, 4], [3, 5]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[1.0, -1.0], [5.0, 2.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/hexbin",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "hexbin", [0, 1, 2, 3, 4], [0, 2, 1, 3, 4], {"gridsize": 3}],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[-4e-09, 0.0], [4.000000004, 4.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/hexbin_marginals",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "hexbin", [0, 1, 2, 3, 4], [0, 2, 1, 3, 4], {"gridsize": 3, "marginals": true}],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[-4e-09, 0.0], [4.000000004, 4.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/hlines",
+    "steps": [["fig", "subplots"], [0, "hlines", [1, 2], 0, 3], [0, "dataLim"], [0, "relim"], [0, "dataLim"], [0, "plot", [-3, -2], [-3, -2]], [0, "relim"], [0, "dataLim"]]
+   },
+   "value": [null, null, [[0.0, 1.0], [3.0, 2.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/imshow",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "imshow", [[1, 2], [3, 4]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[-0.5, -0.5], [1.5, 1.5]], null, [[-0.5, -0.5], [1.5, 1.5]], null, null, [[-3.0, -3.0], [1.5, 1.5]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/pcolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "pcolor", [[1, 2], [3, 4]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [2.0, 2.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/pcolorfast_image",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "pcolorfast", [[1, 2], [3, 4]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [2.0, 2.0]], null, [[0.0, 0.0], [2.0, 2.0]], null, null, [[-3.0, -3.0], [2.0, 2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/pcolorfast_pcolorimage",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "pcolorfast", [0, 1, 3], [0, 2, 3], [[1, 2], [3, 4]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [3.0, 3.0]], null, [[0.0, 0.0], [3.0, 3.0]], null, null, [[-3.0, -3.0], [3.0, 3.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/pcolorfast_quadmesh",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "pcolorfast", [[0, 1, 3], [0.5, 1.5, 3.5]], [[0, 0, 0], [2, 2, 2]], [[1, 2]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [3.5, 2.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/pcolormesh",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "pcolormesh", [[1, 2], [3, 4]]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [2.0, 2.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/tripcolor",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "tripcolor", [0, 1, 0, 1], [0, 0, 1, 1], [1, 2, 3, 4]],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [1.0, 1.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/tripcolor_gouraud",
+    "steps": [
+     ["fig", "subplots"],
+     [0, "tripcolor", [0, 1, 0, 1], [0, 0, 1, 1], [1, 2, 3, 4], {"shading": "gouraud"}],
+     [0, "dataLim"],
+     [0, "relim"],
+     [0, "dataLim"],
+     [0, "plot", [-3, -2], [-3, -2]],
+     [0, "relim"],
+     [0, "dataLim"]
+    ]
+   },
+   "value": [null, null, [[0.0, 0.0], [1.0, 1.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "relim_in_autoscale/vlines",
+    "steps": [["fig", "subplots"], [0, "vlines", [1, 2], 0, 3], [0, "dataLim"], [0, "relim"], [0, "dataLim"], [0, "plot", [-3, -2], [-3, -2]], [0, "relim"], [0, "dataLim"]]
+   },
+   "value": [null, null, [[1.0, 0.0], [2.0, 3.0]], null, [[Infinity, Infinity], [-Infinity, -Infinity]], null, null, [[-3.0, -3.0], [-2.0, -2.0]]]
+  },
   {"op": "axes_behaviour.run", "args": {"case": "test_add_subplot_invalid/code_1000", "steps": [["fig", "add_subplot", 1000]]}, "error": "ValueError"},
   {"op": "axes_behaviour.run", "args": {"case": "test_add_subplot_invalid/code_42", "steps": [["fig", "add_subplot", 42]]}, "error": "ValueError"},
   {"op": "axes_behaviour.run", "args": {"case": "test_add_subplot_invalid/index_0", "steps": [["fig", "add_subplot", 2, 2, 0]]}, "error": "ValueError"},
@@ -5826,6 +6132,56 @@
     [[0.628, 0.6800961538461537], [0.8301249999999999, 0.8874038461538459]],
     [[0.22375, 0.10999999999999999], [0.80125, 0.88]]
    ]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/aitoff/twinx", "steps": [["fig", "add_subplot", {"projection": "aitoff"}], [0, "twinx"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/aitoff/twiny", "steps": [["fig", "add_subplot", {"projection": "aitoff"}], [0, "twiny"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/hammer/twinx", "steps": [["fig", "add_subplot", {"projection": "hammer"}], [0, "twinx"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/hammer/twiny", "steps": [["fig", "add_subplot", {"projection": "hammer"}], [0, "twiny"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/lambert/twinx", "steps": [["fig", "add_subplot", {"projection": "lambert"}], [0, "twinx"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/lambert/twiny", "steps": [["fig", "add_subplot", {"projection": "lambert"}], [0, "twiny"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/mollweide/twinx", "steps": [["fig", "add_subplot", {"projection": "mollweide"}], [0, "twinx"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/mollweide/twiny", "steps": [["fig", "add_subplot", {"projection": "mollweide"}], [0, "twiny"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/polar/twinx", "steps": [["fig", "add_subplot", {"projection": "polar"}], [0, "twinx"]]},
+   "error": "ValueError"
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {"case": "twin_fixed_data_ratio/polar/twiny", "steps": [["fig", "add_subplot", {"projection": "polar"}], [0, "twiny"]]},
+   "error": "ValueError"
   }
  ]
 }

@@ -44,7 +44,7 @@ fn set_position() -> Outcome {
         ..plt::gridspec::SubplotOverrides::default()
     }))?;
     let ax = fig.subplot();
-    let ax2 = ax.twiny();
+    let ax2 = made(ax.twiny())?;
     ax.set_xlabel("Xlabel");
     ax2.set_xlabel("Xlabel2");
     let title = ax.set_title("Title");
@@ -178,7 +178,7 @@ pub(super) fn twiny_title_gap(args: Args<'_>) -> Outcome {
         let fig = Figure::new();
         fig.set_dpi(72.0);
         let ax = fig.subplot();
-        let ax2 = ax.twiny();
+        let ax2 = made(ax.twiny())?;
         ax2.set_xlabel("Xlabel2");
         let title = ax.set_title("Title");
         fig.layout();

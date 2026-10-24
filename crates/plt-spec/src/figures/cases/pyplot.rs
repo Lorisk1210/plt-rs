@@ -170,7 +170,7 @@ fn subplot2grid_twin(fig: &Figure) -> CaseResult {
             LineProps::default(),
         )?;
         pyplot::r#box(Some(false));
-        pyplot::twinx(None);
+        pyplot::twinx(None)?;
         pyplot::plot_with(head, map(head, |v| -v), LineProps::default().color("C3"))?;
         Ok(())
     })

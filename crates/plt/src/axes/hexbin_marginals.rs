@@ -169,6 +169,7 @@ impl Axes {
                 AxisName::X => self.trans_xaxis(),
                 AxisName::Y => self.trans_yaxis(),
             });
+            // Added with `autolim=False`: `relim` leaves the bars out.
             Collection::from_raw(self.adopt(collection, &DataUpdate::default()))
                 .set_mapping(ColorMapping { values, mappable });
         }

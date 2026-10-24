@@ -69,7 +69,7 @@ impl Axes {
             .transform
             .get_or_insert_with(|| self.trans_data());
         let update = DataUpdate::data(patch.data_points());
-        Patch::from_raw(self.adopt(patch, &update))
+        Patch::from_raw(self.adopt_in_autoscale(patch, &update))
     }
 
     /// The next patch property-cycle entry without the properties `props`

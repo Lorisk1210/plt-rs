@@ -7,7 +7,7 @@ use std::path::Path;
 use super::error::PyplotError;
 use super::registry::{fignum_exists, figure, figure_num, gca, gcf};
 use crate::artist::ArtistHandle;
-use crate::axes::{Axes, ProjectionKind};
+use crate::axes::{AspectError, Axes, ProjectionKind};
 use crate::figure::{
     AxesRectError, Figure, Mosaic, MosaicAxes, MosaicError, MosaicOptions, SaveError, SaveOptions,
     Share,
@@ -303,7 +303,12 @@ pub fn axes_with_projection(
 /// with its y axis on the right (matplotlib's `twinx`). It takes the axes
 /// to twin, as matplotlib's pyplot `twinx(ax=None)` does, where
 /// [`Axes::twinx`] is a method of it.
-pub fn twinx(ax: Option<&Axes>) -> Axes {
+///
+/// # Errors
+///
+/// As [`Axes::twinx`]: when the axes fixes its data ratio (polar and
+/// geographic axes).
+pub fn twinx(ax: Option<&Axes>) -> Result<Axes, AspectError> {
     ax.cloned().unwrap_or_else(gca).twinx()
 }
 
@@ -311,7 +316,11 @@ pub fn twinx(ax: Option<&Axes>) -> Axes {
 /// with its x axis on top (matplotlib's `twiny`). It takes the axes to
 /// twin, as matplotlib's pyplot `twiny(ax=None)` does, where
 /// [`Axes::twiny`] is a method of it.
-pub fn twiny(ax: Option<&Axes>) -> Axes {
+///
+/// # Errors
+///
+/// As [`Axes::twiny`].
+pub fn twiny(ax: Option<&Axes>) -> Result<Axes, AspectError> {
     ax.cloned().unwrap_or_else(gca).twiny()
 }
 
@@ -461,9 +470,9 @@ mod tests {
             Err(AxesRectError::NegativeSize(_))
         ));
         assert_eq!((gca(), inset.position().x0()), (inset.clone(), 0.6));
-        let twin = twinx(None);
+        let twin = twinx(None).expect("rectilinear axes have twins");
         assert_eq!(gca(), twin);
-        assert_eq!(twiny(Some(&inset)).figure(), gcf());
+        assert_eq!(twiny(Some(&inset)).map(|twin| twin.figure()), Ok(gcf()));
         assert!(matches!(
             polar(vec![0.0, 1.0], vec![1.0, 2.0]),
             Err(PyplotError::NotPolar)

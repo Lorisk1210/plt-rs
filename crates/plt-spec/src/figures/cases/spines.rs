@@ -73,8 +73,8 @@ fn multiple_yaxis(fig: &Figure) -> CaseResult {
         right: Some(0.75),
         ..Default::default()
     })?;
-    let twin1 = ax.twinx();
-    let twin2 = ax.twinx();
+    let twin1 = ax.twinx()?;
+    let twin2 = ax.twinx()?;
     twin2.spines().right.set_position(SpinePosition::Axes(1.2));
     let x = [0.0, 1.0, 2.0];
     let p1 = ax.plot_fmt(x, [0.0, 1.0, 2.0], "C0")?;

@@ -86,12 +86,20 @@ impl Axis {
     /// their numbers, user values convert in the axis unit as
     /// [`convert_custom`](Self::convert_custom) does but without giving
     /// the axis their converter, and category names register as when they
-    /// are plotted. A failed conversion gives NaN and is reported when the
-    /// figure next draws.
+    /// are plotted on an axis with categories and fail on one without
+    /// (matplotlib's `StrCategoryConverter.convert`, which has no unit to
+    /// add the name to there). A failed conversion gives NaN and is
+    /// reported when the figure next draws.
     pub(crate) fn convert_when_drawn(&self, value: &AxisValue) -> f64 {
         let converted = match value {
             &AxisValue::Number(number) | &AxisValue::Date(number) => Ok(number),
-            AxisValue::Category(_) => Ok(self.convert_value(value.clone())),
+            AxisValue::Category(name) => {
+                if self.read(|axis| axis.categories().is_some()) {
+                    Ok(self.convert_value(value.clone()))
+                } else {
+                    Err(ConversionError::NoCategories(name.clone()))
+                }
+            }
             AxisValue::Custom(values) => self.try_convert_custom_as_is(values).map(one_number),
         };
         converted.unwrap_or_else(|error| {
@@ -281,5 +289,32 @@ mod tests {
             .convert_span(Clock(1.0).into(), &Hours(-4.0).into());
         assert!(end.is_nan(), "a failed far end is reported");
         assert!(fig.to_png().is_err());
+    }
+
+    #[test]
+    fn category_positions_need_an_axis_with_categories() {
+        use crate::text::AnnotateOptions;
+
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.plot([0.0, 1.0], [0.0, 1.0]).expect("a valid line");
+        let text = ax.text("a", 0.5, "hello");
+        let note = ax
+            .annotate("note", ("b", 0.5), AnnotateOptions::default())
+            .expect("data coordinates");
+        assert!(text.position().x.is_nan() && note.xy().x.is_nan());
+        assert_eq!(ax.xaxis().categories(), None, "nothing registers");
+        let problems = fig.to_png().expect_err("the names cannot be placed");
+        let message = problems.to_string();
+        assert!(message.contains("\"a\" is a category name") && message.contains("\"b\""));
+        assert!(fig.to_png().is_ok(), "reported once, as other conversions");
+
+        let ax = Figure::new().subplot();
+        ax.plot(vec!["x", "y"], [0.0, 1.0]).expect("a valid line");
+        let text = ax.text(0.5, 0.25, "numbers");
+        let named = ax.text("z", 0.5, "joins");
+        assert_eq!((text.position().x, named.position().x), (0.5, 2.0));
+        let names = ax.xaxis().categories().expect("categories");
+        assert_eq!(names.names(), ["x", "y", "z"], "matplotlib's unit.update");
     }
 }

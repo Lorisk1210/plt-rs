@@ -293,6 +293,10 @@ pub enum ConversionError {
         /// The number of numbers.
         numbers: usize,
     },
+    /// A category name, given where its axis has no categories to place
+    /// it among (matplotlib's `StrCategoryConverter` without a unit, as
+    /// texts and annotations meet it when they are drawn).
+    NoCategories(String),
 }
 
 impl fmt::Display for ConversionError {
@@ -306,6 +310,11 @@ impl fmt::Display for ConversionError {
             Self::Count { values, numbers } => {
                 write!(f, "{values} values converted to {numbers} numbers")
             }
+            Self::NoCategories(name) => write!(
+                f,
+                "{name:?} is a category name and the axis has no categories; this might be \
+                 caused by unintendedly mixing categorical and numeric data"
+            ),
         }
     }
 }
@@ -331,6 +340,12 @@ mod tests {
             count
                 .to_string()
                 .ends_with("2 values converted to 1 numbers")
+        );
+        let missing = ConversionError::NoCategories("a".into());
+        assert!(
+            missing
+                .to_string()
+                .contains("\"a\" is a category name and the axis has no categories")
         );
     }
 }

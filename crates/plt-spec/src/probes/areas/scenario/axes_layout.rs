@@ -47,14 +47,18 @@ pub(super) fn call(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Handled {
                 ax.position()
             }))
         }),
-        "twinx" | "twiny" => call.opt_f64(KEYWORD_ONLY, "delta_zorder").map(|delta| {
-            let shared = if call.method == "twinx" {
-                AxisName::X
-            } else {
-                AxisName::Y
-            };
-            Produced::Object(Object::Axes(ax.twin_with(shared, delta.unwrap_or(0.0))))
-        }),
+        "twinx" | "twiny" => call
+            .opt_f64(KEYWORD_ONLY, "delta_zorder")
+            .and_then(|delta| {
+                let shared = if call.method == "twinx" {
+                    AxisName::X
+                } else {
+                    AxisName::Y
+                };
+                ax.twin_with(shared, delta.unwrap_or(0.0))
+                    .map(|twin| Produced::Object(Object::Axes(twin)))
+                    .map_err(ProbeError::rejected)
+            }),
         "inset_axes" => {
             rect(call).map(|bounds| Produced::Object(Object::Axes(ax.inset_axes(bounds))))
         }

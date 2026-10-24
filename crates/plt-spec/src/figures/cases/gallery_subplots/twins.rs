@@ -65,7 +65,7 @@ fn two_scales(fig: &Figure) -> CaseResult {
     ax1.set_xlabel("time (s)").set_ylabel("exp");
     ax1.plot_with(&t, map(&t, f64::exp), LineProps::default().color(color))?;
     color_y(&ax1, color);
-    let ax2 = ax1.twinx();
+    let ax2 = ax1.twinx()?;
     let color = "tab:blue";
     ax2.set_ylabel("sin");
     ax2.plot_with(
@@ -85,7 +85,7 @@ fn fahrenheit2celsius(temp: f64) -> f64 {
 
 fn fahrenheit_celsius_scales(fig: &Figure) -> CaseResult {
     let ax_f = fig.subplot();
-    let ax_c = ax_f.twinx();
+    let ax_c = ax_f.twinx()?;
     ax_f.plot_y(linspace(-40.0, 120.0, 100));
     ax_f.set_xlim(0.0, 100.0)?;
     ax_f.set_title("Two scales: Fahrenheit and Celsius");
@@ -102,7 +102,7 @@ fn twin_axes_zorder(fig: &Figure) -> CaseResult {
     let y_main = map(&x, f64::sin);
     let y_twin = map(&x, |x| 0.4 * x.cos() + 0.6);
     let ax = fig.subplot();
-    let ax2 = ax.twin_with(AxisName::X, -1.0);
+    let ax2 = ax.twin_with(AxisName::X, -1.0)?;
     let fill = FillBetweenOptions {
         props: CollectionProps::default()
             .color("C1")

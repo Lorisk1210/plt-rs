@@ -257,6 +257,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn applying_unedited_fields_changes_no_limit() {
+        use plt_platform::EventLoop;
+
+        let figure = Figure::with_size(4.0, 3.0, 100.0);
+        let axs = figure.subplots(1, 2).unwrap();
+        axs[(0, 0)].plot([0.0, 9.8], [0.0, 0.7]).unwrap();
+        axs[(0, 1)].set_xscale("log").unwrap();
+        axs[(0, 1)].plot([0.03, 70.0], [-3.3, 0.1]).unwrap();
+        let limits = || {
+            figure
+                .axes()
+                .iter()
+                .map(|ax| (ax.xlim(), ax.ylim()))
+                .collect::<Vec<_>>()
+        };
+        let before = limits();
+        let (mut event_loop, _handle) = EventLoop::headless();
+        let mut cx = event_loop.context();
+        let mut dialog = OptionsDialog::open(&mut cx, &figure).unwrap().unwrap();
+        for close in [false, true] {
+            let outcome = dialog.apply(&mut cx, close).unwrap();
+            let limits_changed = false;
+            assert_eq!(
+                outcome,
+                Outcome::Applied {
+                    limits_changed,
+                    close
+                }
+            );
+            assert_eq!(limits(), before);
+        }
+    }
+
+    #[test]
     fn axes_are_named_by_their_titles() {
         assert_eq!(axes_name("", 1), "Axes 2");
         assert_eq!(axes_name(" Signal ", 0), "Signal");

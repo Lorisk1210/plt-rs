@@ -7,7 +7,7 @@ use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
 /// `get_matrix` after applying `ops`.
-pub(super) fn get_matrix(args: Args<'_>) -> Outcome {
+pub(crate) fn get_matrix(args: Args<'_>) -> Outcome {
     Ok(encode::matrix(&affine_arg(args, "ops")?))
 }
 
@@ -26,7 +26,7 @@ pub(super) fn to_values(args: Args<'_>) -> Outcome {
 
 /// `transform(points)`: an `(N, 2)` array, or a single `[x, y]` point
 /// (1-D in, 1-D out). Rows of another length raise `ValueError`.
-pub(super) fn transform(args: Args<'_>) -> Outcome {
+pub(crate) fn transform(args: Args<'_>) -> Outcome {
     let t = affine_arg(args, "ops")?;
     let raw = args.json("points")?;
     let rows = raw
@@ -70,7 +70,7 @@ pub(super) fn inverted(args: Args<'_>) -> Outcome {
 
 /// `T0 + T1 + ...` for the op lists in `chain` ("T0 first"), applied to
 /// `points` in one affine step.
-pub(super) fn add(args: Args<'_>) -> Outcome {
+pub(crate) fn add(args: Args<'_>) -> Outcome {
     let chain = args.json("chain")?;
     let total = chain
         .as_array()

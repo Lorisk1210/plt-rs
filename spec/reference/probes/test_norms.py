@@ -458,7 +458,7 @@ def _norm_spec(spec):
 
 
 def _multi_norm(norms, vmin=None, vmax=None, clip=None):
-    specs = norms if isinstance(norms, str) else [_norm_spec(n) for n in norms]
+    specs = norms if norms is None or isinstance(norms, str) else [_norm_spec(n) for n in norms]
     return mcolors.MultiNorm(specs, vmin=vmin, vmax=vmax, clip=clip)
 
 

@@ -179,6 +179,11 @@ impl ResolvedTransform {
         self.steps.is_empty()
     }
 
+    /// Whether the transform leaves every point where it is.
+    pub fn is_identity(&self) -> bool {
+        self.is_affine() && self.affine.is_identity()
+    }
+
     /// The trailing affine map.
     pub fn affine_part(&self) -> Affine2D {
         self.affine

@@ -104,8 +104,22 @@ impl PercentFormatter {
         Ok(ceil_int(2.0 - (2.0 * scaled_range).log10(), "percent range")?.clamp(0, 5))
     }
 
-    /// matplotlib's `format_pct`.
-    fn format_pct(
+    /// The label of `x` on an axis spanning `display_range` data units,
+    /// before minus signs are replaced (matplotlib's `format_pct`): `x` as
+    /// a percentage of `xmax` with the configured decimals, or with as
+    /// many as the range needs, followed by the symbol.
+    ///
+    /// ```
+    /// use plt::ticker::{PercentFormatter, TickerSettings};
+    /// let settings = TickerSettings::default();
+    /// let pct = PercentFormatter::new(17.0);
+    /// assert_eq!(pct.format_pct(1.0, 8.4, &settings).unwrap(), "5.9%");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the decimals cannot be determined (a non-finite range).
+    pub fn format_pct(
         &self,
         x: f64,
         display_range: f64,

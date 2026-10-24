@@ -24,7 +24,7 @@ use std::any::Any;
 use std::fmt::Debug;
 
 use plt_core::path::DataLimits;
-use plt_core::{Affine2D, Bbox, Point};
+use plt_core::{Bbox, Point};
 use plt_render::ClipPath;
 
 use crate::patches::{ClipRegion, PatchView};
@@ -59,10 +59,10 @@ pub struct LimitPoints {
 
 impl LimitPoints {
     /// The points in the coordinates of `transform` as data limits of
-    /// `axes`: in the directions where they are data values, mapped by the
-    /// fixed affine map in front of the data transform (matplotlib's
-    /// `trf_to_data = transform - ax.transData`); `None` when no direction
-    /// is a data value.
+    /// `axes`: in the directions where they are data values, mapped by
+    /// what the transform applies before the data transform, non-affine
+    /// steps included (matplotlib's `trf_to_data = transform -
+    /// ax.transData`); `None` when no direction is a data value.
     pub(crate) fn through(
         transform: &Transform,
         axes: ArtistId,
@@ -72,8 +72,8 @@ impl LimitPoints {
         if directions == (false, false) {
             return None;
         }
-        let points = match transform.affine_before_data(axes) {
-            Some(to_data) if to_data != Affine2D::IDENTITY => points()
+        let points = match transform.to_data(axes) {
+            Some(to_data) if !to_data.is_identity() => points()
                 .into_iter()
                 .map(|p| to_data.transform_point(p))
                 .collect(),

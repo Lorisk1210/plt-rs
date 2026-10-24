@@ -18,6 +18,11 @@ mod update;
 
 use plt::transforms::{Affine2D, Bbox, Point};
 
+pub(crate) use affine::{add, get_matrix, transform};
+pub(crate) use boxes::{count_overlaps, is_finite, overlaps};
+pub(crate) use derived::intersection;
+pub(crate) use scalar::{interval_contains, interval_contains_open, nonsingular};
+
 use crate::probes::{Args, Op, Outcome, ProbeError, encode};
 
 /// Operations implemented for this area.

@@ -56,7 +56,7 @@ pub(crate) const OPS: &[Op] = norm_ops![
 ];
 
 /// Constructs norm `class` from its keyword arguments.
-fn make_norm(class: &str, params: &Json) -> Result<Box<dyn Norm>, ProbeError> {
+pub(crate) fn make_norm(class: &str, params: &Json) -> Result<Box<dyn Norm>, ProbeError> {
     let p = Args::new(params);
     let (vmin, vmax) = (p.opt_f64("vmin")?, p.opt_f64("vmax")?);
     let clip = p.opt_bool("clip")?.unwrap_or(false);
@@ -108,7 +108,10 @@ fn make_norm(class: &str, params: &Json) -> Result<Box<dyn Norm>, ProbeError> {
 }
 
 /// The probe's `values` (and optional `mask`): a scalar or masked array.
-fn masked_values(args: Args<'_>, key: &str) -> Result<(Vec<Option<f64>>, bool), ProbeError> {
+pub(crate) fn masked_values(
+    args: Args<'_>,
+    key: &str,
+) -> Result<(Vec<Option<f64>>, bool), ProbeError> {
     let value = args.json(key)?;
     if let Some(x) = value.as_f64() {
         return Ok((vec![Some(x)], true));
@@ -131,7 +134,7 @@ fn masked_values(args: Args<'_>, key: &str) -> Result<(Vec<Option<f64>>, bool), 
     Ok((data, false))
 }
 
-fn normalized_json(value: Normalized) -> Json {
+pub(crate) fn normalized_json(value: Normalized) -> Json {
     match value {
         Normalized::Fraction(x) => Json::from(x),
         Normalized::Index(i) => Json::Integer(i),
@@ -140,21 +143,21 @@ fn normalized_json(value: Normalized) -> Json {
 }
 
 /// A list result, or its only element for the scalar code path.
-fn shaped(mut items: Vec<Json>, scalar: bool) -> Json {
+pub(crate) fn shaped(mut items: Vec<Json>, scalar: bool) -> Json {
     match (scalar, items.len()) {
         (true, 1) => items.remove(0),
         _ => Json::Array(items),
     }
 }
 
-fn limits_json(norm: &dyn Norm) -> Vec<(String, Json)> {
+pub(crate) fn limits_json(norm: &dyn Norm) -> Vec<(String, Json)> {
     vec![
         ("vmin".into(), Json::from(norm.vmin())),
         ("vmax".into(), Json::from(norm.vmax())),
     ]
 }
 
-fn call(class: &str, args: Args<'_>) -> Outcome {
+pub(crate) fn call(class: &str, args: Args<'_>) -> Outcome {
     let mut norm = make_norm(class, args.json("params")?)?;
     let (data, scalar) = masked_values(args, "values")?;
     let result = norm
@@ -166,7 +169,7 @@ fn call(class: &str, args: Args<'_>) -> Outcome {
     Ok(Json::Object(entries))
 }
 
-fn inverse(class: &str, args: Args<'_>) -> Outcome {
+pub(crate) fn inverse(class: &str, args: Args<'_>) -> Outcome {
     let norm = make_norm(class, args.json("params")?)?;
     let (data, scalar) = masked_values(args, "values")?;
     let values: Vec<f64> = data.into_iter().flatten().collect();
@@ -174,7 +177,7 @@ fn inverse(class: &str, args: Args<'_>) -> Outcome {
     Ok(shaped(result.into_iter().map(Json::from).collect(), scalar))
 }
 
-fn autoscale(class: &str, args: Args<'_>, only_unset: bool) -> Outcome {
+pub(crate) fn autoscale(class: &str, args: Args<'_>, only_unset: bool) -> Outcome {
     let mut norm = make_norm(class, args.json("params")?)?;
     let (data, _) = masked_values(args, "data")?;
     if only_unset {
@@ -185,7 +188,7 @@ fn autoscale(class: &str, args: Args<'_>, only_unset: bool) -> Outcome {
     Ok(Json::Object(limits_json(norm.as_ref())))
 }
 
-fn scalar_mappable_to_rgba(args: Args<'_>) -> Outcome {
+pub(crate) fn scalar_mappable_to_rgba(args: Args<'_>) -> Outcome {
     let cmap = colormaps::get_cmap(args.opt_str("cmap")?).map_err(ProbeError::rejected)?;
     let norm = match args.get("norm") {
         None => Box::new(Normalize::default()),

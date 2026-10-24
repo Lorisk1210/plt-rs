@@ -79,7 +79,7 @@ pub(super) fn properties(args: Args<'_>) -> Outcome {
 }
 
 /// The private `Bbox._is_finite`.
-pub(super) fn is_finite(args: Args<'_>) -> Outcome {
+pub(crate) fn is_finite(args: Args<'_>) -> Outcome {
     Ok(Json::from(bbox_arg(args, "bbox")?.has_finite_extent()))
 }
 
@@ -126,7 +126,7 @@ pub(super) fn fully_contains(args: Args<'_>) -> Outcome {
 }
 
 /// `overlaps(other)`.
-pub(super) fn overlaps(args: Args<'_>) -> Outcome {
+pub(crate) fn overlaps(args: Args<'_>) -> Outcome {
     Ok(Json::from(
         bbox_arg(args, "bbox")?.overlaps(&bbox_arg(args, "other")?),
     ))
@@ -146,7 +146,7 @@ pub(super) fn count_contains(args: Args<'_>) -> Outcome {
 }
 
 /// `count_overlaps(bboxes)`.
-pub(super) fn count_overlaps(args: Args<'_>) -> Outcome {
+pub(crate) fn count_overlaps(args: Args<'_>) -> Outcome {
     let count = bbox_arg(args, "bbox")?.count_overlaps(&bbox_list_arg(args, "bboxes")?);
     Ok(Json::Integer(count as i64))
 }

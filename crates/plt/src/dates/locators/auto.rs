@@ -201,6 +201,19 @@ impl AutoDateLocator {
         self
     }
 
+    /// The maximum number of ticks a frequency may give (matplotlib's
+    /// `maxticks[freq]`).
+    ///
+    /// ```
+    /// use plt::dates::{AutoDateLocator, AutoFrequency};
+    /// let locator = AutoDateLocator::new().with_maxticks_for(AutoFrequency::Monthly, 5);
+    /// assert_eq!(locator.maxticks(AutoFrequency::Monthly), 5);
+    /// assert_eq!(locator.maxticks(AutoFrequency::Yearly), 11);
+    /// ```
+    pub fn maxticks(&self, frequency: AutoFrequency) -> u32 {
+        self.maxticks[frequency.index()]
+    }
+
     /// Whether ticks sit on multiples of the interval (default `true`);
     /// also resets the daily intervals to the matching default.
     #[must_use]

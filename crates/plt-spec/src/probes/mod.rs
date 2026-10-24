@@ -350,6 +350,10 @@ const AREAS: &[(&str, &[Op])] = &[
     ("mpl_container", areas::mpl_container::OPS),
     ("mpl_gridspec", areas::mpl_gridspec::OPS),
     ("mpl_pyplot", areas::mpl_pyplot::OPS),
+    ("mpl_colors", areas::mpl_colors::OPS),
+    ("mpl_dates", areas::mpl_dates::OPS),
+    ("mpl_ticker", areas::mpl_ticker::OPS),
+    ("mpl_transforms", areas::mpl_transforms::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

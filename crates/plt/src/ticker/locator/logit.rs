@@ -135,6 +135,19 @@ impl Locator for LogitLocator {
         self.max_n.tick_values(vmin, vmax, ctx)
     }
 
+    /// `MaxNLocator.view_limits`, which matplotlib's `LogitLocator`
+    /// inherits: with `axes.autolimit_mode: round_numbers` the view widens
+    /// to the outer ticks a `MaxNLocator` would place, typically `(0, 1)`,
+    /// which the logit scale then limits to `(minpos, 1 - minpos)`.
+    fn view_limits(
+        &self,
+        dmin: f64,
+        dmax: f64,
+        ctx: &TickContext<'_>,
+    ) -> Result<(f64, f64), TickerError> {
+        self.max_n.view_limits(dmin, dmax, ctx)
+    }
+
     fn nonsingular(&self, vmin: f64, vmax: f64, ctx: &TickContext<'_>) -> (f64, f64) {
         let initial = (STANDARD_MINPOS, 1.0 - STANDARD_MINPOS);
         let (mut vmin, mut vmax) = if vmin > vmax {
@@ -198,5 +211,19 @@ mod tests {
             loc.nonsingular(0.3, 0.3, &ctx),
             (0.1 * 0.3, 1.0 - 0.1 * 0.3)
         );
+    }
+
+    #[test]
+    fn view_limits_round_like_max_n_locator() {
+        let loc = LogitLocator::default();
+        let round = crate::ticker::TickerSettings {
+            axes_autolimit_mode: crate::ticker::AutolimitMode::RoundNumbers,
+            ..crate::ticker::TickerSettings::default()
+        };
+        let ctx = TickContext::detached(&round);
+        assert_eq!(loc.view_limits(1e-7, 1.0 - 1e-7, &ctx).unwrap(), (0.0, 1.0));
+        let data = crate::ticker::TickerSettings::default();
+        let ctx = TickContext::detached(&data);
+        assert_eq!(loc.view_limits(0.2, 0.7, &ctx).unwrap(), (0.2, 0.7));
     }
 }

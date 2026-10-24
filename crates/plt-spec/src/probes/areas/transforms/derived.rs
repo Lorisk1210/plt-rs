@@ -16,7 +16,7 @@ pub(super) fn union(args: Args<'_>) -> Outcome {
 }
 
 /// `Bbox.intersection(bbox1, bbox2)`: `null` for disjoint boxes.
-pub(super) fn intersection(args: Args<'_>) -> Outcome {
+pub(crate) fn intersection(args: Args<'_>) -> Outcome {
     let (a, b) = (bbox_arg(args, "bbox1")?, bbox_arg(args, "bbox2")?);
     Ok(a.intersection(&b).map_or(Json::Null, |i| encode::bbox(&i)))
 }

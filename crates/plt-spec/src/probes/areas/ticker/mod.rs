@@ -8,6 +8,16 @@
 mod formatters;
 mod locators;
 
+pub(crate) use formatters::{
+    eng, format_str_format_ticks, integer_label, log_formatter, logit, logit_format_ticks,
+    offset_mode, percent, scalar, scalar_format_data, scalar_format_data_short,
+};
+pub(crate) use locators::{
+    asinh_call, asinh_tick_values, index_tick_values, log_locator, log_tick_values,
+    logit_nonsingular, logit_tick_values, maxn_tick_values, maxn_view_limits, multiple_tick_values,
+    multiple_view_limits, symlog, symlog_tick_values, symlog_view_limits,
+};
+
 use plt::ticker::{
     AutolimitMode, AxisInfo, Formatter, Locator, MinorDivisions, TickContext, TickLabels,
     TickerError, TickerSettings,
@@ -155,12 +165,12 @@ fn rejected(err: TickerError) -> ProbeError {
 /// The constructor keywords of a probe, restricted to `allowed` (other
 /// keywords make matplotlib raise `TypeError`).
 #[derive(Clone, Copy)]
-pub(super) struct Params<'a> {
+pub(crate) struct Params<'a> {
     raw: &'a Json,
 }
 
 impl<'a> Params<'a> {
-    pub(super) fn of(args: Args<'a>, allowed: &[&str]) -> Result<Self, ProbeError> {
+    pub(crate) fn of(args: Args<'a>, allowed: &[&str]) -> Result<Self, ProbeError> {
         let raw = args.get("params").unwrap_or(&EMPTY);
         let entries = raw
             .as_object()
@@ -174,18 +184,18 @@ impl<'a> Params<'a> {
     }
 
     /// Typed access (`null` counts as absent).
-    pub(super) fn args(self) -> Args<'a> {
+    pub(crate) fn args(self) -> Args<'a> {
         Args::new(self.raw)
     }
 
     /// The raw value, including an explicit `null`.
-    pub(super) fn raw(self, key: &str) -> Option<&'a Json> {
+    pub(crate) fn raw(self, key: &str) -> Option<&'a Json> {
         self.raw.get(key)
     }
 }
 
 /// The rcParams of the probe's optional `rc` argument.
-pub(super) fn settings(args: Args<'_>) -> Result<TickerSettings, ProbeError> {
+pub(crate) fn settings(args: Args<'_>) -> Result<TickerSettings, ProbeError> {
     let mut s = TickerSettings::default();
     let Some(rc) = args.get("rc") else {
         return Ok(s);
@@ -229,7 +239,7 @@ pub(super) fn settings(args: Args<'_>) -> Result<TickerSettings, ProbeError> {
     Ok(s)
 }
 
-fn int_pair(value: &Json) -> Result<(i32, i32), ProbeError> {
+pub(crate) fn int_pair(value: &Json) -> Result<(i32, i32), ProbeError> {
     match value.as_f64_vec().as_deref() {
         Some(&[a, b]) if a.fract() == 0.0 && b.fract() == 0.0 => Ok((a as i32, b as i32)),
         Some(_) => Err(ProbeError::Rejected("expected a pair of integers".into())),
@@ -237,7 +247,7 @@ fn int_pair(value: &Json) -> Result<(i32, i32), ProbeError> {
     }
 }
 
-fn minor_divisions(value: &Json) -> Result<MinorDivisions, ProbeError> {
+pub(crate) fn minor_divisions(value: &Json) -> Result<MinorDivisions, ProbeError> {
     match (value.as_str(), value.as_i64()) {
         (Some("auto"), _) => Ok(MinorDivisions::Auto),
         (_, Some(n)) => u32::try_from(n)
@@ -247,7 +257,7 @@ fn minor_divisions(value: &Json) -> Result<MinorDivisions, ProbeError> {
     }
 }
 
-fn usize_arg(value: Option<i64>, name: &str) -> Result<Option<usize>, ProbeError> {
+pub(crate) fn usize_arg(value: Option<i64>, name: &str) -> Result<Option<usize>, ProbeError> {
     value
         .map(|v| usize::try_from(v).map_err(|_| ProbeError::Rejected(format!("negative {name}"))))
         .transpose()
@@ -261,22 +271,22 @@ fn pair_arg(args: Args<'_>, key: &str) -> Result<(f64, f64), ProbeError> {
 }
 
 /// A dummy axis whose view and data intervals are the probe's `view`.
-fn view_axis(args: Args<'_>) -> Result<AxisInfo, ProbeError> {
+pub(crate) fn view_axis(args: Args<'_>) -> Result<AxisInfo, ProbeError> {
     let (vmin, vmax) = pair_arg(args, "view")?;
     Ok(AxisInfo::with_view(vmin, vmax))
 }
 
-fn floats(values: Result<Vec<f64>, TickerError>) -> Outcome {
+pub(crate) fn floats(values: Result<Vec<f64>, TickerError>) -> Outcome {
     values.map(Json::from).map_err(rejected)
 }
 
-fn pair(values: Result<(f64, f64), TickerError>) -> Outcome {
+pub(crate) fn pair(values: Result<(f64, f64), TickerError>) -> Outcome {
     values
         .map(|(a, b)| Json::from(vec![a, b]))
         .map_err(rejected)
 }
 
-fn labels(result: Result<TickLabels, TickerError>) -> Outcome {
+pub(crate) fn labels(result: Result<TickLabels, TickerError>) -> Outcome {
     let labels = result.map_err(rejected)?;
     Ok(Json::Object(vec![
         ("labels".to_owned(), Json::from(labels.labels)),
@@ -305,6 +315,6 @@ fn format_ticks(formatter: &dyn Formatter, args: Args<'_>, settings: &TickerSett
     labels(formatter.format_ticks(&args.f64_vec("locs")?, &ctx))
 }
 
-fn text(result: Result<String, TickerError>) -> Outcome {
+pub(crate) fn text(result: Result<String, TickerError>) -> Outcome {
     result.map(Json::from).map_err(rejected)
 }

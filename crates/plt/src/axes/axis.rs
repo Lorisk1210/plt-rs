@@ -338,6 +338,11 @@ impl AxisState {
         }
     }
 
+    /// The category names plotted on the axis, if any.
+    pub(crate) fn categories(&self) -> Option<&Categories> {
+        self.categories.as_ref()
+    }
+
     /// Replaces the major locator and hands it to the major formatter
     /// (matplotlib's `Axis.set_major_locator`).
     pub(crate) fn set_major_locator(&mut self, locator: Rc<dyn Locator>) {

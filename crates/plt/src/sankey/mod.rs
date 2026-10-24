@@ -174,7 +174,9 @@ impl Sankey {
         self.axes
             .set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
-        self.axes.set_adjustable(Adjustable::Datalim);
+        self.axes
+            .set_adjustable(Adjustable::Datalim)
+            .expect("a Sankey diagram draws on rectilinear axes");
         &self.diagrams
     }
 

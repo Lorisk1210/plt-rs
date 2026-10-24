@@ -47,7 +47,8 @@ fn build(fig: &Figure, scene: &str) -> Result<(), ProbeError> {
             line(&ax, [0.0, 5.0])?;
             ax.set_aspect(Aspect::Equal).map_err(ProbeError::rejected)?;
             if scene == "equal_datalim" {
-                ax.set_adjustable(Adjustable::Datalim);
+                ax.set_adjustable(Adjustable::Datalim)
+                    .map_err(ProbeError::rejected)?;
             }
         }
         "inverted" => {

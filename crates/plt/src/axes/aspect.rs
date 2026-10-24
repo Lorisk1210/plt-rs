@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use plt_core::{Anchor, Bbox};
 
-use super::{Axes, AxesState};
+use super::{Axes, AxesState, ProjectionKind};
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError};
 use crate::axes_grid1::{DividerCell, InsetLocatorId};
 use crate::figure::FigureState;
@@ -30,11 +30,15 @@ pub enum Adjustable {
     Datalim,
 }
 
-/// An invalid aspect ratio.
+/// An aspect setting an axes refuses.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AspectError {
     /// The ratio is zero, negative or not finite.
     NotPositive(f64),
+    /// Axes of a curved projection keep a data ratio of 1, so they cannot
+    /// adjust their data limits to an aspect (matplotlib refuses
+    /// `datalim` for axes overriding `get_data_ratio`).
+    FixedDataRatio(ProjectionKind),
 }
 
 impl fmt::Display for AspectError {
@@ -43,11 +47,25 @@ impl fmt::Display for AspectError {
             Self::NotPositive(value) => {
                 write!(f, "aspect must be finite and positive, got {value}")
             }
+            Self::FixedDataRatio(projection) => write!(
+                f,
+                "cannot adjust the data limits of {} axes: their data ratio is fixed",
+                projection.name()
+            ),
         }
     }
 }
 
 impl std::error::Error for AspectError {}
+
+/// Refuses [`Adjustable::Datalim`] for axes of a curved projection, whose
+/// data ratio is fixed.
+fn check_adjustable(axes: &AxesState, adjustable: Adjustable) -> Result<(), AspectError> {
+    if adjustable == Adjustable::Datalim && !axes.projection.is_rectilinear() {
+        return Err(AspectError::FixedDataRatio(axes.projection.kind()));
+    }
+    Ok(())
+}
 
 /// The aspect settings of one axes and the position they produced.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -218,7 +236,9 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When a numeric ratio is not finite and positive.
+    /// When a numeric ratio is not finite and positive, or for
+    /// [`Adjustable::Datalim`] when an axes of the group has a fixed data
+    /// ratio (see [`set_adjustable`](Self::set_adjustable)).
     pub fn set_shared_aspect(
         &self,
         aspect: Aspect,
@@ -229,6 +249,11 @@ impl Axes {
         let mut state = figure.borrow_mut();
         let mut group = state.siblings(AxisName::X, self.id());
         group.extend(state.siblings(AxisName::Y, self.id()));
+        for &id in &group {
+            if let Some(axes) = state.store.get_as::<AxesState>(id) {
+                check_adjustable(axes, adjustable)?;
+            }
+        }
         for id in group {
             if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
                 axes.aspect.ratio = ratio;
@@ -247,7 +272,32 @@ impl Axes {
 
     /// Chooses what changes to honour the aspect (matplotlib's
     /// `set_adjustable`).
-    pub fn set_adjustable(&self, adjustable: Adjustable) -> &Self {
+    ///
+    /// ```
+    /// use plt::axes::{Adjustable, AspectError, ProjectionKind};
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// fig.subplot().set_adjustable(Adjustable::Datalim)?;
+    /// let polar = fig.polar_subplot();
+    /// assert_eq!(
+    ///     polar.set_adjustable(Adjustable::Datalim).err(),
+    ///     Some(AspectError::FixedDataRatio(ProjectionKind::Polar))
+    /// );
+    /// # Ok::<(), AspectError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AspectError::FixedDataRatio`] for [`Adjustable::Datalim`] on polar
+    /// and geographic axes, whose data ratio is fixed.
+    pub fn set_adjustable(&self, adjustable: Adjustable) -> Result<&Self, AspectError> {
+        self.raw
+            .with::<AxesState, _>(|axes| check_adjustable(axes, adjustable))?;
+        Ok(self.store_adjustable(adjustable))
+    }
+
+    /// Sets the adjustable unchecked, for axes known to take it.
+    pub(crate) fn store_adjustable(&self, adjustable: Adjustable) -> &Self {
         self.raw
             .with_mut::<AxesState, _>(|axes| axes.aspect.adjustable = adjustable);
         self

@@ -86,7 +86,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         ellipse(&ax)?;
         ax.set_aspect(Aspect::Equal)?
-            .set_adjustable(Adjustable::Datalim);
+            .set_adjustable(Adjustable::Datalim)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

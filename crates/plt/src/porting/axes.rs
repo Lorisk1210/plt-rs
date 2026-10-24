@@ -110,7 +110,7 @@
 //! assert_eq!(ax.xlim(), (0.0, 10.0));
 //!
 //! ax.set_aspect(Aspect::Equal)?;
-//! ax.set_adjustable(Adjustable::Datalim);
+//! ax.set_adjustable(Adjustable::Datalim)?;
 //! assert_eq!(ax.aspect(), Aspect::Ratio(1.0), "as in matplotlib, equal reads back as 1");
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

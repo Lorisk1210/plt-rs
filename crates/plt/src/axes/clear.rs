@@ -175,6 +175,19 @@ mod tests {
     }
 
     #[test]
+    fn cleared_axes_autoscale_to_a_new_scale() {
+        // Back at the unit box, the view counts as untouched (matplotlib's
+        // `viewLim.mutatedy()`), so a log scale picks its default limits.
+        let ax = Figure::new().subplot();
+        ax.set_ylim(2.0, 3.0);
+        ax.clear();
+        ax.set_yscale("log").unwrap();
+        let (low, high) = ax.ylim();
+        assert!((low - 10f64.powf(-0.05)).abs() < 1e-12, "{low}");
+        assert!((high - 10f64.powf(1.05)).abs() < 1e-12, "{high}");
+    }
+
+    #[test]
     fn tick_parameters_survive_but_the_grid_restarts() {
         // matplotlib's test_axes_clear_behavior.
         let ax = Figure::new().subplot();

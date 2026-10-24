@@ -92,13 +92,13 @@ fn detrend_array(x: &Array, detrend: &Detrend, axis: Option<usize>) -> Result<Ar
     })
 }
 
-pub(super) fn detrend(args: Args<'_>) -> Outcome {
+pub(crate) fn detrend(args: Args<'_>) -> Outcome {
     let x = Array::parse(args.json("x")?)?;
     let key = parse_key(args.opt_str("key")?)?;
     Ok(detrend_array(&x, &key, axis(args)?)?.to_json())
 }
 
-pub(super) fn detrend_mean(args: Args<'_>) -> Outcome {
+pub(crate) fn detrend_mean(args: Args<'_>) -> Outcome {
     let x = Array::parse(args.json("x")?)?;
     Ok(detrend_array(&x, &Detrend::Mean, axis(args)?)?.to_json())
 }

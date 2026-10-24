@@ -211,6 +211,17 @@ impl FromStr for InterpolationStage {
     }
 }
 
+impl fmt::Display for InterpolationStage {
+    /// matplotlib's name (`get_interpolation_stage`).
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Auto => "auto",
+            Self::Data => "data",
+            Self::Rgba => "rgba",
+        })
+    }
+}
+
 /// Which corner the first row and column of an image array sit in
 /// (matplotlib's `origin`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

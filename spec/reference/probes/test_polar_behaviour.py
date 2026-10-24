@@ -49,13 +49,11 @@ Ops
     whether the θ resolution rounds to half a turn or just below is a
     matter of the last bit.
 
-Left out: ``test_polar_twice`` (pyplot state), ``test_polar_gridlines``
-and ``test_shared_polar_keeps_ticklabels`` (tick artist properties),
-``test_polar_not_datalim_adjustable`` (plt-rs polar axes have no
-adjustable setting to misuse), ``test_axvspan`` (a private interpolation
-attribute), ``test_custom_fmt_data`` (Python formatter callables),
-``test_radial_locator_wrapping`` and ``test_set_rticks_ticklabels_no_warning``
-(locator classes and warnings).
+Left out: ``test_polar_twice`` (the ``mpl_pyplot`` area's), and
+``test_polar_gridlines``, ``test_shared_polar_keeps_ticklabels``,
+``test_polar_not_datalim_adjustable``, ``test_axvspan``,
+``test_custom_fmt_data``, ``test_radial_locator_wrapping`` and
+``test_set_rticks_ticklabels_no_warning`` (the ``mpl_polar`` area's).
 """
 
 import numpy as np

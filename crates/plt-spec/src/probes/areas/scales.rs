@@ -107,10 +107,10 @@ pub(crate) const OPS: &[Op] = &[
 /// The per-scale operations, parameterised by the scale's registered name.
 macro_rules! scale_ops {
     ($($module:ident => $name:literal),* $(,)?) => {$(
-        mod $module {
+        pub(crate) mod $module {
             use super::{Args, Outcome};
 
-            pub(super) fn transform(args: Args<'_>) -> Outcome {
+            pub(crate) fn transform(args: Args<'_>) -> Outcome {
                 super::transform($name, args, false)
             }
 
@@ -126,7 +126,7 @@ macro_rules! scale_ops {
                 super::val_in_range($name, args)
             }
 
-            pub(super) fn defaults(args: Args<'_>) -> Outcome {
+            pub(crate) fn defaults(args: Args<'_>) -> Outcome {
                 super::defaults($name, args)
             }
         }
@@ -158,7 +158,7 @@ fn functions(name: &str) -> Result<FuncTransform, ProbeError> {
     })
 }
 
-fn options(args: Args<'_>) -> Result<ScaleOptions, ProbeError> {
+pub(crate) fn options(args: Args<'_>) -> Result<ScaleOptions, ProbeError> {
     let p = Params::of(
         args,
         &[
@@ -204,7 +204,7 @@ fn options(args: Args<'_>) -> Result<ScaleOptions, ProbeError> {
     })
 }
 
-fn scale(name: &str, args: Args<'_>) -> Result<Box<dyn Scale>, ProbeError> {
+pub(crate) fn scale(name: &str, args: Args<'_>) -> Result<Box<dyn Scale>, ProbeError> {
     scale_factory(name, options(args)?).map_err(ProbeError::rejected)
 }
 
@@ -238,7 +238,7 @@ fn get_scale_names(_: Args<'_>) -> Outcome {
     Ok(Json::from(scale_names()))
 }
 
-fn factory(args: Args<'_>) -> Outcome {
+pub(crate) fn factory(args: Args<'_>) -> Outcome {
     let scale = scale(args.str("scale")?, args)?;
     Ok(Json::from(class_name(scale.as_ref())))
 }

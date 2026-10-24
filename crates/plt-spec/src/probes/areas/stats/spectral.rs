@@ -43,7 +43,7 @@ fn count(args: Args<'_>, key: &str) -> Result<Option<usize>, ProbeError> {
         .transpose()
 }
 
-fn spectral_options(args: Args<'_>) -> Result<SpectralOptions, ProbeError> {
+pub(crate) fn spectral_options(args: Args<'_>) -> Result<SpectralOptions, ProbeError> {
     let detrend = match args.opt_str("detrend")? {
         None | Some("none") => Detrend::None,
         Some("mean" | "default" | "constant") => Detrend::Mean,
@@ -149,7 +149,7 @@ fn specgram_json(spec: Json, freqs: Vec<f64>, times: Vec<f64>) -> Json {
     ])
 }
 
-fn spectrum_options(args: Args<'_>) -> Result<SpectrumOptions, ProbeError> {
+pub(crate) fn spectrum_options(args: Args<'_>) -> Result<SpectrumOptions, ProbeError> {
     Ok(SpectrumOptions {
         fs: args.opt_f64("Fs")?.unwrap_or(SpectrumOptions::default().fs),
         window: parse_window(args.get("window"))?,

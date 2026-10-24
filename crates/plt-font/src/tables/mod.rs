@@ -12,4 +12,5 @@ pub(crate) mod hmtx;
 pub(crate) mod kern;
 pub(crate) mod name;
 pub(crate) mod os2;
+pub(crate) mod pclt;
 pub(crate) mod post;

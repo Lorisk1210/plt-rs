@@ -129,6 +129,9 @@ fn compound_edge_cases_match_matplotlib() {
         Path::closed(vec![p(1.0, 2.0)]).codes(),
         Some(&[PathCode::ClosePoly][..])
     );
+    let empty = Path::closed(Vec::new());
+    assert!(empty.codes().is_none());
+    assert_eq!(empty.extents(), Bbox::NULL);
     let polys = Path::compound_from_polygons(&[vec![p(0.0, 0.0)], vec![p(1.0, 1.0)]]);
     assert_eq!(
         polys.vertices(),

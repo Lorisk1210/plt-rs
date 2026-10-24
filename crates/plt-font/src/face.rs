@@ -321,9 +321,15 @@ impl<'a> Face<'a> {
         self.hmtx.left_side_bearing(glyph)
     }
 
-    /// The `maxp` values, including the bytecode interpreter's limits.
-    pub(crate) const fn max_profile(&self) -> &MaxProfile {
+    /// The `maxp` table as FreeType loads it, including the bytecode
+    /// interpreter's limits.
+    pub const fn max_profile(&self) -> &MaxProfile {
         &self.maxp
+    }
+
+    /// The `name` table.
+    pub(crate) const fn name_table(&self) -> &Name<'a> {
+        &self.name
     }
 
     /// The TrueType outlines (`loca` + `glyf`), if the face has them.

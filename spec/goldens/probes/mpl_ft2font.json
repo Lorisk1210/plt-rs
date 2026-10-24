@@ -1,0 +1,654 @@
+{
+ "area": "mpl_ft2font",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "ft2font.FT2Font", "args": {"file": "DejaVuSans.ttf", "face_index": 0}, "value": {"face_index": 0, "num_faces": 1}},
+  {"op": "ft2font.FT2Font", "args": {"file": "DejaVuSans.ttf", "face_index": 255}, "error": "RuntimeError"},
+  {
+   "op": "ft2font.FT2Font._layout.ft_object",
+   "args": {
+    "files": ["cmr10.ttf", "DejaVuSans.ttf"],
+    "text": "There are basic characters\nABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz\n0123456789 !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~\nand accented characters\nÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞß\nàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ\nĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğ\nĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿ\nŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞş\nŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžſ\nƀƁƂƃƄƅƆƇƈƉƊƋƌƍƎƏƐƑƒƓƔƕƖƗƘƙƚƛƜƝƞƟ\nƠơƢƣƤƥƦƧƨƩƪƫƬƭƮƯưƱƲƳƴƵƶƷƸƹƺƻƼƽƾƿ\nǀǁǂǃǄǅǆǇǈǉǊǋǌǍǎǏǐǑǒǓǔǕǖǗǘǙǚǛǜǝǞǟ\nǠǡǢǣǤǥǦǧǨǩǪǫǬǭǮǯǰǱǲǳǴǵǶǷǸǹǺǻǼǽǾǿ\nȀȁȂȃȄȅȆȇȈȉȊȋȌȍȎȏȐȑȒȓȔȕȖȗȘșȚțȜȝȞȟ\nȠȡȢȣȤȥȦȧȨȩȪȫȬȭȮȯȰȱȲȳȴȵȶȷȸȹȺȻȼȽȾȿ\nɀɁɂɃɄɅɆɇɈɉɊɋɌɍɎɏ😀😁😂😃😄😅😆😇😈😉😊😋😌😍😎😏\nin between!\n几个汉字"
+   },
+   "value": [["T", "cmr10.ttf"], ["h", "cmr10.ttf"], ["e", "cmr10.ttf"], ["r", "cmr10.ttf"], ["e", "cmr10.ttf"], [" ", "cmr10.ttf"], ["a", "cmr10.ttf"], ["r", "cmr10.ttf"], ["e", "cmr10.ttf"], [" ", "cmr10.ttf"], ["b", "cmr10.ttf"], ["a", "cmr10.ttf"], ["s", "cmr10.ttf"], ["i", "cmr10.ttf"], ["c", "cmr10.ttf"], [" ", "cmr10.ttf"], ["c", "cmr10.ttf"], ["h", "cmr10.ttf"], ["a", "cmr10.ttf"], ["r", "cmr10.ttf"], ["a", "cmr10.ttf"], ["c", "cmr10.ttf"], ["t", "cmr10.ttf"], ["e", "cmr10.ttf"], ["r", "cmr10.ttf"], ["s", "cmr10.ttf"], ["A", "cmr10.ttf"], ["B", "cmr10.ttf"], ["C", "cmr10.ttf"], ["D", "cmr10.ttf"], ["E", "cmr10.ttf"], ["F", "cmr10.ttf"], ["G", "cmr10.ttf"], ["H", "cmr10.ttf"], ["I", "cmr10.ttf"], ["J", "cmr10.ttf"], ["K", "cmr10.ttf"], ["L", "cmr10.ttf"], ["M", "cmr10.ttf"], ["N", "cmr10.ttf"], ["O", "cmr10.ttf"], ["P", "cmr10.ttf"], ["Q", "cmr10.ttf"], ["R", "cmr10.ttf"], ["S", "cmr10.ttf"], ["T", "cmr10.ttf"], ["U", "cmr10.ttf"], ["V", "cmr10.ttf"], ["W", "cmr10.ttf"], ["X", "cmr10.ttf"], ["Y", "cmr10.ttf"], ["Z", "cmr10.ttf"], [" ", "cmr10.ttf"], ["a", "cmr10.ttf"], ["b", "cmr10.ttf"], ["c", "cmr10.ttf"], ["d", "cmr10.ttf"], ["e", "cmr10.ttf"], ["f", "cmr10.ttf"], ["g", "cmr10.ttf"], ["h", "cmr10.ttf"], ["i", "cmr10.ttf"], ["j", "cmr10.ttf"], ["k", "cmr10.ttf"], ["l", "cmr10.ttf"], ["m", "cmr10.ttf"], ["n", "cmr10.ttf"], ["o", "cmr10.ttf"], ["p", "cmr10.ttf"], ["q", "cmr10.ttf"], ["r", "cmr10.ttf"], ["s", "cmr10.ttf"], ["t", "cmr10.ttf"], ["u", "cmr10.ttf"], ["v", "cmr10.ttf"], ["w", "cmr10.ttf"], ["x", "cmr10.ttf"], ["y", "cmr10.ttf"], ["z", "cmr10.ttf"], ["0", "cmr10.ttf"], ["1", "cmr10.ttf"], ["2", "cmr10.ttf"], ["3", "cmr10.ttf"], ["4", "cmr10.ttf"], ["5", "cmr10.ttf"], ["6", "cmr10.ttf"], ["7", "cmr10.ttf"], ["8", "cmr10.ttf"], ["9", "cmr10.ttf"], [" ", "cmr10.ttf"], ["!", "cmr10.ttf"], ["\"", "cmr10.ttf"], ["#", "cmr10.ttf"], ["$", "cmr10.ttf"], ["%", "cmr10.ttf"], ["&", "cmr10.ttf"], ["'", "cmr10.ttf"], ["(", "cmr10.ttf"], [")", "cmr10.ttf"], ["*", "cmr10.ttf"], ["+", "cmr10.ttf"], [",", "cmr10.ttf"], ["-", "cmr10.ttf"], [".", "cmr10.ttf"], ["/", "cmr10.ttf"], [":", "cmr10.ttf"], [";", "cmr10.ttf"], ["<", "cmr10.ttf"], ["=", "cmr10.ttf"], [">", "cmr10.ttf"], ["?", "cmr10.ttf"], ["@", "cmr10.ttf"], ["[", "cmr10.ttf"], ["\\", "cmr10.ttf"], ["]", "cmr10.ttf"], ["^", "cmr10.ttf"], ["_", "cmr10.ttf"], ["`", "cmr10.ttf"], ["{", "cmr10.ttf"], ["|", "cmr10.ttf"], ["}", "cmr10.ttf"], ["~", "cmr10.ttf"], ["a", "cmr10.ttf"], ["n", "cmr10.ttf"], ["d", "cmr10.ttf"], [" ", "cmr10.ttf"], ["a", "cmr10.ttf"], ["c", "cmr10.ttf"], ["c", "cmr10.ttf"], ["e", "cmr10.ttf"], ["n", "cmr10.ttf"], ["t", "cmr10.ttf"], ["e", "cmr10.ttf"], ["d", "cmr10.ttf"], [" ", "cmr10.ttf"], ["c", "cmr10.ttf"], ["h", "cmr10.ttf"], ["a", "cmr10.ttf"], ["r", "cmr10.ttf"], ["a", "cmr10.ttf"], ["c", "cmr10.ttf"], ["t", "cmr10.ttf"], ["e", "cmr10.ttf"], ["r", "cmr10.ttf"], ["s", "cmr10.ttf"], ["Å", "DejaVuSans.ttf"], ["Æ", "DejaVuSans.ttf"], ["Ç", "DejaVuSans.ttf"], ["È", "DejaVuSans.ttf"], ["É", "DejaVuSans.ttf"], ["Ê", "DejaVuSans.ttf"], ["Ë", "DejaVuSans.ttf"], ["Ì", "DejaVuSans.ttf"], ["Í", "DejaVuSans.ttf"], ["Î", "DejaVuSans.ttf"], ["Ï", "DejaVuSans.ttf"], ["Ð", "DejaVuSans.ttf"], ["Ñ", "DejaVuSans.ttf"], ["Ò", "DejaVuSans.ttf"], ["Ó", "DejaVuSans.ttf"], ["Ô", "DejaVuSans.ttf"], ["Õ", "DejaVuSans.ttf"], ["Ö", "DejaVuSans.ttf"], ["×", "DejaVuSans.ttf"], ["Ø", "DejaVuSans.ttf"], ["Ù", "DejaVuSans.ttf"], ["Ú", "DejaVuSans.ttf"], ["Û", "DejaVuSans.ttf"], ["Ü", "DejaVuSans.ttf"], ["Ý", "DejaVuSans.ttf"], ["Þ", "DejaVuSans.ttf"], ["ß", "DejaVuSans.ttf"], ["à", "DejaVuSans.ttf"], ["á", "DejaVuSans.ttf"], ["â", "DejaVuSans.ttf"], ["ã", "DejaVuSans.ttf"], ["ä", "DejaVuSans.ttf"], ["å", "DejaVuSans.ttf"], ["æ", "DejaVuSans.ttf"], ["ç", "DejaVuSans.ttf"], ["è", "DejaVuSans.ttf"], ["é", "DejaVuSans.ttf"], ["ê", "DejaVuSans.ttf"], ["ë", "DejaVuSans.ttf"], ["ì", "DejaVuSans.ttf"], ["í", "DejaVuSans.ttf"], ["î", "DejaVuSans.ttf"], ["ï", "DejaVuSans.ttf"], ["ð", "DejaVuSans.ttf"], ["ñ", "DejaVuSans.ttf"], ["ò", "DejaVuSans.ttf"], ["ó", "DejaVuSans.ttf"], ["ô", "DejaVuSans.ttf"], ["õ", "DejaVuSans.ttf"], ["ö", "DejaVuSans.ttf"], ["÷", "DejaVuSans.ttf"], ["ø", "DejaVuSans.ttf"], ["ù", "DejaVuSans.ttf"], ["ú", "DejaVuSans.ttf"], ["û", "DejaVuSans.ttf"], ["ü", "DejaVuSans.ttf"], ["ý", "DejaVuSans.ttf"], ["þ", "DejaVuSans.ttf"], ["ÿ", "DejaVuSans.ttf"], ["Ā", "DejaVuSans.ttf"], ["ā", "DejaVuSans.ttf"], ["Ă", "DejaVuSans.ttf"], ["ă", "DejaVuSans.ttf"], ["Ą", "DejaVuSans.ttf"], ["ą", "DejaVuSans.ttf"], ["Ć", "DejaVuSans.ttf"], ["ć", "DejaVuSans.ttf"], ["Ĉ", "DejaVuSans.ttf"], ["ĉ", "DejaVuSans.ttf"], ["Ċ", "DejaVuSans.ttf"], ["ċ", "DejaVuSans.ttf"], ["Č", "DejaVuSans.ttf"], ["č", "DejaVuSans.ttf"], ["Ď", "DejaVuSans.ttf"], ["ď", "DejaVuSans.ttf"], ["Đ", "DejaVuSans.ttf"], ["đ", "DejaVuSans.ttf"], ["Ē", "DejaVuSans.ttf"], ["ē", "DejaVuSans.ttf"], ["Ĕ", "DejaVuSans.ttf"], ["ĕ", "DejaVuSans.ttf"], ["Ė", "DejaVuSans.ttf"], ["ė", "DejaVuSans.ttf"], ["Ę", "DejaVuSans.ttf"], ["ę", "DejaVuSans.ttf"], ["Ě", "DejaVuSans.ttf"], ["ě", "DejaVuSans.ttf"], ["Ĝ", "DejaVuSans.ttf"], ["ĝ", "DejaVuSans.ttf"], ["Ğ", "DejaVuSans.ttf"], ["ğ", "DejaVuSans.ttf"], ["Ġ", "DejaVuSans.ttf"], ["ġ", "DejaVuSans.ttf"], ["Ģ", "DejaVuSans.ttf"], ["ģ", "DejaVuSans.ttf"], ["Ĥ", "DejaVuSans.ttf"], ["ĥ", "DejaVuSans.ttf"], ["Ħ", "DejaVuSans.ttf"], ["ħ", "DejaVuSans.ttf"], ["Ĩ", "DejaVuSans.ttf"], ["ĩ", "DejaVuSans.ttf"], ["Ī", "DejaVuSans.ttf"], ["ī", "DejaVuSans.ttf"], ["Ĭ", "DejaVuSans.ttf"], ["ĭ", "DejaVuSans.ttf"], ["Į", "DejaVuSans.ttf"], ["į", "DejaVuSans.ttf"], ["İ", "DejaVuSans.ttf"], ["ı", "DejaVuSans.ttf"], ["Ĳ", "DejaVuSans.ttf"], ["ĳ", "DejaVuSans.ttf"], ["Ĵ", "DejaVuSans.ttf"], ["ĵ", "DejaVuSans.ttf"], ["Ķ", "DejaVuSans.ttf"], ["ķ", "DejaVuSans.ttf"], ["ĸ", "DejaVuSans.ttf"], ["Ĺ", "DejaVuSans.ttf"], ["ĺ", "DejaVuSans.ttf"], ["Ļ", "DejaVuSans.ttf"], ["ļ", "DejaVuSans.ttf"], ["Ľ", "DejaVuSans.ttf"], ["ľ", "DejaVuSans.ttf"], ["Ŀ", "DejaVuSans.ttf"], ["ŀ", "DejaVuSans.ttf"], ["Ł", "DejaVuSans.ttf"], ["ł", "DejaVuSans.ttf"], ["Ń", "DejaVuSans.ttf"], ["ń", "DejaVuSans.ttf"], ["Ņ", "DejaVuSans.ttf"], ["ņ", "DejaVuSans.ttf"], ["Ň", "DejaVuSans.ttf"], ["ň", "DejaVuSans.ttf"], ["ŉ", "DejaVuSans.ttf"], ["Ŋ", "DejaVuSans.ttf"], ["ŋ", "DejaVuSans.ttf"], ["Ō", "DejaVuSans.ttf"], ["ō", "DejaVuSans.ttf"], ["Ŏ", "DejaVuSans.ttf"], ["ŏ", "DejaVuSans.ttf"], ["Ő", "DejaVuSans.ttf"], ["ő", "DejaVuSans.ttf"], ["Œ", "DejaVuSans.ttf"], ["œ", "DejaVuSans.ttf"], ["Ŕ", "DejaVuSans.ttf"], ["ŕ", "DejaVuSans.ttf"], ["Ŗ", "DejaVuSans.ttf"], ["ŗ", "DejaVuSans.ttf"], ["Ř", "DejaVuSans.ttf"], ["ř", "DejaVuSans.ttf"], ["Ś", "DejaVuSans.ttf"], ["ś", "DejaVuSans.ttf"], ["Ŝ", "DejaVuSans.ttf"], ["ŝ", "DejaVuSans.ttf"], ["Ş", "DejaVuSans.ttf"], ["ş", "DejaVuSans.ttf"], ["Š", "DejaVuSans.ttf"], ["š", "DejaVuSans.ttf"], ["Ţ", "DejaVuSans.ttf"], ["ţ", "DejaVuSans.ttf"], ["Ť", "DejaVuSans.ttf"], ["ť", "DejaVuSans.ttf"], ["Ŧ", "DejaVuSans.ttf"], ["ŧ", "DejaVuSans.ttf"], ["Ũ", "DejaVuSans.ttf"], ["ũ", "DejaVuSans.ttf"], ["Ū", "DejaVuSans.ttf"], ["ū", "DejaVuSans.ttf"], ["Ŭ", "DejaVuSans.ttf"], ["ŭ", "DejaVuSans.ttf"], ["Ů", "DejaVuSans.ttf"], ["ů", "DejaVuSans.ttf"], ["Ű", "DejaVuSans.ttf"], ["ű", "DejaVuSans.ttf"], ["Ų", "DejaVuSans.ttf"], ["ų", "DejaVuSans.ttf"], ["Ŵ", "DejaVuSans.ttf"], ["ŵ", "DejaVuSans.ttf"], ["Ŷ", "DejaVuSans.ttf"], ["ŷ", "DejaVuSans.ttf"], ["Ÿ", "DejaVuSans.ttf"], ["Ź", "DejaVuSans.ttf"], ["ź", "DejaVuSans.ttf"], ["Ż", "DejaVuSans.ttf"], ["ż", "DejaVuSans.ttf"], ["Ž", "DejaVuSans.ttf"], ["ž", "DejaVuSans.ttf"], ["ſ", "DejaVuSans.ttf"], ["ƀ", "DejaVuSans.ttf"], ["Ɓ", "DejaVuSans.ttf"], ["Ƃ", "DejaVuSans.ttf"], ["ƃ", "DejaVuSans.ttf"], ["Ƅ", "DejaVuSans.ttf"], ["ƅ", "DejaVuSans.ttf"], ["Ɔ", "DejaVuSans.ttf"], ["Ƈ", "DejaVuSans.ttf"], ["ƈ", "DejaVuSans.ttf"], ["Ɖ", "DejaVuSans.ttf"], ["Ɗ", "DejaVuSans.ttf"], ["Ƌ", "DejaVuSans.ttf"], ["ƌ", "DejaVuSans.ttf"], ["ƍ", "DejaVuSans.ttf"], ["Ǝ", "DejaVuSans.ttf"], ["Ə", "DejaVuSans.ttf"], ["Ɛ", "DejaVuSans.ttf"], ["Ƒ", "DejaVuSans.ttf"], ["ƒ", "DejaVuSans.ttf"], ["Ɠ", "DejaVuSans.ttf"], ["Ɣ", "DejaVuSans.ttf"], ["ƕ", "DejaVuSans.ttf"], ["Ɩ", "DejaVuSans.ttf"], ["Ɨ", "DejaVuSans.ttf"], ["Ƙ", "DejaVuSans.ttf"], ["ƙ", "DejaVuSans.ttf"], ["ƚ", "DejaVuSans.ttf"], ["ƛ", "DejaVuSans.ttf"], ["Ɯ", "DejaVuSans.ttf"], ["Ɲ", "DejaVuSans.ttf"], ["ƞ", "DejaVuSans.ttf"], ["Ɵ", "DejaVuSans.ttf"], ["Ơ", "DejaVuSans.ttf"], ["ơ", "DejaVuSans.ttf"], ["Ƣ", "DejaVuSans.ttf"], ["ƣ", "DejaVuSans.ttf"], ["Ƥ", "DejaVuSans.ttf"], ["ƥ", "DejaVuSans.ttf"], ["Ʀ", "DejaVuSans.ttf"], ["Ƨ", "DejaVuSans.ttf"], ["ƨ", "DejaVuSans.ttf"], ["Ʃ", "DejaVuSans.ttf"], ["ƪ", "DejaVuSans.ttf"], ["ƫ", "DejaVuSans.ttf"], ["Ƭ", "DejaVuSans.ttf"], ["ƭ", "DejaVuSans.ttf"], ["Ʈ", "DejaVuSans.ttf"], ["Ư", "DejaVuSans.ttf"], ["ư", "DejaVuSans.ttf"], ["Ʊ", "DejaVuSans.ttf"], ["Ʋ", "DejaVuSans.ttf"], ["Ƴ", "DejaVuSans.ttf"], ["ƴ", "DejaVuSans.ttf"], ["Ƶ", "DejaVuSans.ttf"], ["ƶ", "DejaVuSans.ttf"], ["Ʒ", "DejaVuSans.ttf"], ["Ƹ", "DejaVuSans.ttf"], ["ƹ", "DejaVuSans.ttf"], ["ƺ", "DejaVuSans.ttf"], ["ƻ", "DejaVuSans.ttf"], ["Ƽ", "DejaVuSans.ttf"], ["ƽ", "DejaVuSans.ttf"], ["ƾ", "DejaVuSans.ttf"], ["ƿ", "DejaVuSans.ttf"], ["ǀ", "DejaVuSans.ttf"], ["ǁ", "DejaVuSans.ttf"], ["ǂ", "DejaVuSans.ttf"], ["ǃ", "DejaVuSans.ttf"], ["Ǆ", "DejaVuSans.ttf"], ["ǅ", "DejaVuSans.ttf"], ["ǆ", "DejaVuSans.ttf"], ["Ǉ", "DejaVuSans.ttf"], ["ǈ", "DejaVuSans.ttf"], ["ǉ", "DejaVuSans.ttf"], ["Ǌ", "DejaVuSans.ttf"], ["ǋ", "DejaVuSans.ttf"], ["ǌ", "DejaVuSans.ttf"], ["Ǎ", "DejaVuSans.ttf"], ["ǎ", "DejaVuSans.ttf"], ["Ǐ", "DejaVuSans.ttf"], ["ǐ", "DejaVuSans.ttf"], ["Ǒ", "DejaVuSans.ttf"], ["ǒ", "DejaVuSans.ttf"], ["Ǔ", "DejaVuSans.ttf"], ["ǔ", "DejaVuSans.ttf"], ["Ǖ", "DejaVuSans.ttf"], ["ǖ", "DejaVuSans.ttf"], ["Ǘ", "DejaVuSans.ttf"], ["ǘ", "DejaVuSans.ttf"], ["Ǚ", "DejaVuSans.ttf"], ["ǚ", "DejaVuSans.ttf"], ["Ǜ", "DejaVuSans.ttf"], ["ǜ", "DejaVuSans.ttf"], ["ǝ", "DejaVuSans.ttf"], ["Ǟ", "DejaVuSans.ttf"], ["ǟ", "DejaVuSans.ttf"], ["Ǡ", "DejaVuSans.ttf"], ["ǡ", "DejaVuSans.ttf"], ["Ǣ", "DejaVuSans.ttf"], ["ǣ", "DejaVuSans.ttf"], ["Ǥ", "DejaVuSans.ttf"], ["ǥ", "DejaVuSans.ttf"], ["Ǧ", "DejaVuSans.ttf"], ["ǧ", "DejaVuSans.ttf"], ["Ǩ", "DejaVuSans.ttf"], ["ǩ", "DejaVuSans.ttf"], ["Ǫ", "DejaVuSans.ttf"], ["ǫ", "DejaVuSans.ttf"], ["Ǭ", "DejaVuSans.ttf"], ["ǭ", "DejaVuSans.ttf"], ["Ǯ", "DejaVuSans.ttf"], ["ǯ", "DejaVuSans.ttf"], ["ǰ", "DejaVuSans.ttf"], ["Ǳ", "DejaVuSans.ttf"], ["ǲ", "DejaVuSans.ttf"], ["ǳ", "DejaVuSans.ttf"], ["Ǵ", "DejaVuSans.ttf"], ["ǵ", "DejaVuSans.ttf"], ["Ƕ", "DejaVuSans.ttf"], ["Ƿ", "DejaVuSans.ttf"], ["Ǹ", "DejaVuSans.ttf"], ["ǹ", "DejaVuSans.ttf"], ["Ǻ", "DejaVuSans.ttf"], ["ǻ", "DejaVuSans.ttf"], ["Ǽ", "DejaVuSans.ttf"], ["ǽ", "DejaVuSans.ttf"], ["Ǿ", "DejaVuSans.ttf"], ["ǿ", "DejaVuSans.ttf"], ["Ȁ", "DejaVuSans.ttf"], ["ȁ", "DejaVuSans.ttf"], ["Ȃ", "DejaVuSans.ttf"], ["ȃ", "DejaVuSans.ttf"], ["Ȅ", "DejaVuSans.ttf"], ["ȅ", "DejaVuSans.ttf"], ["Ȇ", "DejaVuSans.ttf"], ["ȇ", "DejaVuSans.ttf"], ["Ȉ", "DejaVuSans.ttf"], ["ȉ", "DejaVuSans.ttf"], ["Ȋ", "DejaVuSans.ttf"], ["ȋ", "DejaVuSans.ttf"], ["Ȍ", "DejaVuSans.ttf"], ["ȍ", "DejaVuSans.ttf"], ["Ȏ", "DejaVuSans.ttf"], ["ȏ", "DejaVuSans.ttf"], ["Ȑ", "DejaVuSans.ttf"], ["ȑ", "DejaVuSans.ttf"], ["Ȓ", "DejaVuSans.ttf"], ["ȓ", "DejaVuSans.ttf"], ["Ȕ", "DejaVuSans.ttf"], ["ȕ", "DejaVuSans.ttf"], ["Ȗ", "DejaVuSans.ttf"], ["ȗ", "DejaVuSans.ttf"], ["Ș", "DejaVuSans.ttf"], ["ș", "DejaVuSans.ttf"], ["Ț", "DejaVuSans.ttf"], ["ț", "DejaVuSans.ttf"], ["Ȝ", "DejaVuSans.ttf"], ["ȝ", "DejaVuSans.ttf"], ["Ȟ", "DejaVuSans.ttf"], ["ȟ", "DejaVuSans.ttf"], ["Ƞ", "DejaVuSans.ttf"], ["ȡ", "DejaVuSans.ttf"], ["Ȣ", "DejaVuSans.ttf"], ["ȣ", "DejaVuSans.ttf"], ["Ȥ", "DejaVuSans.ttf"], ["ȥ", "DejaVuSans.ttf"], ["Ȧ", "DejaVuSans.ttf"], ["ȧ", "DejaVuSans.ttf"], ["Ȩ", "DejaVuSans.ttf"], ["ȩ", "DejaVuSans.ttf"], ["Ȫ", "DejaVuSans.ttf"], ["ȫ", "DejaVuSans.ttf"], ["Ȭ", "DejaVuSans.ttf"], ["ȭ", "DejaVuSans.ttf"], ["Ȯ", "DejaVuSans.ttf"], ["ȯ", "DejaVuSans.ttf"], ["Ȱ", "DejaVuSans.ttf"], ["ȱ", "DejaVuSans.ttf"], ["Ȳ", "DejaVuSans.ttf"], ["ȳ", "DejaVuSans.ttf"], ["ȴ", "DejaVuSans.ttf"], ["ȵ", "DejaVuSans.ttf"], ["ȶ", "DejaVuSans.ttf"], ["ȷ", "DejaVuSans.ttf"], ["ȸ", "DejaVuSans.ttf"], ["ȹ", "DejaVuSans.ttf"], ["Ⱥ", "DejaVuSans.ttf"], ["Ȼ", "DejaVuSans.ttf"], ["ȼ", "DejaVuSans.ttf"], ["Ƚ", "DejaVuSans.ttf"], ["Ⱦ", "DejaVuSans.ttf"], ["ȿ", "DejaVuSans.ttf"], ["ɀ", "DejaVuSans.ttf"], ["Ɂ", "DejaVuSans.ttf"], ["ɂ", "DejaVuSans.ttf"], ["Ƀ", "DejaVuSans.ttf"], ["Ʉ", "DejaVuSans.ttf"], ["Ʌ", "DejaVuSans.ttf"], ["Ɇ", "DejaVuSans.ttf"], ["ɇ", "DejaVuSans.ttf"], ["Ɉ", "DejaVuSans.ttf"], ["ɉ", "DejaVuSans.ttf"], ["Ɋ", "DejaVuSans.ttf"], ["ɋ", "DejaVuSans.ttf"], ["Ɍ", "DejaVuSans.ttf"], ["ɍ", "DejaVuSans.ttf"], ["Ɏ", "DejaVuSans.ttf"], ["ɏ", "DejaVuSans.ttf"], ["😀", "DejaVuSans.ttf"], ["😁", "DejaVuSans.ttf"], ["😂", "DejaVuSans.ttf"], ["😃", "DejaVuSans.ttf"], ["😄", "DejaVuSans.ttf"], ["😅", "DejaVuSans.ttf"], ["😆", "DejaVuSans.ttf"], ["😇", "DejaVuSans.ttf"], ["😈", "DejaVuSans.ttf"], ["😉", "DejaVuSans.ttf"], ["😊", "DejaVuSans.ttf"], ["😋", "DejaVuSans.ttf"], ["😌", "DejaVuSans.ttf"], ["😍", "DejaVuSans.ttf"], ["😎", "DejaVuSans.ttf"], ["😏", "DejaVuSans.ttf"], ["i", "cmr10.ttf"], ["n", "cmr10.ttf"], [" ", "cmr10.ttf"], ["b", "cmr10.ttf"], ["e", "cmr10.ttf"], ["t", "cmr10.ttf"], ["w", "cmr10.ttf"], ["e", "cmr10.ttf"], ["e", "cmr10.ttf"], ["n", "cmr10.ttf"], ["!", "cmr10.ttf"], ["几", "LastResortHE-Regular.ttf"], ["个", "LastResortHE-Regular.ttf"], ["汉", "LastResortHE-Regular.ttf"], ["字", "LastResortHE-Regular.ttf"]]
+  },
+  {
+   "op": "ft2font.FT2Font.attrs",
+   "args": {"file": "DejaVuSans.ttf"},
+   "value": {
+    "postscript_name": "DejaVuSans",
+    "family_name": "DejaVu Sans",
+    "style_name": "Book",
+    "num_faces": 1,
+    "num_glyphs": 6241,
+    "num_charmaps": 5,
+    "face_flags": {"scalable": true, "sfnt": true, "horizontal": true, "kerning": true, "glyph_names": true},
+    "style_flags": {"italic": false, "bold": false},
+    "scalable": true,
+    "units_per_EM": 2048,
+    "underline_position": -175,
+    "underline_thickness": 90,
+    "ascender": 1901,
+    "descender": -483,
+    "height": 2384,
+    "max_advance_width": 3838,
+    "max_advance_height": 2384,
+    "bbox": [-2090, -948, 3673, 2524]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.attrs",
+   "args": {"file": "STIXSizTwoSymBol.ttf"},
+   "value": {
+    "postscript_name": "STIXSizeTwoSym-Bold",
+    "family_name": "STIXSizeTwoSym",
+    "style_name": "Bold",
+    "num_faces": 1,
+    "num_glyphs": 20,
+    "num_charmaps": 3,
+    "face_flags": {"scalable": true, "sfnt": true, "horizontal": true, "kerning": false, "glyph_names": true},
+    "style_flags": {"italic": false, "bold": true},
+    "scalable": true,
+    "units_per_EM": 1000,
+    "underline_position": -133,
+    "underline_thickness": 20,
+    "ascender": 2095,
+    "descender": -404,
+    "height": 2499,
+    "max_advance_width": 1130,
+    "max_advance_height": 2499,
+    "bbox": [4, -355, 1185, 2095]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.attrs",
+   "args": {"file": "cmtt10.ttf"},
+   "value": {
+    "postscript_name": "Cmtt10",
+    "family_name": "cmtt10",
+    "style_name": "Regular",
+    "num_faces": 1,
+    "num_glyphs": 133,
+    "num_charmaps": 2,
+    "face_flags": {"scalable": true, "sfnt": true, "horizontal": true, "kerning": false, "glyph_names": true},
+    "style_flags": {"italic": false, "bold": false},
+    "scalable": true,
+    "units_per_EM": 2048,
+    "underline_position": -143,
+    "underline_thickness": 20,
+    "ascender": 1276,
+    "descender": -489,
+    "height": 1765,
+    "max_advance_width": 1536,
+    "max_advance_height": 1765,
+    "bbox": [-12, -477, 1280, 1430]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_charmap",
+   "args": {"file": "DejaVuSans.ttf", "charmap": "armn"},
+   "value": {
+    "size": 227,
+    "checksum": 2086561598,
+    "sample": [null, null, null, null, null, null, null, 1, 2, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1, null, null, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, null, null, 3240, 101, 161, 3212, null, 2818, 114, 105, 120, null, null]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_charmap",
+   "args": {"file": "DejaVuSans.ttf", "charmap": "unic"},
+   "value": {
+    "size": 5906,
+    "checksum": 8452116789504,
+    "sample": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, null, 2818, 114, 101, 105, 120, 3240, 98, 99, 102, 104, 5410, 5784]
+   }
+  },
+  {"op": "ft2font.FT2Font.get_charmap", "args": {"file": "DejaVuSans.ttf", "charmap": -1}, "error": "RuntimeError"},
+  {
+   "op": "ft2font.FT2Font.get_charmap",
+   "args": {"file": "DejaVuSans.ttf", "charmap": 0},
+   "value": {
+    "size": 5367,
+    "checksum": 4193213628904,
+    "sample": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, null, 2818, 114, 101, 105, 120, 3240, 98, 99, 102, 104, null, null]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_charmap",
+   "args": {"file": "DejaVuSans.ttf", "charmap": 1},
+   "value": {
+    "size": 5906,
+    "checksum": 8452116789504,
+    "sample": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, null, 2818, 114, 101, 105, 120, 3240, 98, 99, 102, 104, 5410, 5784]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_charmap",
+   "args": {"file": "DejaVuSans.ttf", "charmap": 2},
+   "value": {
+    "size": 227,
+    "checksum": 2086561598,
+    "sample": [null, null, null, null, null, null, null, 1, 2, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1, null, null, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, null, null, 3240, 101, 161, 3212, null, 2818, 114, 105, 120, null, null]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_charmap",
+   "args": {"file": "DejaVuSans.ttf", "charmap": 3},
+   "value": {
+    "size": 5367,
+    "checksum": 4193213628904,
+    "sample": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, null, 2818, 114, 101, 105, 120, 3240, 98, 99, 102, 104, null, null]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_charmap",
+   "args": {"file": "DejaVuSans.ttf", "charmap": 4},
+   "value": {
+    "size": 5906,
+    "checksum": 8452116789504,
+    "sample": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, null, 2818, 114, 101, 105, 120, 3240, 98, 99, 102, 104, 5410, 5784]
+   }
+  },
+  {"op": "ft2font.FT2Font.get_charmap", "args": {"file": "DejaVuSans.ttf", "charmap": 5}, "error": "RuntimeError"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 0}, "value": ".notdef"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 115}, "value": "plusminus"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 278}, "value": "Racute"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 2834}, "value": "perthousand"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 3057}, "value": "seveneighths"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 3721}, "value": "triagup"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 405}, "value": "uni01D3"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 4464}, "value": "uni2A02"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 5410}, "value": "u1D305"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 5784}, "value": "u1F0A1"},
+  {"op": "ft2font.FT2Font.get_glyph_name", "args": {"file": "DejaVuSans.ttf", "index": 939}, "value": "uni0417"},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "-", "right": "J", "mode": "DEFAULT"}, "value": 512},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "-", "right": "J", "mode": "UNFITTED"}, "value": 495},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "-", "right": "J", "mode": "UNSCALED"}, "value": 114},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "A", "mode": "DEFAULT"}, "value": 256},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "À", "mode": "DEFAULT"}, "value": 256},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Á", "mode": "DEFAULT"}, "value": 256},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Â", "mode": "DEFAULT"}, "value": 256},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Ã", "mode": "DEFAULT"}, "value": 256},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Ä", "mode": "DEFAULT"}, "value": 256},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "A", "mode": "UNFITTED"}, "value": 247},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "À", "mode": "UNFITTED"}, "value": 247},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Á", "mode": "UNFITTED"}, "value": 247},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Â", "mode": "UNFITTED"}, "value": 247},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Ã", "mode": "UNFITTED"}, "value": 247},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Ä", "mode": "UNFITTED"}, "value": 247},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "A", "mode": "UNSCALED"}, "value": 57},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "À", "mode": "UNSCALED"}, "value": 57},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Á", "mode": "UNSCALED"}, "value": 57},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Â", "mode": "UNSCALED"}, "value": 57},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Ã", "mode": "UNSCALED"}, "value": 57},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "A", "right": "Ä", "mode": "UNSCALED"}, "value": 57},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "D", "right": "A", "mode": "DEFAULT"}, "value": -128},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "D", "right": "A", "mode": "UNFITTED"}, "value": -156},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "D", "right": "A", "mode": "UNSCALED"}, "value": -36},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "T", "right": ".", "mode": "DEFAULT"}, "value": -1024},
+  {
+   "op": "ft2font.FT2Font.get_kerning",
+   "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "T", "right": ".", "mode": "UNFITTED"},
+   "value": -1055
+  },
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "T", "right": ".", "mode": "UNSCALED"}, "value": -243},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "X", "right": "C", "mode": "DEFAULT"}, "value": -640},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "X", "right": "C", "mode": "UNFITTED"}, "value": -647},
+  {"op": "ft2font.FT2Font.get_kerning", "args": {"file": "DejaVuSans.ttf", "size": 100, "dpi": 100, "left": "X", "right": "C", "mode": "UNSCALED"}, "value": -149},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "Racute"}, "value": 278},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "non-existent-glyph-name"}, "value": 0},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "perthousand"}, "value": 2834},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "plusminus"}, "value": 115},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "seveneighths"}, "value": 3057},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "triagup"}, "value": 3721},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "u1D305"}, "value": 5410},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "u1F0A1"}, "value": 5784},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "uni01D3"}, "value": 405},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "uni0417"}, "value": 939},
+  {"op": "ft2font.FT2Font.get_name_index", "args": {"file": "DejaVuSans.ttf", "name": "uni2A02"}, "value": 4464},
+  {
+   "op": "ft2font.FT2Font.get_sfnt",
+   "args": {"file": "DejaVuSans.ttf"},
+   "value": [[1, 0, 0, 0, "436f707972696768742028632920323030332062792042697473747265616d2c20496e632e20416c6c205269676874732052657365727665642e0a436f70797269676874202863292032303036206279205461766d6a6f6e67204261682e20416c6c205269676874732052657365727665642e0a44656a615675206368616e6765732061726520696e207075626c696320646f6d61696e0a"], [1, 0, 0, 1, "44656a6156752053616e73"], [1, 0, 0, 2, "426f6f6b"], [1, 0, 0, 3, "44656a6156752053616e73"], [1, 0, 0, 4, "44656a6156752053616e73"], [1, 0, 0, 5, "56657273696f6e20322e3335"], [1, 0, 0, 6, "44656a61567553616e73"], [1, 0, 0, 8, "44656a61567520666f6e7473207465616d"], [1, 0, 0, 11, "687474703a2f2f64656a6176752e736f75726365666f7267652e6e6574"], [1, 0, 0, 13, "466f6e747320617265202863292042697473747265616d20287365652062656c6f77292e2044656a615675206368616e6765732061726520696e207075626c696320646f6d61696e2e20476c7970687320696d706f727465642066726f6d204172657620666f6e74732061726520286329205461766d6a756e672042616820287365652062656c6f77290a0a42697473747265616d205665726120466f6e747320436f707972696768740a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0a0a436f707972696768742028632920323030332062792042697473747265616d2c20496e632e20416c6c205269676874732052657365727665642e2042697473747265616d20566572612069730a612074726164656d61726b206f662042697473747265616d2c20496e632e0a0a5065726d697373696f6e20697320686572656279206772616e7465642c2066726565206f66206368617267652c20746f20616e7920706572736f6e206f627461696e696e67206120636f70790a6f662074686520666f6e7473206163636f6d70616e79696e672074686973206c6963656e7365202822466f6e7473222920616e64206173736f6369617465640a646f63756d656e746174696f6e2066696c657320287468652022466f6e7420536f66747761726522292c20746f20726570726f6475636520616e642064697374726962757465207468650a466f6e7420536f6674776172652c20696e636c7564696e6720776974686f7574206c696d69746174696f6e207468652072696768747320746f207573652c20636f70792c206d657267652c0a7075626c6973682c20646973747269627574652c20616e642f6f722073656c6c20636f70696573206f662074686520466f6e7420536f6674776172652c20616e6420746f207065726d69740a706572736f6e7320746f2077686f6d2074686520466f6e7420536f667477617265206973206675726e697368656420746f20646f20736f2c207375626a65637420746f207468650a666f6c6c6f77696e6720636f6e646974696f6e733a0a0a5468652061626f766520636f7079726967687420616e642074726164656d61726b206e6f746963657320616e642074686973207065726d697373696f6e206e6f74696365207368616c6c0a626520696e636c7564656420696e20616c6c20636f70696573206f66206f6e65206f72206d6f7265206f662074686520466f6e7420536f667477617265207479706566616365732e0a0a54686520466f6e7420536f667477617265206d6179206265206d6f6469666965642c20616c74657265642c206f7220616464656420746f2c20616e6420696e20706172746963756c61720a7468652064657369676e73206f6620676c79706873206f72206368617261637465727320696e2074686520466f6e7473206d6179206265206d6f64696669656420616e640a6164646974696f6e616c20676c79706873206f722063686172616374657273206d617920626520616464656420746f2074686520466f6e74732c206f6e6c792069662074686520666f6e74730a6172652072656e616d656420746f206e616d6573206e6f7420636f6e7461696e696e67206569746865722074686520776f726473202242697473747265616d22206f722074686520776f72640a2256657261222e0a0a54686973204c6963656e7365206265636f6d6573206e756c6c20616e6420766f696420746f2074686520657874656e74206170706c696361626c6520746f20466f6e7473206f7220466f6e740a536f667477617265207468617420686173206265656e206d6f64696669656420616e6420697320646973747269627574656420756e64657220746865202242697473747265616d0a5665726122206e616d65732e0a0a54686520466f6e7420536f667477617265206d617920626520736f6c642061732070617274206f662061206c617267657220736f667477617265207061636b61676520627574206e6f0a636f7079206f66206f6e65206f72206d6f7265206f662074686520466f6e7420536f66747761726520747970656661636573206d617920626520736f6c6420627920697473656c662e0a0a54484520464f4e5420534f4654574152452049532050524f564944454420224153204953222c20574954484f55542057415252414e5459204f4620414e59204b494e442c20455850524553530a4f5220494d504c4945442c20494e434c5544494e4720425554204e4f54204c494d4954454420544f20414e592057415252414e54494553204f46204d45524348414e544142494c4954592c0a4649544e45535320464f52204120504152544943554c415220505552504f534520414e44204e4f4e494e4652494e47454d454e54204f4620434f505952494748542c20504154454e542c0a54524144454d41524b2c204f52204f544845522052494748542e20494e204e4f204556454e54205348414c4c2042495453545245414d204f522054484520474e4f4d450a464f554e444154494f4e204245204c4941424c4520464f5220414e5920434c41494d2c2044414d41474553204f52204f54484552204c494142494c4954592c20494e434c5544494e470a414e592047454e4552414c2c205350454349414c2c20494e4449524543542c20494e434944454e54414c2c204f5220434f4e53455155454e5449414c2044414d414745532c0a5748455448455220494e20414e20414354494f4e204f4620434f4e54524143542c20544f5254204f52204f54484552574953452c2041524953494e472046524f4d2c204f5554204f460a54484520555345204f5220494e4142494c49545920544f205553452054484520464f4e5420534f465457415245204f522046524f4d204f54484552204445414c494e475320494e205448450a464f4e5420534f4654574152452e0a0a45786365707420617320636f6e7461696e656420696e2074686973206e6f746963652c20746865206e616d6573206f6620476e6f6d652c2074686520476e6f6d650a466f756e646174696f6e2c20616e642042697473747265616d20496e632e2c207368616c6c206e6f74206265207573656420696e206164766572746973696e67206f720a6f746865727769736520746f2070726f6d6f7465207468652073616c652c20757365206f72206f74686572206465616c696e677320696e207468697320466f6e7420536f6674776172650a776974686f7574207072696f72207772697474656e20617574686f72697a6174696f6e2066726f6d2074686520476e6f6d6520466f756e646174696f6e206f722042697473747265616d0a496e632e2c20726573706563746976656c792e20466f72206675727468657220696e666f726d6174696f6e2c20636f6e746163743a20666f6e747320617420676e6f6d6520646f740a6f72672e200a0a4172657620466f6e747320436f707972696768740a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0a0a436f70797269676874202863292032303036206279205461766d6a6f6e67204261682e20416c6c205269676874732052657365727665642e0a0a5065726d697373696f6e20697320686572656279206772616e7465642c2066726565206f66206368617267652c20746f20616e7920706572736f6e206f627461696e696e670a6120636f7079206f662074686520666f6e7473206163636f6d70616e79696e672074686973206c6963656e7365202822466f6e7473222920616e640a6173736f63696174656420646f63756d656e746174696f6e2066696c657320287468652022466f6e7420536f66747761726522292c20746f20726570726f647563650a616e64206469737472696275746520746865206d6f64696669636174696f6e7320746f207468652042697473747265616d205665726120466f6e7420536f6674776172652c0a696e636c7564696e6720776974686f7574206c696d69746174696f6e207468652072696768747320746f207573652c20636f70792c206d657267652c207075626c6973682c0a646973747269627574652c20616e642f6f722073656c6c20636f70696573206f662074686520466f6e7420536f6674776172652c20616e6420746f207065726d69740a706572736f6e7320746f2077686f6d2074686520466f6e7420536f667477617265206973206675726e697368656420746f20646f20736f2c207375626a65637420746f0a74686520666f6c6c6f77696e6720636f6e646974696f6e733a0a0a5468652061626f766520636f7079726967687420616e642074726164656d61726b206e6f746963657320616e642074686973207065726d697373696f6e206e6f746963650a7368616c6c20626520696e636c7564656420696e20616c6c20636f70696573206f66206f6e65206f72206d6f7265206f662074686520466f6e7420536f6674776172650a7479706566616365732e0a0a54686520466f6e7420536f667477617265206d6179206265206d6f6469666965642c20616c74657265642c206f7220616464656420746f2c20616e6420696e0a706172746963756c6172207468652064657369676e73206f6620676c79706873206f72206368617261637465727320696e2074686520466f6e7473206d61792062650a6d6f64696669656420616e64206164646974696f6e616c20676c79706873206f722063686172616374657273206d617920626520616464656420746f207468650a466f6e74732c206f6e6c792069662074686520666f6e7473206172652072656e616d656420746f206e616d6573206e6f7420636f6e7461696e696e67206569746865720a74686520776f72647320225461766d6a6f6e672042616822206f722074686520776f7264202241726576222e0a0a54686973204c6963656e7365206265636f6d6573206e756c6c20616e6420766f696420746f2074686520657874656e74206170706c696361626c6520746f20466f6e74730a6f7220466f6e7420536f667477617265207468617420686173206265656e206d6f64696669656420616e6420697320646973747269627574656420756e64657220746865200a225461766d6a6f6e6720426168204172657622206e616d65732e0a0a54686520466f6e7420536f667477617265206d617920626520736f6c642061732070617274206f662061206c617267657220736f667477617265207061636b616765206275740a6e6f20636f7079206f66206f6e65206f72206d6f7265206f662074686520466f6e7420536f66747761726520747970656661636573206d617920626520736f6c642062790a697473656c662e0a0a54484520464f4e5420534f4654574152452049532050524f564944454420224153204953222c20574954484f55542057415252414e5459204f4620414e59204b494e442c0a45585052455353204f5220494d504c4945442c20494e434c5544494e4720425554204e4f54204c494d4954454420544f20414e592057415252414e54494553204f460a4d45524348414e544142494c4954592c204649544e45535320464f52204120504152544943554c415220505552504f534520414e44204e4f4e494e4652494e47454d454e540a4f4620434f505952494748542c20504154454e542c2054524144454d41524b2c204f52204f544845522052494748542e20494e204e4f204556454e54205348414c4c0a5441564d4a4f4e4720424148204245204c4941424c4520464f5220414e5920434c41494d2c2044414d41474553204f52204f54484552204c494142494c4954592c0a494e434c5544494e4720414e592047454e4552414c2c205350454349414c2c20494e4449524543542c20494e434944454e54414c2c204f5220434f4e53455155454e5449414c0a44414d414745532c205748455448455220494e20414e20414354494f4e204f4620434f4e54524143542c20544f5254204f52204f54484552574953452c2041524953494e470a46524f4d2c204f5554204f462054484520555345204f5220494e4142494c49545920544f205553452054484520464f4e5420534f465457415245204f522046524f4d0a4f54484552204445414c494e475320494e2054484520464f4e5420534f4654574152452e0a0a45786365707420617320636f6e7461696e656420696e2074686973206e6f746963652c20746865206e616d65206f66205461766d6a6f6e6720426168207368616c6c206e6f740a6265207573656420696e206164766572746973696e67206f72206f746865727769736520746f2070726f6d6f7465207468652073616c652c20757365206f72206f746865720a6465616c696e677320696e207468697320466f6e7420536f66747761726520776974686f7574207072696f72207772697474656e20617574686f72697a6174696f6e0a66726f6d205461766d6a6f6e67204261682e20466f72206675727468657220696e666f726d6174696f6e2c20636f6e746163743a207461766d6a6f6e67204020667265650a2e2066722e"], [1, 0, 0, 14, "687474703a2f2f64656a6176752e736f75726365666f7267652e6e65742f77696b692f696e6465782e7068702f4c6963656e7365"], [1, 0, 0, 16, "44656a6156752053616e73"], [1, 0, 0, 17, "426f6f6b"], [3, 1, 1033, 0, "0043006f0070007900720069006700680074002000280063002900200032003000300033002000620079002000420069007400730074007200650061006d002c00200049006e0063002e00200041006c006c0020005200690067006800740073002000520065007300650072007600650064002e000a0043006f00700079007200690067006800740020002800630029002000320030003000360020006200790020005400610076006d006a006f006e00670020004200610068002e00200041006c006c0020005200690067006800740073002000520065007300650072007600650064002e000a00440065006a0061005600750020006300680061006e006700650073002000610072006500200069006e0020007000750062006c0069006300200064006f006d00610069006e000a"], [3, 1, 1033, 1, "00440065006a006100560075002000530061006e0073"], [3, 1, 1033, 2, "0042006f006f006b"], [3, 1, 1033, 3, "00440065006a006100560075002000530061006e0073"], [3, 1, 1033, 4, "00440065006a006100560075002000530061006e0073"], [3, 1, 1033, 5, "00560065007200730069006f006e00200032002e00330035"], [3, 1, 1033, 6, "00440065006a00610056007500530061006e0073"], [3, 1, 1033, 8, "00440065006a00610056007500200066006f006e007400730020007400650061006d"], [3, 1, 1033, 11, "0068007400740070003a002f002f00640065006a006100760075002e0073006f00750072006300650066006f007200670065002e006e00650074"], [3, 1, 1033, 13, "0046006f006e0074007300200061007200650020002800630029002000420069007400730074007200650061006d00200028007300650065002000620065006c006f00770029002e002000440065006a0061005600750020006300680061006e006700650073002000610072006500200069006e0020007000750062006c0069006300200064006f006d00610069006e002e00200047006c007900700068007300200069006d0070006f0072007400650064002000660072006f006d0020004100720065007600200066006f006e00740073002000610072006500200028006300290020005400610076006d006a0075006e0067002000420061006800200028007300650065002000620065006c006f00770029000a000a00420069007400730074007200650061006d0020005600650072006100200046006f006e0074007300200043006f0070007900720069006700680074000a002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d000a000a0043006f0070007900720069006700680074002000280063002900200032003000300033002000620079002000420069007400730074007200650061006d002c00200049006e0063002e00200041006c006c0020005200690067006800740073002000520065007300650072007600650064002e002000420069007400730074007200650061006d00200056006500720061002000690073000a0061002000740072006100640065006d00610072006b0020006f0066002000420069007400730074007200650061006d002c00200049006e0063002e000a000a005000650072006d0069007300730069006f006e00200069007300200068006500720065006200790020006700720061006e007400650064002c002000660072006500650020006f00660020006300680061007200670065002c00200074006f00200061006e007900200070006500720073006f006e0020006f0062007400610069006e0069006e00670020006100200063006f00700079000a006f0066002000740068006500200066006f006e007400730020006100630063006f006d00700061006e00790069006e0067002000740068006900730020006c006900630065006e007300650020002800220046006f006e007400730022002900200061006e00640020006100730073006f006300690061007400650064000a0064006f00630075006d0065006e0074006100740069006f006e002000660069006c0065007300200028007400680065002000220046006f006e007400200053006f00660074007700610072006500220029002c00200074006f00200072006500700072006f006400750063006500200061006e0064002000640069007300740072006900620075007400650020007400680065000a0046006f006e007400200053006f006600740077006100720065002c00200069006e0063006c007500640069006e006700200077006900740068006f007500740020006c0069006d00690074006100740069006f006e0020007400680065002000720069006700680074007300200074006f0020007500730065002c00200063006f00700079002c0020006d0065007200670065002c000a007000750062006c006900730068002c00200064006900730074007200690062007500740065002c00200061006e0064002f006f0072002000730065006c006c00200063006f00700069006500730020006f0066002000740068006500200046006f006e007400200053006f006600740077006100720065002c00200061006e006400200074006f0020007000650072006d00690074000a0070006500720073006f006e007300200074006f002000770068006f006d002000740068006500200046006f006e007400200053006f0066007400770061007200650020006900730020006600750072006e0069007300680065006400200074006f00200064006f00200073006f002c0020007300750062006a00650063007400200074006f0020007400680065000a0066006f006c006c006f00770069006e006700200063006f006e0064006900740069006f006e0073003a000a000a005400680065002000610062006f0076006500200063006f007000790072006900670068007400200061006e0064002000740072006100640065006d00610072006b0020006e006f0074006900630065007300200061006e0064002000740068006900730020007000650072006d0069007300730069006f006e0020006e006f00740069006300650020007300680061006c006c000a0062006500200069006e0063006c007500640065006400200069006e00200061006c006c00200063006f00700069006500730020006f00660020006f006e00650020006f00720020006d006f007200650020006f0066002000740068006500200046006f006e007400200053006f0066007400770061007200650020007400790070006500660061006300650073002e000a000a00540068006500200046006f006e007400200053006f0066007400770061007200650020006d006100790020006200650020006d006f006400690066006900650064002c00200061006c00740065007200650064002c0020006f007200200061006400640065006400200074006f002c00200061006e006400200069006e00200070006100720074006900630075006c00610072000a007400680065002000640065007300690067006e00730020006f006600200067006c00790070006800730020006f00720020006300680061007200610063007400650072007300200069006e002000740068006500200046006f006e007400730020006d006100790020006200650020006d006f00640069006600690065006400200061006e0064000a006100640064006900740069006f006e0061006c00200067006c00790070006800730020006f0072002000630068006100720061006300740065007200730020006d0061007900200062006500200061006400640065006400200074006f002000740068006500200046006f006e00740073002c0020006f006e006c0079002000690066002000740068006500200066006f006e00740073000a006100720065002000720065006e0061006d0065006400200074006f0020006e0061006d006500730020006e006f007400200063006f006e007400610069006e0069006e00670020006500690074006800650072002000740068006500200077006f0072006400730020002200420069007400730074007200650061006d00220020006f0072002000740068006500200077006f00720064000a002200560065007200610022002e000a000a00540068006900730020004c006900630065006e007300650020006200650063006f006d006500730020006e0075006c006c00200061006e006400200076006f0069006400200074006f002000740068006500200065007800740065006e00740020006100700070006c0069006300610062006c006500200074006f00200046006f006e007400730020006f007200200046006f006e0074000a0053006f0066007400770061007200650020007400680061007400200068006100730020006200650065006e0020006d006f00640069006600690065006400200061006e006400200069007300200064006900730074007200690062007500740065006400200075006e00640065007200200074006800650020002200420069007400730074007200650061006d000a005600650072006100220020006e0061006d00650073002e000a000a00540068006500200046006f006e007400200053006f0066007400770061007200650020006d0061007900200062006500200073006f006c0064002000610073002000700061007200740020006f0066002000610020006c0061007200670065007200200073006f0066007400770061007200650020007000610063006b00610067006500200062007500740020006e006f000a0063006f007000790020006f00660020006f006e00650020006f00720020006d006f007200650020006f0066002000740068006500200046006f006e007400200053006f00660074007700610072006500200074007900700065006600610063006500730020006d0061007900200062006500200073006f006c006400200062007900200069007400730065006c0066002e000a000a00540048004500200046004f004e005400200053004f004600540057004100520045002000490053002000500052004f0056004900440045004400200022004100530020004900530022002c00200057004900540048004f00550054002000570041005200520041004e005400590020004f004600200041004e00590020004b0049004e0044002c00200045005800500052004500530053000a004f005200200049004d0050004c004900450044002c00200049004e0043004c005500440049004e004700200042005500540020004e004f00540020004c0049004d004900540045004400200054004f00200041004e0059002000570041005200520041004e00540049004500530020004f00460020004d00450052004300480041004e0054004100420049004c004900540059002c000a004600490054004e00450053005300200046004f00520020004100200050004100520054004900430055004c0041005200200050005500520050004f0053004500200041004e00440020004e004f004e0049004e004600520049004e00470045004d0045004e00540020004f004600200043004f0050005900520049004700480054002c00200050004100540045004e0054002c000a00540052004100440045004d00410052004b002c0020004f00520020004f0054004800450052002000520049004700480054002e00200049004e0020004e004f0020004500560045004e00540020005300480041004c004c002000420049005400530054005200450041004d0020004f0052002000540048004500200047004e004f004d0045000a0046004f0055004e0044004100540049004f004e0020004200450020004c004900410042004c004500200046004f005200200041004e005900200043004c00410049004d002c002000440041004d00410047004500530020004f00520020004f00540048004500520020004c0049004100420049004c004900540059002c00200049004e0043004c005500440049004e0047000a0041004e0059002000470045004e004500520041004c002c0020005300500045004300490041004c002c00200049004e004400490052004500430054002c00200049004e0043004900440045004e00540041004c002c0020004f005200200043004f004e00530045005100550045004e005400490041004c002000440041004d0041004700450053002c000a005700480045005400480045005200200049004e00200041004e00200041004300540049004f004e0020004f004600200043004f004e00540052004100430054002c00200054004f005200540020004f00520020004f00540048004500520057004900530045002c002000410052004900530049004e0047002000460052004f004d002c0020004f005500540020004f0046000a00540048004500200055005300450020004f005200200049004e004100420049004c00490054005900200054004f0020005500530045002000540048004500200046004f004e005400200053004f0046005400570041005200450020004f0052002000460052004f004d0020004f00540048004500520020004400450041004c0049004e0047005300200049004e0020005400480045000a0046004f004e005400200053004f004600540057004100520045002e000a000a00450078006300650070007400200061007300200063006f006e007400610069006e0065006400200069006e002000740068006900730020006e006f0074006900630065002c00200074006800650020006e0061006d006500730020006f006600200047006e006f006d0065002c002000740068006500200047006e006f006d0065000a0046006f0075006e0064006100740069006f006e002c00200061006e0064002000420069007400730074007200650061006d00200049006e0063002e002c0020007300680061006c006c0020006e006f00740020006200650020007500730065006400200069006e0020006100640076006500720074006900730069006e00670020006f0072000a006f0074006800650072007700690073006500200074006f002000700072006f006d006f007400650020007400680065002000730061006c0065002c00200075007300650020006f00720020006f00740068006500720020006400650061006c0069006e0067007300200069006e0020007400680069007300200046006f006e007400200053006f006600740077006100720065000a0077006900740068006f007500740020007000720069006f00720020007700720069007400740065006e00200061007500740068006f00720069007a006100740069006f006e002000660072006f006d002000740068006500200047006e006f006d006500200046006f0075006e0064006100740069006f006e0020006f0072002000420069007400730074007200650061006d000a0049006e0063002e002c00200072006500730070006500630074006900760065006c0079002e00200046006f00720020006600750072007400680065007200200069006e0066006f0072006d006100740069006f006e002c00200063006f006e0074006100630074003a00200066006f006e0074007300200061007400200067006e006f006d006500200064006f0074000a006f00720067002e0020000a000a004100720065007600200046006f006e0074007300200043006f0070007900720069006700680074000a002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d002d000a000a0043006f00700079007200690067006800740020002800630029002000320030003000360020006200790020005400610076006d006a006f006e00670020004200610068002e00200041006c006c0020005200690067006800740073002000520065007300650072007600650064002e000a000a005000650072006d0069007300730069006f006e00200069007300200068006500720065006200790020006700720061006e007400650064002c002000660072006500650020006f00660020006300680061007200670065002c00200074006f00200061006e007900200070006500720073006f006e0020006f0062007400610069006e0069006e0067000a006100200063006f007000790020006f0066002000740068006500200066006f006e007400730020006100630063006f006d00700061006e00790069006e0067002000740068006900730020006c006900630065006e007300650020002800220046006f006e007400730022002900200061006e0064000a006100730073006f00630069006100740065006400200064006f00630075006d0065006e0074006100740069006f006e002000660069006c0065007300200028007400680065002000220046006f006e007400200053006f00660074007700610072006500220029002c00200074006f00200072006500700072006f0064007500630065000a0061006e00640020006400690073007400720069006200750074006500200074006800650020006d006f00640069006600690063006100740069006f006e007300200074006f0020007400680065002000420069007400730074007200650061006d0020005600650072006100200046006f006e007400200053006f006600740077006100720065002c000a0069006e0063006c007500640069006e006700200077006900740068006f007500740020006c0069006d00690074006100740069006f006e0020007400680065002000720069006700680074007300200074006f0020007500730065002c00200063006f00700079002c0020006d0065007200670065002c0020007000750062006c006900730068002c000a0064006900730074007200690062007500740065002c00200061006e0064002f006f0072002000730065006c006c00200063006f00700069006500730020006f0066002000740068006500200046006f006e007400200053006f006600740077006100720065002c00200061006e006400200074006f0020007000650072006d00690074000a0070006500720073006f006e007300200074006f002000770068006f006d002000740068006500200046006f006e007400200053006f0066007400770061007200650020006900730020006600750072006e0069007300680065006400200074006f00200064006f00200073006f002c0020007300750062006a00650063007400200074006f000a00740068006500200066006f006c006c006f00770069006e006700200063006f006e0064006900740069006f006e0073003a000a000a005400680065002000610062006f0076006500200063006f007000790072006900670068007400200061006e0064002000740072006100640065006d00610072006b0020006e006f0074006900630065007300200061006e0064002000740068006900730020007000650072006d0069007300730069006f006e0020006e006f0074006900630065000a007300680061006c006c00200062006500200069006e0063006c007500640065006400200069006e00200061006c006c00200063006f00700069006500730020006f00660020006f006e00650020006f00720020006d006f007200650020006f0066002000740068006500200046006f006e007400200053006f006600740077006100720065000a007400790070006500660061006300650073002e000a000a00540068006500200046006f006e007400200053006f0066007400770061007200650020006d006100790020006200650020006d006f006400690066006900650064002c00200061006c00740065007200650064002c0020006f007200200061006400640065006400200074006f002c00200061006e006400200069006e000a0070006100720074006900630075006c006100720020007400680065002000640065007300690067006e00730020006f006600200067006c00790070006800730020006f00720020006300680061007200610063007400650072007300200069006e002000740068006500200046006f006e007400730020006d00610079002000620065000a006d006f00640069006600690065006400200061006e00640020006100640064006900740069006f006e0061006c00200067006c00790070006800730020006f0072002000630068006100720061006300740065007200730020006d0061007900200062006500200061006400640065006400200074006f0020007400680065000a0046006f006e00740073002c0020006f006e006c0079002000690066002000740068006500200066006f006e007400730020006100720065002000720065006e0061006d0065006400200074006f0020006e0061006d006500730020006e006f007400200063006f006e007400610069006e0069006e00670020006500690074006800650072000a00740068006500200077006f00720064007300200022005400610076006d006a006f006e0067002000420061006800220020006f0072002000740068006500200077006f007200640020002200410072006500760022002e000a000a00540068006900730020004c006900630065006e007300650020006200650063006f006d006500730020006e0075006c006c00200061006e006400200076006f0069006400200074006f002000740068006500200065007800740065006e00740020006100700070006c0069006300610062006c006500200074006f00200046006f006e00740073000a006f007200200046006f006e007400200053006f0066007400770061007200650020007400680061007400200068006100730020006200650065006e0020006d006f00640069006600690065006400200061006e006400200069007300200064006900730074007200690062007500740065006400200075006e00640065007200200074006800650020000a0022005400610076006d006a006f006e006700200042006100680020004100720065007600220020006e0061006d00650073002e000a000a00540068006500200046006f006e007400200053006f0066007400770061007200650020006d0061007900200062006500200073006f006c0064002000610073002000700061007200740020006f0066002000610020006c0061007200670065007200200073006f0066007400770061007200650020007000610063006b0061006700650020006200750074000a006e006f00200063006f007000790020006f00660020006f006e00650020006f00720020006d006f007200650020006f0066002000740068006500200046006f006e007400200053006f00660074007700610072006500200074007900700065006600610063006500730020006d0061007900200062006500200073006f006c0064002000620079000a0069007400730065006c0066002e000a000a00540048004500200046004f004e005400200053004f004600540057004100520045002000490053002000500052004f0056004900440045004400200022004100530020004900530022002c00200057004900540048004f00550054002000570041005200520041004e005400590020004f004600200041004e00590020004b0049004e0044002c000a00450058005000520045005300530020004f005200200049004d0050004c004900450044002c00200049004e0043004c005500440049004e004700200042005500540020004e004f00540020004c0049004d004900540045004400200054004f00200041004e0059002000570041005200520041004e00540049004500530020004f0046000a004d00450052004300480041004e0054004100420049004c004900540059002c0020004600490054004e00450053005300200046004f00520020004100200050004100520054004900430055004c0041005200200050005500520050004f0053004500200041004e00440020004e004f004e0049004e004600520049004e00470045004d0045004e0054000a004f004600200043004f0050005900520049004700480054002c00200050004100540045004e0054002c002000540052004100440045004d00410052004b002c0020004f00520020004f0054004800450052002000520049004700480054002e00200049004e0020004e004f0020004500560045004e00540020005300480041004c004c000a005400410056004d004a004f004e004700200042004100480020004200450020004c004900410042004c004500200046004f005200200041004e005900200043004c00410049004d002c002000440041004d00410047004500530020004f00520020004f00540048004500520020004c0049004100420049004c004900540059002c000a0049004e0043004c005500440049004e004700200041004e0059002000470045004e004500520041004c002c0020005300500045004300490041004c002c00200049004e004400490052004500430054002c00200049004e0043004900440045004e00540041004c002c0020004f005200200043004f004e00530045005100550045004e005400490041004c000a00440041004d0041004700450053002c0020005700480045005400480045005200200049004e00200041004e00200041004300540049004f004e0020004f004600200043004f004e00540052004100430054002c00200054004f005200540020004f00520020004f00540048004500520057004900530045002c002000410052004900530049004e0047000a00460052004f004d002c0020004f005500540020004f0046002000540048004500200055005300450020004f005200200049004e004100420049004c00490054005900200054004f0020005500530045002000540048004500200046004f004e005400200053004f0046005400570041005200450020004f0052002000460052004f004d000a004f00540048004500520020004400450041004c0049004e0047005300200049004e002000540048004500200046004f004e005400200053004f004600540057004100520045002e000a000a00450078006300650070007400200061007300200063006f006e007400610069006e0065006400200069006e002000740068006900730020006e006f0074006900630065002c00200074006800650020006e0061006d00650020006f00660020005400610076006d006a006f006e006700200042006100680020007300680061006c006c0020006e006f0074000a006200650020007500730065006400200069006e0020006100640076006500720074006900730069006e00670020006f00720020006f0074006800650072007700690073006500200074006f002000700072006f006d006f007400650020007400680065002000730061006c0065002c00200075007300650020006f00720020006f0074006800650072000a006400650061006c0069006e0067007300200069006e0020007400680069007300200046006f006e007400200053006f00660074007700610072006500200077006900740068006f007500740020007000720069006f00720020007700720069007400740065006e00200061007500740068006f00720069007a006100740069006f006e000a00660072006f006d0020005400610076006d006a006f006e00670020004200610068002e00200046006f00720020006600750072007400680065007200200069006e0066006f0072006d006100740069006f006e002c00200063006f006e0074006100630074003a0020007400610076006d006a006f006e00670020004000200066007200650065000a002e002000660072002e"], [3, 1, 1033, 14, "0068007400740070003a002f002f00640065006a006100760075002e0073006f00750072006300650066006f007200670065002e006e00650074002f00770069006b0069002f0069006e006400650078002e007000680070002f004c006900630065006e00730065"], [3, 1, 1033, 16, "00440065006a006100560075002000530061006e0073"], [3, 1, 1033, 17, "0042006f006f006b"]]
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt",
+   "args": {"file": "STIXSizTwoSymBol.ttf"},
+   "value": [[1, 0, 0, 0, "436f707972696768742028632920323030312d3230313020627920746865205354492050756220436f6d70616e6965732c20636f6e73697374696e67206f662074686520416d65726963616e204368656d6963616c20536f63696574792c2074686520416d65726963616e20496e73746974757465206f6620506879736963732c2074686520416d65726963616e204d617468656d61746963616c20536f63696574792c2074686520416d65726963616e20506879736963616c20536f63696574792c20456c7365766965722c20496e632e2c20616e642054686520496e73746974757465206f6620456c656374726963616c20616e6420456c656374726f6e696320456e67696e656572732c20496e632e20506f7274696f6e7320636f707972696768742028632920313939382d32303033206279204d6963726f50726573732c20496e632e20506f7274696f6e7320636f7079726967687420286329203139393020627920456c7365766965722c20496e632e20416c6c207269676874732072657365727665642e"], [1, 0, 0, 1, "5354495853697a6554776f53796d"], [1, 0, 0, 2, "426f6c64"], [1, 0, 0, 3, "466f6e744d61737465723a5354495853697a6554776f53796d2d426f6c643a312e302e30"], [1, 0, 0, 4, "5354495853697a6554776f53796d2d426f6c64"], [1, 0, 0, 5, "56657273696f6e20312e302e30"], [1, 0, 0, 6, "5354495853697a6554776f53796d2d426f6c64"], [1, 0, 0, 7, "5354495820466f6e747328544d2920697320612074726164656d61726b206f662054686520496e73746974757465206f6620456c656374726963616c20616e6420456c656374726f6e69637320456e67696e656572732c20496e632e"], [1, 0, 0, 9, "4d6963726f507265737320496e632e2c20776974682066696e616c206164646974696f6e7320616e6420636f7272656374696f6e732070726f766964656420627920436f656e20486f66666d616e2c20456c73657669657220287265746972656429"], [1, 0, 0, 10, "41726965206465205275697465722c2077686f20696e2031393935207761732048656164206f6620496e666f726d6174696f6e20546563686e6f6c6f677920446576656c6f706d656e7420617420456c73657669657220536369656e63652c206d61646520612070726f706f73616c20746f2074686520535449205075622067726f75702c20616e20696e666f726d616c2067726f7570206f66207075626c69736865727320636f6e73697374696e67206f6620726570726573656e746174697665732066726f6d2074686520416d65726963616e204368656d6963616c20536f63696574792028414353292c20416d65726963616e20496e73746974757465206f6620506879736963732028414950292c20416d65726963616e204d617468656d61746963616c20536f63696574792028414d53292c20416d65726963616e20506879736963616c20536f63696574792028415053292c20456c7365766965722c20616e6420496e73746974757465206f6620456c656374726963616c20616e6420456c656374726f6e69637320456e67696e65657273202849454545292e2044652052756974657220656e636f75726167656420746865206d656d6265727320746f20636f6e736964657220646576656c6f706d656e74206f66206120736572696573206f662057656220666f6e74732c2077686963682068652070726f706f7365642073686f756c642062652063616c6c65642074686520536369656e746966696320616e6420546563686e6963616c20496e666f726d6174696f6e2065586368616e67652c206f7220535449582c20466f6e74732e20416c6c2053544920507562206d656d626572206f7267616e697a6174696f6e7320656e74687573696173746963616c6c7920656e646f7273656420746869732070726f706f73616c2c20616e642074686520535449205075622067726f75702061677265656420746f20656d6261726b206f6e207768617420686173206265636f6d652061207477656c76652d796561722070726f6a6563742e2054686520676f616c206f66207468652070726f6a6563742077617320746f206964656e7469667920616c6c20616c70686162657469632c2073796d626f6c69632c20616e64206f74686572207370656369616c2063686172616374657273207573656420696e20616e79206661636574206f6620736369656e7469666963207075626c697368696e6720616e6420746f20637265617465206120736574206f6620556e69636f64652d626173656420666f6e7473207468617420776f756c64206265206469737472696275746564206672656520746f20657665727920736369656e746973742c2073747564656e742c20616e64206f7468657220696e746572657374656420706172747920776f726c64776964652e2054686520666f6e747320776f756c6420626520636f6e73697374656e7420776974682074686520656d657267696e6720556e69636f6465207374616e646172642c20616e6420776f756c64207065726d697420756e6976657273616c20726570726573656e746174696f6e206f66206576657279206368617261637465722e2057697468207468652072656c65617365206f6620746865205354495820666f6e74732c20646520527569746572277320766973696f6e20686173206265656e207265616c697a65642e"], [1, 0, 0, 11, "687474703a2f2f7777772e73746978666f6e74732e6f7267"], [1, 0, 0, 12, "687474703a2f2f7777772e6d6963726f70726573732d696e632e636f6d"], [1, 0, 0, 13, "4173206120636f6e646974696f6e20666f7220726563656976696e6720746865736520666f6e7473206174206e6f206368617267652c206561636820706572736f6e20646f776e6c6f6164696e672074686520666f6e7473206d75737420616772656520746f20736f6d652073696d706c65206c6963656e7365207465726d732e20546865206c6963656e7365206973206261736564206f6e207468652053494c204f70656e20466f6e74204c6963656e7365203c687474703a2f2f736372697074732e73696c2e6f72672f636d732f736372697074732f706167652e7068703f736974655f69643d6e7273692669643d4f464c3e2e205468652053494c204c6963656e73652069732061206672656520616e64206f70656e20736f75726365206c6963656e7365207370656369666963616c6c792064657369676e656420666f7220666f6e747320616e642072656c6174656420736f6674776172652e20546865206261736963207465726d732061726520746861742074686520726563697069656e742077696c6c206e6f742072656d6f76652074686520636f7079726967687420616e642074726164656d61726b2073746174656d656e74732066726f6d2074686520666f6e747320616e6420746861742c2069662074686520706572736f6e206465636964657320746f206372656174652061206465726976617469766520776f726b206261736564206f6e20746865205354495820466f6e74732062757420696e636f72706f726174696e6720736f6d65206368616e676573206f7220656e68616e63656d656e74732c20746865206465726976617469766520776f726b2028224d6f6469666965642056657273696f6e22292077696c6c206361727279206120646966666572656e74206e616d652e2054686520636f7079726967687420616e642074726164656d61726b207265737472696374696f6e73206172652070617274206f66207468652061677265656d656e74206265747765656e20746865205354492050756220636f6d70616e69657320616e64207468652074797065666163652064657369676e65722e20546865202272656e616d696e6722207265737472696374696f6e20726573756c74732066726f6d2074686520646573697265206f6620746865205354492050756220636f6d70616e69657320746f20617373757265207468617420746865205354495820466f6e74732077696c6c20636f6e74696e756520746f2066756e6374696f6e20696e2061207072656469637461626c652066617368696f6e20666f7220616c6c207468617420757365207468656d2e204e6f20636f7079206f66206f6e65206f72206d6f7265206f662074686520696e646976696475616c20466f6e7420747970656661636573207468617420666f726d20746865205354495820466f6e747328544d2920736574206d617920626520736f6c6420627920697473656c662c20627574206f74686572207468616e2074686973206f6e65207265737472696374696f6e2c206c6963656e7365657320617265206672656520746f2073656c6c2074686520666f6e7473206569746865722073657061726174656c79206f722061732070617274206f662061207061636b616765207468617420636f6d62696e6573206f7468657220736f667477617265206f7220666f6e74732077697468207468697320666f6e74207365742e"], [1, 0, 0, 14, "687474703a2f2f7777772e73746978666f6e74732e6f72672f757365725f6c6963656e73652e68746d6c"], [3, 1, 1033, 0, "0043006f0070007900720069006700680074002000280063002900200032003000300031002d003200300031003000200062007900200074006800650020005300540049002000500075006200200043006f006d00700061006e006900650073002c00200063006f006e00730069007300740069006e00670020006f0066002000740068006500200041006d00650072006900630061006e0020004300680065006d006900630061006c00200053006f00630069006500740079002c002000740068006500200041006d00650072006900630061006e00200049006e00730074006900740075007400650020006f006600200050006800790073006900630073002c002000740068006500200041006d00650072006900630061006e0020004d0061007400680065006d00610074006900630061006c00200053006f00630069006500740079002c002000740068006500200041006d00650072006900630061006e00200050006800790073006900630061006c00200053006f00630069006500740079002c00200045006c007300650076006900650072002c00200049006e0063002e002c00200061006e0064002000540068006500200049006e00730074006900740075007400650020006f006600200045006c0065006300740072006900630061006c00200061006e006400200045006c0065006300740072006f006e0069006300200045006e00670069006e0065006500720073002c00200049006e0063002e00200050006f007200740069006f006e007300200063006f0070007900720069006700680074002000280063002900200031003900390038002d00320030003000330020006200790020004d006900630072006f00500072006500730073002c00200049006e0063002e00200050006f007200740069006f006e007300200063006f007000790072006900670068007400200028006300290020003100390039003000200062007900200045006c007300650076006900650072002c00200049006e0063002e00200041006c006c0020007200690067006800740073002000720065007300650072007600650064002e"], [3, 1, 1033, 1, "005300540049005800530069007a006500540077006f00530079006d"], [3, 1, 1033, 2, "0042006f006c0064"], [3, 1, 1033, 3, "0046006f006e0074004d00610073007400650072003a005300540049005800530069007a006500540077006f00530079006d002d0042006f006c0064003a0031002e0030002e0030"], [3, 1, 1033, 4, "005300540049005800530069007a006500540077006f00530079006d002d0042006f006c0064"], [3, 1, 1033, 5, "00560065007200730069006f006e00200031002e0030002e0030"], [3, 1, 1033, 6, "005300540049005800530069007a006500540077006f00530079006d002d0042006f006c0064"], [3, 1, 1033, 7, "005300540049005800200046006f006e0074007300280054004d002900200069007300200061002000740072006100640065006d00610072006b0020006f0066002000540068006500200049006e00730074006900740075007400650020006f006600200045006c0065006300740072006900630061006c00200061006e006400200045006c0065006300740072006f006e00690063007300200045006e00670069006e0065006500720073002c00200049006e0063002e"], [3, 1, 1033, 9, "004d006900630072006f0050007200650073007300200049006e0063002e002c00200077006900740068002000660069006e0061006c0020006100640064006900740069006f006e007300200061006e006400200063006f007200720065006300740069006f006e0073002000700072006f0076006900640065006400200062007900200043006f0065006e00200048006f00660066006d0061006e002c00200045006c0073006500760069006500720020002800720065007400690072006500640029"], [3, 1, 1033, 10, "00410072006900650020006400650020005200750069007400650072002c002000770068006f00200069006e002000310039003900350020007700610073002000480065006100640020006f006600200049006e0066006f0072006d006100740069006f006e00200054006500630068006e006f006c006f0067007900200044006500760065006c006f0070006d0065006e007400200061007400200045006c00730065007600690065007200200053006300690065006e00630065002c0020006d00610064006500200061002000700072006f0070006f00730061006c00200074006f002000740068006500200053005400490020005000750062002000670072006f00750070002c00200061006e00200069006e0066006f0072006d0061006c002000670072006f007500700020006f00660020007000750062006c00690073006800650072007300200063006f006e00730069007300740069006e00670020006f006600200072006500700072006500730065006e0074006100740069007600650073002000660072006f006d002000740068006500200041006d00650072006900630061006e0020004300680065006d006900630061006c00200053006f00630069006500740079002000280041004300530029002c00200041006d00650072006900630061006e00200049006e00730074006900740075007400650020006f006600200050006800790073006900630073002000280041004900500029002c00200041006d00650072006900630061006e0020004d0061007400680065006d00610074006900630061006c00200053006f00630069006500740079002000280041004d00530029002c00200041006d00650072006900630061006e00200050006800790073006900630061006c00200053006f00630069006500740079002000280041005000530029002c00200045006c007300650076006900650072002c00200061006e006400200049006e00730074006900740075007400650020006f006600200045006c0065006300740072006900630061006c00200061006e006400200045006c0065006300740072006f006e00690063007300200045006e00670069006e00650065007200730020002800490045004500450029002e002000440065002000520075006900740065007200200065006e0063006f00750072006100670065006400200074006800650020006d0065006d006200650072007300200074006f00200063006f006e0073006900640065007200200064006500760065006c006f0070006d0065006e00740020006f00660020006100200073006500720069006500730020006f0066002000570065006200200066006f006e00740073002c002000770068006900630068002000680065002000700072006f0070006f007300650064002000730068006f0075006c0064002000620065002000630061006c006c00650064002000740068006500200053006300690065006e0074006900660069006300200061006e006400200054006500630068006e006900630061006c00200049006e0066006f0072006d006100740069006f006e002000650058006300680061006e00670065002c0020006f007200200053005400490058002c00200046006f006e00740073002e00200041006c006c002000530054004900200050007500620020006d0065006d0062006500720020006f007200670061006e0069007a006100740069006f006e007300200065006e00740068007500730069006100730074006900630061006c006c007900200065006e0064006f007200730065006400200074006800690073002000700072006f0070006f00730061006c002c00200061006e0064002000740068006500200053005400490020005000750062002000670072006f00750070002000610067007200650065006400200074006f00200065006d006200610072006b0020006f006e0020007700680061007400200068006100730020006200650063006f006d0065002000610020007400770065006c00760065002d0079006500610072002000700072006f006a006500630074002e002000540068006500200067006f0061006c0020006f00660020007400680065002000700072006f006a006500630074002000770061007300200074006f0020006900640065006e007400690066007900200061006c006c00200061006c00700068006100620065007400690063002c002000730079006d0062006f006c00690063002c00200061006e00640020006f00740068006500720020007300700065006300690061006c002000630068006100720061006300740065007200730020007500730065006400200069006e00200061006e00790020006600610063006500740020006f006600200073006300690065006e007400690066006900630020007000750062006c0069007300680069006e006700200061006e006400200074006f00200063007200650061007400650020006100200073006500740020006f006600200055006e00690063006f00640065002d0062006100730065006400200066006f006e007400730020007400680061007400200077006f0075006c00640020006200650020006400690073007400720069006200750074006500640020006600720065006500200074006f00200065007600650072007900200073006300690065006e0074006900730074002c002000730074007500640065006e0074002c00200061006e00640020006f007400680065007200200069006e0074006500720065007300740065006400200070006100720074007900200077006f0072006c00640077006900640065002e002000540068006500200066006f006e0074007300200077006f0075006c006400200062006500200063006f006e00730069007300740065006e007400200077006900740068002000740068006500200065006d0065007200670069006e006700200055006e00690063006f006400650020007300740061006e0064006100720064002c00200061006e006400200077006f0075006c00640020007000650072006d0069007400200075006e006900760065007200730061006c00200072006500700072006500730065006e0074006100740069006f006e0020006f00660020006500760065007200790020006300680061007200610063007400650072002e002000570069007400680020007400680065002000720065006c00650061007300650020006f006600200074006800650020005300540049005800200066006f006e00740073002c00200064006500200052007500690074006500720027007300200076006900730069006f006e00200068006100730020006200650065006e0020007200650061006c0069007a00650064002e"], [3, 1, 1033, 11, "0068007400740070003a002f002f007700770077002e00730074006900780066006f006e00740073002e006f00720067"], [3, 1, 1033, 12, "0068007400740070003a002f002f007700770077002e006d006900630072006f00700072006500730073002d0069006e0063002e0063006f006d"], [3, 1, 1033, 13, "004100730020006100200063006f006e0064006900740069006f006e00200066006f007200200072006500630065006900760069006e006700200074006800650073006500200066006f006e007400730020006100740020006e006f0020006300680061007200670065002c0020006500610063006800200070006500720073006f006e00200064006f0077006e006c006f006100640069006e0067002000740068006500200066006f006e007400730020006d00750073007400200061006700720065006500200074006f00200073006f006d0065002000730069006d0070006c00650020006c006900630065006e007300650020007400650072006d0073002e00200054006800650020006c006900630065006e007300650020006900730020006200610073006500640020006f006e0020007400680065002000530049004c0020004f00700065006e00200046006f006e00740020004c006900630065006e007300650020003c0068007400740070003a002f002f0073006300720069007000740073002e00730069006c002e006f00720067002f0063006d0073002f0073006300720069007000740073002f0070006100670065002e007000680070003f0073006900740065005f00690064003d006e007200730069002600690064003d004f0046004c003e002e0020005400680065002000530049004c0020004c006900630065006e00730065002000690073002000610020006600720065006500200061006e00640020006f00700065006e00200073006f00750072006300650020006c006900630065006e007300650020007300700065006300690066006900630061006c006c0079002000640065007300690067006e0065006400200066006f007200200066006f006e0074007300200061006e0064002000720065006c006100740065006400200073006f006600740077006100720065002e00200054006800650020006200610073006900630020007400650072006d0073002000610072006500200074006800610074002000740068006500200072006500630069007000690065006e0074002000770069006c006c0020006e006f0074002000720065006d006f00760065002000740068006500200063006f007000790072006900670068007400200061006e0064002000740072006100640065006d00610072006b002000730074006100740065006d0065006e00740073002000660072006f006d002000740068006500200066006f006e0074007300200061006e006400200074006800610074002c002000690066002000740068006500200070006500720073006f006e0020006400650063006900640065007300200074006f0020006300720065006100740065002000610020006400650072006900760061007400690076006500200077006f0072006b0020006200610073006500640020006f006e00200074006800650020005300540049005800200046006f006e00740073002000620075007400200069006e0063006f00720070006f0072006100740069006e006700200073006f006d00650020006300680061006e0067006500730020006f007200200065006e00680061006e00630065006d0065006e00740073002c00200074006800650020006400650072006900760061007400690076006500200077006f0072006b002000280022004d006f006400690066006900650064002000560065007200730069006f006e00220029002000770069006c006c0020006300610072007200790020006100200064006900660066006500720065006e00740020006e0061006d0065002e002000540068006500200063006f007000790072006900670068007400200061006e0064002000740072006100640065006d00610072006b0020007200650073007400720069006300740069006f006e00730020006100720065002000700061007200740020006f00660020007400680065002000610067007200650065006d0065006e00740020006200650074007700650065006e00200074006800650020005300540049002000500075006200200063006f006d00700061006e00690065007300200061006e00640020007400680065002000740079007000650066006100630065002000640065007300690067006e00650072002e00200054006800650020002200720065006e0061006d0069006e006700220020007200650073007400720069006300740069006f006e00200072006500730075006c00740073002000660072006f006d002000740068006500200064006500730069007200650020006f006600200074006800650020005300540049002000500075006200200063006f006d00700061006e00690065007300200074006f00200061007300730075007200650020007400680061007400200074006800650020005300540049005800200046006f006e00740073002000770069006c006c00200063006f006e00740069006e0075006500200074006f002000660075006e006300740069006f006e00200069006e002000610020007000720065006400690063007400610062006c0065002000660061007300680069006f006e00200066006f007200200061006c006c0020007400680061007400200075007300650020007400680065006d002e0020004e006f00200063006f007000790020006f00660020006f006e00650020006f00720020006d006f007200650020006f0066002000740068006500200069006e0064006900760069006400750061006c00200046006f006e007400200074007900700065006600610063006500730020007400680061007400200066006f0072006d00200074006800650020005300540049005800200046006f006e0074007300280054004d002900200073006500740020006d0061007900200062006500200073006f006c006400200062007900200069007400730065006c0066002c00200062007500740020006f00740068006500720020007400680061006e002000740068006900730020006f006e00650020007200650073007400720069006300740069006f006e002c0020006c006900630065006e007300650065007300200061007200650020006600720065006500200074006f002000730065006c006c002000740068006500200066006f006e007400730020006500690074006800650072002000730065007000610072006100740065006c00790020006f0072002000610073002000700061007200740020006f0066002000610020007000610063006b0061006700650020007400680061007400200063006f006d00620069006e006500730020006f007400680065007200200073006f0066007400770061007200650020006f007200200066006f006e00740073002000770069007400680020007400680069007300200066006f006e00740020007300650074002e"], [3, 1, 1033, 14, "0068007400740070003a002f002f007700770077002e00730074006900780066006f006e00740073002e006f00720067002f0075007300650072005f006c006900630065006e00730065002e00680074006d006c"]]
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt",
+   "args": {"file": "cmtt10.ttf"},
+   "value": [[1, 0, 0, 0, "436f707972696768742028432920313939342c20426173696c204b2e204d616c79736865762e20416c6c205269676874732052657365727665642e30313242614b6f4d6120466f6e747320436f6c6c656374696f6e2c204c6576656c2d422e"], [1, 0, 0, 1, "636d74743130"], [1, 0, 0, 2, "526567756c6172"], [1, 0, 0, 3, "466f6e744d6f6e6765723a636d74743130"], [1, 0, 0, 4, "636d74743130"], [1, 0, 0, 5, "312e312f31322d4e6f762d3934"], [1, 0, 0, 6, "436d74743130"], [3, 1, 1033, 0, "0043006f0070007900720069006700680074002000280043002900200031003900390034002c00200042006100730069006c0020004b002e0020004d0061006c00790073006800650076002e00200041006c006c0020005200690067006800740073002000520065007300650072007600650064002e00300031003200420061004b006f004d006100200046006f006e0074007300200043006f006c006c0065006300740069006f006e002c0020004c006500760065006c002d0042002e"], [3, 1, 1033, 1, "0063006d0074007400310030"], [3, 1, 1033, 2, "0052006500670075006c00610072"], [3, 1, 1033, 3, "0046006f006e0074004d006f006e006700650072003a0063006d0074007400310030"], [3, 1, 1033, 4, "0063006d0074007400310030"], [3, 1, 1033, 5, "0031002e0031002f00310032002d004e006f0076002d00390034"], [3, 1, 1033, 6, "0043006d0074007400310030"]]
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "DejaVuSans.ttf", "table": "OS/2"},
+   "value": {
+    "version": 1,
+    "xAvgCharWidth": 1038,
+    "usWeightClass": 400,
+    "usWidthClass": 5,
+    "fsType": 0,
+    "ySubscriptXSize": 1331,
+    "ySubscriptYSize": 1433,
+    "ySubscriptXOffset": 0,
+    "ySubscriptYOffset": 286,
+    "ySuperscriptXSize": 1331,
+    "ySuperscriptYSize": 1433,
+    "ySuperscriptXOffset": 0,
+    "ySuperscriptYOffset": 983,
+    "yStrikeoutSize": 102,
+    "yStrikeoutPosition": 530,
+    "sFamilyClass": 0,
+    "panose": [2, 11, 6, 3, 3, 8, 4, 2, 2, 4],
+    "ulUnicodeRange": [3875565311, 3523280383, 170156073, 67117068],
+    "achVendID": [80, 102, 69, 100],
+    "fsSelection": 64,
+    "usFirstCharIndex": 32,
+    "usLastCharIndex": 65535,
+    "sTypoAscender": 1556,
+    "sTypoDescender": -492,
+    "sTypoLineGap": 410,
+    "usWinAscent": 1901,
+    "usWinDescent": 483,
+    "ulCodePageRange": [1610613247, 3758030848]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "DejaVuSans.ttf", "table": "head"},
+   "value": {
+    "version": [1, 0],
+    "fontRevision": [2, 22937],
+    "checkSumAdjustment": -175678572,
+    "magicNumber": 1594834165,
+    "flags": 31,
+    "unitsPerEm": 2048,
+    "created": [0, 3514699492],
+    "modified": [0, 3514699492],
+    "xMin": -2090,
+    "yMin": -948,
+    "xMax": 3673,
+    "yMax": 2524,
+    "macStyle": 0,
+    "lowestRecPPEM": 8,
+    "fontDirectionHint": 0,
+    "indexToLocFormat": 1,
+    "glyphDataFormat": 0
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "DejaVuSans.ttf", "table": "hhea"},
+   "value": {
+    "version": [1, 0],
+    "ascent": 1901,
+    "descent": -483,
+    "lineGap": 0,
+    "advanceWidthMax": 3838,
+    "minLeftBearing": -2090,
+    "minRightBearing": -1455,
+    "xMaxExtent": 3673,
+    "caretSlopeRise": 1,
+    "caretSlopeRun": 0,
+    "caretOffset": 0,
+    "metricDataFormat": 0,
+    "numOfLongHorMetrics": 6226
+   }
+  },
+  {"op": "ft2font.FT2Font.get_sfnt_table", "args": {"file": "DejaVuSans.ttf", "table": "invalid"}, "value": null},
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "DejaVuSans.ttf", "table": "maxp"},
+   "value": {
+    "version": [1, 0],
+    "numGlyphs": 6241,
+    "maxPoints": 852,
+    "maxContours": 43,
+    "maxComponentPoints": 104,
+    "maxComponentContours": 12,
+    "maxZones": 2,
+    "maxTwilightPoints": 16,
+    "maxStorage": 153,
+    "maxFunctionDefs": 64,
+    "maxInstructionDefs": 0,
+    "maxStackElements": 1045,
+    "maxSizeOfInstructions": 534,
+    "maxComponentElements": 8,
+    "maxComponentDepth": 4
+   }
+  },
+  {"op": "ft2font.FT2Font.get_sfnt_table", "args": {"file": "DejaVuSans.ttf", "table": "pclt"}, "value": null},
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "DejaVuSans.ttf", "table": "post"},
+   "value": {
+    "format": [2, 0],
+    "italicAngle": [0, 0],
+    "underlinePosition": -130,
+    "underlineThickness": 90,
+    "isFixedPitch": 0,
+    "minMemType42": 0,
+    "maxMemType42": 0,
+    "minMemType1": 0,
+    "maxMemType1": 0
+   }
+  },
+  {"op": "ft2font.FT2Font.get_sfnt_table", "args": {"file": "DejaVuSans.ttf", "table": "vhea"}, "value": null},
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "STIXSizTwoSymBol.ttf", "table": "OS/2"},
+   "value": {
+    "version": 2,
+    "xAvgCharWidth": 598,
+    "usWeightClass": 700,
+    "usWidthClass": 5,
+    "fsType": 0,
+    "ySubscriptXSize": 500,
+    "ySubscriptYSize": 500,
+    "ySubscriptXOffset": 0,
+    "ySubscriptYOffset": 250,
+    "ySuperscriptXSize": 500,
+    "ySuperscriptYSize": 500,
+    "ySuperscriptXOffset": 0,
+    "ySuperscriptYOffset": 500,
+    "yStrikeoutSize": 20,
+    "yStrikeoutPosition": 1037,
+    "sFamilyClass": 0,
+    "panose": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "ulUnicodeRange": [3, 192, 0, 0],
+    "achVendID": [83, 84, 73, 88],
+    "fsSelection": 32,
+    "usFirstCharIndex": 32,
+    "usLastCharIndex": 10217,
+    "sTypoAscender": 750,
+    "sTypoDescender": -250,
+    "sTypoLineGap": 1499,
+    "usWinAscent": 2095,
+    "usWinDescent": 404,
+    "ulCodePageRange": [2688417793, 2432565248],
+    "sxHeight": 0,
+    "sCapHeight": 0,
+    "usDefaultChar": 0,
+    "usBreakChar": 32,
+    "usMaxContext": 1
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "STIXSizTwoSymBol.ttf", "table": "head"},
+   "value": {
+    "version": [1, 0],
+    "fontRevision": [1, 0],
+    "checkSumAdjustment": 1803408080,
+    "magicNumber": 1594834165,
+    "flags": 11,
+    "unitsPerEm": 1000,
+    "created": [0, 3359035786],
+    "modified": [0, 3359035786],
+    "xMin": 4,
+    "yMin": -355,
+    "xMax": 1185,
+    "yMax": 2095,
+    "macStyle": 1,
+    "lowestRecPPEM": 8,
+    "fontDirectionHint": 2,
+    "indexToLocFormat": 0,
+    "glyphDataFormat": 0
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "STIXSizTwoSymBol.ttf", "table": "hhea"},
+   "value": {
+    "version": [1, 0],
+    "ascent": 2095,
+    "descent": -404,
+    "lineGap": 0,
+    "advanceWidthMax": 1130,
+    "minLeftBearing": 0,
+    "minRightBearing": -55,
+    "xMaxExtent": 1185,
+    "caretSlopeRise": 1,
+    "caretSlopeRun": 0,
+    "caretOffset": 0,
+    "metricDataFormat": 0,
+    "numOfLongHorMetrics": 19
+   }
+  },
+  {"op": "ft2font.FT2Font.get_sfnt_table", "args": {"file": "STIXSizTwoSymBol.ttf", "table": "invalid"}, "value": null},
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "STIXSizTwoSymBol.ttf", "table": "maxp"},
+   "value": {
+    "version": [1, 0],
+    "numGlyphs": 20,
+    "maxPoints": 37,
+    "maxContours": 1,
+    "maxComponentPoints": 0,
+    "maxComponentContours": 0,
+    "maxZones": 2,
+    "maxTwilightPoints": 0,
+    "maxStorage": 1,
+    "maxFunctionDefs": 64,
+    "maxInstructionDefs": 0,
+    "maxStackElements": 64,
+    "maxSizeOfInstructions": 0,
+    "maxComponentElements": 0,
+    "maxComponentDepth": 0
+   }
+  },
+  {"op": "ft2font.FT2Font.get_sfnt_table", "args": {"file": "STIXSizTwoSymBol.ttf", "table": "pclt"}, "value": null},
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "STIXSizTwoSymBol.ttf", "table": "post"},
+   "value": {
+    "format": [2, 0],
+    "italicAngle": [0, 0],
+    "underlinePosition": -123,
+    "underlineThickness": 20,
+    "isFixedPitch": 0,
+    "minMemType42": 0,
+    "maxMemType42": 0,
+    "minMemType1": 0,
+    "maxMemType1": 0
+   }
+  },
+  {"op": "ft2font.FT2Font.get_sfnt_table", "args": {"file": "STIXSizTwoSymBol.ttf", "table": "vhea"}, "value": null},
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "cmtt10.ttf", "table": "OS/2"},
+   "value": {
+    "version": 0,
+    "xAvgCharWidth": 1075,
+    "usWeightClass": 400,
+    "usWidthClass": 5,
+    "fsType": 0,
+    "ySubscriptXSize": 410,
+    "ySubscriptYSize": 369,
+    "ySubscriptXOffset": 0,
+    "ySubscriptYOffset": -469,
+    "ySuperscriptXSize": 410,
+    "ySuperscriptYSize": 369,
+    "ySuperscriptXOffset": 0,
+    "ySuperscriptYOffset": 1090,
+    "yStrikeoutSize": 102,
+    "yStrikeoutPosition": 530,
+    "sFamilyClass": 0,
+    "panose": [2, 11, 5, 0, 0, 0, 0, 0, 0, 0],
+    "ulUnicodeRange": [0, 0, 0, 0],
+    "achVendID": [0, 0, 0, 0],
+    "fsSelection": 64,
+    "usFirstCharIndex": 32,
+    "usLastCharIndex": 9835,
+    "sTypoAscender": 1276,
+    "sTypoDescender": -469,
+    "sTypoLineGap": 0,
+    "usWinAscent": 1430,
+    "usWinDescent": 477
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "cmtt10.ttf", "table": "head"},
+   "value": {
+    "version": [1, 0],
+    "fontRevision": [1, 0],
+    "checkSumAdjustment": 555110277,
+    "magicNumber": 1594834165,
+    "flags": 3,
+    "unitsPerEm": 2048,
+    "created": [0, 0],
+    "modified": [0, 0],
+    "xMin": -12,
+    "yMin": -477,
+    "xMax": 1280,
+    "yMax": 1430,
+    "macStyle": 0,
+    "lowestRecPPEM": 6,
+    "fontDirectionHint": 2,
+    "indexToLocFormat": 1,
+    "glyphDataFormat": 0
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "cmtt10.ttf", "table": "hhea"},
+   "value": {
+    "version": [1, 0],
+    "ascent": 1276,
+    "descent": -489,
+    "lineGap": 0,
+    "advanceWidthMax": 1536,
+    "minLeftBearing": -12,
+    "minRightBearing": -29,
+    "xMaxExtent": 1280,
+    "caretSlopeRise": 1,
+    "caretSlopeRun": 0,
+    "caretOffset": 0,
+    "metricDataFormat": 0,
+    "numOfLongHorMetrics": 133
+   }
+  },
+  {"op": "ft2font.FT2Font.get_sfnt_table", "args": {"file": "cmtt10.ttf", "table": "invalid"}, "value": null},
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "cmtt10.ttf", "table": "maxp"},
+   "value": {
+    "version": [1, 0],
+    "numGlyphs": 133,
+    "maxPoints": 94,
+    "maxContours": 5,
+    "maxComponentPoints": 0,
+    "maxComponentContours": 0,
+    "maxZones": 2,
+    "maxTwilightPoints": 12,
+    "maxStorage": 6,
+    "maxFunctionDefs": 64,
+    "maxInstructionDefs": 0,
+    "maxStackElements": 200,
+    "maxSizeOfInstructions": 100,
+    "maxComponentElements": 4,
+    "maxComponentDepth": 1
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "cmtt10.ttf", "table": "pclt"},
+   "value": {
+    "version": [1, 0],
+    "fontNumber": 2147483648,
+    "pitch": 1075,
+    "xHeight": 905,
+    "style": 0,
+    "typeFamily": 0,
+    "capHeight": 1276,
+    "symbolSet": 0,
+    "typeFace": [99, 109, 116, 116, 49, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "characterComplement": [255, 255, 255, 255, 55, 255, 255, 254],
+    "strokeWeight": 0,
+    "widthType": -5,
+    "serifStyle": 64
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.get_sfnt_table",
+   "args": {"file": "cmtt10.ttf", "table": "post"},
+   "value": {
+    "format": [2, 0],
+    "italicAngle": [0, 0],
+    "underlinePosition": -133,
+    "underlineThickness": 20,
+    "isFixedPitch": 0,
+    "minMemType42": 0,
+    "maxMemType42": 0,
+    "minMemType1": 0,
+    "maxMemType1": 0
+   }
+  },
+  {"op": "ft2font.FT2Font.get_sfnt_table", "args": {"file": "cmtt10.ttf", "table": "vhea"}, "value": null},
+  {
+   "op": "ft2font.FT2Font.load_char",
+   "args": {"file": "DejaVuSans.ttf", "size": 12, "dpi": 72, "char": "M"},
+   "value": {"width": 576, "height": 576, "horiBearingX": 0, "horiBearingY": 576, "horiAdvance": 640, "linearHoriAdvance": 678528, "bbox": [54, 0, 574, 576]}
+  },
+  {"op": "ft2font.FT2Font.load_char", "args": {"file": "DejaVuSans.ttf", "size": 12, "dpi": 72, "char": "ᥨ"}, "error": "RuntimeError"},
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "DejaVuSans.ttf", "size": 12, "dpi": 72, "char": "M", "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "path": [[1, 54, 576], [2, 167, 576], [2, 314, 184], [2, 462, 576], [2, 574, 576], [2, 574, 0], [2, 502, 0], [2, 502, 506], [2, 354, 111], [2, 275, 111], [2, 127, 506], [2, 127, 0], [2, 54, 0], [2, 54, 576], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.set_text",
+   "args": {"file": "DejaVuSans.ttf", "text": "ABabCDcd", "size": 12, "dpi": 144},
+   "value": {
+    "xys": [[0.0, 0.0], [1024.0, 0.0], [2048.0, 0.0], [2944.0, 0.0], [3904.0, 0.0], [4928.0, 0.0], [6080.0, 0.0], [6912.0, 0.0]],
+    "width_height": [7872, 1216],
+    "num_glyphs": 8,
+    "descent": 0,
+    "bitmap_offset": [12, 0]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.set_text",
+   "args": {"file": "DejaVuSans.ttf", "text": "", "size": 12, "dpi": 72},
+   "value": {"xys": [], "width_height": [0, 0], "num_glyphs": 0, "descent": 0, "bitmap_offset": [0, 0]}
+  },
+  {
+   "op": "ft2font.FT2Font.set_text",
+   "args": {"file": "DejaVuSans.ttf", "text": "AADAT.XC-J", "size": 12, "dpi": 72},
+   "value": {
+    "xys": [[0.0, 0.0], [533.0, 0.0], [1045.0, 0.0], [1608.0, 0.0], [2060.0, 0.0], [2417.0, 0.0], [2609.0, 0.0], [3065.0, 0.0], [3577.0, 0.0], [3940.0, 0.0]],
+    "width_height": [4196, 768],
+    "num_glyphs": 10,
+    "descent": 192,
+    "bitmap_offset": [6, 0]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.set_text",
+   "args": {"file": "DejaVuSans.ttf", "text": "ABabCDcd", "size": 12, "dpi": 72},
+   "value": {
+    "xys": [[0.0, 0.0], [512.0, 0.0], [1024.0, 0.0], [1472.0, 0.0], [1984.0, 0.0], [2496.0, 0.0], [3072.0, 0.0], [3520.0, 0.0]],
+    "width_height": [4032, 640],
+    "num_glyphs": 8,
+    "descent": 0,
+    "bitmap_offset": [6, 0]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.set_text",
+   "args": {"file": "DejaVuSans.ttf", "text": "ABabCDcd", "size": 24, "dpi": 72},
+   "value": {
+    "xys": [[0.0, 0.0], [1024.0, 0.0], [2048.0, 0.0], [2944.0, 0.0], [3904.0, 0.0], [4928.0, 0.0], [6080.0, 0.0], [6912.0, 0.0]],
+    "width_height": [7872, 1216],
+    "num_glyphs": 8,
+    "descent": 0,
+    "bitmap_offset": [12, 0]
+   }
+  }
+ ]
+}

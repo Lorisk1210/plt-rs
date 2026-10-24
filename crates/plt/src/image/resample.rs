@@ -1,7 +1,8 @@
 //! matplotlib's `_resample`: keeps huge data within Agg's limits, picks
 //! the kernel for adaptive interpolation, breaks nearest-neighbour ties
 //! towards the left/upper pixel and runs the Agg resampler of
-//! `plt-raster`.
+//! `plt-raster`; and matplotlib's public `image.resample`, which runs the
+//! resampler as it is.
 
 use std::borrow::Cow;
 
@@ -11,6 +12,82 @@ use plt_raster::resample::{self as raster, Pixel, PixelTransform, ResampleParams
 use super::{ImageError, Interpolation, Origin};
 use crate::numeric::Grid;
 use crate::transforms::ResolvedTransform;
+
+/// The settings of [`resample`] (the keyword arguments of matplotlib's
+/// `image.resample`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ResampleOptions {
+    /// The kernel; the adaptive choices and `none` sample the nearest
+    /// pixel (nearest by default).
+    pub interpolation: Interpolation,
+    /// Agg's full resampling for affine transforms, whose kernel grows
+    /// with the downsampling factor (off by default).
+    pub resample: bool,
+    /// The opacity, in `[0, 1]`, of every pixel written (1 by default).
+    pub alpha: f64,
+    /// Normalised kernel weights (off by default).
+    pub norm: bool,
+    /// The kernel radius of `sinc`, `lanczos` and `blackman` (1 by
+    /// default).
+    pub radius: f64,
+}
+
+impl Default for ResampleOptions {
+    fn default() -> Self {
+        Self {
+            interpolation: Interpolation::Nearest,
+            resample: false,
+            alpha: 1.0,
+            norm: false,
+            radius: 1.0,
+        }
+    }
+}
+
+/// Resamples `data` into `out` through `transform`, from source to output
+/// pixel coordinates, blending what it writes over `out` (matplotlib's
+/// `image.resample`). Affine transforms map pixels directly; others go
+/// through a lookup mesh of the source position of every output pixel
+/// centre. Unlike images drawn on axes, nothing is adjusted: the kernel is
+/// used as given, and nearest-neighbour ties go the way Agg breaks them.
+///
+/// ```
+/// use plt::image::{ResampleOptions, resample};
+/// use plt::numeric::Grid;
+/// use plt::transforms::{Affine2D, ResolvedTransform};
+/// let data = Grid::from_vec(1, 3, vec![0.1, 0.3, 0.2])?;
+/// let mut out = Grid::filled(1, 10, 0.0);
+/// let stretch = ResolvedTransform::affine(Affine2D::scaling(10.0 / 3.0, 1.0));
+/// resample(&data, &mut out, &stretch, &ResampleOptions::default())?;
+/// assert_eq!(out.row(0), &[0.1, 0.1, 0.1, 0.3, 0.3, 0.3, 0.3, 0.2, 0.2, 0.2]);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When the transform cannot be inverted, a grid is empty or too large for
+/// Agg, or `alpha` or `radius` is out of range.
+pub fn resample(
+    data: &Grid<f64>,
+    out: &mut Grid<f64>,
+    transform: &ResolvedTransform,
+    options: &ResampleOptions,
+) -> Result<(), ImageError> {
+    let (rows, cols) = data.shape();
+    let (out_rows, out_cols) = out.shape();
+    let src = raster::GridRef::new(cols, rows, data.as_slice())?;
+    let mut dst = raster::Grid::from_vec(out_cols, out_rows, out.as_slice().to_vec())?;
+    let map = PixelMap::from_resolved(transform.clone());
+    let params = ResampleParams::new(map.pixel_transform(out_cols, out_rows)?)
+        .with_interpolation(options.interpolation.kernel())
+        .with_resample(options.resample)
+        .with_alpha(options.alpha)
+        .with_norm(options.norm)
+        .with_radius(options.radius);
+    raster::resample(src, &mut dst, &params)?;
+    out.as_mut_slice().copy_from_slice(dst.as_slice());
+    Ok(())
+}
 
 /// The resampling settings of an image.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -270,6 +347,45 @@ mod tests {
         let (kept, scaled) = within_agg_limits(&data, &map);
         assert_eq!(kept.shape(), (1, (1 << 22) + 1));
         assert_eq!(scaled.apply(Point::new(1.0, 1.0)).x, 16.0 / cols as f64);
+    }
+
+    #[test]
+    fn public_resampling_takes_non_affine_transforms() {
+        // matplotlib's test_resample_nonaffine: the identity in front of
+        // the affine stretch makes no difference to nearest sampling.
+        #[derive(Debug)]
+        struct Identity;
+        impl crate::transforms::PointMap for Identity {
+            fn forward(&self, point: Point) -> Point {
+                point
+            }
+            fn inverse(&self, point: Point) -> Point {
+                point
+            }
+        }
+        let data = Grid::from_vec(1, 6, vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6]).unwrap();
+        let stretch = Affine2D::scaling(1.5, 1.0);
+        let general = ResolvedTransform::with_step(
+            crate::transforms::Step::Plane(std::rc::Rc::new(Identity)),
+            stretch,
+        );
+        let mut out = Grid::filled(1, 9, 0.0);
+        resample(&data, &mut out, &general, &ResampleOptions::default()).unwrap();
+        assert_eq!(out.row(0), &[0.1, 0.2, 0.2, 0.3, 0.4, 0.4, 0.5, 0.6, 0.6]);
+        let mut bad = Grid::filled(1, 9, 0.0);
+        let options = ResampleOptions {
+            alpha: 2.0,
+            ..ResampleOptions::default()
+        };
+        assert!(
+            resample(
+                &data,
+                &mut bad,
+                &ResolvedTransform::affine(stretch),
+                &options
+            )
+            .is_err()
+        );
     }
 
     #[test]

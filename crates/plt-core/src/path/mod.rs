@@ -164,11 +164,13 @@ impl Path {
 
     /// A closed polygon in matplotlib's `closed=True` convention: the last
     /// vertex receives [`PathCode::ClosePoly`] and is therefore ignored.
+    /// Without vertices there is nothing to close, and the path has no
+    /// codes, as in matplotlib.
     pub fn closed(vertices: Vec<Point>) -> Self {
-        let codes = closed_codes(vertices.len());
+        let codes = (!vertices.is_empty()).then(|| closed_codes(vertices.len()));
         Self {
             vertices,
-            codes: Some(codes),
+            codes,
             interpolation_steps: 1,
         }
     }

@@ -11,7 +11,7 @@ use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::dates::{Datetime64, TimeZone, get_epoch};
 use crate::ticker::AxisName;
-use crate::units::{AxisValue, AxisValues, DataPoint, UnitConverter};
+use crate::units::{AxisValue, AxisValues, Categories, DataPoint, UnitConverter};
 
 /// Seconds in a day: the length of the default view of a date axis.
 const SECONDS_PER_DAY: i64 = 86_400;
@@ -107,6 +107,23 @@ impl Axis {
             Ok(())
         })?;
         Ok(self)
+    }
+
+    /// The category names plotted on the axis, in position order, if any
+    /// were (the mapping of matplotlib's `axis.units` on a categorical
+    /// axis, a `UnitData`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot(vec!["b", "a", "b"], [1.0, 2.0, 3.0])?;
+    /// let categories = ax.xaxis().categories().expect("a categorical axis");
+    /// assert_eq!(categories.names(), ["b", "a"]);
+    /// assert!(ax.yaxis().categories().is_none());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn categories(&self) -> Option<Categories> {
+        self.read(|axis| axis.categories().cloned())
     }
 
     /// Whether the axis has a unit converter (matplotlib's `have_units`).

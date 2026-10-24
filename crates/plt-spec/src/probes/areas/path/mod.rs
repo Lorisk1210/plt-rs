@@ -86,7 +86,7 @@ pub(crate) const OPS: &[Op] = &[
 // ---------------------------------------------------------------------------
 // argument decoding
 
-fn path_arg(args: Args<'_>, key: &str) -> Result<Path, ProbeError> {
+pub(crate) fn path_arg(args: Args<'_>, key: &str) -> Result<Path, ProbeError> {
     encode::parse_mpl_path(args.json(key)?)
 }
 
@@ -126,7 +126,7 @@ fn simplify_settings(args: Args<'_>) -> SimplifySettings {
     }
 }
 
-fn point_list(points: &[Point]) -> Json {
+pub(crate) fn point_list(points: &[Point]) -> Json {
     Json::Array(points.iter().map(|p| encode::point(*p)).collect())
 }
 
@@ -196,7 +196,7 @@ fn arc_segments(args: Args<'_>, theta1: f64, theta2: f64) -> Result<Option<usize
     }
 }
 
-fn arc(args: Args<'_>) -> Outcome {
+pub(crate) fn arc(args: Args<'_>) -> Outcome {
     let (t1, t2) = (args.f64("theta1")?, args.f64("theta2")?);
     let n = arc_segments(args, t1, t2)?;
     let path = if args.bool("is_wedge")? {
@@ -238,7 +238,7 @@ fn regular_asterisk(args: Args<'_>) -> Outcome {
     )?)))
 }
 
-fn compound(args: Args<'_>) -> Outcome {
+pub(crate) fn compound(args: Args<'_>) -> Outcome {
     let paths = args
         .json("paths")?
         .as_array()
@@ -291,7 +291,7 @@ fn contains_point(args: Args<'_>) -> Outcome {
     Ok(inside.into())
 }
 
-fn contains_points(args: Args<'_>) -> Outcome {
+pub(crate) fn contains_points(args: Args<'_>) -> Outcome {
     let path = path_arg(args, "path")?;
     let t = transform_arg(args, "transform")?;
     let points = points_arg(args, "points")?;
@@ -302,7 +302,7 @@ fn contains_points(args: Args<'_>) -> Outcome {
     )))
 }
 
-fn contains_path(args: Args<'_>) -> Outcome {
+pub(crate) fn contains_path(args: Args<'_>) -> Outcome {
     let path = path_arg(args, "path")?;
     let t = transform_arg(args, "transform")?;
     Ok(path
@@ -310,7 +310,7 @@ fn contains_path(args: Args<'_>) -> Outcome {
         .into())
 }
 
-fn get_extents(args: Args<'_>) -> Outcome {
+pub(crate) fn get_extents(args: Args<'_>) -> Outcome {
     let mut path = path_arg(args, "path")?;
     if let Some(t) = transform_arg(args, "transform")? {
         path.transform(&t);
@@ -318,7 +318,7 @@ fn get_extents(args: Args<'_>) -> Outcome {
     Ok(encode::bbox(&path.extents()))
 }
 
-fn intersects_path(args: Args<'_>) -> Outcome {
+pub(crate) fn intersects_path(args: Args<'_>) -> Outcome {
     let (a, b) = (path_arg(args, "path")?, path_arg(args, "other")?);
     Ok(a.intersects_path(&b, args.bool("filled")?).into())
 }
@@ -349,7 +349,7 @@ fn clip_to_bbox(args: Args<'_>) -> Outcome {
     ))
 }
 
-fn interpolated(args: Args<'_>) -> Outcome {
+pub(crate) fn interpolated(args: Args<'_>) -> Outcome {
     let steps = usize::try_from(args.i64("steps")?)
         .ok()
         .filter(|s| *s > 0)
@@ -357,7 +357,7 @@ fn interpolated(args: Args<'_>) -> Outcome {
     Ok(encode::path(&path_arg(args, "path")?.interpolated(steps)))
 }
 
-fn to_polygons(args: Args<'_>) -> Outcome {
+pub(crate) fn to_polygons(args: Args<'_>) -> Outcome {
     let path = path_arg(args, "path")?;
     let options = PolygonOptions {
         transform: transform_arg(args, "transform")?,
@@ -402,7 +402,7 @@ fn cleanup_options(
     })
 }
 
-fn cleaned(args: Args<'_>) -> Outcome {
+pub(crate) fn cleaned(args: Args<'_>) -> Outcome {
     let path = path_arg(args, "path")?;
     let options = cleanup_options(args, &path, Some(args.bool("simplify")?))?;
     Ok(path_with_stop(&path.cleaned(&options)))

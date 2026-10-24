@@ -142,7 +142,7 @@ fn axes_box_aspect_6(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.add_patch(Circle::new((5.0, 3.0), 1.0));
     ax.set_aspect(Aspect::Equal)?
-        .set_adjustable(Adjustable::Datalim);
+        .set_adjustable(Adjustable::Datalim)?;
     ax.set_box_aspect(Some(0.5))?;
     ax.autoscale(None, None);
     Ok(())
@@ -183,7 +183,7 @@ fn axis_equal_demo(fig: &Figure) -> CaseResult {
     title(&axs[(1, 0)], "still a circle, even after changing limits");
     axs[(1, 1)]
         .set_aspect(Aspect::Equal)?
-        .set_adjustable(Adjustable::Box);
+        .set_adjustable(Adjustable::Box)?;
     title(&axs[(1, 1)], "still a circle, auto-adjusted data limits");
     fig.tight_layout(&TightLayout::default())?;
     Ok(())

@@ -1,9 +1,11 @@
 //! Runtime configuration from pyplot (matplotlib's `rc`, `rc_context`,
-//! `rcdefaults` and `xkcd`).
+//! `rc_file`, `rcdefaults` and `xkcd`).
+
+use std::path::Path;
 
 use super::interactive::draw_if_interactive;
-use crate::rc::RcError;
-use crate::style::{XkcdError, XkcdSketch};
+use crate::rc::{RcError, RcFile, RcParams};
+use crate::style::{STYLE_BLACKLIST, XkcdError, XkcdSketch};
 
 /// The short names matplotlib's `rc` accepts for parameter names.
 const ALIASES: [(&str, &str); 8] = [
@@ -57,6 +59,71 @@ pub fn rc(group: &str, settings: &[(&str, &str)]) -> Result<(), RcError> {
 /// When a parameter is unknown or a value invalid; `f` does not run then.
 pub fn rc_context<R>(settings: &[(&str, &str)], f: impl FnOnce() -> R) -> Result<R, RcError> {
     crate::rc::context(|| {
+        for (key, value) in settings {
+            crate::rc::set(key, value)?;
+        }
+        Ok(f())
+    })
+}
+
+/// Resets the parameters to matplotlib's defaults updated by the rc file
+/// at `path` (matplotlib's `rc_file`): the parameters of the style
+/// blacklist ([`STYLE_BLACKLIST`]) keep their current values instead.
+/// Invalid lines of the file are skipped, as matplotlib skips them with a
+/// warning.
+///
+/// ```
+/// use plt::pyplot as plt;
+/// let path = std::env::temp_dir().join(format!("plt-rc-file-{}.rc", std::process::id()));
+/// std::fs::write(&path, "lines.linewidth: 33\n")?;
+/// plt::rc_context(&[("lines.color", "red")], || {
+///     plt::rc_file(&path)?;
+///     let params = ::plt::rc::params();
+///     assert_eq!(params.lines_linewidth, 33.0);
+///     assert_eq!(params.lines_color, ::plt::rc::RcParams::matplotlib().lines_color);
+///     Ok::<(), ::plt::rc::RcError>(())
+/// })??;
+/// std::fs::remove_file(&path)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When the file cannot be read, or has a double quote that is not closed.
+pub fn rc_file(path: impl AsRef<Path>) -> Result<(), RcError> {
+    let file = RcFile::read(path)?;
+    let current = crate::rc::params();
+    let mut params = RcParams::matplotlib();
+    for key in STYLE_BLACKLIST {
+        if let Some(value) = current.get(key) {
+            params.set(key, &value)?;
+        }
+    }
+    for entry in &file.entries {
+        if !STYLE_BLACKLIST.contains(&entry.key.as_str()) {
+            params.set(&entry.key, &entry.value)?;
+        }
+    }
+    crate::rc::replace(params);
+    Ok(())
+}
+
+/// Runs `f` with the parameters of the rc file at `path`, as [`rc_file`]
+/// sets them, changed further by `settings` (full names and rc-file
+/// text), restoring the previous parameters afterwards (matplotlib's
+/// `with rc_context(rc, fname):`).
+///
+/// # Errors
+///
+/// As [`rc_file`], and when a setting names an unknown parameter or has an
+/// invalid value; `f` does not run then.
+pub fn rc_file_context<R>(
+    path: impl AsRef<Path>,
+    settings: &[(&str, &str)],
+    f: impl FnOnce() -> R,
+) -> Result<R, RcError> {
+    crate::rc::context(|| {
+        rc_file(path)?;
         for (key, value) in settings {
             crate::rc::set(key, value)?;
         }

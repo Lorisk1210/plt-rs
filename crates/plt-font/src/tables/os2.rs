@@ -72,6 +72,15 @@ pub struct Os2 {
     pub x_height: Option<i16>,
     /// Height of uppercase letters (version ≥ 2).
     pub cap_height: Option<i16>,
+    /// Character shown for characters the font lacks (version ≥ 2).
+    pub default_char: Option<u16>,
+    /// Character used to break words (version ≥ 2).
+    pub break_char: Option<u16>,
+    /// Longest context of any feature lookup (version ≥ 2).
+    pub max_context: Option<u16>,
+    /// Lowest and highest point sizes the design suits, in twentieths
+    /// of a point (version ≥ 5).
+    pub optical_point_sizes: Option<[u16; 2]>,
 }
 
 impl Os2 {
@@ -121,6 +130,16 @@ impl Os2 {
         } else {
             (None, None)
         };
+        let (default_char, break_char, max_context) = if version >= 2 && r.remaining() >= 6 {
+            (Some(r.u16()?), Some(r.u16()?), Some(r.u16()?))
+        } else {
+            (None, None, None)
+        };
+        let optical_point_sizes = if version >= 5 && r.remaining() >= 4 {
+            Some([r.u16()?, r.u16()?])
+        } else {
+            None
+        };
         Ok(Self {
             version,
             avg_char_width,
@@ -146,6 +165,10 @@ impl Os2 {
             code_page_ranges,
             x_height,
             cap_height,
+            default_char,
+            break_char,
+            max_context,
+            optical_point_sizes,
         })
     }
 
@@ -191,6 +214,20 @@ mod tests {
         assert_eq!((full.win_ascent, full.win_descent), (1901, 483));
         assert_eq!(full.code_page_ranges, Some([1, 0]));
         assert_eq!((full.x_height, full.cap_height), (Some(1062), Some(1493)));
+        assert_eq!(
+            full.max_context, None,
+            "the table ends after the cap height"
+        );
+        let mut v5 = os2(5, 200);
+        for v in [0u16, 32, 3, 160, 480] {
+            v5.extend_from_slice(&v.to_be_bytes());
+        }
+        let v5 = Os2::parse(&v5).unwrap();
+        assert_eq!(
+            (v5.default_char, v5.break_char, v5.max_context),
+            (Some(0), Some(32), Some(3))
+        );
+        assert_eq!(v5.optical_point_sizes, Some([160, 480]));
 
         let v1 = Os2::parse(&os2(1, 86)).unwrap();
         assert_eq!(v1.x_height, None);

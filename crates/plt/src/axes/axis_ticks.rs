@@ -11,6 +11,7 @@ use super::axis_layout::{AxisPainter, AxisTexts};
 use super::ticks::{GridOptions, Sides, TickPosition, TickStyle};
 use super::{Axes, AxesState, PlotError, TickLabelProps};
 use crate::artist::{ArtistHandle, LayoutContext};
+use crate::polar::RadialLocator;
 use crate::spines::SpineSide;
 use crate::ticker::{AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator};
 use crate::ticker::{NullFormatter, NullLocator, TickerError};
@@ -348,7 +349,13 @@ pub(crate) fn tick_label_formatter(
         return Ok(Rc::new(NullFormatter));
     }
     let any: &dyn Any = locator;
-    let Some(fixed) = any.downcast_ref::<FixedLocator>() else {
+    // A radial axis wraps its locator; matplotlib looks through wrapping
+    // locators to their `base`.
+    let fixed = any.downcast_ref::<FixedLocator>().or_else(|| {
+        let radial = any.downcast_ref::<RadialLocator>()?;
+        (radial.base() as &dyn Any).downcast_ref::<FixedLocator>()
+    });
+    let Some(fixed) = fixed else {
         return Ok(Rc::new(FixedFormatter::new(labels)));
     };
     if fixed.locs().len() != labels.len() {

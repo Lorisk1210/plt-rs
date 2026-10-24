@@ -1,0 +1,222 @@
+{
+ "area": "mpl_category",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "axes.Axes.hist",
+   "args": {"x": ["a", "b", "a", "c", "ff"]},
+   "value": {
+    "n": [2.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0],
+    "bins": [0.0, 0.3, 0.6, 0.8999999999999999, 1.2, 1.5, 1.7999999999999998, 2.1, 2.4, 2.6999999999999997, 3.0]
+   }
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", ["1", "11", "3"], [4, 6, 5]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["1", "11", "3"], "after": "", "units": [["1", "11", "3"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", ["Здравствуйте", "привет"], [0, 1]]]},
+   "value": {"x": {"locs": [0, 1], "labels": ["Здравствуйте", "привет"], "after": "", "units": [["Здравствуйте", "привет"], [0, 1]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", ["a", "b", "c"], [4, 6, 5]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["a", "b", "c"], "after": "", "units": [["a", "b", "c"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", ["a", "b"], ["e", "g"]], ["bar", ["a", "b", "d"], ["f", "a", "b"]], ["bar", ["b", "c", "d"], ["g", "e", "d"]]]},
+   "value": {
+    "x": {"locs": [0, 1, 2, 3], "labels": ["a", "b", "d", "c"], "after": "", "units": [["a", "b", "d", "c"], [0, 1, 2, 3]]},
+    "y": {"locs": [0, 1, 2, 3, 4, 5], "labels": ["e", "g", "f", "a", "b", "d"], "after": "", "units": [["e", "g", "f", "a", "b", "d"], [0, 1, 2, 3, 4, 5]]}
+   }
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", ["hello", "happy", "world"], ["Python", "is", "fun"]]]},
+   "value": {
+    "x": {"locs": [0, 1, 2], "labels": ["hello", "happy", "world"], "after": "", "units": [["hello", "happy", "world"], [0, 1, 2]]},
+    "y": {"locs": [0, 1, 2], "labels": ["Python", "is", "fun"], "after": "", "units": [["Python", "is", "fun"], [0, 1, 2]]}
+   }
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", ["hello", "happy", "world"], [2, 6, 3]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["hello", "happy", "world"], "after": "", "units": [["hello", "happy", "world"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", [0, 1, 2], ["hello", "world", "hi"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["hello", "world", "hi"], "after": "", "units": [["hello", "world", "hi"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", [0, 1], ["Здравствуйте", "привет"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1], "labels": ["Здравствуйте", "привет"], "after": "", "units": [["Здравствуйте", "привет"], [0, 1]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", [1, 2, 3], ["a", "b", "c"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["a", "b", "c"], "after": "", "units": [["a", "b", "c"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["bar", [3, 4, 5], ["Python", "is", "fun"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["Python", "is", "fun"], "after": "", "units": [["Python", "is", "fun"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", ["1", "11", "3"], [4, 6, 5]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["1", "11", "3"], "after": "", "units": [["1", "11", "3"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", ["Здравствуйте", "привет"], [0, 1]]]},
+   "value": {"x": {"locs": [0, 1], "labels": ["Здравствуйте", "привет"], "after": "", "units": [["Здравствуйте", "привет"], [0, 1]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", ["a", "b", "c"], [4, 6, 5]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["a", "b", "c"], "after": "", "units": [["a", "b", "c"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", ["a", "b"], ["e", "g"]], ["plot", ["a", "b", "d"], ["f", "a", "b"]], ["plot", ["b", "c", "d"], ["g", "e", "d"]]]},
+   "value": {
+    "x": {"locs": [0, 1, 2, 3], "labels": ["a", "b", "d", "c"], "after": "", "units": [["a", "b", "d", "c"], [0, 1, 2, 3]]},
+    "y": {"locs": [0, 1, 2, 3, 4, 5], "labels": ["e", "g", "f", "a", "b", "d"], "after": "", "units": [["e", "g", "f", "a", "b", "d"], [0, 1, 2, 3, 4, 5]]}
+   }
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", ["hello", "happy", "world"], ["Python", "is", "fun"]]]},
+   "value": {
+    "x": {"locs": [0, 1, 2], "labels": ["hello", "happy", "world"], "after": "", "units": [["hello", "happy", "world"], [0, 1, 2]]},
+    "y": {"locs": [0, 1, 2], "labels": ["Python", "is", "fun"], "after": "", "units": [["Python", "is", "fun"], [0, 1, 2]]}
+   }
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", ["hello", "happy", "world"], [2, 6, 3]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["hello", "happy", "world"], "after": "", "units": [["hello", "happy", "world"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", [0, 1, 2], ["hello", "world", "hi"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["hello", "world", "hi"], "after": "", "units": [["hello", "world", "hi"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", [0, 1], ["Здравствуйте", "привет"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1], "labels": ["Здравствуйте", "привет"], "after": "", "units": [["Здравствуйте", "привет"], [0, 1]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", [1, 2, 3], ["a", "b", "c"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["a", "b", "c"], "after": "", "units": [["a", "b", "c"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["plot", [3, 4, 5], ["Python", "is", "fun"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["Python", "is", "fun"], "after": "", "units": [["Python", "is", "fun"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", ["1", "11", "3"], [4, 6, 5]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["1", "11", "3"], "after": "", "units": [["1", "11", "3"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", ["Здравствуйте", "привет"], [0, 1]]]},
+   "value": {"x": {"locs": [0, 1], "labels": ["Здравствуйте", "привет"], "after": "", "units": [["Здравствуйте", "привет"], [0, 1]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", ["a", "b", "c"], [4, 6, 5]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["a", "b", "c"], "after": "", "units": [["a", "b", "c"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", ["a", "b"], ["e", "g"]], ["plot", ["a", "b", "d"], ["f", "a", "b"]], ["bar", ["b", "c", "d"], ["g", "e", "d"]]]},
+   "value": {
+    "x": {"locs": [0, 1, 2, 3], "labels": ["a", "b", "d", "c"], "after": "", "units": [["a", "b", "d", "c"], [0, 1, 2, 3]]},
+    "y": {"locs": [0, 1, 2, 3, 4, 5], "labels": ["e", "g", "f", "a", "b", "d"], "after": "", "units": [["e", "g", "f", "a", "b", "d"], [0, 1, 2, 3, 4, 5]]}
+   }
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", ["a", "b"], ["e", "g"]], ["scatter", ["a", "b", "d"], ["f", "a", "b"]], ["scatter", ["b", "c", "d"], ["g", "e", "d"]]]},
+   "value": {
+    "x": {"locs": [0, 1, 2, 3], "labels": ["a", "b", "d", "c"], "after": "", "units": [["a", "b", "d", "c"], [0, 1, 2, 3]]},
+    "y": {"locs": [0, 1, 2, 3, 4, 5], "labels": ["e", "g", "f", "a", "b", "d"], "after": "", "units": [["e", "g", "f", "a", "b", "d"], [0, 1, 2, 3, 4, 5]]}
+   }
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", ["hello", "happy", "world"], ["Python", "is", "fun"]]]},
+   "value": {
+    "x": {"locs": [0, 1, 2], "labels": ["hello", "happy", "world"], "after": "", "units": [["hello", "happy", "world"], [0, 1, 2]]},
+    "y": {"locs": [0, 1, 2], "labels": ["Python", "is", "fun"], "after": "", "units": [["Python", "is", "fun"], [0, 1, 2]]}
+   }
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", ["hello", "happy", "world"], [2, 6, 3]]]},
+   "value": {"x": {"locs": [0, 1, 2], "labels": ["hello", "happy", "world"], "after": "", "units": [["hello", "happy", "world"], [0, 1, 2]]}, "y": null}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", [0, 1, 2], ["hello", "world", "hi"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["hello", "world", "hi"], "after": "", "units": [["hello", "world", "hi"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", [0, 1], ["Здравствуйте", "привет"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1], "labels": ["Здравствуйте", "привет"], "after": "", "units": [["Здравствуйте", "привет"], [0, 1]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", [1, 2, 3], ["a", "b", "c"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["a", "b", "c"], "after": "", "units": [["a", "b", "c"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["scatter", [3, 4, 5], ["Python", "is", "fun"]]]},
+   "value": {"x": null, "y": {"locs": [0, 1, 2], "labels": ["Python", "is", "fun"], "after": "", "units": [["Python", "is", "fun"], [0, 1, 2]]}}
+  },
+  {
+   "op": "axes.Axes.plot_units",
+   "args": {"calls": [["xaxis.update_units", ["a", "b"]], ["plot", [], []]]},
+   "value": {"x": {"locs": [0, 1], "labels": ["a", "b"], "after": "", "units": [["a", "b"], [0, 1]]}, "y": null}
+  },
+  {"op": "axes.Axes.set_xlim", "args": {"x": ["a", "b", "c", "d"], "y": [1, 2, 3, 4], "left": "b", "right": "c"}, "value": [1.0, 2.0]},
+  {"op": "category.StrCategoryConverter.convert", "args": {"value": "мир"}, "value": 0.0},
+  {"op": "category.StrCategoryConverter.convert", "args": {"value": "hi"}, "value": 0.0},
+  {"op": "category.StrCategoryConverter.convert", "args": {"value": ["1", "2"]}, "value": [0.0, 1.0]},
+  {
+   "op": "category.StrCategoryConverter.convert",
+   "args": {"value": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]},
+   "value": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0]
+  },
+  {"op": "category.StrCategoryConverter.convert", "args": {"value": ["Здравствуйте мир"]}, "value": [0.0]},
+  {"op": "category.StrCategoryConverter.convert", "args": {"value": ["a", "b", "c"]}, "value": [0.0, 1.0, 2.0]},
+  {"op": "category.StrCategoryConverter.convert", "args": {"value": ["hello world"]}, "value": [0.0]},
+  {
+   "op": "category.StrCategoryFormatter.__call__",
+   "args": {"data": ["Здравствуйте", "привет"]},
+   "value": [["Здравствуйте", "привет"], ["Здравствуйте", "привет"]]
+  },
+  {"op": "category.StrCategoryFormatter.__call__", "args": {"data": ["hello", "world", "hi"]}, "value": [["hello", "world", "hi"], ["hello", "world", "hi"]]},
+  {
+   "op": "category.StrCategoryLocator.tick_values",
+   "args": {"data": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]},
+   "value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  },
+  {"op": "category.UnitData", "args": {"data": ["A", "np.nan", "B", "3.14", "мир"]}, "value": [["A", "np.nan", "B", "3.14", "мир"], [0, 1, 2, 3, 4]]},
+  {"op": "category.UnitData", "args": {"data": ["Здравствуйте мир"]}, "value": [["Здравствуйте мир"], [0]]},
+  {"op": "category.UnitData", "args": {"data": ["a", "d"], "update": ["b", "d", "e"]}, "value": [["a", "d", "b", "e"], [0, 1, 2, 3]]},
+  {"op": "category.UnitData", "args": {"data": ["hello world"]}, "value": [["hello world"], [0]]}
+ ]
+}

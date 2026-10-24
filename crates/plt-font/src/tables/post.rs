@@ -23,6 +23,14 @@ pub struct Post {
     pub underline_thickness: i16,
     /// Whether the font is monospaced.
     pub is_fixed_pitch: bool,
+    /// Least memory a printer needs to download the font as Type 42.
+    pub min_mem_type42: u32,
+    /// Most memory a printer needs to download the font as Type 42.
+    pub max_mem_type42: u32,
+    /// Least memory a printer needs to download the font as Type 1.
+    pub min_mem_type1: u32,
+    /// Most memory a printer needs to download the font as Type 1.
+    pub max_mem_type1: u32,
 }
 
 /// Glyph names stored in the table.
@@ -56,7 +64,8 @@ impl<'a> PostTable<'a> {
         let underline_position = r.i16()?;
         let underline_thickness = r.i16()?;
         let is_fixed_pitch = r.u32()? != 0;
-        r.skip(16)?;
+        let [min_mem_type42, max_mem_type42, min_mem_type1, max_mem_type1] =
+            [r.u32()?, r.u32()?, r.u32()?, r.u32()?];
         let names = match format {
             0x0001_0000 => Names::Standard,
             0x0002_0000 => {
@@ -79,6 +88,10 @@ impl<'a> PostTable<'a> {
             underline_position,
             underline_thickness,
             is_fixed_pitch,
+            min_mem_type42,
+            max_mem_type42,
+            min_mem_type1,
+            max_mem_type1,
         };
         Ok(Self { header, names })
     }

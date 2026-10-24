@@ -169,6 +169,11 @@ impl RadialLocator {
             zero_in_bounds: low == 0.0,
         })
     }
+
+    /// The wrapped locator.
+    pub(crate) fn base(&self) -> &dyn Locator {
+        self.base.as_ref()
+    }
 }
 
 impl Locator for RadialLocator {

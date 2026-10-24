@@ -97,7 +97,10 @@ pub(super) fn data_transform(ax: &Axes) -> Option<ResolvedTransform> {
 /// (matplotlib's `format_coord`); empty when they cannot be formatted.
 pub(super) fn format_coord(ax: &Axes, at: Point) -> String {
     if ax.as_polar().is_some() {
-        return polar_coord(ax, at).unwrap_or_default();
+        return data_transform(ax)
+            .and_then(|trans| trans.inverted())
+            .and_then(|inverse| polar_coord(ax, inverse.transform_point(at)))
+            .unwrap_or_default();
     }
     if let Some(geo) = ax.as_geo() {
         return data_transform(ax)
@@ -238,7 +241,10 @@ impl Axes {
         if let Some(geo) = self.as_geo() {
             return geo.format_coord(x, y);
         }
-        if self.as_polar().is_none() && self.twins().len() == 1 {
+        if self.as_polar().is_some() {
+            return polar_coord(self, Point::new(x, y)).unwrap_or_default();
+        }
+        if self.twins().len() == 1 {
             return coordinate_pair(self, Point::new(x, y))
                 .map_or_else(String::new, |pair| format!("(x, y) = {pair}"));
         }
@@ -248,12 +254,13 @@ impl Axes {
     }
 }
 
-/// matplotlib's `PolarAxes.format_coord`: θ in half turns and degrees and
-/// r, each to the precision a screen pixel resolves.
-fn polar_coord(ax: &Axes, at: Point) -> Option<String> {
+/// matplotlib's `PolarAxes.format_coord` of the data point `data` (θ, r):
+/// θ in half turns and degrees and r, each to the precision a screen
+/// pixel resolves, unless formatters set with
+/// [`Axes::set_fmt_data`] format them.
+fn polar_coord(ax: &Axes, data: Point) -> Option<String> {
     let trans = data_transform(ax)?;
     let inverse = trans.inverted()?;
-    let data = inverse.transform_point(at);
     let (theta, r) = (data.x, data.y);
     let screen = trans.transform_point(data);
     let (mut delta_t, mut delta_r) = (0.0_f64, 0.0_f64);
@@ -265,6 +272,20 @@ fn polar_coord(ax: &Axes, at: Point) -> Option<String> {
         }
     }
     let theta = if theta < 0.0 { theta + TAU } else { theta };
+    let (custom_theta, custom_r) = ax
+        .raw()
+        .with::<AxesState, _>(|state| (state.fmt_data.0.is_some(), state.fmt_data.1.is_some()));
+    let r_label = if custom_r {
+        format_data(ax, AxisName::Y, r)?
+    } else {
+        pyfmt::general_alternate(r, g_sig_digits(r, delta_r).ok()?)
+    };
+    if custom_theta {
+        return Some(format!(
+            "\u{3b8}={}, r={r_label}",
+            format_data(ax, AxisName::X, theta)?
+        ));
+    }
     let (turns, delta_turns) = (theta / PI, delta_t / PI);
     let fixed = |value: f64, delta: f64| {
         let digits = (-delta.log10().floor()).max(0.0);
@@ -272,7 +293,6 @@ fn polar_coord(ax: &Axes, at: Point) -> Option<String> {
             .is_finite()
             .then(|| pyfmt::fixed(value, digits as usize))
     };
-    let r_label = pyfmt::general_alternate(r, g_sig_digits(r, delta_r).ok()?);
     Some(format!(
         "\u{3b8}={}\u{3c0} ({}\u{b0}), r={r_label}",
         fixed(turns, delta_turns)?,
@@ -374,6 +394,27 @@ mod tests {
         let geo = fig.geo_subplot(crate::geo::GeoProjection::Hammer);
         let text = format_coord(&geo, display(&geo, -PI / 2.0, 0.5));
         assert_eq!(text, "28.647890°N, 90.000000°W");
+    }
+
+    #[test]
+    fn polar_coordinates_keep_theta_and_take_custom_formatters() {
+        // matplotlib's test_custom_fmt_data, on a laid out figure.
+        let fig = Figure::new();
+        let polar = fig.polar_subplot();
+        let millions: Rc<dyn Formatter> = Rc::new(crate::ticker::FuncFormatter::new(|x, _| {
+            format!("${:.1}M", x * 1e-6)
+        }));
+        polar.set_fmt_data(AxisName::Y, Some(Rc::clone(&millions)));
+        let text = polar.format_coord(12.0, 2e7);
+        assert!(
+            text.starts_with("\u{3b8}=3.819"),
+            "θ is not wrapped: {text}"
+        );
+        assert!(text.ends_with("r=$20.0M"), "{text}");
+        polar
+            .set_fmt_data(AxisName::X, Some(millions))
+            .set_fmt_data(AxisName::Y, None);
+        assert_eq!(polar.format_coord(2e5, 1.0), "\u{3b8}=$0.2M, r=1.000");
     }
 
     #[test]

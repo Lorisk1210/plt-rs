@@ -131,8 +131,8 @@ fn bar_containers_report_bottoms_tops_and_centres() {
 
     let (_fig, ax) = axes();
     let options = BarOptions {
-        base: vec![0.0, 1.0, 0.0],
-        thickness: vec![0.6],
+        base: vec![0.0, 1.0, 0.0].into(),
+        thickness: 0.6.into(),
         align: BarAlign::Edge,
         ..BarOptions::default()
     };
@@ -141,7 +141,7 @@ fn bar_containers_report_bottoms_tops_and_centres() {
     assert_eq!(bars.tops(), [0.5, 0.6, 0.8]);
     assert_eq!(bars.position_centers(), [1.3, 2.3, 3.3]);
     let options = BarOptions {
-        base: vec![1.0, 0.0],
+        base: vec![1.0, 0.0].into(),
         ..BarOptions::default()
     };
     let horizontal = ax.barh([1.0, 2.0], [2.0, -3.0], options).unwrap();

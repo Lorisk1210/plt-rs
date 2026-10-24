@@ -11,9 +11,10 @@ for ``mpl20``/``default`` run in the reference configuration.
 build, and the tests' own rcParams changes become the case's ``rc``.
 Parametrized tests contribute one case per parameter set, and tests drawing
 several figures one case per figure (``_1``, ``_2``, ...).
-
-Not ported: ``test_units_rectangle`` (built on
-``matplotlib.testing.jpl_units``).
+``test_units_rectangle`` registers the converters of
+``matplotlib.testing.jpl_units`` only while the case is built
+(``spec_support.units.jpl_registered``), as the test fixture restores the
+registry after each test.
 """
 
 import itertools
@@ -30,6 +31,7 @@ from matplotlib.testing.decorators import remove_ticks_and_titles
 from mpl_toolkits.mplot3d import Axes3D
 
 from spec_support import case
+from spec_support.units import jpl_registered
 
 GROUP = "mpl_collections"
 
@@ -391,6 +393,18 @@ def _(fig):
     rect = mpatches.Rectangle((0, 0), 1, 1)
     ax.add_patch(rect)
     rect.set_angle(30)
+
+
+@mpl20("units_rectangle")
+def _(fig):
+    import matplotlib.testing.jpl_units as U
+
+    with jpl_registered():
+        p = mpatches.Rectangle((5 * U.km, 6 * U.km), 1 * U.km, 2 * U.km)
+        ax = fig.subplots()
+        ax.add_patch(p)
+        ax.set_xlim([4 * U.km, 7 * U.km])
+        ax.set_ylim([5 * U.km, 9 * U.km])
 
 
 @classic("dash_offset_patch_draw")

@@ -5,6 +5,7 @@ mod annotate;
 mod aspect;
 pub(crate) mod axis;
 pub(crate) mod axis_draw;
+mod axis_extents;
 mod axis_handle;
 pub(crate) mod axis_label;
 mod axis_label_layout;

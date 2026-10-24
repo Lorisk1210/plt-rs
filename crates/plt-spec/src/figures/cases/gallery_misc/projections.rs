@@ -54,8 +54,8 @@ fn icon_axes(fig: &Figure, position: [f64; 4], sizes: &LogoSizes) -> CaseResult 
         theta,
         radii,
         BarOptions {
-            thickness: width.to_vec(),
-            base: vec![0.0],
+            thickness: width.to_vec().into(),
+            base: vec![0.0].into(),
             align: BarAlign::Edge,
             edgecolor: vec![Color::from("0.3")],
             linewidth: vec![sizes.lw_bars],
@@ -187,8 +187,8 @@ fn bullseye_plot(
             theta,
             vec![r_out - r_in; n],
             BarOptions {
-                thickness: vec![dtheta],
-                base: vec![r_in],
+                thickness: dtheta.into(),
+                base: vec![r_in].into(),
                 ..options
             },
         )

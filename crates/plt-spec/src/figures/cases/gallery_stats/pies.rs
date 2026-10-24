@@ -49,8 +49,8 @@ fn bar_of_pie(fig: &Figure) -> CaseResult {
     for (j, (height, label)) in age_ratios.iter().zip(age_labels).rev().enumerate() {
         bottom -= height;
         let options = BarOptions {
-            thickness: vec![width],
-            base: vec![bottom],
+            thickness: width.into(),
+            base: vec![bottom].into(),
             color: vec!["C0".into()],
             label: Some(label.into()),
             props: PatchProps::default().alpha(0.1 + 0.25 * j as f64),

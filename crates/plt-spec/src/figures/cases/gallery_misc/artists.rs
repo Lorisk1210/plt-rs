@@ -354,8 +354,8 @@ fn table_demo(fig: &Figure) -> CaseResult {
             index.as_slice(),
             row,
             BarOptions {
-                thickness: vec![0.4],
-                base: y_offset.clone(),
+                thickness: 0.4.into(),
+                base: y_offset.clone().into(),
                 color: vec![color.clone()],
                 ..BarOptions::default()
             },

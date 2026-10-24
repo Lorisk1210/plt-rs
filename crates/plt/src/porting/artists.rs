@@ -58,6 +58,7 @@
 //! | `ax.add_patch(Rectangle(...))`                 | [`Axes::add_patch`], [`Axes::add_patch_with`]   |
 //! | `ax.add_artist(patch)`                         | [`Axes::add_artist`] (data limits untouched)    |
 //! | `Rectangle(xy, w, h, angle=30)`                | [`Rectangle::new`]`(xy, w, h).rotated(30.0, RotationPoint::Xy)` |
+//! | `Rectangle(xy, w, h)` of dates or user values  | [`DataRectangle::new`]`(xy, w, h)?`, converted by [`Axes::add_patch`] |
 //! | `rect.set_width(3)`, `rect.get_width()`        | [`Patch::update_shape`], [`Patch::shape`]       |
 //! | `patch.set_facecolor(c)`, `patch.set_hatch("//")` | [`Patch::set_facecolor`], [`Patch::set_hatch`] |
 //! | `patch.get_facecolor()`                        | [`Patch::colors`] (resolved), [`Patch::style`] (as set) |
@@ -253,6 +254,7 @@
 //! [`PatchProps`]: crate::patches::PatchProps
 //! [`Rectangle`]: crate::patches::Rectangle
 //! [`Rectangle::new`]: crate::patches::Rectangle::new
+//! [`DataRectangle::new`]: crate::patches::DataRectangle::new
 //! [`Circle`]: crate::patches::Circle
 //! [`Ellipse`]: crate::patches::Ellipse
 //! [`Polygon`]: crate::patches::Polygon

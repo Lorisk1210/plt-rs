@@ -116,8 +116,8 @@ fn stacked(
     let mut containers = Vec::new();
     for (label, counts) in series {
         let options = BarOptions {
-            thickness: vec![thickness],
-            base: bottom.to_vec(),
+            thickness: thickness.into(),
+            base: bottom.to_vec().into(),
             label: Some((*label).to_owned()),
             ..BarOptions::default()
         };
@@ -441,8 +441,8 @@ fn horizontal_barchart_distribution(fig: &Figure) -> CaseResult {
         let color = cmap.sample(position);
         let widths: Vec<f64> = results.iter().map(|(_, row)| row[i]).collect();
         let options = BarOptions {
-            base: starts.to_vec(),
-            thickness: vec![0.5],
+            base: starts.to_vec().into(),
+            thickness: 0.5.into(),
             label: Some((*name).to_owned()),
             color: vec![Color::from(color)],
             ..BarOptions::default()

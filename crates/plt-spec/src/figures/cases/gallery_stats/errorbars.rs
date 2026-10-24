@@ -53,8 +53,8 @@ fn errorbar_features(fig: &Figure) -> CaseResult {
     ax0.set_title("variable, symmetric error");
     let asymmetric = ErrorbarOptions {
         xerr: Some(ErrorSize::Asymmetric {
-            lower: map(&error, |e| 0.4 * e),
-            upper: error,
+            lower: map(&error, |e| 0.4 * e).into(),
+            upper: error.into(),
         }),
         fmt: "o".parse()?,
         ..ErrorbarOptions::default()
@@ -271,12 +271,12 @@ fn errorbars_and_boxes(fig: &Figure) -> CaseResult {
     ax.add_collection(boxes);
     let options = ErrorbarOptions {
         xerr: Some(ErrorSize::Asymmetric {
-            lower: x_below.to_vec(),
-            upper: x_above.to_vec(),
+            lower: x_below.to_vec().into(),
+            upper: x_above.to_vec().into(),
         }),
         yerr: Some(ErrorSize::Asymmetric {
-            lower: y_below.to_vec(),
-            upper: y_above.to_vec(),
+            lower: y_below.to_vec().into(),
+            upper: y_above.to_vec().into(),
         }),
         fmt: "none".parse()?,
         ecolor: Some("k".into()),

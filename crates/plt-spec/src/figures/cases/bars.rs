@@ -51,12 +51,12 @@ pub(crate) const CASES: &[FigureCase] = &[
             unreachable!("one row of two axes")
         };
         let narrow = BarOptions {
-            thickness: vec![0.4],
+            thickness: 0.4.into(),
             ..BarOptions::default()
         };
         ax1.bar(x(), HEIGHTS, narrow)?;
         let varying = BarOptions {
-            thickness: vec![0.2, 0.4, 0.6, 0.8, 1.0],
+            thickness: vec![0.2, 0.4, 0.6, 0.8, 1.0].into(),
             ..BarOptions::default()
         };
         ax2.bar(x(), HEIGHTS, varying)?;
@@ -69,13 +69,13 @@ pub(crate) const CASES: &[FigureCase] = &[
             unreachable!("one row of two axes")
         };
         let forward = BarOptions {
-            thickness: vec![0.5],
+            thickness: 0.5.into(),
             align: BarAlign::Edge,
             ..BarOptions::default()
         };
         ax1.bar(x(), HEIGHTS, forward)?;
         let backward = BarOptions {
-            thickness: vec![-0.5],
+            thickness: (-0.5).into(),
             align: BarAlign::Edge,
             color: colors(&["C1"]),
             ..BarOptions::default()
@@ -93,12 +93,12 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ab: Vec<f64> = a.iter().zip(&b).map(|(a, b)| a + b).collect();
         ax.bar(&x, a, BarOptions::default())?;
         let on_a = BarOptions {
-            base: a.to_vec(),
+            base: a.to_vec().into(),
             ..BarOptions::default()
         };
         ax.bar(&x, b, on_a)?;
         let on_ab = BarOptions {
-            base: ab,
+            base: ab.into(),
             ..BarOptions::default()
         };
         ax.bar(&x, c, on_ab)?;
@@ -111,12 +111,12 @@ pub(crate) const CASES: &[FigureCase] = &[
         let b = [4.0, 1.0, 2.0];
         let y = arange(0.0, 3.0, 1.0);
         let thin = BarOptions {
-            thickness: vec![0.5],
+            thickness: 0.5.into(),
             ..BarOptions::default()
         };
         ax.barh(&y, a, thin.clone())?;
         let on_a = BarOptions {
-            base: a.to_vec(),
+            base: a.to_vec().into(),
             ..thin
         };
         ax.barh(&y, b, on_a)?;
@@ -189,8 +189,8 @@ pub(crate) const CASES: &[FigureCase] = &[
         let options = BarOptions {
             errors: ErrorbarOptions {
                 yerr: Some(ErrorSize::Asymmetric {
-                    lower: vec![0.5, 1.0, 0.2, 0.3, 1.0],
-                    upper: vec![1.0, 0.5, 0.8, 1.5, 0.4],
+                    lower: vec![0.5, 1.0, 0.2, 0.3, 1.0].into(),
+                    upper: vec![1.0, 0.5, 0.8, 1.5, 0.4].into(),
                 }),
                 elinewidth: Some(2.0),
                 capsize: Some(8.0),
@@ -231,7 +231,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let x = arange(0.0, 3.0, 1.0);
         let lower = ax.bar(&x, a, BarOptions::default())?;
         let on_a = BarOptions {
-            base: a.to_vec(),
+            base: a.to_vec().into(),
             ..BarOptions::default()
         };
         let upper = ax.bar(&x, b, on_a)?;
@@ -344,7 +344,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("bars/tick_label_param", |fig| {
         let options = BarOptions {
             tick_labels: vec!["one".into(), "three".into(), "five".into()],
-            thickness: vec![1.5],
+            thickness: 1.5.into(),
             ..BarOptions::default()
         };
         fig.subplot()
@@ -379,7 +379,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         for (i, (name, values)) in (0_i32..).zip(series) {
             let offset = f64::from(i - 1) * width;
             let options = BarOptions {
-                thickness: vec![width],
+                thickness: width.into(),
                 label: Some(name.to_owned()),
                 ..BarOptions::default()
             };

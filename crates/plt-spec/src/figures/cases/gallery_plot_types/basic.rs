@@ -21,7 +21,7 @@ fn centres() -> Vec<f64> {
 fn bar(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = BarOptions {
-        thickness: vec![1.0],
+        thickness: 1.0.into(),
         edgecolor: vec!["white".into()],
         linewidth: vec![0.7],
         ..BarOptions::default()

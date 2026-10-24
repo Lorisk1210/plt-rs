@@ -23,8 +23,8 @@ fn error_size(value: &Json) -> Result<ErrorSize, ProbeError> {
     }
     match super::datasets(value)?.as_slice() {
         [lower, upper] => Ok(ErrorSize::Asymmetric {
-            lower: lower.clone(),
-            upper: upper.clone(),
+            lower: lower.clone().into(),
+            upper: upper.clone().into(),
         }),
         _ => Err(ProbeError::BadArgs(format!("bad error sizes {value}"))),
     }

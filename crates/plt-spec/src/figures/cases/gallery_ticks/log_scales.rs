@@ -93,7 +93,7 @@ fn log_demo_3(fig: &Figure) -> CaseResult {
             &x,
             &y,
             ErrorbarOptions {
-                yerr: Some(ErrorSize::Symmetric(yerr.clone())),
+                yerr: Some(ErrorSize::Symmetric(yerr.clone().into())),
                 fmt: "o".parse()?,
                 capsize: Some(5.0),
                 ..ErrorbarOptions::default()

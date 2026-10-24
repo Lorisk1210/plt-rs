@@ -135,7 +135,7 @@ fn colorbar_histogram(fig: &Figure) -> CaseResult {
         &midpoints,
         counts,
         BarOptions {
-            thickness: vec![0.8 * distance],
+            thickness: vec![0.8 * distance].into(),
             color: colors,
             ..BarOptions::default()
         },
@@ -188,8 +188,8 @@ fn color_cycle_default(fig: &Figure) -> CaseResult {
             [9.0],
             [1.0],
             BarOptions {
-                thickness: vec![1.5],
-                base: vec![pos - 0.5],
+                thickness: 1.5.into(),
+                base: vec![pos - 0.5].into(),
                 ..BarOptions::default()
             },
         )?;

@@ -12,10 +12,13 @@ own rcParams changes become the case's ``rc``.
 
 Data is the tests' own (formulas, ranges) except that ``np.random`` draws
 come from ``spec_support.rng`` and wall-clock datetimes become fixed ones.
-Tests built on ``matplotlib.testing.jpl_units`` (``formatter_ticker`` beyond
-its first figure, ``fill_units``, ``axvspan_epoch``, ``axhspan_epoch``) are
-not ported; figures a test draws twice (once more through ``data=``) are
-ported once.
+Tests drawing several figures contribute one case per figure
+(``formatter_ticker_001`` to ``_005``); figures a test draws twice (once more
+through ``data=``) are ported once. Tests built on
+``matplotlib.testing.jpl_units`` (``formatter_ticker``, ``fill_units``,
+``axvspan_epoch``, ``axhspan_epoch``) register its converters only while the
+case is built (``spec_support.units.jpl_registered``), as the test fixture
+restores the registry after each test.
 """
 
 import datetime
@@ -26,6 +29,7 @@ import matplotlib.style
 import numpy as np
 from matplotlib import collections as mcollections
 from matplotlib import colors as mcolors
+from matplotlib import dates as mdates
 from matplotlib import patches as mpatches
 from matplotlib import ticker as mticker
 from matplotlib import transforms as mtransforms
@@ -33,6 +37,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.testing.decorators import remove_ticks_and_titles
 
 from spec_support import case, rng
+from spec_support.units import jpl_registered
 
 GROUP = "mpl_axes_a"
 
@@ -132,9 +137,32 @@ def _(fig):
 # --- tickers and twins ----------------------------------------------------
 
 
-@mpl20("formatter_ticker_001", rc={"lines.markeredgewidth": 30})
-def _(fig):
-    fig.subplots().set_xlabel("x-label 001")
+def _formatter_ticker(fig, figure):
+    """Figure ``figure`` (1 to 5) of ``test_formatter_ticker``: labels set
+    before and after plotting ``jpl_units`` seconds against kilometres, the
+    last two figures with a second line in hours."""
+    import matplotlib.testing.jpl_units as units
+
+    with jpl_registered():
+        xdata = [x * units.sec for x in range(10)]
+        ydata1 = [(1.5 * y - 0.5) * units.km for y in range(10)]
+        ydata2 = [(1.75 * y - 1.0) * units.km for y in range(10)]
+        ax = fig.subplots()
+        if figure <= 3:
+            ax.set_xlabel("x-label 001")
+        if figure >= 2:
+            ax.plot(xdata, ydata1, color="blue", xunits="sec")
+        if figure >= 4:
+            ax.plot(xdata, ydata2, color="green", xunits="hour")
+        if figure >= 3:
+            ax.set_xlabel(f"x-label {figure:03d}")
+        if figure == 5:
+            ax.autoscale_view()
+
+
+for _figure in range(1, 6):
+    mpl20(f"formatter_ticker_{_figure:03d}", rc={"lines.markeredgewidth": 30})(
+        lambda fig, figure=_figure: _formatter_ticker(fig, figure))
 
 
 @mpl20("twin_axis_locators_formatters")
@@ -490,6 +518,63 @@ def _(fig):
                     alpha=0.5)
     ax.fill_between(x, y1, y2, where=y1 >= y2, facecolor="red", interpolate=True,
                     alpha=0.5)
+
+
+# --- jpl_units fills and spans -------------------------------------------------
+
+
+@mpl20("fill_units", dpi=60)
+def _(fig):
+    import matplotlib.testing.jpl_units as units
+
+    with jpl_registered():
+        t = units.Epoch("ET", dt=datetime.datetime(2009, 4, 27))
+        value = 10.0 * units.deg
+        day = units.Duration("ET", 24.0 * 60.0 * 60.0)
+        dt = np.arange('2009-04-27', '2009-04-29', dtype='datetime64[D]')
+        dtn = mdates.date2num(dt)
+        (ax1, ax2), (ax3, ax4) = fig.subplots(2, 2)
+        ax1.plot([t], [value], yunits='deg', color='red')
+        ind = [0, 0, 1, 1]
+        ax1.fill(dtn[ind], [0.0, 0.0, 90.0, 0.0], 'b')
+        ax2.plot([t], [value], yunits='deg', color='red')
+        ax2.fill([t, t, t + day, t + day], [0.0, 0.0, 90.0, 0.0], 'b')
+        ax3.plot([t], [value], yunits='deg', color='red')
+        ax3.fill(dtn[ind], [0 * units.deg, 0 * units.deg, 90 * units.deg, 0 * units.deg],
+                 'b')
+        ax4.plot([t], [value], yunits='deg', color='red')
+        ax4.fill([t, t, t + day, t + day],
+                 [0 * units.deg, 0 * units.deg, 90 * units.deg, 0 * units.deg],
+                 facecolor="blue")
+
+
+def _span_epoch(fig, direction):
+    """``test_axvspan_epoch`` (``direction`` ``"v"``) or
+    ``test_axhspan_epoch`` (``"h"``): a day-long span between two epochs,
+    with limits five days beyond it."""
+    import matplotlib.testing.jpl_units as units
+
+    with jpl_registered():
+        t0 = units.Epoch("ET", dt=datetime.datetime(2009, 1, 21))
+        tf = units.Epoch("ET", dt=datetime.datetime(2009, 1, 22))
+        dt = units.Duration("ET", units.day.convert("sec"))
+        ax = fig.add_subplot()
+        if direction == "v":
+            ax.axvspan(t0, tf, facecolor="blue", alpha=0.25)
+            ax.set_xlim(t0 - 5.0 * dt, tf + 5.0 * dt)
+        else:
+            ax.axhspan(t0, tf, facecolor="blue", alpha=0.25)
+            ax.set_ylim(t0 - 5.0 * dt, tf + 5.0 * dt)
+
+
+@mpl20("axvspan_epoch")
+def _(fig):
+    _span_epoch(fig, "v")
+
+
+@mpl20("axhspan_epoch")
+def _(fig):
+    _span_epoch(fig, "h")
 
 
 # --- symlog -------------------------------------------------------------------

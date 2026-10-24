@@ -1,7 +1,9 @@
 //! The cases from `test_offsetbox.py` and `test_table.py`.
 
 use std::f64::consts::TAU;
+use std::fmt;
 
+use plt::axes::Axis;
 use plt::colors::{Color, colormaps};
 use plt::layout::LayoutEngine;
 use plt::numeric::linspace;
@@ -12,6 +14,7 @@ use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::table::{TableLoc, TableOptions};
 use plt::text::{HAlign, TextProps};
+use plt::units::{ConversionError, ConversionInterface, Convertible};
 use plt_core::Bbox;
 
 use super::{classic, remove_text};
@@ -270,6 +273,56 @@ fn table_bbox(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
+/// `test_table_unit`'s `FakeUnit`: shown as `Hello`, whatever it holds.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct FakeUnit;
+
+impl fmt::Display for FakeUnit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Hello")
+    }
+}
+
+/// The test's mocked converter of `FakeUnit`s, which tables must not
+/// call: it fails, which the figure would report when it draws.
+struct UncalledConverter;
+
+impl ConversionInterface for UncalledConverter {
+    type Value = FakeUnit;
+    type Unit = ();
+
+    fn convert(
+        &self,
+        _: &[FakeUnit],
+        _: Option<&()>,
+        _: &Axis,
+    ) -> Result<Vec<f64>, ConversionError> {
+        Err(ConversionError::Failed(
+            "tables do not convert units".to_owned(),
+        ))
+    }
+}
+
+impl Convertible for FakeUnit {
+    type Converter = UncalledConverter;
+
+    fn converter() -> UncalledConverter {
+        UncalledConverter
+    }
+}
+
+/// `test_table_unit`: the cells of values with a unit converter show
+/// their text (Python's `str`), and the converter is not called.
+fn table_unit(fig: &Figure) -> CaseResult {
+    let data = [[FakeUnit; 2]; 2];
+    let cell_text = data
+        .iter()
+        .map(|row| row.iter().map(ToString::to_string).collect())
+        .collect();
+    fig.subplot().table(TableOptions::with_text(cell_text))?;
+    Ok(())
+}
+
 pub(super) const CASES: &[FigureCase] = &[
     classic("mpl_misc/offsetbox_clipping", offsetbox_clipping),
     FigureCase::new(
@@ -284,6 +337,7 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_misc/auto_column", auto_column),
     classic("mpl_misc/table_bbox", table_bbox),
     classic("mpl_misc/table_bbox_ref", table_bbox),
+    classic("mpl_misc/table_unit", table_unit),
     classic("mpl_misc/table_unit_ref", |fig| {
         fig.subplot()
             .table(TableOptions::with_text(rows([["Hello"; 2]; 2])))?;

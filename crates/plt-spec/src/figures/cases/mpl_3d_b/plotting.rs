@@ -48,7 +48,7 @@ pub(super) fn errorbar3d_errorevery(fig: &Figure) -> CaseResult {
 pub(super) fn errorbar3d(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
     let d = [1.0, 2.0, 3.0, 4.0, 5.0];
-    let e = || Some(ErrorSize::Symmetric(vec![0.5; 5]));
+    let e = || Some(ErrorSize::Symmetric(vec![0.5; 5].into()));
     let options = Errorbar3DOptions {
         errors: [e(), e(), e()],
         capsize: Some(3.0),

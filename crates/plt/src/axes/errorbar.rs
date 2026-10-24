@@ -1,10 +1,11 @@
 //! Error bars (matplotlib's `errorbar`).
 
+use std::convert::Infallible;
 use std::f64::consts::FRAC_PI_2;
 use std::str::FromStr;
 
 use super::broadcast::{broadcast, broadcast_flags};
-use super::{Axes, AxesState, PlotError};
+use super::{Axes, AxesState, Axis, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist};
 use crate::colors::Color;
@@ -16,32 +17,33 @@ use crate::lines::{
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
-use crate::units::{AxisDelta, AxisValues, convert_dx};
+use crate::units::{AxisDeltas, AxisValues};
 
-/// Error sizes along one axis (matplotlib's `xerr`/`yerr`); every list
-/// holds one value or one per point.
+/// Error sizes along one axis (matplotlib's `xerr`/`yerr`): numbers,
+/// durations or user values ([`AxisDeltas`]), every list holding one
+/// value or one per point.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ErrorSize {
     /// The same error below and above.
-    Symmetric(Vec<f64>),
+    Symmetric(AxisDeltas),
     /// Separate errors below and above.
     Asymmetric {
         /// Errors below the values.
-        lower: Vec<f64>,
+        lower: AxisDeltas,
         /// Errors above the values.
-        upper: Vec<f64>,
+        upper: AxisDeltas,
     },
 }
 
 impl From<f64> for ErrorSize {
     fn from(error: f64) -> Self {
-        Self::Symmetric(vec![error])
+        Self::Symmetric(error.into())
     }
 }
 
 impl From<Vec<f64>> for ErrorSize {
     fn from(errors: Vec<f64>) -> Self {
-        Self::Symmetric(errors)
+        Self::Symmetric(errors.into())
     }
 }
 
@@ -49,32 +51,56 @@ impl From<TimeDelta> for ErrorSize {
     /// The same duration below and above, on a date axis (matplotlib's
     /// `timedelta` errors).
     fn from(error: TimeDelta) -> Self {
-        Self::Symmetric(vec![AxisDelta::from(error).to_number()])
+        Self::Symmetric(error.into())
+    }
+}
+
+impl From<AxisDeltas> for ErrorSize {
+    fn from(errors: AxisDeltas) -> Self {
+        Self::Symmetric(errors)
     }
 }
 
 impl ErrorSize {
-    /// The sizes rounded through the coordinates they extend from
-    /// ([`convert_dx`]).
-    pub(crate) fn convert_dx(self, origins: &[f64]) -> Self {
+    /// The errors below and above, each list converted by `convert`.
+    pub(crate) fn sides<E>(
+        &self,
+        mut convert: impl FnMut(&AxisDeltas) -> Result<Vec<f64>, E>,
+    ) -> Result<(Vec<f64>, Vec<f64>), E> {
         match self {
-            Self::Symmetric(errors) => Self::Symmetric(convert_dx(origins, &errors)),
-            Self::Asymmetric { lower, upper } => Self::Asymmetric {
-                lower: convert_dx(origins, &lower),
-                upper: convert_dx(origins, &upper),
+            Self::Symmetric(errors) => {
+                let errors = convert(errors)?;
+                Ok((errors.clone(), errors))
+            }
+            Self::Asymmetric { lower, upper } => Ok((convert(lower)?, convert(upper)?)),
+        }
+    }
+
+    /// The sizes in axis numbers, each list converted by `convert`.
+    pub(crate) fn converted(&self, mut convert: impl FnMut(&AxisDeltas) -> Vec<f64>) -> Self {
+        let Ok((lower, upper)) = self.sides(|errors| Ok::<_, Infallible>(convert(errors)));
+        match self {
+            Self::Symmetric(_) => Self::Symmetric(lower.into()),
+            Self::Asymmetric { .. } => Self::Asymmetric {
+                lower: lower.into(),
+                upper: upper.into(),
             },
         }
     }
 
-    /// `(lower, upper)` errors for `n` points.
-    fn bounds(&self, argument: &'static str, n: usize) -> Result<(Vec<f64>, Vec<f64>), PlotError> {
-        let (lower, upper) = match self {
-            Self::Symmetric(errors) => (errors, errors),
-            Self::Asymmetric { lower, upper } => (lower, upper),
-        };
+    /// `(lower, upper)` errors for `n` points along `axis`, converted by
+    /// themselves (see [`Axes::errorbar`]).
+    fn bounds(
+        &self,
+        argument: &'static str,
+        n: usize,
+        axis: &Axis,
+    ) -> Result<(Vec<f64>, Vec<f64>), PlotError> {
+        let (lower, upper) =
+            self.sides(|errors| Ok::<_, PlotError>(axis.convert_deltas(errors)))?;
         let (lower, upper) = (
-            broadcast(argument, lower, n)?,
-            broadcast(argument, upper, n)?,
+            broadcast(argument, &lower, n)?,
+            broadcast(argument, &upper, n)?,
         );
         // NaN skips a bar; negative sizes are rejected.
         if lower.iter().chain(&upper).any(|&e| e < 0.0) {
@@ -284,7 +310,11 @@ struct Direction {
 }
 
 impl Axes {
-    /// Points with error bars (matplotlib's `errorbar`).
+    /// Points with error bars (matplotlib's `errorbar`). Error sizes
+    /// convert to axis numbers by themselves: durations in days, user
+    /// values by the axis converter (matplotlib adds them to the values in
+    /// their units instead, which comes to the same for converters that
+    /// scale and shift).
     ///
     /// ```
     /// use plt::prelude::*;
@@ -420,9 +450,11 @@ impl Axes {
     ) -> Result<(Collection, Vec<LineArtist>), PlotError> {
         let along_x = direction.axis == AxisName::X;
         let (dep, indep) = if along_x { (x, y) } else { (y, x) };
-        let (lower, upper) = direction
-            .err
-            .bounds(if along_x { "xerr" } else { "yerr" }, x.len())?;
+        let (lower, upper) = direction.err.bounds(
+            if along_x { "xerr" } else { "yerr" },
+            x.len(),
+            &self.axis_of(direction.axis),
+        )?;
         // `dep - lower * !lolims` written so that NaN errors stay NaN.
         let low: Vec<f64> = (0..x.len())
             .map(|i| dep[i] + -(1.0 - indicator(direction.lolims[i])) * lower[i])

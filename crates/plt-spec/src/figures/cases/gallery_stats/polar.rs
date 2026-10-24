@@ -41,8 +41,8 @@ fn nested_pie_2(fig: &Figure) -> CaseResult {
     valsleft.extend(cumsum(&valsnorm[..valsnorm.len() - 1]));
     let cmap = colormaps::get("tab20c")?;
     let ring = |width: Vec<f64>, bottom: f64, color: Vec<Color>| BarOptions {
-        thickness: width,
-        base: vec![bottom],
+        thickness: width.into(),
+        base: vec![bottom].into(),
         align: BarAlign::Edge,
         color,
         edgecolor: vec!["w".into()],
@@ -76,8 +76,8 @@ fn polar_bar(fig: &Figure) -> CaseResult {
     let width = map(&g.uniform(n, 0.0, 1.0), |u| PI / 4.0 * u);
     let viridis = colormaps::get("viridis")?;
     let options = BarOptions {
-        thickness: width,
-        base: vec![0.0],
+        thickness: width.into(),
+        base: vec![0.0].into(),
         color: radii
             .iter()
             .map(|r| viridis.sample(r / 10.0).into())

@@ -91,7 +91,7 @@ fn ecdf(fig: &Figure) -> CaseResult {
 fn errorbar_plot(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = ErrorbarOptions {
-        yerr: Some(ErrorSize::Symmetric(vec![0.9, 1.2, 0.5])),
+        yerr: Some(ErrorSize::Symmetric(vec![0.9, 1.2, 0.5].into())),
         fmt: "o".parse()?,
         line: LineProps::default().linewidth(2.0),
         capsize: Some(6.0),

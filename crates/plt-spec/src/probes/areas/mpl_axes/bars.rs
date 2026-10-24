@@ -11,7 +11,7 @@ use plt::dates::{AutoDateFormatter, TimeDelta};
 use plt::figure::{Figure, SubfigureOptions};
 use plt::legend::LegendOptions;
 use plt::patches::PatchProps;
-use plt::units::{AxisDelta, AxisValues};
+use plt::units::AxisValues;
 
 use super::{
     color, count, iso_date, iso_dates, legend_label, made, number_list, numbers, on_axes, optional,
@@ -59,7 +59,7 @@ fn bar_options(args: Args<'_>) -> Result<BarOptions, ProbeError> {
         ..BarOptions::default()
     };
     if let Some(base) = optional(args, "bottom", number_list)? {
-        options.base = base;
+        options.base = base.into();
     }
     if let Some(face) = args.get("color") {
         options.color = vec![color(face)?];
@@ -127,8 +127,10 @@ pub(super) fn barh(args: Args<'_>) -> Outcome {
     on_axes(args, |ax| {
         let defaults = BarOptions::default();
         let options = BarOptions {
-            base: optional(args, "left", number_list)?.unwrap_or(defaults.base.clone()),
-            thickness: optional(args, "height", number_list)?.unwrap_or(defaults.thickness.clone()),
+            base: optional(args, "left", number_list)?
+                .map_or_else(|| defaults.base.clone(), Into::into),
+            thickness: optional(args, "height", number_list)?
+                .map_or_else(|| defaults.thickness.clone(), Into::into),
             ..defaults
         };
         let widths = number_list(args.json("width")?)?;
@@ -246,10 +248,9 @@ fn hour_list(args: Args<'_>, key: &str) -> Result<Vec<i64>, ProbeError> {
 
 pub(super) fn bar_timedelta(args: Args<'_>) -> Outcome {
     on_axes(args, |ax| {
-        // Bar thicknesses are axis numbers: days on a date axis.
         let thickness = hour_list(args, "hours")?
             .into_iter()
-            .map(|h| Ok(AxisDelta::from(duration(h)?).to_number()))
+            .map(duration)
             .collect::<Result<Vec<_>, ProbeError>>()?;
         let error = args
             .opt_i64("err_hours")?
@@ -257,7 +258,7 @@ pub(super) fn bar_timedelta(args: Args<'_>) -> Outcome {
             .transpose()?;
         let vertical = args.str("orientation")? == "vertical";
         let mut options = BarOptions {
-            thickness,
+            thickness: thickness.into(),
             ..BarOptions::default()
         };
         if vertical {
@@ -311,7 +312,7 @@ pub(super) fn bar_datetime_start(args: Args<'_>) -> Outcome {
             .map(|(stop, start)| stop - start)
             .collect();
         let options = BarOptions {
-            base,
+            base: base.into(),
             ..BarOptions::default()
         };
         let positions = vec![0.0, 1.0, 3.0];

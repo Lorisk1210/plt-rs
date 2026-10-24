@@ -9,7 +9,9 @@ use std::rc::Rc;
 
 use plt::axes::Axis;
 use plt::ticker::{AutoLocator, FormatStrFormatter, FuncFormatter, MultipleLocator};
-use plt::units::{AxisInfo, ConversionError, ConversionInterface, Convertible};
+use plt::units::{
+    AxisDelta, AxisInfo, AxisValue, ConversionError, ConversionInterface, Convertible,
+};
 
 /// A unit of `basic_units`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -201,5 +203,12 @@ impl Convertible for TaggedValue {
 
     fn converter() -> BasicUnitConverter {
         BasicUnitConverter
+    }
+
+    /// The sum with a value that converts to this one's unit
+    /// (`TaggedValue.__add__`, which refuses others).
+    fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
+        let delta = delta.downcast_ref::<Self>()?.convert_to(self.unit).ok()?;
+        Some(((self.value + delta.value) * self.unit).into())
     }
 }

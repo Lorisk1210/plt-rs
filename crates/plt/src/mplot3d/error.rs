@@ -72,6 +72,9 @@ pub enum Axes3DError {
     Not3DArtist,
     /// The axis does not label its major ticks with a `ScalarFormatter`.
     NotScalarFormatter(Axis3),
+    /// Error sizes along the axis are values of a user type, which 3-D
+    /// axes do not convert.
+    UnitErrors(Axis3),
 }
 
 impl fmt::Display for Axes3DError {
@@ -114,6 +117,11 @@ impl fmt::Display for Axes3DError {
             Self::NotScalarFormatter(axis) => write!(
                 f,
                 "the {}-axis tick labels do not use a ScalarFormatter",
+                axis.name()
+            ),
+            Self::UnitErrors(axis) => write!(
+                f,
+                "the {}-axis error sizes have units, which 3-D axes do not convert",
                 axis.name()
             ),
             Self::Scale(err) => err.fmt(f),

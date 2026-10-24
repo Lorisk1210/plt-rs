@@ -131,7 +131,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             vec![0.3, 0.55],
             [0.4, 0.6],
             BarOptions {
-                thickness: vec![0.17],
+                thickness: 0.17.into(),
                 ..BarOptions::default()
             },
         )?;

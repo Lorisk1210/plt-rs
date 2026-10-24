@@ -159,12 +159,12 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
     let ax = &axs[(1, 0)];
     let options = ErrorbarOptions {
         yerr: Some(ErrorSize::Asymmetric {
-            lower: yerr.clone(),
-            upper: double(&yerr),
+            lower: yerr.clone().into(),
+            upper: double(&yerr).into(),
         }),
         xerr: Some(ErrorSize::Asymmetric {
-            lower: xerr.clone(),
-            upper: double(&xerr),
+            lower: xerr.clone().into(),
+            upper: double(&xerr).into(),
         }),
         fmt: "--o".parse()?,
         ..ErrorbarOptions::default()
@@ -174,15 +174,15 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
 
     let ax = &axs[(1, 1)];
     ax.set_yscale("log")?;
-    let yerr_lower = y
+    let yerr_lower: Vec<f64> = y
         .iter()
         .zip(&yerr)
         .map(|(y, e)| y - (y - e).max(1e-2))
         .collect();
     let options = ErrorbarOptions {
         yerr: Some(ErrorSize::Asymmetric {
-            lower: yerr_lower,
-            upper: double(&yerr),
+            lower: yerr_lower.into(),
+            upper: double(&yerr).into(),
         }),
         xerr: Some(xerr.into()),
         fmt: "o".parse()?,
@@ -217,12 +217,12 @@ fn polar_caps(fig: &Figure) -> CaseResult {
     )?;
     let asymmetric = point(
         ErrorSize::Asymmetric {
-            lower: vec![0.3, 0.3, 0.2],
-            upper: vec![0.2, 0.3, 0.3],
+            lower: vec![0.3, 0.3, 0.2].into(),
+            upper: vec![0.2, 0.3, 0.3].into(),
         },
         ErrorSize::Asymmetric {
-            lower: vec![0.35, 0.5, 0.5],
-            upper: vec![0.5, 0.35, 0.5],
+            lower: vec![0.35, 0.5, 0.5].into(),
+            upper: vec![0.5, 0.35, 0.5].into(),
         },
     );
     ax.errorbar(

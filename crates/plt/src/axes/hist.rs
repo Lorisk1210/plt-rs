@@ -153,8 +153,8 @@ impl Axes {
             .zip(colors)
             .map(|(group, color)| {
                 let bars = BarOptions {
-                    thickness: group.thickness,
-                    base: group.bases,
+                    thickness: group.thickness.into(),
+                    base: group.bases.into(),
                     align: BarAlign::Center,
                     color: vec![color.clone()],
                     log: options.log,

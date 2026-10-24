@@ -90,8 +90,8 @@ pub(crate) const CASES: &[FigureCase] = &[
         let theta: Vec<f64> = (0..12).map(|i| f64::from(i) * (TAU / 12.0)).collect();
         let radii: Vec<f64> = (0..12).map(|i| f64::from(1 + i % 5)).collect();
         let options = BarOptions {
-            thickness: vec![0.45],
-            base: vec![1.0],
+            thickness: 0.45.into(),
+            base: vec![1.0].into(),
             color: ["C0", "C1", "C2"]
                 .repeat(4)
                 .into_iter()

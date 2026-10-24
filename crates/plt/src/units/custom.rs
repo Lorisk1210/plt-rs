@@ -7,7 +7,9 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use super::interface::UnitOf;
-use super::{AxisInfo, AxisValue, AxisValues, ConversionError, ConversionInterface, Convertible};
+use super::{
+    AxisDelta, AxisInfo, AxisValue, AxisValues, ConversionError, ConversionInterface, Convertible,
+};
 use crate::axes::Axis;
 use crate::ticker::AxisName;
 
@@ -223,6 +225,13 @@ trait AnyValues: Any + fmt::Debug {
 
     /// Whether `other` holds equal values of the same type.
     fn equals(&self, other: &dyn AnyValues) -> bool;
+
+    /// Value `index` alone.
+    fn get(&self, index: usize) -> Option<UnitValues>;
+
+    /// The first value moved by `delta`, if it adds
+    /// ([`Convertible::add_delta`]).
+    fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue>;
 }
 
 /// Values of one [`Convertible`] type.
@@ -287,6 +296,16 @@ impl<T: Convertible> AnyValues for Values<T> {
     fn equals(&self, other: &dyn AnyValues) -> bool {
         (other as &dyn Any).downcast_ref::<Self>() == Some(self)
     }
+
+    fn get(&self, index: usize) -> Option<UnitValues> {
+        self.0
+            .get(index)
+            .map(|value| UnitValues::new(vec![value.clone()]))
+    }
+
+    fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
+        self.0.first()?.add_delta(delta)
+    }
 }
 
 impl UnitValues {
@@ -332,6 +351,17 @@ impl UnitValues {
         axis: &Axis,
     ) -> Result<Vec<f64>, ConversionError> {
         self.0.convert(converter, unit, axis)
+    }
+
+    /// Value `index` alone, if there is one.
+    pub(crate) fn get(&self, index: usize) -> Option<Self> {
+        self.0.get(index)
+    }
+
+    /// The first value moved by the extent `delta`, if the extent adds to
+    /// it ([`Convertible::add_delta`]).
+    pub(crate) fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
+        self.0.add_delta(delta)
     }
 }
 
@@ -467,6 +497,14 @@ mod tests {
             UnitValues::from(vec![Millimetres(20.0), Millimetres(5.0)])
         );
         assert!(UnitValues::new(Vec::<Millimetres>::new()).is_empty());
+    }
+
+    #[test]
+    fn values_come_apart_and_add_nothing_by_default() {
+        let values = UnitValues::new(vec![Millimetres(1.0), Millimetres(2.0)]);
+        assert_eq!(values.get(1), Some(UnitValues::new(vec![Millimetres(2.0)])));
+        assert_eq!(values.get(2), None);
+        assert_eq!(values.add_delta(&AxisDelta::Number(1.0)), None);
     }
 
     #[test]

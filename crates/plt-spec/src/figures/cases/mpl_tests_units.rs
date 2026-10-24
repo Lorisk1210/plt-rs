@@ -9,11 +9,12 @@ use plt::dates::{DateTime, Datetime64, TimeDelta};
 use plt::figure::Figure;
 use plt::gridspec::SubplotOverrides;
 use plt::numeric::linspace;
+use plt::orientation::Orientation;
 use plt::prelude::*;
 
 use super::mpl_tests::{classic, remove_ticks_and_titles};
 use crate::figures::{CaseResult, FigureCase};
-use crate::user_units::jpl::{Duration, Epoch, UnitDbl};
+use crate::user_units::jpl::{Duration, Epoch, UnitDbl, UnitName};
 use crate::user_units::quantity::{Quantity, QuantityUnit, quantities};
 
 /// Every case of the group.
@@ -116,63 +117,41 @@ fn plot_masked_units(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// The bars of the `jpl_units` tests: at 0, 1 and 2 km, one, two and three
-/// days long from 2009-04-26 (ephemeris time), and the limits a day before
-/// that to a little over a day after the longest bar.
-struct JplBars {
-    positions: Vec<UnitDbl>,
-    lengths: Vec<Duration>,
-    start: Epoch,
-    limits: (Epoch, Epoch),
-}
-
-impl JplBars {
-    fn new() -> Result<Self, plt::dates::DateError> {
-        let day = Duration::seconds(24.0 * 60.0 * 60.0);
-        let lengths = vec![1.0 * day, 2.0 * day, 3.0 * day];
-        let start = Epoch::from_date(DateTime::new(2009, 4, 26, 0, 0, 0, 0)?);
-        Ok(Self {
-            positions: vec![UnitDbl::km(0.0), UnitDbl::km(1.0), UnitDbl::km(2.0)],
-            limits: (start - 1.0 * day, start + lengths[2] + 1.001 * day),
-            lengths,
-            start,
-        })
+/// The `jpl_units` tests' bars: at 0, 1 and 2 km, one, two and three days
+/// long from 2009-04-26 (ephemeris time), along y (`test_jpl_bar_units`)
+/// or along x (`test_jpl_barh_units`), with limits from a day before the
+/// bars to a little over a day after the longest one.
+fn jpl_bars(fig: &Figure, orientation: Orientation) -> CaseResult {
+    let day = Duration::seconds(24.0 * 60.0 * 60.0);
+    let km = UnitDbl::new(1.0, UnitName::Kilometres);
+    let x = vec![0.0 * km, 1.0 * km, 2.0 * km];
+    let w = vec![1.0 * day, 2.0 * day, 3.0 * day];
+    let b = Epoch::from_date(DateTime::new(2009, 4, 26, 0, 0, 0, 0)?);
+    let (low, high) = (b - 1.0 * day, b + w[2] + 1.001 * day);
+    let from_b = BarOptions {
+        base: vec![b].into(),
+        ..BarOptions::default()
+    };
+    let ax = fig.subplot();
+    match orientation {
+        Orientation::Vertical => {
+            ax.bar(x, w, from_b)?;
+            ax.set_ylim(low, high)?;
+        }
+        Orientation::Horizontal => {
+            ax.barh(x, w, from_b)?;
+            ax.set_xlim(low, high)?;
+        }
     }
-
-    /// The bar options for bars starting at `start` on `axis`, and their
-    /// lengths: as matplotlib's `_convert_dx` converts them, the converted
-    /// ends less the converted start.
-    fn on(&self, axis: &plt::axes::Axis) -> (Vec<f64>, BarOptions) {
-        let base = axis.convert_value(self.start);
-        let lengths = self
-            .lengths
-            .iter()
-            .map(|&length| axis.convert_value(self.start + length) - base)
-            .collect();
-        let options = BarOptions {
-            base: vec![base],
-            ..BarOptions::default()
-        };
-        (lengths, options)
-    }
+    Ok(())
 }
 
 /// `test_jpl_bar_units`: vertical bars.
 fn jpl_bar_units(fig: &Figure) -> CaseResult {
-    let bars = JplBars::new()?;
-    let ax = fig.subplot();
-    let (heights, options) = bars.on(&ax.yaxis());
-    ax.bar(bars.positions.clone(), heights, options)?;
-    ax.set_ylim(bars.limits.0, bars.limits.1)?;
-    Ok(())
+    jpl_bars(fig, Orientation::Vertical)
 }
 
 /// `test_jpl_barh_units`: horizontal bars.
 fn jpl_barh_units(fig: &Figure) -> CaseResult {
-    let bars = JplBars::new()?;
-    let ax = fig.subplot();
-    let (widths, options) = bars.on(&ax.xaxis());
-    ax.barh(bars.positions.clone(), widths, options)?;
-    ax.set_xlim(bars.limits.0, bars.limits.1)?;
-    Ok(())
+    jpl_bars(fig, Orientation::Horizontal)
 }

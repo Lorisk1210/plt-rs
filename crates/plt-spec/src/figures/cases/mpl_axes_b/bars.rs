@@ -16,7 +16,7 @@ const DECIMAL_SIZES: [f64; 4] = [0.7, 1.45, 1.0, 2.0];
 /// Bars of the given thicknesses labelled `a` and `b`.
 fn labelled(thickness: [f64; 2]) -> BarOptions {
     BarOptions {
-        thickness: thickness.to_vec(),
+        thickness: thickness.into(),
         tick_labels: vec!["a".into(), "b".into()],
         ..BarOptions::default()
     }
@@ -32,7 +32,7 @@ fn bar_tick_label_multiple(fig: &Figure) -> CaseResult {
 /// Bars of the given thicknesses.
 fn thick(thickness: &[f64]) -> BarOptions {
     BarOptions {
-        thickness: thickness.to_vec(),
+        thickness: thickness.into(),
         ..BarOptions::default()
     }
 }
@@ -128,7 +128,7 @@ pub(super) const CASES: &[FigureCase] = &[
         let shifts = [0.0, bar_width, 2.0 * bar_width].map(|offset| -bar_width + offset);
         for (shift, (label, values)) in shifts.into_iter().zip(grouped()) {
             let options = BarOptions {
-                thickness: vec![bar_width],
+                thickness: bar_width.into(),
                 label: Some(label),
                 ..BarOptions::default()
             };

@@ -1,17 +1,20 @@
-//! `test_patches.py`: rotated and dashed rectangles, paths clipped to a
-//! box, cut-out stars as a patch and as a collection, invisible edges,
-//! wedges over every range of angles, hatch colours, connection patches
-//! and a shadow.
+//! `test_patches.py`: rotated and dashed rectangles, a rectangle with
+//! units, paths clipped to a box, cut-out stars as a patch and as a
+//! collection, invisible edges, wedges over every range of angles, hatch
+//! colours, connection patches and a shadow.
 
 use plt::collections::{CollectionProps, CollectionSpec};
 use plt::coords::Coords;
-use plt::patches::{ConnectionEnd, ConnectionPatch, PathShape, Rectangle, Shadow, Wedge};
+use plt::patches::{
+    ConnectionEnd, ConnectionPatch, DataRectangle, PathShape, Rectangle, Shadow, Wedge,
+};
 use plt::prelude::*;
 use plt::transforms::Point;
 use plt_core::{Affine2D, Bbox, Path, PathError, Rgba};
 
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
+use crate::user_units::jpl::{UnitDbl, UnitName};
 
 /// `(x, y)` shifted by `d` in both directions.
 fn shifted(points: &[Point], d: f64) -> Vec<Point> {
@@ -30,6 +33,19 @@ pub(super) fn rotate_rect_draw(fig: &Figure) -> CaseResult {
         .subplot()
         .add_patch(Rectangle::new((0.0, 0.0), 1.0, 1.0));
     rect.update_shape(|r| r.angle = 30.0);
+    Ok(())
+}
+
+/// `test_units_rectangle`: a rectangle of `jpl_units` kilometres, which
+/// gives the axes the converter of kilometres but no unit, so that only
+/// the limits in kilometres convert.
+pub(super) fn units_rectangle(fig: &Figure) -> CaseResult {
+    let km = UnitDbl::new(1.0, UnitName::Kilometres);
+    let p = DataRectangle::new((5.0 * km, 6.0 * km), 1.0 * km, 2.0 * km)?;
+    let ax = fig.subplot();
+    ax.add_patch(p);
+    ax.set_xlim(4.0 * km, 7.0 * km)?
+        .set_ylim(5.0 * km, 9.0 * km)?;
     Ok(())
 }
 

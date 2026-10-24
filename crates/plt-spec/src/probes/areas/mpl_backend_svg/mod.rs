@@ -61,7 +61,7 @@ fn hidden_bars_parse(args: Args<'_>) -> Outcome {
             .collect();
         let y: Vec<f64> = x.iter().map(|x| x.sin()).collect();
         let options = ErrorbarOptions {
-            yerr: Some(ErrorSize::Symmetric(vec![1.0; 50])),
+            yerr: Some(ErrorSize::Symmetric(vec![1.0; 50].into())),
             fmt: ErrorbarFormat::Format("ko".parse().map_err(ProbeError::rejected)?),
             ..ErrorbarOptions::default()
         };

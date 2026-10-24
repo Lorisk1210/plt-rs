@@ -1,6 +1,7 @@
 //! `test_polar.py`: annotations on and off polar axes, label alignment,
-//! radial limits, origins and inversion, θ positions and sectors, wrapped
-//! and interpolated lines, shared axes removed, log radii and error bars.
+//! `jpl_units` angles and radii, radial limits, origins and inversion, θ
+//! positions and sectors, wrapped and interpolated lines, shared axes
+//! removed, log radii and error bars.
 
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
@@ -20,6 +21,7 @@ use plt_core::Point;
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
 use crate::figures::cases::common::{black_arrow, radians};
+use crate::user_units::jpl::{UnitDbl, UnitName};
 use std::error::Error;
 
 /// `r = np.arange(start, stop, 0.01)` and `θ = 2πr`.
@@ -118,6 +120,32 @@ pub(super) fn polar_wrap(fig: &Figure) -> CaseResult {
     let ax = fig.polar_subplot();
     ax.plot(radians(&[179.0, -179.0]), [0.2, 0.1])?;
     ax.plot(radians(&[2.0, -2.0]), [0.2, 0.1])?;
+    Ok(())
+}
+
+/// The angles of the unit tests: 30°, 45°, 60° and 90° as `jpl_units`
+/// degrees.
+fn degrees() -> Vec<UnitDbl> {
+    let deg = UnitDbl::new(1.0, UnitName::Degrees);
+    [30.0, 45.0, 60.0, 90.0].map(|x| x * deg).to_vec()
+}
+
+/// `test_polar_units_1`: degrees against radii, which polar axes take in
+/// radians and label in degrees.
+pub(super) fn polar_units_1(fig: &Figure) -> CaseResult {
+    fig.polar_subplot().plot(degrees(), [1.0, 2.0, 3.0, 4.0])?;
+    Ok(())
+}
+
+/// `test_polar_units_2`: degrees against kilometres with
+/// `thetaunits="rad"` and `runits="km"`, which polar axes set before the
+/// values update the units.
+pub(super) fn polar_units_2(fig: &Figure) -> CaseResult {
+    let km = UnitDbl::new(1.0, UnitName::Kilometres);
+    let ax = fig.polar_subplot();
+    ax.xaxis().set_units(UnitName::Radians);
+    ax.yaxis().set_units(UnitName::Kilometres);
+    ax.plot(degrees(), [1.0, 2.0, 3.0, 4.0].map(|y| y * km).to_vec())?;
     Ok(())
 }
 
@@ -277,7 +305,7 @@ pub(super) fn polar_rlim_bottom(fig: &Figure) -> CaseResult {
 pub(super) fn polar_interpolation_steps_constant_r(fig: &Figure) -> CaseResult {
     for (index, width) in [(1, 3.0 * PI), (2, -3.0 * PI)] {
         let options = BarOptions {
-            thickness: vec![width],
+            thickness: width.into(),
             edgecolor: vec![Color::from("none")],
             props: PatchProps::default().antialiased(false),
             ..BarOptions::default()

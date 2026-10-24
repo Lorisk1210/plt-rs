@@ -1,15 +1,11 @@
 //! Single plotting values before unit conversion: a value along an axis
-//! ([`AxisValue`]), a point of two of them ([`DataPoint`]) and an extent
-//! along an axis ([`AxisDelta`]).
+//! ([`AxisValue`]) and a point of two of them ([`DataPoint`]).
 
 use plt_core::Point;
 
-use super::{AxisValues, Convertible, UnitValues};
-use crate::dates::{DateTime, Datetime64, TimeDelta, get_epoch};
-
-/// Microseconds in a day: a duration of that many microseconds spans one
-/// unit of a date axis.
-const MICROS_PER_DAY: f64 = 86_400_000_000.0;
+use super::deltas::days;
+use super::{AxisDelta, AxisValues, Convertible, UnitValues};
+use crate::dates::{DateTime, Datetime64, get_epoch};
 
 /// One plotting value along an axis before unit conversion: a number, a
 /// category name, a date or a value of a [`Convertible`] type (the
@@ -34,6 +30,23 @@ pub enum AxisValue {
     Date(f64),
     /// A value of a user type: [`UnitValues`] holding one value.
     Custom(UnitValues),
+}
+
+impl AxisValue {
+    /// The value an extent `delta` reaches from this one, if the extent
+    /// adds to it (Python's `value + delta`): a number to a number, a
+    /// duration to a date, and to a user value what its
+    /// [`Convertible::add_delta`] adds.
+    pub(crate) fn add_delta(&self, delta: &AxisDelta) -> Option<Self> {
+        match (self, delta) {
+            (Self::Number(value), AxisDelta::Number(delta)) => Some(Self::Number(value + delta)),
+            (Self::Date(date), AxisDelta::Duration(duration)) => {
+                Some(Self::Date(date + days(*duration)))
+            }
+            (Self::Custom(value), delta) => value.add_delta(delta),
+            _ => None,
+        }
+    }
 }
 
 impl<T: Convertible> From<T> for AxisValue {
@@ -124,50 +137,10 @@ impl From<[f64; 2]> for DataPoint {
     }
 }
 
-/// An extent along an axis before unit conversion: a number, or a
-/// duration on a date axis (matplotlib's `timedelta` widths, heights and
-/// error sizes).
-///
-/// ```
-/// use plt::dates::TimeDelta;
-/// use plt::units::AxisDelta;
-/// assert_eq!(AxisDelta::from(0.8).to_number(), 0.8);
-/// assert_eq!(AxisDelta::from(TimeDelta::new(1, 43_200, 0)?).to_number(), 1.5);
-/// # Ok::<(), plt::dates::DateError>(())
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum AxisDelta {
-    /// A plain number.
-    Number(f64),
-    /// A duration.
-    Duration(TimeDelta),
-}
-
-impl AxisDelta {
-    /// The extent in axis units: durations in days, the unit of date axes.
-    pub fn to_number(self) -> f64 {
-        match self {
-            Self::Number(delta) => delta,
-            Self::Duration(duration) => duration.total_micros() as f64 / MICROS_PER_DAY,
-        }
-    }
-}
-
-impl From<f64> for AxisDelta {
-    fn from(delta: f64) -> Self {
-        Self::Number(delta)
-    }
-}
-
-impl From<TimeDelta> for AxisDelta {
-    fn from(duration: TimeDelta) -> Self {
-        Self::Duration(duration)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dates::TimeDelta;
 
     #[test]
     fn single_values_become_one_element_lists() {
@@ -186,14 +159,30 @@ mod tests {
     }
 
     #[test]
-    fn points_and_extents_convert() {
+    fn points_convert() {
         assert_eq!(
             DataPoint::from(Point::new(1.0, 2.0)),
             DataPoint::from([1.0, 2.0])
         );
         let point = DataPoint::from(("b", String::from("c")));
         assert_eq!(point.y, AxisValue::Category("c".into()));
-        let back = TimeDelta::new(-2, 0, 0).expect("a duration");
-        assert_eq!(AxisDelta::from(back).to_number(), -2.0);
+    }
+
+    #[test]
+    fn extents_add_to_values_of_their_kind() {
+        let day = TimeDelta::new(1, 43_200, 0).expect("a duration");
+        let date = AxisValue::Date(10.0);
+        assert_eq!(date.add_delta(&day.into()), Some(AxisValue::Date(11.5)));
+        assert_eq!(date.add_delta(&AxisDelta::Number(1.0)), None);
+        let number = AxisValue::Number(0.25);
+        assert_eq!(
+            number.add_delta(&AxisDelta::Number(0.5)),
+            Some(AxisValue::Number(0.75))
+        );
+        assert_eq!(number.add_delta(&day.into()), None);
+        assert_eq!(
+            AxisValue::from("a").add_delta(&AxisDelta::Number(1.0)),
+            None
+        );
     }
 }

@@ -6,8 +6,10 @@
 //!   [`Figure::polar_subplot`](crate::figure::Figure::polar_subplot); it
 //!   dereferences to [`Axes`] for plotting and adds the polar settings
 //!   (θ orientation and limits, radial origin, label positions, ...).
+//! * [`ThetaFormatter`] — the θ axis' labels in degrees, for unit
+//!   converters of angles to give polar axes.
 //! * The projection itself (`PolarTransform`, `PolarAffine`,
-//!   `_WedgeBbox`), the angular and radial tickers, and the painting of
+//!   `_WedgeBbox`), the angular and radial locators, and the painting of
 //!   the circular grid live in private submodules.
 
 mod api;
@@ -20,6 +22,7 @@ use std::f64::consts::PI;
 
 pub use api::{PolarAxes, PolarError};
 pub(crate) use paint::{GRIDLINE_INTERPOLATION_STEPS, draw_tick_lines, tick_label_anchor};
+pub use ticker::ThetaFormatter;
 pub(crate) use ticker::{RadialLocator, ThetaLocator, theta_tickers};
 pub(crate) use transform::{PolarMap, PolarView};
 

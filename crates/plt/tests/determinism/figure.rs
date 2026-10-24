@@ -46,7 +46,7 @@ fn hatches(fig: &Figure) -> Result<(), Failure> {
         x.to_vec(),
         [6.0; 4],
         BarOptions {
-            base: x.to_vec(),
+            base: x.to_vec().into(),
             ..BarOptions::default()
         },
     )?;

@@ -5,13 +5,15 @@ use super::lines::cycle_color;
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
-use crate::patches::{FancyArrow, Patch, PatchArtist, PatchProps, PatchShape};
+use crate::patches::{FancyArrow, IntoPatchShape, Patch, PatchArtist, PatchProps};
 
 impl Axes {
     /// Adds a patch in data coordinates, clipped to the axes, and extends
     /// the data limits to cover it without autoscaling the view
-    /// (matplotlib's `add_patch`).
-    pub fn add_patch<S: PatchShape>(&self, shape: S) -> Patch<S> {
+    /// (matplotlib's `add_patch`). A shape given in plotting values, such
+    /// as a [`DataRectangle`](crate::patches::DataRectangle), is converted
+    /// first.
+    pub fn add_patch<S: IntoPatchShape>(&self, shape: S) -> Patch<S::Shape> {
         self.add_patch_with(shape, PatchProps::default())
     }
 
@@ -19,8 +21,12 @@ impl Axes {
     /// it is added, as matplotlib adds a patch made with its keyword
     /// arguments: a `transform` places it (and its data limits), a
     /// `clip_path` replaces the axes clip box.
-    pub fn add_patch_with<S: PatchShape>(&self, shape: S, props: PatchProps) -> Patch<S> {
-        let mut patch = PatchArtist::new(shape, crate::rc::params());
+    pub fn add_patch_with<S: IntoPatchShape>(
+        &self,
+        shape: S,
+        props: PatchProps,
+    ) -> Patch<S::Shape> {
+        let mut patch = PatchArtist::new(shape.into_shape(self), crate::rc::params());
         props.apply(&mut patch);
         // Like matplotlib's `_set_artist_props`, keep a transform the
         // shape already chose (a shadow inherits its source's).

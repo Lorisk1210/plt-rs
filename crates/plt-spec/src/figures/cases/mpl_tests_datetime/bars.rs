@@ -35,12 +35,6 @@ fn summer_dates() -> Result<Vec<DateTime>, DateError> {
         .collect()
 }
 
-/// Whole days from `from` to `to` (`to - from` as a `timedelta`, in the
-/// days a date axis counts).
-fn days_between(from: DateTime, to: DateTime) -> f64 {
-    (to.timestamp_micros() - from.timestamp_micros()) as f64 / 86_400_000_000.0
-}
-
 /// `test_bar`: bars at dates four days wide, and bars from a date as
 /// high as durations.
 fn bar(fig: &Figure) -> CaseResult {
@@ -48,14 +42,14 @@ fn bar(fig: &Figure) -> CaseResult {
     let ax = axes(fig, 2, 1)?;
     let x_dates = summer_dates()?;
     let width = BarOptions {
-        thickness: vec![4.0],
+        thickness: 4.0.into(),
         ..BarOptions::default()
     };
     ax[0].bar(x_dates.clone(), [8800.0, 2600.0, 8500.0, 7400.0], width)?;
     let x = day(2020, 6, 1)?;
-    let heights: Vec<f64> = x_dates.iter().map(|&d| days_between(x, d)).collect();
+    let heights: Vec<TimeDelta> = x_dates.iter().map(|&d| d - x).collect();
     let from_x = BarOptions {
-        base: vec![ax[1].yaxis().convert_value(x)],
+        base: vec![x].into(),
         ..BarOptions::default()
     };
     ax[1].bar(numbers(0..4), heights, from_x)?;
@@ -75,19 +69,16 @@ fn barh(fig: &Figure) -> CaseResult {
     ax[0].set_xlabel("Age");
     ax[0].set_ylabel("Birth Date");
     let ten_days = BarOptions {
-        thickness: vec![10.0],
+        thickness: 10.0.into(),
         ..BarOptions::default()
     };
     ax[0].barh(birth_dates.clone(), [21.0, 53.0, 20.0, 24.0], ten_days)?;
     ax[1].set_xlim(year_start, year_end)?;
     ax[1].set_xlabel("Birth Date");
     ax[1].set_ylabel("Order of Birth Dates");
-    let widths: Vec<f64> = birth_dates
-        .iter()
-        .map(|&d| days_between(year_start, d))
-        .collect();
+    let widths: Vec<TimeDelta> = birth_dates.iter().map(|&d| d - year_start).collect();
     let from_new_year = BarOptions {
-        base: vec![ax[1].xaxis().convert_value(year_start)],
+        base: vec![year_start].into(),
         ..BarOptions::default()
     };
     ax[1].barh(numbers(0..4), widths, from_new_year)?;

@@ -70,8 +70,8 @@ pub(super) fn errorbar_dashes(fig: &Figure) -> CaseResult {
     let y: Vec<f64> = x.iter().map(|x: &f64| x.sin()).collect();
     let err: Vec<f64> = y.iter().map(|y| y.abs()).collect();
     let options = ErrorbarOptions {
-        xerr: Some(ErrorSize::Symmetric(err.clone())),
-        yerr: Some(ErrorSize::Symmetric(err)),
+        xerr: Some(ErrorSize::Symmetric(err.clone().into())),
+        yerr: Some(ErrorSize::Symmetric(err.into())),
         line: LineProps::default().linestyle(LineStyle::dashes(0.0, vec![2.0, 2.0])),
         ..ErrorbarOptions::default()
     };

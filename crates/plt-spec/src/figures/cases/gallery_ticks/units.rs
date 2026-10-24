@@ -10,7 +10,7 @@
 //! other methods, which let the values pick the units first.
 //! `evans_test` defines its own `Foo` values and converter.
 
-use plt::axes::{Axis, AxisName, ErrorSize, TickParams};
+use plt::axes::{Axis, AxisName, TickParams};
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::legend::LegendOptions;
 use plt::patches::{Arc, Ellipse, PatchShape};
@@ -18,7 +18,7 @@ use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::text::{AnnotateOptions, HAlign, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::{FormatStrFormatter, IndexLocator};
-use plt::units::{AxisInfo, ConversionError, ConversionInterface, Convertible};
+use plt::units::{AxisDeltas, AxisInfo, ConversionError, ConversionInterface, Convertible};
 
 use crate::figures::cases::common::{black_arrow, map};
 use crate::figures::{CaseResult, FigureCase};
@@ -79,16 +79,6 @@ fn even_centimetres() -> Vec<TaggedValue> {
     [0.0, 2.0, 4.0, 6.0, 8.0].map(|v| v * CM).to_vec()
 }
 
-/// The extents of `ends` from `start` along `axis`, as matplotlib's
-/// `_convert_dx` converts them: the converted `start + end` less the
-/// converted start.
-fn extents(axis: &Axis, start: TaggedValue, ends: &[TaggedValue]) -> Vec<f64> {
-    let origin = axis.convert_value(start);
-    ends.iter()
-        .map(|&end| axis.convert_value(start + end) - origin)
-        .collect()
-}
-
 /// `bar(cms, cms, bottom=0 * cm, width=width, xunits=..., yunits=...)`:
 /// the values pick the units, which `units` then replace, and the width
 /// is 0.8 without units.
@@ -105,15 +95,13 @@ fn unit_bars(
         ax.xaxis().set_units(x);
         ax.yaxis().set_units(y);
     }
-    let thickness = width.map_or(0.8, |width| extents(&ax.xaxis(), cms[0], &[width])[0]);
-    let heights = extents(&ax.yaxis(), bottom, &cms);
-    let base = ax.yaxis().convert_value(bottom);
+    let thickness = width.map_or_else(|| 0.8.into(), |width| vec![width].into());
     ax.bar(
+        cms.clone(),
         cms,
-        heights,
         BarOptions {
-            thickness: vec![thickness],
-            base: vec![base],
+            thickness,
+            base: vec![bottom].into(),
             ..BarOptions::default()
         },
     )?;
@@ -154,22 +142,16 @@ fn bar_unit_demo(fig: &Figure) -> CaseResult {
             width,
         ),
     ];
-    let bottom = 0.0 * CM;
     for (label, means, std, shift) in groups {
-        let yaxis = ax.yaxis();
         ax.bar(
             map(&ind, |i| i + shift),
-            extents(&yaxis, bottom, &means.map(|v| v * CM)),
+            means.map(|v| v * CM),
             BarOptions {
-                thickness: vec![width],
-                base: vec![yaxis.convert_value(bottom)],
+                thickness: width.into(),
+                base: vec![0.0 * CM].into(),
                 label: Some(label.to_owned()),
                 errors: ErrorbarOptions {
-                    yerr: Some(ErrorSize::Symmetric(extents(
-                        &yaxis,
-                        bottom,
-                        &std.map(|v| v * CM),
-                    ))),
+                    yerr: Some(AxisDeltas::from(std.map(|v| v * CM)).into()),
                     ..ErrorbarOptions::default()
                 },
                 ..BarOptions::default()

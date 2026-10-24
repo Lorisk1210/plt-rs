@@ -153,6 +153,7 @@ const PATCHES: &[FigureCase] = &[
         "mpl_collections/rotate_rect_draw",
         patches::rotate_rect_draw,
     ),
+    FigureCase::new("mpl_collections/units_rectangle", patches::units_rectangle),
     classic(
         "mpl_collections/dash_offset_patch_draw",
         patches::dash_offset_patch_draw,

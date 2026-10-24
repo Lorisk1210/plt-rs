@@ -453,7 +453,7 @@ fn xkcd_2(fig: &Figure) -> CaseResult {
         [0.0, 1.0],
         [0.0, 100.0],
         BarOptions {
-            thickness: vec![0.25],
+            thickness: 0.25.into(),
             ..BarOptions::default()
         },
     )?;

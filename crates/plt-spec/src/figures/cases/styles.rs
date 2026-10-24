@@ -7,6 +7,7 @@ use plt::axes::{
 };
 use plt::collections::CollectionProps;
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::patches::Rectangle;
 use plt::prelude::*;
 
@@ -46,7 +47,7 @@ fn standard_plot(fig: &Figure) -> CaseResult {
     ax1.legend(
         LegendOptions::default()
             .fontsize(plt::fonts::RelativeSize::Small)
-            .loc("upper right"),
+            .loc(AnchorLoc::UpperRight),
     )?;
     let bars = BarOptions {
         errors: ErrorbarOptions {

@@ -9,7 +9,7 @@ use std::rc::Rc;
 use plt_core::{Bbox, Path, Point};
 
 use super::aux_transform::AuxTransform;
-use super::axes::{Axes, GridHelper};
+use super::axes::{AxisArtistAxes, GridHelper};
 use super::grid_finder::{
     CoordinateGrid, ExtremeFinder, GridError, GridFinder, GridFinderOptions, GridInfo,
 };
@@ -49,7 +49,7 @@ impl ExtremeFinder for ExtremeFinderFixed {
 /// The edges of the range are the axis lines; only the grid lines strictly
 /// inside it are drawn.
 #[derive(Debug)]
-pub struct GridHelperCurveLinear {
+pub struct FloatingGridHelper {
     grid: Rc<curvelinear::GridHelperCurveLinear>,
     extremes: (f64, f64, f64, f64),
 }
@@ -81,7 +81,7 @@ impl FloatingGridInfo {
     }
 }
 
-impl GridHelperCurveLinear {
+impl FloatingGridHelper {
     /// A grid through `aux_trans` over the curvilinear range `extremes =
     /// (x0, x1, y0, y1)`; the extreme finder of `options` is replaced by
     /// an [`ExtremeFinderFixed`].
@@ -168,20 +168,20 @@ impl GridHelperCurveLinear {
     }
 }
 
-/// Axes showing the range of a [`GridHelperCurveLinear`]: its axis lines
+/// Axes showing the range of a [`FloatingGridHelper`]: its axis lines
 /// are the edges of the range, its background the region they enclose,
 /// and it keeps a data ratio of 1 (matplotlib's `FloatingAxes`, also
-/// `FloatingSubplot`). It dereferences to the axisartist [`Axes`].
+/// `FloatingSubplot`). It dereferences to the axisartist [`AxisArtistAxes`].
 ///
 /// ```
-/// use plt::axisartist::floating_axes::{FloatingAxes, GridHelperCurveLinear};
+/// use plt::axisartist::floating_axes::{FloatingAxes, FloatingGridHelper};
 /// use plt::axisartist::grid_finder::GridFinderOptions;
 /// use plt::axisartist::AuxTransform;
 /// use plt::prelude::*;
 /// use plt::transforms::Affine2D;
 /// let fig = Figure::new();
 /// let tr = AuxTransform::affine(Affine2D::scaling(2.0, 1.0));
-/// let helper = GridHelperCurveLinear::new(tr.clone(), (0.0, 1.0, 0.0, 1.0), GridFinderOptions::default());
+/// let helper = FloatingGridHelper::new(tr.clone(), (0.0, 1.0, 0.0, 1.0), GridFinderOptions::default());
 /// let ax = FloatingAxes::new(fig.subplot(), helper)?;
 /// let (x0, x1) = ax.ax().xlim();
 /// assert!((x0 + 0.02).abs() < 1e-12 && (x1 - 2.02).abs() < 1e-12);
@@ -191,16 +191,16 @@ impl GridHelperCurveLinear {
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct FloatingAxes {
-    axes: Axes,
+    axes: AxisArtistAxes,
 }
 
 /// matplotlib's `FloatingSubplot`, the same class as [`FloatingAxes`].
 pub type FloatingSubplot = FloatingAxes;
 
 impl Deref for FloatingAxes {
-    type Target = Axes;
+    type Target = AxisArtistAxes;
 
-    fn deref(&self) -> &Axes {
+    fn deref(&self) -> &AxisArtistAxes {
         &self.axes
     }
 }
@@ -225,12 +225,12 @@ impl FloatingAxes {
     /// is not finite.
     pub fn new(
         ax: crate::axes::Axes,
-        grid_helper: GridHelperCurveLinear,
+        grid_helper: FloatingGridHelper,
     ) -> Result<Self, FloatingAxesError> {
         grid_helper.grid_finder().extremes(Bbox::UNIT)?;
         let outline = grid_helper.outline();
         let floating = Self {
-            axes: Axes::with_grid_helper(ax, GridHelper::Floating(grid_helper)),
+            axes: AxisArtistAxes::with_grid_helper(ax, GridHelper::Floating(grid_helper)),
         };
         floating.fit_outline(outline)?;
         floating.ax().set_aspect(Aspect::Equal)?;
@@ -239,7 +239,7 @@ impl FloatingAxes {
 
     /// Removes everything drawn in the axes and gives it new axis artists
     /// along the edges of the range, as
-    /// [`axisartist::Axes::clear`](Axes::clear) does, then outlines the
+    /// [`axisartist::AxisArtistAxes::clear`](AxisArtistAxes::clear) does, then outlines the
     /// range and fits the limits around it again; the equal aspect stays
     /// (matplotlib's `FloatingAxesBase.clear`).
     pub fn clear(&self) -> &Self {
@@ -317,7 +317,7 @@ impl FloatingAxes {
     }
 }
 
-impl GridHelperCurveLinear {
+impl FloatingGridHelper {
     /// The region enclosed by the edges of the range, in data
     /// coordinates: the polygon of the extremes, interpolated, through the
     /// grid transform (matplotlib's `_gen_axes_patch` with its transform).
@@ -380,8 +380,8 @@ mod tests {
     use super::*;
     use crate::figure::Figure;
 
-    fn quarter_annulus() -> GridHelperCurveLinear {
-        GridHelperCurveLinear::new(
+    fn quarter_annulus() -> FloatingGridHelper {
+        FloatingGridHelper::new(
             AuxTransform::polar(),
             (0.5 * std::f64::consts::PI, 0.0, 2.0, 1.0),
             GridFinderOptions::default(),

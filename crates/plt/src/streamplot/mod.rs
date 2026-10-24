@@ -30,7 +30,7 @@ mod integrate;
 mod mask;
 mod plan;
 
-pub use arrow::{ArrowHead, StreamArrow, StreamArrowStyle, UnknownArrowStyle};
+pub use arrow::{StreamArrow, StreamArrowHead, StreamArrowStyle, UnknownArrowStyle};
 pub use domain::GridAxis;
 pub use error::StreamplotError;
 pub use integrate::IntegrationDirection;

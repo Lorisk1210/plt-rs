@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use super::{
     AxisTickers, FuncLogTransform, FuncTransform, LogTransform, NonPositive, Scale, ScaleError,
+    ScaleName,
 };
 use crate::ticker::{
     AxisName, LogFormatter, LogLabelStyle, LogLocator, LogSubs, ScaleHint, TickerSettings,
@@ -84,8 +85,8 @@ impl LogScale {
 }
 
 impl Scale for LogScale {
-    fn name(&self) -> &'static str {
-        "log"
+    fn name(&self) -> ScaleName {
+        ScaleName::Log
     }
 
     fn axis_map(&self) -> Option<Rc<dyn AxisMap>> {
@@ -131,8 +132,8 @@ impl FuncScaleLog {
 }
 
 impl Scale for FuncScaleLog {
-    fn name(&self) -> &'static str {
-        "functionlog"
+    fn name(&self) -> ScaleName {
+        ScaleName::FunctionLog
     }
 
     fn axis_map(&self) -> Option<Rc<dyn AxisMap>> {

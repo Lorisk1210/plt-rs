@@ -11,6 +11,7 @@ use plt::fonts::FontWeight;
 use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::lines::StepWhere;
+use plt::offsetbox::AnchorLoc;
 use plt::orientation::Orientation;
 use plt::patches::{BoxStyle, StepBaseline, StepPatch};
 use plt::prelude::*;
@@ -67,7 +68,7 @@ fn stackplot_demo_1(fig: &Figure) -> CaseResult {
     }
     let reversed = LegendOptions {
         reverse: true,
-        ..LegendOptions::default().loc("upper left")
+        ..LegendOptions::default().loc(AnchorLoc::UpperLeft)
     };
     ax.legend(reversed)?;
     ax.set_title("World population");

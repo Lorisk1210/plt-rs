@@ -8,6 +8,7 @@ use plt::figure::Figure;
 use plt::layout::LayoutEngine;
 use plt::legend::{LegendAlignment, LegendLoc, LegendOptions};
 use plt::lines::LineProps;
+use plt::offsetbox::AnchorLoc;
 use plt::patches::{Ellipse, PatchProps, Polygon, Wedge};
 use plt_core::{Bbox, Point};
 
@@ -78,7 +79,10 @@ fn among_patches() -> Outcome {
         .collect::<Result<Vec<_>, _>>()
         .map_err(ProbeError::rejected)?;
     let mut bounds = Vec::new();
-    for (ax, loc) in axes.into_iter().zip(["center", "best"]) {
+    for (ax, loc) in axes
+        .into_iter()
+        .zip([LegendLoc::Anchored(AnchorLoc::Center), LegendLoc::Best])
+    {
         let c1 = PatchProps::default().facecolor("C1");
         ax.add_patch_with(Ellipse::new((0.5, 0.9), 0.8, 0.2), c1.clone());
         let u_shape = [
@@ -126,7 +130,9 @@ pub(super) fn outside(args: Args<'_>) -> Outcome {
             .map_err(ProbeError::rejected)?;
         let ax = fig.subplot();
         labelled_range(&ax, "Boo1")?;
-        let loc = format!("outside {}", args.str("loc")?);
+        let loc: LegendLoc = format!("outside {}", args.str("loc")?)
+            .parse()
+            .map_err(ProbeError::rejected)?;
         let legend = fig
             .legend(LegendOptions::default().loc(loc))
             .map_err(ProbeError::rejected)?;
@@ -145,14 +151,12 @@ pub(super) fn set_loc(args: Args<'_>) -> Outcome {
         let ax = Figure::new().subplot();
         labelled_range(&ax, "test")?;
         let legend = legend(&ax, LegendOptions::default())?;
-        legend
-            .set_loc(args.str("loc")?)
-            .map_err(ProbeError::rejected)?;
-        match legend.loc() {
-            LegendLoc::Name(name) if name == "best" => Ok(Json::Integer(0)),
-            LegendLoc::Code(code) => Ok(Json::Integer(code)),
-            other => Err(ProbeError::rejected(format!("no location code: {other:?}"))),
-        }
+        let loc: LegendLoc = args.str("loc")?.parse().map_err(ProbeError::rejected)?;
+        legend.set_loc(loc).map_err(ProbeError::rejected)?;
+        let loc = legend.loc();
+        loc.code()
+            .map(|code| Json::Integer(i64::from(code)))
+            .ok_or_else(|| ProbeError::rejected(format!("no location code: {loc}")))
     })
 }
 

@@ -45,7 +45,8 @@ pub fn contourf(field: &QuadField, options: ContourOptions) -> Result<ContourSet
 }
 
 /// Labels the contour lines of `contours` (matplotlib's `clabel`, which is
-/// `ContourSet.clabel`).
+/// `ContourSet.clabel`). It takes the contour set, as matplotlib's pyplot
+/// `clabel(CS)` does, where [`ContourSet::clabel`] is a method of it.
 ///
 /// # Errors
 ///

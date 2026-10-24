@@ -25,7 +25,7 @@ use plt_render::CapStyle;
     clippy::large_enum_variant,
     reason = "built once per box plot: boxing the props would only burden the callers"
 )]
-pub enum BoxStyle {
+pub enum BoxProps {
     /// Box outlines drawn as lines.
     Line(LineProps),
     /// Filled boxes drawn as patches.
@@ -35,9 +35,9 @@ pub enum BoxStyle {
 /// A drawn box.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BoxArtist {
-    /// An outline ([`BoxStyle::Line`]).
+    /// An outline ([`BoxProps::Line`]).
     Line(Line2D),
-    /// A filled patch ([`BoxStyle::Patch`]).
+    /// A filled patch ([`BoxProps::Patch`]).
     Patch(Patch<PathShape>),
 }
 
@@ -74,7 +74,7 @@ pub struct BxpOptions {
     /// Vertical boxes stand on the x axis; horizontal ones on the y axis.
     pub orientation: Orientation,
     /// How boxes are drawn (default: outlines).
-    pub boxes: Option<BoxStyle>,
+    pub boxes: Option<BoxProps>,
     /// Draw notches at the median's confidence interval.
     pub shownotches: Option<bool>,
     /// Draw the means.
@@ -145,7 +145,7 @@ struct PartStyles {
     flier: LineProps,
     median: LineProps,
     mean: LineProps,
-    boxes: BoxStyle,
+    boxes: BoxProps,
 }
 
 impl PartStyles {
@@ -217,7 +217,7 @@ impl PartStyles {
             mean = mean.linestyle(LineStyle::None);
         }
         let boxes = match &options.boxes {
-            Some(BoxStyle::Patch(props)) => BoxStyle::Patch(
+            Some(BoxProps::Patch(props)) => BoxProps::Patch(
                 PatchProps::default()
                     .linestyle(rc.boxplot_boxprops_linestyle.clone())
                     .linewidth(rc.boxplot_boxprops_linewidth)
@@ -226,8 +226,8 @@ impl PartStyles {
                     .zorder(zorder)
                     .overlay(props.clone()),
             ),
-            Some(BoxStyle::Line(props)) => BoxStyle::Line(Self::box_line(rc, zorder, props)),
-            None => BoxStyle::Line(Self::box_line(rc, zorder, &LineProps::default())),
+            Some(BoxProps::Line(props)) => BoxProps::Line(Self::box_line(rc, zorder, props)),
+            None => BoxProps::Line(Self::box_line(rc, zorder, &LineProps::default())),
         };
         // Whiskers, caps, outliers and, beside boxes, medians stay out of
         // legends unless the caller labels them (matplotlib's
@@ -404,8 +404,8 @@ impl Axes {
         };
         if options.showbox.unwrap_or(true) {
             let drawn = match &styles.boxes {
-                BoxStyle::Line(props) => BoxArtist::Line(plot(&box_x, &box_y, props)?),
-                BoxStyle::Patch(props) => {
+                BoxProps::Line(props) => BoxArtist::Line(plot(&box_x, &box_y, props)?),
+                BoxProps::Patch(props) => {
                     BoxArtist::Patch(self.box_patch(&box_x, &box_y, orientation, props))
                 }
             };

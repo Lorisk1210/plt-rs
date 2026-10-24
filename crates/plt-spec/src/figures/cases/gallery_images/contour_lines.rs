@@ -5,7 +5,7 @@ use plt::axes::{GridOptions, ImshowOptions};
 use plt::colorbar::ColorbarOptions;
 use plt::colors::{Color, Colorize, ColorizerOptions, colormaps};
 use plt::contour::{
-    ClabelFormat, ClabelOptions, ContourOptions, ContourSet, Origin, QuadCoords, QuadField,
+    ClabelFormat, ClabelOptions, ContourOptions, ContourOrigin, ContourSet, QuadCoords, QuadField,
 };
 use plt::figure::Figure;
 use plt::fonts::FontSize;
@@ -163,7 +163,7 @@ fn contour_demo_6(fig: &Figure) -> CaseResult {
     let im = ax.imshow(z.clone(), image)?;
     let levels = arange(-1.2, 1.6, 0.2);
     let field = QuadField::new(z).with_coords(QuadCoords::Implicit {
-        origin: Some(Origin::Lower),
+        origin: Some(ContourOrigin::Lower),
         extent: Some([-3.0, 3.0, -2.0, 2.0]),
     });
     let options = ContourOptions {

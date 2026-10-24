@@ -5,8 +5,8 @@ use plt::colors::{Colorize, colormaps};
 use plt::lines::LineProps;
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::quiver::{
-    Angles, ArrowShape, KeyCoordinates, LabelPosition, Pivot, QuiverKeyOptions, QuiverOptions,
-    QuiverUnits, VectorField,
+    Angles, KeyCoordinates, LabelPosition, Pivot, QuiverArrowShape, QuiverKeyOptions,
+    QuiverOptions, QuiverUnits, VectorField,
 };
 
 use crate::figures::FigureCase;
@@ -135,11 +135,11 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 2.5, 100.0),
     FigureCase::new("fields/quiver_head_shape", |fig| {
         let options = QuiverOptions {
-            shape: ArrowShape {
+            shape: QuiverArrowShape {
                 head_width: 6.0,
                 head_length: 8.0,
                 head_axis_length: 7.0,
-                ..ArrowShape::default()
+                ..QuiverArrowShape::default()
             },
             width: Some(0.008),
             ..QuiverOptions::default()
@@ -150,10 +150,10 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(4.0, 4.0, 100.0),
     FigureCase::new("fields/quiver_flat_head_edges", |fig| {
         let options = QuiverOptions {
-            shape: ArrowShape {
+            shape: QuiverArrowShape {
                 head_axis_length: 0.0,
                 head_width: 4.0,
-                ..ArrowShape::default()
+                ..QuiverArrowShape::default()
             },
             color: "gold".into(),
             props: plt::collections::CollectionProps::default()
@@ -190,10 +190,10 @@ pub(crate) const CASES: &[FigureCase] = &[
         let scaled = |g: &Grid<f64>| Grid::from_fn(6, 6, |i, j| g[(i, j)] * scale[(i, j)]);
         let field = VectorField::on_mesh(&xx, &yy, &scaled(&u), &scaled(&v));
         let options = QuiverOptions {
-            shape: ArrowShape {
+            shape: QuiverArrowShape {
                 min_shaft: 2.0,
                 min_length: 0.5,
-                ..ArrowShape::default()
+                ..QuiverArrowShape::default()
             },
             ..QuiverOptions::default()
         };

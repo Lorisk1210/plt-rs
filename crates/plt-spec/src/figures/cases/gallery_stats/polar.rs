@@ -9,6 +9,7 @@ use plt::colors::{Colormap, colormaps};
 use plt::figure::Figure;
 use plt::layout::LayoutEngine;
 use plt::legend::{BboxToAnchor, LegendOptions};
+use plt::offsetbox::AnchorLoc;
 use plt::polar::{Compass, PolarAxes};
 use plt::prelude::*;
 use plt::text::VAlign;
@@ -184,7 +185,7 @@ fn polar_legend(fig: &Figure) -> CaseResult {
     let angle = 67.5_f64.to_radians();
     ax.legend(
         LegendOptions::default()
-            .loc("lower left")
+            .loc(AnchorLoc::LowerLeft)
             .bbox_to_anchor(BboxToAnchor::Point(
                 0.5 + angle.cos() / 2.0,
                 0.5 + angle.sin() / 2.0,

@@ -410,7 +410,8 @@ fn yticks(args: Args<'_>) -> Outcome {
             .as_array()
             .and_then(|labels| labels.iter().map(Json::as_str).collect::<Option<Vec<_>>>())
             .ok_or_else(|| ProbeError::BadArgs("labels are not strings".into()))?;
-        pyplot::yticks_minor(args.f64_vec("ticks")?, &labels).map_err(ProbeError::rejected)?;
+        pyplot::yticks_minor(args.f64_vec("ticks")?);
+        pyplot::yticklabels_minor(labels).map_err(ProbeError::rejected)?;
         minor_ticks(&pyplot::gca().yaxis())
     })
 }

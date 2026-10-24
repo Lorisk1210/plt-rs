@@ -25,7 +25,7 @@ pub(crate) enum SharedGridHelper {
     /// A curvilinear grid.
     CurveLinear(Rc<GridHelperCurveLinear>),
     /// A curvilinear grid over fixed extremes.
-    Floating(Rc<floating_axes::GridHelperCurveLinear>),
+    Floating(Rc<floating_axes::FloatingGridHelper>),
 }
 
 /// The segments of the gridlines: which levels and axes they show

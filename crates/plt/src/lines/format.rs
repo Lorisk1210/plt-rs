@@ -26,7 +26,7 @@ const COLORS: &str = "bgrcmykw";
 /// let fmt: FormatString = "ro--".parse()?;
 /// assert_eq!(fmt.linestyle, Some(LineStyle::Dashed));
 /// assert_eq!(fmt.color, Some("r".into()));
-/// # Ok::<(), plt::lines::FormatError>(())
+/// # Ok::<(), plt::lines::FormatStringError>(())
 /// ```
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct FormatString {
@@ -40,14 +40,14 @@ pub struct FormatString {
 
 /// Why a format string is invalid.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FormatError {
+pub struct FormatStringError {
     /// The format string.
     pub format: String,
     /// What is wrong with it.
     pub reason: String,
 }
 
-impl fmt::Display for FormatError {
+impl fmt::Display for FormatStringError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -57,7 +57,7 @@ impl fmt::Display for FormatError {
     }
 }
 
-impl std::error::Error for FormatError {}
+impl std::error::Error for FormatStringError {}
 
 impl FormatString {
     /// Parses `format`, using `rc` for the default line style.
@@ -65,7 +65,7 @@ impl FormatString {
     /// # Errors
     ///
     /// When `format` contains an unknown character or repeats a part.
-    pub fn parse_with(format: &str, rc: &RcParams) -> Result<Self, FormatError> {
+    pub fn parse_with(format: &str, rc: &RcParams) -> Result<Self, FormatStringError> {
         // "0" and "1" are grey levels but read as markers/digits here.
         if !["0", "1"].contains(&format) && is_color_like(format) {
             return Ok(Self {
@@ -73,7 +73,7 @@ impl FormatString {
                 ..Self::default()
             });
         }
-        let error = |reason: &str| FormatError {
+        let error = |reason: &str| FormatStringError {
             format: format.to_owned(),
             reason: reason.to_owned(),
         };
@@ -124,10 +124,10 @@ impl FormatString {
 }
 
 impl FromStr for FormatString {
-    type Err = FormatError;
+    type Err = FormatStringError;
 
     /// Parses with the current rc parameters.
-    fn from_str(format: &str) -> Result<Self, FormatError> {
+    fn from_str(format: &str) -> Result<Self, FormatStringError> {
         Self::parse_with(format, &crate::rc::params())
     }
 }
@@ -149,7 +149,7 @@ impl LineProps {
     /// # Errors
     ///
     /// When the format string is invalid.
-    pub fn fmt(format: &str) -> Result<Self, FormatError> {
+    pub fn fmt(format: &str) -> Result<Self, FormatStringError> {
         format.parse::<FormatString>().map(Self::from)
     }
 }
@@ -159,7 +159,7 @@ mod tests {
     use super::*;
     use crate::markers::MarkerSymbol;
 
-    fn parse(format: &str) -> Result<FormatString, FormatError> {
+    fn parse(format: &str) -> Result<FormatString, FormatStringError> {
         FormatString::parse_with(format, &RcParams::matplotlib())
     }
 

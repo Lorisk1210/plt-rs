@@ -6,7 +6,8 @@ use std::error::Error;
 
 use plt::artist::RawHandle;
 use plt::figure::PixelBox;
-use plt::legend::LegendOptions;
+use plt::legend::{LegendLoc, LegendOptions};
+use plt::offsetbox::AnchorLoc;
 use plt::patches::Circle;
 use plt::prelude::*;
 use plt::transforms::{Bbox, Point};
@@ -32,7 +33,7 @@ fn restore_region_bbox_xy(fig: &Figure) -> CaseResult {
         LineProps::default().label("cos"),
     )?;
     ax.legend(LegendOptions {
-        loc: Some("upper right".into()),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::UpperRight)),
         ..LegendOptions::default()
     })?;
     let canvas = fig.canvas();

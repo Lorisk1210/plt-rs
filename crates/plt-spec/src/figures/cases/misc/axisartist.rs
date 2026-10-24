@@ -12,7 +12,7 @@ pub(crate) const CASES: &[FigureCase] = &[
 ];
 
 fn floating_axis(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::new(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::new(fig.subplot());
     ax.new_floating_axis("y=0", AxisName::X, 0.0);
     ax.new_floating_axis("x=0", AxisName::Y, 0.0);
     for name in ["top", "right"] {
@@ -26,7 +26,7 @@ fn floating_axis(fig: &Figure) -> CaseResult {
 }
 
 fn axeszero_arrows(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::zero(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::zero(fig.subplot());
     for name in ["xzero", "yzero"] {
         let axis = ax.axis(name).ok_or("no such axis")?;
         axis.set_axisline_style(Some("-|>".parse::<AxislineStyle>()?));

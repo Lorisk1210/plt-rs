@@ -4,6 +4,7 @@
 use plt::axes::EcdfOptions;
 use plt::gridspec::SubplotOverrides;
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::orientation::Orientation;
 use plt::patches::{ArrowShape, BoxStyle, FancyArrow};
 use plt::prelude::*;
@@ -205,6 +206,6 @@ pub(super) fn xkcd_ticks(fig: &Figure) -> CaseResult {
     )?;
     ax.set_title("sketchy");
     ax.set_xlabel("x");
-    ax.legend(LegendOptions::default().loc("lower left"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::LowerLeft))?;
     Ok(())
 }

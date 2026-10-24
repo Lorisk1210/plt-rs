@@ -3,6 +3,7 @@
 
 use super::keys::KeyAction;
 use crate::axes::{Axes, AxisName, GridOptions, TickLevel};
+use crate::scale::ScaleName;
 
 /// The next grid state in matplotlib's cycle: none, x, both, y.
 fn next_grids(state: (bool, bool)) -> (bool, bool) {
@@ -69,8 +70,8 @@ fn toggle_log(ax: &Axes, name: AxisName) {
         AxisName::Y => ax.yscale(),
     };
     let next = match current {
-        "log" => "linear",
-        "linear" => "log",
+        ScaleName::Log => ScaleName::Linear,
+        ScaleName::Linear => ScaleName::Log,
         _ => return,
     };
     let applied = match name {
@@ -100,8 +101,8 @@ mod tests {
     fn log_shortcuts_toggle() {
         let ax = Figure::new().subplot();
         apply_to_axes(&ax, KeyAction::LogY);
-        assert_eq!(ax.yscale(), "log");
+        assert_eq!(ax.yscale(), ScaleName::Log);
         apply_to_axes(&ax, KeyAction::LogY);
-        assert_eq!(ax.yscale(), "linear");
+        assert_eq!(ax.yscale(), ScaleName::Linear);
     }
 }

@@ -157,7 +157,7 @@ pub(super) fn rgb(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn axisline_styles(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::zero(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::zero(fig.subplot());
     let xzero = ax.axis("xzero").ok_or("no xzero axis")?;
     xzero.set_axisline_style(Some(AxislineStyle::SimpleArrow { size: 1.5 }));
     let yzero = ax.axis("yzero").ok_or("no yzero axis")?;

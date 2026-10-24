@@ -1,7 +1,7 @@
 //! `EngFormatter`: engineering notation with SI prefixes (`10 MHz`).
 
 use super::scalar::{ScalarLayout, compute_offset, decimals};
-use super::{Formatter, OffsetMode, TickLabels};
+use super::{FormattedTicks, Formatter, OffsetMode};
 use crate::ticker::pyfmt::{fixed, general};
 use crate::ticker::pymath::{floor_int, log_base, pow10, pow10_int, py_round};
 use crate::ticker::{TickContext, TickerError, TickerSettings};
@@ -218,9 +218,13 @@ impl Default for EngFormatter {
 }
 
 impl Formatter for EngFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         if locs.is_empty() {
-            return Ok(TickLabels::default());
+            return Ok(FormattedTicks::default());
         }
         let settings = ctx.settings();
         let view = ctx.view_interval();
@@ -260,7 +264,7 @@ impl Formatter for EngFormatter {
                 }
             })
             .collect::<Result<_, TickerError>>()?;
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels,
             offset: self.offset_text(&layout, settings)?,
         })

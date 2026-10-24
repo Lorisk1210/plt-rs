@@ -7,6 +7,7 @@ use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, Levels, QuadCoor
 use plt::image::{ImageData, Interpolation, ScalarField};
 use plt::legend::{LegendHandle, LegendLoc, LegendOptions};
 use plt::numeric::{Grid, linspace, meshgrid};
+use plt::offsetbox::AnchorLoc;
 use plt::patches::PathShape;
 use plt::patheffects::{
     GcUpdate, LineShadow, PatchEffect, PatchShadow, PathEffect, Stroke, TickedStroke,
@@ -108,7 +109,7 @@ fn patheffect3(fig: &Figure) -> CaseResult {
         handles: Some(vec![LegendHandle::from(&line)]),
         labels: Some(vec![r"Line 1$^2$".into()]),
         fancybox: Some(true),
-        loc: Some(LegendLoc::Name("upper left".into())),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::UpperLeft)),
         ..LegendOptions::default()
     })?;
     legend

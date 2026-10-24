@@ -26,7 +26,7 @@ use super::{Locator, TickContext, TickerError};
 /// The labels for a set of ticks plus the axis offset text (e.g. `1e6` or
 /// `+1e5`) that applies to all of them.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct TickLabels {
+pub struct FormattedTicks {
     /// One label per tick location (possibly empty strings).
     pub labels: Vec<String>,
     /// The offset/scale text shown at the end of the axis.
@@ -42,7 +42,11 @@ pub struct TickLabels {
 pub trait Formatter: fmt::Debug + Any {
     /// Labels for all ticks at `locs` (matplotlib's `format_ticks` followed
     /// by `get_offset`).
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError>;
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError>;
 
     /// A context-independent representation of one value (used for
     /// offsets and scientific-notation strings).

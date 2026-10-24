@@ -175,11 +175,7 @@ impl RasterRenderer {
         )
         .map_err(RasterBackendError::Encode)?;
         metadata
-            .entries()
-            .iter()
-            .fold(png::Encoder::new().dpi(self.dpi), |encoder, (key, text)| {
-                encoder.text(key, text)
-            })
+            .apply_to(png::Encoder::new().dpi(self.dpi))
             .encode(image)
             .map_err(RasterBackendError::Encode)
     }

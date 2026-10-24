@@ -282,16 +282,20 @@ pub(crate) fn polar_grid_helper(
 pub(crate) fn polar_box(
     fig: &Figure,
     (rows, cols, index): (usize, usize, usize),
-) -> Result<axisartist::Axes, Box<dyn std::error::Error>> {
-    let helper = polar_grid_helper(Some(Box::new(grid_finder::MaxNLocator::new(5))));
-    let ax = axisartist::Axes::with_grid_helper(fig.add_subplot(rows, cols, index)?, helper);
+) -> Result<axisartist::AxisArtistAxes, Box<dyn std::error::Error>> {
+    let helper = polar_grid_helper(Some(Box::new(grid_finder::GridMaxNLocator::new(5))));
+    let ax =
+        axisartist::AxisArtistAxes::with_grid_helper(fig.add_subplot(rows, cols, index)?, helper);
     ax.ax().set_aspect(Aspect::Equal)?;
     ax.ax().set_xlim(-5.0, 12.0)?.set_ylim(-5.0, 10.0)?;
     Ok(ax)
 }
 
 /// The axis artist under `name` (`ax.axis[name]`).
-pub(crate) fn axis_artist(ax: &axisartist::Axes, name: &str) -> Result<AxisArtist, &'static str> {
+pub(crate) fn axis_artist(
+    ax: &axisartist::AxisArtistAxes,
+    name: &str,
+) -> Result<AxisArtist, &'static str> {
     ax.axis(name).ok_or("no such axis artist")
 }
 

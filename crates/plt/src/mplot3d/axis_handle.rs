@@ -325,7 +325,7 @@ impl Axis3D {
         let scale_minor = self.axes.with(|axes| {
             let axis = axes.axis(dir);
             let scale = axis.scale.scale();
-            matches!(scale.name(), "log" | "symlog" | "asinh" | "logit").then(|| {
+            scale.name().has_own_minor_locator().then(|| {
                 Rc::<dyn Locator>::from(
                     scale
                         .default_tickers(AxisName::X, &axis.settings)

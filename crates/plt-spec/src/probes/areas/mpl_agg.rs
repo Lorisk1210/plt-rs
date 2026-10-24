@@ -209,8 +209,12 @@ fn chunk_types(png: &[u8]) -> Result<Vec<Json>, ProbeError> {
 }
 
 /// The PNG entries of the probe's matplotlib `metadata` dictionary, merged
-/// over the defaults.
-fn png_metadata(entries: &[(String, Json)]) -> Result<PngMetadata, ProbeError> {
+/// over the defaults; `None` without one.
+pub(super) fn png_metadata(args: Args<'_>) -> Result<Option<PngMetadata>, ProbeError> {
+    let Some(value) = args.get("metadata") else {
+        return Ok(None);
+    };
+    let entries = value.as_object().ok_or_else(|| malformed("metadata"))?;
     entries
         .iter()
         .try_fold(PngMetadata::default(), |png, (key, value)| match value {
@@ -218,26 +222,45 @@ fn png_metadata(entries: &[(String, Json)]) -> Result<PngMetadata, ProbeError> {
             Json::String(text) => Ok(png.with(key, text)),
             other => Err(ProbeError::BadArgs(format!("bad {key} {other}"))),
         })
+        .map(Some)
 }
 
-/// The chunk types before the image data and the text entries of a small
-/// figure saved as a PNG with the probe's metadata.
 /// What the probes record for the default `Software` entry, which names
 /// the library writing the file.
 const DEFAULT_SOFTWARE: &str = "<default software>";
 
+/// The chunk types of `png` before its image data and its text entries as
+/// Pillow reads them, in file order (`{chunks, text}`).
+pub(super) fn chunks_and_text(png: &[u8]) -> Outcome {
+    let decoded = plt_codec::png::decode(png).map_err(ProbeError::rejected)?;
+    let text = decoded
+        .metadata()
+        .text
+        .iter()
+        .map(|entry| {
+            // Both libraries name themselves in the default entry.
+            let text = if entry.keyword == "Software" && entry.text == plt_render::PNG_SOFTWARE {
+                DEFAULT_SOFTWARE
+            } else {
+                entry.text.as_str()
+            };
+            Json::Array(vec![Json::from(entry.keyword.as_str()), Json::from(text)])
+        })
+        .collect();
+    Ok(crate::probes::encode::object([
+        ("chunks", Json::Array(chunk_types(png)?)),
+        ("text", Json::Array(text)),
+    ]))
+}
+
+/// The chunk types and text entries of a small figure saved as a PNG with
+/// the probe's metadata.
 fn png_text(args: Args<'_>) -> Outcome {
     styled(args, || {
-        let metadata = args
-            .get("metadata")
-            .map(|value| {
-                let entries = value.as_object().ok_or_else(|| malformed("metadata"))?;
-                Ok::<_, ProbeError>(Metadata {
-                    png: png_metadata(entries)?,
-                    ..Metadata::default()
-                })
-            })
-            .transpose()?;
+        let metadata = png_metadata(args)?.map(|png| Metadata {
+            png,
+            ..Metadata::default()
+        });
         let options = SaveOptions {
             metadata,
             ..SaveOptions::default()
@@ -245,26 +268,7 @@ fn png_text(args: Args<'_>) -> Outcome {
         let png = Figure::with_size(1.0, 1.0, 10.0)
             .to_format(SaveFormat::Png, options)
             .map_err(ProbeError::rejected)?;
-        let decoded = plt_codec::png::decode(&png).map_err(ProbeError::rejected)?;
-        let text = decoded
-            .metadata()
-            .text
-            .iter()
-            .map(|entry| {
-                // Both libraries name themselves in the default entry.
-                let text = if entry.keyword == "Software" && entry.text == plt_render::PNG_SOFTWARE
-                {
-                    DEFAULT_SOFTWARE
-                } else {
-                    entry.text.as_str()
-                };
-                Json::Array(vec![Json::from(entry.keyword.as_str()), Json::from(text)])
-            })
-            .collect();
-        Ok(crate::probes::encode::object([
-            ("chunks", Json::Array(chunk_types(&png)?)),
-            ("text", Json::Array(text)),
-        ]))
+        chunks_and_text(&png)
     })
 }
 

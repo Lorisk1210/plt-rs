@@ -44,6 +44,8 @@ pub fn imshow(data: impl Into<ImageData>, options: ImshowOptions) -> Result<Axes
 /// (matplotlib's `matshow`): in a new figure shaped like the matrix when
 /// `fignum` is `None`, in the current axes for `Some(0)`, else in new axes
 /// on figure `fignum` (shaped like the matrix if it is created).
+/// `fignum` is matplotlib's pyplot `matshow(A, fignum=None)` argument,
+/// which [`Axes::matshow`](crate::axes::Axes::matshow) has no use for.
 ///
 /// # Errors
 ///

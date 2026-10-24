@@ -65,11 +65,11 @@ impl ExtremeFinder for ExtremeFinderSimple {
 /// locator: nice levels with factor 1 (matplotlib's
 /// `grid_finder.MaxNLocator`).
 #[derive(Clone, Debug, PartialEq)]
-pub struct MaxNLocator {
+pub struct GridMaxNLocator {
     locator: crate::ticker::MaxNLocator,
 }
 
-impl MaxNLocator {
+impl GridMaxNLocator {
     /// At most `nbins` intervals with the default steps.
     pub fn new(nbins: usize) -> Self {
         Self::from_locator(crate::ticker::MaxNLocator::new(Nbins::Fixed(nbins)))
@@ -82,14 +82,14 @@ impl MaxNLocator {
     }
 }
 
-impl Default for MaxNLocator {
+impl Default for GridMaxNLocator {
     /// `MaxNLocator()`: 10 bins.
     fn default() -> Self {
         Self::new(10)
     }
 }
 
-impl GridLocator for MaxNLocator {
+impl GridLocator for GridMaxNLocator {
     fn levels(&self, v1: f64, v2: f64) -> Result<GridLevels, GridError> {
         let settings = TickerSettings::from(&*crate::rc::params());
         let levels = self
@@ -106,18 +106,18 @@ impl GridLocator for MaxNLocator {
 /// Fixed levels, those within the interval (matplotlib's
 /// `grid_finder.FixedLocator`).
 #[derive(Clone, Debug, PartialEq)]
-pub struct FixedLocator {
+pub struct GridFixedLocator {
     locs: Vec<f64>,
 }
 
-impl FixedLocator {
+impl GridFixedLocator {
     /// Levels at `locs`.
     pub fn new(locs: impl Into<Vec<f64>>) -> Self {
         Self { locs: locs.into() }
     }
 }
 
-impl GridLocator for FixedLocator {
+impl GridLocator for GridFixedLocator {
     fn levels(&self, v1: f64, v2: f64) -> Result<GridLevels, GridError> {
         let (low, high) = if v2 < v1 { (v2, v1) } else { (v1, v2) };
         let levels: Vec<f64> = self
@@ -223,13 +223,13 @@ mod tests {
 
     #[test]
     fn fixed_levels_inside_either_order() {
-        let locator = FixedLocator::new([0.0, 0.5, 1.5, 3.0]);
+        let locator = GridFixedLocator::new([0.0, 0.5, 1.5, 3.0]);
         let found = locator.levels(2.0, 0.0).unwrap();
         assert_eq!(
             (found.levels, found.n, found.factor),
             (vec![0.0, 0.5, 1.5], 3, 1.0)
         );
-        let nice = MaxNLocator::new(4).levels(0.0, 10.0).unwrap();
+        let nice = GridMaxNLocator::new(4).levels(0.0, 10.0).unwrap();
         assert_eq!(nice.values(), [0.0, 2.5, 5.0, 7.5, 10.0]);
     }
 

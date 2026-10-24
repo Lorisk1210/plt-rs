@@ -12,6 +12,7 @@ use plt::orientation::Orientation;
 
 use crate::figures::FigureCase;
 use crate::figures::cases::common::{colors, padded};
+use plt::offsetbox::AnchorLoc;
 use plt::ticker::LabelFormat;
 
 const HEIGHTS: [f64; 5] = [3.0, 7.0, 5.0, 2.0, 6.0];
@@ -394,7 +395,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.set_xticks(x);
         ax.set_xticklabels(groups)?;
         ax.set_ylim(0.0, 40.0)?;
-        ax.legend(LegendOptions::default().loc("upper left").ncols(3))?;
+        ax.legend(LegendOptions::default().loc(AnchorLoc::UpperLeft).ncols(3))?;
         Ok(())
     })
     .sized(6.0, 4.0, 100.0),

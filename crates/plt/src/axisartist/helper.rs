@@ -62,7 +62,7 @@ pub(crate) enum AxisHelper {
     /// `floating_axes.FixedAxisArtistHelper`).
     FloatingFixed {
         /// The grid.
-        grid: Rc<floating_axes::GridHelperCurveLinear>,
+        grid: Rc<floating_axes::FloatingGridHelper>,
         /// The edge of the extremes.
         side: SpineSide,
     },
@@ -343,7 +343,7 @@ fn rectilinear_ticks(
 
 /// The grid information of floating axes over the view.
 fn floating_info(
-    grid: &floating_axes::GridHelperCurveLinear,
+    grid: &floating_axes::FloatingGridHelper,
     ctx: HelperContext<'_>,
 ) -> Result<FloatingGridInfo, String> {
     grid.grid_info(ctx.axes.view_lim).map_err(|e| e.to_string())

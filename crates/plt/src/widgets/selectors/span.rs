@@ -11,8 +11,9 @@ use crate::colors::Color;
 use crate::events::CursorShape;
 use crate::lines::{Line2D, LineProps};
 use crate::navigation::PointerButton;
+use crate::orientation::Orientation;
 use crate::patches::{Patch, PatchProps, Rectangle};
-use crate::widgets::{CallbackId, Orientation, ordered};
+use crate::widgets::{CallbackId, ordered};
 
 /// Options of a [`SpanSelector`] (matplotlib's keyword arguments).
 #[derive(Clone, Debug)]

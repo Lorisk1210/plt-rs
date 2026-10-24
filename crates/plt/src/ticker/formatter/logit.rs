@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use super::{Formatter, TickLabels};
+use super::{FormattedTicks, Formatter};
 use crate::ticker::pyfmt::{exponential, fixed};
 use crate::ticker::pymath::{
     ceil_int, floor_int, is_close_to_int, np_isclose, pow10_int, round_int,
@@ -233,7 +233,11 @@ fn format_value(x: f64, locs: &[f64], sci_notation: bool) -> Result<String, Tick
 }
 
 impl Formatter for LogitFormatter {
-    fn format_ticks(&self, locs: &[f64], _: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        _: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         let labelled = if self.minor {
             self.labelled(locs)
         } else {
@@ -243,7 +247,7 @@ impl Formatter for LogitFormatter {
             .iter()
             .map(|&x| self.label(x, locs, &labelled))
             .collect::<Result<_, _>>()?;
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels,
             offset: String::new(),
         })

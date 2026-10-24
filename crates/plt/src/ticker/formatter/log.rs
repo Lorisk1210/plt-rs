@@ -2,7 +2,7 @@
 
 use plt_core::numeric::{py_max, py_min};
 
-use super::{Formatter, TickLabels, strip_math};
+use super::{FormattedTicks, Formatter, strip_math};
 use crate::numeric::linspace;
 use crate::ticker::pyfmt::{exponential, fixed, general, integer, repr};
 use crate::ticker::pymath::{arange, floor_int, is_close_to_int, log_base, pow10, round_int};
@@ -317,13 +317,17 @@ fn pprint_val(x: f64, d: f64) -> String {
 }
 
 impl Formatter for LogFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         let sublabels = self.sublabels(ctx)?;
         let labels = locs
             .iter()
             .map(|&x| self.label(x, sublabels.as_deref(), self.label_only_base, ctx))
             .collect::<Result<_, _>>()?;
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels,
             offset: String::new(),
         })

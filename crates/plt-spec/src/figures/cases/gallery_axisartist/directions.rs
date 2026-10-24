@@ -40,7 +40,7 @@ fn arrow_axis(
     fig: &Figure,
     index: usize,
 ) -> Result<(Axes, AxisArtist), Box<dyn std::error::Error>> {
-    let ax = axisartist::Axes::new(fig.add_subplot(2, 5, index)?);
+    let ax = axisartist::AxisArtistAxes::new(fig.add_subplot(2, 5, index)?);
     ax.ax().set_ylim(-0.1, 1.5)?.set_yticks([0.0, 1.0]);
     for axis in ax.axis_artists() {
         axis.set_visible(false);
@@ -83,14 +83,14 @@ fn axis_direction(fig: &Figure) -> CaseResult {
 }
 
 /// `add_floating_axis1`: the labelled axis line θ = 30°.
-fn floating_lat(ax: &axisartist::Axes) -> AxisArtist {
+fn floating_lat(ax: &axisartist::AxisArtistAxes) -> AxisArtist {
     let axis = ax.new_floating_axis("lat", AxisName::X, 30.0);
     show_label(&axis, r"$\theta = 30^{\circ}$");
     axis
 }
 
 /// `add_floating_axis2`: the labelled axis line r = 6.
-fn floating_lon(ax: &axisartist::Axes) -> AxisArtist {
+fn floating_lon(ax: &axisartist::AxisArtistAxes) -> AxisArtist {
     let axis = ax.new_floating_axis("lon", AxisName::Y, 6.0);
     show_label(&axis, r"$r = 6$");
     axis
@@ -98,7 +98,7 @@ fn floating_lon(ax: &axisartist::Axes) -> AxisArtist {
 
 fn demo_axis_direction(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained())?;
-    let rows: [fn(&axisartist::Axes) -> AxisArtist; 2] = [floating_lat, floating_lon];
+    let rows: [fn(&axisartist::AxisArtistAxes) -> AxisArtist; 2] = [floating_lat, floating_lon];
     for (row, add_floating_axis) in rows.into_iter().enumerate() {
         for (i, direction) in [
             SpineSide::Bottom,

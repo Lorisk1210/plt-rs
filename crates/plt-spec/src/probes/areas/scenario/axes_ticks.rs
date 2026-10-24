@@ -15,8 +15,8 @@ pub(super) fn call(ax: &Axes, call: &Call<'_>) -> Handled {
     use AxisName::{X, Y};
     let method = call.method;
     Some(match method {
-        "get_xscale" => Ok(Produced::Value(ax.xscale().into())),
-        "get_yscale" => Ok(Produced::Value(ax.yscale().into())),
+        "get_xscale" | "xaxis.get_scale" => Ok(Produced::Value(ax.xscale().to_string().into())),
+        "get_yscale" | "yaxis.get_scale" => Ok(Produced::Value(ax.yscale().to_string().into())),
         "set_xscale" => set_scale(ax, X, call),
         "set_yscale" => set_scale(ax, Y, call),
         "get_xticks" | "get_yticks" | "get_xticklabels" | "get_yticklabels" => {
@@ -31,14 +31,6 @@ pub(super) fn call(ax: &Axes, call: &Call<'_>) -> Handled {
                 })
             })
         }
-        "xaxis.get_scale" | "yaxis.get_scale" => Ok(Produced::Value(
-            if method.starts_with('x') {
-                ax.xscale()
-            } else {
-                ax.yscale()
-            }
-            .into(),
-        )),
         "xaxis.get_ticklocs"
         | "yaxis.get_ticklocs"
         | "xaxis.get_majorticklocs"

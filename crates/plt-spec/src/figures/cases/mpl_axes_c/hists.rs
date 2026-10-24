@@ -8,7 +8,7 @@ use plt::figure::Figure;
 use plt::legend::{LegendLoc, LegendOptions};
 use plt::lines::LineStyle;
 use plt::numeric::{arange, linspace};
-use plt::offsetbox::BboxToAnchor;
+use plt::offsetbox::{AnchorLoc, BboxToAnchor};
 use plt::patches::PatchProps;
 use plt::stats::{Bins, HistAlign, HistBottom, HistOptions, HistOrientation, HistType};
 
@@ -221,7 +221,7 @@ fn stacked_bar(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.hist(&data, options)?;
     ax.legend(LegendOptions {
-        loc: Some(LegendLoc::from("upper right")),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::UpperRight)),
         bbox_to_anchor: Some(BboxToAnchor::Point(1.0, 1.0)),
         ncols: 1,
         ..LegendOptions::default()

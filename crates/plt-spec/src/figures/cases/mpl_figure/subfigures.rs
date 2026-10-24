@@ -17,6 +17,7 @@ use crate::figures::cases::common::rgba;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 use plt::colors::ColorizerOptions;
+use plt::offsetbox::AnchorLoc;
 
 /// The tests' seed for `np.random.seed`.
 const SEED: u64 = 19_680_801;
@@ -84,7 +85,11 @@ fn subfigure(fig: &Figure) -> CaseResult {
     // The draw order of subfigures.
     let handles =
         (0..5).map(|i| LegendHandle::line(LineProps::default().label(format!("Line{i}"))));
-    let leg = fig.legend(LegendOptions::default().handles(handles).loc("center"))?;
+    let leg = fig.legend(
+        LegendOptions::default()
+            .handles(handles)
+            .loc(AnchorLoc::Center),
+    )?;
     left.set_zorder(leg.zorder() - 1.0);
     right.set_zorder(leg.zorder() + 1.0);
     Ok(())

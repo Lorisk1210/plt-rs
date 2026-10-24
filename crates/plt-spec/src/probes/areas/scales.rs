@@ -236,7 +236,12 @@ fn class_name(scale: &dyn Scale) -> &'static str {
 // ---------------------------------------------------------------------------
 
 fn get_scale_names(_: Args<'_>) -> Outcome {
-    Ok(Json::from(scale_names()))
+    Ok(Json::from(
+        scale_names()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+    ))
 }
 
 pub(crate) fn factory(args: Args<'_>) -> Outcome {

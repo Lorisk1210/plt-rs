@@ -8,6 +8,7 @@ use plt::dates::iso::Datetime64;
 use plt::fonts::{FontSize, FontStyle, FontWeight, RelativeSize};
 use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::patches::{Circle, PathShape};
 use plt::prelude::*;
 use plt::rc::{Aspect, Cycler};
@@ -178,7 +179,7 @@ fn anatomy(fig: &Figure) -> CaseResult {
     }
     ax.legend(LegendOptions {
         fontsize: Some(FontSize::Points(14.0)),
-        ..LegendOptions::default().loc("upper right")
+        ..LegendOptions::default().loc(AnchorLoc::UpperRight)
     })?;
     for (xy, text, code) in ANATOMY_LABELS {
         anatomy_label(&ax, xy, text, code);

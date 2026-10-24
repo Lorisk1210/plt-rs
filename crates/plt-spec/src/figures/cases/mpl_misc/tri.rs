@@ -8,7 +8,7 @@ use plt::colors::{Color, ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, Levels};
 use plt::numeric::{arange, linspace, linspace_with};
 use plt::prelude::*;
-use plt::quiver::{ArrowShape, QuiverOptions, QuiverUnits, VectorField};
+use plt::quiver::{QuiverArrowShape, QuiverOptions, QuiverUnits, VectorField};
 use plt::rc::Aspect;
 use plt::tri::{
     CubicKind, CubicTriInterpolator, TriInterpolator, Triangulation, UniformTriRefiner,
@@ -192,10 +192,10 @@ fn tri_smooth_gradient(fig: &Figure) -> CaseResult {
             props: CollectionProps::default().zorder(3.0),
             color: Color::from("blue"),
             width: Some(0.007),
-            shape: ArrowShape {
+            shape: QuiverArrowShape {
                 head_width: 3.0,
                 head_length: 4.0,
-                ..ArrowShape::default()
+                ..QuiverArrowShape::default()
             },
             ..QuiverOptions::default()
         },

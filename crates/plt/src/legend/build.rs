@@ -11,8 +11,8 @@ use super::handle::Source;
 use super::handlers::{self, HandleBox, HandlerArtist, HandlerContext, HandlerMap};
 use super::labelcolor::{HandleView, label_colors};
 use super::layout;
-use super::settings::{Location, Placement, Settings};
-use super::{LegendError, LegendMode, LegendOptions, LegendShadow, LegendShadowStyle};
+use super::settings::{Placement, Settings};
+use super::{LegendError, LegendLoc, LegendMode, LegendOptions, LegendShadow, LegendShadowStyle};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore};
 use crate::colors::Color;
 use crate::figure::FigureState;
@@ -232,17 +232,11 @@ fn placement(
     rc: &RcParams,
 ) -> Result<Placement, LegendError> {
     let figure = matches!(parent, LegendParent::Figure(_));
-    if let Some(loc) = &options.loc {
-        return Placement::parse(loc, figure);
-    }
-    let location = match Location::parse(&rc.legend_loc)? {
-        Location::Best if figure => Location::Anchored(AnchorLoc::UpperRight),
-        location => location,
-    };
-    Ok(Placement {
-        location,
-        outside: None,
-    })
+    let loc = options.loc.unwrap_or(match rc.legend_loc.loc {
+        LegendLoc::Best if figure => LegendLoc::Anchored(AnchorLoc::UpperRight),
+        loc => loc,
+    });
+    Placement::of(loc, figure)
 }
 
 /// The title font: `title_fontproperties`, else the rc font at

@@ -27,7 +27,7 @@ impl SignalValue for Complex {
 
 /// Which frequencies a spectrum covers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Sides {
+pub enum SpectrumSides {
     /// One-sided for real signals, two-sided for complex ones.
     #[default]
     Default,
@@ -70,7 +70,7 @@ pub struct SpectralOptions {
     /// zeros, shorter truncates).
     pub pad_to: Option<usize>,
     /// One- or two-sided output.
-    pub sides: Sides,
+    pub sides: SpectrumSides,
     /// Divide densities by the sampling frequency (density per unit
     /// frequency) rather than preserving segment power (default `true`).
     pub scale_by_freq: bool,
@@ -85,7 +85,7 @@ impl Default for SpectralOptions {
             window: Window::Hanning,
             noverlap: None,
             pad_to: None,
-            sides: Sides::Default,
+            sides: SpectrumSides::Default,
             scale_by_freq: true,
         }
     }
@@ -102,7 +102,7 @@ pub struct SpectrumOptions {
     /// FFT length; defaults to the signal length.
     pub pad_to: Option<usize>,
     /// One- or two-sided output.
-    pub sides: Sides,
+    pub sides: SpectrumSides,
 }
 
 impl Default for SpectrumOptions {
@@ -111,7 +111,7 @@ impl Default for SpectrumOptions {
             fs: 2.0,
             window: Window::Hanning,
             pad_to: None,
-            sides: Sides::Default,
+            sides: SpectrumSides::Default,
         }
     }
 }
@@ -360,7 +360,7 @@ mod tests {
             nfft: 32,
             fs: 1.0,
             window: Window::Rectangular,
-            sides: Sides::TwoSided,
+            sides: SpectrumSides::TwoSided,
             scale_by_freq: false,
             ..SpectralOptions::default()
         };

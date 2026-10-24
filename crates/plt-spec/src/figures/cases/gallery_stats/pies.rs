@@ -18,6 +18,7 @@ use plt::text::{AnnotateOptions, ArrowProps, HAlign, VAlign};
 use super::strings;
 use crate::figures::cases::common::{arrow, styled_box};
 use crate::figures::{CaseResult, FigureCase};
+use plt::offsetbox::AnchorLoc;
 use plt::ticker::LabelFormat;
 
 /// `autopct=format`.
@@ -148,7 +149,7 @@ fn pie_and_donut_labels_1(fig: &Figure) -> CaseResult {
             .handles(&pie.wedges)
             .labels(ingredients)
             .title("Ingredients")
-            .loc("center left")
+            .loc(AnchorLoc::CenterLeft)
             .bbox_to_anchor(BboxToAnchor::Bounds(1.0, 0.0, 0.5, 1.0)),
     )?;
     ax.set_title("Matplotlib bakery: A pie");

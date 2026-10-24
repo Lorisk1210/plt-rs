@@ -6,6 +6,7 @@ use super::*;
 use crate::axes::{BarOptions, ErrorbarOptions};
 use crate::colors::Color;
 use crate::lines::LineProps;
+use crate::offsetbox::AnchorLoc;
 use crate::patches::{PatchProps, Shadow};
 
 fn labelled(label: &str) -> LineProps {
@@ -97,7 +98,7 @@ fn figure_legends_default_to_upper_right_and_reject_best() {
     ax.plot_with([0.0, 1.0], [0.0, 1.0], labelled("line"))
         .unwrap();
     assert_eq!(
-        fig.legend(LegendOptions::default().loc("best")),
+        fig.legend(LegendOptions::default().loc(LegendLoc::Best)),
         Err(LegendError::BestForFigure)
     );
     let legend = fig.legend(LegendOptions::default()).unwrap();
@@ -116,7 +117,7 @@ fn anchored_locations_keep_the_border_pad() {
     let legend = ax
         .legend(
             LegendOptions::default()
-                .loc("lower left")
+                .loc(AnchorLoc::LowerLeft)
                 .borderaxespad(2.0),
         )
         .unwrap();
@@ -152,7 +153,7 @@ fn expanded_legends_span_the_anchor_box() {
             .unwrap();
     }
     let options = LegendOptions::default()
-        .loc("upper left")
+        .loc(AnchorLoc::UpperLeft)
         .bbox_to_anchor((0.0, 0.0, 1.0, 0.5))
         .mode(LegendMode::Expand)
         .ncols(2);
@@ -203,8 +204,8 @@ fn invalid_options_are_errors() {
         .unwrap();
     let invalid = |options: LegendOptions| ax.legend(options).unwrap_err();
     assert!(matches!(
-        invalid(LegendOptions::default().loc("middle")),
-        LegendError::InvalidLocation(_)
+        "middle".parse::<LegendLoc>(),
+        Err(LegendError::InvalidLocation(_))
     ));
     assert_eq!(
         invalid(LegendOptions::default().numpoints(0_usize)),
@@ -280,11 +281,11 @@ fn kept_legends_stay_beside_the_next_one() {
     ax.plot_with([0.0, 1.0], [0.0, 1.0], labelled("line"))
         .unwrap();
     let first = ax
-        .legend(LegendOptions::default().loc("lower left"))
+        .legend(LegendOptions::default().loc(AnchorLoc::LowerLeft))
         .unwrap();
     ax.keep_legend(&first);
     let second = ax
-        .legend(LegendOptions::default().loc("upper right"))
+        .legend(LegendOptions::default().loc(AnchorLoc::UpperRight))
         .unwrap();
     assert!(first.raw().is_attached(), "a kept legend is not replaced");
     assert_eq!(ax.current_legend(), Some(second.clone()));
@@ -299,9 +300,10 @@ fn location_and_anchor_read_back_and_move_the_legend() {
     ax.plot_with([0.0, 1.0], [0.0, 1.0], labelled("line"))
         .unwrap();
     let legend = ax
-        .legend(LegendOptions::default().loc("upper left"))
+        .legend(LegendOptions::default().loc(AnchorLoc::UpperLeft))
         .unwrap();
-    assert_eq!(legend.loc(), LegendLoc::Code(2));
+    assert_eq!(legend.loc(), LegendLoc::Anchored(AnchorLoc::UpperLeft));
+    assert_eq!(legend.loc().code(), Some(2));
     assert_eq!(legend.bbox_to_anchor(), None);
     let inside = frame_extent(&fig, &legend);
     legend.set_bbox_to_anchor(Some(BboxToAnchor::Point(1.0, 1.0)), None);
@@ -318,8 +320,8 @@ fn location_and_anchor_read_back_and_move_the_legend() {
     assert_eq!(frame_extent(&fig, &legend), inside);
     legend.set_loc((0.25, 0.5)).unwrap();
     assert_eq!(legend.loc(), LegendLoc::Point(0.25, 0.5));
-    legend.set_loc("best").unwrap();
-    assert_eq!(legend.loc(), LegendLoc::Name("best".into()));
+    legend.set_loc(LegendLoc::Best).unwrap();
+    assert_eq!(legend.loc(), LegendLoc::Best);
 }
 
 #[test]

@@ -1,6 +1,6 @@
 //! Categorical axes (matplotlib's `category` module).
 
-use crate::ticker::{Formatter, Locator, TickContext, TickLabels, TickerError};
+use crate::ticker::{FormattedTicks, Formatter, Locator, TickContext, TickerError};
 
 /// Category names of one axis in order of first appearance; the n-th
 /// category sits at position n (matplotlib's `UnitData`).
@@ -83,8 +83,12 @@ impl CategoryFormatter {
 }
 
 impl Formatter for CategoryFormatter {
-    fn format_ticks(&self, locs: &[f64], _: &TickContext<'_>) -> Result<TickLabels, TickerError> {
-        Ok(TickLabels {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        _: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
+        Ok(FormattedTicks {
             labels: locs.iter().map(|&value| self.label(value)).collect(),
             offset: String::new(),
         })

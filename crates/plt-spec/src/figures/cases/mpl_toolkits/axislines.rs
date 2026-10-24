@@ -39,7 +39,7 @@ pub(super) const CASES: &[FigureCase] = &[
 ];
 
 /// `ax.axis[name]`.
-pub(super) fn artist(ax: &axisartist::Axes, name: &str) -> Result<AxisArtist, String> {
+pub(super) fn artist(ax: &axisartist::AxisArtistAxes, name: &str) -> Result<AxisArtist, String> {
     ax.axis(name)
         .ok_or_else(|| format!("no axis artist {name:?}"))
 }
@@ -55,7 +55,7 @@ fn sine() -> (Vec<f64>, Vec<f64>) {
 }
 
 fn subplot_zero(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::zero(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::zero(fig.subplot());
     let xzero = artist(&ax, "xzero")?;
     xzero.set_visible(true);
     xzero.label().set_text("Axis Zero");
@@ -69,7 +69,7 @@ fn subplot_zero(fig: &Figure) -> CaseResult {
 }
 
 fn subplot(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::new(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::new(fig.subplot());
     let (xx, sin) = sine();
     ax.ax().plot(xx, sin)?;
     ax.ax().set_ylabel("Test");
@@ -107,7 +107,7 @@ fn parasite_axes_aux_trans(fig: &Figure) -> CaseResult {
     let mesh = || Mesh::from_coords(coords.clone(), coords.clone(), cells.clone());
     let mut last = None;
     for index in 1..=3 {
-        let ax1 = axisartist::Axes::new(fig.add_subplot(1, 3, index)?);
+        let ax1 = axisartist::AxisArtistAxes::new(fig.add_subplot(1, 3, index)?);
         // `get_aux_axes(IdentityTransform(), viewlim_mode=None)`: the view
         // limits of a parasite with a transform do not place what it
         // draws, its host's do.
@@ -147,7 +147,7 @@ fn zero_arrows(
     xzero_face: Option<&str>,
     yzero_style: &str,
 ) -> CaseResult {
-    let ax = axisartist::Axes::zero(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::zero(fig.subplot());
     let xzero = artist(&ax, "xzero")?;
     xzero.set_axisline_style(Some(AxislineStyle::FilledArrow {
         size: xzero_size,
@@ -178,7 +178,7 @@ fn axisline_style_tight(fig: &Figure) -> CaseResult {
 }
 
 fn subplotzero_ylabel(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::zero(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::zero(fig.subplot());
     ax.ax().set_xlim(-3.0, 7.0)?.set_ylim(-3.0, 7.0)?;
     ax.ax().set_xlabel("x").set_ylabel("y");
     let zero_axes = [artist(&ax, "xzero")?, artist(&ax, "yzero")?];

@@ -3,8 +3,9 @@
 
 use plt_core::{Bbox, Point};
 
+use super::OutsideEdge;
 use super::handlers::{Attach, HandlerMap};
-use super::settings::{Location, OutsideEdge, Settings};
+use super::settings::{Location, Settings};
 use super::{LegendAlignment, LegendMode, LegendShadowStyle};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
 use crate::collections::CollectionArtist;

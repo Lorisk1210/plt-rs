@@ -1,6 +1,6 @@
 //! `PercentFormatter`: values as percentages of a reference value.
 
-use super::{Formatter, TickLabels};
+use super::{FormattedTicks, Formatter};
 use crate::ticker::pyfmt::fixed;
 use crate::ticker::pymath::ceil_int;
 use crate::ticker::{TickContext, TickerError, TickerSettings};
@@ -142,8 +142,12 @@ impl PercentFormatter {
 }
 
 impl Formatter for PercentFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
-        Ok(TickLabels {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
+        Ok(FormattedTicks {
             labels: locs
                 .iter()
                 .map(|&x| self.label(x, ctx))

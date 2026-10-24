@@ -45,7 +45,7 @@ pub use correlate::{Correlation, XcorrOptions, acorr, correlate_full, xcorr};
 pub use detrend::{Detrend, DetrendFn, detrend_grid, detrend_linear, detrend_mean, detrend_none};
 pub use fft::{FftPlan, fft, fft_n, fftfreq, ifft};
 pub use spectral::{
-    Sides, SignalValue, Specgram, SpecgramMode, SpectralOptions, Spectrum, SpectrumOptions,
+    SignalValue, Specgram, SpecgramMode, SpectralOptions, Spectrum, SpectrumOptions, SpectrumSides,
     angle_spectrum, cohere, complex_specgram, complex_spectrum, csd, magnitude_spectrum,
     phase_spectrum, psd, specgram,
 };

@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use plt::axes::AxisName;
 use plt::prelude::*;
-use plt::scale::{AxisTickers, Scale};
+use plt::scale::{AxisTickers, Scale, ScaleName};
 use plt::ticker::{FixedLocator, FuncFormatter, NullLocator, TickerSettings, pyfmt};
 use plt::transforms::AxisMap;
 
@@ -56,8 +56,8 @@ fn degrees() -> FuncFormatter {
 }
 
 impl Scale for MercatorLatitudeScale {
-    fn name(&self) -> &'static str {
-        "mercator"
+    fn name(&self) -> ScaleName {
+        ScaleName::Custom("mercator".into())
     }
 
     fn axis_map(&self) -> Option<Rc<dyn AxisMap>> {

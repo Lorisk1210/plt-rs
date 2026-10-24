@@ -11,9 +11,15 @@ use super::artists::{
 use super::fields::{FieldError, Form, chosen, number_text, parse_limit, text_of};
 use crate::axes::{Axes, AxisName, TitleLocation};
 use crate::legend::LegendOptions;
+use crate::scale::ScaleName;
 
 /// The scales offered, as matplotlib names them.
-const SCALES: [&str; 4] = ["linear", "log", "symlog", "logit"];
+static SCALES: [ScaleName; 4] = [
+    ScaleName::Linear,
+    ScaleName::Log,
+    ScaleName::Symlog,
+    ScaleName::Logit,
+];
 
 /// The fields of one axis.
 #[derive(Debug, Clone, Copy)]
@@ -31,7 +37,7 @@ struct AxisPlan {
     name: AxisName,
     limits: (f64, f64),
     label: String,
-    scale: &'static str,
+    scale: ScaleName,
 }
 
 /// Everything a page sets, read and validated before anything changes.
@@ -233,8 +239,8 @@ fn general_form(
         form.section(heading);
         let (min, max) = form.pair(("Min", number_text(min)), ("Max", number_text(max)));
         let label = form.text("Label", axes.label(name));
-        let current = SCALES.iter().position(|&s| s == scale).unwrap_or(0);
-        let scale = form.choice("Scale", &SCALES, current);
+        let current = SCALES.iter().position(|s| *s == scale).unwrap_or(0);
+        let scale = form.choice("Scale", &SCALES.each_ref().map(ScaleName::as_str), current);
         AxisFields {
             name,
             min,
@@ -265,7 +271,7 @@ fn read_axis(
         name: fields.name,
         limits: (min, max),
         label: text_of(window, fields.label),
-        scale: SCALES[chosen(window, fields.scale).min(SCALES.len() - 1)],
+        scale: SCALES[chosen(window, fields.scale).min(SCALES.len() - 1)].clone(),
     })
 }
 

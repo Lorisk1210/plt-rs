@@ -7,7 +7,7 @@ use std::rc::Rc;
 use super::{Axes, AxesState, AxisName, PlotError, TickPosition};
 use crate::artist::{ArtistHandle, ArtistId};
 use crate::figure::{FigureState, insert_axes};
-use crate::scale::{FuncScale, FuncScaleLog, FuncTransform, Scale};
+use crate::scale::{FuncScale, FuncScaleLog, FuncTransform, Scale, ScaleName};
 use crate::spines::SpineSide;
 use crate::ticker::NullLocator;
 use crate::transforms::{AxisMap, Bbox};
@@ -39,7 +39,7 @@ pub(crate) struct Secondary {
     /// Host units to secondary units and back.
     functions: FuncTransform,
     /// The host scale the current scale was built for.
-    host_scale: Option<&'static str>,
+    host_scale: Option<ScaleName>,
 }
 
 impl Axes {
@@ -172,9 +172,9 @@ impl FigureState {
         {
             state.position = bounds;
         }
-        if link.host_scale != Some(host_scale) {
+        if link.host_scale.as_ref() != Some(&host_scale) {
             let reversed = link.functions.reversed();
-            let scale: Rc<dyn Scale> = if host_scale == "log" {
+            let scale: Rc<dyn Scale> = if host_scale == ScaleName::Log {
                 Rc::new(FuncScaleLog::new(reversed, 10.0).expect("10 is a valid log base"))
             } else {
                 Rc::new(FuncScale::from_transform(reversed))
@@ -237,7 +237,7 @@ mod tests {
             .unwrap();
         fig.layout();
         assert_eq!(sec.ylim(), (2.0, 200.0));
-        assert_eq!(sec.yscale(), "functionlog");
+        assert_eq!(sec.yscale(), ScaleName::FunctionLog);
         assert_eq!(fig.axes().len(), 1, "secondary axes are not figure axes");
         let host = ax.position();
         let placed = sec.raw.with::<AxesState, _>(|a| a.position);

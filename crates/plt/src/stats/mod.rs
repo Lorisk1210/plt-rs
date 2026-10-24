@@ -16,9 +16,9 @@
 //!   `mlab.GaussianKDE`.
 //!
 //! ```
-//! use plt::stats::{BoxplotOptions, boxplot_stats, percentile};
+//! use plt::stats::{BoxplotStatsOptions, boxplot_stats, percentile};
 //! assert_eq!(percentile(&[1.0, 2.0, 3.0, 4.0], 25.0), Ok(1.75));
-//! let b = &boxplot_stats(&[[1.0, 2.0, 3.0, 4.0]], BoxplotOptions::default()).unwrap()[0];
+//! let b = &boxplot_stats(&[[1.0, 2.0, 3.0, 4.0]], BoxplotStatsOptions::default()).unwrap()[0];
 //! assert_eq!(b.iqr, 1.5);
 //! ```
 #![expect(
@@ -36,7 +36,7 @@ mod linalg;
 mod summary;
 mod violin;
 
-pub use boxplot::{BoxStats, BoxplotOptions, Whis, box_stats, boxplot_stats};
+pub use boxplot::{BoxStats, BoxplotStatsOptions, Whis, box_stats, boxplot_stats};
 pub use error::StatsError;
 pub use hist::{
     Cumulative, Hist, HistAlign, HistBars, HistBottom, HistOptions, HistOrientation, HistPatches,

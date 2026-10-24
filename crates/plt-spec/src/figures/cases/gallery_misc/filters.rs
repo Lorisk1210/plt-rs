@@ -6,8 +6,7 @@ use plt::artist::{AggFilter, FilterImage, Filtered, RawHandle};
 use plt::axes::{ImshowOptions, PieOptions};
 use plt::colors::{BlendMode, LightSource, Relief, colormaps};
 use plt::contour::{
-    ClabelFormat, ClabelOptions, ContourOptions, Levels, Origin as ContourOrigin, QuadCoords,
-    QuadField,
+    ClabelFormat, ClabelOptions, ContourOptions, ContourOrigin, Levels, QuadCoords, QuadField,
 };
 use plt::fonts::FontSize;
 use plt::image::{Extent, Interpolation, Origin};

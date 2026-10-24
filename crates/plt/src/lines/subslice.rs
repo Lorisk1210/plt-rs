@@ -10,6 +10,7 @@ use std::ops::Range;
 
 use crate::artist::{ArtistBase, LayoutContext};
 use crate::axes::AxesState;
+use crate::scale::ScaleName;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
 
@@ -34,7 +35,7 @@ pub(super) fn visible_range(
         return None;
     }
     let state = ctx.store().get_as::<AxesState>(axes)?;
-    let linear = state.axis(AxisName::X).scale().name() == "linear";
+    let linear = state.axis(AxisName::X).scale().name() == ScaleName::Linear;
     if !state.projection.is_rectilinear() || !linear || !is_sorted_and_has_non_nan(x) {
         return None;
     }

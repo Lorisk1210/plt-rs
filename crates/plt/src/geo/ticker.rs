@@ -4,7 +4,7 @@
 //! `set_latitude_grid`).
 
 use crate::numeric::arange;
-use crate::ticker::{FixedLocator, Formatter, TickContext, TickLabels, TickerError, pyfmt};
+use crate::ticker::{FixedLocator, FormattedTicks, Formatter, TickContext, TickerError, pyfmt};
 
 /// Radians labelled as degrees rounded to a multiple of `round_to`,
 /// shown without decimals and with a degree sign (matplotlib's
@@ -51,8 +51,12 @@ impl ThetaFormatter {
 }
 
 impl Formatter for ThetaFormatter {
-    fn format_ticks(&self, locs: &[f64], _: &TickContext<'_>) -> Result<TickLabels, TickerError> {
-        Ok(TickLabels {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        _: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
+        Ok(FormattedTicks {
             labels: locs.iter().map(|&x| self.label(x)).collect(),
             offset: String::new(),
         })

@@ -7,6 +7,7 @@ use plt::colors::{Color, Colorize, colormaps};
 use plt::figure::Figure;
 use plt::legend::LegendOptions;
 use plt::numeric::{arange, linspace};
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::ArtistHandle;
 use plt::ticker::StrMethodFormatter;
 
@@ -35,7 +36,7 @@ fn colors_sizes(fig: &Figure) -> CaseResult {
     let classes = LegendOptions::default()
         .handles(handles)
         .labels(labels)
-        .loc("lower left")
+        .loc(AnchorLoc::LowerLeft)
         .title("Classes");
     ax.keep_legend(&ax.legend(classes)?);
     let sizes = LegendElementsOptions {
@@ -47,7 +48,7 @@ fn colors_sizes(fig: &Figure) -> CaseResult {
     let sizes = LegendOptions::default()
         .handles(handles)
         .labels(labels)
-        .loc("upper right")
+        .loc(AnchorLoc::UpperRight)
         .title("Sizes");
     ax.legend(sizes)?;
     Ok(())
@@ -80,7 +81,7 @@ fn num_fmt_func(fig: &Figure) -> CaseResult {
     let price = LegendOptions::default()
         .handles(handles)
         .labels(labels)
-        .loc("lower left")
+        .loc(AnchorLoc::LowerLeft)
         .title("Price");
     ax.keep_legend(&ax.legend(price)?);
     let values = LegendElementsOptions {
@@ -91,7 +92,7 @@ fn num_fmt_func(fig: &Figure) -> CaseResult {
     let value = LegendOptions::default()
         .handles(handles)
         .labels(labels)
-        .loc("upper right")
+        .loc(AnchorLoc::UpperRight)
         .title("Value");
     ax.legend(value)?;
     Ok(())
@@ -119,6 +120,6 @@ fn hatched_markers(fig: &Figure) -> CaseResult {
     let circles = ax.scatter_with(&x, shifted, dotted)?;
     circles.set_hatch("..").set_label("dotted");
     circles.set_zorder(1.0);
-    ax.legend(LegendOptions::default().loc("upper left"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::UpperLeft))?;
     Ok(())
 }

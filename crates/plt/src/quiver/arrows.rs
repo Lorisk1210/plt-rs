@@ -21,7 +21,7 @@ pub enum Pivot {
 /// units except the multiples `minshaft` (matplotlib's `headwidth`,
 /// `headlength`, `headaxislength`, `minshaft` and `minlength`).
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ArrowShape {
+pub struct QuiverArrowShape {
     /// Head width as a multiple of the shaft width.
     pub head_width: f64,
     /// Head length as a multiple of the shaft width.
@@ -37,7 +37,7 @@ pub struct ArrowShape {
     pub min_length: f64,
 }
 
-impl Default for ArrowShape {
+impl Default for QuiverArrowShape {
     fn default() -> Self {
         Self {
             head_width: 3.0,
@@ -56,7 +56,7 @@ const OUTLINE_ORDER: [usize; 8] = [0, 1, 2, 3, 2, 1, 0, 0];
 /// Largest arrow length in widths; longer arrows overflow the rasterizer.
 const MAX_LENGTH: f64 = 65536.0;
 
-impl ArrowShape {
+impl QuiverArrowShape {
     /// The eight outline vertices of a horizontal arrow `length` widths
     /// long pointing along +x, placed by `pivot`.
     pub(crate) fn outline(&self, length: f64, pivot: Pivot) -> [Point; 8] {
@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn long_arrows_have_a_shaft_and_a_head() {
-        let outline = ArrowShape::default().outline(10.0, Pivot::Tail);
+        let outline = QuiverArrowShape::default().outline(10.0, Pivot::Tail);
         assert_eq!(xs(&outline), [0.0, 5.5, 5.0, 10.0, 5.0, 5.5, 0.0, 0.0]);
         let ys: Vec<f64> = outline.iter().map(|p| p.y).collect();
         assert_eq!(ys, [0.5, 0.5, 1.5, -0.0, -1.5, -0.5, -0.5, 0.5]);
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn pivots_move_the_arrow_along_its_axis() {
-        let shape = ArrowShape::default();
+        let shape = QuiverArrowShape::default();
         let middle = shape.outline(10.0, Pivot::Middle);
         assert_eq!(middle[0].x, -5.0);
         assert_eq!(middle[3].x, 5.0);
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn short_arrows_shrink_and_tiny_ones_become_dots() {
-        let shape = ArrowShape::default();
+        let shape = QuiverArrowShape::default();
         // 2.5 widths is half the minimal shaft-less arrow (5 widths).
         let short = shape.outline(2.5, Pivot::Tail);
         assert_eq!(xs(&short), [0.0, 0.25, 0.0, 2.5, 0.0, 0.25, 0.0, 0.0]);
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn degenerate_lengths() {
-        let shape = ArrowShape::default();
+        let shape = QuiverArrowShape::default();
         let zero = shape.outline(0.0, Pivot::Tail);
         assert!(zero.iter().all(|p| p.x.abs() <= 0.5), "a dot");
         let huge = shape.outline(1e9, Pivot::Tail);

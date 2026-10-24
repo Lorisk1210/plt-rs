@@ -23,7 +23,7 @@ fn uniform(
     rng: &mut SpecRng,
     rows: usize,
     cols: usize,
-) -> Result<Grid<f64>, plt::numeric::GridError> {
+) -> Result<Grid<f64>, plt::numeric::GridShapeError> {
     Grid::from_vec(rows, cols, rng.uniform(rows * cols, 0.0, 1.0))
 }
 
@@ -32,7 +32,7 @@ fn normal(
     rng: &mut SpecRng,
     rows: usize,
     cols: usize,
-) -> Result<Grid<f64>, plt::numeric::GridError> {
+) -> Result<Grid<f64>, plt::numeric::GridShapeError> {
     Grid::from_vec(rows, cols, rng.normal(rows * cols, 0.0, 1.0))
 }
 

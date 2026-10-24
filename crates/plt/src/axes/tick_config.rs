@@ -18,7 +18,7 @@ use std::rc::Rc;
 use super::axis_handle::Axis;
 use super::{Axes, AxesState, AxisName, PlotError};
 use crate::rc::AxisBelow;
-use crate::scale::{ScaleError, ScaleOptions, scale_factory};
+use crate::scale::{ScaleError, ScaleName, ScaleOptions, scale_factory};
 use crate::ticker::{
     AutoMinorLocator, FixedLocator, Formatter, Locator, NullLocator, OffsetMode, ScalarFormatter,
 };
@@ -67,7 +67,9 @@ impl Axis {
     /// `Axis.minorticks_on`).
     pub fn minorticks_on(&self) -> &Self {
         let scale_minor = self.read(|axis| {
-            matches!(axis.scale().name(), "log" | "symlog" | "asinh" | "logit")
+            axis.scale()
+                .name()
+                .has_own_minor_locator()
                 .then(|| axis.scale().default_tickers(axis.name, &axis.settings))
         });
         let locator: Rc<dyn Locator> = match scale_minor {
@@ -126,10 +128,15 @@ impl Axes {
 
     /// Sets the scale of one axis by name with options (matplotlib's
     /// `set_xscale(name, **kwargs)`).
+    ///
+    /// # Errors
+    ///
+    /// When `name` is not a built-in scale, or the scale refuses the
+    /// options.
     pub fn set_scale_with(
         &self,
         axis: AxisName,
-        name: &str,
+        name: impl Into<ScaleName>,
         options: ScaleOptions,
     ) -> Result<&Self, ScaleError> {
         Ok(self.set_scale(axis, scale_factory(name, options)?))

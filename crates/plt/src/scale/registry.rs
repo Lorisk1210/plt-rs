@@ -6,7 +6,7 @@ use std::fmt;
 
 use super::{
     AsinhScale, FuncScale, FuncScaleLog, FuncTransform, LinearScale, LogScale, LogitScale,
-    NonPositive, Scale, ScaleError, SymmetricalLogScale,
+    NonPositive, Scale, ScaleError, ScaleName, SymmetricalLogScale,
 };
 
 /// Keyword options for a scale, as passed to `set_xscale(name, **kwargs)`.
@@ -156,39 +156,56 @@ impl ScaleRegistry {
     /// Registers (or replaces) the scale called `name`.
     pub fn register(
         &mut self,
-        name: impl Into<String>,
+        name: impl Into<ScaleName>,
         constructor: impl Fn(&ScaleOptions) -> Result<Box<dyn Scale>, ScaleError> + 'static,
     ) {
-        self.constructors.insert(name.into(), Box::new(constructor));
+        self.constructors
+            .insert(name.into().to_string(), Box::new(constructor));
     }
 
     /// The registered names, sorted.
-    pub fn names(&self) -> Vec<&str> {
-        self.constructors.keys().map(String::as_str).collect()
+    pub fn names(&self) -> Vec<ScaleName> {
+        self.constructors
+            .keys()
+            .map(|name| ScaleName::from(name.as_str()))
+            .collect()
     }
 
     /// Creates the scale called `name` from `options`.
-    pub fn create(&self, name: &str, options: ScaleOptions) -> Result<Box<dyn Scale>, ScaleError> {
+    ///
+    /// # Errors
+    ///
+    /// When no scale is registered under `name`, or the scale refuses the
+    /// options.
+    pub fn create(
+        &self,
+        name: impl Into<ScaleName>,
+        options: ScaleOptions,
+    ) -> Result<Box<dyn Scale>, ScaleError> {
+        let name = name.into();
         let constructor = self
             .constructors
-            .get(name)
-            .ok_or_else(|| ScaleError::UnknownScale(name.to_owned()))?;
+            .get(name.as_str())
+            .ok_or_else(|| ScaleError::UnknownScale(name.to_string()))?;
         constructor(&options)
     }
 }
 
 /// The names of the built-in scales, sorted (matplotlib's
 /// `get_scale_names`).
-pub fn scale_names() -> Vec<String> {
-    ScaleRegistry::default()
-        .names()
-        .into_iter()
-        .map(str::to_owned)
-        .collect()
+pub fn scale_names() -> Vec<ScaleName> {
+    ScaleRegistry::default().names()
 }
 
 /// Creates a built-in scale by name (matplotlib's `scale_factory`).
-pub fn scale_factory(name: &str, options: ScaleOptions) -> Result<Box<dyn Scale>, ScaleError> {
+///
+/// # Errors
+///
+/// When `name` is not a built-in scale, or the scale refuses the options.
+pub fn scale_factory(
+    name: impl Into<ScaleName>,
+    options: ScaleOptions,
+) -> Result<Box<dyn Scale>, ScaleError> {
     ScaleRegistry::default().create(name, options)
 }
 
@@ -198,18 +215,7 @@ mod tests {
 
     #[test]
     fn builtin_names_are_sorted() {
-        assert_eq!(
-            scale_names(),
-            [
-                "asinh",
-                "function",
-                "functionlog",
-                "linear",
-                "log",
-                "logit",
-                "symlog"
-            ]
-        );
+        assert_eq!(scale_names(), ScaleName::BUILT_IN);
     }
 
     #[test]
@@ -218,7 +224,7 @@ mod tests {
             scale_factory("linear", ScaleOptions::default())
                 .unwrap()
                 .name(),
-            "linear"
+            ScaleName::Linear
         );
         assert!(matches!(
             scale_factory("bogus", ScaleOptions::default()),
@@ -232,7 +238,10 @@ mod tests {
             scale_factory("log", linthresh.clone()),
             Err(ScaleError::UnexpectedOption { .. })
         ));
-        assert_eq!(scale_factory("symlog", linthresh).unwrap().name(), "symlog");
+        assert_eq!(
+            scale_factory(ScaleName::Symlog, linthresh).unwrap().name(),
+            ScaleName::Symlog
+        );
         assert!(matches!(
             scale_factory("function", ScaleOptions::default()),
             Err(ScaleError::MissingOption { .. })
@@ -245,10 +254,15 @@ mod tests {
         registry.register("reciprocal", |_| {
             Ok(boxed(FuncScale::new(|x| 1.0 / x, |y| 1.0 / y)))
         });
-        assert!(registry.names().contains(&"reciprocal"));
+        let reciprocal = ScaleName::Custom("reciprocal".into());
+        assert!(registry.names().contains(&reciprocal));
         let scale = registry
-            .create("reciprocal", ScaleOptions::default())
+            .create(reciprocal, ScaleOptions::default())
             .unwrap();
         assert_eq!(scale.forward(&[4.0]), [0.25]);
+        assert!(matches!(
+            ScaleRegistry::default().create("reciprocal", ScaleOptions::default()),
+            Err(ScaleError::UnknownScale(name)) if name == "reciprocal"
+        ));
     }
 }

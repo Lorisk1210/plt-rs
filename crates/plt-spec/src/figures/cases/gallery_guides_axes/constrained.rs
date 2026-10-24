@@ -10,6 +10,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::LegendOptions;
 use plt::numeric::Grid;
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 
 use super::LAYOUT_RC;
@@ -134,7 +135,7 @@ fn constrained_8(fig: &Figure) -> CaseResult {
 /// A legend at the left of `(0.8, 0.5)` in the axes.
 fn leaning_legend() -> LegendOptions {
     LegendOptions::default()
-        .loc("center left")
+        .loc(AnchorLoc::CenterLeft)
         .bbox_to_anchor((0.8, 0.5))
 }
 

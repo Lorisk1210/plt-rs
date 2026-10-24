@@ -10,7 +10,7 @@ use crate::collections::{Collection, CollectionArtist};
 use crate::colors::Color;
 use crate::dates::TimeDelta;
 use crate::lines::{
-    FormatError, FormatString, Line2D, LineArtist, LineProps, LineStyle, MarkEvery,
+    FormatString, FormatStringError, Line2D, LineArtist, LineProps, LineStyle, MarkEvery,
     PolarMarkerRotation,
 };
 use crate::markers::{Marker, MarkerSymbol};
@@ -129,10 +129,10 @@ impl From<FormatString> for ErrorbarFormat {
 }
 
 impl FromStr for ErrorbarFormat {
-    type Err = FormatError;
+    type Err = FormatStringError;
 
     /// Parses `""`, `"none"` (in any case) or a format string.
-    fn from_str(fmt: &str) -> Result<Self, FormatError> {
+    fn from_str(fmt: &str) -> Result<Self, FormatStringError> {
         if fmt.is_empty() {
             Ok(Self::Default)
         } else if fmt.eq_ignore_ascii_case("none") {

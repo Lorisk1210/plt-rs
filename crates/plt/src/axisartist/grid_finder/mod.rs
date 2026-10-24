@@ -16,7 +16,7 @@ use crate::ticker::TickerError;
 use crate::ticker::pyfmt::FormatError;
 
 pub use tickers::{
-    DictFormatter, ExtremeFinderSimple, FixedLocator, FormatterPrettyPrint, MaxNLocator,
+    DictFormatter, ExtremeFinderSimple, FormatterPrettyPrint, GridFixedLocator, GridMaxNLocator,
 };
 pub(crate) use tickers::{padded_extent, sample_grid};
 
@@ -219,7 +219,7 @@ const LINE_POINTS: usize = 100;
 impl GridFinder {
     /// A grid through `transform` (curvilinear to data coordinates).
     pub fn new(transform: AuxTransform, options: GridFinderOptions) -> Self {
-        let locator = || -> Box<dyn GridLocator> { Box::new(MaxNLocator::default()) };
+        let locator = || -> Box<dyn GridLocator> { Box::new(GridMaxNLocator::default()) };
         let formatter = || -> Box<dyn GridFormatter> { Box::new(FormatterPrettyPrint::default()) };
         Self {
             transform,

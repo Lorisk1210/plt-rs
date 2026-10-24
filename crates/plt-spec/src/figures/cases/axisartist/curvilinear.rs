@@ -6,7 +6,7 @@ use plt::axes::{AxisName, BarOptions, GridOptions, ImshowOptions, Mesh, PcolorOp
 use plt::axisartist::angle_helper::{FormatterHms, LocatorHms};
 use plt::axisartist::floating_axes::{self, FloatingAxes};
 use plt::axisartist::grid_finder::{
-    DictFormatter, ExtremeFinderSimple, FixedLocator, GridFinderOptions, MaxNLocator,
+    DictFormatter, ExtremeFinderSimple, GridFinderOptions, GridFixedLocator, GridMaxNLocator,
 };
 use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
 use plt::axisartist::{self, AuxTransform, Toggle};
@@ -86,7 +86,7 @@ pub(super) fn simple_axis_pad(fig: &Figure) -> CaseResult {
 
 pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
     let helper = GridHelperCurveLinear::new(shear(), GridFinderOptions::default());
-    let ax1 = axisartist::Axes::with_grid_helper(fig.add_subplot(1, 2, 1)?, helper);
+    let ax1 = axisartist::AxisArtistAxes::with_grid_helper(fig.add_subplot(1, 2, 1)?, helper);
     ax1.ax().plot([3.0, 6.0], [2.0, 4.0])?;
     ax1.ax().set_aspect(Aspect::Equal)?;
     ax1.ax().set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
@@ -94,8 +94,10 @@ pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
     ax1.new_floating_axis("t2", AxisName::Y, 7.0);
     grid_below(&ax1);
 
-    let ax2 =
-        axisartist::Axes::with_grid_helper(fig.add_subplot(1, 2, 2)?, polar_grid_helper(None));
+    let ax2 = axisartist::AxisArtistAxes::with_grid_helper(
+        fig.add_subplot(1, 2, 2)?,
+        polar_grid_helper(None),
+    );
     for name in ["right", "top"] {
         axis_artist(&ax2, name)?
             .major_ticklabels()
@@ -128,7 +130,7 @@ pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
 }
 
 /// `ax.grid(True, zorder=0)`.
-fn grid_below(ax: &axisartist::Axes) {
+fn grid_below(ax: &axisartist::AxisArtistAxes) {
     ax.grid(true, GridOptions::default());
     if let Some(gridlines) = ax.gridlines() {
         gridlines.set_zorder(0.0);
@@ -144,12 +146,12 @@ pub(super) fn curvelinear_grid2(fig: &Figure) -> CaseResult {
         tr,
         GridFinderOptions {
             extreme_finder: Some(Box::new(ExtremeFinderSimple::new(20, 20))),
-            grid_locator1: Some(Box::new(MaxNLocator::new(6))),
-            grid_locator2: Some(Box::new(MaxNLocator::new(6))),
+            grid_locator1: Some(Box::new(GridMaxNLocator::new(6))),
+            grid_locator2: Some(Box::new(GridMaxNLocator::new(6))),
             ..GridFinderOptions::default()
         },
     );
-    let ax = axisartist::Axes::with_grid_helper(fig.subplot(), helper);
+    let ax = axisartist::AxisArtistAxes::with_grid_helper(fig.subplot(), helper);
     ax.ax().imshow(
         arange_grid(5, 5),
         ImshowOptions {
@@ -173,12 +175,12 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
     let mut data = SpecRng::new(19_680_801);
 
     let tr1 = AuxTransform::affine(Affine2D::scaling(2.0, 1.0).rotate_deg(30.0));
-    let helper1 = floating_axes::GridHelperCurveLinear::new(
+    let helper1 = floating_axes::FloatingGridHelper::new(
         tr1.clone(),
         (-0.5, 3.5, 0.0, 4.0),
         GridFinderOptions {
-            grid_locator1: Some(Box::new(MaxNLocator::new(4))),
-            grid_locator2: Some(Box::new(MaxNLocator::new(4))),
+            grid_locator1: Some(Box::new(GridMaxNLocator::new(4))),
+            grid_locator2: Some(Box::new(GridMaxNLocator::new(4))),
             ..GridFinderOptions::default()
         },
     );
@@ -196,12 +198,12 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
         (0.25 * PI, r"$\frac{1}{4}\pi$"),
         (0.5 * PI, r"$\frac{1}{2}\pi$"),
     ];
-    let helper2 = floating_axes::GridHelperCurveLinear::new(
+    let helper2 = floating_axes::FloatingGridHelper::new(
         tr2.clone(),
         (0.5 * PI, 0.0, 2.0, 1.0),
         GridFinderOptions {
-            grid_locator1: Some(Box::new(FixedLocator::new(angle_ticks.map(|(v, _)| v)))),
-            grid_locator2: Some(Box::new(MaxNLocator::new(2))),
+            grid_locator1: Some(Box::new(GridFixedLocator::new(angle_ticks.map(|(v, _)| v)))),
+            grid_locator2: Some(Box::new(GridMaxNLocator::new(2))),
             tick_formatter1: Some(Box::new(DictFormatter::new(
                 angle_ticks.map(|(v, s)| (v, s.to_owned())),
                 None,
@@ -226,13 +228,13 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
     let tr3 = AuxTransform::affine(Affine2D::translation(-95.0, 0.0))
         .then(AuxTransform::affine(Affine2D::scaling(PI / 180.0, 1.0)))
         .then(AuxTransform::polar());
-    let helper3 = floating_axes::GridHelperCurveLinear::new(
+    let helper3 = floating_axes::FloatingGridHelper::new(
         tr3.clone(),
         (8.0 * 15.0, 14.0 * 15.0, 0.0, 14000.0),
         GridFinderOptions {
             grid_locator1: Some(Box::new(LocatorHms::new(4))),
             tick_formatter1: Some(Box::new(FormatterHms)),
-            grid_locator2: Some(Box::new(MaxNLocator::new(3))),
+            grid_locator2: Some(Box::new(GridMaxNLocator::new(3))),
             ..GridFinderOptions::default()
         },
     );
@@ -271,7 +273,7 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn floating_axis(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::with_grid_helper(fig.subplot(), polar_grid_helper(None));
+    let ax = axisartist::AxisArtistAxes::with_grid_helper(fig.subplot(), polar_grid_helper(None));
     let lat = ax.new_floating_axis("lat", AxisName::X, 60.0);
     show_label(&lat, r"$\theta = 60^{\circ}$");
     let lon = ax.new_floating_axis("lon", AxisName::Y, 6.0);

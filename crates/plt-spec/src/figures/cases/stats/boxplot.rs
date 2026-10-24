@@ -1,6 +1,6 @@
 //! Box plot cases of `figures/cases_stats.py`.
 
-use plt::axes::{BoxArtist, BoxStyle, BoxplotOptions, BxpOptions};
+use plt::axes::{BoxArtist, BoxProps, BoxplotOptions, BxpOptions};
 use plt::figure::Share;
 use plt::lines::{LineProps, LineStyle};
 use plt::markers::{Marker, MarkerSymbol};
@@ -80,7 +80,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("stats/boxplot_patch_artist_colored", |fig| {
         let options = drawn_boxes(BxpOptions {
-            boxes: Some(BoxStyle::Patch(PatchProps::default())),
+            boxes: Some(BoxProps::Patch(PatchProps::default())),
             medianprops: LineProps::default().color("k").linewidth(2.0),
             ..BxpOptions::default()
         });
@@ -109,7 +109,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/boxplot_props_and_caps", |fig| {
         let options = drawn_boxes(BxpOptions {
-            boxes: Some(BoxStyle::Line(
+            boxes: Some(BoxProps::Line(
                 LineProps::default().color("tab:blue").linewidth(2.0),
             )),
             whiskerprops: LineProps::default().linestyle(LineStyle::Dashed),

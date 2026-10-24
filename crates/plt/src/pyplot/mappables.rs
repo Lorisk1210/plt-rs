@@ -48,7 +48,9 @@ pub fn clim(vmin: Option<f64>, vmax: Option<f64>) -> Result<(), PyplotError> {
 }
 
 /// Adds a colorbar for `mappable`, or for the current image when `None`,
-/// to the current figure (matplotlib's `colorbar`).
+/// to the current figure (matplotlib's `colorbar`). The mappable is
+/// optional, as in matplotlib's pyplot `colorbar(mappable=None)`, where
+/// [`Figure::colorbar`](crate::figure::Figure::colorbar) needs one.
 ///
 /// # Errors
 ///
@@ -84,7 +86,8 @@ pub fn get_cmap(name: Option<&str>, lut: Option<usize>) -> Result<Colormap, Colo
 
 /// Makes `name` the default colormap (`image.cmap`) and the colormap of
 /// the current image, if any (matplotlib's `set_cmap`); its colorbars
-/// follow.
+/// follow. It takes the colormap's registered name, which `image.cmap`
+/// holds, where an image's `set_cmap` takes the [`Colormap`] itself.
 ///
 /// # Errors
 ///

@@ -7,13 +7,13 @@
 use super::error::PyplotError;
 use super::registry::gca;
 use crate::axes::{
-    AspectError, Axis, AxisMode, AxisName, GridOptions, LocatorParams, PlotError, TickParams,
-    TickSet, TicklabelFormat, TitleLocation,
+    AspectError, AxisMode, AxisName, GridOptions, LocatorParams, PlotError, TickParams, TickSet,
+    TicklabelFormat, TitleLocation,
 };
 use crate::coords::CoordError;
 use crate::legend::{Legend, LegendError, LegendOptions};
 use crate::polar::PolarAxes;
-use crate::scale::ScaleError;
+use crate::scale::{ScaleError, ScaleName};
 use crate::table::{Table, TableError, TableOptions};
 use crate::text::{AnnotateOptions, Annotation, Text};
 use crate::ticker::TickerError;
@@ -75,7 +75,7 @@ pub fn get_ylim() -> (f64, f64) {
 /// # Errors
 ///
 /// When no scale is registered under `name`.
-pub fn xscale(name: &str) -> Result<(), ScaleError> {
+pub fn xscale(name: impl Into<ScaleName>) -> Result<(), ScaleError> {
     gca().set_xscale(name).map(|_| ())
 }
 
@@ -84,84 +84,112 @@ pub fn xscale(name: &str) -> Result<(), ScaleError> {
 /// # Errors
 ///
 /// When no scale is registered under `name`.
-pub fn yscale(name: &str) -> Result<(), ScaleError> {
+pub fn yscale(name: impl Into<ScaleName>) -> Result<(), ScaleError> {
     gca().set_yscale(name).map(|_| ())
 }
 
-/// Puts the major ticks of `axis` (the minor ones when `minor`) at
-/// `ticks`, labelled with `labels` unless that is empty.
-fn place_ticks(
-    axis: &Axis,
-    ticks: AxisValues,
-    labels: &[&str],
-    minor: bool,
-) -> Result<(), PlotError> {
-    if minor {
-        axis.set_minor_ticks(ticks);
-        if !labels.is_empty() {
-            axis.set_minor_ticklabels(labels.iter().copied())?;
-        }
-    } else {
-        axis.set_ticks(ticks);
-        if !labels.is_empty() {
-            axis.set_ticklabels(labels.iter().copied())?;
-        }
-    }
-    Ok(())
+/// Puts the x ticks of the current axes exactly at `ticks` (matplotlib's
+/// `xticks(ticks)`; [`xticklabels`] labels them, as `xticks(ticks,
+/// labels)` does). See [`Axes::set_xticks`].
+///
+/// ```
+/// use plt::pyplot as plt;
+/// plt::plot(vec![0.0, 3.0], vec![0.0, 3.0])?;
+/// plt::xticks(vec![0.0, 1.5, 3.0]);
+/// plt::xticklabels(["start", "middle", "end"])?;
+/// assert_eq!(plt::gca().xaxis().ticklabels(false)?, ["start", "middle", "end"]);
+/// plt::close_all();
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// [`Axes::set_xticks`]: crate::axes::Axes::set_xticks
+pub fn xticks(ticks: impl Into<AxisValues>) {
+    gca().set_xticks(ticks);
 }
 
-/// Puts the x ticks of the current axes at `ticks`, labelled with `labels`
-/// unless that is empty (matplotlib's `xticks(ticks, labels)`;
-/// `xticks([], &[])` removes the ticks).
+/// Puts the y ticks of the current axes exactly at `ticks` (matplotlib's
+/// `yticks(ticks)`). See [`Axes::set_yticks`].
+///
+/// [`Axes::set_yticks`]: crate::axes::Axes::set_yticks
+pub fn yticks(ticks: impl Into<AxisValues>) {
+    gca().set_yticks(ticks);
+}
+
+/// Labels the x ticks of the current axes (the `labels` of matplotlib's
+/// `xticks(ticks, labels)`). See [`Axes::set_xticklabels`].
 ///
 /// # Errors
 ///
-/// When there are labels but not one per tick.
-pub fn xticks(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotError> {
-    place_ticks(&gca().xaxis(), ticks.into(), labels, false)
+/// When the ticks were set explicitly and their number differs from the
+/// number of labels.
+///
+/// [`Axes::set_xticklabels`]: crate::axes::Axes::set_xticklabels
+pub fn xticklabels<S: Into<String>>(labels: impl IntoIterator<Item = S>) -> Result<(), PlotError> {
+    gca().set_xticklabels(labels).map(|_| ())
 }
 
-/// Puts the y ticks of the current axes at `ticks`, labelled with `labels`
-/// unless that is empty (matplotlib's `yticks(ticks, labels)`;
-/// `yticks([], &[])` removes the ticks).
+/// Labels the y ticks of the current axes (the `labels` of matplotlib's
+/// `yticks(ticks, labels)`). See [`Axes::set_yticklabels`].
 ///
 /// # Errors
 ///
-/// When there are labels but not one per tick.
-pub fn yticks(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotError> {
-    place_ticks(&gca().yaxis(), ticks.into(), labels, false)
+/// As [`xticklabels`].
+///
+/// [`Axes::set_yticklabels`]: crate::axes::Axes::set_yticklabels
+pub fn yticklabels<S: Into<String>>(labels: impl IntoIterator<Item = S>) -> Result<(), PlotError> {
+    gca().set_yticklabels(labels).map(|_| ())
 }
 
-/// Puts the minor x ticks of the current axes at `ticks`, labelled with
-/// `labels` unless that is empty (matplotlib's
-/// `xticks(ticks, labels, minor=True)`).
+/// Puts the minor x ticks of the current axes exactly at `ticks`
+/// (matplotlib's `xticks(ticks, minor=True)`). See
+/// [`Axis::set_minor_ticks`](crate::axes::Axis::set_minor_ticks).
 ///
 /// ```
 /// use plt::pyplot as plt;
 /// plt::plot(vec![1.0, 2.0, 3.0], vec![1.0, 4.0, 9.0])?;
-/// plt::xticks_minor(vec![1.1, 2.9], &["a", "b"])?;
+/// plt::xticks_minor(vec![1.1, 2.9]);
+/// plt::xticklabels_minor(["a", "b"])?;
 /// assert_eq!(plt::gca().xaxis().ticklocs(true)?, [1.1, 2.9]);
 /// assert_eq!(plt::gca().xaxis().ticklabels(true)?, ["a", "b"]);
 /// plt::close_all();
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-///
-/// # Errors
-///
-/// When there are labels but not one per tick.
-pub fn xticks_minor(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotError> {
-    place_ticks(&gca().xaxis(), ticks.into(), labels, true)
+pub fn xticks_minor(ticks: impl Into<AxisValues>) {
+    gca().xaxis().set_minor_ticks(ticks);
 }
 
-/// Puts the minor y ticks of the current axes at `ticks`, labelled with
-/// `labels` unless that is empty (matplotlib's
-/// `yticks(ticks, labels, minor=True)`).
+/// Puts the minor y ticks of the current axes exactly at `ticks`
+/// (matplotlib's `yticks(ticks, minor=True)`). See
+/// [`Axis::set_minor_ticks`](crate::axes::Axis::set_minor_ticks).
+pub fn yticks_minor(ticks: impl Into<AxisValues>) {
+    gca().yaxis().set_minor_ticks(ticks);
+}
+
+/// Labels the minor x ticks of the current axes (the `labels` of
+/// matplotlib's `xticks(ticks, labels, minor=True)`). See
+/// [`Axis::set_minor_ticklabels`](crate::axes::Axis::set_minor_ticklabels).
 ///
 /// # Errors
 ///
-/// When there are labels but not one per tick.
-pub fn yticks_minor(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotError> {
-    place_ticks(&gca().yaxis(), ticks.into(), labels, true)
+/// When the minor ticks were set explicitly and their number differs
+/// from the number of labels.
+pub fn xticklabels_minor<S: Into<String>>(
+    labels: impl IntoIterator<Item = S>,
+) -> Result<(), PlotError> {
+    gca().xaxis().set_minor_ticklabels(labels).map(|_| ())
+}
+
+/// Labels the minor y ticks of the current axes (the `labels` of
+/// matplotlib's `yticks(ticks, labels, minor=True)`). See
+/// [`Axis::set_minor_ticklabels`](crate::axes::Axis::set_minor_ticklabels).
+///
+/// # Errors
+///
+/// As [`xticklabels_minor`].
+pub fn yticklabels_minor<S: Into<String>>(
+    labels: impl IntoIterator<Item = S>,
+) -> Result<(), PlotError> {
+    gca().yaxis().set_minor_ticklabels(labels).map(|_| ())
 }
 
 /// The x ticks the current axes draws, with their labels (matplotlib's
@@ -250,12 +278,13 @@ pub fn minorticks_off() {
 }
 
 /// Sets the autoscaling margins of the current axes as fractions of the
-/// data ranges (matplotlib's `margins(x, y)`).
+/// data ranges, `None` keeping one (matplotlib's `margins(x, y)`). See
+/// [`Axes::set_margins`](crate::axes::Axes::set_margins).
 ///
 /// # Errors
 ///
 /// When a margin is -0.5 or less, or not finite.
-pub fn margins(x: f64, y: f64) -> Result<(), PlotError> {
+pub fn margins(x: impl Into<Option<f64>>, y: impl Into<Option<f64>>) -> Result<(), PlotError> {
     gca().set_margins(x, y).map(|_| ())
 }
 
@@ -267,7 +296,10 @@ pub fn autoscale(axis: Option<AxisName>, tight: Option<bool>) {
 
 /// Shows (`Some(true)`), hides (`Some(false)`) or toggles (`None`) the
 /// frame of the current axes: its background patch and spines
-/// (matplotlib's `box`).
+/// (matplotlib's `box`). Axes have no `box`: matplotlib's pyplot function
+/// takes an optional switch where [`Axes::set_frame_on`] takes a `bool`.
+///
+/// [`Axes::set_frame_on`]: crate::axes::Axes::set_frame_on
 pub fn r#box(on: Option<bool>) {
     let ax = gca();
     let on = on.unwrap_or_else(|| !ax.frame_on());
@@ -312,39 +344,61 @@ pub fn table(options: TableOptions) -> Result<Table, TableError> {
     gca().table(options)
 }
 
+/// Puts the radial gridlines of the current polar axes at `radii`, their
+/// labels at `angle` degrees (the current label angle when `None`;
+/// matplotlib's `rgrids(radii, angle=...)`). See
+/// [`PolarAxes::set_rgrids`].
+///
+/// # Errors
+///
+/// [`PyplotError::NotPolar`] when the current axes is not polar.
+pub fn rgrids(radii: &[f64], angle: Option<f64>) -> Result<(), PyplotError> {
+    current_polar()?.set_rgrids(radii, angle);
+    Ok(())
+}
+
 /// Puts the radial gridlines of the current polar axes at `radii`,
-/// labelled with `labels` unless that is empty, with the labels at `angle`
-/// degrees (the current label angle when `None`; matplotlib's `rgrids`).
+/// labelled with `labels` at `angle` degrees (matplotlib's `rgrids(radii,
+/// labels, angle)`). See [`PolarAxes::set_rgrids_labeled`].
 ///
 /// # Errors
 ///
 /// [`PyplotError::NotPolar`] when the current axes is not polar, and
-/// [`PyplotError::Plot`] when there are labels but not one per radius.
-pub fn rgrids(radii: &[f64], labels: &[&str], angle: Option<f64>) -> Result<(), PyplotError> {
-    let ax = current_polar()?;
-    if labels.is_empty() {
-        ax.set_rgrids(radii, angle);
-    } else {
-        ax.set_rgrids_labeled(radii, labels.iter().copied(), angle)?;
-    }
+/// [`PyplotError::Plot`] when there is not one label per radius.
+pub fn rgrids_labeled<S: Into<String>>(
+    radii: &[f64],
+    labels: impl IntoIterator<Item = S>,
+    angle: Option<f64>,
+) -> Result<(), PyplotError> {
+    current_polar()?.set_rgrids_labeled(radii, labels, angle)?;
     Ok(())
 }
 
 /// Puts the angular gridlines of the current polar axes at `angles`
-/// degrees, labelled with `labels` unless that is empty (matplotlib's
-/// `thetagrids`).
+/// degrees, keeping the degree labels (matplotlib's `thetagrids(angles)`).
+/// See [`PolarAxes::set_thetagrids`].
+///
+/// # Errors
+///
+/// [`PyplotError::NotPolar`] when the current axes is not polar.
+pub fn thetagrids(angles: &[f64]) -> Result<(), PyplotError> {
+    current_polar()?.set_thetagrids(angles);
+    Ok(())
+}
+
+/// Puts the angular gridlines of the current polar axes at `angles`
+/// degrees, labelled with `labels` (matplotlib's `thetagrids(angles,
+/// labels)`). See [`PolarAxes::set_thetagrids_labeled`].
 ///
 /// # Errors
 ///
 /// [`PyplotError::NotPolar`] when the current axes is not polar, and
-/// [`PyplotError::Plot`] when there are labels but not one per angle.
-pub fn thetagrids(angles: &[f64], labels: &[&str]) -> Result<(), PyplotError> {
-    let ax = current_polar()?;
-    if labels.is_empty() {
-        ax.set_thetagrids(angles);
-    } else {
-        ax.set_thetagrids_labeled(angles, labels.iter().copied())?;
-    }
+/// [`PyplotError::Plot`] when there is not one label per angle.
+pub fn thetagrids_labeled<S: Into<String>>(
+    angles: &[f64],
+    labels: impl IntoIterator<Item = S>,
+) -> Result<(), PyplotError> {
+    current_polar()?.set_thetagrids_labeled(angles, labels)?;
     Ok(())
 }
 
@@ -381,7 +435,7 @@ mod tests {
             ("x".into(), "y".into())
         );
         assert_eq!((get_xlim(), get_ylim()), ((1.0, 10.0), (1.0, 100.0)));
-        assert_eq!(ax.yscale(), "log");
+        assert_eq!(ax.yscale(), ScaleName::Log);
         close_all();
     }
 
@@ -391,8 +445,10 @@ mod tests {
         plot(vec![0.0, 3.0], vec![0.0, 3.0]).unwrap();
         ticklabel_format(&TicklabelFormat::default()).unwrap();
         locator_params(&LocatorParams::default()).unwrap();
-        xticks(vec![0.0, 1.5, 3.0], &["a", "b", "c"]).unwrap();
-        assert!(yticks(vec![0.0, 1.0], &["only one"]).is_err());
+        xticks(vec![0.0, 1.5, 3.0]);
+        xticklabels(["a", "b", "c"]).unwrap();
+        yticks(vec![0.0, 1.0]);
+        assert!(yticklabels(["only one"]).is_err());
         let labels: Vec<String> = get_xticks()
             .unwrap()
             .major
@@ -400,7 +456,7 @@ mod tests {
             .map(|t| t.label)
             .collect();
         assert_eq!(labels, ["a", "b", "c"]);
-        yticks(Vec::<f64>::new(), &[]).unwrap();
+        yticks(Vec::<f64>::new());
         assert_eq!(get_yticks().unwrap().major.len(), 0);
         grid(true);
         grid_with(true, GridOptions::default());
@@ -421,6 +477,8 @@ mod tests {
         minorticks_on();
         minorticks_off();
         margins(0.1, 0.2).unwrap();
+        margins(None, 0.3).unwrap();
+        assert_eq!(gca().margins(), (0.1, 0.3));
         autoscale(Some(AxisName::X), Some(true));
         axis(AxisMode::Equal).expect("rectilinear axes take an equal mode");
         r#box(None);
@@ -454,13 +512,13 @@ mod tests {
     fn polar_grids_need_polar_axes() {
         close_all();
         plot(vec![0.0, 1.0], vec![0.0, 1.0]).unwrap();
-        assert_eq!(rgrids(&[0.5, 1.0], &[], None), Err(PyplotError::NotPolar));
+        assert_eq!(rgrids(&[0.5, 1.0], None), Err(PyplotError::NotPolar));
         figure();
         polar(vec![0.0, 1.0], vec![1.0, 2.0]).unwrap();
-        rgrids(&[0.5, 1.0], &["half", "one"], Some(45.0)).unwrap();
-        thetagrids(&[0.0, 90.0], &[]).unwrap();
+        rgrids_labeled(&[0.5, 1.0], ["half", "one"], Some(45.0)).unwrap();
+        thetagrids(&[0.0, 90.0]).unwrap();
         assert!(matches!(
-            thetagrids(&[0.0], &["a", "b"]),
+            thetagrids_labeled(&[0.0], ["a", "b"]),
             Err(PyplotError::Plot(_))
         ));
         assert_eq!(gca().as_polar().unwrap().rlabel_position(), 45.0);

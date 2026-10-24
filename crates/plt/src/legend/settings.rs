@@ -1,12 +1,12 @@
 //! Legend options resolved against the rc parameters: where the legend
 //! goes and the sizes its entries are built with.
 
-use super::{LegendError, LegendLoc, LegendOptions};
+use super::{LegendError, LegendLoc, LegendOptions, OutsideEdge};
 use crate::fonts::FontProperties;
 use crate::offsetbox::AnchorLoc;
 use crate::rc::RcParams;
 
-/// A validated legend location (matplotlib's `_loc`).
+/// A legend location as the layout uses it (matplotlib's `_loc`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Location {
     /// The least crowded of the nine anchored positions (`"best"`).
@@ -17,37 +17,9 @@ pub(crate) enum Location {
     Point(f64, f64),
 }
 
-/// The figure edge an `"outside ..."` figure legend makes room at in
-/// constrained layout (matplotlib's `_outside_loc`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum OutsideEdge {
-    /// Above the axes (`"outside upper ..."`).
-    Upper,
-    /// Below the axes (`"outside lower ..."`).
-    Lower,
-    /// Left of the axes (`"outside left ..."`).
-    Left,
-    /// Right of the axes (`"outside right ..."`).
-    Right,
-    /// No edge (`"outside center"`): the layout leaves no room.
-    Center,
-}
-
-impl OutsideEdge {
-    /// The edge named by the first word of `words`.
-    fn from_word(words: &str) -> Self {
-        match words.split_whitespace().next() {
-            Some("upper") => Self::Upper,
-            Some("lower") => Self::Lower,
-            Some("left") => Self::Left,
-            Some("right") => Self::Right,
-            _ => Self::Center,
-        }
-    }
-}
-
-/// A validated `loc` option: where the legend goes and, for the
-/// `"outside ..."` names of figure legends, the edge it makes room at.
+/// A `loc` checked against the parent: where the legend goes and, for
+/// the `"outside ..."` locations of figure legends, the edge it makes
+/// room at.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Placement {
     /// Where the legend goes in its anchor box.
@@ -57,58 +29,34 @@ pub(crate) struct Placement {
 }
 
 impl Placement {
-    /// Validates a `loc` option for a figure (`figure`) or axes legend
-    /// (matplotlib's `set_loc`): `"outside right upper"` is the location
-    /// `"upper right"` with room made at the right edge.
-    pub(crate) fn parse(loc: &LegendLoc, figure: bool) -> Result<Self, LegendError> {
-        let outside = match loc {
-            LegendLoc::Name(name) => name.strip_prefix("outside ").map(|words| (name, words)),
-            _ => None,
+    /// The placement of `loc` for a figure (`figure`) or axes legend
+    /// (matplotlib's `set_loc`).
+    ///
+    /// # Errors
+    ///
+    /// When `loc` is `"best"` for a figure legend or `"outside ..."` for
+    /// an axes legend.
+    pub(crate) fn of(loc: LegendLoc, figure: bool) -> Result<Self, LegendError> {
+        let (location, outside) = match loc {
+            LegendLoc::Outside { .. } if !figure => {
+                return Err(LegendError::OutsideForAxes(loc.to_string()));
+            }
+            LegendLoc::Best if figure => return Err(LegendError::BestForFigure),
+            LegendLoc::Best => (Location::Best, None),
+            LegendLoc::Anchored(anchor) => (Location::Anchored(anchor), None),
+            LegendLoc::Outside { edge, loc } => (Location::Anchored(loc), Some(edge)),
+            LegendLoc::Point(x, y) => (Location::Point(x, y), None),
         };
-        let placement = match outside {
-            None => Self {
-                location: Location::parse(loc)?,
-                outside: None,
-            },
-            Some((_, words)) => Self::outside(words)?,
-        };
-        match outside {
-            Some((name, _)) if !figure => Err(LegendError::OutsideForAxes(name.clone())),
-            _ if figure && placement.location == Location::Best => Err(LegendError::BestForFigure),
-            _ => Ok(placement),
-        }
+        Ok(Self { location, outside })
     }
 
-    /// The placement of `"outside {words}"`.
-    fn outside(words: &str) -> Result<Self, LegendError> {
-        let edge = OutsideEdge::from_word(&words.replace("center ", ""));
-        let mut parts: Vec<&str> = words.split_whitespace().collect();
-        // "right upper" names the location "upper right".
-        if parts.len() > 1 && matches!(parts[0], "right" | "left") {
-            parts.reverse();
-            parts.truncate(2);
-        }
-        Ok(Self {
-            location: Location::parse(&LegendLoc::Name(parts.join(" ")))?,
-            outside: Some(edge),
-        })
-    }
-}
-
-impl Location {
-    /// Validates a `loc` option (matplotlib's `set_loc`).
-    pub(crate) fn parse(loc: &LegendLoc) -> Result<Self, LegendError> {
-        match loc {
-            LegendLoc::Name(name) if name == "best" => Ok(Self::Best),
-            LegendLoc::Name(name) => name
-                .parse()
-                .map(Self::Anchored)
-                .map_err(|_| LegendError::InvalidLocation(format!("{name:?}"))),
-            LegendLoc::Code(0) => Ok(Self::Best),
-            LegendLoc::Code(code) => AnchorLoc::from_code(*code)
-                .map(Self::Anchored)
-                .ok_or_else(|| LegendError::InvalidLocation(code.to_string())),
-            LegendLoc::Point(x, y) => Ok(Self::Point(*x, *y)),
+    /// The location this placement was made from.
+    pub(crate) fn loc(self) -> LegendLoc {
+        match (self.location, self.outside) {
+            (Location::Best, _) => LegendLoc::Best,
+            (Location::Anchored(loc), Some(edge)) => LegendLoc::Outside { edge, loc },
+            (Location::Anchored(anchor), None) => LegendLoc::Anchored(anchor),
+            (Location::Point(x, y), _) => LegendLoc::Point(x, y),
         }
     }
 }
@@ -188,56 +136,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn locations_parse_like_matplotlib() {
-        assert_eq!(Location::parse(&"best".into()), Ok(Location::Best));
-        assert_eq!(
-            Location::parse(&LegendLoc::Code(6)),
-            Ok(Location::Anchored(AnchorLoc::CenterLeft))
-        );
-        assert_eq!(
-            Location::parse(&(0.2, 0.3).into()),
-            Ok(Location::Point(0.2, 0.3))
-        );
-        assert!(Location::parse(&"Upper Left".into()).is_err());
-        assert!(Location::parse(&LegendLoc::Code(11)).is_err());
-    }
-
-    #[test]
-    fn outside_locations_name_an_edge() {
-        let parse = |name: &str| Placement::parse(&name.into(), true);
-        let placement = |anchor, edge| Placement {
+    fn placements_check_the_parent() {
+        let anchored = |anchor| Placement {
             location: Location::Anchored(anchor),
-            outside: Some(edge),
+            outside: None,
         };
+        let upper_left = LegendLoc::Anchored(AnchorLoc::UpperLeft);
         assert_eq!(
-            parse("outside upper center"),
-            Ok(placement(AnchorLoc::UpperCenter, OutsideEdge::Upper))
+            Placement::of(upper_left, true),
+            Ok(anchored(AnchorLoc::UpperLeft))
+        );
+        let outside: LegendLoc = "outside right upper".parse().unwrap();
+        let placed = Placement::of(outside, true).unwrap();
+        assert_eq!(
+            placed,
+            Placement {
+                location: Location::Anchored(AnchorLoc::UpperRight),
+                outside: Some(OutsideEdge::Right)
+            }
+        );
+        assert_eq!(placed.loc(), outside);
+        assert_eq!(
+            Placement::of(outside, false),
+            Err(LegendError::OutsideForAxes("outside right upper".into()))
         );
         assert_eq!(
-            parse("outside right upper"),
-            Ok(placement(AnchorLoc::UpperRight, OutsideEdge::Right))
+            Placement::of(LegendLoc::Best, true),
+            Err(LegendError::BestForFigure)
         );
-        assert_eq!(
-            parse("outside center left"),
-            Ok(placement(AnchorLoc::CenterLeft, OutsideEdge::Left))
-        );
-        assert_eq!(
-            parse("outside lower right"),
-            Ok(placement(AnchorLoc::LowerRight, OutsideEdge::Lower))
-        );
-        assert!(parse("outside").is_err());
-        assert_eq!(
-            Placement::parse(&"outside upper left".into(), false),
-            Err(LegendError::OutsideForAxes("outside upper left".into()))
-        );
-        assert_eq!(parse("best"), Err(LegendError::BestForFigure));
-        assert_eq!(
-            Placement::parse(&"best".into(), false),
-            Ok(Placement {
-                location: Location::Best,
-                outside: None
-            })
-        );
+        let best = Placement::of(LegendLoc::Best, false).unwrap();
+        assert_eq!(best.location, Location::Best);
+        assert_eq!(best.loc(), LegendLoc::Best);
+        let point = Placement::of(LegendLoc::Point(0.2, 0.3), false).unwrap();
+        assert_eq!(point.location, Location::Point(0.2, 0.3));
     }
 
     #[test]
@@ -245,15 +176,16 @@ mod tests {
         let location = |text: &str| {
             let mut rc = RcParams::matplotlib();
             rc.set("legend.loc", text).ok()?;
-            Location::parse(&rc.legend_loc).ok()
+            Some(rc.legend_loc.loc)
         };
         assert_eq!(
             location("Upper Left"),
-            Some(Location::Anchored(AnchorLoc::UpperLeft))
+            Some(LegendLoc::Anchored(AnchorLoc::UpperLeft))
         );
-        assert_eq!(location("0"), Some(Location::Best));
-        assert_eq!(location("(0.5, 1)"), Some(Location::Point(0.5, 1.0)));
+        assert_eq!(location("0"), Some(LegendLoc::Best));
+        assert_eq!(location("(0.5, 1)"), Some(LegendLoc::Point(0.5, 1.0)));
         assert_eq!(location("middle"), None);
+        assert_eq!(location("outside upper right"), None);
     }
 
     #[test]

@@ -12,6 +12,7 @@ use plt::gridspec::{GridSpec, SubplotOverrides, SubplotSpec};
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::LegendOptions;
 use plt::numeric::Grid;
+use plt::offsetbox::AnchorLoc;
 use plt::orientation::Orientation;
 use plt::prelude::*;
 use plt::rc::Aspect;
@@ -88,7 +89,7 @@ pub(super) const CASES: &[FigureCase] = &[
         }
         axs[(1, 1)].legend(
             LegendOptions::default()
-                .loc("center left")
+                .loc(AnchorLoc::CenterLeft)
                 .bbox_to_anchor((0.8, 0.5)),
         )?;
         Ok(())

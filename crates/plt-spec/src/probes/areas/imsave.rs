@@ -95,6 +95,7 @@ fn imsave(args: Args<'_>) -> Outcome {
         origin,
         dpi: args.opt_f64("dpi")?.unwrap_or(100.0),
         jpeg_quality,
+        metadata: None,
     };
     let file = imsave_bytes(image_data(args)?, format, options).map_err(ProbeError::rejected)?;
     Ok(Json::from(base64::encode(&file)))

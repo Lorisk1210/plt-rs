@@ -6,7 +6,7 @@ use std::cell::Cell;
 use plt_core::Point;
 use plt_text::{HAlign, VAlign};
 
-use super::{HandleStyle, Orientation, SliderOptions, ValStep};
+use super::{HandleStyle, SliderOptions, ValStep};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, PlotError};
 use crate::colors::Color;
@@ -14,6 +14,7 @@ use crate::events::{Event, EventKind, MouseEvent};
 use crate::lines::{Line2D, LineProps, LineStyle};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::navigation::PointerButton;
+use crate::orientation::Orientation;
 use crate::patches::{Patch, Rectangle};
 use crate::rc::ColorOrAuto;
 use crate::text::Text;

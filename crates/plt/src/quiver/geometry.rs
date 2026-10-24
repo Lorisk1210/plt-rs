@@ -6,7 +6,7 @@ use std::any::Any;
 
 use plt_core::{Affine2D, Bbox, Path, Point};
 
-use super::arrows::{ArrowShape, Pivot};
+use super::arrows::{Pivot, QuiverArrowShape};
 use crate::artist::{ArtistId, LayoutContext};
 use crate::axes::AxesState;
 use crate::collections::DrawTimeShapes;
@@ -69,7 +69,7 @@ pub(crate) struct ArrowSizing {
     pub(crate) units: QuiverUnits,
     pub(crate) angles: Angles,
     pub(crate) width: Option<f64>,
-    pub(crate) shape: ArrowShape,
+    pub(crate) shape: QuiverArrowShape,
     pub(crate) pivot: Pivot,
 }
 
@@ -443,7 +443,7 @@ mod tests {
             units: QuiverUnits::Width,
             angles: Angles::Uv,
             width: None,
-            shape: ArrowShape::default(),
+            shape: QuiverArrowShape::default(),
             pivot: Pivot::Tail,
         }
     }

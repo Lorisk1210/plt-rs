@@ -6,7 +6,9 @@ use plt::axes::{ColorizingArtist, ImshowOptions, TriShading, TriValues, Tripcolo
 use plt::collections::{CollectionProps, EdgeColors};
 use plt::colorbar::ColorbarOptions;
 use plt::colors::{Colorize, ColorizerOptions, Extend, colormaps};
-use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, Origin, QuadCoords, QuadField};
+use plt::contour::{
+    ClabelFormat, ClabelOptions, ContourOptions, ContourOrigin, QuadCoords, QuadField,
+};
 use plt::fonts::FontSize;
 use plt::image::Extent;
 use plt::lines::{LineProps, LineStyle};
@@ -301,7 +303,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         };
         ax.imshow(z.clone(), image)?;
         let field = QuadField::new(z).with_coords(QuadCoords::Implicit {
-            origin: Some(Origin::Lower),
+            origin: Some(ContourOrigin::Lower),
             extent: Some([0.0, 6.0, 0.0, 4.0]),
         });
         let options = ContourOptions {

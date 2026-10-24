@@ -363,6 +363,7 @@ mod tests {
     use super::*;
     use crate::axes::ColorizingArtist;
     use crate::pyplot::{close_all, gcf, gci};
+    use crate::scale::ScaleName;
 
     #[test]
     fn line_plots_land_on_the_current_axes() {
@@ -400,13 +401,19 @@ mod tests {
     fn log_plots_set_the_scales() {
         close_all();
         loglog(vec![1.0, 10.0], vec![1.0, 100.0]).unwrap();
-        assert_eq!((gca().xscale(), gca().yscale()), ("log", "log"));
+        assert_eq!(
+            (gca().xscale(), gca().yscale()),
+            (ScaleName::Log, ScaleName::Log)
+        );
         crate::pyplot::cla();
         semilogy(vec![1.0, 2.0], vec![1.0, 100.0]).unwrap();
-        assert_eq!((gca().xscale(), gca().yscale()), ("linear", "log"));
+        assert_eq!(
+            (gca().xscale(), gca().yscale()),
+            (ScaleName::Linear, ScaleName::Log)
+        );
         crate::pyplot::cla();
         semilogx(vec![1.0, 100.0], vec![1.0, 2.0]).unwrap();
-        assert_eq!(gca().xscale(), "log");
+        assert_eq!(gca().xscale(), ScaleName::Log);
         close_all();
     }
 

@@ -11,7 +11,7 @@ use plt::colors::{Alpha, ColorizerOptions, PowerNorm};
 use plt::figure::Share;
 use plt::fonts::{FontSize, RelativeSize};
 use plt::layout::{LayoutEngine, TightLayout};
-use plt::legend::LegendOptions;
+use plt::legend::{LegendLoc, LegendOptions};
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::scale::{FuncScale, FuncTransform, ScaleOptions};
@@ -66,7 +66,7 @@ fn asinh_demo_2(fig: &Figure) -> CaseResult {
         ax.grid(true);
         ax.legend(
             LegendOptions::default()
-                .loc("best")
+                .loc(LegendLoc::Best)
                 .fontsize(FontSize::Relative(RelativeSize::Small)),
         )?;
     }

@@ -12,7 +12,7 @@ use crate::rc::RcParams;
 /// Where the pixel centres of an image-like grid start (matplotlib's
 /// `origin`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Origin {
+pub enum ContourOrigin {
     /// Row 0 at the bottom.
     Lower,
     /// Row 0 at the top.
@@ -27,10 +27,10 @@ pub enum QuadCoords {
     /// Without `origin`: at `(column, row)`, or spread evenly over
     /// `extent = [x0, x1, y0, y1]` (first to last point). With `origin`:
     /// at the pixel centres of an image covering `extent` (default
-    /// `[0, columns, 0, rows]`), rows reversed for [`Origin::Upper`].
+    /// `[0, columns, 0, rows]`), rows reversed for [`ContourOrigin::Upper`].
     Implicit {
         /// Image-like placement.
-        origin: Option<Origin>,
+        origin: Option<ContourOrigin>,
         /// The covered rectangle `[x0, x1, y0, y1]`.
         extent: Option<[f64; 4]>,
     },
@@ -216,8 +216,8 @@ impl QuadField {
             }
             QuadCoords::Implicit { origin, extent } => {
                 let origin = origin.map(|o| match o {
-                    Origin::Image if rc.image_origin == "lower" => Origin::Lower,
-                    Origin::Image => Origin::Upper,
+                    ContourOrigin::Image if rc.image_origin == "lower" => ContourOrigin::Lower,
+                    ContourOrigin::Image => ContourOrigin::Upper,
                     other => other,
                 });
                 Ok(implicit_coordinates(rows, cols, origin, *extent))
@@ -230,7 +230,7 @@ impl QuadField {
 fn implicit_coordinates(
     rows: usize,
     cols: usize,
-    origin: Option<Origin>,
+    origin: Option<ContourOrigin>,
     extent: Option<[f64; 4]>,
 ) -> (Grid<f64>, Grid<f64>) {
     let Some(origin) = origin else {
@@ -248,7 +248,7 @@ fn implicit_coordinates(
     let dy = (y1 - y0) / rows as f64;
     let x: Vec<f64> = (0..cols).map(|j| x0 + (j as f64 + 0.5) * dx).collect();
     let mut y: Vec<f64> = (0..rows).map(|i| y0 + (i as f64 + 0.5) * dy).collect();
-    if origin == Origin::Upper {
+    if origin == ContourOrigin::Upper {
         y.reverse();
     }
     meshgrid(&x, &y)
@@ -318,7 +318,7 @@ mod tests {
         assert_eq!(y.column(0), [0.0, 1.0]);
         let (x, _) = implicit_coordinates(2, 3, None, Some([10.0, 20.0, 0.0, 1.0]));
         assert_eq!(x.row(0), [10.0, 15.0, 20.0]);
-        let (x, y) = implicit_coordinates(2, 4, Some(Origin::Upper), None);
+        let (x, y) = implicit_coordinates(2, 4, Some(ContourOrigin::Upper), None);
         assert_eq!(x.row(0), [0.5, 1.5, 2.5, 3.5]);
         assert_eq!(y.column(0), [1.5, 0.5]);
     }

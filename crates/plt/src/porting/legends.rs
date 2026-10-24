@@ -2,9 +2,11 @@
 //!
 //! [`Axes::legend`] and [`Figure::legend`] take a [`LegendOptions`]: one
 //! builder method per keyword of matplotlib's `legend()`, unset ones read
-//! from the `legend.*` rcParams. Locations keep matplotlib's spellings
-//! (`"upper left"`, `"best"`, a code, `"outside upper center"` for figure
-//! legends); an unknown one is reported when the legend is made
+//! from the `legend.*` rcParams. A location is a [`LegendLoc`]: an
+//! anchored position ([`AnchorLoc`]), `"best"`, a point, or for figure
+//! legends a place outside the axes. matplotlib's names parse into it
+//! (`"upper left".parse()?`, `"outside upper center".parse()?`) and its
+//! codes through [`LegendLoc::from_code`]; an unknown one is refused there
 //! ([`LegendError::InvalidLocation`]).
 //!
 //! Without explicit handles the legend lists the labelled artists and
@@ -26,7 +28,9 @@
 //! |----------------------------------------------------|-----------------------------------------------|
 //! | `ax.legend()`                                      | [`Axes::legend`]`(LegendOptions::default())`  |
 //! | `fig.legend(...)`, `plt.figlegend(...)`            | [`Figure::legend`], [`crate::pyplot::figlegend`] |
-//! | `loc="upper left"`, `loc=2`, `loc=(0.1, 0.2)`      | [`LegendOptions::loc`] (a name, a code or a point) |
+//! | `loc="upper left"`, `loc=2`, `loc=(0.1, 0.2)`      | [`LegendOptions::loc`]`(AnchorLoc::UpperLeft)`, `LegendLoc::from_code(2)?`, `(0.1, 0.2)` |
+//! | `loc="outside upper center"` (figure legends)      | `"outside upper center".parse::<LegendLoc>()?` |
+//! | `leg._loc`, `leg.set_loc(loc)`                     | [`Legend::loc`] ([`LegendLoc::code`]), [`Legend::set_loc`] |
 //! | `bbox_to_anchor=(1.02, 1)`, `bbox_transform=`      | [`LegendOptions::bbox_to_anchor`], [`LegendOptions::bbox_transform`] |
 //! | `ncols=`, `mode="expand"`, `reverse=True`          | [`LegendOptions::ncols`], [`LegendOptions::mode`]`(LegendMode::Expand)`, [`LegendOptions::reverse`] |
 //! | `title=`, `title_fontsize=`, `alignment="left"`    | [`LegendOptions::title`], [`LegendOptions::title_fontsize`], [`LegendOptions::alignment`] |
@@ -66,7 +70,8 @@
 //!
 //! ```
 //! use plt::fonts::RelativeSize;
-//! use plt::legend::{LegendError, LegendOptions};
+//! use plt::legend::{LegendError, LegendLoc, LegendOptions};
+//! use plt::offsetbox::AnchorLoc;
 //! use plt::prelude::*;
 //!
 //! let ax = Figure::new().subplot();
@@ -74,7 +79,7 @@
 //! ax.plot_with(&x, x.iter().map(|v| v.sin()).collect::<Vec<_>>(), LineProps::default().label("sin"))?;
 //! ax.plot_with(&x, x.iter().map(|v| v.cos()).collect::<Vec<_>>(), LineProps::default().label("_nolegend_"))?;
 //! let options = LegendOptions::default()
-//!     .loc("upper left")
+//!     .loc(AnchorLoc::UpperLeft)
 //!     .bbox_to_anchor((1.02, 1.0))
 //!     .title("Curves")
 //!     .frameon(false)
@@ -83,7 +88,8 @@
 //! assert_eq!(legend.labels(), ["sin"]);
 //! assert_eq!(ax.current_legend(), Some(legend));
 //!
-//! let error = ax.legend(LegendOptions::default().loc("top middle")).unwrap_err();
+//! assert_eq!("upper left".parse(), Ok(LegendLoc::Anchored(AnchorLoc::UpperLeft)));
+//! let error = "top middle".parse::<LegendLoc>().unwrap_err();
 //! assert!(matches!(error, LegendError::InvalidLocation(_)));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -131,19 +137,21 @@
 //! ```
 //!
 //! ```
-//! use plt::legend::LegendOptions;
+//! use plt::legend::{LegendLoc, LegendOptions};
+//! use plt::offsetbox::AnchorLoc;
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
 //! let a = ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("a"))?;
 //! let b = ax.plot_with([0.0, 1.0], [1.0, 0.0], LineProps::default().label("b"))?;
-//! let first = ax.legend(LegendOptions::default().handles([&a]).loc("upper left"))?;
+//! let first = ax.legend(LegendOptions::default().handles([&a]).loc(AnchorLoc::UpperLeft))?;
 //! ax.keep_legend(&first);
-//! let second = ax.legend(LegendOptions::default().handles([&b]).loc("lower right"))?;
+//! let second = ax.legend(LegendOptions::default().handles([&b]).loc(AnchorLoc::LowerRight))?;
 //! assert_eq!(ax.current_legend(), Some(second));
 //!
-//! let options = LegendOptions::default().handles([&a, &b]).loc("outside upper center").ncols(2);
+//! let outside: LegendLoc = "outside upper center".parse()?;
+//! let options = LegendOptions::default().handles([&a, &b]).loc(outside).ncols(2);
 //! fig.legend(options)?;
 //! assert_eq!(fig.legends().len(), 1);
 //! fig.to_png()?;
@@ -195,6 +203,12 @@
 //! [`Legend::set_draggable`]: crate::legend::Legend::set_draggable
 //! [`Legend::update_default_handler_map`]: crate::legend::Legend::update_default_handler_map
 //! [`LegendError::InvalidLocation`]: crate::legend::LegendError::InvalidLocation
+//! [`LegendLoc`]: crate::legend::LegendLoc
+//! [`LegendLoc::from_code`]: crate::legend::LegendLoc::from_code
+//! [`LegendLoc::code`]: crate::legend::LegendLoc::code
+//! [`Legend::loc`]: crate::legend::Legend::loc
+//! [`Legend::set_loc`]: crate::legend::Legend::set_loc
+//! [`AnchorLoc`]: crate::offsetbox::AnchorLoc
 //! [`LegendHandle`]: crate::legend::LegendHandle
 //! [`LegendHandle::line`]: crate::legend::LegendHandle::line
 //! [`LegendHandle::patch`]: crate::legend::LegendHandle::patch

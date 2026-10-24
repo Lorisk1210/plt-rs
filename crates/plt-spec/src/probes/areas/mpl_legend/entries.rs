@@ -11,6 +11,7 @@ use plt::legend::{BboxToAnchor, LegendHandle, LegendOptions};
 use plt::lines::LineProps;
 use plt::markers::MarkerStyle;
 use plt::numeric::Grid;
+use plt::offsetbox::AnchorLoc;
 use plt::pyplot;
 
 use super::super::mpl_tests::in_test_style;
@@ -54,7 +55,7 @@ pub(super) fn ordered_handles(args: Args<'_>) -> Outcome {
                 LegendOptions::default()
                     .handles(handles)
                     .labels(labels)
-                    .loc("center left")
+                    .loc(AnchorLoc::CenterLeft)
                     .bbox_to_anchor(BboxToAnchor::Point(1.0, 0.5)),
             )
             .map_err(ProbeError::rejected)?;

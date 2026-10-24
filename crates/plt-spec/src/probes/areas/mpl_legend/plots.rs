@@ -2,7 +2,7 @@
 //! of the columns of a 2-D array and `boxplot`.
 
 use plt::artist::{ArtistHandle, is_hidden_label};
-use plt::axes::{BoxArtist, BoxLabel, BoxStyle, BoxplotOptions};
+use plt::axes::{BoxArtist, BoxLabel, BoxProps, BoxplotOptions};
 use plt::figure::Figure;
 use plt::legend::{LegendHandle, LegendOptions};
 use plt::lines::LineProps;
@@ -113,7 +113,7 @@ pub(super) fn boxplot(args: Args<'_>) -> Outcome {
             BoxLabel::Each(label_list(label)?)
         });
         if args.opt_bool("patch_artist")?.unwrap_or(false) {
-            options.draw.boxes = Some(BoxStyle::Patch(PatchProps::default()));
+            options.draw.boxes = Some(BoxProps::Patch(PatchProps::default()));
         }
         options.draw.showbox = args.opt_bool("showbox")?;
         let ax = Figure::new().subplot();

@@ -13,6 +13,7 @@ use crate::axes::{Adjustable, AspectError, Axes, AxesState, AxisName, Projection
 use crate::figure::Figure;
 use crate::layout::{ConstrainedLayout, LayoutEngine, TightLayout};
 use crate::navigation::{DragKey, NavMode, Navigation, PointerButton};
+use crate::scale::ScaleName;
 use crate::spines::SpineSide;
 use crate::testing::{RecordingRenderer, close_points};
 use crate::transforms::{Affine2D, ResolvedTransform};
@@ -310,7 +311,7 @@ fn fixed_projections_refuse_changes() {
     assert_eq!(ax.xlim(), (-1.0, 1.0));
     ax.set_xlim(0.0, 1.0).unwrap();
     ax.set_yscale("log").unwrap();
-    assert_eq!((ax.xlim(), ax.yscale()), ((-1.0, 1.0), "linear"));
+    assert_eq!((ax.xlim(), ax.yscale()), ((-1.0, 1.0), ScaleName::Linear));
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
     let errors = fig.draw(&mut renderer).unwrap_err().0;
     assert_eq!(errors.len(), 2);

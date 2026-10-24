@@ -5,6 +5,7 @@
 use plt::fonts::{FontStyle, FontWeight};
 use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::text::{HAlign, TextRotationMode, VAlign};
 
@@ -78,7 +79,7 @@ fn layout(fig: &Figure) -> CaseResult {
     ax.plot_with(x, cos, LineProps::default().label("cos Toyota"))?;
     ax.set_title("Title: WAVE");
     ax.set_xlabel("time (s)").set_ylabel("amplitude");
-    ax.legend(LegendOptions::default().loc("upper left"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::UpperLeft))?;
     fig.suptitle("Suptitle");
     Ok(())
 }

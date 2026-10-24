@@ -11,11 +11,12 @@ use super::{CallbackId, Connections, Observers};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, PlotError};
 use crate::lines::{Line2D, LineProps};
+use crate::orientation::Orientation;
 use crate::patches::{Patch, Rectangle};
 use crate::text::Text;
 
 pub(super) use base::SliderBase;
-pub use options::{HandleStyle, Orientation, SliderOptions, ValStep};
+pub use options::{HandleStyle, SliderOptions, ValStep};
 
 /// The parts of a slider its event handlers change.
 #[derive(Debug)]

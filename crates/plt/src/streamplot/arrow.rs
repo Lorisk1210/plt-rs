@@ -20,7 +20,7 @@ use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 
 /// An arrow head of a [`StreamArrowStyle`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ArrowHead {
+pub enum StreamArrowHead {
     /// Two strokes (`>`).
     Open,
     /// A filled triangle (`|>`).
@@ -32,9 +32,9 @@ pub enum ArrowHead {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct StreamArrowStyle {
     /// The head at the tail end.
-    pub begin: Option<ArrowHead>,
+    pub begin: Option<StreamArrowHead>,
     /// The head at the tip end.
-    pub end: Option<ArrowHead>,
+    pub end: Option<StreamArrowHead>,
 }
 
 impl Default for StreamArrowStyle {
@@ -42,7 +42,7 @@ impl Default for StreamArrowStyle {
     fn default() -> Self {
         Self {
             begin: None,
-            end: Some(ArrowHead::Filled),
+            end: Some(StreamArrowHead::Filled),
         }
     }
 }
@@ -67,14 +67,14 @@ impl FromStr for StreamArrowStyle {
         let (begin, end) = name.split_once('-').ok_or_else(unknown)?;
         let begin = match begin {
             "" => None,
-            "<" => Some(ArrowHead::Open),
-            "<|" => Some(ArrowHead::Filled),
+            "<" => Some(StreamArrowHead::Open),
+            "<|" => Some(StreamArrowHead::Filled),
             _ => return Err(unknown()),
         };
         let end = match end {
             "" => None,
-            ">" => Some(ArrowHead::Open),
-            "|>" => Some(ArrowHead::Filled),
+            ">" => Some(StreamArrowHead::Open),
+            "|>" => Some(StreamArrowHead::Filled),
             _ => return Err(unknown()),
         };
         Ok(Self { begin, end })
@@ -230,7 +230,7 @@ fn transmute(
         .end
         .filter(|_| vertices[n - 2] != vertices[n - 1])
         .map(|kind| (kind, head.wedge(vertices[n - 2], vertices[n - 1])));
-    let pad = |wedge: Option<&(ArrowHead, Wedge)>| wedge.map_or((0.0, 0.0), |(_, w)| w.pad);
+    let pad = |wedge: Option<&(StreamArrowHead, Wedge)>| wedge.map_or((0.0, 0.0), |(_, w)| w.pad);
     let (begin_pad, end_pad) = (pad(begin.as_ref()), pad(end.as_ref()));
     let mut shaft_vertices = vertices.to_vec();
     shaft_vertices[0] = Point::new(vertices[0].x + begin_pad.0, vertices[0].y + begin_pad.1);
@@ -305,13 +305,13 @@ impl HeadGeometry {
 impl Wedge {
     /// The head as a path: a closed triangle when filled, two strokes
     /// otherwise.
-    fn path(&self, kind: ArrowHead) -> (Path, bool) {
+    fn path(&self, kind: StreamArrowHead) -> (Path, bool) {
         match kind {
-            ArrowHead::Filled => (
+            StreamArrowHead::Filled => (
                 Path::closed([&self.corners[..], &[Point::ORIGIN]].concat()),
                 true,
             ),
-            ArrowHead::Open => (Path::polyline(self.corners.to_vec()), false),
+            StreamArrowHead::Open => (Path::polyline(self.corners.to_vec()), false),
         }
     }
 }
@@ -434,9 +434,9 @@ mod tests {
             StreamArrowStyle::default()
         );
         let open: StreamArrowStyle = "->".parse().unwrap();
-        assert_eq!(open.end, Some(ArrowHead::Open));
+        assert_eq!(open.end, Some(StreamArrowHead::Open));
         let both: StreamArrowStyle = "<|-|>".parse().unwrap();
-        assert_eq!(both.begin, Some(ArrowHead::Filled));
+        assert_eq!(both.begin, Some(StreamArrowHead::Filled));
         let line: StreamArrowStyle = "-".parse().unwrap();
         assert_eq!((line.begin, line.end), (None, None));
         assert!("simple".parse::<StreamArrowStyle>().is_err());

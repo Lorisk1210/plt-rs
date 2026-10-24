@@ -3,14 +3,14 @@
 //! axisartist.Axes)`): twins and auxiliary axes whose axis lines are axis
 //! artists of their own, which the host draws among its artists.
 
-use super::axes::Axes;
+use super::axes::AxisArtistAxes;
 use super::handles::AxisArtist;
 use crate::artist::ArtistHandle;
 use crate::axes_grid1::{HostAxes, ParasiteError, ParasiteLink};
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
 
-impl Axes {
+impl AxisArtistAxes {
     /// Adds a parasite whose coordinates relate to this axes' as `link`
     /// says and whose axis lines are axis artists, all hidden until shown
     /// one by one, like its gridlines (matplotlib's
@@ -22,7 +22,7 @@ impl Axes {
     /// use plt::axisartist;
     /// use plt::prelude::*;
     /// let fig = Figure::new();
-    /// let host = axisartist::Axes::new(fig.subplot());
+    /// let host = axisartist::AxisArtistAxes::new(fig.subplot());
     /// let par = host.add_parasite_axes(ParasiteLink::Independent)?;
     /// let right = par.axis("right").expect("an edge");
     /// assert!(!right.visible());
@@ -96,9 +96,10 @@ mod tests {
     #[test]
     fn twins_take_over_one_edge_of_the_host() {
         let fig = Figure::new();
-        let host = Axes::new(fig.subplot());
+        let host = AxisArtistAxes::new(fig.subplot());
         let twin = host.twinx();
-        let visible = |axes: &Axes, name: &str| axes.axis(name).expect("an edge").visible();
+        let visible =
+            |axes: &AxisArtistAxes, name: &str| axes.axis(name).expect("an edge").visible();
         assert!(!visible(&host, "right") && visible(&host, "left"));
         assert!(visible(&twin, "right"));
         assert!(!visible(&twin, "left") && !visible(&twin, "top") && !visible(&twin, "bottom"));
@@ -113,7 +114,7 @@ mod tests {
     #[test]
     fn parasites_hide_their_artists_and_join_the_host_legend() {
         let fig = Figure::new();
-        let host = Axes::new(fig.subplot());
+        let host = AxisArtistAxes::new(fig.subplot());
         let par = host
             .add_parasite_axes(ParasiteLink::Independent)
             .expect("a parasite");

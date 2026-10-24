@@ -111,7 +111,10 @@ fn scale_objects(args: Args<'_>) -> Outcome {
             Box::new(LogScale::new(10.0).map_err(ProbeError::rejected)?),
         );
     }
-    Ok(Json::from(vec![ax.xscale(), ax.yscale()]))
+    Ok(Json::from(vec![
+        ax.xscale().to_string(),
+        ax.yscale().to_string(),
+    ]))
 }
 
 fn tight_bbox(args: Args<'_>) -> Outcome {

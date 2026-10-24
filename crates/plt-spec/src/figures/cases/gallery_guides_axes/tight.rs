@@ -13,6 +13,7 @@ use plt::gridspec::GridSpec;
 use plt::image::Interpolation;
 use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::spines::SpineSide;
 
@@ -124,7 +125,7 @@ fn legend_line(fig: &Figure, label: &str, in_layout: bool) -> CaseResult {
     let leg = ax.legend(
         LegendOptions::default()
             .bbox_to_anchor((0.7, 0.5))
-            .loc("center left"),
+            .loc(AnchorLoc::CenterLeft),
     )?;
     leg.set_in_layout(in_layout);
     fig.tight_layout(&TightLayout::default())?;

@@ -13,7 +13,7 @@ use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
 use plt::lines::{LineProps, LineStyle};
 use plt::numeric::{Grid, arange, linspace, meshgrid};
-use plt::quiver::{ArrowShape, QuiverOptions, QuiverUnits, VectorField};
+use plt::quiver::{QuiverArrowShape, QuiverOptions, QuiverUnits, VectorField};
 use plt::rc::Aspect;
 use plt::ticker::pyfmt;
 use plt::tri::{
@@ -304,10 +304,10 @@ fn trigradient_demo(fig: &Figure) -> CaseResult {
         scale: Some(10.0),
         color: "blue".into(),
         width: Some(0.007),
-        shape: ArrowShape {
+        shape: QuiverArrowShape {
             head_width: 3.0,
             head_length: 4.0,
-            ..ArrowShape::default()
+            ..QuiverArrowShape::default()
         },
         props: CollectionProps {
             base: BaseProps {

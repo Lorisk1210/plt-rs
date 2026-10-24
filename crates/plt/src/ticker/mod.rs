@@ -41,9 +41,9 @@ pub use context::{AxisInfo, AxisName, ScaleHint, TickContext};
 pub use error::TickerError;
 pub(crate) use formatter::g_sig_digits;
 pub use formatter::{
-    EngFormatter, FixedFormatter, FormatStrFormatter, Formatter, FuncFormatter, LogFormatter,
-    LogLabelStyle, LogitFormatter, NullFormatter, OffsetMode, PercentFormatter, ScalarFormatter,
-    StrMethodFormatter, TickLabels, strip_math,
+    EngFormatter, FixedFormatter, FormatStrFormatter, FormattedTicks, Formatter, FuncFormatter,
+    LogFormatter, LogLabelStyle, LogitFormatter, NullFormatter, OffsetMode, PercentFormatter,
+    ScalarFormatter, StrMethodFormatter, strip_math,
 };
 pub use label_format::LabelFormat;
 pub use locator::{

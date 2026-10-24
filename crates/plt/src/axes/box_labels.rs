@@ -78,7 +78,7 @@ impl BoxLabel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::axes::{BoxStyle, BoxplotOptions};
+    use crate::axes::{BoxProps, BoxplotOptions};
     use crate::figure::Figure;
     use crate::patches::PatchProps;
 
@@ -92,7 +92,7 @@ mod tests {
     fn patch_boxes_carry_the_labels() {
         let ax = Figure::new().subplot();
         let mut options = BoxplotOptions::default();
-        options.draw.boxes = Some(BoxStyle::Patch(PatchProps::default()));
+        options.draw.boxes = Some(BoxProps::Patch(PatchProps::default()));
         options.draw.label = Some(BoxLabel::Each(vec!["a".into(), "b".into(), "c".into()]));
         let parts = ax.boxplot(&data(), options).unwrap();
         let labels: Vec<String> = parts

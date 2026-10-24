@@ -4,7 +4,7 @@ use plt_core::Point;
 use plt_text::{HAlign, RotationMode, VAlign};
 
 use super::{
-    Feature, LaidOutText, Language, LineSpacing, TextArtist, TextBox, TextBoxProps, TextError,
+    Feature, LaidOutText, Language, LineSpacing, TextArtist, TextBoxPatch, TextBoxProps, TextError,
 };
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::Color;
@@ -132,7 +132,7 @@ impl Text {
     /// font size, so set the size first.
     pub fn set_bbox(&self, props: Option<TextBoxProps>) -> &Self {
         self.raw.with_mut::<TextArtist, _>(|t| {
-            t.bbox = props.map(|props| TextBox::new(props, t.font.size, &t.rc));
+            t.bbox = props.map(|props| TextBoxPatch::new(props, t.font.size, &t.rc));
         });
         self
     }
@@ -144,7 +144,7 @@ impl Text {
         let color = color.into();
         self.raw.with_mut::<TextArtist, _>(|t| match &mut t.bbox {
             Some(bbox) => bbox.set_facecolor(color),
-            None => t.bbox = Some(TextBox::background(color, t.font.size, &t.rc)),
+            None => t.bbox = Some(TextBoxPatch::background(color, t.font.size, &t.rc)),
         });
         self
     }
@@ -155,7 +155,7 @@ impl Text {
     }
 
     /// The box behind the text, if any (matplotlib's `get_bbox_patch`).
-    pub fn bbox_patch(&self) -> Option<TextBox> {
+    pub fn bbox_patch(&self) -> Option<TextBoxPatch> {
         self.raw.with::<TextArtist, _>(|t| t.bbox.clone())
     }
 }

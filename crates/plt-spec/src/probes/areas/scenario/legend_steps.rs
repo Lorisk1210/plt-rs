@@ -138,8 +138,8 @@ fn strings(value: &Json) -> Option<Vec<String>> {
 /// matplotlib rejects it.
 fn location(value: &Json) -> Result<LegendLoc, ProbeError> {
     match value {
-        Json::String(name) => Ok(LegendLoc::Name(name.clone())),
-        Json::Integer(code) => Ok(LegendLoc::Code(*code)),
+        Json::String(name) => name.parse().map_err(ProbeError::rejected),
+        Json::Integer(code) => LegendLoc::from_code(*code).map_err(ProbeError::rejected),
         Json::Array(point) => match point.as_slice() {
             [x, y] => match (x.as_f64(), y.as_f64()) {
                 (Some(x), Some(y)) => Ok(LegendLoc::Point(x, y)),

@@ -7,7 +7,9 @@
 use plt::axes::MappedColors;
 use plt::figure::Figure;
 use plt::numeric::{Grid, linspace};
-use plt::quiver::{Angles, ArrowShape, BarbsOptions, QuiverOptions, QuiverUnits, VectorField};
+use plt::quiver::{
+    Angles, BarbsOptions, QuiverArrowShape, QuiverOptions, QuiverUnits, VectorField,
+};
 use plt::transforms::Transform;
 use plt_core::Affine2D;
 
@@ -103,10 +105,10 @@ fn draw(args: Args<'_>) -> Outcome {
             let u = Grid::from_fn(10, 10, |_, c| (c as f64).cos());
             let v = Grid::from_fn(10, 10, |r, _| (r as f64).sin());
             let options = QuiverOptions {
-                shape: ArrowShape {
+                shape: QuiverArrowShape {
                     head_length: 0.0,
                     head_axis_length: 0.0,
-                    ..ArrowShape::default()
+                    ..QuiverArrowShape::default()
                 },
                 ..QuiverOptions::default()
             };

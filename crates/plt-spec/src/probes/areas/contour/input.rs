@@ -2,7 +2,7 @@
 //! adapters of `spec/reference/probes/test_contour.py` build them.
 
 use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, NormSpec};
-use plt::contour::{ContourOptions, Levels, Origin, QuadCoords, QuadField};
+use plt::contour::{ContourOptions, ContourOrigin, Levels, QuadCoords, QuadField};
 use plt::numeric::Grid;
 use plt::rc::{self, RcParams};
 use plt::ticker::{Locator, LogLocator, MaxNLocator, Nbins, NumTicks};
@@ -95,9 +95,9 @@ fn coords(args: Args<'_>) -> Result<QuadCoords, ProbeError> {
     let Some(x) = args.get("x") else {
         let origin = match args.opt_str("origin")? {
             None => None,
-            Some("lower") => Some(Origin::Lower),
-            Some("upper") => Some(Origin::Upper),
-            Some("image") => Some(Origin::Image),
+            Some("lower") => Some(ContourOrigin::Lower),
+            Some("upper") => Some(ContourOrigin::Upper),
+            Some("image") => Some(ContourOrigin::Image),
             Some(other) => return Err(ProbeError::rejected(format!("invalid origin {other:?}"))),
         };
         let extent = match args.get("extent") {

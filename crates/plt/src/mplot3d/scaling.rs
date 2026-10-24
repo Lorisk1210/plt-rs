@@ -6,7 +6,7 @@
 
 use std::rc::Rc;
 
-use crate::scale::{LinearScale, Scale};
+use crate::scale::{LinearScale, Scale, ScaleName};
 use crate::transforms::AxisMap;
 
 /// A scale and its data-to-transformed map, shared by the axes sharing an
@@ -37,8 +37,8 @@ impl AxisScale {
         &self.scale
     }
 
-    /// The registered name of the scale, e.g. `"log"`.
-    pub(crate) fn name(&self) -> &'static str {
+    /// The name of the scale.
+    pub(crate) fn name(&self) -> ScaleName {
         self.scale.name()
     }
 
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn linear_scales_only_mask_non_finite_values() {
         let linear = AxisScale::default();
-        assert_eq!(linear.name(), "linear");
+        assert_eq!(linear.name(), ScaleName::Linear);
         assert_eq!(linear.forward(-3.0), -3.0);
         assert!(linear.masked_forward(f64::INFINITY).is_nan());
         assert_eq!(linear.widened((0.0, 10.0), 0.1), (-1.0, 11.0));

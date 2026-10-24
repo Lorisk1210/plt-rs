@@ -17,7 +17,7 @@ use plt::rc::Aspect;
 use plt::spines::SpineSide;
 use plt::text::{HAlign, VAlign};
 use plt::ticker::{
-    FixedLocator, Formatter, NullLocator, TickContext, TickLabels, TickerError, pyfmt,
+    FixedLocator, FormattedTicks, Formatter, NullLocator, TickContext, TickerError, pyfmt,
 };
 use plt::transforms::{Affine2D, Anchor, Point, PointMap, ResolvedTransform, Step};
 
@@ -41,8 +41,12 @@ impl ThetaFormatter {
 }
 
 impl Formatter for ThetaFormatter {
-    fn format_ticks(&self, locs: &[f64], _: &TickContext<'_>) -> Result<TickLabels, TickerError> {
-        Ok(TickLabels {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        _: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
+        Ok(FormattedTicks {
             labels: locs.iter().map(|&x| self.label(x)).collect(),
             offset: String::new(),
         })

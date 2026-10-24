@@ -5,7 +5,7 @@
 use plt::axes::StemOptions;
 use plt::geo::GeoProjection;
 use plt::legend::LegendOptions;
-use plt::lines::{FormatError, LineProps, LineStyle};
+use plt::lines::{FormatStringError, LineProps, LineStyle};
 use plt::markers::{Marker, MarkerError};
 use plt::numeric::{arange, linspace};
 use plt::orientation::Orientation;
@@ -56,7 +56,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             for (j, &rcolor) in red.iter().enumerate() {
                 for (k, &bcolor) in blue.iter().enumerate() {
                     let (x, y) = (j as f64 + 1.0, k as f64 + 1.0);
-                    let big = |format: &str| -> Result<LineProps, FormatError> {
+                    let big = |format: &str| -> Result<LineProps, FormatStringError> {
                         let props = LineProps::fmt(format)?
                             .markeredgecolor(rcolor)
                             .markersize(100.0)
@@ -165,7 +165,7 @@ pub(crate) const CASES: &[FigureCase] = &[
 ];
 
 /// `linefmt="C2-.", basefmt="C1-."` with the given marker format.
-fn dash_dotted_stems(markerfmt: &str) -> Result<StemOptions, FormatError> {
+fn dash_dotted_stems(markerfmt: &str) -> Result<StemOptions, FormatStringError> {
     Ok(StemOptions {
         linefmt: "C2-.".parse()?,
         markerfmt: markerfmt.parse()?,

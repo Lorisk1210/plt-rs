@@ -6,7 +6,8 @@ use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::colors::{ColorizerOptions, Extend, colormaps};
 use plt::figure::{Share, SubfigureOptions};
 use plt::layout::{ConstrainedLayout, LayoutEngine};
-use plt::legend::LegendOptions;
+use plt::legend::{LegendLoc, LegendOptions};
+use plt::offsetbox::AnchorLoc;
 use plt::orientation::Orientation;
 use plt::prelude::*;
 use plt::spines::SpineSide;
@@ -78,12 +79,12 @@ pub(crate) const CASES: &[FigureCase] = &[
         }
         fig.legend(
             LegendOptions::default()
-                .loc("outside upper center")
+                .loc("outside upper center".parse::<LegendLoc>()?)
                 .ncols(4),
         )?;
         axs[(0, 1)].legend(
             LegendOptions::default()
-                .loc("center left")
+                .loc(AnchorLoc::CenterLeft)
                 .bbox_to_anchor((1.0, 0.5)),
         )?;
         Ok(())

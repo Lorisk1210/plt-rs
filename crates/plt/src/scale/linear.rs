@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use super::{AxisTickers, FuncTransform, Scale, linear_tickers};
+use super::{AxisTickers, FuncTransform, Scale, ScaleName, linear_tickers};
 use crate::ticker::{AxisName, ScaleHint, TickerSettings};
 use crate::transforms::AxisMap;
 
@@ -11,8 +11,8 @@ use crate::transforms::AxisMap;
 pub struct LinearScale;
 
 impl Scale for LinearScale {
-    fn name(&self) -> &'static str {
-        "linear"
+    fn name(&self) -> ScaleName {
+        ScaleName::Linear
     }
 
     fn axis_map(&self) -> Option<Rc<dyn AxisMap>> {
@@ -58,8 +58,8 @@ impl FuncScale {
 }
 
 impl Scale for FuncScale {
-    fn name(&self) -> &'static str {
-        "function"
+    fn name(&self) -> ScaleName {
+        ScaleName::Function
     }
 
     fn axis_map(&self) -> Option<Rc<dyn AxisMap>> {

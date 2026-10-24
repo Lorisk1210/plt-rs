@@ -9,7 +9,7 @@ use super::blocks::{Blocks, NormClass, forward_boundaries, inverse_boundaries};
 use super::{Colorbar, ColorbarError, ColorbarFormat, ColorbarTicks, Spacing};
 use crate::axes::Axis;
 use crate::colors::{Norm, NormKind, Normalized};
-use crate::scale::{FuncScale, LinearScale, Scale, ScaleOptions, scale_factory};
+use crate::scale::{FuncScale, LinearScale, Scale, ScaleName, ScaleOptions, scale_factory};
 use crate::ticker::{FixedLocator, Formatter, IndexLocator, Locator, NullLocator};
 
 /// The scale of the long axis: from the norm, or spreading discrete blocks
@@ -21,7 +21,7 @@ pub(crate) fn long_axis_scale(
     contours: bool,
 ) -> Box<dyn Scale> {
     let kind = norm.kind();
-    if contours && matches!(&kind, NormKind::Scaled(scale) if scale.name() == "log") {
+    if contours && matches!(&kind, NormKind::Scaled(scale) if scale.name() == ScaleName::Log) {
         return scale_factory("log", ScaleOptions::default())
             .expect("the log scale is always registered");
     }
@@ -231,18 +231,18 @@ mod tests {
         let b = blocks(&mut linear, None);
         assert_eq!(
             long_axis_scale(&b, &linear, Spacing::Uniform, false).name(),
-            "linear"
+            ScaleName::Linear
         );
         let mut log = LogNorm::new(1.0, 100.0);
         let b = blocks(&mut log, None);
         assert_eq!(
             long_axis_scale(&b, &log, Spacing::Uniform, false).name(),
-            "log"
+            ScaleName::Log
         );
         let mut two = TwoSlopeNorm::new(0.0, Some(-1.0), Some(4.0)).unwrap();
         let b = blocks(&mut two, None);
         let scale = long_axis_scale(&b, &two, Spacing::Uniform, false);
-        assert_eq!(scale.name(), "function");
+        assert_eq!(scale.name(), ScaleName::Function);
         assert_eq!(scale.forward(&[0.0, 4.0]), [0.5, 1.0]);
         assert_eq!(scale.inverse(&[0.5]), [0.0]);
     }
@@ -254,7 +254,7 @@ mod tests {
         let uniform = long_axis_scale(&b, &norm, Spacing::Uniform, false);
         assert_eq!(uniform.forward(&[1.0, 2.5]), [0.5, 0.75]);
         let proportional = long_axis_scale(&b, &norm, Spacing::Proportional, false);
-        assert_eq!(proportional.name(), "linear");
+        assert_eq!(proportional.name(), ScaleName::Linear);
     }
 
     #[test]

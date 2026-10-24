@@ -7,7 +7,7 @@ use super::{format_date, resolve_usetex};
 use crate::dates::convert::MICROSECONDS_PER_DAY;
 use crate::dates::locators::DateLocator;
 use crate::dates::tz::TimeZone;
-use crate::ticker::{Formatter, Locator, TickContext, TickLabels, TickerError};
+use crate::ticker::{FormattedTicks, Formatter, Locator, TickContext, TickerError};
 
 /// Labels ticks with the format registered for the smallest scale at least
 /// as large as the locator's unit (days per tick unit).
@@ -117,10 +117,14 @@ impl AutoDateFormatter {
 }
 
 impl Formatter for AutoDateFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         let format = self.format_for(ctx);
         let usetex = resolve_usetex(self.usetex, ctx);
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels: locs
                 .iter()
                 .map(|&x| format_date(x, format, &self.tz, usetex))

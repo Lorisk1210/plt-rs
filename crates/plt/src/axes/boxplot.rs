@@ -1,6 +1,6 @@
 //! Box-and-whisker plots from raw data (matplotlib's `boxplot`).
 
-use super::bxp::{BoxStyle, BoxplotArtists, BxpOptions};
+use super::bxp::{BoxProps, BoxplotArtists, BxpOptions};
 use super::{Axes, PlotError};
 use crate::colors::Color;
 use crate::lines::{FormatString, LineStyle};
@@ -53,7 +53,7 @@ impl Axes {
         options: BoxplotOptions,
     ) -> Result<BoxplotArtists, PlotError> {
         let rc = crate::rc::params();
-        let stats_options = crate::stats::BoxplotOptions {
+        let stats_options = crate::stats::BoxplotStatsOptions {
             whis: options.whis.unwrap_or_else(|| rc.boxplot_whiskers.into()),
             labels: options.tick_labels.clone(),
             autorange: options.autorange,
@@ -113,17 +113,17 @@ fn resolved_draw_options(options: &BoxplotOptions, rc: &RcParams) -> Result<BxpO
     draw.showbox = Some(draw.showbox.unwrap_or(rc.boxplot_showbox));
     draw.showfliers = Some(draw.showfliers.unwrap_or(rc.boxplot_showfliers));
     draw.boxes = Some(match draw.boxes.take() {
-        Some(BoxStyle::Patch(mut props)) => {
+        Some(BoxProps::Patch(mut props)) => {
             if let Some(color) = props.color.take() {
                 props.edgecolor = Some(color);
             }
-            BoxStyle::Patch(props.linestyle(LineStyle::Solid))
+            BoxProps::Patch(props.linestyle(LineStyle::Solid))
         }
-        Some(lines @ BoxStyle::Line(_)) => lines,
+        Some(lines @ BoxProps::Line(_)) => lines,
         None if rc.boxplot_patchartist => {
-            BoxStyle::Patch(crate::patches::PatchProps::default().linestyle(LineStyle::Solid))
+            BoxProps::Patch(crate::patches::PatchProps::default().linestyle(LineStyle::Solid))
         }
-        None => BoxStyle::Line(crate::lines::LineProps::default()),
+        None => BoxProps::Line(crate::lines::LineProps::default()),
     });
     match options.sym.as_deref() {
         None => {}
@@ -215,7 +215,7 @@ mod tests {
         let ax = Figure::new().subplot();
         let options = BoxplotOptions {
             draw: BxpOptions {
-                boxes: Some(BoxStyle::Patch(
+                boxes: Some(BoxProps::Patch(
                     crate::patches::PatchProps::default().color("r"),
                 )),
                 ..BxpOptions::default()

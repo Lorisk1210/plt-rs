@@ -19,7 +19,7 @@ pub(crate) use locators::{
 };
 
 use plt::ticker::{
-    AutolimitMode, AxisInfo, Formatter, Locator, MinorDivisions, TickContext, TickLabels,
+    AutolimitMode, AxisInfo, FormattedTicks, Formatter, Locator, MinorDivisions, TickContext,
     TickerError, TickerSettings,
 };
 
@@ -282,7 +282,7 @@ pub(crate) fn pair(values: Result<(f64, f64), TickerError>) -> Outcome {
         .map_err(ProbeError::rejected)
 }
 
-pub(crate) fn labels(result: Result<TickLabels, TickerError>) -> Outcome {
+pub(crate) fn labels(result: Result<FormattedTicks, TickerError>) -> Outcome {
     let labels = result.map_err(ProbeError::rejected)?;
     Ok(Json::Object(vec![
         ("labels".to_owned(), Json::from(labels.labels)),

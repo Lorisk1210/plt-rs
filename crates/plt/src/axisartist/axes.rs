@@ -29,7 +29,7 @@ pub enum GridHelper {
     /// Along the lines of a curvilinear grid.
     CurveLinear(GridHelperCurveLinear),
     /// Along the lines of a curvilinear grid over fixed extremes.
-    Floating(floating_axes::GridHelperCurveLinear),
+    Floating(floating_axes::FloatingGridHelper),
 }
 
 impl From<GridHelperCurveLinear> for GridHelper {
@@ -38,8 +38,8 @@ impl From<GridHelperCurveLinear> for GridHelper {
     }
 }
 
-impl From<floating_axes::GridHelperCurveLinear> for GridHelper {
-    fn from(helper: floating_axes::GridHelperCurveLinear) -> Self {
+impl From<floating_axes::FloatingGridHelper> for GridHelper {
+    fn from(helper: floating_axes::FloatingGridHelper) -> Self {
         Self::Floating(helper)
     }
 }
@@ -55,19 +55,19 @@ impl From<floating_axes::GridHelperCurveLinear> for GridHelper {
 /// use plt::prelude::*;
 /// use plt::axes::AxisName;
 /// let fig = Figure::new();
-/// let ax = axisartist::Axes::new(fig.subplot());
+/// let ax = axisartist::AxisArtistAxes::new(fig.subplot());
 /// let through_zero = ax.new_floating_axis("y=0", AxisName::X, 0.0);
 /// ax.axis("top").expect("an edge").set_visible(false);
 /// assert_eq!(through_zero.name(), "y=0");
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub struct Axes {
+pub struct AxisArtistAxes {
     ax: crate::axes::Axes,
 }
 
-impl Axes {
+impl AxisArtistAxes {
     /// Turns `ax` into axes drawn by axis artists on its own grid
-    /// (matplotlib's `axisartist.Axes`); see [`Axes::with_grid_helper`].
+    /// (matplotlib's `axisartist.Axes`); see [`AxisArtistAxes::with_grid_helper`].
     pub fn new(ax: crate::axes::Axes) -> Self {
         Self::with_grid_helper(ax, GridHelper::Rectilinear)
     }
@@ -131,7 +131,7 @@ impl Axes {
         }
     }
 
-    /// [`Axes::new`] plus hidden axis lines through the data origin, `xzero`
+    /// [`AxisArtistAxes::new`] plus hidden axis lines through the data origin, `xzero`
     /// along `y = 0` and `yzero` along `x = 0`, clipped to the axes
     /// (matplotlib's `AxesZero`).
     pub fn zero(ax: crate::axes::Axes) -> Self {
@@ -252,12 +252,12 @@ impl Axes {
     /// Adds an axis line where coordinate `nth` varies and the other one
     /// equals `value`, under `name` in place of any artist there
     /// (`ax.axis[name] = ax.new_floating_axis(nth_coord, value)`); see
-    /// [`Axes::new_floating_axis_facing`].
+    /// [`AxisArtistAxes::new_floating_axis_facing`].
     pub fn new_floating_axis(&self, name: &str, nth: AxisName, value: f64) -> AxisArtist {
         self.new_floating_axis_facing(name, nth, value, SpineSide::Bottom)
     }
 
-    /// [`Axes::new_floating_axis`] with the tick labels and label facing
+    /// [`AxisArtistAxes::new_floating_axis`] with the tick labels and label facing
     /// `axis_direction` (matplotlib's `axis_direction` argument, which
     /// curvilinear grids ignore). The coordinates are data coordinates, or
     /// curvilinear ones with a curvilinear grid; the line is clipped to
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn axis_artists_replace_spines_and_axes() {
         let fig = Figure::new();
-        let ax = Axes::new(fig.subplot());
+        let ax = AxisArtistAxes::new(fig.subplot());
         assert!(!ax.ax().spines().left.visible() && !ax.ax().xaxis().visible());
         let names: Vec<String> = ax.axis_artists().iter().map(AxisArtist::name).collect();
         assert_eq!(names, ["bottom", "top", "left", "right"]);
@@ -382,7 +382,7 @@ mod tests {
     #[test]
     fn floating_axes_replace_entries_of_the_same_name_in_place() {
         let fig = Figure::new();
-        let ax = Axes::zero(fig.subplot());
+        let ax = AxisArtistAxes::zero(fig.subplot());
         let xzero = ax.axis("xzero").expect("an axis along y = 0");
         assert!(!xzero.visible());
         let replacement = ax.new_floating_axis("xzero", AxisName::X, 0.5);
@@ -395,7 +395,7 @@ mod tests {
     #[test]
     fn clearing_starts_over_with_the_edges_of_the_grid_helper() {
         let fig = Figure::new();
-        let ax = Axes::new(fig.subplot());
+        let ax = AxisArtistAxes::new(fig.subplot());
         ax.new_floating_axis("y=0", AxisName::X, 0.0);
         ax.ax().plot([0.0, 1.0], [0.0, 2.0]).expect("a line");
         ax.clear();
@@ -414,7 +414,7 @@ mod tests {
             AuxTransform::polar(),
             crate::axisartist::grid_finder::GridFinderOptions::default(),
         );
-        let ax = Axes::with_grid_helper(fig.subplot(), polar);
+        let ax = AxisArtistAxes::with_grid_helper(fig.subplot(), polar);
         ax.ax()
             .set_xlim(-1.0, 1.0)
             .and_then(|ax| ax.set_ylim(-1.0, 1.0))
@@ -451,7 +451,7 @@ mod tests {
     fn auxiliary_axes_live_in_their_host() {
         let fig = Figure::new();
         let host = fig.subplot();
-        let ax = Axes::new(host.clone());
+        let ax = AxisArtistAxes::new(host.clone());
         let aux = ax.aux_axes(&AuxTransform::identity());
         assert_eq!(fig.gca(), host);
         assert_eq!(aux.host().axes(), &host);

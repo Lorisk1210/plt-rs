@@ -265,13 +265,17 @@ pub fn axes_with_projection(
 }
 
 /// A new current axes sharing the x axis of `ax`, or of the current axes,
-/// with its y axis on the right (matplotlib's `twinx`).
+/// with its y axis on the right (matplotlib's `twinx`). It takes the axes
+/// to twin, as matplotlib's pyplot `twinx(ax=None)` does, where
+/// [`Axes::twinx`] is a method of it.
 pub fn twinx(ax: Option<&Axes>) -> Axes {
     ax.cloned().unwrap_or_else(gca).twinx()
 }
 
 /// A new current axes sharing the y axis of `ax`, or of the current axes,
-/// with its x axis on top (matplotlib's `twiny`).
+/// with its x axis on top (matplotlib's `twiny`). It takes the axes to
+/// twin, as matplotlib's pyplot `twiny(ax=None)` does, where
+/// [`Axes::twiny`] is a method of it.
 pub fn twiny(ax: Option<&Axes>) -> Axes {
     ax.cloned().unwrap_or_else(gca).twiny()
 }
@@ -311,7 +315,9 @@ pub fn clf() {
 }
 
 /// Removes `ax` from its figure, or the current axes when `None`
-/// (matplotlib's `delaxes`).
+/// (matplotlib's `delaxes`). It takes the axes, as matplotlib's pyplot
+/// `delaxes(ax=None)` does; an axes removes itself with
+/// [`ArtistHandle::remove`](crate::artist::ArtistHandle::remove).
 pub fn delaxes(ax: Option<&Axes>) {
     match ax {
         Some(ax) => ax.remove(),

@@ -5,7 +5,7 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::{Axes, EventplotOptions, TickParams};
+use plt::axes::{Axes, EventplotOptions, PlotError, TickParams};
 use plt::collections::{CollectionProps, CollectionSpec, ColorMapping, EdgeColors};
 use plt::colorbar::ColorbarOptions;
 use plt::colors::{ScalarMappable, colormaps};
@@ -43,7 +43,7 @@ fn axline_1(fig: &Figure) -> CaseResult {
         Point::new(0.0, 0.5),
         AxLineThrough::Slope(0.25),
         black(dashes(&[5.0, 5.0])),
-    );
+    )?;
     let sigmoid = LineProps::default()
         .linewidth(2.0)
         .label(r"$\sigma(t) = \frac{1}{1 + e^{-t}}$");
@@ -54,13 +54,14 @@ fn axline_1(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-fn axline_2(fig: &Figure) {
+fn axline_2(fig: &Figure) -> Result<(), PlotError> {
     let ax = fig.subplot();
     for pos in linspace(-2.0, 1.0, 10) {
         let props = LineProps::default().color("k").transform(ax.trans_axes());
-        ax.axline(Point::new(pos, 0.0), AxLineThrough::Slope(0.5), props);
+        ax.axline(Point::new(pos, 0.0), AxLineThrough::Slope(0.5), props)?;
     }
     ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    Ok(())
 }
 
 /// The thick blue stroke of the cap and join style demos, drawn over by
@@ -501,10 +502,7 @@ fn vline_hline_demo(fig: &Figure) -> CaseResult {
 /// Every case of the module.
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("gallery_lines/axline_1", axline_1),
-    FigureCase::new("gallery_lines/axline_2", |fig| {
-        axline_2(fig);
-        Ok(())
-    }),
+    FigureCase::new("gallery_lines/axline_2", |fig| Ok(axline_2(fig)?)),
     FigureCase::new("gallery_lines/capstyle", capstyle).sized(4.0, 1.2, 100.0),
     FigureCase::new("gallery_lines/joinstyle", joinstyle).sized(5.0, 4.0, 100.0),
     FigureCase::new("gallery_lines/eventcollection_demo", eventcollection_demo),

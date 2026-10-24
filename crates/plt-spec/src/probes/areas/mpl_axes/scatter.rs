@@ -4,10 +4,16 @@ use plt::artist::ArtistHandle;
 use plt::axes::{EventplotOptions, MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::EdgeColors;
 use plt::colors::Normalize;
+use plt::figure::Figure;
+use plt::legend::LegendOptions;
+use plt::lines::LineStyle;
 use plt::markers::{FillStyle, Marker, MarkerStyle};
+use plt::orientation::Orientation;
 
 use super::{colors, is_color_list, made, number_list, numbers, on_axes, optional, rgba_list};
 use crate::json::Json;
+use crate::probes::areas::mpl_ticker::styled;
+use crate::probes::encode::points;
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
 /// One colour, or colours.
@@ -91,13 +97,33 @@ pub(super) fn scatter(args: Args<'_>) -> Outcome {
     })
 }
 
+/// The event plot options of the probe's keywords.
+fn eventplot_options(args: Args<'_>) -> Result<EventplotOptions, ProbeError> {
+    let defaults = EventplotOptions::default();
+    let linestyles = optional(args, "linestyles", |styles| {
+        super::strings(styles)?
+            .iter()
+            .map(|style| made(style.parse::<LineStyle>()))
+            .collect()
+    })?;
+    Ok(EventplotOptions {
+        orientation: match args.opt_str("orientation")?.unwrap_or("horizontal") {
+            "horizontal" => Orientation::Horizontal,
+            "vertical" => Orientation::Vertical,
+            other => return Err(ProbeError::BadArgs(format!("bad orientation {other}"))),
+        },
+        lineoffsets: optional(args, "lineoffsets", number_list)?.unwrap_or(defaults.lineoffsets),
+        linelengths: optional(args, "linelengths", number_list)?.unwrap_or(defaults.linelengths),
+        linewidths: optional(args, "linewidths", number_list)?,
+        colors: optional(args, "colors", colors)?.unwrap_or_default(),
+        alpha: optional(args, "alpha", number_list)?,
+        linestyles: linestyles.unwrap_or(defaults.linestyles),
+    })
+}
+
 pub(super) fn eventplot(args: Args<'_>) -> Outcome {
     on_axes(args, |ax| {
-        let options = EventplotOptions {
-            colors: optional(args, "colors", colors)?.unwrap_or_default(),
-            alpha: optional(args, "alpha", number_list)?.unwrap_or_default(),
-            ..EventplotOptions::default()
-        };
+        let options = eventplot_options(args)?;
         let rows = made(ax.eventplot(&super::datasets(args.json("positions")?)?, options))?;
         let colors = rows
             .iter()
@@ -110,5 +136,39 @@ pub(super) fn eventplot(args: Args<'_>) -> Outcome {
                 Json::Array(rows.iter().map(|row| Json::from(row.alpha())).collect()),
             ),
         ]))
+    })
+}
+
+pub(super) fn eventplot_segments(args: Args<'_>) -> Outcome {
+    styled(args, || {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let rows = made(ax.eventplot(
+            &super::datasets(args.json("positions")?)?,
+            eventplot_options(args)?,
+        ))?;
+        fig.layout();
+        let segments = rows.iter().map(|row| {
+            Json::Array(
+                row.paths()
+                    .iter()
+                    .map(|path| points(path.vertices()))
+                    .collect(),
+            )
+        });
+        Ok(Json::Array(segments.collect()))
+    })
+}
+
+pub(super) fn eventplot_legend(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let positions = vec![args.f64_vec("positions")?];
+        for row in made(ax.eventplot(&positions, EventplotOptions::default()))? {
+            row.set_label(args.str("label")?);
+        }
+        let legend = made(ax.legend(LegendOptions::default()))?;
+        Ok(Json::Array(
+            legend.labels().into_iter().map(Json::from).collect(),
+        ))
     })
 }

@@ -124,7 +124,29 @@ pub fn general_alternate(x: f64, precision: usize) -> String {
 ///
 /// When neither form accepts `template`.
 pub fn auto_format(template: &str, value: f64) -> Result<String, FormatError> {
+    auto_format_value(template, value, false)
+}
+
+/// [`auto_format`] for a value that Python holds as an `int` when
+/// `integer` (a whole number, as in numpy's integer arrays), so that
+/// `"{:d}"` accepts it and `"{}"` prints no decimal point.
+///
+/// ```
+/// use plt::ticker::pyfmt::auto_format_value;
+/// assert_eq!(auto_format_value("{:d}", 5.0, true).unwrap(), "5");
+/// assert_eq!(auto_format_value("{}", 5.0, false).unwrap(), "5.0");
+/// assert!(auto_format_value("{:d}", 5.0, false).is_err());
+/// ```
+///
+/// # Errors
+///
+/// When neither form accepts `template`.
+pub fn auto_format_value(template: &str, value: f64, integer: bool) -> Result<String, FormatError> {
     match PrintfFormat::parse(template).and_then(|format| format.format(value)) {
+        Err(FormatError::Type(_) | FormatError::Value(_)) if integer => {
+            let whole = TemplateValue::Int(value as i64);
+            StrTemplate::parse_positional_int(template)?.render_values(&[whole], |text| text)
+        }
         Err(FormatError::Type(_) | FormatError::Value(_)) => {
             StrTemplate::parse_positional(template)?.render(value, None, |text| text)
         }

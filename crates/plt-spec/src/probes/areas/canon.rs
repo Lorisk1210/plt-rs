@@ -12,6 +12,7 @@ use plt::rc::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, CycleValue, Cycler, Distiller,
     Dpi, FontType, HistBins, LabelColor, SavefigBbox, Whiskers,
 };
+use plt::text::{HAlign, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::MinorDivisions;
 use plt_render::{CapStyle, JoinStyle};
 
@@ -190,6 +191,39 @@ impl Canon for Marker {
 impl Canon for CapStyle {
     fn canon(&self) -> Json {
         text(self.name())
+    }
+}
+
+impl Canon for HAlign {
+    fn canon(&self) -> Json {
+        text(match self {
+            Self::Left => "left",
+            Self::Center => "center",
+            Self::Right => "right",
+        })
+    }
+}
+
+impl Canon for VAlign {
+    fn canon(&self) -> Json {
+        text(match self {
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+            Self::Center => "center",
+            Self::Baseline => "baseline",
+            Self::CenterBaseline => "center_baseline",
+        })
+    }
+}
+
+impl Canon for RotationMode {
+    fn canon(&self) -> Json {
+        text(match self {
+            Self::Default => "default",
+            Self::Anchor => "anchor",
+            Self::XTick => "xtick",
+            Self::YTick => "ytick",
+        })
     }
 }
 

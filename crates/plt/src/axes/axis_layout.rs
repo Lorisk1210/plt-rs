@@ -14,7 +14,7 @@ use super::axis::AxisState;
 use super::state::AxesState;
 use super::tick_set::Tick;
 use super::ticks::TickStyle;
-use crate::artist::{Artist, ArtistId, LayoutContext};
+use crate::artist::{ArtistId, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -320,7 +320,7 @@ impl<'a> AxisPainter<'a> {
     /// drawn on it (matplotlib's `Spine.get_window_extent`): the major and
     /// the minor ticks each pad the bare spine, so the longer ones count.
     pub(crate) fn spine_extent(&self, layout: LayoutContext<'_>, side: SpineSide) -> Option<Bbox> {
-        let spine = self.spine(layout, side)?.window_extent(&layout)?;
+        let spine = self.spine(layout, side)?.line_extent(layout)?;
         let mut bbox = spine;
         let ticks = self.axis.ticks.as_ref().ok()?;
         for (present, style) in [

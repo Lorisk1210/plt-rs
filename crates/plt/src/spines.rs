@@ -231,8 +231,17 @@ impl Artist for SpineArtist {
         }
     }
 
+    /// The spine's extent widened by the tick marks of a visible axis
+    /// drawn on it (matplotlib's `Spine.get_window_extent`).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        let (path, affine) = self.display_path(*ctx)?;
+        crate::axes::spine_extent_with_ticks(*ctx, self).or_else(|| self.line_extent(*ctx))
+    }
+}
+
+impl SpineArtist {
+    /// The extent of the spine line alone, in display pixels.
+    pub(crate) fn line_extent(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
+        let (path, affine) = self.display_path(ctx)?;
         Some(path.transformed(&affine).extents())
     }
 }

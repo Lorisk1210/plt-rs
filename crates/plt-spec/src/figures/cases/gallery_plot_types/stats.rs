@@ -108,7 +108,7 @@ fn eventplot(fig: &Figure) -> CaseResult {
     let options = EventplotOptions {
         orientation: Orientation::Vertical,
         lineoffsets: POSITIONS.to_vec(),
-        linewidths: vec![0.75],
+        linewidths: Some(vec![0.75]),
         ..EventplotOptions::default()
     };
     ax.eventplot(&data, options)?;

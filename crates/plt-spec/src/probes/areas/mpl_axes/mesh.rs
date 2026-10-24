@@ -1,8 +1,12 @@
-//! Images and pseudocolour meshes: colour limits and argument checks.
+//! Images and pseudocolour meshes: colour limits, argument checks and
+//! the artist `pcolorfast` picks.
 
-use plt::axes::{ImshowOptions, Mesh, MeshCoords, PcolorOptions, Shading};
+use plt::axes::{
+    Axes, ImshowOptions, MappedColors, Mesh, MeshCoords, PcolorFast, PcolorOptions,
+    PcolorfastOptions, ScatterOptions, Shading,
+};
 use plt::colors::Normalize;
-use plt::image::ColorizerOptions;
+use plt::image::{ColorizerOptions, ImageData};
 use plt::numeric::Grid;
 
 use super::{count, datasets, made, on_axes};
@@ -77,5 +81,100 @@ pub(super) fn pcolormesh(args: Args<'_>) -> Outcome {
         };
         made(ax.pcolormesh(mesh(args)?, options))?;
         Ok(encode::bbox(&ax.data_lim().bbox))
+    })
+}
+
+/// `C`: rows of numbers, or rows of RGB triples.
+fn fast_values(value: &Json) -> Result<ImageData, ProbeError> {
+    if let Ok(rows) = datasets(value) {
+        return Ok(made(Grid::from_rows(rows))?.into());
+    }
+    let rows = value
+        .as_array()
+        .ok_or_else(|| ProbeError::BadArgs(format!("bad C {value}")))?
+        .iter()
+        .map(|row| {
+            datasets(row)?
+                .into_iter()
+                .map(|rgb| match rgb[..] {
+                    [r, g, b] => Ok([r, g, b]),
+                    _ => Err(ProbeError::BadArgs(format!("not RGB: {rgb:?}"))),
+                })
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(made(Grid::from_rows(rows))?.into())
+}
+
+pub(super) fn pcolorfast(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let xy = match (args.get("x"), args.get("y")) {
+            (Some(x), Some(y)) => Some((coords(x)?, coords(y)?)),
+            _ => None,
+        };
+        let drawn = made(ax.pcolorfast(
+            xy,
+            fast_values(args.json("C")?)?,
+            PcolorfastOptions::default(),
+        ))?;
+        Ok(Json::from(match drawn {
+            PcolorFast::Image(_) => "AxesImage",
+            PcolorFast::PcolorImage(_) => "PcolorImage",
+            PcolorFast::QuadMesh(_) => "QuadMesh",
+        }))
+    })
+}
+
+/// `clim=(7, 8)`.
+fn clim_colors() -> ColorizerOptions {
+    ColorizerOptions::default().limits(Some(7.0), Some(8.0))
+}
+
+/// The colour limits `method` sets from `clim=(7, 8)`.
+fn clim_of(ax: &Axes, method: &str) -> Result<(Option<f64>, Option<f64>), ProbeError> {
+    let data = || made(Grid::from_rows(vec![vec![0.0, 1.0], vec![2.0, 3.0]]));
+    let pcolor_options = || PcolorOptions {
+        colors: clim_colors(),
+        ..PcolorOptions::default()
+    };
+    Ok(match method {
+        "scatter" => {
+            let colors = MappedColors::new(vec![0.0, 1.0, 2.0]).with_limits(Some(7.0), Some(8.0));
+            let options = ScatterOptions {
+                colors: colors.into(),
+                ..ScatterOptions::default()
+            };
+            made(ax.scatter_with(vec![0.0, 1.0, 2.0], vec![0.0, 1.0, 2.0], options))?.clim()
+        }
+        "imshow" => {
+            let options = ImshowOptions {
+                colors: clim_colors(),
+                ..ImshowOptions::default()
+            };
+            made(ax.imshow(data()?, options))?.clim()
+        }
+        "pcolor" => made(ax.pcolor(Mesh::new(data()?), pcolor_options()))?.clim(),
+        "pcolormesh" => made(ax.pcolormesh(Mesh::new(data()?), pcolor_options()))?.clim(),
+        "pcolorfast" => {
+            let options = PcolorfastOptions {
+                colors: clim_colors(),
+                ..PcolorfastOptions::default()
+            };
+            match made(ax.pcolorfast(None, data()?, options))? {
+                PcolorFast::Image(image) => image.clim(),
+                PcolorFast::QuadMesh(mesh) => mesh.clim(),
+                PcolorFast::PcolorImage(_) => {
+                    return Err(ProbeError::BadArgs("unexpected PcolorImage".into()));
+                }
+            }
+        }
+        other => return Err(ProbeError::BadArgs(format!("unknown method {other}"))),
+    })
+}
+
+pub(super) fn clim(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let (vmin, vmax) = clim_of(ax, args.str("method")?)?;
+        Ok(Json::Array(vec![Json::from(vmin), Json::from(vmax)]))
     })
 }

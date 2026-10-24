@@ -552,11 +552,13 @@ mod tests {
         assert_eq!(extent, Bbox::from_extents(31.0, 67.0, 113.0, 149.0));
         let empty = ax.plot([f64::NAN], [1.0]).unwrap();
         assert_eq!(empty.window_extent(), None);
-        let flat = ax.axline(
-            Point::new(0.0, 0.5),
-            AxLineThrough::Slope(0.0),
-            LineProps::default(),
-        );
+        let flat = ax
+            .axline(
+                Point::new(0.0, 0.5),
+                AxLineThrough::Slope(0.0),
+                LineProps::default(),
+            )
+            .unwrap();
         assert_eq!(
             flat.window_extent(),
             Some(Bbox::from_extents(0.0, 72.0, 144.0, 72.0))
@@ -580,11 +582,13 @@ mod tests {
         // matplotlib's test_axline_transaxes_panzoom.
         let fig = Figure::with_size(2.0, 2.0, 72.0);
         let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        let line = ax.axline(
-            Point::new(0.5, 0.5),
-            AxLineThrough::Slope(2.0),
-            LineProps::default(),
-        );
+        let line = ax
+            .axline(
+                Point::new(0.5, 0.5),
+                AxLineThrough::Slope(2.0),
+                LineProps::default(),
+            )
+            .unwrap();
         line.set_transform(ax.trans_axes());
         ax.set_xlim(0.0, 5.0).set_ylim(0.0, 10.0);
         // Through the data point (2.5, 5) with slope 2: y = 2x, from the

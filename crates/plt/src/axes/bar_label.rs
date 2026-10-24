@@ -10,7 +10,7 @@ use crate::artist::ArtistHandle;
 use crate::coords::{CoordError, CoordOrigin, CoordUnit, Coords};
 use crate::orientation::Orientation;
 use crate::text::{AnnotateOptions, Annotation, HAlign, VAlign};
-use crate::ticker::pyfmt::{FormatError, auto_format};
+use crate::ticker::pyfmt::{FormatError, auto_format_value};
 
 /// Where bar labels sit (matplotlib's `label_type`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -154,6 +154,12 @@ impl Axes {
             }
         };
         let error_ends = error_bar_ends(container);
+        // Whole values format as Python integers, as matplotlib's integer
+        // arrays of bar heights do.
+        let whole = container
+            .datavalues
+            .iter()
+            .all(|v| v.is_finite() && v.fract() == 0.0 && v.abs() < 2f64.powi(63));
         container
             .patches
             .iter()
@@ -185,7 +191,7 @@ impl Axes {
                 let text = match options.labels.get(i) {
                     _ if value.is_nan() => String::new(),
                     Some(label) => label.clone(),
-                    None => format_value(&options.fmt, value)?,
+                    None => format_value(&options.fmt, value, whole)?,
                 };
                 let center = (
                     (rect.xy.x + (rect.xy.x + rect.width)) / 2.0,
@@ -308,11 +314,11 @@ impl LabelPlacement {
 }
 
 /// The label text of `value` (matplotlib's `_auto_format_str` or the
-/// callable).
-fn format_value(format: &BarLabelFormat, value: f64) -> Result<String, BarLabelError> {
+/// callable), an integer for Python when `whole`.
+fn format_value(format: &BarLabelFormat, value: f64, whole: bool) -> Result<String, BarLabelError> {
     match format {
         BarLabelFormat::Template(template) => {
-            auto_format(template, value).map_err(BarLabelError::Format)
+            auto_format_value(template, value, whole).map_err(BarLabelError::Format)
         }
         BarLabelFormat::Func(f) => Ok(f(value)),
     }
@@ -376,6 +382,12 @@ mod tests {
         let labels = ax.bar_label(&bars, options).unwrap();
         let texts: Vec<String> = labels.iter().map(|l| l.text()).collect();
         assert_eq!(texts, ["a", "", "300%"]);
+        let whole = ax.bar([5.0], [7.0], BarOptions::default()).unwrap();
+        let integer = BarLabelOptions {
+            fmt: BarLabelFormat::Template("{:d}".into()),
+            ..BarLabelOptions::default()
+        };
+        assert_eq!(ax.bar_label(&whole, integer).unwrap()[0].text(), "7");
         assert_eq!(labels[2].halign(), HAlign::Center);
         let padded = BarLabelOptions {
             padding: vec![1.0, 2.0],

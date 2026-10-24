@@ -131,6 +131,7 @@ pub use tick_lines::{GridLine, TickLine, TickLineProps};
 pub use tick_set::{Tick, TickSet};
 pub(crate) use ticks::grid_level_on;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
+pub(crate) use tight_bbox::spine_extent_with_ticks;
 pub(crate) use tight_bbox::{clipped_extent, collapse_x};
 pub use tripcolor::{TriShading, TriValues, Tripcolor, TripcolorError, TripcolorOptions};
 pub use triplot::TriplotLines;

@@ -38,8 +38,17 @@ fn hist_options(args: Args<'_>) -> Result<HistPlotOptions<'static>, ProbeError> 
     let bins = match args.get("bins") {
         None => None,
         Some(Json::Integer(n)) => Some(Bins::Count(made(usize::try_from(*n))?)),
+        Some(Json::String(estimator)) => Some(Bins::Estimator(made(estimator.parse())?)),
         Some(edges) => Some(Bins::Edges(super::number_list(edges)?)),
     };
+    let range = optional(
+        args,
+        "range",
+        |range| match super::number_list(range)?[..] {
+            [low, high] => Ok((low, high)),
+            _ => Err(ProbeError::BadArgs(format!("bad range {range}"))),
+        },
+    )?;
     let bottom = match args.get("bottom") {
         None => HistBottom::default(),
         Some(b @ Json::Array(_)) => HistBottom::PerBin(super::number_list(b)?),
@@ -56,6 +65,7 @@ fn hist_options(args: Args<'_>) -> Result<HistPlotOptions<'static>, ProbeError> 
     let mut options = HistPlotOptions {
         layout: HistOptions {
             bins,
+            range,
             density: args.opt_bool("density")?.unwrap_or(false),
             stacked: args.opt_bool("stacked")?.unwrap_or(false),
             histtype: histtype(args)?,
@@ -117,17 +127,33 @@ pub(super) fn hist(args: Args<'_>) -> Outcome {
                     .collect()
             }
         };
-        let n = match plot.tops.as_slice() {
-            [single] => numbers(single),
-            several => Json::Array(several.iter().map(|tops| numbers(tops)).collect()),
-        };
         Ok(encode::object([
-            ("n", n),
+            ("n", counts(&plot.tops)),
             ("xy", Json::Array(xy)),
             ("faces", rgba_list(&faces)),
             ("edges", rgba_list(&edges)),
             ("zorders", Json::Array(zorders)),
             ("labels", Json::Array(labels)),
+        ]))
+    })
+}
+
+/// The counts of a histogram: flat for one dataset, one list per dataset
+/// otherwise.
+fn counts(tops: &[Vec<f64>]) -> Json {
+    match tops {
+        [single] => numbers(single),
+        several => Json::Array(several.iter().map(|tops| numbers(tops)).collect()),
+    }
+}
+
+pub(super) fn hist_bins(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let datasets = hist_datasets(args.json("x")?)?;
+        let plot = made(ax.hist(&datasets, hist_options(args)?))?;
+        Ok(encode::object([
+            ("n", counts(&plot.tops)),
+            ("bins", numbers(&plot.edges)),
         ]))
     })
 }

@@ -277,11 +277,41 @@ impl Figure {
     }
 }
 
+impl Axes {
+    /// Adds geographic inset axes at `[left, bottom, width, height]` in
+    /// this axes' fractions (matplotlib's `inset_axes(...,
+    /// projection="hammer")` and friends; see [`Axes::inset_axes`]).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::geo::GeoProjection;
+    /// let host = Figure::new().subplot();
+    /// let inset = host.geo_inset_axes([0.2, 0.2, 0.3, 0.3], GeoProjection::Hammer);
+    /// assert_eq!(inset.projection().name(), "hammer");
+    /// assert_eq!(host.child_axes().len(), 1);
+    /// ```
+    #[must_use]
+    pub fn geo_inset_axes(&self, bounds: [f64; 4], projection: GeoProjection) -> GeoAxes {
+        GeoAxes::convert(self.inset_axes(bounds), projection)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::axes::{AxisName, ProjectionKind};
     use crate::testing::RecordingRenderer;
+
+    #[test]
+    fn geo_insets_are_child_axes() {
+        // matplotlib's test_inset_projection.
+        let fig = Figure::new();
+        let host = fig.subplot();
+        let inset = host.geo_inset_axes([0.2, 0.2, 0.3, 0.3], GeoProjection::Hammer);
+        assert_eq!(inset.projection(), ProjectionKind::Hammer);
+        assert_eq!(host.child_axes(), std::slice::from_ref(&inset.axes));
+        assert_eq!(fig.axes(), [host]);
+    }
 
     #[test]
     fn new_geo_axes_follow_matplotlib_defaults() {

@@ -557,11 +557,11 @@ pub(crate) const CASES: &[FigureCase] = &[
             origin,
             AxLineThrough::Point(Point::new(1.0, 1.0)),
             props().color("C1"),
-        );
+        )?;
         let dashed = props().color("C2").linestyle(LineStyle::Dashed);
-        ax.axline(Point::new(0.0, 1.0), AxLineThrough::Slope(-0.5), dashed);
+        ax.axline(Point::new(0.0, 1.0), AxLineThrough::Slope(-0.5), dashed)?;
         let vertical = AxLineThrough::Point(Point::new(2.0, 1.0));
-        ax.axline(Point::new(2.0, 0.0), vertical, props().color("C3"));
+        ax.axline(Point::new(2.0, 0.0), vertical, props().color("C3"))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

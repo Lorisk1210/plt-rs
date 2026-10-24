@@ -44,7 +44,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             lineoffsets: vec![1.0, 3.0, 4.0],
             linelengths: vec![0.5, 1.5, 0.8],
             colors: ["C0", "C1", "C2"].map(Color::from).to_vec(),
-            linewidths: vec![1.0, 2.0, 3.0],
+            linewidths: Some(vec![1.0, 2.0, 3.0]),
             ..EventplotOptions::default()
         };
         fig.subplot().eventplot(&events, options)?;

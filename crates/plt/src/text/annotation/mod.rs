@@ -351,6 +351,25 @@ impl Annotation {
     pub fn annotation_clip(&self) -> Option<bool> {
         self.state(|a| a.annotation_clip)
     }
+
+    /// Whether the annotation draws an arrow to its point, which it does
+    /// when made with `arrowprops`, default ones included (matplotlib's
+    /// `arrow_patch is not None`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::text::{AnnotateOptions, ArrowProps, LegacyArrowProps};
+    /// let ax = Figure::new().subplot();
+    /// let plain = ax.annotate("foo", (0.0, 1.0), AnnotateOptions::default())?;
+    /// assert!(!plain.has_arrow());
+    /// let arrowprops = Some(ArrowProps::Legacy(LegacyArrowProps::default()));
+    /// let arrowed = ax.annotate("foo", (0.0, 1.0), AnnotateOptions { arrowprops, ..Default::default() })?;
+    /// assert!(arrowed.has_arrow());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn has_arrow(&self) -> bool {
+        self.state(|a| a.arrow.is_some())
+    }
 }
 
 impl Deref for Annotation {

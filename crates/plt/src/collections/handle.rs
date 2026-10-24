@@ -175,6 +175,24 @@ impl Collection {
         self.raw.with::<CollectionArtist, _>(CollectionStyle::of)
     }
 
+    /// The edge widths in points, the kind's default when none were set:
+    /// `lines.linewidth` for line collections, else `patch.linewidth`
+    /// (matplotlib's `get_linewidth`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let points = ax.scatter([0.0, 1.0], [0.0, 1.0])?;
+    /// assert_eq!(points.linewidths(), [plt::rc::params().patch_linewidth]);
+    /// points.set_linewidths(vec![0.5, 2.0]);
+    /// assert_eq!(points.linewidths(), [0.5, 2.0]);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn linewidths(&self) -> Vec<f64> {
+        self.raw
+            .with::<CollectionArtist, _>(CollectionArtist::linewidths_or_default)
+    }
+
     /// The values mapped to colours, `None` without a colour mapping
     /// (matplotlib's `get_array`).
     pub fn array(&self) -> Option<Vec<Option<f64>>> {

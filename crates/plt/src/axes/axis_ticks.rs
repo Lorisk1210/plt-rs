@@ -79,7 +79,7 @@ impl Axis {
         let labels: Vec<String> = labels.into_iter().map(Into::into).collect();
         let formatter =
             self.read(|axis| tick_label_formatter(axis.minor_locator.as_ref(), labels))?;
-        self.update_shared(|axis| axis.minor_formatter = Rc::clone(&formatter));
+        self.update_shared(|axis| axis.set_minor_formatter(Rc::clone(&formatter)));
         Ok(self)
     }
 

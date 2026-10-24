@@ -63,7 +63,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let options = StemOptions {
             linefmt: "g:".parse()?,
             markerfmt: "D".parse()?,
-            basefmt: "k-".parse()?,
+            basefmt: Some("k-".parse()?),
             bottom: 1.0,
             ..StemOptions::default()
         };

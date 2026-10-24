@@ -123,6 +123,35 @@ impl StepPatch {
         }
     }
 
+    /// The same patch with new values, new edges or both, validated as
+    /// [`StepPatch::new`] and [`StepPatch::with_baseline`] do (matplotlib's
+    /// `StepPatch.set_data`; give the result to `Patch::set_shape`).
+    ///
+    /// ```
+    /// use plt::patches::StepPatch;
+    /// let steps = StepPatch::new(vec![1.0, 2.0], vec![0.0, 1.0, 2.0])?;
+    /// let moved = steps.clone().with_data(None, Some(vec![1.0, 2.0, 4.0]))?;
+    /// assert_eq!(moved.edges(), [1.0, 2.0, 4.0]);
+    /// assert!(steps.with_data(None, Some(vec![1.0, f64::NAN, 2.0])).is_err());
+    /// # Ok::<(), plt::patches::StepPatchError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the edge count is not one more than the value count, an edge is
+    /// NaN, or a per-step baseline no longer matches the values.
+    pub fn with_data(
+        self,
+        values: Option<Vec<f64>>,
+        edges: Option<Vec<f64>>,
+    ) -> Result<Self, StepPatchError> {
+        let values = values.unwrap_or(self.values);
+        let edges = edges.unwrap_or(self.edges);
+        Ok(Self::new(values, edges)?
+            .with_baseline(self.baseline)?
+            .with_orientation(self.orientation))
+    }
+
     /// The step heights.
     pub fn values(&self) -> &[f64] {
         &self.values

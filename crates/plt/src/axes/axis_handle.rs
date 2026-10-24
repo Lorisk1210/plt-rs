@@ -141,7 +141,7 @@ impl Axis {
     /// Labels the minor ticks with `formatter`.
     pub fn set_minor_formatter(&self, formatter: impl Formatter) -> &Self {
         let formatter: Rc<dyn Formatter> = Rc::new(formatter);
-        self.update_shared(|axis| axis.minor_formatter = Rc::clone(&formatter));
+        self.update_shared(|axis| axis.set_minor_formatter(Rc::clone(&formatter)));
         self
     }
 
@@ -150,6 +150,46 @@ impl Axis {
     /// [`major_locator`](Self::major_locator).
     pub fn minor_formatter(&self) -> Rc<dyn Formatter> {
         self.read(|axis| Rc::clone(&axis.minor_formatter))
+    }
+
+    /// Whether the major locator is still the one the scale installed
+    /// (matplotlib's `isDefault_majloc`): setting a locator clears it,
+    /// setting a scale restores it. Units such as dates or categories
+    /// replace only default helpers.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::ticker::MultipleLocator;
+    /// let ax = Figure::new().subplot();
+    /// assert!(ax.xaxis().is_default_major_locator());
+    /// ax.xaxis().set_major_locator(MultipleLocator::new(0.5)?);
+    /// assert!(!ax.xaxis().is_default_major_locator());
+    /// assert!(ax.yaxis().is_default_major_locator());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn is_default_major_locator(&self) -> bool {
+        self.read(|axis| axis.defaults.major.locator)
+    }
+
+    /// Whether the major formatter is still the one the scale installed
+    /// (matplotlib's `isDefault_majfmt`); see
+    /// [`is_default_major_locator`](Self::is_default_major_locator).
+    pub fn is_default_major_formatter(&self) -> bool {
+        self.read(|axis| axis.defaults.major.formatter)
+    }
+
+    /// Whether the minor locator is still the one the scale installed
+    /// (matplotlib's `isDefault_minloc`); see
+    /// [`is_default_major_locator`](Self::is_default_major_locator).
+    pub fn is_default_minor_locator(&self) -> bool {
+        self.read(|axis| axis.defaults.minor.locator)
+    }
+
+    /// Whether the minor formatter is still the one the scale installed
+    /// (matplotlib's `isDefault_minfmt`); see
+    /// [`is_default_major_locator`](Self::is_default_major_locator).
+    pub fn is_default_minor_formatter(&self) -> bool {
+        self.read(|axis| axis.defaults.minor.formatter)
     }
 
     /// Whether the offset (or scale) text is shown (matplotlib's

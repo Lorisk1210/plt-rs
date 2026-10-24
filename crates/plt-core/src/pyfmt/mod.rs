@@ -84,7 +84,14 @@ pub fn integer(x: f64) -> String {
 
 /// Python's `'%.{precision}f' % x`.
 pub fn fixed(x: f64, precision: usize) -> String {
-    format_float(x, FloatStyle::new(Presentation::Fixed, precision))
+    if x.is_finite() {
+        // Rust's `{:.N}` rounds the exact binary value half to even, as
+        // Python's `%f` does, and keeps the sign of negative zero; it is
+        // the vector backends' hot path, so skip the general layout.
+        format!("{x:.precision$}")
+    } else {
+        format_float(x, FloatStyle::new(Presentation::Fixed, precision))
+    }
 }
 
 /// Python's `'%.{precision}e' % x`.
@@ -178,5 +185,29 @@ mod tests {
         assert_eq!(general(1234.5678, 6), "1234.57");
         assert_eq!(general_alternate(1.234_567_89, 8), "1.2345679");
         assert_eq!(general_alternate(1e-7, 4), "1.000e-07");
+    }
+
+    #[test]
+    fn fixed_fast_path_matches_the_general_layout() {
+        let mut rng = crate::rng::SplitMix64::new(7);
+        let mut values = vec![0.0, -0.0, 0.5, 1.5, 2.5, -2.5, 0.125, -0.001, 1e300, 5e-324];
+        for _ in 0..5000 {
+            let magnitude = 10f64.powi((rng.next_u64() % 40) as i32 - 20);
+            let sign = if rng.next_u64().is_multiple_of(2) {
+                1.0
+            } else {
+                -1.0
+            };
+            values.push(sign * rng.next_f64() * magnitude);
+        }
+        for value in values {
+            for precision in 0..=12 {
+                assert_eq!(
+                    fixed(value, precision),
+                    format_float(value, FloatStyle::new(Presentation::Fixed, precision)),
+                    "{value:e} with {precision} digits"
+                );
+            }
+        }
     }
 }

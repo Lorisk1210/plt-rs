@@ -297,7 +297,7 @@ pub(crate) fn make_axes(
         );
     }
     let (left, bottom, width, height) = colorbar_box.bounds();
-    let cax = figure.add_axes([left, bottom, width, height]);
+    let cax = figure.add_axes([left, bottom, width, height])?;
     place(&cax, colorbar_box, None);
     request.finish(cax, parents, pad)
 }
@@ -395,7 +395,9 @@ mod tests {
     #[test]
     fn make_axes_steals_from_the_right() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
         let placed = make_axes(
             &fig,
             &[Parent::Axes(ax.clone())],

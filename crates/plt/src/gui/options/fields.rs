@@ -124,6 +124,18 @@ pub(super) fn parse_number(name: &str, text: &str) -> Result<f64, FieldError> {
         .map_err(|_| FieldError(format!("{name}: {text:?} is not a number")))
 }
 
+/// The axis limit typed into the field called `name`: a finite number.
+pub(super) fn parse_limit(name: &str, text: &str) -> Result<f64, FieldError> {
+    let limit = parse_number(name, text)?;
+    if limit.is_finite() {
+        Ok(limit)
+    } else {
+        Err(FieldError(format!(
+            "{name}: {text:?} is not a finite number"
+        )))
+    }
+}
+
 /// matplotlib's `to_hex(c, keep_alpha=True)`: `#rrggbbaa`.
 pub(super) fn hex(color: Rgba) -> String {
     let channel = |v: f64| {
@@ -199,6 +211,8 @@ mod tests {
         assert_eq!(number_text(2.0), "2.0");
         assert_eq!(parse_number("Min", " 1e3 "), Ok(1000.0));
         assert!(parse_number("Min", "abc").is_err());
+        assert_eq!(parse_limit("Min", "-2.5"), Ok(-2.5));
+        assert!(parse_limit("Min", "nan").is_err());
         assert!(parse_color("Color", "#ff000080").is_ok());
         assert!(parse_color("Color", "nope").is_err());
         assert_eq!(swatch_color("red"), Some(Rgba::new(1.0, 0.0, 0.0, 1.0)));

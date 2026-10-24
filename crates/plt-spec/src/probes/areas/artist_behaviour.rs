@@ -115,7 +115,9 @@ fn default_zorder() -> Outcome {
 fn transform_of_none() -> Outcome {
     let fig = Figure::new();
     let ax = fig.subplot();
-    ax.set_xlim(1.0, 3.0).set_ylim(1.0, 3.0);
+    ax.set_xlim(1.0, 3.0)
+        .and_then(|ax| ax.set_ylim(1.0, 3.0))
+        .map_err(ProbeError::rejected)?;
     let pixel =
         made(fig.resolve_transform(&ax.trans_data()))?.transform_point(Point::new(2.0, 2.0));
     let data = ax.add_patch(Ellipse::new((2.0, 2.0), 1.0, 1.0));
@@ -313,7 +315,7 @@ fn cull_markers() -> Outcome {
     let fig = Figure::new();
     let ax = fig.subplot();
     made(ax.plot_fmt(x, y, "k."))?;
-    ax.set_xlim(2.0, 3.0);
+    made(ax.set_xlim(2.0, 3.0))?;
     let pdf = made(fig.to_pdf())?;
     let svg = made(fig.to_svg())?;
     Ok(object([

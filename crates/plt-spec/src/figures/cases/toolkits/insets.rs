@@ -34,7 +34,7 @@ fn field_image(
 }
 
 pub(super) fn inset_locator(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.1, 0.1, 0.65, 0.8]);
+    let ax = fig.add_axes([0.1, 0.1, 0.65, 0.8])?;
     let im = ax.imshow(field(40, 0.0), field_image("coolwarm", None)?)?;
     let upper = inset_axes(
         &ax,
@@ -113,7 +113,7 @@ pub(super) fn zoomed_marked(fig: &Figure) -> CaseResult {
         },
     );
     zoomed.imshow(field(60, 0.0), field_image("magma", Some(Origin::Lower))?)?;
-    zoomed.set_xlim(0.5, 1.5).set_ylim(-0.8, 0.2);
+    zoomed.set_xlim(0.5, 1.5)?.set_ylim(-0.8, 0.2)?;
     zoomed.set_xticks(Vec::<f64>::new());
     zoomed.set_yticks(Vec::<f64>::new());
     mark_inset(
@@ -142,7 +142,7 @@ pub(super) fn zoomed_marked(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn rgb(fig: &Figure) -> CaseResult {
-    let axes = RgbAxes::new(fig, [0.1, 0.1, 0.8, 0.8], 0.0);
+    let axes = RgbAxes::new(fig, [0.1, 0.1, 0.8, 0.8], 0.0)?;
     let x = linspace(-1.0, 1.0, 24);
     let r = Grid::from_fn(24, 24, |i, j| {
         (1.0 - x[j] * x[j] - x[i] * x[i]).clamp(0.0, 1.0)
@@ -174,6 +174,6 @@ pub(super) fn axisline_styles(fig: &Figure) -> CaseResult {
     let x = linspace(-1.0, 1.0, 50);
     let y: Vec<f64> = x.iter().map(|x| x.powi(3) - 0.5 * x).collect();
     ax.ax().plot(x, y)?;
-    ax.ax().set_xlim(-1.2, 1.2).set_ylim(-0.8, 0.8);
+    ax.ax().set_xlim(-1.2, 1.2)?.set_ylim(-0.8, 0.8)?;
     Ok(())
 }

@@ -36,9 +36,9 @@ fn twin_spines(fig: &Figure) -> CaseResult {
         par1.plot_fmt([0.0, 1.0, 2.0], [0.0, 3.0, 2.0], "r-")?,
         par2.plot_fmt([0.0, 1.0, 2.0], [50.0, 30.0, 15.0], "g-")?,
     ];
-    host.set_xlim(0.0, 2.0).set_ylim(0.0, 2.0);
-    par1.set_ylim(0.0, 4.0);
-    par2.set_ylim(1.0, 65.0);
+    host.set_xlim(0.0, 2.0)?.set_ylim(0.0, 2.0)?;
+    par1.set_ylim(0.0, 4.0)?;
+    par2.set_ylim(1.0, 65.0)?;
     for (ax, line) in [&host, &par1, &par2].into_iter().zip(&lines) {
         let color = line.color();
         ax.yaxis().set_label_color(color.clone());

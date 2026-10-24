@@ -177,7 +177,9 @@ impl TextBox {
         text.set_valign(VAlign::Center)
             .set_halign(options.textalignment)
             .set_parse_math(false);
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("the unit square has finite limits");
         ax.set_navigate(false);
         ax.set_facecolor(options.color.clone());
         ax.set_xticks(Vec::<f64>::new());
@@ -318,7 +320,9 @@ mod tests {
     #[test]
     fn typing_edits_and_submits() {
         let fig = Figure::with_size(6.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.78, 0.45, 0.18, 0.1]);
+        let ax = fig
+            .add_axes([0.78, 0.45, 0.18, 0.1])
+            .expect("a valid rectangle");
         let entry = TextBox::new(&ax, "Name ", "plt-rs", TextBoxOptions::default());
         let submitted = Rc::new(RefCell::new(Vec::new()));
         let log = Rc::clone(&submitted);
@@ -339,7 +343,9 @@ mod tests {
     #[test]
     fn disconnect_finds_the_callback_whichever_signal_it_listens_to() {
         let fig = Figure::with_size(6.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.78, 0.45, 0.18, 0.1]);
+        let ax = fig
+            .add_axes([0.78, 0.45, 0.18, 0.1])
+            .expect("a valid rectangle");
         let entry = TextBox::new(&ax, "Name ", "", TextBoxOptions::default());
         let log = Rc::new(RefCell::new(Vec::new()));
         let (changes, submits) = (Rc::clone(&log), Rc::clone(&log));
@@ -355,7 +361,8 @@ mod tests {
     fn setting_a_new_value_shows_the_cursor_before_the_callbacks() {
         let fig = Figure::with_size(6.0, 3.0, 100.0);
         let entry = TextBox::new(
-            &fig.add_axes([0.1, 0.05, 0.8, 0.075]),
+            &fig.add_axes([0.1, 0.05, 0.8, 0.075])
+                .expect("a valid rectangle"),
             "Evaluate",
             "",
             TextBoxOptions::default(),

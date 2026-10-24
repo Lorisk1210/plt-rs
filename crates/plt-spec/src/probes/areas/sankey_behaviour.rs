@@ -118,8 +118,7 @@ fn diagram(args: Args<'_>) -> Outcome {
     for spec in args.json("subdiagrams")?.as_array().unwrap_or(&[]) {
         made(sankey.add(subdiagram(spec)?))?;
     }
-    let diagrams = sankey
-        .finish()
+    let diagrams = made(sankey.finish())?
         .iter()
         .map(|d| {
             let angles = d

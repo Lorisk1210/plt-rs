@@ -98,7 +98,14 @@ fn slider(args: Args<'_>) -> Outcome {
         orientation: direction,
         ..SliderOptions::default()
     };
-    let slider = Slider::new(&fig.add_axes(rect), "s", 0.0, 10.0, options);
+    let slider = Slider::new(
+        &fig.add_axes(rect).map_err(ProbeError::rejected)?,
+        "s",
+        0.0,
+        10.0,
+        options,
+    )
+    .map_err(ProbeError::rejected)?;
     let changes: Log<f64> = Rc::default();
     let sink = Rc::clone(&changes);
     slider.on_changed(move |value| sink.borrow_mut().push(value));
@@ -115,7 +122,9 @@ fn slider(args: Args<'_>) -> Outcome {
 /// submission.
 fn textbox(args: Args<'_>) -> Outcome {
     let fig = Figure::with_size(4.0, 3.0, 100.0);
-    let ax = fig.add_axes([0.2, 0.4, 0.6, 0.15]);
+    let ax = fig
+        .add_axes([0.2, 0.4, 0.6, 0.15])
+        .map_err(ProbeError::rejected)?;
     let box_ = TextBox::new(&ax, "t", args.str("initial")?, TextBoxOptions::default());
     let changes: Log<String> = Rc::default();
     let submits: Log<String> = Rc::default();
@@ -134,11 +143,13 @@ fn textbox(args: Args<'_>) -> Outcome {
 }
 
 /// Axes from `add_subplot()` with both limits 0 to 10.
-fn selector_axes() -> (Figure, plt::axes::Axes) {
+fn selector_axes() -> Result<(Figure, plt::axes::Axes), ProbeError> {
     let fig = Figure::with_size(4.0, 3.0, 100.0);
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-    (fig, ax)
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 10.0))
+        .map_err(ProbeError::rejected)?;
+    Ok((fig, ax))
 }
 
 fn option_f64(options: &Json, name: &str) -> Option<f64> {
@@ -154,7 +165,7 @@ fn option_bool(options: &Json, name: &str) -> Option<bool> {
 
 /// A span selector: its extents and every selection it reported.
 fn span(args: Args<'_>) -> Outcome {
-    let (fig, ax) = selector_axes();
+    let (fig, ax) = selector_axes()?;
     let given = args.json("options")?;
     let defaults = SpanSelectorOptions::default();
     let snap_values = given
@@ -188,7 +199,7 @@ fn span(args: Args<'_>) -> Outcome {
 /// A rectangle selector: its extents and the press and release points of
 /// every selection.
 fn rectangle(args: Args<'_>) -> Outcome {
-    let (fig, ax) = selector_axes();
+    let (fig, ax) = selector_axes()?;
     let given = args.json("options")?;
     let defaults = RectangleSelectorOptions::default();
     let options = RectangleSelectorOptions {

@@ -44,8 +44,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..HistOptions::default()
         };
         ax.hist(&[d_1_3()], laid_out(layout))?;
-        ax.set_ylim(0.0, 10.0);
-        ax.set_xlim(-1.0, 5.0);
+        ax.set_ylim(0.0, 10.0)?;
+        ax.set_xlim(-1.0, 5.0)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),

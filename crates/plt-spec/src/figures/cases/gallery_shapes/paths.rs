@@ -195,7 +195,7 @@ fn donut(fig: &Figure) -> CaseResult {
             .set_valign(VAlign::Top)
             .set_halign(HAlign::Center);
     }
-    ax.set_xlim(-2.0, 10.0).set_ylim(-3.0, 2.0);
+    ax.set_xlim(-2.0, 10.0)?.set_ylim(-3.0, 2.0)?;
     ax.set_aspect(Aspect::Ratio(1.0))?;
     ax.set_title("Mmm, donuts!");
     Ok(())

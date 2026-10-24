@@ -221,7 +221,7 @@ pub(super) fn marginal_histograms(fig: &Figure) -> CaseResult {
 /// `toolkits/auto_adjustable_area`: an axes filling the figure, shrunk
 /// until a long tick label fits.
 pub(super) fn auto_adjustable(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     ax.set_yticks(vec![0.5])
         .set_yticklabels(["very long label"])?;
     make_axes_area_auto_adjustable(&ax, &[&ax], 0.1, &SpineSide::ALL);
@@ -231,8 +231,8 @@ pub(super) fn auto_adjustable(fig: &Figure) -> CaseResult {
 /// `toolkits/auto_adjustable_area_shared`: two stacked axes, the first
 /// making room for the decorations of both.
 pub(super) fn auto_adjustable_shared(fig: &Figure) -> CaseResult {
-    let ax1 = fig.add_axes([0.0, 0.0, 1.0, 0.5]);
-    let ax2 = fig.add_axes([0.0, 0.5, 1.0, 0.5]);
+    let ax1 = fig.add_axes([0.0, 0.0, 1.0, 0.5])?;
+    let ax2 = fig.add_axes([0.0, 0.5, 1.0, 0.5])?;
     ax1.set_yticks(vec![0.5])
         .set_yticklabels(["very long label"])?;
     ax1.set_ylabel("Y label");

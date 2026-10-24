@@ -54,7 +54,7 @@ impl Axes {
     /// use plt::scale::FuncTransform;
     /// use plt::spines::SpineSide;
     /// let ax = Figure::new().subplot();
-    /// ax.set_xlim(0.0, 180.0);
+    /// ax.set_xlim(0.0, 180.0)?;
     /// let radians = FuncTransform::new(f64::to_radians, f64::to_degrees);
     /// let sec = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), Some(radians))?;
     /// let (low, high) = sec.xlim();
@@ -231,7 +231,10 @@ mod tests {
         let sec = ax
             .secondary_yaxis(SecondaryLocation::Fraction(0.3), Some(double))
             .unwrap();
-        ax.set_ylim(1.0, 100.0).set_yscale("log").unwrap();
+        ax.set_ylim(1.0, 100.0)
+            .expect("finite limits")
+            .set_yscale("log")
+            .unwrap();
         fig.layout();
         assert_eq!(sec.ylim(), (2.0, 200.0));
         assert_eq!(sec.yscale(), "functionlog");
@@ -246,14 +249,14 @@ mod tests {
     fn data_locations_follow_the_host_view() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_ylim(0.0, 10.0);
+        ax.set_ylim(0.0, 10.0).expect("finite limits");
         let sec = ax
             .secondary_xaxis(SecondaryLocation::Data(2.5), None)
             .unwrap();
         let placed = || sec.raw.with::<AxesState, _>(|a| a.position.y0());
         fig.layout();
         assert_eq!(placed(), 0.25);
-        ax.set_ylim(0.0, 5.0);
+        ax.set_ylim(0.0, 5.0).expect("finite limits");
         fig.layout();
         assert_eq!(placed(), 0.5);
         assert_eq!(sec.xaxis().label_position(), SpineSide::Top);

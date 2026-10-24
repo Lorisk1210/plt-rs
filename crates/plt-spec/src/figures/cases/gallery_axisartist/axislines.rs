@@ -80,7 +80,7 @@ fn simple_axisline(fig: &Figure) -> CaseResult {
     xzero.set_visible(true);
     xzero.label().set_text("Axis Zero");
     ax.ax()
-        .set_ylim(-2.0, 4.0)
+        .set_ylim(-2.0, 4.0)?
         .set_xlabel("Label X")
         .set_ylabel("Label Y");
     ax.new_fixed_axis("right2", SpineSide::Right, (20.0, 0.0))

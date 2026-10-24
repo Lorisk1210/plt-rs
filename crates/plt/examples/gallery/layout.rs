@@ -86,10 +86,10 @@ fn inset() -> Built {
         .map(|x| x.sin() + 0.05 * (40.0 * x).sin())
         .collect();
     ax.plot(x.clone(), y.clone())?;
-    ax.set_ylim(-1.5, 2.5);
+    ax.set_ylim(-1.5, 2.5)?;
     let zoom = ax.inset_axes([0.55, 0.6, 0.4, 0.35]);
     zoom.plot(x, y)?;
-    zoom.set_xlim(1.2, 1.9).set_ylim(0.85, 1.08);
+    zoom.set_xlim(1.2, 1.9)?.set_ylim(0.85, 1.08)?;
     ax.set_title("Inset axes");
     Ok(fig)
 }

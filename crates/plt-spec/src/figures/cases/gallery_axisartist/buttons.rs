@@ -36,8 +36,8 @@ fn buttons(fig: &Figure) -> CaseResult {
         sine(&t, freqs[0]),
         LineProps::default().linewidth(2.0),
     )?;
-    let axprev = fig.add_axes([0.7, 0.05, 0.1, 0.075]);
-    let axnext = fig.add_axes([0.81, 0.05, 0.1, 0.075]);
+    let axprev = fig.add_axes([0.7, 0.05, 0.1, 0.075])?;
+    let axnext = fig.add_axes([0.81, 0.05, 0.1, 0.075])?;
     let _next = Button::new(&axnext, "Next", ButtonOptions::default());
     let _prev = Button::new(&axprev, "Previous", ButtonOptions::default());
     Ok(())

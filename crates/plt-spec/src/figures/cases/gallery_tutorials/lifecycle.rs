@@ -51,10 +51,11 @@ fn slanted_revenue(fig: &Figure) -> Result<Axes, PlotError> {
 }
 
 /// Limits, labels and a title.
-fn titled(ax: &Axes) {
-    ax.set_xlim(-10_000.0, 140_000.0);
+fn titled(ax: &Axes) -> Result<(), PlotError> {
+    ax.set_xlim(-10_000.0, 140_000.0)?;
     ax.set_xlabel("Total Revenue").set_ylabel("Company");
     ax.set_title("Company Revenue");
+    Ok(())
 }
 
 /// Thousands and millions of dollars (`_currency`).
@@ -88,13 +89,13 @@ fn slanted_bars(fig: &Figure) -> CaseResult {
 }
 
 fn titled_bars(fig: &Figure) -> CaseResult {
-    titled(&slanted_revenue(fig)?);
+    titled(&slanted_revenue(fig)?)?;
     Ok(())
 }
 
 fn lifecycle_9(fig: &Figure) -> CaseResult {
     let ax = slanted_revenue(fig)?;
-    titled(&ax);
+    titled(&ax)?;
     ax.xaxis().set_major_formatter(currency());
     Ok(())
 }
@@ -113,7 +114,7 @@ fn lifecycle_10(fig: &Figure) -> CaseResult {
     }
     // The example's `ax.title.set(y=1.05)` is undone by the `set(title=...)`
     // that follows it, which puts the title back at y = 1.
-    titled(&ax);
+    titled(&ax)?;
     ax.xaxis().set_major_formatter(currency());
     ax.set_xticks([0.0, 25e3, 50e3, 75e3, 100e3, 125e3]);
     fig.subplots_adjust(&SubplotOverrides {

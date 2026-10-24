@@ -96,8 +96,8 @@ pub(super) fn transform_bbox(args: Args<'_>) -> Outcome {
         ax.set_yscale(args.str("yscale")?)
             .map_err(ProbeError::rejected)?;
         let ((x0, x1), (y0, y1)) = (limits(args, "xlim")?, limits(args, "ylim")?);
-        ax.set_xlim(x0, x1);
-        ax.set_ylim(y0, y1);
+        ax.set_xlim(x0, x1).map_err(ProbeError::rejected)?;
+        ax.set_ylim(y0, y1).map_err(ProbeError::rejected)?;
         let data = figure
             .resolve_transform(&ax.trans_data())
             .map_err(ProbeError::rejected)?;

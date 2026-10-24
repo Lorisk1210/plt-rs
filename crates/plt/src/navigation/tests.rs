@@ -5,10 +5,16 @@ use crate::navigation::PointerButton;
 /// axes stacked on the same rectangle; returns the x limits of both.
 fn pan_stacked(forward: Option<bool>) -> ((f64, f64), (f64, f64)) {
     let fig = Figure::new();
-    let below = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
-    let above = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    let below = fig
+        .add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle");
+    let above = fig
+        .add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle");
     for ax in [&below, &above] {
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
     }
     above.set_forward_navigation_events(forward);
     let mut navigation = Navigation::new();

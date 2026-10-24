@@ -66,7 +66,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
         classic("mpl_tests_tightlayout/collapsed", |fig| {
             fig.set_layout_engine(LayoutEngine::tight())?;
             let ax = fig.subplot();
-            ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+            ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
             let options = AnnotateOptions {
                 xytext: Some((10.5, 1.75).into()),
                 annotation_clip: Some(false),
@@ -222,7 +222,7 @@ fn manual_colorbar(fig: &Figure) -> CaseResult {
         },
     )?;
     let rect = ax.position();
-    let cax = fig.add_axes([rect.x1() + 0.005, rect.y0(), 0.015, rect.height()]);
+    let cax = fig.add_axes([rect.x1() + 0.005, rect.y0(), 0.015, rect.height()])?;
     fig.colorbar(
         &pts,
         ColorbarOptions {

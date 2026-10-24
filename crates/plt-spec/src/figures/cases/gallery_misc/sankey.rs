@@ -29,7 +29,7 @@ fn sankey_basics_1(fig: &Figure) -> CaseResult {
     };
     Sankey::new(&ax, SankeyOptions::default())?
         .add(flows)?
-        .finish();
+        .finish()?;
     ax.set_title("The default settings produce a diagram like this.");
     Ok(())
 }
@@ -58,7 +58,7 @@ fn sankey_basics_2(fig: &Figure) -> CaseResult {
     };
     let mut sankey = Sankey::new(&ax, options)?;
     sankey.add(widget)?;
-    let diagram = sankey.finish().first().ok_or("one diagram")?;
+    let diagram = sankey.finish()?.first().ok_or("one diagram")?;
     diagram.texts.last().ok_or("flow labels")?.set_color("r");
     diagram.text.set_weight(FontWeight::BOLD);
     Ok(())
@@ -86,7 +86,7 @@ fn sankey_basics_3(fig: &Figure) -> CaseResult {
     };
     let mut sankey = Sankey::new(&ax, options)?;
     sankey.add(one)?.add(two)?;
-    let diagrams = sankey.finish();
+    let diagrams = sankey.finish()?;
     diagrams.last().ok_or("two diagrams")?.patch.set_hatch("/");
     ax.legend(plt::legend::LegendOptions::default())?;
     Ok(())
@@ -145,7 +145,7 @@ fn sankey_links(fig: &Figure) -> CaseResult {
         corner(&mut sankey)?;
         side(&mut sankey, 6)?;
     }
-    sankey.finish();
+    sankey.finish()?;
     Ok(())
 }
 
@@ -353,7 +353,7 @@ fn sankey_rankine(fig: &Figure) -> CaseResult {
     for component in &RANKINE {
         sankey.add(component.subdiagram())?;
     }
-    for diagram in sankey.finish() {
+    for diagram in sankey.finish()? {
         diagram.text.set_weight(FontWeight::BOLD).set_fontsize(10.0);
         for text in &diagram.texts {
             text.set_fontsize(10.0);

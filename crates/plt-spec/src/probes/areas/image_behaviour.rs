@@ -131,7 +131,9 @@ fn build(ax: &Axes, scene: &str) -> Result<(), ProbeError> {
     match scene {
         "upper" => {
             imshow(ax, grid100(), plain())?;
-            ax.set_xlim(-1.0, 11.0).set_ylim(11.0, -1.0);
+            ax.set_xlim(-1.0, 11.0)
+                .and_then(|ax| ax.set_ylim(11.0, -1.0))
+                .map_err(ProbeError::rejected)?;
         }
         "lower" => {
             let options = ImshowOptions {
@@ -146,20 +148,26 @@ fn build(ax: &Axes, scene: &str) -> Result<(), ProbeError> {
                 ..plain()
             };
             imshow(ax, grid100(), options)?;
-            ax.set_xlim(-0.1, 1.0).set_ylim(-0.1, 0.6);
+            ax.set_xlim(-0.1, 1.0)
+                .and_then(|ax| ax.set_ylim(-0.1, 0.6))
+                .map_err(ProbeError::rejected)?;
         }
         "transformed" => {
             let turn = Affine2D::scaling(2.0, 2.0).rotate(0.5);
             let transform = Transform::Affine(turn).then(ax.trans_data());
             imshow(ax, grid100(), placed(transform, None))?;
-            ax.set_xlim(-20.0, 20.0).set_ylim(-5.0, 25.0);
+            ax.set_xlim(-20.0, 20.0)
+                .and_then(|ax| ax.set_ylim(-5.0, 25.0))
+                .map_err(ProbeError::rejected)?;
         }
         "nonuniform" => {
             let x = [0.0, 1.0, 4.0, 9.0, 16.0];
             let y = [0.0, 1.0, 2.0, 3.0, 4.0];
             let z = Grid::from_fn(5, 5, |r, c| x[c] * x[c] + y[r] * y[r]);
             made(ax.nonuniform_image(&x, &y, z, NonUniformOptions::default()))?;
-            ax.set_xlim(-2.0, 16.0).set_ylim(-2.0, 4.0);
+            ax.set_xlim(-2.0, 16.0)
+                .and_then(|ax| ax.set_ylim(-2.0, 4.0))
+                .map_err(ProbeError::rejected)?;
         }
         other => match other.strip_prefix("data:") {
             Some(name) => imshow(ax, named_data(name)?, plain())?,
@@ -186,9 +194,11 @@ fn cursor(args: Args<'_>) -> Outcome {
 fn window_extent(args: Args<'_>) -> Outcome {
     let in_axes = args.str("transform")? == "axes";
     let fig = Figure::with_size(10.0, 10.0, 100.0);
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = made(fig.add_axes([0.0, 0.0, 1.0, 1.0]))?;
     let x0 = if in_axes { 1.0 } else { 0.0 };
-    ax.set_xlim(x0, x0 + 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(x0, x0 + 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1.0))
+        .map_err(ProbeError::rejected)?;
     let rows = vec![
         vec![0.25, 0.75, 1.0, 0.75],
         vec![0.1, 0.65, 0.5, 0.4],
@@ -268,7 +278,7 @@ fn composite(args: Args<'_>) -> Outcome {
         made(rc::set("image.composite_image", composite))?;
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 3.0);
+        made(ax.set_xlim(0.0, 3.0))?;
         for (data, left) in [(z, 0.0), (flipped, 2.0)] {
             let options = ImshowOptions {
                 extent: Some(Extent::new(left, left + 1.0, 0.0, 1.0)),
@@ -290,7 +300,7 @@ fn composite(args: Args<'_>) -> Outcome {
 fn exact_vmin() -> Outcome {
     let cmap = made(made(plt::colors::colormaps::get("autumn_r"))?.with_under("lightgrey"))?;
     let fig = Figure::with_size(1.9, 0.1, 100.0);
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = made(fig.add_axes([0.0, 0.0, 1.0, 1.0]))?;
     let values = vec![
         -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 43.0, 79.0, 95.0, 66.0, 1.0, -1.0, -1.0, -1.0, 0.0,
         0.0, 0.0, 34.0,

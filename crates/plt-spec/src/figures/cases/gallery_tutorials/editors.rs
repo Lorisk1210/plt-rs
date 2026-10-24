@@ -26,7 +26,7 @@ use crate::rng::SpecRng;
 
 fn lasso_demo(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.set_title("Lasso points using left mouse button");
     let data = uniform_rows(&mut SpecRng::new(SEED), 100, 2);
     let offsets = data
@@ -70,7 +70,7 @@ fn path_editor(fig: &Figure) -> CaseResult {
     ax.add_patch_with(PathShape(curve), green);
     ax.plot_with(x, y, vertex_markers()?)?;
     ax.set_title("drag vertices to update path");
-    ax.set_xlim(-3.0, 4.0).set_ylim(-3.0, 4.0);
+    ax.set_xlim(-3.0, 4.0)?.set_ylim(-3.0, 4.0)?;
     Ok(())
 }
 
@@ -91,7 +91,7 @@ fn poly_editor(fig: &Figure) -> CaseResult {
     ax.add_patch(poly);
     ax.add_line(&x, &y, vertex_markers()?)?;
     ax.set_title("Click and drag a point to move it");
-    ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     Ok(())
 }
 

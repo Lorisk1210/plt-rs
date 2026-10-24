@@ -72,10 +72,11 @@ pub fn make_axes_locatable(axes: &Axes) -> AxesDivider {
 /// use plt::prelude::*;
 /// use plt::spines::SpineSide;
 /// let fig = Figure::new();
-/// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+/// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
 /// make_axes_area_auto_adjustable(&ax, &[&ax], 0.1, &SpineSide::ALL);
 /// let (x, y, _, _) = ax.position().bounds();
 /// assert!(x > 0.0 && y > 0.0);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn make_axes_area_auto_adjustable(
     axes: &Axes,
@@ -176,7 +177,9 @@ mod tests {
     fn appended_axes_keep_their_size_in_inches() {
         let fig = Figure::with_size(5.0, 4.0, 100.0);
         let ax = fig.subplot();
-        ax.set_xlim(-0.5, 19.5).set_ylim(19.5, -0.5);
+        ax.set_xlim(-0.5, 19.5)
+            .and_then(|ax| ax.set_ylim(19.5, -0.5))
+            .expect("finite limits");
         ax.set_aspect(Aspect::Equal).unwrap();
         let divider = make_axes_locatable(&ax);
         let right =
@@ -199,7 +202,9 @@ mod tests {
     #[test]
     fn auto_adjustable_areas_make_room_for_decorations_on_their_side() {
         let fig = Figure::with_size(5.0, 3.0, 100.0);
-        let ax1 = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax1 = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
         let divider = make_axes_locatable(&ax1);
         let ax2 = divider.append_axes(SpineSide::Right, SizeSpec::Percent(100.0), Some(0.3.into()));
         ax2.share_y(&ax1).unwrap();
@@ -239,7 +244,9 @@ mod tests {
     #[test]
     fn measured_axes_keep_their_placement() {
         let fig = Figure::with_size(5.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
         ax.set_ylabel("label");
         let divider = make_axes_area_auto_adjustable(&ax, &[&ax], 0.1, &SpineSide::ALL);
         let placed = ax.position();

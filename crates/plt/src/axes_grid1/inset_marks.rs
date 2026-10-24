@@ -29,9 +29,10 @@ pub struct InsetMarks {
 /// let fig = Figure::new();
 /// let ax = fig.subplot();
 /// let zoomed = zoomed_inset_axes(&ax, 2.0, InsetOptions::default());
-/// zoomed.set_xlim(0.2, 0.3).set_ylim(0.2, 0.3);
+/// zoomed.set_xlim(0.2, 0.3)?.set_ylim(0.2, 0.3)?;
 /// let marks = mark_inset(&ax, &zoomed, Corner::UpperLeft, Corner::LowerRight, PatchProps::default());
 /// assert_eq!(marks.area.zorder(), 1.0);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn mark_inset(
     parent: &Axes,
@@ -75,14 +76,21 @@ mod tests {
     #[test]
     fn marks_outline_the_area_and_join_the_corners() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let options = InsetOptions {
             borderpad: (0.0, 0.0),
             ..InsetOptions::default()
         };
         let zoomed = zoomed_inset_axes(&ax, 2.0, options);
-        zoomed.set_xlim(1.0, 2.0).set_ylim(1.0, 2.0);
+        zoomed
+            .set_xlim(1.0, 2.0)
+            .and_then(|ax| ax.set_ylim(1.0, 2.0))
+            .expect("finite limits");
         let marks = mark_inset(
             &ax,
             &zoomed,

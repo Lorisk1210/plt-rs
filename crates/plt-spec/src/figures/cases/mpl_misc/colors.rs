@@ -55,7 +55,7 @@ fn boundarynorm_and_colorbarbase(fig: &Figure) -> CaseResult {
         ),
     ];
     for (bottom, norm_extend, bar_extend, spacing) in bars {
-        let ax = fig.add_axes([0.05, bottom, 0.9, 0.15]);
+        let ax = fig.add_axes([0.05, bottom, 0.9, 0.15])?;
         let norm = BoundaryNorm::new(bounds, cmap.n(), norm_extend)?;
         let mappable = ScalarMappable::with_norm(cmap.clone(), Box::new(norm));
         fig.colorbar(

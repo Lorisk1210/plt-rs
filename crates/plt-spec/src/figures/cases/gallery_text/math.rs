@@ -179,9 +179,9 @@ const MATHTEXT_DEMOS: [(&str, &str); 8] = [
 
 fn mathtext_examples(fig: &Figure) -> CaseResult {
     let grey = Color::from((51.0 / 255.0, 51.0 / 255.0, 51.0 / 255.0));
-    let ax = fig.add_axes([0.01, 0.01, 0.98, 0.90]);
+    let ax = fig.add_axes([0.01, 0.01, 0.98, 0.90])?;
     ax.set_facecolor("white").set_frame_on(true);
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.set_title("Matplotlib's math rendering engine")
         .set_color(grey.clone())
         .set_fontsize(14.0)

@@ -97,7 +97,7 @@ fn asinh_demo_3(fig: &Figure) -> CaseResult {
     ax.set_xlabel("asinh");
     ax.set_ylabel("symlog");
     ax.set_title("2D Cauchy random deviates");
-    ax.set_xlim(-50.0, 50.0).set_ylim(-50.0, 50.0);
+    ax.set_xlim(-50.0, 50.0)?.set_ylim(-50.0, 50.0)?;
     ax.grid(true);
     Ok(())
 }
@@ -107,14 +107,14 @@ fn aspect_loglog(fig: &Figure) -> CaseResult {
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     ax1.set_xscale("log")?;
     ax1.set_yscale("log")?;
-    ax1.set_xlim(1e1, 1e3).set_ylim(1e2, 1e3);
+    ax1.set_xlim(1e1, 1e3)?.set_ylim(1e2, 1e3)?;
     ax1.set_aspect(Aspect::Ratio(1.0))?;
     ax1.set_title("adjustable = box");
     ax2.set_xscale("log")?;
     ax2.set_yscale("log")?;
     ax2.set_adjustable(Adjustable::Datalim)?;
     ax2.plot_fmt([1.0, 3.0, 10.0], [1.0, 9.0, 100.0], "o-")?;
-    ax2.set_xlim(1e-1, 1e2).set_ylim(1e-1, 1e3);
+    ax2.set_xlim(1e-1, 1e2)?.set_ylim(1e-1, 1e3)?;
     ax2.set_aspect(Aspect::Ratio(1.0))?;
     ax2.set_title("adjustable = datalim");
     Ok(())

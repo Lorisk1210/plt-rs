@@ -37,8 +37,8 @@ fn barb_field() -> VectorField {
 fn barbs(fig: &Figure, field: VectorField, options: BarbsOptions) -> CaseResult {
     let ax = fig.subplot();
     ax.barbs(field, options)?;
-    ax.set_xlim(-1.0, 6.0);
-    ax.set_ylim(-1.0, 4.0);
+    ax.set_xlim(-1.0, 6.0)?;
+    ax.set_ylim(-1.0, 4.0)?;
     Ok(())
 }
 

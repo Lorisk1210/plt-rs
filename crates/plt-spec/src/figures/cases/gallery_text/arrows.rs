@@ -16,6 +16,7 @@ use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, VAlign};
 
 use crate::figures::cases::common::{arrow, styled_box, tickless};
 use crate::figures::{CaseResult, FigureCase};
+use plt::axes::PlotError;
 
 /// The end of a vertical line of `length` from `origin` turned by
 /// `degrees` (the example's `get_point_of_rotated_vertical`).
@@ -26,7 +27,7 @@ fn rotated_vertical_top((x, y): (f64, f64), length: f64, degrees: i32) -> (f64, 
 
 fn angles_on_bracket_arrows(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 6.0).set_ylim(-1.0, 5.0);
+    ax.set_xlim(0.0, 6.0)?.set_ylim(-1.0, 5.0)?;
     ax.set_title("Orientation of the bracket arrows relative to angleA and angleB");
     for (i, angle) in [-40, 0, 60].into_iter().enumerate() {
         #[expect(clippy::cast_precision_loss, reason = "three rows")]
@@ -119,12 +120,16 @@ impl Display {
 /// The example's `make_arrow_graph` with `size=4`, `shape='right'`,
 /// `linewidth=0.001` and `normalize_data=True`, which rescales `data` in
 /// place (the three graphs share it, so the later ones see it rescaled).
-fn arrow_graph(ax: &Axes, data: &mut BTreeMap<String, f64>, display: Display) {
+fn arrow_graph(
+    ax: &Axes,
+    data: &mut BTreeMap<String, f64>,
+    display: Display,
+) -> Result<(), PlotError> {
     const SIZE: f64 = 4.0;
     const MAX_ARROW_WIDTH: f64 = 0.03;
     const ARROW_SEP: f64 = 0.02;
     const SF: f64 = 0.6;
-    ax.set_xlim(-0.25, 1.25).set_ylim(-0.25, 1.25);
+    ax.set_xlim(-0.25, 1.25)?.set_ylim(-0.25, 1.25)?;
     tickless(ax);
     ax.set_title(format!("flux encoded as arrow {}", display.name()));
     let (max_text_size, min_text_size, label_text_size) = (SIZE * 12.0, SIZE, SIZE * 4.0);
@@ -203,6 +208,7 @@ fn arrow_graph(ax: &Axes, data: &mut BTreeMap<String, f64>, display: Display) {
                 .set_color(fc);
         }
     }
+    Ok(())
 }
 
 fn arrow_demo(fig: &Figure) -> CaseResult {
@@ -221,7 +227,7 @@ fn arrow_demo(fig: &Figure) -> CaseResult {
     let axs = fig.subplot_mosaic(&mosaic, MosaicOptions::default())?;
     for display in displays {
         let ax = axs.get(display.name()).ok_or("a graph without axes")?;
-        arrow_graph(ax, &mut data, display);
+        arrow_graph(ax, &mut data, display)?;
     }
     Ok(())
 }
@@ -276,7 +282,7 @@ fn fancyarrow_demo(fig: &Figure) -> CaseResult {
     )?;
     let axs = fig.subplots_on(&grid, Share::None, Share::None)?;
     for ax in axs.as_slice() {
-        ax.set_xlim(-0.1, 4.0);
+        ax.set_xlim(-0.1, 4.0)?;
         ax.set_axis_off();
     }
     for col in 0..NCOL {

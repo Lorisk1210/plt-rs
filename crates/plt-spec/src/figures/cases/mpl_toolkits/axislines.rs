@@ -123,7 +123,7 @@ fn parasite_axes_aux_trans(fig: &Figure) -> CaseResult {
                 ax2.contourf(&field(), ContourOptions::default())?;
             }
         }
-        ax1.ax().set_xlim(0.0, 5.0).set_ylim(0.0, 5.0);
+        ax1.ax().set_xlim(0.0, 5.0)?.set_ylim(0.0, 5.0)?;
         last = Some(ax2);
     }
     let ax2 = last.ok_or("three axes were made")?;
@@ -179,7 +179,7 @@ fn axisline_style_tight(fig: &Figure) -> CaseResult {
 
 fn subplotzero_ylabel(fig: &Figure) -> CaseResult {
     let ax = axisartist::Axes::zero(fig.subplot());
-    ax.ax().set_xlim(-3.0, 7.0).set_ylim(-3.0, 7.0);
+    ax.ax().set_xlim(-3.0, 7.0)?.set_ylim(-3.0, 7.0)?;
     ax.ax().set_xlabel("x").set_ylabel("y");
     let zero_axes = [artist(&ax, "xzero")?, artist(&ax, "yzero")?];
     for axis in &zero_axes {

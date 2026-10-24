@@ -35,7 +35,7 @@ fn colors_1(fig: &Figure) -> CaseResult {
             PatchProps::default().alpha(alpha).zorder(2.0),
         );
     }
-    ax.set_xlim(-0.2, 13.0).set_ylim(-1.0, 1.0);
+    ax.set_xlim(-0.2, 13.0)?.set_ylim(-1.0, 1.0)?;
     ax.set_title("alpha values");
     for (y, text, color) in [
         (0.6, "zorder=1", "C0"),
@@ -91,7 +91,7 @@ fn colors_4(fig: &Figure) -> CaseResult {
         })
         .collect();
     overlap.sort_by_key(|&(name, ..)| name);
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     let n_groups = 3;
     let n_rows = overlap.len() / n_groups + 1;
     for (j, (color_name, css4, xkcd)) in overlap.iter().enumerate() {
@@ -128,8 +128,8 @@ fn colors_4(fig: &Figure) -> CaseResult {
             ax.text(x + 3.0 * g, -0.3, label).set_halign(HAlign::Center);
         }
     }
-    ax.set_xlim(0.0, 3.0 * n_groups as f64)
-        .set_ylim(n_rows as f64, -1.0);
+    ax.set_xlim(0.0, 3.0 * n_groups as f64)?
+        .set_ylim(n_rows as f64, -1.0)?;
     ax.set_axis_off();
     Ok(())
 }

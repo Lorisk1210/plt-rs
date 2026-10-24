@@ -99,7 +99,7 @@ fn nonuniform_and_pcolor(fig: &Figure) -> CaseResult {
     )?;
     for ax in axs.as_slice() {
         ax.set_axis_off();
-        ax.set_xlim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)?;
     }
     Ok(())
 }
@@ -110,7 +110,7 @@ fn nonuniform_logscale(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 3)?;
     let centres = [1.0, 4.0, 9.0];
     for (i, ax) in axs.as_slice().iter().enumerate() {
-        ax.set_xlim(1.0, 16.0).set_ylim(1.0, 16.0);
+        ax.set_xlim(1.0, 16.0)?.set_ylim(1.0, 16.0)?;
         ax.set_box_aspect(Some(1.0))?;
         if i > 0 {
             let base = ScaleOptions {
@@ -180,8 +180,8 @@ fn rgba_antialias(fig: &Figure) -> CaseResult {
     }
     let half = n as f64 / 2.0;
     axs[(0, 0)]
-        .set_xlim(half - 25.0, half + 25.0)
-        .set_ylim(half + 50.0, half - 10.0);
+        .set_xlim(half - 25.0, half + 25.0)?
+        .set_ylim(half + 50.0, half - 10.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -202,7 +202,7 @@ fn downsampling(fig: &Figure) -> CaseResult {
             ..colormapped("RdBu_r")?
         },
     )?;
-    zoom.set_xlim(125.0, 175.0).set_ylim(250.0, 200.0);
+    zoom.set_xlim(125.0, 175.0)?.set_ylim(250.0, 200.0)?;
     zoom.set_title("Zoom");
     let settings = [
         (Interpolation::Nearest, InterpolationStage::Data),

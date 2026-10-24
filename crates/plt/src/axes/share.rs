@@ -107,7 +107,11 @@ mod tests {
     fn ids(n: usize) -> Vec<ArtistId> {
         let fig = Figure::new();
         (0..n)
-            .map(|_| fig.add_axes([0.1, 0.1, 0.8, 0.8]).id())
+            .map(|_| {
+                fig.add_axes([0.1, 0.1, 0.8, 0.8])
+                    .expect("a valid rectangle")
+                    .id()
+            })
             .collect()
     }
 

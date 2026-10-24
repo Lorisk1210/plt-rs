@@ -35,7 +35,7 @@ fn cubic(ax: &Axes, interpolation: NonUniformInterpolation, cmap: &str) -> CaseR
 pub(super) fn nearest(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     cubic(&ax, NonUniformInterpolation::Nearest, "viridis")?;
-    ax.set_xlim(-5.0, 5.0).set_ylim(-5.0, 5.0);
+    ax.set_xlim(-5.0, 5.0)?.set_ylim(-5.0, 5.0)?;
     Ok(())
 }
 
@@ -59,6 +59,6 @@ pub(super) fn rgb_log(fig: &Figure) -> CaseResult {
         options,
     )?;
     ax.set_xscale("log")?;
-    ax.set_xlim(0.5, 200.0).set_ylim(-1.0, 7.0);
+    ax.set_xlim(0.5, 200.0)?.set_ylim(-1.0, 7.0)?;
     Ok(())
 }

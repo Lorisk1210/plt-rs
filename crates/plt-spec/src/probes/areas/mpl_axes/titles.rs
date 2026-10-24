@@ -84,7 +84,7 @@ fn above_offset(left: &str, center: &str) -> Outcome {
     let fig = Figure::new();
     let ax = fig.subplot();
     let (_, top) = ax.ylim();
-    ax.set_ylim(1e11, top);
+    made(ax.set_ylim(1e11, top))?;
     ax.set_title_at(TitleLocation::Left, left);
     ax.set_title(center);
     fig.layout();
@@ -130,7 +130,7 @@ fn above_hidden_offset() -> Outcome {
 /// both sides.
 fn no_move_off_page() -> Outcome {
     let fig = Figure::new();
-    let ax = fig.add_axes([0.1, -0.5, 0.8, 0.2]);
+    let ax = made(fig.add_axes([0.1, -0.5, 0.8, 0.2]))?;
     ax.tick_params(&TickParams {
         axis: Some(AxisName::X),
         bottom: Some(true),

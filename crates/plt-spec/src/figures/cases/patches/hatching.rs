@@ -72,14 +72,14 @@ fn edge_and_hatch_colors(ax: &Axes) {
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("patches/hatches_basic", |fig| {
-        let ax = canvas(fig, (0.0, 10.0), (0.0, 4.0), false);
+        let ax = canvas(fig, (0.0, 10.0), (0.0, 4.0), false)?;
         let unfilled = PatchProps::default().fill(false);
         hatch_grid(&ax, &HATCHES, 5, (2.2, 1.6, 1.65, 8.0), &unfilled);
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("patches/hatches_density_combos", |fig| {
-        let ax = canvas(fig, (0.0, 12.0), (0.0, 6.0), false);
+        let ax = canvas(fig, (0.0, 12.0), (0.0, 6.0), false)?;
         let props = PatchProps::default()
             .facecolor("lightyellow")
             .edgecolor("k");
@@ -88,7 +88,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("patches/hatch_linewidth_color_rc", |fig| {
-        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false);
+        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false)?;
         ax.add_patch(Rectangle::new((0.5, 1.0), 4.0, 8.0))
             .update_props(
                 PatchProps::default()
@@ -103,7 +103,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(5.0, 3.0, 100.0)
     .with_rc(&[("hatch.linewidth", "2.5"), ("hatch.color", "tab:red")]),
     FigureCase::new("patches/hatch_edge_and_hatchcolor", |fig| {
-        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false);
+        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false)?;
         edge_and_hatch_colors(&ax);
         Ok(())
     })

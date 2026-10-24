@@ -192,8 +192,9 @@ impl Axes {
     /// ```
     /// use plt::prelude::*;
     /// let ax = Figure::new().subplot();
-    /// ax.set_xlim(0.0, 10.0);
+    /// ax.set_xlim(0.0, 10.0)?;
     /// assert_eq!(ax.format_data(plt::axes::AxisName::X, 2.5).as_deref(), Some("2.50"));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn format_data(&self, axis: AxisName, value: f64) -> Option<String> {
         format_data(self, axis, value)
@@ -234,8 +235,9 @@ impl Axes {
     /// ```
     /// use plt::prelude::*;
     /// let ax = Figure::new().subplot();
-    /// ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1.0);
+    /// ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 1.0)?;
     /// assert_eq!(ax.format_coord(2.5, 0.25), "(x, y) = (2.50, 0.250)");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn format_coord(&self, x: f64, y: f64) -> String {
         if let Some(geo) = self.as_geo() {
@@ -351,11 +353,13 @@ mod tests {
     fn coordinates_use_the_screen_resolution() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         let text = format_coord(&ax, display(&ax, 2.5, 0.25));
         assert_eq!(text, "(x, y) = (2.50, 0.250)");
         let twin = ax.twinx();
-        twin.set_ylim(0.0, 100.0);
+        twin.set_ylim(0.0, 100.0).expect("finite limits");
         let text = format_coord(&ax, display(&ax, 2.5, 0.25));
         assert_eq!(text, "(x, y) = (2.50, 0.250) | (2.50, 25.0)");
     }
@@ -364,7 +368,9 @@ mod tests {
     fn data_points_format_like_the_screen_points_over_them() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         assert_eq!(ax.format_data(AxisName::X, 2.5).as_deref(), Some("2.50"));
         assert_eq!(ax.format_data(AxisName::Y, 0.25).as_deref(), Some("0.250"));
         assert_eq!(ax.format_coord(2.5, 0.25), "(x, y) = (2.50, 0.250)");
@@ -373,13 +379,13 @@ mod tests {
             Some("nan")
         );
         let twin = ax.twinx();
-        twin.set_ylim(0.0, 100.0);
+        twin.set_ylim(0.0, 100.0).expect("finite limits");
         assert_eq!(
             ax.format_coord(2.5, 0.25),
             "(x, y) = (2.50, 0.250) | (2.50, 25.0)"
         );
         let polar = fig.polar_subplot();
-        polar.set_rlim(0.0, 2.0);
+        polar.set_rlim(0.0, 2.0).expect("finite limits");
         assert_eq!(
             polar.format_coord(PI / 2.0, 1.0),
             format_coord(&polar, display(&polar, PI / 2.0, 1.0))
@@ -421,7 +427,7 @@ mod tests {
     fn polar_coordinates_in_turns_and_degrees() {
         let fig = Figure::new();
         let polar = fig.polar_subplot();
-        polar.set_rlim(0.0, 2.0);
+        polar.set_rlim(0.0, 2.0).expect("finite limits");
         let text = format_coord(&polar, display(&polar, PI / 2.0, 1.0));
         assert!(text.starts_with("\u{3b8}=0.50"), "{text}");
         assert!(text.contains("(90"), "{text}");

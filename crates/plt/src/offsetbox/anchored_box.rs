@@ -432,8 +432,12 @@ mod tests {
     /// `(80, 52.8)`, 496 × 369.6 px.
     fn axes() -> (Figure, Axes) {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         (fig, ax)
     }
 

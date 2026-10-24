@@ -123,7 +123,7 @@ fn path_collection(fig: &Figure) -> CaseResult {
         .with_props(CollectionProps::default().facecolor("yellow").zorder(-1.0))
         .without_autolim();
     ax.add_collection(polygons).set_sizes(vec![0.02, 0.04]);
-    ax.set_xlim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?;
     Ok(())
 }
 

@@ -21,7 +21,7 @@ fn floating_axis(fig: &Figure) -> CaseResult {
     let x = linspace(-2.0, 2.0, 50);
     let y: Vec<f64> = x.iter().map(|x| x.powi(3) - 2.0 * x).collect();
     ax.ax().plot(x, y)?;
-    ax.ax().set_ylim(-3.0, 3.0);
+    ax.ax().set_ylim(-3.0, 3.0)?;
     Ok(())
 }
 

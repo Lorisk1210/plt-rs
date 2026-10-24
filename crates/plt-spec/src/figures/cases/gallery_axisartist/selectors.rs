@@ -44,8 +44,8 @@ fn lasso_selector_demo(fig: &Figure) -> CaseResult {
     let (rows, _) = data.as_chunks::<2>();
     let (x, y): (Vec<f64>, Vec<f64>) = rows.iter().map(|&[x, y]| (x, y)).unzip();
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0)
-        .set_ylim(0.0, 1.0)
+    ax.set_xlim(0.0, 1.0)?
+        .set_ylim(0.0, 1.0)?
         .set_autoscale_on(false);
     let options = ScatterOptions {
         sizes: Some(vec![80.0]),
@@ -116,7 +116,7 @@ fn span_selector(fig: &Figure) -> CaseResult {
         .map(|(x, n)| (2.0 * PI * x).sin() + 0.5 * n)
         .collect();
     ax1.plot(x, y)?;
-    ax1.set_ylim(-2.0, 2.0);
+    ax1.set_ylim(-2.0, 2.0)?;
     ax1.set_title("Press left mouse button and drag to select a region in the top graph");
     ax2.plot(Vec::<f64>::new(), Vec::<f64>::new())?;
     let options = SpanSelectorOptions {

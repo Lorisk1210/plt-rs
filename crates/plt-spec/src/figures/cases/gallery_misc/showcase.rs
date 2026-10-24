@@ -94,7 +94,7 @@ const ANATOMY_LABELS: [((f64, f64), &str, &str); 16] = [
 /// The square axes of `anatomy`: ticks every unit with four minor
 /// intervals, large tick labels and a dashed grid.
 fn anatomy_axes(fig: &Figure) -> Result<Axes, Box<dyn std::error::Error>> {
-    let ax = fig.add_axes([0.2, 0.17, 0.68, 0.7]);
+    let ax = fig.add_axes([0.2, 0.17, 0.68, 0.7])?;
     ax.set_aspect(Aspect::Ratio(1.0))?;
     for axis in [ax.xaxis(), ax.yaxis()] {
         axis.set_major_locator(MultipleLocator::new(1.0)?)
@@ -102,7 +102,7 @@ fn anatomy_axes(fig: &Figure) -> Result<Axes, Box<dyn std::error::Error>> {
     }
     ax.xaxis()
         .set_minor_formatter(StrMethodFormatter::new("{x:.2f}")?);
-    ax.set_xlim(0.0, 4.0).set_ylim(0.0, 4.0);
+    ax.set_xlim(0.0, 4.0)?.set_ylim(0.0, 4.0)?;
     ax.tick_params(&TickParams {
         which: TickLevel::Major,
         width: Some(1.0),
@@ -271,10 +271,10 @@ fn firefox(fig: &Figure) -> CaseResult {
         bounds.3 + 1.0,
     );
     fig.set_facecolor(Color::from("0.75").resolve()?);
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     ax.set_frame_on(false);
     ax.set_aspect(Aspect::Ratio(1.0))?;
-    ax.set_xlim(xmin, xmax).set_ylim(ymax, ymin);
+    ax.set_xlim(xmin, xmax)?.set_ylim(ymax, ymin)?;
     tickless(&ax);
     ax.add_patch_with(
         PathShape(path.clone()),
@@ -303,7 +303,7 @@ fn centred_note(ax: &Axes, text: &str) {
 
 fn pan_zoom_overlap(fig: &Figure) -> CaseResult {
     fig.suptitle("Showcase for pan/zoom events on overlapping axes.");
-    let ax = fig.add_axes([0.05, 0.05, 0.9, 0.9]);
+    let ax = fig.add_axes([0.05, 0.05, 0.9, 0.9])?;
     // `ax.patch.set_color(".75")`: face and edge.
     ax.set_facecolor(".75").set_patch_edgecolor(".75");
     let _twin = ax.twinx();
@@ -417,7 +417,7 @@ fn stock_prices(fig: &Figure) -> CaseResult {
     let limits = ax
         .xaxis()
         .convert_units(vec![datetime64("1989-06-01")?, datetime64("2023-01-01")?]);
-    ax.set_xlim(limits[0], limits[1]);
+    ax.set_xlim(limits[0], limits[1])?;
     fig.suptitle("Technology company stocks prices dollars (1990-2022)")
         .set_halign(HAlign::Center);
     for spine in ax.spines().iter() {
@@ -456,7 +456,7 @@ fn xkcd(rc: &mut RcParams) -> CaseResult {
 }
 
 fn xkcd_2(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.1, 0.2, 0.8, 0.7]);
+    let ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])?;
     ax.bar(
         [0.0, 1.0],
         [0.0, 100.0],
@@ -470,9 +470,9 @@ fn xkcd_2(fig: &Figure) -> CaseResult {
         .set_ticks_position(TickPosition::Side(SpineSide::Bottom))?;
     ax.set_xticks([0.0, 1.0]);
     ax.set_xticklabels(["CONFIRMED BY\nEXPERIMENT", "REFUTED BY\nEXPERIMENT"])?;
-    ax.set_xlim(-0.5, 1.5);
+    ax.set_xlim(-0.5, 1.5)?;
     ax.set_yticks(Vec::<f64>::new());
-    ax.set_ylim(0.0, 110.0);
+    ax.set_ylim(0.0, 110.0)?;
     ax.set_title("CLAIMS OF SUPERNATURAL POWERS");
     fig.text(0.5, 0.05, "\"The Data So Far\" from xkcd by Randall Munroe")
         .set_halign(HAlign::Center);

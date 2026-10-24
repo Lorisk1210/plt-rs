@@ -23,9 +23,9 @@ fn wrapped(ax: &Axes, x: f64, y: f64, halign: HAlign) -> Text {
 
 /// `test_basic_wrap`: wrapped texts rotated, aligned and styled in
 /// different ways, some running off the figure.
-fn basic_wrap(fig: &Figure) {
+fn basic_wrap(fig: &Figure) -> CaseResult {
     use HAlign::{Center, Left, Right};
-    let ax = blank(fig);
+    let ax = blank(fig)?;
     wrapped(&ax, 4.0, 1.0, Left).set_rotation(15.0);
     wrapped(&ax, 6.0, 5.0, Left).set_rotation(15.0);
     wrapped(&ax, 5.0, 5.0, Right).set_rotation(-15.0);
@@ -37,13 +37,14 @@ fn basic_wrap(fig: &Figure) {
         .set_family(["serif"])
         .set_style(FontStyle::Italic);
     wrapped(&ax, -1.0, 0.0, Left).set_rotation(-15.0);
+    Ok(())
 }
 
 /// `test_font_wrap`: wrapped texts in different families, weights and
 /// sizes.
 fn font_wrap(fig: &Figure) -> CaseResult {
     use HAlign::{Center, Left, Right};
-    let ax = blank(fig);
+    let ax = blank(fig)?;
     wrapped(&ax, 4.0, -1.0, Left)
         .set_fontsize(18.0)
         .set_family(["serif"])
@@ -126,11 +127,7 @@ fn ytick_rotation_mode(fig: &Figure) -> CaseResult {
 }
 
 pub(super) const CASES: &[FigureCase] = &[
-    FigureCase::new("mpl_text/basictext_wrap", |fig| {
-        basic_wrap(fig);
-        Ok(())
-    })
-    .sized(8.0, 6.0, 100.0),
+    FigureCase::new("mpl_text/basictext_wrap", basic_wrap).sized(8.0, 6.0, 100.0),
     FigureCase::new("mpl_text/fonttext_wrap", font_wrap).sized(8.0, 6.0, 100.0),
     FigureCase::new("mpl_text/xtick_rotation_mode", xtick_rotation_mode).sized(12.0, 1.0, 100.0),
     FigureCase::new("mpl_text/ytick_rotation_mode", ytick_rotation_mode).sized(1.0, 12.0, 100.0),

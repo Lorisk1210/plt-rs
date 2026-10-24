@@ -192,7 +192,9 @@ mod tests {
     /// The table cells of `options` placed in a 640 × 480 px axes.
     fn placed(options: &TableOptions, tweak: impl FnOnce(&crate::table::Table)) -> Vec<PlacedCell> {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
         let table = ax.table(options.clone()).expect("valid table");
         tweak(&table);
         let state = table.raw().figure_state().borrow();

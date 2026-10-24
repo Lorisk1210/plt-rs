@@ -61,7 +61,7 @@ pub(super) fn resample_factors(fig: &Figure) -> CaseResult {
             ..ImshowOptions::default()
         },
     )?;
-    axs[(0, 2)].set_xlim(0.0, 120.0);
+    axs[(0, 2)].set_xlim(0.0, 120.0)?;
     Ok(())
 }
 
@@ -96,7 +96,7 @@ pub(super) fn composite_alpha(fig: &Figure) -> CaseResult {
         )?;
     }
     ax.set_facecolor((0.0, 0.5, 0.0, 1.0));
-    ax.set_xlim(0.0, 5.0).set_ylim(5.0, 0.0);
+    ax.set_xlim(0.0, 5.0)?.set_ylim(5.0, 0.0)?;
     Ok(())
 }
 

@@ -79,7 +79,7 @@ fn barh(fig: &Figure) -> CaseResult {
         ..BarOptions::default()
     };
     ax[0].barh(birth_dates.clone(), [21.0, 53.0, 20.0, 24.0], ten_days)?;
-    ax[1].set_xlim(year_start, year_end);
+    ax[1].set_xlim(year_start, year_end)?;
     ax[1].set_xlabel("Birth Date");
     ax[1].set_ylabel("Order of Birth Dates");
     let widths: Vec<f64> = birth_dates

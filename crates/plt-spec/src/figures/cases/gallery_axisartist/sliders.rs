@@ -4,6 +4,7 @@
 use std::f64::consts::PI;
 
 use plt::axes::{HistPlotOptions, ImshowOptions};
+use plt::figure::AxesRectError;
 use plt::gridspec::SubplotOverrides;
 use plt::numeric::Grid;
 use plt::patches::PatchProps;
@@ -40,12 +41,13 @@ fn wave(t: &[f64], amplitude: f64, frequency: f64) -> Vec<f64> {
 }
 
 /// The slider examples' reset button.
-fn reset_button(fig: &Figure) -> Button {
+fn reset_button(fig: &Figure) -> Result<Button, AxesRectError> {
     let options = ButtonOptions {
         hovercolor: "0.975".into(),
         ..ButtonOptions::default()
     };
-    Button::new(&fig.add_axes([0.8, 0.025, 0.1, 0.04]), "Reset", options)
+    let ax = fig.add_axes([0.8, 0.025, 0.1, 0.04])?;
+    Ok(Button::new(&ax, "Reset", options))
 }
 
 fn range_slider(fig: &Figure) -> CaseResult {
@@ -69,7 +71,7 @@ fn range_slider(fig: &Figure) -> CaseResult {
         .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
             (lo.min(v), hi.max(v))
         });
-    let slider_ax = fig.add_axes([0.20, 0.1, 0.60, 0.03]);
+    let slider_ax = fig.add_axes([0.20, 0.1, 0.60, 0.03])?;
     let slider = RangeSlider::new(
         &slider_ax,
         "Threshold",
@@ -77,7 +79,7 @@ fn range_slider(fig: &Figure) -> CaseResult {
         high,
         None,
         SliderOptions::default(),
-    );
+    )?;
     let (lower, upper) = slider.val();
     for x in [lower, upper] {
         axs[(0, 1)].axvline(x, LineProps::default().color("k"));
@@ -103,25 +105,25 @@ fn slider_demo(fig: &Figure) -> CaseResult {
         ..SliderOptions::default()
     };
     let _freq = Slider::new(
-        &fig.add_axes([0.25, 0.1, 0.65, 0.03]),
+        &fig.add_axes([0.25, 0.1, 0.65, 0.03])?,
         "Frequency [Hz]",
         0.1,
         30.0,
         frequency,
-    );
+    )?;
     let amplitude = SliderOptions {
         valinit: 5.0,
         orientation: Orientation::Vertical,
         ..SliderOptions::default()
     };
     let _amp = Slider::new(
-        &fig.add_axes([0.1, 0.25, 0.0225, 0.63]),
+        &fig.add_axes([0.1, 0.25, 0.0225, 0.63])?,
         "Amplitude",
         0.0,
         10.0,
         amplitude,
-    );
-    reset_button(fig);
+    )?;
+    reset_button(fig)?;
     Ok(())
 }
 
@@ -134,8 +136,8 @@ fn slider_snap_demo(fig: &Figure) -> CaseResult {
         wave(&t, 5.0, 3.0),
         LineProps::default().linewidth(2.0),
     )?;
-    let ax_freq = fig.add_axes([0.25, 0.1, 0.65, 0.03]);
-    let ax_amp = fig.add_axes([0.25, 0.15, 0.65, 0.03]);
+    let ax_freq = fig.add_axes([0.25, 0.1, 0.65, 0.03])?;
+    let ax_amp = fig.add_axes([0.25, 0.15, 0.65, 0.03])?;
     let mut allowed_amplitudes = linspace(0.1, 5.0, 100);
     allowed_amplitudes.extend([6.0, 7.0, 8.0, 9.0]);
     let amplitude = SliderOptions {
@@ -144,15 +146,15 @@ fn slider_snap_demo(fig: &Figure) -> CaseResult {
         poly: PatchProps::default().color("green"),
         ..SliderOptions::default()
     };
-    let _amp = Slider::new(&ax_amp, "Amp", 0.1, 9.0, amplitude);
+    let _amp = Slider::new(&ax_amp, "Amp", 0.1, 9.0, amplitude)?;
     let frequency = SliderOptions {
         valinit: 2.0 * PI,
         valstep: Some(ValStep::Step(PI)),
         initcolor: "none".into(),
         ..SliderOptions::default()
     };
-    let _freq = Slider::new(&ax_freq, "Freq", 0.0, 10.0 * PI, frequency);
-    reset_button(fig);
+    let _freq = Slider::new(&ax_freq, "Freq", 0.0, 10.0 * PI, frequency)?;
+    reset_button(fig)?;
     Ok(())
 }
 
@@ -183,7 +185,7 @@ fn textbox(fig: &Figure) -> CaseResult {
         ..TextBoxOptions::default()
     };
     let text_box = TextBox::new(
-        &fig.add_axes([0.1, 0.05, 0.8, 0.075]),
+        &fig.add_axes([0.1, 0.05, 0.8, 0.075])?,
         "Evaluate",
         "",
         options,

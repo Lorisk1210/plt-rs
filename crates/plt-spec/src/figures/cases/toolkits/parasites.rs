@@ -57,9 +57,9 @@ pub(super) fn bbox_connector_patch(fig: &Figure) -> CaseResult {
     for ax in [&ax1, &ax2, &main] {
         ax.plot(x.clone(), y.clone())?;
     }
-    main.set_xlim(0.0, 5.0);
-    ax1.set_xlim(1.0, 2.0);
-    ax2.set_xlim(3.0, 4.0);
+    main.set_xlim(0.0, 5.0)?;
+    ax1.set_xlim(1.0, 2.0)?;
+    ax2.set_xlim(3.0, 4.0)?;
     let span = Bbox::from_extents(1.0, 0.0, 2.0, 1.0);
     let upper = BboxSource::transformed(span, ax1.trans_xaxis());
     let lower = BboxSource::transformed(span, main.trans_xaxis());
@@ -137,7 +137,7 @@ pub(super) fn twin_aux_tight(fig: &Figure) -> CaseResult {
     let (xx, sin) = curve(0.0, TAU, 100, f64::sin);
     left.plot(xx.clone(), sin)?;
     let twin = left.twin(None)?;
-    left.set_xlim(0.0, TAU).set_ylim(-1.1, 1.1);
+    left.set_xlim(0.0, TAU)?.set_ylim(-1.1, 1.1)?;
     twin.set_xticks(vec![0.0, 0.5 * PI, PI, 1.5 * PI, TAU]);
     twin.set_xticklabels(["$0$", r"$\pi/2$", r"$\pi$", r"$3\pi/2$", r"$2\pi$"])?;
     twin.axis(SpineSide::Right).set_ticklabels_visible(false);
@@ -146,7 +146,7 @@ pub(super) fn twin_aux_tight(fig: &Figure) -> CaseResult {
     let degrees = right.twin(Some(Affine2D::scaling(PI / 180.0, 2.0)))?;
     let cos: Vec<f64> = xx.iter().map(|v| v.cos()).collect();
     right.plot_with(xx, cos, LineProps::default().color("tab:red"))?;
-    right.set_xlim(0.0, TAU).set_ylim(-1.2, 1.2);
+    right.set_xlim(0.0, TAU)?.set_ylim(-1.2, 1.2)?;
     right.set_xlabel("radians");
     degrees.set_xlabel("degrees");
     degrees.axis(SpineSide::Top).set_label_visible(true);
@@ -155,7 +155,7 @@ pub(super) fn twin_aux_tight(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn aux_axes_best_legend(fig: &Figure) -> CaseResult {
-    let host = host_axes(fig, [0.12, 0.14, 0.72, 0.8]);
+    let host = host_axes(fig, [0.12, 0.14, 0.72, 0.8])?;
     let par = host.aux_axes(ParasiteLink::Independent)?;
     par.share_x(&host)?;
     host.axis(SpineSide::Right).set_visible(false);

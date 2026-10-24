@@ -1,4 +1,5 @@
 use super::*;
+use crate::axes::{AxisName, PlotError};
 use crate::figure::Figure;
 
 fn sankey(options: SankeyOptions) -> (Axes, Sankey) {
@@ -32,6 +33,17 @@ fn settings_are_validated() {
         }),
         Some(SankeyError::NegativeHeadAngle)
     );
+}
+
+#[test]
+fn an_empty_diagram_leaves_no_view_to_fit() {
+    let (ax, chart) = sankey(SankeyOptions::default());
+    let before = (ax.xlim(), ax.ylim());
+    assert_eq!(
+        chart.finish().err(),
+        Some(SankeyError::Limits(PlotError::NonFiniteLimit(AxisName::X)))
+    );
+    assert_eq!((ax.xlim(), ax.ylim()), before);
 }
 
 #[test]
@@ -93,7 +105,13 @@ fn connected_diagrams_meet_at_their_tips() {
         connect: (2, 0),
         ..Subdiagram::default()
     };
-    let diagrams = chart.add(first).unwrap().add(second).unwrap().finish();
+    let diagrams = chart
+        .add(first)
+        .unwrap()
+        .add(second)
+        .unwrap()
+        .finish()
+        .unwrap();
     let (a, b) = (diagrams[0].tips[2], diagrams[1].tips[0]);
     assert!((a - b).length() < 1e-12);
     assert_eq!(diagrams[1].angles[0], Some(0.0));

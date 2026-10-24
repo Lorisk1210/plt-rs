@@ -195,7 +195,7 @@ pub(super) const CASES: &[FigureCase] = &[
             ..frogs()
         };
         let ax = equal_pie(fig, &options)?;
-        ax.set_ylim(-1.2, 1.2);
+        ax.set_ylim(-1.2, 1.2)?;
         ax.legend(LegendOptions::default())?;
         Ok(())
     }),

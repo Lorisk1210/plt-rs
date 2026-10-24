@@ -170,13 +170,9 @@ pub(super) fn anchored_packers(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn padded_and_aux_boxes(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 5.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 5.0)?;
     let padded = PaddedBox::new(
         text_area("padded box", TextProps::default()),
         6.0,
@@ -219,13 +215,9 @@ pub(super) fn padded_and_aux_boxes(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn anchored_size_bar(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     ax.add_anchored_box(AnchoredSizeBar::new(
         ax.trans_data(),
         1.0,

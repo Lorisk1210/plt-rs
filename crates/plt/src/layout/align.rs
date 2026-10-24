@@ -204,7 +204,11 @@ mod tests {
     fn groups_belong_to_their_figure() {
         let fig = Figure::new();
         let ids: Vec<ArtistId> = (0..2)
-            .map(|_| fig.add_axes([0.0, 0.0, 1.0, 1.0]).id())
+            .map(|_| {
+                fig.add_axes([0.0, 0.0, 1.0, 1.0])
+                    .expect("a valid rectangle")
+                    .id()
+            })
             .collect();
         let (root, other) = (fig.raw().id(), ids[1]);
         let mut groups = LabelGroups::default();

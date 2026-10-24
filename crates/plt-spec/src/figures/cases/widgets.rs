@@ -37,7 +37,7 @@ fn colors(names: &[&str]) -> Vec<Color> {
 }
 
 fn check_styled(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
     let label_props = COLORS
         .iter()
         .zip([8.0, 10.0, 12.0, 14.0])
@@ -65,7 +65,7 @@ fn check_styled(fig: &Figure) -> CaseResult {
 }
 
 fn radio_styled(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
     ax.set_facecolor("ivory");
     let label_props = [
         ("0.4", 9.0, false),
@@ -103,7 +103,7 @@ fn radio_layouts(fig: &Figure) -> CaseResult {
         ..RadioButtonsOptions::default()
     };
     RadioButtons::with_options(
-        &fig.add_axes([0.05, 0.55, 0.9, 0.35]),
+        &fig.add_axes([0.05, 0.55, 0.9, 0.35])?,
         &["one", "two", "three", "four"],
         1,
         across,
@@ -113,7 +113,7 @@ fn radio_layouts(fig: &Figure) -> CaseResult {
         ..RadioButtonsOptions::default()
     };
     RadioButtons::with_options(
-        &fig.add_axes([0.05, 0.1, 0.4, 0.35]),
+        &fig.add_axes([0.05, 0.1, 0.4, 0.35])?,
         &["a", "bb", "ccc", "dddd", "e"],
         3,
         grid,
@@ -123,7 +123,7 @@ fn radio_layouts(fig: &Figure) -> CaseResult {
         ..RadioButtonsOptions::default()
     };
     RadioButtons::with_options(
-        &fig.add_axes([0.55, 0.1, 0.4, 0.35]),
+        &fig.add_axes([0.55, 0.1, 0.4, 0.35])?,
         &["top", "middle", "bottom"],
         0,
         column,
@@ -137,7 +137,7 @@ fn check_layouts(fig: &Figure) -> CaseResult {
         ..CheckButtonsOptions::default()
     };
     CheckButtons::with_options(
-        &fig.add_axes([0.05, 0.55, 0.9, 0.35]),
+        &fig.add_axes([0.05, 0.55, 0.9, 0.35])?,
         &["alpha", "beta", "gamma"],
         &[true, false, true],
         across,
@@ -149,7 +149,7 @@ fn check_layouts(fig: &Figure) -> CaseResult {
     };
     let actives: Vec<bool> = (0..6).map(|i| i % 2 == 0).collect();
     CheckButtons::with_options(
-        &fig.add_axes([0.05, 0.1, 0.9, 0.35]),
+        &fig.add_axes([0.05, 0.1, 0.9, 0.35])?,
         &["A", "B", "C", "D", "E", "F"],
         &actives,
         grid,
@@ -157,10 +157,6 @@ fn check_layouts(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn slider_styles(fig: &Figure) -> CaseResult {
     let hz = SliderOptions {
         valinit: 12.5,
@@ -175,7 +171,7 @@ fn slider_styles(fig: &Figure) -> CaseResult {
         poly: PatchProps::default().facecolor("tab:green").alpha(0.6),
         ..SliderOptions::default()
     };
-    Slider::new(&fig.add_axes([0.25, 0.75, 0.55, 0.1]), "Hz", 0.0, 50.0, hz);
+    Slider::new(&fig.add_axes([0.25, 0.75, 0.55, 0.1])?, "Hz", 0.0, 50.0, hz)?;
     let gain = SliderOptions {
         valinit: -3.0,
         valstep: Some(ValStep::Values(vec![
@@ -190,24 +186,26 @@ fn slider_styles(fig: &Figure) -> CaseResult {
         ..SliderOptions::default()
     };
     Slider::new(
-        &fig.add_axes([0.25, 0.5, 0.55, 0.1]),
+        &fig.add_axes([0.25, 0.5, 0.55, 0.1])?,
         "Gain",
         -10.0,
         10.0,
         gain,
-    );
+    )?;
     let big = SliderOptions {
         valinit: 7.5e5,
         ..SliderOptions::default()
     };
-    Slider::new(&fig.add_axes([0.25, 0.25, 0.55, 0.1]), "Big", 0.0, 2e6, big);
+    Slider::new(
+        &fig.add_axes([0.25, 0.25, 0.55, 0.1])?,
+        "Big",
+        0.0,
+        2e6,
+        big,
+    )?;
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn slider_vertical(fig: &Figure) -> CaseResult {
     let lo = SliderOptions {
         valinit: 0.0,
@@ -215,7 +213,7 @@ fn slider_vertical(fig: &Figure) -> CaseResult {
         orientation: Orientation::Vertical,
         ..SliderOptions::default()
     };
-    Slider::new(&fig.add_axes([0.15, 0.15, 0.08, 0.7]), "lo", 0.0, 1.0, lo);
+    Slider::new(&fig.add_axes([0.15, 0.15, 0.08, 0.7])?, "lo", 0.0, 1.0, lo)?;
     let mid = SliderOptions {
         valinit: 37.0,
         valstep: Some(ValStep::Step(10.0)),
@@ -228,36 +226,32 @@ fn slider_vertical(fig: &Figure) -> CaseResult {
         ..SliderOptions::default()
     };
     Slider::new(
-        &fig.add_axes([0.45, 0.15, 0.08, 0.7]),
+        &fig.add_axes([0.45, 0.15, 0.08, 0.7])?,
         "mid",
         0.0,
         100.0,
         mid,
-    );
+    )?;
     let hi = SliderOptions {
         valinit: 2.0,
         orientation: Orientation::Vertical,
         initcolor: Color::none(),
         ..SliderOptions::default()
     };
-    Slider::new(&fig.add_axes([0.75, 0.15, 0.08, 0.7]), "hi", -1.0, 1.0, hi);
+    Slider::new(&fig.add_axes([0.75, 0.15, 0.08, 0.7])?, "hi", -1.0, 1.0, hi)?;
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn range_sliders(fig: &Figure) -> CaseResult {
     let defaults = SliderOptions::default();
     RangeSlider::new(
-        &fig.add_axes([0.25, 0.8, 0.6, 0.08]),
+        &fig.add_axes([0.25, 0.8, 0.6, 0.08])?,
         "default",
         0.0,
         10.0,
         None,
         defaults.clone(),
-    );
+    )?;
     let styled = SliderOptions {
         valfmt: Some("%+.1f".into()),
         handle_style: HandleStyle {
@@ -270,21 +264,21 @@ fn range_sliders(fig: &Figure) -> CaseResult {
         ..SliderOptions::default()
     };
     RangeSlider::new(
-        &fig.add_axes([0.25, 0.6, 0.6, 0.08]),
+        &fig.add_axes([0.25, 0.6, 0.6, 0.08])?,
         "styled",
         -5.0,
         5.0,
         Some((-4.0, 1.0)),
         styled,
-    );
+    )?;
     RangeSlider::new(
-        &fig.add_axes([0.25, 0.4, 0.6, 0.08]),
+        &fig.add_axes([0.25, 0.4, 0.6, 0.08])?,
         "swapped",
         0.0,
         1.0,
         Some((0.9, 0.2)),
         defaults,
-    );
+    )?;
     let vertical = SliderOptions {
         orientation: Orientation::Vertical,
         valstep: Some(ValStep::Step(0.05)),
@@ -292,28 +286,24 @@ fn range_sliders(fig: &Figure) -> CaseResult {
         ..SliderOptions::default()
     };
     RangeSlider::new(
-        &fig.add_axes([0.08, 0.1, 0.06, 0.4]),
+        &fig.add_axes([0.08, 0.1, 0.06, 0.4])?,
         "vert",
         0.0,
         1.0,
         Some((0.1, 0.4)),
         vertical,
-    );
+    )?;
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn buttons(fig: &Figure) -> CaseResult {
     Button::new(
-        &fig.add_axes([0.05, 0.3, 0.25, 0.4]),
+        &fig.add_axes([0.05, 0.3, 0.25, 0.4])?,
         "Default",
         ButtonOptions::default(),
     );
     let styled = Button::new(
-        &fig.add_axes([0.375, 0.3, 0.25, 0.4]),
+        &fig.add_axes([0.375, 0.3, 0.25, 0.4])?,
         "Styled",
         ButtonOptions {
             color: Color::from("tab:blue"),
@@ -326,7 +316,7 @@ fn buttons(fig: &Figure) -> CaseResult {
         .set_weight(FontWeight::BOLD)
         .set_fontsize(14.0);
     let framed = Button::new(
-        &fig.add_axes([0.7, 0.3, 0.25, 0.4]),
+        &fig.add_axes([0.7, 0.3, 0.25, 0.4])?,
         "Framed\ntwo lines",
         ButtonOptions {
             color: Color::from("lightyellow"),
@@ -339,19 +329,15 @@ fn buttons(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn textboxes(fig: &Figure) -> CaseResult {
     TextBox::new(
-        &fig.add_axes([0.25, 0.75, 0.6, 0.12]),
+        &fig.add_axes([0.25, 0.75, 0.6, 0.12])?,
         "left ",
         "aligned left",
         TextBoxOptions::default(),
     );
     TextBox::new(
-        &fig.add_axes([0.25, 0.5, 0.6, 0.12]),
+        &fig.add_axes([0.25, 0.5, 0.6, 0.12])?,
         "center ",
         "centred",
         TextBoxOptions {
@@ -361,7 +347,7 @@ fn textboxes(fig: &Figure) -> CaseResult {
         },
     );
     TextBox::new(
-        &fig.add_axes([0.25, 0.25, 0.6, 0.12]),
+        &fig.add_axes([0.25, 0.25, 0.6, 0.12])?,
         "right",
         "right $x^2$",
         TextBoxOptions {
@@ -372,7 +358,7 @@ fn textboxes(fig: &Figure) -> CaseResult {
         },
     );
     TextBox::new(
-        &fig.add_axes([0.25, 0.05, 0.6, 0.12]),
+        &fig.add_axes([0.25, 0.05, 0.6, 0.12])?,
         "empty",
         "",
         TextBoxOptions::default(),

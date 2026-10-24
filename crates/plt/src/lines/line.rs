@@ -376,11 +376,11 @@ impl Artist for LineArtist {
 /// ```
 /// use plt::prelude::*;
 /// let fig = Figure::new();
-/// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+/// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
 /// let line = ax.plot([1.0, 2.0, 3.0], [4.0, 1.0, 2.0])?;
 /// line.set_color("tab:orange").set_linestyle(LineStyle::Dashed).set_linewidth(2.5);
 /// assert_eq!(line.linewidth(), 2.5);
-/// # Ok::<(), plt::axes::PlotError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Line2D {
@@ -545,8 +545,12 @@ mod tests {
     #[test]
     fn window_extents_cover_the_finite_points_and_markers() {
         let fig = Figure::with_size(2.0, 2.0, 72.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         let props = LineProps::fmt("o-").unwrap().markersize(10.0);
         let line = ax.plot_with([0.25, f64::NAN, 0.75], [0.5, 0.2, 1.0], props);
         let extent = line.unwrap().window_extent().unwrap();
@@ -582,7 +586,9 @@ mod tests {
     fn slopes_are_in_data_units_whatever_the_point_coordinates() {
         // matplotlib's test_axline_transaxes_panzoom.
         let fig = Figure::with_size(2.0, 2.0, 72.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
         let line = ax
             .axline(
                 Point::new(0.5, 0.5),
@@ -591,7 +597,9 @@ mod tests {
             )
             .unwrap();
         line.set_transform(ax.trans_axes());
-        ax.set_xlim(0.0, 5.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 5.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         // Through the data point (2.5, 5) with slope 2: y = 2x, from the
         // bottom-left corner to the top-right one.
         assert_eq!(

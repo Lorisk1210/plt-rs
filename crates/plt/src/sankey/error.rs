@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use crate::axes::PlotError;
 use crate::ticker::pyfmt::FormatError;
 
 /// Invalid Sankey settings or subdiagrams.
@@ -51,6 +52,9 @@ pub enum SankeyError {
     },
     /// The quantity format accepts no number.
     Format(FormatError),
+    /// The view cannot fit the diagram: no subdiagram was added, or the
+    /// margin is not finite.
+    Limits(PlotError),
 }
 
 impl fmt::Display for SankeyError {
@@ -102,6 +106,7 @@ impl fmt::Display for SankeyError {
                  tolerance ({tolerance})"
             ),
             Self::Format(err) => err.fmt(f),
+            Self::Limits(err) => err.fmt(f),
         }
     }
 }
@@ -110,6 +115,7 @@ impl std::error::Error for SankeyError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Format(err) => Some(err),
+            Self::Limits(err) => Some(err),
             _ => None,
         }
     }

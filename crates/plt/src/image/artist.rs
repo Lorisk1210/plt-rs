@@ -564,11 +564,15 @@ mod tests {
     #[test]
     fn rectangles_clip_to_their_bounding_box_and_other_shapes_to_their_outline() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
         let image = ax
             .imshow(Grid::filled(4, 4, 1.0), ImshowOptions::default())
             .unwrap();
-        ax.set_xlim(0.0, 4.0).set_ylim(0.0, 4.0);
+        ax.set_xlim(0.0, 4.0)
+            .and_then(|ax| ax.set_ylim(0.0, 4.0))
+            .expect("finite limits");
         // A 2 × 1 rectangle at (1, 1) turned by 90°: its box spans x in
         // [0, 1] and y in [1, 3] (one data unit is 100 pixels).
         let rect = Rectangle::new((1.0, 1.0), 2.0, 1.0).rotated(90.0, RotationPoint::Xy);

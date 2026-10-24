@@ -9,8 +9,12 @@ use crate::text::TextProps;
 /// A 640 × 480 px figure with one axes over `(0, 10)²`.
 fn axes() -> (Figure, Axes) {
     let fig = Figure::new();
-    let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    let ax = fig
+        .add_axes([0.125, 0.11, 0.775, 0.77])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 10.0))
+        .expect("finite limits");
     (fig, ax)
 }
 

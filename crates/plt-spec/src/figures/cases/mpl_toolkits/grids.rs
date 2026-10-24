@@ -300,7 +300,7 @@ fn anchored_artists(fig: &Figure) -> CaseResult {
 }
 
 fn rgb_axes(fig: &Figure) -> CaseResult {
-    let axes = RgbAxes::new(fig, [0.1, 0.1, 0.8, 0.8], 0.1);
+    let axes = RgbAxes::new(fig, [0.1, 0.1, 0.8, 0.8], 0.1)?;
     let mut rng = SpecRng::new(19_680_801);
     let mut channel = || {
         let values = rng.uniform(25, 0.0, 1.0);

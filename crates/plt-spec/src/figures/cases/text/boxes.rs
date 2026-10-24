@@ -30,7 +30,7 @@ fn plain_box(patch: PatchProps) -> TextBoxProps {
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("text/multialignment_linespacing", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         let s = "short\na much longer line\nmid line";
         let unfilled = || Some(plain_box(PatchProps::default().facecolor("none")));
         ax.text(0.5, 5.0, s)
@@ -53,7 +53,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("text/color_alpha_background", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.axhspan(4.0, 6.0).set_color("k");
         ax.text(0.5, 8.0, "red text")
             .set_color("red")
@@ -74,7 +74,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("text/bbox_boxstyles", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.set_axis_off();
         for (i, style) in BOXSTYLES.into_iter().enumerate() {
             let (x, y) = (2.0 + 6.0 * (i % 2) as f64, 9.0 - 2.0 * (i / 2) as f64);
@@ -91,7 +91,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("text/bbox_pad_props", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         let white = || PatchProps::default().facecolor("w");
         ax.text(1.0, 7.0, "pad 0.1")
             .set_bbox(styled_box("square,pad=0.1", white())?);

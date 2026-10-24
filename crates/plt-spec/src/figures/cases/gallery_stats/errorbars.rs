@@ -118,7 +118,7 @@ fn errorbar_limits(fig: &Figure) -> CaseResult {
         ..yerr(errors)
     };
     ax.errorbar(&x, shifted(2.1), crossed)?;
-    ax.set_xlim(0.0, 5.5);
+    ax.set_xlim(0.0, 5.5)?;
     ax.set_title("Errorbar upper and lower limits");
     Ok(())
 }

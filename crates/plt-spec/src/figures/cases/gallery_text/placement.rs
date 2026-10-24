@@ -34,7 +34,7 @@ fn text_alignment_1(fig: &Figure) -> CaseResult {
     let y = [0.22, 0.34, 0.5, 0.56, 0.78];
     let x = [0.17, 0.5, 0.855];
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     tickless(&ax);
     for spine in ax.spines().iter() {
         spine.set_visible(false);
@@ -172,7 +172,7 @@ fn text_rotation_relative_to_line(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let ramp: Vec<f64> = (0..8).map(f64::from).collect();
     ax.plot(&ramp, &ramp)?;
-    ax.set_xlim(-10.0, 10.0);
+    ax.set_xlim(-10.0, 10.0)?;
     ax.text(-8.0, 0.0, "text 45° in screen coordinates")
         .set_fontsize(18.0)
         .set_rotation(45.0)
@@ -309,10 +309,6 @@ fn multiline_1(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn multiline_2(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let outline = || {
@@ -335,7 +331,7 @@ fn multiline_2(fig: &Figure) -> CaseResult {
     }
     ax.axhline(0.4, LineProps::default());
     ax.set_title("test line spacing for multiline text");
-    ax.set_xlim(0.0, 0.7);
+    ax.set_xlim(0.0, 0.7)?;
     ax.yaxis().minorticks_on();
     ax.yaxis().set_tick_params(&TickParams {
         which: TickLevel::Minor,
@@ -352,12 +348,8 @@ fn multiline_2(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn autowrap(fig: &Figure) -> CaseResult {
-    let ax = blank(fig);
+    let ax = blank(fig)?;
     let wrapped = |x: f64, y: f64| {
         let text = ax.text(x, y, LONG_TEXT);
         text.set_wrap(true);

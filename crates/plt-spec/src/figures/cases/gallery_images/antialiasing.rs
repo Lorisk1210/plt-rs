@@ -106,8 +106,8 @@ fn image_antialiasing_2(fig: &Figure) -> CaseResult {
         Some(Interpolation::Nearest),
         None,
     )?;
-    ax.set_xlim(100.0, 200.0);
-    ax.set_ylim(275.0, 175.0);
+    ax.set_xlim(100.0, 200.0)?;
+    ax.set_ylim(275.0, 175.0)?;
     ax.set_title("Zoom");
     Ok(())
 }
@@ -272,7 +272,7 @@ fn image_antialiasing_10(fig: &Figure) -> CaseResult {
 
 fn image_antialiasing_11(fig: &Figure) -> CaseResult {
     let corner = alarge();
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     show(
         &ax,
         Grid::from_fn(400, 400, |r, c| corner[(r, c)]),

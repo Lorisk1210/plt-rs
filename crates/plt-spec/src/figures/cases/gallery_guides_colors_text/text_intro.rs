@@ -4,7 +4,7 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::{AxisName, LabelLoc, TickParams, TitleLocation};
+use plt::axes::{AxisName, LabelLoc, PlotError, TickParams, TitleLocation};
 use plt::dates::{DateFormatter, DateTime, RRuleLocator, TimeDelta};
 use plt::fonts::{FontProperties, FontSize, FontStyle, FontWeight, RelativeSize};
 use plt::gridspec::SubplotOverrides;
@@ -147,9 +147,10 @@ fn oscillation_pair(fig: &Figure) -> Result<(Axes, Axes), Box<dyn std::error::Er
 }
 
 /// Gives `ax` the x limits of `like`.
-fn same_xlim(ax: &Axes, like: &Axes) {
+fn same_xlim(ax: &Axes, like: &Axes) -> Result<(), PlotError> {
     let (left, right) = like.xlim();
-    ax.set_xlim(left, right);
+    ax.set_xlim(left, right)?;
+    Ok(())
 }
 
 fn text_intro_10(fig: &Figure) -> CaseResult {
@@ -163,7 +164,7 @@ fn text_intro_11(fig: &Figure) -> CaseResult {
     let tickla: Vec<String> = ticks().iter().map(|tick| format!("{tick:1.2}")).collect();
     lower.xaxis().set_ticks(ticks());
     lower.xaxis().set_ticklabels(tickla)?;
-    same_xlim(&lower, &upper);
+    same_xlim(&lower, &upper)?;
     Ok(())
 }
 
@@ -173,7 +174,7 @@ fn text_intro_12(fig: &Figure) -> CaseResult {
     lower
         .xaxis()
         .set_major_formatter(StrMethodFormatter::new("{x:1.1f}")?);
-    same_xlim(&lower, &upper);
+    same_xlim(&lower, &upper)?;
     Ok(())
 }
 

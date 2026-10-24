@@ -143,10 +143,6 @@ pub(super) fn regularpolycollection_rotate(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn regularpolycollection_scale(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     // `SquareCollection.get_transform`: the pixels per data unit of the
@@ -159,32 +155,24 @@ pub(super) fn regularpolycollection_scale(fig: &Figure) -> CaseResult {
         .with_offsets(vec![Point::ORIGIN], ax.trans_data())
         .with_transform(to_data);
     ax.add_collection(squares);
-    ax.set_xlim(-1.0, 1.0).set_ylim(-1.0, 1.0);
+    ax.set_xlim(-1.0, 1.0)?.set_ylim(-1.0, 1.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn size_in_xy(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let ellipses = CollectionSpec::ellipses(&[10.0, 10.0], &[10.0], &[0.0], EllipseUnits::Xy)
         .with_offsets(points(&[(10.0, 10.0), (15.0, 15.0)]), ax.trans_data());
     ax.add_collection(ellipses);
-    ax.set_xlim(0.0, 30.0).set_ylim(0.0, 30.0);
+    ax.set_xlim(0.0, 30.0)?.set_ylim(0.0, 30.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn cap_and_joinstyle_image(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(-0.5, 1.5).set_ylim(-0.5, 2.5);
+    ax.set_xlim(-0.5, 1.5)?.set_ylim(-0.5, 2.5)?;
     let segments = [0.0, 0.5, 1.0]
         .into_iter()
         .map(|y| points(&[(0.0, y), (1.0, y), (0.5, y + 1.0)]))
@@ -262,7 +250,7 @@ pub(super) fn masked_set_offsets(fig: &Figure) -> CaseResult {
 /// turn, their gaps in `gapcolors`, half transparent.
 fn striped_lines(fig: &Figure, gapcolors: Vec<Color>) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 6.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 6.0)?.set_ylim(0.0, 1.0)?;
     ax.vlines([1.0, 2.0, 3.0, 4.0, 5.0], [0.0], [1.0])?
         .set_linewidths(vec![20.0])
         .set_linestyles(vec![LineStyle::Dotted, LineStyle::Solid, LineStyle::Dashed])

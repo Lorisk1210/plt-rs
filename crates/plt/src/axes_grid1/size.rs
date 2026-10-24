@@ -205,8 +205,12 @@ mod tests {
     #[test]
     fn sizes_combine_relative_and_absolute_parts() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
-        ax.set_xlim(0.0, 20.0).set_ylim(5.0, -5.0);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 20.0)
+            .and_then(|ax| ax.set_ylim(5.0, -5.0))
+            .expect("finite limits");
         let mut state = fig.raw().figure_state().borrow_mut();
         assert_eq!(Size::Fixed(0.5).evaluate(&mut state), (0.0, 0.5));
         assert_eq!(Size::axes_x(ax.id()).evaluate(&mut state), (20.0, 0.0));
@@ -246,9 +250,16 @@ mod tests {
     #[test]
     fn relative_aspects_follow_matplotlib() {
         let fig = Figure::new();
-        let reference = fig.add_axes([0.1, 0.1, 0.4, 0.8]);
-        let measured = fig.add_axes([0.5, 0.1, 0.4, 0.8]);
-        measured.set_xlim(0.0, 4.0).set_ylim(0.0, 4.0);
+        let reference = fig
+            .add_axes([0.1, 0.1, 0.4, 0.8])
+            .expect("a valid rectangle");
+        let measured = fig
+            .add_axes([0.5, 0.1, 0.4, 0.8])
+            .expect("a valid rectangle");
+        measured
+            .set_xlim(0.0, 4.0)
+            .and_then(|ax| ax.set_ylim(0.0, 4.0))
+            .expect("finite limits");
         reference.set_aspect(Aspect::Ratio(2.0)).unwrap();
         measured.set_aspect(Aspect::Ratio(4.0)).unwrap();
         let mut state = fig.raw().figure_state().borrow_mut();

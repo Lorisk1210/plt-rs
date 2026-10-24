@@ -347,7 +347,7 @@ fn contour_image(fig: &Figure) -> CaseResult {
     let im = axs[3].imshow(z.clone(), image(None, Some(Interpolation::Nearest)))?;
     axs[3].contour(&placed(Origin::Image), black_lines())?;
     let (bottom, top) = axs[3].ylim();
-    axs[3].set_ylim(top, bottom);
+    axs[3].set_ylim(top, bottom)?;
     axs[3].set_title("Origin from rc, reversed y-axis");
     fig.colorbar(&im, ColorbarOptions::beside(&axs[3]))?;
     fig.tight_layout(&TightLayout::default())?;
@@ -399,8 +399,8 @@ fn irregulardatagrid(fig: &Figure) -> CaseResult {
     let cntr1 = ax1.contourf(&field, rdbu()?)?;
     fig.colorbar(&cntr1, ColorbarOptions::beside(ax1))?;
     ax1.plot_with(&x, &y, dots()?)?;
-    ax1.set_xlim(-2.0, 2.0);
-    ax1.set_ylim(-2.0, 2.0);
+    ax1.set_xlim(-2.0, 2.0)?;
+    ax1.set_ylim(-2.0, 2.0)?;
     ax1.set_title(format!(
         "grid and contour ({npts} points, {} grid points)",
         ngridx * ngridy
@@ -409,8 +409,8 @@ fn irregulardatagrid(fig: &Figure) -> CaseResult {
     let cntr2 = ax2.tricontourf(&triang, &z, rdbu()?)?;
     fig.colorbar(&cntr2, ColorbarOptions::beside(ax2))?;
     ax2.plot_with(&x, &y, dots()?)?;
-    ax2.set_xlim(-2.0, 2.0);
-    ax2.set_ylim(-2.0, 2.0);
+    ax2.set_xlim(-2.0, 2.0)?;
+    ax2.set_ylim(-2.0, 2.0)?;
     ax2.set_title(format!("tricontour ({npts} points)"));
     fig.subplots_adjust(&SubplotOverrides {
         hspace: Some(0.5),

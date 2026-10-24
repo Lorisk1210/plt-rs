@@ -242,7 +242,9 @@ mod tests {
     #[test]
     fn sized_insets_sit_in_their_corner() {
         let fig = Figure::with_size(5.0, 4.0, 100.0);
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
         let options = InsetOptions {
             loc: AnchorLoc::LowerLeft,
             borderpad: (0.0, 0.0),
@@ -283,7 +285,9 @@ mod tests {
     #[test]
     fn anchor_boxes_follow_their_transform() {
         let fig = Figure::with_size(5.0, 4.0, 100.0);
-        let ax = fig.add_axes([0.1, 0.1, 0.5, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.5, 0.8])
+            .expect("a valid rectangle");
         let options = InsetOptions {
             loc: AnchorLoc::LowerLeft,
             bbox_to_anchor: Some(BboxToAnchor::Bounds(1.05, 0.0, 1.0, 1.0)),
@@ -303,14 +307,21 @@ mod tests {
     #[test]
     fn zoomed_insets_scale_the_parent_data() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let options = InsetOptions {
             borderpad: (0.0, 0.0),
             ..InsetOptions::default()
         };
         let zoomed = zoomed_inset_axes(&ax, 2.0, options);
-        zoomed.set_xlim(0.0, 1.0).set_ylim(0.0, 2.0);
+        zoomed
+            .set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(0.0, 2.0))
+            .expect("finite limits");
         // One data unit is 40 px in the parent: 80 px wide, 160 px tall.
         assert!(
             close(bounds(&zoomed), [0.8, 0.6, 0.2, 0.4]),

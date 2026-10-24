@@ -141,10 +141,6 @@ fn patheffect3(fig: &Figure) -> CaseResult {
 
 /// `test_patheffects_stroked_text`: white text outlined in black, in
 /// every printable ASCII character.
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn patheffects_stroked_text(fig: &Figure) -> CaseResult {
     let chunks = [
         "A B C D E F G H I J K L",
@@ -156,7 +152,7 @@ fn patheffects_stroked_text(fig: &Figure) -> CaseResult {
         ",./{}|:\"<>?",
     ];
     let font_size = 50.0;
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     for (i, chunk) in chunks.into_iter().enumerate() {
         ax.text(0.01, 0.9 - i as f64 * 0.13, chunk)
             .set_halign(HAlign::Left)
@@ -168,7 +164,7 @@ fn patheffects_stroked_text(fig: &Figure) -> CaseResult {
                 PathEffect::normal(),
             ]);
     }
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.set_axis_off();
     Ok(())
 }
@@ -242,7 +238,7 @@ fn tickedstroke(fig: &Figure) -> CaseResult {
         .update_props(PatchProps::default().facecolor("none").linewidth(2.0))
         .set_path_effects(ticked_stroke(-90.0, 10.0, 1.0));
     ax1.axis_mode(AxisMode::Equal);
-    ax1.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax1.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
 
     let default_length = TickedStroke::default().length;
     ax2.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("C0"))?
@@ -278,7 +274,7 @@ fn tickedstroke(fig: &Figure) -> CaseResult {
         "b",
         &ticked_stroke(45.0, 7.0, default_length),
     )?;
-    ax3.set_xlim(0.0, 4.0).set_ylim(0.0, 4.0);
+    ax3.set_xlim(0.0, 4.0)?.set_ylim(0.0, 4.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

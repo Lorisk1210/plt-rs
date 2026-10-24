@@ -104,7 +104,7 @@ fn specgram_demo(fig: &Figure) -> CaseResult {
     ax2.specgram(&x, options)?;
     ax2.set_xlabel("Time (s)");
     ax2.set_ylabel("Frequency (Hz)");
-    ax2.set_xlim(0.0, 20.0);
+    ax2.set_xlim(0.0, 20.0)?;
     Ok(())
 }
 

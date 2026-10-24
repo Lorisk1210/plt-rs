@@ -134,7 +134,9 @@ mod tests {
     #[test]
     fn clicks_and_hover() {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.5, 0.5, 0.4, 0.2]);
+        let ax = fig
+            .add_axes([0.5, 0.5, 0.4, 0.2])
+            .expect("a valid rectangle");
         let button = Button::new(&ax, "Reset", ButtonOptions::default());
         let clicks = Rc::new(Cell::new(0));
         let counter = Rc::clone(&clicks);
@@ -158,7 +160,9 @@ mod tests {
     #[test]
     fn disconnected_callbacks_miss_later_clicks() {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.5, 0.5, 0.4, 0.2]);
+        let ax = fig
+            .add_axes([0.5, 0.5, 0.4, 0.2])
+            .expect("a valid rectangle");
         let button = Button::new(&ax, "Reset", ButtonOptions::default());
         let clicks = Rc::new(Cell::new(0));
         let (first, second) = (Rc::clone(&clicks), Rc::clone(&clicks));

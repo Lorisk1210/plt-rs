@@ -48,7 +48,7 @@ fn axline_1(fig: &Figure) -> CaseResult {
         .linewidth(2.0)
         .label(r"$\sigma(t) = \frac{1}{1 + e^{-t}}$");
     ax.plot_with(&t, &sig, sigmoid)?;
-    ax.set_xlim(-10.0, 10.0);
+    ax.set_xlim(-10.0, 10.0)?;
     ax.set_xlabel("t");
     ax.legend(LegendOptions::default().fontsize(14.0))?;
     Ok(())
@@ -60,7 +60,7 @@ fn axline_2(fig: &Figure) -> Result<(), PlotError> {
         let props = LineProps::default().color("k").transform(ax.trans_axes());
         ax.axline(Point::new(pos, 0.0), AxLineThrough::Slope(0.5), props)?;
     }
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 
@@ -79,7 +79,7 @@ fn red_dots(ax: &Axes, x: &[f64], y: &[f64]) -> CaseResult {
 }
 
 fn capstyle(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 0.8]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 0.8])?;
     ax.set_title("Cap style");
     let styles = [
         ("butt", CapStyle::Butt),
@@ -92,7 +92,7 @@ fn capstyle(fig: &Figure) -> CaseResult {
         thick_and_thin(&ax, &xx, &yy, LineProps::default().solid_capstyle(style))?;
         red_dots(&ax, &xx, &yy)?;
     }
-    ax.set_ylim(-0.5, 1.5);
+    ax.set_ylim(-0.5, 1.5)?;
     ax.set_axis_off();
     Ok(())
 }
@@ -122,7 +122,7 @@ fn joinstyle(fig: &Figure) -> CaseResult {
             }
         }
     }
-    ax.set_xlim(-1.5, 2.75).set_ylim(-0.5, 5.5);
+    ax.set_xlim(-1.5, 2.75)?.set_ylim(-0.5, 5.5)?;
     ax.set_axis_off();
     Ok(())
 }
@@ -154,7 +154,7 @@ fn eventcollection_demo(fig: &Figure) -> CaseResult {
             .with_props(CollectionProps::default().color(color));
         ax.add_collection(spec);
     }
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.set_title("line plot with data points");
     Ok(())
 }
@@ -270,7 +270,7 @@ fn plot_linestyles(ax: &Axes, linestyles: &[NamedStyle], title: &str) -> CaseRes
     }
     ax.set_title(title);
     let n = linestyles.len() as f64;
-    ax.set_ylim(-0.5, n - 0.5);
+    ax.set_ylim(-0.5, n - 0.5)?;
     ax.set_yticks(arange(0.0, n, 1.0))
         .set_yticklabels(linestyles.iter().map(|style| style.name))?;
     ax.tick_params(&TickParams {
@@ -462,7 +462,7 @@ fn multicolored_line_3(fig: &Figure) -> CaseResult {
         ..ColorbarOptions::beside(&ax2)
     };
     fig.colorbar(&line, options)?;
-    ax2.set_xlim(x[0], x[499]).set_ylim(-1.1, 1.1);
+    ax2.set_xlim(x[0], x[499])?.set_ylim(-1.1, 1.1)?;
     ax2.set_title("Color between points");
     Ok(())
 }

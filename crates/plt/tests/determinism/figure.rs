@@ -122,8 +122,8 @@ fn clipped_stars(ax1: &Axes, ax2: &Axes) -> Result<(), Failure> {
         path: clip,
         transform: ax2.trans_data(),
     }));
-    ax1.set_xlim(-3.0, 3.0);
-    ax1.set_ylim(-3.0, 3.0);
+    ax1.set_xlim(-3.0, 3.0)?;
+    ax1.set_ylim(-3.0, 3.0)?;
     Ok(())
 }
 

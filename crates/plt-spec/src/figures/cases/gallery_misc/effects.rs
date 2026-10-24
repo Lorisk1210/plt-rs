@@ -96,17 +96,13 @@ fn patheffect_demo(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn tickedstroke_demo_1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.add_patch(PathShape(Path::unit_circle()))
         .update_props(PatchProps::default().facecolor("none").linewidth(2.0))
         .set_path_effects(ticked_stroke(-90.0, 10.0, 1.0));
     ax.axis_mode(AxisMode::Equal);
-    ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     Ok(())
 }
 
@@ -122,7 +118,7 @@ fn tickedstroke_demo_4(fig: &Figure) -> CaseResult {
 }
 
 fn svg_filter_line(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
     let x = [0.1, 0.5, 0.9];
     for (y, fmt, edge, label) in [
         ([0.1, 0.9, 0.5], "bo-", "b", "Line 1"),
@@ -141,12 +137,12 @@ fn svg_filter_line(fig: &Figure) -> CaseResult {
             .set_transform(ax.trans_data().offset_points(4.0, -6.0))
             .set_gid(format!("{label}_shadow"));
     }
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 
 fn svg_filter_pie(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
     let pie = ax.pie(
         &[15.0, 30.0, 45.0, 10.0],
         PieOptions {

@@ -165,8 +165,8 @@ fn boxplot_demo_3(fig: &Figure) -> CaseResult {
     ax1.set_ylabel("Value");
     let medians = shade_boxes(&ax1, &bp, &data)?;
     let num_boxes = data.len();
-    ax1.set_xlim(0.5, num_boxes as f64 + 0.5)
-        .set_ylim(-5.0, 40.0);
+    ax1.set_xlim(0.5, num_boxes as f64 + 0.5)?
+        .set_ylim(-5.0, 40.0)?;
     ax1.set_xticklabels(RANDOM_DISTS.iter().flat_map(|name| [*name; 2]))?;
     ax1.xaxis().set_ticklabel_props(
         TickLevel::Major,

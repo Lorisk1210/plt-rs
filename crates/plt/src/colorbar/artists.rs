@@ -411,7 +411,9 @@ mod tests {
     #[test]
     fn line_clips_reach_past_the_ends() {
         let fig = Figure::with_size(5.0, 3.5, 100.0);
-        let ax = fig.add_axes([0.8, 0.1, 0.05, 0.8]);
+        let ax = fig
+            .add_axes([0.8, 0.1, 0.05, 0.8])
+            .expect("a valid rectangle");
         let painter = Painter {
             ax: &ax,
             orientation: Orientation::Vertical,

@@ -229,7 +229,7 @@ fn path_editor_blitted(fig: &Figure) -> CaseResult {
     let line = ax.plot_with(x, y, vertex_markers()?)?;
     let interactor = Interactor::connect(fig, &ax, patch, line);
     ax.set_title("drag vertices to update path");
-    ax.set_xlim(-3.0, 4.0).set_ylim(-3.0, 4.0);
+    ax.set_xlim(-3.0, 4.0)?.set_ylim(-3.0, 4.0)?;
     draw_and_drag(fig, &interactor, (169.0, 317.0), (250.0, 400.0))
 }
 
@@ -244,7 +244,7 @@ fn poly_editor_blitted(fig: &Figure) -> CaseResult {
     let line = ax.add_line(&x, &y, vertex_markers()?)?;
     let interactor = Interactor::connect(fig, &ax, patch, line);
     ax.set_title("Click and drag a point to move it");
-    ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     draw_and_drag(fig, &interactor, (428.0, 354.0), (480.0, 420.0))
 }
 

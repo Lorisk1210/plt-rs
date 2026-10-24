@@ -172,7 +172,7 @@ pub(super) fn lightness(fig: &Figure, category: &Category) -> CaseResult {
             locs.push(if ends_labelled { x[99] } else { x[50] } + offset);
         }
         let (left, right) = axs[0].xlim();
-        ax.set_xlim(left, right).set_ylim(0.0, 100.0);
+        ax.set_xlim(left, right)?.set_ylim(0.0, 100.0)?;
         let xaxis = ax.xaxis();
         xaxis.set_ticks_position(TickPosition::Side(SpineSide::Top))?;
         xaxis.set_major_locator(FixedLocator::new(locs));

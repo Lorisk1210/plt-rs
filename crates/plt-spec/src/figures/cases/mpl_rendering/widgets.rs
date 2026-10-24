@@ -67,9 +67,9 @@ fn check_radio_buttons_image(fig: &Figure) -> CaseResult {
         ..plt::gridspec::SubplotOverrides::default()
     })?;
     let actives = [false, true, true];
-    RadioButtons::new(&fig.add_axes([0.05, 0.7, 0.2, 0.15]), &RADIO_LABELS, 0);
+    RadioButtons::new(&fig.add_axes([0.05, 0.7, 0.2, 0.15])?, &RADIO_LABELS, 0);
     CheckButtons::new(
-        &fig.add_axes([0.05, 0.5, 0.2, 0.15]),
+        &fig.add_axes([0.05, 0.5, 0.2, 0.15])?,
         &CHECK_LABELS,
         &actives,
     );
@@ -79,7 +79,7 @@ fn check_radio_buttons_image(fig: &Figure) -> CaseResult {
         ..RadioButtonsOptions::default()
     };
     RadioButtons::with_options(
-        &fig.add_axes([0.05, 0.3, 0.2, 0.15]),
+        &fig.add_axes([0.05, 0.3, 0.2, 0.15])?,
         &RADIO_LABELS,
         0,
         radio,
@@ -94,7 +94,7 @@ fn check_radio_buttons_image(fig: &Figure) -> CaseResult {
         ..CheckButtonsOptions::default()
     };
     CheckButtons::with_options(
-        &fig.add_axes([0.05, 0.1, 0.2, 0.15]),
+        &fig.add_axes([0.05, 0.1, 0.2, 0.15])?,
         &CHECK_LABELS,
         &actives,
         check,
@@ -138,7 +138,7 @@ fn radio_grid_buttons(fig: &Figure) -> CaseResult {
         ..RadioButtonsOptions::default()
     };
     RadioButtons::with_options(
-        &fig.add_axes([0.1, 0.05, 0.65, 0.05]),
+        &fig.add_axes([0.1, 0.05, 0.65, 0.05])?,
         &["tea", "coffee", "chocolate milk", "water", "soda", "coke"],
         4,
         row,
@@ -148,7 +148,7 @@ fn radio_grid_buttons(fig: &Figure) -> CaseResult {
         ..CheckButtonsOptions::default()
     };
     CheckButtons::with_options(
-        &fig.add_axes([0.1, 0.15, 0.25, 0.05 * 3.0]),
+        &fig.add_axes([0.1, 0.15, 0.25, 0.05 * 3.0])?,
         &["Chicken", "Salad", "Rice", "Sushi", "Pizza", "Fries"],
         &[true, true, false, false, false, true],
         grid,
@@ -158,7 +158,7 @@ fn radio_grid_buttons(fig: &Figure) -> CaseResult {
         ..RadioButtonsOptions::default()
     };
     RadioButtons::with_options(
-        &fig.add_axes([0.1, 0.35, 0.2, 0.05 * 4.0]),
+        &fig.add_axes([0.1, 0.35, 0.2, 0.05 * 4.0])?,
         &["Trinity Cream", "Cake", "Ice Cream", "Muhallebi"],
         3,
         column,

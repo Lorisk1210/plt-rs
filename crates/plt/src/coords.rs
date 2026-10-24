@@ -412,8 +412,12 @@ mod tests {
     fn resolve(coords: &str, point: Point) -> Point {
         use crate::artist::ArtistHandle;
         let fig = crate::figure::Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         ax.unstale_view();
         let state = ax.raw().figure_state().borrow();
         let frame = CoordFrame {
@@ -466,7 +470,9 @@ mod tests {
     fn the_axes_box_contains_points_with_a_pixel_of_slack() {
         use crate::artist::ArtistHandle;
         let fig = crate::figure::Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
         let state = ax.raw().figure_state().borrow();
         let layout = LayoutContext::new(&state);
         assert!(axes_contains_point(

@@ -14,7 +14,9 @@ pub(super) fn marker_indices(args: Args<'_>) -> Outcome {
     let selection = decode(args.json("markevery")?)?;
     let [width, height] = numbers(args, "figsize")?;
     let fig = Figure::with_size(width, height, args.f64("dpi")?);
-    let ax = fig.add_axes(numbers(args, "rect")?);
+    let ax = fig
+        .add_axes(numbers(args, "rect")?)
+        .map_err(ProbeError::rejected)?;
     let drawstyle: DrawStyle = args
         .str("drawstyle")?
         .parse()
@@ -32,7 +34,9 @@ pub(super) fn marker_indices(args: Args<'_>) -> Outcome {
         .map_err(ProbeError::rejected)?;
     let [left, right] = numbers(args, "xlim")?;
     let [bottom, top] = numbers(args, "ylim")?;
-    ax.set_xlim(left, right).set_ylim(bottom, top);
+    ax.set_xlim(left, right)
+        .and_then(|ax| ax.set_ylim(bottom, top))
+        .map_err(ProbeError::rejected)?;
     fig.layout();
     let indices = line.marker_indices().map_err(ProbeError::rejected)?;
     Ok(Json::Array(

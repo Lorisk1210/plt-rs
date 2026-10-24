@@ -150,8 +150,8 @@ impl ColorbarState {
         } else {
             (lower, upper)
         };
-        ax.set_view_limits(short.name(), 0.0, 1.0);
-        ax.set_view_limits(long.name(), lower, upper);
+        ax.set_view_limits(short.name(), 0.0, 1.0)?;
+        ax.set_view_limits(long.name(), lower, upper)?;
         if let Some(tickers) = tickers {
             tickers.install(&long);
         }

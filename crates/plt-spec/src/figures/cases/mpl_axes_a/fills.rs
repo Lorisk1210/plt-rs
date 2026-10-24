@@ -82,7 +82,7 @@ pub(super) fn fill_between_interpolate_decreasing(fig: &Figure) -> CaseResult {
         let props = CollectionProps::default().facecolor(color).alpha(0.4);
         ax.fill_betweenx(p, t, prof, interpolated(selected, props))?;
     }
-    ax.set_xlim(0.0, 30.0).set_ylim(800.0, 600.0);
+    ax.set_xlim(0.0, 30.0)?.set_ylim(800.0, 600.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -110,7 +110,7 @@ pub(super) fn symlog(fig: &Figure) -> CaseResult {
         [1_000_000.0, 500_000.0, 100_000.0, 100.0, 5.0, 0.0, 0.0, 0.0],
     )?;
     ax.set_yscale("symlog")?.set_xscale("linear")?;
-    ax.set_ylim(-1.0, 10_000_000.0);
+    ax.set_ylim(-1.0, 10_000_000.0)?;
     Ok(())
 }
 
@@ -126,7 +126,7 @@ pub(super) fn symlog2(fig: &Figure) -> CaseResult {
         ax.set_scale_with(AxisName::X, "symlog", options)?;
         ax.grid(true);
     }
-    axs[(4, 0)].set_ylim(-0.1, 0.1);
+    axs[(4, 0)].set_ylim(-0.1, 0.1)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

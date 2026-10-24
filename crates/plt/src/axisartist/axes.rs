@@ -416,7 +416,10 @@ mod tests {
             crate::axisartist::grid_finder::GridFinderOptions::default(),
         );
         let ax = Axes::with_grid_helper(fig.subplot(), polar);
-        ax.ax().set_xlim(-1.0, 1.0).set_ylim(-1.0, 1.0);
+        ax.ax()
+            .set_xlim(-1.0, 1.0)
+            .and_then(|ax| ax.set_ylim(-1.0, 1.0))
+            .expect("finite limits");
         // The ray at angle 0 from the centre to the right edge.
         let ray = ax.new_floating_axis("ray", AxisName::X, 0.0);
         ray.toggle(&Toggle {

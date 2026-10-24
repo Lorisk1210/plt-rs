@@ -132,7 +132,9 @@ mod tests {
         .unwrap();
         let axs = fig.subplots(2, 2).unwrap();
         for (i, ax) in axs.as_slice().iter().enumerate() {
-            ax.set_xlim(0.0, 10.0).set_ylim(-1.0, 1.0);
+            ax.set_xlim(0.0, 10.0)
+                .and_then(|ax| ax.set_ylim(-1.0, 1.0))
+                .expect("finite limits");
             ax.set_title(format!("title {i}"));
             ax.set_xlabel("x label").set_ylabel("y label");
         }

@@ -334,10 +334,19 @@ mod tests {
     #[test]
     fn sources_resolve_in_display_pixels() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
-        let ax = fig.add_axes([0.0, 0.0, 0.5, 0.5]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-        let other = fig.add_axes([0.5, 0.5, 0.5, 0.5]);
-        other.set_xlim(2.0, 4.0).set_ylim(0.0, 5.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 0.5, 0.5])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
+        let other = fig
+            .add_axes([0.5, 0.5, 0.5, 0.5])
+            .expect("a valid rectangle");
+        other
+            .set_xlim(2.0, 4.0)
+            .and_then(|ax| ax.set_ylim(0.0, 5.0))
+            .expect("finite limits");
         fig.layout();
         let state = fig.state();
         let layout = LayoutContext::new(&state);
@@ -360,8 +369,12 @@ mod tests {
     #[test]
     fn connector_patch_runs_back_along_the_second_line() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
-        let top = fig.add_axes([0.25, 0.5, 0.5, 0.25]);
-        let bottom = fig.add_axes([0.0, 0.0, 1.0, 0.25]);
+        let top = fig
+            .add_axes([0.25, 0.5, 0.5, 0.25])
+            .expect("a valid rectangle");
+        let bottom = fig
+            .add_axes([0.0, 0.0, 1.0, 0.25])
+            .expect("a valid rectangle");
         let patch = bottom.add_patch(BboxConnectorPatch {
             bbox1: BboxSource::axes(&top),
             bbox2: BboxSource::axes(&bottom),

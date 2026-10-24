@@ -12,9 +12,10 @@
 //! use plt::axes_grid1::anchored_artists::AnchoredSizeBar;
 //! use plt::offsetbox::AnchorLoc;
 //! let ax = Figure::new().subplot();
-//! ax.set_xlim(0.0, 10.0);
+//! ax.set_xlim(0.0, 10.0)?;
 //! let bar = ax.add_anchored_box(AnchoredSizeBar::new(ax.trans_data(), 1.0, "1 unit", AnchorLoc::LowerLeft));
 //! assert_eq!(bar.texts()[0].text(), "1 unit");
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 use plt_core::{Affine2D, Point};
@@ -478,8 +479,12 @@ mod tests {
     /// unit across and 36.96 px up.
     fn axes() -> (Figure, Axes) {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         (fig, ax)
     }
 

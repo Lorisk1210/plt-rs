@@ -473,16 +473,34 @@ impl Axes {
     }
 
     /// Sets the x view limits, numbers, dates or categories, and turns x
-    /// autoscaling off; `left > right` inverts the axis.
-    pub fn set_xlim(&self, left: impl Into<AxisValue>, right: impl Into<AxisValue>) -> &Self {
+    /// autoscaling off; `left > right` inverts the axis (matplotlib's
+    /// `set_xlim`; see [`Axes::set_limits`]).
+    ///
+    /// # Errors
+    ///
+    /// When a limit is NaN or infinite; then the view is unchanged.
+    pub fn set_xlim(
+        &self,
+        left: impl Into<AxisValue>,
+        right: impl Into<AxisValue>,
+    ) -> Result<&Self, PlotError> {
         let xaxis = self.xaxis();
         let (left, right) = (xaxis.convert_value(left), xaxis.convert_value(right));
         self.set_limits(AxisName::X, left, right)
     }
 
     /// Sets the y view limits, numbers, dates or categories, and turns y
-    /// autoscaling off; `bottom > top` inverts the axis.
-    pub fn set_ylim(&self, bottom: impl Into<AxisValue>, top: impl Into<AxisValue>) -> &Self {
+    /// autoscaling off; `bottom > top` inverts the axis (matplotlib's
+    /// `set_ylim`; see [`Axes::set_limits`]).
+    ///
+    /// # Errors
+    ///
+    /// When a limit is NaN or infinite; then the view is unchanged.
+    pub fn set_ylim(
+        &self,
+        bottom: impl Into<AxisValue>,
+        top: impl Into<AxisValue>,
+    ) -> Result<&Self, PlotError> {
         let yaxis = self.yaxis();
         let (bottom, top) = (yaxis.convert_value(bottom), yaxis.convert_value(top));
         self.set_limits(AxisName::Y, bottom, top)

@@ -196,7 +196,7 @@ fn quick_start_9(fig: &Figure) -> CaseResult {
     ax.set_ylabel("Probability");
     ax.set_title("Aardvark lengths\n (not really)");
     ax.text(75.0, 0.025, r"$\mu=115,\ \sigma=15$");
-    ax.set_xlim(55.0, 175.0).set_ylim(0.0, 0.03);
+    ax.set_xlim(55.0, 175.0)?.set_ylim(0.0, 0.03)?;
     ax.grid(true);
     Ok(())
 }

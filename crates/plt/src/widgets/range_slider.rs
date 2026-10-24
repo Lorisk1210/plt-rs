@@ -9,7 +9,7 @@ use plt_core::Point;
 use super::slider::{Orientation, SliderBase, SliderOptions};
 use super::{CallbackId, Connections, Observers};
 use crate::artist::ArtistHandle;
-use crate::axes::Axes;
+use crate::axes::{Axes, PlotError};
 use crate::lines::Line2D;
 use crate::patches::{Patch, Polygon};
 use crate::text::Text;
@@ -114,6 +114,11 @@ impl RangeSlider {
     /// Turns `ax` into a range slider over `valmin..valmax` labelled
     /// `label`, starting at `valinit` (by default the middle half of the
     /// range). `options.valinit` and `options.initcolor` are not used.
+    ///
+    /// # Errors
+    ///
+    /// When `valmin` or `valmax` is NaN or infinite; then `ax` is
+    /// unchanged.
     pub fn new(
         ax: &Axes,
         label: &str,
@@ -121,8 +126,8 @@ impl RangeSlider {
         valmax: f64,
         valinit: Option<(f64, f64)>,
         options: SliderOptions,
-    ) -> Self {
-        let base = SliderBase::new(ax, valmin, valmax, &options);
+    ) -> Result<Self, PlotError> {
+        let base = SliderBase::new(ax, valmin, valmax, &options)?;
         let length = match options.orientation {
             Orientation::Vertical => 2.0,
             Orientation::Horizontal => 1.0,
@@ -166,12 +171,12 @@ impl RangeSlider {
                 }
             });
         }
-        Self {
+        Ok(Self {
             parts,
             label,
             valinit,
             _connections: connections,
-        }
+        })
     }
 
     /// The current interval.
@@ -234,7 +239,9 @@ mod tests {
     #[test]
     fn intervals_are_sorted_and_bounded() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.2, 0.6, 0.6, 0.08]);
+        let ax = fig
+            .add_axes([0.2, 0.6, 0.6, 0.08])
+            .expect("a valid rectangle");
         let slider = RangeSlider::new(
             &ax,
             "Range",
@@ -242,7 +249,8 @@ mod tests {
             1.0,
             Some((0.2, 0.7)),
             SliderOptions::default(),
-        );
+        )
+        .expect("a finite range");
         assert_eq!(slider.val(), (0.2, 0.7));
         assert_eq!(
             slider.valtext().text(),

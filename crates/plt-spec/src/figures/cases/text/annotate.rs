@@ -148,7 +148,7 @@ fn coord_kinds(ax: &Axes) -> CaseResult {
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("text/annotate_coord_kinds", |fig| {
         let ax = fig.subplot();
-        ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+        ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
         coord_kinds(&ax)?;
         ax.plot_fmt([0.5, 1.0, 1.5, 0.0], [0.5, -1.0, 1.0, 0.0], "k.")?;
         Ok(())
@@ -195,7 +195,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("text/arrowstyles_line", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.set_axis_off();
         for (i, style) in LINE_ARROWSTYLES.into_iter().enumerate() {
             let (x, y) = (0.5 + 5.0 * (i / 5) as f64, 9.0 - 2.0 * (i % 5) as f64);
@@ -218,7 +218,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("text/arrowstyles_filled", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.set_axis_off();
         for (i, style) in FILLED_ARROWSTYLES.into_iter().enumerate() {
             let (x, y) = (0.5 + 5.0 * (i / 3) as f64, 8.5 - 3.0 * (i % 3) as f64);
@@ -242,7 +242,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("text/arrowstyle_params", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.set_axis_off();
         let styles = [
             "->,head_length=0.8,head_width=0.4",
@@ -322,7 +322,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(8.0, 5.0, 100.0),
     FigureCase::new("text/shrink_and_patches", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         for (i, (sa, sb)) in [(0.0, 0.0), (5.0, 5.0), (15.0, 25.0)]
             .into_iter()
             .enumerate()
@@ -363,7 +363,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("text/annotate_legacy_arrowprops", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.annotate(
             "default dict",
             (8.0, 8.0),

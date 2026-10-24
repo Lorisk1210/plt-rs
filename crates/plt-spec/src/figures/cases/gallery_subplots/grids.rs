@@ -73,10 +73,12 @@ fn axes_demo(fig: &Figure) -> CaseResult {
         .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
             (lo.min(v), hi.max(v))
         });
-    main_ax.set_xlim(0.0, 1.0).set_ylim(1.1 * low, 2.0 * high);
+    main_ax
+        .set_xlim(0.0, 1.0)?
+        .set_ylim(1.1 * low, 2.0 * high)?;
     main_ax.set_xlabel("time (s)").set_ylabel("current (nA)");
     main_ax.set_title("Gaussian colored noise");
-    let right_inset_ax = fig.add_axes([0.65, 0.6, 0.2, 0.2]);
+    let right_inset_ax = fig.add_axes([0.65, 0.6, 0.2, 0.2])?;
     right_inset_ax.set_facecolor("k");
     let density = HistPlotOptions {
         layout: HistOptions {
@@ -89,11 +91,11 @@ fn axes_demo(fig: &Figure) -> CaseResult {
     right_inset_ax.hist(&[&s], density)?;
     right_inset_ax.set_title("Probability");
     tickless(&right_inset_ax);
-    let left_inset_ax = fig.add_axes([0.2, 0.6, 0.2, 0.2]);
+    let left_inset_ax = fig.add_axes([0.2, 0.6, 0.2, 0.2])?;
     left_inset_ax.set_facecolor("k");
     left_inset_ax.plot(&t[..r.len()], &r)?;
     left_inset_ax.set_title("Impulse response");
-    left_inset_ax.set_xlim(0.0, 0.2);
+    left_inset_ax.set_xlim(0.0, 0.2)?;
     tickless(&left_inset_ax);
     Ok(())
 }

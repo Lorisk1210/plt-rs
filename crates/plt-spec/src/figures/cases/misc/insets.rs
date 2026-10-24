@@ -22,7 +22,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         show_field(&ax)?;
         let inset = ax.inset_axes([0.6, 0.6, 0.37, 0.37]);
-        inset.set_xlim(-1.5, -0.5).set_ylim(-0.5, 0.5);
+        inset.set_xlim(-1.5, -0.5)?.set_ylim(-0.5, 0.5)?;
         show_field(&inset)?;
         ax.indicate_inset_zoom(&inset, PatchProps::default().edgecolor("black"));
         Ok(())

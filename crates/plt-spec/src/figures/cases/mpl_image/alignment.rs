@@ -125,7 +125,7 @@ fn alignment_half_display_pixels(fig: &Figure) -> CaseResult {
             } else {
                 cy
             };
-            let ax = fig.add_axes([cx, my, 0.17, 0.425]);
+            let ax = fig.add_axes([cx, my, 0.17, 0.425])?;
             ax.set_xticks(Vec::<f64>::new());
             ax.set_yticks(Vec::<f64>::new());
             axs.push(ax);
@@ -238,7 +238,7 @@ fn rgba_clean_edges(fig: &Figure) -> CaseResult {
             },
         )?;
         ax.set_axis_off();
-        ax.set_xlim(-2.5, 9.5).set_ylim(-2.5, 9.5);
+        ax.set_xlim(-2.5, 9.5)?.set_ylim(-2.5, 9.5)?;
     }
     Ok(())
 }

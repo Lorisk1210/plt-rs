@@ -18,7 +18,7 @@ fn strip(ax: &Axes, title: &str) -> CaseResult {
     tick_strip(ax);
     ax.xaxis()
         .set_ticks_position(TickPosition::Side(SpineSide::Bottom))?;
-    ax.set_xlim(0.0, 5.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 5.0)?.set_ylim(0.0, 1.0)?;
     ax.set_patch_visible(false);
     ax.text(0.0, 0.2, title)
         .set_transform(ax.trans_axes())

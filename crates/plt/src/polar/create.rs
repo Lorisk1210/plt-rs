@@ -4,7 +4,7 @@
 
 use super::PolarAxes;
 use crate::axes::Axes;
-use crate::figure::{Figure, Share};
+use crate::figure::{AxesRectError, Figure, Share};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotSpec};
 use crate::numeric::Grid;
 
@@ -24,9 +24,9 @@ impl Figure {
     /// use plt::figure::{Figure, Share};
     /// let fig = Figure::new();
     /// let axs = fig.polar_subplots(1, 2, Share::None, Share::All)?;
-    /// axs[(0, 1)].set_ylim(0.0, 3.0);
+    /// axs[(0, 1)].set_ylim(0.0, 3.0)?;
     /// assert_eq!(axs[(0, 0)].ylim(), (0.0, 3.0));
-    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// # Errors
@@ -74,8 +74,12 @@ impl Figure {
 
     /// Adds polar axes occupying `[left, bottom, width, height]` in figure
     /// fractions.
-    pub fn add_polar_axes(&self, rect: [f64; 4]) -> PolarAxes {
-        PolarAxes::convert(self.add_axes(rect))
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_axes`].
+    pub fn add_polar_axes(&self, rect: [f64; 4]) -> Result<PolarAxes, AxesRectError> {
+        self.add_axes(rect).map(PolarAxes::convert)
     }
 }
 

@@ -176,7 +176,7 @@ fn subplots_adjust(fig: &Figure) -> CaseResult {
         top: Some(0.9),
         ..SubplotOverrides::default()
     })?;
-    let cax = fig.add_axes([0.85, 0.1, 0.075, 0.8]);
+    let cax = fig.add_axes([0.85, 0.1, 0.075, 0.8])?;
     fig.colorbar(
         &image,
         ColorbarOptions {
@@ -222,7 +222,7 @@ fn ganged_plots(fig: &Figure) -> CaseResult {
     ];
     for (ax, (s, ticks, (low, high))) in axs.as_slice().iter().zip(rows) {
         ax.plot(&t, s)?;
-        ax.set_yticks(ticks).set_ylim(low, high);
+        ax.set_yticks(ticks).set_ylim(low, high)?;
     }
     Ok(())
 }

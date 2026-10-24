@@ -113,7 +113,7 @@ fn autoscale_7(fig: &Figure) -> CaseResult {
     {
         let ax = &ax[(0, col)];
         ax.plot(&x, &y)?;
-        ax.set_xlim(-1.0, 1.0);
+        ax.set_xlim(-1.0, 1.0)?;
         ax.plot(&shifted, &y)?;
         if col == 1 {
             ax.autoscale(None, None);

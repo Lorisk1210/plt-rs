@@ -72,7 +72,7 @@ pub(super) fn boxplot(args: Args<'_>) -> Outcome {
             let [left, right] = lim[..] else {
                 return Err(ProbeError::BadArgs("xlim is not [left, right]".into()));
             };
-            ax.set_xlim(left, right);
+            made(ax.set_xlim(left, right))?;
         }
         if let Some(before) = optional(args, "before", datasets)? {
             let draw = BxpOptions {

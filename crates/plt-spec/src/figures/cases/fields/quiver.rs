@@ -73,8 +73,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..QuiverOptions::default()
         };
         ax.quiver(field, options)?;
-        ax.set_xlim(-1.0, 3.0);
-        ax.set_ylim(-1.0, 3.0);
+        ax.set_xlim(-1.0, 3.0)?;
+        ax.set_ylim(-1.0, 3.0)?;
         Ok(())
     })
     .sized(4.0, 4.0, 100.0),

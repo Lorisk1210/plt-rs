@@ -43,16 +43,16 @@ impl Wave {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let fig = Figure::with_size(8.0, 6.0, 100.0);
-    let top = fig.add_axes([0.1, 0.58, 0.85, 0.36]);
-    let bottom = fig.add_axes([0.1, 0.27, 0.85, 0.22]);
+    let top = fig.add_axes([0.1, 0.58, 0.85, 0.36])?;
+    let bottom = fig.add_axes([0.1, 0.27, 0.85, 0.22])?;
     let t = linspace(0.0, 1.0, 1000);
     let lines = [
         top.plot(t.clone(), vec![0.0; t.len()])?,
         bottom.plot(t.clone(), vec![0.0; t.len()])?,
     ];
     top.set_title("Drag over the wave to enlarge a span");
-    top.set_ylim(-11.0, 11.0);
-    bottom.set_ylim(-11.0, 11.0).set_xlim(0.0, 1.0);
+    top.set_ylim(-11.0, 11.0)?;
+    bottom.set_ylim(-11.0, 11.0)?.set_xlim(0.0, 1.0)?;
     let wave = Rc::new(Wave {
         t,
         frequency: Cell::new(3.0),
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     wave.update();
 
     let frequency = Slider::new(
-        &fig.add_axes([0.15, 0.12, 0.6, 0.03]),
+        &fig.add_axes([0.15, 0.12, 0.6, 0.03])?,
         "Frequency [Hz]",
         0.1,
         30.0,
@@ -70,9 +70,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             valinit: wave.frequency.get(),
             ..SliderOptions::default()
         },
-    );
+    )?;
     let amplitude = Slider::new(
-        &fig.add_axes([0.15, 0.06, 0.6, 0.03]),
+        &fig.add_axes([0.15, 0.06, 0.6, 0.03])?,
         "Amplitude",
         0.0,
         10.0,
@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             valinit: wave.amplitude.get(),
             ..SliderOptions::default()
         },
-    );
+    )?;
     {
         let wave = Rc::clone(&wave);
         frequency.on_changed(move |value| {
@@ -97,7 +97,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     let sliders = Rc::new([frequency, amplitude]);
     let reset = Button::new(
-        &fig.add_axes([0.82, 0.05, 0.12, 0.08]),
+        &fig.add_axes([0.82, 0.05, 0.12, 0.08])?,
         "Reset",
         ButtonOptions::default(),
     );
@@ -122,7 +122,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
     span.on_select(move |xmin, xmax| {
         if xmax > xmin {
-            bottom.set_xlim(xmin, xmax);
+            bottom
+                .set_xlim(xmin, xmax)
+                .expect("a selection spans finite data coordinates");
         }
     });
 

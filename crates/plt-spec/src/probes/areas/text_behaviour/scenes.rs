@@ -297,7 +297,7 @@ fn tightbbox_log_domain() -> Outcome {
     let fig = Figure::new();
     let ax = fig.subplot();
     ax.set_yscale("log").map_err(ProbeError::rejected)?;
-    ax.set_ylim(1.0, 100.0);
+    ax.set_ylim(1.0, 100.0).map_err(ProbeError::rejected)?;
     for (x, y, s) in [
         (0.0, -5.0, "invalid"),
         (f64::NAN, 10.0, "nan"),

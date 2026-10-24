@@ -192,7 +192,8 @@ fn set_xlim(args: Args<'_>) -> Outcome {
     let ax = Figure::new().subplot();
     ax.plot(axis_values(args.json("x")?)?, axis_values(args.json("y")?)?)
         .map_err(rejected)?;
-    ax.set_xlim(args.str("left")?, args.str("right")?);
+    ax.set_xlim(args.str("left")?, args.str("right")?)
+        .map_err(rejected)?;
     let (left, right) = ax.xlim();
     Ok(Json::from(vec![left, right]))
 }

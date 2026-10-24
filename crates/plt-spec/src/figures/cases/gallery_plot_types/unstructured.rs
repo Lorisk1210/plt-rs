@@ -1,7 +1,7 @@
 //! The plots of unstructured triangular grids: contour lines and bands,
 //! pseudocolour and the triangulation itself, over random points.
 
-use plt::axes::{TriValues, TripcolorOptions};
+use plt::axes::{PlotError, TriValues, TripcolorOptions};
 use plt::prelude::*;
 use plt::tri::{TriError, Triangulation};
 
@@ -41,8 +41,9 @@ impl Scattered {
 }
 
 /// The view of every thumbnail of the section.
-fn view(ax: &Axes) {
-    ax.set_xlim(-3.0, 3.0).set_ylim(-3.0, 3.0);
+fn view(ax: &Axes) -> Result<(), PlotError> {
+    ax.set_xlim(-3.0, 3.0)?.set_ylim(-3.0, 3.0)?;
+    Ok(())
 }
 
 fn tricontour(fig: &Figure) -> CaseResult {
@@ -50,7 +51,7 @@ fn tricontour(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     data.mark(&ax, "lightgrey")?;
     ax.tricontour(&data.tri, &data.z, extrema_levels(&data.z))?;
-    view(&ax);
+    view(&ax)?;
     Ok(())
 }
 
@@ -59,7 +60,7 @@ fn tricontourf(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     data.mark(&ax, "grey")?;
     ax.tricontourf(&data.tri, &data.z, extrema_levels(&data.z))?;
-    view(&ax);
+    view(&ax)?;
     Ok(())
 }
 
@@ -72,7 +73,7 @@ fn tripcolor(fig: &Figure) -> CaseResult {
         TriValues::Auto(data.z),
         TripcolorOptions::default(),
     )?;
-    view(&ax);
+    view(&ax)?;
     Ok(())
 }
 
@@ -80,7 +81,7 @@ fn triplot(fig: &Figure) -> CaseResult {
     let data = Scattered::new()?;
     let ax = fig.subplot();
     ax.triplot(&data.tri, "", LineProps::default())?;
-    view(&ax);
+    view(&ax)?;
     Ok(())
 }
 

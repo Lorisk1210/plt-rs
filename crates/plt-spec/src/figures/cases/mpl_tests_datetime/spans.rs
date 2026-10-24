@@ -25,9 +25,9 @@ pub(super) const CASES: &[FigureCase] = &[
 fn axhline(fig: &Figure) -> CaseResult {
     constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
-    ax[0].set_ylim(day(2020, 4, 1)?, day(2020, 8, 1)?);
-    ax[1].set_ylim(datetime64("2005-01-01")?, datetime64("2005-04-01")?);
-    ax[2].set_ylim(day(2023, 9, 1)?, day(2023, 11, 1)?);
+    ax[0].set_ylim(day(2020, 4, 1)?, day(2020, 8, 1)?)?;
+    ax[1].set_ylim(datetime64("2005-01-01")?, datetime64("2005-04-01")?)?;
+    ax[2].set_ylim(day(2023, 9, 1)?, day(2023, 11, 1)?)?;
     let props = LineProps::default;
     ax[0].axhline_between(day(2020, 6, 3)?, 0.5, 0.7, props());
     ax[1].axhline_between(datetime64("2005-02-25T03:30")?, 0.1, 0.9, props());
@@ -39,9 +39,9 @@ fn axhline(fig: &Figure) -> CaseResult {
 fn axvline(fig: &Figure) -> CaseResult {
     constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
-    ax[0].set_xlim(day(2020, 4, 1)?, day(2020, 8, 1)?);
-    ax[1].set_xlim(datetime64("2005-01-01")?, datetime64("2005-04-01")?);
-    ax[2].set_xlim(day(2023, 9, 1)?, day(2023, 11, 1)?);
+    ax[0].set_xlim(day(2020, 4, 1)?, day(2020, 8, 1)?)?;
+    ax[1].set_xlim(datetime64("2005-01-01")?, datetime64("2005-04-01")?)?;
+    ax[2].set_xlim(day(2023, 9, 1)?, day(2023, 11, 1)?)?;
     let props = LineProps::default;
     ax[0].axvline_between(day(2020, 6, 3)?, 0.5, 0.7, props());
     ax[1].axvline_between(datetime64("2005-02-25T03:30")?, 0.1, 0.9, props());
@@ -174,19 +174,19 @@ fn hlines(fig: &Figure) -> CaseResult {
 fn vlines(fig: &Figure) -> CaseResult {
     constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
-    ax[0].set_xlim(day(2023, 1, 1)?, day(2023, 6, 30)?);
+    ax[0].set_xlim(day(2023, 1, 1)?, day(2023, 6, 30)?)?;
     ax[0].vlines(
         vec![day(2023, 2, 10)?, day(2023, 5, 18)?, day(2023, 6, 6)?],
         [0.0, 0.25, 0.5],
         [0.25, 0.5, 0.75],
     )?;
-    ax[1].set_xlim(0.0, 0.5);
+    ax[1].set_xlim(0.0, 0.5)?;
     ax[1].vlines(
         [0.3, 0.35],
         vec![datetime64("2023-03-20")?, datetime64("2023-03-31")?],
         vec![datetime64("2023-05-01")?, datetime64("2023-05-16")?],
     )?;
-    ax[2].set_xlim(day(2023, 7, 1)?, day(2023, 12, 31)?);
+    ax[2].set_xlim(day(2023, 7, 1)?, day(2023, 12, 31)?)?;
     ax[2].vlines(
         vec![day(2023, 9, 1)?, day(2023, 12, 10)?],
         vec![day(2023, 1, 15)?],

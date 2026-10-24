@@ -348,7 +348,7 @@ mod tests {
             };
             ax.imshow(Grid::filled(2, 2, left), options).unwrap();
         }
-        ax.set_xlim(0.0, 3.0);
+        ax.set_xlim(0.0, 3.0).expect("finite limits");
         fig.to_svg().unwrap().matches("<image").count()
     }
 

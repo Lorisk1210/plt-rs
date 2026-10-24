@@ -64,7 +64,11 @@ impl Axes {
                 let (x0, x1) = self.xlim();
                 let (y0, y1) = self.ylim();
                 let edge = (x1 - x0).max(y1 - y0);
-                self.set_xlim(x0, x0 + edge).set_ylim(y0, y0 + edge);
+                // A view too wide for a square of finite limits stays,
+                // where matplotlib raises.
+                let _ = self
+                    .set_xlim(x0, x0 + edge)
+                    .and_then(|ax| ax.set_ylim(y0, y0 + edge));
             }
             AxisMode::On | AxisMode::Off | AxisMode::Auto => {}
         }

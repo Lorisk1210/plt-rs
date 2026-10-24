@@ -72,7 +72,7 @@ fn arcs(radii: &[f64]) -> Vec<Vec<Point>> {
 /// An axes showing `[-6, 6] × [0, 6]` at equal aspect.
 fn arc_axes(fig: &Figure) -> Result<Axes, Box<dyn std::error::Error>> {
     let ax = fig.subplot();
-    ax.set_xlim(-6.0, 6.0).set_ylim(0.0, 6.0);
+    ax.set_xlim(-6.0, 6.0)?.set_ylim(0.0, 6.0)?;
     ax.set_aspect(Aspect::Equal)?;
     Ok(ax)
 }

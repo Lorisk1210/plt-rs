@@ -193,7 +193,7 @@ fn inset_colorbar(fig: &Figure, bounds: [f64; 4], in_data: bool) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let pcm = mesh(&ax, normal(&mut SpecRng::new(SEED), 20, 20)?, "viridis")?;
-    ax.set_ylim(-4.0, 20.0);
+    ax.set_ylim(-4.0, 20.0)?;
     let cax = if in_data {
         ax.inset_axes_in(bounds, ax.trans_data())
     } else {

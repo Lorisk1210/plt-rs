@@ -32,7 +32,7 @@ fn annotations() -> Built {
         .map(|x| (2.0 * std::f64::consts::PI * x / 2.5).cos() * (-x / 3.0).exp())
         .collect();
     ax.plot(x, y)?;
-    ax.set_ylim(-1.2, 1.5);
+    ax.set_ylim(-1.2, 1.5)?;
     let arrow = |style: &str| -> Result<Option<ArrowProps>, Box<dyn std::error::Error>> {
         Ok(Some(ArrowProps::Fancy(FancyArrowProps::new(
             style.parse::<ArrowStyle>()?,

@@ -87,7 +87,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             uniform(19_680_801, 300, 300),
             ImshowOptions::default().interpolation(Interpolation::Auto),
         )?;
-        ax.set_xlim(10.0, 20.0).set_ylim(10.0, 20.0);
+        ax.set_xlim(10.0, 20.0)?.set_ylim(10.0, 20.0)?;
         Ok(())
     })
     .sized(2.9, 2.9, 100.0),

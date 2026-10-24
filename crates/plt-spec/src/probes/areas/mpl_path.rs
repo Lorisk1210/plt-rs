@@ -73,7 +73,7 @@ fn span_contains_point(args: Args<'_>) -> Outcome {
     let ax = figure.subplot();
     ax.set_xscale(args.str("xscale")?)
         .map_err(ProbeError::rejected)?;
-    ax.set_ylim(ymin, ymax);
+    ax.set_ylim(ymin, ymax).map_err(ProbeError::rejected)?;
     let span = ax.axvspan(xmin, xmax);
     let data = figure
         .resolve_transform(&ax.trans_data())

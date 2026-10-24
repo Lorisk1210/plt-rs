@@ -221,7 +221,7 @@ mod tests {
             for part in parts.as_slice() {
                 let axs = part.subplots(1, 2).expect("a grid");
                 axs[(0, 0)].plot([-10.0, 10.0], [0.0, 1.5]).expect("a line");
-                axs[(0, 0)].set_xlim(-10.0, 10.0);
+                axs[(0, 0)].set_xlim(-10.0, 10.0).expect("finite limits");
                 let data = Grid::from_fn(2, 2, |r, c| (r * 2 + c) as f64);
                 axs[(0, 1)]
                     .imshow(data, ImshowOptions::default())

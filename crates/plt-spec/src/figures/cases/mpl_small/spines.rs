@@ -44,7 +44,7 @@ fn data_positions(fig: &Figure) -> CaseResult {
     spines.top.set_position(SpinePosition::Data(0.5));
     spines.right.set_position(SpinePosition::Data(-0.5));
     spines.bottom.set_position(SpinePosition::Data(0.0));
-    ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     ax.xaxis().set_ticks_position(TickPosition::Both)?;
     ax.yaxis().set_ticks_position(TickPosition::Both)?;
     Ok(())
@@ -55,7 +55,7 @@ fn data_positions(fig: &Figure) -> CaseResult {
 fn nonlinear_data_positions(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_xscale("log")?;
-    ax.set_xlim(0.1, 1.0);
+    ax.set_xlim(0.1, 1.0)?;
     let spines = ax.spines();
     spines.left.set_position(SpinePosition::Data(1.0));
     spines.left.set_linewidth(2.0);
@@ -169,7 +169,7 @@ fn function_scales(fig: &Figure) -> CaseResult {
         ..ScaleOptions::default()
     };
     ax.set_scale_with(AxisName::X, "function", sqrt)?;
-    ax.set_xlim(1.0, 1000.0);
+    ax.set_xlim(1.0, 1000.0)?;
     remove_text(fig);
     Ok(())
 }
@@ -193,7 +193,7 @@ pub(super) const CASES: &[FigureCase] = &[
         ("axes.linewidth", "20"),
     ]),
     FigureCase::new("mpl_small/spines_black_axes", |fig| {
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
         ax.set_xticklabels(Vec::<String>::new())?
             .set_yticklabels(Vec::<String>::new())?;
         tickless(&ax);

@@ -27,7 +27,7 @@ fn bar(fig: &Figure) -> CaseResult {
         ..BarOptions::default()
     };
     ax.bar(centres(), HEIGHTS, options)?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -54,7 +54,7 @@ fn fill_between(fig: &Figure) -> CaseResult {
     };
     ax.fill_between(&x, y1, y2, band)?;
     ax.plot_with(&x, middle, LineProps::default().linewidth(2.0))?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -74,7 +74,7 @@ fn plot(fig: &Figure) -> CaseResult {
         map(&x2, |x| wave(x) - 2.5),
         LineProps::fmt("o-")?.linewidth(2.0),
     )?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -93,7 +93,7 @@ fn scatter_plot(fig: &Figure) -> CaseResult {
         ..ScatterOptions::default()
     };
     ax.scatter_with(&x, &y, options)?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -105,7 +105,7 @@ fn stackplot(fig: &Figure) -> CaseResult {
     ];
     let ax = fig.subplot();
     ax.stackplot(arange(0.0, 10.0, 2.0), &layers, StackplotOptions::default())?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -113,14 +113,14 @@ fn stairs(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.stairs(HEIGHTS, StairsOptions::default())?
         .set_linewidth(2.5);
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
 fn stem(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.stem(centres(), HEIGHTS, StemOptions::default())?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 

@@ -41,7 +41,7 @@ fn arrow_axis(
     index: usize,
 ) -> Result<(Axes, AxisArtist), Box<dyn std::error::Error>> {
     let ax = axisartist::Axes::new(fig.add_subplot(2, 5, index)?);
-    ax.ax().set_ylim(-0.1, 1.5).set_yticks([0.0, 1.0]);
+    ax.ax().set_ylim(-0.1, 1.5)?.set_yticks([0.0, 1.0]);
     for axis in ax.axis_artists() {
         axis.set_visible(false);
     }

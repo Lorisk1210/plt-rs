@@ -41,7 +41,7 @@ fn arrow_between(
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("patches/fancybbox_boxstyles", |fig| {
-        let ax = canvas(fig, (0.0, 20.0), (0.0, 12.0), true);
+        let ax = canvas(fig, (0.0, 20.0), (0.0, 12.0), true)?;
         for (i, style) in BOXSTYLES.into_iter().enumerate() {
             let (x, y) = (1.2 + 4.0 * (i % 5) as f64, 7.0 - 5.5 * (i / 5) as f64);
             let boxstyle: BoxStyle = format!("{style},pad=0.2").parse()?;
@@ -56,7 +56,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("patches/fancybbox_mutation", |fig| {
-        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false);
+        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false)?;
         let round: BoxStyle = "round,pad=0.3".parse()?;
         ax.add_patch(FancyBboxPatch::new((1.0, 3.0), 2.0, 4.0, round));
         ax.add_patch(FancyBboxPatch::new((4.0, 3.0), 2.0, 4.0, round).with_mutation_scale(2.0))
@@ -67,7 +67,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("patches/fancyarrow", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         ax.add_patch(FancyArrow {
             width: 0.3,
             ..FancyArrow::new(1.0, 8.0, 6.0, 0.0)
@@ -104,7 +104,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/arrow", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         ax.add_patch(Arrow::new(1.0, 1.0, 5.0, 5.0));
         ax.add_patch(Arrow::new(2.0, 8.0, 6.0, 0.0).with_width(2.0))
             .set_facecolor("tab:red");
@@ -115,7 +115,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/fancyarrowpatch_styles", |fig| {
-        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false);
+        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false)?;
         ax.set_axis_off();
         let styles = [
             "-", "->", "-[", "|-|", "-|>", "<-", "<->", "<|-", "<|-|>", "fancy", "simple", "wedge",
@@ -130,7 +130,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 5.0, 100.0),
     FigureCase::new("patches/fancyarrowpatch_connections", |fig| {
-        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false);
+        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false)?;
         let styles = [
             "arc3,rad=0.4",
             "arc3,rad=-0.4",
@@ -150,7 +150,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("patches/fancyarrowpatch_path_shrink", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         let path = Path::new(
             vec![
                 Point::new(1.0, 1.0),

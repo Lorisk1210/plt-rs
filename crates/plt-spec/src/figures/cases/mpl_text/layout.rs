@@ -88,7 +88,7 @@ fn multiline(fig: &Figure) -> CaseResult {
             .set_halign(HAlign::Center)
             .set_valign(VAlign::Top);
     }
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 0.8);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 0.8)?;
     tickless(&ax);
     Ok(())
 }
@@ -111,7 +111,7 @@ fn multiline2(fig: &Figure) -> CaseResult {
         (0.1, VAlign::Bottom, 20.0, "Bot align, rot20"),
     ];
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.4).set_ylim(0.0, 2.0);
+    ax.set_xlim(0.0, 1.4)?.set_ylim(0.0, 2.0)?;
     for (y, valign, rotation, label) in rows {
         ax.axhline(y, LineProps::default().color("C2").linewidth(0.3));
         for (nn, text) in TEXTS.into_iter().enumerate() {
@@ -160,7 +160,7 @@ fn antialiasing(fig: &Figure) -> CaseResult {
 /// limits are fixed up front instead.
 fn contains(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     let txt = ax.text(0.5, 0.4, "hello world");
     txt.set_halign(HAlign::Center)
         .set_fontsize(30.0)
@@ -214,7 +214,7 @@ fn alignment(fig: &Figure) -> CaseResult {
     }
     ax.plot([0.0, 1.0], [0.5, 0.5])?;
     ax.plot([0.0, 1.0], [1.0, 1.0])?;
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.5);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.5)?;
     tickless(&ax);
     Ok(())
 }

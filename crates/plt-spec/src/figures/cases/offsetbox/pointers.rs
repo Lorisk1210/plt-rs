@@ -21,7 +21,7 @@ fn coords(name: &str) -> Result<Coords, Box<dyn Error>> {
 }
 
 pub(super) fn packed_children(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     let xy = (0.3, 0.4);
     ax.plot_fmt([xy.0], [xy.1], "o")?.set_color("tab:red");
     let mut bars = DrawingArea::new(36.0, 24.0, 0.0, 0.0);
@@ -89,7 +89,7 @@ pub(super) fn packed_children(fig: &Figure) -> CaseResult {
 
 pub(super) fn aux_and_padded(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 5.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 5.0)?;
     let tilted = Rectangle {
         angle: 20.0,
         ..Rectangle::new((0.0, 0.0), 1.5, 0.6)

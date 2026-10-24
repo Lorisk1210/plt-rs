@@ -101,7 +101,7 @@
 //! ax.plot([0.0, 10.0], [0.0, 5.0])?;
 //! let (_, right) = ax.xlim();
 //! ax.set_limits_with(AxisName::X, Limits { low: Some(2.0), high: None, auto: None })?;
-//! ax.set_ylim(5.0, 0.0);
+//! ax.set_ylim(5.0, 0.0)?;
 //! assert_eq!(ax.xlim(), (2.0, right));
 //! assert!(ax.yaxis().inverted());
 //!
@@ -168,7 +168,7 @@
 //!
 //! let ax = Figure::new().subplot();
 //! ax.set_xticks([0.0, 1.0, 2.0]).set_xticklabels(["zero", "one", "two"])?;
-//! ax.set_ylim(0.0, 1.0);
+//! ax.set_ylim(0.0, 1.0)?;
 //! ax.yaxis()
 //!     .set_major_locator(MultipleLocator::new(0.5)?)
 //!     .set_major_formatter(FormatStrFormatter::new("%.1f")?)
@@ -247,7 +247,7 @@
 //!
 //! let fig = Figure::new();
 //! let ax = fig.add_subplot(2, 1, 1)?;
-//! ax.set_xlim(0.0, 180.0);
+//! ax.set_xlim(0.0, 180.0)?;
 //! let twin = ax.twinx();
 //! twin.set_ylabel("°F");
 //! assert_eq!(twin.xlim(), ax.xlim(), "a twin shares the x axis");
@@ -283,7 +283,7 @@
 //! ax.xaxis()
 //!     .set_major_locator(RRuleLocator::months(&[], &[1], 2))
 //!     .set_major_formatter(DateFormatter::new("%b %Y"));
-//! ax.set_xlim(datestr2num("2024-01-01")?, datestr2num("2024-06-01")?);
+//! ax.set_xlim(datestr2num("2024-01-01")?, datestr2num("2024-06-01")?)?;
 //! assert_eq!(datestr2num("2024-01-01")?, 19723.0);
 //! // The rule starts a step before the view, as matplotlib's does.
 //! assert_eq!(ax.xaxis().ticklabels(false)?, ["Feb 2024", "Apr 2024", "Jun 2024"]);

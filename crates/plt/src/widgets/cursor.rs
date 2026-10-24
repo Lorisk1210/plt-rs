@@ -327,8 +327,12 @@ mod tests {
     #[test]
     fn the_crosshair_follows_the_pointer_inside_the_axes() {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.0, 0.0, 0.5, 1.0]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 0.5, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let cursor = Cursor::new(&ax, CursorOptions::default());
         let mut source = EventSource::new();
         source.motion(&fig, 100.0, 60.0);
@@ -344,10 +348,16 @@ mod tests {
     #[test]
     fn a_multicursor_spans_its_axes() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
-        let top = fig.add_axes([0.0, 0.5, 1.0, 0.5]);
-        let bottom = fig.add_axes([0.0, 0.0, 1.0, 0.5]);
+        let top = fig
+            .add_axes([0.0, 0.5, 1.0, 0.5])
+            .expect("a valid rectangle");
+        let bottom = fig
+            .add_axes([0.0, 0.0, 1.0, 0.5])
+            .expect("a valid rectangle");
         for ax in [&top, &bottom] {
-            ax.set_xlim(0.0, 4.0).set_ylim(0.0, 1.0);
+            ax.set_xlim(0.0, 4.0)
+                .and_then(|ax| ax.set_ylim(0.0, 1.0))
+                .expect("finite limits");
         }
         let multi = MultiCursor::new(&[top, bottom], CursorOptions::multicursor());
         EventSource::new().motion(&fig, 100.0, 100.0);

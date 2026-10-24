@@ -7,7 +7,7 @@ use std::rc::Rc;
 use plt_core::{Bbox, Point};
 use plt_text::HAlign;
 
-use super::{Figure, FigureState};
+use super::{AxesRectError, Figure, FigureState, axes_bounds};
 use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::fonts::FontProperties;
@@ -54,15 +54,26 @@ impl Share {
 }
 
 impl Figure {
-    /// Adds axes occupying `[left, bottom, width, height]` in figure fractions.
-    pub fn add_axes(&self, rect: [f64; 4]) -> Axes {
-        let [left, bottom, width, height] = rect;
-        insert_axes(
-            &self.state,
-            self.root.id(),
-            Bbox::from_bounds(left, bottom, width, height),
-            None,
-        )
+    /// Adds axes occupying `[left, bottom, width, height]` in figure
+    /// fractions (matplotlib's `add_axes(rect)`).
+    ///
+    /// ```
+    /// use plt::figure::{AxesRectError, Figure};
+    /// let fig = Figure::new();
+    /// let ax = fig.add_axes([0.25, 0.25, 0.5, 0.5])?;
+    /// assert_eq!(fig.axes(), [ax]);
+    /// let refused = fig.add_axes([f64::NAN, 0.0, 1.0, 1.0]);
+    /// assert!(matches!(refused, Err(AxesRectError::NonFinite(_))));
+    /// # Ok::<(), AxesRectError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When an entry of `rect` is NaN or infinite, or its width or height
+    /// is negative.
+    pub fn add_axes(&self, rect: [f64; 4]) -> Result<Axes, AxesRectError> {
+        let position = axes_bounds(rect)?;
+        Ok(insert_axes(&self.state, self.root.id(), position, None))
     }
 
     /// The current axes (matplotlib's `gca`): the axes added last or made
@@ -209,9 +220,9 @@ impl Figure {
     /// use plt::figure::{Figure, Share};
     /// let fig = Figure::new();
     /// let axs = fig.subplots_shared(2, 1, Share::All, Share::None)?;
-    /// axs[(0, 0)].set_xlim(0.0, 5.0);
+    /// axs[(0, 0)].set_xlim(0.0, 5.0)?;
     /// assert_eq!(axs[(1, 0)].xlim(), (0.0, 5.0));
-    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn subplots_shared(
         &self,

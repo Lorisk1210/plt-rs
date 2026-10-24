@@ -10,7 +10,7 @@ use plt_text::{HAlign, VAlign};
 
 use super::{CallbackId, Connections, Observers};
 use crate::artist::ArtistHandle;
-use crate::axes::Axes;
+use crate::axes::{Axes, PlotError};
 use crate::colors::Color;
 use crate::events::{Event, EventKind, MouseEvent};
 use crate::lines::{Line2D, LineProps, LineStyle};
@@ -48,16 +48,19 @@ pub(super) struct SliderBase {
 impl SliderBase {
     /// Sets up `ax` for a slider over `valmin..valmax`: limits along the
     /// slider, no decorations, no navigation.
-    pub(super) fn new(ax: &Axes, valmin: f64, valmax: f64, options: &SliderOptions) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// When `valmin` or `valmax` is NaN or infinite.
+    pub(super) fn new(
+        ax: &Axes,
+        valmin: f64,
+        valmax: f64,
+        options: &SliderOptions,
+    ) -> Result<Self, PlotError> {
         let axis = match options.orientation {
-            Orientation::Vertical => {
-                ax.set_ylim(valmin, valmax);
-                ax.yaxis()
-            }
-            Orientation::Horizontal => {
-                ax.set_xlim(valmin, valmax);
-                ax.xaxis()
-            }
+            Orientation::Vertical => ax.set_ylim(valmin, valmax)?.yaxis(),
+            Orientation::Horizontal => ax.set_xlim(valmin, valmax)?.xaxis(),
         };
         let settings = TickerSettings::from(&*crate::rc::params());
         // matplotlib changes the axis' own formatter, which the value text
@@ -68,7 +71,7 @@ impl SliderBase {
         axis.set_major_formatter(formatter.clone());
         ax.set_axis_off();
         ax.set_navigate(false);
-        Self {
+        Ok(Self {
             ax: ax.clone(),
             orientation: options.orientation,
             valmin,
@@ -85,7 +88,7 @@ impl SliderBase {
             dragging: options.dragging,
             drag_active: Cell::new(false),
             handle_style: options.handle_style.clone(),
-        }
+        })
     }
 
     /// `val` snapped to the step grid (matplotlib's `_stepped_value`).
@@ -323,8 +326,19 @@ pub struct Slider {
 
 impl Slider {
     /// Turns `ax` into a slider over `valmin..valmax` labelled `label`.
-    pub fn new(ax: &Axes, label: &str, valmin: f64, valmax: f64, options: SliderOptions) -> Self {
-        let base = SliderBase::new(ax, valmin, valmax, &options);
+    ///
+    /// # Errors
+    ///
+    /// When `valmin` or `valmax` is NaN or infinite; then `ax` is
+    /// unchanged.
+    pub fn new(
+        ax: &Axes,
+        label: &str,
+        valmin: f64,
+        valmax: f64,
+        options: SliderOptions,
+    ) -> Result<Self, PlotError> {
+        let base = SliderBase::new(ax, valmin, valmax, &options)?;
         let valinit = base.in_range(options.valinit).unwrap_or(valmin);
         let track = base.track(&options.track_color, 1.0);
         let poly = match options.orientation {
@@ -374,12 +388,12 @@ impl Slider {
                 }
             });
         }
-        Self {
+        Ok(Self {
             parts,
             label,
             valinit,
             _connections: connections,
-        }
+        })
     }
 
     /// The current value.
@@ -428,9 +442,10 @@ impl Slider {
     /// use plt::widgets::{Slider, SliderOptions};
     /// let ax = Figure::new().subplot();
     /// let at = |valinit| SliderOptions { valinit, ..SliderOptions::default() };
-    /// let low = Slider::new(&ax, "low", 0.0, 10.0, at(5.0));
-    /// let high = Slider::new(&ax, "high", 0.0, 10.0, at(2.0)).with_slidermin(&low);
+    /// let low = Slider::new(&ax, "low", 0.0, 10.0, at(5.0))?;
+    /// let high = Slider::new(&ax, "high", 0.0, 10.0, at(2.0))?.with_slidermin(&low);
     /// assert_eq!(high.val(), 5.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     pub fn with_slidermin(self, other: &Self) -> Self {
@@ -496,7 +511,9 @@ mod tests {
     #[test]
     fn values_snap_format_and_follow_drags() {
         let fig = Figure::with_size(5.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.2, 0.8, 0.6, 0.08]);
+        let ax = fig
+            .add_axes([0.2, 0.8, 0.6, 0.08])
+            .expect("a valid rectangle");
         let slider = Slider::new(
             &ax,
             "Freq",
@@ -506,7 +523,8 @@ mod tests {
                 valinit: 5.0,
                 ..SliderOptions::default()
             },
-        );
+        )
+        .expect("a finite range");
         assert_eq!(slider.val(), 5.0);
         assert_eq!(slider.valtext().text(), r"$\mathdefault{5.0}$");
         let seen = Rc::new(RefCell::new(Vec::new()));
@@ -528,7 +546,9 @@ mod tests {
     #[test]
     fn steps_snap_to_the_grid() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.05, 0.1, 0.05, 0.6]);
+        let ax = fig
+            .add_axes([0.05, 0.1, 0.05, 0.6])
+            .expect("a valid rectangle");
         let slider = Slider::new(
             &ax,
             "Amp",
@@ -540,7 +560,8 @@ mod tests {
                 orientation: Orientation::Vertical,
                 ..SliderOptions::default()
             },
-        );
+        )
+        .expect("a finite range");
         assert_eq!(slider.val(), 7.0);
         assert_eq!(slider.valtext().text(), r"$\mathdefault{7}$");
     }
@@ -550,7 +571,9 @@ mod tests {
         use crate::patches::PatchProps;
 
         let fig = Figure::new();
-        let ax = fig.add_axes([0.2, 0.5, 0.6, 0.1]);
+        let ax = fig
+            .add_axes([0.2, 0.5, 0.6, 0.1])
+            .expect("a valid rectangle");
         let options = SliderOptions {
             handle_style: HandleStyle {
                 size: 14.0,
@@ -560,7 +583,7 @@ mod tests {
             poly: PatchProps::default().facecolor("tab:green").alpha(0.6),
             ..SliderOptions::default()
         };
-        let slider = Slider::new(&ax, "s", 0.0, 1.0, options);
+        let slider = Slider::new(&ax, "s", 0.0, 1.0, options).expect("a finite range");
         assert_eq!(slider.parts.handle.markersize(), 14.0);
         assert_eq!(slider.parts.poly.alpha(), Some(0.6));
     }
@@ -572,8 +595,10 @@ mod tests {
             valinit,
             ..SliderOptions::default()
         };
-        let high = Slider::new(&ax, "high", 0.0, 24.0, at(5.0));
-        let low = Slider::new(&ax, "low", 0.0, 24.0, at(10.0)).with_slidermax(&high);
+        let high = Slider::new(&ax, "high", 0.0, 24.0, at(5.0)).expect("a finite range");
+        let low = Slider::new(&ax, "low", 0.0, 24.0, at(10.0))
+            .expect("a finite range")
+            .with_slidermax(&high);
         assert_eq!(low.val(), 5.0);
         low.set_val(1.0);
         low.reset();

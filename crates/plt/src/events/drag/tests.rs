@@ -84,7 +84,9 @@ fn draggable_annotations_move_their_text() {
 
     let fig = Figure::new();
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 10.0))
+        .expect("finite limits");
     let options = AnnotateOptions {
         xytext: Some((20.0, 20.0).into()),
         textcoords: Some("offset points".parse::<Coords>().unwrap()),
@@ -112,8 +114,12 @@ fn draggable_annotation_boxes_move_in_their_coordinates() {
     use crate::text::TextProps;
 
     let fig = Figure::new();
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-    ax.set_xlim(0.0, 640.0).set_ylim(0.0, 480.0);
+    let ax = fig
+        .add_axes([0.0, 0.0, 1.0, 1.0])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 640.0)
+        .and_then(|ax| ax.set_ylim(0.0, 480.0))
+        .expect("finite limits");
     let options = AnnotationBboxOptions {
         xybox: Some((300.0, 200.0).into()),
         ..AnnotationBboxOptions::default()

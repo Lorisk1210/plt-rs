@@ -162,8 +162,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             let style = props().linewidth(14.0).solid_capstyle(cap);
             ax.plot_with([0.2, 0.8], [y, y], style)?;
         }
-        ax.set_xlim(0.0, 1.0);
-        ax.set_ylim(-1.0, 3.0);
+        ax.set_xlim(0.0, 1.0)?;
+        ax.set_ylim(-1.0, 3.0)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
@@ -177,7 +177,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             let style = LineProps::fmt("--")?.linewidth(8.0).dash_capstyle(cap);
             ax.plot_with([0.0, 1.0], [y, y], style)?;
         }
-        ax.set_ylim(-1.0, 3.0);
+        ax.set_ylim(-1.0, 3.0)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
@@ -191,8 +191,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             let style = props().linewidth(12.0).solid_joinstyle(join);
             ax.plot_with([x0, x0 + 1.0, x0 + 2.0], [0.5, 1.5, 0.5], style)?;
         }
-        ax.set_xlim(-1.0, 9.0);
-        ax.set_ylim(0.0, 2.0);
+        ax.set_xlim(-1.0, 9.0)?;
+        ax.set_ylim(0.0, 2.0)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
@@ -227,8 +227,8 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .color("k");
             ax.plot_with([(i % 11) as f64], [(i / 11) as f64], style)?;
         }
-        ax.set_xlim(-1.0, 11.0);
-        ax.set_ylim(-1.0, 2.0);
+        ax.set_xlim(-1.0, 11.0)?;
+        ax.set_ylim(-1.0, 2.0)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -269,7 +269,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .linestyle(LineStyle::None);
             ax.plot_with([i as f64], [0.0], style)?;
         }
-        ax.set_xlim(-1.0, 6.0);
+        ax.set_xlim(-1.0, 6.0)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
@@ -319,8 +319,8 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .color("k");
             ax.plot_with([x], [1.0], diamonds)?;
         }
-        ax.set_xlim(-1.0, 6.0);
-        ax.set_ylim(-1.0, 2.0);
+        ax.set_xlim(-1.0, 6.0)?;
+        ax.set_ylim(-1.0, 2.0)?;
         Ok(())
     })
     .sized(5.0, 3.0, 100.0),
@@ -406,8 +406,8 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         let style = LineProps::fmt("o-")?.markersize(20.0).clip_on(false);
         ax.plot_with([0.0, 1.0, 2.0], [0.0, 1.0, 0.0], style)?;
-        ax.set_xlim(0.0, 2.0);
-        ax.set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 2.0)?;
+        ax.set_ylim(0.0, 1.0)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),

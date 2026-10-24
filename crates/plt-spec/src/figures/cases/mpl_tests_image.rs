@@ -41,7 +41,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
 /// `test_image_edges`: integers repeating every 12 values in grey, zoomed
 /// so that the 1 in figure shows only their middle.
 fn image_edges(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     ax.set_frame_on(false);
     let values = Grid::from_fn(20, 9, |r, c| ((r * 9 + c) % 12) as i64);
     ax.imshow(
@@ -54,7 +54,7 @@ fn image_edges(fig: &Figure) -> CaseResult {
             ..ImshowOptions::default()
         },
     )?;
-    ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     ax.set_xticks(Vec::<f64>::new())
         .set_yticks(Vec::<f64>::new());
     Ok(())
@@ -94,7 +94,7 @@ fn unclipped(fig: &Figure) -> CaseResult {
         Some("gray"),
     )?;
     image.set_clip_on(false);
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 
@@ -110,7 +110,7 @@ fn respects_bbox(fig: &Figure, panned: bool) -> CaseResult {
     ArtistHandle::set_clip_path(&image, None);
     image.set_clip_box(Some(top.id()));
     if panned {
-        bottom.set_ylim(-1.0, 0.0);
+        bottom.set_ylim(-1.0, 0.0)?;
     }
     Ok(())
 }
@@ -119,7 +119,7 @@ fn respects_bbox(fig: &Figure, panned: bool) -> CaseResult {
 /// 7 in figure saved at 1 dpi.
 fn image_preserve_size2(fig: &Figure) -> CaseResult {
     fig.set_frameon(false);
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     ax.set_axis_off();
     let identity = Grid::from_fn(7, 7, |r, c| if r == c { 1.0 } else { 0.0 });
     ax.imshow(

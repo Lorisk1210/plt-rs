@@ -4,6 +4,7 @@ use std::fmt;
 
 use crate::axes::PlotError;
 use crate::colors::{ColormapError, NormError};
+use crate::figure::AxesRectError;
 use crate::gridspec::GridSpecError;
 use crate::image::ImageError;
 use crate::orientation::Orientation;
@@ -59,6 +60,9 @@ pub enum ColorbarError {
     Ticker(TickerError),
     /// An axis could not be configured.
     Plot(PlotError),
+    /// The space taken for the colorbar is not a valid axes rectangle
+    /// (`fraction`, `shrink` or `pad` not finite, or `shrink` negative).
+    Rect(AxesRectError),
 }
 
 impl fmt::Display for ColorbarError {
@@ -113,6 +117,7 @@ impl fmt::Display for ColorbarError {
             Self::Image(err) => write!(f, "{err}"),
             Self::Ticker(err) => write!(f, "{err}"),
             Self::Plot(err) => write!(f, "{err}"),
+            Self::Rect(err) => write!(f, "{err}"),
         }
     }
 }
@@ -126,6 +131,7 @@ impl std::error::Error for ColorbarError {
             Self::Image(err) => Some(err),
             Self::Ticker(err) => Some(err),
             Self::Plot(err) => Some(err),
+            Self::Rect(err) => Some(err),
             _ => None,
         }
     }
@@ -164,6 +170,12 @@ impl From<TickerError> for ColorbarError {
 impl From<PlotError> for ColorbarError {
     fn from(err: PlotError) -> Self {
         Self::Plot(err)
+    }
+}
+
+impl From<AxesRectError> for ColorbarError {
+    fn from(err: AxesRectError) -> Self {
+        Self::Rect(err)
     }
 }
 

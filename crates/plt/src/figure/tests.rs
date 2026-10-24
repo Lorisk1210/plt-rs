@@ -20,7 +20,9 @@ fn figure_geometry() {
 fn draw_emits_figure_then_axes_backgrounds() {
     let fig = Figure::new();
     fig.set_facecolor(Rgba::opaque(0.9, 0.9, 0.9));
-    let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+    let ax = fig
+        .add_axes([0.125, 0.11, 0.775, 0.77])
+        .expect("a valid rectangle");
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
     fig.draw(&mut renderer).expect("drawable");
     assert!(!fig.is_stale());
@@ -59,7 +61,9 @@ fn a_figure_without_frame_draws_no_background() {
     assert!(fig.frameon(), "drawn unless turned off");
     fig.set_frameon(false);
     assert!(!fig.frameon());
-    let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+    let ax = fig
+        .add_axes([0.125, 0.11, 0.775, 0.77])
+        .expect("a valid rectangle");
     ax.set_axis_off();
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
     fig.draw(&mut renderer).expect("drawable");
@@ -69,8 +73,12 @@ fn a_figure_without_frame_draws_no_background() {
 #[test]
 fn data_transform_maps_view_limits_onto_axes_box() {
     let fig = Figure::new();
-    let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-    ax.set_xlim(0.0, 10.0).set_ylim(1.0, -1.0);
+    let ax = fig
+        .add_axes([0.125, 0.11, 0.775, 0.77])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(1.0, -1.0))
+        .expect("finite limits");
     let state = fig.state.borrow();
     let data = ax.trans_data().resolve(&*state).expect("axes exists");
     assert!(close(
@@ -94,8 +102,12 @@ fn data_transform_maps_view_limits_onto_axes_box() {
 #[test]
 fn removed_axes_disappear_from_figure() {
     let fig = Figure::new();
-    let first = fig.add_axes([0.0, 0.0, 0.5, 1.0]);
-    let second = fig.add_axes([0.5, 0.0, 0.5, 1.0]);
+    let first = fig
+        .add_axes([0.0, 0.0, 0.5, 1.0])
+        .expect("a valid rectangle");
+    let second = fig
+        .add_axes([0.5, 0.0, 0.5, 1.0])
+        .expect("a valid rectangle");
     assert_eq!(fig.axes(), vec![first.clone(), second.clone()]);
     first.remove();
     assert_eq!(fig.axes(), vec![second]);
@@ -105,7 +117,9 @@ fn removed_axes_disappear_from_figure() {
 #[test]
 fn hidden_artists_are_not_drawn() {
     let fig = Figure::new();
-    fig.add_axes([0.1, 0.1, 0.8, 0.8]).set_visible(false);
+    fig.add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle")
+        .set_visible(false);
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
     fig.draw(&mut renderer).expect("drawable");
     assert_eq!(
@@ -119,7 +133,9 @@ fn hidden_artists_are_not_drawn() {
 /// rectangle, both animated when `animated`.
 fn animation_figure(animated: bool) -> Figure {
     let fig = Figure::new();
-    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    let ax = fig
+        .add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle");
     ax.plot([0.0, 1.0], [0.0, 1.0])
         .expect("plottable")
         .set_animated(animated);
@@ -165,7 +181,9 @@ fn subplots_follow_the_grid() {
 fn subplots_adjust_moves_grid_axes_only() {
     let fig = Figure::new();
     let grid_axes = fig.subplot();
-    let free_axes = fig.add_axes([0.5, 0.5, 0.1, 0.1]);
+    let free_axes = fig
+        .add_axes([0.5, 0.5, 0.1, 0.1])
+        .expect("a valid rectangle");
     fig.subplots_adjust(&crate::gridspec::SubplotOverrides {
         left: Some(0.3),
         ..Default::default()

@@ -43,7 +43,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 ..ImshowOptions::default().interpolation(Interpolation::Bilinear)
             },
         )?;
-        ax.set_xlim(0.0, 3.0).set_ylim(0.0, 3.0);
+        ax.set_xlim(0.0, 3.0)?.set_ylim(0.0, 3.0)?;
         Ok(())
     }),
     classic("mpl_image/no_interpolation_origin", |fig| {
@@ -83,7 +83,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ax.imshow(counting(4, 3), extent(left, left + 2.0, 15.0, 0.0))?;
         }
         ax.set_facecolor((1.0, 0.0, 0.0, 0.5));
-        ax.set_xlim(0.0, 12.0);
+        ax.set_xlim(0.0, 12.0)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -112,7 +112,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_image/zoom_and_clip_upper_origin", |fig| {
         let ax = fig.subplot();
         ax.imshow(counting(10, 10), ImshowOptions::default())?;
-        ax.set_ylim(2.0, -0.5).set_xlim(-0.5, 2.0);
+        ax.set_ylim(2.0, -0.5)?.set_xlim(-0.5, 2.0)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -153,7 +153,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 ..ImshowOptions::default().interpolation(Interpolation::None)
             },
         )?;
-        ax.set_xlim(-0.1, 1.0 + 0.1).set_ylim(-0.1, 1.0 + 0.1);
+        ax.set_xlim(-0.1, 1.0 + 0.1)?.set_ylim(-0.1, 1.0 + 0.1)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -200,7 +200,7 @@ fn image_composite_alpha(fig: &Figure) -> CaseResult {
         )?;
     }
     ax.set_facecolor((0.0, 0.5, 0.0, 1.0));
-    ax.set_xlim(0.0, 5.0).set_ylim(5.0, 0.0);
+    ax.set_xlim(0.0, 5.0)?.set_ylim(5.0, 0.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -213,7 +213,7 @@ fn rasterize_dpi(fig: &Figure) -> CaseResult {
     for (ax, rasterized) in [(&axs[(0, 1)], true), (&axs[(0, 2)], false)] {
         let line = ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().linewidth(20.0))?;
         line.set_rasterized(rasterized);
-        ax.set_xlim(0.0, 1.0).set_ylim(-1.0, 2.0);
+        ax.set_xlim(0.0, 1.0)?.set_ylim(-1.0, 2.0)?;
     }
     for ax in axs.as_slice() {
         ax.set_xticks(Vec::<f64>::new());
@@ -241,7 +241,7 @@ fn bbox_image_inverted(fig: &Figure) -> CaseResult {
         nearest(),
     )?;
     image.set_clip_on(false);
-    ax.set_xlim(0.0, 100.0).set_ylim(0.0, 100.0);
+    ax.set_xlim(0.0, 100.0)?.set_ylim(0.0, 100.0)?;
     let identity = Grid::from_fn(10, 10, |r, c| f64::from(u8::from(r == c)));
     let image = ax.add_bbox_image(
         identity,
@@ -281,7 +281,7 @@ fn rotate_image(fig: &Figure) -> CaseResult {
         LineProps::fmt("r--")?.linewidth(3.0),
     )?;
     outline.set_transform(rotated);
-    ax.set_xlim(2.0, 5.0).set_ylim(0.0, 4.0);
+    ax.set_xlim(2.0, 5.0)?.set_ylim(0.0, 4.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

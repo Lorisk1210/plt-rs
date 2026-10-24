@@ -2926,6 +2926,9 @@
    "tol": 1e-09
   },
   {"op": "Axes.set_title.twiny", "args": {"style": ["mpl20"]}, "value": 3.1171875, "tol": 1e-09},
+  {"op": "Axes.set_xlim", "args": {"style": ["classic", "_classic_test_patch"], "left": 1, "right": Infinity}, "error": "ValueError"},
+  {"op": "Axes.set_xlim", "args": {"style": ["classic", "_classic_test_patch"], "left": 2, "right": 5}, "value": [2.0, 5.0]},
+  {"op": "Axes.set_xlim", "args": {"style": ["classic", "_classic_test_patch"], "left": NaN, "right": 1}, "error": "ValueError"},
   {
    "op": "Axes.specgram",
    "args": {
@@ -5561,6 +5564,9 @@
    "args": {"style": ["classic", "_classic_test_patch"], "x": [], "y": [], "xerr": null, "yerr": null},
    "value": [[1, 1, 0], [0, 0, 0]]
   },
+  {"op": "Figure.add_axes", "args": {"style": ["classic", "_classic_test_patch"], "rect": [0, 0, -1, 1]}, "error": "ValueError"},
+  {"op": "Figure.add_axes", "args": {"style": ["classic", "_classic_test_patch"], "rect": [0.25, 0.25, 0.5, 0.5]}, "value": [0.25, 0.25, 0.5, 0.5]},
+  {"op": "Figure.add_axes", "args": {"style": ["classic", "_classic_test_patch"], "rect": [NaN, 0, 1, 1]}, "error": "ValueError"},
   {"op": "Figure.legend", "args": {"style": ["classic", "_classic_test_patch"]}, "value": ["a", "a"]},
   {"op": "Figure.savefig", "args": {"style": ["classic", "_classic_test_patch"], "rc": {"font.size": 0}}, "value": [640, 480, 307200]},
   {"op": "Figure.savefig.pdf", "args": {"style": ["classic", "_classic_test_patch"]}, "value": true},

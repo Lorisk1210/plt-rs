@@ -20,10 +20,10 @@ pub(super) fn large_arc(fig: &Figure) -> CaseResult {
         ax.set_aspect(Aspect::Equal)?;
     }
     // The high accuracy case, then the low accuracy one.
-    axs[(0, 0)].set_xlim(7.0, 8.0).set_ylim(5.0, 6.0);
+    axs[(0, 0)].set_xlim(7.0, 8.0)?.set_ylim(5.0, 6.0)?;
     axs[(0, 1)]
-        .set_xlim(-25000.0, 18000.0)
-        .set_ylim(-20000.0, 6600.0);
+        .set_xlim(-25000.0, 18000.0)?
+        .set_ylim(-20000.0, 6600.0)?;
     Ok(())
 }
 
@@ -56,7 +56,7 @@ pub(super) fn rotated_arcs(fig: &Figure) -> CaseResult {
                 .update_props(props);
         }
         let limit = scale / 4000.0;
-        ax.set_xlim(-limit, limit).set_ylim(-limit, limit);
+        ax.set_xlim(-limit, limit)?.set_ylim(-limit, limit)?;
         ax.axhline(0.0, LineProps::default().color("k"));
         ax.axvline(0.0, LineProps::default().color("k"));
         ax.set_axis_off();

@@ -83,7 +83,7 @@ fn contour_manual_1(fig: &Figure) -> CaseResult {
         },
     )?;
     cbar.add_lines(&lines, true)?;
-    ax.set_xlim(-0.5, 3.5).set_ylim(-0.5, 4.5);
+    ax.set_xlim(-0.5, 3.5)?.set_ylim(-0.5, 4.5)?;
     ax.set_title("User-specified contours");
     Ok(())
 }
@@ -112,7 +112,7 @@ fn contour_manual_2(fig: &Figure) -> CaseResult {
         ContourOptions::default(),
     )?;
     fig.colorbar(&cs, ColorbarOptions::default())?;
-    ax.set_xlim(-0.5, 3.5).set_ylim(-0.5, 3.5);
+    ax.set_xlim(-0.5, 3.5)?.set_ylim(-0.5, 3.5)?;
     ax.set_title("User specified filled contours with holes");
     Ok(())
 }
@@ -369,7 +369,7 @@ fn mri_with_eeg(fig: &Figure) -> CaseResult {
     )?;
     density
         .set_xlabel("Intensity (a.u.)")
-        .set_xlim(0.0, 65536.0)
+        .set_xlim(0.0, 65536.0)?
         .set_ylabel("MRI density")
         .set_yticks(Vec::<f64>::new());
     density.minorticks_on();
@@ -377,7 +377,7 @@ fn mri_with_eeg(fig: &Figure) -> CaseResult {
     let data = eeg(&t);
     let eeg_axes = panel(&axd, "EEG")?;
     eeg_axes.set_xlabel("Time (s)");
-    eeg_axes.set_xlim(0.0, 10.0);
+    eeg_axes.set_xlim(0.0, 10.0)?;
     let (low, high) = data
         .iter()
         .flatten()
@@ -385,7 +385,7 @@ fn mri_with_eeg(fig: &Figure) -> CaseResult {
             (lo.min(v), hi.max(v))
         });
     let dy = (low - high) * 0.7;
-    eeg_axes.set_ylim(-dy, 4.0 * dy);
+    eeg_axes.set_ylim(-dy, 4.0 * dy)?;
     eeg_axes.set_yticks([0.0, dy, 2.0 * dy, 3.0 * dy]);
     eeg_axes.set_yticklabels(["PG3", "PG5", "PG7", "PG9"])?;
     for (i, channel) in data.iter().enumerate() {

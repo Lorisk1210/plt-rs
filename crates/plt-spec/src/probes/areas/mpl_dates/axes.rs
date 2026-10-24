@@ -158,7 +158,8 @@ fn set_date_limits(ax: &Axes, name: AxisName, lim: &Json) -> Result<(), ProbeErr
     };
     let (low, high) = (num(low)?, num(high)?);
     ax.axis_of(name).axis_date(&TimeZone::Utc);
-    ax.set_limits(name, low, high);
+    ax.set_limits(name, low, high)
+        .map_err(ProbeError::rejected)?;
     Ok(())
 }
 

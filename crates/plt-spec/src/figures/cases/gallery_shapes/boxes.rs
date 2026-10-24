@@ -14,6 +14,7 @@ use plt_core::Bbox;
 
 use crate::figures::cases::common::styled_box;
 use crate::figures::{CaseResult, FigureCase};
+use plt::axes::PlotError;
 
 /// matplotlib's box styles in `BoxStyle.get_styles()` order, each with
 /// its parameters' defaults one per line (`inspect.signature`).
@@ -101,9 +102,10 @@ fn bare_box(ax: &Axes, bb: &Bbox) -> CaseResult {
 }
 
 /// Shows `[0, 1] × [0, 1]` with `title`.
-fn unit_view(ax: &Axes, title: &str) {
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+fn unit_view(ax: &Axes, title: &str) -> Result<(), PlotError> {
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.set_title(title);
+    Ok(())
 }
 
 fn fancybox_demo_2(fig: &Figure) -> CaseResult {
@@ -129,18 +131,18 @@ fn fancybox_demo_2(fig: &Figure) -> CaseResult {
             plain(),
         )?,
     ];
-    unit_view(&axs[(0, 0)], "boxstyle=\"round,pad=0.1\"");
+    unit_view(&axs[(0, 0)], "boxstyle=\"round,pad=0.1\"")?;
     let rounded: BoxStyle = "round,pad=0.1,rounding_size=0.2".parse()?;
     patches[1].update_shape(|f| f.boxstyle = rounded);
-    unit_view(&axs[(0, 1)], "boxstyle=\"round,pad=0.1,rounding_size=0.2\"");
+    unit_view(&axs[(0, 1)], "boxstyle=\"round,pad=0.1,rounding_size=0.2\"")?;
     unit_view(
         &axs[(1, 0)],
         "boxstyle=\"round,pad=0.1\"\n mutation_scale=2",
-    );
+    )?;
     unit_view(
         &axs[(1, 1)],
         "boxstyle=\"round,pad=0.1\"\nmutation_aspect=0.5",
-    );
+    )?;
     for ax in [&axs[(0, 0)], &axs[(0, 1)], &axs[(1, 0)]] {
         ax.set_aspect(Aspect::Ratio(1.0))?;
     }
@@ -161,7 +163,7 @@ fn fancybox_demo_3(fig: &Figure) -> CaseResult {
     let bb = Bbox::from_extents(-0.5, -0.5, 0.5, 0.5);
     for ax in [ax1, ax2] {
         bare_box(ax, &bb)?;
-        ax.set_xlim(-1.5, 1.5).set_ylim(-1.5, 1.5);
+        ax.set_xlim(-1.5, 1.5)?.set_ylim(-1.5, 1.5)?;
         ax.set_aspect(Aspect::Ratio(2.0))?;
     }
     let round = "round,pad=0.5";

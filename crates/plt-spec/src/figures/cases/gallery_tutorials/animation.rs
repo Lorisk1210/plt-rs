@@ -35,7 +35,7 @@ fn animate_decay(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     empty_line(&ax, LineProps::default().linewidth(2.0))?;
     ax.grid(true);
-    ax.set_ylim(-1.1, 1.1).set_xlim(0.0, 1.0);
+    ax.set_ylim(-1.1, 1.1)?.set_xlim(0.0, 1.0)?;
     Ok(())
 }
 
@@ -75,7 +75,7 @@ fn animation_demo(fig: &Figure) -> CaseResult {
 fn bayes_update(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     empty_line(&ax, LineProps::fmt("k-")?)?;
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 10.0)?;
     ax.grid(true);
     ax.axvline(
         0.7,
@@ -90,7 +90,7 @@ fn double_pendulum(fig: &Figure) -> CaseResult {
     let length = 2.0;
     let ax = fig.subplot();
     ax.set_autoscale_on(false);
-    ax.set_xlim(-length, length).set_ylim(-length, 1.0);
+    ax.set_xlim(-length, length)?.set_ylim(-length, 1.0)?;
     ax.set_aspect(Aspect::Equal)?;
     ax.grid(true);
     empty_line(&ax, LineProps::fmt("o-")?.linewidth(2.0))?;
@@ -105,7 +105,7 @@ fn frame_grabbing_sgskip(fig: &Figure) -> CaseResult {
     let (x0, y0) = (step(), step());
     let ax = fig.subplot();
     ax.plot_fmt([x0], [y0], "k-o")?;
-    ax.set_xlim(-5.0, 5.0).set_ylim(-5.0, 5.0);
+    ax.set_xlim(-5.0, 5.0)?.set_ylim(-5.0, 5.0)?;
     Ok(())
 }
 
@@ -193,7 +193,7 @@ fn simple_anim(fig: &Figure) -> CaseResult {
 
 fn simple_scatter(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?;
     ax.scatter([1.0], [0.0])?;
     Ok(())
 }
@@ -201,7 +201,7 @@ fn simple_scatter(fig: &Figure) -> CaseResult {
 fn strip_chart(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.add_line(&[0.0], &[0.0], LineProps::default())?;
-    ax.set_ylim(-0.1, 1.1).set_xlim(0.0, 2.0);
+    ax.set_ylim(-0.1, 1.1)?.set_xlim(0.0, 2.0)?;
     Ok(())
 }
 
@@ -223,7 +223,7 @@ fn unchained(fig: &Figure) -> CaseResult {
             LineProps::default().color("w").linewidth(lw),
         )?;
     }
-    ax.set_ylim(-1.0, 70.0);
+    ax.set_ylim(-1.0, 70.0)?;
     ax.set_xticks(Vec::<f64>::new());
     ax.set_yticks(Vec::<f64>::new());
     for (text, halign, weight) in [
@@ -260,7 +260,7 @@ fn animations_1(fig: &Figure) -> CaseResult {
         [0.0],
         LineProps::default().label(format!("v0 = {v02} m/s")),
     )?;
-    ax.set_xlim(0.0, 3.0).set_ylim(-4.0, 10.0);
+    ax.set_xlim(0.0, 3.0)?.set_ylim(-4.0, 10.0)?;
     ax.set_xlabel("Time [s]").set_ylabel("Z [m]");
     ax.legend(LegendOptions::default())?;
     Ok(())

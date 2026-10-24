@@ -346,7 +346,9 @@ mod tests {
         // matplotlib's test_tickdirs: 72 dpi, so ticks are as long in
         // pixels as in points.
         let fig = Figure::with_size(4.0, 3.0, 72.0);
-        let ax = fig.add_axes([0.25, 0.25, 0.5, 0.5]);
+        let ax = fig
+            .add_axes([0.25, 0.25, 0.5, 0.5])
+            .expect("a valid rectangle");
         ax.tick_params(&TickParams {
             direction: Some(TickDirection::Out),
             length: Some(5.0),
@@ -364,7 +366,9 @@ mod tests {
     #[test]
     fn axis_tight_boxes_hold_the_axis_texts() {
         let fig = Figure::with_size(4.0, 3.0, 72.0);
-        let ax = fig.add_axes([0.25, 0.25, 0.5, 0.5]);
+        let ax = fig
+            .add_axes([0.25, 0.25, 0.5, 0.5])
+            .expect("a valid rectangle");
         let frame = ax.window_extent().expect("an axes box");
         let labels = ax.xaxis().tight_bbox().expect("tick labels");
         assert!(labels.y1() < frame.y0());
@@ -379,7 +383,9 @@ mod tests {
     fn decorations_reach_beyond_the_axes() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         ax.set_xlabel("a long x label that does not count");
         let mut state = ax.raw().figure_state().borrow_mut();
         let extent = state.axes_bbox(ax.id()).unwrap();
@@ -418,7 +424,7 @@ mod tests {
         let fig = Figure::new();
         let ax = fig.subplot();
         ax.set_yscale("log").unwrap();
-        ax.set_ylim(1.0, 100.0);
+        ax.set_ylim(1.0, 100.0).expect("finite limits");
         let tight = |ax: &crate::axes::Axes| {
             let mut state = ax.raw().figure_state().borrow_mut();
             state.axes_tight_bbox(ax.id(), false).unwrap()

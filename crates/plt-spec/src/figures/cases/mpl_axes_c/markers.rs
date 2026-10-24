@@ -71,8 +71,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             }
         }
         for ax in axs.as_slice() {
-            ax.set_xlim(-1.0, 4.0);
-            ax.set_ylim(0.0, 5.0);
+            ax.set_xlim(-1.0, 4.0)?;
+            ax.set_ylim(0.0, 5.0)?;
         }
         remove_ticks_and_titles(fig);
         Ok(())
@@ -151,8 +151,8 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .markerfacecolor(face);
             ax.plot_with(data.clone(), y, props)?;
         }
-        ax.set_xlim(-1.0, 10.0);
-        ax.set_ylim(-1.0, 10.0);
+        ax.set_xlim(-1.0, 10.0)?;
+        ax.set_ylim(-1.0, 10.0)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),

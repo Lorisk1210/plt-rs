@@ -47,7 +47,7 @@ fn align_labels_demo(fig: &Figure) -> CaseResult {
         }
         ax.set_ylabel("ylabel");
         ax.yaxis().set_label_bbox(Some(yellow_box()));
-        ax.set_ylim(0.0, scale);
+        ax.set_ylim(0.0, scale)?;
     }
     axs[(0, 0)].xaxis().tick_to(SpineSide::Top)?;
     axs[(1, 2)].tick_params(&TickParams {

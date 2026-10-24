@@ -31,7 +31,7 @@ fn centred_text_at(
 }
 
 pub(super) fn location_codes(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     for code in 1..=10 {
         let loc = AnchorLoc::from_code(code).ok_or("an anchor code")?;
         let options = AnchoredOptions {
@@ -67,12 +67,8 @@ fn framed(ax: &Axes, child: OffsetBox<BoxItem>, loc: AnchorLoc) {
     ax.add_anchored_box(AnchoredBox::new(child, AnchoredOptions::new(loc)));
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn packer_alignments(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     for (loc, align) in [
         (AnchorLoc::UpperLeft, PackAlign::Top),
         (AnchorLoc::UpperRight, PackAlign::Bottom),
@@ -109,7 +105,7 @@ fn item<S: plt::patches::PatchShape>(shape: S, props: PatchProps) -> BoxItem {
 }
 
 pub(super) fn drawing_area_descents(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     let shifted = DrawingArea::new(30.0, 20.0, 5.0, 8.0)
         .with_artist(item(
             Rectangle::new((-5.0, -8.0), 30.0, 20.0),
@@ -172,12 +168,8 @@ pub(super) fn drawing_area_descents(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn multiline_baseline(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     let mut first = TextArea::from_text("one\ntwo\nthree", TextProps::default());
     first.multilinebaseline = true;
     let row = Packer::new(
@@ -243,7 +235,7 @@ pub(super) fn subfigure_anchored(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn text_boxstyles(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     let styles = [
         "round4,pad=0.3",
         "sawtooth",

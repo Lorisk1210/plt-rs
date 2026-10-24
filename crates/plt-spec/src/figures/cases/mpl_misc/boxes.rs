@@ -64,7 +64,7 @@ fn offsetbox_clipping(fig: &Figure) -> CaseResult {
             ..AnchoredOptions::new(AnchorLoc::Center)
         },
     ));
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     remove_text(fig);
     Ok(())
 }

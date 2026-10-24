@@ -300,8 +300,8 @@ fn plot_streamplot_1(fig: &Figure) -> CaseResult {
     axs[3].set_title("Controlling Starting Points");
     let (sx, sy): (Vec<f64>, Vec<f64>) = seeds.into_iter().unzip();
     axs[3].plot_fmt(sx, sy, "bo")?;
-    axs[3].set_xlim(-3.0, 3.0);
-    axs[3].set_ylim(-3.0, 3.0);
+    axs[3].set_xlim(-3.0, 3.0)?;
+    axs[3].set_ylim(-3.0, 3.0)?;
 
     axs[4].streamplot(
         &field,
@@ -419,10 +419,10 @@ fn plot_streamplot_2(fig: &Figure) -> CaseResult {
         ax.text(0.0, 0.0, text)
             .set_halign(HAlign::Center)
             .set_valign(VAlign::Center);
-        ax_ins.set_xlim(-1.2, -0.7);
-        ax_ins.set_ylim(-0.8, -0.4);
+        ax_ins.set_xlim(-1.2, -0.7)?;
+        ax_ins.set_ylim(-0.8, -0.4)?;
         tickless(&ax_ins);
-        ax.set_ylim(-1.5, 1.5);
+        ax.set_ylim(-1.5, 1.5)?;
         ax.set_axis_off();
         ax.indicate_inset_zoom(&ax_ins, PatchProps::default().edgecolor("k"));
     }

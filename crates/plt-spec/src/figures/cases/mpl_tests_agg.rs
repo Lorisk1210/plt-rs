@@ -30,10 +30,6 @@ pub(crate) fn cases() -> Vec<FigureCase> {
 
 /// `test_large_single_path_collection`: one rectangle far larger than the
 /// view, in a path collection added without autoscaling.
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn large_single_path_collection(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let corners = [
@@ -45,7 +41,7 @@ fn large_single_path_collection(fig: &Figure) -> CaseResult {
     ];
     let path = Path::polyline(corners.iter().map(|&(x, y)| Point::new(x, y)).collect());
     ax.add_collection(CollectionSpec::paths(vec![path]).without_autolim());
-    ax.set_xlim(1e-3, 1.0);
+    ax.set_xlim(1e-3, 1.0)?;
     Ok(())
 }
 

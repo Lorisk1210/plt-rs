@@ -115,8 +115,8 @@ pub(super) fn dividers(args: Args<'_>) -> Outcome {
             .colorbar(&mappable, options)
             .map_err(ProbeError::rejected)?;
         match orientation {
-            Orientation::Horizontal => ax.set_xlim(1.1, 2.9),
-            Orientation::Vertical => ax.set_ylim(1.1, 2.9),
+            Orientation::Horizontal => ax.set_xlim(1.1, 2.9).map_err(ProbeError::rejected)?,
+            Orientation::Vertical => ax.set_ylim(1.1, 2.9).map_err(ProbeError::rejected)?,
         };
         Ok(Json::Array(
             colorbar

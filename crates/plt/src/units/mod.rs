@@ -259,7 +259,7 @@ mod tests {
 
         let day = |d| DateTime::new(1970, 1, d, 0, 0, 0, 0).unwrap();
         let ax = Figure::new().subplot();
-        ax.set_xlim(day(1), day(11));
+        ax.set_xlim(day(1), day(11)).expect("finite limits");
         assert_eq!(ax.xlim(), (0.0, 10.0));
         assert_eq!(ax.xaxis().converter(), Some(UnitConverter::Dates));
         assert!(!ax.yaxis().have_units(), "numbers leave an axis alone");

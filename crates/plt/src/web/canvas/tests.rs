@@ -9,8 +9,12 @@ use crate::navigation::PointerButton;
 /// A canvas for a 400 × 300 figure with one axes over [0, 10]².
 fn served() -> (WebCanvas, Figure) {
     let figure = Figure::with_size(4.0, 3.0, 100.0);
-    let ax = figure.add_axes([0.0, 0.0, 1.0, 1.0]);
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    let ax = figure
+        .add_axes([0.0, 0.0, 1.0, 1.0])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 10.0))
+        .expect("finite limits");
     (WebCanvas::new(&figure, "Figure 1"), figure)
 }
 
@@ -140,7 +144,7 @@ fn stale_figures_ask_for_one_draw_at_a_time() {
     let (mut canvas, figure) = served();
     canvas.handle(ClientMessage::Draw);
     canvas.take_outputs();
-    figure.axes()[0].set_xlim(0.0, 5.0);
+    figure.axes()[0].set_xlim(0.0, 5.0).expect("finite limits");
     canvas.idle();
     canvas.idle();
     assert_eq!(events(&mut canvas), [ServerEvent::Draw], "asked once");

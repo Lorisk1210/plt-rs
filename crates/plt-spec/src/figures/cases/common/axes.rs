@@ -4,7 +4,7 @@
 use std::f64::consts::PI;
 
 use plt::artist::ArtistHandle;
-use plt::axes::{Axes, AxisName, LocatorParams, TickLevel, TickParams, TickPosition};
+use plt::axes::{Axes, AxisName, LocatorParams, PlotError, TickLevel, TickParams, TickPosition};
 use plt::axisartist::angle_helper::{ExtremeFinderCycle, FormatterDms, LocatorDms};
 use plt::axisartist::grid_finder::{self, GridFinderOptions, GridLocator};
 use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
@@ -108,7 +108,7 @@ pub(crate) fn locator_strips(
         .set_major_locator(MaxNLocator::new(Nbins::Fixed(4)))
         .set_minor_locator(MaxNLocator::new(Nbins::Fixed(40)));
     strip(ax(7), "LogLocator(base=10, numticks=15)")?;
-    ax(7).set_xlim(1e3, 1e10);
+    ax(7).set_xlim(1e3, 1e10)?;
     ax(7).set_xscale("log")?;
     ax(7)
         .xaxis()
@@ -154,13 +154,13 @@ pub(crate) fn logit_grid(
                 _ => {}
             }
             if col == 1 {
-                ax.set_xlim(0.0, 10.0);
+                ax.set_xlim(0.0, 10.0)?;
             }
             match (row, col) {
-                (2, 0) => ax.set_ylim(0.0, 1.0),
-                (2, 1) => ax.set_ylim(0.8, 1.0),
-                (_, 0) => ax.set_ylim(1e-5, 1.0 - 1e-5),
-                _ => ax.set_ylim(0.8, 1.0 - 5e-3),
+                (2, 0) => ax.set_ylim(0.0, 1.0)?,
+                (2, 1) => ax.set_ylim(0.8, 1.0)?,
+                (_, 0) => ax.set_ylim(1e-5, 1.0 - 1e-5)?,
+                _ => ax.set_ylim(0.8, 1.0 - 5e-3)?,
             };
         }
     }
@@ -169,10 +169,10 @@ pub(crate) fn logit_grid(
 }
 
 /// One axes with both limits `(0, 10)` (`plt.axis([0, 10, 0, 10])`).
-pub(crate) fn blank(fig: &Figure) -> Axes {
+pub(crate) fn blank(fig: &Figure) -> Result<Axes, PlotError> {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-    ax
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
+    Ok(ax)
 }
 
 /// A mosaic of labelled cells (`"."` for an empty one), as nested lists
@@ -286,7 +286,7 @@ pub(crate) fn polar_box(
     let helper = polar_grid_helper(Some(Box::new(grid_finder::MaxNLocator::new(5))));
     let ax = axisartist::Axes::with_grid_helper(fig.add_subplot(rows, cols, index)?, helper);
     ax.ax().set_aspect(Aspect::Equal)?;
-    ax.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
+    ax.ax().set_xlim(-5.0, 12.0)?.set_ylim(-5.0, 10.0)?;
     Ok(ax)
 }
 
@@ -317,7 +317,7 @@ pub(crate) fn named_tick_strip(ax: &Axes, title: &str) -> Result<(), Box<dyn std
     tick_strip(ax);
     ax.xaxis()
         .set_ticks_position(TickPosition::Side(SpineSide::Bottom))?;
-    ax.set_xlim(0.0, 5.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 5.0)?.set_ylim(0.0, 1.0)?;
     strip_title(ax, title);
     Ok(())
 }

@@ -102,7 +102,7 @@ pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
     let ax1 = axisartist::Axes::with_grid_helper(fig.add_subplot(1, 2, 1)?, helper);
     ax1.ax().plot([3.0, 6.0], [2.0, 4.0])?;
     ax1.ax().set_aspect(Aspect::Equal)?;
-    ax1.ax().set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax1.ax().set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     ax1.new_floating_axis("t", AxisName::X, 3.0);
     ax1.new_floating_axis("t2", AxisName::Y, 7.0);
     grid_below(&ax1);
@@ -117,7 +117,7 @@ pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
     axis_artist(&ax2, "right")?.set_nth_coord_ticks(AxisName::X);
     axis_artist(&ax2, "bottom")?.set_nth_coord_ticks(AxisName::Y);
     ax2.ax().set_aspect(Aspect::Equal)?;
-    ax2.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
+    ax2.ax().set_xlim(-5.0, 12.0)?.set_ylim(-5.0, 10.0)?;
     grid_below(&ax2);
     let aux = ax2.aux_axes(&polar_degrees());
     aux.plot_with(
@@ -290,7 +290,7 @@ pub(super) fn floating_axis(fig: &Figure) -> CaseResult {
     let lon = ax.new_floating_axis("lon", AxisName::Y, 6.0);
     lon.label().set_text(r"$r = 6$");
     ax.ax().set_aspect(Aspect::Equal)?;
-    ax.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
+    ax.ax().set_xlim(-5.0, 12.0)?.set_ylim(-5.0, 10.0)?;
     ax.grid(true, GridOptions::default());
     Ok(())
 }

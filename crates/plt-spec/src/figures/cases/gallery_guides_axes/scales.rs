@@ -119,7 +119,7 @@ fn axes_scales_5(fig: &Figure) -> CaseResult {
     ax.set_scale_with(AxisName::Y, "function", mercator)?;
     ax.set_title("function: Mercator");
     ax.grid(true);
-    ax.set_xlim(0.0, 180.0);
+    ax.set_xlim(0.0, 180.0)?;
     ax.yaxis()
         .set_minor_formatter(NullFormatter)
         .set_major_locator(FixedLocator::new(arange(0.0, 90.0, 10.0)));

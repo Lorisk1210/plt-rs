@@ -84,9 +84,9 @@ fn serif_and_mono(fig: &Figure, suffix: &str) {
 }
 
 /// The rotated cases: labels at eight angles.
-fn rotated(fig: &Figure) {
+fn rotated(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     ax.set_axis_off();
     for (i, angle) in [0, 15, 30, 45, 90, 135, 180, 270].into_iter().enumerate() {
         ax.text(0.6 + 1.2 * i as f64, 5.0, format!("rot {angle} Wa"))
@@ -95,6 +95,7 @@ fn rotated(fig: &Figure) {
             .set_halign(HAlign::Center)
             .set_valign(VAlign::Center);
     }
+    Ok(())
 }
 
 /// The STIX cases: the sample in STIX General at three sizes, then a
@@ -152,12 +153,9 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("hinting/axes_150dpi", axes)
         .sized(4.0, 3.0, 150.0)
         .with_rc(DEFAULT),
-    FigureCase::new("hinting/rotated", |fig| {
-        rotated(fig);
-        Ok(())
-    })
-    .sized(6.0, 3.0, 100.0)
-    .with_rc(DEFAULT),
+    FigureCase::new("hinting/rotated", rotated)
+        .sized(6.0, 3.0, 100.0)
+        .with_rc(DEFAULT),
     FigureCase::new("hinting/mathtext_dejavusans", |fig| {
         math(fig);
         Ok(())
@@ -206,12 +204,9 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 3.0, 100.0)
     .with_rc(AUTOHINT),
-    FigureCase::new("hinting/autohint_rotated", |fig| {
-        rotated(fig);
-        Ok(())
-    })
-    .sized(6.0, 3.0, 100.0)
-    .with_rc(AUTOHINT),
+    FigureCase::new("hinting/autohint_rotated", rotated)
+        .sized(6.0, 3.0, 100.0)
+        .with_rc(AUTOHINT),
     FigureCase::new("hinting/mathtext_stix", |fig| {
         math(fig);
         Ok(())
@@ -239,21 +234,15 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.5, 100.0)
     .with_rc(ALIASED),
-    FigureCase::new("hinting/aliased_unhinted_rotated", |fig| {
-        rotated(fig);
-        Ok(())
-    })
-    .sized(6.0, 3.0, 100.0)
-    .with_rc(ALIASED),
-    FigureCase::new("hinting/aliased_autohint_rotated", |fig| {
-        rotated(fig);
-        Ok(())
-    })
-    .sized(6.0, 3.0, 100.0)
-    .with_rc(&[
-        ("text.hinting", "force_autohint"),
-        ("text.antialiased", "False"),
-    ]),
+    FigureCase::new("hinting/aliased_unhinted_rotated", rotated)
+        .sized(6.0, 3.0, 100.0)
+        .with_rc(ALIASED),
+    FigureCase::new("hinting/aliased_autohint_rotated", rotated)
+        .sized(6.0, 3.0, 100.0)
+        .with_rc(&[
+            ("text.hinting", "force_autohint"),
+            ("text.antialiased", "False"),
+        ]),
     FigureCase::new("hinting/aliased_mathtext_cm", |fig| {
         math(fig);
         Ok(())

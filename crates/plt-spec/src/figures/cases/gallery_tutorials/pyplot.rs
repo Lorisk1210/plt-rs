@@ -36,7 +36,7 @@ fn pyplot_2(fig: &Figure) -> CaseResult {
 fn pyplot_3(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.plot_fmt([1.0, 2.0, 3.0, 4.0], [1.0, 4.0, 9.0, 16.0], "ro")?;
-    ax.set_xlim(0.0, 6.0).set_ylim(0.0, 20.0);
+    ax.set_xlim(0.0, 6.0)?.set_ylim(0.0, 20.0)?;
     Ok(())
 }
 
@@ -89,7 +89,7 @@ fn pyplot_8(fig: &Figure) -> CaseResult {
     ax.set_xlabel("Smarts").set_ylabel("Probability");
     ax.set_title("Histogram of IQ");
     ax.text(60.0, 0.025, r"$\mu=100,\ \sigma=15$");
-    ax.set_xlim(40.0, 160.0).set_ylim(0.0, 0.03);
+    ax.set_xlim(40.0, 160.0)?.set_ylim(0.0, 0.03)?;
     ax.grid(true);
     Ok(())
 }

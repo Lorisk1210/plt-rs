@@ -44,7 +44,7 @@ fn integers(rows: usize, cols: usize, f: impl Fn(usize, usize) -> i64) -> Scalar
 }
 
 fn barcode_demo(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     ax.set_axis_off();
     let options = ImshowOptions {
         aspect: Some(Aspect::Auto),
@@ -314,7 +314,7 @@ fn layer_images(fig: &Figure) -> CaseResult {
 }
 
 fn matshow(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.15, 0.09, 0.775, 0.775]);
+    let ax = fig.add_axes([0.15, 0.09, 0.775, 0.775])?;
     let diagonal = integers(15, 15, |r, c| if r == c { r as i64 } else { 0 });
     ax.matshow(diagonal, ImshowOptions::default())?;
     Ok(())

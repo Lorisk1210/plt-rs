@@ -6,7 +6,7 @@ use super::size::Size;
 use crate::artist::{Artist, ArtistHandle};
 use crate::axes::{Axes, AxesState, AxisName, ImshowOptions, TickParams};
 use crate::colors::Color;
-use crate::figure::{Figure, insert_axes};
+use crate::figure::{AxesRectError, Figure, insert_axes};
 use crate::image::{AxesImage, ImageData, ImageError};
 use crate::numeric::Grid;
 
@@ -49,14 +49,18 @@ impl RgbAxes {
     /// use plt::numeric::Grid;
     /// use plt::prelude::*;
     /// let fig = Figure::new();
-    /// let axes = RgbAxes::new(&fig, [0.1, 0.1, 0.8, 0.8], 0.0);
+    /// let axes = RgbAxes::new(&fig, [0.1, 0.1, 0.8, 0.8], 0.0)?;
     /// let ramp = Grid::from_fn(4, 4, |r, c| (r + c) as f64 / 6.0);
     /// axes.imshow_rgb(&ramp, &ramp, &ramp, ImshowOptions::default)?;
     /// assert_eq!(fig.axes().len(), 4);
-    /// # Ok::<(), plt::image::ImageError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn new(fig: &Figure, rect: [f64; 4], pad: f64) -> Self {
-        let rgb = fig.add_axes(rect);
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_axes`] for `rect`.
+    pub fn new(fig: &Figure, rect: [f64; 4], pad: f64) -> Result<Self, AxesRectError> {
+        let rgb = fig.add_axes(rect)?;
         let [r, g, b] = make_rgb_axes(&rgb, pad);
         let all = Self { rgb, r, g, b };
         for axes in all.axes() {
@@ -71,7 +75,7 @@ impl RgbAxes {
                 }
             });
         }
-        all
+        Ok(all)
     }
 
     /// The image, red, green and blue axes.
@@ -197,8 +201,11 @@ mod tests {
     #[test]
     fn channels_stack_beside_the_image() {
         let fig = Figure::with_size(5.0, 4.0, 100.0);
-        let axes = RgbAxes::new(&fig, [0.1, 0.1, 0.8, 0.8], 0.0);
-        axes.rgb.set_xlim(0.0, 3.0).set_ylim(0.0, 3.0);
+        let axes = RgbAxes::new(&fig, [0.1, 0.1, 0.8, 0.8], 0.0).expect("a valid rectangle");
+        axes.rgb
+            .set_xlim(0.0, 3.0)
+            .and_then(|ax| ax.set_ylim(0.0, 3.0))
+            .expect("finite limits");
         let bounds = |ax: &Axes| {
             let (x, y, w, h) = ax.position().bounds();
             [x, y, w, h]

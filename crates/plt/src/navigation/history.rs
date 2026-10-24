@@ -48,8 +48,11 @@ impl AxesView {
         if let (Some(view), Some(colorbar)) = (self.colorbar, Colorbar::in_axes(ax)) {
             colorbar.set_view(view);
         } else {
-            ax.set_xlim(self.xlim.0, self.xlim.1)
-                .set_ylim(self.ylim.0, self.ylim.1);
+            // Only a view that was not finite fails to be set again; it
+            // then stays as it is.
+            let _ = ax
+                .set_xlim(self.xlim.0, self.xlim.1)
+                .and_then(|ax| ax.set_ylim(self.ylim.0, self.ylim.1));
             ax.raw().with_mut::<AxesState, _>(|state| {
                 state.axis_mut(AxisName::X).autoscale.enabled = self.autoscale.0;
                 state.axis_mut(AxisName::Y).autoscale.enabled = self.autoscale.1;
@@ -204,15 +207,15 @@ mod tests {
         let mut stack = ViewStack::default();
         assert!(stack.is_empty());
         stack.push(&fig);
-        ax.set_xlim(0.0, 2.0);
+        ax.set_xlim(0.0, 2.0).expect("finite limits");
         stack.push(&fig);
-        ax.set_xlim(0.0, 3.0);
+        ax.set_xlim(0.0, 3.0).expect("finite limits");
         stack.push(&fig);
         stack.back();
         stack.restore(&fig);
         assert_eq!(ax.xlim(), (0.0, 2.0));
         assert!(stack.can_go_forward());
-        ax.set_xlim(5.0, 6.0);
+        ax.set_xlim(5.0, 6.0).expect("finite limits");
         stack.push(&fig);
         assert!(!stack.can_go_forward(), "a push discards later views");
         stack.home();

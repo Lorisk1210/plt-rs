@@ -249,7 +249,9 @@ pub(super) fn indicate_inset(args: Args<'_>) -> Outcome {
     styled(args, || {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(1.0, 5.0).set_ylim(1.0, 5.0);
+        ax.set_xlim(1.0, 5.0)
+            .and_then(|ax| ax.set_ylim(1.0, 5.0))
+            .map_err(ProbeError::rejected)?;
         made(ax.set_aspect(plt::rc::Aspect::Ratio(1.0)))?;
         let indicator = ax.indicate_inset(
             [1.5, 2.0, 2.15 - 1.5, 2.5 - 2.0],
@@ -323,7 +325,9 @@ pub(super) fn child_axes_removal(args: Args<'_>) -> Outcome {
         made(marginal.share_y(ax))?;
         let _twin = marginal.twinx();
         marginal.remove();
-        ax.set_xlim(-1.0, 1.0).set_ylim(10.0, 20.0);
+        ax.set_xlim(-1.0, 1.0)
+            .and_then(|ax| ax.set_ylim(10.0, 20.0))
+            .map_err(ProbeError::rejected)?;
         Ok(encode::object([
             ("xlim", pair(ax.xlim())),
             ("ylim", pair(ax.ylim())),

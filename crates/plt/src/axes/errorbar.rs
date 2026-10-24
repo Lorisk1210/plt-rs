@@ -289,7 +289,7 @@ impl Axes {
     /// ```
     /// use plt::prelude::*;
     /// use plt::axes::ErrorbarOptions;
-    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8]);
+    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8])?;
     /// let options = ErrorbarOptions { yerr: Some(0.5.into()), fmt: "o".parse()?, ..Default::default() };
     /// let bars = ax.errorbar([1.0, 2.0], [3.0, 4.0], options)?;
     /// assert_eq!(bars.barlinecols.len(), 1);

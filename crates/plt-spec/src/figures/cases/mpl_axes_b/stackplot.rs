@@ -26,8 +26,8 @@ fn stackplot(fig: &Figure, options: &StackplotOptions) -> CaseResult {
     let (x, layers) = straight_layers();
     let ax = fig.subplot();
     ax.stackplot(&x, &layers, options.clone())?;
-    ax.set_xlim(0.0, 10.0);
-    ax.set_ylim(0.0, 70.0);
+    ax.set_xlim(0.0, 10.0)?;
+    ax.set_ylim(0.0, 70.0)?;
     Ok(())
 }
 
@@ -49,8 +49,8 @@ fn stackplot_hatching_ref(fig: &Figure) -> CaseResult {
         ax.fill_between(&x, &bottom, &top, options)?;
         bottom = top;
     }
-    ax.set_xlim(0.0, 10.0);
-    ax.set_ylim(0.0, 70.0);
+    ax.set_xlim(0.0, 10.0)?;
+    ax.set_ylim(0.0, 70.0)?;
     Ok(())
 }
 

@@ -26,7 +26,7 @@ fn artists_1(fig: &Figure) -> CaseResult {
     let t = arange(0.0, 1.0, 0.01);
     let blue = LineProps::default().color("blue").linewidth(2.0);
     ax1.plot_with(&t, map(&t, |t| (2.0 * PI * t).sin()), blue)?;
-    let ax2 = fig.add_axes([0.15, 0.1, 0.7, 0.3]);
+    let ax2 = fig.add_axes([0.15, 0.1, 0.7, 0.3])?;
     let yellow = HistPlotOptions {
         layout: HistOptions {
             bins: Some(Bins::Count(50)),

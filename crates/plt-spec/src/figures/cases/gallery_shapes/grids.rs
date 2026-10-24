@@ -360,7 +360,7 @@ fn rgb_channels() -> [Grid<f64>; 3] {
 
 fn demo_axes_rgb_1(fig: &Figure) -> CaseResult {
     let [r, g, b] = rgb_channels();
-    RgbAxes::new(fig, [0.1, 0.1, 0.8, 0.8], 0.0).imshow_rgb(&r, &g, &b, ImshowOptions::default)?;
+    RgbAxes::new(fig, [0.1, 0.1, 0.8, 0.8], 0.0)?.imshow_rgb(&r, &g, &b, ImshowOptions::default)?;
     Ok(())
 }
 

@@ -58,7 +58,7 @@ const PLACEMENT: &[FigureCase] = &[
     classic("mpl_tests_constrainedlayout/constrained_layout20", |fig| {
         let gx = linspace(-5.0, 5.0, 4);
         let img = Grid::from_fn(3, 3, |row, col| gx[col].hypot(gx[row]));
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
         let mesh = ax.pcolormesh(
             Mesh::from_coords(gx.clone(), gx, img),
             PcolorOptions::default(),

@@ -56,7 +56,8 @@ pub(super) fn slider(args: Args<'_>) -> Outcome {
             orientation: orientation(args)?,
             ..SliderOptions::default()
         };
-        let slider = Slider::new(&ax, "", args.f64("valmin")?, args.f64("valmax")?, options);
+        let slider = Slider::new(&ax, "", args.f64("valmin")?, args.f64("valmax")?, options)
+            .map_err(ProbeError::rejected)?;
         if let Some(val) = args.opt_f64("set_val")? {
             slider.set_val(val);
         }
@@ -83,8 +84,10 @@ fn bounded(args: Args<'_>, below: bool) -> Outcome {
             valinit,
             ..SliderOptions::default()
         };
-        let bound = Slider::new(&ax, "", 0.0, 24.0, at(args.f64("other")?));
-        let slider = Slider::new(&ax, "", 0.0, 24.0, at(args.f64("valinit")?));
+        let bound = Slider::new(&ax, "", 0.0, 24.0, at(args.f64("other")?))
+            .map_err(ProbeError::rejected)?;
+        let slider = Slider::new(&ax, "", 0.0, 24.0, at(args.f64("valinit")?))
+            .map_err(ProbeError::rejected)?;
         let slider = if below {
             slider.with_slidermin(&bound)
         } else {
@@ -118,7 +121,8 @@ pub(super) fn range_slider(args: Args<'_>) -> Outcome {
             orientation: direction,
             ..SliderOptions::default()
         };
-        let slider = RangeSlider::new(&ax, "", 0.0, 1.0, Some(valinit), options);
+        let slider = RangeSlider::new(&ax, "", 0.0, 1.0, Some(valinit), options)
+            .map_err(ProbeError::rejected)?;
         let state = || -> Result<Json, ProbeError> {
             let (low, high) = slider.val();
             let handles: Vec<f64> = slider

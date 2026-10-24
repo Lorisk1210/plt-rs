@@ -134,7 +134,12 @@ mod tests {
     #[test]
     fn radio_props_recolour_the_selection_and_resize_the_buttons() {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
-        let radio = RadioButtons::new(&fig.add_axes([0.1, 0.1, 0.8, 0.8]), &["a", "b"], 1);
+        let radio = RadioButtons::new(
+            &fig.add_axes([0.1, 0.1, 0.8, 0.8])
+                .expect("a valid rectangle"),
+            &["a", "b"],
+            1,
+        );
         radio
             .set_radio_props(ButtonMarkerProps {
                 sizes: Some(vec![144.0]),
@@ -155,7 +160,8 @@ mod tests {
     fn check_props_keep_the_states_and_labels_cycle() {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
         let checks = CheckButtons::new(
-            &fig.add_axes([0.1, 0.1, 0.8, 0.8]),
+            &fig.add_axes([0.1, 0.1, 0.8, 0.8])
+                .expect("a valid rectangle"),
             &["a", "b"],
             &[true, false],
         );

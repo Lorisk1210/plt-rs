@@ -22,7 +22,7 @@ fn damped_sine(ax: &Axes) -> CaseResult {
     let x = arange(0.0, 10.0, 0.005);
     let y = map(&x, |x| (-x / 2.0).exp() * (2.0 * PI * x).sin());
     ax.plot(&x, y)?;
-    ax.set_xlim(0.0, 10.0).set_ylim(-1.0, 1.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(-1.0, 1.0)?;
     Ok(())
 }
 
@@ -153,7 +153,7 @@ fn transforms_tutorial_8(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let (xdata, ydata) = ([0.2, 0.7], [0.5, 0.5]);
     ax.plot_fmt(xdata, ydata, "o")?;
-    ax.set_xlim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?;
     let trans = Transform::Inches.then(Transform::Translation {
         dx: xdata[0],
         dy: ydata[0],

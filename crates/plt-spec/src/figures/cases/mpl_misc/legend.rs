@@ -79,7 +79,7 @@ fn legend_auto3(fig: &Figure) -> CaseResult {
     let x = [0.9, 0.1, 0.1, 0.9, 0.9, 0.5];
     let y = [0.95, 0.95, 0.05, 0.05, 0.5, 0.5];
     ax.plot_with(x, y, styled("o-", "line")?)?;
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.legend(LegendOptions::default().loc("best"))?;
     Ok(())
 }
@@ -258,7 +258,7 @@ fn hatching(fig: &Figure) -> CaseResult {
         };
         ax.fill_between(x, [0.8, 0.8, 0.8], [0.9, 1.0, 0.9], band)?;
     }
-    ax.set_xlim(-0.01, 1.1).set_ylim(-0.01, 1.1);
+    ax.set_xlim(-0.01, 1.1)?.set_ylim(-0.01, 1.1)?;
     ax.legend(LegendOptions::default().handlelength(4.0).handleheight(4.0))?;
     remove_text(fig);
     Ok(())
@@ -285,7 +285,7 @@ fn legend_stackplot(fig: &Figure) -> CaseResult {
     for (layer, label) in stacked.iter().zip(["y1", "y2", "y3"]) {
         layer.set_label(label);
     }
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 70.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 70.0)?;
     ax.legend(LegendOptions::default().loc("best"))?;
     Ok(())
 }
@@ -305,7 +305,7 @@ fn not_covering_scatter(fig: &Figure) -> CaseResult {
             .labels(["foo", "foo", "foo"])
             .loc("best"),
     )?;
-    ax.set_xlim(-0.5, 2.2).set_ylim(-0.5, 2.2);
+    ax.set_xlim(-0.5, 2.2)?.set_ylim(-0.5, 2.2)?;
     Ok(())
 }
 

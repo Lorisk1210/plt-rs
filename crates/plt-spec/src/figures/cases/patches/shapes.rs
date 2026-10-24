@@ -81,7 +81,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("patches/rectangle_angle_rotation_point", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         let pivots = [
             (RotationPoint::Xy, "C0"),
             (RotationPoint::Center, "C1"),
@@ -107,7 +107,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/circle_ellipse", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         ax.add_patch(Circle::new((2.5, 7.0), 2.0));
         ax.add_patch(Circle::new((7.5, 7.0), 1.5)).update_props(
             PatchProps::default()
@@ -130,7 +130,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/wedge_width", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         ax.add_patch(Wedge::new((2.5, 7.5), 2.0, 30.0, 270.0));
         ax.add_patch(Wedge {
             width: Some(0.7),
@@ -150,7 +150,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/arc", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         ax.add_patch(Arc::new((2.5, 7.5), 4.0, 3.0).between(0.0, 270.0))
             .set_linewidth(2.0);
         ax.add_patch(Arc::new((7.5, 7.5), 4.0, 2.0).with_angle(30.0))
@@ -170,7 +170,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/polygon_closed_open", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         let pts = points(&[(1.0, 1.0), (4.0, 2.0), (3.0, 4.5), (1.5, 3.5)]);
         ax.add_patch(Polygon::new(pts.clone(), true))
             .set_facecolor("tab:blue")
@@ -192,7 +192,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/regular_and_circle_polygon", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         ax.add_patch(RegularPolygon::new((2.0, 7.5), 3, 1.5));
         ax.add_patch(RegularPolygon {
             orientation: PI / 5.0,
@@ -213,7 +213,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/annulus", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         ax.add_patch(Annulus::new((3.0, 5.0), 2.5, 0.8)?);
         ax.add_patch(Annulus::elliptical((7.5, 5.0), (2.0, 1.0), 0.5, 30.0)?)
             .set_facecolor("tab:red")
@@ -223,7 +223,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/pathpatch_curves", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         let [curves, hole, open] = curve_paths()?;
         ax.add_patch(PathShape(curves))
             .set_facecolor("tab:orange")
@@ -266,7 +266,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/shadow", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         let rect = ax.add_patch(Rectangle::new((1.0, 5.0), 3.0, 3.0));
         rect.set_facecolor("tab:blue");
         ax.add_patch(Shadow::of(&rect, 0.3, -0.3)?);

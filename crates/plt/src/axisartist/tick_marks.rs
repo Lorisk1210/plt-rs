@@ -167,7 +167,9 @@ mod tests {
     /// nothing of its own drawn.
     fn bare_axes() -> (Figure, Axes) {
         let fig = Figure::with_size(1.0, 1.0, 100.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
         ax.set_axis_off();
         (fig, ax)
     }

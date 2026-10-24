@@ -70,8 +70,8 @@ fn demo_ribbon_box(fig: &Figure) -> CaseResult {
         [0.7, 0.5, 0.8],
         [0.3, 0.8, 0.7],
     ];
-    ax.set_xlim(years[0] - 0.5, years[4] + 0.5)
-        .set_ylim(0.0, 10000.0);
+    ax.set_xlim(years[0] - 0.5, years[4] + 0.5)?
+        .set_ylim(0.0, 10000.0)?;
     // The boxes are stretched to the shape they have on the canvas, as the
     // example's image class does when it is drawn.
     fig.layout();
@@ -161,7 +161,7 @@ fn mandelbrot(fig: &Figure) -> CaseResult {
             smooth.clamp(f64::MIN, f64::MAX)
         }
     });
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     ax.set_frame_on(false);
     ax.set_aspect(Aspect::Ratio(1.0))?;
     let light = LightSource::new(315.0, 10.0);

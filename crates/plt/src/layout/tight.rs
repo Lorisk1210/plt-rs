@@ -125,11 +125,11 @@ impl Figure {
     /// use plt::prelude::*;
     /// let fig = Figure::new();
     /// let ax = fig.subplot();
-    /// ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    /// ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     /// fig.tight_layout(&TightLayout::default())?;
     /// let (x, _, w, _) = ax.position().bounds();
     /// assert!(x < 0.125 && x + w > 0.9);
-    /// # Ok::<(), plt::layout::TightLayoutError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn tight_layout(&self, params: &TightLayout) -> Result<&Self, TightLayoutError> {
         let axes: Vec<ArtistId> = (self.axes().iter().map(ArtistHandle::id))
@@ -295,7 +295,9 @@ mod tests {
         let a = fig.add_subplot_spec(&grid.cell(0, 0).unwrap()).unwrap();
         let b = fig.add_subplot_spec(&grid.cell(0, 0).unwrap()).unwrap();
         let c = fig.add_subplot_spec(&grid.cell(0, 1).unwrap()).unwrap();
-        let free = fig.add_axes([0.1, 0.1, 0.2, 0.2]);
+        let free = fig
+            .add_axes([0.1, 0.1, 0.2, 0.2])
+            .expect("a valid rectangle");
         let ids = [a.id(), b.id(), c.id(), free.id()];
         let state = fig.raw().figure_state().borrow();
         let found = blocks(&state, &ids, None);
@@ -325,7 +327,9 @@ mod tests {
     fn decorations_too_wide_leave_the_figure_alone() {
         let fig = Figure::with_size(1.0, 1.0, 100.0);
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         ax.set_ylabel("a label\nover\nmany\nmany\nlines");
         let params = TightLayout {
             pad: 4.0,
@@ -340,7 +344,9 @@ mod tests {
         let fig = Figure::new();
         let grid = GridSpec::new(2, 2).unwrap();
         let ax = fig.add_subplot_spec(&grid.cell(0, 0).unwrap()).unwrap();
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         fig.tight_layout(&TightLayout::default()).unwrap();
         let (_, y, w, h) = ax.position().bounds();
         // The empty cells to the right and below still take their share.

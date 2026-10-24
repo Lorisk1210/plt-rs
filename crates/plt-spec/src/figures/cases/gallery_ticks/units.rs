@@ -73,7 +73,7 @@ fn annotate_with_units(fig: &Figure) -> CaseResult {
         .set_halign(HAlign::Right)
         .set_valign(VAlign::Top);
     }
-    ax.set_xlim(0.0, 4.0).set_ylim(0.0, 4.0);
+    ax.set_xlim(0.0, 4.0)?.set_ylim(0.0, 4.0)?;
     label_units(&ax, Length::Centimeters, Length::Centimeters);
     Ok(())
 }
@@ -92,7 +92,7 @@ fn artist_tests(fig: &Figure) -> CaseResult {
         .set_halign(HAlign::Left)
         .set_valign(VAlign::Bottom)
         .set_clip_on(true);
-    ax.set_xlim(-1.0, 10.0).set_ylim(-1.0, 10.0);
+    ax.set_xlim(-1.0, 10.0)?.set_ylim(-1.0, 10.0)?;
     ax.grid(true);
     ax.set_title("Artists with units");
     Ok(())
@@ -124,10 +124,10 @@ fn bar_demo2(fig: &Figure) -> CaseResult {
     length_bars(&axs[(0, 1)], &cms, width(Cm), Cm, In)?;
     length_bars(&axs[(1, 0)], &cms, width(In), In, Cm)?;
     // Plain numbers are in the axis' unit, centimetres are converted.
-    axs[(1, 0)].set_xlim(2.0, 6.0);
+    axs[(1, 0)].set_xlim(2.0, 6.0)?;
     length_bars(&axs[(1, 1)], &cms, width(In), In, In)?;
     let limits = In.of(&[2.0, 6.0]);
-    axs[(1, 1)].set_xlim(limits[0], limits[1]);
+    axs[(1, 1)].set_xlim(limits[0], limits[1])?;
     fig.tight_layout(&TightLayout::default())?;
     Ok(())
 }
@@ -329,9 +329,9 @@ fn units_sample(fig: &Figure) -> CaseResult {
         label_units(&axs[(row, col)], x, y);
     }
     // Plain numbers are in the axis' unit, centimetres are converted.
-    axs[(1, 0)].set_xlim(-1.0, 4.0);
+    axs[(1, 0)].set_xlim(-1.0, 4.0)?;
     let limits = In.of(&[3.0, 6.0]);
-    axs[(1, 1)].set_xlim(limits[0], limits[1]);
+    axs[(1, 1)].set_xlim(limits[0], limits[1])?;
     Ok(())
 }
 

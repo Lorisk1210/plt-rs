@@ -139,7 +139,9 @@ pub(super) fn polygon(args: Args<'_>) -> Outcome {
         if let (Some(xlim), Some(ylim)) = (args.get("xlim"), args.get("ylim")) {
             match (xlim.as_f64_vec().as_deref(), ylim.as_f64_vec().as_deref()) {
                 (Some(&[x0, x1]), Some(&[y0, y1])) => {
-                    ax.set_xlim(x0, x1).set_ylim(y0, y1);
+                    ax.set_xlim(x0, x1)
+                        .and_then(|ax| ax.set_ylim(y0, y1))
+                        .map_err(ProbeError::rejected)?;
                 }
                 _ => return Err(bad("limits")),
             }

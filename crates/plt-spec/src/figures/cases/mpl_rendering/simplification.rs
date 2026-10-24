@@ -30,7 +30,7 @@ fn clipping(fig: &Figure) -> CaseResult {
     let s: Vec<f64> = t.iter().map(|t| (2.0 * PI * t).sin()).collect();
     let ax = fig.subplot();
     ax.plot_with(t, s, LineProps::default().linewidth(1.0))?;
-    ax.set_ylim(-0.20, -0.28);
+    ax.set_ylim(-0.20, -0.28)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -39,7 +39,7 @@ fn clipping(fig: &Figure) -> CaseResult {
 fn overflow(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.plot([1.0, 2.0, 3.0, 2.0e5], [0.0, 1.0, 2.0, 3.0])?;
-    ax.set_xlim(2.0, 6.0);
+    ax.set_xlim(2.0, 6.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -48,7 +48,7 @@ fn overflow(fig: &Figure) -> CaseResult {
 fn diamond(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.plot([0.0, 1.0, 0.0, -1.0, 0.0], [1.0, 0.0, -1.0, 0.0, 1.0])?;
-    ax.set_xlim(-0.6, 0.6).set_ylim(-0.6, 0.6);
+    ax.set_xlim(-0.6, 0.6)?.set_ylim(-0.6, 0.6)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -70,7 +70,7 @@ fn simplify_curve(fig: &Figure) -> CaseResult {
     )?;
     let ax = fig.subplot();
     ax.add_patch(PathShape(curve)).set_facecolor("none");
-    ax.set_xlim(0.0, 2.0).set_ylim(0.0, 2.0);
+    ax.set_xlim(0.0, 2.0)?.set_ylim(0.0, 2.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -166,7 +166,7 @@ fn closed_path_nan_removal(fig: &Figure) -> CaseResult {
         for path in paths {
             ax.add_patch(PathShape(path)).set_facecolor("none");
         }
-        ax.set_xlim(-3.5, 3.5).set_ylim(-3.5, 3.5);
+        ax.set_xlim(-3.5, 3.5)?.set_ylim(-3.5, 3.5)?;
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -202,16 +202,12 @@ fn closed_path_clipping(fig: &Figure) -> CaseResult {
 }
 
 /// `test_hatch`: a hatched square seen through a tenth of its width.
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn hatch(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.add_patch(Rectangle::new((0.0, 0.0), 1.0, 1.0))
         .set_fill(false)
         .set_hatch("/");
-    ax.set_xlim(0.45, 0.55).set_ylim(0.45, 0.55);
+    ax.set_xlim(0.45, 0.55)?.set_ylim(0.45, 0.55)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -255,8 +251,8 @@ fn clipper(fig: &Figure) -> CaseResult {
         hspace: Some(0.0),
         ..SubplotOverrides::default()
     })?;
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-    ax.set_ylim(0.0, 5.0).set_autoscale_on(false);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
+    ax.set_ylim(0.0, 5.0)?.set_autoscale_on(false);
     ax.plot_y([0.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 5.0]);
     ax.xaxis().set_major_locator(MultipleLocator::new(1.0)?);
     ax.yaxis().set_major_locator(MultipleLocator::new(1.0)?);
@@ -264,7 +260,7 @@ fn clipper(fig: &Figure) -> CaseResult {
         .set_ticks_position(TickPosition::Side(SpineSide::Bottom))?;
     ax.yaxis()
         .set_ticks_position(TickPosition::Side(SpineSide::Left))?;
-    ax.set_xlim(5.0, 9.0);
+    ax.set_xlim(5.0, 9.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -304,7 +300,7 @@ fn clipping_with_nans(fig: &Figure) -> CaseResult {
     }
     let ax = fig.subplot();
     ax.plot(x, y)?;
-    ax.set_ylim(-0.25, 0.25);
+    ax.set_ylim(-0.25, 0.25)?;
     Ok(())
 }
 

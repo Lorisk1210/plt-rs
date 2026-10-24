@@ -95,7 +95,7 @@ fn rasterized(fig: &Figure) -> CaseResult {
 /// z-order rather than by the order they were added.
 fn rasterized_ordering(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 3.0).set_ylim(-1.1, 1.1);
+    ax.set_xlim(0.0, 3.0)?.set_ylim(-1.1, 1.1)?;
     circle_line(&ax, 0.0, "r", 1.1)?.set_rasterized(true);
     circle_line(&ax, 2.0, "g", 1.3)?.set_rasterized(true);
     circle_line(&ax, 3.0, "m", 1.4)?.set_rasterized(true);

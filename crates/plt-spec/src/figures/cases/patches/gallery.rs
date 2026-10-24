@@ -131,7 +131,7 @@ fn gallery_collections(fig: &Figure) -> CaseResult {
     ax4.set_xlabel("Zonal velocity component (m/s)");
     ax4.set_ylabel("Depth (m)");
     let (bottom, top) = ax4.ylim();
-    ax4.set_ylim(top, bottom);
+    ax4.set_ylim(top, bottom)?;
     Ok(())
 }
 
@@ -211,7 +211,7 @@ fn multicolored_line(fig: &Figure) -> CaseResult {
             ..ColorbarOptions::default()
         },
     )?;
-    axs[(0, 0)].set_xlim(x[0], x[499]).set_ylim(-1.1, 1.1);
+    axs[(0, 0)].set_xlim(x[0], x[499])?.set_ylim(-1.1, 1.1)?;
     Ok(())
 }
 
@@ -241,14 +241,14 @@ fn connectionpatch_coordinate_systems(fig: &Figure) -> CaseResult {
     );
     mixed.spec.arrowstyle = "-".parse()?;
     ax2.add_artist(mixed);
-    ax1.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
-    ax2.set_xlim(0.0, 0.5).set_ylim(0.0, 0.5);
+    ax1.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
+    ax2.set_xlim(0.0, 0.5)?.set_ylim(0.0, 0.5)?;
     Ok(())
 }
 
 fn fancyarrowpatch_between_patches(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 6.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 6.0)?;
     ax.set_aspect(Aspect::Equal)?;
     let styles = [
         ("arc3,rad=0.3", "fancy", 1.0),
@@ -322,14 +322,10 @@ fn collection_hatch_alpha_and_edges(fig: &Figure) -> CaseResult {
     mixed.hatch = Some("\\\\".into());
     mixed.base.alpha = Some(0.7);
     ax.add_collection(CollectionSpec::patches(&shapes, false)?.with_props(mixed));
-    ax.set_xlim(0.0, 10.5).set_ylim(0.0, 3.5);
+    ax.set_xlim(0.0, 10.5)?.set_ylim(0.0, 3.5)?;
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn collection_hatch_rc_color(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let mut plain = CollectionProps::default().facecolor("w");
@@ -344,7 +340,7 @@ fn collection_hatch_rc_color(fig: &Figure) -> CaseResult {
         .edgecolor("tab:orange");
     circles.hatch = Some("o".into());
     ax.add_collection(hatched_square(5.5, circles));
-    ax.set_xlim(0.0, 8.0).set_ylim(0.0, 3.0);
+    ax.set_xlim(0.0, 8.0)?.set_ylim(0.0, 3.0)?;
     Ok(())
 }
 
@@ -352,7 +348,7 @@ fn arcs_wedges_unequal_aspect(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     for ax in [ax1, ax2] {
-        ax.set_xlim(-2.0, 2.0).set_ylim(-1.0, 1.0);
+        ax.set_xlim(-2.0, 2.0)?.set_ylim(-1.0, 1.0)?;
     }
     ax1.add_patch(
         Arc::new((0.0, 0.0), 3.0, 1.5)

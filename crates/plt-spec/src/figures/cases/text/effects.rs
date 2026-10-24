@@ -39,7 +39,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("text/patheffects_stroke_normal", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         let navy = Stroke::new(GcUpdate::default().linewidth(5.0).foreground("navy"));
         ax.text(1.0, 6.0, "Stroke + Normal")
             .set_fontsize(24.0)
@@ -52,7 +52,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("text/patheffects_shadows", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.text(0.5, 7.0, "simple shadow")
             .set_fontsize(22.0)
             .set_path_effects(vec![PathEffect::with_simple_patch_shadow(
@@ -88,7 +88,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("text/patheffects_ticked_stroke", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         let ticks = TickedStroke {
             angle: 135.0,
             spacing: 10.0,

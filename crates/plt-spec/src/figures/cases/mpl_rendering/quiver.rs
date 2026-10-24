@@ -90,7 +90,7 @@ fn quiver_key_pivot(fig: &Figure) -> CaseResult {
     let u = Grid::from_fn(10, 10, |i, _| t[i].sin());
     let v = Grid::from_fn(10, 10, |_, j| t[j].cos());
     let q = ax.quiver(VectorField::on_index_grid(&u, &v), QuiverOptions::default())?;
-    ax.set_xlim(-2.0, 11.0).set_ylim(-2.0, 11.0);
+    ax.set_xlim(-2.0, 11.0)?.set_ylim(-2.0, 11.0)?;
     let keys = [
         ((0.5, 1.0), "N", LabelPosition::North),
         ((1.0, 0.5), "E", LabelPosition::East),
@@ -116,7 +116,7 @@ fn quiver_key_xy(fig: &Figure) -> CaseResult {
     let v: Vec<f64> = x.iter().map(|x| (x * PI / 4.0).sin()).collect();
     let axs = fig.subplots(2, 1)?;
     for (ax, angles) in axs.as_slice().iter().zip([Angles::Uv, Angles::Xy]) {
-        ax.set_xlim(-1.0, 8.0).set_ylim(-0.2, 0.2);
+        ax.set_xlim(-1.0, 8.0)?.set_ylim(-0.2, 0.2)?;
         let options = QuiverOptions {
             pivot: Pivot::Middle,
             units: QuiverUnits::Xy,
@@ -230,7 +230,7 @@ fn quiver_xy(fig: &Figure) -> CaseResult {
         ..QuiverOptions::default()
     };
     ax.quiver(VectorField::new([0.0], [0.0], [1.0], [1.0]), options)?;
-    ax.set_xlim(0.0, 1.1).set_ylim(0.0, 1.1);
+    ax.set_xlim(0.0, 1.1)?.set_ylim(0.0, 1.1)?;
     ax.grid(true);
     remove_ticks_and_titles(fig);
     Ok(())
@@ -248,7 +248,7 @@ fn quiverkey_zorder(fig: &Figure, zorder: Option<f64>) -> CaseResult {
         ..QuiverOptions::default()
     };
     let q = ax.quiver(field, options)?;
-    ax.set_xlim(0.5, 5.5).set_ylim(0.5, 5.5);
+    ax.set_xlim(0.5, 5.5)?.set_ylim(0.5, 5.5)?;
     for ((x, y), length, label, angle) in
         [((4.0, 4.0), 25.0, "U", 0.0), ((5.5, 2.0), 20.0, "V", 90.0)]
     {

@@ -50,7 +50,7 @@ fn poly_marker(fig: &Figure) -> CaseResult {
             Marker::polygon(sides, PolygonStyle::Regular, angle),
         )?;
     }
-    ax.set_xlim(-0.5, 5.5).set_ylim(-0.5, 5.5);
+    ax.set_xlim(-0.5, 5.5)?.set_ylim(-0.5, 5.5)?;
     Ok(())
 }
 
@@ -60,7 +60,7 @@ fn asterisk_marker(fig: &Figure) -> CaseResult {
     for (at, angle) in [((0.0, 0.0), 0.0), ((0.5, 0.5), 0.0), ((1.0, 1.0), 45.0)] {
         scatter_one(&ax, at, Marker::polygon(4, PolygonStyle::Asterisk, angle))?;
     }
-    ax.set_xlim(-0.5, 1.5).set_ylim(-0.5, 1.5);
+    ax.set_xlim(-0.5, 1.5)?.set_ylim(-0.5, 1.5)?;
     Ok(())
 }
 
@@ -86,7 +86,7 @@ fn every_marker() -> Result<Vec<Marker>, Box<dyn std::error::Error>> {
 /// `test_marker_clipping`: thick-edged markers on short lines, rows of
 /// [`CLIP_COLUMNS`].
 fn marker_clipping(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     for (i, marker) in every_marker()?.into_iter().enumerate() {
         let x = (i % CLIP_COLUMNS) as f64;
         let y = (i / CLIP_COLUMNS * 2) as f64;
@@ -101,8 +101,8 @@ fn marker_clipping(fig: &Figure) -> CaseResult {
             .markerfacecolor(Color::from("white"));
         ax.plot_with([x, x], [y, y + 1.0], props)?;
     }
-    ax.set_xlim(-0.5, CLIP_COLUMNS as f64)
-        .set_ylim(-0.5, 2.0 * CLIP_ROWS as f64);
+    ax.set_xlim(-0.5, CLIP_COLUMNS as f64)?
+        .set_ylim(-0.5, 2.0 * CLIP_ROWS as f64)?;
     ax.set_axis_off();
     Ok(())
 }
@@ -147,14 +147,14 @@ fn clip_path_clipping(fig: &Figure) -> CaseResult {
         .alpha(0.7)
         .clip_path(clip(ax2));
     ax2.add_patch_with(PathShape(star), props);
-    ax1.set_xlim(-3.0, 3.0).set_ylim(-3.0, 3.0);
+    ax1.set_xlim(-3.0, 3.0)?.set_ylim(-3.0, 3.0)?;
     remove_text(fig);
     Ok(())
 }
 
 /// `test_clipping_zoom`: a line clipped to a path outside the figure.
 fn clipping_zoom(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     let line = ax.plot([-3.0, 3.0], [-3.0, 3.0])?;
     let square = Path::polyline(
         [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)]
@@ -165,13 +165,13 @@ fn clipping_zoom(fig: &Figure) -> CaseResult {
         path: square,
         transform: ax.trans_data(),
     }));
-    ax.set_xlim(0.5, 0.75).set_ylim(0.5, 0.75);
+    ax.set_xlim(0.5, 0.75)?.set_ylim(0.5, 0.75)?;
     Ok(())
 }
 
 /// `test_hatching`: hatches in the default colour and with edge colours,
 /// on patches and collections.
-fn hatching(fig: &Figure) {
+fn hatching(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     for (x, edge) in [(0.0, None), (4.0, Some("C1"))] {
         let rect = ax.add_patch(Rectangle::new((x, 0.0), 3.0, 4.0));
@@ -190,8 +190,9 @@ fn hatching(fig: &Figure) {
                 .with_props(props),
         );
     }
-    ax.set_xlim(0.0, 7.0).set_ylim(0.0, 9.0);
+    ax.set_xlim(0.0, 7.0)?.set_ylim(0.0, 9.0)?;
     remove_text(fig);
+    Ok(())
 }
 
 /// `test_default_edges`: markers, edge-aligned bars, a sawtooth text box
@@ -214,7 +215,7 @@ fn default_edges(fig: &Figure) -> CaseResult {
     ax3.text(0.0, 0.0, "BOX")
         .set_fontsize(24.0)
         .set_bbox(Some(TextBoxProps::new("sawtooth".parse()?)));
-    ax3.set_xlim(-1.0, 1.0).set_ylim(-1.0, 1.0);
+    ax3.set_xlim(-1.0, 1.0)?.set_ylim(-1.0, 1.0)?;
     let curve = Path::new(
         [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)]
             .map(|(x, y)| Point::new(x, y))
@@ -253,9 +254,6 @@ pub(super) const CASES: &[FigureCase] = &[
         .with_style("classic")
         .with_rc(CLASSIC_TEST_PATCH),
     FigureCase::new("mpl_small/clipping_zoom", clipping_zoom),
-    FigureCase::new("mpl_small/hatching", |fig| {
-        hatching(fig);
-        Ok(())
-    }),
+    FigureCase::new("mpl_small/hatching", hatching),
     FigureCase::new("mpl_small/default_edges", default_edges),
 ];

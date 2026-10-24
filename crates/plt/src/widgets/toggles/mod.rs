@@ -405,7 +405,9 @@ mod tests {
     #[test]
     fn check_buttons_toggle() {
         let fig = Figure::with_size(6.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.05, 0.3, 0.25, 0.5]);
+        let ax = fig
+            .add_axes([0.05, 0.3, 0.25, 0.5])
+            .expect("a valid rectangle");
         let checks = CheckButtons::new(&ax, &["red", "green", "blue"], &[true, false, true]);
         assert_eq!(checks.status(), [true, false, true]);
         let seen = Rc::new(RefCell::new(Vec::new()));
@@ -432,7 +434,9 @@ mod tests {
     #[test]
     fn radio_buttons_select_one() {
         let fig = Figure::with_size(6.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.38, 0.3, 0.25, 0.5]);
+        let ax = fig
+            .add_axes([0.38, 0.3, 0.25, 0.5])
+            .expect("a valid rectangle");
         let radio = RadioButtons::new(&ax, &["one", "two", "three"], 1);
         assert_eq!(radio.value_selected(), "two");
         radio.set_active(2);
@@ -445,7 +449,9 @@ mod tests {
         use crate::text::TextProps;
 
         let fig = Figure::with_size(4.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
         let options = RadioButtonsOptions {
             label_props: vec![
                 TextProps::default().color("red"),
@@ -467,7 +473,9 @@ mod tests {
     #[test]
     fn measured_layouts_place_labels_in_rows_and_columns() {
         let fig = Figure::with_size(6.0, 3.0, 100.0);
-        let ax = fig.add_axes([0.05, 0.1, 0.9, 0.35]);
+        let ax = fig
+            .add_axes([0.05, 0.1, 0.9, 0.35])
+            .expect("a valid rectangle");
         let grid = CheckButtonsOptions {
             layout: ButtonLayout::Grid { rows: 2, cols: 2 },
             ..CheckButtonsOptions::default()

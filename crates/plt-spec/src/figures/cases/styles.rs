@@ -134,7 +134,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 ..BarOptions::default()
             },
         )?;
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0)

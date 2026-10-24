@@ -95,8 +95,12 @@ fn dropping_stops_playback() {
 /// frames, and the line.
 fn blitted(frames: usize, repeat: bool) -> (Figure, Line2D, FuncAnimation) {
     let fig = Figure::with_size(1.0, 1.0, 50.0);
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    let ax = fig
+        .add_axes([0.0, 0.0, 1.0, 1.0])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1.0))
+        .expect("finite limits");
     let props = crate::lines::LineProps::default().linewidth(10.0);
     let line = ax.plot_with(vec![0.0, 1.0], vec![0.1, 0.1], props).unwrap();
     // Animated from the start, the line stays out of the first draw, whose

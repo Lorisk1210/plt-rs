@@ -183,8 +183,8 @@ pub(crate) const GRIDS: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("layout/add_axes_rects", |fig| {
-        fill(&fig.add_axes([0.1, 0.1, 0.8, 0.8]), 0)?;
-        let ax = fig.add_axes([0.55, 0.55, 0.3, 0.25]);
+        fill(&fig.add_axes([0.1, 0.1, 0.8, 0.8])?, 0)?;
+        let ax = fig.add_axes([0.55, 0.55, 0.3, 0.25])?;
         ax.set_facecolor("0.9");
         fill(&ax, 2)?;
         ax.set_title("overlay");

@@ -11,7 +11,7 @@ use super::{GeoProjection, GeoState};
 use crate::artist::ArtistHandle;
 use crate::axes::projection::Projection;
 use crate::axes::{Adjustable, Axes, AxesState, Axis, TickPosition};
-use crate::figure::Figure;
+use crate::figure::{AxesRectError, Figure};
 use crate::gridspec::{GridSpecError, SubplotSpec};
 use crate::rc::Aspect;
 use crate::spines::Spine;
@@ -99,7 +99,9 @@ impl GeoAxes {
     /// `clear`).
     pub(crate) fn convert(axes: Axes, projection: GeoProjection) -> Self {
         // The limits are fixed once the axes is geographic.
-        axes.set_xlim(-PI, PI).set_ylim(-FRAC_PI_2, FRAC_PI_2);
+        axes.set_xlim(-PI, PI)
+            .and_then(|axes| axes.set_ylim(-FRAC_PI_2, FRAC_PI_2))
+            .expect("the whole globe has finite limits");
         axes.raw().with_mut::<AxesState, _>(|state| {
             state.projection = Projection::Geo(GeoState::new(projection));
             state.yaxis.major_style.labels.first = true;
@@ -272,8 +274,17 @@ impl Figure {
 
     /// Adds geographic axes occupying `[left, bottom, width, height]` in
     /// figure fractions.
-    pub fn add_geo_axes(&self, projection: GeoProjection, rect: [f64; 4]) -> GeoAxes {
-        GeoAxes::convert(self.add_axes(rect), projection)
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_axes`].
+    pub fn add_geo_axes(
+        &self,
+        projection: GeoProjection,
+        rect: [f64; 4],
+    ) -> Result<GeoAxes, AxesRectError> {
+        self.add_axes(rect)
+            .map(|axes| GeoAxes::convert(axes, projection))
     }
 }
 
@@ -343,10 +354,10 @@ mod tests {
         let ax = fig.geo_subplot(GeoProjection::Mollweide);
         ax.plot(vec![-10.0, 10.0], vec![-5.0, 5.0]).unwrap();
         assert_eq!(ax.xlim(), (-PI, PI));
-        ax.set_xlim(-PI, PI);
+        ax.set_xlim(-PI, PI).expect("finite limits");
         let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
         assert!(fig.draw(&mut renderer).is_ok());
-        ax.set_xlim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0).expect("finite limits");
         ax.set_yscale("log").unwrap();
         assert_eq!((ax.xlim(), ax.yscale()), ((-PI, PI), "linear"));
         assert_eq!(fig.draw(&mut renderer).unwrap_err().0.len(), 2);

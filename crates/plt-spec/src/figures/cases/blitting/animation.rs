@@ -44,8 +44,8 @@ fn func_animation(fig: &Figure) -> CaseResult {
 /// in.
 fn func_animation_init(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 2.0 * std::f64::consts::PI)
-        .set_ylim(-1.1, 1.1);
+    ax.set_xlim(0.0, 2.0 * std::f64::consts::PI)?
+        .set_ylim(-1.1, 1.1)?;
     let line = ax.plot_with(
         Vec::<f64>::new(),
         Vec::<f64>::new(),

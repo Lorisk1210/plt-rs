@@ -34,14 +34,16 @@ fn points(xy: &[(f64, f64)]) -> Vec<Point> {
 }
 
 /// The axes most scenes use: `xlim=(0, 4), ylim=(0, 3)`.
-fn axes(fig: &Figure) -> Axes {
+fn axes(fig: &Figure) -> Result<Axes, ProbeError> {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 4.0).set_ylim(0.0, 3.0);
-    ax
+    ax.set_xlim(0.0, 4.0)
+        .and_then(|ax| ax.set_ylim(0.0, 3.0))
+        .map_err(ProbeError::rejected)?;
+    Ok(ax)
 }
 
 fn lines(fig: &Figure) -> Built {
-    let ax = axes(fig);
+    let ax = axes(fig)?;
     let plot = |y: [f64; 4], format: &str| ax.plot_fmt(XS, y, format).map_err(ProbeError::rejected);
     plot([0.5, 2.5, 0.5, 2.5], "")?
         .set_gid("zigzag")
@@ -62,7 +64,7 @@ fn lines(fig: &Figure) -> Built {
 }
 
 fn collections(fig: &Figure) -> Built {
-    let ax = axes(fig);
+    let ax = axes(fig)?;
     let options = ScatterOptions {
         sizes: Some(vec![20.0, 80.0, 200.0, 20.0, 400.0]),
         ..ScatterOptions::default()
@@ -95,7 +97,7 @@ fn collections(fig: &Figure) -> Built {
 }
 
 fn patches(fig: &Figure) -> Built {
-    let ax = axes(fig);
+    let ax = axes(fig)?;
     ax.add_patch(Rectangle::new((0.3, 0.3), 1.0, 0.8))
         .set_gid("rectangle")
         .set_picker(Some(Picker::Default));
@@ -118,7 +120,7 @@ fn patches(fig: &Figure) -> Built {
 }
 
 fn texts(fig: &Figure) -> Built {
-    let ax = axes(fig);
+    let ax = axes(fig)?;
     let round: BoxStyle = "round".parse().map_err(ProbeError::rejected)?;
     ax.text(0.5, 2.0, "boxed")
         .set_bbox(Some(TextBoxProps::new(round)))
@@ -141,7 +143,7 @@ fn texts(fig: &Figure) -> Built {
 }
 
 fn layers(fig: &Figure) -> Built {
-    let ax = axes(fig);
+    let ax = axes(fig)?;
     ax.set_gid("axes").set_picker(Some(Picker::Default));
     let data =
         Grid::from_rows(vec![vec![0.0, 1.0], vec![1.0, 0.0]]).map_err(ProbeError::rejected)?;
@@ -175,7 +177,9 @@ fn twoaxes(fig: &Figure) -> Built {
         (([0.0, 3.0], 0.5), "left", &grid[(0, 0)]),
         (([-2.0, 1.0], 0.3), "right", &grid[(0, 1)]),
     ] {
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .map_err(ProbeError::rejected)?;
         ax.plot(x, [y, y])
             .map_err(ProbeError::rejected)?
             .set_clip_on(false)

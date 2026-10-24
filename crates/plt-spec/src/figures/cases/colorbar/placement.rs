@@ -99,8 +99,8 @@ pub(super) fn multiple_axes(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn cax_explicit(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.1, 0.1, 0.65, 0.8]);
-    let cax = fig.add_axes([0.82, 0.1, 0.04, 0.8]);
+    let ax = fig.add_axes([0.1, 0.1, 0.65, 0.8])?;
+    let cax = fig.add_axes([0.82, 0.1, 0.04, 0.8])?;
     let image = ImshowOptions {
         aspect: Some(Aspect::Auto),
         ..ImshowOptions::default()

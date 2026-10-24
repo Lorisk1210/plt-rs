@@ -128,7 +128,7 @@ fn paths_1(fig: &Figure) -> CaseResult {
         PathShape(Path::new(verts.to_vec(), codes.to_vec())?),
         PatchProps::default().facecolor("orange").linewidth(2.0),
     );
-    ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     Ok(())
 }
 
@@ -162,7 +162,7 @@ fn paths_2(fig: &Figure) -> CaseResult {
     ] {
         ax.text(x, y, label);
     }
-    ax.set_xlim(-0.1, 1.1).set_ylim(-0.1, 1.1);
+    ax.set_xlim(-0.1, 1.1)?.set_ylim(-0.1, 1.1)?;
     Ok(())
 }
 
@@ -201,7 +201,7 @@ fn paths_3(fig: &Figure) -> CaseResult {
         .iter()
         .copied()
         .fold(f64::NEG_INFINITY, f64::max);
-    ax.set_xlim(left[0], right[99]).set_ylim(0.0, top);
+    ax.set_xlim(left[0], right[99])?.set_ylim(0.0, top)?;
     Ok(())
 }
 

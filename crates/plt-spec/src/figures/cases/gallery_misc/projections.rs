@@ -51,7 +51,7 @@ fn icon_axes(fig: &Figure, position: [f64; 4], sizes: &LogoSizes) -> CaseResult 
     let ax: PolarAxes = plt::pyplot::rc_context(
         &[("axes.edgecolor", MPL_BLUE), ("axes.linewidth", &border)],
         || fig.add_polar_axes(position),
-    )?;
+    )??;
     ax.set_axisbelow(AxisBelow::Below);
     let n = 7;
     let arc = 2.0 * PI;
@@ -113,7 +113,7 @@ fn icon_axes(fig: &Figure, position: [f64; 4], sizes: &LogoSizes) -> CaseResult 
 fn logo(fig: &Figure, sizes: &LogoSizes, with_text: bool) -> CaseResult {
     fig.set_alpha(Some(0.0));
     if with_text {
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
         ax.set_aspect(Aspect::Equal)?;
         ax.set_axis_off();
         let font = FontProperties::from_rc(&plt::rc::params());
@@ -179,7 +179,7 @@ fn bullseye_plot(
     colors: &ScalarMappable,
 ) -> CaseResult {
     let r = linspace(0.2, 1.0, 4);
-    ax.set_ylim(0.0, 1.0);
+    ax.set_ylim(0.0, 1.0)?;
     ax.set_xticklabels(Vec::<String>::new())?;
     ax.set_yticklabels(Vec::<String>::new())?;
     ax.grid(false);

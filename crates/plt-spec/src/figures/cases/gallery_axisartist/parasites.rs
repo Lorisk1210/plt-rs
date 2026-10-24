@@ -37,12 +37,12 @@ fn three_datasets(
         line.set_label(label);
         colors.push(line.color());
     }
-    host.set_xlim(0.0, 2.0)
-        .set_ylim(0.0, 2.0)
+    host.set_xlim(0.0, 2.0)?
+        .set_ylim(0.0, 2.0)?
         .set_xlabel("Distance")
         .set_ylabel("Density");
-    par1.set_ylim(0.0, 4.0).set_ylabel("Temperature");
-    par2.set_ylim(1.0, 65.0).set_ylabel("Velocity");
+    par1.set_ylim(0.0, 4.0)?.set_ylabel("Temperature");
+    par2.set_ylim(1.0, 65.0)?.set_ylabel("Velocity");
     host.legend(LegendOptions::default())?;
     Ok(colors
         .try_into()
@@ -50,7 +50,7 @@ fn three_datasets(
 }
 
 fn demo_parasite_axes(fig: &Figure) -> CaseResult {
-    let host = axisartist::Axes::new(fig.add_axes([0.15, 0.1, 0.65, 0.8]));
+    let host = axisartist::Axes::new(fig.add_axes([0.15, 0.1, 0.65, 0.8])?);
     let par1 = host.add_parasite_axes(ParasiteLink::Independent)?;
     par1.ax().share_x(host.ax())?;
     let par2 = host.add_parasite_axes(ParasiteLink::Independent)?;

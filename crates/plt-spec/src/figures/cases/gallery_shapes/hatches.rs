@@ -40,7 +40,7 @@ fn hatchcolor_demo_1(fig: &Figure) -> CaseResult {
         ..BarOptions::default()
     };
     ax2.bar(x.clone(), x, bars)?;
-    ax2.set_xlim(0.0, 5.0).set_ylim(0.0, 5.0);
+    ax2.set_xlim(0.0, 5.0)?.set_ylim(0.0, 5.0)?;
     Ok(())
 }
 
@@ -71,7 +71,7 @@ fn hatchcolor_demo_2(fig: &Figure) -> CaseResult {
     ax.scatter_with(xs, ys, options)?
         .set_hatch("xxx")
         .set_hatchcolors(HatchColors::Colors(colors));
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 
@@ -124,7 +124,7 @@ fn hatch_demo(fig: &Figure) -> CaseResult {
     let triangle = [(10.0, 20.0), (30.0, 50.0), (50.0, 10.0)].map(Point::from);
     let mixed = PatchProps::default().hatch(r"\/...").facecolor("g");
     patches.add_patch_with(Polygon::new(triangle, true), mixed);
-    patches.set_xlim(0.0, 40.0).set_ylim(10.0, 60.0);
+    patches.set_xlim(0.0, 40.0)?.set_ylim(10.0, 60.0)?;
     patches.set_aspect(Aspect::Ratio(1.0))?;
     Ok(())
 }

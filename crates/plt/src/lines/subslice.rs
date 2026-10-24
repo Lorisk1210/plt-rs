@@ -107,7 +107,9 @@ mod tests {
         let ax = fig.subplot();
         let y: Vec<f64> = (0..x.len()).map(|i| i as f64).collect();
         ax.plot_with(x, y, props.linewidth(1.5)).unwrap();
-        ax.set_xlim(0.0, 2.0).set_ylim(0.0, 2.0);
+        ax.set_xlim(0.0, 2.0)
+            .and_then(|ax| ax.set_ylim(0.0, 2.0))
+            .expect("finite limits");
         let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
         fig.draw(&mut renderer).unwrap();
         renderer

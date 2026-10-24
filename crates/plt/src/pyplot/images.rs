@@ -9,9 +9,10 @@ use super::figsize::figaspect_of_shape;
 use super::mappables::make_current;
 use super::registry::{fignum_exists, figure_num, figure_with_size, gca, gcf};
 use crate::axes::{
-    HexbinOptions, Hist2d, Hist2dOptions, ImshowOptions, Mesh, PcolorOptions, Spy, SpyOptions,
+    Axes, HexbinOptions, Hist2d, Hist2dOptions, ImshowOptions, Mesh, PcolorOptions, Spy, SpyOptions,
 };
 use crate::collections::Collection;
+use crate::figure::Figure;
 use crate::image::{
     AxesImage, FigimageOptions, FigureImage, ImageData, ImageError, ImageIoError, ImsaveOptions,
 };
@@ -19,6 +20,12 @@ use crate::numeric::Grid;
 
 /// Where `matshow` puts the axes of a new figure, in figure fractions.
 const MATSHOW_RECT: [f64; 4] = [0.15, 0.09, 0.775, 0.775];
+
+/// New axes for `matshow` at [`MATSHOW_RECT`] in `fig`.
+fn matshow_axes(fig: &Figure) -> Axes {
+    fig.add_axes(MATSHOW_RECT)
+        .expect("the matshow rectangle is finite with a positive size")
+}
 
 /// Shows `data` as an image on the current axes and makes it the current
 /// image (matplotlib's `imshow`).
@@ -58,12 +65,16 @@ pub fn matshow(
                 fig.set_size_inches(width, height)
                     .expect("figaspect sizes are finite and positive");
             }
-            fig.add_axes(MATSHOW_RECT)
+            matshow_axes(&fig)
         }
         None => {
             let (rows, cols) = data.shape();
             let (width, height) = figaspect_of_shape(rows, cols);
-            figure_with_size(width, height, crate::rc::params().figure_dpi).add_axes(MATSHOW_RECT)
+            matshow_axes(&figure_with_size(
+                width,
+                height,
+                crate::rc::params().figure_dpi,
+            ))
         }
     };
     let image = ax.matshow(data, options)?;

@@ -105,7 +105,7 @@ fn kerning(fig: &Figure) -> CaseResult {
 fn scatter_on_square(fig: &Figure, x: Vec<f64>, y: Vec<f64>, c: Vec<f64>, s: f64) -> CaseResult {
     let ax = fig.subplot();
     ax.scatter_with(x, y, mapped(c, s))?;
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     Ok(())
 }
 
@@ -172,7 +172,7 @@ fn scatter_logscale(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.scatter_with(x, y, mapped(c, 50.0))?;
     ax.set_xscale("log")?.set_yscale("log")?;
-    ax.set_xlim(100.0, 1000.0).set_ylim(100.0, 1000.0);
+    ax.set_xlim(100.0, 1000.0)?.set_ylim(100.0, 1000.0)?;
     Ok(())
 }
 
@@ -184,7 +184,7 @@ fn scatter_polar(fig: &Figure) -> CaseResult {
     let c = rng.uniform(50, 0.0, 1.0);
     let ax = fig.polar_subplot();
     ax.scatter_with(theta, r, mapped(c, 50.0))?;
-    ax.set_ylim(0.0, 2.0);
+    ax.set_ylim(0.0, 2.0)?;
     Ok(())
 }
 
@@ -200,7 +200,7 @@ fn hexbin_negative_offsets(fig: &Figure) -> CaseResult {
         ..HexbinOptions::default()
     };
     ax.hexbin(&x, &y, options)?;
-    ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     ax.set_axis_off();
     Ok(())
 }

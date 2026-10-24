@@ -45,7 +45,7 @@ fn zigzags(fig: &Figure) -> CaseResult {
         [1.6, 2.6, 1.6, 2.6, 1.6],
         thick.linestyle(LineStyle::Dashed),
     )?;
-    ax.set_xlim(-0.6, 4.6).set_ylim(-0.6, 3.2);
+    ax.set_xlim(-0.6, 4.6)?.set_ylim(-0.6, 3.2)?;
     Ok(())
 }
 
@@ -80,10 +80,6 @@ fn mesh(fig: &Figure) -> CaseResult {
 
 /// `_patches`: a filled rectangle and circle and an unfilled triangle, all
 /// with the patch defaults.
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn patches(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.add_patch(Rectangle::new((0.08, 0.1), 0.3, 0.45));
@@ -93,16 +89,12 @@ fn patches(fig: &Figure) -> CaseResult {
         true,
     ))
     .update_props(PatchProps::default().fill(false));
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 
 /// `_hatches`: a hatched patch with an edge colour and one without an
 /// edge.
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn hatches(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.add_patch(Rectangle::new((0.05, 0.1), 0.4, 0.8))
@@ -114,7 +106,7 @@ fn hatches(fig: &Figure) -> CaseResult {
         );
     ax.add_patch(Rectangle::new((0.55, 0.1), 0.4, 0.8))
         .update_props(PatchProps::default().hatch("x").facecolor("lightgray"));
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 

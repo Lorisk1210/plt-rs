@@ -45,7 +45,7 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_figure/bbox_inches_fixed_aspect", |fig| {
         let ax = fig.subplot();
         ax.plot_y([0.0, 1.0]);
-        ax.set_xlim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)?;
         ax.set_aspect(Aspect::Equal)?;
         remove_ticks_and_titles(fig);
         Ok(())
@@ -110,7 +110,7 @@ fn bbox_inches_tight(fig: &Figure) -> CaseResult {
         cell_text.push(yoff.map(|x| format!("{:.1}", x / 1000.0)).to_vec());
     }
     ax.set_xticks(Vec::<f64>::new());
-    ax.set_xlim(0.0, 5.0);
+    ax.set_xlim(0.0, 5.0)?;
     ax.legend(
         LegendOptions::default()
             .labels(["1", "2", "3", "4", "5"])
@@ -165,8 +165,8 @@ fn suptile_legend(fig: &Figure) -> CaseResult {
 fn clipping(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.scatter(arange(0.0, 10.0, 1.0), arange(0.0, 10.0, 1.0))?;
-    ax.set_xlim(0.0, 5.0);
-    ax.set_ylim(0.0, 5.0);
+    ax.set_xlim(0.0, 5.0)?;
+    ax.set_ylim(0.0, 5.0)?;
 
     // A massive rectangle clipped by a small star.
     let patch = fig.add_patch(Rectangle::new((-50.0, -50.0), 100.0, 100.0));

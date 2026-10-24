@@ -72,9 +72,10 @@ pub struct RadioButtonsOptions {
     /// Text properties of the labels, cycled: label `i` gets entry
     /// `i % len` (matplotlib's `label_props`).
     pub label_props: Vec<TextProps>,
-    /// The fill of the selected button, `plt.widgets.activecolor` (blue)
-    /// by default; face colours in `radio_props` take precedence
-    /// (matplotlib's `activecolor`).
+    /// The fill of the selected button,
+    /// `plt.widgets.radiobuttons.activecolor` (blue) by default; face
+    /// colours in `radio_props` take precedence (matplotlib's
+    /// `activecolor`).
     pub activecolor: Option<Color>,
     /// The round buttons: edges in `plt.ink` (black) and the active colour
     /// by default (matplotlib's `radio_props`).

@@ -11,24 +11,24 @@ use crate::ticker::{FixedLocator, FormattedTicks, Formatter, TickContext, Ticker
 /// `GeoAxes.ThetaFormatter`).
 ///
 /// ```
-/// use plt::geo::ThetaFormatter;
-/// let formatter = ThetaFormatter::new(15.0);
+/// use plt::geo::GeoThetaFormatter;
+/// let formatter = GeoThetaFormatter::new(15.0);
 /// assert_eq!(formatter.label(-30f64.to_radians()), "-30°");
 /// assert_eq!(formatter.label(0.3), "15°");
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ThetaFormatter {
+pub struct GeoThetaFormatter {
     round_to: f64,
 }
 
-impl Default for ThetaFormatter {
+impl Default for GeoThetaFormatter {
     /// Rounding to whole degrees, matplotlib's default.
     fn default() -> Self {
         Self::new(1.0)
     }
 }
 
-impl ThetaFormatter {
+impl GeoThetaFormatter {
     /// Labels rounded to multiples of `round_to` degrees.
     pub const fn new(round_to: f64) -> Self {
         Self { round_to }
@@ -50,7 +50,7 @@ impl ThetaFormatter {
     }
 }
 
-impl Formatter for ThetaFormatter {
+impl Formatter for GeoThetaFormatter {
     fn format_ticks(
         &self,
         locs: &[f64],
@@ -81,11 +81,14 @@ mod tests {
 
     #[test]
     fn labels_round_half_to_even_multiples() {
-        let formatter = ThetaFormatter::new(20.0);
+        let formatter = GeoThetaFormatter::new(20.0);
         assert_eq!(formatter.label(50f64.to_radians()), "40°");
         assert_eq!(formatter.label(70f64.to_radians()), "80°");
         assert_eq!(formatter.label(-1e-17), "0°");
-        assert_eq!(ThetaFormatter::default().label(0.5f64.to_radians()), "0°");
+        assert_eq!(
+            GeoThetaFormatter::default().label(0.5f64.to_radians()),
+            "0°"
+        );
         let ctx = TickContext::detached(&TickerSettings::DEFAULT);
         let labels = formatter.format_ticks(&[0.0, -1.0], &ctx).unwrap();
         assert_eq!(labels.labels, ["0°", "-60°"]);

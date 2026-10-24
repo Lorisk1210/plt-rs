@@ -18,10 +18,11 @@ use super::StatsError;
 use crate::numeric::linspace;
 
 /// Largest number of equal-width bins accepted (of a 2-D histogram: of
-/// bins in all); numpy allocates whatever is asked, which for a narrower
-/// estimate or a larger count exhausts memory long before producing a
-/// useful plot.
-pub(crate) const MAX_EQUAL_BINS: usize = 1 << 24;
+/// bins in all), whether counted or estimated; more are refused with
+/// [`StatsError::TooManyBins`]. numpy allocates whatever is asked, which
+/// for a narrower estimate or a larger count exhausts memory long before
+/// producing a useful plot.
+pub const MAX_EQUAL_BINS: usize = 1 << 24;
 
 /// numpy's automatic bin-width estimators (`bins="auto"`, `"fd"`, ...).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -136,6 +137,12 @@ pub struct Histogram {
 /// assert_eq!(h.counts, vec![1.0, 1.0, 1.0, 1.0, 2.0]); // the last bin is closed
 /// assert_eq!(h.edges, vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0]);
 /// ```
+///
+/// # Errors
+///
+/// When the weights do not match the data, the bins are invalid, or
+/// equal-width bins would be more than [`MAX_EQUAL_BINS`] or too narrow
+/// to tell apart.
 pub fn histogram<T: BinSample>(
     data: &[T],
     opts: HistogramOptions<'_>,
@@ -159,6 +166,10 @@ pub fn histogram<T: BinSample>(
 
 /// The bin edges [`histogram`] would use (`np.histogram_bin_edges`); the
 /// `density` option is irrelevant here.
+///
+/// # Errors
+///
+/// As [`histogram`].
 pub fn histogram_bin_edges<T: BinSample>(
     data: &[T],
     opts: HistogramOptions<'_>,

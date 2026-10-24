@@ -9,7 +9,7 @@ use plt_core::Point;
 use super::{PatchShape, Rectangle, ShapeError};
 use crate::axes::Axes;
 use crate::ticker::AxisName;
-use crate::units::{AxisDelta, DataPoint, UnitSources, UnitValues};
+use crate::units::{AxisDelta, CustomValues, DataPoint, UnitSources};
 
 /// What [`Axes::add_patch`] adds: a [`PatchShape`] in axis numbers, which
 /// it adds as it is, or a shape given in plotting values, such as a
@@ -107,7 +107,7 @@ impl DataRectangle {
 
     /// The user values among the coordinates along axis `name`, the
     /// corner's first.
-    pub(crate) fn unit_sources(&self, name: AxisName) -> Vec<UnitValues> {
+    pub(crate) fn unit_sources(&self, name: AxisName) -> Vec<CustomValues> {
         self.sources()
             .iter()
             .filter_map(|sources| sources.along(name).cloned())

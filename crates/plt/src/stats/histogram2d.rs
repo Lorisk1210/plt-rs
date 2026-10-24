@@ -6,8 +6,7 @@
 //! samples on the last edge in the last bin and drops everything else
 //! outside the edges.
 
-use super::histogram::MAX_EQUAL_BINS;
-use super::{StatsError, outer_edges, pairwise_sum};
+use super::{MAX_EQUAL_BINS, StatsError, outer_edges, pairwise_sum};
 use crate::numeric::{Grid, linspace};
 
 /// The bins along one dimension of a multi-dimensional histogram (numpy
@@ -81,7 +80,8 @@ pub struct Histogram2d {
 /// # Errors
 ///
 /// When x and y (or the weights) differ in length, a bin count is zero,
-/// edges decrease, or a range is inverted or not finite.
+/// edges decrease, a range is inverted or not finite, or the bins are
+/// more than [`MAX_EQUAL_BINS`] in all.
 pub fn histogram2d(
     x: &[f64],
     y: &[f64],

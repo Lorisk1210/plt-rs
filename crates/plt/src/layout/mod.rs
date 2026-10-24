@@ -456,7 +456,7 @@ mod tests {
     #[test]
     fn constrained_figures_can_keep_their_engine_through_tight_layout() {
         crate::rc::context(|| {
-            crate::rc::set("plt.tight_layout.keeps_constrained", "True").unwrap();
+            crate::rc::set("plt.tight_layout.keep_constrained", "True").unwrap();
             let fig = with_colorbar(LayoutEngine::constrained());
             fig.tight_layout(&TightLayout::default()).unwrap();
             assert!(matches!(

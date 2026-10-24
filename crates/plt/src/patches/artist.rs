@@ -19,7 +19,7 @@ use crate::lines::LineStyle;
 use crate::rc::{ColorOrEdge, RcParams};
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
-use crate::units::UnitValues;
+use crate::units::CustomValues;
 
 /// The pieces a patch is drawn from, borrowed from whichever artist owns
 /// them (a patch artist, or a text drawing its box or arrow).
@@ -249,7 +249,7 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
         }
     }
 
-    fn unit_sources(&self, name: AxisName) -> Vec<UnitValues> {
+    fn unit_sources(&self, name: AxisName) -> Vec<CustomValues> {
         self.unit_source
             .as_ref()
             .map(|source| source.unit_sources(name))

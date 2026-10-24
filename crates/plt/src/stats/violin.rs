@@ -10,7 +10,8 @@ use crate::numeric::linspace;
 pub struct ViolinOptions {
     /// Bandwidth of the Gaussian kernel density estimate.
     pub bw_method: BandwidthMethod,
-    /// Number of points at which the density is evaluated.
+    /// Number of points at which the density is evaluated, at most
+    /// [`MAX_VIOLIN_POINTS`].
     pub points: usize,
     /// Per dataset, the quantiles (fractions in `[0, 1]`) to report;
     /// `None` reports none.
@@ -59,6 +60,10 @@ pub struct ViolinStats {
 /// assert_eq!(stats[0].coords, vec![1.0, 2.5, 4.0]);
 /// assert_eq!(stats[0].median, 2.0);
 /// ```
+///
+/// # Errors
+///
+/// As [`violin_stats_with`], and when a density cannot be estimated.
 pub fn violin_stats<D: AsRef<[f64]>>(
     datasets: &[D],
     opts: ViolinOptions,
@@ -86,6 +91,12 @@ pub const MAX_VIOLIN_POINTS: usize = 1 << 20;
 
 /// Violin statistics with a custom density estimator `method(samples,
 /// coords)`, which receives the finite samples of one dataset.
+///
+/// # Errors
+///
+/// When `points` is more than [`MAX_VIOLIN_POINTS`], the quantiles are
+/// not one list per dataset or one is outside `[0, 1]`, or `method`
+/// fails.
 pub fn violin_stats_with<D, F>(
     datasets: &[D],
     points: usize,

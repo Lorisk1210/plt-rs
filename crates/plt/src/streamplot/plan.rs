@@ -43,7 +43,7 @@ pub(crate) struct StreamPlan {
 /// The most arrows a streamplot draws, its streamlines together:
 /// matplotlib draws whatever count is asked, on top of each other once
 /// they outnumber the steps of a streamline.
-pub const MAX_ARROWS: usize = 1 << 20;
+pub const MAX_STREAMLINE_ARROWS: usize = 1 << 20;
 
 impl StreamPlan {
     /// Validates the input and traces the streamlines.
@@ -54,7 +54,7 @@ impl StreamPlan {
         let grid = UniformGrid::new(&field.x, &field.y)?;
         let mask = StreamMask::new(options.density)?;
         check_scales(options)?;
-        if options.num_arrows > MAX_ARROWS {
+        if options.num_arrows > MAX_STREAMLINE_ARROWS {
             return Err(StreamplotError::TooManyArrows(options.num_arrows));
         }
         let color_values = match &options.color {
@@ -96,7 +96,7 @@ impl StreamPlan {
             return Err(StreamplotError::TooManySteps);
         }
         let arrows = trajectories.len().saturating_mul(options.num_arrows);
-        if arrows > MAX_ARROWS {
+        if arrows > MAX_STREAMLINE_ARROWS {
             return Err(StreamplotError::TooManyArrows(arrows));
         }
         let mut plan = Self {
@@ -265,7 +265,7 @@ fn from_points(
 mod tests {
     use super::*;
     use crate::numeric::linspace;
-    use crate::streamplot::{MAX_STEPS, StreamColorMap};
+    use crate::streamplot::{MAX_STREAMLINE_STEPS, StreamColorMap};
 
     fn rotation(n: usize) -> StreamField {
         let x = linspace(-1.0, 1.0, n);
@@ -319,7 +319,10 @@ mod tests {
             ..StreamplotOptions::default()
         };
         match StreamPlan::new(&field, &options) {
-            Ok(plan) => assert!(plan.paths.iter().map(Path::len).sum::<usize>() <= MAX_STEPS),
+            Ok(plan) => {
+                let steps: usize = plan.paths.iter().map(Path::len).sum();
+                assert!(steps <= MAX_STREAMLINE_STEPS);
+            }
             Err(err) => assert_eq!(err, StreamplotError::TooManySteps),
         }
     }
@@ -340,7 +343,7 @@ mod tests {
         );
         let streamlines = arrows(1).expect("one arrow each");
         assert!(
-            matches!(arrows(MAX_ARROWS), Err(StreamplotError::TooManyArrows(n)) if n == streamlines * MAX_ARROWS)
+            matches!(arrows(MAX_STREAMLINE_ARROWS), Err(StreamplotError::TooManyArrows(n)) if n == streamlines * MAX_STREAMLINE_ARROWS)
         );
     }
 

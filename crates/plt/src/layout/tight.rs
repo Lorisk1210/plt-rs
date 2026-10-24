@@ -120,7 +120,7 @@ impl Figure {
     /// constrained layout; the figure is then left with a placeholder for
     /// that engine.
     ///
-    /// Under `plt.tight_layout.keeps_constrained` (set by plt-rs' modern
+    /// Under `plt.tight_layout.keep_constrained` (set by plt-rs' modern
     /// looks), a figure laid out by constrained layout keeps it, and this
     /// does nothing.
     ///
@@ -140,7 +140,7 @@ impl Figure {
             .chain(self.axes3d().iter().map(ArtistHandle::id))
             .collect();
         let mut state = self.raw().figure_state().borrow_mut();
-        if crate::rc::params().plt_tight_layout_keeps_constrained
+        if crate::rc::params().plt_tight_layout_keep_constrained
             && matches!(state.layout.engine, Some(LayoutEngine::Constrained(_)))
         {
             return Ok(self);

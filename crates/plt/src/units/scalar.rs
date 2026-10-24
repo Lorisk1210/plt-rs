@@ -3,7 +3,7 @@
 
 use plt_core::Point;
 
-use super::{AxisDelta, AxisValues, Convertible, UnitValues};
+use super::{AxisDelta, AxisValues, Convertible, CustomValues};
 use crate::dates::{DateTime, Datetime64, get_epoch};
 
 /// One plotting value along an axis before unit conversion: a number, a
@@ -27,11 +27,20 @@ pub enum AxisValue {
     /// A date as a date number (days since the
     /// [epoch](crate::dates::get_epoch)).
     Date(f64),
-    /// A value of a user type: [`UnitValues`] holding one value.
-    Custom(UnitValues),
+    /// A value of a user type: [`CustomValues`] holding one value.
+    Custom(CustomValues),
 }
 
 impl AxisValue {
+    /// The user value, if the value is one of type `T` (as
+    /// [`AxisDelta::downcast_ref`] for extents).
+    pub fn downcast_ref<T: Convertible>(&self) -> Option<&T> {
+        match self {
+            Self::Custom(values) => values.downcast_ref::<T>()?.first(),
+            Self::Number(_) | Self::Category(_) | Self::Date(_) => None,
+        }
+    }
+
     /// The value an extent `delta` reaches from this one, if the extent
     /// adds to it (Python's `value + delta`): a number to a number, a
     /// duration to a date (on the instant, as Python adds a `timedelta`
@@ -58,7 +67,7 @@ impl AxisValue {
 
 impl<T: Convertible> From<T> for AxisValue {
     fn from(value: T) -> Self {
-        Self::Custom(UnitValues::new(vec![value]))
+        Self::Custom(CustomValues::new(vec![value]))
     }
 }
 

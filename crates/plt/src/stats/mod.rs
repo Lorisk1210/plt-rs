@@ -43,8 +43,8 @@ pub use hist::{
     HistType, StepOutline, hist,
 };
 pub use histogram::{
-    BinEstimator, BinSample, Bins, Histogram, HistogramOptions, bin_width, histogram,
-    histogram_bin_edges, outer_edges,
+    BinEstimator, BinSample, Bins, Histogram, HistogramOptions, MAX_EQUAL_BINS, bin_width,
+    histogram, histogram_bin_edges, outer_edges,
 };
 pub use histogram2d::{AxisBins, Histogram2d, Histogram2dOptions, histogram2d};
 pub use kde::{BandwidthMethod, GaussianKde};

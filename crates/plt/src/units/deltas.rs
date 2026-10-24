@@ -3,7 +3,7 @@
 //! error sizes (matplotlib's `dx` arguments, which may be `timedelta`s or
 //! values of user types).
 
-use super::{Convertible, UnitValues};
+use super::{Convertible, CustomValues, from_value_lists};
 use crate::dates::TimeDelta;
 
 /// Microseconds in a day: a duration of that many microseconds spans one
@@ -32,8 +32,8 @@ pub enum AxisDelta {
     Number(f64),
     /// A duration.
     Duration(TimeDelta),
-    /// A value of a user type: [`UnitValues`] holding one value.
-    Custom(UnitValues),
+    /// A value of a user type: [`CustomValues`] holding one value.
+    Custom(CustomValues),
 }
 
 impl AxisDelta {
@@ -94,7 +94,7 @@ impl From<TimeDelta> for AxisDelta {
 
 impl<T: Convertible> From<T> for AxisDelta {
     fn from(value: T) -> Self {
-        Self::Custom(UnitValues::new(vec![value]))
+        Self::Custom(CustomValues::new(vec![value]))
     }
 }
 
@@ -118,7 +118,7 @@ pub enum AxisDeltas {
     /// Durations, in days on a date axis.
     Durations(Vec<TimeDelta>),
     /// Values of a user type.
-    Custom(UnitValues),
+    Custom(CustomValues),
 }
 
 impl AxisDeltas {
@@ -134,6 +134,14 @@ impl AxisDeltas {
     /// Whether there are no extents.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// The extents of a user type, if they are.
+    pub fn custom(&self) -> Option<&CustomValues> {
+        match self {
+            Self::Custom(values) => Some(values),
+            Self::Numbers(_) | Self::Durations(_) => None,
+        }
     }
 
     /// The extents one by one.
@@ -152,7 +160,7 @@ impl AxisDeltas {
 
     /// The extents in axis units where that needs no converter (see
     /// [`AxisDelta::to_number`]), or the user values, which need one.
-    pub(crate) fn to_numbers(&self) -> Result<Vec<f64>, &UnitValues> {
+    pub(crate) fn to_numbers(&self) -> Result<Vec<f64>, &CustomValues> {
         match self {
             Self::Numbers(deltas) => Ok(deltas.clone()),
             Self::Durations(durations) => Ok(durations.iter().copied().map(days).collect()),
@@ -172,45 +180,9 @@ impl From<AxisDelta> for AxisDeltas {
     }
 }
 
-impl From<f64> for AxisDeltas {
-    fn from(delta: f64) -> Self {
-        Self::Numbers(vec![delta])
-    }
-}
-
 impl From<Vec<f64>> for AxisDeltas {
     fn from(deltas: Vec<f64>) -> Self {
         Self::Numbers(deltas)
-    }
-}
-
-impl From<&Vec<f64>> for AxisDeltas {
-    fn from(deltas: &Vec<f64>) -> Self {
-        Self::Numbers(deltas.clone())
-    }
-}
-
-impl From<&[f64]> for AxisDeltas {
-    fn from(deltas: &[f64]) -> Self {
-        Self::Numbers(deltas.to_vec())
-    }
-}
-
-impl<const N: usize> From<[f64; N]> for AxisDeltas {
-    fn from(deltas: [f64; N]) -> Self {
-        Self::Numbers(deltas.to_vec())
-    }
-}
-
-impl<const N: usize> From<&[f64; N]> for AxisDeltas {
-    fn from(deltas: &[f64; N]) -> Self {
-        Self::Numbers(deltas.to_vec())
-    }
-}
-
-impl From<TimeDelta> for AxisDeltas {
-    fn from(duration: TimeDelta) -> Self {
-        Self::Durations(vec![duration])
     }
 }
 
@@ -220,41 +192,20 @@ impl From<Vec<TimeDelta>> for AxisDeltas {
     }
 }
 
-impl From<&[TimeDelta]> for AxisDeltas {
-    fn from(durations: &[TimeDelta]) -> Self {
-        Self::Durations(durations.to_vec())
-    }
-}
-
-impl<const N: usize> From<[TimeDelta; N]> for AxisDeltas {
-    fn from(durations: [TimeDelta; N]) -> Self {
-        Self::Durations(durations.to_vec())
-    }
-}
-
-impl From<UnitValues> for AxisDeltas {
-    fn from(values: UnitValues) -> Self {
+impl From<CustomValues> for AxisDeltas {
+    fn from(values: CustomValues) -> Self {
         Self::Custom(values)
     }
 }
 
 impl<T: Convertible> From<Vec<T>> for AxisDeltas {
     fn from(values: Vec<T>) -> Self {
-        Self::Custom(UnitValues::new(values))
+        Self::Custom(CustomValues::new(values))
     }
 }
 
-impl<T: Convertible> From<&[T]> for AxisDeltas {
-    fn from(values: &[T]) -> Self {
-        values.to_vec().into()
-    }
-}
-
-impl<T: Convertible, const N: usize> From<[T; N]> for AxisDeltas {
-    fn from(values: [T; N]) -> Self {
-        Vec::from(values).into()
-    }
-}
+from_value_lists!(AxisDeltas: f64, TimeDelta);
+from_value_lists!(impl<T: Convertible> AxisDeltas: T);
 
 #[cfg(test)]
 mod tests {
@@ -328,9 +279,45 @@ mod tests {
         assert_eq!(second.downcast_ref::<Metres>(), Some(&Metres(2.0)));
         assert!(AxisDeltas::from(Vec::<f64>::new()).is_empty());
         assert_eq!(
-            AxisDeltas::from(UnitValues::new(vec![Metres(1.0)])).len(),
+            AxisDeltas::from(CustomValues::new(vec![Metres(1.0)])).len(),
             1
         );
+    }
+
+    #[test]
+    fn values_and_extents_come_in_the_same_forms() {
+        use crate::dates::DateTime;
+        use crate::units::{AxisValue, AxisValues};
+
+        let lengths = vec![Metres(1.0), Metres(2.0)];
+        let custom = AxisDeltas::from(lengths.clone());
+        assert_eq!(AxisDeltas::from(&lengths), custom);
+        assert_eq!(AxisDeltas::from(&[Metres(1.0), Metres(2.0)]), custom);
+        assert_eq!(AxisDeltas::from(Metres(3.0)).len(), 1);
+        assert_eq!(
+            custom
+                .custom()
+                .and_then(CustomValues::downcast_ref::<Metres>),
+            Some(lengths.as_slice())
+        );
+        assert_eq!(AxisDeltas::from(0.5).custom(), None);
+        let day = TimeDelta::new(1, 0, 0).expect("a duration");
+        assert_eq!(AxisDeltas::from(&vec![day]), AxisDeltas::from(&[day]));
+
+        let values = AxisValues::from(lengths.clone());
+        assert_eq!(AxisValues::from(&lengths), values);
+        assert_eq!(AxisValues::from(Metres(1.0)).len(), 1);
+        assert_eq!(AxisValues::from(2.5), AxisValues::Numbers(vec![2.5]));
+        assert_eq!(AxisValues::from("a"), AxisValues::from(["a"]));
+        let names = vec![String::from("a")];
+        assert_eq!(AxisValues::from(&names), AxisValues::from(names.clone()));
+        let date = DateTime::new(1970, 1, 2, 0, 0, 0, 0).expect("a date");
+        assert_eq!(AxisValues::from([date]), AxisValues::Dates(vec![1.0]));
+        assert_eq!(AxisValues::from(&[date]), AxisValues::from(date));
+
+        let metres = AxisValue::from(Metres(4.0));
+        assert_eq!(metres.downcast_ref::<Metres>(), Some(&Metres(4.0)));
+        assert_eq!(AxisValue::from(4.0).downcast_ref::<Metres>(), None);
     }
 
     #[test]

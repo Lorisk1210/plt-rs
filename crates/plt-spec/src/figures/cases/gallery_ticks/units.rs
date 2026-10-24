@@ -19,7 +19,7 @@ use plt::rc::Aspect;
 use plt::text::{AnnotateOptions, HAlign, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::{FormatStrFormatter, IndexLocator};
 use plt::units::{
-    AxisDeltas, AxisInfo, ConversionError, ConversionInterface, Convertible, DataPoint,
+    AxisDeltas, ConversionError, ConversionInterface, Convertible, DataPoint, UnitAxisInfo,
 };
 
 use crate::figures::cases::common::{black_arrow, map};
@@ -269,15 +269,15 @@ impl ConversionInterface for FooConverter {
             .collect())
     }
 
-    fn axisinfo(&self, unit: Option<&f64>, _: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&f64>, _: &Axis) -> Option<UnitAxisInfo> {
         if !unit.is_some_and(|unit| [1.0, 2.0].contains(unit)) {
             return None;
         }
-        Some(AxisInfo {
-            major_locator: Some(std::rc::Rc::new(IndexLocator::new(8.0, 0.0))),
-            major_formatter: Some(std::rc::Rc::new(FormatStrFormatter::new("VAL: %s").ok()?)),
+        Some(UnitAxisInfo {
+            majloc: Some(std::rc::Rc::new(IndexLocator::new(8.0, 0.0))),
+            majfmt: Some(std::rc::Rc::new(FormatStrFormatter::new("VAL: %s").ok()?)),
             label: Some("foo".to_owned()),
-            ..AxisInfo::default()
+            ..UnitAxisInfo::default()
         })
     }
 

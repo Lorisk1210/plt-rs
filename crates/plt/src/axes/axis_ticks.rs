@@ -135,7 +135,7 @@ impl Axis {
     ///
     /// # Errors
     ///
-    /// When the locator fails.
+    /// When the locator fails, as for [`Axes::ticks`].
     pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, TickerError> {
         Ok(self.axes.ticks(self.name)?.unclipped_locs(minor))
     }
@@ -146,7 +146,7 @@ impl Axis {
     ///
     /// # Errors
     ///
-    /// When the locator or the formatter fails.
+    /// When the locator or the formatter fails, as for [`Axes::ticks`].
     pub fn ticklabels(&self, minor: bool) -> Result<Vec<String>, TickerError> {
         let ticks = self.axes.ticks(self.name)?;
         let sides = self.read(|axis| {

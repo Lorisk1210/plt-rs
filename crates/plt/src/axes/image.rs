@@ -348,10 +348,10 @@ impl Axes {
         image
     }
 
-    /// Turns the grid off when `plt.images_hide_grid` asks images to hide
+    /// Turns the grid off when `plt.image.hide_grid` asks images to hide
     /// it: images lie below even the gridlines `axes.axisbelow` lowers.
     pub(crate) fn hide_grid_under_image(&self) {
-        if crate::rc::params().plt_images_hide_grid {
+        if crate::rc::params().plt_image_hide_grid {
             self.grid(false);
         }
     }
@@ -418,7 +418,7 @@ mod tests {
         let gridded_after_image = |hide: &str| {
             crate::rc::context(|| {
                 crate::rc::set("axes.grid", "True").unwrap();
-                crate::rc::set("plt.images_hide_grid", hide).unwrap();
+                crate::rc::set("plt.image.hide_grid", hide).unwrap();
                 let ax = Figure::new().subplot();
                 ax.imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())
                     .unwrap();

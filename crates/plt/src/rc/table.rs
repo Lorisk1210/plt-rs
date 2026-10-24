@@ -695,10 +695,10 @@ rc_params! {
     animation_convert_args: Vec<String> = "-layers, OptimizePlus" => "animation.convert_args";
     /// `_internal.classic_mode`: Matplotlib 1.x behaviour.
     internal_classic_mode: bool = "False" => "_internal.classic_mode";
-    /// `plt.images_hide_grid`: Whether adding an image to an axes turns its grid off, as matplotlib's `pcolor` did until 3.5 (plt-rs only; its modern looks set it).
-    plt_images_hide_grid: bool = "False" => "plt.images_hide_grid";
-    /// `plt.tight_layout.keeps_constrained`: Whether `tight_layout` leaves a figure laid out by constrained layout to it, rather than replacing it or failing once a colorbar exists (plt-rs only; its modern looks, whose figures use constrained layout, set it).
-    plt_tight_layout_keeps_constrained: bool = "False" => "plt.tight_layout.keeps_constrained";
+    /// `plt.image.hide_grid`: Whether adding an image to an axes turns its grid off, as matplotlib's `pcolor` did until 3.5 (plt-rs only; its modern looks set it).
+    plt_image_hide_grid: bool = "False" => "plt.image.hide_grid";
+    /// `plt.tight_layout.keep_constrained`: Whether `tight_layout` leaves a figure laid out by constrained layout to it, rather than replacing it or failing once a colorbar exists (plt-rs only; its modern looks, whose figures use constrained layout, set it).
+    plt_tight_layout_keep_constrained: bool = "False" => "plt.tight_layout.keep_constrained";
     /// `plt.ink`: The colour of marks matplotlib draws in black unless told otherwise: quiver arrows, wind barbs, the error bars of bar charts, size bars, the markers of size legends and the frames, checks and edges of check and radio buttons (plt-rs only).
     plt_ink: Color = "black" => "plt.ink";
     /// `plt.table.facecolor`: The face colour of table cells given none (matplotlib's fixed white; plt-rs only).
@@ -719,8 +719,8 @@ rc_params! {
     plt_widgets_textbox_color: Color = ".95" => "plt.widgets.textbox.color";
     /// `plt.widgets.textbox.hovercolor`: The face colour of text boxes under the pointer (matplotlib's fixed `hovercolor='1'`; plt-rs only).
     plt_widgets_textbox_hovercolor: Color = "1" => "plt.widgets.textbox.hovercolor";
-    /// `plt.widgets.activecolor`: The colour of the chosen radio button given none (matplotlib's fixed `activecolor='blue'`; plt-rs only).
-    plt_widgets_activecolor: Color = "blue" => "plt.widgets.activecolor";
+    /// `plt.widgets.radiobuttons.activecolor`: The colour of the chosen radio button given none (matplotlib's fixed `activecolor='blue'`; plt-rs only).
+    plt_widgets_radiobuttons_activecolor: Color = "blue" => "plt.widgets.radiobuttons.activecolor";
     /// `plt.widgets.slider.track_color`: The colour of the tracks of sliders (matplotlib's fixed `track_color='lightgrey'`; plt-rs only).
     plt_widgets_slider_track_color: Color = "lightgrey" => "plt.widgets.slider.track_color";
     /// `plt.widgets.slider.initcolor`: The colour of the line marking a slider's initial value (matplotlib's fixed `initcolor='r'`; plt-rs only).

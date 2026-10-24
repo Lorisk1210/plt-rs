@@ -59,6 +59,7 @@ mod category;
 mod custom;
 mod deltas;
 mod interface;
+mod lists;
 mod scalar;
 mod sources;
 
@@ -71,9 +72,10 @@ use crate::dates::{
 use crate::ticker::{Formatter, Locator};
 
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
-pub use custom::{CustomConverter, Unit, UnitValues};
+pub use custom::{CustomConverter, CustomValues, Unit};
 pub use deltas::{AxisDelta, AxisDeltas};
-pub use interface::{AxisInfo, ConversionError, ConversionInterface, Convertible};
+pub use interface::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
+pub(crate) use lists::from_value_lists;
 pub use scalar::{AxisValue, DataPoint};
 pub(crate) use sources::UnitSources;
 
@@ -140,7 +142,7 @@ pub enum AxisValues {
     /// Dates as date numbers (days since the [epoch](crate::dates::get_epoch)).
     Dates(Vec<f64>),
     /// Values of a user type, converted by its [`ConversionInterface`].
-    Custom(UnitValues),
+    Custom(CustomValues),
 }
 
 impl AxisValues {
@@ -169,7 +171,7 @@ impl AxisValues {
     }
 
     /// The values of a user type, if they are.
-    pub fn custom(&self) -> Option<&UnitValues> {
+    pub fn custom(&self) -> Option<&CustomValues> {
         match self {
             Self::Custom(values) => Some(values),
             Self::Numbers(_) | Self::Categories(_) | Self::Dates(_) => None,
@@ -199,54 +201,35 @@ pub(crate) fn first_finite(numbers: &[f64]) -> Option<f64> {
         .or_else(|| numbers.first().copied())
 }
 
-impl From<UnitValues> for AxisValues {
-    fn from(values: UnitValues) -> Self {
+impl From<CustomValues> for AxisValues {
+    fn from(values: CustomValues) -> Self {
         Self::Custom(values)
     }
 }
 
 impl<T: Convertible> From<Vec<T>> for AxisValues {
     fn from(values: Vec<T>) -> Self {
-        Self::Custom(UnitValues::new(values))
-    }
-}
-
-impl<T: Convertible> From<&[T]> for AxisValues {
-    fn from(values: &[T]) -> Self {
-        values.to_vec().into()
-    }
-}
-
-impl<T: Convertible, const N: usize> From<[T; N]> for AxisValues {
-    fn from(values: [T; N]) -> Self {
-        Vec::from(values).into()
-    }
-}
-
-impl From<&[DateTime]> for AxisValues {
-    /// Naive date-times are taken as UTC, as matplotlib does by default.
-    fn from(dates: &[DateTime]) -> Self {
-        let epoch = get_epoch();
-        Self::Dates(dates.iter().map(|&d| epoch.date2num(d)).collect())
+        Self::Custom(CustomValues::new(values))
     }
 }
 
 impl From<Vec<DateTime>> for AxisValues {
+    /// Naive date-times are taken as UTC, as matplotlib does by default.
     fn from(dates: Vec<DateTime>) -> Self {
-        Self::from(dates.as_slice())
-    }
-}
-
-impl From<&[Datetime64]> for AxisValues {
-    fn from(dates: &[Datetime64]) -> Self {
         let epoch = get_epoch();
-        Self::Dates(dates.iter().map(|&d| epoch.datetime64_to_num(d)).collect())
+        Self::Dates(dates.into_iter().map(|d| epoch.date2num(d)).collect())
     }
 }
 
 impl From<Vec<Datetime64>> for AxisValues {
     fn from(dates: Vec<Datetime64>) -> Self {
-        Self::from(dates.as_slice())
+        let epoch = get_epoch();
+        Self::Dates(
+            dates
+                .into_iter()
+                .map(|d| epoch.datetime64_to_num(d))
+                .collect(),
+        )
     }
 }
 
@@ -256,59 +239,20 @@ impl From<Vec<f64>> for AxisValues {
     }
 }
 
-impl From<&Vec<f64>> for AxisValues {
-    fn from(values: &Vec<f64>) -> Self {
-        Self::Numbers(values.clone())
-    }
-}
-
-impl From<&[f64]> for AxisValues {
-    fn from(values: &[f64]) -> Self {
-        Self::Numbers(values.to_vec())
-    }
-}
-
-impl<const N: usize> From<[f64; N]> for AxisValues {
-    fn from(values: [f64; N]) -> Self {
-        Self::Numbers(values.to_vec())
-    }
-}
-
-impl<const N: usize> From<&[f64; N]> for AxisValues {
-    fn from(values: &[f64; N]) -> Self {
-        Self::Numbers(values.to_vec())
-    }
-}
-
 impl From<Vec<String>> for AxisValues {
     fn from(names: Vec<String>) -> Self {
         Self::Categories(names)
     }
 }
 
-impl From<&[String]> for AxisValues {
-    fn from(names: &[String]) -> Self {
-        Self::Categories(names.to_vec())
-    }
-}
-
 impl From<Vec<&str>> for AxisValues {
     fn from(names: Vec<&str>) -> Self {
-        names.as_slice().into()
+        Self::Categories(names.into_iter().map(str::to_owned).collect())
     }
 }
 
-impl From<&[&str]> for AxisValues {
-    fn from(names: &[&str]) -> Self {
-        Self::Categories(names.iter().map(|&name| name.to_owned()).collect())
-    }
-}
-
-impl<const N: usize> From<[&str; N]> for AxisValues {
-    fn from(names: [&str; N]) -> Self {
-        names.as_slice().into()
-    }
-}
+from_value_lists!(AxisValues: f64, String, &str, DateTime, Datetime64);
+from_value_lists!(impl<T: Convertible> AxisValues: T);
 
 #[cfg(test)]
 mod tests {

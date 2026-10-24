@@ -309,7 +309,8 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When an option is invalid.
+    /// When an option is invalid, such as more than [`MAX_HANDLE_POINTS`]
+    /// markers per entry.
     pub fn legend(&self, mut options: LegendOptions) -> Result<Legend, LegendError> {
         let handlers = handlers::with_defaults(&options.handler_map);
         let figure = self.raw().figure_state();
@@ -380,7 +381,8 @@ impl Figure {
     ///
     /// # Errors
     ///
-    /// When an option is invalid, including `loc="best"`.
+    /// When an option is invalid, as for [`Axes::legend`], including
+    /// `loc="best"`.
     pub fn legend(&self, mut options: LegendOptions) -> Result<Legend, LegendError> {
         let handlers = handlers::with_defaults(&options.handler_map);
         let axes: Vec<ArtistId> = self.axes().iter().map(ArtistHandle::id).collect();

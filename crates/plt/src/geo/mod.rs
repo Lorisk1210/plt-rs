@@ -9,7 +9,7 @@
 //!   `set_longitude_grid_ends`).
 //! * [`GeoProjection`] — the four projections (Aitoff, Hammer, Lambert,
 //!   Mollweide) with their forward and inverse maps.
-//! * [`ThetaFormatter`] — the degree labels of the grid.
+//! * [`GeoThetaFormatter`] — the degree labels of the grid.
 //!
 //! The view limits are fixed to the whole sphere, `[-π, π]` × `[-π/2,
 //! π/2]`; every path drawn in data coordinates is subdivided before it is
@@ -28,7 +28,7 @@ mod transform;
 
 pub use api::{GeoAxes, GeoError};
 pub use projection::GeoProjection;
-pub use ticker::ThetaFormatter;
+pub use ticker::GeoThetaFormatter;
 
 use crate::axes::Axes;
 

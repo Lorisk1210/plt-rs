@@ -162,10 +162,11 @@ struct LevelLabel {
     follows: bool,
 }
 
-/// The most levels labelled at once (matplotlib's `MAXTICKS`): like
-/// matplotlib, which formats each label with all labelled levels, the
-/// work grows with the square of their count.
-pub const MAX_LABELLED_LEVELS: usize = 1000;
+/// The most levels labelled at once, matplotlib's
+/// [`MAXTICKS`](crate::ticker::MAXTICKS): like matplotlib, which formats
+/// each label with all labelled levels, the work grows with the square of
+/// their count.
+pub const MAX_LABELLED_LEVELS: usize = crate::ticker::MAXTICKS;
 
 impl ContourSet {
     /// Labels the line contours (matplotlib's `clabel`) and returns the
@@ -173,16 +174,16 @@ impl ContourSet {
     ///
     /// # Errors
     ///
-    /// When requested levels are not in the set, a format fails, label
-    /// text cannot be laid out, or a manual position has no labelled line
-    /// to snap to.
+    /// When requested levels are not in the set or more than
+    /// [`MAX_LABELLED_LEVELS`], a format fails, label text cannot be laid
+    /// out, or a manual position has no labelled line to snap to.
     pub fn clabel(&self, options: ClabelOptions) -> Result<Vec<Text>, ContourError> {
         let rc = crate::rc::params();
         let indices = self.label_indices(options.levels.as_deref())?;
         // A filled set has a path per band, one fewer than its levels:
         // matplotlib raises an `IndexError` for its last level.
         if indices.len() > MAX_LABELLED_LEVELS {
-            return Err(ContourError::TooManyLabels(indices.len()));
+            return Err(ContourError::TooManyLabelledLevels(indices.len()));
         }
         let paths = self.paths().len();
         if let Some(&index) = indices.iter().find(|&&index| index >= paths) {
@@ -444,7 +445,7 @@ mod tests {
         let cs = ax.contour(&QuadField::new(z), options).unwrap();
         assert_eq!(
             cs.clabel(ClabelOptions::default()).unwrap_err(),
-            ContourError::TooManyLabels(2000)
+            ContourError::TooManyLabelledLevels(2000)
         );
     }
 

@@ -10,7 +10,7 @@ use std::rc::Rc;
 use plt::axes::Axis;
 use plt::ticker::{AutoLocator, FormatStrFormatter, FuncFormatter, MultipleLocator};
 use plt::units::{
-    AxisDelta, AxisInfo, AxisValue, ConversionError, ConversionInterface, Convertible,
+    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxisInfo,
 };
 
 /// A unit of `basic_units`.
@@ -170,25 +170,25 @@ impl ConversionInterface for BasicUnitConverter {
             .collect()
     }
 
-    fn axisinfo(&self, unit: Option<&BasicUnit>, _: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&BasicUnit>, _: &Axis) -> Option<UnitAxisInfo> {
         let unit = *unit?;
         let label = Some(unit.fullname().to_owned());
         Some(match unit {
-            BasicUnit::Radians => AxisInfo {
-                major_locator: Some(Rc::new(MultipleLocator::new(PI / 2.0).ok()?)),
-                major_formatter: Some(Rc::new(FuncFormatter::new(|x, _| rad_fn(x)))),
+            BasicUnit::Radians => UnitAxisInfo {
+                majloc: Some(Rc::new(MultipleLocator::new(PI / 2.0).ok()?)),
+                majfmt: Some(Rc::new(FuncFormatter::new(|x, _| rad_fn(x)))),
                 label,
-                ..AxisInfo::default()
+                ..UnitAxisInfo::default()
             },
-            BasicUnit::Degrees => AxisInfo {
-                major_locator: Some(Rc::new(AutoLocator::new())),
-                major_formatter: Some(Rc::new(FormatStrFormatter::new(r"$%i^\circ$").ok()?)),
+            BasicUnit::Degrees => UnitAxisInfo {
+                majloc: Some(Rc::new(AutoLocator::new())),
+                majfmt: Some(Rc::new(FormatStrFormatter::new(r"$%i^\circ$").ok()?)),
                 label,
-                ..AxisInfo::default()
+                ..UnitAxisInfo::default()
             },
-            _ => AxisInfo {
+            _ => UnitAxisInfo {
                 label,
-                ..AxisInfo::default()
+                ..UnitAxisInfo::default()
             },
         })
     }

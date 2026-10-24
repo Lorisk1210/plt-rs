@@ -24,7 +24,7 @@ use crate::ticker::{Formatter, Locator};
 /// ```
 /// use plt::axes::Axis;
 /// use plt::prelude::*;
-/// use plt::units::{AxisInfo, ConversionError, ConversionInterface, Convertible};
+/// use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
 ///
 /// /// A length in metres or feet.
 /// #[derive(Clone, Copy, Debug, PartialEq)]
@@ -48,9 +48,9 @@ use crate::ticker::{Formatter, Locator};
 ///         }).collect())
 ///     }
 ///
-///     fn axisinfo(&self, unit: Option<&Unit>, _: &Axis) -> Option<AxisInfo> {
+///     fn axisinfo(&self, unit: Option<&Unit>, _: &Axis) -> Option<UnitAxisInfo> {
 ///         let label = format!("{:?}", unit?).to_lowercase();
-///         Some(AxisInfo { label: Some(label), ..AxisInfo::default() })
+///         Some(UnitAxisInfo { label: Some(label), ..UnitAxisInfo::default() })
 ///     }
 ///
 ///     fn default_units(&self, values: &[Length], _: &Axis) -> Option<Unit> {
@@ -97,7 +97,7 @@ pub trait ConversionInterface: 'static {
     /// The tick helpers, label and default limits of `axis` in `unit`,
     /// if the converter has any (matplotlib's `axisinfo`; the default has
     /// none).
-    fn axisinfo(&self, unit: Option<&Self::Unit>, axis: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&Self::Unit>, axis: &Axis) -> Option<UnitAxisInfo> {
         let _ = (unit, axis);
         None
     }
@@ -251,21 +251,22 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
 pub(crate) type UnitOf<T> = <<T as Convertible>::Converter as ConversionInterface>::Unit;
 
 /// What a converter says about an axis in a unit (matplotlib's
-/// `units.AxisInfo`; [`ticker::AxisInfo`](crate::ticker::AxisInfo) is
-/// the axis state tick helpers read). The tick helpers replace only those
-/// still at their defaults, the label only a label that was not set, and
-/// the default limits, in axis numbers, become the view while neither
-/// data nor limits changed it.
+/// `units.AxisInfo`, with its keywords as fields; the
+/// [`ticker::AxisInfo`](crate::ticker::AxisInfo) is the axis state tick
+/// helpers read). The tick helpers replace only those still at their
+/// defaults, the label only a label that was not set, and the default
+/// limits, in axis numbers, become the view while neither data nor limits
+/// changed it.
 #[derive(Clone, Debug, Default)]
-pub struct AxisInfo {
+pub struct UnitAxisInfo {
     /// The locator of the major ticks.
-    pub major_locator: Option<Rc<dyn Locator>>,
+    pub majloc: Option<Rc<dyn Locator>>,
     /// The locator of the minor ticks.
-    pub minor_locator: Option<Rc<dyn Locator>>,
+    pub minloc: Option<Rc<dyn Locator>>,
     /// The formatter of the major ticks.
-    pub major_formatter: Option<Rc<dyn Formatter>>,
+    pub majfmt: Option<Rc<dyn Formatter>>,
     /// The formatter of the minor ticks.
-    pub minor_formatter: Option<Rc<dyn Formatter>>,
+    pub minfmt: Option<Rc<dyn Formatter>>,
     /// The axis label.
     pub label: Option<String>,
     /// The view of the axis before any data is plotted, in axis numbers.
@@ -301,7 +302,8 @@ pub enum ConversionError {
 
 impl fmt::Display for ConversionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("failed to convert values to axis units: ")?;
+        // matplotlib's message, with the reason in place of the values.
+        f.write_str("Failed to convert value(s) to axis units: ")?;
         match self {
             Self::Failed(reason) => f.write_str(reason),
             Self::ForeignUnit { unit, converter } => {
@@ -330,7 +332,7 @@ mod tests {
         let failed = ConversionError::Failed("feet are not seconds".into());
         assert_eq!(
             failed.to_string(),
-            "failed to convert values to axis units: feet are not seconds"
+            "Failed to convert value(s) to axis units: feet are not seconds"
         );
         let count = ConversionError::Count {
             values: 2,

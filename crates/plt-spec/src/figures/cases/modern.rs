@@ -200,7 +200,7 @@ fn image(fig: &Figure) -> CaseResult {
         origin: Some(Origin::Lower),
         ..ImshowOptions::default()
     };
-    // `plt.images_hide_grid` turns the grid off, as `ax.grid(False)` does.
+    // `plt.image.hide_grid` turns the grid off, as `ax.grid(False)` does.
     let image = ax.imshow(field, options)?;
     fig.colorbar(&image, ColorbarOptions::beside(&ax))?;
     ax.set_title("A field");

@@ -110,6 +110,12 @@ pub struct Hist {
 /// assert_eq!(h.tops, vec![vec![1.0, 3.0]]);
 /// assert_eq!(h.edges, vec![0.0, 1.0, 2.0]);
 /// ```
+///
+/// # Errors
+///
+/// When the weights do not match the datasets, or the bins are invalid,
+/// as for [`histogram`](super::histogram) (more than
+/// [`MAX_EQUAL_BINS`](super::MAX_EQUAL_BINS) equal-width bins included).
 pub fn hist<T: BinSample, D: AsRef<[T]>>(
     datasets: &[D],
     opts: HistOptions<'_>,

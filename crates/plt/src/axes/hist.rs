@@ -112,8 +112,12 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When the binning is invalid, weights do not match the data, or the
-    /// colours do not match the datasets.
+    /// When the binning is invalid (more than [`MAX_EQUAL_BINS`] bins
+    /// included), weights do not match the data, the colours do not match
+    /// the datasets, or a bar histogram would draw more than
+    /// [`MAX_HIST_BARS`] bars.
+    ///
+    /// [`MAX_EQUAL_BINS`]: crate::stats::MAX_EQUAL_BINS
     pub fn hist<T: BinSample, D: AsRef<[T]>>(
         &self,
         datasets: &[D],

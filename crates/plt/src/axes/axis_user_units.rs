@@ -13,7 +13,7 @@ use super::{Axes, AxesState};
 use crate::artist::{ArtistHandle, ArtistLookup, DrawError};
 use crate::dates::TimeZone;
 use crate::ticker::AxisName;
-use crate::units::{AxisInfo, AxisValues, ConversionError, Unit, UnitConverter, UnitValues};
+use crate::units::{AxisValues, ConversionError, CustomValues, Unit, UnitAxisInfo, UnitConverter};
 
 impl Axis {
     /// Lets the axis pick its converter and unit from `values`
@@ -46,7 +46,7 @@ impl Axis {
     }
 
     /// [`update_units`](Self::update_units) for user values.
-    pub(super) fn update_custom_units(&self, values: &UnitValues) {
+    pub(super) fn update_custom_units(&self, values: &CustomValues) {
         let (current, explicit) =
             self.read(|axis| (axis.units.converter.clone(), axis.units.explicit));
         let converter = match current.clone().filter(|_| explicit) {
@@ -72,7 +72,7 @@ impl Axis {
     /// converter takes theirs, without its tick helpers. Values that fail
     /// to convert become NaN, and the figure reports why when it next
     /// draws.
-    pub(super) fn convert_custom(&self, values: &UnitValues) -> Vec<f64> {
+    pub(super) fn convert_custom(&self, values: &CustomValues) -> Vec<f64> {
         self.try_convert_custom(values).unwrap_or_else(|error| {
             self.report(&error);
             vec![f64::NAN; values.len()]
@@ -83,7 +83,7 @@ impl Axis {
     /// reporting.
     pub(super) fn try_convert_custom(
         &self,
-        values: &UnitValues,
+        values: &CustomValues,
     ) -> Result<Vec<f64>, ConversionError> {
         let fallback = UnitConverter::Custom(values.converter());
         self.update(|axis| axis.units.converter_or(fallback));
@@ -95,7 +95,7 @@ impl Axis {
     /// the axis as it is.
     pub(super) fn try_convert_custom_as_is(
         &self,
-        values: &UnitValues,
+        values: &CustomValues,
     ) -> Result<Vec<f64>, ConversionError> {
         let (converter, unit) =
             self.read(|axis| (axis.units.converter.clone(), axis.units.unit.clone()));
@@ -177,7 +177,7 @@ impl Axis {
     }
 
     /// Installs what `info` gives.
-    fn use_axis_info(&self, info: &AxisInfo) {
+    fn use_axis_info(&self, info: &UnitAxisInfo) {
         self.update_shared(|axis| axis.use_axis_info_tickers(info));
         if let Some(label) = &info.label {
             self.update(|axis| {
@@ -195,26 +195,26 @@ impl Axis {
 impl AxisState {
     /// Installs the tick helpers of `info` in place of those still at
     /// their defaults, which they stay (matplotlib's `_update_axisinfo`).
-    fn use_axis_info_tickers(&mut self, info: &AxisInfo) {
-        if let Some(locator) = &info.major_locator
+    fn use_axis_info_tickers(&mut self, info: &UnitAxisInfo) {
+        if let Some(locator) = &info.majloc
             && self.defaults.major.locator
         {
             self.set_major_locator(Rc::clone(locator));
             self.defaults.major.locator = true;
         }
-        if let Some(locator) = &info.minor_locator
+        if let Some(locator) = &info.minloc
             && self.defaults.minor.locator
         {
             self.set_minor_locator(Rc::clone(locator));
             self.defaults.minor.locator = true;
         }
-        if let Some(formatter) = &info.major_formatter
+        if let Some(formatter) = &info.majfmt
             && self.defaults.major.formatter
         {
             self.set_major_formatter(Rc::clone(formatter));
             self.defaults.major.formatter = true;
         }
-        if let Some(formatter) = &info.minor_formatter
+        if let Some(formatter) = &info.minfmt
             && self.defaults.minor.formatter
         {
             self.set_minor_formatter(Rc::clone(formatter));
@@ -331,12 +331,12 @@ mod tests {
                 .collect())
         }
 
-        fn axisinfo(&self, unit: Option<&DistanceUnit>, _: &Axis) -> Option<AxisInfo> {
-            Some(AxisInfo {
-                major_locator: Some(Rc::new(MultipleLocator::new(0.5).expect("positive"))),
+        fn axisinfo(&self, unit: Option<&DistanceUnit>, _: &Axis) -> Option<UnitAxisInfo> {
+            Some(UnitAxisInfo {
+                majloc: Some(Rc::new(MultipleLocator::new(0.5).expect("positive"))),
                 label: Some(format!("{:?}", unit?)),
                 default_limits: Some((0.0, 100.0)),
-                ..AxisInfo::default()
+                ..UnitAxisInfo::default()
             })
         }
 

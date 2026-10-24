@@ -141,13 +141,18 @@ def fixed_length(validator):
 
 
 # plt-rs' own parameters, generated after matplotlib's:
-# (key, Rust type, default, documentation).
+# (key, Rust type, default, documentation). Their keys follow one scheme
+# (`plt::porting::conventions`): `plt.`, then the matplotlib rc group, module
+# or class they belong to in lower case (`image`, `table`, `widgets.button`),
+# then the keyword whose value matplotlib fixes in code, spelled as that
+# keyword (`color`, `facecolor`, `track_color`), or, for a behaviour of
+# plt-rs' own, lower-case words joined by underscores (`hide_grid`).
 EXTENSIONS = [
-    ("plt.images_hide_grid", "bool", "False",
-     "`plt.images_hide_grid`: Whether adding an image to an axes turns its grid off, "
+    ("plt.image.hide_grid", "bool", "False",
+     "`plt.image.hide_grid`: Whether adding an image to an axes turns its grid off, "
      "as matplotlib's `pcolor` did until 3.5 (plt-rs only; its modern looks set it)."),
-    ("plt.tight_layout.keeps_constrained", "bool", "False",
-     "`plt.tight_layout.keeps_constrained`: Whether `tight_layout` leaves a figure laid out "
+    ("plt.tight_layout.keep_constrained", "bool", "False",
+     "`plt.tight_layout.keep_constrained`: Whether `tight_layout` leaves a figure laid out "
      "by constrained layout to it, rather than replacing it or failing once a colorbar exists "
      "(plt-rs only; its modern looks, whose figures use constrained layout, set it)."),
     # Colours matplotlib fixes in code rather than in rcParams, so that the
@@ -183,8 +188,8 @@ EXTENSIONS = [
     ("plt.widgets.textbox.hovercolor", "Color", "1",
      "`plt.widgets.textbox.hovercolor`: The face colour of text boxes under the pointer "
      "(matplotlib's fixed `hovercolor='1'`; plt-rs only)."),
-    ("plt.widgets.activecolor", "Color", "blue",
-     "`plt.widgets.activecolor`: The colour of the chosen radio button given none "
+    ("plt.widgets.radiobuttons.activecolor", "Color", "blue",
+     "`plt.widgets.radiobuttons.activecolor`: The colour of the chosen radio button given none "
      "(matplotlib's fixed `activecolor='blue'`; plt-rs only)."),
     ("plt.widgets.slider.track_color", "Color", "lightgrey",
      "`plt.widgets.slider.track_color`: The colour of the tracks of sliders "

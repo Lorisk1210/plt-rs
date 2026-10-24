@@ -48,7 +48,14 @@ impl Axes {
     ///
     /// When the grid is not evenly spaced and increasing, a field does not
     /// match it, a start point lies outside it, an option is out of range
-    /// or the colours cannot be mapped.
+    /// or the colours cannot be mapped; when the density asks for more
+    /// than [`MAX_STREAMLINE_CELLS`] mask cells, the arrows number more
+    /// than [`MAX_STREAMLINE_ARROWS`], or tracing takes more than
+    /// [`MAX_STREAMLINE_STEPS`] integration steps.
+    ///
+    /// [`MAX_STREAMLINE_CELLS`]: crate::streamplot::MAX_STREAMLINE_CELLS
+    /// [`MAX_STREAMLINE_ARROWS`]: crate::streamplot::MAX_STREAMLINE_ARROWS
+    /// [`MAX_STREAMLINE_STEPS`]: crate::streamplot::MAX_STREAMLINE_STEPS
     pub fn streamplot(
         &self,
         field: &StreamField,

@@ -21,7 +21,7 @@ use crate::patches::ClipRegion;
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform};
-use crate::units::{UnitSources, UnitValues};
+use crate::units::{CustomValues, UnitSources};
 
 /// A marker rotation following the θ orientation of polar axes: by angle
 /// θ shifted the way the axes shift θ, plus a fixed turn (matplotlib's
@@ -286,7 +286,7 @@ impl Artist for LineArtist {
         &mut self.base
     }
 
-    fn unit_sources(&self, name: AxisName) -> Vec<UnitValues> {
+    fn unit_sources(&self, name: AxisName) -> Vec<CustomValues> {
         self.unit_sources.along(name).cloned().into_iter().collect()
     }
 

@@ -6,11 +6,22 @@ use std::convert::Infallible;
 use super::PlotError;
 use super::broadcast::broadcast;
 use crate::dates::TimeDelta;
-use crate::units::{AxisDelta, AxisDeltas, AxisValue};
+use crate::units::{AxisDelta, AxisDeltas, AxisValue, Convertible, CustomValues, from_value_lists};
 
 /// Error sizes along one axis (matplotlib's `xerr`/`yerr`): numbers,
 /// durations or user values ([`AxisDeltas`]), every list holding one
-/// value or one per point.
+/// value or one per point. Whatever makes [`AxisDeltas`] makes symmetric
+/// error sizes.
+///
+/// ```
+/// use plt::axes::ErrorSize;
+/// use plt::dates::TimeDelta;
+/// use plt::units::AxisDeltas;
+/// assert_eq!(ErrorSize::from([0.1, 0.2]), ErrorSize::Symmetric(AxisDeltas::from([0.1, 0.2])));
+/// let hour = TimeDelta::new(0, 3600, 0)?;
+/// assert_eq!(ErrorSize::from(hour), ErrorSize::Symmetric(AxisDeltas::Durations(vec![hour])));
+/// # Ok::<(), plt::dates::DateError>(())
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub enum ErrorSize {
     /// The same error below and above.
@@ -24,9 +35,21 @@ pub enum ErrorSize {
     },
 }
 
-impl From<f64> for ErrorSize {
-    fn from(error: f64) -> Self {
+impl From<AxisDeltas> for ErrorSize {
+    fn from(errors: AxisDeltas) -> Self {
+        Self::Symmetric(errors)
+    }
+}
+
+impl From<AxisDelta> for ErrorSize {
+    fn from(error: AxisDelta) -> Self {
         Self::Symmetric(error.into())
+    }
+}
+
+impl From<CustomValues> for ErrorSize {
+    fn from(errors: CustomValues) -> Self {
+        Self::Symmetric(errors.into())
     }
 }
 
@@ -36,19 +59,22 @@ impl From<Vec<f64>> for ErrorSize {
     }
 }
 
-impl From<TimeDelta> for ErrorSize {
-    /// The same duration below and above, on a date axis (matplotlib's
+impl From<Vec<TimeDelta>> for ErrorSize {
+    /// Durations below and above, on a date axis (matplotlib's
     /// `timedelta` errors).
-    fn from(error: TimeDelta) -> Self {
-        Self::Symmetric(error.into())
+    fn from(errors: Vec<TimeDelta>) -> Self {
+        Self::Symmetric(errors.into())
     }
 }
 
-impl From<AxisDeltas> for ErrorSize {
-    fn from(errors: AxisDeltas) -> Self {
-        Self::Symmetric(errors)
+impl<T: Convertible> From<Vec<T>> for ErrorSize {
+    fn from(errors: Vec<T>) -> Self {
+        Self::Symmetric(errors.into())
     }
 }
+
+from_value_lists!(ErrorSize: f64, TimeDelta);
+from_value_lists!(impl<T: Convertible> ErrorSize: T);
 
 /// The lower and upper ends of error bars, one of each per point, in the
 /// units of the data.

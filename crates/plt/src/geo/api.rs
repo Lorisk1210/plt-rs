@@ -4,7 +4,7 @@
 use std::fmt;
 use std::ops::Deref;
 
-use super::ticker::{ThetaFormatter, grid_locator};
+use super::ticker::{GeoThetaFormatter, grid_locator};
 use super::{GeoProjection, GeoState, LATITUDE_EDGE, LONGITUDE_EDGE};
 use crate::axes::{Axes, Axis};
 use crate::figure::{AxesRectError, Figure};
@@ -152,7 +152,7 @@ impl GeoAxes {
 /// on `axis`, labelled to multiples of `degrees`.
 pub(super) fn install_grid(axis: &Axis, degrees: f64, limit: f64) {
     axis.set_major_locator(grid_locator(degrees, limit))
-        .set_major_formatter(ThetaFormatter::new(degrees));
+        .set_major_formatter(GeoThetaFormatter::new(degrees));
 }
 
 /// `'%f°N, %f°E'` with the hemispheres of `latitude` and `longitude`.

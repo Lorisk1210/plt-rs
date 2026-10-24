@@ -17,7 +17,7 @@ use plt::ticker::{
     TickerSettings,
 };
 use plt::units::{
-    AxisDelta, AxisInfo, AxisValue, ConversionError, ConversionInterface, Convertible,
+    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxisInfo,
 };
 
 /// Seconds in a day.
@@ -114,12 +114,12 @@ impl Sub<Duration> for Epoch {
 
 /// What `EpochConverter.axisinfo` gives every axis of epochs or
 /// durations: date ticks, labelled with the frame.
-fn epoch_axisinfo(unit: Option<&EphemerisTime>) -> AxisInfo {
-    AxisInfo {
-        major_locator: Some(Rc::new(AutoDateLocator::new())),
-        major_formatter: Some(Rc::new(AutoDateFormatter::new(AutoDateLocator::new()))),
+fn epoch_axisinfo(unit: Option<&EphemerisTime>) -> UnitAxisInfo {
+    UnitAxisInfo {
+        majloc: Some(Rc::new(AutoDateLocator::new())),
+        majfmt: Some(Rc::new(AutoDateFormatter::new(AutoDateLocator::new()))),
         label: unit.map(|_| "ET".to_owned()),
-        ..AxisInfo::default()
+        ..UnitAxisInfo::default()
     }
 }
 
@@ -142,7 +142,7 @@ impl ConversionInterface for EpochConverter {
             .collect())
     }
 
-    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &Axis) -> Option<UnitAxisInfo> {
         Some(epoch_axisinfo(unit))
     }
 
@@ -186,7 +186,7 @@ impl ConversionInterface for DurationConverter {
             .collect())
     }
 
-    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &Axis) -> Option<UnitAxisInfo> {
         Some(epoch_axisinfo(unit))
     }
 
@@ -342,17 +342,17 @@ impl ConversionInterface for UnitDblConverter {
             .collect()
     }
 
-    fn axisinfo(&self, unit: Option<&UnitName>, axis: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&UnitName>, axis: &Axis) -> Option<UnitAxisInfo> {
         let major_formatter: Rc<dyn Formatter> =
             if unit == Some(&UnitName::Degrees) && on_polar_axes(axis) {
                 Rc::new(ThetaFormatter)
             } else {
                 Rc::new(UnitDblFormatter::new())
             };
-        Some(AxisInfo {
-            major_formatter: Some(major_formatter),
+        Some(UnitAxisInfo {
+            majfmt: Some(major_formatter),
             label: unit.map(|unit| unit.name().to_owned()),
-            ..AxisInfo::default()
+            ..UnitAxisInfo::default()
         })
     }
 

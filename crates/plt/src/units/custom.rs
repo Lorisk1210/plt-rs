@@ -7,7 +7,9 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use super::interface::UnitOf;
-use super::{AxisDelta, AxisInfo, AxisValue, ConversionError, ConversionInterface, Convertible};
+use super::{
+    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxisInfo,
+};
 use crate::axes::Axis;
 
 /// The unit of an axis (matplotlib's `Axis.units`): a value of the unit
@@ -95,14 +97,14 @@ pub struct CustomConverter(Rc<dyn AnyConverter>);
 trait AnyConverter: Any {
     /// [`ConversionInterface::axisinfo`] in an axis unit, nothing when the
     /// unit is not one of the converter's.
-    fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<AxisInfo>;
+    fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<UnitAxisInfo>;
 
     /// The type of the converter.
     fn type_name(&self) -> &'static str;
 }
 
 impl<C: ConversionInterface> AnyConverter for C {
-    fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<UnitAxisInfo> {
         let unit = match unit {
             Some(unit) => Some(unit.downcast_ref::<C::Unit>()?),
             None => None,
@@ -138,7 +140,7 @@ impl CustomConverter {
 
     /// The tick helpers, label and default limits the converter gives
     /// `axis` in `unit`.
-    pub(crate) fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<AxisInfo> {
+    pub(crate) fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<UnitAxisInfo> {
         self.0.axisinfo(unit, axis)
     }
 
@@ -177,7 +179,7 @@ impl fmt::Debug for CustomConverter {
 /// ```
 /// # use plt::axes::Axis;
 /// # use plt::units::{ConversionError, ConversionInterface, Convertible};
-/// use plt::units::UnitValues;
+/// use plt::units::CustomValues;
 /// # #[derive(Clone, Debug, PartialEq)]
 /// # struct Miles(f64);
 /// # struct MilesConverter;
@@ -193,14 +195,14 @@ impl fmt::Debug for CustomConverter {
 /// #     type Converter = MilesConverter;
 /// #     fn converter() -> MilesConverter { MilesConverter }
 /// # }
-/// let values = UnitValues::new(vec![Miles(1.0), Miles(2.5)]);
+/// let values = CustomValues::new(vec![Miles(1.0), Miles(2.5)]);
 /// assert_eq!(values.len(), 2);
 /// assert_eq!(values.downcast_ref::<Miles>(), Some(&[Miles(1.0), Miles(2.5)][..]));
 /// ```
 #[derive(Clone)]
-pub struct UnitValues(Rc<dyn AnyValues>);
+pub struct CustomValues(Rc<dyn AnyValues>);
 
-/// What [`UnitValues`] needs of the values it holds.
+/// What [`CustomValues`] needs of the values it holds.
 trait AnyValues: Any + fmt::Debug {
     /// The number of values.
     fn len(&self) -> usize;
@@ -225,7 +227,7 @@ trait AnyValues: Any + fmt::Debug {
     fn equals(&self, other: &dyn AnyValues) -> bool;
 
     /// Value `index` alone.
-    fn get(&self, index: usize) -> Option<UnitValues>;
+    fn get(&self, index: usize) -> Option<CustomValues>;
 
     /// The first value moved by `delta`, if it adds
     /// ([`Convertible::add_delta`]).
@@ -233,10 +235,10 @@ trait AnyValues: Any + fmt::Debug {
 
     /// The first value `factor` times, if it scales
     /// ([`Convertible::scale`]).
-    fn scale(&self, factor: i64) -> Option<UnitValues>;
+    fn scale(&self, factor: i64) -> Option<CustomValues>;
 
     /// These values followed by those of `rest`, if all are of this type.
-    fn concat(&self, rest: &[&UnitValues]) -> Option<UnitValues>;
+    fn concat(&self, rest: &[&CustomValues]) -> Option<CustomValues>;
 }
 
 /// Values of one [`Convertible`] type.
@@ -302,31 +304,31 @@ impl<T: Convertible> AnyValues for Values<T> {
         (other as &dyn Any).downcast_ref::<Self>() == Some(self)
     }
 
-    fn get(&self, index: usize) -> Option<UnitValues> {
+    fn get(&self, index: usize) -> Option<CustomValues> {
         self.0
             .get(index)
-            .map(|value| UnitValues::new(vec![value.clone()]))
+            .map(|value| CustomValues::new(vec![value.clone()]))
     }
 
     fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
         self.0.first()?.add_delta(delta)
     }
 
-    fn scale(&self, factor: i64) -> Option<UnitValues> {
+    fn scale(&self, factor: i64) -> Option<CustomValues> {
         let scaled = self.0.first()?.scale(factor)?;
-        Some(UnitValues::new(vec![scaled]))
+        Some(CustomValues::new(vec![scaled]))
     }
 
-    fn concat(&self, rest: &[&UnitValues]) -> Option<UnitValues> {
+    fn concat(&self, rest: &[&CustomValues]) -> Option<CustomValues> {
         let mut values = self.0.clone();
         for part in rest {
             values.extend_from_slice(part.downcast_ref::<T>()?);
         }
-        Some(UnitValues::new(values))
+        Some(CustomValues::new(values))
     }
 }
 
-impl UnitValues {
+impl CustomValues {
     /// `values`, with their type erased.
     pub fn new<T: Convertible>(values: Vec<T>) -> Self {
         Self(Rc::new(Values(values)))
@@ -403,19 +405,19 @@ impl UnitValues {
     }
 }
 
-impl PartialEq for UnitValues {
+impl PartialEq for CustomValues {
     fn eq(&self, other: &Self) -> bool {
         self.0.equals(other.0.as_ref())
     }
 }
 
-impl fmt::Debug for UnitValues {
+impl fmt::Debug for CustomValues {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<T: Convertible> From<Vec<T>> for UnitValues {
+impl<T: Convertible> From<Vec<T>> for CustomValues {
     fn from(values: Vec<T>) -> Self {
         Self::new(values)
     }
@@ -472,7 +474,7 @@ mod tests {
     fn values_convert_in_the_axis_unit() {
         let ax = Figure::new().subplot();
         let axis = ax.xaxis();
-        let values = UnitValues::new(vec![Millimetres(20.0), Millimetres(5.0)]);
+        let values = CustomValues::new(vec![Millimetres(20.0), Millimetres(5.0)]);
         let converter = values.converter();
         assert!(converter.is::<MillimetreConverter>());
         assert_eq!(
@@ -490,15 +492,18 @@ mod tests {
         assert!(values.downcast_ref::<Millimetres>().is_some());
         assert_eq!(
             values,
-            UnitValues::from(vec![Millimetres(20.0), Millimetres(5.0)])
+            CustomValues::from(vec![Millimetres(20.0), Millimetres(5.0)])
         );
-        assert!(UnitValues::new(Vec::<Millimetres>::new()).is_empty());
+        assert!(CustomValues::new(Vec::<Millimetres>::new()).is_empty());
     }
 
     #[test]
     fn values_come_apart_and_add_nothing_by_default() {
-        let values = UnitValues::new(vec![Millimetres(1.0), Millimetres(2.0)]);
-        assert_eq!(values.get(1), Some(UnitValues::new(vec![Millimetres(2.0)])));
+        let values = CustomValues::new(vec![Millimetres(1.0), Millimetres(2.0)]);
+        assert_eq!(
+            values.get(1),
+            Some(CustomValues::new(vec![Millimetres(2.0)]))
+        );
         assert_eq!(values.get(2), None);
         assert_eq!(values.add_delta(&AxisDelta::Number(1.0)), None);
         assert_eq!(values.scale(-1), None);
@@ -509,12 +514,12 @@ mod tests {
         let one = AxisValue::from(Millimetres(1.0));
         let two = AxisValue::from(Millimetres(2.0));
         assert_eq!(
-            UnitValues::join([&one, &two]),
-            Some(UnitValues::new(vec![Millimetres(1.0), Millimetres(2.0)]))
+            CustomValues::join([&one, &two]),
+            Some(CustomValues::new(vec![Millimetres(1.0), Millimetres(2.0)]))
         );
-        assert_eq!(UnitValues::join([&one, &AxisValue::Number(2.0)]), None);
-        assert_eq!(UnitValues::join([&one, &Dropped(2.0).into()]), None);
-        assert_eq!(UnitValues::join([]), None);
+        assert_eq!(CustomValues::join([&one, &AxisValue::Number(2.0)]), None);
+        assert_eq!(CustomValues::join([&one, &Dropped(2.0).into()]), None);
+        assert_eq!(CustomValues::join([]), None);
     }
 
     #[test]
@@ -522,7 +527,7 @@ mod tests {
         let converter = CustomConverter::new(MillimetreConverter);
         assert_eq!(
             converter,
-            UnitValues::new(vec![Millimetres(1.0)]).converter()
+            CustomValues::new(vec![Millimetres(1.0)]).converter()
         );
         assert!(converter.type_name().ends_with("MillimetreConverter"));
         assert!(format!("{converter:?}").contains("MillimetreConverter"));
@@ -558,14 +563,14 @@ mod tests {
     #[test]
     fn values_keep_to_their_own_converter_and_count() {
         let ax = Figure::new().subplot();
-        let values = UnitValues::new(vec![Millimetres(3.0)]);
+        let values = CustomValues::new(vec![Millimetres(3.0)]);
         let other = CustomConverter::new(Lossy);
         assert_eq!(
             values.convert(Some(&other), None, &ax.xaxis()),
             Ok(vec![3.0])
         );
         assert_eq!(values.default_units(&other, &ax.xaxis()), None);
-        let dropped = UnitValues::new(vec![Dropped(1.0), Dropped(2.0)]);
+        let dropped = CustomValues::new(vec![Dropped(1.0), Dropped(2.0)]);
         assert_eq!(
             dropped.convert(None, None, &ax.xaxis()),
             Err(ConversionError::Count {

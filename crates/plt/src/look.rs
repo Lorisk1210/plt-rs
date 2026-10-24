@@ -16,7 +16,7 @@
 //! table cells and annotation boxes (`plt.table.*`, `plt.offsetbox.*`),
 //! the colours and frames of widgets (`plt.widgets.*`), and whether
 //! `tight_layout` leaves constrained layout in place
-//! (`plt.tight_layout.keeps_constrained`).
+//! (`plt.tight_layout.keep_constrained`).
 //!
 //! The choice comes from code ([`set_appearance`], [`set_figure_look`],
 //! [`set_chrome_look`]) or, until code makes one, from the environment:

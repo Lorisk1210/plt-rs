@@ -21,7 +21,8 @@ pub enum TickerError {
     NonFinite(&'static str),
     /// A value outside a function's domain, e.g. `log10(0)`.
     Domain(&'static str),
-    /// A locator would generate an absurd number of ticks.
+    /// A locator would generate an absurd number of ticks (this many), or
+    /// more than an axis draws ([`MAX_DRAWN_TICKS`](super::MAX_DRAWN_TICKS)).
     TooManyTicks(usize),
     /// The operation is not supported by this tick helper.
     Unsupported(&'static str),

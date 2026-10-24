@@ -55,7 +55,9 @@ pub enum SpecgramMode {
 /// [`specgram`], [`cohere`]); the defaults are matplotlib's.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SpectralOptions {
-    /// Samples per segment (default 256); shorter signals are zero padded.
+    /// Samples per segment (default 256), at most
+    /// [`MAX_FFT_LENGTH`](super::MAX_FFT_LENGTH); shorter signals are zero
+    /// padded.
     pub nfft: usize,
     /// Sampling frequency (default 2).
     pub fs: f64,
@@ -66,8 +68,9 @@ pub struct SpectralOptions {
     /// Samples shared by consecutive segments; `None` means 0, except for
     /// [`specgram`] where it means 128.
     pub noverlap: Option<usize>,
-    /// FFT length per segment; defaults to `nfft` (longer pads with
-    /// zeros, shorter truncates).
+    /// FFT length per segment, at most
+    /// [`MAX_FFT_LENGTH`](super::MAX_FFT_LENGTH); defaults to `nfft`
+    /// (longer pads with zeros, shorter truncates).
     pub pad_to: Option<usize>,
     /// One- or two-sided output.
     pub sides: SpectrumSides,
@@ -99,7 +102,8 @@ pub struct SpectrumOptions {
     pub fs: f64,
     /// Window (default Hann).
     pub window: Window,
-    /// FFT length; defaults to the signal length.
+    /// FFT length, at most [`MAX_FFT_LENGTH`](super::MAX_FFT_LENGTH);
+    /// defaults to the signal length.
     pub pad_to: Option<usize>,
     /// One- or two-sided output.
     pub sides: SpectrumSides,

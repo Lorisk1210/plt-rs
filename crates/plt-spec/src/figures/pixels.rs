@@ -1,10 +1,13 @@
 //! Pixel comparison of rendered figure cases with the golden PNGs, using
-//! matplotlib's `compare_images` metric (RMS over channel values).
+//! matplotlib's `compare_images` metric (RMS over channel values, from
+//! [`plt::testing`]).
 
 use std::error::Error;
 use std::fmt;
 
 use plt::figure::SaveOptions;
+use plt::numeric::Grid;
+use plt::testing::calculate_rms;
 use plt_render::RgbaImage;
 
 use super::{Capture, FigureCase};
@@ -169,39 +172,53 @@ fn diff_rgba(actual: &[u8], expected: &[u8]) -> Vec<u8> {
         .collect()
 }
 
-/// Compares two RGBA buffers of equal size like `compare_images`: an image
-/// whose alpha is 255 everywhere is compared as RGB.
+/// Compares two RGBA buffers of equal size like `compare_images`: both
+/// are compared as RGB when their alpha is 255 everywhere, else as RGBA,
+/// by matplotlib's RMS ([`calculate_rms`]).
 fn compare_rgba(actual: &[u8], expected: &[u8]) -> PixelReport {
+    let pixels = |data: &[u8]| data.as_chunks::<4>().0.to_vec();
     let opaque = |data: &[u8]| data.as_chunks::<4>().0.iter().all(|px| px[3] == 255);
     let channels = if opaque(actual) && opaque(expected) {
         3
     } else {
         4
     };
-    let (mut sum, mut max_diff, mut differing) = (0.0, 0u8, 0usize);
+    let rms = if channels == 3 {
+        let rgb = |data: &[u8]| one_row(pixels(data).into_iter().map(|[r, g, b, _]| [r, g, b]));
+        calculate_rms(&rgb(expected), &rgb(actual))
+    } else {
+        calculate_rms(&one_row(pixels(expected)), &one_row(pixels(actual)))
+    }
+    .expect("the images have the same size");
+    let (mut max_diff, mut differing) = (0u8, 0usize);
     for (a, e) in actual
         .as_chunks::<4>()
         .0
         .iter()
         .zip(expected.as_chunks::<4>().0)
     {
-        let mut pixel_differs = false;
-        for (x, y) in a[..channels].iter().zip(&e[..channels]) {
-            let d = x.abs_diff(*y);
-            sum += f64::from(d) * f64::from(d);
-            max_diff = max_diff.max(d);
-            pixel_differs |= d != 0;
-        }
-        differing += usize::from(pixel_differs);
+        let pixel_diff = a[..channels]
+            .iter()
+            .zip(&e[..channels])
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
+        max_diff = max_diff.max(pixel_diff);
+        differing += usize::from(pixel_diff != 0);
     }
-    let total_pixels = actual.len() / 4;
     PixelReport {
-        rms: (sum / (total_pixels * channels).max(1) as f64).sqrt(),
+        rms,
         max_diff,
         differing_pixels: differing,
-        total_pixels,
+        total_pixels: actual.len() / 4,
         draw_errors: 0,
     }
+}
+
+/// `pixels` as a grid of one row (the RMS needs only matching shapes).
+fn one_row<T>(pixels: impl IntoIterator<Item = T>) -> Grid<T> {
+    let pixels: Vec<T> = pixels.into_iter().collect();
+    Grid::from_vec(1, pixels.len(), pixels).expect("one row holds every pixel")
 }
 
 #[cfg(test)]

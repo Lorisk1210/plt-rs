@@ -5,7 +5,8 @@
 //! access ([`RcParams::set`]`("lines.linewidth", "2")`) with identical
 //! validation. The *current* parameters are per thread, like pyplot state;
 //! threads start from [`RcParams::startup`], matplotlib's defaults with
-//! the figure [look](crate::look)'s style on top:
+//! the figure [look](crate::look)'s style on top and then the user's rc
+//! file, `pltrc` (see [`config`](crate::config)):
 //!
 //! ```
 //! use plt::rc;
@@ -52,10 +53,13 @@ impl Default for RcParams {
 
 impl RcParams {
     /// The parameters threads start from: matplotlib's defaults with the
-    /// style of the current figure [look](crate::look) on top (the role of
-    /// matplotlib's `matplotlibrc` file).
+    /// style of the current figure [look](crate::look) on top, and the
+    /// settings of the user's rc file on top of that, as matplotlib's
+    /// `matplotlibrc` applies over its defaults (see
+    /// [`config`](crate::config); not while the user configuration is
+    /// [ignored](crate::config::ignore_user_config)).
     pub fn startup() -> Self {
-        crate::look::appearance().figures.params()
+        crate::config::with_user_rc(crate::look::appearance().figures.params())
     }
 
     /// Applies every assignment of rc-file text (a style sheet), stopping at
@@ -172,8 +176,9 @@ pub fn reset() {
     replace(RcParams::default());
 }
 
-/// Restores the parameters threads start from, [`RcParams::startup`]
-/// (matplotlib's `rc_file_defaults()`).
+/// Restores the parameters threads start from, [`RcParams::startup`]: the
+/// look's with the user's rc file on top (matplotlib's
+/// `rc_file_defaults()`).
 pub fn restore_startup() {
     replace(RcParams::startup());
 }

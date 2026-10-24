@@ -22,6 +22,16 @@ mod user_units;
 
 use std::path::PathBuf;
 
+/// Puts the process and the current thread in the configuration the
+/// goldens assume (`reference_rc` in `spec/reference/conftest.py`):
+/// matplotlib's test setup ([`plt::testing::setup`], which also keeps the
+/// developer's own `pltrc` and style library out) with unhinted glyph
+/// outlines.
+pub fn reference_rc() {
+    plt::testing::setup();
+    plt::rc::update(|params| params.text_hinting = String::from("none"));
+}
+
 /// Root of the `spec/` directory of this repository.
 pub fn spec_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../spec")

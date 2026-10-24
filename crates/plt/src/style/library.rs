@@ -4,6 +4,7 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use crate::rc::{RcEntry, RcError, RcFile, RcParams, RcWarning, parse_rc_text};
 
@@ -66,6 +67,9 @@ sheets![
 /// The extension of style files (matplotlib's `STYLE_EXTENSION`).
 const EXTENSION: &str = "mplstyle";
 
+/// The user sheets of a library, by name, each with its settings.
+type UserSheets = Vec<(String, Vec<RcEntry>)>;
+
 impl StyleSheet {
     fn bundled((name, text): (&'static str, &'static str)) -> Self {
         Self {
@@ -107,15 +111,44 @@ impl StyleSheet {
     }
 }
 
-/// The user library: its directories and the sheets last read from them.
+/// A thread's user library: its directories and the sheets last read from
+/// them.
 #[derive(Default)]
 struct UserLibrary {
-    paths: Vec<PathBuf>,
-    sheets: Vec<(String, Vec<RcEntry>)>,
+    /// The directories [`set_user_library_paths`] gave; until then the
+    /// default ones.
+    paths: Option<Vec<PathBuf>>,
+    /// The sheets [`reload_library`] read; until then those of the default
+    /// directories.
+    sheets: Option<UserSheets>,
 }
 
 thread_local! {
     static USER_LIBRARY: RefCell<UserLibrary> = RefCell::default();
+}
+
+/// The sheets of the default user library directories, read once per
+/// process.
+static DEFAULT_SHEETS: OnceLock<UserSheets> = OnceLock::new();
+
+/// The sheets of the default user library directories, read the first time
+/// a library is consulted (matplotlib reads them when it starts); none
+/// while the user configuration is
+/// [ignored](crate::config::ignore_user_config).
+fn default_sheets() -> &'static [(String, Vec<RcEntry>)] {
+    if crate::config::user_config_ignored() {
+        return &[];
+    }
+    DEFAULT_SHEETS.get_or_init(|| read_library(&crate::config::default_style_library_paths()).0)
+}
+
+/// The bundled sheet called `name`, whatever the user library holds.
+pub(crate) fn bundled_sheet(name: &str) -> Option<StyleSheet> {
+    BUNDLED
+        .iter()
+        .copied()
+        .find(|&(bundled, _)| bundled == name)
+        .map(StyleSheet::bundled)
 }
 
 /// Every sheet of the library, sorted by name (matplotlib's
@@ -123,7 +156,8 @@ thread_local! {
 pub fn library() -> Vec<StyleSheet> {
     let mut sheets: Vec<StyleSheet> = BUNDLED.iter().copied().map(StyleSheet::bundled).collect();
     USER_LIBRARY.with(|user| {
-        for (name, entries) in &user.borrow().sheets {
+        let user = user.borrow();
+        for (name, entries) in user.sheets.as_deref().unwrap_or_else(|| default_sheets()) {
             match sheets.iter_mut().find(|sheet| sheet.name == name.as_str()) {
                 Some(sheet) => sheet.user.extend(entries.iter().cloned()),
                 None => sheets.push(StyleSheet {
@@ -154,25 +188,31 @@ pub fn available() -> Vec<String> {
 }
 
 /// The directories [`reload_library`] reads user sheets from (matplotlib's
-/// `style.USER_LIBRARY_PATHS`). plt-rs reads no configuration directory,
-/// so there are none until [`set_user_library_paths`] names some.
+/// `style.USER_LIBRARY_PATHS`): those [`set_user_library_paths`] gave,
+/// else `stylelib` in the [configuration directory](crate::config), whose
+/// sheets the library holds from the start. There is no default directory
+/// while the user configuration is
+/// [ignored](crate::config::ignore_user_config).
 pub fn user_library_paths() -> Vec<PathBuf> {
-    USER_LIBRARY.with(|user| user.borrow().paths.clone())
+    USER_LIBRARY
+        .with(|user| user.borrow().paths.clone())
+        .unwrap_or_else(crate::config::default_style_library_paths)
 }
 
 /// Replaces the user library directories; the library changes with the
 /// next [`reload_library`]. Like the rc parameters, the library belongs
 /// to the current thread.
 pub fn set_user_library_paths(paths: Vec<PathBuf>) {
-    USER_LIBRARY.with(|user| user.borrow_mut().paths = paths);
+    USER_LIBRARY.with(|user| user.borrow_mut().paths = Some(paths));
 }
 
 /// Reads the user sheets again (matplotlib's `style.reload_library`):
 /// every `*.mplstyle` file of the user library directories, in directory
 /// order and by file name within a directory, adds a sheet named after
 /// the file or adds its settings to the sheet of that name. Returns the
-/// lines skipped in those files; files that cannot be read are skipped
-/// as well.
+/// lines skipped in those files (which the first, implicit reading of the
+/// default directories does not report); files that cannot be read are
+/// skipped as well.
 ///
 /// ```
 /// use plt::style;
@@ -190,10 +230,18 @@ pub fn set_user_library_paths(paths: Vec<PathBuf>) {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn reload_library() -> Vec<RcWarning> {
-    let mut sheets: Vec<(String, Vec<RcEntry>)> = Vec::new();
+    let (sheets, warnings) = read_library(&user_library_paths());
+    USER_LIBRARY.with(|user| user.borrow_mut().sheets = Some(sheets));
+    warnings
+}
+
+/// The user sheets of the directories `paths`, merged as
+/// [`reload_library`] describes, and the lines skipped in their files.
+fn read_library(paths: &[PathBuf]) -> (UserSheets, Vec<RcWarning>) {
+    let mut sheets = UserSheets::new();
     let mut warnings = Vec::new();
-    for dir in user_library_paths() {
-        for (name, file) in read_style_directory(&dir) {
+    for dir in paths {
+        for (name, file) in read_style_directory(dir) {
             warnings.extend(file.warnings);
             match sheets.iter_mut().find(|(seen, _)| *seen == name) {
                 Some((_, entries)) => entries.extend(file.entries),
@@ -201,8 +249,7 @@ pub fn reload_library() -> Vec<RcWarning> {
             }
         }
     }
-    USER_LIBRARY.with(|user| user.borrow_mut().sheets = sheets);
-    warnings
+    (sheets, warnings)
 }
 
 /// The style files of `dir` by name, sorted by file name; files that
@@ -287,5 +334,34 @@ mod tests {
         reload_library();
         assert!(sheet("_mine").is_none());
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn the_library_changes_only_when_reloaded() {
+        let dir = std::env::temp_dir().join(format!("plt-style-reload-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("plt-modern.mplstyle"), "lines.linewidth: 9\n").unwrap();
+        std::fs::write(dir.join("bad.mplstyle"), "lines.linewidth: wide\n").unwrap();
+        assert_eq!(
+            user_library_paths(),
+            Vec::<PathBuf>::new(),
+            "unit tests have no default directory"
+        );
+        set_user_library_paths(vec![dir.clone()]);
+        assert_eq!(user_library_paths(), std::slice::from_ref(&dir));
+        assert!(sheet("bad").is_none(), "not read yet");
+        let warnings = reload_library();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(sheet("bad").unwrap().entries().unwrap(), Vec::new());
+        let mut rc = RcParams::matplotlib();
+        sheet("plt-modern").unwrap().apply(&mut rc).unwrap();
+        assert_eq!(rc.lines_linewidth, 9.0);
+        let mut rc = RcParams::matplotlib();
+        bundled_sheet("plt-modern").unwrap().apply(&mut rc).unwrap();
+        assert_eq!(rc.lines_linewidth, 1.75, "bundled sheets ignore the user's");
+        assert!(bundled_sheet("bad").is_none());
+        set_user_library_paths(Vec::new());
+        reload_library();
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -143,23 +143,24 @@ impl FigureCase {
     }
 
     /// Builds the figure under the spec's reference configuration
-    /// (matplotlib's defaults plus the case's rc overrides).
+    /// ([`reference_rc`](crate::reference_rc), then the case's style and
+    /// rc overrides).
     pub fn build(&self) -> Result<Figure, Box<dyn Error>> {
         self.with_figure(|fig| Ok(fig.clone()))
     }
 
     /// Builds the figure and runs `f` on it, both under the reference
-    /// configuration (so that drawing sees the case's rcParams too).
+    /// configuration (so that drawing sees the case's rcParams too). The
+    /// thread keeps the reference configuration afterwards, without the
+    /// case's changes; setting it first keeps the thread from ever
+    /// starting from the user's configuration.
     pub fn with_figure<T>(
         &self,
         f: impl FnOnce(&Figure) -> Result<T, Box<dyn Error>>,
     ) -> Result<T, Box<dyn Error>> {
+        crate::reference_rc();
         plt::rc::context(|| {
-            let mut rc = plt::rc::RcParams::matplotlib();
-            // `matplotlib.testing.setup` names the font family and turns
-            // hinting off.
-            rc.set("font.family", "DejaVu Sans")?;
-            rc.set("text.hinting", "none")?;
+            let mut rc = (*plt::rc::params()).clone();
             if let Some(style) = self.style {
                 plt::style::sheet(style)
                     .ok_or_else(|| plt::rc::RcError::UnknownStyle(style.to_owned()))?

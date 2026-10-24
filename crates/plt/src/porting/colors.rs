@@ -35,9 +35,11 @@
 //! pyplot's state. Style sheets apply on top ([`style::use_style`],
 //! [`style::context`]).
 //!
-//! **Looks.** plt-rs starts threads from its modern look; [`rc::reset`]
-//! restores matplotlib's defaults and [`rc::restore_startup`] the look's.
-//! See [`crate::look`] to choose the look for a whole program.
+//! **Looks.** plt-rs starts threads from its modern look, with the user's
+//! `pltrc` on top (see [`configuration`](super::configuration));
+//! [`rc::reset`] restores matplotlib's defaults and [`rc::restore_startup`]
+//! the look's and `pltrc`'s. See [`crate::look`] to choose the look for a
+//! whole program.
 //!
 //! # Equivalences
 //!

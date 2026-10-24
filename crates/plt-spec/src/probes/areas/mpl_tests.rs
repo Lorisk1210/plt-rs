@@ -2,7 +2,7 @@
 //! the conditions matplotlib's test fixture runs a test under (see
 //! `spec/reference/probes/_mpl_tests.py`).
 
-use plt::rc::{self, RcParams};
+use plt::rc;
 use plt::style;
 
 use super::text_metrics::rc_text;
@@ -21,18 +21,8 @@ pub(crate) fn in_test_style<T>(
     f: impl FnOnce() -> Result<T, ProbeError>,
 ) -> Result<T, ProbeError> {
     rc::context(|| {
-        let mut params = RcParams::matplotlib();
-        // `matplotlib.testing.setup` names the font family, salts the SVG
-        // ids and turns hinting off.
-        params
-            .set("font.family", "DejaVu Sans")
-            .map_err(ProbeError::rejected)?;
-        params
-            .set("svg.hashsalt", "matplotlib")
-            .map_err(ProbeError::rejected)?;
-        params
-            .set("text.hinting", "none")
-            .map_err(ProbeError::rejected)?;
+        crate::reference_rc();
+        let mut params = (*rc::params()).clone();
         match args.opt_str("style")? {
             None => {
                 for name in CLASSIC {

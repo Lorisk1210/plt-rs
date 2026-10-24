@@ -19,6 +19,7 @@ use crate::geo::GeoState;
 use crate::gridspec::SubplotSpec;
 use crate::polar::{PolarState, PolarView};
 use crate::rc::{AxisBelow, Cycler, RcParams};
+use crate::scale::ScaleName;
 use crate::spines::SpineSide;
 use crate::ticker::{AxisInfo, AxisName, Formatter, TickContext, TickerError};
 use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
@@ -322,7 +323,7 @@ impl AxesState {
     pub(crate) fn validated_limits(&self, name: AxisName, v0: f64, v1: f64) -> (f64, f64) {
         let axis = self.axis(name);
         let (mut v0, mut v1) = (v0, v1);
-        if axis.scale().name() == "log" && (v0 <= 0.0 || v1 <= 0.0) {
+        if axis.scale().name() == ScaleName::Log && (v0 <= 0.0 || v1 <= 0.0) {
             let (old0, old1) = self.view_interval(name);
             if v0 <= 0.0 {
                 v0 = old0;
@@ -448,7 +449,7 @@ impl AxesState {
                 tick_floor: None,
             })
         };
-        let log = axis.scale().name() == "log";
+        let log = axis.scale().name() == ScaleName::Log;
         let stickies: Vec<f64> = if self.uses_stickies(name) {
             shared
                 .stickies

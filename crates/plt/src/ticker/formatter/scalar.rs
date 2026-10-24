@@ -3,7 +3,7 @@
 
 use plt_core::numeric::{floor_div, remainder};
 
-use super::{Formatter, TickLabels};
+use super::{FormattedTicks, Formatter};
 use crate::ticker::pyfmt::{fixed, general, general_alternate, integer};
 use crate::ticker::pymath::{floor_int, np_round, pow10, pow10_int, py_round, spacing};
 use crate::ticker::{TickContext, TickerError, TickerSettings};
@@ -441,13 +441,17 @@ impl Default for ScalarFormatter {
 }
 
 impl Formatter for ScalarFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         if locs.is_empty() {
-            return Ok(TickLabels::default());
+            return Ok(FormattedTicks::default());
         }
         let settings = ctx.settings();
         let layout = self.layout(locs, ctx.view_interval())?;
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels: locs
                 .iter()
                 .map(|&x| layout.label(x, self.math(), settings))
@@ -493,7 +497,7 @@ mod tests {
     use super::*;
     use crate::ticker::AxisInfo;
 
-    fn format(formatter: &ScalarFormatter, locs: &[f64], view: (f64, f64)) -> TickLabels {
+    fn format(formatter: &ScalarFormatter, locs: &[f64], view: (f64, f64)) -> FormattedTicks {
         let axis = AxisInfo::with_view(view.0, view.1);
         let settings = TickerSettings::default();
         formatter
@@ -525,7 +529,10 @@ mod tests {
         let settings = TickerSettings::default();
         let ctx = TickContext::new(&axis, &settings);
         assert!(f.format_ticks(&[f64::NAN, 1.0, 2.0], &ctx).is_err());
-        assert_eq!(f.format_ticks(&[], &ctx).unwrap(), TickLabels::default());
+        assert_eq!(
+            f.format_ticks(&[], &ctx).unwrap(),
+            FormattedTicks::default()
+        );
     }
 
     #[test]

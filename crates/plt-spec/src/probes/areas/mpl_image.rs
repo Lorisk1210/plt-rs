@@ -15,6 +15,7 @@ use plt::navigation::Navigation;
 use plt::numeric::{Grid, linspace};
 use plt::transforms::{Affine2D, Point, PointMap, ResolvedTransform, Step};
 
+use super::mpl_agg::{chunks_and_text, png_metadata};
 use super::rcsetup::validate;
 use super::text_metrics::with_rc;
 use crate::json::Json;
@@ -34,6 +35,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("rc.validate", validate),
     Op::new("image.AxesImage.get_array", get_array),
     Op::new("image.imsave.imread", round_trip),
+    Op::new("image.imsave.png_text", imsave_text),
     Op::new("pyplot.savefig.jpg", |args| with_rc(args, jpeg_alpha)),
     Op::new("image.resample", resample_row),
 ];
@@ -226,6 +228,19 @@ fn round_trip(args: Args<'_>) -> Outcome {
         ("sum", Json::from(sum as f64)),
         ("weighted", Json::from(weighted as f64)),
     ]))
+}
+
+/// The chunk types and text entries of the 2×2 array `[[0, 1], [2, 3]]`
+/// saved by `imsave` in `format` with the probe's metadata.
+fn imsave_text(args: Args<'_>) -> Outcome {
+    let format = imsave_format(args.str("format")?).map_err(ProbeError::rejected)?;
+    let options = ImsaveOptions {
+        metadata: png_metadata(args)?,
+        ..ImsaveOptions::default()
+    };
+    let data = Grid::from_rows([[0.0, 1.0], [2.0, 3.0]]).map_err(ProbeError::rejected)?;
+    let png = imsave_bytes(data, format, options).map_err(ProbeError::rejected)?;
+    chunks_and_text(&png)
 }
 
 /// `test_jpeg_alpha`'s JPEG: the number of its colours and its top left

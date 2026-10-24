@@ -13,7 +13,7 @@ pub use concise::ConciseDateFormatter;
 
 use super::convert::num2date;
 use super::tz::TimeZone;
-use crate::ticker::{Formatter, TickContext, TickLabels, TickerError};
+use crate::ticker::{FormattedTicks, Formatter, TickContext, TickerError};
 
 /// Formats ticks with a `strftime` format string (matplotlib's
 /// `DateFormatter`).
@@ -69,8 +69,12 @@ impl DateFormatter {
 }
 
 impl Formatter for DateFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
-        Ok(TickLabels {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
+        Ok(FormattedTicks {
             labels: locs
                 .iter()
                 .map(|&x| self.label(x, ctx))

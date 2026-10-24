@@ -14,7 +14,7 @@ pub struct Grid<T> {
 
 /// A shape inconsistency when building a [`Grid`].
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum GridError {
+pub enum GridShapeError {
     /// The flat data length is not `rows * cols`.
     LengthMismatch {
         /// Expected element count.
@@ -26,7 +26,7 @@ pub enum GridError {
     RaggedRows,
 }
 
-impl fmt::Display for GridError {
+impl fmt::Display for GridShapeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::LengthMismatch { expected, actual } => {
@@ -37,16 +37,16 @@ impl fmt::Display for GridError {
     }
 }
 
-impl std::error::Error for GridError {}
+impl std::error::Error for GridShapeError {}
 
 impl<T> Grid<T> {
     /// Wraps row-major `data` of shape `rows × cols`.
-    pub fn from_vec(rows: usize, cols: usize, data: Vec<T>) -> Result<Self, GridError> {
+    pub fn from_vec(rows: usize, cols: usize, data: Vec<T>) -> Result<Self, GridShapeError> {
         let expected = rows * cols;
         if data.len() == expected {
             Ok(Self { rows, cols, data })
         } else {
-            Err(GridError::LengthMismatch {
+            Err(GridShapeError::LengthMismatch {
                 expected,
                 actual: data.len(),
             })
@@ -65,7 +65,7 @@ impl<T> Grid<T> {
     /// Builds a grid from nested rows.
     pub fn from_rows<R: IntoIterator<Item = T>>(
         rows: impl IntoIterator<Item = R>,
-    ) -> Result<Self, GridError> {
+    ) -> Result<Self, GridShapeError> {
         let mut data = Vec::new();
         let mut cols = None;
         let mut count = 0;
@@ -74,7 +74,7 @@ impl<T> Grid<T> {
             data.extend(row);
             let width = data.len() - before;
             if *cols.get_or_insert(width) != width {
-                return Err(GridError::RaggedRows);
+                return Err(GridShapeError::RaggedRows);
             }
             count += 1;
         }
@@ -213,14 +213,14 @@ mod tests {
     fn shape_errors() {
         assert_eq!(
             Grid::from_vec(2, 2, vec![1, 2, 3]),
-            Err(GridError::LengthMismatch {
+            Err(GridShapeError::LengthMismatch {
                 expected: 4,
                 actual: 3
             })
         );
         assert_eq!(
             Grid::from_rows(vec![vec![1, 2], vec![3]]),
-            Err(GridError::RaggedRows)
+            Err(GridShapeError::RaggedRows)
         );
     }
 

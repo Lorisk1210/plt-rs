@@ -9,8 +9,9 @@ use plt::axes::StemOptions;
 use plt::colors::{Colormap, colormaps};
 use plt::fonts::{FontSize, RelativeSize};
 use plt::layout::LayoutEngine;
-use plt::legend::{HandlerTuple, LegendHandle, LegendOptions};
+use plt::legend::{HandlerTuple, LegendHandle, LegendLoc, LegendOptions};
 use plt::numeric::geomspace;
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::rc::Cycler;
 
@@ -90,7 +91,7 @@ fn custom_legends_3(fig: &Figure) -> CaseResult {
     ax.legend(
         LegendOptions::default()
             .handles(legend_elements)
-            .loc("center"),
+            .loc(AnchorLoc::Center),
     )?;
     Ok(())
 }
@@ -115,7 +116,7 @@ fn figlegend_demo(fig: &Figure) -> CaseResult {
             .color("tab:red")
             .marker(Marker::from(MarkerSymbol::TriangleUp)),
     )?;
-    fig.legend(LegendOptions::default().loc("outside right upper"))?;
+    fig.legend(LegendOptions::default().loc("outside right upper".parse::<LegendLoc>()?))?;
     Ok(())
 }
 
@@ -134,7 +135,7 @@ fn legend(fig: &Figure) -> CaseResult {
     )?;
     let legend = ax.legend(
         LegendOptions::default()
-            .loc("upper center")
+            .loc(AnchorLoc::UpperCenter)
             .shadow(true)
             .fontsize(FontSize::Relative(RelativeSize::XLarge)),
     )?;
@@ -160,7 +161,7 @@ fn legend_demo_1(fig: &Figure) -> CaseResult {
         LegendOptions::default()
             .handles([&l2, &l4])
             .labels(["oscillatory", "damped"])
-            .loc("upper right")
+            .loc(AnchorLoc::UpperRight)
             .shadow(true),
     )?;
     ax.set_xlabel("time");
@@ -182,7 +183,7 @@ fn legend_demo_2(fig: &Figure) -> CaseResult {
     }
     let leg = ax0.legend(
         LegendOptions::default()
-            .loc("upper left")
+            .loc(AnchorLoc::UpperLeft)
             .bbox_to_anchor((0.0, 1.0))
             .ncols(2)
             .shadow(true)

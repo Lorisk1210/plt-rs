@@ -12,6 +12,7 @@ use plt_codec::jpeg::{JpegError, JpegOptions, encode_rgb8};
 use plt_codec::png::{self, EncodeError, ImageRef};
 use plt_codec::tiff::{TiffError, encode_rgba8};
 use plt_codec::webp;
+use plt_render::PngMetadata;
 
 /// A bitmap file format.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -31,7 +32,7 @@ pub enum BitmapFormat {
 }
 
 /// Settings of the formats that need more than the pixels.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BitmapSettings {
     /// The resolution recorded in the file, in dots per inch.
     pub dpi: f64,
@@ -39,15 +40,20 @@ pub struct BitmapSettings {
     pub jpeg_quality: u8,
     /// The colour JPEG pixels are flattened onto.
     pub background: [u8; 3],
+    /// The text entries of a PNG (matplotlib's `metadata`); the other
+    /// formats hold none.
+    pub png_text: PngMetadata,
 }
 
 impl Default for BitmapSettings {
-    /// 100 dpi, Pillow's JPEG quality of 75, and a white background.
+    /// 100 dpi, Pillow's JPEG quality of 75, a white background and no
+    /// PNG text.
     fn default() -> Self {
         Self {
             dpi: 100.0,
             jpeg_quality: 75,
             background: [255; 3],
+            png_text: PngMetadata::none(),
         }
     }
 }
@@ -96,6 +102,18 @@ impl std::error::Error for BitmapError {
 }
 
 impl BitmapFormat {
+    /// The format's name, as Pillow saves under it.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Jpeg => "jpeg",
+            Self::Tiff => "tiff",
+            Self::Gif => "gif",
+            Self::Webp => "webp",
+            Self::Raw => "raw",
+        }
+    }
+
     /// Encodes `width × height` straight RGBA pixels, row by row.
     ///
     /// # Errors
@@ -116,7 +134,10 @@ impl BitmapFormat {
         let (columns, rows) = (side(width), side(height));
         match self {
             Self::Png => ImageRef::rgba8(columns, rows, rgba)
-                .and_then(|image| png::Encoder::new().dpi(settings.dpi).encode(image))
+                .and_then(|image| {
+                    let encoder = png::Encoder::new().dpi(settings.dpi);
+                    settings.png_text.apply_to(encoder).encode(image)
+                })
                 .map_err(BitmapError::Png),
             Self::Jpeg => {
                 let options = JpegOptions {
@@ -188,7 +209,7 @@ mod tests {
     fn each_format_has_its_signature() {
         let pixels = [255, 0, 0, 255].repeat(6);
         let settings = BitmapSettings::default();
-        let encode = |format: BitmapFormat| format.encode(3, 2, &pixels, settings).unwrap();
+        let encode = |format: BitmapFormat| format.encode(3, 2, &pixels, settings.clone()).unwrap();
         assert!(encode(BitmapFormat::Png).starts_with(b"\x89PNG"));
         assert!(encode(BitmapFormat::Jpeg).starts_with(&[0xFF, 0xD8, 0xFF, 0xE0]));
         assert!(encode(BitmapFormat::Tiff).starts_with(b"II*\0"));

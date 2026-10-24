@@ -3,7 +3,7 @@
 //! plots beside violins and `bxp` on precomputed statistics.
 
 use plt::axes::{
-    Axes, BoxArtist, BoxStyle, BoxplotOptions, BxpOptions, GridOptions, ViolinDrawOptions,
+    Axes, BoxArtist, BoxProps, BoxplotOptions, BxpOptions, GridOptions, ViolinDrawOptions,
     ViolinplotOptions,
 };
 use plt::figure::Share;
@@ -12,7 +12,7 @@ use plt::numeric::Grid;
 use plt::orientation::Orientation;
 use plt::prelude::*;
 use plt::rc::ColorOrAuto;
-use plt::stats::{BoxStats, BoxplotOptions as StatsOptions, Whis, boxplot_stats};
+use plt::stats::{BoxStats, BoxplotStatsOptions, Whis, boxplot_stats};
 
 use super::{SEED, columns, strings};
 use crate::figures::cases::common::{drawn_boxes, with_sym};
@@ -26,7 +26,7 @@ const FS: f64 = 10.0;
 /// overriding the box style (`boxprops`).
 fn filled(patch: PatchProps) -> BxpOptions {
     BxpOptions {
-        boxes: Some(BoxStyle::Patch(patch)),
+        boxes: Some(BoxProps::Patch(patch)),
         ..BxpOptions::default()
     }
 }
@@ -294,7 +294,7 @@ fn boxplot_2(fig: &Figure) -> CaseResult {
         vec![
             (
                 drawn_boxes(BxpOptions {
-                    boxes: Some(BoxStyle::Line(boxprops)),
+                    boxes: Some(BoxProps::Line(boxprops)),
                     ..BxpOptions::default()
                 }),
                 "Custom boxprops",
@@ -364,9 +364,9 @@ fn bxp_1(fig: &Figure) -> CaseResult {
     axs[(0, 0)].boxplot(&data, options)?;
     let stats = boxplot_stats(
         &data,
-        StatsOptions {
+        BoxplotStatsOptions {
             labels: Some(labels),
-            ..StatsOptions::default()
+            ..BoxplotStatsOptions::default()
         },
     )?;
     axs[(0, 1)].bxp(&stats, bisque())?;

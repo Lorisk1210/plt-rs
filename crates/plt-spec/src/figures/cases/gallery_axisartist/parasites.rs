@@ -50,7 +50,7 @@ fn three_datasets(
 }
 
 fn demo_parasite_axes(fig: &Figure) -> CaseResult {
-    let host = axisartist::Axes::new(fig.add_axes([0.15, 0.1, 0.65, 0.8])?);
+    let host = axisartist::AxisArtistAxes::new(fig.add_axes([0.15, 0.1, 0.65, 0.8])?);
     let par1 = host.add_parasite_axes(ParasiteLink::Independent)?;
     par1.ax().share_x(host.ax())?;
     let par2 = host.add_parasite_axes(ParasiteLink::Independent)?;
@@ -69,7 +69,7 @@ fn demo_parasite_axes(fig: &Figure) -> CaseResult {
 }
 
 fn demo_parasite_axes2(fig: &Figure) -> CaseResult {
-    let host = axisartist::Axes::new(fig.subplot());
+    let host = axisartist::AxisArtistAxes::new(fig.subplot());
     fig.subplots_adjust(&SubplotOverrides {
         right: Some(0.75),
         ..SubplotOverrides::default()

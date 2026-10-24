@@ -10,7 +10,7 @@ use plt::lines::{LineStyle, MarkEvery};
 use plt::markers::{Marker, MarkerKey, MarkerSymbol};
 use plt::rc::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, CycleValue, Cycler, Distiller,
-    Dpi, FontType, HistBins, LabelColor, SavefigBbox, Whiskers,
+    Dpi, FontType, HistBins, LabelColor, LegendLocParam, SavefigBbox, Whiskers,
 };
 use plt::text::{HAlign, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::MinorDivisions;
@@ -310,12 +310,14 @@ impl Canon for SavefigBbox {
     }
 }
 
-impl Canon for LegendLoc {
+/// matplotlib keeps `legend.loc` as given: a name, an integer code or a
+/// pair.
+impl Canon for LegendLocParam {
     fn canon(&self) -> Json {
-        match self {
-            Self::Name(name) => text(name),
-            Self::Code(code) => code.canon(),
-            Self::Point(x, y) => [*x, *y].canon(),
+        match (self.loc, self.loc.code()) {
+            (LegendLoc::Point(x, y), _) => [x, y].canon(),
+            (_, Some(code)) if self.by_code => i64::from(code).canon(),
+            (loc, _) => text(&loc.to_string()),
         }
     }
 }

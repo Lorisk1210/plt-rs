@@ -6,11 +6,12 @@ use std::rc::Rc;
 
 use plt_core::Point;
 
-use super::slider::{Orientation, SliderBase, SliderOptions};
+use super::slider::{SliderBase, SliderOptions};
 use super::{CallbackId, Connections, Observers};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, PlotError};
 use crate::lines::Line2D;
+use crate::orientation::Orientation;
 use crate::patches::{Patch, Polygon};
 use crate::text::Text;
 

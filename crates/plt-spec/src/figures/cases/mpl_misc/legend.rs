@@ -7,10 +7,12 @@ use plt::axes::{
 use plt::collections::CollectionProps;
 use plt::colors::Color;
 use plt::legend::{
-    HandlerTuple, LegendHandle, LegendMode, LegendOptions, LegendShadow, LegendShadowStyle,
+    HandlerTuple, LegendHandle, LegendLoc, LegendMode, LegendOptions, LegendShadow,
+    LegendShadowStyle,
 };
-use plt::lines::FormatError;
+use plt::lines::FormatStringError;
 use plt::numeric::{arange, linspace};
+use plt::offsetbox::AnchorLoc;
 use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::transforms::Transform;
@@ -26,7 +28,7 @@ fn plot_y(ax: &Axes, y: &[f64], props: LineProps) -> CaseResult {
 }
 
 /// A line styled by `fmt` and labelled `label`.
-fn styled(fmt: &str, label: &str) -> Result<LineProps, FormatError> {
+fn styled(fmt: &str, label: &str) -> Result<LineProps, FormatStringError> {
     Ok(LineProps::fmt(fmt)?.label(label))
 }
 
@@ -44,7 +46,7 @@ fn legend_auto1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     sloped_dots(&ax, -1.0, "y=1")?;
     sloped_dots(&ax, 1.0, "y=-1")?;
-    ax.legend(LegendOptions::default().loc("best"))?;
+    ax.legend(LegendOptions::default().loc(LegendLoc::Best))?;
     remove_text(fig);
     Ok(())
 }
@@ -67,7 +69,7 @@ fn legend_auto2(fig: &Figure) -> CaseResult {
         LegendOptions::default()
             .handles([&up.patches[0], &down.patches[0]])
             .labels(["up", "down"])
-            .loc("best"),
+            .loc(LegendLoc::Best),
     )?;
     remove_text(fig);
     Ok(())
@@ -80,7 +82,7 @@ fn legend_auto3(fig: &Figure) -> CaseResult {
     let y = [0.95, 0.95, 0.05, 0.05, 0.5, 0.5];
     ax.plot_with(x, y, styled("o-", "line")?)?;
     ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
-    ax.legend(LegendOptions::default().loc("best"))?;
+    ax.legend(LegendOptions::default().loc(LegendLoc::Best))?;
     Ok(())
 }
 
@@ -90,7 +92,11 @@ fn various_labels(fig: &Figure) -> CaseResult {
     plot_y(&ax, &arange(0.0, 4.0, 1.0), styled("o", "1")?)?;
     plot_y(&ax, &linspace(4.0, 4.1, 50), styled("o", "Développés")?)?;
     plot_y(&ax, &arange(4.0, 1.0, -1.0), styled("o", "__nolegend__")?)?;
-    ax.legend(LegendOptions::default().numpoints(1_usize).loc("best"))?;
+    ax.legend(
+        LegendOptions::default()
+            .numpoints(1_usize)
+            .loc(LegendLoc::Best),
+    )?;
     remove_text(fig);
     Ok(())
 }
@@ -101,7 +107,11 @@ fn labels_first(fig: &Figure) -> CaseResult {
     plot_y(&ax, &arange(0.0, 10.0, 1.0), styled("-o", "1")?)?;
     plot_y(&ax, &[5.0; 10], styled(":x", "x")?)?;
     plot_y(&ax, &arange(20.0, 10.0, -1.0), styled("d", "diamond")?)?;
-    ax.legend(LegendOptions::default().loc("best").markerfirst(false))?;
+    ax.legend(
+        LegendOptions::default()
+            .loc(LegendLoc::Best)
+            .markerfirst(false),
+    )?;
     remove_text(fig);
     Ok(())
 }
@@ -141,7 +151,7 @@ fn red_frame(fig: &Figure) -> CaseResult {
     let legend = ax.legend(
         LegendOptions::default()
             .labels(["Longlabel that will go away"])
-            .loc("center"),
+            .loc(AnchorLoc::Center),
     )?;
     legend.frame().set_facecolor([1.0, 0.0, 0.0, 0.5]);
     remove_text(fig);
@@ -164,7 +174,7 @@ fn fancy(fig: &Figure) -> CaseResult {
     ax.errorbar(&x, &x, errors)?;
     ax.legend(
         LegendOptions::default()
-            .loc("center left")
+            .loc(AnchorLoc::CenterLeft)
             .bbox_to_anchor((1.0, 0.5))
             .ncols(2)
             .shadow(true)
@@ -184,7 +194,11 @@ fn framealpha(fig: &Figure) -> CaseResult {
         &x,
         LineProps::default().label("mylabel").linewidth(10.0),
     )?;
-    ax.legend(LegendOptions::default().framealpha(0.5).loc("upper right"))?;
+    ax.legend(
+        LegendOptions::default()
+            .framealpha(0.5)
+            .loc(AnchorLoc::UpperRight),
+    )?;
     remove_text(fig);
     Ok(())
 }
@@ -197,7 +211,7 @@ fn scatter_legend(fig: &Figure, label: &str) -> CaseResult {
         .set_label(label);
     ax.legend(
         LegendOptions::default()
-            .loc("center left")
+            .loc(AnchorLoc::CenterLeft)
             .bbox_to_anchor((1.0, 0.5))
             .title("My legend"),
     )?;
@@ -214,12 +228,12 @@ fn legend_expand(fig: &Figure) -> CaseResult {
         .iter()
         .zip([LegendMode::Fit, LegendMode::Expand])
     {
-        let legend = |loc: &str| LegendOptions::default().loc(loc).mode(mode);
+        let legend = |loc: AnchorLoc| LegendOptions::default().loc(loc).mode(mode);
         sloped_dots(ax, -1.0, "y=1")?;
-        ax.keep_legend(&ax.legend(legend("upper left"))?);
+        ax.keep_legend(&ax.legend(legend(AnchorLoc::UpperLeft))?);
         sloped_dots(ax, 1.0, "y=-1")?;
-        ax.keep_legend(&ax.legend(legend("right"))?);
-        ax.legend(legend("lower left").ncols(2))?;
+        ax.keep_legend(&ax.legend(legend(AnchorLoc::Right))?);
+        ax.legend(legend(AnchorLoc::LowerLeft).ncols(2))?;
     }
     remove_text(fig);
     Ok(())
@@ -286,7 +300,7 @@ fn legend_stackplot(fig: &Figure) -> CaseResult {
         layer.set_label(label);
     }
     ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 70.0)?;
-    ax.legend(LegendOptions::default().loc("best"))?;
+    ax.legend(LegendOptions::default().loc(LegendLoc::Best))?;
     Ok(())
 }
 
@@ -303,7 +317,7 @@ fn not_covering_scatter(fig: &Figure) -> CaseResult {
     ax.legend(
         LegendOptions::default()
             .labels(["foo", "foo", "foo"])
-            .loc("best"),
+            .loc(LegendLoc::Best),
     )?;
     ax.set_xlim(-0.5, 2.2)?.set_ylim(-0.5, 2.2)?;
     Ok(())
@@ -321,7 +335,11 @@ fn not_covering_scatter_transform(fig: &Figure) -> CaseResult {
         ..ScatterOptions::default()
     };
     ax.scatter_with([20.0], [10.0], shifted)?;
-    ax.legend(LegendOptions::default().labels(["foo", "bar"]).loc("best"))?;
+    ax.legend(
+        LegendOptions::default()
+            .labels(["foo", "bar"])
+            .loc(LegendLoc::Best),
+    )?;
     Ok(())
 }
 
@@ -336,19 +354,19 @@ fn shadow_argument_types(fig: &Figure) -> CaseResult {
         props,
         ..LegendShadowStyle::default()
     };
-    let shadows: [(&str, LegendShadow); 5] = [
-        ("upper left", true.into()),
-        ("upper right", false.into()),
+    let shadows: [(AnchorLoc, LegendShadow); 5] = [
+        (AnchorLoc::UpperLeft, true.into()),
+        (AnchorLoc::UpperRight, false.into()),
         (
-            "center left",
+            AnchorLoc::CenterLeft,
             shaded(PatchProps::default().color("red").alpha(0.1), 2.0, -2.0).into(),
         ),
         (
-            "center right",
+            AnchorLoc::CenterRight,
             shaded(PatchProps::default().color((0.1, 0.2, 0.5)), 2.0, -5.0).into(),
         ),
         (
-            "lower left",
+            AnchorLoc::LowerLeft,
             shaded(PatchProps::default().color("tab:cyan"), 10.0, -2.0).into(),
         ),
     ];
@@ -356,7 +374,7 @@ fn shadow_argument_types(fig: &Figure) -> CaseResult {
         let legend = ax.legend(LegendOptions::default().loc(loc).shadow(shadow))?;
         ax.keep_legend(&legend);
     }
-    ax.legend(LegendOptions::default().loc("lower right"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::LowerRight))?;
     remove_text(fig);
     Ok(())
 }

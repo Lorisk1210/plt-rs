@@ -12,7 +12,7 @@ use plt::colors::{Alpha, colormaps};
 use plt::figure::{Mosaic, MosaicOptions, Share};
 use plt::fonts::FontSize;
 use plt::layout::{LayoutEngine, TightLayout};
-use plt::legend::LegendOptions;
+use plt::legend::{LegendLoc, LegendOptions};
 use plt::markers::{MarkerStyle, PolygonStyle};
 use plt::prelude::*;
 use plt::rc::Aspect;
@@ -224,7 +224,7 @@ fn elements_legend(
     Ok(LegendOptions::default()
         .handles(handles)
         .labels(labels)
-        .loc(loc)
+        .loc(loc.parse::<LegendLoc>()?)
         .title(title))
 }
 

@@ -8,9 +8,10 @@ use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, QuadCoords, Quad
 use plt::figure::Figure;
 use plt::fonts::FontSize;
 use plt::layout::LayoutEngine;
-use plt::legend::LegendOptions;
+use plt::legend::{LegendLoc, LegendOptions};
 use plt::lines::LineStyle;
 use plt::numeric::{Grid, arange, linspace, logspace, meshgrid};
+use plt::offsetbox::AnchorLoc;
 use plt::ticker::pyfmt;
 use plt::ticker::{FuncFormatter, LogFormatter, LogLabelStyle, LogLocator};
 
@@ -121,7 +122,7 @@ pub(super) fn line_contour_legend(fig: &Figure) -> CaseResult {
     ax.legend(LegendOptions {
         handles: Some(handles),
         labels: Some(labels),
-        loc: Some("upper left".into()),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::UpperLeft)),
         fontsize: Some(FontSize::Points(8.0)),
         ..LegendOptions::default()
     })?;

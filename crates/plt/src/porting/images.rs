@@ -58,6 +58,7 @@
 //! | `ax.streamplot(x, y, U, V, density=, color=)`    | [`Axes::streamplot`] with [`StreamField`] and [`StreamplotOptions`] |
 //! | `plt.imread(path)`, `plt.imsave(path, z, cmap=)` | [`imread`], [`imsave`] with [`ImsaveOptions`]    |
 //! | `imsave` into a buffer, reading one back         | [`imsave_bytes`], [`imread_bytes`]               |
+//! | `imsave(..., metadata={"Title": ...})` (PNG)     | [`ImsaveOptions::metadata`]`: Some(PngMetadata::default().with("Title", ..))` |
 //!
 //! # Images and colorbars
 //!
@@ -269,6 +270,7 @@
 //! [`AxesImage::set_norm`]: crate::image::AxesImage::set_norm
 //! [`FigimageOptions`]: crate::image::FigimageOptions
 //! [`ImsaveOptions`]: crate::image::ImsaveOptions
+//! [`ImsaveOptions::metadata`]: crate::image::ImsaveOptions::metadata
 //! [`imread`]: crate::image::imread
 //! [`imsave`]: crate::image::imsave
 //! [`imsave_bytes`]: crate::image::imsave_bytes

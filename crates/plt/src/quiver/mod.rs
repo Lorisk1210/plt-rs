@@ -4,7 +4,7 @@
 //!   values mapped to colours (the positional `X, Y, U, V, C` of `quiver`
 //!   and `barbs`); non-finite components are masked.
 //! * [`QuiverOptions`] — how arrows are sized: [`QuiverUnits`] for the
-//!   arrow width, the `scale` and its units, [`Angles`], the [`ArrowShape`]
+//!   arrow width, the `scale` and its units, [`Angles`], the [`QuiverArrowShape`]
 //!   and the [`Pivot`]. The arrows are polygons in arrow-width units that
 //!   are rebuilt from the axes geometry whenever the figure is drawn, as
 //!   in matplotlib's `Quiver.draw`.
@@ -35,7 +35,7 @@ mod field;
 mod geometry;
 mod key;
 
-pub use arrows::{ArrowShape, Pivot};
+pub use arrows::{Pivot, QuiverArrowShape};
 pub use barbs::{BarbIncrements, BarbPivot, BarbSizes, BarbsOptions};
 pub use field::VectorField;
 pub use geometry::{Angles, QuiverUnits};
@@ -69,7 +69,7 @@ pub struct QuiverOptions {
     /// of arrows).
     pub width: Option<f64>,
     /// Head proportions and the handling of short arrows.
-    pub shape: ArrowShape,
+    pub shape: QuiverArrowShape,
     /// Which part of the arrow sits on its position.
     pub pivot: Pivot,
     /// Face colour of the arrows unless colours are mapped.
@@ -92,7 +92,7 @@ impl Default for QuiverOptions {
             units: QuiverUnits::Width,
             angles: Angles::Uv,
             width: None,
-            shape: ArrowShape::default(),
+            shape: QuiverArrowShape::default(),
             pivot: Pivot::Tail,
             color: Color::from("k"),
             props: CollectionProps::default(),

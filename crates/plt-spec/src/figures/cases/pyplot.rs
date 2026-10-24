@@ -158,7 +158,8 @@ fn subplot2grid_twin(fig: &Figure) -> CaseResult {
             ..ScatterOptions::default()
         };
         pyplot::scatter_with(&x, map(&x, |v| (3.0 * v).sin()), colors)?;
-        pyplot::xticks(vec![0.0, 1.5, 3.0], &["start", "middle", "end"])?;
+        pyplot::xticks(vec![0.0, 1.5, 3.0]);
+        pyplot::xticklabels(["start", "middle", "end"])?;
         pyplot::margins(0.2, 0.1)?;
         pyplot::subplot2grid((3, 3), (1, 2), 2, 1)?;
         let head = &x[..8];
@@ -179,8 +180,8 @@ fn polar_grids(fig: &Figure) -> CaseResult {
     with_current(fig, || {
         let theta = linspace(0.0, 2.0 * PI, 100);
         pyplot::polar(&theta, map(&theta, |t| 1.0 + 0.5 * (3.0 * t).sin()))?;
-        pyplot::rgrids(&[0.5, 1.0, 1.5], &["a", "b", "c"], Some(45.0))?;
-        pyplot::thetagrids(&[0.0, 90.0, 180.0, 270.0], &[])?;
+        pyplot::rgrids_labeled(&[0.5, 1.0, 1.5], ["a", "b", "c"], Some(45.0))?;
+        pyplot::thetagrids(&[0.0, 90.0, 180.0, 270.0])?;
         pyplot::title("polar");
         Ok(())
     })

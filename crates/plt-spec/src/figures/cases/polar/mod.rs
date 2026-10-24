@@ -21,6 +21,7 @@ use plt::fonts::FontSize;
 use plt::legend::LegendOptions;
 use plt::lines::{LineProps, LineStyle};
 use plt::numeric::{Grid, linspace, meshgrid};
+use plt::offsetbox::AnchorLoc;
 use plt::patches::PatchProps;
 use plt::polar::{Compass, PolarAxes, ThetaDirection};
 
@@ -65,7 +66,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             vec![0.8; 13],
             LineProps::fmt("s--")?.label("circle"),
         )?;
-        ax.legend(LegendOptions::default().loc("lower left"))?;
+        ax.legend(LegendOptions::default().loc(AnchorLoc::LowerLeft))?;
         Ok(())
     }),
     square("polar/scatter", |fig| {

@@ -9,7 +9,7 @@ use plt::axes::{AxisName, GridOptions};
 use plt::axisartist::angle_helper::{ExtremeFinderCycle, FormatterDms, LocatorDms};
 use plt::axisartist::floating_axes::{self, FloatingAxes};
 use plt::axisartist::grid_finder::{
-    FixedLocator, GridError, GridFinderOptions, GridFormatter, MaxNLocator,
+    GridError, GridFinderOptions, GridFixedLocator, GridFormatter, GridMaxNLocator,
 };
 use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
 use plt::axisartist::{self, AuxTransform, Toggle};
@@ -45,7 +45,7 @@ fn cycle_extremes() -> ExtremeFinderCycle {
 }
 
 /// `ax1.grid(True)`.
-fn grid_on(ax: &axisartist::Axes) {
+fn grid_on(ax: &axisartist::AxisArtistAxes) {
     ax.grid(true, GridOptions::default());
 }
 
@@ -53,7 +53,7 @@ fn custom_transform(fig: &Figure) -> CaseResult {
     // `MyTransform(1)`: a shear whose paths are not interpolated.
     let tr = AuxTransform::from_fns(|x, y| (x, y - x), |x, y| (x, y + x));
     let helper = GridHelperCurveLinear::new(tr.clone(), GridFinderOptions::default());
-    let ax1 = axisartist::Axes::with_grid_helper(fig.subplot(), helper);
+    let ax1 = axisartist::AxisArtistAxes::with_grid_helper(fig.subplot(), helper);
     ax1.aux_axes(&tr).plot([3.0, 6.0], [5.0, 10.0])?;
     ax1.ax().set_aspect(Aspect::Equal)?;
     ax1.ax().set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
@@ -101,7 +101,7 @@ fn polar_box(fig: &Figure) -> CaseResult {
             ..GridFinderOptions::default()
         },
     );
-    let ax1 = axisartist::Axes::with_grid_helper(fig.subplot(), helper);
+    let ax1 = axisartist::AxisArtistAxes::with_grid_helper(fig.subplot(), helper);
     for name in ["right", "top"] {
         artist(&ax1, name)?.major_ticklabels().set_visible(true);
     }
@@ -130,12 +130,12 @@ fn axis_direction(fig: &Figure) -> CaseResult {
         GridFinderOptions {
             extreme_finder: Some(Box::new(cycle_extremes())),
             grid_locator1: Some(Box::new(grid_locator1)),
-            grid_locator2: Some(Box::new(MaxNLocator::new(5))),
+            grid_locator2: Some(Box::new(GridMaxNLocator::new(5))),
             tick_formatter1: Some(Box::new(FormatterDms)),
             ..GridFinderOptions::default()
         },
     );
-    let ax1 = axisartist::Axes::with_grid_helper(fig.subplot(), helper);
+    let ax1 = axisartist::AxisArtistAxes::with_grid_helper(fig.subplot(), helper);
     for axis in ax1.axis_artists() {
         axis.set_visible(false);
     }
@@ -166,12 +166,12 @@ fn floating_polar(
     extremes: (f64, f64, f64, f64),
     degrees_step: usize,
 ) -> Result<FloatingAxes, Box<dyn std::error::Error>> {
-    let helper = floating_axes::GridHelperCurveLinear::new(
+    let helper = floating_axes::FloatingGridHelper::new(
         polar_degrees(),
         extremes,
         GridFinderOptions {
             grid_locator1: Some(Box::new(LocatorDms::new(degrees_step))),
-            grid_locator2: Some(Box::new(FixedLocator::new([2.0, 4.0, 6.0, 8.0, 10.0]))),
+            grid_locator2: Some(Box::new(GridFixedLocator::new([2.0, 4.0, 6.0, 8.0, 10.0]))),
             tick_formatter1: Some(Box::new(FormatterDms)),
             ..GridFinderOptions::default()
         },

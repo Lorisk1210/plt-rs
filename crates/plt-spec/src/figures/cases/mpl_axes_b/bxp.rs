@@ -1,7 +1,7 @@
 //! `bxp` from precomputed statistics on a log axis (`_bxp_test_helper`)
 //! and a box plot with a wide median.
 
-use plt::axes::{BoxStyle, BoxplotOptions, BxpOptions};
+use plt::axes::{BoxProps, BoxplotOptions, BxpOptions};
 use plt::figure::Figure;
 use plt::lines::{LineProps, LineStyle};
 use plt::markers::Marker;
@@ -37,9 +37,9 @@ fn log_normal_stats(whis: Whis) -> Result<Vec<BoxStats>, stats::StatsError> {
     let columns: Vec<Vec<f64>> = (0..4)
         .map(|j| samples.iter().skip(j).step_by(4).copied().collect())
         .collect();
-    let options = stats::BoxplotOptions {
+    let options = stats::BoxplotStatsOptions {
         whis,
-        ..stats::BoxplotOptions::default()
+        ..stats::BoxplotStatsOptions::default()
     };
     stats::boxplot_stats(&columns, options)
 }
@@ -141,7 +141,7 @@ pub(super) const CASES: &[FigureCase] = &[
     }),
     FigureCase::new("mpl_axes_b/bxp_patchartist", |fig| {
         let options = BxpOptions {
-            boxes: Some(BoxStyle::Patch(PatchProps::default())),
+            boxes: Some(BoxProps::Patch(PatchProps::default())),
             ..BxpOptions::default()
         };
         textless(fig, &options)
@@ -153,7 +153,7 @@ pub(super) const CASES: &[FigureCase] = &[
             .edgecolor("green")
             .linestyle(LineStyle::Dotted);
         let options = BxpOptions {
-            boxes: Some(BoxStyle::Patch(boxes)),
+            boxes: Some(BoxProps::Patch(boxes)),
             ..BxpOptions::default()
         };
         textless(fig, &options)
@@ -175,7 +175,7 @@ pub(super) const CASES: &[FigureCase] = &[
     }),
     lines_case("mpl_axes_b/bxp_custombox", |fig| {
         let options = BxpOptions {
-            boxes: Some(BoxStyle::Line(styled(LineStyle::Dashed, "b", 3.0))),
+            boxes: Some(BoxProps::Line(styled(LineStyle::Dashed, "b", 3.0))),
             ..BxpOptions::default()
         };
         textless(fig, &options)

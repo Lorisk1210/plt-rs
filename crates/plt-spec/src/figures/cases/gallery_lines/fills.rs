@@ -10,6 +10,7 @@ use plt::dates::{DateTime, Datetime64};
 use plt::figure::Share;
 use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::text::HAlign;
@@ -111,7 +112,7 @@ fn fill_between_alpha_2(fig: &Figure) -> CaseResult {
         ax.fill_between(&t, upper, lower, band(color, 0.4))?;
     }
     ax.set_title(r"random walkers empirical $\mu$ and $\pm \sigma$ interval");
-    ax.legend(LegendOptions::default().loc("upper left"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::UpperLeft))?;
     ax.set_xlabel("num steps");
     ax.set_ylabel("position");
     ax.grid(true);
@@ -141,7 +142,7 @@ fn fill_between_alpha_3(fig: &Figure) -> CaseResult {
         ..FillBetweenOptions::default()
     };
     ax.fill_between(&t, &lower, &upper, sigma_range)?;
-    ax.legend(LegendOptions::default().loc("upper left"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::UpperLeft))?;
     let above = x.iter().zip(&upper).map(|(x, u)| x > u).collect();
     ax.fill_between(&t, &upper, &x, masked_band(above, "red", 0.4))?;
     let below = x.iter().zip(&lower).map(|(x, l)| x < l).collect();

@@ -151,18 +151,18 @@ impl LineArtist {
     pub(super) fn marker_indices(
         &self,
         layout: LayoutContext<'_>,
-    ) -> Result<Vec<usize>, MarkerError> {
-        let points = self.points().map_err(MarkerError::Data)?;
+    ) -> Result<Vec<usize>, MarkerIndicesError> {
+        let points = self.points().map_err(MarkerIndicesError::Data)?;
         if points.is_empty() {
             return Ok(Vec::new());
         }
         let resolved = layout
             .resolve(&self.transform())
-            .ok_or(MarkerError::Detached)?;
+            .ok_or(MarkerIndicesError::Detached)?;
         let (points, affine) = resolved.split_points(&points);
         Ok(self
             .select_markers(layout, &points, &affine)
-            .map_err(MarkerError::MarkEvery)?
+            .map_err(MarkerIndicesError::MarkEvery)?
             .unwrap_or_else(|| (0..points.len()).collect()))
     }
 }
@@ -195,7 +195,7 @@ impl LineProps {
 
 /// Why the marker positions of a line cannot be determined.
 #[derive(Clone, Debug, PartialEq)]
-pub enum MarkerError {
+pub enum MarkerIndicesError {
     /// The line's data cannot be drawn.
     Data(StepError),
     /// The line's coordinate system no longer exists.
@@ -204,7 +204,7 @@ pub enum MarkerError {
     MarkEvery(MarkEveryError),
 }
 
-impl fmt::Display for MarkerError {
+impl fmt::Display for MarkerIndicesError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Data(err) => write!(f, "invalid line data: {err}"),
@@ -214,7 +214,7 @@ impl fmt::Display for MarkerError {
     }
 }
 
-impl std::error::Error for MarkerError {}
+impl std::error::Error for MarkerIndicesError {}
 
 #[cfg(test)]
 mod tests {

@@ -20,6 +20,7 @@ use plt::rc::Aspect;
 use crate::figures::cases::common::padded;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
+use plt::offsetbox::AnchorLoc;
 use plt::ticker::LabelFormat;
 
 /// The penguin species of the bar examples.
@@ -46,7 +47,7 @@ fn barchart(fig: &Figure) -> CaseResult {
     }
     ax.set_ylabel("Length (mm)");
     ax.set_title("Penguin attributes by species");
-    ax.legend(LegendOptions::default().loc("upper left").ncols(3))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::UpperLeft).ncols(3))?;
     ax.set_ylim(0.0, 250.0)?;
     Ok(())
 }
@@ -237,7 +238,7 @@ fn bar_stacked(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     stacked(&ax, &species, &series, 0.5)?;
     ax.set_title("Number of penguins with above average body mass");
-    ax.legend(LegendOptions::default().loc("upper right"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::UpperRight))?;
     Ok(())
 }
 
@@ -463,7 +464,7 @@ fn horizontal_barchart_distribution(fig: &Figure) -> CaseResult {
         LegendOptions::default()
             .ncols(category_names.len())
             .bbox_to_anchor(BboxToAnchor::Point(0.0, 1.0))
-            .loc("lower left")
+            .loc(AnchorLoc::LowerLeft)
             .fontsize(plt::fonts::RelativeSize::Small),
     )?;
     Ok(())

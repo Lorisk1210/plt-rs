@@ -92,6 +92,36 @@
    "args": {"data": {"zeros": [481, 321]}, "format": "png"},
    "value": {"shape": [481, 321, 4], "sum": 62995608, "weighted": 19453250956542}
   },
+  {"op": "image.imsave.png_text", "args": {"format": "jpeg", "metadata": {}}, "error": "ValueError"},
+  {
+   "op": "image.imsave.png_text",
+   "args": {
+    "format": "png",
+    "metadata": {"Title": "Ramp", "Author": "Zoë", "Description": "日本語の説明", "Comment": "first line\nsecond line", "Custom key": "value", "Unset": null}
+   },
+   "value": {
+    "chunks": ["IHDR", "tEXt", "tEXt", "tEXt", "iTXt", "tEXt", "tEXt", "pHYs"],
+    "text": [["Software", "<default software>"], ["Title", "Ramp"], ["Author", "Zoë"], ["Description", "日本語の説明"], ["Comment", "first line\nsecond line"], ["Custom key", "value"]]
+   }
+  },
+  {
+   "op": "image.imsave.png_text",
+   "args": {"format": "png", "metadata": {"Title": "Ramp", "Software": "s"}},
+   "value": {"chunks": ["IHDR", "tEXt", "tEXt", "pHYs"], "text": [["Software", "s"], ["Title", "Ramp"]]}
+  },
+  {
+   "op": "image.imsave.png_text",
+   "args": {"format": "png", "metadata": {"Software": "test"}},
+   "value": {"chunks": ["IHDR", "tEXt", "pHYs"], "text": [["Software", "test"]]}
+  },
+  {"op": "image.imsave.png_text", "args": {"format": "png", "metadata": {"Software": null}}, "value": {"chunks": ["IHDR", "pHYs"], "text": []}},
+  {
+   "op": "image.imsave.png_text",
+   "args": {"format": "png", "metadata": {}},
+   "value": {"chunks": ["IHDR", "tEXt", "pHYs"], "text": [["Software", "<default software>"]]}
+  },
+  {"op": "image.imsave.png_text", "args": {"format": "png"}, "value": {"chunks": ["IHDR", "tEXt", "pHYs"], "text": [["Software", "<default software>"]]}},
+  {"op": "image.imsave.png_text", "args": {"format": "tiff", "metadata": {}}, "error": "ValueError"},
   {
    "op": "image.resample",
    "args": {"data": [0.1, 0.1], "interpolation": "bilinear", "width": 10, "nonaffine": false},

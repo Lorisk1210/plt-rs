@@ -1,7 +1,7 @@
 //! `cbook.boxplot_stats`, `cbook.violin_stats` and `mlab.GaussianKDE`.
 
 use plt::numeric::Grid;
-use plt::stats::{self, BandwidthMethod, BoxplotOptions, GaussianKde, ViolinOptions, Whis};
+use plt::stats::{self, BandwidthMethod, BoxplotStatsOptions, GaussianKde, ViolinOptions, Whis};
 
 use super::{datasets, floats, grid_json, object};
 use crate::json::Json;
@@ -37,7 +37,7 @@ pub(crate) fn boxplot_stats(args: Args<'_>) -> Outcome {
                 .ok_or_else(|| ProbeError::BadArgs(format!("bad labels {labels}")))
         })
         .transpose()?;
-    let opts = BoxplotOptions {
+    let opts = BoxplotStatsOptions {
         whis,
         labels,
         autorange: args.opt_bool("autorange")?.unwrap_or(false),

@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use super::{Formatter, TickLabels};
+use super::{FormattedTicks, Formatter};
 use crate::ticker::pyfmt::{PrintfFormat, StrTemplate};
 use crate::ticker::{TickContext, TickerError};
 
@@ -12,8 +12,12 @@ use crate::ticker::{TickContext, TickerError};
 pub struct NullFormatter;
 
 impl Formatter for NullFormatter {
-    fn format_ticks(&self, locs: &[f64], _: &TickContext<'_>) -> Result<TickLabels, TickerError> {
-        Ok(TickLabels {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        _: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
+        Ok(FormattedTicks {
             labels: vec![String::new(); locs.len()],
             offset: String::new(),
         })
@@ -55,11 +59,15 @@ impl FixedFormatter {
 }
 
 impl Formatter for FixedFormatter {
-    fn format_ticks(&self, locs: &[f64], _: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        _: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         let labels = (0..locs.len())
             .map(|pos| self.seq.get(pos).cloned().unwrap_or_default())
             .collect();
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels,
             offset: self.offset.clone(),
         })
@@ -107,8 +115,12 @@ impl fmt::Debug for FuncFormatter {
 }
 
 impl Formatter for FuncFormatter {
-    fn format_ticks(&self, locs: &[f64], _: &TickContext<'_>) -> Result<TickLabels, TickerError> {
-        Ok(TickLabels {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        _: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
+        Ok(FormattedTicks {
             labels: locs
                 .iter()
                 .enumerate()
@@ -146,12 +158,16 @@ impl FormatStrFormatter {
 }
 
 impl Formatter for FormatStrFormatter {
-    fn format_ticks(&self, locs: &[f64], _: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        _: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         let labels = locs
             .iter()
             .map(|&x| self.format.format(x))
             .collect::<Result<_, _>>()?;
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels,
             offset: String::new(),
         })
@@ -197,13 +213,17 @@ impl StrMethodFormatter {
 }
 
 impl Formatter for StrMethodFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         let labels = locs
             .iter()
             .enumerate()
             .map(|(pos, &x)| self.render(x, Some(pos), ctx))
             .collect::<Result<_, _>>()?;
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels,
             offset: String::new(),
         })

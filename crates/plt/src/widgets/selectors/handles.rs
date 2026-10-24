@@ -8,8 +8,8 @@ use crate::axes::Axes;
 use crate::colors::Color;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle};
 use crate::markers::MarkerSymbol;
+use crate::orientation::Orientation;
 use crate::rc::ColorOrAuto;
-use crate::widgets::Orientation;
 
 /// The display transform of the data of `ax`, for distances in pixels.
 fn data_to_display(ax: &Axes) -> Option<crate::transforms::ResolvedTransform> {

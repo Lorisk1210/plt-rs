@@ -10,7 +10,7 @@ use std::f64::consts::TAU;
 use plt::axes::{Axes, SpecgramOptions, SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale};
 use plt::colors::{Colorize, ColorizerOptions, LogNorm};
 use plt::figure::Figure;
-use plt::mlab::{Sides, SpecgramMode, SpectralOptions, SpectrumOptions};
+use plt::mlab::{SpecgramMode, SpectralOptions, SpectrumOptions, SpectrumSides};
 use plt::prelude::arange;
 
 use super::super::mpl_tests::{classic, remove_ticks_and_titles};
@@ -18,7 +18,11 @@ use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 /// The three `sides` of each figure's stacked axes.
-const SIDES: [Sides; 3] = [Sides::Default, Sides::OneSided, Sides::TwoSided];
+const SIDES: [SpectrumSides; 3] = [
+    SpectrumSides::Default,
+    SpectrumSides::OneSided,
+    SpectrumSides::TwoSided,
+];
 
 /// One sum of sines of `x` per row of frequencies (`np.sin(2 * np.pi *
 /// np.multiply.outer(fstims, x)).sum(axis=1)`).
@@ -56,7 +60,7 @@ fn stacked(fig: &Figure) -> Result<Vec<Axes>, Box<dyn std::error::Error>> {
 }
 
 /// Welch estimate options with half-overlapping `nfft`-sample segments.
-fn welch(fs: f64, nfft: usize, sides: Sides) -> SpectralOptions {
+fn welch(fs: f64, nfft: usize, sides: SpectrumSides) -> SpectralOptions {
     SpectralOptions {
         nfft,
         fs,

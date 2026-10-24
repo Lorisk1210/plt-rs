@@ -6,7 +6,7 @@ use plt_render::{CapStyle, JoinStyle};
 use super::LineArtist;
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::Color;
-use crate::lines::{DrawStyle, LineStyle, MarkEvery, MarkerError, StepError};
+use crate::lines::{DrawStyle, LineStyle, MarkEvery, MarkerIndicesError, StepError};
 use crate::markers::{FillStyle, Marker};
 use crate::rc::ColorOrAuto;
 
@@ -79,7 +79,7 @@ impl Line2D {
     /// drawn with the figure's current layout, in drawing order
     /// (`markevery` applied; every point without it). Lay the figure out
     /// first ([`crate::figure::Figure::layout`]) so the view is final.
-    pub fn marker_indices(&self) -> Result<Vec<usize>, MarkerError> {
+    pub fn marker_indices(&self) -> Result<Vec<usize>, MarkerIndicesError> {
         let state = self.raw.figure_state().borrow();
         self.raw
             .with::<LineArtist, _>(|line| line.marker_indices(LayoutContext::new(&state)))

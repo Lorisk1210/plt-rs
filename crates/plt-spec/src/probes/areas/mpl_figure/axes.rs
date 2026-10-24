@@ -203,11 +203,16 @@ pub(super) fn subplot_mosaic(args: Args<'_>) -> Outcome {
             let first = axd
                 .get("A")
                 .ok_or_else(|| ProbeError::BadArgs("no axes A".into()))?;
-            first.set_xscale(x).map_err(ProbeError::rejected)?;
-            first.set_yscale(y).map_err(ProbeError::rejected)?;
+            first.set_xscale(x.as_str()).map_err(ProbeError::rejected)?;
+            first.set_yscale(y.as_str()).map_err(ProbeError::rejected)?;
             let scales = axd
                 .iter()
-                .map(|(label, ax)| (label.to_owned(), Json::from(vec![ax.xscale(), ax.yscale()])))
+                .map(|(label, ax)| {
+                    (
+                        label.to_owned(),
+                        Json::from(vec![ax.xscale().to_string(), ax.yscale().to_string()]),
+                    )
+                })
                 .collect();
             out.push(("scales".to_owned(), Json::Object(scales)));
         }

@@ -96,7 +96,7 @@ pub use bar_label::{BarLabelError, BarLabelOptions, BarLabelType};
 pub use bars::{BandAlign, BandRange, BarAlign, BarContainer, BarOptions};
 pub use box_labels::BoxLabel;
 pub use boxplot::BoxplotOptions;
-pub use bxp::{BoxArtist, BoxStyle, BoxplotArtists, BxpOptions};
+pub use bxp::{BoxArtist, BoxProps, BoxplotArtists, BxpOptions};
 pub(crate) use children::DataUpdate;
 pub use current_image::ColorizingArtist;
 pub use ecdf::{EcdfError, EcdfOptions};
@@ -150,7 +150,7 @@ use std::rc::Rc;
 
 use crate::artist::Artist;
 use crate::artist::{ArtistHandle, RawHandle};
-use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
+use crate::scale::{Scale, ScaleError, ScaleName, ScaleOptions};
 use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
 use crate::ticker::TickerError;
@@ -368,17 +368,24 @@ impl Axes {
         self.raw.figure_state().borrow_mut().unstale_axes(self.id());
     }
 
-    /// Sets the x scale by name (`"linear"`, `"log"`, `"symlog"`,
-    /// `"logit"`, `"asinh"`, ...) with default options.
-    pub fn set_xscale(&self, name: &str) -> Result<&Self, ScaleError> {
-        self.set_scale(AxisName::X, scale_factory(name, ScaleOptions::default())?);
-        Ok(self)
+    /// Sets the x scale by name ([`ScaleName::Log`], or its string
+    /// `"log"`, ...) with default options (matplotlib's `set_xscale`).
+    ///
+    /// # Errors
+    ///
+    /// When `name` is not a built-in scale, or the scale needs options.
+    pub fn set_xscale(&self, name: impl Into<ScaleName>) -> Result<&Self, ScaleError> {
+        self.set_scale_with(AxisName::X, name, ScaleOptions::default())
     }
 
-    /// Sets the y scale by name.
-    pub fn set_yscale(&self, name: &str) -> Result<&Self, ScaleError> {
-        self.set_scale(AxisName::Y, scale_factory(name, ScaleOptions::default())?);
-        Ok(self)
+    /// Sets the y scale by name with default options (matplotlib's
+    /// `set_yscale`).
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::set_xscale`].
+    pub fn set_yscale(&self, name: impl Into<ScaleName>) -> Result<&Self, ScaleError> {
+        self.set_scale_with(AxisName::Y, name, ScaleOptions::default())
     }
 
     /// Installs a scale object on one axis and on the axes sharing it,
@@ -405,13 +412,13 @@ impl Axes {
             });
     }
 
-    /// The name of the x scale.
-    pub fn xscale(&self) -> &'static str {
+    /// The name of the x scale (matplotlib's `get_xscale`).
+    pub fn xscale(&self) -> ScaleName {
         self.raw.with::<AxesState, _>(|a| a.xaxis.scale().name())
     }
 
-    /// The name of the y scale.
-    pub fn yscale(&self) -> &'static str {
+    /// The name of the y scale (matplotlib's `get_yscale`).
+    pub fn yscale(&self) -> ScaleName {
         self.raw.with::<AxesState, _>(|a| a.yaxis.scale().name())
     }
 

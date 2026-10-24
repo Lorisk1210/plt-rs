@@ -210,13 +210,14 @@ impl Colorbar {
     /// use plt::colorbar::ColorbarOptions;
     /// use plt::colors::{LogNorm, Normalize, ScalarMappable, colormaps};
     /// use plt::prelude::*;
+    /// use plt::scale::ScaleName;
     /// let fig = Figure::new();
     /// let ax = fig.subplot();
     /// let mut sm = ScalarMappable::with_norm(colormaps::get("viridis")?, Box::new(Normalize::new(0.0, 1.0)));
     /// let colorbar = fig.colorbar(&sm, ColorbarOptions::beside(&ax))?;
     /// sm.set_norm(Box::new(LogNorm::new(1.0, 100.0)));
     /// colorbar.update_normal(&sm)?;
-    /// assert_eq!(colorbar.ax().yscale(), "log");
+    /// assert_eq!(colorbar.ax().yscale(), ScaleName::Log);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///

@@ -5,7 +5,7 @@
 use plt::axes::{BoxArtist, BoxplotOptions, BxpOptions, GridOptions, TickLevel};
 use plt::figure::Figure;
 use plt::numeric::linspace;
-use plt::stats::{BoxplotOptions as StatsOptions, boxplot_stats};
+use plt::stats::{BoxplotStatsOptions, boxplot_stats};
 
 use super::{at_40_dpi, classic, remove_ticks_and_titles};
 use crate::figures::cases::common::with_sym;
@@ -169,7 +169,7 @@ fn bxp(fig: &Figure, options: &BxpOptions) -> CaseResult {
     let columns: Vec<Vec<f64>> = (0..4)
         .map(|column| samples.iter().skip(column).step_by(4).copied().collect())
         .collect();
-    let stats = boxplot_stats(&columns, StatsOptions::default())?;
+    let stats = boxplot_stats(&columns, BoxplotStatsOptions::default())?;
     let ax = fig.subplot();
     ax.set_yscale("log")?;
     ax.bxp(&stats, options.clone())?;

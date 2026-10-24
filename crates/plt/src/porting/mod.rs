@@ -32,7 +32,7 @@
 //! use std::f64::consts::TAU;
 //!
 //! use plt::figure::SaveOptions;
-//! use plt::legend::LegendOptions;
+//! use plt::legend::{LegendLoc, LegendOptions};
 //! use plt::prelude::*;
 //!
 //! let x = linspace(0.0, TAU, 100);
@@ -46,7 +46,7 @@
 //! ax.plot_with(&x, cos, LineProps::fmt("--")?.label("cos"))?;
 //! ax.set_xlabel("x").set_ylabel("y").set_xlim(0.0, TAU)?;
 //! ax.set_title("Waves");
-//! let legend = ax.legend(LegendOptions::default().loc("upper right"))?;
+//! let legend = ax.legend(LegendOptions::default().loc("upper right".parse::<LegendLoc>()?))?;
 //! assert_eq!(legend.labels(), ["sin", "cos"]);
 //!
 //! // `fig.savefig("waves.png", dpi=150)` writes a file; `to_png_with`

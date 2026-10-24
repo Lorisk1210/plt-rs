@@ -23,7 +23,7 @@ const LINE_POINTS: usize = 100;
 
 /// A curvilinear grid through an arbitrary transform (matplotlib's
 /// `GridHelperCurveLinear`): its grid lines, and the ticks of the axis
-/// artists of an [`Axes`](super::Axes) using it, come from the lines of
+/// artists of an [`AxisArtistAxes`](super::AxisArtistAxes) using it, come from the lines of
 /// constant curvilinear coordinate.
 ///
 /// ```

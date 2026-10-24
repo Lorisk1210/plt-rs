@@ -256,6 +256,7 @@ mod tests {
 
     use super::*;
     use crate::axes::{AxisName, ProjectionKind};
+    use crate::scale::ScaleName;
     use crate::testing::RecordingRenderer;
 
     #[test]
@@ -304,7 +305,7 @@ mod tests {
         assert!(fig.draw(&mut renderer).is_ok());
         ax.set_xlim(0.0, 1.0).expect("finite limits");
         ax.set_yscale("log").unwrap();
-        assert_eq!((ax.xlim(), ax.yscale()), ((-PI, PI), "linear"));
+        assert_eq!((ax.xlim(), ax.yscale()), ((-PI, PI), ScaleName::Linear));
         assert_eq!(fig.draw(&mut renderer).unwrap_err().0.len(), 2);
         assert!(!ax.can_zoom() && !ax.can_pan());
     }

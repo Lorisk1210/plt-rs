@@ -5,6 +5,7 @@
 
 use plt::fonts::{FontStyle, FontWeight};
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::text::{HAlign, VAlign};
 
@@ -46,7 +47,7 @@ fn axes(fig: &Figure) -> CaseResult {
     ax.plot_with(&x, cos, LineProps::default().label("0.5 cos(x)"))?;
     ax.set_title("Hinted title: Waveform AVA");
     ax.set_xlabel("time [s]").set_ylabel("amplitude");
-    ax.legend(LegendOptions::default().loc("upper right"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::UpperRight))?;
     Ok(())
 }
 

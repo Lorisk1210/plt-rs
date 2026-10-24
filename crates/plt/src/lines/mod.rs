@@ -14,10 +14,10 @@ mod subslice;
 
 pub(crate) use axline::InfiniteLine;
 pub use axline::{AxLineError, AxLineThrough};
-pub use format::{FormatError, FormatString};
+pub use format::{FormatString, FormatStringError};
 pub use line::{Line2D, LineProps};
 pub(crate) use line::{LineArtist, PolarMarkerRotation};
-pub use line_markers::MarkerError;
+pub use line_markers::MarkerIndicesError;
 pub use linestyle::{LineStyle, LineStyleError, inverse_dashes};
 pub use markevery::{MarkEvery, MarkEveryError};
 pub use plt_render::{CapStyle, JoinStyle};

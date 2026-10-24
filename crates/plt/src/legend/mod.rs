@@ -9,10 +9,11 @@
 //! ```
 //! use plt::prelude::*;
 //! use plt::legend::LegendOptions;
+//! use plt::offsetbox::AnchorLoc;
 //! let ax = Figure::new().subplot();
 //! ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("rising"))?;
 //! ax.plot_with([0.0, 1.0], [1.0, 0.0], LineProps::default().label("_hidden"))?;
-//! let legend = ax.legend(LegendOptions::default().loc("upper left").title("Trends"))?;
+//! let legend = ax.legend(LegendOptions::default().loc(AnchorLoc::UpperLeft).title("Trends"))?;
 //! assert_eq!(legend.labels(), ["rising"]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -37,6 +38,7 @@ mod handle;
 mod handlers;
 mod labelcolor;
 mod layout;
+mod loc;
 mod options;
 mod proxies;
 mod settings;
@@ -55,14 +57,14 @@ pub use handlers::{
     HandlerStem, HandlerStepPatch, LegendHandler, TypeKey,
 };
 pub(crate) use layout::lay_out_legends;
+pub use loc::{LegendLoc, OutsideEdge};
 pub use options::{
-    BboxToAnchor, LegendAlignment, LegendLabelColor, LegendLoc, LegendMode, LegendOptions,
-    LegendShadow, LegendShadowStyle,
+    BboxToAnchor, LegendAlignment, LegendLabelColor, LegendMode, LegendOptions, LegendShadow,
+    LegendShadowStyle,
 };
-pub(crate) use settings::OutsideEdge;
 
 use artist::LegendParent;
-use settings::{Location, Placement};
+use settings::Placement;
 
 use plt_core::Bbox;
 
@@ -162,11 +164,11 @@ impl Legend {
     ///
     /// # Errors
     ///
-    /// When `loc` is not a location, is `"best"` for a figure legend or
-    /// `"outside ..."` for an axes legend.
+    /// When `loc` is `"best"` for a figure legend or `"outside ..."` for
+    /// an axes legend.
     pub fn set_loc(&self, loc: impl Into<LegendLoc>) -> Result<&Self, LegendError> {
         let parent = self.read(|legend| legend.parent);
-        let placement = Placement::parse(&loc.into(), matches!(parent, LegendParent::Figure(_)))?;
+        let placement = Placement::of(loc.into(), matches!(parent, LegendParent::Figure(_)))?;
         self.raw.with_mut::<LegendArtist, _>(|legend| {
             legend.location = placement.location;
             legend.outside = placement.outside;
@@ -189,16 +191,16 @@ impl Legend {
         self
     }
 
-    /// Where the legend goes (matplotlib's `_loc`): `"best"`, the code of
-    /// an anchored position (an `"outside ..."` name gives the position
-    /// inside its edge), or the lower-left corner in fractions of the
-    /// anchor box.
+    /// Where the legend goes, as it was given or taken from `legend.loc`
+    /// (matplotlib keeps its [`code`](LegendLoc::code) as `_loc`).
     pub fn loc(&self) -> LegendLoc {
-        match self.read(|legend| legend.location) {
-            Location::Best => LegendLoc::Name("best".to_owned()),
-            Location::Anchored(anchor) => LegendLoc::Code(i64::from(anchor.code())),
-            Location::Point(x, y) => LegendLoc::Point(x, y),
-        }
+        self.read(|legend| {
+            Placement {
+                location: legend.location,
+                outside: legend.outside,
+            }
+            .loc()
+        })
     }
 
     /// The box `loc` refers to, with its coordinates, when it is not the

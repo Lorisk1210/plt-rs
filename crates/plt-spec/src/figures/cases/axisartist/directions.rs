@@ -16,14 +16,14 @@ use crate::figures::cases::common::{axis_artist, polar_box, show_label};
 fn ticked(
     fig: &Figure,
     (rows, cols, index): (usize, usize, usize),
-) -> Result<axisartist::Axes, Box<dyn std::error::Error>> {
-    let ax = axisartist::Axes::new(fig.add_subplot(rows, cols, index)?);
+) -> Result<axisartist::AxisArtistAxes, Box<dyn std::error::Error>> {
+    let ax = axisartist::AxisArtistAxes::new(fig.add_subplot(rows, cols, index)?);
     ax.ax().set_yticks([0.2, 0.8]).set_xticks([0.2, 0.8]);
     Ok(ax)
 }
 
 pub(super) fn simple_axis_direction01(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::new(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::new(fig.subplot());
     fig.subplots_adjust(&SubplotOverrides {
         right: Some(0.8),
         ..SubplotOverrides::default()
@@ -65,7 +65,7 @@ pub(super) fn ticklabel_alignment(fig: &Figure) -> CaseResult {
     })?;
     let mut axes = Vec::new();
     for index in 1..=3 {
-        let ax = axisartist::Axes::new(fig.add_subplot(3, 1, index)?);
+        let ax = axisartist::AxisArtistAxes::new(fig.add_subplot(3, 1, index)?);
         ax.ax().set_yticks([0.2, 0.8]);
         ax.ax().set_yticklabels(["short", "loooong"])?;
         ax.ax().set_xticks([0.2, 0.8]);
@@ -135,7 +135,7 @@ pub(super) fn axis_styling(fig: &Figure) -> CaseResult {
         bottom: Some(0.2),
         ..SubplotOverrides::default()
     })?;
-    let ax = axisartist::Axes::new(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::new(fig.subplot());
     let x = linspace(0.0, 10.0, 60);
     let y: Vec<f64> = x.iter().map(|x| 40.0 * x.sin() + 50.0).collect();
     ax.ax().plot(x, y)?;

@@ -506,7 +506,7 @@ mod tests {
     use crate::artist::ArtistHandle;
     use crate::axisartist::grid_finder::GridFinderOptions;
     use crate::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
-    use crate::axisartist::{AuxTransform, Axes, Toggle};
+    use crate::axisartist::{AuxTransform, AxisArtistAxes, Toggle};
     use crate::figure::Figure;
     use crate::ticker::AxisName;
 
@@ -514,7 +514,7 @@ mod tests {
     fn clipped_lines_count_only_inside_the_axes() {
         let fig = Figure::new();
         let polar = GridHelperCurveLinear::new(AuxTransform::polar(), GridFinderOptions::default());
-        let ax = Axes::with_grid_helper(fig.subplot(), polar);
+        let ax = AxisArtistAxes::with_grid_helper(fig.subplot(), polar);
         ax.ax()
             .set_xlim(-1.0, 1.0)
             .and_then(|ax| ax.set_ylim(-1.0, 1.0))
@@ -533,7 +533,7 @@ mod tests {
     #[test]
     fn measuring_places_the_label_by_the_previous_tick_label_gap() {
         let fig = Figure::new();
-        let ax = Axes::new(fig.subplot());
+        let ax = AxisArtistAxes::new(fig.subplot());
         ax.ax().set_ylabel("label");
         let left = ax.axis("left").expect("an edge");
         let first = left.window_extent().expect("measured");

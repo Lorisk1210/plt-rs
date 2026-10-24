@@ -60,7 +60,7 @@ pub struct Toggle {
     pub label: Option<bool>,
 }
 
-/// A handle to an axis artist of an [`Axes`](super::Axes) (matplotlib's
+/// A handle to an axis artist of an [`AxisArtistAxes`](super::AxisArtistAxes) (matplotlib's
 /// `AxisArtist`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AxisArtist {
@@ -83,7 +83,7 @@ impl AxisArtist {
     /// shown and the tick labels and label facing `loc` (matplotlib's
     /// `ax.add_artist(AxisArtist(ax, AxisArtistHelperRectlinear.Fixed(ax,
     /// loc), axis_direction=loc))`). Unlike the edges of axisartist
-    /// [`Axes`](super::Axes), the axes keeps its spines and axes; hide
+    /// [`AxisArtistAxes`](super::AxisArtistAxes), the axes keeps its spines and axes; hide
     /// those as needed.
     ///
     /// ```
@@ -274,13 +274,13 @@ fn opposite(direction: SpineSide) -> SpineSide {
 mod tests {
     use super::*;
     use crate::axes::TickDirection;
-    use crate::axisartist::Axes;
+    use crate::axisartist::AxisArtistAxes;
     use crate::figure::Figure;
 
     #[test]
     fn directions_turn_labels_to_the_other_side() {
         let fig = Figure::new();
-        let ax = Axes::new(fig.subplot());
+        let ax = AxisArtistAxes::new(fig.subplot());
         let left = ax.axis("left").expect("an edge");
         left.raw().with::<AxisArtistState, _>(|state| {
             assert_eq!(state.ticklabel_direction, LabelDirection::Minus);
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn parts_are_styled_separately() {
         let fig = Figure::new();
-        let ax = Axes::new(fig.subplot());
+        let ax = AxisArtistAxes::new(fig.subplot());
         let bottom = ax.axis("bottom").expect("an edge");
         bottom.major_ticks().set_tick_out(true).set_ticksize(8.0);
         bottom.minor_ticks().set_visible(false);

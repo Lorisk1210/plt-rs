@@ -8,9 +8,12 @@ use plt::collections::{CollectionProps, EdgeColors};
 use plt::colors::{Color, colormaps};
 use plt::fonts::RelativeSize;
 use plt::gridspec::SubplotOverrides;
-use plt::legend::{HandlerTuple, LegendAlignment, LegendHandle, LegendMode, LegendOptions};
+use plt::legend::{
+    HandlerTuple, LegendAlignment, LegendHandle, LegendLoc, LegendMode, LegendOptions,
+};
 use plt::lines::StepWhere;
 use plt::markers::Marker;
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions, HistType};
 
@@ -89,14 +92,18 @@ pub(crate) const CASES: &[FigureCase] = &[
             LineProps::fmt("s")?.label("bottom band"),
         )?;
         ax.plot_with(vec![0.02; 30], &x, LineProps::fmt("^")?.label("left edge"))?;
-        ax.legend(LegendOptions::default().loc("best"))?;
+        ax.legend(LegendOptions::default().loc(LegendLoc::Best))?;
         Ok(())
     }),
     FigureCase::new("legend/all_location_strings", |fig| {
         let axes = fig.subplots(2, 5)?;
         for (ax, loc) in axes.as_slice().iter().zip(LOCATIONS) {
             ax.plot_with([0.0, 1.0], [0.0, 1.0], labelled(loc))?;
-            ax.legend(LegendOptions::default().loc(loc).fontsize(7.0))?;
+            ax.legend(
+                LegendOptions::default()
+                    .loc(loc.parse::<LegendLoc>()?)
+                    .fontsize(7.0),
+            )?;
             ax.xaxis().set_ticks(Vec::<f64>::new());
             ax.yaxis().set_ticks(Vec::<f64>::new());
         }
@@ -107,7 +114,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let axes = fig.subplots(2, 2)?;
         for (code, ax) in [1, 3, 6, 10].into_iter().zip(axes.as_slice()) {
             ax.plot_with([0.0, 1.0], [1.0, 0.0], labelled(&format!("loc={code}")))?;
-            ax.legend(LegendOptions::default().loc(code))?;
+            ax.legend(LegendOptions::default().loc(LegendLoc::from_code(code)?))?;
         }
         Ok(())
     })
@@ -121,7 +128,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         three_lines(&ax)?;
         ax.legend(
             LegendOptions::default()
-                .loc("upper left")
+                .loc(AnchorLoc::UpperLeft)
                 .bbox_to_anchor((1.02, 1.0))
                 .borderaxespad(0.0),
         )?;
@@ -136,7 +143,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         three_lines(&ax)?;
         ax.legend(
             LegendOptions::default()
-                .loc("upper left")
+                .loc(AnchorLoc::UpperLeft)
                 .bbox_to_anchor((0.0, -0.22, 1.0, 0.1))
                 .mode(LegendMode::Expand)
                 .ncols(3),
@@ -152,7 +159,11 @@ pub(crate) const CASES: &[FigureCase] = &[
             map(&t, f64::cos),
             LineProps::fmt("C1")?.label("right cosine"),
         )?;
-        fig.legend(LegendOptions::default().loc("upper center").ncols(2))?;
+        fig.legend(
+            LegendOptions::default()
+                .loc(AnchorLoc::UpperCenter)
+                .ncols(2),
+        )?;
         Ok(())
     }),
     small("legend/figure_legend_explicit_handles", |fig| {
@@ -164,7 +175,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             LegendOptions::default()
                 .handles([&a, &b])
                 .labels(["first", "second"])
-                .loc("lower right"),
+                .loc(AnchorLoc::LowerRight),
         )?;
         Ok(())
     }),
@@ -180,7 +191,11 @@ pub(crate) const CASES: &[FigureCase] = &[
                 labelled(&format!("phase {i}")),
             )?;
         }
-        ax.legend(LegendOptions::default().ncols(3).loc("lower center"))?;
+        ax.legend(
+            LegendOptions::default()
+                .ncols(3)
+                .loc(AnchorLoc::LowerCenter),
+        )?;
         Ok(())
     }),
     three_lines_case!(
@@ -280,7 +295,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .framealpha(0.3)
                 .facecolor("yellow")
                 .edgecolor("red")
-                .loc("center"),
+                .loc(AnchorLoc::Center),
         )?;
         Ok(())
     }),
@@ -347,7 +362,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         for (layer, label) in stacked.iter().zip(["first", "second"]) {
             layer.set_label(label);
         }
-        ax2.legend(LegendOptions::default().loc("upper left"))?;
+        ax2.legend(LegendOptions::default().loc(AnchorLoc::UpperLeft))?;
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),
@@ -500,7 +515,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "three parts",
         ];
         let mut options = LegendOptions::default().handles(handles).labels(labels);
-        options.loc = Some("lower left".into());
+        options.loc = Some(AnchorLoc::LowerLeft.into());
         ax.legend(options)?;
         Ok(())
     })

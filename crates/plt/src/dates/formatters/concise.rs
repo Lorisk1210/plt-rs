@@ -5,7 +5,7 @@ use super::{format_date, resolve_usetex, wrap_in_tex};
 use crate::dates::DateError;
 use crate::dates::convert::num2date;
 use crate::dates::tz::{TimeZone, ZonedDateTime};
-use crate::ticker::{Formatter, TickContext, TickLabels, TickerError};
+use crate::ticker::{FormattedTicks, Formatter, TickContext, TickerError};
 
 /// Formats for the six labelling levels: years, months, days, hours,
 /// minutes, seconds.
@@ -176,13 +176,17 @@ fn trim_common_zeros(labels: &mut [String]) {
 }
 
 impl Formatter for ConciseDateFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         let dates: Vec<ZonedDateTime> = locs
             .iter()
             .map(|&x| num2date(x, &self.tz))
             .collect::<Result<_, _>>()?;
         let (Some(first), Some(last)) = (dates.first(), dates.last()) else {
-            return Ok(TickLabels::default());
+            return Ok(FormattedTicks::default());
         };
         let (level, shows_year) = labelling_level(&dates);
         let mut labels: Vec<String> = dates
@@ -218,7 +222,7 @@ impl Formatter for ConciseDateFormatter {
         if usetex {
             labels = labels.iter().map(|label| wrap_in_tex(label)).collect();
         }
-        Ok(TickLabels { labels, offset })
+        Ok(FormattedTicks { labels, offset })
     }
 
     /// The year of `value` (matplotlib's `__call__` with format `%Y`).
@@ -237,7 +241,7 @@ mod tests {
     use crate::dates::{AutoDateLocator, datestr2num};
     use crate::ticker::{AxisInfo, Locator, TickerSettings};
 
-    fn concise(formatter: &ConciseDateFormatter, a: &str, b: &str) -> TickLabels {
+    fn concise(formatter: &ConciseDateFormatter, a: &str, b: &str) -> FormattedTicks {
         let view = (datestr2num(a).unwrap(), datestr2num(b).unwrap());
         let settings = TickerSettings::default();
         let axis = AxisInfo::with_view(view.0, view.1);

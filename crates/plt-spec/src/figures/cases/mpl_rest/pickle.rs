@@ -8,6 +8,7 @@ use plt::figure::SubfigureOptions;
 use plt::legend::{LegendLoc, LegendOptions};
 use plt::lines::LineProps;
 use plt::numeric::{Grid, arange, linspace};
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::quiver::{QuiverOptions, VectorField};
 use plt::streamplot::{StreamField, StreamplotOptions};
@@ -69,7 +70,7 @@ fn complete_ref(fig: &Figure) -> CaseResult {
     let squares: Vec<f64> = x.iter().map(|x| x * x).collect();
     ax.scatter(x.clone(), squares)?.set_label("$x^2$");
     ax.legend(LegendOptions {
-        loc: Some(LegendLoc::from("upper left")),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::UpperLeft)),
         ..LegendOptions::default()
     })?;
 

@@ -22,7 +22,7 @@ impl Default for Whis {
 
 /// Options of [`boxplot_stats`].
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct BoxplotOptions {
+pub struct BoxplotStatsOptions {
     /// Whisker reach.
     pub whis: Whis,
     /// One label per dataset, copied into [`BoxStats::label`].
@@ -66,15 +66,15 @@ pub struct BoxStats {
 /// Box-plot statistics of each dataset.
 ///
 /// ```
-/// use plt::stats::{BoxplotOptions, boxplot_stats};
-/// let stats = boxplot_stats(&[[1.0, 2.0, 3.0, 4.0, 100.0]], BoxplotOptions::default()).unwrap();
+/// use plt::stats::{BoxplotStatsOptions, boxplot_stats};
+/// let stats = boxplot_stats(&[[1.0, 2.0, 3.0, 4.0, 100.0]], BoxplotStatsOptions::default()).unwrap();
 /// assert_eq!((stats[0].q1, stats[0].med, stats[0].q3), (2.0, 3.0, 4.0));
 /// assert_eq!(stats[0].whishi, 4.0);
 /// assert_eq!(stats[0].fliers, vec![100.0]);
 /// ```
 pub fn boxplot_stats<D: AsRef<[f64]>>(
     datasets: &[D],
-    opts: BoxplotOptions,
+    opts: BoxplotStatsOptions,
 ) -> Result<Vec<BoxStats>, StatsError> {
     if let Some(labels) = &opts.labels
         && labels.len() != datasets.len()
@@ -200,9 +200,9 @@ mod tests {
 
     #[test]
     fn labels_must_match() {
-        let opts = BoxplotOptions {
+        let opts = BoxplotStatsOptions {
             labels: Some(vec!["a".into()]),
-            ..BoxplotOptions::default()
+            ..BoxplotStatsOptions::default()
         };
         assert!(boxplot_stats(&[[1.0], [2.0]], opts.clone()).is_err());
         let one = boxplot_stats(&[[1.0]], opts).unwrap();

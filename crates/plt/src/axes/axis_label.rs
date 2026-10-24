@@ -15,7 +15,7 @@ use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize, FontStyle, FontWeight};
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
-use crate::text::{TextBox, TextBoxProps};
+use crate::text::{TextBoxPatch, TextBoxProps};
 use crate::ticker::AxisName;
 use crate::transforms::Bbox;
 
@@ -93,7 +93,7 @@ pub(crate) struct AxisLabel {
     /// beyond the tick labels (matplotlib's `set_label_coords`).
     pub(crate) coords: Option<Point>,
     /// The box drawn behind the label (matplotlib's `label.set_bbox`).
-    pub(crate) bbox: Option<TextBox>,
+    pub(crate) bbox: Option<TextBoxPatch>,
 }
 
 impl AxisLabel {
@@ -314,14 +314,14 @@ impl Axis {
         self.axes.raw().with_mut::<AxesState, _>(|axes| {
             let rc = Rc::clone(&axes.rc);
             let label = &mut axes.axis_mut(self.name).label;
-            label.bbox = props.map(|props| TextBox::new(props, label.font.size, &rc));
+            label.bbox = props.map(|props| TextBoxPatch::new(props, label.font.size, &rc));
         });
         self
     }
 
     /// The box behind the axis label, if any (matplotlib's
     /// `label.get_bbox_patch()`).
-    pub fn label_bbox(&self) -> Option<TextBox> {
+    pub fn label_bbox(&self) -> Option<TextBoxPatch> {
         self.read(|axis| axis.label.bbox.clone())
     }
 

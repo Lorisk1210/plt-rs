@@ -2,8 +2,9 @@
 (``tests/test_image.py``) that the ``image_behaviour``, ``imread`` and
 ``imsave`` areas leave out: the cursor data of unnormalised bytes, the
 interpolation stage from rcParams, RGB data clipped into range, round trips
-through ``imsave`` and ``imread``, a JPEG of a transparent figure image,
-and resampling through affine and non-affine transforms.
+through ``imsave`` and ``imread``, the metadata ``imsave`` writes, a JPEG of
+a transparent figure image, and resampling through affine and non-affine
+transforms.
 
 Area ``mpl_image``.
 
@@ -26,6 +27,16 @@ Ops
     1) * v)`` over the flattened array) of its values as bytes (floats
     times 255, rounded). ``data`` is ``{"uniform": seed, "shape"}``
     (``spec_support.rng(seed).uniform``) or ``{"zeros": shape}``.
+``image.imsave.png_text``  {format, metadata?} -> {chunks, text}: the chunk
+    types before the image data of ``imsave(buffer, [[0, 1], [2, 3]],
+    format=format, metadata=metadata)`` (no ``metadata`` when absent; a
+    ``null`` value drops the key) and the text entries Pillow reads from it,
+    in file order: matplotlib's default ``Software`` entry (recorded as
+    ``<default software>``, since each library names itself there), keys
+    PNG defines, custom ones and text outside Latin-1, as the ``mpl_agg``
+    area's ``Figure.savefig.png_text`` records them. Other formats refuse
+    metadata (``test_imsave_pil_kwargs_png``, through ``metadata`` rather
+    than Pillow's ``pnginfo``).
 ``pyplot.savefig.jpg``  {} -> ``{"num_colors", "corner"}`` of
     ``test_jpeg_alpha``'s JPEG: a 1 in figure at 300 dpi showing a black
     ``figimage`` whose alpha ramps from 0 to 1 left to right, saved with a
@@ -60,7 +71,7 @@ Left out
 Python and numpy mechanics plt-rs's types rule out: ``test_image_python_io``
 (``BytesIO``), ``test_imread_fspath``, ``test_imsave_fspath``,
 ``test_imsave_python_sequences``, ``test_imsave_rgba_origin`` (array
-contiguity), ``test_imsave_pil_kwargs_*`` (Pillow options), ``test_imshow_pil``
+contiguity), ``test_imsave_pil_kwargs_tiff`` (Pillow options), ``test_imshow_pil``
 and ``test_jpeg_2d`` (PIL images), ``test_imshow_multi_draw``,
 ``test_axesimage_setdata``, ``test_figureimage_setdata`` and
 ``test_setdata_xya`` (numpy views and copies), ``test_imshow_10_10_2``,
@@ -93,6 +104,7 @@ from matplotlib.figure import Figure
 from matplotlib.transforms import Affine2D, Transform
 from PIL import Image
 
+from probes.test_mpl_agg import _DEFAULT_SOFTWARE, _chunk_types
 from probes.test_rcsetup import _validate
 from spec_support import ProbeSet, rng
 
@@ -181,6 +193,28 @@ def test_image_preserve_size():
     r = probes.probe("image.imsave.imread", _round_trip, data={"zeros": [481, 321]},
                      format="png")
     assert list(r["shape"][:2]) == [481, 321]
+
+
+def _imsave_text(format, metadata=None):
+    buff = io.BytesIO()
+    plt.imsave(buff, [[0, 1], [2, 3]], format=format, metadata=metadata)
+    png = buff.getvalue()
+    text = Image.open(io.BytesIO(png)).text.items()
+    return {"chunks": _chunk_types(png),
+            "text": [[key, "<default software>" if key == "Software" and value == _DEFAULT_SOFTWARE
+                      else value] for key, value in text]}
+
+
+def test_imsave_metadata():
+    probes.probe("image.imsave.png_text", _imsave_text, format="png")
+    for metadata in [{}, {"Software": None}, {"Software": "test"},
+                     {"Title": "Ramp", "Software": "s"},
+                     {"Title": "Ramp", "Author": "Zoë", "Description": "日本語の説明",
+                      "Comment": "first line\nsecond line", "Custom key": "value", "Unset": None}]:
+        probes.probe("image.imsave.png_text", _imsave_text, format="png", metadata=metadata)
+    for format in ["jpeg", "tiff"]:
+        r = probes.probe("image.imsave.png_text", _imsave_text, format=format, metadata={})
+        assert isinstance(r, ValueError)
 
 
 def _jpeg_alpha():

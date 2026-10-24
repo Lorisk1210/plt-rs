@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use super::{AxisTickers, LogitTransform, NonPositive, Scale};
+use super::{AxisTickers, LogitTransform, NonPositive, Scale, ScaleName};
 use crate::ticker::{AxisName, LogitFormatter, LogitLocator, TickerSettings};
 use crate::transforms::AxisMap;
 
@@ -56,8 +56,8 @@ impl LogitScale {
 }
 
 impl Scale for LogitScale {
-    fn name(&self) -> &'static str {
-        "logit"
+    fn name(&self) -> ScaleName {
+        ScaleName::Logit
     }
 
     fn axis_map(&self) -> Option<Rc<dyn AxisMap>> {

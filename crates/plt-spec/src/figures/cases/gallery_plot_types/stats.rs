@@ -3,7 +3,7 @@
 //! and an empirical distribution.
 
 use plt::axes::{
-    BoxStyle, BoxplotOptions, BxpOptions, EcdfOptions, ErrorSize, EventplotOptions, HexGridSize,
+    BoxProps, BoxplotOptions, BxpOptions, EcdfOptions, ErrorSize, EventplotOptions, HexGridSize,
     HexbinOptions, Hist2dOptions, HistPlotOptions, PieOptions, PlotError, ViolinDrawOptions,
     ViolinplotOptions,
 };
@@ -67,7 +67,7 @@ fn boxplot_plot(fig: &Figure) -> CaseResult {
             positions: Some(POSITIONS.to_vec()),
             integer_positions: true,
             widths: vec![1.5],
-            boxes: Some(BoxStyle::Patch(boxes)),
+            boxes: Some(BoxProps::Patch(boxes)),
             showmeans: Some(false),
             showfliers: Some(false),
             medianprops: stroke("white", 0.5),

@@ -7,6 +7,7 @@ use std::path::Path;
 use plt_codec::png::DecodeError;
 use plt_codec::{gif, jpeg, tiff, webp};
 use plt_core::Rgba;
+use plt_render::PngMetadata;
 
 use super::color_image::color_image_bytes;
 use super::normalize::normalize_in;
@@ -37,6 +38,8 @@ pub enum ImageIoError {
     /// The file extension names a format that cannot be written (anything
     /// but a bitmap format).
     UnsupportedFormat(String),
+    /// Metadata was given for a format that cannot hold it (any but PNG).
+    MetadataUnsupported(BitmapFormat),
     /// The default colormap `image.cmap` is unknown, or a norm was given
     /// with limits.
     Colorizer(ColorizerError),
@@ -63,6 +66,9 @@ impl fmt::Display for ImageIoError {
                 f,
                 "format {format:?} is not supported (imsave writes gif, jpeg, jpg, png, tiff and webp)"
             ),
+            Self::MetadataUnsupported(format) => {
+                write!(f, "metadata not supported for format {:?}", format.name())
+            }
             Self::Colorizer(err) => err.fmt(f),
             Self::Norm(err) => err.fmt(f),
             Self::ColorRange => {
@@ -87,6 +93,7 @@ impl std::error::Error for ImageIoError {
             Self::Norm(err) => Some(err),
             Self::UnidentifiedImage
             | Self::UnsupportedFormat(_)
+            | Self::MetadataUnsupported(_)
             | Self::ColorRange
             | Self::ScalarImage => None,
         }
@@ -160,6 +167,11 @@ pub struct ImsaveOptions {
     /// JPEG quality from 1 to 100 (Pillow's `quality` in matplotlib's
     /// `pil_kwargs`; 75 when `None`).
     pub jpeg_quality: Option<u8>,
+    /// The text entries of a PNG (matplotlib's `metadata`): `None` writes
+    /// the `Software` entry naming plt-rs, as `savefig` does; build on
+    /// [`PngMetadata::default`] to add or drop entries. Only PNG files
+    /// hold metadata.
+    pub metadata: Option<PngMetadata>,
 }
 
 impl_colorize!(ImsaveOptions);
@@ -171,6 +183,7 @@ impl Default for ImsaveOptions {
             origin: None,
             dpi: 100.0,
             jpeg_quality: None,
+            metadata: None,
         }
     }
 }
@@ -231,18 +244,42 @@ pub fn imsave_png(
 /// Encodes an array the way matplotlib's `imsave` does: scalars through
 /// the colormap (masked values, NaN included, in its "bad" colour, as for
 /// a numpy masked array), float colours truncated to bytes, rows flipped
-/// for [`Origin::Lower`], and JPEG flattened onto `savefig.facecolor`.
+/// for [`Origin::Lower`], JPEG flattened onto `savefig.facecolor`, and
+/// PNG text entries from the metadata.
+///
+/// ```
+/// use plt::figure::PngMetadata;
+/// use plt::image::{BitmapFormat, ImsaveOptions, imsave_bytes};
+/// use plt::numeric::Grid;
+///
+/// let pixels = Grid::from_vec(1, 2, vec![[0_u8, 128, 255], [255, 0, 0]])?;
+/// // matplotlib's `imsave(..., metadata={"Title": "Ramp"})`.
+/// let options = ImsaveOptions {
+///     metadata: Some(PngMetadata::default().with("Title", "Ramp")),
+///     ..ImsaveOptions::default()
+/// };
+/// let png = imsave_bytes(pixels, BitmapFormat::Png, options)?;
+/// let decoded = plt_codec::png::decode(&png)?;
+/// let keys: Vec<&str> =
+///     decoded.metadata().text.iter().map(|entry| entry.keyword.as_str()).collect();
+/// assert_eq!(keys, ["Software", "Title"]);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 ///
 /// # Errors
 ///
 /// When the colormap is unknown, the limits cannot normalise the data,
-/// float colours leave `[0, 1]`, or the image is empty or too large for
-/// the format.
+/// float colours leave `[0, 1]`, the image is empty or too large for the
+/// format, metadata is given for a format other than PNG, or a metadata
+/// keyword is not a valid PNG keyword.
 pub fn imsave_bytes(
     data: impl Into<ImageData>,
     format: BitmapFormat,
     options: ImsaveOptions,
 ) -> Result<Vec<u8>, ImageIoError> {
+    if options.metadata.is_some() && format != BitmapFormat::Png {
+        return Err(ImageIoError::MetadataUnsupported(format));
+    }
     let data = data.into();
     let (rows, cols) = data.shape();
     let mut pixels = rgba_bytes(&data, &options)?;
@@ -256,11 +293,13 @@ pub fn imsave_bytes(
         }
         pixels = flipped;
     }
-    let defaults = BitmapSettings::default();
     let settings = BitmapSettings {
         dpi: options.dpi,
-        jpeg_quality: options.jpeg_quality.unwrap_or(defaults.jpeg_quality),
+        jpeg_quality: options
+            .jpeg_quality
+            .unwrap_or(BitmapSettings::default().jpeg_quality),
         background: jpeg_background(),
+        png_text: options.metadata.unwrap_or_default(),
     };
     Ok(format.encode(cols, rows, &pixels.concat(), settings)?)
 }
@@ -344,6 +383,38 @@ mod tests {
         assert!(matches!(
             imsave_png(out_of_range, ImsaveOptions::default()),
             Err(ImageIoError::ColorRange)
+        ));
+    }
+
+    #[test]
+    fn png_metadata_names_plt_rs_unless_replaced() {
+        let data = Grid::from_vec(1, 1, vec![[0_u8, 128, 255]]).unwrap();
+        let text = |metadata: Option<PngMetadata>| {
+            let options = ImsaveOptions {
+                metadata,
+                ..ImsaveOptions::default()
+            };
+            let png = imsave_png(data.clone(), options).unwrap();
+            png::decode(&png)
+                .unwrap()
+                .metadata()
+                .text
+                .iter()
+                .map(|entry| (entry.keyword.clone(), entry.text.clone()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            text(None),
+            [("Software".to_owned(), plt_render::PNG_SOFTWARE.to_owned())]
+        );
+        assert_eq!(text(Some(PngMetadata::none())), []);
+        let options = ImsaveOptions {
+            metadata: Some(PngMetadata::default()),
+            ..ImsaveOptions::default()
+        };
+        assert!(matches!(
+            imsave_bytes(data, BitmapFormat::Jpeg, options),
+            Err(ImageIoError::MetadataUnsupported(BitmapFormat::Jpeg))
         ));
     }
 

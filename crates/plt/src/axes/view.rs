@@ -10,7 +10,7 @@ use super::limits::oriented;
 use super::state::{AxesState, AxisSpace, SharedData};
 use crate::artist::{ArtistId, DrawError};
 use crate::figure::FigureState;
-use crate::scale::Scale;
+use crate::scale::{Scale, ScaleName};
 use crate::ticker::AxisName;
 use crate::transforms::TransformContext;
 
@@ -99,10 +99,10 @@ impl FigureState {
                     .then(|| "the angular axis of polar axes".to_owned())
             }
         });
-        if let Some(axis) = linear_only.filter(|_| scale.name() != "linear") {
+        if let Some(axis) = linear_only.filter(|_| scale.name() != ScaleName::Linear) {
             self.pending_errors.push(DrawError {
                 artist: axes,
-                message: format!("{axis} must stay linear, not {:?}", scale.name()),
+                message: format!("{axis} must stay linear, not {:?}", scale.name().as_str()),
             });
             return;
         }
@@ -334,6 +334,7 @@ mod tests {
     use crate::axes::{AxisName, PlotError};
     use crate::figure::{Figure, Share};
     use crate::prelude::*;
+    use crate::scale::ScaleName;
     use crate::ticker::MultipleLocator;
 
     fn pair() -> (Figure, Axes, Axes) {
@@ -387,7 +388,7 @@ mod tests {
     fn scales_and_tickers_are_shared() {
         let (_fig, a, b) = pair();
         b.set_xscale("log").unwrap();
-        assert_eq!(a.xscale(), "log");
+        assert_eq!(a.xscale(), ScaleName::Log);
         a.set_xscale("linear").unwrap();
         a.set_xlim(0.0, 10.0).expect("finite limits");
         b.xaxis()

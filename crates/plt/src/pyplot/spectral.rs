@@ -10,7 +10,7 @@ use crate::axes::{
     SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale,
 };
 use crate::lines::{Line2D, LineProps};
-use crate::mlab::{Complex, Correlation, Spectrum, XcorrOptions};
+use crate::mlab::{Complex, Correlation, SignalValue, Spectrum, XcorrOptions};
 
 /// Plots the power spectral density of `x` on the current axes
 /// (matplotlib's `psd`).
@@ -18,7 +18,7 @@ use crate::mlab::{Complex, Correlation, Spectrum, XcorrOptions};
 /// # Errors
 ///
 /// As [`Axes::psd`](crate::axes::Axes::psd).
-pub fn psd(x: &[f64], options: SpectralPlotOptions) -> Result<Spectrum, PlotError> {
+pub fn psd<S: SignalValue>(x: &[S], options: SpectralPlotOptions) -> Result<Spectrum, PlotError> {
     gca().psd(x, options)
 }
 

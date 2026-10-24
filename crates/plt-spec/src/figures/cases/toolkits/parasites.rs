@@ -14,6 +14,7 @@ use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
 use plt::lines::LineProps;
 use plt::numeric::linspace;
+use plt::offsetbox::AnchorLoc;
 use plt::patches::PatchProps;
 use plt::prelude::ArtistHandle;
 use plt::spines::SpineSide;
@@ -124,7 +125,7 @@ pub(super) fn twinx_twiny_legend(fig: &Figure) -> CaseResult {
     host.legend(
         LegendOptions::default()
             .labelcolor("linecolor")
-            .loc("upper left"),
+            .loc(AnchorLoc::UpperLeft),
     )?;
     host.yaxis().set_label_color(c1);
     par1.yaxis().set_label_color(c2);

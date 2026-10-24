@@ -7,7 +7,7 @@ use plt::axes::{
 };
 use plt::collections::Collection;
 use plt::lines::Line2D;
-use plt::stats::{BoxplotOptions as StatsOptions, ViolinOptions, ViolinStats, boxplot_stats};
+use plt::stats::{BoxplotStatsOptions, ViolinOptions, ViolinStats, boxplot_stats};
 
 use super::{colors, count, datasets, made, number_list, numbers, on_axes, optional, rgba_list};
 use crate::json::Json;
@@ -127,7 +127,7 @@ pub(super) fn bxp(args: Args<'_>) -> Outcome {
         made(ax.set_yscale("log"))?;
         let stats = made(boxplot_stats(
             &datasets(args.json("data")?)?,
-            StatsOptions::default(),
+            BoxplotStatsOptions::default(),
         ))?;
         let parts = made(ax.bxp(&stats, draw_options(args)?))?;
         Ok(count(parts.boxes.len()))

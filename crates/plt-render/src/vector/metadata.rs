@@ -5,6 +5,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use plt_codec::png;
+
 /// A moment in UTC, in whole seconds since the Unix epoch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(pub i64);
@@ -338,6 +340,15 @@ impl PngMetadata {
     /// The keywords and texts, in file order.
     pub fn entries(&self) -> &[(String, String)] {
         &self.entries
+    }
+
+    /// `encoder` writing these entries as text chunks, in order.
+    pub fn apply_to(&self, encoder: png::Encoder) -> png::Encoder {
+        self.entries
+            .iter()
+            .fold(encoder, |encoder, (keyword, text)| {
+                encoder.text(keyword, text)
+            })
     }
 }
 

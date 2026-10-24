@@ -4,7 +4,7 @@ use std::fmt;
 
 use super::pie::PieError;
 use crate::colors::{ColorizerError, ColormapError, NORM_WITH_LIMITS};
-use crate::lines::{FormatError, MarkEveryError};
+use crate::lines::{FormatStringError, MarkEveryError};
 use crate::markers::MarkerError;
 use crate::mlab::MlabError;
 use crate::patches::StepPatchError;
@@ -39,7 +39,7 @@ pub enum PlotError {
     /// Both a norm and explicit `vmin`/`vmax` were given.
     NormWithLimits,
     /// An invalid format string.
-    Format(FormatError),
+    Format(FormatStringError),
     /// Inconsistent step data.
     Steps(StepPatchError),
     /// Negative error bar sizes (the argument named).
@@ -226,8 +226,8 @@ impl From<ColorizerError> for PlotError {
     }
 }
 
-impl From<FormatError> for PlotError {
-    fn from(err: FormatError) -> Self {
+impl From<FormatStringError> for PlotError {
+    fn from(err: FormatStringError) -> Self {
         Self::Format(err)
     }
 }

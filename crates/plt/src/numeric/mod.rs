@@ -14,7 +14,7 @@ mod interp;
 mod regions;
 
 pub use argsort::argsort;
-pub use grid::{Grid, GridError};
+pub use grid::{Grid, GridShapeError};
 pub use interp::interp;
 pub use plt_core::numeric::{linspace, linspace_with, remainder};
 pub use regions::{block_perimeters, contiguous_regions};

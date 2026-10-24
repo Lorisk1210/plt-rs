@@ -6,6 +6,7 @@ use plt::axes::{ErrorSize, ErrorbarOptions};
 use plt::collections::{CollectionPatch, CollectionProps, CollectionSpec};
 use plt::figure::Share;
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::patches::Rectangle;
 use plt::prelude::*;
 
@@ -168,7 +169,7 @@ fn errorbar_limits_simple_1(fig: &Figure) -> CaseResult {
         ..bars()
     };
     ax.errorbar(&x, &y, labelled(subsets, "subsets of uplims and lolims"))?;
-    ax.legend(LegendOptions::default().loc("lower right"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::LowerRight))?;
     Ok(())
 }
 

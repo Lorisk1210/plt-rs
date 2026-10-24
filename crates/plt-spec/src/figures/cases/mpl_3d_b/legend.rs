@@ -2,8 +2,9 @@
 //! error bars.
 
 use plt::axes::{BarAlign, BarOptions, ErrorSize};
-use plt::legend::{LegendHandle, LegendOptions};
+use plt::legend::{LegendHandle, LegendLoc, LegendOptions};
 use plt::mplot3d::{Axis3, Errorbar3DOptions};
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 
 use super::remove_ticks_and_titles;
@@ -58,7 +59,7 @@ pub(super) fn fancy(fig: &Figure) -> CaseResult {
     };
     ax.errorbar(&[5.0; 10], &x, &[10.0; 10], options)?;
     let options = LegendOptions {
-        loc: Some("lower left".into()),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::LowerLeft)),
         ncols: 2,
         title: Some("My legend".into()),
         numpoints: Some(1),

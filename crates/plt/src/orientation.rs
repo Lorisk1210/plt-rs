@@ -1,4 +1,5 @@
-//! The direction of bars, steps, histograms and colorbars.
+//! The direction of bars, steps, histograms, colorbars, sliders and span
+//! selectors.
 
 use std::fmt;
 use std::str::FromStr;

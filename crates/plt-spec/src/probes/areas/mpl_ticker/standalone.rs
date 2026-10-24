@@ -8,9 +8,9 @@
 //! `set_locs(locs)` on a value of `locs` as its label among them.
 
 use plt::ticker::{
-    AutoLocator, FixedFormatter, Formatter, FuncFormatter, LinearLocator, Locator, LogFormatter,
-    LogLabelStyle, LogitFormatter, MaxNLocator, Nbins, NullFormatter, ScalarFormatter, TickContext,
-    TickLabels, TickerError, TickerSettings,
+    AutoLocator, FixedFormatter, FormattedTicks, Formatter, FuncFormatter, LinearLocator, Locator,
+    LogFormatter, LogLabelStyle, LogitFormatter, MaxNLocator, Nbins, NullFormatter,
+    ScalarFormatter, TickContext, TickerError, TickerSettings,
 };
 
 use super::ticker::{self, Params, floats, offset_mode, settings, text, usize_arg, view_axis};
@@ -93,7 +93,7 @@ fn alone(
     value: f64,
     ctx: &TickContext<'_>,
 ) -> Result<String, TickerError> {
-    let TickLabels { mut labels, .. } = formatter.format_ticks(&[value], ctx)?;
+    let FormattedTicks { mut labels, .. } = formatter.format_ticks(&[value], ctx)?;
     Ok(labels.pop().unwrap_or_default())
 }
 

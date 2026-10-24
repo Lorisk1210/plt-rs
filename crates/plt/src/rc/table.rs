@@ -7,12 +7,11 @@
 use super::cycler::Cycler;
 use super::kinds::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, Distiller, Dpi, FontType,
-    HistBins, LabelColor, SavefigBbox, Whiskers,
+    HistBins, LabelColor, LegendLocParam, SavefigBbox, Whiskers,
 };
 use super::validate;
 use crate::colors::Color;
 use crate::fonts::{FontSize, FontStretch, FontWeight};
-use crate::legend::LegendLoc;
 use crate::lines::LineStyle;
 use crate::markers::Marker;
 use crate::patheffects::PathEffect;
@@ -383,7 +382,7 @@ rc_params! {
     /// `legend.fancybox`: If True, use a rounded box for the.
     legend_fancybox: bool = "True" => "legend.fancybox";
     /// `legend.loc`.
-    legend_loc: LegendLoc = "best" => "legend.loc";
+    legend_loc: LegendLocParam = "best" => "legend.loc";
     /// `legend.numpoints`: The number of marker points in the legend line.
     legend_numpoints: i64 = "1" => "legend.numpoints";
     /// `legend.scatterpoints`: Number of scatter points.

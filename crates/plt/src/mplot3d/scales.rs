@@ -16,7 +16,7 @@ use super::handle::Axes3D;
 use super::scaling::AxisScale;
 use super::share::ShareKey;
 use super::state::Axes3DState;
-use crate::scale::{Scale, ScaleOptions, scale_factory};
+use crate::scale::{Scale, ScaleName, ScaleOptions, scale_factory};
 
 impl Axes3DState {
     /// The default limits of the major locator, which tell whether a new
@@ -40,11 +40,11 @@ impl Axes3D {
     /// ```
     /// use plt::figure::Figure;
     /// use plt::mplot3d::Axis3;
-    /// use plt::scale::LogScale;
+    /// use plt::scale::{LogScale, ScaleName};
     /// let ax = Figure::new().subplot_3d();
     /// ax.plot(&[0.0, 1.0], &[0.0, 1.0], &[1.0, 1000.0])?;
     /// ax.set_scale(Axis3::Z, Box::new(LogScale::new(10.0)?))?;
-    /// assert_eq!(ax.scale(Axis3::Z), "log");
+    /// assert_eq!(ax.scale(Axis3::Z), ScaleName::Log);
     /// let (low, high) = ax.zlim();
     /// assert!(low > 0.5 && low < 1.0 && high > 1000.0);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -56,7 +56,10 @@ impl Axes3D {
     pub fn set_scale(&self, axis: Axis3, scale: Box<dyn Scale>) -> Result<&Self, Axes3DError> {
         let scale = AxisScale::new(Rc::from(scale));
         let old = self.with_mut(|axes| {
-            if axis == Axis3::Z && scale.name() != "linear" && axes.limits.z_data_is_initial() {
+            if axis == Axis3::Z
+                && scale.name() != ScaleName::Linear
+                && axes.limits.z_data_is_initial()
+            {
                 axes.limits.use_xy_initial_z();
             }
             axes.default_limits(axis)
@@ -86,7 +89,7 @@ impl Axes3D {
     pub fn set_scale_with(
         &self,
         axis: Axis3,
-        name: &str,
+        name: impl Into<ScaleName>,
         options: ScaleOptions,
     ) -> Result<&Self, Axes3DError> {
         self.set_scale(axis, scale_factory(name, options)?)
@@ -97,7 +100,7 @@ impl Axes3D {
     /// # Errors
     ///
     /// As [`Axes3D::set_scale_with`].
-    pub fn set_xscale(&self, name: &str) -> Result<&Self, Axes3DError> {
+    pub fn set_xscale(&self, name: impl Into<ScaleName>) -> Result<&Self, Axes3DError> {
         self.set_scale_with(Axis3::X, name, ScaleOptions::default())
     }
 
@@ -106,7 +109,7 @@ impl Axes3D {
     /// # Errors
     ///
     /// As [`Axes3D::set_scale_with`].
-    pub fn set_yscale(&self, name: &str) -> Result<&Self, Axes3DError> {
+    pub fn set_yscale(&self, name: impl Into<ScaleName>) -> Result<&Self, Axes3DError> {
         self.set_scale_with(Axis3::Y, name, ScaleOptions::default())
     }
 
@@ -115,12 +118,12 @@ impl Axes3D {
     /// # Errors
     ///
     /// As [`Axes3D::set_scale_with`].
-    pub fn set_zscale(&self, name: &str) -> Result<&Self, Axes3DError> {
+    pub fn set_zscale(&self, name: impl Into<ScaleName>) -> Result<&Self, Axes3DError> {
         self.set_scale_with(Axis3::Z, name, ScaleOptions::default())
     }
 
     /// The name of the scale of one axis (matplotlib's `get_xscale`).
-    pub fn scale(&self, axis: Axis3) -> &'static str {
+    pub fn scale(&self, axis: Axis3) -> ScaleName {
         self.with(|axes| axes.axis(axis).scale.name())
     }
 }
@@ -159,9 +162,9 @@ mod tests {
         let b = fig.subplot_3d();
         b.share_x(&a).unwrap();
         a.set_xscale("symlog").unwrap();
-        assert_eq!(b.scale(Axis3::X), "symlog");
+        assert_eq!(b.scale(Axis3::X), ScaleName::Symlog);
         assert!(a.set_yscale("nonsense").is_err());
         a.set_xscale("linear").unwrap();
-        assert_eq!(b.scale(Axis3::X), "linear");
+        assert_eq!(b.scale(Axis3::X), ScaleName::Linear);
     }
 }

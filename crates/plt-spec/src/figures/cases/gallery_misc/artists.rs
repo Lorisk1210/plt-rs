@@ -243,7 +243,7 @@ fn findobj_demo(fig: &Figure) -> CaseResult {
                 .to_vec(),
         ),
         shadow: Some(true.into()),
-        ..LegendOptions::default().loc("upper center")
+        ..LegendOptions::default().loc(AnchorLoc::UpperCenter)
     })?;
     ax.set_ylim(-1.0, 20.0)?;
     ax.grid(false);

@@ -2,7 +2,7 @@
 
 use plt_core::numeric::remainder;
 
-use super::{Sides, SignalValue, SpectralOptions};
+use super::{SignalValue, SpectralOptions, SpectrumSides};
 use crate::mlab::fft::{FftPlan, fftfreq};
 use crate::mlab::{Complex, MlabError};
 use crate::numeric::{Grid, arange};
@@ -60,9 +60,9 @@ pub(super) fn spectral_helper(
         return Err(MlabError::InvalidOverlap { noverlap, nfft });
     }
     let twosided = match opts.sides {
-        Sides::Default => x.complex,
-        Sides::OneSided => false,
-        Sides::TwoSided => true,
+        SpectrumSides::Default => x.complex,
+        SpectrumSides::OneSided => false,
+        SpectrumSides::TwoSided => true,
     };
     let pad_to = opts.pad_to.unwrap_or(nfft);
     if pad_to == 0 {

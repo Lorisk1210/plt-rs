@@ -6,17 +6,24 @@
 //! methods. [`crate::pyplot`] is the stateful interface on top: each
 //! thread keeps a list of numbered figures, a current figure and a current
 //! axes, and free functions such as [`pyplot::plot`] act on them. Nearly
-//! every `Axes` method has a pyplot function with the same arguments.
+//! every `Axes` method has a pyplot function with the same arguments; the
+//! few that differ are those whose matplotlib function takes other ones
+//! (the axes of `twinx(ax)`, the optional mappable of `colorbar`), and
+//! their documentation says so.
 //!
-//! Two spellings change because Rust has no keyword arguments or optional
-//! positional arguments:
+//! Three spellings change because Rust has no keyword arguments or
+//! optional positional arguments:
 //!
 //! * functions that are both getter and setter in matplotlib split in two:
 //!   `plt.xlim(0, 1)` is [`pyplot::xlim`], `plt.xlim()` is
 //!   [`pyplot::get_xlim`];
 //! * functions whose argument changes meaning by type split by type:
 //!   `plt.figure(3)` is [`pyplot::figure_num`], `plt.figure("name")` is
-//!   [`pyplot::figure_label`], `plt.close("all")` is [`pyplot::close_all`].
+//!   [`pyplot::figure_label`], `plt.close("all")` is [`pyplot::close_all`];
+//! * optional arguments become calls of their own, as on the axes:
+//!   `plt.xticks(ticks, labels)` is [`pyplot::xticks`] then
+//!   [`pyplot::xticklabels`], as `ax.set_xticks(ticks, labels)` is
+//!   `set_xticks` then `set_xticklabels`.
 //!
 //! To read like Python, import the module as `plt`
 //! (`use plt::pyplot as plt;`). The crate itself is then spelled `::plt`,
@@ -48,7 +55,9 @@
 //! | `plt.plot(y)`, `plt.plot(x, y)`              | [`pyplot::plot_y`], [`pyplot::plot`]          |
 //! | `plt.plot(x, y, "r--")`, `plt.plot(x, y, lw=2)` | [`pyplot::plot_fmt`], [`pyplot::plot_with`] |
 //! | `plt.xlim(a, b)`, `plt.xlim()`               | [`pyplot::xlim`], [`pyplot::get_xlim`]        |
-//! | `plt.xticks(ticks, labels)`, `plt.xticks()`  | [`pyplot::xticks`], [`pyplot::get_xticks`]    |
+//! | `plt.xticks(ticks, labels)`, `plt.xticks()`  | [`pyplot::xticks`] then [`pyplot::xticklabels`], [`pyplot::get_xticks`] |
+//! | `plt.xticks(ticks, labels, minor=True)`      | [`pyplot::xticks_minor`] then [`pyplot::xticklabels_minor`] |
+//! | `plt.margins(x)`, `plt.margins(y=m)`         | [`pyplot::margins`]`(x, None)`, `(None, m)`  |
 //! | `plt.title(s)`, `plt.title(s, loc="left")`   | [`pyplot::title`], [`pyplot::title_at`]       |
 //! | `plt.axis("off")`, `plt.axis("equal")`       | [`pyplot::axis`]`(AxisMode::Off)`, `AxisMode::Equal` ([`AxisMode`]) |
 //! | `plt.box(False)`                             | [`pyplot::box`]`(Some(false))`, written `plt::r#box` |
@@ -277,6 +286,10 @@
 //! [`pyplot::xlim`]: crate::pyplot::xlim
 //! [`pyplot::get_xlim`]: crate::pyplot::get_xlim
 //! [`pyplot::xticks`]: crate::pyplot::xticks
+//! [`pyplot::xticklabels`]: crate::pyplot::xticklabels
+//! [`pyplot::xticks_minor`]: crate::pyplot::xticks_minor
+//! [`pyplot::xticklabels_minor`]: crate::pyplot::xticklabels_minor
+//! [`pyplot::margins`]: crate::pyplot::margins
 //! [`pyplot::get_xticks`]: crate::pyplot::get_xticks
 //! [`pyplot::title`]: crate::pyplot::title
 //! [`pyplot::title_at`]: crate::pyplot::title_at

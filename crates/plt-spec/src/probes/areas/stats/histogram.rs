@@ -192,8 +192,8 @@ pub(super) fn axes_hist(args: Args<'_>) -> Outcome {
         ("n", n),
         ("bins", Json::from(edges)),
         ("patches", patches_json(&artists)),
-        ("xscale", Json::from(ax.xscale())),
-        ("yscale", Json::from(ax.yscale())),
+        ("xscale", Json::from(ax.xscale().to_string())),
+        ("yscale", Json::from(ax.yscale().to_string())),
     ]))
 }
 

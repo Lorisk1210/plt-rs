@@ -4,7 +4,9 @@
 use plt::axes::{ImshowOptions, LocatorParams};
 use plt::colorbar::ColorbarOptions;
 use plt::colors::{Color, Colorize, ColorizerOptions, Extend, Normalize, colormaps};
-use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, Origin, QuadCoords, QuadField};
+use plt::contour::{
+    ClabelFormat, ClabelOptions, ContourOptions, ContourOrigin, QuadCoords, QuadField,
+};
 use plt::figure::Figure;
 use plt::fonts::FontSize;
 use plt::gridspec::SubplotOverrides;
@@ -159,8 +161,8 @@ fn contourf_demo_4(fig: &Figure) -> CaseResult {
     let h = Grid::from_fn(9, 9, |r, c| ((r + 1) * (c + 1)) as f64);
     let axs = fig.subplots(1, 2)?;
     for (ax, (origin, title)) in axs.as_slice().iter().zip([
-        (Origin::Upper, "origin='upper'"),
-        (Origin::Lower, "origin='lower'"),
+        (ContourOrigin::Upper, "origin='upper'"),
+        (ContourOrigin::Lower, "origin='lower'"),
     ]) {
         ax.set_title(title);
         let field = QuadField::new(h.clone()).with_coords(QuadCoords::Implicit {
@@ -332,20 +334,20 @@ fn contour_image(fig: &Figure) -> CaseResult {
         colors: Some(colors(&["k"])),
         ..values(&levels)
     };
-    let placed = |origin: Origin| {
+    let placed = |origin: ContourOrigin| {
         QuadField::new(z.clone()).with_coords(QuadCoords::Implicit {
             origin: Some(origin),
             extent: Some(extent),
         })
     };
     axs[1].imshow(z.clone(), image(None, None))?;
-    axs[1].contour(&placed(Origin::Upper), black_lines())?;
+    axs[1].contour(&placed(ContourOrigin::Upper), black_lines())?;
     axs[1].set_title("Image, origin 'upper'");
     axs[2].imshow(z.clone(), image(Some(plt::image::Origin::Lower), None))?;
-    axs[2].contour(&placed(Origin::Lower), black_lines())?;
+    axs[2].contour(&placed(ContourOrigin::Lower), black_lines())?;
     axs[2].set_title("Image, origin 'lower'");
     let im = axs[3].imshow(z.clone(), image(None, Some(Interpolation::Nearest)))?;
-    axs[3].contour(&placed(Origin::Image), black_lines())?;
+    axs[3].contour(&placed(ContourOrigin::Image), black_lines())?;
     let (bottom, top) = axs[3].ylim();
     axs[3].set_ylim(top, bottom)?;
     axs[3].set_title("Origin from rc, reversed y-axis");

@@ -120,7 +120,7 @@ fn bbox_inches_tight(fig: &Figure) -> CaseResult {
         LegendOptions::default()
             .labels(["a", "b", "c", "d", "e"])
             .bbox_to_anchor((0.0, 0.2))
-            .loc("lower left"),
+            .loc(AnchorLoc::LowerLeft),
     )?;
     cell_text.reverse();
     ax.table(TableOptions {
@@ -143,7 +143,7 @@ fn suptile_legend(fig: &Figure) -> CaseResult {
     ax.legend(
         LegendOptions::default()
             .bbox_to_anchor((0.9, 1.0))
-            .loc("upper left"),
+            .loc(AnchorLoc::UpperLeft),
     )?;
     ax.set_title("Axis title");
     fig.suptitle("Figure title");

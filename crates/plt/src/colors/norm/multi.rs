@@ -8,7 +8,7 @@ use std::str::FromStr;
 use super::scaled::{LinearTransform, ScaleNorm};
 use super::{AsinhNorm, LogNorm, Norm, NormError, NormKind, SymLogNorm};
 use crate::colors::Normalized;
-use crate::scale::{LogitTransform, NonPositive};
+use crate::scale::{LogitTransform, NonPositive, ScaleName};
 
 /// A norm made from the name of a scale (matplotlib's `norm="log"`,
 /// built by `_auto_norm_from_scale` with masking of values outside the
@@ -127,7 +127,7 @@ impl NormSpec {
         match self {
             Self::Name(name) => *name == NormName::Log,
             Self::Norm(norm) => {
-                matches!(norm.kind(), NormKind::Scaled(scale) if scale.name() == "log")
+                matches!(norm.kind(), NormKind::Scaled(scale) if scale.name() == ScaleName::Log)
             }
         }
     }

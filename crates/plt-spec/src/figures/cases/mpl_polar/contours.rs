@@ -29,7 +29,7 @@ use crate::figures::cases::common::segment;
 use crate::rng::SpecRng;
 
 /// A grid from nested rows of numbers.
-fn rows<const C: usize>(values: &[[f64; C]]) -> Result<Grid<f64>, plt::numeric::GridError> {
+fn rows<const C: usize>(values: &[[f64; C]]) -> Result<Grid<f64>, plt::numeric::GridShapeError> {
     Grid::from_rows(values.iter().map(|row| row.iter().copied()))
 }
 

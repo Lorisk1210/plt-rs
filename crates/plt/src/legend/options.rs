@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use super::handle::LegendHandle;
 use super::handlers::{HandlerKey, HandlerMap, LegendHandler};
+use super::loc::LegendLoc;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 pub use crate::offsetbox::BboxToAnchor;
@@ -11,55 +12,6 @@ use crate::offsetbox::PackAlign;
 use crate::patches::PatchProps;
 use crate::rc::LabelColor;
 use crate::transforms::Transform;
-
-/// Where a legend goes (matplotlib's `loc`), validated when the legend is
-/// made.
-#[derive(Clone, Debug, PartialEq)]
-pub enum LegendLoc {
-    /// A location name: `"best"` (axes legends only), `"upper right"`,
-    /// `"upper left"`, `"lower left"`, `"lower right"`, `"right"`,
-    /// `"center left"`, `"center right"`, `"lower center"`,
-    /// `"upper center"` or `"center"`. Figure legends also take these
-    /// names prefixed by `"outside "`, with the edge first where it is
-    /// ambiguous (`"outside right upper"`), to sit outside the axes:
-    /// constrained layout makes room for them at that edge.
-    Name(String),
-    /// matplotlib's numeric location code, `0` (`"best"`) to `10`.
-    Code(i64),
-    /// The lower-left corner of the legend, in fractions of the box given
-    /// by `bbox_to_anchor` (by default the parent axes or figure).
-    Point(f64, f64),
-}
-
-impl From<&str> for LegendLoc {
-    fn from(name: &str) -> Self {
-        Self::Name(name.to_owned())
-    }
-}
-
-impl From<String> for LegendLoc {
-    fn from(name: String) -> Self {
-        Self::Name(name)
-    }
-}
-
-impl From<i64> for LegendLoc {
-    fn from(code: i64) -> Self {
-        Self::Code(code)
-    }
-}
-
-impl From<i32> for LegendLoc {
-    fn from(code: i32) -> Self {
-        Self::Code(i64::from(code))
-    }
-}
-
-impl From<(f64, f64)> for LegendLoc {
-    fn from((x, y): (f64, f64)) -> Self {
-        Self::Point(x, y)
-    }
-}
 
 /// How the columns of a legend use the available width (matplotlib's
 /// `mode`).
@@ -210,9 +162,11 @@ impl From<Vec<Color>> for LegendLabelColor {
 /// arguments); unset ones come from the `legend.*` rcParams.
 ///
 /// ```
-/// use plt::legend::LegendOptions;
-/// let options = LegendOptions::default().loc("upper left").ncols(2).title("Runs");
+/// use plt::legend::{LegendLoc, LegendOptions};
+/// let loc: LegendLoc = "upper left".parse()?;
+/// let options = LegendOptions::default().loc(loc).ncols(2).title("Runs");
 /// assert_eq!(options.ncols, 2);
+/// # Ok::<(), plt::legend::LegendError>(())
 /// ```
 #[derive(Clone, Debug)]
 pub struct LegendOptions {
@@ -481,6 +435,7 @@ impl LegendOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::offsetbox::AnchorLoc;
 
     #[test]
     fn label_colour_rules_and_colours() {
@@ -501,8 +456,8 @@ mod tests {
         assert_eq!(options.ncols, 1);
         assert_eq!(options.mode, LegendMode::Fit);
         assert_eq!(
-            LegendOptions::default().loc(3).loc,
-            Some(LegendLoc::Code(3))
+            LegendOptions::default().loc(AnchorLoc::LowerLeft).loc,
+            Some(LegendLoc::Anchored(AnchorLoc::LowerLeft))
         );
     }
 }

@@ -35,6 +35,7 @@
 //! # Ok::<(), plt::contour::ContourError>(())
 //! ```
 
+mod artist;
 mod assemble;
 mod chunks;
 mod error;
@@ -56,7 +57,7 @@ mod style;
 mod whole;
 
 pub use error::ContourError;
-pub use grid::{Origin, QuadCoords, QuadField};
+pub use grid::{ContourOrigin, QuadCoords, QuadField};
 pub use handle::ContourSet;
 pub use label::{ClabelFormat, ClabelOptions, ContourLabel};
 pub use levels::Levels;
@@ -65,7 +66,7 @@ pub use options::ContourOptions;
 pub use quad::{ContourAlgorithm, QuadContourGenerator};
 pub use set::ContourWarning;
 
+pub(crate) use artist::ContourSetArtist;
 pub(crate) use assemble::LevelPath;
 pub(crate) use given::given_source;
-pub(crate) use handle::ContourSetArtist;
 pub(crate) use set::{ContourPlan, ContourSource, Generator};

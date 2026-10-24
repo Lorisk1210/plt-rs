@@ -40,7 +40,7 @@
 //! | `ax.axis("equal")`, `ax.axis("off")`           | [`Axes::axis_mode`]`(AxisMode::Equal)`, [`Axes::set_axis_off`] |
 //! | `ax.set_aspect("equal")`, `ax.set_aspect(2)`   | [`Axes::set_aspect`]`(Aspect::Equal)`, `Aspect::Ratio(2.0)` ([`Aspect`]) |
 //! | `ax.set_adjustable("datalim")`, `ax.set_box_aspect(1)` | [`Axes::set_adjustable`], [`Axes::set_box_aspect`] |
-//! | `ax.set_xscale("log")`, `ax.get_xscale()`      | [`Axes::set_xscale`], [`Axes::xscale`]           |
+//! | `ax.set_xscale("log")`, `ax.get_xscale()`      | [`Axes::set_xscale`]`(ScaleName::Log)`, [`Axes::xscale`] ([`ScaleName`]) |
 //! | `ax.set_xscale("log", base=2)`                 | [`Axes::set_scale_with`] with [`ScaleOptions`]   |
 //! | `ax.set_xscale("function", functions=(f, g))`  | [`ScaleOptions::functions`] with a [`FuncTransform`] |
 //! | `ax.set_xticks(ticks)`, `ax.set_xticks(ticks, minor=True)` | [`Axes::set_xticks`], [`Axis::set_minor_ticks`] |
@@ -127,24 +127,27 @@
 //! ax.set_yscale("function", functions=(np.sqrt, np.square))
 //! ```
 //!
+//! A scale name is a [`ScaleName`]; matplotlib's strings convert to it,
+//! and an unknown name is refused when the scale is set.
+//!
 //! ```
 //! use plt::prelude::*;
-//! use plt::scale::{FuncTransform, ScaleOptions};
+//! use plt::scale::{FuncTransform, ScaleName, ScaleOptions};
 //! use plt::ticker::AxisName;
 //!
 //! let ax = Figure::new().subplot();
 //! let base2 = ScaleOptions { base: Some(2.0), ..ScaleOptions::default() };
-//! ax.set_scale_with(AxisName::X, "log", base2)?;
+//! ax.set_scale_with(AxisName::X, ScaleName::Log, base2)?;
 //! let symlog = ScaleOptions { linthresh: Some(1.0), ..ScaleOptions::default() };
 //! ax.set_scale_with(AxisName::Y, "symlog", symlog)?;
-//! assert_eq!(ax.xscale(), "log");
-//! assert_eq!(ax.yscale(), "symlog");
+//! assert_eq!(ax.xscale(), ScaleName::Log);
+//! assert_eq!(ax.yscale().to_string(), "symlog");
 //!
 //! let root = ScaleOptions {
 //!     functions: Some(FuncTransform::new(f64::sqrt, |v| v * v)),
 //!     ..ScaleOptions::default()
 //! };
-//! ax.set_scale_with(AxisName::Y, "function", root)?;
+//! ax.set_scale_with(AxisName::Y, ScaleName::Function, root)?;
 //! assert!(ax.set_xscale("loglog").is_err());
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -301,6 +304,7 @@
 //! [`Aspect`]: crate::rc::Aspect
 //! [`AxisBelow`]: crate::rc::AxisBelow
 //! [`ScaleOptions`]: crate::scale::ScaleOptions
+//! [`ScaleName`]: crate::scale::ScaleName
 //! [`ScaleOptions::functions`]: field@crate::scale::ScaleOptions::functions
 //! [`FuncTransform`]: crate::scale::FuncTransform
 //! [`Scale`]: crate::scale::Scale

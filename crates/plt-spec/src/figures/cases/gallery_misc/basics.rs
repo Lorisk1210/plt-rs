@@ -12,6 +12,7 @@ use plt::axes::{AxisName, Limits, ScatterOptions};
 use plt::figure::{MosaicOptions, Share};
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::patches::Polygon;
 use plt::prelude::*;
 use plt::spines::SpinePosition;
@@ -250,7 +251,7 @@ fn zorder_demo_2(fig: &Figure) -> CaseResult {
             .zorder(2.5),
     );
     ax.set_title("Custom order of elements");
-    let legend = ax.legend(LegendOptions::default().loc("upper right"))?;
+    let legend = ax.legend(LegendOptions::default().loc(AnchorLoc::UpperRight))?;
     legend.set_zorder(2.5);
     Ok(())
 }

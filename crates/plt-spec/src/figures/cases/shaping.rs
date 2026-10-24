@@ -8,6 +8,7 @@ use crate::figures::cases::common::ranges;
 use plt::axes::BarOptions;
 use plt::fonts::FontStyle;
 use plt::legend::LegendOptions;
+use plt::offsetbox::AnchorLoc;
 use plt::patches::ArrowStyle;
 use plt::patheffects::{GcUpdate, PathEffect, Stroke};
 use plt::prelude::*;
@@ -262,7 +263,7 @@ fn rc_language_case(fig: &Figure) -> CaseResult {
     ax.set_title("\u{41d}\u{430}\u{441}\u{43b}\u{43e}\u{432} \u{431}\u{433}\u{434}\u{43f}\u{442}");
     ax.set_xlabel("\u{43f}\u{443}\u{442}")
         .set_ylabel("\u{434}\u{443}\u{433}");
-    ax.legend(LegendOptions::default().loc("upper right"))?;
+    ax.legend(LegendOptions::default().loc(AnchorLoc::UpperRight))?;
     ax.text(1.0, 2.6, "\u{431}\u{433}\u{434}\u{43f}\u{442} ru")
         .set_halign(HAlign::Center)
         .set_language(Language::from("ru"));

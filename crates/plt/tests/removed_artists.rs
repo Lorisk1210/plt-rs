@@ -7,7 +7,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use plt::artist::AttachError;
 use plt::axes::{ImshowOptions, PieOptions, SecondaryLocation, StemOptions, TitleLocation};
 use plt::axes_grid1::host_subplot;
-use plt::axisartist::Axes as AxisartistAxes;
+use plt::axisartist::AxisArtistAxes;
 use plt::colorbar::ColorbarOptions;
 use plt::contour::{ClabelOptions, ContourOptions, QuadField};
 use plt::figure::{SaveFormat, SaveOptions, SubfigureOptions};
@@ -370,7 +370,7 @@ fn projections(fig: &Figure) -> Outcome {
     let geo = fig.add_geo_subplot(GeoProjection::Hammer, 2, 2, 2)?;
     let host = host_subplot(fig, 2, 2, 3)?;
     let parasite = host.twinx();
-    let ax = AxisartistAxes::new(fig.add_subplot(2, 2, 4)?);
+    let ax = AxisArtistAxes::new(fig.add_subplot(2, 2, 4)?);
     polar.axes().remove();
     geo.axes().remove();
     host.remove();

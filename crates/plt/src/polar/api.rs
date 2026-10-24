@@ -14,7 +14,7 @@ use crate::axes::axis::AxisRole;
 use crate::axes::projection::ProjectionState;
 use crate::axes::{Adjustable, Axes, AxesState, AxisName, PlotError, ProjectionKind, Sides};
 use crate::rc::Aspect;
-use crate::scale::{LinearScale, ScaleError};
+use crate::scale::{LinearScale, ScaleError, ScaleName};
 use crate::transforms::Anchor;
 
 /// Why a polar setting was refused.
@@ -312,7 +312,7 @@ impl PolarAxes {
     /// # Errors
     ///
     /// When no scale is registered under `name`.
-    pub fn set_rscale(&self, name: &str) -> Result<&Self, ScaleError> {
+    pub fn set_rscale(&self, name: impl Into<ScaleName>) -> Result<&Self, ScaleError> {
         self.axes.set_yscale(name)?;
         Ok(self)
     }

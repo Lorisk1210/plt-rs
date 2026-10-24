@@ -5,8 +5,9 @@
 use plt::colors::to_rgba;
 use plt::figure::MosaicOptions;
 use plt::layout::LayoutEngine;
-use plt::legend::{HandlerTuple, LegendHandle, LegendMode, LegendOptions};
+use plt::legend::{HandlerTuple, LegendHandle, LegendLoc, LegendMode, LegendOptions};
 use plt::markers::Marker;
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 
 use super::{SEED, handlers};
@@ -58,7 +59,7 @@ fn legend_guide_3(fig: &Figure) -> CaseResult {
         mode: LegendMode::Expand,
         ..LegendOptions::default()
             .bbox_to_anchor((0.0, 1.02, 1.0, 0.102))
-            .loc("lower left")
+            .loc(AnchorLoc::LowerLeft)
             .borderaxespad(0.0)
     })?;
     let bottom = axd.get("bottom").ok_or("a bottom axes")?;
@@ -66,7 +67,7 @@ fn legend_guide_3(fig: &Figure) -> CaseResult {
     bottom.legend(
         LegendOptions::default()
             .bbox_to_anchor((1.05, 1.0))
-            .loc("upper left")
+            .loc(AnchorLoc::UpperLeft)
             .borderaxespad(0.0),
     )?;
     Ok(())
@@ -81,7 +82,7 @@ fn legend_guide_4(fig: &Figure) -> CaseResult {
     );
     rising_falling(left, ["test1", "test2"], ["", ""])?;
     rising_falling(right, ["test3", "test4"], ["C2", "C3"])?;
-    fig.legend(LegendOptions::default().loc("outside upper right"))?;
+    fig.legend(LegendOptions::default().loc("outside upper right".parse::<LegendLoc>()?))?;
     Ok(())
 }
 
@@ -93,7 +94,11 @@ fn outside_legends(fig: &Figure, label: &str, locations: &[&str]) -> CaseResult 
     let ax = fig.subplot();
     ax.plot_with([1.0, 2.0], [1.0, 2.0], LineProps::default().label(label))?;
     for &loc in locations {
-        fig.legend(LegendOptions::default().loc(loc).title(loc))?;
+        fig.legend(
+            LegendOptions::default()
+                .loc(loc.parse::<LegendLoc>()?)
+                .title(loc),
+        )?;
     }
     Ok(())
 }
@@ -140,13 +145,13 @@ fn legend_guide_7(fig: &Figure) -> CaseResult {
     let first_legend = ax.legend(
         LegendOptions::default()
             .handles([&line1])
-            .loc("upper right"),
+            .loc(AnchorLoc::UpperRight),
     )?;
     ax.keep_legend(&first_legend);
     ax.legend(
         LegendOptions::default()
             .handles([&line2])
-            .loc("lower right"),
+            .loc(AnchorLoc::LowerRight),
     )?;
     Ok(())
 }

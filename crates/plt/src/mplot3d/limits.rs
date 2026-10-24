@@ -9,6 +9,7 @@ use super::error::Axes3DError;
 use super::share::LimitChange;
 use super::state::Axes3DState;
 use crate::rc::RcParams;
+use crate::scale::ScaleName;
 
 /// Padding added on both sides of autoscaled limits, as a fraction of
 /// their span (matplotlib's `_view_margin`, matching matplotlib 3.8).
@@ -340,7 +341,7 @@ impl Axes3DState {
     ) {
         let (old0, old1) = self.limits.view(axis);
         let state = self.axis(axis);
-        let (v0, v1) = if state.scale.name() == "log" {
+        let (v0, v1) = if state.scale.name() == ScaleName::Log {
             (
                 if v0 <= 0.0 { old0 } else { v0 },
                 if v1 <= 0.0 { old1 } else { v1 },

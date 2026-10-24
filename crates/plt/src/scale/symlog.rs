@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use super::{AxisTickers, Scale, ScaleError, SymmetricalLogTransform};
+use super::{AxisTickers, Scale, ScaleError, ScaleName, SymmetricalLogTransform};
 use crate::ticker::{
     AxisName, LogFormatter, LogLabelStyle, NullFormatter, ScaleHint, SymmetricalLogLocator,
     TickerSettings,
@@ -48,8 +48,8 @@ impl Default for SymmetricalLogScale {
 }
 
 impl Scale for SymmetricalLogScale {
-    fn name(&self) -> &'static str {
-        "symlog"
+    fn name(&self) -> ScaleName {
+        ScaleName::Symlog
     }
 
     fn axis_map(&self) -> Option<Rc<dyn AxisMap>> {

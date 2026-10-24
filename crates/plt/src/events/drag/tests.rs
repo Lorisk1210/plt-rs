@@ -4,6 +4,7 @@ use crate::figure::Figure;
 use crate::legend::{Legend, LegendOptions};
 use crate::lines::LineProps;
 use crate::navigation::PointerButton;
+use crate::offsetbox::AnchorLoc;
 
 /// A figure with a labelled line and an upper-left legend.
 fn legend() -> (Figure, Legend) {
@@ -12,7 +13,7 @@ fn legend() -> (Figure, Legend) {
     ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("line"))
         .unwrap();
     let legend = ax
-        .legend(LegendOptions::default().loc("upper left"))
+        .legend(LegendOptions::default().loc(AnchorLoc::UpperLeft))
         .unwrap();
     (fig, legend)
 }

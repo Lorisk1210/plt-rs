@@ -25,7 +25,7 @@ pub(super) const CASES: &[FigureCase] = &[
 ];
 
 /// Hides the axis artists `names` of `ax`.
-fn hide(ax: &axisartist::Axes, names: &[&str]) -> CaseResult {
+fn hide(ax: &axisartist::AxisArtistAxes, names: &[&str]) -> CaseResult {
     for name in names {
         axis_artist(ax, name)?.set_visible(false);
     }
@@ -33,7 +33,7 @@ fn hide(ax: &axisartist::Axes, names: &[&str]) -> CaseResult {
 }
 
 fn demo_axisline_style(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::zero(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::zero(fig.subplot());
     for name in ["xzero", "yzero"] {
         let axis = axis_artist(&ax, name)?;
         axis.set_axisline_style(Some("-|>".parse::<AxislineStyle>()?));
@@ -49,7 +49,7 @@ fn demo_axisline_style(fig: &Figure) -> CaseResult {
 fn simple_axisartist1(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained())?;
     let grid = fig.add_gridspec(1, 2)?;
-    let ax0 = axisartist::Axes::new(fig.add_subplot_spec(&grid.cell(0, 0)?)?);
+    let ax0 = axisartist::AxisArtistAxes::new(fig.add_subplot_spec(&grid.cell(0, 0)?)?);
     let y0 = ax0.new_floating_axis_facing("y=0", AxisName::X, 0.0, SpineSide::Bottom);
     y0.toggle(&Toggle {
         all: Some(true),
@@ -57,7 +57,7 @@ fn simple_axisartist1(fig: &Figure) -> CaseResult {
     });
     y0.label().set_text("y = 0");
     hide(&ax0, &["bottom", "top", "right"])?;
-    let ax1 = axisartist::Axes::zero(fig.add_subplot_spec(&grid.cell(0, 1)?)?);
+    let ax1 = axisartist::AxisArtistAxes::zero(fig.add_subplot_spec(&grid.cell(0, 1)?)?);
     let xzero = axis_artist(&ax1, "xzero")?;
     xzero.set_visible(true);
     xzero.label().set_text("Axis Zero");
@@ -74,7 +74,7 @@ fn simple_axisline(fig: &Figure) -> CaseResult {
         right: Some(0.85),
         ..SubplotOverrides::default()
     })?;
-    let ax = axisartist::Axes::zero(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::zero(fig.subplot());
     hide(&ax, &["right", "top"])?;
     let xzero = axis_artist(&ax, "xzero")?;
     xzero.set_visible(true);
@@ -91,6 +91,6 @@ fn simple_axisline(fig: &Figure) -> CaseResult {
 }
 
 fn simple_axisline3(fig: &Figure) -> CaseResult {
-    let ax = axisartist::Axes::new(fig.subplot());
+    let ax = axisartist::AxisArtistAxes::new(fig.subplot());
     hide(&ax, &["right", "top"])
 }

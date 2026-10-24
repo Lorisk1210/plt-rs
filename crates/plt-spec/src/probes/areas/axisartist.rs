@@ -9,9 +9,9 @@ use plt::axisartist::angle_helper::{
     LocatorDms, LocatorH, LocatorHm, LocatorHms,
 };
 use plt::axisartist::grid_finder::{
-    CoordinateGrid, DictFormatter, ExtremeFinder, ExtremeFinderSimple, FixedLocator,
-    FormatterPrettyPrint, GridError, GridFinder, GridFinderOptions, GridFormatter, GridLevels,
-    GridLocator, MaxNLocator,
+    CoordinateGrid, DictFormatter, ExtremeFinder, ExtremeFinderSimple, FormatterPrettyPrint,
+    GridError, GridFinder, GridFinderOptions, GridFixedLocator, GridFormatter, GridLevels,
+    GridLocator, GridMaxNLocator,
 };
 use plt::spines::SpineSide;
 use plt::ticker::{Nbins, Prune};
@@ -261,11 +261,11 @@ fn max_n_locator(args: Args<'_>) -> Outcome {
             .with_steps(&args.f64_vec("steps")?)
             .map_err(ProbeError::rejected)?;
     }
-    levels(MaxNLocator::from_locator(locator).levels(args.f64("v1")?, args.f64("v2")?))
+    levels(GridMaxNLocator::from_locator(locator).levels(args.f64("v1")?, args.f64("v2")?))
 }
 
 fn fixed_locator(args: Args<'_>) -> Outcome {
-    levels(FixedLocator::new(args.f64_vec("locs")?).levels(args.f64("v1")?, args.f64("v2")?))
+    levels(GridFixedLocator::new(args.f64_vec("locs")?).levels(args.f64("v1")?, args.f64("v2")?))
 }
 
 fn formatter_pretty_print(args: Args<'_>) -> Outcome {
@@ -323,13 +323,13 @@ fn grid(name: &str) -> Result<GridFinder, ProbeError> {
             GridFinderOptions::default(),
         )),
         "polar" => polar_grid(None),
-        "polar5" => polar_grid(Some(Box::new(MaxNLocator::new(5)))),
+        "polar5" => polar_grid(Some(Box::new(GridMaxNLocator::new(5)))),
         "sqrt" => Ok(GridFinder::new(
             transform("sqrt")?,
             GridFinderOptions {
                 extreme_finder: Some(Box::new(ExtremeFinderSimple::new(20, 20))),
-                grid_locator1: Some(Box::new(MaxNLocator::new(6))),
-                grid_locator2: Some(Box::new(MaxNLocator::new(6))),
+                grid_locator1: Some(Box::new(GridMaxNLocator::new(6))),
+                grid_locator2: Some(Box::new(GridMaxNLocator::new(6))),
                 ..GridFinderOptions::default()
             },
         )),

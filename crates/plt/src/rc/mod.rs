@@ -39,7 +39,7 @@ pub use cycler::{CycleValue, Cycler, CyclerError};
 pub use file::{RcEntry, RcFile, RcWarning, RcWarningKind, parse_rc_text, strip_comment};
 pub use kinds::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, Distiller, Dpi, FontType,
-    HistBins, LabelColor, SavefigBbox, Whiskers,
+    HistBins, LabelColor, LegendLocParam, SavefigBbox, Whiskers,
 };
 pub use table::RcParams;
 

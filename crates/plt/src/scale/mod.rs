@@ -13,13 +13,14 @@
 //! assert_eq!(log.limit_range_for_scale(-5.0, 10.0, 0.5), (0.5, 10.0));
 //! ```
 //!
-//! Scales can also be created by name, like `set_xscale("log", base=2)`:
+//! Scales can also be created by name, a [`ScaleName`] or its string, like
+//! `set_xscale("log", base=2)`:
 //!
 //! ```
-//! use plt::scale::{ScaleOptions, scale_factory};
+//! use plt::scale::{ScaleName, ScaleOptions, scale_factory};
 //! let scale = scale_factory("log", ScaleOptions { base: Some(2.0), ..ScaleOptions::default() })
 //!     .unwrap();
-//! assert_eq!(scale.name(), "log");
+//! assert_eq!(scale.name(), ScaleName::Log);
 //! ```
 #![expect(
     clippy::float_cmp,
@@ -30,6 +31,7 @@ mod asinh;
 mod linear;
 mod log;
 mod logit;
+mod name;
 mod registry;
 mod symlog;
 mod transforms;
@@ -42,6 +44,7 @@ pub use asinh::AsinhScale;
 pub use linear::{FuncScale, LinearScale};
 pub use log::{FuncScaleLog, LogScale};
 pub use logit::LogitScale;
+pub use name::ScaleName;
 pub use registry::{ScaleConstructor, ScaleOptions, ScaleRegistry, scale_factory, scale_names};
 pub use symlog::SymmetricalLogScale;
 pub use transforms::{
@@ -81,8 +84,9 @@ pub struct AxisTickers {
 /// A data-to-scaled-coordinate mapping for one axis (matplotlib's
 /// `ScaleBase`).
 pub trait Scale: fmt::Debug + Any {
-    /// The registered name, e.g. `"log"`.
-    fn name(&self) -> &'static str;
+    /// The name the scale goes by (matplotlib's `name`), e.g.
+    /// [`ScaleName::Log`].
+    fn name(&self) -> ScaleName;
 
     /// The map from data to scaled coordinates, or `None` for the
     /// identity (linear) map.

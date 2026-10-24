@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use super::{AsinhTransform, AxisTickers, Scale, ScaleError};
+use super::{AsinhTransform, AxisTickers, Scale, ScaleError, ScaleName};
 use crate::ticker::{
     AsinhLocator, AxisName, Formatter, LogFormatter, LogLabelStyle, NullFormatter,
     StrMethodFormatter, TickerSettings,
@@ -75,8 +75,8 @@ impl Default for AsinhScale {
 }
 
 impl Scale for AsinhScale {
-    fn name(&self) -> &'static str {
-        "asinh"
+    fn name(&self) -> ScaleName {
+        ScaleName::Asinh
     }
 
     fn axis_map(&self) -> Option<Rc<dyn AxisMap>> {

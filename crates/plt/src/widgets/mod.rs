@@ -35,6 +35,7 @@ mod subplot_tool;
 mod textbox;
 mod toggles;
 
+pub use crate::orientation::Orientation;
 pub use button::{Button, ButtonOptions};
 pub use cursor::{Cursor, CursorOptions, MultiCursor};
 pub use observers::CallbackId;
@@ -44,7 +45,7 @@ pub use selectors::{
     RectangleSelector, RectangleSelectorOptions, SelectorError, SelectorEvent, SelectorState,
     SelectorUnits, SpanSelector, SpanSelectorOptions, UnknownState,
 };
-pub use slider::{HandleStyle, Orientation, Slider, SliderOptions, ValStep};
+pub use slider::{HandleStyle, Slider, SliderOptions, ValStep};
 pub use subplot_tool::SubplotTool;
 pub use textbox::{TextBox, TextBoxOptions};
 pub use toggles::{

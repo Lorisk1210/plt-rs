@@ -56,7 +56,7 @@ pub use plt_text::{
     LineSpacing, ParseFeatureError, RotationMode as TextRotationMode, TextError, VAlign,
 };
 pub(crate) use text_box::BoxPlacement;
-pub use text_box::{TextBox, TextBoxProps};
+pub use text_box::{TextBoxPatch, TextBoxProps};
 
 /// How a text's rotation is reduced before it is drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,7 +103,7 @@ pub(crate) struct TextArtist {
     /// The language of the text (`text.language` when the text was made).
     pub(crate) language: Option<Language>,
     /// The box drawn behind the text.
-    pub(crate) bbox: Option<TextBox>,
+    pub(crate) bbox: Option<TextBoxPatch>,
     /// What makes the text an annotation.
     pub(crate) annotation: Option<Box<AnnotationState>>,
     pub(crate) rc: Rc<RcParams>,
@@ -301,7 +301,7 @@ impl TextArtist {
         &self,
         ctx: LayoutContext<'_>,
         anchor: Point,
-    ) -> Result<Option<(&TextBox, BoxPlacement)>, TextDrawError> {
+    ) -> Result<Option<(&TextBoxPatch, BoxPlacement)>, TextDrawError> {
         let Some(bbox) = &self.bbox else {
             return Ok(None);
         };

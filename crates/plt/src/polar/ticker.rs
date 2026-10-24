@@ -9,7 +9,7 @@ use std::rc::Rc;
 use super::transform::full_circle_deg;
 use crate::scale::Scale;
 use crate::ticker::{
-    AxisInfo, Formatter, Locator, MaxNLocator, Nbins, TickContext, TickLabels, TickerError,
+    AxisInfo, FormattedTicks, Formatter, Locator, MaxNLocator, Nbins, TickContext, TickerError,
     TickerSettings, pyfmt,
 };
 use crate::transforms::nonsingular;
@@ -122,10 +122,14 @@ impl ThetaFormatter {
 }
 
 impl Formatter for ThetaFormatter {
-    fn format_ticks(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<TickLabels, TickerError> {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
         let (vmin, vmax) = ctx.view_interval();
         let digits = Self::digits(vmax - vmin)?;
-        Ok(TickLabels {
+        Ok(FormattedTicks {
             labels: locs
                 .iter()
                 .map(|&x| format!("{}\u{b0}", pyfmt::fixed(x.to_degrees(), digits)))

@@ -9,6 +9,7 @@ use crate::artist::{Artist, ArtistHandle};
 use crate::lines::{AxLineThrough, InfiniteLine, Line2D, LineArtist, LineProps};
 use crate::patches::{Patch, PatchArtist, PatchShape, Rectangle};
 use crate::polar::GRIDLINE_INTERPOLATION_STEPS;
+use crate::scale::ScaleName;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
 use crate::units::AxisValue;
@@ -80,7 +81,7 @@ impl Axes {
         props: LineProps,
     ) -> Result<Line2D, PlotError> {
         if matches!(through, AxLineThrough::Slope(_))
-            && (self.xscale() != "linear" || self.yscale() != "linear")
+            && (self.xscale() != ScaleName::Linear || self.yscale() != ScaleName::Linear)
         {
             return Err(PlotError::SlopeOnNonlinearScale);
         }

@@ -3,36 +3,8 @@
 //! keywords).
 
 use crate::colors::Color;
+use crate::orientation::Orientation;
 use crate::patches::PatchProps;
-
-/// The direction a slider moves in, or a span selector selects along.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum Orientation {
-    /// Left to right.
-    #[default]
-    Horizontal,
-    /// Bottom to top.
-    Vertical,
-}
-
-impl std::str::FromStr for Orientation {
-    type Err = crate::orientation::OrientationError;
-
-    /// Parses `"horizontal"` or `"vertical"`, matplotlib's names.
-    ///
-    /// ```
-    /// use plt::widgets::Orientation;
-    /// assert_eq!("vertical".parse(), Ok(Orientation::Vertical));
-    /// assert!("diagonal".parse::<Orientation>().is_err());
-    /// ```
-    fn from_str(name: &str) -> Result<Self, Self::Err> {
-        match name {
-            "horizontal" => Ok(Self::Horizontal),
-            "vertical" => Ok(Self::Vertical),
-            other => Err(crate::orientation::OrientationError(other.to_owned())),
-        }
-    }
-}
 
 /// Values a slider snaps to (matplotlib's `valstep`).
 #[derive(Clone, Debug, PartialEq)]

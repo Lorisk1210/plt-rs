@@ -5,7 +5,8 @@ use plt::figure::SubfigureOptions;
 use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::SubplotOverrides;
 use plt::layout::LayoutEngine;
-use plt::legend::{BboxToAnchor, LegendHandle, LegendMode, LegendOptions};
+use plt::legend::{BboxToAnchor, LegendHandle, LegendLoc, LegendMode, LegendOptions};
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::text::{HAlign, VAlign};
 use plt::transforms::Transform;
@@ -28,14 +29,14 @@ pub(super) fn legends_outside_constrained(fig: &Figure) -> CaseResult {
     fig.legend(LegendOptions {
         handles: Some(handles.clone()),
         labels: Some(labels.clone()),
-        loc: Some("outside right upper".into()),
+        loc: Some("outside right upper".parse::<LegendLoc>()?),
         title: Some("right upper".into()),
         ..LegendOptions::default()
     })?;
     fig.legend(LegendOptions {
         handles: Some(handles[..1].to_vec()),
         labels: Some(labels[..1].to_vec()),
-        loc: Some("outside lower left".into()),
+        loc: Some("outside lower left".parse::<LegendLoc>()?),
         title: Some("lower left".into()),
         ncols: 1,
         ..LegendOptions::default()
@@ -43,7 +44,7 @@ pub(super) fn legends_outside_constrained(fig: &Figure) -> CaseResult {
     fig.legend(LegendOptions {
         handles: Some(handles),
         labels: Some(labels),
-        loc: Some("outside left center".into()),
+        loc: Some("outside left center".parse::<LegendLoc>()?),
         frameon: Some(false),
         ..LegendOptions::default()
     })?;
@@ -65,7 +66,7 @@ pub(super) fn legend_bbox_figure_coords(fig: &Figure) -> CaseResult {
     })?;
     fig.legend(LegendOptions {
         handles: Some(lines.clone()),
-        loc: Some("lower center".into()),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::LowerCenter)),
         bbox_to_anchor: Some(BboxToAnchor::Point(0.5, 0.02)),
         bbox_transform: Some(Transform::Figure(fig.id())),
         ncols: 2,
@@ -75,7 +76,7 @@ pub(super) fn legend_bbox_figure_coords(fig: &Figure) -> CaseResult {
     })?;
     fig.legend(LegendOptions {
         handles: Some(lines[..1].to_vec()),
-        loc: Some("upper right".into()),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::UpperRight)),
         bbox_to_anchor: Some(BboxToAnchor::Point(1.0, 1.0)),
         fontsize: Some(FontSize::Relative(RelativeSize::Small)),
         title: Some("anchored".into()),
@@ -105,12 +106,12 @@ pub(super) fn subfigure_legends_suplabels(fig: &Figure) -> CaseResult {
         sub.supxlabel(format!("supxlabel {offset}"));
     }
     left.legend(LegendOptions {
-        loc: Some("upper left".into()),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::UpperLeft)),
         fontsize: Some(FontSize::Relative(RelativeSize::Small)),
         ..LegendOptions::default()
     })?;
     right.legend(LegendOptions {
-        loc: Some("lower center".into()),
+        loc: Some(LegendLoc::Anchored(AnchorLoc::LowerCenter)),
         ncols: 2,
         frameon: Some(false),
         ..LegendOptions::default()

@@ -12,6 +12,7 @@ use crate::colors::{
 };
 use crate::contour::{ContourOptions, Levels, QuadField};
 use crate::numeric::Grid;
+use crate::scale::ScaleName;
 use crate::spines::SpineSide;
 use crate::tri::Triangulation;
 
@@ -98,7 +99,7 @@ fn boundary_norms_tick_their_boundaries() {
         ..ColorbarOptions::default()
     };
     let colorbar = fig.colorbar(&mappable, options).unwrap();
-    assert_eq!(colorbar.ax().yscale(), "function");
+    assert_eq!(colorbar.ax().yscale(), ScaleName::Function);
     let ticks = colorbar.ax().ticks(AxisName::Y).unwrap();
     let locs: Vec<f64> = ticks.major.iter().map(|t| t.loc).collect();
     assert_eq!(locs, [0.0, 1.0, 5.0, 10.0]);
@@ -226,14 +227,14 @@ fn a_new_norm_brings_its_scale() {
     let data = Grid::from_fn(4, 4, |r, c| 1.0 + (r * 4 + c) as f64 * 10.0);
     let image = ax.imshow(data, ImshowOptions::default()).unwrap();
     let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
-    assert_eq!(colorbar.ax().yscale(), "linear");
+    assert_eq!(colorbar.ax().yscale(), ScaleName::Linear);
     image.set_norm(Box::new(LogNorm::default()));
     assert_eq!(
         image.clim(),
         (Some(1.0), Some(151.0)),
         "autoscaled to the data"
     );
-    assert_eq!(colorbar.ax().yscale(), "log");
+    assert_eq!(colorbar.ax().yscale(), ScaleName::Log);
     assert_eq!(colorbar.ax().ylim(), (1.0, 151.0));
 }
 
@@ -510,6 +511,6 @@ fn update_normal_resets_the_ticks_of_a_bare_mapping_for_a_new_kind_of_norm() {
     assert_eq!(colorbar.long_axis().ticklocs(false).unwrap(), [2.0, 4.0]);
     sm.set_norm(Box::new(LogNorm::new(1.0, 100.0)));
     colorbar.update_normal(&sm).unwrap();
-    assert_eq!(colorbar.ax().yscale(), "log");
+    assert_eq!(colorbar.ax().yscale(), ScaleName::Log);
     assert_ne!(colorbar.long_axis().ticklocs(false).unwrap(), [2.0, 4.0]);
 }

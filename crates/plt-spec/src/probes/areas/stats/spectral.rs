@@ -1,8 +1,8 @@
 //! `mlab.psd`, `csd`, `specgram`, `cohere` and the single spectra.
 
 use plt::mlab::{
-    self, Complex, Detrend, Sides, SignalValue, SpecgramMode, SpectralOptions, Spectrum,
-    SpectrumOptions, Window,
+    self, Complex, Detrend, SignalValue, SpecgramMode, SpectralOptions, Spectrum, SpectrumOptions,
+    SpectrumSides, Window,
 };
 use plt::numeric::Grid;
 
@@ -26,11 +26,11 @@ fn parse_window(value: Option<&Json>) -> Result<Window, ProbeError> {
     }
 }
 
-fn parse_sides(args: Args<'_>) -> Result<Sides, ProbeError> {
+fn parse_sides(args: Args<'_>) -> Result<SpectrumSides, ProbeError> {
     match args.opt_str("sides")? {
-        None | Some("default") => Ok(Sides::Default),
-        Some("onesided") => Ok(Sides::OneSided),
-        Some("twosided") => Ok(Sides::TwoSided),
+        None | Some("default") => Ok(SpectrumSides::Default),
+        Some("onesided") => Ok(SpectrumSides::OneSided),
+        Some("twosided") => Ok(SpectrumSides::TwoSided),
         Some(other) => Err(ProbeError::rejected(format!("bad sides {other:?}"))),
     }
 }

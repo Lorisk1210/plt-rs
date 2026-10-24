@@ -22,6 +22,7 @@ use plt_core::Path;
 
 use crate::figures::cases::common::{contour_effects, stroke, ticked_stroke, with_stroke};
 use crate::figures::{CaseResult, FigureCase};
+use plt::offsetbox::AnchorLoc;
 use plt::ticker::LabelFormat;
 
 fn patheffect_demo(fig: &Figure) -> CaseResult {
@@ -86,7 +87,7 @@ fn patheffect_demo(fig: &Figure) -> CaseResult {
         handles: Some(vec![LegendHandle::from(&line)]),
         labels: Some(vec!["Line 1".into()]),
         fancybox: Some(true),
-        ..LegendOptions::default().loc("upper left")
+        ..LegendOptions::default().loc(AnchorLoc::UpperLeft)
     })?;
     legend
         .frame()

@@ -25,9 +25,9 @@
 //!   [`Divider`]); sizes like `"5%"` are a [`SizeSpec`], sides a
 //!   [`SpineSide`].
 //! * [`crate::axisartist`] wraps an ordinary axes in an
-//!   [`axisartist::Axes`](crate::axisartist::Axes) ([`Axes::new`](crate::axisartist::Axes::new),
-//!   or [`Axes::zero`](crate::axisartist::Axes::zero) for `AxesZero`);
-//!   `ax.axis["left"]` is [`axis("left")`](crate::axisartist::Axes::axis),
+//!   [`axisartist::AxisArtistAxes`](crate::axisartist::AxisArtistAxes) ([`AxisArtistAxes::new`](crate::axisartist::AxisArtistAxes::new),
+//!   or [`AxisArtistAxes::zero`](crate::axisartist::AxisArtistAxes::zero) for `AxesZero`);
+//!   `ax.axis["left"]` is [`axis("left")`](crate::axisartist::AxisArtistAxes::axis),
 //!   keyed by name since new axis lines get names of your choosing.
 //!
 //! # Equivalences
@@ -56,7 +56,7 @@
 //! | `ax.set_theta_direction(-1)`                      | [`PolarAxes::set_theta_direction`]`(ThetaDirection::Clockwise)` |
 //! | `ax.set_rmax(r)`, `ax.set_rlim(a, b)`, `ax.set_rticks(t)` | [`PolarAxes::set_rmax`], [`PolarAxes::set_rlim`], [`PolarAxes::set_rticks`] |
 //! | `ax.set_rlabel_position(deg)`, `ax.set_thetamin(deg)` | [`PolarAxes::set_rlabel_position`], [`PolarAxes::set_thetamin`] |
-//! | `plt.polar(theta, r)`, `plt.thetagrids`, `plt.rgrids` | [`crate::pyplot::polar`], [`crate::pyplot::thetagrids`], [`crate::pyplot::rgrids`] |
+//! | `plt.polar(theta, r)`, `plt.thetagrids`, `plt.rgrids` | [`crate::pyplot::polar`], [`crate::pyplot::thetagrids`], [`crate::pyplot::rgrids`] (`_labeled` with labels) |
 //! | `fig.add_subplot(projection="mollweide")`         | [`Figure::geo_subplot`]`(GeoProjection::Mollweide)` |
 //! | `ax.set_longitude_grid(30)`, `ax.set_latitude_grid(15)` | [`GeoAxes::set_longitude_grid`], [`GeoAxes::set_latitude_grid`] |
 //! | `class SkewXAxes(Axes): name = "skewx"`            | a type implementing [`Projection`]            |
@@ -74,13 +74,13 @@
 //! | `Divider(fig, rect, horizontal, vertical)`, `Size.Fixed(1)` | [`Divider::new`], [`Size::Fixed`]        |
 //! | `host_subplot(111)`, `host.twinx()`               | [`host_subplot`], [`HostAxes`]                 |
 //! | `AnchoredSizeBar`, `AnchoredDirectionArrows`      | [`crate::axes_grid1::anchored_artists`]        |
-//! | `fig.add_subplot(axes_class=axisartist.Axes)`     | [`axisartist::Axes::new`](crate::axisartist::Axes::new)`(fig.subplot())` |
-//! | `axes_class=AxesZero`                             | [`axisartist::Axes::zero`](crate::axisartist::Axes::zero) |
-//! | `ax.axis["right"].set_visible(False)`             | `ax.axis("right")` ([`axisartist::Axes::axis`](crate::axisartist::Axes::axis)) and [`ArtistHandle::set_visible`] |
+//! | `fig.add_subplot(axes_class=axisartist.Axes)`     | [`axisartist::AxisArtistAxes::new`](crate::axisartist::AxisArtistAxes::new)`(fig.subplot())` |
+//! | `axes_class=AxesZero`                             | [`axisartist::AxisArtistAxes::zero`](crate::axisartist::AxisArtistAxes::zero) |
+//! | `ax.axis["right"].set_visible(False)`             | `ax.axis("right")` ([`axisartist::AxisArtistAxes::axis`](crate::axisartist::AxisArtistAxes::axis)) and [`ArtistHandle::set_visible`] |
 //! | `ax.axis["x"].set_axisline_style("-\|>")`         | [`AxisArtist::set_axisline_style`]             |
-//! | `ax.new_floating_axis(0, 0.5)`                    | [`axisartist::Axes::new_floating_axis`](crate::axisartist::Axes::new_floating_axis) |
+//! | `ax.new_floating_axis(0, 0.5)`                    | [`axisartist::AxisArtistAxes::new_floating_axis`](crate::axisartist::AxisArtistAxes::new_floating_axis) |
 //! | `GridHelperCurveLinear(tr)`                       | [`axisartist::GridHelper`](crate::axisartist::GridHelper) |
-//! | `ax.get_aux_axes(tr)`, `grid_finder.get_grid_info(bbox)` | [`axisartist::Axes::aux_axes`](crate::axisartist::Axes::aux_axes), [`GridFinder::grid_info`](crate::axisartist::grid_finder::GridFinder::grid_info) |
+//! | `ax.get_aux_axes(tr)`, `grid_finder.get_grid_info(bbox)` | [`axisartist::AxisArtistAxes::aux_axes`](crate::axisartist::AxisArtistAxes::aux_axes), [`GridFinder::grid_info`](crate::axisartist::grid_finder::GridFinder::grid_info) |
 //! | `ax.inset_axes([x, y, w, h])`, `ax.indicate_inset_zoom(axins)` | [`Axes::inset_axes`], [`Axes::indicate_inset_zoom`] |
 //! | `Sankey(ax).add(flows=...).finish()`              | [`Sankey::new`], [`Sankey::add`], [`Sankey::finish`] |
 //! | `ax.table(cellText=...)`                          | [`Axes::table`] with [`TableOptions`]          |
@@ -190,6 +190,7 @@
 //! use plt::axes::{AxisName, ProjectionKind};
 //! use plt::prelude::*;
 //! use plt::projections::{self, Projection, ProjectionView};
+//! use plt::scale::ScaleName;
 //! use plt::transforms::{Affine2D, ResolvedTransform};
 //!
 //! #[derive(Debug, Default)]
@@ -218,7 +219,7 @@
 //! let fig = Figure::new();
 //! let ax = fig.subplot_with_projection(ProjectionKind::Registered("skewx"))?;
 //! ax.semilogy([10.0, -20.0], [1000.0, 100.0])?;
-//! assert_eq!((ax.projection().name(), ax.yscale()), ("skewx", "log"));
+//! assert_eq!((ax.projection().name(), ax.yscale()), ("skewx", ScaleName::Log));
 //! assert!(projections::projection_names().contains(&"skewx"));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -280,7 +281,7 @@
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::new();
-//! let ax = axisartist::Axes::zero(fig.subplot());
+//! let ax = axisartist::AxisArtistAxes::zero(fig.subplot());
 //! for name in ["xzero", "yzero"] {
 //!     let axis = ax.axis(name).ok_or("an axis of AxesZero")?;
 //!     axis.set_axisline_style(Some("-|>".parse()?));

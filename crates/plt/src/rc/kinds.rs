@@ -4,6 +4,7 @@ use super::literal::Expr;
 use super::value::{RcValue, split_list};
 use crate::colors::Color;
 use crate::legend::LegendLoc;
+use crate::offsetbox::AnchorLoc;
 use crate::ticker::MinorDivisions;
 
 /// A colour written as a name, `"none"` or hex code, which may omit the
@@ -208,50 +209,58 @@ impl RcValue for SavefigBbox {
     }
 }
 
-/// The location names `legend.loc` takes (matplotlib's
-/// `_validate_named_legend_loc`).
-const LEGEND_LOCATIONS: [&str; 11] = [
-    "best",
-    "upper right",
-    "upper left",
-    "lower left",
-    "lower right",
-    "right",
-    "center left",
-    "center right",
-    "lower center",
-    "upper center",
-    "center",
-];
+/// The value of `legend.loc`: a location, and whether it was given by its
+/// numeric code, which matplotlib keeps as the integer it was given.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LegendLocParam {
+    /// The location.
+    pub loc: LegendLoc,
+    /// Whether the location was given as its code (`2` rather than
+    /// `"upper left"`).
+    pub by_code: bool,
+}
 
-impl RcValue for LegendLoc {
-    /// matplotlib's `_validate_legend_loc`: a location name in any case, a
-    /// code from 0 to 10, or an `(x, y)` tuple.
+impl From<LegendLoc> for LegendLocParam {
+    fn from(loc: LegendLoc) -> Self {
+        Self {
+            loc,
+            by_code: false,
+        }
+    }
+}
+
+impl RcValue for LegendLocParam {
+    /// matplotlib's `_validate_legend_loc`: a location name in any case
+    /// (`"best"` and the anchored positions, not the `"outside ..."`
+    /// names), a code from 0 to 10, or an `(x, y)` tuple.
     fn parse_rc(text: &str) -> Result<Self, String> {
-        if let Some(name) = LEGEND_LOCATIONS
-            .iter()
-            .find(|name| name.eq_ignore_ascii_case(text))
-        {
-            return Ok(Self::Name((*name).to_owned()));
+        let invalid = || format!("{text} is not a valid legend location");
+        let named = std::iter::once(LegendLoc::Best)
+            .chain(AnchorLoc::ALL.map(LegendLoc::Anchored))
+            .find(|loc| loc.to_string().eq_ignore_ascii_case(text));
+        if let Some(loc) = named {
+            return Ok(loc.into());
         }
         match Expr::parse(text) {
-            Ok(Expr::Int(code)) if (0..=10).contains(&code) => Ok(Self::Code(code)),
+            Ok(Expr::Int(code)) => LegendLoc::from_code(code)
+                .map(|loc| Self { loc, by_code: true })
+                .map_err(|_| invalid()),
             Ok(Expr::Tuple(items)) => match items.as_slice() {
                 [x, y] => match (x.as_number(), y.as_number()) {
-                    (Some(x), Some(y)) => Ok(Self::Point(x, y)),
-                    _ => Err(format!("{text} is not a valid legend location")),
+                    (Some(x), Some(y)) => Ok(LegendLoc::Point(x, y).into()),
+                    _ => Err(invalid()),
                 },
-                _ => Err(format!("{text} is not a valid legend location")),
+                _ => Err(invalid()),
             },
-            _ => Err(format!("{text} is not a valid legend location")),
+            _ => Err(invalid()),
         }
     }
 
     fn format_rc(&self) -> String {
-        match self {
-            Self::Name(name) => name.clone(),
-            Self::Code(code) => code.to_string(),
-            Self::Point(x, y) => format!("({}, {})", x.format_rc(), y.format_rc()),
+        match (self.loc, self.loc.code()) {
+            (LegendLoc::Point(x, y), _) => format!("({}, {})", x.format_rc(), y.format_rc()),
+            (_, Some(code)) if self.by_code => code.to_string(),
+            (loc, _) => loc.to_string(),
         }
     }
 }

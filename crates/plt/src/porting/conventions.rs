@@ -33,9 +33,11 @@
 //! * **Strings become enums or parsed types.** `linestyle="--"` is
 //!   [`LineStyle::Dashed`]; matplotlib's spelling still works through
 //!   [`str::parse`] (every such type implements [`FromStr`]), which
-//!   validates it where it is given, format strings included. Colours are
-//!   the exception: a [`Color`] converts from any string and is validated
-//!   when resolved.
+//!   validates it where it is given, format strings and legend locations
+//!   ([`LegendLoc`]) included. Two kinds of names convert from any string
+//!   instead: a [`Color`], validated when it is resolved, and a
+//!   [`ScaleName`], since a scale can be registered under any name; a
+//!   setter refuses an unknown scale.
 //! * **Errors are `Result`s.** Invalid data, options or settings return
 //!   an error enum of the module ([`PlotError`], [`ImageError`],
 //!   [`LegendError`], [`AxesRectError`], ...), wherever matplotlib
@@ -71,6 +73,8 @@
 //! | `marker="o"`                            | [`MarkerSymbol::Circle`], or `"o".parse::<Marker>()?` |
 //! | `arrowprops=dict(arrowstyle="->")`      | `"->".parse::<FancyArrowProps>()?` ([`FancyArrowProps`]) |
 //! | `color="tab:red"`                       | `"tab:red"` (any `Into<`[`Color`]`>`); [`Color::parse`] validates now |
+//! | `loc="upper left"`                      | `AnchorLoc::UpperLeft`, or `"upper left".parse::<`[`LegendLoc`]`>()?` |
+//! | `ax.set_xscale("log")`, `ax.get_xscale()` | [`Axes::set_xscale`]`(ScaleName::Log)` or `("log")`; [`Axes::xscale`] is a [`ScaleName`] |
 //! | `ValueError` from a plotting call       | `Err(`[`PlotError`]`::...)`                      |
 //! | `ax.get_xmargin()`, `ax.set_ymargin(m)` | [`Axes::margin`], [`Axes::set_margin`]           |
 //! | `ax.get_xbound()`, `ax.set_ybound(lo, hi)` | [`Axes::bound`], [`Axes::set_bound`]          |
@@ -347,6 +351,10 @@
 //! [`LineStyle::Dashed`]: crate::lines::LineStyle::Dashed
 //! [`Color`]: crate::colors::Color
 //! [`Color::parse`]: crate::colors::Color::parse
+//! [`LegendLoc`]: crate::legend::LegendLoc
+//! [`ScaleName`]: crate::scale::ScaleName
+//! [`Axes::set_xscale`]: crate::axes::Axes::set_xscale
+//! [`Axes::xscale`]: crate::axes::Axes::xscale
 //! [`PlotError`]: crate::axes::PlotError
 //! [`ImageError`]: crate::image::ImageError
 //! [`LegendError`]: crate::legend::LegendError

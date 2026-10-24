@@ -61,7 +61,7 @@ pub(crate) struct BoxPlacement {
 /// (matplotlib's `get_bbox_patch`), made from [`TextBoxProps`] with its
 /// padding fixed for the text's font size at the time.
 #[derive(Clone, Debug, PartialEq)]
-pub struct TextBox {
+pub struct TextBoxPatch {
     boxstyle: BoxStyle,
     style: PatchStyle,
     alpha: Option<f64>,
@@ -70,7 +70,7 @@ pub struct TextBox {
     path_effects: Vec<PathEffect>,
 }
 
-impl TextBox {
+impl TextBoxPatch {
     /// The box `props` describe for text of `fontsize` points: the padding
     /// is fixed now, rounded to two decimals as matplotlib's `"%0.2f"`
     /// appends it to the style name.
@@ -217,14 +217,14 @@ mod tests {
 
     #[test]
     fn the_default_square_pads_four_points_rounded_like_matplotlib() {
-        let square = TextBox::new(TextBoxProps::default(), 11.0, &rc());
+        let square = TextBoxPatch::new(TextBoxProps::default(), 11.0, &rc());
         assert_eq!(square.boxstyle.shape, BoxShape::Square);
         assert_eq!(
             square.boxstyle.pad,
             Some(0.36),
             "4 / 11 = 0.3636... -> \"0.36\""
         );
-        let padded = TextBox::new(
+        let padded = TextBoxPatch::new(
             TextBoxProps {
                 pad: Some(8.0),
                 ..TextBoxProps::default()
@@ -239,14 +239,14 @@ mod tests {
     fn styles_keep_their_own_padding() {
         let round: BoxStyle = "round".parse().expect("valid style");
         assert_eq!(
-            TextBox::new(TextBoxProps::new(round), 10.0, &rc())
+            TextBoxPatch::new(TextBoxProps::new(round), 10.0, &rc())
                 .boxstyle
                 .pad,
             Some(0.3)
         );
         let explicit: BoxStyle = "round,pad=0.123".parse().expect("valid style");
         assert_eq!(
-            TextBox::new(TextBoxProps::new(explicit), 10.0, &rc())
+            TextBoxPatch::new(TextBoxProps::new(explicit), 10.0, &rc())
                 .boxstyle
                 .pad,
             Some(0.123)
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn backgrounds_colour_face_and_edge() {
-        let mut background = TextBox::background(Color::from("yellow"), 10.0, &rc());
+        let mut background = TextBoxPatch::background(Color::from("yellow"), 10.0, &rc());
         assert_eq!(background.style.facecolor, Some(Color::from("yellow")));
         assert_eq!(background.style.edgecolor, Some(Color::from("yellow")));
         background.set_facecolor(Color::from("red"));
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn boxes_are_placed_on_the_rotated_frame() {
-        let square = TextBox::new(
+        let square = TextBoxPatch::new(
             TextBoxProps::new("square,pad=0".parse().expect("valid style")),
             10.0,
             &rc(),

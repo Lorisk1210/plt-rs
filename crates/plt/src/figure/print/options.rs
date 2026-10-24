@@ -38,7 +38,8 @@ impl From<f64> for PadInches {
 /// unset ones follow the `savefig.*` rcParams.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SaveOptions {
-    /// Resolution (`savefig.dpi`, the figure's own by default). Vector
+    /// Resolution (`savefig.dpi`, by default the resolution the figure
+    /// was made at, see [`Dpi::Figure`](crate::rc::Dpi::Figure)). Vector
     /// formats are drawn in points and rasterize images at this resolution.
     pub dpi: Option<f64>,
     /// The part of the figure saved (`savefig.bbox`, the whole figure by

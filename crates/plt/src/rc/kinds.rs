@@ -350,7 +350,8 @@ impl RcValue for Distiller {
 /// `savefig.dpi`: the figure's own resolution or an explicit value.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Dpi {
-    /// Use the figure's dpi.
+    /// Use the resolution the figure was made at, which later changes of
+    /// its resolution leave alone (matplotlib's `_original_dpi`).
     Figure,
     /// An explicit resolution.
     Value(f64),

@@ -157,6 +157,7 @@
    "value": [[0.0980392156862745, 0.1980392156862745, 0.2980392156862745, 1.0], [0.2, 0.30000000000000004, 0.4000000000000001, 1.0]]
   },
   {"op": "colorizer.Colorizer.to_rgba", "args": {"values": [[0.1]], "cmap": "BiOrangeBlue", "vmin": [0, 0], "vmax": [1, 1]}, "error": "ValueError"},
+  {"op": "colorizer.Colorizer.to_rgba", "args": {"cmap": "viridis", "values": [0.1, 0.2], "norm": ["linear", "linear"]}, "error": "TypeError"},
   {"op": "colormaps.get_cmap", "args": {"cmap": "AardvarksAreAwkward"}, "error": "ValueError"},
   {"op": "colormaps.get_cmap", "args": {"cmap": "plasma"}, "value": {"name": "plasma", "N": 256}},
   {"op": "colormaps.get_cmap", "args": {"cmap": null}, "value": {"name": "viridis", "N": 256}},

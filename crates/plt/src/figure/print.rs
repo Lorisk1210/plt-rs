@@ -96,7 +96,8 @@ const POINTS_PER_INCH: f64 = 72.0;
 
 impl Figure {
     /// Prepares the figure for printing with `options` as matplotlib's
-    /// `print_figure` does: resolution, background colours and the part
+    /// `print_figure` does: resolution (`savefig.dpi: figure` being the
+    /// one the figure was made at), background colours and the part
     /// printed. The figure is drawn at `canvas_dpi` (the save resolution
     /// for raster output, 72 for the vector formats, which also measure
     /// the tight box at 72 dpi).
@@ -104,7 +105,7 @@ impl Figure {
         let rc = crate::rc::params();
         let dpi = options.dpi.unwrap_or(match rc.savefig_dpi {
             Dpi::Value(dpi) => dpi,
-            Dpi::Figure => self.dpi(),
+            Dpi::Figure => self.state().original_dpi,
         });
         let canvas_dpi = canvas_dpi.unwrap_or(dpi);
         let transparent = options.transparent.unwrap_or(rc.savefig_transparent);

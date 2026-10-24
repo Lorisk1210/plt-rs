@@ -31,6 +31,7 @@
 //! ```
 
 mod artists;
+mod ratio;
 mod region;
 mod state;
 #[cfg(test)]
@@ -67,6 +68,8 @@ pub enum CanvasError {
     NotDrawn,
     /// The artist belongs to another figure.
     ForeignArtist,
+    /// A device pixel ratio that is not finite and positive.
+    InvalidPixelRatio(f64),
     /// Some artists could not be drawn; the others were.
     Draw(DrawErrors),
 }
@@ -89,6 +92,10 @@ impl fmt::Display for CanvasError {
             ),
             Self::NotDrawn => f.write_str("the canvas has not been drawn yet"),
             Self::ForeignArtist => f.write_str("the artist belongs to another figure"),
+            Self::InvalidPixelRatio(ratio) => write!(
+                f,
+                "the device pixel ratio must be finite and positive, not {ratio}"
+            ),
             Self::Draw(err) => err.fmt(f),
         }
     }
@@ -100,7 +107,11 @@ impl std::error::Error for CanvasError {
             Self::Backend(err) => Some(err),
             Self::Pixels(err) => Some(err),
             Self::Draw(err) => Some(err),
-            Self::InvalidBox(_) | Self::StaleRegion | Self::NotDrawn | Self::ForeignArtist => None,
+            Self::InvalidBox(_)
+            | Self::StaleRegion
+            | Self::NotDrawn
+            | Self::ForeignArtist
+            | Self::InvalidPixelRatio(_) => None,
         }
     }
 }
@@ -375,12 +386,19 @@ impl Presenting {
 }
 
 impl Drop for Presenting {
+    /// Unregisters the presenter. Once no window or page shows the figure,
+    /// it leaves the display's scaling and returns to the resolution it
+    /// was made at (matplotlib's `_set_base_canvas` when a manager is
+    /// destroyed).
     fn drop(&mut self) {
         let mut state = self.figure.state_mut();
         let canvas = &mut state.canvas;
         canvas.presenters = canvas.presenters.saturating_sub(1);
         if canvas.presenters == 0 {
             canvas.presentation = Presentation::Nothing;
+            canvas.device_pixel_ratio = 1.0;
+            let dpi = state.original_dpi;
+            state.set_dpi(dpi);
         }
     }
 }

@@ -4,6 +4,8 @@
  "probes": [
   {"op": "Axes.get_xticks", "args": {"style": "mpl20"}, "value": [[-200.0, -100.0, 0.0, 100.0, 200.0], [-200.0, -100.0, 0.0, 100.0, 200.0]]},
   {"op": "Axes.remove", "args": {}, "value": 1},
+  {"op": "Axis.get_major_formatter", "args": {"set_scalar": false}, "value": "AutoDateFormatter"},
+  {"op": "Axis.get_major_formatter", "args": {"set_scalar": true}, "value": "ScalarFormatter"},
   {"op": "Figure.add_axes", "args": {"projections": ["polar", "polar"]}, "value": {"distinct": true, "names": ["polar", "polar"]}},
   {"op": "Figure.add_axes", "args": {"projections": ["polar", null]}, "value": {"distinct": true, "names": ["polar", "rectilinear"]}},
   {"op": "Figure.add_axes", "args": {"projections": [null, null]}, "value": {"distinct": true, "names": ["rectilinear", "rectilinear"]}},
@@ -287,6 +289,48 @@
   },
   {"op": "Figure.subplots", "args": {}, "value": [[false, true], [false, false], [true, true], [true, false]]},
   {"op": "Figure.suptitle", "args": {"fontproperties": {"size": "large", "weight": "bold"}}, "value": {"fontsize": 14.399999999999999, "weight": 700}},
+  {
+   "op": "FigureCanvasBase._set_device_pixel_ratio",
+   "args": {"ratio": 1, "dpi": 50, "style": "mpl20"},
+   "value": {"changed": false, "device_pixel_ratio": 1, "dpi": 50, "saved": [640, 480]}
+  },
+  {
+   "op": "FigureCanvasBase._set_device_pixel_ratio",
+   "args": {"ratio": 1, "dpi": 50},
+   "value": {"changed": false, "device_pixel_ratio": 1, "dpi": 50, "saved": [800, 600]}
+  },
+  {
+   "op": "FigureCanvasBase._set_device_pixel_ratio",
+   "args": {"ratio": 2, "dpi": 50, "style": "mpl20"},
+   "value": {"changed": true, "device_pixel_ratio": 2, "dpi": 200.0, "saved": [640, 480]}
+  },
+  {
+   "op": "FigureCanvasBase._set_device_pixel_ratio",
+   "args": {"ratio": 2, "dpi": 50},
+   "value": {"changed": true, "device_pixel_ratio": 2, "dpi": 160.0, "saved": [800, 600]}
+  },
+  {
+   "op": "FigureCanvasBase._set_device_pixel_ratio",
+   "args": {"ratio": 1, "style": "mpl20"},
+   "value": {"changed": false, "device_pixel_ratio": 1, "dpi": 100.0, "saved": [640, 480]}
+  },
+  {
+   "op": "FigureCanvasBase._set_device_pixel_ratio",
+   "args": {"ratio": 1.234, "style": "mpl20"},
+   "value": {"changed": true, "device_pixel_ratio": 1.234, "dpi": 123.4, "saved": [640, 480]}
+  },
+  {
+   "op": "FigureCanvasBase._set_device_pixel_ratio",
+   "args": {"ratio": 1.234},
+   "value": {"changed": true, "device_pixel_ratio": 1.234, "dpi": 98.72, "saved": [800, 600]}
+  },
+  {"op": "FigureCanvasBase._set_device_pixel_ratio", "args": {"ratio": 1}, "value": {"changed": false, "device_pixel_ratio": 1, "dpi": 80.0, "saved": [800, 600]}},
+  {
+   "op": "FigureCanvasBase._set_device_pixel_ratio",
+   "args": {"ratio": 2, "style": "mpl20"},
+   "value": {"changed": true, "device_pixel_ratio": 2, "dpi": 200.0, "saved": [640, 480]}
+  },
+  {"op": "FigureCanvasBase._set_device_pixel_ratio", "args": {"ratio": 2}, "value": {"changed": true, "device_pixel_ratio": 2, "dpi": 160.0, "saved": [800, 600]}},
   {
    "op": "SubFigure.bbox",
    "args": {"nrows": 2, "ncols": 3, "hspace": 0.5, "wspace": 0.16666666666666666},

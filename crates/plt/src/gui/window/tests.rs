@@ -13,6 +13,7 @@ use super::*;
 use crate::animation::{AnimationOptions, Frames, FuncAnimation};
 use crate::artist::ArtistHandle;
 use crate::events::EventKind;
+use crate::figure::SaveOptions;
 use crate::gui::subplot_dialog::{Param, SubplotMessage};
 use crate::lines::Line2D;
 use crate::widgets::{Cursor, CursorOptions};
@@ -316,6 +317,33 @@ fn the_save_dialog_writes_the_figure() {
         assert_eq!(handle.windows(), [window.id()], "the dialog closed");
     });
     std::fs::remove_dir_all(&dir).expect("the directory is removed");
+}
+
+#[test]
+fn high_density_displays_scale_the_figure_once_and_saving_ignores_them() {
+    let figure = Figure::with_size(2.0, 1.5, 100.0);
+    figure.subplot();
+    let (mut event_loop, handle) = EventLoop::headless();
+    handle.set_scale_factor(2.0).expect("a valid scale factor");
+    let windows: Vec<FigureWindow> = (0..2)
+        .map(|_| {
+            let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+                .expect("the window opens");
+            pump(&mut event_loop, &mut window);
+            assert_eq!(figure.canvas().device_pixel_ratio(), 2.0);
+            assert_eq!(figure.dpi(), 200.0, "scaled once, however often shown");
+            assert_eq!(figure.width_height(), (400, 300));
+            window
+        })
+        .collect();
+    let saved = figure
+        .render_raster_with(SaveOptions::default())
+        .expect("saved")
+        .to_image();
+    assert_eq!((saved.width(), saved.height()), (200, 150));
+    drop(windows);
+    assert_eq!(figure.canvas().device_pixel_ratio(), 1.0);
+    assert_eq!(figure.dpi(), 100.0, "unscaled once no window shows it");
 }
 
 #[test]

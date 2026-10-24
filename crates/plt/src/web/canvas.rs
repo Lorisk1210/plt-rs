@@ -20,13 +20,18 @@ use crate::figure::{
 use crate::gui::actions;
 use crate::gui::keys::{self, KeyAction};
 use crate::navigation::{DragKey, NavMode, Navigation, Rubberband, axes_at};
-use crate::rc::Dpi;
 
 /// The longest canvas side in physical pixels a client may ask for.
 const MAX_SIDE: f64 = 8192.0;
 
 /// The largest canvas area in physical pixels a client may ask for.
 const MAX_AREA: f64 = 16_777_216.0;
+
+/// The smallest device pixel ratio a client may ask for.
+const MIN_PIXEL_RATIO: f64 = 0.25;
+
+/// The largest device pixel ratio a client may ask for.
+const MAX_PIXEL_RATIO: f64 = 8.0;
 
 /// What a canvas sends its clients.
 #[derive(Clone, Debug, PartialEq)]
@@ -69,9 +74,6 @@ pub(crate) struct WebCanvas {
     title: String,
     navigation: Navigation,
     events: EventSource,
-    /// The figure's resolution at a device pixel ratio of 1.
-    base_dpi: f64,
-    device_pixel_ratio: f64,
     frames: FrameEncoder,
     image_mode: ImageMode,
     told: Told,
@@ -97,8 +99,6 @@ impl WebCanvas {
             title: title.to_owned(),
             navigation: Navigation::new(),
             events: EventSource::new(),
-            base_dpi: figure.dpi(),
-            device_pixel_ratio: 1.0,
             frames: FrameEncoder::new(),
             image_mode: ImageMode::Full,
             told: Told::default(),
@@ -137,13 +137,19 @@ impl WebCanvas {
         self.figure.size_pixels()
     }
 
+    /// Physical pixels per CSS pixel of the clients' display.
+    fn device_pixel_ratio(&self) -> f64 {
+        self.figure.canvas().device_pixel_ratio()
+    }
+
     /// Tells the clients the canvas size in CSS pixels.
     fn tell_size(&mut self, forward: bool) {
         let (width, height) = self.size();
+        let ratio = self.device_pixel_ratio();
         self.told.size = Some((width, height));
         self.push(ServerEvent::Resize {
-            width: width / self.device_pixel_ratio,
-            height: height / self.device_pixel_ratio,
+            width: width / ratio,
+            height: height / ratio,
             forward,
         });
     }
@@ -219,18 +225,11 @@ impl WebCanvas {
         self.timers.next_deadline()
     }
 
-    /// The figure in `format`, saved at its own resolution rather than
-    /// the device pixel ratio's (matplotlib's `Download` handler).
+    /// The figure in `format`, saved as `savefig` saves it, at the
+    /// resolution the figure was made at rather than the device pixel
+    /// ratio's (matplotlib's `Download` handler).
     pub(crate) fn download(&self, format: SaveFormat) -> Result<Vec<u8>, SaveError> {
-        let dpi = match crate::rc::params().savefig_dpi {
-            Dpi::Value(dpi) => dpi,
-            Dpi::Figure => self.base_dpi,
-        };
-        let options = SaveOptions {
-            dpi: Some(dpi),
-            ..SaveOptions::default()
-        };
-        self.figure.to_format(format, options)
+        self.figure.to_format(format, SaveOptions::default())
     }
 
     /// The client needs everything again (`handle_refresh`).
@@ -313,7 +312,7 @@ impl WebCanvas {
     /// The client's canvas is `width × height` CSS pixels
     /// (`handle_resize`): the figure takes that size.
     fn resize(&mut self, width: f64, height: f64) {
-        let ratio = self.device_pixel_ratio;
+        let ratio = self.device_pixel_ratio();
         self.set_size(width.trunc() * ratio, height.trunc() * ratio);
         self.tell_size(false);
         let (width, height) = self.size();
@@ -321,15 +320,15 @@ impl WebCanvas {
         self.request_draw();
     }
 
-    /// Physical pixels per CSS pixel, to two decimals as in matplotlib;
-    /// the figure renders at that multiple of its resolution.
+    /// Physical pixels per CSS pixel, within bounds and to two decimals
+    /// as in matplotlib: the figure renders at that multiple of the
+    /// resolution it was made at.
     fn set_device_pixel_ratio(&mut self, ratio: f64) {
-        let ratio = ((ratio * 100.0).round() / 100.0).clamp(0.25, 8.0);
-        if ratio.total_cmp(&self.device_pixel_ratio).is_eq() {
+        let ratio = ((ratio * 100.0).round() / 100.0).clamp(MIN_PIXEL_RATIO, MAX_PIXEL_RATIO);
+        // A ratio that is not a number changes nothing.
+        if !matches!(self.figure.canvas().set_device_pixel_ratio(ratio), Ok(true)) {
             return;
         }
-        self.device_pixel_ratio = ratio;
-        self.figure.set_dpi(self.base_dpi * ratio);
         let (width, height) = self.size();
         if width > MAX_SIDE || height > MAX_SIDE || width * height > MAX_AREA {
             self.set_size(width, height);

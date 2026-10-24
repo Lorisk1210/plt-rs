@@ -97,8 +97,10 @@ arrays the plt-rs colour APIs do not take), the integer half of
 ``test_scalarmappable_to_rgba`` (uint8 images), the list cases of
 ``test_is_color_like`` (Python lists as opposed to tuples),
 ``test_has_alpha_channel`` (a private helper on Python specs),
-``test_make_norm_from_scale_name`` (Python class names), ``test_repr_png``
-and ``test_repr_html`` (notebook representations), ``test_pandas_iterable``
+``test_make_norm_from_scale_name`` (Python class names), the ``object()``
+norm of ``test_multi_norm_creation`` (any Python object as a norm),
+``test_repr_png`` and ``test_repr_html`` (notebook representations),
+``test_pandas_iterable``
 (pandas), ``test_invalid_cmap_n_components_zero``, ``test_colorizer_bivar_cmap``
 and ``test_colorizer_multivar_cmap`` (custom Colormap subclasses and array
 validation of ColorizingArtist), ``test_cm_set_cmap_error`` (the lookup
@@ -587,6 +589,11 @@ def test_colorizer_multinorm():
         error = probes.probe(op, _colorizer_to_rgba, cmap="BiOrangeBlue", values=[0.1, 0.2],
                              norm=norm if isinstance(norm, list) else [norm])
         assert isinstance(error, ValueError)
+    # test_colorizer_multinorm_explicit: one norm per variate needs a
+    # multivariate colormap.
+    error = probes.probe(op, _colorizer_to_rgba, cmap="viridis", values=[0.1, 0.2],
+                         norm=["linear", "linear"])
+    assert isinstance(error, TypeError)
     probes.probe(op, _colorizer_to_rgba, cmap="BiOrangeBlue", values=[0.1, 0.2],
                  norm=[{"class": "Normalize", "params": {}}, "log"], vmin=[0, 0.01], vmax=[1, 1])
 

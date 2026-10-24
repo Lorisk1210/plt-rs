@@ -32,8 +32,23 @@
 //! assert_eq!(ax.xaxis().converter(), Some(UnitConverter::Dates));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! Values of your own types plot the same way once a
+//! [`ConversionInterface`] converts them and they are [`Convertible`]
+//! (matplotlib's `units.registry`): lists of them are [`AxisValues`], one
+//! of them is an [`AxisValue`]. An axis picks its [`Unit`] from the first
+//! such values it converts, unless [`Axis::set_units`] chose one, takes
+//! its tick helpers, label and default view from the converter, and
+//! converts the lines plotted on it again when its unit changes. Extents
+//! such as bar heights are axis numbers here too: convert the end of the
+//! extent and subtract the converted start, as matplotlib's `_convert_dx`
+//! does. [`ConversionInterface`] shows a converter.
+//!
+//! [`Axis::set_units`]: crate::axes::Axis::set_units
 
 mod category;
+mod custom;
+mod interface;
 mod scalar;
 
 use std::rc::Rc;
@@ -45,6 +60,9 @@ use crate::dates::{
 use crate::ticker::{Formatter, Locator};
 
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
+pub(crate) use custom::LineSources;
+pub use custom::{CustomConverter, Unit, UnitValues};
+pub use interface::{AxisInfo, ConversionError, ConversionInterface, Convertible};
 pub use scalar::{AxisDelta, AxisValue, DataPoint};
 
 /// The tick helpers of an axis of dates in `tz` (matplotlib's
@@ -92,9 +110,10 @@ pub fn convert_dx(positions: &[f64], deltas: &[f64]) -> Vec<f64> {
 }
 
 /// The unit converter of an axis (matplotlib's `ConversionInterface`s
-/// registered for dates and strings): what plotted values were converted
-/// from, which decides the axis' default tick helpers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// registered for dates and strings, and those of users): what plotted
+/// values were converted from, which decides the axis' default tick
+/// helpers.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum UnitConverter {
     /// Dates, as date numbers with date ticks (matplotlib's
     /// `DateConverter`, or `ConciseDateConverter` as `date.converter`
@@ -103,6 +122,24 @@ pub enum UnitConverter {
     /// Category names, placed at 0, 1, 2, ... (matplotlib's
     /// `StrCategoryConverter`).
     Categories,
+    /// A converter of user values.
+    Custom(CustomConverter),
+}
+
+impl UnitConverter {
+    /// The converter of user values, if it is one.
+    pub fn custom(&self) -> Option<&CustomConverter> {
+        match self {
+            Self::Custom(converter) => Some(converter),
+            Self::Dates | Self::Categories => None,
+        }
+    }
+}
+
+impl<C: ConversionInterface> From<C> for UnitConverter {
+    fn from(converter: C) -> Self {
+        Self::Custom(CustomConverter::new(converter))
+    }
 }
 
 /// Plotting values along one axis before unit conversion.
@@ -114,6 +151,8 @@ pub enum AxisValues {
     Categories(Vec<String>),
     /// Dates as date numbers (days since the [epoch](crate::dates::get_epoch)).
     Dates(Vec<f64>),
+    /// Values of a user type, converted by its [`ConversionInterface`].
+    Custom(UnitValues),
 }
 
 impl AxisValues {
@@ -122,12 +161,45 @@ impl AxisValues {
         match self {
             Self::Numbers(values) | Self::Dates(values) => values.len(),
             Self::Categories(names) => names.len(),
+            Self::Custom(values) => values.len(),
         }
     }
 
     /// Whether there are no values.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// The values of a user type, if they are.
+    pub fn custom(&self) -> Option<&UnitValues> {
+        match self {
+            Self::Custom(values) => Some(values),
+            Self::Numbers(_) | Self::Categories(_) | Self::Dates(_) => None,
+        }
+    }
+}
+
+impl From<UnitValues> for AxisValues {
+    fn from(values: UnitValues) -> Self {
+        Self::Custom(values)
+    }
+}
+
+impl<T: Convertible> From<Vec<T>> for AxisValues {
+    fn from(values: Vec<T>) -> Self {
+        Self::Custom(UnitValues::new(values))
+    }
+}
+
+impl<T: Convertible> From<&[T]> for AxisValues {
+    fn from(values: &[T]) -> Self {
+        values.to_vec().into()
+    }
+}
+
+impl<T: Convertible, const N: usize> From<[T; N]> for AxisValues {
+    fn from(values: [T; N]) -> Self {
+        Vec::from(values).into()
     }
 }
 

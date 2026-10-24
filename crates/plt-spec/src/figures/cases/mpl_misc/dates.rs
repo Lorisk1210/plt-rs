@@ -1,15 +1,14 @@
-//! The cases from `test_dates.py` and `test_units.py`.
+//! The cases from `test_dates.py` and `test_units.py`'s `test_subclass`.
 
 use plt::axes::{Axes, Axis, TickLevel};
 use plt::dates::{
     AutoDateFormatter, DateError, DateTime, Frequency, RRuleLocator, RRuleSpec, TimeDelta,
 };
 use plt::gridspec::SubplotOverrides;
-use plt::numeric::linspace;
 use plt::prelude::*;
 use plt::text::HAlign;
 
-use super::{classic, remove_text};
+use super::classic;
 use crate::figures::{CaseResult, FigureCase};
 
 /// `datetime(year, month, day)`.
@@ -135,22 +134,6 @@ fn date_formatter(fig: &Figure) -> CaseResult {
     autofmt_xdate(fig)
 }
 
-/// `test_plot_masked_units`: a masked array wrapped in an object without
-/// a unit converter plots as the bare masked array.
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
-fn plot_masked_units(fig: &Figure) -> CaseResult {
-    let masked: Vec<f64> = linspace(-5.0, 5.0, 50)
-        .into_iter()
-        .map(|x| if -2.0 < x && x < 2.0 { f64::NAN } else { x })
-        .collect();
-    fig.subplot().plot_y(masked);
-    remove_text(fig);
-    Ok(())
-}
-
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_misc/date_axhspan", date_axhspan),
     FigureCase::new("mpl_misc/date_axvspan", date_axvspan),
@@ -165,7 +148,6 @@ pub(super) const CASES: &[FigureCase] = &[
         date_axhline(fig)?.yaxis().set_inverted(true);
         Ok(())
     }),
-    FigureCase::new("mpl_misc/plot_masked_units", plot_masked_units),
     classic("mpl_misc/subclass", |fig| {
         fig.subplot()
             .plot_with(vec![day(2000, 1, 1)?], [0.0], LineProps::fmt("o")?)?;

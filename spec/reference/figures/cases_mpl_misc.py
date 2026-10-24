@@ -30,10 +30,12 @@ Deviations from the tests:
   mocked unit converter; the case contributes the ``fig_ref`` side (the
   same table of ``"Hello"`` strings) as ``table_unit_ref``.
 
+The other image tests of ``test_units.py`` (``test_numpy_facade``,
+``test_plot_masked_units``, ``test_jpl_bar_units`` and
+``test_jpl_barh_units``) are cases of ``mpl_tests_units``.
+
 Not ported: ``test_set_line_coll_dash_image`` (a ``skewx`` projection made of
-custom tick, axis and spine classes), ``test_numpy_facade`` (a custom unit
-converter turning quantities into axis units and labels) and
-``test_jpl_bar_units``/``test_jpl_barh_units`` (``jpl_units``).
+custom tick, axis and spine classes).
 """
 
 import datetime
@@ -817,35 +819,6 @@ def _(fig):
 
 
 # --- test_units.py -------------------------------------------------------
-
-
-class Quantity:
-    """``test_units``' array facade with units (no converter registered)."""
-
-    def __init__(self, data, units):
-        self.magnitude = data
-        self.units = units
-
-    def __copy__(self):
-        return Quantity(self.magnitude, self.units)
-
-    def __getattr__(self, attr):
-        return getattr(self.magnitude, attr)
-
-    def __getitem__(self, item):
-        if np.iterable(self.magnitude):
-            return Quantity(self.magnitude[item], self.units)
-        return Quantity(self.magnitude, self.units)
-
-    def __array__(self):
-        return np.asarray(self.magnitude)
-
-
-@image_test("plot_masked_units", remove_text=True)
-def _(fig):
-    data = np.linspace(-5, 5)
-    data_masked = np.ma.array(data, mask=(data > -2) & (data < 2))
-    fig.subplots().plot(Quantity(data_masked, "meters"))
 
 
 @classic("subclass")

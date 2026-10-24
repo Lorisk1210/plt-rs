@@ -1,7 +1,10 @@
 //! Probe operations for the `mpl_units` area: matplotlib's own tests of
 //! unit conversion (`tests/test_units.py`; see
 //! `spec/reference/probes/test_mpl_units.py`) for dates, category names
-//! and the converters of an axis.
+//! and the converters of an axis; [`user`] replays those of user unit
+//! classes.
+
+mod user;
 
 use plt::axes::{Axes, ErrorbarOptions};
 use plt::dates::{DateTime, Datetime64, TimeDelta, TimeZone, UtcOffset, get_epoch};
@@ -21,17 +24,22 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Axis.set_units", set_units),
     Op::new("Axes.plot.shared_categories", shared_categories),
     Op::new("Axis.set_converter", set_converter),
+    Op::new("Axes.set_lim.quantity", user::lim_quantity),
+    Op::new("Axis.set_units.shared_quantity", user::shared_quantity),
+    Op::new("Axes.default_limits.quantity", user::default_limits),
+    Op::new("jpl.EpochConverter.convert", user::jpl_consistent),
+    Op::new("Axes.plot.array_like", user::array_like),
 ];
 
 /// Seconds in a day.
 const SECONDS_PER_DAY: i64 = 86_400;
 
 /// The spec's name of a converter.
-fn kind(converter: Option<UnitConverter>) -> Json {
+fn kind(converter: Option<&UnitConverter>) -> Json {
     match converter {
         Some(UnitConverter::Dates) => Json::from("dates"),
         Some(UnitConverter::Categories) => Json::from("categories"),
-        None => Json::Null,
+        Some(UnitConverter::Custom(_)) | None => Json::Null,
     }
 }
 
@@ -54,7 +62,7 @@ fn day_number(text: &str) -> Result<i64, ProbeError> {
     Ok(days.round() as i64)
 }
 
-/// A figure and its one axes, the figure drawn by `finish`.
+/// A figure and its one axes.
 fn axes() -> (Figure, Axes) {
     let fig = Figure::new();
     let ax = fig.subplot();
@@ -87,7 +95,7 @@ fn scatter(args: Args<'_>) -> Outcome {
             .map(encode::point)
             .collect();
         Ok(encode::object([
-            ("converter", kind(ax.xaxis().converter())),
+            ("converter", kind(ax.xaxis().converter().as_ref())),
             ("xlim", pair(ax.xlim())),
             ("ylim", pair(ax.ylim())),
             ("offsets", Json::Array(offsets)),
@@ -130,7 +138,7 @@ fn errorbar(args: Args<'_>) -> Outcome {
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(encode::object([
-            ("converter", kind(ax.yaxis().converter())),
+            ("converter", kind(ax.yaxis().converter().as_ref())),
             ("xlim", pair(ax.xlim())),
             ("ylim", pair(ax.ylim())),
             ("segments", Json::Array(segments)),
@@ -145,8 +153,8 @@ fn months(year: i32) -> Result<Vec<DateTime>, ProbeError> {
         .collect()
 }
 
-/// Dates on two axes sharing y, then the first axis' dates placed in a
-/// fixed time zone: the second axis' ticks.
+/// Dates on two axes sharing y, then the first axis' unit set to a fixed
+/// time zone: the second axis' ticks.
 fn set_units(args: Args<'_>) -> Outcome {
     styled(args, || {
         let fig = Figure::new();
@@ -162,7 +170,7 @@ fn set_units(args: Args<'_>) -> Outcome {
         let seconds =
             i32::try_from(args.i64("tz_hours")? * 3600).map_err(|_| malformed("tz_hours"))?;
         let offset = UtcOffset::from_seconds(seconds).map_err(ProbeError::rejected)?;
-        ax1.yaxis_date(&TimeZone::Fixed(offset));
+        ax1.yaxis().set_units(TimeZone::Fixed(offset));
         fig.layout();
         let ticks = ax2.ticks(AxisName::Y).map_err(ProbeError::rejected)?;
         let locations: Vec<f64> = ticks.major.iter().map(|tick| tick.loc).collect();
@@ -275,7 +283,7 @@ fn set_converter(args: Args<'_>) -> Outcome {
                         .map_err(ProbeError::rejected)?;
                     recorded.push(Json::Null);
                 }
-                (Some("get"), None) => recorded.push(kind(axis.converter())),
+                (Some("get"), None) => recorded.push(kind(axis.converter().as_ref())),
                 _ => return Err(malformed("step")),
             }
         }

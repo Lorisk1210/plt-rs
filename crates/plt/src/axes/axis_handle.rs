@@ -32,6 +32,18 @@ impl Axis {
         self.name
     }
 
+    /// The axes the axis belongs to (matplotlib's `axis.axes`), which unit
+    /// converters may consult.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert_eq!(ax.yaxis().axes(), &ax);
+    /// ```
+    pub fn axes(&self) -> &Axes {
+        &self.axes
+    }
+
     /// Reads this axis's state.
     pub(super) fn read<R>(&self, f: impl FnOnce(&AxisState) -> R) -> R {
         self.axes

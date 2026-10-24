@@ -11,14 +11,13 @@ use super::axis_handle::Axis;
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::dates::{Datetime64, TimeZone, get_epoch};
-use crate::ticker::AxisName;
-use crate::units::{AxisValue, AxisValues, Categories, DataPoint, UnitConverter};
+use crate::units::{AxisValue, AxisValues, Categories, DataPoint, Unit, UnitConverter};
 
 /// Seconds in a day: the length of the default view of a date axis.
 const SECONDS_PER_DAY: i64 = 86_400;
 
-/// The unit converter of an axis and how it was chosen.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// The unit converter of an axis, how it was chosen, and the unit.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct AxisUnits {
     /// The converter, once values with units were converted or one was
     /// set (matplotlib's `_converter`).
@@ -26,6 +25,9 @@ pub(crate) struct AxisUnits {
     /// Whether the converter was set explicitly, so that converted values
     /// do not replace it (matplotlib's `_converter_is_explicit`).
     pub(crate) explicit: bool,
+    /// The unit, once one was set or picked for user values (matplotlib's
+    /// `units`).
+    pub(crate) unit: Option<Unit>,
 }
 
 impl AxisUnits {
@@ -36,6 +38,15 @@ impl AxisUnits {
             self.converter = Some(converter);
         }
     }
+
+    /// The time zone of date ticks: the unit when it is a time zone, as
+    /// matplotlib's date converter takes it, else UTC.
+    pub(crate) fn time_zone(&self) -> TimeZone {
+        self.unit
+            .as_ref()
+            .and_then(Unit::downcast_ref::<TimeZone>)
+            .map_or(TimeZone::Utc, Clone::clone)
+    }
 }
 
 impl Axis {
@@ -44,6 +55,12 @@ impl Axis {
     /// sharing this axis take over its converter, category names and the
     /// tick helpers they bring, as matplotlib's shared axes share their
     /// units and tickers.
+    ///
+    /// Values of user types convert through their
+    /// [`ConversionInterface`](crate::units::ConversionInterface), the axis
+    /// picking its unit, tick helpers and label from them first if it has
+    /// no unit (matplotlib's `_process_unit_info`); values that fail to
+    /// convert become NaN, and the figure reports why when it next draws.
     ///
     /// ```
     /// use plt::figure::{Figure, Share};
@@ -57,16 +74,31 @@ impl Axis {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn convert_units(&self, values: impl Into<AxisValues>) -> Vec<f64> {
-        match values.into() {
+        let positions = match values.into() {
             // Numbers need no converter, so the axis is left untouched.
-            AxisValues::Numbers(numbers) => numbers,
-            values => {
-                let positions = self.update(|axis| axis.convert_units(values));
-                let units = self.read(AxisState::unit_data);
-                self.update_shared(|axis| axis.share_units(&units));
-                positions
+            AxisValues::Numbers(numbers) => return numbers,
+            AxisValues::Custom(values) => {
+                if !self.have_units() {
+                    self.update_custom_units(&values);
+                }
+                return self.convert_custom(&values);
             }
+            AxisValues::Dates(numbers) => self.update(|axis| axis.convert_dates(numbers)),
+            AxisValues::Categories(names) => self.update(|axis| axis.convert_categories(&names)),
+        };
+        let units = self.read(AxisState::unit_data);
+        self.update_shared(|axis| axis.share_units(&units));
+        positions
+    }
+
+    /// Converts plotting values as matplotlib's `plot` and `fill` do: user
+    /// values update the axis units first even when it has some
+    /// (`_plot_args` calling `update_units`).
+    pub(crate) fn convert_plot_units(&self, values: AxisValues) -> Vec<f64> {
+        if let AxisValues::Custom(values) = &values {
+            self.update_custom_units(values);
         }
+        self.convert_units(values)
     }
 
     /// Converts one plotting value to an axis number, as
@@ -105,7 +137,7 @@ impl Axis {
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
     pub fn converter(&self) -> Option<UnitConverter> {
-        self.read(|axis| axis.units.converter)
+        self.read(|axis| axis.units.converter.clone())
     }
 
     /// Sets the unit converter explicitly (matplotlib's `set_converter`):
@@ -117,13 +149,14 @@ impl Axis {
     /// # Errors
     ///
     /// When another converter was already set explicitly.
-    pub fn set_converter(&self, converter: UnitConverter) -> Result<&Self, PlotError> {
+    pub fn set_converter(&self, converter: impl Into<UnitConverter>) -> Result<&Self, PlotError> {
+        let converter = Some(converter.into());
         self.update(|axis| {
             let units = &mut axis.units;
-            if units.explicit && units.converter != Some(converter) {
+            if units.explicit && units.converter != converter {
                 return Err(PlotError::ExplicitConverter(axis.name));
             }
-            units.converter = Some(converter);
+            units.converter = converter;
             units.explicit = true;
             Ok(())
         })?;
@@ -147,9 +180,10 @@ impl Axis {
         self.read(|axis| axis.categories().cloned())
     }
 
-    /// Whether the axis has a unit converter (matplotlib's `have_units`).
+    /// Whether the axis has a unit converter or a unit (matplotlib's
+    /// `have_units`).
     pub fn have_units(&self) -> bool {
-        self.converter().is_some()
+        self.read(|axis| axis.units.converter.is_some() || axis.units.unit.is_some())
     }
 
     /// Ticks the axis as an axis of dates in `tz` without plotting any
@@ -179,28 +213,33 @@ impl Axis {
             axis.units.converter == Some(UnitConverter::Dates)
         });
         if dated {
-            self.update_shared(|axis| axis.use_date_tickers(tz));
-            let name = self.name;
-            self.axes
-                .raw()
-                .with_mut::<AxesState, _>(|axes| set_default_date_view(axes, name));
+            self.use_date_axisinfo(tz);
         }
         self
     }
-}
 
-/// matplotlib's `set_default_intervals` for dates: the view of axis
-/// `name` becomes 1970-01-01 to 1970-01-02 when neither its data nor its
-/// view limits changed yet.
-fn set_default_date_view(axes: &mut AxesState, name: AxisName) {
-    let ((low, high), _) = axes.data_interval(name);
-    if low.is_finite() || high.is_finite() || axes.view_mutated(name) {
-        return;
+    /// The tick helpers and default view of dates in `tz` (matplotlib's
+    /// `_update_axisinfo` with the date converter's `axisinfo`): the axes
+    /// sharing the axis take the tick helpers too.
+    pub(super) fn use_date_axisinfo(&self, tz: &TimeZone) {
+        self.update_shared(|axis| axis.use_date_tickers(tz));
+        let epoch = get_epoch();
+        let start = epoch.datetime64_to_num(Datetime64::new(0, 0));
+        let end = epoch.datetime64_to_num(Datetime64::new(SECONDS_PER_DAY, 0));
+        self.set_default_intervals((start, end));
     }
-    let epoch = get_epoch();
-    let start = epoch.datetime64_to_num(Datetime64::new(0, 0));
-    let end = epoch.datetime64_to_num(Datetime64::new(SECONDS_PER_DAY, 0));
-    axes.set_view_interval(name, (start, end));
+
+    /// matplotlib's `set_default_intervals`: the view becomes `limits`
+    /// when neither the data nor the view limits of the axis changed yet.
+    pub(super) fn set_default_intervals(&self, limits: (f64, f64)) {
+        let name = self.name;
+        self.axes.raw().with_mut::<AxesState, _>(|axes| {
+            let ((low, high), _) = axes.data_interval(name);
+            if !(low.is_finite() || high.is_finite() || axes.view_mutated(name)) {
+                axes.set_view_interval(name, limits);
+            }
+        });
+    }
 }
 
 impl Axes {
@@ -243,7 +282,7 @@ mod tests {
     use super::*;
     use crate::dates::{AutoDateFormatter, AutoDateLocator};
     use crate::figure::{Figure, Share};
-    use crate::ticker::MultipleLocator;
+    use crate::ticker::{AxisName, MultipleLocator};
 
     #[test]
     fn axis_date_installs_date_tickers_where_defaults_remain() {

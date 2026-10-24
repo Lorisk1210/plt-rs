@@ -40,7 +40,10 @@ impl Axes {
         y: impl Into<AxisValues>,
         props: PatchProps,
     ) -> Result<Patch<Polygon>, PlotError> {
-        let (x, y) = (self.xaxis().convert_units(x), self.yaxis().convert_units(y));
+        let (x, y) = (
+            self.xaxis().convert_plot_units(x.into()),
+            self.yaxis().convert_plot_units(y.into()),
+        );
         let (x, y) = (x.as_slice(), y.as_slice());
         if x.len() != y.len() {
             return Err(PlotError::LengthMismatch {

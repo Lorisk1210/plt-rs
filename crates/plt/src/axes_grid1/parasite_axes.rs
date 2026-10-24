@@ -206,7 +206,7 @@ impl HostAxes {
     /// ```
     /// use plt::axes_grid1::host_axes;
     /// use plt::prelude::*;
-    /// use plt_core::Affine2D;
+    /// use plt::transforms::Affine2D;
     /// let fig = Figure::new();
     /// let host = host_axes(&fig, [0.1, 0.1, 0.8, 0.8]);
     /// let degrees = host.twin(Some(Affine2D::scaling(std::f64::consts::PI / 180.0, 1.0)))?;

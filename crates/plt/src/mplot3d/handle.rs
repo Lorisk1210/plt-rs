@@ -338,7 +338,7 @@ impl Axes3D {
     ///
     /// ```
     /// use plt::figure::Figure;
-    /// use plt_core::Anchor;
+    /// use plt::transforms::Anchor;
     /// let ax = Figure::new().subplot_3d();
     /// ax.set_anchor(Anchor::W);
     /// assert_eq!(ax.position().x0(), ax.original_position().x0());

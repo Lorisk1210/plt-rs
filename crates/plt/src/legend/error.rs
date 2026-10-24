@@ -28,6 +28,9 @@ pub enum LegendError {
     HandleColors(String),
     /// The frame's shadow cannot be made.
     Shadow(ShadowError),
+    /// A handler was given a handle of a kind it does not draw (this
+    /// handler), such as [`HandlerPatch`](super::HandlerPatch) for a line.
+    UnsupportedHandle(&'static str),
 }
 
 impl fmt::Display for LegendError {
@@ -53,6 +56,9 @@ impl fmt::Display for LegendError {
             Self::Color(err) => write!(f, "invalid legend colour: {err}"),
             Self::HandleColors(why) => write!(f, "invalid colours of a legend entry: {why}"),
             Self::Shadow(err) => write!(f, "invalid legend shadow: {err}"),
+            Self::UnsupportedHandle(handler) => {
+                write!(f, "{handler} cannot draw this kind of legend handle")
+            }
         }
     }
 }

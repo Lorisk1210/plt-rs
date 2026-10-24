@@ -6,7 +6,7 @@
 //! use plt::artist::{Artist, ArtistBase, ArtistHandle, DrawContext};
 //! use plt::prelude::*;
 //! use plt::transforms::{Affine2D, Point};
-//! use plt_core::Path;
+//! use plt::path::Path;
 //!
 //! /// A cross at a point, in the coordinates of its transform.
 //! #[derive(Debug)]

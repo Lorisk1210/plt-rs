@@ -192,7 +192,7 @@ fn min_max(values: impl Iterator<Item = f64>) -> (f64, f64) {
 ///
 /// ```
 /// use plt::offsetbox::{AnchorLoc, anchored_bbox};
-/// use plt_core::{Bbox, Point};
+/// use plt::transforms::{Bbox, Point};
 /// let corner = anchored_bbox(
 ///     AnchorLoc::UpperRight,
 ///     &Bbox::from_bounds(0.0, 0.0, 2.0, 1.0),

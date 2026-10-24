@@ -6,9 +6,9 @@
 //! arrays. Strings convert infallibly, so every colour argument takes a
 //! plain `&str`; the colour is checked when it is resolved to an RGBA
 //! value ([`Color::resolve`]) or up front with [`Color::parse`]. Resolved
-//! colours are [`Rgba`] values from `plt_core`; a few figure-level
-//! settings ([`Figure::set_facecolor`], [`SaveOptions::facecolor`]) take
-//! one directly.
+//! colours are [`Rgba`] values; a few figure-level settings
+//! ([`Figure::set_facecolor`], [`SaveOptions::facecolor`]) take one
+//! directly.
 //!
 //! **Colormaps and norms.** [`Colormap`] is one type for matplotlib's
 //! `ListedColormap` and `LinearSegmentedColormap`, built with
@@ -211,7 +211,7 @@
 //! [`Color::resolve`]: crate::colors::Color::resolve
 //! [`Color::resolve_alpha`]: crate::colors::Color::resolve_alpha
 //! [`Color::parse`]: crate::colors::Color::parse
-//! [`Rgba`]: plt_core::Rgba
+//! [`Rgba`]: crate::colors::Rgba
 //! [`Figure::set_facecolor`]: crate::figure::Figure::set_facecolor
 //! [`SaveOptions::facecolor`]: crate::figure::SaveOptions::facecolor
 //! [`to_rgba`]: crate::colors::to_rgba

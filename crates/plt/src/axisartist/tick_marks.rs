@@ -139,7 +139,7 @@ impl Axes {
     /// use plt::axisartist::TickMarks;
     /// use plt::prelude::*;
     /// use plt::axes::AxisName;
-    /// use plt_core::Point;
+    /// use plt::transforms::Point;
     /// let ax = Figure::new().subplot();
     /// let marks = TickMarks::new(10.0, AxisName::X, vec![(Point::new(0.5, 0.0), 90.0)]);
     /// let artist = ax.add_tick_marks(marks);

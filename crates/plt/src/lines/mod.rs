@@ -20,6 +20,7 @@ pub(crate) use line::{LineArtist, PolarMarkerRotation};
 pub use line_markers::MarkerError;
 pub use linestyle::{LineStyle, LineStyleError, inverse_dashes};
 pub use markevery::{MarkEvery, MarkEveryError};
+pub use plt_render::{CapStyle, JoinStyle};
 pub use steps::{
     DrawStyle, StepError, StepWhere, line_vertices, pts_to_midstep, pts_to_poststep, pts_to_prestep,
 };

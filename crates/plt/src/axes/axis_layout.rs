@@ -17,12 +17,12 @@ use super::ticks::TickStyle;
 use crate::artist::{ArtistId, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
+use crate::polar;
 use crate::rc::RcParams;
 use crate::spines::{SpineArtist, SpineSide};
 use crate::text::{LaidOutText, lay_out};
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
-use crate::{geo, polar};
 
 /// Everything needed to lay out and draw one axis of one axes.
 pub(crate) struct AxisPainter<'a> {
@@ -196,12 +196,9 @@ impl<'a> AxisPainter<'a> {
     }
 
     /// The coordinate system of gridlines: data along the axis, axes
-    /// fractions (or, on geographic axes, fractions of the gridline)
-    /// across it (matplotlib's `get_xaxis_transform('grid')`).
+    /// fractions across it (matplotlib's `get_xaxis_transform('grid')`),
+    /// which projections such as the geographic ones redefine.
     pub(super) fn grid_transform(&self) -> Transform {
-        if let Some(geo) = self.axes.geo() {
-            return geo::tick_transform(self.axes_id, geo, self.name);
-        }
         let data = Transform::Data(self.axes_id);
         let across = Transform::Axes(self.axes_id);
         match self.name {
@@ -243,18 +240,8 @@ impl<'a> AxisPainter<'a> {
                 label.rotation,
                 RotationMode::Anchor,
             )
-        } else if let Some(geo) = self.axes.geo() {
-            let display = layout.axes_extent(self.axes_id)?;
-            let (anchor, align) =
-                geo::tick_label_anchor(geo, &display, self.name, tick.loc, first_side);
-            (
-                anchor,
-                align,
-                style.label_rotation,
-                style.label_rotation_mode,
-            )
         } else {
-            let (anchor, align) = self.cartesian_label_anchor(layout, tick, style, first_side)?;
+            let (anchor, align) = self.label_anchor(layout, tick, style, first_side)?;
             (
                 anchor,
                 align,
@@ -268,6 +255,26 @@ impl<'a> AxisPainter<'a> {
             rotation,
             rotation_mode,
         })
+    }
+
+    /// Where a tick label of axes other than polar ones goes, with its
+    /// default alignment: where their projection puts it (geographic axes
+    /// and custom projections), else beyond the tick on its side.
+    fn label_anchor(
+        &self,
+        layout: LayoutContext<'_>,
+        tick: &Tick,
+        style: &TickStyle,
+        first_side: bool,
+    ) -> Option<(Point, (HAlign, VAlign))> {
+        if self.axes.projection.custom().is_some() {
+            let side = SpineSide::of(self.name, !first_side);
+            let display = layout.axes_extent(self.axes_id)?;
+            if let Some(placed) = self.axes.custom_tick_label(side, tick.loc, &display) {
+                return Some(placed);
+            }
+        }
+        self.cartesian_label_anchor(layout, tick, style, first_side)
     }
 
     /// Where a tick label of rectilinear axes goes: beyond the tick on
@@ -299,7 +306,7 @@ impl<'a> AxisPainter<'a> {
     /// The spine on `side`, if the axes has one (the spines of curved
     /// projections do not frame the axes sides).
     fn spine<'c>(&self, layout: LayoutContext<'c>, side: SpineSide) -> Option<&'c SpineArtist> {
-        if !self.axes.projection.is_rectilinear() {
+        if !self.axes.projection.is_rectangular() {
             return None;
         }
         let index = SpineSide::ALL.iter().position(|s| *s == side)?;

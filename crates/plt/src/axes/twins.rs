@@ -166,10 +166,10 @@ impl Axes {
     /// labels go, except on axes of curved projections, which have no
     /// inner sides.
     pub(crate) fn label_outer_shared(&self, name: AxisName) {
-        let rectilinear = self
+        let rectangular = self
             .raw
-            .with::<AxesState, _>(|axes| axes.projection.is_rectilinear());
-        if rectilinear {
+            .with::<AxesState, _>(|axes| axes.projection.is_rectangular());
+        if rectangular {
             self.label_outer_axis(name, false);
         }
     }

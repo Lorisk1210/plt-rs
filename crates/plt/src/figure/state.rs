@@ -256,7 +256,8 @@ impl FigureState {
 
     /// The display outline of `axes` when its patch is not a rectangle
     /// (an outline of its own, the wedge of polar axes, the ellipse of
-    /// geographic axes); `None` otherwise.
+    /// geographic axes, the outline of a custom projection); `None`
+    /// otherwise.
     pub(crate) fn axes_outline(&self, axes: ArtistId) -> Option<ClipPath> {
         let state = self.store.get_as::<AxesState>(axes)?;
         if let Some((path, transform)) = &state.patch_outline {
@@ -266,7 +267,7 @@ impl FigureState {
                 transform,
             });
         }
-        if state.projection.is_rectilinear() {
+        if state.projection.is_rectangular() {
             return None;
         }
         Some(ClipPath {
@@ -322,9 +323,12 @@ impl TransformContext for FigureState {
     /// Polar axes map the fraction across the data axis onto its view
     /// range before their data transform: a radial fraction is a radius, an
     /// angular one an angle (matplotlib's `PolarAxes._xaxis_transform` and
-    /// `_yaxis_transform`).
+    /// `_yaxis_transform`). Custom projections may give their own.
     fn axis_transform(&self, axes: ArtistId, data_axis: AxisName) -> Option<ResolvedTransform> {
         let state = self.store.get_as::<AxesState>(axes)?;
+        if state.projection.custom().is_some() {
+            return state.custom_axis_transform(data_axis, &self.axes_bbox(axes)?);
+        }
         state.polar()?;
         let view = state.view_lim;
         let fraction_to_view = match data_axis {

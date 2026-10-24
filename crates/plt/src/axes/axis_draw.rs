@@ -37,7 +37,14 @@ impl AxisPainter<'_> {
         // Tick marks and texts are artists made with the rc path effects
         // in matplotlib; gridlines take those of their style.
         let mut labels = texts.tick_labels.iter().peekable();
-        for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
+        for (index, (tick, mut style)) in self.styled_ticks().into_iter().enumerate() {
+            // A custom projection may hide a side of the tick while drawing.
+            let sides = self.axes.drawn_tick_sides(self.name, tick.loc);
+            if !(sides.first && sides.second) {
+                let marks = &mut style.to_mut().ticks;
+                marks.first &= sides.first;
+                marks.second &= sides.second;
+            }
             match &polar {
                 Some(polar) => {
                     polar::draw_tick_lines(ctx, self.axes_id, polar, self.name, tick, &style, rc);
@@ -46,7 +53,14 @@ impl AxisPainter<'_> {
             }
             let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
                 while let Some(label) = labels.next_if(|label| label.tick == index) {
-                    draw_text(ctx, &label.text, rc);
+                    let shown = if label.first_side {
+                        sides.first
+                    } else {
+                        sides.second
+                    };
+                    if shown {
+                        draw_text(ctx, &label.text, rc);
+                    }
                 }
             });
             if let Err(err) = drawn {

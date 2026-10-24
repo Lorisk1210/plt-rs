@@ -10,10 +10,10 @@ below).
 pyplot calls act on the case's figure and its axes; ``plt.show()``,
 ``savefig`` and the SVG post-processing of the ``svg_filter`` examples are
 dropped (the cases draw the figures those examples save). Wall-clock text
-(``mandelbrot``'s year and version) is left out. The axes classes of
-``custom_projection`` and ``radar_chart`` are passed as ``axes_class``,
-named like the built-in projections they reimplement or extend, instead of
-being registered as new projections.
+(``mandelbrot``'s year and version) is left out. ``custom_projection`` and
+``skewt`` register their projections as the examples do; the axes class of
+``radar_chart`` is passed as ``axes_class``, named like the polar
+projection it extends, instead of being registered as a new projection.
 
 Covered elsewhere: the first ``xkcd`` figure (``offsetbox/xkcd_bacon``),
 ``spines_dropped`` (``spines/dropped``), ``centered_spines_with_arrows``
@@ -24,12 +24,13 @@ Covered elsewhere: the first ``xkcd`` figure (``offsetbox/xkcd_bacon``),
 Not ported: ``font_indexing``, ``ftface_props`` and ``print_stdout`` (no
 figure, or only bytes written to stdout), ``coords_report`` (its only
 feature formats the interactive coordinate readout), ``multiprocess``
-(interactive), the second ``multipage_pdf`` page (usetex) and ``skewt`` (a
-projection made of custom tick, axis and spine classes).
+(interactive) and the second ``multipage_pdf`` page (usetex).
 """
 
 import math
 import re
+from contextlib import ExitStack
+from io import StringIO
 
 import matplotlib as mpl
 import matplotlib.axis as maxis
@@ -52,11 +53,12 @@ from matplotlib.offsetbox import (AnchoredOffsetbox, AuxTransformBox, DrawingAre
 from matplotlib.patches import (Circle, Ellipse, PathPatch, Polygon, Rectangle,
                                 RegularPolygon, Shadow, Wedge)
 from matplotlib.path import Path
+from matplotlib.projections import register_projection
 from matplotlib.projections.polar import PolarAxes
 from matplotlib.sankey import Sankey
 from matplotlib.text import TextPath
 from matplotlib.ticker import (AutoMinorLocator, FixedLocator, Formatter, MultipleLocator,
-                               NullLocator)
+                               NullFormatter, NullLocator, ScalarFormatter)
 from matplotlib.transforms import Affine2D, Bbox, BboxTransformTo, Transform, TransformedBbox
 
 from spec_support import case, rng
@@ -172,8 +174,7 @@ def _(fig):
 
 
 class GeoAxes(Axes):
-    """The example's abstract geographic projection (its interactive
-    methods left out)."""
+    """The example's abstract base class for geographic projections."""
 
     class ThetaFormatter(Formatter):
         def __init__(self, round_to=1.0):
@@ -230,6 +231,8 @@ class GeoAxes(Axes):
         return Affine2D().scale(0.5 / xscale, 0.5 / yscale).translate(0.5, 0.5)
 
     def get_xaxis_transform(self, which='grid'):
+        if which not in ['tick1', 'tick2', 'grid']:
+            raise ValueError("'which' must be one of 'tick1', 'tick2', or 'grid'")
         return self._xaxis_transform
 
     def get_xaxis_text1_transform(self, pad):
@@ -239,6 +242,8 @@ class GeoAxes(Axes):
         return self._xaxis_text2_transform, 'top', 'center'
 
     def get_yaxis_transform(self, which='grid'):
+        if which not in ['tick1', 'tick2', 'grid']:
+            raise ValueError("'which' must be one of 'tick1', 'tick2', or 'grid'")
         return self._yaxis_transform
 
     def get_yaxis_text1_transform(self, pad):
@@ -260,9 +265,17 @@ class GeoAxes(Axes):
     set_xscale = set_yscale
 
     def set_xlim(self, *args, **kwargs):
-        raise TypeError("Changing axes limits of a geographic projection is not supported.")
+        raise TypeError("Changing axes limits of a geographic projection is "
+                        "not supported.  Please consider using Cartopy.")
 
     set_ylim = set_xlim
+
+    def format_coord(self, lon, lat):
+        lon, lat = np.rad2deg([lon, lat])
+        ns = 'N' if lat >= 0.0 else 'S'
+        ew = 'E' if lon >= 0.0 else 'W'
+        return ('%f\N{DEGREE SIGN}%s, %f\N{DEGREE SIGN}%s'
+                % (abs(lat), ns, abs(lon), ew))
 
     def set_longitude_grid(self, degrees):
         grid = np.arange(-180 + degrees, 180, degrees)
@@ -282,14 +295,27 @@ class GeoAxes(Axes):
     def get_data_ratio(self):
         return 1.0
 
+    def can_zoom(self):
+        return False
+
+    def can_pan(self):
+        return False
+
+    def start_pan(self, x, y, button):
+        pass
+
+    def end_pan(self):
+        pass
+
+    def drag_pan(self, button, key, x, y):
+        pass
+
 
 class HammerAxes(GeoAxes):
-    """The example's Aitoff-Hammer projection. The example registers it as
-    ``custom_hammer``; the case passes the class itself instead, named like
-    the built-in projection it reimplements (which plt-rs draws), so that
-    matplotlib's registry is left alone."""
+    """The example's Aitoff-Hammer projection, registered as
+    ``custom_hammer``."""
 
-    name = 'hammer'
+    name = 'custom_hammer'
 
     class HammerTransform(Transform):
         input_dims = output_dims = 2
@@ -342,9 +368,12 @@ class HammerAxes(GeoAxes):
         return self.HammerTransform(resolution)
 
 
+register_projection(HammerAxes)
+
+
 @case(f"{G}/custom_projection")
 def _(fig):
-    ax = fig.subplots(subplot_kw={'axes_class': HammerAxes})
+    ax = fig.subplots(subplot_kw={'projection': 'custom_hammer'})
     ax.plot([-1, 1, 1], [-1, -1, 1], "o-")
     ax.grid()
 
@@ -1622,6 +1651,201 @@ def _(fig):
         diagram.text.set_fontsize('10')
         for text in diagram.texts:
             text.set_fontsize('10')
+
+
+# --- skewt --------------------------------------------------------------------
+
+
+class SkewXTick(maxis.XTick):
+    """The example's tick drawing its lower parts only within the lower x
+    limits and its upper parts within the upper ones."""
+
+    def draw(self, renderer):
+        with ExitStack() as stack:
+            for artist in [self.gridline, self.tick1line, self.tick2line,
+                           self.label1, self.label2]:
+                stack.callback(artist.set_visible, artist.get_visible())
+            needs_lower = mtransforms._interval_contains(
+                self.axes.lower_xlim, self.get_loc())
+            needs_upper = mtransforms._interval_contains(
+                self.axes.upper_xlim, self.get_loc())
+            self.tick1line.set_visible(
+                self.tick1line.get_visible() and needs_lower)
+            self.label1.set_visible(
+                self.label1.get_visible() and needs_lower)
+            self.tick2line.set_visible(
+                self.tick2line.get_visible() and needs_upper)
+            self.label2.set_visible(
+                self.label2.get_visible() and needs_upper)
+            super().draw(renderer)
+
+    def get_view_interval(self):
+        return self.axes.xaxis.get_view_interval()
+
+
+class SkewXAxis(maxis.XAxis):
+    """The example's x axis ticking both the upper and the lower limits."""
+
+    def _get_tick(self, major):
+        return SkewXTick(self.axes, None, major=major)
+
+    def get_view_interval(self):
+        return self.axes.upper_xlim[0], self.axes.lower_xlim[1]
+
+
+class SkewSpine(mspines.Spine):
+    """The example's spine spanning the upper x limits at the top."""
+
+    def _adjust_location(self):
+        pts = self._path.vertices
+        if self.spine_type == 'top':
+            pts[:, 0] = self.axes.upper_xlim
+        else:
+            pts[:, 0] = self.axes.lower_xlim
+
+
+class SkewXAxes(Axes):
+    """The example's skewed x axes, registered as ``skewx``."""
+
+    name = 'skewx'
+
+    def _init_axis(self):
+        self.xaxis = SkewXAxis(self)
+        self.spines.top.register_axis(self.xaxis)
+        self.spines.bottom.register_axis(self.xaxis)
+        self.yaxis = maxis.YAxis(self)
+        self.spines.left.register_axis(self.yaxis)
+        self.spines.right.register_axis(self.yaxis)
+
+    def _gen_axes_spines(self):
+        spines = {'top': SkewSpine.linear_spine(self, 'top'),
+                  'bottom': mspines.Spine.linear_spine(self, 'bottom'),
+                  'left': mspines.Spine.linear_spine(self, 'left'),
+                  'right': mspines.Spine.linear_spine(self, 'right')}
+        return spines
+
+    def _set_lim_and_transforms(self):
+        rot = 30
+        super()._set_lim_and_transforms()
+        self.transDataToAxes = (
+            self.transScale
+            + self.transLimits
+            + mtransforms.Affine2D().skew_deg(rot, 0)
+        )
+        self.transData = self.transDataToAxes + self.transAxes
+        self._xaxis_transform = (
+            mtransforms.blended_transform_factory(
+                self.transScale + self.transLimits,
+                mtransforms.IdentityTransform())
+            + mtransforms.Affine2D().skew_deg(rot, 0)
+            + self.transAxes
+        )
+
+    @property
+    def lower_xlim(self):
+        return self.axes.viewLim.intervalx
+
+    @property
+    def upper_xlim(self):
+        pts = [[0., 1.], [1., 1.]]
+        return self.transDataToAxes.inverted().transform(pts)[:, 0]
+
+
+register_projection(SkewXAxes)
+
+#: The example's sounding: pressure (hPa), height (m), temperature and dew
+#: point (°C).
+SKEWT_SOUNDING = '''
+    978.0    345    7.8    0.8
+    971.0    404    7.2    0.2
+    946.7    610    5.2   -1.8
+    944.0    634    5.0   -2.0
+    925.0    798    3.4   -2.6
+    911.8    914    2.4   -2.7
+    906.0    966    2.0   -2.7
+    877.9   1219    0.4   -3.2
+    850.0   1478   -1.3   -3.7
+    841.0   1563   -1.9   -3.8
+    823.0   1736    1.4   -0.7
+    813.6   1829    4.5    1.2
+    809.0   1875    6.0    2.2
+    798.0   1988    7.4   -0.6
+    791.0   2061    7.6   -1.4
+    783.9   2134    7.0   -1.7
+    755.1   2438    4.8   -3.1
+    727.3   2743    2.5   -4.4
+    700.5   3048    0.2   -5.8
+    700.0   3054    0.2   -5.8
+    698.0   3077    0.0   -6.0
+    687.0   3204   -0.1   -7.1
+    648.9   3658   -3.2  -10.9
+    631.0   3881   -4.7  -12.7
+    600.7   4267   -6.4  -16.7
+    592.0   4381   -6.9  -17.9
+    577.6   4572   -8.1  -19.6
+    555.3   4877  -10.0  -22.3
+    536.0   5151  -11.7  -24.7
+    533.8   5182  -11.9  -25.0
+    500.0   5680  -15.9  -29.9
+    472.3   6096  -19.7  -33.4
+    453.0   6401  -22.4  -36.0
+    400.0   7310  -30.7  -43.7
+    399.7   7315  -30.8  -43.8
+    387.0   7543  -33.1  -46.1
+    382.7   7620  -33.8  -46.8
+    342.0   8398  -40.5  -53.5
+    320.4   8839  -43.7  -56.7
+    318.0   8890  -44.1  -57.1
+    310.0   9060  -44.7  -58.7
+    306.1   9144  -43.9  -57.9
+    305.0   9169  -43.7  -57.7
+    300.0   9280  -43.5  -57.5
+    292.0   9462  -43.7  -58.7
+    276.0   9838  -47.1  -62.1
+    264.0  10132  -47.5  -62.5
+    251.0  10464  -49.7  -64.7
+    250.0  10490  -49.7  -64.7
+    247.0  10569  -48.7  -63.7
+    244.0  10649  -48.9  -63.9
+    243.3  10668  -48.9  -63.9
+    220.0  11327  -50.3  -65.3
+    212.0  11569  -50.5  -65.5
+    210.0  11631  -49.7  -64.7
+    200.0  11950  -49.9  -64.9
+    194.0  12149  -49.9  -64.9
+    183.0  12529  -51.3  -66.3
+    164.0  13233  -55.3  -68.3
+    152.0  13716  -56.5  -69.5
+    150.0  13800  -57.1  -70.1
+    136.0  14414  -60.5  -72.5
+    132.0  14600  -60.1  -72.1
+    131.4  14630  -60.2  -72.2
+    128.0  14792  -60.9  -72.9
+    125.0  14939  -60.1  -72.1
+    119.0  15240  -62.2  -73.8
+    112.0  15616  -64.9  -75.9
+    108.0  15838  -64.1  -75.1
+    107.8  15850  -64.1  -75.1
+    105.0  16010  -64.7  -75.7
+    103.0  16128  -62.9  -73.9
+    100.0  16310  -62.5  -73.5
+'''
+
+
+@case(f"{G}/skewt", figsize=(6.5875, 6.2125))
+def _(fig):
+    p, h, T, Td = np.loadtxt(StringIO(SKEWT_SOUNDING), unpack=True)
+    ax = fig.add_subplot(projection='skewx')
+    plt.grid(True)
+    ax.semilogy(T, p, color='C3')
+    ax.semilogy(Td, p, color='C2')
+    ax.axvline(0, color='C0')
+    ax.yaxis.set_major_formatter(ScalarFormatter())
+    ax.yaxis.set_minor_formatter(NullFormatter())
+    ax.set_yticks(np.linspace(100, 1000, 10))
+    ax.set_ylim(1050, 100)
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.set_xlim(-50, 50)
 
 
 # --- topographic_hillshading --------------------------------------------------

@@ -1,5 +1,5 @@
-//! `mplot3d`, `axes_grid1`, `axisartist`, polar and geographic axes, and
-//! the other specialised modules.
+//! `mplot3d`, `axes_grid1`, `axisartist`, polar and geographic axes,
+//! projections of your own, and the other specialised modules.
 //!
 //! matplotlib picks special axes with `projection=` or `axes_class=`;
 //! plt-rs gives each kind its own handle and constructor:
@@ -14,6 +14,11 @@
 //!   plotting method works on them, and add the settings of their
 //!   projection. Compass directions and orientations are enums
 //!   ([`Compass`], [`ThetaDirection`]).
+//! * Projections of your own implement [`Projection`]: one hook per
+//!   method matplotlib's projection subclasses override. [`register`]
+//!   names them, as `register_projection` does, and
+//!   [`Figure::add_subplot_with_projection`] makes axes of any
+//!   [`ProjectionKind`], built-in or registered.
 //! * [`crate::axes_grid1`] keeps matplotlib's functions
 //!   ([`make_axes_locatable`], [`inset_axes`], [`zoomed_inset_axes`],
 //!   [`mark_inset`], [`host_subplot`]) and classes ([`ImageGrid`],
@@ -54,6 +59,13 @@
 //! | `plt.polar(theta, r)`, `plt.thetagrids`, `plt.rgrids` | [`crate::pyplot::polar`], [`crate::pyplot::thetagrids`], [`crate::pyplot::rgrids`] |
 //! | `fig.add_subplot(projection="mollweide")`         | [`Figure::geo_subplot`]`(GeoProjection::Mollweide)` |
 //! | `ax.set_longitude_grid(30)`, `ax.set_latitude_grid(15)` | [`GeoAxes::set_longitude_grid`], [`GeoAxes::set_latitude_grid`] |
+//! | `class SkewXAxes(Axes): name = "skewx"`            | a type implementing [`Projection`]            |
+//! | `register_projection(SkewXAxes)`                  | [`register`]`(SkewXAxes::default)`             |
+//! | `fig.add_subplot(projection="skewx")`             | [`Figure::subplot_with_projection`]`(ProjectionKind::Registered("skewx"))` |
+//! | `fig.add_subplot(2, 1, 1, projection=name)`, `fig.add_axes(rect, projection=name)` | [`Figure::add_subplot_with_projection`], [`Figure::add_axes_with_projection`] |
+//! | `_set_lim_and_transforms` (`transData`), `get_xaxis_transform` | [`Projection::data_to_axes`], [`Projection::axis_transform`] |
+//! | `clear`, `_gen_axes_patch`, `_gen_axes_spines`    | [`Projection::set_up`], [`Projection::outline`] |
+//! | `get_projection_names()`                          | [`projection_names`]                           |
 //! | `make_axes_locatable(ax)`                         | [`make_axes_locatable`]                        |
 //! | `divider.append_axes("right", size="5%", pad=0.05)` | [`AxesDivider::append_axes`]`(SpineSide::Right, SizeSpec::Percent(5.0), Some(0.05.into()))` |
 //! | `inset_axes(ax, width="30%", height=1, loc=...)`  | [`inset_axes`] with [`SizeSpec`] and [`InsetOptions`] |
@@ -151,6 +163,63 @@
 //! let world = fig.add_geo_subplot(GeoProjection::Mollweide, 1, 2, 2)?;
 //! world.set_longitude_grid(30.0)?;
 //! assert_eq!(world.xlim(), (-std::f64::consts::PI, std::f64::consts::PI));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! # Projections of your own
+//!
+//! ```python
+//! class SkewXAxes(Axes):
+//!     name = "skewx"
+//!
+//!     def _set_lim_and_transforms(self):
+//!         super()._set_lim_and_transforms()
+//!         skew = Affine2D().skew_deg(30, 0)
+//!         self.transDataToAxes = self.transScale + self.transLimits + skew
+//!         self.transData = self.transDataToAxes + self.transAxes
+//!         self._xaxis_transform = (blended_transform_factory(
+//!             self.transScale + self.transLimits, IdentityTransform())
+//!             + skew + self.transAxes)
+//!
+//! register_projection(SkewXAxes)
+//! ax = fig.add_subplot(projection="skewx")
+//! ax.semilogy([10, -20], [1000, 100])
+//! ```
+//!
+//! ```
+//! use plt::axes::{AxisName, ProjectionKind};
+//! use plt::prelude::*;
+//! use plt::projections::{self, Projection, ProjectionView};
+//! use plt::transforms::{Affine2D, ResolvedTransform};
+//!
+//! #[derive(Debug, Default)]
+//! struct SkewXAxes;
+//!
+//! fn skew() -> ResolvedTransform {
+//!     ResolvedTransform::affine(Affine2D::identity().skew_deg(30.0, 0.0))
+//! }
+//!
+//! impl Projection for SkewXAxes {
+//!     fn name(&self) -> &'static str {
+//!         "skewx"
+//!     }
+//!
+//!     fn data_to_axes(&self, view: &ProjectionView<'_>) -> ResolvedTransform {
+//!         view.rectilinear().then(skew())
+//!     }
+//!
+//!     fn axis_transform(&self, view: &ProjectionView<'_>, axis: AxisName) -> Option<ResolvedTransform> {
+//!         let along_x = ResolvedTransform::blend(view.rectilinear(), ResolvedTransform::identity());
+//!         (axis == AxisName::X).then(|| along_x.then(skew()))
+//!     }
+//! }
+//!
+//! projections::register(SkewXAxes::default)?;
+//! let fig = Figure::new();
+//! let ax = fig.subplot_with_projection(ProjectionKind::Registered("skewx"))?;
+//! ax.semilogy([10.0, -20.0], [1000.0, 100.0])?;
+//! assert_eq!((ax.projection().name(), ax.yscale()), ("skewx", "log"));
+//! assert!(projections::projection_names().contains(&"skewx"));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -291,6 +360,17 @@
 //! [`GeoAxes`]: crate::geo::GeoAxes
 //! [`GeoAxes::set_longitude_grid`]: crate::geo::GeoAxes::set_longitude_grid
 //! [`GeoAxes::set_latitude_grid`]: crate::geo::GeoAxes::set_latitude_grid
+//! [`Projection`]: crate::projections::Projection
+//! [`Projection::data_to_axes`]: crate::projections::Projection::data_to_axes
+//! [`Projection::axis_transform`]: crate::projections::Projection::axis_transform
+//! [`Projection::set_up`]: crate::projections::Projection::set_up
+//! [`Projection::outline`]: crate::projections::Projection::outline
+//! [`register`]: crate::projections::register
+//! [`projection_names`]: crate::projections::projection_names
+//! [`ProjectionKind`]: crate::axes::ProjectionKind
+//! [`Figure::subplot_with_projection`]: crate::figure::Figure::subplot_with_projection
+//! [`Figure::add_subplot_with_projection`]: crate::figure::Figure::add_subplot_with_projection
+//! [`Figure::add_axes_with_projection`]: crate::figure::Figure::add_axes_with_projection
 //! [`make_axes_locatable`]: crate::axes_grid1::make_axes_locatable
 //! [`AxesDivider::append_axes`]: crate::axes_grid1::AxesDivider::append_axes
 //! [`inset_axes`]: crate::axes_grid1::inset_axes

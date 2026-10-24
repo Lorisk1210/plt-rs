@@ -1,38 +1,17 @@
 //! The [`GeoAxes`] handle: creating geographic axes and their grid
 //! settings (matplotlib's `GeoAxes` methods).
 
-use std::f64::consts::{FRAC_PI_2, PI};
 use std::fmt;
 use std::ops::Deref;
 
 use super::ticker::{ThetaFormatter, grid_locator};
-use super::transform::OUTLINE_SPINE;
-use super::{GeoProjection, GeoState};
-use crate::artist::ArtistHandle;
-use crate::axes::projection::Projection;
-use crate::axes::{Adjustable, Axes, AxesState, Axis, TickPosition};
+use super::{GeoProjection, GeoState, LATITUDE_EDGE, LONGITUDE_EDGE};
+use crate::axes::{Axes, Axis};
 use crate::figure::{AxesRectError, Figure};
 use crate::gridspec::{GridSpecError, SubplotSpec};
-use crate::rc::Aspect;
+use crate::projections::{OUTLINE_SPINE, install};
 use crate::spines::Spine;
-use crate::ticker::{NullFormatter, NullLocator, pyfmt};
-use crate::transforms::Anchor;
-
-/// Longitudes run from `-LONGITUDE_EDGE` to `LONGITUDE_EDGE` degrees.
-const LONGITUDE_EDGE: f64 = 180.0;
-
-/// Latitudes run from `-LATITUDE_EDGE` to `LATITUDE_EDGE` degrees.
-const LATITUDE_EDGE: f64 = 90.0;
-
-/// Default spacing of longitude gridlines in degrees.
-const DEFAULT_LONGITUDE_GRID: f64 = 30.0;
-
-/// Default spacing of latitude gridlines in degrees.
-const DEFAULT_LATITUDE_GRID: f64 = 15.0;
-
-/// The aspect of the elliptical maps: a full turn of longitude is twice
-/// as wide as a half turn of latitude is high.
-const ELLIPSE_ASPECT: f64 = 0.5;
+use crate::ticker::pyfmt;
 
 /// Why a geographic setting was refused.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -89,47 +68,17 @@ impl Deref for GeoAxes {
 impl GeoAxes {
     /// `axes` as geographic axes, if it is one.
     pub(crate) fn new(axes: Axes) -> Option<Self> {
-        axes.raw()
-            .with::<AxesState, _>(|state| state.geo().is_some())
-            .then_some(Self { axes })
+        axes.with_projection(|_: &GeoState| ())
+            .map(|()| Self { axes })
     }
 
     /// Turns freshly created rectilinear `axes` into geographic axes
     /// drawn through `projection` (matplotlib's `GeoAxes.__init__` and
     /// `clear`).
     pub(crate) fn convert(axes: Axes, projection: GeoProjection) -> Self {
-        // The limits are fixed once the axes is geographic.
-        axes.set_xlim(-PI, PI)
-            .and_then(|axes| axes.set_ylim(-FRAC_PI_2, FRAC_PI_2))
-            .expect("the whole globe has finite limits");
-        axes.raw().with_mut::<AxesState, _>(|state| {
-            state.projection = Projection::Geo(GeoState::new(projection));
-            state.yaxis.major_style.labels.first = true;
-        });
-        for spine in axes.spines().iter() {
-            // matplotlib's circular spine ignores `axes.spines.*`.
-            spine.raw().with_base_mut(|base| base.visible = true);
-        }
-        let geo = Self { axes };
-        install_grid(&geo.xaxis(), DEFAULT_LONGITUDE_GRID, LONGITUDE_EDGE);
-        install_grid(&geo.yaxis(), DEFAULT_LATITUDE_GRID, LATITUDE_EDGE);
-        for axis in [geo.xaxis(), geo.yaxis()] {
-            axis.set_minor_locator(NullLocator);
-            axis.set_ticks_position(TickPosition::None)
-                .expect("`none` is a position of every axis");
-        }
-        if let GeoProjection::Lambert { .. } = projection {
-            geo.yaxis().set_major_formatter(NullFormatter);
-        }
-        geo.grid(crate::rc::params().axes_grid);
-        let aspect = match projection {
-            GeoProjection::Lambert { .. } => Aspect::Equal,
-            _ => Aspect::Ratio(ELLIPSE_ASPECT),
-        };
-        geo.set_aspect(aspect)
-            .expect("the aspects of geographic axes are valid");
-        geo.store_adjustable(Adjustable::Box).set_anchor(Anchor::C);
-        geo
+        install(&axes, Box::new(GeoState::new(projection)))
+            .expect("geographic axes set up whole-globe limits and valid aspects");
+        Self { axes }
     }
 
     /// The underlying axes.
@@ -138,13 +87,9 @@ impl GeoAxes {
     }
 
     fn settings<R>(&self, read: impl FnOnce(&GeoState) -> R) -> R {
-        self.axes.raw().with::<AxesState, _>(|state| {
-            read(
-                state
-                    .geo()
-                    .expect("a GeoAxes handle refers to geographic axes"),
-            )
-        })
+        self.axes
+            .with_projection(read)
+            .expect("a GeoAxes handle refers to geographic axes")
     }
 
     /// The map projection.
@@ -178,10 +123,8 @@ impl GeoAxes {
 
     /// Stops the longitude gridlines at `degrees` north and south.
     pub fn set_longitude_grid_ends(&self, degrees: f64) -> &Self {
-        self.axes.raw().with_mut::<AxesState, _>(|state| {
-            if let Projection::Geo(settings) = &mut state.projection {
-                settings.longitude_cap = degrees.to_radians();
-            }
+        self.axes.with_projection_mut(|settings: &mut GeoState| {
+            settings.longitude_cap = degrees.to_radians();
         });
         self
     }
@@ -207,13 +150,13 @@ impl GeoAxes {
 
 /// Puts gridlines every `degrees` strictly between `-limit` and `limit`
 /// on `axis`, labelled to multiples of `degrees`.
-fn install_grid(axis: &Axis, degrees: f64, limit: f64) {
+pub(super) fn install_grid(axis: &Axis, degrees: f64, limit: f64) {
     axis.set_major_locator(grid_locator(degrees, limit))
         .set_major_formatter(ThetaFormatter::new(degrees));
 }
 
 /// `'%f°N, %f°E'` with the hemispheres of `latitude` and `longitude`.
-fn format_lonlat(longitude: f64, latitude: f64) -> String {
+pub(super) fn format_lonlat(longitude: f64, latitude: f64) -> String {
     let (lon, lat) = (longitude.to_degrees(), latitude.to_degrees());
     let ns = if lat >= 0.0 { 'N' } else { 'S' };
     let ew = if lon >= 0.0 { 'E' } else { 'W' };
@@ -309,6 +252,8 @@ impl Axes {
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::{FRAC_PI_2, PI};
+
     use super::*;
     use crate::axes::{AxisName, ProjectionKind};
     use crate::testing::RecordingRenderer;

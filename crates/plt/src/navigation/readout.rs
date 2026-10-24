@@ -102,11 +102,8 @@ pub(super) fn format_coord(ax: &Axes, at: Point) -> String {
             .and_then(|inverse| polar_coord(ax, inverse.transform_point(at)))
             .unwrap_or_default();
     }
-    if let Some(geo) = ax.as_geo() {
-        return data_transform(ax)
-            .and_then(|trans| trans.inverted())
-            .map(|inverse| inverse.transform_point(at))
-            .map_or_else(String::new, |p| geo.format_coord(p.x, p.y));
+    if let Some(text) = custom_coord_at(ax, at) {
+        return text;
     }
     let mut twins = ax.twins();
     twins.sort_by(|a, b| a.zorder().total_cmp(&b.zorder()));
@@ -229,8 +226,9 @@ impl Axes {
     /// `format_coord`): `(x, y) = (…, …)` with each coordinate as
     /// [`format_data`](Self::format_data) gives it, followed by the same
     /// screen point in the data of each twin, in z-order; θ and r for
-    /// polar axes, longitude and latitude for geographic ones. Empty when
-    /// a coordinate cannot be formatted.
+    /// polar axes, longitude and latitude for geographic ones, and what a
+    /// custom projection makes of it. Empty when a coordinate cannot be
+    /// formatted.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -240,8 +238,8 @@ impl Axes {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn format_coord(&self, x: f64, y: f64) -> String {
-        if let Some(geo) = self.as_geo() {
-            return geo.format_coord(x, y);
+        if let Some(text) = custom_coord(self, x, y) {
+            return text;
         }
         if self.as_polar().is_some() {
             return polar_coord(self, Point::new(x, y)).unwrap_or_default();
@@ -254,6 +252,25 @@ impl Axes {
             .map(|trans| trans.transform_point(Point::new(x, y)))
             .map_or_else(String::new, |at| format_coord(self, at))
     }
+}
+
+/// The status-bar text the custom projection of `ax` gives for its data
+/// point `(x, y)`, if it has one that formats it.
+fn custom_coord(ax: &Axes, x: f64, y: f64) -> Option<String> {
+    ax.raw()
+        .with::<AxesState, _>(|state| state.projection.custom()?.format_coord(x, y))
+}
+
+/// [`custom_coord`] of the data point of `ax` at display point `at`.
+fn custom_coord_at(ax: &Axes, at: Point) -> Option<String> {
+    let custom = ax
+        .raw()
+        .with::<AxesState, _>(|state| state.projection.custom().is_some());
+    if !custom {
+        return None;
+    }
+    let data = data_transform(ax)?.inverted()?.transform_point(at);
+    custom_coord(ax, data.x, data.y)
 }
 
 /// matplotlib's `PolarAxes.format_coord` of the data point `data` (θ, r):

@@ -127,15 +127,16 @@ impl Axes {
     /// `Axes.clear`): titles, labels, limits (autoscaled from `(0, 1)`),
     /// scales, tickers, grids and the property cycle start over; the
     /// position, aspect, sharing, background colour and frame are kept,
-    /// and polar and geographic axes stay so.
+    /// and polar, geographic and custom axes stay so (a custom projection
+    /// sets the axes up again).
     pub fn clear(&self) -> &Self {
-        let geo = self.as_geo().map(|geo| geo.geo_projection());
         let polar = self.projection() == ProjectionKind::Polar;
+        let custom = self.take_custom_projection();
         self.raw().figure_state().borrow_mut().clear_axes(self.id());
         if polar {
             crate::polar::PolarAxes::convert(self.clone());
-        } else if let Some(projection) = geo {
-            crate::geo::GeoAxes::convert(self.clone(), projection);
+        } else if let Some(projection) = custom {
+            crate::projections::reinstall(self, projection);
         }
         self
     }

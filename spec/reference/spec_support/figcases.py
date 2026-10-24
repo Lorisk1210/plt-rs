@@ -158,7 +158,8 @@ def _axes_facts(ax: Any) -> dict[str, Any]:
         "position": list(ax.get_position().bounds),
         "title": ax.get_title(),
     }
-    if ax.name in ("rectilinear", "polar", "aitoff", "hammer", "lambert", "mollweide"):
+    # Every 2-D projection: the built-in ones and those the cases register.
+    if ax.name != "3d":
         facts["xlim"] = list(ax.get_xlim())
         facts["ylim"] = list(ax.get_ylim())
         facts["xscale"] = ax.get_xscale()

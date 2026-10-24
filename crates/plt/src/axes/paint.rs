@@ -114,6 +114,7 @@ impl AxesState {
         let id = self.base().id();
         let mut items: Vec<(f64, Item)> = self
             .spines_in_children_order()
+            .into_iter()
             .filter(|_| spines)
             .filter_map(|id| zordered(store, id))
             .collect();

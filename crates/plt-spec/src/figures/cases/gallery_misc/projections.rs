@@ -1,7 +1,5 @@
-//! Polar and geographic axes: the example's Hammer projection, the
-//! matplotlib logo, the left ventricle bullseye and radar charts
-//! (`custom_projection`, `logos2`, `leftventricle_bullseye` and
-//! `radar_chart`).
+//! Polar axes: the matplotlib logo, the left ventricle bullseye and
+//! radar charts (`logos2`, `leftventricle_bullseye` and `radar_chart`).
 
 use std::f64::consts::PI;
 
@@ -9,7 +7,6 @@ use plt::axes::{BarAlign, TickParams};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions, ColorbarTicks, Spacing};
 use plt::colors::{BoundaryNorm, Colormap, Extend, Normalize, ScalarMappable, colormaps};
 use plt::fonts::{FontProperties, FontSize, FontWeight, RelativeSize};
-use plt::geo::GeoProjection;
 use plt::gridspec::SubplotOverrides;
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::{LegendHandle, LegendLoc, LegendOptions};
@@ -24,13 +21,6 @@ use plt::transforms::{Point, Transform};
 use plt_core::{Affine2D, Rgba};
 
 use crate::figures::{CaseResult, FigureCase};
-
-fn custom_projection(fig: &Figure) -> CaseResult {
-    let ax = fig.geo_subplot(GeoProjection::Hammer);
-    ax.plot_fmt([-1.0, 1.0, 1.0], [-1.0, -1.0, 1.0], "o-")?;
-    ax.grid(true);
-    Ok(())
-}
 
 /// The blue of the matplotlib logo.
 const MPL_BLUE: &str = "#11557c";
@@ -440,7 +430,6 @@ fn radar_chart(fig: &Figure) -> CaseResult {
 /// The cases of this module.
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("gallery_misc/radar_chart", radar_chart).sized(9.0, 9.0, 100.0),
-    FigureCase::new("gallery_misc/custom_projection", custom_projection),
     FigureCase::new("gallery_misc/logos2_1", logos2_1).sized(1.1, 1.1, 100.0),
     FigureCase::new("gallery_misc/logos2_2", logos2_2).sized(0.32, 0.32, 100.0),
     FigureCase::new("gallery_misc/logos2_3", logos2_3).sized(5.5, 1.1, 100.0),

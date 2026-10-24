@@ -18,10 +18,10 @@ impl AxesState {
     }
 
     /// matplotlib's `get_data_ratio` (always 1 for polar and geographic
-    /// axes).
+    /// axes, fixed by some custom projections).
     pub(crate) fn data_ratio(&self) -> f64 {
-        if !self.projection.is_rectilinear() {
-            return 1.0;
+        if let Some(ratio) = self.projection.fixed_data_ratio() {
+            return ratio;
         }
         let (x0, x1) = self.scaled_bound(AxisName::X);
         let (y0, y1) = self.scaled_bound(AxisName::Y);

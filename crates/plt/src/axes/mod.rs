@@ -66,6 +66,7 @@ mod streamplot;
 mod table;
 #[cfg(test)]
 mod tests;
+mod tick_compute;
 mod tick_config;
 mod tick_lines;
 mod tick_set;

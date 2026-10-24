@@ -98,6 +98,11 @@ must reproduce them.
   workloads in plt-rs and matplotlib. An optimisation must leave every
   output byte unchanged: compare the PNG/SVG/PDF/PS of all spec cases
   before and after.
+* Robustness: `cargo test -p plt --test fuzz` feeds seeded random input
+  to the parsers, plotting, output and interaction. `PLT_FUZZ_SCALE=50`
+  runs longer, and `PLT_FUZZ_REPLAY=<seed>` reruns a failure.
+  Absurd input must return an error, never panic, hang or exhaust
+  memory.
 
 ## Git
 

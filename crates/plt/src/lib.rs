@@ -33,6 +33,9 @@
 //! figures shown in windows ([`gui`]). The gallery example
 //! (`cargo run -p plt --example gallery`) shows many more figures.
 //!
+//! Coming from matplotlib? The [`porting`] guide maps its calls to plt-rs
+//! topic by topic, with tested side-by-side examples.
+//!
 //! # Modules
 //!
 //! The crate is organised like matplotlib's own modules:
@@ -127,6 +130,7 @@ pub mod orientation;
 pub mod patches;
 pub mod patheffects;
 pub mod polar;
+pub mod porting;
 pub mod prelude;
 pub mod pyplot;
 pub mod quiver;

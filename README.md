@@ -56,6 +56,14 @@ matplotlib falls back to `agg`. `MPLBACKEND=webagg` (or
 remote machine, WSL), and `plt::web::serve(&[fig], &WebOptions::from_rc()?)`
 does it without pyplot.
 
+## Coming from matplotlib
+
+The `plt::porting` module of the API documentation (`cargo doc -p plt
+--open`) is a porting guide: topic by topic, it maps matplotlib's calls
+to plt-rs (keyword arguments to option structs, strings to enums,
+exceptions to `Result`s, `get_xlim()` to `xlim()`) with equivalence
+tables and side-by-side examples whose Rust half runs as a doctest.
+
 ## What is there
 
 * **Plots**: lines and markers, scatter, bars and histograms, error bars,

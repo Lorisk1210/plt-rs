@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::blocks::{Blocks, NormClass, forward_boundaries, inverse_boundaries};
-use super::{ColorbarError, ColorbarFormat, ColorbarTicks, Spacing};
+use super::{Colorbar, ColorbarError, ColorbarFormat, ColorbarTicks, Spacing};
 use crate::axes::Axis;
 use crate::colors::{Norm, NormKind, Normalized};
 use crate::scale::{FuncScale, LinearScale, Scale, ScaleOptions, scale_factory};
@@ -148,6 +148,56 @@ fn fixed(locator: FixedLocator) -> Rc<dyn Locator> {
     Rc::new(locator)
 }
 
+/// The tick helpers of the long axis, as properties of the colorbar
+/// (matplotlib's `locator`, `minorlocator`, `formatter` and
+/// `minorformatter`). Those set stay when the mappable's limits or
+/// colormap change; a new norm brings its own.
+impl Colorbar {
+    /// The locator of the major ticks along the colorbar.
+    pub fn locator(&self) -> Rc<dyn Locator> {
+        self.long_axis().major_locator()
+    }
+
+    /// Places the major ticks along the colorbar with `locator`.
+    pub fn set_locator(&self, locator: impl Locator) -> &Self {
+        self.long_axis().set_major_locator(locator);
+        self
+    }
+
+    /// The locator of the minor ticks along the colorbar.
+    pub fn minor_locator(&self) -> Rc<dyn Locator> {
+        self.long_axis().minor_locator()
+    }
+
+    /// Places the minor ticks along the colorbar with `locator`.
+    pub fn set_minor_locator(&self, locator: impl Locator) -> &Self {
+        self.long_axis().set_minor_locator(locator);
+        self
+    }
+
+    /// The formatter of the major tick labels along the colorbar.
+    pub fn formatter(&self) -> Rc<dyn Formatter> {
+        self.long_axis().major_formatter()
+    }
+
+    /// Labels the major ticks along the colorbar with `formatter`.
+    pub fn set_formatter(&self, formatter: impl Formatter) -> &Self {
+        self.long_axis().set_major_formatter(formatter);
+        self
+    }
+
+    /// The formatter of the minor tick labels along the colorbar.
+    pub fn minor_formatter(&self) -> Rc<dyn Formatter> {
+        self.long_axis().minor_formatter()
+    }
+
+    /// Labels the minor ticks along the colorbar with `formatter`.
+    pub fn set_minor_formatter(&self, formatter: impl Formatter) -> &Self {
+        self.long_axis().set_minor_formatter(formatter);
+        self
+    }
+}
+
 /// The formatter for `format`: a `%` template when it formats a number,
 /// else a `str.format` template.
 fn formatter(format: &ColorbarFormat) -> Result<Rc<dyn Formatter>, ColorbarError> {
@@ -226,5 +276,38 @@ mod tests {
         let tickers = Tickers::choose(&b, &linear, None, Some(&format)).unwrap();
         assert!(tickers.major.is_none() && tickers.minor.is_none());
         assert!(tickers.formatter.is_some(), "a str.format template");
+    }
+
+    #[test]
+    fn ticker_properties_are_the_long_axis_ones() {
+        use crate::colorbar::ColorbarOptions;
+        use crate::colors::{ScalarMappable, colormaps};
+        use crate::figure::Figure;
+        use crate::ticker::{LogFormatter, NullFormatter};
+
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let mappable = ScalarMappable::with_norm(
+            colormaps::get("viridis").unwrap(),
+            Box::new(Normalize::new(0.0, 1.0)),
+        );
+        let colorbar = fig
+            .colorbar(&mappable, ColorbarOptions::beside(&ax))
+            .unwrap();
+        let axis = colorbar.ax().yaxis();
+        colorbar
+            .set_locator(FixedLocator::new(vec![0.0, 0.5]))
+            .set_minor_locator(NullLocator)
+            .set_formatter(LogFormatter::default())
+            .set_minor_formatter(NullFormatter);
+        assert!(Rc::ptr_eq(&colorbar.locator(), &axis.major_locator()));
+        assert!(Rc::ptr_eq(&colorbar.minor_locator(), &axis.minor_locator()));
+        assert!(Rc::ptr_eq(&colorbar.formatter(), &axis.major_formatter()));
+        assert!(Rc::ptr_eq(
+            &colorbar.minor_formatter(),
+            &axis.minor_formatter()
+        ));
+        let locator = colorbar.locator();
+        assert!((locator.as_ref() as &dyn std::any::Any).is::<FixedLocator>());
     }
 }

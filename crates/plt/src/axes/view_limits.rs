@@ -63,6 +63,19 @@ impl Axes {
     ///
     /// When a limit is NaN or infinite.
     pub fn set_limits_with(&self, axis: AxisName, limits: Limits) -> Result<(f64, f64), PlotError> {
+        let set = self.set_limits_unobserved(axis, limits)?;
+        // matplotlib's `xlim_changed`/`ylim_changed` observers.
+        crate::colorbar::follow_view(self);
+        Ok(set)
+    }
+
+    /// [`Axes::set_limits_with`] without telling the colorbar drawn in
+    /// this axes, which sets its own limits this way.
+    fn set_limits_unobserved(
+        &self,
+        axis: AxisName,
+        limits: Limits,
+    ) -> Result<(f64, f64), PlotError> {
         if [limits.low, limits.high]
             .into_iter()
             .flatten()
@@ -101,6 +114,14 @@ impl Axes {
     pub fn set_limits(&self, axis: AxisName, low: f64, high: f64) -> &Self {
         // `set_limits_with` reports non-finite limits; here they are no-ops.
         self.set_limits_with(axis, Limits::new(low, high)).ok();
+        self
+    }
+
+    /// [`Axes::set_limits`] for a colorbar drawing into this axes: its
+    /// own extensions need not follow.
+    pub(crate) fn set_view_limits(&self, axis: AxisName, low: f64, high: f64) -> &Self {
+        self.set_limits_unobserved(axis, Limits::new(low, high))
+            .ok();
         self
     }
 

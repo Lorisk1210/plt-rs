@@ -1,0 +1,74 @@
+{
+ "area": "mpl_constrainedlayout",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "ConstrainedLayoutEngine.set",
+   "args": {"mosaic": "AB;CC", "pads": {"w_pad": 0.2}},
+   "value": {
+    "A": [0.06319444444444444, 0.5439820370370372, 0.3961805555555555, 0.43852066261574063],
+    "B": [0.5631944444444444, 0.5439820370370372, 0.39618055555555554, 0.43852066261574063]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "ConstrainedLayoutEngine.set",
+   "args": {"mosaic": "AB;CC;DD", "pads": {"w_pad": 0.2}},
+   "value": {
+    "A": [0.06319444444444444, 0.7106487037037036, 0.3961805555555555, 0.2718539959490742],
+    "B": [0.5631944444444444, 0.7106487037037036, 0.39618055555555554, 0.2718539959490742]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "ConstrainedLayoutEngine.set",
+   "args": {"mosaic": "AC;BC", "pads": {"h_pad": 0.2}},
+   "value": {
+    "A": [0.043403194444444446, 0.5703703703703703, 0.43576305555555556, 0.38574399594907405],
+    "B": [0.043403194444444446, 0.07037037037037037, 0.43576305555555556, 0.3857439959490741]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "ConstrainedLayoutEngine.set",
+   "args": {"mosaic": "ACDE;BCDE", "pads": {"h_pad": 0.2}},
+   "value": {
+    "A": [0.043403194444444446, 0.5703703703703703, 0.18576305555555556, 0.38574399594907405],
+    "B": [0.043403194444444446, 0.07037037037037037, 0.18576305555555556, 0.3857439959490741]
+   },
+   "tol": 1e-06
+  },
+  {"op": "Figure.align_ylabels", "args": {}, "value": [3.3335999999999952, 3.3335999999999952, 3.3335999999999952], "tol": 1e-06},
+  {"op": "Figure.get_constrained_layout", "args": {"constrained_layout": false}, "value": false},
+  {"op": "Figure.get_constrained_layout", "args": {"constrained_layout": true}, "value": true},
+  {"op": "Figure.get_constrained_layout", "args": {"constrained_layout": {"rect": null}}, "value": true},
+  {"op": "Figure.get_constrained_layout", "args": {"constrained_layout": {}}, "value": true},
+  {"op": "Figure.set_constrained_layout", "args": {"calls": [true, false, true]}, "value": [true, false, true]},
+  {
+   "op": "Figure.suptitle",
+   "args": {"calls": [["Suptitle", 0.5]]},
+   "value": [[0.043403194444444446, 0.043982037037037035, 0.9791662499999999, 0.9825026996527778], [0.04340319444444444, 0.043982037037037035, 0.97916625, 0.9825026996527778]],
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.suptitle",
+   "args": {"calls": [["Suptitle0", null], ["Suptitle1", null]]},
+   "value": [[0.043403194444444446, 0.043982037037037035, 0.9791662499999999, 0.9825026996527778], [0.04340319444444444, 0.043982037037037035, 0.97916625, 0.9390228559027778], [0.04340319444444444, 0.043982037037037035, 0.9791662499999999, 0.9390228559027778]],
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.supxlabel",
+   "args": {"ylabel": "Boo", "x": 0.5, "y": 0.5},
+   "value": [[3.333600000000004, 3.333599999999999, 636.6664000000001, 476.6664], [23.33413333333334, 23.334133333333334, 636.6664000000001, 476.6664]],
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.supxlabel",
+   "args": {"ylabel": "Booy"},
+   "value": [[3.333600000000004, 3.333599999999999, 636.6664000000001, 476.6664], [23.33413333333334, 23.334133333333334, 636.6664000000001, 476.6664]],
+   "tol": 1e-06
+  },
+  {"op": "Text.get_position", "args": {"calls": [{}, {"y": 0.98}, {"in_layout": false}]}, "value": [0.7493540243778936, 0.98, 0.98], "tol": 1e-06},
+  {"op": "pyplot.figure", "args": {}, "value": {"fignums": [1], "figlabels": ["123"], "suptitle": "Suptitle1", "texts": 1}}
+ ]
+}

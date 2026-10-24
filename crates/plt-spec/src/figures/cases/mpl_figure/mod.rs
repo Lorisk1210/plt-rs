@@ -52,7 +52,7 @@ fn randn(stream: &mut SpecRng, n: usize) -> Fallible<Grid<f64>> {
 /// The layout tests' `example_pcolor`: a rasterized `RdBu_r` mesh of
 /// `(1 - x/2 + x⁵ + y³) exp(-x² - y²)` on an 11 × 11 grid spaced 0.6
 /// apart, labelled in `fontsize` points.
-fn example_pcolor(ax: &Axes, fontsize: f64) -> Fallible<Collection> {
+pub(super) fn example_pcolor(ax: &Axes, fontsize: f64) -> Fallible<Collection> {
     const N: usize = 11;
     let at = |i: usize| i as f64 * 0.6 + -3.0;
     let x = Grid::from_fn(N, N, |_, col| at(col));

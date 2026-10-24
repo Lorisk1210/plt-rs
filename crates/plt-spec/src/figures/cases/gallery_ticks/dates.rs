@@ -154,7 +154,7 @@ fn date_demo_convert(fig: &Figure) -> CaseResult {
         .set_major_locator(RRuleLocator::days(&[], 1)?)
         .set_minor_locator(RRuleLocator::hours(&[0, 6, 12, 18, 24], 1))
         .set_major_formatter(DateFormatter::new("%Y-%m-%d"));
-    fig.autofmt_xdate(0.2, 30.0, HAlign::Right)?;
+    fig.autofmt_xdate(0.2, 30.0, HAlign::Right, TickLevel::Major)?;
     Ok(())
 }
 

@@ -229,6 +229,7 @@ impl Axis {
             None,
             true,
         );
+        crate::colorbar::follow_view(&self.axes);
         self
     }
 

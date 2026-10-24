@@ -4,7 +4,7 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::{AxisMode, FillBetweenOptions};
+use plt::axes::{AxisMode, FillBetweenOptions, TickLevel};
 use plt::collections::CollectionProps;
 use plt::dates::{DateTime, Datetime64};
 use plt::figure::Share;
@@ -66,7 +66,7 @@ fn fill_between_alpha_1(fig: &Figure) -> CaseResult {
     }
     ax1.set_ylabel("price");
     fig.suptitle("Google (GOOG) daily closing price");
-    fig.autofmt_xdate(0.2, 30.0, HAlign::Right)?;
+    fig.autofmt_xdate(0.2, 30.0, HAlign::Right, TickLevel::Major)?;
     Ok(())
 }
 

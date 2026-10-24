@@ -161,6 +161,6 @@ fn dragged_anchored_boxes_stay_where_dropped() {
     assert!((after.x0() - before.x0() - 25.0).abs() < 1e-9);
     assert!((after.y0() - before.y0() + 15.0).abs() < 1e-9);
     // It no longer follows the axes.
-    fig.set_size_inches(8.0, 6.0);
+    fig.set_size_inches(8.0, 6.0).unwrap();
     assert_eq!(anchored.window_extent().unwrap(), after);
 }

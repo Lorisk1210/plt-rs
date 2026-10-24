@@ -140,14 +140,23 @@ impl Painter<'_> {
             .collect()
     }
 
-    /// Hides the spines and frames the colorbar with an outline around the
-    /// interior and the extensions (matplotlib's `_ColorbarSpine`).
-    pub(crate) fn outline(&self, extensions: &Extensions) -> ArtistId {
+    /// Frames the colorbar with an outline around the interior and the
+    /// extensions (matplotlib's `_ColorbarSpine`): moves the `existing`
+    /// outline, keeping its style, or hides the spines and makes one.
+    pub(crate) fn outline(&self, extensions: &Extensions, existing: Option<ArtistId>) -> ArtistId {
+        let path = Path::closed(self.points(&extensions.outline()));
+        if let Some(id) = existing {
+            let mut figure = self.ax.raw().figure_state().borrow_mut();
+            if let Some(outline) = figure.store.get_as_mut::<PatchArtist<PathShape>>(id) {
+                outline.shape = PathShape(path);
+                figure.stale = true;
+                return id;
+            }
+        }
         for spine in self.ax.spines().iter() {
             spine.set_visible(false);
         }
         let rc = crate::rc::params();
-        let path = Path::closed(self.points(&extensions.outline()));
         let mut outline = PatchArtist::new(PathShape(path), rc.clone());
         outline.style.facecolor = Some(Color::none());
         outline.style.edgecolor = Some(rc.axes_edgecolor.clone());

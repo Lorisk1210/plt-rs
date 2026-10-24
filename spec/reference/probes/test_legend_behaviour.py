@@ -25,10 +25,10 @@ converting the arguments.
 Left out: argument-type errors of the Python API (``TypeError`` for
 mixed positional and keyword handles, handles passed as labels, a third
 positional argument, ``shadow`` given as a string), ``loc`` given as a
-``dict``, multi-column ``plot`` data with label lists, legend proxy-artist
-properties (``legend_handles``, ``get_alignment``, ``_get_loc``), which
-plt-rs does not expose, and the warnings themselves (only their effect on
-the legend is recorded).
+``dict``, and the warnings themselves (only their effect on the legend is
+recorded). Multi-column ``plot`` data with label lists and the legend's
+proxy artists (``legend_handles``), alignment and location code
+(``_get_loc``) are probes of the ``mpl_legend`` area.
 """
 
 import numpy as np

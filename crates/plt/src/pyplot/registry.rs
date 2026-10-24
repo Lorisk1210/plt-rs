@@ -106,7 +106,7 @@ pub(super) fn with_registry<R>(f: impl FnOnce(&mut Registry) -> R) -> R {
 
 /// Registers a new figure under the next number, makes it current
 /// and shows it in interactive mode.
-fn new_figure(figure: Figure, label: String) -> Figure {
+pub(super) fn new_figure(figure: Figure, label: String) -> Figure {
     with_registry(|registry| registry.add(figure.clone(), label));
     draw_if_interactive();
     figure
@@ -201,6 +201,12 @@ pub fn get_figlabels() -> Vec<String> {
 /// Whether figure `num` is open (matplotlib's `fignum_exists`).
 pub fn fignum_exists(num: u32) -> bool {
     with_registry(|registry| registry.get(num).is_some())
+}
+
+/// Whether a figure labelled `label` is open (matplotlib's
+/// `fignum_exists` of a label).
+pub fn figlabel_exists(label: &str) -> bool {
+    with_registry(|registry| registry.figures.iter().any(|entry| entry.label == label))
 }
 
 /// The current figure, created if there is none (matplotlib's `gcf`).

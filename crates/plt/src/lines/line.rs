@@ -452,6 +452,14 @@ impl Line2D {
         self.raw.with::<LineArtist, _>(LineArtist::marker_edge)
     }
 
+    /// The colour of the marker faces (matplotlib's `get_markerfacecolor`):
+    /// none when the fill style is [`FillStyle::None`](crate::markers::FillStyle::None),
+    /// else the face colour, the line colour when automatic.
+    pub fn effective_markerfacecolor(&self) -> Color {
+        self.raw
+            .with::<LineArtist, _>(LineArtist::marker_face_color)
+    }
+
     /// The resolved line colour.
     pub fn rgba(&self) -> Result<Rgba, crate::colors::ColorError> {
         self.raw

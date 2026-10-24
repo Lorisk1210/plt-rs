@@ -5,7 +5,7 @@ use plt_core::{Bbox, Point};
 
 use super::handlers::{Attach, HandlerMap};
 use super::settings::{Location, OutsideEdge, Settings};
-use super::{LegendMode, LegendShadowStyle};
+use super::{LegendAlignment, LegendMode, LegendShadowStyle};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
 use crate::collections::CollectionArtist;
 use crate::events::Dragger;
@@ -97,6 +97,9 @@ pub(crate) struct LegendArtist {
     /// The title and the columns of entries (matplotlib's `_legend_box`);
     /// the title is the first child.
     pub(crate) legend_box: OffsetBox<HandleRef>,
+    /// How the title and the block of entries line up (the alignment of
+    /// `legend_box`).
+    pub(crate) alignment: LegendAlignment,
     /// The frame (matplotlib's `legendPatch`).
     pub(crate) frame: ArtistId,
     /// The frame's shadow and its style, if any.
@@ -105,6 +108,9 @@ pub(crate) struct LegendArtist {
     pub(crate) title: ArtistId,
     /// One label per entry.
     pub(crate) texts: Vec<ArtistId>,
+    /// The first handle artist of every listed handle, `None` for handles
+    /// no handler draws (matplotlib's `legend_handles`).
+    pub(crate) handles: Vec<Option<ArtistId>>,
     /// Every part, for removal with the legend.
     pub(crate) parts: Vec<ArtistId>,
     /// Whether the legend stays on its axes as an ordinary artist
@@ -129,6 +135,15 @@ impl LegendArtist {
         match &mut self.legend_box {
             OffsetBox::VPacker(packer) => packer.children.first_mut(),
             _ => None,
+        }
+    }
+
+    /// Lines up the title and the block of entries as `alignment` says
+    /// (matplotlib's `set_alignment`).
+    pub(crate) fn set_alignment(&mut self, alignment: LegendAlignment) {
+        self.alignment = alignment;
+        if let OffsetBox::VPacker(packer) = &mut self.legend_box {
+            packer.align = alignment.into();
         }
     }
 }

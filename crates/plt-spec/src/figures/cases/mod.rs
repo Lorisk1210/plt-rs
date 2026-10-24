@@ -55,9 +55,14 @@ mod mpl_rest;
 mod mpl_small;
 mod mpl_tests;
 mod mpl_tests_axes;
+mod mpl_tests_colorbar;
+mod mpl_tests_constrainedlayout;
 mod mpl_tests_datetime;
+mod mpl_tests_figure;
 mod mpl_tests_ft2font;
 mod mpl_tests_image;
+mod mpl_tests_legend;
+mod mpl_tests_tightlayout;
 mod mpl_text;
 mod mpl_toolkits;
 mod mplot3d;
@@ -183,7 +188,8 @@ pub(crate) fn all() -> Vec<FigureCase> {
     .concat()
 }
 
-/// The cases porting matplotlib's own image tests (the `mpl_*` groups).
+/// The cases porting matplotlib's own tests: its image tests (the `mpl_*`
+/// groups) and the drawing of its other tests (the `mpl_tests_*` groups).
 fn matplotlib_tests() -> Vec<FigureCase> {
     [
         &mpl_3d_a::cases(),
@@ -208,6 +214,11 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_tests_image::cases(),
         &mpl_text::cases(),
         &mpl_toolkits::cases(),
+        &mpl_tests_figure::cases(),
+        &mpl_tests_colorbar::cases(),
+        &mpl_tests_legend::cases(),
+        &mpl_tests_constrainedlayout::cases(),
+        &mpl_tests_tightlayout::cases(),
     ]
     .concat()
 }

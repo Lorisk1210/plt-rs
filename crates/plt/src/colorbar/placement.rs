@@ -3,6 +3,7 @@
 //! `make_axes`, `make_axes_gridspec` and
 //! `_normalize_location_orientation`).
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use plt_core::{Anchor, Bbox};
@@ -10,7 +11,7 @@ use plt_core::{Anchor, Bbox};
 use super::{ColorbarError, ColorbarOptions, ParentAnchor};
 use crate::artist::{ArtistHandle, ArtistId, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName};
-use crate::figure::Figure;
+use crate::figure::{Figure, FigureState};
 use crate::gridspec::{GridSpec, SubplotSpec};
 use crate::layout::ColorbarLayout;
 use crate::mplot3d::Axes3D;
@@ -105,6 +106,11 @@ impl Parent {
 
     fn id(&self) -> ArtistId {
         self.raw().id()
+    }
+
+    /// The state of the figure the parent belongs to.
+    pub(crate) fn figure_state(&self) -> &Rc<RefCell<FigureState>> {
+        self.raw().figure_state()
     }
 
     /// The grid cell of the parent, if it was placed on a grid.
@@ -228,7 +234,7 @@ impl<'a> Request<'a> {
 /// Replaces an axes' original position, keeping its corners exactly
 /// (matplotlib's `_set_position`), and its grid cell when `spec` is
 /// given.
-fn place(ax: &Axes, position: Bbox, spec: Option<SubplotSpec>) {
+pub(super) fn place(ax: &Axes, position: Bbox, spec: Option<SubplotSpec>) {
     ax.raw().with_mut::<AxesState, _>(|axes| {
         axes.position = position;
         if spec.is_some() {

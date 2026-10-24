@@ -7,6 +7,7 @@ use super::handlers::{HandlerKey, HandlerMap, LegendHandler};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 pub use crate::offsetbox::BboxToAnchor;
+use crate::offsetbox::PackAlign;
 use crate::patches::PatchProps;
 use crate::rc::LabelColor;
 use crate::transforms::Transform;
@@ -82,6 +83,16 @@ pub enum LegendAlignment {
     Left,
     /// Flush right.
     Right,
+}
+
+impl From<LegendAlignment> for PackAlign {
+    fn from(alignment: LegendAlignment) -> Self {
+        match alignment {
+            LegendAlignment::Center => Self::Center,
+            LegendAlignment::Left => Self::Left,
+            LegendAlignment::Right => Self::Right,
+        }
+    }
 }
 
 /// Whether and how a legend casts a shadow (matplotlib's `shadow`: a

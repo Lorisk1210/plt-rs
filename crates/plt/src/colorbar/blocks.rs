@@ -90,18 +90,14 @@ impl Blocks {
     /// matplotlib's `_process_values`: the blocks, with the limits of
     /// `norm` made non-singular (or 0 and 1 when unset).
     pub(crate) fn new(spec: &BlockSpec<'_>, norm: &mut dyn Norm) -> Result<Self, ColorbarError> {
-        let (lower_end, upper_end) = if spec.inverted {
-            (Extend::Max, Extend::Min)
-        } else {
-            (Extend::Min, Extend::Max)
-        };
+        let (lower, upper) = Self::extended_ends(spec.extend, spec.inverted);
         let mut blocks = Self {
             boundaries: Vec::new(),
             values: Vec::new(),
             kind: ScalarKind::Float,
             inside: 0..0,
-            lower: spec.extend == Extend::Both || spec.extend == lower_end,
-            upper: spec.extend == Extend::Both || spec.extend == upper_end,
+            lower,
+            upper,
             class: NormClass::of(norm),
             explicit: spec.boundaries.is_some(),
             spacing: spec.spacing,
@@ -119,6 +115,21 @@ impl Blocks {
             return Err(ColorbarError::TooFewBoundaries(blocks.inside.len()));
         }
         Ok(blocks)
+    }
+
+    /// Whether the lower and the upper end of the long axis are extended
+    /// (matplotlib's `_extend_lower` and `_extend_upper`): an inverted
+    /// axis shows the minimum's extension at its upper end.
+    pub(crate) fn extended_ends(extend: Extend, inverted: bool) -> (bool, bool) {
+        let (lower_end, upper_end) = if inverted {
+            (Extend::Max, Extend::Min)
+        } else {
+            (Extend::Min, Extend::Max)
+        };
+        (
+            extend == Extend::Both || extend == lower_end,
+            extend == Extend::Both || extend == upper_end,
+        )
     }
 
     fn process(&mut self, spec: &BlockSpec<'_>, norm: &mut dyn Norm) -> Result<(), ColorbarError> {

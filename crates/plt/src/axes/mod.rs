@@ -15,6 +15,7 @@ mod axis_units;
 mod bar_label;
 mod barbs;
 mod bars;
+mod box_labels;
 mod boxplot;
 mod broadcast;
 mod bxp;
@@ -90,6 +91,7 @@ pub use axis_mode::AxisMode;
 pub(crate) use axis_ticks::tick_label_formatter;
 pub use bar_label::{BarLabelError, BarLabelFormat, BarLabelOptions, BarLabelType};
 pub use bars::{BandAlign, BandRange, BarAlign, BarContainer, BarOptions};
+pub use box_labels::BoxLabel;
 pub use boxplot::BoxplotOptions;
 pub use bxp::{BoxArtist, BoxStyle, BoxplotArtists, BxpOptions};
 pub(crate) use children::DataUpdate;
@@ -215,6 +217,16 @@ impl ArtistHandle for Axes {
         self.raw.with_base_mut(|b| b.zorder = zorder);
         self.update_twinned_patch_visibility();
         self
+    }
+
+    /// Removes the axes from the figure; removing the axes of a colorbar
+    /// removes the colorbar (matplotlib's `_remove_cbar_axes`).
+    fn remove(&self) {
+        crate::colorbar::release(self);
+        self.raw
+            .figure_state()
+            .borrow_mut()
+            .remove_artist(self.id());
     }
 }
 

@@ -38,6 +38,7 @@ mod handlers;
 mod labelcolor;
 mod layout;
 mod options;
+mod proxies;
 mod settings;
 #[cfg(test)]
 mod tests;
@@ -171,6 +172,21 @@ impl Legend {
             legend.outside = placement.outside;
         });
         Ok(self)
+    }
+
+    /// How the title and the block of entries line up (matplotlib's
+    /// `get_alignment`).
+    pub fn alignment(&self) -> LegendAlignment {
+        self.read(|legend| legend.alignment)
+    }
+
+    /// Lines up the title and the block of entries as `alignment` says;
+    /// the entries stay one block, so their handles line up (matplotlib's
+    /// `set_alignment`).
+    pub fn set_alignment(&self, alignment: LegendAlignment) -> &Self {
+        self.raw
+            .with_mut::<LegendArtist, _>(|legend| legend.set_alignment(alignment));
+        self
     }
 
     /// Where the legend goes (matplotlib's `_loc`): `"best"`, the code of

@@ -5,6 +5,7 @@
 
 use std::path::Path;
 
+use super::figsize::figaspect_of_shape;
 use super::mappables::make_current;
 use super::registry::{fignum_exists, figure_num, figure_with_size, gca, gcf};
 use crate::axes::{
@@ -52,37 +53,22 @@ pub fn matshow(
             let created = !fignum_exists(num);
             let fig = figure_num(num);
             if created {
-                let (width, height) = figaspect(data.shape());
-                fig.set_size_inches(width, height);
+                let (rows, cols) = data.shape();
+                let (width, height) = figaspect_of_shape(rows, cols);
+                fig.set_size_inches(width, height)
+                    .expect("figaspect sizes are finite and positive");
             }
             fig.add_axes(MATSHOW_RECT)
         }
         None => {
-            let (width, height) = figaspect(data.shape());
+            let (rows, cols) = data.shape();
+            let (width, height) = figaspect_of_shape(rows, cols);
             figure_with_size(width, height, crate::rc::params().figure_dpi).add_axes(MATSHOW_RECT)
         }
     };
     let image = ax.matshow(data, options)?;
     make_current(&ax, &image);
     Ok(image)
-}
-
-/// The figure size for an array of `(rows, cols)` (matplotlib's
-/// `figaspect`): as tall as `figure.figsize`, as wide as the array's
-/// aspect asks, scaled into 4 × 2 to 16 × 16 inches.
-fn figaspect((rows, cols): (usize, usize)) -> (f64, f64) {
-    let [default_width, height] = crate::rc::params().figure_figsize;
-    if rows == 0 || cols == 0 {
-        return (default_width, height);
-    }
-    let (min, max) = ([4.0, 2.0], [16.0, 16.0]);
-    let ratio = rows as f64 / cols as f64;
-    let size = [height / ratio, height];
-    let shrink = (size[0] / min[0]).min(size[1] / min[1]).min(1.0);
-    let size = size.map(|side| side / shrink);
-    let grow = (size[0] / max[0]).max(size[1] / max[1]).max(1.0);
-    let size = size.map(|side| side / grow);
-    (size[0].clamp(min[0], max[0]), size[1].clamp(min[1], max[1]))
 }
 
 /// Draws a pseudocolour plot of a mesh on the current axes and makes it
@@ -237,7 +223,6 @@ mod tests {
         assert_eq!(gcf().size_inches(), (4.8, 4.8));
         matshow(ramp(1, 1), Some(0), ImshowOptions::default()).unwrap();
         assert_eq!(gcf().axes().len(), 1, "the current axes is reused");
-        assert_eq!(figaspect((0, 3)), (6.4, 4.8));
         close_all();
     }
 

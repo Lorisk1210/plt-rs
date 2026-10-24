@@ -71,6 +71,63 @@ impl Axes {
         Ok(self.add_cycled_line(x, y, props))
     }
 
+    /// Plots each of `columns` against `x` as a line with the next
+    /// property-cycle style (matplotlib's `ax.plot(x, y)` with a 2-D `y`,
+    /// whose columns are the datasets). `props` style every line, its
+    /// label included; `labels` gives each line its own label instead
+    /// (matplotlib's `label` given as a list).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let columns = [vec![1.0, 2.0, 4.0], vec![2.0, 5.0, 9.0]];
+    /// let labels = ["low".to_owned(), "high".to_owned()];
+    /// let lines = ax.plot_columns([1.0, 2.0, 3.0], &columns, &LineProps::default(), Some(&labels))?;
+    /// assert_eq!(lines[1].label(), "high");
+    /// assert_ne!(lines[0].color(), lines[1].color());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a column differs in length from `x`, or `labels` does not hold
+    /// one label per column (nothing is plotted then).
+    pub fn plot_columns(
+        &self,
+        x: impl Into<AxisValues>,
+        columns: &[Vec<f64>],
+        props: &LineProps,
+        labels: Option<&[String]>,
+    ) -> Result<Vec<Line2D>, PlotError> {
+        let x = x.into();
+        if let Some(labels) = labels
+            && labels.len() != columns.len()
+        {
+            return Err(PlotError::DatasetCount {
+                argument: "label",
+                len: labels.len(),
+                datasets: columns.len(),
+            });
+        }
+        if let Some(column) = columns.iter().find(|column| column.len() != x.len()) {
+            return Err(PlotError::LengthMismatch {
+                x: x.len(),
+                y: column.len(),
+            });
+        }
+        columns
+            .iter()
+            .enumerate()
+            .map(|(i, column)| {
+                let mut props = props.clone();
+                if let Some(labels) = labels {
+                    props = props.label(labels[i].clone());
+                }
+                self.plot_with(x.clone(), column.clone(), props)
+            })
+            .collect()
+    }
+
     /// Plots `y` against its indices `0, 1, 2, ...` (matplotlib's `ax.plot(y)`).
     pub fn plot_y(&self, y: impl AsRef<[f64]>) -> Line2D {
         let y = y.as_ref().to_vec();
@@ -280,8 +337,48 @@ fn apply_cycle(line: &mut LineArtist, key: &str, value: CycleValue) {
 
 #[cfg(test)]
 mod tests {
+    use crate::artist::ArtistHandle;
+    use crate::axes::PlotError;
     use crate::figure::Figure;
-    use crate::lines::LineStyle;
+    use crate::lines::{LineProps, LineStyle};
+
+    #[test]
+    fn columns_share_one_label_or_take_one_each() {
+        let ax = Figure::new().subplot();
+        let columns = [vec![1.0, 2.0], vec![3.0, 4.0]];
+        let shared = LineProps::default().label("one");
+        let lines = ax
+            .plot_columns([0.0, 1.0], &columns, &shared, None)
+            .unwrap();
+        let labels: Vec<String> = lines.iter().map(ArtistHandle::label).collect();
+        assert_eq!(labels, ["one", "one"]);
+        let own = ["a".to_owned(), "b".to_owned()];
+        let lines = ax
+            .plot_columns([0.0, 1.0], &columns, &LineProps::default(), Some(&own))
+            .unwrap();
+        assert_eq!(lines[1].label(), "b");
+        assert_eq!(ax.lines().len(), 4);
+    }
+
+    #[test]
+    fn columns_need_one_label_each_and_the_length_of_x() {
+        let ax = Figure::new().subplot();
+        let columns = [vec![1.0, 2.0], vec![3.0, 4.0]];
+        let three = ["a".to_owned(), "b".to_owned(), "c".to_owned()];
+        assert_eq!(
+            ax.plot_columns([0.0, 1.0], &columns, &LineProps::default(), Some(&three)),
+            Err(PlotError::DatasetCount {
+                argument: "label",
+                len: 3,
+                datasets: 2
+            })
+        );
+        assert_eq!(
+            ax.plot_columns([0.0], &columns, &LineProps::default(), None),
+            Err(PlotError::LengthMismatch { x: 1, y: 2 })
+        );
+        assert_eq!(ax.lines(), Vec::new(), "nothing is plotted");
+    }
 
     #[test]
     fn empty_dash_sequences_in_a_cycle_draw_solid_lines() {

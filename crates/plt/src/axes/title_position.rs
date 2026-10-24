@@ -146,7 +146,7 @@ impl FigureState {
 
     /// The top of `ax`'s x axis decorations when they are on top (ticks on
     /// the top or in an unknown arrangement, or the label on top), else
-    /// the top of the axes.
+    /// the top of the axes, or of its outline for a colorbar.
     fn top_obstacle(&self, ax: ArtistId) -> Option<f64> {
         let state = self.store.get_as::<AxesState>(ax)?;
         let xaxis = state.axis(AxisName::X);
@@ -161,6 +161,7 @@ impl FigureState {
             })
             .flatten();
         decorations
+            .or_else(|| crate::colorbar::outline_extent(&LayoutContext::new(self), ax))
             .or_else(|| self.axes_bbox(ax))
             .map(|bbox| bbox.ymax())
     }
@@ -265,6 +266,32 @@ mod tests {
             .expect("top is a side of the x axis");
         let lifted = bottom(&title);
         assert!(lifted > plain + 5.0, "{lifted} vs {plain}");
+    }
+
+    #[test]
+    fn colorbar_titles_clear_the_extensions() {
+        // matplotlib's test_title_text_loc: above the triangle at the top.
+        use crate::colorbar::ColorbarOptions;
+        use crate::colors::{Extend, Normalize, ScalarMappable, colormaps};
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let mappable = ScalarMappable::with_norm(
+            colormaps::get("viridis").expect("a colormap"),
+            Box::new(Normalize::new(0.0, 1.0)),
+        );
+        let options = ColorbarOptions {
+            extend: Some(Extend::Max),
+            ..ColorbarOptions::beside(&ax)
+        };
+        let colorbar = fig.colorbar(&mappable, options).expect("a colorbar");
+        let title = colorbar.ax().set_title("Aardvark");
+        fig.layout();
+        let title = title.window_extent().expect("laid out");
+        let outline = colorbar.outline().window_extent().expect("laid out");
+        assert!(
+            title.ymin() >= outline.ymax() - 1e-9,
+            "{title:?} over {outline:?}"
+        );
     }
 
     #[test]

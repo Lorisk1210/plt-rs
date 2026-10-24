@@ -9,7 +9,7 @@ use plt_render::{CapStyle, JoinStyle};
 use super::{
     CollectionArtist, CollectionStyle, ColorMapping, EdgeColors, HatchColors, Mapped, style,
 };
-use crate::artist::{ArtistHandle, RawHandle};
+use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::colorizer::{self, MappingChange, change_mapping};
 use crate::colors::{Color, Colormap, ColormapError, Norm, ScalarMappable, colormaps};
 use crate::lines::LineStyle;
@@ -49,6 +49,13 @@ pub struct Collection {
 impl ArtistHandle for Collection {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for Collection {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<CollectionArtist>()
+            .then(|| Self { raw: raw.clone() })
     }
 }
 
@@ -411,6 +418,21 @@ mod tests {
         );
         assert_eq!(style.alphas, Some(vec![0.5]));
         assert_eq!(style.edgecolors, before.edgecolors, "unchanged");
+    }
+
+    #[test]
+    fn linewidths_default_by_kind_and_handles_downcast() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let rc = crate::rc::params();
+        let lines = ax.vlines([0.0], [0.0], [1.0]).expect("lines");
+        let dots = ax.scatter(vec![0.0], vec![0.0]).expect("dots");
+        dots.set_linewidths(vec![2.5]);
+        assert_eq!(lines.linewidths(), [rc.lines_linewidth]);
+        assert_eq!(dots.linewidths(), [2.5]);
+        assert_eq!(dots.raw().downcast::<Collection>(), Some(dots.clone()));
+        let line = ax.plot([0.0, 1.0], [0.0, 1.0]).expect("line");
+        assert_eq!(line.raw().downcast::<Collection>(), None);
     }
 
     #[test]

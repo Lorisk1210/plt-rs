@@ -12,9 +12,7 @@ use super::handlers::{self, HandleBox, HandlerArtist, HandlerContext, HandlerMap
 use super::labelcolor::{HandleView, label_colors};
 use super::layout;
 use super::settings::{Location, Placement, Settings};
-use super::{
-    LegendAlignment, LegendError, LegendMode, LegendOptions, LegendShadow, LegendShadowStyle,
-};
+use super::{LegendError, LegendMode, LegendOptions, LegendShadow, LegendShadowStyle};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore};
 use crate::colors::Color;
 use crate::figure::FigureState;
@@ -43,6 +41,14 @@ struct Parts<'a> {
 /// The handle box and text area of an entry.
 type EntryBoxes = (OffsetBox<HandleRef>, OffsetBox<HandleRef>);
 
+/// What the entries add to a legend: per made entry its label, its boxes
+/// and its first handle artist.
+struct InsertedEntries {
+    texts: Vec<ArtistId>,
+    boxes: Vec<EntryBoxes>,
+    first_handles: Vec<Option<ArtistId>>,
+}
+
 impl Parts<'_> {
     fn insert(&mut self, artist: Box<dyn Artist>) -> ArtistId {
         let id = self.store.insert(artist);
@@ -51,39 +57,45 @@ impl Parts<'_> {
     }
 
     /// Adds the handle artists and the label of every entry, the label
-    /// coloured by `colors`, and returns the labels and the boxes of each
-    /// entry.
+    /// coloured by `colors`, and returns the labels, the boxes and the
+    /// first handle artist of each entry.
     fn insert_entries(
         &mut self,
         made: Vec<Entry>,
         colors: Vec<Option<Color>>,
         area: &HandleBox,
-    ) -> (Vec<ArtistId>, Vec<EntryBoxes>) {
-        made.into_iter()
-            .zip(colors)
-            .map(|(entry, color)| {
-                let mut text = entry.text;
-                if let Some(color) = color {
-                    text.color = color;
-                }
-                let mut drawing =
-                    DrawingArea::new(area.width, area.height, area.xdescent, area.ydescent);
-                drawing.artists = entry
-                    .handle
-                    .into_iter()
-                    .map(|handle| HandleRef {
-                        id: self.insert(handle.artist),
-                        attach: handle.attach,
-                    })
-                    .collect();
-                let text = self.insert(Box::new(text));
-                let boxes = (
-                    OffsetBox::DrawingArea(drawing),
-                    OffsetBox::TextArea(TextArea::new(HandleRef::text(text), true)),
-                );
-                (text, boxes)
-            })
-            .unzip()
+    ) -> InsertedEntries {
+        let mut inserted = InsertedEntries {
+            texts: Vec::with_capacity(made.len()),
+            boxes: Vec::with_capacity(made.len()),
+            first_handles: Vec::with_capacity(made.len()),
+        };
+        for (entry, color) in made.into_iter().zip(colors) {
+            let mut text = entry.text;
+            if let Some(color) = color {
+                text.color = color;
+            }
+            let mut drawing =
+                DrawingArea::new(area.width, area.height, area.xdescent, area.ydescent);
+            drawing.artists = entry
+                .handle
+                .into_iter()
+                .map(|handle| HandleRef {
+                    id: self.insert(handle.artist),
+                    attach: handle.attach,
+                })
+                .collect();
+            inserted
+                .first_handles
+                .push(drawing.artists.first().map(|handle| handle.id));
+            let text = self.insert(Box::new(text));
+            inserted.texts.push(text);
+            inserted.boxes.push((
+                OffsetBox::DrawingArea(drawing),
+                OffsetBox::TextArea(TextArea::new(HandleRef::text(text), true)),
+            ));
+        }
+        inserted
     }
 }
 
@@ -135,7 +147,7 @@ pub(crate) fn build(
     let frame = parts.insert(Box::new(frame));
     let shadow = shadow.map(|(patch, style)| (parts.insert(Box::new(patch)), style));
     let title = parts.insert(Box::new(title));
-    let (texts, items) = parts.insert_entries(made, colors, &area);
+    let inserted = parts.insert_entries(made, colors, &area);
     let parts = parts.ids;
     let mut title_box = OffsetBox::TextArea(TextArea::new(HandleRef::text(title), false));
     title_box.set_visible(has_title);
@@ -146,12 +158,17 @@ pub(crate) fn build(
         outside: placement.outside,
         mode: options.mode,
         anchor: anchor(options, parent),
-        legend_box: legend_box(items, title_box, ncols, options, &settings),
+        legend_box: legend_box(inserted.boxes, title_box, ncols, options, &settings),
+        alignment: options.alignment,
         settings,
         frame,
         shadow,
         title,
-        texts,
+        texts: inserted.texts,
+        handles: handles
+            .iter()
+            .map(|index| index.and_then(|i| inserted.first_handles[i]))
+            .collect(),
         parts: parts.clone(),
         kept: false,
         dragger: None,
@@ -403,15 +420,10 @@ fn legend_box(
     if options.mode == LegendMode::Expand {
         handle_box.mode = PackMode::Expand;
     }
-    let align = match options.alignment {
-        LegendAlignment::Center => PackAlign::Center,
-        LegendAlignment::Left => PackAlign::Left,
-        LegendAlignment::Right => PackAlign::Right,
-    };
     OffsetBox::VPacker(Packer::new(
         settings.borderpad * fontsize,
         settings.labelspacing * fontsize,
-        align,
+        options.alignment.into(),
         vec![title_box, OffsetBox::HPacker(handle_box)],
     ))
 }

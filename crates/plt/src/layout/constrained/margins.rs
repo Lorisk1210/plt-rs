@@ -164,8 +164,12 @@ impl LayoutTree {
             (texts.xlabel, Margin::Bottom),
             (texts.ylabel, Margin::Left),
         ];
-        for (id, margin) in placements {
-            let Some(text) = id.and_then(|id| fig.store.get_as_mut::<TextArtist>(id)) else {
+        // Texts placed by hand stay where they are and take no room.
+        let auto_placed = placements
+            .into_iter()
+            .filter_map(|(text, margin)| Some((text.filter(|t| t.auto_placed)?.id, margin)));
+        for (id, margin) in auto_placed {
+            let Some(text) = fig.store.get_as_mut::<TextArtist>(id) else {
                 continue;
             };
             if !text.base().in_layout {
@@ -182,8 +186,9 @@ impl LayoutTree {
                 continue;
             }
             let layout = LayoutContext::new(fig);
-            let Some(bbox) = id
-                .and_then(|id| layout.store().get(id))
+            let Some(bbox) = layout
+                .store()
+                .get(id)
                 .and_then(|text| text.window_extent(&layout))
             else {
                 continue;

@@ -9,8 +9,10 @@ use super::blocks::{BlockSpec, Blocks};
 use super::mappable::{ContourLevels, Mappable, MappableLink, Source};
 use super::ticking::{self, Tickers};
 use super::{Colorbar, ColorbarError, ExtendFrac, Spacing, long_axis};
-use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, DrawError, RawHandle};
-use crate::axes::Axes;
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, DrawContext, DrawError, RawHandle,
+};
+use crate::axes::{Axes, AxesState};
 use crate::colors::{Color, Extend, Norm, NormKind, ScalarMappable};
 use crate::figure::FigureState;
 use crate::image::ScalarKind;
@@ -295,10 +297,42 @@ pub(crate) fn follow(figure: &Rc<RefCell<FigureState>>, mappable: ArtistId, rese
             continue;
         };
         if let Err(err) = colorbar.update(reset) {
-            figure.borrow_mut().pending_errors.push(DrawError {
-                artist: id,
-                message: err.to_string(),
-            });
+            report(figure, id, &err);
         }
     }
+}
+
+/// Lets the colorbar drawn in `ax`, if any, follow a change of the view
+/// limits (matplotlib's `xlim_changed` and `ylim_changed` callbacks).
+/// Problems are reported with the next draw.
+pub(crate) fn follow_view(ax: &Axes) {
+    let figure = ax.raw().figure_state();
+    let Some(id) = colorbar_id(&figure.borrow().store, ax.id()) else {
+        return;
+    };
+    let colorbar = Colorbar {
+        ax: ax.clone(),
+        raw: RawHandle::new(Rc::clone(figure), id),
+    };
+    if let Err(err) = colorbar.edit(|state| state.follow_view(ax)) {
+        report(figure, id, &err);
+    }
+}
+
+/// The id of the colorbar drawn in `axes`, if any.
+pub(super) fn colorbar_id(store: &ArtistStore, axes: ArtistId) -> Option<ArtistId> {
+    store
+        .get_as::<AxesState>(axes)?
+        .children
+        .iter()
+        .copied()
+        .find(|&id| store.get_as::<ColorbarArtist>(id).is_some())
+}
+
+/// Reports a problem of the colorbar `artist` with the next draw.
+fn report(figure: &Rc<RefCell<FigureState>>, artist: ArtistId, err: &ColorbarError) {
+    figure.borrow_mut().pending_errors.push(DrawError {
+        artist,
+        message: err.to_string(),
+    });
 }

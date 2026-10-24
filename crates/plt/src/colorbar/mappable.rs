@@ -144,6 +144,11 @@ impl MappableLink {
         }
     }
 
+    /// The axes the artist is drawn in, if it is still drawn in one.
+    pub(crate) fn host_axes(self, figure: &Rc<RefCell<FigureState>>) -> Option<Axes> {
+        host_axes(&RawHandle::new(Rc::clone(figure), self.id()))
+    }
+
     /// Gives the artist the norm limits its new colorbar settled on, as
     /// matplotlib's colorbar does by changing the norm it shares with its
     /// mappable (`_process_values` fills unset limits and widens singular

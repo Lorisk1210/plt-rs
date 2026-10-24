@@ -12,7 +12,7 @@ use super::style::{PatchStyle, paint_paths};
 use super::{ClipRegion, PatchError, PatchProps};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, DrawnDpiCor, LayoutContext,
-    LimitPoints, Picker, RawHandle,
+    LimitPoints, Picker, RawHandle, TypedHandle,
 };
 use crate::colors::{Color, ColorError};
 use crate::lines::LineStyle;
@@ -323,6 +323,13 @@ impl<S: PatchShape> ArtistHandle for Patch<S> {
     }
 }
 
+impl<S: PatchShape> TypedHandle for Patch<S> {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<PatchArtist<S>>()
+            .then(|| Self::from_raw(raw.clone()))
+    }
+}
+
 impl<S: PatchShape> Patch<S> {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self {
@@ -374,6 +381,12 @@ impl<S: PatchShape> Patch<S> {
     /// A copy of the edge/face/hatch properties.
     pub fn style(&self) -> PatchStyle {
         self.read(|p| p.style.clone())
+    }
+
+    /// The edge width in points: the one set, else `patch.linewidth`
+    /// (matplotlib's `get_linewidth`).
+    pub fn linewidth(&self) -> f64 {
+        self.read(|p| p.style.linewidth.unwrap_or(p.rc.patch_linewidth))
     }
 
     /// The colours the patch is painted with, defaults and alpha applied
@@ -494,6 +507,20 @@ mod tests {
     use super::*;
     use crate::figure::Figure;
     use crate::patches::Rectangle;
+
+    #[test]
+    fn linewidths_fall_back_on_the_rc_default_and_handles_downcast() {
+        let fig = Figure::new();
+        let rect = fig.add_patch(Rectangle::new((0.0, 0.0), 0.5, 0.5));
+        assert_eq!(rect.linewidth(), crate::rc::params().patch_linewidth);
+        rect.set_linewidth(3.0);
+        assert_eq!(rect.linewidth(), 3.0);
+        assert_eq!(
+            rect.raw().downcast::<Patch<Rectangle>>(),
+            Some(rect.clone())
+        );
+        assert_eq!(rect.raw().downcast::<Patch<crate::patches::Circle>>(), None);
+    }
 
     #[test]
     fn colors_apply_the_default_rules() {

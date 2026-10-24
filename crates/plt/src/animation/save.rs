@@ -38,9 +38,9 @@ impl FuncAnimation {
             "png" | "apng" => self.save_apng(path),
             "gif" => self.save_gif(path),
             "webp" => self.save_webp(path),
-            "html" | "htm" => self.save_html(path, &HtmlOptions::default()),
+            "html" | "htm" => self.save_html(path, HtmlOptions::default()),
             "" => Err(AnimationError::UnsupportedFormat(extension)),
-            _ => self.save_movie(path, &MovieOptions::default()),
+            _ => self.save_movie(path, MovieOptions::default()),
         }
     }
 

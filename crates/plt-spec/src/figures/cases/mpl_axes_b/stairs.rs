@@ -252,7 +252,7 @@ fn stairs_datetime(fig: &Figure) -> CaseResult {
     ax.stairs(values, options)?;
     ax.xaxis().set_ticklabel_props(
         TickLevel::Major,
-        &TickLabelProps {
+        TickLabelProps {
             rotation: Some(30.0),
             ..TickLabelProps::default()
         },

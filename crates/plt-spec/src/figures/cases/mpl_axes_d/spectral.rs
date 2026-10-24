@@ -234,9 +234,9 @@ fn psd_csd(fig: &Figure, freqs: bool, cross: bool) -> CaseResult {
             ..SpectralPlotOptions::default()
         };
         if cross {
-            ax.csd(&a, &b, &options)?;
+            ax.csd(&a, &b, options)?;
         } else {
-            ax.psd(&[a.as_slice(), b.as_slice()].concat(), &options)?;
+            ax.psd(&[a.as_slice(), b.as_slice()].concat(), options)?;
         }
         ax.set_xlabel("").set_ylabel("");
     }
@@ -286,9 +286,9 @@ fn spectrum(fig: &Figure, freqs: bool, kind: SpectrumKind) -> CaseResult {
             ..SpectrumPlotOptions::default()
         };
         match kind {
-            SpectrumKind::Magnitude(scale) => ax.magnitude_spectrum(&y, scale, &options)?,
-            SpectrumKind::Angle => ax.angle_spectrum(&y, &options)?,
-            SpectrumKind::Phase => ax.phase_spectrum(&y, &options)?,
+            SpectrumKind::Magnitude(scale) => ax.magnitude_spectrum(&y, scale, options)?,
+            SpectrumKind::Angle => ax.angle_spectrum(&y, options)?,
+            SpectrumKind::Phase => ax.phase_spectrum(&y, options)?,
         };
         ax.set_xlabel("").set_ylabel("");
     }

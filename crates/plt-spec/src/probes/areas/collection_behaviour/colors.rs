@@ -109,7 +109,7 @@ fn mesh_alpha(ax: &Axes) -> Result<Vec<Json>, ProbeError> {
     let alphas: Vec<f64> = (0..9).map(|v| f64::from(v) / 8.0).collect();
     let made_mesh = || {
         made(ax.pcolormesh(
-            Mesh::with_coords(x.clone(), x.clone(), grid(3, 3, |r, c| 3.0 * r + c)),
+            Mesh::from_coords(x.clone(), x.clone(), grid(3, 3, |r, c| 3.0 * r + c)),
             PcolorOptions::default(),
         ))
     };

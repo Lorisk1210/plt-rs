@@ -12,7 +12,7 @@ use crate::events::CursorShape;
 use crate::lines::{Line2D, LineProps};
 use crate::navigation::PointerButton;
 use crate::patches::{Patch, PatchProps, Rectangle};
-use crate::widgets::{Orientation, ordered};
+use crate::widgets::{CallbackId, Orientation, ordered};
 
 /// Options of a [`SpanSelector`] (matplotlib's keyword arguments).
 #[derive(Clone, Debug)]
@@ -335,7 +335,7 @@ impl Tool for Span {
 /// use plt::figure::Figure;
 /// use plt::widgets::{Orientation, SpanSelector, SpanSelectorOptions};
 /// let ax = Figure::new().subplot();
-/// let span = SpanSelector::new(&ax, Orientation::Horizontal, &SpanSelectorOptions::default());
+/// let span = SpanSelector::new(&ax, Orientation::Horizontal, SpanSelectorOptions::default());
 /// span.on_select(|vmin, vmax| println!("selected {vmin}..{vmax}"));
 /// span.set_extents((0.2, 0.6));
 /// assert_eq!(span.extents(), (0.2, 0.6));
@@ -349,7 +349,7 @@ selector_methods!(SpanSelector);
 
 impl SpanSelector {
     /// A span selector on `ax` along `direction`.
-    pub fn new(ax: &Axes, direction: Orientation, options: &SpanSelectorOptions) -> Self {
+    pub fn new(ax: &Axes, direction: Orientation, options: SpanSelectorOptions) -> Self {
         let face = options
             .props
             .facecolor
@@ -384,19 +384,27 @@ impl SpanSelector {
     }
 
     /// Calls `callback` with the span's ends after each release that makes,
-    /// changes or removes a span (matplotlib's `onselect`).
-    pub fn on_select(&self, mut callback: impl FnMut(f64, f64) + 'static) {
+    /// changes or removes a span (matplotlib's `onselect`); returns its id
+    /// for [`SpanSelector::disconnect`].
+    pub fn on_select(&self, mut callback: impl FnMut(f64, f64) + 'static) -> CallbackId {
         self.driver
             .selected
-            .connect(move |&(vmin, vmax)| callback(vmin, vmax));
+            .connect(move |&(vmin, vmax)| callback(vmin, vmax))
     }
 
     /// Calls `callback` with the span's ends while it is dragged
-    /// (matplotlib's `onmove_callback`).
-    pub fn on_move(&self, mut callback: impl FnMut(f64, f64) + 'static) {
+    /// (matplotlib's `onmove_callback`); returns its id for
+    /// [`SpanSelector::disconnect`].
+    pub fn on_move(&self, mut callback: impl FnMut(f64, f64) + 'static) -> CallbackId {
         self.driver
             .moved
-            .connect(move |&(vmin, vmax)| callback(vmin, vmax));
+            .connect(move |&(vmin, vmax)| callback(vmin, vmax))
+    }
+
+    /// Disconnects the callback with id `id`, whichever signal it was
+    /// connected to; returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.driver.disconnect(id)
     }
 
     /// The span's ends in data coordinates; equal without a span
@@ -513,7 +521,7 @@ mod tests {
             interactive: true,
             ..SpanSelectorOptions::default()
         };
-        let span = SpanSelector::new(&ax, Orientation::Horizontal, &options);
+        let span = SpanSelector::new(&ax, Orientation::Horizontal, options);
         let log = Rc::new(RefCell::new(Vec::new()));
         let seen = Rc::clone(&log);
         span.on_select(move |a, b| seen.borrow_mut().push((a, b)));
@@ -537,7 +545,7 @@ mod tests {
             snap_values: Some(vec![0.0, 2.5, 5.0, 7.5, 10.0]),
             ..SpanSelectorOptions::default()
         };
-        let span = SpanSelector::new(&ax, Orientation::Horizontal, &options);
+        let span = SpanSelector::new(&ax, Orientation::Horizontal, options);
         drag(&fig, 1.0, 6.0);
         assert_eq!(span.extents(), (0.0, 5.0));
         // Spans are not interactive by default: the rectangle hides.

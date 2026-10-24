@@ -3,7 +3,7 @@
 
 use plt::patches::Rectangle;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 use plt_core::Rgba;
 
 use crate::figures::{CaseResult, FigureCase};

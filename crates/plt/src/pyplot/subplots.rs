@@ -198,7 +198,7 @@ pub fn subplot2grid(
 /// As [`Figure::subplot_mosaic`].
 pub fn subplot_mosaic(
     mosaic: &Mosaic,
-    options: &MosaicOptions,
+    options: MosaicOptions,
 ) -> Result<(Figure, MosaicAxes), MosaicError> {
     let fig = figure();
     let axes = fig.subplot_mosaic(mosaic, options)?;
@@ -218,7 +218,7 @@ pub fn subplot_mosaic_num(
     num: u32,
     clear: bool,
     mosaic: &Mosaic,
-    options: &MosaicOptions,
+    options: MosaicOptions,
 ) -> Result<(Figure, MosaicAxes), PyplotError> {
     let fig = fresh_figure_num(num, clear)?;
     let axes = fig.subplot_mosaic(mosaic, options)?;
@@ -324,7 +324,7 @@ pub fn savefig(path: impl AsRef<Path>) -> Result<(), SaveError> {
 /// # Errors
 ///
 /// When the figure cannot be rendered or written.
-pub fn savefig_with(path: impl AsRef<Path>, options: &SaveOptions) -> Result<(), SaveError> {
+pub fn savefig_with(path: impl AsRef<Path>, options: SaveOptions) -> Result<(), SaveError> {
     gcf().savefig_with(path, options)
 }
 
@@ -418,15 +418,15 @@ mod tests {
     #[test]
     fn mosaics_and_saving() {
         close_all();
-        let mosaic = Mosaic::parse("AB;CC").unwrap();
-        let (fig, axes) = subplot_mosaic(&mosaic, &MosaicOptions::default()).unwrap();
+        let mosaic = "AB;CC".parse::<Mosaic>().unwrap();
+        let (fig, axes) = subplot_mosaic(&mosaic, MosaicOptions::default()).unwrap();
         assert_eq!((gcf(), axes.len()), (fig, 3));
         let path = std::env::temp_dir().join(format!("plt-pyplot-{}.svg", std::process::id()));
         savefig(&path).unwrap();
         assert!(std::fs::read_to_string(&path).unwrap().contains("<svg"));
         std::fs::remove_file(&path).unwrap();
         assert!(matches!(
-            savefig_with("x.unknown", &SaveOptions::default()),
+            savefig_with("x.unknown", SaveOptions::default()),
             Err(SaveError::UnsupportedFormat(_))
         ));
         close_all();
@@ -435,15 +435,15 @@ mod tests {
     #[test]
     fn numbered_figures_are_made_or_cleared_never_added_to() {
         close_all();
-        let mosaic = Mosaic::parse("AB").unwrap();
+        let mosaic = "AB".parse::<Mosaic>().unwrap();
         let options = MosaicOptions::default();
-        let (made, axes) = subplot_mosaic_num(2, false, &mosaic, &options).unwrap();
+        let (made, axes) = subplot_mosaic_num(2, false, &mosaic, options.clone()).unwrap();
         assert_eq!((crate::pyplot::get_fignums(), axes.len()), (vec![2], 2));
         assert_eq!(
-            subplot_mosaic_num(2, false, &mosaic, &options).err(),
+            subplot_mosaic_num(2, false, &mosaic, options.clone()).err(),
             Some(PyplotError::FigureExists(2))
         );
-        let (again, _) = subplot_mosaic_num(2, true, &mosaic, &options).unwrap();
+        let (again, _) = subplot_mosaic_num(2, true, &mosaic, options).unwrap();
         assert_eq!(again, made);
         assert_eq!(made.axes().len(), 2, "the old axes were cleared away");
         assert_eq!(

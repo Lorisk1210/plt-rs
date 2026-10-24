@@ -62,7 +62,7 @@ where
 /// As [`Axes::bar_label`](crate::axes::Axes::bar_label).
 pub fn bar_label(
     container: &BarContainer,
-    options: &BarLabelOptions,
+    options: BarLabelOptions,
 ) -> Result<Vec<Annotation>, BarLabelError> {
     gca().bar_label(container, options)
 }
@@ -88,7 +88,7 @@ pub fn grouped_bar(
 /// As [`Axes::hist`](crate::axes::Axes::hist).
 pub fn hist<T: BinSample, D: AsRef<[T]>>(
     datasets: &[D],
-    options: &HistPlotOptions<'_>,
+    options: HistPlotOptions<'_>,
 ) -> Result<HistPlot, PlotError> {
     gca().hist(datasets, options)
 }
@@ -101,7 +101,7 @@ pub fn hist<T: BinSample, D: AsRef<[T]>>(
 /// As [`Axes::boxplot`](crate::axes::Axes::boxplot).
 pub fn boxplot<D: AsRef<[f64]>>(
     datasets: &[D],
-    options: &BoxplotOptions,
+    options: BoxplotOptions,
 ) -> Result<BoxplotArtists, PlotError> {
     gca().boxplot(datasets, options)
 }
@@ -114,7 +114,7 @@ pub fn boxplot<D: AsRef<[f64]>>(
 /// As [`Axes::violinplot`](crate::axes::Axes::violinplot).
 pub fn violinplot<D: AsRef<[f64]>>(
     datasets: &[D],
-    options: &ViolinplotOptions,
+    options: ViolinplotOptions,
 ) -> Result<ViolinParts, PlotError> {
     gca().violinplot(datasets, options)
 }
@@ -125,7 +125,7 @@ pub fn violinplot<D: AsRef<[f64]>>(
 /// # Errors
 ///
 /// As [`Axes::pie`](crate::axes::Axes::pie).
-pub fn pie(values: &[f64], options: &PieOptions) -> Result<PieContainer, PlotError> {
+pub fn pie(values: &[f64], options: PieOptions) -> Result<PieContainer, PlotError> {
     gca().pie(values, options)
 }
 
@@ -138,7 +138,7 @@ pub fn pie(values: &[f64], options: &PieOptions) -> Result<PieContainer, PlotErr
 pub fn pie_label(
     container: &mut PieContainer,
     labels: impl Into<PieLabels>,
-    options: &PieLabelOptions,
+    options: PieLabelOptions,
 ) -> Result<Vec<Text>, PlotError> {
     gca().pie_label(container, labels, options)
 }
@@ -153,7 +153,7 @@ mod tests {
         close_all();
         let bars = bar(vec![1.0, 2.0], [3.0, 4.0], BarOptions::default()).unwrap();
         assert_eq!(
-            bar_label(&bars, &BarLabelOptions::default()).unwrap().len(),
+            bar_label(&bars, BarLabelOptions::default()).unwrap().len(),
             2
         );
         subplot(2, 2, 2).unwrap();
@@ -174,11 +174,11 @@ mod tests {
     fn distributions() {
         close_all();
         let data = [vec![1.0, 2.0, 2.0, 3.0, 5.0], vec![2.0, 3.0, 3.0, 4.0]];
-        hist(&data, &HistPlotOptions::default()).unwrap();
+        hist(&data, HistPlotOptions::default()).unwrap();
         subplot(1, 3, 2).unwrap();
-        boxplot(&data, &BoxplotOptions::default()).unwrap();
+        boxplot(&data, BoxplotOptions::default()).unwrap();
         subplot(1, 3, 3).unwrap();
-        violinplot(&data, &ViolinplotOptions::default()).unwrap();
+        violinplot(&data, ViolinplotOptions::default()).unwrap();
         assert!(gcf().to_png().is_ok());
         close_all();
     }
@@ -186,11 +186,11 @@ mod tests {
     #[test]
     fn pies_and_their_labels() {
         close_all();
-        let mut wedges = pie(&[1.0, 2.0, 3.0], &PieOptions::default()).unwrap();
+        let mut wedges = pie(&[1.0, 2.0, 3.0], PieOptions::default()).unwrap();
         let texts = pie_label(
             &mut wedges,
             ["a", "b", "c"].as_slice(),
-            &PieLabelOptions::default(),
+            PieLabelOptions::default(),
         )
         .unwrap();
         assert_eq!(texts.len(), 3);

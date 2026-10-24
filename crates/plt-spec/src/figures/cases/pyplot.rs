@@ -84,12 +84,12 @@ fn subplot_grid(fig: &Figure) -> CaseResult {
             },
             ..HistPlotOptions::default()
         };
-        pyplot::hist(&[data], &options)?;
+        pyplot::hist(&[data], options)?;
         pyplot::subplot(2, 2, 4)?;
         pyplot::stem(
             [1.0, 2.0, 3.0, 4.0],
             [1.0, 3.0, 2.0, 4.0],
-            &StemOptions::default(),
+            StemOptions::default(),
         )?;
         pyplot::suptitle("pyplot subplots");
         pyplot::subplots_adjust(&SubplotOverrides {
@@ -127,7 +127,7 @@ fn contour_colorbar_labels(fig: &Figure) -> CaseResult {
             ..ContourOptions::default()
         };
         let contours = pyplot::contour(&field, lines)?;
-        pyplot::clabel(&contours, &ClabelOptions::default())?;
+        pyplot::clabel(&contours, ClabelOptions::default())?;
         Ok(())
     })
 }

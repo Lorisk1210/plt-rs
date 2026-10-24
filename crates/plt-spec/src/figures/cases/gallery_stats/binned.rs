@@ -102,8 +102,8 @@ fn hist_1(fig: &Figure) -> CaseResult {
     let (dist1, dist2) = two_distributions();
     fig.set_layout_engine(LayoutEngine::tight());
     let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
-    axs[(0, 0)].hist(&[dist1], &twenty_bins(false))?;
-    axs[(0, 1)].hist(&[dist2], &twenty_bins(false))?;
+    axs[(0, 0)].hist(&[dist1], twenty_bins(false))?;
+    axs[(0, 1)].hist(&[dist2], twenty_bins(false))?;
     Ok(())
 }
 
@@ -111,7 +111,7 @@ fn hist_2(fig: &Figure) -> CaseResult {
     let (dist1, _) = two_distributions();
     fig.set_layout_engine(LayoutEngine::tight());
     let axs = fig.subplots(1, 2)?;
-    let plot = axs[(0, 0)].hist(std::slice::from_ref(&dist1), &twenty_bins(false))?;
+    let plot = axs[(0, 0)].hist(std::slice::from_ref(&dist1), twenty_bins(false))?;
     let counts = &plot.tops[0];
     let highest = counts.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let fracs: Vec<f64> = counts.iter().map(|n| n / highest).collect();
@@ -123,7 +123,7 @@ fn hist_2(fig: &Figure) -> CaseResult {
             patch.set_facecolor(viridis.lookup(frac, None));
         }
     }
-    axs[(0, 1)].hist(&[dist1], &twenty_bins(true))?;
+    axs[(0, 1)].hist(&[dist1], twenty_bins(true))?;
     axs[(0, 1)]
         .yaxis()
         .set_major_formatter(PercentFormatter::new(1.0));
@@ -206,7 +206,7 @@ fn series_histogram(
         colors,
         ..PcolorOptions::default()
     };
-    let mesh = Mesh::with_coords(xedges, yedges, counts.transposed());
+    let mesh = Mesh::from_coords(xedges, yedges, counts.transposed());
     let pcm = ax.pcolormesh(mesh, options)?;
     pcm.set_rasterized(true);
     let colorbar = ColorbarOptions {
@@ -245,7 +245,7 @@ fn time_series_histogram(fig: &Figure) -> CaseResult {
         bins: [AxisBins::Count(400), AxisBins::Count(100)],
         ..Histogram2dOptions::default()
     };
-    let h = histogram2d(&x_all, &y_fine, &binning)?;
+    let h = histogram2d(&x_all, &y_fine, binning)?;
     let edges_and_counts = (h.xedges.as_slice(), h.yedges.as_slice(), &h.counts);
     let mut log = LogNorm::default();
     log.set_vmax(Some(1.5e2));

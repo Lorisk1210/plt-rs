@@ -31,7 +31,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .map(|i| SpecRng::new(210 + i).uniform(20, 0.0, 10.0))
             .collect();
         fig.subplot()
-            .eventplot(&events, &EventplotOptions::default())?;
+            .eventplot(&events, EventplotOptions::default())?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -47,45 +47,45 @@ pub(crate) const CASES: &[FigureCase] = &[
             linewidths: vec![1.0, 2.0, 3.0],
             ..EventplotOptions::default()
         };
-        fig.subplot().eventplot(&events, &options)?;
+        fig.subplot().eventplot(&events, options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/stem_default", |fig| {
         let x = linspace(0.1, 2.0 * std::f64::consts::PI, 25);
         fig.subplot()
-            .stem(&x, map(&x, f64::cos), &StemOptions::default())?;
+            .stem(&x, map(&x, f64::cos), StemOptions::default())?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/stem_formats_bottom", |fig| {
         let x = arange(0.0, 12.0, 1.0);
         let options = StemOptions {
-            linefmt: "g:".into(),
-            markerfmt: "D".into(),
-            basefmt: "k-".into(),
+            linefmt: "g:".parse()?,
+            markerfmt: "D".parse()?,
+            basefmt: "k-".parse()?,
             bottom: 1.0,
             ..StemOptions::default()
         };
         fig.subplot()
-            .stem(&x, map(&x, |x| (x / 2.0).sin() + 1.0), &options)?;
+            .stem(&x, map(&x, |x| (x / 2.0).sin() + 1.0), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/stem_horizontal", |fig| {
         let x = arange(0.0, 10.0, 1.0);
         let options = StemOptions {
-            markerfmt: "ro".into(),
+            markerfmt: "ro".parse()?,
             orientation: Orientation::Horizontal,
             ..StemOptions::default()
         };
-        fig.subplot().stem(&x, map(&x, f64::sqrt), &options)?;
+        fig.subplot().stem(&x, map(&x, f64::sqrt), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/stackplot_zero", |fig| {
         fig.subplot()
-            .stackplot(stack_x(), &stack_y(), &StackplotOptions::default())?;
+            .stackplot(stack_x(), &stack_y(), StackplotOptions::default())?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -101,7 +101,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 baseline,
                 ..StackplotOptions::default()
             };
-            ax.stackplot(stack_x(), &stack_y(), &options)?;
+            ax.stackplot(stack_x(), &stack_y(), options)?;
             ax.set_title(name);
         }
         Ok(())
@@ -114,7 +114,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: CollectionProps::default().edgecolor("k"),
             ..StackplotOptions::default()
         };
-        fig.subplot().stackplot(stack_x(), &stack_y(), &options)?;
+        fig.subplot().stackplot(stack_x(), &stack_y(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

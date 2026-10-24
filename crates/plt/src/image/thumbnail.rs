@@ -73,7 +73,7 @@ impl std::error::Error for ThumbnailError {
 pub fn thumbnail(
     infile: impl AsRef<Path>,
     thumbfile: impl AsRef<Path>,
-    options: &ThumbnailOptions,
+    options: ThumbnailOptions,
 ) -> Result<Figure, ThumbnailError> {
     let image = imread(infile).map_err(ThumbnailError::Read)?;
     let (rows, cols) = image.shape();
@@ -98,7 +98,7 @@ pub fn thumbnail(
         ..SaveOptions::default()
     };
     figure
-        .savefig_with(thumbfile, &save)
+        .savefig_with(thumbfile, save)
         .map_err(ThumbnailError::Save)?;
     Ok(figure)
 }
@@ -114,17 +114,16 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let (image, thumb) = (dir.join("image.png"), dir.join("thumb.png"));
         let pixels = Grid::from_fn(40, 60, |r, c| [(r * 6) as u8, (c * 4) as u8, 128_u8]);
-        let png =
-            crate::image::imsave_png(pixels, &crate::image::ImsaveOptions::default()).unwrap();
+        let png = crate::image::imsave_png(pixels, crate::image::ImsaveOptions::default()).unwrap();
         std::fs::write(&image, png).unwrap();
         let options = ThumbnailOptions {
             scale: 0.5,
             ..ThumbnailOptions::default()
         };
-        thumbnail(&image, &thumb, &options).unwrap();
+        thumbnail(&image, &thumb, options).unwrap();
         assert_eq!(imread(&thumb).unwrap().shape(), (20, 30));
         assert!(matches!(
-            thumbnail(dir.join("missing.png"), &thumb, &options),
+            thumbnail(dir.join("missing.png"), &thumb, options),
             Err(ThumbnailError::Read(_))
         ));
         std::fs::remove_dir_all(&dir).unwrap();

@@ -183,7 +183,7 @@ fn quick_start_9(fig: &Figure) -> CaseResult {
     let ax = constrained(fig);
     ax.hist(
         &[x],
-        &HistPlotOptions {
+        HistPlotOptions {
             layout: HistOptions {
                 bins: Some(Bins::Count(50)),
                 density: true,
@@ -299,7 +299,7 @@ fn quick_start_17(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(2, 2)?;
     let rdbu = || colormaps::get("RdBu_r");
     let pc = axs[(0, 0)].pcolormesh(
-        Mesh::with_coords(x.clone(), y.clone(), z.clone()),
+        Mesh::from_coords(x.clone(), y.clone(), z.clone()),
         PcolorOptions {
             colors: ColorizerOptions::default()
                 .cmap(rdbu()?)
@@ -340,7 +340,7 @@ fn quick_start_17(fig: &Figure) -> CaseResult {
 fn quick_start_18(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
     let layout = mosaic(&[&["upleft", "right"], &["lowleft", "right"]])?;
-    let axd = fig.subplot_mosaic(&layout, &MosaicOptions::default())?;
+    let axd = fig.subplot_mosaic(&layout, MosaicOptions::default())?;
     for label in ["upleft", "lowleft", "right"] {
         axd.get(label)
             .ok_or_else(|| format!("no axes labelled {label}"))?

@@ -124,14 +124,14 @@ fn nonpos_values(fig: &Figure) -> CaseResult {
         },
         ..HistPlotOptions::default()
     };
-    axs[(0, 0)].hist(&[&xs], &hist)?;
+    axs[(0, 0)].hist(&[&xs], hist.clone())?;
     axs[(0, 0)].set_yscale("log")?;
-    axs[(0, 1)].hist(&[&xs], &hist)?;
+    axs[(0, 1)].hist(&[&xs], hist)?;
     let masked = ScaleOptions {
         nonpositive: Some(NonPositive::Mask),
         ..ScaleOptions::default()
     };
-    axs[(0, 1)].set_scale_with(AxisName::Y, "log", &masked)?;
+    axs[(0, 1)].set_scale_with(AxisName::Y, "log", masked)?;
     let xdata = arange(0.0, 10.0, 0.01);
     let ydata: Vec<f64> = xdata.iter().map(|x| (-x).exp()).collect();
     let edata: Vec<f64> = xdata
@@ -168,7 +168,7 @@ fn function_scales(fig: &Figure) -> CaseResult {
         functions: Some(FuncTransform::new(f64::sqrt, |x| x * x)),
         ..ScaleOptions::default()
     };
-    ax.set_scale_with(AxisName::X, "function", &sqrt)?;
+    ax.set_scale_with(AxisName::X, "function", sqrt)?;
     ax.set_xlim(1.0, 1000.0);
     remove_text(fig);
     Ok(())

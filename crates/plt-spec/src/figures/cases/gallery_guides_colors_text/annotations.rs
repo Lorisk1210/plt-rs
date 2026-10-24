@@ -8,10 +8,7 @@ use plt::axes::ScatterOptions;
 use plt::coords::Coords;
 use plt::patches::{ArrowStyle, BoxShape, BoxStyle, CustomBox, FancyArrowPatch};
 use plt::prelude::*;
-use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment as HAlign, TextBoxProps,
-    VerticalAlignment as VAlign,
-};
+use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, TextBoxProps, VAlign};
 use plt::transforms::Point;
 use plt_core::Path;
 

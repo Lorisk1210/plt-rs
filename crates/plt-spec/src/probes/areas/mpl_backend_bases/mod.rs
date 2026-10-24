@@ -15,7 +15,7 @@ use plt::events::{Event, EventKind, EventSource};
 use plt::figure::Figure;
 use plt::navigation::PointerButton;
 use plt::pyplot;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 use plt::ticker::{Formatter, FuncFormatter};
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_render::{GraphicsContext, PathCollection};
@@ -190,8 +190,8 @@ fn pick_event(args: Args<'_>) -> Outcome {
     let key = args.str("key")?;
     let fig = Figure::new();
     let text = fig.text(0.5, 0.5, "hello");
-    text.set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center)
+    text.set_halign(HAlign::Center)
+        .set_valign(VAlign::Center)
         .set_picker(Some(Picker::Default));
     fig.layout();
     let keys = Rc::new(RefCell::new(Vec::new()));

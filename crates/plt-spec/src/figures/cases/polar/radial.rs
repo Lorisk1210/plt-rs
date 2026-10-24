@@ -13,9 +13,7 @@ use plt::patches::ArrowStyle;
 use plt::polar::ThetaDirection;
 use plt::prelude::ArtistHandle;
 use plt::scale::ScaleOptions;
-use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment, VerticalAlignment,
-};
+use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, VAlign};
 use plt::ticker::FormatStrFormatter;
 use plt::transforms::Point;
 
@@ -57,7 +55,7 @@ fn symlog(fig: &Figure) -> CaseResult {
         linthresh: Some(1.0),
         ..ScaleOptions::default()
     };
-    ax.set_scale_with(AxisName::Y, "symlog", &options)?;
+    ax.set_scale_with(AxisName::Y, "symlog", options)?;
     Ok(())
 }
 
@@ -107,7 +105,7 @@ fn annotated(fig: &Figure) -> CaseResult {
     let options = ErrorbarOptions {
         yerr: Some(0.3.into()),
         xerr: Some(0.1.into()),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         capsize: Some(3.0),
         ..ErrorbarOptions::default()
     };
@@ -122,10 +120,10 @@ fn annotated(fig: &Figure) -> CaseResult {
             ..AnnotateOptions::default()
         },
     )?
-    .set_halign(HorizontalAlignment::Center);
+    .set_halign(HAlign::Center);
     ax.text(PI, 1.5, "west")
-        .set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center)
+        .set_halign(HAlign::Center)
+        .set_valign(VAlign::Center)
         .set_color("tab:red");
     ax.set_rmax(4.0);
     Ok(())
@@ -136,10 +134,10 @@ fn stems(fig: &Figure) -> CaseResult {
     let theta: Vec<f64> = (0..12).map(|i| f64::from(i) * TAU / 12.0).collect();
     let r: Vec<f64> = theta.iter().map(|t| 1.0 + t / PI).collect();
     let options = StemOptions {
-        basefmt: " ".into(),
+        basefmt: " ".parse()?,
         ..StemOptions::default()
     };
-    ax.stem(&theta, &r, &options)?;
+    ax.stem(&theta, &r, options)?;
     ax.set_theta_offset(PI / 3.0)
         .set_theta_direction(ThetaDirection::Clockwise);
     Ok(())

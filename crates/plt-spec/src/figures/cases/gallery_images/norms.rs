@@ -19,7 +19,7 @@ use crate::figures::{CaseResult, FigureCase};
 
 /// A mesh of the values `z` at the points `x`, `y`.
 fn points_mesh(x: &Grid<f64>, y: &Grid<f64>, z: &Grid<f64>) -> Mesh {
-    Mesh::with_coords(x.clone(), y.clone(), z.clone())
+    Mesh::from_coords(x.clone(), y.clone(), z.clone())
 }
 
 /// `pcolor`/`pcolormesh` options: a colormap, a norm or limits, a shading.

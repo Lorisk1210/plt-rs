@@ -25,12 +25,12 @@ pub(super) fn axes_call(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Handled {
             references(scene, &handles)
                 .map(|handles| Produced::Value(Json::Array(vec![handles, Json::from(labels)])))
         }
-        "get_legend" => Ok(match ax.get_legend() {
+        "get_legend" => Ok(match ax.current_legend() {
             Some(legend) => Produced::Object(Object::Legend(legend)),
             None => Produced::Value(Json::Null),
         }),
         "get_legend.get_texts" => ax
-            .get_legend()
+            .current_legend()
             .ok_or_else(|| ProbeError::rejected("the axes has no legend"))
             .map(|legend| Produced::Value(Json::from(legend.labels()))),
         _ => return None,

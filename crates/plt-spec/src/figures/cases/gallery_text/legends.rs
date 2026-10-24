@@ -243,7 +243,7 @@ fn legend_demo_3(fig: &Figure) -> CaseResult {
             ErrorbarOptions {
                 xerr: xerr.map(Into::into),
                 yerr: yerr.map(Into::into),
-                fmt: fmt.into(),
+                fmt: fmt.parse()?,
                 line: LineProps::default().label(label),
                 ..ErrorbarOptions::default()
             },
@@ -253,7 +253,7 @@ fn legend_demo_3(fig: &Figure) -> CaseResult {
     bottom_ax.stem(
         [0.3, 1.5, 2.7],
         [1.0, 3.6, 2.7],
-        &StemOptions {
+        StemOptions {
             label: Some("stem test".into()),
             ..StemOptions::default()
         },

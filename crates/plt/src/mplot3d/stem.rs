@@ -4,22 +4,25 @@ use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
-use crate::axes::PlotError;
+use crate::axes::solid_format;
 use crate::collections::{Collection, CollectionProps};
-use crate::lines::{FormatString, Line2D, LineProps};
+use crate::colors::Color;
+use crate::lines::{FormatString, Line2D, LineProps, LineStyle};
+use crate::markers::{Marker, MarkerSymbol};
 
 /// Label of the parts of a stem plot kept out of legends.
 const NO_LEGEND: &str = "_nolegend_";
 
-/// Options of [`Axes3D::stem`].
+/// Options of [`Axes3D::stem`]; matplotlib's format strings parse with
+/// [`str::parse`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Stem3DOptions {
-    /// Colour and line style of the stems.
-    pub linefmt: String,
-    /// Format of the markers at the heads.
-    pub markerfmt: String,
-    /// Format of the baseline.
-    pub basefmt: String,
+    /// Colour and line style of the stems (`"C0-"`).
+    pub linefmt: FormatString,
+    /// Format of the markers at the heads (`"C0o"`).
+    pub markerfmt: FormatString,
+    /// Format of the baseline (`"C3-"`).
+    pub basefmt: FormatString,
     /// Position of the baseline along `orientation`.
     pub bottom: f64,
     /// The axis the stems run along.
@@ -33,9 +36,13 @@ pub struct Stem3DOptions {
 impl Default for Stem3DOptions {
     fn default() -> Self {
         Self {
-            linefmt: "C0-".into(),
-            markerfmt: "C0o".into(),
-            basefmt: "C3-".into(),
+            linefmt: solid_format("C0"),
+            markerfmt: FormatString {
+                linestyle: Some(LineStyle::None),
+                marker: Some(Marker::Symbol(MarkerSymbol::Circle)),
+                color: Some(Color::from("C0")),
+            },
+            basefmt: solid_format("C3"),
             bottom: 0.0,
             orientation: Axis3::Z,
             axlim_clip: false,
@@ -60,13 +67,13 @@ impl Axes3D {
     ///
     /// # Errors
     ///
-    /// When the coordinates differ in length or a format is invalid.
+    /// When the coordinates differ in length.
     pub fn stem(
         &self,
         x: &[f64],
         y: &[f64],
         z: &[f64],
-        options: &Stem3DOptions,
+        options: Stem3DOptions,
     ) -> Result<Stem3D, Axes3DError> {
         check_len("y", x.len(), y.len())?;
         check_len("z", x.len(), z.len())?;
@@ -94,17 +101,15 @@ impl Axes3D {
                 vec![foot, head]
             })
             .collect();
-        let no_legend = |format: &str| -> Result<LineProps, PlotError> {
-            Ok(LineProps::fmt(format)?.label(NO_LEGEND))
-        };
+        let no_legend = |format: FormatString| LineProps::from(format).label(NO_LEGEND);
         let baseline = self.plot_with(
             columns[a],
             columns[b],
             &[bottom],
             options.orientation,
-            no_legend(&options.basefmt)?,
+            no_legend(options.basefmt),
         )?;
-        let format: FormatString = options.linefmt.parse().map_err(PlotError::from)?;
+        let format = options.linefmt;
         let mut props = CollectionProps::default().label(NO_LEGEND);
         props.color = format.color;
         props.linestyles =
@@ -112,7 +117,7 @@ impl Axes3D {
                 crate::rc::params().lines_linestyle.clone()
             })]);
         let stemlines = self.add_segments(stems, props, options.axlim_clip);
-        let markerline = self.plot_with(x, y, z, Axis3::Z, no_legend(&options.markerfmt)?)?;
+        let markerline = self.plot_with(x, y, z, Axis3::Z, no_legend(options.markerfmt))?;
         let base_span = |axis: usize| -> [f64; 2] {
             let (low, high) = limits[axis];
             [low, high]

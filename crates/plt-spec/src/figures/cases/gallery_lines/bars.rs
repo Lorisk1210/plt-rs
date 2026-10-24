@@ -41,7 +41,7 @@ fn barchart(fig: &Figure) -> CaseResult {
         ..GroupedBarOptions::default()
     };
     for container in ax.grouped_bar(penguin_means, options)? {
-        ax.bar_label(&container, &padded(3.0))?;
+        ax.bar_label(&container, padded(3.0))?;
     }
     ax.set_ylabel("Length (mm)");
     ax.set_title("Penguin attributes by species");
@@ -131,7 +131,7 @@ fn bar_label_demo_1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let series = [("Male", [73.0, 34.0, 61.0]), ("Female", [73.0, 34.0, 58.0])];
     for container in stacked(&ax, &SPECIES, &series, 0.6)? {
-        ax.bar_label(&container, &centred())?;
+        ax.bar_label(&container, centred())?;
     }
     ax.set_title("Number of penguins by sex");
     ax.legend(LegendOptions::default())?;
@@ -166,7 +166,7 @@ fn bar_label_demo_2(fig: &Figure) -> CaseResult {
         fmt: BarLabelFormat::Template("%.2f".to_owned()),
         ..BarLabelOptions::default()
     };
-    ax.bar_label(&hbars, &options)?;
+    ax.bar_label(&hbars, options)?;
     ax.set_xlim(ax.xlim().0, 15.0);
     Ok(())
 }
@@ -177,7 +177,7 @@ fn bar_label_demo_3(fig: &Figure) -> CaseResult {
         labels: error.iter().map(|e| format!("±{e:.2}")).collect(),
         ..padded(8.0)
     };
-    for label in ax.bar_label(&hbars, &options)? {
+    for label in ax.bar_label(&hbars, options)? {
         label.set_color("b").set_fontsize(14.0);
     }
     ax.set_xlim(ax.xlim().0, 16.0);
@@ -202,7 +202,7 @@ fn labelled_sales(
         fmt,
         ..BarLabelOptions::default()
     };
-    ax.bar_label(&bars, &options)?;
+    ax.bar_label(&bars, options)?;
     Ok(())
 }
 
@@ -393,7 +393,7 @@ fn hat_graph(fig: &Figure) -> CaseResult {
             labels: heights.iter().map(|h| format!("{h}")).collect(),
             ..padded(4.0)
         };
-        ax.bar_label(container, &options)?;
+        ax.bar_label(container, options)?;
     }
     ax.set_xlabel("Games");
     ax.set_ylabel("Score");
@@ -450,7 +450,7 @@ fn horizontal_barchart_distribution(fig: &Figure) -> CaseResult {
         } else {
             "darkgrey"
         };
-        for label in ax.bar_label(&rects, &centred())? {
+        for label in ax.bar_label(&rects, centred())? {
             label.set_color(text_color);
         }
         for (start, width) in starts.iter_mut().zip(widths) {

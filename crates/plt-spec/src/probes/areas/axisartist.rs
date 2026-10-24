@@ -393,7 +393,7 @@ fn coordinate(grid: &CoordinateGrid) -> Json {
 
 fn grid_info(args: Args<'_>) -> Outcome {
     let info = grid(args.str("grid")?)?
-        .get_grid_info(bbox(args)?)
+        .grid_info(bbox(args)?)
         .map_err(rejected)?;
     Ok(object([
         ("extremes", extents(info.extremes)),

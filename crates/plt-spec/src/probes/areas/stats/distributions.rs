@@ -42,7 +42,7 @@ pub(crate) fn boxplot_stats(args: Args<'_>) -> Outcome {
         labels,
         autorange: args.opt_bool("autorange")?.unwrap_or(false),
     };
-    let all = stats::boxplot_stats(&sets, &opts).map_err(ProbeError::rejected)?;
+    let all = stats::boxplot_stats(&sets, opts).map_err(ProbeError::rejected)?;
     Ok(Json::Array(
         all.into_iter()
             .map(|s| {
@@ -100,7 +100,7 @@ pub(super) fn violin_stats(args: Args<'_>) -> Outcome {
         points: usize::try_from(points).map_err(ProbeError::rejected)?,
         quantiles,
     };
-    let all = stats::violin_stats(&sets, &opts).map_err(ProbeError::rejected)?;
+    let all = stats::violin_stats(&sets, opts).map_err(ProbeError::rejected)?;
     Ok(Json::Array(
         all.into_iter()
             .map(|s| {

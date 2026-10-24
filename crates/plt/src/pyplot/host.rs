@@ -58,8 +58,9 @@ impl Host {
     /// the user where it is.
     fn web() -> Result<Self, GuiError> {
         let options = WebOptions::from_rc()?;
-        let server = WebServer::bind(&options)?;
-        web::announce(&server, options.open_in_browser);
+        let open_in_browser = options.open_in_browser;
+        let server = WebServer::bind(options)?;
+        web::announce(&server, open_in_browser);
         Ok(Self::Web(server))
     }
 

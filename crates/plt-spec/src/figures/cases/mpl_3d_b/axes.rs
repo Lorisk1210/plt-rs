@@ -189,7 +189,7 @@ pub(super) fn shared_view(fig: &Figure) -> CaseResult {
         },
     )?;
     let ax3 = fig.add_subplot_3d(1, 3, 3, Axes3DOptions::default())?;
-    ax3.shareview(&ax1)?;
+    ax3.share_view(&ax1)?;
     ax2.view_init_shared(5.0, 20.0, 30.0);
     Ok(())
 }

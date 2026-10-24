@@ -116,7 +116,7 @@ fn nonuniform_logscale(fig: &Figure) -> CaseResult {
                 ..ScaleOptions::default()
             };
             for axis in [AxisName::X, AxisName::Y] {
-                ax.set_scale_with(axis, "log", &base)?;
+                ax.set_scale_with(axis, "log", base.clone())?;
             }
         }
         ax.nonuniform_image(

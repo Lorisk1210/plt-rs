@@ -130,13 +130,13 @@ pub struct Histogram {
 /// ```
 /// use plt::stats::{Bins, HistogramOptions, histogram};
 /// let opts = HistogramOptions { bins: Bins::Count(5), ..HistogramOptions::default() };
-/// let h = histogram(&[0, 1, 2, 3, 4, 5], &opts).unwrap();
+/// let h = histogram(&[0, 1, 2, 3, 4, 5], opts).unwrap();
 /// assert_eq!(h.counts, vec![1.0, 1.0, 1.0, 1.0, 2.0]); // the last bin is closed
 /// assert_eq!(h.edges, vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0]);
 /// ```
 pub fn histogram<T: BinSample>(
     data: &[T],
-    opts: &HistogramOptions<'_>,
+    opts: HistogramOptions<'_>,
 ) -> Result<Histogram, StatsError> {
     check_weights(data.len(), opts.weights)?;
     let plan = plan_edges(data, &opts.bins, opts.range, opts.weights.is_some())?;
@@ -159,7 +159,7 @@ pub fn histogram<T: BinSample>(
 /// `density` option is irrelevant here.
 pub fn histogram_bin_edges<T: BinSample>(
     data: &[T],
-    opts: &HistogramOptions<'_>,
+    opts: HistogramOptions<'_>,
 ) -> Result<Vec<f64>, StatsError> {
     check_weights(data.len(), opts.weights)?;
     Ok(plan_edges(data, &opts.bins, opts.range, opts.weights.is_some())?.edges)
@@ -331,7 +331,7 @@ mod tests {
     fn edges_of<T: BinSample>(data: &[T], bins: Bins) -> Result<Vec<f64>, StatsError> {
         histogram_bin_edges(
             data,
-            &HistogramOptions {
+            HistogramOptions {
                 bins,
                 ..HistogramOptions::default()
             },
@@ -374,7 +374,7 @@ mod tests {
             ..HistogramOptions::default()
         };
         assert_eq!(
-            histogram(&[1.0], &opts),
+            histogram(&[1.0], opts),
             Err(StatsError::InvertedRange { lo: 5.0, hi: 1.0 })
         );
         let weights = [1.0; 2];
@@ -384,11 +384,11 @@ mod tests {
             ..HistogramOptions::default()
         };
         assert_eq!(
-            histogram(&[1.0, 2.0], &opts),
+            histogram(&[1.0, 2.0], opts.clone()),
             Err(StatsError::WeightedEstimator)
         );
         assert_eq!(
-            histogram(&[1.0], &opts),
+            histogram(&[1.0], opts),
             Err(StatsError::WeightsMismatch {
                 expected: 1,
                 actual: 2
@@ -430,7 +430,7 @@ mod tests {
             density: true,
             ..HistogramOptions::default()
         };
-        let h = histogram(&[0.5, 1.5, 2.5, 3.0], &opts).unwrap();
+        let h = histogram(&[0.5, 1.5, 2.5, 3.0], opts).unwrap();
         assert_eq!(h.counts, vec![0.25, 0.375]);
         let weights = [2.0, 0.5, 1.0];
         let opts = HistogramOptions {
@@ -439,7 +439,7 @@ mod tests {
             ..HistogramOptions::default()
         };
         assert_eq!(
-            histogram(&[0.0, 1.0, 2.0], &opts).unwrap().counts,
+            histogram(&[0.0, 1.0, 2.0], opts).unwrap().counts,
             vec![2.0, 1.5]
         );
     }

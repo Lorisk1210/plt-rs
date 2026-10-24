@@ -32,7 +32,7 @@ pub(super) const CASES: &[FigureCase] = &[
         polygon_selector_simple_1,
     ),
     FigureCase::new("gallery_axisartist/polygon_selector_simple_2", |fig| {
-        PolygonSelector::new(&fig.subplot(), &PolygonSelectorOptions::default());
+        PolygonSelector::new(&fig.subplot(), PolygonSelectorOptions::default());
         Ok(())
     }),
     FigureCase::new("gallery_axisartist/rectangle_selector", rectangle_selector),
@@ -52,7 +52,7 @@ fn lasso_selector_demo(fig: &Figure) -> CaseResult {
         ..ScatterOptions::default()
     };
     ax.scatter_with(x, y, options)?;
-    let _lasso = LassoSelector::new(&ax, &LineProps::default(), None);
+    let _lasso = LassoSelector::new(&ax, LineProps::default(), None);
     ax.set_title("Press enter to accept selected points.");
     Ok(())
 }
@@ -68,12 +68,12 @@ fn polygon_selector_demo(fig: &Figure) -> CaseResult {
         draw_bounding_box: true,
         ..PolygonSelectorOptions::default()
     };
-    PolygonSelector::new(&ax, &options);
+    PolygonSelector::new(&ax, options);
     Ok(())
 }
 
 fn polygon_selector_simple_1(fig: &Figure) -> CaseResult {
-    let selector = PolygonSelector::new(&fig.subplot(), &PolygonSelectorOptions::default());
+    let selector = PolygonSelector::new(&fig.subplot(), PolygonSelectorOptions::default());
     selector.set_verts(&[(0.1, 0.4), (0.5, 0.9), (0.3, 0.2)])?;
     Ok(())
 }
@@ -99,9 +99,9 @@ fn rectangle_selector(fig: &Figure) -> CaseResult {
         "Press 't' to toggle the selectors on and off.\n\
          Click and drag to draw a RectangleSelector.",
     );
-    let _rectangle = RectangleSelector::new(top, &options);
+    let _rectangle = RectangleSelector::new(top, options.clone());
     bottom.set_title("Click and drag to draw a EllipseSelector.");
-    let _ellipse = EllipseSelector::new(bottom, &options);
+    let _ellipse = EllipseSelector::new(bottom, options);
     Ok(())
 }
 
@@ -125,6 +125,6 @@ fn span_selector(fig: &Figure) -> CaseResult {
         drag_from_anywhere: true,
         ..SpanSelectorOptions::default()
     };
-    let _span = SpanSelector::new(ax1, Orientation::Horizontal, &options);
+    let _span = SpanSelector::new(ax1, Orientation::Horizontal, options);
     Ok(())
 }

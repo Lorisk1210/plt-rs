@@ -83,7 +83,7 @@ fn left_plots(subfig: &Figure, rng: &mut SpecRng) -> CaseResult {
     let mesh = meshes(axs.as_slice(), rng, false)?;
     subfig
         .suptitle("Left plots")
-        .set_fontsize_relative(RelativeSize::XLarge);
+        .set_fontsize(RelativeSize::XLarge);
     colorbar_beside(subfig, &mesh, axs.as_slice(), Some(SpineSide::Bottom), 0.6)
 }
 
@@ -98,14 +98,14 @@ fn right_plots(subfig: &Figure, rng: &mut SpecRng) -> CaseResult {
     colorbar_beside(subfig, &mesh, axs.as_slice(), None, 0.6)?;
     subfig
         .suptitle("Right plots")
-        .set_fontsize_relative(RelativeSize::XLarge);
+        .set_fontsize(RelativeSize::XLarge);
     Ok(())
 }
 
 /// The figure's own title.
 fn figure_suptitle(fig: &Figure) {
     fig.suptitle("Figure suptitle")
-        .set_fontsize_relative(RelativeSize::XxLarge);
+        .set_fontsize(RelativeSize::XxLarge);
 }
 
 /// `_left_and_right`: the left and right plots in two subfigures with
@@ -116,7 +116,7 @@ fn left_and_right(fig: &Figure, width_ratios: Option<Vec<f64>>) -> CaseResult {
     let subfigs = fig.subfigures(
         1,
         2,
-        &SubfigureOptions {
+        SubfigureOptions {
             wspace: Some(0.07),
             width_ratios,
             ..SubfigureOptions::default()
@@ -165,7 +165,7 @@ fn subfigures_4(fig: &Figure) -> CaseResult {
     let subfigs = fig.subfigures(
         1,
         2,
-        &SubfigureOptions {
+        SubfigureOptions {
             wspace: Some(0.07),
             ..SubfigureOptions::default()
         },
@@ -177,7 +177,7 @@ fn subfigures_4(fig: &Figure) -> CaseResult {
     let nested = subfigs[(0, 0)].subfigures(
         2,
         1,
-        &SubfigureOptions {
+        SubfigureOptions {
             height_ratios: Some(vec![1.0, 1.4]),
             ..SubfigureOptions::default()
         },

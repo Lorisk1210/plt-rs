@@ -53,7 +53,7 @@ impl FuncAnimation {
     /// # Errors
     ///
     /// When a frame cannot be rendered.
-    pub fn to_jshtml(&self, options: &HtmlOptions) -> Result<String, AnimationError> {
+    pub fn to_jshtml(&self, options: HtmlOptions) -> Result<String, AnimationError> {
         let rc = crate::rc::params();
         let format = frame_format(&rc.animation_frame_format);
         let limit = rc.animation_embed_limit * 1024.0 * 1024.0;
@@ -64,7 +64,7 @@ impl FuncAnimation {
             if full {
                 return Ok(());
             }
-            let data = base64::encode_lines(&figure.to_format(format, &SaveOptions::default())?);
+            let data = base64::encode_lines(&figure.to_format(format, SaveOptions::default())?);
             total += byte_count(&data);
             full = total >= limit;
             if !full {
@@ -72,7 +72,7 @@ impl FuncAnimation {
             }
             Ok(())
         })?;
-        Ok(self.page(&embedded_frames(&frames, format), frames.len(), *options))
+        Ok(self.page(&embedded_frames(&frames, format), frames.len(), options))
     }
 
     /// The animation's representation in a notebook, as
@@ -86,7 +86,7 @@ impl FuncAnimation {
     pub fn repr_html(&self) -> Result<Option<String>, AnimationError> {
         match crate::rc::params().animation_html.as_str() {
             "html5" => self.to_html5_video().map(Some),
-            "jshtml" => self.to_jshtml(&HtmlOptions::default()).map(Some),
+            "jshtml" => self.to_jshtml(HtmlOptions::default()).map(Some),
             _ => Ok(None),
         }
     }
@@ -103,7 +103,7 @@ impl FuncAnimation {
     pub fn save_html(
         &self,
         path: impl AsRef<Path>,
-        options: &HtmlOptions,
+        options: HtmlOptions,
     ) -> Result<(), AnimationError> {
         let path = path.as_ref();
         let (Some(stem), Some("html" | "htm")) = (
@@ -119,7 +119,7 @@ impl FuncAnimation {
         let mut count = 0;
         self.for_each_frame(|figure| {
             let name = format!("frame{count:07}.{}", format.extension());
-            let frame = figure.to_format(format, &SaveOptions::default())?;
+            let frame = figure.to_format(format, SaveOptions::default())?;
             std::fs::write(directory.join(name), frame).map_err(SaveError::Io)?;
             count += 1;
             Ok(())
@@ -132,7 +132,7 @@ impl FuncAnimation {
                 ("frame_format", format.extension()),
             ],
         );
-        std::fs::write(path, self.page(&fill_frames, count, *options)).map_err(io_error)
+        std::fs::write(path, self.page(&fill_frames, count, options)).map_err(io_error)
     }
 
     /// The page showing `count` frames that `fill_frames` loads.
@@ -296,7 +296,7 @@ mod tests {
     #[test]
     fn frames_are_embedded_as_png_data() {
         let html = animation(3, AnimationOptions::default())
-            .to_jshtml(&HtmlOptions::default())
+            .to_jshtml(HtmlOptions::default())
             .unwrap();
         assert!(html.starts_with(JS_INCLUDE));
         assert!(html.contains("var frames = new Array(3);"));
@@ -312,14 +312,14 @@ mod tests {
             ..AnimationOptions::default()
         };
         let html = animation(1, once)
-            .to_jshtml(&HtmlOptions::default())
+            .to_jshtml(HtmlOptions::default())
             .unwrap();
         assert_eq!(selected_modes(&html), ["once"]);
         let reflect = HtmlOptions {
             default_mode: Some(PlayMode::Reflect),
             fps: NonZeroU32::new(24),
         };
-        let html = animation(1, once).to_jshtml(&reflect).unwrap();
+        let html = animation(1, once).to_jshtml(reflect).unwrap();
         assert_eq!(selected_modes(&html), ["reflect"]);
         assert!(html.contains("img_id, slider_id, 41,"));
     }
@@ -329,7 +329,7 @@ mod tests {
         let html = crate::rc::context(|| {
             crate::rc::set("animation.embed_limit", "0.000001").unwrap();
             animation(2, AnimationOptions::default())
-                .to_jshtml(&HtmlOptions::default())
+                .to_jshtml(HtmlOptions::default())
                 .unwrap()
         });
         assert!(html.contains("new Array(0);"));
@@ -359,14 +359,14 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let anim = animation(2, AnimationOptions::default());
         let page = dir.join("anim.html");
-        anim.save_html(&page, &HtmlOptions::default()).unwrap();
+        anim.save_html(&page, HtmlOptions::default()).unwrap();
         let html = std::fs::read_to_string(&page).unwrap();
         assert!(html.contains("frames[i] = \"anim_frames/frame\" + (\"0000000\" + i).slice(-7) +"));
         assert!(html.contains("\".png\";"));
         let frame = std::fs::read(dir.join("anim_frames/frame0000001.png")).unwrap();
         assert!(frame.starts_with(b"\x89PNG"));
         assert!(matches!(
-            anim.save_html(dir.join("anim.txt"), &HtmlOptions::default()),
+            anim.save_html(dir.join("anim.txt"), HtmlOptions::default()),
             Err(AnimationError::NotHtml(_))
         ));
         std::fs::remove_dir_all(dir).unwrap();

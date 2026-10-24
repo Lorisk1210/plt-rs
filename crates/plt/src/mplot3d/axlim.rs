@@ -165,7 +165,7 @@ mod tests {
             ..Stem3DOptions::default()
         };
         let stem = ax
-            .stem(&[0.0, 1.0], &[0.0, 1.0], &[1.0, 2.0], &options)
+            .stem(&[0.0, 1.0], &[0.0, 1.0], &[1.0, 2.0], options)
             .expect("valid stems");
         assert_eq!(ax.axlim_clip(&stem.stemlines), Some(true));
         assert_eq!(ax.axlim_clip(&stem.markerline), Some(false));

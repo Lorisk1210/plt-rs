@@ -6,7 +6,7 @@ use plt::patches::{
     FancyArrow, FancyArrowPatch, FancyBboxPatch,
 };
 use plt::prelude::*;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 use plt::transforms::Point;
 use plt_core::{Path, PathCode};
 
@@ -49,7 +49,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .set_facecolor("lightsteelblue")
                 .set_edgecolor("navy");
             ax.text(x + 0.8, y + 2.8, style)
-                .set_halign(HorizontalAlignment::Center)
+                .set_halign(HAlign::Center)
                 .set_fontsize(8.0);
         }
         Ok(())

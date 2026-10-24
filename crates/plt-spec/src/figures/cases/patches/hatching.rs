@@ -2,7 +2,7 @@
 
 use plt::patches::{Circle, Rectangle};
 use plt::prelude::*;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 
 use super::canvas;
 use crate::figures::FigureCase;
@@ -37,7 +37,7 @@ fn hatch_grid(
         ax.add_patch(Rectangle::new((x, y), 1.6, height))
             .update_props(props.clone().hatch(*hatch));
         ax.text(x + 0.8, y + label_dy, repr(hatch))
-            .set_halign(HorizontalAlignment::Center)
+            .set_halign(HAlign::Center)
             .set_fontsize(fontsize);
     }
 }

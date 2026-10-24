@@ -246,7 +246,7 @@ mod tests {
         assert!(
             LayoutTree::new(&fig.raw().figure_state().borrow(), [0.0, 0.0, 1.0, 1.0]).is_none()
         );
-        let rows = fig.subfigures(2, 1, &SubfigureOptions::default()).unwrap();
+        let rows = fig.subfigures(2, 1, SubfigureOptions::default()).unwrap();
         rows[(1, 0)].subplots(1, 2).unwrap();
         let state = fig.raw().figure_state().borrow();
         let tree = LayoutTree::new(&state, [0.0, 0.0, 1.0, 1.0]).unwrap();

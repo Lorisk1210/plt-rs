@@ -106,17 +106,17 @@ pub struct Hist {
 /// ```
 /// use plt::stats::{Bins, HistOptions, hist};
 /// let opts = HistOptions { bins: Some(Bins::Count(2)), ..HistOptions::default() };
-/// let h = hist(&[vec![0.0, 1.0, 1.5, 2.0]], &opts).unwrap();
+/// let h = hist(&[vec![0.0, 1.0, 1.5, 2.0]], opts).unwrap();
 /// assert_eq!(h.tops, vec![vec![1.0, 3.0]]);
 /// assert_eq!(h.edges, vec![0.0, 1.0, 2.0]);
 /// ```
 pub fn hist<T: BinSample, D: AsRef<[T]>>(
     datasets: &[D],
-    opts: &HistOptions<'_>,
+    opts: HistOptions<'_>,
 ) -> Result<Hist, StatsError> {
-    let (counts, edges) = bin_datasets(datasets, opts)?;
-    let tops = reduce(counts, &edges, opts);
-    let patches = geometry::patches(&tops, &edges, opts);
+    let (counts, edges) = bin_datasets(datasets, &opts)?;
+    let tops = reduce(counts, &edges, &opts);
+    let patches = geometry::patches(&tops, &edges, &opts);
     Ok(Hist {
         tops,
         edges,
@@ -144,7 +144,7 @@ fn bin_datasets<T: BinSample, D: AsRef<[T]>>(
             opts.weights.map(|w| w.iter().flatten().copied().collect());
         let edges = histogram_bin_edges(
             &all,
-            &HistogramOptions {
+            HistogramOptions {
                 bins: opts.bins.clone().unwrap_or_default(),
                 range,
                 density: false,
@@ -162,7 +162,7 @@ fn bin_datasets<T: BinSample, D: AsRef<[T]>>(
         .map(|(data, weights)| {
             let h = histogram(
                 data.as_ref(),
-                &HistogramOptions {
+                HistogramOptions {
                     bins: bins.clone(),
                     range,
                     density: opts.density && !stacked,
@@ -176,7 +176,7 @@ fn bin_datasets<T: BinSample, D: AsRef<[T]>>(
     if counts.is_empty() {
         edges = histogram_bin_edges::<f64>(
             &[],
-            &HistogramOptions {
+            HistogramOptions {
                 bins,
                 range,
                 ..HistogramOptions::default()
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn several_datasets_share_edges() {
-        let h = hist(&[vec![0.0, 1.0], vec![3.0, 4.0]], &opts(2)).unwrap();
+        let h = hist(&[vec![0.0, 1.0], vec![3.0, 4.0]], opts(2)).unwrap();
         assert_eq!(h.edges, vec![0.0, 2.0, 4.0]);
         assert_eq!(h.tops, vec![vec![2.0, 0.0], vec![0.0, 2.0]]);
     }
@@ -301,25 +301,25 @@ mod tests {
             cumulative: Cumulative::Reverse,
             ..opts(2)
         };
-        let h = hist(&[vec![0.0, 1.0, 4.0], vec![3.0, 4.0]], &stacked).unwrap();
+        let h = hist(&[vec![0.0, 1.0, 4.0], vec![3.0, 4.0]], stacked).unwrap();
         assert_eq!(h.tops, vec![vec![3.0, 1.0], vec![5.0, 3.0]]);
         let density = HistOptions {
             stacked: true,
             density: true,
             ..opts(2)
         };
-        let h = hist(&[vec![0.0, 4.0], vec![4.0, 4.0]], &density).unwrap();
+        let h = hist(&[vec![0.0, 4.0], vec![4.0, 4.0]], density).unwrap();
         assert_eq!(h.tops, vec![vec![0.125, 0.125], vec![0.125, 0.375]]);
     }
 
     #[test]
     fn empty_and_nan_inputs() {
-        let h = hist::<f64, _>(&[Vec::new()], &opts(4)).unwrap();
+        let h = hist::<f64, _>(&[Vec::new()], opts(4)).unwrap();
         assert_eq!(h.edges, vec![0.0, 0.25, 0.5, 0.75, 1.0]);
         assert_eq!(h.tops, vec![vec![0.0; 4]]);
-        let h = hist(&[vec![1.0, f64::NAN, 3.0]], &opts(2)).unwrap();
+        let h = hist(&[vec![1.0, f64::NAN, 3.0]], opts(2)).unwrap();
         assert_eq!(h.tops, vec![vec![1.0, 1.0]]);
-        assert!(hist(&[vec![f64::NAN]], &opts(2)).is_err());
+        assert!(hist(&[vec![f64::NAN]], opts(2)).is_err());
     }
 
     #[test]
@@ -330,11 +330,11 @@ mod tests {
             ..opts(2)
         };
         assert!(matches!(
-            hist(&[vec![1.0, 2.0]], &o),
+            hist(&[vec![1.0, 2.0]], o.clone()),
             Err(StatsError::WeightsMismatch { .. })
         ));
         assert!(matches!(
-            hist(&[vec![1.0], vec![2.0]], &o),
+            hist(&[vec![1.0], vec![2.0]], o),
             Err(StatsError::CountMismatch { .. })
         ));
     }

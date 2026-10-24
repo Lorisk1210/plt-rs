@@ -38,7 +38,7 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::BoxplotOptions;
     /// let ax = Figure::new().subplot();
-    /// let parts = ax.boxplot(&[vec![1.0, 2.0, 3.0, 4.0, 20.0]], &BoxplotOptions::default())?;
+    /// let parts = ax.boxplot(&[vec![1.0, 2.0, 3.0, 4.0, 20.0]], BoxplotOptions::default())?;
     /// assert_eq!(parts.fliers[0].ydata(), [20.0]);
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
@@ -50,7 +50,7 @@ impl Axes {
     pub fn boxplot<D: AsRef<[f64]>>(
         &self,
         datasets: &[D],
-        options: &BoxplotOptions,
+        options: BoxplotOptions,
     ) -> Result<BoxplotArtists, PlotError> {
         let rc = crate::rc::params();
         let stats_options = crate::stats::BoxplotOptions {
@@ -58,10 +58,10 @@ impl Axes {
             labels: options.tick_labels.clone(),
             autorange: options.autorange,
         };
-        let mut stats = boxplot_stats(datasets, &stats_options).map_err(PlotError::Stats)?;
-        override_stats(&mut stats, options)?;
-        let draw = resolved_draw_options(options, &rc)?;
-        self.bxp(&stats, &draw)
+        let mut stats = boxplot_stats(datasets, stats_options).map_err(PlotError::Stats)?;
+        override_stats(&mut stats, &options)?;
+        let draw = resolved_draw_options(&options, &rc)?;
+        self.bxp(&stats, draw)
     }
 }
 
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn default_boxes_and_ticks() {
         let ax = Figure::new().subplot();
-        let parts = ax.boxplot(&data(), &BoxplotOptions::default()).unwrap();
+        let parts = ax.boxplot(&data(), BoxplotOptions::default()).unwrap();
         assert_eq!(parts.whiskers.len(), 4);
         assert_eq!(parts.caps.len(), 4);
         assert_eq!(parts.medians.len(), 2);
@@ -198,7 +198,7 @@ mod tests {
                 },
                 ..BoxplotOptions::default()
             };
-            ax.boxplot(&data(), &options).unwrap();
+            ax.boxplot(&data(), options).unwrap();
             let ticks = ax.ticks(AxisName::X).unwrap();
             ticks
                 .major
@@ -222,7 +222,7 @@ mod tests {
             },
             ..BoxplotOptions::default()
         };
-        let parts = ax.boxplot(&data(), &options).unwrap();
+        let parts = ax.boxplot(&data(), options).unwrap();
         let BoxArtist::Patch(patch) = &parts.boxes[0] else {
             panic!("patch boxes");
         };
@@ -238,14 +238,14 @@ mod tests {
             sym: Some("r+".into()),
             ..BoxplotOptions::default()
         };
-        let parts = ax.boxplot(&data(), &options).unwrap();
+        let parts = ax.boxplot(&data(), options).unwrap();
         assert_eq!(parts.fliers[0].marker(), Marker::Symbol(MarkerSymbol::Plus));
         assert_eq!(parts.fliers[0].color(), Color::from("r"));
         let hidden = BoxplotOptions {
             sym: Some(String::new()),
             ..BoxplotOptions::default()
         };
-        assert_eq!(ax.boxplot(&data(), &hidden).unwrap().fliers.len(), 0);
+        assert_eq!(ax.boxplot(&data(), hidden).unwrap().fliers.len(), 0);
     }
 
     #[test]
@@ -255,12 +255,12 @@ mod tests {
             usermedians: Some(vec![Some(3.0)]),
             ..BoxplotOptions::default()
         };
-        assert!(ax.boxplot(&data(), &options).is_err());
+        assert!(ax.boxplot(&data(), options).is_err());
         let options = BoxplotOptions {
             usermedians: Some(vec![Some(10.0), None]),
             ..BoxplotOptions::default()
         };
-        let parts = ax.boxplot(&data(), &options).unwrap();
+        let parts = ax.boxplot(&data(), options).unwrap();
         assert_eq!(parts.medians[0].ydata(), [10.0, 10.0]);
     }
 }

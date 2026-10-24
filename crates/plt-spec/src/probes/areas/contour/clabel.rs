@@ -18,7 +18,7 @@ use crate::probes::{Args, Outcome, ProbeError};
 pub(super) fn clabel(args: Args<'_>) -> Outcome {
     input::with_rc(args, || {
         let cs = contour_in(args, false)?;
-        cs.clabel(&clabel_options(Args::new(args.json("clabel")?))?)
+        cs.clabel(clabel_options(Args::new(args.json("clabel")?))?)
             .map_err(ProbeError::rejected)?;
         let labels = cs
             .labels()

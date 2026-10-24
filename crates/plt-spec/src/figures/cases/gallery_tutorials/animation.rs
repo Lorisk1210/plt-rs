@@ -18,7 +18,7 @@ use plt::patches::{ConnectionEnd, ConnectionPatch};
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::stats::{Bins, HistOptions};
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 
 use super::{SEED, uniform_rows};
 use crate::figures::cases::common::map;
@@ -53,7 +53,7 @@ fn animated_histogram(fig: &Figure) -> CaseResult {
             .alpha(0.5),
         ..HistPlotOptions::default()
     };
-    ax.hist(&[SpecRng::new(SEED).normal(1000, 0.0, 1.0)], &options)?;
+    ax.hist(&[SpecRng::new(SEED).normal(1000, 0.0, 1.0)], options)?;
     ax.set_limits_with(
         AxisName::Y,
         Limits {

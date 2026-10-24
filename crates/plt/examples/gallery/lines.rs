@@ -109,7 +109,7 @@ fn errorbars() -> Built {
         ErrorbarOptions {
             yerr: Some(err.into()),
             capsize: Some(4.0),
-            fmt: "o".into(),
+            fmt: "o".parse()?,
             ..ErrorbarOptions::default()
         },
     )?;

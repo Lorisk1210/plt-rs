@@ -70,6 +70,14 @@ pub enum FontError {
     },
     /// Adobe Font Metrics could not be read or lack what was asked for.
     Afm(AfmError),
+    /// A name that a font property does not have, such as a font style
+    /// of `"slanted"`.
+    UnknownName {
+        /// What was being parsed (`"font style"`, ...).
+        kind: &'static str,
+        /// The unknown name.
+        name: String,
+    },
 }
 
 impl FontError {
@@ -102,6 +110,7 @@ impl fmt::Display for FontError {
             Self::UnknownFont(id) => write!(f, "unknown font id {id}"),
             Self::Bytecode { program, error } => write!(f, "the {program} failed: {error}"),
             Self::Afm(err) => write!(f, "{err}"),
+            Self::UnknownName { kind, name } => write!(f, "{name:?} is not a valid {kind}"),
         }
     }
 }

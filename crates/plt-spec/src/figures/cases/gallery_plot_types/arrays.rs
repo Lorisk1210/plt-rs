@@ -96,7 +96,7 @@ fn pcolormesh(fig: &Figure) -> CaseResult {
         ..PcolorOptions::default()
     };
     fig.subplot()
-        .pcolormesh(Mesh::with_coords(x, y, z), options)?;
+        .pcolormesh(Mesh::from_coords(x, y, z), options)?;
     Ok(())
 }
 

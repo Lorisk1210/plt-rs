@@ -65,7 +65,7 @@ pub(super) fn beta_histograms(ax: &Axes, rng: &mut SpecRng, bins: usize) -> Case
             props: PatchProps::default().alpha(0.8),
             ..HistPlotOptions::default()
         };
-        ax.hist(&[beta(rng, a, b, 10_000)], &options)?;
+        ax.hist(&[beta(rng, a, b, 10_000)], options)?;
     }
     Ok(())
 }
@@ -188,7 +188,7 @@ fn grayscale(fig: &Figure) -> CaseResult {
 fn petroff10(fig: &Figure) -> CaseResult {
     let mut rng = SpecRng::new(SEED);
     fig.set_layout_engine(Some(LayoutEngine::compressed()));
-    let sfigs = fig.subfigures(3, 1, &SubfigureOptions::default())?;
+    let sfigs = fig.subfigures(3, 1, SubfigureOptions::default())?;
     for (style, sfig) in ["petroff6", "petroff8", "petroff10"]
         .into_iter()
         .zip(sfigs.as_slice())

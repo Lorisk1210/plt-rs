@@ -91,7 +91,7 @@ fn cohere(fig: &Figure) -> CaseResult {
     let (s1, s2) = noisy_sines(&mut SpecRng::new(SEED), &t, 1.0, |nse| nse);
     let (ax0, ax1) = stacked_pair(fig)?;
     signals_panel(&ax0, &t, (&s1, &s2), 2.0)?;
-    ax1.cohere(&s1, &s2, &estimate(welch(256, 1.0 / dt)))?;
+    ax1.cohere(&s1, &s2, estimate(welch(256, 1.0 / dt)))?;
     ax1.set_ylabel("Coherence");
     Ok(())
 }
@@ -104,7 +104,7 @@ fn csd_demo(fig: &Figure) -> CaseResult {
     let colored = |nse: Vec<f64>| map(&convolve_same(&nse, &r), |c| c * dt);
     let (s1, s2) = noisy_sines(&mut SpecRng::new(SEED), &t, 0.01, colored);
     signals_panel(&ax1, &t, (&s1, &s2), 5.0)?;
-    ax2.csd(&s1, &s2, &estimate(welch(256, 1.0 / dt)))?;
+    ax2.csd(&s1, &s2, estimate(welch(256, 1.0 / dt)))?;
     ax2.set_ylabel("CSD (dB)");
     Ok(())
 }
@@ -124,7 +124,7 @@ fn psd_demo_1(fig: &Figure) -> CaseResult {
     ax0.plot(&t, &s)?;
     ax0.set_xlabel("Time (s)");
     ax0.set_ylabel("Signal");
-    ax1.psd(&s, &estimate(welch(512, 1.0 / dt)))?;
+    ax1.psd(&s, estimate(welch(512, 1.0 / dt)))?;
     Ok(())
 }
 
@@ -144,7 +144,7 @@ fn psd_demo_2(fig: &Figure) -> CaseResult {
         &["signal", "signal", "signal"],
         &["zero padding", "block size", "overlap"],
     ])?;
-    let axs = fig.subplot_mosaic(&layout, &MosaicOptions::default())?;
+    let axs = fig.subplot_mosaic(&layout, MosaicOptions::default())?;
     let panel = |label: &str| {
         axs.get(label)
             .ok_or_else(|| format!("no axes labelled {label}"))
@@ -162,18 +162,18 @@ fn psd_demo_2(fig: &Figure) -> CaseResult {
     };
     let zero_padding = panel("zero padding")?;
     for pad_to in [n, n * 2, n * 4] {
-        zero_padding.psd(&y, &padded(n, pad_to, 0))?;
+        zero_padding.psd(&y, padded(n, pad_to, 0))?;
     }
     let block_size = panel("block size")?;
     for nfft in [n, n / 2, n / 4] {
-        block_size.psd(&y, &padded(nfft, n, 0))?;
+        block_size.psd(&y, padded(nfft, n, 0))?;
     }
     block_size.set_ylabel("");
     let overlap = panel("overlap")?;
     // `int(0.025 * len(t))` and `int(0.1 * len(t))`.
     let overlaps = [0.0, 0.025, 0.1].map(|fraction: f64| (fraction * n as f64) as usize);
     for noverlap in overlaps {
-        overlap.psd(&y, &padded(n / 2, n, noverlap))?;
+        overlap.psd(&y, padded(n / 2, n, noverlap))?;
     }
     overlap.set_ylabel("");
     overlap.set_title("overlap");
@@ -205,7 +205,7 @@ fn periodogram_and_welch<S: SignalValue>(fig: &Figure, xn: &[S], xticks: &[f64])
         ("Welch", unwindowed(150, 512, 75)),
     ];
     for (ax, (title, options)) in axs.as_slice().iter().zip(panels) {
-        ax.psd(xn, &options)?;
+        ax.psd(xn, options)?;
         ax.set_title(title);
         ax.set_yticks(yticks.clone());
         ax.set_xticks(xticks.to_vec());
@@ -269,10 +269,10 @@ fn xcorr_acorr_demo(fig: &Figure) -> CaseResult {
         ..XcorrOptions::default()
     };
     let thick = || LineProps::default().linewidth(2.0);
-    axs[(0, 0)].xcorr(x, y, &options, true, thick())?;
+    axs[(0, 0)].xcorr(x, y, options.clone(), true, thick())?;
     axs[(0, 0)].grid(true);
     axs[(0, 0)].set_title("Cross-correlation (xcorr)");
-    axs[(1, 0)].acorr(x, &options, true, thick())?;
+    axs[(1, 0)].acorr(x, options, true, thick())?;
     axs[(1, 0)].grid(true);
     axs[(1, 0)].set_title("Auto-correlation (acorr)");
     Ok(())

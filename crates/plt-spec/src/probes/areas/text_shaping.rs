@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 
 use plt::artist::ArtistHandle;
 use plt::figure::Figure;
-use plt::text::{Feature, HorizontalAlignment, Language, LanguageRange, Text};
+use plt::text::{Feature, HAlign, Language, LanguageRange, Text};
 use plt_font::{Face, FontChain, FontDatabase, FontSource, Hinting, ShapeOptions, TextLayout};
 
 use super::text_metrics::with_rc;
@@ -142,11 +142,11 @@ fn set_text(args: Args<'_>) -> Outcome {
 }
 
 /// A probe's `ha` argument.
-fn halign(args: Args<'_>) -> Result<HorizontalAlignment, ProbeError> {
+fn halign(args: Args<'_>) -> Result<HAlign, ProbeError> {
     match args.opt_str("ha")?.unwrap_or("left") {
-        "left" => Ok(HorizontalAlignment::Left),
-        "center" => Ok(HorizontalAlignment::Center),
-        "right" => Ok(HorizontalAlignment::Right),
+        "left" => Ok(HAlign::Left),
+        "center" => Ok(HAlign::Center),
+        "right" => Ok(HAlign::Right),
         other => Err(ProbeError::BadArgs(format!("bad ha {other:?}"))),
     }
 }

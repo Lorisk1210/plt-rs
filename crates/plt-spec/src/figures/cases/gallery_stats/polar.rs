@@ -11,7 +11,7 @@ use plt::layout::LayoutEngine;
 use plt::legend::{BboxToAnchor, LegendOptions};
 use plt::polar::{Compass, PolarAxes};
 use plt::prelude::*;
-use plt::text::VerticalAlignment as VAlign;
+use plt::text::VAlign;
 
 use super::SEED;
 use crate::figures::cases::common::{cumsum, map};
@@ -134,7 +134,7 @@ fn polar_errorbars(fig: &Figure, xerr: f64, yerr: f64, color: &str, title: &str)
         xerr: Some(xerr.into()),
         yerr: Some(yerr.into()),
         capsize: Some(7.0),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         line: LineProps::default().color(color),
         ..ErrorbarOptions::default()
     };

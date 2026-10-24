@@ -20,7 +20,7 @@ impl Figure {
     /// When some artists cannot be drawn, or the figure has images, which
     /// only [`Figure::savefig`] can write (beside the document).
     pub fn to_pgf(&self) -> Result<String, SaveError> {
-        self.to_pgf_with(&SaveOptions::default())
+        self.to_pgf_with(SaveOptions::default())
     }
 
     /// The figure as a PGF picture with save options; see
@@ -29,8 +29,8 @@ impl Figure {
     /// # Errors
     ///
     /// As for [`Figure::to_pgf`].
-    pub fn to_pgf_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
-        self.pgf_document(options, None)
+    pub fn to_pgf_with(&self, options: SaveOptions) -> Result<String, SaveError> {
+        self.pgf_document(&options, None)
             .map(|document| document.text)
     }
 

@@ -73,7 +73,7 @@ impl SubplotTool {
                     valinit: current.borrow()[index],
                     ..SliderOptions::default()
                 };
-                let slider = Slider::new(ax, name, 0.0, 1.0, &options);
+                let slider = Slider::new(ax, name, 0.0, 1.0, options);
                 let (target, current) = (target.clone(), Rc::clone(&current));
                 slider.on_changed(move |value| {
                     let mut values = current.borrow_mut();

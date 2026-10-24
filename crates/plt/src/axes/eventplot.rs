@@ -59,7 +59,7 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::EventplotOptions;
     /// let ax = Figure::new().subplot();
-    /// let rows = ax.eventplot(&[vec![1.0, 3.0], vec![2.0]], &EventplotOptions::default())?;
+    /// let rows = ax.eventplot(&[vec![1.0, 3.0], vec![2.0]], EventplotOptions::default())?;
     /// assert_eq!(rows.len(), 2);
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
@@ -71,7 +71,7 @@ impl Axes {
     pub fn eventplot<P: Clone + Into<AxisValues>>(
         &self,
         positions: &[P],
-        options: &EventplotOptions,
+        options: EventplotOptions,
     ) -> Result<Vec<Collection>, PlotError> {
         let along = match options.orientation {
             Orientation::Horizontal => self.xaxis(),
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn limits_pad_by_whole_line_lengths() {
         let ax = Figure::new().subplot();
-        ax.eventplot(&[vec![0.0, 10.0]], &EventplotOptions::default())
+        ax.eventplot(&[vec![0.0, 10.0]], EventplotOptions::default())
             .unwrap();
         ax.set_margins(0.0, 0.0).unwrap();
         assert_eq!(ax.xlim(), (0.0, 10.0));
@@ -229,7 +229,7 @@ mod tests {
         let rows = ax
             .eventplot(
                 &[Vec::<f64>::new(), Vec::new()],
-                &EventplotOptions::default(),
+                EventplotOptions::default(),
             )
             .unwrap();
         assert_eq!(rows.len(), 2);

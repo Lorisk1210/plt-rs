@@ -8,7 +8,7 @@ use plt::axes::{
 use plt::collections::EdgeColors;
 use plt::colors::Color;
 use plt::stats::{Bins, HistType};
-use plt::text::VerticalAlignment;
+use plt::text::VAlign;
 
 use super::axes_plot::{artist, xy};
 use super::call::{Call, KEYWORD_ONLY};
@@ -92,7 +92,7 @@ fn hist(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
         Some(other) => return Err(ProbeError::rejected(format!("bad histtype {other:?}"))),
     };
     options.label = label(call)?.map(str::to_owned).into_iter().collect();
-    ax.hist(&[x], &options)
+    ax.hist(&[x], options)
         .map(|_| Produced::Nothing)
         .map_err(ProbeError::rejected)
 }
@@ -119,11 +119,11 @@ fn fill_between(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
 fn text(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     let text = ax.text(call.f64(0, "x")?, call.f64(1, "y")?, call.str(2, "s")?);
     let valign = match call.opt_str(KEYWORD_ONLY, "verticalalignment")? {
-        None | Some("baseline") => VerticalAlignment::Baseline,
-        Some("top") => VerticalAlignment::Top,
-        Some("bottom") => VerticalAlignment::Bottom,
-        Some("center") => VerticalAlignment::Center,
-        Some("center_baseline") => VerticalAlignment::CenterBaseline,
+        None | Some("baseline") => VAlign::Baseline,
+        Some("top") => VAlign::Top,
+        Some("bottom") => VAlign::Bottom,
+        Some("center") => VAlign::Center,
+        Some("center_baseline") => VAlign::CenterBaseline,
         Some(other) => return Err(ProbeError::rejected(format!("bad alignment {other:?}"))),
     };
     text.set_valign(valign);

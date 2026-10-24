@@ -18,7 +18,7 @@ use plt::patheffects::{GcUpdate, PatchEffect, PathEffect, Stroke, TickedStroke};
 use plt::sankey::FlowOrientation;
 use plt::text::{
     ArrowProps, FancyArrowProps, Language, LanguageRange, LegacyArrowProps, Text, TextBoxProps,
-    VerticalAlignment,
+    VAlign,
 };
 
 /// Character ranges of a language.
@@ -201,7 +201,7 @@ pub(crate) fn test_annotation(
     props: FancyArrowProps,
     bbox: Option<TextBoxProps>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use plt::text::{HorizontalAlignment, VerticalAlignment};
+    use plt::text::{HAlign, VAlign};
     let note = ax.annotate(
         "Test",
         (0.2, 0.2),
@@ -213,8 +213,8 @@ pub(crate) fn test_annotation(
         },
     )?;
     note.set_fontsize(20.0)
-        .set_valign(VerticalAlignment::Center)
-        .set_halign(HorizontalAlignment::Center)
+        .set_valign(VAlign::Center)
+        .set_halign(HAlign::Center)
         .set_bbox(bbox);
     Ok(())
 }
@@ -237,7 +237,7 @@ pub(crate) fn hatch_shadow_text(text: &Text) -> Result<(), Box<dyn std::error::E
     )?;
     text.set_fontsize(75.0)
         .set_weight("1000".parse()?)
-        .set_valign(VerticalAlignment::Center)
+        .set_valign(VAlign::Center)
         .set_path_effects(vec![
             PathEffect::path_patch(hatched),
             PathEffect::path_patch(outlined),

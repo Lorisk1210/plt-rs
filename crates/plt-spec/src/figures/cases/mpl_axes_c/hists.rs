@@ -23,8 +23,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             stacked: true,
             ..HistOptions::default()
         };
-        fig.subplot()
-            .hist(&[d_1_3(), d_0_10()], &laid_out(layout))?;
+        fig.subplot().hist(&[d_1_3(), d_0_10()], laid_out(layout))?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_offset", |fig| {
@@ -34,7 +33,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 bottom: HistBottom::Uniform(bottom),
                 ..HistOptions::default()
             };
-            ax.hist(&[data], &laid_out(layout))?;
+            ax.hist(&[data], laid_out(layout))?;
         }
         Ok(())
     }),
@@ -44,7 +43,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             histtype: HistType::Step,
             ..HistOptions::default()
         };
-        ax.hist(&[d_1_3()], &laid_out(layout))?;
+        ax.hist(&[d_1_3()], laid_out(layout))?;
         ax.set_ylim(0.0, 10.0);
         ax.set_xlim(-1.0, 5.0);
         remove_ticks_and_titles(fig);
@@ -56,8 +55,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             orientation: HistOrientation::Horizontal,
             ..HistOptions::default()
         };
-        fig.subplot()
-            .hist(&[d_0_10(), d_1_3()], &laid_out(layout))?;
+        fig.subplot().hist(&[d_0_10(), d_1_3()], laid_out(layout))?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_stacked_weighted", |fig| {
@@ -68,8 +66,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             stacked: true,
             ..HistOptions::default()
         };
-        fig.subplot()
-            .hist(&[d_0_10(), d_1_3()], &laid_out(layout))?;
+        fig.subplot().hist(&[d_0_10(), d_1_3()], laid_out(layout))?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_stacked_stepfilled_alpha", |fig| {
@@ -81,7 +78,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 ..HistOptions::default()
             })
         };
-        fig.subplot().hist(&[d_1_3(), d_0_10()], &options)?;
+        fig.subplot().hist(&[d_1_3(), d_0_10()], options)?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_stacked_step", |fig| {
@@ -90,8 +87,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             stacked: true,
             ..HistOptions::default()
         };
-        fig.subplot()
-            .hist(&[d_1_3(), d_0_10()], &laid_out(layout))?;
+        fig.subplot().hist(&[d_1_3(), d_0_10()], laid_out(layout))?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_stacked_density", |fig| {
@@ -100,8 +96,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             density: true,
             ..HistOptions::default()
         };
-        fig.subplot()
-            .hist(&[d_1_3(), d_0_10()], &laid_out(layout))?;
+        fig.subplot().hist(&[d_1_3(), d_0_10()], laid_out(layout))?;
         Ok(())
     }),
     classic("mpl_axes_c/hist_step_bottom", |fig| {
@@ -110,7 +105,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             bottom: HistBottom::PerBin(arange(0.0, 10.0, 1.0)),
             ..HistOptions::default()
         };
-        fig.subplot().hist(&[d_1_3()], &laid_out(layout))?;
+        fig.subplot().hist(&[d_1_3()], laid_out(layout))?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -231,7 +226,7 @@ fn stacked_bar(fig: &Figure) -> CaseResult {
         })
     };
     let ax = fig.subplot();
-    ax.hist(&data, &options)?;
+    ax.hist(&data, options)?;
     ax.legend(LegendOptions {
         loc: Some(LegendLoc::from("upper right")),
         bbox_to_anchor: Some(BboxToAnchor::Point(1.0, 1.0)),
@@ -265,7 +260,7 @@ fn vectorized(fig: &Figure, styling: &HistPlotOptions<'static>) -> CaseResult {
             },
             ..styling.clone()
         };
-        ax.hist(&xs, &options)?;
+        ax.hist(&xs, options)?;
     }
     Ok(())
 }

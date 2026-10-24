@@ -12,7 +12,7 @@ use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 
 use crate::figures::cases::common::{cumsum, map};
 use crate::figures::{CaseResult, FigureCase};
@@ -66,7 +66,7 @@ fn fill_between_alpha_1(fig: &Figure) -> CaseResult {
     }
     ax1.set_ylabel("price");
     fig.suptitle("Google (GOOG) daily closing price");
-    fig.autofmt_xdate(0.2, 30.0, HorizontalAlignment::Right)?;
+    fig.autofmt_xdate(0.2, 30.0, HAlign::Right)?;
     Ok(())
 }
 

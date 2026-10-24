@@ -132,7 +132,7 @@ fn clipped_stars(ax1: &Axes, ax2: &Axes) -> Result<(), Failure> {
 /// figure fills the text path with a photograph; plt-rs draws its
 /// outline.)
 fn paths(fig: &Figure) -> Result<(), Failure> {
-    let parts = fig.subfigures(1, 3, &SubfigureOptions::default())?;
+    let parts = fig.subfigures(1, 3, SubfigureOptions::default())?;
 
     let polar = parts[(0, 0)].polar_subplot();
     let image = polar.imshow(Grid::from_rows([[2.0]])?, ImshowOptions::default())?;
@@ -179,7 +179,7 @@ pub(crate) fn save_figure(objects: &str, format: SaveFormat) -> Result<Vec<u8>, 
         plt::rc::set("svg.hashsalt", "asdf")?;
         let count = objects.len() + 1;
         let fig = Figure::with_size(7.0, 3.0 * count as f64, 100.0);
-        let parts = fig.subfigures(count, 1, &SubfigureOptions::default())?;
+        let parts = fig.subfigures(count, 1, SubfigureOptions::default())?;
         fig.subplots_adjust(&SubplotOverrides {
             bottom: Some(0.15),
             ..SubplotOverrides::default()
@@ -201,6 +201,6 @@ pub(crate) fn save_figure(objects: &str, format: SaveFormat) -> Result<Vec<u8>, 
         ax.set_title(label);
         ax.set_xlabel(label);
         ax.set_ylabel(label);
-        Ok(fig.to_format(format, &SaveOptions::default())?)
+        Ok(fig.to_format(format, SaveOptions::default())?)
     })
 }

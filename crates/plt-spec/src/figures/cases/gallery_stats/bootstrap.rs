@@ -11,7 +11,7 @@ use plt::patches::Polygon;
 use plt::prelude::*;
 use plt::rc::{AxisBelow, ColorOrAuto};
 use plt::stats::{Whis, mean};
-use plt::text::HorizontalAlignment as HAlign;
+use plt::text::HAlign;
 
 use super::SEED;
 use super::boxplots::with_sym;
@@ -135,7 +135,7 @@ fn boxplot_demo_3(fig: &Figure) -> CaseResult {
         whis: Some(Whis::Factor(1.5)),
         ..with_sym("+")
     };
-    let bp = ax1.boxplot(&data, &options)?;
+    let bp = ax1.boxplot(&data, options)?;
     for part in &bp.boxes {
         if let BoxArtist::Line(line) = part {
             line.set_color("black");
@@ -151,7 +151,7 @@ fn boxplot_demo_3(fig: &Figure) -> CaseResult {
     }
     ax1.yaxis().grid(
         true,
-        &GridOptions {
+        GridOptions {
             linestyle: Some(LineStyle::Solid),
             which: TickLevel::Major,
             color: Some("lightgrey".into()),
@@ -170,7 +170,7 @@ fn boxplot_demo_3(fig: &Figure) -> CaseResult {
     ax1.set_xticklabels(RANDOM_DISTS.iter().flat_map(|name| [*name; 2]))?;
     ax1.xaxis().set_ticklabel_props(
         TickLevel::Major,
-        &TickLabelProps {
+        TickLabelProps {
             rotation: Some(45.0),
             fontsize: Some(FontSize::Points(8.0)),
             ..TickLabelProps::default()
@@ -184,7 +184,7 @@ fn boxplot_demo_3(fig: &Figure) -> CaseResult {
         ax1.text(tick as f64 + 1.0, 0.95, label)
             .set_transform(ax1.trans_xaxis())
             .set_halign(HAlign::Center)
-            .set_fontsize_relative(RelativeSize::XSmall)
+            .set_fontsize(RelativeSize::XSmall)
             .set_weight(weights[k])
             .set_color(BOX_COLORS[k]);
     }
@@ -194,7 +194,7 @@ fn boxplot_demo_3(fig: &Figure) -> CaseResult {
             .set_backgroundcolor(background)
             .set_color(color)
             .set_weight(roman)
-            .set_fontsize_relative(RelativeSize::XSmall);
+            .set_fontsize(RelativeSize::XSmall);
     };
     legend_entry(0.08, format!("{n} Random Numbers"), "black", BOX_COLORS[0]);
     legend_entry(
@@ -207,11 +207,11 @@ fn boxplot_demo_3(fig: &Figure) -> CaseResult {
         .set_color("white")
         .set_backgroundcolor("silver")
         .set_weight(roman)
-        .set_fontsize_relative(RelativeSize::Medium);
+        .set_fontsize(RelativeSize::Medium);
     fig.text(0.815, 0.013, " Average Value")
         .set_color("black")
         .set_weight(roman)
-        .set_fontsize_relative(RelativeSize::XSmall);
+        .set_fontsize(RelativeSize::XSmall);
     Ok(())
 }
 

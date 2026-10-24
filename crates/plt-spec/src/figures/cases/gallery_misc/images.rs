@@ -18,7 +18,7 @@ use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions};
-use plt::text::{AnnotateOptions, HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt::transforms::Point;
 use plt_core::{Path, PathCode};
 
@@ -158,7 +158,7 @@ fn advanced_hillshading_1(fig: &Figure) -> CaseResult {
     let proxy = ScalarMappable::with_norm(cmap, Box::new(Normalize::new(vmin, vmax)));
     fig.colorbar(&proxy, ColorbarOptions::beside(&ax))?;
     ax.set_title("Using a colorbar with a shaded plot")
-        .set_fontsize_relative(RelativeSize::XLarge);
+        .set_fontsize(RelativeSize::XLarge);
     Ok(())
 }
 
@@ -183,7 +183,7 @@ fn advanced_hillshading_2(fig: &Figure) -> CaseResult {
     ax2.imshow(rgba_image(&ls.shade(&z, &copper, &limited)?), bilinear())?;
     ax2.set_title("Manually set range");
     fig.suptitle("Avoiding Outliers in Shaded Plots")
-        .set_fontsize_relative(RelativeSize::XLarge);
+        .set_fontsize(RelativeSize::XLarge);
     Ok(())
 }
 
@@ -205,7 +205,7 @@ fn advanced_hillshading_3(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.imshow(shaded, bilinear())?;
     ax.set_title("Shade by one variable, color by another")
-        .set_fontsize_relative(RelativeSize::XLarge);
+        .set_fontsize(RelativeSize::XLarge);
     Ok(())
 }
 
@@ -252,7 +252,7 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
         }
         axs[(0, col)]
             .set_title(format!("{vert_exag}"))
-            .set_size(sized(18.0));
+            .set_fontsize(sized(18.0));
     }
     for (row, mode) in ["Hillshade", "hsv", "overlay", "soft"]
         .into_iter()
@@ -277,7 +277,7 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
         )?
         .set_halign(HAlign::Center)
         .set_valign(VAlign::Bottom)
-        .set_size(sized(20.0));
+        .set_fontsize(sized(20.0));
     axs[(2, 0)]
         .annotate(
             "Blend Mode",
@@ -291,7 +291,7 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
         )?
         .set_halign(HAlign::Right)
         .set_valign(VAlign::Center)
-        .set_size(sized(20.0))
+        .set_fontsize(sized(20.0))
         .set_rotation(90.0);
     fig.subplots_adjust(&SubplotOverrides {
         bottom: Some(0.05),
@@ -323,7 +323,7 @@ fn mri_with_eeg(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
     let axd = fig.subplot_mosaic(
         &named_mosaic(&[&["image", "density"], &["EEG", "EEG"]])?,
-        &MosaicOptions {
+        MosaicOptions {
             width_ratios: Some(vec![1.05, 2.0]),
             ..MosaicOptions::default()
         },
@@ -346,7 +346,7 @@ fn mri_with_eeg(fig: &Figure) -> CaseResult {
     let edges: Vec<f64> = (0..=128).map(|i| f64::from(i) * 512.0).collect();
     density.hist(
         &[intensities],
-        &HistPlotOptions {
+        HistPlotOptions {
             layout: HistOptions {
                 bins: Some(Bins::Edges(edges)),
                 ..HistOptions::default()

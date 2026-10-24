@@ -9,6 +9,7 @@ use crate::colors::ColorError;
 use crate::contour::ContourError;
 use crate::gridspec::GridSpecError;
 use crate::scale::ScaleError;
+use crate::ticker::TickerError;
 use crate::tri::TriError;
 
 /// An invalid argument to a 3-D axes or one of its plotting methods.
@@ -36,7 +37,7 @@ pub enum Axes3DError {
     /// Both wireframe strides are zero.
     NoStride,
     /// A tick locator failed while autoscaling.
-    Ticker(String),
+    Ticker(TickerError),
     /// A colour that cannot be resolved.
     Color(ColorError),
     /// Colours or styles that cannot be resolved.
@@ -113,7 +114,7 @@ impl fmt::Display for Axes3DError {
                 axis.name()
             ),
             Self::Scale(err) => err.fmt(f),
-            Self::Ticker(message) => write!(f, "cannot autoscale: {message}"),
+            Self::Ticker(err) => write!(f, "cannot autoscale: {err}"),
             Self::Color(err) => err.fmt(f),
             Self::Style(message) => f.write_str(message),
             Self::Plot(err) => err.fmt(f),
@@ -133,6 +134,7 @@ impl std::error::Error for Axes3DError {
             Self::Tri(err) => Some(err),
             Self::Grid(err) => Some(err),
             Self::Scale(err) => Some(err),
+            Self::Ticker(err) => Some(err),
             _ => None,
         }
     }

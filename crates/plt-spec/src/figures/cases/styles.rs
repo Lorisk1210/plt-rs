@@ -114,7 +114,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .into_iter()
             .map(|k| of_x(|x| (x * k).sin() * k))
             .collect();
-        fig.subplot().boxplot(&data, &BoxplotOptions::default())?;
+        fig.subplot().boxplot(&data, BoxplotOptions::default())?;
         Ok(())
     })
     .sized(5.0, 3.0, 100.0)
@@ -284,7 +284,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             color: vec![Color::from("C2")],
             ..HistPlotOptions::default()
         };
-        ax.hist(&[SpecRng::new(400).normal(500, 0.0, 1.0)], &options)?;
+        ax.hist(&[SpecRng::new(400).normal(500, 0.0, 1.0)], options)?;
         ax.add_patch(Rectangle::new((-3.0, 40.0), 1.5, 15.0))
             .update_props(PatchProps::default().hatch("//"));
         Ok(())
@@ -325,7 +325,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.scatter_with(x(), of_x(f64::sin), scatter)?;
         let errors = ErrorbarOptions {
             yerr: Some(0.2.into()),
-            fmt: "o".into(),
+            fmt: "o".parse()?,
             ..ErrorbarOptions::default()
         };
         ax.errorbar(every_third(&x()), every_third(&of_x(f64::cos)), errors)?;

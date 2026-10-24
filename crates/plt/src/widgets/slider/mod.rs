@@ -8,7 +8,7 @@ use std::rc::{Rc, Weak};
 use plt_core::Point;
 use plt_text::{HAlign, VAlign};
 
-use super::{Connections, Observers};
+use super::{CallbackId, Connections, Observers};
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::colors::Color;
@@ -333,8 +333,8 @@ pub struct Slider {
 
 impl Slider {
     /// Turns `ax` into a slider over `valmin..valmax` labelled `label`.
-    pub fn new(ax: &Axes, label: &str, valmin: f64, valmax: f64, options: &SliderOptions) -> Self {
-        let base = SliderBase::new(ax, valmin, valmax, options);
+    pub fn new(ax: &Axes, label: &str, valmin: f64, valmax: f64, options: SliderOptions) -> Self {
+        let base = SliderBase::new(ax, valmin, valmax, &options);
         let valinit = base.in_range(options.valinit).unwrap_or(valmin);
         let track = base.track(&options.track_color, 1.0);
         let poly = match options.orientation {
@@ -440,9 +440,16 @@ impl Slider {
         &self.parts.valtext
     }
 
-    /// Runs `callback` with each new value (matplotlib's `on_changed`).
-    pub fn on_changed(&self, mut callback: impl FnMut(f64) + 'static) {
-        self.parts.changed.connect(move |&value| callback(value));
+    /// Runs `callback` with each new value (matplotlib's `on_changed`);
+    /// returns its id for [`Slider::disconnect`].
+    pub fn on_changed(&self, mut callback: impl FnMut(f64) + 'static) -> CallbackId {
+        self.parts.changed.connect(move |&value| callback(value))
+    }
+
+    /// Disconnects the callback with id `id` (matplotlib's `disconnect`);
+    /// returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.parts.changed.disconnect(id)
     }
 }
 
@@ -463,7 +470,7 @@ mod tests {
             "Freq",
             0.1,
             30.0,
-            &SliderOptions {
+            SliderOptions {
                 valinit: 5.0,
                 ..SliderOptions::default()
             },
@@ -495,7 +502,7 @@ mod tests {
             "Amp",
             0.0,
             10.0,
-            &SliderOptions {
+            SliderOptions {
                 valinit: 7.2,
                 valstep: Some(ValStep::Step(1.0)),
                 orientation: Orientation::Vertical,
@@ -521,7 +528,7 @@ mod tests {
             poly: PatchProps::default().facecolor("tab:green").alpha(0.6),
             ..SliderOptions::default()
         };
-        let slider = Slider::new(&ax, "s", 0.0, 1.0, &options);
+        let slider = Slider::new(&ax, "s", 0.0, 1.0, options);
         assert_eq!(slider.parts.handle.markersize(), 14.0);
         assert_eq!(slider.parts.poly.alpha(), Some(0.6));
     }

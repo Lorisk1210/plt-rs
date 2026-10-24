@@ -197,7 +197,7 @@ pub(super) fn colorbar_ticks(args: Args<'_>) -> Outcome {
     let ticks = colorbar
         .long_axis()
         .ticklocs(false)
-        .map_err(ProbeError::Rejected)?;
+        .map_err(ProbeError::rejected)?;
     Ok(Json::from(ticks))
 }
 

@@ -147,7 +147,7 @@ impl Mesh {
     }
 
     /// Values at explicit coordinates.
-    pub fn with_coords(
+    pub fn from_coords(
         x: impl Into<MeshCoords>,
         y: impl Into<MeshCoords>,
         values: impl Into<MeshValues>,
@@ -313,14 +313,14 @@ mod tests {
     #[test]
     fn auto_shading_follows_the_grid_size() {
         let flat = pcolor_args(
-            Mesh::with_coords([0.0, 1.0, 2.0], [0.0, 1.0], values(1, 2)),
+            Mesh::from_coords([0.0, 1.0, 2.0], [0.0, 1.0], values(1, 2)),
             Shading::Auto,
             true,
         )
         .unwrap();
         assert_eq!(flat.x.shape(), (2, 3));
         let nearest = pcolor_args(
-            Mesh::with_coords([1.0, 2.0, 4.0, 8.0], [0.0, 1.0, 3.0], values(3, 4)),
+            Mesh::from_coords([1.0, 2.0, 4.0, 8.0], [0.0, 1.0, 3.0], values(3, 4)),
             Shading::Auto,
             true,
         )
@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn mismatched_grids_are_rejected() {
         let err = pcolor_args(
-            Mesh::with_coords([0.0, 1.0], [0.0, 1.0], values(3, 3)),
+            Mesh::from_coords([0.0, 1.0], [0.0, 1.0], values(3, 3)),
             Shading::Flat,
             true,
         );
@@ -351,7 +351,7 @@ mod tests {
             Some(ImageError::IncompatibleCoordinates)
         );
         let nan = pcolor_args(
-            Mesh::with_coords([0.0, f64::NAN, 2.0], [0.0, 1.0], values(1, 2)),
+            Mesh::from_coords([0.0, f64::NAN, 2.0], [0.0, 1.0], values(1, 2)),
             Shading::Flat,
             true,
         );

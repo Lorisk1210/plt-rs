@@ -174,8 +174,10 @@ pub(super) const CASES: &[FigureCase] = &[
     .sized(3.0, 4.0, 100.0),
     FigureCase::new("mpl_figure/submerged_with_colorbar", |fig| {
         fig.set_layout_engine(LayoutEngine::constrained());
-        let axes =
-            fig.subplot_mosaic(&Mosaic::parse("AABBCC;DDDEEE")?, &MosaicOptions::default())?;
+        let axes = fig.subplot_mosaic(
+            &"AABBCC;DDDEEE".parse::<Mosaic>()?,
+            MosaicOptions::default(),
+        )?;
         let ax = axes.get("A").ok_or("no axes A")?;
         let z = Grid::from_rows([[0.0, 1.0], [2.0, 3.0]])?;
         let filled = ax.contourf(&QuadField::new(z), ContourOptions::default())?;

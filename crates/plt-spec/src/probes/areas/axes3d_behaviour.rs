@@ -116,7 +116,7 @@ fn autoscale(ax: &Axes3D) -> Result<Vec<Json>, ProbeError> {
 
 fn shared_retick(fig: &Figure, ax: &Axes3D) -> Result<Vec<Json>, ProbeError> {
     let other = made(fig.add_subplot_3d(2, 1, 2, Axes3DOptions::default()))?;
-    made(other.sharez(ax))?;
+    made(other.share_z(ax))?;
     plot(ax, [0.0, 1.0], [0.0, 1.0], [0.0, 2.0])?;
     plot(&other, [0.0, 1.0], [0.0, 1.0], [0.0, 2.0])?;
     ax.zaxis().set_ticks(&[-0.5, 0.0, 2.0, 2.5]);

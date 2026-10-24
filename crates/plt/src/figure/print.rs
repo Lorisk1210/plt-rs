@@ -272,7 +272,7 @@ impl Figure {
     /// # Errors
     ///
     /// When the canvas cannot be created or some artists cannot be drawn.
-    pub fn render_raster_with(&self, options: &SaveOptions) -> Result<RasterRenderer, SaveError> {
+    pub fn render_raster_with(&self, options: SaveOptions) -> Result<RasterRenderer, SaveError> {
         let (canvas, problems) = self.render_raster_partial(options)?;
         problems.map_or(Ok(canvas), |errors| Err(SaveError::Draw(errors)))
     }
@@ -286,9 +286,9 @@ impl Figure {
     /// When the canvas cannot be created.
     pub fn render_raster_partial(
         &self,
-        options: &SaveOptions,
+        options: SaveOptions,
     ) -> Result<(RasterRenderer, Option<DrawErrors>), SaveError> {
-        let (saving, page) = self.begin_print(options, None);
+        let (saving, page) = self.begin_print(&options, None);
         let mut canvas = Self::raster_canvas_sized(page.width, page.height, page.dpi)?;
         let problems = self.draw(&mut canvas).err();
         drop(saving);
@@ -387,13 +387,13 @@ mod tests {
         let fig = Figure::with_size(6.0, 4.0, 50.0);
         let ax = fig.subplot();
         ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).unwrap();
-        let full = fig.render_raster_with(&SaveOptions::default()).unwrap();
+        let full = fig.render_raster_with(SaveOptions::default()).unwrap();
         assert_eq!(full.to_image().width(), 300);
         let tight = SaveOptions {
             bbox_inches: Some(BboxInches::Tight),
             ..SaveOptions::default()
         };
-        let cropped = fig.render_raster_with(&tight).unwrap().to_image();
+        let cropped = fig.render_raster_with(tight).unwrap().to_image();
         assert!(cropped.width() < 300 && cropped.height() < 200);
         // The background reaches the corners and the figure is restored.
         assert_eq!(cropped.pixel(0, 0), Some([255, 255, 255, 255]));
@@ -430,7 +430,7 @@ mod tests {
             pad_inches: Some(0.0),
             ..SaveOptions::default()
         };
-        let image = fig.render_raster_with(&options).unwrap().to_image();
+        let image = fig.render_raster_with(options).unwrap().to_image();
         let (w, h) = (image.width(), image.height());
         for (x, y) in [
             (1, 1),
@@ -453,7 +453,7 @@ mod tests {
             transparent: Some(true),
             ..SaveOptions::default()
         };
-        let image = fig.render_raster_with(&options).unwrap().to_image();
+        let image = fig.render_raster_with(options).unwrap().to_image();
         assert_eq!((image.width(), image.height()), (200, 100));
         assert_eq!(
             image.pixel(0, 0).map(|p| p[3]),
@@ -492,7 +492,7 @@ mod tests {
             transparent: Some(true),
             ..SaveOptions::default()
         };
-        let image = fig.render_raster_with(&options).unwrap().to_image();
+        let image = fig.render_raster_with(options).unwrap().to_image();
         assert_eq!(image.pixel(50, 50).map(|p| p[3]), Some(0), "centre");
         assert_eq!(image.pixel(5, 5).map(|p| p[3]), Some(0), "subfigure");
         assert_eq!(sub.facecolor(), Rgba::new(1.0, 0.0, 0.0, 1.0), "restored");

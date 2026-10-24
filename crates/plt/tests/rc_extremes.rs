@@ -39,7 +39,7 @@ fn draw_with(key: &str, value: &str) -> bool {
             SaveFormat::Pdf,
             SaveFormat::Eps,
         ] {
-            let _ = fig.to_format(format, &SaveOptions::default());
+            let _ = fig.to_format(format, SaveOptions::default());
         }
         true
     })

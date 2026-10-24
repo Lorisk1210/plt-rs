@@ -26,7 +26,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.set_title_pad(20.0);
         // matplotlib's second set_title resets the pad to axes.titlepad.
         ax.set_title_at(TitleLocation::Left, "low")
-            .set_size(FontSize::Relative(RelativeSize::Small));
+            .set_fontsize(FontSize::Relative(RelativeSize::Small));
         ax.set_title_y(TitleLocation::Left, 0.9);
         Ok(())
     })

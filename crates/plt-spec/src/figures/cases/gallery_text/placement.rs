@@ -12,10 +12,7 @@ use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{
-    HorizontalAlignment as HAlign, Text, TextBoxProps, TextRotationMode as RotationMode,
-    VerticalAlignment as VAlign,
-};
+use plt::text::{HAlign, Text, TextBoxProps, TextRotationMode as RotationMode, VAlign};
 use plt::transforms::Point;
 
 use crate::figures::cases::common::{blank, styled_box, tickless};
@@ -227,7 +224,7 @@ fn rotation_mode(fig: &Figure, mode: RotationMode, name: &str) -> CaseResult {
     }
     axs[(0, 1)]
         .set_title(format!("rotation_mode='{name}'"))
-        .set_fontsize_relative(RelativeSize::Large);
+        .set_fontsize(RelativeSize::Large);
     let shaded = || PatchProps::default().facecolor("C1").alpha(0.3);
     let mut texts = Vec::new();
     for (row, (valign, _)) in valignments.iter().enumerate() {
@@ -246,7 +243,7 @@ fn rotation_mode(fig: &Figure, mode: RotationMode, name: &str) -> CaseResult {
             )?;
             let text = ax.text(0.5, 0.5, "Tpg");
             align(&text, *halign, *valign)
-                .set_fontsize_relative(RelativeSize::XLarge)
+                .set_fontsize(RelativeSize::XLarge)
                 .set_rotation(40.0)
                 .set_rotation_mode(mode);
             if mode == RotationMode::Anchor {
@@ -276,7 +273,7 @@ fn rotation_mode(fig: &Figure, mode: RotationMode, name: &str) -> CaseResult {
 }
 
 fn demo_text_rotation_mode(fig: &Figure) -> CaseResult {
-    let subfigs = fig.subfigures(1, 2, &SubfigureOptions::default())?;
+    let subfigs = fig.subfigures(1, 2, SubfigureOptions::default())?;
     rotation_mode(&subfigs[(0, 0)], RotationMode::Default, "default")?;
     rotation_mode(&subfigs[(0, 1)], RotationMode::Anchor, "anchor")
 }
@@ -347,7 +344,7 @@ fn multiline_2(fig: &Figure) -> CaseResult {
     });
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             which: TickLevel::Both,
             ..GridOptions::default()
         },

@@ -97,7 +97,7 @@ fn font_families(font: &FontRequest) -> String {
         let family = normalize(family);
         let mut expanded = Vec::new();
         if ALIASES.contains(&family.as_str())
-            && let Some(generic) = GenericFamily::parse(&family)
+            && let Ok(generic) = family.parse::<GenericFamily>()
         {
             expanded.extend(font.generics.get(generic).iter().map(|n| normalize(n)));
         }

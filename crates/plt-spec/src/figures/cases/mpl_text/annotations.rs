@@ -5,7 +5,7 @@ use plt::axes::TickLabelProps;
 use plt::coords::{CoordUnit, Coords};
 use plt::dates::DateTime;
 use plt::prelude::*;
-use plt::text::{AnnotateOptions, VerticalAlignment};
+use plt::text::{AnnotateOptions, VAlign};
 use plt::ticker::NullLocator;
 use plt::transforms::Point;
 
@@ -34,7 +34,7 @@ fn signed_annotations(fig: &Figure, unit: &str, placements: [SignedPlacement; 3]
             let note = ax.annotate(format!("{sign} {name}"), xy, options)?;
             note.set_fontsize(32.0);
             if sign == '-' {
-                note.set_valign(VerticalAlignment::Top);
+                note.set_valign(VAlign::Top);
             }
         }
     }
@@ -152,7 +152,7 @@ fn buffer_size(fig: &Figure) -> CaseResult {
         color: Some("w".into()),
         ..TickLabelProps::default()
     };
-    ax.yaxis().set_major_ticklabel_props(1, &white);
+    ax.yaxis().set_major_ticklabel_props(1, white);
     Ok(())
 }
 

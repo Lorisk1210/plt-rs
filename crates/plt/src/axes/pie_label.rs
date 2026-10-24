@@ -5,7 +5,7 @@ use super::{Axes, PlotError};
 use crate::colors::Color;
 use crate::fonts::FontSize;
 use crate::patches::{Patch, Wedge};
-use crate::text::{HorizontalAlignment, Text, VerticalAlignment};
+use crate::text::{HAlign, Text, VAlign};
 use crate::ticker::pyfmt::{StrTemplate, TemplateValue};
 
 /// The labels [`Axes::pie_label`] writes.
@@ -126,8 +126,8 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::{PieLabelOptions, PieOptions};
     /// let ax = Figure::new().subplot();
-    /// let mut pie = ax.pie(&[1.0, 3.0], &PieOptions::default())?;
-    /// let texts = ax.pie_label(&mut pie, "{absval:d} ({frac:.0%})", &PieLabelOptions::default())?;
+    /// let mut pie = ax.pie(&[1.0, 3.0], PieOptions::default())?;
+    /// let texts = ax.pie_label(&mut pie, "{absval:d} ({frac:.0%})", PieLabelOptions::default())?;
     /// assert_eq!(texts[1].text(), "3 (75%)");
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
@@ -140,7 +140,7 @@ impl Axes {
         &self,
         container: &mut PieContainer,
         labels: impl Into<PieLabels>,
-        options: &PieLabelOptions,
+        options: PieLabelOptions,
     ) -> Result<Vec<Text>, PlotError> {
         let texts = match labels.into() {
             PieLabels::Format(template) => {
@@ -195,27 +195,27 @@ impl Axes {
                 let x = shape.center.x + placement.distance * shape.r * thetam.cos();
                 let y = shape.center.y + placement.distance * shape.r * thetam.sin();
                 let halign = match (placement.outer, x > 0.0) {
-                    (false, _) => HorizontalAlignment::Center,
-                    (true, true) => HorizontalAlignment::Left,
-                    (true, false) => HorizontalAlignment::Right,
+                    (false, _) => HAlign::Center,
+                    (true, true) => HAlign::Left,
+                    (true, false) => HAlign::Right,
                 };
                 let (valign, rotation) = if placement.rotate {
                     let valign = match (placement.outer, y > 0.0) {
-                        (false, _) => VerticalAlignment::Center,
-                        (true, true) => VerticalAlignment::Bottom,
-                        (true, false) => VerticalAlignment::Top,
+                        (false, _) => VAlign::Center,
+                        (true, true) => VAlign::Bottom,
+                        (true, false) => VAlign::Top,
                     };
                     let flip = if x > 0.0 { 0.0 } else { 180.0 };
                     (valign, thetam.to_degrees() + flip)
                 } else {
-                    (VerticalAlignment::Center, 0.0)
+                    (VAlign::Center, 0.0)
                 };
                 let text = self.text(x, y, label.clone());
                 text.set_rotation(rotation)
                     .set_halign(halign)
                     .set_valign(valign);
                 if let Some(size) = size {
-                    text.set_size(size);
+                    text.set_fontsize(size);
                 }
                 if let Some(color) = color {
                     text.set_color(color.clone());

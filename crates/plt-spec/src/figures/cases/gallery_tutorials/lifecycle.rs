@@ -6,7 +6,7 @@
 use plt::axes::{Axes, PlotError, TickLabelProps, TickLevel};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 use plt::ticker::FuncFormatter;
 
 use crate::figures::{CaseResult, FigureCase};
@@ -46,7 +46,7 @@ fn slanted_revenue(fig: &Figure) -> Result<Axes, PlotError> {
         halign: Some(HAlign::Right),
         ..TickLabelProps::default()
     };
-    ax.xaxis().set_ticklabel_props(TickLevel::Major, &slanted);
+    ax.xaxis().set_ticklabel_props(TickLevel::Major, slanted);
     Ok(ax)
 }
 

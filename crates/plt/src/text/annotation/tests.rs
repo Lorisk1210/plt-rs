@@ -238,8 +238,8 @@ fn text_can_be_offset_from_another_artist() {
         .annotate("below", (1.0, 1.0), options)
         .expect("annotated");
     below
-        .set_halign(crate::text::HorizontalAlignment::Center)
-        .set_valign(crate::text::VerticalAlignment::Top);
+        .set_halign(crate::text::HAlign::Center)
+        .set_valign(crate::text::VAlign::Top);
     let (above, under) = (
         anchor.window_extent().expect("laid out"),
         below.window_extent().expect("laid out"),

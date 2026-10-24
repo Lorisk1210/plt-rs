@@ -19,7 +19,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "Freq",
             0.1,
             30.0,
-            &freq,
+            freq,
         );
         let amp = SliderOptions {
             valinit: 7.0,
@@ -27,20 +27,14 @@ pub(crate) const CASES: &[FigureCase] = &[
             orientation: Orientation::Vertical,
             ..SliderOptions::default()
         };
-        let _s2 = Slider::new(
-            &fig.add_axes([0.05, 0.1, 0.05, 0.6]),
-            "Amp",
-            0.0,
-            10.0,
-            &amp,
-        );
+        let _s2 = Slider::new(&fig.add_axes([0.05, 0.1, 0.05, 0.6]), "Amp", 0.0, 10.0, amp);
         let _s3 = RangeSlider::new(
             &fig.add_axes([0.2, 0.6, 0.6, 0.08]),
             "Range",
             0.0,
             1.0,
             Some((0.2, 0.7)),
-            &SliderOptions::default(),
+            SliderOptions::default(),
         );
         let reset = ButtonOptions {
             color: Color::from("0.9"),

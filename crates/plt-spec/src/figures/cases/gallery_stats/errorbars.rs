@@ -45,7 +45,7 @@ fn errorbar_features(fig: &Figure) -> CaseResult {
     let axs = fig.subplots_shared(2, 1, Share::All, Share::None)?;
     let (ax0, ax1) = (&axs[(0, 0)], &axs[(1, 0)]);
     let symmetric = ErrorbarOptions {
-        fmt: "-o".into(),
+        fmt: "-o".parse()?,
         ..yerr(error.clone())
     };
     ax0.errorbar(&x, &y, symmetric)?;
@@ -55,7 +55,7 @@ fn errorbar_features(fig: &Figure) -> CaseResult {
             lower: map(&error, |e| 0.4 * e),
             upper: error,
         }),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         ..ErrorbarOptions::default()
     };
     ax1.errorbar(&x, &y, asymmetric)?;
@@ -277,7 +277,7 @@ fn errorbars_and_boxes(fig: &Figure) -> CaseResult {
             lower: y_below.to_vec(),
             upper: y_above.to_vec(),
         }),
-        fmt: "none".into(),
+        fmt: "none".parse()?,
         ecolor: Some("k".into()),
         ..ErrorbarOptions::default()
     };

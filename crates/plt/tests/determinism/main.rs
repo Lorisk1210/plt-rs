@@ -153,7 +153,7 @@ fn svg_hashsalt_fixes_the_ids() -> Result<(), Failure> {
                 }),
                 ..SaveOptions::default()
             };
-            Ok(fig.to_svg_with(&options)?)
+            Ok(fig.to_svg_with(options)?)
         })
     };
     let (salted, again, other) = (draw("asdf")?, draw("asdf")?, draw("qwerty")?);

@@ -104,7 +104,7 @@ fn contourf_demo_2(fig: &Figure) -> CaseResult {
         },
     )?;
     ax.set_title("Listed colors (3 masked regions)");
-    cs4.clabel(&ClabelOptions {
+    cs4.clabel(ClabelOptions {
         fmt: LabelFormat::Printf(PrintfFormat::parse("%2.1f")?),
         colors: Some(colors(&["w"])),
         fontsize: Some(FontSize::Points(14.0)),

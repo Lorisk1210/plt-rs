@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontStyle, FontWeight};
+use crate::image::UnknownName;
 use crate::lines::LineStyle;
 use crate::patheffects::PathEffect;
 use crate::rc::{ColorOrInherit, RcParams};
@@ -36,16 +37,18 @@ impl TickDirection {
 }
 
 impl FromStr for TickDirection {
-    type Err = String;
+    type Err = UnknownName;
 
-    fn from_str(name: &str) -> Result<Self, String> {
+    /// Parses matplotlib's name (`in`, `out`, `inout`).
+    fn from_str(name: &str) -> Result<Self, UnknownName> {
         match name {
             "in" => Ok(Self::In),
             "out" => Ok(Self::Out),
             "inout" => Ok(Self::InOut),
-            other => Err(format!(
-                "{other:?} is not a tick direction (in, out, inout)"
-            )),
+            _ => Err(UnknownName {
+                kind: "tick direction",
+                name: name.to_owned(),
+            }),
         }
     }
 }

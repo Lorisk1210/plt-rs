@@ -18,7 +18,7 @@ use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
 use plt::stats::{Bins, HistOptions, HistOrientation};
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 
 use super::{EXTENT, SEED};
 use crate::figures::cases::common::bivariate_normal;
@@ -356,8 +356,8 @@ fn scatter_hist_locatable_axes(fig: &Figure) -> CaseResult {
         },
         ..HistPlotOptions::default()
     };
-    ax_histx.hist(&[&x], &hist(HistOrientation::Vertical))?;
-    ax_histy.hist(&[&y], &hist(HistOrientation::Horizontal))?;
+    ax_histx.hist(&[&x], hist(HistOrientation::Vertical))?;
+    ax_histy.hist(&[&y], hist(HistOrientation::Horizontal))?;
     ax_histx.set_yticks(vec![0.0, 50.0, 100.0]);
     ax_histy.set_xticks(vec![0.0, 50.0, 100.0]);
     Ok(())

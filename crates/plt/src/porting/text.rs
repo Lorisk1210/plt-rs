@@ -4,8 +4,8 @@
 //! [`Text`] handle. matplotlib styles text with keywords at creation
 //! (`fontsize=`, `ha=`, `bbox=`, ...); in plt-rs you style the returned
 //! handle, or apply a whole [`TextProps`] with [`Text::update_props`].
-//! Alignments are enums ([`HorizontalAlignment`], [`VerticalAlignment`]);
-//! a text box is a [`TextBoxProps`] whose [`BoxStyle`] parses matplotlib's
+//! Alignments are enums ([`HAlign`], [`VAlign`]) that parse matplotlib's
+//! names; a font size is points or a keyword ([`FontSize`]); a text box is a [`TextBoxProps`] whose [`BoxStyle`] parses matplotlib's
 //! `"round,pad=0.3"` strings.
 //!
 //! Fonts follow matplotlib's font manager. A [`FontProperties`] describes
@@ -33,9 +33,9 @@
 //! | `ax.text(x, y, s)`, `fig.text(x, y, s)`       | [`Axes::text`], [`Figure::text`]                  |
 //! | `text(..., transform=ax.transAxes)`           | [`ArtistHandle::set_transform`]`(ax.trans_axes())` |
 //! | `t.set_text(s)`, `t.get_text()`               | [`Text::set_text`], [`Text::text`]                |
-//! | `fontsize=12`, `fontsize="large"`             | [`Text::set_fontsize`]`(12.0)`, [`Text::set_fontsize_relative`]`(RelativeSize::Large)` |
+//! | `fontsize=12`, `fontsize="large"`             | [`Text::set_fontsize`]`(12.0)`, [`Text::set_fontsize`]`(RelativeSize::Large)` |
 //! | `color=`, `rotation=`, `rotation_mode=`       | [`Text::set_color`], [`Text::set_rotation`], [`Text::set_rotation_mode`] |
-//! | `ha="center"`, `va="top"`, `multialignment=`  | [`Text::set_halign`], [`Text::set_valign`], [`Text::set_multialign`] |
+//! | `ha="center"`, `va="top"`, `multialignment=`  | [`Text::set_halign`], [`Text::set_valign`], [`Text::set_multialign`]; `"top".parse::<VAlign>()?` |
 //! | `fontfamily=`, `fontstyle=`, `fontweight=`    | [`Text::set_family`], [`Text::set_style`], [`Text::set_weight`] |
 //! | `fontproperties=fp`, `t.get_fontproperties()` | [`Text::set_font`], [`Text::font`]                |
 //! | `linespacing=`, `wrap=True`                   | [`Text::set_linespacing`], [`Text::set_wrap`]     |
@@ -76,13 +76,13 @@
 //! use plt::fonts::FontWeight;
 //! use plt::patches::{BoxStyle, PatchProps};
 //! use plt::prelude::*;
-//! use plt::text::{HorizontalAlignment, TextBoxProps, VerticalAlignment};
+//! use plt::text::{HAlign, TextBoxProps, VAlign};
 //!
 //! let ax = Figure::new().subplot();
 //! let t = ax.text(0.5, 0.5, "centred");
 //! t.set_transform(ax.trans_axes())
-//!     .set_halign(HorizontalAlignment::Center)
-//!     .set_valign(VerticalAlignment::Center)
+//!     .set_halign(HAlign::Center)
+//!     .set_valign(VAlign::Center)
 //!     .set_fontsize(14.0)
 //!     .set_color("tab:red")
 //!     .set_rotation(15.0)
@@ -118,7 +118,7 @@
 //! let t = ax.text(0.0, 0.0, "styled");
 //! t.set_family(["DejaVu Serif"])
 //!     .set_style(FontStyle::Italic)
-//!     .set_fontsize_relative(RelativeSize::Large);
+//!     .set_fontsize(RelativeSize::Large);
 //! assert_eq!(t.font().families, ["DejaVu Serif"]);
 //!
 //! let params = rc::params();
@@ -171,7 +171,7 @@
 //! ```
 //! use plt::prelude::*;
 //! use plt::text::{
-//!     AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment, VerticalAlignment,
+//!     AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, VAlign,
 //! };
 //! use plt::transforms::Point;
 //!
@@ -193,7 +193,7 @@
 //!     ..AnnotateOptions::default()
 //! };
 //! let corner = ax.annotate("corner", (1.0, 1.0), options)?;
-//! corner.set_halign(HorizontalAlignment::Right).set_valign(VerticalAlignment::Top);
+//! corner.set_halign(HAlign::Right).set_valign(VAlign::Top);
 //! assert!("axes inches".parse::<plt::coords::Coords>().is_err());
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -213,7 +213,6 @@
 //! [`Text::set_text`]: crate::text::Text::set_text
 //! [`Text::text`]: crate::text::Text::text
 //! [`Text::set_fontsize`]: crate::text::Text::set_fontsize
-//! [`Text::set_fontsize_relative`]: crate::text::Text::set_fontsize_relative
 //! [`Text::set_color`]: crate::text::Text::set_color
 //! [`Text::set_rotation`]: crate::text::Text::set_rotation
 //! [`Text::set_rotation_mode`]: crate::text::Text::set_rotation_mode
@@ -234,8 +233,8 @@
 //! [`Text::layout`]: crate::text::Text::layout
 //! [`TextProps`]: crate::text::TextProps
 //! [`TextBoxProps`]: crate::text::TextBoxProps
-//! [`HorizontalAlignment`]: crate::text::HorizontalAlignment
-//! [`VerticalAlignment`]: crate::text::VerticalAlignment
+//! [`HAlign`]: crate::text::HAlign
+//! [`VAlign`]: crate::text::VAlign
 //! [`AnnotateOptions`]: crate::text::AnnotateOptions
 //! [`ArrowProps`]: crate::text::ArrowProps
 //! [`ArrowProps::Legacy`]: crate::text::ArrowProps::Legacy

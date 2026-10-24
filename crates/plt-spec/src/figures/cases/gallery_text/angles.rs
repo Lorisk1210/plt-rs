@@ -23,10 +23,7 @@ use plt::figure::Share;
 use plt::numeric::interp;
 use plt::patches::Arc;
 use plt::prelude::*;
-use plt::text::{
-    AnnotateOptions, Annotation, ArrowProps, HorizontalAlignment as HAlign,
-    VerticalAlignment as VAlign,
-};
+use plt::text::{AnnotateOptions, Annotation, ArrowProps, HAlign, VAlign};
 use plt::transforms::{Point, Transform};
 
 use crate::figures::cases::common::{arrow, styled_box};

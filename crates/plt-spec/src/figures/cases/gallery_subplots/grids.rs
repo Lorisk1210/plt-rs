@@ -9,7 +9,7 @@ use plt::gridspec::{GridSpec, GridSpecError, SubplotOverrides};
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions};
-use plt::text::{AnnotateOptions, HorizontalAlignment, VerticalAlignment};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 
 use super::{SEED, convolve};
 use crate::figures::cases::common::{map, tickless};
@@ -21,8 +21,8 @@ use crate::rng::SpecRng;
 fn label_axes(fig: &Figure) {
     for (i, ax) in fig.axes().iter().enumerate() {
         ax.text(0.5, 0.5, format!("ax{}", i + 1))
-            .set_valign(VerticalAlignment::Center)
-            .set_halign(HorizontalAlignment::Center);
+            .set_valign(VAlign::Center)
+            .set_halign(HAlign::Center);
         ax.tick_params(&TickParams {
             labelbottom: Some(false),
             labelleft: Some(false),
@@ -86,7 +86,7 @@ fn axes_demo(fig: &Figure) -> CaseResult {
         },
         ..HistPlotOptions::default()
     };
-    right_inset_ax.hist(&[&s], &density)?;
+    right_inset_ax.hist(&[&s], density)?;
     right_inset_ax.set_title("Probability");
     tickless(&right_inset_ax);
     let left_inset_ax = fig.add_axes([0.2, 0.6, 0.2, 0.2]);
@@ -191,7 +191,7 @@ fn gridspec_and_subplots(fig: &Figure) -> CaseResult {
                 ..AnnotateOptions::default()
             },
         )?
-        .set_valign(VerticalAlignment::Center);
+        .set_valign(VAlign::Center);
     fig.tight_layout(&TightLayout::default())?;
     Ok(())
 }

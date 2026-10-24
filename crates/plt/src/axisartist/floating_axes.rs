@@ -185,7 +185,7 @@ impl GridHelperCurveLinear {
 /// let ax = FloatingAxes::new(fig.subplot(), helper)?;
 /// let (x0, x1) = ax.ax().xlim();
 /// assert!((x0 + 0.02).abs() < 1e-12 && (x1 - 2.02).abs() < 1e-12);
-/// let aux = ax.get_aux_axes(&tr);
+/// let aux = ax.aux_axes(&tr);
 /// aux.plot([0.0, 1.0], [0.0, 1.0])?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
@@ -386,7 +386,7 @@ mod tests {
         let (x0, x1) = ax.ax().xlim();
         assert!((x0 + 0.02).abs() < 1e-12 && (x1 - 2.02).abs() < 1e-12);
         assert!(ax.patch_path().has_curves());
-        let aux = ax.get_aux_axes(&AuxTransform::polar());
+        let aux = ax.aux_axes(&AuxTransform::polar());
         ax.share_patch(&aux);
         let shared = aux
             .raw()
@@ -415,7 +415,7 @@ mod tests {
         // The white background, and the figure's.
         let whites = |svg: &str| svg.matches("fill: #ffffff").count();
         let alone = whites(&fig.to_svg().unwrap());
-        let aux = ax.get_aux_axes(&AuxTransform::polar());
+        let aux = ax.aux_axes(&AuxTransform::polar());
         ax.share_patch(&aux);
         ax.ax().set_patch_zorder(0.9);
         assert_eq!(whites(&fig.to_svg().unwrap()), alone + 1);

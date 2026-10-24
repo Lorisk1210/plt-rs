@@ -9,7 +9,7 @@
 //! use plt::prelude::*;
 //! use plt::table::{TableLoc, TableOptions};
 //! let ax = Figure::new().subplot();
-//! let table = ax.table(&TableOptions {
+//! let table = ax.table(TableOptions {
 //!     col_labels: Some(vec!["A".into(), "B".into()]),
 //!     loc: TableLoc::Bottom,
 //!     ..TableOptions::with_text(vec![vec!["1".into(), "2".into()]])

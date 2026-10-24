@@ -20,7 +20,7 @@ use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
 use plt::text::AnnotateOptions;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 use plt::transforms::Affine2D;
 use plt_core::Point;
 
@@ -92,8 +92,8 @@ pub(super) fn simple_axis_pad(fig: &Figure) -> CaseResult {
                     ..AnnotateOptions::default()
                 },
             )?
-            .set_valign(VerticalAlignment::Top)
-            .set_halign(HorizontalAlignment::Center);
+            .set_valign(VAlign::Top)
+            .set_halign(HAlign::Center);
     }
     Ok(())
 }
@@ -120,7 +120,7 @@ pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
     ax2.ax().set_aspect(Aspect::Equal)?;
     ax2.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
     grid_below(&ax2);
-    let aux = ax2.get_aux_axes(&polar_degrees());
+    let aux = ax2.aux_axes(&polar_degrees());
     aux.plot_with(
         linspace(0.0, 30.0, 51),
         vec![10.0; 51],
@@ -128,7 +128,7 @@ pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
     )?;
     let (x, y) = (linspace(0.0, 90.0, 4), linspace(0.0, 10.0, 4));
     aux.pcolor(
-        Mesh::with_coords(x.clone(), y.clone(), arange_grid(3, 3)),
+        Mesh::from_coords(x.clone(), y.clone(), arange_grid(3, 3)),
         PcolorOptions::default(),
     )?;
     aux.contour(
@@ -143,7 +143,7 @@ pub(super) fn curvelinear_grid(fig: &Figure) -> CaseResult {
 
 /// `ax.grid(True, zorder=0)`.
 fn grid_below(ax: &axisartist::Axes) {
-    ax.grid(true, &GridOptions::default());
+    ax.grid(true, GridOptions::default());
     if let Some(gridlines) = ax.gridlines() {
         gridlines.set_zorder(0.0);
     }
@@ -197,8 +197,8 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
         },
     );
     let ax1 = FloatingAxes::new(fig.add_subplot(1, 3, 1)?, helper1)?;
-    ax1.grid(true, &GridOptions::default());
-    ax1.get_aux_axes(&tr1).bar(
+    ax1.grid(true, GridOptions::default());
+    ax1.aux_axes(&tr1).bar(
         [0.0, 1.0, 2.0, 3.0],
         [3.0, 2.0, 1.0, 3.0],
         BarOptions::default(),
@@ -224,8 +224,8 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
         },
     );
     let ax2 = FloatingAxes::new(fig.add_subplot(1, 3, 2)?, helper2)?;
-    ax2.grid(true, &GridOptions::default());
-    let aux2 = ax2.get_aux_axes(&tr2);
+    ax2.grid(true, GridOptions::default());
+    let aux2 = ax2.aux_axes(&tr2);
     // `aux2.patch = ax2.patch` and `ax2.patch.zorder = 0.9`.
     ax2.share_patch(&aux2);
     ax2.ax().set_patch_zorder(0.9);
@@ -266,8 +266,8 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
     top.label().set_axis_direction(SpineSide::Top);
     left.label().set_text(r"cz [km$^{-1}$]");
     top.label().set_text(r"$\alpha_{1950}$");
-    ax3.grid(true, &GridOptions::default());
-    let aux3 = ax3.get_aux_axes(&tr3);
+    ax3.grid(true, GridOptions::default());
+    let aux3 = ax3.aux_axes(&tr3);
     ax3.share_patch(&aux3);
     ax3.ax().set_patch_zorder(0.9);
     let theta: Vec<f64> = data
@@ -292,6 +292,6 @@ pub(super) fn floating_axis(fig: &Figure) -> CaseResult {
     lon.label().set_text(r"$r = 6$");
     ax.ax().set_aspect(Aspect::Equal)?;
     ax.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
-    ax.grid(true, &GridOptions::default());
+    ax.grid(true, GridOptions::default());
     Ok(())
 }

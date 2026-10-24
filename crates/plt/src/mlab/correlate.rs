@@ -39,11 +39,11 @@ pub struct Correlation {
 /// ```
 /// use plt::mlab::{XcorrOptions, xcorr};
 /// let opts = XcorrOptions { normed: false, maxlags: Some(1), ..XcorrOptions::default() };
-/// let c = xcorr(&[1.0, 0.0, 0.0], &[0.0, 1.0, 0.0], &opts).unwrap();
+/// let c = xcorr(&[1.0, 0.0, 0.0], &[0.0, 1.0, 0.0], opts).unwrap();
 /// assert_eq!(c.lags, vec![-1, 0, 1]);
 /// assert_eq!(c.values, vec![1.0, 0.0, 0.0]);
 /// ```
-pub fn xcorr(x: &[f64], y: &[f64], opts: &XcorrOptions) -> Result<Correlation, MlabError> {
+pub fn xcorr(x: &[f64], y: &[f64], opts: XcorrOptions) -> Result<Correlation, MlabError> {
     let n = x.len();
     if n != y.len() {
         return Err(MlabError::LengthMismatch { x: n, y: y.len() });
@@ -69,7 +69,7 @@ pub fn xcorr(x: &[f64], y: &[f64], opts: &XcorrOptions) -> Result<Correlation, M
 }
 
 /// The autocorrelation of `x` (`Axes.acorr`, i.e. `xcorr(x, x)`).
-pub fn acorr(x: &[f64], opts: &XcorrOptions) -> Result<Correlation, MlabError> {
+pub fn acorr(x: &[f64], opts: XcorrOptions) -> Result<Correlation, MlabError> {
     xcorr(x, x, opts)
 }
 
@@ -112,7 +112,7 @@ mod tests {
         let x = [1.0, -2.0, 3.0, 0.5, -1.0];
         let c = acorr(
             &x,
-            &XcorrOptions {
+            XcorrOptions {
                 maxlags: None,
                 ..XcorrOptions::default()
             },
@@ -127,11 +127,11 @@ mod tests {
     fn errors() {
         let opts = XcorrOptions::default();
         assert_eq!(
-            xcorr(&[1.0], &[1.0, 2.0], &opts),
+            xcorr(&[1.0], &[1.0, 2.0], opts.clone()),
             Err(MlabError::LengthMismatch { x: 1, y: 2 })
         );
         assert_eq!(
-            acorr(&[1.0; 5], &opts),
+            acorr(&[1.0; 5], opts.clone()),
             Err(MlabError::InvalidMaxLags {
                 maxlags: 10,
                 len: 5
@@ -142,12 +142,12 @@ mod tests {
             ..opts
         };
         assert_eq!(
-            acorr(&[1.0], &none),
+            acorr(&[1.0], none),
             Err(MlabError::InvalidMaxLags { maxlags: 0, len: 1 })
         );
         let zeros = acorr(
             &[0.0; 4],
-            &XcorrOptions {
+            XcorrOptions {
                 maxlags: Some(1),
                 ..XcorrOptions::default()
             },

@@ -7,7 +7,7 @@ use plt::image::{Extent, Interpolation};
 use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{AnnotateOptions, HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt::transforms::Point;
 
 use crate::figures::{CaseResult, FigureCase};

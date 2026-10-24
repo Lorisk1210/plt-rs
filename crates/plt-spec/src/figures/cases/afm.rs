@@ -6,7 +6,7 @@ use plt::fonts::{FontStyle, FontWeight};
 use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, TextRotationMode, VerticalAlignment};
+use plt::text::{HAlign, TextRotationMode, VAlign};
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -50,20 +50,20 @@ fn gallery(fig: &Figure) {
     fig.text(0.02, 0.1, r"math $\alpha^2+\frac{1}{2}$")
         .set_fontsize(11.0);
     fig.text(0.98, 0.95, "top right")
-        .set_halign(HorizontalAlignment::Right)
-        .set_valign(VerticalAlignment::Top);
+        .set_halign(HAlign::Right)
+        .set_valign(VAlign::Top);
     fig.text(0.75, 0.62, "centred\ntwo lines")
-        .set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center)
-        .set_multialign(Some(HorizontalAlignment::Center))
+        .set_halign(HAlign::Center)
+        .set_valign(VAlign::Center)
+        .set_multialign(Some(HAlign::Center))
         .set_fontsize(12.0);
     fig.text(0.7, 0.25, "rotated")
         .set_rotation(30.0)
-        .set_halign(HorizontalAlignment::Center);
+        .set_halign(HAlign::Center);
     fig.text(0.92, 0.1, "anchor")
         .set_rotation(90.0)
         .set_rotation_mode(TextRotationMode::Anchor)
-        .set_valign(VerticalAlignment::Bottom);
+        .set_valign(VAlign::Bottom);
 }
 
 /// `_layout`: a title, labels, tick labels, a legend and a suptitle placed

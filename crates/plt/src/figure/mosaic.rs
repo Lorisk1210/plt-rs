@@ -1,6 +1,7 @@
 //! Named subplot layouts (matplotlib's `subplot_mosaic`).
 
 use std::fmt;
+use std::str::FromStr;
 
 use super::Figure;
 use crate::axes::{Axes, AxisName};
@@ -21,6 +22,41 @@ pub enum MosaicCell {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mosaic {
     rows: Vec<Vec<MosaicCell>>,
+}
+
+impl FromStr for Mosaic {
+    type Err = MosaicError;
+
+    /// matplotlib's string mosaics: one character per cell, rows separated
+    /// by `;` (or by line breaks, ignoring blank lines and common
+    /// indentation), and `.` for empty cells; fails as [`Mosaic::new`].
+    ///
+    /// ```
+    /// use plt::figure::Mosaic;
+    /// let mosaic: Mosaic = "AAB;C.B".parse()?;
+    /// assert_eq!(mosaic.shape(), (2, 3));
+    /// # Ok::<(), plt::figure::MosaicError>(())
+    /// ```
+    fn from_str(layout: &str) -> Result<Self, MosaicError> {
+        let lines: Vec<String> = if layout.contains('\n') {
+            cleandoc(layout)
+        } else {
+            layout.split(';').map(str::to_owned).collect()
+        };
+        Self::new(
+            lines
+                .iter()
+                .map(|line| {
+                    line.chars()
+                        .map(|c| match c {
+                            '.' => MosaicCell::Empty,
+                            c => MosaicCell::Label(c.to_string()),
+                        })
+                        .collect()
+                })
+                .collect(),
+        )
+    }
 }
 
 /// Options of [`Figure::subplot_mosaic`].
@@ -191,41 +227,6 @@ impl Mosaic {
         Ok(Self { rows })
     }
 
-    /// matplotlib's string mosaics: one character per cell, rows separated
-    /// by `;` (or by line breaks, ignoring blank lines and common
-    /// indentation), and `.` for empty cells.
-    ///
-    /// ```
-    /// use plt::figure::Mosaic;
-    /// let mosaic = Mosaic::parse("AAB;C.B")?;
-    /// assert_eq!(mosaic.shape(), (2, 3));
-    /// # Ok::<(), plt::figure::MosaicError>(())
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// As [`Mosaic::new`].
-    pub fn parse(layout: &str) -> Result<Self, MosaicError> {
-        let lines: Vec<String> = if layout.contains('\n') {
-            cleandoc(layout)
-        } else {
-            layout.split(';').map(str::to_owned).collect()
-        };
-        Self::new(
-            lines
-                .iter()
-                .map(|line| {
-                    line.chars()
-                        .map(|c| match c {
-                            '.' => MosaicCell::Empty,
-                            c => MosaicCell::Label(c.to_string()),
-                        })
-                        .collect()
-                })
-                .collect(),
-        )
-    }
-
     /// `(rows, columns)`.
     pub fn shape(&self) -> (usize, usize) {
         (self.rows.len(), self.rows[0].len())
@@ -302,7 +303,7 @@ impl Figure {
     /// ```
     /// use plt::figure::{Figure, Mosaic, MosaicOptions};
     /// let fig = Figure::new();
-    /// let axes = fig.subplot_mosaic(&Mosaic::parse("AAB;C.B")?, &MosaicOptions::default())?;
+    /// let axes = fig.subplot_mosaic(&"AAB;C.B".parse::<Mosaic>()?, MosaicOptions::default())?;
     /// let labels: Vec<&str> = axes.iter().map(|(label, _)| label).collect();
     /// assert_eq!(labels, ["A", "B", "C"]);
     /// # Ok::<(), plt::figure::MosaicError>(())
@@ -315,7 +316,7 @@ impl Figure {
     pub fn subplot_mosaic(
         &self,
         mosaic: &Mosaic,
-        options: &MosaicOptions,
+        options: MosaicOptions,
     ) -> Result<MosaicAxes, MosaicError> {
         let (rows, cols) = mosaic.shape();
         let grid = GridSpec::with_ratios(
@@ -326,7 +327,7 @@ impl Figure {
             options.gridspec,
         )?;
         let mut entries = Vec::new();
-        self.lay_out_mosaic(&grid, mosaic, options, &mut entries)?;
+        self.lay_out_mosaic(&grid, mosaic, &options, &mut entries)?;
         if let Some((_, first)) = entries.first().cloned() {
             for (share, name) in [(options.sharex, AxisName::X), (options.sharey, AxisName::Y)] {
                 if !share {
@@ -391,7 +392,7 @@ mod tests {
 
     #[test]
     fn multi_line_layouts_are_dedented_like_docstrings() {
-        let shape = |layout: &str| Mosaic::parse(layout).map(|m| m.shape());
+        let shape = |layout: &str| layout.parse::<Mosaic>().map(|m| m.shape());
         assert_eq!(shape("\n    AB\n    CD\n"), Ok((2, 2)));
         assert_eq!(
             shape("  AB\n   CD"),
@@ -412,12 +413,12 @@ mod tests {
 
     #[test]
     fn strings_parse_into_rows() {
-        let mosaic = Mosaic::parse("AAB;C.B").unwrap();
+        let mosaic = "AAB;C.B".parse::<Mosaic>().unwrap();
         assert_eq!(mosaic.shape(), (2, 3));
-        let multiline = Mosaic::parse("\n    AB\n    CD\n").unwrap();
+        let multiline = "\n    AB\n    CD\n".parse::<Mosaic>().unwrap();
         assert_eq!(multiline.shape(), (2, 2));
         assert_eq!(
-            Mosaic::parse("AB;C").err(),
+            "AB;C".parse::<Mosaic>().err(),
             Some(MosaicError::Ragged {
                 expected: 2,
                 actual: 1
@@ -429,9 +430,9 @@ mod tests {
     fn labels_must_be_rectangles() {
         let fig = Figure::new();
         let options = MosaicOptions::default();
-        let bent = Mosaic::parse("AA;A.").unwrap();
+        let bent = "AA;A.".parse::<Mosaic>().unwrap();
         assert_eq!(
-            fig.subplot_mosaic(&bent, &options).err(),
+            fig.subplot_mosaic(&bent, options).err(),
             Some(MosaicError::NonRectangular("A".into()))
         );
     }
@@ -439,7 +440,7 @@ mod tests {
     #[test]
     fn nested_mosaics_and_sharing() {
         let fig = Figure::new();
-        let inner = Mosaic::parse("ab;cd").unwrap();
+        let inner = "ab;cd".parse::<Mosaic>().unwrap();
         let mosaic = Mosaic::new(vec![
             vec![MosaicCell::Label("main".into()), MosaicCell::Nested(inner)],
             vec![MosaicCell::Label("bottom".into()); 2],
@@ -449,7 +450,7 @@ mod tests {
             sharex: true,
             ..MosaicOptions::default()
         };
-        let axes = fig.subplot_mosaic(&mosaic, &options).unwrap();
+        let axes = fig.subplot_mosaic(&mosaic, options).unwrap();
         let labels: Vec<&str> = axes.iter().map(|(label, _)| label).collect();
         assert_eq!(labels, ["main", "a", "b", "c", "d", "bottom"]);
         let main = axes.get("main").unwrap();
@@ -470,7 +471,7 @@ mod tests {
             ..MosaicOptions::default()
         };
         let axes = fig
-            .subplot_mosaic(&Mosaic::parse("AB").unwrap(), &options)
+            .subplot_mosaic(&"AB".parse::<Mosaic>().unwrap(), options)
             .unwrap();
         let kind = |label: &str| axes.get(label).unwrap().projection();
         assert_eq!(

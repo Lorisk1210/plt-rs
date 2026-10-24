@@ -94,7 +94,7 @@ fn customized_violin(fig: &Figure) -> CaseResult {
     let [ax1, ax2, ax3] = [0, 1, 2].map(|col| axs[(0, col)].clone());
     ax1.set_title("Default violin plot");
     ax1.set_ylabel("Observed values");
-    ax1.violinplot(&data, &ViolinplotOptions::default())?;
+    ax1.violinplot(&data, ViolinplotOptions::default())?;
     ax2.set_title("Set colors of violins");
     ax2.set_ylabel("Observed values");
     let facecolors = ["yellow", "blue", "red", "green"]
@@ -106,7 +106,7 @@ fn customized_violin(fig: &Figure) -> CaseResult {
         linecolors: vec!["black".into()],
         ..ViolinDrawOptions::default()
     });
-    ax2.violinplot(&data, &colored)?;
+    ax2.violinplot(&data, colored)?;
     ax3.set_title("Customized violin plot");
     let bare = drawn(ViolinDrawOptions {
         showmeans: false,
@@ -116,7 +116,7 @@ fn customized_violin(fig: &Figure) -> CaseResult {
         linecolors: vec!["black".into()],
         ..ViolinDrawOptions::default()
     });
-    let parts = ax3.violinplot(&data, &bare)?;
+    let parts = ax3.violinplot(&data, bare)?;
     for pc in &parts.bodies {
         pc.set_edgecolor("black").set_linewidths(vec![1.0]);
         pc.set_alpha(Some(1.0));
@@ -224,7 +224,7 @@ impl Panel {
                     ..ViolinDrawOptions::default()
                 },
             };
-            ax.violinplot(data, &options)?;
+            ax.violinplot(data, options)?;
         }
         Ok(())
     }

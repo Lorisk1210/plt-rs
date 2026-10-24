@@ -90,6 +90,8 @@ mod test_data;
 mod trisurf;
 mod voxels;
 
+pub(crate) use state::Axes3DState;
+
 pub use art3d::{ProjectedOutline, ProjectedPath, ZSort};
 pub use aspect::Aspect3D;
 pub use axis_handle::Axis3D;

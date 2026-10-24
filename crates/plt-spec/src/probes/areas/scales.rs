@@ -205,7 +205,7 @@ fn options(args: Args<'_>) -> Result<ScaleOptions, ProbeError> {
 }
 
 fn scale(name: &str, args: Args<'_>) -> Result<Box<dyn Scale>, ProbeError> {
-    scale_factory(name, &options(args)?).map_err(ProbeError::rejected)
+    scale_factory(name, options(args)?).map_err(ProbeError::rejected)
 }
 
 /// The matplotlib class name of a scale.

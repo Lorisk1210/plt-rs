@@ -185,7 +185,7 @@ fn image_nonuniform(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(Some(LayoutEngine::constrained()));
     let axs = fig.subplots(2, 2)?;
     fig.suptitle("NonUniformImage class")
-        .set_size(FontSize::Relative(RelativeSize::Large));
+        .set_fontsize(FontSize::Relative(RelativeSize::Large));
     for (row, (interpolation, name)) in [
         (NonUniformInterpolation::Nearest, "nearest"),
         (NonUniformInterpolation::Bilinear, "bilinear"),

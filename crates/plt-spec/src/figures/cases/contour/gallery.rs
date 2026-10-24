@@ -163,7 +163,7 @@ pub(super) fn clabel_label_demo(fig: &Figure) -> CaseResult {
     let coords = QuadCoords::Mesh { x: xx, y: yy };
     let field = QuadField::new(z.clone()).with_coords(coords.clone());
     let cs = axs[(0, 0)].contour(&field, ContourOptions::default())?;
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
         fmt: LabelFormat::Formatter(Box::new(FuncFormatter::new(|x, _| percent_fmt(x)))),
         fontsize: Some(FontSize::Points(10.0)),
@@ -174,7 +174,7 @@ pub(super) fn clabel_label_demo(fig: &Figure) -> CaseResult {
         "first", "second", "third", "fourth", "fifth", "sixth", "seventh",
     ];
     let levels = cs.levels();
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         levels: Some(levels.iter().copied().step_by(2).collect()),
         fmt: LabelFormat::Map(
             levels
@@ -194,7 +194,7 @@ pub(super) fn clabel_label_demo(fig: &Figure) -> CaseResult {
             ..ContourOptions::default()
         },
     )?;
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
         fmt: LabelFormat::Formatter(Box::new(LogFormatter::new(LogLabelStyle::Mathtext, 10.0))),
         ..ClabelOptions::default()
@@ -210,7 +210,7 @@ pub(super) fn clabel_manual_rightside_up(fig: &Figure) -> CaseResult {
         ..values(&[-1.5, -0.5, 0.5, 1.5])
     };
     let cs = axs[(0, 0)].contour(&field, options)?;
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         manual: Some(vec![(-1.0, 0.5), (0.5, -0.5), (1.5, 1.2), (-2.0, -1.5)]),
         inline_spacing: 12.0,
         ..ClabelOptions::default()
@@ -220,7 +220,7 @@ pub(super) fn clabel_manual_rightside_up(fig: &Figure) -> CaseResult {
         ..values(&[-1.0, 0.0, 1.0])
     };
     let cs = axs[(0, 1)].contour(&field, options)?;
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         rightside_up: false,
         fontsize: Some(FontSize::Points(8.0)),
         fmt: LabelFormat::Printf(PrintfFormat::parse("%.1f")?),

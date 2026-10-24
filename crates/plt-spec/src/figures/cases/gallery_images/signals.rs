@@ -122,10 +122,10 @@ fn spy_demos(fig: &Figure) -> CaseResult {
         precision,
         ..SpyOptions::default()
     };
-    axs[(0, 0)].spy(&x, &spy(Some(5.0), 0.0))?;
-    axs[(0, 1)].spy(&x, &spy(Some(5.0), 0.1))?;
-    axs[(1, 0)].spy(&x, &spy(None, 0.0))?;
-    axs[(1, 1)].spy(&x, &spy(None, 0.1))?;
+    axs[(0, 0)].spy(&x, spy(Some(5.0), 0.0))?;
+    axs[(0, 1)].spy(&x, spy(Some(5.0), 0.1))?;
+    axs[(1, 0)].spy(&x, spy(None, 0.0))?;
+    axs[(1, 1)].spy(&x, spy(None, 0.1))?;
     Ok(())
 }
 

@@ -11,7 +11,7 @@ use plt::offsetbox::{
 use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::table::{TableLoc, TableOptions};
-use plt::text::{HorizontalAlignment, TextProps};
+use plt::text::{HAlign, TextProps};
 use plt_core::Bbox;
 
 use super::{classic, remove_text};
@@ -74,9 +74,9 @@ fn offsetbox_clipping(fig: &Figure) -> CaseResult {
 fn anchoredtext_horizontal_alignment(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     for (loc, halign) in [
-        (AnchorLoc::CenterLeft, HorizontalAlignment::Left),
-        (AnchorLoc::Center, HorizontalAlignment::Center),
-        (AnchorLoc::CenterRight, HorizontalAlignment::Right),
+        (AnchorLoc::CenterLeft, HAlign::Left),
+        (AnchorLoc::Center, HAlign::Center),
+        (AnchorLoc::CenterRight, HAlign::Right),
     ] {
         ax.add_anchored_box(AnchoredBox::text(
             "test\ntest long text",
@@ -157,7 +157,7 @@ fn zorder(fig: &Figure) -> CaseResult {
         })
         .collect();
     for (loc, zorder) in [(TableLoc::Center, -2.0), (TableLoc::UpperCenter, 4.0)] {
-        ax.table(&TableOptions {
+        ax.table(TableOptions {
             row_labels: Some(strings(["100 year", "50 year"])),
             col_labels: Some(strings(["Freeze", "Wind"])),
             loc,
@@ -202,7 +202,7 @@ fn label_colours(fig: &Figure) -> CaseResult {
     for (i, options) in (1..).zip(tables) {
         let ax = fig.add_subplot(4, 1, i)?;
         ax.set_axis_off();
-        ax.table(&TableOptions {
+        ax.table(TableOptions {
             cell_text: rows([["1"; 3]; 3]),
             loc: TableLoc::Best,
             ..options
@@ -227,7 +227,7 @@ fn diff_cell_table(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::tight());
     let axes = fig.subplots(cells.len(), 1)?;
     for (ax, edges) in axes.as_slice().iter().zip(cells) {
-        ax.table(&TableOptions {
+        ax.table(TableOptions {
             col_widths: Some(vec![0.1; cells.len()]),
             loc: TableLoc::Center,
             edges: edges.parse()?,
@@ -245,7 +245,7 @@ fn auto_column(fig: &Figure) -> CaseResult {
     let fitted: [&[&[i32]]; 4] = [&[&[-1, 0, 1]], &[&[-1, 0, 1]], &[&[-1], &[0], &[1]], &[]];
     for (ax, columns) in axes.as_slice().iter().zip(fitted) {
         ax.set_axis_off();
-        let table = ax.table(&TableOptions {
+        let table = ax.table(TableOptions {
             row_labels: Some(strings(["A", "B"])),
             col_labels: Some(strings(["Col1", "Col2"])),
             loc: TableLoc::Center,
@@ -264,7 +264,7 @@ fn auto_column(fig: &Figure) -> CaseResult {
 
 /// `test_table_bbox`: a table stretched into a box of the axes.
 fn table_bbox(fig: &Figure) -> CaseResult {
-    fig.subplot().table(&TableOptions {
+    fig.subplot().table(TableOptions {
         row_labels: Some(strings(["Ada", "Bob"])),
         col_labels: Some(strings(["Foo", "Bar"])),
         loc: TableLoc::Center,
@@ -290,7 +290,7 @@ pub(super) const CASES: &[FigureCase] = &[
     classic("mpl_misc/table_bbox_ref", table_bbox),
     classic("mpl_misc/table_unit_ref", |fig| {
         fig.subplot()
-            .table(&TableOptions::with_text(rows([["Hello"; 2]; 2])))?;
+            .table(TableOptions::with_text(rows([["Hello"; 2]; 2])))?;
         Ok(())
     }),
 ];

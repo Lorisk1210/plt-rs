@@ -12,7 +12,7 @@ use plt::mplot3d::{
     Axes3D, Axes3DError, Axes3DOptions, Axis3, ProjType, Sampling, WireframeOptions, test_data,
 };
 use plt::numeric::{Grid, arange, meshgrid};
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 
 use super::label_xyz;
 use crate::figures::cases::common::subplots_3d;
@@ -99,8 +99,8 @@ fn projections(fig: &Figure) -> CaseResult {
 /// `view_planes_3d`'s label in the middle of the box.
 fn annotate_axes(ax: &Axes3D, text: &str, fontsize: f64) {
     ax.text(0.5, 0.5, 0.5, text, None)
-        .set_valign(VerticalAlignment::Center)
-        .set_halign(HorizontalAlignment::Center)
+        .set_valign(VAlign::Center)
+        .set_halign(HAlign::Center)
         .set_fontsize(fontsize)
         .set_color("black");
 }

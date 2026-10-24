@@ -202,7 +202,7 @@ pub(crate) struct Axis3DState {
     /// colour set by tick parameters).
     pub(crate) offset_color: Color,
     /// Ticks computed by the last layout pass, or why they could not be.
-    pub(crate) ticks: Result<TickSet, String>,
+    pub(crate) ticks: Result<TickSet, TickerError>,
     /// Whether the axis line is drawn (matplotlib's `axis.line` visibility).
     pub(crate) line_visible: bool,
     /// The edges carrying the line, tick marks, tick labels and offset
@@ -309,13 +309,10 @@ impl Axis3DState {
         span: &AxisSpan,
         v0: f64,
         v1: f64,
-    ) -> Result<(f64, f64), String> {
+    ) -> Result<(f64, f64), TickerError> {
         let info = self.info(span, 0.0);
         let ctx = TickContext::new(&info, &self.settings);
-        self.tickers
-            .major_locator
-            .view_limits(v0, v1, &ctx)
-            .map_err(|e| e.to_string())
+        self.tickers.major_locator.view_limits(v0, v1, &ctx)
     }
 
     /// Recomputes the major and minor ticks inside the view (matplotlib's
@@ -328,7 +325,7 @@ impl Axis3DState {
                 self.major_slots = slots;
             }
             Err(e) => {
-                self.ticks = Err(e.to_string());
+                self.ticks = Err(e);
                 self.major_slots = (0, Vec::new());
             }
         }

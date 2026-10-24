@@ -127,7 +127,7 @@ mod tests {
             fmt: LabelFormat::Map(vec![(0.5, "half".to_owned()), (1.0, "one".to_owned())]),
             ..ClabelOptions::default()
         };
-        let automatic = cs.clabel(&options).unwrap().len();
+        let automatic = cs.clabel(options).unwrap().len();
         let near = cs
             .add_label_near(Point::new(0.0, 0.98), &data, true, 5.0)
             .unwrap();
@@ -160,7 +160,7 @@ mod tests {
             manual: Some(Vec::new()),
             ..ClabelOptions::default()
         };
-        cs.clabel(&options).unwrap();
+        cs.clabel(options).unwrap();
         let paths = cs.paths();
         let text = cs.add_label(at, &data, 30.0, 1).unwrap();
         let position = text.position();
@@ -194,7 +194,7 @@ mod tests {
             manual: Some(vec![(0.7, 0.0), (0.0, 0.98)]),
             ..ClabelOptions::default()
         };
-        let texts = cs.clabel(&options).unwrap();
+        let texts = cs.clabel(options).unwrap();
         assert_eq!(
             cs.pop_label(Some(2)).unwrap_err(),
             ContourError::NoLabel(Some(2))

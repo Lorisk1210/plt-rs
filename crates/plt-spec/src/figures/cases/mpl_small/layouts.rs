@@ -47,7 +47,7 @@ fn scale_swapping(fig: &Figure) -> CaseResult {
         log: true,
         ..HistPlotOptions::default()
     };
-    ax.hist(&[&samples], &options)?;
+    ax.hist(&[&samples], options)?;
     let density: Vec<f64> = x
         .iter()
         .map(|x| (-(x * x) / 2.0).exp() / (2.0 * std::f64::consts::PI).sqrt())
@@ -73,7 +73,7 @@ fn pre_transform(fig: &Figure) -> CaseResult {
         },
     )?;
     ax.pcolormesh(
-        Mesh::with_coords(linspace(0.0, 4.0, 7), linspace(5.5, 8.0, 9), counting(8, 6)),
+        Mesh::from_coords(linspace(0.0, 4.0, 7), linspace(5.5, 8.0, 9), counting(8, 6)),
         PcolorOptions {
             props: CollectionProps::default().transform(times10.clone()),
             ..PcolorOptions::default()
@@ -144,7 +144,7 @@ pub(super) const CASES: &[FigureCase] = &[
             height_ratios: Some(HEIGHTS.to_vec()),
             ..MosaicOptions::default()
         };
-        fig.subplot_mosaic(&Mosaic::parse("ABB;ACD")?, &options)?;
+        fig.subplot_mosaic(&"ABB;ACD".parse::<Mosaic>()?, options)?;
         Ok(())
     }),
     FigureCase::new("mpl_small/pre_transform_data", pre_transform),

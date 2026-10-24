@@ -12,7 +12,7 @@ use plt::lines::AxLineThrough;
 use plt::patches::{Circle, Polygon, Rectangle, Wedge};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{AnnotateOptions, HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt::ticker::NullLocator;
 use plt::transforms::Point;
 
@@ -422,7 +422,7 @@ fn anscombe(fig: &Figure) -> CaseResult {
             mean(y)
         );
         ax.text(0.95, 0.07, stats)
-            .set_size(FontSize::Points(9.0))
+            .set_fontsize(FontSize::Points(9.0))
             .set_bbox(styled_box(
                 "round",
                 PatchProps::default()

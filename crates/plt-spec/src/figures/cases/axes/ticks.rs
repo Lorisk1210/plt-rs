@@ -6,9 +6,7 @@ use plt::axes::{AxisName, LocatorParams, TickDirection, TickLabelProps, TickLeve
 use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
-use plt::text::{
-    HorizontalAlignment as HAlign, TextRotationMode as RotationMode, VerticalAlignment as VAlign,
-};
+use plt::text::{HAlign, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::Nbins;
 
 use super::line;
@@ -115,7 +113,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .set_ticklabels(["January", "February", "March", "April", "May"])?
             .set_ticklabel_props(
                 TickLevel::Major,
-                &TickLabelProps {
+                TickLabelProps {
                     rotation: Some(45.0),
                     halign: Some(HAlign::Right),
                     rotation_mode: Some(RotationMode::Anchor),
@@ -131,7 +129,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .set_ticklabels(["low", "mid", "high"])?
             .set_ticklabel_props(
                 TickLevel::Major,
-                &TickLabelProps {
+                TickLabelProps {
                     rotation: Some(90.0),
                     valign: Some(VAlign::Center),
                     ..TickLabelProps::default()

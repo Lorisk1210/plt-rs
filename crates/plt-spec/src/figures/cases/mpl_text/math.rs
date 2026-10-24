@@ -4,7 +4,7 @@
 
 use plt::fonts::Fontset;
 use plt::prelude::*;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 
 use super::classic;
 use crate::figures::FigureCase;
@@ -56,9 +56,9 @@ const OPERATORS_REF: [&str; 9] = [
 /// invisible phantom.
 fn phantoms(fig: &Figure) {
     fig.text(0.5, 0.9, r"$\rlap{rlap}extra$")
-        .set_halign(HorizontalAlignment::Left);
+        .set_halign(HAlign::Left);
     fig.text(0.5, 0.8, r"$extra\llap{llap}$")
-        .set_halign(HorizontalAlignment::Right);
+        .set_halign(HAlign::Right);
     fig.text(0.5, 0.7, r"$\phantom{phantom}$");
 }
 

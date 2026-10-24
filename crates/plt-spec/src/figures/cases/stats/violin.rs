@@ -19,7 +19,7 @@ fn drawn(draw: ViolinDrawOptions) -> ViolinplotOptions {
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("stats/violin_default", |fig| {
         fig.subplot()
-            .violinplot(&samples(), &ViolinplotOptions::default())?;
+            .violinplot(&samples(), ViolinplotOptions::default())?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -30,7 +30,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             showextrema: false,
             ..ViolinDrawOptions::default()
         });
-        fig.subplot().violinplot(&samples(), &options)?;
+        fig.subplot().violinplot(&samples(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -43,7 +43,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             },
             ..ViolinplotOptions::default()
         };
-        fig.subplot().violinplot(&samples(), &options)?;
+        fig.subplot().violinplot(&samples(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -60,7 +60,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 showmedians: true,
                 ..ViolinDrawOptions::default()
             });
-            ax.violinplot(datasets, &options)?;
+            ax.violinplot(datasets, options)?;
         }
         Ok(())
     })
@@ -73,7 +73,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             linecolors: vec![Color::from("k")],
             ..ViolinDrawOptions::default()
         });
-        fig.subplot().violinplot(&samples(), &options)?;
+        fig.subplot().violinplot(&samples(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

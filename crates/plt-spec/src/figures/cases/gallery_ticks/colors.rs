@@ -16,7 +16,7 @@ use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::spines::SpineSide;
 use plt::stats::{Bins, HistogramOptions, histogram};
-use plt::text::VerticalAlignment as VAlign;
+use plt::text::VAlign;
 use plt::transforms::Anchor;
 
 use crate::figures::cases::common::map;
@@ -112,7 +112,7 @@ fn colorbar_histogram(fig: &Figure) -> CaseResult {
     let cax = ax.inset_axes([1.18, 0.02, 0.25, 0.95]);
     let counts = histogram(
         values,
-        &HistogramOptions {
+        HistogramOptions {
             bins: Bins::Edges(bin_edges.clone()),
             ..HistogramOptions::default()
         },
@@ -264,7 +264,7 @@ fn color_sequences(fig: &Figure) -> CaseResult {
         .set_yticklabels(names)?;
     ax.grid_with(
         true,
-        &plt::axes::GridOptions {
+        plt::axes::GridOptions {
             axis: Some(AxisName::Y),
             ..plt::axes::GridOptions::default()
         },

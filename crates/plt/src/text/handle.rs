@@ -33,19 +33,20 @@ impl Text {
         Self { raw }
     }
 
-    /// Sets the font size in points (sizes below 1 pt become 1 pt).
-    pub fn set_fontsize(&self, points: f64) -> &Self {
-        self.set_size(FontSize::Points(points))
-    }
-
-    /// Sets the font size from a keyword relative to `font.size`.
-    pub fn set_fontsize_relative(&self, size: crate::fonts::RelativeSize) -> &Self {
-        self.set_size(FontSize::Relative(size))
-    }
-
-    /// Sets the font size in points or relative to `font.size`
-    /// (matplotlib's `set_fontsize`).
-    pub fn set_size(&self, size: FontSize) -> &Self {
+    /// Sets the font size: points (sizes below 1 pt become 1 pt) or a
+    /// keyword relative to `font.size` (matplotlib's `set_fontsize`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::fonts::RelativeSize;
+    /// let text = Figure::new().text(0.5, 0.5, "note");
+    /// text.set_fontsize(14.0);
+    /// assert_eq!(text.font().size, 14.0);
+    /// text.set_fontsize(RelativeSize::Large);
+    /// assert_eq!(text.font().size, 1.2 * plt::rc::params().font_size);
+    /// ```
+    pub fn set_fontsize(&self, size: impl Into<FontSize>) -> &Self {
+        let size = size.into();
         self.raw.with_mut::<TextArtist, _>(|t| {
             let base = t.rc.font_size;
             t.font.set_size(size, base);
@@ -209,7 +210,7 @@ mod tests {
     use super::*;
     use crate::figure::Figure;
     use crate::rc;
-    use crate::text::HorizontalAlignment;
+    use crate::text::HAlign;
 
     #[test]
     fn new_texts_take_the_rc_language_and_none_restores_it() {
@@ -248,7 +249,7 @@ mod tests {
     fn features_and_language_leave_the_extent_alone() {
         let fig = Figure::with_size(4.0, 1.0, 100.0);
         let text = fig.text(0.5, 0.5, "AVAVA office");
-        text.set_halign(HorizontalAlignment::Right);
+        text.set_halign(HAlign::Right);
         let before = text.window_extent();
         let features: Vec<Feature> = ["-kern", "-liga"]
             .iter()

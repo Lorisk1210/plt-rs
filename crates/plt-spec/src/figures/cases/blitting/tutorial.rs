@@ -11,7 +11,7 @@ use plt::artist::RawHandle;
 use plt::events::EventKind;
 use plt::figure::{BufferRegion, CanvasError, FigureCanvas};
 use plt::prelude::*;
-use plt::text::{AnnotateOptions, HorizontalAlignment, VerticalAlignment};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt::transforms::Point;
 
 use super::{blitting, shifted, wave_x};
@@ -118,9 +118,7 @@ fn blit_manager(fig: &Figure) -> CaseResult {
         ..AnnotateOptions::default()
     };
     let fr_number = ax.annotate("0", (0.0, 1.0), options)?;
-    fr_number
-        .set_halign(HorizontalAlignment::Left)
-        .set_valign(VerticalAlignment::Top);
+    fr_number.set_halign(HAlign::Left).set_valign(VAlign::Top);
     let artists = vec![ln.raw().clone(), fr_number.raw().clone()];
     let bm = BlitManager::new(fig.canvas(), artists);
     fig.canvas().draw()?;

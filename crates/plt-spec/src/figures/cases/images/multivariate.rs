@@ -59,7 +59,7 @@ pub(super) fn pcolormesh_bivariate(fig: &Figure) -> CaseResult {
         o.norms([named(NormName::Linear), named(NormName::Log)])
             .limits(Some(vec![Some(-0.5), None]), Some(vec![Some(0.5), None]))
     })?;
-    axes[(0, 1)].pcolormesh(Mesh::with_coords(xx, yy, both), mesh_options(options))?;
+    axes[(0, 1)].pcolormesh(Mesh::from_coords(xx, yy, both), mesh_options(options))?;
     Ok(())
 }
 
@@ -89,7 +89,7 @@ pub(super) fn pcolormesh_bicone_masked_alpha(fig: &Figure) -> CaseResult {
         props: CollectionProps::default().alpha(0.6),
         ..mesh_options(options)
     };
-    let mesh = Mesh::with_coords(
+    let mesh = Mesh::from_coords(
         linspace(-3.0, 3.0, 12),
         linspace(-2.0, 2.0, 8),
         MultiField::new([holed, c])?,

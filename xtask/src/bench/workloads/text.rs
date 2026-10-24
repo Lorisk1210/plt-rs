@@ -123,7 +123,7 @@ fn mid_size() -> Build {
             },
             ..HistPlotOptions::default()
         };
-        grid[(1, 1)].hist(&[sample.as_slice()], &options)?;
+        grid[(1, 1)].hist(&[sample.as_slice()], options)?;
         grid[(1, 1)].set_title(r"$\mathcal{N}(0, 1)$: $\frac{1}{\sqrt{2\pi}} e^{-x^2/2}$");
         Ok(())
     })

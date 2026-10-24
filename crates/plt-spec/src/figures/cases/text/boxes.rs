@@ -1,7 +1,7 @@
 //! Text box and background cases of `figures/cases_text.py`.
 
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, LineSpacing, TextBoxProps, VerticalAlignment};
+use plt::text::{HAlign, LineSpacing, TextBoxProps, VAlign};
 
 use super::{blank, styled_box};
 use crate::figures::FigureCase;
@@ -34,19 +34,19 @@ pub(crate) const CASES: &[FigureCase] = &[
         let s = "short\na much longer line\nmid line";
         let unfilled = || Some(plain_box(PatchProps::default().facecolor("none")));
         ax.text(0.5, 5.0, s)
-            .set_multialign(Some(HorizontalAlignment::Left))
-            .set_valign(VerticalAlignment::Center)
+            .set_multialign(Some(HAlign::Left))
+            .set_valign(VAlign::Center)
             .set_bbox(unfilled());
         ax.text(5.0, 5.0, s)
-            .set_multialign(Some(HorizontalAlignment::Center))
-            .set_halign(HorizontalAlignment::Center)
-            .set_valign(VerticalAlignment::Center)
+            .set_multialign(Some(HAlign::Center))
+            .set_halign(HAlign::Center)
+            .set_valign(VAlign::Center)
             .set_linespacing(LineSpacing::Factor(2.0))
             .set_bbox(unfilled());
         ax.text(9.5, 5.0, s)
-            .set_multialign(Some(HorizontalAlignment::Right))
-            .set_halign(HorizontalAlignment::Right)
-            .set_valign(VerticalAlignment::Center)
+            .set_multialign(Some(HAlign::Right))
+            .set_halign(HAlign::Right)
+            .set_valign(VAlign::Center)
             .set_linespacing(LineSpacing::Factor(0.9))
             .set_bbox(unfilled());
         Ok(())
@@ -82,8 +82,8 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .facecolor("lightsteelblue")
                 .edgecolor("navy");
             ax.text(x, y, style)
-                .set_halign(HorizontalAlignment::Center)
-                .set_valign(VerticalAlignment::Center)
+                .set_halign(HAlign::Center)
+                .set_valign(VAlign::Center)
                 .set_fontsize(11.0)
                 .set_bbox(styled_box(style, patch)?);
         }

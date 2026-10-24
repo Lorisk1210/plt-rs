@@ -85,7 +85,7 @@ fn pyplot_8(fig: &Figure) -> CaseResult {
         props: PatchProps::default().facecolor("g").alpha(0.75),
         ..HistPlotOptions::default()
     };
-    ax.hist(&[x], &green)?;
+    ax.hist(&[x], green)?;
     ax.set_xlabel("Smarts").set_ylabel("Probability");
     ax.set_title("Histogram of IQ");
     ax.text(60.0, 0.025, r"$\mu=100,\ \sigma=15$");
@@ -117,7 +117,7 @@ fn pyplot_10(fig: &Figure) -> CaseResult {
     for (index, (scale, values, options)) in (1..).zip(panels) {
         let ax = fig.add_subplot(2, 2, index)?;
         ax.plot(&x, values)?;
-        ax.set_scale_with(AxisName::Y, scale, &options)?;
+        ax.set_scale_with(AxisName::Y, scale, options)?;
         ax.set_title(scale);
         ax.grid(true);
     }

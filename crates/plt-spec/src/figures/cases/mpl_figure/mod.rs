@@ -67,7 +67,7 @@ fn example_pcolor(ax: &Axes, fontsize: f64) -> Fallible<Collection> {
             .limits(Some(-1.0), Some(1.0)),
         ..PcolorOptions::default()
     };
-    let mesh = ax.pcolormesh(Mesh::with_coords(x, y, z), options)?;
+    let mesh = ax.pcolormesh(Mesh::from_coords(x, y, z), options)?;
     mesh.set_rasterized(true);
     decorate(ax, fontsize);
     Ok(mesh)

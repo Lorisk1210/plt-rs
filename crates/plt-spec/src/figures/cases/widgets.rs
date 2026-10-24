@@ -6,7 +6,7 @@ use plt::colors::Color;
 use plt::fonts::FontWeight;
 use plt::patches::PatchProps;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, TextProps};
+use plt::text::{HAlign, TextProps};
 use plt::widgets::{
     Button, ButtonLayout, ButtonMarkerProps, ButtonOptions, CheckButtons, CheckButtonsOptions,
     HandleStyle, Orientation, RadioButtons, RadioButtonsOptions, RangeSlider, Slider,
@@ -60,7 +60,7 @@ fn check_styled(fig: &Figure) -> CaseResult {
         ..CheckButtonsOptions::default()
     };
     let labels = ["red", "green", "blue", "black"];
-    CheckButtons::with_options(&ax, &labels, &[true, false, true, false], &options)?;
+    CheckButtons::with_options(&ax, &labels, &[true, false, true, false], options)?;
     Ok(())
 }
 
@@ -92,7 +92,7 @@ fn radio_styled(fig: &Figure) -> CaseResult {
         },
         ..RadioButtonsOptions::default()
     };
-    RadioButtons::with_options(&ax, &["slow", "medium", "fast"], 2, &options)?;
+    RadioButtons::with_options(&ax, &["slow", "medium", "fast"], 2, options)?;
     Ok(())
 }
 
@@ -106,7 +106,7 @@ fn radio_layouts(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.05, 0.55, 0.9, 0.35]),
         &["one", "two", "three", "four"],
         1,
-        &across,
+        across,
     )?;
     let grid = RadioButtonsOptions {
         layout: ButtonLayout::Grid { rows: 2, cols: 3 },
@@ -116,7 +116,7 @@ fn radio_layouts(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.05, 0.1, 0.4, 0.35]),
         &["a", "bb", "ccc", "dddd", "e"],
         3,
-        &grid,
+        grid,
     )?;
     let column = RadioButtonsOptions {
         layout: ButtonLayout::Vertical,
@@ -126,7 +126,7 @@ fn radio_layouts(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.55, 0.1, 0.4, 0.35]),
         &["top", "middle", "bottom"],
         0,
-        &column,
+        column,
     )?;
     Ok(())
 }
@@ -140,7 +140,7 @@ fn check_layouts(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.05, 0.55, 0.9, 0.35]),
         &["alpha", "beta", "gamma"],
         &[true, false, true],
-        &across,
+        across,
     )?;
     let grid = CheckButtonsOptions {
         layout: ButtonLayout::Grid { rows: 2, cols: 3 },
@@ -152,7 +152,7 @@ fn check_layouts(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.05, 0.1, 0.9, 0.35]),
         &["A", "B", "C", "D", "E", "F"],
         &actives,
-        &grid,
+        grid,
     )?;
     Ok(())
 }
@@ -175,7 +175,7 @@ fn slider_styles(fig: &Figure) -> CaseResult {
         poly: PatchProps::default().facecolor("tab:green").alpha(0.6),
         ..SliderOptions::default()
     };
-    Slider::new(&fig.add_axes([0.25, 0.75, 0.55, 0.1]), "Hz", 0.0, 50.0, &hz);
+    Slider::new(&fig.add_axes([0.25, 0.75, 0.55, 0.1]), "Hz", 0.0, 50.0, hz);
     let gain = SliderOptions {
         valinit: -3.0,
         valstep: Some(ValStep::Values(vec![
@@ -194,19 +194,13 @@ fn slider_styles(fig: &Figure) -> CaseResult {
         "Gain",
         -10.0,
         10.0,
-        &gain,
+        gain,
     );
     let big = SliderOptions {
         valinit: 7.5e5,
         ..SliderOptions::default()
     };
-    Slider::new(
-        &fig.add_axes([0.25, 0.25, 0.55, 0.1]),
-        "Big",
-        0.0,
-        2e6,
-        &big,
-    );
+    Slider::new(&fig.add_axes([0.25, 0.25, 0.55, 0.1]), "Big", 0.0, 2e6, big);
     Ok(())
 }
 
@@ -221,7 +215,7 @@ fn slider_vertical(fig: &Figure) -> CaseResult {
         orientation: Orientation::Vertical,
         ..SliderOptions::default()
     };
-    Slider::new(&fig.add_axes([0.15, 0.15, 0.08, 0.7]), "lo", 0.0, 1.0, &lo);
+    Slider::new(&fig.add_axes([0.15, 0.15, 0.08, 0.7]), "lo", 0.0, 1.0, lo);
     let mid = SliderOptions {
         valinit: 37.0,
         valstep: Some(ValStep::Step(10.0)),
@@ -238,7 +232,7 @@ fn slider_vertical(fig: &Figure) -> CaseResult {
         "mid",
         0.0,
         100.0,
-        &mid,
+        mid,
     );
     let hi = SliderOptions {
         valinit: 2.0,
@@ -246,7 +240,7 @@ fn slider_vertical(fig: &Figure) -> CaseResult {
         initcolor: Color::none(),
         ..SliderOptions::default()
     };
-    Slider::new(&fig.add_axes([0.75, 0.15, 0.08, 0.7]), "hi", -1.0, 1.0, &hi);
+    Slider::new(&fig.add_axes([0.75, 0.15, 0.08, 0.7]), "hi", -1.0, 1.0, hi);
     Ok(())
 }
 
@@ -262,7 +256,7 @@ fn range_sliders(fig: &Figure) -> CaseResult {
         0.0,
         10.0,
         None,
-        &defaults,
+        defaults.clone(),
     );
     let styled = SliderOptions {
         valfmt: Some("%+.1f".into()),
@@ -281,7 +275,7 @@ fn range_sliders(fig: &Figure) -> CaseResult {
         -5.0,
         5.0,
         Some((-4.0, 1.0)),
-        &styled,
+        styled,
     );
     RangeSlider::new(
         &fig.add_axes([0.25, 0.4, 0.6, 0.08]),
@@ -289,7 +283,7 @@ fn range_sliders(fig: &Figure) -> CaseResult {
         0.0,
         1.0,
         Some((0.9, 0.2)),
-        &defaults,
+        defaults,
     );
     let vertical = SliderOptions {
         orientation: Orientation::Vertical,
@@ -303,7 +297,7 @@ fn range_sliders(fig: &Figure) -> CaseResult {
         0.0,
         1.0,
         Some((0.1, 0.4)),
-        &vertical,
+        vertical,
     );
     Ok(())
 }
@@ -361,7 +355,7 @@ fn textboxes(fig: &Figure) -> CaseResult {
         "center ",
         "centred",
         TextBoxOptions {
-            textalignment: HorizontalAlignment::Center,
+            textalignment: HAlign::Center,
             color: Color::from("lightcyan"),
             ..TextBoxOptions::default()
         },
@@ -371,7 +365,7 @@ fn textboxes(fig: &Figure) -> CaseResult {
         "right",
         "right $x^2$",
         TextBoxOptions {
-            textalignment: HorizontalAlignment::Right,
+            textalignment: HAlign::Right,
             label_pad: 0.05,
             hovercolor: Color::from("w"),
             ..TextBoxOptions::default()

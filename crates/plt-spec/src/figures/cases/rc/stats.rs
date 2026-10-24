@@ -10,8 +10,7 @@ use crate::rng::SpecRng;
 /// `_hist`: a histogram of normal samples.
 fn hist(fig: &Figure) -> CaseResult {
     let samples = SpecRng::new(7).normal(300, 0.0, 1.0);
-    fig.subplot()
-        .hist(&[samples], &HistPlotOptions::default())?;
+    fig.subplot().hist(&[samples], HistPlotOptions::default())?;
     Ok(())
 }
 
@@ -26,7 +25,7 @@ fn boxes(fig: &Figure) -> CaseResult {
             sample
         })
         .collect();
-    fig.subplot().boxplot(&data, &BoxplotOptions::default())?;
+    fig.subplot().boxplot(&data, BoxplotOptions::default())?;
     Ok(())
 }
 
@@ -37,7 +36,7 @@ fn errorbars(fig: &Figure) -> CaseResult {
     let options = ErrorbarOptions {
         yerr: Some(0.4.into()),
         xerr: Some(0.2.into()),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         ..ErrorbarOptions::default()
     };
     fig.subplot().errorbar(x, y, options)?;

@@ -236,8 +236,8 @@ pub(super) fn ticklabels(args: Args<'_>) -> Outcome {
         let labels = ax
             .axis_of(name)
             .ticklabels(args.bool("minor")?)
-            .map_err(ProbeError::Rejected)?;
-        let offset = ax.ticks(name).map_err(ProbeError::Rejected)?.offset;
+            .map_err(ProbeError::rejected)?;
+        let offset = ax.ticks(name).map_err(ProbeError::rejected)?.offset;
         Ok(encode::object([
             ("labels", Json::from(labels)),
             ("offset", Json::from(offset)),
@@ -264,7 +264,7 @@ pub(super) fn too_many_ticks(args: Args<'_>) -> Outcome {
         let count = ax
             .xaxis()
             .ticklocs(false)
-            .map_err(ProbeError::Rejected)?
+            .map_err(ProbeError::rejected)?
             .len();
         let (low, high) = ax.xlim();
         Ok(encode::object([
@@ -288,7 +288,7 @@ pub(super) fn offsets(args: Args<'_>) -> Outcome {
                 set_date_limits(ax, AxisName::X, lim)?;
             }
             texts.push(Json::from(
-                ax.ticks(AxisName::X).map_err(ProbeError::Rejected)?.offset,
+                ax.ticks(AxisName::X).map_err(ProbeError::rejected)?.offset,
             ));
         }
         Ok(Json::Array(texts))

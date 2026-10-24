@@ -7,7 +7,7 @@ use plt::fonts::{
     parse_variant,
 };
 use plt::rc::{self, RcParams};
-use plt::text::{HorizontalAlignment, LineSpacing, Text, TextRotationMode, VerticalAlignment};
+use plt::text::{HAlign, LineSpacing, Text, TextRotationMode, VAlign};
 
 use crate::json::Json;
 use crate::probes::{Args, ProbeError};
@@ -231,10 +231,10 @@ fn bool_arg(value: &Json) -> Result<bool, ProbeError> {
         .ok_or_else(|| ProbeError::BadArgs(format!("expected a boolean, got {value}")))
 }
 
-fn halign(value: &Json) -> Result<HorizontalAlignment, ProbeError> {
+fn halign(value: &Json) -> Result<HAlign, ProbeError> {
     let name = string(value)?;
-    HorizontalAlignment::parse(name)
-        .ok_or_else(|| ProbeError::rejected(format!("bad alignment {name:?}")))
+    name.parse::<HAlign>()
+        .map_err(|_| ProbeError::rejected(format!("bad alignment {name:?}")))
 }
 
 /// Applies the keyword arguments of `fig.text(x, y, s, **kw)` in order.
@@ -258,8 +258,9 @@ pub(crate) fn apply_text_kw(text: &Text, kw: Option<&Json>) -> Result<(), ProbeE
             }
             "va" => {
                 let name = string(value)?;
-                let valign = VerticalAlignment::parse(name)
-                    .ok_or_else(|| ProbeError::rejected(format!("bad alignment {name:?}")))?;
+                let valign = name
+                    .parse::<VAlign>()
+                    .map_err(|_| ProbeError::rejected(format!("bad alignment {name:?}")))?;
                 text.set_valign(valign);
             }
             "rotation_mode" => {
@@ -267,7 +268,7 @@ pub(crate) fn apply_text_kw(text: &Text, kw: Option<&Json>) -> Result<(), ProbeE
                     Json::Null => TextRotationMode::Default,
                     other => {
                         let name = string(other)?;
-                        TextRotationMode::parse(name).ok_or_else(|| {
+                        name.parse::<TextRotationMode>().map_err(|_| {
                             ProbeError::rejected(format!("bad rotation mode {name:?}"))
                         })?
                     }

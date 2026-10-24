@@ -49,7 +49,7 @@ pub(super) fn cbar_edge(fig: &Figure) -> CaseResult {
         cbar_pad: Some(0.05.into()),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(2, 0)?, (2, 2), &right)?;
+    let grid = ImageGrid::new(fig, &subplot(2, 0)?, (2, 2), right)?;
     for (i, ax) in grid.axes().iter().enumerate() {
         let cmap = ["viridis", "plasma"][i / 2];
         let im = ax.imshow(field(20, i as f64), image(cmap, Some((-1.0, 1.0)))?)?;
@@ -65,7 +65,7 @@ pub(super) fn cbar_edge(fig: &Figure) -> CaseResult {
         cbar_size: SizeSpec::Percent(10.0),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(2, 1)?, (2, 2), &bottom)?;
+    let grid = ImageGrid::new(fig, &subplot(2, 1)?, (2, 2), bottom)?;
     for (i, ax) in grid.axes().iter().enumerate() {
         let cmap = ["cividis", "magma"][i % 2];
         let scale = 1.0 + (i % 2) as f64;
@@ -88,7 +88,7 @@ pub(super) fn label_modes(fig: &Figure) -> CaseResult {
         label_mode: LabelMode::One,
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(2, 0)?, (2, 3), &lines)?;
+    let grid = ImageGrid::new(fig, &subplot(2, 0)?, (2, 3), lines)?;
     let x = linspace(0.0, 2.0 * std::f64::consts::PI, 50);
     for (i, ax) in grid.axes().iter().enumerate() {
         let shifted: Vec<f64> = x.iter().map(|x| (x + i as f64).sin()).collect();
@@ -104,7 +104,7 @@ pub(super) fn label_modes(fig: &Figure) -> CaseResult {
         label_mode: LabelMode::All,
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(2, 1)?, (2, 2), &images)?;
+    let grid = ImageGrid::new(fig, &subplot(2, 1)?, (2, 2), images)?;
     for (i, ax) in grid.axes().iter().enumerate() {
         ax.imshow(field(8, i as f64), image("gray", None)?)?;
     }
@@ -120,7 +120,7 @@ pub(super) fn each_cbar_left(fig: &Figure) -> CaseResult {
         cbar_pad: Some(0.25.into()),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(1, 0)?, (1, 3), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(1, 0)?, (1, 3), options)?;
     for (i, (ax, cax)) in grid.axes().iter().zip(grid.cbar_axes()).enumerate() {
         let scale = 10f64.powi(i32::try_from(i)?);
         let im = ax.imshow(
@@ -205,7 +205,7 @@ pub(super) fn marginal_histograms(fig: &Figure) -> CaseResult {
         },
         ..HistPlotOptions::default()
     };
-    top.hist(&[x], &upper)?;
+    top.hist(&[x], upper)?;
     let side = HistPlotOptions {
         layout: HistOptions {
             bins: Some(Bins::Edges(edges)),
@@ -215,7 +215,7 @@ pub(super) fn marginal_histograms(fig: &Figure) -> CaseResult {
         color: vec![Color::from("tab:orange")],
         ..HistPlotOptions::default()
     };
-    right.hist(&[y], &side)?;
+    right.hist(&[y], side)?;
     Ok(())
 }
 

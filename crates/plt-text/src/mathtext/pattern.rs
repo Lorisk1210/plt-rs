@@ -2,7 +2,7 @@
 //! `FontProperties(pattern)` does for the custom fontset's
 //! `mathtext.rm`, `mathtext.it`, ... values.
 
-use plt_font::{FontQuery, FontStyle, FontVariant, Stretch, Weight};
+use plt_font::{FontQuery, FontVariant};
 
 use crate::error::TextError;
 use crate::fontconfig::FontconfigPattern;
@@ -31,9 +31,9 @@ pub(crate) fn parse_pattern(
             "size" => {
                 value.parse::<f64>().map_err(|_| invalid())?;
             }
-            "weight" => query.weight = Weight::parse(value).ok_or_else(invalid)?,
-            "slant" | "style" => query.style = FontStyle::parse(value).ok_or_else(invalid)?,
-            "width" | "stretch" => query.stretch = Stretch::parse(value).ok_or_else(invalid)?,
+            "weight" => query.weight = value.parse().map_err(|_| invalid())?,
+            "slant" | "style" => query.style = value.parse().map_err(|_| invalid())?,
+            "width" | "stretch" => query.stretch = value.parse().map_err(|_| invalid())?,
             "variant" => {
                 query.variant = match value {
                     "normal" => FontVariant::Normal,
@@ -50,6 +50,7 @@ pub(crate) fn parse_pattern(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use plt_font::{FontStyle, Stretch, Weight};
 
     #[test]
     fn families_and_constants() {

@@ -33,7 +33,7 @@ impl Figure {
     /// ```
     /// use plt::figure::{Figure, SubfigureOptions};
     /// let fig = Figure::new();
-    /// let parts = fig.subfigures(1, 2, &SubfigureOptions::default())?;
+    /// let parts = fig.subfigures(1, 2, SubfigureOptions::default())?;
     /// parts[(0, 1)].subplot();
     /// assert_eq!(fig.axes().len(), 1);
     /// assert!(parts[(0, 0)].axes().is_empty());
@@ -47,7 +47,7 @@ impl Figure {
         &self,
         nrows: usize,
         ncols: usize,
-        options: &SubfigureOptions,
+        options: SubfigureOptions,
     ) -> Result<Grid<Self>, GridSpecError> {
         let grid = GridSpec::with_ratios(
             nrows,
@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn subfigures_share_the_subplot_parameters_of_their_figure() {
         let fig = Figure::new();
-        let parts = fig.subfigures(1, 2, &SubfigureOptions::default()).unwrap();
+        let parts = fig.subfigures(1, 2, SubfigureOptions::default()).unwrap();
         let before = parts[(0, 0)].subplot();
         fig.subplots_adjust(&SubplotOverrides {
             left: Some(0.05),
@@ -195,7 +195,7 @@ mod tests {
             wspace: Some(0.1),
             ..SubfigureOptions::default()
         };
-        let parts = fig.subfigures(1, 2, &options).unwrap();
+        let parts = fig.subfigures(1, 2, options).unwrap();
         let left = parts[(0, 0)]
             .root
             .with::<FigureFrame, _>(|f| f.relative_extent);
@@ -212,7 +212,7 @@ mod tests {
             wspace: Some(0.1),
             ..SubfigureOptions::default()
         };
-        let parts = fig.subfigures(1, 2, &options).unwrap();
+        let parts = fig.subfigures(1, 2, options).unwrap();
         let left = parts[(0, 0)]
             .root
             .with::<FigureFrame, _>(|f| f.relative_extent);

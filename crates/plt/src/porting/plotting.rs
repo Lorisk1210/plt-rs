@@ -43,7 +43,7 @@
 //! | `ax.step(x, y, where="mid")`                       | [`Axes::step`]`(x, y, StepWhere::Mid, props)` ([`StepWhere`]) |
 //! | `ax.stairs(values, edges)`                         | [`Axes::stairs`] with [`StairsOptions`]           |
 //! | `ax.scatter(x, y, s=, c=, marker=, cmap=, vmin=)`  | [`Axes::scatter_with`] with [`ScatterOptions`], [`MappedColors`] |
-//! | `ax.errorbar(x, y, yerr=, xerr=, fmt=, capsize=)`  | [`Axes::errorbar`] with [`ErrorbarOptions`], [`ErrorSize`] |
+//! | `ax.errorbar(x, y, yerr=, xerr=, fmt=, capsize=)`  | [`Axes::errorbar`] with [`ErrorbarOptions`], [`ErrorSize`], [`ErrorbarFormat`] |
 //! | `ax.bar(x, h, width=, bottom=, align=, color=)`    | [`Axes::bar`] with [`BarOptions`]                 |
 //! | `ax.barh(y, w, height=, left=)`                    | [`Axes::barh`] (same [`BarOptions`])              |
 //! | `ax.bar_label(bars, fmt=, label_type=, padding=)`  | [`Axes::bar_label`] with [`BarLabelOptions`]      |
@@ -53,7 +53,7 @@
 //! | `ax.fill_between(x, y1, y2, where=, interpolate=, step=)` | [`Axes::fill_between`] with [`FillBetweenOptions`] |
 //! | `ax.fill_betweenx(y, x1, x2)`                      | [`Axes::fill_betweenx`]                           |
 //! | `ax.stackplot(x, ys, baseline=)`                   | [`Axes::stackplot`] with [`StackplotOptions`]     |
-//! | `ax.stem(x, y, linefmt=, markerfmt=, basefmt=)`    | [`Axes::stem`] with [`StemOptions`]               |
+//! | `ax.stem(x, y, linefmt=, markerfmt=, basefmt=)`    | [`Axes::stem`] with [`StemOptions`] (formats are [`FormatString`]s) |
 //! | `ax.eventplot(positions, orientation=, ...)`       | [`Axes::eventplot`] with [`EventplotOptions`]     |
 //! | `ax.hlines(y, xmin, xmax)`, `ax.vlines(...)`       | [`Axes::hlines`], [`Axes::vlines`]                |
 //! | `ax.axhline(y)`, `ax.axhline(y, xmin, xmax)`       | [`Axes::axhline`], [`Axes::axhline_between`]      |
@@ -191,7 +191,7 @@
 //! assert_eq!(bars.patches[1].shape().width, 0.5);
 //!
 //! let format = BarLabelOptions { fmt: BarLabelFormat::Template("%.1f".into()), ..BarLabelOptions::default() };
-//! let labels = ax.bar_label(&bars, &format)?;
+//! let labels = ax.bar_label(&bars, format)?;
 //! assert_eq!(labels[1].text(), "5.0");
 //!
 //! let other = Figure::new().subplot();
@@ -228,7 +228,7 @@
 //!     },
 //!     ..HistPlotOptions::default()
 //! };
-//! let hist = ax.hist(&[data], &options)?;
+//! let hist = ax.hist(&[data], options)?;
 //! assert_eq!(hist.edges, [0.0, 2.0, 4.0, 6.0, 8.0, 10.0]);
 //! let area: f64 = hist.tops[0].iter().map(|density| density * 2.0).sum();
 //! assert!((area - 1.0).abs() < 1e-12);
@@ -285,7 +285,7 @@
 //!     draw: BxpOptions { showfliers: Some(false), ..BxpOptions::default() },
 //!     ..BoxplotOptions::default()
 //! };
-//! let parts = ax.boxplot(&[a, b], &options)?;
+//! let parts = ax.boxplot(&[a, b], options)?;
 //! assert_eq!(parts.medians.len(), 2);
 //! assert!(parts.fliers.iter().all(|line| line.xdata().is_empty()));
 //!
@@ -295,7 +295,7 @@
 //!     autopct: Some(PieLabelFormat::Printf("%1.0f%%".into())),
 //!     ..PieOptions::default()
 //! };
-//! let pie = ax2.pie(&[1.0, 2.0, 1.0], &options)?;
+//! let pie = ax2.pie(&[1.0, 2.0, 1.0], options)?;
 //! assert_eq!(pie.pct_labels[1].text(), "50%");
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -354,6 +354,8 @@
 //! [`Axes::fill_betweenx`]: crate::axes::Axes::fill_betweenx
 //! [`Axes::stackplot`]: crate::axes::Axes::stackplot
 //! [`Axes::stem`]: crate::axes::Axes::stem
+//! [`ErrorbarFormat`]: crate::axes::ErrorbarFormat
+//! [`FormatString`]: crate::lines::FormatString
 //! [`Axes::eventplot`]: crate::axes::Axes::eventplot
 //! [`Axes::hlines`]: crate::axes::Axes::hlines
 //! [`Axes::vlines`]: crate::axes::Axes::vlines

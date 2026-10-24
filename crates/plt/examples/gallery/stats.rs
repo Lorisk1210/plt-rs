@@ -41,7 +41,7 @@ fn histograms() -> Built {
     };
     ax.hist(
         &[a],
-        &HistPlotOptions {
+        HistPlotOptions {
             layout: layout.clone(),
             props: PatchProps::default().alpha(0.6).label("N(0, 1)"),
             ..HistPlotOptions::default()
@@ -49,7 +49,7 @@ fn histograms() -> Built {
     )?;
     ax.hist(
         &[b],
-        &HistPlotOptions {
+        HistPlotOptions {
             layout: HistOptions {
                 histtype: HistType::Step,
                 ..layout
@@ -71,9 +71,9 @@ fn box_and_violin() -> Built {
     let data: Vec<Vec<f64>> = (0..4)
         .map(|i| samples.normals(200, f64::from(i), 0.5 + 0.3 * f64::from(i)))
         .collect();
-    grid[(0, 0)].boxplot(&data, &BoxplotOptions::default())?;
+    grid[(0, 0)].boxplot(&data, BoxplotOptions::default())?;
     grid[(0, 0)].set_title("boxplot");
-    grid[(0, 1)].violinplot(&data, &ViolinplotOptions::default())?;
+    grid[(0, 1)].violinplot(&data, ViolinplotOptions::default())?;
     grid[(0, 1)].set_title("violinplot");
     Ok(fig)
 }
@@ -89,7 +89,7 @@ fn pie() -> Built {
         startangle: 90.0,
         ..PieOptions::default()
     };
-    ax.pie(&[15.0, 30.0, 45.0, 10.0], &options)?;
+    ax.pie(&[15.0, 30.0, 45.0, 10.0], options)?;
     ax.set_title("Pets");
     Ok(fig)
 }

@@ -6,7 +6,7 @@ use plt::figure::Share;
 use plt::fonts::FontWeight;
 use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 use plt::widgets::{Cursor, CursorOptions, MultiCursor};
 
 use super::{sine, t};
@@ -44,7 +44,7 @@ fn red_multicursor(axes: &[Axes]) -> MultiCursor {
         line: LineProps::default().color("r").linewidth(1.0),
         ..CursorOptions::multicursor()
     };
-    MultiCursor::new(axes, &options)
+    MultiCursor::new(axes, options)
 }
 
 /// A figure of `annotated_cursor`: a parabola under a red crosshair whose
@@ -56,7 +56,7 @@ fn annotated_cursor(fig: &Figure, title: &str) -> CaseResult {
     let y = map(&x, |x| x * x);
     ax.plot(x, y)?;
     ax.set_xlim(-5.0, 5.0).set_ylim(0.0, 25.0);
-    let _cursor = Cursor::new(&ax, &red_crosshair());
+    let _cursor = Cursor::new(&ax, red_crosshair());
     // At the lower left corner of the view (`get_xbound()[0]`,
     // `get_ybound()[0]`).
     ax.text(-5.0, 0.0, "0, 0")
@@ -76,7 +76,7 @@ fn cursor(fig: &Figure) -> CaseResult {
         "o",
     )?;
     ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
-    let _cursor = Cursor::new(&ax, &red_crosshair());
+    let _cursor = Cursor::new(&ax, red_crosshair());
     Ok(())
 }
 
@@ -95,8 +95,8 @@ fn mouse_cursor(fig: &Figure) -> CaseResult {
     fig.suptitle("Hover over an Axes to see alternate Cursors");
     for (shape, ax) in CursorShape::ALL.into_iter().zip(axs.as_slice()) {
         ax.text(0.5, 0.5, shape.name())
-            .set_halign(HorizontalAlignment::Center)
-            .set_valign(VerticalAlignment::Center);
+            .set_halign(HAlign::Center)
+            .set_valign(VAlign::Center);
         tickless(ax);
     }
     Ok(())

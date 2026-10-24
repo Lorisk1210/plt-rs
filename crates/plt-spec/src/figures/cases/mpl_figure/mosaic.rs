@@ -47,11 +47,11 @@ pub(super) const CASES: &[FigureCase] = &[
             polar: true,
             ..MosaicOptions::default()
         };
-        fig.subplot_mosaic(&grid(&[&["1", "2"]])?, &options)?;
+        fig.subplot_mosaic(&grid(&[&["1", "2"]])?, options)?;
         Ok(())
     }),
     classic("mpl_figure/subplot_mosaic_per_subplot_kw", |fig| {
-        let axes = fig.subplot_mosaic(&Mosaic::parse("AB;CD")?, &MosaicOptions::default())?;
+        let axes = fig.subplot_mosaic(&"AB;CD".parse::<Mosaic>()?, MosaicOptions::default())?;
         for (label, ax) in axes.iter() {
             let color = match label {
                 "D" => "blue",
@@ -63,10 +63,10 @@ pub(super) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     classic("mpl_figure/subplot_mosaic_single_str_input_1", |fig| {
-        plain(fig, &Mosaic::parse("AAA\nBBB")?)
+        plain(fig, &"AAA\nBBB".parse::<Mosaic>()?)
     }),
     classic("mpl_figure/subplot_mosaic_single_str_input_2", |fig| {
-        plain(fig, &Mosaic::parse("ABC\nDEF")?)
+        plain(fig, &"ABC\nDEF".parse::<Mosaic>()?)
     }),
     // Two distinct `object()` keys.
     classic("mpl_figure/subplot_mosaic_hashable_keys", |fig| {
@@ -84,7 +84,7 @@ fn f_over(inner: Mosaic) -> Fallible<Mosaic> {
 
 /// `fig.subplot_mosaic(mosaic)`.
 fn mosaic_axes(fig: &Figure, mosaic: &Mosaic) -> Fallible<MosaicAxes> {
-    Ok(fig.subplot_mosaic(mosaic, &MosaicOptions::default())?)
+    Ok(fig.subplot_mosaic(mosaic, MosaicOptions::default())?)
 }
 
 /// The axes of `mosaic`, untitled.

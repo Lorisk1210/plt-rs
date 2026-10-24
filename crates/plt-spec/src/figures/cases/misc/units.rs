@@ -50,7 +50,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("misc/semilogx_base2", |fig| {
         let ax = fig.subplot();
         let x: Vec<f64> = (0..11).map(|i| 2f64.powi(i)).collect();
-        ax.set_scale_with(AxisName::X, "log", &base(2.0))?;
+        ax.set_scale_with(AxisName::X, "log", base(2.0))?;
         ax.plot_fmt(&x, x.iter().map(|x| x.sqrt()).collect::<Vec<_>>(), "o-")?;
         Ok(())
     })
@@ -67,7 +67,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let x = geomspace(1e-2, 1e3, 40);
         let y: Vec<f64> = x.iter().map(|x| x.powf(1.5)).collect();
         ax.loglog(x, y)?;
-        ax.set_scale_with(AxisName::Y, "log", &base(2.0))?;
+        ax.set_scale_with(AxisName::Y, "log", base(2.0))?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
@@ -79,13 +79,13 @@ pub(crate) const CASES: &[FigureCase] = &[
             linthresh: Some(1.0),
             ..ScaleOptions::default()
         };
-        ax.set_scale_with(AxisName::X, "symlog", &linear_x)?;
+        ax.set_scale_with(AxisName::X, "symlog", linear_x)?;
         let linear_y = ScaleOptions {
             linthresh: Some(10.0),
             linscale: Some(0.5),
             ..ScaleOptions::default()
         };
-        ax.set_scale_with(AxisName::Y, "symlog", &linear_y)?;
+        ax.set_scale_with(AxisName::Y, "symlog", linear_y)?;
         Ok(())
     })
     .sized(5.0, 3.0, 100.0),

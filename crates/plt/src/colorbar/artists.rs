@@ -289,14 +289,14 @@ impl Painter<'_> {
                 };
                 let values =
                     Grid::from_vec(values.len(), 1, values.to_vec()).expect("one value per block");
-                let mesh = Mesh::with_coords(x, y, ScalarField::new(values));
+                let mesh = Mesh::from_coords(x, y, ScalarField::new(values));
                 self.ax.pcolormesh(mesh, options)?
             }
             SolidFill::Colors(colors) => {
                 let colors =
                     Grid::from_vec(colors.len(), 1, colors.to_vec()).expect("one colour per block");
                 self.ax
-                    .pcolormesh_rgba(RgbaMesh::with_coords(x, y, colors), options)?
+                    .pcolormesh_rgba(RgbaMesh::from_coords(x, y, colors), options)?
             }
         };
         if n >= RASTERIZE_FROM {

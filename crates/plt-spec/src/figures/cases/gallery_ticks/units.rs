@@ -16,10 +16,7 @@ use plt::legend::LegendOptions;
 use plt::patches::{Arc, Ellipse, PatchShape};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{
-    AnnotateOptions, HorizontalAlignment as HAlign, TextRotationMode as RotationMode,
-    VerticalAlignment as VAlign,
-};
+use plt::text::{AnnotateOptions, HAlign, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::{AutoLocator, FormatStrFormatter, FuncFormatter, IndexLocator, MultipleLocator};
 
 use crate::figures::cases::common::{black_arrow, map};

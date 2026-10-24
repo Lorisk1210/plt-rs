@@ -161,7 +161,7 @@ impl ContourSet {
     /// When requested levels are not in the set, a format fails, label
     /// text cannot be laid out, or a manual position has no labelled line
     /// to snap to.
-    pub fn clabel(&self, options: &ClabelOptions) -> Result<Vec<Text>, ContourError> {
+    pub fn clabel(&self, options: ClabelOptions) -> Result<Vec<Text>, ContourError> {
         let rc = crate::rc::params();
         let indices = self.label_indices(options.levels.as_deref())?;
         let font = match options.fontsize {
@@ -353,7 +353,7 @@ mod tests {
     fn automatic_labels_are_upright_and_cut_the_lines() {
         let cs = bowl(&[0.5, 1.0]);
         let before = subpath_count(&cs);
-        let texts = cs.clabel(&ClabelOptions::default()).unwrap();
+        let texts = cs.clabel(ClabelOptions::default()).unwrap();
         assert_eq!(texts.len(), cs.labels().len());
         assert_ne!(texts.len(), 0);
         assert!(
@@ -386,7 +386,7 @@ mod tests {
             fmt: LabelFormat::Map(vec![(0.5, "half".to_owned())]),
             ..ClabelOptions::default()
         };
-        cs.clabel(&options).unwrap();
+        cs.clabel(options).unwrap();
         let labels = cs.labels();
         let [label] = labels.as_slice() else {
             panic!("one label expected");
@@ -403,7 +403,7 @@ mod tests {
             use_clabeltext: true,
             ..ClabelOptions::default()
         };
-        let [text] = cs.clabel(&options).unwrap().try_into().unwrap();
+        let [text] = cs.clabel(options).unwrap().try_into().unwrap();
         let displayed = cs.labels()[0].rotation;
         assert!(text.transform_rotates_text());
         // Stretching the view vertically turns the data angle further from
@@ -440,7 +440,7 @@ mod tests {
             ..ClabelOptions::default()
         };
         assert_eq!(
-            cs.clabel(&unknown).unwrap_err(),
+            cs.clabel(unknown).unwrap_err(),
             ContourError::UnknownLabelLevels(vec![0.7])
         );
         let empty = bowl(&[5.0]);
@@ -449,7 +449,7 @@ mod tests {
             ..ClabelOptions::default()
         };
         assert_eq!(
-            empty.clabel(&manual).unwrap_err(),
+            empty.clabel(manual).unwrap_err(),
             ContourError::NoContourToLabel
         );
     }

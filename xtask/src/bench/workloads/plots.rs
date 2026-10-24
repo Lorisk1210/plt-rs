@@ -184,7 +184,7 @@ fn hist() -> Build {
             },
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[values.as_slice()], &options)?;
+        fig.subplot().hist(&[values.as_slice()], options)?;
         Ok(())
     })
 }
@@ -204,7 +204,7 @@ fn normal_groups(groups: u32, seed: u64) -> Vec<Vec<f64>> {
 fn boxplot() -> Build {
     let groups = normal_groups(100, 9);
     Box::new(move |fig| {
-        fig.subplot().boxplot(&groups, &BoxplotOptions::default())?;
+        fig.subplot().boxplot(&groups, BoxplotOptions::default())?;
         Ok(())
     })
 }
@@ -214,7 +214,7 @@ fn violinplot() -> Build {
     let groups = normal_groups(50, 10);
     Box::new(move |fig| {
         fig.subplot()
-            .violinplot(&groups, &ViolinplotOptions::default())?;
+            .violinplot(&groups, ViolinplotOptions::default())?;
         Ok(())
     })
 }

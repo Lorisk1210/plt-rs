@@ -7,7 +7,8 @@ use std::rc::Rc;
 use plt_core::Point;
 
 use super::slider::{Orientation, SliderBase, SliderOptions};
-use super::{Connections, Observers};
+use super::{CallbackId, Connections, Observers};
+use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::lines::Line2D;
 use crate::patches::{Patch, Polygon};
@@ -119,9 +120,9 @@ impl RangeSlider {
         valmin: f64,
         valmax: f64,
         valinit: Option<(f64, f64)>,
-        options: &SliderOptions,
+        options: SliderOptions,
     ) -> Self {
-        let base = SliderBase::new(ax, valmin, valmax, options);
+        let base = SliderBase::new(ax, valmin, valmax, &options);
         let length = match options.orientation {
             Orientation::Vertical => 2.0,
             Orientation::Horizontal => 1.0,
@@ -202,9 +203,15 @@ impl RangeSlider {
     }
 
     /// Runs `callback` with each new interval (matplotlib's
-    /// `on_changed`).
-    pub fn on_changed(&self, mut callback: impl FnMut((f64, f64)) + 'static) {
-        self.parts.changed.connect(move |&value| callback(value));
+    /// `on_changed`); returns its id for [`RangeSlider::disconnect`].
+    pub fn on_changed(&self, mut callback: impl FnMut((f64, f64)) + 'static) -> CallbackId {
+        self.parts.changed.connect(move |&value| callback(value))
+    }
+
+    /// Disconnects the callback with id `id` (matplotlib's `disconnect`);
+    /// returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.parts.changed.disconnect(id)
     }
 }
 
@@ -223,7 +230,7 @@ mod tests {
             0.0,
             1.0,
             Some((0.2, 0.7)),
-            &SliderOptions::default(),
+            SliderOptions::default(),
         );
         assert_eq!(slider.val(), (0.2, 0.7));
         assert_eq!(

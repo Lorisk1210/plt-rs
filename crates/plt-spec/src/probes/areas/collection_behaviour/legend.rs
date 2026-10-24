@@ -88,7 +88,7 @@ pub(super) fn legend_elements(args: Args<'_>) -> Outcome {
         ..ScatterOptions::default()
     };
     let scatter = made(ax.scatter_with(x, y, scatter_options))?;
-    let (handles, labels) = made(scatter.legend_elements(&options(args.json("options")?)?))?;
+    let (handles, labels) = made(scatter.legend_elements(options(args.json("options")?)?))?;
     Ok(object([
         ("labels", Json::from(labels)),
         (

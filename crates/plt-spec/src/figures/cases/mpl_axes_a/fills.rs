@@ -123,7 +123,7 @@ pub(super) fn symlog2(fig: &Figure) -> CaseResult {
             linthresh: Some(linthresh),
             ..ScaleOptions::default()
         };
-        ax.set_scale_with(AxisName::X, "symlog", &options)?;
+        ax.set_scale_with(AxisName::X, "symlog", options)?;
         ax.grid(true);
     }
     axs[(4, 0)].set_ylim(-0.1, 0.1);

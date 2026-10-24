@@ -30,7 +30,7 @@ fn identified(
     options: &MosaicOptions,
 ) -> Result<MosaicAxes, MosaicError> {
     fig.set_layout_engine(LayoutEngine::constrained());
-    let axd = fig.subplot_mosaic(layout, options)?;
+    let axd = fig.subplot_mosaic(layout, options.clone())?;
     identify_axes(axd.iter(), 48.0);
     Ok(axd)
 }
@@ -54,7 +54,7 @@ fn plot_kinds(axes: [&Axes; 4], bins: Bins) -> CaseResult {
         },
         ..HistPlotOptions::default()
     };
-    hist.hist(&[SpecRng::new(SEED).normal(1_500, 0.0, 1.0)], &options)?;
+    hist.hist(&[SpecRng::new(SEED).normal(1_500, 0.0, 1.0)], options)?;
     image.imshow(
         Grid::from_vec(2, 2, vec![1.0, 2.0, 2.0, 1.0])?,
         ImshowOptions::default(),
@@ -81,7 +81,7 @@ fn mosaic_2(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
     let axd = fig.subplot_mosaic(
         &mosaic(&[&["bar", "plot"], &["hist", "image"]])?,
-        &MosaicOptions::default(),
+        MosaicOptions::default(),
     )?;
     let ax = |label: &str| axd.get(label).ok_or("a mosaic axes");
     plot_kinds(
@@ -93,15 +93,15 @@ fn mosaic_2(fig: &Figure) -> CaseResult {
 }
 
 fn mosaic_3(fig: &Figure) -> CaseResult {
-    identified_default(fig, &Mosaic::parse("\n    AB\n    CD\n    ")?)
+    identified_default(fig, &"\n    AB\n    CD\n    ".parse::<Mosaic>()?)
 }
 
 fn mosaic_5(fig: &Figure) -> CaseResult {
-    identified_default(fig, &Mosaic::parse("\n    ABD\n    CCD\n    ")?)
+    identified_default(fig, &"\n    ABD\n    CCD\n    ".parse::<Mosaic>()?)
 }
 
 fn mosaic_6(fig: &Figure) -> CaseResult {
-    identified_default(fig, &Mosaic::parse("\n    A.C\n    BBB\n    .D.\n    ")?)
+    identified_default(fig, &"\n    A.C\n    BBB\n    .D.\n    ".parse::<Mosaic>()?)
 }
 
 fn mosaic_7(fig: &Figure) -> CaseResult {
@@ -110,7 +110,7 @@ fn mosaic_7(fig: &Figure) -> CaseResult {
 }
 
 fn mosaic_8(fig: &Figure) -> CaseResult {
-    identified_default(fig, &Mosaic::parse("αб\n       ℝ☢")?)
+    identified_default(fig, &"αб\n       ℝ☢".parse::<Mosaic>()?)
 }
 
 fn mosaic_9(fig: &Figure) -> CaseResult {
@@ -121,7 +121,7 @@ fn mosaic_9(fig: &Figure) -> CaseResult {
     };
     identified(
         fig,
-        &Mosaic::parse("\n    .a.\n    bAc\n    .d.\n    ")?,
+        &"\n    .a.\n    bAc\n    .d.\n    ".parse::<Mosaic>()?,
         &options,
     )?;
     Ok(())
@@ -129,7 +129,7 @@ fn mosaic_9(fig: &Figure) -> CaseResult {
 
 /// The mosaic the grid and subfigure figures repeat.
 fn wide_over_two() -> Result<Mosaic, MosaicError> {
-    Mosaic::parse("AA\n            BC")
+    "AA\n            BC".parse::<Mosaic>()
 }
 
 fn mosaic_10(fig: &Figure) -> CaseResult {
@@ -145,19 +145,16 @@ fn mosaic_10(fig: &Figure) -> CaseResult {
             },
             ..MosaicOptions::default()
         };
-        identify_axes(
-            fig.subplot_mosaic(&wide_over_two()?, &options)?.iter(),
-            48.0,
-        );
+        identify_axes(fig.subplot_mosaic(&wide_over_two()?, options)?.iter(), 48.0);
     }
     Ok(())
 }
 
 fn mosaic_11(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
-    let halves = fig.subfigures(1, 2, &plt::figure::SubfigureOptions::default())?;
+    let halves = fig.subfigures(1, 2, plt::figure::SubfigureOptions::default())?;
     for subfig in halves.as_slice() {
-        let axd = subfig.subplot_mosaic(&wide_over_two()?, &MosaicOptions::default())?;
+        let axd = subfig.subplot_mosaic(&wide_over_two()?, MosaicOptions::default())?;
         identify_axes(axd.iter(), 48.0);
     }
     Ok(())
@@ -168,7 +165,7 @@ fn mosaic_12(fig: &Figure) -> CaseResult {
         polar: true,
         ..MosaicOptions::default()
     };
-    identified(fig, &Mosaic::parse("AB")?, &options)?;
+    identified(fig, &"AB".parse::<Mosaic>()?, &options)?;
     Ok(())
 }
 
@@ -179,7 +176,7 @@ fn polar_mosaic(fig: &Figure, polar: &[&str]) -> Result<MosaicAxes, Box<dyn std:
         polar_labels: polar.iter().map(|&label| label.to_owned()).collect(),
         ..MosaicOptions::default()
     };
-    let axd = fig.subplot_mosaic(&Mosaic::parse("AB;CD")?, &options)?;
+    let axd = fig.subplot_mosaic(&"AB;CD".parse::<Mosaic>()?, options)?;
     identify_axes(axd.iter(), 48.0);
     Ok(axd)
 }
@@ -206,7 +203,7 @@ fn mosaic_15(fig: &Figure) -> CaseResult {
         ..MosaicOptions::default()
     };
     fig.set_layout_engine(LayoutEngine::constrained());
-    let axd = fig.subplot_mosaic(&Mosaic::parse("AB;CD")?, &options)?;
+    let axd = fig.subplot_mosaic(&"AB;CD".parse::<Mosaic>()?, options)?;
     for (label, ax) in axd.iter() {
         ax.set_facecolor(match label {
             "B" => "xkcd:water blue",
@@ -239,7 +236,7 @@ fn mosaic_17(fig: &Figure) -> CaseResult {
         vec![label("bottom"), label("bottom")],
     ])?;
     fig.set_layout_engine(LayoutEngine::constrained());
-    let axd = fig.subplot_mosaic(&outer, &MosaicOptions::default())?;
+    let axd = fig.subplot_mosaic(&outer, MosaicOptions::default())?;
     identify_axes(axd.iter(), 36.0);
     Ok(())
 }
@@ -276,7 +273,7 @@ fn mosaic_19(fig: &Figure) -> CaseResult {
         sharex: true,
         ..MosaicOptions::default()
     };
-    let axd = fig.subplot_mosaic(&Mosaic::parse("AC;BC")?, &options)?;
+    let axd = fig.subplot_mosaic(&"AC;BC".parse::<Mosaic>()?, options)?;
     for label in ["A", "B", "C"] {
         axd.get(label)
             .ok_or("a mosaic axes")?
@@ -294,7 +291,7 @@ fn shared_y(fig: &Figure) -> Result<MosaicAxes, Box<dyn std::error::Error>> {
         sharey: true,
         ..MosaicOptions::default()
     };
-    let axd = fig.subplot_mosaic(&Mosaic::parse(".A;BC")?, &options)?;
+    let axd = fig.subplot_mosaic(&".A;BC".parse::<Mosaic>()?, options)?;
     zigzags(&axd)?;
     Ok(axd)
 }

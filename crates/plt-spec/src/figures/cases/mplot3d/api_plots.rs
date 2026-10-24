@@ -50,7 +50,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let yerr: Vec<f64> = [0.1, 0.2].repeat(4).into_iter().chain([0.1]).collect();
         let options = Errorbar3DOptions {
             errors: [Some(0.15.into()), Some(yerr.into()), Some(0.4.into())],
-            fmt: "o".into(),
+            fmt: "o".parse()?,
             capsize: Some(3.0),
             lolims: [Vec::new(), Vec::new(), [true, false, false].repeat(3)],
             errorevery: Some(MarkEvery::Every { start: 1, step: 2 }),

@@ -88,7 +88,7 @@ fn complete_ref(fig: &Figure) -> CaseResult {
     ax.legend(LegendOptions::default())?.set_draggable(true);
 
     for subfig in fig
-        .subfigures(2, 1, &SubfigureOptions::default())?
+        .subfigures(2, 1, SubfigureOptions::default())?
         .as_slice()
     {
         subfig.subplots(1, 2)?;

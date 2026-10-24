@@ -50,7 +50,7 @@ fn set_ticks_with_labels(fig: &Figure) -> CaseResult {
     ax.set_xticklabels(["a", "b", "c", "d"])?;
     ax.xaxis().set_ticklabel_props(
         TickLevel::Major,
-        &TickLabelProps {
+        TickLabelProps {
             fontweight: Some(FontWeight::BOLD),
             ..TickLabelProps::default()
         },
@@ -82,15 +82,15 @@ fn loglog_nonpos(fig: &Figure) -> CaseResult {
         };
         // `loglog(..., nonpositive=...)` only when both agree.
         let (x_mode, y_mode) = if mcx == mcy { (mcx, mcx) } else { (None, None) };
-        ax.set_scale_with(AxisName::X, "log", &log(x_mode))?
-            .set_scale_with(AxisName::Y, "log", &log(y_mode))?;
+        ax.set_scale_with(AxisName::X, "log", log(x_mode))?
+            .set_scale_with(AxisName::Y, "log", log(y_mode))?;
         ax.plot_with(&x, &y, LineProps::default().linewidth(2.0))?;
         if mcx != mcy {
             if mcx.is_some() {
-                ax.set_scale_with(AxisName::X, "log", &log(mcx))?;
+                ax.set_scale_with(AxisName::X, "log", log(mcx))?;
             }
             if mcy.is_some() {
-                ax.set_scale_with(AxisName::Y, "log", &log(mcy))?;
+                ax.set_scale_with(AxisName::Y, "log", log(mcy))?;
             }
         }
         ax.set_yticks([1e3, 1e7]);
@@ -116,7 +116,7 @@ fn axisbelow(fig: &Figure) -> CaseResult {
             .update_props(PatchProps::default().color("r"));
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 color: Some("c".into()),
                 linestyle: Some(LineStyle::Solid),
                 linewidth: Some(3.0),

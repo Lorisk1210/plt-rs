@@ -223,7 +223,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("bars/bar_label_edge_default", |fig| {
         let ax = fig.subplot();
         let bars = ax.bar(x(), heights(1.5), BarOptions::default())?;
-        ax.bar_label(&bars, &BarLabelOptions::default())?;
+        ax.bar_label(&bars, BarLabelOptions::default())?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -242,11 +242,11 @@ pub(crate) const CASES: &[FigureCase] = &[
             label_type: BarLabelType::Center,
             ..BarLabelOptions::default()
         };
-        ax.bar_label(&lower, &center)?;
-        for label in ax.bar_label(&upper, &center)? {
+        ax.bar_label(&lower, center.clone())?;
+        for label in ax.bar_label(&upper, center)? {
             label.set_color("white");
         }
-        ax.bar_label(&upper, &BarLabelOptions::default())?;
+        ax.bar_label(&upper, BarLabelOptions::default())?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -260,7 +260,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             padding: vec![3.0],
             ..formatted("%.2f")
         };
-        for label in ax1.bar_label(&bars, &two_places)? {
+        for label in ax1.bar_label(&bars, two_places)? {
             label.set_fontsize(8.0);
         }
         let bars = ax2.barh(x(), heights(1.0 / 7.0), BarOptions::default())?;
@@ -268,7 +268,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             padding: vec![-25.0],
             ..formatted("{:.0%}")
         };
-        for label in ax2.bar_label(&bars, &percent)? {
+        for label in ax2.bar_label(&bars, percent)? {
             label.set_color("white");
         }
         Ok(())
@@ -281,7 +281,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             labels: ["a", "bb", "ccc", "", "e"].map(String::from).to_vec(),
             ..padded(2.0)
         };
-        for label in ax.bar_label(&bars, &options)? {
+        for label in ax.bar_label(&bars, options)? {
             label.set_rotation(90.0);
         }
         Ok(())
@@ -299,14 +299,14 @@ pub(crate) const CASES: &[FigureCase] = &[
         };
         let bars = ax.bar(x(), values, options)?;
         ax.axhline(0.0, LineProps::default().color("k").linewidth(0.8));
-        ax.bar_label(&bars, &formatted("%+.1f"))?;
+        ax.bar_label(&bars, formatted("%+.1f"))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("bars/negative_barh_labeled", |fig| {
         let ax = fig.subplot();
         let bars = ax.barh(x(), [-3.0, 2.0, -1.5, 4.0, 1.0], BarOptions::default())?;
-        ax.bar_label(&bars, &padded(4.0))?;
+        ax.bar_label(&bars, padded(4.0))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -391,7 +391,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 values,
                 options,
             )?;
-            for label in ax.bar_label(&bars, &padded(2.0))? {
+            for label in ax.bar_label(&bars, padded(2.0))? {
                 label.set_fontsize(7.0);
             }
         }

@@ -36,15 +36,14 @@ pub(crate) const CASES: &[FigureCase] = &[
             linelengths,
             ..EventplotOptions::default()
         };
-        fig.subplot()
-            .eventplot(&[data1, data2].concat(), &options)?;
+        fig.subplot().eventplot(&[data1, data2].concat(), options)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
     classic("mpl_axes_c/eventplot_defaults", |fig| {
         let (data1, data2) = event_data();
         fig.subplot()
-            .eventplot(&[data1, data2].concat(), &EventplotOptions::default())?;
+            .eventplot(&[data1, data2].concat(), EventplotOptions::default())?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -57,7 +56,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             linestyles: vec![LineStyle::Solid, LineStyle::Dashed],
             ..EventplotOptions::default()
         };
-        fig.subplot().eventplot(&data, &options)?;
+        fig.subplot().eventplot(&data, options)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -81,6 +80,6 @@ fn units_list(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let rows = [vec![day(1)?, day(2)?, day(3)?], vec![day(15)?, day(16)?]]
         .map(|dates| ax.xaxis().convert_units(dates));
-    ax.eventplot(&rows, &EventplotOptions::default())?;
+    ax.eventplot(&rows, EventplotOptions::default())?;
     Ok(())
 }

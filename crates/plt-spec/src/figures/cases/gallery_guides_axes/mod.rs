@@ -19,7 +19,7 @@ mod units;
 
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, Text, TextProps, VerticalAlignment};
+use plt::text::{HAlign, Text, TextProps, VAlign};
 
 use crate::figures::cases::common::example_plot;
 use crate::figures::{CaseResult, FigureCase};
@@ -50,8 +50,8 @@ fn subplot2grid(fig: &Figure) -> CaseResult {
 fn centered(text: &Text, points: f64) {
     text.update_props(
         TextProps::default()
-            .halign(HorizontalAlignment::Center)
-            .valign(VerticalAlignment::Center)
+            .halign(HAlign::Center)
+            .valign(VAlign::Center)
             .color("darkgrey"),
     )
     .set_fontsize(points);

@@ -110,7 +110,7 @@ fn constrained_23(fig: &Figure) -> CaseResult {
     let sfigs = fig.subfigures(
         1,
         2,
-        &SubfigureOptions {
+        SubfigureOptions {
             width_ratios: Some(vec![1.0, 2.0]),
             ..SubfigureOptions::default()
         },
@@ -169,8 +169,7 @@ fn colorbar_title(fig: &Figure, layout: LayoutEngine, title: &str, zoom: bool) -
     if zoom {
         ax.set_ylim(4.0, 8.0);
     }
-    ax.set_title(title)
-        .set_fontsize_relative(RelativeSize::Medium);
+    ax.set_title(title).set_fontsize(RelativeSize::Medium);
     fig.colorbar(&pcm, ColorbarOptions::beside(&ax))?;
     Ok(())
 }

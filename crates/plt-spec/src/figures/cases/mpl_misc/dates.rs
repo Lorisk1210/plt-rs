@@ -7,7 +7,7 @@ use plt::dates::{
 use plt::gridspec::SubplotOverrides;
 use plt::numeric::linspace;
 use plt::prelude::*;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 
 use super::{classic, remove_text};
 use crate::figures::{CaseResult, FigureCase};
@@ -43,7 +43,7 @@ fn room_on_the_left(fig: &Figure) -> CaseResult {
 
 /// `fig.autofmt_xdate()` with matplotlib's defaults.
 fn autofmt_xdate(fig: &Figure) -> CaseResult {
-    fig.autofmt_xdate(0.2, 30.0, HorizontalAlignment::Right)?;
+    fig.autofmt_xdate(0.2, 30.0, HAlign::Right)?;
     Ok(())
 }
 

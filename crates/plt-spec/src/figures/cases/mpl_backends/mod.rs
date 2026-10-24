@@ -18,7 +18,7 @@ mod ps;
 mod svg;
 
 use plt::figure::Figure;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 
 use super::mpl_tests::{classic, remove_ticks_and_titles};
 use crate::figures::{CaseResult, FigureCase};
@@ -61,8 +61,8 @@ fn multi_font_text() -> String {
 )]
 fn multi_font(fig: &Figure) -> CaseResult {
     fig.text(0.5, 0.5, multi_font_text())
-        .set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center);
+        .set_halign(HAlign::Center)
+        .set_valign(VAlign::Center);
     Ok(())
 }
 

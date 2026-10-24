@@ -73,7 +73,7 @@ fn simple_axesgrid(fig: &Figure) -> CaseResult {
         axes_pad: (0.1, 0.1),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(1, 1, 1)?, (2, 2), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(1, 1, 1)?, (2, 2), options)?;
     for (ax, image) in grid.axes().iter().zip([im1, im2, im3, im4]) {
         ax.imshow(image, ImshowOptions::default())?;
     }
@@ -86,7 +86,7 @@ fn simple_axesgrid2(fig: &Figure) -> CaseResult {
         label_mode: LabelMode::L,
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(1, 1, 1)?, (1, 3), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(1, 1, 1)?, (1, 3), options)?;
     let z = bivariate_normal();
     let limits = value_range([&z]);
     let left = Grid::from_fn(15, 10, |r, c| z[(r, c)]);
@@ -109,7 +109,7 @@ fn demo_imagegrid_aspect(fig: &Figure) -> CaseResult {
         ..ImageGridOptions::default()
     };
     for (position, stretched) in [(1, [0, 1]), (2, [1, 3])] {
-        let grid = ImageGrid::new(fig, &subplot(1, 2, position)?, (2, 2), &options)?;
+        let grid = ImageGrid::new(fig, &subplot(1, 2, position)?, (2, 2), options.clone())?;
         for i in stretched {
             grid.axes()[i].set_aspect(Aspect::Ratio(2.0))?;
         }
@@ -141,7 +141,7 @@ fn demo_axes_grid(fig: &Figure) -> CaseResult {
         label_mode: LabelMode::One,
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(1, 4, 1)?, (2, 2), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(1, 4, 1)?, (2, 2), options)?;
     for ax in grid.axes() {
         ax.imshow(z.clone(), image())?;
     }
@@ -155,7 +155,7 @@ fn demo_axes_grid(fig: &Figure) -> CaseResult {
         cbar_mode: Some(CbarMode::Single),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(1, 4, 2)?, (2, 2), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(1, 4, 2)?, (2, 2), options)?;
     let mut last = None;
     for ax in grid.axes() {
         last = Some(ax.imshow(z.clone(), image())?);
@@ -179,7 +179,7 @@ fn demo_axes_grid(fig: &Figure) -> CaseResult {
         cbar_pad: Some(SizeSpec::Percent(2.0)),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(1, 4, 3)?, (2, 2), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(1, 4, 3)?, (2, 2), options)?;
     for (ax, cax) in grid.axes().iter().zip(grid.cbar_axes()) {
         let shown = ax.imshow(z.clone(), image())?;
         cax.colorbar(&shown, ColorbarOptions::default())?;
@@ -197,7 +197,7 @@ fn demo_axes_grid(fig: &Figure) -> CaseResult {
         cbar_pad: Some(SizeSpec::Percent(2.0)),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(1, 4, 4)?, (2, 2), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(1, 4, 4)?, (2, 2), options)?;
     let limits = [(0.0, 1.0), (-2.0, 2.0), (-1.7, 1.4), (-1.5, 1.0)];
     for ((ax, cax), (vmin, vmax)) in grid.axes().iter().zip(grid.cbar_axes()).zip(limits) {
         let shown = ax.imshow(z.clone(), limited(image(), (vmin, vmax)))?;
@@ -244,7 +244,7 @@ fn demo_axes_grid2(fig: &Figure) -> CaseResult {
         cbar_pad: Some(SizeSpec::Percent(1.0)),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot(2, 1, 1)?, (1, 3), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(2, 1, 1)?, (1, 3), options)?;
     grid.axes()[0]
         .set_xticks(vec![-2.0, 0.0])
         .set_yticks(vec![-2.0, 0.0, 2.0]);
@@ -272,7 +272,7 @@ fn demo_axes_grid2(fig: &Figure) -> CaseResult {
         cbar_pad: Some(SizeSpec::Inches(0.05)),
         ..ImageGridOptions::default()
     };
-    let grid2 = ImageGrid::new(fig, &subplot(2, 1, 2)?, (1, 3), &options)?;
+    let grid2 = ImageGrid::new(fig, &subplot(2, 1, 2)?, (1, 3), options)?;
     let first = &grid2.axes()[0];
     first.set_xlabel("X").set_ylabel("Y");
     first
@@ -312,7 +312,7 @@ fn edge_colorbars(
         cbar_mode: Some(CbarMode::Edge),
         ..options.clone()
     };
-    let grid = ImageGrid::new(fig, &subplot(1, 2, position)?, (2, 2), &options)?;
+    let grid = ImageGrid::new(fig, &subplot(1, 2, position)?, (2, 2), options)?;
     for (i, ax) in grid.axes().iter().enumerate() {
         let colors = ColorizerOptions::default().cmap(colormaps::get(cmaps[i / 2])?);
         let shown = ax.imshow(bivariate_normal(), placed(EXTENT, false).colors(colors))?;

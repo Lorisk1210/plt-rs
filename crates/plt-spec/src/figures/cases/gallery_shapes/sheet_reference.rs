@@ -8,9 +8,7 @@ use plt::layout::LayoutEngine;
 use plt::patches::{Circle, Rectangle};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{
-    AnnotateOptions, ArrowProps, HorizontalAlignment as HAlign, VerticalAlignment as VAlign,
-};
+use plt::text::{AnnotateOptions, ArrowProps, HAlign, VAlign};
 
 use super::sheets::{beta_histograms, image_and_patch, sigmoids};
 use crate::figures::cases::common::{arrow, styled_box};
@@ -99,7 +97,7 @@ fn colored_circles(ax: &Axes, rng: &mut SpecRng) -> CaseResult {
     ax.grid(true);
     ax.set_title("ax.grid(True)")
         .set_family(["monospace"])
-        .set_fontsize_relative(RelativeSize::Small);
+        .set_fontsize(RelativeSize::Small);
     ax.set_xlim(-4.0, 8.0).set_ylim(-5.0, 6.0);
     ax.set_aspect(Aspect::Equal)?
         .set_adjustable(Adjustable::Box);

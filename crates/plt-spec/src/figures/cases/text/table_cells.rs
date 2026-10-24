@@ -6,7 +6,7 @@ use plt::fonts::{FontProperties, FontStyle, FontWeight};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
 use plt::table::{Table, TableCell, TableLoc, TableOptions};
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 use plt_core::Bbox;
 
 use super::tables::{rows, strings};
@@ -30,7 +30,7 @@ fn cell(table: &Table, row: i32, col: i32) -> Result<TableCell, &'static str> {
 fn cell_styles(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_axis_off();
-    let table = ax.table(&TableOptions {
+    let table = ax.table(TableOptions {
         col_labels: Some(strings(["day", "count", "mean"])),
         loc: TableLoc::Center,
         ..TableOptions::with_text(rows([
@@ -60,9 +60,9 @@ fn cell_styles(fig: &Figure) -> CaseResult {
 fn visible_edges(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_axis_off();
-    let table = ax.table(&TableOptions {
+    let table = ax.table(TableOptions {
         loc: TableLoc::Center,
-        cell_loc: Some(HorizontalAlignment::Center),
+        cell_loc: Some(HAlign::Center),
         ..TableOptions::with_text(rows([["open", "B", "LR"], ["T", "closed", "BRT"]]))
     })?;
     for (row, col) in table.cell_keys() {
@@ -77,7 +77,7 @@ fn outside(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.plot([0.0, 1.0], [0.0, 1.0])?;
     for loc in ["top", "left", "right", "bottom right", "top left"] {
-        ax.table(&TableOptions {
+        ax.table(TableOptions {
             loc: loc.parse()?,
             col_widths: Some(vec![0.2]),
             ..TableOptions::with_text(rows([[loc]]))
@@ -106,8 +106,8 @@ fn auto_font(fig: &Figure) -> CaseResult {
     for ax in axes.as_slice() {
         ax.set_axis_off();
     }
-    axes[(0, 0)].table(&options)?;
-    let fixed = axes[(0, 1)].table(&options)?;
+    axes[(0, 0)].table(options.clone())?;
+    let fixed = axes[(0, 1)].table(options)?;
     fixed.auto_set_font_size(false);
     fixed.set_fontsize(7.0);
     Ok(())
@@ -117,12 +117,12 @@ fn bbox_locs(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_xticks(Vec::<f64>::new());
     ax.set_yticks(Vec::<f64>::new());
-    ax.table(&TableOptions {
+    ax.table(TableOptions {
         row_labels: Some(strings(["first", "second"])),
         col_labels: Some(strings(["A", "B", "C"])),
-        cell_loc: Some(HorizontalAlignment::Left),
-        row_loc: Some(HorizontalAlignment::Center),
-        col_loc: Some(HorizontalAlignment::Right),
+        cell_loc: Some(HAlign::Left),
+        row_loc: Some(HAlign::Center),
+        col_loc: Some(HAlign::Right),
         bbox: Some(Bbox::from_bounds(0.25, 0.2, 0.7, 0.5)),
         ..TableOptions::with_text(rows([["1", "22", "333"], ["4444", "5", "66"]]))
     })?;
@@ -142,7 +142,7 @@ fn colours_only(fig: &Figure) -> CaseResult {
                 .collect()
         })
         .collect();
-    let table = ax.table(&TableOptions {
+    let table = ax.table(TableOptions {
         cell_colours: Some(colours),
         row_labels: Some(strings(["r1", "r2", "r3"])),
         col_labels: Some(strings(["w", "x", "y", "z"])),
@@ -160,7 +160,7 @@ fn colours_only(fig: &Figure) -> CaseResult {
 fn size_text_edit(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_axis_off();
-    let table = ax.table(&TableOptions {
+    let table = ax.table(TableOptions {
         loc: TableLoc::Center,
         col_widths: Some(vec![0.2, 0.2]),
         ..TableOptions::with_text(rows([["a", "b"], ["c", "d"]]))
@@ -172,9 +172,7 @@ fn size_text_edit(fig: &Figure) -> CaseResult {
         style: FontStyle::Italic,
         ..below_left.font()
     };
-    below_left
-        .set_font(italic)
-        .set_text_halign(HorizontalAlignment::Left);
+    below_left.set_font(italic).set_text_halign(HAlign::Left);
     cell(&table, 1, 1)?
         .set_facecolor("tab:olive")
         .set_alpha(Some(0.5));

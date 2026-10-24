@@ -116,7 +116,7 @@ impl Collection {
     ///     ..ScatterOptions::default()
     /// };
     /// let points = ax.scatter_with([0.0, 1.0, 2.0, 3.0], [0.0, 1.0, 0.0, 1.0], options)?;
-    /// let (handles, labels) = points.legend_elements(&LegendElementsOptions::default())?;
+    /// let (handles, labels) = points.legend_elements(LegendElementsOptions::default())?;
     /// assert_eq!(labels, ["$\\mathdefault{1}$", "$\\mathdefault{2}$", "$\\mathdefault{3}$"]);
     /// ax.legend(LegendOptions::default().handles(handles).labels(labels))?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -127,10 +127,10 @@ impl Collection {
     /// When the locator or the formatter fails.
     pub fn legend_elements(
         &self,
-        options: &LegendElementsOptions,
+        options: LegendElementsOptions,
     ) -> Result<LegendElements, TickerError> {
         self.raw()
-            .with::<CollectionArtist, _>(|collection| elements(collection, options))
+            .with::<CollectionArtist, _>(|collection| elements(collection, &options))
     }
 }
 
@@ -306,7 +306,7 @@ mod tests {
             ..ScatterOptions::default()
         });
         let (handles, labels) = points
-            .legend_elements(&LegendElementsOptions::default())
+            .legend_elements(LegendElementsOptions::default())
             .expect("labels");
         assert_eq!(handles.len(), 3);
         assert_eq!(labels[2], "$\\mathdefault{3}$");
@@ -328,7 +328,7 @@ mod tests {
             )),
             ..LegendElementsOptions::default()
         };
-        let (handles, labels) = points.legend_elements(&options).expect("labels");
+        let (handles, labels) = points.legend_elements(options).expect("labels");
         // matplotlib 3.11 gives these; size 0 has no marker and is left out.
         assert_eq!(labels, ["5", "10"]);
         assert_eq!(handles.len(), 2);
@@ -338,7 +338,7 @@ mod tests {
     fn colours_need_a_mapping_and_empty_collections_give_nothing() {
         let plain = scatter(ScatterOptions::default());
         let (handles, labels) = plain
-            .legend_elements(&LegendElementsOptions::default())
+            .legend_elements(LegendElementsOptions::default())
             .expect("no entries");
         assert!(handles.is_empty() && labels.is_empty());
         let ax = Figure::new().subplot();
@@ -350,6 +350,6 @@ mod tests {
             ..LegendElementsOptions::default()
         };
         // The default marker size stands for every point.
-        assert_eq!(empty.legend_elements(&sizes).expect("one entry").1.len(), 1);
+        assert_eq!(empty.legend_elements(sizes).expect("one entry").1.len(), 1);
     }
 }

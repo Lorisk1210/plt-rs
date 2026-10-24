@@ -18,6 +18,24 @@ pub enum TextError {
         /// Index one past its last character.
         end: usize,
     },
+    /// A name that a text property does not have, such as a horizontal
+    /// alignment of `"middle"`.
+    UnknownName {
+        /// What was being parsed (`"horizontal alignment"`, ...).
+        kind: &'static str,
+        /// The unknown name.
+        name: String,
+    },
+}
+
+impl TextError {
+    /// The error of a name that `kind` does not have.
+    pub(crate) fn unknown_name(kind: &'static str, name: &str) -> Self {
+        Self::UnknownName {
+            kind,
+            name: name.to_owned(),
+        }
+    }
 }
 
 impl fmt::Display for TextError {
@@ -34,6 +52,7 @@ impl fmt::Display for TextError {
                 "failed to set language between {start} and {end} characters to '{language}' \
                  for layout"
             ),
+            Self::UnknownName { kind, name } => write!(f, "{name:?} is not a valid {kind}"),
         }
     }
 }

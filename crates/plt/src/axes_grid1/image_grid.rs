@@ -168,7 +168,7 @@ impl CbarAxes {
 /// use plt::prelude::*;
 /// let fig = Figure::new();
 /// let rect = GridRect::Rect([0.1, 0.1, 0.8, 0.8]);
-/// let grid = ImageGrid::new(&fig, &rect, (2, 3), &ImageGridOptions::default())?;
+/// let grid = ImageGrid::new(&fig, &rect, (2, 3), ImageGridOptions::default())?;
 /// assert_eq!(grid.axes().len(), 6);
 /// # Ok::<(), plt::axes_grid1::AxesGridError>(())
 /// ```
@@ -195,9 +195,9 @@ impl ImageGrid {
         fig: &Figure,
         rect: &GridRect,
         shape: (usize, usize),
-        options: &ImageGridOptions,
+        options: ImageGridOptions,
     ) -> Result<Self, AxesGridError> {
-        Self::build(fig, rect, shape, options, true)
+        Self::build(fig, rect, shape, &options, true)
     }
 
     /// A grid of `nrows_ncols` axes dividing `rect` of `fig` without
@@ -209,7 +209,7 @@ impl ImageGrid {
     /// use plt::prelude::*;
     /// let fig = Figure::new();
     /// let rect = GridRect::Rect([0.1, 0.1, 0.8, 0.8]);
-    /// let grid = ImageGrid::plain(&fig, &rect, (2, 2), &ImageGridOptions::default())?;
+    /// let grid = ImageGrid::plain(&fig, &rect, (2, 2), ImageGridOptions::default())?;
     /// assert_eq!(fig.axes().len(), 4);
     /// assert!(grid.cbar_axes().is_empty());
     /// # Ok::<(), plt::axes_grid1::AxesGridError>(())
@@ -222,7 +222,7 @@ impl ImageGrid {
         fig: &Figure,
         rect: &GridRect,
         shape: (usize, usize),
-        options: &ImageGridOptions,
+        options: ImageGridOptions,
     ) -> Result<Self, AxesGridError> {
         let options = ImageGridOptions {
             cbar_mode: None,
@@ -312,7 +312,7 @@ impl ImageGrid {
     /// use plt::prelude::*;
     /// let fig = Figure::new();
     /// let rect = GridRect::Rect([0.1, 0.1, 0.8, 0.8]);
-    /// let grid = ImageGrid::new(&fig, &rect, (2, 3), &ImageGridOptions::default())?;
+    /// let grid = ImageGrid::new(&fig, &rect, (2, 3), ImageGridOptions::default())?;
     /// assert_eq!(grid.axes_llc(), &grid.axes()[3]);
     /// # Ok::<(), plt::axes_grid1::AxesGridError>(())
     /// ```
@@ -342,7 +342,7 @@ impl ImageGrid {
     ///     cbar_location: SpineSide::Right,
     ///     ..ImageGridOptions::default()
     /// };
-    /// let grid = ImageGrid::new(&fig, &GridRect::Rect([0.1, 0.1, 0.8, 0.8]), (2, 2), &options)?;
+    /// let grid = ImageGrid::new(&fig, &GridRect::Rect([0.1, 0.1, 0.8, 0.8]), (2, 2), options)?;
     /// // Row by row: the axes of the second row share the second colorbar.
     /// assert_eq!(grid.cax(3), Some(&grid.cbar_axes()[1]));
     /// assert_eq!(grid.cax(1), Some(&grid.cbar_axes()[0]));
@@ -496,7 +496,7 @@ mod tests {
             n_axes: Some(5),
             ..ImageGridOptions::default()
         };
-        let err = ImageGrid::new(&fig, &rect, (2, 2), &options).unwrap_err();
+        let err = ImageGrid::new(&fig, &rect, (2, 2), options).unwrap_err();
         assert_eq!(
             err,
             AxesGridError::AxesCount {
@@ -504,7 +504,7 @@ mod tests {
                 cells: 4
             }
         );
-        let empty = ImageGrid::new(&fig, &rect, (0, 2), &ImageGridOptions::default());
+        let empty = ImageGrid::new(&fig, &rect, (0, 2), ImageGridOptions::default());
         assert_eq!(empty.unwrap_err(), AxesGridError::Empty);
     }
 
@@ -518,7 +518,7 @@ mod tests {
             cbar_mode: Some(CbarMode::Each),
             ..ImageGridOptions::default()
         };
-        let grid = ImageGrid::plain(&fig, &rect, (1, 2), &options).unwrap();
+        let grid = ImageGrid::plain(&fig, &rect, (1, 2), options).unwrap();
         grid.axes()[0].set_xlim(0.0, 1.0);
         grid.axes()[1].set_xlim(0.0, 3.0);
         fig.layout();
@@ -539,7 +539,7 @@ mod tests {
                 cbar_location,
                 ..ImageGridOptions::default()
             };
-            let grid = ImageGrid::new(&fig, &rect, (2, 3), &options).unwrap();
+            let grid = ImageGrid::new(&fig, &rect, (2, 3), options).unwrap();
             (0..6)
                 .map(|i| {
                     let cax = grid.cax(i).expect("a colorbar axes");
@@ -570,7 +570,7 @@ mod tests {
             ..ImageGridOptions::default()
         };
         let rect = GridRect::Rect([0.125, 0.11, 0.775, 0.77]);
-        let grid = ImageGrid::new(&fig, &rect, (2, 2), &options).unwrap();
+        let grid = ImageGrid::new(&fig, &rect, (2, 2), options).unwrap();
         for ax in grid.axes() {
             ax.set_xlim(-0.5, 19.5).set_ylim(19.5, -0.5);
             ax.set_aspect(Aspect::Equal).unwrap();

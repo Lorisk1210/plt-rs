@@ -179,7 +179,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(4.0, 3.0, 100.0),
     FigureCase::new("contour/clabel_default", |fig| {
         let cs = fig.subplot().contour(&bumps(60, 45), count(8))?;
-        cs.clabel(&ClabelOptions::default())?;
+        cs.clabel(ClabelOptions::default())?;
         Ok(())
     })
     .sized(5.0, 3.5, 100.0),
@@ -189,7 +189,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..values(&[-1.0, -0.5, 0.5, 1.0])
         };
         let cs = fig.subplot().contour(&bumps(60, 45), options)?;
-        cs.clabel(&ClabelOptions {
+        cs.clabel(ClabelOptions {
             fmt: LabelFormat::Printf(PrintfFormat::parse("%1.2f m")?),
             fontsize: Some(FontSize::Points(7.0)),
             inline: false,
@@ -203,7 +203,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .subplot()
             .contour(&bumps(60, 45), values(&[-1.0, 0.0, 1.0]))?;
         let texts = [(-1.0, "low"), (0.0, "zero"), (1.0, "high")];
-        cs.clabel(&ClabelOptions {
+        cs.clabel(ClabelOptions {
             fmt: LabelFormat::Map(texts.iter().map(|&(l, t)| (l, t.to_owned())).collect()),
             colors: Some(colors(&["k"])),
             fontsize: Some(FontSize::Points(11.0)),
@@ -369,7 +369,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let field = bumps(60, 45);
         let fills = ax.contourf(&field, count(8))?;
         let lines = ax.contour(&field, values(&fills.levels()))?;
-        lines.clabel(&ClabelOptions::default())?;
+        lines.clabel(ClabelOptions::default())?;
         fig.colorbar(&fills, ColorbarOptions::beside(&ax))?;
         fills.set_cmap(colormaps::get("RdBu_r")?);
         fills.set_clim(Some(-1.5), Some(1.5));

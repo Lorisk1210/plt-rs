@@ -1,6 +1,7 @@
 //! Error bars (matplotlib's `errorbar`).
 
 use std::f64::consts::FRAC_PI_2;
+use std::str::FromStr;
 
 use super::broadcast::{broadcast, broadcast_flags};
 use super::{Axes, AxesState, PlotError};
@@ -8,7 +9,10 @@ use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist};
 use crate::colors::Color;
 use crate::dates::TimeDelta;
-use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery, PolarMarkerRotation};
+use crate::lines::{
+    FormatError, FormatString, Line2D, LineArtist, LineProps, LineStyle, MarkEvery,
+    PolarMarkerRotation,
+};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
@@ -80,6 +84,65 @@ impl ErrorSize {
     }
 }
 
+/// How [`Axes::errorbar`] draws the data line (matplotlib's `fmt`);
+/// matplotlib's strings parse with [`str::parse`].
+///
+/// ```
+/// use plt::axes::ErrorbarFormat;
+/// assert_eq!("".parse(), Ok(ErrorbarFormat::Default));
+/// assert_eq!("none".parse(), Ok(ErrorbarFormat::None));
+/// assert!(matches!("rs--".parse(), Ok(ErrorbarFormat::Format(_))));
+/// assert!("not a format".parse::<ErrorbarFormat>().is_err());
+/// ```
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum ErrorbarFormat {
+    /// The line in its default style (`fmt=""`).
+    #[default]
+    Default,
+    /// No data line, the error bars only (`fmt="none"`).
+    None,
+    /// The style of a format string such as `"o"` or `"rs--"`.
+    Format(FormatString),
+}
+
+impl ErrorbarFormat {
+    /// Whether the data line is drawn.
+    pub(crate) fn draws_line(&self) -> bool {
+        *self != Self::None
+    }
+
+    /// The properties the format gives the data line: matplotlib parses
+    /// `"none"` as the colour `none`.
+    pub(crate) fn line_props(self) -> LineProps {
+        match self {
+            Self::Default => LineProps::default(),
+            Self::None => LineProps::default().color("none"),
+            Self::Format(format) => format.into(),
+        }
+    }
+}
+
+impl From<FormatString> for ErrorbarFormat {
+    fn from(format: FormatString) -> Self {
+        Self::Format(format)
+    }
+}
+
+impl FromStr for ErrorbarFormat {
+    type Err = FormatError;
+
+    /// Parses `""`, `"none"` (in any case) or a format string.
+    fn from_str(fmt: &str) -> Result<Self, FormatError> {
+        if fmt.is_empty() {
+            Ok(Self::Default)
+        } else if fmt.eq_ignore_ascii_case("none") {
+            Ok(Self::None)
+        } else {
+            fmt.parse().map(Self::Format)
+        }
+    }
+}
+
 /// Options of [`Axes::errorbar`] (matplotlib's `errorbar` keywords).
 #[derive(Clone, Debug, Default)]
 pub struct ErrorbarOptions {
@@ -87,9 +150,8 @@ pub struct ErrorbarOptions {
     pub xerr: Option<ErrorSize>,
     /// Vertical error sizes.
     pub yerr: Option<ErrorSize>,
-    /// Format string of the data line: `""` for the default style,
-    /// `"none"` for error bars only.
-    pub fmt: String,
+    /// Style of the data line, or no line.
+    pub fmt: ErrorbarFormat,
     /// Properties of the data line; its colour, width, alpha, z-order and
     /// label also apply to the error bars and the container.
     pub line: LineProps,
@@ -228,16 +290,16 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::ErrorbarOptions;
     /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8]);
-    /// let options = ErrorbarOptions { yerr: Some(0.5.into()), fmt: "o".into(), ..Default::default() };
+    /// let options = ErrorbarOptions { yerr: Some(0.5.into()), fmt: "o".parse()?, ..Default::default() };
     /// let bars = ax.errorbar([1.0, 2.0], [3.0, 4.0], options)?;
     /// assert_eq!(bars.barlinecols.len(), 1);
-    /// # Ok::<(), plt::axes::PlotError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// # Errors
     ///
     /// When `x` and `y` differ in length, an error or limit list does not
-    /// broadcast, errors are negative, or the format string is invalid.
+    /// broadcast, or errors are negative.
     pub fn errorbar(
         &self,
         x: impl Into<AxisValues>,
@@ -269,12 +331,8 @@ impl Axes {
         let label = kwargs.base.label.take();
         let zorder = *kwargs.base.zorder.get_or_insert(2.0);
         kwargs.base.label = Some("_nolegend_".into());
-        let hidden = options.fmt.eq_ignore_ascii_case("none");
-        let format = if options.fmt.is_empty() {
-            LineProps::default()
-        } else {
-            LineProps::fmt(&options.fmt)?
-        };
+        let hidden = !options.fmt.draws_line();
+        let format = options.fmt.line_props();
         let mut data = self.cycled_line(x.to_vec(), y.to_vec(), format.overlay(kwargs.clone()));
         let color = if hidden {
             kwargs.color.clone().unwrap_or_else(|| Color::from("C0"))

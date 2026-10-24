@@ -11,7 +11,7 @@ use plt::layout::LayoutEngine;
 use plt::numeric::nanmax;
 use plt::patches::BoxStyle;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, TextBoxProps, VerticalAlignment};
+use plt::text::{HAlign, TextBoxProps, VAlign};
 
 use super::SEED;
 use crate::figures::cases::common::map;
@@ -47,8 +47,8 @@ fn multiple_figs_demo_2(fig: &Figure) -> CaseResult {
 fn size_label(fig: &Figure, text: &str) {
     fig.subplot()
         .text(0.5, 0.5, text)
-        .set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center)
+        .set_halign(HAlign::Center)
+        .set_valign(VAlign::Center)
         .set_fontsize(28.0)
         .set_color("C1");
 }
@@ -71,8 +71,8 @@ fn custom_figure_class(fig: &Figure) -> CaseResult {
         ..TextBoxProps::default()
     };
     fig.text(0.5, 0.5, "draft")
-        .set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center)
+        .set_halign(HAlign::Center)
+        .set_valign(VAlign::Center)
         .set_rotation(30.0)
         .set_fontsize(40.0)
         .set_color("gray")
@@ -153,7 +153,7 @@ fn figure_title_2(fig: &Figure) -> CaseResult {
             LineProps::default().linewidth(2.5),
         )?;
         ax.set_title_at(TitleLocation::Left, name)
-            .set_size(FontSize::Relative(RelativeSize::Small));
+            .set_fontsize(FontSize::Relative(RelativeSize::Small));
     }
     fig.supxlabel("Year");
     fig.supylabel("Stock price relative to max");

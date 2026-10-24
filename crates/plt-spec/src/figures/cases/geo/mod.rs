@@ -106,7 +106,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             colors: ColorizerOptions::default().cmap(colormaps::get("RdBu_r")?),
             ..PcolorOptions::default()
         };
-        ax.pcolormesh(Mesh::with_coords(lon, lat, values), options)?;
+        ax.pcolormesh(Mesh::from_coords(lon, lat, values), options)?;
         ax.grid(true);
         Ok(())
     }),
@@ -117,7 +117,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .set_longitude_grid_ends(60.0);
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 color: Some(Color::from("tab:blue")),
                 linestyle: Some(LineStyle::Dashed),
                 linewidth: Some(0.8),

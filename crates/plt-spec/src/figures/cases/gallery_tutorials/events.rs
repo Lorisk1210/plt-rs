@@ -15,7 +15,7 @@ use plt::lines::StepWhere;
 use plt::numeric::Grid;
 use plt::patches::Circle;
 use plt::prelude::*;
-use plt::text::{TextBoxProps, VerticalAlignment as VAlign};
+use plt::text::{TextBoxProps, VAlign};
 
 use super::{SEED, uniform_rows};
 use crate::figures::cases::common::{map, mgrid_count};

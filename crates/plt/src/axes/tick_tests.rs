@@ -55,7 +55,7 @@ fn negative_tick_label_rotations_lay_out_like_their_positive_equivalents() {
 #[test]
 fn the_tick_space_follows_the_major_label_size() {
     let ax = axes();
-    let count = |ax: &super::Axes| ax.ticks(AxisName::X).map(|t| t.major.len());
+    let count = |ax: &super::Axes| ax.ticks(AxisName::X).expect("ticks").major.len();
     let default = count(&ax);
     ax.tick_params(&TickParams {
         axis: Some(AxisName::X),
@@ -79,7 +79,7 @@ fn the_tick_space_follows_the_major_label_size() {
 fn the_tick_space_follows_the_rc_label_size_when_laid_out() {
     // matplotlib reads `xtick.labelsize` when it draws, not when the axes
     // is made: large labels at creation leave the default room.
-    let count = |ax: &super::Axes| ax.ticks(AxisName::X).map(|t| t.major.len());
+    let count = |ax: &super::Axes| ax.ticks(AxisName::X).expect("ticks").major.len();
     let default = count(&axes());
     let made_large = crate::rc::context(|| {
         crate::rc::set("xtick.labelsize", "40").expect("valid size");
@@ -101,7 +101,7 @@ fn grid_styles_survive_hiding_and_follow_tick_parameters() {
     let ax = axes();
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             color: Some(Color::from("red")),
             ..GridOptions::default()
         },
@@ -146,7 +146,7 @@ fn minor_ticks_take_labels_and_label_properties() {
     assert!(xaxis.set_minor_ticklabels(["only one"]).is_err());
     xaxis.set_ticklabel_props(
         TickLevel::Minor,
-        &TickLabelProps {
+        TickLabelProps {
             color: Some(Color::from("tab:red")),
             fontsize: Some(FontSize::Points(7.0)),
             multialign: Some(HAlign::Right),
@@ -206,7 +206,7 @@ fn tick_labels_take_a_font_family_weight_and_style() {
     });
     ax.xaxis().set_ticklabel_props(
         TickLevel::Major,
-        &TickLabelProps {
+        TickLabelProps {
             fontweight: Some(FontWeight::BOLD),
             fontstyle: Some(FontStyle::Italic),
             ..TickLabelProps::default()
@@ -324,7 +324,7 @@ fn a_single_major_tick_label_takes_its_own_properties() {
     let red = Rgba::opaque(1.0, 0.0, 0.0);
     ax.xaxis().set_major_ticklabel_props(
         2,
-        &TickLabelProps {
+        TickLabelProps {
             color: Some(Color::from(red)),
             ..TickLabelProps::default()
         },
@@ -359,14 +359,14 @@ fn single_tick_label_properties_accumulate_on_the_major_style() {
     let axis = ax.xaxis();
     axis.set_major_ticklabel_props(
         1,
-        &TickLabelProps {
+        TickLabelProps {
             color: Some(Color::from("red")),
             ..TickLabelProps::default()
         },
     );
     axis.set_major_ticklabel_props(
         1,
-        &TickLabelProps {
+        TickLabelProps {
             rotation: Some(30.0),
             fontsize: Some(FontSize::Relative(RelativeSize::Large)),
             ..TickLabelProps::default()
@@ -399,7 +399,7 @@ fn constrained_position(labels: [&str; 2], out_of_layout: bool) -> plt_core::Bbo
             in_layout: Some(false),
             ..TickLabelProps::default()
         };
-        ax.xaxis().set_major_ticklabel_props(1, &props);
+        ax.xaxis().set_major_ticklabel_props(1, props);
     }
     ax.position()
 }
@@ -430,7 +430,7 @@ fn a_tick_label_out_of_the_layout_leaves_the_axis_label_alone() {
                 in_layout: Some(false),
                 ..TickLabelProps::default()
             };
-            ax.xaxis().set_major_ticklabel_props(1, &props);
+            ax.xaxis().set_major_ticklabel_props(1, props);
         }
         fig.tight_bbox().y0()
     };

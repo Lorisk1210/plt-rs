@@ -96,7 +96,7 @@ fn imsave(args: Args<'_>) -> Outcome {
         dpi: args.opt_f64("dpi")?.unwrap_or(100.0),
         jpeg_quality,
     };
-    let file = imsave_bytes(image_data(args)?, format, &options).map_err(ProbeError::rejected)?;
+    let file = imsave_bytes(image_data(args)?, format, options).map_err(ProbeError::rejected)?;
     Ok(Json::from(base64::encode(&file)))
 }
 
@@ -120,7 +120,7 @@ fn thumbnail_op(args: Args<'_>) -> Outcome {
     let png = imsave_bytes(
         ImageData::from(data),
         plt::image::BitmapFormat::Png,
-        &ImsaveOptions::default(),
+        ImsaveOptions::default(),
     )
     .map_err(ProbeError::rejected)?;
     std::fs::write(&source, png).map_err(ProbeError::rejected)?;
@@ -128,7 +128,7 @@ fn thumbnail_op(args: Args<'_>) -> Outcome {
         scale: args.f64("scale")?,
         interpolation,
     };
-    let made = thumbnail(&source, &target, &options).map_err(ProbeError::rejected);
+    let made = thumbnail(&source, &target, options).map_err(ProbeError::rejected);
     let read = made.and_then(|_| imread(&target).map_err(ProbeError::rejected));
     let _ = std::fs::remove_dir_all(&dir);
     let thumb = read?;

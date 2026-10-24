@@ -49,7 +49,7 @@ fn jshtml(args: Args<'_>) -> Outcome {
     let fig = Figure::with_size(1.0, 1.0, 20.0);
     let animation = FuncAnimation::new(&fig, Frames::Count(count), options, |_| {});
     let html = animation
-        .to_jshtml(&HtmlOptions { fps, default_mode })
+        .to_jshtml(HtmlOptions { fps, default_mode })
         .map_err(ProbeError::rejected)?;
     Ok(Json::from(mask_ids(&mask_data(&html))))
 }

@@ -25,7 +25,7 @@
 //! fig.subplot().plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
 //! // Like matplotlib: port 8988 (or a free one nearby) on 127.0.0.1,
 //! // opening a browser; returns once the figure is closed.
-//! serve(&[fig], &WebOptions::from_rc()?)?;
+//! serve(&[fig], WebOptions::from_rc()?)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -179,12 +179,13 @@ impl WebOptions {
 /// # Errors
 ///
 /// When the server cannot start.
-pub fn serve(figures: &[Figure], options: &WebOptions) -> Result<(), WebError> {
+pub fn serve(figures: &[Figure], options: WebOptions) -> Result<(), WebError> {
+    let open_in_browser = options.open_in_browser;
     let mut server = WebServer::bind(options)?;
     for figure in figures {
         server.add_figure(figure);
     }
-    browser::announce(&server.url(), options.open_in_browser);
+    browser::announce(&server.url(), open_in_browser);
     server.run(None, || false);
     Ok(())
 }

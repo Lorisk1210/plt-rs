@@ -8,7 +8,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 
 use super::lightness::{grayscale, lightness};
 use crate::figures::{CaseResult, FigureCase};

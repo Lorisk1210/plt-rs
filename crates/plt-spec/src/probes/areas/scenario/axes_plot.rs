@@ -200,7 +200,7 @@ fn bar_label(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Result<Produced, Prob
         label_type,
         ..BarLabelOptions::default()
     };
-    ax.bar_label(&bars, &options)
+    ax.bar_label(&bars, options)
         .map(|_| Produced::Nothing)
         .map_err(ProbeError::rejected)
 }

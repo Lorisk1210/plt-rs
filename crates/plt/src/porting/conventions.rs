@@ -7,24 +7,39 @@
 //! * **Getters drop `get_`.** `ax.get_xlim()` is `ax.xlim()`,
 //!   `line.get_color()` is `line.color()`. Setters keep `set_` and return
 //!   `&Self` so calls chain; setters that create an artist, such as
-//!   `set_title`, return its handle instead.
-//! * **Keyword arguments become option structs.** Each plotting method
-//!   takes a struct of its keywords: either a property set with builder
-//!   methods ([`LineProps`], [`PatchProps`], [`CollectionProps`],
-//!   [`TextProps`], [`LegendOptions`]) or a plain struct with public fields
-//!   filled with struct update syntax (`..Default::default()`). Unset
-//!   options fall back to rcParams, as in matplotlib.
+//!   `set_title`, return its handle instead. Where the plain name already
+//!   makes something, the getter reads `current_`: `ax.legend()` makes a
+//!   legend, as in matplotlib, so `ax.get_legend()` is
+//!   [`Axes::current_legend`], the way `plt.gci()` is
+//!   [`Axes::current_image`].
+//! * **Keyword arguments become option structs, passed by value.** Each
+//!   plotting method, artist or widget constructor and save function takes
+//!   a struct of its keywords and consumes it; clone a struct to use it
+//!   again. The public fields are the API: fill them with struct update
+//!   syntax (`..Default::default()`); their names are matplotlib's
+//!   keywords. Unset options fall back to rcParams, as in matplotlib.
+//!   Builder methods are conveniences a few structs add on top of their
+//!   fields: the property sets ([`LineProps`], [`PatchProps`],
+//!   [`CollectionProps`], [`TextProps`]) and [`LegendOptions`], whose
+//!   fields are all `Option`s set from `impl Into` values, and shortcuts
+//!   into nested options such as [`ImshowOptions::cmap`]. Other option
+//!   structs have none.
 //! * **Strings become enums or parsed types.** `linestyle="--"` is
 //!   [`LineStyle::Dashed`]; matplotlib's spelling still works through
-//!   [`str::parse`], which validates it. Colours are the exception: a
-//!   [`Color`] converts from any string and is validated when resolved.
+//!   [`str::parse`] (every such type implements [`FromStr`]), which
+//!   validates it where it is given, format strings included. Colours are
+//!   the exception: a [`Color`] converts from any string and is validated
+//!   when resolved.
 //! * **Errors are `Result`s.** Invalid data or options return an error
 //!   enum of the module ([`PlotError`], [`ImageError`], [`LegendError`],
 //!   ...). All of them implement [`std::error::Error`], so `?` into
 //!   `Box<dyn Error>` works everywhere.
 //! * **Handles, not objects.** `Figure`, `Axes`, `Line2D` and every other
 //!   artist type are cheap handles into a figure. Cloning a handle gives a
-//!   second reference to the same artist, never a copy.
+//!   second reference to the same artist, never a copy. Every handle knows
+//!   its [`figure`](crate::artist::ArtistHandle::figure) and its
+//!   [`axes`](crate::artist::ArtistHandle::axes), and searches what it
+//!   owns with [`findobj`](crate::artist::ArtistHandle::findobj).
 //! * **The per-axis API takes an axis argument.** Where matplotlib has
 //!   `get_xmargin` and `get_ymargin`, plt-rs has `margin(AxisName::X)`.
 //!   The most common pairs (`set_xlim`, `set_xlabel`, `set_xscale`,
@@ -38,12 +53,13 @@
 //! | `ax.get_title()`                        | [`Axes::shown_title`] (where it is, and its text) |
 //! | `ax.get_title(loc="left")`              | [`Axes::title`]`(TitleLocation::Left)`           |
 //! | `line.get_linewidth()`                  | [`Line2D::linewidth`]                            |
-//! | `ax.get_legend()`                       | [`Axes::get_legend`] (`legend()` makes one)      |
+//! | `ax.get_legend()`                       | [`Axes::current_legend`] (`legend()` makes one)  |
 //! | `ax.set(xlim=..., xlabel=...)`          | chained setters: `ax.set_xlim(..).set_xlabel(..)` |
 //! | `line.set(color=..., lw=...)`, `plt.setp` | [`Line2D::update_props`]                       |
 //! | `plt.getp(artist, "color")`             | the getter: [`Line2D::color`]                    |
 //! | `ax.plot(x, y, color="r", lw=2)`        | [`Axes::plot_with`] with [`LineProps`]           |
 //! | `ax.plot(x, y, "o--")`                  | [`LineProps::fmt`]`("o--")?`                     |
+//! | `ax.errorbar(..., fmt="o")`             | `fmt: "o".parse()?` ([`ErrorbarFormat`])         |
 //! | `linestyle="--"`                        | [`LineStyle::Dashed`], or `"--".parse::<LineStyle>()?` |
 //! | `marker="o"`                            | [`MarkerSymbol::Circle`], or `"o".parse::<Marker>()?` |
 //! | `arrowprops=dict(arrowstyle="->")`      | `"->".parse::<FancyArrowProps>()?` ([`FancyArrowProps`]) |
@@ -58,7 +74,9 @@
 //! | `ax.get_shared_x_axes()`                | [`Axes::shared_axes`]`(AxisName::X)`             |
 //! | `ax.xaxis`, `ax.get_yaxis()`            | [`Axes::xaxis`], [`Axes::yaxis`], [`Axes::axis_of`] |
 //! | `artist.remove()`                       | [`ArtistHandle::remove`]                         |
-//! | `artist.axes`, `artist.figure`          | kept by the caller; [`Axes::figure`]            |
+//! | `artist.axes`, `artist.figure`          | [`ArtistHandle::axes`], [`ArtistHandle::figure`] |
+//! | `artist.findobj(match)`                 | [`ArtistHandle::findobj`]                        |
+//! | `ax.lines`, `ax.patches`, `ax.artists`  | [`Axes::lines`], [`Axes::patches`], [`Axes::artists`] |
 //!
 //! # Getters and setters
 //!
@@ -96,11 +114,11 @@
 //! A property set is built with chained methods named after matplotlib's
 //! keywords (without the abbreviations). Plain option structs are filled
 //! with struct update syntax; their fields carry matplotlib's keyword
-//! names too.
+//! names too. Either way the options are moved into the call.
 //!
 //! ```python
 //! ax.plot(x, y, "o--", color="tab:red", linewidth=2, markersize=4, label="data")
-//! ax.errorbar(x, y, yerr=0.1, capsize=3)
+//! ax.errorbar(x, y, yerr=0.1, fmt="s", capsize=3)
 //! ```
 //!
 //! ```
@@ -121,6 +139,7 @@
 //!
 //! let options = ErrorbarOptions {
 //!     yerr: Some(0.1.into()),
+//!     fmt: "s".parse()?,
 //!     capsize: Some(3.0),
 //!     ..ErrorbarOptions::default()
 //! };
@@ -195,15 +214,17 @@
 //! Every artist lives in its figure; what you hold is a handle to it.
 //! Handles are cheap to clone, compare equal when they refer to the same
 //! artist, and see each other's changes. A figure and its handles stay on
-//! the thread that made them, like pyplot's state. After
-//! [`ArtistHandle::remove`] the artist is gone: using its handle again
-//! panics, the way reading a closed file fails.
+//! the thread that made them, like pyplot's state. A handle knows the
+//! axes and the figure it belongs to. After [`ArtistHandle::remove`] the
+//! artist is gone: using its handle again panics, the way reading a closed
+//! file fails.
 //!
 //! ```python
 //! line, = ax.plot([0, 1], [0, 1])
 //! same = line                     # another name for the same object
 //! same.set_color("tab:red")
 //! assert line.get_color() == "tab:red"
+//! assert line.axes is ax and line.figure is fig
 //! line.remove()
 //! assert len(ax.lines) == 0
 //! ```
@@ -220,7 +241,8 @@
 //! same.set_color("tab:red");
 //! assert_eq!(line.color(), Color::from("tab:red"));
 //! assert_eq!(ax.lines(), [line.clone()]);
-//! assert_eq!(ax.figure(), fig);
+//! assert_eq!(line.axes(), Some(ax.clone()));
+//! assert_eq!(line.figure(), fig);
 //!
 //! line.remove();
 //! assert!(ax.lines().is_empty());
@@ -275,10 +297,8 @@
 //!   plt-rs resolves transforms and recomputes the layout each time a
 //!   figure is drawn, so nothing is invalidated by hand. Handles share
 //!   state, so there is nothing for `update_from` to copy.
-//! * **Back-pointers.** Tickers do not point to their axis; a
-//!   [`TickContext`] gives them what they need when they run. Artists do
-//!   not know their axes or figure either, so keep the [`Axes`] you
-//!   plotted on.
+//! * **Back-pointers of tickers.** Tickers do not point to their axis; a
+//!   [`TickContext`] gives them what they need when they run.
 //!
 //! [`LineProps`]: crate::lines::LineProps
 //! [`LineProps::fmt`]: crate::lines::LineProps::fmt
@@ -298,7 +318,17 @@
 //! [`Line2D::linewidth`]: crate::lines::Line2D::linewidth
 //! [`Line2D::color`]: crate::lines::Line2D::color
 //! [`Line2D::update_props`]: crate::lines::Line2D::update_props
-//! [`Axes::get_legend`]: crate::axes::Axes::get_legend
+//! [`Axes::current_legend`]: crate::axes::Axes::current_legend
+//! [`Axes::current_image`]: crate::axes::Axes::current_image
+//! [`Axes::lines`]: crate::axes::Axes::lines
+//! [`Axes::patches`]: crate::axes::Axes::patches
+//! [`Axes::artists`]: crate::axes::Axes::artists
+//! [`ErrorbarFormat`]: crate::axes::ErrorbarFormat
+//! [`ImshowOptions::cmap`]: crate::axes::ImshowOptions::cmap
+//! [`FromStr`]: std::str::FromStr
+//! [`ArtistHandle::axes`]: crate::artist::ArtistHandle::axes
+//! [`ArtistHandle::figure`]: crate::artist::ArtistHandle::figure
+//! [`ArtistHandle::findobj`]: crate::artist::ArtistHandle::findobj
 //! [`Axes::plot_with`]: crate::axes::Axes::plot_with
 //! [`MarkerSymbol::Circle`]: crate::markers::MarkerSymbol::Circle
 //! [`FancyArrowProps`]: crate::text::FancyArrowProps
@@ -315,11 +345,9 @@
 //! [`Axes::axis_of`]: crate::axes::Axes::axis_of
 //! [`Axes::format_data`]: crate::axes::Axes::format_data
 //! [`Axes::shared_axes`]: crate::axes::Axes::shared_axes
-//! [`Axes::figure`]: crate::axes::Axes::figure
 //! [`ArtistHandle::remove`]: crate::artist::ArtistHandle::remove
 //! [`AxisName`]: crate::ticker::AxisName
 //! [`Axis3`]: crate::mplot3d::Axis3
 //! [`Axis`]: crate::axes::Axis
 //! [`TickContext`]: crate::ticker::TickContext
-//! [`Axes`]: crate::axes::Axes
 //! [`pyplot::rc`]: crate::pyplot::rc

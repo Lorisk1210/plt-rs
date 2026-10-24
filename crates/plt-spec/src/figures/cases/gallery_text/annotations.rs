@@ -12,8 +12,8 @@ use plt::polar::PolarAxes;
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::text::{
-    AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps,
-    HorizontalAlignment as HAlign, TextBoxProps, VerticalAlignment as VAlign,
+    AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, HAlign, TextBoxProps,
+    VAlign,
 };
 use plt::transforms::Point;
 

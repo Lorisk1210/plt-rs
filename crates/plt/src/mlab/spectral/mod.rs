@@ -142,15 +142,15 @@ pub struct Specgram<T = f64> {
 /// use plt::mlab::{SpectralOptions, psd};
 /// let x: Vec<f64> = (0..64).map(|i| (f64::from(i) * 0.5).sin()).collect();
 /// let opts = SpectralOptions { nfft: 16, ..SpectralOptions::default() };
-/// let p = psd(&x, &opts).unwrap();
+/// let p = psd(&x, opts).unwrap();
 /// assert_eq!(p.values.len(), 9);
 /// assert_eq!(p.freqs[8], 1.0);
 /// ```
-pub fn psd<S: SignalValue>(x: &[S], opts: &SpectralOptions) -> Result<Spectrum, MlabError> {
+pub fn psd<S: SignalValue>(x: &[S], opts: SpectralOptions) -> Result<Spectrum, MlabError> {
     let raw = spectral_helper(
         &Signal::new(x),
         None,
-        opts,
+        &opts,
         opts.noverlap.unwrap_or(0),
         Mode::Psd,
     )?;
@@ -168,12 +168,12 @@ pub fn psd<S: SignalValue>(x: &[S], opts: &SpectralOptions) -> Result<Spectrum, 
 pub fn csd<S: SignalValue, U: SignalValue>(
     x: &[S],
     y: &[U],
-    opts: &SpectralOptions,
+    opts: SpectralOptions,
 ) -> Result<Spectrum<Complex>, MlabError> {
     let raw = spectral_helper(
         &Signal::new(x),
         Some(&Signal::new(y)),
-        opts,
+        &opts,
         opts.noverlap.unwrap_or(0),
         Mode::Psd,
     )?;
@@ -183,7 +183,7 @@ pub fn csd<S: SignalValue, U: SignalValue>(
 /// A spectrogram: the spectrum of each segment.
 pub fn specgram<S: SignalValue>(
     x: &[S],
-    opts: &SpectralOptions,
+    opts: SpectralOptions,
     mode: SpecgramMode,
 ) -> Result<Specgram, MlabError> {
     let mode = match mode {
@@ -192,7 +192,7 @@ pub fn specgram<S: SignalValue>(
         SpecgramMode::Angle => Mode::Angle,
         SpecgramMode::Phase => Mode::Phase,
     };
-    let raw = specgram_raw(x, opts, mode)?;
+    let raw = specgram_raw(x, &opts, mode)?;
     Ok(Specgram {
         values: raw.values.map(|z| z.re),
         freqs: raw.freqs,
@@ -204,9 +204,9 @@ pub fn specgram<S: SignalValue>(
 /// `mode='complex'`).
 pub fn complex_specgram<S: SignalValue>(
     x: &[S],
-    opts: &SpectralOptions,
+    opts: SpectralOptions,
 ) -> Result<Specgram<Complex>, MlabError> {
-    let raw = specgram_raw(x, opts, Mode::Complex)?;
+    let raw = specgram_raw(x, &opts, Mode::Complex)?;
     Ok(Specgram {
         values: raw.values,
         freqs: raw.freqs,
@@ -233,7 +233,7 @@ fn specgram_raw<S: SignalValue>(
 pub fn cohere<S: SignalValue, U: SignalValue>(
     x: &[S],
     y: &[U],
-    opts: &SpectralOptions,
+    opts: SpectralOptions,
 ) -> Result<Spectrum, MlabError> {
     if x.len() < 2 * opts.nfft {
         return Err(MlabError::SignalTooShort {
@@ -241,8 +241,8 @@ pub fn cohere<S: SignalValue, U: SignalValue>(
             nfft: opts.nfft,
         });
     }
-    let pxx = psd(x, opts)?;
-    let pyy = psd(y, opts)?;
+    let pxx = psd(x, opts.clone())?;
+    let pyy = psd(y, opts.clone())?;
     let pxy = csd(x, y, opts)?;
     let values = pxy
         .values
@@ -262,33 +262,33 @@ pub fn cohere<S: SignalValue, U: SignalValue>(
 /// The complex spectrum `X / sum(window)` of the whole signal.
 pub fn complex_spectrum<S: SignalValue>(
     x: &[S],
-    opts: &SpectrumOptions,
+    opts: SpectrumOptions,
 ) -> Result<Spectrum<Complex>, MlabError> {
-    single(x, opts, Mode::Complex)
+    single(x, &opts, Mode::Complex)
 }
 
 /// The magnitude spectrum `|X| / sum(window)` of the whole signal.
 pub fn magnitude_spectrum<S: SignalValue>(
     x: &[S],
-    opts: &SpectrumOptions,
+    opts: SpectrumOptions,
 ) -> Result<Spectrum, MlabError> {
-    single(x, opts, Mode::Magnitude).map(real_parts)
+    single(x, &opts, Mode::Magnitude).map(real_parts)
 }
 
 /// The wrapped phase angle spectrum of the whole signal.
 pub fn angle_spectrum<S: SignalValue>(
     x: &[S],
-    opts: &SpectrumOptions,
+    opts: SpectrumOptions,
 ) -> Result<Spectrum, MlabError> {
-    single(x, opts, Mode::Angle).map(real_parts)
+    single(x, &opts, Mode::Angle).map(real_parts)
 }
 
 /// The unwrapped phase spectrum of the whole signal.
 pub fn phase_spectrum<S: SignalValue>(
     x: &[S],
-    opts: &SpectrumOptions,
+    opts: SpectrumOptions,
 ) -> Result<Spectrum, MlabError> {
-    single(x, opts, Mode::Phase).map(real_parts)
+    single(x, &opts, Mode::Phase).map(real_parts)
 }
 
 fn single<S: SignalValue>(
@@ -364,7 +364,7 @@ mod tests {
             scale_by_freq: false,
             ..SpectralOptions::default()
         };
-        let p = psd(&x, &opts).unwrap();
+        let p = psd(&x, opts).unwrap();
         let power: f64 = p.values.iter().sum();
         let mean_square = x.iter().map(|v| v * v).sum::<f64>() / 32.0;
         assert!((power - mean_square).abs() < 1e-12);
@@ -380,12 +380,12 @@ mod tests {
             noverlap: Some(8),
             ..SpectralOptions::default()
         };
-        let s = specgram(&x, &opts, SpecgramMode::Psd).unwrap();
+        let s = specgram(&x, opts.clone(), SpecgramMode::Psd).unwrap();
         assert_eq!(s.values.shape(), (9, 7));
         assert_eq!(s.times, vec![4.0, 8.0, 12.0, 16.0, 20.0, 24.0, 28.0]);
         assert_eq!(s.freqs[8], 1.0);
-        let c = complex_specgram(&x, &opts).unwrap();
-        let m = specgram(&x, &opts, SpecgramMode::Magnitude).unwrap();
+        let c = complex_specgram(&x, opts.clone()).unwrap();
+        let m = specgram(&x, opts, SpecgramMode::Magnitude).unwrap();
         for (z, v) in c.values.as_slice().iter().zip(m.values.as_slice()) {
             assert!((z.abs() - v).abs() < 1e-12);
         }
@@ -398,10 +398,10 @@ mod tests {
             nfft: 32,
             ..SpectralOptions::default()
         };
-        let c = cohere(&x, &x, &opts).unwrap();
+        let c = cohere(&x, &x, opts.clone()).unwrap();
         assert!(c.values.iter().all(|v| (v - 1.0).abs() < 1e-12));
         assert!(matches!(
-            cohere(&x[..40], &x[..40], &opts),
+            cohere(&x[..40], &x[..40], opts),
             Err(MlabError::SignalTooShort { .. })
         ));
     }
@@ -410,16 +410,16 @@ mod tests {
     fn single_spectra_agree() {
         let x = signal(20);
         let opts = SpectrumOptions::default();
-        let c = complex_spectrum(&x, &opts).unwrap();
-        let m = magnitude_spectrum(&x, &opts).unwrap();
-        let a = angle_spectrum(&x, &opts).unwrap();
+        let c = complex_spectrum(&x, opts.clone()).unwrap();
+        let m = magnitude_spectrum(&x, opts.clone()).unwrap();
+        let a = angle_spectrum(&x, opts.clone()).unwrap();
         assert_eq!(c.values.len(), 11);
         for ((z, mag), ang) in c.values.iter().zip(&m.values).zip(&a.values) {
             assert!((z.abs() - mag).abs() < 1e-15 && (z.arg() - ang).abs() < 1e-15);
         }
-        assert!(phase_spectrum(&x, &opts).is_ok());
+        assert!(phase_spectrum(&x, opts.clone()).is_ok());
         assert_eq!(
-            complex_spectrum::<f64>(&[], &opts).unwrap_err(),
+            complex_spectrum::<f64>(&[], opts).unwrap_err(),
             MlabError::InvalidOverlap {
                 noverlap: 0,
                 nfft: 0
@@ -434,7 +434,7 @@ mod tests {
             nfft: 16,
             ..SpectralOptions::default()
         };
-        let p = psd(&z, &opts).unwrap();
+        let p = psd(&z, opts.clone()).unwrap();
         assert_eq!(p.values.len(), 16);
         assert_eq!(p.freqs[0], -1.0);
         let window_err = SpectralOptions {
@@ -442,7 +442,7 @@ mod tests {
             ..opts
         };
         assert!(matches!(
-            psd(&z, &window_err),
+            psd(&z, window_err),
             Err(MlabError::WindowLength { .. })
         ));
     }

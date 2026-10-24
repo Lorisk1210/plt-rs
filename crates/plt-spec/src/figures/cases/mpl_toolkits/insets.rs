@@ -102,7 +102,7 @@ fn zoomed_demo(fig: &Figure, make_inset: fn(&Axes) -> Axes) -> CaseResult {
 
 fn inset_locator(fig: &Figure) -> CaseResult {
     zoomed_demo(fig, |ax| {
-        zoomed_inset_axes(ax, 6.0, &InsetOptions::default())
+        zoomed_inset_axes(ax, 6.0, InsetOptions::default())
     })
 }
 
@@ -113,7 +113,7 @@ fn inset_axes_demo(fig: &Figure) -> CaseResult {
             bbox_transform: Some(ax.trans_axes()),
             ..InsetOptions::default()
         };
-        inset_axes(ax, 1.0.into(), 1.0.into(), &options)
+        inset_axes(ax, 1.0.into(), 1.0.into(), options)
     })
 }
 
@@ -147,7 +147,7 @@ fn fill_facecolor(fig: &Figure) -> CaseResult {
         ax.add_patch(connector)
             .update_props(connector_style.overlay(style.clone()))
             .set_clip_on(false);
-        let axins = zoomed_inset_axes(ax, 1.0, &InsetOptions::default());
+        let axins = zoomed_inset_axes(ax, 1.0, InsetOptions::default());
         axins.set_xlim(0.0, 0.2).set_ylim(0.0, 0.2);
         axins.set_xticks(Vec::<f64>::new());
         axins.set_yticks(Vec::<f64>::new());
@@ -175,7 +175,7 @@ fn zooming(fig: &Figure, limits: [f64; 4], inset_limits: [f64; 4]) -> CaseResult
         loc: AnchorLoc::LowerRight,
         ..InsetOptions::default()
     };
-    let inset = zoomed_inset_axes(&ax, 2.5, &options);
+    let inset = zoomed_inset_axes(&ax, 2.5, options);
     inset
         .set_xlim(inset_limits[0], inset_limits[1])
         .set_ylim(inset_limits[2], inset_limits[3]);
@@ -206,7 +206,7 @@ fn mark_inset_unstales_viewlim(fig: &Figure) -> CaseResult {
 }
 
 fn anchored_locator_base_call(fig: &Figure) -> CaseResult {
-    let subfigures = fig.subfigures(2, 1, &SubfigureOptions::default())?;
+    let subfigures = fig.subfigures(2, 1, SubfigureOptions::default())?;
     let ax = subfigures[(0, 0)].subplot();
     ax.set_aspect(Aspect::Equal)?;
     ax.set_xlim(-15.0, 15.0).set_ylim(-20.0, 5.0);
@@ -216,7 +216,7 @@ fn anchored_locator_base_call(fig: &Figure) -> CaseResult {
         loc: AnchorLoc::UpperLeft,
         ..InsetOptions::default()
     };
-    let axins = zoomed_inset_axes(&ax, 2.0, &options);
+    let axins = zoomed_inset_axes(&ax, 2.0, options);
     axins.set_xticks(Vec::<f64>::new());
     axins.set_yticks(Vec::<f64>::new());
     axins.imshow(

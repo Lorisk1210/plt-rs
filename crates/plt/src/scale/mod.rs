@@ -17,7 +17,7 @@
 //!
 //! ```
 //! use plt::scale::{ScaleOptions, scale_factory};
-//! let scale = scale_factory("log", &ScaleOptions { base: Some(2.0), ..ScaleOptions::default() })
+//! let scale = scale_factory("log", ScaleOptions { base: Some(2.0), ..ScaleOptions::default() })
 //!     .unwrap();
 //! assert_eq!(scale.name(), "log");
 //! ```

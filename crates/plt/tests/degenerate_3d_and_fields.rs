@@ -77,7 +77,7 @@ fn cases_3d() -> Vec<(&'static str, Case3D)> {
             done(ax.quiver(&at, &at, Quiver3DOptions::default()))
         }),
         ("stem and errorbar", |ax, x, y| {
-            ax.stem(x, y, y, &Stem3DOptions::default())?;
+            ax.stem(x, y, y, Stem3DOptions::default())?;
             done(ax.errorbar(x, y, y, Errorbar3DOptions::default()))
         }),
         ("fill_between", |ax, x, y| {
@@ -119,7 +119,7 @@ fn field_cases() -> Vec<(&'static str, Case)> {
         }),
         ("matshow and spy", |ax, _, y| {
             ax.matshow(field(y)?, ImshowOptions::default())?;
-            done(ax.spy(&field(y)?, &SpyOptions::default()))
+            done(ax.spy(&field(y)?, SpyOptions::default()))
         }),
     ]
 }
@@ -131,20 +131,20 @@ fn other_cases() -> Vec<(&'static str, Case)> {
             let mut options = SpectralPlotOptions::default();
             // Coherence averages over segments, so short data needs short ones.
             options.spectral.nfft = 2;
-            ax.csd(y, y, &options)?;
-            done(ax.cohere(y, y, &options))
+            ax.csd(y, y, options.clone())?;
+            done(ax.cohere(y, y, options))
         }),
         ("magnitude and angle spectra", |ax, _, y| {
             let options = SpectrumPlotOptions::default();
-            ax.magnitude_spectrum(y, SpectrumScale::Decibels, &options)?;
-            done(ax.angle_spectrum(y, &options))
+            ax.magnitude_spectrum(y, SpectrumScale::Decibels, options.clone())?;
+            done(ax.angle_spectrum(y, options))
         }),
         ("xcorr", |ax, x, y| {
             let options = XcorrOptions {
                 maxlags: None,
                 ..XcorrOptions::default()
             };
-            done(ax.xcorr(x, y, &options, true, LineProps::default()))
+            done(ax.xcorr(x, y, options, true, LineProps::default()))
         }),
         ("barh and broken_barh", |ax, x, y| {
             ax.barh(x.to_vec(), y, BarOptions::default())?;

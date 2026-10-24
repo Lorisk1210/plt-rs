@@ -25,7 +25,7 @@ fn constrained_mosaic(
     rows: &[&[&str]],
 ) -> Result<MosaicAxes, Box<dyn std::error::Error>> {
     fig.set_layout_engine(LayoutEngine::constrained());
-    Ok(fig.subplot_mosaic(&mosaic(rows)?, &MosaicOptions::default())?)
+    Ok(fig.subplot_mosaic(&mosaic(rows)?, MosaicOptions::default())?)
 }
 
 /// The mosaic of the first figures, its axes named by their x and y
@@ -89,7 +89,7 @@ fn axes_scales_4(fig: &Figure) -> CaseResult {
         base: Some(2.0),
         ..ScaleOptions::default()
     };
-    log.set_scale_with(AxisName::Y, "log", &base_2)?;
+    log.set_scale_with(AxisName::Y, "log", base_2)?;
     log.set_title("log base=2");
     let symlog = axs.get("symlog").ok_or("a symlog axes")?;
     let centred = map(&x, |x| x - 499.5);
@@ -98,7 +98,7 @@ fn axes_scales_4(fig: &Figure) -> CaseResult {
         linthresh: Some(100.0),
         ..ScaleOptions::default()
     };
-    symlog.set_scale_with(AxisName::Y, "symlog", &linthresh)?;
+    symlog.set_scale_with(AxisName::Y, "symlog", linthresh)?;
     symlog.set_title("symlog linthresh=100");
     Ok(())
 }
@@ -116,7 +116,7 @@ fn axes_scales_5(fig: &Figure) -> CaseResult {
         functions: Some(FuncTransform::new(mercator, inverse_mercator)),
         ..ScaleOptions::default()
     };
-    ax.set_scale_with(AxisName::Y, "function", &mercator)?;
+    ax.set_scale_with(AxisName::Y, "function", mercator)?;
     ax.set_title("function: Mercator");
     ax.grid(true);
     ax.set_xlim(0.0, 180.0);

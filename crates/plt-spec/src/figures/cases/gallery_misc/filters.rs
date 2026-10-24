@@ -199,7 +199,7 @@ fn filtered_text(ax: &Axes) -> CaseResult {
             ..ContourOptions::default()
         },
     )?;
-    let labels = contours.clabel(&ClabelOptions {
+    let labels = contours.clabel(ClabelOptions {
         levels: Some(levels.iter().skip(1).step_by(2).copied().collect()),
         fmt: LabelFormat::Printf(PrintfFormat::parse("%1.1f")?),
         fontsize: Some(FontSize::Points(11.0)),
@@ -272,7 +272,7 @@ fn drop_shadow_patches(ax: &Axes) -> CaseResult {
 fn light_filter_pie(ax: &Axes) -> CaseResult {
     let pie = ax.pie(
         &[15.0, 30.0, 45.0, 10.0],
-        &PieOptions {
+        PieOptions {
             explode: vec![0.1, 0.2, 0.1, 0.1],
             ..PieOptions::default()
         },

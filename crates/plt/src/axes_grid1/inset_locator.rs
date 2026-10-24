@@ -89,27 +89,22 @@ impl Default for InsetOptions {
 /// use plt::prelude::*;
 /// let fig = Figure::with_size(6.4, 4.8, 100.0);
 /// let ax = fig.subplot();
-/// let inset = inset_axes(&ax, SizeSpec::Percent(30.0), 1.0.into(), &InsetOptions::default());
+/// let inset = inset_axes(&ax, SizeSpec::Percent(30.0), 1.0.into(), InsetOptions::default());
 /// let (_, _, width, height) = inset.position().bounds();
 /// let (_, _, parent_width, _) = ax.position().bounds();
 /// assert!((width - 0.3 * parent_width).abs() < 1e-12);
 /// assert!((height - 1.0 / 4.8).abs() < 1e-12, "one inch of a 4.8 in figure");
 /// ```
-pub fn inset_axes(
-    parent: &Axes,
-    width: SizeSpec,
-    height: SizeSpec,
-    options: &InsetOptions,
-) -> Axes {
-    add_inset(parent, InsetExtent::Sized { width, height }, options)
+pub fn inset_axes(parent: &Axes, width: SizeSpec, height: SizeSpec, options: InsetOptions) -> Axes {
+    add_inset(parent, InsetExtent::Sized { width, height }, &options)
 }
 
 /// Adds an inset axes showing its view limits `zoom` times as large as
 /// `parent` shows them, anchored in `parent` as `options` say
 /// (matplotlib's `inset_locator.zoomed_inset_axes`); set the inset's
 /// limits to choose the area it enlarges.
-pub fn zoomed_inset_axes(parent: &Axes, zoom: f64, options: &InsetOptions) -> Axes {
-    add_inset(parent, InsetExtent::Zoomed { zoom }, options)
+pub fn zoomed_inset_axes(parent: &Axes, zoom: f64, options: InsetOptions) -> Axes {
+    add_inset(parent, InsetExtent::Zoomed { zoom }, &options)
 }
 
 /// Adds the axes of an inset of `parent`, placed by a new locator
@@ -253,7 +248,7 @@ mod tests {
             borderpad: (0.0, 0.0),
             ..InsetOptions::default()
         };
-        let inset = inset_axes(&ax, 1.0.into(), SizeSpec::Percent(50.0), &options);
+        let inset = inset_axes(&ax, 1.0.into(), SizeSpec::Percent(50.0), options);
         assert!(
             close(bounds(&inset), [0.1, 0.1, 0.2, 0.4]),
             "{:?}",
@@ -280,7 +275,7 @@ mod tests {
             ax2,
             SizeSpec::Percent(5.0),
             SizeSpec::Percent(50.0),
-            &options,
+            options,
         );
         assert_eq!(inset.position().p1.y, 0.495_000_000_000_000_05);
     }
@@ -299,7 +294,7 @@ mod tests {
             &ax,
             SizeSpec::Percent(5.0),
             SizeSpec::Percent(100.0),
-            &options,
+            options,
         );
         let expected = [0.1 + 1.05 * 0.5, 0.1, 0.05 * 0.5, 0.8];
         assert!(close(bounds(&cax), expected), "{:?}", bounds(&cax));
@@ -314,7 +309,7 @@ mod tests {
             borderpad: (0.0, 0.0),
             ..InsetOptions::default()
         };
-        let zoomed = zoomed_inset_axes(&ax, 2.0, &options);
+        let zoomed = zoomed_inset_axes(&ax, 2.0, options);
         zoomed.set_xlim(0.0, 1.0).set_ylim(0.0, 2.0);
         // One data unit is 40 px in the parent: 80 px wide, 160 px tall.
         assert!(

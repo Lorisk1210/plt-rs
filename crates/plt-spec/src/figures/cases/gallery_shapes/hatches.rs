@@ -10,7 +10,7 @@ use plt::layout::LayoutEngine;
 use plt::patches::{Ellipse, Polygon, Rectangle};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::HorizontalAlignment as HAlign;
+use plt::text::HAlign;
 use plt::transforms::Point;
 
 use crate::figures::cases::common::map;
@@ -100,7 +100,7 @@ fn hatch_demo(fig: &Figure) -> CaseResult {
         vec![label("bar1"), label("patches")],
         vec![label("bar2"), label("patches")],
     ])?;
-    let axd = fig.subplot_mosaic(&mosaic, &MosaicOptions::default())?;
+    let axd = fig.subplot_mosaic(&mosaic, MosaicOptions::default())?;
     let get = |name: &str| axd.get(name).ok_or_else(|| format!("no axes {name}"));
     let (bar1, bar2, patches) = (get("bar1")?, get("bar2")?, get("patches")?);
     let x = arange(1.0, 5.0, 1.0);

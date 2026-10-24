@@ -209,14 +209,14 @@ pub(crate) const CASES: &[FigureCase] = &[
             coordinates: KeyCoordinates::Axes,
             ..QuiverKeyOptions::default()
         };
-        ax.quiverkey(&q, (0.85, 1.03), 2.0, r"$2\ \mathrm{m/s}$", &east);
+        ax.quiverkey(&q, (0.85, 1.03), 2.0, r"$2\ \mathrm{m/s}$", east);
         let north = QuiverKeyOptions {
             labelpos: LabelPosition::North,
             coordinates: KeyCoordinates::Data,
             color: Some("r".into()),
             ..QuiverKeyOptions::default()
         };
-        ax.quiverkey(&q, (0.1, 0.1), 1.0, "1 unit", &north);
+        ax.quiverkey(&q, (0.1, 0.1), 1.0, "1 unit", north);
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

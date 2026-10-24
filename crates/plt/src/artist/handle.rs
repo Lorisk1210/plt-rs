@@ -10,7 +10,8 @@ use plt_render::Sketch;
 use super::{
     AggFilter, Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext, Picker,
 };
-use crate::figure::FigureState;
+use crate::axes::Axes;
+use crate::figure::{Figure, FigureState};
 use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
 
@@ -184,7 +185,7 @@ pub trait TypedHandle: ArtistHandle + Sized {
 
 /// The untyped handle has the properties every artist shares, which is
 /// what predicates over a figure's artists look at
-/// ([`Figure::findobj`](crate::figure::Figure::findobj)).
+/// ([`ArtistHandle::findobj`]).
 impl ArtistHandle for RawHandle {
     fn raw(&self) -> &RawHandle {
         self
@@ -203,6 +204,43 @@ pub trait ArtistHandle {
     /// The artist's id within its figure.
     fn id(&self) -> ArtistId {
         self.raw().id()
+    }
+
+    /// The figure the artist is in (matplotlib's `artist.figure`, as
+    /// `get_figure(root=True)`: the artists of a subfigure give the figure
+    /// holding it).
+    fn figure(&self) -> Figure {
+        Figure::root_of(self.raw().figure_state())
+    }
+
+    /// The axes the artist is drawn in (matplotlib's `artist.axes`): an
+    /// axes is its own, the artists it owns (lines, texts, its legend, ...)
+    /// give it, and artists placed on the figure give `None`. So do the
+    /// artists of a 3-D axes, whose handle is the
+    /// [`Axes3D`](crate::mplot3d::Axes3D) they were made with.
+    fn axes(&self) -> Option<Axes> {
+        self.raw().owning_axes()
+    }
+
+    /// The artist and the artists it owns for which `matches` holds, each
+    /// after the artists it owns (matplotlib's `Artist.findobj(match)`).
+    ///
+    /// ```
+    /// use plt::lines::Line2D;
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let line = ax.plot([0.0, 1.0], [1.0, 0.0])?;
+    /// let lines: Vec<Line2D> = ax.findobj(|_| true).iter().filter_map(|a| a.downcast()).collect();
+    /// assert_eq!(lines, [line]);
+    /// assert_eq!(fig.findobj(|artist| artist == ax.raw()), [ax.raw().clone()]);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    fn findobj(&self, matches: impl Fn(&RawHandle) -> bool) -> Vec<RawHandle>
+    where
+        Self: Sized,
+    {
+        self.raw().find(&matches)
     }
 
     /// Shows or hides the artist.

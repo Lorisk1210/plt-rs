@@ -8,8 +8,8 @@ use plt::layout::TightLayout;
 use plt::patches::ArrowStyle;
 use plt::rc;
 use plt::text::{
-    AnnotateOptions, Annotation, ArrowProps, HorizontalAlignment, LegacyArrowProps, Text,
-    TextRotationMode, VerticalAlignment,
+    AnnotateOptions, Annotation, ArrowProps, HAlign, LegacyArrowProps, Text, TextRotationMode,
+    VAlign,
 };
 use plt_core::Point;
 
@@ -133,8 +133,7 @@ fn non_default_dpi() -> Outcome {
         .into_iter()
         .map(|s| {
             let text = ax.text(0.5, 0.5, s);
-            text.set_halign(HorizontalAlignment::Left)
-                .set_valign(VerticalAlignment::Bottom);
+            text.set_halign(HAlign::Left).set_valign(VAlign::Bottom);
             text
         })
         .collect();
@@ -161,8 +160,8 @@ fn null_rotation() -> Json {
             let extents = [TextRotationMode::Anchor, TextRotationMode::Default].map(|mode| {
                 let text = ax.text(0.5, 0.5, "test");
                 text.set_rotation(0.0)
-                    .set_valign(VerticalAlignment::parse(va).expect("a valid alignment"))
-                    .set_halign(HorizontalAlignment::parse(ha).expect("a valid alignment"))
+                    .set_valign(va.parse::<VAlign>().expect("a valid alignment"))
+                    .set_halign(ha.parse::<HAlign>().expect("a valid alignment"))
                     .set_rotation_mode(mode);
                 extent(text.window_extent())
             });

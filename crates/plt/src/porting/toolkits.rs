@@ -44,7 +44,8 @@
 //! | `ax.view_init(elev, azim, roll)`                  | [`Axes3D::view_init`], [`Axes3D::view`]        |
 //! | `ax.set_box_aspect((1, 1, 1))`, `ax.set_aspect("equal")` | [`Axes3D::set_box_aspect`], [`Axes3D::set_aspect`] with [`Aspect3D`] |
 //! | `ax.set_proj_type("ortho")`                       | [`Axes3D::set_proj_type`]`(ProjType::Ortho)`   |
-//! | `ax.sharez(other)`, `ax.shareview(other)`         | [`Axes3D::sharez`], [`Axes3D::shareview`]      |
+//! | `ax.sharez(other)`, `ax.shareview(other)`         | [`Axes3D::share_z`], [`Axes3D::share_view`]    |
+//! | `ax.get_proj()`                                   | [`Axes3D::proj`]                               |
 //! | `fig.add_subplot(projection="polar")`             | [`Figure::polar_subplot`], [`Figure::add_polar_subplot`] |
 //! | `ax.set_theta_zero_location("N")`                 | [`PolarAxes::set_theta_zero_location`]`(Compass::N, 0.0)` |
 //! | `ax.set_theta_direction(-1)`                      | [`PolarAxes::set_theta_direction`]`(ThetaDirection::Clockwise)` |
@@ -67,6 +68,7 @@
 //! | `ax.axis["x"].set_axisline_style("-\|>")`         | [`AxisArtist::set_axisline_style`]             |
 //! | `ax.new_floating_axis(0, 0.5)`                    | [`axisartist::Axes::new_floating_axis`](crate::axisartist::Axes::new_floating_axis) |
 //! | `GridHelperCurveLinear(tr)`                       | [`axisartist::GridHelper`](crate::axisartist::GridHelper) |
+//! | `ax.get_aux_axes(tr)`, `grid_finder.get_grid_info(bbox)` | [`axisartist::Axes::aux_axes`](crate::axisartist::Axes::aux_axes), [`GridFinder::grid_info`](crate::axisartist::grid_finder::GridFinder::grid_info) |
 //! | `ax.inset_axes([x, y, w, h])`, `ax.indicate_inset_zoom(axins)` | [`Axes::inset_axes`], [`Axes::indicate_inset_zoom`] |
 //! | `Sankey(ax).add(flows=...).finish()`              | [`Sankey::new`], [`Sankey::add`], [`Sankey::finish`] |
 //! | `ax.table(cellText=...)`                          | [`Axes::table`] with [`TableOptions`]          |
@@ -183,12 +185,12 @@
 //! assert_eq!(colorbar.ax(), &cax);
 //!
 //! let options = InsetOptions { loc: AnchorLoc::UpperRight, ..InsetOptions::default() };
-//! let axins = inset_axes(&ax, SizeSpec::Percent(30.0), SizeSpec::Percent(40.0), &options);
+//! let axins = inset_axes(&ax, SizeSpec::Percent(30.0), SizeSpec::Percent(40.0), options);
 //! axins.plot([0.0, 1.0], [0.0, 1.0])?;
 //!
 //! let other = Figure::new();
 //! let grid_options = ImageGridOptions { axes_pad: (0.1, 0.1), ..ImageGridOptions::default() };
-//! let grid = ImageGrid::new(&other, &GridRect::Rect([0.1, 0.1, 0.8, 0.8]), (2, 2), &grid_options)?;
+//! let grid = ImageGrid::new(&other, &GridRect::Rect([0.1, 0.1, 0.8, 0.8]), (2, 2), grid_options)?;
 //! assert_eq!(grid.axes().len(), 4);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -263,8 +265,9 @@
 //! [`Axes3D::set_box_aspect`]: crate::mplot3d::Axes3D::set_box_aspect
 //! [`Axes3D::set_aspect`]: crate::mplot3d::Axes3D::set_aspect
 //! [`Axes3D::set_proj_type`]: crate::mplot3d::Axes3D::set_proj_type
-//! [`Axes3D::sharez`]: crate::mplot3d::Axes3D::sharez
-//! [`Axes3D::shareview`]: crate::mplot3d::Axes3D::shareview
+//! [`Axes3D::share_z`]: crate::mplot3d::Axes3D::share_z
+//! [`Axes3D::share_view`]: crate::mplot3d::Axes3D::share_view
+//! [`Axes3D::proj`]: crate::mplot3d::Axes3D::proj
 //! [`Axis3D::ticklocs`]: crate::mplot3d::Axis3D::ticklocs
 //! [`Axis3`]: crate::mplot3d::Axis3
 //! [`Axes3DOptions`]: crate::mplot3d::Axes3DOptions

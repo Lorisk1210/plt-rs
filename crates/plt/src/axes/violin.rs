@@ -111,7 +111,7 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::ViolinplotOptions;
     /// let ax = Figure::new().subplot();
-    /// let parts = ax.violinplot(&[vec![1.0, 2.0, 2.5, 4.0]], &ViolinplotOptions::default())?;
+    /// let parts = ax.violinplot(&[vec![1.0, 2.0, 2.5, 4.0]], ViolinplotOptions::default())?;
     /// assert_eq!(parts.bodies.len(), 1);
     /// assert!(parts.cbars.is_some());
     /// # Ok::<(), plt::axes::PlotError>(())
@@ -124,10 +124,10 @@ impl Axes {
     pub fn violinplot<D: AsRef<[f64]>>(
         &self,
         datasets: &[D],
-        options: &ViolinplotOptions,
+        options: ViolinplotOptions,
     ) -> Result<ViolinParts, PlotError> {
-        let stats = violin_stats(datasets, &options.stats).map_err(PlotError::Stats)?;
-        self.violin(&stats, &options.draw)
+        let stats = violin_stats(datasets, options.stats).map_err(PlotError::Stats)?;
+        self.violin(&stats, options.draw)
     }
 
     /// Draws violins from precomputed statistics (matplotlib's `violin`).
@@ -139,7 +139,7 @@ impl Axes {
     pub fn violin(
         &self,
         stats: &[ViolinStats],
-        options: &ViolinDrawOptions,
+        options: ViolinDrawOptions,
     ) -> Result<ViolinParts, PlotError> {
         let n = stats.len();
         let positions = match &options.positions {
@@ -187,7 +187,7 @@ impl Axes {
             };
             parts
                 .bodies
-                .push(self.violin_body(stats, pos, width, style, options)?);
+                .push(self.violin_body(stats, pos, width, style, &options)?);
         }
         let (low, high) = options.side.line_ends();
         let starts: Vec<f64> = positions
@@ -360,7 +360,7 @@ mod tests {
     fn default_parts_and_colours() {
         let ax = Figure::new().subplot();
         let parts = ax
-            .violinplot(&data(), &ViolinplotOptions::default())
+            .violinplot(&data(), ViolinplotOptions::default())
             .unwrap();
         assert_eq!(parts.bodies.len(), 2);
         assert!(parts.cmeans.is_none() && parts.cmedians.is_none());
@@ -376,7 +376,7 @@ mod tests {
             crate::rc::set("_internal.classic_mode", "True").unwrap();
             let ax = Figure::new().subplot();
             let parts = ax
-                .violinplot(&data(), &ViolinplotOptions::default())
+                .violinplot(&data(), ViolinplotOptions::default())
                 .unwrap();
             let body = parts.bodies[0].colors().unwrap();
             let yellow = Color::from("y").resolve_alpha(Some(0.3)).unwrap();
@@ -406,7 +406,7 @@ mod tests {
             },
             ..ViolinplotOptions::default()
         };
-        let parts = ax.violinplot(&data(), &options).unwrap();
+        let parts = ax.violinplot(&data(), options).unwrap();
         let quantiles = parts.cquantiles.unwrap();
         assert_eq!(quantiles.paths().len(), 3);
     }
@@ -421,6 +421,6 @@ mod tests {
             },
             ..ViolinplotOptions::default()
         };
-        assert!(ax.violinplot(&data(), &options).is_err());
+        assert!(ax.violinplot(&data(), options).is_err());
     }
 }

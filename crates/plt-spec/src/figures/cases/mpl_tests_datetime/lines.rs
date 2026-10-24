@@ -13,7 +13,7 @@ use plt::lines::{MarkEvery, StepWhere};
 use plt::orientation::Orientation;
 use plt::patches::PatchProps;
 use plt::prelude::*;
-use plt::text::{AnnotateOptions, ArrowProps, HorizontalAlignment, LegacyArrowProps};
+use plt::text::{AnnotateOptions, ArrowProps, HAlign, LegacyArrowProps};
 use plt::units::AxisValues;
 
 use super::{axes, concise, constrained, daily, day, days, numbers};
@@ -69,9 +69,9 @@ fn step(fig: &Figure) -> CaseResult {
 fn slanted_labels(ax: &Axes) {
     ax.xaxis().set_ticklabel_props(
         TickLevel::Major,
-        &TickLabelProps {
+        TickLabelProps {
             rotation: Some(40.0),
-            halign: Some(HorizontalAlignment::Right),
+            halign: Some(HAlign::Right),
             ..TickLabelProps::default()
         },
     );
@@ -109,7 +109,7 @@ fn stackplot(fig: &Figure) -> CaseResult {
         .collect::<Result<Vec<_>, _>>()?;
     let layer = numbers(1..10);
     let ax = fig.subplot();
-    ax.stackplot(dates, &vec![layer; 4], &StackplotOptions::default())?;
+    ax.stackplot(dates, &vec![layer; 4], StackplotOptions::default())?;
     Ok(())
 }
 
@@ -273,7 +273,7 @@ fn errorbar(fig: &Figure) -> CaseResult {
             xerr: Some(0.5.into()),
             yerr: Some(one_day.into()),
             errorevery: Some(MarkEvery::Every { start: 1, step: 2 }),
-            fmt: "-o".into(),
+            fmt: "-o".parse()?,
             ..ErrorbarOptions::default()
         }),
     )?;
@@ -340,7 +340,7 @@ fn stem(fig: &Figure) -> CaseResult {
             orientation,
             ..StemOptions::default()
         };
-        ax.stem(locs.clone(), heads.clone(), &options)?;
+        ax.stem(locs.clone(), heads.clone(), options)?;
     }
     Ok(())
 }

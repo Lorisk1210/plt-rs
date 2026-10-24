@@ -16,6 +16,7 @@ use crate::polar::PolarAxes;
 use crate::scale::ScaleError;
 use crate::table::{Table, TableError, TableOptions};
 use crate::text::{AnnotateOptions, Annotation, Text};
+use crate::ticker::TickerError;
 use crate::units::{AxisValue, AxisValues, DataPoint};
 
 /// Sets the centre title of the current axes (matplotlib's `title`).
@@ -163,7 +164,7 @@ pub fn yticks_minor(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(),
 /// When the ticks cannot be computed (see [`Axes::ticks`]).
 ///
 /// [`Axes::ticks`]: crate::axes::Axes::ticks
-pub fn get_xticks() -> Result<TickSet, String> {
+pub fn get_xticks() -> Result<TickSet, TickerError> {
     gca().ticks(AxisName::X)
 }
 
@@ -175,7 +176,7 @@ pub fn get_xticks() -> Result<TickSet, String> {
 /// When the ticks cannot be computed (see [`Axes::ticks`]).
 ///
 /// [`Axes::ticks`]: crate::axes::Axes::ticks
-pub fn get_yticks() -> Result<TickSet, String> {
+pub fn get_yticks() -> Result<TickSet, TickerError> {
     gca().ticks(AxisName::Y)
 }
 
@@ -188,7 +189,7 @@ pub fn grid(visible: bool) {
 /// Shows or hides the grid of the current axes for the ticks and axes
 /// `options` selects, styled by it (matplotlib's
 /// `grid(visible, which, axis, **kwargs)`).
-pub fn grid_with(visible: bool, options: &GridOptions) {
+pub fn grid_with(visible: bool, options: GridOptions) {
     gca().grid_with(visible, options);
 }
 
@@ -294,7 +295,7 @@ pub fn annotate(
 /// # Errors
 ///
 /// As [`Axes::table`](crate::axes::Axes::table).
-pub fn table(options: &TableOptions) -> Result<Table, TableError> {
+pub fn table(options: TableOptions) -> Result<Table, TableError> {
     gca().table(options)
 }
 
@@ -385,7 +386,7 @@ mod tests {
         yticks(Vec::<f64>::new(), &[]).unwrap();
         assert_eq!(get_yticks().unwrap().major.len(), 0);
         grid(true);
-        grid_with(true, &GridOptions::default());
+        grid_with(true, GridOptions::default());
         assert!(gca().has_grid(AxisName::X, true));
         tick_params(&TickParams::default());
         assert!(
@@ -428,7 +429,7 @@ mod tests {
             cell_text: vec![vec!["1".into(), "2".into()]],
             ..TableOptions::default()
         };
-        assert!(table(&options).is_ok());
+        assert!(table(options).is_ok());
         close_all();
     }
 

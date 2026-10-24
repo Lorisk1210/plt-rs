@@ -46,7 +46,7 @@ fn quiver_animate(fig: &Figure) -> CaseResult {
         font: Some(bold(None)),
         ..QuiverKeyOptions::default()
     };
-    ax.quiverkey(&q, (0.5, 0.88), 2.0, r"$2 \frac{m}{s}$", &options);
+    ax.quiverkey(&q, (0.5, 0.88), 2.0, r"$2 \frac{m}{s}$", options);
     Ok(())
 }
 
@@ -67,7 +67,7 @@ fn quiver_with_key(fig: &Figure) -> CaseResult {
         (0.5, 0.95),
         2.0,
         r"$2\, \mathrm{m}\, \mathrm{s}^{-1}$",
-        &options,
+        options,
     );
     Ok(())
 }
@@ -102,7 +102,7 @@ fn quiver_key_pivot(fig: &Figure) -> CaseResult {
             labelpos,
             ..QuiverKeyOptions::default()
         };
-        ax.quiverkey(&q, position, 1.0, label, &options);
+        ax.quiverkey(&q, position, 1.0, label, options);
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -134,7 +134,7 @@ fn quiver_key_xy(fig: &Figure) -> CaseResult {
                 color: Some("b".into()),
                 ..QuiverKeyOptions::default()
             };
-            ax.quiverkey(&q, (x, 0.8), 1.0, "", &options);
+            ax.quiverkey(&q, (x, 0.8), 1.0, "", options);
         }
     }
     remove_ticks_and_titles(fig);
@@ -259,7 +259,7 @@ fn quiverkey_zorder(fig: &Figure, zorder: Option<f64>) -> CaseResult {
             zorder,
             ..QuiverKeyOptions::default()
         };
-        ax.quiverkey(&q, (x, y), length, label, &options);
+        ax.quiverkey(&q, (x, y), length, label, options);
     }
     Ok(())
 }

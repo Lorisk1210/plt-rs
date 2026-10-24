@@ -53,7 +53,7 @@ fn imagegrid_single_cbar(fig: &plt::figure::Figure) -> CaseResult {
         cbar_pad: Some(0.1.into()),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot_111()?, (2, 2), &options)?;
+    let grid = ImageGrid::new(fig, &subplot_111()?, (2, 2), options)?;
     let mut last = None;
     for (i, ax) in grid.axes().iter().enumerate() {
         let scale = (i as f64 + 1.0) / 4.0;
@@ -77,7 +77,7 @@ fn axesgrid_each_cbar(fig: &plt::figure::Figure) -> CaseResult {
         cbar_pad: Some(0.05.into()),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &subplot_111()?, (1, 3), &options)?;
+    let grid = ImageGrid::new(fig, &subplot_111()?, (1, 3), options)?;
     let cmaps = ["viridis", "magma", "cividis"];
     for (i, (ax, cax)) in grid.axes().iter().zip(grid.cbar_axes()).enumerate() {
         let scale = i as f64 + 1.0;

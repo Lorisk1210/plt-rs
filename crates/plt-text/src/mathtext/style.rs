@@ -1,8 +1,11 @@
 //! Configuration of the mathtext typesetter (matplotlib's `mathtext.*`
 //! rcParams plus the text's font).
 
+use std::str::FromStr;
+
 use plt_font::{FontQuery, FontStyle, FontVariant, Stretch, Weight};
 
+use crate::TextError;
 use crate::engine::FontRequest;
 
 /// The family of math fonts (`mathtext.fontset`, or a text's
@@ -24,20 +27,24 @@ pub enum Fontset {
     Custom,
 }
 
-impl Fontset {
+impl FromStr for Fontset {
+    type Err = TextError;
+
     /// Parses a `mathtext.fontset` value.
-    pub fn parse(name: &str) -> Option<Self> {
-        Some(match name {
+    fn from_str(name: &str) -> Result<Self, TextError> {
+        Ok(match name {
             "dejavusans" => Self::DejaVuSans,
             "dejavuserif" => Self::DejaVuSerif,
             "cm" => Self::Cm,
             "stix" => Self::Stix,
             "stixsans" => Self::StixSans,
             "custom" => Self::Custom,
-            _ => return None,
+            _ => return Err(TextError::unknown_name("math fontset", name)),
         })
     }
+}
 
+impl Fontset {
     /// The rcParam value naming this fontset.
     pub fn name(self) -> &'static str {
         match self {
@@ -83,10 +90,12 @@ pub enum MathFont {
     Scr,
 }
 
-impl MathFont {
+impl FromStr for MathFont {
+    type Err = TextError;
+
     /// Parses a `mathtext.default` value.
-    pub fn parse(name: &str) -> Option<Self> {
-        Some(match name {
+    fn from_str(name: &str) -> Result<Self, TextError> {
+        Ok(match name {
             "rm" => Self::Rm,
             "it" => Self::It,
             "bf" => Self::Bf,
@@ -100,7 +109,7 @@ impl MathFont {
             "bb" => Self::Bb,
             "frak" => Self::Frak,
             "scr" => Self::Scr,
-            _ => return None,
+            _ => return Err(TextError::unknown_name("math font", name)),
         })
     }
 }
@@ -273,11 +282,11 @@ mod tests {
             Fontset::StixSans,
             Fontset::Custom,
         ] {
-            assert_eq!(Fontset::parse(fontset.name()), Some(fontset));
+            assert_eq!(fontset.name().parse(), Ok(fontset));
         }
-        assert_eq!(Fontset::parse("comic"), None);
-        assert_eq!(MathFont::parse("frak"), Some(MathFont::Frak));
-        assert_eq!(MathFont::parse("ex"), None);
+        assert!("comic".parse::<Fontset>().is_err());
+        assert_eq!("frak".parse(), Ok(MathFont::Frak));
+        assert!("ex".parse::<MathFont>().is_err());
         assert_eq!(MathFallback::parse("STIX"), Some(Some(MathFallback::Stix)));
         assert_eq!(MathFallback::parse("None"), Some(None));
         assert_eq!(MathFallback::parse("x"), None);

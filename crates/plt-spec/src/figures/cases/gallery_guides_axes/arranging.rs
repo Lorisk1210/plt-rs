@@ -48,7 +48,7 @@ fn arranging_axes_2(fig: &Figure) -> CaseResult {
 /// `plt.subplot_mosaic()` title.
 fn annotated_mosaic(fig: &Figure, layout: &Mosaic, options: &MosaicOptions) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
-    for (label, ax) in fig.subplot_mosaic(layout, options)?.iter() {
+    for (label, ax) in fig.subplot_mosaic(layout, options.clone())?.iter() {
         annotate_axes(ax, &format!("axd['{label}']"), 14.0);
     }
     fig.suptitle("plt.subplot_mosaic()");
@@ -97,7 +97,7 @@ fn arranging_axes_8(fig: &Figure) -> CaseResult {
     let subfigs = fig.subfigures(
         1,
         2,
-        &SubfigureOptions {
+        SubfigureOptions {
             wspace: Some(0.07),
             width_ratios: Some(vec![1.5, 1.0]),
             ..SubfigureOptions::default()
@@ -122,10 +122,7 @@ fn arranging_axes_9(fig: &Figure) -> CaseResult {
         vec![label("lower left"), label("lower right")],
     ])?;
     fig.set_layout_engine(LayoutEngine::constrained());
-    for (name, ax) in fig
-        .subplot_mosaic(&outer, &MosaicOptions::default())?
-        .iter()
-    {
+    for (name, ax) in fig.subplot_mosaic(&outer, MosaicOptions::default())?.iter() {
         annotate_axes(ax, &format!("axd['{name}']"), 18.0);
     }
     Ok(())

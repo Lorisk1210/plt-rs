@@ -42,7 +42,7 @@ pub(super) fn gallery_subfigures(fig: &Figure) -> CaseResult {
     let subfigs = fig.subfigures(
         1,
         2,
-        &SubfigureOptions {
+        SubfigureOptions {
             wspace: Some(0.07),
             ..SubfigureOptions::default()
         },
@@ -55,7 +55,7 @@ pub(super) fn gallery_subfigures(fig: &Figure) -> CaseResult {
         last = Some(example_plot(ax, i as u64, false)?);
     }
     left.suptitle("Left plots")
-        .set_fontsize_relative(RelativeSize::XLarge);
+        .set_fontsize(RelativeSize::XLarge);
     left.colorbar(
         &last.ok_or("no mesh")?,
         ColorbarOptions {
@@ -90,9 +90,9 @@ pub(super) fn gallery_subfigures(fig: &Figure) -> CaseResult {
     )?;
     right
         .suptitle("Right plots")
-        .set_fontsize_relative(RelativeSize::XLarge);
+        .set_fontsize(RelativeSize::XLarge);
     fig.suptitle("Figure suptitle")
-        .set_fontsize_relative(RelativeSize::XxLarge);
+        .set_fontsize(RelativeSize::XxLarge);
     Ok(())
 }
 
@@ -102,7 +102,7 @@ pub(super) fn subfigures_nested_ratios(fig: &Figure) -> CaseResult {
     let subfigs = fig.subfigures(
         1,
         2,
-        &SubfigureOptions {
+        SubfigureOptions {
             wspace: Some(0.07),
             width_ratios: Some(vec![1.5, 1.0]),
             ..SubfigureOptions::default()
@@ -115,7 +115,7 @@ pub(super) fn subfigures_nested_ratios(fig: &Figure) -> CaseResult {
     let nested = subfigs[(0, 0)].subfigures(
         2,
         1,
-        &SubfigureOptions {
+        SubfigureOptions {
             height_ratios: Some(vec![1.0, 1.4]),
             ..SubfigureOptions::default()
         },

@@ -68,7 +68,7 @@ impl PdfPages {
     ///
     /// When some artists cannot be drawn or the page cannot be written.
     pub fn savefig(&mut self, figure: &Figure) -> Result<(), SaveError> {
-        self.savefig_with(figure, &SaveOptions::default())
+        self.savefig_with(figure, SaveOptions::default())
     }
 
     /// Adds `figure` as a new page saved with `options` (resolution,
@@ -77,12 +77,8 @@ impl PdfPages {
     /// # Errors
     ///
     /// When some artists cannot be drawn or the page cannot be written.
-    pub fn savefig_with(
-        &mut self,
-        figure: &Figure,
-        options: &SaveOptions,
-    ) -> Result<(), SaveError> {
-        figure.render_pdf_page(options, &mut self.document)
+    pub fn savefig_with(&mut self, figure: &Figure, options: SaveOptions) -> Result<(), SaveError> {
+        figure.render_pdf_page(&options, &mut self.document)
     }
 
     /// How many pages the document has (matplotlib's `get_pagecount`).
@@ -179,7 +175,7 @@ mod tests {
         for title in ["one", "two"] {
             let fig = Figure::with_size(2.0, 1.0, 50.0);
             fig.text(0.5, 0.5, title)
-                .set_halign(crate::text::HorizontalAlignment::Center);
+                .set_halign(crate::text::HAlign::Center);
             pages.savefig(&fig).unwrap();
         }
         let pdf = pages.finish().unwrap();

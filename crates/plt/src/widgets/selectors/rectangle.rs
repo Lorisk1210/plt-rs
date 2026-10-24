@@ -15,6 +15,7 @@ use crate::lines::{Line2D, LineProps};
 use crate::navigation::PointerButton;
 use crate::patches::{Ellipse, Patch, PatchProps, PatchShape, Rectangle};
 use crate::rc::ColorOrAuto;
+use crate::widgets::CallbackId;
 
 /// Options of a [`RectangleSelector`] or [`EllipseSelector`] (matplotlib's
 /// keyword arguments).
@@ -117,23 +118,29 @@ macro_rules! region_methods {
 
         impl $selector {
             /// A selector on `ax`.
-            pub fn new(ax: &Axes, options: &RectangleSelectorOptions) -> Self {
+            pub fn new(ax: &Axes, options: RectangleSelectorOptions) -> Self {
                 Self {
-                    driver: region::<$shape>(ax, options),
+                    driver: region::<$shape>(ax, &options),
                 }
             }
 
             /// Calls `callback` after each release that makes, changes or
             /// removes a selection, with events at its lower-left and
             /// upper-right corners (matplotlib's `onselect(eclick,
-            /// erelease)`).
+            /// erelease)`); returns its id for `disconnect`.
             pub fn on_select(
                 &self,
                 mut callback: impl FnMut(&SelectorEvent, &SelectorEvent) + 'static,
-            ) {
+            ) -> CallbackId {
                 self.driver
                     .selected
-                    .connect(move |(press, release)| callback(press, release));
+                    .connect(move |(press, release)| callback(press, release))
+            }
+
+            /// Disconnects the callback with id `id`; returns whether it
+            /// was connected.
+            pub fn disconnect(&self, id: CallbackId) -> bool {
+                self.driver.disconnect(id)
             }
 
             /// `(xmin, xmax, ymin, ymax)` of the unrotated shape in data
@@ -275,7 +282,7 @@ fn outline<S: PatchShape>(ax: &Axes, shape: &S) -> Vec<Point> {
 /// use plt::figure::Figure;
 /// use plt::widgets::{RectangleSelector, RectangleSelectorOptions};
 /// let ax = Figure::new().subplot();
-/// let selector = RectangleSelector::new(&ax, &RectangleSelectorOptions::default());
+/// let selector = RectangleSelector::new(&ax, RectangleSelectorOptions::default());
 /// selector.on_select(|press, release| {
 ///     println!("({}, {}) to ({}, {})", press.xdata, press.ydata, release.xdata, release.ydata);
 /// });
@@ -365,7 +372,7 @@ mod tests {
             interactive: true,
             ..RectangleSelectorOptions::default()
         };
-        let selector = RectangleSelector::new(&ax, &options);
+        let selector = RectangleSelector::new(&ax, options);
         let log = Rc::new(RefCell::new(Vec::new()));
         let seen = Rc::clone(&log);
         selector.on_select(move |press, release| {
@@ -388,7 +395,7 @@ mod tests {
     #[test]
     fn squares_and_ellipses() {
         let (fig, ax) = axes();
-        let selector = EllipseSelector::new(&ax, &RectangleSelectorOptions::default());
+        let selector = EllipseSelector::new(&ax, RectangleSelectorOptions::default());
         drag(&fig, (2.0, 2.0), (6.0, 3.0), Some("shift"));
         assert!(close(selector.extents(), (2.0, 6.0, 2.0, 6.0)));
         assert!(!selector.artist().visible(), "not interactive");

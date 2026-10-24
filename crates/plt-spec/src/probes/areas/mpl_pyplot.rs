@@ -89,7 +89,7 @@ fn stackplot(args: Args<'_>) -> Outcome {
         pyplot::stackplot(
             args.f64_vec("x")?,
             &[args.f64_vec("y")?],
-            &StackplotOptions::default(),
+            StackplotOptions::default(),
         )
         .map_err(ProbeError::rejected)?;
         let ax = pyplot::gca();
@@ -301,7 +301,7 @@ fn polar(_: Args<'_>) -> Outcome {
 fn figure_subfigure() -> Result<Vec<Json>, ProbeError> {
     let fig1 = pyplot::figure();
     let subfigs = fig1
-        .subfigures(2, 1, &SubfigureOptions::default())
+        .subfigures(2, 1, SubfigureOptions::default())
         .map_err(ProbeError::rejected)?;
     pyplot::figure();
     let other = pyplot::gcf() != fig1;
@@ -372,7 +372,7 @@ fn sca(_: Args<'_>) -> Outcome {
     fresh(|| {
         let fig = pyplot::figure();
         let subfigs = fig
-            .subfigures(2, 1, &SubfigureOptions::default())
+            .subfigures(2, 1, SubfigureOptions::default())
             .map_err(ProbeError::rejected)?;
         let single = |sub: &Figure| {
             sub.subplots(1, 1)
@@ -493,8 +493,8 @@ fn subplots(args: Args<'_>) -> Outcome {
 }
 
 fn subplot_mosaic(args: Args<'_>) -> Outcome {
-    let mosaic = Mosaic::parse("AB").map_err(ProbeError::rejected)?;
+    let mosaic = "AB".parse::<Mosaic>().map_err(ProbeError::rejected)?;
     on_numbered_figure(args, 2, |clear| {
-        pyplot::subplot_mosaic_num(2, clear, &mosaic, &MosaicOptions::default()).map(|(fig, _)| fig)
+        pyplot::subplot_mosaic_num(2, clear, &mosaic, MosaicOptions::default()).map(|(fig, _)| fig)
     })
 }

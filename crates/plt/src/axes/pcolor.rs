@@ -309,7 +309,7 @@ mod tests {
     fn pcolormesh_fits_the_view_to_the_grid() {
         let ax = Figure::new().subplot();
         ax.pcolormesh(
-            Mesh::with_coords([0.0, 1.0, 3.0], [0.0, 2.0], values(1, 2)),
+            Mesh::from_coords([0.0, 1.0, 3.0], [0.0, 2.0], values(1, 2)),
             PcolorOptions::default(),
         )
         .unwrap();

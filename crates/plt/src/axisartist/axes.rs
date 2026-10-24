@@ -214,13 +214,13 @@ impl Axes {
     /// `options.axis`, restyled by `options`, on the axes and on the
     /// gridlines drawn by the grid helper (matplotlib's
     /// `axislines.Axes.grid`).
-    pub fn grid(&self, visible: bool, options: &GridOptions) -> &Self {
-        self.ax.grid_with(visible, options);
+    pub fn grid(&self, visible: bool, options: GridOptions) -> &Self {
+        self.ax.grid_with(visible, options.clone());
         if let Some(gridlines) = self.gridlines() {
             gridlines
                 .raw()
                 .with_mut::<CollectionArtist, _>(|collection| {
-                    Gridlines::apply(collection, visible, options);
+                    Gridlines::apply(collection, visible, &options);
                 });
         }
         self
@@ -299,9 +299,9 @@ impl Axes {
     /// axes' artists in z-order (matplotlib's `HostAxes.get_aux_axes(tr)`
     /// with `viewlim_mode="equal"`). Its own patch, spines and axes are
     /// hidden.
-    pub fn get_aux_axes(&self, transform: &AuxTransform) -> ParasiteAxes {
+    pub fn aux_axes(&self, transform: &AuxTransform) -> ParasiteAxes {
         let aux = HostAxes::new(self.ax.clone())
-            .get_aux_axes(ParasiteLink::Equal)
+            .aux_axes(ParasiteLink::Equal)
             .expect("parasites with equal view limits need no inverse transform");
         aux.raw()
             .with_mut::<AxesState, _>(|state| state.aux_transform = Some(transform.resolved()));
@@ -376,7 +376,7 @@ mod tests {
         assert!(ax.axis("bottom").and_then(|a| a.window_extent()).is_some());
         let gridlines = ax.gridlines().expect("gridlines");
         assert!(!gridlines.visible());
-        ax.grid(true, &GridOptions::default());
+        ax.grid(true, GridOptions::default());
         assert!(gridlines.visible() && ax.ax().has_grid(AxisName::Y, true));
     }
 
@@ -450,7 +450,7 @@ mod tests {
         let fig = Figure::new();
         let host = fig.subplot();
         let ax = Axes::new(host.clone());
-        let aux = ax.get_aux_axes(&AuxTransform::identity());
+        let aux = ax.aux_axes(&AuxTransform::identity());
         assert_eq!(fig.gca(), host);
         assert_eq!(aux.host().axes(), &host);
         assert!(aux.plot([0.0, 1.0], [0.0, 1.0]).is_ok());

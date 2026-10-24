@@ -13,9 +13,7 @@ use plt::offsetbox::{
     OffsetImage, PackAlign, PackMode, aligned_offsets, packed_offsets,
 };
 use plt::patches::{ArrowStyle, Circle, PatchProps};
-use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment, TextProps, VerticalAlignment,
-};
+use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, TextProps, VAlign};
 use plt_core::{Bbox, Point};
 
 use super::text_metrics::with_rc;
@@ -118,8 +116,8 @@ fn extents(args: Args<'_>) -> Outcome {
             let annotation = made(ax.annotate("Annotation", (0.9, 0.9), options))?;
             annotation
                 .set_clip_on(false)
-                .set_valign(VerticalAlignment::Baseline)
-                .set_halign(HorizontalAlignment::Left);
+                .set_valign(VAlign::Baseline)
+                .set_halign(HAlign::Left);
             let mut area = DrawingArea::new(20.0, 20.0, 0.0, 0.0).with_artist(BoxItem::patch(
                 Circle::new((-10.0, 30.0), 32.0),
                 PatchProps::default(),

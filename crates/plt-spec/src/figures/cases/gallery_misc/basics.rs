@@ -15,7 +15,7 @@ use plt::legend::LegendOptions;
 use plt::patches::Polygon;
 use plt::prelude::*;
 use plt::spines::SpinePosition;
-use plt::text::HorizontalAlignment as HAlign;
+use plt::text::HAlign;
 use plt::transforms::Point;
 
 use super::{named_mosaic, panel, spaced_grid};
@@ -26,7 +26,7 @@ fn spine_placement_demo(fig: &Figure) -> CaseResult {
     let (x, y) = double_sine();
     let axd = fig.subplot_mosaic(
         &named_mosaic(&[&["center", "zero"], &["axes", "data"]])?,
-        &MosaicOptions::default(),
+        MosaicOptions::default(),
     )?;
     fig.suptitle("Spine positions");
     for (name, title, left, bottom) in [

@@ -22,7 +22,7 @@ fn names() -> Vec<String> {
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("stats/pie_default", |fig| {
-        fig.subplot().pie(&SHARES, &PieOptions::default())?;
+        fig.subplot().pie(&SHARES, PieOptions::default())?;
         Ok(())
     })
     .sized(4.0, 4.0, 100.0),
@@ -32,7 +32,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             autopct: Some(PieLabelFormat::Printf("%1.1f%%".into())),
             ..PieOptions::default()
         };
-        fig.subplot().pie(&SHARES, &options)?;
+        fig.subplot().pie(&SHARES, options)?;
         Ok(())
     })
     .sized(5.0, 5.0, 100.0),
@@ -44,7 +44,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             startangle: 90.0,
             ..PieOptions::default()
         };
-        fig.subplot().pie(&SHARES, &options)?;
+        fig.subplot().pie(&SHARES, options)?;
         Ok(())
     })
     .sized(5.0, 5.0, 100.0),
@@ -57,7 +57,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             pctdistance: 1.15,
             ..PieOptions::default()
         };
-        fig.subplot().pie(&SHARES, &options)?;
+        fig.subplot().pie(&SHARES, options)?;
         Ok(())
     })
     .sized(5.0, 5.0, 100.0),
@@ -70,10 +70,10 @@ pub(crate) const CASES: &[FigureCase] = &[
             wedgeprops: PatchProps::default().edgecolor("w"),
             ..PieOptions::default()
         };
-        ax.pie(&SHARES, &ring(1.0, Vec::new()))?;
+        ax.pie(&SHARES, ring(1.0, Vec::new()))?;
         ax.pie(
             &[60.0, 40.0],
-            &ring(0.7, vec![Color::from("0.5"), Color::from("0.8")]),
+            ring(0.7, vec![Color::from("0.5"), Color::from("0.8")]),
         )?;
         Ok(())
     })
@@ -84,7 +84,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             labels: ["a", "b", "c"].map(String::from).to_vec(),
             ..PieOptions::default()
         };
-        fig.subplot().pie(&[0.2, 0.3, 0.1], &options)?;
+        fig.subplot().pie(&[0.2, 0.3, 0.1], options)?;
         Ok(())
     })
     .sized(4.0, 4.0, 100.0),
@@ -103,7 +103,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             hatches: ["", "/", "x", "", "."].map(String::from).to_vec(),
             ..PieOptions::default()
         };
-        fig.subplot().pie(&SHARES, &options)?;
+        fig.subplot().pie(&SHARES, options)?;
         Ok(())
     })
     .sized(5.0, 5.0, 100.0),
@@ -116,30 +116,30 @@ pub(crate) const CASES: &[FigureCase] = &[
             radius: 1.5,
             ..PieOptions::default()
         };
-        fig.subplot().pie(&SHARES, &options)?;
+        fig.subplot().pie(&SHARES, options)?;
         Ok(())
     })
     .sized(5.0, 5.0, 100.0),
     FigureCase::new("stats/pie_label", |fig| {
         let axs = fig.subplots(1, 2)?;
         let (left, right) = (&axs[(0, 0)], &axs[(0, 1)]);
-        let mut pie = left.pie(&[15.0, 30.0, 45.0, 10.0], &PieOptions::default())?;
+        let mut pie = left.pie(&[15.0, 30.0, 45.0, 10.0], PieOptions::default())?;
         let inside = PieLabelOptions {
             distance: 0.7,
             ..PieLabelOptions::default()
         };
-        left.pie_label(&mut pie, "{absval:d}", &inside)?;
+        left.pie_label(&mut pie, "{absval:d}", inside)?;
         let outside = PieLabelOptions {
             distance: 1.15,
             ..PieLabelOptions::default()
         };
         let names: &[&str] = &["frogs", "hogs", "dogs", "logs"];
-        left.pie_label(&mut pie, names, &outside)?;
+        left.pie_label(&mut pie, names, outside)?;
         let unnormalized = PieOptions {
             normalize: false,
             ..PieOptions::default()
         };
-        let mut partial = right.pie(&[0.2, 0.3, 0.1], &unnormalized)?;
+        let mut partial = right.pie(&[0.2, 0.3, 0.1], unnormalized)?;
         let rotated = PieLabelOptions {
             distance: 1.1,
             rotate: true,
@@ -147,14 +147,14 @@ pub(crate) const CASES: &[FigureCase] = &[
             size: Some(FontSize::Points(8.0)),
             ..PieLabelOptions::default()
         };
-        right.pie_label(&mut partial, "{frac:.1%}", &rotated)?;
+        right.pie_label(&mut partial, "{frac:.1%}", rotated)?;
         let outer = PieLabelOptions {
             distance: 0.5,
             alignment: PieLabelAlignment::Outer,
             ..PieLabelOptions::default()
         };
         let letters: &[&str] = &["a", "b", "c"];
-        right.pie_label(&mut partial, letters, &outer)?;
+        right.pie_label(&mut partial, letters, outer)?;
         Ok(())
     })
     .sized(8.0, 4.0, 100.0),

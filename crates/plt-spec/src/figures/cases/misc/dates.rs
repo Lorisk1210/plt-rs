@@ -6,7 +6,7 @@ use plt::dates::{
 };
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 
 use super::wave;
 use crate::figures::FigureCase;
@@ -104,7 +104,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("misc/dates_autofmt_xdate", |fig| {
         fig.subplot()
             .plot(dates(at(2024, 5, 1, 0, 0)?, 3 * DAY, 30)?, wave(30))?;
-        fig.autofmt_xdate(0.2, 30.0, HorizontalAlignment::Right)?;
+        fig.autofmt_xdate(0.2, 30.0, HAlign::Right)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

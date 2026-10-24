@@ -66,8 +66,8 @@ impl CheckButtons {
     }
 
     /// Restyles the square frames (matplotlib's `set_frame_props`).
-    pub fn set_frame_props(&self, props: &ButtonMarkerProps) -> &Self {
-        update_markers(&self.frames, props, self.column.labels.len());
+    pub fn set_frame_props(&self, props: ButtonMarkerProps) -> &Self {
+        update_markers(&self.frames, &props, self.column.labels.len());
         self
     }
 
@@ -77,11 +77,8 @@ impl CheckButtons {
     /// # Errors
     ///
     /// When a colour is invalid.
-    pub fn set_check_props(
-        &self,
-        props: &ButtonMarkerProps,
-    ) -> Result<&Self, CollectionColorError> {
-        update_markers(&self.checks, props, self.column.labels.len());
+    pub fn set_check_props(&self, props: ButtonMarkerProps) -> Result<&Self, CollectionColorError> {
+        update_markers(&self.checks, &props, self.column.labels.len());
         let colors = active_colors(&self.checks, self.column.labels.len())?;
         show_checks(&self.checks, &self.states, &colors);
         *self.active_colors.borrow_mut() = colors;
@@ -105,11 +102,8 @@ impl RadioButtons {
     /// # Errors
     ///
     /// When a colour is invalid.
-    pub fn set_radio_props(
-        &self,
-        props: &ButtonMarkerProps,
-    ) -> Result<&Self, CollectionColorError> {
-        update_markers(&self.buttons, props, self.column.labels.len());
+    pub fn set_radio_props(&self, props: ButtonMarkerProps) -> Result<&Self, CollectionColorError> {
+        update_markers(&self.buttons, &props, self.column.labels.len());
         let colors = active_colors(&self.buttons, self.column.labels.len())?;
         show_selection(&self.buttons, &colors, self.selected.get());
         *self.active_colors.borrow_mut() = colors;
@@ -123,7 +117,7 @@ impl RadioButtons {
     ///
     /// When the colour is invalid.
     pub fn set_activecolor(&self, color: impl Into<Color>) -> Result<&Self, CollectionColorError> {
-        self.set_radio_props(&ButtonMarkerProps {
+        self.set_radio_props(ButtonMarkerProps {
             facecolors: Some(vec![color.into()]),
             ..ButtonMarkerProps::default()
         })
@@ -142,7 +136,7 @@ mod tests {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
         let radio = RadioButtons::new(&fig.add_axes([0.1, 0.1, 0.8, 0.8]), &["a", "b"], 1);
         radio
-            .set_radio_props(&ButtonMarkerProps {
+            .set_radio_props(ButtonMarkerProps {
                 sizes: Some(vec![144.0]),
                 facecolors: Some(vec![Color::from("green")]),
                 ..ButtonMarkerProps::default()
@@ -173,7 +167,7 @@ mod tests {
                 .all(|label| label.color() == Color::from("red"))
         );
         checks
-            .set_check_props(&ButtonMarkerProps {
+            .set_check_props(ButtonMarkerProps {
                 facecolors: Some(vec![Color::from("blue")]),
                 ..ButtonMarkerProps::default()
             })

@@ -82,7 +82,7 @@ fn check_radio_buttons_image(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.05, 0.3, 0.2, 0.15]),
         &RADIO_LABELS,
         0,
-        &radio,
+        radio,
     )?;
     let check = CheckButtonsOptions {
         label_props: styled_labels(),
@@ -97,7 +97,7 @@ fn check_radio_buttons_image(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.05, 0.1, 0.2, 0.15]),
         &CHECK_LABELS,
         &actives,
-        &check,
+        check,
     )?;
     remove_ticks_and_titles(fig);
     Ok(())
@@ -126,7 +126,7 @@ fn green_blue_markers() -> ButtonMarkerProps {
 fn radio_buttons_props(fig: &Figure) -> CaseResult {
     let radio = RadioButtons::new(&fig.subplot(), &["tea", "coffee"], 0);
     radio.set_label_props(&big_red_labels());
-    radio.set_radio_props(&green_blue_markers())?;
+    radio.set_radio_props(green_blue_markers())?;
     Ok(())
 }
 
@@ -141,7 +141,7 @@ fn radio_grid_buttons(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.1, 0.05, 0.65, 0.05]),
         &["tea", "coffee", "chocolate milk", "water", "soda", "coke"],
         4,
-        &row,
+        row,
     )?;
     let grid = CheckButtonsOptions {
         layout: ButtonLayout::Grid { rows: 3, cols: 2 },
@@ -151,7 +151,7 @@ fn radio_grid_buttons(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.1, 0.15, 0.25, 0.05 * 3.0]),
         &["Chicken", "Salad", "Rice", "Sushi", "Pizza", "Fries"],
         &[true, true, false, false, false, true],
-        &grid,
+        grid,
     )?;
     let column = RadioButtonsOptions {
         layout: ButtonLayout::Vertical,
@@ -161,7 +161,7 @@ fn radio_grid_buttons(fig: &Figure) -> CaseResult {
         &fig.add_axes([0.1, 0.35, 0.2, 0.05 * 4.0]),
         &["Trinity Cream", "Cake", "Ice Cream", "Muhallebi"],
         3,
-        &column,
+        column,
     )?;
     remove_ticks_and_titles(fig);
     Ok(())
@@ -174,7 +174,7 @@ fn radio_buttons_activecolor_change(fig: &Figure) -> CaseResult {
         activecolor: Some("red".into()),
         ..RadioButtonsOptions::default()
     };
-    let radio = RadioButtons::with_options(&fig.subplot(), &["tea", "coffee"], 0, &options)?;
+    let radio = RadioButtons::with_options(&fig.subplot(), &["tea", "coffee"], 0, options)?;
     radio.set_activecolor("green")?;
     Ok(())
 }
@@ -184,8 +184,8 @@ fn radio_buttons_activecolor_change(fig: &Figure) -> CaseResult {
 fn check_button_props(fig: &Figure) -> CaseResult {
     let checks = CheckButtons::new(&fig.subplot(), &["tea", "coffee"], &[true, true]);
     checks.set_label_props(&big_red_labels());
-    checks.set_frame_props(&green_blue_markers());
-    checks.set_check_props(&ButtonMarkerProps {
+    checks.set_frame_props(green_blue_markers());
+    checks.set_check_props(ButtonMarkerProps {
         sizes: Some(vec![(24.0_f64 / 2.0).powi(2)]),
         edgecolors: Some(colors(&["red"])),
         linewidths: Some(vec![2.0]),
@@ -204,7 +204,7 @@ fn rect_visibility(fig: &Figure) -> CaseResult {
         props: PatchProps::default().visible(false),
         ..RectangleSelectorOptions::default()
     };
-    RectangleSelector::new(&fig.subplot(), &options).set_extents((0.2, 0.8, 0.3, 0.7));
+    RectangleSelector::new(&fig.subplot(), options).set_extents((0.2, 0.8, 0.3, 0.7));
     Ok(())
 }
 
@@ -215,7 +215,7 @@ fn polygon_selector_verts_setter(fig: &Figure, draw_bounding_box: bool) -> CaseR
         draw_bounding_box,
         ..PolygonSelectorOptions::default()
     };
-    PolygonSelector::new(&fig.subplot(), &options).set_verts(&[
+    PolygonSelector::new(&fig.subplot(), options).set_verts(&[
         (0.1, 0.4),
         (0.5, 0.9),
         (0.3, 0.2),

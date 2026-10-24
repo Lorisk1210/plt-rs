@@ -36,7 +36,7 @@ use crate::axes::{Adjustable, Axes};
 use crate::colors::Color;
 use crate::patches::{PatchProps, PathShape};
 use crate::rc::Aspect;
-use crate::text::{HorizontalAlignment, Text, VerticalAlignment};
+use crate::text::{HAlign, Text, VAlign};
 use crate::ticker::pyfmt::PrintfFormat;
 
 /// The face colour of outlines in the classic mode.
@@ -347,8 +347,7 @@ impl Sankey {
     /// A text centred on `at` in data coordinates.
     fn centered_text(&self, at: Point, text: String) -> Text {
         let text = self.axes.text(at.x, at.y, text);
-        text.set_halign(HorizontalAlignment::Center)
-            .set_valign(VerticalAlignment::Center);
+        text.set_halign(HAlign::Center).set_valign(VAlign::Center);
         text
     }
 

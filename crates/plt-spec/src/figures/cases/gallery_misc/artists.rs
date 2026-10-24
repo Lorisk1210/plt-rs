@@ -24,7 +24,7 @@ use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::stats::{Bins, HistogramOptions, histogram};
 use plt::table::{TableLoc, TableOptions};
-use plt::text::{HorizontalAlignment as HAlign, Text, TextProps, VerticalAlignment as VAlign};
+use plt::text::{HAlign, Text, TextProps, VAlign};
 use plt::transforms::OffsetUnits;
 use plt_core::{Bbox, Path, PathCode, Point};
 
@@ -122,7 +122,7 @@ fn histogram_bars() -> Result<Vec<[Point; 4]>, Box<dyn std::error::Error>> {
     let data = SpecRng::new(GALLERY_SEED).normal(1000, 0.0, 1.0);
     let hist = histogram(
         &data,
-        &HistogramOptions {
+        HistogramOptions {
             bins: Bins::Count(50),
             ..HistogramOptions::default()
         },
@@ -269,7 +269,7 @@ fn findobj_demo(fig: &Figure) -> CaseResult {
         axis.set_tick_line_color("blue");
         axis.set_ticklabel_props(
             TickLevel::Both,
-            &TickLabelProps {
+            TickLabelProps {
                 fontstyle: Some(FontStyle::Italic),
                 ..TickLabelProps::default()
             },
@@ -371,7 +371,7 @@ fn table_demo(fig: &Figure) -> CaseResult {
         );
     }
     cell_text.reverse();
-    ax.table(&TableOptions {
+    ax.table(TableOptions {
         row_labels: Some(rows.to_vec()),
         row_colours: Some(colors.into_iter().rev().collect()),
         col_labels: Some(columns.to_vec()),

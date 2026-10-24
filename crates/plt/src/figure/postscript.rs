@@ -41,7 +41,7 @@ impl Figure {
     /// The figure as a PostScript document centred on a `ps.papersize`
     /// page (matplotlib's `savefig(format="ps")`).
     pub fn to_ps(&self) -> Result<String, SaveError> {
-        self.to_ps_with(&SaveOptions::default())
+        self.to_ps_with(SaveOptions::default())
     }
 
     /// The figure as a PostScript document with save options.
@@ -49,14 +49,14 @@ impl Figure {
     /// # Errors
     ///
     /// When some artists cannot be drawn or a font cannot be embedded.
-    pub fn to_ps_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
-        self.postscript(options, false)
+    pub fn to_ps_with(&self, options: SaveOptions) -> Result<String, SaveError> {
+        self.postscript(&options, false)
     }
 
     /// The figure as an Encapsulated PostScript document (matplotlib's
     /// `savefig(format="eps")`).
     pub fn to_eps(&self) -> Result<String, SaveError> {
-        self.to_eps_with(&SaveOptions::default())
+        self.to_eps_with(SaveOptions::default())
     }
 
     /// The figure as an Encapsulated PostScript document with save
@@ -65,8 +65,8 @@ impl Figure {
     /// # Errors
     ///
     /// When some artists cannot be drawn or a font cannot be embedded.
-    pub fn to_eps_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
-        self.postscript(options, true)
+    pub fn to_eps_with(&self, options: SaveOptions) -> Result<String, SaveError> {
+        self.postscript(&options, true)
     }
 }
 
@@ -88,7 +88,7 @@ mod tests {
             bbox_inches: Some(BboxInches::Inches(Bbox::from_bounds(0.0, 0.0, 1.0, 0.5))),
             ..SaveOptions::default()
         };
-        let eps = fig.to_eps_with(&tight).unwrap();
+        let eps = fig.to_eps_with(tight).unwrap();
         assert!(eps.contains("%%BoundingBox: 0 0 72 36\n"));
         let dir = std::env::temp_dir().join("plt-rs-postscript");
         std::fs::create_dir_all(&dir).unwrap();

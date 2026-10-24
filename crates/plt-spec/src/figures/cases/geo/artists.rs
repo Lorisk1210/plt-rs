@@ -15,7 +15,7 @@ use plt::lines::LineProps;
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::orientation::Orientation;
 use plt::patches::{ArrowStyle, PatchProps};
-use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment};
+use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign};
 use plt::transforms::Point;
 
 use super::track;
@@ -66,7 +66,7 @@ fn scatter_text_annotate(fig: &Figure) -> CaseResult {
     };
     ax.scatter_with(lon, lat, options)?.set_zorder(3.0);
     ax.text(lon[2], lat[2] + 0.12, "Greenwich")
-        .set_halign(HorizontalAlignment::Center)
+        .set_halign(HAlign::Center)
         .set_fontsize(8.0);
     let arrow = FancyArrowProps {
         patch: PatchProps::default().color("0.3"),
@@ -112,7 +112,7 @@ fn facecolor_no_labels(fig: &Figure) -> CaseResult {
     ax.set_yticklabels(Vec::<String>::new())?;
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             color: Some(Color::from("w")),
             linewidth: Some(1.5),
             ..GridOptions::default()

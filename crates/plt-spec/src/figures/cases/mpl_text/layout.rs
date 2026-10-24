@@ -6,9 +6,7 @@ use plt::axes::TitleLocation;
 use plt::fonts::{FontExt, FontManager, FontProperties, FontStyle, FontWeight};
 use plt::patches::{BoxStyle, Rectangle};
 use plt::prelude::*;
-use plt::text::{
-    AnnotateOptions, HorizontalAlignment, TextBoxProps, TextRotationMode, VerticalAlignment,
-};
+use plt::text::{AnnotateOptions, HAlign, TextBoxProps, TextRotationMode, VAlign};
 use plt::transforms::Point;
 
 use super::remove_ticks_and_titles;
@@ -87,8 +85,8 @@ fn multiline(fig: &Figure) -> CaseResult {
     ] {
         ax.text(x, 0.5, format!("TpTpTp\n{math}\nTpTpTp"))
             .set_fontsize(20.0)
-            .set_halign(HorizontalAlignment::Center)
-            .set_valign(VerticalAlignment::Top);
+            .set_halign(HAlign::Center)
+            .set_valign(VAlign::Top);
     }
     ax.set_xlim(0.0, 1.0).set_ylim(0.0, 0.8);
     tickless(&ax);
@@ -107,10 +105,10 @@ fn multiline2(fig: &Figure) -> CaseResult {
         "$\\sum_i x $\n $\\sum_i x $",
     ];
     let rows = [
-        (0.5, VerticalAlignment::Bottom, 0.0, "Bottom align"),
-        (1.3, VerticalAlignment::Top, 0.0, "Top align"),
-        (1.8, VerticalAlignment::Baseline, 0.0, "Baseline align"),
-        (0.1, VerticalAlignment::Bottom, 20.0, "Bot align, rot20"),
+        (0.5, VAlign::Bottom, 0.0, "Bottom align"),
+        (1.3, VAlign::Top, 0.0, "Top align"),
+        (1.8, VAlign::Baseline, 0.0, "Baseline align"),
+        (0.1, VAlign::Bottom, 20.0, "Bot align, rot20"),
     ];
     let ax = fig.subplot();
     ax.set_xlim(0.0, 1.4).set_ylim(0.0, 2.0);
@@ -118,7 +116,7 @@ fn multiline2(fig: &Figure) -> CaseResult {
         ax.axhline(y, LineProps::default().color("C2").linewidth(0.3));
         for (nn, text) in TEXTS.into_iter().enumerate() {
             let tt = ax.text(0.2 * nn as f64 + 0.1, y, text);
-            tt.set_halign(HorizontalAlignment::Left)
+            tt.set_halign(HAlign::Left)
                 .set_valign(valign)
                 .set_rotation(rotation);
             let extent = tt.window_extent().ok_or("a text without extent")?;
@@ -148,8 +146,8 @@ fn antialiasing(fig: &Figure) -> CaseResult {
         )?;
         for (y, s) in [(0.75, text), (0.25, r"$\sqrt{x}$")] {
             fig.text(x, y, s)
-                .set_halign(HorizontalAlignment::Center)
-                .set_valign(VerticalAlignment::Center)
+                .set_halign(HAlign::Center)
+                .set_valign(VAlign::Center)
                 .set_antialiased(antialiased);
         }
     }
@@ -164,7 +162,7 @@ fn contains(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
     let txt = ax.text(0.5, 0.4, "hello world");
-    txt.set_halign(HorizontalAlignment::Center)
+    txt.set_halign(HAlign::Center)
         .set_fontsize(30.0)
         .set_rotation(30.0);
     let to_display = fig.resolve_transform(&ax.trans_axes())?;
@@ -193,10 +191,10 @@ fn titles(fig: &Figure) -> CaseResult {
 fn alignment(fig: &Figure) -> CaseResult {
     let ax = fig.add_subplot(1, 1, 1)?;
     let alignments = [
-        ("top", VerticalAlignment::Top),
-        ("bottom", VerticalAlignment::Bottom),
-        ("baseline", VerticalAlignment::Baseline),
-        ("center", VerticalAlignment::Center),
+        ("top", VAlign::Top),
+        ("bottom", VAlign::Bottom),
+        ("baseline", VAlign::Baseline),
+        ("center", VAlign::Center),
     ];
     let mut x = 0.1;
     for rotation in [0.0, 30.0] {
@@ -235,7 +233,7 @@ fn rotation_anchor(fig: &Figure) -> CaseResult {
             .set_fontsize(100.0)
             .set_rotation(f64::from(r) / f64::from(N) * 360.0)
             .set_rotation_mode(TextRotationMode::Anchor)
-            .set_valign(VerticalAlignment::CenterBaseline);
+            .set_valign(VAlign::CenterBaseline);
     }
     remove_ticks_and_titles(fig);
     Ok(())

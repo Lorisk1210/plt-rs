@@ -270,7 +270,7 @@ fn close_where(doomed: impl Fn(&Entry, Option<u32>) -> bool) {
 
 /// The artists of the current figure, the figure included, for which
 /// `matches` holds (matplotlib's `findobj(match=...)`; see
-/// [`Figure::findobj`]).
+/// [`ArtistHandle::findobj`](crate::artist::ArtistHandle::findobj)).
 pub fn findobj(matches: impl Fn(&RawHandle) -> bool) -> Vec<RawHandle> {
     gcf().findobj(matches)
 }
@@ -309,7 +309,7 @@ mod tests {
         close_all();
         let fig = Figure::new();
         let parts = fig
-            .subfigures(1, 2, &crate::figure::SubfigureOptions::default())
+            .subfigures(1, 2, crate::figure::SubfigureOptions::default())
             .expect("a grid");
         assert_eq!(figure_activate(&parts[(0, 1)]), 1);
         assert_eq!(gcf().id(), fig.id(), "the root figure is current");

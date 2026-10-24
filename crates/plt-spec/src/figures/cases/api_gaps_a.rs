@@ -6,7 +6,7 @@ use std::f64::consts::PI;
 use plt::dates::TimeZone;
 use plt::prelude::*;
 use plt::table::{TableLoc, TableOptions};
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -21,7 +21,7 @@ fn table_add_cell(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_axis_off();
     let text = |cells: &[&str]| cells.iter().map(|&s| s.to_owned()).collect::<Vec<_>>();
-    let table = ax.table(&TableOptions {
+    let table = ax.table(TableOptions {
         col_labels: Some(text(&["A", "B"])),
         loc: TableLoc::Center,
         col_widths: Some(vec![0.2, 0.2]),
@@ -30,13 +30,13 @@ fn table_add_cell(fig: &Figure) -> CaseResult {
     table
         .add_cell(3, 0, 0.2, 0.1)
         .set_text("sum")
-        .set_text_halign(HorizontalAlignment::Center)
+        .set_text_halign(HAlign::Center)
         .set_facecolor("#ddeeff");
     table.add_cell(3, 1, 0.2, 0.1).set_text("10");
     table
         .add_cell(1, -1, 0.15, 0.05)
         .set_text("row")
-        .set_text_halign(HorizontalAlignment::Left);
+        .set_text_halign(HAlign::Left);
     table
         .add_cell(0, 1, 0.3, 0.05)
         .set_text("wide B")

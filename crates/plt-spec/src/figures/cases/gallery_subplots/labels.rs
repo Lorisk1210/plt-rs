@@ -89,7 +89,7 @@ fn axes_props(fig: &Figure) -> CaseResult {
     ax.plot(&t, map(&t, |t| (2.0 * std::f64::consts::PI * t).sin()))?;
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             linestyle: Some(LineStyle::DashDot),
             ..GridOptions::default()
         },

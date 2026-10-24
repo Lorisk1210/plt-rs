@@ -15,7 +15,7 @@ fn log_grids(ax: &Axes) {
     ax.grid(true);
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             which: TickLevel::Minor,
             color: Some("0.9".into()),
             ..GridOptions::default()
@@ -57,7 +57,7 @@ fn log_demo_2(fig: &Figure) -> CaseResult {
     ax.set_scale_with(
         AxisName::Y,
         "log",
-        &ScaleOptions {
+        ScaleOptions {
             base: Some(2.0),
             ..ScaleOptions::default()
         },
@@ -65,7 +65,7 @@ fn log_demo_2(fig: &Figure) -> CaseResult {
     ax.set_yticks([1.0, 2f64.powi(10), 2f64.powi(20), 2f64.powi(30)])
         .set_yticklabels(["kB", "MB", "GB", "TB"])?;
     ax.set_title("Typical memory sizes");
-    ax.yaxis().grid(true, &GridOptions::default());
+    ax.yaxis().grid(true, GridOptions::default());
     Ok(())
 }
 
@@ -83,7 +83,7 @@ fn log_demo_3(fig: &Figure) -> CaseResult {
         ax.set_scale_with(
             AxisName::Y,
             "log",
-            &ScaleOptions {
+            ScaleOptions {
                 nonpositive: Some(nonpositive),
                 ..ScaleOptions::default()
             },
@@ -94,7 +94,7 @@ fn log_demo_3(fig: &Figure) -> CaseResult {
             &y,
             ErrorbarOptions {
                 yerr: Some(ErrorSize::Symmetric(yerr.clone())),
-                fmt: "o".into(),
+                fmt: "o".parse()?,
                 capsize: Some(5.0),
                 ..ErrorbarOptions::default()
             },
@@ -107,7 +107,7 @@ fn log_demo_3(fig: &Figure) -> CaseResult {
 fn minor_x_grid(ax: &Axes) {
     ax.xaxis().grid(
         true,
-        &GridOptions {
+        GridOptions {
             which: TickLevel::Minor,
             ..GridOptions::default()
         },
@@ -132,7 +132,7 @@ fn symlog_demo_1(fig: &Figure) -> CaseResult {
     ax2.set_scale_with(
         AxisName::Y,
         "symlog",
-        &ScaleOptions {
+        ScaleOptions {
             linthresh: Some(0.015),
             ..ScaleOptions::default()
         },
@@ -154,7 +154,7 @@ fn symlog_region(ax: &Axes, linthresh: f64, linscale: f64, title: &str) -> CaseR
     ax.set_scale_with(
         AxisName::X,
         "symlog",
-        &ScaleOptions {
+        ScaleOptions {
             linthresh: Some(linthresh),
             linscale: Some(linscale),
             subs: Some((2..10).map(f64::from).collect()),

@@ -161,7 +161,7 @@ fn correlation(args: Args<'_>, x: &[f64], y: &[f64]) -> Outcome {
         detrend,
         maxlags,
     };
-    let Correlation { lags, values } = mlab::xcorr(x, y, &opts).map_err(ProbeError::rejected)?;
+    let Correlation { lags, values } = mlab::xcorr(x, y, opts).map_err(ProbeError::rejected)?;
     let vlines = args.opt_bool("usevlines")?.unwrap_or(true);
     Ok(object([
         (

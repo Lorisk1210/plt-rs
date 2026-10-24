@@ -133,7 +133,7 @@ fn integers(shape: (usize, usize), values: Vec<i64>) -> ImageData {
 /// use plt::image::{ImageData, ImsaveOptions, imread_png, imsave_png};
 /// use plt::numeric::Grid;
 /// let gray = Grid::from_vec(1, 2, vec![0.0, 1.0])?;
-/// let png = imsave_png(gray, &ImsaveOptions::default())?;
+/// let png = imsave_png(gray, ImsaveOptions::default())?;
 /// let ImageData::RgbaF32(pixels) = imread_png(&png)? else { unreachable!() };
 /// assert_eq!(pixels.shape(), (1, 2));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -264,12 +264,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("plt-imread-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let data = Grid::from_vec(1, 1, vec![[0_u8, 128, 255]]).unwrap();
-        imsave(
-            dir.join("tiny.png"),
-            data.clone(),
-            &ImsaveOptions::default(),
-        )
-        .unwrap();
+        imsave(dir.join("tiny.png"), data.clone(), ImsaveOptions::default()).unwrap();
         let ImageData::RgbaF32(pixels) = imread(dir.join("tiny.png")).unwrap() else {
             panic!("imsave writes RGBA");
         };
@@ -277,7 +272,7 @@ mod tests {
         imsave(
             dir.join("tiny.jpeg"),
             data.clone(),
-            &ImsaveOptions::default(),
+            ImsaveOptions::default(),
         )
         .unwrap();
         assert!(matches!(

@@ -20,7 +20,7 @@
 //! [`AuxTransform`], located and labelled by the [`grid_finder`] and
 //! [`angle_helper`] locators and formatters. [`floating_axes`] shows a
 //! fixed range of such coordinates in axes bounded by its edges, and
-//! [`Axes::get_aux_axes`] adds axes to plot in curvilinear coordinates.
+//! [`Axes::aux_axes`] adds axes to plot in curvilinear coordinates.
 //! [`Axes::twinx`], [`Axes::twiny`] and [`Axes::add_parasite_axes`] add
 //! parasite axes whose axis lines are axis artists of their own.
 //!
@@ -44,6 +44,7 @@ mod parasites;
 mod tick_marks;
 mod ticks;
 
+pub(crate) use artist::AxisArtistState;
 pub use aux_transform::AuxTransform;
 pub use axes::{Axes, GridHelper};
 pub use handles::{

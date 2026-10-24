@@ -142,7 +142,7 @@ fn time_workload(workload: &Workload, runs: usize) -> Result<(Duration, Vec<u8>)
         document = case.with_figure(|fig| {
             plt::rc::set("svg.hashsalt", "plt-rs")?;
             build(fig)?;
-            Ok(fig.to_format(workload.format, &options)?)
+            Ok(fig.to_format(workload.format, options.clone())?)
         })?;
         best = best.min(start.elapsed());
     }

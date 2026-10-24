@@ -12,7 +12,7 @@ use crate::axisartist::line::LineState;
 use crate::axisartist::ticks::TicksState;
 use crate::colors::Color;
 use crate::spines::SpineSide;
-use crate::text::{HorizontalAlignment, VerticalAlignment};
+use crate::text::{HAlign, VAlign};
 
 /// The tick marks of one level of an axis artist (matplotlib's `Ticks`).
 #[derive(Clone, Debug, PartialEq)]
@@ -185,12 +185,12 @@ impl LabelBase {
     }
 
     /// Sets the horizontal alignment (matplotlib's `set_ha`).
-    pub fn set_ha(&self, halign: HorizontalAlignment) -> &Self {
+    pub fn set_ha(&self, halign: HAlign) -> &Self {
         self.update(|label| label.halign = halign)
     }
 
     /// Sets the vertical alignment (matplotlib's `set_va`).
-    pub fn set_va(&self, valign: VerticalAlignment) -> &Self {
+    pub fn set_va(&self, valign: VAlign) -> &Self {
         self.update(|label| label.valign = valign)
     }
 

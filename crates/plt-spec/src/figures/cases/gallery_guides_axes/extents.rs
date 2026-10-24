@@ -7,7 +7,7 @@ use plt::image::{Extent, Origin};
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::text::{AnnotateOptions, HorizontalAlignment, TextProps, VerticalAlignment};
+use plt::text::{AnnotateOptions, HAlign, TextProps, VAlign};
 
 use crate::figures::cases::common::styled_box;
 use crate::figures::{CaseResult, FigureCase};
@@ -62,7 +62,7 @@ fn index_label_pos(
     extent: Option<[f64; 4]>,
     origin: Origin,
     inverted_xindex: bool,
-) -> (f64, f64, HorizontalAlignment) {
+) -> (f64, f64, HAlign) {
     let extent = extent.unwrap_or(match origin {
         Origin::Lower => [-0.5, 6.5, -0.5, 5.5],
         Origin::Upper => [-0.5, 6.5, 5.5, -0.5],
@@ -71,9 +71,9 @@ fn index_label_pos(
     let (x, y) = index_to_coordinate(index, extent, origin);
     let is_x0 = index.ends_with("0]");
     let halign = if is_x0 ^ inverted_xindex {
-        HorizontalAlignment::Left
+        HAlign::Left
     } else {
-        HorizontalAlignment::Right
+        HAlign::Right
     };
     let hshift = 0.5 * (left - right).signum();
     (x + hshift * if is_x0 { 1.0 } else { -1.0 }, y, halign)
@@ -98,37 +98,16 @@ fn edge_labels(
     } else {
         ("left", "right")
     };
-    let (center, middle) = (HorizontalAlignment::Center, VerticalAlignment::Center);
+    let (center, middle) = (HAlign::Center, VAlign::Center);
     for (label, xy, xytext, halign, valign, rotation) in [
-        (
-            upper,
-            (0.5, 1.0),
-            (0.0, -1.0),
-            center,
-            VerticalAlignment::Top,
-            0.0,
-        ),
-        (
-            lower,
-            (0.5, 0.0),
-            (0.0, 1.0),
-            center,
-            VerticalAlignment::Bottom,
-            0.0,
-        ),
-        (
-            port,
-            (0.0, 0.5),
-            (1.0, 0.0),
-            HorizontalAlignment::Left,
-            middle,
-            90.0,
-        ),
+        (upper, (0.5, 1.0), (0.0, -1.0), center, VAlign::Top, 0.0),
+        (lower, (0.5, 0.0), (0.0, 1.0), center, VAlign::Bottom, 0.0),
+        (port, (0.0, 0.5), (1.0, 0.0), HAlign::Left, middle, 90.0),
         (
             starboard,
             (1.0, 0.5),
             (-1.0, 0.0),
-            HorizontalAlignment::Right,
+            HAlign::Right,
             middle,
             -90.0,
         ),
@@ -201,7 +180,7 @@ fn imshow_with_labels(
                 TextProps::default()
                     .color("white")
                     .halign(halign)
-                    .valign(VerticalAlignment::Center),
+                    .valign(VAlign::Center),
             )
             .set_bbox(styled_box(
                 "square",
@@ -248,8 +227,8 @@ fn imshow_demo_grid(
             .set_transform(ax.trans_axes())
             .update_props(
                 TextProps::default()
-                    .halign(HorizontalAlignment::Right)
-                    .valign(VerticalAlignment::Center),
+                    .halign(HAlign::Right)
+                    .valign(VAlign::Center),
             );
         ax.set_axis_off();
     }
@@ -261,11 +240,11 @@ fn extent_none_text(ax: &Axes) {
     ax.text(3.0, 2.5, "equals\nextent=None")
         .update_props(
             TextProps::default()
-                .halign(HorizontalAlignment::Center)
-                .valign(VerticalAlignment::Center)
+                .halign(HAlign::Center)
+                .valign(VAlign::Center)
                 .color("w"),
         )
-        .set_fontsize_relative(plt::fonts::RelativeSize::Large);
+        .set_fontsize(plt::fonts::RelativeSize::Large);
 }
 
 fn imshow_extent_1(fig: &Figure) -> CaseResult {

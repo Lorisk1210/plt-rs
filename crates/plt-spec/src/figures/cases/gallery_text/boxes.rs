@@ -54,7 +54,7 @@ fn demo_annotation_box_1(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::compressed());
     let label = |name: &str| MosaicCell::Label(name.into());
     let mosaic = Mosaic::new(vec![vec![label("t1"), MosaicCell::Empty, label("t2")]])?;
-    let axd = fig.subplot_mosaic(&mosaic, &MosaicOptions::default())?;
+    let axd = fig.subplot_mosaic(&mosaic, MosaicOptions::default())?;
     let (t1, t2) = (
         axd.get("t1").ok_or("no axes t1")?,
         axd.get("t2").ok_or("no axes t2")?,

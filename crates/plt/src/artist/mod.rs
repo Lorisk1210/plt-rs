@@ -19,6 +19,7 @@ mod pick;
 #[macro_use]
 mod properties;
 mod store;
+mod tree;
 
 use std::any::Any;
 use std::fmt::Debug;

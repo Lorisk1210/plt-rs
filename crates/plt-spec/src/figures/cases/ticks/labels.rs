@@ -7,7 +7,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::layout::TightLayout;
 use plt::prelude::*;
 use plt::spines::SpineSide;
-use plt::text::{HorizontalAlignment as HAlign, TextRotationMode as RotationMode};
+use plt::text::{HAlign, TextRotationMode as RotationMode};
 use plt::ticker::OffsetMode;
 
 use crate::figures::CaseResult;
@@ -46,7 +46,7 @@ pub(super) fn rotated_multiline_labels(fig: &Figure) -> CaseResult {
         .set_ticklabels(["one\nline", "two\nlines\nhere", "three", "four\n4", "five"])?
         .set_ticklabel_props(
             TickLevel::Major,
-            &TickLabelProps {
+            TickLabelProps {
                 rotation: Some(30.0),
                 halign: Some(HAlign::Right),
                 rotation_mode: Some(RotationMode::Anchor),
@@ -58,7 +58,7 @@ pub(super) fn rotated_multiline_labels(fig: &Figure) -> CaseResult {
         .set_ticklabels(["low\nvalue", "mid", "high\nvalue"])?
         .set_ticklabel_props(
             TickLevel::Major,
-            &TickLabelProps {
+            TickLabelProps {
                 rotation: Some(15.0),
                 multialign: Some(HAlign::Center),
                 ..TickLabelProps::default()
@@ -160,7 +160,7 @@ pub(super) fn set_ticks_labels_minor_kwargs(fig: &Figure) -> CaseResult {
         .set_ticklabels(["start", "middle", "end"])?
         .set_ticklabel_props(
             TickLevel::Major,
-            &TickLabelProps {
+            TickLabelProps {
                 color: Some(Color::from("tab:blue")),
                 fontsize: Some(FontSize::Points(12.0)),
                 ..TickLabelProps::default()
@@ -171,7 +171,7 @@ pub(super) fn set_ticks_labels_minor_kwargs(fig: &Figure) -> CaseResult {
         .set_minor_ticklabels(["a", "b"])?
         .set_ticklabel_props(
             TickLevel::Minor,
-            &TickLabelProps {
+            TickLabelProps {
                 color: Some(Color::from("tab:red")),
                 fontsize: Some(FontSize::Points(8.0)),
                 ..TickLabelProps::default()

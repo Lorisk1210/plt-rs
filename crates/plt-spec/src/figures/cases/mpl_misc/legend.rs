@@ -281,7 +281,7 @@ fn legend_stackplot(fig: &Figure) -> CaseResult {
         .iter()
         .map(|(slope, offset)| x.iter().map(|x| slope * x + offset).collect())
         .collect();
-    let stacked = ax.stackplot(&x, &layers, &StackplotOptions::default())?;
+    let stacked = ax.stackplot(&x, &layers, StackplotOptions::default())?;
     for (layer, label) in stacked.iter().zip(["y1", "y2", "y3"]) {
         layer.set_label(label);
     }

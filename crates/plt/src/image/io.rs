@@ -190,7 +190,7 @@ impl Default for ImsaveOptions {
 pub fn imsave(
     path: impl AsRef<Path>,
     data: impl Into<ImageData>,
-    options: &ImsaveOptions,
+    options: ImsaveOptions,
 ) -> Result<(), ImageIoError> {
     let path = path.as_ref();
     let format = match path.extension() {
@@ -227,7 +227,7 @@ pub fn imsave_format(name: &str) -> Result<BitmapFormat, ImageIoError> {
 /// As [`imsave_bytes`].
 pub fn imsave_png(
     data: impl Into<ImageData>,
-    options: &ImsaveOptions,
+    options: ImsaveOptions,
 ) -> Result<Vec<u8>, ImageIoError> {
     imsave_bytes(data, BitmapFormat::Png, options)
 }
@@ -245,11 +245,11 @@ pub fn imsave_png(
 pub fn imsave_bytes(
     data: impl Into<ImageData>,
     format: BitmapFormat,
-    options: &ImsaveOptions,
+    options: ImsaveOptions,
 ) -> Result<Vec<u8>, ImageIoError> {
     let data = data.into();
     let (rows, cols) = data.shape();
-    let mut pixels = rgba_bytes(&data, options)?;
+    let mut pixels = rgba_bytes(&data, &options)?;
     let origin = options
         .origin
         .unwrap_or_else(|| crate::rc::params().image_origin.parse().unwrap_or_default());
@@ -266,7 +266,7 @@ pub fn imsave_bytes(
         jpeg_quality: options.jpeg_quality.unwrap_or(defaults.jpeg_quality),
         background: jpeg_background(),
     };
-    Ok(format.encode(cols, rows, &pixels.concat(), &settings)?)
+    Ok(format.encode(cols, rows, &pixels.concat(), settings)?)
 }
 
 /// The colour `imsave` flattens JPEG pixels onto: `savefig.facecolor`, or
@@ -330,7 +330,7 @@ mod tests {
             vmax: Some(10.0),
             ..ImsaveOptions::default()
         };
-        let pixels = decode(&imsave_png(data, &options).unwrap());
+        let pixels = decode(&imsave_png(data, options).unwrap());
         assert_eq!(&pixels[..4], [0, 0, 0, 255]);
         assert_eq!(&pixels[4..8], [128, 128, 128, 255], "5 of 0..10");
         assert_eq!(
@@ -347,11 +347,11 @@ mod tests {
             origin: Some(Origin::Lower),
             ..ImsaveOptions::default()
         };
-        let pixels = decode(&imsave_png(data, &options).unwrap());
+        let pixels = decode(&imsave_png(data, options).unwrap());
         assert_eq!(pixels, [0, 0, 255, 255, 255, 127, 0, 255]);
         let out_of_range = Grid::from_vec(1, 1, vec![[1.5, 0.0, 0.0]]).unwrap();
         assert!(matches!(
-            imsave_png(out_of_range, &ImsaveOptions::default()),
+            imsave_png(out_of_range, ImsaveOptions::default()),
             Err(ImageIoError::ColorRange)
         ));
     }
@@ -367,7 +367,7 @@ mod tests {
             ("tiny.TIFF", b"II*\0"),
             ("tiny.gif", b"GIF89a"),
         ] {
-            imsave(dir.join(name), data.clone(), &ImsaveOptions::default()).unwrap();
+            imsave(dir.join(name), data.clone(), ImsaveOptions::default()).unwrap();
             assert!(
                 std::fs::read(dir.join(name))
                     .unwrap()
@@ -377,7 +377,7 @@ mod tests {
         }
         for refused in ["tif", "rgba", "pdf"] {
             assert!(matches!(
-                imsave(dir.join(format!("tiny.{refused}")), data.clone(), &ImsaveOptions::default()),
+                imsave(dir.join(format!("tiny.{refused}")), data.clone(), ImsaveOptions::default()),
                 Err(ImageIoError::UnsupportedFormat(ext)) if ext == refused
             ));
         }

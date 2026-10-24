@@ -71,7 +71,7 @@ pub struct Histogram2d {
 ///     bins: [AxisBins::Count(2), AxisBins::Edges(vec![0.0, 1.0])],
 ///     ..Histogram2dOptions::default()
 /// };
-/// let h = histogram2d(&[0.0, 1.0, 2.0], &[0.0, 1.0, 5.0], &opts)?;
+/// let h = histogram2d(&[0.0, 1.0, 2.0], &[0.0, 1.0, 5.0], opts)?;
 /// assert_eq!(h.xedges, vec![0.0, 1.0, 2.0]);
 /// assert_eq!(h.counts.as_slice(), &[1.0, 1.0]); // y = 5 lies outside
 /// # Ok::<(), plt::stats::StatsError>(())
@@ -84,7 +84,7 @@ pub struct Histogram2d {
 pub fn histogram2d(
     x: &[f64],
     y: &[f64],
-    opts: &Histogram2dOptions<'_>,
+    opts: Histogram2dOptions<'_>,
 ) -> Result<Histogram2d, StatsError> {
     if x.len() != y.len() {
         return Err(StatsError::SampleLengthMismatch {
@@ -176,14 +176,14 @@ mod tests {
             AxisBins::Edges(vec![0.0, 1.0, 2.0]),
             AxisBins::Edges(vec![0.0, 0.5, 1.0]),
         ]);
-        let h = histogram2d(&x, &y, &opts).unwrap();
+        let h = histogram2d(&x, &y, opts).unwrap();
         // Edges are left-closed except the last, which also takes its edge.
         assert_eq!(h.counts.as_slice(), &[2.0, 0.0, 0.0, 3.0]);
     }
 
     #[test]
     fn equal_width_bins_span_the_data_or_the_range() {
-        let h = histogram2d(&[1.0, 3.0], &[2.0, 2.0], &options([2.into(), 1.into()])).unwrap();
+        let h = histogram2d(&[1.0, 3.0], &[2.0, 2.0], options([2.into(), 1.into()])).unwrap();
         assert_eq!(h.xedges, vec![1.0, 2.0, 3.0]);
         assert_eq!(h.yedges, vec![1.5, 2.5]);
         assert_eq!(h.counts.as_slice(), &[1.0, 1.0]);
@@ -191,7 +191,7 @@ mod tests {
             range: [Some((0.0, 4.0)), None],
             ..options([4.into(), 1.into()])
         };
-        let h = histogram2d(&[1.0, 3.0], &[2.0, 2.0], &ranged).unwrap();
+        let h = histogram2d(&[1.0, 3.0], &[2.0, 2.0], ranged).unwrap();
         assert_eq!(h.xedges, vec![0.0, 1.0, 2.0, 3.0, 4.0]);
         assert_eq!(h.counts.as_slice(), &[0.0, 1.0, 0.0, 1.0]);
     }
@@ -203,13 +203,13 @@ mod tests {
             weights: Some(&weights),
             ..options([2.into(), 1.into()])
         };
-        let h = histogram2d(&[0.0, 2.0], &[0.0, 1.0], &weighted).unwrap();
+        let h = histogram2d(&[0.0, 2.0], &[0.0, 1.0], weighted.clone()).unwrap();
         assert_eq!(h.counts.as_slice(), &[1.0, 3.0]);
         let density = Histogram2dOptions {
             density: true,
             ..weighted
         };
-        let h = histogram2d(&[0.0, 2.0], &[0.0, 1.0], &density).unwrap();
+        let h = histogram2d(&[0.0, 2.0], &[0.0, 1.0], density).unwrap();
         assert_eq!(h.counts.as_slice(), &[0.25, 0.75]);
     }
 
@@ -217,20 +217,20 @@ mod tests {
     fn invalid_input_is_rejected() {
         let default = Histogram2dOptions::default();
         assert_eq!(
-            histogram2d(&[1.0], &[], &default),
+            histogram2d(&[1.0], &[], default.clone()),
             Err(StatsError::SampleLengthMismatch { x: 1, y: 0 })
         );
         assert_eq!(
-            histogram2d(&[1.0], &[1.0], &options([0.into(), 1.into()])),
+            histogram2d(&[1.0], &[1.0], options([0.into(), 1.into()])),
             Err(StatsError::ZeroBins)
         );
         let decreasing = options([vec![1.0, 0.0].into(), 1.into()]);
         assert_eq!(
-            histogram2d(&[1.0], &[1.0], &decreasing),
+            histogram2d(&[1.0], &[1.0], decreasing),
             Err(StatsError::NonMonotonicEdges)
         );
         assert!(matches!(
-            histogram2d(&[f64::NAN], &[1.0], &default),
+            histogram2d(&[f64::NAN], &[1.0], default),
             Err(StatsError::NonFiniteRange { .. })
         ));
         let weights = [1.0, 2.0];
@@ -239,7 +239,7 @@ mod tests {
             ..Histogram2dOptions::default()
         };
         assert_eq!(
-            histogram2d(&[1.0], &[1.0], &mismatched),
+            histogram2d(&[1.0], &[1.0], mismatched),
             Err(StatsError::WeightsMismatch {
                 expected: 1,
                 actual: 2

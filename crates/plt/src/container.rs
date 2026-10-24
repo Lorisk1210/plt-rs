@@ -64,7 +64,7 @@ impl Container {
     /// ```
     /// use plt::prelude::*;
     /// let ax = Figure::new().subplot();
-    /// let stems = ax.stem([1.0, 2.0], [1.0, 2.0], &Default::default())?;
+    /// let stems = ax.stem([1.0, 2.0], [1.0, 2.0], Default::default())?;
     /// stems.remove();
     /// assert!(ax.lines().is_empty() && ax.collections().is_empty());
     /// assert!(ax.containers().is_empty());
@@ -321,7 +321,7 @@ mod tests {
             label: Some("stems".into()),
             ..StemOptions::default()
         };
-        ax.stem([1.0], [2.0], &stems).unwrap();
+        ax.stem([1.0], [2.0], stems).unwrap();
         let containers = ax.containers();
         let labels: Vec<Option<&str>> = containers.iter().map(Container::label).collect();
         assert_eq!(labels, [Some("_nolegend_"), Some("bars"), Some("stems")]);
@@ -347,11 +347,11 @@ mod tests {
     fn removing_a_container_removes_its_artists_and_entry() {
         let ax = Figure::new().subplot();
         let kept = ax
-            .stem([1.0], [2.0], &StemOptions::default())
+            .stem([1.0], [2.0], StemOptions::default())
             .expect("stems");
         let errors = ErrorbarOptions {
             xerr: Some(1.0.into()),
-            fmt: "none".into(),
+            fmt: crate::axes::ErrorbarFormat::None,
             ..ErrorbarOptions::default()
         };
         let bars = ax.errorbar([1.0], [1.0], errors).expect("error bars");

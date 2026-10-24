@@ -4,22 +4,25 @@
 use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
 use crate::collections::Collection;
-use crate::lines::{FormatString, Line2D, LineProps};
+use crate::colors::Color;
+use crate::lines::{FormatString, Line2D, LineProps, LineStyle};
+use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
-use crate::rc::RcParams;
 use crate::units::AxisValues;
 
-/// Options of [`Axes::stem`].
+/// Options of [`Axes::stem`]; matplotlib's format strings parse with
+/// [`str::parse`], as in `linefmt: "C2-.".parse()?`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StemOptions {
-    /// Format string of the stems (`linefmt`); only its colour and line
+    /// Format of the stems (`linefmt`, `"C0-"`); only its colour and line
     /// style are used.
-    pub linefmt: String,
-    /// Format string of the heads (`markerfmt`); its colour defaults to
-    /// the stems' colour and an empty string hides the heads.
-    pub markerfmt: String,
-    /// Format string of the baseline (`basefmt`).
-    pub basefmt: String,
+    pub linefmt: FormatString,
+    /// Format of the heads (`markerfmt`, `"o"`); its colour defaults to the
+    /// stems' colour, and `" "` hides the heads (matplotlib's
+    /// `markerfmt=""`).
+    pub markerfmt: FormatString,
+    /// Format of the baseline (`basefmt`, `"C3-"`).
+    pub basefmt: FormatString,
     /// Where the stems start.
     pub bottom: f64,
     /// Vertical stems rise from a horizontal baseline; horizontal ones
@@ -32,13 +35,26 @@ pub struct StemOptions {
 impl Default for StemOptions {
     fn default() -> Self {
         Self {
-            linefmt: "C0-".into(),
-            markerfmt: "o".into(),
-            basefmt: "C3-".into(),
+            linefmt: solid_format("C0"),
+            markerfmt: FormatString {
+                linestyle: Some(LineStyle::None),
+                marker: Some(Marker::Symbol(MarkerSymbol::Circle)),
+                color: None,
+            },
+            basefmt: solid_format("C3"),
             bottom: 0.0,
             orientation: Orientation::Vertical,
             label: None,
         }
+    }
+}
+
+/// The format of a solid line in `color` without markers (`"C0-"`).
+pub(crate) fn solid_format(color: &str) -> FormatString {
+    FormatString {
+        linestyle: Some(LineStyle::Solid),
+        marker: Some(Marker::default()),
+        color: Some(Color::from(color)),
     }
 }
 
@@ -66,20 +82,19 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::StemOptions;
     /// let ax = Figure::new().subplot();
-    /// let stems = ax.stem([1.0, 2.0, 3.0], [0.5, -1.0, 2.0], &StemOptions::default())?;
+    /// let stems = ax.stem([1.0, 2.0, 3.0], [0.5, -1.0, 2.0], StemOptions::default())?;
     /// assert_eq!(stems.baseline.xdata(), [1.0, 3.0]);
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
     ///
     /// # Errors
     ///
-    /// When `locs` and `heads` differ in length or a format string is
-    /// invalid.
+    /// When `locs` and `heads` differ in length.
     pub fn stem(
         &self,
         locs: impl Into<AxisValues>,
         heads: impl Into<AxisValues>,
-        options: &StemOptions,
+        options: StemOptions,
     ) -> Result<StemContainer, PlotError> {
         let (loc_axis, head_axis) = match options.orientation {
             Orientation::Vertical => (self.xaxis(), self.yaxis()),
@@ -93,11 +108,7 @@ impl Axes {
                 y: heads.len(),
             });
         }
-        let rc = crate::rc::params();
-        let line = FormatString::parse_with(&options.linefmt, &rc)?;
-        let marker = marker_format(&options.markerfmt, &rc)?;
-        let base = FormatString::parse_with(&options.basefmt, &rc)?;
-
+        let (line, marker, base) = (options.linefmt, options.markerfmt, options.basefmt);
         let bottom = [options.bottom];
         let stemlines = match options.orientation {
             Orientation::Vertical => self.vlines(locs, bottom, heads)?,
@@ -137,33 +148,32 @@ impl Axes {
             markerline,
             stemlines,
             baseline,
-            label: options.label.clone(),
+            label: options.label,
         };
         self.add_container(container.clone());
         Ok(container)
     }
 }
 
-/// The heads' format: an empty string means no heads, which matplotlib
-/// spells `' '` (an invisible line style without marker).
-fn marker_format(format: &str, rc: &RcParams) -> Result<FormatString, PlotError> {
-    let format = if format.is_empty() { " " } else { format };
-    Ok(FormatString::parse_with(format, rc)?)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::colors::Color;
     use crate::figure::Figure;
-    use crate::lines::LineStyle;
-    use crate::markers::{Marker, MarkerSymbol};
+
+    #[test]
+    fn default_formats_are_matplotlibs() {
+        let defaults = StemOptions::default();
+        let parse = |format: &str| format.parse::<FormatString>().unwrap();
+        assert_eq!(defaults.linefmt, parse("C0-"));
+        assert_eq!(defaults.markerfmt, parse("o"));
+        assert_eq!(defaults.basefmt, parse("C3-"));
+    }
 
     #[test]
     fn default_stems_follow_matplotlib() {
         let ax = Figure::new().subplot();
         let stems = ax
-            .stem([0.0, 1.0, 2.0], [1.0, -2.0, 3.0], &StemOptions::default())
+            .stem([0.0, 1.0, 2.0], [1.0, -2.0, 3.0], StemOptions::default())
             .unwrap();
         assert_eq!(
             stems.markerline.marker(),
@@ -180,12 +190,12 @@ mod tests {
     fn horizontal_stems_and_formats() {
         let ax = Figure::new().subplot();
         let options = StemOptions {
-            markerfmt: "rD".into(),
+            markerfmt: "rD".parse().unwrap(),
             bottom: 1.0,
             orientation: Orientation::Horizontal,
             ..StemOptions::default()
         };
-        let stems = ax.stem([0.0, 5.0], [2.0, 3.0], &options).unwrap();
+        let stems = ax.stem([0.0, 5.0], [2.0, 3.0], options).unwrap();
         assert_eq!(stems.markerline.xdata(), [2.0, 3.0]);
         assert_eq!(stems.markerline.color(), Color::from("r"));
         assert_eq!(stems.baseline.xdata(), [1.0, 1.0]);
@@ -193,13 +203,13 @@ mod tests {
     }
 
     #[test]
-    fn empty_marker_format_hides_heads() {
+    fn blank_marker_format_hides_heads() {
         let ax = Figure::new().subplot();
         let options = StemOptions {
-            markerfmt: String::new(),
+            markerfmt: " ".parse().unwrap(),
             ..StemOptions::default()
         };
-        let stems = ax.stem([0.0], [1.0], &options).unwrap();
+        let stems = ax.stem([0.0], [1.0], options).unwrap();
         assert_eq!(stems.markerline.marker(), Marker::default());
         assert_eq!(stems.markerline.linestyle(), LineStyle::None);
     }
@@ -207,6 +217,6 @@ mod tests {
     #[test]
     fn mismatched_lengths_are_rejected() {
         let ax = Figure::new().subplot();
-        assert!(ax.stem([0.0], [1.0, 2.0], &StemOptions::default()).is_err());
+        assert!(ax.stem([0.0], [1.0, 2.0], StemOptions::default()).is_err());
     }
 }

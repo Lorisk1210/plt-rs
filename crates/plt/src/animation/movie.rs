@@ -178,7 +178,7 @@ impl FuncAnimation {
     pub fn save_movie(
         &self,
         path: impl AsRef<Path>,
-        options: &MovieOptions,
+        options: MovieOptions,
     ) -> Result<(), AnimationError> {
         let path = path.as_ref();
         let fps = options
@@ -188,7 +188,7 @@ impl FuncAnimation {
         let program = crate::rc::params().animation_ffmpeg_path.clone();
         let movie = |error| AnimationError::Movie(error);
         let mut child = Command::new(&program)
-            .args(ffmpeg_args(path, size, &pyfmt::repr(fps), options))
+            .args(ffmpeg_args(path, size, &pyfmt::repr(fps), &options))
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -253,7 +253,7 @@ impl FuncAnimation {
             codec: Some("h264".into()),
             ..MovieOptions::default()
         };
-        let encoded = self.save_movie(&path, &options).and_then(|()| {
+        let encoded = self.save_movie(&path, options).and_then(|()| {
             std::fs::read(&path).map_err(|err| AnimationError::Save(SaveError::Io(err)))
         });
         let _ = std::fs::remove_file(&path);

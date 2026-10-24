@@ -7,7 +7,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::layout::LayoutEngine;
 use plt::legend::{BboxToAnchor, LegendHandle, LegendMode, LegendOptions};
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 use plt::transforms::Transform;
 
 use super::{map, t};
@@ -89,7 +89,7 @@ pub(super) fn subfigure_legends_suplabels(fig: &Figure) -> CaseResult {
     let subfigs = fig.subfigures(
         1,
         2,
-        &SubfigureOptions {
+        SubfigureOptions {
             wspace: Some(0.05),
             ..SubfigureOptions::default()
         },

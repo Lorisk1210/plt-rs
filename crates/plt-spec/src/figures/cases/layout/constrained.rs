@@ -150,13 +150,13 @@ fn constrained_shared_colorbar(fig: &Figure) -> CaseResult {
 
 fn subfigures_nested_constrained(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
-    let rows = fig.subfigures(2, 1, &SubfigureOptions::default())?;
+    let rows = fig.subfigures(2, 1, SubfigureOptions::default())?;
     let (top, bottom) = (&rows[(0, 0)], &rows[(1, 0)]);
     top.suptitle("top");
     for (i, ax) in top.subplots(1, 3)?.as_slice().iter().enumerate() {
         fill(ax, i)?;
     }
-    let cols = bottom.subfigures(1, 2, &SubfigureOptions::default())?;
+    let cols = bottom.subfigures(1, 2, SubfigureOptions::default())?;
     let (left, right) = (&cols[(0, 0)], &cols[(0, 1)]);
     left.set_facecolor(Color::from("lightyellow").resolve()?);
     left.supxlabel("left x");

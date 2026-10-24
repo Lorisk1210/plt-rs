@@ -124,7 +124,7 @@ fn mesh_concave(ax: &Axes) -> Result<Collection, ProbeError> {
     let x = Grid::from_rows(vec![vec![0.0, -1.0], vec![1.0, 0.0]]).map_err(ProbeError::rejected)?;
     let y = Grid::from_rows(vec![vec![0.0, 1.0], vec![1.0, -1.0]]).map_err(ProbeError::rejected)?;
     made(ax.pcolormesh(
-        Mesh::with_coords(
+        Mesh::from_coords(
             MeshCoords::Grid(x),
             MeshCoords::Grid(y),
             grid(1, 1, |_, _| 0.0),
@@ -180,7 +180,7 @@ fn cursor(args: Args<'_>) -> Outcome {
     let fig = Figure::new();
     let ax = fig.subplot();
     made(ax.pcolormesh(
-        Mesh::with_coords(
+        Mesh::from_coords(
             vec![1.0, 2.0, 1.0, 2.0],
             vec![1.0, 2.0, 1.0, 2.0],
             grid(3, 3, |_, _| 1.0),

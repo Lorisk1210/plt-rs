@@ -92,7 +92,7 @@ fn contours() -> Built {
             ..ContourOptions::default()
         },
     )?;
-    lines.clabel(&ClabelOptions::default())?;
+    lines.clabel(ClabelOptions::default())?;
     fig.colorbar(&filled, ColorbarOptions::default())?;
     ax.set_title("contourf + contour + clabel");
     Ok(fig)

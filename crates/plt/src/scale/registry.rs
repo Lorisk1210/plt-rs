@@ -168,12 +168,12 @@ impl ScaleRegistry {
     }
 
     /// Creates the scale called `name` from `options`.
-    pub fn create(&self, name: &str, options: &ScaleOptions) -> Result<Box<dyn Scale>, ScaleError> {
+    pub fn create(&self, name: &str, options: ScaleOptions) -> Result<Box<dyn Scale>, ScaleError> {
         let constructor = self
             .constructors
             .get(name)
             .ok_or_else(|| ScaleError::UnknownScale(name.to_owned()))?;
-        constructor(options)
+        constructor(&options)
     }
 }
 
@@ -188,7 +188,7 @@ pub fn scale_names() -> Vec<String> {
 }
 
 /// Creates a built-in scale by name (matplotlib's `scale_factory`).
-pub fn scale_factory(name: &str, options: &ScaleOptions) -> Result<Box<dyn Scale>, ScaleError> {
+pub fn scale_factory(name: &str, options: ScaleOptions) -> Result<Box<dyn Scale>, ScaleError> {
     ScaleRegistry::default().create(name, options)
 }
 
@@ -215,13 +215,13 @@ mod tests {
     #[test]
     fn factory_validates_options() {
         assert_eq!(
-            scale_factory("linear", &ScaleOptions::default())
+            scale_factory("linear", ScaleOptions::default())
                 .unwrap()
                 .name(),
             "linear"
         );
         assert!(matches!(
-            scale_factory("bogus", &ScaleOptions::default()),
+            scale_factory("bogus", ScaleOptions::default()),
             Err(ScaleError::UnknownScale(_))
         ));
         let linthresh = ScaleOptions {
@@ -229,15 +229,12 @@ mod tests {
             ..ScaleOptions::default()
         };
         assert!(matches!(
-            scale_factory("log", &linthresh),
+            scale_factory("log", linthresh.clone()),
             Err(ScaleError::UnexpectedOption { .. })
         ));
-        assert_eq!(
-            scale_factory("symlog", &linthresh).unwrap().name(),
-            "symlog"
-        );
+        assert_eq!(scale_factory("symlog", linthresh).unwrap().name(), "symlog");
         assert!(matches!(
-            scale_factory("function", &ScaleOptions::default()),
+            scale_factory("function", ScaleOptions::default()),
             Err(ScaleError::MissingOption { .. })
         ));
     }
@@ -250,7 +247,7 @@ mod tests {
         });
         assert!(registry.names().contains(&"reciprocal"));
         let scale = registry
-            .create("reciprocal", &ScaleOptions::default())
+            .create("reciprocal", ScaleOptions::default())
             .unwrap();
         assert_eq!(scale.forward(&[4.0]), [0.25]);
     }

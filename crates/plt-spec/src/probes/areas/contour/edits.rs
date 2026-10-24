@@ -2,6 +2,7 @@
 //! (`nearest_op` and `label_edits_op` in the spec): the contour point
 //! nearest to given points, and labels added and removed after `clabel`.
 
+use plt::artist::ArtistHandle;
 use plt::contour::{ContourSet, NearestIn};
 use plt::transforms::Transform;
 use plt_core::Point;
@@ -17,7 +18,7 @@ pub(super) fn find_nearest_contour(args: Args<'_>) -> Outcome {
     input::with_rc(args, || {
         let cs = contour_in(args, args.opt_bool("filled")?.unwrap_or(false))?;
         if let Some(clabel) = args.get("clabel") {
-            cs.clabel(&clabel_options(Args::new(clabel))?)
+            cs.clabel(clabel_options(Args::new(clabel))?)
                 .map_err(ProbeError::rejected)?;
         }
         let queries = list(args.json("queries")?, "queries")?;
@@ -71,7 +72,7 @@ fn nearest(cs: &ContourSet, query: &Json) -> Result<Json, ProbeError> {
 pub(super) fn label_edits(args: Args<'_>) -> Outcome {
     input::with_rc(args, || {
         let cs = contour_in(args, false)?;
-        cs.clabel(&clabel_options(Args::new(args.json("clabel")?))?)
+        cs.clabel(clabel_options(Args::new(args.json("clabel")?))?)
             .map_err(ProbeError::rejected)?;
         for edit in list(args.json("edits")?, "edits")? {
             apply(&cs, edit)?;

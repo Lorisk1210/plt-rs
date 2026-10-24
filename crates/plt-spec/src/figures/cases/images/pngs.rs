@@ -22,7 +22,7 @@ pub(super) fn imread_rgba_interpolation(fig: &Figure) -> CaseResult {
         ]
         .map(|v| v as u8)
     });
-    let image = imread_png(&imsave_png(rgba, &ImsaveOptions::default())?)?;
+    let image = imread_png(&imsave_png(rgba, ImsaveOptions::default())?)?;
     for (ax, interpolation) in axes
         .as_slice()
         .iter()

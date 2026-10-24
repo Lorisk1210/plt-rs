@@ -18,7 +18,7 @@ use plt::lines::AxLineThrough;
 use plt::orientation::Orientation;
 use plt::patheffects::{PathEffect, TickedStroke};
 use plt::prelude::*;
-use plt::text::{AnnotateOptions, HorizontalAlignment};
+use plt::text::{AnnotateOptions, HAlign};
 use plt::transforms::Point;
 use plt_render::{CapStyle, JoinStyle};
 
@@ -86,8 +86,7 @@ fn capstyle(fig: &Figure) -> CaseResult {
         ("projecting", CapStyle::Projecting),
     ];
     for (x, (name, style)) in (0_i32..).map(f64::from).zip(styles) {
-        ax.text(x + 0.25, 0.85, name)
-            .set_halign(HorizontalAlignment::Center);
+        ax.text(x + 0.25, 0.85, name).set_halign(HAlign::Center);
         let (xx, yy) = ([x, x + 0.5], [0.0, 0.0]);
         thick_and_thin(&ax, &xx, &yy, LineProps::default().solid_capstyle(style))?;
         red_dots(&ax, &xx, &yy)?;
@@ -190,7 +189,7 @@ fn eventplot_demo(fig: &Figure) -> CaseResult {
                 orientation,
                 ..options.clone()
             };
-            axs[(row, column)].eventplot(&data, &options)?;
+            axs[(row, column)].eventplot(&data, options)?;
         }
     }
     Ok(())
@@ -292,7 +291,7 @@ fn plot_linestyles(ax: &Axes, linestyles: &[NamedStyle], title: &str) -> CaseRes
         ax.annotate(&style.repr, Point::new(0.0, i), options)?
             .set_color("blue")
             .set_fontsize(8.0)
-            .set_halign(HorizontalAlignment::Right)
+            .set_halign(HAlign::Right)
             .set_family(["monospace"]);
     }
     Ok(())

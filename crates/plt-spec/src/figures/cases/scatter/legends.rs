@@ -31,7 +31,7 @@ fn colors_sizes(fig: &Figure) -> CaseResult {
         ..ScatterOptions::default()
     };
     let points = ax.scatter_with(x, y, options)?;
-    let (handles, labels) = points.legend_elements(&LegendElementsOptions::default())?;
+    let (handles, labels) = points.legend_elements(LegendElementsOptions::default())?;
     let classes = LegendOptions::default()
         .handles(handles)
         .labels(labels)
@@ -43,7 +43,7 @@ fn colors_sizes(fig: &Figure) -> CaseResult {
         alpha: Some(0.6),
         ..LegendElementsOptions::default()
     };
-    let (handles, labels) = points.legend_elements(&sizes)?;
+    let (handles, labels) = points.legend_elements(sizes)?;
     let sizes = LegendOptions::default()
         .handles(handles)
         .labels(labels)
@@ -76,7 +76,7 @@ fn num_fmt_func(fig: &Figure) -> CaseResult {
         func: Some(Box::new(|s| s / 20.0)),
         ..LegendElementsOptions::default()
     };
-    let (handles, labels) = points.legend_elements(&sizes)?;
+    let (handles, labels) = points.legend_elements(sizes)?;
     let price = LegendOptions::default()
         .handles(handles)
         .labels(labels)
@@ -87,7 +87,7 @@ fn num_fmt_func(fig: &Figure) -> CaseResult {
         num: ElementCount::Values(vec![0.0, 1.5, 3.0]),
         ..LegendElementsOptions::default()
     };
-    let (handles, labels) = points.legend_elements(&values)?;
+    let (handles, labels) = points.legend_elements(values)?;
     let value = LegendOptions::default()
         .handles(handles)
         .labels(labels)

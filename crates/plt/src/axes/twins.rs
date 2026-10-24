@@ -253,7 +253,7 @@ impl Axes {
                 }
                 let side = SpineSide::of(name, high);
                 if axis.label.side == side {
-                    axis.label.text.clear();
+                    axis.label.set_text(String::new());
                 }
                 axis.restyle_ticks(|style| {
                     let (labels, ticks) = if high {

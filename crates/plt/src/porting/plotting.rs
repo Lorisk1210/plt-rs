@@ -87,13 +87,15 @@
 //! | `np.meshgrid(x, y)`                    | [`meshgrid`]                                       |
 //! | strings (categories)                   | `["a", "b"]`, `Vec<String>`: [`AxisValues::Categories`] |
 //! | `datetime`, `np.datetime64`            | `&[DateTime]`, `Vec<Datetime64>`: [`AxisValues::Dates`] |
+//! | objects of a class in `units.registry` | `Vec<T>`, `&[T]`, `[T; N]` of a [`Convertible`] `T`: [`AxisValues::Custom`] |
+//! | `xunits=u`, `yunits=u`                 | [`Axis::update_units`]`(x)` then [`Axis::set_units`]`(u)` before the call |
 //! | `np.nan` gaps in a line                | `f64::NAN`                                         |
 //! | masked arrays                          | NaN for lines and markers; [`ScalarField::with_mask`] for images; [`QuadField`] masks for contours; [`FillBetweenOptions::mask`]; `Option<f64>` values for norms and collections |
 //!
 //! The x and y of `plot`, `scatter`, `bar`, `barh` and `step` accept
-//! numbers, categories and dates ([`AxisValues`]); most other methods take
-//! numbers (`impl AsRef<[f64]>`), converted first with
-//! [`Axis::convert_units`] when they are categories or dates.
+//! numbers, categories, dates and values of user types ([`AxisValues`]);
+//! most other methods take numbers (`impl AsRef<[f64]>`), converted first
+//! with [`Axis::convert_units`] when they are not.
 //!
 //! # Lines
 //!
@@ -437,5 +439,9 @@
 //! [`AxisValues`]: crate::units::AxisValues
 //! [`AxisValues::Categories`]: crate::units::AxisValues::Categories
 //! [`AxisValues::Dates`]: crate::units::AxisValues::Dates
+//! [`AxisValues::Custom`]: crate::units::AxisValues::Custom
+//! [`Convertible`]: crate::units::Convertible
+//! [`Axis::set_units`]: crate::axes::Axis::set_units
+//! [`Axis::update_units`]: crate::axes::Axis::update_units
 //! [`ScalarField::with_mask`]: crate::image::ScalarField::with_mask
 //! [`QuadField`]: crate::contour::QuadField

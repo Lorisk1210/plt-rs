@@ -12,7 +12,7 @@ use crate::polar::GRIDLINE_INTERPOLATION_STEPS;
 use crate::scale::ScaleName;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
-use crate::units::AxisValue;
+use crate::units::{AxisValue, LineSources};
 
 impl Axes {
     /// A horizontal line at data height `y` (a number, date or category)
@@ -30,8 +30,11 @@ impl Axes {
         xmax: f64,
         props: LineProps,
     ) -> Line2D {
+        let y = y.into();
+        let sources = LineSources::of_value(AxisName::Y, &y);
         let y = self.yaxis().convert_value(y);
-        let line = LineArtist::new(vec![xmin, xmax], vec![y, y], crate::rc::params());
+        let mut line = LineArtist::new(vec![xmin, xmax], vec![y, y], crate::rc::params());
+        line.unit_sources = sources;
         self.add_reference_line(line, props, self.trans_yaxis(), AxisName::Y, y)
     }
 
@@ -50,8 +53,11 @@ impl Axes {
         ymax: f64,
         props: LineProps,
     ) -> Line2D {
+        let x = x.into();
+        let sources = LineSources::of_value(AxisName::X, &x);
         let x = self.xaxis().convert_value(x);
-        let line = LineArtist::new(vec![x, x], vec![ymin, ymax], crate::rc::params());
+        let mut line = LineArtist::new(vec![x, x], vec![ymin, ymax], crate::rc::params());
+        line.unit_sources = sources;
         self.add_reference_line(line, props, self.trans_xaxis(), AxisName::X, x)
     }
 

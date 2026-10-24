@@ -1,9 +1,10 @@
-"""matplotlib's own tests of unit conversion (``matplotlib/tests/test_units.py``)
-for the units plt-rs models: dates (``datetime64`` arrays, ``datetime``
-values and ``timedelta`` extents), category names and the converters of an
-axis. The tests of Python unit classes (a ``Quantity`` facade with a mocked
-``ConversionInterface``, ``matplotlib.testing.jpl_units``, array-likes and
-pandas) are left out.
+"""matplotlib's own tests of unit conversion (``matplotlib/tests/test_units.py``):
+dates (``datetime64`` arrays, ``datetime`` values and ``timedelta``
+extents), category names, the converters of an axis, and user unit classes:
+the test module's ``Quantity`` facade with its ``quantity_converter``
+fixture (``spec_support.units``), ``matplotlib.testing.jpl_units`` and an
+array-like class. Converters are registered only while a probe runs, as the
+test fixture restores the registry after each test.
 
 Area ``mpl_units``. Every probe runs in the style matplotlib's test fixture
 applies (``classic`` plus ``_classic_test_patch``), given as ``style``, on
@@ -27,8 +28,7 @@ Ops
     of the first days of the months of 2020 and 2021 on ``fig.subplots(1, 2,
     sharey=True)``, ``ax1.yaxis.set_units(timezone(timedelta(hours=
     tz_hours)))``: the major tick locations of ``ax2``'s y axis and what its
-    formatter makes of them (``test_shared_axis_datetime``; plt-rs places
-    dates in a time zone with ``axis_date``).
+    formatter makes of them (``test_shared_axis_datetime``).
 ``Axes.plot.shared_categories``  {first, second} -> ``{names, xdata,
     labels}`` after ``ax1.plot(first, ...)`` and ``ax2.plot(second, ...)``
     (left out when ``second`` is empty) on ``fig.subplots(1, 2, sharex=True,
@@ -46,18 +46,38 @@ Ops
     converters are kinds, so the test's second ``StrCategoryConverter``
     instance has no counterpart).
 
-``test_empty_arrays``, ``test_scatter_element0_masked`` and
-``test_errorbar_mixed_units`` are also figure cases of ``mpl_tests_units``;
-``test_plot_masked_units`` and ``test_subclass`` are figure cases of
-``mpl_misc``.
+``Axes.set_lim.quantity``  {x, y} -> ``{xlim, ylim, units, labels}`` after
+    ``set_xlim(Quantity(x[0], x[2]), Quantity(x[1], x[2]))`` and the same
+    for y on a new axes, drawn: the limits, the units of the x and y axis
+    and their labels (``test_empty_set_limits_with_units``).
+``Axis.set_units.shared_quantity``  {} -> ``test_shared_axis_quantity`` on
+    ``fig.subplots(2, 1, sharex="all", sharey="all")``: ``units`` and
+    ``labels`` (``[[ax1 x, ax1 y], [ax2 x, ax2 y]]``) after both plots and
+    again after ``ax1.xaxis.set_units("seconds")`` and
+    ``ax2.yaxis.set_units("inches")``, then drawn, the lines' converted
+    ``xy`` data and both axes' ``xlim`` and ``ylim``.
+``Axes.default_limits.quantity``  {steps} -> one entry per step on a new
+    axes (``test_empty_default_limits``): ``["update_units", axis,
+    magnitude, unit]`` calls ``update_units(Quantity([magnitude], unit))``
+    on the x or y axis, ``["axhline", y]`` and ``["axvline", x]`` draw a
+    line at a number, ``["plot"]`` plots ``Quantity(np.arange(0, 3),
+    "miles")`` against ``Quantity(np.arange(0, 6, 2), "feet")``, each
+    recording null; ``["draw"]`` draws the figure and records ``[xlim,
+    ylim]``.
+``jpl.EpochConverter.convert``  {date} -> ``{datetime, epoch}``: what the
+    registry's converters of ``datetime(*date)`` and of ``jpl_units.Epoch("ET",
+    dt=datetime(*date))`` make of them
+    (``test_jpl_datetime_units_consistent``).
+``Axes.plot.array_like``  {values} -> ``{xdata, ydata}`` of ``plot(Kernel(values))``,
+    ``Kernel`` the test's class with only ``__array__`` and ``shape``
+    (``test_plot_kernel``).
 
-Left out: the tests of Python unit protocols: ``test_numpy_facade``,
-``test_empty_set_limits_with_units``, ``test_shared_axis_quantity`` and
-``test_empty_default_limits`` (a ``Quantity`` class with a mocked
-``ConversionInterface``), ``test_jpl_bar_units``, ``test_jpl_barh_units`` and
-``test_jpl_datetime_units_consistent`` (``matplotlib.testing.jpl_units``),
-``test_plot_kernel`` (an array-like class) and
-``test_connection_patch_units`` (pandas).
+``test_empty_arrays``, ``test_scatter_element0_masked``,
+``test_errorbar_mixed_units``, ``test_numpy_facade``, ``test_plot_masked_units``,
+``test_jpl_bar_units`` and ``test_jpl_barh_units`` are figure cases of
+``mpl_tests_units``; ``test_subclass`` is a figure case of ``mpl_misc``.
+
+Left out: ``test_connection_patch_units`` (pandas).
 """
 
 import datetime
@@ -71,6 +91,7 @@ from matplotlib.dates import DateConverter, _SwitchableDateConverter
 from matplotlib.figure import Figure
 
 from spec_support import ProbeSet
+from spec_support.units import Quantity, jpl_registered, quantity_registered
 
 probes = ProbeSet("mpl_units")
 
@@ -201,3 +222,130 @@ def test_explicit_converter():
         ["plot"], ["get"], ["set", "categories"], ["get"]])
     probe("Axis.set_converter", _set_converter, steps=[
         ["plot"], ["set", "dates"], ["get"]])
+
+
+def _lim_quantity(x, y):
+    with quantity_registered():
+        fig = _figure()
+        ax = fig.subplots()
+        ax.set_xlim(Quantity(x[0], x[2]), Quantity(x[1], x[2]))
+        ax.set_ylim(Quantity(y[0], y[2]), Quantity(y[1], y[2]))
+        fig.draw_without_rendering()
+        return {"xlim": list(ax.get_xlim()), "ylim": list(ax.get_ylim()),
+                "units": [ax.xaxis.get_units(), ax.yaxis.get_units()],
+                "labels": [ax.get_xlabel(), ax.get_ylabel()]}
+
+
+def test_empty_set_limits_with_units():
+    probe("Axes.set_lim.quantity", _lim_quantity, x=[-1, 6, "meters"], y=[-1, 16, "hours"])
+
+
+def _axes_units(axs):
+    return [[ax.xaxis.get_units(), ax.yaxis.get_units()] for ax in axs]
+
+
+def _axes_labels(axs):
+    return [[ax.get_xlabel(), ax.get_ylabel()] for ax in axs]
+
+
+def _shared_quantity():
+    with quantity_registered():
+        fig = _figure()
+        axs = fig.subplots(2, 1, sharex="all", sharey="all")
+        x = Quantity(np.linspace(0, 1, 10), "hours")
+        lines = [axs[0].plot(x, Quantity(np.linspace(1, 2, 10), "feet"))[0],
+                 axs[1].plot(x, Quantity(np.linspace(3, 4, 10), "feet"))[0]]
+        plotted = {"units": _axes_units(axs), "labels": _axes_labels(axs)}
+        axs[0].xaxis.set_units("seconds")
+        axs[1].yaxis.set_units("inches")
+        fig.draw_without_rendering()
+        return {"plotted": plotted, "units": _axes_units(axs), "labels": _axes_labels(axs),
+                "xy": [line.get_xydata().tolist() for line in lines],
+                "xlim": [list(ax.get_xlim()) for ax in axs],
+                "ylim": [list(ax.get_ylim()) for ax in axs]}
+
+
+def test_shared_axis_quantity():
+    probe("Axis.set_units.shared_quantity", _shared_quantity)
+
+
+def _default_limits(steps):
+    with quantity_registered():
+        fig = _figure()
+        ax = fig.subplots()
+        recorded = []
+        for kind, *rest in steps:
+            if kind == "update_units":
+                name, magnitude, unit = rest
+                getattr(ax, f"{name}axis").update_units(Quantity([magnitude], unit))
+            elif kind == "axhline":
+                ax.axhline(rest[0])
+            elif kind == "axvline":
+                ax.axvline(rest[0])
+            elif kind == "plot":
+                ax.plot(Quantity(np.arange(0, 3), "miles"), Quantity(np.arange(0, 6, 2), "feet"))
+            if kind == "draw":
+                fig.draw_without_rendering()
+                recorded.append([list(ax.get_xlim()), list(ax.get_ylim())])
+            else:
+                recorded.append(None)
+        return recorded
+
+
+def test_empty_default_limits():
+    probe("Axes.default_limits.quantity", _default_limits, steps=[
+        ["update_units", "x", 10, "miles"], ["draw"], ["update_units", "y", 10, "miles"],
+        ["draw"]])
+    probe("Axes.default_limits.quantity", _default_limits, steps=[
+        ["axhline", 30], ["plot"], ["draw"]])
+    probe("Axes.default_limits.quantity", _default_limits, steps=[
+        ["axvline", 30], ["plot"], ["draw"]])
+    probe("Axes.default_limits.quantity", _default_limits, steps=[
+        ["update_units", "x", 10, "miles"], ["axhline", 30], ["draw"]])
+    probe("Axes.default_limits.quantity", _default_limits, steps=[
+        ["update_units", "y", 10, "miles"], ["axvline", 30], ["draw"]])
+
+
+def _jpl_consistent(date):
+    import matplotlib.testing.jpl_units as units
+
+    with jpl_registered():
+        dt = datetime.datetime(*date)
+        jpl = units.Epoch("ET", dt=dt)
+        return {"datetime": mpl.units.registry.get_converter(dt).convert(dt, None, None),
+                "epoch": mpl.units.registry.get_converter(jpl).convert(jpl, None, None)}
+
+
+def test_jpl_datetime_units_consistent():
+    probe("jpl.EpochConverter.convert", _jpl_consistent, date=[2009, 4, 26])
+
+
+class Kernel:
+    """``test_units.Kernel``: an array-like with ``__array__`` and ``shape``."""
+
+    def __init__(self, array):
+        self._array = np.asanyarray(array)
+
+    def __array__(self, dtype=None, copy=None):
+        if dtype is not None and dtype != self._array.dtype:
+            if copy is not None and not copy:
+                raise ValueError(
+                    f"Converting array from {self._array.dtype} to "
+                    f"{dtype} requires a copy"
+                )
+
+        arr = np.asarray(self._array, dtype=dtype)
+        return (arr if not copy else np.copy(arr))
+
+    @property
+    def shape(self):
+        return self._array.shape
+
+
+def _array_like(values):
+    line, = _figure().subplots().plot(Kernel(values))
+    return {"xdata": line.get_xdata().tolist(), "ydata": line.get_ydata().tolist()}
+
+
+def test_plot_kernel():
+    probe("Axes.plot.array_like", _array_like, values=[1, 2, 3, 4, 5])

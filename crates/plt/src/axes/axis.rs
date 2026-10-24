@@ -17,9 +17,7 @@ use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
 use crate::ticker::{AxisName, Formatter, Locator, TickerError, TickerSettings};
 use crate::transforms::AxisMap;
-use crate::units::{
-    AxisValues, Categories, CategoryFormatter, CategoryLocator, UnitConverter, date_tickers,
-};
+use crate::units::{Categories, CategoryFormatter, CategoryLocator, UnitConverter, date_tickers};
 
 /// Autoscaling configuration and state of one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -201,6 +199,7 @@ impl AxisState {
             major_line_overrides: Vec::new(),
             label: AxisLabel {
                 text: String::new(),
+                is_default: true,
                 font: label_font(rc),
                 color: rc.axes_labelcolor.clone(),
                 pad: rc.axes_labelpad,
@@ -374,24 +373,26 @@ impl AxisState {
         self.defaults.minor.formatter = false;
     }
 
-    /// Converts plotting values to numbers, registering new category names
-    /// and labelling the ticks with them unless tick helpers were chosen
-    /// explicitly (matplotlib's `update_units` + `convert_units`).
-    pub(crate) fn convert_units(&mut self, values: AxisValues) -> Vec<f64> {
-        let names = match values {
-            AxisValues::Numbers(values) => return values,
-            AxisValues::Dates(numbers) => {
-                self.units.adopt(UnitConverter::Dates);
-                self.use_date_tickers(&TimeZone::Utc);
-                return numbers;
-            }
-            AxisValues::Categories(names) => names,
-        };
+    /// Takes date numbers, giving the axis the date converter and its
+    /// date ticks, in the time zone of the axis unit, unless tick helpers
+    /// were chosen explicitly (matplotlib's `update_units` +
+    /// `convert_units` for dates).
+    pub(crate) fn convert_dates(&mut self, numbers: Vec<f64>) -> Vec<f64> {
+        self.units.adopt(UnitConverter::Dates);
+        self.use_date_tickers(&self.units.time_zone());
+        numbers
+    }
+
+    /// Converts category names to positions, registering new names and
+    /// labelling the ticks with them unless tick helpers were chosen
+    /// explicitly (matplotlib's `update_units` + `convert_units` for
+    /// strings).
+    pub(crate) fn convert_categories(&mut self, names: &[String]) -> Vec<f64> {
         self.units.adopt(UnitConverter::Categories);
         let positions = self
             .categories
             .get_or_insert_with(Categories::default)
-            .convert(&names);
+            .convert(names);
         self.use_category_tickers();
         positions
     }
@@ -420,24 +421,27 @@ impl AxisState {
     /// helpers they bring where the defaults are in place: matplotlib's
     /// shared axes hold one `units` object (category names placed on one
     /// are placed on all) and share their tickers.
+    /// Converters of user values are not shared: matplotlib shares their
+    /// units through `set_units` alone.
     pub(crate) fn share_units(&mut self, (units, categories): &(AxisUnits, Option<Categories>)) {
-        let Some(converter) = units.converter else {
-            return;
-        };
-        self.units.adopt(converter);
-        match converter {
-            UnitConverter::Dates => self.use_date_tickers(&TimeZone::Utc),
-            UnitConverter::Categories => {
+        match &units.converter {
+            Some(UnitConverter::Dates) => {
+                self.units.adopt(UnitConverter::Dates);
+                self.use_date_tickers(&self.units.time_zone());
+            }
+            Some(UnitConverter::Categories) => {
+                self.units.adopt(UnitConverter::Categories);
                 self.categories.clone_from(categories);
                 self.use_category_tickers();
             }
+            Some(UnitConverter::Custom(_)) | None => {}
         }
     }
 
     /// The unit converter and category names, which a twin takes over
     /// (matplotlib's `twinx` assigning `ax2.xaxis.units = self.xaxis.units`).
     pub(crate) fn unit_data(&self) -> (AxisUnits, Option<Categories>) {
-        (self.units, self.categories.clone())
+        (self.units.clone(), self.categories.clone())
     }
 
     /// Takes over the [`unit_data`](Self::unit_data) of another axis.
@@ -486,7 +490,7 @@ mod tests {
             crate::rc::context(|| {
                 crate::rc::set("date.converter", converter).unwrap();
                 let mut axis = AxisState::new(AxisName::X, &RcParams::matplotlib());
-                axis.convert_units(AxisValues::Dates(vec![18_262.0, 18_300.0]));
+                axis.convert_dates(vec![18_262.0, 18_300.0]);
                 let formatter: &dyn std::any::Any = axis.major_formatter.as_ref();
                 (
                     formatter.is::<ConciseDateFormatter>(),

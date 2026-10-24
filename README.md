@@ -126,8 +126,10 @@ tables and side-by-side examples whose Rust half runs as a doctest.
 * **Extending**: artists of your own (the `Artist` trait,
   `Axes::add_custom_artist`), projections (the `Projection` trait,
   registered by name like matplotlib's `register_projection`), legend
-  handlers (`LegendHandler`), scales, colormaps and colour sequences
-  registered by name, and toolbar tools.
+  handlers (`LegendHandler`), unit converters for values of your own
+  types (`ConversionInterface`, linked to the values by `Convertible`
+  like matplotlib's `units.registry`), scales, colormaps and colour
+  sequences registered by name, and toolbar tools.
   Removed artists stay usable and can be attached again, as in
   matplotlib.
 

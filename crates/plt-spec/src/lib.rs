@@ -8,6 +8,8 @@
 //! * [`figures`] — Rust translations of the figure cases.
 //! * [`json`] / [`compare`] — golden parsing and tolerant comparison.
 //! * [`rng`] — the deterministic data generator shared with the Python side.
+//! * `user_units` — unit classes of matplotlib's tests and gallery written
+//!   against plt's unit API.
 #![forbid(unsafe_code)]
 
 pub mod compare;
@@ -16,6 +18,7 @@ pub mod json;
 pub mod probes;
 pub mod rng;
 mod scratch;
+mod user_units;
 
 use std::path::PathBuf;
 

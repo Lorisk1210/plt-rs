@@ -19,7 +19,9 @@ use crate::colors::Color;
 use crate::markers::{FillStyle, Marker};
 use crate::patches::ClipRegion;
 use crate::rc::{ColorOrAuto, RcParams};
+use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform};
+use crate::units::LineSources;
 
 /// A marker rotation following the θ orientation of polar axes: by angle
 /// θ shifted the way the axes shift θ, plus a fixed turn (matplotlib's
@@ -91,6 +93,10 @@ pub(crate) struct LineArtist {
     /// Turns the markers through an angle of the polar axes the line is
     /// in (the caps of polar error bars).
     pub(crate) marker_rotation: Option<PolarMarkerRotation>,
+    /// The data that came from user values, kept so that the line
+    /// converts it again when its axis changes unit; replacing the data
+    /// drops it.
+    pub(crate) unit_sources: LineSources,
     /// rc snapshot used to resolve named dash patterns.
     rc: std::rc::Rc<RcParams>,
 }
@@ -131,6 +137,7 @@ impl LineArtist {
             dash_joinstyle: rc.lines_dash_joinstyle,
             infinite: None,
             marker_rotation: None,
+            unit_sources: LineSources::default(),
             rc,
         };
         line.recache();
@@ -142,6 +149,34 @@ impl LineArtist {
         let steps = self.interpolation_steps;
         self.path = line_vertices(&self.xdata, &self.ydata, self.drawstyle)
             .map(|vertices| Path::polyline(vertices).with_interpolation_steps(steps));
+    }
+
+    /// Replaces the x data, which no longer comes from user values.
+    pub(super) fn xdata_replaced(&mut self) {
+        self.unit_sources.x = None;
+        self.recache();
+    }
+
+    /// Replaces the y data, which no longer comes from user values.
+    pub(super) fn ydata_replaced(&mut self) {
+        self.unit_sources.y = None;
+        self.recache();
+    }
+
+    /// Takes `numbers`, the user values the data along axis `name` came
+    /// from converted again; one number stands for all the points, as
+    /// the value of `axhline` or `axvline` does (matplotlib's
+    /// `recache_always`).
+    pub(crate) fn reconvert(&mut self, name: AxisName, numbers: Vec<f64>) {
+        let data = match name {
+            AxisName::X => &mut self.xdata,
+            AxisName::Y => &mut self.ydata,
+        };
+        *data = match numbers.as_slice() {
+            &[number] => vec![number; data.len()],
+            _ => numbers,
+        };
+        self.recache();
     }
 
     /// The vertices actually drawn, in the line's coordinates.

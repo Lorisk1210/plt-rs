@@ -12,6 +12,7 @@ mod axis_layout;
 mod axis_mode;
 mod axis_ticks;
 mod axis_units;
+mod axis_user_units;
 mod bar_label;
 mod barbs;
 mod bars;
@@ -243,7 +244,7 @@ impl Axes {
     pub fn set_xlabel(&self, text: impl Into<String>) -> &Self {
         let text = text.into();
         self.raw
-            .with_mut::<AxesState, _>(|a| a.xaxis.label.text = text);
+            .with_mut::<AxesState, _>(|a| a.xaxis.label.set_text(text));
         self
     }
 
@@ -251,7 +252,7 @@ impl Axes {
     pub fn set_ylabel(&self, text: impl Into<String>) -> &Self {
         let text = text.into();
         self.raw
-            .with_mut::<AxesState, _>(|a| a.yaxis.label.text = text);
+            .with_mut::<AxesState, _>(|a| a.yaxis.label.set_text(text));
         self
     }
 

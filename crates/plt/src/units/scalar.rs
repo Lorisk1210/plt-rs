@@ -4,7 +4,7 @@
 
 use plt_core::Point;
 
-use super::AxisValues;
+use super::{AxisValues, Convertible, UnitValues};
 use crate::dates::{DateTime, Datetime64, TimeDelta, get_epoch};
 
 /// Microseconds in a day: a duration of that many microseconds spans one
@@ -12,8 +12,8 @@ use crate::dates::{DateTime, Datetime64, TimeDelta, get_epoch};
 const MICROS_PER_DAY: f64 = 86_400_000_000.0;
 
 /// One plotting value along an axis before unit conversion: a number, a
-/// category name or a date (the scalars matplotlib passes through
-/// `convert_xunits`).
+/// category name, a date or a value of a [`Convertible`] type (the
+/// scalars matplotlib passes through `convert_xunits`).
 ///
 /// ```
 /// use plt::dates::DateTime;
@@ -32,6 +32,14 @@ pub enum AxisValue {
     /// A date as a date number (days since the
     /// [epoch](crate::dates::get_epoch)).
     Date(f64),
+    /// A value of a user type: [`UnitValues`] holding one value.
+    Custom(UnitValues),
+}
+
+impl<T: Convertible> From<T> for AxisValue {
+    fn from(value: T) -> Self {
+        Self::Custom(UnitValues::new(vec![value]))
+    }
 }
 
 impl From<f64> for AxisValue {
@@ -72,6 +80,7 @@ impl From<AxisValue> for AxisValues {
             AxisValue::Number(value) => Self::Numbers(vec![value]),
             AxisValue::Category(name) => Self::Categories(vec![name]),
             AxisValue::Date(value) => Self::Dates(vec![value]),
+            AxisValue::Custom(value) => Self::Custom(value),
         }
     }
 }

@@ -67,6 +67,9 @@ impl LabelLoc {
 pub(crate) struct AxisLabel {
     /// Label text; empty labels are not drawn.
     pub(crate) text: String,
+    /// Whether the text was not set, so that a unit converter may label
+    /// the axis (matplotlib's `isDefault_label`).
+    pub(crate) is_default: bool,
     /// Font (`axes.labelsize`, `axes.labelweight`).
     pub(crate) font: FontProperties,
     /// Colour (`axes.labelcolor`).
@@ -97,6 +100,13 @@ pub(crate) struct AxisLabel {
 }
 
 impl AxisLabel {
+    /// Sets the text, which unit converters then leave alone
+    /// (matplotlib's `set_label_text`).
+    pub(crate) fn set_text(&mut self, text: String) {
+        self.text = text;
+        self.is_default = false;
+    }
+
     /// Moves the label to `side`, which brings back the vertical alignment
     /// of that side (matplotlib's `set_label_position`).
     pub(crate) fn move_to(&mut self, side: SpineSide) {
@@ -145,7 +155,7 @@ impl Axis {
     /// `set_xlabel` does).
     pub fn set_label_text(&self, text: impl Into<String>) -> &Self {
         let text = text.into();
-        self.update(|axis| axis.label.text = text);
+        self.update(|axis| axis.label.set_text(text));
         self
     }
 

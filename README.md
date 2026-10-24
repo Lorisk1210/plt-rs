@@ -132,6 +132,12 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   sequences registered by name, and toolbar tools.
   Removed artists stay usable and can be attached again, as in
   matplotlib.
+* **Configuration and testing**: a `pltrc` file in matplotlib's
+  `matplotlibrc` syntax and user style sheets in the configuration
+  directory (`plt::config`; `PLTCONFIGDIR`, `PLTRC`), and
+  `plt::testing` for testing your own figures, as `matplotlib.testing`
+  does: `setup`, `compare_images` with its failure diff, and
+  `check_figures_equal`.
 
 ## Gallery
 

@@ -9,8 +9,9 @@ use std::fmt;
 use plt_core::{Path, Point};
 use plt_text::{HAlign, VAlign};
 
-use super::ProjectionView;
+use super::{PanStart, ProjectionView, ViewLimits, ZoomBox};
 use crate::axes::{Axes, Sides};
+use crate::navigation::DragKey;
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
 use crate::transforms::ResolvedTransform;
@@ -38,13 +39,17 @@ use crate::transforms::ResolvedTransform;
 /// | `set_xscale` raising                         | [`linear_only`](Self::linear_only)     |
 /// | `get_data_ratio`                             | [`data_ratio`](Self::data_ratio)       |
 /// | `can_zoom`, `can_pan`                        | [`can_zoom`](Self::can_zoom), [`can_pan`](Self::can_pan) |
+/// | `start_pan`, `drag_pan`, `end_pan`           | [`start_pan`](Self::start_pan), [`drag_pan`](Self::drag_pan), [`end_pan`](Self::end_pan) |
+/// | `_set_view_from_bbox`                        | [`zoom_to_box`](Self::zoom_to_box)     |
 /// | `format_coord`                               | [`format_coord`](Self::format_coord)   |
 ///
-/// The hooks run while the figure is being laid out or drawn: they must
-/// not use the axes or any other handle to its figure (only
+/// The hooks run while the figure is being laid out, drawn or navigated:
+/// they must not use the axes or any other handle to its figure (only
 /// [`set_up`](Self::set_up) is given the axes to work on). Settings of
 /// one axes live in the value itself, reached with
-/// [`Axes::with_projection`] and [`Axes::with_projection_mut`].
+/// [`Axes::with_projection`] and [`Axes::with_projection_mut`], and
+/// options given when the axes is made reach the factory registered with
+/// [`register_with`](super::register_with).
 ///
 /// See the [module documentation](super) for a complete projection.
 pub trait Projection: Any + fmt::Debug {
@@ -178,9 +183,45 @@ pub trait Projection: Any + fmt::Debug {
 
     /// Whether the pan/zoom tool works on the axes (matplotlib's
     /// `can_pan`); it moves the view through the inverse of
-    /// [`data_to_axes`](Self::data_to_axes).
+    /// [`data_to_axes`](Self::data_to_axes) unless
+    /// [`start_pan`](Self::start_pan) takes the drag on.
     fn can_pan(&self) -> bool {
         true
+    }
+
+    /// A drag of the pan/zoom tool starts on the axes (matplotlib's
+    /// `start_pan`): whether the projection pans the axes itself, through
+    /// [`drag_pan`](Self::drag_pan) and [`end_pan`](Self::end_pan).
+    /// `false`, the default, pans them as rectilinear axes are panned,
+    /// through the inverse of [`data_to_axes`](Self::data_to_axes). A
+    /// projection keeps what it needs of the start for the drag, as
+    /// matplotlib's keep `_pan_start`.
+    fn start_pan(&mut self, start: &PanStart) -> bool {
+        let _ = start;
+        false
+    }
+
+    /// The pointer moved to display point `at` with `key` held during a
+    /// pan [`start_pan`](Self::start_pan) took on (matplotlib's
+    /// `drag_pan`): the view limits to set, none by default. The
+    /// projection may change its own settings as well, as polar axes turn
+    /// their radial labels.
+    fn drag_pan(&mut self, start: &PanStart, key: DragKey, at: Point) -> ViewLimits {
+        let _ = (start, key, at);
+        ViewLimits::default()
+    }
+
+    /// A pan [`start_pan`](Self::start_pan) took on ends (matplotlib's
+    /// `end_pan`).
+    fn end_pan(&mut self) {}
+
+    /// Zooms the axes to a box of the zoom-to-rectangle tool or around
+    /// the pointer for the wheel (matplotlib's `_set_view_from_bbox`): the
+    /// view limits to set. `None`, the default, zooms as rectilinear axes
+    /// zoom, through the inverse of [`data_to_axes`](Self::data_to_axes).
+    fn zoom_to_box(&mut self, zoom: &ZoomBox) -> Option<ViewLimits> {
+        let _ = zoom;
+        None
     }
 
     /// The status-bar text for the data point `(x, y)` (matplotlib's

@@ -1,5 +1,5 @@
-//! Panning (matplotlib's `Axes.start_pan`/`drag_pan` and the polar
-//! overrides).
+//! Panning (matplotlib's `Axes.start_pan`/`drag_pan`/`end_pan`, the polar
+//! overrides and those of projections defined by the program).
 
 use plt_core::{Bbox, Point};
 
@@ -9,12 +9,13 @@ use crate::axes::{Axes, AxesState, AxisName};
 use crate::colorbar::Colorbar;
 use crate::figure::FigureState;
 use crate::polar::PolarAxes;
+use crate::projections::{FrozenView, PanStart, Projection};
 use crate::rc::Aspect;
 use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// The state of an axes when a pan started (matplotlib's `_pan_start`).
 #[derive(Debug)]
-pub(super) enum PanStart {
+pub(super) enum PanState {
     /// Rectilinear axes: the view moves with the pointer (left button) or
     /// scales around the press point (right button).
     Cartesian {
@@ -43,6 +44,9 @@ pub(super) enum PanStart {
         /// Where the button went down.
         start: Point,
     },
+    /// Axes whose projection defined by the program pans them itself
+    /// (its `start_pan` took the drag on).
+    Projection(PanStart),
 }
 
 /// What dragging polar axes does.
@@ -92,11 +96,17 @@ fn constrain(key: DragKey, dx: f64, dy: f64) -> (f64, f64) {
     }
 }
 
-impl PanStart {
+impl PanState {
     /// The state of `ax` for a pan starting at display point `at`
     /// (`None` if the axes is no longer laid out).
     pub(super) fn new(ax: &Axes, at: Point, button: PointerButton) -> Option<Self> {
         let (bbox, trans, inverse) = geometry(ax)?;
+        let lim = ax.raw().with::<AxesState, _>(|state| state.view_lim);
+        let view = FrozenView::new(lim, bbox, trans.clone(), inverse.clone());
+        let start = PanStart::new(at, button, view);
+        if ax.with_custom_projection_mut(|projection| projection.start_pan(&start)) == Some(true) {
+            return Some(Self::Projection(start));
+        }
         if let Some(polar) = ax.as_polar() {
             let label_angle = polar.rlabel_position();
             let angle = label_angle.to_radians();
@@ -117,7 +127,6 @@ impl PanStart {
                 start: at,
             });
         }
-        let lim = ax.raw().with::<AxesState, _>(|state| state.view_lim);
         Some(Self::Cartesian {
             lim,
             trans,
@@ -163,6 +172,20 @@ impl PanStart {
                 let to = inverse.transform_point(at);
                 drag_polar(&polar, *mode, (from, to), *rmax, *label_angle);
             }
+            Self::Projection(start) => {
+                if let Some(limits) =
+                    ax.with_custom_projection_mut(|projection| projection.drag_pan(start, key, at))
+                {
+                    limits.apply(ax);
+                }
+            }
+        }
+    }
+
+    /// The pan of `ax` ended (matplotlib's `end_pan`).
+    pub(super) fn end(&self, ax: &Axes) {
+        if let Self::Projection(_) = self {
+            ax.with_custom_projection_mut(Projection::end_pan);
         }
     }
 
@@ -282,7 +305,7 @@ mod tests {
             .and_then(|ax| ax.set_ylim(0.0, 10.0))
             .expect("finite limits");
         let start = display(&ax, 5.0, 5.0);
-        let pan = PanStart::new(&ax, start, PointerButton::Left).unwrap();
+        let pan = PanState::new(&ax, start, PointerButton::Left).unwrap();
         let end = display(&ax, 6.0, 7.0);
         pan.drag(&ax, PointerButton::Left, DragKey::None, end);
         let (x0, x1) = ax.xlim();
@@ -306,7 +329,7 @@ mod tests {
             .and_then(|ax| ax.set_ylim(0.0, 10.0))
             .expect("finite limits");
         let start = display(&ax, 5.0, 5.0);
-        let pan = PanStart::new(&ax, start, PointerButton::Right).unwrap();
+        let pan = PanState::new(&ax, start, PointerButton::Right).unwrap();
         // Dragging right by a whole axes width zooms x in tenfold.
         let width = geometry(&ax).unwrap().0.width();
         pan.drag(
@@ -330,7 +353,7 @@ mod tests {
         let polar = fig.polar_subplot();
         polar.set_rlim(0.0, 2.0).expect("finite limits");
         let start = display(&polar, 0.0, 1.0);
-        let pan = PanStart::new(&polar, start, PointerButton::Right).unwrap();
+        let pan = PanState::new(&polar, start, PointerButton::Right).unwrap();
         pan.drag(
             &polar,
             PointerButton::Right,

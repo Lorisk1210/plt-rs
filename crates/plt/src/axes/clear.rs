@@ -15,10 +15,14 @@ impl AxesState {
     /// The state a cleared axes restarts from (matplotlib's `__clear`): a
     /// fresh axes under `rc` that keeps the identity, placement, aspect,
     /// sharing, background colour, frame, navigation and status-bar
-    /// formatters of `self`, and the visibility of shared axes.
+    /// formatters of `self`, the options of its projection, and the
+    /// visibility of shared axes.
     fn cleared(&self, rc: Rc<RcParams>) -> Self {
         let mut fresh = Self::new(self.position, rc);
         *fresh.base_mut() = self.base().clone();
+        fresh
+            .projection_options
+            .clone_from(&self.projection_options);
         fresh.aspect = self.aspect;
         fresh.axes_locator.clone_from(&self.axes_locator);
         fresh.subplot_spec.clone_from(&self.subplot_spec);

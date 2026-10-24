@@ -15,14 +15,26 @@
 //! * [`ProjectionView`] — the view limits and scales the hooks build
 //!   their transforms from.
 //! * [`AxesOutline`] and [`TickLabelPlacement`] — the shapes and label
-//!   positions hooks return.
-//! * [`register`] and [`projection_names`] — the per-thread registry of
-//!   projections by name; [`ProjectionKind::Registered`] names one.
+//!   positions hooks return; [`PanStart`], [`ZoomBox`] and [`FrozenView`]
+//!   what the pan and zoom hooks are given, [`ViewLimits`] what they
+//!   answer.
+//! * [`register`], [`register_with`] and [`projection_names`] — the
+//!   per-thread registry of projections by name;
+//!   [`ProjectionKind::Registered`] names one.
+//! * [`ProjectionSpec`] — a projection kind with the
+//!   [`ProjectionOptions`] a registered one is made with
+//!   ([`ProjectionKind::with_options`]), which every constructor below
+//!   takes (matplotlib's `projection=name, **kwargs`).
 //! * [`Figure::subplot_with_projection`], [`Figure::add_subplot_with_projection`],
-//!   [`Figure::add_subplot_spec_with_projection`] and
-//!   [`Figure::add_axes_with_projection`] — axes of any
-//!   [`ProjectionKind`], built-in or registered, as do pyplot's
-//!   [`subplot_with_projection`](crate::pyplot::subplot_with_projection)
+//!   [`Figure::add_subplot_spec_with_projection`],
+//!   [`Figure::add_axes_with_projection`],
+//!   [`Figure::subplots_with_projection`],
+//!   [`Figure::subplot_mosaic`] (through [`MosaicOptions`]),
+//!   [`Axes::inset_axes_with_projection`] and
+//!   [`Axes::twin_with_projection`] — axes of any [`ProjectionKind`],
+//!   built-in or registered, as do pyplot's
+//!   [`subplot_with_projection`](crate::pyplot::subplot_with_projection),
+//!   [`subplots_with_projection`](crate::pyplot::subplots_with_projection)
 //!   and [`axes_with_projection`](crate::pyplot::axes_with_projection).
 //! * [`Axes::with_projection`] and [`Axes::with_projection_mut`] — the
 //!   projection of an axes, for settings of its own.
@@ -30,7 +42,7 @@
 //! Axes drawn through a projection draw in every backend, take part in
 //! tight and constrained layouts, are picked over their outline, pan and
 //! zoom through the inverse of their transform unless the projection
-//! refuses, and report coordinates in the status bar.
+//! refuses or does it itself, and report coordinates in the status bar.
 //!
 //! # Example
 //!
@@ -100,23 +112,34 @@
 //! [`Figure::add_subplot_with_projection`]: crate::figure::Figure::add_subplot_with_projection
 //! [`Figure::add_subplot_spec_with_projection`]: crate::figure::Figure::add_subplot_spec_with_projection
 //! [`Figure::add_axes_with_projection`]: crate::figure::Figure::add_axes_with_projection
+//! [`Figure::subplots_with_projection`]: crate::figure::Figure::subplots_with_projection
+//! [`Figure::subplot_mosaic`]: crate::figure::Figure::subplot_mosaic
+//! [`MosaicOptions`]: crate::figure::MosaicOptions
+//! [`Axes::inset_axes_with_projection`]: crate::axes::Axes::inset_axes_with_projection
+//! [`Axes::twin_with_projection`]: crate::axes::Axes::twin_with_projection
 //! [`Axes::with_projection`]: crate::axes::Axes::with_projection
 //! [`Axes::with_projection_mut`]: crate::axes::Axes::with_projection_mut
 //! [`ProjectionKind`]: crate::axes::ProjectionKind
 //! [`ProjectionKind::Registered`]: crate::axes::ProjectionKind::Registered
+//! [`ProjectionKind::with_options`]: crate::axes::ProjectionKind::with_options
 
 mod create;
 mod error;
 mod hooks;
+mod navigate;
 mod projection;
 mod registry;
+mod spec;
 #[cfg(test)]
 mod tests;
 mod view;
 
-pub(crate) use create::{OUTLINE_SPINE, install, reinstall};
+pub(crate) use create::{OUTLINE_SPINE, Projector, install, reinstall};
 pub use error::ProjectionError;
+pub use navigate::{FrozenView, PanStart, ViewLimits, ZoomBox};
 pub use projection::{AxesOutline, Projection, TickLabelPlacement};
 pub(crate) use registry::registered_name;
-pub use registry::{projection_names, register};
+pub use registry::{projection_names, register, register_with};
+pub(crate) use spec::SharedOptions;
+pub use spec::{ProjectionOptions, ProjectionSpec};
 pub use view::ProjectionView;

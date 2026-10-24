@@ -15,10 +15,12 @@
 //!   projection. Compass directions and orientations are enums
 //!   ([`Compass`], [`ThetaDirection`]).
 //! * Projections of your own implement [`Projection`]: one hook per
-//!   method matplotlib's projection subclasses override. [`register`]
-//!   names them, as `register_projection` does, and
+//!   method matplotlib's projection subclasses override, panning and
+//!   zooming included. [`register`] names them, as `register_projection`
+//!   does, [`register_with`] those whose `__init__` takes keywords, and
 //!   [`Figure::add_subplot_with_projection`] makes axes of any
-//!   [`ProjectionKind`], built-in or registered.
+//!   [`ProjectionKind`], built-in or registered, with the keywords as
+//!   options; so do the constructors of grids, mosaics, insets and twins.
 //! * [`crate::axes_grid1`] keeps matplotlib's functions
 //!   ([`make_axes_locatable`], [`inset_axes`], [`zoomed_inset_axes`],
 //!   [`mark_inset`], [`host_subplot`]) and classes ([`ImageGrid`],
@@ -63,8 +65,14 @@
 //! | `register_projection(SkewXAxes)`                  | [`register`]`(SkewXAxes::default)`             |
 //! | `fig.add_subplot(projection="skewx")`             | [`Figure::subplot_with_projection`]`(ProjectionKind::Registered("skewx"))` |
 //! | `fig.add_subplot(2, 1, 1, projection=name)`, `fig.add_axes(rect, projection=name)` | [`Figure::add_subplot_with_projection`], [`Figure::add_axes_with_projection`] |
+//! | `def __init__(self, *args, rot=30, **kwargs)`, `register_projection` | [`register_with`]`(\|rot: &Rot\| SkewXAxes::new(rot.0))` with `Rot: Default` |
+//! | `fig.add_subplot(projection="skewx", rot=45)`     | [`Figure::subplot_with_projection`]`(kind.with_options(Rot(45.0)))` ([`ProjectionKind::with_options`]) |
+//! | `fig.subplots(2, 2, subplot_kw={"projection": name})` | [`Figure::subplots_with_projection`]      |
+//! | `fig.subplot_mosaic(..., per_subplot_kw={"A": {"projection": name}})` | [`MosaicOptions::per_subplot`] |
+//! | `ax.inset_axes(rect, projection=name)`, `ax.twinx(projection=name)` | [`Axes::inset_axes_with_projection`], [`Axes::twin_with_projection`] |
 //! | `_set_lim_and_transforms` (`transData`), `get_xaxis_transform` | [`Projection::data_to_axes`], [`Projection::axis_transform`] |
 //! | `clear`, `_gen_axes_patch`, `_gen_axes_spines`    | [`Projection::set_up`], [`Projection::outline`] |
+//! | `start_pan`, `drag_pan`, `end_pan`, `_set_view_from_bbox` | [`Projection::start_pan`], [`Projection::drag_pan`], [`Projection::end_pan`], [`Projection::zoom_to_box`] |
 //! | `get_projection_names()`                          | [`projection_names`]                           |
 //! | `make_axes_locatable(ax)`                         | [`make_axes_locatable`]                        |
 //! | `divider.append_axes("right", size="5%", pad=0.05)` | [`AxesDivider::append_axes`]`(SpineSide::Right, SizeSpec::Percent(5.0), Some(0.05.into()))` |
@@ -366,12 +374,22 @@
 //! [`Projection::axis_transform`]: crate::projections::Projection::axis_transform
 //! [`Projection::set_up`]: crate::projections::Projection::set_up
 //! [`Projection::outline`]: crate::projections::Projection::outline
+//! [`Projection::start_pan`]: crate::projections::Projection::start_pan
+//! [`Projection::drag_pan`]: crate::projections::Projection::drag_pan
+//! [`Projection::end_pan`]: crate::projections::Projection::end_pan
+//! [`Projection::zoom_to_box`]: crate::projections::Projection::zoom_to_box
 //! [`register`]: crate::projections::register
+//! [`register_with`]: crate::projections::register_with
 //! [`projection_names`]: crate::projections::projection_names
 //! [`ProjectionKind`]: crate::axes::ProjectionKind
+//! [`ProjectionKind::with_options`]: crate::axes::ProjectionKind::with_options
 //! [`Figure::subplot_with_projection`]: crate::figure::Figure::subplot_with_projection
 //! [`Figure::add_subplot_with_projection`]: crate::figure::Figure::add_subplot_with_projection
 //! [`Figure::add_axes_with_projection`]: crate::figure::Figure::add_axes_with_projection
+//! [`Figure::subplots_with_projection`]: crate::figure::Figure::subplots_with_projection
+//! [`MosaicOptions::per_subplot`]: crate::figure::MosaicOptions::per_subplot
+//! [`Axes::inset_axes_with_projection`]: crate::axes::Axes::inset_axes_with_projection
+//! [`Axes::twin_with_projection`]: crate::axes::Axes::twin_with_projection
 //! [`make_axes_locatable`]: crate::axes_grid1::make_axes_locatable
 //! [`AxesDivider::append_axes`]: crate::axes_grid1::AxesDivider::append_axes
 //! [`inset_axes`]: crate::axes_grid1::inset_axes

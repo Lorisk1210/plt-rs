@@ -100,10 +100,13 @@ SCENES = {
 }
 
 
-def _drag(scene, mode, button, key, path):
+def drag(build, mode, button, key, path):
+    """Builds a figure with ``build`` in ``Figure(figsize=(4, 3), dpi=100)``,
+    draws it once, turns on ``mode`` and feeds the mouse ``path`` with
+    ``button`` and ``key`` held; returns the figure."""
     fig = Figure(figsize=(4, 3), dpi=100)
     canvas = FigureCanvasAgg(fig)
-    SCENES[scene](fig)
+    build(fig)
     canvas.draw()
     toolbar = NavigationToolbar2(canvas)
     getattr(toolbar, mode)()
@@ -114,8 +117,17 @@ def _drag(scene, mode, button, key, path):
         MouseEvent("motion_notify_event", canvas, x, y, key=key, buttons=held)._process()
     x1, y1 = path[-1]
     MouseEvent("button_release_event", canvas, x1, y1, button=button, key=key)._process()
-    return [[[float(v) for v in ax.get_xlim()], [float(v) for v in ax.get_ylim()]]
-            for ax in fig.axes]
+    return fig
+
+
+def view_limits(ax):
+    """``[xlim, ylim]`` of ``ax``."""
+    return [[float(v) for v in ax.get_xlim()], [float(v) for v in ax.get_ylim()]]
+
+
+def _drag(scene, mode, button, key, path):
+    fig = drag(SCENES[scene], mode, button, key, path)
+    return [view_limits(ax) for ax in fig.axes]
 
 
 ZOOMS = [

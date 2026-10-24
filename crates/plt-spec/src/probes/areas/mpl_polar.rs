@@ -5,7 +5,7 @@
 use std::rc::Rc;
 
 use plt::artist::ArtistHandle;
-use plt::axes::{Adjustable, Axes, AxisName, GridOptions};
+use plt::axes::{Adjustable, Axes, AxisName, GridOptions, ProjectionKind};
 use plt::figure::{Figure, Mosaic, MosaicOptions, Share};
 use plt::polar::{Compass, PolarAxes, ThetaDirection};
 use plt::rc::Aspect;
@@ -186,10 +186,15 @@ fn upper_right(fig: &Figure, how: &str, polar: bool) -> Result<Axes, ProbeError>
             Ok(axs[(0, 1)].clone())
         }
         "mosaic" => {
+            let projection = if polar {
+                ProjectionKind::Polar
+            } else {
+                ProjectionKind::Rectilinear
+            };
             let options = MosaicOptions {
                 sharex: true,
                 sharey: true,
-                polar,
+                projection: projection.into(),
                 ..MosaicOptions::default()
             };
             let mosaic = "ab\ncd".parse::<Mosaic>().map_err(ProbeError::rejected)?;

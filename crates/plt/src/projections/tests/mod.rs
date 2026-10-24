@@ -1,6 +1,11 @@
 //! Axes drawn through projections defined in the tests: a sheared
 //! rectangle redefining its ticks and spines, a disc refusing changes, and
-//! a projection whose set-up fails.
+//! a projection whose set-up fails; [`creation`] makes them with options
+//! wherever axes are made, [`navigation`] pans and zooms projections that
+//! do it themselves.
+
+mod creation;
+mod navigation;
 
 use std::error::Error;
 

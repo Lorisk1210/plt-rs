@@ -3,9 +3,11 @@
 
 use std::rc::Rc;
 
+use super::aspect::check_adjustable;
 use super::{Adjustable, Axes, AxesState, AxisName, PlotError};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::figure::make_axes;
+use crate::projections::{ProjectionError, ProjectionSpec, Projector};
 use crate::spines::SpineSide;
 
 impl Axes {
@@ -107,25 +109,85 @@ impl Axes {
     /// in.
     #[must_use]
     pub fn twin_with(&self, shared: AxisName, delta_zorder: f64) -> Self {
+        let twin = self.new_twin(shared);
+        self.join_twin(&twin, shared, delta_zorder);
+        twin
+    }
+
+    /// [`twin_with`](Self::twin_with) making the twin with `projection`
+    /// (matplotlib's `twinx(projection=..., **options)` and `twiny`).
+    /// Like [`twin_with`](Self::twin_with), the twin adjusts its data
+    /// limits to an aspect, as does this axes, which projections fixing
+    /// their data ratio refuse.
+    ///
+    /// ```
+    /// use plt::axes::{AxisName, ProjectionKind};
+    /// use plt::figure::Figure;
+    /// use plt::projections::ProjectionError;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let twin = ax.twin_with_projection(AxisName::X, 0.0, ProjectionKind::Rectilinear)?;
+    /// assert_eq!(ax.twins(), [ax.clone(), twin]);
+    /// let refused = ax.twin_with_projection(AxisName::X, 0.0, ProjectionKind::Polar);
+    /// assert!(matches!(refused, Err(ProjectionError::Aspect(_))));
+    /// assert_eq!(fig.axes().len(), 2);
+    /// # Ok::<(), ProjectionError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::subplot_with_projection`](crate::figure::Figure::subplot_with_projection),
+    /// and [`ProjectionError::Aspect`] when this axes or the twin fixes
+    /// its data ratio (no twin is made).
+    pub fn twin_with_projection(
+        &self,
+        shared: AxisName,
+        delta_zorder: f64,
+        projection: impl Into<ProjectionSpec>,
+    ) -> Result<Self, ProjectionError> {
+        let projector = Projector::new(&projection.into())?;
+        self.raw
+            .with::<AxesState, _>(|axes| check_adjustable(axes, Adjustable::Datalim))?;
+        let twin = projector.apply(self.new_twin(shared))?;
+        if let Err(err) = twin
+            .raw
+            .with::<AxesState, _>(|axes| check_adjustable(axes, Adjustable::Datalim))
+        {
+            twin.remove();
+            return Err(err.into());
+        }
+        self.join_twin(&twin, shared, delta_zorder);
+        Ok(twin)
+    }
+
+    /// A new axes on top of this one sharing axis `shared` (the
+    /// `add_subplot(spec, sharex=self)` of matplotlib's
+    /// `_make_twin_axes`), not yet set up as a twin.
+    fn new_twin(&self, shared: AxisName) -> Self {
+        let (frame, position, spec) = self.raw.with::<AxesState, _>(|axes| {
+            (axes.base().parent, axes.position, axes.subplot_spec.clone())
+        });
+        let twin = make_axes(self.raw().figure_state(), frame, position, spec);
+        twin.share(shared, self)
+            .expect("a new axes in this figure shares nothing yet");
+        twin
+    }
+
+    /// Makes `twin`, sharing axis `shared` with this axes, its twin drawn
+    /// `delta_zorder` above it, with its other axis on the far side.
+    fn join_twin(&self, twin: &Self, shared: AxisName, delta_zorder: f64) {
         let own = match shared {
             AxisName::X => AxisName::Y,
             AxisName::Y => AxisName::X,
         };
-        let (frame, position, spec, zorder, autoscale, units) =
-            self.raw.with::<AxesState, _>(|axes| {
-                (
-                    axes.base().parent,
-                    axes.position,
-                    axes.subplot_spec.clone(),
-                    axes.base().zorder,
-                    axes.axis(shared).autoscale.enabled,
-                    axes.axis(shared).unit_data(),
-                )
-            });
+        let (zorder, autoscale, units) = self.raw.with::<AxesState, _>(|axes| {
+            (
+                axes.base().zorder,
+                axes.axis(shared).autoscale.enabled,
+                axes.axis(shared).unit_data(),
+            )
+        });
         let figure = self.raw().figure_state();
-        let twin = make_axes(figure, frame, position, spec);
-        twin.share(shared, self)
-            .expect("a new axes in this figure shares nothing yet");
         figure.borrow_mut().shared.join_twins(self.id(), twin.id());
         self.store_adjustable(Adjustable::Datalim);
         twin.store_adjustable(Adjustable::Datalim);
@@ -141,7 +203,6 @@ impl Axes {
         });
         self.raw
             .with_mut::<AxesState, _>(|axes| axes.axis_mut(own).tick_to(false));
-        twin
     }
 
     /// Hides the tick labels, axis labels and offset texts that face

@@ -1,10 +1,11 @@
 //! Making axes with a projection chosen by kind (matplotlib's
-//! `add_subplot(projection=...)` and `add_axes(rect, projection=...)`),
-//! and handing fresh axes over to a projection defined by the program.
+//! `add_subplot(projection=...)`, `add_axes(rect, projection=...)` and
+//! `inset_axes(bounds, projection=...)`), and handing fresh axes over to a
+//! projection defined by the program.
 
 use std::any::Any;
 
-use super::{AxesOutline, Projection, ProjectionError, registry};
+use super::{AxesOutline, Projection, ProjectionError, ProjectionSpec, SharedOptions, registry};
 use crate::artist::{ArtistHandle, DrawError};
 use crate::axes::projection::ProjectionState;
 use crate::axes::{Axes, AxesState, ProjectionKind};
@@ -20,35 +21,42 @@ pub(crate) const OUTLINE_SPINE: SpineSide = SpineSide::Top;
 
 /// What turns fresh rectilinear axes into axes of one projection; made
 /// before the axes, so that an unknown projection adds no axes.
-enum Projector {
+pub(crate) enum Projector {
     /// Rectilinear axes stay as they are.
     Rectilinear,
     /// Polar axes.
     Polar,
     /// Geographic axes through a map projection.
     Geo(GeoProjection),
-    /// A projection defined by the program.
-    Custom(Box<dyn Projection>),
+    /// A projection defined by the program, made with these options.
+    Custom {
+        projection: Box<dyn Projection>,
+        options: Option<SharedOptions>,
+    },
 }
 
 impl Projector {
-    /// The projector of `kind`; a registered kind gets its projection from
-    /// the registry.
-    fn new(kind: ProjectionKind) -> Result<Self, ProjectionError> {
-        Ok(match kind {
+    /// The projector of `spec`; a registered kind gets its projection from
+    /// the registry, made with the options of `spec`.
+    pub(crate) fn new(spec: &ProjectionSpec) -> Result<Self, ProjectionError> {
+        spec.check()?;
+        Ok(match spec.kind() {
             ProjectionKind::Rectilinear => Self::Rectilinear,
             ProjectionKind::Polar => Self::Polar,
             ProjectionKind::Aitoff => Self::Geo(GeoProjection::Aitoff),
             ProjectionKind::Hammer => Self::Geo(GeoProjection::Hammer),
             ProjectionKind::Lambert => Self::Geo(GeoProjection::LAMBERT),
             ProjectionKind::Mollweide => Self::Geo(GeoProjection::Mollweide),
-            ProjectionKind::Registered(name) => Self::Custom(registry::create(name)?),
+            ProjectionKind::Registered(name) => Self::Custom {
+                projection: registry::create(name, spec.options().map(|options| &**options))?,
+                options: spec.options().cloned(),
+            },
         })
     }
 
     /// Turns the freshly made rectilinear `axes` into axes of this
     /// projection; axes a projection fails to set up are removed.
-    fn apply(self, axes: Axes) -> Result<Axes, ProjectionError> {
+    pub(crate) fn apply(self, axes: Axes) -> Result<Axes, ProjectionError> {
         match self {
             Self::Rectilinear => {}
             Self::Polar => {
@@ -57,11 +65,16 @@ impl Projector {
             Self::Geo(projection) => {
                 GeoAxes::convert(axes.clone(), projection);
             }
-            Self::Custom(projection) => {
+            Self::Custom {
+                projection,
+                options,
+            } => {
                 if let Err(err) = install(&axes, projection) {
                     axes.remove();
                     return Err(err);
                 }
+                axes.raw()
+                    .with_mut::<AxesState, _>(|state| state.projection_options = options);
             }
         }
         Ok(axes)
@@ -129,13 +142,14 @@ impl Figure {
     /// # Errors
     ///
     /// [`ProjectionError::Unknown`] for a projection not registered on this
-    /// thread (no axes are added), [`ProjectionError::SetUp`] when it fails
-    /// to set the axes up.
+    /// thread and [`ProjectionError::Options`] for options it does not take
+    /// (no axes are added either way), [`ProjectionError::SetUp`] when it
+    /// fails to set the axes up.
     pub fn subplot_with_projection(
         &self,
-        projection: ProjectionKind,
+        projection: impl Into<ProjectionSpec>,
     ) -> Result<Axes, ProjectionError> {
-        Projector::new(projection)?.apply(self.subplot())
+        Projector::new(&projection.into())?.apply(self.subplot())
     }
 
     /// Adds axes with `projection` in cell `index` (1-based, row-major) of
@@ -152,9 +166,9 @@ impl Figure {
         nrows: usize,
         ncols: usize,
         index: usize,
-        projection: ProjectionKind,
+        projection: impl Into<ProjectionSpec>,
     ) -> Result<Axes, ProjectionError> {
-        let projector = Projector::new(projection)?;
+        let projector = Projector::new(&projection.into())?;
         projector.apply(self.add_subplot(nrows, ncols, index)?)
     }
 
@@ -169,9 +183,9 @@ impl Figure {
     pub fn add_subplot_spec_with_projection(
         &self,
         spec: &SubplotSpec,
-        projection: ProjectionKind,
+        projection: impl Into<ProjectionSpec>,
     ) -> Result<Axes, ProjectionError> {
-        let projector = Projector::new(projection)?;
+        let projector = Projector::new(&projection.into())?;
         projector.apply(self.add_subplot_spec(spec)?)
     }
 
@@ -187,14 +201,49 @@ impl Figure {
     pub fn add_axes_with_projection(
         &self,
         rect: [f64; 4],
-        projection: ProjectionKind,
+        projection: impl Into<ProjectionSpec>,
     ) -> Result<Axes, ProjectionError> {
-        let projector = Projector::new(projection)?;
+        let projector = Projector::new(&projection.into())?;
         projector.apply(self.add_axes(rect)?)
     }
 }
 
 impl Axes {
+    /// Adds inset axes with `projection` at `[left, bottom, width,
+    /// height]` in this axes' fractions (matplotlib's `inset_axes(bounds,
+    /// projection=..., **options)`; see [`Axes::inset_axes`]).
+    ///
+    /// ```
+    /// use plt::artist::ArtistHandle;
+    /// use plt::axes::ProjectionKind;
+    /// use plt::figure::Figure;
+    /// let host = Figure::new().subplot();
+    /// let inset = host.inset_axes_with_projection([0.6, 0.6, 0.35, 0.35], ProjectionKind::Polar)?;
+    /// assert_eq!((inset.projection(), inset.zorder()), (ProjectionKind::Polar, 5.0));
+    /// assert_eq!(host.child_axes(), [inset]);
+    /// # Ok::<(), plt::projections::ProjectionError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::subplot_with_projection`].
+    pub fn inset_axes_with_projection(
+        &self,
+        bounds: [f64; 4],
+        projection: impl Into<ProjectionSpec>,
+    ) -> Result<Self, ProjectionError> {
+        let projector = Projector::new(&projection.into())?;
+        projector.apply(self.inset_axes(bounds))
+    }
+
+    /// The projection this axes was made with, with its options
+    /// (matplotlib's `_projection_init`).
+    pub(crate) fn made_with(&self) -> ProjectionSpec {
+        self.raw().with::<AxesState, _>(|state| {
+            ProjectionSpec::new(state.projection.kind(), state.projection_options.clone())
+        })
+    }
+
     /// Reads the projection of this axes as `P` with `read`; `None` when
     /// the axes is not drawn through a `P`. `read` must not use the axes
     /// or its figure.
@@ -212,12 +261,29 @@ impl Axes {
         &self,
         change: impl FnOnce(&mut P) -> R,
     ) -> Option<R> {
+        self.with_custom_projection_mut(|projection| {
+            let projection: &mut dyn Any = projection;
+            projection.downcast_mut::<P>().map(change)
+        })
+        .flatten()
+    }
+
+    /// Changes the projection defined by the program of this axes with
+    /// `change`, if it has one, and draws the figure again. `change` must
+    /// not use the axes or its figure.
+    pub(crate) fn with_custom_projection_mut<R>(
+        &self,
+        change: impl FnOnce(&mut dyn Projection) -> R,
+    ) -> Option<R> {
+        let custom = self
+            .raw()
+            .with::<AxesState, _>(|state| state.projection.custom().is_some());
+        if !custom {
+            return None;
+        }
         self.raw()
             .with_mut::<AxesState, _>(|state| match &mut state.projection {
-                ProjectionState::Custom(projection) => {
-                    let projection: &mut dyn Any = &mut **projection;
-                    projection.downcast_mut::<P>().map(change)
-                }
+                ProjectionState::Custom(projection) => Some(change(&mut **projection)),
                 _ => None,
             })
     }

@@ -130,8 +130,34 @@ fn format_coord(args: Args<'_>) -> Outcome {
 
 /// Drags along `path` in `mode` and returns the view limits of every axes.
 fn drag(args: Args<'_>) -> Outcome {
+    let fig = dragged(args, |fig| build(fig, args.str("scene")?))?;
+    Ok(Json::Array(
+        fig.axes()
+            .iter()
+            .map(|ax| Json::Array(view_limits(ax)))
+            .collect(),
+    ))
+}
+
+/// `[xlim, ylim]` of `ax`.
+pub(super) fn view_limits(ax: &Axes) -> Vec<Json> {
+    let (x0, x1) = ax.xlim();
+    let (y0, y1) = ax.ylim();
+    vec![
+        Json::Array(vec![Json::Number(x0), Json::Number(x1)]),
+        Json::Array(vec![Json::Number(y0), Json::Number(y1)]),
+    ]
+}
+
+/// A figure of 4 × 3 inches at 100 dpi built by `build`, laid out, then
+/// dragged along the mouse `path` in `mode` with `button` and `key` held
+/// (see `drag` in `spec/reference/probes/test_navigation.py`).
+pub(super) fn dragged(
+    args: Args<'_>,
+    build: impl FnOnce(&Figure) -> Result<(), ProbeError>,
+) -> Result<Figure, ProbeError> {
     let fig = Figure::with_size(4.0, 3.0, 100.0);
-    build(&fig, args.str("scene")?)?;
+    build(&fig)?;
     fig.layout();
     let mode = match args.str("mode")? {
         "zoom" => NavMode::Zoom,
@@ -157,17 +183,5 @@ fn drag(args: Args<'_>) -> Outcome {
     // matplotlib's toolbar redraws on release (`draw_idle`), which applies
     // the aspect; a window does the same when it repaints.
     fig.layout();
-    Ok(Json::Array(
-        fig.axes()
-            .iter()
-            .map(|ax| {
-                let (x0, x1) = ax.xlim();
-                let (y0, y1) = ax.ylim();
-                Json::Array(vec![
-                    Json::Array(vec![Json::Number(x0), Json::Number(x1)]),
-                    Json::Array(vec![Json::Number(y0), Json::Number(y1)]),
-                ])
-            })
-            .collect(),
-    ))
+    Ok(fig)
 }

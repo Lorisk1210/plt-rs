@@ -4,13 +4,13 @@
 use plt_core::{Bbox, Point};
 
 use super::pan::bbox_through;
-use super::{DragKey, PointerButton, Rubberband};
+use super::{DragKey, PointerButton, Rubberband, ZoomDirection};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::colorbar::Colorbar;
 use crate::figure::{Figure, FigureState};
 use crate::orientation::Orientation;
-use crate::projections::Projection;
+use crate::projections::{FrozenView, Projection, ZoomBox};
 use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// Drags shorter than this many pixels cancel a zoom.
@@ -119,15 +119,6 @@ fn colorbar_key(ax: &Axes) -> Option<DragKey> {
     })
 }
 
-/// Which way a zoom box acts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Direction {
-    /// The box becomes the view.
-    In,
-    /// The view shrinks into the box.
-    Out,
-}
-
 /// Which axes of each zoomed axes change: twins zoomed through an earlier
 /// axes and the axis a held key excludes stay put.
 #[derive(Clone, Copy, Debug)]
@@ -179,13 +170,13 @@ pub(super) fn zoom_to_rect(
         return false;
     }
     let direction = if button == PointerButton::Left {
-        Direction::In
+        ZoomDirection::In
     } else {
-        Direction::Out
+        ZoomDirection::Out
     };
     let corners = Bbox::from_extents(start.x, start.y, at.x, at.y);
     for (ax, change) in axes.iter().zip(changes(figure, axes, key)) {
-        set_view_from_bbox(ax, &corners, direction, change);
+        set_view_from_bbox(ax, corners, None, direction, change);
     }
     true
 }
@@ -193,10 +184,10 @@ pub(super) fn zoom_to_rect(
 /// Zooms `axes` by `scale` (> 1 zooms in) around display point `at`
 /// (matplotlib's `_set_view_from_bbox((x, y, scale))`).
 pub(super) fn zoom_around(figure: &Figure, axes: &[Axes], at: Point, scale: f64) {
-    let (direction, scale) = if scale > 1.0 {
-        (Direction::In, scale)
+    let (direction, factor) = if scale > 1.0 {
+        (ZoomDirection::In, scale)
     } else {
-        (Direction::Out, 1.0 / scale)
+        (ZoomDirection::Out, 1.0 / scale)
     };
     for (ax, change) in axes.iter().zip(changes(figure, axes, DragKey::None)) {
         let Some((_, trans)) = geometry(ax) else {
@@ -206,44 +197,63 @@ pub(super) fn zoom_around(figure: &Figure, axes: &[Axes], at: Point, scale: f64)
         let view = bbox_through(&limits, &trans);
         let (center, half) = (view.center(), (view.width() / 2.0, view.height() / 2.0));
         let focus = Point::new(
-            (at.x * (scale - 1.0) + center.x) / scale,
-            (at.y * (scale - 1.0) + center.y) / scale,
+            (at.x * (factor - 1.0) + center.x) / factor,
+            (at.y * (factor - 1.0) + center.y) / factor,
         );
         let corners = Bbox::from_extents(
-            focus.x - half.0 / scale,
-            focus.y - half.1 / scale,
-            focus.x + half.0 / scale,
-            focus.y + half.1 / scale,
+            focus.x - half.0 / factor,
+            focus.y - half.1 / factor,
+            focus.x + half.0 / factor,
+            focus.y + half.1 / factor,
         );
-        set_view_from_bbox(ax, &corners, direction, change);
+        set_view_from_bbox(ax, corners, Some((at, scale)), direction, change);
     }
 }
 
-/// matplotlib's `_prepare_view_from_bbox` + `_set_view_from_bbox` for a
-/// box given by two display corners; on a colorbar, the bound along the
-/// colour scale becomes the norm's limits (`Colorbar._set_view_from_bbox`).
-fn set_view_from_bbox(ax: &Axes, corners: &Bbox, direction: Direction, change: Changes) {
-    let Some((_, trans)) = geometry(ax) else {
+/// matplotlib's `_prepare_view_from_bbox` + `_set_view_from_bbox` for the
+/// box `corners` in display coordinates (made around the pointer for the
+/// `wheel`), or the override of a projection defined by the program; on a
+/// colorbar, the bound along the colour scale becomes the norm's limits
+/// (`Colorbar._set_view_from_bbox`).
+fn set_view_from_bbox(
+    ax: &Axes,
+    corners: Bbox,
+    wheel: Option<(Point, f64)>,
+    direction: ZoomDirection,
+    change: Changes,
+) {
+    let Some((bbox, trans)) = geometry(ax) else {
         return;
     };
     let Some(inverse) = trans.inverted() else {
         return;
     };
+    let limits = ax.raw().with::<AxesState, _>(|state| state.view_lim);
+    let view = FrozenView::new(limits, bbox, trans, inverse);
+    let zoom = ZoomBox::new(corners, wheel, direction, (change.x, change.y), view);
+    if let Some(limits) = ax
+        .with_custom_projection_mut(|projection| projection.zoom_to_box(&zoom))
+        .flatten()
+    {
+        limits.apply(ax);
+        return;
+    }
     let colorbar = Colorbar::in_axes(ax);
+    let inverse = zoom.view().to_data();
     let start = inverse.transform_point(Point::new(corners.x0(), corners.y0()));
     let stop = inverse.transform_point(Point::new(corners.x1(), corners.y1()));
-    for (name, changes, (a, b)) in [
-        (AxisName::X, change.x, (start.x, stop.x)),
-        (AxisName::Y, change.y, (start.y, stop.y)),
+    for (name, (a, b)) in [
+        (AxisName::X, (start.x, stop.x)),
+        (AxisName::Y, (start.y, stop.y)),
     ] {
-        if !changes {
+        if !zoom.changes(name) {
             continue;
         }
         let (low0, high0) = bound(ax, name);
         let (low, high) = (a.min(b).clamp(low0, high0), a.max(b).clamp(low0, high0));
         let bounds = match direction {
-            Direction::In => (low, high),
-            Direction::Out => unzoom(ax, name, (low0, high0), (low, high)),
+            ZoomDirection::In => (low, high),
+            ZoomDirection::Out => unzoom(ax, name, (low0, high0), (low, high)),
         };
         match &colorbar {
             Some(colorbar) if colorbar.long_axis().name() == name => colorbar.set_view(bounds),

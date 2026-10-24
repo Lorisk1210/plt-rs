@@ -342,6 +342,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("contour_generator", areas::contour_generator::OPS),
     ("quiver_behaviour", areas::quiver_behaviour::OPS),
     ("polar_behaviour", areas::polar_behaviour::OPS),
+    ("projections", areas::projections::OPS),
     ("tri_behaviour", areas::tri_behaviour::OPS),
     ("axes3d_behaviour", areas::axes3d_behaviour::OPS),
     ("offsetbox_behaviour", areas::offsetbox_behaviour::OPS),

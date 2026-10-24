@@ -81,6 +81,7 @@ mod mplot3d;
 mod offsetbox;
 mod patches;
 mod polar;
+pub(crate) mod projections;
 mod pyplot;
 mod rc;
 mod scatter;
@@ -168,6 +169,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         polar::CASES,
         polar::RADIAL,
         polar::SECTORS,
+        projections::CASES,
         pyplot::CASES,
         &rc::cases(),
         scatter::CASES,

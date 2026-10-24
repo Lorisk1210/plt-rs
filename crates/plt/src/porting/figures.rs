@@ -9,7 +9,9 @@
 //! projection ([`Figure::polar_subplot`], [`Figure::subplot_3d`],
 //! [`Figure::geo_subplot`]) instead of `projection="..."`; when the
 //! projection is only known as a [`ProjectionKind`], as for registered
-//! ones, [`Figure::add_subplot_with_projection`] and friends take it.
+//! ones, [`Figure::add_subplot_with_projection`] and friends take it,
+//! with the keywords matplotlib passes to the projection as options
+//! ([`ProjectionKind::with_options`]).
 //!
 //! [`Figure::subplots`] returns a [`Grid`] of axes, indexed by
 //! `(row, col)` where matplotlib indexes a numpy array with `[row, col]`;
@@ -46,6 +48,7 @@
 //! | `fig.subplots(r, c)`                            | [`Figure::subplots`] → [`Grid`]`<Axes>`       |
 //! | `fig.subplots(r, c, sharex=True, sharey="row")` | [`Figure::subplots_shared`]`(r, c, Share::All, Share::Row)` |
 //! | `fig.subplots(..., gridspec_kw={...})`          | [`GridSpec::with_ratios`] and [`Figure::subplots_on`] |
+//! | `fig.subplots(..., subplot_kw={"projection": name, **kw})` | [`Figure::subplots_with_projection`], [`Figure::subplots_on_with_projection`] |
 //! | `axs[i, j]`, `axs.flat`, `axs.shape`            | `axs[(i, j)]`, [`Grid::as_slice`], [`Grid::shape`] |
 //! | `fig.add_gridspec(r, c)`                        | [`Figure::add_gridspec`]                      |
 //! | `GridSpec(r, c, width_ratios=..., left=...)`    | [`GridSpec::with_ratios`] with [`SubplotOverrides`] |
@@ -54,6 +57,7 @@
 //! | `gs.update(left=...)`                           | [`GridSpec::update`]                          |
 //! | `ax.get_subplotspec()`, `ss.get_gridspec()`     | [`Axes::subplot_spec`], [`SubplotSpec::gridspec`] |
 //! | `fig.subplot_mosaic("AB;CC", ...)`              | [`Figure::subplot_mosaic`] with `"AB;CC".parse::<`[`Mosaic`]`>()?` and [`MosaicOptions`] |
+//! | `subplot_kw={"projection": ...}`, `per_subplot_kw={"A": {...}}` | [`MosaicOptions::projection`], [`MosaicOptions::per_subplot`] |
 //! | `axd["A"]`                                      | [`MosaicAxes::get`]`("A")`                    |
 //! | `fig.subfigures(r, c, wspace=..., width_ratios=...)` | [`Figure::subfigures`] with [`SubfigureOptions`] |
 //! | `fig.add_subfigure(gs[...])`                    | [`Figure::add_subfigure`]                     |
@@ -259,10 +263,15 @@
 //! [`Figure::geo_subplot`]: crate::figure::Figure::geo_subplot
 //! [`Figure::add_subplot_with_projection`]: crate::figure::Figure::add_subplot_with_projection
 //! [`ProjectionKind`]: crate::axes::ProjectionKind
+//! [`ProjectionKind::with_options`]: crate::axes::ProjectionKind::with_options
 //! [`Figure::add_axes`]: crate::figure::Figure::add_axes
 //! [`Figure::subplots`]: crate::figure::Figure::subplots
 //! [`Figure::subplots_shared`]: crate::figure::Figure::subplots_shared
 //! [`Figure::subplots_on`]: crate::figure::Figure::subplots_on
+//! [`Figure::subplots_with_projection`]: crate::figure::Figure::subplots_with_projection
+//! [`Figure::subplots_on_with_projection`]: crate::figure::Figure::subplots_on_with_projection
+//! [`MosaicOptions::projection`]: crate::figure::MosaicOptions::projection
+//! [`MosaicOptions::per_subplot`]: crate::figure::MosaicOptions::per_subplot
 //! [`Figure::add_gridspec`]: crate::figure::Figure::add_gridspec
 //! [`Figure::subplot_mosaic`]: crate::figure::Figure::subplot_mosaic
 //! [`Figure::subfigures`]: crate::figure::Figure::subfigures

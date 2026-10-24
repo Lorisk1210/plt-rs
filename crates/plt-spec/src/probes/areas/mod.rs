@@ -94,6 +94,7 @@ pub(crate) mod patch_behaviour;
 pub(crate) mod path;
 pub(crate) mod pick;
 pub(crate) mod polar_behaviour;
+pub(crate) mod projections;
 pub(crate) mod quiver_behaviour;
 pub(crate) mod rcsetup;
 pub(crate) mod sankey_behaviour;

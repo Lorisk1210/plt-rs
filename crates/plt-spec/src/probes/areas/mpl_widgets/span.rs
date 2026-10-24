@@ -10,7 +10,7 @@ use plt::widgets::{Orientation, SpanSelector, SpanSelectorOptions};
 
 use super::region::{alpha, per_line, state};
 use super::steps::{Attempt, Tool, replay, unknown};
-use super::{bad, button, get_ax, numbers, props, rgba};
+use super::{button, get_ax, malformed, numbers, props, resolved_rgba};
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
 use crate::probes::{Args, Outcome, ProbeError, encode};
@@ -40,11 +40,13 @@ impl Tool for SpanSelector {
                 Attempt::Done
             }
             "set_props" => {
-                self.set_props(props::patch(arg.ok_or_else(|| bad("set_props"))?)?);
+                self.set_props(props::patch(arg.ok_or_else(|| malformed("set_props"))?)?);
                 Attempt::Done
             }
             "set_handle_props" => self
-                .set_handle_props(props::line(arg.ok_or_else(|| bad("set_handle_props"))?)?)
+                .set_handle_props(props::line(
+                    arg.ok_or_else(|| malformed("set_handle_props"))?,
+                )?)
                 .into(),
             other => return Err(unknown("method", other)),
         })
@@ -57,7 +59,7 @@ impl Tool for SpanSelector {
                     self.set_extents((vmin, vmax));
                     Attempt::Done
                 }
-                _ => return Err(bad("extents")),
+                _ => return Err(malformed("extents")),
             },
             "direction" => match value.as_str().map(str::parse::<Orientation>) {
                 Some(Ok(direction)) => {
@@ -65,7 +67,7 @@ impl Tool for SpanSelector {
                     Attempt::Done
                 }
                 Some(Err(_)) => Attempt::Refused,
-                None => return Err(bad("direction")),
+                None => return Err(malformed("direction")),
             },
             "snap_values" => {
                 self.set_snap_values(value.as_f64_vec());
@@ -77,16 +79,16 @@ impl Tool for SpanSelector {
 
     fn get(&self, query: &str) -> Result<Json, ProbeError> {
         let handles = self.handles();
-        let bound = |(a, b): (f64, f64)| numbers(&[a.min(b), a.max(b)]);
+        let bound = |(a, b): (f64, f64)| numbers([a.min(b), a.max(b)]);
         Ok(match query {
             "extents" => {
                 let (vmin, vmax) = self.extents();
-                numbers(&[vmin, vmax])
+                numbers([vmin, vmax])
             }
             "direction" => direction_name(self.direction()),
             // A handle along x is a vertical line, of equal x data.
             "_edge_handles.direction" => {
-                let handle = handles.first().ok_or_else(|| bad("edge handles"))?;
+                let handle = handles.first().ok_or_else(|| malformed("edge handles"))?;
                 let xdata = handle.xdata();
                 direction_name(if xdata.first() == xdata.last() {
                     Orientation::Horizontal
@@ -112,7 +114,9 @@ impl Tool for SpanSelector {
             "_selection_artist.get_facecolor" => {
                 encode::rgba(self.artist().colors().map_err(ProbeError::rejected)?.face)
             }
-            "_handles_artists.get_color" => per_line(&handles, |line| rgba(&line.color()))?,
+            "_handles_artists.get_color" => {
+                per_line(&handles, |line| resolved_rgba(&line.color()))?
+            }
             "_handles_artists.get_alpha" => per_line(&handles, |line| Ok(alpha(line)))?,
             "ax.get_xbound" => bound(self.ax().xlim()),
             "ax.get_ybound" => bound(self.ax().ylim()),
@@ -124,14 +128,14 @@ impl Tool for SpanSelector {
 /// The selector options the probe gives.
 fn options(given: &Json) -> Result<SpanSelectorOptions, ProbeError> {
     let mut options = SpanSelectorOptions::default();
-    let entries = given.as_object().ok_or_else(|| bad("options"))?;
-    let flag = |value: &Json, name: &str| value.as_bool().ok_or_else(|| bad(name));
+    let entries = given.as_object().ok_or_else(|| malformed("options"))?;
+    let flag = |value: &Json, name: &str| value.as_bool().ok_or_else(|| malformed(name));
     for (name, value) in entries {
         match name.as_str() {
             // Blitting only speeds drawing up; selections are the same.
             "useblit" => {}
             "button" => options.buttons = Some(vec![button(value)?]),
-            "minspan" => options.minspan = value.as_f64().ok_or_else(|| bad(name))?,
+            "minspan" => options.minspan = value.as_f64().ok_or_else(|| malformed(name))?,
             "props" => options.props = props::patch(value)?,
             "handle_props" => options.handle_props = props::line(value)?,
             "interactive" => options.interactive = flag(value, name)?,
@@ -175,7 +179,7 @@ fn span_axes(name: &str) -> Result<Axes, ProbeError> {
 type Log = Rc<RefCell<Vec<[f64; 2]>>>;
 
 fn spans(log: &Log) -> Json {
-    Json::Array(log.borrow().iter().map(|pair| numbers(pair)).collect())
+    Json::Array(log.borrow().iter().map(numbers).collect())
 }
 
 /// `SpanSelector(ax, onselect, direction, **options)` driven by `steps`.

@@ -14,7 +14,8 @@ use plt::widgets::{
 };
 
 use crate::json::Json;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::encode::numbers;
+use crate::probes::{Args, Op, Outcome, ProbeError, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -24,36 +25,28 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("widgets.RectangleSelector", rectangle),
 ];
 
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
 /// A value recorder shared with a widget callback.
 type Log<T> = Rc<RefCell<Vec<T>>>;
-
-fn numbers(values: &[f64]) -> Json {
-    Json::Array(values.iter().map(|&v| Json::Number(v)).collect())
-}
 
 /// Replays `events` on `figure`; the pointer stays where the last mouse
 /// event left it for key events.
 fn replay(figure: &Figure, events: &Json) -> Result<(), ProbeError> {
     let mut source = EventSource::new();
     let mut at = (0.0, 0.0);
-    for event in events.as_array().ok_or_else(|| bad("events"))? {
-        let field = |name: &str| event.get(name).ok_or_else(|| bad(name));
-        let kind = field("type")?.as_str().ok_or_else(|| bad("type"))?;
+    for event in events.as_array().ok_or_else(|| malformed("events"))? {
+        let field = |name: &str| event.get(name).ok_or_else(|| malformed(name));
+        let kind = field("type")?.as_str().ok_or_else(|| malformed("type"))?;
         if matches!(kind, "press" | "release" | "motion") {
-            let coordinate = |name: &str| field(name)?.as_f64().ok_or_else(|| bad(name));
+            let coordinate = |name: &str| field(name)?.as_f64().ok_or_else(|| malformed(name));
             at = (coordinate("x")?, coordinate("y")?);
         }
         let button = || match field("button")?.as_i64() {
             Some(1) => Ok(PointerButton::Left),
             Some(2) => Ok(PointerButton::Middle),
             Some(3) => Ok(PointerButton::Right),
-            _ => Err(bad("button")),
+            _ => Err(malformed("button")),
         };
-        let key = || field("key")?.as_str().ok_or_else(|| bad("key"));
+        let key = || field("key")?.as_str().ok_or_else(|| malformed("key"));
         match kind {
             "press" => source.button_press(figure, at.0, at.1, button()?, false),
             "release" => source.button_release(figure, at.0, at.1, button()?),
@@ -111,7 +104,7 @@ fn slider(args: Args<'_>) -> Outcome {
     slider.on_changed(move |value| sink.borrow_mut().push(value));
     fig.layout();
     replay(&fig, args.json("events")?)?;
-    let changes = numbers(&changes.borrow());
+    let changes = numbers(changes.borrow().iter());
     Ok(Json::Object(vec![
         ("val".to_owned(), Json::Number(slider.val())),
         ("changes".to_owned(), changes),
@@ -189,9 +182,9 @@ fn span(args: Args<'_>) -> Outcome {
     fig.layout();
     replay(&fig, args.json("events")?)?;
     let (low, high) = selector.extents();
-    let selects = Json::Array(selects.borrow().iter().map(|pair| numbers(pair)).collect());
+    let selects = Json::Array(selects.borrow().iter().map(numbers).collect());
     Ok(Json::Object(vec![
-        ("extents".to_owned(), numbers(&[low, high])),
+        ("extents".to_owned(), numbers([low, high])),
         ("selects".to_owned(), selects),
     ]))
 }
@@ -222,9 +215,9 @@ fn rectangle(args: Args<'_>) -> Outcome {
     fig.layout();
     replay(&fig, args.json("events")?)?;
     let (x0, x1, y0, y1) = selector.extents();
-    let selects = Json::Array(selects.borrow().iter().map(|four| numbers(four)).collect());
+    let selects = Json::Array(selects.borrow().iter().map(numbers).collect());
     Ok(Json::Object(vec![
-        ("extents".to_owned(), numbers(&[x0, x1, y0, y1])),
+        ("extents".to_owned(), numbers([x0, x1, y0, y1])),
         ("selects".to_owned(), selects),
     ]))
 }

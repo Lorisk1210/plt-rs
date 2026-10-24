@@ -262,7 +262,8 @@ fn decode_utf16be(bytes: &[u8]) -> String {
         .collect()
 }
 
-fn decode_latin1(bytes: &[u8]) -> String {
+/// `bytes` decoded as Latin-1 (every byte is the code point of its value).
+pub(crate) fn decode_latin1(bytes: &[u8]) -> String {
     bytes.iter().map(|&b| char::from(b)).collect()
 }
 

@@ -6,6 +6,7 @@ use plt_core::{Bbox, Path, Point};
 
 use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::PixelMap;
+use super::shared::{axes_image_contains, canvas_bbox, draw_rendered, split_alpha};
 use super::unsampled::UnsampledImage;
 use super::{Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
@@ -15,7 +16,6 @@ use crate::artist::{
 use crate::axes::Axes;
 use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
-use crate::numeric::Grid;
 use crate::patches::PatchShape;
 use crate::transforms::{ResolvedTransform, Transform};
 
@@ -143,31 +143,6 @@ impl AxesImageArtist {
     }
 }
 
-/// The figure canvas in display pixels (matplotlib's `figure.bbox`).
-pub(crate) fn canvas_bbox(ctx: &mut DrawContext<'_>) -> Bbox {
-    let (width, height) = ctx.renderer().canvas_size();
-    Bbox::from_extents(0.0, 0.0, width, height)
-}
-
-/// Sends a rendered image to the renderer under the artist's clipping;
-/// the pixels already carry the opacity.
-pub(crate) fn draw_rendered(
-    ctx: &mut DrawContext<'_>,
-    base: &ArtistBase,
-    rendered: Result<Option<RenderedImage>, ImageError>,
-) {
-    match rendered {
-        Ok(Some(image)) => {
-            let mut gc = ctx.base_gc(base);
-            gc.alpha = None;
-            ctx.renderer()
-                .draw_image(&gc, image.origin, &image.pixels, None);
-        }
-        Ok(None) => {}
-        Err(err) => ctx.report(base.id(), err),
-    }
-}
-
 impl Artist for AxesImageArtist {
     fn base(&self) -> &ArtistBase {
         &self.base
@@ -227,10 +202,7 @@ impl Artist for AxesImageArtist {
     /// matplotlib's `AxesImage.contains`: over the axes background and
     /// inside the extent.
     fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
-        self.base
-            .parent
-            .is_some_and(|axes| ctx.axes_contains(axes, point))
-            && self.out_bbox(*ctx).is_some_and(|bbox| bbox.contains(point))
+        axes_image_contains(&self.base, ctx, point, || self.out_bbox(*ctx))
     }
 
     fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
@@ -503,20 +475,12 @@ impl AxesImage {
     }
 }
 
-/// A uniform alpha for the artist and a per-pixel alpha for the image.
-pub(crate) fn split_alpha(alpha: Option<ImageAlpha>) -> (Option<f64>, Option<Grid<f64>>) {
-    match alpha {
-        None => (None, None),
-        Some(ImageAlpha::Uniform(a)) => (Some(a), None),
-        Some(ImageAlpha::Each(grid)) => (None, Some(grid)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::axes::ImshowOptions;
     use crate::figure::Figure;
+    use crate::numeric::Grid;
     use crate::patches::{Circle, Rectangle, RotationPoint};
 
     #[test]

@@ -1,8 +1,10 @@
 //! Fractions: `\frac`, `\dfrac`, `\binom` and `\genfrac`.
 
+use plt_core::numeric::py_max;
+
 use super::delims::Item;
 use super::error::{Fail, NO_MATCH};
-use super::{Parsed, Parser, py_max};
+use super::{Parsed, Parser};
 use crate::mathtext::boxes::{List, Node, Packing, SHRINK_FACTOR};
 
 /// TeX's math styles, which set how much a fraction shrinks.

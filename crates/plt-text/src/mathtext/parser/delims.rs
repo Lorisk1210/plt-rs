@@ -1,7 +1,9 @@
 //! `\left ... \middle ... \right`: delimiters sized to their content.
 
+use plt_core::numeric::py_max;
+
 use super::error::{ErrorKind, Fail};
-use super::{Parsed, Parser, py_max};
+use super::{Parsed, Parser};
 use crate::error::TextError;
 use crate::mathtext::boxes::{List, Node, auto_height_char};
 

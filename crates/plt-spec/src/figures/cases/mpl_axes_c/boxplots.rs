@@ -8,6 +8,7 @@ use plt::numeric::linspace;
 use plt::stats::{BoxplotOptions as StatsOptions, boxplot_stats};
 
 use super::{at_40_dpi, classic, remove_ticks_and_titles};
+use crate::figures::cases::common::with_sym;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -188,14 +189,6 @@ fn notched() -> BoxplotOptions {
     let mut options = BoxplotOptions::default();
     options.draw.shownotches = Some(true);
     options
-}
-
-/// `sym=sym`.
-fn with_sym(sym: &str) -> BoxplotOptions {
-    BoxplotOptions {
-        sym: Some(sym.into()),
-        ..BoxplotOptions::default()
-    }
 }
 
 /// `test_boxplot_autorange_whiskers`: data whose quartiles coincide.

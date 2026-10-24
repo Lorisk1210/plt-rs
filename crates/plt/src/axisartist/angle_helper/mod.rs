@@ -4,13 +4,14 @@
 
 mod format;
 
+use plt_core::numeric::{py_max, py_min};
 use plt_core::{Bbox, Point};
 
 use super::aux_transform::AuxTransform;
 use super::grid_finder::{
     ExtremeFinder, GridError, GridLevels, GridLocator, padded_extent, sample_grid,
 };
-use crate::ticker::pymath::{pow10, py_max, py_min};
+use crate::ticker::pymath::pow10;
 
 pub use self::format::{FormatterDms, FormatterHms};
 

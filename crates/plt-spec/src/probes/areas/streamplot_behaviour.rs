@@ -14,17 +14,13 @@ use plt::streamplot::{
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{bbox, parse_points};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
     Op::new("streamplot.field", |args| with_rc(args, || field(args))),
     Op::new("streamplot.datalim", |args| with_rc(args, || datalim(args))),
 ];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 /// A 2-D list as a grid.
 fn grid(value: &Json) -> Result<Grid<f64>, ProbeError> {

@@ -140,11 +140,6 @@ pub(super) fn tri_field(args: Args<'_>) -> Result<(Triangulation, Vec<f64>), Pro
         .ok_or_else(|| ProbeError::BadArgs("bad triangles".into()))?
         .iter()
         .map(|t| match t.as_f64_vec().as_deref() {
-            #[expect(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                reason = "point indices"
-            )]
             Some(&[a, b, c]) => Ok([a as usize, b as usize, c as usize]),
             _ => Err(ProbeError::BadArgs(format!("bad triangle {t}"))),
         })

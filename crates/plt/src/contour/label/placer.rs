@@ -188,7 +188,7 @@ impl<'s> Placer<'s> {
                 level: label.level,
                 text: label.text.clone(),
                 position: at,
-                rotation: crate::ticker::pymath::py_mod(rotation, 360.0),
+                rotation: plt_core::numeric::remainder(rotation, 360.0),
                 color: label.color,
                 artist: id,
                 index: label.index,

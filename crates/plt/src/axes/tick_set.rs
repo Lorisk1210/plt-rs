@@ -75,22 +75,14 @@ impl TickSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn ticks(locs: &[f64]) -> Vec<Tick> {
-        locs.iter()
-            .map(|&loc| Tick {
-                loc,
-                label: format!("{loc}"),
-            })
-            .collect()
-    }
+    use crate::testing::ticks_at;
 
     #[test]
     fn getters_read_the_unclipped_ticks_of_a_level() {
         let set = TickSet {
-            major: ticks(&[1.0]),
-            major_unclipped: ticks(&[0.0, 1.0, 2.0]),
-            minor_unclipped: ticks(&[0.5]),
+            major: ticks_at(&[1.0]),
+            major_unclipped: ticks_at(&[0.0, 1.0, 2.0]),
+            minor_unclipped: ticks_at(&[0.5]),
             ..TickSet::default()
         };
         assert_eq!(set.unclipped_locs(false), [0.0, 1.0, 2.0]);

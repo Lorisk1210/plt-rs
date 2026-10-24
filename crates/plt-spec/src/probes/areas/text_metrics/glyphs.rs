@@ -4,7 +4,7 @@
 use std::sync::OnceLock;
 
 use plt_font::{
-    AutohintTarget, FontDatabase, FontSource, GlyphId, Hinter, Hinting, HintingInstance,
+    AutohintTarget, FontDatabase, FontId, FontSource, GlyphId, Hinter, Hinting, HintingInstance,
     OutlineSink, Size,
 };
 
@@ -15,6 +15,16 @@ use crate::probes::{Args, Outcome, ProbeError};
 pub(crate) fn database() -> &'static FontDatabase {
     static DATABASE: OnceLock<FontDatabase> = OnceLock::new();
     DATABASE.get_or_init(FontDatabase::with_bundled_fonts)
+}
+
+/// The bundled font stored in the file named `file`.
+pub(crate) fn bundled_font(file: &str) -> Result<FontId, ProbeError> {
+    let db = database();
+    db.entries()
+        .iter()
+        .map(|entry| entry.font)
+        .find(|&font| db.source(font).and_then(FontSource::file_name) == Some(file))
+        .ok_or_else(|| ProbeError::BadArgs(format!("unknown font file {file:?}")))
 }
 
 /// matplotlib's path of a glyph (`FT2Font.get_path`): codes and vertices

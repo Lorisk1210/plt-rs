@@ -5,7 +5,8 @@
 
 mod common;
 
-use common::{Json, fixture};
+use common::fixture;
+use common::json::{Fixture, Json};
 use plt_font::{FontDatabase, FontQuery, FontSource, FontStyle, FontVariant, Stretch, Weight};
 
 fn file_of(db: &FontDatabase, id: plt_font::FontId) -> String {
@@ -36,22 +37,22 @@ fn catalogue_matches_matplotlib_ttflist() {
         })
         .collect();
     let mut wanted: Vec<String> = expected
-        .get("entries")
-        .as_array()
+        .field("entries")
+        .array()
         .iter()
         .map(|e| {
-            let style = e.get("style").as_str().parse::<FontStyle>().unwrap();
-            let variant = if e.get("variant").as_str() == "small-caps" {
+            let style = e.field("style").str().parse::<FontStyle>().unwrap();
+            let variant = if e.field("variant").str() == "small-caps" {
                 FontVariant::SmallCaps
             } else {
                 FontVariant::Normal
             };
-            let stretch = e.get("stretch").as_str().parse::<Stretch>().unwrap();
+            let stretch = e.field("stretch").str().parse::<Stretch>().unwrap();
             format!(
                 "{}|{}|{style:?}|{variant:?}|{}|{}",
-                e.get("file").as_str(),
-                e.get("name").as_str(),
-                e.get("weight").as_i64(),
+                e.field("file").str(),
+                e.field("name").str(),
+                e.field("weight").i64(),
                 stretch.0
             )
         })
@@ -66,42 +67,37 @@ fn findfont_matches_matplotlib() {
     let expected = fixture("findfont.json");
     let db = FontDatabase::with_bundled_fonts();
     let mut failures = Vec::new();
-    let queries = expected.get("queries").as_array();
+    let queries = expected.field("queries").array();
     for query in queries {
         let families: Vec<String> = query
-            .get("families")
-            .as_array()
+            .field("families")
+            .array()
             .iter()
-            .map(|f| f.as_str().to_owned())
+            .map(|f| f.str().to_owned())
             .collect();
         let request = FontQuery {
             families,
-            style: query.get("style").as_str().parse::<FontStyle>().unwrap(),
-            variant: if query.get("variant").as_str() == "small-caps" {
+            style: query.field("style").str().parse::<FontStyle>().unwrap(),
+            variant: if query.field("variant").str() == "small-caps" {
                 FontVariant::SmallCaps
             } else {
                 FontVariant::Normal
             },
-            weight: query.get("weight").as_str().parse::<Weight>().unwrap(),
-            stretch: query.get("stretch").as_str().parse::<Stretch>().unwrap(),
+            weight: query.field("weight").str().parse::<Weight>().unwrap(),
+            stretch: query.field("stretch").str().parse::<Stretch>().unwrap(),
             size: 10.0,
         };
         let found = file_of(&db, db.find_font(&request).unwrap());
-        let ties: Vec<&str> = query
-            .get("ties")
-            .as_array()
-            .iter()
-            .map(Json::as_str)
-            .collect();
+        let ties: Vec<&str> = query.field("ties").array().iter().map(Json::str).collect();
         let ok = if ties.len() > 1 {
             ties.contains(&found.as_str())
         } else {
-            found == query.get("file").as_str()
+            found == query.field("file").str()
         };
         if !ok {
             failures.push(format!(
                 "{request}: {found} != {}",
-                query.get("file").as_str()
+                query.field("file").str()
             ));
         }
     }

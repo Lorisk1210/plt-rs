@@ -19,7 +19,7 @@ use plt_core::Point;
 
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
-use crate::figures::cases::common::black_arrow;
+use crate::figures::cases::common::{black_arrow, radians};
 use std::error::Error;
 
 /// `r = np.arange(start, stop, 0.01)` and `θ = 2πr`.
@@ -34,11 +34,6 @@ fn spiral_axes(fig: &Figure, start: f64, stop: f64) -> Result<PolarAxes, Box<dyn
     let (theta, r) = spiral(start, stop);
     ax.plot(theta, r)?;
     Ok(ax)
-}
-
-/// Degrees to radians, element-wise.
-fn radians(degrees: &[f64]) -> Vec<f64> {
-    degrees.iter().map(|d| d.to_radians()).collect()
 }
 
 pub(super) fn polar_annotations(fig: &Figure) -> CaseResult {

@@ -13,7 +13,7 @@ use plt::tri::Triangulation;
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{object, rgba};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 use crate::rng::SpecRng;
 use plt::colors::ColorizerOptions;
 
@@ -25,10 +25,6 @@ pub(crate) const OPS: &[Op] = &[
     }),
     Op::new("tri.triplot_legend", |args| with_rc(args, triplot_legend)),
 ];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 fn points(name: &str) -> Result<(Vec<f64>, Vec<f64>), ProbeError> {
     match name {

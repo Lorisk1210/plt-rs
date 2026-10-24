@@ -204,13 +204,10 @@ mod tests {
         Point::new(x, y)
     }
 
-    fn square() -> Path {
-        Path::polygon([p(0.0, 0.0), p(1.0, 0.0), p(1.0, 1.0), p(0.0, 1.0)])
-    }
-
     #[test]
     fn clipping_a_square() {
-        let clipped = square().clip_to_bbox(&Bbox::from_extents(0.5, 0.5, 2.0, 2.0), true);
+        let clipped =
+            Path::unit_rectangle().clip_to_bbox(&Bbox::from_extents(0.5, 0.5, 2.0, 2.0), true);
         assert_eq!(
             clipped.vertices(),
             &[
@@ -222,7 +219,8 @@ mod tests {
             ]
         );
         assert_eq!(clipped.code_at(0), PathCode::MoveTo);
-        let gone = square().clip_to_bbox(&Bbox::from_extents(2.0, 2.0, 3.0, 3.0), true);
+        let gone =
+            Path::unit_rectangle().clip_to_bbox(&Bbox::from_extents(2.0, 2.0, 3.0, 3.0), true);
         assert!(gone.is_empty());
     }
 
@@ -242,7 +240,10 @@ mod tests {
 
     #[test]
     fn polygons_split_at_moves_and_closures() {
-        let two = Path::compound([&square(), &Path::polyline(vec![p(5.0, 5.0), p(6.0, 5.0)])]);
+        let two = Path::compound([
+            &Path::unit_rectangle(),
+            &Path::polyline(vec![p(5.0, 5.0), p(6.0, 5.0)]),
+        ]);
         let open = PolygonOptions {
             closed_only: false,
             ..PolygonOptions::default()

@@ -11,7 +11,7 @@ use plt::numeric::arange;
 use plt::orientation::Orientation;
 
 use crate::figures::FigureCase;
-use crate::figures::cases::common::padded;
+use crate::figures::cases::common::{colors, padded};
 use plt::ticker::LabelFormat;
 
 const HEIGHTS: [f64; 5] = [3.0, 7.0, 5.0, 2.0, 6.0];
@@ -32,11 +32,6 @@ fn formatted(template: &str) -> BarLabelOptions {
         fmt: LabelFormat::Template(template.to_owned()),
         ..BarLabelOptions::default()
     }
-}
-
-/// `[Color::from(name), ...]`.
-fn colors(names: &[&str]) -> Vec<Color> {
-    names.iter().map(|&name| Color::from(name)).collect()
 }
 
 pub(crate) const CASES: &[FigureCase] = &[

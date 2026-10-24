@@ -12,6 +12,7 @@
 use std::fmt;
 
 use crate::Point;
+use crate::numeric::linspace_with;
 use crate::path::{Path, PathCode};
 
 /// matplotlib's default hatch density (lines per unit tile).
@@ -45,20 +46,6 @@ impl fmt::Display for HatchError {
 
 impl std::error::Error for HatchError {}
 
-/// numpy's `linspace(start, stop, num, endpoint)`: `i * step + start`, with
-/// the exact end point when `endpoint` is set.
-fn linspace(start: f64, stop: f64, num: usize, endpoint: bool) -> impl Iterator<Item = f64> {
-    let div = if endpoint { num.saturating_sub(1) } else { num };
-    let step = (stop - start) / div as f64;
-    (0..num).map(move |i| {
-        if endpoint && num > 1 && i == num - 1 {
-            stop
-        } else {
-            i as f64 * step + start
-        }
-    })
-}
-
 /// Accumulates the pattern's vertices and codes.
 #[derive(Default)]
 struct Builder {
@@ -75,7 +62,10 @@ impl Builder {
     /// Evenly spaced lines through the tile centre bands.
     fn straight_lines(&mut self, count: usize, horizontal: bool) {
         let step = 1.0 / count as f64;
-        for s in linspace(0.0, 1.0, count, false).map(|s| s + step / 2.0) {
+        for s in linspace_with(0.0, 1.0, count, false)
+            .into_iter()
+            .map(|s| s + step / 2.0)
+        {
             if horizontal {
                 self.segment(Point::new(0.0, s), Point::new(1.0, s));
             } else {
@@ -89,7 +79,7 @@ impl Builder {
         if count == 0 {
             return;
         }
-        for s in linspace(-0.5, 0.5, count + 1, true) {
+        for s in linspace_with(-0.5, 0.5, count + 1, true) {
             if rising {
                 self.segment(Point::new(0.0 + s, 0.0 - s), Point::new(1.0 + s, 1.0 - s));
             } else {
@@ -120,9 +110,9 @@ impl Builder {
         for row in 0..=rows {
             let row_pos = row as f64 * offset;
             let cols: Vec<f64> = if row % 2 == 0 {
-                linspace(0.0, 1.0, rows + 1, true).collect()
+                linspace_with(0.0, 1.0, rows + 1, true)
             } else {
-                linspace(offset / 2.0, 1.0 - offset / 2.0, rows, true).collect()
+                linspace_with(offset / 2.0, 1.0 - offset / 2.0, rows, true)
             };
             for col in cols {
                 let shift = Point::new(col, row_pos);

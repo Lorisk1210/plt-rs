@@ -13,6 +13,7 @@ use plt::transforms::Point;
 
 use super::{classic, map, remove_ticks_and_titles};
 use crate::figures::FigureCase;
+use crate::figures::cases::common::indices;
 use crate::rng::SpecRng;
 
 pub(crate) const CASES: &[FigureCase] = &[
@@ -171,11 +172,6 @@ fn dash_dotted_stems(markerfmt: &str) -> Result<StemOptions, FormatError> {
         basefmt: Some("C1-.".parse()?),
         ..StemOptions::default()
     })
-}
-
-/// `0, 1, ..., n - 1`, the x values of `plot(y)`.
-fn indices(n: usize) -> Vec<f64> {
-    (0..n).map(|i| i as f64).collect()
 }
 
 /// `MarkerStyle.markers` in the order of `test_marker_styles`: sorted by

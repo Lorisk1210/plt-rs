@@ -194,10 +194,7 @@ pub(super) fn caps(args: Args<'_>) -> Outcome {
                 ]))
             })
             .collect::<Result<Vec<_>, ProbeError>>()?;
-        let barlines = bars
-            .barlinecols
-            .iter()
-            .map(|bar| numbers(&bar.linewidths()));
+        let barlines = bars.barlinecols.iter().map(|bar| numbers(bar.linewidths()));
         Ok(encode::object([
             ("line", Json::from(bars.data_line.is_some())),
             ("caps", Json::Array(caps)),

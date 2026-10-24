@@ -21,7 +21,7 @@ use plt::stats::{Bins, HistOptions, HistOrientation};
 use plt::text::{HAlign, VAlign};
 
 use super::{EXTENT, SEED};
-use crate::figures::cases::common::bivariate_normal;
+use crate::figures::cases::common::{arange_grid, bivariate_normal};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -219,11 +219,6 @@ fn demo_axes_divider(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `np.arange(20).reshape(shape)`.
-fn counting(rows: usize, cols: usize) -> Grid<f64> {
-    Grid::from_fn(rows, cols, |r, c| (r * cols + c) as f64)
-}
-
 /// `demo_axes_hbox_divider`'s two images, placed by a box divider of the
 /// figure's 111 cell made by `boxed` from their sizes.
 fn boxed_images(
@@ -234,8 +229,8 @@ fn boxed_images(
 ) -> CaseResult {
     let axs = fig.subplots(grid.0, grid.1)?;
     let (ax1, ax2) = (&axs.as_slice()[0], &axs.as_slice()[1]);
-    ax1.imshow(counting(4, 5), ImshowOptions::default())?;
-    ax2.imshow(counting(5, 4), ImshowOptions::default())?;
+    ax1.imshow(arange_grid(4, 5), ImshowOptions::default())?;
+    ax2.imshow(arange_grid(5, 4), ImshowOptions::default())?;
     let divider = boxed(ax1, ax2)?;
     divider.place(ax1, 0, 0)?;
     divider.place(ax2, second_cell.0, second_cell.1)?;

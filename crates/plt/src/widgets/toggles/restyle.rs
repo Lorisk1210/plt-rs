@@ -2,10 +2,10 @@
 //! `set_label_props`, `set_frame_props`, `set_check_props`,
 //! `set_radio_props` and the `activecolor` setter).
 
-use super::column::{ButtonColumn, cycled};
+use super::column::ButtonColumn;
 use super::options::ButtonMarkerProps;
 use super::{CheckButtons, RadioButtons, show_checks, show_selection};
-use crate::collections::{Collection, CollectionColorError, EdgeColors};
+use crate::collections::{Collection, CollectionColorError, EdgeColors, cycled};
 use crate::colors::Color;
 use crate::text::TextProps;
 

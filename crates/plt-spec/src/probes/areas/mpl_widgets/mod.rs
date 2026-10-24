@@ -17,14 +17,14 @@ mod span;
 mod steps;
 
 use plt::axes::Axes;
-use plt::colors::Color;
 use plt::figure::Figure;
 use plt::lines::Line2D;
 use plt::navigation::PointerButton;
 use plt::rc::{Aspect, ColorOrAuto};
 
 use crate::json::Json;
-use crate::probes::{Op, ProbeError, encode};
+use crate::probes::encode::{count, numbers, resolved_rgba};
+use crate::probes::{Op, ProbeError, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -49,11 +49,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Cursor.useblit", cursors::cursor_useblit),
 ];
 
-/// A malformed argument.
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
 /// matplotlib's `testing.widgets.get_ax`: the axes of a new figure showing
 /// the line from `(0, 0)` to `(200, 200)` at equal aspect, drawn.
 fn get_ax() -> Result<Axes, ProbeError> {
@@ -67,31 +62,13 @@ fn get_ax() -> Result<Axes, ProbeError> {
     Ok(ax)
 }
 
-/// A colour as the spec records it: its RGBA.
-fn rgba(color: &Color) -> Result<Json, ProbeError> {
-    color
-        .resolve()
-        .map(encode::rgba)
-        .map_err(ProbeError::rejected)
-}
-
 /// matplotlib's `Line2D.get_markerfacecolor`: the line colour when
 /// automatic.
 fn markerfacecolor(line: &Line2D) -> Result<Json, ProbeError> {
     match line.markerfacecolor() {
-        ColorOrAuto::Color(color) => rgba(&color),
-        ColorOrAuto::Auto => rgba(&line.color()),
+        ColorOrAuto::Color(color) => resolved_rgba(&color),
+        ColorOrAuto::Auto => resolved_rgba(&line.color()),
     }
-}
-
-/// A list of numbers as JSON.
-fn numbers(values: &[f64]) -> Json {
-    Json::Array(values.iter().map(|&v| Json::from(v)).collect())
-}
-
-/// A count as JSON.
-fn count(n: usize) -> Json {
-    Json::from(n as f64)
 }
 
 /// A mouse button given by matplotlib's number.
@@ -100,6 +77,6 @@ fn button(value: &Json) -> Result<PointerButton, ProbeError> {
         Some(1) => Ok(PointerButton::Left),
         Some(2) => Ok(PointerButton::Middle),
         Some(3) => Ok(PointerButton::Right),
-        _ => Err(bad("button")),
+        _ => Err(malformed("button")),
     }
 }

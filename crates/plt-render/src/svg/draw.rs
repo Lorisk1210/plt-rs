@@ -1,7 +1,7 @@
 //! Paths, markers, path collections and images (`draw_path`,
 //! `draw_markers`, `draw_path_collection`, `draw_image`).
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's SVG writer leaves out exactly-default values"
 )]

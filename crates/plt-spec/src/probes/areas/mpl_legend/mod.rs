@@ -9,13 +9,13 @@ mod placement;
 mod plots;
 mod proxies;
 
-use plt::artist::ArtistHandle;
-use plt::legend::Legend;
-use plt_core::{Bbox, Rgba};
-
-use super::mpl_tests::numbers;
 use crate::json::Json;
+use crate::probes::encode::numbers;
 use crate::probes::{Op, ProbeError};
+use plt::artist::ArtistHandle;
+use plt::axes::Axes;
+use plt::legend::{Legend, LegendOptions};
+use plt_core::{Bbox, Rgba};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -42,6 +42,11 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Axes.plot", plots::plot),
     Op::new("Axes.boxplot", plots::boxplot),
 ];
+
+/// The legend of `ax` made with `options`.
+fn legend(ax: &Axes, options: LegendOptions) -> Result<Legend, ProbeError> {
+    ax.legend(options).map_err(ProbeError::rejected)
+}
 
 /// `[x0, y0, x1, y1]`.
 fn extents(bbox: Bbox) -> Json {

@@ -30,7 +30,6 @@ fn angles_on_bracket_arrows(fig: &Figure) -> CaseResult {
     ax.set_xlim(0.0, 6.0)?.set_ylim(-1.0, 5.0)?;
     ax.set_title("Orientation of the bracket arrows relative to angleA and angleB");
     for (i, angle) in [-40, 0, 60].into_iter().enumerate() {
-        #[expect(clippy::cast_precision_loss, reason = "three rows")]
         let y = 2.0 * i as f64;
         let centers = [(1.0, y), (5.0, y)];
         let vlines = [(1.0, y + 0.5), (5.0, y + 0.5)];

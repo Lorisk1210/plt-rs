@@ -4,30 +4,8 @@ use super::*;
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::coords::{CoordError, Coords};
-use crate::figure::Figure;
 use crate::patches::ArrowStyle;
-use crate::testing::{Call, RecordingRenderer};
-
-/// A 640 × 480 px figure with one axes over `(0, 10)²`.
-fn axes() -> (Figure, Axes) {
-    let fig = Figure::new();
-    let ax = fig
-        .add_axes([0.125, 0.11, 0.775, 0.77])
-        .expect("a valid rectangle");
-    ax.set_xlim(0.0, 10.0)
-        .and_then(|ax| ax.set_ylim(0.0, 10.0))
-        .expect("finite limits");
-    (fig, ax)
-}
-
-/// The display position of a data point of `axes()`.
-fn display(x: f64, y: f64) -> Point {
-    Point::new(80.0 + x * 49.6, 52.8 + y * 36.96)
-}
-
-fn close(a: f64, b: f64) -> bool {
-    (a - b).abs() < 1e-9
-}
+use crate::testing::{Call, RecordingRenderer, close, data_axes, data_to_display};
 
 fn arrow(style: &str) -> ArrowProps {
     style.parse::<ArrowStyle>().expect("valid style").into()
@@ -35,7 +13,7 @@ fn arrow(style: &str) -> ArrowProps {
 
 #[test]
 fn offset_text_is_placed_from_the_point() {
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let note = ax
         .annotate(
             "a",
@@ -48,7 +26,7 @@ fn offset_text_is_placed_from_the_point() {
         )
         .expect("valid annotation");
     let extent = note.window_extent().expect("text has an extent");
-    let anchor = display(5.0, 5.0) + Point::new(10.0, 20.0) * (100.0 / 72.0);
+    let anchor = data_to_display(5.0, 5.0) + Point::new(10.0, 20.0) * (100.0 / 72.0);
     assert!(close(extent.x0(), anchor.x), "{extent:?}");
     assert!(extent.y0() < anchor.y && extent.y1() > anchor.y);
     assert_eq!(note.xy(), Point::new(5.0, 5.0));
@@ -56,7 +34,7 @@ fn offset_text_is_placed_from_the_point() {
 
 #[test]
 fn the_annotated_point_cannot_be_an_offset() {
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let result = ax.annotate(
         "a",
         (0.0, 0.0),
@@ -70,7 +48,7 @@ fn the_annotated_point_cannot_be_an_offset() {
 
 #[test]
 fn points_outside_the_axes_hide_data_annotations() {
-    let (_fig, ax) = axes();
+    let (_fig, ax) = data_axes();
     let options = || AnnotateOptions {
         xytext: Some(Point::new(5.0, 5.0)),
         ..AnnotateOptions::default()
@@ -96,7 +74,7 @@ fn points_outside_the_axes_hide_data_annotations() {
 
 #[test]
 fn arrows_reach_the_point_and_widen_the_extent() {
-    let (fig, ax) = axes();
+    let (fig, ax) = data_axes();
     let note = ax
         .annotate(
             "text",
@@ -109,7 +87,7 @@ fn arrows_reach_the_point_and_widen_the_extent() {
         )
         .expect("valid");
     let extent = note.window_extent().expect("an extent");
-    let point = display(8.0, 8.0);
+    let point = data_to_display(8.0, 8.0);
     // The arrow stops 2 points short of the point.
     assert!(extent.x1() > point.x - 5.0 && extent.x1() < point.x);
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
@@ -126,7 +104,7 @@ fn arrows_reach_the_point_and_widen_the_extent() {
 
 #[test]
 fn legacy_arrows_are_filled_in_their_face_colour() {
-    let (fig, ax) = axes();
+    let (fig, ax) = data_axes();
     let legacy = LegacyArrowProps {
         patch: crate::patches::PatchProps::default().facecolor("red"),
         ..LegacyArrowProps::default()
@@ -154,7 +132,7 @@ fn legacy_arrows_are_filled_in_their_face_colour() {
 
 #[test]
 fn texts_can_be_annotated_points() {
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let box_text = ax
         .annotate("box", (5.0, 5.0), AnnotateOptions::default())
         .expect("valid");
@@ -197,24 +175,30 @@ fn arrow_end(ax: &Axes, patch_b: Option<crate::artist::ArtistId>) -> f64 {
 
 #[test]
 fn patch_b_clips_the_arrow_at_the_point() {
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let unclipped = arrow_end(&ax, None);
-    assert!(close(unclipped, display(9.0, 5.0).x));
+    assert!(close(unclipped, data_to_display(9.0, 5.0).x));
     // An unstroked circle of radius 1 around the point.
     let circle = ax.add_patch(crate::patches::Circle::new((9.0, 5.0), 1.0));
     let clipped = arrow_end(&ax, Some(circle.id()));
-    assert!((clipped - display(8.0, 5.0).x).abs() < 0.5, "{clipped}");
+    assert!(
+        (clipped - data_to_display(8.0, 5.0).x).abs() < 0.5,
+        "{clipped}"
+    );
 }
 
 #[test]
 fn a_text_box_clips_like_its_bbox_patch() {
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let target = ax
         .annotate("target", (9.0, 5.0), AnnotateOptions::default())
         .expect("valid");
     target.set_halign(plt_text::HAlign::Center);
     assert!(
-        close(arrow_end(&ax, Some(target.id())), display(9.0, 5.0).x),
+        close(
+            arrow_end(&ax, Some(target.id())),
+            data_to_display(9.0, 5.0).x
+        ),
         "a text without a box does not clip"
     );
     target.set_bbox(Some(crate::text::TextBoxProps::default()));
@@ -225,7 +209,7 @@ fn a_text_box_clips_like_its_bbox_patch() {
 
 #[test]
 fn text_can_be_offset_from_another_artist() {
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let anchor = ax
         .annotate("anchor", (5.0, 5.0), AnnotateOptions::default())
         .expect("annotated");
@@ -262,7 +246,7 @@ fn text_can_be_offset_from_another_artist() {
 
 #[test]
 fn arrows_are_measured_at_their_last_drawn_resolution() {
-    let (fig, ax) = axes();
+    let (fig, ax) = data_axes();
     let note = ax
         .annotate(
             "a",
@@ -325,12 +309,12 @@ fn arrow_start(ax: &Axes, patch_a: ArrowStart) -> f64 {
         let displayed: Vec<plt_core::Path> = paths.iter().map(DisplayPath::to_display).collect();
         plt_core::Path::compound(&displayed).extents().x0()
     });
-    start - display(1.0, 5.0).x
+    start - data_to_display(1.0, 5.0).x
 }
 
 #[test]
 fn patch_a_chooses_where_the_arrow_leaves_the_text() {
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let boxed = arrow_start(&ax, ArrowStart::TextBox);
     let unclipped = arrow_start(&ax, ArrowStart::Unclipped);
     assert!(
@@ -348,7 +332,7 @@ fn patch_a_chooses_where_the_arrow_leaves_the_text() {
 fn lines_clip_arrows_within_their_pick_radius() {
     // `patchB=line` clips where `Line2D.contains` starts to hold: within
     // the pick radius (5 points) of a marker of a line without a style.
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let marker = ax.plot_fmt([9.0], [5.0], "o").expect("a line");
     let props = FancyArrowProps {
         shrink_a: 0.0,
@@ -368,13 +352,13 @@ fn lines_clip_arrows_within_their_pick_radius() {
         )
         .expect("valid annotation");
     let end = note.window_extent().expect("an extent").x1();
-    let clipped = display(9.0, 5.0).x - 5.0 * 100.0 / 72.0;
+    let clipped = data_to_display(9.0, 5.0).x - 5.0 * 100.0 / 72.0;
     assert!((end - clipped).abs() < 0.05, "{end} {clipped}");
 }
 
 #[test]
 fn coordinate_systems_and_clipping_read_back_as_set() {
-    let (_fig, ax) = axes();
+    let (_fig, ax) = data_axes();
     let note = ax
         .annotate("note", (5.0, 5.0), AnnotateOptions::default())
         .expect("valid annotation");

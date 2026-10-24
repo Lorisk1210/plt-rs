@@ -1,8 +1,10 @@
 //! `AsinhLocator`: ticks evenly spaced on an inverse-sinh axis.
 
+use plt_core::numeric::{np_sign, py_max};
+
 use super::Locator;
 use crate::numeric::linspace;
-use crate::ticker::pymath::{np_sign, pow10, py_max};
+use crate::ticker::pymath::pow10;
 use crate::ticker::{TickContext, TickerError};
 
 /// Ticks spaced evenly in `asinh` space and rounded to "nice" multiples of

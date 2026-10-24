@@ -102,10 +102,6 @@ fn formatted(template: &str, container: &PieContainer) -> Result<Vec<String>, Pi
         .iter()
         .zip(&container.fracs)
         .map(|(&value, &frac)| {
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "the value is a whole number well within i64"
-            )]
             let absval = if whole {
                 TemplateValue::Int(value as i64)
             } else {

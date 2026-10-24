@@ -6,15 +6,15 @@ use plt::artist::ArtistHandle;
 use plt::axes::Axes;
 use plt::figure::Figure;
 use plt::layout::LayoutEngine;
-use plt::legend::{Legend, LegendAlignment, LegendLoc, LegendOptions};
+use plt::legend::{LegendAlignment, LegendLoc, LegendOptions};
 use plt::lines::LineProps;
 use plt::patches::{Ellipse, PatchProps, Polygon, Wedge};
 use plt_core::{Bbox, Point};
 
-use super::super::mpl_tests::{in_test_style, numbers};
-use super::window_extents;
+use super::super::mpl_tests::in_test_style;
+use super::{legend, window_extents};
 use crate::json::Json;
-use crate::probes::encode::object;
+use crate::probes::encode::{numbers, object};
 use crate::probes::{Args, Outcome, ProbeError};
 
 /// `range(10)` as plotted data.
@@ -27,11 +27,6 @@ fn labelled_range(ax: &Axes, label: &str) -> Result<(), ProbeError> {
     ax.plot_with(range10(), range10(), LineProps::default().label(label))
         .map(drop)
         .map_err(ProbeError::rejected)
-}
-
-/// The legend of `ax` made with `options`.
-fn legend(ax: &Axes, options: LegendOptions) -> Result<Legend, ProbeError> {
-    ax.legend(options).map_err(ProbeError::rejected)
 }
 
 /// The window extent of an artist, laid out.

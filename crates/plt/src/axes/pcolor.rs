@@ -292,11 +292,8 @@ mod tests {
     use super::*;
     use crate::artist::ArtistHandle;
     use crate::figure::Figure;
+    use crate::testing::counting_field;
     use crate::transforms::Transform;
-
-    fn values(rows: usize, cols: usize) -> ScalarField {
-        ScalarField::new(Grid::from_fn(rows, cols, |r, c| (r * cols + c) as f64))
-    }
 
     #[test]
     fn transformed_meshes_bound_the_data_where_they_land() {
@@ -307,7 +304,9 @@ mod tests {
             props: CollectionProps::default().transform(times10),
             ..PcolorOptions::default()
         };
-        let mesh = ax.pcolormesh(Mesh::new(values(2, 3)), options).unwrap();
+        let mesh = ax
+            .pcolormesh(Mesh::new(counting_field(2, 3)), options)
+            .unwrap();
         assert_eq!(mesh.sticky_edges(), (vec![0.0, 30.0], vec![0.0, 20.0]));
         assert_eq!((ax.xlim(), ax.ylim()), ((0.0, 30.0), (0.0, 20.0)));
     }
@@ -327,7 +326,7 @@ mod tests {
             ..PcolorOptions::default()
         };
         assert_eq!(
-            ax.pcolor(Mesh::new(values(2, 2)), gouraud).err(),
+            ax.pcolor(Mesh::new(counting_field(2, 2)), gouraud).err(),
             Some(ImageError::ShadingNotSupported("gouraud"))
         );
     }
@@ -336,7 +335,7 @@ mod tests {
     fn pcolormesh_fits_the_view_to_the_grid() {
         let ax = Figure::new().subplot();
         ax.pcolormesh(
-            Mesh::from_coords([0.0, 1.0, 3.0], [0.0, 2.0], values(1, 2)),
+            Mesh::from_coords([0.0, 1.0, 3.0], [0.0, 2.0], counting_field(1, 2)),
             PcolorOptions::default(),
         )
         .unwrap();
@@ -349,7 +348,8 @@ mod tests {
     /// A two-variate ramp and colouring through `BiOrangeBlue`.
     fn bivariate(rows: usize, cols: usize) -> (MultiField, Option<MultivarColorizerOptions>) {
         use crate::colors::multivar::MultiColormap;
-        let field = MultiField::new([values(rows, cols), values(rows, cols)]).unwrap();
+        let field =
+            MultiField::new([counting_field(rows, cols), counting_field(rows, cols)]).unwrap();
         let cmap = MultiColormap::get("BiOrangeBlue").unwrap();
         (field, Some(MultivarColorizerOptions::new(cmap)))
     }
@@ -416,10 +416,10 @@ mod tests {
             ..PcolorOptions::default()
         };
         assert_eq!(
-            ax.pcolormesh(Mesh::new(values(2, 2)), scalar_with_bivariate)
+            ax.pcolormesh(Mesh::new(counting_field(2, 2)), scalar_with_bivariate)
                 .err(),
             Some(ImageError::MultivariateColormap)
         );
-        assert_eq!(MeshValues::from(values(2, 3)).shape(), (2, 3));
+        assert_eq!(MeshValues::from(counting_field(2, 3)).shape(), (2, 3));
     }
 }

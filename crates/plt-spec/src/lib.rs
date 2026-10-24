@@ -15,6 +15,7 @@ pub mod figures;
 pub mod json;
 pub mod probes;
 pub mod rng;
+mod scratch;
 
 use std::path::PathBuf;
 

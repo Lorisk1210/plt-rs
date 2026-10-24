@@ -1,36 +1,14 @@
 //! The part of Agg's `math_stroke` that matplotlib's containment tests use:
 //! miter joins, inner miter joins and butt caps (Agg's defaults).
 
+use super::math::{calc_distance, calc_intersection, cross_product};
 use super::vertex_seq::{VERTEX_DIST_EPSILON, VertexDist};
 use crate::Point;
 
-const INTERSECTION_EPSILON: f64 = 1.0e-30;
 /// Agg's default miter limit.
 const MITER_LIMIT: f64 = 4.0;
 /// Agg's default inner miter limit.
 const INNER_MITER_LIMIT: f64 = 1.01;
-
-/// Which side of the line `1 → 2` the point lies on (`cross_product`).
-fn cross_product(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, y: f64) -> f64 {
-    (x - x2) * (y2 - y1) - (y - y2) * (x2 - x1)
-}
-
-/// Intersection of the lines `a → b` and `c → d` (`calc_intersection`).
-fn calc_intersection(a: Point, b: Point, c: Point, d: Point) -> Option<Point> {
-    let num = (a.y - c.y) * (d.x - c.x) - (a.x - c.x) * (d.y - c.y);
-    let den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
-    if den.abs() < INTERSECTION_EPSILON {
-        return None;
-    }
-    let r = num / den;
-    Some(Point::new(a.x + r * (b.x - a.x), a.y + r * (b.y - a.y)))
-}
-
-fn distance(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
-    let dx = x2 - x1;
-    let dy = y2 - y1;
-    (dx * dx + dy * dy).sqrt()
-}
 
 /// What a miter beyond its limit becomes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -94,7 +72,7 @@ impl JoinMath {
         let dy2 = self.width * (v2.x - v1.x) / len2;
         let offsets = [dx1, dy1, dx2, dy2];
         out.clear();
-        let cp = cross_product(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
+        let cp = cross_product(v0.point(), v1.point(), v2.point());
         if (cp > VERTEX_DIST_EPSILON && self.width > 0.0)
             || (cp < -VERTEX_DIST_EPSILON && self.width < 0.0)
         {
@@ -135,7 +113,7 @@ impl JoinMath {
             Point::new(v1.x + dx2, v1.y - dy2),
             Point::new(v2.x + dx2, v2.y - dy2),
         ) {
-            di = distance(v1.x, v1.y, xi.x, xi.y);
+            di = calc_distance(v1.point(), xi);
             if di <= lim {
                 out.push(xi);
                 limit_exceeded = false;
@@ -144,10 +122,9 @@ impl JoinMath {
         } else {
             // Collinear: either the path continues straight on (one offset
             // point suffices) or it turns back on itself.
-            let x2 = v1.x + dx1;
-            let y2 = v1.y - dy1;
-            if (cross_product(v0.x, v0.y, v1.x, v1.y, x2, y2) < 0.0)
-                == (cross_product(v1.x, v1.y, v2.x, v2.y, x2, y2) < 0.0)
+            let p = Point::new(v1.x + dx1, v1.y - dy1);
+            if (cross_product(v0.point(), v1.point(), p) < 0.0)
+                == (cross_product(v1.point(), v2.point(), p) < 0.0)
             {
                 out.push(Point::new(v1.x + dx1, v1.y - dy1));
                 limit_exceeded = false;

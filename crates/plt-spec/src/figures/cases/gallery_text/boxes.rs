@@ -34,14 +34,8 @@ fn cross(ax: &Axes, (x, y): (f64, f64), size: f64) -> CaseResult {
 /// A smooth RGB image the size of the gallery's Grace Hopper photograph
 /// (512 × 600 pixels), standing in for it.
 fn photo() -> Grid<[u8; 3]> {
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "numpy's astype(np.uint8) of values in [0, 255]"
-    )]
     let byte = |v: f64| (v * 255.0) as u8;
     Grid::from_fn(600, 512, |row, col| {
-        #[expect(clippy::cast_precision_loss, reason = "small pixel indices")]
         let (x, y) = (col as f64, row as f64);
         let red = 0.5 + 0.5 * (x / 40.0).sin() * (y / 55.0).cos();
         let green = (x + y) / (512.0 + 600.0);

@@ -59,7 +59,7 @@ fn params_args(params: Option<&Json>) -> Json {
 }
 
 /// Sets the major (or minor) locator of `axis`.
-fn install_locator(axis: &Axis, minor: bool, locator: impl Locator) {
+pub(crate) fn install_locator(axis: &Axis, minor: bool, locator: impl Locator) {
     if minor {
         axis.set_minor_locator(locator);
     } else {
@@ -68,7 +68,7 @@ fn install_locator(axis: &Axis, minor: bool, locator: impl Locator) {
 }
 
 /// Sets the major (or minor) formatter of `axis`.
-fn install_formatter(axis: &Axis, minor: bool, formatter: impl Formatter) {
+pub(crate) fn install_formatter(axis: &Axis, minor: bool, formatter: impl Formatter) {
     if minor {
         axis.set_minor_formatter(formatter);
     } else {
@@ -76,8 +76,8 @@ fn install_formatter(axis: &Axis, minor: bool, formatter: impl Formatter) {
     }
 }
 
-/// A `[name, arg?]` spec.
-fn spec_parts(spec: &Json) -> Result<(&str, Option<&Json>), ProbeError> {
+/// The name and optional argument of a `[name, arg?]` spec.
+pub(crate) fn spec_parts(spec: &Json) -> Result<(&str, Option<&Json>), ProbeError> {
     match spec.as_array() {
         Some([name, rest @ ..]) if rest.len() <= 1 => name
             .as_str()

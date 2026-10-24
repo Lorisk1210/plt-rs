@@ -4,13 +4,13 @@
 
 mod common;
 
-use common::SplitMix64;
 use plt_core::bezier::{
     Bezier, BezierSegment, find_bezier_t_intersecting_with_closedpath, inside_circle,
     split_bezier_intersecting_with_closedpath, split_path_inout,
 };
 use plt_core::path::convert::{CleanupOptions, SketchParams, SnapMode, StringCodes, StringOptions};
 use plt_core::path::{CollectionGeometry, DataLimits, PolygonOptions};
+use plt_core::rng::SplitMix64;
 use plt_core::{Affine2D, Bbox, Path, PathCode, Point};
 
 /// Coordinates that break naive arithmetic.
@@ -36,7 +36,7 @@ fn coordinate(rng: &mut SplitMix64) -> f64 {
     if rng.next_u64().is_multiple_of(4) {
         NASTY[(rng.next_u64() % NASTY.len() as u64) as usize]
     } else {
-        (rng.uniform() - 0.5) * 200.0
+        (rng.next_f64() - 0.5) * 200.0
     }
 }
 

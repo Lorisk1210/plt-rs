@@ -36,7 +36,7 @@ mod stem;
 mod ticks;
 mod titles;
 
-use plt::axes::Axes;
+use plt::axes::{Axes, Axis};
 use plt::colors::Color;
 use plt::dates::Datetime64;
 use plt::figure::Figure;
@@ -44,7 +44,8 @@ use plt_core::Rgba;
 
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
-use crate::probes::{Args, Op, Outcome, ProbeError, encode};
+use crate::probes::encode::{count, numbers, pair};
+use crate::probes::{Args, Op, Outcome, ProbeError, encode, made};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -163,40 +164,24 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Figure.add_axes", limits::add_axes),
 ];
 
+/// The axis named by argument `axis`.
+fn axis_arg(ax: &Axes, args: Args<'_>) -> Result<Axis, ProbeError> {
+    match args.str("axis")? {
+        "x" => Ok(ax.xaxis()),
+        "y" => Ok(ax.yaxis()),
+        other => Err(ProbeError::BadArgs(format!("unknown axis {other}"))),
+    }
+}
+
 /// Runs `f` on a fresh `Figure::new().subplot()` in the probe's style
 /// and rcParams.
 fn on_axes(args: Args<'_>, f: impl FnOnce(&Axes) -> Outcome) -> Outcome {
     styled(args, || f(&Figure::new().subplot()))
 }
 
-/// A plt-rs result, its error as the rejection matplotlib's error mirrors.
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
-
-/// A colour as RGBA JSON.
-fn rgba(color: &Color) -> Result<Json, ProbeError> {
-    Ok(encode::rgba(made(color.resolve())?))
-}
-
 /// A list of RGBA colours as JSON.
 fn rgba_list(colors: &[Rgba]) -> Json {
     Json::Array(colors.iter().map(|&c| encode::rgba(c)).collect())
-}
-
-/// A list of numbers as JSON.
-fn numbers(values: &[f64]) -> Json {
-    Json::Array(values.iter().map(|&v| Json::from(v)).collect())
-}
-
-/// A pair of numbers (limits) as JSON.
-fn pair((low, high): (f64, f64)) -> Json {
-    numbers(&[low, high])
-}
-
-/// A count as JSON.
-fn count(n: usize) -> Json {
-    Json::from(n as f64)
 }
 
 /// A legend label as the spec records it: `null` when hidden.

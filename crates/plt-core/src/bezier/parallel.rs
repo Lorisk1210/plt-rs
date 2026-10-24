@@ -22,10 +22,6 @@ pub enum Parallel {
     Opposite,
 }
 
-fn midpoint(a: Point, b: Point) -> Point {
-    Point::new(f64::midpoint(a.x, b.x), f64::midpoint(a.y, b.y))
-}
-
 /// The direction from `p0` to `p1` (matplotlib's `get_cos_sin`).
 pub fn get_cos_sin(p0: Point, p1: Point) -> Direction {
     let dx = p1.x - p0.x;
@@ -119,7 +115,7 @@ pub fn get_parallels(bezier2: [Point; 3], width: f64) -> ([Point; 3], [Point; 3]
     let (c1_left, c1_right) = get_normal_points(c1, t1, width);
     let (c2_left, c2_right) = get_normal_points(c2, t2, width);
     let middle =
-        |a: Point, b: Point| get_intersection(a, t1, b, t2).unwrap_or_else(|_| midpoint(a, b));
+        |a: Point, b: Point| get_intersection(a, t1, b, t2).unwrap_or_else(|_| a.midpoint(b));
     (
         [c1_left, middle(c1_left, c2_left), c2_left],
         [c1_right, middle(c1_right, c2_right), c2_right],
@@ -141,9 +137,9 @@ pub fn make_wedged_bezier2(
     let t2 = get_cos_sin(cm, c3);
     let (c1_left, c1_right) = get_normal_points(c1, t1, width * w1);
     let (c3_left, c3_right) = get_normal_points(c3, t2, width * w2);
-    let c12 = midpoint(c1, cm);
-    let c23 = midpoint(cm, c3);
-    let c123 = midpoint(c12, c23);
+    let c12 = c1.midpoint(cm);
+    let c23 = cm.midpoint(c3);
+    let c123 = c12.midpoint(c23);
     let t123 = get_cos_sin(c12, c23);
     let (c123_left, c123_right) = get_normal_points(c123, t123, width * wm);
     (

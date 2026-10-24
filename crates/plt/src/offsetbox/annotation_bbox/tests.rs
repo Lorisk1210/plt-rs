@@ -3,25 +3,8 @@
 use super::*;
 use crate::offsetbox::{DrawingArea, TextArea};
 use crate::patches::{ConnectionEnd, ConnectionPatch, Rectangle};
-use crate::testing::{Call, RecordingRenderer};
+use crate::testing::{Call, RecordingRenderer, close_points, data_axes, data_to_display};
 use crate::text::TextProps;
-
-/// A 640 × 480 px figure with one axes over `(0, 10)²`.
-fn axes() -> (Figure, Axes) {
-    let fig = Figure::new();
-    let ax = fig
-        .add_axes([0.125, 0.11, 0.775, 0.77])
-        .expect("a valid rectangle");
-    ax.set_xlim(0.0, 10.0)
-        .and_then(|ax| ax.set_ylim(0.0, 10.0))
-        .expect("finite limits");
-    (fig, ax)
-}
-
-/// The display position of a data point of `axes()`.
-fn display(x: f64, y: f64) -> Point {
-    Point::new(80.0 + x * 49.6, 52.8 + y * 36.96)
-}
 
 fn draw(fig: &Figure) -> Vec<Call> {
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
@@ -29,13 +12,9 @@ fn draw(fig: &Figure) -> Vec<Call> {
     renderer.calls
 }
 
-fn close(a: Point, b: Point) -> bool {
-    (a - b).length() < 1e-9
-}
-
 #[test]
 fn boxes_are_aligned_on_their_offset_position() {
-    let (fig, ax) = axes();
+    let (fig, ax) = data_axes();
     let note = ax
         .add_annotation_bbox(
             TextArea::from_text("note", TextProps::default()),
@@ -49,19 +28,22 @@ fn boxes_are_aligned_on_their_offset_position() {
         )
         .expect("valid annotation");
     draw(&fig);
-    let anchor = display(5.0, 5.0) + Point::new(10.0, 20.0) * (100.0 / 72.0);
-    assert!(close(note.patch().shape().xy, anchor));
+    let anchor = data_to_display(5.0, 5.0) + Point::new(10.0, 20.0) * (100.0 / 72.0);
+    assert!(close_points(note.patch().shape().xy, anchor));
     assert_eq!(note.texts()[0].text(), "note");
     note.set_xybox((0.0, 0.0));
     draw(&fig);
-    assert!(close(note.patch().shape().xy, display(5.0, 5.0)));
+    assert!(close_points(
+        note.patch().shape().xy,
+        data_to_display(5.0, 5.0)
+    ));
     assert_eq!(note.xybox(), Point::ORIGIN);
 }
 
 #[test]
 fn boxes_default_to_the_point_and_its_coordinates() {
     // matplotlib's test_annotationbbox_properties.
-    let (_, ax) = axes();
+    let (_, ax) = data_axes();
     let area = || DrawingArea::<BoxItem>::new(20.0, 20.0, 0.0, 0.0);
     let plain = ax
         .add_annotation_bbox(area(), (0.5, 0.5), AnnotationBboxOptions::default())
@@ -86,7 +68,7 @@ fn boxes_default_to_the_point_and_its_coordinates() {
 
 #[test]
 fn arrows_reach_the_point_and_hidden_points_hide_the_box() {
-    let (fig, ax) = axes();
+    let (fig, ax) = data_axes();
     let area = || {
         DrawingArea::new(10.0, 10.0, 0.0, 0.0).with_artist(BoxItem::patch(
             Rectangle::new((0.0, 0.0), 10.0, 10.0),
@@ -107,7 +89,7 @@ fn arrows_reach_the_point_and_hidden_points_hide_the_box() {
         .expect("valid annotation");
     let calls = draw(&fig);
     let extent = note.window_extent().expect("an extent");
-    let point = display(8.0, 8.0);
+    let point = data_to_display(8.0, 8.0);
     assert!(
         extent.x1() < point.x && extent.x1() > point.x - 5.0,
         "{extent:?}"
@@ -160,7 +142,7 @@ fn figure_boxes_annotate_other_artists() {
     let calls = draw(&fig);
     let corner = target.window_extent().expect("an extent").p1;
     let anchor = corner + Point::new(10.0, 20.0) * (100.0 / 72.0);
-    assert!(close(note.patch().shape().xy, anchor));
+    assert!(close_points(note.patch().shape().xy, anchor));
     let red = plt_core::Rgba::new(1.0, 0.0, 0.0, 1.0);
     assert!(
         calls
@@ -172,7 +154,7 @@ fn figure_boxes_annotate_other_artists() {
 
 #[test]
 fn boxes_place_others_relative_to_the_artists_they_draw() {
-    let (fig, ax) = axes();
+    let (fig, ax) = data_axes();
     let square = Rectangle::new((0.0, 0.0), 10.0, 10.0);
     let area = DrawingArea::new(10.0, 10.0, 0.0, 0.0)
         .with_artist(BoxItem::patch(square, PatchProps::default()));
@@ -197,8 +179,11 @@ fn boxes_place_others_relative_to_the_artists_they_draw() {
     assert_eq!(second.artist_ids().len(), 1);
     draw(&fig);
     let px = 100.0 / 72.0;
-    let corner = display(2.0, 2.0) + Point::new(5.0, -5.0) * px;
-    assert!(close(second.patch().shape().xy, corner), "{corner:?}");
+    let corner = data_to_display(2.0, 2.0) + Point::new(5.0, -5.0) * px;
+    assert!(
+        close_points(second.patch().shape().xy, corner),
+        "{corner:?}"
+    );
 }
 
 /// The lower-left corner of a box placed by its lower-left corner at the
@@ -237,7 +222,7 @@ fn arrows_drawn_before_a_box_place_it_as_drawn() {
     // the same (first) draw has its head sized at the canvas resolution,
     // one drawn later still at one pixel per point.
     let (placed, drawn) = box_on_arrow(1.0);
-    assert!(close(placed, drawn), "{placed:?} {drawn:?}");
+    assert!(close_points(placed, drawn), "{placed:?} {drawn:?}");
     let (placed, drawn) = box_on_arrow(5.0);
     assert!((placed - drawn).length() > 0.1, "{placed:?} {drawn:?}");
 }

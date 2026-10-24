@@ -2,7 +2,7 @@
 //! fixed locations, the offset text and the axis labels.
 
 use plt::axes::{
-    Axes, Axis, AxisName, GridOptions, LabelLoc, TickDirection, TickLevel, TickParams, TickStyle,
+    Axes, AxisName, GridOptions, LabelLoc, TickDirection, TickLevel, TickParams, TickStyle,
 };
 use plt::colors::Color;
 use plt::figure::Figure;
@@ -12,10 +12,11 @@ use plt::spines::SpineSide;
 use plt::text::HAlign;
 use plt::units::AxisValues;
 
-use super::{color, made, on_axes, rgba, strings};
+use super::{axis_arg, color, made, on_axes, strings};
 use crate::json::Json;
 use crate::probes::areas::canon::Canon;
 use crate::probes::areas::mpl_ticker::styled;
+use crate::probes::encode::resolved_rgba;
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
 /// The name of a tick direction.
@@ -43,13 +44,13 @@ fn tick_state(style: &TickStyle) -> Result<Json, ProbeError> {
         ("width", Json::from(style.width)),
         ("pad", Json::from(style.pad)),
         ("direction", Json::from(direction_name(style.direction))),
-        ("color", rgba(&style.color)?),
+        ("color", resolved_rgba(&style.color)?),
         (
             "markeredgecolor",
-            rgba(style.edgecolor.as_ref().unwrap_or(&style.color))?,
+            resolved_rgba(style.edgecolor.as_ref().unwrap_or(&style.color))?,
         ),
         ("labelsize", Json::from(style.label_size)),
-        ("labelcolor", rgba(&style.label_color)?),
+        ("labelcolor", resolved_rgba(&style.label_color)?),
         ("labelrotation", Json::from(style.label_rotation)),
         ("rotation_mode", style.label_rotation_mode.canon()),
         ("labelfamily", Json::from(family)),
@@ -61,7 +62,7 @@ fn tick_state(style: &TickStyle) -> Result<Json, ProbeError> {
         (
             "grid",
             Json::Array(vec![
-                rgba(&grid.color)?,
+                resolved_rgba(&grid.color)?,
                 Json::from(grid.linewidth),
                 Json::from(grid.alpha),
                 grid.linestyle.canon(),
@@ -258,15 +259,6 @@ pub(super) fn reset_grid(args: Args<'_>) -> Outcome {
     })
 }
 
-/// The axis named by argument `axis`.
-fn axis_arg(ax: &Axes, args: Args<'_>) -> Result<Axis, ProbeError> {
-    match args.str("axis")? {
-        "x" => Ok(ax.xaxis()),
-        "y" => Ok(ax.yaxis()),
-        other => Err(ProbeError::BadArgs(format!("unknown axis {other}"))),
-    }
-}
-
 pub(super) fn offset_text(args: Args<'_>) -> Outcome {
     on_axes(args, |ax| {
         made(ax.plot_with(
@@ -280,7 +272,7 @@ pub(super) fn offset_text(args: Args<'_>) -> Outcome {
         }
         // The offset text takes the colour of the major tick labels.
         Ok(encode::object([
-            ("color", rgba(&axis.tick_style(false).label_color)?),
+            ("color", resolved_rgba(&axis.tick_style(false).label_color)?),
             ("visible", Json::from(axis.offset_text_visible())),
         ]))
     })
@@ -324,7 +316,7 @@ fn y_tick_params(style: &TickStyle, set: bool) -> Result<Json, ProbeError> {
     ]);
     if set {
         entries.push(("labelsize".to_owned(), Json::from(style.label_size)));
-        entries.push(("labelcolor".to_owned(), rgba(&style.label_color)?));
+        entries.push(("labelcolor".to_owned(), resolved_rgba(&style.label_color)?));
     }
     Ok(Json::Object(entries))
 }
@@ -358,7 +350,7 @@ pub(super) fn label_formatting(args: Args<'_>) -> Outcome {
         let axis = ax.xaxis();
         let font = axis.label_font();
         Ok(Json::Array(vec![
-            rgba(&axis.label_color())?,
+            resolved_rgba(&axis.label_color())?,
             Json::from(font.size),
             font.weight.canon(),
         ]))
@@ -380,7 +372,7 @@ pub(super) fn ylabel_halign(args: Args<'_>) -> Outcome {
             ("ha", shown),
             (
                 "extent",
-                super::numbers(&[extent.x0(), extent.y0(), extent.x1(), extent.y1()]),
+                encode::numbers([extent.x0(), extent.y0(), extent.x1(), extent.y1()]),
             ),
         ]))
     })

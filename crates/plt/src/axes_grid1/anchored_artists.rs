@@ -470,23 +470,9 @@ impl From<AnchoredEllipse> for AnchoredBox {
 mod tests {
     use super::*;
     use crate::artist::ArtistHandle;
-    use crate::axes::Axes;
     use crate::figure::Figure;
     use crate::offsetbox::AnchoredOffsetbox;
-    use crate::testing::RecordingRenderer;
-
-    /// A 640 × 480 px figure with one axes over `(0, 10)²`, 49.6 px per
-    /// unit across and 36.96 px up.
-    fn axes() -> (Figure, Axes) {
-        let fig = Figure::new();
-        let ax = fig
-            .add_axes([0.125, 0.11, 0.775, 0.77])
-            .expect("a valid rectangle");
-        ax.set_xlim(0.0, 10.0)
-            .and_then(|ax| ax.set_ylim(0.0, 10.0))
-            .expect("finite limits");
-        (fig, ax)
-    }
+    use crate::testing::{RecordingRenderer, data_axes};
 
     /// The frame of `anchored` once the figure is drawn.
     fn framed(fig: &Figure, anchored: &AnchoredOffsetbox) -> plt_core::Bbox {
@@ -497,7 +483,7 @@ mod tests {
 
     #[test]
     fn size_bars_put_the_label_below_or_above_the_bar() {
-        let (fig, ax) = axes();
+        let (fig, ax) = data_axes();
         let below = ax.add_anchored_box(AnchoredSizeBar {
             size_vertical: 1.0,
             ..AnchoredSizeBar::new(ax.trans_data(), 2.0, "2 units", AnchorLoc::LowerLeft)
@@ -537,7 +523,7 @@ mod tests {
 
     #[test]
     fn direction_arrows_hold_two_arrows_and_two_labels() {
-        let (fig, ax) = axes();
+        let (fig, ax) = data_axes();
         let arrows = AnchoredDirectionArrows::new(ax.trans_axes(), "x", "y");
         let anchored = ax.add_anchored_box(AnchoredBox::try_from(arrows).expect("valid labels"));
         let extent = framed(&fig, &anchored);
@@ -554,7 +540,7 @@ mod tests {
 
     #[test]
     fn drawing_areas_and_ellipses_take_their_own_size() {
-        let (fig, ax) = axes();
+        let (fig, ax) = data_axes();
         let area = AnchoredDrawingArea {
             pad: 0.0,
             borderpad: 0.0,

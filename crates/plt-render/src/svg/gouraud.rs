@@ -2,7 +2,7 @@
 //! gradients over a triangle of the average colour
 //! (`draw_gouraud_triangles`, `_draw_gouraud_triangle`).
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib tests for exactly axis-parallel edges"
 )]
@@ -12,7 +12,7 @@ use plt_core::{Affine2D, Point, Rgba};
 use super::SvgRenderer;
 use super::style::css;
 use crate::gc::GraphicsContext;
-use crate::vector::{hex_color, short};
+use crate::vector::short;
 
 /// The mean of three colours (numpy's `np.average(colors, axis=0)`).
 fn average(colors: &[Rgba; 3]) -> Rgba {
@@ -99,7 +99,7 @@ impl SvgRenderer {
                     (
                         "style",
                         css(&[
-                            ("stop-color", hex_color(avg)),
+                            ("stop-color", avg.to_hex(false)),
                             ("stop-opacity", short(colors[i].a)),
                         ]),
                     ),
@@ -113,7 +113,7 @@ impl SvgRenderer {
                     (
                         "style",
                         css(&[
-                            ("stop-color", hex_color(colors[i])),
+                            ("stop-color", colors[i].to_hex(false)),
                             ("stop-opacity", "0".to_owned()),
                         ]),
                     ),
@@ -150,7 +150,7 @@ impl SvgRenderer {
             "",
             &[
                 ("d", d.clone()),
-                ("fill", hex_color(avg)),
+                ("fill", avg.to_hex(false)),
                 ("fill-opacity", "1".to_owned()),
                 crisp(),
             ],

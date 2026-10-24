@@ -473,18 +473,8 @@ impl FigureState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::axes::AxesState;
     use crate::legend::LegendOptions;
-
-    fn sides(ax: &Axes, name: AxisName) -> ((bool, bool), (bool, bool)) {
-        ax.raw().with::<AxesState, _>(|state| {
-            let style = &state.axis(name).major_style;
-            (
-                (style.ticks.first, style.ticks.second),
-                (style.labels.first, style.labels.second),
-            )
-        })
-    }
+    use crate::testing::major_tick_sides;
 
     #[test]
     fn twinx_moves_the_y_axis_to_the_parasite() {
@@ -496,8 +486,14 @@ mod tests {
         assert!(!host.spines().right.visible());
         assert!(par.spines().right.visible());
         assert!(!par.spines().left.visible() && !par.spines().bottom.visible());
-        assert_eq!(sides(&par, AxisName::Y), ((false, true), (false, true)));
-        assert_eq!(sides(&par, AxisName::X), ((false, false), (false, false)));
+        assert_eq!(
+            major_tick_sides(&par, AxisName::Y),
+            ((false, true), (false, true))
+        );
+        assert_eq!(
+            major_tick_sides(&par, AxisName::X),
+            ((false, false), (false, false))
+        );
         assert_eq!(par.yaxis().label_position(), SpineSide::Right);
         assert!(par.xaxis().visible() && par.yaxis().visible());
         host.set_xlim(0.0, 5.0).expect("finite limits");
@@ -516,8 +512,11 @@ mod tests {
             .expect("finite limits");
         assert_eq!(twin.xlim(), (0.0, 2.0));
         assert_eq!(twin.ylim(), (-2.0, 2.0));
-        assert_eq!(sides(&twin, AxisName::X), ((false, true), (false, true)));
-        assert_eq!(sides(&host, AxisName::Y).0, (true, false));
+        assert_eq!(
+            major_tick_sides(&twin, AxisName::X),
+            ((false, true), (false, true))
+        );
+        assert_eq!(major_tick_sides(&host, AxisName::Y).0, (true, false));
         assert!(!host.spines().top.visible() && twin.spines().top.visible());
         let rotated = Affine2D::identity().rotate_deg(30.0);
         assert!(matches!(
@@ -558,7 +557,10 @@ mod tests {
         par.remove();
         assert_eq!(host.parasites(), Vec::<ParasiteAxes>::new());
         assert!(host.spines().right.visible());
-        assert_eq!(sides(&host, AxisName::Y), ((true, true), (true, false)));
+        assert_eq!(
+            major_tick_sides(&host, AxisName::Y),
+            ((true, true), (true, false))
+        );
         host.axis(SpineSide::Right).set_visible(false);
         par.remove();
         assert!(

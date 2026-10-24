@@ -21,7 +21,7 @@
 //! let b = &boxplot_stats(&[[1.0, 2.0, 3.0, 4.0]], BoxplotOptions::default()).unwrap()[0];
 //! assert_eq!(b.iqr, 1.5);
 //! ```
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "numpy's algorithms branch on exact float comparisons; the ports keep them"
 )]

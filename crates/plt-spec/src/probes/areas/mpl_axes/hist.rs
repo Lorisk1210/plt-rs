@@ -143,7 +143,7 @@ pub(super) fn hist(args: Args<'_>) -> Outcome {
 fn counts(tops: &[Vec<f64>]) -> Json {
     match tops {
         [single] => numbers(single),
-        several => Json::Array(several.iter().map(|tops| numbers(tops)).collect()),
+        several => Json::Array(several.iter().map(numbers).collect()),
     }
 }
 
@@ -181,10 +181,7 @@ pub(super) fn hist_dates(args: Args<'_>) -> Outcome {
         };
         let plot = made(ax.hist(&datasets, options))?;
         Ok(encode::object([
-            (
-                "n",
-                Json::Array(plot.tops.iter().map(|tops| numbers(tops)).collect()),
-            ),
+            ("n", Json::Array(plot.tops.iter().map(numbers).collect())),
             ("bins", numbers(&plot.edges)),
         ]))
     })

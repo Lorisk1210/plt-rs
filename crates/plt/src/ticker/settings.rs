@@ -28,7 +28,7 @@ pub enum MinorDivisions {
 /// formatter is constructed (`from_settings` constructors), the others when
 /// ticks are computed (through [`crate::ticker::TickContext`]), mirroring
 /// when matplotlib reads each rcParam.
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "mirrors independent boolean rcParams"
 )]

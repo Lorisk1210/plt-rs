@@ -9,6 +9,7 @@ use plt::numeric::Grid;
 use plt::pyplot;
 
 use crate::json::Json;
+use crate::probes::encode::{count, pair};
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.
@@ -41,16 +42,6 @@ fn fresh(scenario: impl FnOnce() -> Outcome) -> Outcome {
 /// A boolean as JSON.
 fn yes(value: bool) -> Json {
     Json::from(value)
-}
-
-/// A count as JSON.
-fn count(n: usize) -> Json {
-    Json::from(n as f64)
-}
-
-/// A pair of numbers as JSON.
-fn pair((a, b): (f64, f64)) -> Json {
-    Json::Array(vec![Json::from(a), Json::from(b)])
 }
 
 /// The numbers of the open figures as JSON.

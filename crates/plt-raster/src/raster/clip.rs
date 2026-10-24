@@ -168,7 +168,10 @@ impl Clipper {
 
 /// Clips an edge that is already within the box horizontally against the
 /// box's top and bottom (Agg's `line_clip_y`).
-#[allow(clippy::too_many_arguments)] // Mirrors Agg's signature one to one.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "mirrors Agg's `line_clip_y`, so the case table above reads like the C++"
+)]
 fn clip_y(cells: &mut CellBuffer, r: &Rect, x1: f64, y1: f64, x2: f64, y2: f64, f1: u32, f2: u32) {
     let f1 = f1 & Y_FLAGS;
     let f2 = f2 & Y_FLAGS;

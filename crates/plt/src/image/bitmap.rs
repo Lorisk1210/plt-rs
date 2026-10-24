@@ -147,14 +147,7 @@ impl BitmapFormat {
 
 /// The JFIF density for `dpi`: rounded, as Pillow passes it to libjpeg.
 fn jfif_density(dpi: f64) -> u16 {
-    let rounded = dpi.round().clamp(0.0, f64::from(u16::MAX));
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "rounded and clamped to u16's range"
-    )]
-    let density = rounded as u16;
-    density
+    dpi.round().clamp(0.0, f64::from(u16::MAX)) as u16
 }
 
 /// RGBA pixels flattened onto `background` as Pillow's

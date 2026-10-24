@@ -134,11 +134,6 @@ impl FuncAnimation {
         let images = self.frame_images()?;
         let interval = interval_millis(self.player.borrow().options.interval);
         // Whole milliseconds, as WebP stores them.
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "rounded and clamped to the range WebP stores"
-        )]
         let duration_ms = interval.round().clamp(0.0, f64::from(0xFF_FFFF)) as u32;
         let frames: Vec<AnimationFrame<'_>> = images
             .iter()
@@ -185,13 +180,7 @@ fn image_size(image: &RgbaImage) -> (u32, u32) {
 fn gif_delay(interval_millis: f64) -> u16 {
     let duration = (1000.0 / (1000.0 / interval_millis)).trunc();
     let centiseconds = (duration / 10.0).trunc().clamp(0.0, f64::from(u16::MAX));
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "clamped to an integer in u16's range"
-    )]
-    let delay = centiseconds as u16;
-    delay
+    centiseconds as u16
 }
 
 /// Writes `data` to `path`.

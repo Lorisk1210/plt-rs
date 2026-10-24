@@ -10,25 +10,9 @@ use plt::prelude::*;
 use plt::stats::{Bins, Cumulative, HistOptions, HistType, HistogramOptions, histogram};
 
 use super::{SEED, columns, strings};
-use crate::figures::cases::common::{colors, cumsum, map, sized};
+use crate::figures::cases::common::{bins, colors, cumsum, laid_out, map, sized};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
-
-/// Histogram options with `layout` and default styling.
-fn laid_out(layout: HistOptions<'_>) -> HistPlotOptions<'_> {
-    HistPlotOptions {
-        layout,
-        ..HistPlotOptions::default()
-    }
-}
-
-/// `bins=n`.
-fn bins(n: usize) -> HistOptions<'static> {
-    HistOptions {
-        bins: Some(Bins::Count(n)),
-        ..HistOptions::default()
-    }
-}
 
 fn histogram_bihistogram(fig: &Figure) -> CaseResult {
     let mut g = SpecRng::new(SEED);

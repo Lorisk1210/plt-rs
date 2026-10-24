@@ -14,7 +14,6 @@ use plt::colors::{ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, QuadCoords, QuadField};
 use plt::gridspec::SubplotOverrides;
 use plt::image::Origin;
-use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
@@ -22,26 +21,14 @@ use plt::text::AnnotateOptions;
 use plt::text::{HAlign, VAlign};
 use plt::transforms::Affine2D;
 use plt_core::Point;
+use plt_core::numeric::np_sign;
 
 use crate::figures::CaseResult;
+use crate::figures::cases::common::arange_grid;
 use crate::figures::cases::common::{
     axis_artist, polar_box, polar_degrees, polar_grid_helper, show_label,
 };
 use crate::rng::SpecRng;
-
-/// numpy's `sign`.
-fn sign(x: f64) -> f64 {
-    if x == 0.0 || x.is_nan() {
-        x
-    } else {
-        x.signum()
-    }
-}
-
-/// `np.arange(rows * cols).reshape(rows, cols)` as floats.
-fn arange_grid(rows: usize, cols: usize) -> Grid<f64> {
-    Grid::from_fn(rows, cols, |r, c| (r * cols + c) as f64)
-}
 
 /// The grid of matplotlib's `demo_curvelinear_grid`: `(x, y - x)`.
 fn shear() -> AuxTransform {
@@ -150,8 +137,8 @@ fn grid_below(ax: &axisartist::Axes) {
 
 pub(super) fn curvelinear_grid2(fig: &Figure) -> CaseResult {
     let tr = AuxTransform::from_fns(
-        |x, y| (sign(x) * x.abs().sqrt(), y),
-        |x, y| (sign(x) * (x * x), y),
+        |x, y| (np_sign(x) * x.abs().sqrt(), y),
+        |x, y| (np_sign(x) * (x * x), y),
     );
     let helper = GridHelperCurveLinear::new(
         tr,

@@ -2,7 +2,7 @@
 //! (`draw_path`, `draw_markers`, `draw_path_collection`,
 //! `draw_gouraud_triangles`, `draw_image`).
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib compares collection alphas exactly"
 )]

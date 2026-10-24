@@ -11,11 +11,11 @@ use plt::colors::{Color, Normalized, colormaps};
 use plt::numeric::{Grid, linspace};
 use plt_core::Rgba;
 
-use super::mpl_tests::{in_test_style, numbers};
+use super::mpl_tests::in_test_style;
 use super::multivar::{colors_json, size, values};
 use crate::json::Json;
-use crate::probes::encode::object;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::encode::{numbers, object};
+use crate::probes::{Args, Op, Outcome, ProbeError, made, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -48,21 +48,13 @@ pub(crate) const OPS: &[Op] = &[
     }),
 ];
 
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
-
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
 /// A colour given by name or as an RGBA list.
 fn color(json: &Json) -> Result<Color, ProbeError> {
     match json {
         Json::String(name) => Ok(Color::from(name.as_str())),
         other => match other.as_f64_vec().as_deref() {
             Some(&[r, g, b, a]) => Ok(Color::from(Rgba::new(r, g, b, a))),
-            _ => Err(bad("colour")),
+            _ => Err(malformed("colour")),
         },
     }
 }
@@ -70,7 +62,7 @@ fn color(json: &Json) -> Result<Color, ProbeError> {
 /// The values of every variate, one list each.
 fn variates(json: &Json) -> Result<Vec<Vec<Normalized>>, ProbeError> {
     json.as_array()
-        .ok_or_else(|| bad("values"))?
+        .ok_or_else(|| malformed("values"))?
         .iter()
         .map(values)
         .collect()
@@ -99,11 +91,11 @@ fn multivar(args: Args<'_>) -> Outcome {
     let components = args
         .json("colormaps")?
         .as_array()
-        .ok_or_else(|| bad("colormaps"))?
+        .ok_or_else(|| malformed("colormaps"))?
         .iter()
         .map(|name| {
             made(colormaps::get(
-                name.as_str().ok_or_else(|| bad("colormap"))?,
+                name.as_str().ok_or_else(|| malformed("colormap"))?,
             ))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -141,7 +133,7 @@ fn call_multivar(cmap: &MultivarColormap, args: Args<'_>) -> Outcome {
 /// A list of colours, one per variate.
 fn color_list(json: &Json) -> Result<Vec<Color>, ProbeError> {
     json.as_array()
-        .ok_or_else(|| bad("colours"))?
+        .ok_or_else(|| malformed("colours"))?
         .iter()
         .map(color)
         .collect()
@@ -169,7 +161,7 @@ fn multivar_resampled(args: Args<'_>) -> Outcome {
             .iter()
             .map(|s| {
                 size(s)?
-                    .map(|n| usize::try_from(n).map_err(|_| bad("lutshape")))
+                    .map(|n| usize::try_from(n).map_err(|_| malformed("lutshape")))
                     .transpose()
             })
             .collect::<Result<Vec<_>, _>>()?,
@@ -180,19 +172,19 @@ fn multivar_resampled(args: Args<'_>) -> Outcome {
     let component = args
         .json("component")?
         .as_array()
-        .ok_or_else(|| bad("component"))?;
+        .ok_or_else(|| malformed("component"))?;
     let [index, x] = component else {
-        return Err(bad("component"));
+        return Err(malformed("component"));
     };
     let index = index
         .as_i64()
         .and_then(|i| usize::try_from(i).ok())
-        .ok_or_else(|| bad("component"))?;
+        .ok_or_else(|| malformed("component"))?;
     let part = resampled
         .colormaps()
         .get(index)
         .ok_or_else(|| ProbeError::rejected("no such variate"))?;
-    let x = x.as_f64().ok_or_else(|| bad("component"))?;
+    let x = x.as_f64().ok_or_else(|| malformed("component"))?;
     Ok(object([
         ("call", called),
         (
@@ -216,11 +208,6 @@ fn image(name: &str) -> Result<BivarColormap, ProbeError> {
             BivarColormap::from_image("from image", lut, square, origin)
         }
         "rgb_u8" => {
-            #[expect(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                reason = "numpy's astype(uint8) truncates values in [0, 255)"
-            )]
             let byte = |fraction: f64| (fraction * 255.0) as u8;
             let lut = Grid::from_fn(10, 12, |r, c| {
                 [byte(r as f64 / 10.0), byte(c as f64 / 12.0), 255]
@@ -240,7 +227,7 @@ fn shape(name: &str) -> Result<BivarShape, ProbeError> {
 fn pair(json: &Json) -> Result<(f64, f64), ProbeError> {
     match json.as_f64_vec().as_deref() {
         Some(&[a, b]) => Ok((a, b)),
-        _ => Err(bad("pair")),
+        _ => Err(malformed("pair")),
     }
 }
 
@@ -321,7 +308,7 @@ fn getitem(args: Args<'_>) -> Outcome {
     let (axis, index) = match args.i64("axis")? {
         0 => (BivarAxis::First, 0),
         1 => (BivarAxis::Second, 1),
-        _ => return Err(bad("axis")),
+        _ => return Err(malformed("axis")),
     };
     let part = made(cmap.component(axis))?;
     let Some(given) = args.get("values").filter(|v| !matches!(v, Json::Null)) else {
@@ -339,7 +326,7 @@ fn bivar_resampled(args: Args<'_>) -> Outcome {
     let changed = match args.str("method")? {
         "resampled" => match args.json("lutshape")?.as_array() {
             Some([a, b]) => cmap.resampled((size(a)?, size(b)?), false),
-            _ => return Err(bad("lutshape")),
+            _ => return Err(malformed("lutshape")),
         },
         "reversed" => cmap.reversed(true, true),
         "transposed" => cmap.transposed(),
@@ -370,21 +357,23 @@ fn described(json: &Json) -> Result<MultiColormap, ProbeError> {
     if let Some(components) = spec.get("colormaps") {
         let components = components
             .as_array()
-            .ok_or_else(|| bad("colormaps"))?
+            .ok_or_else(|| malformed("colormaps"))?
             .iter()
             .map(|c| match c.as_array() {
                 Some([Json::String(name), index]) => {
                     let index = index
                         .as_i64()
                         .and_then(|i| usize::try_from(i).ok())
-                        .ok_or_else(|| bad("index"))?;
+                        .ok_or_else(|| malformed("index"))?;
                     made(multivar_colormap(name))?
                         .colormaps()
                         .get(index)
                         .cloned()
-                        .ok_or_else(|| bad("index"))
+                        .ok_or_else(|| malformed("index"))
                 }
-                _ => made(colormaps::get(c.as_str().ok_or_else(|| bad("colormap"))?)),
+                _ => made(colormaps::get(
+                    c.as_str().ok_or_else(|| malformed("colormap"))?,
+                )),
             })
             .collect::<Result<Vec<_>, _>>()?;
         let mode = made(spec.str("mode")?.parse())?;

@@ -10,8 +10,8 @@
 //! it is drawn solid. Agg would loop forever on a `1e300` offset or line.
 
 use plt_core::Point;
+use plt_core::path::outline::{VertexDist, VertexSequence};
 
-use super::vertex_seq::{VertexDist, VertexSequence};
 use super::{PathSink, SubpathAccumulator, SubpathGenerator};
 use crate::style::DashPattern;
 

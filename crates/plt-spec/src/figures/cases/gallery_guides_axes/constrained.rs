@@ -12,8 +12,8 @@ use plt::legend::LegendOptions;
 use plt::numeric::Grid;
 use plt::prelude::*;
 
-use super::{LAYOUT_RC, arange_grid};
-use crate::figures::cases::common::example_plot;
+use super::LAYOUT_RC;
+use crate::figures::cases::common::{arange_grid, example_plot};
 use crate::figures::{CaseResult, FigureCase};
 
 /// A case of the guide, on its `figure.figsize` of 4.5 × 4 in.
@@ -51,7 +51,7 @@ pub(super) fn arr_mesh(ax: &Axes) -> Result<Collection, Box<dyn std::error::Erro
             .limits(Some(0.0), Some(100.0)),
         ..PcolorOptions::default()
     };
-    let mesh = ax.pcolormesh(Mesh::new(arange_grid()), options)?;
+    let mesh = ax.pcolormesh(Mesh::new(arange_grid(10, 10)), options)?;
     mesh.set_rasterized(true);
     Ok(mesh)
 }

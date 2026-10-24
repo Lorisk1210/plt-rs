@@ -5,8 +5,9 @@ use plt::figure::{FigSize, Figure, SizeUnit};
 use plt::pyplot;
 use plt::text::Text;
 
-use super::super::mpl_tests::{in_test_style, numbers};
+use super::super::mpl_tests::in_test_style;
 use crate::json::Json;
+use crate::probes::encode::numbers;
 use crate::probes::{Args, Outcome, ProbeError};
 
 /// A figure number or label, as matplotlib's `num` argument.

@@ -17,7 +17,7 @@
 //! # Ok::<(), plt::colors::ColormapError>(())
 //! ```
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's colormap lookups select entries by exact float comparisons"
 )]
@@ -482,14 +482,11 @@ fn sample_segments(data: &SegmentData, n: usize, gamma: f64) -> Result<Vec<Rgba>
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn rgb() -> Colormap {
-        Colormap::listed("rgb", vec!["red", "green", "blue"]).unwrap()
-    }
+    use crate::testing::rgb_colormap;
 
     #[test]
     fn listed_extremes_and_reversal() {
-        let cmap = rgb();
+        let cmap = rgb_colormap();
         assert_eq!(cmap.under(), Rgba::opaque(1.0, 0.0, 0.0));
         assert_eq!(cmap.over(), Rgba::opaque(0.0, 0.0, 1.0));
         assert_eq!(cmap.bad(), Rgba::TRANSPARENT);
@@ -532,15 +529,18 @@ mod tests {
 
     #[test]
     fn alpha_resampling_and_equality() {
-        let cmap = rgb().with_alpha(0.5).unwrap();
+        let cmap = rgb_colormap().with_alpha(0.5).unwrap();
         assert!(cmap.lut.iter().all(|c| c.a == 0.5));
-        assert!(rgb().with_alpha(1.2).is_err());
+        assert!(rgb_colormap().with_alpha(1.2).is_err());
         assert_eq!(cmap.reversed().lut()[0].a, 1.0, "rebuilt from the colours");
-        let two = rgb().resampled(2).unwrap();
-        assert_eq!(two.lut(), [rgb().lut()[0], rgb().lut()[2]]);
-        assert_eq!(rgb(), rgb().with_name("other"));
-        assert_ne!(rgb(), rgb().reversed());
-        assert!(rgb().resampled(0).is_err());
+        let two = rgb_colormap().resampled(2).unwrap();
+        assert_eq!(
+            two.lut(),
+            [rgb_colormap().lut()[0], rgb_colormap().lut()[2]]
+        );
+        assert_eq!(rgb_colormap(), rgb_colormap().with_name("other"));
+        assert_ne!(rgb_colormap(), rgb_colormap().reversed());
+        assert!(rgb_colormap().resampled(0).is_err());
     }
 
     #[test]

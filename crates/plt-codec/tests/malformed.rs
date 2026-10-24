@@ -8,28 +8,10 @@ use std::path::Path;
 use plt_codec::gif::{GifEncoder, GifFrame};
 use plt_codec::png::{self, ImageRef};
 use plt_codec::{webp, zlib};
-
-/// `SplitMix64`.
-struct Rng(u64);
-
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
-    /// Uniform in `0..bound` (`bound > 0`).
-    fn below(&mut self, bound: usize) -> usize {
-        let bound = u64::try_from(bound).expect("a usize fits in u64");
-        usize::try_from(self.next() % bound).expect("below a usize bound")
-    }
-}
+use plt_core::rng::SplitMix64;
 
 /// `data` with 1 to 4 bits, bytes or lengths changed.
-fn mutate(data: &[u8], rng: &mut Rng) -> Vec<u8> {
+fn mutate(data: &[u8], rng: &mut SplitMix64) -> Vec<u8> {
     let mut out = data.to_vec();
     for _ in 0..=rng.below(4) {
         if out.is_empty() {
@@ -39,7 +21,7 @@ fn mutate(data: &[u8], rng: &mut Rng) -> Vec<u8> {
         match rng.below(4) {
             0 => out[at] ^= 1 << rng.below(8),
             1 => out[at] = [0, 0xFF, 0x7F, 0x80][rng.below(4)],
-            2 => out[at] = rng.next().to_le_bytes()[0],
+            2 => out[at] = rng.next_u64().to_le_bytes()[0],
             _ => out.truncate(at),
         }
     }
@@ -77,7 +59,7 @@ fn gradient(width: u32, height: u32) -> Vec<u8> {
 
 /// Feeds `rounds` corruptions of the `corpus` files to `decode`.
 fn corrupt_all(corpus: &[Vec<u8>], rounds: usize, seed: u64, decode: impl Fn(&[u8])) {
-    let mut rng = Rng(seed);
+    let mut rng = SplitMix64::new(seed);
     for round in 0..rounds {
         decode(&mutate(&corpus[round % corpus.len()], &mut rng));
     }

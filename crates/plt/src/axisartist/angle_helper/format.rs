@@ -1,10 +1,12 @@
 //! Angle labels in degrees or hours with minutes and seconds
 //! (matplotlib's `FormatterDMS` and `FormatterHMS`).
 
+use plt_core::numeric::{divmod, np_sign};
+
 use crate::axisartist::grid_finder::{GridError, GridFormatter};
 use crate::spines::SpineSide;
 use crate::ticker::pyfmt::{PrintfFormat, integer, repr};
-use crate::ticker::pymath::{divmod, np_sign, pow10};
+use crate::ticker::pymath::pow10;
 
 /// The marks written after the units, minutes and seconds.
 struct Marks {

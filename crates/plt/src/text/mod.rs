@@ -71,7 +71,7 @@ pub(crate) enum AngleReduction {
 /// State of a text artist (matplotlib's `Text`, and `Annotation` when
 /// `annotation` is set).
 #[derive(Debug)]
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "mirrors matplotlib's independent boolean text properties"
 )]

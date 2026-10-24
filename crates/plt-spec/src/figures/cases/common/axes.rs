@@ -12,10 +12,10 @@ use plt::axisartist::{self, AuxTransform, AxisArtist};
 use plt::colors::{Color, Colorize, ColorizerOptions, ColormapError, colormaps};
 use plt::figure::{Figure, Mosaic, MosaicCell, MosaicError};
 use plt::fonts::FontSize;
-use plt::gridspec::GridSpec;
-use plt::layout::TightLayout;
+use plt::gridspec::{GridSpec, SubplotSpec};
+use plt::layout::{LayoutEngine, LayoutEngineError, TightLayout};
 use plt::legend::LegendOptions;
-use plt::lines::LineProps;
+use plt::lines::{LineProps, LineStyle, MarkEvery};
 use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, FaceColors};
 use plt::numeric::linspace;
 use plt::rc::Aspect;
@@ -350,6 +350,65 @@ pub(crate) fn example_plot(
         ax.set_yticklabels(Vec::<String>::new())?;
     } else {
         decorate(ax, fontsize);
+    }
+    Ok(())
+}
+
+/// The only axes of a figure laid out by the constrained layout engine.
+pub(crate) fn constrained(fig: &Figure) -> Result<Axes, LayoutEngineError> {
+    fig.set_layout_engine(LayoutEngine::constrained())?;
+    Ok(fig.subplot())
+}
+
+/// Two axes in a constrained figure, one above the other.
+pub(crate) fn stacked_pair(fig: &Figure) -> Result<(Axes, Axes), Box<dyn std::error::Error>> {
+    fig.set_layout_engine(LayoutEngine::constrained())?;
+    let axs = fig.subplots(2, 1)?;
+    Ok((axs[(0, 0)].clone(), axs[(1, 0)].clone()))
+}
+
+/// How a `markevery` grid sets up each of its axes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MarkeveryAxes {
+    /// Plain rectilinear axes.
+    Linear,
+    /// Log scales on both axes before plotting.
+    Log,
+    /// Rectilinear axes zoomed to `x` 6–6.7, `y` 1.1–1.7 after plotting.
+    Zoomed,
+    /// Polar axes.
+    Polar,
+}
+
+/// One axes of a `markevery` grid, in the cell `spec`, set up as `kind`
+/// and titled `title` if given, plotting `y` against `x` as `o-` with 4 pt
+/// markers at `markevery`.
+pub(crate) fn markevery_panel(
+    fig: &Figure,
+    spec: &SubplotSpec,
+    kind: MarkeveryAxes,
+    title: Option<String>,
+    (x, y): (&[f64], &[f64]),
+    markevery: Option<MarkEvery>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let ax = if kind == MarkeveryAxes::Polar {
+        (*fig.add_polar_subplot_spec(spec)?).clone()
+    } else {
+        fig.add_subplot_spec(spec)?
+    };
+    if let Some(title) = title {
+        ax.set_title(title);
+    }
+    if kind == MarkeveryAxes::Log {
+        ax.set_xscale("log")?.set_yscale("log")?;
+    }
+    let style = LineProps::fmt("o")?
+        .linestyle(LineStyle::Solid)
+        .markersize(4.0)
+        .markevery(markevery);
+    ax.plot_with(x, y, style)?;
+    if kind == MarkeveryAxes::Zoomed {
+        ax.set_xlim(6.0, 6.7)?.set_ylim(1.1, 1.7)?;
     }
     Ok(())
 }

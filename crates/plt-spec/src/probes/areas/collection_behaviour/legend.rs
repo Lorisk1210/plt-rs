@@ -8,15 +8,10 @@ use plt::figure::Figure;
 use plt::markers::{FillStyle, Marker, MarkerStyle};
 use plt::ticker::StrMethodFormatter;
 
-use super::made;
 use crate::json::Json;
 use crate::probes::encode::object;
-use crate::probes::{Args, Outcome, ProbeError};
+use crate::probes::{Args, Outcome, ProbeError, made};
 use crate::rng::SpecRng;
-
-fn bad(what: impl std::fmt::Display) -> ProbeError {
-    ProbeError::BadArgs(what.to_string())
-}
 
 /// `num`: a target count, a list of values or `"auto"`.
 fn count(value: &Json) -> Result<ElementCount, ProbeError> {
@@ -24,11 +19,11 @@ fn count(value: &Json) -> Result<ElementCount, ProbeError> {
         Json::String(name) if name == "auto" => Ok(ElementCount::Auto),
         Json::Integer(n) => usize::try_from(*n)
             .map(ElementCount::Target)
-            .map_err(|_| bad(format!("bad num {n}"))),
+            .map_err(|_| ProbeError::BadArgs(format!("bad num {n}"))),
         other => other
             .as_f64_vec()
             .map(ElementCount::Values)
-            .ok_or_else(|| bad(format!("bad num {other}"))),
+            .ok_or_else(|| ProbeError::BadArgs(format!("bad num {other}"))),
     }
 }
 
@@ -37,7 +32,7 @@ fn func(name: &str) -> Result<Box<dyn Fn(f64) -> f64>, ProbeError> {
     match name {
         "double" => Ok(Box::new(|x| 2.0 * x)),
         "inverse5" => Ok(Box::new(|x| 5.0 / x)),
-        other => Err(bad(format!("unknown func {other:?}"))),
+        other => Err(ProbeError::BadArgs(format!("unknown func {other:?}"))),
     }
 }
 
@@ -46,14 +41,14 @@ fn options(value: &Json) -> Result<LegendElementsOptions, ProbeError> {
     for (key, item) in value.as_object().unwrap_or(&[]) {
         let text = || {
             item.as_str()
-                .ok_or_else(|| bad(format!("bad {key} {item}")))
+                .ok_or_else(|| ProbeError::BadArgs(format!("bad {key} {item}")))
         };
         match key.as_str() {
             "prop" => {
                 options.prop = match text()? {
                     "colors" => LegendProperty::Colors,
                     "sizes" => LegendProperty::Sizes,
-                    other => return Err(bad(format!("unknown prop {other:?}"))),
+                    other => return Err(ProbeError::BadArgs(format!("unknown prop {other:?}"))),
                 };
             }
             "num" => options.num = count(item)?,
@@ -61,7 +56,7 @@ fn options(value: &Json) -> Result<LegendElementsOptions, ProbeError> {
             "func" => options.func = Some(func(text()?)?),
             "alpha" => options.alpha = item.as_f64(),
             "color" => options.color = Some(Color::from(text()?)),
-            other => return Err(bad(format!("unknown option {other}"))),
+            other => return Err(ProbeError::BadArgs(format!("unknown option {other}"))),
         }
     }
     Ok(options)

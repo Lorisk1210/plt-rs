@@ -15,23 +15,15 @@ use plt::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOptions, AnnotationBboxOptions, BoxItem, DrawingArea,
     OffsetBox, OffsetImage, PackAlign, Packer, TextArea,
 };
-use plt::patches::{Annulus, BoxStyle, Circle, ConnectionEnd, ConnectionPatch, Ellipse};
+use plt::patches::{Annulus, BoxStyle, Circle, ConnectionEnd, ConnectionPatch};
 use plt::prelude::*;
 use plt::text::{
     AnnotateOptions, Annotation, ArrowProps, FancyArrowProps, HAlign, TextProps, VAlign,
 };
 use plt::transforms::Point;
 
-use crate::figures::cases::common::{sized, styled_box};
+use crate::figures::cases::common::{ellipse, sized, styled_box};
 use crate::figures::{CaseResult, FigureCase};
-
-/// `Ellipse(center, width, height, angle=angle)`.
-fn ellipse(center: (f64, f64), width: f64, height: f64, angle: f64) -> Ellipse {
-    Ellipse {
-        angle,
-        ..Ellipse::new(center, width, height)
-    }
-}
 
 /// The `->` arrow of most of the guide's annotations.
 fn plain_arrow() -> Result<FancyArrowProps, Box<dyn std::error::Error>> {

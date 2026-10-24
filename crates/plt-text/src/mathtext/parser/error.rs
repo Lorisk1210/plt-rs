@@ -55,12 +55,6 @@ impl From<GlyphError> for Fail {
     }
 }
 
-impl From<TextError> for Fail {
-    fn from(err: TextError) -> Self {
-        Self::Fatal(err)
-    }
-}
-
 /// The pyparsing exception class named in messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ErrorKind {

@@ -1,15 +1,14 @@
 //! RGB ↔ HSV conversion (matplotlib's `rgb_to_hsv` / `hsv_to_rgb`).
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's hue selection compares channels with the maximum exactly"
 )]
 
 use plt_core::Rgba;
+use plt_core::numeric::{np_maximum, np_minimum, remainder};
 
 use super::ColorError;
-use super::npmath::{nan_max, nan_min};
-use crate::ticker::pymath::py_mod;
 
 /// Converts `[r, g, b]` in `[0, 1]` to `[hue, saturation, value]`, all in
 /// `[0, 1]`. NaN components pass through like in matplotlib.
@@ -20,8 +19,8 @@ use crate::ticker::pymath::py_mod;
 /// ```
 pub fn rgb_to_hsv(rgb: [f64; 3]) -> Result<[f64; 3], ColorError> {
     let [r, g, b] = rgb;
-    let max = nan_max(nan_max(r, g), b);
-    let min = nan_min(nan_min(r, g), b);
+    let max = np_maximum(np_maximum(r, g), b);
+    let min = np_minimum(np_minimum(r, g), b);
     if max > 1.0 || min < 0.0 {
         return Err(ColorError::ComponentOutOfRange(Rgba::opaque(r, g, b)));
     }
@@ -40,7 +39,7 @@ pub fn rgb_to_hsv(rgb: [f64; 3]) -> Result<[f64; 3], ColorError> {
             hue = 4.0 + (r - g) / delta;
         }
     }
-    Ok([py_mod(hue / 6.0, 1.0), saturation, max])
+    Ok([remainder(hue / 6.0, 1.0), saturation, max])
 }
 
 /// Converts `[hue, saturation, value]` to `[r, g, b]`.

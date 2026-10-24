@@ -59,6 +59,12 @@ impl<'a> Args<'a> {
             .transpose()
     }
 
+    /// Required non-negative integer argument; a negative one is rejected
+    /// (Python raises for it).
+    pub fn usize(&self, key: &str) -> Result<usize, ProbeError> {
+        usize::try_from(self.i64(key)?).map_err(ProbeError::rejected)
+    }
+
     /// A required boolean.
     pub fn bool(&self, key: &str) -> Result<bool, ProbeError> {
         self.json(key)?

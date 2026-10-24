@@ -6,6 +6,7 @@ mod derived;
 pub use anchor::Anchor;
 
 use crate::Point;
+use crate::numeric::{np_maximum, np_minimum};
 
 /// An axis-aligned box spanned by two corner points.
 ///
@@ -74,19 +75,19 @@ impl Bbox {
     }
     /// Smaller x bound.
     pub fn xmin(&self) -> f64 {
-        nan_min(self.p0.x, self.p1.x)
+        np_minimum(self.p0.x, self.p1.x)
     }
     /// Larger x bound.
     pub fn xmax(&self) -> f64 {
-        nan_max(self.p0.x, self.p1.x)
+        np_maximum(self.p0.x, self.p1.x)
     }
     /// Smaller y bound.
     pub fn ymin(&self) -> f64 {
-        nan_min(self.p0.y, self.p1.y)
+        np_minimum(self.p0.y, self.p1.y)
     }
     /// Larger y bound.
     pub fn ymax(&self) -> f64 {
-        nan_max(self.p0.y, self.p1.y)
+        np_maximum(self.p0.y, self.p1.y)
     }
     /// Signed width `x1 - x0`.
     pub fn width(&self) -> f64 {
@@ -200,10 +201,10 @@ impl Bbox {
     #[must_use]
     pub fn union(&self, other: &Self) -> Self {
         Self::from_extents(
-            nan_min(self.xmin(), other.xmin()),
-            nan_min(self.ymin(), other.ymin()),
-            nan_max(self.xmax(), other.xmax()),
-            nan_max(self.ymax(), other.ymax()),
+            np_minimum(self.xmin(), other.xmin()),
+            np_minimum(self.ymin(), other.ymin()),
+            np_maximum(self.xmax(), other.xmax()),
+            np_maximum(self.ymax(), other.ymax()),
         )
     }
 
@@ -219,10 +220,10 @@ impl Bbox {
 
     /// The ordered intersection, or `None` when the boxes are disjoint.
     pub fn intersection(&self, other: &Self) -> Option<Self> {
-        let x0 = nan_max(self.xmin(), other.xmin());
-        let x1 = nan_min(self.xmax(), other.xmax());
-        let y0 = nan_max(self.ymin(), other.ymin());
-        let y1 = nan_min(self.ymax(), other.ymax());
+        let x0 = np_maximum(self.xmin(), other.xmin());
+        let x1 = np_minimum(self.xmax(), other.xmax());
+        let y0 = np_maximum(self.ymin(), other.ymin());
+        let y1 = np_minimum(self.ymax(), other.ymax());
         (x0 <= x1 && y0 <= y1).then(|| Self::from_extents(x0, y0, x1, y1))
     }
 
@@ -268,24 +269,6 @@ impl Bbox {
         } else {
             *self
         }
-    }
-}
-
-/// `min` that propagates NaN, like numpy.
-fn nan_min(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.min(b)
-    }
-}
-
-/// `max` that propagates NaN, like numpy.
-fn nan_max(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.max(b)
     }
 }
 

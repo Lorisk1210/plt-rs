@@ -3,6 +3,8 @@
 
 use std::collections::HashMap;
 
+use crate::figures::vector::postscript::is_delimiter;
+
 /// A PDF object.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Value {
@@ -47,11 +49,6 @@ impl Value {
             _ => None,
         }
     }
-}
-
-/// Whether `b` ends a token.
-fn is_delimiter(b: u8) -> bool {
-    b.is_ascii_whitespace() || b"()<>[]{}/%".contains(&b)
 }
 
 /// A cursor over PDF bytes.

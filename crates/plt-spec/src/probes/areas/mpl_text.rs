@@ -8,8 +8,9 @@ use plt::fonts::{FontProperties, FontSize, Fontset};
 use plt::image::imread_bytes;
 use plt::text::{AnnotateOptions, MathImageOptions};
 
-use super::mpl_tests::{in_test_style, numbers};
+use super::mpl_tests::in_test_style;
 use crate::json::Json;
+use crate::probes::encode::numbers;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.

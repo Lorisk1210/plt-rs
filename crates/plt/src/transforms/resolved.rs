@@ -340,6 +340,7 @@ impl ResolvedTransform {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::close_points;
 
     #[derive(Debug)]
     struct Log10;
@@ -351,10 +352,6 @@ mod tests {
         fn inverse(&self, value: f64) -> f64 {
             10f64.powf(value)
         }
-    }
-
-    fn close(a: Point, b: Point) -> bool {
-        (a - b).length() < 1e-9
     }
 
     fn log_x_then_scale() -> ResolvedTransform {
@@ -413,12 +410,12 @@ mod tests {
     #[test]
     fn non_affine_steps_then_affine() {
         let t = log_x_then_scale();
-        assert!(close(
+        assert!(close_points(
             t.transform_point(Point::new(1000.0, 3.0)),
             Point::new(300.0, 6.0)
         ));
         let inv = t.inverted().expect("invertible");
-        assert!(close(
+        assert!(close_points(
             inv.transform_point(Point::new(300.0, 6.0)),
             Point::new(1000.0, 3.0)
         ));
@@ -428,12 +425,12 @@ mod tests {
     fn composition_keeps_order() {
         let t = ResolvedTransform::affine(Affine2D::scaling(10.0, 1.0)).then(log_x_then_scale());
         // (10 * 10 = 100) -> log10 = 2 -> * 100 = 200
-        assert!(close(
+        assert!(close_points(
             t.transform_point(Point::new(10.0, 1.0)),
             Point::new(200.0, 2.0)
         ));
         let inv = t.inverted().expect("invertible");
-        assert!(close(
+        assert!(close_points(
             inv.transform_point(Point::new(200.0, 2.0)),
             Point::new(10.0, 1.0)
         ));
@@ -444,7 +441,7 @@ mod tests {
         let x = ResolvedTransform::affine(Affine2D::scaling(2.0, 0.0));
         let y = log_x_then_scale().then(ResolvedTransform::affine(Affine2D::translation(0.0, 1.0)));
         let blended = ResolvedTransform::blend(x, y);
-        assert!(close(
+        assert!(close_points(
             blended.transform_point(Point::new(5.0, 4.0)),
             Point::new(10.0, 9.0)
         ));
@@ -474,7 +471,7 @@ mod tests {
             Point::new(50.0, 0.0)
         );
         let inverse = blended.inverted().expect("invertible");
-        assert!(close(
+        assert!(close_points(
             inverse.transform_point(Point::new(50.0, 25.0)),
             Point::new(0.5, 0.5)
         ));
@@ -484,11 +481,17 @@ mod tests {
     fn bboxes_map_their_two_corners() {
         let t = log_x_then_scale();
         let mapped = t.transform_bbox(&Bbox::from_extents(1000.0, 3.0, 10.0, -1.0));
-        assert!(close(mapped.p0, Point::new(300.0, 6.0)));
-        assert!(close(mapped.p1, Point::new(100.0, -2.0)), "not reordered");
+        assert!(close_points(mapped.p0, Point::new(300.0, 6.0)));
+        assert!(
+            close_points(mapped.p1, Point::new(100.0, -2.0)),
+            "not reordered"
+        );
         let rotated = ResolvedTransform::affine(Affine2D::rotation(std::f64::consts::FRAC_PI_2));
         let quarter = rotated.transform_bbox(&Bbox::UNIT);
-        assert!(close(quarter.p1, Point::new(-1.0, 1.0)), "corners only");
+        assert!(
+            close_points(quarter.p1, Point::new(-1.0, 1.0)),
+            "corners only"
+        );
         assert!(!t.transform_bbox(&Bbox::NULL).is_finite());
     }
 
@@ -497,9 +500,9 @@ mod tests {
         let t = log_x_then_scale();
         let path = Path::polyline(vec![Point::new(10.0, 1.0), Point::new(100.0, 2.0)]);
         let (partial, affine) = t.split_path(&path);
-        assert!(close(partial.vertices()[1], Point::new(2.0, 2.0)));
+        assert!(close_points(partial.vertices()[1], Point::new(2.0, 2.0)));
         assert_eq!(affine, Affine2D::scaling(100.0, 2.0));
-        assert!(close(
+        assert!(close_points(
             t.transform_path(&path).vertices()[0],
             Point::new(100.0, 2.0)
         ));

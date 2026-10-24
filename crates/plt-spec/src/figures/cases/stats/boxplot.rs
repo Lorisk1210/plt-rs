@@ -11,14 +11,7 @@ use plt::stats::Whis;
 
 use super::samples;
 use crate::figures::FigureCase;
-
-/// Box plot options that only change how the boxes are drawn.
-fn drawn(draw: BxpOptions) -> BoxplotOptions {
-    BoxplotOptions {
-        draw,
-        ..BoxplotOptions::default()
-    }
-}
+use crate::figures::cases::common::drawn_boxes;
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("stats/boxplot_default", |fig| {
@@ -28,7 +21,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/boxplot_notch", |fig| {
-        let options = drawn(BxpOptions {
+        let options = drawn_boxes(BxpOptions {
             shownotches: Some(true),
             ..BxpOptions::default()
         });
@@ -37,7 +30,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/boxplot_horizontal", |fig| {
-        let options = drawn(BxpOptions {
+        let options = drawn_boxes(BxpOptions {
             orientation: Orientation::Horizontal,
             ..BxpOptions::default()
         });
@@ -59,7 +52,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("stats/boxplot_no_fliers_custom_sym", |fig| {
         let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
-        let no_fliers = drawn(BxpOptions {
+        let no_fliers = drawn_boxes(BxpOptions {
             showfliers: Some(false),
             ..BxpOptions::default()
         });
@@ -75,7 +68,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("stats/boxplot_showmeans_meanline", |fig| {
         let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
         for (ax, meanline) in axs.as_slice().iter().zip([false, true]) {
-            let options = drawn(BxpOptions {
+            let options = drawn_boxes(BxpOptions {
                 showmeans: Some(true),
                 meanline: Some(meanline),
                 ..BxpOptions::default()
@@ -86,7 +79,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("stats/boxplot_patch_artist_colored", |fig| {
-        let options = drawn(BxpOptions {
+        let options = drawn_boxes(BxpOptions {
             boxes: Some(BoxStyle::Patch(PatchProps::default())),
             medianprops: LineProps::default().color("k").linewidth(2.0),
             ..BxpOptions::default()
@@ -115,7 +108,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/boxplot_props_and_caps", |fig| {
-        let options = drawn(BxpOptions {
+        let options = drawn_boxes(BxpOptions {
             boxes: Some(BoxStyle::Line(
                 LineProps::default().color("tab:blue").linewidth(2.0),
             )),

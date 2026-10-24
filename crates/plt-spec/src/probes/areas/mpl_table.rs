@@ -6,7 +6,8 @@ use plt::table::{CellEdges, TableLoc, TableOptions};
 use plt_core::path::convert::{CleanupOptions, SimplifySettings};
 use plt_core::{PathCode, Segment};
 
-use super::mpl_tests::{in_test_style, numbers};
+use super::mpl_tests::in_test_style;
+use crate::probes::encode::numbers;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.

@@ -14,7 +14,7 @@ use plt_core::Affine2D;
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{bbox, object};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 use crate::rng::SpecRng;
 
 /// Operations implemented for this area.
@@ -23,10 +23,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("quiver.arguments", |args| with_rc(args, || arguments(args))),
     Op::new("quiver.draw", |args| with_rc(args, || draw(args))),
 ];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 /// `sin(X)`, `cos(Y)` on the 20 × 10 grid of `linspace(-5, 10, 20)` and
 /// `linspace(-2, 4, 10)`, rows along x as `meshgrid(y, x)` builds them.

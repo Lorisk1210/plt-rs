@@ -55,8 +55,3 @@ pub(crate) fn in_test_style<T>(
         result
     })
 }
-
-/// A JSON list of numbers.
-pub(crate) fn numbers(values: impl IntoIterator<Item = f64>) -> Json {
-    Json::Array(values.into_iter().map(Json::from).collect())
-}

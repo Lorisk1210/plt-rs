@@ -15,10 +15,10 @@ use plt_core::{Point, Rgba};
 use plt_render::Dashes;
 
 use super::super::canon::Canon;
-use super::super::mpl_tests::{in_test_style, numbers};
-use super::{maybe_rgba, texts};
+use super::super::mpl_tests::in_test_style;
+use super::{legend, maybe_rgba, texts};
 use crate::json::Json;
-use crate::probes::encode::object;
+use crate::probes::encode::{numbers, object, rgba};
 use crate::probes::{Args, Outcome, ProbeError};
 
 /// `Legend.legend_handles` in the scene `scene`.
@@ -44,11 +44,6 @@ fn proxy<T: plt::artist::TypedHandle>(legend: &Legend, index: usize) -> Result<T
         .and_then(Option::as_ref)
         .and_then(RawHandle::downcast)
         .ok_or_else(|| ProbeError::rejected(format!("no proxy of that type at {index}")))
-}
-
-/// The legend of `ax` made with `options`.
-fn legend(ax: &Axes, options: LegendOptions) -> Result<Legend, ProbeError> {
-    ax.legend(options).map_err(ProbeError::rejected)
 }
 
 /// `test_reverse_legend_handles_and_labels`: the labels and proxy
@@ -173,11 +168,6 @@ fn line_collection_dashes(ax: &Axes) -> Outcome {
         })
         .collect::<Result<_, _>>()
         .map(Json::Array)
-}
-
-/// `[r, g, b, a]`.
-fn rgba(color: Rgba) -> Json {
-    numbers(color.to_array())
 }
 
 /// The face and edge colours of a rectangle.

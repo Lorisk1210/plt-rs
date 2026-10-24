@@ -9,7 +9,7 @@ use super::SvgRenderer;
 use super::style::{Style, css};
 use super::xml::XmlWriter;
 use crate::gc::GraphicsContext;
-use crate::vector::{hex_color, repr, repr_str, short};
+use crate::vector::{repr, repr_str, short};
 
 /// What a clip definition contains.
 #[derive(Clone, Debug, PartialEq)]
@@ -206,7 +206,9 @@ impl Hatches {
                 plt_core::hatch::pattern_path(&key.pattern, plt_core::hatch::DEFAULT_DENSITY)
                     .unwrap_or_default();
             let data = path_data(&path, tile);
-            let fill = key.face.map_or_else(|| "none".to_owned(), hex_color);
+            let fill = key
+                .face
+                .map_or_else(|| "none".to_owned(), |face| face.to_hex(false));
             let edge = (HATCH_SIZE + 1.0).to_string();
             writer.element(
                 "rect",
@@ -220,8 +222,8 @@ impl Hatches {
                 ],
             );
             let mut style: Style = vec![
-                ("fill", hex_color(key.color)),
-                ("stroke", hex_color(key.color)),
+                ("fill", key.color.to_hex(false)),
+                ("stroke", key.color.to_hex(false)),
                 ("stroke-width", repr(key.linewidth)),
                 ("stroke-linecap", "butt".to_owned()),
                 ("stroke-linejoin", "miter".to_owned()),

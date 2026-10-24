@@ -3,6 +3,7 @@
 //! lines, ticks and labels — fixed axes tick the grid lines crossing an
 //! edge, floating axes run along a line of constant coordinate.
 
+use plt_core::numeric::{np_maximum, np_minimum, py_max, py_min};
 use plt_core::{Bbox, Point};
 
 use super::aux_transform::AuxTransform;
@@ -12,7 +13,6 @@ use super::grid_finder::{
 use super::helper::TickInfo;
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
-use crate::ticker::pymath::{py_max, py_min};
 use crate::transforms::{ResolvedTransform, interval_contains_close};
 
 /// The relative tolerance of matplotlib's `_interval_contains_close`.
@@ -296,24 +296,6 @@ pub(crate) fn curve_label_position(
         AxisName::Y => dx[0],
     };
     ((0.0..=1.0).contains(&p.x) && (0.0..=1.0).contains(&p.y)).then(|| (xy, angle.to_degrees()))
-}
-
-/// numpy's `minimum`: NaN if either value is NaN.
-fn np_minimum(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.min(b)
-    }
-}
-
-/// numpy's `maximum`: NaN if either value is NaN.
-fn np_maximum(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.max(b)
-    }
 }
 
 /// The finite-difference step towards the farther of the bounds `lim`

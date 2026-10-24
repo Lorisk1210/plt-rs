@@ -3,9 +3,9 @@
 
 use plt_core::{Affine2D, Bbox, Point};
 
-use super::artist::{canvas_bbox, draw_rendered};
 use super::make::{CoreSettings, ImageCore, Placement, RenderedImage};
 use super::resample::PixelMap;
+use super::shared::{canvas_bbox, draw_rendered};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,

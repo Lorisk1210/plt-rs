@@ -84,7 +84,7 @@ pub(super) fn pie(args: Args<'_>) -> Outcome {
         let pie = made(ax.pie(&args.f64_vec("x")?, pie_options(args)?))?;
         let wedges = pie.wedges.iter().map(|wedge| {
             let shape = wedge.shape();
-            numbers(&[shape.theta1, shape.theta2])
+            numbers([shape.theta1, shape.theta2])
         });
         Ok(encode::object([
             ("wedges", Json::Array(wedges.collect())),

@@ -16,10 +16,10 @@ use plt::rc;
 use plt::tri::Triangulation;
 use plt_core::{Affine2D, Path};
 
-use super::mpl_tests::{in_test_style, numbers};
+use super::mpl_tests::in_test_style;
 use crate::json::Json;
-use crate::probes::encode::object;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::encode::{numbers, object};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 use crate::rng::SpecRng;
 
 /// Operations implemented for this area.
@@ -51,10 +51,6 @@ pub(crate) const OPS: &[Op] = &[
         in_test_style(args, || negative_linestyles(args))
     }),
 ];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 fn unknown(scene: &str) -> ProbeError {
     ProbeError::BadArgs(format!("unknown scene {scene:?}"))

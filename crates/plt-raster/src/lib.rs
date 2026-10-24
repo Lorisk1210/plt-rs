@@ -23,6 +23,7 @@
 
 mod clip;
 mod color;
+mod dda;
 mod error;
 mod geometry;
 mod mask;

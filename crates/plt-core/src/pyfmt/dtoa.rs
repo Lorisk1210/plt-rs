@@ -23,7 +23,7 @@ pub(super) enum Presentation {
 }
 
 /// Everything `PyOS_double_to_string` takes besides the value.
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "mirrors CPython's independent Py_DTSF_* flags"
 )]

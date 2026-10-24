@@ -2,6 +2,7 @@
 //! `find_nearest_contour` and `_find_closest_point_on_path`), which
 //! manual label placement snaps to.
 
+use plt_core::numeric::np_clip;
 use plt_core::{Path, Point};
 
 use super::{ContourError, ContourSet};
@@ -168,7 +169,7 @@ fn closest_point(line: &[Point], p: Point) -> Option<(f64, Point, usize)> {
                 if norm == 0.0 {
                     norm = 1.0;
                 }
-                let rel = np_clip(((p.x - a.x) * dx + (p.y - a.y) * dy) / norm);
+                let rel = np_clip(((p.x - a.x) * dx + (p.y - a.y) * dy) / norm, 0.0, 1.0);
                 let proj = Point::new(a.x + rel * dx, a.y + rel * dy);
                 ((proj.x - p.x).powi(2) + (proj.y - p.y).powi(2), proj)
             });
@@ -188,25 +189,17 @@ fn closest_point(line: &[Point], p: Point) -> Option<(f64, Point, usize)> {
     }
 }
 
-/// `np.clip(v, 0, 1)`.
-fn np_clip(v: f64) -> f64 {
-    if v.is_nan() { v } else { v.clamp(0.0, 1.0) }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::contour::{ContourOptions, Levels, QuadCoords, QuadField};
     use crate::figure::Figure;
     use crate::numeric::Grid;
-
-    fn line(coords: &[(f64, f64)]) -> Vec<Point> {
-        coords.iter().map(|&(x, y)| Point::new(x, y)).collect()
-    }
+    use crate::testing::points;
 
     #[test]
     fn closest_point_projects_onto_segments() {
-        let path = line(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]);
+        let path = points(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]);
         let (d2, proj, index) = closest_point(&path, Point::new(4.0, 2.0)).unwrap();
         assert_eq!((d2, proj, index), (4.0, Point::new(4.0, 0.0), 1));
         let (_, proj, index) = closest_point(&path, Point::new(12.0, 7.0)).unwrap();

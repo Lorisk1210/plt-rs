@@ -19,6 +19,7 @@ use plt::ticker::{
 
 use super::ticker::{Params, settings};
 use crate::json::Json;
+use crate::probes::encode::count;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.
@@ -312,10 +313,6 @@ fn object(fields: Vec<(&str, Json)>) -> Json {
             .map(|(key, value)| (key.to_owned(), value))
             .collect(),
     )
-}
-
-fn count(n: usize) -> Json {
-    Json::from(n as f64)
 }
 
 fn auto_or(n: Option<usize>) -> Json {

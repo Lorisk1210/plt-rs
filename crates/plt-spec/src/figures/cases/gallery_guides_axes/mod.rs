@@ -17,7 +17,6 @@ mod tight;
 mod transforms;
 mod units;
 
-use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::text::{HAlign, Text, TextProps, VAlign};
 
@@ -29,11 +28,6 @@ const SEED: u64 = 19_680_801;
 
 /// The rcParams the constrained and tight layout guides set first.
 const LAYOUT_RC: &[(&str, &str)] = &[("savefig.facecolor", "0.8")];
-
-/// The layout guides' `arr`: `np.arange(100).reshape((10, 10))`.
-fn arange_grid() -> Grid<f64> {
-    Grid::from_fn(10, 10, |row, col| (row * 10 + col) as f64)
-}
 
 /// `plt.subplot2grid`'s four axes of the layout guides on a 3 × 3 grid,
 /// each an `example_plot`.

@@ -7,22 +7,17 @@
 use plt::axes::{AxisName, SecondaryLocation, TickLabelProps, TickLevel, TickParams};
 use plt::dates::{DateFormatter, Datetime64, RRuleLocator};
 use plt::fonts::FontSize;
-use plt::layout::{LayoutEngine, LayoutEngineError};
+use plt::layout::LayoutEngine;
 use plt::prelude::*;
 use plt::spines::SpineSide;
 use plt::text::{HAlign, TextRotationMode as RotationMode};
 
+use crate::figures::cases::common::constrained;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 /// The seed of the examples' random data.
 const SEED: u64 = 19_680_801;
-
-/// One axes in a constrained figure.
-fn constrained(fig: &Figure) -> Result<Axes, LayoutEngineError> {
-    fig.set_layout_engine(LayoutEngine::constrained())?;
-    Ok(fig.subplot())
-}
 
 /// Tick parameters of one axis.
 fn axis_params(axis: AxisName) -> TickParams {

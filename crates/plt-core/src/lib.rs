@@ -18,6 +18,17 @@
 //!   sketching).
 //! * [`bezier`] — evaluation, subdivision and extrema of Bézier curves.
 //! * [`hatch`] — matplotlib's hatch patterns.
+//! * [`json`] — JSON values, read as Python's `json` module writes them
+//!   (the spec's goldens) or strictly by RFC 8259 (untrusted messages),
+//!   and written back.
+//! * [`numeric`] — Python's and numpy's float semantics (`divmod`, `%`,
+//!   `min`/`max`, `minimum`/`maximum`, `sign`, `linspace`) that
+//!   matplotlib's results depend on.
+//! * [`pyfmt`] — Python's float formatting (`repr`, `%`-formatting and the
+//!   `str.format` mini-language), which matplotlib's labels and documents
+//!   are written with.
+//! * [`rng`] — the `SplitMix64` generator behind plt-rs's reproducible
+//!   pseudo-random streams.
 //! * [`Rgba`] — a straight-alpha colour with components in `[0, 1]`.
 #![forbid(unsafe_code)]
 
@@ -26,8 +37,12 @@ mod bbox;
 pub mod bezier;
 mod color;
 pub mod hatch;
+pub mod json;
+pub mod numeric;
 pub mod path;
 mod point;
+pub mod pyfmt;
+pub mod rng;
 
 pub use affine::Affine2D;
 pub use bbox::{Anchor, Bbox};

@@ -83,10 +83,9 @@ impl OutlineSink for Bounds {
         self.current = (x, y);
     }
 
+    /// A line extends the bounds to its end point, like a move.
     fn line_to(&mut self, x: f32, y: f32) {
-        let (x, y) = (f64::from(x), f64::from(y));
-        self.add(x, y);
-        self.current = (x, y);
+        self.move_to(x, y);
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {

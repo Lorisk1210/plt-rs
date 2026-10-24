@@ -9,7 +9,8 @@ use plt::table::{Table, TableCell, TableLoc, TableOptions};
 use plt::text::HAlign;
 use plt_core::Bbox;
 
-use super::tables::{rows, strings};
+use super::tables::rows;
+use crate::figures::cases::common::strings;
 use crate::figures::{CaseResult, FigureCase};
 
 pub(crate) const CASES: &[FigureCase] = &[
@@ -31,7 +32,7 @@ fn cell_styles(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_axis_off();
     let table = ax.table(TableOptions {
-        col_labels: Some(strings(["day", "count", "mean"])),
+        col_labels: Some(strings(&["day", "count", "mean"])),
         loc: TableLoc::Center,
         ..TableOptions::with_text(rows([
             ["Mon", "12", "3.5"],
@@ -118,8 +119,8 @@ fn bbox_locs(fig: &Figure) -> CaseResult {
     ax.set_xticks(Vec::<f64>::new());
     ax.set_yticks(Vec::<f64>::new());
     ax.table(TableOptions {
-        row_labels: Some(strings(["first", "second"])),
-        col_labels: Some(strings(["A", "B", "C"])),
+        row_labels: Some(strings(&["first", "second"])),
+        col_labels: Some(strings(&["A", "B", "C"])),
         cell_loc: Some(HAlign::Left),
         row_loc: Some(HAlign::Center),
         col_loc: Some(HAlign::Right),
@@ -144,8 +145,8 @@ fn colours_only(fig: &Figure) -> CaseResult {
         .collect();
     let table = ax.table(TableOptions {
         cell_colours: Some(colours),
-        row_labels: Some(strings(["r1", "r2", "r3"])),
-        col_labels: Some(strings(["w", "x", "y", "z"])),
+        row_labels: Some(strings(&["r1", "r2", "r3"])),
+        col_labels: Some(strings(&["w", "x", "y", "z"])),
         loc: TableLoc::Center,
         ..TableOptions::default()
     })?;

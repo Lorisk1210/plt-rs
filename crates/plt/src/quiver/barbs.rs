@@ -1,6 +1,7 @@
 //! Wind barb outlines (matplotlib's `Barbs._find_tails` and
 //! `Barbs._make_barbs`).
 
+use plt_core::numeric::np_divmod;
 use plt_core::{Affine2D, Point};
 
 use crate::collections::CollectionProps;
@@ -133,8 +134,8 @@ impl Tail {
         } else {
             magnitude
         };
-        let (flags, rest) = divmod(magnitude, inc.flag);
-        let (barbs, rest) = divmod(rest, inc.full);
+        let (flags, rest) = np_divmod(magnitude, inc.flag);
+        let (barbs, rest) = np_divmod(rest, inc.full);
         let half = rest >= inc.half;
         // matplotlib decides emptiness on the float counts, then draws
         // `range(count.astype(int))` features.
@@ -158,35 +159,6 @@ fn feature_count(count: f64) -> usize {
     } else {
         0
     }
-}
-
-/// numpy's `divmod` for floats: the floored quotient and the remainder
-/// with the sign of the divisor (`npy_divmod`).
-fn divmod(a: f64, b: f64) -> (f64, f64) {
-    let rem = a % b;
-    if b == 0.0 {
-        return (a / b, rem);
-    }
-    let mut div = (a - rem) / b;
-    let rem = if rem == 0.0 {
-        0.0_f64.copysign(b)
-    } else if (b < 0.0) != (rem < 0.0) {
-        div -= 1.0;
-        rem + b
-    } else {
-        rem
-    };
-    let quotient = if div == 0.0 {
-        0.0_f64.copysign(a / b)
-    } else {
-        let floor = div.floor();
-        if div - floor > 0.5 {
-            floor + 1.0
-        } else {
-            floor
-        }
-    };
-    (quotient, rem)
 }
 
 /// Which side of the staff the features of each barb are drawn on.
@@ -404,15 +376,6 @@ mod tests {
                 half: false
             })
         );
-    }
-
-    #[test]
-    fn python_divmod() {
-        assert_eq!(divmod(65.0, 50.0), (1.0, 15.0));
-        assert_eq!(divmod(-7.0, 2.0), (-4.0, 1.0));
-        assert_eq!(divmod(0.0, 10.0), (0.0, 0.0));
-        assert!(divmod(1.0, 0.0).0.is_infinite());
-        assert!(divmod(-0.0, 10.0).0.is_sign_negative());
     }
 
     #[test]

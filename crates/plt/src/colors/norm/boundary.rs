@@ -1,7 +1,9 @@
 //! Discrete normalisation into colour bins (`BoundaryNorm`).
 
+use plt_core::numeric::np_clip;
+
 use super::{Limits, Norm, NormError, NormKind};
-use crate::colors::npmath::{np_clip, np_less};
+use crate::colors::npmath::np_less;
 use crate::colors::{Extend, Normalized};
 
 /// Maps data to colour *indices* by the bin it falls in (matplotlib's

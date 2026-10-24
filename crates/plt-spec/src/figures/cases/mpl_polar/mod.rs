@@ -15,18 +15,13 @@ mod contours;
 mod polar;
 mod positioning;
 
-use plt::colors::Color;
 use plt::contour::{ContourOptions, Levels, QuadField};
 use plt::numeric::Grid;
 
 use super::mpl_tests::classic;
 pub(super) use super::mpl_tests::remove_ticks_and_titles;
 use crate::figures::FigureCase;
-
-/// Colours by name.
-fn colors(names: &[&str]) -> Vec<Color> {
-    names.iter().map(|&name| Color::from(name)).collect()
-}
+use crate::figures::cases::common::colors;
 
 /// The levels most colorbar tests contour [`ramp`] at.
 const RAMP_LEVELS: [f64; 7] = [0.0, 200.0, 400.0, 600.0, 800.0, 1000.0, 1200.0];

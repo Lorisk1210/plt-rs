@@ -275,11 +275,6 @@ fn jpeg_background() -> [u8; 3] {
         ColorOrAuto::Auto => rc.figure_facecolor.resolve(),
     };
     let rgba = color.unwrap_or(Rgba::WHITE);
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "colour channels are in [0, 1]"
-    )]
     let byte = |v: f64| (v * 255.0) as u8;
     [byte(rgba.r), byte(rgba.g), byte(rgba.b)]
 }

@@ -146,11 +146,6 @@ pub(super) fn figtext(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `rc=_xkcd_rc()`: `plt.xkcd()`'s parameters.
-pub(super) fn xkcd_default(rc: &mut RcParams) -> CaseResult {
-    Ok(apply_xkcd(rc, XkcdSketch::default())?)
-}
-
 /// `rc=_xkcd_rc(scale=2, length=50, randomness=4)`.
 pub(super) fn xkcd_strong(rc: &mut RcParams) -> CaseResult {
     let sketch = XkcdSketch {

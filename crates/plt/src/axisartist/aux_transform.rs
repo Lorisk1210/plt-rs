@@ -6,10 +6,10 @@ use std::f64::consts::TAU;
 use std::fmt;
 use std::rc::Rc;
 
+use plt_core::numeric::remainder;
 use plt_core::{Affine2D, Path, Point};
 
 use crate::polar::PolarMap;
-use crate::ticker::pymath::py_mod;
 use crate::transforms::{PointMap, ResolvedTransform, Step};
 
 /// A transform from curvilinear to rectilinear coordinates, with its
@@ -180,7 +180,7 @@ impl PointMap for Polar {
     /// matplotlib's `InvertedPolarTransform`: θ in `[0, 2π)` computed as
     /// `(atan2(y, x) + 2π) % 2π`.
     fn inverse(&self, point: Point) -> Point {
-        let theta = py_mod(point.y.atan2(point.x) + TAU, TAU);
+        let theta = remainder(point.y.atan2(point.x) + TAU, TAU);
         Point::new(theta, point.x.hypot(point.y))
     }
 

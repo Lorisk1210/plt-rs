@@ -129,7 +129,7 @@ pub(super) fn tight_bbox_long_label(args: Args<'_>) -> Outcome {
         };
         let before = width()?;
         ax.set_xlabel(format!("l{}ng", "o".repeat(70)));
-        Ok(numbers(&[before, width()?]))
+        Ok(numbers([before, width()?]))
     })
 }
 

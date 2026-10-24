@@ -2,11 +2,7 @@ use plt_core::{Bbox, Point, Rgba};
 
 use super::Figure;
 use crate::artist::ArtistHandle;
-use crate::testing::{Call, RecordingRenderer};
-
-fn close(a: Point, b: Point) -> bool {
-    (a - b).length() < 1e-9
-}
+use crate::testing::{Call, RecordingRenderer, close_points};
 
 #[test]
 fn figure_geometry() {
@@ -50,8 +46,8 @@ fn draw_emits_figure_then_axes_backgrounds() {
         Bbox::from_extents(0.0, 0.0, 640.0, 480.0)
     );
     let axes_box = Bbox::from_points(axes_rect.iter().copied());
-    assert!(close(axes_box.p0, Point::new(80.0, 52.8)));
-    assert!(close(axes_box.p1, Point::new(576.0, 422.4)));
+    assert!(close_points(axes_box.p0, Point::new(80.0, 52.8)));
+    assert!(close_points(axes_box.p1, Point::new(576.0, 422.4)));
     assert_eq!(ax.window_extent().map(|b| b.width()), Some(496.0));
 }
 
@@ -81,12 +77,12 @@ fn data_transform_maps_view_limits_onto_axes_box() {
         .expect("finite limits");
     let state = fig.state.borrow();
     let data = ax.trans_data().resolve(&*state).expect("axes exists");
-    assert!(close(
+    assert!(close_points(
         data.transform_point(Point::new(5.0, 0.0)),
         Point::new(328.0, 237.6)
     ));
     assert!(
-        close(
+        close_points(
             data.transform_point(Point::new(0.0, 1.0)),
             Point::new(80.0, 52.8)
         ),
@@ -96,7 +92,7 @@ fn data_transform_maps_view_limits_onto_axes_box() {
         .inverted()
         .expect("invertible")
         .transform_point(Point::new(576.0, 422.4));
-    assert!(close(back, Point::new(10.0, -1.0)));
+    assert!(close_points(back, Point::new(10.0, -1.0)));
 }
 
 #[test]

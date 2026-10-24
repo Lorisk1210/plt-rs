@@ -13,8 +13,8 @@ use plt::numeric::Grid;
 use plt::prelude::*;
 
 use super::constrained::{arr_mesh, constrained, shared_colorbar};
-use super::{SEED, arange_grid, subplot2grid};
-use crate::figures::cases::common::example_plot;
+use super::{SEED, subplot2grid};
+use crate::figures::cases::common::{arange_grid, example_plot};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -142,7 +142,7 @@ fn fixed_aspect_images(fig: &Figure, layout: LayoutEngine, name: &str) -> CaseRe
         .subplots_shared(2, 2, Share::All, Share::All)?
         .as_slice()
     {
-        ax.imshow(arange_grid(), ImshowOptions::default())?;
+        ax.imshow(arange_grid(10, 10), ImshowOptions::default())?;
     }
     fig.suptitle(format!("fixed-aspect plots, layout='{name}'"));
     Ok(())

@@ -58,6 +58,8 @@ fn nan_last_less(a: f64, b: f64) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use plt_core::rng::SplitMix64;
+
     use super::*;
 
     /// Whether `order` is a permutation that sorts `values`, NaN last.
@@ -74,15 +76,9 @@ mod tests {
 
     /// `n` values drawn (by `SplitMix64`) from `levels` equally spaced ones.
     fn ties(seed: u64, n: usize, levels: u64) -> Vec<f64> {
-        let mut state = seed;
+        let mut random = SplitMix64::new(seed);
         (0..n)
-            .map(|_| {
-                state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-                let mut z = state;
-                z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-                z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-                ((z ^ (z >> 31)) % levels) as f64 / 4.0
-            })
+            .map(|_| (random.next_u64() % levels) as f64 / 4.0)
             .collect()
     }
 

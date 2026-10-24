@@ -17,13 +17,8 @@ use plt::rc::Aspect;
 use plt::ticker::{Locator, MaxNLocator, Nbins, TickContext};
 
 use super::data::{SEED, extremes, mesh_field, mgrid, mgrid_step, on_mesh, spike, uniform_grid};
-use crate::figures::cases::common::func3;
+use crate::figures::cases::common::{func3, trimmed};
 use crate::figures::{CaseResult, FigureCase};
-
-/// `a[:-1, :-1]`.
-fn trimmed(a: &Grid<f64>) -> Grid<f64> {
-    Grid::from_fn(a.rows() - 1, a.cols() - 1, |r, c| a[(r, c)])
-}
 
 /// 6 × 10 uniform samples (`_random_6x10`).
 fn random_6x10() -> Grid<f64> {
@@ -56,7 +51,7 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
         &mgrid_step(-3.0, 3.0 + dx, dx),
     );
     let z = trimmed(&on_mesh(&x, &y, func3));
-    let top = extremes(&z).1.max(-extremes(&z).0);
+    let top = extremes(z.as_slice()).1.max(-extremes(z.as_slice()).0);
     let colors = || -> Result<ColorizerOptions, plt::colors::ColormapError> {
         Ok(ColorizerOptions::default()
             .cmap(colormaps::get("RdBu")?)
@@ -81,8 +76,8 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
     axs[(0, 1)].set_title("pcolormesh");
     fig.colorbar(&c, ColorbarOptions::beside(&axs[(0, 1)]))?;
 
-    let (x_lo, x_hi) = extremes(&x);
-    let (y_lo, y_hi) = extremes(&y);
+    let (x_lo, x_hi) = extremes(x.as_slice());
+    let (y_lo, y_hi) = extremes(y.as_slice());
     let image = ImshowOptions {
         colorizer: colors()?,
         extent: Some(Extent::new(x_lo, x_hi, y_lo, y_hi)),
@@ -115,7 +110,7 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
 
 fn pcolor_demo_3(fig: &Figure) -> CaseResult {
     let (x, y, z) = mesh_field(&linspace(-3.0, 3.0, 100), &linspace(-2.0, 2.0, 100), spike);
-    let (lo, hi) = extremes(&z);
+    let (lo, hi) = extremes(z.as_slice());
     let axs = fig.subplots(2, 1)?;
     for (ax, colors) in [
         (
@@ -259,7 +254,7 @@ fn pcolormesh_levels_2(fig: &Figure) -> CaseResult {
 
 fn pcolormesh_levels_3(fig: &Figure) -> CaseResult {
     let z = random_6x10();
-    let (lo, hi) = extremes(&z);
+    let (lo, hi) = extremes(z.as_slice());
     let (x, y) = meshgrid(&arange(0.0, 10.0, 1.0), &arange(0.0, 6.0, 1.0));
     let axs = fig.subplots_shared(2, 1, Share::All, Share::All)?;
     for (ax, values, shading, title) in [
@@ -291,7 +286,7 @@ fn pcolormesh_levels_4(fig: &Figure) -> CaseResult {
     let z = trimmed(&on_mesh(&x, &y, |x, y| {
         x.sin().powf(10.0) + (10.0 + y * x).cos() * x.cos()
     }));
-    let (lo, hi) = extremes(&z);
+    let (lo, hi) = extremes(z.as_slice());
     let levels = MaxNLocator::new(Nbins::Fixed(15)).tick_values(lo, hi, &TickContext::default())?;
     let cmap = colormaps::get("PiYG")?;
     let norm = BoundaryNorm::new(levels.clone(), cmap.n(), Extend::Neither)?.with_clip(true)?;
@@ -330,9 +325,9 @@ fn quadmesh_demo(fig: &Figure) -> CaseResult {
     let qx = on_mesh(&x, &y, |x, y| y.cos() - x.cos());
     let qz = on_mesh(&x, &y, |x, y| y.sin() + x.sin());
     let radius = on_mesh(&x, &y, |x, y| (x * x + y * y).sqrt() / 5.0);
-    let (lo, hi) = extremes(&radius);
+    let (lo, hi) = extremes(radius.as_slice());
     let z = radius.map(|r| (r - lo) / (hi - lo));
-    let qz_max = extremes(&qz).1;
+    let qz_max = extremes(qz.as_slice()).1;
     let mask = qz.map(|q| q.abs() < 0.5 * qz_max);
     let axs = fig.subplots(1, 3)?;
     let gouraud = |colorizer: ColorizerOptions| PcolorOptions {

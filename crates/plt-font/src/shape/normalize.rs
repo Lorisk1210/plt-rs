@@ -43,6 +43,15 @@ impl ClusterChar {
         Self::new(c, self.cluster, self.mask)
     }
 
+    /// Each character of `text` as its own cluster at its byte offset,
+    /// with mask 1.
+    #[cfg(test)]
+    pub(crate) fn from_text(text: &str) -> Vec<Self> {
+        text.char_indices()
+            .map(|(cluster, c)| Self::new(c, cluster, 1))
+            .collect()
+    }
+
     fn combining_class(&self) -> u8 {
         self.props.combining_class
     }
@@ -272,12 +281,6 @@ fn recompose(
 mod tests {
     use super::*;
 
-    fn chars(text: &str) -> Vec<ClusterChar> {
-        text.char_indices()
-            .map(|(cluster, c)| ClusterChar::new(c, cluster, 1))
-            .collect()
-    }
-
     fn text(items: &[ClusterChar]) -> String {
         items.iter().map(|item| item.c).collect()
     }
@@ -295,7 +298,7 @@ mod tests {
         let all = |_: char| true;
         assert_eq!(
             text(&normalize(
-                &chars("e\u{301}x\u{301}"),
+                &ClusterChar::from_text("e\u{301}x\u{301}"),
                 &all,
                 Hooks::default()
             )),
@@ -304,7 +307,7 @@ mod tests {
         let no_e_acute = |c: char| c != 'é';
         assert_eq!(
             text(&normalize(
-                &chars("e\u{301}"),
+                &ClusterChar::from_text("e\u{301}"),
                 &no_e_acute,
                 Hooks::default()
             )),
@@ -315,7 +318,11 @@ mod tests {
     #[test]
     fn decomposes_missing_characters() {
         let without_precomposed = |c: char| c.is_ascii() || char_props(c).is_mark();
-        let result = normalize(&chars("ǘ"), &without_precomposed, Hooks::default());
+        let result = normalize(
+            &ClusterChar::from_text("ǘ"),
+            &without_precomposed,
+            Hooks::default(),
+        );
         assert_eq!(text(&result), "u\u{308}\u{301}");
         assert!(
             result
@@ -324,7 +331,11 @@ mod tests {
         );
         let nothing = |_: char| false;
         assert_eq!(
-            text(&normalize(&chars("é"), &nothing, Hooks::default())),
+            text(&normalize(
+                &ClusterChar::from_text("é"),
+                &nothing,
+                Hooks::default()
+            )),
             "é"
         );
     }
@@ -332,13 +343,17 @@ mod tests {
     #[test]
     fn missing_spaces_fall_back_to_the_space_glyph() {
         let ascii = |c: char| c.is_ascii();
-        let result = normalize(&chars("a\u{2009}b\u{2011}"), &ascii, Hooks::default());
+        let result = normalize(
+            &ClusterChar::from_text("a\u{2009}b\u{2011}"),
+            &ascii,
+            Hooks::default(),
+        );
         assert_eq!(text(&result), "a b\u{2011}");
         assert_eq!(result[1].space, Some(SpaceWidth::EmFraction(5)));
         let with_hyphen = |c: char| c.is_ascii() || c == '\u{2010}';
         assert_eq!(
             text(&normalize(
-                &chars("\u{2011}"),
+                &ClusterChar::from_text("\u{2011}"),
                 &with_hyphen,
                 Hooks::default()
             )),
@@ -352,7 +367,7 @@ mod tests {
         // Dot below (220) sorts before acute (230); then both compose.
         assert_eq!(
             text(&normalize(
-                &chars("a\u{301}\u{323}"),
+                &ClusterChar::from_text("a\u{301}\u{323}"),
                 &all,
                 Hooks::default()
             )),
@@ -361,7 +376,7 @@ mod tests {
         // Arabic: shadda sorts before fatha.
         assert_eq!(
             text(&normalize(
-                &chars("\u{628}\u{64E}\u{651}"),
+                &ClusterChar::from_text("\u{628}\u{64E}\u{651}"),
                 &all,
                 Hooks::default()
             )),
@@ -373,7 +388,11 @@ mod tests {
         };
         let marks_only = |c: char| c == 'x' || c > '\u{300}';
         assert_eq!(
-            text(&normalize(&chars("x\u{323}\u{301}"), &marks_only, hooks)),
+            text(&normalize(
+                &ClusterChar::from_text("x\u{323}\u{301}"),
+                &marks_only,
+                hooks
+            )),
             "x\u{301}\u{323}"
         );
     }
@@ -385,23 +404,34 @@ mod tests {
             reorder_marks: None,
             compose: Some(|a, b| (a == 'x' && b == '\u{301}').then_some('y')),
         };
-        assert_eq!(text(&normalize(&chars("x\u{301}"), &all, hooks)), "y");
         assert_eq!(
-            text(&normalize(&chars("x\u{301}"), &all, Hooks::default())),
+            text(&normalize(&ClusterChar::from_text("x\u{301}"), &all, hooks)),
+            "y"
+        );
+        assert_eq!(
+            text(&normalize(
+                &ClusterChar::from_text("x\u{301}"),
+                &all,
+                Hooks::default()
+            )),
             "x\u{301}"
         );
         // A leading mark is the starter of the marks after it.
-        let leading = normalize(&chars("\u{301}\u{301}"), &all, hooks);
+        let leading = normalize(&ClusterChar::from_text("\u{301}\u{301}"), &all, hooks);
         assert_eq!(leading.len(), 2);
     }
 
     #[test]
     fn grapheme_joiners() {
         let all = |_: char| true;
-        let idle = normalize(&chars("a\u{301}\u{34F}\u{301}"), &all, Hooks::default());
+        let idle = normalize(
+            &ClusterChar::from_text("a\u{301}\u{34F}\u{301}"),
+            &all,
+            Hooks::default(),
+        );
         assert_eq!(idle[1].props.ignorable, Some(Ignorable::Other));
         let blocking = normalize(
-            &chars("a\u{301}\u{34F}\u{323}"),
+            &ClusterChar::from_text("a\u{301}\u{34F}\u{323}"),
             &|c| c != 'á',
             Hooks::default(),
         );

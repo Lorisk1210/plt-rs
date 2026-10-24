@@ -4,7 +4,6 @@
 //! style.
 
 use plt::artist::ArtistHandle;
-use plt::colors::Color;
 use plt::figure::{Figure, Share};
 use plt::fonts::{FontProperties, FontSize};
 use plt::gridspec::{GridSpec, SubplotOverrides};
@@ -14,6 +13,7 @@ use plt::widgets::{
 };
 
 use super::mpl_tests::classic;
+use crate::figures::cases::common::colors;
 use crate::figures::{CaseResult, FigureCase};
 
 /// Every case of the group.
@@ -30,11 +30,6 @@ pub(crate) fn cases() -> Vec<FigureCase> {
 
 /// The buttons' labels.
 const FRUITS: [&str; 2] = ["Apples", "Oranges"];
-
-/// Colours by name.
-fn colors(names: &[&str]) -> Vec<Color> {
-    names.iter().copied().map(Color::from).collect()
-}
 
 /// `label_props={'color': ['red', 'orange'], 'fontsize': [16, 20]}`.
 fn styled_labels() -> Vec<TextProps> {

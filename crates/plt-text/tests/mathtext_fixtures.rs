@@ -124,7 +124,7 @@ enum Grade {
     Failed,
 }
 
-#[allow(clippy::float_cmp, reason = "bit-exact agreement is what is measured")]
+#[expect(clippy::float_cmp, reason = "bit-exact agreement is what is measured")]
 fn grade_value(expected: f64, actual: f64) -> Grade {
     if expected == actual || (expected.is_nan() && actual.is_nan()) {
         Grade::Exact

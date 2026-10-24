@@ -6,6 +6,7 @@ use plt::axes::{Axes, BarOptions, ErrorbarOptions, PieLabelOptions, PieOptions, 
 use plt::figure::Figure;
 
 use crate::json::Json;
+use crate::probes::encode::count;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 use plt::ticker::LabelFormat;
 
@@ -29,11 +30,6 @@ fn counts(ax: &Axes) -> Json {
         ax.containers().len(),
     ];
     Json::Array(lengths.into_iter().map(count).collect())
-}
-
-/// A length as a JSON number.
-fn count(n: usize) -> Json {
-    Json::from(n as f64)
 }
 
 /// Argument `key` as strings.

@@ -1,7 +1,7 @@
 //! CSS styles and `transform` attributes as matplotlib's SVG backend
 //! writes them (`_get_style_dict`, `_generate_css`, `_generate_transform`).
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's SVG writer leaves out exactly-default values"
 )]
@@ -9,7 +9,7 @@
 use plt_core::{Affine2D, Rgba};
 
 use crate::gc::{CapStyle, GraphicsContext};
-use crate::vector::{hex_color, short};
+use crate::vector::short;
 
 /// An ordered list of CSS properties.
 pub(super) type Style = Vec<(&'static str, String)>;
@@ -95,7 +95,7 @@ pub(super) fn style_dict(gc: &GraphicsContext, face: Option<Rgba>, hatch: Option
             None => style.push(("fill", "none".to_owned())),
             Some(face) => {
                 if (face.r, face.g, face.b) != (0.0, 0.0, 0.0) {
-                    style.push(("fill", hex_color(face)));
+                    style.push(("fill", face.to_hex(false)));
                 }
                 if let Some(face) = face_opacity {
                     style.push(("fill-opacity", short(face.a)));
@@ -113,7 +113,7 @@ pub(super) fn style_dict(gc: &GraphicsContext, face: Option<Rgba>, hatch: Option
     }
     if gc.linewidth != 0.0 {
         let rgb = gc.stroke_color();
-        style.push(("stroke", hex_color(rgb)));
+        style.push(("stroke", rgb.to_hex(false)));
         if !forced_alpha && rgb.a != 1.0 {
             style.push(("stroke-opacity", short(rgb.a)));
         }

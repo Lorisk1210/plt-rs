@@ -119,18 +119,9 @@ mod tests {
     use super::*;
     use crate::Bbox;
 
-    fn square() -> Path {
-        Path::polygon([
-            Point::new(0.0, 0.0),
-            Point::new(1.0, 0.0),
-            Point::new(1.0, 1.0),
-            Point::new(0.0, 1.0),
-        ])
-    }
-
     #[test]
     fn per_item_transforms_replace_or_precede_the_master() {
-        let paths = [square()];
+        let paths = [Path::unit_rectangle()];
         let scale = [Affine2D::scaling(2.0, 2.0)];
         let geometry = CollectionGeometry {
             master_transform: Affine2D::translation(10.0, 0.0),
@@ -150,7 +141,7 @@ mod tests {
 
     #[test]
     fn offsets_repeat_paths() {
-        let paths = [square()];
+        let paths = [Path::unit_rectangle()];
         let offsets = [Point::new(0.0, 0.0), Point::new(5.0, 0.0)];
         let geometry = CollectionGeometry {
             master_transform: Affine2D::IDENTITY,

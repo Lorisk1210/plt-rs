@@ -8,15 +8,11 @@ use plt::prelude::*;
 
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
-
-/// `np.arange(10)`.
-fn ten() -> Vec<f64> {
-    (0..10).map(f64::from).collect()
-}
+use crate::figures::cases::common::indices;
 
 pub(super) fn legend_plot(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
-    let x = ten();
+    let x = indices(10);
     for (sign, label) in [(-1.0, "z=1"), (1.0, "z=-1")] {
         let y: Vec<f64> = x.iter().map(|x| sign * (x - 5.0)).collect();
         let props = LineProps::fmt("o")?.label(label);
@@ -29,7 +25,7 @@ pub(super) fn legend_plot(fig: &Figure) -> CaseResult {
 
 pub(super) fn legend_bar(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
-    let x = ten();
+    let x = indices(10);
     let reversed: Vec<f64> = x.iter().rev().copied().collect();
     let bars = |color: &str| BarOptions {
         align: BarAlign::Edge,
@@ -50,7 +46,7 @@ pub(super) fn legend_bar(fig: &Figure) -> CaseResult {
 
 pub(super) fn fancy(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
-    let x = ten();
+    let x = indices(10);
     let props = LineProps::fmt("o--")?.label("line");
     ax.plot_with(&x, &[5.0; 10], &[5.0; 10], Axis3::Z, props)?;
     let countdown: Vec<f64> = x.iter().map(|x| 10.0 - x).collect();

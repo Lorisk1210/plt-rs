@@ -135,7 +135,7 @@ impl ConnectionStyle {
         use PathCode::{Curve3, LineTo, MoveTo};
         Ok(match *self {
             Self::Arc3 { rad } => {
-                let mid = Point::new(f64::midpoint(a.x, b.x), f64::midpoint(a.y, b.y));
+                let mid = a.midpoint(b);
                 let (dx, dy) = (b.x - a.x, b.y - a.y);
                 let control = Point::new(mid.x + rad * dy, mid.y - rad * dx);
                 coded(&[(MoveTo, a), (Curve3, control), (Curve3, b)])

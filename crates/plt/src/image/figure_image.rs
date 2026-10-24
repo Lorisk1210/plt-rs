@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use plt_core::Bbox;
 
-use super::artist::{canvas_bbox, draw_rendered, split_alpha};
 use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::Resampling;
+use super::shared::{canvas_bbox, draw_rendered, split_alpha};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle};
 use crate::colors::{ColorizerOptions, impl_colorize};

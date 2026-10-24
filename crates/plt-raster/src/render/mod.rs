@@ -13,6 +13,13 @@ use crate::pixmap::Pixmap;
 use crate::raster::{Covers, Span};
 use crate::style::Antialias;
 
+/// Agg's `iround` (half away from zero) with Rust's saturating conversion
+/// for values beyond `i32`; the resampler's copy reproduces x86-64's
+/// conversion instead (`resample::numeric::iround`).
+fn iround(v: f64) -> i32 {
+    (if v < 0.0 { v - 0.5 } else { v + 0.5 }) as i32
+}
+
 /// A pixmap restricted to a pixel clip rectangle and an optional mask —
 /// the equivalent of Agg's `renderer_base` (+ `pixfmt_amask_adaptor`).
 #[derive(Debug)]

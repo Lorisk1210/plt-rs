@@ -7,7 +7,7 @@ use plt::layout::{LayoutEngine, TightLayout};
 use plt::prelude::*;
 use plt::scale::{NonPositive, ScaleOptions};
 
-use crate::figures::cases::common::map;
+use crate::figures::cases::common::{map, stacked_pair};
 use crate::figures::{CaseResult, FigureCase};
 
 /// Grid lines at the major ticks and light grey ones at the minor ticks.
@@ -166,13 +166,6 @@ fn symlog_region(ax: &Axes, linthresh: f64, linscale: f64, title: &str) -> CaseR
     ax.axvspan(-linthresh, linthresh).set_color("0.9");
     ax.set_title(title);
     Ok(())
-}
-
-/// Two axes in a constrained figure, one above the other.
-fn stacked_pair(fig: &Figure) -> Result<(Axes, Axes), Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained())?;
-    let axs = fig.subplots(2, 1)?;
-    Ok((axs[(0, 0)].clone(), axs[(1, 0)].clone()))
 }
 
 fn symlog_demo_2(fig: &Figure) -> CaseResult {

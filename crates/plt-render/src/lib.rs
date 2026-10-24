@@ -34,6 +34,8 @@ mod quad_mesh;
 mod raster;
 mod renderer;
 mod svg;
+#[cfg(test)]
+mod testing;
 mod vector;
 
 pub use collection::{CollectionItem, PathCollection};

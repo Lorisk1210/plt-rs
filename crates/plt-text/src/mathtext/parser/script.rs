@@ -1,9 +1,11 @@
 //! Sub- and superscripts (matplotlib's `subsuper` action, after TeX's
 //! rules 756–759), limits above and below big operators, and primes.
 
+use plt_core::numeric::py_max;
+
+use super::Parser;
 use super::error::{ErrorKind, Fail, NO_MATCH};
 use super::symbol::THIN_SPACE;
-use super::{Parser, py_max};
 use crate::mathtext::boxes::{List, Node, Packing, SHRINK_FACTOR};
 use crate::mathtext::data::{is_dropsub_symbol, is_overunder_function, is_overunder_symbol};
 use crate::mathtext::fonts::FontConstants;

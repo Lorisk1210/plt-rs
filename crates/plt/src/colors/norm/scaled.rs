@@ -1,7 +1,9 @@
 //! Norms built on a scale transform (`LogNorm`, `SymLogNorm`, `AsinhNorm`,
 //! `FuncNorm`): matplotlib's `make_norm_from_scale`.
 
-use super::{Limits, Norm, NormError, NormKind, map_unmasked, np_clip, zeros};
+use plt_core::numeric::np_clip;
+
+use super::{Limits, Norm, NormError, NormKind, map_unmasked, zeros};
 use crate::colors::Normalized;
 use crate::scale::{
     AsinhScale, AsinhTransform, FuncScale, FuncTransform, LinearScale, LogScale, LogTransform,

@@ -2,7 +2,7 @@
 //! (`draw_path`, `draw_markers`, `draw_path_collection`, `draw_image`,
 //! `draw_gouraud_triangles`, `_draw_ps`).
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib compares colours and line properties exactly"
 )]

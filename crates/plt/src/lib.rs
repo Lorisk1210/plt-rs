@@ -93,7 +93,7 @@
 //!   style sheets and the xkcd sketch style; the modern and matplotlib
 //!   looks of figures and windows.
 #![forbid(unsafe_code)]
-#![allow(
+#![expect(
     clippy::needless_pass_by_value,
     reason = "option structs are passed by value by convention (see `porting::conventions`), \
               whether the function keeps them or only reads them"

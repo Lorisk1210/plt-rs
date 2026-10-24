@@ -5,6 +5,7 @@
 use std::f64::consts::TAU;
 use std::rc::Rc;
 
+use plt_core::numeric::np_sign;
 use plt_core::{Affine2D, Bbox, Path, PathCode, Point};
 
 use super::{PolarFrame, PolarState};
@@ -22,15 +23,6 @@ pub(crate) fn full_circle_deg(theta_min: f64, theta_max: f64) -> bool {
 /// (matplotlib's `_is_full_circle_rad`).
 pub(crate) fn full_circle_rad(theta_min: f64, theta_max: f64) -> bool {
     ((theta_max - theta_min).abs() - TAU).abs() < 1.74e-14
-}
-
-/// numpy's `sign`: `-1`, `0` or `1` (NaN stays NaN).
-fn sign(value: f64) -> f64 {
-    if value == 0.0 || value.is_nan() {
-        value
-    } else {
-        value.signum()
-    }
 }
 
 /// Polar to Cartesian coordinates around the origin, applied after the
@@ -278,7 +270,7 @@ impl<'a> PolarView<'a> {
 
     /// `1`, or `-1` when the radial axis decreases (`get_rsign`).
     pub(crate) fn rsign(&self) -> f64 {
-        sign(self.view.y1() - self.rorigin())
+        np_sign(self.view.y1() - self.rorigin())
     }
 
     /// A radius through the radial scale.

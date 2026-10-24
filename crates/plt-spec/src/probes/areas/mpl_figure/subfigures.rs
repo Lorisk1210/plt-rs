@@ -7,10 +7,10 @@ use plt::figure::{Figure, SubfigureOptions};
 use plt::gridspec::{GridSpec, SubplotSpec};
 use plt::layout::LayoutEngine;
 
-use super::super::mpl_tests::{in_test_style, numbers};
+use super::super::mpl_tests::in_test_style;
 use super::texts::subfigures;
 use crate::json::Json;
-use crate::probes::encode::bbox;
+use crate::probes::encode::{bbox, numbers};
 use crate::probes::{Args, Outcome, ProbeError};
 
 /// `test_figure_clear`'s subfigure scenarios (see the Python module).

@@ -2,26 +2,10 @@
 //! nested, huge or random input must produce a layout or a
 //! [`TextError::Math`], never a panic, a hang or a stack overflow.
 
+use plt_core::rng::SplitMix64;
 use plt_text::fontconfig::FontconfigPattern;
 use plt_text::mathtext::{Fontset, MathStyle};
 use plt_text::{FontQuery, FontRequest, TextEngine, TextError};
-
-/// `SplitMix64`, for deterministic character soups.
-struct Rng(u64);
-
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
-    fn below(&mut self, bound: usize) -> usize {
-        (self.next() % bound as u64) as usize
-    }
-}
 
 const FONTSETS: [Fontset; 5] = [
     Fontset::DejaVuSans,
@@ -178,7 +162,7 @@ fn fontconfig_soups_do_not_panic() {
     const PIECES: [&str; 14] = [
         ":", "-", ",", "=", "\\", "_", " ", "a", "1", ".", "bold", "size=", "e", "\u{301}",
     ];
-    let mut rng = Rng(0xFC);
+    let mut rng = SplitMix64::new(0xFC);
     for _ in 0..2_000 {
         let soup: String = (0..rng.below(30))
             .map(|_| PIECES[rng.below(PIECES.len())])
@@ -195,7 +179,7 @@ fn character_soups_do_not_panic() {
         "]", "(", ")", "|", "/", "<", ">", "=", "+", "-", " ", "x", "1", r"\frac", r"\sqrt",
         r"\left", r"\right", r"\mathrm", r"\hat", r"\alpha", r"\hspace", r"\sum",
     ];
-    let mut rng = Rng(0x5EED);
+    let mut rng = SplitMix64::new(0x5EED);
     for _ in 0..300 {
         let len = 1 + rng.below(24);
         let soup: String = (0..len).map(|_| PIECES[rng.below(PIECES.len())]).collect();

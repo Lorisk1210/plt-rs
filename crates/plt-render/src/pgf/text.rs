@@ -1,7 +1,7 @@
 //! Text as `\pgftext` commands for LaTeX to typeset (matplotlib's
 //! `draw_text` and `_escape_and_apply_props`).
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib compares alpha and angle exactly"
 )]

@@ -16,8 +16,8 @@ use plt::legend::LegendOptions;
 use plt::prelude::*;
 use plt::spines::SpineSide;
 
-use super::{LAYOUT_RC, arange_grid, subplot2grid};
-use crate::figures::cases::common::example_plot;
+use super::{LAYOUT_RC, subplot2grid};
+use crate::figures::cases::common::{arange_grid, example_plot};
 use crate::figures::{CaseResult, FigureCase};
 
 /// A case of the guide, on the default canvas.
@@ -85,7 +85,7 @@ fn tight_layout_guide_7(fig: &Figure) -> CaseResult {
 
 fn tight_layout_guide_8(fig: &Figure) -> CaseResult {
     fig.subplot().imshow(
-        arange_grid(),
+        arange_grid(10, 10),
         ImshowOptions::default().interpolation(Interpolation::None),
     )?;
     fig.tight_layout(&TightLayout::default())?;
@@ -163,7 +163,7 @@ fn tight_layout_guide_13(fig: &Figure) -> CaseResult {
 fn imshow_colorbar(fig: &Figure, axes_locatable: bool) -> CaseResult {
     let ax = fig.subplot();
     let im = ax.imshow(
-        arange_grid(),
+        arange_grid(10, 10),
         ImshowOptions::default().interpolation(Interpolation::None),
     )?;
     let options = if axes_locatable {

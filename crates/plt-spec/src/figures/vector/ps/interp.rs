@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use super::lexer::{Lexer, Tok};
 use crate::figures::vector::diff::{Item, Token};
+use crate::figures::vector::postscript::{IDENTITY, Matrix, apply, concat};
 
 /// A PostScript value.
 #[derive(Clone, Debug, PartialEq)]
@@ -37,25 +38,6 @@ impl V {
             _ => None,
         }
     }
-}
-
-/// An affine matrix `[a b c d e f]`.
-type Matrix = [f64; 6];
-
-/// `m` applied after `n`.
-fn concat(m: &Matrix, n: &Matrix) -> Matrix {
-    [
-        m[0] * n[0] + m[1] * n[2],
-        m[0] * n[1] + m[1] * n[3],
-        m[2] * n[0] + m[3] * n[2],
-        m[2] * n[1] + m[3] * n[3],
-        m[4] * n[0] + m[5] * n[2] + n[4],
-        m[4] * n[1] + m[5] * n[3] + n[5],
-    ]
-}
-
-fn apply(m: &Matrix, x: f64, y: f64) -> (f64, f64) {
-    (m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5])
 }
 
 /// Tokens describing a value (for pattern dictionaries).
@@ -102,7 +84,7 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            ctm: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            ctm: IDENTITY,
             color: vec![Token::Num(0.0); 3],
             linewidth: 1.0,
             join: 0.0,
@@ -338,9 +320,7 @@ impl Interpreter {
                 let length = self.pop_num() as usize;
                 self.stack.push(V::Str(vec![0; length]));
             }
-            "matrix" => self.stack.push(V::Array(
-                [1.0, 0.0, 0.0, 1.0, 0.0, 0.0].map(V::Num).to_vec(),
-            )),
+            "matrix" => self.stack.push(V::Array(IDENTITY.map(V::Num).to_vec())),
             "bind" | "readonly" | "showpage" => {}
             _ => return false,
         }

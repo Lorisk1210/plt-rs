@@ -4,7 +4,9 @@
 //!
 //! The range constructors reproduce numpy's floating-point arithmetic
 //! exactly (`linspace` computes `i * step + start` and pins the endpoint),
-//! because matplotlib's results depend on those precise values.
+//! because matplotlib's results depend on those precise values;
+//! [`linspace`], [`linspace_with`] and [`remainder`] come from
+//! [`plt_core::numeric`], which the lower-level crates share.
 
 mod argsort;
 mod grid;
@@ -14,38 +16,8 @@ mod regions;
 pub use argsort::argsort;
 pub use grid::{Grid, GridError};
 pub use interp::interp;
+pub use plt_core::numeric::{linspace, linspace_with, remainder};
 pub use regions::{block_perimeters, contiguous_regions};
-
-/// `num` evenly spaced samples over `[start, stop]` (numpy `linspace`).
-///
-/// ```
-/// assert_eq!(plt::numeric::linspace(0.0, 1.0, 5), vec![0.0, 0.25, 0.5, 0.75, 1.0]);
-/// ```
-pub fn linspace(start: f64, stop: f64, num: usize) -> Vec<f64> {
-    linspace_with(start, stop, num, true)
-}
-
-/// numpy `linspace` with an explicit `endpoint` flag.
-pub fn linspace_with(start: f64, stop: f64, num: usize, endpoint: bool) -> Vec<f64> {
-    let div = if endpoint { num.saturating_sub(1) } else { num };
-    let delta = stop - start;
-    let mut values: Vec<f64> = if div == 0 {
-        (0..num).map(|i| i as f64 * delta + start).collect()
-    } else {
-        let step = delta / div as f64;
-        if step == 0.0 {
-            (0..num)
-                .map(|i| i as f64 / div as f64 * delta + start)
-                .collect()
-        } else {
-            (0..num).map(|i| i as f64 * step + start).collect()
-        }
-    };
-    if endpoint && num > 1 {
-        values[num - 1] = stop;
-    }
-    values
-}
 
 /// Values `start, start + step, ...` strictly before `stop` (numpy `arange`).
 ///
@@ -110,26 +82,6 @@ pub fn meshgrid(x: &[f64], y: &[f64]) -> (Grid<f64>, Grid<f64>) {
     (xs, ys)
 }
 
-/// The remainder of `a / b` with the sign of `b` (numpy `remainder`,
-/// Python's `%`); a zero result takes the sign of `b`.
-///
-/// ```
-/// assert_eq!(plt::numeric::remainder(-1.0, 3.0), 2.0);
-/// assert_eq!(plt::numeric::remainder(1.0, -3.0), -2.0);
-/// ```
-pub fn remainder(a: f64, b: f64) -> f64 {
-    let fmod = a % b;
-    if b == 0.0 {
-        fmod
-    } else if fmod == 0.0 {
-        0.0_f64.copysign(b)
-    } else if (b < 0.0) != (fmod < 0.0) {
-        fmod + b
-    } else {
-        fmod
-    }
-}
-
 /// Minimum ignoring NaN; `None` if no finite-or-infinite value exists.
 pub fn nanmin<I: IntoIterator<Item = f64>>(values: I) -> Option<f64> {
     values.into_iter().filter(|v| !v.is_nan()).reduce(f64::min)
@@ -143,22 +95,6 @@ pub fn nanmax<I: IntoIterator<Item = f64>>(values: I) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn linspace_matches_numpy() {
-        assert_eq!(linspace(0.0, 1.0, 1), vec![0.0]);
-        assert_eq!(linspace(0.0, 1.0, 0), Vec::<f64>::new());
-        assert_eq!(linspace(2.0, 2.0, 3), vec![2.0, 2.0, 2.0]);
-        assert_eq!(
-            linspace_with(0.0, 1.0, 4, false),
-            vec![0.0, 0.25, 0.5, 0.75]
-        );
-        // numpy: np.linspace(0, 1, 7)[3] == 0.5 exactly, [6] pinned to stop
-        let v = linspace(0.0, 1.0, 7);
-        assert_eq!(v[3], 0.5);
-        assert_eq!(v[6], 1.0);
-        assert_eq!(v[1], 1.0 / 6.0);
-    }
 
     #[test]
     fn arange_matches_numpy() {
@@ -184,18 +120,6 @@ mod tests {
         assert!((negative[1] + 10.0).abs() < 1e-12);
         assert_eq!(geomspace(1.0, 10.0, 1), [1.0]);
         assert_eq!(geomspace(1.0, 10.0, 0), Vec::<f64>::new());
-    }
-
-    #[test]
-    fn remainder_matches_numpy() {
-        assert_eq!(remainder(7.5, 2.0), 1.5);
-        assert_eq!(remainder(-7.5, 2.0), 0.5);
-        assert_eq!(remainder(7.5, -2.0), -0.5);
-        assert!(remainder(-4.0, 2.0).is_sign_positive());
-        assert!(remainder(4.0, -2.0).is_sign_negative());
-        assert!(remainder(1.0, 0.0).is_nan());
-        assert!(remainder(f64::NAN, 2.0).is_nan());
-        assert_eq!(remainder(1.0, f64::INFINITY), 1.0);
     }
 
     #[test]

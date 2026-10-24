@@ -8,6 +8,7 @@
 
 use std::time::Instant;
 
+use plt_core::rng::SplitMix64;
 use plt_core::{Path, Point, Rgba};
 use plt_raster::{
     Antialias, Clip, FillRule, LineCap, LineJoin, Painter, Pixmap, Rgba8, StrokeStyle,
@@ -16,14 +17,8 @@ use plt_raster::{
 /// A deterministic signal across the canvas, optionally with `SplitMix64`
 /// noise (each noisy segment then spans ~70 rows: a worst case).
 fn polyline(segments: usize, width: f64, height: f64, noise_amplitude: f64) -> Path {
-    let mut state = 0x9E37_79B9_7F4A_7C15_u64;
-    let mut noise = move || {
-        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        (z ^ (z >> 31)) as f64 / u64::MAX as f64 - 0.5
-    };
+    let mut random = SplitMix64::new(0x9E37_79B9_7F4A_7C15);
+    let mut noise = move || random.next_u64() as f64 / u64::MAX as f64 - 0.5;
     let points = (0..=segments)
         .map(|i| {
             let t = i as f64 / segments as f64;

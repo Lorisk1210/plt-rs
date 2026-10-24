@@ -17,6 +17,7 @@ use plt::orientation::Orientation;
 use plt::prelude::*;
 use plt::rc::Aspect;
 
+use crate::figures::cases::common::autoscale_unset;
 use crate::figures::cases::common::{
     GALLERY_SEED, extremes, mesh_field, mgrid_100, on_mesh, spike,
 };
@@ -65,7 +66,7 @@ fn rows(
 fn colormapnorms_1(fig: &Figure) -> CaseResult {
     let (x, y) = mgrid_100(-3.0, 3.0, -2.0, 2.0);
     let z = on_mesh(&x, &y, spike);
-    let (lo, hi) = extremes(&z);
+    let (lo, hi) = extremes(z.as_slice());
     let draw = |ax: &Axes, colors| -> Drawn {
         let mesh = Mesh::from_coords(x.clone(), y.clone(), z.clone());
         Ok(ax.pcolor(mesh, shaded("PuBu_r", colors, Shading::Auto)?)?)
@@ -115,7 +116,7 @@ fn colormapnorms_3(fig: &Figure) -> CaseResult {
         let z2 = (-((x - 1.0) * (x - 1.0)) - (y - 1.0) * (y - 1.0)).exp();
         (z1 - z2) * 2.0
     });
-    let top = extremes(&z).1;
+    let top = extremes(z.as_slice()).1;
     let draw = |ax: &Axes, colors| -> Drawn {
         let mesh = Mesh::from_coords(x.clone(), y.clone(), z.clone());
         Ok(ax.pcolormesh(mesh, shaded("RdBu_r", colors, Shading::Auto)?)?)
@@ -380,13 +381,7 @@ impl Norm for MidpointNormalize {
     }
 
     fn autoscale_none(&mut self, data: &[Option<f64>]) {
-        let values = data.iter().flatten().copied();
-        if let Some((lo, hi)) = values.fold(None, |range: Option<(f64, f64)>, v| {
-            Some(range.map_or((v, v), |(lo, hi)| (lo.min(v), hi.max(v))))
-        }) {
-            self.vmin.get_or_insert(lo);
-            self.vmax.get_or_insert(hi);
-        }
+        autoscale_unset(&mut self.vmin, &mut self.vmax, data);
     }
 
     fn normalize_masked(

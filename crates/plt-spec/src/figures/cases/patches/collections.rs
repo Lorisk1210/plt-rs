@@ -14,6 +14,7 @@ use plt::transforms::Point;
 use plt::tri::Triangulation;
 
 use super::square_canvas;
+use crate::figures::cases::common::colors;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -23,11 +24,6 @@ fn mapping(cmap: &str, values: &[f64]) -> Result<ColorMapping, Box<dyn std::erro
         values: values.iter().map(|&v| Some(v)).collect(),
         mappable: ScalarMappable::new(colormaps::get(cmap)?),
     })
-}
-
-/// Colours by name.
-fn colors(names: &[&str]) -> Vec<Color> {
-    names.iter().map(|&name| Color::from(name)).collect()
 }
 
 /// `xy`: the 4 × 3 grid of `ellipsecollection_units`.

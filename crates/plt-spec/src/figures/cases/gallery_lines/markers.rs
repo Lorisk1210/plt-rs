@@ -16,7 +16,7 @@ use plt::transforms::{Affine2D, Point};
 use plt_core::Path;
 use plt_render::{CapStyle, JoinStyle};
 
-use crate::figures::cases::common::markevery_sine;
+use crate::figures::cases::common::{MarkeveryAxes, markevery_panel, markevery_sine};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -296,67 +296,39 @@ fn markevery_cases() -> [(Option<MarkEvery>, &'static str); 9] {
     ]
 }
 
-/// How the `markevery` grids set up their axes.
-#[derive(Clone, Copy, PartialEq)]
-enum GridAxes {
-    /// Plain rectilinear axes.
-    Linear,
-    /// Log scales on both axes before plotting.
-    Log,
-    /// Rectilinear axes zoomed to `x` 6–6.7, `y` 1.1–1.7 after plotting.
-    Zoomed,
-    /// Polar axes.
-    Polar,
-}
-
 /// The 3 × 3 constrained grid of the demo, one axes per `markevery`
 /// value, titled with it, plotting `y` against `x` as `o-` with 4 pt
 /// markers.
-fn markevery_grid(fig: &Figure, x: &[f64], y: &[f64], kind: GridAxes) -> CaseResult {
+fn markevery_grid(fig: &Figure, x: &[f64], y: &[f64], kind: MarkeveryAxes) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained())?;
     let grid = GridSpec::new(3, 3)?;
     for (i, (markevery, spelling)) in markevery_cases().into_iter().enumerate() {
         let spec = grid.cell(i / 3, i % 3)?;
-        let ax = if kind == GridAxes::Polar {
-            (*fig.add_polar_subplot_spec(&spec)?).clone()
-        } else {
-            fig.add_subplot_spec(&spec)?
-        };
-        ax.set_title(format!("markevery={spelling}"));
-        if kind == GridAxes::Log {
-            ax.set_xscale("log")?.set_yscale("log")?;
-        }
-        let style = LineProps::fmt("o")?
-            .linestyle(LineStyle::Solid)
-            .markersize(4.0)
-            .markevery(markevery);
-        ax.plot_with(x, y, style)?;
-        if kind == GridAxes::Zoomed {
-            ax.set_xlim(6.0, 6.7)?.set_ylim(1.1, 1.7)?;
-        }
+        let title = Some(format!("markevery={spelling}"));
+        markevery_panel(fig, &spec, kind, title, (x, y), markevery)?;
     }
     Ok(())
 }
 
 fn markevery_demo_1(fig: &Figure) -> CaseResult {
     let (x, y) = markevery_sine();
-    markevery_grid(fig, &x, &y, GridAxes::Linear)
+    markevery_grid(fig, &x, &y, MarkeveryAxes::Linear)
 }
 
 fn markevery_demo_2(fig: &Figure) -> CaseResult {
     let (x, y) = markevery_sine();
-    markevery_grid(fig, &x, &y, GridAxes::Log)
+    markevery_grid(fig, &x, &y, MarkeveryAxes::Log)
 }
 
 fn markevery_demo_3(fig: &Figure) -> CaseResult {
     let (x, y) = markevery_sine();
-    markevery_grid(fig, &x, &y, GridAxes::Zoomed)
+    markevery_grid(fig, &x, &y, MarkeveryAxes::Zoomed)
 }
 
 fn markevery_demo_4(fig: &Figure) -> CaseResult {
     let r = linspace(0.0, 3.0, 200);
     let theta: Vec<f64> = r.iter().map(|r| 2.0 * std::f64::consts::PI * r).collect();
-    markevery_grid(fig, &theta, &r, GridAxes::Polar)
+    markevery_grid(fig, &theta, &r, MarkeveryAxes::Polar)
 }
 
 fn multivariate_marker_plot(fig: &Figure) -> CaseResult {

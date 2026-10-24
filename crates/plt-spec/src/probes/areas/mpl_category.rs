@@ -20,10 +20,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("axes.Axes.set_xlim", set_xlim),
 ];
 
-fn rejected(err: impl std::fmt::Display) -> ProbeError {
-    ProbeError::rejected(err)
-}
-
 /// A list of category names.
 fn names(value: &Json) -> Result<Vec<String>, ProbeError> {
     value
@@ -90,7 +86,7 @@ fn locator_ticks(args: Args<'_>) -> Outcome {
     let locator = CategoryLocator::new(&categories_of(args.json("data")?)?);
     let ticks = locator
         .tick_values(f64::NAN, f64::NAN, &TickContext::default())
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     Ok(Json::from(ticks))
 }
 
@@ -99,7 +95,7 @@ fn label(formatter: &dyn Formatter, value: f64) -> Result<Json, ProbeError> {
     formatter
         .format_data(value, &TickContext::default())
         .map(Json::from)
-        .map_err(rejected)
+        .map_err(ProbeError::rejected)
 }
 
 fn formatter_labels(args: Args<'_>) -> Outcome {
@@ -119,7 +115,7 @@ fn axis_summary(axis: &plt::axes::Axis) -> Outcome {
     let Some(categories) = axis.categories() else {
         return Ok(Json::Null);
     };
-    let locs = axis.ticklocs(false).map_err(rejected)?;
+    let locs = axis.ticklocs(false).map_err(ProbeError::rejected)?;
     let formatter = axis.major_formatter();
     let labels = locs
         .iter()
@@ -144,17 +140,17 @@ fn call(ax: &Axes, call: &Json) -> Result<(), ProbeError> {
         }
         ("scatter", [x, y]) => {
             ax.scatter(axis_values(x)?, axis_values(y)?)
-                .map_err(rejected)?;
+                .map_err(ProbeError::rejected)?;
         }
         ("plot", [x, y]) => {
             ax.plot(axis_values(x)?, axis_values(y)?)
-                .map_err(rejected)?;
+                .map_err(ProbeError::rejected)?;
         }
         ("bar", [x, y]) => {
             // Heights given as names are positions of the y axis.
             let heights = ax.yaxis().convert_units(axis_values(y)?);
             ax.bar(axis_values(x)?, heights, BarOptions::default())
-                .map_err(rejected)?;
+                .map_err(ProbeError::rejected)?;
         }
         _ => return Err(bad()),
     }
@@ -177,7 +173,7 @@ fn hist(args: Args<'_>) -> Outcome {
     let positions = ax.xaxis().convert_units(axis_values(args.json("x")?)?);
     let plot = ax
         .hist(&[positions], HistPlotOptions::default())
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     let counts = plot
         .tops
         .first()
@@ -191,9 +187,9 @@ fn hist(args: Args<'_>) -> Outcome {
 fn set_xlim(args: Args<'_>) -> Outcome {
     let ax = Figure::new().subplot();
     ax.plot(axis_values(args.json("x")?)?, axis_values(args.json("y")?)?)
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     ax.set_xlim(args.str("left")?, args.str("right")?)
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     let (left, right) = ax.xlim();
     Ok(Json::from(vec![left, right]))
 }

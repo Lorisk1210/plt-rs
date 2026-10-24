@@ -1,11 +1,11 @@
 //! The `LogFormatter` family: labels for log and symlog axes.
 
+use plt_core::numeric::{py_max, py_min};
+
 use super::{Formatter, TickLabels, strip_math};
 use crate::numeric::linspace;
 use crate::ticker::pyfmt::{exponential, fixed, general, integer, repr};
-use crate::ticker::pymath::{
-    arange, floor_int, is_close_to_int, log_base, pow10, py_max, py_min, round_int,
-};
+use crate::ticker::pymath::{arange, floor_int, is_close_to_int, log_base, pow10, round_int};
 use crate::ticker::{ScaleHint, TickContext, TickerError, TickerSettings};
 use crate::transforms::nonsingular;
 

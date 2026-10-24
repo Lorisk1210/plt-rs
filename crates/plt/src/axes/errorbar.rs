@@ -527,8 +527,8 @@ fn indicator(flag: bool) -> f64 {
 }
 
 /// `props` without the marker and line-style parts, which do not apply to
-/// error bars and caps.
-fn without_marker_style(props: LineProps) -> LineProps {
+/// error bars and caps (matplotlib's `base_style` of `errorbar`).
+pub(crate) fn without_marker_style(props: LineProps) -> LineProps {
     LineProps {
         marker: None,
         markersize: None,

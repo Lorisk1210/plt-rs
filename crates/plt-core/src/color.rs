@@ -1,5 +1,7 @@
 //! Straight-alpha RGBA colours.
 
+use std::fmt::Write as _;
+
 /// A colour with straight (non-premultiplied) alpha; components in `[0, 1]`.
 ///
 /// This is the resolved form of every matplotlib colour specification;
@@ -69,6 +71,23 @@ impl Rgba {
         [q(self.r), q(self.g), q(self.b), q(self.a)]
     }
 
+    /// `#rrggbb`, or `#rrggbbaa` with `keep_alpha` (matplotlib's `to_hex`
+    /// and `rgb2hex`): each channel times 255, rounded half to even like
+    /// Python's `round` and saturated to `0..=255`; a NaN channel is `00`.
+    pub fn to_hex(self, keep_alpha: bool) -> String {
+        let channels = self.to_array();
+        let channels = if keep_alpha {
+            &channels[..]
+        } else {
+            &channels[..3]
+        };
+        channels.iter().fold(String::from("#"), |mut hex, v| {
+            let byte = (v * 255.0).round_ties_even() as u8;
+            write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
+            hex
+        })
+    }
+
     /// Relative luminance (ITU-R BT.709 on the encoded components), handy
     /// for choosing contrasting text colours.
     pub fn luminance(self) -> f64 {
@@ -96,6 +115,21 @@ mod tests {
     fn quantisation_rounds_half_up_and_clamps() {
         assert_eq!(Rgba::new(0.5, 1.0, 0.0, 1.0).to_rgba8(), [128, 255, 0, 255]);
         assert_eq!(Rgba::new(-1.0, 2.0, 0.2, 0.0).to_rgba8(), [0, 255, 51, 0]);
+    }
+
+    #[test]
+    fn hex_rounds_half_to_even_and_saturates() {
+        assert_eq!(Rgba::opaque(0.5, 1.0, 0.0).to_hex(false), "#80ff00");
+        assert_eq!(
+            Rgba::opaque(0.121_568_63, 0.466_666_67, 0.705_882_35).to_hex(false),
+            "#1f77b4"
+        );
+        assert_eq!(Rgba::new(0.5, 1.0, 0.0, 0.5).to_hex(true), "#80ff0080");
+        assert_eq!(Rgba::opaque(2.5 / 255.0, 0.0, 0.0).to_hex(false), "#020000");
+        assert_eq!(
+            Rgba::new(-1.0, 2.0, f64::NAN, 1.0).to_hex(true),
+            "#00ff00ff"
+        );
     }
 
     #[test]

@@ -4,8 +4,7 @@
 //! `style.context` with library names, files, URLs and parameter sets,
 //! the user style library, the blacklist and `pyplot.xkcd`.
 
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::path::Path;
 
 use plt::rc::{self, RcParams};
 use plt::style::{self, STYLE_BLACKLIST, Style, XkcdSketch};
@@ -14,6 +13,7 @@ use super::rcsetup::canonical;
 use super::text_metrics::{rc_text, with_rc};
 use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::scratch::ScratchDir;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -25,36 +25,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("style.STYLE_BLACKLIST", blacklist),
 ];
 
-/// A scratch directory, removed when dropped.
-struct ScratchDir(PathBuf);
-
-impl ScratchDir {
-    fn new() -> Result<Self, ProbeError> {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let dir = std::env::temp_dir().join(format!(
-            "plt-spec-style-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir_all(&dir).map_err(ProbeError::rejected)?;
-        Ok(Self(dir))
-    }
-
-    /// Writes `text` to the file `name` and returns its path.
-    fn write(&self, name: &str, text: &str) -> Result<PathBuf, ProbeError> {
-        let path = self.0.join(name);
-        std::fs::write(&path, text).map_err(ProbeError::rejected)?;
-        Ok(path)
-    }
-}
-
-impl Drop for ScratchDir {
-    fn drop(&mut self) {
-        // A leftover scratch directory is harmless.
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
 /// Runs `f` with the `library` argument (`{name: text}`) as the user
 /// style library, then empties the library again; returns what `f` and
 /// the reload warnings.
@@ -63,17 +33,19 @@ fn with_user_library<T>(
     f: impl FnOnce() -> Result<T, ProbeError>,
 ) -> Result<(T, Vec<plt::rc::RcWarning>), ProbeError> {
     let sheets = args.get("library").and_then(Json::as_object).unwrap_or(&[]);
-    let scratch = ScratchDir::new()?;
+    let scratch = ScratchDir::new("style").map_err(ProbeError::rejected)?;
     for (name, text) in sheets {
         let text = text
             .as_str()
             .ok_or_else(|| ProbeError::BadArgs(format!("style {name} is not text")))?;
-        scratch.write(&format!("{name}.mplstyle"), text)?;
+        scratch
+            .write(&format!("{name}.mplstyle"), text)
+            .map_err(ProbeError::rejected)?;
     }
     let paths = if sheets.is_empty() {
         Vec::new()
     } else {
-        vec![scratch.0.clone()]
+        vec![scratch.dir().to_owned()]
     };
     style::set_user_library_paths(paths);
     let warnings = style::reload_library();
@@ -135,7 +107,9 @@ fn style_spec(spec: &Json, scratch: &ScratchDir) -> Result<Style, ProbeError> {
                     .collect::<Result<_, ProbeError>>()?,
             )),
             [(kind, Json::String(text))] if kind == "path" || kind == "url" => {
-                let path = scratch.write("style.mplstyle", text)?;
+                let path = scratch
+                    .write("style.mplstyle", text)
+                    .map_err(ProbeError::rejected)?;
                 Ok(if kind == "path" {
                     Style::File(path)
                 } else {
@@ -178,7 +152,7 @@ fn context(args: Args<'_>) -> Outcome {
         .ok_or_else(|| ProbeError::BadArgs("params is not a list".into()))?;
     with_rc(args, || {
         let (record, _) = with_user_library(args, || {
-            let scratch = ScratchDir::new()?;
+            let scratch = ScratchDir::new("style").map_err(ProbeError::rejected)?;
             let styles = styles(args.json("style")?, &scratch)?;
             let inside = style::context_with(&styles, || read_params(params))
                 .ok()

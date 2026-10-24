@@ -26,16 +26,11 @@ use crate::probes::areas::mpl_ticker::styled;
 use crate::probes::encode::parse_points;
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
-/// A non-negative integer argument.
-fn index_arg(args: Args<'_>, key: &str) -> Result<usize, ProbeError> {
-    usize::try_from(args.i64(key)?).map_err(ProbeError::rejected)
-}
-
 /// `plt.subplot(nrows, ncols, index)`, twinned: the subplot's
 /// `get_geometry()`.
 fn twinned_subplot_geometry(args: Args<'_>) -> Outcome {
-    let (nrows, ncols) = (index_arg(args, "nrows")?, index_arg(args, "ncols")?);
-    let ax = made(pyplot::subplot(nrows, ncols, index_arg(args, "index")?))?;
+    let (nrows, ncols) = (args.usize("nrows")?, args.usize("ncols")?);
+    let ax = made(pyplot::subplot(nrows, ncols, args.usize("index")?))?;
     let _twin = ax.twinx();
     let spec = ax
         .subplot_spec()
@@ -71,7 +66,7 @@ pub(super) fn specgram_extent(args: Args<'_>) -> Outcome {
         };
         let plot = made(ax.specgram(&args.f64_vec("x")?, options))?;
         let extent = plot.image.extent();
-        Ok(numbers(&[
+        Ok(numbers([
             extent.left,
             extent.right,
             extent.bottom,
@@ -117,7 +112,7 @@ pub(super) fn wedge_bounds(args: Args<'_>) -> Outcome {
         wedge.width = Some(0.1);
         ax.add_patch(wedge);
         let limits = ax.data_lim().bbox;
-        Ok(numbers(&[
+        Ok(numbers([
             limits.x0(),
             limits.y0(),
             limits.width(),
@@ -285,7 +280,7 @@ pub(super) fn box_aspect_constrained(args: Args<'_>) -> Outcome {
                 let extent = ax
                     .window_extent()
                     .ok_or_else(|| ProbeError::rejected("an axes has no extent"))?;
-                Ok(numbers(&[extent.width(), extent.height()]))
+                Ok(numbers([extent.width(), extent.height()]))
             })
             .collect::<Result<Vec<_>, ProbeError>>()
             .map(Json::Array)

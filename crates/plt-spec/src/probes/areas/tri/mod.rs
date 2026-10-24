@@ -11,6 +11,7 @@ pub(crate) mod fields;
 use plt::tri::{TriAnalyzer, TriError, Triangulation};
 
 use crate::json::Json;
+use crate::probes::encode::object;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.
@@ -180,15 +181,6 @@ fn raw_neighbors_json(tri: &Triangulation) -> Json {
                         .collect(),
                 )
             })
-            .collect(),
-    )
-}
-
-fn object<const N: usize>(entries: [(&str, Json); N]) -> Json {
-    Json::Object(
-        entries
-            .into_iter()
-            .map(|(k, v)| (k.to_owned(), v))
             .collect(),
     )
 }

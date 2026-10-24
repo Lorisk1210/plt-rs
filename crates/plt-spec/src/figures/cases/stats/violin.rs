@@ -7,14 +7,7 @@ use plt::stats::{BandwidthMethod, ViolinOptions};
 
 use super::samples;
 use crate::figures::FigureCase;
-
-/// Violin plot options that only change how the violins are drawn.
-fn drawn(draw: ViolinDrawOptions) -> ViolinplotOptions {
-    ViolinplotOptions {
-        draw,
-        ..ViolinplotOptions::default()
-    }
-}
+use crate::figures::cases::common::drawn_violins;
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("stats/violin_default", |fig| {
@@ -24,7 +17,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/violin_means_medians_no_extrema", |fig| {
-        let options = drawn(ViolinDrawOptions {
+        let options = drawn_violins(ViolinDrawOptions {
             showmeans: true,
             showmedians: true,
             showextrema: false,
@@ -54,7 +47,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             (&data[..2], ViolinSide::Low),
             (&data[1..], ViolinSide::High),
         ] {
-            let options = drawn(ViolinDrawOptions {
+            let options = drawn_violins(ViolinDrawOptions {
                 positions: Some(vec![1.0, 2.0]),
                 side,
                 showmedians: true,
@@ -66,7 +59,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("stats/violin_horizontal_widths_colors", |fig| {
-        let options = drawn(ViolinDrawOptions {
+        let options = drawn_violins(ViolinDrawOptions {
             orientation: Orientation::Horizontal,
             widths: vec![0.3, 0.6, 0.9],
             facecolors: vec![Color::from("tab:red")],

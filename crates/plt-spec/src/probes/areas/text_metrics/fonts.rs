@@ -2,8 +2,7 @@
 //! `_find_fonts_by_props`, `FontProperties` and fontconfig patterns.
 
 use plt::fonts::{
-    FontExt, FontListEntry, FontManager, FontProperties, FontStretch, FontWeight,
-    FontconfigPattern, style_name, variant_name,
+    FontExt, FontListEntry, FontManager, FontProperties, FontStretch, FontWeight, FontconfigPattern,
 };
 use plt::rc;
 
@@ -39,8 +38,8 @@ fn entry_json(entry: &FontListEntry) -> Json {
         entry.file.as_str().into(),
         Json::from(f64::from(entry.index)),
         entry.name.as_str().into(),
-        style_name(entry.style).into(),
-        variant_name(entry.variant).into(),
+        entry.style.name().into(),
+        entry.variant.name().into(),
         weight_json(entry.weight),
         stretch_json(entry.stretch),
         "scalable".into(),
@@ -102,8 +101,8 @@ pub(super) fn find_fonts_by_props(args: Args<'_>) -> Outcome {
 pub(crate) fn properties_json(props: &FontProperties) -> Json {
     Json::Object(vec![
         ("family".into(), Json::from(props.families.clone())),
-        ("style".into(), style_name(props.style).into()),
-        ("variant".into(), variant_name(props.variant).into()),
+        ("style".into(), props.style.name().into()),
+        ("variant".into(), props.variant.name().into()),
         ("weight".into(), weight_json(props.weight)),
         ("stretch".into(), stretch_json(props.stretch)),
         ("size".into(), props.size.into()),

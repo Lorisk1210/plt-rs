@@ -25,6 +25,18 @@ pub enum FontStyle {
     Oblique,
 }
 
+impl FontStyle {
+    /// matplotlib's (and CSS's) name of the slant: `normal`, `italic` or
+    /// `oblique`.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Italic => "italic",
+            Self::Oblique => "oblique",
+        }
+    }
+}
+
 impl FromStr for FontStyle {
     type Err = FontError;
 
@@ -48,6 +60,17 @@ pub enum FontVariant {
     Normal,
     /// Small capitals.
     SmallCaps,
+}
+
+impl FontVariant {
+    /// matplotlib's (and CSS's) name of the variant: `normal` or
+    /// `small-caps`.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::SmallCaps => "small-caps",
+        }
+    }
 }
 
 /// A CSS font weight, 0–1000 (400 normal, 700 bold).

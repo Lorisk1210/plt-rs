@@ -45,6 +45,7 @@ mod normalize;
 mod options;
 mod pcolor_image;
 mod resample;
+mod shared;
 mod stages;
 mod thumbnail;
 mod unsampled;

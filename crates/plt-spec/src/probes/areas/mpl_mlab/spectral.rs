@@ -104,10 +104,6 @@ fn summary(
     Json::Object(fields)
 }
 
-fn rejected(err: MlabError) -> ProbeError {
-    ProbeError::rejected(err)
-}
-
 fn magnitudes(values: &[Complex]) -> Vec<f64> {
     values.iter().map(|z| z.abs()).collect()
 }
@@ -117,7 +113,7 @@ pub(super) fn psd(args: Args<'_>) -> Outcome {
         fs: FS,
         ..spectral_options(args)?
     };
-    let p = on_stimulus!(stimulus(args)?, |x| mlab::psd(&x, opts)).map_err(rejected)?;
+    let p = on_stimulus!(stimulus(args)?, |x| mlab::psd(&x, opts)).map_err(ProbeError::rejected)?;
     Ok(summary(
         &[p.values.len()],
         &p.freqs,
@@ -153,7 +149,8 @@ pub(super) fn csd(args: Args<'_>) -> Outcome {
         ..spectral_options(args)?
     };
     let offset = args.f64("y_offset")?;
-    let p = on_stimulus!(stimulus(args)?, |x| cross(&x, offset, opts)).map_err(rejected)?;
+    let p =
+        on_stimulus!(stimulus(args)?, |x| cross(&x, offset, opts)).map_err(ProbeError::rejected)?;
     Ok(summary(
         &[p.values.len()],
         &p.freqs,
@@ -174,7 +171,8 @@ pub(super) fn specgram(args: Args<'_>) -> Outcome {
         Some("angle") => SpecgramMode::Angle,
         Some("phase") => SpecgramMode::Phase,
         Some("complex") => {
-            let s = on_stimulus!(x, |x| mlab::complex_specgram(&x, opts)).map_err(rejected)?;
+            let s = on_stimulus!(x, |x| mlab::complex_specgram(&x, opts))
+                .map_err(ProbeError::rejected)?;
             return Ok(summary(
                 &[s.values.rows(), s.values.cols()],
                 &s.freqs,
@@ -184,7 +182,7 @@ pub(super) fn specgram(args: Args<'_>) -> Outcome {
         }
         Some(other) => return Err(ProbeError::rejected(format!("bad mode {other:?}"))),
     };
-    let s = on_stimulus!(x, |x| mlab::specgram(&x, opts, mode)).map_err(rejected)?;
+    let s = on_stimulus!(x, |x| mlab::specgram(&x, opts, mode)).map_err(ProbeError::rejected)?;
     let values = matches!(mode, SpecgramMode::Psd | SpecgramMode::Magnitude)
         .then(|| s.values.as_slice().iter().map(|v| v.abs()).collect());
     Ok(summary(
@@ -205,8 +203,8 @@ fn single_options(args: Args<'_>) -> Result<mlab::SpectrumOptions, ProbeError> {
 
 pub(super) fn complex_spectrum(args: Args<'_>) -> Outcome {
     let opts = single_options(args)?;
-    let s =
-        on_stimulus!(stimulus(args)?, |x| mlab::complex_spectrum(&x, opts)).map_err(rejected)?;
+    let s = on_stimulus!(stimulus(args)?, |x| mlab::complex_spectrum(&x, opts))
+        .map_err(ProbeError::rejected)?;
     Ok(summary(
         &[s.values.len()],
         &s.freqs,
@@ -226,7 +224,7 @@ where
         Stimulus::Real(x) => real(&x, opts),
         Stimulus::Complex(x) => complex(&x, opts),
     }
-    .map_err(rejected)?;
+    .map_err(ProbeError::rejected)?;
     let magnitudes = values.then(|| s.values.iter().map(|v| v.abs()).collect());
     Ok(summary(&[s.values.len()], &s.freqs, None, magnitudes))
 }

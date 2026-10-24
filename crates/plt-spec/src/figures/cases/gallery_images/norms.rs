@@ -13,7 +13,7 @@ use plt::numeric::{Grid, interp, linspace};
 use plt::orientation::Orientation;
 
 use super::data::{extremes, mgrid, on_mesh, spike};
-use crate::figures::cases::common::{mgrid_100, mgrid_count};
+use crate::figures::cases::common::{autoscale_unset, mgrid_100, mgrid_count};
 use crate::figures::{CaseResult, FigureCase};
 
 /// A mesh of the values `z` at the points `x`, `y`.
@@ -80,7 +80,7 @@ fn norm_pair(
 fn colormap_normalizations_1(fig: &Figure) -> CaseResult {
     let (x, y) = mgrid_100(-3.0, 3.0, -2.0, 2.0);
     let z = on_mesh(&x, &y, spike);
-    let (lo, hi) = extremes(&z);
+    let (lo, hi) = extremes(z.as_slice());
     let plot = |ax: &Axes, colors| -> Result<_, Box<dyn std::error::Error>> {
         Ok(ax.pcolor(
             points_mesh(&x, &y, &z),
@@ -132,7 +132,7 @@ fn bipolar() -> (Grid<f64>, Grid<f64>, Grid<f64>) {
 /// bipolar field; its linear scaling starts at `-max(Z)`.
 fn bipolar_pair(fig: &Figure, norm: ColorizerOptions, label: &str) -> CaseResult {
     let (x, y, z) = bipolar();
-    let top = extremes(&z).1;
+    let top = extremes(z.as_slice()).1;
     let plot = |ax: &Axes, colors| -> Result<_, Box<dyn std::error::Error>> {
         Ok(ax.pcolormesh(
             points_mesh(&x, &y, &z),
@@ -192,13 +192,7 @@ impl Norm for MidpointNormalize {
     }
 
     fn autoscale_none(&mut self, data: &[Option<f64>]) {
-        let values = data.iter().flatten().copied();
-        if let Some((lo, hi)) = values.fold(None, |range: Option<(f64, f64)>, v| {
-            Some(range.map_or((v, v), |(lo, hi)| (lo.min(v), hi.max(v))))
-        }) {
-            self.vmin.get_or_insert(lo);
-            self.vmax.get_or_insert(hi);
-        }
+        autoscale_unset(&mut self.vmin, &mut self.vmax, data);
     }
 
     /// `np.interp(value, [vmin, midpoint, vmax], [0, 0.5, 1])`, masks
@@ -241,7 +235,7 @@ fn colormap_normalizations_4(fig: &Figure) -> CaseResult {
 
 fn colormap_normalizations_5(fig: &Figure) -> CaseResult {
     let (x, y, z) = bipolar();
-    let top = extremes(&z).1;
+    let top = extremes(z.as_slice()).1;
     fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(3, 1)?;
     let vertical = |ax: &Axes, label: &str| ColorbarOptions {

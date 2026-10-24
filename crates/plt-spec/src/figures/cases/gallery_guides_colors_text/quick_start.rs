@@ -15,7 +15,7 @@ use plt::colors::{ColorizerOptions, Extend, LogNorm, colormaps};
 use plt::contour::{QuadCoords, QuadField};
 use plt::dates::{ConciseDateFormatter, DateTime, TimeDelta};
 use plt::figure::MosaicOptions;
-use plt::layout::{LayoutEngine, LayoutEngineError};
+use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -26,6 +26,7 @@ use plt::stats::{Bins, HistOptions};
 use crate::figures::cases::common::{
     GALLERY_SEED, cumsum, func3, local_max, map, mesh_field, mosaic, values,
 };
+use crate::figures::cases::common::{constrained, indices};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -33,17 +34,6 @@ use crate::rng::SpecRng;
 fn random_sets() -> [Vec<f64>; 4] {
     let values = SpecRng::new(GALLERY_SEED).normal(400, 0.0, 1.0);
     std::array::from_fn(|i| values[i * 100..(i + 1) * 100].to_vec())
-}
-
-/// `np.arange(len(data))` for a data set of `n` values.
-fn indices(n: usize) -> Vec<f64> {
-    (0..n).map(|i| i as f64).collect()
-}
-
-/// A constrained figure's only axes.
-fn constrained(fig: &Figure) -> Result<Axes, LayoutEngineError> {
-    fig.set_layout_engine(LayoutEngine::constrained())?;
-    Ok(fig.subplot())
 }
 
 fn quick_start_1(fig: &Figure) -> CaseResult {

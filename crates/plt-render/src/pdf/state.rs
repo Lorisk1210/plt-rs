@@ -3,7 +3,7 @@
 //! a drawing call needs. Clipping can only be widened by restoring a
 //! saved state, so clip changes pop and push the state stack.
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib detects graphics-state changes with exact comparisons"
 )]

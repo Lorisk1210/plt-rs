@@ -6,13 +6,13 @@ use plt::axes::{Axes, Axis, AxisName, Limits};
 use plt::dates::{AutoDateFormatter, DateTime, Datetime64, RRuleLocator, TimeZone, UtcOffset};
 use plt::figure::Figure;
 use plt::lines::LineProps;
-use plt::ticker::{Formatter, Locator, NullLocator};
+use plt::ticker::NullLocator;
 use plt::units::AxisValues;
 
 use super::in_epoch;
 use crate::json::Json;
 use crate::probes::areas::dates::{self, date_num, zoned};
-use crate::probes::areas::mpl_ticker::styled;
+use crate::probes::areas::mpl_ticker::{install_formatter, install_locator, spec_parts, styled};
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
 /// Plotted values: numbers, or ISO strings for dates.
@@ -72,36 +72,20 @@ fn minutes(arg: Option<&Json>) -> Result<Vec<u32>, ProbeError> {
         .ok_or_else(|| ProbeError::BadArgs("MinuteLocator needs minutes".into()))
 }
 
-/// A `[name, arg?]` spec.
-fn spec_parts(spec: &Json) -> Result<(&str, Option<&Json>), ProbeError> {
-    match spec.as_array() {
-        Some([name, rest @ ..]) if rest.len() <= 1 => name
-            .as_str()
-            .map(|name| (name, rest.first()))
-            .ok_or_else(|| ProbeError::BadArgs(format!("bad spec {spec}"))),
-        _ => Err(ProbeError::BadArgs(format!("bad spec {spec}"))),
-    }
-}
-
 /// Sets the major (or minor) locator of `axis` to the one a spec
 /// describes.
 fn set_locator(axis: &Axis, minor: bool, spec: &Json) -> Result<(), ProbeError> {
-    fn install(axis: &Axis, minor: bool, locator: impl Locator) {
-        if minor {
-            axis.set_minor_locator(locator);
-        } else {
-            axis.set_major_locator(locator);
-        }
-    }
     match spec_parts(spec)? {
-        ("AutoDateLocator", params) => install(axis, minor, dates::auto_locator(params)?),
-        ("MinuteLocator", arg) => install(axis, minor, RRuleLocator::minutes(&minutes(arg)?, 1)),
-        ("DayLocator", None) => install(
+        ("AutoDateLocator", params) => install_locator(axis, minor, dates::auto_locator(params)?),
+        ("MinuteLocator", arg) => {
+            install_locator(axis, minor, RRuleLocator::minutes(&minutes(arg)?, 1));
+        }
+        ("DayLocator", None) => install_locator(
             axis,
             minor,
             RRuleLocator::days(&[], 1).map_err(ProbeError::rejected)?,
         ),
-        ("NullLocator", None) => install(axis, minor, NullLocator),
+        ("NullLocator", None) => install_locator(axis, minor, NullLocator),
         _ => return Err(ProbeError::BadArgs(format!("bad locator {spec}"))),
     }
     Ok(())
@@ -112,13 +96,6 @@ fn set_locator(axis: &Axis, minor: bool, spec: &Json) -> Result<(), ProbeError> 
 /// (`tz` an offset in hours) or `["AutoDateFormatter", ["MinuteLocator",
 /// [minutes]]]`.
 fn set_formatter(axis: &Axis, minor: bool, spec: &Json) -> Result<(), ProbeError> {
-    fn install(axis: &Axis, minor: bool, formatter: impl Formatter) {
-        if minor {
-            axis.set_minor_formatter(formatter);
-        } else {
-            axis.set_major_formatter(formatter);
-        }
-    }
     match spec_parts(spec)? {
         ("ConciseDateFormatter", Some(params)) => {
             let params = Args::new(params);
@@ -129,10 +106,10 @@ fn set_formatter(axis: &Axis, minor: bool, spec: &Json) -> Result<(), ProbeError
                     .and_then(|s| UtcOffset::from_seconds(s).map_err(ProbeError::rejected))?;
                 formatter = formatter.with_tz(TimeZone::Fixed(offset));
             }
-            install(axis, minor, formatter);
+            install_formatter(axis, minor, formatter);
         }
         ("AutoDateFormatter", Some(locator)) => match spec_parts(locator)? {
-            ("MinuteLocator", arg) => install(
+            ("MinuteLocator", arg) => install_formatter(
                 axis,
                 minor,
                 AutoDateFormatter::new(RRuleLocator::minutes(&minutes(arg)?, 1)),

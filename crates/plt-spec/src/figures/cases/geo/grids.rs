@@ -135,10 +135,6 @@ fn hour_formatter(fig: &Figure) -> CaseResult {
     let ax = fig.geo_subplot(GeoProjection::Mollweide);
     ax.xaxis().set_major_formatter(FuncFormatter::new(|x, _| {
         let hours = (x.to_degrees() / 15.0).round_ties_even();
-        #[expect(
-            clippy::cast_possible_truncation,
-            reason = "Python's int() of a small value"
-        )]
         let hours = hours as i64;
         format!("{}h", hours.rem_euclid(24))
     }));

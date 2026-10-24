@@ -38,7 +38,7 @@ macro_rules! limit_builders {
     };
 }
 
-/// The [`Norm`] limit accessors for norms with a `limits: Limits` field.
+/// The [`Norm`](super::Norm) limit accessors for norms with a `limits: Limits` field.
 macro_rules! limit_accessors {
     () => {
         fn vmin(&self) -> Option<f64> {

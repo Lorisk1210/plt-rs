@@ -78,27 +78,24 @@ mod tests {
     use super::*;
     use crate::artist::ArtistHandle;
     use crate::geo::GeoProjection;
-
-    fn close(a: Point, b: Point) -> bool {
-        (a - b).length() < 1e-9
-    }
+    use crate::testing::close_points;
 
     #[test]
     fn labels_sit_on_the_equator_and_beside_the_edge() {
         let geo = GeoState::new(GeoProjection::Mollweide);
         let display = Bbox::from_extents(0.0, 0.0, 400.0, 200.0);
         let (anchor, align) = tick_label_anchor(&geo, &display, AxisName::X, 0.0, true);
-        assert!(close(anchor, Point::new(200.0, 104.0)));
+        assert!(close_points(anchor, Point::new(200.0, 104.0)));
         assert_eq!(align, (HAlign::Center, VAlign::Bottom));
         let (anchor, align) = tick_label_anchor(&geo, &display, AxisName::X, 0.0, false);
-        assert!(close(anchor, Point::new(200.0, 96.0)));
+        assert!(close_points(anchor, Point::new(200.0, 96.0)));
         assert_eq!(align, (HAlign::Center, VAlign::Top));
         let (anchor, align) = tick_label_anchor(&geo, &display, AxisName::Y, 0.0, true);
-        assert!(close(anchor, Point::new(-8.0, 100.0)));
+        assert!(close_points(anchor, Point::new(-8.0, 100.0)));
         assert_eq!(align, (HAlign::Right, VAlign::Center));
         // Labels near the poles are spread out beyond the map.
         let (anchor, align) = tick_label_anchor(&geo, &display, AxisName::Y, PI / 2.0, false);
-        assert!(close(anchor, Point::new(208.0, 210.0)));
+        assert!(close_points(anchor, Point::new(208.0, 210.0)));
         assert_eq!(align, (HAlign::Left, VAlign::Center));
     }
 

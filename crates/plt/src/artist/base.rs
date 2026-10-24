@@ -35,7 +35,7 @@ pub enum ClipPathSpec {
 
 /// The state matplotlib's `Artist` base class carries.
 #[derive(Clone, Debug, PartialEq)]
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "mirrors matplotlib's independent boolean artist properties"
 )]

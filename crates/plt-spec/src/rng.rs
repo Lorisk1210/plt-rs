@@ -4,30 +4,30 @@
 //! Python reference suite and the Rust harness; any change here must be
 //! mirrored in `spec/reference/spec_support/data.py`.
 
+use plt_core::rng::SplitMix64;
+
 /// `SplitMix64` stream with uniform, normal, gamma and integer helpers.
 #[derive(Clone, Debug)]
 pub struct SpecRng {
-    state: u64,
+    stream: SplitMix64,
 }
 
 impl SpecRng {
     /// Creates a generator from a seed.
     pub const fn new(seed: u64) -> Self {
-        Self { state: seed }
+        Self {
+            stream: SplitMix64::new(seed),
+        }
     }
 
     /// Next raw 64-bit output.
     pub fn next_u64(&mut self) -> u64 {
-        self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
+        self.stream.next_u64()
     }
 
     /// Uniform in `[0, 1)` with 53 bits of precision.
     pub fn next_f64(&mut self) -> f64 {
-        (self.next_u64() >> 11) as f64 * (1.0 / (1_u64 << 53) as f64)
+        self.stream.next_f64()
     }
 
     /// `n` uniform samples in `[low, high)`.

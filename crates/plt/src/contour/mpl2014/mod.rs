@@ -215,6 +215,7 @@ mod tests {
     use super::*;
     use crate::contour::QuadContourGenerator;
     use crate::numeric::Grid;
+    use crate::testing::vertex_pairs;
 
     /// A generator for `z` at index coordinates.
     fn generator(
@@ -229,10 +230,6 @@ mod tests {
         let y = Grid::from_fn(ny, nx, |i, _| i as f64);
         let mask = mask.map(|m| Grid::from_rows(m.iter().map(|r| r.to_vec())).unwrap());
         QuadContourGenerator::new(&x, &y, &z, mask.as_ref(), corner_mask, (chunk, chunk)).unwrap()
-    }
-
-    fn points(path: &Path) -> Vec<(f64, f64)> {
-        path.vertices().iter().map(|p| (p.x, p.y)).collect()
     }
 
     /// Signed areas of the rings of a filled path.
@@ -257,7 +254,7 @@ mod tests {
         let path = generator(&PIT, None, true, 0).lines(0.5);
         assert_eq!(path.codes().unwrap(), [M, L, L, L, C]);
         assert_eq!(
-            points(&path),
+            vertex_pairs(&path),
             [(1.0, 0.5), (0.5, 1.0), (1.0, 1.5), (1.5, 1.0), (1.0, 0.5)]
         );
         assert_eq!(generator(&PIT, None, true, 0).lines(1.5).codes(), None);
@@ -272,7 +269,7 @@ mod tests {
         ];
         let path = generator(&rows, None, true, 0).lines(0.5);
         assert_eq!(path.codes().unwrap(), [M, L, L, L, L]);
-        let v = points(&path);
+        let v = vertex_pairs(&path);
         assert_eq!(
             (v[0], v[4]),
             (
@@ -287,7 +284,7 @@ mod tests {
         let path = generator(&[&[1.0, 0.0], &[0.0, 1.0]], None, true, 0).lines(0.5);
         assert_eq!(path.codes().unwrap(), [M, L, M, L]);
         assert_eq!(
-            points(&path),
+            vertex_pairs(&path),
             [(0.5, 0.0), (0.0, 0.5), (0.5, 1.0), (1.0, 0.5)]
         );
     }

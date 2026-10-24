@@ -1,246 +1,27 @@
-//! Writing figures: matplotlib's `savefig` with the Agg canvas (PNG) and
-//! the SVG, PDF and PostScript backends (the latter in `postscript.rs`),
-//! chosen from the file extension.
+//! Writing figures: matplotlib's `savefig` with the Agg canvas (PNG, and
+//! JPEG, TIFF, GIF, WebP and raw RGBA through the bitmap encoders) and the
+//! SVG, PDF, PostScript and PGF backends (the latter two in `postscript.rs`
+//! and `pgf.rs`), chosen from the file extension. The formats are in
+//! `format`, the renderer settings taken from the rcParams in `settings`.
 
-use std::fmt;
-use std::path::{Path as FsPath, PathBuf};
-use std::str::FromStr;
+mod error;
+mod format;
+mod settings;
 
-use plt_core::path::convert::SimplifySettings;
-use plt_render::{
-    Metadata, PdfOptions, PdfRenderer, PngMetadata, RasterBackendError, RasterRenderer, Renderer,
-    VectorError,
+pub use error::SaveError;
+pub use format::SaveFormat;
+pub(super) use settings::{
+    embedding, pdf_options, raster_renderer, simplify_settings, whole_pixels,
 };
 
+use std::path::Path as FsPath;
+
+use plt_render::{Metadata, PdfRenderer, PngMetadata, RasterRenderer, Renderer};
+
+use super::Figure;
 use super::print::SaveOptions;
-use super::{DrawErrors, Figure};
-use crate::image::{BitmapError, BitmapFormat, BitmapSettings};
-use crate::rc::FontType;
-
-/// Why a figure could not be rendered or saved.
-#[derive(Debug)]
-pub enum SaveError {
-    /// The canvas could not be created or encoded.
-    Backend(RasterBackendError),
-    /// A vector document could not be written.
-    Vector(VectorError),
-    /// The canvas could not be encoded as a bitmap file.
-    Bitmap(BitmapError),
-    /// Some artists could not be drawn.
-    Draw(DrawErrors),
-    /// The file format is not one plt-rs can write.
-    UnsupportedFormat(String),
-    /// Metadata was given for a format that cannot hold it (the bitmap
-    /// formats other than PNG).
-    MetadataUnsupported(SaveFormat),
-    /// Writing the file failed.
-    Io(std::io::Error),
-}
-
-impl fmt::Display for SaveError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Backend(err) => write!(f, "cannot render the figure: {err}"),
-            Self::Vector(err) => write!(f, "cannot write the document: {err}"),
-            Self::Bitmap(err) => write!(f, "cannot write the image: {err}"),
-            Self::Draw(err) => err.fmt(f),
-            Self::UnsupportedFormat(format) => write!(
-                f,
-                "format {format:?} is not supported (supported formats: eps, gif, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff, webp)"
-            ),
-            Self::MetadataUnsupported(format) => write!(
-                f,
-                "metadata not supported for format {:?}",
-                format.extension()
-            ),
-            Self::Io(err) => write!(f, "cannot write the figure: {err}"),
-        }
-    }
-}
-
-impl std::error::Error for SaveError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Backend(err) => Some(err),
-            Self::Vector(err) => Some(err),
-            Self::Bitmap(err) => Some(err),
-            Self::Draw(err) => Some(err),
-            Self::Io(err) => Some(err),
-            Self::UnsupportedFormat(_) | Self::MetadataUnsupported(_) => None,
-        }
-    }
-}
-
-/// The file formats figures can be saved in.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum SaveFormat {
-    /// Portable Network Graphics (the Agg canvas).
-    Png,
-    /// Scalable Vector Graphics.
-    Svg,
-    /// Gzip-compressed SVG.
-    Svgz,
-    /// Portable Document Format.
-    Pdf,
-    /// PostScript, centred on the `ps.papersize` page.
-    Ps,
-    /// Encapsulated PostScript, sized to the figure.
-    Eps,
-    /// A LaTeX PGF picture.
-    Pgf,
-    /// JPEG, flattened onto white (`jpg` or `jpeg`).
-    Jpeg,
-    /// Uncompressed TIFF (`tif` or `tiff`).
-    Tiff,
-    /// A single-frame GIF.
-    Gif,
-    /// Lossless WebP.
-    Webp,
-    /// The bare RGBA bytes of the canvas (`raw` or `rgba`).
-    Raw,
-}
-
-impl SaveFormat {
-    /// The file extension (without a dot).
-    pub const fn extension(self) -> &'static str {
-        match self {
-            Self::Png => "png",
-            Self::Svg => "svg",
-            Self::Svgz => "svgz",
-            Self::Pdf => "pdf",
-            Self::Ps => "ps",
-            Self::Eps => "eps",
-            Self::Pgf => "pgf",
-            Self::Jpeg => "jpg",
-            Self::Tiff => "tif",
-            Self::Gif => "gif",
-            Self::Webp => "webp",
-            Self::Raw => "raw",
-        }
-    }
-
-    /// A file name in this format for a figure whose window is titled
-    /// `title` (matplotlib's `get_default_filename`): the title with the
-    /// characters file systems refuse, and spaces, replaced by `_`, or
-    /// `image` for an empty title.
-    ///
-    /// ```
-    /// use plt::figure::SaveFormat;
-    /// assert_eq!(SaveFormat::Png.file_name_for("Figure 1"), "Figure_1.png");
-    /// assert_eq!(SaveFormat::Pdf.file_name_for("0:1/2<3"), "0_1_2_3.pdf");
-    /// assert_eq!(SaveFormat::Svg.file_name_for(""), "image.svg");
-    /// ```
-    pub fn file_name_for(self, title: &str) -> String {
-        let base: String = title
-            .chars()
-            .map(|c| if "<>:\"/\\|?*\0 ".contains(c) { '_' } else { c })
-            .collect();
-        let base = if base.is_empty() { "image" } else { &base };
-        format!("{base}.{}", self.extension())
-    }
-
-    /// Whether the format holds document metadata (matplotlib's
-    /// `savefig(metadata=...)`): the vector formats and PNG.
-    pub const fn takes_metadata(self) -> bool {
-        !matches!(
-            self,
-            Self::Jpeg | Self::Tiff | Self::Gif | Self::Webp | Self::Raw
-        )
-    }
-
-    /// The bitmap encoding of the raster formats, `None` for the vector
-    /// formats.
-    pub const fn bitmap(self) -> Option<BitmapFormat> {
-        match self {
-            Self::Png => Some(BitmapFormat::Png),
-            Self::Jpeg => Some(BitmapFormat::Jpeg),
-            Self::Tiff => Some(BitmapFormat::Tiff),
-            Self::Gif => Some(BitmapFormat::Gif),
-            Self::Webp => Some(BitmapFormat::Webp),
-            Self::Raw => Some(BitmapFormat::Raw),
-            Self::Svg | Self::Svgz | Self::Pdf | Self::Ps | Self::Eps | Self::Pgf => None,
-        }
-    }
-}
-
-impl FromStr for SaveFormat {
-    type Err = SaveError;
-
-    /// Parses a format name or extension, ignoring case.
-    fn from_str(name: &str) -> Result<Self, SaveError> {
-        Ok(match name.to_ascii_lowercase().as_str() {
-            "png" => Self::Png,
-            "svg" => Self::Svg,
-            "svgz" => Self::Svgz,
-            "pdf" => Self::Pdf,
-            "ps" => Self::Ps,
-            "eps" => Self::Eps,
-            "pgf" => Self::Pgf,
-            "jpg" | "jpeg" => Self::Jpeg,
-            "tif" | "tiff" => Self::Tiff,
-            "gif" => Self::Gif,
-            "webp" => Self::Webp,
-            "raw" | "rgba" => Self::Raw,
-            _ => return Err(SaveError::UnsupportedFormat(name.to_owned())),
-        })
-    }
-}
-
-/// The settings of a PDF document from the `pdf.*` rcParams, with
-/// `metadata`.
-pub(super) fn pdf_options(metadata: Metadata) -> PdfOptions {
-    let rc = crate::rc::params();
-    PdfOptions {
-        compression: u8::try_from(rc.pdf_compression.clamp(0, 9)).unwrap_or(6),
-        inherit_color: rc.pdf_inheritcolor,
-        metadata,
-        simplify: simplify_settings(),
-        composite_images: rc.image_composite_image,
-        fonttype: embedding(rc.pdf_fonttype),
-        core_fonts: rc.pdf_use14corefonts,
-    }
-}
-
-/// How a `pdf.fonttype` or `ps.fonttype` setting embeds fonts.
-pub(super) const fn embedding(fonttype: FontType) -> plt_render::FontType {
-    match fonttype {
-        FontType::Type3 => plt_render::FontType::Type3,
-        FontType::TrueType => plt_render::FontType::Type42,
-    }
-}
-
-/// matplotlib's `path.simplify` settings from the rcParams.
-pub(super) fn simplify_settings() -> SimplifySettings {
-    let rc = crate::rc::params();
-    SimplifySettings {
-        enabled: rc.path_simplify,
-        threshold: rc.path_simplify_threshold,
-    }
-}
-
-/// The whole pixels a canvas `size` pixels long holds: truncated, but
-/// rounded up within 1e-8 of the next pixel to undo floating-point error
-/// (matplotlib's `FigureCanvasBase.get_width_height`).
-pub(super) fn whole_pixels(size: f64) -> u32 {
-    // The conversion saturates: negative and NaN sizes give 0.
-    (size + 1e-8) as u32
-}
-
-/// A raster canvas of `width × height` whole pixels at `dpi`, with the
-/// current `path.simplify` and `agg.path.chunksize` settings.
-pub(super) fn raster_renderer(
-    width: u32,
-    height: u32,
-    dpi: f64,
-) -> Result<RasterRenderer, RasterBackendError> {
-    // Negative sizes never split, as matplotlib's `npts > nmax > 100`.
-    let chunksize = usize::try_from(crate::rc::params().agg_path_chunksize).unwrap_or(0);
-    RasterRenderer::new(f64::from(width), f64::from(height), dpi).map(|canvas| {
-        canvas
-            .with_simplify(simplify_settings())
-            .with_path_chunksize(chunksize)
-    })
-}
+use crate::image::{BitmapFormat, BitmapSettings};
+use format::resolve_format;
 
 impl Figure {
     /// A raster canvas for this figure — [`Figure::width_height`] pixels,
@@ -428,29 +209,6 @@ impl Figure {
     }
 }
 
-/// matplotlib's `print_figure` format resolution: an explicit format, the
-/// file name's extension, or `savefig.format` appended to the file name.
-fn resolve_format(
-    path: &FsPath,
-    format: Option<SaveFormat>,
-) -> Result<(PathBuf, SaveFormat), SaveError> {
-    if let Some(format) = format {
-        return Ok((path.to_owned(), format));
-    }
-    match path.extension().and_then(|e| e.to_str()) {
-        Some(extension) if !extension.is_empty() => Ok((path.to_owned(), extension.parse()?)),
-        _ => {
-            let format: SaveFormat = crate::rc::params().savefig_format.parse()?;
-            let name = path.to_string_lossy();
-            let stem = name.trim_end_matches('.');
-            Ok((
-                PathBuf::from(format!("{stem}.{}", format.extension())),
-                format,
-            ))
-        }
-    }
-}
-
 /// Metadata for a document saved to `path`: the file name as title (as
 /// matplotlib's PostScript backend writes it) unless metadata is given.
 fn file_metadata(options: &SaveOptions, path: &FsPath) -> Metadata {
@@ -530,27 +288,6 @@ mod tests {
         let webp = fig.to_format(SaveFormat::Webp, options).unwrap();
         let decoded = plt_codec::webp::decode(&webp).unwrap().to_rgba8().concat();
         assert_eq!(decoded, raw);
-    }
-
-    #[test]
-    fn formats_come_from_extensions() {
-        assert_eq!("SVG".parse::<SaveFormat>().unwrap(), SaveFormat::Svg);
-        assert_eq!("jpeg".parse::<SaveFormat>().unwrap(), SaveFormat::Jpeg);
-        assert_eq!("rgba".parse::<SaveFormat>().unwrap(), SaveFormat::Raw);
-        assert_eq!("WebP".parse::<SaveFormat>().unwrap(), SaveFormat::Webp);
-        assert!(matches!(
-            "avif".parse::<SaveFormat>(),
-            Err(SaveError::UnsupportedFormat(_))
-        ));
-        let (path, format) = resolve_format(FsPath::new("out/plot.pdf"), None).unwrap();
-        assert_eq!(
-            (path, format),
-            (PathBuf::from("out/plot.pdf"), SaveFormat::Pdf)
-        );
-        let (path, format) = resolve_format(FsPath::new("plot"), None).unwrap();
-        assert_eq!((path, format), (PathBuf::from("plot.png"), SaveFormat::Png));
-        let (_, format) = resolve_format(FsPath::new("plot.png"), Some(SaveFormat::Eps)).unwrap();
-        assert_eq!(format, SaveFormat::Eps);
     }
 
     #[test]

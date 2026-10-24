@@ -6,6 +6,7 @@ use plt::mplot3d::{Axes3D, Axes3DError, Axis3, SurfaceOptions};
 use plt::numeric::Grid;
 
 use super::{EVERY_POINT, SEED, label_xyz};
+use crate::figures::cases::common::extremes;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -35,15 +36,6 @@ fn colored_plane(
     ax.plot_surface(&x, &y, &z, options).map(drop)
 }
 
-/// The smallest and largest of `values`.
-fn extent(values: impl IntoIterator<Item = f64>) -> (f64, f64) {
-    values
-        .into_iter()
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), v| {
-            (low.min(v), high.max(v))
-        })
-}
-
 /// `imshow3d`: `array` as a plane normal to `direction` at `pos`, one
 /// face per value coloured through `cmap` over its range; the rows and
 /// columns of `array` run along z and y for x, x and z for y, and y and x
@@ -58,7 +50,7 @@ fn image_plane(
     let colors = colored(
         array,
         &colormaps::get(cmap)?,
-        extent(array.as_slice().iter().copied()),
+        extremes(array.as_slice().iter().copied()),
     );
     // np.mgrid[0:rows + 1, 0:cols + 1] and np.full_like(..., pos).
     let (rows, cols) = (array.rows() + 1, array.cols() + 1);
@@ -143,7 +135,7 @@ fn plot_quadrants(ax: &Axes3D, fixed: Axis3, cmap: &Colormap, range: (f64, f64))
 
 fn intersecting_planes(fig: &Figure) -> CaseResult {
     let [nx, ny, nz] = SHAPE;
-    let range = extent(
+    let range = extremes(
         (0..nx).flat_map(|i| (0..ny).flat_map(move |j| (0..nz).map(move |k| r_square([i, j, k])))),
     );
     let ax = fig.subplot_3d();

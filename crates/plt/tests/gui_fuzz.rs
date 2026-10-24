@@ -10,31 +10,24 @@ use plt::axes::ImshowOptions;
 use plt::gui::Session;
 use plt::numeric::Grid;
 use plt::prelude::*;
+use plt_core::rng::SplitMix64;
 use plt_platform::{
     ButtonState, Key, KeyEvent, Modifiers, MouseButton, PhysicalPosition, PhysicalSize,
     ScrollDelta, WindowEvent, WindowId,
 };
 
 /// A deterministic stream of pseudo-random numbers (`SplitMix64`).
-struct Stream(u64);
+struct Stream(SplitMix64);
 
 impl Stream {
-    fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
     /// A number in `0..n`.
     fn below(&mut self, n: usize) -> usize {
-        (self.next() % n as u64) as usize
+        self.0.below(n)
     }
 
     /// A number in `[low, high)`.
     fn between(&mut self, low: f64, high: f64) -> f64 {
-        low + (high - low) * (self.next() >> 11) as f64 / (1u64 << 53) as f64
+        low + (high - low) * self.0.next_f64()
     }
 
     /// One of `items`.
@@ -173,7 +166,7 @@ fn windows_survive_random_input() -> Result<(), Box<dyn std::error::Error>> {
     let figures = figures()?;
     let (mut session, handle) = Session::headless();
     session.show(&figures)?;
-    let mut stream = Stream(20_261_019);
+    let mut stream = Stream(SplitMix64::new(20_261_019));
     for _ in 0..400 {
         let windows: Vec<WindowId> = handle.windows();
         if windows.is_empty() {

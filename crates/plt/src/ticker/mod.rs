@@ -21,9 +21,10 @@
 //! assert_eq!(labels.offset, "1e6");
 //! ```
 //!
-//! Python's float formatting is reproduced exactly by [`pyfmt`], which
-//! other modules may use for matplotlib-compatible number formatting.
-#![allow(
+//! Python's float formatting is reproduced exactly by [`pyfmt`] (from
+//! [`plt_core::pyfmt`], which the backends share), which other modules may
+//! use for matplotlib-compatible number formatting.
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's tick algorithms compare floats exactly; the ports keep those comparisons"
 )]
@@ -33,7 +34,6 @@ mod error;
 mod formatter;
 mod label_format;
 mod locator;
-pub mod pyfmt;
 pub(crate) mod pymath;
 mod settings;
 
@@ -51,4 +51,5 @@ pub use locator::{
     Locator, LogLocator, LogSubs, LogitLocator, MAXTICKS, MaxNLocator, MultipleLocator, Nbins,
     NullLocator, NumTicks, Prune, SymmetricalLogLocator, exceeds_max_ticks, scale_range,
 };
+pub use plt_core::pyfmt;
 pub use settings::{AutolimitMode, MinorDivisions, TickerSettings};

@@ -21,6 +21,7 @@ use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_render::{GraphicsContext, PathCollection};
 
 use crate::json::Json;
+use crate::probes::encode::{count, pair};
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.
@@ -45,16 +46,6 @@ pub(crate) const OPS: &[Op] = &[
 fn count_arg(args: Args<'_>, key: &str) -> Result<usize, ProbeError> {
     usize::try_from(args.i64(key)?)
         .map_err(|_| ProbeError::BadArgs(format!("{key} is not a count")))
-}
-
-/// A count as JSON.
-fn count(n: usize) -> Json {
-    Json::from(n as f64)
-}
-
-/// `[x, y]` as JSON.
-fn pair(x: f64, y: f64) -> Json {
-    Json::Array(vec![Json::from(x), Json::from(y)])
 }
 
 /// The collection of `test_uses_per_path`: `paths` regular polygons,
@@ -127,7 +118,7 @@ fn width_height(args: Args<'_>) -> Outcome {
     let (columns, rows) = fig.width_height();
     Ok(Json::Array(vec![
         Json::from(fig.size_pixels().1),
-        pair(f64::from(columns), f64::from(rows)),
+        pair((f64::from(columns), f64::from(rows))),
     ]))
 }
 
@@ -147,7 +138,7 @@ fn location_event(args: Args<'_>) -> Outcome {
     let (x, y) = seen
         .borrow()
         .ok_or_else(|| ProbeError::rejected("no motion event"))?;
-    Ok(pair(x, y))
+    Ok(pair((x, y)))
 }
 
 /// `format_coord` of a status bar, on fresh axes or after twins are added.

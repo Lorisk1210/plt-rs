@@ -312,14 +312,11 @@ fn week_number(yday: i64, weekday: Weekday, first: Weekday) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn dt(y: i32, mo: u32, d: u32, h: u32, mi: u32, s: u32, us: u32) -> DateTime {
-        DateTime::new(y, mo, d, h, mi, s, us).unwrap()
-    }
+    use crate::testing::datetime;
 
     #[test]
     fn python_layer_codes() {
-        let d = dt(5, 1, 1, 0, 0, 0, 0);
+        let d = datetime(5, 1, 1, 0, 0, 0, 0);
         assert_eq!(d.strftime("%Y|%G|%y|%C|%F"), "0005|0004|05|00|0005-01-01");
         assert_eq!(d.strftime("%c"), "Sat Jan  1 00:00:00 5");
         assert_eq!(d.strftime("%f|%z|%Z|%:z|%"), "000000||||%");
@@ -331,7 +328,7 @@ mod tests {
 
     #[test]
     fn glibc_layer_codes() {
-        let d = dt(2005, 3, 7, 15, 4, 5, 123_456);
+        let d = datetime(2005, 3, 7, 15, 4, 5, 123_456);
         assert_eq!(
             d.strftime("%a|%A|%b|%B|%h|%d|%e|%j|%U|%W|%w|%u|%V|%g|%G"),
             "Mon|Monday|Mar|March|Mar|07| 7|066|10|10|1|1|10|05|2005"
@@ -349,22 +346,22 @@ mod tests {
             "7| 3|MON|MARCH|    Monday|66"
         );
         assert_eq!(
-            dt(2020, 1, 1, 0, 0, 0, 0).strftime("%I %p %s"),
+            datetime(2020, 1, 1, 0, 0, 0, 0).strftime("%I %p %s"),
             "12 AM 1577836800"
         );
     }
 
     #[test]
     fn week_numbers_at_year_edges() {
-        let d = dt(2021, 1, 3, 0, 0, 0, 0);
+        let d = datetime(2021, 1, 3, 0, 0, 0, 0);
         assert_eq!(d.strftime("%U %W %V %G"), "01 00 53 2020");
-        let d = dt(2024, 12, 30, 0, 0, 0, 0);
+        let d = datetime(2024, 12, 30, 0, 0, 0, 0);
         assert_eq!(d.strftime("%U %W %V %G %g"), "52 53 01 2025 25");
     }
 
     #[test]
     fn non_ascii_text_is_kept() {
-        let d = dt(2020, 1, 1, 0, 0, 0, 0);
+        let d = datetime(2020, 1, 1, 0, 0, 0, 0);
         assert_eq!(d.strftime("é%Yü%é"), "é2020ü%é");
     }
 }

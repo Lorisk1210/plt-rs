@@ -67,7 +67,7 @@ enum Part {
 /// `pos` (matplotlib's `StrMethodFormatter` convention).
 ///
 /// ```
-/// use plt::ticker::pyfmt::StrTemplate;
+/// use plt_core::pyfmt::StrTemplate;
 /// let t = StrTemplate::parse("{pos}: {x:.1f} km").unwrap();
 /// assert_eq!(t.render(2.25, Some(3), |s| s).unwrap(), "3: 2.2 km");
 /// ```
@@ -89,7 +89,7 @@ impl StrTemplate {
     /// `x` of [`StrTemplate::render`].
     ///
     /// ```
-    /// use plt::ticker::pyfmt::StrTemplate;
+    /// use plt_core::pyfmt::StrTemplate;
     /// let t = StrTemplate::parse_positional("{0:.0%} of {0}").unwrap();
     /// assert_eq!(t.render(0.25, None, |s| s).unwrap(), "25% of 0.25");
     /// assert!(StrTemplate::parse_positional("{} {}").is_err());
@@ -105,7 +105,7 @@ impl StrTemplate {
     /// [`StrTemplate::render_values`] (`template.format(3)`).
     ///
     /// ```
-    /// use plt::ticker::pyfmt::{StrTemplate, TemplateValue};
+    /// use plt_core::pyfmt::{StrTemplate, TemplateValue};
     /// let t = StrTemplate::parse_positional_int("{:d} items").unwrap();
     /// assert_eq!(t.render_values(&[TemplateValue::Int(5)], |s| s).unwrap(), "5 items");
     /// assert!(StrTemplate::parse_positional("{:d}").is_err());
@@ -118,7 +118,7 @@ impl StrTemplate {
     /// `names`, rendered with [`StrTemplate::render_values`] in that order.
     ///
     /// ```
-    /// use plt::ticker::pyfmt::{StrTemplate, TemplateValue};
+    /// use plt_core::pyfmt::{StrTemplate, TemplateValue};
     /// let t = StrTemplate::parse_named("{absval:d} ({frac:.0%})", &["absval", "frac"]).unwrap();
     /// let values = [TemplateValue::Int(3), TemplateValue::Float(0.25)];
     /// assert_eq!(t.render_values(&values, |s| s).unwrap(), "3 (25%)");

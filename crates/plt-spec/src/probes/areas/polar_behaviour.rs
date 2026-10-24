@@ -14,11 +14,11 @@ use plt::ticker::AxisName;
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{bbox, object, parse_points};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 
 /// The θ offset of `test_polar_outer_spine_not_collapsed`: π/2 rounded to
 /// nine decimals, which once left the outer spine just short of a turn.
-#[allow(
+#[expect(
     clippy::approx_constant,
     reason = "the upstream test's value, deliberately not exactly π/2"
 )]
@@ -32,10 +32,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("polar.tightbbox", |args| with_rc(args, || tightbbox(args))),
     Op::new("polar.cursor", |args| with_rc(args, || cursor(args))),
 ];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 fn limits_of(polar: &PolarAxes) -> Json {
     let (t0, t1) = polar.axes().xlim();

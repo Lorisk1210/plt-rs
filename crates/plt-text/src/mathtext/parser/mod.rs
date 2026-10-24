@@ -33,11 +33,6 @@ const MAX_NESTING: usize = 100;
 /// The result of a grammar element: where it ended and what it built.
 type Parsed<T> = Result<(usize, T), Fail>;
 
-/// Python's `max(a, b)`: `a` unless `b` is strictly greater.
-fn py_max(a: f64, b: f64) -> f64 {
-    if b > a { b } else { a }
-}
-
 /// Parses `text` (plain text with `$...$` math) into the box to ship.
 pub(crate) fn parse(
     text: &str,

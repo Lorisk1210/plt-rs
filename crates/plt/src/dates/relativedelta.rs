@@ -214,10 +214,7 @@ impl Neg for RelativeDelta {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn dt(y: i32, mo: u32, d: u32, h: u32, mi: u32, s: u32, us: u32) -> DateTime {
-        DateTime::new(y, mo, d, h, mi, s, us).unwrap()
-    }
+    use crate::testing::datetime;
 
     fn parts(d: RelativeDelta) -> [i64; 7] {
         [
@@ -233,17 +230,25 @@ mod tests {
 
     #[test]
     fn between_matches_dateutil() {
-        let d = RelativeDelta::between(dt(2020, 3, 1, 0, 0, 0, 0), dt(2020, 1, 31, 0, 0, 0, 0))
-            .unwrap();
+        let d = RelativeDelta::between(
+            datetime(2020, 3, 1, 0, 0, 0, 0),
+            datetime(2020, 1, 31, 0, 0, 0, 0),
+        )
+        .unwrap();
         assert_eq!(parts(d), [0, 1, 1, 0, 0, 0, 0]);
         // dateutil keeps a positive microsecond part on a negative delta.
-        let d =
-            RelativeDelta::between(dt(2020, 1, 1, 0, 0, 0, 0), dt(2020, 1, 1, 0, 0, 1, 500_000))
-                .unwrap();
+        let d = RelativeDelta::between(
+            datetime(2020, 1, 1, 0, 0, 0, 0),
+            datetime(2020, 1, 1, 0, 0, 1, 500_000),
+        )
+        .unwrap();
         assert_eq!(parts(d), [0, 0, 0, 0, 0, -2, 500_000]);
         assert_eq!(parts(-d), [0, 0, 0, 0, 0, 2, -500_000]);
-        let d = RelativeDelta::between(dt(2019, 1, 1, 0, 0, 0, 0), dt(2020, 1, 15, 6, 0, 0, 0))
-            .unwrap();
+        let d = RelativeDelta::between(
+            datetime(2019, 1, 1, 0, 0, 0, 0),
+            datetime(2020, 1, 15, 6, 0, 0, 0),
+        )
+        .unwrap();
         assert_eq!(parts(d), [-1, 0, -14, -6, 0, 0, 0]);
     }
 
@@ -251,18 +256,18 @@ mod tests {
     fn adding_clamps_days_and_reports_overflow() {
         let year = RelativeDelta::new(1, 0, 0, 0, 0, 0, 0);
         assert_eq!(
-            year.add_to(dt(2020, 2, 29, 0, 0, 0, 0)).unwrap(),
-            dt(2021, 2, 28, 0, 0, 0, 0)
+            year.add_to(datetime(2020, 2, 29, 0, 0, 0, 0)).unwrap(),
+            datetime(2021, 2, 28, 0, 0, 0, 0)
         );
         assert_eq!(
-            year.subtract_from(dt(1, 6, 1, 0, 0, 0, 0)),
+            year.subtract_from(datetime(1, 6, 1, 0, 0, 0, 0)),
             Err(DateError::field("year", 0))
         );
         let carry = RelativeDelta::new(0, 14, 0, 25, 0, 0, 1_500_000);
         assert_eq!(parts(carry), [1, 2, 1, 1, 0, 1, 500_000]);
         let far = RelativeDelta::new(0, 0, 0, 0, 0, 1, 0);
         assert_eq!(
-            far.add_to(dt(9999, 12, 31, 23, 59, 59, 0)),
+            far.add_to(datetime(9999, 12, 31, 23, 59, 59, 0)),
             Err(DateError::Overflow)
         );
     }

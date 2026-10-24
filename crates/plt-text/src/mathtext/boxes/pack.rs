@@ -1,6 +1,8 @@
 //! Packing lists: natural sizes and glue settings (TeX's `hpack` and
 //! `vpack`).
 
+use plt_core::numeric::py_max;
+
 use super::{List, Node};
 
 /// How the requested size of a packed list is interpreted.
@@ -10,11 +12,6 @@ pub(crate) enum Packing {
     Exactly,
     /// The natural size plus the given amount.
     Additional,
-}
-
-/// Python's `max(a, b)`: `a` unless `b` is strictly greater.
-fn py_max(a: f64, b: f64) -> f64 {
-    if b > a { b } else { a }
 }
 
 /// Glue totals per order of infinity.

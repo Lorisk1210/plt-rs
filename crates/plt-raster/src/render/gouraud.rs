@@ -6,22 +6,13 @@
 //! the corners of the correspondingly enlarged, mitered triangle.
 
 use plt_core::Point;
+use plt_core::path::outline::{INTERSECTION_EPSILON, calc_intersection, cross_product};
 
+use super::iround;
 use crate::color::Rgba8;
-use crate::geometry::stroke_math::calc_intersection;
 
-const INTERSECTION_EPSILON: f64 = 1.0e-30;
 const SUBPIXEL_SHIFT: i32 = 4;
 const SUBPIXEL_SCALE: i32 = 1 << SUBPIXEL_SHIFT;
-
-fn cross_product(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, y: f64) -> f64 {
-    (x - x2) * (y2 - y1) - (y - y2) * (x2 - x1)
-}
-
-/// Agg's `iround`.
-fn iround(v: f64) -> i32 {
-    (if v < 0.0 { v - 0.5 } else { v + 0.5 }) as i32
-}
 
 /// Offset of thickness `d` perpendicular to `1 → 2` (Agg's `calc_orthogonal`).
 fn orthogonal(d: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> (f64, f64) {
@@ -36,6 +27,12 @@ struct Corner {
     x: f64,
     y: f64,
     color: Rgba8,
+}
+
+impl Corner {
+    const fn point(&self) -> Point {
+        Point::new(self.x, self.y)
+    }
 }
 
 /// A triangle prepared for rendering: its (dilated) outline and the
@@ -61,13 +58,13 @@ impl GouraudTriangle {
             };
         }
         let outline = dilate(points, d);
-        let o = |i: usize| (outline[i].x, outline[i].y);
         let pairs = [(4, 0), (0, 2), (2, 4)];
         for (corner, (a, b)) in corners.iter_mut().zip(pairs) {
-            let ((ax, ay), (bx, by), (cx, cy), (dx, dy)) = (o(a), o(a + 1), o(b), o(b + 1));
-            if let Some((x, y)) = calc_intersection(ax, ay, bx, by, cx, cy, dx, dy) {
-                corner.x = x;
-                corner.y = y;
+            if let Some(p) =
+                calc_intersection(outline[a], outline[a + 1], outline[b], outline[b + 1])
+            {
+                corner.x = p.x;
+                corner.y = p.y;
             }
         }
         Self {
@@ -96,7 +93,7 @@ impl GouraudTriangle {
         }
         GouraudSpans {
             y2: c[1].y as i32,
-            swap: cross_product(c[0].x, c[0].y, c[2].x, c[2].y, c[1].x, c[1].y) < 0.0,
+            swap: cross_product(c[0].point(), c[2].point(), c[1].point()) < 0.0,
             edges: [
                 Edge::new(&c[0], &c[2]),
                 Edge::new(&c[0], &c[1]),
@@ -110,7 +107,7 @@ impl GouraudTriangle {
 fn dilate([p1, p2, p3]: [Point; 3], d: f64) -> [Point; 6] {
     let (x1, y1, x2, y2, x3, y3) = (p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
     let mut offsets = [(0.0, 0.0); 3];
-    let loc = cross_product(x1, y1, x2, y2, x3, y3);
+    let loc = cross_product(p1, p2, p3);
     if loc.abs() > INTERSECTION_EPSILON {
         let d = if loc > 0.0 { -d } else { d };
         offsets = [

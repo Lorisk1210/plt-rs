@@ -24,7 +24,7 @@ use plt_core::{Bbox, Point};
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{bbox, object};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 use crate::rng::SpecRng;
 
 /// Operations implemented for this area.
@@ -50,10 +50,6 @@ pub(crate) const OPS: &[Op] = &[
     }),
     Op::new("artist.cull_markers", |args| with_rc(args, cull_markers)),
 ];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 /// `arange(16.0).reshape(4, 4)`.
 fn field() -> Grid<f64> {

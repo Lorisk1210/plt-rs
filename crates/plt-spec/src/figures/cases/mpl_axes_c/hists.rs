@@ -13,6 +13,7 @@ use plt::patches::PatchProps;
 use plt::stats::{Bins, HistAlign, HistBottom, HistOptions, HistOrientation, HistType};
 
 use super::{classic, remove_ticks_and_titles};
+use crate::figures::cases::common::laid_out;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -174,14 +175,6 @@ fn d_1_3() -> Vec<f64> {
 /// `np.linspace(0, 10, 50)`.
 fn d_0_10() -> Vec<f64> {
     linspace(0.0, 10.0, 50)
-}
-
-/// Histogram options with `layout` and default styling.
-fn laid_out(layout: HistOptions<'_>) -> HistPlotOptions<'_> {
-    HistPlotOptions {
-        layout,
-        ..HistPlotOptions::default()
-    }
 }
 
 /// `test_hist_stacked_bar`: six stacked datasets, five of them labelled.

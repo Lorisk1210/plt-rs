@@ -230,20 +230,12 @@ impl TextRun {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use plt_font::FontQuery;
-
-    fn dejavu(size: f64) -> FontRequest {
-        FontRequest::new(FontQuery {
-            size,
-            ..FontQuery::families(["DejaVu Sans"])
-        })
-    }
 
     #[test]
     fn plain_glyphs_render_their_clusters() {
         let engine = TextEngine::bundled();
         let run = engine
-            .layout_line("office", &dejavu(10.0), 72.0)
+            .layout_line("office", &FontRequest::dejavu_sans(10.0), 72.0)
             .expect("bundled font");
         let chars: Vec<String> = run
             .glyphs
@@ -262,7 +254,7 @@ mod tests {
     fn sources_lay_out_again_at_other_sizes() {
         let engine = TextEngine::bundled();
         let run = engine
-            .layout_line("1.0", &dejavu(10.0), 72.0)
+            .layout_line("1.0", &FontRequest::dejavu_sans(10.0), 72.0)
             .expect("bundled font");
         let at_100 = run
             .source
@@ -284,7 +276,7 @@ mod tests {
             language: None,
         };
         let run = engine
-            .layout_line_with("office", &dejavu(10.0), &shaping, 72.0)
+            .layout_line_with("office", &FontRequest::dejavu_sans(10.0), &shaping, 72.0)
             .expect("bundled font");
         assert_eq!(run.glyphs.len(), 6, "no ffi ligature");
         let source = run.source.expect("laid out by the engine");
@@ -296,7 +288,7 @@ mod tests {
             language: Some("ca".into()),
         };
         let run = engine
-            .layout_line_with("office", &dejavu(10.0), &catalan, 72.0)
+            .layout_line_with("office", &FontRequest::dejavu_sans(10.0), &catalan, 72.0)
             .expect("bundled font");
         assert_eq!(run.glyphs.len(), 6, "Catalan has no liga in DejaVu Sans");
         let outside = Shaping {
@@ -304,7 +296,7 @@ mod tests {
             language: Some(vec![plt_font::LanguageRange::new("sr", 0, 7)].into()),
         };
         assert!(matches!(
-            engine.layout_line_with("office", &dejavu(10.0), &outside, 72.0),
+            engine.layout_line_with("office", &FontRequest::dejavu_sans(10.0), &outside, 72.0),
             Err(TextError::LanguageRange {
                 start: 0,
                 end: 7,
@@ -365,7 +357,7 @@ mod tests {
     #[test]
     fn runs_without_source_know_no_characters() {
         let mut run = TextEngine::bundled()
-            .layout_line("a", &dejavu(10.0), 72.0)
+            .layout_line("a", &FontRequest::dejavu_sans(10.0), 72.0)
             .expect("bundled font");
         run.source = None;
         let glyph = run.glyphs[0];

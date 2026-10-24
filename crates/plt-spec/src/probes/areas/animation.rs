@@ -8,7 +8,7 @@ use plt::animation::{AnimationOptions, Frames, FuncAnimation, HtmlOptions, PlayM
 use plt::figure::Figure;
 
 use crate::json::Json;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[Op::new("animation.jshtml", jshtml)];
@@ -16,13 +16,9 @@ pub(crate) const OPS: &[Op] = &[Op::new("animation.jshtml", jshtml)];
 /// What the reference module writes for the base64 payload of a frame.
 const MASKED_DATA: &str = "base64,DATA\"";
 
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
 fn jshtml(args: Args<'_>) -> Outcome {
-    let count = usize::try_from(args.i64("frames")?).map_err(|_| bad("frames"))?;
-    let interval = u64::try_from(args.i64("interval")?).map_err(|_| bad("interval"))?;
+    let count = usize::try_from(args.i64("frames")?).map_err(|_| malformed("frames"))?;
+    let interval = u64::try_from(args.i64("interval")?).map_err(|_| malformed("interval"))?;
     let options = AnimationOptions {
         interval: Duration::from_millis(interval),
         repeat: args.bool("repeat")?,
@@ -34,7 +30,7 @@ fn jshtml(args: Args<'_>) -> Outcome {
             u32::try_from(fps)
                 .ok()
                 .and_then(NonZeroU32::new)
-                .ok_or_else(|| bad("fps"))
+                .ok_or_else(|| malformed("fps"))
         })
         .transpose()?;
     let default_mode = args
@@ -43,7 +39,7 @@ fn jshtml(args: Args<'_>) -> Outcome {
             "once" => Ok(PlayMode::Once),
             "loop" => Ok(PlayMode::Loop),
             "reflect" => Ok(PlayMode::Reflect),
-            _ => Err(bad("default_mode")),
+            _ => Err(malformed("default_mode")),
         })
         .transpose()?;
     let fig = Figure::with_size(1.0, 1.0, 20.0);

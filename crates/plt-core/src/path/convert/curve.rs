@@ -146,9 +146,9 @@ impl<'a> Subdivider<'a> {
         if !self.enter(level) {
             return;
         }
-        let p12 = midpoint(p1, p2);
-        let p23 = midpoint(p2, p3);
-        let p123 = midpoint(p12, p23);
+        let p12 = p1.midpoint(p2);
+        let p23 = p2.midpoint(p3);
+        let p123 = p12.midpoint(p23);
 
         let dx = p3.x - p1.x;
         let dy = p3.y - p1.y;
@@ -183,12 +183,12 @@ impl<'a> Subdivider<'a> {
         if !self.enter(level) {
             return;
         }
-        let p12 = midpoint(p1, p2);
-        let p23 = midpoint(p2, p3);
-        let p34 = midpoint(p3, p4);
-        let p123 = midpoint(p12, p23);
-        let p234 = midpoint(p23, p34);
-        let p1234 = midpoint(p123, p234);
+        let p12 = p1.midpoint(p2);
+        let p23 = p2.midpoint(p3);
+        let p34 = p3.midpoint(p4);
+        let p123 = p12.midpoint(p23);
+        let p234 = p23.midpoint(p34);
+        let p1234 = p123.midpoint(p234);
 
         let dx = p4.x - p1.x;
         let dy = p4.y - p1.y;
@@ -253,10 +253,6 @@ fn sq_distance(a: Point, b: Point) -> f64 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
     dx * dx + dy * dy
-}
-
-fn midpoint(a: Point, b: Point) -> Point {
-    Point::new(f64::midpoint(a.x, b.x), f64::midpoint(a.y, b.y))
 }
 
 /// Squared distance from `p` to the chord `a → a + d` at the projection

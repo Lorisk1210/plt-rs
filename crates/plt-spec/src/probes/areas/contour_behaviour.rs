@@ -9,7 +9,7 @@ use plt::colors::Color;
 use plt::contour::{ClabelOptions, ContourOptions, ContourSet, Levels, QuadCoords, QuadField};
 use plt::figure::Figure;
 use plt::lines::LineStyle;
-use plt::numeric::{Grid, linspace};
+use plt::numeric::{Grid, arange, linspace};
 use plt::rc;
 use plt::ticker::pyfmt;
 use plt_core::Rgba;
@@ -17,7 +17,7 @@ use plt_core::Rgba;
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{object, rgba};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -28,19 +28,8 @@ pub(crate) const OPS: &[Op] = &[
     }),
 ];
 
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
-
 fn rows(rows: Vec<Vec<f64>>) -> Result<Grid<f64>, ProbeError> {
     made(Grid::from_rows(rows))
-}
-
-/// `arange(start, stop, step)` for the exactly representable steps used
-/// here.
-fn arange(start: f64, stop: f64, step: f64) -> Vec<f64> {
-    let count = ((stop - start) / step).ceil() as usize;
-    (0..count).map(|i| start + step * i as f64).collect()
 }
 
 /// The colours of `test_single_color_and_extend`.

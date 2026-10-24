@@ -9,7 +9,7 @@
 mod axes;
 mod standalone;
 
-pub(crate) use axes::styled;
+pub(crate) use axes::{install_formatter, install_locator, spec_parts, styled};
 
 use super::ticker;
 use crate::probes::Op;

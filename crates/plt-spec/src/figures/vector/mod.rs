@@ -11,6 +11,7 @@
 mod diff;
 pub(crate) mod pdf;
 mod pgf;
+mod postscript;
 mod ps;
 mod svg;
 mod truetype;
@@ -28,6 +29,7 @@ pub use diff::{Item, Token, VectorReport, compare_items};
 pub use wide::{WideOutcome, WideResult, wide_comparison, wide_outcome, wide_summary, write_items};
 
 use super::FigureCase;
+use crate::scratch::ScratchDir;
 
 /// The cases with vector goldens (`VECTOR_CASES` in the spec's
 /// `figures/test_vectors.py`).
@@ -274,19 +276,10 @@ pub fn render_vector_with(
 
 /// The PGF picture of `fig` saved to a scratch file named after `case`.
 fn saved_pgf(fig: &plt::figure::Figure, case: &FigureCase) -> Result<Vec<u8>, Box<dyn Error>> {
-    let directory = std::env::temp_dir().join(format!(
-        "plt-spec-pgf-{}-{}",
-        std::process::id(),
-        case.name.replace('/', "__")
-    ));
-    std::fs::create_dir_all(&directory)?;
-    let path = directory.join(format!("{}.pgf", case.name.replace('/', "__")));
-    let saved = fig
-        .savefig_with(&path, golden_options(case))
-        .map_err(Box::<dyn Error>::from)
-        .and_then(|()| Ok(std::fs::read(&path)?));
-    let _ = std::fs::remove_dir_all(&directory);
-    saved
+    let directory = ScratchDir::new("pgf")?;
+    let path = directory.path(&format!("{}.pgf", case.name.replace('/', "__")));
+    fig.savefig_with(&path, golden_options(case))?;
+    Ok(std::fs::read(&path)?)
 }
 
 /// Renders a case as `format` the way the spec saves its goldens.

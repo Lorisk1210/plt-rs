@@ -14,6 +14,7 @@ mod spectra;
 mod violins;
 
 use crate::figures::FigureCase;
+use crate::figures::cases::common::strings;
 
 /// The seed of most examples (`np.random.seed(19680801)`).
 const SEED: u64 = 19_680_801;
@@ -25,11 +26,6 @@ fn columns(values: &[f64], width: usize) -> Vec<Vec<f64>> {
     (0..width)
         .map(|column| values.iter().skip(column).step_by(width).copied().collect())
         .collect()
-}
-
-/// Owned copies of `names`.
-fn strings(names: &[&str]) -> Vec<String> {
-    names.iter().map(|&name| name.to_owned()).collect()
 }
 
 /// Every case of the group.

@@ -5,18 +5,17 @@ use plt::figure::{Figure, Share};
 use plt::lines::Line2D;
 use plt::widgets::{Cursor, CursorOptions, MultiCursor};
 
-use super::bad;
 use super::steps::motion;
 use super::{count, numbers};
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
-use crate::probes::{Args, Outcome, ProbeError, encode};
+use crate::probes::{Args, Outcome, ProbeError, encode, malformed};
 
 /// `{vx, hy, vvisible, hvisible}`: the x data of the vertical lines, the y
 /// data of the horizontal ones and how many of each are visible.
 fn lines(multi: &MultiCursor) -> Json {
     let data = |lines: &[Line2D], values: fn(&Line2D) -> Vec<f64>| {
-        Json::Array(lines.iter().map(|line| numbers(&values(line))).collect())
+        Json::Array(lines.iter().map(|line| numbers(values(line))).collect())
     };
     let visible = |lines: &[Line2D]| count(lines.iter().filter(|line| line.visible()).count());
     encode::object([
@@ -79,19 +78,22 @@ pub(super) fn multicursor(args: Args<'_>) -> Outcome {
 pub(super) fn cursor_useblit(args: Args<'_>) -> Outcome {
     styled(args, || {
         let fig = Figure::new();
-        let rects = args.json("rects")?.as_array().ok_or_else(|| bad("rects"))?;
+        let rects = args
+            .json("rects")?
+            .as_array()
+            .ok_or_else(|| malformed("rects"))?;
         let mut axes = Vec::new();
         for rect in rects {
             let &[left, bottom, width, height] = rect.as_f64_vec().unwrap_or_default().as_slice()
             else {
-                return Err(bad("rects"));
+                return Err(malformed("rects"));
             };
             axes.push(
                 fig.add_axes([left, bottom, width, height])
                     .map_err(ProbeError::rejected)?,
             );
         }
-        let ax = axes.first().ok_or_else(|| bad("rects"))?;
+        let ax = axes.first().ok_or_else(|| malformed("rects"))?;
         let options = CursorOptions {
             useblit: true,
             ..CursorOptions::default()

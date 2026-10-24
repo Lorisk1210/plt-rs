@@ -65,18 +65,15 @@ impl LevelPath {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn pts(coords: &[(f64, f64)]) -> Vec<Point> {
-        coords.iter().map(|&(x, y)| Point::new(x, y)).collect()
-    }
+    use crate::testing::points;
 
     #[test]
     fn lines_close_only_when_exactly_looping() {
         use PathCode::{ClosePoly as C, LineTo as L, MoveTo as M};
         let mut path = LevelPath::default();
-        path.add_line(&pts(&[(0.0, 0.0), (1.0, 0.0), (0.0, 0.0)]));
-        path.add_line(&pts(&[(0.0, 0.0), (1.0, 0.0), (1e-17, 0.0)]));
-        path.add_line(&pts(&[(2.0, 2.0)]));
+        path.add_line(&points(&[(0.0, 0.0), (1.0, 0.0), (0.0, 0.0)]));
+        path.add_line(&points(&[(0.0, 0.0), (1.0, 0.0), (1e-17, 0.0)]));
+        path.add_line(&points(&[(2.0, 2.0)]));
         let path = path.finish();
         assert_eq!(path.codes().unwrap(), [M, L, C, M, L, L, M]);
     }
@@ -84,7 +81,7 @@ mod tests {
     #[test]
     fn rings_repeat_their_first_point() {
         let mut path = LevelPath::default();
-        path.add_ring(&pts(&[(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)]));
+        path.add_ring(&points(&[(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)]));
         let path = path.finish();
         assert_eq!(path.vertices().len(), 4);
         assert_eq!(path.vertices()[3], Point::new(0.0, 0.0));

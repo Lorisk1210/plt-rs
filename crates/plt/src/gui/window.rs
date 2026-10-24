@@ -429,7 +429,7 @@ impl FigureWindow {
     }
 
     /// Puts the figure, as the window shows it, on the clipboard as a PNG
-    /// image (matplotlib's `ToolCopyToClipboard`, bound to `keymap.copy`).
+    /// image (matplotlib's `ToolCopyToClipboardBase`, bound to `keymap.copy`).
     fn copy_to_clipboard(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         let status = match self.figure.canvas().to_png() {
             Ok(png) => {

@@ -7,7 +7,7 @@ use plt::colors::{
 use plt::numeric::Grid;
 
 use crate::json::Json;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -20,10 +20,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("lightsource.shade_rgb", shade_rgb),
     Op::new("lightsource.shade", shade),
 ];
-
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
 
 /// The light described by the `light` argument.
 fn light(args: Args<'_>) -> Result<LightSource, ProbeError> {
@@ -57,31 +53,31 @@ fn relief(args: Args<'_>) -> Result<Relief, ProbeError> {
 fn grid(value: &Json, what: &str) -> Result<Grid<f64>, ProbeError> {
     let rows = value
         .as_array()
-        .ok_or_else(|| bad(what))?
+        .ok_or_else(|| malformed(what))?
         .iter()
-        .map(|row| row.as_f64_vec().ok_or_else(|| bad(what)))
+        .map(|row| row.as_f64_vec().ok_or_else(|| malformed(what)))
         .collect::<Result<Vec<_>, _>>()?;
-    Grid::from_rows(rows).map_err(|_| bad(what))
+    Grid::from_rows(rows).map_err(|_| malformed(what))
 }
 
 /// An `(M, N, 3)` array.
 fn triples(value: &Json, what: &str) -> Result<Grid<[f64; 3]>, ProbeError> {
     let rows = value
         .as_array()
-        .ok_or_else(|| bad(what))?
+        .ok_or_else(|| malformed(what))?
         .iter()
         .map(|row| {
             row.as_array()
-                .ok_or_else(|| bad(what))?
+                .ok_or_else(|| malformed(what))?
                 .iter()
                 .map(|cell| match cell.as_f64_vec().as_deref() {
                     Some(&[a, b, c]) => Ok([a, b, c]),
-                    _ => Err(bad(what)),
+                    _ => Err(malformed(what)),
                 })
                 .collect::<Result<Vec<_>, _>>()
         })
         .collect::<Result<Vec<_>, _>>()?;
-    Grid::from_rows(rows).map_err(|_| bad(what))
+    Grid::from_rows(rows).map_err(|_| malformed(what))
 }
 
 fn blend_mode(name: &str) -> Result<BlendMode, ProbeError> {
@@ -89,7 +85,7 @@ fn blend_mode(name: &str) -> Result<BlendMode, ProbeError> {
         "hsv" => Ok(BlendMode::Hsv),
         "soft" => Ok(BlendMode::SoftLight),
         "overlay" => Ok(BlendMode::Overlay),
-        _ => Err(bad("blend mode")),
+        _ => Err(malformed("blend mode")),
     }
 }
 
@@ -129,10 +125,10 @@ fn blend(args: Args<'_>) -> Outcome {
             "hsv" => source.blend_hsv(color, light).map_err(ProbeError::rejected),
             "soft" => Ok(blend_soft_light(color, light)),
             "overlay" => Ok(blend_overlay(color, light)),
-            _ => Err(bad("mode")),
+            _ => Err(malformed("mode")),
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let blended = Grid::from_vec(rgb.rows(), rgb.cols(), blended).map_err(|_| bad("rgb"))?;
+    let blended = Grid::from_vec(rgb.rows(), rgb.cols(), blended).map_err(|_| malformed("rgb"))?;
     Ok(rows_json(&blended, |c| Json::from(c.to_vec())))
 }
 

@@ -94,7 +94,6 @@ def gen_bakoma():
         + f"pub(crate) static LATEX_TO_BAKOMA: [(&str, BakomaFile, u32); {len(items)}] = [\n"
         + body + "];\n\n"
         + "/// Delimiters with pre-sized alternatives, smallest first.\n"
-        + "#[allow(clippy::type_complexity, reason = \"a static lookup table\")]\n"
         + f"pub(crate) static SIZE_ALTERNATIVES: [(&str, &[(FontName, &str)]); {len(alts)}] = [\n"
         + alt_body + "];\n",
     )

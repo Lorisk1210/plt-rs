@@ -5,8 +5,8 @@ use plt_ui::{Flex, List, ListItem, Spacing, Stack, UiWindow, WidgetId};
 
 use super::OptionsMessage;
 use super::fields::{
-    FieldError, Form, chosen, hex, marker_text, number_text, parse_color, parse_marker,
-    parse_number, text_of,
+    FieldError, Form, chosen, marker_text, number_text, parse_color, parse_marker, parse_number,
+    text_of,
 };
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
@@ -162,7 +162,10 @@ fn curve_form(line: &Line2D) -> (CurveFields, plt_ui::Form<OptionsMessage>) {
     let names: Vec<&str> = DRAW_STYLES.iter().map(|(name, _)| *name).collect();
     let draw_style = form.choice("Draw style", &names, draw_index);
     let width = form.text("Width", number_text(line.linewidth()));
-    let color = form.color("Color (RGBA)", line.rgba().map(hex).unwrap_or_default());
+    let color = form.color(
+        "Color (RGBA)",
+        line.rgba().map(|c| c.to_hex(true)).unwrap_or_default(),
+    );
     form.section("Marker");
     let (marker, marker_size) = form.pair(
         ("Style", marker_text(&line.marker())),
@@ -174,10 +177,10 @@ fn curve_form(line: &Line2D) -> (CurveFields, plt_ui::Form<OptionsMessage>) {
     );
     let edge = form.color(
         "Edge color (RGBA)",
-        hex(line
-            .effective_markeredgecolor()
+        line.effective_markeredgecolor()
             .resolve()
-            .unwrap_or_default()),
+            .unwrap_or_default()
+            .to_hex(true),
     );
     let fields = CurveFields {
         line: line.clone(),
@@ -198,8 +201,8 @@ fn curve_form(line: &Line2D) -> (CurveFields, plt_ui::Form<OptionsMessage>) {
 /// automatic.
 fn marker_color(line: &Line2D, color: ColorOrAuto) -> String {
     match color {
-        ColorOrAuto::Color(color) => color.resolve().map(hex).unwrap_or_default(),
-        ColorOrAuto::Auto => line.rgba().map(hex).unwrap_or_default(),
+        ColorOrAuto::Color(color) => color.resolve().map(|c| c.to_hex(true)).unwrap_or_default(),
+        ColorOrAuto::Auto => line.rgba().map(|c| c.to_hex(true)).unwrap_or_default(),
     }
 }
 

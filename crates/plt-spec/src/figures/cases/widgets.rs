@@ -1,7 +1,7 @@
 //! `figures/cases_widgets.py`: widgets drawn in their default and styled
 //! states.
 
-use crate::figures::cases::common::sized;
+use crate::figures::cases::common::{colors, sized};
 use plt::colors::Color;
 use plt::fonts::FontWeight;
 use plt::patches::PatchProps;
@@ -30,11 +30,6 @@ pub(crate) const CASES: &[FigureCase] = &[
 
 /// `COLORS`.
 const COLORS: [&str; 4] = ["tab:red", "tab:green", "tab:blue", "k"];
-
-/// Colours by name.
-fn colors(names: &[&str]) -> Vec<Color> {
-    names.iter().copied().map(Color::from).collect()
-}
 
 fn check_styled(fig: &Figure) -> CaseResult {
     let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;

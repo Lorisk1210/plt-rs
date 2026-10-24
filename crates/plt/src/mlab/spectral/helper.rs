@@ -1,5 +1,7 @@
 //! The engine shared by every spectral estimate (`mlab._spectral_helper`).
 
+use plt_core::numeric::remainder;
+
 use super::{Sides, SignalValue, SpectralOptions};
 use crate::mlab::fft::{FftPlan, fftfreq};
 use crate::mlab::{Complex, MlabError};
@@ -255,7 +257,7 @@ fn unwrap(p: &[f64]) -> Vec<f64> {
     let mut correction = 0.0;
     for i in 1..p.len() {
         let dd = p[i] - p[i - 1];
-        let mut ddmod = py_mod(dd + high, period) - high;
+        let mut ddmod = remainder(dd + high, period) - high;
         if ddmod == -high && dd > 0.0 {
             ddmod = high;
         }
@@ -264,18 +266,6 @@ fn unwrap(p: &[f64]) -> Vec<f64> {
         out[i] = p[i] + correction;
     }
     out
-}
-
-/// Python/numpy floating modulo: the result takes the divisor's sign.
-fn py_mod(a: f64, b: f64) -> f64 {
-    let m = a % b;
-    if m == 0.0 {
-        0.0_f64.copysign(b)
-    } else if (b < 0.0) != (m < 0.0) {
-        m + b
-    } else {
-        m
-    }
 }
 
 #[cfg(test)]
@@ -292,14 +282,6 @@ mod tests {
         assert!((u[3] - (tau - 0.5)).abs() < 1e-14);
         assert!((u[4] - 3.1).abs() < 1e-14);
         assert_eq!(unwrap(&[]), Vec::<f64>::new());
-    }
-
-    #[test]
-    fn python_modulo() {
-        assert_eq!(py_mod(-1.0, 3.0), 2.0);
-        assert_eq!(py_mod(4.0, 3.0), 1.0);
-        assert_eq!(py_mod(-3.0, 3.0), 0.0);
-        assert!(py_mod(-3.0, 3.0).is_sign_positive());
     }
 
     #[test]

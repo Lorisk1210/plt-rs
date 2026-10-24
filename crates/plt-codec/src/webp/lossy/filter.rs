@@ -118,22 +118,23 @@ enum Direction {
 }
 
 /// Filters `length` positions along the edge starting at `at`: with the
-/// macroblock filter (`mb_edge`) or the inner one.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "libwebp's FilterLoop26/24 one to one"
-)]
+/// macroblock filter (`mb_edge`, whose limit is four higher) or the inner
+/// one (libwebp's `FilterLoop26`/`FilterLoop24`).
 fn filter_edge(
     plane: &mut Plane,
     at: usize,
     direction: Direction,
     length: usize,
     strength: &FilterStrength,
-    limit: i32,
     mb_edge: bool,
     simple: bool,
 ) {
     let stride = plane.stride;
+    let limit = if mb_edge {
+        strength.limit + 4
+    } else {
+        strength.limit
+    };
     let (step, along) = match direction {
         Direction::Vertical => (1, stride),
         Direction::Horizontal => (stride, 1),
@@ -173,7 +174,6 @@ fn filter_block(
     simple: bool,
 ) {
     let stride = plane.stride;
-    let limit = strength.limit;
     if left {
         filter_edge(
             plane,
@@ -181,7 +181,6 @@ fn filter_block(
             Direction::Vertical,
             size,
             strength,
-            limit + 4,
             true,
             simple,
         );
@@ -194,7 +193,6 @@ fn filter_block(
                 Direction::Vertical,
                 size,
                 strength,
-                limit,
                 false,
                 simple,
             );
@@ -207,7 +205,6 @@ fn filter_block(
             Direction::Horizontal,
             size,
             strength,
-            limit + 4,
             true,
             simple,
         );
@@ -221,7 +218,6 @@ fn filter_block(
                 Direction::Horizontal,
                 size,
                 strength,
-                limit,
                 false,
                 simple,
             );

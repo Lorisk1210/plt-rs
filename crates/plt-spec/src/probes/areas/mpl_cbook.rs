@@ -64,19 +64,14 @@ fn auto_format(args: Args<'_>) -> Outcome {
         .map_err(ProbeError::rejected)
 }
 
-/// A non-negative integer argument.
-fn count(args: Args<'_>, key: &str) -> Result<usize, ProbeError> {
-    usize::try_from(args.i64(key)?).map_err(ProbeError::rejected)
-}
-
 /// The perimeters of `np.arange(rows * cols).reshape(rows, cols)`.
 fn patch_perimeters(args: Args<'_>) -> Outcome {
-    let cols = count(args, "cols")?;
+    let cols = args.usize("cols")?;
     let blocks = block_perimeters(
-        count(args, "rows")?,
+        args.usize("rows")?,
         cols,
-        count(args, "rstride")?,
-        count(args, "cstride")?,
+        args.usize("rstride")?,
+        args.usize("cstride")?,
     );
     Ok(Json::Array(
         blocks

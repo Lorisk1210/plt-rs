@@ -13,7 +13,7 @@ use plt::widgets::{
 };
 
 use super::steps::{Attempt, Tool, replay, unknown};
-use super::{bad, button, get_ax, markerfacecolor, numbers, props, rgba};
+use super::{button, get_ax, malformed, markerfacecolor, numbers, props, resolved_rgba};
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
 use crate::probes::{Args, Outcome, ProbeError, encode};
@@ -100,12 +100,12 @@ impl Tool for Region {
                 Attempt::Done
             }
             "set_props" => {
-                let props = props::patch(arg.ok_or_else(|| bad("set_props"))?)?;
+                let props = props::patch(arg.ok_or_else(|| malformed("set_props"))?)?;
                 with_selector!(self, s => s.set_props(props));
                 Attempt::Done
             }
             "set_handle_props" => {
-                let props = props::line(arg.ok_or_else(|| bad("set_handle_props"))?)?;
+                let props = props::line(arg.ok_or_else(|| malformed("set_handle_props"))?)?;
                 with_selector!(self, s => s.set_handle_props(props)).into()
             }
             other => return Err(unknown("method", other)),
@@ -119,10 +119,10 @@ impl Tool for Region {
                     with_selector!(self, s => s.set_extents((x0, x1, y0, y1)));
                     Ok(Attempt::Done)
                 }
-                _ => Err(bad("extents")),
+                _ => Err(malformed("extents")),
             },
             "rotation" => {
-                let degrees = value.as_f64().ok_or_else(|| bad("rotation"))?;
+                let degrees = value.as_f64().ok_or_else(|| malformed("rotation"))?;
                 with_selector!(self, s => s.set_rotation(degrees));
                 Ok(Attempt::Done)
             }
@@ -135,24 +135,22 @@ impl Tool for Region {
         let handles = with_selector!(self, s => s.handles());
         let geometry = || with_selector!(self, s => s.geometry());
         Ok(match query {
-            "extents" => numbers(&self.extents()?),
+            "extents" => numbers(self.extents()?),
             "center" => {
                 let (x, y) = with_selector!(self, s => s.center());
-                numbers(&[x, y])
+                numbers([x, y])
             }
             "corners" => rows(with_selector!(self, s => s.corners())),
             "edge_centers" => rows(with_selector!(self, s => s.edge_centers())),
             "rotation" => Json::from(with_selector!(self, s => s.rotation())),
-            "geometry" => Json::Array(
-                geometry_rows(&geometry())
-                    .iter()
-                    .map(|row| numbers(row))
-                    .collect(),
-            ),
-            "geometry.shape" => numbers(&[2.0, geometry().len() as f64]),
+            "geometry" => Json::Array(geometry_rows(&geometry()).iter().map(numbers).collect()),
+            "geometry.shape" => numbers([2.0, geometry().len() as f64]),
             "geometry[:, 0]" => {
-                let first = geometry().first().copied().ok_or_else(|| bad("geometry"))?;
-                numbers(&[first.y, first.x])
+                let first = geometry()
+                    .first()
+                    .copied()
+                    .ok_or_else(|| malformed("geometry"))?;
+                numbers([first.y, first.x])
             }
             "_state" => state_names(&with_selector!(self, s => s.states())),
             "_selection_completed" => {
@@ -163,16 +161,16 @@ impl Tool for Region {
                 let colors = with_selector!(self, s => s.artist().colors());
                 encode::rgba(colors.map_err(ProbeError::rejected)?.face)
             }
-            "_handles_artists.get_markeredgecolor" => {
-                per_line(&handles, |line| rgba(&line.effective_markeredgecolor()))?
-            }
+            "_handles_artists.get_markeredgecolor" => per_line(&handles, |line| {
+                resolved_rgba(&line.effective_markeredgecolor())
+            })?,
             "_handles_artists.get_alpha" => per_line(&handles, |line| Ok(alpha(line)))?,
             "_corner_handles.artists.get_markerfacecolor" => {
                 per_line(corners(&handles)?, markerfacecolor)?
             }
             "_corner_handles.artists.get_markeredgecolor" => {
                 per_line(corners(&handles)?, |line| {
-                    rgba(&line.effective_markeredgecolor())
+                    resolved_rgba(&line.effective_markeredgecolor())
                 })?
             }
             other => return Err(unknown("query", other)),
@@ -182,15 +180,15 @@ impl Tool for Region {
 
 /// The corner handle markers among `handles` (centre, corners, edges).
 fn corners(handles: &[Line2D]) -> Result<&[Line2D], ProbeError> {
-    handles.get(1..2).ok_or_else(|| bad("corner handles"))
+    handles.get(1..2).ok_or_else(|| malformed("corner handles"))
 }
 
 /// The selector options the probe gives, on `ax`.
 fn options(ax: &Axes, given: &Json) -> Result<RectangleSelectorOptions, ProbeError> {
     let mut options = RectangleSelectorOptions::default();
-    let entries = given.as_object().ok_or_else(|| bad("options"))?;
-    let number = |value: &Json, name: &str| value.as_f64().ok_or_else(|| bad(name));
-    let flag = |value: &Json, name: &str| value.as_bool().ok_or_else(|| bad(name));
+    let entries = given.as_object().ok_or_else(|| malformed("options"))?;
+    let number = |value: &Json, name: &str| value.as_f64().ok_or_else(|| malformed(name));
+    let flag = |value: &Json, name: &str| value.as_bool().ok_or_else(|| malformed(name));
     for (name, value) in entries {
         match name.as_str() {
             // Blitting only speeds drawing up; selections are the same.
@@ -199,9 +197,9 @@ fn options(ax: &Axes, given: &Json) -> Result<RectangleSelectorOptions, ProbeErr
             "minspanx" => options.minspanx = number(value, name)?,
             "minspany" => options.minspany = number(value, name)?,
             "minspan_between" => {
-                let corners = value.as_array().ok_or_else(|| bad(name))?;
+                let corners = value.as_array().ok_or_else(|| malformed(name))?;
                 let [start, end] = corners else {
-                    return Err(bad(name));
+                    return Err(malformed(name));
                 };
                 let display = |corner: &Json| match corner.as_f64_vec().as_deref() {
                     Some(&[x, y]) => {
@@ -211,7 +209,7 @@ fn options(ax: &Axes, given: &Json) -> Result<RectangleSelectorOptions, ProbeErr
                             .map_err(ProbeError::rejected)?;
                         Ok(trans.transform_point(Point::new(x, y)))
                     }
-                    _ => Err(bad("minspan_between")),
+                    _ => Err(malformed("minspan_between")),
                 };
                 let (start, end) = (display(start)?, display(end)?);
                 options.minspanx = end.x - start.x;
@@ -242,7 +240,7 @@ fn units(value: &Json) -> Result<SelectorUnits, ProbeError> {
     match value.as_str() {
         Some("data") => Ok(SelectorUnits::Data),
         Some("pixels") => Ok(SelectorUnits::Pixels),
-        _ => Err(bad("spancoords")),
+        _ => Err(malformed("spancoords")),
     }
 }
 
@@ -264,7 +262,7 @@ fn run(args: Args<'_>, make: fn(&Axes, RectangleSelectorOptions) -> Region) -> O
                 .push([press.xdata, press.ydata, release.xdata, release.ydata]);
         }));
         let steps = replay(&region, args.json("steps")?)?;
-        let selects = Json::Array(selects.borrow().iter().map(|four| numbers(four)).collect());
+        let selects = Json::Array(selects.borrow().iter().map(numbers).collect());
         Ok(encode::object([("steps", steps), ("selects", selects)]))
     })
 }

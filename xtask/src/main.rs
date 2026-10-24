@@ -8,7 +8,11 @@
 //! cargo xtask bench [PREFIX...] [--reference]     timings of large workloads (vs matplotlib)
 //! ```
 #![forbid(unsafe_code)]
-#![allow(clippy::print_stdout, clippy::print_stderr)] // a CLI reports on stdout
+#![expect(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "a command-line tool reports on stdout and stderr"
+)]
 
 mod bench;
 

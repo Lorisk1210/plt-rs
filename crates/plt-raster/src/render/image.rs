@@ -3,9 +3,10 @@
 
 use plt_core::{Affine2D, Point, Rgba};
 
-use super::Surface;
+use super::{Surface, iround};
 use crate::clip::Clip;
 use crate::color::Rgba8;
+use crate::dda::Dda2;
 use crate::error::RasterError;
 use crate::mask::Mask;
 use crate::pixmap::Pixmap;
@@ -102,51 +103,6 @@ pub fn draw_coverage(
         surface.blend_solid(dy, span, color, Antialias::On);
     }
     Ok(())
-}
-
-/// Agg's `iround`.
-fn iround(v: f64) -> i32 {
-    (if v < 0.0 { v - 0.5 } else { v + 0.5 }) as i32
-}
-
-/// Agg's forward-adjusted `dda2_line_interpolator`.
-#[derive(Clone, Copy, Debug)]
-struct Dda2 {
-    cnt: i32,
-    lft: i32,
-    rem: i32,
-    modulo: i32,
-    y: i32,
-}
-
-impl Dda2 {
-    fn new(y1: i32, y2: i32, count: i32) -> Self {
-        let cnt = count.max(1);
-        let diff = y2.wrapping_sub(y1);
-        let mut d = Self {
-            cnt,
-            lft: diff / cnt,
-            rem: diff % cnt,
-            modulo: diff % cnt,
-            y: y1,
-        };
-        if d.modulo <= 0 {
-            d.modulo += cnt;
-            d.rem += cnt;
-            d.lft -= 1;
-        }
-        d.modulo -= cnt;
-        d
-    }
-
-    fn step(&mut self) {
-        self.modulo += self.rem;
-        self.y = self.y.wrapping_add(self.lft);
-        if self.modulo > 0 {
-            self.modulo -= self.cnt;
-            self.y = self.y.wrapping_add(1);
-        }
-    }
 }
 
 /// Samples a coverage bitmap through an inverse affine transform with
@@ -288,18 +244,5 @@ mod tests {
         assert!(
             CoverageSampler::new(&src, &Affine2D::scaling(0.0, 1.0), Rgba8::default()).is_none()
         );
-    }
-
-    #[test]
-    fn dda2_distributes_evenly() {
-        let mut d = Dda2::new(0, 10, 4);
-        let mut ys = vec![d.y];
-        for _ in 0..4 {
-            d.step();
-            ys.push(d.y);
-        }
-        assert_eq!(ys.first(), Some(&0));
-        assert_eq!(ys.last(), Some(&10));
-        assert!(ys.windows(2).all(|w| w[1] - w[0] >= 2 && w[1] - w[0] <= 3));
     }
 }

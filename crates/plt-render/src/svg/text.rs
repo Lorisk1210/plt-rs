@@ -3,7 +3,7 @@
 //! once in `FreeType`'s 26.6 units at that size and placed with `<use>`
 //! inside a group scaled to the font size.
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's SVG writer leaves out exactly-default values"
 )]
@@ -17,7 +17,7 @@ use super::defs::path_data;
 use super::style::{Style, TransformOp, css, transform_attr};
 use super::{SvgFontType, SvgRenderer};
 use crate::gc::GraphicsContext;
-use crate::vector::{POINTS_DPI, VectorError, hex_color, in_points, short};
+use crate::vector::{POINTS_DPI, VectorError, in_points, short};
 
 /// The size text is laid out at (`TextToPath.FONT_SCALE`).
 const FONT_SCALE: f64 = 100.0;
@@ -149,8 +149,8 @@ impl SvgRenderer {
         self.writer.comment(source.text());
         let color = gc.stroke_color();
         let mut style = Style::new();
-        if hex_color(color) != "#000000" {
-            style.push(("fill", hex_color(color)));
+        if color.to_hex(false) != "#000000" {
+            style.push(("fill", color.to_hex(false)));
         }
         let alpha = gc.alpha.unwrap_or(color.a);
         if alpha != 1.0 {

@@ -6,47 +6,15 @@
 use std::f64::consts::PI;
 
 use plt_core::Point;
+use plt_core::path::outline::{
+    VERTEX_DIST_EPSILON, VertexDist, calc_distance, calc_intersection, cross_product,
+};
 
-use super::vertex_seq::{VERTEX_DIST_EPSILON, VertexDist};
 use crate::style::{InnerJoin, LineCap, LineJoin, StrokeStyle};
-
-const INTERSECTION_EPSILON: f64 = 1.0e-30;
 
 /// The most intermediate points of a round cap or join. A stroke as wide as
 /// the largest canvas (2²³ pixels) needs about 6 400 for a half turn.
 const MAX_ARC_POINTS: i32 = 1 << 13;
-
-/// Agg's `cross_product`: which side of the line `1 → 2` the point lies on.
-fn cross_product(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, y: f64) -> f64 {
-    (x - x2) * (y2 - y1) - (y - y2) * (x2 - x1)
-}
-
-/// Intersection of lines `a → b` and `c → d` (Agg's `calc_intersection`).
-#[allow(clippy::too_many_arguments)] // Mirrors Agg's signature one to one.
-pub(crate) fn calc_intersection(
-    ax: f64,
-    ay: f64,
-    bx: f64,
-    by: f64,
-    cx: f64,
-    cy: f64,
-    dx: f64,
-    dy: f64,
-) -> Option<(f64, f64)> {
-    let num = (ay - cy) * (dx - cx) - (ax - cx) * (dy - cy);
-    let den = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
-    if den.abs() < INTERSECTION_EPSILON {
-        return None;
-    }
-    let r = num / den;
-    Some((ax + r * (bx - ax), ay + r * (by - ay)))
-}
-
-fn distance(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
-    let dx = x2 - x1;
-    let dy = y2 - y1;
-    (dx * dx + dy * dy).sqrt()
-}
 
 /// Precomputed stroke parameters.
 #[derive(Clone, Debug)]
@@ -94,17 +62,16 @@ impl StrokeMath {
         ((angle / step) as i32).min(MAX_ARC_POINTS)
     }
 
-    #[allow(clippy::too_many_arguments)] // Mirrors Agg's signature one to one.
+    /// Agg's `calc_arc`: the round join or cap around `center` from the
+    /// offset `(dx1, dy1)` to the offset `(dx2, dy2)`.
     fn calc_arc(
         &self,
         out: &mut Vec<Point>,
-        x: f64,
-        y: f64,
-        dx1: f64,
-        dy1: f64,
-        dx2: f64,
-        dy2: f64,
+        center: Point,
+        (dx1, dy1): (f64, f64),
+        (dx2, dy2): (f64, f64),
     ) {
+        let Point { x, y } = center;
         let mut a1 = (dy1 * self.width_sign).atan2(dx1 * self.width_sign);
         let mut a2 = (dy2 * self.width_sign).atan2(dx2 * self.width_sign);
         let da = self.arc_step();
@@ -141,13 +108,13 @@ impl StrokeMath {
         out.push(Point::new(x + dx2, y + dy2));
     }
 
-    #[allow(clippy::too_many_arguments)] // Mirrors Agg's signature one to one.
+    /// Agg's `calc_miter`: the miter at `v1` of the offsets `dx1..dy2` of
+    /// the segments `v0 → v1` and `v1 → v2`, `join` deciding what a miter
+    /// longer than `mlimit` widths becomes.
     fn calc_miter(
         &self,
         out: &mut Vec<Point>,
-        v0: &VertexDist,
-        v1: &VertexDist,
-        v2: &VertexDist,
+        [v0, v1, v2]: [&VertexDist; 3],
         [dx1, dy1, dx2, dy2]: [f64; 4],
         join: LineJoin,
         mlimit: f64,
@@ -159,19 +126,15 @@ impl StrokeMath {
         let mut xi = v1.x;
         let mut yi = v1.y;
         let mut di = 1.0;
-        if let Some((x, y)) = calc_intersection(
-            v0.x + dx1,
-            v0.y - dy1,
-            v1.x + dx1,
-            v1.y - dy1,
-            v1.x + dx2,
-            v1.y - dy2,
-            v2.x + dx2,
-            v2.y - dy2,
+        if let Some(p) = calc_intersection(
+            Point::new(v0.x + dx1, v0.y - dy1),
+            Point::new(v1.x + dx1, v1.y - dy1),
+            Point::new(v1.x + dx2, v1.y - dy2),
+            Point::new(v2.x + dx2, v2.y - dy2),
         ) {
-            xi = x;
-            yi = y;
-            di = distance(v1.x, v1.y, xi, yi);
+            xi = p.x;
+            yi = p.y;
+            di = calc_distance(v1.point(), p);
             if di <= lim {
                 out.push(Point::new(xi, yi));
                 limit_exceeded = false;
@@ -180,10 +143,9 @@ impl StrokeMath {
         } else {
             // Collinear points: either the path continues straight on (one
             // offset point suffices) or it turns back on itself.
-            let x2 = v1.x + dx1;
-            let y2 = v1.y - dy1;
-            if (cross_product(v0.x, v0.y, v1.x, v1.y, x2, y2) < 0.0)
-                == (cross_product(v1.x, v1.y, v2.x, v2.y, x2, y2) < 0.0)
+            let p = Point::new(v1.x + dx1, v1.y - dy1);
+            if (cross_product(v0.point(), v1.point(), p) < 0.0)
+                == (cross_product(v1.point(), v2.point(), p) < 0.0)
             {
                 out.push(Point::new(v1.x + dx1, v1.y - dy1));
                 limit_exceeded = false;
@@ -197,7 +159,7 @@ impl StrokeMath {
                 out.push(Point::new(v1.x + dx1, v1.y - dy1));
                 out.push(Point::new(v1.x + dx2, v1.y - dy2));
             }
-            LineJoin::MiterRound => self.calc_arc(out, v1.x, v1.y, dx1, -dy1, dx2, -dy2),
+            LineJoin::MiterRound => self.calc_arc(out, v1.point(), (dx1, -dy1), (dx2, -dy2)),
             _ => {
                 if intersection_failed {
                     let mlimit = mlimit * self.width_sign;
@@ -289,7 +251,7 @@ impl StrokeMath {
         let offsets = [dx1, dy1, dx2, dy2];
         out.clear();
 
-        let cp = cross_product(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
+        let cp = cross_product(v0.point(), v1.point(), v2.point());
         if (cp > VERTEX_DIST_EPSILON && self.width > 0.0)
             || (cp < -VERTEX_DIST_EPSILON && self.width < 0.0)
         {
@@ -301,16 +263,21 @@ impl StrokeMath {
                     out.push(Point::new(v1.x + dx2, v1.y - dy2));
                 }
                 InnerJoin::Miter => {
-                    self.calc_miter(out, v0, v1, v2, offsets, LineJoin::MiterRevert, limit, 0.0);
+                    self.calc_miter(
+                        out,
+                        [v0, v1, v2],
+                        offsets,
+                        LineJoin::MiterRevert,
+                        limit,
+                        0.0,
+                    );
                 }
                 InnerJoin::Jag | InnerJoin::Round => {
                     let d = (dx1 - dx2) * (dx1 - dx2) + (dy1 - dy2) * (dy1 - dy2);
                     if d < len1 * len1 && d < len2 * len2 {
                         self.calc_miter(
                             out,
-                            v0,
-                            v1,
-                            v2,
+                            [v0, v1, v2],
                             offsets,
                             LineJoin::MiterRevert,
                             limit,
@@ -323,7 +290,7 @@ impl StrokeMath {
                     } else {
                         out.push(Point::new(v1.x + dx1, v1.y - dy1));
                         out.push(Point::new(v1.x, v1.y));
-                        self.calc_arc(out, v1.x, v1.y, dx2, -dy2, dx1, -dy1);
+                        self.calc_arc(out, v1.point(), (dx2, -dy2), (dx1, -dy1));
                         out.push(Point::new(v1.x, v1.y));
                         out.push(Point::new(v1.x + dx2, v1.y - dy2));
                     }
@@ -341,19 +308,16 @@ impl StrokeMath {
             && self.approx_scale * (self.width_abs - dbevel) < self.width_eps
         {
             // Nearly collinear: a single miter point is indistinguishable.
-            match calc_intersection(
-                v0.x + dx1,
-                v0.y - dy1,
-                v1.x + dx1,
-                v1.y - dy1,
-                v1.x + dx2,
-                v1.y - dy2,
-                v2.x + dx2,
-                v2.y - dy2,
-            ) {
-                Some((x, y)) => out.push(Point::new(x, y)),
-                None => out.push(Point::new(v1.x + dx1, v1.y - dy1)),
-            }
+            let first = Point::new(v1.x + dx1, v1.y - dy1);
+            out.push(
+                calc_intersection(
+                    Point::new(v0.x + dx1, v0.y - dy1),
+                    first,
+                    Point::new(v1.x + dx2, v1.y - dy2),
+                    Point::new(v2.x + dx2, v2.y - dy2),
+                )
+                .unwrap_or(first),
+            );
             return;
         }
 
@@ -361,16 +325,14 @@ impl StrokeMath {
             LineJoin::Miter | LineJoin::MiterRevert | LineJoin::MiterRound => {
                 self.calc_miter(
                     out,
-                    v0,
-                    v1,
-                    v2,
+                    [v0, v1, v2],
                     offsets,
                     self.join,
                     self.miter_limit,
                     dbevel,
                 );
             }
-            LineJoin::Round => self.calc_arc(out, v1.x, v1.y, dx1, -dy1, dx2, -dy2),
+            LineJoin::Round => self.calc_arc(out, v1.point(), (dx1, -dy1), (dx2, -dy2)),
             LineJoin::Bevel => {
                 out.push(Point::new(v1.x + dx1, v1.y - dy1));
                 out.push(Point::new(v1.x + dx2, v1.y - dy2));
@@ -474,17 +436,5 @@ mod tests {
             101f64.sqrt(),
         );
         assert_eq!(out.len(), 2);
-    }
-
-    #[test]
-    fn intersection() {
-        assert_eq!(
-            calc_intersection(0.0, 0.0, 2.0, 2.0, 0.0, 2.0, 2.0, 0.0),
-            Some((1.0, 1.0))
-        );
-        assert_eq!(
-            calc_intersection(0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0),
-            None
-        );
     }
 }

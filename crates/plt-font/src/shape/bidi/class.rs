@@ -5,7 +5,7 @@ use crate::shape::ucd_tables::{BIDI_CLASSES, BRACKETS, MIRRORS};
 /// A Unicode bidirectional character type (`Bidi_Class`), in the order of
 /// the generator's codes.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-#[allow(
+#[expect(
     clippy::upper_case_acronyms,
     reason = "UAX #9's short type names keep the rules recognizable"
 )]

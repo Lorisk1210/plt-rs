@@ -36,7 +36,7 @@ impl Axes {
     /// When the transform of a [`ParasiteLink::Transform`] rotates, shears
     /// or cannot be inverted.
     pub fn add_parasite_axes(&self, link: ParasiteLink) -> Result<Self, ParasiteError> {
-        let parasite = HostAxes::new(self.ax().clone()).get_aux_axes(link)?;
+        let parasite = HostAxes::new(self.ax().clone()).aux_axes(link)?;
         let axes = Self::new(parasite.axes().clone());
         // matplotlib's `ParasiteAxesBase.clear` hides every child.
         for artist in axes.axis_artists() {

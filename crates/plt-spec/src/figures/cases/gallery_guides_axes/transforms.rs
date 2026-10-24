@@ -7,7 +7,7 @@ use plt::axes::HistPlotOptions;
 use plt::patches::{Circle, Ellipse, Rectangle};
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions};
-use plt::text::{AnnotateOptions, ArrowProps, TextProps, VerticalAlignment};
+use plt::text::{AnnotateOptions, ArrowProps, TextProps, VAlign};
 use plt::ticker::pyfmt;
 use plt::transforms::{Point, Transform};
 
@@ -106,7 +106,7 @@ fn transforms_tutorial_3(fig: &Figure) -> CaseResult {
         let ax = fig.add_subplot(2, 2, i + 1)?;
         ax.text(0.05, 0.95, label)
             .set_transform(ax.trans_axes())
-            .update_props(TextProps::default().valign(VerticalAlignment::Top))
+            .update_props(TextProps::default().valign(VAlign::Top))
             .set_fontsize(16.0)
             .set_weight(plt::fonts::FontWeight::BOLD);
     }
@@ -135,7 +135,7 @@ fn transforms_tutorial_5(fig: &Figure) -> CaseResult {
         },
         ..HistPlotOptions::default()
     };
-    ax.hist(&[SpecRng::new(SEED).normal(1000, 0.0, 1.0)], &options)?;
+    ax.hist(&[SpecRng::new(SEED).normal(1000, 0.0, 1.0)], options)?;
     ax.set_title(r"$\sigma=1 \/ \dots \/ \sigma=2$")
         .set_fontsize(16.0);
     let trans = Transform::blended(ax.trans_data(), ax.trans_axes());

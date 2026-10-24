@@ -9,7 +9,7 @@ use super::{Axes, BarContainer};
 use crate::artist::ArtistHandle;
 use crate::coords::{CoordError, CoordOrigin, CoordUnit, Coords};
 use crate::orientation::Orientation;
-use crate::text::{AnnotateOptions, Annotation, HorizontalAlignment, VerticalAlignment};
+use crate::text::{AnnotateOptions, Annotation, HAlign, VAlign};
 use crate::ticker::pyfmt::{FormatError, auto_format};
 
 /// Where bar labels sit (matplotlib's `label_type`).
@@ -121,7 +121,7 @@ impl Axes {
     /// use plt::axes::{BarLabelOptions, BarOptions};
     /// let ax = Figure::new().subplot();
     /// let bars = ax.bar([0.0, 1.0], [3.0, 4.5], BarOptions::default())?;
-    /// let labels = ax.bar_label(&bars, &BarLabelOptions::default())?;
+    /// let labels = ax.bar_label(&bars, BarLabelOptions::default())?;
     /// assert_eq!(labels[1].text(), "4.5");
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
@@ -133,7 +133,7 @@ impl Axes {
     pub fn bar_label(
         &self,
         container: &BarContainer,
-        options: &BarLabelOptions,
+        options: BarLabelOptions,
     ) -> Result<Vec<Annotation>, BarLabelError> {
         let (y0, y1) = self.ylim();
         let (x0, x1) = self.xlim();
@@ -276,9 +276,9 @@ impl LabelPlacement {
     }
 
     /// Edge labels align away from the bar; centre labels are centred.
-    fn alignment(&self) -> (HorizontalAlignment, VerticalAlignment) {
+    fn alignment(&self) -> (HAlign, VAlign) {
         if self.label_type == BarLabelType::Center {
-            return (HorizontalAlignment::Center, VerticalAlignment::Center);
+            return (HAlign::Center, VAlign::Center);
         }
         // NaN values count as positive, as in matplotlib.
         let toward_start = if self.inverted {
@@ -288,20 +288,20 @@ impl LabelPlacement {
         };
         match self.orientation {
             Orientation::Vertical => (
-                HorizontalAlignment::Center,
+                HAlign::Center,
                 if toward_start {
-                    VerticalAlignment::Top
+                    VAlign::Top
                 } else {
-                    VerticalAlignment::Bottom
+                    VAlign::Bottom
                 },
             ),
             Orientation::Horizontal => (
                 if toward_start {
-                    HorizontalAlignment::Right
+                    HAlign::Right
                 } else {
-                    HorizontalAlignment::Left
+                    HAlign::Left
                 },
-                VerticalAlignment::Center,
+                VAlign::Center,
             ),
         }
     }
@@ -335,11 +335,11 @@ mod tests {
             padding: vec![3.0],
             ..BarLabelOptions::default()
         };
-        let labels = ax.bar_label(&bars, &options).unwrap();
+        let labels = ax.bar_label(&bars, options).unwrap();
         assert_eq!(labels[0].text(), "+2.0");
         assert_eq!(labels[1].text(), "-1.5");
-        assert_eq!(labels[0].valign(), VerticalAlignment::Bottom);
-        assert_eq!(labels[1].valign(), VerticalAlignment::Top);
+        assert_eq!(labels[0].valign(), VAlign::Bottom);
+        assert_eq!(labels[1].valign(), VAlign::Top);
         assert_eq!(labels[1].position(), Point::new(0.0, -3.0));
     }
 
@@ -355,7 +355,7 @@ mod tests {
         };
         let bars = ax.bar([0.0], [2.0], options).unwrap();
         assert_eq!(error_bar_ends(&bars), vec![Some((1.5, 2.5))]);
-        let labels = ax.bar_label(&bars, &BarLabelOptions::default()).unwrap();
+        let labels = ax.bar_label(&bars, BarLabelOptions::default()).unwrap();
         assert_eq!(labels[0].text(), "2");
         let plain = ax.bar([1.0], [2.0], BarOptions::default()).unwrap();
         assert_eq!(error_bar_ends(&plain), Vec::new());
@@ -373,16 +373,16 @@ mod tests {
             label_type: BarLabelType::Center,
             ..BarLabelOptions::default()
         };
-        let labels = ax.bar_label(&bars, &options).unwrap();
+        let labels = ax.bar_label(&bars, options).unwrap();
         let texts: Vec<String> = labels.iter().map(|l| l.text()).collect();
         assert_eq!(texts, ["a", "", "300%"]);
-        assert_eq!(labels[2].halign(), HorizontalAlignment::Center);
+        assert_eq!(labels[2].halign(), HAlign::Center);
         let padded = BarLabelOptions {
             padding: vec![1.0, 2.0],
             ..BarLabelOptions::default()
         };
         assert_eq!(
-            ax.bar_label(&bars, &padded).err(),
+            ax.bar_label(&bars, padded).err(),
             Some(BarLabelError::PaddingCount { len: 2, bars: 3 })
         );
     }

@@ -34,7 +34,7 @@ fn panels(fig: &Figure) -> CaseResult {
 
 /// `_subfigures`: two coloured subfigures, each with a curve.
 fn subfigures(fig: &Figure) -> CaseResult {
-    let subfigs = fig.subfigures(1, 2, &SubfigureOptions::default())?;
+    let subfigs = fig.subfigures(1, 2, SubfigureOptions::default())?;
     for (i, (sub, color)) in subfigs
         .as_slice()
         .iter()

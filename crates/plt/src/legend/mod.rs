@@ -322,8 +322,9 @@ impl Axes {
         Ok(Legend::made(figure, id, options.draggable))
     }
 
-    /// The axes legend, if it has one (matplotlib's `get_legend`).
-    pub fn get_legend(&self) -> Option<Legend> {
+    /// The axes legend, if it has one (matplotlib's `get_legend`;
+    /// [`Axes::legend`] makes one).
+    pub fn current_legend(&self) -> Option<Legend> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
         let axes = state.store.get_as::<AxesState>(self.id())?;
@@ -336,7 +337,7 @@ impl Axes {
     /// Keeps `legend` on the axes as an ordinary artist, so that the next
     /// [`Axes::legend`] adds a legend beside it instead of replacing it
     /// (matplotlib's `ax.add_artist(legend)` for showing several legends).
-    /// The kept legend is no longer the one [`Axes::get_legend`] returns.
+    /// The kept legend is no longer the one [`Axes::current_legend`] returns.
     pub fn keep_legend(&self, legend: &Legend) {
         legend
             .raw

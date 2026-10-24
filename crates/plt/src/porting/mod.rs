@@ -52,7 +52,7 @@
 //! // `fig.savefig("waves.png", dpi=150)` writes a file; `to_png_with`
 //! // returns the bytes instead.
 //! let options = SaveOptions { dpi: Some(150.0), ..SaveOptions::default() };
-//! let png = fig.to_png_with(&options)?;
+//! let png = fig.to_png_with(options)?;
 //! assert!(png.starts_with(b"\x89PNG"));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

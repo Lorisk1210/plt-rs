@@ -8,7 +8,7 @@
 //!   (or a [`ScalarField`] with a mask), or a grid of RGB(A) pixels as
 //!   floats or bytes;
 //! * `pcolor` and `pcolormesh` take a [`Mesh`]: values with optional
-//!   column/row or full-grid coordinates ([`Mesh::with_coords`]);
+//!   column/row or full-grid coordinates ([`Mesh::from_coords`]);
 //! * contours take a [`QuadField`]: z with optional coordinates
 //!   ([`QuadCoords`]) and mask; triangular grids are a [`Triangulation`];
 //! * `quiver` and `barbs` take a [`VectorField`], `streamplot` a
@@ -37,7 +37,7 @@
 //! | `im.set_clim(a, b)`, `im.set_cmap(c)`, `im.set_norm(n)` | [`AxesImage::set_clim`], [`AxesImage::set_cmap`], [`AxesImage::set_norm`] |
 //! | `ax.matshow(z)`, `ax.spy(z)`                     | [`Axes::matshow`], [`Axes::spy`]                 |
 //! | `fig.figimage(z, xo, yo)`                        | [`Figure::figimage`] with [`FigimageOptions`]    |
-//! | `ax.pcolormesh(x, y, c, shading="flat")`         | [`Axes::pcolormesh`]`(Mesh::with_coords(x, y, c), ..)` with [`PcolorOptions`], [`Shading`] |
+//! | `ax.pcolormesh(x, y, c, shading="flat")`         | [`Axes::pcolormesh`]`(Mesh::from_coords(x, y, c), ..)` with [`PcolorOptions`], [`Shading`] |
 //! | `ax.pcolor(...)`, `ax.pcolorfast(...)`           | [`Axes::pcolor`], [`Axes::pcolorfast`]           |
 //! | `ax.hexbin`, `ax.hist2d`                         | [`Axes::hexbin`], [`Axes::hist2d`]               |
 //! | `fig.colorbar(im, ax=ax, label=, location=, shrink=)` | [`Figure::colorbar`] with [`ColorbarOptions`] |
@@ -119,7 +119,7 @@
 //!     colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
 //!     ..PcolorOptions::default()
 //! };
-//! let mesh = ax.pcolormesh(Mesh::with_coords(linspace(0.0, 1.0, 6), linspace(0.0, 1.0, 4), c), options)?;
+//! let mesh = ax.pcolormesh(Mesh::from_coords(linspace(0.0, 1.0, 6), linspace(0.0, 1.0, 4), c), options)?;
 //! assert_eq!(mesh.array().map(|values| values.len()), Some(15));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -155,7 +155,7 @@
 //! let cs = ax.contour(&field, lines)?;
 //! assert_eq!(cs.levels(), [0.25, 0.5, 0.75]);
 //! let format = ClabelOptions { fmt: LabelFormat::Printf(PrintfFormat::parse("%.2f")?), ..ClabelOptions::default() };
-//! let labels = cs.clabel(&format)?;
+//! let labels = cs.clabel(format)?;
 //! assert!(labels.iter().any(|label| label.text() == "0.50"));
 //!
 //! let bands = ContourOptions {
@@ -247,7 +247,7 @@
 //!
 //! let z = Grid::from_fn(2, 3, |r, c| (r + c) as f64);
 //! let options = ImsaveOptions { cmap: Some(colormaps::get("gray")?), ..ImsaveOptions::default() };
-//! let png = imsave_bytes(z, BitmapFormat::Png, &options)?;
+//! let png = imsave_bytes(z, BitmapFormat::Png, options)?;
 //! let pixels = imread_bytes(&png)?;
 //! assert_eq!(pixels.shape(), (2, 3));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -272,7 +272,7 @@
 //! [`imsave_bytes`]: crate::image::imsave_bytes
 //! [`imread_bytes`]: crate::image::imread_bytes
 //! [`Mesh`]: crate::axes::Mesh
-//! [`Mesh::with_coords`]: crate::axes::Mesh::with_coords
+//! [`Mesh::from_coords`]: crate::axes::Mesh::from_coords
 //! [`PcolorOptions`]: crate::axes::PcolorOptions
 //! [`Shading`]: crate::axes::Shading
 //! [`ImshowOptions`]: crate::axes::ImshowOptions

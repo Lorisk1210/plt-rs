@@ -1,6 +1,17 @@
 //! Font queries: matplotlib's `FontProperties` and generic family lists.
 
 use std::fmt;
+use std::str::FromStr;
+
+use crate::FontError;
+
+/// The error of a name that `kind` does not have.
+fn unknown(kind: &'static str, name: &str) -> FontError {
+    FontError::UnknownName {
+        kind,
+        name: name.to_owned(),
+    }
+}
 
 /// Font slant.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
@@ -14,15 +25,17 @@ pub enum FontStyle {
     Oblique,
 }
 
-impl FontStyle {
-    /// Parses `normal`, `italic` or `oblique` (`roman` is accepted as an
-    /// alias of `normal`, as in fontconfig patterns).
-    pub fn parse(text: &str) -> Option<Self> {
+impl FromStr for FontStyle {
+    type Err = FontError;
+
+    /// Parses `normal`, `italic` or `oblique`, ignoring case (`roman` is
+    /// accepted as an alias of `normal`, as in fontconfig patterns).
+    fn from_str(text: &str) -> Result<Self, FontError> {
         match text.trim().to_ascii_lowercase().as_str() {
-            "normal" | "roman" => Some(Self::Normal),
-            "italic" => Some(Self::Italic),
-            "oblique" => Some(Self::Oblique),
-            _ => None,
+            "normal" | "roman" => Ok(Self::Normal),
+            "italic" => Ok(Self::Italic),
+            "oblique" => Ok(Self::Oblique),
+            _ => Err(unknown("font style", text)),
         }
     }
 }
@@ -46,13 +59,18 @@ impl Weight {
     pub const NORMAL: Self = Self(400);
     /// `bold` (700).
     pub const BOLD: Self = Self(700);
+}
+
+impl FromStr for Weight {
+    type Err = FontError;
 
     /// Parses a matplotlib weight name (`ultralight`, `light`, `normal`,
     /// `regular`, `book`, `medium`, `roman`, `semibold`, `demibold`, `demi`,
-    /// `bold`, `heavy`, `extra bold`, `black`) or a number in 0–1000.
-    pub fn parse(text: &str) -> Option<Self> {
-        let text = text.trim().to_ascii_lowercase();
-        let named = match text.as_str() {
+    /// `bold`, `heavy`, `extra bold`, `black`), ignoring case, or a number
+    /// in 0–1000.
+    fn from_str(text: &str) -> Result<Self, FontError> {
+        let lower = text.trim().to_ascii_lowercase();
+        let named = match lower.as_str() {
             "ultralight" => 100,
             "light" => 200,
             "normal" | "regular" | "book" => 400,
@@ -61,9 +79,13 @@ impl Weight {
             "bold" => 700,
             "heavy" | "extra bold" => 800,
             "black" => 900,
-            number => number.parse().ok().filter(|&value| value <= 1000)?,
+            number => number
+                .parse()
+                .ok()
+                .filter(|&value| value <= 1000)
+                .ok_or_else(|| unknown("font weight", text))?,
         };
-        Some(Self(named))
+        Ok(Self(named))
     }
 }
 
@@ -86,12 +108,16 @@ impl Stretch {
     pub const SEMI_CONDENSED: Self = Self(400);
     /// `expanded` (700).
     pub const EXPANDED: Self = Self(700);
+}
+
+impl FromStr for Stretch {
+    type Err = FontError;
 
     /// Parses a matplotlib stretch name (`ultra-condensed` … `ultra-expanded`,
-    /// with `extended` synonyms) or a number in 0–1000.
-    pub fn parse(text: &str) -> Option<Self> {
-        let text = text.trim().to_ascii_lowercase();
-        let named = match text.as_str() {
+    /// with `extended` synonyms), ignoring case, or a number in 0–1000.
+    fn from_str(text: &str) -> Result<Self, FontError> {
+        let lower = text.trim().to_ascii_lowercase();
+        let named = match lower.as_str() {
             "ultra-condensed" => 100,
             "extra-condensed" => 200,
             "condensed" => 300,
@@ -101,9 +127,13 @@ impl Stretch {
             "expanded" | "extended" => 700,
             "extra-expanded" | "extra-extended" => 800,
             "ultra-expanded" | "ultra-extended" => 900,
-            number => number.parse().ok().filter(|&value| value <= 1000)?,
+            number => number
+                .parse()
+                .ok()
+                .filter(|&value| value <= 1000)
+                .ok_or_else(|| unknown("font stretch", text))?,
         };
-        Some(Self(named))
+        Ok(Self(named))
     }
 }
 
@@ -128,16 +158,18 @@ pub enum GenericFamily {
     Monospace,
 }
 
-impl GenericFamily {
+impl FromStr for GenericFamily {
+    type Err = FontError;
+
     /// Recognises a generic family name (case-insensitive).
-    pub fn parse(name: &str) -> Option<Self> {
+    fn from_str(name: &str) -> Result<Self, FontError> {
         match name.to_ascii_lowercase().as_str() {
-            "serif" => Some(Self::Serif),
-            "sans-serif" | "sans serif" | "sans" => Some(Self::SansSerif),
-            "cursive" => Some(Self::Cursive),
-            "fantasy" => Some(Self::Fantasy),
-            "monospace" => Some(Self::Monospace),
-            _ => None,
+            "serif" => Ok(Self::Serif),
+            "sans-serif" | "sans serif" | "sans" => Ok(Self::SansSerif),
+            "cursive" => Ok(Self::Cursive),
+            "fantasy" => Ok(Self::Fantasy),
+            "monospace" => Ok(Self::Monospace),
+            _ => Err(unknown("generic font family", name)),
         }
     }
 }
@@ -338,18 +370,24 @@ mod tests {
 
     #[test]
     fn parses_names_and_numbers() {
-        assert_eq!(Weight::parse("bold"), Some(Weight::BOLD));
-        assert_eq!(Weight::parse("Extra Bold"), Some(Weight(800)));
-        assert_eq!(Weight::parse("350"), Some(Weight(350)));
-        assert_eq!(Weight::parse("1001"), None);
-        assert_eq!(Weight::parse("fat"), None);
-        assert_eq!(Stretch::parse("semi-extended"), Some(Stretch(600)));
-        assert_eq!(Stretch::parse("condensed"), Some(Stretch::CONDENSED));
-        assert_eq!(Stretch::parse("x"), None);
-        assert_eq!(FontStyle::parse("Italic"), Some(FontStyle::Italic));
-        assert_eq!(FontStyle::parse("slanted"), None);
-        assert_eq!(GenericFamily::parse("Sans"), Some(GenericFamily::SansSerif));
-        assert_eq!(GenericFamily::parse("DejaVu Sans"), None);
+        assert_eq!("bold".parse(), Ok(Weight::BOLD));
+        assert_eq!("Extra Bold".parse(), Ok(Weight(800)));
+        assert_eq!("350".parse(), Ok(Weight(350)));
+        assert_eq!(
+            "1001".parse::<Weight>(),
+            Err(unknown("font weight", "1001"))
+        );
+        assert!("fat".parse::<Weight>().is_err());
+        assert_eq!("semi-extended".parse(), Ok(Stretch(600)));
+        assert_eq!("condensed".parse(), Ok(Stretch::CONDENSED));
+        assert!("x".parse::<Stretch>().is_err());
+        assert_eq!("Italic".parse(), Ok(FontStyle::Italic));
+        assert_eq!(
+            "slanted".parse::<FontStyle>().map_err(|e| e.to_string()),
+            Err("\"slanted\" is not a valid font style".to_owned())
+        );
+        assert_eq!("Sans".parse(), Ok(GenericFamily::SansSerif));
+        assert!("DejaVu Sans".parse::<GenericFamily>().is_err());
     }
 
     #[test]

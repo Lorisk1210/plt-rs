@@ -4,7 +4,7 @@ use plt_core::{Path, Point};
 
 use super::broadcast::{broadcast, common_length};
 use super::children::DataUpdate;
-use super::{Axes, AxesState, ErrorbarContainer, ErrorbarOptions, PlotError};
+use super::{Axes, AxesState, ErrorbarContainer, ErrorbarFormat, ErrorbarOptions, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind};
 use crate::colors::Color;
@@ -259,7 +259,7 @@ impl Axes {
     /// ax.broken_barh(&[(0.0, 3.0)], ("CPU 1", 0.4), BandAlign::Center);
     /// ax.broken_barh(&[(1.0, 1.5)], ("disk", 0.4), BandAlign::Center);
     /// assert_eq!(ax.yaxis().ticklocs(false)?, [0.0, 1.0]);
-    /// # Ok::<(), String>(())
+    /// # Ok::<(), plt::ticker::TickerError>(())
     /// ```
     pub fn broken_barh<X, W>(
         &self,
@@ -432,7 +432,7 @@ impl Axes {
                 orientation.place(position, value)
             })
             .unzip();
-        "none".clone_into(&mut errors.fmt);
+        errors.fmt = ErrorbarFormat::None;
         errors.ecolor.get_or_insert_with(|| Color::from("k"));
         let base = &mut errors.line.base;
         if base.zorder.is_none() {

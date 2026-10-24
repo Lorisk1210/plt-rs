@@ -68,20 +68,13 @@ impl Axes {
     pub fn psd<S: SignalValue>(
         &self,
         x: &[S],
-        options: &SpectralPlotOptions,
+        options: SpectralPlotOptions,
     ) -> Result<Spectrum, PlotError> {
-        let spectrum = mlab::psd(x, &options.spectral).map_err(PlotError::Mlab)?;
+        let scale_by_freq = options.spectral.scale_by_freq;
+        let spectrum = mlab::psd(x, options.spectral).map_err(PlotError::Mlab)?;
         let db: Vec<f64> = spectrum.values.iter().map(|p| 10.0 * p.log10()).collect();
-        self.plot_with(
-            shifted(&spectrum.freqs, options.fc),
-            db,
-            options.line.clone(),
-        )?;
-        let units = if options.spectral.scale_by_freq {
-            "dB/Hz"
-        } else {
-            "dB"
-        };
+        self.plot_with(shifted(&spectrum.freqs, options.fc), db, options.line)?;
+        let units = if scale_by_freq { "dB/Hz" } else { "dB" };
         self.set_xlabel("Frequency")
             .set_ylabel(format!("Power Spectral Density ({units})"));
         self.grid(true);
@@ -99,19 +92,15 @@ impl Axes {
         &self,
         x: &[f64],
         y: &[f64],
-        options: &SpectralPlotOptions,
+        options: SpectralPlotOptions,
     ) -> Result<Spectrum<Complex>, PlotError> {
-        let spectrum = mlab::csd(x, y, &options.spectral).map_err(PlotError::Mlab)?;
+        let spectrum = mlab::csd(x, y, options.spectral).map_err(PlotError::Mlab)?;
         let db: Vec<f64> = spectrum
             .values
             .iter()
             .map(|p| 10.0 * p.abs().log10())
             .collect();
-        self.plot_with(
-            shifted(&spectrum.freqs, options.fc),
-            db,
-            options.line.clone(),
-        )?;
+        self.plot_with(shifted(&spectrum.freqs, options.fc), db, options.line)?;
         self.set_xlabel("Frequency")
             .set_ylabel("Cross Spectrum Magnitude (dB)");
         self.grid(true);
@@ -128,13 +117,13 @@ impl Axes {
         &self,
         x: &[f64],
         y: &[f64],
-        options: &SpectralPlotOptions,
+        options: SpectralPlotOptions,
     ) -> Result<Spectrum, PlotError> {
-        let coherence = mlab::cohere(x, y, &options.spectral).map_err(PlotError::Mlab)?;
+        let coherence = mlab::cohere(x, y, options.spectral).map_err(PlotError::Mlab)?;
         self.plot_with(
             shifted(&coherence.freqs, options.fc),
             coherence.values.clone(),
-            options.line.clone(),
+            options.line,
         )?;
         self.set_xlabel("Frequency").set_ylabel("Coherence");
         self.grid(true);
@@ -150,9 +139,9 @@ impl Axes {
         &self,
         x: &[f64],
         scale: SpectrumScale,
-        options: &SpectrumPlotOptions,
+        options: SpectrumPlotOptions,
     ) -> Result<(Spectrum, Line2D), PlotError> {
-        let spectrum = mlab::magnitude_spectrum(x, &options.spectrum).map_err(PlotError::Mlab)?;
+        let spectrum = mlab::magnitude_spectrum(x, options.spectrum).map_err(PlotError::Mlab)?;
         let (values, units): (Vec<f64>, _) = match scale {
             SpectrumScale::Linear => (spectrum.values.clone(), "energy"),
             SpectrumScale::Decibels => (
@@ -160,11 +149,7 @@ impl Axes {
                 "dB",
             ),
         };
-        let line = self.plot_with(
-            shifted(&spectrum.freqs, options.fc),
-            values,
-            options.line.clone(),
-        )?;
+        let line = self.plot_with(shifted(&spectrum.freqs, options.fc), values, options.line)?;
         self.set_xlabel("Frequency")
             .set_ylabel(format!("Magnitude ({units})"));
         Ok((spectrum, line))
@@ -179,10 +164,10 @@ impl Axes {
     pub fn angle_spectrum(
         &self,
         x: &[f64],
-        options: &SpectrumPlotOptions,
+        options: SpectrumPlotOptions,
     ) -> Result<(Spectrum, Line2D), PlotError> {
-        let spectrum = mlab::angle_spectrum(x, &options.spectrum).map_err(PlotError::Mlab)?;
-        self.phase_line(spectrum, "Angle (radians)", options)
+        let spectrum = mlab::angle_spectrum(x, options.spectrum).map_err(PlotError::Mlab)?;
+        self.phase_line(spectrum, "Angle (radians)", options.fc, options.line)
     }
 
     /// Plots the unwrapped phase spectrum (matplotlib's `phase_spectrum`).
@@ -193,23 +178,22 @@ impl Axes {
     pub fn phase_spectrum(
         &self,
         x: &[f64],
-        options: &SpectrumPlotOptions,
+        options: SpectrumPlotOptions,
     ) -> Result<(Spectrum, Line2D), PlotError> {
-        let spectrum = mlab::phase_spectrum(x, &options.spectrum).map_err(PlotError::Mlab)?;
-        self.phase_line(spectrum, "Phase (radians)", options)
+        let spectrum = mlab::phase_spectrum(x, options.spectrum).map_err(PlotError::Mlab)?;
+        self.phase_line(spectrum, "Phase (radians)", options.fc, options.line)
     }
 
+    /// Plots a phase spectrum shifted by `fc`, labelling the y axis
+    /// `label`.
     fn phase_line(
         &self,
         spectrum: Spectrum,
         label: &str,
-        options: &SpectrumPlotOptions,
+        fc: f64,
+        line: LineProps,
     ) -> Result<(Spectrum, Line2D), PlotError> {
-        let line = self.plot_with(
-            shifted(&spectrum.freqs, options.fc),
-            spectrum.values.clone(),
-            options.line.clone(),
-        )?;
+        let line = self.plot_with(shifted(&spectrum.freqs, fc), spectrum.values.clone(), line)?;
         self.set_xlabel("Frequency").set_ylabel(label);
         Ok((spectrum, line))
     }
@@ -223,7 +207,7 @@ impl Axes {
     pub fn acorr(
         &self,
         x: &[f64],
-        options: &XcorrOptions,
+        options: XcorrOptions,
         usevlines: bool,
         line: LineProps,
     ) -> Result<(Correlation, CorrelationArtists), PlotError> {
@@ -240,7 +224,7 @@ impl Axes {
         &self,
         x: &[f64],
         y: &[f64],
-        options: &XcorrOptions,
+        options: XcorrOptions,
         usevlines: bool,
         line: LineProps,
     ) -> Result<(Correlation, CorrelationArtists), PlotError> {
@@ -308,7 +292,7 @@ mod tests {
     #[test]
     fn psd_labels_grid_and_decibel_ticks() {
         let ax = Figure::new().subplot();
-        let spectrum = ax.psd(&tone(512), &SpectralPlotOptions::default()).unwrap();
+        let spectrum = ax.psd(&tone(512), SpectralPlotOptions::default()).unwrap();
         assert_eq!(spectrum.freqs.len(), 129);
         assert_eq!(ax.label(AxisName::Y), "Power Spectral Density (dB/Hz)");
         let ticks = ax.ticks(AxisName::Y).unwrap();
@@ -329,7 +313,7 @@ mod tests {
                 Complex::new(phase.cos(), phase.sin())
             })
             .collect();
-        let spectrum = ax.psd(&samples, &SpectralPlotOptions::default()).unwrap();
+        let spectrum = ax.psd(&samples, SpectralPlotOptions::default()).unwrap();
         assert_eq!(spectrum.freqs.len(), 256);
         assert_eq!(spectrum.freqs[0], -1.0);
         let lines = ax.lines();
@@ -343,7 +327,7 @@ mod tests {
             .xcorr(
                 &tone(50),
                 &tone(50),
-                &XcorrOptions::default(),
+                XcorrOptions::default(),
                 false,
                 LineProps::default(),
             )
@@ -358,7 +342,7 @@ mod tests {
             ax.xcorr(
                 &tone(5),
                 &tone(6),
-                &XcorrOptions::default(),
+                XcorrOptions::default(),
                 true,
                 LineProps::default()
             )

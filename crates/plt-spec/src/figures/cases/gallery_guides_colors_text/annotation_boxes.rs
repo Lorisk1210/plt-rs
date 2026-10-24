@@ -18,8 +18,7 @@ use plt::offsetbox::{
 use plt::patches::{Annulus, BoxStyle, Circle, ConnectionEnd, ConnectionPatch, Ellipse};
 use plt::prelude::*;
 use plt::text::{
-    AnnotateOptions, Annotation, ArrowProps, FancyArrowProps, HorizontalAlignment as HAlign,
-    TextProps, VerticalAlignment as VAlign,
+    AnnotateOptions, Annotation, ArrowProps, FancyArrowProps, HAlign, TextProps, VAlign,
 };
 use plt::transforms::Point;
 

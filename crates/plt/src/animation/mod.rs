@@ -295,7 +295,7 @@ fn render_frame(figure: &Figure) -> Result<RgbaImage, SaveError> {
         ))),
         ..SaveOptions::default()
     };
-    Ok(figure.render_raster_with(&options)?.to_image())
+    Ok(figure.render_raster_with(options)?.to_image())
 }
 
 /// `duration` in milliseconds, exact for whole milliseconds.

@@ -31,7 +31,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 lower: map(&x, |x| 0.5 * x),
                 upper: x.clone(),
             }),
-            fmt: "o".into(),
+            fmt: "o".parse()?,
             ..ErrorbarOptions::default()
         };
         fig.subplot()
@@ -44,7 +44,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let x = arange(0.0, 6.0, 1.0);
         let styled = ErrorbarOptions {
             yerr: Some(0.8.into()),
-            fmt: "s--".into(),
+            fmt: "s--".parse()?,
             capsize: Some(6.0),
             capthick: Some(2.0),
             elinewidth: Some(3.0),
@@ -55,7 +55,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.errorbar(&x, &x, styled)?;
         let bars_only = ErrorbarOptions {
             yerr: Some(0.5.into()),
-            fmt: "none".into(),
+            fmt: "none".parse()?,
             ecolor: Some(Color::from("tab:red")),
             elinestyle: Some(LineStyle::Dotted),
             ..ErrorbarOptions::default()

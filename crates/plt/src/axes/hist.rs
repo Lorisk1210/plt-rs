@@ -99,7 +99,7 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::HistPlotOptions;
     /// let ax = Figure::new().subplot();
-    /// let plot = ax.hist(&[[0.0, 1.0, 1.5, 2.0]], &HistPlotOptions::default())?;
+    /// let plot = ax.hist(&[[0.0, 1.0, 1.5, 2.0]], HistPlotOptions::default())?;
     /// assert_eq!(plot.edges.len(), 11);
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
@@ -111,7 +111,7 @@ impl Axes {
     pub fn hist<T: BinSample, D: AsRef<[T]>>(
         &self,
         datasets: &[D],
-        options: &HistPlotOptions<'_>,
+        options: HistPlotOptions<'_>,
     ) -> Result<HistPlot, PlotError> {
         let colors = if options.color.is_empty() {
             datasets.iter().map(|_| self.next_line_color()).collect()
@@ -122,16 +122,16 @@ impl Axes {
         if layout.bins.is_none() {
             layout.bins = Some(rc_bins(&crate::rc::params().hist_bins)?);
         }
-        let computed = hist(datasets, &layout).map_err(PlotError::Stats)?;
+        let computed = hist(datasets, layout).map_err(PlotError::Stats)?;
         let artists = match computed.patches {
             HistPatches::Bars(groups) => {
-                HistArtists::Bars(self.hist_bars(groups, &colors, options)?)
+                HistArtists::Bars(self.hist_bars(groups, &colors, &options)?)
             }
             HistPatches::Steps(outlines) => {
-                HistArtists::Steps(self.hist_steps(outlines, &colors, options))
+                HistArtists::Steps(self.hist_steps(outlines, &colors, &options))
             }
         };
-        artists.style(options);
+        artists.style(&options);
         Ok(HistPlot {
             tops: computed.tops,
             edges: computed.edges,
@@ -282,7 +282,7 @@ mod tests {
             props: PatchProps::default().edgecolor("k"),
             ..HistPlotOptions::default()
         };
-        let plot = ax.hist(&three_datasets(), &options).unwrap();
+        let plot = ax.hist(&three_datasets(), options).unwrap();
         let HistArtists::Bars(containers) = plot.artists else {
             panic!("bars expected");
         };
@@ -315,15 +315,15 @@ mod tests {
             edgecolors,
             ..HistPlotOptions::default()
         };
-        let second_edge = |options: &HistPlotOptions<'_>| {
+        let second_edge = |options: HistPlotOptions<'_>| {
             let plot = ax.hist(&three_datasets(), options).unwrap();
             let HistArtists::Steps(outlines) = plot.artists else {
                 panic!("step outlines expected");
             };
             outlines[1].style().edgecolor
         };
-        assert_eq!(second_edge(&step(Vec::new())), Some(Color::from("r")));
+        assert_eq!(second_edge(step(Vec::new())), Some(Color::from("r")));
         let sequence = vec![Color::from("b"), Color::from("g")];
-        assert_eq!(second_edge(&step(sequence)), Some(Color::from("g")));
+        assert_eq!(second_edge(step(sequence)), Some(Color::from("g")));
     }
 }

@@ -252,7 +252,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let only = |index: usize| -> Vec<bool> { (0..9).map(|i| i == index).collect() };
         let options = Errorbar3DOptions {
             errors: [Some(0.15.into()), None, Some(0.4.into())],
-            fmt: "o-".into(),
+            fmt: "o-".parse()?,
             capsize: Some(3.0),
             errorevery: Some(MarkEvery::Every { start: 1, step: 2 }),
             uplims: [Vec::new(), Vec::new(), only(1)],
@@ -275,7 +275,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             axlim_clip: true,
             ..Stem3DOptions::default()
         };
-        ax.stem(&x, &y, &t, &options)?;
+        ax.stem(&x, &y, &t, options)?;
         limits(&ax, (-0.8, 1.2), (-1.2, 1.2), (-0.5, 4.5))?;
         Ok(())
     })

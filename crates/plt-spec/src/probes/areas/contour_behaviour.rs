@@ -217,7 +217,7 @@ fn labels(args: Args<'_>) -> Outcome {
         }
         _ => return Err(ProbeError::BadArgs(format!("unknown scene {scene:?}"))),
     };
-    let texts = made(made(set)?.clabel(&options))?;
+    let texts = made(made(set)?.clabel(options))?;
     let labels = texts
         .iter()
         .map(|text| {

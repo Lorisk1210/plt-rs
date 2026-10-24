@@ -140,7 +140,7 @@ macro_rules! cursor_switches {
 /// use plt::figure::Figure;
 /// use plt::widgets::{Cursor, CursorOptions};
 /// let ax = Figure::new().subplot();
-/// let cursor = Cursor::new(&ax, &CursorOptions::default());
+/// let cursor = Cursor::new(&ax, CursorOptions::default());
 /// assert!(!cursor.vertical_line().visible(), "hidden until the pointer comes");
 /// ```
 #[derive(Debug)]
@@ -155,13 +155,13 @@ cursor_switches!(Cursor);
 
 impl Cursor {
     /// A crosshair over `ax`, hidden until the pointer moves over it.
-    pub fn new(ax: &Axes, options: &CursorOptions) -> Self {
+    pub fn new(ax: &Axes, options: CursorOptions) -> Self {
         let props = options.line.clone().visible(false);
         let (x0, _) = ordered(ax.xlim());
         let (y0, _) = ordered(ax.ylim());
         let horizontal_line = ax.axhline(y0, props.clone());
         let vertical_line = ax.axvline(x0, props);
-        let switches = Rc::new(Switches::new(options));
+        let switches = Rc::new(Switches::new(&options));
         let mut connections = Connections::new(ax.figure());
         {
             let (ax, switches) = (ax.clone(), Rc::clone(&switches));
@@ -242,7 +242,7 @@ impl MultiCursor {
     /// Lines across each of `axes`, starting hidden at the middle of the
     /// last one's view (see [`CursorOptions::multicursor`] for matplotlib's
     /// defaults).
-    pub fn new(axes: &[Axes], options: &CursorOptions) -> Self {
+    pub fn new(axes: &[Axes], options: CursorOptions) -> Self {
         let props = options.line.clone().visible(false);
         let (xmid, ymid) = axes.last().map_or((0.5, 0.5), |ax| {
             let ((x0, x1), (y0, y1)) = (ax.xlim(), ax.ylim());
@@ -256,7 +256,7 @@ impl MultiCursor {
             .iter()
             .map(|ax| ax.axhline(ymid, props.clone()))
             .collect();
-        let switches = Rc::new(Switches::new(options));
+        let switches = Rc::new(Switches::new(&options));
         let lines = Rc::new(SharedLines {
             vertical: vertical.clone(),
             horizontal: horizontal.clone(),
@@ -329,7 +329,7 @@ mod tests {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
         let ax = fig.add_axes([0.0, 0.0, 0.5, 1.0]);
         ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-        let cursor = Cursor::new(&ax, &CursorOptions::default());
+        let cursor = Cursor::new(&ax, CursorOptions::default());
         let mut source = EventSource::new();
         source.motion(&fig, 100.0, 60.0);
         assert_eq!(cursor.vertical_line().xdata(), [5.0, 5.0]);
@@ -349,7 +349,7 @@ mod tests {
         for ax in [&top, &bottom] {
             ax.set_xlim(0.0, 4.0).set_ylim(0.0, 1.0);
         }
-        let multi = MultiCursor::new(&[top, bottom], &CursorOptions::multicursor());
+        let multi = MultiCursor::new(&[top, bottom], CursorOptions::multicursor());
         EventSource::new().motion(&fig, 100.0, 100.0);
         for line in multi.vertical_lines() {
             assert_eq!(line.xdata(), [1.0, 1.0]);

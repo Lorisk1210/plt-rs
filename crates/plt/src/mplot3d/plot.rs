@@ -79,9 +79,10 @@ impl Axes3D {
         self.plane().legend(options)
     }
 
-    /// The legend placed with [`Axes3D::legend`], if any.
-    pub fn get_legend(&self) -> Option<crate::legend::Legend> {
-        self.plane().get_legend()
+    /// The legend placed with [`Axes3D::legend`], if any (matplotlib's
+    /// `get_legend`).
+    pub fn current_legend(&self) -> Option<crate::legend::Legend> {
+        self.plane().current_legend()
     }
 
     /// Adds text at `(x, y, z)` in data coordinates; with a `zdir` the

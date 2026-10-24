@@ -3,7 +3,7 @@
 
 use plt::fonts::Fontset;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, Text, VerticalAlignment};
+use plt::text::{HAlign, Text, VAlign};
 
 use crate::figures::FigureCase;
 
@@ -111,8 +111,8 @@ pub(super) fn rows(fig: &Figure, expressions: &[&str]) -> Vec<Text> {
         .map(|(i, s)| {
             let text = fig.text(0.5, 1.0 - (i as f64 + 0.5) / n, *s);
             text.set_fontsize(12.0)
-                .set_halign(HorizontalAlignment::Center)
-                .set_valign(VerticalAlignment::Center);
+                .set_halign(HAlign::Center)
+                .set_valign(VAlign::Center);
             text
         })
         .collect()

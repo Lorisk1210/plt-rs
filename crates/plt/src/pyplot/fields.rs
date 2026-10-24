@@ -50,7 +50,7 @@ pub fn contourf(field: &QuadField, options: ContourOptions) -> Result<ContourSet
 /// # Errors
 ///
 /// As [`ContourSet::clabel`].
-pub fn clabel(contours: &ContourSet, options: &ClabelOptions) -> Result<Vec<Text>, ContourError> {
+pub fn clabel(contours: &ContourSet, options: ClabelOptions) -> Result<Vec<Text>, ContourError> {
     contours.clabel(options)
 }
 
@@ -139,7 +139,7 @@ pub fn quiverkey(
     position: (f64, f64),
     length: f64,
     label: impl Into<String>,
-    options: &QuiverKeyOptions,
+    options: QuiverKeyOptions,
 ) -> QuiverKey {
     gca().quiverkey(quiver, position, length, label, options)
 }
@@ -199,7 +199,7 @@ mod tests {
             panic!("the line contours are current");
         };
         assert_eq!(current.collections(), lines.collections());
-        let labels = clabel(&lines, &ClabelOptions::default()).unwrap();
+        let labels = clabel(&lines, ClabelOptions::default()).unwrap();
         assert_ne!(labels.len(), 0);
         close_all();
     }
@@ -253,7 +253,7 @@ mod tests {
             (0.9, 0.9),
             1.0,
             "1 m/s",
-            &QuiverKeyOptions::default(),
+            QuiverKeyOptions::default(),
         );
         barbs(
             VectorField::on_mesh(&x, &y, &x, &y),

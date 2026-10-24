@@ -1,7 +1,11 @@
 //! Multi-line text blocks: line stacking, alignment and rotation
 //! (matplotlib's `Text._get_layout`).
 
+use std::str::FromStr;
+
 use plt_core::{Bbox, Point};
+
+use crate::TextError;
 
 /// Measurements of one laid-out line, in pixels.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -123,42 +127,48 @@ pub struct BlockLayout {
     pub frame: (Point, (f64, f64)),
 }
 
-impl HAlign {
+impl FromStr for HAlign {
+    type Err = TextError;
+
     /// Parses matplotlib's name (`left`, `center`, `right`).
-    pub fn parse(name: &str) -> Option<Self> {
+    fn from_str(name: &str) -> Result<Self, TextError> {
         match name {
-            "left" => Some(Self::Left),
-            "center" => Some(Self::Center),
-            "right" => Some(Self::Right),
-            _ => None,
+            "left" => Ok(Self::Left),
+            "center" => Ok(Self::Center),
+            "right" => Ok(Self::Right),
+            _ => Err(TextError::unknown_name("horizontal alignment", name)),
         }
     }
 }
 
-impl VAlign {
+impl FromStr for VAlign {
+    type Err = TextError;
+
     /// Parses matplotlib's name (`top`, `bottom`, `center`, `baseline`,
     /// `center_baseline`).
-    pub fn parse(name: &str) -> Option<Self> {
+    fn from_str(name: &str) -> Result<Self, TextError> {
         match name {
-            "top" => Some(Self::Top),
-            "bottom" => Some(Self::Bottom),
-            "center" => Some(Self::Center),
-            "baseline" => Some(Self::Baseline),
-            "center_baseline" => Some(Self::CenterBaseline),
-            _ => None,
+            "top" => Ok(Self::Top),
+            "bottom" => Ok(Self::Bottom),
+            "center" => Ok(Self::Center),
+            "baseline" => Ok(Self::Baseline),
+            "center_baseline" => Ok(Self::CenterBaseline),
+            _ => Err(TextError::unknown_name("vertical alignment", name)),
         }
     }
 }
 
-impl RotationMode {
+impl FromStr for RotationMode {
+    type Err = TextError;
+
     /// Parses matplotlib's name (`default`, `anchor`, `xtick`, `ytick`).
-    pub fn parse(name: &str) -> Option<Self> {
+    fn from_str(name: &str) -> Result<Self, TextError> {
         match name {
-            "default" => Some(Self::Default),
-            "anchor" => Some(Self::Anchor),
-            "xtick" => Some(Self::XTick),
-            "ytick" => Some(Self::YTick),
-            _ => None,
+            "default" => Ok(Self::Default),
+            "anchor" => Ok(Self::Anchor),
+            "xtick" => Ok(Self::XTick),
+            "ytick" => Ok(Self::YTick),
+            _ => Err(TextError::unknown_name("rotation mode", name)),
         }
     }
 }
@@ -429,15 +439,15 @@ mod tests {
 
     #[test]
     fn names_parse() {
-        assert_eq!(HAlign::parse("center"), Some(HAlign::Center));
-        assert_eq!(HAlign::parse("middle"), None);
+        assert_eq!("center".parse(), Ok(HAlign::Center));
         assert_eq!(
-            VAlign::parse("center_baseline"),
-            Some(VAlign::CenterBaseline)
+            "middle".parse::<HAlign>().map_err(|e| e.to_string()),
+            Err("\"middle\" is not a valid horizontal alignment".to_owned())
         );
-        assert_eq!(VAlign::parse("Top"), None);
-        assert_eq!(RotationMode::parse("ytick"), Some(RotationMode::YTick));
-        assert_eq!(RotationMode::parse("foo"), None);
+        assert_eq!("center_baseline".parse(), Ok(VAlign::CenterBaseline));
+        assert!("Top".parse::<VAlign>().is_err());
+        assert_eq!("ytick".parse(), Ok(RotationMode::YTick));
+        assert!("foo".parse::<RotationMode>().is_err());
     }
 
     #[test]

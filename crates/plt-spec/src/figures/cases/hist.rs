@@ -72,7 +72,7 @@ fn bins(n: usize) -> HistOptions<'static> {
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("hist/default", |fig| {
         fig.subplot()
-            .hist(&[normal()], &HistPlotOptions::default())?;
+            .hist(&[normal()], HistPlotOptions::default())?;
         Ok(())
     }),
     FigureCase::new("hist/bins_explicit_edges", |fig| {
@@ -85,7 +85,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().edgecolor("k"),
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[normal()], &options)?;
+        fig.subplot().hist(&[normal()], options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -100,7 +100,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 bins: Some(Bins::Estimator(estimator)),
                 ..HistOptions::default()
             };
-            ax.hist(&[skewed()], &laid_out(layout))?;
+            ax.hist(&[skewed()], laid_out(layout))?;
         }
         Ok(())
     })
@@ -110,7 +110,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             range: Some((-1.0, 2.0)),
             ..bins(20)
         };
-        fig.subplot().hist(&[normal()], &laid_out(layout))?;
+        fig.subplot().hist(&[normal()], laid_out(layout))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -124,7 +124,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().alpha(0.6),
             ..HistPlotOptions::default()
         };
-        ax.hist(&[normal()], &options)?;
+        ax.hist(&[normal()], options)?;
         let t = linspace(-4.0, 4.0, 200);
         let pdf: Vec<f64> = t
             .iter()
@@ -143,14 +143,14 @@ pub(crate) const CASES: &[FigureCase] = &[
             cumulative: Cumulative::Forward,
             ..bins(25)
         };
-        ax1.hist(&[normal()], &laid_out(forward))?;
+        ax1.hist(&[normal()], laid_out(forward))?;
         let reverse = HistOptions {
             cumulative: Cumulative::Reverse,
             density: true,
             histtype: HistType::Step,
             ..bins(25)
         };
-        ax2.hist(&[normal()], &laid_out(reverse))?;
+        ax2.hist(&[normal()], laid_out(reverse))?;
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),
@@ -163,7 +163,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().linewidth(1.5),
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&three(), &options)?;
+        fig.subplot().hist(&three(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -178,13 +178,13 @@ pub(crate) const CASES: &[FigureCase] = &[
                 props: PatchProps::default().alpha(0.5),
                 ..HistPlotOptions::default()
             };
-            ax.hist(&[data], &options)?;
+            ax.hist(&[data], options)?;
         }
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/multiple_side_by_side", |fig| {
-        fig.subplot().hist(&three(), &laid_out(bins(10)))?;
+        fig.subplot().hist(&three(), laid_out(bins(10)))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -193,7 +193,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             histtype: HistType::BarStacked,
             ..bins(15)
         };
-        fig.subplot().hist(&three(), &laid_out(layout))?;
+        fig.subplot().hist(&three(), laid_out(layout))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -207,7 +207,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().fill(false),
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&three(), &options)?;
+        fig.subplot().hist(&three(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -216,7 +216,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             orientation: HistOrientation::Horizontal,
             ..bins(20)
         };
-        fig.subplot().hist(&[normal()], &laid_out(layout))?;
+        fig.subplot().hist(&[normal()], laid_out(layout))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -226,7 +226,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             histtype: HistType::Step,
             ..bins(15)
         };
-        fig.subplot().hist(&three(), &laid_out(layout))?;
+        fig.subplot().hist(&three(), laid_out(layout))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -244,7 +244,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().edgecolor("w"),
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[values], &options)?;
+        fig.subplot().hist(&[values], options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -254,7 +254,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             log: true,
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[skewed()], &options)?;
+        fig.subplot().hist(&[skewed()], options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -273,7 +273,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 color: color.into_iter().map(Color::from).collect(),
                 ..HistPlotOptions::default()
             };
-            ax.hist(std::slice::from_ref(&data), &options)?;
+            ax.hist(std::slice::from_ref(&data), options)?;
         }
         Ok(())
     })
@@ -288,7 +288,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .hatch("/"),
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[normal()], &options)?;
+        fig.subplot().hist(&[normal()], options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -297,7 +297,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             bottom: HistBottom::Uniform(50.0),
             ..bins(12)
         };
-        fig.subplot().hist(&[normal()], &laid_out(layout))?;
+        fig.subplot().hist(&[normal()], laid_out(layout))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

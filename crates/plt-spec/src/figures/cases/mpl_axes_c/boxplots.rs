@@ -61,7 +61,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .with_rc(BXP_RC),
     FigureCase::new("mpl_axes_c/boxplot", |fig| {
         let ax = fig.subplot();
-        ax.boxplot(&[boxplot_x(), boxplot_x()], &notched())?;
+        ax.boxplot(&[boxplot_x(), boxplot_x()], notched())?;
         ax.set_ylim(-30.0, 30.0);
         Ok(())
     }),
@@ -70,20 +70,20 @@ pub(crate) const CASES: &[FigureCase] = &[
             .into_iter()
             .filter(|&x| x >= 0.0)
             .collect();
-        fig.subplot().boxplot(&[x], &BoxplotOptions::default())?;
+        fig.subplot().boxplot(&[x], BoxplotOptions::default())?;
         Ok(())
     }),
     at_40_dpi("mpl_axes_c/boxplot_custom_capwidths", |fig| {
         let mut options = notched();
         options.draw.capwidths = vec![0.01, 0.2];
         fig.subplot()
-            .boxplot(&[boxplot_x(), boxplot_x()], &options)?;
+            .boxplot(&[boxplot_x(), boxplot_x()], options)?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/boxplot_sym2", |fig| {
         let axs = fig.subplots(1, 2)?;
         for (ax, sym) in axs.as_slice().iter().zip(["^", "g"]) {
-            ax.boxplot(&[boxplot_x(), boxplot_x()], &with_sym(sym))?;
+            ax.boxplot(&[boxplot_x(), boxplot_x()], with_sym(sym))?;
             ax.set_ylim(-30.0, 30.0);
         }
         remove_ticks_and_titles(fig);
@@ -91,7 +91,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     }),
     at_40_dpi("mpl_axes_c/boxplot_sym", |fig| {
         let ax = fig.subplot();
-        ax.boxplot(&[boxplot_x(), boxplot_x()], &with_sym("gs"))?;
+        ax.boxplot(&[boxplot_x(), boxplot_x()], with_sym("gs"))?;
         ax.set_ylim(-30.0, 30.0);
         remove_ticks_and_titles(fig);
         Ok(())
@@ -110,7 +110,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             conf_intervals: Some(vec![(Some(-1.5), Some(3.0)), (Some(-1.0), Some(3.5))]),
             ..notched()
         };
-        ax.boxplot(&[boxplot_x(), boxplot_x()], &options)?;
+        ax.boxplot(&[boxplot_x(), boxplot_x()], options)?;
         ax.set_ylim(-30.0, 30.0);
         remove_ticks_and_titles(fig);
         Ok(())
@@ -118,20 +118,20 @@ pub(crate) const CASES: &[FigureCase] = &[
     at_40_dpi("mpl_axes_c/boxplot_no_weird_whisker", |fig| {
         let x = [3.0, 9000.0, 150.0, 88.0, 350.0, 200_000.0, 1400.0, 960.0];
         let ax = fig.subplot();
-        ax.boxplot(&[x], &BoxplotOptions::default())?;
+        ax.boxplot(&[x], BoxplotOptions::default())?;
         ax.set_yscale("log")?;
         let minor = GridOptions {
             which: TickLevel::Minor,
             ..GridOptions::default()
         };
-        ax.yaxis().grid(false, &minor);
-        ax.xaxis().grid(false, &GridOptions::default());
+        ax.yaxis().grid(false, minor);
+        ax.xaxis().grid(false, GridOptions::default());
         remove_ticks_and_titles(fig);
         Ok(())
     }),
     at_40_dpi("mpl_axes_c/boxplot_mod_artist_after_plotting", |fig| {
         let x = [0.15, 0.11, 0.06, 0.06, 0.12, 0.56, -0.56];
-        let parts = fig.subplot().boxplot(&[x], &with_sym("o"))?;
+        let parts = fig.subplot().boxplot(&[x], with_sym("o"))?;
         let lines = parts
             .whiskers
             .iter()
@@ -168,10 +168,10 @@ fn bxp(fig: &Figure, options: &BxpOptions) -> CaseResult {
     let columns: Vec<Vec<f64>> = (0..4)
         .map(|column| samples.iter().skip(column).step_by(4).copied().collect())
         .collect();
-    let stats = boxplot_stats(&columns, &StatsOptions::default())?;
+    let stats = boxplot_stats(&columns, StatsOptions::default())?;
     let ax = fig.subplot();
     ax.set_yscale("log")?;
-    ax.bxp(&stats, options)?;
+    ax.bxp(&stats, options.clone())?;
     Ok(())
 }
 
@@ -208,7 +208,7 @@ fn autorange_whiskers(fig: &Figure, autorange: bool) -> CaseResult {
         autorange,
         ..notched()
     };
-    ax.boxplot(&[x.clone(), x], &options)?;
+    ax.boxplot(&[x.clone(), x], options)?;
     ax.set_ylim(-5.0, 5.0);
     Ok(())
 }
@@ -264,7 +264,7 @@ fn rc_parameters(fig: &Figure) -> CaseResult {
             for (key, value) in params {
                 plt::rc::set(key, value)?;
             }
-            ax.boxplot(&[boxplot_x(), boxplot_x()], &BoxplotOptions::default())?;
+            ax.boxplot(&[boxplot_x(), boxplot_x()], BoxplotOptions::default())?;
             Ok(())
         })?;
     }

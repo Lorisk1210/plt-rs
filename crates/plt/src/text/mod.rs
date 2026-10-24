@@ -28,7 +28,7 @@ mod wrap;
 use std::rc::Rc;
 
 use plt_core::{Bbox, Point};
-use plt_text::{BlockStyle, HAlign, RotationMode, Shaping, TextAnchor, TextRun, VAlign};
+use plt_text::{BlockStyle, RotationMode, Shaping, TextAnchor, TextRun};
 
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
 use crate::colors::Color;
@@ -50,9 +50,8 @@ pub(crate) use layout::{lay_out, lay_out_with_math};
 pub use math::math_style;
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
 pub use plt_text::{
-    BlockLayout, Feature, HAlign as HorizontalAlignment, Language, LanguageRange, LanguageTag,
-    LineMetrics, LinePlacement, LineSpacing, ParseFeatureError, RotationMode as TextRotationMode,
-    TextError, VAlign as VerticalAlignment,
+    BlockLayout, Feature, HAlign, Language, LanguageRange, LanguageTag, LineMetrics, LinePlacement,
+    LineSpacing, ParseFeatureError, RotationMode as TextRotationMode, TextError, VAlign,
 };
 pub(crate) use text_box::BoxPlacement;
 pub use text_box::{TextBox, TextBoxProps};

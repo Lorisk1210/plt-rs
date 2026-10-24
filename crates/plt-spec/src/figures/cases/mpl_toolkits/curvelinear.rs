@@ -46,7 +46,7 @@ fn cycle_extremes() -> ExtremeFinderCycle {
 
 /// `ax1.grid(True)`.
 fn grid_on(ax: &axisartist::Axes) {
-    ax.grid(true, &GridOptions::default());
+    ax.grid(true, GridOptions::default());
 }
 
 fn custom_transform(fig: &Figure) -> CaseResult {
@@ -54,7 +54,7 @@ fn custom_transform(fig: &Figure) -> CaseResult {
     let tr = AuxTransform::from_fns(|x, y| (x, y - x), |x, y| (x, y + x));
     let helper = GridHelperCurveLinear::new(tr.clone(), GridFinderOptions::default());
     let ax1 = axisartist::Axes::with_grid_helper(fig.subplot(), helper);
-    ax1.get_aux_axes(&tr).plot([3.0, 6.0], [5.0, 10.0])?;
+    ax1.aux_axes(&tr).plot([3.0, 6.0], [5.0, 10.0])?;
     ax1.ax().set_aspect(Aspect::Equal)?;
     ax1.ax().set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
     grid_on(&ax1);
@@ -113,7 +113,7 @@ fn polar_box(fig: &Figure) -> CaseResult {
     let lon = ax1.new_floating_axis("lon", AxisName::Y, 6.0);
     lon.label().set_text("Test 2");
     lon.set_extremes(-180.0, 90.0);
-    ax1.get_aux_axes(&tr)
+    ax1.aux_axes(&tr)
         .plot(linspace(0.0, 30.0, 50), linspace(10.0, 10.0, 50))?;
     ax1.ax().set_aspect(Aspect::Equal)?;
     ax1.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
@@ -198,7 +198,7 @@ fn z_axis(ax1: &FloatingAxes, radius: f64, label_direction: Option<SpineSide>) {
 /// The data of both floating axes tests, the line clipped to the
 /// background of `ax1`.
 fn scatter_path(ax1: &FloatingAxes) -> CaseResult {
-    let ax2 = ax1.get_aux_axes(&polar_degrees());
+    let ax2 = ax1.aux_axes(&polar_degrees());
     let (xx, yy) = ([67.0, 90.0, 75.0, 30.0], [2.0, 5.0, 8.0, 4.0]);
     ax2.scatter(xx, yy)?;
     let line = ax2.plot_with(xx, yy, LineProps::default().color("k"))?;

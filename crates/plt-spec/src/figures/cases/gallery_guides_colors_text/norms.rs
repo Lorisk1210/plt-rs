@@ -68,7 +68,7 @@ fn colormapnorms_1(fig: &Figure) -> CaseResult {
     let z = on_mesh(&x, &y, spike);
     let (lo, hi) = extremes(&z);
     let draw = |ax: &Axes, colors| -> Drawn {
-        let mesh = Mesh::with_coords(x.clone(), y.clone(), z.clone());
+        let mesh = Mesh::from_coords(x.clone(), y.clone(), z.clone());
         Ok(ax.pcolor(mesh, shaded("PuBu_r", colors, Shading::Auto)?)?)
     };
     let log = ColorizerOptions::default().norm(LogNorm::new(lo, hi));
@@ -118,7 +118,7 @@ fn colormapnorms_3(fig: &Figure) -> CaseResult {
     });
     let top = extremes(&z).1;
     let draw = |ax: &Axes, colors| -> Drawn {
-        let mesh = Mesh::with_coords(x.clone(), y.clone(), z.clone());
+        let mesh = Mesh::from_coords(x.clone(), y.clone(), z.clone());
         Ok(ax.pcolormesh(mesh, shaded("RdBu_r", colors, Shading::Auto)?)?)
     };
     let symlog = SymLogNorm::new(0.03, 0.03, 10.0)?
@@ -144,7 +144,7 @@ fn colormapnorms_4(fig: &Figure) -> CaseResult {
     let (x, y, z) = power_field();
     fig.set_layout_engine(LayoutEngine::constrained());
     let draw = |ax: &Axes, colors| -> Drawn {
-        let mesh = Mesh::with_coords(x.clone(), y.clone(), z.clone());
+        let mesh = Mesh::from_coords(x.clone(), y.clone(), z.clone());
         Ok(ax.pcolormesh(mesh, shaded("PuBu_r", colors, Shading::Auto)?)?)
     };
     let power = ColorizerOptions::default().norm(PowerNorm::new(0.5));
@@ -174,7 +174,7 @@ fn colormapnorms_5(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(2, 2)?;
     let ax: Vec<&Axes> = axs.as_slice().iter().collect();
     let mesh = |ax: &Axes, colors: ColorizerOptions| -> Drawn {
-        let mesh = Mesh::with_coords(x.clone(), y.clone(), z.clone());
+        let mesh = Mesh::from_coords(x.clone(), y.clone(), z.clone());
         Ok(ax.pcolormesh(mesh, shaded("RdBu_r", colors, Shading::Auto)?)?)
     };
     let vertical = |ax: &Axes, extend| ColorbarOptions {
@@ -249,7 +249,7 @@ fn terrain_map() -> Result<Colormap, Box<dyn Error>> {
 fn topo_map(ax: &Axes, norm: impl Norm + 'static, title: &str) -> Drawn {
     let (longitude, latitude, topo) = topobathy();
     let pcm = ax.pcolormesh(
-        Mesh::with_coords(longitude, latitude, topo),
+        Mesh::from_coords(longitude, latitude, topo),
         PcolorOptions {
             colors: ColorizerOptions::default().norm(norm).cmap(terrain_map()?),
             shading: Some(Shading::Auto),
@@ -319,7 +319,7 @@ fn colormapnorms_8(fig: &Figure) -> CaseResult {
         .with_vmin(0.0)
         .with_vmax(20.0);
     let pcm = ax.pcolormesh(
-        Mesh::with_coords(x, y, z),
+        Mesh::from_coords(x, y, z),
         shaded(
             "PuBu_r",
             ColorizerOptions::default().norm(norm),

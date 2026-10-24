@@ -69,7 +69,7 @@ fn meshes_with_colorbar(
 fn subfigure(fig: &Figure) -> CaseResult {
     let mut stream = SpecRng::new(SEED);
     fig.set_layout_engine(LayoutEngine::constrained());
-    let sub = fig.subfigures(1, 2, &SubfigureOptions::default())?;
+    let sub = fig.subfigures(1, 2, SubfigureOptions::default())?;
     let (left, right) = (&sub[(0, 0)], &sub[(0, 1)]);
 
     let axs = left.subplots(2, 2)?;
@@ -83,7 +83,7 @@ fn subfigure(fig: &Figure) -> CaseResult {
     right.set_facecolor(Rgba::WHITE);
 
     fig.suptitle("Figure suptitle")
-        .set_fontsize_relative(RelativeSize::XxLarge);
+        .set_fontsize(RelativeSize::XxLarge);
 
     // The draw order of subfigures.
     let handles =
@@ -111,7 +111,7 @@ fn subfigure_ss(fig: &Figure) -> CaseResult {
     ax.set_title("Axes");
 
     fig.suptitle("Figure suptitle")
-        .set_fontsize_relative(RelativeSize::XxLarge);
+        .set_fontsize(RelativeSize::XxLarge);
     Ok(())
 }
 
@@ -124,7 +124,7 @@ fn subfigure_double(fig: &Figure) -> CaseResult {
     let subfigs = fig.subfigures(
         1,
         2,
-        &SubfigureOptions {
+        SubfigureOptions {
             wspace: Some(0.07),
             ..SubfigureOptions::default()
         },
@@ -137,7 +137,7 @@ fn subfigure_double(fig: &Figure) -> CaseResult {
     let nested = subfigs[(0, 0)].subfigures(
         2,
         1,
-        &SubfigureOptions {
+        SubfigureOptions {
             height_ratios: Some(vec![1.0, 1.4]),
             ..SubfigureOptions::default()
         },

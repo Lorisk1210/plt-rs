@@ -40,7 +40,7 @@ pub(super) fn inset_locator(fig: &Figure) -> CaseResult {
         &ax,
         SizeSpec::Percent(30.0),
         SizeSpec::Percent(40.0),
-        &InsetOptions::default(),
+        InsetOptions::default(),
     );
     upper.plot_y(
         linspace(0.0, 1.0, 20)
@@ -52,7 +52,7 @@ pub(super) fn inset_locator(fig: &Figure) -> CaseResult {
         &ax,
         1.0.into(),
         0.6.into(),
-        &InsetOptions {
+        InsetOptions {
             loc: AnchorLoc::LowerLeft,
             borderpad: (1.5, 1.5),
             ..InsetOptions::default()
@@ -66,14 +66,14 @@ pub(super) fn inset_locator(fig: &Figure) -> CaseResult {
         color: vec![Color::from("0.4")],
         ..HistPlotOptions::default()
     };
-    lower.hist(&[field(40, 0.0).as_slice().to_vec()], &histogram)?;
+    lower.hist(&[field(40, 0.0).as_slice().to_vec()], histogram)?;
     lower.set_xticks(Vec::<f64>::new());
     lower.set_yticks(Vec::<f64>::new());
     let padded = inset_axes(
         &ax,
         SizeSpec::Percent(25.0),
         SizeSpec::Percent(20.0),
-        &InsetOptions {
+        InsetOptions {
             loc: AnchorLoc::LowerRight,
             borderpad: (3.0, 0.5),
             ..InsetOptions::default()
@@ -84,7 +84,7 @@ pub(super) fn inset_locator(fig: &Figure) -> CaseResult {
         &ax,
         SizeSpec::Percent(5.0),
         SizeSpec::Percent(100.0),
-        &InsetOptions {
+        InsetOptions {
             loc: AnchorLoc::LowerLeft,
             bbox_to_anchor: Some(BboxToAnchor::Bounds(1.05, 0.0, 1.0, 1.0)),
             bbox_transform: Some(ax.trans_axes()),
@@ -107,7 +107,7 @@ pub(super) fn zoomed_marked(fig: &Figure) -> CaseResult {
     let zoomed = zoomed_inset_axes(
         &ax,
         2.5,
-        &InsetOptions {
+        InsetOptions {
             loc: AnchorLoc::UpperLeft,
             ..InsetOptions::default()
         },
@@ -126,7 +126,7 @@ pub(super) fn zoomed_marked(fig: &Figure) -> CaseResult {
     let lines = zoomed_inset_axes(
         &ax,
         0.6,
-        &InsetOptions {
+        InsetOptions {
             loc: AnchorLoc::LowerRight,
             borderpad: (1.0, 1.0),
             ..InsetOptions::default()

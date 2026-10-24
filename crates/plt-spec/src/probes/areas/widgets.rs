@@ -98,7 +98,7 @@ fn slider(args: Args<'_>) -> Outcome {
         orientation: direction,
         ..SliderOptions::default()
     };
-    let slider = Slider::new(&fig.add_axes(rect), "s", 0.0, 10.0, &options);
+    let slider = Slider::new(&fig.add_axes(rect), "s", 0.0, 10.0, options);
     let changes: Log<f64> = Rc::default();
     let sink = Rc::clone(&changes);
     slider.on_changed(move |value| sink.borrow_mut().push(value));
@@ -171,7 +171,7 @@ fn span(args: Args<'_>) -> Outcome {
         snap_values,
         ..defaults
     };
-    let selector = SpanSelector::new(&ax, orientation(args.str("direction")?)?, &options);
+    let selector = SpanSelector::new(&ax, orientation(args.str("direction")?)?, options);
     let selects: Log<[f64; 2]> = Rc::default();
     let sink = Rc::clone(&selects);
     selector.on_select(move |low, high| sink.borrow_mut().push([low, high]));
@@ -201,7 +201,7 @@ fn rectangle(args: Args<'_>) -> Outcome {
             .unwrap_or(defaults.ignore_event_outside),
         ..defaults
     };
-    let selector = RectangleSelector::new(&ax, &options);
+    let selector = RectangleSelector::new(&ax, options);
     let selects: Log<[f64; 4]> = Rc::default();
     let sink = Rc::clone(&selects);
     selector.on_select(move |press, release| {

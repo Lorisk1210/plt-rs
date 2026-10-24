@@ -49,7 +49,7 @@ fn automatic_entries_skip_hidden_labels_and_list_containers_last() {
     assert_eq!(labels, ["shown", "bars", "errors"]);
     let legend = ax.legend(LegendOptions::default()).unwrap();
     assert_eq!(legend.labels(), ["shown", "bars", "errors"]);
-    assert_eq!(ax.get_legend(), Some(legend));
+    assert_eq!(ax.current_legend(), Some(legend));
 }
 
 #[test]
@@ -83,10 +83,10 @@ fn a_new_axes_legend_replaces_the_previous_one_and_takes_its_parts_along() {
     let second = ax.legend(LegendOptions::default().title("Again")).unwrap();
     assert!(!first.raw().is_alive());
     assert_eq!(artists(), with_one, "the old legend's parts are gone");
-    assert_eq!(ax.get_legend(), Some(second.clone()));
+    assert_eq!(ax.current_legend(), Some(second.clone()));
     second.remove();
     assert_eq!(artists(), before);
-    assert_eq!(ax.get_legend(), None);
+    assert_eq!(ax.current_legend(), None);
 }
 
 #[test]
@@ -218,7 +218,11 @@ fn invalid_options_are_errors() {
         invalid(LegendOptions::default().facecolor("not a colour")),
         LegendError::Color(_)
     ));
-    assert_eq!(ax.get_legend(), None, "failed legends leave nothing behind");
+    assert_eq!(
+        ax.current_legend(),
+        None,
+        "failed legends leave nothing behind"
+    );
 }
 
 #[test]
@@ -281,10 +285,10 @@ fn kept_legends_stay_beside_the_next_one() {
         .legend(LegendOptions::default().loc("upper right"))
         .unwrap();
     assert!(first.raw().is_alive(), "a kept legend is not replaced");
-    assert_eq!(ax.get_legend(), Some(second.clone()));
+    assert_eq!(ax.current_legend(), Some(second.clone()));
     let third = ax.legend(LegendOptions::default()).unwrap();
     assert!(!second.raw().is_alive(), "the axes legend still is");
-    assert_eq!(ax.get_legend(), Some(third));
+    assert_eq!(ax.current_legend(), Some(third));
 }
 
 #[test]

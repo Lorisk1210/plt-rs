@@ -59,7 +59,7 @@ fn boxplot_color(fig: &Figure) -> CaseResult {
         tick_labels: Some(strings(&["peaches", "oranges", "tomatoes"])),
         ..drawn(filled(PatchProps::default()))
     };
-    let bplot = ax.boxplot(&fruit_weights, &options)?;
+    let bplot = ax.boxplot(&fruit_weights, options)?;
     for (patch, color) in bplot.boxes.iter().zip(["peachpuff", "orange", "tomato"]) {
         if let BoxArtist::Patch(patch) = patch {
             patch.set_facecolor(color);
@@ -105,7 +105,7 @@ fn boxplot_demo_1(fig: &Figure) -> CaseResult {
         ),
     ];
     for (ax, (options, title)) in axs.as_slice().iter().zip(panels) {
-        ax.boxplot(&data, &options)?;
+        ax.boxplot(&data, options)?;
         ax.set_title(title);
     }
     fig.subplots_adjust(&SubplotOverrides {
@@ -125,7 +125,7 @@ fn boxplot_demo_2(fig: &Figure) -> CaseResult {
     let d2 = fake_data(&mut g, 40.0);
     let every_other: Vec<f64> = d2.iter().copied().step_by(2).collect();
     fig.subplot()
-        .boxplot(&[data, d2, every_other], &BoxplotOptions::default())?;
+        .boxplot(&[data, d2, every_other], BoxplotOptions::default())?;
     Ok(())
 }
 
@@ -156,7 +156,7 @@ fn boxplot_demo_4(fig: &Figure) -> CaseResult {
         },
         ..with_sym("k+")
     };
-    let bp = ax.boxplot(&treatments, &options)?;
+    let bp = ax.boxplot(&treatments, options)?;
     ax.set_xlabel("treatment");
     ax.set_ylabel("response");
     for whisker in &bp.whiskers {
@@ -177,7 +177,7 @@ fn boxplot_demo_5(fig: &Figure) -> CaseResult {
         capwidths: vec![0.01, 0.2],
         ..BxpOptions::default()
     });
-    fig.subplot().boxplot(&[x.clone(), x], &options)?;
+    fig.subplot().boxplot(&[x.clone(), x], options)?;
     Ok(())
 }
 
@@ -209,7 +209,7 @@ fn log_grid(fig: &Figure) -> Result<Grid<Axes>, Box<dyn std::error::Error>> {
 /// Draws one box plot per panel of `axs` with its title.
 fn panels(axs: &Grid<Axes>, data: &[Vec<f64>], panels: Vec<(BoxplotOptions, &str)>) -> CaseResult {
     for (ax, (options, title)) in axs.as_slice().iter().zip(panels) {
-        ax.boxplot(data, &options)?;
+        ax.boxplot(data, options)?;
         ax.set_title(title).set_fontsize(FS);
     }
     Ok(())
@@ -349,12 +349,12 @@ fn boxplot_vs_violin(fig: &Figure) -> CaseResult {
         },
         ..ViolinplotOptions::default()
     };
-    axs[(0, 0)].violinplot(&all_data, &violins)?;
+    axs[(0, 0)].violinplot(&all_data, violins)?;
     axs[(0, 0)].set_title("Violin plot");
-    axs[(0, 1)].boxplot(&all_data, &BoxplotOptions::default())?;
+    axs[(0, 1)].boxplot(&all_data, BoxplotOptions::default())?;
     axs[(0, 1)].set_title("Box plot");
     for ax in axs.as_slice() {
-        ax.yaxis().grid(true, &GridOptions::default());
+        ax.yaxis().grid(true, GridOptions::default());
         ax.set_xticks([1.0, 2.0, 3.0, 4.0]);
         ax.set_xticklabels(["x1", "x2", "x3", "x4"])?;
         ax.set_xlabel("Four separate samples");
@@ -376,15 +376,15 @@ fn bxp_1(fig: &Figure) -> CaseResult {
         tick_labels: Some(labels.clone()),
         ..drawn(bisque())
     };
-    axs[(0, 0)].boxplot(&data, &options)?;
+    axs[(0, 0)].boxplot(&data, options)?;
     let stats = boxplot_stats(
         &data,
-        &StatsOptions {
+        StatsOptions {
             labels: Some(labels),
             ..StatsOptions::default()
         },
     )?;
-    axs[(0, 1)].bxp(&stats, &bisque())?;
+    axs[(0, 1)].bxp(&stats, bisque())?;
     Ok(())
 }
 
@@ -408,7 +408,7 @@ fn bxp_2(fig: &Figure) -> CaseResult {
         centred_box("B", 2.0, Vec::new()),
         centred_box("C", 3.0, Vec::new()),
     ];
-    fig.subplot().bxp(&stats, &bisque())?;
+    fig.subplot().bxp(&stats, bisque())?;
     Ok(())
 }
 

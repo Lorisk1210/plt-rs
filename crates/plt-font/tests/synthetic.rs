@@ -102,7 +102,7 @@ fn collections_expose_every_face() {
         assert_eq!(entry.name, wanted.get("name").as_str());
         assert_eq!(
             entry.style,
-            FontStyle::parse(wanted.get("style").as_str()).unwrap()
+            wanted.get("style").as_str().parse::<FontStyle>().unwrap()
         );
         assert_eq!(i64::from(entry.weight), wanted.get("weight").as_i64());
     }

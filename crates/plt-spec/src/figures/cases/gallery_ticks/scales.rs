@@ -58,7 +58,7 @@ fn asinh_demo_2(fig: &Figure) -> CaseResult {
         ax.set_scale_with(
             AxisName::Y,
             "asinh",
-            &ScaleOptions {
+            ScaleOptions {
                 linear_width: Some(a0),
                 base: Some(base),
                 ..ScaleOptions::default()
@@ -143,7 +143,7 @@ fn scales(fig: &Figure) -> CaseResult {
     for (cell, values, scale, options, title) in panels {
         let ax = &axs[cell];
         ax.plot(&x, values)?;
-        ax.set_scale_with(AxisName::Y, scale, &options)?;
+        ax.set_scale_with(AxisName::Y, scale, options)?;
         ax.set_title(title);
         ax.grid(true);
     }

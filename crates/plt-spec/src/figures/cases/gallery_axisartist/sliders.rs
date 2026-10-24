@@ -9,7 +9,7 @@ use plt::numeric::Grid;
 use plt::patches::PatchProps;
 use plt::prelude::*;
 use plt::stats::{BinEstimator, Bins, HistOptions};
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 use plt::widgets::{
     Button, ButtonOptions, Orientation, RangeSlider, Slider, SliderOptions, TextBox,
     TextBoxOptions, ValStep,
@@ -62,7 +62,7 @@ fn range_slider(fig: &Figure) -> CaseResult {
         },
         ..HistPlotOptions::default()
     };
-    axs[(0, 1)].hist(&[&pixels], &auto)?;
+    axs[(0, 1)].hist(&[&pixels], auto)?;
     axs[(0, 1)].set_title("Histogram of pixel intensities");
     let (low, high) = pixels
         .iter()
@@ -76,7 +76,7 @@ fn range_slider(fig: &Figure) -> CaseResult {
         low,
         high,
         None,
-        &SliderOptions::default(),
+        SliderOptions::default(),
     );
     let (lower, upper) = slider.val();
     for x in [lower, upper] {
@@ -107,7 +107,7 @@ fn slider_demo(fig: &Figure) -> CaseResult {
         "Frequency [Hz]",
         0.1,
         30.0,
-        &frequency,
+        frequency,
     );
     let amplitude = SliderOptions {
         valinit: 5.0,
@@ -119,7 +119,7 @@ fn slider_demo(fig: &Figure) -> CaseResult {
         "Amplitude",
         0.0,
         10.0,
-        &amplitude,
+        amplitude,
     );
     reset_button(fig);
     Ok(())
@@ -144,14 +144,14 @@ fn slider_snap_demo(fig: &Figure) -> CaseResult {
         poly: PatchProps::default().color("green"),
         ..SliderOptions::default()
     };
-    let _amp = Slider::new(&ax_amp, "Amp", 0.1, 9.0, &amplitude);
+    let _amp = Slider::new(&ax_amp, "Amp", 0.1, 9.0, amplitude);
     let frequency = SliderOptions {
         valinit: 2.0 * PI,
         valstep: Some(ValStep::Step(PI)),
         initcolor: "none".into(),
         ..SliderOptions::default()
     };
-    let _freq = Slider::new(&ax_freq, "Freq", 0.0, 10.0 * PI, &frequency);
+    let _freq = Slider::new(&ax_freq, "Freq", 0.0, 10.0 * PI, frequency);
     reset_button(fig);
     Ok(())
 }
@@ -179,7 +179,7 @@ fn textbox(fig: &Figure) -> CaseResult {
         LineProps::default().linewidth(2.0),
     )?;
     let options = TextBoxOptions {
-        textalignment: HorizontalAlignment::Center,
+        textalignment: HAlign::Center,
         ..TextBoxOptions::default()
     };
     let text_box = TextBox::new(

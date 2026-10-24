@@ -35,7 +35,7 @@ fn dropped(fig: &Figure) -> CaseResult {
         ax.label_outer_with(true);
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 color: Some(Color::from("0.9")),
                 ..GridOptions::default()
             },

@@ -156,7 +156,7 @@ pub(super) fn twin_aux_tight(fig: &Figure) -> CaseResult {
 
 pub(super) fn aux_axes_best_legend(fig: &Figure) -> CaseResult {
     let host = host_axes(fig, [0.12, 0.14, 0.72, 0.8]);
-    let par = host.get_aux_axes(ParasiteLink::Independent)?;
+    let par = host.aux_axes(ParasiteLink::Independent)?;
     par.share_x(&host)?;
     host.axis(SpineSide::Right).set_visible(false);
     let right = par.axis(SpineSide::Right);

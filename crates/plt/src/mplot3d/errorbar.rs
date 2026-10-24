@@ -11,7 +11,7 @@ use super::plot::{broadcast, columns};
 use super::quiver::Quiver3DOptions;
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistHandle};
-use crate::axes::{ErrorSize, ErrorbarContainer, PlotError};
+use crate::axes::{ErrorSize, ErrorbarContainer, ErrorbarFormat, PlotError};
 use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery};
@@ -32,9 +32,8 @@ pub struct Errorbar3DOptions {
     /// Error sizes along x, y and z (one value or one per point; nothing
     /// draws no bars along that axis).
     pub errors: [Option<ErrorSize>; 3],
-    /// Format string of the data line: `""` for the default style,
-    /// `"none"` for error bars only.
-    pub fmt: String,
+    /// Style of the data line, or no line.
+    pub fmt: ErrorbarFormat,
     /// Properties of the data line; its colour, width, alpha, z-order and
     /// label also apply to the error bars.
     pub line: LineProps,
@@ -106,8 +105,7 @@ impl Axes3D {
     /// # Errors
     ///
     /// When the coordinates differ in length, an error or limit list does
-    /// not broadcast, `errorevery` is invalid, or the format string is
-    /// invalid.
+    /// not broadcast, or `errorevery` is invalid.
     pub fn errorbar(
         &self,
         x: &[f64],
@@ -128,12 +126,8 @@ impl Axes3D {
         let label = kwargs.base.label.take();
         kwargs.base.zorder.get_or_insert(2.0);
         kwargs.base.label = Some(NO_LEGEND.into());
-        let hidden = options.fmt.eq_ignore_ascii_case("none");
-        let format = if options.fmt.is_empty() {
-            LineProps::default()
-        } else {
-            LineProps::fmt(&options.fmt).map_err(PlotError::from)?
-        };
+        let hidden = !options.fmt.draws_line();
+        let format = options.fmt.line_props();
         let plane = self.plane();
         let mut data = plane.cycled_line(x.to_vec(), y.to_vec(), format.overlay(kwargs.clone()));
         let color = if hidden {

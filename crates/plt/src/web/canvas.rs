@@ -230,7 +230,7 @@ impl WebCanvas {
             dpi: Some(dpi),
             ..SaveOptions::default()
         };
-        self.figure.to_format(format, &options)
+        self.figure.to_format(format, options)
     }
 
     /// The client needs everything again (`handle_refresh`).

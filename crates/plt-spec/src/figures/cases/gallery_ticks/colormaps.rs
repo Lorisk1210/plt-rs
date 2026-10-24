@@ -15,7 +15,7 @@ use plt::numeric::Grid;
 use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 
 use crate::figures::{CaseResult, FigureCase};
 

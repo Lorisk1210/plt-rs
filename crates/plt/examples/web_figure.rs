@@ -43,5 +43,5 @@ fn main() -> Result<(), Box<dyn Error>> {
         line.set_data(&x, &wave(&x, phase));
         true
     });
-    Ok(serve(&[figure], &options)?)
+    Ok(serve(&[figure], options)?)
 }

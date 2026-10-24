@@ -90,12 +90,12 @@ fn complex_list(values: &[Complex]) -> Json {
 
 pub(crate) fn psd(args: Args<'_>) -> Outcome {
     let opts = spectral_options(args)?;
-    let p = on_signal!(signal(args, "x")?, |x| mlab::psd(&x, &opts)).map_err(rejected)?;
+    let p = on_signal!(signal(args, "x")?, |x| mlab::psd(&x, opts)).map_err(rejected)?;
     Ok(real_spectrum("Pxx", p))
 }
 
 fn cross<S: SignalValue>(x: &[S], y: &SignalArg, opts: &SpectralOptions) -> Outcome {
-    let p = on_signal!(y, |y| mlab::csd(x, y, opts)).map_err(rejected)?;
+    let p = on_signal!(y, |y| mlab::csd(x, y, opts.clone())).map_err(rejected)?;
     Ok(object([
         ("Pxy", complex_list(&p.values)),
         ("freqs", Json::from(p.freqs)),
@@ -109,7 +109,7 @@ pub(super) fn csd(args: Args<'_>) -> Outcome {
 }
 
 fn coherence<S: SignalValue>(x: &[S], y: &SignalArg, opts: &SpectralOptions) -> Outcome {
-    let c = on_signal!(y, |y| mlab::cohere(x, y, opts)).map_err(rejected)?;
+    let c = on_signal!(y, |y| mlab::cohere(x, y, opts.clone())).map_err(rejected)?;
     Ok(real_spectrum("Cxy", c))
 }
 
@@ -128,12 +128,12 @@ pub(super) fn specgram(args: Args<'_>) -> Outcome {
         Some("angle") => SpecgramMode::Angle,
         Some("phase") => SpecgramMode::Phase,
         Some("complex") => {
-            let s = on_signal!(x, |x| mlab::complex_specgram(&x, &opts)).map_err(rejected)?;
+            let s = on_signal!(x, |x| mlab::complex_specgram(&x, opts)).map_err(rejected)?;
             return Ok(specgram_json(complex_grid(&s.values), s.freqs, s.times));
         }
         Some(other) => return Err(ProbeError::rejected(format!("bad mode {other:?}"))),
     };
-    let s = on_signal!(x, |x| mlab::specgram(&x, &opts, mode)).map_err(rejected)?;
+    let s = on_signal!(x, |x| mlab::specgram(&x, opts, mode)).map_err(rejected)?;
     Ok(specgram_json(grid_json(&s.values), s.freqs, s.times))
 }
 
@@ -161,7 +161,7 @@ fn spectrum_options(args: Args<'_>) -> Result<SpectrumOptions, ProbeError> {
 pub(super) fn complex_spectrum(args: Args<'_>) -> Outcome {
     let opts = spectrum_options(args)?;
     let s =
-        on_signal!(signal(args, "x")?, |x| mlab::complex_spectrum(&x, &opts)).map_err(rejected)?;
+        on_signal!(signal(args, "x")?, |x| mlab::complex_spectrum(&x, opts)).map_err(rejected)?;
     Ok(object([
         ("spectrum", complex_list(&s.values)),
         ("freqs", Json::from(s.freqs)),
@@ -171,13 +171,13 @@ pub(super) fn complex_spectrum(args: Args<'_>) -> Outcome {
 /// The real-valued single spectra share one adapter shape.
 fn single_real<F, G>(args: Args<'_>, real: F, complex: G) -> Outcome
 where
-    F: Fn(&[f64], &SpectrumOptions) -> Result<Spectrum, mlab::MlabError>,
-    G: Fn(&[Complex], &SpectrumOptions) -> Result<Spectrum, mlab::MlabError>,
+    F: Fn(&[f64], SpectrumOptions) -> Result<Spectrum, mlab::MlabError>,
+    G: Fn(&[Complex], SpectrumOptions) -> Result<Spectrum, mlab::MlabError>,
 {
     let opts = spectrum_options(args)?;
     let s = match signal(args, "x")? {
-        SignalArg::Real(x) => real(&x, &opts),
-        SignalArg::Complex(x) => complex(&x, &opts),
+        SignalArg::Real(x) => real(&x, opts),
+        SignalArg::Complex(x) => complex(&x, opts),
     }
     .map_err(rejected)?;
     Ok(real_spectrum("spectrum", s))

@@ -53,7 +53,7 @@ pub fn render_pixels(case: &FigureCase) -> Result<(RgbaImage, usize), Box<dyn Er
                 dpi: Some(case.dpi),
                 ..SaveOptions::default()
             };
-            let (canvas, problems) = fig.render_raster_partial(&options)?;
+            let (canvas, problems) = fig.render_raster_partial(options)?;
             Ok((
                 canvas.to_image(),
                 problems.map_or(0, |errors| errors.0.len()),

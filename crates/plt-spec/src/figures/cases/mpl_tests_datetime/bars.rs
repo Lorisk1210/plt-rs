@@ -106,7 +106,7 @@ fn bar_label(fig: &Figure) -> CaseResult {
         label_type: BarLabelType::Edge,
         ..BarLabelOptions::default()
     };
-    ax.bar_label(&bars, &options)?;
+    ax.bar_label(&bars, options)?;
     Ok(())
 }
 
@@ -151,7 +151,7 @@ fn hist(fig: &Figure, bins: impl Fn(&plt::axes::Axes) -> Result<Bins, DateError>
             },
             ..HistPlotOptions::default()
         };
-        ax.hist(&[x], &options)?;
+        ax.hist(&[x], options)?;
     }
     Ok(())
 }
@@ -220,7 +220,7 @@ fn stairs(fig: &Figure) -> CaseResult {
 fn eventplot(fig: &Figure) -> CaseResult {
     constrained(fig);
     let ax = axes(fig, 3, 1)?;
-    ax[0].eventplot(&[summer_dates()?], &EventplotOptions::default())?;
+    ax[0].eventplot(&[summer_dates()?], EventplotOptions::default())?;
     let mut rng = SpecRng::new(19_680_801);
     let start = day(2020, 7, 1)?;
     let seconds = (day(2020, 10, 15)?.timestamp_micros() - start.timestamp_micros()) / 1_000_000;
@@ -239,12 +239,12 @@ fn eventplot(fig: &Figure) -> CaseResult {
         linelengths: vec![5.0, 2.0, 3.0],
         ..EventplotOptions::default()
     };
-    ax[1].eventplot(&rows, &rows_at(vec![1.0, 6.0, 8.0]))?;
+    ax[1].eventplot(&rows, rows_at(vec![1.0, 6.0, 8.0]))?;
     let date_offsets = [(7, 1), (7, 15), (8, 1)]
         .into_iter()
         .map(|(month, d)| day(2020, month, d))
         .collect::<Result<Vec<_>, _>>()?;
     let offsets = ax[2].yaxis().convert_units(date_offsets);
-    ax[2].eventplot(&rows, &rows_at(offsets))?;
+    ax[2].eventplot(&rows, rows_at(offsets))?;
     Ok(())
 }

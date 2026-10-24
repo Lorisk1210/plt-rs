@@ -12,7 +12,7 @@ use plt::figure::SubfigureOptions;
 use plt::fonts::FontSize;
 use plt::layout::LayoutEngine;
 use plt::prelude::*;
-use plt::text::HorizontalAlignment as HAlign;
+use plt::text::HAlign;
 use plt::ticker::{
     FixedFormatter, FixedLocator, FormatStrFormatter, FuncFormatter, Locator, MultipleLocator,
     NullFormatter, PercentFormatter, ScalarFormatter, StrMethodFormatter, pyfmt,
@@ -54,7 +54,7 @@ fn tick_formatters(fig: &Figure) -> CaseResult {
     let parts = fig.subfigures(
         3,
         1,
-        &SubfigureOptions {
+        SubfigureOptions {
             height_ratios: Some(vec![1.5, 1.5, 7.5]),
             ..SubfigureOptions::default()
         },

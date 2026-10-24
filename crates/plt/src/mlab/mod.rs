@@ -20,7 +20,7 @@
 //! use plt::mlab::{Detrend, SpectralOptions, psd};
 //! let x: Vec<f64> = (0..256).map(|i| (f64::from(i) * 0.3).sin() + 1.0).collect();
 //! let opts = SpectralOptions { nfft: 64, detrend: Detrend::Mean, ..SpectralOptions::default() };
-//! let p = psd(&x, &opts).unwrap();
+//! let p = psd(&x, opts).unwrap();
 //! let peak = (0..p.values.len()).max_by(|&a, &b| p.values[a].total_cmp(&p.values[b])).unwrap();
 //! assert!((p.freqs[peak] - 0.3 / std::f64::consts::PI).abs() < 2.0 / 64.0);
 //! ```

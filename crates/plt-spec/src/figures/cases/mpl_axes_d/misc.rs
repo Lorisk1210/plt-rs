@@ -49,7 +49,7 @@ fn color_2d_plot(fig: &Figure) -> CaseResult {
         color: vec![color.into()],
         ..HistPlotOptions::default()
     };
-    axs[3].hist(&[arange(0.0, 10.0, 1.0)], &hist)?;
+    axs[3].hist(&[arange(0.0, 10.0, 1.0)], hist)?;
     let bars = BarOptions {
         color: vec![color.into()],
         ..BarOptions::default()
@@ -372,7 +372,7 @@ pub(super) const CASES: &[FigureCase] = &[
         )?;
         ax.bar_label(
             &bars,
-            &BarLabelOptions {
+            BarLabelOptions {
                 label_type: BarLabelType::Center,
                 ..BarLabelOptions::default()
             },
@@ -397,7 +397,7 @@ pub(super) const CASES: &[FigureCase] = &[
             },
             ..ViolinplotOptions::default()
         };
-        fig.subplot().violinplot(&orientation_data(), &options)?;
+        fig.subplot().violinplot(&orientation_data(), options)?;
         Ok(())
     }),
     classic("mpl_axes_d/boxplot_orientation", |fig| {
@@ -408,7 +408,7 @@ pub(super) const CASES: &[FigureCase] = &[
             },
             ..BoxplotOptions::default()
         };
-        fig.subplot().boxplot(&orientation_data(), &options)?;
+        fig.subplot().boxplot(&orientation_data(), options)?;
         Ok(())
     }),
     classic("mpl_axes_d/use_colorizer_keyword", use_colorizer_keyword),

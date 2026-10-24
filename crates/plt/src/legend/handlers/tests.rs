@@ -7,7 +7,7 @@ use plt_core::Point;
 
 use super::*;
 use crate::artist::ArtistHandle;
-use crate::axes::{ErrorbarOptions, ScatterOptions, StemOptions};
+use crate::axes::{ErrorbarFormat, ErrorbarOptions, ScatterOptions, StemOptions};
 use crate::figure::Figure;
 use crate::legend::{LegendHandle, LegendOptions};
 use crate::lines::{LineProps, LineStyle, MarkEvery};
@@ -128,7 +128,7 @@ fn error_bars_come_first_then_caps_then_the_line() {
         xerr: Some(0.1.into()),
         yerr: Some(0.2.into()),
         capsize: Some(3.0),
-        fmt: "o".into(),
+        fmt: "o".parse().unwrap(),
         ..ErrorbarOptions::default()
     };
     let errors = ax.errorbar([0.0, 1.0], [0.0, 1.0], options).unwrap();
@@ -147,7 +147,7 @@ fn error_bars_come_first_then_caps_then_the_line() {
 
     let hidden = ErrorbarOptions {
         yerr: Some(0.2.into()),
-        fmt: "none".into(),
+        fmt: ErrorbarFormat::None,
         ..ErrorbarOptions::default()
     };
     let bars_only = ax.errorbar([0.0], [0.0], hidden).unwrap();
@@ -166,7 +166,7 @@ fn stems_rise_to_the_scatter_height() {
     let fig = Figure::new();
     let ax = fig.subplot();
     let stems = ax
-        .stem([0.0, 1.0], [1.0, 2.0], &StemOptions::default())
+        .stem([0.0, 1.0], [1.0, 2.0], StemOptions::default())
         .unwrap();
     let made = handle(
         &fig,

@@ -16,7 +16,7 @@ pub(crate) fn family(families: &[String], name: &str, generics: &GenericFamilies
     let step = 1.0 / families.len() as f64;
     for (i, family) in families.iter().enumerate() {
         let family = family.to_lowercase();
-        if let Some(generic) = GenericFamily::parse(&family) {
+        if let Ok(generic) = family.parse::<GenericFamily>() {
             let options = generics.get(generic);
             if let Some(index) = options
                 .iter()

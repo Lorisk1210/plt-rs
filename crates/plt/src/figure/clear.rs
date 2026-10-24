@@ -64,7 +64,7 @@ mod tests {
         fig.suptitle("title");
         fig.text(0.5, 0.5, "note");
         let sub = fig
-            .subfigures(1, 2, &super::super::SubfigureOptions::default())
+            .subfigures(1, 2, super::super::SubfigureOptions::default())
             .unwrap();
         sub[(0, 1)].subplot();
         fig.clear();

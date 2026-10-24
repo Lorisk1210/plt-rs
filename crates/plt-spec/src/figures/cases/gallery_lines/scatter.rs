@@ -96,8 +96,8 @@ fn scatter_hist(x: &[f64], y: &[f64], ax: &Axes, ax_histx: &Axes, ax_histy: &Axe
         },
         ..HistPlotOptions::default()
     };
-    ax_histx.hist(&[x], &histogram(HistOrientation::Vertical))?;
-    ax_histy.hist(&[y], &histogram(HistOrientation::Horizontal))?;
+    ax_histx.hist(&[x], histogram(HistOrientation::Vertical))?;
+    ax_histy.hist(&[y], histogram(HistOrientation::Horizontal))?;
     Ok(())
 }
 
@@ -115,7 +115,7 @@ fn scatter_hist_1(fig: &Figure) -> CaseResult {
         height_ratios: Some(vec![1.0, 4.0]),
         ..MosaicOptions::default()
     };
-    let axs = fig.subplot_mosaic(&Mosaic::parse("x.;sy")?, &options)?;
+    let axs = fig.subplot_mosaic(&"x.;sy".parse::<Mosaic>()?, options)?;
     let get = |label| axs.get(label).ok_or("a mosaic cell");
     scatter_hist(&x, &y, get("s")?, get("x")?, get("y")?)
 }
@@ -216,7 +216,7 @@ fn scatter_with_legend_1(fig: &Figure) -> CaseResult {
 /// A legend of `points` built by `legend_elements` with `options`.
 fn elements_legend(
     points: &Collection,
-    options: &LegendElementsOptions,
+    options: LegendElementsOptions,
     loc: &str,
     title: &str,
 ) -> Result<LegendOptions, Box<dyn std::error::Error>> {
@@ -246,7 +246,7 @@ fn scatter_with_legend_2(fig: &Figure) -> CaseResult {
     let points = ax.scatter_with(x, y, options)?;
     let classes = elements_legend(
         &points,
-        &LegendElementsOptions::default(),
+        LegendElementsOptions::default(),
         "lower left",
         "Classes",
     )?;
@@ -256,7 +256,7 @@ fn scatter_with_legend_2(fig: &Figure) -> CaseResult {
         alpha: Some(0.6),
         ..LegendElementsOptions::default()
     };
-    ax.legend(elements_legend(&points, &sizes, "upper right", "Sizes")?)?;
+    ax.legend(elements_legend(&points, sizes, "upper right", "Sizes")?)?;
     Ok(())
 }
 
@@ -303,7 +303,7 @@ fn scatter_with_legend_3(fig: &Figure) -> CaseResult {
         num: ElementCount::Target(5),
         ..LegendElementsOptions::default()
     };
-    ax.keep_legend(&ax.legend(elements_legend(&points, &five, "upper left", "Ranking")?)?);
+    ax.keep_legend(&ax.legend(elements_legend(&points, five, "upper left", "Ranking")?)?);
     let prices = LegendElementsOptions {
         prop: LegendProperty::Sizes,
         num: ElementCount::Target(5),
@@ -312,7 +312,7 @@ fn scatter_with_legend_3(fig: &Figure) -> CaseResult {
         func: Some(Box::new(|s| (s / 0.3).sqrt() / 3.0)),
         ..LegendElementsOptions::default()
     };
-    ax.legend(elements_legend(&points, &prices, "lower right", "Price")?)?;
+    ax.legend(elements_legend(&points, prices, "lower right", "Price")?)?;
     Ok(())
 }
 

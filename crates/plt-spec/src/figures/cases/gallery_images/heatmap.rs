@@ -14,7 +14,7 @@ use plt::layout::TightLayout;
 use plt::lines::LineStyle;
 use plt::numeric::{Grid, arange, linspace};
 use plt::prelude::ArtistHandle;
-use plt::text::{HorizontalAlignment, TextRotationMode, VerticalAlignment};
+use plt::text::{HAlign, TextRotationMode, VAlign};
 use plt::ticker::pyfmt;
 use plt::ticker::{Formatter, FuncFormatter, StrMethodFormatter, TickContext};
 
@@ -65,7 +65,7 @@ fn label_columns(ax: &Axes, labels: &[String], rotation: f64) -> CaseResult {
     xaxis.set_ticklabels(labels.iter().cloned())?;
     xaxis.set_ticklabel_props(
         TickLevel::Major,
-        &TickLabelProps {
+        TickLabelProps {
             rotation: Some(rotation),
             rotation_mode: Some(TextRotationMode::XTick),
             ..TickLabelProps::default()
@@ -89,8 +89,7 @@ fn strings<S: ToString>(labels: &[S]) -> Vec<String> {
 /// A text centred on cell `(i, j)`.
 fn cell_text(ax: &Axes, i: usize, j: usize, text: String) -> plt::text::Text {
     let text = ax.text(j as f64, i as f64, text);
-    text.set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center);
+    text.set_halign(HAlign::Center).set_valign(VAlign::Center);
     text
 }
 
@@ -141,7 +140,7 @@ fn heatmap(
     cbar.ax()
         .yaxis()
         .set_label_rotation(-90.0)
-        .set_label_valign(VerticalAlignment::Bottom);
+        .set_label_valign(VAlign::Bottom);
     label_columns(ax, cols, -30.0)?;
     label_rows(ax, rows)?;
     ax.tick_params(&TickParams {
@@ -158,7 +157,7 @@ fn heatmap(
     ax.yaxis().set_minor_ticks(cell_edges(rows.len()));
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             which: TickLevel::Minor,
             color: Some("w".into()),
             linestyle: Some(LineStyle::Solid),

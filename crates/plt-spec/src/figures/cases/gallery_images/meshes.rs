@@ -62,7 +62,7 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
             .cmap(colormaps::get("RdBu")?)
             .limits(Some(-top), Some(top)))
     };
-    let mesh = || Mesh::with_coords(x.clone(), y.clone(), z.clone());
+    let mesh = || Mesh::from_coords(x.clone(), y.clone(), z.clone());
     let axs = fig.subplots(2, 2)?;
 
     let options = PcolorOptions {
@@ -129,7 +129,7 @@ fn pcolor_demo_3(fig: &Figure) -> CaseResult {
             shading: Some(Shading::Auto),
             ..PcolorOptions::default()
         };
-        let c = ax.pcolor(Mesh::with_coords(x.clone(), y.clone(), z.clone()), options)?;
+        let c = ax.pcolor(Mesh::from_coords(x.clone(), y.clone(), z.clone()), options)?;
         fig.colorbar(&c, ColorbarOptions::beside(ax))?;
     }
     Ok(())
@@ -157,7 +157,7 @@ fn grid_mesh(
         shading: Some(shading),
         ..PcolorOptions::default()
     };
-    ax.pcolormesh(Mesh::with_coords(x.clone(), y.clone(), z), options)?;
+    ax.pcolormesh(Mesh::from_coords(x.clone(), y.clone(), z), options)?;
     let (xx, yy) = meshgrid(&x, &y);
     ax.plot_with(
         xx.as_slice(),
@@ -237,7 +237,7 @@ fn pcolormesh_grids_5(fig: &Figure) -> CaseResult {
 }
 
 fn pcolormesh_levels_1(fig: &Figure) -> CaseResult {
-    let mesh = Mesh::with_coords(
+    let mesh = Mesh::from_coords(
         arange(-0.5, 10.0, 1.0),
         arange(4.5, 11.0, 1.0),
         random_6x10(),
@@ -251,7 +251,7 @@ fn pcolormesh_levels_2(fig: &Figure) -> CaseResult {
     let tilted_x = on_mesh(&x, &y, |x, y| x + 0.2 * y);
     let tilted_y = on_mesh(&tilted_x, &y, |x, y| y + 0.3 * x);
     fig.subplot().pcolormesh(
-        Mesh::with_coords(tilted_x, tilted_y, random_6x10()),
+        Mesh::from_coords(tilted_x, tilted_y, random_6x10()),
         PcolorOptions::default(),
     )?;
     Ok(())
@@ -276,7 +276,7 @@ fn pcolormesh_levels_3(fig: &Figure) -> CaseResult {
             shading: Some(shading),
             ..PcolorOptions::default()
         };
-        ax.pcolormesh(Mesh::with_coords(x.clone(), y.clone(), values), options)?;
+        ax.pcolormesh(Mesh::from_coords(x.clone(), y.clone(), values), options)?;
         ax.set_title(title);
     }
     Ok(())
@@ -301,7 +301,7 @@ fn pcolormesh_levels_4(fig: &Figure) -> CaseResult {
         colors: ColorizerOptions::default().cmap(cmap.clone()).norm(norm),
         ..PcolorOptions::default()
     };
-    let im = ax0.pcolormesh(Mesh::with_coords(x.clone(), y.clone(), z.clone()), options)?;
+    let im = ax0.pcolormesh(Mesh::from_coords(x.clone(), y.clone(), z.clone()), options)?;
     fig.colorbar(&im, ColorbarOptions::beside(ax0))?;
     ax0.set_title("pcolormesh with levels");
     let centres = |a: &Grid<f64>, half: f64| trimmed(a).map(|v| v + half);
@@ -337,7 +337,7 @@ fn quadmesh_demo(fig: &Figure) -> CaseResult {
         shading: Some(Shading::Gouraud),
         ..PcolorOptions::default()
     };
-    let mesh = |values: ScalarField| Mesh::with_coords(qx.clone(), qz.clone(), values);
+    let mesh = |values: ScalarField| Mesh::from_coords(qx.clone(), qz.clone(), values);
     axs[(0, 0)].pcolormesh(
         mesh(ScalarField::new(z.clone())),
         gouraud(ColorizerOptions::default()),

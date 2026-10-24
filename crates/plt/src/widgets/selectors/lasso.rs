@@ -12,7 +12,7 @@ use crate::axes::Axes;
 use crate::events::{Event, EventKind};
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle};
 use crate::navigation::PointerButton;
-use crate::widgets::{Connections, Observers, data_in};
+use crate::widgets::{CallbackId, Connections, Observers, data_in};
 
 /// A line of `props` through `points` added to `ax` without autoscaling
 /// (matplotlib's `ax.add_line(Line2D(...))`).
@@ -79,7 +79,7 @@ selector_methods!(LassoSelector);
 impl LassoSelector {
     /// A lasso selector on `ax` drawing its curve with `props`, started by
     /// `buttons` (all when `None`).
-    pub fn new(ax: &Axes, props: &LineProps, buttons: Option<Vec<PointerButton>>) -> Self {
+    pub fn new(ax: &Axes, props: LineProps, buttons: Option<Vec<PointerButton>>) -> Self {
         let line = add_line(ax, (Vec::new(), Vec::new()), props.clone().visible(false));
         let core = Core::new(ax, buttons, ModifierKeys::default());
         Self {
@@ -88,9 +88,16 @@ impl LassoSelector {
     }
 
     /// Calls `callback` with the curve's vertices on each release
-    /// (matplotlib's `onselect`).
-    pub fn on_select(&self, mut callback: impl FnMut(&[(f64, f64)]) + 'static) {
-        self.driver.selected.connect(move |verts| callback(verts));
+    /// (matplotlib's `onselect`); returns its id for
+    /// [`LassoSelector::disconnect`].
+    pub fn on_select(&self, mut callback: impl FnMut(&[(f64, f64)]) + 'static) -> CallbackId {
+        self.driver.selected.connect(move |verts| callback(verts))
+    }
+
+    /// Disconnects the callback with id `id` (matplotlib's `disconnect`);
+    /// returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.driver.disconnect(id)
     }
 
     /// The line showing the curve while it is drawn.
@@ -123,7 +130,7 @@ pub struct Lasso {
 impl Lasso {
     /// A lasso on `ax` starting at data point `xy`, drawn with `props` over
     /// matplotlib's solid black line two points wide.
-    pub fn new(ax: &Axes, xy: (f64, f64), props: &LineProps) -> Self {
+    pub fn new(ax: &Axes, xy: (f64, f64), props: LineProps) -> Self {
         let style = LineProps::default()
             .linestyle(LineStyle::Solid)
             .color("black")
@@ -193,9 +200,15 @@ impl Lasso {
     }
 
     /// Calls `callback` with the vertices on the release (matplotlib's
-    /// `callback`).
-    pub fn on_select(&self, mut callback: impl FnMut(&[(f64, f64)]) + 'static) {
-        self.selected.connect(move |verts| callback(verts));
+    /// `callback`); returns its id for [`Lasso::disconnect`].
+    pub fn on_select(&self, mut callback: impl FnMut(&[(f64, f64)]) + 'static) -> CallbackId {
+        self.selected.connect(move |verts| callback(verts))
+    }
+
+    /// Disconnects the callback with id `id` (matplotlib's `disconnect`);
+    /// returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.selected.disconnect(id)
     }
 
     /// Whether the lasso reacts to events (matplotlib's `active`).
@@ -225,11 +238,11 @@ mod tests {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
         let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
         ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-        let selector = LassoSelector::new(&ax, &LineProps::default(), None);
+        let selector = LassoSelector::new(&ax, LineProps::default(), None);
         let seen = Rc::new(RefCell::new(Vec::new()));
         let log = Rc::clone(&seen);
         selector.on_select(move |verts| log.borrow_mut().push(verts.len()));
-        let lasso = Lasso::new(&ax, (1.0, 1.0), &LineProps::default());
+        let lasso = Lasso::new(&ax, (1.0, 1.0), LineProps::default());
         let log = Rc::clone(&seen);
         lasso.on_select(move |verts| log.borrow_mut().push(verts.len()));
         let mut source = EventSource::new();

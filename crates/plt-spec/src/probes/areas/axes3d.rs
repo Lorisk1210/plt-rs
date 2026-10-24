@@ -78,7 +78,7 @@ fn scene(args: Args<'_>) -> Result<(Figure, Axes3D), ProbeError> {
         for (name, scale) in scales.as_object().ok_or_else(|| bad("scales"))? {
             let scale = scale.as_str().ok_or_else(|| bad("scales"))?;
             let options = plt::scale::ScaleOptions::default();
-            ax.set_scale_with(axis_named(name)?, scale, &options)
+            ax.set_scale_with(axis_named(name)?, scale, options)
                 .map_err(ProbeError::rejected)?;
         }
     }
@@ -224,7 +224,7 @@ fn project(args: Args<'_>) -> Outcome {
         _ => Err(bad("points")),
     })
     .collect::<Result<Vec<_>, _>>()?;
-    let matrix = ax.get_proj();
+    let matrix = ax.proj();
     let projected = matrix.project_all(&points);
     Ok(Json::Object(vec![
         ("matrix".into(), rows(matrix.rows())),

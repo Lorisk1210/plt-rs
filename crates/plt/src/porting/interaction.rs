@@ -49,6 +49,7 @@
 //! | `plt.ginput(n)`, `plt.waitforbuttonpress()`     | [`crate::pyplot::ginput`], [`crate::pyplot::waitforbuttonpress`] |
 //! | `Slider(ax, label, valmin, valmax, valinit=)`   | [`Slider::new`] with [`SliderOptions`]         |
 //! | `slider.on_changed(f)`, `slider.set_val(v)`     | [`Slider::on_changed`], [`Slider::set_val`]    |
+//! | `cid = button.on_clicked(f)`, `button.disconnect(cid)` | [`Button::on_clicked`] returns a [`CallbackId`] for [`Button::disconnect`]; every widget has both |
 //! | `RangeSlider`, `Button`, `CheckButtons`, `RadioButtons`, `TextBox` | [`RangeSlider`], [`Button`], [`CheckButtons`], [`RadioButtons`], [`TextBox`] |
 //! | `Cursor`, `MultiCursor`                         | [`Cursor`], [`MultiCursor`]                    |
 //! | `SpanSelector`, `RectangleSelector`, `EllipseSelector` | [`SpanSelector`], [`RectangleSelector`], [`EllipseSelector`] |
@@ -176,7 +177,8 @@
 //! freq.on_changed(lambda value: line.set_ydata(np.sin(value * x)))
 //! freq.set_val(7.5)
 //! reset = Button(fig.add_axes([0.8, 0.02, 0.1, 0.05]), "Reset")
-//! reset.on_clicked(lambda event: freq.reset())
+//! cid = reset.on_clicked(lambda event: freq.reset())
+//! reset.disconnect(cid)
 //! ```
 //!
 //! ```
@@ -189,7 +191,7 @@
 //! let line = ax.plot(&x, x.iter().map(|v| (5.0 * v).sin()).collect::<Vec<_>>())?;
 //!
 //! let options = SliderOptions { valinit: 5.0, ..SliderOptions::default() };
-//! let freq = Slider::new(&fig.add_axes([0.2, 0.1, 0.6, 0.05]), "Freq", 0.1, 30.0, &options);
+//! let freq = Slider::new(&fig.add_axes([0.2, 0.1, 0.6, 0.05]), "Freq", 0.1, 30.0, options);
 //! let wave = line.clone();
 //! freq.on_changed(move |value| {
 //!     let (x, _) = wave.data();
@@ -201,8 +203,9 @@
 //! assert_eq!(line.ydata()[1], (7.5 * x[1]).sin());
 //!
 //! let reset = Button::new(&fig.add_axes([0.8, 0.02, 0.1, 0.05]), "Reset", ButtonOptions::default());
-//! reset.on_clicked(|| {});
+//! let cid = reset.on_clicked(|| {});
 //! assert_eq!(reset.label().text(), "Reset");
+//! assert!(reset.disconnect(cid));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -286,7 +289,7 @@
 //!     vec![rising.raw().clone()]
 //! });
 //! assert!(animation.to_gif()?.starts_with(b"GIF89a")); // `animation.save("rise.gif")?`
-//! assert!(animation.to_jshtml(&HtmlOptions::default())?.contains("<script"));
+//! assert!(animation.to_jshtml(HtmlOptions::default())?.contains("<script"));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -366,6 +369,9 @@
 //! [`EventSource`]: crate::events::EventSource
 //! [`EventSource::button_press`]: crate::events::EventSource::button_press
 //! [`Slider::new`]: crate::widgets::Slider::new
+//! [`Button::on_clicked`]: crate::widgets::Button::on_clicked
+//! [`Button::disconnect`]: crate::widgets::Button::disconnect
+//! [`CallbackId`]: crate::widgets::CallbackId
 //! [`Slider::on_changed`]: crate::widgets::Slider::on_changed
 //! [`Slider::set_val`]: crate::widgets::Slider::set_val
 //! [`SliderOptions`]: crate::widgets::SliderOptions

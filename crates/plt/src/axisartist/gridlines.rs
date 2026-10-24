@@ -144,7 +144,7 @@ impl DrawTimeShapes for Gridlines {
             SharedGridHelper::CurveLinear(grid) => {
                 let info = grid
                     .grid_finder()
-                    .get_grid_info(view)
+                    .grid_info(view)
                     .map_err(|e| e.to_string())?;
                 info_gridlines(&info, self.axis)
             }

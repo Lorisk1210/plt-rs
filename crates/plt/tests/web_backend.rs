@@ -66,7 +66,7 @@ fn served() -> (WebServer, Figure, u32) {
     let figure = Figure::with_size(4.0, 3.0, 100.0);
     let ax = figure.add_axes([0.0, 0.0, 1.0, 1.0]);
     ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
-    let mut server = WebServer::bind(&WebOptions::new("127.0.0.1", 0)).expect("a free port");
+    let mut server = WebServer::bind(WebOptions::new("127.0.0.1", 0)).expect("a free port");
     let number = server.add_figure(&figure);
     (server, figure, number)
 }

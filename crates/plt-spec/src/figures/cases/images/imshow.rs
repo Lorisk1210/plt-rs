@@ -289,13 +289,13 @@ pub(super) fn spy_image_and_markers(fig: &Figure) -> CaseResult {
     let axes = fig.subplots(1, 2)?;
     let values = SpecRng::new(2).uniform(400, 0.0, 1.0);
     let a = Grid::from_vec(20, 20, values)?.map(|&v| if v > 0.8 { 1.0 } else { 0.0 });
-    axes[(0, 0)].spy(&a, &plt::axes::SpyOptions::default())?;
+    axes[(0, 0)].spy(&a, plt::axes::SpyOptions::default())?;
     let markers = plt::axes::SpyOptions {
         markersize: Some(4.0),
         precision: 0.5,
         ..plt::axes::SpyOptions::default()
     };
-    axes[(0, 1)].spy(&a, &markers)?;
+    axes[(0, 1)].spy(&a, markers)?;
     Ok(())
 }
 

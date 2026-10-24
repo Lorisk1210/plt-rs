@@ -69,7 +69,7 @@ impl Axes {
     /// let ax = Figure::new().subplot();
     /// let z = Grid::from_vec(2, 2, vec![1.0, 0.0, 0.0, 2.0]).unwrap();
     /// let markers = SpyOptions { markersize: Some(4.0), ..SpyOptions::default() };
-    /// assert!(matches!(ax.spy(&z, &markers)?, Spy::Markers(_)));
+    /// assert!(matches!(ax.spy(&z, markers)?, Spy::Markers(_)));
     /// assert_eq!(ax.ylim(), (1.5, -0.5));
     /// # Ok::<(), plt::image::ImageError>(())
     /// ```
@@ -77,7 +77,7 @@ impl Axes {
     /// # Errors
     ///
     /// When the aspect is invalid.
-    pub fn spy(&self, z: &Grid<f64>, options: &SpyOptions) -> Result<Spy, ImageError> {
+    pub fn spy(&self, z: &Grid<f64>, options: SpyOptions) -> Result<Spy, ImageError> {
         let nonzero = z.map(|v| v.abs() > options.precision);
         let spy = if options.marker.is_none() && options.markersize.is_none() {
             let cmap = match &options.cmap {
@@ -96,7 +96,7 @@ impl Axes {
             let data = ImageData::from(ScalarField::booleans(&nonzero));
             Spy::Image(self.imshow(data, imshow)?)
         } else {
-            Spy::Markers(self.spy_markers(&nonzero, options)?)
+            Spy::Markers(self.spy_markers(&nonzero, &options)?)
         };
         let x_side = match options.origin {
             Origin::Upper => SpineSide::Top,
@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn image_mode_shows_the_pattern() {
         let ax = Figure::new().subplot();
-        let Spy::Image(image) = ax.spy(&diagonal(), &SpyOptions::default()).unwrap() else {
+        let Spy::Image(image) = ax.spy(&diagonal(), SpyOptions::default()).unwrap() else {
             unreachable!("no marker requested")
         };
         assert_eq!(image.shape(), (3, 4));
@@ -175,7 +175,7 @@ mod tests {
             origin: Origin::Lower,
             ..SpyOptions::default()
         };
-        let Spy::Markers(line) = ax.spy(&diagonal(), &options).unwrap() else {
+        let Spy::Markers(line) = ax.spy(&diagonal(), options).unwrap() else {
             unreachable!("a marker was requested")
         };
         assert!(line.xdata().is_empty(), "nothing exceeds the precision");
@@ -185,7 +185,7 @@ mod tests {
             markersize: Some(3.0),
             ..SpyOptions::default()
         };
-        let Spy::Markers(line) = ax.spy(&diagonal(), &options).unwrap() else {
+        let Spy::Markers(line) = ax.spy(&diagonal(), options).unwrap() else {
             unreachable!("a marker size was requested")
         };
         assert_eq!(line.xdata(), vec![0.0, 1.0, 2.0]);

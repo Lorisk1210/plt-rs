@@ -19,7 +19,7 @@ use plt::orientation::Orientation;
 use plt::patches::{Circle, PatchProps, PathShape};
 use plt::prelude::ArtistHandle;
 use plt::rc::Aspect;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 use plt::transforms::{Bbox, Point};
 use plt_core::Path;
 
@@ -80,7 +80,7 @@ fn demo_bboximage(fig: &Figure) -> CaseResult {
     let ramp = || Grid::from_fn(1, 256, |_, c| c as f64);
     let txt = ax1.text(0.5, 0.5, "test");
     txt.set_fontsize(30.0)
-        .set_halign(HorizontalAlignment::Center)
+        .set_halign(HAlign::Center)
         .set_color("w");
     ax1.add_bbox_image_over(ramp(), &txt, BboxImageOptions::default())?;
 
@@ -176,7 +176,7 @@ fn image_demo_2(fig: &Figure) -> CaseResult {
         MosaicCell::Label("hopper".into()),
         MosaicCell::Label("mri".into()),
     ]])?;
-    let ax = fig.subplot_mosaic(&mosaic, &MosaicOptions::default())?;
+    let ax = fig.subplot_mosaic(&mosaic, MosaicOptions::default())?;
     let hopper = ax.get("hopper").ok_or("the mosaic has a hopper axes")?;
     let mri = ax.get("mri").ok_or("the mosaic has an MRI axes")?;
     hopper.imshow(photo(), ImshowOptions::default())?;

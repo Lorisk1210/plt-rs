@@ -9,7 +9,7 @@ use plt::offsetbox::{
 };
 use plt::patches::{BoxStyle, Circle, Ellipse, Rectangle};
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, TextProps};
+use plt::text::{HAlign, TextProps};
 use plt::transforms::Transform;
 
 use super::{of_t, sized, t, text_area, unit_axes};
@@ -190,7 +190,7 @@ pub(super) fn multiline_baseline(fig: &Figure) -> CaseResult {
             text_area("left\nlines", TextProps::default()),
             text_area(
                 "right\naligned lines",
-                TextProps::default().halign(HorizontalAlignment::Right),
+                TextProps::default().halign(HAlign::Right),
             ),
         ],
     );
@@ -227,7 +227,7 @@ pub(super) fn figure_anchored(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn subfigure_anchored(fig: &Figure) -> CaseResult {
-    let subfigures = fig.subfigures(1, 2, &SubfigureOptions::default())?;
+    let subfigures = fig.subfigures(1, 2, SubfigureOptions::default())?;
     for (i, sub) in subfigures.as_slice().iter().enumerate() {
         let shift = i as f64;
         sub.subplot().plot(t(), of_t(|t| (t + shift).cos()))?;

@@ -147,7 +147,7 @@ fn tight_layout_guide_13(fig: &Figure) -> CaseResult {
         ..ImageGridOptions::default()
     };
     let rect = GridRect::Subplot(GridSpec::new(1, 1)?.cell(0, 0)?);
-    let grid = ImageGrid::plain(fig, &rect, (2, 2), &options)?;
+    let grid = ImageGrid::plain(fig, &rect, (2, 2), options)?;
     examples(grid.axes())?;
     grid.axes()
         .last()

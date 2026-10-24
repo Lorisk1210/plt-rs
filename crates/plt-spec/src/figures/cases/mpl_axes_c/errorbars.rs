@@ -4,7 +4,7 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::{ErrorSize, ErrorbarOptions, LocatorParams};
+use plt::axes::{ErrorSize, ErrorbarFormat, ErrorbarOptions, LocatorParams};
 use plt::colors::Color;
 use plt::figure::{Figure, Share};
 use plt::lines::{LineProps, LineStyle, MarkEvery};
@@ -57,7 +57,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 ..ErrorbarOptions::default()
             },
             ErrorbarOptions {
-                fmt: "tab:blue".into(),
+                fmt: "tab:blue".parse()?,
                 ..ErrorbarOptions::default()
             },
         ];
@@ -136,7 +136,7 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
     let ax = &axs[(0, 0)];
     let options = ErrorbarOptions {
         yerr: Some(yerr.clone().into()),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         ..ErrorbarOptions::default()
     };
     ax.errorbar(&x, &y, options)?;
@@ -149,7 +149,7 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
     let ax = &axs[(0, 1)];
     let options = ErrorbarOptions {
         xerr: Some(xerr.clone().into()),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         line: LineProps::default().alpha(0.4),
         ..ErrorbarOptions::default()
     };
@@ -166,7 +166,7 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
             lower: xerr.clone(),
             upper: double(&xerr),
         }),
-        fmt: "--o".into(),
+        fmt: "--o".parse()?,
         ..ErrorbarOptions::default()
     };
     ax.errorbar(&x, &y, options)?;
@@ -185,7 +185,7 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
             upper: double(&yerr),
         }),
         xerr: Some(xerr.into()),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         ecolor: Some(Color::from("g")),
         capthick: Some(2.0),
         ..ErrorbarOptions::default()
@@ -202,10 +202,11 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
 /// overlapping error bars on polar axes.
 fn polar_caps(fig: &Figure) -> CaseResult {
     let ax = fig.polar_subplot();
+    let dots: ErrorbarFormat = "o".parse()?;
     let point = |xerr: ErrorSize, yerr: ErrorSize| ErrorbarOptions {
         xerr: Some(xerr),
         yerr: Some(yerr),
-        fmt: "o".into(),
+        fmt: dots.clone(),
         ..ErrorbarOptions::default()
     };
     ax.errorbar([1.0, 2.0, 3.0], [0.9; 3], point(0.35.into(), 0.2.into()))?;
@@ -331,7 +332,7 @@ fn every(fig: &Figure) -> CaseResult {
         ax.errorbar(&x, &y, options)?;
     }
     let options = ErrorbarOptions {
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         ..capped(LineProps::default().markevery(Some(MarkEvery::Every { start: 1, step: 4 })))
     };
     ax.errorbar(&x, map(&y, |y| y + 0.1), options)?;
@@ -351,7 +352,7 @@ fn every(fig: &Figure) -> CaseResult {
             .color(color)
             .markevery(Some(selection.clone()));
         let options = ErrorbarOptions {
-            fmt: "o".into(),
+            fmt: "o".parse()?,
             errorevery: Some(selection),
             ..capped(line)
         };

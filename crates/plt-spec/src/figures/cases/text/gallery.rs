@@ -11,8 +11,8 @@ use plt::patches::{Ellipse, Rectangle};
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment as HAlign, LineSpacing,
-    TextBoxProps, TextRotationMode as RotationMode, VerticalAlignment as VAlign,
+    AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, LineSpacing, TextBoxProps,
+    TextRotationMode as RotationMode, VAlign,
 };
 use plt::transforms::Point;
 

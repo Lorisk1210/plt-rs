@@ -19,7 +19,7 @@ use plt::numeric::Grid;
 use plt::offsetbox::{AnchorLoc, AnchoredBox, BoxItem};
 use plt::patches::{Circle, Ellipse, PatchProps};
 use plt::spines::SpineSide;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 
 use super::remove_ticks_and_titles;
 use crate::figures::{CaseResult, FigureCase};
@@ -84,8 +84,8 @@ const MODIFIERS: [&str; 5] = [
 /// Text centred at `(0.5, 0.5)` of `ax`'s data coordinates.
 fn centered_text(ax: &Axes, text: &str) {
     ax.text(0.5, 0.5, text)
-        .set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center);
+        .set_halign(HAlign::Center)
+        .set_valign(VAlign::Center);
 }
 
 fn twin_axes_empty_and_removed(fig: &Figure) -> CaseResult {
@@ -200,7 +200,7 @@ fn image_grid_each_left_label_mode_all(fig: &Figure) -> CaseResult {
         label_mode: LabelMode::All,
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &whole_subplot()?, (3, 2), &options)?;
+    let grid = ImageGrid::new(fig, &whole_subplot()?, (3, 2), options)?;
     for (ax, cax) in grid.axes().iter().zip(grid.cbar_axes()) {
         let image = ax.imshow(
             arange_10x10(),
@@ -224,7 +224,7 @@ fn image_grid_single_bottom(fig: &Figure) -> CaseResult {
         label_mode: LabelMode::One,
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &GridRect::Rect([0.0, 0.0, 1.0, 1.0]), (1, 3), &options)?;
+    let grid = ImageGrid::new(fig, &GridRect::Rect([0.0, 0.0, 1.0, 1.0]), (1, 3), options)?;
     let mut last = None;
     for ax in grid.axes() {
         last = Some(ax.imshow(
@@ -245,7 +245,7 @@ fn image_grid(fig: &Figure) -> CaseResult {
         axes_pad: (0.1, 0.1),
         ..ImageGridOptions::default()
     };
-    let grid = ImageGrid::new(fig, &whole_subplot()?, (2, 2), &options)?;
+    let grid = ImageGrid::new(fig, &whole_subplot()?, (2, 2), options)?;
     for ax in grid.axes() {
         show(ax, arange_10x10(), Some(Interpolation::Nearest))?;
     }
@@ -353,7 +353,7 @@ fn imagegrid_cbar_mode_edge(fig: &Figure) -> CaseResult {
             ..ImageGridOptions::default()
         };
         let rect = GridRect::Subplot(GridSpec::new(2, 4)?.numbered(position)?);
-        let grid = ImageGrid::new(fig, &rect, (2, 2), &options)?;
+        let grid = ImageGrid::new(fig, &rect, (2, 2), options)?;
         let mut images = Vec::new();
         for (ax, (data, cmap)) in grid.axes().iter().zip(edge_images()) {
             images.push(ax.imshow(

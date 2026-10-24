@@ -13,7 +13,7 @@ use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 use plt::ticker::{FixedFormatter, FixedLocator};
 
 use super::colormaps::{Category, strip};

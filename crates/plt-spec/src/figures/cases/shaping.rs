@@ -12,8 +12,7 @@ use plt::patches::ArrowStyle;
 use plt::patheffects::{GcUpdate, PathEffect, Stroke};
 use plt::prelude::*;
 use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, Feature, HorizontalAlignment, Language, Text,
-    VerticalAlignment,
+    AnnotateOptions, ArrowProps, FancyArrowProps, Feature, HAlign, Language, Text, VAlign,
 };
 
 use crate::figures::{CaseResult, FigureCase};
@@ -132,10 +131,7 @@ fn features_case(fig: &Figure) -> CaseResult {
         ],
         ROWS,
     )?;
-    for (i, ha) in [HorizontalAlignment::Right, HorizontalAlignment::Center]
-        .into_iter()
-        .enumerate()
-    {
+    for (i, ha) in [HAlign::Right, HAlign::Center].into_iter().enumerate() {
         fig.text(0.97 - 0.35 * i as f64, 0.04, "WAVE To")
             .set_halign(ha)
             .set_fontsize(14.0)
@@ -268,14 +264,14 @@ fn rc_language_case(fig: &Figure) -> CaseResult {
         .set_ylabel("\u{434}\u{443}\u{433}");
     ax.legend(LegendOptions::default().loc("upper right"))?;
     ax.text(1.0, 2.6, "\u{431}\u{433}\u{434}\u{43f}\u{442} ru")
-        .set_halign(HorizontalAlignment::Center)
+        .set_halign(HAlign::Center)
         .set_language(Language::from("ru"));
     ax.text(
         1.0,
         2.0,
         "\u{431}\u{433}\u{434}\u{43f}\u{442}\n\u{431}\u{433}\u{434}",
     )
-    .set_halign(HorizontalAlignment::Center);
+    .set_halign(HAlign::Center);
     ax.annotate(
         "\u{433}\u{434}\u{43f}",
         (2.0, 2.0),
@@ -294,7 +290,7 @@ fn single_lines_only_case(fig: &Figure) -> CaseResult {
     ax.set_axis_off();
     ax.text(0.3, 9.0, "office AV\n\u{431}\u{433}\u{434} fi")
         .set_fontsize(13.0)
-        .set_valign(VerticalAlignment::Top)
+        .set_valign(VAlign::Top)
         .set_fontfeatures(features(&["-liga", "-kern"])?)
         .set_language(Language::from("sr"));
     ax.text(5.5, 8.6, r"office $\alpha$ fi")

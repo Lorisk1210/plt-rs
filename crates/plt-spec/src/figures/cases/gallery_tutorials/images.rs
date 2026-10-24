@@ -89,7 +89,7 @@ fn images_6(fig: &Figure) -> CaseResult {
         props: PatchProps::default().facecolor("k").edgecolor("k"),
         ..HistPlotOptions::default()
     };
-    fig.subplot().hist(&[luminosity().into_vec()], &black)?;
+    fig.subplot().hist(&[luminosity().into_vec()], black)?;
     Ok(())
 }
 

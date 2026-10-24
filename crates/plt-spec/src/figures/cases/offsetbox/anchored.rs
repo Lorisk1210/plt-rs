@@ -15,7 +15,7 @@ use plt::offsetbox::{
 };
 use plt::patches::{BoxStyle, Circle, Ellipse, Rectangle};
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, TextProps};
+use plt::text::{HAlign, TextProps};
 
 use super::{filled, gradient, of_t, sized, t, text_area};
 use crate::figures::CaseResult;
@@ -71,9 +71,7 @@ pub(super) fn anchored_text(fig: &Figure) -> CaseResult {
     anchored_text_box(
         &ax,
         "centred, wide pads",
-        TextProps::default()
-            .halign(HorizontalAlignment::Center)
-            .font(sized(8.0)),
+        TextProps::default().halign(HAlign::Center).font(sized(8.0)),
         AnchoredOptions {
             borderpad: (2.0, 0.3),
             ..AnchoredOptions::new(AnchorLoc::UpperCenter)

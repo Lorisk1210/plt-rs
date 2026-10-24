@@ -102,7 +102,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ax.set_title(title);
             ax.spy(
                 &Grid::from_vec(2, 2, values.to_vec())?,
-                &SpyOptions::default(),
+                SpyOptions::default(),
             )?;
         }
         Ok(())

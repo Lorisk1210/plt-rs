@@ -73,7 +73,7 @@ fn hist3d(fig: &Figure) -> CaseResult {
         range: [Some((0.0, 4.0)), Some((0.0, 4.0))],
         ..Histogram2dOptions::default()
     };
-    let hist = histogram2d(x, y, &options)?;
+    let hist = histogram2d(x, y, options)?;
     // np.meshgrid(xedges[:-1] + 0.25, yedges[:-1] + 0.25, indexing="ij"),
     // raveled like the counts.
     let (xpos, ypos): (Vec<f64>, Vec<f64>) = hist.xedges[..4]

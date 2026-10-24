@@ -5,8 +5,11 @@
 //! Each widget takes over an axes: it draws itself with ordinary artists
 //! and reacts to the figure's [events](crate::events) when the figure is
 //! shown in a [window](crate::gui). Callbacks registered with `on_*`
-//! methods run when the user acts. A widget stays connected for as long as
-//! it is alive; keep it around while the figure is shown.
+//! methods run when the user acts; each returns a [`CallbackId`] that the
+//! widget's `disconnect` takes to remove the callback again (matplotlib's
+//! `cid = widget.on_changed(...)` and `widget.disconnect(cid)`). A widget
+//! stays connected for as long as it is alive; keep it around while the
+//! figure is shown.
 //!
 //! ```
 //! use plt::figure::Figure;
@@ -14,14 +17,16 @@
 //! let fig = Figure::new();
 //! let ax = fig.add_axes([0.2, 0.1, 0.6, 0.05]);
 //! let options = SliderOptions { valinit: 5.0, ..SliderOptions::default() };
-//! let freq = Slider::new(&ax, "Freq", 0.1, 30.0, &options);
-//! freq.on_changed(|value| println!("now {value}"));
+//! let freq = Slider::new(&ax, "Freq", 0.1, 30.0, options);
+//! let cid = freq.on_changed(|value| println!("now {value}"));
 //! freq.set_val(7.5);
 //! assert_eq!(freq.val(), 7.5);
+//! assert!(freq.disconnect(cid));
 //! ```
 
 mod button;
 mod cursor;
+mod observers;
 mod range_slider;
 mod selectors;
 mod slider;
@@ -29,11 +34,9 @@ mod subplot_tool;
 mod textbox;
 mod toggles;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 pub use button::{Button, ButtonOptions};
 pub use cursor::{Cursor, CursorOptions, MultiCursor};
+pub use observers::CallbackId;
 pub use range_slider::RangeSlider;
 pub use selectors::{
     EllipseSelector, Lasso, LassoSelector, ModifierKeys, PolygonSelector, PolygonSelectorOptions,
@@ -48,6 +51,9 @@ pub use toggles::{
     RadioButtonsOptions,
 };
 
+use observers::Observers;
+
+use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::events::{ConnectionId, Event, EventKind, Location};
 use crate::figure::Figure;
@@ -78,57 +84,6 @@ impl Drop for Connections {
         for &id in &self.ids {
             self.figure.disconnect(id);
         }
-    }
-}
-
-/// The callbacks of one widget signal.
-type CallbackList<T> = Vec<Box<dyn FnMut(&T)>>;
-
-/// Callbacks taking a value of type `T` (matplotlib's widget
-/// `_observers`), shared between a widget and its event handlers.
-struct Observers<T> {
-    callbacks: Rc<RefCell<CallbackList<T>>>,
-}
-
-impl<T> Clone for Observers<T> {
-    fn clone(&self) -> Self {
-        Self {
-            callbacks: Rc::clone(&self.callbacks),
-        }
-    }
-}
-
-impl<T> Default for Observers<T> {
-    fn default() -> Self {
-        Self {
-            callbacks: Rc::new(RefCell::new(Vec::new())),
-        }
-    }
-}
-
-impl<T> std::fmt::Debug for Observers<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Observers")
-            .field("connected", &self.callbacks.borrow().len())
-            .finish()
-    }
-}
-
-impl<T> Observers<T> {
-    fn connect(&self, callback: impl FnMut(&T) + 'static) {
-        self.callbacks.borrow_mut().push(Box::new(callback));
-    }
-
-    /// Calls every callback with `value`; callbacks connected while this
-    /// runs are kept for the next call.
-    fn process(&self, value: &T) {
-        let mut running = std::mem::take(&mut *self.callbacks.borrow_mut());
-        for callback in &mut running {
-            callback(value);
-        }
-        let mut callbacks = self.callbacks.borrow_mut();
-        running.append(&mut callbacks);
-        *callbacks = running;
     }
 }
 

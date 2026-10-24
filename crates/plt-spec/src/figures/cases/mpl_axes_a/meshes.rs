@@ -10,7 +10,7 @@ use plt::image::{ColorizerOptions, ScalarField};
 use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::patches::Rectangle;
 use plt::prelude::*;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 use plt_core::Rgba;
 
 use super::remove_ticks_and_titles;
@@ -101,7 +101,7 @@ pub(super) fn pcolormesh(fig: &Figure) -> CaseResult {
     let hide = |v: f64| v.abs() < 0.5 * qz_max;
     let axs = fig.subplots(1, 3)?;
     let mesh = |flat| -> Result<Mesh, Box<dyn std::error::Error>> {
-        Ok(Mesh::with_coords(
+        Ok(Mesh::from_coords(
             qx.clone(),
             qz.clone(),
             masked_where(&z, &qz, hide, flat)?,
@@ -124,7 +124,7 @@ pub(super) fn pcolormesh_small(fig: &Figure) -> CaseResult {
     let hide = |v: f64| v.abs() < 0.5 * qz_max;
     let hide_low = |v: f64| v < -0.5 * qz_max;
     let axs = fig.subplots(2, 2)?;
-    let mesh = |values| Mesh::with_coords(qx.clone(), qz.clone(), values);
+    let mesh = |values| Mesh::from_coords(qx.clone(), qz.clone(), values);
     axs[(0, 0)].pcolormesh(mesh(masked_where(&z, &qz, hide, true)?), edged(0.5, &["k"]))?;
     axs[(0, 1)].pcolormesh(
         mesh(masked_where(&z, &qz, hide, true)?),
@@ -169,8 +169,8 @@ pub(super) fn pcolormesh_alpha(fig: &Figure) -> CaseResult {
             ..PcolorOptions::default()
         }
     };
-    let flat = || Mesh::with_coords(xx.clone(), qy.clone(), trimmed(&z));
-    let points = || Mesh::with_coords(xx.clone(), qy.clone(), z.clone());
+    let flat = || Mesh::from_coords(xx.clone(), qy.clone(), trimmed(&z));
+    let points = || Mesh::from_coords(xx.clone(), qy.clone(), z.clone());
     axs[(0, 0)].pcolormesh(flat(), options(&vir, Shading::Flat, Some(0.4)))?;
     axs[(0, 1)].pcolormesh(points(), options(&vir, Shading::Gouraud, Some(0.4)))?;
     axs[(1, 0)].pcolormesh(flat(), options(&cmap, Shading::Flat, None))?;
@@ -218,11 +218,11 @@ fn log_scale_mesh(fig: &Figure, cells: bool) -> CaseResult {
     let ax = fig.subplot();
     if cells {
         ax.pcolor(
-            Mesh::with_coords(xx, yy, trimmed(&c)),
+            Mesh::from_coords(xx, yy, trimmed(&c)),
             PcolorOptions::default(),
         )?;
     } else {
-        ax.pcolormesh(Mesh::with_coords(xx, yy, c), PcolorOptions::default())?;
+        ax.pcolormesh(Mesh::from_coords(xx, yy, c), PcolorOptions::default())?;
     }
     ax.set_xscale("log")?;
     Ok(())
@@ -268,11 +268,11 @@ fn datetime_mesh(fig: &Figure, cells: bool) -> CaseResult {
         let n = if index % 2 == 1 { 20 } else { 21 };
         let values = Grid::from_fn(n - 1, n - 1, |r, c| z[(r, c)]);
         let mesh = if index <= 2 {
-            Mesh::with_coords(x[..n].to_vec(), y[..n].to_vec(), values)
+            Mesh::from_coords(x[..n].to_vec(), y[..n].to_vec(), values)
         } else {
             let xx = Grid::from_fn(n, n, |_, c| x[c]);
             let yy = Grid::from_fn(n, n, |r, _| y[r]);
-            Mesh::with_coords(xx, yy, values)
+            Mesh::from_coords(xx, yy, values)
         };
         if cells {
             ax.pcolor(mesh, PcolorOptions::default())?;
@@ -282,11 +282,12 @@ fn datetime_mesh(fig: &Figure, cells: bool) -> CaseResult {
     }
     let rotated = TickLabelProps {
         rotation: Some(30.0),
-        halign: Some(HorizontalAlignment::Right),
+        halign: Some(HAlign::Right),
         ..TickLabelProps::default()
     };
     for ax in fig.axes() {
-        ax.xaxis().set_ticklabel_props(TickLevel::Major, &rotated);
+        ax.xaxis()
+            .set_ticklabel_props(TickLevel::Major, rotated.clone());
     }
     Ok(())
 }
@@ -314,7 +315,7 @@ fn flat() -> PcolorOptions {
 }
 
 pub(super) fn pcolornearest(fig: &Figure) -> CaseResult {
-    let mesh = Mesh::with_coords(
+    let mesh = Mesh::from_coords(
         arange(0.0, 10.0, 1.0),
         arange(0.0, 3.0, 1.0),
         normal_grid(2, 9)?,
@@ -327,14 +328,14 @@ pub(super) fn pcolornearestunits(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let hours = datetimes(DateTime::new(2020, 1, 1, 0, 0, 0, 0)?, 1, 10)?;
     let x = ax.xaxis().convert_units(hours);
-    let mesh = Mesh::with_coords(x, arange(0.0, 3.0, 1.0), normal_grid(2, 9)?);
+    let mesh = Mesh::from_coords(x, arange(0.0, 3.0, 1.0), normal_grid(2, 9)?);
     ax.pcolormesh(mesh, flat())?;
     Ok(())
 }
 
 /// `_pcolorauto`: automatic shading of cells, snapped or not.
 fn pcolorauto(fig: &Figure, snap: bool) -> CaseResult {
-    let mesh = Mesh::with_coords(
+    let mesh = Mesh::from_coords(
         arange(0.0, 10.0, 1.0),
         arange(0.0, 4.0, 1.0),
         normal_grid(3, 9)?,

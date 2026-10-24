@@ -245,7 +245,8 @@ impl Figure {
         for ax in &axes {
             let bottom_row = ax.subplot_spec().is_none_or(|spec| spec.is_last_row());
             if axes.len() == 1 || bottom_row {
-                ax.xaxis().set_ticklabel_props(TickLevel::Major, &rotated);
+                ax.xaxis()
+                    .set_ticklabel_props(TickLevel::Major, rotated.clone());
             } else if all_subplots {
                 ax.xaxis().set_tick_params(&TickParams {
                     labelbottom: Some(false),

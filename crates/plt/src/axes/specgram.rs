@@ -110,8 +110,14 @@ impl Axes {
         if options.image.origin.is_some() {
             return Err(SpecgramError::Origin);
         }
+        // The time extent is padded by half a segment step on each side.
+        let pad = {
+            let spectral = &options.spectral;
+            let noverlap = spectral.noverlap.unwrap_or(128);
+            (spectral.nfft as f64 - noverlap as f64) / spectral.fs / 2.0
+        };
         let mut spectrogram =
-            mlab::specgram(x, &options.spectral, options.mode).map_err(SpecgramError::Mlab)?;
+            mlab::specgram(x, options.spectral, options.mode).map_err(SpecgramError::Mlab)?;
         let decibels = |factor: f64| move |v: &f64| factor * v.log10();
         let z = match (scale, options.mode) {
             (SpectrumScale::Linear, _) => spectrogram.values.clone(),
@@ -121,9 +127,6 @@ impl Axes {
         let (rows, cols) = z.shape();
         let flipped = Grid::from_fn(rows, cols, |r, c| z[(rows - 1 - r, c)]);
         let (xmin, xmax) = options.xextent.unwrap_or_else(|| {
-            let spectral = &options.spectral;
-            let noverlap = spectral.noverlap.unwrap_or(128);
-            let pad = (spectral.nfft as f64 - noverlap as f64) / spectral.fs / 2.0;
             let times = &spectrogram.times;
             let first = times.iter().copied().fold(f64::INFINITY, f64::min);
             let last = times.iter().copied().fold(f64::NEG_INFINITY, f64::max);

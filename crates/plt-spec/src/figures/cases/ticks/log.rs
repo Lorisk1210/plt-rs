@@ -84,7 +84,7 @@ pub(super) fn log_formatter_variants(fig: &Figure) -> CaseResult {
         base: Some(2.0),
         ..ScaleOptions::default()
     };
-    axs[(3, 0)].set_scale_with(AxisName::X, "log", &base2)?;
+    axs[(3, 0)].set_scale_with(AxisName::X, "log", base2)?;
     axs[(3, 0)].set_xlim(1.0 / 8.0, 512.0);
     axis(3).set_major_formatter(LogFormatter::new(LogLabelStyle::SciNotation, 2.0));
     fig.tight_layout(&TightLayout::default())?;
@@ -100,7 +100,7 @@ pub(super) fn log_wide_range_decimation(fig: &Figure) -> CaseResult {
     ax.plot_fmt(&x, y, "o-")?;
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             which: TickLevel::Both,
             alpha: Some(0.4),
             ..GridOptions::default()
@@ -136,7 +136,7 @@ pub(super) fn symlog_subs_minor(fig: &Figure) -> CaseResult {
     ax1.set_scale_with(
         AxisName::Y,
         "symlog",
-        &ScaleOptions {
+        ScaleOptions {
             linthresh: Some(1.0),
             subs: Some(vec![2.0, 5.0]),
             ..ScaleOptions::default()
@@ -144,7 +144,7 @@ pub(super) fn symlog_subs_minor(fig: &Figure) -> CaseResult {
     )?;
     ax1.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             which: TickLevel::Minor,
             alpha: Some(0.3),
             ..GridOptions::default()
@@ -155,7 +155,7 @@ pub(super) fn symlog_subs_minor(fig: &Figure) -> CaseResult {
     ax2.set_scale_with(
         AxisName::X,
         "symlog",
-        &ScaleOptions {
+        ScaleOptions {
             linthresh: Some(10.0),
             base: Some(2.0),
             linscale: Some(0.5),
@@ -165,7 +165,7 @@ pub(super) fn symlog_subs_minor(fig: &Figure) -> CaseResult {
     ax2.set_scale_with(
         AxisName::Y,
         "symlog",
-        &ScaleOptions {
+        ScaleOptions {
             linthresh: Some(0.1),
             ..ScaleOptions::default()
         },

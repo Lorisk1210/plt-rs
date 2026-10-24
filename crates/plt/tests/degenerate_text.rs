@@ -87,7 +87,7 @@ fn odd_text_never_panics() {
                         SaveFormat::Pdf,
                         SaveFormat::Eps,
                     ] {
-                        let _ = fig.to_format(format, &SaveOptions::default());
+                        let _ = fig.to_format(format, SaveOptions::default());
                     }
                 });
             }));

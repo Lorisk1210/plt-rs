@@ -55,7 +55,7 @@ pub(super) fn asinh_demo(fig: &Figure) -> CaseResult {
     axs[(0, 2)].set_scale_with(
         AxisName::Y,
         "asinh",
-        &ScaleOptions {
+        ScaleOptions {
             linear_width: Some(0.5),
             base: Some(2.0),
             ..ScaleOptions::default()

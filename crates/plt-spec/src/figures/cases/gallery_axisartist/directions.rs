@@ -7,7 +7,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::layout::LayoutEngine;
 use plt::prelude::*;
 use plt::spines::SpineSide;
-use plt::text::{AnnotateOptions, HorizontalAlignment, VerticalAlignment};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt_core::Point;
 
 use crate::figures::cases::common::{polar_box, show_label};
@@ -115,7 +115,7 @@ fn demo_axis_direction(fig: &Figure) -> CaseResult {
             }
             ax.grid(
                 true,
-                &GridOptions {
+                GridOptions {
                     color: Some(".9".into()),
                     ..GridOptions::default()
                 },
@@ -174,8 +174,8 @@ fn simple_axis_pad(fig: &Figure) -> CaseResult {
                     ..AnnotateOptions::default()
                 },
             )?
-            .set_valign(VerticalAlignment::Top)
-            .set_halign(HorizontalAlignment::Center);
+            .set_valign(VAlign::Top)
+            .set_halign(HAlign::Center);
     }
     Ok(())
 }

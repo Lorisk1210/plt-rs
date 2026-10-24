@@ -14,7 +14,8 @@ pub use options::{
     ButtonLayout, ButtonMarkerProps, ButtonsError, CheckButtonsOptions, RadioButtonsOptions,
 };
 
-use super::{Connections, Observers, left_click};
+use super::{CallbackId, Connections, Observers, left_click};
+use crate::artist::ArtistHandle;
 use crate::axes::{Axes, ScatterColors};
 use crate::collections::{Collection, EdgeColors};
 use crate::colors::Color;
@@ -50,7 +51,7 @@ impl CheckButtons {
     /// Turns `ax` into check boxes labelled `labels`, checked where
     /// `actives` says so, in matplotlib's default style.
     pub fn new(ax: &Axes, labels: &[&str], actives: &[bool]) -> Self {
-        Self::with_options(ax, labels, actives, &CheckButtonsOptions::default())
+        Self::with_options(ax, labels, actives, CheckButtonsOptions::default())
             .expect("the legacy layout measures no label")
     }
 
@@ -64,7 +65,7 @@ impl CheckButtons {
         ax: &Axes,
         labels: &[&str],
         actives: &[bool],
-        options: &CheckButtonsOptions,
+        options: CheckButtonsOptions,
     ) -> Result<Self, ButtonsError> {
         let column = Rc::new(ButtonColumn::new(
             ax,
@@ -165,10 +166,16 @@ impl CheckButtons {
     }
 
     /// Runs `callback` with the label of each box clicked (matplotlib's
-    /// `on_clicked`).
-    pub fn on_clicked(&self, mut callback: impl FnMut(Option<&str>) + 'static) {
+    /// `on_clicked`); returns its id for [`CheckButtons::disconnect`].
+    pub fn on_clicked(&self, mut callback: impl FnMut(Option<&str>) + 'static) -> CallbackId {
         self.clicked
-            .connect(move |label: &Option<String>| callback(label.as_deref()));
+            .connect(move |label: &Option<String>| callback(label.as_deref()))
+    }
+
+    /// Disconnects the callback with id `id` (matplotlib's `disconnect`);
+    /// returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.clicked.disconnect(id)
     }
 }
 
@@ -218,7 +225,7 @@ impl RadioButtons {
     /// Turns `ax` into radio buttons labelled `labels` with button
     /// `active` selected, in matplotlib's default style (filled blue).
     pub fn new(ax: &Axes, labels: &[&str], active: usize) -> Self {
-        Self::with_options(ax, labels, active, &RadioButtonsOptions::default())
+        Self::with_options(ax, labels, active, RadioButtonsOptions::default())
             .expect("the legacy layout measures no label")
     }
 
@@ -232,7 +239,7 @@ impl RadioButtons {
         ax: &Axes,
         labels: &[&str],
         active: usize,
-        options: &RadioButtonsOptions,
+        options: RadioButtonsOptions,
     ) -> Result<Self, ButtonsError> {
         let column = Rc::new(ButtonColumn::new(
             ax,
@@ -319,9 +326,16 @@ impl RadioButtons {
     }
 
     /// Runs `callback` with the label of each button selected
-    /// (matplotlib's `on_clicked`).
-    pub fn on_clicked(&self, mut callback: impl FnMut(&str) + 'static) {
-        self.clicked.connect(move |label: &String| callback(label));
+    /// (matplotlib's `on_clicked`); returns its id for
+    /// [`RadioButtons::disconnect`].
+    pub fn on_clicked(&self, mut callback: impl FnMut(&str) + 'static) -> CallbackId {
+        self.clicked.connect(move |label: &String| callback(label))
+    }
+
+    /// Disconnects the callback with id `id` (matplotlib's `disconnect`);
+    /// returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.clicked.disconnect(id)
     }
 }
 
@@ -406,7 +420,7 @@ mod tests {
             },
             ..RadioButtonsOptions::default()
         };
-        let radio = RadioButtons::with_options(&ax, &["a", "b", "c"], 1, &options).unwrap();
+        let radio = RadioButtons::with_options(&ax, &["a", "b", "c"], 1, options).unwrap();
         assert_eq!(radio.labels()[2].color(), Color::from("red"));
         assert_eq!(radio.active_colors.borrow()[1], Color::from("C1"));
         radio.set_active(2);
@@ -421,7 +435,7 @@ mod tests {
             layout: ButtonLayout::Grid { rows: 2, cols: 2 },
             ..CheckButtonsOptions::default()
         };
-        let checks = CheckButtons::with_options(&ax, &["a", "bb", "c"], &[true], &grid).unwrap();
+        let checks = CheckButtons::with_options(&ax, &["a", "bb", "c"], &[true], grid).unwrap();
         let at: Vec<plt_core::Point> = checks.labels().iter().map(Text::position).collect();
         assert_eq!(at[0].y, at[1].y);
         assert!(at[1].x > at[0].x);
@@ -432,7 +446,7 @@ mod tests {
             layout: ButtonLayout::Grid { rows: 1, cols: 2 },
             ..CheckButtonsOptions::default()
         };
-        let refused = CheckButtons::with_options(&ax, &["a", "b", "c"], &[], &too_small).err();
+        let refused = CheckButtons::with_options(&ax, &["a", "b", "c"], &[], too_small).err();
         assert_eq!(
             refused,
             Some(ButtonsError::TooFewPositions {

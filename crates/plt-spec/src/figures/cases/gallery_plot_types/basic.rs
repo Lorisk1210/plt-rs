@@ -104,11 +104,7 @@ fn stackplot(fig: &Figure) -> CaseResult {
         vec![2.0, 1.0, 2.0, 1.0, 2.0],
     ];
     let ax = fig.subplot();
-    ax.stackplot(
-        arange(0.0, 10.0, 2.0),
-        &layers,
-        &StackplotOptions::default(),
-    )?;
+    ax.stackplot(arange(0.0, 10.0, 2.0), &layers, StackplotOptions::default())?;
     unit_square(&ax);
     Ok(())
 }
@@ -123,7 +119,7 @@ fn stairs(fig: &Figure) -> CaseResult {
 
 fn stem(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.stem(centres(), HEIGHTS, &StemOptions::default())?;
+    ax.stem(centres(), HEIGHTS, StemOptions::default())?;
     unit_square(&ax);
     Ok(())
 }

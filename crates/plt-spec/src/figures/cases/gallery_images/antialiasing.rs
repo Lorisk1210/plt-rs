@@ -58,7 +58,7 @@ fn show(
 /// A title in the medium font size.
 fn medium_title(ax: &Axes, title: &str) {
     ax.set_title(title)
-        .set_size(FontSize::Relative(RelativeSize::Medium));
+        .set_fontsize(FontSize::Relative(RelativeSize::Medium));
 }
 
 /// A colorbar for `im` beside all of `axs`, extended both ways.

@@ -12,10 +12,7 @@ use plt::patheffects::{
     GcUpdate, LineShadow, PatchEffect, PatchShadow, PathEffect, Stroke, TickedStroke,
 };
 use plt::prelude::*;
-use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment, TextBoxProps,
-    VerticalAlignment,
-};
+use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, TextBoxProps, VAlign};
 use plt::ticker::pyfmt::PrintfFormat;
 use plt::transforms::Point;
 use plt_core::Path;
@@ -50,14 +47,14 @@ fn patheffect1(fig: &Figure) -> CaseResult {
     };
     ax.annotate("test", (1.0, 1.0), options)?
         .set_fontsize(20.0)
-        .set_halign(HorizontalAlignment::Center)
+        .set_halign(HAlign::Center)
         .set_path_effects(with_stroke(3.0, "w")?);
     let grid = GridOptions {
         linestyle: Some(LineStyle::Solid),
         path_effects: Some(with_stroke(3.0, "w")?),
         ..GridOptions::default()
     };
-    ax.grid_with(true, &grid);
+    ax.grid_with(true, grid);
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -80,7 +77,7 @@ fn patheffect2(fig: &Figure) -> CaseResult {
         },
     )?;
     contour_effects(&contours, &with_stroke(3.0, "w")?);
-    let labels = contours.clabel(&ClabelOptions {
+    let labels = contours.clabel(ClabelOptions {
         fmt: LabelFormat::Printf(PrintfFormat::parse("%2.0f")?),
         use_clabeltext: true,
         ..ClabelOptions::default()
@@ -159,8 +156,8 @@ fn patheffects_stroked_text(fig: &Figure) -> CaseResult {
     let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
     for (i, chunk) in chunks.into_iter().enumerate() {
         ax.text(0.01, 0.9 - i as f64 * 0.13, chunk)
-            .set_halign(HorizontalAlignment::Left)
-            .set_valign(VerticalAlignment::Center)
+            .set_halign(HAlign::Left)
+            .set_valign(VAlign::Center)
             .set_fontsize(font_size)
             .set_color("white")
             .set_path_effects(vec![
@@ -194,7 +191,7 @@ fn collection(fig: &Figure) -> CaseResult {
             PathEffect::stroke(Stroke::new(GcUpdate::default().linewidth(5.0))),
         ],
     );
-    let labels = contours.clabel(&ClabelOptions {
+    let labels = contours.clabel(ClabelOptions {
         colors: Some(vec!["white".into()]),
         ..ClabelOptions::default()
     })?;
@@ -296,8 +293,8 @@ fn patheffects_spaces_and_newlines(fig: &Figure) -> CaseResult {
         (0.25, "\nNewline also causes problems", "thistle"),
     ] {
         ax.text(0.5, y, text)
-            .set_halign(HorizontalAlignment::Center)
-            .set_valign(VerticalAlignment::Center)
+            .set_halign(HAlign::Center)
+            .set_valign(VAlign::Center)
             .set_fontsize(20.0)
             .set_bbox(Some(
                 TextBoxProps::default().with_patch(PatchProps::default().color(color)),

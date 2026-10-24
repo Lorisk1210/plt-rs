@@ -31,7 +31,7 @@ impl RgbaMesh {
     }
 
     /// Colours at explicit coordinates.
-    pub fn with_coords(
+    pub fn from_coords(
         x: impl Into<MeshCoords>,
         y: impl Into<MeshCoords>,
         colors: Grid<Rgba>,
@@ -118,7 +118,7 @@ mod tests {
             shading: Some(Shading::Nearest),
             ..PcolorOptions::default()
         };
-        let mesh = RgbaMesh::with_coords([0.0, 1.0], [0.0, 2.0], gray(2, 2));
+        let mesh = RgbaMesh::from_coords([0.0, 1.0], [0.0, 2.0], gray(2, 2));
         ax.pcolormesh_rgba(mesh, options).unwrap();
         assert_eq!(ax.xlim(), (-0.5, 1.5));
     }
@@ -126,7 +126,7 @@ mod tests {
     #[test]
     fn coordinates_must_fit_the_colours() {
         let ax = Figure::new().subplot();
-        let mesh = RgbaMesh::with_coords([0.0, 1.0, 2.0, 3.0], [0.0, 1.0], gray(1, 2));
+        let mesh = RgbaMesh::from_coords([0.0, 1.0, 2.0, 3.0], [0.0, 1.0], gray(1, 2));
         assert!(matches!(
             ax.pcolormesh_rgba(mesh, PcolorOptions::default()),
             Err(ImageError::MeshShape { .. })

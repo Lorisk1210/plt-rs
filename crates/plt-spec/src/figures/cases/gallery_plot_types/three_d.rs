@@ -127,7 +127,7 @@ fn stem3d(fig: &Figure) -> CaseResult {
         &map(&theta, f64::sin),
         &map(&theta, f64::cos),
         &linspace(0.0, 1.0, theta.len()),
-        &Stem3DOptions::default(),
+        Stem3DOptions::default(),
     )?;
     no_tick_labels(&ax)
 }

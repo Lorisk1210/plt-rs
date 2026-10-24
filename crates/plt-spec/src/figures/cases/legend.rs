@@ -343,7 +343,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax1.plot_with(&t, map(&t, f64::sin), labelled("center"))?;
         ax1.legend(LegendOptions::default())?;
         let layers = [map(&t, |v| v.sin().abs()), map(&t, |v| v.cos().abs())];
-        let stacked = ax2.stackplot(&t, &layers, &StackplotOptions::default())?;
+        let stacked = ax2.stackplot(&t, &layers, StackplotOptions::default())?;
         for (layer, label) in stacked.iter().zip(["first", "second"]) {
             layer.set_label(label);
         }
@@ -356,7 +356,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let x = arange(0.0, 6.0, 1.0);
         let y_errors = ErrorbarOptions {
             yerr: Some(0.5.into()),
-            fmt: "o-".into(),
+            fmt: "o-".parse()?,
             capsize: Some(3.0),
             line: labelled("y errors"),
             ..ErrorbarOptions::default()
@@ -365,14 +365,14 @@ pub(crate) const CASES: &[FigureCase] = &[
         let both = ErrorbarOptions {
             xerr: Some(0.3.into()),
             yerr: Some(0.4.into()),
-            fmt: "s".into(),
+            fmt: "s".parse()?,
             line: labelled("x and y errors"),
             ..ErrorbarOptions::default()
         };
         ax.errorbar(&x, map(&x, |v| v + 3.0), both)?;
         let bars_only = ErrorbarOptions {
             yerr: Some(0.4.into()),
-            fmt: "none".into(),
+            fmt: "none".parse()?,
             line: labelled("bars only"),
             ..ErrorbarOptions::default()
         };
@@ -414,7 +414,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             label: Some("stem".into()),
             ..StemOptions::default()
         };
-        ax.stem(&x, map(&x, |v| (v / 2.0).sin()), &stems)?;
+        ax.stem(&x, map(&x, |v| (v / 2.0).sin()), stems)?;
         ax.step(
             &x,
             map(&x, |v| (v / 2.0).cos() + 1.0),
@@ -442,18 +442,18 @@ pub(crate) const CASES: &[FigureCase] = &[
         };
         ax.hist(
             &[&data],
-            &histogram(HistType::Bar, "bar", PatchProps::default()),
+            histogram(HistType::Bar, "bar", PatchProps::default()),
         )?;
         let shifted = map(&data, |v| v + 3.0);
         ax.hist(
             &[shifted],
-            &histogram(HistType::Step, "step", PatchProps::default()),
+            histogram(HistType::Step, "step", PatchProps::default()),
         )?;
         let lowered = map(&data, |v| v - 3.0);
         let translucent = PatchProps::default().alpha(0.5);
         ax.hist(
             &[lowered],
-            &histogram(HistType::StepFilled, "stepfilled", translucent),
+            histogram(HistType::StepFilled, "stepfilled", translucent),
         )?;
         ax.legend(LegendOptions::default())?;
         Ok(())

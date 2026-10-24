@@ -15,7 +15,7 @@ use plt::orientation::Orientation;
 use plt::patches::{BoxStyle, StepBaseline, StepPatch};
 use plt::prelude::*;
 use plt::stats::{Bins, HistogramOptions, histogram};
-use plt::text::{AnnotateOptions, TextBoxProps, VerticalAlignment};
+use plt::text::{AnnotateOptions, TextBoxProps, VAlign};
 use plt::ticker::MultipleLocator;
 use plt::transforms::Point;
 
@@ -59,7 +59,7 @@ fn stackplot_demo_1(fig: &Figure) -> CaseResult {
         ..StackplotOptions::default()
     };
     for (layer, (name, _)) in ax
-        .stackplot(year, &layers, &options)?
+        .stackplot(year, &layers, options)?
         .iter()
         .zip(population_by_continent)
     {
@@ -101,7 +101,7 @@ fn stackplot_demo_2(fig: &Figure) -> CaseResult {
         baseline: Baseline::Wiggle,
         ..StackplotOptions::default()
     };
-    fig.subplot().stackplot(&x, &ys, &options)?;
+    fig.subplot().stackplot(&x, &ys, options)?;
     Ok(())
 }
 
@@ -121,7 +121,7 @@ fn stairs_demo_1(fig: &Figure) -> CaseResult {
         bins: Bins::Edges(bins.clone()),
         ..HistogramOptions::default()
     };
-    let h = histogram(&samples, &options)?.counts;
+    let h = histogram(&samples, options)?.counts;
     let axs = fig.subplots(3, 1)?;
     let shifted = |offset: f64| Some(map(&bins, |e| e + offset));
     let step_histograms = [
@@ -230,19 +230,19 @@ fn stem_curve() -> (Vec<f64>, Vec<f64>) {
 
 fn stem_plot_1(fig: &Figure) -> CaseResult {
     let (x, y) = stem_curve();
-    fig.subplot().stem(x, y, &StemOptions::default())?;
+    fig.subplot().stem(x, y, StemOptions::default())?;
     Ok(())
 }
 
 fn stem_plot_2(fig: &Figure) -> CaseResult {
     let (x, y) = stem_curve();
     let options = StemOptions {
-        linefmt: "grey".to_owned(),
-        markerfmt: "D".to_owned(),
+        linefmt: "grey".parse()?,
+        markerfmt: "D".parse()?,
         bottom: 1.1,
         ..StemOptions::default()
     };
-    let stems = fig.subplot().stem(x, y, &options)?;
+    let stems = fig.subplot().stem(x, y, options)?;
     stems.markerline.set_markerfacecolor(Color::none());
     Ok(())
 }
@@ -266,7 +266,7 @@ fn step_rows(
         color: Some(Color::from("0.95")),
         ..GridOptions::default()
     };
-    ax.xaxis().grid(true, &grid);
+    ax.xaxis().grid(true, grid);
     ax.legend(LegendOptions::default().title(title))?;
     Ok(())
 }
@@ -423,9 +423,9 @@ fn timeline(fig: &Figure) -> CaseResult {
         };
         let label = ax.annotate(version, Point::new(day, level), options)?;
         label.set_valign(if level > 0.0 {
-            VerticalAlignment::Bottom
+            VAlign::Bottom
         } else {
-            VerticalAlignment::Top
+            VAlign::Top
         });
         label.set_weight(if release.is_feature() {
             FontWeight::BOLD

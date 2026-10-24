@@ -119,7 +119,7 @@ fn clabel(fig: &Figure) -> CaseResult {
     let first = (x[0], dates[0]);
     let field = QuadField::new(z).with_coords(QuadCoords::Axes { x, y: dates });
     let contours = ax.contour(&field, ContourOptions::default())?;
-    contours.clabel(&ClabelOptions {
+    contours.clabel(ClabelOptions {
         manual: Some(vec![first]),
         ..ClabelOptions::default()
     })?;
@@ -176,7 +176,7 @@ fn matshow(fig: &Figure) -> CaseResult {
     )?;
     ax.xaxis().set_ticklabel_props(
         TickLevel::Major,
-        &TickLabelProps {
+        TickLabelProps {
             rotation: Some(90.0),
             ..TickLabelProps::default()
         },
@@ -204,7 +204,7 @@ fn bxp(fig: &Figure) -> CaseResult {
     };
     ax.bxp(
         &[stats],
-        &BxpOptions {
+        BxpOptions {
             orientation: Orientation::Horizontal,
             ..BxpOptions::default()
         },
@@ -234,7 +234,7 @@ fn violin(fig: &Figure, orientation: Orientation) -> CaseResult {
     };
     ax.violin(
         &[stats],
-        &ViolinDrawOptions {
+        ViolinDrawOptions {
             orientation,
             ..ViolinDrawOptions::default()
         },

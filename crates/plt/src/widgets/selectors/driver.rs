@@ -13,7 +13,7 @@ use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::events::{Event, EventKind, KeyEvent, Location, LockOwner, MouseEvent};
 use crate::navigation::PointerButton;
-use crate::widgets::{Connections, Observers, data_in, ordered};
+use crate::widgets::{CallbackId, Connections, Observers, data_in, ordered};
 
 /// An event's pointer in the selector's axes, before cleaning (matplotlib's
 /// `_call_with_reparented_event`).
@@ -362,6 +362,12 @@ impl<T: Tool + std::fmt::Debug> std::fmt::Debug for Driver<T> {
 }
 
 impl<T: Tool> Driver<T> {
+    /// Disconnects callback `id` from either signal; returns whether it
+    /// was connected.
+    pub(super) fn disconnect(&self, id: CallbackId) -> bool {
+        self.selected.disconnect(id) || self.moved.disconnect(id)
+    }
+
     /// Connects a selector made of `core` and `tool` to the figure's
     /// mouse and key events.
     pub(super) fn new(core: Core, tool: T) -> Self {

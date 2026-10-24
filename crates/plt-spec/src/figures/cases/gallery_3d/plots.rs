@@ -117,19 +117,19 @@ fn stem_curve() -> [Vec<f64>; 3] {
 
 fn stem3d_demo_1(fig: &Figure) -> CaseResult {
     let [x, y, z] = stem_curve();
-    subplots_3d(fig, 1, 1)?[0].stem(&x, &y, &z, &Stem3DOptions::default())?;
+    subplots_3d(fig, 1, 1)?[0].stem(&x, &y, &z, Stem3DOptions::default())?;
     Ok(())
 }
 
 fn stem3d_demo_2(fig: &Figure) -> CaseResult {
     let [x, y, z] = stem_curve();
     let options = Stem3DOptions {
-        linefmt: "grey".into(),
-        markerfmt: "D".into(),
+        linefmt: "grey".parse()?,
+        markerfmt: "D".parse()?,
         bottom: PI,
         ..Stem3DOptions::default()
     };
-    let stem = subplots_3d(fig, 1, 1)?[0].stem(&x, &y, &z, &options)?;
+    let stem = subplots_3d(fig, 1, 1)?[0].stem(&x, &y, &z, options)?;
     stem.markerline.set_markerfacecolor("none");
     Ok(())
 }
@@ -142,7 +142,7 @@ fn stem3d_demo_3(fig: &Figure) -> CaseResult {
         ..Stem3DOptions::default()
     };
     let ax = &subplots_3d(fig, 1, 1)?[0];
-    ax.stem(&x, &y, &z, &options)?;
+    ax.stem(&x, &y, &z, options)?;
     label_xyz(ax, ["x", "y", "z"]);
     Ok(())
 }

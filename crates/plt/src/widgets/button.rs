@@ -6,7 +6,7 @@ use std::rc::Rc;
 use plt_core::Point;
 use plt_text::{HAlign, VAlign};
 
-use super::{Connections, Observers, left_click};
+use super::{CallbackId, Connections, Observers, left_click};
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::colors::Color;
@@ -108,9 +108,16 @@ impl Button {
         &self.label
     }
 
-    /// Runs `callback` on every click (matplotlib's `on_clicked`).
-    pub fn on_clicked(&self, mut callback: impl FnMut() + 'static) {
-        self.clicked.connect(move |()| callback());
+    /// Runs `callback` on every click (matplotlib's `on_clicked`); returns
+    /// its id for [`Button::disconnect`].
+    pub fn on_clicked(&self, mut callback: impl FnMut() + 'static) -> CallbackId {
+        self.clicked.connect(move |()| callback())
+    }
+
+    /// Disconnects the callback with id `id` (matplotlib's `disconnect`);
+    /// returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.clicked.disconnect(id)
     }
 }
 
@@ -146,5 +153,23 @@ mod tests {
         source.button_press(&fig, x, y, PointerButton::Left, false);
         source.button_release(&fig, x, y, PointerButton::Left);
         assert_eq!(clicks.get(), 1, "a dropped button is disconnected");
+    }
+
+    #[test]
+    fn disconnected_callbacks_miss_later_clicks() {
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.add_axes([0.5, 0.5, 0.4, 0.2]);
+        let button = Button::new(&ax, "Reset", ButtonOptions::default());
+        let clicks = Rc::new(Cell::new(0));
+        let (first, second) = (Rc::clone(&clicks), Rc::clone(&clicks));
+        let kept = button.on_clicked(move || first.set(first.get() + 1));
+        let dropped = button.on_clicked(move || second.set(second.get() + 10));
+        assert!(button.disconnect(dropped));
+        assert!(!button.disconnect(dropped), "already disconnected");
+        let mut source = EventSource::new();
+        source.button_press(&fig, 280.0, 180.0, PointerButton::Left, false);
+        source.button_release(&fig, 280.0, 180.0, PointerButton::Left);
+        assert_eq!(clicks.get(), 1);
+        assert!(button.disconnect(kept));
     }
 }

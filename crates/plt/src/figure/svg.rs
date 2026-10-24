@@ -12,7 +12,7 @@ use super::save::{SaveError, simplify_settings};
 impl Figure {
     /// The figure as an SVG document (matplotlib's `savefig(format="svg")`).
     pub fn to_svg(&self) -> Result<String, SaveError> {
-        self.to_svg_with(&SaveOptions::default())
+        self.to_svg_with(SaveOptions::default())
     }
 
     /// The figure as an SVG document with save options; the `svg.*`
@@ -22,8 +22,8 @@ impl Figure {
     /// # Errors
     ///
     /// When some artists cannot be drawn or the document cannot be written.
-    pub fn to_svg_with(&self, options: &SaveOptions) -> Result<String, SaveError> {
-        self.svg_document(options, None)
+    pub fn to_svg_with(&self, options: SaveOptions) -> Result<String, SaveError> {
+        self.svg_document(&options, None)
             .map(|(document, _)| document)
     }
 

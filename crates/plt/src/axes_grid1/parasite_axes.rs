@@ -2,7 +2,7 @@
 //!
 //! A parasite axes sits exactly on its host and has a coordinate system
 //! of its own, sharing one axis of the host ([`HostAxes::twinx`],
-//! [`HostAxes::twiny`]), none ([`HostAxes::get_aux_axes`]), or mapped onto
+//! [`HostAxes::twiny`]), none ([`HostAxes::aux_axes`]), or mapped onto
 //! the host's by a transform ([`HostAxes::twin`]). The host draws the
 //! parasites' artists and visible decorations among its own, sorted by
 //! z-order, and its legend lists them after its own.
@@ -181,7 +181,7 @@ impl HostAxes {
     ///
     /// When the transform of a [`ParasiteLink::Transform`] rotates, shears
     /// or cannot be inverted.
-    pub fn get_aux_axes(&self, link: ParasiteLink) -> Result<ParasiteAxes, ParasiteError> {
+    pub fn aux_axes(&self, link: ParasiteLink) -> Result<ParasiteAxes, ParasiteError> {
         let view_map = link.view_map()?;
         Ok(self.add_parasite(link, view_map, false))
     }
@@ -515,7 +515,7 @@ mod tests {
             Err(ParasiteError::NotSeparable(_))
         ));
         assert!(matches!(
-            host.get_aux_axes(ParasiteLink::Transform(Affine2D::scaling(0.0, 1.0))),
+            host.aux_axes(ParasiteLink::Transform(Affine2D::scaling(0.0, 1.0))),
             Err(ParasiteError::Singular(_))
         ));
         assert!(
@@ -529,7 +529,7 @@ mod tests {
     fn parasites_continue_the_host_line_cycle_and_join_its_legend() {
         let fig = Figure::new();
         let host = host_subplot(&fig, 1, 1, 1).unwrap();
-        let par = host.get_aux_axes(ParasiteLink::Equal).unwrap();
+        let par = host.aux_axes(ParasiteLink::Equal).unwrap();
         let first = host.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         let second = par.plot([0.0, 1.0], [1.0, 0.0]).unwrap();
         first.set_label("host");

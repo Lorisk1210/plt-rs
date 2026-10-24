@@ -262,7 +262,7 @@ pub fn render_vector_with(
         if format == VectorFormat::Pgf {
             return saved_pgf(fig, case);
         }
-        Ok(fig.to_format(format.save_format(), &golden_options(case))?)
+        Ok(fig.to_format(format.save_format(), golden_options(case))?)
     })
 }
 
@@ -276,7 +276,7 @@ fn saved_pgf(fig: &plt::figure::Figure, case: &FigureCase) -> Result<Vec<u8>, Bo
     std::fs::create_dir_all(&directory)?;
     let path = directory.join(format!("{}.pgf", case.name.replace('/', "__")));
     let saved = fig
-        .savefig_with(&path, &golden_options(case))
+        .savefig_with(&path, golden_options(case))
         .map_err(Box::<dyn Error>::from)
         .and_then(|()| Ok(std::fs::read(&path)?));
     let _ = std::fs::remove_dir_all(&directory);
@@ -300,7 +300,7 @@ pub fn render_pdf_pages(cases: &[FigureCase]) -> Result<Vec<u8>, Box<dyn Error>>
         if page == 1 {
             pages.attach_note("the second page");
         }
-        case.with_figure(|fig| Ok(pages.savefig_with(fig, &golden_options(case))?))?;
+        case.with_figure(|fig| Ok(pages.savefig_with(fig, golden_options(case))?))?;
     }
     Ok(pages.finish()?)
 }

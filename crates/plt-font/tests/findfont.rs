@@ -40,13 +40,13 @@ fn catalogue_matches_matplotlib_ttflist() {
         .as_array()
         .iter()
         .map(|e| {
-            let style = FontStyle::parse(e.get("style").as_str()).unwrap();
+            let style = e.get("style").as_str().parse::<FontStyle>().unwrap();
             let variant = if e.get("variant").as_str() == "small-caps" {
                 FontVariant::SmallCaps
             } else {
                 FontVariant::Normal
             };
-            let stretch = Stretch::parse(e.get("stretch").as_str()).unwrap();
+            let stretch = e.get("stretch").as_str().parse::<Stretch>().unwrap();
             format!(
                 "{}|{}|{style:?}|{variant:?}|{}|{}",
                 e.get("file").as_str(),
@@ -76,14 +76,14 @@ fn findfont_matches_matplotlib() {
             .collect();
         let request = FontQuery {
             families,
-            style: FontStyle::parse(query.get("style").as_str()).unwrap(),
+            style: query.get("style").as_str().parse::<FontStyle>().unwrap(),
             variant: if query.get("variant").as_str() == "small-caps" {
                 FontVariant::SmallCaps
             } else {
                 FontVariant::Normal
             },
-            weight: Weight::parse(query.get("weight").as_str()).unwrap(),
-            stretch: Stretch::parse(query.get("stretch").as_str()).unwrap(),
+            weight: query.get("weight").as_str().parse::<Weight>().unwrap(),
+            stretch: query.get("stretch").as_str().parse::<Stretch>().unwrap(),
             size: 10.0,
         };
         let found = file_of(&db, db.find_font(&request).unwrap());

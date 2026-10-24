@@ -18,7 +18,7 @@ use plt::layout::{LayoutEngine, TightLayout};
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
 use plt::prelude::*;
-use plt::text::VerticalAlignment as VAlign;
+use plt::text::VAlign;
 use plt::ticker::{
     AutoMinorLocator, EngFormatter, FixedFormatter, FuncFormatter, MaxNLocator, MultipleLocator,
     Nbins, OffsetMode, StrMethodFormatter, pyfmt,
@@ -275,8 +275,8 @@ fn colorbar_tick_labelling_demo_1(fig: &Figure) -> CaseResult {
         ..TickLabelProps::default()
     };
     let axis = cbar.ax().yaxis();
-    axis.set_major_ticklabel_props(0, &aligned(VAlign::Top));
-    axis.set_major_ticklabel_props(2, &aligned(VAlign::Bottom));
+    axis.set_major_ticklabel_props(0, aligned(VAlign::Top));
+    axis.set_major_ticklabel_props(2, aligned(VAlign::Bottom));
     Ok(())
 }
 

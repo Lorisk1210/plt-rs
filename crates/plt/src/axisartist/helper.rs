@@ -172,7 +172,7 @@ impl AxisHelper {
                 nth_ticks,
             } => {
                 let view = ctx.axes.view_lim;
-                let info = grid.grid_finder().get_grid_info(view).map_err(grid_error)?;
+                let info = grid.grid_finder().grid_info(view).map_err(grid_error)?;
                 let (v1, v2) = match side.axis() {
                     AxisName::X => view.interval_y(),
                     AxisName::Y => view.interval_x(),
@@ -296,7 +296,7 @@ fn rectilinear_levels(
     nth: AxisName,
     across: Across,
 ) -> Result<TickLevels, String> {
-    let ticked = axes.axis(nth).ticks.as_ref().map_err(Clone::clone)?;
+    let ticked = axes.axis(nth).ticks.as_ref().map_err(ToString::to_string)?;
     Ok((
         rectilinear_ticks(axes, nth, across, &ticked.major),
         rectilinear_ticks(axes, nth, across, &ticked.minor_all),

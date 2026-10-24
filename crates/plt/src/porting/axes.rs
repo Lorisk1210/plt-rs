@@ -131,9 +131,9 @@
 //!
 //! let ax = Figure::new().subplot();
 //! let base2 = ScaleOptions { base: Some(2.0), ..ScaleOptions::default() };
-//! ax.set_scale_with(AxisName::X, "log", &base2)?;
+//! ax.set_scale_with(AxisName::X, "log", base2)?;
 //! let symlog = ScaleOptions { linthresh: Some(1.0), ..ScaleOptions::default() };
-//! ax.set_scale_with(AxisName::Y, "symlog", &symlog)?;
+//! ax.set_scale_with(AxisName::Y, "symlog", symlog)?;
 //! assert_eq!(ax.xscale(), "log");
 //! assert_eq!(ax.yscale(), "symlog");
 //!
@@ -141,7 +141,7 @@
 //!     functions: Some(FuncTransform::new(f64::sqrt, |v| v * v)),
 //!     ..ScaleOptions::default()
 //! };
-//! ax.set_scale_with(AxisName::Y, "function", &root)?;
+//! ax.set_scale_with(AxisName::Y, "function", root)?;
 //! assert!(ax.set_xscale("loglog").is_err());
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -210,7 +210,7 @@
 //!     linestyle: Some(LineStyle::Dashed),
 //!     ..GridOptions::default()
 //! };
-//! ax.grid(false).grid_with(true, &options);
+//! ax.grid(false).grid_with(true, options);
 //! assert!(ax.has_grid(AxisName::Y, true));
 //! assert!(!ax.has_grid(AxisName::X, true));
 //!

@@ -4,7 +4,7 @@
 use plt::fonts::FontStyle;
 use plt::fonts::{FontStretch, FontWeight, RelativeSize};
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, TextRotationMode, VerticalAlignment};
+use plt::text::{HAlign, TextRotationMode, VAlign};
 
 use super::{LOREM, blank};
 use crate::figures::{CaseResult, FigureCase};
@@ -24,7 +24,7 @@ fn rotations(fig: &Figure, mode: TextRotationMode) -> CaseResult {
         ax.text(x, 5.0, format!("rot {rotation}"))
             .set_rotation(f64::from(rotation))
             .set_rotation_mode(mode)
-            .set_valign(VerticalAlignment::Bottom);
+            .set_valign(VAlign::Bottom);
     }
     Ok(())
 }
@@ -39,16 +39,16 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("text/ha_va_grid", |fig| {
         let ax = blank(fig);
         let valigns = [
-            (VerticalAlignment::Top, "top"),
-            (VerticalAlignment::Center, "ctr"),
-            (VerticalAlignment::Baseline, "base"),
-            (VerticalAlignment::Bottom, "bot"),
-            (VerticalAlignment::CenterBaseline, "cbase"),
+            (VAlign::Top, "top"),
+            (VAlign::Center, "ctr"),
+            (VAlign::Baseline, "base"),
+            (VAlign::Bottom, "bot"),
+            (VAlign::CenterBaseline, "cbase"),
         ];
         let haligns = [
-            (HorizontalAlignment::Left, 'l'),
-            (HorizontalAlignment::Center, 'c'),
-            (HorizontalAlignment::Right, 'r'),
+            (HAlign::Left, 'l'),
+            (HAlign::Center, 'c'),
+            (HAlign::Right, 'r'),
         ];
         for (i, (halign, initial)) in haligns.into_iter().enumerate() {
             for (j, (valign, short)) in valigns.into_iter().enumerate() {
@@ -84,7 +84,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ];
         for (i, size) in sizes.into_iter().enumerate() {
             ax.text(0.3, 9.3 - 1.3 * i as f64, format!("size {}", size.name()))
-                .set_fontsize_relative(size);
+                .set_fontsize(size);
         }
         for (i, size) in [6, 9, 14, 20, 28].into_iter().enumerate() {
             ax.text(5.5, 9.3 - 1.9 * i as f64, format!("{size} pt"))
@@ -169,7 +169,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         ax.text(0.05, 0.95, LOREM)
             .set_wrap(true)
-            .set_valign(VerticalAlignment::Top)
+            .set_valign(VAlign::Top)
             .set_transform(ax.trans_axes())
             .set_fontsize(9.0);
         ax.text(0.05, 0.1, &LOREM[..120])
@@ -183,11 +183,11 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("text/fig_text_wrap_paragraph", |fig| {
         fig.text(0.02, 0.98, format!("{LOREM} {LOREM}"))
             .set_wrap(true)
-            .set_valign(VerticalAlignment::Top)
+            .set_valign(VAlign::Top)
             .set_fontsize(10.0);
         fig.text(0.5, 0.1, format!("centred: {}", &LOREM[..90]))
             .set_wrap(true)
-            .set_halign(HorizontalAlignment::Center);
+            .set_halign(HAlign::Center);
         Ok(())
     })
     .sized(5.0, 3.0, 100.0),
@@ -197,14 +197,14 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.text(1.0, 1.0, "data (1, 1)");
         ax.text(0.98, 0.02, "axes (0.98, 0.02)")
             .set_transform(ax.trans_axes())
-            .set_halign(HorizontalAlignment::Right);
+            .set_halign(HAlign::Right);
         ax.text(0.5, 1.02, "axes top")
             .set_transform(ax.trans_axes())
-            .set_halign(HorizontalAlignment::Center);
+            .set_halign(HAlign::Center);
         fig.text(0.01, 0.01, "figure (0.01, 0.01)");
         fig.text(0.99, 0.99, "fig top right")
-            .set_halign(HorizontalAlignment::Right)
-            .set_valign(VerticalAlignment::Top);
+            .set_halign(HAlign::Right)
+            .set_valign(VAlign::Top);
         fig.suptitle("suptitle");
         Ok(())
     })

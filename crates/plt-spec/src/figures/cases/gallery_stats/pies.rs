@@ -14,9 +14,7 @@ use plt::legend::{BboxToAnchor, LegendOptions};
 use plt::patches::{ConnectionEnd, ConnectionPatch};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{
-    AnnotateOptions, ArrowProps, HorizontalAlignment as HAlign, VerticalAlignment as VAlign,
-};
+use plt::text::{AnnotateOptions, ArrowProps, HAlign, VAlign};
 
 use super::strings;
 use crate::figures::cases::common::{arrow, styled_box};
@@ -42,7 +40,7 @@ fn bar_of_pie(fig: &Figure) -> CaseResult {
         explode: vec![0.1, 0.0, 0.0],
         ..PieOptions::default()
     };
-    let pie = ax1.pie(&overall_ratios, &options)?;
+    let pie = ax1.pie(&overall_ratios, options)?;
     let age_ratios = [0.33, 0.54, 0.07, 0.06];
     let age_labels = ["Under 35", "35-49", "50-65", "Over 65"];
     let mut bottom = 1.0;
@@ -63,7 +61,7 @@ fn bar_of_pie(fig: &Figure) -> CaseResult {
             label_type: BarLabelType::Center,
             ..BarLabelOptions::default()
         };
-        ax2.bar_label(&bc, &centred)?;
+        ax2.bar_label(&bc, centred)?;
     }
     ax2.set_title("Age of approvers");
     ax2.legend(LegendOptions::default())?;
@@ -108,10 +106,10 @@ fn nested_pie_1(fig: &Figure) -> CaseResult {
         ..PieOptions::default()
     };
     let sums = NESTED_VALS.map(|[a, b]| a + b);
-    ax.pie(&sums, &ring(1.0, pick(&[0, 4, 8])))?;
+    ax.pie(&sums, ring(1.0, pick(&[0, 4, 8])))?;
     ax.pie(
         NESTED_VALS.as_flattened(),
-        &ring(1.0 - RING, pick(&[1, 2, 5, 6, 9, 10])),
+        ring(1.0 - RING, pick(&[1, 2, 5, 6, 9, 10])),
     )?;
     ax.set_aspect(Aspect::Equal)?;
     ax.set_title("Pie plot with `ax.pie`");
@@ -136,13 +134,13 @@ fn pie_and_donut_labels_1(fig: &Figure) -> CaseResult {
         .iter()
         .filter_map(|item| item.split_whitespace().last())
         .collect();
-    let mut pie = ax.pie(&data, &PieOptions::default())?;
+    let mut pie = ax.pie(&data, PieOptions::default())?;
     let white = PieLabelOptions {
         color: Some("w".into()),
         size: Some(FontSize::Points(8.0)),
         ..PieLabelOptions::default()
     };
-    for text in ax.pie_label(&mut pie, "{frac:.1%}\n({absval:d}g)", &white)? {
+    for text in ax.pie_label(&mut pie, "{frac:.1%}\n({absval:d}g)", white)? {
         text.set_weight(FontWeight::BOLD);
     }
     ax.legend(
@@ -173,7 +171,7 @@ fn pie_and_donut_labels_2(fig: &Figure) -> CaseResult {
         startangle: -40.0,
         ..PieOptions::default()
     };
-    let pie = ax.pie(&[225.0, 90.0, 50.0, 60.0, 100.0, 5.0], &donut)?;
+    let pie = ax.pie(&[225.0, 90.0, 50.0, 60.0, 100.0, 5.0], donut)?;
     let bbox = || {
         styled_box(
             "square,pad=0.3",
@@ -225,7 +223,7 @@ fn feature_pie(fig: &Figure, options: PieOptions) -> CaseResult {
         labels: strings(&PIE_LABELS),
         ..options
     };
-    fig.subplot().pie(&PIE_SIZES, &options)?;
+    fig.subplot().pie(&PIE_SIZES, options)?;
     Ok(())
 }
 
@@ -337,11 +335,11 @@ fn at(distance: f64) -> PieLabelOptions {
 /// A pie of [`PIE_DATA`] labelled once per labelling (`labelled_pie`).
 fn labelled_pie(fig: &Figure, labellings: Vec<Labelling>) -> CaseResult {
     let ax = fig.subplot();
-    let mut pie: PieContainer = ax.pie(&PIE_DATA, &PieOptions::default())?;
+    let mut pie: PieContainer = ax.pie(&PIE_DATA, PieOptions::default())?;
     for labelling in labellings {
         match labelling {
-            Labelling::Names(options) => ax.pie_label(&mut pie, BREAKFAST, &options)?,
-            Labelling::Template(template, options) => ax.pie_label(&mut pie, template, &options)?,
+            Labelling::Names(options) => ax.pie_label(&mut pie, BREAKFAST, options)?,
+            Labelling::Template(template, options) => ax.pie_label(&mut pie, template, options)?,
         };
     }
     Ok(())

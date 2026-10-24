@@ -6,7 +6,7 @@ use std::rc::Rc;
 use plt_core::Point;
 use plt_text::{HAlign, VAlign};
 
-use super::{Connections, Observers, left_click};
+use super::{CallbackId, Connections, Observers, left_click};
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::collections::Collection;
@@ -271,19 +271,26 @@ impl TextBox {
     }
 
     /// Runs `callback` with the text after every edit (matplotlib's
-    /// `on_text_change`).
-    pub fn on_text_change(&self, mut callback: impl FnMut(&str) + 'static) {
+    /// `on_text_change`); returns its id for [`TextBox::disconnect`].
+    pub fn on_text_change(&self, mut callback: impl FnMut(&str) + 'static) -> CallbackId {
         self.entry
             .changed
-            .connect(move |text: &String| callback(text));
+            .connect(move |text: &String| callback(text))
     }
 
     /// Runs `callback` with the text when it is submitted (matplotlib's
-    /// `on_submit`).
-    pub fn on_submit(&self, mut callback: impl FnMut(&str) + 'static) {
+    /// `on_submit`); returns its id for [`TextBox::disconnect`].
+    pub fn on_submit(&self, mut callback: impl FnMut(&str) + 'static) -> CallbackId {
         self.entry
             .submitted
-            .connect(move |text: &String| callback(text));
+            .connect(move |text: &String| callback(text))
+    }
+
+    /// Disconnects the callback with id `id`, whichever signal it was
+    /// connected to (matplotlib's `disconnect`); returns whether it was
+    /// connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.entry.changed.disconnect(id) || self.entry.submitted.disconnect(id)
     }
 }
 
@@ -315,6 +322,21 @@ mod tests {
         source.button_press(&fig, 1.0, 1.0, PointerButton::Left, false);
         assert!(!fig.captures_keys());
         assert_eq!(*submitted.borrow(), ["plt-r!", "plt-r!"]);
+    }
+
+    #[test]
+    fn disconnect_finds_the_callback_whichever_signal_it_listens_to() {
+        let fig = Figure::with_size(6.0, 3.0, 100.0);
+        let ax = fig.add_axes([0.78, 0.45, 0.18, 0.1]);
+        let entry = TextBox::new(&ax, "Name ", "", TextBoxOptions::default());
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let (changes, submits) = (Rc::clone(&log), Rc::clone(&log));
+        let change =
+            entry.on_text_change(move |text| changes.borrow_mut().push(format!("c {text}")));
+        entry.on_submit(move |text| submits.borrow_mut().push(format!("s {text}")));
+        assert!(entry.disconnect(change));
+        entry.set_val("x");
+        assert_eq!(*log.borrow(), ["s x"]);
     }
 
     #[test]

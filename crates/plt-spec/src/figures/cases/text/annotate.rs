@@ -8,8 +8,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::patches::{BoxStyle, ConnectionStyle};
 use plt::prelude::*;
 use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment, LegacyArrowProps,
-    TextBoxProps, VerticalAlignment,
+    AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, LegacyArrowProps, TextBoxProps, VAlign,
 };
 use plt::transforms::Point;
 
@@ -180,7 +179,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 ..AnnotateOptions::default()
             },
         )?
-        .set_halign(HorizontalAlignment::Left);
+        .set_halign(HAlign::Left);
         ax.annotate(
             "outside xlim",
             (2.4, 0.5),
@@ -213,7 +212,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                     ..AnnotateOptions::default()
                 },
             )?
-            .set_valign(VerticalAlignment::Center);
+            .set_valign(VAlign::Center);
         }
         Ok(())
     })
@@ -237,7 +236,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                     ..AnnotateOptions::default()
                 },
             )?
-            .set_valign(VerticalAlignment::Center);
+            .set_valign(VAlign::Center);
         }
         Ok(())
     })
@@ -272,7 +271,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                     ..AnnotateOptions::default()
                 },
             )?
-            .set_valign(VerticalAlignment::Center);
+            .set_valign(VAlign::Center);
         }
         Ok(())
     })
@@ -344,7 +343,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                     ..AnnotateOptions::default()
                 },
             )?
-            .set_valign(VerticalAlignment::Bottom);
+            .set_valign(VAlign::Bottom);
         }
         let props = FancyArrowProps {
             connectionstyle: "arc3,rad=0.4".parse::<ConnectionStyle>()?,

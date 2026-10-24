@@ -13,7 +13,7 @@ use plt::image::{ColorizerOptions, Interpolation};
 use plt::legend::{LegendHandle, LegendOptions};
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 
 use super::{SEED, classic};
 use crate::figures::{CaseResult, FigureCase};
@@ -32,8 +32,8 @@ fn use14corefonts(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_title("Test PDF backend with option use14corefonts=True");
     ax.text(0.5, 0.5, text)
-        .set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Bottom)
+        .set_halign(HAlign::Center)
+        .set_valign(VAlign::Bottom)
         .set_fontsize(14.0);
     ax.axhline(0.5, LineProps::default().linewidth(0.5));
     Ok(())

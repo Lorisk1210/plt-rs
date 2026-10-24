@@ -233,7 +233,7 @@ fn add_data(ax: &Axes, args: Args<'_>) -> Result<(), ProbeError> {
             },
             ..BoxplotOptions::default()
         };
-        ax.boxplot(&[b.f64_vec("x")?], &options)
+        ax.boxplot(&[b.f64_vec("x")?], options)
             .map_err(ProbeError::rejected)?;
     }
     Ok(())
@@ -269,7 +269,7 @@ pub(super) fn ticklocs(args: Args<'_>) -> Outcome {
         let locs = ax
             .axis_of(name)
             .ticklocs(args.bool("minor")?)
-            .map_err(ProbeError::Rejected)?;
+            .map_err(ProbeError::rejected)?;
         Ok(Json::from(locs))
     })
 }
@@ -281,8 +281,8 @@ pub(super) fn ticklabels(args: Args<'_>) -> Outcome {
         let labels = ax
             .axis_of(name)
             .ticklabels(args.bool("minor")?)
-            .map_err(ProbeError::Rejected)?;
-        let offset = ax.ticks(name).map_err(ProbeError::Rejected)?.offset;
+            .map_err(ProbeError::rejected)?;
+        let offset = ax.ticks(name).map_err(ProbeError::rejected)?.offset;
         Ok(encode::object([
             ("labels", Json::from(labels)),
             ("offset", Json::from(offset)),
@@ -350,7 +350,8 @@ pub(super) fn shared_hist(args: Args<'_>) -> Outcome {
         let mut ylims = Vec::new();
         for (row, data) in datasets.iter().enumerate() {
             let ax = &axes[(row, 0)];
-            ax.hist(&[data], &options).map_err(ProbeError::rejected)?;
+            ax.hist(&[data], options.clone())
+                .map_err(ProbeError::rejected)?;
             let log = LogScale::new(10.0)
                 .map_err(ProbeError::rejected)?
                 .with_nonpositive(NonPositive::Clip);
@@ -358,7 +359,7 @@ pub(super) fn shared_hist(args: Args<'_>) -> Outcome {
         }
         for row in 0..datasets.len() {
             let ax = &axes[(row, 0)];
-            let ticks = ax.yaxis().ticklocs(false).map_err(ProbeError::Rejected)?;
+            let ticks = ax.yaxis().ticklocs(false).map_err(ProbeError::rejected)?;
             yticks.push(Json::from(ticks));
             let (bottom, top) = ax.ylim();
             ylims.push(Json::from(vec![bottom, top]));
@@ -398,11 +399,11 @@ pub(super) fn remove_overlap(args: Args<'_>) -> Outcome {
         Ok(encode::object([
             (
                 "locs",
-                Json::from(axis.ticklocs(true).map_err(ProbeError::Rejected)?),
+                Json::from(axis.ticklocs(true).map_err(ProbeError::rejected)?),
             ),
             (
                 "labels",
-                Json::from(axis.ticklabels(true).map_err(ProbeError::Rejected)?),
+                Json::from(axis.ticklabels(true).map_err(ProbeError::rejected)?),
             ),
         ]))
     })

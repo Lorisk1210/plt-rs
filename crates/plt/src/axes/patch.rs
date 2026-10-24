@@ -65,6 +65,7 @@ impl Axes {
 
 #[cfg(test)]
 mod tests {
+    use crate::artist::ArtistHandle;
     use crate::figure::Figure;
 
     #[test]

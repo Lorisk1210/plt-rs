@@ -22,7 +22,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.minorticks_on();
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 which: TickLevel::Major,
                 color: Some(Color::from("0.4")),
                 linewidth: Some(1.0),
@@ -31,7 +31,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         );
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 which: TickLevel::Minor,
                 color: Some(Color::from("0.8")),
                 linestyle: Some(LineStyle::Dotted),
@@ -47,7 +47,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         line(&ax)?;
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 axis: Some(AxisName::Y),
                 color: Some(Color::from("tab:red")),
                 linestyle: Some(LineStyle::Dashed),
@@ -69,7 +69,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.set_axisbelow(AxisBelow::Below);
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 linewidth: Some(2.0),
                 ..GridOptions::default()
             },

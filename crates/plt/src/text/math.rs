@@ -3,9 +3,7 @@
 
 use std::borrow::Cow;
 
-use plt_text::mathtext::{
-    CustomFonts, MathFallback, MathFont, MathStyle, PatternDefaults, is_math_text,
-};
+use plt_text::mathtext::{CustomFonts, MathFallback, MathStyle, PatternDefaults, is_math_text};
 
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -43,7 +41,7 @@ impl<'a> Line<'a> {
 pub fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
     MathStyle {
         fontset: font.math_fontfamily,
-        default: MathFont::parse(&rc.mathtext_default).unwrap_or_default(),
+        default: rc.mathtext_default.parse().unwrap_or_default(),
         fallback: rc
             .mathtext_fallback
             .as_deref()
@@ -66,7 +64,7 @@ pub fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use plt_text::mathtext::Fontset;
+    use plt_text::mathtext::{Fontset, MathFont};
 
     #[test]
     fn preprocessing_follows_matplotlib() {

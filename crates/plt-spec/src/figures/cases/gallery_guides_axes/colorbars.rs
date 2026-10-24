@@ -241,7 +241,7 @@ fn colorbar_placement_10(fig: &Figure) -> CaseResult {
 fn colorbar_placement_11(fig: &Figure) -> CaseResult {
     let (ax, pcm) = random_image(fig, LayoutEngine::compressed())?;
     ax.set_title("Colorbar with layout='compressed'")
-        .set_fontsize_relative(plt::fonts::RelativeSize::Medium);
+        .set_fontsize(plt::fonts::RelativeSize::Medium);
     fig.colorbar(&pcm, ColorbarOptions::beside(&ax))?;
     Ok(())
 }
@@ -250,7 +250,7 @@ fn colorbar_placement_12(fig: &Figure) -> CaseResult {
     let (ax, pcm) = random_image(fig, LayoutEngine::constrained())?;
     let cax = ax.inset_axes([1.04, 0.0, 0.05, 1.0]);
     ax.set_title("Colorbar with inset_axes")
-        .set_fontsize_relative(plt::fonts::RelativeSize::Medium);
+        .set_fontsize(plt::fonts::RelativeSize::Medium);
     fig.colorbar(
         &pcm,
         ColorbarOptions {

@@ -64,7 +64,7 @@ fn contour_corner_mask(fig: &Figure) -> CaseResult {
         ax.set_title(format!("corner_mask={printed}"));
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 color: Some("k".into()),
                 linestyle: Some(LineStyle::Solid),
                 alpha: Some(0.3),
@@ -86,7 +86,7 @@ fn contour_corner_mask(fig: &Figure) -> CaseResult {
 fn contour_demo_1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let cs = ax.contour(&demo_field(), ContourOptions::default())?;
-    cs.clabel(&sized_labels(10.0))?;
+    cs.clabel(sized_labels(10.0))?;
     ax.set_title("Simplest default with labels");
     Ok(())
 }
@@ -94,7 +94,7 @@ fn contour_demo_1(fig: &Figure) -> CaseResult {
 fn contour_demo_2(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let cs = ax.contour(&demo_field(), ContourOptions::default())?;
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         manual: Some(vec![
             (-1.0, -1.4),
             (-0.62, -0.7),
@@ -117,7 +117,7 @@ fn single_color(fig: &Figure, title: &str) -> CaseResult {
         ..count(6)
     };
     ax.contour(&demo_field(), options)?
-        .clabel(&sized_labels(9.0))?;
+        .clabel(sized_labels(9.0))?;
     ax.set_title(title);
     Ok(())
 }
@@ -145,7 +145,7 @@ fn contour_demo_5(fig: &Figure) -> CaseResult {
         ..count(6)
     };
     ax.contour(&demo_field(), options)?
-        .clabel(&sized_labels(9.0))?;
+        .clabel(sized_labels(9.0))?;
     ax.set_title("Crazy lines");
     Ok(())
 }
@@ -176,7 +176,7 @@ fn contour_demo_6(fig: &Figure) -> CaseResult {
     let mut widths = vec![2.0; levels.len()];
     widths[6] = 4.0;
     cs.set_linewidths(&widths);
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         levels: Some(levels.iter().copied().skip(1).step_by(2).collect()),
         fmt: LabelFormat::Printf(PrintfFormat::parse("%1.1f")?),
         ..sized_labels(14.0)
@@ -223,7 +223,7 @@ fn default_lines(fig: &Figure) -> Result<ContourSet, Box<dyn std::error::Error>>
 
 fn contour_label_demo_1(fig: &Figure) -> CaseResult {
     let cs = default_lines(fig)?;
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
         fmt: LabelFormat::Formatter(Box::new(FuncFormatter::new(|x, _| percent(x)))),
         ..sized_labels(10.0)
@@ -237,7 +237,7 @@ fn contour_label_demo_2(fig: &Figure) -> CaseResult {
         "first", "second", "third", "fourth", "fifth", "sixth", "seventh",
     ];
     let levels = cs.levels();
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         levels: Some(levels.iter().copied().step_by(2).collect()),
         fmt: LabelFormat::Map(
             levels
@@ -262,7 +262,7 @@ fn contour_label_demo_3(fig: &Figure) -> CaseResult {
             ..ContourOptions::default()
         },
     )?;
-    cs.clabel(&ClabelOptions {
+    cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
         fmt: LabelFormat::Formatter(Box::new(LogFormatter::new(LogLabelStyle::Mathtext, 10.0))),
         ..ClabelOptions::default()
@@ -293,7 +293,7 @@ fn contours_in_optimization_demo(fig: &Figure) -> CaseResult {
             ..values(&[0.01, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0])
         },
     )?;
-    cntr.clabel(&ClabelOptions {
+    cntr.clabel(ClabelOptions {
         fmt: LabelFormat::Printf(PrintfFormat::parse("%2.1f")?),
         use_clabeltext: true,
         ..ClabelOptions::default()

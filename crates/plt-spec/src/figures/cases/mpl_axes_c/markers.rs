@@ -21,9 +21,9 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         let options = StemOptions {
             label: Some("stem".into()),
-            ..dash_dotted_stems("k+")
+            ..dash_dotted_stems("k+")?
         };
-        ax.stem(&x, map(&x, f64::cos), &options)?;
+        ax.stem(&x, map(&x, f64::cos), options)?;
         ax.legend(LegendOptions::default())?;
         remove_ticks_and_titles(fig);
         Ok(())
@@ -32,9 +32,9 @@ pub(crate) const CASES: &[FigureCase] = &[
         let x = linspace(0.1, 2.0 * std::f64::consts::PI, 50);
         let options = StemOptions {
             orientation: Orientation::Horizontal,
-            ..dash_dotted_stems("kx")
+            ..dash_dotted_stems("kx")?
         };
-        fig.subplot().stem(&x, map(&x, f64::cos), &options)?;
+        fig.subplot().stem(&x, map(&x, f64::cos), options)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -164,13 +164,13 @@ pub(crate) const CASES: &[FigureCase] = &[
 ];
 
 /// `linefmt="C2-.", basefmt="C1-."` with the given marker format.
-fn dash_dotted_stems(markerfmt: &str) -> StemOptions {
-    StemOptions {
-        linefmt: "C2-.".into(),
-        markerfmt: markerfmt.into(),
-        basefmt: "C1-.".into(),
+fn dash_dotted_stems(markerfmt: &str) -> Result<StemOptions, FormatError> {
+    Ok(StemOptions {
+        linefmt: "C2-.".parse()?,
+        markerfmt: markerfmt.parse()?,
+        basefmt: "C1-.".parse()?,
         ..StemOptions::default()
-    }
+    })
 }
 
 /// `0, 1, ..., n - 1`, the x values of `plot(y)`.

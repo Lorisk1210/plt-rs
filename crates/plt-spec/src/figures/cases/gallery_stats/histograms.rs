@@ -47,7 +47,7 @@ fn histogram_bihistogram(fig: &Figure) -> CaseResult {
             ..HistOptions::default()
         })
     };
-    ax.hist(&[dataset1], &first)?;
+    ax.hist(&[dataset1], first)?;
     let weights = [vec![-1.0; dataset2.len()]];
     let second = HistPlotOptions {
         label: strings(&["Dataset 2"]),
@@ -57,7 +57,7 @@ fn histogram_bihistogram(fig: &Figure) -> CaseResult {
             ..HistOptions::default()
         })
     };
-    ax.hist(&[dataset2], &second)?;
+    ax.hist(&[dataset2], second)?;
     ax.axhline(0.0, LineProps::default().color("k"));
     ax.legend(LegendOptions::default())?;
     Ok(())
@@ -87,7 +87,7 @@ fn histogram_cumulative(fig: &Figure) -> CaseResult {
         },
     )?;
     let forward = step(Cumulative::Forward, "Cumulative histogram", Bins::Count(25));
-    let edges = ax0.hist(std::slice::from_ref(&data), &forward)?.edges;
+    let edges = ax0.hist(std::slice::from_ref(&data), forward)?.edges;
     let low = data.iter().copied().fold(f64::INFINITY, f64::min);
     let high = data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let x = linspace(low, high, 50);
@@ -115,7 +115,7 @@ fn histogram_cumulative(fig: &Figure) -> CaseResult {
         "Reversed cumulative histogram",
         Bins::Edges(edges),
     );
-    ax1.hist(&[data], &reverse)?;
+    ax1.hist(&[data], reverse)?;
     ax1.plot_with(&x, map(&y, |y| 1.0 - y), theory()?)?;
     fig.suptitle("Cumulative distributions");
     for ax in axs.as_slice() {
@@ -145,7 +145,7 @@ fn histogram_histtypes(fig: &Figure) -> CaseResult {
                 ..bins(20)
             })
         };
-        ax.hist(&x, &options)?;
+        ax.hist(&x, options)?;
     }
     axs[(0, 0)].set_title("stepfilled");
     axs[(0, 1)].set_title("step");
@@ -157,8 +157,8 @@ fn histogram_histtypes(fig: &Figure) -> CaseResult {
             ..HistOptions::default()
         })
     };
-    axs[(1, 0)].hist(&x, &stacked())?;
-    axs[(1, 0)].hist(&w, &stacked())?;
+    axs[(1, 0)].hist(&x, stacked())?;
+    axs[(1, 0)].hist(&w, stacked())?;
     axs[(1, 0)].set_title("barstacked");
     let unequal = laid_out(HistOptions {
         bins: Some(Bins::Edges(vec![
@@ -168,7 +168,7 @@ fn histogram_histtypes(fig: &Figure) -> CaseResult {
         rwidth: Some(0.8),
         ..HistOptions::default()
     });
-    axs[(1, 1)].hist(&x, &unequal)?;
+    axs[(1, 1)].hist(&x, unequal)?;
     axs[(1, 1)].set_title("bar, unequal bins");
     fig.tight_layout(&TightLayout::default())?;
     Ok(())
@@ -198,7 +198,7 @@ fn histogram_multihist_1(fig: &Figure) -> CaseResult {
             ..bins(N_BINS)
         })
     };
-    axs[(0, 0)].hist(&x, &with_legend)?;
+    axs[(0, 0)].hist(&x, with_legend)?;
     axs[(0, 0)].legend(LegendOptions::default().prop(sized(10.0)))?;
     axs[(0, 0)].set_title("bars with legend");
     let stacked = laid_out(HistOptions {
@@ -206,7 +206,7 @@ fn histogram_multihist_1(fig: &Figure) -> CaseResult {
         stacked: true,
         ..bins(N_BINS)
     });
-    axs[(0, 1)].hist(&x, &stacked)?;
+    axs[(0, 1)].hist(&x, stacked)?;
     axs[(0, 1)].set_title("stacked bar");
     let steps = HistPlotOptions {
         props: PatchProps::default().fill(false),
@@ -216,20 +216,20 @@ fn histogram_multihist_1(fig: &Figure) -> CaseResult {
             ..bins(N_BINS)
         })
     };
-    axs[(1, 0)].hist(&x, &steps)?;
+    axs[(1, 0)].hist(&x, steps)?;
     axs[(1, 0)].set_title("stack step (unfilled)");
     let x_multi: Vec<Vec<f64>> = [10_000, 5000, 2000]
         .into_iter()
         .map(|n| g.normal(n, 0.0, 1.0))
         .collect();
-    axs[(1, 1)].hist(&x_multi, &laid_out(bins(N_BINS)))?;
+    axs[(1, 1)].hist(&x_multi, laid_out(bins(N_BINS)))?;
     axs[(1, 1)].set_title("different sample sizes");
     fig.tight_layout(&TightLayout::default())?;
     Ok(())
 }
 
 /// One histogram of [`three_normals`] with a legend and a title.
-fn multihist(fig: &Figure, options: &HistPlotOptions<'_>, title: &str) -> CaseResult {
+fn multihist(fig: &Figure, options: HistPlotOptions<'_>, title: &str) -> CaseResult {
     let ax = fig.subplot();
     ax.hist(&three_normals(&mut SpecRng::new(SEED)), options)?;
     ax.legend(LegendOptions::default())?;
@@ -263,7 +263,7 @@ fn histogram_multihist_2(fig: &Figure) -> CaseResult {
         label: strings(&STACK_COLORS),
         ..outlined(HistType::Step, true)
     };
-    multihist(fig, &options, "Stacked Steps with Edgecolors")
+    multihist(fig, options, "Stacked Steps with Edgecolors")
 }
 
 fn histogram_multihist_3(fig: &Figure) -> CaseResult {
@@ -272,7 +272,7 @@ fn histogram_multihist_3(fig: &Figure) -> CaseResult {
         label: strings(&STACK_COLORS),
         ..barstacked()
     };
-    multihist(fig, &options, "Bars with different Facecolors")
+    multihist(fig, options, "Bars with different Facecolors")
 }
 
 fn histogram_multihist_4(fig: &Figure) -> CaseResult {
@@ -282,7 +282,7 @@ fn histogram_multihist_4(fig: &Figure) -> CaseResult {
         label: strings(&hatches),
         ..barstacked()
     };
-    multihist(fig, &options, "Hatches on Stacked Bars")
+    multihist(fig, options, "Hatches on Stacked Bars")
 }
 
 fn histogram_multihist_5(fig: &Figure) -> CaseResult {
@@ -291,7 +291,7 @@ fn histogram_multihist_5(fig: &Figure) -> CaseResult {
         label: strings(&["1", "2", "3"]),
         ..outlined(HistType::Bar, false)
     };
-    multihist(fig, &options, "Bars with Linewidths")
+    multihist(fig, options, "Bars with Linewidths")
 }
 
 fn histogram_multihist_6(fig: &Figure) -> CaseResult {
@@ -300,7 +300,7 @@ fn histogram_multihist_6(fig: &Figure) -> CaseResult {
         label: strings(&["-", ":", "--"]),
         ..outlined(HistType::Bar, false)
     };
-    multihist(fig, &options, "Bars with Linestyles")
+    multihist(fig, options, "Bars with Linestyles")
 }
 
 fn multiple_histograms_side_by_side(fig: &Figure) -> CaseResult {
@@ -323,7 +323,7 @@ fn multiple_histograms_side_by_side(fig: &Figure) -> CaseResult {
     };
     let binned_data_sets = data_sets
         .iter()
-        .map(|data| histogram(data, &options).map(|h| h.counts))
+        .map(|data| histogram(data, options.clone()).map(|h| h.counts))
         .collect::<Result<Vec<_>, _>>()?;
     let maximums: Vec<f64> = binned_data_sets
         .iter()

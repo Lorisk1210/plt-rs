@@ -46,7 +46,7 @@ fn binned_dots(ax: &Axes, xlabel: &str, bins: Option<Bins>) -> CaseResult {
         bins,
         ..HistOptions::default()
     };
-    ax.hist(&[XDATA], &outlined(layout))?;
+    ax.hist(&[XDATA], outlined(layout))?;
     ax.plot_with(XDATA, [0.0; 9], LineProps::fmt("d")?)?;
     ax.set_xlabel(xlabel);
     Ok(())
@@ -87,7 +87,7 @@ fn mosaic_row(
         sharey: shared,
         ..MosaicOptions::default()
     };
-    Ok(fig.subplot_mosaic(&mosaic(&[labels])?, &options)?)
+    Ok(fig.subplot_mosaic(&mosaic(&[labels])?, options)?)
 }
 
 /// The axes labelled `label`.
@@ -115,7 +115,7 @@ fn histogram_normalization_4(fig: &Figure) -> CaseResult {
         density: true,
         ..HistOptions::default()
     };
-    ax.hist(&[XDATA], &outlined(layout))?;
+    ax.hist(&[XDATA], outlined(layout))?;
     ax.set_ylabel("Probability density [$V^{-1}$])");
     ax.set_xlabel("x bins (dx=0.5 $V$)");
     Ok(())
@@ -159,7 +159,7 @@ fn counts_and_density(fig: &Figure, xbins: &[f64], scaled_label: &str) -> CaseRe
     let (xpdf, pdf) = normal_pdf();
     let ax = mosaic_row(fig, &["False", "True"], false)?;
     let counts = panel(&ax, "False")?;
-    counts.hist(&xdata, &labelled(steps(xbins.to_vec(), false), "Counts"))?;
+    counts.hist(&xdata, labelled(steps(xbins.to_vec(), false), "Counts"))?;
     counts.plot_with(
         &xpdf,
         map(&pdf, |p| p * 1000.0 * 0.1),
@@ -169,7 +169,7 @@ fn counts_and_density(fig: &Figure, xbins: &[f64], scaled_label: &str) -> CaseRe
     counts.set_xlabel("x bins [V]");
     counts.legend(LegendOptions::default())?;
     let density = panel(&ax, "True")?;
-    density.hist(&xdata, &labelled(steps(xbins.to_vec(), true), "density"))?;
+    density.hist(&xdata, labelled(steps(xbins.to_vec(), true), "density"))?;
     density.plot_with(&xpdf, &pdf, LineProps::default().label("$f_X(x)$"))?;
     density.set_ylabel(DENSITY_LABEL);
     density.set_xlabel(VOLT_BINS);
@@ -212,8 +212,8 @@ fn histogram_normalization_7(fig: &Figure) -> CaseResult {
             map(&pdf, |p| p * 1000.0 * dx),
             LineProps::fmt("--")?.color(format!("C{nn}")),
         )?;
-        counts.hist(&xdata, &steps(xbins.clone(), false))?;
-        density.hist(&xdata, &labelled(steps(xbins, true), &dx.to_string()))?;
+        counts.hist(&xdata, steps(xbins.clone(), false))?;
+        density.hist(&xdata, labelled(steps(xbins, true), &dx.to_string()))?;
     }
     counts.set_xlabel(VOLT_BINS);
     counts.set_ylabel("Count per bin");
@@ -246,7 +246,7 @@ fn histogram_normalization_8(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     for dx in BIN_WIDTHS {
         let options = weighted_steps(arange(-4.0, 4.0, dx), &weights, &dx.to_string());
-        ax.hist(&xdata, &options)?;
+        ax.hist(&xdata, options)?;
     }
     ax.set_xlabel(VOLT_BINS);
     ax.set_ylabel("Bin count / N");
@@ -263,13 +263,13 @@ fn histogram_normalization_9(fig: &Figure) -> CaseResult {
     let density = panel(&ax, "density")?;
     let weighted = panel(&ax, "weight")?;
     for sample in &samples {
-        no_norm.hist(std::slice::from_ref(sample), &steps(xbins.clone(), false))?;
+        no_norm.hist(std::slice::from_ref(sample), steps(xbins.clone(), false))?;
     }
     no_norm.set_ylabel("Counts");
     no_norm.set_xlabel(VOLT_BINS);
     no_norm.set_title("No normalization");
     for sample in &samples {
-        density.hist(std::slice::from_ref(sample), &steps(xbins.clone(), true))?;
+        density.hist(std::slice::from_ref(sample), steps(xbins.clone(), true))?;
     }
     density.set_ylabel(DENSITY_LABEL);
     density.set_title("Density=True");
@@ -278,7 +278,7 @@ fn histogram_normalization_9(fig: &Figure) -> CaseResult {
         let weights = [one_over_n(sample.len())];
         let label = format!("N={}", sample.len());
         let options = weighted_steps(xbins.clone(), &weights, &label);
-        weighted.hist(std::slice::from_ref(sample), &options)?;
+        weighted.hist(std::slice::from_ref(sample), options)?;
     }
     weighted.set_xlabel(VOLT_BINS);
     weighted.set_ylabel("Counts / N");

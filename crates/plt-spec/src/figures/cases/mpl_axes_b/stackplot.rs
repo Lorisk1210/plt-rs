@@ -25,7 +25,7 @@ fn straight_layers() -> (Vec<f64>, Vec<Vec<f64>>) {
 fn stackplot(fig: &Figure, options: &StackplotOptions) -> CaseResult {
     let (x, layers) = straight_layers();
     let ax = fig.subplot();
-    ax.stackplot(&x, &layers, options)?;
+    ax.stackplot(&x, &layers, options.clone())?;
     ax.set_xlim(0.0, 10.0);
     ax.set_ylim(0.0, 70.0);
     Ok(())
@@ -110,7 +110,7 @@ pub(super) const CASES: &[FigureCase] = &[
                 baseline,
                 ..StackplotOptions::default()
             };
-            ax.stackplot(&x, &layers, &options)?;
+            ax.stackplot(&x, &layers, options)?;
         }
         remove_ticks_and_titles(fig);
         Ok(())

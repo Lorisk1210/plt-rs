@@ -17,7 +17,7 @@ use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::SubplotOverrides;
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 use plt::ticker::{FixedLocator, LogLocator};
 use plt::transforms::Transform;
 use plt_core::{Affine2D, Path, PathCode, Point};
@@ -81,8 +81,8 @@ pub(super) fn contour_manual_labels(fig: &Figure) -> CaseResult {
     let cs = fig
         .subplot()
         .contour(&max_norm_grid(), ContourOptions::default())?;
-    cs.clabel(&manual(&[(1.0, 3.0), (1.0, 4.4), (1.0, 6.0)]))?;
-    cs.clabel(&ClabelOptions {
+    cs.clabel(manual(&[(1.0, 3.0), (1.0, 4.4), (1.0, 6.0)]))?;
+    cs.clabel(ClabelOptions {
         fontsize: Some(FontSize::Relative(RelativeSize::Small)),
         colors: Some(colors(&["r", "g"])),
         ..manual(&[(2.0, 3.0), (2.0, 4.4), (2.0, 6.0)])
@@ -103,7 +103,7 @@ pub(super) fn contour_label_with_disconnected_segments(fig: &Figure) -> CaseResu
     });
     let field = QuadField::new(z).with_coords(QuadCoords::Mesh { x, y });
     let cs = fig.subplot().contour(&field, levels(&[7.0]))?;
-    cs.clabel(&manual(&[(0.2, 0.1)]))?;
+    cs.clabel(manual(&[(0.2, 0.1)]))?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -210,11 +210,12 @@ pub(super) fn contour_datetime_axis(fig: &Figure) -> CaseResult {
     }
     let rotated = TickLabelProps {
         rotation: Some(30.0),
-        halign: Some(HorizontalAlignment::Right),
+        halign: Some(HAlign::Right),
         ..TickLabelProps::default()
     };
     for ax in fig.axes() {
-        ax.xaxis().set_ticklabel_props(TickLevel::Major, &rotated);
+        ax.xaxis()
+            .set_ticklabel_props(TickLevel::Major, rotated.clone());
     }
     Ok(())
 }
@@ -232,7 +233,7 @@ pub(super) fn labels(fig: &Figure) -> CaseResult {
     );
     let ax = fig.subplot();
     let cs = ax.contour(&field, ContourOptions::default())?;
-    cs.clabel(&ClabelOptions::default())?;
+    cs.clabel(ClabelOptions::default())?;
     let label_near = |cs: &ContourSet, points: &[(f64, f64)], transform: &Transform| {
         points.iter().try_for_each(|&(x, y)| {
             cs.add_label_near(Point::new(x, y), transform, true, 5.0)

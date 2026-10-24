@@ -78,7 +78,7 @@ fn check_buttons(fig: &Figure) -> CaseResult {
         },
         ..CheckButtonsOptions::default()
     };
-    CheckButtons::with_options(&rax, &labels, &actives, &options)?;
+    CheckButtons::with_options(&rax, &labels, &actives, options)?;
     Ok(())
 }
 
@@ -102,7 +102,7 @@ fn radio_buttons(fig: &Figure) -> CaseResult {
         &["main", "color"],
         &["main", "linestyle"],
     ])?;
-    let axd = fig.subplot_mosaic(&layout, &options)?;
+    let axd = fig.subplot_mosaic(&layout, options)?;
     let get = |label| axd.get(label).ok_or("a mosaic cell");
     let main = get("main")?;
     let t = t();
@@ -124,7 +124,7 @@ fn radio_buttons(fig: &Figure) -> CaseResult {
         },
         ..RadioButtonsOptions::default()
     };
-    RadioButtons::with_options(freq, &["1 Hz", "2 Hz", "4 Hz"], 0, &frequencies)?;
+    RadioButtons::with_options(freq, &["1 Hz", "2 Hz", "4 Hz"], 0, frequencies)?;
 
     let color = get("color")?;
     button_panel(color, "Color");
@@ -138,7 +138,7 @@ fn radio_buttons(fig: &Figure) -> CaseResult {
         },
         ..RadioButtonsOptions::default()
     };
-    RadioButtons::with_options(color, &names, 0, &colored)?;
+    RadioButtons::with_options(color, &names, 0, colored)?;
 
     let linestyle = get("linestyle")?;
     button_panel(linestyle, "Linestyle");
@@ -171,7 +171,7 @@ fn radio_buttons_grid(fig: &Figure) -> CaseResult {
         ax_buttons,
         &["red", "yellow", "green", "purple", "brown", "gray"],
         0,
-        &options,
+        options,
     )?;
     Ok(())
 }

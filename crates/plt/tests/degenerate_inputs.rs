@@ -39,19 +39,19 @@ fn line_cases() -> Vec<(&'static str, Case)> {
             done(ax.errorbar(x, y, ErrorbarOptions::default()))
         }),
         ("stem", |_, ax, x, y| {
-            done(ax.stem(x, y, &StemOptions::default()))
+            done(ax.stem(x, y, StemOptions::default()))
         }),
         ("step", |_, ax, x, y| {
             done(ax.step(x.to_vec(), y.to_vec(), StepWhere::Pre, LineProps::default()))
         }),
         ("stackplot", |_, ax, x, y| {
-            done(ax.stackplot(x, &[y.to_vec()], &StackplotOptions::default()))
+            done(ax.stackplot(x, &[y.to_vec()], StackplotOptions::default()))
         }),
         ("stairs", |_, ax, _, y| {
             done(ax.stairs(y.to_vec(), StairsOptions::default()))
         }),
         ("eventplot", |_, ax, _, y| {
-            done(ax.eventplot(&[y.to_vec()], &EventplotOptions::default()))
+            done(ax.eventplot(&[y.to_vec()], EventplotOptions::default()))
         }),
     ]
 }
@@ -60,7 +60,7 @@ fn line_cases() -> Vec<(&'static str, Case)> {
 fn stat_cases() -> Vec<(&'static str, Case)> {
     vec![
         ("hist", |_, ax, _, y| {
-            done(ax.hist(&[y], &HistPlotOptions::default()))
+            done(ax.hist(&[y], HistPlotOptions::default()))
         }),
         ("hist2d", |_, ax, x, y| {
             done(ax.hist2d(x, y, Hist2dOptions::default()))
@@ -69,12 +69,12 @@ fn stat_cases() -> Vec<(&'static str, Case)> {
             done(ax.hexbin(x, y, HexbinOptions::default()))
         }),
         ("boxplot", |_, ax, _, y| {
-            done(ax.boxplot(&[y], &BoxplotOptions::default()))
+            done(ax.boxplot(&[y], BoxplotOptions::default()))
         }),
         ("violinplot", |_, ax, _, y| {
-            done(ax.violinplot(&[y], &ViolinplotOptions::default()))
+            done(ax.violinplot(&[y], ViolinplotOptions::default()))
         }),
-        ("pie", |_, ax, _, y| done(ax.pie(y, &PieOptions::default()))),
+        ("pie", |_, ax, _, y| done(ax.pie(y, PieOptions::default()))),
         ("ecdf", |_, ax, _, y| {
             done(ax.ecdf(y, EcdfOptions::default()))
         }),
@@ -82,7 +82,7 @@ fn stat_cases() -> Vec<(&'static str, Case)> {
             done(ax.specgram(y, SpecgramOptions::default()))
         }),
         ("psd", |_, ax, _, y| {
-            done(ax.psd(y, &SpectralPlotOptions::default()))
+            done(ax.psd(y, SpectralPlotOptions::default()))
         }),
     ]
 }

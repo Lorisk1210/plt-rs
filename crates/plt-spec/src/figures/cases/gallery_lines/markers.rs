@@ -11,7 +11,7 @@ use plt::gridspec::GridSpec;
 use plt::layout::LayoutEngine;
 use plt::markers::MarkerStyle;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, VerticalAlignment, text_path};
+use plt::text::{HAlign, VAlign, text_path};
 use plt::transforms::{Affine2D, Point};
 use plt_core::Path;
 use plt_render::{CapStyle, JoinStyle};
@@ -30,8 +30,8 @@ const MARKER_ANGLES: [f64; 7] = [0.0, 10.0, 20.0, 30.0, 45.0, 60.0, 90.0];
 /// centred 12 pt monospace.
 fn row_label(ax: &Axes, y: f64, label: &str) {
     ax.text(-0.5, y, label)
-        .set_halign(HorizontalAlignment::Right)
-        .set_valign(VerticalAlignment::Center)
+        .set_halign(HAlign::Right)
+        .set_valign(VAlign::Center)
         .set_fontsize(12.0)
         .set_family(["monospace"]);
 }
@@ -188,7 +188,7 @@ fn rotated(
 /// The degree labels above the columns of a rotated marker sheet.
 fn angle_label(ax: &Axes, x: f64, y: f64, degrees: f64) {
     ax.text(x, y, format!("{degrees}°"))
-        .set_halign(HorizontalAlignment::Center);
+        .set_halign(HAlign::Center);
 }
 
 fn marker_reference_6(fig: &Figure) -> CaseResult {

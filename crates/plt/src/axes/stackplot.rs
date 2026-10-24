@@ -48,7 +48,7 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::StackplotOptions;
     /// let ax = Figure::new().subplot();
-    /// let layers = ax.stackplot([0.0, 1.0], &[vec![1.0, 2.0], vec![1.0, 1.0]], &StackplotOptions::default())?;
+    /// let layers = ax.stackplot([0.0, 1.0], &[vec![1.0, 2.0], vec![1.0, 1.0]], StackplotOptions::default())?;
     /// assert_eq!(layers.len(), 2);
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
@@ -60,7 +60,7 @@ impl Axes {
         &self,
         x: impl Into<AxisValues>,
         ys: &[Vec<f64>],
-        options: &StackplotOptions,
+        options: StackplotOptions,
     ) -> Result<Vec<Collection>, PlotError> {
         let x = self.xaxis().convert_units(x);
         if let Some(bad) = ys.iter().find(|y| y.len() != x.len()) {
@@ -80,7 +80,7 @@ impl Axes {
         for (i, top) in stack.iter().enumerate() {
             let bottom = if i == 0 { &first_line } else { &stack[i - 1] };
             let fill = FillBetweenOptions {
-                props: layer_props(options, &colors, i),
+                props: layer_props(&options, &colors, i),
                 ..FillBetweenOptions::default()
             };
             let layer = self.fill_between(x, bottom, top, fill)?;
@@ -212,12 +212,12 @@ mod tests {
     fn layers_take_line_cycle_colours_and_stick_at_zero() {
         let ax = Figure::new().subplot();
         let drawn = ax
-            .stackplot([0.0, 1.0, 2.0], &layers(), &StackplotOptions::default())
+            .stackplot([0.0, 1.0, 2.0], &layers(), StackplotOptions::default())
             .unwrap();
         assert_eq!(drawn[0].sticky_edges(), (Vec::new(), vec![0.0]));
         assert_eq!(ax.ylim(), (0.0, 4.2));
         assert!(
-            ax.stackplot([0.0], &layers(), &StackplotOptions::default())
+            ax.stackplot([0.0], &layers(), StackplotOptions::default())
                 .is_err()
         );
     }

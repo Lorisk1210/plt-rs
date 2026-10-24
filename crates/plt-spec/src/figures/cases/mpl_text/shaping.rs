@@ -6,7 +6,7 @@ use crate::figures::cases::common::ranges;
 use plt::figure::SubfigureOptions;
 use plt::patheffects::PathEffect;
 use plt::prelude::*;
-use plt::text::{Feature, HorizontalAlignment, Language, Text, VerticalAlignment};
+use plt::text::{Feature, HAlign, Language, Text, VAlign};
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -24,8 +24,8 @@ fn complex_shaping(fig: &Figure) -> Vec<Text> {
         .map(|y| {
             let t = fig.text(0.5, y, text.as_str());
             t.set_fontsize(32.0)
-                .set_halign(HorizontalAlignment::Center)
-                .set_valign(VerticalAlignment::Center);
+                .set_halign(HAlign::Center)
+                .set_valign(VAlign::Center);
             t
         })
         .collect();
@@ -44,8 +44,7 @@ fn text_features(fig: &Figure) -> Texts {
     let mut texts = Vec::new();
     for (y, content, settings) in rows {
         let text = fig.text(1.0, y, content);
-        text.set_fontsize(32.0)
-            .set_halign(HorizontalAlignment::Right);
+        text.set_fontsize(32.0).set_halign(HAlign::Right);
         if !settings.is_empty() {
             let features: Vec<Feature> = settings
                 .iter()
@@ -115,7 +114,7 @@ fn draw_text_fallback(fig: &Figure) -> CaseResult {
     let subfigs = fig.subfigures(
         3,
         1,
-        &SubfigureOptions {
+        SubfigureOptions {
             height_ratios: Some(vec![2.0, 1.5, 3.0]),
             ..SubfigureOptions::default()
         },

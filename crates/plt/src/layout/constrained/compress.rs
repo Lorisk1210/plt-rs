@@ -182,7 +182,7 @@ mod tests {
             let fig = Figure::with_size(6.4, 9.6, 100.0);
             fig.set_layout_engine(Some(LayoutEngine::compressed()));
             let parts = fig
-                .subfigures(3, 1, &crate::figure::SubfigureOptions::default())
+                .subfigures(3, 1, crate::figure::SubfigureOptions::default())
                 .expect("subfigures");
             let mut first = None;
             for part in parts.as_slice() {

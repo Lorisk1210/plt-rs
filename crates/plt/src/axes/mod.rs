@@ -96,7 +96,7 @@ pub(crate) use children::DataUpdate;
 pub use current_image::ColorizingArtist;
 pub use ecdf::{EcdfError, EcdfOptions};
 pub use error::PlotError;
-pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarOptions};
+pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarFormat, ErrorbarOptions};
 pub use eventplot::EventplotOptions;
 pub use fill_between::FillBetweenOptions;
 pub(crate) use fill_between::FillGeometry;
@@ -121,6 +121,7 @@ pub use spectral::{CorrelationArtists, SpectralPlotOptions, SpectrumPlotOptions,
 pub use spy::{Spy, SpyOptions};
 pub use stackplot::{Baseline, StackplotOptions};
 pub(crate) use state::AxesState;
+pub(crate) use stem::solid_format;
 pub use stem::{StemContainer, StemOptions};
 pub use steps::StairsOptions;
 pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat};
@@ -144,6 +145,7 @@ use crate::rc::ColorOrAuto;
 use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
 use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
+use crate::ticker::TickerError;
 use crate::transforms::Transform;
 use crate::units::{AxisValue, DataPoint};
 use plt_text::{HAlign, VAlign};
@@ -219,12 +221,6 @@ impl ArtistHandle for Axes {
 impl Axes {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
-    }
-
-    /// The figure this axes belongs to (matplotlib's
-    /// `get_figure(root=True)`).
-    pub fn figure(&self) -> crate::figure::Figure {
-        crate::figure::Figure::root_of(self.raw.figure_state())
     }
 
     /// Data coordinates of this axes (`ax.transData`).
@@ -350,7 +346,7 @@ impl Axes {
         }
         title
             .set_text(text)
-            .set_size(rc.axes_titlesize)
+            .set_fontsize(rc.axes_titlesize)
             .set_weight(rc.axes_titleweight)
             .set_valign(VAlign::Baseline)
             .set_halign(location.halign());
@@ -540,13 +536,13 @@ impl Axes {
     /// Sets the x scale by name (`"linear"`, `"log"`, `"symlog"`,
     /// `"logit"`, `"asinh"`, ...) with default options.
     pub fn set_xscale(&self, name: &str) -> Result<&Self, ScaleError> {
-        self.set_scale(AxisName::X, scale_factory(name, &ScaleOptions::default())?);
+        self.set_scale(AxisName::X, scale_factory(name, ScaleOptions::default())?);
         Ok(self)
     }
 
     /// Sets the y scale by name.
     pub fn set_yscale(&self, name: &str) -> Result<&Self, ScaleError> {
-        self.set_scale(AxisName::Y, scale_factory(name, &ScaleOptions::default())?);
+        self.set_scale(AxisName::Y, scale_factory(name, ScaleOptions::default())?);
         Ok(self)
     }
 
@@ -587,7 +583,11 @@ impl Axes {
     /// The ticks one axis draws in the current view (computed by the last
     /// draw or layout pass; call [`Figure::layout`](crate::figure::Figure::layout)
     /// to refresh them without drawing).
-    pub fn ticks(&self, axis: AxisName) -> Result<TickSet, String> {
+    ///
+    /// # Errors
+    ///
+    /// When the locator or the formatter of the axis fails.
+    pub fn ticks(&self, axis: AxisName) -> Result<TickSet, TickerError> {
         self.raw.figure_state().borrow_mut().prepare();
         self.raw
             .with::<AxesState, _>(|a| a.axis(axis).ticks.clone())

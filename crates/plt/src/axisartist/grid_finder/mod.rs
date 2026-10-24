@@ -279,7 +279,7 @@ impl GridFinder {
 
     /// The grid lines and their crossings with the data box `bbox`
     /// (matplotlib's `get_grid_info`).
-    pub fn get_grid_info(&self, bbox: Bbox) -> Result<GridInfo, GridError> {
+    pub fn grid_info(&self, bbox: Bbox) -> Result<GridInfo, GridError> {
         let extremes = self.extremes(bbox)?;
         let lon = self.levels(Coordinate::Lon, extremes.x0(), extremes.x1())?;
         let lat = self.levels(Coordinate::Lat, extremes.y0(), extremes.y1())?;
@@ -418,7 +418,7 @@ mod tests {
         let shear = AuxTransform::from_fns(|x, y| (x, y - x), |x, y| (x, y + x));
         let finder = GridFinder::new(shear, GridFinderOptions::default());
         let info = finder
-            .get_grid_info(Bbox::from_extents(0.0, 0.0, 10.0, 10.0))
+            .grid_info(Bbox::from_extents(0.0, 0.0, 10.0, 10.0))
             .unwrap();
         let bottom = info.lon.side_ticks(SpineSide::Bottom);
         assert_eq!(bottom.len(), 7);
@@ -430,6 +430,6 @@ mod tests {
             AuxTransform::affine(plt_core::Affine2D::scaling(0.0, 1.0)),
             GridFinderOptions::default(),
         );
-        assert_eq!(singular.get_grid_info(Bbox::UNIT), Err(GridError::Singular));
+        assert_eq!(singular.grid_info(Bbox::UNIT), Err(GridError::Singular));
     }
 }

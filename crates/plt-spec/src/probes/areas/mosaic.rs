@@ -34,7 +34,7 @@ fn nested(rows: &[Json]) -> Result<Mosaic, ProbeError> {
 /// Every axes of the mosaic in creation order, with its position.
 fn subplot_mosaic(args: Args<'_>) -> Outcome {
     let mosaic = match args.json("mosaic")? {
-        Json::String(layout) => Mosaic::parse(layout).map_err(ProbeError::rejected)?,
+        Json::String(layout) => layout.parse::<Mosaic>().map_err(ProbeError::rejected)?,
         Json::Array(rows) => nested(rows)?,
         _ => return Err(ProbeError::BadArgs("mosaic is malformed".into())),
     };
@@ -46,7 +46,7 @@ fn subplot_mosaic(args: Args<'_>) -> Outcome {
     };
     let fig = Figure::with_size(4.0, 3.0, 100.0);
     let axes = fig
-        .subplot_mosaic(&mosaic, &options)
+        .subplot_mosaic(&mosaic, options)
         .map_err(ProbeError::rejected)?;
     Ok(Json::Array(
         axes.iter()

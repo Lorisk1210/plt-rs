@@ -156,7 +156,7 @@ fn imshow(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
 fn pcolor(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     let mesh = match call.arity() {
         1 => Mesh::new(grid(call, 0)?),
-        3 => Mesh::with_coords(coords(call, 0, "x")?, coords(call, 1, "y")?, grid(call, 2)?),
+        3 => Mesh::from_coords(coords(call, 0, "x")?, coords(call, 1, "y")?, grid(call, 2)?),
         _ => return Err(call.bad("unsupported mesh arguments")),
     };
     let options = PcolorOptions {

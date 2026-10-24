@@ -50,7 +50,7 @@ pub(super) fn pcolor_edges_masked(fig: &Figure) -> CaseResult {
         ..PcolorOptions::default()
     };
     fig.subplot().pcolor(
-        Mesh::with_coords(xx, yy, ScalarField::masked(c, &mask)?),
+        Mesh::from_coords(xx, yy, ScalarField::masked(c, &mask)?),
         options,
     )?;
     Ok(())
@@ -70,7 +70,7 @@ fn mesh_on_grid(
         ..PcolorOptions::default()
     };
     fig.subplot()
-        .pcolormesh(Mesh::with_coords(xx, yy, c), options)?;
+        .pcolormesh(Mesh::from_coords(xx, yy, c), options)?;
     Ok(())
 }
 
@@ -93,13 +93,13 @@ pub(super) fn pcolormesh_gouraud(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn pcolormesh_auto_same_shape(fig: &Figure) -> CaseResult {
-    let mesh = Mesh::with_coords([1.0, 2.0, 4.0, 8.0], [0.0, 1.0, 3.0], arange_grid(3, 4));
+    let mesh = Mesh::from_coords([1.0, 2.0, 4.0, 8.0], [0.0, 1.0, 3.0], arange_grid(3, 4));
     fig.subplot().pcolormesh(mesh, PcolorOptions::default())?;
     Ok(())
 }
 
 pub(super) fn pcolormesh_nonuniform(fig: &Figure) -> CaseResult {
-    let mesh = Mesh::with_coords(
+    let mesh = Mesh::from_coords(
         [0.0, 0.5, 1.0, 2.0, 4.0, 7.0, 11.0],
         [0.0, 1.0, 1.5, 3.5, 4.0],
         arange_grid(4, 6),
@@ -126,7 +126,7 @@ pub(super) fn pcolormesh_curvilinear_edges(fig: &Figure) -> CaseResult {
         },
         ..PcolorOptions::default()
     };
-    ax.pcolormesh(Mesh::with_coords(xx, yy, c), options)?;
+    ax.pcolormesh(Mesh::from_coords(xx, yy, c), options)?;
     ax.set_aspect(Aspect::Equal)?;
     Ok(())
 }
@@ -142,7 +142,7 @@ pub(super) fn pcolormesh_alpha_log_axes(fig: &Figure) -> CaseResult {
         ..PcolorOptions::default()
     };
     ax.pcolormesh(
-        Mesh::with_coords(x, linspace(0.0, 1.0, 5), arange_grid(4, 7)),
+        Mesh::from_coords(x, linspace(0.0, 1.0, 5), arange_grid(4, 7)),
         options,
     )?;
     ax.set_xscale("log")?;

@@ -212,7 +212,7 @@ pub(super) fn twoslope_colorbar(fig: &Figure) -> CaseResult {
     let norm = TwoSlopeNorm::new(20.0, Some(5.0), Some(95.0))?;
     let x = arange(1.0, 11.0, 1.0);
     let pc = ax.pcolormesh(
-        Mesh::with_coords(x.clone(), x, hundred(0.0)),
+        Mesh::from_coords(x.clone(), x, hundred(0.0)),
         PcolorOptions {
             colors: ColorizerOptions {
                 norm: Some(Box::new(norm)),
@@ -272,7 +272,7 @@ pub(super) fn proportional_colorbars(fig: &Figure) -> CaseResult {
 /// The two halves of the `extend` tests: horizontal colorbars on the
 /// left, vertical ones on the right, the subplots spread out.
 fn halves(fig: &Figure) -> Result<[(Orientation, Figure); 2], Box<dyn std::error::Error>> {
-    let subfigs = fig.subfigures(1, 2, &SubfigureOptions::default())?;
+    let subfigs = fig.subfigures(1, 2, SubfigureOptions::default())?;
     Ok([
         (Orientation::Horizontal, subfigs[(0, 0)].clone()),
         (Orientation::Vertical, subfigs[(0, 1)].clone()),

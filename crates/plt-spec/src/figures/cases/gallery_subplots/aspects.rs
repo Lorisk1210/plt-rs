@@ -57,7 +57,7 @@ fn axes_margins_2(fig: &Figure) -> CaseResult {
             ..PcolorOptions::default()
         };
         ax.pcolor(
-            Mesh::with_coords(x.clone(), y.clone(), sums.clone()),
+            Mesh::from_coords(x.clone(), y.clone(), sums.clone()),
             options,
         )?;
         let polygon = Polygon::new(corners.map(Point::from), true);
@@ -126,7 +126,7 @@ fn axes_box_aspect_5(fig: &Figure) -> CaseResult {
     let x = map(&normal[..400], |v| v * 0.5);
     let y = map(&normal[400..], |v| v * 180.0);
     axs[(1, 0)].scatter(&x, &y)?;
-    axs[(0, 0)].hist(&[&x], &HistPlotOptions::default())?;
+    axs[(0, 0)].hist(&[&x], HistPlotOptions::default())?;
     let sideways = HistPlotOptions {
         layout: HistOptions {
             orientation: HistOrientation::Horizontal,
@@ -134,7 +134,7 @@ fn axes_box_aspect_5(fig: &Figure) -> CaseResult {
         },
         ..HistPlotOptions::default()
     };
-    axs[(1, 1)].hist(&[&y], &sideways)?;
+    axs[(1, 1)].hist(&[&y], sideways)?;
     Ok(())
 }
 

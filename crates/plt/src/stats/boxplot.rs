@@ -67,14 +67,14 @@ pub struct BoxStats {
 ///
 /// ```
 /// use plt::stats::{BoxplotOptions, boxplot_stats};
-/// let stats = boxplot_stats(&[[1.0, 2.0, 3.0, 4.0, 100.0]], &BoxplotOptions::default()).unwrap();
+/// let stats = boxplot_stats(&[[1.0, 2.0, 3.0, 4.0, 100.0]], BoxplotOptions::default()).unwrap();
 /// assert_eq!((stats[0].q1, stats[0].med, stats[0].q3), (2.0, 3.0, 4.0));
 /// assert_eq!(stats[0].whishi, 4.0);
 /// assert_eq!(stats[0].fliers, vec![100.0]);
 /// ```
 pub fn boxplot_stats<D: AsRef<[f64]>>(
     datasets: &[D],
-    opts: &BoxplotOptions,
+    opts: BoxplotOptions,
 ) -> Result<Vec<BoxStats>, StatsError> {
     if let Some(labels) = &opts.labels
         && labels.len() != datasets.len()
@@ -204,8 +204,8 @@ mod tests {
             labels: Some(vec!["a".into()]),
             ..BoxplotOptions::default()
         };
-        assert!(boxplot_stats(&[[1.0], [2.0]], &opts).is_err());
-        let one = boxplot_stats(&[[1.0]], &opts).unwrap();
+        assert!(boxplot_stats(&[[1.0], [2.0]], opts.clone()).is_err());
+        let one = boxplot_stats(&[[1.0]], opts).unwrap();
         assert_eq!(one[0].label.as_deref(), Some("a"));
         assert_eq!(one[0].cilo, 1.0);
     }

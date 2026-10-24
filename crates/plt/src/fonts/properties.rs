@@ -64,7 +64,8 @@ pub fn parse_variant(text: &str) -> Result<FontVariant, FontPropertyError> {
 
 /// Parses a math font family (a `mathtext.fontset` value).
 pub fn parse_math_fontfamily(text: &str) -> Result<Fontset, FontPropertyError> {
-    Fontset::parse(text).ok_or_else(|| FontPropertyError::MathFontFamily(text.to_owned()))
+    text.parse()
+        .map_err(|_| FontPropertyError::MathFontFamily(text.to_owned()))
 }
 
 /// matplotlib's name of a style.
@@ -94,7 +95,7 @@ impl FontProperties {
             weight: rc.font_weight,
             stretch: rc.font_stretch,
             size: clamp_size(rc.font_size),
-            math_fontfamily: Fontset::parse(&rc.mathtext_fontset).unwrap_or_default(),
+            math_fontfamily: rc.mathtext_fontset.parse().unwrap_or_default(),
             file: None,
         }
     }

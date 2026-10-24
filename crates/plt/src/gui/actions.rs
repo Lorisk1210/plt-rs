@@ -31,7 +31,7 @@ pub(crate) fn apply_to_axes(ax: &Axes, action: KeyAction) {
                 };
                 ax.grid_with(
                     on,
-                    &GridOptions {
+                    GridOptions {
                         which,
                         axis: Some(name),
                         ..GridOptions::default()
@@ -47,7 +47,7 @@ pub(crate) fn apply_to_axes(ax: &Axes, action: KeyAction) {
             for (name, on) in [(AxisName::X, x), (AxisName::Y, y)] {
                 ax.grid_with(
                     on,
-                    &GridOptions {
+                    GridOptions {
                         which: TickLevel::Both,
                         axis: Some(name),
                         ..GridOptions::default()

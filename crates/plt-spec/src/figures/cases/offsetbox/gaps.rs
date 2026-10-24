@@ -10,8 +10,8 @@ use plt::prelude::*;
 use plt::rc::RcParams;
 use plt::spines::SpineSide;
 use plt::style::{XkcdSketch, apply_xkcd};
-use plt::text::{AnnotateOptions, ArrowProps, HorizontalAlignment, TextBoxProps};
-use plt::text::{FancyArrowProps, VerticalAlignment};
+use plt::text::{AnnotateOptions, ArrowProps, HAlign, TextBoxProps};
+use plt::text::{FancyArrowProps, VAlign};
 
 use super::{of_t, t};
 use crate::figures::CaseResult;
@@ -130,15 +130,15 @@ pub(super) fn figtext(fig: &Figure) -> CaseResult {
         ..SubplotOverrides::default()
     })?;
     fig.text(0.5, 0.03, "a caption centred below the axes")
-        .set_halign(HorizontalAlignment::Center)
+        .set_halign(HAlign::Center)
         .set_fontsize(12.0);
     fig.text(0.02, 0.98, "top left")
-        .set_valign(VerticalAlignment::Top)
+        .set_valign(VAlign::Top)
         .set_color("tab:blue");
     fig.text(0.98, 0.5, "rotated on the right")
         .set_rotation(90.0)
-        .set_halign(HorizontalAlignment::Right)
-        .set_valign(VerticalAlignment::Center)
+        .set_halign(HAlign::Right)
+        .set_valign(VAlign::Center)
         .set_bbox(Some(
             TextBoxProps::new("round".parse::<BoxStyle>()?)
                 .with_patch(PatchProps::default().facecolor("0.9")),
@@ -186,7 +186,7 @@ pub(super) fn xkcd_bacon(fig: &Figure) -> CaseResult {
     ax.plot(x, data)?;
     ax.set_xlabel("time").set_ylabel("my overall health");
     fig.text(0.5, 0.05, "\"Stove Ownership\" from xkcd by Randall Munroe")
-        .set_halign(HorizontalAlignment::Center);
+        .set_halign(HAlign::Center);
     Ok(())
 }
 

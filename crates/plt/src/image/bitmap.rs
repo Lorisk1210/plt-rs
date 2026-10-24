@@ -107,7 +107,7 @@ impl BitmapFormat {
         width: usize,
         height: usize,
         rgba: &[u8],
-        settings: &BitmapSettings,
+        settings: BitmapSettings,
     ) -> Result<Vec<u8>, BitmapError> {
         if width.checked_mul(height).and_then(|n| n.checked_mul(4)) != Some(rgba.len()) {
             return Err(BitmapError::DataLengthMismatch);
@@ -195,7 +195,7 @@ mod tests {
     fn each_format_has_its_signature() {
         let pixels = [255, 0, 0, 255].repeat(6);
         let settings = BitmapSettings::default();
-        let encode = |format: BitmapFormat| format.encode(3, 2, &pixels, &settings).unwrap();
+        let encode = |format: BitmapFormat| format.encode(3, 2, &pixels, settings).unwrap();
         assert!(encode(BitmapFormat::Png).starts_with(b"\x89PNG"));
         assert!(encode(BitmapFormat::Jpeg).starts_with(&[0xFF, 0xD8, 0xFF, 0xE0]));
         assert!(encode(BitmapFormat::Tiff).starts_with(b"II*\0"));
@@ -217,7 +217,7 @@ mod tests {
     fn mismatched_data_is_rejected() {
         let settings = BitmapSettings::default();
         assert_eq!(
-            BitmapFormat::Raw.encode(2, 2, &[0; 4], &settings),
+            BitmapFormat::Raw.encode(2, 2, &[0; 4], settings),
             Err(BitmapError::DataLengthMismatch)
         );
     }

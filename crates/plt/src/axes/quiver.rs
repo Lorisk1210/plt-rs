@@ -99,7 +99,7 @@ impl Axes {
     /// use plt::quiver::{QuiverKeyOptions, QuiverOptions, VectorField};
     /// let ax = Figure::new().subplot();
     /// let q = ax.quiver(VectorField::new([0.0], [0.0], [1.0], [1.0]), QuiverOptions::default())?;
-    /// let key = ax.quiverkey(&q, (0.9, 1.05), 1.0, "1 m/s", &QuiverKeyOptions::default());
+    /// let key = ax.quiverkey(&q, (0.9, 1.05), 1.0, "1 m/s", QuiverKeyOptions::default());
     /// assert_eq!(key.text().text(), "1 m/s");
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
@@ -109,7 +109,7 @@ impl Axes {
         position: (f64, f64),
         length: f64,
         label: impl Into<String>,
-        options: &QuiverKeyOptions,
+        options: QuiverKeyOptions,
     ) -> QuiverKey {
         let quiver_axes = quiver
             .raw()
@@ -121,10 +121,10 @@ impl Axes {
             length,
             angle: options.angle,
         };
-        let text = QuiverKeyArtist::label_artist(&vector, &transform, label.into(), options);
+        let text = QuiverKeyArtist::label_artist(&vector, &transform, label.into(), &options);
         let figure = Rc::clone(self.raw().figure_state());
         let text = figure.borrow_mut().store.insert(Box::new(text));
-        let mut key = QuiverKeyArtist::new(quiver.id(), vector, transform, options, text);
+        let mut key = QuiverKeyArtist::new(quiver.id(), vector, transform, &options, text);
         key.base_mut().zorder = options.zorder.unwrap_or(quiver.zorder() + 0.1);
         let raw = self.adopt(key, &DataUpdate::default());
         if let Some(text) = figure.borrow_mut().store.get_mut(text) {
@@ -204,7 +204,7 @@ mod tests {
             ..QuiverKeyOptions::default()
         };
         // An empty label draws no glyphs, leaving only arrows to count.
-        let key = ax.quiverkey(&q, (0.5, 1.02), 1.0, "", &options);
+        let key = ax.quiverkey(&q, (0.5, 1.02), 1.0, "", options);
         let label = key.text();
         assert_eq!(label.text(), "");
         let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);

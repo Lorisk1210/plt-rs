@@ -117,7 +117,7 @@ pub fn pcolormesh(mesh: Mesh, options: PcolorOptions) -> Result<Collection, Imag
 /// # Errors
 ///
 /// As [`Axes::spy`](crate::axes::Axes::spy).
-pub fn spy(z: &Grid<f64>, options: &SpyOptions) -> Result<Spy, ImageError> {
+pub fn spy(z: &Grid<f64>, options: SpyOptions) -> Result<Spy, ImageError> {
     let ax = gca();
     let pattern = ax.spy(z, options)?;
     if let Spy::Image(image) = &pattern {
@@ -184,7 +184,7 @@ pub fn imread(path: impl AsRef<Path>) -> Result<ImageData, ImageIoError> {
 pub fn imsave(
     path: impl AsRef<Path>,
     data: impl Into<ImageData>,
-    options: &ImsaveOptions,
+    options: ImsaveOptions,
 ) -> Result<(), ImageIoError> {
     crate::image::imsave(path, data, options)
 }
@@ -220,7 +220,7 @@ mod tests {
         assert_eq!(current_collection(), hexes);
         let histogram = hist2d(&x, &y, Hist2dOptions::default()).unwrap();
         assert_eq!(current_collection(), histogram.mesh);
-        let Spy::Image(pattern) = spy(&ramp(3, 3), &SpyOptions::default()).unwrap() else {
+        let Spy::Image(pattern) = spy(&ramp(3, 3), SpyOptions::default()).unwrap() else {
             panic!("spy draws an image by default");
         };
         assert!(matches!(gci(), Some(ColorizingArtist::Image(current)) if current == pattern));
@@ -247,7 +247,7 @@ mod tests {
         figimage(ramp(4, 4), FigimageOptions::default()).unwrap();
         let path =
             std::env::temp_dir().join(format!("plt-pyplot-imsave-{}.png", std::process::id()));
-        imsave(&path, ramp(2, 2), &ImsaveOptions::default()).unwrap();
+        imsave(&path, ramp(2, 2), ImsaveOptions::default()).unwrap();
         assert_eq!(imread(&path).unwrap().shape(), (2, 2));
         std::fs::remove_file(&path).unwrap();
         close_all();

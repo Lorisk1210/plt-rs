@@ -113,7 +113,7 @@ pub(super) fn contourf(args: Args<'_>) -> Outcome {
 /// `xs, ys, z[:-1, :-1]` as a pseudocolour mesh.
 fn mesh() -> Mesh {
     let (x, y, z) = grid();
-    Mesh::with_coords(x, y, Grid::from_fn(19, 14, |r, c| z[(r, c)]))
+    Mesh::from_coords(x, y, Grid::from_fn(19, 14, |r, c| z[(r, c)]))
 }
 
 /// The pcolor options placing the mesh through `transform`.

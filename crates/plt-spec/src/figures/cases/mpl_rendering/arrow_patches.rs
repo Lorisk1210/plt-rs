@@ -8,10 +8,7 @@ use plt::axes::TickParams;
 use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, FancyArrowPatch};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment, Text, TextBoxProps,
-    VerticalAlignment,
-};
+use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, Text, TextBoxProps, VAlign};
 use plt::transforms::Point;
 
 use super::super::mpl_tests::{classic, remove_ticks_and_titles};
@@ -55,7 +52,7 @@ const BOX_FONT_SIZE: f64 = 0.3 * 72.0;
 fn boxed_label(fig: &Figure, (x, y): (f64, f64), label: &str, boxstyle: BoxStyle) -> Text {
     let patch = PatchProps::default().facecolor("w").edgecolor("k");
     let text = fig.text(x, y, label);
-    text.set_halign(HorizontalAlignment::Center)
+    text.set_halign(HAlign::Center)
         .set_fontsize(BOX_FONT_SIZE)
         .set_bbox(Some(TextBoxProps::new(boxstyle).with_patch(patch)));
     text
@@ -110,8 +107,7 @@ fn boxarrow_adjustment(fig: &Figure) -> CaseResult {
             let x = ((m - i as f64) * spacing_horizontal - 1.5) / figwidth;
             let y = ((n - j as f64) * spacing_vertical - 0.5) / figheight;
             let boxstyle = format!("{style},head_width={head_width},head_angle={head_angle}");
-            boxed_label(fig, (x, y), style, boxstyle.parse()?)
-                .set_valign(VerticalAlignment::Center);
+            boxed_label(fig, (x, y), style, boxstyle.parse()?).set_valign(VAlign::Center);
         }
     }
     Ok(())

@@ -119,7 +119,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let x: Vec<f64> = t.iter().map(|t| t.cos()).collect();
         let y: Vec<f64> = t.iter().map(|t| t.sin()).collect();
         fig.subplot_3d()
-            .stem(&x, &y, &t, &Stem3DOptions::default())?;
+            .stem(&x, &y, &t, Stem3DOptions::default())?;
         Ok(())
     })
     .sized(4.0, 4.0, 100.0),

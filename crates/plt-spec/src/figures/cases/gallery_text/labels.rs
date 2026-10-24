@@ -15,9 +15,7 @@ use plt::layout::LayoutEngine;
 use plt::prelude::*;
 use plt::spines::SpineSide;
 use plt::stats::{Bins, HistOptions};
-use plt::text::{
-    AnnotateOptions, HorizontalAlignment as HAlign, Text, TextBoxProps, VerticalAlignment as VAlign,
-};
+use plt::text::{AnnotateOptions, HAlign, Text, TextBoxProps, VAlign};
 use plt::transforms::{Point, Transform};
 use plt_core::Affine2D;
 
@@ -89,7 +87,7 @@ fn label_mosaic(fig: &Figure) -> Result<MosaicAxes, Box<dyn std::error::Error>> 
         vec![label("b)"), label("c)")],
         vec![label("d)"), label("d)")],
     ])?;
-    Ok(fig.subplot_mosaic(&mosaic, &MosaicOptions::default())?)
+    Ok(fig.subplot_mosaic(&mosaic, MosaicOptions::default())?)
 }
 
 fn label_subplots_1(fig: &Figure) -> CaseResult {
@@ -104,7 +102,7 @@ fn label_subplots_1(fig: &Figure) -> CaseResult {
                 ..AnnotateOptions::default()
             },
         )?;
-        note.set_fontsize_relative(RelativeSize::Medium)
+        note.set_fontsize(RelativeSize::Medium)
             .set_valign(VAlign::Top)
             .set_family(["serif"])
             .set_bbox(Some(TextBoxProps {
@@ -120,7 +118,7 @@ fn label_subplots_2(fig: &Figure) -> CaseResult {
     for (label, ax) in label_mosaic(fig)?.iter() {
         ax.text(0.0, 1.0, label)
             .set_transform(ax.trans_axes().offset_inches(-20.0 / 72.0, 7.0 / 72.0))
-            .set_fontsize_relative(RelativeSize::Medium)
+            .set_fontsize(RelativeSize::Medium)
             .set_valign(VAlign::Bottom)
             .set_family(["serif"]);
     }
@@ -132,7 +130,7 @@ fn label_subplots_3(fig: &Figure) -> CaseResult {
         ax.set_title("Normal Title").set_style(FontStyle::Italic);
         ax.set_title_at(TitleLocation::Left, label)
             .set_family(["serif"])
-            .set_fontsize_relative(RelativeSize::Medium);
+            .set_fontsize(RelativeSize::Medium);
     }
     Ok(())
 }
@@ -339,7 +337,7 @@ fn placing_text_boxes(fig: &Figure) -> CaseResult {
     let textstr = format!("$\\mu={mu:.2}$\n$\\mathrm{{median}}={median:.2}$\n$\\sigma={sigma:.2}$");
     ax.hist(
         &[x],
-        &HistPlotOptions {
+        HistPlotOptions {
             layout: HistOptions {
                 bins: Some(Bins::Count(50)),
                 ..HistOptions::default()

@@ -74,7 +74,7 @@ fn mesh(fig: &Figure) -> CaseResult {
     let (x, y) = meshgrid(&linspace(0.0, 1.0, 7), &linspace(0.0, 1.0, 5));
     let values = Grid::from_fn(5, 7, |r, c| (3.0 * x[(r, c)]).sin() + y[(r, c)]);
     fig.subplot()
-        .pcolormesh(Mesh::with_coords(x, y, values), PcolorOptions::default())?;
+        .pcolormesh(Mesh::from_coords(x, y, values), PcolorOptions::default())?;
     Ok(())
 }
 

@@ -169,7 +169,7 @@ fn build(ax: &Axes, scene: &str) -> Result<(), ProbeError> {
                 .set_mouseover(false);
         }
         "mesh" => {
-            let mesh = Mesh::with_coords(X_EDGES.to_vec(), Y_EDGES.to_vec(), grid(field));
+            let mesh = Mesh::from_coords(X_EDGES.to_vec(), Y_EDGES.to_vec(), grid(field));
             ax.pcolormesh(mesh, PcolorOptions::default())
                 .map_err(ProbeError::rejected)?
                 .set_mouseover(true);

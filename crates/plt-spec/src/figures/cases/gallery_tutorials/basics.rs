@@ -37,7 +37,7 @@ fn artists_1(fig: &Figure) -> CaseResult {
             .edgecolor("yellow"),
         ..HistPlotOptions::default()
     };
-    ax2.hist(&[SpecRng::new(SEED).normal(1000, 0.0, 1.0)], &yellow)?;
+    ax2.hist(&[SpecRng::new(SEED).normal(1000, 0.0, 1.0)], yellow)?;
     ax2.set_xlabel("Time [s]");
     Ok(())
 }

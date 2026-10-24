@@ -88,13 +88,13 @@ impl Table {
     /// ```
     /// use plt::prelude::*;
     /// use plt::table::TableOptions;
-    /// use plt::text::HorizontalAlignment;
+    /// use plt::text::HAlign;
     /// let ax = Figure::new().subplot();
-    /// let table = ax.table(&TableOptions::with_text(vec![vec!["1".into(), "2".into()]]))?;
+    /// let table = ax.table(TableOptions::with_text(vec![vec!["1".into(), "2".into()]]))?;
     /// table
     ///     .add_cell(1, 0, 0.5, 0.05)
     ///     .set_text("total")
-    ///     .set_text_halign(HorizontalAlignment::Center);
+    ///     .set_text_halign(HAlign::Center);
     /// assert_eq!(table.cell_keys(), [(0, 0), (0, 1), (1, 0)]);
     /// assert_eq!(table.cell(1, 0).expect("the new cell").text(), "total");
     /// # Ok::<(), plt::table::TableError>(())
@@ -117,7 +117,7 @@ impl Table {
     /// use plt::prelude::*;
     /// use plt::table::TableOptions;
     /// let ax = Figure::new().subplot();
-    /// let table = ax.table(&TableOptions {
+    /// let table = ax.table(TableOptions {
     ///     col_labels: Some(vec!["day".into()]),
     ///     ..TableOptions::with_text(vec![vec!["Mon".into()]])
     /// })?;
@@ -256,7 +256,7 @@ mod tests {
     fn cells_are_keyed_like_matplotlib_and_styled_one_by_one() {
         let ax = Figure::new().subplot();
         let table = ax
-            .table(&TableOptions {
+            .table(TableOptions {
                 col_labels: Some(vec!["A".into(), "B".into()]),
                 row_labels: Some(vec!["r".into()]),
                 ..TableOptions::with_text(vec![vec!["1".into(), "2".into()]])
@@ -286,7 +286,7 @@ mod tests {
     fn added_cells_start_from_the_defaults_and_replace_in_place() {
         let ax = Figure::new().subplot();
         let table = ax
-            .table(&TableOptions {
+            .table(TableOptions {
                 cell_loc: Some(HAlign::Left),
                 edges: CellEdges::OPEN,
                 ..TableOptions::with_text(vec![vec!["1".into(), "2".into()]])

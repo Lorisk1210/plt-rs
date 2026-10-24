@@ -14,7 +14,7 @@ use plt::fonts::RelativeSize;
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::{LegendHandle, LegendOptions};
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment as HAlign, TextRotationMode as RotationMode};
+use plt::text::{HAlign, TextRotationMode as RotationMode};
 use plt::ticker::{FuncFormatter, NullFormatter};
 
 use crate::figures::cases::common::{cumsum, map};
@@ -98,7 +98,7 @@ fn centered_ticklabels(fig: &Figure) -> CaseResult {
 fn inner_title(ax: &Axes, text: &str) {
     ax.set_title_at(TitleLocation::Left, text)
         .set_x(0.02)
-        .set_fontsize_relative(RelativeSize::Medium);
+        .set_fontsize(RelativeSize::Medium);
     ax.set_title_y(TitleLocation::Left, 0.85);
 }
 

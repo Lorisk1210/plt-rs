@@ -85,7 +85,7 @@ fn bars(fig: &Figure) -> CaseResult {
             ..BarOptions::default()
         };
         let bars = ax.bar(map(&x, |x| x + offset), values, options)?;
-        ax.bar_label(&bars, &padded(2.0))?;
+        ax.bar_label(&bars, padded(2.0))?;
     }
     ax.set_xticks(x.to_vec());
     ax.set_xticklabels(["north", "south", "east", "west"])?;
@@ -134,7 +134,7 @@ fn histogram(fig: &Figure) -> CaseResult {
             props: PatchProps::default().alpha(0.7).label(label),
             ..HistPlotOptions::default()
         };
-        ax.hist(&[sample], &options)?;
+        ax.hist(&[sample], options)?;
     }
     ax.set_title("Two samples");
     ax.legend(LegendOptions::default())?;
@@ -216,7 +216,7 @@ fn annotations(fig: &Figure) -> CaseResult {
     ax.fill_between(&x, map(&y, |y| y - 0.15), map(&y, |y| y + 0.15), band)?;
     let errors = ErrorbarOptions {
         yerr: Some(vec![0.15].into()),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         capsize: Some(3.0),
         ..ErrorbarOptions::default()
     };

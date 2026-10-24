@@ -41,7 +41,7 @@ fn log_normal_stats(whis: Whis) -> Result<Vec<BoxStats>, stats::StatsError> {
         whis,
         ..stats::BoxplotOptions::default()
     };
-    stats::boxplot_stats(&columns, &options)
+    stats::boxplot_stats(&columns, options)
 }
 
 /// `_bxp_test_helper`: `bxp(stats, **options)` on a log value axis.
@@ -51,7 +51,7 @@ fn draw(fig: &Figure, stats: &[BoxStats], options: &BxpOptions) -> CaseResult {
         Orientation::Vertical => ax.set_yscale("log")?,
         Orientation::Horizontal => ax.set_xscale("log")?,
     };
-    ax.bxp(stats, options)?;
+    ax.bxp(stats, options.clone())?;
     Ok(())
 }
 
@@ -100,7 +100,7 @@ fn wide_median(fig: &Figure, medianprops: LineProps) -> CaseResult {
         },
         ..BoxplotOptions::default()
     };
-    fig.subplot().boxplot(&[[0.0, 1.0, 2.0]], &options)?;
+    fig.subplot().boxplot(&[[0.0, 1.0, 2.0]], options)?;
     Ok(())
 }
 

@@ -13,7 +13,7 @@ use plt::prelude::*;
 use plt::rc::{Aspect, Cycler, RcParams};
 use plt::spines::SpineSide;
 use plt::style::{XkcdSketch, apply_xkcd};
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{HAlign, VAlign};
 use plt::ticker::{AutoMinorLocator, MinorDivisions, MultipleLocator, StrMethodFormatter};
 use plt_core::{Path, PathCode, Point};
 
@@ -51,7 +51,7 @@ fn anatomy_label(ax: &Axes, (x, y): (f64, f64), text: &str, code: &str) -> CaseR
             .set_valign(VAlign::Top)
             .set_weight(FontWeight::NORMAL)
             .set_family(["monospace"])
-            .set_fontsize_relative(RelativeSize::Medium);
+            .set_fontsize(RelativeSize::Medium);
         if haloed {
             name.set_color("white").set_path_effects(halo()?);
             call.set_color("white").set_path_effects(halo()?);
@@ -121,7 +121,7 @@ fn anatomy_axes(fig: &Figure) -> Result<Axes, Box<dyn std::error::Error>> {
     });
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             linestyle: Some(LineStyle::Dashed),
             linewidth: Some(0.5),
             color: Some(".25".into()),
@@ -429,7 +429,7 @@ fn stock_prices(fig: &Figure) -> CaseResult {
     ax.set_yscale("log")?;
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             linestyle: Some(LineStyle::Dashed),
             linewidth: Some(0.5),
             color: Some("k".into()),

@@ -13,7 +13,7 @@ use super::{Axes, AxesState, PlotError, TickLabelProps};
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::spines::SpineSide;
 use crate::ticker::{AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator};
-use crate::ticker::{NullFormatter, NullLocator};
+use crate::ticker::{NullFormatter, NullLocator, TickerError};
 use crate::transforms::Bbox;
 use crate::units::AxisValues;
 
@@ -112,7 +112,7 @@ impl Axis {
     /// Shows (`visible`) or hides the gridlines of `options.which`,
     /// restyled by `options` (matplotlib's `Axis.grid`; `options.axis` is
     /// ignored here).
-    pub fn grid(&self, visible: bool, options: &GridOptions) -> &Self {
+    pub fn grid(&self, visible: bool, options: GridOptions) -> &Self {
         self.update(|axis| {
             for (style, on) in [
                 (&mut axis.major_style, options.which.major()),
@@ -135,7 +135,7 @@ impl Axis {
     /// # Errors
     ///
     /// When the locator fails.
-    pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, String> {
+    pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, TickerError> {
         Ok(self.axes.ticks(self.name)?.unclipped_locs(minor))
     }
 
@@ -146,7 +146,7 @@ impl Axis {
     /// # Errors
     ///
     /// When the locator or the formatter fails.
-    pub fn ticklabels(&self, minor: bool) -> Result<Vec<String>, String> {
+    pub fn ticklabels(&self, minor: bool) -> Result<Vec<String>, TickerError> {
         let ticks = self.axes.ticks(self.name)?;
         let sides = self.read(|axis| {
             if minor {
@@ -381,7 +381,7 @@ impl Axes {
     /// Shows or hides the major gridlines of both axes (matplotlib's
     /// `grid`).
     pub fn grid(&self, visible: bool) -> &Self {
-        self.grid_with(visible, &GridOptions::default())
+        self.grid_with(visible, GridOptions::default())
     }
 
     /// Whether the major (`major`) or minor gridlines of one axis are
@@ -400,10 +400,10 @@ impl Axes {
 
     /// Shows or hides gridlines of the axes and tick levels in `options`,
     /// restyled by `options`.
-    pub fn grid_with(&self, visible: bool, options: &GridOptions) -> &Self {
+    pub fn grid_with(&self, visible: bool, options: GridOptions) -> &Self {
         for name in [AxisName::X, AxisName::Y] {
             if options.axis.is_none_or(|only| only == name) {
-                self.axis_of(name).grid(visible, options);
+                self.axis_of(name).grid(visible, options.clone());
             }
         }
         self
@@ -535,7 +535,7 @@ mod tests {
             rotation: Some(45.0),
             ..TickLabelProps::default()
         };
-        ax.xaxis().set_major_ticklabel_props(1, &tilted);
+        ax.xaxis().set_major_ticklabel_props(1, tilted);
         assert_eq!(ax.xaxis().major_ticklabel_props(1).rotation, Some(45.0));
         assert_eq!(
             ax.xaxis().major_ticklabel_props(0),

@@ -6,9 +6,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use plt_font::{FontDatabase, FontQuery, FontSource};
-use plt_text::mathtext::{
-    CustomFonts, Fontset, MathFallback, MathFont, MathLayout, MathStyle, is_math_text,
-};
+use plt_text::mathtext::{CustomFonts, MathFallback, MathLayout, MathStyle, is_math_text};
 use plt_text::{BlockStyle, FontRequest, LineMetrics, TextEngine, TextError, layout_block};
 
 const CASES: &str = include_str!("fixtures/mathtext/cases.txt");
@@ -88,7 +86,7 @@ fn parse_cases() -> Vec<Expected> {
 
 fn style_for(case: &Expected) -> MathStyle {
     let mut style = MathStyle {
-        fontset: Fontset::parse(&case.fontset).expect("fontset"),
+        fontset: case.fontset.parse().expect("fontset"),
         font: FontRequest::new(FontQuery {
             size: case.size,
             ..FontQuery::families(["DejaVu Sans"])
@@ -101,7 +99,7 @@ fn style_for(case: &Expected) -> MathStyle {
         for item in case.options.split(';') {
             let (key, value) = item.split_once('=').expect("key=value");
             match key {
-                "default" => style.default = MathFont::parse(value).expect("font"),
+                "default" => style.default = value.parse().expect("font"),
                 "fallback" => style.fallback = MathFallback::parse(value).expect("fallback"),
                 "family" => style.font.query.families = vec![value.to_owned()],
                 "rm" => value.clone_into(&mut custom.rm),

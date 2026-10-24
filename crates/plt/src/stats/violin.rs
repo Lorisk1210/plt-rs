@@ -55,13 +55,13 @@ pub struct ViolinStats {
 /// ```
 /// use plt::stats::{ViolinOptions, violin_stats};
 /// let opts = ViolinOptions { points: 3, ..ViolinOptions::default() };
-/// let stats = violin_stats(&[[1.0, 2.0, 4.0]], &opts).unwrap();
+/// let stats = violin_stats(&[[1.0, 2.0, 4.0]], opts).unwrap();
 /// assert_eq!(stats[0].coords, vec![1.0, 2.5, 4.0]);
 /// assert_eq!(stats[0].median, 2.0);
 /// ```
 pub fn violin_stats<D: AsRef<[f64]>>(
     datasets: &[D],
-    opts: &ViolinOptions,
+    opts: ViolinOptions,
 ) -> Result<Vec<ViolinStats>, StatsError> {
     let bw = opts.bw_method;
     violin_stats_with(
@@ -149,7 +149,7 @@ mod tests {
             points: 3,
             ..ViolinOptions::default()
         };
-        let stats = violin_stats(&[vec![2.0, 2.0], vec![], vec![f64::NAN, 3.0]], &opts).unwrap();
+        let stats = violin_stats(&[vec![2.0, 2.0], vec![], vec![f64::NAN, 3.0]], opts).unwrap();
         assert_eq!(stats[0].vals, vec![1.0, 1.0, 1.0]);
         assert!(stats[1].coords.is_empty() && stats[1].mean.is_nan());
         assert_eq!((stats[2].min, stats[2].max), (3.0, 3.0));
@@ -162,19 +162,19 @@ mod tests {
             quantiles: Some(vec![vec![0.5], vec![]]),
             ..ViolinOptions::default()
         };
-        let stats = violin_stats(&[vec![1.0, 2.0, 3.0], vec![1.0, 5.0]], &opts).unwrap();
+        let stats = violin_stats(&[vec![1.0, 2.0, 3.0], vec![1.0, 5.0]], opts.clone()).unwrap();
         assert_eq!(stats[0].quantiles, vec![2.0]);
         assert_eq!(stats[1].quantiles, Vec::<f64>::new());
         let bad = ViolinOptions {
             quantiles: Some(vec![vec![0.5]]),
             ..opts.clone()
         };
-        assert!(violin_stats(&[vec![1.0, 2.0], vec![3.0, 4.0]], &bad).is_err());
+        assert!(violin_stats(&[vec![1.0, 2.0], vec![3.0, 4.0]], bad).is_err());
         let out_of_range = ViolinOptions {
             quantiles: Some(vec![vec![1.5]]),
             ..opts
         };
-        assert!(violin_stats(&[vec![1.0, 2.0]], &out_of_range).is_err());
+        assert!(violin_stats(&[vec![1.0, 2.0]], out_of_range).is_err());
     }
 
     #[test]
@@ -183,7 +183,7 @@ mod tests {
             points: 5,
             ..ViolinOptions::default()
         };
-        let stats = violin_stats(&[[0.0, 1.0, 2.0, 3.0]], &opts).unwrap();
+        let stats = violin_stats(&[[0.0, 1.0, 2.0, 3.0]], opts).unwrap();
         let kde = GaussianKde::new(&[0.0, 1.0, 2.0, 3.0], BandwidthMethod::Scott).unwrap();
         assert_eq!(stats[0].vals, kde.evaluate(&stats[0].coords).unwrap());
     }

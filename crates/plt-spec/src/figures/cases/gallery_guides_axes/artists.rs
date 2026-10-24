@@ -9,7 +9,7 @@ use plt::patheffects::{LineShadow, PatchShadow, PathEffect};
 use plt::prelude::*;
 use plt::rc::{CycleValue, Cycler};
 use plt::stats::{Bins, HistogramOptions, histogram};
-use plt::text::{HorizontalAlignment, Text, VerticalAlignment};
+use plt::text::{HAlign, Text, VAlign};
 use plt::transforms::Point;
 use plt_core::Path;
 use plt_core::path::PathCode;
@@ -47,8 +47,8 @@ fn color_cycle(fig: &Figure) -> CaseResult {
 
 /// `text` centred on its position at `points`.
 fn centred_text(text: &Text, points: f64) -> &Text {
-    text.set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center)
+    text.set_halign(HAlign::Center)
+        .set_valign(VAlign::Center)
         .set_fontsize(points)
 }
 
@@ -167,7 +167,7 @@ fn paths_3(fig: &Figure) -> CaseResult {
     let data = SpecRng::new(SEED).normal(1000, 0.0, 1.0);
     let hist = histogram(
         &data,
-        &HistogramOptions {
+        HistogramOptions {
             bins: Bins::Count(100),
             ..HistogramOptions::default()
         },

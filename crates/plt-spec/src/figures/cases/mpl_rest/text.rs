@@ -4,7 +4,7 @@ use plt::axes::{TickLabelProps, TickParams};
 use plt::colors::Color;
 use plt::figure::Figure;
 use plt::layout::LayoutEngine;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 
 use super::classic;
 use crate::figures::{CaseResult, FigureCase};
@@ -18,8 +18,8 @@ use crate::figures::{CaseResult, FigureCase};
 fn fallback_last_resort(fig: &Figure) -> CaseResult {
     fig.text(0.5, 0.5, "Hello 🙃 World!")
         .set_fontsize(24.0)
-        .set_halign(HorizontalAlignment::Center)
-        .set_valign(VerticalAlignment::Center);
+        .set_halign(HAlign::Center)
+        .set_valign(VAlign::Center);
     Ok(())
 }
 
@@ -39,7 +39,7 @@ fn tick_not_in_layout(fig: &Figure) -> CaseResult {
         in_layout: Some(false),
         ..TickLabelProps::default()
     };
-    ax.xaxis().set_major_ticklabel_props(1, &out_of_layout);
+    ax.xaxis().set_major_ticklabel_props(1, out_of_layout);
     Ok(())
 }
 

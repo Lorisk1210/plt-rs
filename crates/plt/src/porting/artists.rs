@@ -47,9 +47,12 @@
 //! | `a.contains(event)`                            | [`ArtistHandle::contains`]`(point)`             |
 //! | `a.remove()`                                   | [`ArtistHandle::remove`]                        |
 //! | `a.set(color=..., lw=...)`                     | `update_props`, e.g. [`Line2D::update_props`]   |
-//! | `fig.findobj(Line2D)`                          | [`Figure::findobj`] and [`RawHandle::downcast`] |
+//! | `fig.findobj(Line2D)`, `ax.findobj(...)`       | [`ArtistHandle::findobj`] and [`RawHandle::downcast`] |
+//! | `a.axes`, `a.figure`                           | [`ArtistHandle::axes`], [`ArtistHandle::figure`] |
 //! | `isinstance(a, Line2D)`                        | `a.downcast::<Line2D>().is_some()`              |
 //! | `ax.lines`, `ax.images`, `ax.containers`       | [`Axes::lines`], [`Axes::images`], [`Axes::containers`] |
+//! | `ax.patches`, `ax.collections`, `ax.texts`     | [`Axes::patches`], [`Axes::collections`], [`Axes::texts`] |
+//! | `ax.tables`, `ax.artists`                      | [`Axes::tables`], [`Axes::artists`]             |
 //! | `ax.child_axes`                                | [`Axes::child_axes`]                            |
 //! | `ax.add_line(Line2D(x, y, ...))`               | [`Axes::add_line`]`(x, y, props)`               |
 //! | `ax.add_patch(Rectangle(...))`                 | [`Axes::add_patch`], [`Axes::add_patch_with`]   |
@@ -166,6 +169,7 @@
 //! line, = ax.plot([0, 1], [0, 1], zorder=3)
 //! line.set_clip_path(circle)
 //! assert fig.findobj(Line2D) == [line]
+//! assert line.axes is ax
 //! ```
 //!
 //! ```
@@ -181,7 +185,8 @@
 //! line.set_clip_path(Some(ClipPathSpec::Artist(circle.id())));
 //!
 //! let lines: Vec<Line2D> = fig.findobj(|_| true).iter().filter_map(|a| a.downcast()).collect();
-//! assert_eq!(lines, [line]);
+//! assert_eq!(lines, [line.clone()]);
+//! assert_eq!(line.axes(), Some(ax));
 //! fig.to_png()?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -216,7 +221,14 @@
 //! [`Line2D::update_props`]: crate::lines::Line2D::update_props
 //! [`Text`]: crate::text::Text
 //! [`AxesImage`]: crate::image::AxesImage
-//! [`Figure::findobj`]: crate::figure::Figure::findobj
+//! [`ArtistHandle::findobj`]: crate::artist::ArtistHandle::findobj
+//! [`ArtistHandle::axes`]: crate::artist::ArtistHandle::axes
+//! [`ArtistHandle::figure`]: crate::artist::ArtistHandle::figure
+//! [`Axes::patches`]: crate::axes::Axes::patches
+//! [`Axes::collections`]: crate::axes::Axes::collections
+//! [`Axes::texts`]: crate::axes::Axes::texts
+//! [`Axes::tables`]: crate::axes::Axes::tables
+//! [`Axes::artists`]: crate::axes::Axes::artists
 //! [`Axes::lines`]: crate::axes::Axes::lines
 //! [`Axes::images`]: crate::axes::Axes::images
 //! [`Axes::containers`]: crate::axes::Axes::containers

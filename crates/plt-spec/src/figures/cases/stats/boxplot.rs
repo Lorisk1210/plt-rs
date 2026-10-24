@@ -23,7 +23,7 @@ fn drawn(draw: BxpOptions) -> BoxplotOptions {
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("stats/boxplot_default", |fig| {
         fig.subplot()
-            .boxplot(&samples(), &BoxplotOptions::default())?;
+            .boxplot(&samples(), BoxplotOptions::default())?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -32,7 +32,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             shownotches: Some(true),
             ..BxpOptions::default()
         });
-        fig.subplot().boxplot(&samples(), &options)?;
+        fig.subplot().boxplot(&samples(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -41,7 +41,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             orientation: Orientation::Horizontal,
             ..BxpOptions::default()
         });
-        fig.subplot().boxplot(&samples(), &options)?;
+        fig.subplot().boxplot(&samples(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -52,7 +52,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 whis: Some(Whis::Percentiles(low, high)),
                 ..BoxplotOptions::default()
             };
-            ax.boxplot(&samples(), &options)?;
+            ax.boxplot(&samples(), options)?;
         }
         Ok(())
     })
@@ -63,12 +63,12 @@ pub(crate) const CASES: &[FigureCase] = &[
             showfliers: Some(false),
             ..BxpOptions::default()
         });
-        axs[(0, 0)].boxplot(&samples(), &no_fliers)?;
+        axs[(0, 0)].boxplot(&samples(), no_fliers)?;
         let custom = BoxplotOptions {
             sym: Some("r+".into()),
             ..BoxplotOptions::default()
         };
-        axs[(0, 1)].boxplot(&samples(), &custom)?;
+        axs[(0, 1)].boxplot(&samples(), custom)?;
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),
@@ -80,7 +80,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 meanline: Some(meanline),
                 ..BxpOptions::default()
             });
-            ax.boxplot(&samples(), &options)?;
+            ax.boxplot(&samples(), options)?;
         }
         Ok(())
     })
@@ -91,7 +91,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             medianprops: LineProps::default().color("k").linewidth(2.0),
             ..BxpOptions::default()
         });
-        let parts = fig.subplot().boxplot(&samples(), &options)?;
+        let parts = fig.subplot().boxplot(&samples(), options)?;
         for (part, color) in parts.boxes.iter().zip(["pink", "lightblue", "lightgreen"]) {
             if let BoxArtist::Patch(patch) = part {
                 patch.set_facecolor(color);
@@ -110,7 +110,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             },
             ..BoxplotOptions::default()
         };
-        fig.subplot().boxplot(&samples(), &options)?;
+        fig.subplot().boxplot(&samples(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -128,7 +128,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             capwidths: vec![0.4],
             ..BxpOptions::default()
         });
-        fig.subplot().boxplot(&samples(), &options)?;
+        fig.subplot().boxplot(&samples(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

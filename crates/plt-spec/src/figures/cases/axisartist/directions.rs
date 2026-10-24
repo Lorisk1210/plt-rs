@@ -6,7 +6,7 @@ use plt::axisartist::{self, Toggle};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
 use plt::spines::SpineSide;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 
 use crate::figures::CaseResult;
 use crate::figures::cases::common::{axis_artist, polar_box, show_label};
@@ -77,17 +77,11 @@ pub(super) fn ticklabel_alignment(fig: &Figure) -> CaseResult {
         .set_ylabel("ha=right")
         .set_xlabel("va=baseline");
     for (ax, halign, valign, ylabel, xlabel) in [
-        (
-            &axes[1],
-            HorizontalAlignment::Center,
-            VerticalAlignment::Top,
-            "ha=center",
-            "va=top",
-        ),
+        (&axes[1], HAlign::Center, VAlign::Top, "ha=center", "va=top"),
         (
             &axes[2],
-            HorizontalAlignment::Left,
-            VerticalAlignment::Bottom,
+            HAlign::Left,
+            VAlign::Bottom,
             "ha=left",
             "va=bottom",
         ),
@@ -149,7 +143,7 @@ pub(super) fn axis_styling(fig: &Figure) -> CaseResult {
     ax.ax().set_xlabel("time [s]").set_ylabel("signal");
     ax.grid(
         true,
-        &GridOptions {
+        GridOptions {
             which: TickLevel::Both,
             axis: Some(AxisName::X),
             color: Some("0.8".into()),
@@ -239,7 +233,7 @@ pub(super) fn axis_direction(fig: &Figure) -> CaseResult {
             }
             ax.grid(
                 true,
-                &GridOptions {
+                GridOptions {
                     color: Some(".9".into()),
                     ..GridOptions::default()
                 },

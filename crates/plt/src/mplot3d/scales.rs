@@ -87,7 +87,7 @@ impl Axes3D {
         &self,
         axis: Axis3,
         name: &str,
-        options: &ScaleOptions,
+        options: ScaleOptions,
     ) -> Result<&Self, Axes3DError> {
         self.set_scale(axis, scale_factory(name, options)?)
     }
@@ -98,7 +98,7 @@ impl Axes3D {
     ///
     /// As [`Axes3D::set_scale_with`].
     pub fn set_xscale(&self, name: &str) -> Result<&Self, Axes3DError> {
-        self.set_scale_with(Axis3::X, name, &ScaleOptions::default())
+        self.set_scale_with(Axis3::X, name, ScaleOptions::default())
     }
 
     /// Sets the y scale by name (matplotlib's `set_yscale`).
@@ -107,7 +107,7 @@ impl Axes3D {
     ///
     /// As [`Axes3D::set_scale_with`].
     pub fn set_yscale(&self, name: &str) -> Result<&Self, Axes3DError> {
-        self.set_scale_with(Axis3::Y, name, &ScaleOptions::default())
+        self.set_scale_with(Axis3::Y, name, ScaleOptions::default())
     }
 
     /// Sets the z scale by name (matplotlib's `set_zscale`).
@@ -116,7 +116,7 @@ impl Axes3D {
     ///
     /// As [`Axes3D::set_scale_with`].
     pub fn set_zscale(&self, name: &str) -> Result<&Self, Axes3DError> {
-        self.set_scale_with(Axis3::Z, name, &ScaleOptions::default())
+        self.set_scale_with(Axis3::Z, name, ScaleOptions::default())
     }
 
     /// The name of the scale of one axis (matplotlib's `get_xscale`).
@@ -157,7 +157,7 @@ mod tests {
         let fig = Figure::new();
         let a = fig.subplot_3d();
         let b = fig.subplot_3d();
-        b.sharex(&a).unwrap();
+        b.share_x(&a).unwrap();
         a.set_xscale("symlog").unwrap();
         assert_eq!(b.scale(Axis3::X), "symlog");
         assert!(a.set_yscale("nonsense").is_err());

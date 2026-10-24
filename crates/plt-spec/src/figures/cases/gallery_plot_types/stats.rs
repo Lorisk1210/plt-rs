@@ -76,7 +76,7 @@ fn boxplot_plot(fig: &Figure) -> CaseResult {
         },
         ..BoxplotOptions::default()
     };
-    ax.boxplot(&data, &options)?;
+    ax.boxplot(&data, options)?;
     unit_square(&ax);
     Ok(())
 }
@@ -91,7 +91,7 @@ fn errorbar_plot(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = ErrorbarOptions {
         yerr: Some(ErrorSize::Symmetric(vec![0.9, 1.2, 0.5])),
-        fmt: "o".into(),
+        fmt: "o".parse()?,
         line: LineProps::default().linewidth(2.0),
         capsize: Some(6.0),
         ..ErrorbarOptions::default()
@@ -111,7 +111,7 @@ fn eventplot(fig: &Figure) -> CaseResult {
         linewidths: vec![0.75],
         ..EventplotOptions::default()
     };
-    ax.eventplot(&data, &options)?;
+    ax.eventplot(&data, options)?;
     unit_square(&ax);
     Ok(())
 }
@@ -154,7 +154,7 @@ fn hist_plot(fig: &Figure) -> CaseResult {
         props: PatchProps::default().linewidth(0.5).edgecolor("white"),
         ..HistPlotOptions::default()
     };
-    ax.hist(&[spread_sample()], &options)?;
+    ax.hist(&[spread_sample()], options)?;
     ax.set_xlim(0.0, 8.0).set_xticks(arange(1.0, 8.0, 1.0));
     ax.set_ylim(0.0, 56.0).set_yticks(linspace(0.0, 56.0, 9));
     Ok(())
@@ -175,7 +175,7 @@ fn pie(fig: &Figure) -> CaseResult {
         frame: true,
         ..PieOptions::default()
     };
-    ax.pie(&x, &options)?;
+    ax.pie(&x, options)?;
     unit_square(&ax);
     Ok(())
 }
@@ -199,7 +199,7 @@ fn violin(fig: &Figure) -> CaseResult {
         },
         ..ViolinplotOptions::default()
     };
-    for body in &ax.violinplot(&data, &options)?.bodies {
+    for body in &ax.violinplot(&data, options)?.bodies {
         body.set_alpha(Some(0.9));
     }
     unit_square(&ax);

@@ -15,6 +15,7 @@ use super::state::Axes3DState;
 use crate::axes::{TickParams, TickStyle, TicklabelFormat, tick_label_formatter};
 use crate::ticker::{
     AutoMinorLocator, AxisName, FixedLocator, Formatter, Locator, NullLocator, ScalarFormatter,
+    TickerError,
 };
 
 /// One axis of a 3-D axes, from [`Axes3D::xaxis`], [`Axes3D::yaxis`],
@@ -287,8 +288,8 @@ impl Axis3D {
     ///
     /// # Errors
     ///
-    /// When a locator or formatter fails, with its message.
-    pub fn major_tick_pads(&self) -> Result<Vec<f64>, String> {
+    /// When a locator or formatter fails.
+    pub fn major_tick_pads(&self) -> Result<Vec<f64>, TickerError> {
         self.ticks()?;
         let dir = self.dir;
         Ok(self.axes.with(|axes| axes.axis(dir).major_tick_pads()))
@@ -306,7 +307,7 @@ impl Axis3D {
     /// let shifted: Vec<f64> = pads.iter().enumerate().map(|(i, pad)| pad - i as f64).collect();
     /// ax.yaxis().set_major_tick_pads(shifted.clone());
     /// assert_eq!(ax.yaxis().major_tick_pads()?, shifted);
-    /// # Ok::<(), String>(())
+    /// # Ok::<(), plt::ticker::TickerError>(())
     /// ```
     pub fn set_major_tick_pads(&self, pads: Vec<f64>) -> &Self {
         let dir = self.dir;
@@ -485,7 +486,7 @@ mod tests {
         let fig = Figure::new();
         let a = fig.subplot_3d();
         let b = fig.subplot_3d();
-        b.sharey(&a).unwrap();
+        b.share_y(&a).unwrap();
         a.yaxis()
             .set_minor_locator(MultipleLocator::new(0.1).unwrap());
         assert_ne!(b.yaxis().ticks().unwrap().minor.len(), 0);

@@ -12,10 +12,7 @@ use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::layout::LayoutEngine;
 use plt::patches::{ArrowShape, ArrowStyle, ConnectionStyle, FancyArrow, FancyArrowPatch};
 use plt::prelude::*;
-use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment as HAlign,
-    VerticalAlignment as VAlign,
-};
+use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, VAlign};
 
 use crate::figures::cases::common::{arrow, styled_box, tickless};
 use crate::figures::{CaseResult, FigureCase};
@@ -221,7 +218,7 @@ fn arrow_demo(fig: &Figure) -> CaseResult {
             .map(|display| MosaicCell::Label(display.name().into()))
             .collect(),
     ])?;
-    let axs = fig.subplot_mosaic(&mosaic, &MosaicOptions::default())?;
+    let axs = fig.subplot_mosaic(&mosaic, MosaicOptions::default())?;
     for display in displays {
         let ax = axs.get(display.name()).ok_or("a graph without axes")?;
         arrow_graph(ax, &mut data, display);
@@ -285,10 +282,10 @@ fn fancyarrow_demo(fig: &Figure) -> CaseResult {
     for col in 0..NCOL {
         let ax = &axs[(0, col)];
         ax.text(0.0, 0.5, "arrowstyle")
-            .set_fontsize_relative(RelativeSize::Large)
+            .set_fontsize(RelativeSize::Large)
             .set_color("tab:blue");
         ax.text(1.4, 0.5, "default parameters")
-            .set_fontsize_relative(RelativeSize::Large);
+            .set_fontsize(RelativeSize::Large);
     }
     let cells = (0..NCOL).flat_map(|col| (1..=nrow).map(move |row| (row, col)));
     for ((name, parameters), cell) in ARROW_STYLES.into_iter().zip(cells) {
@@ -310,7 +307,7 @@ fn fancyarrow_demo(fig: &Figure) -> CaseResult {
                 ..AnnotateOptions::default()
             },
         )?
-        .set_fontsize_relative(RelativeSize::Large)
+        .set_fontsize(RelativeSize::Large)
         .set_color("tab:blue")
         .set_valign(VAlign::Center)
         .set_family(["monospace"])

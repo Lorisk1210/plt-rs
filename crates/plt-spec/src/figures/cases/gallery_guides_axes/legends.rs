@@ -50,7 +50,7 @@ fn legend_guide_2(fig: &Figure) -> CaseResult {
 fn legend_guide_3(fig: &Figure) -> CaseResult {
     // `empty_sentinel="BLANK"`: the BLANK cell is empty.
     let layout = mosaic(&[&["top", "top"], &["bottom", "."]])?;
-    let axd = fig.subplot_mosaic(&layout, &MosaicOptions::default())?;
+    let axd = fig.subplot_mosaic(&layout, MosaicOptions::default())?;
     let top = axd.get("top").ok_or("a top axes")?;
     rising_falling(top, ["test1", "test2"], ["", ""])?;
     top.legend(LegendOptions {
@@ -74,7 +74,7 @@ fn legend_guide_3(fig: &Figure) -> CaseResult {
 
 fn legend_guide_4(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained());
-    let axs = fig.subplot_mosaic(&mosaic(&[&["left", "right"]])?, &MosaicOptions::default())?;
+    let axs = fig.subplot_mosaic(&mosaic(&[&["left", "right"]])?, MosaicOptions::default())?;
     let (left, right) = (
         axs.get("left").ok_or("a left axes")?,
         axs.get("right").ok_or("a right axes")?,

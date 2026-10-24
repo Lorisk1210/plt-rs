@@ -42,7 +42,7 @@ fn grouped_bars() -> Built {
         ..GroupedBarOptions::default()
     };
     for bars in ax.grouped_bar(heights, options)? {
-        ax.bar_label(&bars, &BarLabelOptions::default())?;
+        ax.bar_label(&bars, BarLabelOptions::default())?;
     }
     ax.set_title("Sales by region");
     ax.set_ylabel("units (thousands)");
@@ -90,7 +90,7 @@ fn horizontal_bars() -> Built {
     let names: Vec<&str> = languages.iter().map(|(name, _)| *name).collect();
     let scores: Vec<f64> = languages.iter().map(|(_, score)| *score).collect();
     let bars = ax.barh(names, scores, BarOptions::default())?;
-    ax.bar_label(&bars, &BarLabelOptions::default())?;
+    ax.bar_label(&bars, BarLabelOptions::default())?;
     ax.set_title("Admiration (%)");
     Ok(fig)
 }

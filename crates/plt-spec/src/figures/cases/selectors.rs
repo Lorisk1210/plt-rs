@@ -158,7 +158,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             line: LineProps::default().color("red").linewidth(1.0),
             ..CursorOptions::default()
         };
-        let _cursor = Cursor::new(&ax, &options);
+        let _cursor = Cursor::new(&ax, options);
         move_to(&ax, (4.0, 0.5))
     }),
     FigureCase::new("selectors/multicursor", |fig| {
@@ -174,7 +174,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             line: LineProps::default().color("r").linewidth(1.0),
             ..CursorOptions::multicursor()
         };
-        let _multi = MultiCursor::new(&[top.clone(), bottom.clone()], &options);
+        let _multi = MultiCursor::new(&[top.clone(), bottom.clone()], options);
         move_to(bottom, (6.0, 0.25))
     }),
     FigureCase::new("selectors/span_interactive", |fig| {
@@ -184,7 +184,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().facecolor("tab:blue").alpha(0.3),
             ..interactive()
         };
-        let _span = SpanSelector::new(&ax, Orientation::Horizontal, &options);
+        let _span = SpanSelector::new(&ax, Orientation::Horizontal, options);
         click_and_drag(&ax, (2.0, 0.0), (6.0, 0.0), None)?;
         click_and_drag(&ax, (6.0, 0.5), (7.5, 0.5), None)
     }),
@@ -196,7 +196,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             handle_props: LineProps::default().color("k").linewidth(2.0),
             ..interactive()
         };
-        let _span = SpanSelector::new(&ax, Orientation::Vertical, &options);
+        let _span = SpanSelector::new(&ax, Orientation::Vertical, options);
         click_and_drag(&ax, (5.0, -0.9), (5.0, 0.8), None)
     }),
     FigureCase::new("selectors/span_drag_from_anywhere", |fig| {
@@ -207,7 +207,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().facecolor("orange").alpha(0.4),
             ..interactive()
         };
-        let span = SpanSelector::new(&ax, Orientation::Horizontal, &options);
+        let span = SpanSelector::new(&ax, Orientation::Horizontal, options);
         span.set_extents((3.0, 5.0));
         click_and_drag(&ax, (4.0, 0.0), (6.0, 0.0), None)
     }),
@@ -216,21 +216,21 @@ pub(crate) const CASES: &[FigureCase] = &[
         let (left, right) = (&axs[(0, 0)], &axs[(0, 1)]);
         plot(left)?;
         plot(right)?;
-        let _moved = SpanSelector::new(left, Orientation::Horizontal, &interactive());
+        let _moved = SpanSelector::new(left, Orientation::Horizontal, interactive());
         click_and_drag(left, (2.0, 0.0), (4.0, 0.0), None)?;
         click_and_drag(left, (8.0, 0.0), (9.0, 0.0), Some(" "))?;
         let options = SpanSelectorOptions {
             minspan: 1.0,
             ..interactive()
         };
-        let _removed = SpanSelector::new(right, Orientation::Horizontal, &options);
+        let _removed = SpanSelector::new(right, Orientation::Horizontal, options);
         click_and_drag(right, (2.0, 0.0), (6.0, 0.0), None)?;
         click_and_drag(right, (8.0, 0.0), (8.5, 0.0), None)
     }),
     FigureCase::new("selectors/rectangle_interactive", |fig| {
         let ax = fig.subplot();
         plot(&ax)?;
-        let _rect = RectangleSelector::new(&ax, &interactive_region());
+        let _rect = RectangleSelector::new(&ax, interactive_region());
         click_and_drag(&ax, (2.0, -1.0), (6.0, 1.0), None)?;
         click_and_drag(&ax, (6.0, 1.0), (8.0, 1.2), None)
     }),
@@ -240,7 +240,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().facecolor("tab:green").alpha(0.3),
             ..interactive_region()
         };
-        let _square = RectangleSelector::new(&left, &square);
+        let _square = RectangleSelector::new(&left, square);
         click_and_drag(&left, (2.0, -1.0), (6.0, 0.0), Some("shift"))?;
         let centred = RectangleSelectorOptions {
             handle_props: LineProps::default()
@@ -248,15 +248,15 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .markersize(9.0),
             ..interactive_region()
         };
-        let _centred = RectangleSelector::new(&right, &centred);
+        let _centred = RectangleSelector::new(&right, centred);
         click_and_drag(&right, (5.0, 0.0), (7.0, 0.8), Some("control"))
     }),
     FigureCase::new("selectors/rectangle_rotated", |fig| {
         let (left, right) = pair(fig)?;
-        let set_angle = RectangleSelector::new(&left, &interactive_region());
+        let set_angle = RectangleSelector::new(&left, interactive_region());
         set_angle.set_extents((3.0, 7.0, -0.5, 0.5));
         set_angle.set_rotation(25.0);
-        let _dragged = RectangleSelector::new(&right, &interactive_region());
+        let _dragged = RectangleSelector::new(&right, interactive_region());
         click_and_drag(&right, (3.0, -0.5), (7.0, 0.5), None)?;
         click_and_drag(&right, (7.0, -0.5), (7.0, 0.2), Some("r"))
     }),
@@ -267,7 +267,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             drag_from_anywhere: true,
             ..interactive_region()
         };
-        let _rect = RectangleSelector::new(&ax, &options);
+        let _rect = RectangleSelector::new(&ax, options);
         click_and_drag(&ax, (1.0, -1.0), (3.0, 0.0), None)?;
         click_and_drag(&ax, (8.0, 1.0), (9.0, 1.2), Some(" "))?;
         click_and_drag(&ax, (3.0, -0.3), (4.0, -0.5), None)
@@ -281,7 +281,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .alpha(0.3),
             ..interactive_region()
         };
-        let _ellipse = EllipseSelector::new(&left, &blue);
+        let _ellipse = EllipseSelector::new(&left, blue);
         click_and_drag(&left, (2.0, -1.0), (8.0, 1.0), None)?;
         let pixels = RectangleSelectorOptions {
             spancoords: SelectorUnits::Pixels,
@@ -289,7 +289,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             minspany: 30.0,
             ..interactive_region()
         };
-        let plain = EllipseSelector::new(&right, &pixels);
+        let plain = EllipseSelector::new(&right, pixels);
         click_and_drag(&right, (2.0, -1.0), (7.0, 0.5), None)?;
         plain.set_rotation(-30.0);
         Ok(())
@@ -297,13 +297,13 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("selectors/lasso", |fig| {
         let (left, right) = pair(fig)?;
         let props = LineProps::default().color("m").linewidth(2.0);
-        let _selector = LassoSelector::new(&left, &props, None);
+        let _selector = LassoSelector::new(&left, props, None);
         let path = lasso_loop();
         press(&left, path[0], PointerButton::Left)?;
         for &xy in &path[1..] {
             motion(&left, xy, Some(PointerButton::Left))?;
         }
-        let _lasso = Lasso::new(&right, (5.0, 0.0), &LineProps::default().color("tab:red"));
+        let _lasso = Lasso::new(&right, (5.0, 0.0), LineProps::default().color("tab:red"));
         for xy in [(6.0, 0.5), (7.0, 0.2), (6.5, -0.6), (5.5, -0.4)] {
             motion(&right, xy, Some(PointerButton::Left))?;
         }
@@ -312,7 +312,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("selectors/polygon_complete", |fig| {
         let ax = fig.subplot();
         plot(&ax)?;
-        let _polygon = PolygonSelector::new(&ax, &PolygonSelectorOptions::default());
+        let _polygon = PolygonSelector::new(&ax, PolygonSelectorOptions::default());
         for xy in [
             (2.0, -1.0),
             (6.0, -1.2),
@@ -335,12 +335,12 @@ pub(crate) const CASES: &[FigureCase] = &[
             ),
             ..PolygonSelectorOptions::default()
         };
-        let _polygon = PolygonSelector::new(&left, &options);
+        let _polygon = PolygonSelector::new(&left, options);
         for xy in [(2.0, -1.0), (6.0, -1.0), (7.0, 0.5)] {
             place_vertex(&left, xy)?;
         }
         move_to(&left, (3.0, 1.0))?;
-        let moved = PolygonSelector::new(&right, &PolygonSelectorOptions::default());
+        let moved = PolygonSelector::new(&right, PolygonSelectorOptions::default());
         moved.set_verts(&[(2.0, -1.0), (5.0, -1.0), (3.5, 1.0)])?;
         click_and_drag(&right, (3.0, 0.0), (5.0, 0.2), Some("shift"))
     }),
@@ -356,7 +356,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ),
             ..PolygonSelectorOptions::default()
         };
-        let _polygon = PolygonSelector::new(&ax, &options);
+        let _polygon = PolygonSelector::new(&ax, options);
         for xy in [(2.0, -1.0), (6.0, -1.0), (4.0, 1.0), (2.0, -1.0)] {
             place_vertex(&ax, xy)?;
         }

@@ -155,7 +155,7 @@ pub fn stairs(
 pub fn stem(
     locs: impl Into<AxisValues>,
     heads: impl Into<AxisValues>,
-    options: &StemOptions,
+    options: StemOptions,
 ) -> Result<StemContainer, PlotError> {
     gca().stem(locs, heads, options)
 }
@@ -182,7 +182,7 @@ pub fn errorbar(
 /// As [`Axes::eventplot`](crate::axes::Axes::eventplot).
 pub fn eventplot<P: Clone + Into<AxisValues>>(
     positions: &[P],
-    options: &EventplotOptions,
+    options: EventplotOptions,
 ) -> Result<Vec<Collection>, PlotError> {
     gca().eventplot(positions, options)
 }
@@ -334,7 +334,7 @@ pub fn fill_betweenx(
 pub fn stackplot(
     x: impl Into<AxisValues>,
     ys: &[Vec<f64>],
-    options: &StackplotOptions,
+    options: StackplotOptions,
 ) -> Result<Vec<Collection>, PlotError> {
     gca().stackplot(x, ys, options)
 }
@@ -420,10 +420,10 @@ mod tests {
         fill(x, [0.0, 1.0, 0.0], PatchProps::default()).unwrap();
         fill_between(x, [0.0, 1.0, 0.5], [0.0; 3], FillBetweenOptions::default()).unwrap();
         fill_betweenx(x, [0.0, 1.0, 0.5], [0.0; 3], FillBetweenOptions::default()).unwrap();
-        stackplot(x, &[vec![1.0, 2.0, 3.0]], &StackplotOptions::default()).unwrap();
+        stackplot(x, &[vec![1.0, 2.0, 3.0]], StackplotOptions::default()).unwrap();
         hlines([1.0], [0.0], [2.0]).unwrap();
         vlines([1.0], [0.0], [2.0]).unwrap();
-        eventplot(&[vec![0.5, 1.5]], &EventplotOptions::default()).unwrap();
+        eventplot(&[vec![0.5, 1.5]], EventplotOptions::default()).unwrap();
         axhspan(0.2, 0.4);
         axhspan_between(0.2, 0.4, 0.1, 0.9);
         axvspan(0.5, 0.6);
@@ -431,7 +431,7 @@ mod tests {
         axhline_between(1.0, 0.2, 0.8, LineProps::default());
         axvline(1.0, LineProps::default());
         stairs(vec![1.0, 2.0], StairsOptions::default()).unwrap();
-        stem(x, [1.0, 2.0, 1.0], &StemOptions::default()).unwrap();
+        stem(x, [1.0, 2.0, 1.0], StemOptions::default()).unwrap();
         errorbar(x, [1.0, 2.0, 1.0], ErrorbarOptions::default()).unwrap();
         ecdf(&[3.0, 1.0, 2.0], EcdfOptions::default()).unwrap();
         arrow(FancyArrow::new(0.0, 0.0, 1.0, 1.0));

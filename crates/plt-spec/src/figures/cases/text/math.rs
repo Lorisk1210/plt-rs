@@ -2,7 +2,7 @@
 
 use plt::legend::LegendOptions;
 use plt::prelude::*;
-use plt::text::VerticalAlignment;
+use plt::text::VAlign;
 
 use super::blank;
 use crate::figures::FigureCase;
@@ -24,7 +24,7 @@ fn math_samples(fig: &Figure) {
     for (i, sample) in MATH_SAMPLES.into_iter().enumerate() {
         fig.text(0.02, 0.97 - 0.12 * i as f64, sample)
             .set_fontsize(13.0)
-            .set_valign(VerticalAlignment::Top);
+            .set_valign(VAlign::Top);
     }
 }
 
@@ -88,7 +88,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 r"Area $A = \pi r^2$, $\int_a^b g$",
             )
             .set_fontsize(f64::from(size))
-            .set_valign(VerticalAlignment::Top);
+            .set_valign(VAlign::Top);
         }
         Ok(())
     })

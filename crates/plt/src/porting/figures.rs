@@ -17,8 +17,8 @@
 //! A [`GridSpec`] is a plain value. Build it with its ratios and margins,
 //! take blocks of cells with [`GridSpec::cell`] and [`GridSpec::span`]
 //! (Rust ranges instead of slices), and add axes on them. Mosaics are
-//! parsed from matplotlib's strings ([`Mosaic::parse`]); subfigures are
-//! `Figure` handles of their own.
+//! parsed from matplotlib's strings ([`Mosaic`] implements [`FromStr`]);
+//! subfigures are `Figure` handles of their own.
 //!
 //! Layout engines are values of [`LayoutEngine`]. The modern look turns
 //! constrained layout on by default; matplotlib's look starts without an
@@ -50,7 +50,7 @@
 //! | `gs.subgridspec(r, c)`, `GridSpecFromSubplotSpec` | [`GridSpec::nested`]                        |
 //! | `gs.update(left=...)`                           | [`GridSpec::update`]                          |
 //! | `ax.get_subplotspec()`, `ss.get_gridspec()`     | [`Axes::subplot_spec`], [`SubplotSpec::gridspec`] |
-//! | `fig.subplot_mosaic("AB;CC", ...)`              | [`Figure::subplot_mosaic`] with [`Mosaic::parse`] and [`MosaicOptions`] |
+//! | `fig.subplot_mosaic("AB;CC", ...)`              | [`Figure::subplot_mosaic`] with `"AB;CC".parse::<`[`Mosaic`]`>()?` and [`MosaicOptions`] |
 //! | `axd["A"]`                                      | [`MosaicAxes::get`]`("A")`                    |
 //! | `fig.subfigures(r, c, wspace=..., width_ratios=...)` | [`Figure::subfigures`] with [`SubfigureOptions`] |
 //! | `fig.add_subfigure(gs[...])`                    | [`Figure::add_subfigure`]                     |
@@ -65,7 +65,7 @@
 //! | `fig.subplots_adjust(left=..., wspace=...)`     | [`Figure::subplots_adjust`]`(&SubplotOverrides { .. })` |
 //! | `fig.subplotpars`                               | [`Figure::subplot_params`]                    |
 //! | `fig.align_labels()`, `fig.align_titles()`      | [`Figure::align_labels`]`(None)`, [`Figure::align_titles`]`(None)` |
-//! | `fig.autofmt_xdate()`                           | [`Figure::autofmt_xdate`]`(0.2, 30.0, HorizontalAlignment::Right)` |
+//! | `fig.autofmt_xdate()`                           | [`Figure::autofmt_xdate`]`(0.2, 30.0, HAlign::Right)` |
 //! | `fig.draw_without_rendering()`                  | [`Figure::layout`]                            |
 //! | `ax.get_position()`, `ax.set_position(rect)`    | [`Axes::position`], [`Axes::set_position`]    |
 //! | `ax.label_outer()`                              | [`Axes::label_outer`]                         |
@@ -167,7 +167,7 @@
 //!     sharex: true,
 //!     ..MosaicOptions::default()
 //! };
-//! let axd = fig.subplot_mosaic(&Mosaic::parse("AAB;C.B")?, &options)?;
+//! let axd = fig.subplot_mosaic(&"AAB;C.B".parse::<Mosaic>()?, options)?;
 //! axd.get("A").ok_or("label A")?.set_title("A");
 //! let labels: Vec<&str> = axd.iter().map(|(label, _)| label).collect();
 //! assert_eq!(labels, ["A", "B", "C"]);
@@ -188,7 +188,7 @@
 //!
 //! let fig = Figure::new();
 //! let options = SubfigureOptions { width_ratios: Some(vec![2.0, 1.0]), ..SubfigureOptions::default() };
-//! let subfigs = fig.subfigures(1, 2, &options)?;
+//! let subfigs = fig.subfigures(1, 2, options)?;
 //! let (left, right) = (&subfigs[(0, 0)], &subfigs[(0, 1)]);
 //! left.subplots(2, 1)?;
 //! right.subplot();
@@ -292,7 +292,8 @@
 //! [`Axes::position`]: crate::axes::Axes::position
 //! [`Axes::set_position`]: crate::axes::Axes::set_position
 //! [`Axes::label_outer`]: crate::axes::Axes::label_outer
-//! [`Mosaic::parse`]: crate::figure::Mosaic::parse
+//! [`Mosaic`]: crate::figure::Mosaic
+//! [`FromStr`]: std::str::FromStr
 //! [`MosaicOptions`]: crate::figure::MosaicOptions
 //! [`MosaicAxes::get`]: crate::figure::MosaicAxes::get
 //! [`SubfigureOptions`]: crate::figure::SubfigureOptions

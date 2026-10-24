@@ -50,7 +50,7 @@ fn axes_zoom_effect(fig: &Figure) -> CaseResult {
         vec![cell("zoom1"), cell("zoom2")],
         vec![cell("main"), cell("main")],
     ])?;
-    let axs = fig.subplot_mosaic(&mosaic, &MosaicOptions::default())?;
+    let axs = fig.subplot_mosaic(&mosaic, MosaicOptions::default())?;
     let axes = |name: &str| axs.get(name).ok_or("a mosaic cell");
     let (zoom1, zoom2, main) = (axes("zoom1")?, axes("zoom2")?, axes("main")?);
     main.set_xlim(0.0, 5.0);

@@ -11,6 +11,7 @@ use super::ticks::{GridStyle, TickDirection, TickStyle};
 use crate::colors::Color;
 use crate::lines::LineStyle;
 use crate::spines::SpineSide;
+use crate::ticker::TickerError;
 
 /// A tick mark of an axis (matplotlib's `tick1line` or `tick2line`).
 #[derive(Clone, Debug, PartialEq)]
@@ -119,13 +120,13 @@ impl Axis {
     /// assert_eq!(marks.len(), 6);
     /// assert_eq!((marks[0].side, marks[0].visible), (SpineSide::Bottom, true));
     /// assert_eq!((marks[1].side, marks[1].visible), (SpineSide::Top, false));
-    /// # Ok::<(), String>(())
+    /// # Ok::<(), plt::ticker::TickerError>(())
     /// ```
     ///
     /// # Errors
     ///
     /// When the locator fails.
-    pub fn ticklines(&self, minor: bool) -> Result<Vec<TickLine>, String> {
+    pub fn ticklines(&self, minor: bool) -> Result<Vec<TickLine>, TickerError> {
         let ticks = self.axes.ticks(self.name)?;
         let (unclipped, in_view) = if minor {
             (&ticks.minor_unclipped, &ticks.minor_index)
@@ -165,7 +166,7 @@ impl Axis {
     /// # Errors
     ///
     /// When the locator fails.
-    pub fn gridlines(&self) -> Result<Vec<GridLine>, String> {
+    pub fn gridlines(&self) -> Result<Vec<GridLine>, TickerError> {
         let ticks = self.axes.ticks(self.name)?;
         Ok(self.read(|axis| {
             styled(axis, &ticks.major_unclipped, &ticks.major_index, false)
@@ -210,15 +211,15 @@ impl Axis {
     ///     grid_linestyle: Some(LineStyle::Dotted),
     ///     ..TickLineProps::default()
     /// };
-    /// ax.xaxis().set_major_tick_line_props(1, &dotted);
+    /// ax.xaxis().set_major_tick_line_props(1, dotted);
     /// ```
-    pub fn set_major_tick_line_props(&self, index: usize, props: &TickLineProps) -> &Self {
+    pub fn set_major_tick_line_props(&self, index: usize, props: TickLineProps) -> &Self {
         self.update(|axis| {
             let overrides = &mut axis.major_line_overrides;
             if overrides.len() <= index {
                 overrides.resize_with(index + 1, TickLineProps::default);
             }
-            overrides[index] = overrides[index].overlay(props);
+            overrides[index] = overrides[index].overlay(&props);
         });
         self
     }
@@ -268,7 +269,7 @@ mod tests {
         ax.set_xticks([0.0, 0.5, 1.0]).set_xlim(0.25, 1.0);
         ax.xaxis().set_major_tick_line_props(
             2,
-            &TickLineProps {
+            TickLineProps {
                 grid_visible: Some(true),
                 markeredgecolor: Some(Color::from("red")),
                 ..TickLineProps::default()
@@ -310,10 +311,10 @@ mod tests {
             ..TickLineProps::default()
         };
         let xaxis = ax.xaxis();
-        xaxis.set_major_tick_line_props(1, &red);
+        xaxis.set_major_tick_line_props(1, red);
         xaxis.set_major_tick_line_props(
             1,
-            &TickLineProps {
+            TickLineProps {
                 grid_linestyle: Some(LineStyle::Dotted),
                 ..TickLineProps::default()
             },

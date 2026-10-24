@@ -47,7 +47,7 @@ fn axes3d_facts(ax: &Axes3D) -> Json {
         ("ylim".into(), limits(ax.ylim())),
         ("zlim".into(), limits(ax.zlim())),
     ];
-    if let Some(legend) = ax.get_legend() {
+    if let Some(legend) = ax.current_legend() {
         let labels = legend.labels().into_iter().map(Json::from).collect();
         facts.push(("legend".into(), Json::Array(labels)));
     }
@@ -71,7 +71,7 @@ fn axes_facts(ax: &Axes) -> Json {
         ("xticks".into(), ticks(ax, AxisName::X)),
         ("yticks".into(), ticks(ax, AxisName::Y)),
     ];
-    if let Some(legend) = ax.get_legend() {
+    if let Some(legend) = ax.current_legend() {
         let labels = legend.labels().into_iter().map(Json::from).collect();
         facts.push(("legend".into(), Json::Array(labels)));
     }
@@ -88,7 +88,7 @@ fn ticks(ax: &Axes, axis: AxisName) -> Json {
                 .map(|tick| Json::Array(vec![tick.loc.into(), tick.label.into()]))
                 .collect(),
         ),
-        Err(message) => Json::String(message),
+        Err(err) => Json::String(err.to_string()),
     }
 }
 

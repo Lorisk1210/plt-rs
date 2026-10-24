@@ -15,8 +15,8 @@ use plt::patches::{PathShape, Shadow};
 use plt::patheffects::{PatchShadow, PathEffect, TickedStroke};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::VerticalAlignment as VAlign;
-use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HorizontalAlignment as HAlign};
+use plt::text::VAlign;
+use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign};
 use plt::ticker::pyfmt::PrintfFormat;
 use plt::transforms::Point;
 use plt_core::Path;
@@ -54,7 +54,7 @@ fn patheffect_demo(fig: &Figure) -> CaseResult {
     .set_path_effects(with_stroke(3.0, "w")?);
     ax1.grid_with(
         true,
-        &plt::axes::GridOptions {
+        plt::axes::GridOptions {
             linestyle: Some(LineStyle::Solid),
             path_effects: Some(with_stroke(3.0, "w")?),
             ..plt::axes::GridOptions::default()
@@ -73,7 +73,7 @@ fn patheffect_demo(fig: &Figure) -> CaseResult {
         },
     )?;
     contour_effects(&contours, &with_stroke(3.0, "w")?);
-    let labels = contours.clabel(&ClabelOptions {
+    let labels = contours.clabel(ClabelOptions {
         fmt: LabelFormat::Printf(PrintfFormat::parse("%2.0f")?),
         use_clabeltext: true,
         ..ClabelOptions::default()
@@ -149,7 +149,7 @@ fn svg_filter_pie(fig: &Figure) -> CaseResult {
     let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
     let pie = ax.pie(
         &[15.0, 30.0, 45.0, 10.0],
-        &PieOptions {
+        PieOptions {
             explode: vec![0.0, 0.05, 0.0, 0.0],
             labels: ["Frogs", "Hogs", "Dogs", "Logs"].map(String::from).to_vec(),
             autopct: Some(PieLabelFormat::Printf("%1.1f%%".into())),
@@ -177,7 +177,7 @@ fn rotated_mesh() -> Mesh {
     let xx = Grid::from_fn(11, 11, |y, x| x as f64 * cos - y as f64 * sin);
     let yy = Grid::from_fn(11, 11, |y, x| x as f64 * sin + y as f64 * cos);
     let d = Grid::from_fn(10, 10, |r, c| (r * 10 + c) as f64);
-    Mesh::with_coords(xx, yy, d)
+    Mesh::from_coords(xx, yy, d)
 }
 
 /// The big faint "Text" in the middle of `ax`.

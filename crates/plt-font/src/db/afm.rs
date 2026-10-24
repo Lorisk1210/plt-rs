@@ -52,7 +52,7 @@ impl AfmFont {
     /// The numeric weight (matplotlib's `weight_dict`; unknown keywords
     /// count as `normal`).
     pub fn weight_value(&self) -> Weight {
-        Weight::parse(self.weight).unwrap_or(Weight::NORMAL)
+        self.weight.parse().unwrap_or(Weight::NORMAL)
     }
 
     /// The font's metrics.

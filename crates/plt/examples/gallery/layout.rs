@@ -31,7 +31,7 @@ pub(crate) const ENTRIES: &[Entry] = &[
 fn mosaic() -> Built {
     let fig = Figure::with_size(7.0, 5.0, 100.0);
     fig.set_layout_engine(LayoutEngine::constrained());
-    let axes = fig.subplot_mosaic(&Mosaic::parse("AAB;CDB")?, &MosaicOptions::default())?;
+    let axes = fig.subplot_mosaic(&"AAB;CDB".parse::<Mosaic>()?, MosaicOptions::default())?;
     let mut samples = Samples::new(3);
     for (name, ax) in axes.iter() {
         let n = 20 + name.len() * 10;

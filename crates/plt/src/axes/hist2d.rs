@@ -61,7 +61,7 @@ impl Axes {
             mut counts,
             xedges,
             yedges,
-        } = histogram2d(x, y, &options.histogram)?;
+        } = histogram2d(x, y, options.histogram)?;
         for count in counts.as_mut_slice() {
             let below = options.cmin.is_some_and(|cmin| *count < cmin);
             let above = options.cmax.is_some_and(|cmax| *count > cmax);
@@ -71,7 +71,7 @@ impl Axes {
         }
         let values = ScalarField::new(counts.transposed());
         let mesh = self.pcolormesh(
-            Mesh::with_coords(xedges.clone(), yedges.clone(), values),
+            Mesh::from_coords(xedges.clone(), yedges.clone(), values),
             options.mesh,
         )?;
         Ok(Hist2d {

@@ -67,7 +67,7 @@
 //! assert!(std::fs::read_to_string(dir.join("plot.svg"))?.contains("<svg"));
 //! std::fs::remove_dir_all(&dir)?;
 //!
-//! let png = fig.to_png_with(&SaveOptions { dpi: Some(200.0), ..SaveOptions::default() })?;
+//! let png = fig.to_png_with(SaveOptions { dpi: Some(200.0), ..SaveOptions::default() })?;
 //! assert_eq!(imread_bytes(&png)?.shape(), (960, 1280));
 //!
 //! let tight = SaveOptions {
@@ -75,11 +75,11 @@
 //!     transparent: Some(true),
 //!     ..SaveOptions::default()
 //! };
-//! let pdf = fig.to_pdf_with(&tight)?;
+//! let pdf = fig.to_pdf_with(tight)?;
 //! assert!(pdf.starts_with(b"%PDF"));
 //!
 //! let jpeg = SaveOptions { jpeg_quality: Some(90), ..SaveOptions::default() };
-//! let bytes = fig.to_format("jpg".parse::<SaveFormat>()?, &jpeg)?;
+//! let bytes = fig.to_format("jpg".parse::<SaveFormat>()?, jpeg)?;
 //! assert!(bytes.starts_with(&[0xFF, 0xD8]));
 //! assert!("docx".parse::<SaveFormat>().is_err());
 //! # Ok::<(), Box<dyn std::error::Error>>(())

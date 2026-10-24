@@ -12,7 +12,7 @@ use plt::patches::Ellipse;
 use plt::polar::{Compass, PolarAxes, ThetaDirection};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{AnnotateOptions, HorizontalAlignment, VerticalAlignment};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt::ticker::FuncFormatter;
 use plt::ticker::pyfmt::FormatSpec;
 use plt_core::Point;
@@ -63,8 +63,8 @@ pub(super) fn polar_annotations(fig: &Figure) -> CaseResult {
         ..AnnotateOptions::default()
     };
     ax.annotate("a polar annotation", (thistheta, thisr), options)?
-        .set_halign(HorizontalAlignment::Left)
-        .set_valign(VerticalAlignment::Baseline);
+        .set_halign(HAlign::Left)
+        .set_valign(VAlign::Baseline);
     ax.tick_params(&TickParams {
         axis: Some(AxisName::X),
         bottom: Some(true),
@@ -90,8 +90,8 @@ pub(super) fn polar_coord_annotations(fig: &Figure) -> CaseResult {
         ..AnnotateOptions::default()
     };
     ax.annotate("the top", (FRAC_PI_2, 10.0), options)?
-        .set_halign(HorizontalAlignment::Left)
-        .set_valign(VerticalAlignment::Baseline);
+        .set_halign(HAlign::Left)
+        .set_valign(VAlign::Baseline);
     ax.set_xlim(-20.0, 20.0).set_ylim(-20.0, 20.0);
     remove_ticks_and_titles(fig);
     Ok(())
@@ -110,13 +110,14 @@ pub(super) fn polar_alignment(fig: &Figure) -> CaseResult {
     let vertical = fig.add_polar_axes(rect);
     vertical.set_patch_visible(false);
     let aligned = TickLabelProps {
-        halign: Some(HorizontalAlignment::Left),
-        valign: Some(VerticalAlignment::Top),
+        halign: Some(HAlign::Left),
+        valign: Some(VAlign::Top),
         ..TickLabelProps::default()
     };
     for (ax, angle) in [horizontal, vertical].iter().zip(angles) {
         ax.set_rgrids(&grid_values, Some(angle));
-        ax.yaxis().set_ticklabel_props(TickLevel::Major, &aligned);
+        ax.yaxis()
+            .set_ticklabel_props(TickLevel::Major, aligned.clone());
     }
     Ok(())
 }
@@ -373,7 +374,7 @@ fn polar_errorbar(fig: &Figure, before: bool) -> CaseResult {
         xerr: Some(0.1.into()),
         yerr: Some(0.1.into()),
         capsize: Some(7.0),
-        fmt: "o".to_owned(),
+        fmt: "o".parse()?,
         line: LineProps::default().color("seagreen"),
         ..ErrorbarOptions::default()
     };

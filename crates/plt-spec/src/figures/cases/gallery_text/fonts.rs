@@ -11,7 +11,7 @@ use plt::fonts::{
 use plt::layout::TightLayout;
 use plt::prelude::*;
 use plt::table::{TableLoc, TableOptions};
-use plt::text::{HorizontalAlignment as HAlign, Text, VerticalAlignment as VAlign};
+use plt::text::{HAlign, Text, VAlign};
 use plt_font::{FontDatabase, FontEntry, FontSource, GlyphId};
 
 use crate::figures::{CaseResult, FigureCase};
@@ -87,7 +87,7 @@ fn font_table(fig: &Figure) -> CaseResult {
     ax.set_title(file.as_str());
     ax.set_axis_off();
     let palegreen = || vec![Color::from("palegreen"); 16];
-    let table = ax.table(&TableOptions {
+    let table = ax.table(TableOptions {
         cell_colours: Some(vec![vec![Color::from(".95"); 16]; 16]),
         cell_loc: Some(HAlign::Center),
         row_labels: Some((0..16).map(|row| format!("{:02X}", row * 16)).collect()),
@@ -223,7 +223,7 @@ fn fonts_demo(fig: &Figure) -> CaseResult {
 
 /// `fonts_demo_kw`: every font property set through text keywords.
 fn fonts_demo_kw(fig: &Figure) -> CaseResult {
-    sample(fig, 0.1, 0.9, "family").set_fontsize_relative(RelativeSize::Large);
+    sample(fig, 0.1, 0.9, "family").set_fontsize(RelativeSize::Large);
     for (name, y) in FAMILIES.into_iter().zip(YP) {
         sample(fig, 0.1, y, name).set_family([name]);
     }
@@ -245,13 +245,13 @@ fn fonts_demo_kw(fig: &Figure) -> CaseResult {
     }
     sample(fig, 0.9, 0.9, "size");
     for (size, y) in SIZES.into_iter().zip(YP) {
-        sample(fig, 0.9, y, size.name()).set_fontsize_relative(size);
+        sample(fig, 0.9, y, size.name()).set_fontsize(size);
     }
     for (y, size) in BOLD_ITALIC {
         sample(fig, 0.3, y, "bold italic")
             .set_style(parse_style("italic")?)
             .set_weight(FontWeight::BOLD)
-            .set_fontsize_relative(size);
+            .set_fontsize(size);
     }
     Ok(())
 }

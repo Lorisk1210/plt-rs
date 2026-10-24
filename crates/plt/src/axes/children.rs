@@ -1,6 +1,7 @@
 //! The children of an axes: listing them by kind (matplotlib's
-//! `ax.collections`, `ax.patches`, `ax.texts`), adding artists and
-//! accounting for them in the data limits.
+//! `ax.collections`, `ax.patches`, `ax.texts`, `ax.tables`,
+//! `ax.artists`), adding artists and accounting for them in the data
+//! limits.
 
 use std::any::Any;
 use std::rc::Rc;
@@ -9,7 +10,16 @@ use plt_core::Point;
 
 use super::{Axes, AxesState, DataLimits};
 use crate::artist::{Artist, ArtistHandle, LimitPoints, RawHandle};
-use crate::collections::{Collection, CollectionArtist};
+use crate::axisartist::AxisArtistState;
+use crate::collections::{Collection, CollectionArtist, TriMeshArtist};
+use crate::colorbar::ColorbarArtist;
+use crate::contour::ContourSetArtist;
+use crate::image::{AxesImageArtist, NonUniformImageArtist, PcolorImageArtist};
+use crate::legend::LegendArtist;
+use crate::lines::LineArtist;
+use crate::spines::SpineArtist;
+use crate::streamplot::StreamArrowArtist;
+use crate::table::{Table, TableArtist};
 use crate::text::{Text, TextArtist};
 
 /// How a new child changes the data limits and autoscaling.
@@ -143,6 +153,51 @@ impl Axes {
             .collect()
     }
 
+    /// The tables of the axes in the order they were added (matplotlib's
+    /// `ax.tables`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::table::TableOptions;
+    /// let ax = Figure::new().subplot();
+    /// assert!(ax.tables().is_empty());
+    /// let options = TableOptions { cell_text: vec![vec!["1".into(), "2".into()]], ..Default::default() };
+    /// let table = ax.table(options)?;
+    /// assert_eq!(ax.tables(), [table]);
+    /// # Ok::<(), plt::table::TableError>(())
+    /// ```
+    pub fn tables(&self) -> Vec<Table> {
+        self.children_of::<TableArtist>()
+            .into_iter()
+            .map(Table::from_raw)
+            .collect()
+    }
+
+    /// The other artists of the axes in the order they were added: those
+    /// none of [`lines`](Self::lines), [`patches`](Self::patches),
+    /// [`collections`](Self::collections), [`texts`](Self::texts),
+    /// [`images`](Self::images) and [`tables`](Self::tables) lists, such as
+    /// anchored boxes, annotation boxes, quiver keys and custom artists
+    /// (matplotlib's `ax.artists`). The legend, the spines and the axis
+    /// decorations are not among them.
+    ///
+    /// ```
+    /// use plt::offsetbox::{AnchorLoc, AnchoredBox, AnchoredOptions};
+    /// use plt::prelude::*;
+    /// use plt::text::TextProps;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// ax.legend(Default::default())?;
+    /// assert!(ax.artists().is_empty());
+    /// let note = AnchoredBox::text("note", TextProps::default(), AnchoredOptions::new(AnchorLoc::UpperLeft))?;
+    /// let anchored = ax.add_anchored_box(note);
+    /// assert_eq!(ax.artists(), [anchored.raw().clone()]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn artists(&self) -> Vec<RawHandle> {
+        self.children_where(|artist| !listed_by_kind(artist))
+    }
+
     /// Adds `artist` as a child and applies `update` (matplotlib's
     /// `add_line`/`add_patch`/`add_collection` bookkeeping): an artist
     /// without a clip path of its own is clipped to the axes' box.
@@ -238,6 +293,30 @@ impl Axes {
             axes.request_autoscale(x, y);
         });
     }
+}
+
+/// Whether `artist` is one of the kinds matplotlib lists apart from
+/// `ax.artists`: lines, patches, collections (contour sets and triangle
+/// meshes included), texts, images and tables, or a part of the axes it
+/// does not count as a child (the spines, the legend, a colorbar,
+/// axisartist axes).
+fn listed_by_kind(artist: &dyn Artist) -> bool {
+    let any = artist as &dyn Any;
+    artist.as_patch().is_some()
+        || any.is::<LineArtist>()
+        || any.is::<CollectionArtist>()
+        || any.is::<TriMeshArtist>()
+        || any.is::<ContourSetArtist>()
+        || any.is::<StreamArrowArtist>()
+        || any.is::<TextArtist>()
+        || any.is::<AxesImageArtist>()
+        || any.is::<NonUniformImageArtist>()
+        || any.is::<PcolorImageArtist>()
+        || any.is::<TableArtist>()
+        || any.is::<SpineArtist>()
+        || any.is::<LegendArtist>()
+        || any.is::<ColorbarArtist>()
+        || any.is::<AxisArtistState>()
 }
 
 #[cfg(test)]

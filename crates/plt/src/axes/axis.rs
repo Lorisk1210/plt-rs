@@ -15,7 +15,9 @@ use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
-use crate::ticker::{AxisInfo, AxisName, Formatter, Locator, TickContext, TickerSettings};
+use crate::ticker::{
+    AxisInfo, AxisName, Formatter, Locator, TickContext, TickerError, TickerSettings,
+};
 use crate::transforms::{AxisMap, interval_contains_close};
 use crate::units::{
     AxisValues, Categories, CategoryFormatter, CategoryLocator, UnitConverter, date_tickers,
@@ -109,7 +111,7 @@ pub(crate) struct AxisState {
     /// `xtick.labelsize` or `ytick.labelsize`.
     pub(crate) label_size: Option<f64>,
     /// Ticks computed by the last prepare pass, or why they could not be.
-    pub(crate) ticks: Result<TickSet, String>,
+    pub(crate) ticks: Result<TickSet, TickerError>,
     /// Appearance of the major ticks.
     pub(crate) major_style: TickStyle,
     /// Appearance of the minor ticks.
@@ -432,13 +434,10 @@ impl AxisState {
     /// Computes the ticks to draw for the current view (matplotlib's
     /// `Axis._update_ticks`).
     pub(crate) fn update_ticks(&mut self, geometry: &AxisGeometry) {
-        self.ticks = self.compute_ticks(geometry).map_err(|err| err.to_string());
+        self.ticks = self.compute_ticks(geometry);
     }
 
-    fn compute_ticks(
-        &self,
-        geometry: &AxisGeometry,
-    ) -> Result<TickSet, crate::ticker::TickerError> {
+    fn compute_ticks(&self, geometry: &AxisGeometry) -> Result<TickSet, TickerError> {
         let mut info = self.info(geometry);
         let mut major_locs = {
             let ctx = TickContext::new(&info, &self.settings);

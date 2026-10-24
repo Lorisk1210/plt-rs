@@ -19,7 +19,7 @@ use plt::quiver::{
 };
 use plt::rc::Aspect;
 use plt::streamplot::{StreamColorMap, StreamColors, StreamField, StreamWidths, StreamplotOptions};
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 use plt::transforms::Point;
 
 use super::data::mesh_field;
@@ -142,7 +142,7 @@ fn figure_key(ax: &Axes, q: &Quiver, length: f64, label: &str) {
         coordinates: KeyCoordinates::Figure,
         ..QuiverKeyOptions::default()
     };
-    ax.quiverkey(q, (0.9, 0.9), length, label, &options);
+    ax.quiverkey(q, (0.9, 0.9), length, label, options);
 }
 
 /// Scatter markers of one colour and size.
@@ -213,7 +213,7 @@ fn quiver_simple_demo(fig: &Figure) -> CaseResult {
         labelpos: LabelPosition::East,
         ..QuiverKeyOptions::default()
     };
-    ax.quiverkey(&q, (0.3, 1.1), 10.0, "Quiver key, length = 10", &options);
+    ax.quiverkey(&q, (0.3, 1.1), 10.0, "Quiver key, length = 10", options);
     Ok(())
 }
 
@@ -414,8 +414,8 @@ fn plot_streamplot_2(fig: &Figure) -> CaseResult {
             text.push_str("\n(default)");
         }
         ax.text(0.0, 0.0, text)
-            .set_halign(HorizontalAlignment::Center)
-            .set_valign(VerticalAlignment::Center);
+            .set_halign(HAlign::Center)
+            .set_valign(VAlign::Center);
         ax_ins.set_xlim(-1.2, -0.7);
         ax_ins.set_ylim(-0.8, -0.4);
         tickless(&ax_ins);

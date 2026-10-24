@@ -25,7 +25,7 @@ pub(crate) fn long_axis_scale(
 ) -> Box<dyn Scale> {
     let kind = norm.kind();
     if contours && matches!(&kind, NormKind::Scaled(scale) if scale.name() == "log") {
-        return scale_factory("log", &ScaleOptions::default())
+        return scale_factory("log", ScaleOptions::default())
             .expect("the log scale is always registered");
     }
     if blocks.explicit || blocks.class == NormClass::Boundary {

@@ -136,7 +136,7 @@ fn set_scale(ax: &Axes, axis: AxisName, call: &Call<'_>) -> Result<Produced, Pro
         base: call.opt_f64(KEYWORD_ONLY, "base")?,
         ..ScaleOptions::default()
     };
-    let scale = scale_factory(call.str(0, "value")?, &options).map_err(ProbeError::rejected)?;
+    let scale = scale_factory(call.str(0, "value")?, options).map_err(ProbeError::rejected)?;
     ax.set_scale(axis, scale);
     Ok(Produced::Nothing)
 }

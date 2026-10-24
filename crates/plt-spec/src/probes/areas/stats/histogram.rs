@@ -72,21 +72,17 @@ fn with_samples<R>(
 
 /// Object-safe access to the generic histogram functions.
 trait SampleData {
-    fn histogram(&self, opts: &HistogramOptions<'_>)
-    -> Result<stats::Histogram, stats::StatsError>;
-    fn edges(&self, opts: &HistogramOptions<'_>) -> Result<Vec<f64>, stats::StatsError>;
+    fn histogram(&self, opts: HistogramOptions<'_>) -> Result<stats::Histogram, stats::StatsError>;
+    fn edges(&self, opts: HistogramOptions<'_>) -> Result<Vec<f64>, stats::StatsError>;
     fn width(&self, estimator: BinEstimator) -> Result<f64, stats::StatsError>;
 }
 
 impl<T: BinSample> SampleData for Vec<T> {
-    fn histogram(
-        &self,
-        opts: &HistogramOptions<'_>,
-    ) -> Result<stats::Histogram, stats::StatsError> {
+    fn histogram(&self, opts: HistogramOptions<'_>) -> Result<stats::Histogram, stats::StatsError> {
         stats::histogram(self, opts)
     }
 
-    fn edges(&self, opts: &HistogramOptions<'_>) -> Result<Vec<f64>, stats::StatsError> {
+    fn edges(&self, opts: HistogramOptions<'_>) -> Result<Vec<f64>, stats::StatsError> {
         stats::histogram_bin_edges(self, opts)
     }
 
@@ -99,7 +95,7 @@ impl<T: BinSample> SampleData for Vec<T> {
 pub(super) fn histogram(args: Args<'_>) -> Outcome {
     let weights = weights(args)?;
     let opts = histogram_options(args, weights.as_deref())?;
-    let h = with_samples(args.json("a")?, |data| data.histogram(&opts))?;
+    let h = with_samples(args.json("a")?, |data| data.histogram(opts.clone()))?;
     Ok(object([
         ("hist", Json::from(h.counts)),
         ("bin_edges", Json::from(h.edges)),
@@ -110,7 +106,7 @@ pub(super) fn histogram_bin_edges(args: Args<'_>) -> Outcome {
     let weights = weights(args)?;
     let opts = histogram_options(args, weights.as_deref())?;
     Ok(Json::from(with_samples(args.json("a")?, |data| {
-        data.edges(&opts)
+        data.edges(opts.clone())
     })?))
 }
 
@@ -177,9 +173,9 @@ pub(super) fn axes_hist(args: Args<'_>) -> Outcome {
             .iter()
             .map(|s| s.iter().map(|&v| v as i64).collect())
             .collect();
-        ax.hist(&ints, &options)
+        ax.hist(&ints, options)
     } else {
-        ax.hist(&sets, &options)
+        ax.hist(&sets, options)
     }
     .map_err(ProbeError::rejected)?;
     let HistPlot {

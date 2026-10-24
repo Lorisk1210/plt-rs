@@ -248,7 +248,7 @@ impl Figure {
     /// Renders the figure with the Agg-compatible raster backend, as
     /// `savefig` does.
     pub fn render_raster(&self) -> Result<RasterRenderer, SaveError> {
-        self.render_raster_with(&super::SaveOptions::default())
+        self.render_raster_with(super::SaveOptions::default())
     }
 
     /// The figure as PNG bytes (matplotlib's `savefig(format="png")`).
@@ -261,7 +261,7 @@ impl Figure {
     /// # Errors
     ///
     /// As [`Figure::render_raster_with`], or when encoding fails.
-    pub fn to_png_with(&self, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
+    pub fn to_png_with(&self, options: SaveOptions) -> Result<Vec<u8>, SaveError> {
         self.render_raster_with(options)?
             .to_png()
             .map_err(SaveError::Backend)
@@ -269,7 +269,7 @@ impl Figure {
 
     /// The figure as a PDF document (matplotlib's `savefig(format="pdf")`).
     pub fn to_pdf(&self) -> Result<Vec<u8>, SaveError> {
-        self.to_pdf_with(&SaveOptions::default())
+        self.to_pdf_with(SaveOptions::default())
     }
 
     /// The figure as a PDF document with save options; the `pdf.*`
@@ -278,11 +278,11 @@ impl Figure {
     /// # Errors
     ///
     /// When some artists cannot be drawn or the document cannot be written.
-    pub fn to_pdf_with(&self, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
+    pub fn to_pdf_with(&self, options: SaveOptions) -> Result<Vec<u8>, SaveError> {
         let pdf = pdf_options(options.metadata.clone().unwrap_or_default());
         // Text the backend draws in core fonts is laid out with their metrics.
         crate::text::with_afm_metrics(pdf.afm_directory(), || {
-            self.render_vector_with(options, |width, height, dpi| {
+            self.render_vector_with(&options, |width, height, dpi| {
                 PdfRenderer::new(width, height, dpi, pdf)
             })
         })?
@@ -299,7 +299,7 @@ impl Figure {
     pub fn to_format(
         &self,
         format: SaveFormat,
-        options: &SaveOptions,
+        options: SaveOptions,
     ) -> Result<Vec<u8>, SaveError> {
         match format {
             SaveFormat::Png => self.to_png_with(options),
@@ -323,17 +323,18 @@ impl Figure {
     /// (Agg's `print_raw`, and `print_jpg`, `print_tif` and `print_gif`
     /// through `imsave`): the save resolution recorded, JPEG flattened onto
     /// white.
-    fn to_bitmap(&self, format: BitmapFormat, options: &SaveOptions) -> Result<Vec<u8>, SaveError> {
-        let canvas = self.render_raster_with(options)?;
+    fn to_bitmap(&self, format: BitmapFormat, options: SaveOptions) -> Result<Vec<u8>, SaveError> {
         let defaults = BitmapSettings::default();
+        let jpeg_quality = options.jpeg_quality.unwrap_or(defaults.jpeg_quality);
+        let canvas = self.render_raster_with(options)?;
         let settings = BitmapSettings {
             dpi: canvas.dpi(),
-            jpeg_quality: options.jpeg_quality.unwrap_or(defaults.jpeg_quality),
+            jpeg_quality,
             ..defaults
         };
         let image = canvas.to_image();
         format
-            .encode(image.width(), image.height(), image.data(), &settings)
+            .encode(image.width(), image.height(), image.data(), settings)
             .map_err(SaveError::Bitmap)
     }
 
@@ -342,7 +343,7 @@ impl Figure {
     /// PGF;
     /// `savefig.format` and an appended extension without one).
     pub fn savefig(&self, path: impl AsRef<FsPath>) -> Result<(), SaveError> {
-        self.savefig_with(path, &SaveOptions::default())
+        self.savefig_with(path, SaveOptions::default())
     }
 
     /// Writes the figure to `path` with save options (matplotlib's
@@ -355,22 +356,23 @@ impl Figure {
     pub fn savefig_with(
         &self,
         path: impl AsRef<FsPath>,
-        options: &SaveOptions,
+        options: SaveOptions,
     ) -> Result<(), SaveError> {
         let (path, format) = resolve_format(path.as_ref(), options.format)?;
         match format {
             SaveFormat::Svg | SaveFormat::Svgz => {
-                return self.save_svg(&path, options, format == SaveFormat::Svgz);
+                return self.save_svg(&path, &options, format == SaveFormat::Svgz);
             }
-            SaveFormat::Pgf => return self.save_pgf(&path, options),
+            SaveFormat::Pgf => return self.save_pgf(&path, &options),
             _ => {}
         }
         let document = if matches!(format, SaveFormat::Ps | SaveFormat::Eps) {
+            let metadata = Some(file_metadata(&options, &path));
             let titled = SaveOptions {
-                metadata: Some(file_metadata(options, &path)),
-                ..options.clone()
+                metadata,
+                ..options
             };
-            self.to_format(format, &titled)?
+            self.to_format(format, titled)?
         } else {
             self.to_format(format, options)?
         };
@@ -467,17 +469,17 @@ mod tests {
             dpi: Some(30.0),
             ..SaveOptions::default()
         };
-        let raw = fig.to_format(SaveFormat::Raw, &options).unwrap();
+        let raw = fig.to_format(SaveFormat::Raw, options.clone()).unwrap();
         assert_eq!(raw.len(), 30 * 15 * 4);
-        let jpeg = fig.to_format(SaveFormat::Jpeg, &options).unwrap();
+        let jpeg = fig.to_format(SaveFormat::Jpeg, options.clone()).unwrap();
         assert_eq!(&jpeg[6..11], b"JFIF\0");
         assert_eq!(&jpeg[14..18], [0, 30, 0, 30], "JFIF density");
-        let tiff = fig.to_format(SaveFormat::Tiff, &options).unwrap();
+        let tiff = fig.to_format(SaveFormat::Tiff, options.clone()).unwrap();
         assert_eq!(&tiff[190..198], [30, 0, 0, 0, 1, 0, 0, 0], "x resolution");
-        let gif = fig.to_format(SaveFormat::Gif, &options).unwrap();
+        let gif = fig.to_format(SaveFormat::Gif, options.clone()).unwrap();
         assert_eq!(&gif[..10], b"GIF89a\x1e\0\x0f\0");
         // WebP is lossless: it decodes to the canvas.
-        let webp = fig.to_format(SaveFormat::Webp, &options).unwrap();
+        let webp = fig.to_format(SaveFormat::Webp, options).unwrap();
         let decoded = plt_codec::webp::decode(&webp).unwrap().to_rgba8().concat();
         assert_eq!(decoded, raw);
     }
@@ -530,7 +532,7 @@ mod tests {
         let svg = fig.to_svg().unwrap();
         assert!(svg.contains("width=\"144pt\" height=\"72pt\""));
         let svgz = fig
-            .to_format(SaveFormat::Svgz, &SaveOptions::default())
+            .to_format(SaveFormat::Svgz, SaveOptions::default())
             .unwrap();
         assert_eq!(&svgz[..2], &[0x1f, 0x8b]);
         let metadata = file_metadata(&SaveOptions::default(), FsPath::new("dir/a.ps"));
@@ -543,7 +545,7 @@ mod tests {
             crate::rc::set("pdf.compression", "0").unwrap();
             let fig = Figure::with_size(2.0, 1.0, 50.0);
             fig.text(0.5, 0.5, "AVATAR")
-                .set_halign(crate::text::HorizontalAlignment::Center);
+                .set_halign(crate::text::HAlign::Center);
             let embedded = String::from_utf8_lossy(&fig.to_pdf().unwrap()).into_owned();
             assert!(!embedded.contains("/Type1"));
             crate::rc::set("pdf.use14corefonts", "True").unwrap();
@@ -569,7 +571,7 @@ mod tests {
             bbox_inches: Some(BboxInches::Inches(Bbox::from_bounds(0.0, 0.0, 1.0, 0.5))),
             ..SaveOptions::default()
         };
-        let cropped = String::from_utf8_lossy(&fig.to_pdf_with(&tight).unwrap()).into_owned();
+        let cropped = String::from_utf8_lossy(&fig.to_pdf_with(tight).unwrap()).into_owned();
         assert!(cropped.contains("/MediaBox [ 0 0 72 36 ]"));
         let dir = std::env::temp_dir().join("plt-rs-save-formats");
         std::fs::create_dir_all(&dir).unwrap();

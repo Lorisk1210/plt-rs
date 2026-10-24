@@ -60,7 +60,7 @@ fn panel(fig: &Figure, index: usize) -> Result<Axes3D, Axes3DError> {
 /// `ax.set(xscale="log", yscale="log", zscale="log", title=title)`.
 fn log_axes(ax: &Axes3D, title: &str) -> Result<(), Axes3DError> {
     for dir in Axis3::ALL {
-        ax.set_scale_with(dir, "log", &ScaleOptions::default())?;
+        ax.set_scale_with(dir, "log", ScaleOptions::default())?;
     }
     ax.set_title(title);
     Ok(())
@@ -184,7 +184,7 @@ fn stems_arrows_texts(fig: &Figure) -> CaseResult {
         bottom: 1.0,
         ..Stem3DOptions::default()
     };
-    ax.stem(&decades, &decades, &[10.0, 100.0, 1000.0], &options)?;
+    ax.stem(&decades, &decades, &[10.0, 100.0, 1000.0], options)?;
     log_axes(&ax, "stem")?;
 
     let ax = panel(fig, 10)?;
@@ -220,7 +220,7 @@ pub(super) fn scale3d_all_scales(fig: &Figure) -> CaseResult {
     }
     let (left, right) = (&axs[0], &axs[1]);
     for (dir, scale) in Axis3::ALL.into_iter().zip(["log", "symlog", "logit"]) {
-        left.set_scale_with(dir, scale, &ScaleOptions::default())?;
+        left.set_scale_with(dir, scale, ScaleOptions::default())?;
         left.set_label(dir, scale);
     }
     right.set_xscale("asinh")?;
@@ -228,7 +228,7 @@ pub(super) fn scale3d_all_scales(fig: &Figure) -> CaseResult {
         functions: Some(FuncTransform::new(f64::sqrt, |v| v * v)),
         ..ScaleOptions::default()
     };
-    right.set_scale_with(Axis3::Z, "function", &functions)?;
+    right.set_scale_with(Axis3::Z, "function", functions)?;
     for (dir, label) in Axis3::ALL.into_iter().zip(["asinh", "linear", "function"]) {
         right.set_label(dir, label);
     }
@@ -238,7 +238,7 @@ pub(super) fn scale3d_all_scales(fig: &Figure) -> CaseResult {
 pub(super) fn scale3d_all_clipped(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
     for dir in Axis3::ALL {
-        ax.set_scale_with(dir, "log", &ScaleOptions::default())?;
+        ax.set_scale_with(dir, "log", ScaleOptions::default())?;
     }
     for dir in Axis3::ALL {
         ax.set_limits(dir, 0.1, 10.0)?;
@@ -294,7 +294,7 @@ pub(super) fn scale3d_log_bases(fig: &Figure) -> CaseResult {
             ..ScaleOptions::default()
         };
         for dir in Axis3::ALL {
-            ax.set_scale_with(dir, "log", &options)?;
+            ax.set_scale_with(dir, "log", options.clone())?;
         }
         ax.set_title(title);
         if powers_of_e {
@@ -311,7 +311,7 @@ pub(super) fn scale3d_log_bases(fig: &Figure) -> CaseResult {
         ..ScaleOptions::default()
     };
     for dir in Axis3::ALL {
-        ax.set_scale_with(dir, "log", &options)?;
+        ax.set_scale_with(dir, "log", options.clone())?;
     }
     ax.set_title("subs=[2,5]");
     Ok(())
@@ -340,7 +340,7 @@ pub(super) fn scale3d_symlog_params(fig: &Figure) -> CaseResult {
             ..ScaleOptions::default()
         };
         for dir in Axis3::ALL {
-            ax.set_scale_with(dir, "symlog", &options)?;
+            ax.set_scale_with(dir, "symlog", options.clone())?;
         }
         ax.set_title(format!("linthresh={linthresh}"));
     }

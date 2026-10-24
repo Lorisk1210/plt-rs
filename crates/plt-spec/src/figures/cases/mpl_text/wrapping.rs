@@ -5,7 +5,7 @@ use plt::axes::{AxisName, TickLabelProps, TickLevel};
 use plt::fonts::{FontStyle, FontWeight};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, Text, TextRotationMode, VerticalAlignment};
+use plt::text::{HAlign, Text, TextRotationMode, VAlign};
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -15,7 +15,7 @@ const WRAPPED: &str = "This is a really long string that I'd rather have wrapped
                        the top or bottom!";
 
 /// The long string at `(x, y)`, aligned by `halign` and wrapped.
-fn wrapped(ax: &Axes, x: f64, y: f64, halign: HorizontalAlignment) -> Text {
+fn wrapped(ax: &Axes, x: f64, y: f64, halign: HAlign) -> Text {
     let text = ax.text(x, y, WRAPPED);
     text.set_halign(halign).set_wrap(true);
     text
@@ -24,7 +24,7 @@ fn wrapped(ax: &Axes, x: f64, y: f64, halign: HorizontalAlignment) -> Text {
 /// `test_basic_wrap`: wrapped texts rotated, aligned and styled in
 /// different ways, some running off the figure.
 fn basic_wrap(fig: &Figure) {
-    use HorizontalAlignment::{Center, Left, Right};
+    use HAlign::{Center, Left, Right};
     let ax = blank(fig);
     wrapped(&ax, 4.0, 1.0, Left).set_rotation(15.0);
     wrapped(&ax, 6.0, 5.0, Left).set_rotation(15.0);
@@ -32,7 +32,7 @@ fn basic_wrap(fig: &Figure) {
     wrapped(&ax, 5.0, 10.0, Center)
         .set_fontsize(18.0)
         .set_style(FontStyle::Oblique)
-        .set_valign(VerticalAlignment::Top);
+        .set_valign(VAlign::Top);
     wrapped(&ax, 3.0, 4.0, Right)
         .set_family(["serif"])
         .set_style(FontStyle::Italic);
@@ -42,7 +42,7 @@ fn basic_wrap(fig: &Figure) {
 /// `test_font_wrap`: wrapped texts in different families, weights and
 /// sizes.
 fn font_wrap(fig: &Figure) -> CaseResult {
-    use HorizontalAlignment::{Center, Left, Right};
+    use HAlign::{Center, Left, Right};
     let ax = blank(fig);
     wrapped(&ax, 4.0, -1.0, Left)
         .set_fontsize(18.0)
@@ -53,7 +53,7 @@ fn font_wrap(fig: &Figure) -> CaseResult {
         .set_rotation(15.0);
     wrapped(&ax, 5.0, 10.0, Center)
         .set_weight("heavy".parse::<FontWeight>()?)
-        .set_valign(VerticalAlignment::Top);
+        .set_valign(VAlign::Top);
     wrapped(&ax, 3.0, 4.0, Right).set_family(["monospace"]);
     wrapped(&ax, -1.0, 0.0, Left)
         .set_fontsize(14.0)
@@ -79,13 +79,13 @@ fn rotated_tick_labels(
             rotation_mode: Some(mode),
             ..TickLabelProps::default()
         };
-        axis.set_ticklabel_props(TickLevel::Major, &props);
+        axis.set_ticklabel_props(TickLevel::Major, props);
         for (index, &angle) in angles.iter().enumerate() {
             let props = TickLabelProps {
                 rotation: Some(angle),
                 ..TickLabelProps::default()
             };
-            axis.set_major_ticklabel_props(index, &props);
+            axis.set_major_ticklabel_props(index, props);
         }
     }
     Ok(())

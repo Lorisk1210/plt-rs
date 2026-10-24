@@ -142,14 +142,14 @@ fn axes_ticks_6(fig: &Figure) -> CaseResult {
     let xaxis = ax.xaxis();
     xaxis.set_major_ticklabel_props(
         5,
-        &TickLabelProps {
+        TickLabelProps {
             color: red(),
             ..TickLabelProps::default()
         },
     );
     xaxis.set_major_tick_line_props(
         5,
-        &TickLineProps {
+        TickLineProps {
             markeredgecolor: red(),
             grid_visible: Some(true),
             grid_linestyle: Some(LineStyle::Dotted),

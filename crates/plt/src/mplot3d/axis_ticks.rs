@@ -9,6 +9,7 @@ use super::axis_handle::Axis3D;
 use crate::artist::ArtistHandle;
 use crate::axes::TickSet;
 use crate::dates::TimeZone;
+use crate::ticker::TickerError;
 use crate::units::date_tickers;
 
 impl Axis3D {
@@ -17,8 +18,8 @@ impl Axis3D {
     ///
     /// # Errors
     ///
-    /// When a locator or formatter fails, with its message.
-    pub fn ticks(&self) -> Result<TickSet, String> {
+    /// When a locator or formatter fails.
+    pub fn ticks(&self) -> Result<TickSet, TickerError> {
         self.axes.raw().figure_state().borrow_mut().prepare();
         let dir = self.dir;
         self.axes.with(|axes| axes.axis(dir).ticks.clone())
@@ -40,8 +41,8 @@ impl Axis3D {
     ///
     /// # Errors
     ///
-    /// When a locator or formatter fails, with its message.
-    pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, String> {
+    /// When a locator or formatter fails.
+    pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, TickerError> {
         Ok(self.ticks()?.unclipped_locs(minor))
     }
 
@@ -52,8 +53,8 @@ impl Axis3D {
     ///
     /// # Errors
     ///
-    /// When a locator or formatter fails, with its message.
-    pub fn ticklabels(&self, minor: bool) -> Result<Vec<String>, String> {
+    /// When a locator or formatter fails.
+    pub fn ticklabels(&self, minor: bool) -> Result<Vec<String>, TickerError> {
         let ticks = self.ticks()?;
         let dir = self.dir;
         let sides = self.axes.with(|axes| {

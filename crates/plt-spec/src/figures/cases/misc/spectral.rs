@@ -59,19 +59,19 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("misc/psd", |fig| {
-        fig.subplot().psd(&signal(1024, 61), &welch(256))?;
+        fig.subplot().psd(&signal(1024, 61), welch(256))?;
         Ok(())
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("misc/csd", |fig| {
         fig.subplot()
-            .csd(&signal(1024, 63), &signal(1024, 64), &welch(128))?;
+            .csd(&signal(1024, 63), &signal(1024, 64), welch(128))?;
         Ok(())
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("misc/cohere", |fig| {
         fig.subplot()
-            .cohere(&signal(1024, 65), &signal(1024, 66), &welch(128))?;
+            .cohere(&signal(1024, 65), &signal(1024, 66), welch(128))?;
         Ok(())
     })
     .sized(5.0, 3.0, 100.0),
@@ -85,9 +85,9 @@ pub(crate) const CASES: &[FigureCase] = &[
             },
             ..SpectrumPlotOptions::default()
         };
-        axs[(0, 0)].magnitude_spectrum(&x, SpectrumScale::Decibels, &options)?;
-        axs[(1, 0)].angle_spectrum(&x, &options)?;
-        axs[(2, 0)].phase_spectrum(&x, &options)?;
+        axs[(0, 0)].magnitude_spectrum(&x, SpectrumScale::Decibels, options.clone())?;
+        axs[(1, 0)].angle_spectrum(&x, options.clone())?;
+        axs[(2, 0)].phase_spectrum(&x, options)?;
         fig.subplots_adjust(&SubplotOverrides {
             hspace: Some(0.7),
             ..SubplotOverrides::default()
@@ -102,11 +102,11 @@ pub(crate) const CASES: &[FigureCase] = &[
             maxlags: Some(maxlags),
             ..XcorrOptions::default()
         };
-        axs[(0, 0)].acorr(&x, &lags(30), true, LineProps::default())?;
+        axs[(0, 0)].acorr(&x, lags(30), true, LineProps::default())?;
         axs[(0, 1)].xcorr(
             &x,
             &signal(200, 68),
-            &lags(20),
+            lags(20),
             false,
             LineProps::default()
                 .marker(Marker::Symbol(MarkerSymbol::Circle))

@@ -205,7 +205,7 @@
 //! let fig = Figure::new();
 //! fig.subplot().plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
 //! plt::gui::show(&[fig.clone()])?; // returns when the window is closed
-//! serve(&[fig], &WebOptions::from_rc()?)?;
+//! serve(&[fig], WebOptions::from_rc()?)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!

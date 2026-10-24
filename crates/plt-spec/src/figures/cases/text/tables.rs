@@ -3,7 +3,7 @@
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
 use plt::table::{TableLoc, TableOptions};
-use plt::text::HorizontalAlignment;
+use plt::text::HAlign;
 
 use crate::figures::FigureCase;
 
@@ -33,7 +33,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("text/table_bottom", |fig| {
         let ax = fig.subplot();
         ax.plot([0.0, 1.0, 2.0], [1.0, 3.0, 2.0])?;
-        ax.table(&TableOptions {
+        ax.table(TableOptions {
             row_labels: Some(strings(["r1", "r2", "r3"])),
             col_labels: Some(strings(["A", "B", "C"])),
             loc: TableLoc::Bottom,
@@ -56,7 +56,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "lower left",
             "lower right",
         ] {
-            ax.table(&TableOptions {
+            ax.table(TableOptions {
                 col_widths: Some(vec![0.25]),
                 loc: loc.parse()?,
                 ..TableOptions::with_text(rows([[loc], ["x"]]))
@@ -69,14 +69,14 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         ax.set_axis_off();
         let pastel = || ["#fdd", "#dfd", "#ddf"].map(Color::from).to_vec();
-        let table = ax.table(&TableOptions {
+        let table = ax.table(TableOptions {
             cell_colours: Some(vec![pastel(), pastel(), pastel()]),
             row_labels: Some(strings(["r1", "r2", "r3"])),
             row_colours: Some(vec![Color::from("0.8"); 3]),
             col_labels: Some(strings(["A", "B", "C"])),
             col_colours: Some(vec![Color::from("gold"); 3]),
             col_widths: Some(vec![0.15, 0.3, 0.2]),
-            cell_loc: Some(HorizontalAlignment::Right),
+            cell_loc: Some(HAlign::Right),
             loc: TableLoc::Center,
             ..TableOptions::with_text(table_cells())
         })?;
@@ -89,14 +89,14 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("text/table_edges_and_auto_width", |fig| {
         let ax = fig.subplot();
         ax.set_axis_off();
-        let table = ax.table(&TableOptions {
+        let table = ax.table(TableOptions {
             col_labels: Some(strings(["one", "two"])),
             edges: "horizontal".parse()?,
             loc: TableLoc::UpperCenter,
             ..TableOptions::with_text(rows([["short", "a much longer cell"], ["x", "y"]]))
         })?;
         table.auto_set_column_width(&[0, 1]);
-        ax.table(&TableOptions {
+        ax.table(TableOptions {
             edges: "BT".parse()?,
             loc: TableLoc::LowerCenter,
             ..TableOptions::with_text(rows([["open", "closed"]]))

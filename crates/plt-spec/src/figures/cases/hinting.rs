@@ -6,7 +6,7 @@
 use plt::fonts::{FontStyle, FontWeight};
 use plt::legend::LegendOptions;
 use plt::prelude::*;
-use plt::text::{HorizontalAlignment, VerticalAlignment};
+use plt::text::{HAlign, VAlign};
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -29,8 +29,7 @@ const MATH: &str = r"$x^2 + y_i = \alpha\beta\gamma\,\frac{a}{b} - \pi r^2$";
 fn sizes(fig: &Figure, sizes: &[u32], family: Option<&str>) {
     for (i, &size) in sizes.iter().enumerate() {
         let text = fig.text(0.02, 0.96 - 0.085 * i as f64, format!("{size} pt {SAMPLE}"));
-        text.set_fontsize(f64::from(size))
-            .set_valign(VerticalAlignment::Top);
+        text.set_fontsize(f64::from(size)).set_valign(VAlign::Top);
         if let Some(family) = family {
             text.set_family([family]);
         }
@@ -56,7 +55,7 @@ fn math(fig: &Figure) {
     for (i, size) in [8.0, 11.0, 15.0, 20.0].into_iter().enumerate() {
         fig.text(0.03, 0.9 - 0.23 * i as f64, MATH)
             .set_fontsize(size)
-            .set_valign(VerticalAlignment::Top);
+            .set_valign(VAlign::Top);
     }
 }
 
@@ -79,7 +78,7 @@ fn serif_and_mono(fig: &Figure, suffix: &str) {
             .set_family([family])
             .set_weight(weight)
             .set_style(style)
-            .set_valign(VerticalAlignment::Top);
+            .set_valign(VAlign::Top);
         }
     }
 }
@@ -93,8 +92,8 @@ fn rotated(fig: &Figure) {
         ax.text(0.6 + 1.2 * i as f64, 5.0, format!("rot {angle} Wa"))
             .set_rotation(f64::from(angle))
             .set_fontsize(10.0 + i as f64)
-            .set_halign(HorizontalAlignment::Center)
-            .set_valign(VerticalAlignment::Center);
+            .set_halign(HAlign::Center)
+            .set_valign(VAlign::Center);
     }
 }
 
@@ -105,11 +104,11 @@ fn stix(fig: &Figure, formula: &str) {
         fig.text(0.03, 0.92 - 0.2 * i as f64, format!("{size} pt {SAMPLE}"))
             .set_fontsize(size)
             .set_family(["STIXGeneral"])
-            .set_valign(VerticalAlignment::Top);
+            .set_valign(VAlign::Top);
     }
     fig.text(0.03, 0.3, formula)
         .set_fontsize(12.0)
-        .set_valign(VerticalAlignment::Top);
+        .set_valign(VAlign::Top);
 }
 
 /// The aliased large case: glyphs too tall for high precision, and a W

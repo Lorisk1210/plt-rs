@@ -24,7 +24,7 @@ fn of_type(histtype: HistType) -> HistPlotOptions<'static> {
 /// `ax.hist([], histtype=...)` with the text removed.
 fn empty(fig: &Figure, histtype: HistType) -> CaseResult {
     fig.subplot()
-        .hist(&[Vec::<f64>::new()], &of_type(histtype))?;
+        .hist(&[Vec::<f64>::new()], of_type(histtype))?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -57,7 +57,7 @@ fn hist_step_filled(fig: &Figure) -> CaseResult {
             },
             ..HistPlotOptions::default()
         };
-        ax.hist(&columns, &options)?;
+        ax.hist(&columns, options)?;
         ax.set_limits_with(AxisName::Y, from(-50.0))?;
     }
     remove_ticks_and_titles(fig);
@@ -83,7 +83,7 @@ pub(super) const CASES: &[FigureCase] = &[
             },
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[data], &options)?;
+        fig.subplot().hist(&[data], options)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -102,8 +102,8 @@ pub(super) const CASES: &[FigureCase] = &[
                 ..HistPlotOptions::default()
             };
             axs[(0, i)].set_yscale("log")?;
-            axs[(0, i)].hist(&[[1.0]], &options)?;
-            axs[(1, i)].hist(&[[1.0]], &options)?;
+            axs[(0, i)].hist(&[[1.0]], options.clone())?;
+            axs[(1, i)].hist(&[[1.0]], options)?;
             axs[(1, i)].set_yscale("log")?;
         }
         Ok(())
@@ -122,7 +122,7 @@ pub(super) const CASES: &[FigureCase] = &[
             },
             ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[data], &options)?;
+        fig.subplot().hist(&[data], options)?;
         Ok(())
     }),
 ];

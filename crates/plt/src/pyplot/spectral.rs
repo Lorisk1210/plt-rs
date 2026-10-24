@@ -18,7 +18,7 @@ use crate::mlab::{Complex, Correlation, Spectrum, XcorrOptions};
 /// # Errors
 ///
 /// As [`Axes::psd`](crate::axes::Axes::psd).
-pub fn psd(x: &[f64], options: &SpectralPlotOptions) -> Result<Spectrum, PlotError> {
+pub fn psd(x: &[f64], options: SpectralPlotOptions) -> Result<Spectrum, PlotError> {
     gca().psd(x, options)
 }
 
@@ -31,7 +31,7 @@ pub fn psd(x: &[f64], options: &SpectralPlotOptions) -> Result<Spectrum, PlotErr
 pub fn csd(
     x: &[f64],
     y: &[f64],
-    options: &SpectralPlotOptions,
+    options: SpectralPlotOptions,
 ) -> Result<Spectrum<Complex>, PlotError> {
     gca().csd(x, y, options)
 }
@@ -42,7 +42,7 @@ pub fn csd(
 /// # Errors
 ///
 /// As [`Axes::cohere`](crate::axes::Axes::cohere).
-pub fn cohere(x: &[f64], y: &[f64], options: &SpectralPlotOptions) -> Result<Spectrum, PlotError> {
+pub fn cohere(x: &[f64], y: &[f64], options: SpectralPlotOptions) -> Result<Spectrum, PlotError> {
     gca().cohere(x, y, options)
 }
 
@@ -68,7 +68,7 @@ pub fn specgram(x: &[f64], options: SpecgramOptions) -> Result<SpecgramPlot, Spe
 pub fn magnitude_spectrum(
     x: &[f64],
     scale: SpectrumScale,
-    options: &SpectrumPlotOptions,
+    options: SpectrumPlotOptions,
 ) -> Result<(Spectrum, Line2D), PlotError> {
     gca().magnitude_spectrum(x, scale, options)
 }
@@ -81,7 +81,7 @@ pub fn magnitude_spectrum(
 /// As [`Axes::angle_spectrum`](crate::axes::Axes::angle_spectrum).
 pub fn angle_spectrum(
     x: &[f64],
-    options: &SpectrumPlotOptions,
+    options: SpectrumPlotOptions,
 ) -> Result<(Spectrum, Line2D), PlotError> {
     gca().angle_spectrum(x, options)
 }
@@ -94,7 +94,7 @@ pub fn angle_spectrum(
 /// As [`Axes::phase_spectrum`](crate::axes::Axes::phase_spectrum).
 pub fn phase_spectrum(
     x: &[f64],
-    options: &SpectrumPlotOptions,
+    options: SpectrumPlotOptions,
 ) -> Result<(Spectrum, Line2D), PlotError> {
     gca().phase_spectrum(x, options)
 }
@@ -107,7 +107,7 @@ pub fn phase_spectrum(
 /// As [`Axes::acorr`](crate::axes::Axes::acorr).
 pub fn acorr(
     x: &[f64],
-    options: &XcorrOptions,
+    options: XcorrOptions,
     usevlines: bool,
     line: LineProps,
 ) -> Result<(Correlation, CorrelationArtists), PlotError> {
@@ -123,7 +123,7 @@ pub fn acorr(
 pub fn xcorr(
     x: &[f64],
     y: &[f64],
-    options: &XcorrOptions,
+    options: XcorrOptions,
     usevlines: bool,
     line: LineProps,
 ) -> Result<(Correlation, CorrelationArtists), PlotError> {
@@ -148,20 +148,20 @@ mod tests {
         let (x, y) = (signal(), signal().iter().rev().copied().collect::<Vec<_>>());
         let spectral = SpectralPlotOptions::default();
         let spectrum = SpectrumPlotOptions::default();
-        psd(&x, &spectral).unwrap();
+        psd(&x, spectral.clone()).unwrap();
         subplot(2, 3, 2).unwrap();
-        csd(&x, &y, &spectral).unwrap();
+        csd(&x, &y, spectral.clone()).unwrap();
         subplot(2, 3, 3).unwrap();
-        cohere(&x, &y, &spectral).unwrap();
+        cohere(&x, &y, spectral).unwrap();
         subplot(2, 3, 4).unwrap();
-        magnitude_spectrum(&x, SpectrumScale::default(), &spectrum).unwrap();
-        angle_spectrum(&x, &spectrum).unwrap();
-        phase_spectrum(&x, &spectrum).unwrap();
+        magnitude_spectrum(&x, SpectrumScale::default(), spectrum.clone()).unwrap();
+        angle_spectrum(&x, spectrum.clone()).unwrap();
+        phase_spectrum(&x, spectrum).unwrap();
         subplot(2, 3, 5).unwrap();
         let options = XcorrOptions::default();
-        acorr(&x, &options, true, LineProps::default()).unwrap();
+        acorr(&x, options.clone(), true, LineProps::default()).unwrap();
         subplot(2, 3, 6).unwrap();
-        xcorr(&x, &y, &options, false, LineProps::default()).unwrap();
+        xcorr(&x, &y, options, false, LineProps::default()).unwrap();
         close_all();
     }
 

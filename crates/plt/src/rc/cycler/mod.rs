@@ -119,16 +119,22 @@ impl Cycler {
     }
 
     /// Cycles both property sets in lockstep (`a + b`).
-    pub fn zip(mut self, other: Self) -> Result<Self, String> {
+    ///
+    /// # Errors
+    ///
+    /// When the cycles differ in length or share a property.
+    pub fn zip(mut self, other: Self) -> Result<Self, CyclerError> {
         if self.len() != other.len() {
-            return Err(format!(
+            return Err(CyclerError(format!(
                 "can only add equal length cycles, not {} and {}",
                 self.len(),
                 other.len()
-            ));
+            )));
         }
         if let Some(dup) = other.keys.iter().find(|k| self.keys.contains(k)) {
-            return Err(format!("cannot add cycles sharing the key {dup:?}"));
+            return Err(CyclerError(format!(
+                "cannot add cycles sharing the key {dup:?}"
+            )));
         }
         self.keys.extend(other.keys);
         for (row, extra) in self.rows.iter_mut().zip(other.rows) {
@@ -138,9 +144,15 @@ impl Cycler {
     }
 
     /// Every combination of the two cycles (`a * b`).
-    pub fn product(self, other: Self) -> Result<Self, String> {
+    ///
+    /// # Errors
+    ///
+    /// When the cycles share a property.
+    pub fn product(self, other: Self) -> Result<Self, CyclerError> {
         if let Some(dup) = other.keys.iter().find(|k| self.keys.contains(k)) {
-            return Err(format!("cannot multiply cycles sharing the key {dup:?}"));
+            return Err(CyclerError(format!(
+                "cannot multiply cycles sharing the key {dup:?}"
+            )));
         }
         let rows = self
             .rows
@@ -169,9 +181,15 @@ impl Cycler {
     }
 
     /// The entries of `self` followed by those of `other` (same keys).
-    pub fn concat(mut self, other: Self) -> Result<Self, String> {
+    ///
+    /// # Errors
+    ///
+    /// When the cycles have different properties.
+    pub fn concat(mut self, other: Self) -> Result<Self, CyclerError> {
         if self.keys != other.keys {
-            return Err("can only concatenate cycles with identical keys".to_owned());
+            return Err(CyclerError(
+                "can only concatenate cycles with identical keys".to_owned(),
+            ));
         }
         self.rows.extend(other.rows);
         Ok(self)
@@ -217,8 +235,12 @@ impl Cycler {
                 (false, Expr::Int(times), cycle) | (false, cycle, Expr::Int(times)) => {
                     Ok(Self::from_expr(cycle)?.repeat(*times))
                 }
-                (true, left, right) => Self::from_expr(left)?.zip(Self::from_expr(right)?),
-                (false, left, right) => Self::from_expr(left)?.product(Self::from_expr(right)?),
+                (true, left, right) => Self::from_expr(left)?
+                    .zip(Self::from_expr(right)?)
+                    .map_err(|err| err.0),
+                (false, left, right) => Self::from_expr(left)?
+                    .product(Self::from_expr(right)?)
+                    .map_err(|err| err.0),
             },
             Expr::Slice {
                 bounds: [_, _, Some(0)],
@@ -231,7 +253,7 @@ impl Cycler {
             Expr::Call { name, args, kwargs } if name == "concat" && kwargs.is_empty() => args
                 .iter()
                 .map(Self::from_expr)
-                .reduce(|a, b| a?.concat(b?))
+                .reduce(|a, b| a?.concat(b?).map_err(|err| err.0))
                 .ok_or_else(|| "concat() needs arguments".to_owned())?,
             Expr::Call { name, args, kwargs } if name == "cycler" => Self::from_call(args, kwargs),
             other => Err(format!(
@@ -247,7 +269,7 @@ impl Cycler {
             ([], [_, ..]) => kwargs
                 .iter()
                 .map(|(property, values)| property_cycle(property, values))
-                .reduce(|a, b| a?.zip(b?))
+                .reduce(|a, b| a?.zip(b?).map_err(|err| err.0))
                 .expect("kwargs is non-empty"),
             _ => Err("cycler() takes (label, values), (cycler) or label=values".to_owned()),
         }

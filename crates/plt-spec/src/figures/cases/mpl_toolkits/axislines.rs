@@ -104,14 +104,14 @@ fn parasite_axes_aux_trans(fig: &Figure) -> CaseResult {
         })
     };
     let cells = Grid::from_fn(5, 5, |r, c| data[(r, c)]);
-    let mesh = || Mesh::with_coords(coords.clone(), coords.clone(), cells.clone());
+    let mesh = || Mesh::from_coords(coords.clone(), coords.clone(), cells.clone());
     let mut last = None;
     for index in 1..=3 {
         let ax1 = axisartist::Axes::new(fig.add_subplot(1, 3, index)?);
         // `get_aux_axes(IdentityTransform(), viewlim_mode=None)`: the view
         // limits of a parasite with a transform do not place what it
         // draws, its host's do.
-        let ax2 = ax1.get_aux_axes(&AuxTransform::identity());
+        let ax2 = ax1.aux_axes(&AuxTransform::identity());
         match index {
             1 => {
                 ax2.pcolor(mesh(), PcolorOptions::default())?;

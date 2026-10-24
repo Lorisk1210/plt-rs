@@ -445,7 +445,7 @@ mod tests {
             levels: Levels::Values(vec![1.0, 3.0, 5.0]),
             ..ContourOptions::default()
         });
-        cs.clabel(&ClabelOptions::default()).unwrap();
+        cs.clabel(ClabelOptions::default()).unwrap();
         let gray = colormaps::get("gray").unwrap();
         cs.set_cmap(gray.clone());
         assert_eq!(cs.cmap().map(|c| c.name().to_owned()), Some("gray".into()));

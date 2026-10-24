@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "Frequency [Hz]",
         0.1,
         30.0,
-        &SliderOptions {
+        SliderOptions {
             valinit: wave.frequency.get(),
             ..SliderOptions::default()
         },
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "Amplitude",
         0.0,
         10.0,
-        &SliderOptions {
+        SliderOptions {
             valinit: wave.amplitude.get(),
             ..SliderOptions::default()
         },
@@ -113,7 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let span = SpanSelector::new(
         &top,
         Orientation::Horizontal,
-        &SpanSelectorOptions {
+        SpanSelectorOptions {
             interactive: true,
             drag_from_anywhere: true,
             props: PatchProps::default().facecolor("tab:blue").alpha(0.3),

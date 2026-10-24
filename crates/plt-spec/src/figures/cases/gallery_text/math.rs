@@ -12,7 +12,7 @@ use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::text::{AnnotateOptions, HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt::transforms::Transform;
 
 use crate::figures::{CaseResult, FigureCase};
@@ -56,7 +56,7 @@ fn text_to_rgba(
     fig.set_facecolor(Color::from("none").resolve()?);
     fig.text(0.0, 0.0, text).set_color(color).set_fontsize(20.0);
     let image = fig
-        .render_raster_with(&SaveOptions {
+        .render_raster_with(SaveOptions {
             dpi: Some(dpi),
             bbox_inches: Some(BboxInches::Tight),
             pad_inches: Some(0.0),

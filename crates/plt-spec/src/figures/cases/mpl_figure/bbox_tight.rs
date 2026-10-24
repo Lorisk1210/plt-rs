@@ -65,7 +65,7 @@ pub(super) const CASES: &[FigureCase] = &[
             &ax,
             SizeSpec::Percent(10.0),
             SizeSpec::Percent(30.0),
-            &options,
+            options,
         );
         fig.colorbar(
             &image,
@@ -123,7 +123,7 @@ fn bbox_inches_tight(fig: &Figure) -> CaseResult {
             .loc("lower left"),
     )?;
     cell_text.reverse();
-    ax.table(&TableOptions {
+    ax.table(TableOptions {
         row_labels: Some(row_labels.to_vec()),
         col_labels: Some(col_labels.map(String::from).to_vec()),
         loc: TableLoc::Bottom,

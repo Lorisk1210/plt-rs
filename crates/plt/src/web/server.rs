@@ -58,7 +58,7 @@ enum Encoded {
 ///
 /// let fig = Figure::new();
 /// fig.subplot().plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
-/// let mut server = WebServer::bind(&WebOptions::new("127.0.0.1", 8988))?;
+/// let mut server = WebServer::bind(WebOptions::new("127.0.0.1", 8988))?;
 /// let number = server.add_figure(&fig);
 /// println!("open {}", server.figure_url(number));
 /// server.run(None, || false); // until the figure is closed (`q`)
@@ -83,9 +83,9 @@ impl WebServer {
     ///
     /// When the address cannot be bound, no port is free, or a thread
     /// cannot be started.
-    pub fn bind(options: &WebOptions) -> Result<Self, WebError> {
+    pub fn bind(options: WebOptions) -> Result<Self, WebError> {
         let script = assets::script(&crate::rc::params().savefig_format);
-        let (listener, inbound) = Listener::start(options, script)?;
+        let (listener, inbound) = Listener::start(&options, script)?;
         Ok(Self {
             listener,
             inbound,

@@ -9,7 +9,7 @@ use plt::layout::TightLayout;
 use plt::patches::{BoxStyle, FancyBboxPatch, Patch, PatchShape};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{HorizontalAlignment as HAlign, Text, VerticalAlignment as VAlign};
+use plt::text::{HAlign, Text, VAlign};
 use plt_core::Bbox;
 
 use crate::figures::cases::common::styled_box;
@@ -42,7 +42,7 @@ fn axes_text(ax: &Axes, x: f64, text: &str, halign: HAlign) -> Text {
 fn style_label(ax: &Axes, text: &str) -> Text {
     let label = axes_text(ax, 0.2, text, HAlign::Right);
     label
-        .set_fontsize_relative(RelativeSize::Large)
+        .set_fontsize(RelativeSize::Large)
         .set_color(Color::from("tab:blue"));
     label
 }

@@ -12,7 +12,7 @@ use plt::numeric::Grid;
 use plt::patches::{Circle, PathShape};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{AnnotateOptions, HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
+use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt::transforms::Point;
 use plt_core::{Affine2D, Path, PathCode};
 

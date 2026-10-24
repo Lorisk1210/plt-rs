@@ -433,10 +433,10 @@ impl Axes3D {
     /// ```
     /// use plt::figure::Figure;
     /// let ax = Figure::new().subplot_3d();
-    /// let projected = ax.get_proj().project([0.5, 0.5, 0.5]);
+    /// let projected = ax.proj().project([0.5, 0.5, 0.5]);
     /// assert!(projected.iter().all(|c| c.is_finite()));
     /// ```
-    pub fn get_proj(&self) -> Matrix4 {
+    pub fn proj(&self) -> Matrix4 {
         self.with(|axes| axes.projection().matrix)
     }
 

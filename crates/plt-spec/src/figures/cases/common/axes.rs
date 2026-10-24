@@ -149,7 +149,7 @@ pub(crate) fn logit_grid(
                     ax.set_yscale("logit")?;
                 }
                 1 => {
-                    ax.set_scale_with(AxisName::Y, "logit", &survival)?;
+                    ax.set_scale_with(AxisName::Y, "logit", survival.clone())?;
                 }
                 _ => {}
             }

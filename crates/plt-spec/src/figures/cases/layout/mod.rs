@@ -146,13 +146,16 @@ pub(crate) const GRIDS: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("layout/subplot_mosaic_string", |fig| {
-        let axes = fig.subplot_mosaic(&Mosaic::parse("AAB;C.B")?, &MosaicOptions::default())?;
+        let axes = fig.subplot_mosaic(&"AAB;C.B".parse::<Mosaic>()?, MosaicOptions::default())?;
         fill_sorted(&axes, None)
     }),
     FigureCase::new("layout/subplot_mosaic_nested_ratios", |fig| {
         let label = |name: &str| MosaicCell::Label(name.into());
         let mosaic = Mosaic::new(vec![
-            vec![label("main"), MosaicCell::Nested(Mosaic::parse("ab;cd")?)],
+            vec![
+                label("main"),
+                MosaicCell::Nested("ab;cd".parse::<Mosaic>()?),
+            ],
             vec![label("bottom"), label("bottom")],
         ])?;
         let options = MosaicOptions {
@@ -160,7 +163,7 @@ pub(crate) const GRIDS: &[FigureCase] = &[
             height_ratios: Some(vec![3.0, 1.0]),
             ..MosaicOptions::default()
         };
-        fill_sorted(&fig.subplot_mosaic(&mosaic, &options)?, Some(8.0))
+        fill_sorted(&fig.subplot_mosaic(&mosaic, options)?, Some(8.0))
     }),
     FigureCase::new("layout/subfigures_side_by_side", |fig| {
         let options = SubfigureOptions {
@@ -168,7 +171,7 @@ pub(crate) const GRIDS: &[FigureCase] = &[
             width_ratios: Some(vec![2.0, 1.0]),
             ..SubfigureOptions::default()
         };
-        let parts = fig.subfigures(1, 2, &options)?;
+        let parts = fig.subfigures(1, 2, options)?;
         let (left, right) = (&parts[(0, 0)], &parts[(0, 1)]);
         left.set_facecolor(Color::from("0.92").resolve()?);
         left.suptitle("left subfigure");

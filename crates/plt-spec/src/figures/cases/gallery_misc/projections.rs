@@ -19,7 +19,7 @@ use plt::patches::{PathShape, Rectangle};
 use plt::polar::{Compass, PolarAxes, PolarFrame};
 use plt::prelude::*;
 use plt::rc::{Aspect, AxisBelow};
-use plt::text::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign, text_path};
+use plt::text::{HAlign, VAlign, text_path};
 use plt::transforms::{Point, Transform};
 use plt_core::{Affine2D, Rgba};
 
@@ -86,7 +86,7 @@ fn icon_axes(fig: &Figure, position: [f64; 4], sizes: &LogoSizes) -> CaseResult 
     });
     ax.grid_with(
         true,
-        &plt::axes::GridOptions {
+        plt::axes::GridOptions {
             linewidth: Some(sizes.lw_grid),
             color: Some("0.9".into()),
             ..plt::axes::GridOptions::default()
@@ -394,7 +394,7 @@ fn radar_chart(fig: &Figure) -> CaseResult {
         // matplotlib's `y` (1.0) overrides the `position` given with it.
         ax.set_title(*title)
             .set_weight(FontWeight::BOLD)
-            .set_fontsize_relative(RelativeSize::Medium)
+            .set_fontsize(RelativeSize::Medium)
             .set_halign(HAlign::Center)
             .set_valign(VAlign::Center);
         for (profile, color) in profiles.iter().zip(colors) {
@@ -433,7 +433,7 @@ fn radar_chart(fig: &Figure) -> CaseResult {
     .set_halign(HAlign::Center)
     .set_color("black")
     .set_weight(FontWeight::BOLD)
-    .set_fontsize_relative(RelativeSize::Large);
+    .set_fontsize(RelativeSize::Large);
     Ok(())
 }
 

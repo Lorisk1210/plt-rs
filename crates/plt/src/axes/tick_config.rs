@@ -122,7 +122,7 @@ impl Axes {
         &self,
         axis: AxisName,
         name: &str,
-        options: &ScaleOptions,
+        options: ScaleOptions,
     ) -> Result<&Self, ScaleError> {
         Ok(self.set_scale(axis, scale_factory(name, options)?))
     }
@@ -438,7 +438,7 @@ impl Axis {
     }
 
     /// Changes the text properties of the labels of one tick level.
-    pub fn set_ticklabel_props(&self, which: TickLevel, props: &TickLabelProps) -> &Self {
+    pub fn set_ticklabel_props(&self, which: TickLevel, props: TickLabelProps) -> &Self {
         let props = props.with_absolute_size(crate::rc::params().font_size);
         self.update_labels(|axis| {
             if which.major() {
@@ -463,9 +463,9 @@ impl Axis {
     /// let ax = Figure::new().subplot();
     /// ax.set_xticks([0.0, 0.5, 1.0]);
     /// let tilted = TickLabelProps { rotation: Some(45.0), ..TickLabelProps::default() };
-    /// ax.xaxis().set_major_ticklabel_props(1, &tilted);
+    /// ax.xaxis().set_major_ticklabel_props(1, tilted);
     /// ```
-    pub fn set_major_ticklabel_props(&self, index: usize, props: &TickLabelProps) -> &Self {
+    pub fn set_major_ticklabel_props(&self, index: usize, props: TickLabelProps) -> &Self {
         let props = props.with_absolute_size(crate::rc::params().font_size);
         self.update_labels(|axis| {
             let overrides = &mut axis.major_label_overrides;

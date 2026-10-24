@@ -21,7 +21,7 @@ fn acorr_all_lags(fig: &Figure, x: &[f64]) -> CaseResult {
         ..XcorrOptions::default()
     };
     fig.subplot()
-        .acorr(x, &options, true, LineProps::default())?;
+        .acorr(x, options, true, LineProps::default())?;
     Ok(())
 }
 
@@ -39,13 +39,13 @@ pub(super) fn spy(fig: &Figure) -> CaseResult {
     let cells = SpecRng::new(SEED).uniform(32 * 32, 0.0, 1.0);
     let a = Grid::from_vec(32, 32, cells)?.map(|&u| f64::from(u8::from(u < 0.5)));
     let axs = fig.subplots(2, 1)?;
-    axs[(0, 0)].spy(&a, &SpyOptions::default())?;
+    axs[(0, 0)].spy(&a, SpyOptions::default())?;
     let markers = SpyOptions {
         marker: Some(Marker::Symbol(MarkerSymbol::Point)),
         origin: Origin::Lower,
         ..SpyOptions::default()
     };
-    axs[(1, 0)].spy(&a, &markers)?;
+    axs[(1, 0)].spy(&a, markers)?;
     Ok(())
 }
 

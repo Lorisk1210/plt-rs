@@ -62,7 +62,8 @@ use crate::figure::Figure;
 use crate::layout::LayoutEngine;
 use crate::orientation::Orientation;
 use placement::Parent;
-use state::{ColorbarArtist, ColorbarState};
+pub(crate) use state::ColorbarArtist;
+use state::ColorbarState;
 
 /// A colorbar drawn in its own axes (matplotlib's `Colorbar`): a handle
 /// to what the colorbar keeps in its axes. Clones refer to the same
@@ -137,7 +138,7 @@ impl Figure {
         }
         placement.cax.grid_with(
             false,
-            &GridOptions {
+            GridOptions {
                 which: TickLevel::Both,
                 ..GridOptions::default()
             },

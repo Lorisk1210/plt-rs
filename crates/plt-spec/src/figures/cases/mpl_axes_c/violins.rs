@@ -89,14 +89,14 @@ pub(crate) const CASES: &[FigureCase] = &[
             },
             ..ViolinplotOptions::default()
         };
-        fig.subplot().violinplot(&data, &options)?;
+        fig.subplot().violinplot(&data, options)?;
         Ok(())
     }),
     classic("mpl_axes_c/violinplot_pandas_series_ref", |fig| {
         let mut rng = SpecRng::new(110_433_579);
         let data = [7, 9, 11].map(|n| rng.normal(n, 0.0, 1.0));
         fig.subplot()
-            .violinplot(&data, &ViolinplotOptions::default())?;
+            .violinplot(&data, ViolinplotOptions::default())?;
         Ok(())
     }),
 ];
@@ -144,7 +144,7 @@ fn four_violins(fig: &Figure, seed: u64, orientation: Orientation, variant: Vari
             ..ViolinDrawOptions::default()
         },
     };
-    fig.subplot().violinplot(&data, &options)?;
+    fig.subplot().violinplot(&data, options)?;
     Ok(())
 }
 
@@ -170,7 +170,7 @@ fn sides(fig: &Figure) -> CaseResult {
                 },
                 ..ViolinplotOptions::default()
             };
-            ax.violinplot(&data, &options)?;
+            ax.violinplot(&data, options)?;
         }
     }
     remove_ticks_and_titles(fig);
@@ -224,7 +224,7 @@ fn color_specification(fig: &Figure) -> CaseResult {
             },
             ..ViolinplotOptions::default()
         };
-        ax.violinplot(&data, &options)?;
+        ax.violinplot(&data, options)?;
     }
     Ok(())
 }
@@ -239,7 +239,7 @@ fn color_specification_ref(fig: &Figure) -> CaseResult {
             draw: all_lines(),
             ..ViolinplotOptions::default()
         };
-        let parts = ax.violinplot(&data, &options)?;
+        let parts = ax.violinplot(&data, options)?;
         if let Some(face) = facecolors.first() {
             for body in &parts.bodies {
                 body.set_facecolor(face.clone()).set_alpha(None);

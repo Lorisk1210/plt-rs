@@ -38,7 +38,7 @@
 //! | `draggable=True`, `leg.set_draggable(True)`        | [`LegendOptions::draggable`], [`Legend::set_draggable`] |
 //! | `handles=[...]`, `labels=[...]`                    | [`LegendOptions::handles`], [`LegendOptions::labels`] |
 //! | `ax.get_legend_handles_labels()`                   | [`Axes::legend_handles_labels`]               |
-//! | `ax.get_legend()`                                  | [`Axes::get_legend`]                          |
+//! | `ax.get_legend()`                                  | [`Axes::current_legend`]                      |
 //! | `[t.get_text() for t in leg.get_texts()]`          | [`Legend::labels`]; [`Legend::texts`] for the text handles |
 //! | `leg.set_title(s)`, `leg.get_frame()`              | [`Legend::set_title`], [`Legend::frame`]      |
 //! | `ax.add_artist(first_legend)`                      | [`Axes::keep_legend`]                         |
@@ -81,7 +81,7 @@
 //!     .fontsize(RelativeSize::Small);
 //! let legend = ax.legend(options)?;
 //! assert_eq!(legend.labels(), ["sin"]);
-//! assert_eq!(ax.get_legend(), Some(legend));
+//! assert_eq!(ax.current_legend(), Some(legend));
 //!
 //! let error = ax.legend(LegendOptions::default().loc("top middle")).unwrap_err();
 //! assert!(matches!(error, LegendError::InvalidLocation(_)));
@@ -141,7 +141,7 @@
 //! let first = ax.legend(LegendOptions::default().handles([&a]).loc("upper left"))?;
 //! ax.keep_legend(&first);
 //! let second = ax.legend(LegendOptions::default().handles([&b]).loc("lower right"))?;
-//! assert_eq!(ax.get_legend(), Some(second));
+//! assert_eq!(ax.current_legend(), Some(second));
 //!
 //! let options = LegendOptions::default().handles([&a, &b]).loc("outside upper center").ncols(2);
 //! fig.legend(options)?;
@@ -183,7 +183,7 @@
 //! the trait's documentation ports matplotlib's `HandlerEllipse`.
 //!
 //! [`Axes::legend`]: crate::axes::Axes::legend
-//! [`Axes::get_legend`]: crate::axes::Axes::get_legend
+//! [`Axes::current_legend`]: crate::axes::Axes::current_legend
 //! [`Axes::keep_legend`]: crate::axes::Axes::keep_legend
 //! [`Axes::legend_handles_labels`]: crate::axes::Axes::legend_handles_labels
 //! [`Figure::legend`]: crate::figure::Figure::legend

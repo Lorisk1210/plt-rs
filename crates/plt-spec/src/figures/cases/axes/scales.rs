@@ -24,7 +24,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             base: Some(2.0),
             ..ScaleOptions::default()
         };
-        ax.set_scale_with(AxisName::Y, "log", &base2)?;
+        ax.set_scale_with(AxisName::Y, "log", base2)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -43,7 +43,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             linthresh: Some(10.0),
             ..ScaleOptions::default()
         };
-        ax.set_scale_with(AxisName::Y, "symlog", &options)?;
+        ax.set_scale_with(AxisName::Y, "symlog", options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -56,7 +56,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             linscale: Some(0.5),
             ..ScaleOptions::default()
         };
-        ax.set_scale_with(AxisName::X, "symlog", &options)?;
+        ax.set_scale_with(AxisName::X, "symlog", options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

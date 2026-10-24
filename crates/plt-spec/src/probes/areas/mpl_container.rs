@@ -56,7 +56,7 @@ fn stem_remove(args: Args<'_>) -> Outcome {
         .stem(
             args.f64_vec("locs")?,
             args.f64_vec("heads")?,
-            &StemOptions::default(),
+            StemOptions::default(),
         )
         .map_err(ProbeError::rejected)?;
     let before = counts(&ax);
@@ -76,7 +76,11 @@ fn errorbar_remove(args: Args<'_>) -> Outcome {
     let options = ErrorbarOptions {
         xerr: error("xerr")?,
         yerr: error("yerr")?,
-        fmt: args.opt_str("fmt")?.unwrap_or_default().to_owned(),
+        fmt: args
+            .opt_str("fmt")?
+            .unwrap_or_default()
+            .parse()
+            .map_err(ProbeError::rejected)?,
         ..ErrorbarOptions::default()
     };
     let bars = ax
@@ -127,13 +131,13 @@ fn pie_options(args: Args<'_>) -> Result<PieOptions, ProbeError> {
 fn pie_remove(args: Args<'_>) -> Outcome {
     let ax = Figure::new().subplot();
     let mut pie = ax
-        .pie(&args.f64_vec("values")?, &pie_options(args)?)
+        .pie(&args.f64_vec("values")?, pie_options(args)?)
         .map_err(ProbeError::rejected)?;
     let drawn = counts(&ax);
     ax.pie_label(
         &mut pie,
         strings(args, "added")?,
-        &PieLabelOptions::default(),
+        PieLabelOptions::default(),
     )
     .map_err(ProbeError::rejected)?;
     let labelled = counts(&ax);
@@ -144,7 +148,7 @@ fn pie_remove(args: Args<'_>) -> Outcome {
 fn pie_unpack(args: Args<'_>) -> Outcome {
     let ax = Figure::new().subplot();
     let pie = ax
-        .pie(&args.f64_vec("values")?, &pie_options(args)?)
+        .pie(&args.f64_vec("values")?, pie_options(args)?)
         .map_err(ProbeError::rejected)?;
     Ok(Json::Array(vec![
         count(pie.wedges.len()),

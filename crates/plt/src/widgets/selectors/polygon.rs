@@ -17,7 +17,7 @@ use crate::markers::MarkerSymbol;
 use crate::navigation::PointerButton;
 use crate::patches::PatchProps;
 use crate::rc::ColorOrAuto;
-use crate::widgets::Connections;
+use crate::widgets::{CallbackId, Connections};
 
 /// Options of a [`PolygonSelector`] (matplotlib's keyword arguments).
 #[derive(Clone, Debug)]
@@ -152,7 +152,7 @@ impl Polygon {
             modifier_keys: ModifierKeys::default().without(SelectorState::Rotate),
             ..RectangleSelectorOptions::default()
         };
-        let selector = RectangleSelector::new(&core.ax, &options);
+        let selector = RectangleSelector::new(&core.ax, options);
         let mut scaling = Connections::new(core.ax.figure());
         let this = Weak::clone(&self.this);
         scaling.connect(EventKind::Motion, move |_| {
@@ -409,7 +409,7 @@ selector_methods!(PolygonSelector);
 
 impl PolygonSelector {
     /// A polygon selector on `ax`.
-    pub fn new(ax: &Axes, options: &PolygonSelectorOptions) -> Self {
+    pub fn new(ax: &Axes, options: PolygonSelectorOptions) -> Self {
         let mut line = LineArtist::new(Vec::new(), Vec::new(), crate::rc::params());
         options.props.clone().apply(&mut line);
         line.base_mut().transform = Some(ax.trans_data());
@@ -453,9 +453,16 @@ impl PolygonSelector {
     }
 
     /// Calls `callback` with the vertices on each release once the polygon
-    /// is complete (matplotlib's `onselect`).
-    pub fn on_select(&self, mut callback: impl FnMut(&[(f64, f64)]) + 'static) {
-        self.driver.selected.connect(move |verts| callback(verts));
+    /// is complete (matplotlib's `onselect`); returns its id for
+    /// [`PolygonSelector::disconnect`].
+    pub fn on_select(&self, mut callback: impl FnMut(&[(f64, f64)]) + 'static) -> CallbackId {
+        self.driver.selected.connect(move |verts| callback(verts))
+    }
+
+    /// Disconnects the callback with id `id` (matplotlib's `disconnect`);
+    /// returns whether it was connected.
+    pub fn disconnect(&self, id: CallbackId) -> bool {
+        self.driver.disconnect(id)
     }
 
     /// The vertices placed so far (matplotlib's `verts`).
@@ -526,7 +533,7 @@ mod tests {
             draw_bounding_box: true,
             ..PolygonSelectorOptions::default()
         };
-        let selector = PolygonSelector::new(&ax, &options);
+        let selector = PolygonSelector::new(&ax, options);
         let seen = Rc::new(RefCell::new(Vec::new()));
         let log = Rc::clone(&seen);
         selector.on_select(move |verts| log.borrow_mut().push(verts.to_vec()));

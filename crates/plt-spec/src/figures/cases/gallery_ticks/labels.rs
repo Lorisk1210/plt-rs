@@ -10,7 +10,7 @@ use plt::fonts::FontSize;
 use plt::layout::LayoutEngine;
 use plt::prelude::*;
 use plt::spines::SpineSide;
-use plt::text::{HorizontalAlignment as HAlign, TextRotationMode as RotationMode};
+use plt::text::{HAlign, TextRotationMode as RotationMode};
 
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
@@ -47,7 +47,7 @@ fn align_ticklabels(fig: &Figure) -> CaseResult {
     ax.set_xlabel("Population (in millions)");
     ax.yaxis().set_ticklabel_props(
         TickLevel::Major,
-        &TickLabelProps {
+        TickLabelProps {
             halign: Some(HAlign::Left),
             ..TickLabelProps::default()
         },

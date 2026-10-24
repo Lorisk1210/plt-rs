@@ -181,7 +181,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.plot_fmt(theta, r, "k")?;
         ax.grid_with(
             true,
-            &GridOptions {
+            GridOptions {
                 color: Some(Color::from("tab:orange")),
                 linestyle: Some(LineStyle::Dotted),
                 linewidth: Some(1.5),
@@ -222,7 +222,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..PcolorOptions::default()
         };
         fig.polar_subplot()
-            .pcolormesh(Mesh::with_coords(theta, r, values), options)?;
+            .pcolormesh(Mesh::from_coords(theta, r, values), options)?;
         Ok(())
     }),
 ];

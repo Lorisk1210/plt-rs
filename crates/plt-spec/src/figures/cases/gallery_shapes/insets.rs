@@ -53,7 +53,7 @@ fn demo_colorbar_with_inset_locator(fig: &Figure) -> CaseResult {
         ax1,
         SizeSpec::Percent(50.0),
         SizeSpec::Percent(5.0),
-        &InsetOptions::default(),
+        InsetOptions::default(),
     );
     axins1
         .xaxis()
@@ -66,12 +66,7 @@ fn demo_colorbar_with_inset_locator(fig: &Figure) -> CaseResult {
         bbox_transform: Some(ax2.trans_axes()),
         borderpad: (0.0, 0.0),
     };
-    let axins = inset_axes(
-        ax2,
-        SizeSpec::Percent(5.0),
-        SizeSpec::Percent(50.0),
-        &beside,
-    );
+    let axins = inset_axes(ax2, SizeSpec::Percent(5.0), SizeSpec::Percent(50.0), beside);
     ticked_colorbar(fig, &image2, &axins, Orientation::Vertical)?;
     Ok(())
 }
@@ -116,24 +111,24 @@ fn inset_locator_demo_1(fig: &Figure) -> CaseResult {
     let (ax, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     let percent = SizeSpec::Percent;
     hide_tick_labels(&[
-        &inset_axes(ax, 1.3.into(), 0.9.into(), &InsetOptions::default()),
+        &inset_axes(ax, 1.3.into(), 0.9.into(), InsetOptions::default()),
         &inset_axes(
             ax,
             percent(30.0),
             percent(40.0),
-            &at(AnchorLoc::LowerLeft, 0.5),
+            at(AnchorLoc::LowerLeft, 0.5),
         ),
         &inset_axes(
             ax2,
             percent(30.0),
             1.0.into(),
-            &at(AnchorLoc::UpperLeft, 0.5),
+            at(AnchorLoc::UpperLeft, 0.5),
         ),
         &inset_axes(
             ax2,
             percent(20.0),
             percent(20.0),
-            &at(AnchorLoc::LowerRight, 1.0),
+            at(AnchorLoc::LowerRight, 1.0),
         ),
     ]);
     Ok(())
@@ -163,7 +158,7 @@ fn inset_locator_demo_2(fig: &Figure) -> CaseResult {
         &ax,
         SizeSpec::Percent(50.0),
         SizeSpec::Percent(75.0),
-        &options,
+        options,
     );
     let outline = Rectangle::new((0.2, 0.4), 0.6, 0.5);
     dashed_outline(&ax, outline, None, Some(ax.trans_axes()));
@@ -173,13 +168,13 @@ fn inset_locator_demo_2(fig: &Figure) -> CaseResult {
         &ax2,
         SizeSpec::Percent(30.0),
         SizeSpec::Percent(50.0),
-        &InsetOptions::default(),
+        InsetOptions::default(),
     );
     let ax3 = fig.add_subplot(2, 2, 4)?;
     let corner = BboxToAnchor::Bounds(0.7, 0.5, 0.3, 0.5);
     let full = SizeSpec::Percent(100.0);
     let options = anchored(AnchorLoc::UpperRight, corner, ax3.trans_axes(), 0.5);
-    let axins3 = inset_axes(&ax3, full, full, &options);
+    let axins3 = inset_axes(&ax3, full, full, options);
     dashed_outline(&ax2, Rectangle::new((0.0, 0.0), 1.0, 1.0), Some(2.0), None);
     dashed_outline(&ax3, Rectangle::new((0.7, 0.5), 0.3, 0.5), Some(2.0), None);
     hide_tick_labels(&[&axins2, &axins3, &ax2, &ax3]);
@@ -191,7 +186,7 @@ fn inset_locator_demo_3(fig: &Figure) -> CaseResult {
     let full = SizeSpec::Percent(100.0);
     let beside = BboxToAnchor::Bounds(1.05, 0.6, 0.5, 0.4);
     let options = anchored(AnchorLoc::UpperLeft, beside, ax.trans_axes(), 0.0);
-    let axins = inset_axes(&ax, full, full, &options);
+    let axins = inset_axes(&ax, full, full, options);
     axins.tick_params(&TickParams {
         left: Some(false),
         right: Some(true),
@@ -201,13 +196,13 @@ fn inset_locator_demo_3(fig: &Figure) -> CaseResult {
     });
     let point = BboxToAnchor::Point(0.33, 0.25);
     let options = anchored(AnchorLoc::LowerLeft, point, ax.trans_axes(), 0.0);
-    inset_axes(&ax, 0.5.into(), 0.4.into(), &options);
+    inset_axes(&ax, 0.5.into(), 0.4.into(), options);
     let ax2 = fig.add_subplot(1, 3, 3)?;
     ax2.set_xscale("log")?;
     ax2.set_xlim(1e-6, 1e6).set_ylim(-2.0, 6.0);
     let in_data = BboxToAnchor::Bounds(1e-2, 2.0, 1e3, 3.0);
     let options = anchored(AnchorLoc::UpperLeft, in_data, ax2.trans_data(), 0.0);
-    inset_axes(&ax2, full, full, &options);
+    inset_axes(&ax2, full, full, options);
     let blended = Transform::blended(Transform::Figure(fig.id()), ax2.trans_axes());
     let whole = BboxToAnchor::Bounds(0.0, 0.0, 1.0, 1.0);
     let options = anchored(AnchorLoc::LowerCenter, whole, blended, 0.0);
@@ -215,7 +210,7 @@ fn inset_locator_demo_3(fig: &Figure) -> CaseResult {
         &ax2,
         SizeSpec::Percent(16.0),
         SizeSpec::Percent(34.0),
-        &options,
+        options,
     );
     Ok(())
 }
@@ -248,7 +243,7 @@ fn inset_locator_demo2(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     ax.set_aspect(Aspect::Ratio(1.0))?;
-    let axins = zoomed_inset_axes(ax, 0.5, &InsetOptions::default());
+    let axins = zoomed_inset_axes(ax, 0.5, InsetOptions::default());
     seven_bins(&axins)?;
     size_bar(ax, 0.5, "0.5");
     size_bar(&axins, 0.5, "0.5");
@@ -260,7 +255,7 @@ fn inset_locator_demo2(fig: &Figure) -> CaseResult {
         ..ImshowOptions::default()
     };
     ax2.imshow(framed.clone(), options())?;
-    let axins2 = zoomed_inset_axes(ax2, 6.0, &InsetOptions::default());
+    let axins2 = zoomed_inset_axes(ax2, 6.0, InsetOptions::default());
     axins2.imshow(framed, options())?;
     axins2.set_xlim(-1.5, -0.9).set_ylim(-2.5, -1.9);
     seven_bins(&axins2)?;

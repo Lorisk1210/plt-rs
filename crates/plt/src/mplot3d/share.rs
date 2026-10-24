@@ -197,7 +197,7 @@ impl Axes3D {
     /// # Errors
     ///
     /// As [`Axes3D::share_axis`].
-    pub fn sharex(&self, other: &Axes3D) -> Result<&Self, Axes3DError> {
+    pub fn share_x(&self, other: &Axes3D) -> Result<&Self, Axes3DError> {
         self.share_axis(Axis3::X, other)
     }
 
@@ -206,7 +206,7 @@ impl Axes3D {
     /// # Errors
     ///
     /// As [`Axes3D::share_axis`].
-    pub fn sharey(&self, other: &Axes3D) -> Result<&Self, Axes3DError> {
+    pub fn share_y(&self, other: &Axes3D) -> Result<&Self, Axes3DError> {
         self.share_axis(Axis3::Y, other)
     }
 
@@ -217,7 +217,7 @@ impl Axes3D {
     /// let fig = Figure::new();
     /// let (a, b) = (fig.add_subplot_3d(1, 2, 1, Default::default())?,
     ///               fig.add_subplot_3d(1, 2, 2, Default::default())?);
-    /// b.sharez(&a)?;
+    /// b.share_z(&a)?;
     /// a.set_zlim(0.0, 5.0)?;
     /// assert_eq!(b.zlim(), (0.0, 5.0));
     /// # Ok::<(), plt::mplot3d::Axes3DError>(())
@@ -226,7 +226,7 @@ impl Axes3D {
     /// # Errors
     ///
     /// As [`Axes3D::share_axis`].
-    pub fn sharez(&self, other: &Axes3D) -> Result<&Self, Axes3DError> {
+    pub fn share_z(&self, other: &Axes3D) -> Result<&Self, Axes3DError> {
         self.share_axis(Axis3::Z, other)
     }
 
@@ -238,7 +238,7 @@ impl Axes3D {
     ///
     /// When the view is already shared with another axes, or `other`
     /// belongs to another figure.
-    pub fn shareview(&self, other: &Axes3D) -> Result<&Self, Axes3DError> {
+    pub fn share_view(&self, other: &Axes3D) -> Result<&Self, Axes3DError> {
         self.join(other, ShareKey::View)?;
         let (angles, vertical) = other.with(|axes| (axes.camera.angles, axes.camera.vertical));
         self.set_view_shared(angles, vertical);
@@ -303,8 +303,8 @@ mod tests {
         let a = fig.subplot_3d();
         let b = fig.subplot_3d();
         let c = fig.subplot_3d();
-        b.sharez(&a).unwrap();
-        c.sharez(&b).unwrap();
+        b.share_z(&a).unwrap();
+        c.share_z(&b).unwrap();
         a.set_zlim(-3.0, 4.0).unwrap();
         assert_eq!(c.zlim(), (-3.0, 4.0));
         assert!(!c.autoscale(Axis3::Z), "autoscaling follows too");
@@ -312,15 +312,15 @@ mod tests {
         assert_eq!(a.shared_axes(Axis3::X).len(), 1);
         let d = fig.subplot_3d();
         assert_eq!(
-            b.sharez(&d).unwrap_err(),
+            b.share_z(&d).unwrap_err(),
             Axes3DError::AlreadyShared("z-axis")
         );
         assert!(
-            b.sharez(&a).is_ok(),
+            b.share_z(&a).is_ok(),
             "sharing again with the same axes is fine"
         );
         let other = Figure::new().subplot_3d();
-        assert_eq!(a.sharex(&other).unwrap_err(), Axes3DError::OtherFigure);
+        assert_eq!(a.share_x(&other).unwrap_err(), Axes3DError::OtherFigure);
     }
 
     #[test]
@@ -329,7 +329,7 @@ mod tests {
         let a = fig.subplot_3d();
         let b = fig.subplot_3d();
         a.view_init(10.0, 20.0, 30.0);
-        b.shareview(&a).unwrap();
+        b.share_view(&a).unwrap();
         assert_eq!(b.view(), a.view());
         b.view_init_shared(45.0, -10.0, 0.0);
         assert_eq!(a.view().elev, 45.0);

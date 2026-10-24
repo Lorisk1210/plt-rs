@@ -54,7 +54,7 @@ fn hammer_coarse(fig: &Figure) -> CaseResult {
     ax.set_longitude_grid(60.0)?.set_latitude_grid(20.0)?;
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             color: Some(Color::from("0.6")),
             linestyle: Some(LineStyle::Dotted),
             ..GridOptions::default()
@@ -81,7 +81,7 @@ fn mollweide_fine(fig: &Figure) -> CaseResult {
         .set_longitude_grid_ends(80.0);
     ax.grid_with(
         true,
-        &GridOptions {
+        GridOptions {
             linewidth: Some(0.5),
             ..GridOptions::default()
         },

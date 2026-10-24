@@ -37,7 +37,7 @@ fn creation_date(args: Args<'_>) -> Outcome {
     };
     with_rc(args, || {
         let bytes = Figure::new()
-            .to_format(format, &options)
+            .to_format(format, options)
             .map_err(ProbeError::rejected)?;
         let document = String::from_utf8_lossy(&bytes);
         between(&document, start, end)

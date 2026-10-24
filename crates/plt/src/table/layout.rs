@@ -193,7 +193,7 @@ mod tests {
     fn placed(options: &TableOptions, tweak: impl FnOnce(&crate::table::Table)) -> Vec<PlacedCell> {
         let fig = Figure::new();
         let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-        let table = ax.table(options).expect("valid table");
+        let table = ax.table(options.clone()).expect("valid table");
         tweak(&table);
         let state = table.raw().figure_state().borrow();
         let layout = LayoutContext::new(&state);

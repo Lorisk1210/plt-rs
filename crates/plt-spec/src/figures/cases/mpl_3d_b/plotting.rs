@@ -81,20 +81,20 @@ pub(super) fn stem3d(fig: &Figure) -> CaseResult {
             orientation: zdir,
             ..Stem3DOptions::default()
         };
-        ax.stem(&x, &y, &theta, &options)?;
+        ax.stem(&x, &y, &theta, options)?;
         ax.set_title(format!("orientation={}", zdir.name()));
     }
     let x = linspace(-PI / 2.0, PI / 2.0, 20);
     let z: Vec<f64> = x.iter().map(|x| x.cos()).collect();
     for (ax, zdir) in axs[3..].iter().zip(Axis3::ALL) {
         let options = Stem3DOptions {
-            linefmt: "C4-.".into(),
-            markerfmt: "C1D".into(),
-            basefmt: "C2".into(),
+            linefmt: "C4-.".parse()?,
+            markerfmt: "C1D".parse()?,
+            basefmt: "C2".parse()?,
             orientation: zdir,
             ..Stem3DOptions::default()
         };
-        let stem = ax.stem(&x, &[1.0; 20], &z, &options)?;
+        let stem = ax.stem(&x, &[1.0; 20], &z, options)?;
         ax.set_title(format!("orientation={}", zdir.name()));
         stem.markerline
             .set_markerfacecolor("none")

@@ -1,5 +1,6 @@
 //! The `text.scene` op: one scene per upstream `test_text.py` test, each
-//! returning the values that test asserts on.
+//! returning the values that test asserts on, and `category_positions`,
+//! which mirrors none.
 
 use plt::artist::ArtistHandle;
 use plt::axes::Axes;
@@ -49,6 +50,7 @@ pub(super) fn scene(args: Args<'_>) -> Outcome {
         "tightbbox_log_domain" => tightbbox_log_domain(),
         "nonfinite_positions" => nonfinite_positions(),
         "parse_math" => parse_math(),
+        "category_positions" => category_positions(),
         other => Err(ProbeError::BadArgs(format!("unknown scene {other:?}"))),
     }
 }
@@ -329,6 +331,61 @@ fn draw_outcome(configure: impl FnOnce(&Text)) -> Json {
         "error"
     };
     outcome.into()
+}
+
+/// Whether axes holding a line draw once `place` put a category name on
+/// them.
+fn category_draw(place: impl FnOnce(&Axes) -> Result<(), ProbeError>) -> Outcome {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    ax.plot([0.0, 1.0], [0.0, 1.0])
+        .map_err(ProbeError::rejected)?;
+    place(&ax)?;
+    let outcome = if fig.render_raster().is_ok() {
+        "drawn"
+    } else {
+        "error"
+    };
+    Ok(outcome.into())
+}
+
+fn category_positions() -> Outcome {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    ax.plot(vec!["x", "y"], [0.0, 1.0])
+        .map_err(ProbeError::rejected)?;
+    ax.text("z", 0.5, "s");
+    fig.render_raster().map_err(ProbeError::rejected)?;
+    let names = ax
+        .xaxis()
+        .categories()
+        .map(|categories| categories.names().to_vec())
+        .unwrap_or_default();
+    Ok(object([
+        (
+            "text",
+            category_draw(|ax| {
+                ax.text("a", 0.5, "s");
+                Ok(())
+            })?,
+        ),
+        (
+            "text_y",
+            category_draw(|ax| {
+                ax.text(0.5, "b", "s");
+                Ok(())
+            })?,
+        ),
+        (
+            "annotation",
+            category_draw(|ax| {
+                ax.annotate("s", ("a", 0.5), AnnotateOptions::default())
+                    .map(|_| ())
+                    .map_err(ProbeError::rejected)
+            })?,
+        ),
+        ("categorical", Json::from(names)),
+    ]))
 }
 
 fn parse_math() -> Outcome {

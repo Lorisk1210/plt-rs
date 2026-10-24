@@ -119,6 +119,7 @@ impl Axes {
                 row.linestyles = vec![styles[i].clone()];
                 row.base_mut().alpha = alphas.get(i).copied();
                 row.base_mut().transform = Some(self.trans_data());
+                // Added with `autolim=False`: `relim` leaves the rows out.
                 EventCollection::from_raw(self.adopt(row, &DataUpdate::default()))
             })
             .collect();

@@ -6,7 +6,10 @@ use plt_ui::{Choice, Flex, Label, Spacing, Swatch, TextInput, UiWindow, Widget, 
 
 use super::OptionsMessage;
 use crate::markers::{Marker, MarkerKey, MarkerSymbol};
-use crate::ticker::pyfmt;
+use crate::ticker::{g_sig_digits, pyfmt};
+
+/// The most significant digits a double needs to keep its value.
+const DOUBLE_DIGITS: usize = 17;
 
 /// The space between the fields of a row holding two.
 const PAIR_GAP: Spacing = Spacing::Md;
@@ -117,6 +120,23 @@ pub(super) fn number_text(x: f64) -> String {
     pyfmt::repr(x)
 }
 
+/// Axis limit `x` rounded to the digits that tell it from the values
+/// `resolution` away (a screen pixel along its axis), as matplotlib's
+/// status bar rounds coordinates (`cbook._g_sig_digits`), then shown as
+/// [`number_text`] shows numbers: `-0.49` rather than
+/// `-0.49000000000000005`. Without a usable resolution, `x` is shown as
+/// it is.
+pub(super) fn limit_text(x: f64, resolution: Option<f64>) -> String {
+    let rounded = resolution
+        .filter(|_| x.is_finite())
+        .and_then(|delta| g_sig_digits(x, delta).ok())
+        .and_then(|digits| {
+            let digits = digits.clamp(1, DOUBLE_DIGITS);
+            format!("{x:.*e}", digits - 1).parse::<f64>().ok()
+        });
+    number_text(rounded.unwrap_or(x))
+}
+
 /// The number typed into the field called `name`.
 pub(super) fn parse_number(name: &str, text: &str) -> Result<f64, FieldError> {
     text.trim()
@@ -179,6 +199,19 @@ pub(super) fn parse_marker(name: &str, text: &str) -> Result<Marker, FieldError>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn limits_are_rounded_at_the_axis_resolution() {
+        assert_eq!(limit_text(-0.490_000_000_000_000_05, Some(0.02)), "-0.49");
+        assert_eq!(limit_text(10.290_000_000_000_001, Some(0.02)), "10.29");
+        assert_eq!(limit_text(-0.05, Some(0.002)), "-0.05");
+        assert_eq!(limit_text(1234.5, Some(10.0)), "1230.0");
+        assert_eq!(limit_text(0.0, Some(0.01)), "0.0");
+        assert_eq!(limit_text(1e-3, Some(0.01)), "0.001", "one digit at least");
+        assert_eq!(limit_text(0.1 + 0.2, Some(0.0)), "0.30000000000000004");
+        assert_eq!(limit_text(0.1 + 0.2, None), "0.30000000000000004");
+        assert_eq!(limit_text(0.1 + 0.2, Some(f64::NAN)), "0.30000000000000004");
+    }
 
     #[test]
     fn conversions_follow_matplotlib() {

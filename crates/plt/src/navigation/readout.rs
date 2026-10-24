@@ -133,25 +133,7 @@ fn coordinate_pair(ax: &Axes, data: Point) -> Option<String> {
 /// `format_xdata`/`format_ydata` with `format_data_short`, which measures
 /// the pixel in the axis transform).
 fn format_data(ax: &Axes, name: AxisName, value: f64) -> Option<String> {
-    let axis_transform = match name {
-        AxisName::X => ax.trans_xaxis(),
-        AxisName::Y => ax.trans_yaxis(),
-    };
-    let trans = ax.figure().resolve_transform(&axis_transform).ok()?;
-    let inverse = trans.inverted()?;
-    let (along, step) = match name {
-        AxisName::X => (Point::new(value, 0.0), Point::new(1.0, 0.0)),
-        AxisName::Y => (Point::new(0.0, value), Point::new(0.0, 1.0)),
-    };
-    let pick = |p: Point| match name {
-        AxisName::X => p.x,
-        AxisName::Y => p.y,
-    };
-    let at = trans.transform_point(along);
-    let resolution = [at - step, at + step]
-        .into_iter()
-        .map(|p| (pick(inverse.transform_point(p)) - value).abs())
-        .fold(0.0, f64::max);
+    let resolution = ax.pixel_resolution(name, value)?;
     ax.raw().with::<AxesState, _>(|state| {
         let axis = state.axis(name);
         let custom = match name {
@@ -178,6 +160,35 @@ fn format_data(ax: &Axes, name: AxisName, value: f64) -> Option<String> {
 }
 
 impl Axes {
+    /// The data size of a screen pixel along axis `name` around `value`:
+    /// the farthest the values one pixel to either side lie from it
+    /// (matplotlib's `format_data_short`, which measures the pixel in the
+    /// axis transform). The figure is laid out first; `None` when the
+    /// axes has no extent.
+    pub(crate) fn pixel_resolution(&self, name: AxisName, value: f64) -> Option<f64> {
+        let axis_transform = match name {
+            AxisName::X => self.trans_xaxis(),
+            AxisName::Y => self.trans_yaxis(),
+        };
+        let trans = self.figure().resolve_transform(&axis_transform).ok()?;
+        let inverse = trans.inverted()?;
+        let (along, step) = match name {
+            AxisName::X => (Point::new(value, 0.0), Point::new(1.0, 0.0)),
+            AxisName::Y => (Point::new(0.0, value), Point::new(0.0, 1.0)),
+        };
+        let pick = |p: Point| match name {
+            AxisName::X => p.x,
+            AxisName::Y => p.y,
+        };
+        let at = trans.transform_point(along);
+        Some(
+            [at - step, at + step]
+                .into_iter()
+                .map(|p| (pick(inverse.transform_point(p)) - value).abs())
+                .fold(0.0, f64::max),
+        )
+    }
+
     /// `value` along `axis` as a status bar shows it (matplotlib's
     /// `format_xdata` and `format_ydata`, as `Axes3D::format_data` for
     /// 3-D axes): in the short form of the formatter set with
@@ -339,7 +350,7 @@ mod tests {
             Some(right.clone())
         );
         assert_eq!(axes_at(&fig, Point::new(1.0, 1.0)), None);
-        let twin = right.twinx();
+        let twin = right.twinx().expect("rectilinear axes have twins");
         assert_eq!(
             axes_at(&fig, display(&right, 0.5, 0.5)),
             Some(twin),
@@ -375,7 +386,7 @@ mod tests {
             .expect("finite limits");
         let text = format_coord(&ax, display(&ax, 2.5, 0.25));
         assert_eq!(text, "(x, y) = (2.50, 0.250)");
-        let twin = ax.twinx();
+        let twin = ax.twinx().expect("rectilinear axes have twins");
         twin.set_ylim(0.0, 100.0).expect("finite limits");
         let text = format_coord(&ax, display(&ax, 2.5, 0.25));
         assert_eq!(text, "(x, y) = (2.50, 0.250) | (2.50, 25.0)");
@@ -395,7 +406,7 @@ mod tests {
             ax.format_data(AxisName::X, f64::NAN).as_deref(),
             Some("nan")
         );
-        let twin = ax.twinx();
+        let twin = ax.twinx().expect("rectilinear axes have twins");
         twin.set_ylim(0.0, 100.0).expect("finite limits");
         assert_eq!(
             ax.format_coord(2.5, 0.25),

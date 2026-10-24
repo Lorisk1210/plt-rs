@@ -227,7 +227,7 @@ impl Axes {
         }
         let mut artist = NonUniformImageArtist::new(data, mappable, options.interpolation, x, y)?;
         artist.base_mut().transform = Some(self.trans_data());
-        let raw = self.adopt(artist, &DataUpdate::default());
+        let raw = self.adopt_in_autoscale(artist, &DataUpdate::default());
         // `add_image` leaves the image unclipped: it covers the axes box.
         raw.with_base_mut(|base| base.clip_box = None);
         Ok(NonUniformImage::from_raw(raw))
@@ -342,7 +342,7 @@ impl Axes {
     pub(crate) fn add_image(&self, mut artist: AxesImageArtist) -> AxesImage {
         let extent = artist.extent;
         artist.base_mut().transform = Some(self.trans_data());
-        let image = AxesImage::from_raw(self.adopt(artist, &DataUpdate::default()));
+        let image = AxesImage::from_raw(self.adopt_in_autoscale(artist, &DataUpdate::default()));
         self.fit_image(&image, extent);
         self.hide_grid_under_image();
         image

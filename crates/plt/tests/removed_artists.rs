@@ -173,7 +173,7 @@ fn axes(fig: &Figure) -> Outcome {
     let later = ax.plot([0.0, 1.0], [0.0, 1.0])?;
     assert!(!later.raw().is_attached(), "made in a removed axes");
     assert!(fig.axes().is_empty(), "the figure holds no axes");
-    let twin = ax.twinx();
+    let twin = ax.twinx()?;
     assert!(!twin.raw().is_attached());
     ax.relim(false).autoscale_view(None);
     let _ = ax.legend(LegendOptions::default());
@@ -396,7 +396,7 @@ fn axes_children(fig: &Figure) -> Outcome {
     let ax = fig.subplot();
     let inset = ax.inset_axes([0.6, 0.6, 0.3, 0.3]);
     let secondary = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), None)?;
-    let twin = ax.twinx();
+    let twin = ax.twinx()?;
     let label = AnchoredBox::text(
         "label",
         TextProps::default(),

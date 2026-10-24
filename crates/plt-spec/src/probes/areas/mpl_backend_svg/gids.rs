@@ -68,6 +68,7 @@ pub(super) fn missing_gids(args: Args<'_>) -> Outcome {
         ax1.legend(LegendOptions::default())
             .map_err(ProbeError::rejected)?;
         ax1.twinx()
+            .map_err(ProbeError::rejected)?
             .bar([1.0, 2.0, 3.0], [1.0, 2.0, 3.0], BarOptions::default())
             .map_err(ProbeError::rejected)?;
         fig.add_polar_subplot(1, 3, 2)

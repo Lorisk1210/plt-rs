@@ -39,7 +39,7 @@ impl Axes {
         // matplotlib's add_patch extends the data limits without
         // autoscaling the view.
         let update = DataUpdate::extending(patch.limit_points(self.id()));
-        Patch::from_raw(self.adopt(patch, &update))
+        Patch::from_raw(self.adopt_in_autoscale(patch, &update))
     }
 
     /// Adds an arrow polygon in data coordinates, extends the data limits

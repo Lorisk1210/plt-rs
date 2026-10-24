@@ -288,6 +288,8 @@ impl Axes {
             }
         }
         let corners = lattice.corners(options.xscale, options.yscale);
+        // Added with `autolim=False` after the data limits: `relim` leaves
+        // the cells out.
         let handle =
             Collection::from_raw(self.adopt(collection, &DataUpdate::data(corners.to_vec())));
         self.raw.with_mut::<AxesState, _>(|axes| axes.tight = true);

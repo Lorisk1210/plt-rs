@@ -68,7 +68,7 @@ fn twin_axes() -> Built {
         LineProps::fmt("C0o-")?.label("temperature"),
     )?;
     ax.set_xlabel("month").set_ylabel("temperature (°C)");
-    let right = ax.twinx();
+    let right = ax.twinx()?;
     right.plot_with(&months, rain, LineProps::fmt("C1s--")?.label("rain"))?;
     right.set_ylabel("rain (mm)");
     ax.set_title("A year of weather");

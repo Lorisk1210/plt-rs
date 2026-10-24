@@ -178,7 +178,7 @@ impl Axes {
             autoscale,
         };
         patch.base_mut().transform = Some(transform);
-        Patch::from_raw(self.adopt(patch, &update))
+        Patch::from_raw(self.adopt_in_autoscale(patch, &update))
     }
 
     /// Adds a line spanning axes fractions along one axis at data value
@@ -209,7 +209,7 @@ impl Axes {
             update: (along_x, !along_x),
             autoscale: (along_x && outside, !along_x && outside),
         };
-        Line2D::from_raw(self.adopt(line, &update))
+        Line2D::from_raw(self.adopt_in_autoscale(line, &update))
     }
 }
 

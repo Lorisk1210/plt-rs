@@ -1,12 +1,15 @@
-//! Axes steps that plot lines, bars, spans and patches: the artists whose
-//! data limits and sticky edges the scenarios autoscale around.
+//! Axes steps that plot lines, segments, events, bars, spans and
+//! patches: the artists whose data limits and sticky edges the scenarios
+//! autoscale around.
 
 use plt::artist::ArtistHandle;
-use plt::axes::{Axes, BarLabelOptions, BarLabelType, BarOptions, ErrorSize, ErrorbarOptions};
-use plt::lines::LineProps;
+use plt::axes::{
+    Axes, BarLabelOptions, BarLabelType, BarOptions, ErrorSize, ErrorbarOptions, EventplotOptions,
+};
+use plt::lines::{AxLineThrough, LineProps};
 use plt::patches::{FancyArrow, PathShape};
 use plt::units::AxisValues;
-use plt_core::{Path, PathCode};
+use plt_core::{Path, PathCode, Point};
 
 use super::call::{Call, KEYWORD_ONLY};
 use super::scene::{Handled, Object, Produced, Scene};
@@ -38,12 +41,20 @@ pub(super) fn call(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Handled {
                 }))
             })
         }
+        "axline" => axline(ax, call),
+        "hlines" | "vlines" => segments(ax, call),
+        "eventplot" => call.rows(0, "positions").and_then(|rows| {
+            ax.eventplot(&rows, EventplotOptions::default())
+                .map(|_| Produced::Nothing)
+                .map_err(ProbeError::rejected)
+        }),
         "errorbar" => errorbar(ax, call),
         "arrow" => (0..4)
             .map(|i| call.f64(i, ""))
             .collect::<Result<Vec<_>, _>>()
             .map(|v| artist(&ax.arrow(FancyArrow::new(v[0], v[1], v[2], v[3])))),
-        "add_patch" => add_patch(ax, call),
+        "add_patch" => path_patch(call).map(|shape| artist(&ax.add_patch(shape))),
+        "add_artist" => path_patch(call).map(|shape| artist(&ax.add_artist(shape))),
         _ => return None,
     })
 }
@@ -202,8 +213,39 @@ fn bar_label(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Result<Produced, Prob
         .map_err(ProbeError::rejected)
 }
 
-/// `add_patch(PathPatch(Path(vertices, codes)))`.
-fn add_patch(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
+/// matplotlib's `axline(xy1, xy2)`.
+fn axline(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
+    let point = |index, keyword| match call.f64_vec(index, keyword)?.as_slice() {
+        &[x, y] => Ok(Point::new(x, y)),
+        _ => Err(call.bad(&format!("{keyword} is not a point"))),
+    };
+    let through = AxLineThrough::Point(point(1, "xy2")?);
+    ax.axline(point(0, "xy1")?, through, LineProps::default())
+        .map(|line| artist(&line))
+        .map_err(ProbeError::rejected)
+}
+
+/// matplotlib's `hlines(y, xmin, xmax)` and `vlines(x, ymin, ymax)`.
+fn segments(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
+    let [at, low, high] = if call.method == "hlines" {
+        ["y", "xmin", "xmax"]
+    } else {
+        ["x", "ymin", "ymax"]
+    };
+    let at = axis_values(call, 0, at)?;
+    let (low, high) = (axis_values(call, 1, low)?, axis_values(call, 2, high)?);
+    let made = if call.method == "hlines" {
+        ax.hlines(at, low, high)
+    } else {
+        ax.vlines(at, low, high)
+    };
+    made.map(|lines| Produced::Object(Object::Collection(lines)))
+        .map_err(ProbeError::rejected)
+}
+
+/// The `PathPatch(Path(vertices, codes))` that `add_patch` and
+/// `add_artist` add.
+fn path_patch(call: &Call<'_>) -> Result<PathShape, ProbeError> {
     let Some(("PathPatch", [vertices, codes])) = call.constructed(0, "p") else {
         return Err(call.bad("only PathPatch(vertices, codes) is supported"));
     };
@@ -215,5 +257,5 @@ fn add_patch(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
         .map(|code| PathCode::try_from(code as u8).map_err(ProbeError::rejected))
         .collect::<Result<Vec<_>, _>>()?;
     let path = Path::new(vertices, codes).map_err(ProbeError::rejected)?;
-    Ok(artist(&ax.add_patch(PathShape(path))))
+    Ok(PathShape(path))
 }

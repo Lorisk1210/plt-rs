@@ -268,7 +268,7 @@ impl Axes {
             base.transform = Some(self.trans_data());
         }
         let update = DataUpdate::extending(line.limit_points(self.id()));
-        Line2D::from_raw(self.adopt(line, &update))
+        Line2D::from_raw(self.adopt_in_autoscale(line, &update))
     }
 
     /// Replaces the property cycle of lines and patches and restarts it;

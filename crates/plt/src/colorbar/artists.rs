@@ -186,7 +186,11 @@ impl Painter<'_> {
             base.transform = Some(self.ax.trans_axes());
             base.clip_on = false;
             base.zorder = 1.0_f64.next_down();
-            patches.push(self.ax.adopt(patch, &DataUpdate::default()).id());
+            patches.push(
+                self.ax
+                    .adopt_in_autoscale(patch, &DataUpdate::default())
+                    .id(),
+            );
         }
         patches
     }
@@ -212,7 +216,9 @@ impl Painter<'_> {
                 ];
                 let mut patch = self.block_patch(&corners, block);
                 patch.base_mut().transform = Some(self.ax.trans_data());
-                self.ax.adopt(patch, &DataUpdate::default()).id()
+                self.ax
+                    .adopt_in_autoscale(patch, &DataUpdate::default())
+                    .id()
             })
             .collect()
     }

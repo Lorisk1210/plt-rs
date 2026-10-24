@@ -21,7 +21,8 @@ impl Axes {
     /// converted on their axis as matplotlib's annotations convert them
     /// when drawn: without giving the axis a converter, tick helpers or a
     /// unit (which plotting data does), and again, for user values, when
-    /// the axis changes unit.
+    /// the axis changes unit. As for [`Axes::text`], a category name
+    /// needs an axis with categories.
     ///
     /// ```
     /// use plt::prelude::*;

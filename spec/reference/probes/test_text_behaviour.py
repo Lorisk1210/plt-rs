@@ -90,6 +90,14 @@ Ops
     r"$ \\wrong{math} $")`` with ``parse_math=False``, ``True``, the rc
     default and ``text.parse_math = False`` (``test_parse_math``,
     ``test_parse_math_rcparams``).
+``category_positions``  ``{"text", "text_y", "annotation",
+    "categorical"}``: ``"drawn"`` or ``"error"`` for drawing
+    ``ax.text("a", 0.5, "s")``, ``ax.text(0.5, "b", "s")`` and
+    ``ax.annotate("s", ("a", 0.5))`` on axes holding ``plot([0, 1], [0,
+    1])``, and the category names of the x axis after ``ax.plot(["x",
+    "y"], [0, 1])``, ``ax.text("z", 0.5, "s")`` and a draw. No upstream
+    test: ``StrCategoryConverter.convert`` fails on an axis without
+    category units and adds the name to them otherwise.
 
 Left out: ``test_char_index_at`` (a private helper of ``TextBox``, whose
 behaviour the ``widgets`` area covers), ``test_ha_for_angle`` /
@@ -105,6 +113,7 @@ the usetex tests (no TeX).
 """
 
 import numpy as np
+import matplotlib.units as munits
 from matplotlib.backend_bases import MouseEvent
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -325,6 +334,30 @@ def _parse_math():
             "rc_false": _draw_outcome({"text.parse_math": False})}
 
 
+def _category_draw(place):
+    fig = _figure()
+    ax = fig.add_subplot()
+    ax.plot([0, 1], [0, 1])
+    place(ax)
+    try:
+        fig.canvas.draw()
+    except munits.ConversionError:
+        return "error"
+    return "drawn"
+
+
+def _category_positions():
+    fig = _figure()
+    ax = fig.add_subplot()
+    ax.plot(["x", "y"], [0, 1])
+    ax.text("z", 0.5, "s")
+    fig.canvas.draw()
+    return {"text": _category_draw(lambda ax: ax.text("a", 0.5, "s")),
+            "text_y": _category_draw(lambda ax: ax.text(0.5, "b", "s")),
+            "annotation": _category_draw(lambda ax: ax.annotate("s", ("a", 0.5))),
+            "categorical": list(ax.xaxis.units._mapping)}
+
+
 SCENES = {
     "annotation_contains": _annotation_contains,
     "set_position": _set_position,
@@ -341,6 +374,7 @@ SCENES = {
     "tightbbox_log_domain": _tightbbox_log_domain,
     "nonfinite_positions": _nonfinite_positions,
     "parse_math": _parse_math,
+    "category_positions": _category_positions,
 }
 
 ROTATIONS = ["horizontal", "vertical", 15.0, 16.7, 77.4, 67, 16, 41, None, 360.0, 377.0,

@@ -156,10 +156,12 @@ fn format_coord(args: Args<'_>) -> Outcome {
             match twin.as_str() {
                 Some("x") => ax
                     .twinx()
+                    .map_err(ProbeError::rejected)?
                     .set_ylim(0.0, 40.0)
                     .map_err(ProbeError::rejected)?,
                 Some("y") => ax
                     .twiny()
+                    .map_err(ProbeError::rejected)?
                     .set_xlim(0.0, 5.0)
                     .map_err(ProbeError::rejected)?,
                 _ => return Err(ProbeError::BadArgs(format!("unknown twin {twin}"))),

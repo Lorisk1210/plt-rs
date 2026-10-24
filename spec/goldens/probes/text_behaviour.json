@@ -64,6 +64,11 @@
    "value": {"text": true, "set_false": false, "set_true": true, "annotation": true, "annotation_false": false}
   },
   {"op": "text.scene", "args": {"scene": "arrow_annotation"}, "value": [[0.0, 43.05555555555556], [50.0, 56.94444444444444]]},
+  {
+   "op": "text.scene",
+   "args": {"scene": "category_positions"},
+   "value": {"text": "error", "text_y": "error", "annotation": "error", "categorical": ["x", "y", "z"]}
+  },
   {"op": "text.scene", "args": {"scene": "empty_annotation"}, "value": [[0.0, 50.0], [0.0, 50.0]]},
   {
    "op": "text.scene",

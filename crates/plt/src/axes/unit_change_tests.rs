@@ -202,7 +202,7 @@ fn axes_sharing_an_axis_follow_its_unit() {
     top.plot(vec![km(0.0), km(4.0)], [0.0, 1.0]).unwrap();
     let rectangle = bottom.add_patch(DataRectangle::new((km(1.0), 0.0), km(1.0), 1.0).unwrap());
     let text = bottom.text(km(3.0), 0.5, "shared");
-    let twin = bottom.twinx();
+    let twin = bottom.twinx().unwrap();
     let line = twin.plot(vec![km(2.0)], [1.0]).unwrap();
     top.xaxis().set_units(LengthUnit::Metres);
     assert_eq!(rectangle.shape().xy.x, 1000.0);

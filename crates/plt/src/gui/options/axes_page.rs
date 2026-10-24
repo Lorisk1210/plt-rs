@@ -8,7 +8,7 @@ use super::artists::{
     CurveFields, CurvePlan, ImageFields, ImagePlan, apply_curve, apply_image, curves_panel,
     edited_lines, images_panel, read_curve, read_image,
 };
-use super::fields::{FieldError, Form, chosen, number_text, parse_limit, text_of};
+use super::fields::{FieldError, Form, chosen, limit_text, parse_limit, text_of};
 use crate::axes::{Axes, AxisName, TitleLocation};
 use crate::legend::LegendOptions;
 use crate::scale::ScaleName;
@@ -21,12 +21,36 @@ static SCALES: [ScaleName; 4] = [
     ScaleName::Logit,
 ];
 
+/// The field of an axis limit, showing it rounded.
+#[derive(Debug, Clone)]
+struct LimitField {
+    id: WidgetId,
+    /// The limit, which the field keeps while its text is the one shown.
+    value: f64,
+    /// The text the field was given.
+    shown: String,
+}
+
+impl LimitField {
+    /// The limit typed into the field called `name`, or the exact limit
+    /// it showed if the text was not edited (so that applying unedited
+    /// fields changes no limit).
+    fn read(&self, window: &mut UiWindow<OptionsMessage>, name: &str) -> Result<f64, FieldError> {
+        let text = text_of(window, self.id);
+        if text == self.shown {
+            Ok(self.value)
+        } else {
+            parse_limit(name, &text)
+        }
+    }
+}
+
 /// The fields of one axis.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct AxisFields {
     name: AxisName,
-    min: WidgetId,
-    max: WidgetId,
+    min: LimitField,
+    max: LimitField,
     label: WidgetId,
     scale: WidgetId,
 }
@@ -237,7 +261,19 @@ fn general_form(
             AxisName::Y => ("Y axis", axes.ylim(), axes.yscale()),
         };
         form.section(heading);
-        let (min, max) = form.pair(("Min", number_text(min)), ("Max", number_text(max)));
+        let shown = |value| limit_text(value, axes.pixel_resolution(name, value));
+        let (min_text, max_text) = (shown(min), shown(max));
+        let (min_id, max_id) = form.pair(("Min", min_text.clone()), ("Max", max_text.clone()));
+        let min = LimitField {
+            id: min_id,
+            value: min,
+            shown: min_text,
+        };
+        let max = LimitField {
+            id: max_id,
+            value: max,
+            shown: max_text,
+        };
         let label = form.text("Label", axes.label(name));
         let current = SCALES.iter().position(|s| *s == scale).unwrap_or(0);
         let scale = form.choice("Scale", &SCALES.each_ref().map(ScaleName::as_str), current);
@@ -265,8 +301,8 @@ fn read_axis(
         AxisName::X => "X",
         AxisName::Y => "Y",
     };
-    let min = parse_limit(&format!("{axis} min"), &text_of(window, fields.min))?;
-    let max = parse_limit(&format!("{axis} max"), &text_of(window, fields.max))?;
+    let min = fields.min.read(window, &format!("{axis} min"))?;
+    let max = fields.max.read(window, &format!("{axis} max"))?;
     Ok(AxisPlan {
         name: fields.name,
         limits: (min, max),
@@ -309,20 +345,59 @@ mod tests {
                 .unwrap()
                 .set_text(text);
         };
+        let x_max = page.axis_fields[0].max.id;
         type_into(&mut window, page.title, "Edited");
-        type_into(&mut window, page.axis_fields[0].max, "ten");
+        type_into(&mut window, x_max, "ten");
         let problem = page.read(&mut window).unwrap_err();
         assert_eq!(problem.0, "X max: \"ten\" is not a number");
-        type_into(&mut window, page.axis_fields[0].max, "inf");
+        type_into(&mut window, x_max, "inf");
         let problem = page.read(&mut window).unwrap_err();
         assert_eq!(problem.0, "X max: \"inf\" is not a finite number");
-        type_into(&mut window, page.axis_fields[0].max, "10");
+        type_into(&mut window, x_max, "10");
         type_into(&mut window, page.curves[0].width, "3");
         let plan = page.read(&mut window).unwrap();
         assert!(page.apply(plan), "the x limits changed");
         assert_eq!(ax.title(TitleLocation::Center), "Edited");
         assert_eq!(ax.xlim().1, 10.0);
         assert_eq!(line.linewidth(), 3.0);
+    }
+
+    #[test]
+    fn limits_show_rounded_and_stay_exact_unless_edited() {
+        use plt_platform::{EventLoop, WindowOptions};
+        use plt_ui::TextInput;
+
+        let ax = Figure::with_size(4.0, 3.0, 100.0).subplot();
+        ax.plot([0.0, 9.8], [0.0, 1.0]).unwrap();
+        let (x0, x1) = ax.xlim();
+        assert_eq!(
+            (x0, x1),
+            (-0.490_000_000_000_000_05, 10.290_000_000_000_001)
+        );
+        let ylim = ax.ylim();
+        let (page, root) = AxesPage::build(&ax, 0);
+        let (mut event_loop, _handle) = EventLoop::headless();
+        let mut window = UiWindow::open(
+            &mut event_loop.context(),
+            &WindowOptions::new("options"),
+            root,
+        )
+        .unwrap();
+        let [x, y] = page.axis_fields.clone();
+        assert_eq!(text_of(&mut window, x.min.id), "-0.49");
+        assert_eq!(text_of(&mut window, x.max.id), "10.29");
+        assert_eq!(text_of(&mut window, y.max.id), "1.05");
+        let plan = page.read(&mut window).unwrap();
+        assert!(!page.apply(plan), "no limit changed");
+        assert_eq!((ax.xlim(), ax.ylim()), ((x0, x1), ylim));
+        window
+            .ui_mut()
+            .widget_mut::<TextInput<OptionsMessage>>(x.max.id)
+            .unwrap()
+            .set_text("12");
+        let plan = page.read(&mut window).unwrap();
+        assert!(page.apply(plan));
+        assert_eq!(ax.xlim(), (x0, 12.0), "the unedited minimum stays exact");
     }
 
     #[test]

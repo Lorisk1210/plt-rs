@@ -226,7 +226,20 @@ impl Axes {
     /// as matplotlib's texts convert their position when drawn: without
     /// giving the axes a converter, tick helpers or a unit (which plotting
     /// data does), and again, for user values, when an axis changes
-    /// unit.
+    /// unit. A category name joins the categories of its axis; on an axis
+    /// without categories it cannot be placed, and the figure reports it
+    /// when it next draws.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.bar(["apple", "banana"], [4.0, 6.0], Default::default())?;
+    /// assert_eq!(ax.text("cherry", 5.0, "none yet").position().x, 2.0);
+    /// assert!(ax.text(1.0, "tall", "?").position().y.is_nan());
+    /// assert!(fig.to_png().is_err(), "the y axis has no categories");
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
     pub fn text(
         &self,
         x: impl Into<AxisValue>,

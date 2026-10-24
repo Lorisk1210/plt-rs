@@ -1,15 +1,17 @@
 //! Axes steps making colour-mapped artists (`imshow`, `pcolor`,
-//! `pcolormesh`, `pcolorfast`, `hist2d`, `contour`, `contourf`), the
-//! mappables colorbars show, and the methods changing their norm and
-//! limits.
+//! `pcolormesh`, `pcolorfast`, `hist2d`, `hexbin`, `tripcolor`,
+//! `contour`, `contourf`), the mappables colorbars show, and the methods
+//! changing their norm and limits.
 
 use plt::axes::{
-    Axes, Hist2dOptions, ImshowOptions, Mesh, MeshCoords, PcolorOptions, PcolorfastOptions,
+    Axes, HexGridSize, HexbinOptions, Hist2dOptions, ImshowOptions, Mesh, MeshCoords,
+    PcolorOptions, PcolorfastOptions, TriShading, TriValues, TripcolorOptions,
 };
 use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, Norm, NormSpec, Normalize, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::image::Origin;
 use plt::numeric::Grid;
+use plt::tri::Triangulation;
 
 use super::call::{Call, KEYWORD_ONLY};
 use super::scene::{Handled, Object, Produced};
@@ -21,16 +23,14 @@ pub(super) fn call(ax: &Axes, call: &Call<'_>) -> Handled {
     Some(match call.method {
         "imshow" => imshow(ax, call),
         "pcolor" | "pcolormesh" => pcolor(ax, call),
-        "pcolorfast" => grid(call, 0).and_then(|z| {
-            ax.pcolorfast(None, z, PcolorfastOptions::default())
-                .map(|_| Produced::Nothing)
-                .map_err(ProbeError::rejected)
-        }),
+        "pcolorfast" => pcolorfast(ax, call),
         "hist2d" => call.f64_vec(0, "x").and_then(|x| {
             ax.hist2d(&x, &call.f64_vec(1, "y")?, Hist2dOptions::default())
                 .map(|_| Produced::Nothing)
                 .map_err(ProbeError::rejected)
         }),
+        "hexbin" => hexbin(ax, call),
+        "tripcolor" => tripcolor(ax, call),
         "contour" | "contourf" => contour(ax, call),
         _ => return None,
     })
@@ -173,6 +173,62 @@ fn pcolor(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     };
     made.map(|c| Produced::Object(Object::Collection(c)))
         .map_err(ProbeError::rejected)
+}
+
+/// matplotlib's `pcolorfast([x, y,] c)`.
+fn pcolorfast(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
+    let (xy, values) = match call.arity() {
+        1 => (None, grid(call, 0)?),
+        3 => (
+            Some((coords(call, 0, "x")?, coords(call, 1, "y")?)),
+            grid(call, 2)?,
+        ),
+        _ => return Err(call.bad("unsupported pcolorfast arguments")),
+    };
+    ax.pcolorfast(xy, values, PcolorfastOptions::default())
+        .map(|_| Produced::Nothing)
+        .map_err(ProbeError::rejected)
+}
+
+/// matplotlib's `hexbin(x, y, gridsize=..., marginals=...)`.
+fn hexbin(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
+    let mut options = HexbinOptions {
+        marginals: call.opt_bool(KEYWORD_ONLY, "marginals")?.unwrap_or(false),
+        ..HexbinOptions::default()
+    };
+    if let Some(count) = call.keyword("gridsize") {
+        let count = count
+            .as_i64()
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| call.bad("gridsize is not a count"))?;
+        options.gridsize = HexGridSize::Count(count);
+    }
+    ax.hexbin(&call.f64_vec(0, "x")?, &call.f64_vec(1, "y")?, options)
+        .map(|cells| Produced::Object(Object::Collection(cells)))
+        .map_err(ProbeError::rejected)
+}
+
+/// matplotlib's `tripcolor(x, y, c, shading=...)` on the Delaunay
+/// triangulation of the points.
+fn tripcolor(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
+    let triangulation = Triangulation::delaunay(&call.f64_vec(0, "x")?, &call.f64_vec(1, "y")?)
+        .map_err(ProbeError::rejected)?;
+    let shading = match call.opt_str(KEYWORD_ONLY, "shading")? {
+        None | Some("flat") => TriShading::Flat,
+        Some("gouraud") => TriShading::Gouraud,
+        Some(other) => return Err(ProbeError::rejected(format!("bad shading {other:?}"))),
+    };
+    let options = TripcolorOptions {
+        shading,
+        ..TripcolorOptions::default()
+    };
+    ax.tripcolor(
+        &triangulation,
+        TriValues::Auto(call.f64_vec(2, "c")?),
+        options,
+    )
+    .map(|_| Produced::Nothing)
+    .map_err(ProbeError::rejected)
 }
 
 /// matplotlib's `contour`/`contourf([x, y,] z, [levels], levels=...,

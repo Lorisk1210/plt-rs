@@ -257,7 +257,7 @@ fn quick_start_16(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax3) = (&axs[(0, 0)], &axs[(0, 1)]);
     let l1 = ax1.plot(&t, &s)?;
-    let ax2 = ax1.twinx();
+    let ax2 = ax1.twinx()?;
     let l2 = ax2.plot_with(&t, indices(t.len()), LineProps::fmt("C1")?)?;
     ax2.legend(
         LegendOptions::default()

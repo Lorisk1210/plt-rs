@@ -96,7 +96,7 @@ impl Axes {
                 let outline =
                     artist.outline_data_points(&*self.raw().figure_state().borrow(), self.id());
                 let update = outline.map_or_else(DataUpdate::default, DataUpdate::data);
-                StreamArrow::from_raw(self.adopt(artist, &update))
+                StreamArrow::from_raw(self.adopt_in_autoscale(artist, &update))
             })
             .collect();
         Ok(StreamplotSet { lines, arrows })

@@ -68,8 +68,8 @@ pub(super) fn set_minor_formatter(args: Args<'_>) -> Outcome {
 /// `(axis name, twin)` of argument `twin`.
 fn twin_arg(ax: &Axes, args: Args<'_>) -> Result<(AxisName, Axes), ProbeError> {
     match args.str("twin")? {
-        "x" => Ok((AxisName::X, ax.twinx())),
-        "y" => Ok((AxisName::Y, ax.twiny())),
+        "x" => Ok((AxisName::X, made(ax.twinx())?)),
+        "y" => Ok((AxisName::Y, made(ax.twiny())?)),
         other => Err(ProbeError::BadArgs(format!("unknown twin {other}"))),
     }
 }

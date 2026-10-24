@@ -41,14 +41,14 @@ const PLACEMENT: &[FigureCase] = &[
     classic("mpl_tests_constrainedlayout/constrained_layout18", |fig| {
         fig.set_layout_engine(LayoutEngine::constrained())?;
         let ax = fig.subplot();
-        let ax2 = ax.twinx();
+        let ax2 = ax.twinx()?;
         example_plot(&ax, 12.0, false)?;
         example_plot(&ax2, 24.0, false)
     }),
     classic("mpl_tests_constrainedlayout/constrained_layout19", |fig| {
         fig.set_layout_engine(LayoutEngine::constrained())?;
         let ax = fig.subplot();
-        let ax2 = ax.twiny();
+        let ax2 = ax.twiny()?;
         example_plot(&ax, 12.0, false)?;
         example_plot(&ax2, 24.0, false)?;
         ax2.set_title("");

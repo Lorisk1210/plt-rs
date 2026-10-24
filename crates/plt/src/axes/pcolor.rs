@@ -240,7 +240,8 @@ impl Axes {
 
     /// matplotlib's `_update_pcolor_lims`: the mesh's vertices, in data
     /// coordinates, become the data limits and sticky edges, and
-    /// autoscaling is requested.
+    /// autoscaling is requested; the mesh is added with `autolim=False`,
+    /// so `relim` leaves it out.
     fn add_mesh(&self, mut collection: CollectionArtist, mesh: &PreparedMesh) -> Collection {
         let transform = collection
             .base_mut()

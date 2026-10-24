@@ -128,11 +128,9 @@ impl Axes {
         let rc = crate::rc::params();
         let mut collection = CollectionArtist::new(CollectionKind::Line, paths, rc.clone());
         collection.edgecolors = EdgeColors::Colors(vec![rc.lines_color.clone()]);
-        // matplotlib adds the lines with `autolim=False` and extends the
-        // data limits itself, so that `relim` leaves them out.
-        collection.in_autoscale = false;
-        // matplotlib extends the data limits by the extent's corners only,
-        // in the directions that are data values.
+        // matplotlib adds the lines with `autolim=False`, so that `relim`
+        // leaves them out, and extends the data limits itself, by the
+        // extent's corners only, in the directions that are data values.
         let extents = collection.shape_extents().bbox;
         let update = if n == 0 {
             DataUpdate::default()

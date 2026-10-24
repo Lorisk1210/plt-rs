@@ -85,6 +85,13 @@ pub struct ArtistBase {
     pub agg_filter: Option<AggFilter>,
     /// Values autoscaling must not expand past (`x`, `y`).
     pub sticky_edges: (Vec<f64>, Vec<f64>),
+    /// Whether the axes count the artist when they recompute their data
+    /// limits ([`relim`](crate::axes::Axes::relim); matplotlib's
+    /// `_in_autoscale`): off until the axes add it as matplotlib's
+    /// `add_line`, `add_patch`, `add_image` and `add_collection` do, and
+    /// off for what they add as `add_artist` or
+    /// `add_collection(..., autolim=False)` do.
+    pub(crate) in_autoscale: bool,
     /// The containing artist (axes, figure, legend, ...).
     pub parent: Option<ArtistId>,
     /// The artist's own id, assigned when it is inserted into a store.
@@ -163,6 +170,7 @@ impl Default for ArtistBase {
             mouseover: false,
             agg_filter: None,
             sticky_edges: (Vec::new(), Vec::new()),
+            in_autoscale: false,
             parent: None,
             id: None,
         }

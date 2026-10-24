@@ -104,7 +104,7 @@ mod tests {
         assert!(!visible(&twin, "left") && !visible(&twin, "top") && !visible(&twin, "bottom"));
         let right = twin.axis("right").expect("an edge");
         assert!(!right.major_ticklabels().visible() && !right.label().visible());
-        host.ax().set_xlim(0.0, 2.0);
+        host.ax().set_xlim(0.0, 2.0).expect("finite limits");
         assert_eq!(twin.ax().xlim(), (0.0, 2.0), "the x axis is shared");
         let over = host.twiny();
         assert!(!visible(&host, "top") && visible(&over, "top"));

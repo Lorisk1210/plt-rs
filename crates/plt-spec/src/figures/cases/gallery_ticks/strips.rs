@@ -123,7 +123,7 @@ fn date_strip(ax: &Axes, title: &str, xmax: &str) -> CaseResult {
     let limits = ax
         .xaxis()
         .convert_units(vec![instant("2000-02-01")?, instant(xmax)?]);
-    ax.set_xlim(limits[0], limits[1]);
+    ax.set_xlim(limits[0], limits[1])?;
     strip_title(ax, title);
     Ok(())
 }

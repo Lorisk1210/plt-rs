@@ -280,7 +280,10 @@ fn set_bound(ax: &Axes, name: AxisName, (low, high): (f64, f64)) {
         a > b
     });
     let (start, end) = if inverted { (high, low) } else { (low, high) };
-    ax.set_limits(name, start, end);
+    // Zooming out of a degenerate box gives limits that are not finite;
+    // they leave the axis as it is, where matplotlib's event handler
+    // raises.
+    let _ = ax.set_limits(name, start, end);
 }
 
 #[cfg(test)]
@@ -295,7 +298,9 @@ mod tests {
     fn dragging_a_box_zooms_into_it() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(10.0, 0.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(10.0, 0.0))
+            .expect("finite limits");
         let (a, b) = (display(&ax, 2.0, 3.0), display(&ax, 4.0, 7.0));
         assert!(zoom_to_rect(
             &fig,
@@ -318,7 +323,9 @@ mod tests {
     fn tiny_drags_cancel_and_keys_fix_an_axis() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let a = display(&ax, 2.0, 2.0);
         let near = Point::new(a.x + 2.0, a.y + 50.0);
         assert!(!zoom_to_rect(
@@ -347,7 +354,9 @@ mod tests {
     fn zooming_out_and_around_a_point() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let (a, b) = (display(&ax, 0.0, 0.0), display(&ax, 5.0, 5.0));
         zoom_to_rect(
             &fig,
@@ -359,7 +368,9 @@ mod tests {
         );
         let (x0, x1) = ax.xlim();
         assert!((x0 - 0.0).abs() < 1e-9 && (x1 - 20.0).abs() < 1e-9);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         zoom_around(&fig, std::slice::from_ref(&ax), display(&ax, 0.0, 0.0), 2.0);
         let (x0, x1) = ax.xlim();
         assert!(

@@ -198,7 +198,9 @@ mod tests {
     fn events_carry_axes_and_data_coordinates() {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let log = record(&fig, &[EventKind::ButtonPress, EventKind::Motion]);
         let mut source = EventSource::new();
         source.button_press(&fig, 200.0, 150.0, PointerButton::Left, false);

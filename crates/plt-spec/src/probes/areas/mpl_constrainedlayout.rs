@@ -187,7 +187,9 @@ fn align_labels(args: Args<'_>) -> Outcome {
         let [ax3, ax1, ax2] = [0, 1, 2].map(|row| add_cell(&fig, &gs, row, 0));
         let (ax1, ax2, ax3) = (ax1?, ax2?, ax3?);
         for (ax, (low, high)) in [(&ax1, (0.0, 1.0)), (&ax2, (-1.5, 1.5)), (&ax3, (0.0, 1.0))] {
-            ax.set_ylim(low, high).set_ylabel("Label");
+            ax.set_ylim(low, high)
+                .map_err(ProbeError::rejected)?
+                .set_ylabel("Label");
         }
         fig.align_ylabels(Some(&[ax3.clone(), ax1.clone(), ax2.clone()]));
         fig.layout();

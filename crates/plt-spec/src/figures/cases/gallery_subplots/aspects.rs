@@ -73,7 +73,7 @@ fn axes_margins_2(fig: &Figure) -> CaseResult {
 
 fn axes_box_aspect_1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(300.0, 400.0);
+    ax.set_xlim(300.0, 400.0)?;
     ax.set_box_aspect(Some(1.0))?;
     Ok(())
 }
@@ -178,7 +178,7 @@ fn axis_equal_demo(fig: &Figure) -> CaseResult {
     axs[(0, 1)].axis_mode(AxisMode::Equal);
     title(&axs[(0, 1)], "equal, looks like circle");
     axs[(1, 0)].axis_mode(AxisMode::Equal);
-    axs[(1, 0)].set_xlim(-3.0, 3.0).set_ylim(-3.0, 3.0);
+    axs[(1, 0)].set_xlim(-3.0, 3.0)?.set_ylim(-3.0, 3.0)?;
     title(&axs[(1, 0)], "still a circle, even after changing limits");
     axs[(1, 1)]
         .set_aspect(Aspect::Equal)?

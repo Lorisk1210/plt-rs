@@ -229,7 +229,7 @@ fn drop_shadow_line(ax: &Axes) -> CaseResult {
             .set_agg_filter(Some(shadow.clone()))
             .set_rasterized(true);
     }
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.xaxis().set_visible(false);
     ax.yaxis().set_visible(false);
     Ok(())
@@ -261,7 +261,7 @@ fn drop_shadow_patches(ax: &Axes) -> CaseResult {
     let zorder = bars.first().map_or(1.0, ArtistHandle::zorder) - 0.1;
     ax.add_filtered_group(&members, drop_shadow(5.0, 0.3, (1.0, 1.0)))
         .set_zorder(zorder);
-    ax.set_ylim(0.0, 40.0);
+    ax.set_ylim(0.0, 40.0)?;
     ax.xaxis().set_visible(false);
     ax.yaxis().set_visible(false);
     Ok(())

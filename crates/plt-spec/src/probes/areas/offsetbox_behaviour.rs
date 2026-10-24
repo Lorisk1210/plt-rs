@@ -107,7 +107,9 @@ fn extents(args: Args<'_>) -> Outcome {
             ))
         }
         "annotation_boxes" => {
-            ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+            ax.set_xlim(0.0, 1.0)
+                .and_then(|ax| ax.set_ylim(0.0, 1.0))
+                .map_err(ProbeError::rejected)?;
             let options = AnnotateOptions {
                 xytext: Some(Point::new(1.1, 1.1)),
                 arrowprops: Some(ArrowProps::Fancy(arrow()?)),

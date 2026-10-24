@@ -24,14 +24,14 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/set_limits", |fig| {
         let ax = fig.subplot();
         line(&ax)?;
-        ax.set_xlim(2.0, 8.0).set_ylim(-2.0, 1.5);
+        ax.set_xlim(2.0, 8.0)?.set_ylim(-2.0, 1.5)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("axes/reversed_limits", |fig| {
         let ax = fig.subplot();
         line(&ax)?;
-        ax.set_xlim(10.0, 0.0).set_ylim(1.5, -1.5);
+        ax.set_xlim(10.0, 0.0)?.set_ylim(1.5, -1.5)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

@@ -194,7 +194,7 @@ fn parasite_simple2(fig: &Figure) -> CaseResult {
         .set_label(r"Proper Motion [$''$/yr]")
         .set_label_visible(true);
     ax_pm.axis(SpineSide::Right).set_ticklabels_visible(false);
-    ax_kms.set_xlim(950.0, 3700.0).set_ylim(950.0, 3100.0);
+    ax_kms.set_xlim(950.0, 3700.0)?.set_ylim(950.0, 3100.0)?;
     Ok(())
 }
 

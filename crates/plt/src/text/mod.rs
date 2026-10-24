@@ -449,9 +449,13 @@ mod tests {
     #[test]
     fn rotations_can_follow_the_transform() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
         // 49.6 pixels per unit along x, 369.6 along y.
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         let text = ax.text(5.0, 0.5, "slope");
         text.set_rotation(45.0).set_transform_rotates_text(true);
         let rotation = text.layout().expect("laid out").style.rotation;
@@ -467,8 +471,12 @@ mod tests {
     #[test]
     fn transformed_rotations_stay_in_one_turn() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-        ax.set_xlim(0.0, 10.0).set_ylim(1.0, 0.0);
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(1.0, 0.0))
+            .expect("finite limits");
         let text = ax.text(5.0, 0.5, "down");
         text.set_rotation(45.0).set_transform_rotates_text(true);
         let rotation = text.layout().expect("laid out").style.rotation;

@@ -162,14 +162,14 @@ pub(super) fn xkcd_strong(rc: &mut RcParams) -> CaseResult {
 }
 
 pub(super) fn xkcd_bacon(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.1, 0.2, 0.8, 0.7]);
+    let ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])?;
     let spines = ax.spines();
     for side in [SpineSide::Top, SpineSide::Right] {
         spines.get(side).set_visible(false);
     }
     ax.set_xticks(Vec::<f64>::new());
     ax.set_yticks(Vec::<f64>::new());
-    ax.set_ylim(-30.0, 10.0);
+    ax.set_ylim(-30.0, 10.0)?;
     let data: Vec<f64> = (0..100)
         .map(|i| if i < 70 { 1.0 } else { 1.0 - f64::from(i - 70) })
         .collect();

@@ -128,7 +128,7 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_figure/constrained_layout16", |fig| {
         fig.set_layout_engine(LayoutEngine::constrained())?;
         example_plot(&fig.subplot(), 12.0, false)?;
-        fig.add_axes([0.2, 0.2, 0.4, 0.4]);
+        fig.add_axes([0.2, 0.2, 0.4, 0.4])?;
         Ok(())
     }),
     FigureCase::new("mpl_figure/constrained_layout17", |fig| {

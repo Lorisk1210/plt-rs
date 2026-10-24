@@ -16,7 +16,7 @@ use super::grid_finder::{
 use super::grid_helper_curvelinear::{self as curvelinear, AxisGrid, FloatingLine};
 use super::gridlines::SharedGridHelper;
 use crate::artist::{ArtistHandle, ClipPathSpec};
-use crate::axes::{AspectError, AxesState};
+use crate::axes::{AspectError, AxesState, PlotError};
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
@@ -208,6 +208,10 @@ impl Deref for FloatingAxes {
 /// The number of interpolation steps of the background outline.
 const PATCH_STEPS: usize = 100;
 
+/// Why fitting the limits around an outline again cannot fail: every
+/// outline a floating axes gets was fitted when it was made.
+const OUTLINE_FITTED: &str = "the outline was fitted when the floating axes was made";
+
 impl FloatingAxes {
     /// Turns `ax` into floating axes over the range of `grid_helper`: axis
     /// artists along the edges of the range, the region they enclose as
@@ -217,7 +221,8 @@ impl FloatingAxes {
     ///
     /// # Errors
     ///
-    /// When the grid transform has no inverse.
+    /// When the grid transform has no inverse, or the outline of the range
+    /// is not finite.
     pub fn new(
         ax: crate::axes::Axes,
         grid_helper: GridHelperCurveLinear,
@@ -227,7 +232,7 @@ impl FloatingAxes {
         let floating = Self {
             axes: Axes::with_grid_helper(ax, GridHelper::Floating(grid_helper)),
         };
-        floating.fit_outline(outline);
+        floating.fit_outline(outline)?;
         floating.ax().set_aspect(Aspect::Equal)?;
         Ok(floating)
     }
@@ -240,7 +245,7 @@ impl FloatingAxes {
     pub fn clear(&self) -> &Self {
         self.axes.clear();
         if let SharedGridHelper::Floating(grid) = self.axes.grid_helper() {
-            self.fit_outline(grid.outline());
+            self.fit_outline(grid.outline()).expect(OUTLINE_FITTED);
         }
         self
     }
@@ -249,7 +254,11 @@ impl FloatingAxes {
     /// outline of the plotted artists, clips the gridlines to the axes
     /// box and fits the limits around the outline (what
     /// `FloatingAxesBase.clear` adds to the axislines axes).
-    fn fit_outline(&self, outline: Path) {
+    ///
+    /// # Errors
+    ///
+    /// When the outline is not finite.
+    fn fit_outline(&self, outline: Path) -> Result<(), PlotError> {
         let id = self.ax().id();
         self.ax().raw().with_mut::<AxesState, _>(|state| {
             state.patch_outline = Some((outline, Transform::Data(id)));
@@ -263,7 +272,7 @@ impl FloatingAxes {
                 transform: Transform::Axes(id),
             }));
         }
-        self.adjust_axes_lim();
+        self.fit_limits()
     }
 
     /// The background outline in data coordinates.
@@ -277,10 +286,17 @@ impl FloatingAxes {
     /// Fits the limits around the background outline with a 2 % margin
     /// (matplotlib's `adjust_axes_lim`).
     pub fn adjust_axes_lim(&self) {
+        self.fit_limits().expect(OUTLINE_FITTED);
+    }
+
+    /// [`FloatingAxes::adjust_axes_lim`], failing when the outline is not
+    /// finite.
+    fn fit_limits(&self) -> Result<(), PlotError> {
         let bbox = self.patch_path().extents().expanded(1.02, 1.02);
         self.ax()
-            .set_xlim(bbox.xmin(), bbox.xmax())
-            .set_ylim(bbox.ymin(), bbox.ymax());
+            .set_xlim(bbox.xmin(), bbox.xmax())?
+            .set_ylim(bbox.ymin(), bbox.ymax())?;
+        Ok(())
     }
 
     /// Gives `aux` the background patch of these axes (matplotlib's
@@ -325,6 +341,8 @@ pub enum FloatingAxesError {
     Grid(GridError),
     /// The equal aspect was refused.
     Aspect(AspectError),
+    /// The outline of the range is not finite, so no limits fit it.
+    Limits(PlotError),
 }
 
 impl std::fmt::Display for FloatingAxesError {
@@ -332,6 +350,7 @@ impl std::fmt::Display for FloatingAxesError {
         match self {
             Self::Grid(err) => write!(f, "{err}"),
             Self::Aspect(err) => write!(f, "{err}"),
+            Self::Limits(err) => write!(f, "{err}"),
         }
     }
 }
@@ -347,6 +366,12 @@ impl From<GridError> for FloatingAxesError {
 impl From<AspectError> for FloatingAxesError {
     fn from(err: AspectError) -> Self {
         Self::Aspect(err)
+    }
+}
+
+impl From<PlotError> for FloatingAxesError {
+    fn from(err: PlotError) -> Self {
+        Self::Limits(err)
     }
 }
 
@@ -400,7 +425,7 @@ mod tests {
         let fig = Figure::new();
         let ax = FloatingAxes::new(fig.subplot(), quarter_annulus()).unwrap();
         let limits = (ax.ax().xlim(), ax.ax().ylim());
-        ax.ax().set_xlim(-5.0, 5.0);
+        ax.ax().set_xlim(-5.0, 5.0).expect("finite limits");
         ax.new_floating_axis("r", AxisName::Y, 1.5);
         ax.clear();
         assert_eq!((ax.ax().xlim(), ax.ax().ylim()), limits);

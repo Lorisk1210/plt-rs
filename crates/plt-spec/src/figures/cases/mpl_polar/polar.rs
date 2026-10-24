@@ -20,6 +20,7 @@ use plt_core::Point;
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
 use crate::figures::cases::common::black_arrow;
+use std::error::Error;
 
 /// `r = np.arange(start, stop, 0.01)` and `θ = 2πr`.
 fn spiral(start: f64, stop: f64) -> (Vec<f64>, Vec<f64>) {
@@ -28,8 +29,8 @@ fn spiral(start: f64, stop: f64) -> (Vec<f64>, Vec<f64>) {
 }
 
 /// Polar axes at `(0.1, 0.1, 0.8, 0.8)` with the spiral plotted.
-fn spiral_axes(fig: &Figure, start: f64, stop: f64) -> Result<PolarAxes, PlotError> {
-    let ax = fig.add_polar_axes([0.1, 0.1, 0.8, 0.8]);
+fn spiral_axes(fig: &Figure, start: f64, stop: f64) -> Result<PolarAxes, Box<dyn Error>> {
+    let ax = fig.add_polar_axes([0.1, 0.1, 0.8, 0.8])?;
     let (theta, r) = spiral(start, stop);
     ax.plot(theta, r)?;
     Ok(ax)
@@ -92,22 +93,18 @@ pub(super) fn polar_coord_annotations(fig: &Figure) -> CaseResult {
     ax.annotate("the top", (FRAC_PI_2, 10.0), options)?
         .set_halign(HAlign::Left)
         .set_valign(VAlign::Baseline);
-    ax.set_xlim(-20.0, 20.0).set_ylim(-20.0, 20.0);
+    ax.set_xlim(-20.0, 20.0)?.set_ylim(-20.0, 20.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn polar_alignment(fig: &Figure) -> CaseResult {
     let angles = [0.0, 90.0, 180.0, 270.0];
     let grid_values = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0];
     let rect = [0.1, 0.1, 0.8, 0.8];
-    let horizontal = fig.add_polar_axes(rect);
+    let horizontal = fig.add_polar_axes(rect)?;
     horizontal.set_thetagrids(&angles);
-    let vertical = fig.add_polar_axes(rect);
+    let vertical = fig.add_polar_axes(rect)?;
     vertical.set_patch_visible(false);
     let aligned = TickLabelProps {
         halign: Some(HAlign::Left),
@@ -172,17 +169,14 @@ pub(super) fn polar_rorigin(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn polar_invertedylim(fig: &Figure) -> CaseResult {
-    fig.add_polar_axes([0.1, 0.1, 0.8, 0.8]).set_ylim(2.0, 0.0);
+    fig.add_polar_axes([0.1, 0.1, 0.8, 0.8])?
+        .set_ylim(2.0, 0.0)?;
     Ok(())
 }
 
 pub(super) fn polar_invertedylim_rorigin(fig: &Figure) -> CaseResult {
-    let ax = fig.add_polar_axes([0.1, 0.1, 0.8, 0.8]);
+    let ax = fig.add_polar_axes([0.1, 0.1, 0.8, 0.8])?;
     ax.yaxis().set_inverted(true);
     ax.plot_with([0.0, 0.0], [0.0, 2.0], LineProps::default().color("none"))?;
     ax.set_margins(0.0, 0.0)?;
@@ -280,12 +274,8 @@ pub(super) fn polar_rlim(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn polar_rlim_bottom(fig: &Figure) -> CaseResult {
-    fig.polar_subplot().set_rlim(0.5, 10.0);
+    fig.polar_subplot().set_rlim(0.5, 10.0)?;
     Ok(())
 }
 
@@ -338,7 +328,7 @@ pub(super) fn remove_shared_polar_ref(fig: &Figure) -> CaseResult {
 pub(super) fn polar_log(fig: &Figure) -> CaseResult {
     let ax = fig.polar_subplot();
     ax.set_rscale("log")?;
-    ax.set_rlim(1.0, 1000.0);
+    ax.set_rlim(1.0, 1000.0)?;
     ax.plot(linspace(0.0, TAU, 100), logspace(0.0, 2.0, 100, 10.0))?;
     Ok(())
 }
@@ -347,7 +337,7 @@ pub(super) fn polar_log_rorigin(fig: &Figure) -> CaseResult {
     let ax = fig.polar_subplot();
     ax.set_facecolor("red");
     ax.set_rscale("log")?;
-    ax.set_rlim(1.0, 100.0)
+    ax.set_rlim(1.0, 100.0)?
         .set_rorigin(Some(1e-3))
         .set_rticks(&logspace(0.0, 2.0, 5, 10.0));
     ax.tick_params(&TickParams {

@@ -52,7 +52,7 @@ fn four_located_axes(fig: &Figure, horizontal: Vec<Size>, vertical: Vec<Size>) -
         (2..3, 2, "nx=2, ny=2"),
         (2..4, 0, "nx=2, nx1=4, ny=0"),
     ] {
-        let ax = fig.add_axes(RECT);
+        let ax = fig.add_axes(RECT)?;
         divider.place_spanning(&ax, columns, ny..ny + 1)?;
         label_cell(&ax, text);
     }
@@ -83,7 +83,9 @@ fn simple_axes_divider1_2(fig: &Figure) -> CaseResult {
 }
 
 fn simple_axes_divider3(fig: &Figure) -> CaseResult {
-    let ax: Vec<Axes> = (0..4).map(|_| fig.add_axes(RECT)).collect();
+    let ax = (0..4)
+        .map(|_| fig.add_axes(RECT))
+        .collect::<Result<Vec<_>, _>>()?;
     let horizontal = vec![
         Size::axes_x(ax[0].id()),
         Size::Fixed(0.5),
@@ -98,10 +100,10 @@ fn simple_axes_divider3(fig: &Figure) -> CaseResult {
     for (axes, (nx, ny)) in ax.iter().zip([(0, 0), (2, 0), (0, 2), (2, 2)]) {
         divider.place(axes, nx, ny)?;
     }
-    ax[0].set_xlim(0.0, 2.0);
-    ax[1].set_xlim(0.0, 1.0);
-    ax[0].set_ylim(0.0, 1.0);
-    ax[2].set_ylim(0.0, 2.0);
+    ax[0].set_xlim(0.0, 2.0)?;
+    ax[1].set_xlim(0.0, 1.0)?;
+    ax[0].set_ylim(0.0, 1.0)?;
+    ax[2].set_ylim(0.0, 2.0)?;
     divider.set_aspect(true);
     for axes in &ax {
         axes.tick_params(&TickParams {
@@ -117,7 +119,7 @@ fn simple_axes_divider3(fig: &Figure) -> CaseResult {
 fn fixed_size_axes(fig: &Figure, horizontal: Vec<Size>, vertical: Vec<Size>) -> CaseResult {
     let divider = Divider::new(fig, [0.0, 0.0, 1.0, 1.0], horizontal, vertical, false);
     let (x, y, w, h) = divider.position().bounds();
-    let ax = fig.add_axes([x, y, w, h]);
+    let ax = fig.add_axes([x, y, w, h])?;
     divider.place(&ax, 1, 1)?;
     ax.plot_y([1.0, 2.0, 3.0]);
     Ok(())
@@ -371,7 +373,7 @@ fn long_label(ax: &Axes) -> CaseResult {
 }
 
 fn make_room_for_ylabel_using_axesgrid_1(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     long_label(&ax)?;
     make_axes_area_auto_adjustable(&ax, &[&ax], 0.1, &SpineSide::ALL);
     Ok(())

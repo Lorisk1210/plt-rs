@@ -161,7 +161,10 @@ fn span_axes(name: &str) -> Result<Axes, ProbeError> {
             ax.set_aspect(Aspect::Auto).map_err(ProbeError::rejected)?;
             let _twin = ax.twinx();
             let child = ax.inset_axes([0.0, 1.0, 1.0, 1.0]);
-            child.set_xlim(0.0, 200.0).set_ylim(0.0, 200.0);
+            child
+                .set_xlim(0.0, 200.0)
+                .and_then(|ax| ax.set_ylim(0.0, 200.0))
+                .map_err(ProbeError::rejected)?;
             Ok(if name == "inset" { child } else { ax })
         }
         other => Err(unknown("axes", other)),

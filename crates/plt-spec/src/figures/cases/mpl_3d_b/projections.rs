@@ -75,7 +75,7 @@ pub(super) fn proj_axes_cube(fig: &Figure) -> CaseResult {
     };
     ax.scatter_with(tx.clone(), ty.clone(), options)?;
     label_corners(&ax, &tx, &ty)?;
-    ax.set_xlim(-0.2, 0.2).set_ylim(-0.2, 0.2);
+    ax.set_xlim(-0.2, 0.2)?.set_ylim(-0.2, 0.2)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -90,7 +90,7 @@ pub(super) fn proj_axes_cube_ortho(fig: &Figure) -> CaseResult {
     };
     ax.scatter_with(tx.clone(), ty.clone(), options)?;
     label_corners(&ax, &tx, &ty)?;
-    ax.set_xlim(-200.0, 200.0).set_ylim(-200.0, 200.0);
+    ax.set_xlim(-200.0, 200.0)?.set_ylim(-200.0, 200.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

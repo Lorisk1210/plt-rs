@@ -11,8 +11,8 @@
 //! gridlines, tick labels, offset texts and axis labels), [`titles`],
 //! [`secondary`] (secondary axes), [`extents`] (tight boxes and spine
 //! extents), [`contents`] (artist lists, spectral plots, insets and other
-//! single calls) and [`misc`] (projections, pyplot's current axes and
-//! saving).
+//! single calls), [`limits`] (refused view limits and axes rectangles)
+//! and [`misc`] (projections, pyplot's current axes and saving).
 
 mod axis;
 mod bar_label;
@@ -23,6 +23,7 @@ mod errorbar;
 mod extents;
 mod hexbin;
 mod hist;
+mod limits;
 mod lines;
 mod mesh;
 mod misc;
@@ -152,6 +153,8 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Axes.remove.child_axes", contents::child_axes_removal),
     Op::new("Axes.inset_axes.projection", contents::inset_projection),
     Op::new("Axes.redraw_in_frame", contents::redraw_in_frame),
+    Op::new("Axes.set_xlim", limits::set_xlim),
+    Op::new("Figure.add_axes", limits::add_axes),
 ];
 
 /// Runs `f` on a fresh `Figure::new().subplot()` in the probe's style

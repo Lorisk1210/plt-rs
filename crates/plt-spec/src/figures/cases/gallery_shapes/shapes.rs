@@ -28,7 +28,7 @@ fn arrow_pair(fig: &Figure, fill: impl Fn(&Axes)) -> CaseResult {
     for ax in axs.as_slice() {
         fill(ax);
     }
-    axs[(1, 0)].set_xlim(0.0, 2.0).set_ylim(0.0, 2.0);
+    axs[(1, 0)].set_xlim(0.0, 2.0)?.set_ylim(0.0, 2.0)?;
     Ok(())
 }
 
@@ -147,7 +147,7 @@ fn artist_reference(fig: &Figure) -> CaseResult {
         let name = add_reference_artist(ax, i, hsv.sample(i as f64 / 9.0).into())?;
         ax.set_title(name);
         ax.set_aspect(Aspect::Ratio(1.0))?;
-        ax.set_xlim(-0.2, 0.2).set_ylim(-0.2, 0.2);
+        ax.set_xlim(-0.2, 0.2)?.set_ylim(-0.2, 0.2)?;
         ax.set_axis_off();
     }
     Ok(())
@@ -186,7 +186,7 @@ fn ellipse_demo_1(fig: &Figure) -> CaseResult {
         })
         .collect();
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     ax.set_aspect(Aspect::Equal)?;
     for ellipse in ellipses {
         let alpha = rng.next_f64();
@@ -200,7 +200,7 @@ fn ellipse_demo_1(fig: &Figure) -> CaseResult {
 
 fn ellipse_demo_2(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(-2.2, 2.2).set_ylim(-2.2, 2.2);
+    ax.set_xlim(-2.2, 2.2)?.set_ylim(-2.2, 2.2)?;
     ax.set_aspect(Aspect::Equal)?;
     for angle in arange(0.0, 180.0, 45.0) {
         let ellipse = Ellipse {

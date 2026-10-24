@@ -65,7 +65,7 @@ fn clipped(ax: &Axes) -> CaseResult {
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("patches/edge_styles", |fig| {
-        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false);
+        let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false)?;
         let styles = [
             LineStyle::Solid,
             LineStyle::Dashed,
@@ -93,7 +93,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("patches/alpha_zorder", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         let circles = [
             ((4.0, 6.0), "tab:red", 3.0),
             ((6.0, 6.0), "tab:green", 1.0),
@@ -115,7 +115,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(4.0, 4.0, 100.0),
     FigureCase::new("patches/clip_path_artists", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         clipped(&ax)
     })
     .sized(4.0, 4.0, 100.0),
@@ -130,7 +130,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .set_facecolors(vec!["tab:red".into(), "tab:green".into()])
             .set_edgecolor("k")
             .set_hatch("//");
-        ax.set_ylim(0.0, 7.0);
+        ax.set_ylim(0.0, 7.0)?;
         Ok(())
     })
     .sized(5.0, 3.0, 100.0),

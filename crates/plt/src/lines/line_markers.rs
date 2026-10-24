@@ -257,8 +257,12 @@ mod tests {
     #[test]
     fn markers_are_drawn_through_their_transform() {
         let fig = Figure::with_size(2.0, 2.0, 72.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         let upright = MarkerStyle::new(MarkerSymbol::HLine, FillStyle::Full)
             .unwrap()
             .rotated_deg(90.0);

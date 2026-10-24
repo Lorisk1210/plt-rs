@@ -126,12 +126,12 @@ pub(super) fn colorbar_single_scatter(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn colorbar_closed_patch(fig: &Figure) -> CaseResult {
-    let ax1 = fig.add_axes([0.05, 0.85, 0.9, 0.1]);
+    let ax1 = fig.add_axes([0.05, 0.85, 0.9, 0.1])?;
     let caxes = [
-        fig.add_axes([0.1, 0.65, 0.75, 0.1]),
-        fig.add_axes([0.05, 0.45, 0.9, 0.1]),
-        fig.add_axes([0.05, 0.25, 0.9, 0.1]),
-        fig.add_axes([0.05, 0.05, 0.9, 0.1]),
+        fig.add_axes([0.1, 0.65, 0.75, 0.1])?,
+        fig.add_axes([0.05, 0.45, 0.9, 0.1])?,
+        fig.add_axes([0.05, 0.25, 0.9, 0.1])?,
+        fig.add_axes([0.05, 0.05, 0.9, 0.1])?,
     ];
     let cmap = colormaps::get("RdBu")?.resampled(5)?;
     let values = linspace(0.0, 10.0, 16);
@@ -191,7 +191,7 @@ pub(super) fn colorbar_change_lim_scale(fig: &Figure) -> CaseResult {
     cb.ax().set_yscale("log")?;
     let pc = mesh(&ax[(0, 1)], hundred(1.0), ColorizerOptions::default())?;
     let cb = fig.colorbar(&pc, extended(&ax[(0, 1)]))?;
-    cb.ax().set_ylim(20.0, 90.0);
+    cb.ax().set_ylim(20.0, 90.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -199,7 +199,7 @@ pub(super) fn colorbar_change_lim_scale(fig: &Figure) -> CaseResult {
 pub(super) fn axes_handles_same_functions(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let pc = mesh(&ax, Grid::filled(10, 30, 1.0), ColorizerOptions::default())?;
-    let cax = fig.add_axes([0.9, 0.1, 0.03, 0.8]);
+    let cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])?;
     let cb = fig.colorbar(&pc, inside(&cax))?;
     cb.ax().set_yticks(arange(0.0, 20.0, 1.0));
     cb.ax().set_yscale("log")?;
@@ -325,8 +325,8 @@ pub(super) fn colorbar_extend_drawedges(fig: &Figure) -> CaseResult {
                 },
             )?;
             match orientation {
-                Orientation::Horizontal => ax.set_xlim(1.1, 2.9),
-                Orientation::Vertical => ax.set_ylim(1.1, 2.9),
+                Orientation::Horizontal => ax.set_xlim(1.1, 2.9)?,
+                Orientation::Vertical => ax.set_ylim(1.1, 2.9)?,
             };
         }
     }

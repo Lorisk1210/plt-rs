@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn the_default_date_view_leaves_data_and_set_limits_alone() {
         let ax = Figure::new().subplot();
-        ax.set_ylim(2.0, 3.0);
+        ax.set_ylim(2.0, 3.0).expect("finite limits");
         ax.plot([5.0, 6.0], [2.5, 2.5]).expect("a line");
         ax.xaxis_date(&TimeZone::Utc).yaxis_date(&TimeZone::Utc);
         assert_eq!(ax.xlim(), (4.95, 6.05), "the data's view");
@@ -315,7 +315,7 @@ mod tests {
         let (top, bottom) = (&axs[(0, 0)], &axs[(1, 0)]);
         top.xaxis()
             .convert_units(AxisValues::Dates(vec![0.0, 30.0]));
-        top.set_xlim(0.0, 30.0);
+        top.set_xlim(0.0, 30.0).expect("finite limits");
         assert_eq!(bottom.xaxis().converter(), Some(UnitConverter::Dates));
         let ticks = bottom.ticks(AxisName::X).unwrap();
         assert!(ticks.major[0].label.starts_with("1970-"), "date ticks");

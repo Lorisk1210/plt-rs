@@ -75,7 +75,7 @@ fn affine_plot(ax: &Axes, transform: Affine2D) -> CaseResult {
     } = image.extent();
     ax.plot_fmt([x1, x2, x2, x1, x1], [y1, y1, y2, y2, y1], "y--")?
         .set_transform(trans_data);
-    ax.set_xlim(-5.0, 5.0).set_ylim(-4.0, 4.0);
+    ax.set_xlim(-5.0, 5.0)?.set_ylim(-4.0, 4.0)?;
     Ok(())
 }
 
@@ -135,7 +135,7 @@ pub(super) fn clip_off_beyond_axes(fig: &Figure) -> CaseResult {
         },
     )?
     .set_clip_on(false);
-    ax.set_xlim(2.0, 18.0).set_ylim(2.0, 18.0);
+    ax.set_xlim(2.0, 18.0)?.set_ylim(2.0, 18.0)?;
     fig.subplots_adjust(&SubplotOverrides {
         left: Some(0.2),
         right: Some(0.8),

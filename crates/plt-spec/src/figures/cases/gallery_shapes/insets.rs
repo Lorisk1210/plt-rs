@@ -162,7 +162,7 @@ fn inset_locator_demo_2(fig: &Figure) -> CaseResult {
     );
     let outline = Rectangle::new((0.2, 0.4), 0.6, 0.5);
     dashed_outline(&ax, outline, None, Some(ax.trans_axes()));
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     let ax2 = fig.add_subplot(2, 2, 2)?;
     let axins2 = inset_axes(
         &ax2,
@@ -199,7 +199,7 @@ fn inset_locator_demo_3(fig: &Figure) -> CaseResult {
     inset_axes(&ax, 0.5.into(), 0.4.into(), options);
     let ax2 = fig.add_subplot(1, 3, 3)?;
     ax2.set_xscale("log")?;
-    ax2.set_xlim(1e-6, 1e6).set_ylim(-2.0, 6.0);
+    ax2.set_xlim(1e-6, 1e6)?.set_ylim(-2.0, 6.0)?;
     let in_data = BboxToAnchor::Bounds(1e-2, 2.0, 1e3, 3.0);
     let options = anchored(AnchorLoc::UpperLeft, in_data, ax2.trans_data(), 0.0);
     inset_axes(&ax2, full, full, options);
@@ -257,7 +257,7 @@ fn inset_locator_demo2(fig: &Figure) -> CaseResult {
     ax2.imshow(framed.clone(), options())?;
     let axins2 = zoomed_inset_axes(ax2, 6.0, InsetOptions::default());
     axins2.imshow(framed, options())?;
-    axins2.set_xlim(-1.5, -0.9).set_ylim(-2.5, -1.9);
+    axins2.set_xlim(-1.5, -0.9)?.set_ylim(-2.5, -1.9)?;
     seven_bins(&axins2)?;
     let marks = PatchProps::default().facecolor("none").edgecolor("0.5");
     mark_inset(ax2, &axins2, Corner::UpperLeft, Corner::LowerRight, marks);

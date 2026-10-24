@@ -126,7 +126,7 @@ pub(super) fn aspect_auto_and_numeric(fig: &Figure) -> CaseResult {
 pub(super) fn xlim_zoom(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.imshow(bump(40), ImshowOptions::default())?;
-    ax.set_xlim(10.0, 25.0).set_ylim(30.0, 5.0);
+    ax.set_xlim(10.0, 25.0)?.set_ylim(30.0, 5.0)?;
     Ok(())
 }
 

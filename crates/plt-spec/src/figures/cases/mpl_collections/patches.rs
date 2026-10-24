@@ -51,13 +51,9 @@ pub(super) fn dash_offset_patch_draw(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn clip_to_bbox(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(-18.0, 20.0).set_ylim(-150.0, 100.0);
+    ax.set_xlim(-18.0, 20.0)?.set_ylim(-150.0, 100.0)?;
     let star = Path::unit_regular_star(8, 0.5)
         .transformed(&Affine2D::scaling(10.0, 100.0).translate(-5.0, -25.0));
     let circle =
@@ -107,7 +103,7 @@ fn cut_star_pair(fig: &Figure, collection: CollectionProps, patch: PatchProps) -
     ax.add_collection(CollectionSpec::paths(vec![star2]).with_props(collection.linewidth(5.0)));
     ax.add_patch(PathShape(star1))
         .update_props(patch.linewidth(5.0));
-    ax.set_xlim(-1.0, 2.0).set_ylim(-1.0, 2.0);
+    ax.set_xlim(-1.0, 2.0)?.set_ylim(-1.0, 2.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -174,14 +170,10 @@ pub(super) fn patch_linestyle_none(fig: &Figure) -> CaseResult {
         );
     }
     let last = (styles.len() - 1) as f64;
-    ax.set_xlim(-1.0, last + 1.0).set_ylim(-1.0, last + 1.0);
+    ax.set_xlim(-1.0, last + 1.0)?.set_ylim(-1.0, last + 1.0)?;
     Ok(())
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 pub(super) fn wedge_range(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let t1 = 2.313_869_244_286_224;
@@ -206,7 +198,7 @@ pub(super) fn wedge_range(fig: &Figure) -> CaseResult {
                     .linewidth(3.0),
             );
     }
-    ax.set_xlim(-2.0, 8.0).set_ylim(-2.0, 9.0);
+    ax.set_xlim(-2.0, 8.0)?.set_ylim(-2.0, 9.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -332,7 +324,7 @@ pub(super) fn patch_edgegapcolor_visual(fig: &Figure) -> CaseResult {
     ax.add_patch(Polygon::new(triangle, true))
         .update_props(style("green", LineStyle::DashDot))
         .set_edgegapcolor("purple");
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.set_aspect(Aspect::Equal)?;
     remove_ticks_and_titles(fig);
     Ok(())

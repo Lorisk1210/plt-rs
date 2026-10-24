@@ -113,7 +113,7 @@ fn ticks_top_right(fig: &Figure) -> CaseResult {
 
 fn fig_axes_customize_simple(fig: &Figure) -> CaseResult {
     fig.set_facecolor(Color::from("lightgoldenrodyellow").resolve()?);
-    let ax1 = fig.add_axes([0.1, 0.3, 0.4, 0.4]);
+    let ax1 = fig.add_axes([0.1, 0.3, 0.4, 0.4])?;
     ax1.set_facecolor("lightslategray");
     ax1.tick_params(&TickParams {
         labelcolor: Some("tab:red".into()),
@@ -168,7 +168,7 @@ fn multilevel_ticks_2(fig: &Figure) -> CaseResult {
         width: Some(1.5),
         ..axis_params(AxisName::X)
     });
-    ax.set_xlim(-0.6, 8.6);
+    ax.set_xlim(-0.6, 8.6)?;
     Ok(())
 }
 

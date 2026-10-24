@@ -173,7 +173,7 @@ fn text_commands(fig: &Figure) -> CaseResult {
             ..AnnotateOptions::default()
         },
     )?;
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     Ok(())
 }
 

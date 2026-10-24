@@ -54,10 +54,10 @@ fn restore_region_bbox_xy(fig: &Figure) -> CaseResult {
 }
 
 /// An axes over the middle of the figure showing [0, 1]².
-fn overhanging_axes(fig: &Figure) -> Axes {
-    let ax = fig.add_axes([0.2, 0.2, 0.6, 0.6]);
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
-    ax
+fn overhanging_axes(fig: &Figure) -> Result<Axes, Box<dyn Error>> {
+    let ax = fig.add_axes([0.2, 0.2, 0.6, 0.6])?;
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
+    Ok(ax)
 }
 
 /// A line, a patch, a text and a collection reaching past the axes,
@@ -100,7 +100,7 @@ fn overhanging(ax: &Axes) -> Result<Vec<RawHandle>, Box<dyn Error>> {
 }
 
 fn draw_artist_clipped(fig: &Figure) -> CaseResult {
-    let ax = overhanging_axes(fig);
+    let ax = overhanging_axes(fig)?;
     let artists = overhanging(&ax)?;
     fig.canvas().draw()?;
     for artist in &artists {
@@ -112,7 +112,7 @@ fn draw_artist_clipped(fig: &Figure) -> CaseResult {
 /// The artists of `draw_artist_clipped` with clipping off, and a text of
 /// the figure drawn by the figure.
 fn draw_artist_unclipped(fig: &Figure) -> CaseResult {
-    let ax = overhanging_axes(fig);
+    let ax = overhanging_axes(fig)?;
     let artists = overhanging(&ax)?;
     for artist in &artists {
         artist.set_clip_on(false);

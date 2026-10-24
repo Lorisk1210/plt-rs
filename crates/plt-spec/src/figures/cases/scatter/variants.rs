@@ -60,7 +60,7 @@ fn marker_variants(fig: &Figure) -> CaseResult {
         };
         ax.scatter_with(arange(0.0, 4.0, 1.0), vec![i as f64; 4], options)?;
     }
-    ax.set_xlim(-0.5, 3.5);
+    ax.set_xlim(-0.5, 3.5)?;
     Ok(())
 }
 
@@ -101,7 +101,7 @@ fn marker_styles(fig: &Figure) -> CaseResult {
         ..ScatterOptions::default()
     };
     ax.scatter_with(arange(4.0, 7.0, 1.0), vec![2.0; 3], diamonds)?;
-    ax.set_ylim(-0.7, 2.7);
+    ax.set_ylim(-0.7, 2.7)?;
     Ok(())
 }
 
@@ -129,7 +129,7 @@ fn edges_per_point(fig: &Figure) -> CaseResult {
     };
     let points = ax.scatter_with(&x, vec![1.0; 8], dashed)?;
     points.set_linestyles(vec![LineStyle::Dashed]);
-    ax.set_ylim(-1.0, 2.0);
+    ax.set_ylim(-1.0, 2.0)?;
     Ok(())
 }
 

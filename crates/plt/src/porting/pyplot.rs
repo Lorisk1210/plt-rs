@@ -96,7 +96,7 @@
 //!
 //! plt::figure_with_size(5.0, 3.0, 100.0);
 //! plt::plot_with([1.0, 2.0, 3.0], [1.0, 4.0, 9.0], LineProps::fmt("o-")?.label("squares"))?;
-//! plt::xlim(0.0, 4.0);
+//! plt::xlim(0.0, 4.0)?;
 //! plt::title("Squares");
 //! plt::legend(LegendOptions::default())?;
 //! assert_eq!(plt::get_xlim(), (0.0, 4.0));

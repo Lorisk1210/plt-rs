@@ -71,7 +71,7 @@ fn noisy_sines(
 fn signals_panel(ax: &Axes, t: &[f64], (s1, s2): (&[f64], &[f64]), xmax: f64) -> CaseResult {
     ax.plot(t, s1)?;
     ax.plot(t, s2)?;
-    ax.set_xlim(0.0, xmax);
+    ax.set_xlim(0.0, xmax)?;
     ax.set_xlabel("Time (s)");
     ax.set_ylabel("s1 and s2");
     ax.grid(true);
@@ -210,7 +210,7 @@ fn periodogram_and_welch<S: SignalValue>(fig: &Figure, xn: &[S], xticks: &[f64])
         ax.set_yticks(yticks.clone());
         ax.set_xticks(xticks.to_vec());
         ax.grid(true);
-        ax.set_ylim(yticks[0], yticks[yticks.len() - 1]);
+        ax.set_ylim(yticks[0], yticks[yticks.len() - 1])?;
     }
     axs[(0, 1)].set_ylabel("");
     Ok(())

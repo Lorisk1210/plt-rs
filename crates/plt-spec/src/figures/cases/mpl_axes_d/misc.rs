@@ -205,7 +205,7 @@ fn preset_clip_paths(fig: &Figure) -> CaseResult {
         )
         .set_clip_on(true)
         .set_clip_path(Some(clip()));
-    ax.set_xlim(-1.0, 1.0).set_ylim(-1.0, 1.0);
+    ax.set_xlim(-1.0, 1.0)?.set_ylim(-1.0, 1.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -418,7 +418,7 @@ pub(super) const CASES: &[FigureCase] = &[
     classic(
         "mpl_axes_d/axes_set_position_external_bbox_unchanged",
         |fig| {
-            fig.add_axes([0.0, 0.0, 1.0, 1.0])
+            fig.add_axes([0.0, 0.0, 1.0, 1.0])?
                 .set_position([0.25, 0.25, 0.5, 0.5]);
             Ok(())
         },

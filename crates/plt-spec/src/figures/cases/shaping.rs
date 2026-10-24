@@ -286,7 +286,7 @@ fn rc_language_case(fig: &Figure) -> CaseResult {
 
 fn single_lines_only_case(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     ax.set_axis_off();
     ax.text(0.3, 9.0, "office AV\n\u{431}\u{433}\u{434} fi")
         .set_fontsize(13.0)

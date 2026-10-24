@@ -56,7 +56,7 @@ fn date_axhspan(fig: &Figure) -> CaseResult {
         .set_facecolor("blue")
         .set_alpha(Some(0.25));
     let (low, high) = padded_dates(&ax.yaxis(), span, 5)?;
-    ax.set_ylim(low, high);
+    ax.set_ylim(low, high)?;
     room_on_the_left(fig)
 }
 
@@ -69,7 +69,7 @@ fn date_axvspan(fig: &Figure) -> CaseResult {
         .set_facecolor("blue")
         .set_alpha(Some(0.25));
     let (low, high) = padded_dates(&ax.xaxis(), span, 720)?;
-    ax.set_xlim(low, high);
+    ax.set_xlim(low, high)?;
     autofmt_xdate(fig)
 }
 
@@ -80,7 +80,7 @@ fn date_axhline(fig: &Figure) -> Result<Axes, Box<dyn std::error::Error>> {
     let (y0, _) = padded_dates(&ax.yaxis(), span, 0)?;
     ax.axhline(y0, LineProps::default().color("blue").linewidth(3.0));
     let (low, high) = padded_dates(&ax.yaxis(), span, 5)?;
-    ax.set_ylim(low, high);
+    ax.set_ylim(low, high)?;
     room_on_the_left(fig)?;
     Ok(ax)
 }
@@ -92,7 +92,7 @@ fn date_axvline(fig: &Figure) -> CaseResult {
     let (x0, _) = padded_dates(&ax.xaxis(), span, 0)?;
     ax.axvline(x0, LineProps::default().color("red").linewidth(3.0));
     let (low, high) = padded_dates(&ax.xaxis(), span, 5)?;
-    ax.set_xlim(low, high);
+    ax.set_xlim(low, high)?;
     autofmt_xdate(fig)
 }
 

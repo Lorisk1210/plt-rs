@@ -65,7 +65,7 @@ fn hexbin_demo(fig: &Figure) -> CaseResult {
             ..HexbinOptions::default()
         };
         let hb = ax.hexbin(&x, &y, options)?;
-        ax.set_xlim(xlim.0, xlim.1).set_ylim(ylim.0, ylim.1);
+        ax.set_xlim(xlim.0, xlim.1)?.set_ylim(ylim.0, ylim.1)?;
         ax.set_title(title);
         labelled_colorbar(fig, &hb, ax, "counts")?;
     }

@@ -54,8 +54,8 @@ fn line_decorations(fig: &Figure) -> CaseResult {
         pyplot::title("Waves");
         pyplot::xlabel("x");
         pyplot::ylabel("y");
-        pyplot::xlim(0.0, 2.0 * PI);
-        pyplot::ylim(-1.5, 1.5);
+        pyplot::xlim(0.0, 2.0 * PI)?;
+        pyplot::ylim(-1.5, 1.5)?;
         pyplot::grid(true);
         pyplot::legend(LegendOptions::default())?;
         pyplot::text(4.0, 1.2, "note");

@@ -56,7 +56,7 @@ fn custom_transform(fig: &Figure) -> CaseResult {
     let ax1 = axisartist::Axes::with_grid_helper(fig.subplot(), helper);
     ax1.aux_axes(&tr).plot([3.0, 6.0], [5.0, 10.0])?;
     ax1.ax().set_aspect(Aspect::Equal)?;
-    ax1.ax().set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax1.ax().set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     grid_on(&ax1);
     Ok(())
 }
@@ -116,7 +116,7 @@ fn polar_box(fig: &Figure) -> CaseResult {
     ax1.aux_axes(&tr)
         .plot(linspace(0.0, 30.0, 50), linspace(10.0, 10.0, 50))?;
     ax1.ax().set_aspect(Aspect::Equal)?;
-    ax1.ax().set_xlim(-5.0, 12.0).set_ylim(-5.0, 10.0);
+    ax1.ax().set_xlim(-5.0, 12.0)?.set_ylim(-5.0, 10.0)?;
     grid_on(&ax1);
     Ok(())
 }
@@ -153,7 +153,7 @@ fn axis_direction(fig: &Figure) -> CaseResult {
     lon.major_ticklabels().set_axis_direction(SpineSide::Top);
     lon.label().set_axis_direction(SpineSide::Top);
     ax1.ax().set_aspect(Aspect::Equal)?;
-    ax1.ax().set_xlim(-8.0, 8.0).set_ylim(-4.0, 12.0);
+    ax1.ax().set_xlim(-8.0, 8.0)?.set_ylim(-4.0, 12.0)?;
     grid_on(&ax1);
     Ok(())
 }

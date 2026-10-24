@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn inverting_keeps_the_range() {
         let ax = Figure::new().subplot();
-        ax.set_xlim(1.0, 3.0);
+        ax.set_xlim(1.0, 3.0).expect("finite limits");
         ax.xaxis().set_inverted(true);
         assert_eq!(ax.xlim(), (3.0, 1.0));
         assert!(ax.xaxis().inverted());

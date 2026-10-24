@@ -130,7 +130,7 @@ fn other_cases() -> Vec<(&'static str, Case)> {
         }),
         ("limits", |_, ax, _, y| {
             if let [a, b, ..] = *y {
-                ax.set_xlim(a, b).set_ylim(b, a);
+                ax.set_xlim(a, b)?.set_ylim(b, a)?;
             }
             Ok(())
         }),

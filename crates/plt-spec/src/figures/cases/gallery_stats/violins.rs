@@ -26,7 +26,7 @@ fn set_axis_style(ax: &Axes, labels: &[&str]) -> CaseResult {
     let n = labels.len() as f64;
     ax.set_xticks(arange(1.0, n + 1.0, 1.0));
     ax.set_xticklabels(strings(labels))?;
-    ax.set_xlim(0.25, n + 0.75);
+    ax.set_xlim(0.25, n + 0.75)?;
     ax.set_xlabel("Sample name");
     Ok(())
 }

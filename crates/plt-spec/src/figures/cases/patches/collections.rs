@@ -60,7 +60,7 @@ fn ellipse_panels(fig: &Figure) -> CaseResult {
             .with_offsets(xy.clone(), ax.trans_data())
             .with_mapping(mapping("viridis", &values)?);
         ax.add_collection(ellipses);
-        ax.set_xlim(-1.0, 4.0).set_ylim(-1.0, 3.0);
+        ax.set_xlim(-1.0, 4.0)?.set_ylim(-1.0, 3.0)?;
         ax.set_title(name);
     }
     Ok(())
@@ -68,7 +68,7 @@ fn ellipse_panels(fig: &Figure) -> CaseResult {
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("patches/patchcollection_cmap", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         let plain = PatchProps::default;
         let shapes = [
             CollectionPatch::new(&Circle::new((2.0, 2.0), 1.5), plain()),
@@ -91,7 +91,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("patches/patchcollection_match_original", |fig| {
-        let ax = square_canvas(fig);
+        let ax = square_canvas(fig)?;
         let shapes = [
             CollectionPatch::new(
                 &Circle::new((3.0, 3.0), 2.0),
@@ -185,7 +185,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .edgecolor("k")
             .linewidth(0.5);
         ax.add_collection(CollectionSpec::polygons(vec![verts]).with_props(props));
-        ax.set_xlim(-0.1, 1.1).set_ylim(0.0, 1.0);
+        ax.set_xlim(-0.1, 1.1)?.set_ylim(0.0, 1.0)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
@@ -227,7 +227,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .with_props(CollectionProps::default().edgecolor("k"))
             .with_mapping(mapping("cool", &arange(0.0, 12.0, 1.0))?);
         ax.add_collection(polygons);
-        ax.set_xlim(-1.0, 4.0).set_ylim(-1.0, 3.0);
+        ax.set_xlim(-1.0, 4.0)?.set_ylim(-1.0, 3.0)?;
         Ok(())
     })
     .sized(4.0, 4.0, 100.0),
@@ -253,7 +253,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             CollectionSpec::events(&g.uniform(15, 0.0, 4.0), Orientation::Vertical, 8.0, 1.0)
                 .with_props(CollectionProps::default().edgecolor("tab:green")),
         );
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 4.5);
+        ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 4.5)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

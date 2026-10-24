@@ -36,7 +36,7 @@ fn invert_axes(fig: &Figure) -> CaseResult {
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     fig.suptitle("Inverted axis with ...");
     ax1.plot(&x, &y)?;
-    ax1.set_xlim(4.0, 0.0);
+    ax1.set_xlim(4.0, 0.0)?;
     ax1.set_title("fixed limits: set_xlim(4, 0)");
     ax1.set_xlabel("decreasing x ⟶");
     ax1.grid(true);
@@ -83,17 +83,18 @@ fn fahrenheit2celsius(temp: f64) -> f64 {
     (5.0 / 9.0) * (temp - 32.0)
 }
 
-fn fahrenheit_celsius_scales(fig: &Figure) {
+fn fahrenheit_celsius_scales(fig: &Figure) -> CaseResult {
     let ax_f = fig.subplot();
     let ax_c = ax_f.twinx();
     ax_f.plot_y(linspace(-40.0, 120.0, 100));
-    ax_f.set_xlim(0.0, 100.0);
+    ax_f.set_xlim(0.0, 100.0)?;
     ax_f.set_title("Two scales: Fahrenheit and Celsius");
     ax_f.set_ylabel("Fahrenheit");
     ax_c.set_ylabel("Celsius");
     // The example's `ylim_changed` callback, once the limits are final.
     let (y1, y2) = ax_f.ylim();
-    ax_c.set_ylim(fahrenheit2celsius(y1), fahrenheit2celsius(y2));
+    ax_c.set_ylim(fahrenheit2celsius(y1), fahrenheit2celsius(y2))?;
+    Ok(())
 }
 
 fn twin_axes_zorder(fig: &Figure) -> CaseResult {
@@ -138,9 +139,9 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("gallery_subplots/shared_axis_demo", shared_axis_demo),
     FigureCase::new("gallery_subplots/invert_axes", invert_axes).sized(6.4, 4.0, 100.0),
     FigureCase::new("gallery_subplots/two_scales", two_scales),
-    FigureCase::new("gallery_subplots/fahrenheit_celsius_scales", |fig| {
-        fahrenheit_celsius_scales(fig);
-        Ok(())
-    }),
+    FigureCase::new(
+        "gallery_subplots/fahrenheit_celsius_scales",
+        fahrenheit_celsius_scales,
+    ),
     FigureCase::new("gallery_subplots/twin_axes_zorder", twin_axes_zorder),
 ];

@@ -24,7 +24,7 @@ fn plot(ax: &Axes) -> CaseResult {
     let t = t();
     let y: Vec<f64> = t.iter().map(|t| t.sin()).collect();
     ax.plot(t, y)?;
-    ax.set_xlim(0.0, 10.0).set_ylim(-1.5, 1.5);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(-1.5, 1.5)?;
     Ok(())
 }
 
@@ -152,7 +152,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let t = t();
         let y: Vec<f64> = t.iter().map(|t| t.cos()).collect();
         bottom.plot_with(t, y, LineProps::fmt("g")?)?;
-        bottom.set_xlim(0.0, 10.0).set_ylim(-1.5, 1.5);
+        bottom.set_xlim(0.0, 10.0)?.set_ylim(-1.5, 1.5)?;
         let options = CursorOptions {
             horizontal: true,
             line: LineProps::default().color("r").linewidth(1.0),

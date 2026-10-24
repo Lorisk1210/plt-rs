@@ -18,7 +18,9 @@ use crate::probes::{Args, Outcome, ProbeError};
 pub(super) fn gca(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = Figure::new();
-        let ax0 = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax0 = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .map_err(ProbeError::rejected)?;
         let number = |ax: &Axes| Json::from(if *ax == ax0 { 0.0 } else { 1.0 });
         let after_add_axes = number(&fig.gca());
         let ax1 = fig.subplot();
@@ -55,11 +57,12 @@ pub(super) fn add_subplot(args: Args<'_>) -> Outcome {
 pub(super) fn add_axes(args: Args<'_>) -> Outcome {
     added(args, |fig, polar| {
         let rect = [0.0, 0.0, 1.0, 1.0];
-        Ok(if polar {
-            Axes::clone(&fig.add_polar_axes(rect))
+        let added = if polar {
+            fig.add_polar_axes(rect).map(|ax| ax.axes().clone())
         } else {
             fig.add_axes(rect)
-        })
+        };
+        added.map_err(ProbeError::rejected)
     })
 }
 

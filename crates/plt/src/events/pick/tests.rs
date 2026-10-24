@@ -14,8 +14,12 @@ const NONE: [(ArtistId, Vec<usize>); 0] = [];
 /// A 640 × 480 figure whose single axes maps data to display pixels.
 fn pixel_axes() -> (Figure, Axes) {
     let fig = Figure::new();
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-    ax.set_xlim(0.0, 640.0).set_ylim(0.0, 480.0);
+    let ax = fig
+        .add_axes([0.0, 0.0, 1.0, 1.0])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 640.0)
+        .and_then(|ax| ax.set_ylim(0.0, 480.0))
+        .expect("finite limits");
     (fig, ax)
 }
 
@@ -111,9 +115,16 @@ fn custom_pickers_decide_and_may_change_the_figure() {
 #[test]
 fn other_axes_are_skipped_and_picks_come_before_presses() {
     let fig = Figure::new();
-    let left = fig.add_axes([0.0, 0.0, 0.5, 1.0]);
-    let right = fig.add_axes([0.5, 0.0, 0.5, 1.0]);
-    right.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    let left = fig
+        .add_axes([0.0, 0.0, 0.5, 1.0])
+        .expect("a valid rectangle");
+    let right = fig
+        .add_axes([0.5, 0.0, 0.5, 1.0])
+        .expect("a valid rectangle");
+    right
+        .set_xlim(0.0, 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1.0))
+        .expect("finite limits");
     // Drawn across the left axes, but part of the right one.
     let stray = right.plot([-1.0, 0.0], [0.5, 0.5]).unwrap();
     stray.set_picker(Some(Picker::Radius(5.0)));

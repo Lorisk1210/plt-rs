@@ -54,12 +54,12 @@ fn complete_ref(fig: &Figure) -> CaseResult {
     ax.pcolor(Mesh::new(data.clone()), PcolorOptions::default())?;
 
     let ax = fig.add_subplot(3, 3, 6)?;
-    ax.set_xlim(0.0, 7.0).set_ylim(0.0, 9.0);
+    ax.set_xlim(0.0, 7.0)?.set_ylim(0.0, 9.0)?;
     let field = StreamField::new(x.clone(), y.clone(), data.clone(), v.clone());
     ax.streamplot(&field, StreamplotOptions::default())?;
 
     let ax = fig.add_subplot(3, 3, 7)?;
-    ax.set_xlim(0.0, 7.0).set_ylim(0.0, 9.0);
+    ax.set_xlim(0.0, 7.0)?.set_ylim(0.0, 9.0)?;
     ax.quiver(
         VectorField::on_axes(&x, &y, &data, &v),
         QuiverOptions::default(),

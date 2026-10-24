@@ -224,8 +224,12 @@ mod tests {
     /// 1000 × 1000 px, 72 dpi canvas (one data unit is 100 px).
     fn extent(arrow: FancyArrowPatch) -> plt_core::Bbox {
         let fig = Figure::with_size(1000.0 / 72.0, 1000.0 / 72.0, 72.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         ax.add_patch(arrow).window_extent().expect("an extent")
     }
 
@@ -242,8 +246,12 @@ mod tests {
     #[test]
     fn patches_clip_the_ends_where_they_are_drawn() {
         let fig = Figure::with_size(1000.0 / 72.0, 1000.0 / 72.0, 72.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         // Unstroked circles of radius 1 at both ends: 100 px.
         let start = ax.add_patch(crate::patches::Circle::new((1.0, 5.0), 1.0));
         let end = ax.add_patch(crate::patches::Circle::new((9.0, 5.0), 1.0));
@@ -260,7 +268,9 @@ mod tests {
     fn arrows_are_measured_at_one_pixel_per_point_until_drawn() {
         // matplotlib's `_dpi_cor` is 1 until the arrow is drawn.
         let fig = Figure::with_size(2.0, 2.0, 144.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
         let simple = ArrowStyle::Simple {
             head_length: 10.0,
             head_width: 10.0,
@@ -301,7 +311,9 @@ mod tests {
     #[test]
     fn styles_needing_a_quadratic_curve_report_other_paths() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
         let angled = FancyArrowPatch::between((0.0, 0.0), (1.0, 1.0))
             .with_connectionstyle("angle".parse().expect("valid style"));
         ax.add_patch(angled);

@@ -73,7 +73,8 @@ impl SubplotTool {
                     valinit: current.borrow()[index],
                     ..SliderOptions::default()
                 };
-                let slider = Slider::new(ax, name, 0.0, 1.0, options);
+                let slider = Slider::new(ax, name, 0.0, 1.0, options)
+                    .expect("the unit interval is a finite range");
                 let (target, current) = (target.clone(), Rc::clone(&current));
                 slider.on_changed(move |value| {
                     let mut values = current.borrow_mut();
@@ -101,7 +102,9 @@ impl SubplotTool {
         top.set_slidermin(bottom);
         let sliders = Rc::new(sliders);
         let reset = Button::new(
-            &tool.add_axes([0.8, 0.05, 0.15, 0.075]),
+            &tool
+                .add_axes([0.8, 0.05, 0.15, 0.075])
+                .expect("the reset button's rectangle is valid"),
             "Reset",
             ButtonOptions::default(),
         );

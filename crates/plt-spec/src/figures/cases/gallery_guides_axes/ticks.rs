@@ -92,7 +92,7 @@ fn axes_ticks_3(fig: &Figure) -> CaseResult {
         .set_major_locator(MaxNLocator::new(Nbins::Fixed(4)))
         .set_minor_locator(MaxNLocator::new(Nbins::Fixed(40)));
     named_tick_strip(ax(7), "LogLocator(base=10, numticks=15)")?;
-    ax(7).set_xlim(1e3, 1e10);
+    ax(7).set_xlim(1e3, 1e10)?;
     ax(7).set_xscale("log")?;
     ax(7)
         .xaxis()

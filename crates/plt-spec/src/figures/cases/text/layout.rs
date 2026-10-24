@@ -17,7 +17,7 @@ fn mark(ax: &Axes, x: f64, y: f64) -> CaseResult {
 
 /// The rotated texts of the two rotation cases, in `mode`.
 fn rotations(fig: &Figure, mode: TextRotationMode) -> CaseResult {
-    let ax = blank(fig);
+    let ax = blank(fig)?;
     for (i, rotation) in [0, 30, 45, 90, 135, 180, 270].into_iter().enumerate() {
         let x = 0.8 + 1.4 * i as f64;
         mark(&ax, x, 5.0)?;
@@ -37,7 +37,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("text/ha_va_grid", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         let valigns = [
             (VAlign::Top, "top"),
             (VAlign::Center, "ctr"),
@@ -72,7 +72,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("text/font_sizes", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         let sizes = [
             RelativeSize::XxSmall,
             RelativeSize::XSmall,
@@ -94,7 +94,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("text/font_families_styles", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         let rows = [
             ("sans-serif", FontStyle::Normal),
             ("serif", FontStyle::Normal),
@@ -119,7 +119,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("text/font_weights_stretch", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         let weights = [
             "ultralight",
             "light",
@@ -193,7 +193,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("text/coordinate_systems", |fig| {
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 4.0).set_ylim(0.0, 2.0);
+        ax.set_xlim(0.0, 4.0)?.set_ylim(0.0, 2.0)?;
         ax.text(1.0, 1.0, "data (1, 1)");
         ax.text(0.98, 0.02, "axes (0.98, 0.02)")
             .set_transform(ax.trans_axes())

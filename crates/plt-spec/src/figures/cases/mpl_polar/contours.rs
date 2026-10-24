@@ -390,7 +390,7 @@ pub(super) fn contour_closed_line_loop(fig: &Figure) -> CaseResult {
         ..levels(&[0.5])
     };
     ax.contour(&QuadField::new(z), options)?;
-    ax.set_xlim(-0.1, 2.1).set_ylim(-0.1, 3.1);
+    ax.set_xlim(-0.1, 2.1)?.set_ylim(-0.1, 3.1)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

@@ -223,10 +223,17 @@ mod tests {
     #[test]
     fn zoom_indicators_follow_the_inset_limits() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let inset = ax.inset_axes([0.6, 0.6, 0.3, 0.3]);
-        inset.set_xlim(1.0, 2.0).set_ylim(1.0, 2.0);
+        inset
+            .set_xlim(1.0, 2.0)
+            .and_then(|ax| ax.set_ylim(1.0, 2.0))
+            .expect("finite limits");
         let marker = ax.indicate_inset_zoom(&inset, PatchProps::default());
         let extent = marker.window_extent().expect("drawn");
         // The rectangle starts at data (1, 1) = pixels (115.2, 86.4); the
@@ -237,7 +244,7 @@ mod tests {
             "{extent:?}"
         );
         assert!(close(extent.x1(), 524.8), "{extent:?}");
-        inset.set_xlim(0.0, 2.0);
+        inset.set_xlim(0.0, 2.0).expect("finite limits");
         let moved = marker.window_extent().expect("drawn");
         assert!(close(moved.x0(), 64.0), "{moved:?}");
     }
@@ -266,10 +273,17 @@ mod tests {
         // right edge, but measured as (-1.8, -1.12)..(-1.55, -0.96) it does
         // not, so the lower-right connector is drawn, not the upper-right.
         let fig = Figure::new();
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(-2.0, 2.0).set_ylim(-1.5, 1.5);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(-2.0, 2.0)
+            .and_then(|ax| ax.set_ylim(-1.5, 1.5))
+            .expect("finite limits");
         let inset = ax.inset_axes([0.0, 0.7, 0.18, 0.3]);
-        inset.set_xlim(-1.2, -0.7).set_ylim(-0.8, -0.4);
+        inset
+            .set_xlim(-1.2, -0.7)
+            .and_then(|ax| ax.set_ylim(-0.8, -0.4))
+            .expect("finite limits");
         let marker = ax.indicate_inset_zoom(&inset, PatchProps::default());
         let extent = marker.window_extent().expect("drawn");
         // The lower-right connector ends at the rectangle's bottom; the
@@ -280,8 +294,12 @@ mod tests {
     #[test]
     fn indicators_without_an_inset_are_a_plain_rectangle() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 1.0).set_ylim(1.0, 0.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(1.0, 0.0))
+            .expect("finite limits");
         let marker = ax.indicate_inset(
             [0.25, 0.25, 0.5, 0.5],
             None,

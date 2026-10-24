@@ -37,7 +37,9 @@ fn anim(frames: usize, repeat: bool) -> Result<FuncAnimation, ProbeError> {
     let line = ax
         .plot(Vec::<f64>::new(), Vec::<f64>::new())
         .map_err(ProbeError::rejected)?;
-    ax.set_xlim(0.0, 10.0).set_ylim(-1.0, 1.0);
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(-1.0, 1.0))
+        .map_err(ProbeError::rejected)?;
     let options = AnimationOptions {
         repeat,
         ..AnimationOptions::default()

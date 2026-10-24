@@ -16,11 +16,11 @@ impl Axes {
     ///
     /// ```
     /// use plt::prelude::*;
-    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8]);
+    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8])?;
     /// let line = ax.plot([1.0, 2.0, 3.0], [1.0, 4.0, 9.0])?;
     /// line.set_label("squares");
     /// assert_eq!(ax.xlim(), (0.9, 3.1));
-    /// # Ok::<(), plt::axes::PlotError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn plot(
         &self,
@@ -47,7 +47,7 @@ impl Axes {
     ///
     /// ```
     /// use plt::prelude::*;
-    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8]);
+    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8])?;
     /// let props = LineProps::fmt("o--")?.markersize(4.0).label("data");
     /// let line = ax.plot_with([1.0, 2.0], [3.0, 4.0], props)?;
     /// assert_eq!(line.markersize(), 4.0);

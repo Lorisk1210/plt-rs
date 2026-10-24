@@ -47,7 +47,7 @@ fn barchart(fig: &Figure) -> CaseResult {
     ax.set_ylabel("Length (mm)");
     ax.set_title("Penguin attributes by species");
     ax.legend(LegendOptions::default().loc("upper left").ncols(3))?;
-    ax.set_ylim(0.0, 250.0);
+    ax.set_ylim(0.0, 250.0)?;
     Ok(())
 }
 
@@ -168,7 +168,7 @@ fn bar_label_demo_2(fig: &Figure) -> CaseResult {
         ..BarLabelOptions::default()
     };
     ax.bar_label(&hbars, options)?;
-    ax.set_xlim(ax.xlim().0, 15.0);
+    ax.set_xlim(ax.xlim().0, 15.0)?;
     Ok(())
 }
 
@@ -181,7 +181,7 @@ fn bar_label_demo_3(fig: &Figure) -> CaseResult {
     for label in ax.bar_label(&hbars, options)? {
         label.set_color("b").set_fontsize(14.0);
     }
-    ax.set_xlim(ax.xlim().0, 16.0);
+    ax.set_xlim(ax.xlim().0, 16.0)?;
     Ok(())
 }
 
@@ -198,7 +198,7 @@ fn labelled_sales(
     let bars = ax.bar(names.to_vec(), values, BarOptions::default())?;
     ax.set_ylabel(ylabel);
     ax.set_title(title);
-    ax.set_ylim(0.0, ytop);
+    ax.set_ylim(0.0, ytop)?;
     let options = BarLabelOptions {
         fmt,
         ..BarLabelOptions::default()
@@ -246,7 +246,7 @@ fn ranges(starts: impl IntoIterator<Item = f64>, width: f64) -> Vec<(f64, f64)> 
     starts.into_iter().map(|start| (start, width)).collect()
 }
 
-fn broken_barh(fig: &Figure) {
+fn broken_barh(fig: &Figure) -> CaseResult {
     let mut rng = SpecRng::new(19_680_801);
     let cpu_3 = ranges(rng.uniform(61, 0.0, 10.0), 0.05);
     let network = ranges(rng.uniform(10, 0.0, 10.0), 0.05);
@@ -270,9 +270,10 @@ fn broken_barh(fig: &Figure) {
             .set_facecolor(color)
             .set_edgecolor(color);
     }
-    ax.set_xlim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?;
     ax.yaxis().set_inverted(true);
     ax.set_title("Resource usage");
+    Ok(())
 }
 
 fn categorical_variables_1(fig: &Figure) -> CaseResult {
@@ -340,7 +341,7 @@ fn gradient_image(
 
 fn gradient_bar(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 1.0)?;
     let background = ImshowOptions {
         extent: Some(Extent::new(0.0, 1.0, 0.0, 1.0)),
         transform: Some(ax.trans_axes()),
@@ -398,7 +399,7 @@ fn hat_graph(fig: &Figure) -> CaseResult {
     }
     ax.set_xlabel("Games");
     ax.set_ylabel("Score");
-    ax.set_ylim(0.0, 60.0);
+    ax.set_ylim(0.0, 60.0)?;
     ax.set_title("Scores by number of game and players");
     ax.legend(LegendOptions::default())?;
     Ok(())
@@ -429,7 +430,7 @@ fn horizontal_barchart_distribution(fig: &Figure) -> CaseResult {
         .iter()
         .map(|(_, row)| row.iter().sum::<f64>())
         .fold(f64::NEG_INFINITY, f64::max);
-    ax.set_xlim(0.0, total);
+    ax.set_xlim(0.0, total)?;
     let mut starts = [0.0; 6];
     for (i, (name, position)) in category_names
         .iter()
@@ -479,10 +480,7 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("gallery_lines/bar_label_demo_4", bar_label_demo_4),
     FigureCase::new("gallery_lines/bar_label_demo_5", bar_label_demo_5),
     FigureCase::new("gallery_lines/bar_stacked", bar_stacked),
-    FigureCase::new("gallery_lines/broken_barh", |fig| {
-        broken_barh(fig);
-        Ok(())
-    }),
+    FigureCase::new("gallery_lines/broken_barh", broken_barh),
     FigureCase::new(
         "gallery_lines/categorical_variables_1",
         categorical_variables_1,

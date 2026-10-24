@@ -9,7 +9,8 @@ use super::registry::{fignum_exists, figure, figure_num, gca, gcf};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, ProjectionKind};
 use crate::figure::{
-    Figure, Mosaic, MosaicAxes, MosaicError, MosaicOptions, SaveError, SaveOptions, Share,
+    AxesRectError, Figure, Mosaic, MosaicAxes, MosaicError, MosaicOptions, SaveError, SaveOptions,
+    Share,
 };
 use crate::geo::{GeoAxes, GeoProjection};
 use crate::gridspec::GridSpecError;
@@ -238,7 +239,11 @@ pub fn subplot_mosaic_num(
 /// A new current axes in the current figure: at `rect`
 /// (`[left, bottom, width, height]` in figure fractions), or filling the
 /// default subplot area when `None` (matplotlib's `axes`).
-pub fn axes(rect: Option<[f64; 4]>) -> Axes {
+///
+/// # Errors
+///
+/// As [`Figure::add_axes`] for `rect`.
+pub fn axes(rect: Option<[f64; 4]>) -> Result<Axes, AxesRectError> {
     axes_with_projection(rect, ProjectionKind::Rectilinear)
 }
 
@@ -248,19 +253,27 @@ pub fn axes(rect: Option<[f64; 4]>) -> Axes {
 /// ```
 /// use ::plt::axes::ProjectionKind;
 /// use plt::pyplot as plt;
-/// let polar = plt::axes_with_projection(None, ProjectionKind::Polar);
-/// let plain = plt::axes(None);
+/// let polar = plt::axes_with_projection(None, ProjectionKind::Polar)?;
+/// let plain = plt::axes(None)?;
 /// assert_eq!((polar.projection(), plain.projection()), (ProjectionKind::Polar, ProjectionKind::Rectilinear));
 /// assert_eq!(plt::gca(), plain);
 /// plt::close_all();
+/// # Ok::<(), ::plt::figure::AxesRectError>(())
 /// ```
-pub fn axes_with_projection(rect: Option<[f64; 4]>, projection: ProjectionKind) -> Axes {
+///
+/// # Errors
+///
+/// As [`Figure::add_axes`] for `rect`.
+pub fn axes_with_projection(
+    rect: Option<[f64; 4]>,
+    projection: ProjectionKind,
+) -> Result<Axes, AxesRectError> {
     let fig = gcf();
     let ax = match rect {
-        Some(rect) => fig.add_axes(rect),
+        Some(rect) => fig.add_axes(rect)?,
         None => fig.subplot(),
     };
-    projected(ax, projection)
+    Ok(projected(ax, projection))
 }
 
 /// A new current axes sharing the x axis of `ax`, or of the current axes,
@@ -383,7 +396,7 @@ mod tests {
         assert_eq!(gca(), axes[(1, 1)], "the last axes added is current");
         let (shared, axes) = subplots_shared(2, 1, Share::All, Share::None).unwrap();
         assert_ne!(shared, fig);
-        axes[(0, 0)].set_xlim(1.0, 2.0);
+        axes[(0, 0)].set_xlim(1.0, 2.0).expect("finite limits");
         assert_eq!(axes[(1, 0)].xlim(), (1.0, 2.0));
         close_all();
     }
@@ -413,7 +426,11 @@ mod tests {
     #[test]
     fn free_axes_twins_and_polar_plots() {
         close_all();
-        let inset = axes(Some([0.6, 0.6, 0.3, 0.3]));
+        let inset = axes(Some([0.6, 0.6, 0.3, 0.3])).expect("a valid rectangle");
+        assert!(matches!(
+            axes(Some([0.0, 0.0, -1.0, 1.0])),
+            Err(AxesRectError::NegativeSize(_))
+        ));
         assert_eq!((gca(), inset.position().x0()), (inset.clone(), 0.6));
         let twin = twinx(None);
         assert_eq!(gca(), twin);
@@ -426,7 +443,7 @@ mod tests {
         let line = polar(vec![0.0, 1.0], vec![1.0, 2.0]).unwrap();
         assert_eq!(gca().projection(), ProjectionKind::Polar);
         assert!(gca().lines().contains(&line));
-        axes(None);
+        axes(None).expect("the default subplot area");
         assert_eq!(gcf().axes().len(), 2);
         close_all();
     }
@@ -476,7 +493,8 @@ mod tests {
         assert_eq!(subplot(1, 1, 1).unwrap(), polar, "any projection is reused");
         let plain = subplot_with_projection(1, 1, 1, ProjectionKind::Rectilinear).unwrap();
         assert_ne!(plain, polar);
-        let map = axes_with_projection(Some([0.1, 0.1, 0.3, 0.3]), ProjectionKind::Mollweide);
+        let map = axes_with_projection(Some([0.1, 0.1, 0.3, 0.3]), ProjectionKind::Mollweide)
+            .expect("a valid rectangle");
         assert_eq!(map.projection(), ProjectionKind::Mollweide);
         assert_eq!(gcf().axes().len(), 3);
         close_all();
@@ -485,7 +503,7 @@ mod tests {
     #[test]
     fn removed_axes_handles_stay_comparable() {
         close_all();
-        let ax = axes(None);
+        let ax = axes(None).expect("the default subplot area");
         delaxes(Some(&ax));
         assert!(!ax.raw().is_alive());
         close_all();

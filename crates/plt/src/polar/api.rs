@@ -22,6 +22,8 @@ use crate::transforms::Anchor;
 pub enum PolarError {
     /// θ limits more than a full circle apart.
     ThetaRange,
+    /// A θ limit that is NaN or infinite.
+    NonFiniteLimit,
     /// A polygon frame with fewer than three vertices.
     PolygonVertices(usize),
 }
@@ -30,6 +32,7 @@ impl fmt::Display for PolarError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ThetaRange => f.write_str("The angle range must be less than a full circle"),
+            Self::NonFiniteLimit => f.write_str("θ limits cannot be NaN or Inf"),
             Self::PolygonVertices(n) => {
                 write!(f, "a polygon frame needs at least 3 vertices, not {n}")
             }
@@ -94,7 +97,8 @@ impl PolarAxes {
             // drawing decides whether the other two show.
             spine.raw().with_base_mut(|base| base.visible = true);
         }
-        axes.set_xlim(0.0, TAU);
+        axes.set_xlim(0.0, TAU)
+            .expect("a full circle has finite limits");
         axes.grid(crate::rc::params().polaraxes_grid);
         axes.set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
@@ -232,14 +236,19 @@ impl PolarAxes {
     ///
     /// # Errors
     ///
-    /// When the limits are more than a full circle apart; the limits are
-    /// left unchanged.
+    /// When a limit is NaN or infinite, or the limits are more than a full
+    /// circle apart; the limits are left unchanged.
     pub fn set_thetalim(&self, min: f64, max: f64) -> Result<&Self, PolarError> {
         let original = self.axes.xlim();
-        self.axes.set_xlim(min, max);
+        self.axes
+            .set_xlim(min, max)
+            .map_err(|_| PolarError::NonFiniteLimit)?;
         let (low, high) = self.axes.xlim();
         if (high - low).abs() > TAU {
-            self.axes.set_xlim(original.0, original.1);
+            // Only limits that were not finite (`set_thetamin` takes any
+            // number) cannot be restored; they stay as matplotlib leaves
+            // them.
+            let _ = self.axes.set_xlim(original.0, original.1);
             return Err(PolarError::ThetaRange);
         }
         Ok(self)
@@ -268,10 +277,14 @@ impl PolarAxes {
     }
 
     /// Sets both radial limits and turns radial autoscaling off, like
-    /// [`set_ylim`](Axes::set_ylim).
-    pub fn set_rlim(&self, rmin: f64, rmax: f64) -> &Self {
-        self.axes.set_ylim(rmin, rmax);
-        self
+    /// [`set_ylim`](Axes::set_ylim) (matplotlib's `set_rlim`).
+    ///
+    /// # Errors
+    ///
+    /// When a limit is NaN or infinite; then the limits are unchanged.
+    pub fn set_rlim(&self, rmin: f64, rmax: f64) -> Result<&Self, PlotError> {
+        self.axes.set_ylim(rmin, rmax)?;
+        Ok(self)
     }
 
     /// Sets the radius drawn at the centre (`None` follows the inner
@@ -382,8 +395,10 @@ mod tests {
         // matplotlib's test_axhvlinespan_interpolation: a fraction across
         // the data axis is a fraction of the view range there.
         let fig = Figure::with_size(2.0, 2.0, 72.0);
-        let ax = fig.add_polar_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_ylim(0.0, 2.0);
+        let ax = fig
+            .add_polar_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_ylim(0.0, 2.0).expect("finite limits");
         let close = |a: plt_core::Point, b: (f64, f64)| {
             (a.x - b.0).abs() < 1e-9 && (a.y - b.1).abs() < 1e-9
         };
@@ -446,7 +461,16 @@ mod tests {
         ax.set_rmin(0.5).set_rorigin(Some(-1.0));
         assert_eq!((ax.rmin(), ax.rorigin()), (0.5, -1.0));
         assert_eq!(ax.set_thetalim(0.0, 7.0), Err(PolarError::ThetaRange));
+        assert_eq!(
+            ax.set_thetalim(f64::NAN, 1.0),
+            Err(PolarError::NonFiniteLimit)
+        );
         assert!((ax.thetamax() - 135.0).abs() < 1e-12);
+        assert_eq!(
+            ax.set_rlim(0.0, f64::INFINITY).err(),
+            Some(PlotError::NonFiniteLimit(AxisName::Y))
+        );
+        assert_eq!(ax.rmin(), 0.5);
     }
 
     #[test]

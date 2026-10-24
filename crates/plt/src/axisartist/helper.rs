@@ -452,8 +452,12 @@ mod tests {
     #[test]
     fn floating_lines_sit_at_their_value() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
-        ax.set_xlim(-2.0, 2.0).set_ylim(-3.0, 3.0);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
+        ax.set_xlim(-2.0, 2.0)
+            .and_then(|ax| ax.set_ylim(-3.0, 3.0))
+            .expect("finite limits");
         let state = fig.raw().figure_state().borrow();
         let axes = state.store.get_as::<AxesState>(ax.id()).unwrap();
         assert_eq!(data_to_axes(axes, AxisName::Y, 1.5), 0.75);
@@ -471,8 +475,12 @@ mod tests {
     #[test]
     fn fixed_lines_follow_the_edges() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 1.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         let state = fig.raw().figure_state().borrow();
         let axes = state.store.get_as::<AxesState>(ax.id()).unwrap();
         let shown = rectilinear_ticks(

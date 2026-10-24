@@ -15,7 +15,7 @@
 //! let mut sankey = Sankey::new(&ax, SankeyOptions::default())?;
 //! let diagrams = sankey
 //!     .add(Subdiagram { flows: vec![0.6, 0.4, -1.0], ..Subdiagram::default() })?
-//!     .finish();
+//!     .finish()?;
 //! assert_eq!(diagrams[0].tips.len(), 3);
 //! # Ok::<(), plt::sankey::SankeyError>(())
 //! ```
@@ -163,19 +163,25 @@ impl Sankey {
     /// Fits the view around the subdiagrams with the margin and equal
     /// scaling (by changing the limits), and returns them (matplotlib's
     /// `Sankey.finish`).
-    pub fn finish(&self) -> &[SankeyDiagram] {
+    ///
+    /// # Errors
+    ///
+    /// When no subdiagram was added or the margin is not finite, which
+    /// leave no finite view; then the axes is unchanged.
+    pub fn finish(&self) -> Result<&[SankeyDiagram], SankeyError> {
         let [x0, x1, y0, y1] = self.extent;
         let margin = self.options.margin;
         self.axes
             .set_xlim(x0 - margin, x1 + margin)
-            .set_ylim(y0 - margin, y1 + margin);
+            .and_then(|axes| axes.set_ylim(y0 - margin, y1 + margin))
+            .map_err(SankeyError::Limits)?;
         self.axes
             .set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
         self.axes
             .set_adjustable(Adjustable::Datalim)
             .expect("a Sankey diagram draws on rectilinear axes");
-        &self.diagrams
+        Ok(&self.diagrams)
     }
 
     /// The subdiagrams drawn so far.

@@ -354,8 +354,8 @@ fn colortable(fig: &Figure, index: usize) -> CaseResult {
         top: Some((height - MARGIN) / height),
         ..SubplotOverrides::default()
     })?;
-    ax.set_xlim(0.0, CELL_WIDTH * ncols as f64);
-    ax.set_ylim(CELL_HEIGHT * (nrows as f64 - 0.5), -CELL_HEIGHT / 2.0);
+    ax.set_xlim(0.0, CELL_WIDTH * ncols as f64)?;
+    ax.set_ylim(CELL_HEIGHT * (nrows as f64 - 0.5), -CELL_HEIGHT / 2.0)?;
     ax.yaxis().set_visible(false);
     ax.xaxis().set_visible(false);
     ax.set_axis_off();

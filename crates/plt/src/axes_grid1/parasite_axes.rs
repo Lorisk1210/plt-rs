@@ -17,7 +17,7 @@ use super::mpl_axes::SimpleAxisArtist;
 use crate::artist::{ArtistHandle, ArtistId, ArtistStore, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::axisartist::Toggle;
-use crate::figure::{Figure, FigureState, insert_axes};
+use crate::figure::{AxesRectError, Figure, FigureState, insert_axes};
 use crate::gridspec::GridSpecError;
 use crate::spines::SpineSide;
 
@@ -143,8 +143,12 @@ pub fn host_subplot(
 
 /// A host axes at `[left, bottom, width, height]` in figure fractions
 /// (matplotlib's `host_axes`).
-pub fn host_axes(fig: &Figure, rect: [f64; 4]) -> HostAxes {
-    HostAxes::new(fig.add_axes(rect))
+///
+/// # Errors
+///
+/// As [`Figure::add_axes`].
+pub fn host_axes(fig: &Figure, rect: [f64; 4]) -> Result<HostAxes, AxesRectError> {
+    fig.add_axes(rect).map(HostAxes::new)
 }
 
 impl HostAxes {
@@ -208,13 +212,13 @@ impl HostAxes {
     /// use plt::prelude::*;
     /// use plt::transforms::Affine2D;
     /// let fig = Figure::new();
-    /// let host = host_axes(&fig, [0.1, 0.1, 0.8, 0.8]);
+    /// let host = host_axes(&fig, [0.1, 0.1, 0.8, 0.8])?;
     /// let degrees = host.twin(Some(Affine2D::scaling(std::f64::consts::PI / 180.0, 1.0)))?;
-    /// host.set_xlim(0.0, std::f64::consts::PI);
+    /// host.set_xlim(0.0, std::f64::consts::PI)?;
     /// fig.layout();
     /// let (low, high) = degrees.xlim();
     /// assert!(low.abs() < 1e-9 && (high - 180.0).abs() < 1e-9);
-    /// # Ok::<(), plt::axes_grid1::ParasiteError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// # Errors
@@ -492,7 +496,7 @@ mod tests {
         assert_eq!(sides(&par, AxisName::X), ((false, false), (false, false)));
         assert_eq!(par.yaxis().label_position(), SpineSide::Right);
         assert!(par.xaxis().visible() && par.yaxis().visible());
-        host.set_xlim(0.0, 5.0);
+        host.set_xlim(0.0, 5.0).expect("finite limits");
         assert_eq!(par.xlim(), (0.0, 5.0), "the x axis is shared");
         assert_eq!(fig.axes(), [host.axes().clone()]);
         assert_eq!(fig.gca(), *host.axes());
@@ -501,9 +505,11 @@ mod tests {
     #[test]
     fn twin_follows_the_host_through_the_aux_transform() {
         let fig = Figure::new();
-        let host = host_axes(&fig, [0.1, 0.1, 0.8, 0.8]);
+        let host = host_axes(&fig, [0.1, 0.1, 0.8, 0.8]).expect("a valid rectangle");
         let twin = host.twin(Some(Affine2D::scaling(2.0, 0.5))).unwrap();
-        host.set_xlim(0.0, 4.0).set_ylim(-1.0, 1.0);
+        host.set_xlim(0.0, 4.0)
+            .and_then(|ax| ax.set_ylim(-1.0, 1.0))
+            .expect("finite limits");
         assert_eq!(twin.xlim(), (0.0, 2.0));
         assert_eq!(twin.ylim(), (-2.0, 2.0));
         assert_eq!(sides(&twin, AxisName::X), ((false, true), (false, true)));

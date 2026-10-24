@@ -13,9 +13,9 @@ use super::math::{Matrix4, Vec3};
 use super::share::replay;
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
-use crate::axes::Axes;
+use crate::axes::{Axes, AxisName};
 use crate::colors::Color;
-use crate::figure::{Figure, insert_axes};
+use crate::figure::{Figure, axes_bounds, insert_axes};
 use crate::gridspec::SubplotSpec;
 use crate::text::Text;
 use crate::transforms::{Transform, TransformContext};
@@ -130,19 +130,14 @@ impl Figure {
     ///
     /// # Errors
     ///
-    /// As [`Figure::subplot_3d_with`].
+    /// As [`Figure::add_axes`] for `rect`, and as
+    /// [`Figure::subplot_3d_with`] for the options.
     pub fn add_axes_3d(
         &self,
         rect: [f64; 4],
         options: Axes3DOptions,
     ) -> Result<Axes3D, Axes3DError> {
-        let [left, bottom, width, height] = rect;
-        insert_axes3d(
-            self,
-            Bbox::from_bounds(left, bottom, width, height),
-            None,
-            options,
-        )
+        insert_axes3d(self, axes_bounds(rect)?, None, options)
     }
 
     /// Every 3-D axes of the figure (and of its subfigures), in creation
@@ -153,6 +148,18 @@ impl Figure {
             .into_iter()
             .map(|id| Axes3D::from_raw(RawHandle::new(Rc::clone(figure), id)))
             .collect()
+    }
+}
+
+/// Sets both view limits of a projection plane to the view window
+/// (matplotlib's `set_xlim(-0.95/dist, 0.9/dist)` and the same for y on a
+/// new or cleared 3-D axes).
+pub(super) fn show_view_window(plane: &Axes) {
+    let (lo, hi) = Camera::view_window();
+    for axis in [AxisName::X, AxisName::Y] {
+        plane
+            .set_limits(axis, lo, hi)
+            .expect("the view window is finite");
     }
 }
 
@@ -170,8 +177,7 @@ fn insert_axes3d(
     let state = figure.raw().figure_state();
     let frame = figure.raw().id();
     let plane = insert_axes(state, frame, Bbox::UNIT, None);
-    let (lo, hi) = Camera::view_window();
-    plane.set_xlim(lo, hi).set_ylim(lo, hi);
+    show_view_window(&plane);
     // mplot3d draws its own frame: matplotlib hides the axes' spines.
     for spine in plane.spines().iter() {
         spine.set_visible(false);

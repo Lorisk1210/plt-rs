@@ -44,7 +44,7 @@
 //! let props = LineProps::default().color("tab:blue").linewidth(2.0).label("sin");
 //! ax.plot_with(&x, sin, props)?;
 //! ax.plot_with(&x, cos, LineProps::fmt("--")?.label("cos"))?;
-//! ax.set_xlabel("x").set_ylabel("y").set_xlim(0.0, TAU);
+//! ax.set_xlabel("x").set_ylabel("y").set_xlim(0.0, TAU)?;
 //! ax.set_title("Waves");
 //! let legend = ax.legend(LegendOptions::default().loc("upper right"))?;
 //! assert_eq!(legend.labels(), ["sin", "cos"]);

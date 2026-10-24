@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn limits_and_autoscale_state_propagate() {
         let (_fig, a, b) = pair();
-        b.set_xlim(2.0, 3.0);
+        b.set_xlim(2.0, 3.0).expect("finite limits");
         assert_eq!(a.xlim(), (2.0, 3.0));
         a.plot([0.0, 10.0], [0.0, 1.0]).unwrap();
         assert_eq!(
@@ -341,7 +341,7 @@ mod tests {
             (2.0, 3.0),
             "explicit limits switch autoscaling off"
         );
-        a.set_xlim(5.0, 4.0);
+        a.set_xlim(5.0, 4.0).expect("finite limits");
         assert!(b.xaxis().inverted());
     }
 
@@ -349,12 +349,12 @@ mod tests {
     fn singular_and_invalid_log_limits_are_fixed_up() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(1.0, 1.0);
+        ax.set_xlim(1.0, 1.0).expect("finite limits");
         let (low, high) = ax.xlim();
         assert!(low < 1.0 && high > 1.0);
         ax.set_yscale("log").unwrap();
-        ax.set_ylim(10.0, 100.0);
-        ax.set_ylim(-1.0, 1000.0);
+        ax.set_ylim(10.0, 100.0).expect("finite limits");
+        ax.set_ylim(-1.0, 1000.0).expect("finite limits");
         assert_eq!(ax.ylim(), (10.0, 1000.0));
     }
 
@@ -364,7 +364,7 @@ mod tests {
         b.set_xscale("log").unwrap();
         assert_eq!(a.xscale(), "log");
         a.set_xscale("linear").unwrap();
-        a.set_xlim(0.0, 10.0);
+        a.set_xlim(0.0, 10.0).expect("finite limits");
         b.xaxis()
             .set_major_locator(MultipleLocator::new(5.0).unwrap());
         let locs = |ax: &Axes| -> Vec<f64> {
@@ -382,7 +382,9 @@ mod tests {
     #[test]
     fn sharing_errors() {
         let (fig, a, b) = pair();
-        let c = fig.add_axes([0.1, 0.1, 0.2, 0.2]);
+        let c = fig
+            .add_axes([0.1, 0.1, 0.2, 0.2])
+            .expect("a valid rectangle");
         c.share_x(&a).unwrap();
         assert!(
             c.share_x(&a).is_ok(),
@@ -417,10 +419,14 @@ mod tests {
     #[test]
     fn shared_locators_measure_the_axis_they_are_bound_to() {
         let fig = Figure::with_size(6.0, 4.0, 100.0);
-        let wide = fig.add_axes([0.1, 0.55, 0.8, 0.4]);
-        let narrow = fig.add_axes([0.1, 0.1, 0.1, 0.4]);
+        let wide = fig
+            .add_axes([0.1, 0.55, 0.8, 0.4])
+            .expect("a valid rectangle");
+        let narrow = fig
+            .add_axes([0.1, 0.1, 0.1, 0.4])
+            .expect("a valid rectangle");
         narrow.share_x(&wide).unwrap();
-        wide.set_xlim(0.0, 24.0);
+        wide.set_xlim(0.0, 24.0).expect("finite limits");
         let locs = |ax: &Axes| -> Vec<f64> {
             ax.ticks(AxisName::X)
                 .unwrap()

@@ -159,7 +159,7 @@ fn stairs_demo_1(fig: &Figure) -> CaseResult {
     axs[(2, 0)]
         .add_patch(patch)
         .set_label("Patch derived underlying object\nwith default edge/facecolor behaviour");
-    axs[(2, 0)].set_xlim(0.0, 7.0).set_ylim(-1.0, 5.0);
+    axs[(2, 0)].set_xlim(0.0, 7.0)?.set_ylim(-1.0, 5.0)?;
     axs[(2, 0)].set_title("StepPatch artist");
     for ax in axs.as_slice() {
         ax.legend(LegendOptions::default())?;

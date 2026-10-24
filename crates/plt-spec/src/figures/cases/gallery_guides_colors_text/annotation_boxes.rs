@@ -260,7 +260,7 @@ fn annotations_23(fig: &Figure) -> CaseResult {
         Coords::blended(Coords::Data, "axes fraction".parse()?),
     )?;
     ax.axvline(0.5, LineProps::default().color("lightgray"));
-    ax.set_xlim(0.0, 2.0).set_ylim(1.0, 2.0);
+    ax.set_xlim(0.0, 2.0)?.set_ylim(1.0, 2.0)?;
     Ok(())
 }
 

@@ -3,8 +3,12 @@ use crate::figure::Figure;
 
 fn axes_with_limits(x: (f64, f64), y: (f64, f64)) -> (Figure, Axes) {
     let fig = Figure::new();
-    let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
-    ax.set_xlim(x.0, x.1).set_ylim(y.0, y.1);
+    let ax = fig
+        .add_axes([0.125, 0.11, 0.775, 0.77])
+        .expect("a valid rectangle");
+    ax.set_xlim(x.0, x.1)
+        .and_then(|ax| ax.set_ylim(y.0, y.1))
+        .expect("finite limits");
     (fig, ax)
 }
 

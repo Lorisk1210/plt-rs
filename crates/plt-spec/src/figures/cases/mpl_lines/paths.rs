@@ -60,7 +60,7 @@ fn path_clipping(fig: &Figure) -> CaseResult {
     ];
     for (i, corners) in polygons.into_iter().enumerate() {
         let ax = fig.add_subplot(4, 2, i + 1)?;
-        ax.set_xlim(0.0, 640.0).set_ylim(140.0, 400.0);
+        ax.set_xlim(0.0, 640.0)?.set_ylim(140.0, 400.0)?;
         ax.add_patch(Polygon::new(corners.map(|(x, y)| Point::new(x, y)), true))
             .set_facecolor("none")
             .set_edgecolor("red");
@@ -82,7 +82,7 @@ fn semi_log_with_zero(fig: &Figure) -> CaseResult {
         .markeredgecolor(plt::rc::ColorOrAuto::Color("k".into()));
     ax.plot_with(&x, y, props)?;
     ax.set_yscale("log")?;
-    ax.set_ylim(1e-7, 1.0);
+    ax.set_ylim(1e-7, 1.0)?;
     ax.grid(true);
     Ok(())
 }
@@ -120,7 +120,7 @@ fn marker_paths(fig: &Figure) -> CaseResult {
             ..plt::axes::ErrorbarOptions::default()
         },
     )?;
-    ax.set_xlim(-1.0, 7.0).set_ylim(-1.0, 7.0);
+    ax.set_xlim(-1.0, 7.0)?.set_ylim(-1.0, 7.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

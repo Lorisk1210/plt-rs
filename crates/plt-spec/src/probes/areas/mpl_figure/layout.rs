@@ -120,7 +120,7 @@ pub(super) fn tightbbox(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0).map_err(ProbeError::rejected)?;
         let text = ax.text(1.0, 0.5, "This dangles over end");
         let axes_x1 = || ax.tight_bbox(false).map_or(f64::NAN, |b| b.x1());
         let text_x1 = text.window_extent().map_or(f64::NAN, |b| b.x1());

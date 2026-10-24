@@ -53,7 +53,7 @@ fn axes_zoom_effect(fig: &Figure) -> CaseResult {
     let axs = fig.subplot_mosaic(&mosaic, MosaicOptions::default())?;
     let axes = |name: &str| axs.get(name).ok_or("a mosaic cell");
     let (zoom1, zoom2, main) = (axes("zoom1")?, axes("zoom2")?, axes("main")?);
-    main.set_xlim(0.0, 5.0);
+    main.set_xlim(0.0, 5.0)?;
     let span = Bbox::from_extents(0.2, 0.0, 0.8, 1.0);
     zoom_effect(
         zoom1,
@@ -61,7 +61,7 @@ fn axes_zoom_effect(fig: &Figure) -> CaseResult {
         &BboxSource::transformed(span, zoom1.trans_xaxis()),
         &BboxSource::transformed(span, main.trans_xaxis()),
     );
-    zoom2.set_xlim(2.0, 3.0);
+    zoom2.set_xlim(2.0, 3.0)?;
     let limits_on_main = zoom2
         .trans_data()
         .then(zoom2.trans_axes().inverted())
@@ -86,7 +86,7 @@ fn zoom_inset_axes(fig: &Figure) -> CaseResult {
     };
     ax.imshow(z2.clone(), image())?;
     let axins = ax.inset_axes([0.5, 0.5, 0.47, 0.47]);
-    axins.set_xlim(-1.5, -0.9).set_ylim(-2.5, -1.9);
+    axins.set_xlim(-1.5, -0.9)?.set_ylim(-2.5, -1.9)?;
     axins.set_xticklabels(Vec::<String>::new())?;
     axins.set_yticklabels(Vec::<String>::new())?;
     axins.imshow(z2, image())?;
@@ -107,8 +107,8 @@ fn broken_axis(fig: &Figure) -> CaseResult {
     })?;
     ax1.plot_y(&pts);
     ax2.plot_y(&pts);
-    ax1.set_ylim(0.78, 1.0);
-    ax2.set_ylim(0.0, 0.22);
+    ax1.set_ylim(0.78, 1.0)?;
+    ax2.set_ylim(0.0, 0.22)?;
     ax1.spines().get(SpineSide::Bottom).set_visible(false);
     ax2.spines().get(SpineSide::Top).set_visible(false);
     ax1.xaxis().tick_to(SpineSide::Top)?;
@@ -152,7 +152,7 @@ fn axhspan_demo(fig: &Figure) -> CaseResult {
     let s = map(&smoothed[window.len() - 1..500], |v| 2.9 * v);
     ax1.plot_y(&s);
     ax1.axhspan(-1.0, 1.0).set_alpha(Some(0.1));
-    ax1.set_ylim(-1.5, 1.5);
+    ax1.set_ylim(-1.5, 1.5)?;
     ax1.set_title("axhspan");
     let (mu, sigma) = (8.0, 2.0);
     let x = linspace(0.0, 16.0, 401);

@@ -27,7 +27,7 @@ fn axes_x_data_y() -> Result<Coords, Box<dyn Error>> {
 }
 
 pub(super) fn text(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     let xy = (0.5, 0.7);
     ax.plot_fmt([xy.0], [xy.1], ".r")?;
     ax.add_annotation_bbox(
@@ -96,7 +96,7 @@ pub(super) fn text(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn image(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     let xy = (0.3, 0.55);
     ax.plot_fmt([xy.0], [xy.1], "o")?.set_color("tab:red");
     let counts = Grid::from_fn(10, 10, |r, c| i64::try_from(r * 10 + c).unwrap_or(0));
@@ -153,7 +153,7 @@ pub(super) fn image(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn drawing_area(fig: &Figure) -> CaseResult {
-    let ax = unit_axes(fig);
+    let ax = unit_axes(fig)?;
     let xy = (0.6, 0.4);
     ax.plot_fmt([xy.0], [xy.1], "s")?.set_color("k");
     let disc = DrawingArea::new(20.0, 20.0, 0.0, 0.0).with_artist(BoxItem::patch(

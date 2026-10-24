@@ -183,7 +183,9 @@ fn build(ax: &Axes, scene: &str) -> Result<(), ProbeError> {
             let (x, y) = (&X_EDGES[..8], &Y_EDGES[..6]);
             ax.nonuniform_image(x, y, grid(field), NonUniformOptions::default())
                 .map_err(ProbeError::rejected)?;
-            ax.set_xlim(-1.0, 10.0).set_ylim(-1.0, 9.0);
+            ax.set_xlim(-1.0, 10.0)
+                .and_then(|ax| ax.set_ylim(-1.0, 9.0))
+                .map_err(ProbeError::rejected)?;
         }
         _ => return Err(ProbeError::BadArgs(format!("unknown scene {scene:?}"))),
     }

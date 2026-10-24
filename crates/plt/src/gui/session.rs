@@ -287,8 +287,12 @@ mod tests {
     /// A session showing a 400 × 300 figure with one axes over [0, 10]².
     fn shown() -> (Session, HeadlessHandle, Figure, WindowId) {
         let figure = Figure::with_size(4.0, 3.0, 100.0);
-        let ax = figure.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = figure
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let (mut session, handle) = Session::headless();
         session
             .show(&[(figure.clone(), "Figure 1".to_owned())])

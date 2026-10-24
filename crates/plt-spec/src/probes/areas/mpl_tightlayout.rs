@@ -80,7 +80,9 @@ fn collapsed() -> Outcome {
     fig.set_layout_engine(LayoutEngine::tight())
         .map_err(ProbeError::rejected)?;
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1.0))
+        .map_err(ProbeError::rejected)?;
     let options = AnnotateOptions {
         xytext: Some((10.5, 1.75).into()),
         annotation_clip: Some(false),

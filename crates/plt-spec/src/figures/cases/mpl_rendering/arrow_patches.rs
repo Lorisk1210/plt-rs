@@ -117,7 +117,7 @@ fn boxarrow_adjustment(fig: &Figure) -> CaseResult {
 /// depend on the resolution.
 fn fancyarrow_dpi_cor(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     let arrow = FancyArrowPatch::between((0.3, 0.4), (0.8, 0.6))
         .with_arrowstyle("->".parse()?)
         .with_mutation_scale(100.0);
@@ -159,8 +159,8 @@ const ARROW_STYLES: [&str; 16] = [
 /// tilted brackets.
 fn arrow_styles(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0)
-        .set_ylim(-1.0, ARROW_STYLES.len() as f64);
+    ax.set_xlim(0.0, 1.0)?
+        .set_ylim(-1.0, ARROW_STYLES.len() as f64)?;
     fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
         left: Some(0.0),
         right: Some(1.0),
@@ -200,7 +200,7 @@ fn arrow_styles(fig: &Figure) -> CaseResult {
 fn connection_styles(fig: &Figure) -> CaseResult {
     let styles = ["angle", "angle3", "arc", "arc3", "bar"];
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0).set_ylim(-1.0, styles.len() as f64);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(-1.0, styles.len() as f64)?;
     for (i, style) in styles.into_iter().enumerate() {
         let y = i as f64;
         let patch = FancyArrowPatch::between((0.1, y), (0.8, y + 0.5))

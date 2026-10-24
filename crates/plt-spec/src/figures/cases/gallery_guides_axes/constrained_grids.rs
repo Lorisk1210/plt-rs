@@ -167,7 +167,7 @@ fn colorbar_title(fig: &Figure, layout: LayoutEngine, title: &str, zoom: bool) -
         ImshowOptions::default().cmap(colormaps::get("viridis")?),
     )?;
     if zoom {
-        ax.set_ylim(4.0, 8.0);
+        ax.set_ylim(4.0, 8.0)?;
     }
     ax.set_title(title).set_fontsize(RelativeSize::Medium);
     fig.colorbar(&pcm, ColorbarOptions::beside(&ax))?;

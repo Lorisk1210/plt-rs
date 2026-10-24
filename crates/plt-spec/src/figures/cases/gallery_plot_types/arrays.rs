@@ -54,7 +54,7 @@ fn barbs(fig: &Figure) -> CaseResult {
         ..BarbsOptions::default()
     };
     ax.barbs(VectorField::new(x.as_slice(), y.as_slice(), u, v), options)?;
-    ax.set_xlim(0.0, 4.5).set_ylim(0.0, 4.5);
+    ax.set_xlim(0.0, 4.5)?.set_ylim(0.0, 4.5)?;
     Ok(())
 }
 
@@ -126,7 +126,7 @@ fn quiver(fig: &Figure) -> CaseResult {
         ..QuiverOptions::default()
     };
     ax.quiver(VectorField::new(x.as_slice(), y.as_slice(), u, v), options)?;
-    ax.set_xlim(-5.0, 5.0).set_ylim(-5.0, 5.0);
+    ax.set_xlim(-5.0, 5.0)?.set_ylim(-5.0, 5.0)?;
     Ok(())
 }
 

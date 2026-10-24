@@ -80,15 +80,16 @@ fn agg_text_clip(fig: &Figure) -> CaseResult {
 }
 
 /// `test_font_scaling`: every even font size from 4 to 42 pt.
-fn font_scaling(fig: &Figure) {
+fn font_scaling(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.xaxis().set_major_locator(NullLocator);
     ax.yaxis().set_major_locator(NullLocator);
-    ax.set_ylim(-10.0, 600.0);
+    ax.set_ylim(-10.0, 600.0)?;
     for (i, size) in (4..43).step_by(2).enumerate() {
         ax.text(0.1, (i * 30) as f64, format!("{size} pt font size"))
             .set_fontsize(f64::from(size));
     }
+    Ok(())
 }
 
 /// A text of the opacity tests: height, text, colour and alpha.
@@ -202,12 +203,9 @@ pub(super) const CASES: &[FigureCase] = &[
         negative_fig_coords,
     ),
     FigureCase::new("mpl_text/agg_text_clip", agg_text_clip),
-    FigureCase::new("mpl_text/font_scaling", |fig| {
-        font_scaling(fig);
-        Ok(())
-    })
-    .sized(6.4, 12.4, 100.0)
-    .with_rc(&[("pdf.fonttype", "42")]),
+    FigureCase::new("mpl_text/font_scaling", font_scaling)
+        .sized(6.4, 12.4, 100.0)
+        .with_rc(&[("pdf.fonttype", "42")]),
     classic("mpl_text/text_as_path_opacity", |fig| {
         opacity(fig, PATH_OPACITY);
         Ok(())

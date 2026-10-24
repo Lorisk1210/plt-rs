@@ -79,7 +79,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("text/mathtext_mixed_sizes", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.set_axis_off();
         for (i, size) in [8, 12, 18, 26].into_iter().enumerate() {
             ax.text(
@@ -94,7 +94,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("text/unicode", |fig| {
-        let ax = blank(fig);
+        let ax = blank(fig)?;
         ax.set_axis_off();
         let lines = [
             (8.5, "Greek: αβγδε ΓΔΘΛΞΠΣΦΨΩ"),

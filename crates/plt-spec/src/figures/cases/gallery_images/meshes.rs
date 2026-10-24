@@ -164,8 +164,8 @@ fn grid_mesh(
         yy.as_slice(),
         LineProps::fmt("o")?.color("m"),
     )?;
-    ax.set_xlim(-0.7, 5.2);
-    ax.set_ylim(-0.7, 3.2);
+    ax.set_xlim(-0.7, 5.2)?;
+    ax.set_ylim(-0.7, 3.2)?;
     ax.set_title(title);
     Ok(())
 }

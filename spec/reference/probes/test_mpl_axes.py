@@ -400,6 +400,14 @@ Ops
     inset axes and whether it is a child axes (``test_inset_projection``).
 ``Axes.redraw_in_frame``  {} -> ``true`` once ``redraw_in_frame`` follows a
     draw (``test_redraw_in_frame``).
+``Axes.set_xlim``  {left, right} -> the x limits after ``set_xlim(left,
+    right)``, or the error of a NaN or infinite limit (the value errors of
+    ``test_invalid_axis_limits``, whose probes in area ``axes_behaviour``
+    give a single limit).
+``Figure.add_axes``  {rect} -> the position bounds of ``add_axes(rect)``,
+    or the error of a rectangle with a NaN entry or a negative width
+    (``test_invalid_figure_add_axes`` in ``test_figure.py``, its value
+    errors).
 
 Covered elsewhere: ``test_get_labels``, ``test_label_shift``,
 ``test_twinx_cla``, ``test_twin_inherit_autoscale_setting``,
@@ -3017,3 +3025,23 @@ def _redraw_in_frame():
 
 def test_redraw_in_frame():
     probe("Axes.redraw_in_frame", _redraw_in_frame)
+
+
+def _set_xlim(left, right):
+    ax = _axes()
+    ax.set_xlim(left, right)
+    return list(ax.get_xlim())
+
+
+def test_set_xlim_non_finite():
+    for left, right in [(2, 5), (float("nan"), 1), (1, float("inf"))]:
+        probe("Axes.set_xlim", _set_xlim, left=left, right=right)
+
+
+def _add_axes(rect):
+    return list(_figure().add_axes(rect).get_position().bounds)
+
+
+def test_add_axes_invalid_rect():
+    for rect in [[0.25, 0.25, 0.5, 0.5], [float("nan"), 0, 1, 1], [0, 0, -1, 1]]:
+        probe("Figure.add_axes", _add_axes, rect=rect)

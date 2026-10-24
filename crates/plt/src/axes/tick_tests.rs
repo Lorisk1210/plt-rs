@@ -17,8 +17,12 @@ use crate::testing::{Call, RecordingRenderer};
 use crate::ticker::MultipleLocator;
 
 fn axes() -> super::Axes {
-    let ax = Figure::new().add_axes([0.125, 0.11, 0.775, 0.77]);
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 1000.0);
+    let ax = Figure::new()
+        .add_axes([0.125, 0.11, 0.775, 0.77])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1000.0))
+        .expect("finite limits");
     ax
 }
 
@@ -40,7 +44,7 @@ fn negative_tick_label_rotations_lay_out_like_their_positive_equivalents() {
     let extent = |rotation: f64| {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_ylim(0.0, 1000.0);
+        ax.set_ylim(0.0, 1000.0).expect("finite limits");
         ax.tick_params(&TickParams {
             axis: Some(AxisName::Y),
             labelrotation: Some(rotation),
@@ -229,7 +233,7 @@ fn ticklocs_and_labels_reach_beyond_the_view() {
     // matplotlib's test_tick_label_update: labels of every located tick.
     let ax = axes();
     ax.set_xticks(vec![-1.0, 0.0, 1.0, 2.0, 3.0]);
-    ax.set_xlim(-0.5, 2.5);
+    ax.set_xlim(-0.5, 2.5).expect("finite limits");
     ax.xaxis()
         .set_ticklabels(["", "", "unit value", "", ""])
         .unwrap();
@@ -320,7 +324,7 @@ fn a_single_major_tick_label_takes_its_own_properties() {
     let fig = Figure::with_size(4.0, 3.0, 100.0);
     let ax = fig.subplot();
     ax.set_xticks(vec![-1.0, 0.0, 1.0, 2.0, 3.0]);
-    ax.set_xlim(-0.5, 2.5);
+    ax.set_xlim(-0.5, 2.5).expect("finite limits");
     let red = Rgba::opaque(1.0, 0.0, 0.0);
     ax.xaxis().set_major_ticklabel_props(
         2,

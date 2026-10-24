@@ -240,7 +240,7 @@ fn norm_change(fig: &Figure) -> CaseResult {
         )?;
         image.set_norm(Box::new(Normalize::new(-2.0, 2.0)));
     }
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     Ok(())
 }
 

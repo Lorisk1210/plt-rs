@@ -366,8 +366,12 @@ mod tests {
     fn huge_arcs_are_drawn_where_they_cross_the_axes() {
         use crate::artist::ArtistHandle;
         let fig = crate::figure::Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
-        ax.set_xlim(-1.0, 1.0).set_ylim(1e6 - 1.0, 1e6 + 1.0);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
+        ax.set_xlim(-1.0, 1.0)
+            .and_then(|ax| ax.set_ylim(1e6 - 1.0, 1e6 + 1.0))
+            .expect("finite limits");
         // A circle of radius 1e6 around the origin: only its top shows.
         let arc = ax.add_patch(Arc::new((0.0, 0.0), 2e6, 2e6));
         let extent = arc.window_extent().expect("visible");

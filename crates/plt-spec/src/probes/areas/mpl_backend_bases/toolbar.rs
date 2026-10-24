@@ -250,7 +250,9 @@ fn events_scene(fig: &Figure, args: Args<'_>) -> Result<[Axes; 4], ProbeError> {
         other => return Err(ProbeError::BadArgs(format!("unknown pairing {other}"))),
     };
     for ax in [&top, &bottom] {
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .map_err(ProbeError::rejected)?;
     }
     Ok([bottom, top, bottom_twin, top_twin])
 }

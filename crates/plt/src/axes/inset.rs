@@ -28,9 +28,10 @@ impl Axes {
     /// let fig = Figure::new();
     /// let ax = fig.subplot();
     /// let inset = ax.inset_axes([0.6, 0.6, 0.35, 0.3]);
-    /// inset.set_xlim(1.0, 2.0);
+    /// inset.set_xlim(1.0, 2.0)?;
     /// assert_eq!(fig.axes(), [ax]);
     /// assert_eq!(inset.zorder(), 5.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     pub fn inset_axes(&self, bounds: [f64; 4]) -> Self {
@@ -51,12 +52,13 @@ impl Axes {
     /// use plt::prelude::*;
     /// let fig = Figure::new();
     /// let ax = fig.subplot();
-    /// ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    /// ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
     /// let inset = ax.inset_axes_in([5.0, 5.0, 5.0, 2.5], ax.trans_data());
     /// let (x, y, width, height) = inset.position().bounds();
     /// let (px, py, pwidth, pheight) = ax.position().bounds();
     /// assert!((x - (px + 0.5 * pwidth)).abs() < 1e-12 && (width - 0.5 * pwidth).abs() < 1e-12);
     /// assert!((y - (py + 0.5 * pheight)).abs() < 1e-12 && (height - 0.25 * pheight).abs() < 1e-12);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
     pub fn inset_axes_in(&self, bounds: [f64; 4], transform: Transform) -> Self {
@@ -108,7 +110,9 @@ mod tests {
     fn insets_follow_the_parent_box() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 2.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 2.0)
+            .and_then(|ax| ax.set_ylim(0.0, 1.0))
+            .expect("finite limits");
         let inset = ax.inset_axes([0.1, 0.9, 0.8, 0.05]);
         ax.set_aspect(Aspect::Equal).unwrap();
         fig.layout();
@@ -125,10 +129,15 @@ mod tests {
         // matplotlib's test_zoom_inset.
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(1.0, 5.0).set_ylim(1.0, 5.0);
+        ax.set_xlim(1.0, 5.0)
+            .and_then(|ax| ax.set_ylim(1.0, 5.0))
+            .expect("finite limits");
         ax.set_aspect(Aspect::Equal).unwrap();
         let inset = ax.inset_axes([0.7, 0.7, 0.35, 0.35]);
-        inset.set_xlim(1.5, 2.15).set_ylim(2.0, 2.5);
+        inset
+            .set_xlim(1.5, 2.15)
+            .and_then(|ax| ax.set_ylim(2.0, 2.5))
+            .expect("finite limits");
         inset.set_aspect(Aspect::Equal).unwrap();
         fig.layout();
         let expected = [

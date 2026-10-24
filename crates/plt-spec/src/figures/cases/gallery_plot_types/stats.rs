@@ -4,7 +4,7 @@
 
 use plt::axes::{
     BoxStyle, BoxplotOptions, BxpOptions, EcdfOptions, ErrorSize, EventplotOptions, HexGridSize,
-    HexbinOptions, Hist2dOptions, HistPlotOptions, PieOptions, ViolinDrawOptions,
+    HexbinOptions, Hist2dOptions, HistPlotOptions, PieOptions, PlotError, ViolinDrawOptions,
     ViolinplotOptions,
 };
 use plt::colors::colormaps;
@@ -39,8 +39,9 @@ fn correlated() -> (Vec<f64>, Vec<f64>) {
 }
 
 /// The view of the two-dimensional histograms.
-fn correlated_view(ax: &Axes) {
-    ax.set_xlim(-2.0, 2.0).set_ylim(-3.0, 3.0);
+fn correlated_view(ax: &Axes) -> Result<(), PlotError> {
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-3.0, 3.0)?;
+    Ok(())
 }
 
 /// `color` lines `width` points wide.
@@ -77,7 +78,7 @@ fn boxplot_plot(fig: &Figure) -> CaseResult {
         ..BoxplotOptions::default()
     };
     ax.boxplot(&data, options)?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -97,7 +98,7 @@ fn errorbar_plot(fig: &Figure) -> CaseResult {
         ..ErrorbarOptions::default()
     };
     ax.errorbar(POSITIONS, [3.6, 5.0, 4.2], options)?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -112,7 +113,7 @@ fn eventplot(fig: &Figure) -> CaseResult {
         ..EventplotOptions::default()
     };
     ax.eventplot(&data, options)?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -124,7 +125,7 @@ fn hexbin(fig: &Figure) -> CaseResult {
         ..HexbinOptions::default()
     };
     ax.hexbin(&x, &y, options)?;
-    correlated_view(&ax);
+    correlated_view(&ax)?;
     Ok(())
 }
 
@@ -140,7 +141,7 @@ fn hist2d(fig: &Figure) -> CaseResult {
         ..Hist2dOptions::default()
     };
     ax.hist2d(&x, &y, options)?;
-    correlated_view(&ax);
+    correlated_view(&ax)?;
     Ok(())
 }
 
@@ -155,8 +156,8 @@ fn hist_plot(fig: &Figure) -> CaseResult {
         ..HistPlotOptions::default()
     };
     ax.hist(&[spread_sample()], options)?;
-    ax.set_xlim(0.0, 8.0).set_xticks(arange(1.0, 8.0, 1.0));
-    ax.set_ylim(0.0, 56.0).set_yticks(linspace(0.0, 56.0, 9));
+    ax.set_xlim(0.0, 8.0)?.set_xticks(arange(1.0, 8.0, 1.0));
+    ax.set_ylim(0.0, 56.0)?.set_yticks(linspace(0.0, 56.0, 9));
     Ok(())
 }
 
@@ -176,7 +177,7 @@ fn pie(fig: &Figure) -> CaseResult {
         ..PieOptions::default()
     };
     ax.pie(&x, options)?;
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 
@@ -202,7 +203,7 @@ fn violin(fig: &Figure) -> CaseResult {
     for body in &ax.violinplot(&data, options)?.bodies {
         body.set_alpha(Some(0.9));
     }
-    unit_square(&ax);
+    unit_square(&ax)?;
     Ok(())
 }
 

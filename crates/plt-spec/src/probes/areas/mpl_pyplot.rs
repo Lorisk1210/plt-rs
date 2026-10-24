@@ -265,8 +265,8 @@ fn axes(_: Args<'_>) -> Outcome {
             (ProjectionKind::Polar, ProjectionKind::Rectilinear),
         ] {
             pyplot::figure();
-            let ax = pyplot::axes_with_projection(None, first);
-            let ax1 = pyplot::axes_with_projection(None, second);
+            let ax = pyplot::axes_with_projection(None, first).map_err(ProbeError::rejected)?;
+            let ax1 = pyplot::axes_with_projection(None, second).map_err(ProbeError::rejected)?;
             seen.extend([yes(ax1 != ax), name(&ax1)]);
             pyplot::close();
         }

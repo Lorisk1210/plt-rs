@@ -256,8 +256,9 @@ impl Axes {
     ///
     /// When the values are negative, non-finite or all zero, unnormalised
     /// values sum above 1, the radius is not positive, `labels` or
-    /// `explode` do not match the values, `autopct` is invalid, or the
-    /// shadow's shade is outside `[0, 1]`.
+    /// `explode` do not match the values, `autopct` is invalid, the
+    /// shadow's shade is outside `[0, 1]`, or, without a frame, the centre
+    /// is not finite.
     pub fn pie(&self, values: &[f64], options: PieOptions) -> Result<PieContainer, PlotError> {
         self.set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
@@ -329,8 +330,8 @@ impl Axes {
             self.set_frame_on(false);
             self.set_xticks(Vec::<f64>::new())
                 .set_yticks(Vec::<f64>::new());
-            self.set_xlim(-1.25 + cx, 1.25 + cx)
-                .set_ylim(-1.25 + cy, 1.25 + cy);
+            self.set_xlim(-1.25 + cx, 1.25 + cx)?
+                .set_ylim(-1.25 + cy, 1.25 + cy)?;
         }
         Ok(PieContainer {
             wedges,

@@ -23,7 +23,7 @@ fn arranging_axes_1(fig: &Figure) -> CaseResult {
         margin / h,
         (w - 2.0 * margin) / w,
         (h - 2.0 * margin) / h,
-    ]);
+    ])?;
     Ok(())
 }
 

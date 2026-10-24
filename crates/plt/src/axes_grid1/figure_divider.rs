@@ -47,12 +47,12 @@ impl std::error::Error for DividerError {}
 /// let horizontal = vec![Size::Fixed(1.0), Size::Fixed(4.5)];
 /// let vertical = vec![Size::Fixed(0.7), Size::Fixed(5.0)];
 /// let divider = Divider::new(&fig, [0.0, 0.0, 1.0, 1.0], horizontal, vertical, false);
-/// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+/// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
 /// divider.place(&ax, 1, 1)?;
 /// let (x, y, w, h) = ax.position().bounds();
 /// assert!((x - 1.0 / 6.0).abs() < 1e-12 && (w - 0.75).abs() < 1e-12);
 /// assert!((y - 0.7 / 6.0).abs() < 1e-12 && (h - 5.0 / 6.0).abs() < 1e-12);
-/// # Ok::<(), plt::axes_grid1::DividerError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Clone, Debug)]
 pub struct Divider {
@@ -256,8 +256,8 @@ mod tests {
         let vertical = vec![Size::Scaled(1.0), Size::Fixed(0.5), Size::Scaled(1.5)];
         let rect = [0.1, 0.1, 0.8, 0.8];
         let divider = Divider::new(&fig, rect, horizontal, vertical, false);
-        let corner = fig.add_axes(rect);
-        let wide = fig.add_axes(rect);
+        let corner = fig.add_axes(rect).expect("a valid rectangle");
+        let wide = fig.add_axes(rect).expect("a valid rectangle");
         divider.place(&corner, 0, 2).unwrap();
         divider.place_spanning(&wide, 2..4, 0..1).unwrap();
         assert_close(bounds(&corner), [0.1, 0.47, 0.358_333, 0.43]);
@@ -269,11 +269,17 @@ mod tests {
         let fig = Figure::new();
         let spec = GridSpec::new(1, 1).unwrap().cell(0, 0).unwrap();
         let (ax1, ax2) = (
-            fig.add_axes([0.0, 0.0, 1.0, 1.0]),
-            fig.add_axes([0.0, 0.0, 1.0, 1.0]),
+            fig.add_axes([0.0, 0.0, 1.0, 1.0])
+                .expect("a valid rectangle"),
+            fig.add_axes([0.0, 0.0, 1.0, 1.0])
+                .expect("a valid rectangle"),
         );
-        ax1.set_xlim(-0.5, 4.5).set_ylim(3.5, -0.5);
-        ax2.set_xlim(-0.5, 3.5).set_ylim(4.5, -0.5);
+        ax1.set_xlim(-0.5, 4.5)
+            .and_then(|ax| ax.set_ylim(3.5, -0.5))
+            .expect("finite limits");
+        ax2.set_xlim(-0.5, 3.5)
+            .and_then(|ax| ax.set_ylim(4.5, -0.5))
+            .expect("finite limits");
         let horizontal = vec![
             Size::axes_x(ax1.id()),
             Size::Fixed(0.5),

@@ -22,7 +22,7 @@ pub(super) fn basic_annotate(fig: &Figure) -> CaseResult {
     let s: Vec<f64> = t.iter().map(|t| (2.0 * PI * t).cos()).collect();
     let ax = fig.subplot();
     ax.set_autoscale_on(false);
-    ax.set_xlim(-1.0, 5.0).set_ylim(-3.0, 5.0);
+    ax.set_xlim(-1.0, 5.0)?.set_ylim(-3.0, 5.0)?;
     ax.plot_with(t, s, LineProps::default().linewidth(3.0).color("purple"))?;
     let options = AnnotateOptions {
         xytext: Some(Point::new(3.0, 3.0)),
@@ -49,7 +49,7 @@ pub(super) fn arrow_simple(fig: &Figure) -> CaseResult {
     for (i, (ax, (length_includes_head, shape, head_starts_at_zero))) in
         axs.as_slice().iter().zip(kwargs).enumerate()
     {
-        ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+        ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
         let theta = 2.0 * PI * i as f64 / 12.0;
         ax.arrow(FancyArrow {
             width: theta / 100.0,
@@ -136,7 +136,7 @@ pub(super) fn arc_angles(fig: &Figure) -> CaseResult {
         let start = polar_point(centre, scale, theta1);
         let end = polar_point(centre, scale, theta2);
         ax.plot([start.0, centre.0, end.0], [start.1, centre.1, end.1])?;
-        ax.set_xlim(-scale, scale).set_ylim(-scale, scale);
+        ax.set_xlim(-scale, scale)?.set_ylim(-scale, scale)?;
         w *= 10.0;
         h *= 10.0;
         centre = (centre.0 * 10.0, centre.1 * 10.0);

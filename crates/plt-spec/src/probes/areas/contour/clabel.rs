@@ -61,7 +61,7 @@ pub(super) fn contour_in(args: Args<'_>, filled: bool) -> Result<ContourSet, Pro
         return Err(ProbeError::BadArgs("bad figure geometry".into()));
     };
     let fig = Figure::with_size(w, h, args.f64("dpi")?);
-    let ax = fig.add_axes([l, b, rw, rh]);
+    let ax = fig.add_axes([l, b, rw, rh]).map_err(ProbeError::rejected)?;
     let z = args
         .json("z")?
         .as_array()
@@ -87,8 +87,8 @@ pub(super) fn contour_in(args: Args<'_>, filled: bool) -> Result<ContourSet, Pro
         ax.contour(&field, options)
     }
     .map_err(ProbeError::rejected)?;
-    ax.set_xlim(x0, x1);
-    ax.set_ylim(y0, y1);
+    ax.set_xlim(x0, x1).map_err(ProbeError::rejected)?;
+    ax.set_ylim(y0, y1).map_err(ProbeError::rejected)?;
     Ok(cs)
 }
 

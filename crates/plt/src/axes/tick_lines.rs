@@ -266,7 +266,9 @@ mod tests {
     #[test]
     fn tick_lines_and_gridlines_cover_every_located_tick() {
         let ax = Figure::new().subplot();
-        ax.set_xticks([0.0, 0.5, 1.0]).set_xlim(0.25, 1.0);
+        ax.set_xticks([0.0, 0.5, 1.0])
+            .set_xlim(0.25, 1.0)
+            .expect("finite limits");
         ax.xaxis().set_major_tick_line_props(
             2,
             TickLineProps {

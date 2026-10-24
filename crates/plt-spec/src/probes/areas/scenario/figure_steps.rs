@@ -18,7 +18,7 @@ pub(super) fn call(scene: &Scene, call: &Call<'_>) -> Handled {
         "gca" => Ok(Produced::Object(Object::Axes(fig.gca()))),
         "add_subplot" => add_subplot(scene, call),
         "add_axes" => rect(call).and_then(|rect| {
-            let ax = fig.add_axes(rect);
+            let ax = fig.add_axes(rect).map_err(ProbeError::rejected)?;
             share_from_keywords(scene, &ax, call)?;
             Ok(Produced::Object(Object::Axes(ax)))
         }),

@@ -149,7 +149,7 @@ fn date_demo_convert(fig: &Figure) -> CaseResult {
     let squares: Vec<f64> = (0..dates.len()).map(|i| (i * i) as f64).collect();
     let ax = fig.subplot();
     ax.plot_fmt(dates.clone(), squares, "o")?;
-    ax.set_xlim(dates[0], dates[dates.len() - 1]);
+    ax.set_xlim(dates[0], dates[dates.len() - 1])?;
     ax.xaxis()
         .set_major_locator(RRuleLocator::days(&[], 1)?)
         .set_minor_locator(RRuleLocator::hours(&[0, 6, 12, 18, 24], 1))

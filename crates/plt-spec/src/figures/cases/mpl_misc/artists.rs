@@ -64,7 +64,7 @@ fn agg_filter(fig: &Figure) -> CaseResult {
             .set_agg_filter(Some(shadow.clone()))
             .set_rasterized(true);
     }
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     ax.xaxis().set_visible(false);
     ax.yaxis().set_visible(false);
     remove_text(fig);
@@ -105,7 +105,7 @@ fn agg_filter_alpha(fig: &Figure) -> CaseResult {
 fn skew_rectangle(fig: &Figure) -> CaseResult {
     let axes = fig.subplots_shared(5, 5, Share::All, Share::All)?;
     let axes = axes.as_slice();
-    axes[0].set_xlim(-3.0, 3.0).set_ylim(-3.0, 3.0);
+    axes[0].set_xlim(-3.0, 3.0)?.set_ylim(-3.0, 3.0)?;
     axes[0].set_shared_aspect(Aspect::Equal, Adjustable::Box)?;
     let rotations = [-3.0, -1.0, 0.0, 1.0, 3.0];
     let skews = rotations

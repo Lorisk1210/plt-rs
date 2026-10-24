@@ -186,8 +186,12 @@ mod tests {
     #[test]
     fn ends_in_two_axes_are_joined() {
         let fig = Figure::new();
-        let left = fig.add_axes([0.1, 0.1, 0.3, 0.8]);
-        let right = fig.add_axes([0.6, 0.1, 0.3, 0.8]);
+        let left = fig
+            .add_axes([0.1, 0.1, 0.3, 0.8])
+            .expect("a valid rectangle");
+        let right = fig
+            .add_axes([0.6, 0.1, 0.3, 0.8])
+            .expect("a valid rectangle");
         let link = ConnectionPatch::new(
             ConnectionEnd::new((1.0, 1.0), Coords::Data, Some(left.id())),
             ConnectionEnd::new((0.0, 0.0), Coords::Data, Some(right.id())),
@@ -200,7 +204,9 @@ mod tests {
     #[test]
     fn data_ends_outside_their_axes_hide_the_patch() {
         let fig = Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
         let link = |clip: Option<bool>| ConnectionPatch {
             annotation_clip: clip,
             ..ConnectionPatch::new(

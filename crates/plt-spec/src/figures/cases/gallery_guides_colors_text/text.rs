@@ -131,12 +131,8 @@ const PLACED: [Placed; 10] = [
     },
 ];
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn text_props_1(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     ax.add_patch_with(
         Rectangle::new((LEFT, BOTTOM), RIGHT - LEFT, TOP - BOTTOM),
         PatchProps::default()

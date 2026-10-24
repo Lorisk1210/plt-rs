@@ -110,8 +110,8 @@ fn empty_scatter(
     ax.scatter_with(Vec::<f64>::new(), Vec::<f64>::new(), options)?
         .set_linestyles(vec![linestyle])
         .set_clip_on(false);
-    ax.set_xlim(0.0, 1.0);
-    ax.set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?;
+    ax.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 

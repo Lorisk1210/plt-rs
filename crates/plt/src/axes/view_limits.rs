@@ -109,20 +109,26 @@ impl Axes {
 
     /// Sets the view limits of one axis, and of the axes sharing it, and
     /// turns its autoscaling off (matplotlib's `set_xlim(low, high)`); see
-    /// [`Axes::set_limits_with`]. NaN or infinite limits leave the view
-    /// unchanged.
-    pub fn set_limits(&self, axis: AxisName, low: f64, high: f64) -> &Self {
-        // `set_limits_with` reports non-finite limits; here they are no-ops.
-        self.set_limits_with(axis, Limits::new(low, high)).ok();
-        self
+    /// [`Axes::set_limits_with`].
+    ///
+    /// # Errors
+    ///
+    /// When a limit is NaN or infinite; then the view is unchanged.
+    pub fn set_limits(&self, axis: AxisName, low: f64, high: f64) -> Result<&Self, PlotError> {
+        self.set_limits_with(axis, Limits::new(low, high))?;
+        Ok(self)
     }
 
     /// [`Axes::set_limits`] for a colorbar drawing into this axes: its
     /// own extensions need not follow.
-    pub(crate) fn set_view_limits(&self, axis: AxisName, low: f64, high: f64) -> &Self {
-        self.set_limits_unobserved(axis, Limits::new(low, high))
-            .ok();
-        self
+    pub(crate) fn set_view_limits(
+        &self,
+        axis: AxisName,
+        low: f64,
+        high: f64,
+    ) -> Result<&Self, PlotError> {
+        self.set_limits_unobserved(axis, Limits::new(low, high))?;
+        Ok(self)
     }
 
     /// The view limits of one axis in increasing order, whatever its
@@ -399,8 +405,21 @@ mod tests {
                 Err(PlotError::NonFiniteLimit(AxisName::X))
             );
         }
-        ax.set_xlim(f64::NAN, 3.0);
-        assert_eq!(ax.xlim(), (-0.5, 10.5), "set_xlim ignores them");
+        for (left, right) in [(f64::NAN, 3.0), (1.0, f64::INFINITY)] {
+            assert_eq!(
+                ax.set_xlim(left, right).err(),
+                Some(PlotError::NonFiniteLimit(AxisName::X))
+            );
+        }
+        assert_eq!(
+            ax.set_limits(AxisName::Y, f64::NEG_INFINITY, 1.0).err(),
+            Some(PlotError::NonFiniteLimit(AxisName::Y))
+        );
+        assert_eq!(
+            (ax.xlim(), ax.ylim()),
+            ((-0.5, 10.5), (-0.25, 5.25)),
+            "the view is unchanged"
+        );
     }
 
     #[test]
@@ -408,7 +427,7 @@ mod tests {
         let ax = Figure::new().subplot();
         ax.set_xscale("log").expect("a known scale");
         let before = ax.xlim();
-        ax.set_xlim(-1.0, 10.0);
+        ax.set_xlim(-1.0, 10.0).expect("finite limits");
         assert_eq!(ax.xlim(), (before.0, 10.0));
     }
 

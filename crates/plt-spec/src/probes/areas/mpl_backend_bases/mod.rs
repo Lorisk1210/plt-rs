@@ -154,15 +154,23 @@ fn location_event(args: Args<'_>) -> Outcome {
 fn format_coord(args: Args<'_>) -> Outcome {
     let ax = Figure::new().subplot();
     if let Some(twins) = args.get("twins") {
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 20.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 20.0))
+            .map_err(ProbeError::rejected)?;
         let mut seen = vec![Json::String(ax.format_coord(5.0, 5.0))];
         for twin in twins
             .as_array()
             .ok_or_else(|| ProbeError::BadArgs("twins is not a list".into()))?
         {
             match twin.as_str() {
-                Some("x") => ax.twinx().set_ylim(0.0, 40.0),
-                Some("y") => ax.twiny().set_xlim(0.0, 5.0),
+                Some("x") => ax
+                    .twinx()
+                    .set_ylim(0.0, 40.0)
+                    .map_err(ProbeError::rejected)?,
+                Some("y") => ax
+                    .twiny()
+                    .set_xlim(0.0, 5.0)
+                    .map_err(ProbeError::rejected)?,
                 _ => return Err(ProbeError::BadArgs(format!("unknown twin {twin}"))),
             };
             seen.push(Json::String(ax.format_coord(5.0, 5.0)));

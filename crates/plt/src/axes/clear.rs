@@ -179,7 +179,7 @@ mod tests {
         // Back at the unit box, the view counts as untouched (matplotlib's
         // `viewLim.mutatedy()`), so a log scale picks its default limits.
         let ax = Figure::new().subplot();
-        ax.set_ylim(2.0, 3.0);
+        ax.set_ylim(2.0, 3.0).expect("finite limits");
         ax.clear();
         ax.set_yscale("log").unwrap();
         let (low, high) = ax.ylim();
@@ -212,10 +212,10 @@ mod tests {
         let top = fig.add_subplot(2, 1, 1).unwrap();
         let bottom = fig.add_subplot(2, 1, 2).unwrap();
         bottom.share_x(&top).unwrap();
-        top.set_xlim(2.0, 3.0);
+        top.set_xlim(2.0, 3.0).expect("finite limits");
         bottom.clear();
         assert_eq!(bottom.xlim(), (2.0, 3.0));
-        bottom.set_xlim(4.0, 5.0);
+        bottom.set_xlim(4.0, 5.0).expect("finite limits");
         assert_eq!(top.xlim(), (4.0, 5.0), "still shared");
     }
 

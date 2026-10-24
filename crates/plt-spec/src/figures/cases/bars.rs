@@ -363,7 +363,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .set_facecolor("tab:blue");
         ax.broken_barh(&ranges, (10.0, 9.0), BandAlign::Bottom)
             .set_facecolors(colors(&["tab:orange", "tab:green", "tab:red"]));
-        ax.set_ylim(5.0, 35.0).set_xlim(0.0, 200.0);
+        ax.set_ylim(5.0, 35.0)?.set_xlim(0.0, 200.0)?;
         ax.set_yticks([15.0, 25.0])
             .set_yticklabels(["Bill", "Jim"])?;
         ax.grid(true);
@@ -398,7 +398,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         }
         ax.set_xticks(x);
         ax.set_xticklabels(groups)?;
-        ax.set_ylim(0.0, 40.0);
+        ax.set_ylim(0.0, 40.0)?;
         ax.legend(LegendOptions::default().loc("upper left").ncols(3))?;
         Ok(())
     })

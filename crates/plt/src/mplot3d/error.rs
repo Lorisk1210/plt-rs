@@ -7,6 +7,7 @@ use super::math::Vec3;
 use crate::axes::PlotError;
 use crate::colors::ColorError;
 use crate::contour::ContourError;
+use crate::figure::AxesRectError;
 use crate::gridspec::GridSpecError;
 use crate::scale::ScaleError;
 use crate::ticker::TickerError;
@@ -50,6 +51,8 @@ pub enum Axes3DError {
     Tri(TriError),
     /// An invalid subplot grid or cell.
     Grid(GridSpecError),
+    /// An invalid rectangle for the axes.
+    Rect(AxesRectError),
     /// A mouse rotation style other than `azel`, `trackball`, `sphere` and
     /// `arcball`.
     UnknownRotationStyle(String),
@@ -121,6 +124,7 @@ impl fmt::Display for Axes3DError {
             Self::Contour(err) => err.fmt(f),
             Self::Tri(err) => err.fmt(f),
             Self::Grid(err) => err.fmt(f),
+            Self::Rect(err) => err.fmt(f),
         }
     }
 }
@@ -133,6 +137,7 @@ impl std::error::Error for Axes3DError {
             Self::Contour(err) => Some(err),
             Self::Tri(err) => Some(err),
             Self::Grid(err) => Some(err),
+            Self::Rect(err) => Some(err),
             Self::Scale(err) => Some(err),
             Self::Ticker(err) => Some(err),
             _ => None,
@@ -173,6 +178,12 @@ impl From<TriError> for Axes3DError {
 impl From<GridSpecError> for Axes3DError {
     fn from(err: GridSpecError) -> Self {
         Self::Grid(err)
+    }
+}
+
+impl From<AxesRectError> for Axes3DError {
+    fn from(err: AxesRectError) -> Self {
+        Self::Rect(err)
     }
 }
 

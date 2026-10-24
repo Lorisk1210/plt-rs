@@ -10,7 +10,7 @@ mod stats;
 mod three_d;
 mod unstructured;
 
-use plt::axes::Axes;
+use plt::axes::{Axes, PlotError};
 use plt::contour::{ContourOptions, Levels};
 use plt::figure::Figure;
 use plt::numeric::{Grid, arange, linspace};
@@ -43,9 +43,10 @@ const fn plain(name: &'static str, build: fn(&Figure) -> CaseResult) -> FigureCa
 
 /// The limits and ticks most thumbnails share: 0 to 8 on both axes,
 /// ticked at every integer in between.
-fn unit_square(ax: &Axes) {
-    ax.set_xlim(0.0, 8.0).set_xticks(arange(1.0, 8.0, 1.0));
-    ax.set_ylim(0.0, 8.0).set_yticks(arange(1.0, 8.0, 1.0));
+fn unit_square(ax: &Axes) -> Result<(), PlotError> {
+    ax.set_xlim(0.0, 8.0)?.set_xticks(arange(1.0, 8.0, 1.0));
+    ax.set_ylim(0.0, 8.0)?.set_yticks(arange(1.0, 8.0, 1.0));
+    Ok(())
 }
 
 /// `func3` over an `n × n` grid of `[-3, 3]²`: the coordinates along

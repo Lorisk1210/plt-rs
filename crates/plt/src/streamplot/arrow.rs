@@ -389,7 +389,9 @@ mod tests {
     fn outlines_count_in_data_coordinates_only() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let look = ArrowLook {
             style: StreamArrowStyle::default(),
             mutation_scale: 10.0,

@@ -20,12 +20,8 @@ use crate::figures::cases::common::{arrow, test_annotation};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn alignment_against_box(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     let (left, width, bottom, height) = (0.25, 0.5, 0.25, 0.5);
     let (right, top) = (left + width, bottom + height);
     ax.add_patch(Rectangle::new((left, bottom), width, height))
@@ -108,7 +104,7 @@ fn rotation_relative_to_line(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let ramp: Vec<f64> = (0..8).map(f64::from).collect();
     ax.plot(&ramp, &ramp)?;
-    ax.set_xlim(-10.0, 10.0);
+    ax.set_xlim(-10.0, 10.0)?;
     ax.text(-8.0, 0.0, "text 45° in screen coordinates")
         .set_fontsize(14.0)
         .set_rotation(45.0)
@@ -205,7 +201,7 @@ fn arrow_boxes_rotated(fig: &Figure) -> CaseResult {
                 .edgecolor("tab:red")
                 .linewidth(1.5),
         )?);
-    ax.set_xlim(-4.0, 4.0).set_ylim(-4.0, 4.0);
+    ax.set_xlim(-4.0, 4.0)?.set_ylim(-4.0, 4.0)?;
     Ok(())
 }
 
@@ -245,7 +241,7 @@ fn annotation_arrow_anatomy(fig: &Figure) -> CaseResult {
             .set_transform(ax.trans_axes())
             .set_halign(HAlign::Left)
             .set_valign(VAlign::Top);
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
         ax.set_xticks(Vec::<f64>::new())
             .set_yticks(Vec::<f64>::new());
         ax.set_aspect(Aspect::Ratio(1.0))?;
@@ -256,7 +252,7 @@ fn annotation_arrow_anatomy(fig: &Figure) -> CaseResult {
 fn annotate_simple_relpos(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 3)?;
     for ax in axs.as_slice() {
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
         ax.set_xticks(Vec::<f64>::new())
             .set_yticks(Vec::<f64>::new());
     }
@@ -286,7 +282,7 @@ fn annotate_simple_relpos(fig: &Figure) -> CaseResult {
 
 fn rotated_multiline_boxes(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 6.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 6.0)?;
     let text = "first line\nsecond, longer line\n3";
     let variants = [
         (1.5, 20.0, RotationMode::Default, HAlign::Left),
@@ -314,7 +310,7 @@ fn rotated_multiline_boxes(fig: &Figure) -> CaseResult {
 
 fn annotate_annotation_chain(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 6.0);
+    ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 6.0)?;
     let round = || styled_box("round", PatchProps::default().facecolor("w"));
     let an1 = ax.annotate("Test 1", (0.5, 0.5), AnnotateOptions::default())?;
     an1.set_valign(VAlign::Center)

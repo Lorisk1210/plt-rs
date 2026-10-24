@@ -83,10 +83,10 @@ fn multiple_yaxis(fig: &Figure) -> CaseResult {
     p2.set_label("Temperature");
     let p3 = twin2.plot_fmt(x, [50.0, 30.0, 15.0], "C2")?;
     p3.set_label("Velocity");
-    ax.set_xlim(0.0, 2.0).set_ylim(0.0, 2.0);
+    ax.set_xlim(0.0, 2.0)?.set_ylim(0.0, 2.0)?;
     ax.set_xlabel("Distance").set_ylabel("Density");
-    twin1.set_ylim(0.0, 4.0).set_ylabel("Temperature");
-    twin2.set_ylim(1.0, 65.0).set_ylabel("Velocity");
+    twin1.set_ylim(0.0, 4.0)?.set_ylabel("Temperature");
+    twin2.set_ylim(1.0, 65.0)?.set_ylabel("Velocity");
     for (axes, line) in [(&ax, &p1), (&twin1, &p2), (&twin2, &p3)] {
         axes.yaxis().set_label_color(line.color());
         axes.tick_params(&TickParams {

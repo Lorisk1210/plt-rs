@@ -88,7 +88,7 @@ pub(super) fn sigmoids(ax: &Axes, markers: bool) -> CaseResult {
             ax.plot_with(tp, yp, LineProps::fmt("o")?.color(line.color()))?;
         }
     }
-    ax.set_xlim(-10.0, 10.0);
+    ax.set_xlim(-10.0, 10.0)?;
     Ok(())
 }
 

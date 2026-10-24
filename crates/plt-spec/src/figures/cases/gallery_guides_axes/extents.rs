@@ -188,7 +188,7 @@ fn imshow_with_labels(
             )?);
     }
     if let Some(((x0, x1), (y0, y1))) = view {
-        ax.set_xlim(x0, x1).set_ylim(y0, y1);
+        ax.set_xlim(x0, x1)?.set_ylim(y0, y1)?;
     }
     Ok(())
 }

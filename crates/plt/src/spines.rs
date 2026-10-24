@@ -444,7 +444,7 @@ mod tests {
     fn positions_move_spines() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(-1.0, 1.0);
+        ax.set_xlim(-1.0, 1.0).expect("finite limits");
         let spines = ax.spines();
         spines.left.set_position(SpinePosition::Data(0.0));
         spines.bottom.set_position(SpinePosition::Outward(10.0));

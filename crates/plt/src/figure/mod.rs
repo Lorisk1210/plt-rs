@@ -11,6 +11,7 @@ mod pdf_pages;
 mod pgf;
 mod postscript;
 mod print;
+mod rect;
 mod save;
 mod size;
 mod state;
@@ -36,6 +37,8 @@ pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use pdf_pages::PdfPages;
 pub use plt_render::{Metadata, PageOrientation, PageSetupError, Paper, SvgMetadata};
 pub use print::{BboxInches, SaveOptions};
+pub use rect::AxesRectError;
+pub(crate) use rect::axes_bounds;
 use save::whole_pixels;
 pub use save::{SaveError, SaveFormat};
 pub use size::{FigSize, SizeError, SizeUnit};
@@ -78,9 +81,10 @@ impl std::error::Error for DrawErrors {}
 /// ```
 /// use plt::figure::Figure;
 /// let fig = Figure::new();
-/// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
-/// ax.set_xlim(0.0, 10.0);
+/// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
+/// ax.set_xlim(0.0, 10.0)?;
 /// assert_eq!(ax.xlim(), (0.0, 10.0));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Clone)]
 pub struct Figure {

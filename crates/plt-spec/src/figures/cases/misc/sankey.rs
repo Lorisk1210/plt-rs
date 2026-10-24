@@ -42,7 +42,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             orientations: flow_orientations(&[-1, 1, 0, 1, 1, 1, 0, -1]),
             ..Subdiagram::default()
         };
-        Sankey::new(&ax, options)?.add(flows)?.finish();
+        Sankey::new(&ax, options)?.add(flows)?.finish()?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -86,7 +86,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: PatchProps::default().facecolor("tab:orange").alpha(0.4),
             ..Subdiagram::default()
         };
-        sankey.add(widget)?.add(outputs)?.finish();
+        sankey.add(widget)?.add(outputs)?.finish()?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -125,7 +125,7 @@ fn rotation_shape_params(fig: &Figure) -> CaseResult {
             .alpha(0.6),
         ..Subdiagram::default()
     };
-    Sankey::new(&ax, options)?.add(rotated)?.finish();
+    Sankey::new(&ax, options)?.add(rotated)?.finish()?;
     Ok(())
 }
 
@@ -148,7 +148,7 @@ fn units_format_texts(fig: &Figure) -> CaseResult {
     };
     let mut sankey = Sankey::new(&ax, options)?;
     sankey.add(plant)?;
-    let diagram = sankey.finish().first().ok_or("one diagram")?;
+    let diagram = sankey.finish()?.first().ok_or("one diagram")?;
     diagram.text.set_weight(FontWeight::BOLD);
     for text in &diagram.texts {
         text.set_fontsize(8.0);
@@ -198,7 +198,7 @@ fn three_chained(fig: &Figure) -> CaseResult {
         .add(first)?
         .add(second)?
         .add(third)?
-        .finish();
+        .finish()?;
     Ok(())
 }
 
@@ -219,6 +219,6 @@ fn zero_and_unbalanced(fig: &Figure) -> CaseResult {
             .edgecolor("saddlebrown"),
         ..Subdiagram::default()
     };
-    Sankey::new(&ax, options)?.add(flows)?.finish();
+    Sankey::new(&ax, options)?.add(flows)?.finish()?;
     Ok(())
 }

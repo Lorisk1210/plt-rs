@@ -15,6 +15,7 @@ use plt::prelude::*;
 use plt::text::TextProps;
 
 use crate::figures::FigureCase;
+use plt::axes::PlotError;
 
 /// Every case of the group.
 pub(crate) const CASES: &[FigureCase] = &[
@@ -101,10 +102,10 @@ fn gradient(rows: usize, cols: usize) -> Grid<f64> {
 }
 
 /// `_unit_axes(fig)`: an axes over `(0, 1)²`.
-fn unit_axes(fig: &Figure) -> Axes {
+fn unit_axes(fig: &Figure) -> Result<Axes, PlotError> {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
-    ax
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
+    Ok(ax)
 }
 
 /// A patch of `shape` with face colour `face`.

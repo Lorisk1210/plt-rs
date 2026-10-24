@@ -62,7 +62,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_axes_c/boxplot", |fig| {
         let ax = fig.subplot();
         ax.boxplot(&[boxplot_x(), boxplot_x()], notched())?;
-        ax.set_ylim(-30.0, 30.0);
+        ax.set_ylim(-30.0, 30.0)?;
         Ok(())
     }),
     classic("mpl_axes_c/boxplot_masked", |fig| {
@@ -84,7 +84,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let axs = fig.subplots(1, 2)?;
         for (ax, sym) in axs.as_slice().iter().zip(["^", "g"]) {
             ax.boxplot(&[boxplot_x(), boxplot_x()], with_sym(sym))?;
-            ax.set_ylim(-30.0, 30.0);
+            ax.set_ylim(-30.0, 30.0)?;
         }
         remove_ticks_and_titles(fig);
         Ok(())
@@ -92,7 +92,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     at_40_dpi("mpl_axes_c/boxplot_sym", |fig| {
         let ax = fig.subplot();
         ax.boxplot(&[boxplot_x(), boxplot_x()], with_sym("gs"))?;
-        ax.set_ylim(-30.0, 30.0);
+        ax.set_ylim(-30.0, 30.0)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -111,7 +111,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..notched()
         };
         ax.boxplot(&[boxplot_x(), boxplot_x()], options)?;
-        ax.set_ylim(-30.0, 30.0);
+        ax.set_ylim(-30.0, 30.0)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -209,7 +209,7 @@ fn autorange_whiskers(fig: &Figure, autorange: bool) -> CaseResult {
         ..notched()
     };
     ax.boxplot(&[x.clone(), x], options)?;
-    ax.set_ylim(-5.0, 5.0);
+    ax.set_ylim(-5.0, 5.0)?;
     Ok(())
 }
 

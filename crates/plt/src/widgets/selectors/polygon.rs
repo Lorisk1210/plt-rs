@@ -448,8 +448,12 @@ mod tests {
     #[test]
     fn clicks_place_vertices_until_the_polygon_closes() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let options = PolygonSelectorOptions {
             draw_bounding_box: true,
             ..PolygonSelectorOptions::default()

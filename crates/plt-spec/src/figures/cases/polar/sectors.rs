@@ -83,7 +83,7 @@ fn gauge(fig: &Figure) -> CaseResult {
         .solid_capstyle(CapStyle::Butt);
     ax.plot_with(theta, vec![0.8; 50], props)?;
     ax.set_rorigin(Some(-1.0))
-        .set_rlim(0.0, 1.0)
+        .set_rlim(0.0, 1.0)?
         .set_rticks(&[]);
     let angles: Vec<f64> = (0..7).map(|i| -135.0 + 45.0 * f64::from(i)).collect();
     ax.set_thetagrids(&angles);
@@ -96,7 +96,7 @@ fn narrow(fig: &Figure) -> CaseResult {
     let r: Vec<f64> = theta.iter().map(|t| 5.0 + (t * 20.0).sin()).collect();
     ax.plot_with(theta, r, LineProps::fmt("o-")?.markersize(3.0))?;
     ax.set_thetalim(10f64.to_radians(), 40f64.to_radians())?;
-    ax.set_rlim(3.0, 7.0);
+    ax.set_rlim(3.0, 7.0)?;
     Ok(())
 }
 
@@ -148,7 +148,7 @@ fn rlim_negative(fig: &Figure) -> CaseResult {
     let theta = linspace(0.0, TAU, 200);
     let r: Vec<f64> = theta.iter().map(|t| 2.0 * (2.0 * t).sin()).collect();
     ax.plot(theta, r)?;
-    ax.set_rlim(-2.0, 2.0).set_rorigin(Some(-3.0));
+    ax.set_rlim(-2.0, 2.0)?.set_rorigin(Some(-3.0));
     Ok(())
 }
 

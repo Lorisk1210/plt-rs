@@ -493,7 +493,9 @@ mod tests {
         let grid = crate::gridspec::GridSpec::new(1, 1).unwrap();
         let sub = fig.add_subfigure(&grid.cell(0, 0).unwrap());
         sub.set_facecolor("red");
-        let ax = sub.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = sub
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
         ax.set_axis_off();
         let inset = ax.inset_axes([0.25, 0.25, 0.5, 0.5]);
         let nested = inset.inset_axes([0.25, 0.25, 0.5, 0.5]);
@@ -537,7 +539,9 @@ mod tests {
         // matplotlib's test_animated_with_canvas_change: blitting leaves
         // animated artists to the program, saving draws them.
         let fig = Figure::with_size(1.0, 1.0, 50.0);
-        let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
         ax.set_axis_off();
         let props = crate::lines::LineProps::default().linewidth(20.0);
         ax.plot_with(vec![0.0, 1.0], vec![0.5, 0.5], props)

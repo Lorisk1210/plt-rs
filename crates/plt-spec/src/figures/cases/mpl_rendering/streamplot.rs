@@ -141,8 +141,8 @@ fn maxlength(fig: &Figure, broken_streamlines: bool) -> CaseResult {
     };
     let ax = fig.subplot();
     ax.streamplot(&swirl_velocity_field(), options)?;
-    ax.set_xlim(ax.xlim().0, 3.255_598_802_188_230_5)
-        .set_ylim(ax.ylim().0, 3.078_326_760_195_413);
+    ax.set_xlim(ax.xlim().0, 3.255_598_802_188_230_5)?
+        .set_ylim(ax.ylim().0, 3.078_326_760_195_413)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -214,10 +214,10 @@ fn integration_options(fig: &Figure) -> CaseResult {
             ax_curr.fill(&circle_x, &circle_y, disc)?;
             ax_curr.set_aspect(Aspect::Equal)?;
         }
-        inset.set_xlim(-1.2, -0.7).set_ylim(-0.8, -0.4);
+        inset.set_xlim(-1.2, -0.7)?.set_ylim(-0.8, -0.4)?;
         inset.set_yticks(Vec::<f64>::new());
         inset.set_xticks(Vec::<f64>::new());
-        ax.set_ylim(-1.5, 1.5);
+        ax.set_ylim(-1.5, 1.5)?;
         ax.set_axis_off();
         ax.indicate_inset_zoom(&inset, PatchProps::default().edgecolor("k"));
     }

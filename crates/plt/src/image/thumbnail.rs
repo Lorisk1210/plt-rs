@@ -82,7 +82,9 @@ pub fn thumbnail(
         rows as f64 / DPI * options.scale,
         DPI,
     );
-    let ax = figure.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = figure
+        .add_axes([0.0, 0.0, 1.0, 1.0])
+        .expect("the whole figure is a valid rectangle");
     ax.set_frame_on(false)
         .set_xticks(Vec::<f64>::new())
         .set_yticks(Vec::<f64>::new());

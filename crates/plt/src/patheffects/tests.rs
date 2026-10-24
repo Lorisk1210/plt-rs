@@ -127,7 +127,9 @@ fn colours_are_resolved_when_drawn() {
     assert!(PathEffectRenderer::new(effects.clone(), &mut recorder).is_err());
 
     let fig = crate::figure::Figure::new();
-    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    let ax = fig
+        .add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle");
     ax.set_axis_off();
     let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
     crate::artist::ArtistHandle::set_path_effects(&line, effects);
@@ -196,7 +198,9 @@ fn drawn(fig: &crate::figure::Figure) -> Vec<crate::testing::Call> {
 fn lines_draw_through_their_effects() {
     use crate::artist::ArtistHandle;
     let fig = crate::figure::Figure::new();
-    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    let ax = fig
+        .add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle");
     ax.set_axis_off();
     let halo = Stroke::new(GcUpdate::default().linewidth(6.0));
     ax.plot([0.0, 1.0], [0.0, 1.0])

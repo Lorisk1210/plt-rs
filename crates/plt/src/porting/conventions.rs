@@ -6,8 +6,11 @@
 //!
 //! * **Getters drop `get_`.** `ax.get_xlim()` is `ax.xlim()`,
 //!   `line.get_color()` is `line.color()`. Setters keep `set_` and return
-//!   `&Self` so calls chain; setters that create an artist, such as
-//!   `set_title`, return its handle instead. Where the plain name already
+//!   `&Self` so calls chain. A setter whose argument can be invalid
+//!   returns `Result<&Self, _>` and chains through `?`:
+//!   `ax.set_xlim(0.0, 10.0)?.set_ylim(-1.0, 1.0)?` refuses limits that
+//!   are NaN or infinite, where matplotlib raises. Setters that create an
+//!   artist, such as `set_title`, return its handle. Where the plain name already
 //!   makes something, the getter reads `current_`: `ax.legend()` makes a
 //!   legend, as in matplotlib, so `ax.get_legend()` is
 //!   [`Axes::current_legend`], the way `plt.gci()` is
@@ -33,9 +36,10 @@
 //!   validates it where it is given, format strings included. Colours are
 //!   the exception: a [`Color`] converts from any string and is validated
 //!   when resolved.
-//! * **Errors are `Result`s.** Invalid data or options return an error
-//!   enum of the module ([`PlotError`], [`ImageError`], [`LegendError`],
-//!   ...). All of them implement [`std::error::Error`], so `?` into
+//! * **Errors are `Result`s.** Invalid data, options or settings return
+//!   an error enum of the module ([`PlotError`], [`ImageError`],
+//!   [`LegendError`], [`AxesRectError`], ...), wherever matplotlib
+//!   raises. All of them implement [`std::error::Error`], so `?` into
 //!   `Box<dyn Error>` works everywhere.
 //! * **Handles, not objects.** `Figure`, `Axes`, `Line2D` and every other
 //!   artist type are cheap handles into a figure. Cloning a handle gives a
@@ -57,7 +61,7 @@
 //! | `ax.get_title(loc="left")`              | [`Axes::title`]`(TitleLocation::Left)`           |
 //! | `line.get_linewidth()`                  | [`Line2D::linewidth`]                            |
 //! | `ax.get_legend()`                       | [`Axes::current_legend`] (`legend()` makes one)  |
-//! | `ax.set(xlim=..., xlabel=...)`          | chained setters: `ax.set_xlim(..).set_xlabel(..)` |
+//! | `ax.set(xlim=..., xlabel=...)`          | chained setters: `ax.set_xlim(..)?.set_xlabel(..)` |
 //! | `line.set(color=..., lw=...)`, `plt.setp` | [`Line2D::update_props`]                       |
 //! | `plt.getp(artist, "color")`             | the getter: [`Line2D::color`]                    |
 //! | `ax.plot(x, y, color="r", lw=2)`        | [`Axes::plot_with`] with [`LineProps`]           |
@@ -100,7 +104,7 @@
 //!
 //! let ax = Figure::new().subplot();
 //! ax.set_title("Signal");
-//! ax.set_xlim(0.0, 10.0).set_ylim(-1.0, 1.0);
+//! ax.set_xlim(0.0, 10.0)?.set_ylim(-1.0, 1.0)?;
 //! let line = ax.plot([0.0, 10.0], [0.0, 1.0])?;
 //! line.set_linewidth(3.0).set_color("tab:green");
 //!
@@ -195,14 +199,20 @@
 //! ```python
 //! ax.plot([1, 2, 3], [1, 2])
 //! # ValueError: x and y must have same first dimension, but have shapes (3,) and (2,)
+//! ax.set_xlim(np.nan, 1)
+//! # ValueError: Axis limits cannot be NaN or Inf
+//! fig.add_axes([np.nan, 0, 1, 1])
+//! # ValueError: all entries in rect must be finite not [nan, 0, 1, 1]
 //! ```
 //!
 //! ```
-//! use plt::axes::PlotError;
+//! use plt::axes::{AxisName, PlotError};
 //! use plt::colors::Color;
+//! use plt::figure::AxesRectError;
 //! use plt::prelude::*;
 //!
-//! let ax = Figure::new().subplot();
+//! let fig = Figure::new();
+//! let ax = fig.subplot();
 //! let error = ax.plot([1.0, 2.0, 3.0], [1.0, 2.0]).unwrap_err();
 //! assert_eq!(error, PlotError::LengthMismatch { x: 3, y: 2 });
 //! assert_eq!(
@@ -210,6 +220,14 @@
 //!     "x and y must have same first dimension, but have shapes (3,) and (2,)"
 //! );
 //! assert!(Color::parse("tab:nope").is_err());
+//! assert_eq!(
+//!     ax.set_xlim(f64::NAN, 1.0).err(),
+//!     Some(PlotError::NonFiniteLimit(AxisName::X))
+//! );
+//! assert!(matches!(
+//!     fig.add_axes([f64::NAN, 0.0, 1.0, 1.0]),
+//!     Err(AxesRectError::NonFinite(_))
+//! ));
 //! ```
 //!
 //! # Handles
@@ -315,6 +333,7 @@
 //! [`PlotError`]: crate::axes::PlotError
 //! [`ImageError`]: crate::image::ImageError
 //! [`LegendError`]: crate::legend::LegendError
+//! [`AxesRectError`]: crate::figure::AxesRectError
 //! [`Axes::xlim`]: crate::axes::Axes::xlim
 //! [`Axes::title`]: crate::axes::Axes::title
 //! [`Axes::shown_title`]: crate::axes::Axes::shown_title

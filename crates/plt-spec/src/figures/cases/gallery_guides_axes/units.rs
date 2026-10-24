@@ -84,8 +84,8 @@ fn axes_units_5(fig: &Figure) -> CaseResult {
     let limits = axs[(0, 0)]
         .xaxis()
         .convert_units(vec![day("1980-02-01")?, day("1980-04-01")?]);
-    axs[(0, 0)].set_xlim(limits[0], limits[1]);
-    axs[(1, 0)].set_xlim(3683.0, 3683.0 + 60.0);
+    axs[(0, 0)].set_xlim(limits[0], limits[1])?;
+    axs[(1, 0)].set_xlim(3683.0, 3683.0 + 60.0)?;
     Ok(())
 }
 
@@ -134,11 +134,11 @@ fn axes_units_9(fig: &Figure) -> CaseResult {
     let ax = &axs[(0, 0)];
     fruit_bars(ax)?;
     let limits = ax.xaxis().convert_units(vec!["orange", "lemon"]);
-    ax.set_xlim(limits[0], limits[1]);
+    ax.set_xlim(limits[0], limits[1])?;
     ax.set_xlabel("limits set with categories");
     let ax = &axs[(1, 0)];
     fruit_bars(ax)?;
-    ax.set_xlim(0.5, 2.5);
+    ax.set_xlim(0.5, 2.5)?;
     ax.set_xlabel("limits set with floats");
     Ok(())
 }

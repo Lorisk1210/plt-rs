@@ -13,8 +13,12 @@ use crate::lines::{Line2D, LineProps};
 /// and a thick horizontal line at `y`, animated.
 fn figure_with_line(y: f64) -> (Figure, Axes, Line2D) {
     let fig = Figure::with_size(1.0, 1.0, 50.0);
-    let ax = fig.add_axes([0.2, 0.2, 0.6, 0.6]);
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    let ax = fig
+        .add_axes([0.2, 0.2, 0.6, 0.6])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1.0))
+        .expect("finite limits");
     let props = LineProps::default().linewidth(8.0);
     let line = ax.plot_with(vec![-1.0, 2.0], vec![y, y], props).unwrap();
     line.set_animated(true);

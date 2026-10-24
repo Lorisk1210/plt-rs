@@ -212,12 +212,12 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::rc::Aspect;
     /// let fig = Figure::with_size(6.4, 4.8, 100.0);
-    /// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
-    /// ax.set_xlim(0.0, 2.0).set_ylim(0.0, 1.0);
+    /// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
+    /// ax.set_xlim(0.0, 2.0)?.set_ylim(0.0, 1.0)?;
     /// ax.set_aspect(Aspect::Equal)?;
     /// let (_, _, width, height) = ax.position().bounds();
     /// assert!((width * 6.4 - 2.0 * height * 4.8).abs() < 1e-9);
-    /// # Ok::<(), plt::axes::AspectError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// # Errors
@@ -378,13 +378,14 @@ impl Axes {
     /// use plt::axes::AxesLocatorFn;
     /// use plt::prelude::*;
     /// use plt::transforms::Bbox;
-    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8]);
+    /// let ax = Figure::new().add_axes([0.1, 0.1, 0.8, 0.8])?;
     /// ax.set_axes_locator(Some(AxesLocatorFn::new(|original: Bbox| {
     ///     let (x0, y0, width, height) = original.bounds();
     ///     Bbox::from_bounds(x0, y0, width / 2.0, height)
     /// })));
     /// let (_, _, width, _) = ax.position().bounds();
     /// assert!((width - 0.4).abs() < 1e-12);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_axes_locator(&self, locator: Option<AxesLocatorFn>) -> &Self {
         self.raw.with_mut::<AxesState, _>(|axes| {

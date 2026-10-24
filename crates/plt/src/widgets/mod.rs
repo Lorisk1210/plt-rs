@@ -15,13 +15,14 @@
 //! use plt::figure::Figure;
 //! use plt::widgets::{Slider, SliderOptions};
 //! let fig = Figure::new();
-//! let ax = fig.add_axes([0.2, 0.1, 0.6, 0.05]);
+//! let ax = fig.add_axes([0.2, 0.1, 0.6, 0.05])?;
 //! let options = SliderOptions { valinit: 5.0, ..SliderOptions::default() };
-//! let freq = Slider::new(&ax, "Freq", 0.1, 30.0, options);
+//! let freq = Slider::new(&ax, "Freq", 0.1, 30.0, options)?;
 //! let cid = freq.on_changed(|value| println!("now {value}"));
 //! freq.set_val(7.5);
 //! assert_eq!(freq.val(), 7.5);
 //! assert!(freq.disconnect(cid));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 mod button;

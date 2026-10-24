@@ -445,7 +445,9 @@ mod tests {
                     .unwrap()
                     .set_linestyles(vec![linestyle]);
             }
-            ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+            ax.set_xlim(0.0, 1.0)
+                .and_then(|ax| ax.set_ylim(0.0, 1.0))
+                .expect("finite limits");
             let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
             fig.draw(&mut renderer).unwrap();
             renderer.calls

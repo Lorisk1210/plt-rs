@@ -364,7 +364,9 @@ mod tests {
     #[test]
     fn collections_extend_the_data_limits() {
         let fig = crate::figure::Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
         let segments = vec![vec![Point::new(1.0, 2.0), Point::new(3.0, -4.0)]];
         ax.add_collection(CollectionSpec::lines(segments));
         let limits = ax.data_lim().bbox;
@@ -385,7 +387,9 @@ mod tests {
     #[test]
     fn collections_without_autolim_leave_the_limits_alone() {
         let fig = crate::figure::Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
         ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         let before = (ax.data_lim(), ax.xlim(), ax.ylim());
         let far = vec![vec![Point::new(-50.0, 20.0), Point::new(80.0, 90.0)]];
@@ -398,7 +402,9 @@ mod tests {
     #[test]
     fn a_transform_set_before_adding_decides_the_data_limits() {
         let fig = crate::figure::Figure::new();
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
         let spiral = vec![vec![Point::new(0.0, 0.0), Point::new(40.0, 30.0)]];
         let offsets = vec![Point::new(1.0, 2.0), Point::new(3.0, 4.0)];
         // Shapes in display units at data offsets: only the offsets count,

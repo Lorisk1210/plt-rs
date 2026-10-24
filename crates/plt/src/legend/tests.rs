@@ -15,7 +15,9 @@ fn labelled(label: &str) -> LineProps {
 /// An axes filling a 400 × 300 px figure at 72 dpi (one point per pixel).
 fn canvas() -> (Figure, Axes) {
     let fig = Figure::with_size(400.0 / 72.0, 300.0 / 72.0, 72.0);
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig
+        .add_axes([0.0, 0.0, 1.0, 1.0])
+        .expect("a valid rectangle");
     (fig, ax)
 }
 
@@ -133,7 +135,7 @@ fn best_avoids_the_data() {
     let x: Vec<f64> = (0..50).map(f64::from).collect();
     ax.plot_with(&x, vec![10.0; 50], labelled("top")).unwrap();
     ax.plot([0.0, 49.0], [0.0, 10.5]).unwrap();
-    ax.set_ylim(0.0, 10.5);
+    ax.set_ylim(0.0, 10.5).expect("finite limits");
     let legend = ax.legend(LegendOptions::default()).unwrap();
     let extent = frame_extent(&fig, &legend);
     assert!(

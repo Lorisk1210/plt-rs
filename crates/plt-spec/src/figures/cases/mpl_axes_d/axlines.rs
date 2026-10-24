@@ -14,10 +14,10 @@ use super::super::mpl_tests::{classic, remove_ticks_and_titles};
 use crate::figures::{CaseResult, FigureCase};
 
 /// `ax.set(xlim=(-1, 1), ylim=(-1, 1))`.
-fn unit_view(fig: &Figure) -> Axes {
+fn unit_view(fig: &Figure) -> Result<Axes, PlotError> {
     let ax = fig.subplot();
-    ax.set_xlim(-1.0, 1.0).set_ylim(-1.0, 1.0);
-    ax
+    ax.set_xlim(-1.0, 1.0)?.set_ylim(-1.0, 1.0)?;
+    Ok(ax)
 }
 
 /// An infinite line through `xy1`, in `lines.color` unless `color` is
@@ -63,11 +63,17 @@ fn segments(
 }
 
 /// Limits the axis along which the segments are placed.
-fn limit_positions(ax: &Axes, orientation: Orientation, low: f64, high: f64) {
+fn limit_positions(
+    ax: &Axes,
+    orientation: Orientation,
+    low: f64,
+    high: f64,
+) -> Result<(), PlotError> {
     match orientation {
-        Orientation::Horizontal => ax.set_ylim(low, high),
-        Orientation::Vertical => ax.set_xlim(low, high),
+        Orientation::Horizontal => ax.set_ylim(low, high)?,
+        Orientation::Vertical => ax.set_xlim(low, high)?,
     };
+    Ok(())
 }
 
 /// Segments of one colour, width and style.
@@ -89,7 +95,7 @@ fn lines_basic(fig: &Figure, orientation: Orientation) -> CaseResult {
         &[2.0, -6.0, 3.0, 8.0, 2.0],
     )?;
     styled(&lines, "g", 5.0, LineStyle::Solid);
-    limit_positions(&ax, orientation, 0.0, 10.0);
+    limit_positions(&ax, orientation, 0.0, 10.0)?;
     Ok(())
 }
 
@@ -120,7 +126,7 @@ fn lines_with_nan(fig: &Figure, orientation: Orientation) -> CaseResult {
     for (ax, (lengths, color, width, style)) in axs.as_slice().iter().zip(rows) {
         let lines = segments(ax, orientation, &at, &[0.0], &lengths)?;
         styled(&lines, color, width, style);
-        limit_positions(ax, orientation, 0.0, 10.0);
+        limit_positions(ax, orientation, 0.0, 10.0)?;
     }
     Ok(())
 }
@@ -136,7 +142,7 @@ fn lines_masked(fig: &Figure, orientation: Orientation) -> CaseResult {
         &[13.0, 14.0, 15.0, 16.0, 17.0, f64::NAN],
     )?;
     styled(&lines, "k", 2.0, LineStyle::Solid);
-    limit_positions(&ax, orientation, 0.0, 15.0);
+    limit_positions(&ax, orientation, 0.0, 15.0)?;
     Ok(())
 }
 
@@ -177,7 +183,7 @@ fn step_linestyle(fig: &Figure) -> CaseResult {
             let props = LineProps::default().linewidth(5.0).linestyle(style.clone());
             ax.step(&x, y, at, props)?;
         }
-        ax.set_xlim(-1.0, 5.0).set_ylim(-1.0, 7.0);
+        ax.set_xlim(-1.0, 5.0)?.set_ylim(-1.0, 7.0)?;
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -210,7 +216,7 @@ fn mixed_collection(fig: &Figure) -> CaseResult {
             Color::from([0.0, 0.0, 0.1, 1.0]),
             Color::from([0.0, 0.0, 0.1, 0.5]),
         ]));
-    ax.set_xlim(0.0, 16.0).set_ylim(0.0, 16.0);
+    ax.set_xlim(0.0, 16.0)?.set_ylim(0.0, 16.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -218,14 +224,14 @@ fn mixed_collection(fig: &Figure) -> CaseResult {
 pub(super) const CASES: &[FigureCase] = &[
     classic("mpl_axes_d/axline_loglog", |fig| {
         let ax = fig.subplot();
-        ax.set_xlim(0.1, 10.0).set_ylim(1e-3, 1.0);
+        ax.set_xlim(0.1, 10.0)?.set_ylim(1e-3, 1.0)?;
         ax.set_xscale("log")?.set_yscale("log")?;
         ax.plot_fmt([0.3, 0.6], [0.3, 0.6], ".-")?;
         axline(&ax, (1.0, 1e-3), to(10.0, 1e-2), Some("k"))?;
         Ok(())
     }),
     classic("mpl_axes_d/axline", |fig| {
-        let ax = unit_view(fig);
+        let ax = unit_view(fig)?;
         axline(&ax, (0.0, 0.0), to(1.0, 1.0), None)?;
         axline(&ax, (0.0, 0.0), to(1.0, 0.0), Some("C1"))?;
         axline(&ax, (0.0, 0.5), to(1.0, 0.5), Some("C2"))?;
@@ -240,7 +246,7 @@ pub(super) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     classic("mpl_axes_d/axline_transaxes", |fig| {
-        let ax = unit_view(fig);
+        let ax = unit_view(fig)?;
         axline_in_axes(&ax, (0.0, 0.0), AxLineThrough::Slope(1.0), None)?;
         axline_in_axes(&ax, (1.0, 0.5), AxLineThrough::Slope(1.0), Some("C1"))?;
         axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(0.0), Some("C2"))?;
@@ -248,11 +254,11 @@ pub(super) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     classic("mpl_axes_d/axline_transaxes_panzoom", |fig| {
-        let ax = unit_view(fig);
+        let ax = unit_view(fig)?;
         axline_in_axes(&ax, (0.0, 0.0), AxLineThrough::Slope(1.0), None)?;
         axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(2.0), Some("C1"))?;
         axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(0.0), Some("C2"))?;
-        ax.set_xlim(0.0, 5.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 5.0)?.set_ylim(0.0, 10.0)?;
         fig.set_size_inches(3.0, 3.0)?;
         Ok(())
     }),

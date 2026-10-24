@@ -130,7 +130,8 @@ fn stretched_text(args: Args<'_>) -> Outcome {
         let ax = fig.subplot();
         ax.text(date("2019-06-30")?, 1.0, expected);
         ax.set_xlim(date("2019-01-01")?, date("2019-12-31")?)
-            .set_ylim(0.0, 2.0);
+            .and_then(|ax| ax.set_ylim(0.0, 2.0))
+            .map_err(ProbeError::rejected)?;
         let document = svg(&fig)?;
         Ok(Json::from(vec![
             document.contains(expected),

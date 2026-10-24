@@ -80,7 +80,7 @@ pub(super) fn twin_logscale_y(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn twinx_axis_scales(fig: &Figure) -> CaseResult {
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
     ax.set_autoscale_on(false);
     ax.plot_with(
         [0.0, 0.5, 1.0],

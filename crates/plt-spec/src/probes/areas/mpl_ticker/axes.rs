@@ -159,8 +159,8 @@ fn configure(ax: &Axes, name: AxisName, config: Args<'_>) -> Result<(), ProbeErr
     if config.get("lim").is_some() {
         match config.f64_vec("lim")?[..] {
             [low, high] => match name {
-                AxisName::X => ax.set_xlim(low, high),
-                AxisName::Y => ax.set_ylim(low, high),
+                AxisName::X => ax.set_xlim(low, high).map_err(ProbeError::rejected)?,
+                AxisName::Y => ax.set_ylim(low, high).map_err(ProbeError::rejected)?,
             },
             _ => return Err(ProbeError::BadArgs("lim needs two values".into())),
         };

@@ -245,7 +245,7 @@ fn findobj_demo(fig: &Figure) -> CaseResult {
         shadow: Some(true.into()),
         ..LegendOptions::default().loc("upper center")
     })?;
-    ax.set_ylim(-1.0, 20.0);
+    ax.set_ylim(-1.0, 20.0)?;
     ax.grid(false);
     ax.set_xlabel("Model complexity --->")
         .set_ylabel("Message length --->");

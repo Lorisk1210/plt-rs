@@ -115,7 +115,7 @@ fn markevery_grid(fig: &Figure, x: &[f64], y: &[f64], kind: GridAxes) -> CaseRes
             .markevery(markevery);
         ax.plot_with(x, y, style)?;
         if matches!(kind, GridAxes::Zoomed) {
-            ax.set_xlim(6.0, 6.7).set_ylim(1.1, 1.7);
+            ax.set_xlim(6.0, 6.7)?.set_ylim(1.1, 1.7)?;
         }
     }
     remove_ticks_and_titles(fig);

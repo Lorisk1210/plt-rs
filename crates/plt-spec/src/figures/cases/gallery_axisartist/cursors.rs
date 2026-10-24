@@ -55,7 +55,7 @@ fn annotated_cursor(fig: &Figure, title: &str) -> CaseResult {
     let x = linspace(-5.0, 5.0, 1000);
     let y = map(&x, |x| x * x);
     ax.plot(x, y)?;
-    ax.set_xlim(-5.0, 5.0).set_ylim(0.0, 25.0);
+    ax.set_xlim(-5.0, 5.0)?.set_ylim(0.0, 25.0)?;
     let _cursor = Cursor::new(&ax, red_crosshair());
     // At the lower left corner of the view (`get_xbound()[0]`,
     // `get_ybound()[0]`).
@@ -75,7 +75,7 @@ fn cursor(fig: &Figure) -> CaseResult {
         map(y, |v| 4.0 * (v - 0.5)),
         "o",
     )?;
-    ax.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     let _cursor = Cursor::new(&ax, red_crosshair());
     Ok(())
 }

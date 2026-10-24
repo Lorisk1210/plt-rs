@@ -66,7 +66,7 @@ fn bar_of_pie(fig: &Figure) -> CaseResult {
     ax2.set_title("Age of approvers");
     ax2.legend(LegendOptions::default())?;
     ax2.set_axis_off();
-    ax2.set_xlim(-2.5 * width, 2.5 * width);
+    ax2.set_xlim(-2.5 * width, 2.5 * width)?;
     let wedge = pie.wedges[0].shape();
     let bar_height: f64 = age_ratios.iter().sum();
     for (theta, bar_y) in [(wedge.theta2, bar_height), (wedge.theta1, 0.0)] {

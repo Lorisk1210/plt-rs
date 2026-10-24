@@ -232,7 +232,7 @@ fn pick_event_demo_4(fig: &Figure) -> CaseResult {
         };
         ax.imshow(uniform_rows(&mut g, rows, cols), placed)?;
     }
-    ax.set_xlim(0.0, 5.0).set_ylim(0.0, 5.0);
+    ax.set_xlim(0.0, 5.0)?.set_ylim(0.0, 5.0)?;
     Ok(())
 }
 
@@ -259,7 +259,7 @@ fn resample(fig: &Figure) -> CaseResult {
     };
     ax.fill_between(&x, &y1, &y2, red_steps)?;
     ax.set_autoscale_on(false);
-    ax.set_xlim(16.0, 365.0);
+    ax.set_xlim(16.0, 365.0)?;
     Ok(())
 }
 
@@ -273,7 +273,7 @@ fn timers(fig: &Figure) -> CaseResult {
 fn zoom_window(fig: &Figure, title: &str, xlim: (f64, f64), ylim: (f64, f64)) -> CaseResult {
     let values = uniform_rows(&mut SpecRng::new(SEED), 4, 200);
     let ax = fig.subplot();
-    ax.set_xlim(xlim.0, xlim.1).set_ylim(ylim.0, ylim.1);
+    ax.set_xlim(xlim.0, xlim.1)?.set_ylim(ylim.0, ylim.1)?;
     ax.set_autoscale_on(false);
     ax.set_title(title);
     let options = ScatterOptions {

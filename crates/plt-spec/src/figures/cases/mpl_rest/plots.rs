@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 
 use plt::animation::{AnimationOptions, Frames, FuncAnimation};
 use plt::artist::ArtistHandle;
-use plt::axes::{Axes, BarOptions};
+use plt::axes::{Axes, BarOptions, PlotError};
 use plt::collections::{CollectionProps, CollectionSpec};
 use plt::dates::{DateError, DateTime};
 use plt::figure::Figure;
@@ -32,7 +32,7 @@ fn sankey3(fig: &Figure) -> CaseResult {
     };
     Sankey::new(&fig.gca(), SankeyOptions::default())?
         .add(flows)?
-        .finish();
+        .finish()?;
     Ok(())
 }
 
@@ -57,7 +57,7 @@ fn overriding_units_in_plot(fig: &Figure) -> CaseResult {
 /// animated line).
 fn animation_frame(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.set_xlim(0.0, 2.0 * PI).set_ylim(-1.0, 1.0);
+    ax.set_xlim(0.0, 2.0 * PI)?.set_ylim(-1.0, 1.0)?;
     let x = linspace(0.0, 2.0 * PI, 100);
     let line = ax.plot(Vec::<f64>::new(), Vec::<f64>::new())?;
     let options = AnimationOptions {
@@ -115,10 +115,10 @@ const FACE: Rgba = Rgba::new(1.0, 0.0, 0.0, 0.5);
 const EDGE: Rgba = Rgba::new(0.0, 0.0, 1.0, 0.75);
 
 /// The axes of both sides of `test_patch_alpha_coloring`.
-fn alpha_axes(fig: &Figure) -> Axes {
+fn alpha_axes(fig: &Figure) -> Result<Axes, PlotError> {
     let ax = fig.subplot();
-    ax.set_xlim(-1.0, 2.0).set_ylim(-1.0, 2.0);
-    ax
+    ax.set_xlim(-1.0, 2.0)?.set_ylim(-1.0, 2.0)?;
+    Ok(ax)
 }
 
 /// `test_patch_alpha_coloring`: two cut-out stars as one path collection
@@ -130,7 +130,7 @@ fn patch_alpha_coloring(fig: &Figure) -> CaseResult {
         .linestyle(LineStyle::DashDot)
         .facecolor(FACE)
         .edgecolor(EDGE);
-    alpha_axes(fig).add_collection(CollectionSpec::paths(vec![star1, star2]).with_props(props));
+    alpha_axes(fig)?.add_collection(CollectionSpec::paths(vec![star1, star2]).with_props(props));
     Ok(())
 }
 
@@ -138,7 +138,7 @@ fn patch_alpha_coloring(fig: &Figure) -> CaseResult {
 /// two path patches.
 fn patch_alpha_coloring_ref(fig: &Figure) -> CaseResult {
     let (star1, star2) = cut_stars()?;
-    let ax = alpha_axes(fig);
+    let ax = alpha_axes(fig)?;
     let props = PatchProps::default()
         .linewidth(5.0)
         .linestyle(LineStyle::DashDot)

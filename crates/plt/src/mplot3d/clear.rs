@@ -2,9 +2,8 @@
 //! (matplotlib's `Axes3D.clear` and `cla`).
 
 use super::axis3d::Axis3DState;
-use super::camera::Camera;
 use super::error::Axes3DError;
-use super::handle::Axes3D;
+use super::handle::{Axes3D, show_view_window};
 use super::limits::Limits3D;
 use super::state::Axes3DState;
 use crate::axes::TickStyle;
@@ -67,8 +66,7 @@ impl Axes3D {
     pub fn clear(&self) -> Result<&Self, Axes3DError> {
         let plane = self.plane();
         plane.clear();
-        let (lo, hi) = Camera::view_window();
-        plane.set_xlim(lo, hi).set_ylim(lo, hi);
+        show_view_window(&plane);
         self.with_mut(|axes| {
             axes.clear();
             axes.autoscale_view()

@@ -519,8 +519,8 @@ mod tests {
             ..ImageGridOptions::default()
         };
         let grid = ImageGrid::plain(&fig, &rect, (1, 2), options).unwrap();
-        grid.axes()[0].set_xlim(0.0, 1.0);
-        grid.axes()[1].set_xlim(0.0, 3.0);
+        grid.axes()[0].set_xlim(0.0, 1.0).expect("finite limits");
+        grid.axes()[1].set_xlim(0.0, 3.0).expect("finite limits");
         fig.layout();
         assert!(grid.cbar_axes().is_empty() && grid.cax(0).is_none());
         assert_eq!(fig.axes().len(), 2);
@@ -572,7 +572,9 @@ mod tests {
         let rect = GridRect::Rect([0.125, 0.11, 0.775, 0.77]);
         let grid = ImageGrid::new(&fig, &rect, (2, 2), options).unwrap();
         for ax in grid.axes() {
-            ax.set_xlim(-0.5, 19.5).set_ylim(19.5, -0.5);
+            ax.set_xlim(-0.5, 19.5)
+                .and_then(|ax| ax.set_ylim(19.5, -0.5))
+                .expect("finite limits");
             ax.set_aspect(Aspect::Equal).unwrap();
         }
         let visible: Vec<bool> = grid.cbar_axes().iter().map(|c| c.ax().visible()).collect();

@@ -53,7 +53,7 @@ fn concise_axes(
             .into_iter()
             .collect::<Result<Vec<_>, _>>()?;
         let limits = ax.xaxis().convert_units(instants);
-        ax.set_xlim(limits[0], limits[1]);
+        ax.set_xlim(limits[0], limits[1])?;
     }
     axs[0].set_title(title);
     Ok(axs)

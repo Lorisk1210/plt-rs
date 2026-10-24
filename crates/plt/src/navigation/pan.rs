@@ -234,7 +234,10 @@ fn set_limits(ax: &Axes, name: AxisName, (low, high): (Option<f64>, Option<f64>)
         AxisName::X => ax.xlim(),
         AxisName::Y => ax.ylim(),
     };
-    ax.set_limits(
+    // An end that is not finite (a function scale can map one to a
+    // finite position) leaves the axis as it is, where matplotlib's
+    // event handler raises.
+    let _ = ax.set_limits(
         name,
         low.unwrap_or(current_low),
         high.unwrap_or(current_high),
@@ -275,7 +278,9 @@ mod tests {
     #[test]
     fn left_drag_moves_the_view_with_the_pointer() {
         let ax = Figure::new().subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let start = display(&ax, 5.0, 5.0);
         let pan = PanStart::new(&ax, start, PointerButton::Left).unwrap();
         let end = display(&ax, 6.0, 7.0);
@@ -297,7 +302,9 @@ mod tests {
     #[test]
     fn right_drag_scales_around_the_press() {
         let ax = Figure::new().subplot();
-        ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
         let start = display(&ax, 5.0, 5.0);
         let pan = PanStart::new(&ax, start, PointerButton::Right).unwrap();
         // Dragging right by a whole axes width zooms x in tenfold.
@@ -321,7 +328,7 @@ mod tests {
     fn polar_right_drag_scales_the_radius() {
         let fig = Figure::new();
         let polar = fig.polar_subplot();
-        polar.set_rlim(0.0, 2.0);
+        polar.set_rlim(0.0, 2.0).expect("finite limits");
         let start = display(&polar, 0.0, 1.0);
         let pan = PanStart::new(&polar, start, PointerButton::Right).unwrap();
         pan.drag(

@@ -47,7 +47,7 @@ fn drawstyle_variants(fig: &Figure) -> CaseResult {
     for (row, style) in styles.into_iter().enumerate() {
         let ax = &axs[(row, 0)];
         plot_y(ax, range(2000), LineProps::default().drawstyle(style))?;
-        ax.set_xlim(0.0, 2.0).set_ylim(0.0, 2.0);
+        ax.set_xlim(0.0, 2.0)?.set_ylim(0.0, 2.0)?;
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -109,7 +109,7 @@ fn marker_fill_styles(fig: &Figure) -> CaseResult {
             ax.plot_with([x, x + 9.0], [y, y], props)?;
         }
     }
-    ax.set_ylim(0.0, 7.5).set_xlim(-5.0, 155.0);
+    ax.set_ylim(0.0, 7.5)?.set_xlim(-5.0, 155.0)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

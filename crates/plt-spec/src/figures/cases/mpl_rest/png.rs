@@ -172,7 +172,7 @@ fn pngsuite(fig: &Figure) -> CaseResult {
         left += 1.0;
     }
     ax.set_facecolor("#ddffff");
-    ax.set_xlim(0.0, left);
+    ax.set_xlim(0.0, left)?;
     Ok(())
 }
 

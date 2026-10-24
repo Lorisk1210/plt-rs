@@ -187,7 +187,7 @@ pub(crate) fn local_max(fig: &Figure) -> Result<(), Box<dyn std::error::Error>> 
     let ax = fig.subplot();
     cosine(&ax, LineProps::default().linewidth(2.0))?;
     ax.annotate("local max", (2.0, 1.0), pointing((3.0, 1.5), "data")?)?;
-    ax.set_ylim(-2.0, 2.0);
+    ax.set_ylim(-2.0, 2.0)?;
     Ok(())
 }
 

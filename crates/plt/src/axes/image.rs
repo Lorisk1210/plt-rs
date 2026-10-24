@@ -529,7 +529,9 @@ mod tests {
     fn bbox_images_fill_their_box_in_display_pixels() {
         let fig = Figure::with_size(4.0, 3.0, 100.0);
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 100.0).set_ylim(0.0, 100.0);
+        ax.set_xlim(0.0, 100.0)
+            .and_then(|ax| ax.set_ylim(0.0, 100.0))
+            .expect("finite limits");
         let inverted = ax
             .add_bbox_image(
                 Grid::filled(2, 2, 0.0),

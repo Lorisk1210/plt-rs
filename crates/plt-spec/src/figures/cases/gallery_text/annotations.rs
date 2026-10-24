@@ -87,7 +87,7 @@ fn annotation_demo_1(fig: &Figure) -> CaseResult {
     )?
     .set_halign(HAlign::Right)
     .set_valign(VAlign::Bottom);
-    ax.set_xlim(-1.0, 5.0).set_ylim(-3.0, 5.0);
+    ax.set_xlim(-1.0, 5.0)?.set_ylim(-3.0, 5.0)?;
     Ok(())
 }
 
@@ -114,7 +114,7 @@ fn annotation_demo_3(fig: &Figure) -> CaseResult {
     )?
     .set_halign(HAlign::Left)
     .set_valign(VAlign::Bottom);
-    ax.set_xlim(-20.0, 20.0).set_ylim(-20.0, 20.0);
+    ax.set_xlim(-20.0, 20.0)?.set_ylim(-20.0, 20.0)?;
     Ok(())
 }
 
@@ -267,7 +267,7 @@ fn annotation_demo_4(fig: &Figure) -> CaseResult {
             ..AnnotateOptions::default()
         },
     )?;
-    ax.set_xlim(-1.0, 5.0).set_ylim(-4.0, 3.0);
+    ax.set_xlim(-1.0, 5.0)?.set_ylim(-4.0, 3.0)?;
     Ok(())
 }
 
@@ -352,7 +352,7 @@ fn annotation_demo_5(fig: &Figure) -> CaseResult {
     .set_fontsize(20.0)
     .set_valign(VAlign::Center)
     .set_bbox(styled_box("round", borderless().facecolor(BUBBLE))?);
-    ax.set_xlim(-1.0, 5.0).set_ylim(-5.0, 3.0);
+    ax.set_xlim(-1.0, 5.0)?.set_ylim(-5.0, 3.0)?;
     Ok(())
 }
 
@@ -488,7 +488,7 @@ fn annotation_demo_6(fig: &Figure) -> CaseResult {
         (HAlign::Left, VAlign::Bottom),
         Some(plain()?),
     )?;
-    ax2.set_xlim(-2.0, 2.0).set_ylim(-2.0, 2.0);
+    ax2.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     Ok(())
 }
 

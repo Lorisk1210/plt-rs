@@ -38,7 +38,7 @@ fn log_rgrids(fig: &Figure) -> CaseResult {
         .collect();
     ax.plot(theta, r)?;
     ax.set_rscale("log")?;
-    ax.set_rlim(1.0, 1000.0)
+    ax.set_rlim(1.0, 1000.0)?
         .set_rgrids(&[1.0, 10.0, 100.0, 1000.0], Some(135.0));
     Ok(())
 }

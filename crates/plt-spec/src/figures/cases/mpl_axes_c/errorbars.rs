@@ -68,7 +68,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             };
             ax.errorbar(x, [low, low + 1.0, low + 2.0], options)?;
         }
-        ax.set_xlim(1.0, 11.0);
+        ax.set_xlim(1.0, 11.0)?;
         Ok(())
     })
     .with_rc_setup(|rc| {
@@ -192,7 +192,7 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
     };
     ax.errorbar(&x, &y, options)?;
     ax.set_title("Mixed sym., log y");
-    ax.set_ylim(1e-2, 1e1);
+    ax.set_ylim(1e-2, 1e1)?;
 
     fig.suptitle("Variable errorbars");
     Ok(())
@@ -302,7 +302,7 @@ fn limits(fig: &Figure) -> CaseResult {
         ..ErrorbarOptions::default()
     };
     ax.errorbar(&x, shifted(2.1), options)?;
-    ax.set_xlim(0.0, 5.5);
+    ax.set_xlim(0.0, 5.5)?;
     ax.set_title("Errorbar upper and lower limits");
     Ok(())
 }

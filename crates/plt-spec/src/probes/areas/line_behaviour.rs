@@ -66,7 +66,7 @@ fn steps(fig: &Figure) -> Lines {
     let ax = fig.subplot();
     let line = plotted(ax.plot([0.0, 1.0, 2.0, 3.0], [0.0, 1.0, 0.0, 1.0]))?;
     line.set_drawstyle(DrawStyle::StepsMid);
-    ax.set_xlim(-1.0, 4.0);
+    ax.set_xlim(-1.0, 4.0).map_err(ProbeError::rejected)?;
     Ok(vec![("steps", line)])
 }
 
@@ -157,7 +157,9 @@ fn axlines(fig: &Figure) -> Result<Vec<Line2D>, ProbeError> {
         axline((0.4, 0.0), AxLineThrough::Slope(f64::INFINITY))?,
         axline((0.0, 1.5), AxLineThrough::Slope(0.0))?,
     ];
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 2.0);
+    ax.set_xlim(0.0, 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 2.0))
+        .map_err(ProbeError::rejected)?;
     Ok(lines)
 }
 
@@ -222,7 +224,9 @@ fn tightbbox(args: Args<'_>) -> Outcome {
         .map_err(ProbeError::rejected)?
         .markersize(20.0);
     plotted(ax.plot_with([-0.5, 0.5, 1.5], [0.5, 1.4, 0.5], props))?.set_clip_on(clip_on);
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1.0))
+        .map_err(ProbeError::rejected)?;
     Ok(bbox(&fig.tight_bbox()))
 }
 
@@ -256,7 +260,7 @@ fn draw(args: Args<'_>) -> Outcome {
                     step: 0.05,
                 }));
             plotted(ax.plot_with(x, y, props))?;
-            ax.set_xlim(5.0, 5.000_001);
+            ax.set_xlim(5.0, 5.000_001).map_err(ProbeError::rejected)?;
         }
         "color_variants" => {
             let ax = fig.subplot();

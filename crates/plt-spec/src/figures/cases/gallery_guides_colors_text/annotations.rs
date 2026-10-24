@@ -27,7 +27,7 @@ fn annotations_2(fig: &Figure) -> CaseResult {
     )?
     .set_valign(VAlign::Top)
     .set_halign(HAlign::Left);
-    ax.set_ylim(-2.0, 2.0);
+    ax.set_ylim(-2.0, 2.0)?;
     Ok(())
 }
 
@@ -48,7 +48,7 @@ fn annotations_3(fig: &Figure) -> CaseResult {
     )?
     .set_halign(HAlign::Center)
     .set_valign(VAlign::Bottom);
-    ax.set_xlim(1.0, 2.0).set_ylim(1.0, 2.0);
+    ax.set_xlim(1.0, 2.0)?.set_ylim(1.0, 2.0)?;
     Ok(())
 }
 

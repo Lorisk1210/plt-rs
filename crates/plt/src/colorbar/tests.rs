@@ -127,7 +127,9 @@ fn several_parents_share_one_colorbar() {
 #[test]
 fn a_cax_is_used_as_given() {
     let fig = Figure::new();
-    let cax = fig.add_axes([0.85, 0.1, 0.05, 0.8]);
+    let cax = fig
+        .add_axes([0.85, 0.1, 0.05, 0.8])
+        .expect("a valid rectangle");
     let mappable = ScalarMappable::with_norm(
         colormaps::get("viridis").unwrap(),
         Box::new(Normalize::new(0.0, 10.0)),
@@ -286,7 +288,11 @@ fn colorbars_in_other_figures_keep_a_copy() {
     let (_, _, image) = image_figure();
     let other = Figure::new();
     let options = ColorbarOptions {
-        axes: ColorbarAxes::Cax(other.add_axes([0.85, 0.1, 0.05, 0.8])),
+        axes: ColorbarAxes::Cax(
+            other
+                .add_axes([0.85, 0.1, 0.05, 0.8])
+                .expect("a valid rectangle"),
+        ),
         ..ColorbarOptions::default()
     };
     let colorbar = other.colorbar(&image, options).unwrap();
@@ -327,7 +333,7 @@ fn limits_opacity_and_dividers_read_back() {
     let colorbar = fig.colorbar(&mappable, options).unwrap();
     assert_eq!((colorbar.vmin(), colorbar.vmax()), (0.0, 3.0));
     assert_eq!(colorbar.alpha(), None);
-    colorbar.ax().set_ylim(0.5, 2.5);
+    colorbar.ax().set_ylim(0.5, 2.5).expect("finite limits");
     // The edges inside the view, then the extended top of the view.
     let at: Vec<f64> = colorbar
         .divider_segments()

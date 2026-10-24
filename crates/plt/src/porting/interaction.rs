@@ -95,7 +95,7 @@
 //!
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
-//! ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+//! ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
 //! let clicks = Rc::new(RefCell::new(Vec::new()));
 //! let seen = Rc::clone(&clicks);
 //! let cid = fig.connect(EventKind::ButtonPress, move |event| {
@@ -186,12 +186,12 @@
 //! use plt::widgets::{Button, ButtonOptions, Slider, SliderOptions};
 //!
 //! let fig = Figure::new();
-//! let ax = fig.add_axes([0.1, 0.3, 0.8, 0.6]);
+//! let ax = fig.add_axes([0.1, 0.3, 0.8, 0.6])?;
 //! let x = linspace(0.0, 1.0, 50);
 //! let line = ax.plot(&x, x.iter().map(|v| (5.0 * v).sin()).collect::<Vec<_>>())?;
 //!
 //! let options = SliderOptions { valinit: 5.0, ..SliderOptions::default() };
-//! let freq = Slider::new(&fig.add_axes([0.2, 0.1, 0.6, 0.05]), "Freq", 0.1, 30.0, options);
+//! let freq = Slider::new(&fig.add_axes([0.2, 0.1, 0.6, 0.05])?, "Freq", 0.1, 30.0, options)?;
 //! let wave = line.clone();
 //! freq.on_changed(move |value| {
 //!     let (x, _) = wave.data();
@@ -202,7 +202,7 @@
 //! assert_eq!(freq.val(), 7.5);
 //! assert_eq!(line.ydata()[1], (7.5 * x[1]).sin());
 //!
-//! let reset = Button::new(&fig.add_axes([0.8, 0.02, 0.1, 0.05]), "Reset", ButtonOptions::default());
+//! let reset = Button::new(&fig.add_axes([0.8, 0.02, 0.1, 0.05])?, "Reset", ButtonOptions::default());
 //! let cid = reset.on_clicked(|| {});
 //! assert_eq!(reset.label().text(), "Reset");
 //! assert!(reset.disconnect(cid));
@@ -225,7 +225,7 @@
 //!
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
-//! ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+//! ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
 //! let to_pixels = fig.resolve_transform(&ax.trans_data())?;
 //! let (from, to) = (to_pixels.transform_point(Point::new(0.25, 0.25)), to_pixels.transform_point(Point::new(0.75, 0.75)));
 //!

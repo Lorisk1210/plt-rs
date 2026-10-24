@@ -76,7 +76,7 @@ fn zoomed_demo(fig: &Figure, make_inset: fn(&Axes) -> Axes) -> CaseResult {
         nbins: Some(Nbins::Fixed(7)),
         ..LocatorParams::default()
     })?;
-    axins.set_xlim(-1.5, -0.9).set_ylim(-2.5, -1.9);
+    axins.set_xlim(-1.5, -0.9)?.set_ylim(-2.5, -1.9)?;
     axins.tick_params(&TickParams {
         labelbottom: Some(false),
         labelleft: Some(false),
@@ -148,7 +148,7 @@ fn fill_facecolor(fig: &Figure) -> CaseResult {
             .update_props(connector_style.overlay(style.clone()))
             .set_clip_on(false);
         let axins = zoomed_inset_axes(ax, 1.0, InsetOptions::default());
-        axins.set_xlim(0.0, 0.2).set_ylim(0.0, 0.2);
+        axins.set_xlim(0.0, 0.2)?.set_ylim(0.0, 0.2)?;
         axins.set_xticks(Vec::<f64>::new());
         axins.set_yticks(Vec::<f64>::new());
         mark_inset(
@@ -169,16 +169,16 @@ fn fill_facecolor(fig: &Figure) -> CaseResult {
 fn zooming(fig: &Figure, limits: [f64; 4], inset_limits: [f64; 4]) -> CaseResult {
     let ax = fig.subplot();
     ax.plot([1.0, 2.0, 3.0], [1.0, 2.0, 3.0])?;
-    ax.set_xlim(limits[0], limits[1])
-        .set_ylim(limits[2], limits[3]);
+    ax.set_xlim(limits[0], limits[1])?
+        .set_ylim(limits[2], limits[3])?;
     let options = InsetOptions {
         loc: AnchorLoc::LowerRight,
         ..InsetOptions::default()
     };
     let inset = zoomed_inset_axes(&ax, 2.5, options);
     inset
-        .set_xlim(inset_limits[0], inset_limits[1])
-        .set_ylim(inset_limits[2], inset_limits[3]);
+        .set_xlim(inset_limits[0], inset_limits[1])?
+        .set_ylim(inset_limits[2], inset_limits[3])?;
     Ok(())
 }
 
@@ -194,7 +194,7 @@ fn mark_inset_unstales_viewlim(fig: &Figure) -> CaseResult {
     let axes = fig.subplots(1, 2)?.into_vec();
     let (inset, full) = (&axes[0], &axes[1]);
     full.plot([0.0, 5.0], [0.0, 5.0])?;
-    inset.set_xlim(1.0, 2.0).set_ylim(1.0, 2.0);
+    inset.set_xlim(1.0, 2.0)?.set_ylim(1.0, 2.0)?;
     mark_inset(
         full,
         inset,
@@ -209,7 +209,7 @@ fn anchored_locator_base_call(fig: &Figure) -> CaseResult {
     let subfigures = fig.subfigures(2, 1, SubfigureOptions::default())?;
     let ax = subfigures[(0, 0)].subplot();
     ax.set_aspect(Aspect::Equal)?;
-    ax.set_xlim(-15.0, 15.0).set_ylim(-20.0, 5.0);
+    ax.set_xlim(-15.0, 15.0)?.set_ylim(-20.0, 5.0)?;
     ax.set_xticks(Vec::<f64>::new());
     ax.set_yticks(Vec::<f64>::new());
     let options = InsetOptions {

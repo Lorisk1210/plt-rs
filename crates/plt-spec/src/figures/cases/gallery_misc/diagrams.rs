@@ -109,7 +109,7 @@ fn fishbone_spine(ax: &Axes, xmin: f64, xmax: f64) -> CaseResult {
 fn ishikawa_diagram(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
-    ax.set_xlim(-5.0, 5.0).set_ylim(-5.0, 5.0);
+    ax.set_xlim(-5.0, 5.0)?.set_ylim(-5.0, 5.0)?;
     ax.set_axis_off();
     let categories: [(&str, &[&str]); 6] = [
         (
@@ -395,7 +395,7 @@ fn anscombe(fig: &Figure) -> CaseResult {
     ];
     let axs = fig.subplots_on(&spaced_grid(2, 2, 0.08, 0.08)?, Share::All, Share::All)?;
     let first = &axs[(0, 0)];
-    first.set_xlim(0.0, 20.0).set_ylim(2.0, 14.0);
+    first.set_xlim(0.0, 20.0)?.set_ylim(2.0, 14.0)?;
     first
         .set_xticks([0.0, 10.0, 20.0])
         .set_yticks([4.0, 8.0, 12.0]);

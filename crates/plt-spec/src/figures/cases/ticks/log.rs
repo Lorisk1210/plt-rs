@@ -71,7 +71,7 @@ pub(super) fn log_formatter_variants(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(4, 1)?;
     for ax in axs.as_slice() {
         ax.set_xscale("log")?;
-        ax.set_xlim(1e-2, 1e4);
+        ax.set_xlim(1e-2, 1e4)?;
         ax.yaxis().set_major_locator(plt::ticker::NullLocator);
     }
     let axis = |i: usize| axs[(i, 0)].xaxis();
@@ -85,7 +85,7 @@ pub(super) fn log_formatter_variants(fig: &Figure) -> CaseResult {
         ..ScaleOptions::default()
     };
     axs[(3, 0)].set_scale_with(AxisName::X, "log", base2)?;
-    axs[(3, 0)].set_xlim(1.0 / 8.0, 512.0);
+    axs[(3, 0)].set_xlim(1.0 / 8.0, 512.0)?;
     axis(3).set_major_formatter(LogFormatter::new(LogLabelStyle::SciNotation, 2.0));
     fig.tight_layout(&TightLayout::default())?;
     Ok(())

@@ -341,7 +341,9 @@ mod tests {
     /// Circles `x² + y² = level` on a 4 × 4 in figure.
     pub(super) fn bowl(levels: &[f64]) -> ContourSet {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
-        let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+        let ax = fig
+            .add_axes([0.1, 0.1, 0.8, 0.8])
+            .expect("a valid rectangle");
         let x = linspace(-1.0, 1.0, 9);
         let z = Grid::from_fn(9, 9, |i, j| x[i] * x[i] + x[j] * x[j]);
         let field = QuadField::new(z).with_coords(QuadCoords::Axes { x: x.clone(), y: x });
@@ -350,8 +352,8 @@ mod tests {
             ..ContourOptions::default()
         };
         let cs = ax.contour(&field, options).unwrap();
-        ax.set_xlim(-1.0, 1.0);
-        ax.set_ylim(-1.0, 1.0);
+        ax.set_xlim(-1.0, 1.0).expect("finite limits");
+        ax.set_ylim(-1.0, 1.0).expect("finite limits");
         cs
     }
 
@@ -418,7 +420,7 @@ mod tests {
         assert!(text.transform_rotates_text());
         // Stretching the view vertically turns the data angle further from
         // the horizontal on screen.
-        cs.axes().set_ylim(-0.5, 0.5);
+        cs.axes().set_ylim(-0.5, 0.5).expect("finite limits");
         let figure = cs.axes().figure();
         let data = figure.resolve_transform(&cs.axes().trans_data()).unwrap();
         let turned = data.transform_angle(text.rotation(), text.position());

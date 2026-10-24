@@ -83,7 +83,9 @@ fn chord(handle: &HeadlessHandle, id: WindowId, c: char, modifiers: Modifiers) {
 fn shows_the_figure_and_pans_it() {
     let figure = Figure::with_size(4.0, 3.0, 100.0);
     let ax = figure.subplot();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 10.0))
+        .expect("finite limits");
     let presses = std::rc::Rc::new(std::cell::Cell::new(0));
     let counter = std::rc::Rc::clone(&presses);
     figure.connect(crate::events::EventKind::ButtonPress, move |event| {
@@ -336,8 +338,12 @@ fn ctrl_c_copies_the_figure_to_the_clipboard() {
 /// in a headless window whose first frame was presented.
 fn shown_with_animated_line() -> (EventLoop, HeadlessHandle, FigureWindow, Line2D) {
     let figure = Figure::with_size(4.0, 3.0, 100.0);
-    let ax = figure.add_axes([0.25, 0.25, 0.5, 0.5]);
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    let ax = figure
+        .add_axes([0.25, 0.25, 0.5, 0.5])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1.0))
+        .expect("finite limits");
     let line = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).expect("plotted");
     line.set_animated(true);
     let (mut event_loop, handle) = EventLoop::headless();

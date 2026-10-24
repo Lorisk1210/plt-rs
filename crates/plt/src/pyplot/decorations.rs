@@ -42,14 +42,22 @@ pub fn ylabel(text: impl Into<String>) {
 
 /// Sets the x limits of the current axes (matplotlib's
 /// `xlim(left, right)`).
-pub fn xlim(left: impl Into<AxisValue>, right: impl Into<AxisValue>) {
-    gca().set_xlim(left, right);
+///
+/// # Errors
+///
+/// As [`Axes::set_xlim`](crate::axes::Axes::set_xlim).
+pub fn xlim(left: impl Into<AxisValue>, right: impl Into<AxisValue>) -> Result<(), PlotError> {
+    gca().set_xlim(left, right).map(|_| ())
 }
 
 /// Sets the y limits of the current axes (matplotlib's
 /// `ylim(bottom, top)`).
-pub fn ylim(bottom: impl Into<AxisValue>, top: impl Into<AxisValue>) {
-    gca().set_ylim(bottom, top);
+///
+/// # Errors
+///
+/// As [`Axes::set_ylim`](crate::axes::Axes::set_ylim).
+pub fn ylim(bottom: impl Into<AxisValue>, top: impl Into<AxisValue>) -> Result<(), PlotError> {
+    gca().set_ylim(bottom, top).map(|_| ())
 }
 
 /// The x limits of the current axes (matplotlib's `xlim()`).
@@ -353,8 +361,12 @@ mod tests {
         title_at(TitleLocation::Left, "left");
         xlabel("x");
         ylabel("y");
-        xlim(1.0, 10.0);
-        ylim(1.0, 100.0);
+        xlim(1.0, 10.0).unwrap();
+        ylim(1.0, 100.0).unwrap();
+        assert_eq!(
+            xlim(f64::NAN, 1.0),
+            Err(PlotError::NonFiniteLimit(AxisName::X))
+        );
         yscale("log").unwrap();
         assert!(xscale("no such scale").is_err());
         let ax = gca();

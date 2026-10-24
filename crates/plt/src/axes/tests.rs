@@ -8,7 +8,9 @@ use crate::testing::{Call, RecordingRenderer};
 
 fn axes() -> (Figure, super::Axes) {
     let fig = Figure::new();
-    let ax = fig.add_axes([0.125, 0.11, 0.775, 0.77]);
+    let ax = fig
+        .add_axes([0.125, 0.11, 0.775, 0.77])
+        .expect("a valid rectangle");
     (fig, ax)
 }
 
@@ -49,7 +51,7 @@ fn empty_axes_keep_unit_limits() {
 #[test]
 fn explicit_limits_stop_autoscaling() {
     let (_, ax) = axes();
-    ax.set_xlim(10.0, 0.0);
+    ax.set_xlim(10.0, 0.0).expect("finite limits");
     ax.plot([1.0, 2.0], [3.0, 4.0]).expect("same length");
     assert_eq!(ax.xlim(), (10.0, 0.0));
     assert!(close(ax.ylim(), (2.95, 4.05)));
@@ -80,7 +82,9 @@ fn mismatched_lengths_are_rejected() {
 #[test]
 fn drawing_maps_data_into_the_axes_box() {
     let (fig, ax) = axes();
-    ax.set_xlim(0.0, 10.0).set_ylim(0.0, 10.0);
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 10.0))
+        .expect("finite limits");
     ax.plot([0.0, 10.0], [0.0, 10.0]).expect("same length");
     let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
     fig.draw(&mut renderer).expect("drawable");
@@ -165,13 +169,15 @@ fn decreasing_function_scales_keep_the_axis_orientation() {
     use crate::transforms::Point;
 
     let fig = Figure::with_size(2.0, 2.0, 72.0);
-    let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    let ax = fig
+        .add_axes([0.0, 0.0, 1.0, 1.0])
+        .expect("a valid rectangle");
     let inverse = FuncTransform::new(f64::recip, f64::recip);
     ax.set_scale(
         super::AxisName::X,
         Box::new(FuncScale::from_transform(inverse)),
     );
-    ax.set_xlim(0.1, 0.5);
+    ax.set_xlim(0.1, 0.5).expect("finite limits");
     let data = fig.resolve_transform(&ax.trans_data()).unwrap();
     let x = |value: f64| data.transform_point(Point::new(value, 0.0)).x;
     assert!(x(0.5).abs() < 1e-9, "the larger value on the left");

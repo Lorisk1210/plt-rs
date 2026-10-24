@@ -101,10 +101,10 @@ fn image_exact_placement_4(fig: &Figure) -> CaseResult {
     let (a, b) = exact_placement_images();
     alice_blue(fig)?;
     let (width, height) = (605.0, 170.0);
-    let ax = fig.add_axes([35.0 / width, 35.0 / height, 300.0 / width, 100.0 / height]);
+    let ax = fig.add_axes([35.0 / width, 35.0 / height, 300.0 / width, 100.0 / height])?;
     show_unit(&ax, a)?;
     annotate_rect(&ax);
-    let ax = fig.add_axes([370.0 / width, 95.0 / height, 200.0 / width, 40.0 / height]);
+    let ax = fig.add_axes([370.0 / width, 95.0 / height, 200.0 / width, 40.0 / height])?;
     show_unit(&ax, b)?;
     Ok(())
 }
@@ -199,8 +199,8 @@ fn image_nonuniform(fig: &Figure) -> CaseResult {
                 interpolation,
             };
             ax.nonuniform_image(xs, &y, z.clone(), options)?;
-            ax.set_xlim(-half_width, half_width);
-            ax.set_ylim(-4.0, 4.0);
+            ax.set_xlim(-half_width, half_width)?;
+            ax.set_ylim(-4.0, 4.0)?;
             ax.set_title(name);
         }
     }

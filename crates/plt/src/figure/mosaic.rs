@@ -474,7 +474,7 @@ mod tests {
         let labels: Vec<&str> = axes.iter().map(|(label, _)| label).collect();
         assert_eq!(labels, ["main", "a", "b", "c", "d", "bottom"]);
         let main = axes.get("main").unwrap();
-        main.set_xlim(0.0, 5.0);
+        main.set_xlim(0.0, 5.0).expect("finite limits");
         assert_eq!(axes.get("d").unwrap().xlim(), (0.0, 5.0));
     }
 

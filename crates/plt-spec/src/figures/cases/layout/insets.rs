@@ -25,7 +25,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         ax.plot(t(), damped())?;
         let inset = ax.inset_axes([0.55, 0.55, 0.4, 0.4]);
-        inset.set_xlim(1.0, 2.5).set_ylim(-0.8, 0.6);
+        inset.set_xlim(1.0, 2.5)?.set_ylim(-0.8, 0.6)?;
         inset.set_xticklabels(Vec::<String>::new())?;
         inset.set_yticklabels(Vec::<String>::new())?;
         inset.plot(t(), damped())?;

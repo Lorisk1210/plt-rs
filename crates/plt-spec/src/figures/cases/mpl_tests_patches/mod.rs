@@ -43,7 +43,7 @@ fn patch_linestyle_accents(fig: &Figure) -> CaseResult {
         );
     }
     let last = f64::from(u32::try_from(styles.len())?);
-    ax.set_xlim(-1.0, last).set_ylim(-1.0, last);
+    ax.set_xlim(-1.0, last)?.set_ylim(-1.0, last)?;
     Ok(())
 }
 

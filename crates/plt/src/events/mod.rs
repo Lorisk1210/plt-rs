@@ -126,13 +126,13 @@ impl Location {
     /// use plt::events::Location;
     /// use plt::figure::Figure;
     /// let fig = Figure::with_size(4.0, 4.0, 100.0);
-    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
-    /// ax.set_xlim(0.0, 3.0).set_ylim(0.0, 3.0);
+    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
+    /// ax.set_xlim(0.0, 3.0)?.set_ylim(0.0, 3.0)?;
     /// let at = Location::from_ax_coords(&ax, (1.0, 2.0))?;
     /// assert_eq!((at.x, at.y), (133.0, 266.0));
     /// assert_eq!((at.xdata, at.ydata), (Some(1.0), Some(2.0)));
     /// assert_eq!(at.inaxes, Some(ax));
-    /// # Ok::<(), plt::transforms::TransformError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// # Errors

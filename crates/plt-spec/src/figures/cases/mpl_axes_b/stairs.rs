@@ -268,7 +268,7 @@ pub(super) const CASES: &[FigureCase] = &[
     classic("mpl_axes_b/stairs_update", |fig| {
         let ax = fig.subplot();
         let steps = ax.stairs([1.0, 2.0, 3.0], StairsOptions::default())?;
-        ax.set_ylim(-3.0, 4.0);
+        ax.set_ylim(-3.0, 4.0)?;
         // The `set_data` calls of the test end at these values, edges
         // `0..=3` and baseline -2 (the data limits stay those of the
         // first steps).

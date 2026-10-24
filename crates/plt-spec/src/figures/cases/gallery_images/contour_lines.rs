@@ -341,8 +341,8 @@ fn contours_in_optimization_demo(fig: &Figure) -> CaseResult {
             collection.set_path_effects(vec![PathEffect::with_ticked_stroke(ticks.clone())]);
         }
     }
-    ax.set_xlim(0.0, 4.0);
-    ax.set_ylim(0.0, 4.0);
+    ax.set_xlim(0.0, 4.0)?;
+    ax.set_ylim(0.0, 4.0)?;
     Ok(())
 }
 

@@ -121,7 +121,7 @@ fn image_count(args: Args<'_>) -> Outcome {
         });
         let fig = Figure::new();
         let ax = fig.subplot();
-        ax.set_xlim(0.0, 3.0);
+        ax.set_xlim(0.0, 3.0).map_err(ProbeError::rejected)?;
         for (data, left) in [(z, 0.0), (flipped, 2.0)] {
             let options = ImshowOptions {
                 extent: Some(Extent::new(left, left + 1.0, 0.0, 1.0)),
@@ -350,7 +350,9 @@ fn scatter_sizes(args: Args<'_>) -> Outcome {
             };
             ax.scatter_with(x, y, options)
                 .map_err(ProbeError::rejected)?;
-            ax.set_xlim(20.0, 30.0).set_ylim(20.0, 30.0);
+            ax.set_xlim(20.0, 30.0)
+                .and_then(|ax| ax.set_ylim(20.0, 30.0))
+                .map_err(ProbeError::rejected)?;
             Ok(pdf(&fig, SaveOptions::default())?.len())
         };
         let shifted = |values: &[f64]| values.iter().map(|v| v + 20.0).collect::<Vec<_>>();

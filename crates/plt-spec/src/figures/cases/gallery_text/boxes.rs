@@ -63,7 +63,7 @@ fn demo_annotation_box_1(fig: &Figure) -> CaseResult {
     t1.plot_fmt([xy1.0], [xy1.1], ".r")?;
     t2.plot_fmt([xy2.0], [xy2.1], ".r")?;
     for ax in [t1, t2] {
-        ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+        ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
         ax.set_aspect(Aspect::Equal)?;
     }
     let mut connection = ConnectionPatch::new(
@@ -125,7 +125,7 @@ fn demo_annotation_box_2(fig: &Figure) -> CaseResult {
             ..AnnotationBboxOptions::default()
         },
     )?;
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 
@@ -154,7 +154,7 @@ fn demo_annotation_box_3(fig: &Figure) -> CaseResult {
             ..AnnotationBboxOptions::default()
         },
     )?;
-    ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
+    ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     Ok(())
 }
 

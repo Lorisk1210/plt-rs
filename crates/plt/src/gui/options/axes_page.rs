@@ -8,7 +8,7 @@ use super::artists::{
     CurveFields, CurvePlan, ImageFields, ImagePlan, apply_curve, apply_image, curves_panel,
     edited_lines, images_panel, read_curve, read_image,
 };
-use super::fields::{FieldError, Form, chosen, number_text, parse_number, text_of};
+use super::fields::{FieldError, Form, chosen, number_text, parse_limit, text_of};
 use crate::axes::{Axes, AxisName, TitleLocation};
 use crate::legend::LegendOptions;
 
@@ -176,13 +176,17 @@ impl AxesPage {
                     if ax.xscale() != axis.scale {
                         let _ = ax.set_xscale(axis.scale);
                     }
-                    ax.set_xlim(min, max).set_xlabel(axis.label);
+                    ax.set_xlim(min, max)
+                        .expect("the form takes finite limits only")
+                        .set_xlabel(axis.label);
                 }
                 AxisName::Y => {
                     if ax.yscale() != axis.scale {
                         let _ = ax.set_yscale(axis.scale);
                     }
-                    ax.set_ylim(min, max).set_ylabel(axis.label);
+                    ax.set_ylim(min, max)
+                        .expect("the form takes finite limits only")
+                        .set_ylabel(axis.label);
                 }
             }
         }
@@ -255,8 +259,8 @@ fn read_axis(
         AxisName::X => "X",
         AxisName::Y => "Y",
     };
-    let min = parse_number(&format!("{axis} min"), &text_of(window, fields.min))?;
-    let max = parse_number(&format!("{axis} max"), &text_of(window, fields.max))?;
+    let min = parse_limit(&format!("{axis} min"), &text_of(window, fields.min))?;
+    let max = parse_limit(&format!("{axis} max"), &text_of(window, fields.max))?;
     Ok(AxisPlan {
         name: fields.name,
         limits: (min, max),
@@ -303,6 +307,9 @@ mod tests {
         type_into(&mut window, page.axis_fields[0].max, "ten");
         let problem = page.read(&mut window).unwrap_err();
         assert_eq!(problem.0, "X max: \"ten\" is not a number");
+        type_into(&mut window, page.axis_fields[0].max, "inf");
+        let problem = page.read(&mut window).unwrap_err();
+        assert_eq!(problem.0, "X max: \"inf\" is not a finite number");
         type_into(&mut window, page.axis_fields[0].max, "10");
         type_into(&mut window, page.curves[0].width, "3");
         let plan = page.read(&mut window).unwrap();

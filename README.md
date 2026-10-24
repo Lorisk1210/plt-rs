@@ -103,7 +103,9 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   azimuth/elevation), pan and zoom with the mouse, figure events
   (`connect`, including draw events), picking artists with the mouse
   (`set_picker` and pick events), draggable legends, annotations and
-  offset boxes, timers and `FuncAnimation`/`ArtistAnimation` (saved as
+  offset boxes, blitting (`FigureCanvas::copy_from_bbox`,
+  `restore_region`, `draw_artist`, `blit`, and blitted animations and
+  cursors), timers and `FuncAnimation`/`ArtistAnimation` (saved as
   animated PNG, GIF or WebP, as an HTML page with matplotlib's JavaScript
   player, `to_jshtml`, or as a video through an installed ffmpeg,
   `to_html5_video`); pyplot's interactive mode with `pause`, `ginput`
@@ -121,6 +123,11 @@ tables and side-by-side examples whose Rust half runs as a doctest.
 * **Widgets**: buttons, sliders and range sliders, check and radio
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
   lasso and polygon selectors.
+* **Extending**: artists of your own (the `Artist` trait,
+  `Axes::add_custom_artist`), legend handlers (`LegendHandler`), scales,
+  colormaps and colour sequences registered by name, and toolbar tools.
+  Removed artists stay usable and can be attached again, as in
+  matplotlib.
 
 ## Gallery
 

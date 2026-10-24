@@ -257,7 +257,9 @@ macro_rules! selector_methods {
             }
 
             /// The states switched on, by keys held or `add_state`, in the
-            /// order of [`SelectorState::ALL`](crate::widgets::SelectorState::ALL) (matplotlib's `_state`).
+            /// order of
+            /// [`SelectorState::ALL`](crate::widgets::SelectorState::ALL)
+            /// (matplotlib's `_state`).
             pub fn states(&self) -> Vec<$crate::widgets::SelectorState> {
                 let shared = self.driver.shared.borrow();
                 $crate::widgets::SelectorState::ALL

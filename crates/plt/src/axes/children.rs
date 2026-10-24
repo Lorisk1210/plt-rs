@@ -1,11 +1,16 @@
-//! Adding artists to an axes and accounting for them in the data limits.
+//! The children of an axes: listing them by kind (matplotlib's
+//! `ax.collections`, `ax.patches`, `ax.texts`), adding artists and
+//! accounting for them in the data limits.
 
+use std::any::Any;
 use std::rc::Rc;
 
 use plt_core::Point;
 
 use super::{Axes, AxesState, DataLimits};
 use crate::artist::{Artist, ArtistHandle, LimitPoints, RawHandle};
+use crate::collections::{Collection, CollectionArtist};
+use crate::text::{Text, TextArtist};
 
 /// How a new child changes the data limits and autoscaling.
 #[derive(Clone, Debug, Default)]
@@ -61,6 +66,12 @@ impl Axes {
     /// Handles to the children of type `T`, in the order they were added
     /// (matplotlib's `ax.lines`, `ax.images`, ...).
     pub(crate) fn children_of<T: Artist>(&self) -> Vec<RawHandle> {
+        self.children_where(|artist| (artist as &dyn Any).is::<T>())
+    }
+
+    /// Handles to the children for which `keep` holds, in the order they
+    /// were added.
+    fn children_where(&self, keep: impl Fn(&dyn Artist) -> bool) -> Vec<RawHandle> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
         let children = state
@@ -70,8 +81,65 @@ impl Axes {
             .unwrap_or_default();
         children
             .into_iter()
-            .filter(|&id| state.store.get_as::<T>(id).is_some())
+            .filter(|&id| state.store.get(id).is_some_and(&keep))
             .map(|id| RawHandle::new(Rc::clone(figure), id))
+            .collect()
+    }
+
+    /// The collections of the axes in the order they were added: those
+    /// of scatter plots, fills, error bars, stems, ... (matplotlib's
+    /// `ax.collections`; contour sets and Gouraud-shaded triangle meshes
+    /// have handles of their own).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert!(ax.collections().is_empty());
+    /// ax.scatter(vec![0.0, 1.0], vec![1.0, 0.0])?;
+    /// assert_eq!(ax.collections().len(), 1);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn collections(&self) -> Vec<Collection> {
+        self.children_of::<CollectionArtist>()
+            .into_iter()
+            .map(Collection::from_raw)
+            .collect()
+    }
+
+    /// The patches of the axes in the order they were added, whatever
+    /// their shape (matplotlib's `ax.patches`); the background patch and
+    /// the spines are not among them.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert!(ax.patches().is_empty());
+    /// ax.bar([1.0, 2.0], [3.0, 4.0], Default::default())?;
+    /// assert_eq!(ax.patches().len(), 2);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn patches(&self) -> Vec<RawHandle> {
+        self.children_where(|artist| artist.as_patch().is_some())
+    }
+
+    /// The texts and annotations of the axes in the order they were added
+    /// (matplotlib's `ax.texts`); the titles and axis labels are not among
+    /// them.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_title("title");
+    /// assert!(ax.texts().is_empty());
+    /// ax.text(0.5, 0.5, "note");
+    /// assert_eq!(ax.texts()[0].text(), "note");
+    /// ```
+    pub fn texts(&self) -> Vec<Text> {
+        let titles = self.raw().with::<AxesState, _>(|axes| axes.titles.clone());
+        self.children_of::<TextArtist>()
+            .into_iter()
+            .filter(|text| !titles.contains(&text.id()))
+            .map(Text::from_raw)
             .collect()
     }
 

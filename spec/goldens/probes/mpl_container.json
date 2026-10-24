@@ -1,0 +1,28 @@
+{
+ "area": "mpl_container",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Axes.pie", "args": {"values": [2, 3], "labels": ["foo", "bar"], "autopct": "%1.0f%%", "labeldistance": null}, "value": [2, 0, 2]},
+  {
+   "op": "BarContainer",
+   "args": {"orientation": "horizontal", "positions": [1, 2, 4], "values": [2, 3, 4], "base": [1, 5, 3]},
+   "value": {"position_centers": [1.0, 2.0, 4.0], "bottoms": [1, 5, 3], "tops": [3, 8, 7]}
+  },
+  {
+   "op": "BarContainer",
+   "args": {"orientation": "vertical", "positions": [1, 2, 4], "values": [2, 3, 4], "base": [1, 5, 3]},
+   "value": {"position_centers": [1.0, 2.0, 4.0], "bottoms": [1, 5, 3], "tops": [3, 8, 7]}
+  },
+  {"op": "ErrorbarContainer.remove", "args": {"xerr": 1, "fmt": "none"}, "value": [[0, 1, 0, 0, 1], [0, 0, 0, 0, 0]]},
+  {"op": "ErrorbarContainer.remove", "args": {"xerr": 1}, "value": [[1, 1, 0, 0, 1], [0, 0, 0, 0, 0]]},
+  {"op": "ErrorbarContainer.remove", "args": {"xerr": [2], "yerr": 2}, "value": [[1, 2, 0, 0, 1], [0, 0, 0, 0, 0]]},
+  {"op": "ErrorbarContainer.remove", "args": {"yerr": 2}, "value": [[1, 1, 0, 0, 1], [0, 0, 0, 0, 0]]},
+  {"op": "ErrorbarContainer.remove", "args": {}, "value": [[1, 0, 0, 0, 1], [0, 0, 0, 0, 0]]},
+  {
+   "op": "PieContainer.remove",
+   "args": {"values": [2, 3], "labels": ["foo", "bar"], "autopct": "%1.0f%%", "added": ["baz", "qux"]},
+   "value": [[0, 0, 2, 4, 0], [0, 0, 2, 6, 0], [0, 0, 0, 0, 0]]
+  },
+  {"op": "StemContainer.remove", "args": {"locs": [1, 2], "heads": [1, 2]}, "value": [[2, 1, 0, 0, 1], [0, 0, 0, 0, 0]]}
+ ]
+}

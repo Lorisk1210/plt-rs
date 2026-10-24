@@ -108,7 +108,7 @@ impl Axis {
     pub(crate) fn set_shared_minor_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
         let owner = self.axes.id();
         self.update_shared(|axis| {
-            axis.minor_locator = Rc::clone(locator);
+            axis.set_minor_locator(Rc::clone(locator));
             axis.ticker_owner = Some(owner);
         });
         self

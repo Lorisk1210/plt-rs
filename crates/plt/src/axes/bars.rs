@@ -12,7 +12,7 @@ use crate::orientation::Orientation;
 use crate::patches::{Patch, PatchArtist, PatchProps, Rectangle};
 use crate::scale::{LogScale, NonPositive};
 use crate::ticker::AxisName;
-use crate::units::{AxisValues, convert_dx};
+use crate::units::{AxisDelta, AxisValue, AxisValues, convert_dx};
 
 /// Where a bar sits relative to its position (matplotlib's `align`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -245,7 +245,8 @@ impl Axes {
     /// A horizontal band of rectangles, one per `(start, width)` in
     /// `xranges`, spanning the band's height vertically at its position, a
     /// number or a category of the y axis (matplotlib's `broken_barh`).
-    /// Style it through the returned collection.
+    /// The starts may be dates, with durations for widths. Style it
+    /// through the returned collection.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -260,12 +261,16 @@ impl Axes {
     /// assert_eq!(ax.yaxis().ticklocs(false)?, [0.0, 1.0]);
     /// # Ok::<(), String>(())
     /// ```
-    pub fn broken_barh(
+    pub fn broken_barh<X, W>(
         &self,
-        xranges: &[(f64, f64)],
+        xranges: &[(X, W)],
         band: impl Into<BandRange>,
         align: BandAlign,
-    ) -> Collection {
+    ) -> Collection
+    where
+        X: Clone + Into<AxisValue>,
+        W: Clone + Into<AxisDelta>,
+    {
         let BandRange { position, height } = band.into();
         let position = self.yaxis().convert_units(position)[0];
         let (y0, y1) = match align {
@@ -273,10 +278,12 @@ impl Axes {
             BandAlign::Center => (position - height / 2.0, position + height / 2.0),
             BandAlign::Top => (position - height, position),
         };
+        let xaxis = self.xaxis();
         let paths = xranges
             .iter()
-            .map(|&(x0, width)| {
-                let x1 = x0 + width;
+            .map(|(x0, width)| {
+                let x0 = xaxis.convert_value(x0.clone());
+                let x1 = x0 + width.clone().into().to_number();
                 Path::polygon([
                     Point::new(x0, y0),
                     Point::new(x0, y1),

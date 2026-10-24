@@ -160,6 +160,30 @@ pub struct PieContainer {
     pub added_labels: Vec<Vec<Text>>,
 }
 
+impl PieContainer {
+    /// Removes the wedges and every label of the pie from the axes
+    /// (matplotlib's `PieContainer.remove`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::axes::PieOptions;
+    /// let ax = Figure::new().subplot();
+    /// let options = PieOptions { labels: vec!["a".into(), "b".into()], ..Default::default() };
+    /// ax.pie(&[2.0, 3.0], &options)?.remove();
+    /// assert!(ax.patches().is_empty() && ax.texts().is_empty());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn remove(&self) {
+        for wedge in &self.wedges {
+            wedge.remove();
+        }
+        let added = self.added_labels.iter().flatten();
+        for text in self.labels.iter().chain(&self.pct_labels).chain(added) {
+            text.remove();
+        }
+    }
+}
+
 /// Why a pie cannot be drawn.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PieError {
@@ -479,5 +503,22 @@ mod tests {
         let pie = ax.pie(&[1.0, 2.0], &options).unwrap();
         assert!(pie.labels.is_empty(), "no labels drawn without a distance");
         assert_eq!(ax.legend_handles_labels().1, ["a", "b"]);
+    }
+
+    #[test]
+    fn removing_a_pie_takes_every_label_along() {
+        let ax = Figure::new().subplot();
+        let options = PieOptions {
+            labels: vec!["foo".into(), "bar".into()],
+            autopct: Some(PieLabelFormat::Printf("%1.0f%%".into())),
+            ..PieOptions::default()
+        };
+        let mut pie = ax.pie(&[2.0, 3.0], &options).unwrap();
+        let added: &[&str] = &["baz", "qux"];
+        ax.pie_label(&mut pie, added, &crate::axes::PieLabelOptions::default())
+            .unwrap();
+        assert_eq!((ax.patches().len(), ax.texts().len()), (2, 6));
+        pie.remove();
+        assert_eq!((ax.patches().len(), ax.texts().len()), (0, 0));
     }
 }

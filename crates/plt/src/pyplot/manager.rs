@@ -4,7 +4,7 @@
 
 use super::interactive::draw_if_interactive;
 use super::registry::{gcf, with_registry};
-use crate::figure::Figure;
+use crate::figure::{Figure, SaveFormat};
 
 /// The manager of a pyplot figure: its number and window title.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,6 +40,20 @@ impl FigureManager {
                 .find(|entry| entry.num == self.num)
                 .map(super::registry::Entry::title)
         })
+    }
+
+    /// The name a saved figure gets by default, unless the figure was
+    /// closed (matplotlib's `canvas.get_default_filename`): its window
+    /// title made safe for file systems, in the `savefig.format` format
+    /// (PNG when that is no format plt-rs saves in); see
+    /// [`SaveFormat::file_name_for`].
+    pub fn default_filename(&self) -> Option<String> {
+        let format = crate::rc::params()
+            .savefig_format
+            .parse()
+            .unwrap_or(SaveFormat::Png);
+        self.window_title()
+            .map(|title| format.file_name_for(&title))
     }
 
     /// Sets the title of the figure's window (matplotlib's
@@ -89,9 +103,11 @@ mod tests {
         assert_eq!(manager.window_title().as_deref(), Some("data"));
         manager.set_window_title("My plot");
         assert_eq!(manager.window_title().as_deref(), Some("My plot"));
+        assert_eq!(manager.default_filename().as_deref(), Some("My_plot.png"));
         assert_eq!(get_figlabels(), ["data"], "the label stays");
         close_all();
         assert_eq!(manager.window_title(), None, "closed");
+        assert_eq!(manager.default_filename(), None);
         let fresh = get_current_fig_manager();
         assert_eq!(
             fresh.window_title(),

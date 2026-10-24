@@ -12,7 +12,7 @@ use crate::axes::{
 use crate::collections::Collection;
 use crate::stats::BinSample;
 use crate::text::{Annotation, Text};
-use crate::units::AxisValues;
+use crate::units::{AxisDelta, AxisValue, AxisValues};
 
 /// Draws vertical bars on the current axes (matplotlib's `bar`).
 ///
@@ -42,11 +42,15 @@ pub fn barh(
 
 /// Draws horizontal bands `xranges` (start, width) at the band's position
 /// with its height on the current axes (matplotlib's `broken_barh`).
-pub fn broken_barh(
-    xranges: &[(f64, f64)],
+pub fn broken_barh<X, W>(
+    xranges: &[(X, W)],
     band: impl Into<BandRange>,
     align: BandAlign,
-) -> Collection {
+) -> Collection
+where
+    X: Clone + Into<AxisValue>,
+    W: Clone + Into<AxisDelta>,
+{
     gca().broken_barh(xranges, band, align)
 }
 

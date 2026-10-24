@@ -5,6 +5,7 @@ use plt_core::Bbox;
 
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, AxesState, AxisName};
+use crate::colorbar::Colorbar;
 use crate::figure::Figure;
 use crate::mplot3d::{Axes3D, Axis3, ViewAngles};
 
@@ -16,6 +17,9 @@ struct AxesView {
     ylim: (f64, f64),
     autoscale: (bool, bool),
     position: Bbox,
+    /// The norm limits of the colorbar drawn in the axes, which make up
+    /// its view (matplotlib's `Colorbar._get_view`).
+    colorbar: Option<(f64, f64)>,
 }
 
 impl AxesView {
@@ -33,19 +37,26 @@ impl AxesView {
             ylim,
             autoscale,
             position,
+            colorbar: Colorbar::in_axes(ax).and_then(|colorbar| colorbar.view()),
         }
     }
 
-    /// Applies the view to `ax` (matplotlib's `_set_view` and
+    /// Applies the view to `ax` (matplotlib's `_set_view`, which a
+    /// colorbar replaces by setting its norm's limits, and
     /// `_set_position(..., 'original')`).
     fn apply(&self, ax: &Axes) {
-        ax.set_xlim(self.xlim.0, self.xlim.1)
-            .set_ylim(self.ylim.0, self.ylim.1);
-        ax.raw().with_mut::<AxesState, _>(|state| {
-            state.axis_mut(AxisName::X).autoscale.enabled = self.autoscale.0;
-            state.axis_mut(AxisName::Y).autoscale.enabled = self.autoscale.1;
-            state.position = self.position;
-        });
+        if let (Some(view), Some(colorbar)) = (self.colorbar, Colorbar::in_axes(ax)) {
+            colorbar.set_view(view);
+        } else {
+            ax.set_xlim(self.xlim.0, self.xlim.1)
+                .set_ylim(self.ylim.0, self.ylim.1);
+            ax.raw().with_mut::<AxesState, _>(|state| {
+                state.axis_mut(AxisName::X).autoscale.enabled = self.autoscale.0;
+                state.axis_mut(AxisName::Y).autoscale.enabled = self.autoscale.1;
+            });
+        }
+        ax.raw()
+            .with_mut::<AxesState, _>(|state| state.position = self.position);
     }
 }
 

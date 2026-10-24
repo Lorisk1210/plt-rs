@@ -110,6 +110,26 @@ impl SaveFormat {
         }
     }
 
+    /// A file name in this format for a figure whose window is titled
+    /// `title` (matplotlib's `get_default_filename`): the title with the
+    /// characters file systems refuse, and spaces, replaced by `_`, or
+    /// `image` for an empty title.
+    ///
+    /// ```
+    /// use plt::figure::SaveFormat;
+    /// assert_eq!(SaveFormat::Png.file_name_for("Figure 1"), "Figure_1.png");
+    /// assert_eq!(SaveFormat::Pdf.file_name_for("0:1/2<3"), "0_1_2_3.pdf");
+    /// assert_eq!(SaveFormat::Svg.file_name_for(""), "image.svg");
+    /// ```
+    pub fn file_name_for(self, title: &str) -> String {
+        let base: String = title
+            .chars()
+            .map(|c| if "<>:\"/\\|?*\0 ".contains(c) { '_' } else { c })
+            .collect();
+        let base = if base.is_empty() { "image" } else { &base };
+        format!("{base}.{}", self.extension())
+    }
+
     /// The bitmap encoding of the raster formats, `None` for the vector
     /// formats.
     pub const fn bitmap(self) -> Option<BitmapFormat> {

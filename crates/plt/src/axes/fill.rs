@@ -7,6 +7,7 @@ use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Polygon};
 use crate::rc::CycleValue;
+use crate::units::AxisValues;
 
 /// Line properties a polygon ignores when it takes a property-cycle entry.
 const MARKER_KEYS: [&str; 5] = [
@@ -18,9 +19,9 @@ const MARKER_KEYS: [&str; 5] = [
 ];
 
 impl Axes {
-    /// A filled, closed polygon through `(x, y)` (matplotlib's `fill`). Its
-    /// face colour comes from the property cycle unless `props.color` is
-    /// set.
+    /// A filled, closed polygon through `(x, y)`, numbers, dates or
+    /// categories (matplotlib's `fill`). Its face colour comes from the
+    /// property cycle unless `props.color` is set.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -35,11 +36,12 @@ impl Axes {
     /// When `x` and `y` differ in length.
     pub fn fill(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
         props: PatchProps,
     ) -> Result<Patch<Polygon>, PlotError> {
-        let (x, y) = (x.as_ref(), y.as_ref());
+        let (x, y) = (self.xaxis().convert_units(x), self.yaxis().convert_units(y));
+        let (x, y) = (x.as_slice(), y.as_slice());
         if x.len() != y.len() {
             return Err(PlotError::LengthMismatch {
                 x: x.len(),

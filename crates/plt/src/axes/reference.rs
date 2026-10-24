@@ -11,30 +11,45 @@ use crate::patches::{Patch, PatchArtist, PatchShape, Rectangle};
 use crate::polar::GRIDLINE_INTERPOLATION_STEPS;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
+use crate::units::AxisValue;
 
 impl Axes {
-    /// A horizontal line at data height `y` across the whole axes
-    /// (matplotlib's `axhline`).
-    pub fn axhline(&self, y: f64, props: LineProps) -> Line2D {
+    /// A horizontal line at data height `y` (a number, date or category)
+    /// across the whole axes (matplotlib's `axhline`).
+    pub fn axhline(&self, y: impl Into<AxisValue>, props: LineProps) -> Line2D {
         self.axhline_between(y, 0.0, 1.0, props)
     }
 
     /// A horizontal line at data height `y` from axes fraction `xmin` to
     /// `xmax`.
-    pub fn axhline_between(&self, y: f64, xmin: f64, xmax: f64, props: LineProps) -> Line2D {
+    pub fn axhline_between(
+        &self,
+        y: impl Into<AxisValue>,
+        xmin: f64,
+        xmax: f64,
+        props: LineProps,
+    ) -> Line2D {
+        let y = self.yaxis().convert_value(y);
         let line = LineArtist::new(vec![xmin, xmax], vec![y, y], crate::rc::params());
         self.add_reference_line(line, props, self.trans_yaxis(), AxisName::Y, y)
     }
 
-    /// A vertical line at data position `x` across the whole axes
-    /// (matplotlib's `axvline`).
-    pub fn axvline(&self, x: f64, props: LineProps) -> Line2D {
+    /// A vertical line at data position `x` (a number, date or category)
+    /// across the whole axes (matplotlib's `axvline`).
+    pub fn axvline(&self, x: impl Into<AxisValue>, props: LineProps) -> Line2D {
         self.axvline_between(x, 0.0, 1.0, props)
     }
 
     /// A vertical line at data position `x` from axes fraction `ymin` to
     /// `ymax`.
-    pub fn axvline_between(&self, x: f64, ymin: f64, ymax: f64, props: LineProps) -> Line2D {
+    pub fn axvline_between(
+        &self,
+        x: impl Into<AxisValue>,
+        ymin: f64,
+        ymax: f64,
+        props: LineProps,
+    ) -> Line2D {
+        let x = self.xaxis().convert_value(x);
         let line = LineArtist::new(vec![x, x], vec![ymin, ymax], crate::rc::params());
         self.add_reference_line(line, props, self.trans_xaxis(), AxisName::X, x)
     }
@@ -60,28 +75,54 @@ impl Axes {
         Line2D::from_raw(self.adopt(line, &DataUpdate::data(points)))
     }
 
-    /// A horizontal band between data heights `ymin` and `ymax` across the
-    /// whole axes (matplotlib's `axhspan`).
-    pub fn axhspan(&self, ymin: f64, ymax: f64) -> Patch<Rectangle> {
+    /// A horizontal band between data heights `ymin` and `ymax` (numbers,
+    /// dates or categories) across the whole axes (matplotlib's
+    /// `axhspan`).
+    pub fn axhspan(
+        &self,
+        ymin: impl Into<AxisValue>,
+        ymax: impl Into<AxisValue>,
+    ) -> Patch<Rectangle> {
         self.axhspan_between(ymin, ymax, 0.0, 1.0)
     }
 
     /// A horizontal band between data heights `ymin` and `ymax`, from axes
     /// fraction `xmin` to `xmax`.
-    pub fn axhspan_between(&self, ymin: f64, ymax: f64, xmin: f64, xmax: f64) -> Patch<Rectangle> {
+    pub fn axhspan_between(
+        &self,
+        ymin: impl Into<AxisValue>,
+        ymax: impl Into<AxisValue>,
+        xmin: f64,
+        xmax: f64,
+    ) -> Patch<Rectangle> {
+        let yaxis = self.yaxis();
+        let (ymin, ymax) = (yaxis.convert_value(ymin), yaxis.convert_value(ymax));
         let band = Rectangle::new(Point::new(xmin, ymin), xmax - xmin, ymax - ymin);
         bent_like_gridlines(self.add_patch_in(band, self.trans_yaxis(), (false, true)))
     }
 
-    /// A vertical band between data positions `xmin` and `xmax` across the
-    /// whole axes (matplotlib's `axvspan`).
-    pub fn axvspan(&self, xmin: f64, xmax: f64) -> Patch<Rectangle> {
+    /// A vertical band between data positions `xmin` and `xmax` (numbers,
+    /// dates or categories) across the whole axes (matplotlib's
+    /// `axvspan`).
+    pub fn axvspan(
+        &self,
+        xmin: impl Into<AxisValue>,
+        xmax: impl Into<AxisValue>,
+    ) -> Patch<Rectangle> {
         self.axvspan_between(xmin, xmax, 0.0, 1.0)
     }
 
     /// A vertical band between data positions `xmin` and `xmax`, from axes
     /// fraction `ymin` to `ymax`.
-    pub fn axvspan_between(&self, xmin: f64, xmax: f64, ymin: f64, ymax: f64) -> Patch<Rectangle> {
+    pub fn axvspan_between(
+        &self,
+        xmin: impl Into<AxisValue>,
+        xmax: impl Into<AxisValue>,
+        ymin: f64,
+        ymax: f64,
+    ) -> Patch<Rectangle> {
+        let xaxis = self.xaxis();
+        let (xmin, xmax) = (xaxis.convert_value(xmin), xaxis.convert_value(xmax));
         let band = Rectangle::new(Point::new(xmin, ymin), xmax - xmin, ymax - ymin);
         bent_like_gridlines(self.add_patch_in(band, self.trans_xaxis(), (true, false)))
     }

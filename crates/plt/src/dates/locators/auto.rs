@@ -364,6 +364,10 @@ impl Locator for AutoDateLocator {
             (v0, v1)
         }
     }
+
+    fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
+        Some(self.unit(ctx))
+    }
 }
 
 impl DateLocator for AutoDateLocator {
@@ -416,6 +420,10 @@ impl Locator for ChosenLocator {
 
     fn nonsingular(&self, v0: f64, v1: f64, ctx: &TickContext<'_>) -> (f64, f64) {
         self.inner().nonsingular(v0, v1, ctx)
+    }
+
+    fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
+        Some(self.unit(ctx))
     }
 }
 

@@ -76,14 +76,14 @@ impl Axis {
             Some(tickers) => Rc::from(tickers.minor_locator),
             None => Rc::new(AutoMinorLocator::new(None)),
         };
-        self.update_shared(|axis| axis.minor_locator = Rc::clone(&locator));
+        self.update_shared(|axis| axis.set_minor_locator(Rc::clone(&locator)));
         self
     }
 
     /// Removes the minor ticks (matplotlib's `Axis.minorticks_off`).
     pub fn minorticks_off(&self) -> &Self {
         let locator: Rc<dyn Locator> = Rc::new(NullLocator);
-        self.update_shared(|axis| axis.minor_locator = Rc::clone(&locator));
+        self.update_shared(|axis| axis.set_minor_locator(Rc::clone(&locator)));
         self
     }
 }
@@ -483,7 +483,7 @@ impl Axis {
         let ticks = self.convert_units(ticks);
         self.include_ticks_in_view(&ticks);
         let locator: Rc<dyn Locator> = Rc::new(FixedLocator::new(ticks));
-        self.update_shared(|axis| axis.minor_locator = Rc::clone(&locator));
+        self.update_shared(|axis| axis.set_minor_locator(Rc::clone(&locator)));
         self
     }
 }

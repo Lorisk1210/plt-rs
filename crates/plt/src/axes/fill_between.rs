@@ -11,6 +11,7 @@ use crate::collections::{Collection, CollectionArtist, CollectionKind, Collectio
 use crate::lines::{DrawStyle, StepWhere};
 use crate::numeric::{argsort, contiguous_regions};
 use crate::orientation::Orientation;
+use crate::units::AxisValues;
 
 /// Options of [`Axes::fill_between`] and [`Axes::fill_betweenx`].
 #[derive(Clone, Debug, Default)]
@@ -39,6 +40,7 @@ struct Curves {
 impl Axes {
     /// Fills between `y1` and `y2` along `x` (matplotlib's
     /// `fill_between`); `y1` and `y2` hold one value or one per point.
+    /// Every argument may hold numbers, dates or categories.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -53,16 +55,17 @@ impl Axes {
     /// When the lengths of `x`, `y1`, `y2` or the mask disagree.
     pub fn fill_between(
         &self,
-        x: impl AsRef<[f64]>,
-        y1: impl AsRef<[f64]>,
-        y2: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y1: impl Into<AxisValues>,
+        y2: impl Into<AxisValues>,
         options: FillBetweenOptions,
     ) -> Result<Collection, PlotError> {
+        let (xaxis, yaxis) = (self.xaxis(), self.yaxis());
         let curves = Curves::new(
             Orientation::Vertical,
-            x.as_ref(),
-            y1.as_ref(),
-            y2.as_ref(),
+            &xaxis.convert_units(x),
+            &yaxis.convert_units(y1),
+            &yaxis.convert_units(y2),
             options.mask.as_deref(),
         )?;
         Ok(self.add_fill_between(Orientation::Vertical, &curves, options))
@@ -76,16 +79,17 @@ impl Axes {
     /// As [`Axes::fill_between`].
     pub fn fill_betweenx(
         &self,
-        y: impl AsRef<[f64]>,
-        x1: impl AsRef<[f64]>,
-        x2: impl AsRef<[f64]>,
+        y: impl Into<AxisValues>,
+        x1: impl Into<AxisValues>,
+        x2: impl Into<AxisValues>,
         options: FillBetweenOptions,
     ) -> Result<Collection, PlotError> {
+        let (xaxis, yaxis) = (self.xaxis(), self.yaxis());
         let curves = Curves::new(
             Orientation::Horizontal,
-            y.as_ref(),
-            x1.as_ref(),
-            x2.as_ref(),
+            &yaxis.convert_units(y),
+            &xaxis.convert_units(x1),
+            &xaxis.convert_units(x2),
             options.mask.as_deref(),
         )?;
         Ok(self.add_fill_between(Orientation::Horizontal, &curves, options))

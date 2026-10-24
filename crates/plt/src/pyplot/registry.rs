@@ -5,7 +5,7 @@
 use std::cell::RefCell;
 
 use super::interactive::{close_windows, draw_if_interactive};
-use crate::artist::RawHandle;
+use crate::artist::{ArtistHandle, RawHandle};
 use crate::axes::Axes;
 use crate::figure::Figure;
 
@@ -62,20 +62,20 @@ impl Registry {
             .map(|entry| &entry.figure)
     }
 
-    /// The lowest number no figure has.
-    fn free_number(&self) -> u32 {
-        let mut used: Vec<u32> = self.figures.iter().map(|entry| entry.num).collect();
-        used.sort_unstable();
-        used.iter().zip(1..).find(|(used, n)| *used != n).map_or(
-            u32::try_from(used.len()).map_or(u32::MAX, |len| len + 1),
-            |(_, n)| n,
-        )
+    /// The number of the next new figure: one more than the highest
+    /// number in use, so that numbers of closed figures are not reused
+    /// while higher ones remain (matplotlib's `next_num`).
+    fn next_number(&self) -> u32 {
+        self.figures
+            .iter()
+            .map(|entry| entry.num)
+            .max()
+            .map_or(1, |highest| highest.saturating_add(1))
     }
 
-    /// Registers `figure` under the lowest free number and makes it
-    /// current.
+    /// Registers `figure` under the next number and makes it current.
     fn add(&mut self, figure: Figure, label: String) -> u32 {
-        let num = self.free_number();
+        let num = self.next_number();
         self.figures.push(Entry::new(num, label, figure));
         self.current = Some(num);
         num
@@ -104,7 +104,7 @@ pub(super) fn with_registry<R>(f: impl FnOnce(&mut Registry) -> R) -> R {
     REGISTRY.with(|registry| f(&mut registry.borrow_mut()))
 }
 
-/// Registers a new figure under the lowest free number, makes it current
+/// Registers a new figure under the next number, makes it current
 /// and shows it in interactive mode.
 fn new_figure(figure: Figure, label: String) -> Figure {
     with_registry(|registry| registry.add(figure.clone(), label));
@@ -142,8 +142,8 @@ pub fn figure_num(num: u32) -> Figure {
     })
 }
 
-/// The figure labelled `label`, made current; created under the lowest
-/// free number if no figure has that label (matplotlib's
+/// The figure labelled `label`, made current; created under the next
+/// number if no figure has that label (matplotlib's
 /// `figure("label")`, which also titles the window).
 pub fn figure_label(label: &str) -> Figure {
     let existing = with_registry(|registry| {
@@ -155,9 +155,9 @@ pub fn figure_label(label: &str) -> Figure {
     existing.unwrap_or_else(|| new_figure(Figure::new(), label.to_owned()))
 }
 
-/// Makes `fig` the current figure, registering it under the lowest free
-/// number if pyplot does not manage it yet, and returns its number
-/// (matplotlib's `figure(fig)`).
+/// Makes `fig` the current figure, registering it under the next number
+/// if pyplot does not manage it yet, and returns its number (matplotlib's
+/// `figure(fig)`). For a subfigure, that is its root figure.
 pub fn figure_activate(fig: &Figure) -> u32 {
     with_registry(|registry| {
         let known = registry
@@ -170,7 +170,7 @@ pub fn figure_activate(fig: &Figure) -> u32 {
                 registry.current = Some(num);
                 num
             }
-            None => registry.add(fig.clone(), String::new()),
+            None => registry.add(Figure::root_of(fig.raw().figure_state()), String::new()),
         }
     })
 }
@@ -278,7 +278,6 @@ pub fn findobj(matches: impl Fn(&RawHandle) -> bool) -> Vec<RawHandle> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artist::ArtistHandle;
 
     #[test]
     fn figures_are_numbered_and_current() {
@@ -291,9 +290,33 @@ mod tests {
         assert_eq!(gcf(), first);
         close();
         assert_eq!(get_fignums(), [2]);
-        assert_eq!(figure(), figure_num(1), "the lowest free number is reused");
+        let third = figure();
+        assert_eq!(
+            get_fignums(),
+            [2, 3],
+            "matplotlib numbers after the highest"
+        );
+        assert_eq!(figure_num(3), third);
         close_all();
         assert_eq!(get_fignums(), [] as [u32; 0]);
+        figure_num(5);
+        assert_eq!(figure_label("next"), figure_num(6));
+        close_all();
+    }
+
+    #[test]
+    fn activating_a_subfigure_registers_its_root() {
+        close_all();
+        let fig = Figure::new();
+        let parts = fig
+            .subfigures(1, 2, &crate::figure::SubfigureOptions::default())
+            .expect("a grid");
+        assert_eq!(figure_activate(&parts[(0, 1)]), 1);
+        assert_eq!(gcf().id(), fig.id(), "the root figure is current");
+        figure();
+        assert_eq!(figure_activate(&parts[(0, 0)]), 1, "already managed");
+        assert_eq!(gcf().id(), fig.id());
+        close_all();
     }
 
     #[test]

@@ -9,6 +9,7 @@ mod simple;
 
 use std::any::Any;
 use std::fmt;
+use std::rc::Rc;
 
 pub use eng::EngFormatter;
 pub use log::{LogFormatter, LogLabelStyle};
@@ -20,7 +21,7 @@ pub use simple::{
     FixedFormatter, FormatStrFormatter, FuncFormatter, NullFormatter, StrMethodFormatter,
 };
 
-use super::{TickContext, TickerError};
+use super::{Locator, TickContext, TickerError};
 
 /// The labels for a set of ticks plus the axis offset text (e.g. `1e6` or
 /// `+1e5`) that applies to all of them.
@@ -51,6 +52,15 @@ pub trait Formatter: fmt::Debug + Any {
     /// readout, with precision adapted to the view.
     fn format_data_short(&self, value: f64, ctx: &TickContext<'_>) -> Result<String, TickerError> {
         self.format_data(value, ctx)
+    }
+
+    /// A copy of this formatter following `locator`, for formatters that
+    /// base their labels on their axis' locator; `None` for the others,
+    /// which are left as they are. An axis given a new locator hands it
+    /// to its formatter (matplotlib's `Formatter._set_locator`, called by
+    /// `Axis.set_major_locator`).
+    fn following(&self, _locator: &Rc<dyn Locator>) -> Option<Rc<dyn Formatter>> {
+        None
     }
 }
 

@@ -13,6 +13,7 @@ use plt_core::Bbox;
 use crate::artist::ArtistHandle;
 use crate::figure::Figure;
 
+mod display;
 mod params;
 
 pub use params::{GridSpecError, SubplotOverrides, SubplotParams};
@@ -182,6 +183,23 @@ impl GridSpec {
     /// grid).
     pub fn parent(&self) -> Option<&SubplotSpec> {
         self.data.parent.as_ref()
+    }
+
+    /// The block of a figure-level grid this nested grid lies in, through
+    /// every level of nesting (matplotlib's
+    /// `GridSpecFromSubplotSpec.get_topmost_subplotspec`); `None` for a
+    /// figure-level grid.
+    ///
+    /// ```
+    /// use plt::gridspec::GridSpec;
+    /// let cell = GridSpec::new(1, 2)?.cell(0, 1)?;
+    /// let inner = GridSpec::nested(&cell, 2, 1, None, None, (None, None))?;
+    /// let innermost = GridSpec::nested(&inner.cell(1, 0)?, 1, 3, None, None, (None, None))?;
+    /// assert_eq!(innermost.topmost_subplotspec(), Some(cell));
+    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// ```
+    pub fn topmost_subplotspec(&self) -> Option<SubplotSpec> {
+        self.parent().map(SubplotSpec::topmost_subplotspec)
     }
 
     /// Whether `other` is this very grid rather than an equal copy (grids
@@ -385,6 +403,16 @@ impl SubplotSpec {
     /// Columns covered.
     pub fn cols(&self) -> Range<usize> {
         self.cols.clone()
+    }
+
+    /// The block of a figure-level grid this block lies in: itself on a
+    /// figure-level grid, else the topmost block of its nested grid
+    /// (matplotlib's `SubplotSpec.get_topmost_subplotspec`).
+    #[must_use]
+    pub fn topmost_subplotspec(&self) -> SubplotSpec {
+        self.gridspec
+            .topmost_subplotspec()
+            .unwrap_or_else(|| self.clone())
     }
 
     /// Whether the block touches the first row (top of the grid).

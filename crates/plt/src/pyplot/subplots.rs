@@ -5,15 +5,17 @@
 use std::path::Path;
 
 use super::error::PyplotError;
-use super::registry::{figure, gca, gcf};
+use super::registry::{fignum_exists, figure, figure_num, gca, gcf};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, ProjectionKind};
 use crate::figure::{
     Figure, Mosaic, MosaicAxes, MosaicError, MosaicOptions, SaveError, SaveOptions, Share,
 };
+use crate::geo::{GeoAxes, GeoProjection};
 use crate::gridspec::{GridSpec, GridSpecError};
 use crate::lines::Line2D;
 use crate::numeric::Grid;
+use crate::polar::PolarAxes;
 use crate::units::AxisValues;
 
 /// A new current figure with a grid of axes (matplotlib's `subplots`).
@@ -42,6 +44,48 @@ pub fn subplots_shared(
     Ok((fig, axes))
 }
 
+/// A new figure numbered `num` with a grid of axes, made current
+/// (matplotlib's `subplots(num=num, clear=clear)`). A figure already
+/// numbered `num` is cleared and reused when `clear`, and refused
+/// otherwise: these functions make figures, they do not add to them.
+///
+/// ```
+/// use plt::pyplot as plt;
+/// let fig = plt::figure_num(1);
+/// assert!(plt::subplots_num(1, false, 2, 1).is_err());
+/// let (again, axes) = plt::subplots_num(1, true, 2, 1)?;
+/// assert_eq!((again, axes.as_slice().len()), (fig, 2));
+/// plt::close_all();
+/// # Ok::<(), plt::PyplotError>(())
+/// ```
+///
+/// # Errors
+///
+/// [`PyplotError::FigureExists`] when figure `num` is open and not to be
+/// cleared, [`PyplotError::Grid`] when the grid has no cells.
+pub fn subplots_num(
+    num: u32,
+    clear: bool,
+    nrows: usize,
+    ncols: usize,
+) -> Result<(Figure, Grid<Axes>), PyplotError> {
+    let fig = fresh_figure_num(num, clear)?;
+    let axes = fig.subplots(nrows, ncols)?;
+    Ok((fig, axes))
+}
+
+/// The figure numbered `num` for the functions making figures, made
+/// current: a new one, or the existing one cleared when `clear`
+/// (matplotlib's `_raise_if_figure_exists` and `figure(num, clear=...)`).
+fn fresh_figure_num(num: u32, clear: bool) -> Result<Figure, PyplotError> {
+    if fignum_exists(num) && !clear {
+        return Err(PyplotError::FigureExists(num));
+    }
+    let fig = figure_num(num);
+    fig.clear();
+    Ok(fig)
+}
+
 /// The axes in cell `index` (1-based, row-major) of an `nrows × ncols`
 /// grid of the current figure, reusing an axes already there (matplotlib's
 /// `subplot`); it becomes the current axes.
@@ -50,18 +94,76 @@ pub fn subplots_shared(
 ///
 /// When the grid is empty or `index` is outside it.
 pub fn subplot(nrows: usize, ncols: usize, index: usize) -> Result<Axes, GridSpecError> {
+    subplot_reusing(nrows, ncols, index, None)
+}
+
+/// The axes with `projection` in cell `index` (1-based, row-major) of an
+/// `nrows × ncols` grid of the current figure: one already there if it has
+/// that projection, else a new one, leaving any other in place
+/// (matplotlib's `subplot(nrows, ncols, index, projection=...)` and
+/// `polar=True`); it becomes the current axes.
+///
+/// ```
+/// use ::plt::axes::ProjectionKind;
+/// use plt::pyplot as plt;
+/// let plain = plt::subplot(1, 2, 1)?;
+/// let polar = plt::subplot_with_projection(1, 2, 1, ProjectionKind::Polar)?;
+/// assert_ne!(polar, plain);
+/// assert_eq!(plt::subplot_with_projection(1, 2, 1, ProjectionKind::Polar)?, polar);
+/// assert_eq!(plt::gcf().axes().len(), 2);
+/// plt::close_all();
+/// # Ok::<(), ::plt::gridspec::GridSpecError>(())
+/// ```
+///
+/// # Errors
+///
+/// When the grid is empty or `index` is outside it.
+pub fn subplot_with_projection(
+    nrows: usize,
+    ncols: usize,
+    index: usize,
+    projection: ProjectionKind,
+) -> Result<Axes, GridSpecError> {
+    subplot_reusing(nrows, ncols, index, Some(projection))
+}
+
+/// The axes in a cell of the current figure, made current: the first one
+/// there with `projection` (any projection for `None`), else a new one
+/// with `projection`.
+fn subplot_reusing(
+    nrows: usize,
+    ncols: usize,
+    index: usize,
+    projection: Option<ProjectionKind>,
+) -> Result<Axes, GridSpecError> {
     let fig = gcf();
     let spec = fig.numbered_cell(nrows, ncols, index)?;
-    let existing = fig
-        .axes()
-        .into_iter()
-        .find(|ax| ax.subplot_spec().as_ref() == Some(&spec));
+    let existing = fig.axes().into_iter().find(|ax| {
+        ax.subplot_spec().as_ref() == Some(&spec)
+            && projection.is_none_or(|projection| ax.projection() == projection)
+    });
     let ax = match existing {
         Some(ax) => ax,
-        None => fig.add_subplot_spec(&spec)?,
+        None => projected(fig.add_subplot_spec(&spec)?, projection.unwrap_or_default()),
     };
     fig.sca(&ax);
     Ok(ax)
+}
+
+/// `ax`, a new rectilinear axes, given `projection`.
+fn projected(ax: Axes, projection: ProjectionKind) -> Axes {
+    let geo = match projection {
+        ProjectionKind::Rectilinear => return ax,
+        ProjectionKind::Polar => return PolarAxes::convert(ax).axes().clone(),
+        ProjectionKind::Aitoff => GeoProjection::Aitoff,
+        ProjectionKind::Hammer => GeoProjection::Hammer,
+        ProjectionKind::Lambert => GeoProjection::Lambert {
+            center_longitude: 0.0,
+            center_latitude: 0.0,
+        },
+        ProjectionKind::Mollweide => GeoProjection::Mollweide,
+    };
+    GeoAxes::convert(ax, geo).axes().clone()
 }
 
 /// A new current axes spanning `rowspan × colspan` cells from cell `loc`
@@ -103,15 +205,52 @@ pub fn subplot_mosaic(
     Ok((fig, axes))
 }
 
+/// A new figure numbered `num` with axes laid out by `mosaic`, made
+/// current (matplotlib's `subplot_mosaic(..., num=num, clear=clear)`); an
+/// open figure `num` is cleared and reused when `clear`, and refused
+/// otherwise, as by [`subplots_num`].
+///
+/// # Errors
+///
+/// [`PyplotError::FigureExists`] when figure `num` is open and not to be
+/// cleared, [`PyplotError::Mosaic`] as [`Figure::subplot_mosaic`].
+pub fn subplot_mosaic_num(
+    num: u32,
+    clear: bool,
+    mosaic: &Mosaic,
+    options: &MosaicOptions,
+) -> Result<(Figure, MosaicAxes), PyplotError> {
+    let fig = fresh_figure_num(num, clear)?;
+    let axes = fig.subplot_mosaic(mosaic, options)?;
+    Ok((fig, axes))
+}
+
 /// A new current axes in the current figure: at `rect`
 /// (`[left, bottom, width, height]` in figure fractions), or filling the
 /// default subplot area when `None` (matplotlib's `axes`).
 pub fn axes(rect: Option<[f64; 4]>) -> Axes {
+    axes_with_projection(rect, ProjectionKind::Rectilinear)
+}
+
+/// A new current axes with `projection` in the current figure, placed as
+/// by [`axes`] (matplotlib's `axes(rect, projection=...)`).
+///
+/// ```
+/// use ::plt::axes::ProjectionKind;
+/// use plt::pyplot as plt;
+/// let polar = plt::axes_with_projection(None, ProjectionKind::Polar);
+/// let plain = plt::axes(None);
+/// assert_eq!((polar.projection(), plain.projection()), (ProjectionKind::Polar, ProjectionKind::Rectilinear));
+/// assert_eq!(plt::gca(), plain);
+/// plt::close_all();
+/// ```
+pub fn axes_with_projection(rect: Option<[f64; 4]>, projection: ProjectionKind) -> Axes {
     let fig = gcf();
-    match rect {
+    let ax = match rect {
         Some(rect) => fig.add_axes(rect),
         None => fig.subplot(),
-    }
+    };
+    projected(ax, projection)
 }
 
 /// A new current axes sharing the x axis of `ax`, or of the current axes,
@@ -290,6 +429,40 @@ mod tests {
             savefig_with("x.unknown", &SaveOptions::default()),
             Err(SaveError::UnsupportedFormat(_))
         ));
+        close_all();
+    }
+
+    #[test]
+    fn numbered_figures_are_made_or_cleared_never_added_to() {
+        close_all();
+        let mosaic = Mosaic::parse("AB").unwrap();
+        let options = MosaicOptions::default();
+        let (made, axes) = subplot_mosaic_num(2, false, &mosaic, &options).unwrap();
+        assert_eq!((crate::pyplot::get_fignums(), axes.len()), (vec![2], 2));
+        assert_eq!(
+            subplot_mosaic_num(2, false, &mosaic, &options).err(),
+            Some(PyplotError::FigureExists(2))
+        );
+        let (again, _) = subplot_mosaic_num(2, true, &mosaic, &options).unwrap();
+        assert_eq!(again, made);
+        assert_eq!(made.axes().len(), 2, "the old axes were cleared away");
+        assert_eq!(
+            subplots_num(3, false, 0, 1).err(),
+            Some(PyplotError::Grid(GridSpecError::EmptyGrid))
+        );
+        close_all();
+    }
+
+    #[test]
+    fn subplots_of_a_projection_replace_none_of_another() {
+        close_all();
+        let polar = subplot_with_projection(1, 1, 1, ProjectionKind::Polar).unwrap();
+        assert_eq!(subplot(1, 1, 1).unwrap(), polar, "any projection is reused");
+        let plain = subplot_with_projection(1, 1, 1, ProjectionKind::Rectilinear).unwrap();
+        assert_ne!(plain, polar);
+        let map = axes_with_projection(Some([0.1, 0.1, 0.3, 0.3]), ProjectionKind::Mollweide);
+        assert_eq!(map.projection(), ProjectionKind::Mollweide);
+        assert_eq!(gcf().axes().len(), 3);
         close_all();
     }
 

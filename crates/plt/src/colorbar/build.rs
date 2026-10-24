@@ -99,7 +99,11 @@ impl Colorbar {
         };
         state.redraw(&ax, Some(&tickers))?;
         let raw = ax.adopt(ColorbarArtist::new(state), &DataUpdate::default());
-        Ok(Self { ax, raw })
+        let colorbar = Self { ax, raw };
+        if !colorbar.navigable() {
+            colorbar.ax.set_navigate(false);
+        }
+        Ok(colorbar)
     }
 }
 

@@ -3,13 +3,14 @@
 
 use std::any::Any;
 use std::f64::consts::{PI, TAU};
+use std::rc::Rc;
 
 use plt_core::{Bbox, Point};
 
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::figure::{Figure, FigureState};
-use crate::ticker::{ScalarFormatter, TickContext, g_sig_digits, pyfmt};
+use crate::ticker::{Formatter, ScalarFormatter, TickContext, g_sig_digits, pyfmt};
 use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// The axes under display point `at`: the visible axes whose background
@@ -153,8 +154,12 @@ fn format_data(ax: &Axes, name: AxisName, value: f64) -> Option<String> {
         .fold(0.0, f64::max);
     ax.raw().with::<AxesState, _>(|state| {
         let axis = state.axis(name);
-        let formatter: &dyn Any = axis.major_formatter.as_ref();
-        if formatter.is::<ScalarFormatter>() {
+        let custom = match name {
+            AxisName::X => state.fmt_data.0.as_ref(),
+            AxisName::Y => state.fmt_data.1.as_ref(),
+        };
+        let formatter = custom.unwrap_or(&axis.major_formatter);
+        if (formatter.as_ref() as &dyn Any).is::<ScalarFormatter>() {
             return ScalarFormatter::format_data_resolved(value, resolution, &axis.settings).ok();
         }
         let ((low, high), minpos) = state.data_interval(name);
@@ -166,7 +171,7 @@ fn format_data(ax: &Axes, name: AxisName, value: f64) -> Option<String> {
             tick_space: None,
             tick_floor: None,
         });
-        axis.major_formatter
+        formatter
             .format_data_short(value, &TickContext::new(&info, &axis.settings))
             .ok()
     })
@@ -175,10 +180,11 @@ fn format_data(ax: &Axes, name: AxisName, value: f64) -> Option<String> {
 impl Axes {
     /// `value` along `axis` as a status bar shows it (matplotlib's
     /// `format_xdata` and `format_ydata`, as `Axes3D::format_data` for
-    /// 3-D axes): in the short form of the axis' major formatter, which
-    /// for a `ScalarFormatter` has as many digits as a screen pixel
-    /// resolves. The figure is laid out first; `None` when the formatter
-    /// fails or the axes has no extent.
+    /// 3-D axes): in the short form of the formatter set with
+    /// [`set_fmt_data`](Self::set_fmt_data), else of the axis' major
+    /// formatter, which for a `ScalarFormatter` has as many digits as a
+    /// screen pixel resolves. The figure is laid out first; `None` when the
+    /// formatter fails or the axes has no extent.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -188,6 +194,31 @@ impl Axes {
     /// ```
     pub fn format_data(&self, axis: AxisName, value: f64) -> Option<String> {
         format_data(self, axis, value)
+    }
+
+    /// Formats the coordinates along `axis` that a status bar shows (see
+    /// [`format_data`](Self::format_data) and
+    /// [`format_coord`](Self::format_coord)) with the short form of
+    /// `formatter`, or with the axis' major formatter again for `None`
+    /// (matplotlib's `fmt_xdata` and `fmt_ydata`).
+    ///
+    /// ```
+    /// use std::rc::Rc;
+    /// use plt::axes::AxisName;
+    /// use plt::prelude::*;
+    /// use plt::ticker::FuncFormatter;
+    /// let ax = Figure::new().subplot();
+    /// let foo = Rc::new(FuncFormatter::new(|_, _| "foo".into()));
+    /// ax.set_fmt_data(AxisName::X, Some(foo.clone()))
+    ///     .set_fmt_data(AxisName::Y, Some(foo));
+    /// assert_eq!(ax.format_coord(42.0, 24.0), "(x, y) = (foo, foo)");
+    /// ```
+    pub fn set_fmt_data(&self, axis: AxisName, formatter: Option<Rc<dyn Formatter>>) -> &Self {
+        self.raw().with_mut::<AxesState, _>(|state| match axis {
+            AxisName::X => state.fmt_data.0 = formatter,
+            AxisName::Y => state.fmt_data.1 = formatter,
+        });
+        self
     }
 
     /// The data point `(x, y)` as a status bar shows it (matplotlib's

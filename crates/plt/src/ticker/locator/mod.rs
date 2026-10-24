@@ -75,6 +75,13 @@ pub trait Locator: fmt::Debug + Any {
     ) -> Result<(f64, f64), TickerError> {
         Ok(nonsingular(dmin, dmax, 0.001, 1e-15, true))
     }
+
+    /// Days per tick unit of a date locator for the context's view
+    /// (matplotlib's `_get_unit`, which date formatters ask their
+    /// locator); `None` for locators that are not date locators.
+    fn date_unit(&self, _ctx: &TickContext<'_>) -> Option<f64> {
+        None
+    }
 }
 
 #[cfg(test)]

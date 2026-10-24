@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, BarLabelOptions};
 use plt::collections::CollectionProps;
-use plt::colors::{Color, ColorError};
+use plt::colors::Color;
 use plt::contour::{ContourOptions, ContourSet, Levels};
 use plt::figure::Figure;
 use plt::fonts::{FontProperties, FontSize};
@@ -125,15 +125,13 @@ pub(crate) fn shown_labels(texts: &[&str]) -> Vec<Option<String>> {
 
 /// A stroke `width` points wide in `color` (`Stroke(linewidth=width,
 /// foreground=color)`).
-pub(crate) fn stroke(width: f64, color: &str) -> Result<Stroke, ColorError> {
-    Ok(Stroke::new(
-        GcUpdate::default().linewidth(width).foreground(color)?,
-    ))
+pub(crate) fn stroke(width: f64, color: &str) -> Stroke {
+    Stroke::new(GcUpdate::default().linewidth(width).foreground(color))
 }
 
 /// `[withStroke(linewidth=width, foreground=color)]`.
-pub(crate) fn with_stroke(width: f64, color: &str) -> Result<Vec<PathEffect>, ColorError> {
-    Ok(vec![PathEffect::with_stroke(stroke(width, color)?)])
+pub(crate) fn with_stroke(width: f64, color: &str) -> Vec<PathEffect> {
+    vec![PathEffect::with_stroke(stroke(width, color))]
 }
 
 /// Sets `effects` on every collection of `contours` (matplotlib's

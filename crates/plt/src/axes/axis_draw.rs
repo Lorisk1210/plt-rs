@@ -44,20 +44,26 @@ impl AxisPainter<'_> {
                 }
                 None => self.draw_tick_lines(ctx, tick.loc, &style, rc),
             }
-            with_path_effects(ctx, &rc.path_effects, |ctx| {
+            let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
                 while let Some(label) = labels.next_if(|label| label.tick == index) {
                     draw_text(ctx, &label.text, rc);
                 }
             });
+            if let Err(err) = drawn {
+                ctx.report(self.axes_id, err);
+            }
         }
         if let Some(label) = &texts.label {
             self.draw_label_box(ctx, label, rc);
         }
-        with_path_effects(ctx, &rc.path_effects, |ctx| {
+        let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
             for text in [&texts.label, &texts.offset].into_iter().flatten() {
                 draw_text(ctx, text, rc);
             }
         });
+        if let Err(err) = drawn {
+            ctx.report(self.axes_id, err);
+        }
     }
 
     /// The box behind the axis label `label`, if it has one (drawn first
@@ -92,12 +98,15 @@ impl AxisPainter<'_> {
         rc: &crate::rc::RcParams,
     ) {
         if style.grid_on {
-            with_path_effects(ctx, &style.grid.path_effects, |ctx| {
+            let drawn = with_path_effects(ctx, &style.grid.path_effects, |ctx| {
                 self.draw_gridline(ctx, loc, &style.grid, rc);
             });
+            if let Err(err) = drawn {
+                ctx.report(self.axes_id, err);
+            }
         }
         let (mark1, mark2) = tick_markers(self.name, style.direction);
-        with_path_effects(ctx, &rc.path_effects, |ctx| {
+        let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
             if style.ticks.first {
                 self.draw_tick_mark(ctx, loc, false, mark1, style);
             }
@@ -105,6 +114,9 @@ impl AxisPainter<'_> {
                 self.draw_tick_mark(ctx, loc, true, mark2, style);
             }
         });
+        if let Err(err) = drawn {
+            ctx.report(self.axes_id, err);
+        }
     }
 
     fn draw_gridline(

@@ -197,12 +197,15 @@ impl AxesState {
                         path: self.patch_path(),
                         transform: unit_to_bbox(&extent),
                     });
-                ctx.draw_artist(false, |ctx| {
+                let drawn = ctx.draw_artist(false, |ctx| {
                     with_path_effects(ctx, &base.path_effects, |ctx| {
                         ctx.renderer()
                             .draw_path(&gc, &outline.path, &outline.transform, face);
-                    });
+                    })
                 });
+                if let Err(err) = drawn {
+                    ctx.report(base.id(), err);
+                }
             }
             (Err(err), _) | (_, Err(err)) => ctx.report(base.id(), err),
         }

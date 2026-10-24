@@ -2,13 +2,14 @@
 
 use std::cell::Cell;
 
-use plt_core::{Affine2D, Bbox, Rgba};
+use plt_core::{Affine2D, Bbox};
 use plt_render::{ClipPath, Renderer};
 
 use super::CanvasState;
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
+use crate::colors::Color;
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
 use crate::gui::tools::ToolRegistry;
@@ -121,7 +122,12 @@ impl FigureState {
     }
 
     /// A figure of `size_inches` at `dpi` with an empty root frame.
-    pub(crate) fn new(size_inches: (f64, f64), dpi: f64, facecolor: Rgba, edgecolor: Rgba) -> Self {
+    pub(crate) fn new(
+        size_inches: (f64, f64),
+        dpi: f64,
+        facecolor: Color,
+        edgecolor: Color,
+    ) -> Self {
         let mut store = ArtistStore::default();
         let rc = crate::rc::params();
         let params = SubplotParams::from_rc(&rc);

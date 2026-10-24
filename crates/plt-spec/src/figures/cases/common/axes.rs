@@ -9,14 +9,14 @@ use plt::axisartist::angle_helper::{ExtremeFinderCycle, FormatterDms, LocatorDms
 use plt::axisartist::grid_finder::{self, GridFinderOptions, GridLocator};
 use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
 use plt::axisartist::{self, AuxTransform, AxisArtist};
-use plt::colors::{Color, ColormapError, colormaps};
+use plt::colors::{Color, Colorize, ColorizerOptions, ColormapError, colormaps};
 use plt::figure::{Figure, Mosaic, MosaicCell, MosaicError};
 use plt::fonts::FontSize;
 use plt::gridspec::GridSpec;
 use plt::layout::TightLayout;
 use plt::legend::LegendOptions;
 use plt::lines::LineProps;
-use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, FaceColormap, FaceColors};
+use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, FaceColors};
 use plt::numeric::linspace;
 use plt::rc::Aspect;
 use plt::scale::ScaleOptions;
@@ -249,9 +249,9 @@ pub(crate) fn subplots_3d(
 
 /// Surface faces coloured by the colormap `name` (`cmap=name`).
 pub(crate) fn face_cmap(name: &str) -> Result<FaceColors, ColormapError> {
-    Ok(FaceColors::Mapped(Box::new(FaceColormap::new(
-        colormaps::get(name)?,
-    ))))
+    Ok(FaceColors::from(
+        ColorizerOptions::default().cmap(colormaps::get(name)?),
+    ))
 }
 
 /// The polar grid in degrees of matplotlib's `demo_curvelinear_grid` in

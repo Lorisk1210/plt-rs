@@ -7,13 +7,13 @@
 use plt::axes::{ImshowOptions, Mesh, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions, ColorbarTicks, ExtendFrac, Spacing};
 use plt::colors::{
-    BoundaryNorm, Colormap, Extend, NoNorm, ScalarMappable, TwoSlopeNorm, colormaps,
-    from_levels_and_colors,
+    BoundaryNorm, ColorizerOptions, Colormap, Extend, NoNorm, ScalarMappable, TwoSlopeNorm,
+    colormaps, from_levels_and_colors,
 };
-use plt::contour::{ContourNorm, ContourOptions, Levels, QuadCoords, QuadField};
+use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::SubfigureOptions;
 use plt::gridspec::SubplotOverrides;
-use plt::image::{ColorizerOptions, ImageAlpha, Interpolation, ScalarField};
+use plt::image::{ImageAlpha, Interpolation, ScalarField};
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
@@ -41,12 +41,12 @@ fn two_by_two() -> ScalarField {
 fn mesh(
     ax: &Axes,
     values: Grid<f64>,
-    colors: ColorizerOptions,
+    colorizer: ColorizerOptions,
 ) -> Result<plt::collections::Collection, plt::image::ImageError> {
     ax.pcolormesh(
         Mesh::new(values),
         PcolorOptions {
-            colors,
+            colorizer,
             ..PcolorOptions::default()
         },
     )
@@ -116,7 +116,7 @@ pub(super) fn colorbar_single_scatter(fig: &Figure) -> CaseResult {
     let cmap = colormaps::get("jet")?.resampled(16)?;
     let options = ScatterOptions {
         sizes: Some(vec![50.0]),
-        colors: MappedColors::new(vec![50.0]).with_cmap(cmap).into(),
+        colors: MappedColors::new(vec![50.0]).cmap(cmap).into(),
         ..ScatterOptions::default()
     };
     let cs = fig.subplot().scatter_with([0.0], [0.0], options)?;
@@ -180,7 +180,7 @@ pub(super) fn keeping_xlabel(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn colorbar_change_lim_scale(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplots(1, 2)?;
     let extended = |ax: &Axes| ColorbarOptions {
         extend: Some(Extend::Both),
@@ -214,7 +214,7 @@ pub(super) fn twoslope_colorbar(fig: &Figure) -> CaseResult {
     let pc = ax.pcolormesh(
         Mesh::from_coords(x.clone(), x, hundred(0.0)),
         PcolorOptions {
-            colors: ColorizerOptions {
+            colorizer: ColorizerOptions {
                 norm: Some(Box::new(norm)),
                 ..ColorizerOptions::default().cmap(colormaps::get("RdBu_r")?)
             },
@@ -249,9 +249,12 @@ pub(super) fn proportional_colorbars(fig: &Figure) -> CaseResult {
         {
             let norm = BoundaryNorm::new(levels.clone(), cmap.n(), Extend::Neither)?;
             let options = ContourOptions {
+                colorizer: ColorizerOptions {
+                    cmap: Some(cmap.clone()),
+                    norm: Some(Box::new(norm)),
+                    ..ColorizerOptions::default()
+                },
                 levels: Levels::Values(levels.clone()),
-                cmap: Some(cmap.clone()),
-                norm: ContourNorm::Custom(Box::new(norm)),
                 extend,
                 ..ContourOptions::default()
             };
@@ -349,9 +352,12 @@ pub(super) fn colorbar_contourf_extend_patches(fig: &Figure) -> CaseResult {
         let axs = subfig.subplots(2, 2)?;
         for (ax, (extend, levels, hatches)) in axs.as_slice().iter().zip(params) {
             let options = ContourOptions {
+                colorizer: ColorizerOptions {
+                    cmap: Some(viridis.clone()),
+                    ..ColorizerOptions::default()
+                },
                 levels: Levels::Count(levels),
                 hatches: hatches.iter().map(|&h| Some(h.to_owned())).collect(),
-                cmap: Some(viridis.clone()),
                 extend,
                 ..ContourOptions::default()
             };

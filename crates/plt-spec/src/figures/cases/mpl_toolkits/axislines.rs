@@ -173,7 +173,7 @@ fn axisline_style_size_color(fig: &Figure) -> CaseResult {
 }
 
 fn axisline_style_tight(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     zero_arrows(fig, 5.0, Some("g"), "->, size=8")
 }
 

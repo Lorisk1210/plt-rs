@@ -7,7 +7,7 @@ use plt::artist::ArtistHandle;
 use plt::axes::{FillBetweenOptions, GridOptions, ScatterColors, ScatterOptions};
 use plt::collections::{CollectionProps, EdgeColors};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::Figure;
 use plt::geo::GeoProjection;
@@ -36,8 +36,11 @@ fn contourf_colorbar(fig: &Figure) -> CaseResult {
     });
     let field = QuadField::new(z).with_coords(QuadCoords::Mesh { x: lon, y: lat });
     let options = ContourOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("viridis")?),
+            ..ColorizerOptions::default()
+        },
         levels: Levels::Count(8),
-        cmap: Some(colormaps::get("viridis")?),
         ..ContourOptions::default()
     };
     let contours = ax.contourf(&field, options)?;

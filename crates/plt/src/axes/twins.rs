@@ -404,7 +404,8 @@ mod tests {
         let fig = Figure::new();
         fig.set_layout_engine(Some(crate::layout::LayoutEngine::Constrained(
             crate::layout::ConstrainedLayout::default(),
-        )));
+        )))
+        .unwrap();
         let ax = fig.subplot();
         ax.set_position([0.2, 0.2, 0.5, 0.5]);
         let twin = ax.twinx();

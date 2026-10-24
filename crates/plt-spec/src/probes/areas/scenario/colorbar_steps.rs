@@ -9,6 +9,7 @@ use plt::orientation::Orientation;
 use super::call::{Call, KEYWORD_ONLY};
 use super::scene::{Handled, Object, Produced, Scene};
 use crate::probes::ProbeError;
+use plt::ticker::LabelFormat;
 
 /// Runs a colorbar method of the figure.
 pub(super) fn figure_call(scene: &Scene, call: &Call<'_>) -> Handled {
@@ -73,7 +74,7 @@ fn colorbar(scene: &Scene, call: &Call<'_>) -> Result<Produced, ProbeError> {
     }
     options.format = call
         .opt_str(KEYWORD_ONLY, "format")?
-        .map(|template| ColorbarFormat::Template(template.to_owned()));
+        .map(|template| ColorbarFormat::Label(LabelFormat::Template(template.to_owned())));
     let made = match scene.reference(call.str(0, "mappable")?)? {
         Object::Collection(collection) => scene.fig.colorbar(&collection, options),
         Object::Image(image) => scene.fig.colorbar(&image, options),

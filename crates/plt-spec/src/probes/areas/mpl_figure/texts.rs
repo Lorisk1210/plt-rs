@@ -3,6 +3,7 @@
 //! facecolours and figure labels.
 
 use plt::artist::ArtistHandle;
+use plt::colors::Color;
 use plt::figure::{Figure, SubfigureOptions};
 
 use super::super::mpl_tests::in_test_style;
@@ -38,9 +39,10 @@ pub(super) fn subfigure_facecolors(args: Args<'_>) -> Outcome {
         left.subplot();
         right.subplot();
         fig.suptitle("This is a visible suptitle.");
+        let resolved = |color: Color| color.resolve().map_err(ProbeError::rejected);
         Ok(Json::Array(vec![
-            rgba(left.facecolor()),
-            rgba(right.facecolor()),
+            rgba(resolved(left.facecolor())?),
+            rgba(resolved(right.facecolor())?),
         ]))
     })
 }

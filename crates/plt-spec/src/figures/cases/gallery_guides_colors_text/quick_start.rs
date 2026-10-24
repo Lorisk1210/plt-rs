@@ -11,12 +11,11 @@ use plt::axes::HistPlotOptions;
 use plt::axes::{ImshowOptions, Mesh, PcolorOptions, SecondaryLocation};
 use plt::collections::EdgeColors;
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Extend, LogNorm, colormaps};
+use plt::colors::{ColorizerOptions, Extend, LogNorm, colormaps};
 use plt::contour::{QuadCoords, QuadField};
 use plt::dates::{ConciseDateFormatter, DateTime, TimeDelta};
 use plt::figure::MosaicOptions;
-use plt::image::ColorizerOptions;
-use plt::layout::LayoutEngine;
+use plt::layout::{LayoutEngine, LayoutEngineError};
 use plt::legend::LegendOptions;
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -42,9 +41,9 @@ fn indices(n: usize) -> Vec<f64> {
 }
 
 /// A constrained figure's only axes.
-fn constrained(fig: &Figure) -> Axes {
-    fig.set_layout_engine(LayoutEngine::constrained());
-    fig.subplot()
+fn constrained(fig: &Figure) -> Result<Axes, LayoutEngineError> {
+    fig.set_layout_engine(LayoutEngine::constrained())?;
+    Ok(fig.subplot())
 }
 
 fn quick_start_1(fig: &Figure) -> CaseResult {
@@ -65,7 +64,7 @@ fn quick_start_2(fig: &Figure) -> CaseResult {
     let noise = rng.normal(50, 0.0, 1.0);
     let b: Vec<f64> = a.iter().zip(&noise).map(|(a, n)| a + 10.0 * n).collect();
     let d = map(&d, |d| d.abs() * 100.0);
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     ax.scatter_with(
         a,
         b,
@@ -82,7 +81,7 @@ fn quick_start_2(fig: &Figure) -> CaseResult {
 
 fn quick_start_3(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 2.0, 100);
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     for (power, label) in [(1, "linear"), (2, "quadratic"), (3, "cubic")] {
         ax.plot(&x, map(&x, |x| x.powi(power)))?.set_label(label);
     }
@@ -180,7 +179,7 @@ fn quick_start_9(fig: &Figure) -> CaseResult {
     let x = map(&SpecRng::new(GALLERY_SEED).normal(10_000, 0.0, 1.0), |v| {
         mu + sigma * v
     });
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     ax.hist(
         &[x],
         HistPlotOptions {
@@ -215,7 +214,7 @@ fn quick_start_11(fig: &Figure) -> CaseResult {
 
 fn quick_start_12(fig: &Figure) -> CaseResult {
     let [data1, ..] = random_sets();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     let xdata = indices(data1.len());
     let data = map(&data1, |v| 10f64.powf(v));
@@ -228,7 +227,7 @@ fn quick_start_12(fig: &Figure) -> CaseResult {
 fn quick_start_13(fig: &Figure) -> CaseResult {
     let [data1, ..] = random_sets();
     let xdata = indices(data1.len());
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 1)?;
     let (automatic, manual) = (&axs[(0, 0)], &axs[(1, 0)]);
     automatic.plot(&xdata, &data1)?;
@@ -248,7 +247,7 @@ fn quick_start_14(fig: &Figure) -> CaseResult {
         .map(|hour| start.checked_add(TimeDelta::new(0, 3600 * hour, 0)?))
         .collect::<Result<Vec<_>, _>>()?;
     let data = cumsum(&SpecRng::new(GALLERY_SEED).normal(dates.len(), 0.0, 1.0));
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     ax.plot(dates, data)?;
     ax.xaxis().set_major_formatter(ConciseDateFormatter::new());
     Ok(())
@@ -257,14 +256,14 @@ fn quick_start_14(fig: &Figure) -> CaseResult {
 fn quick_start_15(fig: &Figure) -> CaseResult {
     let categories = vec!["turnips", "rutabaga", "cucumber", "pumpkins"];
     let heights = SpecRng::new(GALLERY_SEED).uniform(categories.len(), 0.0, 1.0);
-    constrained(fig).bar(categories, heights, BarOptions::default())?;
+    constrained(fig)?.bar(categories, heights, BarOptions::default())?;
     Ok(())
 }
 
 fn quick_start_16(fig: &Figure) -> CaseResult {
     let t = arange(0.0, 5.0, 0.01);
     let s = map(&t, |t| (2.0 * PI * t).cos());
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax3) = (&axs[(0, 0)], &axs[(0, 1)]);
     let l1 = ax1.plot(&t, &s)?;
@@ -295,13 +294,13 @@ fn quick_start_17(fig: &Figure) -> CaseResult {
     let [data1, data2, data3, _] = random_sets();
     let grid = linspace(-3.0, 3.0, 128);
     let (x, y, z) = mesh_field(&grid, &grid, func3);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     let rdbu = || colormaps::get("RdBu_r");
     let pc = axs[(0, 0)].pcolormesh(
         Mesh::from_coords(x.clone(), y.clone(), z.clone()),
         PcolorOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(rdbu()?)
                 .limits(Some(-1.0), Some(1.0)),
             ..PcolorOptions::default()
@@ -316,7 +315,7 @@ fn quick_start_17(fig: &Figure) -> CaseResult {
     let squared = Grid::from_fn(z.rows(), z.cols(), |r, c| z[(r, c)].powi(2) * 100.0);
     let image = axs[(1, 0)].imshow(
         squared,
-        ImshowOptions::default().colors(
+        ImshowOptions::default().colorizer(
             ColorizerOptions::default()
                 .cmap(colormaps::get("plasma")?)
                 .norm(LogNorm::new(0.01, 100.0)),
@@ -328,7 +327,7 @@ fn quick_start_17(fig: &Figure) -> CaseResult {
         data1,
         data2,
         ScatterOptions {
-            colors: MappedColors::new(data3).with_cmap(rdbu()?).into(),
+            colors: MappedColors::new(data3).cmap(rdbu()?).into(),
             ..ScatterOptions::default()
         },
     )?;
@@ -338,7 +337,7 @@ fn quick_start_17(fig: &Figure) -> CaseResult {
 }
 
 fn quick_start_18(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let layout = mosaic(&[&["upleft", "right"], &["lowleft", "right"]])?;
     let axd = fig.subplot_mosaic(&layout, MosaicOptions::default())?;
     for label in ["upleft", "lowleft", "right"] {

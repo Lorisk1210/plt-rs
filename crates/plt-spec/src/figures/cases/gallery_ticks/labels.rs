@@ -7,7 +7,7 @@
 use plt::axes::{AxisName, SecondaryLocation, TickLabelProps, TickLevel, TickParams};
 use plt::dates::{DateFormatter, Datetime64, RRuleLocator};
 use plt::fonts::FontSize;
-use plt::layout::LayoutEngine;
+use plt::layout::{LayoutEngine, LayoutEngineError};
 use plt::prelude::*;
 use plt::spines::SpineSide;
 use plt::text::{HAlign, TextRotationMode as RotationMode};
@@ -19,9 +19,9 @@ use crate::rng::SpecRng;
 const SEED: u64 = 19_680_801;
 
 /// One axes in a constrained figure.
-fn constrained(fig: &Figure) -> Axes {
-    fig.set_layout_engine(LayoutEngine::constrained());
-    fig.subplot()
+fn constrained(fig: &Figure) -> Result<Axes, LayoutEngineError> {
+    fig.set_layout_engine(LayoutEngine::constrained())?;
+    Ok(fig.subplot())
 }
 
 /// Tick parameters of one axis.
@@ -42,7 +42,7 @@ fn align_ticklabels(fig: &Figure) -> CaseResult {
         ("Shanghai", 21.9),
     ];
     let (cities, millions): (Vec<&str>, Vec<f64>) = population.into_iter().unzip();
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     ax.barh(cities, millions, BarOptions::default())?;
     ax.set_xlabel("Population (in millions)");
     ax.yaxis().set_ticklabel_props(
@@ -79,7 +79,7 @@ fn ticklabels_rotation(fig: &Figure) -> CaseResult {
         ("Vietnam", 102.3),
     ];
     let (countries, millions): (Vec<&str>, Vec<f64>) = population.into_iter().unzip();
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     ax.bar(countries, millions, BarOptions::default())?;
     ax.tick_params(&TickParams {
         labelrotation: Some(45.0),
@@ -136,7 +136,7 @@ fn bottom_axis(ax: &Axes, fraction: f64) -> Result<Axes, Box<dyn std::error::Err
 }
 
 fn multilevel_ticks_1(fig: &Figure) -> CaseResult {
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     ax.plot_y((0..30).map(f64::from).collect::<Vec<_>>());
     let sec = bottom_axis(&ax, 0.0)?;
     sec.set_xticks([5.0, 15.0, 25.0])
@@ -145,7 +145,7 @@ fn multilevel_ticks_1(fig: &Figure) -> CaseResult {
 }
 
 fn multilevel_ticks_2(fig: &Figure) -> CaseResult {
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     let animals = [
         "cats", "dogs", "pigs", "snakes", "lizards", "chickens", "eagles", "herons", "buzzards",
     ];
@@ -173,7 +173,7 @@ fn multilevel_ticks_2(fig: &Figure) -> CaseResult {
 }
 
 fn multilevel_ticks_3(fig: &Figure) -> CaseResult {
-    let ax = constrained(fig);
+    let ax = constrained(fig)?;
     // Every day from 2020-01-01 (day 18262 of the epoch) to 2020-03-30.
     let time: Vec<Datetime64> = (18_262..18_352)
         .map(|day| Datetime64::new(day * 86_400, 0))
@@ -219,7 +219,7 @@ fn floats(x: &[&str]) -> Result<Vec<f64>, std::num::ParseFloatError> {
 }
 
 fn ticks_too_many_1(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let x = ["1", "5", "2", "3"];
     let y = [1.0, 4.0, 2.0, 3.0];
     let (left, right) = out_of_order(fig, &x, &y, LineProps::fmt("d")?)?;
@@ -245,7 +245,7 @@ fn ticks_too_many_2(fig: &Figure) -> CaseResult {
 }
 
 fn ticks_too_many_3(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let x = ["2021-10-01", "2021-11-02", "2021-12-03", "2021-09-01"];
     let y = [0.0, 2.0, 3.0, 1.0];
     let (left, right) = out_of_order(fig, &x, &y, LineProps::fmt("d")?)?;

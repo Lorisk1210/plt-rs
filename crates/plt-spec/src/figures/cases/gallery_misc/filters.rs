@@ -6,7 +6,7 @@ use plt::artist::{AggFilter, FilterImage, Filtered, RawHandle};
 use plt::axes::{ImshowOptions, PieOptions};
 use plt::colors::{BlendMode, LightSource, Relief, colormaps};
 use plt::contour::{
-    ClabelOptions, ContourOptions, LabelFormat, Levels, Origin as ContourOrigin, QuadCoords,
+    ClabelFormat, ClabelOptions, ContourOptions, Levels, Origin as ContourOrigin, QuadCoords,
     QuadField,
 };
 use plt::fonts::FontSize;
@@ -15,7 +15,6 @@ use plt::numeric::Grid;
 use plt::patheffects::PathEffect;
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::ticker::pyfmt::PrintfFormat;
 
 use crate::figures::cases::common::{contour_field, smooth2d};
 use crate::figures::{CaseResult, FigureCase};
@@ -201,7 +200,7 @@ fn filtered_text(ax: &Axes) -> CaseResult {
     )?;
     let labels = contours.clabel(ClabelOptions {
         levels: Some(levels.iter().skip(1).step_by(2).copied().collect()),
-        fmt: LabelFormat::Printf(PrintfFormat::parse("%1.1f")?),
+        fmt: ClabelFormat::Label("%1.1f".into()),
         fontsize: Some(FontSize::Points(11.0)),
         ..ClabelOptions::default()
     })?;

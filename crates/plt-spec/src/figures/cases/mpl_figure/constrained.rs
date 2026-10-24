@@ -23,18 +23,18 @@ use crate::figures::{CaseResult, FigureCase};
 
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_figure/constrained_layout1", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         example_plot(&fig.subplot(), 24.0, false)
     }),
     FigureCase::new("mpl_figure/constrained_layout2", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         for ax in fig.subplots(2, 2)?.as_slice() {
             example_plot(ax, 24.0, false)?;
         }
         Ok(())
     }),
     FigureCase::new("mpl_figure/constrained_layout3", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         for (nn, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
             let pcm = example_pcolor(ax, 24.0)?;
             let pad = if nn == 3 { 0.08 } else { 0.02 };
@@ -57,7 +57,7 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_figure/constrained_layout6", constrained_layout6),
     FigureCase::new("mpl_figure/constrained_layout8", constrained_layout8).sized(10.0, 5.0, 100.0),
     FigureCase::new("mpl_figure/constrained_layout9", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let axs = fig.subplots(2, 2)?;
         let mut pcm = None;
         for ax in axs.as_slice() {
@@ -77,7 +77,7 @@ pub(super) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("mpl_figure/constrained_layout10", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let axs = fig.subplots(2, 2)?;
         for ax in axs.as_slice() {
             ax.plot_with(
@@ -126,13 +126,13 @@ pub(super) const CASES: &[FigureCase] = &[
     })
     .with_rc(&[("figure.constrained_layout.use", "True")]),
     FigureCase::new("mpl_figure/constrained_layout16", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         example_plot(&fig.subplot(), 12.0, false)?;
         fig.add_axes([0.2, 0.2, 0.4, 0.4]);
         Ok(())
     }),
     FigureCase::new("mpl_figure/constrained_layout17", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let gs = GridSpec::new(3, 3)?;
         for spec in [
             gs.cell(0, 0)?,
@@ -154,7 +154,7 @@ pub(super) const CASES: &[FigureCase] = &[
     })
     .sized(4.0, 2.0, 100.0),
     FigureCase::new("mpl_figure/bboxtight", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         fig.subplot().set_aspect(Aspect::Ratio(1.0))?;
         remove_ticks_and_titles(fig);
         Ok(())
@@ -173,7 +173,7 @@ pub(super) const CASES: &[FigureCase] = &[
     })
     .sized(3.0, 4.0, 100.0),
     FigureCase::new("mpl_figure/submerged_with_colorbar", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let axes = fig.subplot_mosaic(
             &"AABBCC;DDDEEE".parse::<Mosaic>()?,
             MosaicOptions::default(),
@@ -197,7 +197,7 @@ fn around(axs: &[Axes]) -> ColorbarOptions {
 /// `test_constrained_layout4` and `5`: four meshes sharing one colorbar
 /// at `location` (by default on the right).
 fn shared_colorbar(fig: &Figure, location: Option<SpineSide>) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     let mut pcm = None;
     for ax in axs.as_slice() {
@@ -217,7 +217,7 @@ fn shared_colorbar(fig: &Figure, location: Option<SpineSide>) -> CaseResult {
 }
 
 fn constrained_layout6(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs = GridSpec::new(1, 2)?;
     let gsl = GridSpec::nested(&gs.cell(0, 0)?, 2, 2, None, None, (None, None))?;
     let gsr = GridSpec::nested(&gs.cell(0, 1)?, 1, 2, None, None, (None, None))?;
@@ -263,7 +263,7 @@ fn cells(grid: &GridSpec) -> Fallible<Vec<SubplotSpec>> {
 }
 
 fn constrained_layout8(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs = GridSpec::new(3, 5)?;
     let mut axs = Vec::new();
     for (j, columns) in [(0, &[1][..]), (1, &[0, 4][..])] {
@@ -301,7 +301,7 @@ fn constrained_layout11(
     width_ratios: Option<Vec<f64>>,
     height_ratios: Option<Vec<f64>>,
 ) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs0 = GridSpec::with_ratios(1, 2, width_ratios, None, SubplotOverrides::default())?;
     let gsl = GridSpec::nested(&gs0.cell(0, 0)?, 1, 2, None, None, (None, None))?;
     let gsl0 = GridSpec::nested(&gsl.cell(0, 1)?, 2, 2, None, height_ratios, (None, None))?;
@@ -325,7 +325,7 @@ fn constrained_layout11(
 }
 
 fn constrained_layout12(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs0 = GridSpec::new(6, 2)?;
     let ax1 = fig.add_subplot_spec(&gs0.span(0..3, 1..2)?)?;
     let ax2 = fig.add_subplot_spec(&gs0.span(3..6, 1..2)?)?;
@@ -347,7 +347,7 @@ fn padded_colorbars(
     fig: &Figure,
     adjust: fn(ConstrainedLayout) -> ConstrainedLayout,
 ) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     for ax in fig.subplots(2, 2)?.as_slice() {
         let pcm = example_pcolor(ax, 12.0)?;
         fig.colorbar(
@@ -361,12 +361,12 @@ fn padded_colorbars(
         )?;
     }
     let layout = ConstrainedLayout::from_rc(&plt::rc::params());
-    fig.set_layout_engine(Some(LayoutEngine::Constrained(adjust(layout))));
+    fig.set_layout_engine(Some(LayoutEngine::Constrained(adjust(layout))))?;
     Ok(())
 }
 
 fn colorbar_location(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(4, 5)?;
     let mut pcm: Option<Collection> = None;
     for ax in axs.as_slice() {
@@ -425,7 +425,7 @@ fn colorbar_location(fig: &Figure) -> CaseResult {
 /// `test_colorbars_no_overlapV` and `H`: two shared images, each with a
 /// colorbar in `orientation`, under a suptitle.
 fn colorbars_no_overlap(fig: &Figure, orientation: Orientation) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let (nrows, ncols) = match orientation {
         Orientation::Vertical => (2, 1),
         Orientation::Horizontal => (1, 2),
@@ -461,7 +461,7 @@ fn compressed_colorbars(
     ncols: usize,
     orientation: Orientation,
 ) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::compressed());
+    fig.set_layout_engine(LayoutEngine::compressed())?;
     let arr = Grid::from_fn(10, 10, |r, c| (r * 10 + c) as f64);
     for ax in fig.subplots(nrows, ncols)?.as_slice() {
         let image = ax.imshow(arr.clone(), ImshowOptions::default())?;

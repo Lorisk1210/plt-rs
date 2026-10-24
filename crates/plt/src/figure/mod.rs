@@ -46,6 +46,7 @@ pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes};
 
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState, PlotError};
+use crate::colors::Color;
 use crate::events::Event;
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
 use crate::lines::{Line2D, LineArtist, LineProps};
@@ -121,7 +122,9 @@ impl Figure {
     /// A figure of the given size in inches and resolution.
     pub fn with_size(width: f64, height: f64, dpi: f64) -> Self {
         let rc = crate::rc::params();
-        let color = |c: &crate::colors::Color| c.resolve().unwrap_or(Rgba::WHITE);
+        // The rc colours are resolved now, as matplotlib's figure patch
+        // resolves its colours when made.
+        let color = |c: &Color| Color::from(c.resolve().unwrap_or(Rgba::WHITE));
         let state = FigureState::new(
             (width, height),
             dpi,
@@ -172,8 +175,10 @@ impl Figure {
         (whole_pixels(width), whole_pixels(height))
     }
 
-    /// Sets the background colour.
-    pub fn set_facecolor(&self, color: Rgba) -> &Self {
+    /// Sets the background colour (matplotlib's `set_facecolor`); a
+    /// colour that does not resolve is reported when the figure is drawn.
+    pub fn set_facecolor(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
         self.root
             .with_mut::<FigureFrame, _>(|frame| frame.facecolor = color);
         self
@@ -181,7 +186,8 @@ impl Figure {
 
     /// Sets the colour of the frame around the canvas (matplotlib's
     /// `set_edgecolor`); it shows once the frame has a width.
-    pub fn set_edgecolor(&self, color: Rgba) -> &Self {
+    pub fn set_edgecolor(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
         self.root
             .with_mut::<FigureFrame, _>(|frame| frame.edgecolor = color);
         self
@@ -218,13 +224,15 @@ impl Figure {
     }
 
     /// The background colour.
-    pub fn facecolor(&self) -> Rgba {
-        self.root.with::<FigureFrame, _>(|frame| frame.facecolor)
+    pub fn facecolor(&self) -> Color {
+        self.root
+            .with::<FigureFrame, _>(|frame| frame.facecolor.clone())
     }
 
     /// The colour of the frame around the canvas.
-    pub fn edgecolor(&self) -> Rgba {
-        self.root.with::<FigureFrame, _>(|frame| frame.edgecolor)
+    pub fn edgecolor(&self) -> Color {
+        self.root
+            .with::<FigureFrame, _>(|frame| frame.edgecolor.clone())
     }
 
     /// The margins and spacing of subplot grids.

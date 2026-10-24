@@ -2,13 +2,12 @@
 //! of removing containers and of the geometry bar containers report (see
 //! `spec/reference/probes/test_mpl_container.py`).
 
-use plt::axes::{
-    Axes, BarOptions, ErrorbarOptions, PieLabelFormat, PieLabelOptions, PieOptions, StemOptions,
-};
+use plt::axes::{Axes, BarOptions, ErrorbarOptions, PieLabelOptions, PieOptions, StemOptions};
 use plt::figure::Figure;
 
 use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError};
+use plt::ticker::LabelFormat;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -122,7 +121,7 @@ fn pie_options(args: Args<'_>) -> Result<PieOptions, ProbeError> {
     };
     Ok(PieOptions {
         labels: strings(args, "labels")?,
-        autopct: Some(PieLabelFormat::Printf(args.str("autopct")?.to_owned())),
+        autopct: Some(LabelFormat::Template(args.str("autopct")?.to_owned())),
         labeldistance,
         ..defaults
     })

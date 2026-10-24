@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use plt::axes::{AxisName, SecondaryLocation, TickParams};
 use plt::dates::{DateTime, get_epoch};
-use plt::layout::LayoutEngine;
+use plt::layout::{LayoutEngine, LayoutEngineError};
 use plt::legend::LegendOptions;
 use plt::numeric::interp;
 use plt::prelude::*;
@@ -20,19 +20,19 @@ use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 /// A constrained figure's only axes, titled and labelled.
-fn host(fig: &Figure, title: &str, xlabel: &str, ylabel: &str) -> Axes {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+fn host(fig: &Figure, title: &str, xlabel: &str, ylabel: &str) -> Result<Axes, LayoutEngineError> {
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let ax = fig.subplot();
     ax.set_xlabel(xlabel).set_ylabel(ylabel);
     ax.set_title(title);
-    ax
+    Ok(ax)
 }
 
 /// The top of the host.
 const TOP: SecondaryLocation = SecondaryLocation::Side(SpineSide::Top);
 
 fn secondary_axis_1(fig: &Figure) -> CaseResult {
-    let ax = host(fig, "Sine wave", "angle [degrees]", "signal");
+    let ax = host(fig, "Sine wave", "angle [degrees]", "signal")?;
     let x = arange(0.0, 360.0, 1.0);
     ax.plot(&x, map(&x, |x| (2.0 * x * PI / 180.0).sin()))?;
     let radians = FuncTransform::new(|x| x * PI / 180.0, |x| x * 180.0 / PI);
@@ -42,7 +42,7 @@ fn secondary_axis_1(fig: &Figure) -> CaseResult {
 }
 
 fn secondary_axis_2(fig: &Figure) -> CaseResult {
-    let ax = host(fig, "Random data", "X", "Y");
+    let ax = host(fig, "Random data", "X", "Y")?;
     let x = arange(0.0, 10.0, 1.0);
     ax.plot(&x, SpecRng::new(SEED).normal(x.len(), 0.0, 1.0))?;
     ax.secondary_xaxis(SecondaryLocation::Data(0.0), None)?
@@ -60,7 +60,7 @@ fn one_over(x: f64) -> f64 {
 }
 
 fn secondary_axis_3(fig: &Figure) -> CaseResult {
-    let ax = host(fig, "Random spectrum", "f [Hz]", "PSD");
+    let ax = host(fig, "Random spectrum", "f [Hz]", "PSD")?;
     let x = arange(0.02, 1.0, 0.02);
     let y = map(&SpecRng::new(SEED).normal(x.len(), 0.0, 1.0), |v| v.powi(2));
     ax.loglog(&x, &y)?;
@@ -70,7 +70,7 @@ fn secondary_axis_3(fig: &Figure) -> CaseResult {
 }
 
 fn secondary_axis_4(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let ax = fig.subplot();
     let x1_vals = arange(2.0, 11.0, 0.4);
     let x2_vals = map(&x1_vals, |x| x.powi(2));
@@ -114,7 +114,7 @@ fn secondary_axis_5(fig: &Figure) -> CaseResult {
     let temperature = map(&SpecRng::new(SEED).normal(dates.len(), 0.0, 1.0), |v| {
         v * 4.0 + 6.7
     });
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let ax = fig.subplot();
     ax.plot(dates, &temperature)?;
     ax.set_ylabel(r"$T\ [^oC]$");

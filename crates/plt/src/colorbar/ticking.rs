@@ -10,10 +10,7 @@ use super::{Colorbar, ColorbarError, ColorbarFormat, ColorbarTicks, Spacing};
 use crate::axes::Axis;
 use crate::colors::{Norm, NormKind, Normalized};
 use crate::scale::{FuncScale, LinearScale, Scale, ScaleOptions, scale_factory};
-use crate::ticker::{
-    FixedLocator, FormatStrFormatter, Formatter, IndexLocator, Locator, NullLocator,
-    StrMethodFormatter,
-};
+use crate::ticker::{FixedLocator, Formatter, IndexLocator, Locator, NullLocator};
 
 /// The scale of the long axis: from the norm, or spreading discrete blocks
 /// evenly.
@@ -203,10 +200,7 @@ impl Colorbar {
 fn formatter(format: &ColorbarFormat) -> Result<Rc<dyn Formatter>, ColorbarError> {
     match format {
         ColorbarFormat::Formatter(formatter) => Ok(Rc::clone(formatter)),
-        ColorbarFormat::Template(template) => match FormatStrFormatter::new(template) {
-            Ok(printf) => Ok(Rc::new(printf)),
-            Err(_) => Ok(Rc::new(StrMethodFormatter::new(template)?)),
-        },
+        ColorbarFormat::Label(label) => Ok(label.formatter()?),
     }
 }
 
@@ -272,7 +266,7 @@ mod tests {
         assert!(tickers.formatter.is_none());
         let mut linear = Normalize::new(0.0, 1.0);
         let b = blocks(&mut linear, None);
-        let format = ColorbarFormat::Template("{x:.1f}".into());
+        let format = ColorbarFormat::Label("{x:.1f}".into());
         let tickers = Tickers::choose(&b, &linear, None, Some(&format)).unwrap();
         assert!(tickers.major.is_none() && tickers.minor.is_none());
         assert!(tickers.formatter.is_some(), "a str.format template");

@@ -1,8 +1,8 @@
 //! Other projections: polar, geographic and 3-D axes.
 
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::geo::GeoProjection;
-use plt::mplot3d::{FaceColormap, FaceColors, SurfaceOptions};
+use plt::mplot3d::{FaceColors, SurfaceOptions};
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::prelude::*;
 
@@ -61,7 +61,7 @@ fn surface_3d() -> Built {
         if r == 0.0 { 1.0 } else { r.sin() / r }
     });
     let options = SurfaceOptions {
-        colors: FaceColors::Mapped(Box::new(FaceColormap::new(colormaps::get("viridis")?))),
+        colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("viridis")?)),
         ..SurfaceOptions::default()
     };
     ax.plot_surface(&xx, &yy, &z, options)?;

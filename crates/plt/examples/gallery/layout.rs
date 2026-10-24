@@ -30,7 +30,7 @@ pub(crate) const ENTRIES: &[Entry] = &[
 /// Four panels of different sizes, laid out by name.
 fn mosaic() -> Built {
     let fig = Figure::with_size(7.0, 5.0, 100.0);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axes = fig.subplot_mosaic(&"AAB;CDB".parse::<Mosaic>()?, MosaicOptions::default())?;
     let mut samples = Samples::new(3);
     for (name, ax) in axes.iter() {

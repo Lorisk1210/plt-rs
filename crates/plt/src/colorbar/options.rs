@@ -9,7 +9,7 @@ use crate::axes::Axes;
 use crate::colors::Extend;
 use crate::orientation::Orientation;
 use crate::spines::SpineSide;
-use crate::ticker::{Formatter, Locator};
+use crate::ticker::{Formatter, LabelFormat, Locator};
 
 /// Where a colorbar is drawn (matplotlib's `ax` and `cax` arguments).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -65,11 +65,18 @@ pub enum ColorbarTicks {
 /// The tick label format of a colorbar (matplotlib's `format`).
 #[derive(Clone, Debug)]
 pub enum ColorbarFormat {
-    /// A `%`-style template such as `"%.2f"`, or a `str.format` one such
-    /// as `"{x:.2e}"` when it is not a valid `%` template.
-    Template(String),
+    /// A `%`-style template such as `"%.2f"`, or a `str.format` one with
+    /// the fields `x` and `pos` such as `"{x:.2e}"` when it is not a valid
+    /// `%` template; or a function of the value.
+    Label(LabelFormat),
     /// A formatter.
     Formatter(Rc<dyn Formatter>),
+}
+
+impl From<LabelFormat> for ColorbarFormat {
+    fn from(format: LabelFormat) -> Self {
+        Self::Label(format)
+    }
 }
 
 /// What happens to the anchor of the axes a colorbar steals space from

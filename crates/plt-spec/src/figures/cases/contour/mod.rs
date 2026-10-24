@@ -5,15 +5,14 @@ mod gallery;
 use plt::axes::{ColorizingArtist, ImshowOptions, TriShading, TriValues, TripcolorOptions};
 use plt::collections::{CollectionProps, EdgeColors};
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Extend, colormaps};
-use plt::contour::{ClabelOptions, ContourOptions, LabelFormat, Origin, QuadCoords, QuadField};
+use plt::colors::{Colorize, ColorizerOptions, Extend, colormaps};
+use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, Origin, QuadCoords, QuadField};
 use plt::fonts::FontSize;
-use plt::image::{ColorizerOptions, Extent};
+use plt::image::Extent;
 use plt::lines::{LineProps, LineStyle};
 use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::rc::Aspect;
 use plt::ticker::LogLocator;
-use plt::ticker::pyfmt::PrintfFormat;
 use plt::tri::Triangulation;
 
 use crate::figures::FigureCase;
@@ -98,7 +97,10 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(4.0, 3.0, 100.0),
     FigureCase::new("contour/single_level_cmap", |fig| {
         let options = ContourOptions {
-            cmap: Some(colormaps::get("plasma")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("plasma")?),
+                ..ColorizerOptions::default()
+            },
             linewidths: Some(vec![2.0]),
             ..values(&[0.0])
         };
@@ -113,7 +115,10 @@ pub(crate) const CASES: &[FigureCase] = &[
     }),
     FigureCase::new("contour/contourf_levels_cmap", |fig| {
         let options = ContourOptions {
-            cmap: Some(colormaps::get("RdBu_r")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("RdBu_r")?),
+                ..ColorizerOptions::default()
+            },
             ..values(&[-2.0, -1.0, -0.25, 0.0, 0.25, 1.0, 2.0])
         };
         fig.subplot().contourf(&bumps(60, 45), options)?;
@@ -125,7 +130,10 @@ pub(crate) const CASES: &[FigureCase] = &[
             .with_under("black")?
             .with_over("yellow")?;
         let options = ContourOptions {
-            cmap: Some(cmap),
+            colorizer: ColorizerOptions {
+                cmap: Some(cmap),
+                ..ColorizerOptions::default()
+            },
             extend: Extend::Both,
             ..values(&linspace(-0.8, 0.8, 9))
         };
@@ -152,8 +160,11 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(4.0, 3.0, 100.0),
     FigureCase::new("contour/contourf_hatches", |fig| {
         let options = ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("Pastel1")?),
+                ..ColorizerOptions::default()
+            },
             hatches: hatches(&[Some("/"), Some("\\"), None, Some("x")]),
-            cmap: Some(colormaps::get("Pastel1")?),
             ..values(&[-2.0, -0.5, 0.0, 0.5, 2.0])
         };
         fig.subplot().contourf(&bumps(60, 45), options)?;
@@ -190,7 +201,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         };
         let cs = fig.subplot().contour(&bumps(60, 45), options)?;
         cs.clabel(ClabelOptions {
-            fmt: LabelFormat::Printf(PrintfFormat::parse("%1.2f m")?),
+            fmt: ClabelFormat::Label("%1.2f m".into()),
             fontsize: Some(FontSize::Points(7.0)),
             inline: false,
             ..ClabelOptions::default()
@@ -204,7 +215,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .contour(&bumps(60, 45), values(&[-1.0, 0.0, 1.0]))?;
         let texts = [(-1.0, "low"), (0.0, "zero"), (1.0, "high")];
         cs.clabel(ClabelOptions {
-            fmt: LabelFormat::Map(texts.iter().map(|&(l, t)| (l, t.to_owned())).collect()),
+            fmt: ClabelFormat::Map(texts.iter().map(|&(l, t)| (l, t.to_owned())).collect()),
             colors: Some(colors(&["k"])),
             fontsize: Some(FontSize::Points(11.0)),
             inline_spacing: 8.0,
@@ -247,7 +258,10 @@ pub(crate) const CASES: &[FigureCase] = &[
             }
         }
         let options = ContourOptions {
-            cmap: Some(colormaps::get("viridis")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("viridis")?),
+                ..ColorizerOptions::default()
+            },
             ..count(10)
         };
         fig.subplot().contourf(&field, options)?;
@@ -265,8 +279,11 @@ pub(crate) const CASES: &[FigureCase] = &[
         });
         let field = QuadField::new(z).with_coords(QuadCoords::Mesh { x: xx, y: yy });
         let options = ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("PuBu_r")?),
+                ..ColorizerOptions::default()
+            },
             locator: Some(Box::new(LogLocator::new(10.0)?)),
-            cmap: Some(colormaps::get("PuBu_r")?),
             ..ContourOptions::default()
         };
         fig.subplot().contourf(&field, options)?;
@@ -277,7 +294,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         let z = bumps(30, 20).z;
         let image = ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("gray")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("gray")?),
             origin: Some(plt::image::Origin::Lower),
             extent: Some(Extent::new(0.0, 6.0, 0.0, 4.0)),
             ..ImshowOptions::default()
@@ -288,7 +305,10 @@ pub(crate) const CASES: &[FigureCase] = &[
             extent: Some([0.0, 6.0, 0.0, 4.0]),
         });
         let options = ContourOptions {
-            cmap: Some(colormaps::get("autumn")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("autumn")?),
+                ..ColorizerOptions::default()
+            },
             ..count(6)
         };
         ax.contour(&field, options)?;
@@ -305,7 +325,10 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("contour/tricontourf_levels", |fig| {
         let tri = random_triangulation(60, 21)?;
         let options = ContourOptions {
-            cmap: Some(colormaps::get("RdYlBu")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("RdYlBu")?),
+                ..ColorizerOptions::default()
+            },
             ..values(&[-2.0, -1.0, -0.3, 0.3, 1.0, 2.0])
         };
         fig.subplot().tricontourf(&tri, &tri_bumps(&tri), options)?;
@@ -330,7 +353,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("contour/tripcolor_gouraud", |fig| {
         let tri = random_triangulation(60, 21)?;
         let options = TripcolorOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("magma")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("magma")?),
             shading: TriShading::Gouraud,
             ..TripcolorOptions::default()
         };
@@ -343,7 +366,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let tri = random_triangulation(30, 22)?;
         let faces = arange(0.0, tri.ntri() as f64, 1.0);
         let options = TripcolorOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("tab20")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("tab20")?),
             ..TripcolorOptions::default()
         };
         fig.subplot()
@@ -381,7 +404,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         let tri = random_triangulation(60, 21)?;
         let options = TripcolorOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("magma")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("magma")?),
             shading: TriShading::Gouraud,
             ..TripcolorOptions::default()
         };

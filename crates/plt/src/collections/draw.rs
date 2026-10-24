@@ -233,13 +233,15 @@ pub(super) fn draw_collection(
         CollectionKind::QuadMesh => "QuadMesh",
     };
     ctx.renderer().open_group(name, c.base().gid.as_deref());
-    if !batch.offsets.is_empty() {
+    let drawn = if batch.offsets.is_empty() {
+        Ok(())
+    } else {
         with_path_effects(ctx, &c.base().path_effects, |ctx| {
             draw_items(ctx, gc, &batch, &hatches, c.hatch.is_some());
-        });
-    }
+        })
+    };
     ctx.renderer().close_group(name);
-    Ok(())
+    drawn.map_err(|err| err.to_string())
 }
 
 /// Draws the items of a collection with at least one offset, each hatched

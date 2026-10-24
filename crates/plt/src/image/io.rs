@@ -11,7 +11,7 @@ use plt_core::Rgba;
 use super::color_image::color_image_bytes;
 use super::normalize::normalize_in;
 use super::{BitmapError, BitmapFormat, BitmapSettings, ImageData, Origin};
-use crate::colors::{Colormap, ColormapError, NormError, ScalarMappable, colormaps};
+use crate::colors::{ColorizerError, ColorizerOptions, NormError, impl_colorize};
 use crate::rc::ColorOrAuto;
 
 /// Why an image cannot be read or written.
@@ -37,8 +37,9 @@ pub enum ImageIoError {
     /// The file extension names a format that cannot be written (anything
     /// but a bitmap format).
     UnsupportedFormat(String),
-    /// The default colormap `image.cmap` is unknown.
-    Colormap(ColormapError),
+    /// The default colormap `image.cmap` is unknown, or a norm was given
+    /// with limits.
+    Colorizer(ColorizerError),
     /// The colour limits cannot normalise the data.
     Norm(NormError),
     /// Float colours outside `[0, 1]`.
@@ -62,7 +63,7 @@ impl fmt::Display for ImageIoError {
                 f,
                 "format {format:?} is not supported (imsave writes gif, jpeg, jpg, png, tiff and webp)"
             ),
-            Self::Colormap(err) => err.fmt(f),
+            Self::Colorizer(err) => err.fmt(f),
             Self::Norm(err) => err.fmt(f),
             Self::ColorRange => {
                 f.write_str("Floating point image RGB values must be in the 0..1 range.")
@@ -82,7 +83,7 @@ impl std::error::Error for ImageIoError {
             Self::Gif(err) => Some(err),
             Self::Webp(err) => Some(err),
             Self::Bitmap(err) => Some(err),
-            Self::Colormap(err) => Some(err),
+            Self::Colorizer(err) => Some(err),
             Self::Norm(err) => Some(err),
             Self::UnidentifiedImage
             | Self::UnsupportedFormat(_)
@@ -134,9 +135,9 @@ impl From<BitmapError> for ImageIoError {
     }
 }
 
-impl From<ColormapError> for ImageIoError {
-    fn from(err: ColormapError) -> Self {
-        Self::Colormap(err)
+impl From<ColorizerError> for ImageIoError {
+    fn from(err: ColorizerError) -> Self {
+        Self::Colorizer(err)
     }
 }
 
@@ -149,14 +150,9 @@ impl From<NormError> for ImageIoError {
 /// How [`imsave`] turns an array into pixels.
 #[derive(Clone, Debug)]
 pub struct ImsaveOptions {
-    /// The value mapped to the bottom of the colormap (scalar data; the
-    /// data minimum when `None`).
-    pub vmin: Option<f64>,
-    /// The value mapped to the top of the colormap (scalar data; the data
-    /// maximum when `None`).
-    pub vmax: Option<f64>,
-    /// The colormap of scalar data (`image.cmap` when `None`).
-    pub cmap: Option<Colormap>,
+    /// The colormap and the norm or limits of scalar data (matplotlib's
+    /// `cmap`, `vmin` and `vmax`; a norm excludes limits).
+    pub colorizer: ColorizerOptions,
     /// Where row 0 of the array goes (`image.origin` when `None`).
     pub origin: Option<Origin>,
     /// The resolution recorded in the file.
@@ -166,12 +162,12 @@ pub struct ImsaveOptions {
     pub jpeg_quality: Option<u8>,
 }
 
+impl_colorize!(ImsaveOptions);
+
 impl Default for ImsaveOptions {
     fn default() -> Self {
         Self {
-            vmin: None,
-            vmax: None,
-            cmap: None,
+            colorizer: ColorizerOptions::default(),
             origin: None,
             dpi: 100.0,
             jpeg_quality: None,
@@ -293,12 +289,10 @@ fn jpeg_background() -> [u8; 3] {
 fn rgba_bytes(data: &ImageData, options: &ImsaveOptions) -> Result<Vec<[u8; 4]>, ImageIoError> {
     Ok(match data {
         ImageData::Scalar(field) => {
-            let cmap = match &options.cmap {
-                Some(cmap) => cmap.clone(),
-                None => colormaps::get_cmap(None)?,
-            };
-            let mut mappable = ScalarMappable::new(cmap);
-            mappable.set_clim(options.vmin, options.vmax);
+            let mut mappable = options
+                .colorizer
+                .clone()
+                .into_mappable(&crate::rc::params())?;
             let values = field.masked_values();
             let normalized = normalize_in(&mut mappable, &values, field.kind(), field.precision())?;
             let cmap = mappable.cmap();
@@ -316,6 +310,7 @@ mod tests {
     use super::*;
     use plt_codec::png;
 
+    use crate::colors::Colorize;
     use crate::numeric::Grid;
 
     fn decode(png: &[u8]) -> Vec<u8> {
@@ -326,8 +321,9 @@ mod tests {
     fn scalars_are_colour_mapped_between_the_limits() {
         let data = Grid::from_vec(1, 3, vec![0.0, 5.0, f64::NAN]).unwrap();
         let options = ImsaveOptions {
-            cmap: Some(colormaps::get("gray").unwrap()),
-            vmax: Some(10.0),
+            colorizer: ColorizerOptions::default()
+                .cmap(crate::colors::colormaps::get("gray").unwrap())
+                .limits(None, Some(10.0)),
             ..ImsaveOptions::default()
         };
         let pixels = decode(&imsave_png(data, options).unwrap());

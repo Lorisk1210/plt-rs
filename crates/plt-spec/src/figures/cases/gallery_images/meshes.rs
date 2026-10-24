@@ -6,10 +6,10 @@ use plt::axes::{
 };
 use plt::collections::{CollectionProps, EdgeColors};
 use plt::colorbar::{ColorbarOptions, Mappable};
-use plt::colors::{BoundaryNorm, Extend, LogNorm, colormaps};
+use plt::colors::{BoundaryNorm, Colorize, ColorizerOptions, Extend, LogNorm, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::{Figure, Share};
-use plt::image::{ColorizerOptions, Extent, Interpolation, Origin, ScalarField};
+use plt::image::{Extent, Interpolation, Origin, ScalarField};
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::lines::LineProps;
 use plt::numeric::{Grid, arange, linspace, meshgrid};
@@ -66,7 +66,7 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(2, 2)?;
 
     let options = PcolorOptions {
-        colors: colors()?,
+        colorizer: colors()?,
         ..PcolorOptions::default()
     };
     let c = axs[(0, 0)].pcolor(mesh(), options)?;
@@ -74,7 +74,7 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
     fig.colorbar(&c, ColorbarOptions::beside(&axs[(0, 0)]))?;
 
     let options = PcolorOptions {
-        colors: colors()?,
+        colorizer: colors()?,
         ..PcolorOptions::default()
     };
     let c = axs[(0, 1)].pcolormesh(mesh(), options)?;
@@ -84,7 +84,7 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
     let (x_lo, x_hi) = extremes(&x);
     let (y_lo, y_hi) = extremes(&y);
     let image = ImshowOptions {
-        colors: colors()?,
+        colorizer: colors()?,
         extent: Some(Extent::new(x_lo, x_hi, y_lo, y_hi)),
         interpolation: Some(Interpolation::Nearest),
         origin: Some(Origin::Lower),
@@ -96,7 +96,7 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
     fig.colorbar(&c, ColorbarOptions::beside(&axs[(1, 0)]))?;
 
     let options = PcolorfastOptions {
-        colors: colors()?,
+        colorizer: colors()?,
         ..PcolorfastOptions::default()
     };
     let coords = (MeshCoords::Grid(x.clone()), MeshCoords::Grid(y.clone()));
@@ -125,7 +125,7 @@ fn pcolor_demo_3(fig: &Figure) -> CaseResult {
         (&axs[(1, 0)], ColorizerOptions::default()),
     ] {
         let options = PcolorOptions {
-            colors: colors.cmap(colormaps::get("PuBu_r")?),
+            colorizer: colors.cmap(colormaps::get("PuBu_r")?),
             shading: Some(Shading::Auto),
             ..PcolorOptions::default()
         };
@@ -153,7 +153,7 @@ fn grid_mesh(
     let x = arange(0.0, cols as f64, 1.0);
     let y = arange(0.0, rows as f64, 1.0);
     let options = PcolorOptions {
-        colors: ColorizerOptions::default().limits(Some(0.0), Some(14.0)),
+        colorizer: ColorizerOptions::default().limits(Some(0.0), Some(14.0)),
         shading: Some(shading),
         ..PcolorOptions::default()
     };
@@ -204,7 +204,7 @@ fn pcolormesh_grids_3(fig: &Figure) -> CaseResult {
 }
 
 fn pcolormesh_grids_4(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(2, 1)?;
     grid_mesh(
         &axs[(0, 0)],
@@ -225,7 +225,7 @@ fn pcolormesh_grids_4(fig: &Figure) -> CaseResult {
 }
 
 fn pcolormesh_grids_5(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     grid_mesh(
         &fig.subplot(),
         5,
@@ -272,7 +272,7 @@ fn pcolormesh_levels_3(fig: &Figure) -> CaseResult {
         (&axs[(1, 0)], trimmed(&z), Shading::Flat, "shading='flat'"),
     ] {
         let options = PcolorOptions {
-            colors: ColorizerOptions::default().limits(Some(lo), Some(hi)),
+            colorizer: ColorizerOptions::default().limits(Some(lo), Some(hi)),
             shading: Some(shading),
             ..PcolorOptions::default()
         };
@@ -298,7 +298,7 @@ fn pcolormesh_levels_4(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(2, 1)?;
     let (ax0, ax1) = (&axs[(0, 0)], &axs[(1, 0)]);
     let options = PcolorOptions {
-        colors: ColorizerOptions::default().cmap(cmap.clone()).norm(norm),
+        colorizer: ColorizerOptions::default().cmap(cmap.clone()).norm(norm),
         ..PcolorOptions::default()
     };
     let im = ax0.pcolormesh(Mesh::from_coords(x.clone(), y.clone(), z.clone()), options)?;
@@ -310,8 +310,11 @@ fn pcolormesh_levels_4(fig: &Figure) -> CaseResult {
         y: centres(&y, dy / 2.0),
     });
     let options = ContourOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(cmap),
+            ..ColorizerOptions::default()
+        },
         levels: Levels::Values(levels),
-        cmap: Some(cmap),
         ..ContourOptions::default()
     };
     let cf = ax1.contourf(&field, options)?;
@@ -332,8 +335,8 @@ fn quadmesh_demo(fig: &Figure) -> CaseResult {
     let qz_max = extremes(&qz).1;
     let mask = qz.map(|q| q.abs() < 0.5 * qz_max);
     let axs = fig.subplots(1, 3)?;
-    let gouraud = |colors: ColorizerOptions| PcolorOptions {
-        colors,
+    let gouraud = |colorizer: ColorizerOptions| PcolorOptions {
+        colorizer,
         shading: Some(Shading::Gouraud),
         ..PcolorOptions::default()
     };

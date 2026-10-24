@@ -6,7 +6,8 @@
 use plt::axes::{HistPlotOptions, ImshowOptions};
 use plt::colorbar::ColorbarOptions;
 use plt::colors::{
-    BlendMode, Colormap, LightSource, Normalize, Relief, ScalarMappable, ShadeOptions, colormaps,
+    BlendMode, ColorizerOptions, Colormap, LightSource, Normalize, Relief, ScalarMappable,
+    ShadeOptions, colormaps,
 };
 use plt::contour::ContourOptions;
 use plt::coords::Coords;
@@ -52,7 +53,10 @@ fn contour_manual_1(fig: &Figure) -> CaseResult {
         &filled,
         true,
         ContourOptions {
-            cmap: Some(colormaps::get("bone")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("bone")?),
+                ..ColorizerOptions::default()
+            },
             ..ContourOptions::default()
         },
     )?;
@@ -70,7 +74,10 @@ fn contour_manual_1(fig: &Figure) -> CaseResult {
         &lines,
         false,
         ContourOptions {
-            cmap: Some(colormaps::get("cool")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("cool")?),
+                ..ColorizerOptions::default()
+            },
             linewidths: Some(vec![3.0]),
             ..ContourOptions::default()
         },
@@ -150,7 +157,8 @@ fn extent_of(z: &Grid<f64>) -> (f64, f64) {
 fn advanced_hillshading_1(fig: &Figure) -> CaseResult {
     let z = cos_rings();
     let cmap = colormaps::get("copper")?;
-    let rgb = LightSource::new(315.0, 45.0).shade(&z, &cmap, &ShadeOptions::default())?;
+    let rgb =
+        LightSource::new(315.0, 45.0).shade(&z, &ShadeOptions::default().cmap(cmap.clone()))?;
     let ax = fig.subplot();
     ax.imshow(rgba_image(&rgb), bilinear())?;
     // The colorbar of the data the colours stand for.
@@ -171,16 +179,20 @@ fn advanced_hillshading_2(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     ax1.imshow(
-        rgba_image(&ls.shade(&z, &copper, &ShadeOptions::default())?),
+        rgba_image(&ls.shade(&z, &ShadeOptions::default().cmap(copper.clone()))?),
         bilinear(),
     )?;
     ax1.set_title("Full range of data");
     let limited = ShadeOptions {
-        vmin: Some(-10.0),
-        vmax: Some(10.0),
+        colorizer: ColorizerOptions {
+            cmap: Some(copper),
+            vmin: Some(-10.0),
+            vmax: Some(10.0),
+            ..ColorizerOptions::default()
+        },
         ..ShadeOptions::default()
     };
-    ax2.imshow(rgba_image(&ls.shade(&z, &copper, &limited)?), bilinear())?;
+    ax2.imshow(rgba_image(&ls.shade(&z, &limited)?), bilinear())?;
     ax2.set_title("Manually set range");
     fig.suptitle("Avoiding Outliers in Shaded Plots")
         .set_fontsize(RelativeSize::XLarge);
@@ -246,8 +258,9 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
                 blend,
                 relief,
                 ..ShadeOptions::default()
-            };
-            let rgb = ls.shade(&z, &cmap, &options)?;
+            }
+            .cmap(cmap.clone());
+            let rgb = ls.shade(&z, &options)?;
             axs[(row + 1, col)].imshow(rgba_image(&rgb), ImshowOptions::default())?;
         }
         axs[(0, col)]
@@ -320,7 +333,7 @@ fn eeg(t: &[f64]) -> Vec<Vec<f64>> {
 }
 
 fn mri_with_eeg(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axd = fig.subplot_mosaic(
         &named_mosaic(&[&["image", "density"], &["EEG", "EEG"]])?,
         MosaicOptions {

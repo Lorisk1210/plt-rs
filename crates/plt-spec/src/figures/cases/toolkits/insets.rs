@@ -7,9 +7,9 @@ use plt::axes_grid1::{
 };
 use plt::axisartist::{self, AxislineStyle};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, Origin};
+use plt::image::{Extent, Origin};
 use plt::lines::LineProps;
 use plt::numeric::{Grid, linspace};
 use plt::offsetbox::{AnchorLoc, BboxToAnchor};
@@ -26,7 +26,7 @@ fn field_image(
     origin: Option<Origin>,
 ) -> Result<ImshowOptions, Box<dyn std::error::Error>> {
     Ok(ImshowOptions {
-        colors: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
+        colorizer: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
         extent: Some(Extent::new(-3.0, 3.0, -3.0, 3.0)),
         origin,
         ..ImshowOptions::default()

@@ -4,9 +4,8 @@
 
 use plt::axes::{ImshowOptions, Mesh, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarFormat, ColorbarOptions, ExtendFrac, Mappable};
-use plt::colors::{CenteredNorm, LogNorm, ScalarMappable, colormaps};
+use plt::colors::{CenteredNorm, Colorize, ColorizerOptions, LogNorm, ScalarMappable, colormaps};
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::numeric::Grid;
 
 use super::super::mpl_tests::{in_test_style, numbers};
@@ -63,7 +62,7 @@ pub(super) fn assigned_norm(args: Args<'_>) -> Outcome {
         let ax = fig.subplot();
         let cmap = colormaps::get("RdBu_r").map_err(ProbeError::rejected)?;
         let options = PcolorOptions {
-            colors: ColorizerOptions::default().cmap(cmap),
+            colorizer: ColorizerOptions::default().cmap(cmap),
             ..PcolorOptions::default()
         };
         let mesh = ax
@@ -135,7 +134,7 @@ fn centered() -> Result<Json, ProbeError> {
     let fig = Figure::with_size(1.0, 3.0, plt::rc::params().figure_dpi);
     let ax = fig.subplot();
     let options = PcolorOptions {
-        colors: ColorizerOptions::default().norm(CenteredNorm::new(0.0, None)),
+        colorizer: ColorizerOptions::default().norm(CenteredNorm::new(0.0, None)),
         ..PcolorOptions::default()
     };
     let mesh = ax
@@ -154,7 +153,7 @@ fn format(args: Args<'_>) -> Result<Json, ProbeError> {
     let ax = fig.subplot();
     let image = image(&ax, vec![vec![0.0, 1.0]])?;
     let options = ColorbarOptions {
-        format: Some(ColorbarFormat::Template(args.str("format")?.to_owned())),
+        format: Some(ColorbarFormat::Label(args.str("format")?.into())),
         ..ColorbarOptions::default()
     };
     let colorbar = fig

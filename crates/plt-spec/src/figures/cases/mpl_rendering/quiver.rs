@@ -173,7 +173,7 @@ fn barbs(fig: &Figure) -> CaseResult {
         .zip(&field.v)
         .map(|(u, v)| u.hypot(*v))
         .collect();
-    let colors = MappedColors::new(speed).with_cmap(colormaps::get("viridis")?);
+    let colors = MappedColors::new(speed).cmap(colormaps::get("viridis")?);
     fig.subplot()
         .barbs(field.with_colors(colors), barb_options())?;
     remove_ticks_and_titles(fig);

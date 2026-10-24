@@ -88,7 +88,7 @@ mod tests {
     fn colorbars_do_not_count_as_axes() {
         // matplotlib's test_autofmt_xdate_colorbar_constrained.
         let fig = Figure::with_size(6.4, 4.8, 100.0);
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
         let ax = fig.subplot();
         let data = Grid::from_vec(2, 3, vec![1.0, 4.0, 6.0, 2.0, 3.0, 5.0]).unwrap();
         let image = ax

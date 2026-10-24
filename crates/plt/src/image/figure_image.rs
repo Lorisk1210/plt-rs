@@ -9,8 +9,9 @@ use plt_core::Bbox;
 use super::artist::{canvas_bbox, draw_rendered, split_alpha};
 use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::Resampling;
-use super::{ColorizerOptions, Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
+use super::{Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle};
+use crate::colors::{ColorizerOptions, impl_colorize};
 use crate::figure::Figure;
 
 /// Options of [`Figure::figimage`].
@@ -21,7 +22,7 @@ pub struct FigimageOptions {
     /// Vertical offset of the image's bottom edge, in pixels.
     pub yo: f64,
     /// Colormap, norm and limits for scalar data.
-    pub colors: ColorizerOptions,
+    pub colorizer: ColorizerOptions,
     /// Where row 0 of the array is drawn (`None` = `image.origin`).
     pub origin: Option<Origin>,
     /// Opacity: uniform or per pixel.
@@ -29,6 +30,8 @@ pub struct FigimageOptions {
     /// Resize the figure to fit the image.
     pub resize: bool,
 }
+
+impl_colorize!(FigimageOptions);
 
 /// State of a figure image.
 #[derive(Debug)]
@@ -156,7 +159,7 @@ impl Figure {
         let (uniform, alpha_grid) = split_alpha(options.alpha);
         let core = ImageCore {
             data,
-            mappable: RefCell::new(options.colors.into_mappable(&rc)?),
+            mappable: RefCell::new(options.colorizer.into_mappable(&rc)?),
             alpha_grid,
             stage,
             resampling,

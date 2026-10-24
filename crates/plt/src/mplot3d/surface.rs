@@ -2,7 +2,7 @@
 //! `plot_wireframe`).
 
 use super::art3d::ZSort;
-use super::collections3d::{FaceColors, NewPolys, PolyFaces, resolve_all};
+use super::collections3d::{FaceColors, NewPolys, PolyFaces, mean_z_faces, resolve_all};
 use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
@@ -268,7 +268,9 @@ impl Axes3D {
         Ok(match colors {
             FaceColors::Cycle => PolyFaces::Colors(vec![self.plane().next_line_color().resolve()?]),
             FaceColors::Single(color) => PolyFaces::Colors(vec![color.resolve()?]),
-            FaceColors::Mapped(cmap) => cmap.mean_z_faces(faces),
+            FaceColors::Mapped(colorizer) => {
+                mean_z_faces(colorizer, faces).map_err(crate::axes::PlotError::Colormap)?
+            }
         })
     }
 

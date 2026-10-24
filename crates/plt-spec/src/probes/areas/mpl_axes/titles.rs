@@ -99,7 +99,8 @@ fn above_offset(left: &str, center: &str) -> Outcome {
 fn above_hidden_offset() -> Outcome {
     let fig = Figure::new();
     let axs = made(fig.subplots_shared(1, 2, Share::None, Share::All))?;
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())
+        .map_err(ProbeError::rejected)?;
     for (i, ax) in axs.as_slice().iter().enumerate() {
         ax.set_title(format!("Subplot {i}"));
         made(ax.plot((0..10).map(f64::from).collect::<Vec<_>>(), vec![1e53; 10]))?;

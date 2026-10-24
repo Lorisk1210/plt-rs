@@ -35,10 +35,11 @@ fn extents(bbox: &Bbox) -> Json {
 
 /// A figure of the rc size laid out by the constrained engine
 /// (`plt.figure(layout="constrained")`).
-fn constrained_figure() -> Figure {
+fn constrained_figure() -> Result<Figure, ProbeError> {
     let fig = Figure::new();
-    fig.set_layout_engine(LayoutEngine::constrained());
-    fig
+    fig.set_layout_engine(LayoutEngine::constrained())
+        .map_err(ProbeError::rejected)?;
+    Ok(fig)
 }
 
 /// A figure of `width` × `height` inches at the rc resolution.
@@ -83,7 +84,7 @@ fn constrained_engine(value: &Json) -> Result<Option<LayoutEngine>, ProbeError> 
 /// `[text, y]` and a draw.
 fn suptitle(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
-        let fig = constrained_figure();
+        let fig = constrained_figure()?;
         let ax = fig.subplot();
         fig.layout();
         let mut out = vec![extents(&ax.position())];
@@ -107,7 +108,8 @@ fn suptitle(args: Args<'_>) -> Outcome {
 fn compressed_suptitle(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = sized_figure(4.0, 10.0);
-        fig.set_layout_engine(LayoutEngine::compressed());
+        fig.set_layout_engine(LayoutEngine::compressed())
+            .map_err(ProbeError::rejected)?;
         let rows = SubplotOverrides {
             hspace: Some(0.0),
             ..SubplotOverrides::default()
@@ -146,7 +148,7 @@ fn add_cell(fig: &Figure, gs: &GridSpec, row: usize, col: usize) -> Result<Axes,
 /// and a draw.
 fn suplabels(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
-        let fig = constrained_figure();
+        let fig = constrained_figure()?;
         let ax = fig.subplot();
         let tight = || {
             ax.tight_bbox(false)
@@ -172,7 +174,8 @@ fn suplabels(args: Args<'_>) -> Outcome {
 fn align_labels(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = sized_figure(6.4, 8.0);
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())
+            .map_err(ProbeError::rejected)?;
         let gs = GridSpec::with_ratios(
             3,
             1,
@@ -197,7 +200,7 @@ fn align_labels(args: Args<'_>) -> Outcome {
 /// padding changed.
 fn submerged_gap(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
-        let fig = constrained_figure();
+        let fig = constrained_figure()?;
         let mosaic = args
             .str("mosaic")?
             .parse::<Mosaic>()
@@ -205,7 +208,8 @@ fn submerged_gap(args: Args<'_>) -> Outcome {
         let axes = fig
             .subplot_mosaic(&mosaic, MosaicOptions::default())
             .map_err(ProbeError::rejected)?;
-        fig.set_layout_engine(constrained_engine(args.json("pads")?)?);
+        fig.set_layout_engine(constrained_engine(args.json("pads")?)?)
+            .map_err(ProbeError::rejected)?;
         fig.layout();
         let bounds = |label: &str| {
             let ax = axes
@@ -231,7 +235,8 @@ fn uses_constrained(fig: &Figure) -> Json {
 fn get_constrained_layout(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = Figure::new();
-        fig.set_layout_engine(constrained_engine(args.json("constrained_layout")?)?);
+        fig.set_layout_engine(constrained_engine(args.json("constrained_layout")?)?)
+            .map_err(ProbeError::rejected)?;
         fig.subplot();
         Ok(uses_constrained(&fig))
     })
@@ -244,7 +249,8 @@ fn set_constrained_layout(args: Args<'_>) -> Outcome {
         fig.subplot();
         let mut out = Vec::new();
         for value in args.json("calls")?.as_array().unwrap_or(&[]) {
-            fig.set_layout_engine(constrained_engine(value)?);
+            fig.set_layout_engine(constrained_engine(value)?)
+                .map_err(ProbeError::rejected)?;
             out.push(uses_constrained(&fig));
         }
         Ok(Json::Array(out))
@@ -259,7 +265,9 @@ fn reused_figure(args: Args<'_>) -> Outcome {
         for i in 0..2 {
             let reused = pyplot::figure_label("123");
             reused.clear();
-            reused.set_layout_engine(LayoutEngine::constrained());
+            reused
+                .set_layout_engine(LayoutEngine::constrained())
+                .map_err(ProbeError::rejected)?;
             // The test's grid nested in a grid holds no axes, so it takes
             // no part in the layout.
             reused.suptitle(format!("Suptitle{i}"));

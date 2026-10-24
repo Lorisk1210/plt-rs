@@ -3,7 +3,7 @@
 //! and their labels.
 
 use plt::axes::{AxisMode, GridOptions, ImshowOptions};
-use plt::contour::{ClabelOptions, ContourOptions, LabelFormat, Levels, QuadCoords, QuadField};
+use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, Levels, QuadCoords, QuadField};
 use plt::image::{ImageData, Interpolation, ScalarField};
 use plt::legend::{LegendHandle, LegendLoc, LegendOptions};
 use plt::numeric::{Grid, linspace, meshgrid};
@@ -13,7 +13,6 @@ use plt::patheffects::{
 };
 use plt::prelude::*;
 use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, TextBoxProps, VAlign};
-use plt::ticker::pyfmt::PrintfFormat;
 use plt::transforms::Point;
 use plt_core::Path;
 
@@ -32,7 +31,7 @@ fn patheffect1(fig: &Figure) -> CaseResult {
         ImageData::from(ScalarField::integers(&image)),
         ImshowOptions::default(),
     )?;
-    let arrow_effects = vec![PathEffect::stroke(stroke(5.0, "w")?), PathEffect::normal()];
+    let arrow_effects = vec![PathEffect::stroke(stroke(5.0, "w")), PathEffect::normal()];
     let arrow = FancyArrowProps {
         connectionstyle: "angle3".parse()?,
         patch: PatchProps::default()
@@ -48,10 +47,10 @@ fn patheffect1(fig: &Figure) -> CaseResult {
     ax.annotate("test", (1.0, 1.0), options)?
         .set_fontsize(20.0)
         .set_halign(HAlign::Center)
-        .set_path_effects(with_stroke(3.0, "w")?);
+        .set_path_effects(with_stroke(3.0, "w"));
     let grid = GridOptions {
         linestyle: Some(LineStyle::Solid),
-        path_effects: Some(with_stroke(3.0, "w")?),
+        path_effects: Some(with_stroke(3.0, "w")),
         ..GridOptions::default()
     };
     ax.grid_with(true, grid);
@@ -76,14 +75,14 @@ fn patheffect2(fig: &Figure) -> CaseResult {
             ..ContourOptions::default()
         },
     )?;
-    contour_effects(&contours, &with_stroke(3.0, "w")?);
+    contour_effects(&contours, &with_stroke(3.0, "w"));
     let labels = contours.clabel(ClabelOptions {
-        fmt: LabelFormat::Printf(PrintfFormat::parse("%2.0f")?),
+        fmt: ClabelFormat::Label("%2.0f".into()),
         use_clabeltext: true,
         ..ClabelOptions::default()
     })?;
     for label in labels {
-        label.set_path_effects(with_stroke(3.0, "w")?);
+        label.set_path_effects(with_stroke(3.0, "w"));
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -104,7 +103,7 @@ fn patheffect3(fig: &Figure) -> CaseResult {
         PathEffect::normal(),
     ]);
     ax.set_title(r"testing$^{123}$")
-        .set_path_effects(with_stroke(1.0, "r")?);
+        .set_path_effects(with_stroke(1.0, "r"));
     let legend = ax.legend(LegendOptions {
         handles: Some(vec![LegendHandle::from(&line)]),
         labels: Some(vec![r"Line 1$^2$".into()]),
@@ -122,9 +121,9 @@ fn patheffect3(fig: &Figure) -> CaseResult {
         offset: (6.0, -3.0),
         ..PatchShadow::default()
     }
-    .with_color("blue")?;
+    .with_color("blue");
     let effects = vec![
-        PathEffect::stroke(stroke(3.75, "k")?),
+        PathEffect::stroke(stroke(3.75, "k")),
         PathEffect::with_simple_patch_shadow(blue_shadow),
     ];
     let text = ax.text(2.0, 3.0, "Drop test");
@@ -142,6 +141,10 @@ fn patheffect3(fig: &Figure) -> CaseResult {
 
 /// `test_patheffects_stroked_text`: white text outlined in black, in
 /// every printable ASCII character.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "every case shares the fallible build signature"
+)]
 fn patheffects_stroked_text(fig: &Figure) -> CaseResult {
     let chunks = [
         "A B C D E F G H I J K L",
@@ -161,7 +164,7 @@ fn patheffects_stroked_text(fig: &Figure) -> CaseResult {
             .set_fontsize(font_size)
             .set_color("white")
             .set_path_effects(vec![
-                PathEffect::stroke(stroke(font_size / 10.0, "black")?),
+                PathEffect::stroke(stroke(font_size / 10.0, "black")),
                 PathEffect::normal(),
             ]);
     }
@@ -196,7 +199,7 @@ fn collection(fig: &Figure) -> CaseResult {
         ..ClabelOptions::default()
     })?;
     for label in labels {
-        label.set_path_effects(with_stroke(3.0, "k")?);
+        label.set_path_effects(with_stroke(3.0, "k"));
         let sawtooth = TextBoxProps::new("sawtooth".parse()?)
             .with_patch(PatchProps::default().facecolor("none").edgecolor("blue"));
         label.set_bbox(Some(sawtooth));
@@ -312,7 +315,7 @@ fn simple_line_shadow(fig: &Figure) -> CaseResult {
     let y: Vec<f64> = x.iter().map(|x| (-x * x).exp()).collect();
     let shadow = LineShadow {
         offset: (0.0, 0.0),
-        color: Some(plt::colors::Color::from("blue").resolve()?),
+        color: Some("blue".into()),
         ..LineShadow::default()
     };
     fig.subplot()

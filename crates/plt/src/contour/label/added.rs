@@ -111,7 +111,7 @@ impl ContourSet {
 #[cfg(test)]
 mod tests {
     use super::super::tests::bowl;
-    use super::super::{ClabelOptions, LabelFormat};
+    use super::super::{ClabelFormat, ClabelOptions};
     use super::*;
 
     #[test]
@@ -124,7 +124,7 @@ mod tests {
             ContourError::Unlabelled
         );
         let options = ClabelOptions {
-            fmt: LabelFormat::Map(vec![(0.5, "half".to_owned()), (1.0, "one".to_owned())]),
+            fmt: ClabelFormat::Map(vec![(0.5, "half".to_owned()), (1.0, "one".to_owned())]),
             ..ClabelOptions::default()
         };
         let automatic = cs.clabel(options).unwrap().len();

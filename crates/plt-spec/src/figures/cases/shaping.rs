@@ -296,7 +296,7 @@ fn single_lines_only_case(fig: &Figure) -> CaseResult {
     ax.text(5.5, 8.6, r"office $\alpha$ fi")
         .set_fontsize(13.0)
         .set_fontfeatures(features(&["-liga"])?);
-    let grey = Stroke::new(GcUpdate::default().linewidth(3.0).foreground("0.7")?);
+    let grey = Stroke::new(GcUpdate::default().linewidth(3.0).foreground("0.7"));
     let stroked = ax.text(0.3, 5.0, "office \u{431}\u{433}\u{434}");
     stroked
         .set_fontsize(18.0)

@@ -105,7 +105,7 @@ fn finish_panel(ax: &PolarAxes, rticks: &[f64], title: &str) {
 }
 
 fn polar_demo(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let top = fig.add_polar_subplot(2, 1, 1)?;
     let bottom = fig.add_polar_subplot(2, 1, 2)?;
     spiral(&top)?;
@@ -203,7 +203,7 @@ fn polar_scatter(fig: &Figure) -> Result<PolarAxes, Box<dyn std::error::Error>> 
     let options = ScatterOptions {
         sizes: Some(map(&r, |r| 200.0 * r * r)),
         colors: MappedColors::new(theta.clone())
-            .with_cmap(colormaps::get("hsv")?)
+            .cmap(colormaps::get("hsv")?)
             .into(),
         alpha: 0.75.into(),
         ..ScatterOptions::default()

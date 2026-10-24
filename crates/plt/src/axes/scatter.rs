@@ -9,7 +9,7 @@ use super::data_coords::data_offsets;
 use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
-use crate::colors::{Alpha, Color, Colormap, Norm, ScalarMappable, colormaps};
+use crate::colors::{Alpha, Color, ColorizerOptions, impl_colorize};
 use crate::markers::{FillStyle, MarkerStyle};
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -36,25 +36,27 @@ impl From<MappedColors> for ScatterColors {
     }
 }
 
-/// One value per marker, mapped to colours through a colormap and a norm
-/// (scatter's numeric `c` with `cmap`, `norm`, `vmin` and `vmax`).
+/// One value per marker (or arrow), mapped to colours (scatter's numeric
+/// `c` with `cmap`, `norm`, `vmin` and `vmax`, a norm excluding limits).
 ///
 /// ```
 /// use plt::axes::MappedColors;
-/// use plt::colors::colormaps;
+/// use plt::colors::{Colorize, colormaps};
 /// let colors = MappedColors::new(vec![1.0, 2.0, 3.0])
-///     .with_cmap(colormaps::get("plasma")?)
-///     .with_limits(Some(0.0), None);
+///     .cmap(colormaps::get("plasma")?)
+///     .limits(Some(0.0), None);
+/// assert_eq!(colors.colorizer.vmin, Some(0.0));
 /// # Ok::<(), plt::colors::ColormapError>(())
 /// ```
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MappedColors {
-    values: Vec<f64>,
-    cmap: Option<Colormap>,
-    norm: Option<Box<dyn Norm>>,
-    vmin: Option<f64>,
-    vmax: Option<f64>,
+    /// The values; non-finite ones are masked.
+    pub values: Vec<f64>,
+    /// The colormap, norm and limits.
+    pub colorizer: ColorizerOptions,
 }
+
+impl_colorize!(MappedColors);
 
 impl MappedColors {
     /// `values` mapped through `image.cmap` and a linear norm spanning
@@ -62,57 +64,14 @@ impl MappedColors {
     pub fn new(values: impl Into<Vec<f64>>) -> Self {
         Self {
             values: values.into(),
-            cmap: None,
-            norm: None,
-            vmin: None,
-            vmax: None,
+            colorizer: ColorizerOptions::default(),
         }
-    }
-
-    /// Uses `cmap` instead of `image.cmap`.
-    #[must_use]
-    pub fn with_cmap(self, cmap: Colormap) -> Self {
-        Self {
-            cmap: Some(cmap),
-            ..self
-        }
-    }
-
-    /// Uses `norm` instead of a linear norm; excludes [`Self::with_limits`].
-    #[must_use]
-    pub fn with_norm(self, norm: impl Norm + 'static) -> Self {
-        Self {
-            norm: Some(Box::new(norm)),
-            ..self
-        }
-    }
-
-    /// Fixes the values mapped to the colormap's ends (`None` = the data
-    /// minimum or maximum).
-    #[must_use]
-    pub fn with_limits(self, vmin: Option<f64>, vmax: Option<f64>) -> Self {
-        Self { vmin, vmax, ..self }
     }
 
     /// The colormap and norm (matplotlib's `set_cmap`, `set_norm` and
     /// `_scale_norm`) plus the values with non-finite ones masked.
     pub(crate) fn into_mapping(self, rc: &RcParams) -> Result<ColorMapping, PlotError> {
-        let cmap = match self.cmap {
-            Some(cmap) => cmap,
-            None => colormaps::get(&rc.image_cmap)?,
-        };
-        let mappable = match self.norm {
-            Some(_) if self.vmin.is_some() || self.vmax.is_some() => {
-                return Err(PlotError::NormWithLimits);
-            }
-            Some(norm) => ScalarMappable::with_norm(cmap, norm),
-            None => {
-                let mut mappable = ScalarMappable::new(cmap);
-                mappable.norm_mut().set_vmin(self.vmin);
-                mappable.norm_mut().set_vmax(self.vmax);
-                mappable
-            }
-        };
+        let mappable = self.colorizer.into_mappable(rc)?;
         let values = self
             .values
             .into_iter()

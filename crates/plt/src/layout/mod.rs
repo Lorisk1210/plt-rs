@@ -9,15 +9,20 @@
 //! the axes in it (tick labels, axis labels, titles) plus padding and room
 //! for colorbars, and the cells share the rest of the figure.
 //!
+//! Once a colorbar exists, the engine can only be swapped for one that
+//! places colorbars the same way; removing the engine leaves a
+//! [`LayoutEngine::PlaceHolder`] that remembers how.
+//!
 //! ```
 //! use plt::layout::{ConstrainedLayout, LayoutEngine};
 //! use plt::prelude::*;
 //! let fig = Figure::new();
-//! fig.set_layout_engine(LayoutEngine::constrained());
+//! fig.set_layout_engine(LayoutEngine::constrained())?;
 //! let ax = fig.subplot();
 //! ax.set_title("title");
 //! let (x, _, w, _) = ax.position().bounds();
 //! assert!(x < 0.125 && x + w > 0.9, "tighter than the default margins");
+//! # Ok::<(), plt::layout::LayoutEngineError>(())
 //! ```
 
 mod align;
@@ -51,6 +56,24 @@ pub enum LayoutEngine {
     /// Tight layout at every draw (matplotlib's `TightLayoutEngine`,
     /// `layout="tight"` or `figure.autolayout`).
     Tight(TightLayout),
+    /// No layout, standing in for a removed engine (matplotlib's
+    /// `PlaceHolderLayoutEngine`, what `set_layout_engine("none")` and
+    /// `tight_layout` leave behind).
+    PlaceHolder(PlaceHolderLayout),
+}
+
+/// An engine that places nothing but keeps the colorbar placement and
+/// the subplot-parameter compatibility of the engine it replaced, so that
+/// an engine placing colorbars differently cannot be set once a colorbar
+/// exists (matplotlib's `PlaceHolderLayoutEngine`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PlaceHolderLayout {
+    /// Whether the subplot parameters may still be changed by hand
+    /// (matplotlib's `adjust_compatible`).
+    pub adjust_compatible: bool,
+    /// Whether colorbars of grid-placed axes take their space from the
+    /// axes' grid cell (matplotlib's `colorbar_gridspec`).
+    pub colorbar_gridspec: bool,
 }
 
 impl LayoutEngine {
@@ -79,6 +102,7 @@ impl LayoutEngine {
         match self {
             Self::Constrained(_) => false,
             Self::Tight(_) => true,
+            Self::PlaceHolder(placeholder) => placeholder.colorbar_gridspec,
         }
     }
 
@@ -86,7 +110,19 @@ impl LayoutEngine {
     /// changing them by hand (`subplots_adjust`) still means something
     /// (matplotlib's `adjust_compatible`).
     pub fn adjust_compatible(&self) -> bool {
-        matches!(self, Self::Tight(_))
+        match self {
+            Self::Constrained(_) => false,
+            Self::Tight(_) => true,
+            Self::PlaceHolder(placeholder) => placeholder.adjust_compatible,
+        }
+    }
+
+    /// The placeholder standing in for this engine once it is removed.
+    fn placeholder(&self) -> Self {
+        Self::PlaceHolder(PlaceHolderLayout {
+            adjust_compatible: self.adjust_compatible(),
+            colorbar_gridspec: self.colorbar_gridspec(),
+        })
     }
 }
 
@@ -127,6 +163,28 @@ impl fmt::Display for UnknownLayout {
 }
 
 impl std::error::Error for UnknownLayout {}
+
+/// Why a figure kept its layout engine.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LayoutEngineError {
+    /// A colorbar exists and the new engine places colorbars differently
+    /// from the current one (their `colorbar_gridspec` differ), which
+    /// matplotlib refuses with a `RuntimeError`.
+    IncompatibleColorbars,
+}
+
+impl fmt::Display for LayoutEngineError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IncompatibleColorbars => f.write_str(
+                "Colorbar layout of new layout engine not compatible with old engine, and a \
+                 colorbar has been created.  Engine not changed.",
+            ),
+        }
+    }
+}
+
+impl std::error::Error for LayoutEngineError {}
 
 /// Where a colorbar took its space from (matplotlib's `_colorbar_info`
 /// and the parents' `_colorbars`).
@@ -191,24 +249,70 @@ impl LayoutState {
     }
 }
 
+impl LayoutState {
+    /// Replaces the engine with `engine`, or with a placeholder for the
+    /// current one when `None` (matplotlib's `"none"`), unless a colorbar
+    /// exists (`has_colorbars`) and the two place colorbars differently
+    /// (matplotlib's `_check_layout_engines_compat`).
+    pub(crate) fn swap_engine(
+        &mut self,
+        engine: Option<LayoutEngine>,
+        has_colorbars: bool,
+    ) -> Result<(), LayoutEngineError> {
+        let Some(new) = engine else {
+            self.remove_engine();
+            return Ok(());
+        };
+        if let Some(old) = self.engine
+            && old.colorbar_gridspec() != new.colorbar_gridspec()
+            && has_colorbars
+        {
+            return Err(LayoutEngineError::IncompatibleColorbars);
+        }
+        self.engine = Some(new);
+        self.pending = true;
+        Ok(())
+    }
+
+    /// Replaces the engine, if any, with a placeholder for it.
+    pub(crate) fn remove_engine(&mut self) {
+        self.engine = self.engine.map(|old| old.placeholder());
+        self.pending = true;
+    }
+}
+
 impl Figure {
     /// Chooses how the figure arranges its axes when drawn (matplotlib's
-    /// `set_layout_engine`); `None` keeps the axes where they are.
+    /// `set_layout_engine`). `None` removes the engine (matplotlib's
+    /// `"none"`) and keeps the axes where they are; a figure that had an
+    /// engine keeps a [`LayoutEngine::PlaceHolder`] for it.
     ///
     /// ```
     /// use plt::figure::Figure;
     /// use plt::layout::LayoutEngine;
     /// let fig = Figure::new();
-    /// fig.set_layout_engine(LayoutEngine::constrained());
+    /// fig.set_layout_engine(LayoutEngine::constrained())?;
     /// assert!(fig.layout_engine().is_some());
-    /// fig.set_layout_engine(None);
+    /// fig.set_layout_engine(None)?;
+    /// assert!(matches!(fig.layout_engine(), Some(LayoutEngine::PlaceHolder(_))));
+    /// # Ok::<(), plt::layout::LayoutEngineError>(())
     /// ```
-    pub fn set_layout_engine(&self, engine: impl Into<Option<LayoutEngine>>) -> &Self {
+    ///
+    /// # Errors
+    ///
+    /// [`LayoutEngineError::IncompatibleColorbars`] when a colorbar exists
+    /// and the new engine places colorbars differently from the current
+    /// one (constrained layout beside the axes, tight layout and no engine
+    /// in the axes' grid cell); the engine is then left unchanged.
+    pub fn set_layout_engine(
+        &self,
+        engine: impl Into<Option<LayoutEngine>>,
+    ) -> Result<&Self, LayoutEngineError> {
         let mut state = self.raw().figure_state().borrow_mut();
-        state.layout.engine = engine.into();
-        state.layout.pending = true;
+        let has_colorbars = crate::colorbar::has_colorbars(&state.store);
+        state.layout.swap_engine(engine.into(), has_colorbars)?;
         state.stale = true;
-        self
+        Ok(self)
     }
 
     /// The layout engine (matplotlib's `get_layout_engine`).
@@ -236,7 +340,7 @@ impl FigureState {
                 // as matplotlib's engine does (after a warning).
                 let _ = self.tight_layout_pass(self.root, &axes, &params);
             }
-            None => {}
+            Some(LayoutEngine::PlaceHolder(_)) | None => {}
         }
     }
 
@@ -249,5 +353,103 @@ impl FigureState {
             .filter(|colorbar| self.store.contains(colorbar.cax))
             .cloned()
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::axes::ImshowOptions;
+    use crate::colorbar::ColorbarOptions;
+    use crate::numeric::Grid;
+
+    /// A figure laid out by `engine` holding an image and its colorbar.
+    fn with_colorbar(engine: LayoutEngine) -> Figure {
+        let fig = Figure::new();
+        fig.set_layout_engine(engine).unwrap();
+        let data = Grid::from_vec(2, 2, vec![1.0, 2.0, 3.0, 4.0]).unwrap();
+        let image = fig
+            .subplot()
+            .imshow(data, ImshowOptions::default())
+            .unwrap();
+        fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+        fig
+    }
+
+    #[test]
+    fn engines_swap_freely_without_colorbars() {
+        let fig = Figure::new();
+        fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
+        fig.set_layout_engine(LayoutEngine::tight()).unwrap();
+        assert_eq!(fig.layout_engine(), Some(LayoutEngine::tight()));
+        fig.set_layout_engine(None).unwrap();
+        fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
+        assert_eq!(fig.layout_engine(), Some(LayoutEngine::constrained()));
+    }
+
+    #[test]
+    fn removing_an_engine_leaves_a_placeholder_for_it() {
+        let fig = Figure::new();
+        fig.set_layout_engine(None).unwrap();
+        assert_eq!(fig.layout_engine(), None, "nothing to stand in for");
+        fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
+        fig.set_layout_engine(None).unwrap();
+        let placeholder = PlaceHolderLayout {
+            adjust_compatible: false,
+            colorbar_gridspec: false,
+        };
+        assert_eq!(
+            fig.layout_engine(),
+            Some(LayoutEngine::PlaceHolder(placeholder))
+        );
+    }
+
+    #[test]
+    fn colorbars_pin_how_colorbars_are_placed() {
+        let fig = with_colorbar(LayoutEngine::constrained());
+        let refused = fig.set_layout_engine(LayoutEngine::tight());
+        assert_eq!(
+            refused.err(),
+            Some(LayoutEngineError::IncompatibleColorbars)
+        );
+        assert_eq!(fig.layout_engine(), Some(LayoutEngine::constrained()));
+        fig.set_layout_engine(LayoutEngine::compressed()).unwrap();
+        fig.set_layout_engine(None).unwrap();
+        assert!(fig.set_layout_engine(LayoutEngine::tight()).is_err());
+        fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
+
+        let fig = with_colorbar(LayoutEngine::tight());
+        assert!(fig.set_layout_engine(LayoutEngine::constrained()).is_err());
+        fig.set_layout_engine(None).unwrap();
+        fig.set_layout_engine(LayoutEngine::tight()).unwrap();
+    }
+
+    #[test]
+    fn tight_layout_leaves_a_placeholder_and_respects_colorbars() {
+        let fig = Figure::new();
+        fig.subplot();
+        fig.tight_layout(&TightLayout::default()).unwrap();
+        assert!(matches!(
+            fig.layout_engine(),
+            Some(LayoutEngine::PlaceHolder(PlaceHolderLayout {
+                colorbar_gridspec: true,
+                ..
+            }))
+        ));
+
+        let fig = with_colorbar(LayoutEngine::constrained());
+        assert_eq!(
+            fig.tight_layout(&TightLayout::default()),
+            Err(TightLayoutError::Engine(
+                LayoutEngineError::IncompatibleColorbars
+            ))
+        );
+        assert!(
+            matches!(
+                fig.layout_engine(),
+                Some(LayoutEngine::PlaceHolder(placeholder)) if !placeholder.colorbar_gridspec
+            ),
+            "the constrained engine is removed all the same"
+        );
     }
 }

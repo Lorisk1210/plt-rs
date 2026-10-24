@@ -3,7 +3,7 @@
 use plt::artist::ArtistHandle;
 use plt::axes::{EventplotOptions, MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::EdgeColors;
-use plt::colors::Normalize;
+use plt::colors::{Colorize, Normalize};
 use plt::figure::Figure;
 use plt::legend::LegendOptions;
 use plt::lines::LineStyle;
@@ -41,11 +41,11 @@ fn marker_colors(args: Args<'_>) -> Result<ScatterColors, ProbeError> {
         let [vmin, vmax] = norm[..] else {
             return Err(ProbeError::BadArgs("norm is not [vmin, vmax]".into()));
         };
-        mapped = mapped.with_norm(Normalize::new(vmin, vmax));
+        mapped = mapped.norm(Normalize::new(vmin, vmax));
     }
     let (vmin, vmax) = (args.opt_f64("vmin")?, args.opt_f64("vmax")?);
     if vmin.is_some() || vmax.is_some() {
-        mapped = mapped.with_limits(vmin, vmax);
+        mapped = mapped.limits(vmin, vmax);
     }
     Ok(mapped.into())
 }

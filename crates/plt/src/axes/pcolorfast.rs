@@ -8,15 +8,15 @@ use plt_core::Point;
 
 use super::children::DataUpdate;
 use super::mesh::{MeshCoords, MeshValues, PreparedMesh};
-use super::pcolor::multivariate_faces;
+use super::pcolor::{multivariate_faces, scalar_only};
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionProps, ColorMapping, EdgeColors, MeshShading};
-use crate::colors::{Color, ScalarMappable};
+use crate::colors::{Color, ColorizerOptions, ScalarMappable, impl_colorize};
 use crate::image::{
-    AxesImage, AxesImageArtist, ColorizerOptions, Extent, ImageCore, ImageData, ImageError,
-    Interpolation, MultiField, Origin, PcolorImage, PcolorImageArtist, Resampling, ScalarField,
-    rc_defaults,
+    AxesImage, AxesImageArtist, Extent, ImageCore, ImageData, ImageError, Interpolation,
+    MultiField, MultivarColorizerOptions, Origin, PcolorImage, PcolorImageArtist, Resampling,
+    ScalarField, rc_defaults,
 };
 use crate::numeric::Grid;
 
@@ -55,11 +55,16 @@ impl From<MultiField> for FastValues {
 /// Options of [`Axes::pcolorfast`].
 #[derive(Debug, Default)]
 pub struct PcolorfastOptions {
-    /// Colormap, norm and limits, for scalar data or several variates.
-    pub colors: ColorizerOptions,
+    /// Colormap, norm and limits of scalar data.
+    pub colorizer: ColorizerOptions,
+    /// The colormap, norms and limits of data of several variates, which
+    /// exclude `colorizer`.
+    pub multivariate: Option<MultivarColorizerOptions>,
     /// Uniform opacity.
     pub alpha: Option<f64>,
 }
+
+impl_colorize!(PcolorfastOptions);
 
 /// What [`Axes::pcolorfast`] drew, depending on the grid.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -127,13 +132,15 @@ impl Axes {
                 ));
             }
             (Style::Image(x, y), FastValues::Image(data)) => {
-                let (data, mappable) = image_colors(data, options.colors)?;
+                let (data, mappable) =
+                    image_colors(data, options.colorizer, options.multivariate.as_ref())?;
                 let extent = edges_extent(&x, &y);
                 let image = self.image_for_pcolorfast(data, mappable, extent, options.alpha);
                 (extent_bounds(extent), PcolorFast::Image(image))
             }
             (Style::PcolorImage(x, y), FastValues::Image(data)) => {
-                let (data, mappable) = image_colors(data, options.colors)?;
+                let (data, mappable) =
+                    image_colors(data, options.colorizer, options.multivariate.as_ref())?;
                 let extent = edges_extent(&x, &y);
                 let mut artist = PcolorImageArtist::new(data, mappable, x, y);
                 artist.base_mut().alpha = options.alpha;
@@ -183,11 +190,12 @@ impl Axes {
         props.base.alpha = options.alpha;
         let (values, mapping) = match values {
             FastValues::Multivariate(field) => {
-                multivariate_faces(&field, options.colors, &mut props)?;
+                multivariate_faces(&field, &options.colorizer, options.multivariate, &mut props)?;
                 (MeshValues::Multivariate(field), None)
             }
             FastValues::Image(data) => {
-                let (data, mappable) = image_colors(data, options.colors)?;
+                let (data, mappable) =
+                    image_colors(data, options.colorizer, options.multivariate.as_ref())?;
                 props.facecolors = mesh_colours(&data, options.alpha);
                 if props.facecolors.is_some() {
                     props.base.alpha = None;
@@ -312,10 +320,12 @@ fn is_uniform(edges: &[f64]) -> bool {
 /// scalar data (matplotlib's `_normalize_image_array` and `_scale_norm`).
 fn image_colors(
     data: ImageData,
-    colors: ColorizerOptions,
+    colorizer: ColorizerOptions,
+    multivariate: Option<&MultivarColorizerOptions>,
 ) -> Result<(ImageData, ScalarMappable), ImageError> {
+    scalar_only(multivariate)?;
     let data = data.normalized();
-    let mut mappable = colors.into_mappable(&crate::rc::params())?;
+    let mut mappable = colorizer.into_mappable(&crate::rc::params())?;
     if let Some(field) = data.scalars() {
         field.autoscale(mappable.norm_mut());
     }
@@ -474,10 +484,9 @@ mod tests {
     /// Three variates coloured through `3VarAddA`.
     fn three_variates() -> PcolorfastOptions {
         use crate::colors::multivar::MultiColormap;
-        use crate::image::MultivarColorizerOptions;
         let cmap = MultiColormap::get("3VarAddA").unwrap();
         PcolorfastOptions {
-            colors: ColorizerOptions::default().multivariate(MultivarColorizerOptions::new(cmap)),
+            multivariate: Some(MultivarColorizerOptions::new(cmap)),
             ..PcolorfastOptions::default()
         }
     }

@@ -7,9 +7,9 @@ use plt::axes::{
     PcolorfastOptions, Shading,
 };
 use plt::collections::{CollectionProps, EdgeColors};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, ScalarField};
+use plt::image::{Extent, ScalarField};
 use plt::numeric::{Grid, linspace, logspace, meshgrid};
 use plt::rc::Aspect;
 
@@ -41,7 +41,7 @@ pub(super) fn pcolor_edges_masked(fig: &Figure) -> CaseResult {
     let c = zip_with(&trimmed(&xx), &trimmed(&yy), |x, y| x.sin() * y.cos());
     let mask = c.map(|&v| v > 0.7);
     let options = PcolorOptions {
-        colors: cmap("PuOr")?,
+        colorizer: cmap("PuOr")?,
         props: CollectionProps {
             edgecolors: Some(EdgeColors::Colors(vec!["k".into()])),
             linewidths: Some(vec![1.5]),
@@ -105,7 +105,7 @@ pub(super) fn pcolormesh_nonuniform(fig: &Figure) -> CaseResult {
         arange_grid(4, 6),
     );
     let options = PcolorOptions {
-        colors: cmap("cividis")?,
+        colorizer: cmap("cividis")?,
         ..PcolorOptions::default()
     };
     fig.subplot().pcolormesh(mesh, options)?;
@@ -162,7 +162,7 @@ pub(super) fn pcolorfast_nonuniform(fig: &Figure) -> CaseResult {
         MeshCoords::from([0.0, 2.0, 3.0, 5.0]),
     );
     let options = PcolorfastOptions {
-        colors: cmap("plasma")?,
+        colorizer: cmap("plasma")?,
         ..PcolorfastOptions::default()
     };
     fig.subplot()
@@ -201,7 +201,7 @@ pub(super) fn hexbin_gridsize_tuple(fig: &Figure) -> CaseResult {
     let (x, y) = cloud(2000, 4);
     let options = HexbinOptions {
         gridsize: HexGridSize::Shape(15, 6),
-        colors: cmap("Blues")?,
+        colorizer: cmap("Blues")?,
         props: CollectionProps {
             edgecolors: Some(EdgeColors::Colors(vec!["k".into()])),
             linewidths: Some(vec![0.3]),
@@ -218,7 +218,7 @@ pub(super) fn hexbin_log(fig: &Figure) -> CaseResult {
     let options = HexbinOptions {
         gridsize: HexGridSize::Count(20),
         bins: Some(HexBins::Log),
-        colors: cmap("inferno")?,
+        colorizer: cmap("inferno")?,
         ..HexbinOptions::default()
     };
     fig.subplot().hexbin(&x, &y, options)?;
@@ -244,7 +244,7 @@ pub(super) fn hexbin_reduce_mean(fig: &Figure) -> CaseResult {
         values: Some(c),
         reduce: HexReduce::Mean,
         gridsize: HexGridSize::Count(15),
-        colors: cmap("RdBu")?,
+        colorizer: cmap("RdBu")?,
         ..HexbinOptions::default()
     };
     fig.subplot().hexbin(&x, &y, options)?;

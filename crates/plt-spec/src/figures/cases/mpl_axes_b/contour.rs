@@ -2,7 +2,7 @@
 
 use plt::axes::Hist2dOptions;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Color, Extend, colormaps};
+use plt::colors::{Color, ColorizerOptions, Extend, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::Figure;
 use plt::lines::LineStyle;
@@ -28,10 +28,13 @@ fn contour_colorbar(fig: &Figure) -> CaseResult {
     let field = contour_data();
     let ax = fig.subplot();
     let fills = ContourOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("RdBu")?),
+            vmin: Some(-0.6),
+            vmax: Some(0.6),
+            ..ColorizerOptions::default()
+        },
         levels: Levels::Values(arange(-1.8, 1.801, 0.2)),
-        cmap: Some(colormaps::get("RdBu")?),
-        vmin: Some(-0.6),
-        vmax: Some(0.6),
         extend: Extend::Both,
         ..ContourOptions::default()
     };
@@ -83,11 +86,14 @@ const NO_MESH_SNAP: &[(&str, &str)] = &[("pcolormesh.snap", "False")];
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_axes_b/contour_hatching", |fig| {
         let options = ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("gray")?.with_alpha(0.5)?),
+                ..ColorizerOptions::default()
+            },
             levels: Levels::Count(7),
             hatches: ["/", "\\", "//", "-"]
                 .map(|hatch| Some(hatch.to_owned()))
                 .to_vec(),
-            cmap: Some(colormaps::get("gray")?.with_alpha(0.5)?),
             extend: Extend::Both,
             ..ContourOptions::default()
         };

@@ -11,10 +11,9 @@ use std::f64::consts::{FRAC_PI_2, PI};
 
 use plt::artist::ArtistHandle;
 use plt::axes::{GridOptions, MappedColors, Mesh, PcolorOptions, ScatterOptions};
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
 use plt::geo::{GeoAxes, GeoProjection};
-use plt::image::ColorizerOptions;
 use plt::lines::{LineProps, LineStyle};
 use plt::numeric::{Grid, linspace};
 use plt::patches::PatchProps;
@@ -71,7 +70,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let options = ScatterOptions {
             sizes: Some(vec![30.0]),
             colors: MappedColors::new(lat.clone())
-                .with_cmap(colormaps::get("viridis")?)
+                .cmap(colormaps::get("viridis")?)
                 .into(),
             ..ScatterOptions::default()
         };
@@ -103,7 +102,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             lat.cos() * (2.0 * lon).sin()
         });
         let options = PcolorOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("RdBu_r")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("RdBu_r")?),
             ..PcolorOptions::default()
         };
         ax.pcolormesh(Mesh::from_coords(lon, lat, values), options)?;

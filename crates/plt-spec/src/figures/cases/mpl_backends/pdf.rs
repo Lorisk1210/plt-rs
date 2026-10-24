@@ -8,8 +8,8 @@ use std::f64::consts::TAU;
 
 use plt::axes::{HexGridSize, HexbinOptions, ImshowOptions, MappedColors, ScatterOptions};
 use plt::collections::CollectionProps;
-use plt::colors::colormaps;
-use plt::image::{ColorizerOptions, Interpolation};
+use plt::colors::{ColorizerOptions, colormaps};
+use plt::image::Interpolation;
 use plt::legend::{LegendHandle, LegendOptions};
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -65,7 +65,7 @@ fn grayscale_alpha(fig: &Figure) -> CaseResult {
         dd,
         ImshowOptions {
             interpolation: Some(Interpolation::None),
-            colors: ColorizerOptions::default().cmap(colormaps::get("gray_r")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("gray_r")?),
             ..ImshowOptions::default()
         },
     )?;

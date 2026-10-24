@@ -10,10 +10,10 @@ use plt::axes_grid1::{
     SimpleAxisArtist, SizeSpec, make_rgb_axes,
 };
 use plt::colorbar::ColorbarOptions;
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::fonts::FontProperties;
 use plt::gridspec::GridSpec;
-use plt::image::{ColorizerOptions, Extent, ImageData, Origin};
+use plt::image::{Extent, ImageData, Origin};
 use plt::numeric::Grid;
 use plt::offsetbox::{AnchorLoc, AnchoredBox, AnchoredOptions};
 use plt::patheffects::{GcUpdate, PathEffect, Stroke};
@@ -47,7 +47,7 @@ fn placed(extent: [f64; 4], lower: bool) -> ImshowOptions {
 
 /// The options with the colour limits `vmin` and `vmax`.
 fn limited(options: ImshowOptions, (vmin, vmax): (f64, f64)) -> ImshowOptions {
-    options.colors(ColorizerOptions {
+    options.colorizer(ColorizerOptions {
         vmin: Some(vmin),
         vmax: Some(vmax),
         ..ColorizerOptions::default()
@@ -211,7 +211,7 @@ fn demo_axes_grid(fig: &Figure) -> CaseResult {
 /// `add_inner_title`: frameless text with a white halo in a corner.
 fn inner_title(ax: &Axes, title: &str, loc: AnchorLoc) -> CaseResult {
     let rc = plt::rc::params();
-    let halo = Stroke::new(GcUpdate::default().linewidth(3.0).foreground("w")?);
+    let halo = Stroke::new(GcUpdate::default().linewidth(3.0).foreground("w"));
     let props = TextProps::default()
         .font(FontProperties::from_rc(&rc).with_size(rc.legend_fontsize, rc.font_size))
         .path_effects(vec![PathEffect::with_stroke(halo)]);
@@ -315,7 +315,7 @@ fn edge_colorbars(
     let grid = ImageGrid::new(fig, &subplot(1, 2, position)?, (2, 2), options)?;
     for (i, ax) in grid.axes().iter().enumerate() {
         let colors = ColorizerOptions::default().cmap(colormaps::get(cmaps[i / 2])?);
-        let shown = ax.imshow(bivariate_normal(), placed(EXTENT, false).colors(colors))?;
+        let shown = ax.imshow(bivariate_normal(), placed(EXTENT, false).colorizer(colors))?;
         if i % 2 == 1 {
             grid.cbar_axes()[i / 2].colorbar(&shown, ColorbarOptions::default())?;
         }

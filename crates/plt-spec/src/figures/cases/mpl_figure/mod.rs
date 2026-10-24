@@ -12,8 +12,7 @@ mod tight;
 
 use plt::axes::{Mesh, PcolorOptions};
 use plt::collections::Collection;
-use plt::colors::colormaps;
-use plt::image::ColorizerOptions;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::numeric::Grid;
 use plt::prelude::*;
 
@@ -62,7 +61,7 @@ pub(super) fn example_pcolor(ax: &Axes, fontsize: f64) -> Fallible<Collection> {
         (1.0 - x / 2.0 + x.powf(5.0) + y.powf(3.0)) * (-(x * x) - y * y).exp()
     });
     let options = PcolorOptions {
-        colors: ColorizerOptions::default()
+        colorizer: ColorizerOptions::default()
             .cmap(colormaps::get("RdBu_r")?)
             .limits(Some(-1.0), Some(1.0)),
         ..PcolorOptions::default()

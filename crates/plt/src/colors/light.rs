@@ -7,7 +7,8 @@ use std::rc::Rc;
 use plt_core::Rgba;
 
 use super::{
-    ColorError, Colormap, Norm, NormError, Normalize, ScalarMappable, hsv_to_rgb, rgb_to_hsv,
+    ColorError, ColorizerOptions, ColormapError, NormError, Normalize, ScalarMappable, hsv_to_rgb,
+    impl_colorize, rgb_to_hsv,
 };
 use crate::numeric::Grid;
 
@@ -66,18 +67,13 @@ impl fmt::Debug for BlendMode {
 /// Options of [`LightSource::shade`].
 #[derive(Clone, Debug)]
 pub struct ShadeOptions {
+    /// The colormap (`image.cmap` by default), and the norm mapping data to
+    /// it, or the limits of a linear one (the data's minimum and maximum by
+    /// default); a norm makes the limits unused, as in matplotlib.
+    pub colorizer: ColorizerOptions,
     /// How colours and illumination combine (`blend_mode`, overlay by
     /// default).
     pub blend: BlendMode,
-    /// The norm mapping data to the colormap; by default linear between
-    /// `vmin` and `vmax`.
-    pub norm: Option<Box<dyn Norm>>,
-    /// The data value at the bottom of the colormap (the data's minimum by
-    /// default).
-    pub vmin: Option<f64>,
-    /// The data value at the top of the colormap (the data's maximum by
-    /// default).
-    pub vmax: Option<f64>,
     /// How elevations become illumination.
     pub relief: Relief,
 }
@@ -85,14 +81,14 @@ pub struct ShadeOptions {
 impl Default for ShadeOptions {
     fn default() -> Self {
         Self {
+            colorizer: ColorizerOptions::default(),
             blend: BlendMode::Overlay,
-            norm: None,
-            vmin: None,
-            vmax: None,
             relief: Relief::default(),
         }
     }
 }
+
+impl_colorize!(ShadeOptions);
 
 /// Why a surface cannot be shaded.
 #[derive(Clone, Debug, PartialEq)]
@@ -110,6 +106,8 @@ pub enum ShadeError {
     Color(ColorError),
     /// The norm cannot map the data.
     Norm(NormError),
+    /// The default colormap `image.cmap` is unknown.
+    Colormap(ColormapError),
 }
 
 impl fmt::Display for ShadeError {
@@ -122,6 +120,7 @@ impl fmt::Display for ShadeError {
             Self::ShapeMismatch => f.write_str("the colours and elevations differ in shape"),
             Self::Color(err) => write!(f, "invalid colour: {err}"),
             Self::Norm(err) => write!(f, "cannot normalize the data: {err}"),
+            Self::Colormap(err) => err.fmt(f),
         }
     }
 }
@@ -132,7 +131,7 @@ impl std::error::Error for ShadeError {}
 /// `colors.LightSource`).
 ///
 /// ```
-/// use plt::colors::{LightSource, Relief};
+/// use plt::colors::{LightSource, Relief, ColorizerOptions};
 /// use plt::numeric::Grid;
 /// let hill = Grid::from_fn(5, 5, |r, c| -((r as f64 - 2.0).powi(2) + (c as f64 - 2.0).powi(2)));
 /// let light = LightSource::default();
@@ -244,27 +243,32 @@ impl LightSource {
         intensity
     }
 
-    /// `data` coloured by `cmap` and shaded by its own relief (matplotlib's
-    /// `shade`): RGBA colours whose alpha comes from the colormap.
+    /// `data` coloured through `options.colorizer` and shaded by its own
+    /// relief (matplotlib's `shade`): RGBA colours whose alpha comes from
+    /// the colormap.
     ///
     /// # Errors
     ///
-    /// When the data is too small for slopes or the norm cannot map it.
+    /// When the data is too small for slopes, the norm cannot map it or
+    /// `image.cmap` is unknown.
     pub fn shade(
         &self,
         data: &Grid<f64>,
-        cmap: &Colormap,
         options: &ShadeOptions,
     ) -> Result<Grid<Rgba>, ShadeError> {
+        let colorizer = &options.colorizer;
+        let cmap = colorizer
+            .colormap(&crate::rc::params())
+            .map_err(ShadeError::Colormap)?;
         let values = data.as_slice();
         let min = || values.iter().copied().fold(f64::INFINITY, f64::min);
         let max = || values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let norm = options.norm.clone().unwrap_or_else(|| {
-            let vmin = options.vmin.unwrap_or_else(min);
-            let vmax = options.vmax.unwrap_or_else(max);
+        let norm = colorizer.norm.clone().unwrap_or_else(|| {
+            let vmin = colorizer.vmin.unwrap_or_else(min);
+            let vmax = colorizer.vmax.unwrap_or_else(max);
             Box::new(Normalize::new(vmin, vmax))
         });
-        let mut mappable = ScalarMappable::with_norm(cmap.clone(), norm);
+        let mut mappable = ScalarMappable::with_norm(cmap, norm);
         let masked: Vec<Option<f64>> = values.iter().map(|&v| Some(v)).collect();
         let colors = mappable.to_rgba(&masked, None).map_err(ShadeError::Norm)?;
         let rgba = Grid::from_vec(data.rows(), data.cols(), colors)

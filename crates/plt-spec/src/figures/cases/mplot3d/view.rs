@@ -1,9 +1,9 @@
 //! View, projection, limits and decoration cases.
 
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::mplot3d::{
-    Axes3D, Axes3DError, Axes3DOptions, Axis3, FaceColormap, FaceColors, ProjType, Sampling,
-    SurfaceOptions, WireframeOptions,
+    Axes3D, Axes3DError, Axes3DOptions, Axis3, FaceColors, ProjType, Sampling, SurfaceOptions,
+    WireframeOptions,
 };
 
 use super::{plot_helix, surface};
@@ -23,7 +23,7 @@ fn wireframe(ax: &Axes3D) -> Result<(), Axes3DError> {
 fn viridis_surface(ax: &Axes3D) -> Result<(), Box<dyn std::error::Error>> {
     let (x, y, z) = surface(25);
     let options = SurfaceOptions {
-        colors: FaceColors::Mapped(Box::new(FaceColormap::new(colormaps::get("viridis")?))),
+        colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("viridis")?)),
         ..SurfaceOptions::default()
     };
     ax.plot_surface(&x, &y, &z, options)?;

@@ -1,7 +1,7 @@
 //! Pie charts: the tests' exploded frog/hog/dog/log pie in its variants,
 //! shadows and hatches.
 
-use plt::axes::{Axes, AxisMode, PieLabelFormat, PieOptions, PieShadow};
+use plt::axes::{Axes, AxisMode, PieOptions, PieShadow};
 use plt::colors::Color;
 use plt::figure::Figure;
 use plt::legend::LegendOptions;
@@ -11,6 +11,7 @@ use plt::transforms::Point;
 
 use super::super::mpl_tests::classic;
 use crate::figures::{CaseResult, FigureCase};
+use plt::ticker::LabelFormat;
 
 const SIZES: [f64; 4] = [15.0, 30.0, 45.0, 10.0];
 /// Only the second slice is exploded.
@@ -42,7 +43,7 @@ fn plain() -> PieOptions {
 fn frogs() -> PieOptions {
     PieOptions {
         labels: labels(["Frogs", "Hogs", "Dogs", "Logs"]),
-        autopct: Some(PieLabelFormat::Printf("%1.1f%%".into())),
+        autopct: Some(LabelFormat::Template("%1.1f%%".into())),
         shadow: Some(PieShadow::default()),
         ..plain()
     }

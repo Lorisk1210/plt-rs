@@ -5,13 +5,13 @@ use std::f64::consts::PI;
 
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::{CollectionProps, CollectionSpec, EdgeColors};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
 use plt::lines::{LineProps, MarkEvery};
 use plt::mplot3d::{
-    Array3, Axes3D, Axes3DError, Axis3, Bar3DOptions, Boxes, Errorbar3DOptions, FaceColormap,
-    FaceColors, FillBetween3DOptions, FillMode, Quiver3DOptions, Sampling, Scatter3DOptions,
-    Stem3DOptions, SurfaceOptions, TrisurfOptions, VoxelColors, VoxelOptions, WireframeOptions,
+    Array3, Axes3D, Axes3DError, Axis3, Bar3DOptions, Boxes, Errorbar3DOptions, FaceColors,
+    FillBetween3DOptions, FillMode, Quiver3DOptions, Sampling, Scatter3DOptions, Stem3DOptions,
+    SurfaceOptions, TrisurfOptions, VoxelColors, VoxelOptions, WireframeOptions,
 };
 use plt::numeric::linspace;
 use plt::transforms::Point;
@@ -49,7 +49,7 @@ fn axlim_scatter(fig: &Figure, axlim_clip: bool) -> CaseResult {
     let scatter = ScatterOptions {
         sizes: Some(sizes),
         colors: MappedColors::new(z.clone())
-            .with_cmap(colormaps::get("viridis")?)
+            .cmap(colormaps::get("viridis")?)
             .into(),
         ..ScatterOptions::default()
     };
@@ -85,7 +85,7 @@ fn axlim_surface(fig: &Figure, axlim_clip: bool) -> CaseResult {
     let ax = fig.subplot_3d();
     let (x, y, z) = surface(20);
     let options = SurfaceOptions {
-        colors: FaceColors::Mapped(Box::new(FaceColormap::new(colormaps::get("viridis")?))),
+        colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("viridis")?)),
         props: CollectionProps::default().edgecolor("k").linewidth(0.3),
         axlim_clip,
         ..SurfaceOptions::default()
@@ -149,7 +149,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let [x, y, z] = polar_points();
         let tri = Triangulation::delaunay(&x, &y)?;
         let options = TrisurfOptions {
-            colors: FaceColors::Mapped(Box::new(FaceColormap::new(colormaps::get("Spectral")?))),
+            colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("Spectral")?)),
             props: CollectionProps::default().edgecolor("grey").linewidth(0.2),
             axlim_clip: true,
             ..TrisurfOptions::default()

@@ -1,10 +1,11 @@
 //! The figure frame artist: the root figure and every subfigure.
 
-use plt_core::{Bbox, Path, Rgba};
+use plt_core::{Bbox, Path};
 use plt_render::JoinStyle;
 
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext};
 use crate::axes::AxesState;
+use crate::colors::Color;
 use crate::gridspec::{SubplotParams, SubplotSpec};
 use crate::image::{Compositor, FigureImageArtist};
 use crate::legend::LegendArtist;
@@ -20,9 +21,9 @@ use crate::transforms::unit_to_bbox;
 pub(crate) struct FigureFrame {
     base: ArtistBase,
     /// Background colour.
-    pub(crate) facecolor: Rgba,
+    pub(crate) facecolor: Color,
     /// Border colour.
-    pub(crate) edgecolor: Rgba,
+    pub(crate) edgecolor: Color,
     /// Border width in points.
     pub(crate) linewidth: f64,
     /// Whether the background and border are drawn.
@@ -77,8 +78,8 @@ impl FigureFrame {
     /// A frame covering `relative_extent` of its parent.
     pub(crate) fn new(
         relative_extent: Bbox,
-        facecolor: Rgba,
-        edgecolor: Rgba,
+        facecolor: Color,
+        edgecolor: Color,
         subplot_params: SubplotParams,
     ) -> Self {
         Self {
@@ -92,6 +93,48 @@ impl FigureFrame {
             subplot_params,
             super_texts: SuperTexts::default(),
             subplot_spec: None,
+        }
+    }
+}
+
+impl FigureFrame {
+    /// Draws the background and border over `extent`. The figure patch
+    /// is a `Rectangle`: mitred, without an edge when it has no colour,
+    /// unfilled when transparent, and drawn without anti-aliasing. Like
+    /// any patch, its alpha replaces the alpha of its colours.
+    fn draw_patch(&self, ctx: &mut DrawContext<'_>, extent: Bbox) {
+        let (facecolor, edgecolor) = match (
+            self.facecolor.resolve_alpha(self.base.alpha),
+            self.edgecolor.resolve_alpha(self.base.alpha),
+        ) {
+            (Ok(face), Ok(edge)) => (face, edge),
+            (Err(err), _) | (_, Err(err)) => {
+                ctx.report(self.base.id(), err);
+                return;
+            }
+        };
+        let mut gc = ctx.base_gc(&self.base);
+        gc.linewidth = if edgecolor.is_transparent() {
+            0.0
+        } else {
+            self.linewidth
+        };
+        gc.foreground = edgecolor;
+        gc.join = JoinStyle::Miter;
+        gc.antialiased = false;
+        let face = (!facecolor.is_transparent()).then_some(facecolor);
+        let drawn = ctx.draw_artist(false, |ctx| {
+            with_path_effects(ctx, &self.base.path_effects, |ctx| {
+                ctx.renderer().draw_path(
+                    &gc,
+                    &Path::unit_rectangle(),
+                    &unit_to_bbox(&extent),
+                    face,
+                );
+            })
+        });
+        if let Err(err) = drawn {
+            ctx.report(self.base.id(), err);
         }
     }
 }
@@ -132,32 +175,7 @@ impl FigureFrame {
         if self.frameon
             && let Some(extent) = ctx.layout().frame_patch_extent(self.base.id())
         {
-            // The figure patch is a `Rectangle`: mitred, without an edge
-            // when it has no colour, unfilled when transparent, and drawn
-            // without anti-aliasing. Like any patch, its alpha replaces the
-            // alpha of its colours.
-            let with_alpha = |color: Rgba| self.base.alpha.map_or(color, |a| Rgba { a, ..color });
-            let (facecolor, edgecolor) = (with_alpha(self.facecolor), with_alpha(self.edgecolor));
-            let mut gc = ctx.base_gc(&self.base);
-            gc.linewidth = if edgecolor.is_transparent() {
-                0.0
-            } else {
-                self.linewidth
-            };
-            gc.foreground = edgecolor;
-            gc.join = JoinStyle::Miter;
-            gc.antialiased = false;
-            let face = (!facecolor.is_transparent()).then_some(facecolor);
-            ctx.draw_artist(false, |ctx| {
-                with_path_effects(ctx, &self.base.path_effects, |ctx| {
-                    ctx.renderer().draw_path(
-                        &gc,
-                        &Path::unit_rectangle(),
-                        &unit_to_bbox(&extent),
-                        face,
-                    );
-                });
-            });
+            self.draw_patch(ctx, extent);
         }
         let mut children =
             ctx.sorted_children(&listing_order(ctx.layout().store(), &self.children));

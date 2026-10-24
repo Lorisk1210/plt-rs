@@ -14,6 +14,8 @@ mod place;
 mod placer;
 mod split;
 
+use std::rc::Rc;
+
 use plt_core::{Point, Rgba};
 
 use self::placer::{Placer, TextStyle};
@@ -22,29 +24,37 @@ use crate::artist::{ArtistHandle, ArtistId, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 use crate::text::{Text, TextArtist};
-use crate::ticker::pyfmt::PrintfFormat;
-use crate::ticker::{Formatter, OffsetMode, ScalarFormatter, TickContext, TickerSettings};
+use crate::ticker::{
+    Formatter, LabelFormat, OffsetMode, ScalarFormatter, TickContext, TickerSettings,
+};
 
 pub(crate) use placer::LabelSetup;
 
-/// How label texts are made from levels.
-#[derive(Debug, Default)]
-pub enum LabelFormat {
+/// How label texts are made from levels (matplotlib's `fmt` of `clabel`).
+#[derive(Clone, Debug, Default)]
+pub enum ClabelFormat {
     /// matplotlib's default: a `ScalarFormatter` without offset applied to
     /// all labelled levels at once.
     #[default]
     Scalar,
-    /// A printf-style format such as `"%1.2f m"`.
-    Printf(PrintfFormat),
+    /// A printf-style template applied to each level, such as
+    /// `"%1.2f m"`, or a function of the level.
+    Label(LabelFormat),
+    /// Any tick formatter, applied to all labelled levels at once.
+    Formatter(Rc<dyn Formatter>),
     /// A text per level; other levels get the literal text `%1.3f`, as in
     /// matplotlib.
     Map(Vec<(f64, String)>),
-    /// Any tick formatter, applied to all labelled levels at once.
-    Formatter(Box<dyn Formatter>),
+}
+
+impl From<LabelFormat> for ClabelFormat {
+    fn from(format: LabelFormat) -> Self {
+        Self::Label(format)
+    }
 }
 
 /// Options of [`ContourSet::clabel`] (matplotlib's `clabel` keywords).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ClabelOptions {
     /// The levels to label (a subset of the set's levels; default all).
     pub levels: Option<Vec<f64>>,
@@ -55,7 +65,7 @@ pub struct ClabelOptions {
     /// Pixels left free on each side of an inline label.
     pub inline_spacing: f64,
     /// How labels are written.
-    pub fmt: LabelFormat,
+    pub fmt: ClabelFormat,
     /// Label colours cycled over the labelled levels (default: the
     /// colour of each level).
     pub colors: Option<Vec<Color>>,
@@ -79,7 +89,7 @@ impl Default for ClabelOptions {
             fontsize: None,
             inline: true,
             inline_spacing: 5.0,
-            fmt: LabelFormat::Scalar,
+            fmt: ClabelFormat::Scalar,
             colors: None,
             manual: None,
             rightside_up: true,
@@ -286,7 +296,7 @@ impl ContourSet {
 /// The texts of the labelled `levels`.
 fn label_texts(
     levels: &[f64],
-    fmt: &LabelFormat,
+    fmt: &ClabelFormat,
     settings: &TickerSettings,
 ) -> Result<Vec<String>, ContourError> {
     let ctx = TickContext::detached(settings);
@@ -303,14 +313,14 @@ fn label_texts(
             .collect::<Result<Vec<_>, ContourError>>()
     };
     match fmt {
-        LabelFormat::Scalar => {
+        ClabelFormat::Scalar => {
             let scalar = ScalarFormatter::from_settings(settings).with_use_offset(OffsetMode::Off);
             with_formatter(&scalar)
         }
-        LabelFormat::Formatter(formatter) => with_formatter(formatter.as_ref()),
-        LabelFormat::Printf(format) => levels.iter().map(|&l| Ok(format.format(l)?)).collect(),
+        ClabelFormat::Formatter(formatter) => with_formatter(formatter.as_ref()),
+        ClabelFormat::Label(format) => levels.iter().map(|&l| Ok(format.printf(l)?)).collect(),
         #[expect(clippy::float_cmp, reason = "matplotlib looks levels up in a dict")]
-        LabelFormat::Map(map) => Ok(levels
+        ClabelFormat::Map(map) => Ok(levels
             .iter()
             .map(|&level| {
                 map.iter()
@@ -383,7 +393,7 @@ mod tests {
         let options = ClabelOptions {
             manual: Some(vec![(0.7, 0.0)]),
             inline: false,
-            fmt: LabelFormat::Map(vec![(0.5, "half".to_owned())]),
+            fmt: ClabelFormat::Map(vec![(0.5, "half".to_owned())]),
             ..ClabelOptions::default()
         };
         cs.clabel(options).unwrap();
@@ -418,18 +428,20 @@ mod tests {
     #[test]
     fn label_formats() {
         let settings = TickerSettings::DEFAULT;
-        let printf = LabelFormat::Printf(PrintfFormat::parse("%1.2f m").unwrap());
+        let printf = ClabelFormat::Label("%1.2f m".into());
         assert_eq!(
             label_texts(&[0.5, -1.0], &printf, &settings).unwrap(),
             ["0.50 m", "-1.00 m"]
         );
-        let map = LabelFormat::Map(vec![(1.0, "one".to_owned())]);
+        let map = ClabelFormat::Map(vec![(1.0, "one".to_owned())]);
         assert_eq!(
             label_texts(&[1.0, 2.0], &map, &settings).unwrap(),
             ["one", "%1.3f"]
         );
-        let scalar = label_texts(&[-0.5, 0.0, 0.5], &LabelFormat::Scalar, &settings).unwrap();
+        let scalar = label_texts(&[-0.5, 0.0, 0.5], &ClabelFormat::Scalar, &settings).unwrap();
         assert_eq!(scalar, ["\u{2212}0.5", "0.0", "0.5"]);
+        let func = ClabelFormat::Label(LabelFormat::func(|level| format!("z={level}")));
+        assert_eq!(label_texts(&[2.0], &func, &settings).unwrap(), ["z=2"]);
     }
 
     #[test]

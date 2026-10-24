@@ -76,7 +76,7 @@ fn coordinates(axis: &Axis, dated: bool) -> Result<Vec<f64>, DateError> {
 /// `test_contour` and `test_contourf`: `cos(x / 4) + sin(y / 4)` over
 /// dates against dates, dates against numbers and numbers against dates.
 fn contours(fig: &Figure, filled: bool) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let z = Grid::from_fn(9, 9, |row, column| {
         ((column + 1) as f64 / 4.0).cos() + ((row + 1) as f64 / 4.0).sin()
     });

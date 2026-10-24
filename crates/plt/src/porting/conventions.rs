@@ -21,9 +21,12 @@
 //!   Builder methods are conveniences a few structs add on top of their
 //!   fields: the property sets ([`LineProps`], [`PatchProps`],
 //!   [`CollectionProps`], [`TextProps`]) and [`LegendOptions`], whose
-//!   fields are all `Option`s set from `impl Into` values, and shortcuts
-//!   into nested options such as [`ImshowOptions::cmap`]. Other option
-//!   structs have none.
+//!   fields are all `Option`s set from `impl Into` values, and the
+//!   options mapping values to colours, which share matplotlib's `cmap`,
+//!   `norm`, `vmin` and `vmax` as one [`ColorizerOptions`] in their
+//!   `colorizer` field and its builders through [`Colorize`]
+//!   ([`ImshowOptions`], [`ContourOptions`], [`MappedColors`], ...).
+//!   Other option structs have none.
 //! * **Strings become enums or parsed types.** `linestyle="--"` is
 //!   [`LineStyle::Dashed`]; matplotlib's spelling still works through
 //!   [`str::parse`] (every such type implements [`FromStr`]), which
@@ -324,7 +327,11 @@
 //! [`Axes::patches`]: crate::axes::Axes::patches
 //! [`Axes::artists`]: crate::axes::Axes::artists
 //! [`ErrorbarFormat`]: crate::axes::ErrorbarFormat
-//! [`ImshowOptions::cmap`]: crate::axes::ImshowOptions::cmap
+//! [`ImshowOptions`]: crate::axes::ImshowOptions
+//! [`ContourOptions`]: crate::contour::ContourOptions
+//! [`MappedColors`]: crate::axes::MappedColors
+//! [`ColorizerOptions`]: crate::colors::ColorizerOptions
+//! [`Colorize`]: crate::colors::Colorize
 //! [`FromStr`]: std::str::FromStr
 //! [`ArtistHandle::axes`]: crate::artist::ArtistHandle::axes
 //! [`ArtistHandle::figure`]: crate::artist::ArtistHandle::figure

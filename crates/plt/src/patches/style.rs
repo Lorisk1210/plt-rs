@@ -160,7 +160,7 @@ pub(crate) fn paint_paths(
     let paint = PatchPaint::new(style, rc, base.alpha, edge_default)?;
     let gc = ctx.base_gc(base);
     ctx.renderer().open_group("patch", base.gid.as_deref());
-    with_path_effects(ctx, &base.path_effects, |ctx| {
+    let painted = with_path_effects(ctx, &base.path_effects, |ctx| {
         paint.paint(gc, |gc, face| {
             for path in paths {
                 let fill = face.filter(|_| path.filled);
@@ -169,7 +169,7 @@ pub(crate) fn paint_paths(
         });
     });
     ctx.renderer().close_group("patch");
-    Ok(())
+    painted
 }
 
 /// What matplotlib's `Patch._draw_paths_with_artist_properties` puts in

@@ -87,10 +87,10 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             Ok(())
         }),
         classic("mpl_tests_colorbar/colorbar_wrong_figure", |fig| {
-            fig.set_layout_engine(LayoutEngine::constrained());
+            fig.set_layout_engine(LayoutEngine::constrained())?;
             let image = image(&fig.subplot(), vec![vec![0.0, 1.0]])?;
             let tight = Figure::new();
-            tight.set_layout_engine(LayoutEngine::tight());
+            tight.set_layout_engine(LayoutEngine::tight())?;
             tight.colorbar(&image, ColorbarOptions::default())?;
             Ok(())
         }),

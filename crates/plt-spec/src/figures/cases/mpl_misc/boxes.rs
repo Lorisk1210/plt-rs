@@ -224,7 +224,7 @@ fn diff_cell_table(fig: &Figure) -> CaseResult {
         "B",
         "L",
     ];
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let axes = fig.subplots(cells.len(), 1)?;
     for (ax, edges) in axes.as_slice().iter().zip(cells) {
         ax.table(TableOptions {

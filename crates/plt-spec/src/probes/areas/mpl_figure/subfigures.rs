@@ -99,7 +99,8 @@ pub(super) fn subfigure_bbox(args: Args<'_>) -> Outcome {
         let (nrows, ncols) = (count("nrows")?, count("ncols")?);
         let fig = Figure::new();
         if args.opt_str("layout")? == Some("constrained") {
-            fig.set_layout_engine(LayoutEngine::constrained());
+            fig.set_layout_engine(LayoutEngine::constrained())
+                .map_err(ProbeError::rejected)?;
         }
         let parts = match args.get("specs") {
             None => {
@@ -214,7 +215,8 @@ pub(super) fn stale(args: Args<'_>) -> Outcome {
 pub(super) fn subfigure_ticks(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = Figure::with_size(10.0, 3.0, plt::rc::params().figure_dpi);
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())
+            .map_err(ProbeError::rejected)?;
         let options = SubfigureOptions {
             wspace: Some(0.01),
             width_ratios: Some(vec![7.0, 2.0]),

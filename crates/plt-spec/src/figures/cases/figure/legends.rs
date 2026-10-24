@@ -14,7 +14,7 @@ use super::{map, t};
 use crate::figures::CaseResult;
 
 pub(super) fn legends_outside_constrained(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     let t = t();
     for (i, ax) in axs.as_slice().iter().enumerate() {

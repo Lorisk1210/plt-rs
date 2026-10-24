@@ -4,10 +4,9 @@
 use std::f64::consts::PI;
 
 use plt::axes::{Adjustable, AxisMode, HistPlotOptions, ImshowOptions, Mesh, PcolorOptions};
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::figure::Share;
 use plt::gridspec::{GridSpec, SubplotOverrides};
-use plt::image::ColorizerOptions;
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::numeric::Grid;
 use plt::patches::{Circle, Polygon};
@@ -53,7 +52,7 @@ fn axes_margins_2(fig: &Figure) -> CaseResult {
     axs[(0, 1)].set_use_sticky_edges(false);
     for (ax, status) in axs.as_slice().iter().zip(["Is", "Is Not"]) {
         let options = PcolorOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("inferno")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("inferno")?),
             ..PcolorOptions::default()
         };
         ax.pcolor(
@@ -99,7 +98,7 @@ fn axes_box_aspect_3(fig: &Figure) -> CaseResult {
 }
 
 fn axes_box_aspect_4(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(1, 2)?;
     let image = Grid::from_vec(16, 27, SpecRng::new(SEED).uniform(16 * 27, 0.0, 1.0))?;
     let ratio = image.rows() as f64 / image.cols() as f64;
@@ -149,7 +148,7 @@ fn axes_box_aspect_6(fig: &Figure) -> CaseResult {
 }
 
 fn axes_box_aspect_7(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots_shared(2, 3, Share::All, Share::All)?;
     let hsv = colormaps::get("hsv")?;
     for (i, ax) in axs.as_slice().iter().enumerate() {

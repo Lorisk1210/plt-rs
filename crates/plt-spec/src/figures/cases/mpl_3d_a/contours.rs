@@ -2,7 +2,7 @@
 
 use std::num::NonZeroUsize;
 
-use plt::colors::{Extend, colormaps};
+use plt::colors::{ColorizerOptions, Extend, colormaps};
 use plt::contour::{ContourOptions, Levels};
 use plt::figure::Figure;
 use plt::mplot3d::{Axes3D, Axes3DError, Axes3DOptions, Axis3, Contour3DOptions, test_data};
@@ -19,7 +19,10 @@ fn coolwarm(zdir: Axis3, offset: f64) -> Result<Contour3DOptions, plt::colors::C
         zdir,
         offset: Some(offset),
         contour: ContourOptions {
-            cmap: Some(colormaps::get("coolwarm")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("coolwarm")?),
+                ..ColorizerOptions::default()
+            },
             ..ContourOptions::default()
         },
         ..Contour3DOptions::default()
@@ -105,10 +108,13 @@ fn contourf3d_extend(fig: &Figure, extend: Extend, levels: &[f64]) -> CaseResult
     let ax = fig.subplot_3d();
     let options = Contour3DOptions {
         contour: ContourOptions {
+            colorizer: ColorizerOptions {
+                vmin: Some(1.0),
+                vmax: Some(7.0),
+                ..ColorizerOptions::default()
+            },
             levels: Levels::Values(levels.to_vec()),
             extend,
-            vmin: Some(1.0),
-            vmax: Some(7.0),
             ..ContourOptions::default()
         },
         ..Contour3DOptions::default()

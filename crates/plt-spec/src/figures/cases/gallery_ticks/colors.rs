@@ -9,8 +9,10 @@
 use plt::axes::{AxisName, ImshowOptions, TickLevel, TickParams};
 use plt::collections::EdgeColors;
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{BoundaryNorm, ColorTable, Colormap, Extend, Norm, color_sequence, colormaps};
-use plt::image::{ColorizerOptions, Extent, Interpolation, Origin, ScalarField};
+use plt::colors::{
+    BoundaryNorm, ColorTable, ColorizerOptions, Colormap, Extend, Norm, color_sequence, colormaps,
+};
+use plt::image::{Extent, Interpolation, Origin, ScalarField};
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -53,7 +55,7 @@ fn colorbar_basics(fig: &Figure) -> CaseResult {
         z,
         ImshowOptions::default()
             .interpolation(Interpolation::None)
-            .colors(ColorizerOptions {
+            .colorizer(ColorizerOptions {
                 cmap: Some(colormaps::get("RdBu")?),
                 vmin: Some(-1.2),
                 vmax: Some(1.2),
@@ -89,12 +91,12 @@ fn colorbar_histogram(fig: &Figure) -> CaseResult {
     let cmap = colormaps::get("RdYlBu_r")?;
     let bin_edges = linspace(low, high, 31);
     let norm = BoundaryNorm::new(bin_edges.clone(), cmap.n(), Extend::Neither)?;
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.imshow(
         z.clone(),
         ImshowOptions {
-            colors: ColorizerOptions {
+            colorizer: ColorizerOptions {
                 cmap: Some(cmap.clone()),
                 norm: Some(Box::new(norm.clone())),
                 ..ColorizerOptions::default()
@@ -240,7 +242,7 @@ fn color_sequences(fig: &Figure) -> CaseResult {
         "petroff8",
         "petroff10",
     ];
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     for (n, name) in names.iter().enumerate() {
         let colors = color_sequence(name).ok_or("unknown colour sequence")?;
@@ -331,7 +333,7 @@ fn set_alpha(fig: &Figure) -> CaseResult {
 
 /// One line from 0 to `i` per colour, in a constrained figure.
 fn fan(fig: &Figure, colors: impl IntoIterator<Item = Color>) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     for (i, color) in colors.into_iter().enumerate() {
         ax.plot_with(

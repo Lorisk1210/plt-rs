@@ -15,12 +15,8 @@ use plt_core::Rgba;
 
 use crate::figures::{CaseResult, FigureCase};
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
 fn colors_1(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.add_patch_with(
         Rectangle::new((-0.2, -0.35), 11.2, 0.7),

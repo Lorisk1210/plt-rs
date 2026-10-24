@@ -104,7 +104,7 @@ fn inner_title(ax: &Axes, text: &str) {
 
 fn date(fig: &Figure) -> CaseResult {
     let data = Prices::goog();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(3, 1)?;
     for ax in axs.as_slice() {
         ax.plot_with(
@@ -188,7 +188,7 @@ fn date_index_formatter(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::Constrained(ConstrainedLayout {
         hspace: 0.15,
         ..ConstrainedLayout::default()
-    }));
+    }))?;
     let axs = fig.subplots(2, 1)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(1, 0)]);
     ax1.plot_fmt(r.dates.clone(), r.adj_close.clone(), "o-")?;

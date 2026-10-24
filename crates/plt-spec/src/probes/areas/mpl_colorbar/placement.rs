@@ -32,7 +32,8 @@ pub(super) fn parent_anchor(args: Args<'_>) -> Outcome {
                 layout
                     .parse::<LayoutEngine>()
                     .map_err(ProbeError::rejected)?,
-            );
+            )
+            .map_err(ProbeError::rejected)?;
         }
         let ax = fig.subplot();
         ax.set_anchor(Anchor::N);
@@ -150,7 +151,8 @@ fn aspects() -> Result<Json, ProbeError> {
 /// axes.
 fn inset() -> Result<Json, ProbeError> {
     let fig = Figure::with_size(3.0, 6.0, plt::rc::params().figure_dpi);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())
+        .map_err(ProbeError::rejected)?;
     let ax = fig.subplot();
     let image = image(
         &ax,
@@ -206,7 +208,8 @@ pub(super) fn remove(args: Args<'_>) -> Outcome {
         }
         "constrained" => {
             let fig = Figure::new();
-            fig.set_layout_engine(LayoutEngine::constrained());
+            fig.set_layout_engine(LayoutEngine::constrained())
+                .map_err(ProbeError::rejected)?;
             let ax = fig.subplot();
             let points = scatter(&ax)?;
             fig.layout();

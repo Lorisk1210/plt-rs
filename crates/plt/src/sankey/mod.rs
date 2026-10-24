@@ -27,9 +27,7 @@ mod outline;
 use plt_core::{Affine2D, Path, Point};
 
 pub use error::SankeyError;
-pub use options::{
-    FlowOrientation, PathLengths, QuantityFormat, SankeyDiagram, SankeyOptions, Subdiagram,
-};
+pub use options::{FlowOrientation, PathLengths, SankeyDiagram, SankeyOptions, Subdiagram};
 use outline::{Direction, Geometry, PlacedFlow};
 
 use crate::axes::{Adjustable, Axes};
@@ -37,7 +35,7 @@ use crate::colors::Color;
 use crate::patches::{PatchProps, PathShape};
 use crate::rc::Aspect;
 use crate::text::{HAlign, Text, VAlign};
-use crate::ticker::pyfmt::PrintfFormat;
+use crate::ticker::LabelFormat;
 
 /// The face colour of outlines in the classic mode.
 const CLASSIC_FACE: &str = "#bfd1d4";
@@ -314,11 +312,10 @@ impl Sankey {
             return Ok(label);
         };
         let quantity = match &self.options.format {
-            QuantityFormat::Printf(template) => PrintfFormat::parse(template)
-                .and_then(|format| format.format(flow.abs()))
-                .map_err(SankeyError::Format)?,
-            QuantityFormat::Func(f) => f(flow),
-        };
+            LabelFormat::Template(_) => self.options.format.printf(flow.abs()),
+            LabelFormat::Func(_) => self.options.format.printf(flow),
+        }
+        .map_err(SankeyError::Format)?;
         if !label.is_empty() {
             label.push('\n');
         }

@@ -268,11 +268,9 @@ mod tests {
     fn varying_colours_split_streamlines_into_steps() {
         let field = rotation(20);
         let options = StreamplotOptions {
-            color: Some(StreamColors::Mapped(Box::new(StreamColorMap {
-                values: field.u.clone(),
-                cmap: None,
-                norm: None,
-            }))),
+            color: Some(StreamColors::Mapped(Box::new(StreamColorMap::new(
+                field.u.clone(),
+            )))),
             num_arrows: 2,
             ..StreamplotOptions::default()
         };

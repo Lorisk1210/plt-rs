@@ -120,7 +120,7 @@ impl GridSpec {
     /// use plt::figure::Figure;
     /// use plt::gridspec::{GridSpec, SubplotOverrides};
     /// let fig = Figure::new();
-    /// fig.set_layout_engine(None);
+    /// fig.set_layout_engine(None)?;
     /// let grid = GridSpec::new(2, 1)?;
     /// let ax = fig.add_subplot_spec(&grid.cell(0, 0)?)?;
     /// let lower_top = SubplotOverrides { top: Some(0.5), ..SubplotOverrides::default() };
@@ -128,7 +128,7 @@ impl GridSpec {
     /// assert_eq!(grid.overrides().top, Some(0.5));
     /// let (_, y, _, height) = ax.position().bounds();
     /// assert!((y + height - 0.5).abs() < 1e-12);
-    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// # Errors

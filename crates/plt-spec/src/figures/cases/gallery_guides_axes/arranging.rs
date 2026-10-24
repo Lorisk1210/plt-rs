@@ -28,7 +28,7 @@ fn arranging_axes_1(fig: &Figure) -> CaseResult {
 }
 
 fn arranging_axes_2(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     for row in 0..2 {
         for col in 0..2 {
@@ -47,7 +47,7 @@ fn arranging_axes_2(fig: &Figure) -> CaseResult {
 /// A constrained mosaic with every axes named by its key, under the
 /// `plt.subplot_mosaic()` title.
 fn annotated_mosaic(fig: &Figure, layout: &Mosaic, options: &MosaicOptions) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     for (label, ax) in fig.subplot_mosaic(layout, options.clone())?.iter() {
         annotate_axes(ax, &format!("axd['{label}']"), 14.0);
     }
@@ -70,7 +70,7 @@ fn arranging_axes_3(fig: &Figure) -> CaseResult {
 }
 
 fn arranging_axes_5(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::compressed());
+    fig.set_layout_engine(LayoutEngine::compressed())?;
     fig.set_facecolor(to_rgba("lightblue", None)?);
     for ax in fig.subplots(2, 2)?.as_slice() {
         ax.set_aspect(Aspect::Ratio(1.0))?;
@@ -93,7 +93,7 @@ fn arranging_axes_7(fig: &Figure) -> CaseResult {
 }
 
 fn arranging_axes_8(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let subfigs = fig.subfigures(
         1,
         2,
@@ -121,7 +121,7 @@ fn arranging_axes_9(fig: &Figure) -> CaseResult {
         vec![label("upper left"), MosaicCell::Nested(inner)],
         vec![label("lower left"), label("lower right")],
     ])?;
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     for (name, ax) in fig.subplot_mosaic(&outer, MosaicOptions::default())?.iter() {
         annotate_axes(ax, &format!("axd['{name}']"), 18.0);
     }
@@ -139,7 +139,7 @@ fn named_cells(fig: &Figure, cells: &[(&str, SubplotSpec)], title: &str) -> Case
 }
 
 fn arranging_axes_10(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let spec = fig.add_gridspec(2, 2)?;
     let cells = [
         ("ax0", spec.cell(0, 0)?),
@@ -151,7 +151,7 @@ fn arranging_axes_10(fig: &Figure) -> CaseResult {
 }
 
 fn arranging_axes_11(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let spec = fig.add_gridspec(2, 2)?;
     let cells = [
         ("ax0", spec.span(0..1, 0..2)?),
@@ -185,7 +185,7 @@ fn arranging_axes_12(fig: &Figure) -> CaseResult {
 }
 
 fn arranging_axes_13(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs0 = fig.add_gridspec(1, 2)?;
     let gs00 = GridSpec::nested(&gs0.cell(0, 0)?, 2, 2, None, None, (None, None))?;
     let gs01 = GridSpec::nested(&gs0.cell(0, 1)?, 3, 1, None, None, (None, None))?;

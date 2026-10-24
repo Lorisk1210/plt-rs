@@ -5,8 +5,8 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::{AxisMode, ImshowOptions, Mesh, PcolorOptions, PieLabelFormat, PieOptions};
-use plt::contour::{ClabelOptions, ContourOptions, LabelFormat, QuadField};
+use plt::axes::{AxisMode, ImshowOptions, Mesh, PcolorOptions, PieOptions};
+use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, QuadField};
 use plt::image::{ImageData, ScalarField};
 use plt::layout::LayoutEngine;
 use plt::legend::{LegendHandle, LegendOptions};
@@ -17,12 +17,12 @@ use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::text::VAlign;
 use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign};
-use plt::ticker::pyfmt::PrintfFormat;
 use plt::transforms::Point;
 use plt_core::Path;
 
 use crate::figures::cases::common::{contour_effects, stroke, ticked_stroke, with_stroke};
 use crate::figures::{CaseResult, FigureCase};
+use plt::ticker::LabelFormat;
 
 fn patheffect_demo(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 3)?;
@@ -35,7 +35,7 @@ fn patheffect_demo(fig: &Figure) -> CaseResult {
     let arrow = FancyArrowProps {
         connectionstyle: "angle3".parse()?,
         patch: PatchProps::default().linewidth(2.0).path_effects(vec![
-            PathEffect::stroke(stroke(5.0, "w")?),
+            PathEffect::stroke(stroke(5.0, "w")),
             PathEffect::normal(),
         ]),
         ..FancyArrowProps::new("->".parse()?)
@@ -51,12 +51,12 @@ fn patheffect_demo(fig: &Figure) -> CaseResult {
     )?
     .set_fontsize(20.0)
     .set_halign(HAlign::Center)
-    .set_path_effects(with_stroke(3.0, "w")?);
+    .set_path_effects(with_stroke(3.0, "w"));
     ax1.grid_with(
         true,
         plt::axes::GridOptions {
             linestyle: Some(LineStyle::Solid),
-            path_effects: Some(with_stroke(3.0, "w")?),
+            path_effects: Some(with_stroke(3.0, "w")),
             ..plt::axes::GridOptions::default()
         },
     );
@@ -72,14 +72,14 @@ fn patheffect_demo(fig: &Figure) -> CaseResult {
             ..ContourOptions::default()
         },
     )?;
-    contour_effects(&contours, &with_stroke(3.0, "w")?);
+    contour_effects(&contours, &with_stroke(3.0, "w"));
     let labels = contours.clabel(ClabelOptions {
-        fmt: LabelFormat::Printf(PrintfFormat::parse("%2.0f")?),
+        fmt: ClabelFormat::Label("%2.0f".into()),
         use_clabeltext: true,
         ..ClabelOptions::default()
     })?;
     for label in labels {
-        label.set_path_effects(with_stroke(3.0, "w")?);
+        label.set_path_effects(with_stroke(3.0, "w"));
     }
     let line = ax3.plot([0.0, 1.0], [0.0, 1.0])?;
     let legend = ax3.legend(LegendOptions {
@@ -152,7 +152,7 @@ fn svg_filter_pie(fig: &Figure) -> CaseResult {
         PieOptions {
             explode: vec![0.0, 0.05, 0.0, 0.0],
             labels: ["Frogs", "Hogs", "Dogs", "Logs"].map(String::from).to_vec(),
-            autopct: Some(PieLabelFormat::Printf("%1.1f%%".into())),
+            autopct: Some(LabelFormat::Template("%1.1f%%".into())),
             ..PieOptions::default()
         },
     )?;
@@ -191,7 +191,7 @@ fn faint_text(ax: &Axes) {
 }
 
 fn rasterization_demo(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     let (ax1, ax2, ax3, ax4) = (&axs[(0, 0)], &axs[(0, 1)], &axs[(1, 0)], &axs[(1, 1)]);
     ax1.set_aspect(Aspect::Ratio(1.0))?;

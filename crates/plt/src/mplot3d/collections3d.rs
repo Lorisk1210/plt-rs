@@ -13,44 +13,7 @@ use crate::artist::{Artist, RawHandle};
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors,
 };
-use crate::colors::{Color, Colormap, ScalarMappable};
-
-/// A colormap and its limits for colouring faces by their mean z
-/// (matplotlib's `cmap`, `vmin` and `vmax` of surfaces).
-#[derive(Clone, Debug)]
-pub struct FaceColormap {
-    /// The colormap.
-    pub cmap: Colormap,
-    /// The value mapped to the low end (`None` = the smallest face value).
-    pub vmin: Option<f64>,
-    /// The value mapped to the high end (`None` = the largest face value).
-    pub vmax: Option<f64>,
-}
-
-impl FaceColormap {
-    /// `cmap` autoscaled to the faces.
-    pub fn new(cmap: Colormap) -> Self {
-        Self {
-            cmap,
-            vmin: None,
-            vmax: None,
-        }
-    }
-
-    /// `values` mapped through the colormap.
-    fn mapping(&self, values: Vec<f64>) -> ColorMapping {
-        let mut mappable = ScalarMappable::new(self.cmap.clone());
-        mappable.norm_mut().set_vmin(self.vmin);
-        mappable.norm_mut().set_vmax(self.vmax);
-        ColorMapping {
-            values: values
-                .into_iter()
-                .map(|v| v.is_finite().then_some(v))
-                .collect(),
-            mappable,
-        }
-    }
-}
+use crate::colors::{Color, ColorizerOptions, ColormapError, ScalarMappable};
 
 /// How the faces of a surface are coloured.
 #[derive(Clone, Debug, Default)]
@@ -60,8 +23,16 @@ pub enum FaceColors {
     Cycle,
     /// One colour, shaded by default.
     Single(Color),
-    /// The mean z of each face through a colormap, unshaded by default.
-    Mapped(Box<FaceColormap>),
+    /// The mean z of each face through a colormap, and a norm or limits,
+    /// unshaded by default; a norm replaces the limits, as matplotlib sets
+    /// the limits before the norm.
+    Mapped(Box<ColorizerOptions>),
+}
+
+impl From<ColorizerOptions> for FaceColors {
+    fn from(colorizer: ColorizerOptions) -> Self {
+        Self::Mapped(Box::new(colorizer))
+    }
 }
 
 impl FaceColors {
@@ -99,18 +70,33 @@ pub(crate) struct NewPolys {
     pub(crate) axlim_clip: bool,
 }
 
-impl FaceColormap {
-    /// Faces coloured by their mean z (matplotlib's `avg_z`).
-    pub(crate) fn mean_z_faces(&self, faces: &[Vec<Vec3>]) -> PolyFaces {
-        let values = faces
-            .iter()
-            .map(|face| {
-                let sum = face.iter().fold(0.0, |sum, p| sum + p[2]);
-                sum / face.len() as f64
-            })
-            .collect();
-        PolyFaces::Mapped(Box::new(self.mapping(values)))
-    }
+/// Faces coloured by their mean z (matplotlib's `avg_z`) through
+/// `colorizer`, whose norm replaces its limits (matplotlib's `set_clim`
+/// followed by `set_norm`).
+pub(crate) fn mean_z_faces(
+    colorizer: &ColorizerOptions,
+    faces: &[Vec<Vec3>],
+) -> Result<PolyFaces, ColormapError> {
+    let cmap = colorizer.colormap(&crate::rc::params())?;
+    let mappable = if let Some(norm) = &colorizer.norm {
+        ScalarMappable::with_norm(cmap, norm.clone())
+    } else {
+        let mut mappable = ScalarMappable::new(cmap);
+        mappable.norm_mut().set_vmin(colorizer.vmin);
+        mappable.norm_mut().set_vmax(colorizer.vmax);
+        mappable
+    };
+    let values = faces
+        .iter()
+        .map(|face| {
+            let mean = face.iter().fold(0.0, |sum, p| sum + p[2]) / face.len() as f64;
+            mean.is_finite().then_some(mean)
+        })
+        .collect();
+    Ok(PolyFaces::Mapped(Box::new(ColorMapping {
+        values,
+        mappable,
+    })))
 }
 
 impl Axes3D {

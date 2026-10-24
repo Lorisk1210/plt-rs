@@ -2,9 +2,8 @@
 
 use plt::axes::{Hist2d, Hist2dOptions, HistPlotOptions, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Color, LogNorm, colormaps};
+use plt::colors::{Color, Colorize, ColorizerOptions, LogNorm, colormaps};
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::numeric::{arange, linspace};
 use plt::patches::PatchProps;
 use plt::stats::{
@@ -316,7 +315,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             },
             cmin: Some(1.0),
             mesh: PcolorOptions {
-                colors: ColorizerOptions::default().cmap(colormaps::get("magma")?),
+                colorizer: ColorizerOptions::default().cmap(colormaps::get("magma")?),
                 ..PcolorOptions::default()
             },
             ..Hist2dOptions::default()
@@ -335,7 +334,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 ..Histogram2dOptions::default()
             },
             mesh: PcolorOptions {
-                colors: ColorizerOptions::default().norm(LogNorm::default()),
+                colorizer: ColorizerOptions::default().norm(LogNorm::default()),
                 ..PcolorOptions::default()
             },
             ..Hist2dOptions::default()

@@ -10,11 +10,11 @@ use plt::axes_grid1::{
     host_subplot,
 };
 use plt::colorbar::ColorbarOptions;
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
 use plt::fonts::{FontProperties, FontSize};
 use plt::gridspec::{GridSpec, GridSpecError, SubplotOverrides};
-use plt::image::{ColorizerOptions, Interpolation};
+use plt::image::Interpolation;
 use plt::numeric::Grid;
 use plt::offsetbox::{AnchorLoc, AnchoredBox, BoxItem};
 use plt::patches::{Circle, Ellipse, PatchProps};
@@ -359,7 +359,7 @@ fn imagegrid_cbar_mode_edge(fig: &Figure) -> CaseResult {
             images.push(ax.imshow(
                 data,
                 ImshowOptions {
-                    colors: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
+                    colorizer: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
                     ..ImshowOptions::default()
                 },
             )?);

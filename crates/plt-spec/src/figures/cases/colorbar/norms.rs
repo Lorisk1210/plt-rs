@@ -5,10 +5,11 @@ use plt::axes::ImshowOptions;
 use plt::axes::{MappedColors, ScatterOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions, Spacing};
 use plt::colors::{
-    BoundaryNorm, Colormap, Extend, LogNorm, Normalize, ScalarMappable, TwoSlopeNorm, colormaps,
+    BoundaryNorm, Colorize, ColorizerOptions, Colormap, Extend, LogNorm, Normalize, ScalarMappable,
+    TwoSlopeNorm, colormaps,
 };
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, ImageData};
+use plt::image::ImageData;
 use plt::numeric::{Grid, linspace};
 
 use super::data::field;
@@ -19,11 +20,11 @@ use crate::rng::SpecRng;
 fn image_colorbar(
     fig: &Figure,
     data: impl Into<ImageData>,
-    colors: ColorizerOptions,
+    colorizer: ColorizerOptions,
     options: ColorbarOptions,
 ) -> CaseResult {
     let ax = fig.subplot();
-    let im = ax.imshow(data, ImshowOptions::default().colors(colors))?;
+    let im = ax.imshow(data, ImshowOptions::default().colorizer(colorizer))?;
     let options = ColorbarOptions {
         axes: ColorbarAxes::Parent(ax),
         ..options
@@ -107,9 +108,7 @@ pub(super) fn scatter(fig: &Figure) -> CaseResult {
     let y = rng.uniform(60, 0.0, 1.0);
     let c: Vec<f64> = x.iter().zip(&y).map(|(x, y)| x + y).collect();
     let options = ScatterOptions {
-        colors: MappedColors::new(c)
-            .with_cmap(colormaps::get("plasma")?)
-            .into(),
+        colors: MappedColors::new(c).cmap(colormaps::get("plasma")?).into(),
         ..ScatterOptions::default()
     };
     let points = ax.scatter_with(x, y, options)?;

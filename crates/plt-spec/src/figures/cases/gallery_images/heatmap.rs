@@ -6,10 +6,12 @@ use std::rc::Rc;
 
 use plt::axes::{Axes, GridOptions, ImshowOptions, TickLabelProps, TickLevel, TickParams};
 use plt::colorbar::{ColorbarAxes, ColorbarFormat, ColorbarOptions, ColorbarTicks};
-use plt::colors::{BoundaryNorm, Extend, Norm, Normalize, Normalized, colormaps};
+use plt::colors::{
+    BoundaryNorm, Colorize, ColorizerOptions, Extend, Norm, Normalize, Normalized, colormaps,
+};
 use plt::figure::Figure;
 use plt::fonts::FontWeight;
-use plt::image::{ColorizerOptions, ImageData, ScalarField};
+use plt::image::{ImageData, ScalarField};
 use plt::layout::TightLayout;
 use plt::lines::LineStyle;
 use plt::numeric::{Grid, arange, linspace};
@@ -124,11 +126,11 @@ fn heatmap(
     data: impl Into<ImageData>,
     rows: &[String],
     cols: &[String],
-    colors: ColorizerOptions,
+    colorizer: ColorizerOptions,
     colorbar: ColorbarOptions,
     cbarlabel: &str,
 ) -> CaseResult {
-    let im = ax.imshow(data, ImshowOptions::default().colors(colors))?;
+    let im = ax.imshow(data, ImshowOptions::default().colorizer(colorizer))?;
     let cbar = ax.figure().colorbar(
         &im,
         ColorbarOptions {

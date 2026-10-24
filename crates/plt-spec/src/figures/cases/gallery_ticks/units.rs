@@ -317,7 +317,7 @@ fn radian_demo(fig: &Figure) -> CaseResult {
 fn units_sample(fig: &Figure) -> CaseResult {
     use Length::{Centimeters as Cm, Inches as In};
     let cms = [0.0, 2.0, 4.0, 6.0, 8.0];
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     for ((row, col), x, y) in [
         ((0, 0), Cm, Cm),

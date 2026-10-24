@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 
 use plt::collections::CollectionProps;
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{ColormapError, colormaps};
+use plt::colors::{ColorizerOptions, ColormapError, colormaps};
 use plt::contour::{ContourOptions, ContourSet, Levels};
 use plt::figure::Figure;
 use plt::lines::LineProps;
@@ -30,7 +30,10 @@ pub(super) const CASES: &[FigureCase] = &[
 fn coolwarm() -> Result<Contour3DOptions, ColormapError> {
     Ok(Contour3DOptions {
         contour: ContourOptions {
-            cmap: Some(colormaps::get("coolwarm")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("coolwarm")?),
+                ..ColorizerOptions::default()
+            },
             ..ContourOptions::default()
         },
         ..Contour3DOptions::default()
@@ -133,9 +136,12 @@ fn box_contours(
         zdir,
         offset: Some(offset),
         contour: ContourOptions {
+            colorizer: ColorizerOptions {
+                vmin: levels.first().copied(),
+                vmax: levels.last().copied(),
+                ..ColorizerOptions::default()
+            },
             levels: Levels::Values(levels.to_vec()),
-            vmin: levels.first().copied(),
-            vmax: levels.last().copied(),
             ..ContourOptions::default()
         },
         ..Contour3DOptions::default()

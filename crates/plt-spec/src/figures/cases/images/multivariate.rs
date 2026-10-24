@@ -6,7 +6,7 @@ use plt::collections::CollectionProps;
 use plt::colors::multivar::MultiColormap;
 use plt::colors::{NormName, NormSpec, Normalize, PowerNorm};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, MultiField, MultivarColorizerOptions};
+use plt::image::{MultiField, MultivarColorizerOptions};
 use plt::lines::LineProps;
 use plt::numeric::{Grid, linspace};
 
@@ -28,15 +28,16 @@ fn fields() -> [Grid<f64>; 3] {
 fn colors(
     cmap: &str,
     options: impl FnOnce(MultivarColorizerOptions) -> MultivarColorizerOptions,
-) -> Result<ColorizerOptions, Box<dyn std::error::Error>> {
-    let multivariate = options(MultivarColorizerOptions::new(MultiColormap::get(cmap)?));
-    Ok(ColorizerOptions::default().multivariate(multivariate))
+) -> Result<MultivarColorizerOptions, Box<dyn std::error::Error>> {
+    Ok(options(MultivarColorizerOptions::new(MultiColormap::get(
+        cmap,
+    )?)))
 }
 
 /// `pcolormesh` options with only the colouring set.
-fn mesh_options(colors: ColorizerOptions) -> PcolorOptions {
+fn mesh_options(multivariate: MultivarColorizerOptions) -> PcolorOptions {
     PcolorOptions {
-        colors,
+        multivariate: Some(multivariate),
         ..PcolorOptions::default()
     }
 }
@@ -127,13 +128,13 @@ pub(super) fn pcolorfast_multivariate_quadmesh(fig: &Figure) -> CaseResult {
     let (xx, yy) = grid(13, 9);
     let skewed = zip_with(&xx, &yy, |x, y| x + 0.3 * y);
     let options = PcolorfastOptions {
-        colors: colors("3VarAddA", |o| {
+        multivariate: Some(colors("3VarAddA", |o| {
             o.norms([
                 named(NormName::Linear),
                 named(NormName::Symlog),
                 named(NormName::Asinh),
             ])
-        })?,
+        })?),
         ..PcolorfastOptions::default()
     };
     fig.subplot().pcolorfast(

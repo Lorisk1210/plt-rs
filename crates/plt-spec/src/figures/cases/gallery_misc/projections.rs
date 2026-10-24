@@ -279,7 +279,7 @@ fn leftventricle_bullseye(fig: &Figure) -> CaseResult {
         wspace: 0.1,
         w_pad: 0.2,
         ..ConstrainedLayout::from_rc(&plt::rc::params())
-    }));
+    }))?;
     let axs: Vec<PolarAxes> = (1..=3)
         .map(|i| fig.add_polar_subplot(1, 3, i))
         .collect::<Result<_, _>>()?;

@@ -5,7 +5,7 @@ use std::fmt;
 use plt_core::Point;
 
 use super::GridAxis;
-use crate::colors::{ColormapError, NormError};
+use crate::colors::{ColorizerError, NormError};
 
 /// Why a streamplot could not be drawn.
 #[derive(Clone, Debug, PartialEq)]
@@ -40,8 +40,8 @@ pub enum StreamplotError {
     },
     /// A start point outside the grid.
     StartPointOutside(Point),
-    /// An unknown colormap.
-    Colormap(ColormapError),
+    /// An unknown colormap, or a norm given with limits.
+    Colorizer(ColorizerError),
     /// Colour values the norm cannot map.
     Norm(NormError),
 }
@@ -75,7 +75,7 @@ impl fmt::Display for StreamplotError {
                     p.x, p.y
                 )
             }
-            Self::Colormap(err) => err.fmt(f),
+            Self::Colorizer(err) => err.fmt(f),
             Self::Norm(err) => err.fmt(f),
         }
     }
@@ -83,9 +83,9 @@ impl fmt::Display for StreamplotError {
 
 impl std::error::Error for StreamplotError {}
 
-impl From<ColormapError> for StreamplotError {
-    fn from(err: ColormapError) -> Self {
-        Self::Colormap(err)
+impl From<ColorizerError> for StreamplotError {
+    fn from(err: ColorizerError) -> Self {
+        Self::Colorizer(err)
     }
 }
 

@@ -107,7 +107,7 @@ fn fishbone_spine(ax: &Axes, xmin: f64, xmax: f64) -> CaseResult {
 }
 
 fn ishikawa_diagram(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.set_xlim(-5.0, 5.0).set_ylim(-5.0, 5.0);
     ax.set_axis_off();

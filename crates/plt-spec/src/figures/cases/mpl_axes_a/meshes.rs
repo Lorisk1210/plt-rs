@@ -4,9 +4,9 @@
 
 use plt::axes::{Mesh, PcolorOptions, RgbaMesh, Shading, TickLabelProps, TickLevel};
 use plt::collections::{CollectionProps, EdgeColors};
-use plt::colors::{Colormap, colormaps};
+use plt::colors::{ColorizerOptions, Colormap, colormaps};
 use plt::dates::DateTime;
-use plt::image::{ColorizerOptions, ScalarField};
+use plt::image::ScalarField;
 use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::patches::Rectangle;
 use plt::prelude::*;
@@ -160,7 +160,7 @@ pub(super) fn pcolormesh_alpha(fig: &Figure) -> CaseResult {
     let options = |cmap: &Colormap, shading, alpha: Option<f64>| {
         let props = CollectionProps::default().zorder(1.0);
         PcolorOptions {
-            colors: ColorizerOptions::default().cmap(cmap.clone()),
+            colorizer: ColorizerOptions::default().cmap(cmap.clone()),
             shading: Some(shading),
             props: match alpha {
                 Some(alpha) => props.alpha(alpha),

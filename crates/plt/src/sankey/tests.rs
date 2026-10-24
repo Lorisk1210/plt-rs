@@ -49,7 +49,7 @@ fn inner_lengths_nest_outwards() {
 #[test]
 fn labels_carry_quantities_unless_hidden() {
     let (_, mut chart) = sankey(SankeyOptions {
-        format: QuantityFormat::Printf("%.0f".into()),
+        format: LabelFormat::from("%.0f"),
         unit: Some("%".into()),
         ..SankeyOptions::default()
     });

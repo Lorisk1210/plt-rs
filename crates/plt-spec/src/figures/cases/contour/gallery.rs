@@ -3,21 +3,20 @@
 //! formats and placements, rc line styles and degenerate levels.
 
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, Extend, colormaps};
-use plt::contour::{
-    ClabelOptions, ContourNorm, ContourOptions, LabelFormat, QuadCoords, QuadField,
-};
+use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, colormaps};
+use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, QuadCoords, QuadField};
 use plt::figure::Figure;
 use plt::fonts::FontSize;
 use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::lines::LineStyle;
 use plt::numeric::{Grid, arange, linspace, logspace, meshgrid};
-use plt::ticker::pyfmt::{self, PrintfFormat};
+use plt::ticker::pyfmt;
 use plt::ticker::{FuncFormatter, LogFormatter, LogLabelStyle, LogLocator};
 
 use super::{bumps, colors, count, hatches, values};
 use crate::figures::CaseResult;
+use std::rc::Rc;
 
 /// `_wave()`: `cos(x) + sin(y)` on a 150 × 120 grid over `[-3, 5]²`.
 fn wave() -> QuadField {
@@ -27,7 +26,7 @@ fn wave() -> QuadField {
 }
 
 pub(super) fn contourf_extend_variants_colorbars(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     let cmap = colormaps::get("winter")?
         .with_under("yellow")?
@@ -40,7 +39,10 @@ pub(super) fn contourf_extend_variants_colorbars(fig: &Figure) -> CaseResult {
         (Extend::Max, "max"),
     ]) {
         let options = ContourOptions {
-            cmap: Some(cmap.clone()),
+            colorizer: ColorizerOptions {
+                cmap: Some(cmap.clone()),
+                ..ColorizerOptions::default()
+            },
             extend,
             ..values(&[-1.5, -1.0, -0.5, 0.0, 0.5, 1.0])
         };
@@ -62,8 +64,11 @@ pub(super) fn contourf_hatching_legend(fig: &Figure) -> CaseResult {
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     let field = wave();
     let options = ContourOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("gray")?),
+            ..ColorizerOptions::default()
+        },
         hatches: hatches(&[Some("-"), Some("/"), Some("\\"), Some("//")]),
-        cmap: Some(colormaps::get("gray")?),
         extend: Extend::Both,
         alpha: Some(0.5),
         ..ContourOptions::default()
@@ -103,7 +108,10 @@ pub(super) fn contourf_hatching_legend(fig: &Figure) -> CaseResult {
 pub(super) fn line_contour_legend(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = ContourOptions {
-        cmap: Some(colormaps::get("viridis")?),
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("viridis")?),
+            ..ColorizerOptions::default()
+        },
         linewidths: Some(vec![2.0]),
         ..count(5)
     };
@@ -131,8 +139,11 @@ pub(super) fn contourf_lognorm_levels_colorbar(fig: &Figure) -> CaseResult {
     });
     let field = QuadField::new(z).with_coords(QuadCoords::Mesh { x: xx, y: yy });
     let options = ContourOptions {
-        norm: ContourNorm::Log,
-        cmap: Some(colormaps::get("PuBu_r")?),
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("PuBu_r")?),
+            norm: Some(Box::new(LogNorm::default())),
+            ..ColorizerOptions::default()
+        },
         ..values(&logspace(-2.0, 3.0, 11, 10.0))
     };
     let cs = ax.contourf(&field, options)?;
@@ -165,7 +176,7 @@ pub(super) fn clabel_label_demo(fig: &Figure) -> CaseResult {
     let cs = axs[(0, 0)].contour(&field, ContourOptions::default())?;
     cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
-        fmt: LabelFormat::Formatter(Box::new(FuncFormatter::new(|x, _| percent_fmt(x)))),
+        fmt: ClabelFormat::Formatter(Rc::new(FuncFormatter::new(|x, _| percent_fmt(x)))),
         fontsize: Some(FontSize::Points(10.0)),
         ..ClabelOptions::default()
     })?;
@@ -176,7 +187,7 @@ pub(super) fn clabel_label_demo(fig: &Figure) -> CaseResult {
     let levels = cs.levels();
     cs.clabel(ClabelOptions {
         levels: Some(levels.iter().copied().step_by(2).collect()),
-        fmt: LabelFormat::Map(
+        fmt: ClabelFormat::Map(
             levels
                 .iter()
                 .zip(names)
@@ -196,7 +207,7 @@ pub(super) fn clabel_label_demo(fig: &Figure) -> CaseResult {
     )?;
     cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
-        fmt: LabelFormat::Formatter(Box::new(LogFormatter::new(LogLabelStyle::Mathtext, 10.0))),
+        fmt: ClabelFormat::Formatter(Rc::new(LogFormatter::new(LogLabelStyle::Mathtext, 10.0))),
         ..ClabelOptions::default()
     })?;
     Ok(())
@@ -216,14 +227,17 @@ pub(super) fn clabel_manual_rightside_up(fig: &Figure) -> CaseResult {
         ..ClabelOptions::default()
     })?;
     let options = ContourOptions {
-        cmap: Some(colormaps::get("coolwarm")?),
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("coolwarm")?),
+            ..ColorizerOptions::default()
+        },
         ..values(&[-1.0, 0.0, 1.0])
     };
     let cs = axs[(0, 1)].contour(&field, options)?;
     cs.clabel(ClabelOptions {
         rightside_up: false,
         fontsize: Some(FontSize::Points(8.0)),
-        fmt: LabelFormat::Printf(PrintfFormat::parse("%.1f")?),
+        fmt: ClabelFormat::Label("%.1f".into()),
         ..ClabelOptions::default()
     })?;
     Ok(())
@@ -245,7 +259,10 @@ pub(super) fn levels_outside_and_constant_field(fig: &Figure) -> CaseResult {
     ax1.contourf(
         &field,
         ContourOptions {
-            cmap: Some(colormaps::get("viridis")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("viridis")?),
+                ..ColorizerOptions::default()
+            },
             ..values(&[-0.5, 0.0, 0.5, 5.0, 6.0])
         },
     )?;

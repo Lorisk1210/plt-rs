@@ -18,6 +18,7 @@ use crate::artist::{ArtistHandle, ArtistId};
 use crate::axes::AxesState;
 use crate::figure::{Figure, FigureState};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotParams, SubplotSpec};
+use crate::layout::{LayoutEngine, LayoutEngineError};
 
 mod fit;
 
@@ -52,7 +53,8 @@ impl Default for TightLayout {
     }
 }
 
-/// Why tight layout left the figure unchanged (matplotlib warns instead).
+/// Why tight layout left the figure unchanged (matplotlib warns instead,
+/// except for an incompatible layout engine).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TightLayoutError {
     /// The decorations take more than the figure's width.
@@ -64,6 +66,9 @@ pub enum TightLayoutError {
     IncompatibleGrids,
     /// The resulting subplot parameters are invalid.
     Grid(GridSpecError),
+    /// The figure refuses tight layout as its engine (a colorbar was made
+    /// under constrained layout).
+    Engine(LayoutEngineError),
 }
 
 impl fmt::Display for TightLayoutError {
@@ -76,11 +81,18 @@ impl fmt::Display for TightLayoutError {
                 "the numbers of rows and columns of the grids must be multiples of one another",
             ),
             Self::Grid(err) => err.fmt(f),
+            Self::Engine(err) => err.fmt(f),
         }
     }
 }
 
 impl std::error::Error for TightLayoutError {}
+
+impl From<LayoutEngineError> for TightLayoutError {
+    fn from(err: LayoutEngineError) -> Self {
+        Self::Engine(err)
+    }
+}
 
 impl From<GridSpecError> for TightLayoutError {
     fn from(err: GridSpecError) -> Self {
@@ -92,7 +104,10 @@ impl Figure {
     /// Adjusts the subplot parameters once so that the decorations of the
     /// grid-placed axes, 3-D ones included (tick labels, axis labels,
     /// titles), and the figure title and labels fit (matplotlib's
-    /// `tight_layout`). Any layout engine is removed, as matplotlib does.
+    /// `tight_layout`). As in matplotlib, the figure takes tight layout as
+    /// its engine for this pass and is left with a
+    /// [`LayoutEngine::PlaceHolder`] for it, so later draws keep the
+    /// result.
     ///
     /// Axes outside grids, and grids with margins of their own, are left
     /// out.
@@ -100,7 +115,10 @@ impl Figure {
     /// # Errors
     ///
     /// When the decorations cannot fit, or the grids cannot be combined;
-    /// the figure is then left unchanged.
+    /// the subplot parameters are then left unchanged. When a colorbar was
+    /// made under an engine placing colorbars differently, such as
+    /// constrained layout; the figure is then left with a placeholder for
+    /// that engine.
     ///
     /// ```
     /// use plt::layout::TightLayout;
@@ -118,8 +136,13 @@ impl Figure {
             .chain(self.axes3d().iter().map(ArtistHandle::id))
             .collect();
         let mut state = self.raw().figure_state().borrow_mut();
-        state.layout.engine = None;
-        state.layout.pending = true;
+        let has_colorbars = crate::colorbar::has_colorbars(&state.store);
+        let swapped = state
+            .layout
+            .swap_engine(Some(LayoutEngine::Tight(*params)), has_colorbars);
+        // The pass runs once, by hand: the engine left behind places nothing.
+        state.layout.remove_engine();
+        swapped?;
         state.tight_layout_pass(self.raw().id(), &axes, params)?;
         Ok(self)
     }
@@ -338,7 +361,8 @@ mod tests {
         // test_axes3d_primary_views: the engine lays out a grid of
         // orthographic views, edge-on ones included, at every draw.
         let fig = Figure::new();
-        fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout::default())));
+        fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout::default())))
+            .unwrap();
         let options = Axes3DOptions {
             proj_type: ProjType::Ortho,
             ..Axes3DOptions::default()

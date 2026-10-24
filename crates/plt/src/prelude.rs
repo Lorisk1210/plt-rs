@@ -4,7 +4,7 @@ pub use crate::artist::ArtistHandle;
 pub use crate::axes::{
     Axes, BarAlign, BarOptions, ErrorbarOptions, MappedColors, ScatterColors, ScatterOptions,
 };
-pub use crate::colors::Color;
+pub use crate::colors::{Color, Colorize};
 pub use crate::figure::Figure;
 pub use crate::lines::{DrawStyle, Line2D, LineProps, LineStyle, MarkEvery};
 pub use crate::markers::{FillStyle, Marker, MarkerSymbol};

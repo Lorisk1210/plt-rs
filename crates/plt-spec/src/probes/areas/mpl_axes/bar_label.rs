@@ -1,11 +1,12 @@
 //! Bar labels: placement, alignment, formats and padding.
 
-use plt::axes::{BarLabelFormat, BarLabelOptions, BarLabelType, BarOptions, ErrorSize};
+use plt::axes::{BarLabelOptions, BarLabelType, BarOptions, ErrorSize};
 
 use super::{made, number_list, numbers, on_axes, optional, pair, strings};
 use crate::json::Json;
 use crate::probes::areas::canon::Canon;
 use crate::probes::{Args, Outcome, ProbeError, encode};
+use plt::ticker::LabelFormat;
 
 /// The labelling options of the probe's keywords.
 fn label_options(args: Args<'_>) -> Result<BarLabelOptions, ProbeError> {
@@ -15,7 +16,7 @@ fn label_options(args: Args<'_>) -> Result<BarLabelOptions, ProbeError> {
         ..BarLabelOptions::default()
     };
     if let Some(fmt) = args.opt_str("fmt")? {
-        options.fmt = BarLabelFormat::Template(fmt.to_owned());
+        options.fmt = LabelFormat::Template(fmt.to_owned());
     }
     options.label_type = match args.opt_str("label_type")?.unwrap_or("edge") {
         "edge" => BarLabelType::Edge,

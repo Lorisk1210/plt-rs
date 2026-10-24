@@ -152,7 +152,7 @@ mod tests {
     use super::*;
     use crate::axes::MappedColors;
     use crate::collections::CollectionProps;
-    use crate::colors::colormaps;
+    use crate::colors::{Colorize, colormaps};
     use crate::figure::Figure;
 
     #[test]
@@ -163,7 +163,7 @@ mod tests {
         let options = Scatter3DOptions {
             depthshade: Some(false),
             scatter: ScatterOptions {
-                colors: MappedColors::new(vec![0.0, 1.0]).with_cmap(jet).into(),
+                colors: MappedColors::new(vec![0.0, 1.0]).cmap(jet).into(),
                 ..ScatterOptions::default()
             },
             ..Scatter3DOptions::default()

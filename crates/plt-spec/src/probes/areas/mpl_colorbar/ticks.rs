@@ -7,9 +7,8 @@ use std::rc::Rc;
 
 use plt::axes::{AxisName, Mesh, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{BoundaryNorm, Extend, ScalarMappable, colormaps};
+use plt::colors::{BoundaryNorm, ColorizerOptions, Extend, ScalarMappable, colormaps};
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
 use plt::ticker::{FixedLocator, Formatter, Locator, LogFormatter, LogLabelStyle};
@@ -29,7 +28,7 @@ pub(super) fn minor_ticks(args: Args<'_>) -> Outcome {
         let fig = Figure::new();
         let ax = fig.subplot();
         let options = PcolorOptions {
-            colors: ColorizerOptions {
+            colorizer: ColorizerOptions {
                 vmin: Some(0.4),
                 vmax: Some(2.6),
                 ..ColorizerOptions::default()

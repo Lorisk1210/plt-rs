@@ -5,11 +5,11 @@ use std::collections::BTreeSet;
 use std::rc::Rc;
 
 use plt::axes::ImshowOptions;
-use plt::colors::{Color, NoNorm};
+use plt::colors::{Colorize, ColorizerOptions, NoNorm};
 use plt::figure::{Figure, SaveFormat, SaveOptions};
 use plt::image::{
-    ColorizerOptions, FigimageOptions, ImageData, ImsaveOptions, Interpolation, ResampleOptions,
-    ScalarField, imread_bytes, imsave_bytes, imsave_format, resample,
+    FigimageOptions, ImageData, ImsaveOptions, Interpolation, ResampleOptions, ScalarField,
+    imread_bytes, imsave_bytes, imsave_format, resample,
 };
 use plt::navigation::Navigation;
 use plt::numeric::{Grid, linspace};
@@ -75,7 +75,7 @@ fn format_cursor_data(args: Args<'_>) -> Outcome {
     let ax = fig.subplot();
     ax.imshow(
         ScalarField::integers(&values),
-        ImshowOptions::default().colors(colors),
+        ImshowOptions::default().colorizer(colors),
     )
     .map_err(rejected)?;
     let (x, y) = pair(args, "point")?;
@@ -239,7 +239,7 @@ fn jpeg_alpha() -> Outcome {
     fig.figimage(ramp, FigimageOptions::default())
         .map_err(rejected)?;
     let options = SaveOptions {
-        facecolor: Some(Color::from("red").resolve().map_err(rejected)?),
+        facecolor: Some("red".into()),
         dpi: Some(300.0),
         ..SaveOptions::default()
     };

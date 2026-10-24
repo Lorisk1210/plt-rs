@@ -6,9 +6,11 @@ use std::f64::consts::PI;
 
 use plt::axes::{AxisName, ImshowOptions, MeshCoords, NonUniformOptions, PcolorfastOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Colormap, ColormapError, Extend, LogNorm, colormaps};
+use plt::colors::{
+    Colorize, ColorizerOptions, Colormap, ColormapError, Extend, LogNorm, colormaps,
+};
 use plt::figure::{Figure, Share};
-use plt::image::{ColorizerOptions, Interpolation, InterpolationStage, NonUniformInterpolation};
+use plt::image::{Interpolation, InterpolationStage, NonUniformInterpolation};
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::scale::ScaleOptions;
@@ -156,7 +158,7 @@ fn rgba_antialias(fig: &Figure) -> CaseResult {
         }
     }
     let axs = fig.subplots(2, 2)?;
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let settings = [
         (Interpolation::Nearest, None),
         (Interpolation::Nearest, None),
@@ -167,7 +169,7 @@ fn rgba_antialias(fig: &Figure) -> CaseResult {
         ax.imshow(
             aa.clone(),
             ImshowOptions {
-                colors: ColorizerOptions::default()
+                colorizer: ColorizerOptions::default()
                     .cmap(rdbu_extremes()?)
                     .limits(Some(-1.2), Some(1.2)),
                 interpolation: Some(interpolation),
@@ -190,7 +192,7 @@ fn downsampling(fig: &Figure) -> CaseResult {
     let n = 450;
     let a = rings(n, 5.0, 100.0, n / 3);
     let axs = fig.subplots(2, 3)?;
-    fig.set_layout_engine(LayoutEngine::compressed());
+    fig.set_layout_engine(LayoutEngine::compressed())?;
     let zoom = &axs[(0, 0)];
     zoom.imshow(
         a.clone(),
@@ -248,7 +250,7 @@ fn downsampling_speckle(fig: &Figure) -> CaseResult {
     });
     let cmap = colormaps::get("viridis")?.with_over("m")?;
     let axs = fig.subplots_shared(1, 2, Share::All, Share::All)?;
-    fig.set_layout_engine(LayoutEngine::compressed());
+    fig.set_layout_engine(LayoutEngine::compressed())?;
     let stages = [
         (
             "interpolation='auto', stage='rgba'",
@@ -261,7 +263,7 @@ fn downsampling_speckle(fig: &Figure) -> CaseResult {
         ax.imshow(
             img.clone(),
             ImshowOptions {
-                colors: ColorizerOptions::default()
+                colorizer: ColorizerOptions::default()
                     .cmap(cmap.clone())
                     .norm(LogNorm::new(3.0, 11.0)),
                 interpolation_stage: stage,
@@ -278,7 +280,7 @@ fn downsampling_speckle(fig: &Figure) -> CaseResult {
 fn upsampling(fig: &Figure) -> CaseResult {
     let a = uniform(19_680_801 + 9, 4, 4);
     let axs = fig.subplots(1, 3)?;
-    fig.set_layout_engine(LayoutEngine::compressed());
+    fig.set_layout_engine(LayoutEngine::compressed())?;
     let panels = [
         (
             None,

@@ -18,7 +18,7 @@ use crate::rng::SpecRng;
 /// titled "Automatic ticks", the bottom one "Manual ticks"; returns the
 /// bottom one.
 fn automatic_and_manual(fig: &Figure) -> Result<Axes, Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 1)?;
     let x = arange(0.0, 100.0, 1.0);
     for (row, title) in ["Automatic ticks", "Manual ticks"].into_iter().enumerate() {
@@ -49,7 +49,7 @@ fn axes_ticks_2(fig: &Figure) -> CaseResult {
 }
 
 fn axes_ticks_3(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(8, 1)?;
     let ax = |i: usize| &axs[(i, 0)];
     named_tick_strip(ax(0), "NullLocator()")?;
@@ -101,7 +101,7 @@ fn axes_ticks_3(fig: &Figure) -> CaseResult {
 }
 
 fn axes_ticks_5(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     for col in 0..2 {
         axs[(0, col)].plot_y(arange(0.0, 100.0, 1.0));

@@ -206,7 +206,7 @@ fn arrow_graph(ax: &Axes, data: &mut BTreeMap<String, f64>, display: Display) {
 }
 
 fn arrow_demo(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let mut data: BTreeMap<String, f64> = FLUXES
         .iter()
         .map(|&(key, value)| (key.to_owned(), value))

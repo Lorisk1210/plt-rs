@@ -172,7 +172,8 @@ impl LineArtist {
         let drawn = crate::patheffects::with_path_effects(ctx, &self.base.path_effects, |ctx| {
             self.draw_line(ctx, resolved, drawn)
                 .and_then(|()| self.draw_markers(ctx, resolved, points))
-        });
+        })
+        .unwrap_or_else(|err| Err(err.to_string()));
         ctx.renderer().close_group("line2d");
         if let Err(problem) = drawn {
             ctx.report(self.base.id(), problem);

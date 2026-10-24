@@ -3,9 +3,8 @@
 
 use plt::axes::ImshowOptions;
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, ColorizerOptions, colormaps};
 use plt::contour::{ClabelOptions, ContourOptions, Levels, QuadCoords, QuadField};
-use plt::image::ColorizerOptions;
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::prelude::*;
 use plt::quiver::{QuiverOptions, VectorField};
@@ -59,7 +58,7 @@ fn image_colorbar() -> Built {
         (x.hypot(y) * 2.0).sin() + (x * 1.5).cos() * (y * 0.7).sin()
     });
     let options = ImshowOptions {
-        colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
+        colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
         ..ImshowOptions::default()
     };
     let image = ax.imshow(z, options)?;
@@ -78,8 +77,11 @@ fn contours() -> Built {
     let filled = ax.contourf(
         &field,
         ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("RdBu_r")?),
+                ..ColorizerOptions::default()
+            },
             levels: Levels::Count(14),
-            cmap: Some(colormaps::get("RdBu_r")?),
             ..ContourOptions::default()
         },
     )?;
@@ -111,9 +113,12 @@ fn streamlines() -> Built {
     let options = StreamplotOptions {
         density: (1.2, 1.2),
         color: Some(StreamColors::Mapped(Box::new(StreamColorMap {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("plasma")?),
+                norm: None,
+                ..ColorizerOptions::default()
+            },
             values: speed,
-            cmap: Some(colormaps::get("plasma")?),
-            norm: None,
         }))),
         ..StreamplotOptions::default()
     };

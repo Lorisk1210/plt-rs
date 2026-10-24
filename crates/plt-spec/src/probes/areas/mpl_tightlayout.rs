@@ -77,7 +77,8 @@ fn bad_subplot_grid() -> Outcome {
 /// no width under tight layout.
 fn collapsed() -> Outcome {
     let fig = Figure::new();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())
+        .map_err(ProbeError::rejected)?;
     let ax = fig.subplot();
     ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
     let options = AnnotateOptions {
@@ -109,7 +110,8 @@ fn collapsed() -> Outcome {
 fn suptitle(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = Figure::new();
-        fig.set_layout_engine(LayoutEngine::tight());
+        fig.set_layout_engine(LayoutEngine::tight())
+            .map_err(ProbeError::rejected)?;
         let ax = fig.subplot();
         let st = fig.suptitle("foo");
         let t = ax.set_title("bar");
@@ -133,7 +135,8 @@ fn get_tight_layout(args: Args<'_>) -> Outcome {
             let on = value
                 .as_bool()
                 .ok_or_else(|| ProbeError::BadArgs(format!("bad value {value}")))?;
-            fig.set_layout_engine(on.then(LayoutEngine::tight));
+            fig.set_layout_engine(on.then(LayoutEngine::tight))
+                .map_err(ProbeError::rejected)?;
             out.push(Json::from(matches!(
                 fig.layout_engine(),
                 Some(LayoutEngine::Tight(_))

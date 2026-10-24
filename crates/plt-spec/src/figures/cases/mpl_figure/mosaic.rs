@@ -18,7 +18,7 @@ pub(super) const CASES: &[FigureCase] = &[
         titled(fig, &grid(&[&["1", "1", "2"], &["3", "4", "2"]])?)
     }),
     classic("mpl_figure/subplot_mosaic_all_nested", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let x = grid(&[&["A", "B"], &["C", "D"]])?;
         let y = grid(&[&["E", "F"], &["G", "H"]])?;
         titled(
@@ -27,7 +27,7 @@ pub(super) const CASES: &[FigureCase] = &[
         )
     }),
     classic("mpl_figure/subplot_mosaic_nested", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         titled(fig, &f_over(grid(&[&["A", "B"], &["C", "D"]])?)?)
     }),
     classic("mpl_figure/subplot_mosaic_nested_tuple", |fig| {

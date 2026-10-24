@@ -15,6 +15,9 @@
 //!   [`BoundaryNorm`], ...) — data to colormap positions.
 //! * [`ScalarMappable`] — a norm and a colormap combined, and
 //!   [`from_levels_and_colors`] for contour-style banded colours.
+//! * [`ColorizerOptions`] — the colormap and the norm or limits a plotting
+//!   function maps values through (the `colorizer` of its options, with
+//!   the builders of [`Colorize`]).
 //! * [`MultiNorm`] — one norm per variate of multivariate data, mapped to
 //!   colours with the colormaps of [`multivar`].
 //!
@@ -28,6 +31,7 @@
 //! ```
 
 mod array;
+mod colorizer;
 mod colormap;
 pub mod colormaps;
 mod hsv;
@@ -45,6 +49,8 @@ mod sequences;
 mod spec;
 
 pub use array::{Alpha, Colors, same_color, to_rgba_array};
+pub use colorizer::{Colorize, ColorizerError, ColorizerOptions};
+pub(crate) use colorizer::{NORM_WITH_LIMITS, impl_colorize};
 pub use colormap::{
     Channel, Colormap, ColormapError, ColormapKind, Extend, Normalized, Segment, SegmentData,
     SegmentFn, SegmentProblem,

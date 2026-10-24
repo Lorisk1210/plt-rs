@@ -140,7 +140,7 @@ fn add_reference_artist(
 }
 
 fn artist_reference(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(3, 3)?;
     let hsv = colormaps::get("hsv")?;
     for (i, ax) in axs.as_slice().iter().enumerate() {

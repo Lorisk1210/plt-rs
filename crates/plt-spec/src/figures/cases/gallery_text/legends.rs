@@ -96,7 +96,7 @@ fn custom_legends_3(fig: &Figure) -> CaseResult {
 }
 
 fn figlegend_demo(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     let x = arange(0.0, 4.0 * PI, 0.2);
     let labelled = |label: &str| LineProps::default().label(label);
@@ -211,7 +211,7 @@ fn legend_demo_2(fig: &Figure) -> CaseResult {
 }
 
 fn legend_demo_3(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(3, 1)?;
     let (top_ax, middle_ax, bottom_ax) = (&axs[(0, 0)], &axs[(1, 0)], &axs[(2, 0)]);
     let bars = |label: &str| BarOptions {
@@ -263,7 +263,7 @@ fn legend_demo_3(fig: &Figure) -> CaseResult {
 }
 
 fn legend_demo_4(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 1)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(1, 0)]);
     let square = |x: f64, y: f64, color: &str, marker: &str| {

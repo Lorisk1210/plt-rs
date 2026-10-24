@@ -7,11 +7,10 @@ use std::f64::consts::PI;
 
 use plt::axes::{BarOptions, ImshowOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Normalize, colormaps};
+use plt::colors::{Colorize, ColorizerOptions, Normalize, colormaps};
 use plt::figure::{Figure, Mosaic, MosaicCell, MosaicOptions, Share};
 use plt::image::{
-    BboxImageOptions, ColorizerOptions, Extent, FigimageOptions, ImageAlpha, Interpolation, Origin,
-    ScalarField,
+    BboxImageOptions, Extent, FigimageOptions, ImageAlpha, Interpolation, Origin, ScalarField,
 };
 use plt::layout::TightLayout;
 use plt::numeric::{Grid, arange, linspace};
@@ -98,7 +97,7 @@ fn demo_bboximage(fig: &Figure) -> CaseResult {
         let x0 = ix as f64 * dx * (1.0 + pad);
         let y0 = 1.0 - iy as f64 * dy * (1.0 + pad) - dy;
         let options = BboxImageOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get(name)?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get(name)?),
             ..BboxImageOptions::default()
         };
         ax2.add_bbox_image(
@@ -151,9 +150,9 @@ fn magnitude(z: &Grid<f64>) -> f64 {
 }
 
 /// Bilinear interpolation, row 0 at the bottom, over `[-3, 3]²`.
-fn lower_square(colors: ColorizerOptions) -> ImshowOptions {
+fn lower_square(colorizer: ColorizerOptions) -> ImshowOptions {
     ImshowOptions {
-        colors,
+        colorizer,
         interpolation: Some(Interpolation::Bilinear),
         origin: Some(Origin::Lower),
         extent: Some(Extent::new(-3.0, 3.0, -3.0, 3.0)),
@@ -341,7 +340,7 @@ fn multi_image(fig: &Figure) -> CaseResult {
     let mut images = Vec::new();
     for (ax, data) in axs.as_slice().iter().zip(datasets) {
         let options = ImshowOptions::default()
-            .colors(ColorizerOptions::default().norm(Normalize::new(lo, hi)));
+            .colorizer(ColorizerOptions::default().norm(Normalize::new(lo, hi)));
         images.push(ax.imshow(data, options)?);
     }
     fig.colorbar(

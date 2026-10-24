@@ -7,7 +7,9 @@ use crate::axes::{
     TripcolorOptions,
 };
 use crate::collections::CollectionArtist;
-use crate::colors::{BoundaryNorm, LogNorm, Normalize, ScalarMappable, colormaps};
+use crate::colors::{
+    BoundaryNorm, Colorize, ColorizerOptions, LogNorm, Normalize, ScalarMappable, colormaps,
+};
 use crate::contour::{ContourOptions, Levels, QuadField};
 use crate::numeric::Grid;
 use crate::spines::SpineSide;
@@ -297,9 +299,12 @@ fn colorbars_take_room_in_the_figure_of_their_parent() {
     // matplotlib's test_colorbar_wrong_figure: asked of another figure,
     // the colorbar goes beside the image in the image's figure.
     let (fig, _, image) = image_figure();
-    fig.set_layout_engine(crate::layout::LayoutEngine::constrained());
+    fig.set_layout_engine(crate::layout::LayoutEngine::constrained())
+        .unwrap();
     let tight = Figure::new();
-    tight.set_layout_engine(crate::layout::LayoutEngine::tight());
+    tight
+        .set_layout_engine(crate::layout::LayoutEngine::tight())
+        .unwrap();
     let colorbar = tight.colorbar(&image, ColorbarOptions::default()).unwrap();
     assert_eq!(tight.axes(), []);
     assert_eq!(fig.axes().len(), 2);
@@ -433,7 +438,7 @@ fn singular_limits_widened_by_the_colorbar_reach_the_mappable() {
 
 #[test]
 fn surfaces_of_3d_axes_take_room_from_the_3d_axes() {
-    use crate::mplot3d::{FaceColormap, FaceColors, SurfaceOptions};
+    use crate::mplot3d::{FaceColors, SurfaceOptions};
     // matplotlib's test_surface3d: the colorbar maps the surface's mean
     // heights and steals its room from the 3-D axes, whose square box
     // keeps to the right of what is left.
@@ -443,9 +448,9 @@ fn surfaces_of_3d_axes_take_room_from_the_3d_axes() {
     let y = Grid::from_fn(3, 3, |r, _| r as f64);
     let z = Grid::from_fn(3, 3, |r, c| (r + c) as f64);
     let options = SurfaceOptions {
-        colors: FaceColors::Mapped(Box::new(FaceColormap::new(
-            colormaps::get("coolwarm").unwrap(),
-        ))),
+        colors: FaceColors::from(
+            ColorizerOptions::default().cmap(colormaps::get("coolwarm").unwrap()),
+        ),
         ..SurfaceOptions::default()
     };
     let surface = ax.plot_surface(&x, &y, &z, options).unwrap();

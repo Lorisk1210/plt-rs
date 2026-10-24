@@ -42,19 +42,14 @@ fn opaque_axes_keep_navigation_unless_they_forward_it() {
 fn image_with_colorbar() -> (Figure, crate::image::AxesImage, Point, Point) {
     use crate::axes::ImshowOptions;
     use crate::colorbar::ColorbarOptions;
-    use crate::image::ColorizerOptions;
+    use crate::colors::Colorize;
     use crate::numeric::Grid;
 
     let fig = Figure::new();
-    let colors = ColorizerOptions {
-        vmin: Some(0.0),
-        vmax: Some(10.0),
-        ..ColorizerOptions::default()
-    };
     let data = Grid::from_fn(4, 3, |row, column| (row * 3 + column) as f64);
     let image = fig
         .subplot()
-        .imshow(data, ImshowOptions::default().colors(colors))
+        .imshow(data, ImshowOptions::default().limits(Some(0.0), Some(10.0)))
         .unwrap();
     let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
     fig.layout();

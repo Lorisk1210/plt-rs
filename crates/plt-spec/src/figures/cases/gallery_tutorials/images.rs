@@ -5,8 +5,8 @@
 
 use plt::axes::{HistPlotOptions, ImshowOptions};
 use plt::colorbar::ColorbarOptions;
-use plt::colors::colormaps;
-use plt::image::{ColorizerOptions, Interpolation, ScalarField};
+use plt::colors::{ColorizerOptions, colormaps};
+use plt::image::{Interpolation, ScalarField};
 use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions};
@@ -94,8 +94,8 @@ fn images_6(fig: &Figure) -> CaseResult {
 }
 
 fn images_7(fig: &Figure) -> CaseResult {
-    let clipped =
-        ImshowOptions::default().colors(ColorizerOptions::default().limits(Some(0.0), Some(175.0)));
+    let clipped = ImshowOptions::default()
+        .colorizer(ColorizerOptions::default().limits(Some(0.0), Some(175.0)));
     fig.subplot().imshow(pseudocolor(), clipped)?;
     Ok(())
 }

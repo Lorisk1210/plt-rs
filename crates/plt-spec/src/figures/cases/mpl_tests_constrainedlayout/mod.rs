@@ -9,7 +9,7 @@ use plt::axes::{ImshowOptions, Mesh, PcolorOptions, TickDirection, TickParams};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::figure::{Share, SubfigureOptions};
 use plt::gridspec::GridSpec;
-use plt::layout::{ConstrainedLayout, LayoutEngine};
+use plt::layout::{ConstrainedLayout, LayoutEngine, LayoutEngineError};
 use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::spines::SpineSide;
@@ -28,7 +28,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
 /// Grids, twins, hidden and hand-placed axes and subfigures.
 const PLACEMENT: &[FigureCase] = &[
     classic("mpl_tests_constrainedlayout/identical_subgridspec", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let gs = fig.add_gridspec(2, 1)?;
         let gsa = GridSpec::nested(&gs.cell(0, 0)?, 1, 3, None, None, (None, None))?;
         let gsb = GridSpec::nested(&gs.cell(1, 0)?, 1, 3, None, None, (None, None))?;
@@ -39,14 +39,14 @@ const PLACEMENT: &[FigureCase] = &[
         Ok(())
     }),
     classic("mpl_tests_constrainedlayout/constrained_layout18", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let ax = fig.subplot();
         let ax2 = ax.twinx();
         example_plot(&ax, 12.0, false)?;
         example_plot(&ax2, 24.0, false)
     }),
     classic("mpl_tests_constrainedlayout/constrained_layout19", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let ax = fig.subplot();
         let ax2 = ax.twiny();
         example_plot(&ax, 12.0, false)?;
@@ -67,14 +67,14 @@ const PLACEMENT: &[FigureCase] = &[
         Ok(())
     }),
     classic("mpl_tests_constrainedlayout/hidden_axes", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         fig.subplots(2, 2)?[(0, 1)].set_visible(false);
         Ok(())
     }),
     classic(
         "mpl_tests_constrainedlayout/manually_set_position_1",
         |fig| {
-            fig.set_layout_engine(LayoutEngine::constrained());
+            fig.set_layout_engine(LayoutEngine::constrained())?;
             fig.subplots(1, 2)?[(0, 0)].set_position([0.2, 0.2, 0.3, 0.3]);
             Ok(())
         },
@@ -82,7 +82,7 @@ const PLACEMENT: &[FigureCase] = &[
     classic(
         "mpl_tests_constrainedlayout/manually_set_position_2",
         |fig| {
-            fig.set_layout_engine(LayoutEngine::constrained());
+            fig.set_layout_engine(LayoutEngine::constrained())?;
             let axs = fig.subplots(1, 2)?;
             let ax = &axs[(0, 0)];
             ax.set_position([0.2, 0.2, 0.3, 0.3]);
@@ -123,7 +123,7 @@ const ENGINE: &[FigureCase] = &[
             w_pad: 0.02,
             h_pad: 0.02,
             ..layout
-        });
+        })?;
         fig.subplot();
         Ok(())
     }),
@@ -131,7 +131,7 @@ const ENGINE: &[FigureCase] = &[
         constrained(fig, |layout| ConstrainedLayout {
             h_pad: 0.02,
             ..layout
-        });
+        })?;
         fig.subplot();
         Ok(())
     }),
@@ -140,7 +140,7 @@ const ENGINE: &[FigureCase] = &[
         constrained(fig, |layout| ConstrainedLayout {
             rect: [0.0, 0.0, 0.5, 0.5],
             ..layout
-        });
+        })?;
         Ok(())
     }),
     classic("mpl_tests_constrainedlayout/rect_2", |fig| {
@@ -148,7 +148,7 @@ const ENGINE: &[FigureCase] = &[
         constrained(fig, |layout| ConstrainedLayout {
             rect: [0.2, 0.2, 0.3, 0.3],
             ..layout
-        });
+        })?;
         Ok(())
     }),
     classic("mpl_tests_constrainedlayout/compressed1_1", |fig| {
@@ -162,15 +162,19 @@ const ENGINE: &[FigureCase] = &[
 
 /// Lays `fig` out by the constrained engine with its defaults changed by
 /// `adjust` (matplotlib's `get_layout_engine().set(...)`).
-fn constrained(fig: &Figure, adjust: fn(ConstrainedLayout) -> ConstrainedLayout) {
+fn constrained(
+    fig: &Figure,
+    adjust: fn(ConstrainedLayout) -> ConstrainedLayout,
+) -> Result<(), LayoutEngineError> {
     let layout = ConstrainedLayout::from_rc(&plt::rc::params());
-    fig.set_layout_engine(LayoutEngine::Constrained(adjust(layout)));
+    fig.set_layout_engine(LayoutEngine::Constrained(adjust(layout)))?;
+    Ok(())
 }
 
 /// `test_colorbar_align`: a colorbar at `location` beside each of four
 /// meshes, ticks inward, only the second axes and its colorbar labelled.
 fn colorbar_align(fig: &Figure, location: SpineSide) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let inward = TickParams {
         direction: Some(TickDirection::In),
         ..TickParams::default()
@@ -201,14 +205,14 @@ fn colorbar_align(fig: &Figure, location: SpineSide) -> CaseResult {
         hspace: 0.1,
         wspace: 0.1,
         ..layout
-    });
+    })?;
     Ok(())
 }
 
 /// `test_compressed1`: a compressed grid of shared images of standard
 /// normal noise (stream `seed + n` for the `n`-th) and their colorbar.
 fn compressed1(fig: &Figure, nrows: usize, ncols: usize, seed: u64) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::compressed());
+    fig.set_layout_engine(LayoutEngine::compressed())?;
     let axs = fig.subplots_shared(nrows, ncols, Share::All, Share::All)?;
     let mut image = None;
     for (stream, ax) in (seed..).zip(axs.as_slice()) {
@@ -228,7 +232,7 @@ fn compressed1(fig: &Figure, nrows: usize, ncols: usize, seed: u64) -> CaseResul
 /// `test_submerged_subfig`: three subfigures, each with two axes stacked
 /// beside one spanning both rows.
 fn submerged_subfig(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     for sub in fig
         .subfigures(3, 1, SubfigureOptions::default())?
         .as_slice()

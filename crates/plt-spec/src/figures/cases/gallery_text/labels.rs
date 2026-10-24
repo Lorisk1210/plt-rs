@@ -43,7 +43,7 @@ fn titles_demo_1(fig: &Figure) -> CaseResult {
 
 /// A constrained figure with two axes plotting `range(10)`.
 fn constrained_pair(fig: &Figure) -> Result<Vec<Axes>, Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     for ax in axs.as_slice() {
         ax.plot_y(ramp());
@@ -80,7 +80,7 @@ fn titles_demo_3(fig: &Figure) -> CaseResult {
 /// The mosaic of `label_subplots`, `[['a)', 'c)'], ['b)', 'c)'], ['d)',
 /// 'd)']]`, in a constrained figure.
 fn label_mosaic(fig: &Figure) -> Result<MosaicAxes, Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let label = |name: &str| MosaicCell::Label(name.into());
     let mosaic = Mosaic::new(vec![
         vec![label("a)"), label("c)")],

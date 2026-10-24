@@ -6,9 +6,9 @@
 //! are gradients, the pixels `_pngsuite` in `cases_mpl_rest.py` writes.
 
 use plt::axes::ImshowOptions;
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, ImageData, Interpolation, imread_png};
+use plt::image::{Extent, ImageData, Interpolation, imread_png};
 use plt_codec::checksum::crc32;
 use plt_codec::deflate::CompressionLevel;
 use plt_codec::zlib;
@@ -163,7 +163,7 @@ fn pngsuite(fig: &Figure) -> CaseResult {
             colors = colors.cmap(colormaps::get("gray")?);
         }
         let options = ImshowOptions {
-            colors,
+            colorizer: colors,
             extent: Some(Extent::new(left, left + 1.0, 0.0, 1.0)),
             interpolation: Some(Interpolation::Nearest),
             ..ImshowOptions::default()

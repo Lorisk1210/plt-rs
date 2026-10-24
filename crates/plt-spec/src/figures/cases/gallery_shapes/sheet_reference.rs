@@ -108,7 +108,7 @@ fn colored_circles(ax: &Axes, rng: &mut SpecRng) -> CaseResult {
 /// `style_label`.
 fn style_reference(fig: &Figure, style_label: &str) -> CaseResult {
     let mut rng = SpecRng::new(96_917_002);
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(1, 6)?;
     fig.suptitle(style_label)
         .set_x(0.01)

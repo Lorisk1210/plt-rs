@@ -133,8 +133,8 @@ fn colorbar_shift(fig: &Figure) -> CaseResult {
     let norm = BoundaryNorm::new([-1.0, -0.5, 0.5, 1.0], cmap.n(), Extend::Neither)?;
     let options = ScatterOptions {
         colors: MappedColors::new(vec![0.0, 1.0])
-            .with_cmap(cmap)
-            .with_norm(norm)
+            .cmap(cmap)
+            .norm(norm)
             .into(),
         ..ScatterOptions::default()
     };

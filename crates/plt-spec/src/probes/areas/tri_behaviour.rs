@@ -6,7 +6,6 @@
 
 use plt::axes::{TriShading, TriValues, Tripcolor, TripcolorOptions};
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::legend::LegendHandle;
 use plt::lines::LineProps;
 use plt::tri::Triangulation;
@@ -16,6 +15,7 @@ use crate::json::Json;
 use crate::probes::encode::{object, rgba};
 use crate::probes::{Args, Op, Outcome, ProbeError};
 use crate::rng::SpecRng;
+use plt::colors::ColorizerOptions;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -67,7 +67,7 @@ fn tripcolor(args: Args<'_>) -> Outcome {
         None => (None, None),
     };
     let options = TripcolorOptions {
-        colors: ColorizerOptions {
+        colorizer: ColorizerOptions {
             vmin,
             vmax,
             ..ColorizerOptions::default()

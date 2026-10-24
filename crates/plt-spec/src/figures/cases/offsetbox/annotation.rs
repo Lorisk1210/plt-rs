@@ -3,10 +3,10 @@
 
 use std::error::Error;
 
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::coords::Coords;
 use plt::fonts::FontSize;
-use plt::image::{BboxImageOptions, ColorizerOptions, Interpolation, ScalarField};
+use plt::image::{BboxImageOptions, Interpolation, ScalarField};
 use plt::numeric::Grid;
 use plt::offsetbox::{AnnotationBboxOptions, BoxItem, DrawingArea, OffsetImage};
 use plt::patches::{BoxStyle, Circle, ConnectionStyle, Rectangle};
@@ -120,7 +120,7 @@ pub(super) fn image(fig: &Figure) -> CaseResult {
         gradient(24, 32),
         1.5,
         BboxImageOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("plasma")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("plasma")?),
             interpolation: Some(Interpolation::Bilinear),
             ..BboxImageOptions::default()
         },

@@ -4,9 +4,9 @@
 //! text needing fallback fonts.
 
 use plt::axes::{ImshowOptions, PlotError, ScatterColors, ScatterOptions};
-use plt::colors::{Alpha, colormaps};
+use plt::colors::{Alpha, ColorizerOptions, colormaps};
 use plt::fonts::FontWeight;
-use plt::image::{ColorizerOptions, Interpolation};
+use plt::image::Interpolation;
 use plt::numeric::Grid;
 use plt::offsetbox::{AnnotationBboxOptions, TextArea};
 use plt::prelude::*;
@@ -38,7 +38,7 @@ fn noscale(fig: &Figure) -> CaseResult {
         z,
         ImshowOptions {
             interpolation: Some(Interpolation::None),
-            colors: ColorizerOptions::default().cmap(colormaps::get("gray")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("gray")?),
             ..ImshowOptions::default()
         },
     )?;

@@ -7,10 +7,9 @@
 use std::f64::consts::{FRAC_2_SQRT_PI, PI, SQRT_2};
 
 use plt::axes::{Adjustable, AxisName, Hist2dOptions, PcolorOptions};
-use plt::colors::{Alpha, PowerNorm};
+use plt::colors::{Alpha, ColorizerOptions, PowerNorm};
 use plt::figure::Share;
 use plt::fonts::{FontSize, RelativeSize};
-use plt::image::ColorizerOptions;
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::legend::LegendOptions;
 use plt::prelude::*;
@@ -40,7 +39,7 @@ fn asinh_demo_1(fig: &Figure) -> CaseResult {
 
 fn asinh_demo_2(fig: &Figure) -> CaseResult {
     let x = linspace(-3.0, 6.0, 500);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots_shared(1, 3, Share::All, Share::None)?;
     for (ax, (a0, base)) in axs
         .as_slice()
@@ -126,7 +125,7 @@ fn scales(fig: &Figure) -> CaseResult {
     let y = linspace(0.002, 1.0, 400);
     let mean = y.iter().sum::<f64>() / y.len() as f64;
     let centred = map(&y, |y| y - mean);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(3, 2)?;
     let with = |linthresh: Option<f64>, linear_width: Option<f64>| ScaleOptions {
         linthresh,
@@ -235,13 +234,13 @@ fn power_norm(fig: &Figure) -> CaseResult {
     let (x2, y2) = bivariate_normal(&mut rng, 1000, (30.0, 20.0), [3.0, 1.0, 3.0]);
     x.extend(x2);
     y.extend(y2);
-    let histogram = |colors: ColorizerOptions| Hist2dOptions {
+    let histogram = |colorizer: ColorizerOptions| Hist2dOptions {
         histogram: Histogram2dOptions {
             bins: [AxisBins::Count(100), AxisBins::Count(100)],
             ..Histogram2dOptions::default()
         },
         mesh: PcolorOptions {
-            colors,
+            colorizer,
             ..PcolorOptions::default()
         },
         ..Hist2dOptions::default()

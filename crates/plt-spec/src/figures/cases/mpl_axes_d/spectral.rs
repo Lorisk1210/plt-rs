@@ -8,9 +8,8 @@
 use std::f64::consts::TAU;
 
 use plt::axes::{Axes, SpecgramOptions, SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale};
-use plt::colors::LogNorm;
+use plt::colors::{Colorize, ColorizerOptions, LogNorm};
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::mlab::{Sides, SpecgramMode, SpectralOptions, SpectrumOptions};
 use plt::prelude::arange;
 
@@ -124,7 +123,7 @@ fn specgrams(fig: &Figure, (y, nfft): (Vec<f64>, usize), kind: SpecgramKind) -> 
         };
         if kind.linear_log {
             options.scale = Some(SpectrumScale::Linear);
-            options.image.colors = ColorizerOptions::default().norm(LogNorm::default());
+            options.image.colorizer = ColorizerOptions::default().norm(LogNorm::default());
         }
         ax.specgram(&y, options)?;
     }

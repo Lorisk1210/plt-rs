@@ -15,8 +15,8 @@ mod values;
 use std::f64::consts::PI;
 
 use plt::axes::ImshowOptions;
-use plt::colors::{ColormapError, colormaps};
-use plt::image::{ColorizerOptions, ImageData, ScalarField};
+use plt::colors::{Colorize, ColorizerOptions, ColormapError, colormaps};
+use plt::image::{ImageData, ScalarField};
 use plt::numeric::{Grid, arange};
 
 use super::mpl_tests::{classic, remove_ticks_and_titles};
@@ -45,7 +45,7 @@ fn uniform(seed: u64, rows: usize, cols: usize) -> Grid<f64> {
 /// `imshow` options with only the colormap `name` set.
 fn colormapped(name: &str) -> Result<ImshowOptions, ColormapError> {
     Ok(ImshowOptions {
-        colors: ColorizerOptions::default().cmap(colormaps::get(name)?),
+        colorizer: ColorizerOptions::default().cmap(colormaps::get(name)?),
         ..ImshowOptions::default()
     })
 }

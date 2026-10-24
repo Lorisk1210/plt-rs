@@ -1,7 +1,6 @@
 //! Pie charts (matplotlib's `pie`).
 
 use std::fmt;
-use std::rc::Rc;
 
 use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
@@ -10,26 +9,8 @@ use crate::fonts::FontSize;
 use crate::patches::{Patch, PatchProps, Shadow, ShadowError, Wedge};
 use crate::rc::Aspect;
 use crate::text::{Text, TextProps};
-use crate::ticker::pyfmt::{FormatError, PrintfFormat};
-
-/// How the percentage labels of a pie are written (matplotlib's
-/// `autopct`).
-#[derive(Clone)]
-pub enum PieLabelFormat {
-    /// A printf-style template applied to the percentage, e.g. `"%1.1f%%"`.
-    Printf(String),
-    /// A function of the percentage.
-    Func(Rc<dyn Fn(f64) -> String>),
-}
-
-impl fmt::Debug for PieLabelFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Printf(template) => f.debug_tuple("Printf").field(template).finish(),
-            Self::Func(_) => f.write_str("Func(..)"),
-        }
-    }
-}
+use crate::ticker::LabelFormat;
+use crate::ticker::pyfmt::FormatError;
 
 /// Which way the wedges of a pie follow each other (matplotlib's
 /// `counterclock`).
@@ -80,8 +61,9 @@ pub struct PieOptions {
     pub labels: Vec<String>,
     /// Wedge colours, cycled (empty: the patch property cycle).
     pub colors: Vec<Color>,
-    /// Percentage labels inside the wedges.
-    pub autopct: Option<PieLabelFormat>,
+    /// Percentage labels inside the wedges: a printf-style template
+    /// applied to the percentage, such as `"%1.1f%%"`, or a function of it.
+    pub autopct: Option<LabelFormat>,
     /// Distance of the percentage labels from the centre, in radii.
     pub pctdistance: f64,
     /// Distance of the labels from the centre, in radii (`None`: no
@@ -443,14 +425,12 @@ fn fractions(values: &[f64], normalize: bool) -> Result<Vec<f64>, PieError> {
     }
 }
 
-/// The percentage label `format` writes for `percent`.
-fn percent_label(format: &PieLabelFormat, percent: f64) -> Result<String, PieError> {
-    match format {
-        PieLabelFormat::Printf(template) => PrintfFormat::parse(template)
-            .and_then(|f| f.format(percent))
-            .map_err(|e| PieError::Format(e.to_string())),
-        PieLabelFormat::Func(f) => Ok(f(percent)),
-    }
+/// The percentage label `format` writes for `percent` (matplotlib's
+/// `autopct % pct` or `autopct(pct)`).
+fn percent_label(format: &LabelFormat, percent: f64) -> Result<String, PieError> {
+    format
+        .printf(percent)
+        .map_err(|e| PieError::Format(e.to_string()))
 }
 
 #[cfg(test)]
@@ -471,9 +451,9 @@ mod tests {
 
     #[test]
     fn percentage_labels_use_printf() {
-        let format = PieLabelFormat::Printf("%1.1f%%".into());
+        let format = LabelFormat::from("%1.1f%%");
         assert_eq!(percent_label(&format, 35.0), Ok("35.0%".into()));
-        let integer = PieLabelFormat::Printf("%d%%".into());
+        let integer = LabelFormat::from("%d%%");
         assert_eq!(percent_label(&integer, 12.6), Ok("12%".into()));
     }
 
@@ -507,7 +487,7 @@ mod tests {
         let ax = Figure::new().subplot();
         let options = PieOptions {
             labels: vec!["a".into(), "b".into()],
-            autopct: Some(PieLabelFormat::Printf("%.2f".into())),
+            autopct: Some(LabelFormat::from("%.2f")),
             textprops: TextProps::default()
                 .halign(HAlign::Center)
                 .valign(VAlign::Top)
@@ -544,7 +524,7 @@ mod tests {
         let ax = Figure::new().subplot();
         let options = PieOptions {
             labels: vec!["foo".into(), "bar".into()],
-            autopct: Some(PieLabelFormat::Printf("%1.0f%%".into())),
+            autopct: Some(LabelFormat::from("%1.0f%%")),
             ..PieOptions::default()
         };
         let mut pie = ax.pie(&[2.0, 3.0], options).unwrap();

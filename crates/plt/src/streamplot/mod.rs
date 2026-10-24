@@ -41,7 +41,7 @@ pub(crate) use plan::StreamPlan;
 use plt_core::Point;
 
 use crate::collections::Collection;
-use crate::colors::{Color, Colormap, Norm};
+use crate::colors::{Color, ColorizerOptions, impl_colorize};
 use crate::numeric::Grid;
 use crate::transforms::Transform;
 
@@ -96,16 +96,28 @@ fn common_row(grid: &Grid<f64>) -> Option<Vec<f64>> {
         .then_some(first)
 }
 
-/// Values on the field's grid mapped to streamline colours.
-#[derive(Debug)]
+/// Values on the field's grid mapped to streamline colours, through a
+/// norm or limits autoscaled to the range of the finite values (matplotlib
+/// takes no limits; like elsewhere, a norm excludes them).
+#[derive(Clone, Debug)]
 pub struct StreamColorMap {
     /// One value per grid point (non-finite values are masked).
     pub values: Grid<f64>,
-    /// The colormap (`None` = `image.cmap`).
-    pub cmap: Option<Colormap>,
-    /// The norm (`None` = linear over the range of `values`; a norm
-    /// without limits is autoscaled to that range).
-    pub norm: Option<Box<dyn Norm>>,
+    /// The colormap, norm and limits.
+    pub colorizer: ColorizerOptions,
+}
+
+impl_colorize!(StreamColorMap);
+
+impl StreamColorMap {
+    /// `values` mapped through `image.cmap` and a linear norm spanning
+    /// their finite range.
+    pub fn new(values: Grid<f64>) -> Self {
+        Self {
+            values,
+            colorizer: ColorizerOptions::default(),
+        }
+    }
 }
 
 /// How streamlines are coloured (matplotlib's `color`).

@@ -9,9 +9,8 @@ use plt::axes::{
 };
 use plt::collections::Collection;
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Colormap, LogNorm, Norm, Normalize, colormaps};
+use plt::colors::{ColorizerOptions, Colormap, LogNorm, Norm, Normalize, colormaps};
 use plt::figure::Share;
-use plt::image::ColorizerOptions;
 use plt::layout::LayoutEngine;
 use plt::numeric::interp;
 use plt::prelude::*;
@@ -62,7 +61,7 @@ fn hexbin_demo(fig: &Figure) -> CaseResult {
         let options = HexbinOptions {
             gridsize: HexGridSize::Count(50),
             bins,
-            colors: ColorizerOptions::default().cmap(colormaps::get("inferno")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("inferno")?),
             ..HexbinOptions::default()
         };
         let hb = ax.hexbin(&x, &y, options)?;
@@ -100,7 +99,7 @@ fn twenty_bins(density: bool) -> HistPlotOptions<'static> {
 
 fn hist_1(fig: &Figure) -> CaseResult {
     let (dist1, dist2) = two_distributions();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
     axs[(0, 0)].hist(&[dist1], twenty_bins(false))?;
     axs[(0, 1)].hist(&[dist2], twenty_bins(false))?;
@@ -109,7 +108,7 @@ fn hist_1(fig: &Figure) -> CaseResult {
 
 fn hist_2(fig: &Figure) -> CaseResult {
     let (dist1, _) = two_distributions();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let axs = fig.subplots(1, 2)?;
     let plot = axs[(0, 0)].hist(std::slice::from_ref(&dist1), twenty_bins(false))?;
     let counts = &plot.tops[0];
@@ -132,7 +131,7 @@ fn hist_2(fig: &Figure) -> CaseResult {
 
 fn hist_3(fig: &Figure) -> CaseResult {
     let (dist1, dist2) = two_distributions();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     fig.subplot()
         .hist2d(&dist1, &dist2, Hist2dOptions::default())?;
     Ok(())
@@ -151,7 +150,7 @@ fn binned(bins: [usize; 2], log: bool) -> Hist2dOptions<'static> {
             ..Histogram2dOptions::default()
         },
         mesh: PcolorOptions {
-            colors,
+            colorizer: colors,
             ..PcolorOptions::default()
         },
         ..Hist2dOptions::default()
@@ -160,7 +159,7 @@ fn binned(bins: [usize; 2], log: bool) -> Hist2dOptions<'static> {
 
 fn hist_4(fig: &Figure) -> CaseResult {
     let (dist1, dist2) = two_distributions();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let axs = fig.subplots_shared(3, 1, Share::All, Share::All)?;
     let panels = [([40, 40], false), ([40, 40], true), ([80, 10], true)];
     for (ax, (bins, log)) in axs.as_slice().iter().zip(panels) {
@@ -200,10 +199,10 @@ fn series_histogram(
     fig: &Figure,
     ax: &Axes,
     (xedges, yedges, counts): (&[f64], &[f64], &plt::numeric::Grid<f64>),
-    colors: ColorizerOptions,
+    colorizer: ColorizerOptions,
 ) -> CaseResult {
     let options = PcolorOptions {
-        colors,
+        colorizer,
         ..PcolorOptions::default()
     };
     let mesh = Mesh::from_coords(xedges, yedges, counts.transposed());
@@ -229,7 +228,7 @@ fn time_series_histogram(fig: &Figure) -> CaseResult {
     let mut g = SpecRng::new(SEED);
     let x = linspace(0.0, 4.0 * std::f64::consts::PI, 100);
     let series = walks_and_sines(&mut g, &x);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(3, 1)?;
     for row in &series {
         axs[(0, 0)].plot_with(&x, row, LineProps::default().color("C0").alpha(0.1))?;

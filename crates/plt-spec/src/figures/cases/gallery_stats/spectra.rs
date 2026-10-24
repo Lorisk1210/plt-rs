@@ -80,7 +80,7 @@ fn signals_panel(ax: &Axes, t: &[f64], (s1, s2): (&[f64], &[f64]), xmax: f64) ->
 
 /// Two constrained axes, one above the other.
 fn stacked_pair(fig: &Figure) -> Result<(Axes, Axes), Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 1)?;
     Ok((axs[(0, 0)].clone(), axs[(1, 0)].clone()))
 }
@@ -139,7 +139,7 @@ fn psd_demo_2(fig: &Figure) -> CaseResult {
         .map(|(t, e)| 10.0 * (2.0 * PI * 4.0 * t).sin() + 5.0 * (2.0 * PI * 4.25 * t).sin() + e)
         .collect();
     let n = t.len();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let layout = mosaic(&[
         &["signal", "signal", "signal"],
         &["zero padding", "block size", "overlap"],
@@ -188,7 +188,7 @@ fn psd_demo_2(fig: &Figure) -> CaseResult {
 /// `psd_demo`'s comparison of a periodogram with Welch's estimate of the
 /// samples `xn` (`periodogram_and_welch`).
 fn periodogram_and_welch<S: SignalValue>(fig: &Figure, xn: &[S], xticks: &[f64]) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     let yticks = arange(-50.0, 30.0, 10.0);
     let unwindowed = |nfft: usize, pad_to: usize, noverlap: usize| {

@@ -6,12 +6,12 @@ use std::f64::consts::PI;
 
 use plt::axes::{Adjustable, AxisName, TickLevel, TickParams};
 use plt::collections::CollectionProps;
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::fonts::FontSize;
 use plt::lines::LineProps;
 use plt::mplot3d::{
-    Aspect3D, Axes3D, Axes3DError, Axes3DOptions, Axis3, FaceColormap, FaceColors, Sampling,
-    SurfaceOptions, WireframeOptions,
+    Aspect3D, Axes3D, Axes3DError, Axes3DOptions, Axis3, FaceColors, Sampling, SurfaceOptions,
+    WireframeOptions,
 };
 use plt::numeric::{Grid, linspace};
 use plt::ticker::{AutoMinorLocator, MinorDivisions, MultipleLocator};
@@ -57,7 +57,7 @@ fn mapped_surface(
     cmap: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let options = SurfaceOptions {
-        colors: FaceColors::Mapped(Box::new(FaceColormap::new(colormaps::get(cmap)?))),
+        colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get(cmap)?)),
         ..SurfaceOptions::default()
     };
     ax.plot_surface(&x, &y, &z, options)?;

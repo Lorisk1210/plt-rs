@@ -1,7 +1,6 @@
 //! Labels on bars (matplotlib's `bar_label`).
 
 use std::fmt;
-use std::rc::Rc;
 
 use plt_core::Point;
 
@@ -10,7 +9,8 @@ use crate::artist::ArtistHandle;
 use crate::coords::{CoordError, CoordOrigin, CoordUnit, Coords};
 use crate::orientation::Orientation;
 use crate::text::{AnnotateOptions, Annotation, HAlign, VAlign};
-use crate::ticker::pyfmt::{FormatError, auto_format_value};
+use crate::ticker::LabelFormat;
+use crate::ticker::pyfmt::FormatError;
 
 /// Where bar labels sit (matplotlib's `label_type`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -23,45 +23,34 @@ pub enum BarLabelType {
     Center,
 }
 
-/// How bar values become label texts (matplotlib's `fmt`).
-#[derive(Clone)]
-pub enum BarLabelFormat {
-    /// A `%`-style or `{}`-style template; `%` takes precedence (default
-    /// `"%g"`).
-    Template(String),
-    /// A function of the value.
-    Func(Rc<dyn Fn(f64) -> String>),
-}
-
-impl Default for BarLabelFormat {
-    fn default() -> Self {
-        Self::Template("%g".to_owned())
-    }
-}
-
-impl fmt::Debug for BarLabelFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Template(template) => f.debug_tuple("Template").field(template).finish(),
-            Self::Func(_) => f.write_str("Func(..)"),
-        }
-    }
-}
-
 /// Options of [`Axes::bar_label`]; style the returned annotations for
 /// font size, colour, rotation and other text properties.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct BarLabelOptions {
     /// Label texts, one per bar; bars beyond the list show their
     /// formatted value.
     pub labels: Vec<String>,
-    /// How values are formatted.
-    pub fmt: BarLabelFormat,
+    /// How values are formatted: a `%`-style or `{}`-style template, `%`
+    /// taking precedence (default `"%g"`), or a function of the value.
+    pub fmt: LabelFormat,
     /// Where the labels sit.
     pub label_type: BarLabelType,
     /// Distance from the bar end in points: one for all bars or one per
     /// bar (empty: 0).
     pub padding: Vec<f64>,
+}
+
+impl Default for BarLabelOptions {
+    /// matplotlib's defaults: values formatted with `"%g"` at the bar
+    /// edges.
+    fn default() -> Self {
+        Self {
+            labels: Vec::new(),
+            fmt: LabelFormat::from("%g"),
+            label_type: BarLabelType::default(),
+            padding: Vec::new(),
+        }
+    }
 }
 
 /// Why bars cannot be labelled.
@@ -315,13 +304,10 @@ impl LabelPlacement {
 
 /// The label text of `value` (matplotlib's `_auto_format_str` or the
 /// callable), an integer for Python when `whole`.
-fn format_value(format: &BarLabelFormat, value: f64, whole: bool) -> Result<String, BarLabelError> {
-    match format {
-        BarLabelFormat::Template(template) => {
-            auto_format_value(template, value, whole).map_err(BarLabelError::Format)
-        }
-        BarLabelFormat::Func(f) => Ok(f(value)),
-    }
+fn format_value(format: &LabelFormat, value: f64, whole: bool) -> Result<String, BarLabelError> {
+    format
+        .printf_or_format(value, whole)
+        .map_err(BarLabelError::Format)
 }
 
 #[cfg(test)]
@@ -337,7 +323,7 @@ mod tests {
             .bar([0.0, 1.0], [2.0, -1.5], BarOptions::default())
             .unwrap();
         let options = BarLabelOptions {
-            fmt: BarLabelFormat::Template("%+.1f".into()),
+            fmt: LabelFormat::from("%+.1f"),
             padding: vec![3.0],
             ..BarLabelOptions::default()
         };
@@ -375,7 +361,7 @@ mod tests {
             .unwrap();
         let options = BarLabelOptions {
             labels: vec!["a".into()],
-            fmt: BarLabelFormat::Template("{:.0%}".into()),
+            fmt: LabelFormat::from("{:.0%}"),
             label_type: BarLabelType::Center,
             ..BarLabelOptions::default()
         };
@@ -384,7 +370,7 @@ mod tests {
         assert_eq!(texts, ["a", "", "300%"]);
         let whole = ax.bar([5.0], [7.0], BarOptions::default()).unwrap();
         let integer = BarLabelOptions {
-            fmt: BarLabelFormat::Template("{:d}".into()),
+            fmt: LabelFormat::from("{:d}"),
             ..BarLabelOptions::default()
         };
         assert_eq!(ax.bar_label(&whole, integer).unwrap()[0].text(), "7");

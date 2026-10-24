@@ -5,9 +5,12 @@
 
 use plt::axes::{Axes, ImshowOptions, SpyOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions, Spacing};
-use plt::colors::{BoundaryNorm, Colormap, Extend, LogNorm, Norm, NormName, Normalize, colormaps};
+use plt::colors::{
+    BoundaryNorm, Colorize, ColorizerOptions, Colormap, Extend, LogNorm, Norm, NormName, Normalize,
+    colormaps,
+};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, Interpolation, Origin, ScalarField};
+use plt::image::{Extent, Interpolation, Origin, ScalarField};
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
 
@@ -43,7 +46,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ax.imshow(
                 z.clone(),
                 ImshowOptions {
-                    colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
+                    colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
                     origin: Some(Origin::Lower),
                     ..ImshowOptions::default().interpolation(Interpolation::Nearest)
                 },
@@ -139,7 +142,7 @@ fn mask_image_over_under(fig: &Figure) -> CaseResult {
     let image = ax1.imshow(
         ScalarField::masked(z.clone(), &mask)?,
         ImshowOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(palette.clone())
                 .norm(Normalize::new(-1.0, 1.0)),
             ..placed(Interpolation::Bilinear)
@@ -163,7 +166,7 @@ fn mask_image_over_under(fig: &Figure) -> CaseResult {
     let image = ax2.imshow(
         ScalarField::masked(z, &mask)?,
         ImshowOptions {
-            colors: ColorizerOptions::default().cmap(palette).norm(boundaries),
+            colorizer: ColorizerOptions::default().cmap(palette).norm(boundaries),
             ..placed(Interpolation::Nearest)
         },
     )?;
@@ -195,7 +198,7 @@ fn imshow_masked_interpolation(fig: &Figure) -> CaseResult {
         ax.imshow(
             field.clone(),
             ImshowOptions {
-                colors: ColorizerOptions::default()
+                colorizer: ColorizerOptions::default()
                     .cmap(cmap.clone())
                     .norm(Normalize::new(0.0, 399.0)),
                 ..ImshowOptions::default().interpolation(name.parse()?)
@@ -228,7 +231,7 @@ fn norm_change(fig: &Figure) -> CaseResult {
         let image = ax.imshow(
             field,
             ImshowOptions {
-                colors: ColorizerOptions::default()
+                colorizer: ColorizerOptions::default()
                     .cmap(cmap.clone())
                     .norm(LogNorm::new(0.5, 1.0)),
                 extent: Some(extent),
@@ -248,7 +251,7 @@ fn huge_range_log(fig: &Figure, x: f64) -> CaseResult {
     fig.subplot().imshow(
         data,
         ImshowOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(colormaps::get("viridis")?)
                 .norm(LogNorm::new(1.0, 1e20)),
             ..ImshowOptions::default().interpolation(Interpolation::Nearest)
@@ -276,7 +279,7 @@ fn str_norms(fig: &Figure) -> CaseResult {
         ax.imshow(
             t.clone(),
             ImshowOptions {
-                colors: ColorizerOptions {
+                colorizer: ColorizerOptions {
                     norm: Some(norm),
                     ..ColorizerOptions::default()
                 },

@@ -6,8 +6,8 @@ use std::error::Error;
 use std::f64::consts::PI;
 
 use plt::axes::{AxisMode, ImshowOptions};
-use plt::colors::colormaps;
-use plt::image::{ColorizerOptions, Extent, Origin};
+use plt::colors::{ColorizerOptions, colormaps};
+use plt::image::{Extent, Origin};
 use plt::numeric::Grid;
 use plt::patches::{Circle, PathShape};
 use plt::prelude::*;
@@ -127,7 +127,7 @@ fn dolphin(fig: &Figure) -> CaseResult {
         extent: Some(Extent::new(-1.0, 1.0, -1.0, 1.0)),
         ..ImshowOptions::default()
     }
-    .colors(ColorizerOptions::default().cmap(colormaps::get("winter")?))
+    .colorizer(ColorizerOptions::default().cmap(colormaps::get("winter")?))
     .interpolation("spline36".parse()?);
     ax.imshow(noise, options)?
         .set_clip_patch(&circle, ax.trans_data());

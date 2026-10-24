@@ -133,7 +133,7 @@ pub(super) fn primary_views(fig: &Figure) -> CaseResult {
         (0.0, 90.0),
         (0.0, 180.0),
     ];
-    fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout::default())));
+    fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout::default())))?;
     for (ax, (elev, azim)) in subplots_3d(fig, 2, 3)?.iter().zip(views) {
         ax.set_xlabel("x").set_ylabel("y").set_zlabel("z");
         ax.set_proj_type(ProjType::Ortho)?;

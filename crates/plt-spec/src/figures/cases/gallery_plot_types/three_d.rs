@@ -5,11 +5,11 @@
 use std::f64::consts::PI;
 
 use plt::collections::CollectionProps;
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::mplot3d::{
-    Array3, Axes3D, Axis3, Bar3DOptions, Boxes, FaceColormap, FaceColors, FillBetween3DOptions,
-    Quiver3DOptions, Sampling, Stem3DOptions, SurfaceOptions, TrisurfOptions, VoxelOptions,
-    WireframeOptions, test_data,
+    Array3, Axes3D, Axis3, Bar3DOptions, Boxes, FaceColors, FillBetween3DOptions, Quiver3DOptions,
+    Sampling, Stem3DOptions, SurfaceOptions, TrisurfOptions, VoxelOptions, WireframeOptions,
+    test_data,
 };
 use plt::numeric::{Grid, arange, linspace, linspace_with, meshgrid};
 use plt::prelude::*;
@@ -31,10 +31,10 @@ fn no_tick_labels(ax: &Axes3D) -> CaseResult {
 
 /// `Blues` mapped from `vmin` up to the largest face value.
 fn blues_from(vmin: f64) -> Result<FaceColors, Box<dyn std::error::Error>> {
-    Ok(FaceColors::Mapped(Box::new(FaceColormap {
-        vmin: Some(vmin),
-        ..FaceColormap::new(colormaps::get("Blues")?)
-    })))
+    Ok(ColorizerOptions::default()
+        .cmap(colormaps::get("Blues")?)
+        .limits(Some(vmin), None)
+        .into())
 }
 
 /// The smallest of `values`.

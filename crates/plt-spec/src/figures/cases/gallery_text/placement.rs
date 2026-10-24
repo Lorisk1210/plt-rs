@@ -279,7 +279,7 @@ fn demo_text_rotation_mode(fig: &Figure) -> CaseResult {
 }
 
 fn multiline_1(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(plt::layout::LayoutEngine::constrained());
+    fig.set_layout_engine(plt::layout::LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let x: Vec<f64> = (0..6).map(f64::from).collect();
     ax.bar(

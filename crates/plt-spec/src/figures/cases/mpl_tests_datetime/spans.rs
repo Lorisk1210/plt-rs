@@ -23,7 +23,7 @@ pub(super) const CASES: &[FigureCase] = &[
 /// `test_axhline`: lines at dates, `datetime64` included, over part of
 /// the width of axes with date limits.
 fn axhline(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
     ax[0].set_ylim(day(2020, 4, 1)?, day(2020, 8, 1)?);
     ax[1].set_ylim(datetime64("2005-01-01")?, datetime64("2005-04-01")?);
@@ -37,7 +37,7 @@ fn axhline(fig: &Figure) -> CaseResult {
 
 /// `test_axvline`.
 fn axvline(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
     ax[0].set_xlim(day(2020, 4, 1)?, day(2020, 8, 1)?);
     ax[1].set_xlim(datetime64("2005-01-01")?, datetime64("2005-04-01")?);
@@ -55,7 +55,7 @@ type Span = (AxisValue, AxisValue);
 /// `test_axhspan` (`horizontal`) and `test_axvspan`: dates and numbers
 /// plotted against each other, with bands every other day or unit.
 fn spans(fig: &Figure, horizontal: bool) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let start = day(2023, 1, 1)?;
     let dates = daily(start, 0..31)?;
     let values = numbers(1..32);
@@ -135,7 +135,7 @@ fn axvspan(fig: &Figure) -> CaseResult {
 /// `test_hlines`: lines at dates and `datetime64` values spanning axes
 /// fractions or dates.
 fn hlines(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let axs = fig.subplots(2, 4)?;
     let dates = (1..6)
         .map(|m| day(2023, m * 2, 10))
@@ -172,7 +172,7 @@ fn hlines(fig: &Figure) -> CaseResult {
 /// `test_vlines`: lines at dates over axes fractions, at numbers between
 /// `datetime64` values, and at dates between dates.
 fn vlines(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
     ax[0].set_xlim(day(2023, 1, 1)?, day(2023, 6, 30)?);
     ax[0].vlines(

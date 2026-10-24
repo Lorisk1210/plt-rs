@@ -6,10 +6,9 @@ use plt::axes_grid1::{
     make_axes_area_auto_adjustable, make_axes_locatable,
 };
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
 use plt::gridspec::{GridSpec, GridSpecError};
-use plt::image::ColorizerOptions;
 use plt::lines::LineProps;
 use plt::numeric::linspace;
 use plt::orientation::Orientation;
@@ -36,7 +35,7 @@ fn image(
         colors = colors.limits(Some(vmin), Some(vmax));
     }
     Ok(ImshowOptions {
-        colors,
+        colorizer: colors,
         ..ImshowOptions::default()
     })
 }

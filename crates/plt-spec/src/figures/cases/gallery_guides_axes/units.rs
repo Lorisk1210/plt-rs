@@ -3,7 +3,7 @@
 
 use plt::dates::{DateFormatter, Datetime64, RRuleLocator};
 use plt::figure::Share;
-use plt::layout::LayoutEngine;
+use plt::layout::{LayoutEngine, LayoutEngineError};
 use plt::prelude::*;
 use plt::text::TextProps;
 
@@ -41,9 +41,9 @@ fn days_of_1980(ax: &Axes) -> CaseResult {
 }
 
 /// One constrained axes.
-fn constrained_axes(fig: &Figure) -> Axes {
-    fig.set_layout_engine(LayoutEngine::constrained());
-    fig.subplot()
+fn constrained_axes(fig: &Figure) -> Result<Axes, LayoutEngineError> {
+    fig.set_layout_engine(LayoutEngine::constrained())?;
+    Ok(fig.subplot())
 }
 
 /// Bars of the fruit counts.
@@ -54,11 +54,11 @@ fn fruit_bars(ax: &Axes) -> CaseResult {
 }
 
 fn axes_units_1(fig: &Figure) -> CaseResult {
-    days_of_1980(&constrained_axes(fig))
+    days_of_1980(&constrained_axes(fig)?)
 }
 
 fn axes_units_2(fig: &Figure) -> CaseResult {
-    let ax = constrained_axes(fig);
+    let ax = constrained_axes(fig)?;
     days_of_1980(&ax)?;
     ax.plot_fmt([0.0], [0.0], "d")?;
     ax.text(0.0, 0.0, " Float x=0").set_rotation(45.0);
@@ -66,7 +66,7 @@ fn axes_units_2(fig: &Figure) -> CaseResult {
 }
 
 fn axes_units_3(fig: &Figure) -> CaseResult {
-    let ax = constrained_axes(fig);
+    let ax = constrained_axes(fig)?;
     days_of_1980(&ax)?;
     ax.xaxis()
         .set_major_locator(RRuleLocator::months(&[1, 3, 5, 7, 9, 11], &[1], 1))
@@ -76,7 +76,7 @@ fn axes_units_3(fig: &Figure) -> CaseResult {
 }
 
 fn axes_units_5(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 1)?;
     for ax in axs.as_slice() {
         days_of_1980(ax)?;
@@ -91,7 +91,7 @@ fn axes_units_5(fig: &Figure) -> CaseResult {
 
 fn axes_units_6(fig: &Figure) -> CaseResult {
     let (names, values): (Vec<&str>, Vec<f64>) = FRUIT.into_iter().unzip();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots_shared(1, 3, Share::None, Share::All)?;
     axs[(0, 0)].bar(names.clone(), values.clone(), BarOptions::default())?;
     axs[(0, 1)].scatter(names.clone(), values.clone())?;
@@ -101,7 +101,7 @@ fn axes_units_6(fig: &Figure) -> CaseResult {
 }
 
 fn axes_units_7(fig: &Figure) -> CaseResult {
-    let ax = constrained_axes(fig);
+    let ax = constrained_axes(fig)?;
     fruit_bars(&ax)?;
     ax.scatter(vec!["lemon", "apple"], vec![7.0, 12.0])?;
     ax.plot_with(
@@ -113,7 +113,7 @@ fn axes_units_7(fig: &Figure) -> CaseResult {
 }
 
 fn axes_units_8(fig: &Figure) -> CaseResult {
-    let ax = constrained_axes(fig);
+    let ax = constrained_axes(fig)?;
     fruit_bars(&ax)?;
     let marker = LineProps::fmt("d")?.color("C1");
     for x in [0.0, 2.0, 4.0, 2.5] {
@@ -129,7 +129,7 @@ fn axes_units_8(fig: &Figure) -> CaseResult {
 }
 
 fn axes_units_9(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 1)?;
     let ax = &axs[(0, 0)];
     fruit_bars(ax)?;
@@ -144,7 +144,7 @@ fn axes_units_9(fig: &Figure) -> CaseResult {
 }
 
 fn axes_units_10(fig: &Figure) -> CaseResult {
-    let ax = constrained_axes(fig);
+    let ax = constrained_axes(fig)?;
     let x: Vec<String> = (0..100).map(|i| i.to_string()).collect();
     ax.plot(x, arange(0.0, 100.0, 1.0))?;
     ax.set_xlabel("x is list of strings");
@@ -152,7 +152,7 @@ fn axes_units_10(fig: &Figure) -> CaseResult {
 }
 
 fn axes_units_11(fig: &Figure) -> CaseResult {
-    let ax = constrained_axes(fig);
+    let ax = constrained_axes(fig)?;
     let x = arange(0.0, 100.0, 1.0);
     ax.plot(&x, &x)?;
     ax.set_xlabel("x is array of floats");

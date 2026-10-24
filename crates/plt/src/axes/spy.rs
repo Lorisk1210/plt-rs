@@ -3,10 +3,8 @@
 use super::image::ImshowOptions;
 use super::{Axes, AxisName};
 use crate::artist::Artist;
-use crate::colors::{Colormap, NoNorm};
-use crate::image::{
-    AxesImage, ColorizerOptions, ImageData, ImageError, Interpolation, Origin, ScalarField,
-};
+use crate::colors::{ColorizerOptions, Colormap, NoNorm, Norm, impl_colorize};
+use crate::image::{AxesImage, ImageData, ImageError, Interpolation, Origin, ScalarField};
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::numeric::Grid;
@@ -27,8 +25,10 @@ pub struct SpyOptions {
     pub aspect: Aspect,
     /// Where row 0 is drawn.
     pub origin: Origin,
-    /// Colormap of the image (default: white for zero, black otherwise).
-    pub cmap: Option<Colormap>,
+    /// Colormap, norm and limits of the image (default: white for zero
+    /// and black otherwise, through the identity norm), as matplotlib's
+    /// `spy` hands them to `imshow`.
+    pub colorizer: ColorizerOptions,
     /// Style of the markers.
     pub line: LineProps,
 }
@@ -41,10 +41,33 @@ impl Default for SpyOptions {
             markersize: None,
             aspect: Aspect::Equal,
             origin: Origin::Upper,
-            cmap: None,
+            colorizer: ColorizerOptions::default(),
             line: LineProps::default(),
         }
     }
+}
+
+impl_colorize!(SpyOptions);
+
+/// The colours of a `spy` image: `colorizer` with matplotlib's binary
+/// colormap when it names none, and the identity norm when it gives
+/// neither a norm nor limits.
+fn spy_colorizer(colorizer: ColorizerOptions) -> Result<ColorizerOptions, ImageError> {
+    let cmap = match colorizer.cmap {
+        Some(cmap) => cmap,
+        None => Colormap::listed("binary", vec!["w", "k"])?,
+    };
+    let scaled = colorizer.norm.is_some() || colorizer.vmin.is_some() || colorizer.vmax.is_some();
+    let norm: Option<Box<dyn Norm>> = if scaled {
+        colorizer.norm
+    } else {
+        Some(Box::new(NoNorm::default()))
+    };
+    Ok(ColorizerOptions {
+        cmap: Some(cmap),
+        norm,
+        ..colorizer
+    })
 }
 
 /// What [`Axes::spy`] drew.
@@ -80,14 +103,8 @@ impl Axes {
     pub fn spy(&self, z: &Grid<f64>, options: SpyOptions) -> Result<Spy, ImageError> {
         let nonzero = z.map(|v| v.abs() > options.precision);
         let spy = if options.marker.is_none() && options.markersize.is_none() {
-            let cmap = match &options.cmap {
-                Some(cmap) => cmap.clone(),
-                None => Colormap::listed("binary", vec!["w", "k"])?,
-            };
             let imshow = ImshowOptions {
-                colors: ColorizerOptions::default()
-                    .cmap(cmap)
-                    .norm(NoNorm::default()),
+                colorizer: spy_colorizer(options.colorizer)?,
                 interpolation: Some(Interpolation::Nearest),
                 aspect: Some(options.aspect),
                 origin: Some(options.origin),

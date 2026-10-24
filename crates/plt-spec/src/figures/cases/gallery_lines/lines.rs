@@ -98,7 +98,7 @@ fn capstyle(fig: &Figure) -> CaseResult {
 }
 
 fn joinstyle(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.set_title("Join style");
     let styles = [
@@ -320,7 +320,7 @@ fn linestyles(fig: &Figure) -> CaseResult {
         parametrized("loosely dashdotdotted", 0, &[3, 10, 1, 10, 1, 10]),
         parametrized("densely dashdotdotted", 0, &[3, 1, 1, 1, 1, 1]),
     ];
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let grid = GridSpec::with_ratios(
         2,
         1,
@@ -433,7 +433,7 @@ fn multicolored_line_2(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = ScatterOptions {
         colors: MappedColors::new(c.to_vec())
-            .with_cmap(colormaps::get("rainbow")?)
+            .cmap(colormaps::get("rainbow")?)
             .into(),
         ..ScatterOptions::default()
     };

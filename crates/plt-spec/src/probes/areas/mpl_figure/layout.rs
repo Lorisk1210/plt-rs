@@ -20,16 +20,22 @@ use crate::rng::SpecRng;
 /// The name of a figure's layout engine.
 fn engine_name(fig: &Figure) -> Json {
     Json::from(match fig.layout_engine() {
-        None => "none",
+        None | Some(LayoutEngine::PlaceHolder(_)) => "none",
         Some(LayoutEngine::Tight(_)) => "tight",
         Some(LayoutEngine::Constrained(engine)) if engine.compress => "compressed",
         Some(LayoutEngine::Constrained(_)) => "constrained",
     })
 }
 
-/// A layout engine by name.
-fn engine(name: &str) -> Result<LayoutEngine, ProbeError> {
-    name.parse().map_err(ProbeError::rejected)
+/// Sets the layout engine named `name` (`"none"` removes the engine).
+fn set_engine(fig: &Figure, name: &str) -> Result<(), ProbeError> {
+    let engine = match name {
+        "none" => None,
+        name => Some(name.parse::<LayoutEngine>().map_err(ProbeError::rejected)?),
+    };
+    fig.set_layout_engine(engine)
+        .map_err(ProbeError::rejected)?;
+    Ok(())
 }
 
 /// The engine of `Figure(layout=layout)` after each call.
@@ -37,13 +43,23 @@ pub(super) fn layout_engine(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = Figure::new();
         if let Some(name) = args.opt_str("layout")? {
-            fig.set_layout_engine(engine(name)?);
+            set_engine(&fig, name)?;
         }
         let mut out = vec![engine_name(&fig)];
         for call in args.get("calls").and_then(Json::as_array).unwrap_or(&[]) {
             match call.as_array().unwrap_or(&[]) {
                 [Json::String(name), Json::String(layout)] if name == "set_layout_engine" => {
-                    fig.set_layout_engine(engine(layout)?);
+                    set_engine(&fig, layout)?;
+                }
+                [Json::String(name)] if name == "colorbar" => {
+                    let values = Grid::from_vec(2, 2, vec![1.0, 2.0, 3.0, 4.0])
+                        .map_err(ProbeError::rejected)?;
+                    let mesh = fig
+                        .subplot()
+                        .pcolormesh(Mesh::new(values), PcolorOptions::default())
+                        .map_err(ProbeError::rejected)?;
+                    fig.colorbar(&mesh, ColorbarOptions::default())
+                        .map_err(ProbeError::rejected)?;
                 }
                 [Json::String(name), kwargs] if name == "tight_layout" => {
                     fig.subplots(1, 2).map_err(ProbeError::rejected)?;
@@ -85,7 +101,8 @@ pub(super) fn constrained_pads(args: Args<'_>) -> Outcome {
             wspace: param("wspace")?,
             hspace: param("hspace")?,
             ..ConstrainedLayout::default()
-        }));
+        }))
+        .map_err(ProbeError::rejected)?;
         let Some(LayoutEngine::Constrained(engine)) = fig.layout_engine() else {
             return Err(ProbeError::rejected("the engine was not kept"));
         };
@@ -128,7 +145,8 @@ pub(super) fn tightbbox(args: Args<'_>) -> Outcome {
 pub(super) fn subfigure_tightbbox(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = Figure::new();
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())
+            .map_err(ProbeError::rejected)?;
         super::texts::subfigures(&fig, 1, 2)?;
         Ok(Json::from(fig.tight_bbox().width()))
     })
@@ -140,7 +158,8 @@ pub(super) fn align_labels(args: Args<'_>) -> Outcome {
         let fig = Figure::new();
         let constrained = args.opt_str("layout")? == Some("constrained");
         if constrained {
-            fig.set_layout_engine(LayoutEngine::constrained());
+            fig.set_layout_engine(LayoutEngine::constrained())
+                .map_err(ProbeError::rejected)?;
         }
         let axs = fig.subplots(2, 2).map_err(ProbeError::rejected)?;
         let seed = args.opt_i64("seed")?.unwrap_or_default();
@@ -239,7 +258,8 @@ pub(super) fn autofmt_xdate(args: Args<'_>) -> Outcome {
 /// tick labels of an image with a colorbar.
 fn autofmt_with_colorbar() -> Outcome {
     let fig = Figure::new();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())
+        .map_err(ProbeError::rejected)?;
     let ax = fig.subplot();
     let data =
         Grid::from_vec(2, 3, vec![1.0, 4.0, 6.0, 2.0, 3.0, 5.0]).map_err(ProbeError::rejected)?;

@@ -79,6 +79,45 @@
    "value": [0.01, 0.02, 0.03, 0.04]
   },
   {"op": "Figure.get_label", "args": {}, "value": ["whole Figure", "sub figure"]},
+  {
+   "op": "Figure.get_layout_engine",
+   "args": {"layout": "constrained", "calls": [["colorbar"], ["set_layout_engine", "compressed"]]},
+   "value": ["constrained", "constrained", "compressed"]
+  },
+  {"op": "Figure.get_layout_engine", "args": {"layout": "tight", "calls": [["colorbar"], ["set_layout_engine", "constrained"]]}, "error": "RuntimeError"},
+  {
+   "op": "Figure.get_layout_engine",
+   "args": {"layout": "constrained", "calls": [["colorbar"], ["set_layout_engine", "none"], ["set_layout_engine", "constrained"]]},
+   "value": ["constrained", "constrained", "none", "constrained"]
+  },
+  {
+   "op": "Figure.get_layout_engine",
+   "args": {"layout": "tight", "calls": [["colorbar"], ["set_layout_engine", "none"], ["set_layout_engine", "constrained"]]},
+   "error": "RuntimeError"
+  },
+  {
+   "op": "Figure.get_layout_engine",
+   "args": {"calls": [["colorbar"], ["set_layout_engine", "none"], ["set_layout_engine", "constrained"]]},
+   "value": ["none", "none", "none", "constrained"]
+  },
+  {
+   "op": "Figure.get_layout_engine",
+   "args": {"layout": "constrained", "calls": [["colorbar"], ["set_layout_engine", "none"], ["set_layout_engine", "tight"]]},
+   "error": "RuntimeError"
+  },
+  {
+   "op": "Figure.get_layout_engine",
+   "args": {"layout": "tight", "calls": [["colorbar"], ["set_layout_engine", "none"], ["set_layout_engine", "tight"]]},
+   "value": ["tight", "tight", "none", "tight"]
+  },
+  {
+   "op": "Figure.get_layout_engine",
+   "args": {"layout": "constrained", "calls": [["colorbar"], ["set_layout_engine", "none"]]},
+   "value": ["constrained", "constrained", "none"]
+  },
+  {"op": "Figure.get_layout_engine", "args": {"layout": "tight", "calls": [["colorbar"], ["set_layout_engine", "none"]]}, "value": ["tight", "tight", "none"]},
+  {"op": "Figure.get_layout_engine", "args": {"layout": "constrained", "calls": [["colorbar"], ["set_layout_engine", "tight"]]}, "error": "RuntimeError"},
+  {"op": "Figure.get_layout_engine", "args": {"layout": "constrained", "calls": [["colorbar"], ["tight_layout", {}]]}, "error": "RuntimeError"},
   {"op": "Figure.get_layout_engine", "args": {"layout": "compressed", "calls": [["savefig_tight"]]}, "value": ["compressed", "compressed"]},
   {
    "op": "Figure.get_layout_engine",

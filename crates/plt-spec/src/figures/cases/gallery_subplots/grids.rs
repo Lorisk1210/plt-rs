@@ -153,7 +153,7 @@ fn gridspec_customization_2(fig: &Figure) -> CaseResult {
 }
 
 fn gridspec_multicolumn(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     add_blocks(fig, &GridSpec::new(3, 3)?, &MULTICOLUMN)?;
     fig.suptitle("GridSpec");
     label_axes(fig);

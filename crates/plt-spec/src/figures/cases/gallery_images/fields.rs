@@ -6,10 +6,10 @@ use std::f64::consts::PI;
 use plt::axes::{Axes, ImshowOptions, MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::EdgeColors;
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, ColormapError, colormaps};
+use plt::colors::{Color, Colorize, ColorizerOptions, ColormapError, colormaps};
 use plt::figure::{Figure, Share};
 use plt::gridspec::{GridSpec, SubplotOverrides};
-use plt::image::{ColorizerOptions, Extent, ImageAlpha, ScalarField};
+use plt::image::{Extent, ImageAlpha, ScalarField};
 use plt::layout::TightLayout;
 use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::patches::PatchProps;
@@ -230,9 +230,12 @@ fn stream_field() -> StreamField {
 fn autumn_lines(values: &Grid<f64>) -> Result<StreamplotOptions, ColormapError> {
     Ok(StreamplotOptions {
         color: Some(StreamColors::Mapped(Box::new(StreamColorMap {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("autumn")?),
+                norm: None,
+                ..ColorizerOptions::default()
+            },
             values: values.clone(),
-            cmap: Some(colormaps::get("autumn")?),
-            norm: None,
         }))),
         linewidth: Some(StreamWidths::Uniform(2.0)),
         ..StreamplotOptions::default()
@@ -328,7 +331,7 @@ fn plot_streamplot_1(fig: &Figure) -> CaseResult {
     axs[6].streamplot(&holey, red)?;
     axs[6].set_title("Streamplot with Masking");
     let image = ImshowOptions {
-        colors: ColorizerOptions::default().cmap(colormaps::get("gray")?),
+        colorizer: ColorizerOptions::default().cmap(colormaps::get("gray")?),
         extent: Some(Extent::new(-3.0, 3.0, -3.0, 3.0)),
         alpha: Some(ImageAlpha::Uniform(0.5)),
         aspect: Some(Aspect::Auto),

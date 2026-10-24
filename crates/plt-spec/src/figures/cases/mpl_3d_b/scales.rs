@@ -5,12 +5,12 @@
 use std::f64::consts::{E, PI};
 
 use plt::collections::CollectionProps;
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, Levels};
 use plt::mplot3d::{
-    Axes3D, Axes3DError, Axes3DOptions, Axis3, Bar3DOptions, Boxes, Contour3DOptions, FaceColormap,
-    FaceColors, Quiver3DOptions, Sampling, Scatter3DOptions, Stem3DOptions, SurfaceOptions,
-    TrisurfOptions, WireframeOptions,
+    Axes3D, Axes3DError, Axes3DOptions, Axis3, Bar3DOptions, Boxes, Contour3DOptions, FaceColors,
+    Quiver3DOptions, Sampling, Scatter3DOptions, Stem3DOptions, SurfaceOptions, TrisurfOptions,
+    WireframeOptions,
 };
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -68,9 +68,9 @@ fn log_axes(ax: &Axes3D, title: &str) -> Result<(), Axes3DError> {
 
 /// Viridis for colour-mapped surfaces.
 fn viridis_faces() -> Result<FaceColors, Box<dyn std::error::Error>> {
-    Ok(FaceColors::Mapped(Box::new(FaceColormap::new(
-        colormaps::get("viridis")?,
-    ))))
+    Ok(FaceColors::from(
+        ColorizerOptions::default().cmap(colormaps::get("viridis")?),
+    ))
 }
 
 /// The first row of `scale3d_artists_log`: plot, wireframe, scatter and
@@ -94,7 +94,7 @@ fn lines_points_bars(fig: &Figure) -> CaseResult {
     let options = Scatter3DOptions {
         scatter: ScatterOptions {
             colors: MappedColors::new(z.clone())
-                .with_cmap(colormaps::get("viridis")?)
+                .cmap(colormaps::get("viridis")?)
                 .into(),
             ..ScatterOptions::default()
         },
@@ -328,7 +328,7 @@ pub(super) fn scale3d_symlog_params(fig: &Figure) -> CaseResult {
             scatter: ScatterOptions {
                 sizes: Some(vec![10.0]),
                 colors: MappedColors::new(z.iter().map(|z| z.abs()).collect::<Vec<f64>>())
-                    .with_cmap(colormaps::get("viridis")?)
+                    .cmap(colormaps::get("viridis")?)
                     .into(),
                 ..ScatterOptions::default()
             },

@@ -3,7 +3,7 @@
 
 use plt::axes::{MappedColors, ScatterOptions};
 use plt::collections::{ElementCount, LegendElementsOptions, LegendProperty};
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, colormaps};
 use plt::figure::Figure;
 use plt::markers::{FillStyle, Marker, MarkerStyle};
 use plt::ticker::StrMethodFormatter;
@@ -78,7 +78,7 @@ pub(super) fn legend_elements(args: Args<'_>) -> Outcome {
     let scatter_options = ScatterOptions {
         sizes: Some(args.f64_vec("sizes")?),
         colors: MappedColors::new(args.f64_vec("values")?)
-            .with_cmap(made(colormaps::get("jet"))?)
+            .cmap(made(colormaps::get("jet"))?)
             .into(),
         marker: Some(made(MarkerStyle::new(
             made("o".parse::<Marker>())?,

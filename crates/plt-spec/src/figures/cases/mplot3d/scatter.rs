@@ -3,7 +3,7 @@
 use plt::artist::ArtistHandle;
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::{CollectionProps, EdgeColors};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, colormaps};
 use plt::legend::LegendOptions;
 use plt::lines::LineProps;
 use plt::mplot3d::{Axes3DOptions, Axis3, FaceColors, Scatter3DOptions, SurfaceOptions};
@@ -79,7 +79,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         );
         let scatter = ScatterOptions {
             colors: MappedColors::new(z.clone())
-                .with_cmap(colormaps::get("plasma")?)
+                .cmap(colormaps::get("plasma")?)
                 .into(),
             edgecolors: Some(EdgeColors::Colors(vec!["k".into()])),
             ..area(30.0)

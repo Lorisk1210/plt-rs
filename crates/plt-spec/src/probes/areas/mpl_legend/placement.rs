@@ -127,7 +127,8 @@ pub(super) fn outside(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let [width, height] = plt::rc::params().figure_figsize;
         let fig = Figure::with_size(width, height, 100.0);
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())
+            .map_err(ProbeError::rejected)?;
         let ax = fig.subplot();
         labelled_range(&ax, "Boo1")?;
         let loc = format!("outside {}", args.str("loc")?);

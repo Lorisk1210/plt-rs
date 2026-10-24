@@ -76,7 +76,7 @@ pub fn apply_xkcd(rc: &mut RcParams, sketch: XkcdSketch) -> Result<(), XkcdError
     }
     let outline = Stroke::new(GcUpdate {
         linewidth: Some(4.0),
-        foreground: Some(Rgba::WHITE),
+        foreground: Some(Rgba::WHITE.into()),
         ..GcUpdate::default()
     });
     rc.font_family = XKCD_FAMILIES.map(str::to_owned).to_vec();

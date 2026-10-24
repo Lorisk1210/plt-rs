@@ -10,10 +10,10 @@ use super::artist::split_alpha;
 use super::resample::{PixelMap, Resampling};
 use super::stages::{data_stage, rgba_stage};
 use super::{
-    ColorizerOptions, Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage,
-    Origin, rc_defaults,
+    Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin,
+    rc_defaults,
 };
-use crate::colors::ScalarMappable;
+use crate::colors::{ColorizerOptions, ScalarMappable};
 use crate::numeric::Grid;
 use crate::rc::RcParams;
 
@@ -22,7 +22,7 @@ use crate::rc::RcParams;
 #[derive(Debug, Default)]
 pub(crate) struct CoreSettings {
     /// Colormap, norm and limits for scalar data.
-    pub(crate) colors: ColorizerOptions,
+    pub(crate) colorizer: ColorizerOptions,
     /// Interpolation when resampling.
     pub(crate) interpolation: Option<Interpolation>,
     /// Whether data or colours are resampled.
@@ -111,7 +111,7 @@ impl ImageCore {
             filterrad,
             origin: settings.origin.unwrap_or(origin),
         };
-        let mut mappable = settings.colors.into_mappable(rc)?;
+        let mut mappable = settings.colorizer.into_mappable(rc)?;
         if let Some(field) = data.scalars() {
             field.autoscale(mappable.norm_mut());
         }

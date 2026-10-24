@@ -109,7 +109,7 @@ fn scatter_hist_data() -> (Vec<f64>, Vec<f64>) {
 
 fn scatter_hist_1(fig: &Figure) -> CaseResult {
     let (x, y) = scatter_hist_data();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let options = MosaicOptions {
         width_ratios: Some(vec![4.0, 1.0]),
         height_ratios: Some(vec![1.0, 4.0]),
@@ -122,7 +122,7 @@ fn scatter_hist_1(fig: &Figure) -> CaseResult {
 
 fn scatter_hist_2(fig: &Figure) -> CaseResult {
     let (x, y) = scatter_hist_data();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.set_aspect(Aspect::Equal)?;
     let ax_histx = ax.inset_axes([0.0, 1.05, 1.0, 0.25]);
@@ -162,7 +162,7 @@ fn scatter_star_poly(fig: &Figure) -> CaseResult {
     let x = rng.uniform(10, 0.0, 1.0);
     let y = rng.uniform(10, 0.0, 1.0);
     let z: Vec<f64> = x.iter().zip(&y).map(|(x, y)| x.hypot(*y)).collect();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots_shared(2, 3, Share::All, Share::All)?;
     let verts = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, -1.0)]
         .map(|(x, y)| Point::new(x, y))
@@ -293,8 +293,8 @@ fn scatter_with_legend_3(fig: &Figure) -> CaseResult {
     let options = ScatterOptions {
         sizes: Some(map(&price, |p| 0.3 * (p * 3.0).powi(2))),
         colors: MappedColors::new(ranking)
-            .with_limits(Some(-3.0), Some(3.0))
-            .with_cmap(cmap.clone())
+            .limits(Some(-3.0), Some(3.0))
+            .cmap(cmap.clone())
             .into(),
         ..ScatterOptions::default()
     };

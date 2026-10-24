@@ -401,6 +401,14 @@ pub(crate) fn is_colorbar_axes(ax: &Axes) -> bool {
     colorbar_id(&ax.raw().figure_state().borrow().store, ax.id()).is_some()
 }
 
+/// Whether the figure holding `store` has a colorbar (matplotlib looks for
+/// an axes with a `_colorbar`).
+pub(crate) fn has_colorbars(store: &ArtistStore) -> bool {
+    store
+        .ids()
+        .any(|id| store.get_as::<ColorbarArtist>(id).is_some())
+}
+
 /// The extent of the outline of the colorbar drawn in `axes`, if it
 /// holds one (matplotlib's `spines["outline"]`, which the title and the
 /// y offset text clear).

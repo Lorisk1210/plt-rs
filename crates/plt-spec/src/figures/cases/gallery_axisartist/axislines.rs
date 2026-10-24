@@ -47,7 +47,7 @@ fn demo_axisline_style(fig: &Figure) -> CaseResult {
 }
 
 fn simple_axisartist1(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let grid = fig.add_gridspec(1, 2)?;
     let ax0 = axisartist::Axes::new(fig.add_subplot_spec(&grid.cell(0, 0)?)?);
     let y0 = ax0.new_floating_axis_facing("y=0", AxisName::X, 0.0, SpineSide::Bottom);

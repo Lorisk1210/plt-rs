@@ -283,7 +283,8 @@ impl ContourState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contour::{ContourNorm, Levels, QuadField};
+    use crate::colors::{ColorizerOptions, LogNorm};
+    use crate::contour::{Levels, QuadField};
     use crate::figure::Figure;
     use crate::numeric::Grid;
 
@@ -343,7 +344,10 @@ mod tests {
         let ax = Figure::new().subplot();
         let field = QuadField::new(Grid::from_rows([[-1.0, 10.0], [100.0, 1000.0]]).unwrap());
         let options = ContourOptions {
-            norm: ContourNorm::Log,
+            colorizer: ColorizerOptions {
+                norm: Some(Box::new(LogNorm::default())),
+                ..ColorizerOptions::default()
+            },
             ..ContourOptions::default()
         };
         let cs = ax.contour(&field, options).unwrap();

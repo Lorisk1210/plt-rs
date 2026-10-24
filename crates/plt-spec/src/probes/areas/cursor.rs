@@ -4,9 +4,9 @@
 
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, ImshowOptions, Mesh, NonUniformOptions, PcolorOptions, PcolorfastOptions};
-use plt::colors::{BoundaryNorm, Extend, LogNorm, Norm, colormaps};
+use plt::colors::{BoundaryNorm, Colorize, ColorizerOptions, Extend, LogNorm, Norm, colormaps};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, ImageData, MultiField, Origin, ScalarField};
+use plt::image::{Extent, ImageData, MultiField, Origin, ScalarField};
 use plt::navigation::Navigation;
 use plt::numeric::Grid;
 use plt_core::Point;
@@ -67,7 +67,7 @@ fn imshow(ax: &Axes, data: impl Into<ImageData>, options: ImshowOptions) -> Resu
 
 fn normed(norm: impl Norm + 'static) -> ImshowOptions {
     ImshowOptions {
-        colors: ColorizerOptions {
+        colorizer: ColorizerOptions {
             norm: Some(Box::new(norm)),
             ..ColorizerOptions::default()
         },
@@ -145,7 +145,7 @@ fn build(ax: &Axes, scene: &str) -> Result<(), ProbeError> {
             imshow(ax, grid(field), plain())?;
             let gray = colormaps::get("gray").map_err(ProbeError::rejected)?;
             let options = ImshowOptions {
-                colors: ColorizerOptions::default().cmap(gray),
+                colorizer: ColorizerOptions::default().cmap(gray),
                 extent: extent(1.0, 4.0, 3.0, 1.0),
                 ..plain()
             };

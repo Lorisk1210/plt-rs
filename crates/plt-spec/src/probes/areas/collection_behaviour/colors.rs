@@ -4,9 +4,8 @@
 use plt::artist::{ArtistHandle, BaseProps};
 use plt::axes::{Axes, MappedColors, Mesh, PcolorOptions, ScatterColors, ScatterOptions};
 use plt::collections::{Collection, CollectionProps, CollectionSpec, EdgeColors, HatchColors};
-use plt::colors::{Alpha, Color, Normalize, colormaps};
+use plt::colors::{Alpha, Color, ColorizerOptions, Normalize, colormaps};
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::rc;
 use plt_core::Point;
 
@@ -91,7 +90,7 @@ fn line_collection(ax: &Axes) -> Result<Vec<Json>, ProbeError> {
 
 fn mesh_clim(ax: &Axes) -> Result<Vec<Json>, ProbeError> {
     let options = PcolorOptions {
-        colors: ColorizerOptions {
+        colorizer: ColorizerOptions {
             cmap: Some(made(colormaps::get("plasma"))?),
             norm: Some(Box::new(Normalize::new(0.0, 1.0))),
             ..ColorizerOptions::default()

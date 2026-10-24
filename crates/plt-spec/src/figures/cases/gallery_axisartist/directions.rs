@@ -97,7 +97,7 @@ fn floating_lon(ax: &axisartist::Axes) -> AxisArtist {
 }
 
 fn demo_axis_direction(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let rows: [fn(&axisartist::Axes) -> AxisArtist; 2] = [floating_lat, floating_lon];
     for (row, add_floating_axis) in rows.into_iter().enumerate() {
         for (i, direction) in [

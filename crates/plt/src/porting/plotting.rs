@@ -46,7 +46,7 @@
 //! | `ax.errorbar(x, y, yerr=, xerr=, fmt=, capsize=)`  | [`Axes::errorbar`] with [`ErrorbarOptions`], [`ErrorSize`], [`ErrorbarFormat`] |
 //! | `ax.bar(x, h, width=, bottom=, align=, color=)`    | [`Axes::bar`] with [`BarOptions`]                 |
 //! | `ax.barh(y, w, height=, left=)`                    | [`Axes::barh`] (same [`BarOptions`])              |
-//! | `ax.bar_label(bars, fmt=, label_type=, padding=)`  | [`Axes::bar_label`] with [`BarLabelOptions`]      |
+//! | `ax.bar_label(bars, fmt=, label_type=, padding=)`  | [`Axes::bar_label`] with [`BarLabelOptions`]; `fmt` is a [`LabelFormat`] |
 //! | `ax.grouped_bar(heights, ...)`                     | [`Axes::grouped_bar`] with [`GroupedBarOptions`]  |
 //! | `ax.broken_barh(xranges, (y, h))`                  | [`Axes::broken_barh`]                             |
 //! | `ax.fill(x, y, color=)`                            | [`Axes::fill`] with [`PatchProps`]                |
@@ -65,7 +65,7 @@
 //! | `ax.boxplot(data, whis=, tick_labels=, showfliers=)` | [`Axes::boxplot`] with [`BoxplotOptions`] and [`BxpOptions`] |
 //! | `ax.bxp(stats)`                                    | [`Axes::bxp`]                                     |
 //! | `ax.violinplot(data, showmeans=)`, `ax.violin(stats)` | [`Axes::violinplot`], [`Axes::violin`]         |
-//! | `ax.pie(x, labels=, autopct=, explode=)`           | [`Axes::pie`] with [`PieOptions`]                 |
+//! | `ax.pie(x, labels=, autopct=, explode=)`           | [`Axes::pie`] with [`PieOptions`]; `autopct` is a [`LabelFormat`] |
 //! | `ax.pie_label(...)`                                | [`Axes::pie_label`]                               |
 //! | `ax.ecdf(x)`                                       | [`Axes::ecdf`]                                    |
 //! | `ax.psd`, `ax.csd`, `ax.cohere`, `ax.specgram`     | [`Axes::psd`], [`Axes::csd`], [`Axes::cohere`], [`Axes::specgram`] |
@@ -150,8 +150,8 @@
 //! let options = ScatterOptions {
 //!     sizes: Some(vec![20.0, 40.0, 60.0, 80.0]),
 //!     colors: MappedColors::new(vec![0.1, 0.4, 0.7, 1.0])
-//!         .with_cmap(colormaps::get("plasma")?)
-//!         .with_limits(Some(0.0), Some(1.0))
+//!         .cmap(colormaps::get("plasma")?)
+//!         .limits(Some(0.0), Some(1.0))
 //!         .into(),
 //!     edgecolors: Some(EdgeColors::Face),
 //!     ..ScatterOptions::default()
@@ -176,7 +176,7 @@
 //! ```
 //!
 //! ```
-//! use plt::axes::{BarLabelFormat, BarLabelOptions, BarOptions};
+//! use plt::axes::{BarLabelOptions, BarOptions};
 //! use plt::prelude::*;
 //!
 //! let ax = Figure::new().subplot();
@@ -190,7 +190,7 @@
 //! assert_eq!(bars.datavalues, [3.0, 5.0, 2.0]);
 //! assert_eq!(bars.patches[1].shape().width, 0.5);
 //!
-//! let format = BarLabelOptions { fmt: BarLabelFormat::Template("%.1f".into()), ..BarLabelOptions::default() };
+//! let format = BarLabelOptions { fmt: "%.1f".into(), ..BarLabelOptions::default() };
 //! let labels = ax.bar_label(&bars, format)?;
 //! assert_eq!(labels[1].text(), "5.0");
 //!
@@ -272,7 +272,7 @@
 //! ```
 //!
 //! ```
-//! use plt::axes::{BoxplotOptions, BxpOptions, PieLabelFormat, PieOptions};
+//! use plt::axes::{BoxplotOptions, BxpOptions, PieOptions};
 //! use plt::prelude::*;
 //! use plt::stats::Whis;
 //!
@@ -292,7 +292,7 @@
 //! let ax2 = Figure::new().subplot();
 //! let options = PieOptions {
 //!     labels: vec!["x".into(), "y".into(), "z".into()],
-//!     autopct: Some(PieLabelFormat::Printf("%1.0f%%".into())),
+//!     autopct: Some("%1.0f%%".into()),
 //!     ..PieOptions::default()
 //! };
 //! let pie = ax2.pie(&[1.0, 2.0, 1.0], options)?;
@@ -403,6 +403,7 @@
 //! [`BarOptions::base`]: crate::axes::BarOptions::base
 //! [`BarContainer`]: crate::axes::BarContainer
 //! [`BarLabelOptions`]: crate::axes::BarLabelOptions
+//! [`LabelFormat`]: crate::ticker::LabelFormat
 //! [`GroupedBarOptions`]: crate::axes::GroupedBarOptions
 //! [`FillBetweenOptions`]: crate::axes::FillBetweenOptions
 //! [`FillBetweenOptions::mask`]: crate::axes::FillBetweenOptions::mask

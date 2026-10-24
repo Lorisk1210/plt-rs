@@ -131,7 +131,7 @@ fn hatch_demo(fig: &Figure) -> CaseResult {
 
 /// `hatch_style_reference`'s figures: a labelled square per hatch.
 fn hatch_swatches(fig: &Figure, hatches: [&str; 10]) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(2, 5)?;
     for (ax, hatch) in axs.as_slice().iter().zip(hatches) {
         let swatch = PatchProps::default().fill(false).hatch(hatch);

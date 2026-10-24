@@ -4,11 +4,10 @@
 use plt::axes::{Axes, Mesh, PcolorOptions, Shading};
 use plt::colorbar::ColorbarOptions;
 use plt::colors::{
-    AsinhNorm, BoundaryNorm, Extend, LogNorm, Norm, NormError, Normalized, PowerNorm, SymLogNorm,
-    colormaps,
+    AsinhNorm, BoundaryNorm, Colorize, ColorizerOptions, Extend, LogNorm, Norm, NormError,
+    Normalized, PowerNorm, SymLogNorm, colormaps,
 };
 use plt::figure::{Figure, Share};
-use plt::image::ColorizerOptions;
 use plt::layout::LayoutEngine;
 use plt::numeric::{Grid, interp, linspace};
 use plt::orientation::Orientation;
@@ -25,11 +24,11 @@ fn points_mesh(x: &Grid<f64>, y: &Grid<f64>, z: &Grid<f64>) -> Mesh {
 /// `pcolor`/`pcolormesh` options: a colormap, a norm or limits, a shading.
 fn shaded(
     cmap: &str,
-    colors: ColorizerOptions,
+    colorizer: ColorizerOptions,
     shading: Shading,
 ) -> Result<PcolorOptions, plt::colors::ColormapError> {
     Ok(PcolorOptions {
-        colors: colors.cmap(colormaps::get(cmap)?),
+        colorizer: colorizer.cmap(colormaps::get(cmap)?),
         shading: Some(shading),
         ..PcolorOptions::default()
     })
@@ -243,7 +242,7 @@ fn colormap_normalizations_4(fig: &Figure) -> CaseResult {
 fn colormap_normalizations_5(fig: &Figure) -> CaseResult {
     let (x, y, z) = bipolar();
     let top = extremes(&z).1;
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(3, 1)?;
     let vertical = |ax: &Axes, label: &str| ColorbarOptions {
         extend: Some(Extend::Both),
@@ -294,7 +293,7 @@ fn rbf_field() -> (Grid<f64>, Grid<f64>, Grid<f64>) {
 
 /// The symlog panel above a panel coloured as `colors` says, labelled
 /// `label`, both with colorbars.
-fn symlog_against(fig: &Figure, colors: ColorizerOptions, label: &str) -> CaseResult {
+fn symlog_against(fig: &Figure, colorizer: ColorizerOptions, label: &str) -> CaseResult {
     let (x, y, z) = rbf_field();
     let axs = fig.subplots_shared(2, 1, Share::All, Share::All)?;
     let symlog = SymLogNorm::new(0.5, 1.0, 10.0)?
@@ -306,7 +305,7 @@ fn symlog_against(fig: &Figure, colors: ColorizerOptions, label: &str) -> CaseRe
             ColorizerOptions::default().norm(symlog),
             "symlog",
         ),
-        (&axs[(1, 0)], colors, label),
+        (&axs[(1, 0)], colorizer, label),
     ] {
         let mesh = ax.pcolormesh(
             points_mesh(&x, &y, &z),

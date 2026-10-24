@@ -1,7 +1,7 @@
 //! 3-D contour cases.
 
 use plt::collections::CollectionProps;
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, Levels};
 use plt::mplot3d::{Axis3, Contour3DOptions, FaceColors, SurfaceOptions};
 
@@ -11,8 +11,11 @@ use crate::figures::FigureCase;
 /// `levels=n, cmap=name`.
 pub(super) fn levels(n: i64, cmap: &str) -> Result<ContourOptions, plt::colors::ColormapError> {
     Ok(ContourOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get(cmap)?),
+            ..ColorizerOptions::default()
+        },
         levels: Levels::Count(n),
-        cmap: Some(colormaps::get(cmap)?),
         ..ContourOptions::default()
     })
 }
@@ -29,7 +32,10 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.plot_surface(&x, &y, &z, options)?;
         for (zdir, offset) in [(Axis3::Z, -0.6), (Axis3::X, -4.0), (Axis3::Y, 4.0)] {
             let contour = ContourOptions {
-                cmap: Some(colormaps::get("coolwarm")?),
+                colorizer: ColorizerOptions {
+                    cmap: Some(colormaps::get("coolwarm")?),
+                    ..ColorizerOptions::default()
+                },
                 ..ContourOptions::default()
             };
             let options = Contour3DOptions {

@@ -4,10 +4,9 @@
 //! colours and as grey strips beside the colormaps.
 
 use plt::axes::{AxisName, ImshowOptions, MappedColors, ScatterOptions, TickParams, TickPosition};
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::fonts::FontSize;
 use plt::gridspec::SubplotOverrides;
-use plt::image::ColorizerOptions;
 use plt::layout::TightLayout;
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -165,7 +164,7 @@ pub(super) fn lightness(fig: &Figure, category: &Category) -> CaseResult {
                 y,
                 ScatterOptions {
                     sizes: Some(vec![300.0]),
-                    colors: MappedColors::new(c).with_cmap(colormaps::get(name)?).into(),
+                    colors: MappedColors::new(c).cmap(colormaps::get(name)?).into(),
                     linewidths: Some(vec![0.0]),
                     ..ScatterOptions::default()
                 },
@@ -232,7 +231,7 @@ pub(super) fn grayscale(fig: &Figure, category: &Category) -> CaseResult {
             grey,
             ImshowOptions {
                 aspect: Some(Aspect::Auto),
-                ..ImshowOptions::default().colors(binary)
+                ..ImshowOptions::default().colorizer(binary)
             },
         )?;
         let (x0, y0, _, height) = colors.position().bounds();

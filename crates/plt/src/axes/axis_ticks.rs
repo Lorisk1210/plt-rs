@@ -40,7 +40,7 @@ impl Axis {
         let figure = self.axes.raw().figure_state();
         let mut state = figure.borrow_mut();
         for id in state.siblings(self.name, self.axes.id()) {
-            if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+            if let Some(axes) = state.artist_as_mut::<AxesState>(id) {
                 axes.include_in_view(self.name, lowest, highest);
             }
         }

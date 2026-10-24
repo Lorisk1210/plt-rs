@@ -14,7 +14,7 @@ use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::state::Axes3DState;
-use crate::artist::{ArtistHandle, ArtistId};
+use crate::artist::{ArtistHandle, ArtistId, ArtistLookup};
 use crate::figure::FigureState;
 
 /// What 3-D axes can share.
@@ -117,14 +117,42 @@ pub(crate) fn replay(figure: &mut FigureState, changes: &[(Vec<ArtistId>, LimitC
     }
 }
 
+/// Takes the 3-D axes `id` out of the groups sharing a data axis, as
+/// removing it from its figure does (matplotlib's
+/// `Figure._remove_axes`): limits set on it no longer reach the others,
+/// nor theirs it. Groups left with one member dissolve.
+pub(crate) fn leave_shares(figure: &mut FigureState, id: ArtistId) {
+    let Some(groups) = figure
+        .artist_as::<Axes3DState>(id)
+        .map(|axes| axes.shares.groups.clone())
+    else {
+        return;
+    };
+    for key in Axis3::ALL.map(|axis| ShareKey::Axis(axis).index()) {
+        let mut rest: Vec<ArtistId> = groups[key].iter().copied().filter(|&m| m != id).collect();
+        if rest.len() < 2 {
+            rest.clear();
+        }
+        for &member in &groups[key] {
+            if let Some(axes) = figure.artist_as_mut::<Axes3DState>(member) {
+                axes.shares.groups[key] = if member == id {
+                    Vec::new()
+                } else {
+                    rest.clone()
+                };
+            }
+        }
+    }
+}
+
 impl Axes3D {
-    /// The live axes of the group of `key`, this one included.
+    /// The axes of the group of `key`, this one included.
     fn group(&self, key: ShareKey) -> Vec<Axes3D> {
         let ids = self.with(|axes| axes.shares.members(key, axes.base_id()));
         let figure = self.raw().figure_state();
         let state = figure.borrow();
         ids.into_iter()
-            .filter(|&id| state.store.get_as::<Axes3DState>(id).is_some())
+            .filter(|&id| state.artist_as::<Axes3DState>(id).is_some())
             .map(|id| Axes3D::from_raw(crate::artist::RawHandle::new(Rc::clone(figure), id)))
             .collect()
     }
@@ -154,11 +182,11 @@ impl Axes3D {
         }
         let mut figure = self.raw().figure_state().borrow_mut();
         for &id in &members {
-            if let Some(axes) = figure.store.get_as_mut::<Axes3DState>(id) {
+            if let Some(axes) = figure.artist_as_mut::<Axes3DState>(id) {
                 axes.shares.groups[key.index()].clone_from(&members);
             }
         }
-        if let Some(axes) = figure.store.get_as_mut::<Axes3DState>(self.id()) {
+        if let Some(axes) = figure.artist_as_mut::<Axes3DState>(self.id()) {
             axes.shares.targets[key.index()] = Some(other.id());
         }
         Ok(())

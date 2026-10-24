@@ -14,7 +14,7 @@ use std::rc::Rc;
 use plt_core::{Affine2D, Bbox};
 
 use super::mpl_axes::SimpleAxisArtist;
-use crate::artist::{ArtistHandle, ArtistId, ArtistStore, RawHandle};
+use crate::artist::{ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::axisartist::Toggle;
 use crate::figure::{AxesRectError, Figure, FigureState, insert_axes};
@@ -170,7 +170,7 @@ impl HostAxes {
     /// The parasites, in creation order (matplotlib's `parasites`).
     pub fn parasites(&self) -> Vec<ParasiteAxes> {
         let figure = self.axes.raw().figure_state();
-        let ids = parasites_of(&figure.borrow().store, self.axes.id());
+        let ids = parasites_of(&*figure.borrow(), self.axes.id());
         ids.into_iter()
             .map(|id| ParasiteAxes {
                 axes: Axes::from_raw(RawHandle::new(Rc::clone(figure), id)),
@@ -279,8 +279,7 @@ impl HostAxes {
         let mut state = figure.borrow_mut();
         state.current_axes = current;
         let decorations = state
-            .store
-            .get_as_mut::<AxesState>(axes.id())
+            .artist_as_mut::<AxesState>(axes.id())
             .map(|parasite| {
                 parasite.parasite = Some(Parasite {
                     host: self.axes.id(),
@@ -301,7 +300,7 @@ impl HostAxes {
             })
             .unwrap_or_default();
         for id in decorations {
-            if let Some(artist) = state.store.get_mut(id) {
+            if let Some(artist) = state.artist_mut(id) {
                 artist.base_mut().visible = false;
             }
         }
@@ -355,8 +354,13 @@ impl ParasiteAxes {
 
     /// Removes the parasite from its host; for a twin, the host's top and
     /// right sides it does not share come back with ticks but without
-    /// tick labels or label (matplotlib's `_remove_any_twin`).
+    /// tick labels or label (matplotlib's `_remove_any_twin`). Removing it
+    /// again does nothing.
     pub fn remove(&self) {
+        let figure = self.axes.raw().figure_state();
+        if figure.borrow().is_removed(self.axes.id()) {
+            return;
+        }
         let Parasite { twin, .. } = self.parasite();
         if twin {
             let (shares_x, shares_y) = self
@@ -393,16 +397,16 @@ impl ParasiteAxes {
 }
 
 /// Whether `axes` is the parasite of another axes.
-pub(crate) fn is_parasite(store: &ArtistStore, axes: ArtistId) -> bool {
+pub(crate) fn is_parasite(store: &impl ArtistLookup, axes: ArtistId) -> bool {
     store
-        .get_as::<AxesState>(axes)
+        .artist_as::<AxesState>(axes)
         .is_some_and(|state| state.parasite.is_some())
 }
 
 /// The parasites of `axes`, in creation order.
-pub(crate) fn parasites_of(store: &ArtistStore, axes: ArtistId) -> Vec<ArtistId> {
+pub(crate) fn parasites_of(store: &impl ArtistLookup, axes: ArtistId) -> Vec<ArtistId> {
     store
-        .get_as::<AxesState>(axes)
+        .artist_as::<AxesState>(axes)
         .map(|state| {
             state
                 .children
@@ -555,5 +559,11 @@ mod tests {
         assert_eq!(host.parasites(), Vec::<ParasiteAxes>::new());
         assert!(host.spines().right.visible());
         assert_eq!(sides(&host, AxisName::Y), ((true, true), (true, false)));
+        host.axis(SpineSide::Right).set_visible(false);
+        par.remove();
+        assert!(
+            !host.spines().right.visible(),
+            "removing the twin again leaves the host alone"
+        );
     }
 }

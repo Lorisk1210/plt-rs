@@ -147,7 +147,7 @@ impl Painter<'_> {
         let path = Path::closed(self.points(&extensions.outline()));
         if let Some(id) = existing {
             let mut figure = self.ax.raw().figure_state().borrow_mut();
-            if let Some(outline) = figure.store.get_as_mut::<PatchArtist<PathShape>>(id) {
+            if let Some(outline) = figure.artist_as_mut::<PatchArtist<PathShape>>(id) {
                 outline.shape = PathShape(path);
                 figure.stale = true;
                 return id;
@@ -249,7 +249,7 @@ impl Painter<'_> {
     pub(crate) fn move_dividers(&self, dividers: ArtistId, placement: Dividers) {
         let mut figure = self.ax.raw().figure_state().borrow_mut();
         figure.stale = true;
-        if let Some(dividers) = figure.store.get_as_mut::<CollectionArtist>(dividers) {
+        if let Some(dividers) = figure.artist_as_mut::<CollectionArtist>(dividers) {
             dividers.draw_time = Some(Box::new(placement));
         }
     }

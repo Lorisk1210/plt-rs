@@ -183,12 +183,12 @@ impl ViewStack {
             return;
         };
         for (ax, view) in &snapshot.axes {
-            if ax.raw().is_alive() {
+            if ax.raw().is_attached() {
                 view.apply(ax);
             }
         }
         for (ax, view) in &snapshot.axes3d {
-            if ax.raw().is_alive() {
+            if ax.raw().is_attached() {
                 view.apply(ax);
             }
         }

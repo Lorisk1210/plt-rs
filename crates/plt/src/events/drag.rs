@@ -45,7 +45,7 @@ impl Drag {
     /// The dragged artist, while it and its figure exist.
     fn artist(&self) -> Option<RawHandle> {
         let handle = RawHandle::new(self.figure.upgrade()?, self.artist);
-        handle.is_alive().then_some(handle)
+        handle.is_attached().then_some(handle)
     }
 }
 

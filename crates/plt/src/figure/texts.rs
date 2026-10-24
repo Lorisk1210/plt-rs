@@ -8,7 +8,7 @@ use plt_core::Point;
 use plt_text::{HAlign, VAlign};
 
 use super::{Figure, FigureFrame, SuperText};
-use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
 use crate::text::{Text, TextArtist};
@@ -129,7 +129,7 @@ impl Figure {
         let state = self.state.borrow();
         children
             .into_iter()
-            .filter(|&id| state.store.get_as::<TextArtist>(id).is_some())
+            .filter(|&id| state.artist_as::<TextArtist>(id).is_some())
             .map(|id| Text::from_raw(RawHandle::new(Rc::clone(&self.state), id)))
             .collect()
     }

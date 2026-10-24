@@ -1,20 +1,23 @@
 //! Probe operations for the `artist_behaviour` area: default z-orders,
-//! transforms, removal, alpha validation, cursor data of boundary norms
-//! and marker culling, ported from matplotlib's `test_artist.py` (see
+//! transforms, removal and what removed artists keep, alpha validation,
+//! cursor data of boundary norms and marker culling, ported from
+//! matplotlib's `test_artist.py` (see
 //! `spec/reference/probes/test_artist_behaviour.py`). Every op runs under
 //! the reference configuration.
 
-use plt::artist::{ArtistHandle, Sketch};
-use plt::axes::{BarOptions, FillBetweenOptions, ImshowOptions, ScatterOptions};
+use plt::artist::{ArtistHandle, RawHandle, Sketch};
+use plt::axes::{Axes, BarOptions, FillBetweenOptions, ImshowOptions, ScatterOptions};
 use plt::collections::CollectionSpec;
 use plt::colors::{Alpha, BoundaryNorm, ColorizerOptions, Extend, colormaps};
 use plt::contour::{ContourOptions, QuadField};
 use plt::figure::Figure;
 use plt::image::ImageData;
+use plt::legend::LegendOptions;
 use plt::lines::LineProps;
 use plt::navigation::Navigation;
 use plt::numeric::Grid;
 use plt::patches::{Ellipse, Rectangle};
+use plt::ticker::AxisName;
 use plt::transforms::Transform;
 use plt_core::{Bbox, Point};
 
@@ -33,6 +36,11 @@ pub(crate) const OPS: &[Op] = &[
         with_rc(args, transform_of_none)
     }),
     Op::new("artist.remove", |args| with_rc(args, remove)),
+    Op::new("artist.after_remove", |args| {
+        with_rc(args, || after_remove(args))
+    }),
+    Op::new("artist.remove_axes", |args| with_rc(args, remove_axes)),
+    Op::new("artist.readd", |args| with_rc(args, readd)),
     Op::new("artist.base_properties", |args| {
         with_rc(args, base_properties)
     }),
@@ -201,12 +209,151 @@ fn remove() -> Outcome {
     ];
     image.remove();
     line.remove();
-    let count = |n: usize| Json::Integer(i64::try_from(n).expect("few artists"));
     Ok(object([
         observed[0].clone(),
         observed[1].clone(),
         ("images", count(ax.images().len())),
         ("lines", count(ax.lines().len())),
+    ]))
+}
+
+/// A count of artists.
+fn count(n: usize) -> Json {
+    Json::Integer(i64::try_from(n).expect("few artists"))
+}
+
+/// Changes a property of a removed artist and reads it back.
+type Change = Box<dyn Fn() -> Json>;
+
+/// An artist of `kind` on `ax`, with the change of the property of its
+/// kind.
+fn removable(ax: &Axes, kind: &str) -> Result<(RawHandle, Change), ProbeError> {
+    Ok(match kind {
+        "line" => {
+            let line = ax.plot_y([0.0, 1.0]);
+            let raw = line.raw().clone();
+            (
+                raw,
+                Box::new(move || line.set_linewidth(3.5).linewidth().into()),
+            )
+        }
+        "patch" => {
+            let patch = ax.add_patch(Rectangle::new((0.0, 0.0), 1.0, 1.0));
+            let raw = patch.raw().clone();
+            let change = move || patch.update_shape(|r| r.width = 2.5).shape().width.into();
+            (raw, Box::new(change))
+        }
+        "text" => {
+            let text = ax.text(0.5, 0.5, "before");
+            let raw = text.raw().clone();
+            (raw, Box::new(move || text.set_text("after").text().into()))
+        }
+        "scatter" => {
+            let points = made(ax.scatter(vec![0.0, 1.0], vec![1.0, 0.0]))?;
+            let raw = points.raw().clone();
+            let change = move || {
+                points
+                    .set_sizes(vec![10.0, 20.0])
+                    .sizes()
+                    .map_or(Json::Null, Json::from)
+            };
+            (raw, Box::new(change))
+        }
+        "image" => {
+            let image = made(ax.imshow(ImageData::from(field()), ImshowOptions::default()))?;
+            let raw = image.raw().clone();
+            let change = move || {
+                let (low, high) = image.set_clim(Some(1.0), Some(5.0)).clim();
+                Json::Array(vec![low.into(), high.into()])
+            };
+            (raw, Box::new(change))
+        }
+        "legend" => {
+            ax.plot_y([0.0, 1.0]).set_label("data");
+            let legend = made(ax.legend(LegendOptions::default()))?;
+            let raw = legend.raw().clone();
+            (
+                raw,
+                Box::new(move || legend.set_title("after").title().text().into()),
+            )
+        }
+        other => return Err(ProbeError::BadArgs(format!("unknown kind {other:?}"))),
+    })
+}
+
+/// A removed artist of each kind, changed after its removal, and what its
+/// axes still hold.
+fn after_remove(args: Args<'_>) -> Outcome {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let (artist, change) = removable(&ax, args.str("kind")?)?;
+    fig.layout();
+    artist.remove();
+    artist.set_zorder(5.0).set_label("gone");
+    let value = change();
+    made(fig.render_raster())?;
+    Ok(object([
+        ("axes_is_none", artist.axes().is_none().into()),
+        ("zorder", artist.zorder().into()),
+        ("label", artist.label().into()),
+        ("value", value),
+        ("lines", count(ax.lines().len())),
+        ("patches", count(ax.patches().len())),
+        ("texts", count(ax.texts().len())),
+        ("collections", count(ax.collections().len())),
+        ("images", count(ax.images().len())),
+        ("legend", ax.current_legend().is_none().into()),
+    ]))
+}
+
+/// A removed axes, its artists and the figure.
+fn remove_axes() -> Outcome {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let line = ax.plot_y([0.0, 1.0]);
+    let text = ax.text(0.5, 0.5, "t");
+    fig.layout();
+    ax.remove();
+    ax.set_xlabel("after");
+    made(fig.render_raster())?;
+    Ok(object([
+        ("axes_is_none", ax.axes().is_none().into()),
+        (
+            "line_axes_is_ax",
+            (line.axes().as_ref() == Some(&ax)).into(),
+        ),
+        (
+            "text_axes_is_ax",
+            (text.axes().as_ref() == Some(&ax)).into(),
+        ),
+        ("lines", count(ax.lines().len())),
+        ("texts", count(ax.texts().len())),
+        ("figure_axes", count(fig.axes().len())),
+        ("xlabel", ax.label(AxisName::X).into()),
+    ]))
+}
+
+/// A line added back to its axes and a text moved to another axes after
+/// their removal.
+fn readd() -> Outcome {
+    let fig = Figure::new();
+    let left = made(fig.add_subplot(1, 2, 1))?;
+    let right = made(fig.add_subplot(1, 2, 2))?;
+    let line = left.plot_y([0.0, 1.0]);
+    let text = left.text(0.5, 0.5, "t");
+    fig.layout();
+    line.remove();
+    made(left.attach(&line))?;
+    text.remove();
+    made(right.attach(&text))?;
+    made(fig.render_raster())?;
+    Ok(object([
+        ("lines", count(left.lines().len())),
+        ("axes_is_ax", (line.axes().as_ref() == Some(&left)).into()),
+        (
+            "texts",
+            Json::Array(vec![count(left.texts().len()), count(right.texts().len())]),
+        ),
     ]))
 }
 

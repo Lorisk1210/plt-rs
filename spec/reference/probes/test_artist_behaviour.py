@@ -26,6 +26,30 @@ Ops
     whether each reports cursor data (``mouseover``), then the number of
     images and lines left on the axes after ``remove()``
     (``test_remove``).
+``artist.after_remove``  {kind} -> {"axes_is_none", "zorder", "label",
+    "value", "lines", "patches", "texts", "collections", "images",
+    "legend"}
+    A removed artist stays usable: an artist of ``kind`` (``line`` from
+    ``plot``, ``patch`` from ``add_patch(Rectangle)``, ``text``,
+    ``scatter``, ``image`` from ``imshow`` or the axes ``legend``) is
+    drawn, removed, given ``set_zorder(5)``, ``set_label("gone")`` and a
+    property of its kind (``set_linewidth(3.5)``, ``set_width(2.5)``,
+    ``set_text("after")``, ``set_sizes([10, 20])``, ``set_clim(1, 5)``,
+    ``set_title("after")``), and the figure drawn again: whether its
+    ``axes`` is ``None``, the properties read back (``value`` is the kind's
+    property), what the axes still holds and whether it has no legend.
+``artist.remove_axes``  {} -> {"axes_is_none", "line_axes_is_ax",
+    "text_axes_is_ax", "lines", "texts", "figure_axes", "xlabel"}
+    An axes with a line and a text is drawn, removed and given
+    ``set_xlabel("after")``, and the figure drawn again: the removed axes
+    has no ``axes`` while its artists keep it, it still holds them, the
+    figure holds no axes, and the label reads back (``set_title`` fails in
+    matplotlib once the axes has no figure).
+``artist.readd``  {} -> {"lines", "axes_is_ax", "texts"}
+    A line removed from the axes and added back with ``add_line``, and a
+    text removed from one axes and added to another with
+    ``add_artist``: what the axes hold and whether the line's ``axes`` is
+    the axes again.
 ``artist.alpha``  {kind, alpha} -> alpha
     ``set_alpha(alpha)`` on a line, patch, text or scatter (``kind``), then
     a draw: the alpha, or an error for values outside ``[0, 1]`` and NaN
@@ -140,6 +164,80 @@ def _remove():
     return observed
 
 
+def _removable(ax, kind):
+    """An artist of ``kind`` on ``ax`` and how to set and read the
+    property of its kind."""
+    if kind == "line":
+        line, = ax.plot([0, 1], label="data")
+        return line, lambda: line.set_linewidth(3.5), line.get_linewidth
+    if kind == "patch":
+        patch = ax.add_patch(Rectangle((0, 0), 1, 1))
+        return patch, lambda: patch.set_width(2.5), patch.get_width
+    if kind == "text":
+        text = ax.text(0.5, 0.5, "before")
+        return text, lambda: text.set_text("after"), text.get_text
+    if kind == "scatter":
+        points = ax.scatter([0, 1], [1, 0])
+        return points, lambda: points.set_sizes([10, 20]), lambda: points.get_sizes().tolist()
+    if kind == "image":
+        image = ax.imshow(np.arange(16.0).reshape(4, 4))
+        return image, lambda: image.set_clim(1, 5), lambda: list(image.get_clim())
+    ax.plot([0, 1], label="data")
+    legend = ax.legend()
+    return legend, lambda: legend.set_title("after"), lambda: legend.get_title().get_text()
+
+
+def _after_remove(kind):
+    fig, ax = _axes()
+    artist, change, read = _removable(ax, kind)
+    fig.canvas.draw()
+    artist.remove()
+    artist.set_zorder(5)
+    artist.set_label("gone")
+    change()
+    fig.canvas.draw()
+    return {
+        "axes_is_none": artist.axes is None, "zorder": float(artist.get_zorder()),
+        "label": artist.get_label(), "value": read(), "lines": len(ax.lines),
+        "patches": len(ax.patches), "texts": len(ax.texts),
+        "collections": len(ax.collections), "images": len(ax.images),
+        "legend": ax.get_legend() is None,
+    }
+
+
+def _remove_axes():
+    fig, ax = _axes()
+    line, = ax.plot([0, 1])
+    text = ax.text(0.5, 0.5, "t")
+    fig.canvas.draw()
+    ax.remove()
+    ax.set_xlabel("after")
+    fig.canvas.draw()
+    return {
+        "axes_is_none": ax.axes is None, "line_axes_is_ax": line.axes is ax,
+        "text_axes_is_ax": text.axes is ax, "lines": len(ax.lines), "texts": len(ax.texts),
+        "figure_axes": len(fig.axes), "xlabel": ax.get_xlabel(),
+    }
+
+
+def _readd():
+    fig = Figure()
+    FigureCanvasAgg(fig)
+    left, right = fig.subplots(1, 2)
+    line, = left.plot([0, 1])
+    text = left.text(0.5, 0.5, "t")
+    fig.canvas.draw()
+    line.remove()
+    left.add_line(line)
+    text.remove()
+    right.add_artist(text)
+    fig.canvas.draw()
+    return {
+        "lines": len(left.lines), "axes_is_ax": line.axes is left,
+        "texts": [len(left.texts), len(right.texts)],
+    }
+
+
 def _alpha(kind, alpha):
     fig, ax = _axes()
     if kind == "line":
@@ -217,6 +315,10 @@ def test_scenes():
     probes.probe("artist.default_zorder", _default_zorder)
     probes.probe("artist.transform_of_none", _transform_of_none)
     probes.probe("artist.remove", _remove)
+    for kind in ["line", "patch", "text", "scatter", "image", "legend"]:
+        probes.probe("artist.after_remove", _after_remove, kind=kind)
+    probes.probe("artist.remove_axes", _remove_axes)
+    probes.probe("artist.readd", _readd)
     probes.probe("artist.base_properties", _base_properties)
     probes.probe("artist.cull_markers", _cull_markers)
 

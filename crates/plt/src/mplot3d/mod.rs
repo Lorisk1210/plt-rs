@@ -113,6 +113,7 @@ pub use quiver::Quiver3DOptions;
 pub(crate) use readout::location_coords;
 pub use scatter::Scatter3DOptions;
 pub use shade::LightSource;
+pub(crate) use share::leave_shares;
 pub use stem::{Stem3D, Stem3DOptions};
 pub use surface::{Sampling, SurfaceOptions, WireframeOptions};
 pub use test_data::test_data;

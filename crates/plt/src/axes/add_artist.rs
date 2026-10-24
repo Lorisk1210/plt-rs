@@ -1,12 +1,15 @@
 //! Adding ready-made artists and collections to an axes (`add_artist`,
-//! `add_collection`) and filtered groups of artists.
+//! `add_collection`), filtered groups of artists, and removed artists
+//! back.
 
 use super::Axes;
 use super::children::DataUpdate;
 use crate::artist::{
-    AggFilter, Artist, ArtistHandle, Custom, FilteredGroup, FilteredGroupArtist, RawHandle,
+    AggFilter, Artist, ArtistHandle, AttachError, Custom, FilteredGroup, FilteredGroupArtist,
+    RawHandle,
 };
 use crate::collections::{Collection, CollectionSpec, TriMesh, TriMeshSpec};
+use crate::figure::attach;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
 
 impl Axes {
@@ -93,5 +96,49 @@ impl Axes {
         artist.base_mut().transform = Some(self.trans_data());
         let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
         TriMesh::from_raw(self.adopt_collection(artist, &update))
+    }
+
+    /// Adds `artist`, removed from this axes' figure with
+    /// [`ArtistHandle::remove`], back as an artist of this axes, with the
+    /// artists it owns (matplotlib's `add_artist`, `add_line`,
+    /// `add_patch`, ... of a removed artist): drawn above the children of
+    /// equal z-order, clipped to the axes unless it has a clip path, and
+    /// extending the data limits by what it covers, as `add_line` and
+    /// `add_patch` do. It keeps its coordinate system, so an artist moved
+    /// from another axes stays in that one's data coordinates.
+    ///
+    /// ```
+    /// use plt::artist::AttachError;
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot([0.0, 1.0], [1.0, 0.0])?;
+    /// line.remove();
+    /// assert!(ax.lines().is_empty());
+    /// ax.attach(&line)?;
+    /// assert_eq!(ax.lines(), [line.clone()]);
+    /// assert_eq!(ax.attach(&line).unwrap_err(), AttachError::NotRemoved);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AttachError`] when the artist belongs to another figure, was not
+    /// removed (or only with an artist owning it), is a figure or a 3-D
+    /// axes, or owns this axes.
+    pub fn attach(&self, artist: &impl ArtistHandle) -> Result<&Self, AttachError> {
+        let figure = self.raw().figure_state();
+        attach(figure, self.id(), artist.raw())?;
+        let limits = figure
+            .borrow_mut()
+            .artist_mut(artist.id())
+            .and_then(|artist| {
+                let base = artist.base_mut();
+                if base.clip_path.is_none() {
+                    base.clip_box = Some(self.id());
+                }
+                artist.limit_points(self.id())
+            });
+        self.update_data(&DataUpdate::extending(limits));
+        Ok(self)
     }
 }

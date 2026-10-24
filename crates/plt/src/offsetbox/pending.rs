@@ -169,7 +169,7 @@ pub(crate) fn adopt_box(
 ) -> ArtistId {
     let id = state.adopt(parent, owner);
     for &part in parts {
-        if let Some(artist) = state.store.get_mut(part) {
+        if let Some(artist) = state.artist_mut(part) {
             artist.base_mut().parent = Some(id);
         }
     }

@@ -18,12 +18,16 @@ use crate::transforms::TransformContext;
 const AXES: [AxisName; 2] = [AxisName::X, AxisName::Y];
 
 impl FigureState {
+    /// Axes `id` while it is in the figure, which autoscaling reads.
     fn axes_state(&self, id: ArtistId) -> Option<&AxesState> {
         self.store.get_as::<AxesState>(id)
     }
 
+    /// Axes `id`, in the figure or removed from it, to change: limits,
+    /// scales and tick helpers set on a removed axes read back, though
+    /// the figure no longer draws it.
     fn axes_state_mut(&mut self, id: ArtistId) -> Option<&mut AxesState> {
-        self.store.get_as_mut::<AxesState>(id)
+        self.artist_as_mut::<AxesState>(id)
     }
 
     /// The axes sharing axis `name` with `axes`, `axes` included.

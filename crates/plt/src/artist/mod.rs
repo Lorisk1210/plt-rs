@@ -3,21 +3,27 @@
 //! A figure owns its artists in an [`ArtistStore`]. Users manipulate them
 //! through cheap, clonable *handles* (`Figure`, `Axes`, `Line2D`, ...) that
 //! pair the figure with an [`ArtistId`]; every handle implements
-//! [`ArtistHandle`] for the properties all artists share.
+//! [`ArtistHandle`] for the properties all artists share. An artist
+//! removed from its figure ([`ArtistHandle::remove`]) is kept apart from
+//! the store, so that its handles stay usable for as long as the figure
+//! lives.
 //!
 //! Rendering happens in two passes: a mutable *prepare* pass (autoscaling,
 //! tick computation, layout) followed by a read-only *draw* pass in which
 //! each artist renders itself through a [`DrawContext`].
 
+mod attach;
 mod base;
 mod context;
 mod cursor;
 mod custom;
+mod detached;
 mod filter;
 mod handle;
 mod pick;
 #[macro_use]
 mod properties;
+mod raw;
 mod store;
 mod tree;
 
@@ -31,20 +37,24 @@ use plt_render::ClipPath;
 use crate::patches::{ClipRegion, PatchView};
 use crate::transforms::Transform;
 
+pub use attach::AttachError;
 pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
 pub(crate) use context::DrawnDpiCor;
 pub use context::{DrawContext, DrawError, LayoutContext};
 pub(crate) use cursor::format_values;
 pub use custom::Custom;
+pub(crate) use detached::DetachedArtists;
 pub(crate) use filter::FilteredGroupArtist;
 pub use filter::{AggFilter, FilteredGroup};
-pub use handle::{ArtistHandle, RawHandle, TypedHandle};
+pub use handle::{ArtistHandle, TypedHandle};
 pub(crate) use pick::segment_hits;
 pub use pick::{PickFn, Picker};
 pub use plt_render::{FilterImage, Filtered, Sketch};
 pub use properties::BaseProps;
+pub use raw::RawHandle;
 pub use store::{ArtistId, ArtistStore};
+pub(crate) use store::{ArtistLookup, downcast_mut, downcast_ref};
 
 /// The points an artist adds to its axes' data limits, in data
 /// coordinates, and whether their x and y are data values (matplotlib's

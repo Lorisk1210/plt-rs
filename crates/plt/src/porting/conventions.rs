@@ -237,9 +237,20 @@
 //! Handles are cheap to clone, compare equal when they refer to the same
 //! artist, and see each other's changes. A figure and its handles stay on
 //! the thread that made them, like pyplot's state. A handle knows the
-//! axes and the figure it belongs to. After [`ArtistHandle::remove`] the
-//! artist is gone: using its handle again panics, the way reading a closed
-//! file fails.
+//! axes and the figure it belongs to.
+//!
+//! [`ArtistHandle::remove`] takes the artist, with everything it owns, out
+//! of the figure, as in matplotlib: the figure no longer draws it, lays it
+//! out, autoscales over it or finds it, and its `axes()` are `None`. The
+//! handle stays usable. Properties read and change as before, and
+//! [`Axes::attach`] or [`Figure::attach`] put the artist back, as
+//! matplotlib's `add_artist` does. Removing twice does nothing.
+//!
+//! Python frees a removed artist once nothing refers to it. A figure
+//! cannot tell when the last handle goes, so it keeps its removed artists
+//! until it is dropped itself. A program that removes artists by the
+//! thousand, an animation clearing its axes every frame for instance,
+//! keeps them all; update the artists in place or make a fresh figure.
 //!
 //! ```python
 //! line, = ax.plot([0, 1], [0, 1])
@@ -248,7 +259,9 @@
 //! assert line.get_color() == "tab:red"
 //! assert line.axes is ax and line.figure is fig
 //! line.remove()
-//! assert len(ax.lines) == 0
+//! assert len(ax.lines) == 0 and line.axes is None
+//! line.set_linewidth(3)           # still usable
+//! ax.add_line(line)               # and back again
 //! ```
 //!
 //! ```
@@ -267,8 +280,11 @@
 //! assert_eq!(line.figure(), fig);
 //!
 //! line.remove();
-//! assert!(ax.lines().is_empty());
-//! assert!(!same.raw().is_alive());
+//! assert!(ax.lines().is_empty() && line.axes().is_none());
+//! assert!(!same.raw().is_attached());
+//! line.set_linewidth(3.0);
+//! ax.attach(&line)?;
+//! assert_eq!(ax.lines(), [line]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -374,6 +390,8 @@
 //! [`Axes::format_data`]: crate::axes::Axes::format_data
 //! [`Axes::shared_axes`]: crate::axes::Axes::shared_axes
 //! [`ArtistHandle::remove`]: crate::artist::ArtistHandle::remove
+//! [`Axes::attach`]: crate::axes::Axes::attach
+//! [`Figure::attach`]: crate::figure::Figure::attach
 //! [`AxisName`]: crate::ticker::AxisName
 //! [`Axis3`]: crate::mplot3d::Axis3
 //! [`Axis`]: crate::axes::Axis

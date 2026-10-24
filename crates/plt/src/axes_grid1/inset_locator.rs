@@ -5,9 +5,9 @@
 use plt_core::Bbox;
 
 use super::size::{Size, SizeSpec};
-use crate::artist::{Artist, ArtistHandle, ArtistId};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup};
 use crate::axes::{Axes, AxesState};
-use crate::figure::{FigureState, insert_axes};
+use crate::figure::{FigureState, make_axes};
 use crate::offsetbox::{AnchorLoc, BboxToAnchor, anchored_bbox, transformed_bbox};
 use crate::transforms::{Transform, TransformContext};
 
@@ -128,15 +128,14 @@ fn add_inset(parent: &Axes, extent: InsetExtent, options: &InsetOptions) -> Axes
     };
     let figure = parent.raw().figure_state();
     let position = parent.position();
+    // The inset of a removed axes is removed too.
     let frame = {
         let state = figure.borrow();
         state
-            .store
-            .get_as::<AxesState>(parent.id())
-            .and_then(|axes| axes.base().parent)
-            .unwrap_or(state.root)
+            .artist_as::<AxesState>(parent.id())
+            .map_or(Some(state.root), |axes| axes.base().parent)
     };
-    let inset = insert_axes(figure, frame, position, None);
+    let inset = make_axes(figure, frame, position, None);
     inset.set_navigate(false);
     register(&inset, locator);
     inset
@@ -162,7 +161,7 @@ fn register(inset: &Axes, locator: InsetLocator) {
     let mut state = inset.raw().figure_state().borrow_mut();
     state.layout.insets.push(locator);
     let id = InsetLocatorId(state.layout.insets.len() - 1);
-    if let Some(axes) = state.store.get_as_mut::<AxesState>(inset.id()) {
+    if let Some(axes) = state.artist_as_mut::<AxesState>(inset.id()) {
         axes.aspect.inset = Some(id);
     }
     state.stale = true;

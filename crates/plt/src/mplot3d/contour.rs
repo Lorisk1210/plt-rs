@@ -303,11 +303,7 @@ impl Axes3D {
             // matplotlib's `add_collection3d` sees the 2-D contours as data.
             self.auto_scale_xyz(&xs, &ys, Some(&zs), true)?;
         }
-        let figure = self.raw().figure_state();
-        for collection in set.collections() {
-            collection.remove();
-        }
-        figure.borrow_mut().remove_artist(set.id());
+        set.remove();
         Ok(())
     }
 }
@@ -420,7 +416,7 @@ mod tests {
             ..Contour3DOptions::default()
         };
         let set = ax.contour(&xx, &yy, &zz, options).unwrap();
-        assert!(!set.is_alive(), "the 2-D contours are removed");
+        assert!(!set.is_attached(), "the 2-D contours are removed");
         assert_eq!(
             ax.with(|axes| axes.artists.len()),
             1,

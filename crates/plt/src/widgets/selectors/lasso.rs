@@ -263,7 +263,10 @@ mod tests {
         source.button_release(&fig, 160.0, 120.0, PointerButton::Left);
         assert_eq!(*seen.borrow(), [5, 5]);
         assert!(!selector.artist().visible());
-        assert!(!lasso.line().raw().is_alive(), "the lasso removed itself");
+        assert!(
+            !lasso.line().raw().is_attached(),
+            "the lasso removed itself"
+        );
     }
 
     #[test]

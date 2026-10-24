@@ -9,7 +9,7 @@ use std::rc::Rc;
 use plt_core::Point;
 
 use super::{Axes, AxesState, DataLimits};
-use crate::artist::{Artist, ArtistHandle, LimitPoints, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistLookup, LimitPoints, RawHandle};
 use crate::axisartist::AxisArtistState;
 use crate::collections::{Collection, CollectionArtist, TriMeshArtist};
 use crate::colorbar::ColorbarArtist;
@@ -84,14 +84,12 @@ impl Axes {
     fn children_where(&self, keep: impl Fn(&dyn Artist) -> bool) -> Vec<RawHandle> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
-        let children = state
-            .store
-            .get_as::<AxesState>(self.id())
-            .map(|axes| axes.children.clone())
-            .unwrap_or_default();
+        let children = self
+            .raw()
+            .with::<AxesState, _>(|axes| axes.children.clone());
         children
             .into_iter()
-            .filter(|&id| state.store.get(id).is_some_and(&keep))
+            .filter(|&id| state.artist(id).is_some_and(&keep))
             .map(|id| RawHandle::new(Rc::clone(figure), id))
             .collect()
     }
@@ -249,12 +247,11 @@ impl Axes {
         let figure = self.raw().figure_state();
         let mut state = figure.borrow_mut();
         let children = state
-            .store
-            .get_as::<AxesState>(axes)
+            .artist_as::<AxesState>(axes)
             .map(|a| a.children.clone())
             .unwrap_or_default();
         let mut limits = DataLimits::NULL;
-        for artist in children.into_iter().filter_map(|id| state.store.get(id)) {
+        for artist in children.into_iter().filter_map(|id| state.artist(id)) {
             if visible_only && !artist.base().visible {
                 continue;
             }
@@ -266,7 +263,7 @@ impl Axes {
                 limits.update_from_points(&points, x, y);
             }
         }
-        if let Some(axes) = state.store.get_as_mut::<AxesState>(axes) {
+        if let Some(axes) = state.artist_as_mut::<AxesState>(axes) {
             axes.data_lim = limits;
         }
         self

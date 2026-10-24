@@ -208,7 +208,7 @@ impl Player {
         // The ending tick removes the timer itself.
         self.timer = None;
         if let Some(blitter) = &self.blitter {
-            for artist in blitter.drawn.iter().filter(|a| a.is_alive()) {
+            for artist in blitter.drawn.iter().filter(|a| a.is_attached()) {
                 artist.set_animated(false);
             }
         }
@@ -237,7 +237,7 @@ impl Player {
     pub(super) fn draw_frame(&mut self, frame: usize) {
         let mut artists = (self.update)(frame);
         if let Some(blitter) = &mut self.blitter {
-            artists.retain(RawHandle::is_alive);
+            artists.retain(RawHandle::is_attached);
             artists.sort_by(|a, b| a.zorder().total_cmp(&b.zorder()));
             animate(&artists);
             blitter.drawn = artists;
@@ -281,7 +281,7 @@ fn disconnect(figure: &Figure, connection: Option<ConnectionId>) {
 
 /// Makes `artists` animated, as blitting draws them.
 fn animate(artists: &[RawHandle]) {
-    for artist in artists.iter().filter(|a| a.is_alive()) {
+    for artist in artists.iter().filter(|a| a.is_attached()) {
         artist.set_animated(true);
     }
 }

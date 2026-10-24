@@ -203,8 +203,8 @@ mod tests {
         let labels = cs.labels();
         assert_eq!(labels.len(), 1);
         assert_eq!(labels[0].artist, texts[0]);
-        assert!(texts[0].raw().is_alive() && !texts[1].raw().is_alive());
+        assert!(texts[0].raw().is_attached() && !texts[1].raw().is_attached());
         cs.pop_label(Some(0)).unwrap();
-        assert!(cs.labels().is_empty() && !texts[0].raw().is_alive());
+        assert!(cs.labels().is_empty() && !texts[0].raw().is_attached());
     }
 }

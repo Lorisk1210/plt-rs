@@ -12,7 +12,7 @@ use super::grid_helper_curvelinear::{FloatingLine, GridHelperCurveLinear};
 use super::gridlines::{Gridlines, SharedGridHelper};
 use super::handles::{AxisArtist, Toggle};
 use super::helper::AxisHelper;
-use crate::artist::{ArtistHandle, ArtistId, RawHandle};
+use crate::artist::{ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{AxesState, GridOptions};
 use crate::axes_grid1::{HostAxes, ParasiteAxes, ParasiteLink};
 use crate::collections::{Collection, CollectionArtist};
@@ -166,7 +166,7 @@ impl Axes {
             let state = figure.borrow();
             self.children()
                 .into_iter()
-                .filter(|&id| state.store.get_as::<AxisArtistState>(id).is_some())
+                .filter(|&id| state.artist_as::<AxisArtistState>(id).is_some())
                 .collect()
         };
         ids.into_iter()
@@ -188,8 +188,7 @@ impl Axes {
             let state = figure.borrow();
             self.children().into_iter().find(|&id| {
                 state
-                    .store
-                    .get_as::<CollectionArtist>(id)
+                    .artist_as::<CollectionArtist>(id)
                     .and_then(CollectionArtist::draw_time_state::<Gridlines>)
                     .is_some()
             })
@@ -387,7 +386,7 @@ mod tests {
         let xzero = ax.axis("xzero").expect("an axis along y = 0");
         assert!(!xzero.visible());
         let replacement = ax.new_floating_axis("xzero", AxisName::X, 0.5);
-        assert!(!xzero.raw().is_alive());
+        assert!(!xzero.raw().is_attached());
         assert_eq!(ax.axis("xzero"), Some(replacement.clone()));
         let names: Vec<String> = ax.axis_artists().iter().map(AxisArtist::name).collect();
         assert_eq!(names[4], "xzero", "the replacement keeps the rank");

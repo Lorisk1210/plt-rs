@@ -127,7 +127,7 @@ impl Axes {
         let mut key = QuiverKeyArtist::new(quiver.id(), vector, transform, &options, text);
         key.base_mut().zorder = options.zorder.unwrap_or(quiver.zorder() + 0.1);
         let raw = self.adopt(key, &DataUpdate::default());
-        if let Some(text) = figure.borrow_mut().store.get_mut(text) {
+        if let Some(text) = figure.borrow_mut().artist_mut(text) {
             text.base_mut().parent = Some(raw.id());
         }
         QuiverKey::from_raw(raw)
@@ -225,6 +225,6 @@ mod tests {
         assert_eq!(arrows.len(), 2, "one unmasked arrow and the key");
         assert_eq!(arrows[1], red);
         key.remove();
-        assert!(!label.raw().is_alive());
+        assert!(!label.raw().is_attached());
     }
 }

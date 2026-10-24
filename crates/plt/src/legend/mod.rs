@@ -66,7 +66,7 @@ use settings::{Location, Placement};
 
 use plt_core::Bbox;
 
-use crate::artist::{Artist, ArtistHandle, ArtistId, LayoutContext, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, LayoutContext, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::figure::{Figure, FigureFrame, FigureState};
 use crate::patches::{FancyBboxPatch, Patch};
@@ -284,8 +284,7 @@ fn axes_legends(state: &FigureState, children: &[ArtistId]) -> Vec<ArtistId> {
         .into_iter()
         .filter(|&id| {
             state
-                .store
-                .get_as::<LegendArtist>(id)
+                .artist_as::<LegendArtist>(id)
                 .is_some_and(|legend| !legend.kept)
         })
         .collect()
@@ -296,7 +295,7 @@ fn legends_in(state: &FigureState, children: &[ArtistId]) -> Vec<ArtistId> {
     children
         .iter()
         .copied()
-        .filter(|&id| state.store.get_as::<LegendArtist>(id).is_some())
+        .filter(|&id| state.artist_as::<LegendArtist>(id).is_some())
         .collect()
 }
 
@@ -320,8 +319,7 @@ impl Axes {
             &handlers,
         );
         let previous = state
-            .store
-            .get_as::<AxesState>(self.id())
+            .artist_as::<AxesState>(self.id())
             .map(|axes| axes_legends(&state, &axes.children))
             .unwrap_or_default();
         let id = build::build(
@@ -343,7 +341,7 @@ impl Axes {
     pub fn current_legend(&self) -> Option<Legend> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
-        let axes = state.store.get_as::<AxesState>(self.id())?;
+        let axes = state.artist_as::<AxesState>(self.id())?;
         let id = axes_legends(&state, &axes.children).into_iter().next()?;
         Some(Legend {
             raw: RawHandle::new(Rc::clone(figure), id),
@@ -409,8 +407,7 @@ impl Figure {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
         let ids = state
-            .store
-            .get_as::<FigureFrame>(self.id())
+            .artist_as::<FigureFrame>(self.id())
             .map(|frame| legends_in(&state, &frame.children))
             .unwrap_or_default();
         ids.into_iter()

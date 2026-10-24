@@ -296,11 +296,27 @@ pub(crate) fn insert_axes(
     position: Bbox,
     spec: Option<SubplotSpec>,
 ) -> Axes {
+    make_axes(figure, Some(frame), position, spec)
+}
+
+/// Makes an axes at `position` (fractions of `frame`) with its spines and
+/// titles: in `frame`, or removed from the figure without a frame (as the
+/// twin of a removed axes is). An axes made in the figure becomes its
+/// current axes.
+pub(crate) fn make_axes(
+    figure: &Rc<RefCell<FigureState>>,
+    frame: Option<ArtistId>,
+    position: Bbox,
+    spec: Option<SubplotSpec>,
+) -> Axes {
     let rc = crate::rc::params();
     let mut axes = AxesState::new(position, Rc::clone(&rc));
     axes.subplot_spec = spec;
     let mut state = figure.borrow_mut();
-    let id = state.adopt(frame, Box::new(axes));
+    let id = match frame {
+        Some(frame) => state.adopt(frame, Box::new(axes)),
+        None => state.insert_removed(Box::new(axes)),
+    };
     let spines: Vec<_> = SpineSide::ALL
         .into_iter()
         .map(|side| state.adopt(id, Box::new(SpineArtist::new(side, id, Rc::clone(&rc)))))
@@ -309,11 +325,13 @@ pub(crate) fn insert_axes(
         .into_iter()
         .map(|(x, halign)| state.adopt(id, Box::new(axes_title(id, x, halign, &rc))))
         .collect();
-    if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+    if let Some(axes) = state.artist_as_mut::<AxesState>(id) {
         axes.spines = spines;
         axes.titles = titles;
     }
-    state.current_axes = Some(id);
+    if state.is_attached(id) {
+        state.current_axes = Some(id);
+    }
     drop(state);
     Axes::from_raw(RawHandle::new(Rc::clone(figure), id))
 }

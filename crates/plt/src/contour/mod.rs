@@ -16,6 +16,9 @@
 //!   [`ContourSet::find_nearest_contour`] to find the line nearest to a
 //!   point and
 //!   [`ContourSet::legend_elements`] to describe them in a legend.
+//!   [`ContourSet::allsegs`] splits the contours into their pieces,
+//!   [`ContourSet::set_clip_path`] clips them all and
+//!   [`ContourSet::remove`] takes them out with their labels.
 //!   Changing its colormap,
 //!   norm or limits recolours the contours, their labels and colorbars.
 //!
@@ -46,9 +49,11 @@ mod mpl2014;
 mod nearest;
 mod options;
 mod quad;
+mod segments;
 mod serial;
 mod set;
 mod style;
+mod whole;
 
 pub use error::ContourError;
 pub use grid::{Origin, QuadCoords, QuadField};

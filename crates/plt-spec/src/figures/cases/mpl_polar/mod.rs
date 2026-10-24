@@ -153,6 +153,7 @@ const CONTOUR: &[FigureCase] = &[
     .sized(6.0, 5.0, 100.0),
     FigureCase::new("mpl_polar/contourf_rasterize", contours::contourf_rasterize)
         .sized(6.4, 4.8, 25.0),
+    classic("mpl_polar/all_algorithms", contours::all_algorithms),
     classic("mpl_polar/contour_aliases", contours::contour_aliases),
 ];
 

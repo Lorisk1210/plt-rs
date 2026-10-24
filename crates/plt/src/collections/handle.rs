@@ -7,11 +7,12 @@ use plt_core::{Path, Point, Rgba};
 use plt_render::{CapStyle, JoinStyle};
 
 use super::{
-    CollectionArtist, CollectionStyle, ColorMapping, EdgeColors, HatchColors, Mapped, style,
+    ArrayError, CollectionArtist, CollectionStyle, ColorMapping, EdgeColors, HatchColors, Mapped,
+    style,
 };
 use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::colorizer::{self, MappingChange, change_mapping};
-use crate::colors::{Color, Colormap, ColormapError, Norm, ScalarMappable, colormaps};
+use crate::colors::{Color, Colormap, Norm, ScalarMappable, colormaps};
 use crate::lines::LineStyle;
 use crate::transforms::Transform;
 
@@ -79,6 +80,12 @@ impl Collection {
     /// Sets per-item face colours (cycled).
     pub fn set_facecolors(&self, colors: Vec<Color>) -> &Self {
         self.update(|c| c.facecolors = Some(colors))
+    }
+
+    /// Gives the items their kind's default face colour again, which a
+    /// colour mapping overrides (matplotlib's `set_facecolor(None)`).
+    pub fn reset_facecolor(&self) -> &Self {
+        self.update(|c| c.facecolors = None)
     }
 
     /// Sets the edge colours.
@@ -228,18 +235,50 @@ impl Collection {
     ///
     /// # Errors
     ///
-    /// When the collection maps no colours yet and `image.cmap` names no
-    /// colormap.
-    pub fn set_array(&self, values: Vec<Option<f64>>) -> Result<&Self, ColormapError> {
+    /// When the collection is a quad mesh and the values do not match its
+    /// cells (or, Gouraud-shaded, its vertices), or when it maps no colours
+    /// yet and `image.cmap` names no colormap.
+    pub fn set_array(&self, values: Vec<Option<f64>>) -> Result<&Self, ArrayError> {
+        let expected = self
+            .raw
+            .with::<CollectionArtist, _>(CollectionArtist::mesh_value_count);
+        if let Some(expected) = expected.filter(|&n| n != values.len()) {
+            return Err(ArrayError::MeshSize {
+                expected,
+                actual: values.len(),
+            });
+        }
         let mappable = match self.raw.with::<CollectionArtist, _>(|c| {
             c.mapping
                 .as_ref()
                 .map(|mapped| mapped.source.mappable.clone())
+                .or_else(|| c.parked_mappable.clone())
         }) {
             Some(mappable) => mappable,
             None => ScalarMappable::new(colormaps::get(&crate::rc::params().image_cmap)?),
         };
         Ok(self.set_mapping(ColorMapping { values, mappable }))
+    }
+
+    /// Stops mapping values to colours (matplotlib's `set_array(None)`):
+    /// the items take their own colours again, and the norm and colormap,
+    /// which colorbars keep showing, wait for the next
+    /// [`Collection::set_array`].
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let dots = ax.scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// dots.set_array(vec![Some(0.0), Some(1.0)])?.clear_array();
+    /// assert_eq!((dots.array(), dots.cmap()), (None, None));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn clear_array(&self) -> &Self {
+        self.update(|c| {
+            if let Some(mapped) = c.mapping.take() {
+                c.parked_mappable = Some(mapped.source.mappable);
+            }
+        })
     }
 
     /// The colormap of the colour mapping, if any (matplotlib's
@@ -344,7 +383,8 @@ impl Collection {
 
     /// Moves the items to `offsets`; the data limits of the axes follow
     /// at the next [`Axes::relim`](crate::axes::Axes::relim) (matplotlib's
-    /// `set_offsets`).
+    /// `set_offsets`). A collection made without offsets takes them in
+    /// display pixels, matplotlib's default offset transform.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -358,8 +398,10 @@ impl Collection {
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
     pub fn set_offsets(&self, offsets: Vec<Point>) -> &Self {
-        self.raw
-            .with_mut::<CollectionArtist, _>(|c| c.offsets = offsets);
+        self.raw.with_mut::<CollectionArtist, _>(|c| {
+            c.offsets = offsets;
+            c.offset_transform.get_or_insert(Transform::Display);
+        });
         self
     }
 
@@ -462,6 +504,50 @@ mod tests {
     }
 
     #[test]
+    fn meshes_take_one_value_per_cell() {
+        use crate::axes::{Mesh, PcolorOptions};
+        let ax = Figure::new().subplot();
+        let values = crate::numeric::Grid::from_fn(2, 3, |r, c| (r + c) as f64);
+        let mesh = ax
+            .pcolormesh(Mesh::new(values), PcolorOptions::default())
+            .unwrap();
+        assert_eq!(
+            mesh.set_array(vec![Some(1.0); 5]).unwrap_err(),
+            ArrayError::MeshSize {
+                expected: 6,
+                actual: 5
+            }
+        );
+        assert!(mesh.set_array(vec![Some(1.0); 6]).is_ok());
+    }
+
+    #[test]
+    fn arrays_cleared_map_again_through_the_same_colormap() {
+        let ax = Figure::new().subplot();
+        let dots = ax.scatter(vec![1.0, 2.0], vec![1.0, 2.0]).expect("dots");
+        dots.set_array(vec![Some(1.0), Some(2.0)]).expect("viridis");
+        dots.set_cmap(crate::colors::colormaps::get("hot").expect("hot"));
+        dots.clear_array();
+        assert_eq!(dots.array(), None);
+        assert_eq!(
+            dots.colors().expect("colours").faces,
+            [crate::rc::params()
+                .patch_facecolor
+                .resolve()
+                .expect("a colour")],
+            "unmapped faces"
+        );
+        dots.set_facecolor("none").reset_facecolor();
+        assert_eq!(dots.style().facecolors, None, "the default again");
+        dots.set_array(vec![Some(3.0), Some(4.0)])
+            .expect("a mapping");
+        assert_eq!(
+            dots.cmap().map(|c| c.name().to_owned()).as_deref(),
+            Some("hot")
+        );
+    }
+
+    #[test]
     fn offsets_can_move_to_other_coordinates() {
         let ax = Figure::new().subplot();
         let dots = ax.scatter(vec![1.0], vec![1.0]).expect("dots");
@@ -470,5 +556,11 @@ mod tests {
         assert_eq!(dots.offset_transform(), Some(ax.trans_axes()));
         dots.set_offset_transform(None);
         assert_eq!(dots.offset_transform(), None);
+        dots.set_offsets(vec![Point::new(5.0, 5.0)]);
+        assert_eq!(
+            dots.offset_transform(),
+            Some(Transform::Display),
+            "offsets without coordinates are in pixels"
+        );
     }
 }

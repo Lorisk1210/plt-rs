@@ -1,0 +1,108 @@
+{
+ "area": "mpl_backend_pgf",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "FigureCanvasPgf.print_pgf",
+   "args": {
+    "style": "mpl20",
+    "rc": {
+     "font.family": "monospace",
+     "font.size": 10,
+     "figure.subplot.left": 0.1,
+     "hatch.color": "orange",
+     "hatch.linewidth": 2,
+     "lines.markersize": 20,
+     "pgf.rcfonts": false,
+     "pgf.texsystem": "pdflatex",
+     "pgf.preamble": "\\usepackage[utf8x]{inputenc}\\usepackage[T1]{fontenc}\\usepackage{sfmath}"
+    }
+   },
+   "value": ["\\def\\mathdefault#1{#1}", "\\everymath=\\expandafter{\\the\\everymath\\displaystyle}", "\\IfFileExists{scrextend.sty}{", "  \\usepackage[fontsize=10.000000pt]{scrextend}", "}{", "  \\renewcommand{\\normalsize}{\\fontsize{10.000000}{12.000000}\\selectfont}", "  \\normalsize", "}", "\\usepackage[utf8x]{inputenc}\\usepackage[T1]{fontenc}\\usepackage{sfmath}", "\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother"]
+  },
+  {
+   "op": "FigureCanvasPgf.print_pgf",
+   "args": {
+    "style": "mpl20",
+    "rc": {"font.family": "sans-serif", "font.size": 30, "figure.subplot.left": 0.2, "lines.markersize": 10, "pgf.rcfonts": false, "pgf.texsystem": "xelatex"}
+   },
+   "value": ["\\def\\mathdefault#1{#1}", "\\everymath=\\expandafter{\\the\\everymath\\displaystyle}", "\\IfFileExists{scrextend.sty}{", "  \\usepackage[fontsize=30.000000pt]{scrextend}", "}{", "  \\renewcommand{\\normalsize}{\\fontsize{30.000000}{36.000000}\\selectfont}", "  \\normalsize", "}", "", "\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother"]
+  },
+  {
+   "op": "FigureCanvasPgf.print_pgf",
+   "args": {
+    "style": "mpl20",
+    "rc": {"font.family": "serif", "pgf.rcfonts": false, "pgf.texsystem": "pdflatex", "pgf.preamble": "\\usepackage[utf8x]{inputenc}\\usepackage[T1]{fontenc}"}
+   },
+   "value": ["\\def\\mathdefault#1{#1}", "\\everymath=\\expandafter{\\the\\everymath\\displaystyle}", "\\IfFileExists{scrextend.sty}{", "  \\usepackage[fontsize=10.000000pt]{scrextend}", "}{", "  \\renewcommand{\\normalsize}{\\fontsize{10.000000}{12.000000}\\selectfont}", "  \\normalsize", "}", "\\usepackage[utf8x]{inputenc}\\usepackage[T1]{fontenc}", "\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother"]
+  },
+  {
+   "op": "FigureCanvasPgf.print_pgf",
+   "args": {"style": "mpl20", "rc": {"font.family": "serif", "pgf.rcfonts": false}},
+   "value": ["\\def\\mathdefault#1{#1}", "\\everymath=\\expandafter{\\the\\everymath\\displaystyle}", "\\IfFileExists{scrextend.sty}{", "  \\usepackage[fontsize=10.000000pt]{scrextend}", "}{", "  \\renewcommand{\\normalsize}{\\fontsize{10.000000}{12.000000}\\selectfont}", "  \\normalsize", "}", "", "\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother"]
+  },
+  {
+   "op": "RendererPgf.draw_path",
+   "args": {},
+   "value": ["\\pgfpathmoveto{\\pgfqpoint{0.375000in}{0.300000in}}%", "\\pgfpathlineto{\\pgfqpoint{2.700000in}{2.700000in}}%", "\\usepgfmodule{decorations}%", "\\usepgflibrary{decorations.pathmorphing}%", "\\pgfkeys{/pgf/decoration/.cd, segment length = 0.150000in, amplitude = 0.100000in}%", "\\pgfmathsetseed{42}%", "\\pgfdecoratecurrentpath{random steps}%", "\\pgfusepath{stroke}%"]
+  },
+  {
+   "op": "RendererPgf.draw_text",
+   "args": {
+    "style": "mpl20",
+    "rc": {
+     "font.family": "monospace",
+     "font.size": 10,
+     "figure.subplot.left": 0.1,
+     "hatch.color": "orange",
+     "hatch.linewidth": 2,
+     "lines.markersize": 20,
+     "pgf.rcfonts": false,
+     "pgf.texsystem": "pdflatex",
+     "pgf.preamble": "\\usepackage[utf8x]{inputenc}\\usepackage[T1]{fontenc}\\usepackage{sfmath}"
+    },
+    "text": "hello, world"
+   },
+   "value": ["\\pgftext[x=3.200000in,y=2.400000in,left,base]{\\color{textcolor}{\\ttfamily\\fontsize{10.000000}{12.000000}\\selectfont\\catcode`\\^=\\active\\def^{\\ifmmode\\sp\\else\\^{}\\fi}\\catcode`\\%=\\active\\def%{\\%}hello, world}}%"]
+  },
+  {
+   "op": "RendererPgf.draw_text",
+   "args": {
+    "style": "mpl20",
+    "rc": {"font.family": "sans-serif", "font.size": 30, "figure.subplot.left": 0.2, "lines.markersize": 10, "pgf.rcfonts": false, "pgf.texsystem": "xelatex"},
+    "text": "hello, world"
+   },
+   "value": ["\\pgftext[x=3.200000in,y=2.400000in,left,base]{\\color{textcolor}{\\sffamily\\fontsize{30.000000}{36.000000}\\selectfont\\catcode`\\^=\\active\\def^{\\ifmmode\\sp\\else\\^{}\\fi}\\catcode`\\%=\\active\\def%{\\%}hello, world}}%"]
+  },
+  {
+   "op": "RendererPgf.draw_text",
+   "args": {"rc": {"font.family": "DejaVu Sans"}, "text": "hello, world"},
+   "value": ["\\pgftext[x=4.000000in,y=3.000000in,left,base]{\\color{textcolor}{\\ifdefined\\pdftexversion\\else\\setmainfont{DejaVu Sans}\\rmfamily\\fi\\fontsize{12.000000}{14.400000}\\selectfont\\catcode`\\^=\\active\\def^{\\ifmmode\\sp\\else\\^{}\\fi}\\catcode`\\%=\\active\\def%{\\%}hello, world}}%"]
+  },
+  {
+   "op": "RendererPgf.draw_text",
+   "args": {"style": "mpl20", "rc": {"font.family": "serif", "pgf.rcfonts": false}, "text": "hello, world"},
+   "value": ["\\pgftext[x=3.200000in,y=2.400000in,left,base]{\\color{textcolor}{\\rmfamily\\fontsize{10.000000}{12.000000}\\selectfont\\catcode`\\^=\\active\\def^{\\ifmmode\\sp\\else\\^{}\\fi}\\catcode`\\%=\\active\\def%{\\%}hello, world}}%"]
+  },
+  {
+   "op": "RendererPgf.draw_text",
+   "args": {"rc": {"font.family": "this-font-does-not-exist"}, "text": "hello, world"},
+   "value": ["\\pgftext[x=4.000000in,y=3.000000in,left,base]{\\color{textcolor}{\\fontsize{12.000000}{14.400000}\\selectfont\\catcode`\\^=\\active\\def^{\\ifmmode\\sp\\else\\^{}\\fi}\\catcode`\\%=\\active\\def%{\\%}hello, world}}%"]
+  },
+  {
+   "op": "RendererPgf.draw_text",
+   "args": {"text": "$-1$"},
+   "value": ["\\pgftext[x=4.000000in,y=3.000000in,left,base]{\\color{textcolor}{\\sffamily\\fontsize{12.000000}{14.400000}\\selectfont\\catcode`\\^=\\active\\def^{\\ifmmode\\sp\\else\\^{}\\fi}\\catcode`\\%=\\active\\def%{\\%}$-1$}}%"]
+  },
+  {
+   "op": "RendererPgf.draw_text",
+   "args": {"text": "$−1$"},
+   "value": ["\\pgftext[x=4.000000in,y=3.000000in,left,base]{\\color{textcolor}{\\sffamily\\fontsize{12.000000}{14.400000}\\selectfont\\catcode`\\^=\\active\\def^{\\ifmmode\\sp\\else\\^{}\\fi}\\catcode`\\%=\\active\\def%{\\%}$\\ensuremath{-}1$}}%"]
+  },
+  {
+   "op": "RendererPgf.draw_text",
+   "args": {"text": "%_^ $a_b^c$"},
+   "value": ["\\pgftext[x=4.000000in,y=3.000000in,left,base]{\\color{textcolor}{\\sffamily\\fontsize{12.000000}{14.400000}\\selectfont\\catcode`\\^=\\active\\def^{\\ifmmode\\sp\\else\\^{}\\fi}\\catcode`\\%=\\active\\def%{\\%}%_^ $a_b^c$}}%"]
+  }
+ ]
+}

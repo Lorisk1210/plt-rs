@@ -68,6 +68,10 @@
 //! | `RegularPolyCollection`, `EventCollection`     | [`CollectionSpec::regular_polygons`], [`CollectionSpec::events`] |
 //! | `ax.add_collection(c)`                         | [`Axes::add_collection`]                        |
 //! | `coll.set_array(values)`, `coll.set_offsets(xy)` | [`Collection::set_array`], [`Collection::set_offsets`] |
+//! | `coll.set_array(None)`, `coll.get_segments()`  | [`Collection::clear_array`], [`Collection::segments`] |
+//! | `coll.get_datalim(ax.transData)`               | [`Collection::datalim`]                         |
+//! | `events.set_positions(p)`, `events.switch_orientation()` | [`EventCollection::set_positions`], [`EventCollection::switch_orientation`] (downcast the collection) |
+//! | `ellipses.set_widths(w)`, `ellipses.get_angles()` | [`EllipseCollection::set_widths`], [`EllipseCollection::angles`] |
 //! | `class MyArtist(Artist)`                       | `impl` [`Artist`], [`Axes::add_custom_artist`] → [`Custom`] |
 //! | `a.update_from(other)`, `a.pchanged()`         | not needed: handles share state                 |
 //!
@@ -262,6 +266,13 @@
 //! [`Collection`]: crate::collections::Collection
 //! [`Collection::set_array`]: crate::collections::Collection::set_array
 //! [`Collection::set_offsets`]: crate::collections::Collection::set_offsets
+//! [`Collection::clear_array`]: crate::collections::Collection::clear_array
+//! [`Collection::segments`]: crate::collections::Collection::segments
+//! [`Collection::datalim`]: crate::collections::Collection::datalim
+//! [`EventCollection::set_positions`]: crate::collections::EventCollection::set_positions
+//! [`EventCollection::switch_orientation`]: crate::collections::EventCollection::switch_orientation
+//! [`EllipseCollection::set_widths`]: crate::collections::EllipseCollection::set_widths
+//! [`EllipseCollection::angles`]: crate::collections::EllipseCollection::angles
 //! [`CollectionSpec::lines`]: crate::collections::CollectionSpec::lines
 //! [`CollectionSpec::polygons`]: crate::collections::CollectionSpec::polygons
 //! [`CollectionSpec::patches`]: crate::collections::CollectionSpec::patches

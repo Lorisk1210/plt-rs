@@ -386,6 +386,13 @@ const AREAS: &[(&str, &[Op])] = &[
     ("mpl_marker", areas::mpl_marker::OPS),
     ("mpl_arrow_patches", areas::mpl_arrow_patches::OPS),
     ("mpl_artist", areas::mpl_artist::OPS),
+    ("mpl_contour", areas::mpl_contour::OPS),
+    ("mpl_collections", areas::mpl_collections::OPS),
+    (
+        "mpl_multivariate_colormaps",
+        areas::mpl_multivariate_colormaps::OPS,
+    ),
+    ("mpl_backend_pgf", areas::mpl_backend_pgf::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

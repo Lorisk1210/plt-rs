@@ -24,7 +24,7 @@ fn bad(what: &str) -> ProbeError {
 
 /// One variate's values: indices when every value is an integer, else
 /// fractions with `null` as NaN (numpy's array dtype rule).
-fn values(json: &Json) -> Result<Vec<Normalized>, ProbeError> {
+pub(super) fn values(json: &Json) -> Result<Vec<Normalized>, ProbeError> {
     let items = json.as_array().ok_or_else(|| bad("values"))?;
     if items.iter().all(|item| matches!(item, Json::Integer(_))) {
         return Ok(items
@@ -47,7 +47,7 @@ fn values(json: &Json) -> Result<Vec<Normalized>, ProbeError> {
         .collect()
 }
 
-fn colors_json(colors: impl IntoIterator<Item = Rgba>) -> Json {
+pub(super) fn colors_json(colors: impl IntoIterator<Item = Rgba>) -> Json {
     Json::Array(colors.into_iter().map(color_json).collect())
 }
 
@@ -145,7 +145,7 @@ fn bivar_call(args: Args<'_>) -> Outcome {
 }
 
 /// A `resampled` size: `null` keeps the axis.
-fn size(json: &Json) -> Result<Option<isize>, ProbeError> {
+pub(super) fn size(json: &Json) -> Result<Option<isize>, ProbeError> {
     match json {
         Json::Null => Ok(None),
         Json::Integer(n) => isize::try_from(*n).map(Some).map_err(|_| bad("resampled")),

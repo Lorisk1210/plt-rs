@@ -23,12 +23,19 @@ use crate::ticker::TickerSettings;
 pub enum ContourWarning {
     /// A log-scaled quad contour masked the non-positive values of z.
     NonPositiveMasked,
+    /// Some labels had been removed one by one before the whole set was
+    /// removed.
+    LabelsRemoved,
 }
 
 impl fmt::Display for ContourWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NonPositiveMasked => f.write_str("Log scale: values of z <= 0 have been masked"),
+            Self::LabelsRemoved => f.write_str(
+                "Some labels were manually removed from the ContourSet. To remove labels \
+                 cleanly, remove the entire ContourSet and recreate it.",
+            ),
         }
     }
 }
@@ -92,6 +99,9 @@ pub(crate) struct ContourState {
     pub(crate) alpha: Option<f64>,
     pub(crate) linewidths: Vec<f64>,
     pub(crate) linestyles: Vec<LineStyle>,
+    /// The style of negative levels of a single-colour line set (matplotlib's
+    /// `negative_linestyles`).
+    pub(crate) negative_linestyle: LineStyle,
     /// The hatch patterns cycled over the bands (matplotlib's `hatches`).
     pub(crate) hatches: Vec<Option<String>>,
     pub(crate) warnings: Vec<ContourWarning>,
@@ -151,18 +161,18 @@ impl ContourPlan {
                 .map(|&level| source.generator.lines(level))
                 .collect()
         };
+        let negative_linestyle = options
+            .negative_linestyles
+            .clone()
+            .unwrap_or_else(|| rc.contour_negative_linestyle.clone());
         let (linewidths, linestyles) = if filled {
             (Vec::new(), Vec::new())
         } else {
-            let negative = options
-                .negative_linestyles
-                .clone()
-                .unwrap_or_else(|| rc.contour_negative_linestyle.clone());
             let styling = LineStyling {
                 levels: &levels,
                 zrange: source.zmin.zip(source.zmax),
                 monochrome: plan.monochrome,
-                negative: &negative,
+                negative: &negative_linestyle,
             };
             (
                 style::linewidths(options.linewidths.as_deref(), levels.len(), &rc),
@@ -186,6 +196,7 @@ impl ContourPlan {
             alpha: options.alpha,
             linewidths,
             linestyles,
+            negative_linestyle,
             hatches: options.hatches.clone(),
             warnings: source.warnings,
             labels: Vec::new(),

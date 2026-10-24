@@ -90,24 +90,11 @@ Ops
     ``test_collection_hatchcolor_inherit_logic`` and
     ``test_collection_hatchcolor_fallback_logic``.
 
-Left out: getters returning what was set and Python container handling
-(``test_EllipseCollection_setter_getter``, ``test_lslw_bcast``,
-``test_capstyle``, ``test_joinstyle``, ``test_pandas_indexing``,
-``test_EventCollection_nosort``, ``test_collection_set_verts_array``,
-``test_collection_set_array``, ``test_array_dimensions``,
-``test_get_segments``, ``test_set_offset_transform``,
-``test_set_offset_units``, ``test_check_offsets_dtype``,
-``test_quadmesh_get_coordinates``, ``test_quadmesh_set_array``), argument
-validation messages (``test_set_wrong_linestyle``,
-``test_fill_between_poly_collection_raise``,
-``test_quadmesh_set_array_validation``, ``test_alpha_validation``),
-``test_null_collection_datalim`` and ``test_set_offsets_late``
-(``get_datalim`` of collections outside any axes, which plt-rs does not
-have), ``test_quiver_limits`` and ``test_barb_limits`` (in
-``quiver_behaviour``), and smoke tests
-(``test_linestyle_single_dashes``, ``test_scatter_empty_linestyle_pdf``,
-``test_polyquadmesh_masked_vertices_array``, backend hatch-colour
-fallbacks).
+Left out: the tests the ``mpl_collections`` area ports or lists (getters
+returning what was set, broadcast widths and styles, data limits, mesh
+arrays and coordinates, argument validation, the ``pcolor`` variants and the
+look of legend handles), ``test_quiver_limits`` and ``test_barb_limits`` (in
+``quiver_behaviour``) and the Python-only ones.
 """
 
 import matplotlib.colors as mcolors

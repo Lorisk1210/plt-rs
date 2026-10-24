@@ -56,8 +56,10 @@ mod mpl_small;
 mod mpl_tests;
 mod mpl_tests_agg;
 mod mpl_tests_axes;
+mod mpl_tests_backend_pgf;
 mod mpl_tests_colorbar;
 mod mpl_tests_constrainedlayout;
+mod mpl_tests_contour;
 mod mpl_tests_datetime;
 mod mpl_tests_figure;
 mod mpl_tests_ft2font;
@@ -239,6 +241,8 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_tests_table::cases(),
         &mpl_tests_offsetbox::cases(),
         &mpl_tests_marker::cases(),
+        &mpl_tests_contour::cases(),
+        &mpl_tests_backend_pgf::cases(),
     ]
     .concat()
 }

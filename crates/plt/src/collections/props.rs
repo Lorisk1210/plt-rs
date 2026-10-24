@@ -84,6 +84,13 @@ pub struct CollectionProps {
     pub hatchcolors: Option<HatchColors>,
     /// Anti-aliasing per item.
     pub antialiased: Option<Vec<bool>>,
+    /// One opacity per item, replacing the artist's alpha (matplotlib's
+    /// array `alpha`).
+    pub alphas: Option<Vec<f64>>,
+    /// Cap style of the edges.
+    pub capstyle: Option<CapStyle>,
+    /// Join style of the edges.
+    pub joinstyle: Option<JoinStyle>,
 }
 
 impl CollectionProps {
@@ -129,6 +136,20 @@ impl CollectionProps {
         self
     }
 
+    /// Cap style of the edges (matplotlib's `capstyle`).
+    #[must_use]
+    pub fn capstyle(mut self, capstyle: CapStyle) -> Self {
+        self.capstyle = Some(capstyle);
+        self
+    }
+
+    /// Join style of the edges (matplotlib's `joinstyle`).
+    #[must_use]
+    pub fn joinstyle(mut self, joinstyle: JoinStyle) -> Self {
+        self.joinstyle = Some(joinstyle);
+        self
+    }
+
     base_prop_builders!();
 
     /// Whether a face colour is given (`color` or `facecolors`).
@@ -166,6 +187,15 @@ impl CollectionProps {
         }
         if self.antialiased.is_some() {
             collection.antialiased = self.antialiased;
+        }
+        if self.alphas.is_some() {
+            collection.alphas = self.alphas;
+        }
+        if self.capstyle.is_some() {
+            collection.capstyle = self.capstyle;
+        }
+        if self.joinstyle.is_some() {
+            collection.joinstyle = self.joinstyle;
         }
     }
 }

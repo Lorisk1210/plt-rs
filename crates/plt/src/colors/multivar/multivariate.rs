@@ -1,9 +1,12 @@
 //! Several colormaps whose colours mix into one (matplotlib's
 //! `MultivarColormap`).
 
+use std::str::FromStr;
+
 use plt_core::Rgba;
 
 use super::MultivarError;
+use crate::colors::colormap::truncate_byte;
 use crate::colors::{Color, Colormap, Normalized};
 
 /// How a multivariate colormap mixes the colours of its colormaps.
@@ -15,8 +18,22 @@ pub enum CombinationMode {
     Sub,
 }
 
+impl FromStr for CombinationMode {
+    type Err = MultivarError;
+
+    /// matplotlib's names, `"sRGB_add"` and `"sRGB_sub"`.
+    fn from_str(name: &str) -> Result<Self, MultivarError> {
+        match name {
+            "sRGB_add" => Ok(Self::Add),
+            "sRGB_sub" => Ok(Self::Sub),
+            other => Err(MultivarError::UnknownMode(other.to_owned())),
+        }
+    }
+}
+
 /// One colormap per variate, whose colours mix into one (matplotlib's
-/// `MultivarColormap`).
+/// `MultivarColormap`). Two are equal when their colormaps, mode and bad
+/// colour are, whatever their names.
 ///
 /// ```
 /// use plt::colors::Normalized;
@@ -26,12 +43,19 @@ pub enum CombinationMode {
 /// assert_eq!(black.to_array(), [0.0, 0.0, 0.0, 1.0]);
 /// # Ok::<(), plt::colors::multivar::MultivarError>(())
 /// ```
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct MultivarColormap {
     name: String,
     colormaps: Vec<Colormap>,
     mode: CombinationMode,
     bad: Rgba,
+}
+
+impl PartialEq for MultivarColormap {
+    /// matplotlib's `MultivarColormap.__eq__`: the names do not count.
+    fn eq(&self, other: &Self) -> bool {
+        self.colormaps == other.colormaps && self.mode == other.mode && self.bad == other.bad
+    }
 }
 
 impl MultivarColormap {
@@ -85,6 +109,16 @@ impl MultivarColormap {
         let [r, g, b, a] = self.mix(values)?.map(|c| c.clamp(0.0, 1.0));
         let a = alpha.map_or(a, |alpha| a * alpha.clamp(0.0, 1.0));
         Ok(Rgba::new(r, g, b, a))
+    }
+
+    /// Like [`MultivarColormap::lookup`] but as 8-bit channels, which
+    /// matplotlib truncates (`cmap(X, alpha, bytes=True)`).
+    pub fn lookup_bytes(
+        &self,
+        values: &[Normalized],
+        alpha: Option<f64>,
+    ) -> Result<[u8; 4], MultivarError> {
+        Ok(self.lookup(values, alpha)?.to_array().map(truncate_byte))
     }
 
     /// The mixed colour of one point without clipping (matplotlib's

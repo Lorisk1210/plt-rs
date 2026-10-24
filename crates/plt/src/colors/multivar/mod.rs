@@ -22,7 +22,7 @@ mod multivariate;
 
 use std::fmt;
 
-pub use bivariate::{BivarAxis, BivarColormap, BivarShape};
+pub use bivariate::{BivarAxis, BivarColormap, BivarShape, BivarTable};
 pub use colormap::MultiColormap;
 pub use mappable::MultiMappable;
 pub use multivariate::{CombinationMode, MultivarColormap};
@@ -46,6 +46,8 @@ pub enum MultivarError {
     /// A bivariate shape name other than `square`, `circle`, `ignore` and
     /// `circleignore`.
     UnknownShape(String),
+    /// A combination mode name other than `sRGB_add` and `sRGB_sub`.
+    UnknownMode(String),
     /// Circular bivariate colormaps take fractions only.
     CircleNeedsFractions,
     /// A table needs at least one entry.
@@ -87,6 +89,11 @@ impl fmt::Display for MultivarError {
                 write!(f, "expected {expected} variates, got {given}")
             }
             Self::UnknownShape(name) => write!(f, "{name:?} is not a bivariate colormap shape"),
+            Self::UnknownMode(name) => write!(
+                f,
+                "{name:?} is not a valid value for combination_mode; supported values are \
+                 'sRGB_add', 'sRGB_sub'"
+            ),
             Self::CircleNeedsFractions => {
                 f.write_str("circular bivariate colormaps are only implemented for fractions")
             }

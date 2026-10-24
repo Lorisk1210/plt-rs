@@ -167,17 +167,13 @@ impl ContourSet {
         self.raw.is_attached()
     }
 
-    /// Removes the contours from the figure: the set, its collections and
-    /// its labels (matplotlib's `ContourSet.remove`). Like the handles of
-    /// every removed artist, the set stays usable.
-    pub fn remove(&self) {
-        let labels: Vec<ArtistId> =
-            self.read(|state| state.labels.iter().map(|label| label.artist).collect());
-        let mut figure = self.raw.figure_state().borrow_mut();
-        let collections = self.collections.iter().map(ArtistHandle::id);
-        for id in collections.chain(labels).chain([self.id()]) {
-            figure.remove_artist(id);
-        }
+    /// Removes the contour set artist, which keeps the levels, colours
+    /// and labels, from its figure.
+    pub(crate) fn remove_state(&self) {
+        self.raw
+            .figure_state()
+            .borrow_mut()
+            .remove_artist(self.id());
     }
 
     /// Reads the levels, colours and labels.
@@ -288,6 +284,13 @@ impl ContourSet {
     /// The line style of every level (empty for fills).
     pub fn linestyles(&self) -> Vec<LineStyle> {
         self.read(|state| state.linestyles.clone())
+    }
+
+    /// The style negative levels of a single-colour line set are drawn in
+    /// (matplotlib's `negative_linestyles`): as asked, else
+    /// `contour.negative_linestyle`, whether or not the set has any.
+    pub fn negative_linestyle(&self) -> LineStyle {
+        self.read(|state| state.negative_linestyle.clone())
     }
 
     /// The dash pattern of every level, scaled by its line width
@@ -495,6 +498,20 @@ mod tests {
         assert_eq!(styles, cs.linestyles());
         cs.set_linewidths(&[]);
         assert_eq!(cs.linewidths(), [1.0, 4.0, 1.0], "nothing to cycle");
+    }
+
+    #[test]
+    fn negative_line_styles_come_from_the_options_or_the_rc() {
+        let cs = lines(ContourOptions::default());
+        assert_eq!(
+            cs.negative_linestyle(),
+            crate::rc::params().contour_negative_linestyle
+        );
+        let dotted = lines(ContourOptions {
+            negative_linestyles: Some(LineStyle::Dotted),
+            ..ContourOptions::default()
+        });
+        assert_eq!(dotted.negative_linestyle(), LineStyle::Dotted);
     }
 
     #[test]

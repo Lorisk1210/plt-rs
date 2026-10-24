@@ -50,20 +50,14 @@ Ops
     number of handles (``test_contour_legend_elements``,
     ``test_contourf_legend_elements``; the handles are opaque in plt-rs).
 
-Left out: shape errors, ``test_contour_Nlevels``,
-``test_contourf_decreasing_levels``, ``test_contourf_symmetric_locator``,
-``test_lognorm_levels``, ``test_bool_autolevel`` and
-``test_allsegs_allkinds`` (covered by the ``contour`` area),
-``test_find_nearest_contour*`` (plt-rs has no public nearest-contour
-query; manual labels exercise it), ``test_label_contour_start`` (mocks a
-private method), ``test_quadcontourset_reuse`` (generator identity),
-``test_algorithm_*`` (plt-rs implements ``mpl2014`` only),
-``test_contour_remove*``, ``test_contour_no_args``,
-``test_contour_singular_color``, ``test_contour_clip_path`` and
-``test_clabel_raises_on_filled_contours`` (Python API), and smoke tests
-(``test_contour_shape_*_valid``, ``test_contour_no_valid_levels``,
-``test_circular_contour_warning``, ``test_clabel_with_large_spacing``,
-``test_contour_addlines``, ``test_label_nonagg``, ``test_subfigure_clabel``).
+Left out: ``test_contour_Nlevels``, ``test_contourf_decreasing_levels``,
+``test_contourf_symmetric_locator`` (covered by the ``contour`` area), and
+the tests the ``mpl_contour`` area ports or lists: shape errors,
+``test_lognorm_levels``, ``test_bool_autolevel``, ``test_allsegs_allkinds``,
+``test_find_nearest_contour*``, ``test_label_contour_start``,
+``test_algorithm_*``, ``test_contour_remove*``, ``test_contour_clip_path``,
+``test_negative_linestyles`` (its style attribute), the smoke tests and the
+Python-only ones.
 """
 
 import matplotlib as mpl

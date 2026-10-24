@@ -6,7 +6,7 @@ use std::f64::consts::PI;
 use plt::axes::{ImshowOptions, Mesh, PcolorOptions};
 use plt::collections::CollectionProps;
 use plt::contour::{QuadCoords, QuadField};
-use plt::image::{ColorizerOptions, Origin};
+use plt::image::Origin;
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::prelude::*;
 use plt::quiver::{Angles, BarbsOptions, QuiverOptions, QuiverUnits, VectorField};
@@ -15,6 +15,7 @@ use plt::streamplot::{StreamField, StreamplotOptions};
 use super::{extrema_levels, func3_grid, plain};
 use crate::figures::cases::common::func3;
 use crate::figures::{CaseResult, FigureCase};
+use plt::colors::ColorizerOptions;
 
 /// `func3` sampled on a 256 × 256 grid, ready to contour.
 fn func3_field() -> QuadField {
@@ -88,7 +89,7 @@ fn pcolormesh(fig: &Figure) -> CaseResult {
     let y = linspace(-3.0, 3.0, 128);
     let z = Grid::from_fn(y.len(), x.len(), |i, j| func3(x[j], y[i]));
     let options = PcolorOptions {
-        colors: ColorizerOptions {
+        colorizer: ColorizerOptions {
             vmin: Some(-0.5),
             vmax: Some(1.0),
             ..ColorizerOptions::default()

@@ -24,7 +24,7 @@ fn log_grids(ax: &Axes) {
 }
 
 fn log_demo_1(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 3)?;
     let (ax1, ax2, ax3) = (&axs[(0, 0)], &axs[(0, 1)], &axs[(0, 2)]);
     let t = arange(0.01, 10.0, 0.01);
@@ -73,7 +73,7 @@ fn log_demo_3(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 2.0, 10);
     let y = map(&x, |x| 10f64.powf(x));
     let yerr = map(&y, |y| 1.75 + 0.75 * y);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     fig.suptitle("errorbars going negative");
     for (ax, (nonpositive, title)) in axs.as_slice().iter().zip([
@@ -170,7 +170,7 @@ fn symlog_region(ax: &Axes, linthresh: f64, linscale: f64, title: &str) -> CaseR
 
 /// Two axes in a constrained figure, one above the other.
 fn stacked_pair(fig: &Figure) -> Result<(Axes, Axes), Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 1)?;
     Ok((axs[(0, 0)].clone(), axs[(1, 0)].clone()))
 }

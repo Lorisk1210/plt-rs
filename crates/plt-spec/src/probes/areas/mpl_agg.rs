@@ -53,8 +53,8 @@ fn pixel(args: Args<'_>) -> Outcome {
         fig.set_facecolor(face);
         let save = || {
             fig.to_png_with(SaveOptions {
-                facecolor: Some(face),
-                edgecolor: Some(Rgba::TRANSPARENT),
+                facecolor: Some(face.into()),
+                edgecolor: Some(Rgba::TRANSPARENT.into()),
                 ..SaveOptions::default()
             })
             .map_err(ProbeError::rejected)

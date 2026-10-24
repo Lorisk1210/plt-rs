@@ -41,7 +41,7 @@ fn lines(
     fig: &Figure,
     draw: fn(&Axes, AxisValues, AxisValues) -> Result<(), PlotError>,
 ) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
     let x = daily(day(2023, 9, 1)?, 0..5)?;
     let n = numbers(1..6);
@@ -79,7 +79,7 @@ fn slanted_labels(ax: &Axes) {
 
 /// `test_scatter`: twenty hours of dates against a random walk.
 fn scatter(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let base = day(2005, 2, 1)?;
     let dates = (0..10)
         .map(|i| base.checked_add(TimeDelta::new(0, 7200 * i, 0)?))
@@ -103,7 +103,7 @@ fn scatter(fig: &Figure) -> CaseResult {
 
 /// `test_stackplot`: four equal layers over nine new years.
 fn stackplot(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let dates = (0..9)
         .map(|i| day(2020 + i, 1, 1))
         .collect::<Result<Vec<_>, _>>()?;
@@ -131,7 +131,7 @@ fn date_walk(
 
 /// `test_fill`: polygons through dates and random numbers.
 fn fill(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 4, 1)?;
     let mut rng = SpecRng::new(19_680_801);
     let x_dates = date_walk(&mut rng, day(2023, 1, 1)?, 4, 5)?;
@@ -202,7 +202,7 @@ impl Between {
 
 /// `test_fill_between`.
 fn fill_between(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let data = Between::new()?;
     let ax = axes(fig, 3, 1)?;
     let options = FillBetweenOptions::default;
@@ -224,7 +224,7 @@ fn fill_between(fig: &Figure) -> CaseResult {
 
 /// `test_fill_betweenx`.
 fn fill_betweenx(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let data = Between::new()?;
     let ax = axes(fig, 1, 3)?;
     let options = FillBetweenOptions::default;
@@ -247,7 +247,7 @@ fn fill_betweenx(fig: &Figure) -> CaseResult {
 /// `test_errorbar`: dates and numbers with errors of half a unit or a
 /// day, limits and every other bar.
 fn errorbar(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 4, 1)?;
     let dates = daily(day(2023, 10, 1)?, 0..6)?;
     let values = numbers(1..7);
@@ -305,7 +305,7 @@ fn errorbar(fig: &Figure) -> CaseResult {
 /// `test_stem`: stems along dates or numbers from a date or a number,
 /// vertical then horizontal.
 fn stem(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 6, 1)?;
     let (above, below) = (day(2023, 9, 18)?, day(2023, 11, 18)?);
     let ranges = AxisValues::from(numbers(1..10));
@@ -347,7 +347,7 @@ fn stem(fig: &Figure) -> CaseResult {
 
 /// `test_text`: bold serif text at dates.
 fn text(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
     let test_date = day(2023, 10, 1)?;
     let values = numbers(1..10);
@@ -369,7 +369,7 @@ fn text(fig: &Figure) -> CaseResult {
 /// `test_annotate`: annotations at dates, the last with a text placed at
 /// dates and a red arrow.
 fn annotate(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 4, 1)?;
     let dates = daily(day(2023, 10, 1)?, 0..31)?;
     let data = numbers(1..32);

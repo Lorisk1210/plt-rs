@@ -6,13 +6,11 @@ use plt_core::{Affine2D, Bbox, Point};
 use super::artist::{canvas_bbox, draw_rendered};
 use super::make::{CoreSettings, ImageCore, Placement, RenderedImage};
 use super::resample::PixelMap;
-use super::{
-    ColorizerOptions, Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage,
-    Origin,
-};
+use super::{Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
 };
+use crate::colors::{ColorizerOptions, impl_colorize};
 use crate::offsetbox::transformed_bbox;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -23,7 +21,7 @@ use crate::transforms::Transform;
 #[derive(Debug, Default)]
 pub struct BboxImageOptions {
     /// Colormap, norm and limits for scalar data.
-    pub colors: ColorizerOptions,
+    pub colorizer: ColorizerOptions,
     /// Interpolation when resampling (`None` = `image.interpolation`).
     pub interpolation: Option<Interpolation>,
     /// Whether data or colours are resampled
@@ -41,6 +39,8 @@ pub struct BboxImageOptions {
     /// Opacity: uniform or per pixel.
     pub alpha: Option<ImageAlpha>,
 }
+
+impl_colorize!(BboxImageOptions);
 
 /// State of an image filling a box given in display pixels.
 #[derive(Debug)]
@@ -72,7 +72,7 @@ impl BboxImageArtist {
         rc: &RcParams,
     ) -> Result<Self, ImageError> {
         let settings = CoreSettings {
-            colors: options.colors,
+            colorizer: options.colorizer,
             interpolation: options.interpolation,
             stage: options.interpolation_stage,
             origin: options.origin,

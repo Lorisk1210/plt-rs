@@ -3,11 +3,9 @@
 //! the alpha of non-uniform `pcolorfast` images.
 
 use plt::axes::{ImshowOptions, MeshCoords, PcolorfastOptions};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::{
-    ColorizerOptions, Extent, ImageAlpha, ImageData, Interpolation, InterpolationStage, ScalarField,
-};
+use plt::image::{Extent, ImageAlpha, ImageData, Interpolation, InterpolationStage, ScalarField};
 use plt::lines::LineProps;
 use plt::numeric::{Grid, arange};
 
@@ -42,7 +40,7 @@ pub(super) fn nan_inf_interpolation_stages(fig: &Figure) -> CaseResult {
         ax.imshow(
             with_holes(),
             ImshowOptions {
-                colors: ColorizerOptions::default().cmap(cmap.clone()),
+                colorizer: ColorizerOptions::default().cmap(cmap.clone()),
                 interpolation: Some(interpolation),
                 interpolation_stage: stage,
                 ..ImshowOptions::default()
@@ -113,7 +111,7 @@ pub(super) fn bool_and_integer_arrays(fig: &Figure) -> CaseResult {
     axs[(0, 1)].imshow(
         ImageData::from(ScalarField::integers(&codes)),
         ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("tab20")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("tab20")?),
             ..ImshowOptions::default()
         },
     )?;
@@ -121,7 +119,7 @@ pub(super) fn bool_and_integer_arrays(fig: &Figure) -> CaseResult {
     axs[(0, 2)].imshow(
         ScalarField::integers(&levels),
         ImshowOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(colormaps::get("gray")?)
                 .limits(Some(0.0), Some(65535.0)),
             ..ImshowOptions::default()
@@ -145,8 +143,9 @@ pub(super) fn pcolorfast_nonuniform_alpha(fig: &Figure) -> CaseResult {
         Some(coords),
         Grid::from_fn(3, 4, |r, c| (r * 4 + c) as f64),
         PcolorfastOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("plasma")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("plasma")?),
             alpha: Some(0.5),
+            ..PcolorfastOptions::default()
         },
     )?;
     Ok(())

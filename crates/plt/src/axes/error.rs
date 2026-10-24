@@ -3,7 +3,7 @@
 use std::fmt;
 
 use super::pie::PieError;
-use crate::colors::ColormapError;
+use crate::colors::{ColorizerError, ColormapError, NORM_WITH_LIMITS};
 use crate::lines::{FormatError, MarkEveryError};
 use crate::markers::MarkerError;
 use crate::mlab::MlabError;
@@ -195,9 +195,7 @@ impl fmt::Display for PlotError {
                 "the {}-axis already has an explicit converter set",
                 axis.name()
             ),
-            Self::NormWithLimits => f.write_str(
-                "passing a Normalize instance simultaneously with vmin/vmax is not supported",
-            ),
+            Self::NormWithLimits => f.write_str(NORM_WITH_LIMITS),
             Self::SlopeOnNonlinearScale => {
                 f.write_str("'slope' cannot be used with non-linear scales")
             }
@@ -216,6 +214,15 @@ impl From<MarkerError> for PlotError {
 impl From<ColormapError> for PlotError {
     fn from(err: ColormapError) -> Self {
         Self::Colormap(err)
+    }
+}
+
+impl From<ColorizerError> for PlotError {
+    fn from(err: ColorizerError) -> Self {
+        match err {
+            ColorizerError::Colormap(err) => Self::Colormap(err),
+            ColorizerError::NormWithLimits => Self::NormWithLimits,
+        }
     }
 }
 

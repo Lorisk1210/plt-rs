@@ -1,7 +1,7 @@
 //! Barbs cases of `figures/cases_fields.py`.
 
 use plt::axes::MappedColors;
-use plt::colors::colormaps;
+use plt::colors::{Colorize, colormaps};
 use plt::figure::Figure;
 use plt::numeric::{arange, linspace_with, meshgrid};
 use plt::quiver::{BarbIncrements, BarbPivot, BarbSizes, BarbsOptions, VectorField};
@@ -94,7 +94,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .zip(&field.v)
             .map(|(u, v)| u.hypot(*v))
             .collect();
-        let colors = MappedColors::new(speed).with_cmap(colormaps::get("plasma")?);
+        let colors = MappedColors::new(speed).cmap(colormaps::get("plasma")?);
         barbs(fig, field.with_colors(colors), BarbsOptions::default())
     })
     .sized(5.0, 4.0, 100.0),

@@ -3,9 +3,8 @@
 
 use plt::axes::{Axes, ImshowOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::orientation::Orientation;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
@@ -86,7 +85,8 @@ pub(super) fn fraction(fig: &Figure) -> CaseResult {
 pub(super) fn multiple_axes(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(2, 1)?;
     let limits = || {
-        ImshowOptions::default().colors(ColorizerOptions::default().limits(Some(-1.0), Some(1.0)))
+        ImshowOptions::default()
+            .colorizer(ColorizerOptions::default().limits(Some(-1.0), Some(1.0)))
     };
     let im = axs[(0, 0)].imshow(field(40), limits())?;
     axs[(1, 0)].imshow(field(40).map(|v| -v), limits())?;

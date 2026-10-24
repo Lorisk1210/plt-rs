@@ -3,8 +3,7 @@
 
 use plt::artist::ArtistHandle;
 use plt::axes::{
-    BarLabelOptions, BarLabelType, PieContainer, PieLabelFormat, PieLabelOptions, PieOptions,
-    PieShadow,
+    BarLabelOptions, BarLabelType, PieContainer, PieLabelOptions, PieOptions, PieShadow,
 };
 use plt::colors::color_sequence;
 use plt::coords::Coords;
@@ -19,10 +18,11 @@ use plt::text::{AnnotateOptions, ArrowProps, HAlign, VAlign};
 use super::strings;
 use crate::figures::cases::common::{arrow, styled_box};
 use crate::figures::{CaseResult, FigureCase};
+use plt::ticker::LabelFormat;
 
 /// `autopct=format`.
-fn percentages(format: &str) -> PieLabelFormat {
-    PieLabelFormat::Printf(format.into())
+fn percentages(format: &str) -> LabelFormat {
+    LabelFormat::Template(format.into())
 }
 
 fn bar_of_pie(fig: &Figure) -> CaseResult {

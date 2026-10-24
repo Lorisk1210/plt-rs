@@ -1,7 +1,7 @@
 //! Quiver and quiverkey cases of `figures/cases_fields.py`.
 
 use plt::axes::MappedColors;
-use plt::colors::colormaps;
+use plt::colors::{Colorize, colormaps};
 use plt::lines::LineProps;
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::quiver::{
@@ -174,7 +174,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .zip(v.as_slice())
             .map(|(u, v)| u.hypot(*v))
             .collect();
-        let colors = MappedColors::new(speed).with_cmap(colormaps::get("viridis")?);
+        let colors = MappedColors::new(speed).cmap(colormaps::get("viridis")?);
         let field = VectorField::on_mesh(&xx, &yy, &u, &v).with_colors(colors);
         fig.subplot().quiver(field, QuiverOptions::default())?;
         Ok(())

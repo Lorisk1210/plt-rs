@@ -86,7 +86,7 @@ fn custom_figure_class(fig: &Figure) -> CaseResult {
 
 fn figure_title_1(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 5.0, 501);
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     ax1.plot(&x, map(&x, |x| (6.0 * x).cos() * (-x).exp()))?;
@@ -143,7 +143,7 @@ fn stocks() -> Result<(Vec<DateTime>, Vec<Vec<f64>>), DateError> {
 
 fn figure_title_2(fig: &Figure) -> CaseResult {
     let (dates, columns) = stocks()?;
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots_shared(4, 2, Share::All, Share::All)?;
     for ((ax, (name, _)), y) in axs.as_slice().iter().zip(STOCKS).zip(columns) {
         let peak = nanmax(y.iter().copied()).ok_or("a price")?;

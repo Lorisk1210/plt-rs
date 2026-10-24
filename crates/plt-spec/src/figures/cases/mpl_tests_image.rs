@@ -5,9 +5,9 @@
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, ImshowOptions, Mesh, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, ImageData, Interpolation, InterpolationStage, Origin};
+use plt::image::{Extent, ImageData, Interpolation, InterpolationStage, Origin};
 use plt::numeric::Grid;
 use plt::rc::Aspect;
 
@@ -47,7 +47,7 @@ fn image_edges(fig: &Figure) -> CaseResult {
     ax.imshow(
         plt::image::ScalarField::integers(&values),
         ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("gray")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("gray")?),
             origin: Some(Origin::Upper),
             extent: Some(Extent::new(-10.0, 10.0, -10.0, 10.0)),
             interpolation: Some(Interpolation::None),
@@ -74,7 +74,7 @@ fn stretched(
     Ok(ax.imshow(
         data,
         ImshowOptions {
-            colors,
+            colorizer: colors,
             aspect: Some(Aspect::Auto),
             extent: Some(extent),
             ..ImshowOptions::default()

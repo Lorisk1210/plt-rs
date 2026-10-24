@@ -4,10 +4,8 @@
 
 use plt_core::Rgba;
 
-use super::{ContourError, ContourNorm, ContourOptions};
-use crate::colors::{
-    Color, Colormap, Extend, LogNorm, NoNorm, Norm, Normalize, ScalarMappable, colormaps,
-};
+use super::{ContourError, ContourOptions};
+use crate::colors::{Color, Colormap, Extend, LogNorm, NoNorm, Norm, Normalize, ScalarMappable};
 use crate::image::ScalarKind;
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
@@ -49,26 +47,23 @@ pub(crate) fn map_colors(
     coloring: &LevelColoring<'_>,
     rc: &RcParams,
 ) -> Result<ColorPlan, ContourError> {
-    if options.colors.is_some() && options.cmap.is_some() {
+    let colorizer = std::mem::take(&mut options.colorizer);
+    if options.colors.is_some() && colorizer.cmap.is_some() {
         return Err(ContourError::ColorsAndCmap);
     }
     if let Some(colors) = &options.colors {
         return indexed_colors(colors, coloring);
     }
-    let cmap = match options.cmap.take() {
-        Some(cmap) => cmap,
-        None => colormaps::get(&rc.image_cmap)?,
+    let cmap = colorizer.colormap(rc)?;
+    let mut norm: Box<dyn Norm> = match colorizer.norm {
+        Some(norm) => norm,
+        None if coloring.logscale => Box::new(LogNorm::default()),
+        None => Box::new(Normalize::default()),
     };
-    let mut norm: Box<dyn Norm> = match std::mem::take(&mut options.norm) {
-        ContourNorm::Linear if coloring.logscale => Box::new(LogNorm::default()),
-        ContourNorm::Linear => Box::new(Normalize::default()),
-        ContourNorm::Log => Box::new(LogNorm::default()),
-        ContourNorm::Custom(norm) => norm,
-    };
-    if let Some(vmin) = options.vmin {
+    if let Some(vmin) = colorizer.vmin {
         norm.set_vmin(Some(vmin));
     }
-    if let Some(vmax) = options.vmax {
+    if let Some(vmax) = colorizer.vmax {
         norm.set_vmax(Some(vmax));
     }
     let levels: Vec<Option<f64>> = coloring.levels.iter().copied().map(Some).collect();
@@ -188,6 +183,7 @@ pub(crate) fn linestyles(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::colors::{ColorizerOptions, colormaps};
 
     fn coloring<'a>(
         levels: &'a [f64],
@@ -252,8 +248,11 @@ mod tests {
         .unwrap();
         assert!(plan.monochrome && plan.colors.len() == 3);
         let mut both = ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("gray").unwrap()),
+                ..ColorizerOptions::default()
+            },
             colors: Some(vec![Color::from("k")]),
-            cmap: Some(colormaps::get("gray").unwrap()),
             ..ContourOptions::default()
         };
         assert!(matches!(

@@ -28,8 +28,8 @@ fn identified(
     fig: &Figure,
     layout: &Mosaic,
     options: &MosaicOptions,
-) -> Result<MosaicAxes, MosaicError> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+) -> Result<MosaicAxes, Box<dyn std::error::Error>> {
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axd = fig.subplot_mosaic(layout, options.clone())?;
     identify_axes(axd.iter(), 48.0);
     Ok(axd)
@@ -63,7 +63,7 @@ fn plot_kinds(axes: [&Axes; 4], bins: Bins) -> CaseResult {
 }
 
 fn mosaic_1(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     plot_kinds(
         [&axs[(0, 0)], &axs[(0, 1)], &axs[(1, 0)], &axs[(1, 1)]],
@@ -78,7 +78,7 @@ fn mosaic_1(fig: &Figure) -> CaseResult {
 }
 
 fn mosaic_2(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axd = fig.subplot_mosaic(
         &mosaic(&[&["bar", "plot"], &["hist", "image"]])?,
         MosaicOptions::default(),
@@ -151,7 +151,7 @@ fn mosaic_10(fig: &Figure) -> CaseResult {
 }
 
 fn mosaic_11(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let halves = fig.subfigures(1, 2, plt::figure::SubfigureOptions::default())?;
     for subfig in halves.as_slice() {
         let axd = subfig.subplot_mosaic(&wide_over_two()?, MosaicOptions::default())?;
@@ -202,7 +202,7 @@ fn mosaic_15(fig: &Figure) -> CaseResult {
         polar_labels: vec!["D".to_owned()],
         ..MosaicOptions::default()
     };
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axd = fig.subplot_mosaic(&"AB;CD".parse::<Mosaic>()?, options)?;
     for (label, ax) in axd.iter() {
         ax.set_facecolor(match label {
@@ -235,7 +235,7 @@ fn mosaic_17(fig: &Figure) -> CaseResult {
         vec![label("main"), MosaicCell::Nested(inner)],
         vec![label("bottom"), label("bottom")],
     ])?;
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axd = fig.subplot_mosaic(&outer, MosaicOptions::default())?;
     identify_axes(axd.iter(), 36.0);
     Ok(())
@@ -268,7 +268,7 @@ fn zigzags(axd: &MosaicAxes) -> CaseResult {
 }
 
 fn mosaic_19(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let options = MosaicOptions {
         sharex: true,
         ..MosaicOptions::default()
@@ -286,7 +286,7 @@ fn mosaic_19(fig: &Figure) -> CaseResult {
 
 /// The `.A;BC` mosaic sharing y, with zigzags.
 fn shared_y(fig: &Figure) -> Result<MosaicAxes, Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let options = MosaicOptions {
         sharey: true,
         ..MosaicOptions::default()

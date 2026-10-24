@@ -74,7 +74,7 @@ fn mathtext() -> Build {
 fn constrained() -> Build {
     let image = Grid::from_fn(20, 20, |i, j| ((i * j) as f64 / 40.0).sin());
     Box::new(move |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let grid = fig.subplots(6, 6)?;
         for (k, ax) in grid.as_slice().iter().enumerate() {
             let shown = ax.imshow(image.clone(), ImshowOptions::default())?;

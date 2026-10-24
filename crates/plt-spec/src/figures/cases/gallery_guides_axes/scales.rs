@@ -24,7 +24,7 @@ fn constrained_mosaic(
     fig: &Figure,
     rows: &[&[&str]],
 ) -> Result<MosaicAxes, Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     Ok(fig.subplot_mosaic(&mosaic(rows)?, MosaicOptions::default())?)
 }
 
@@ -105,7 +105,7 @@ fn axes_scales_4(fig: &Figure) -> CaseResult {
 
 fn axes_scales_5(fig: &Figure) -> CaseResult {
     let t = arange(0.0, 170.0, 0.1);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.plot_with(
         &t,
@@ -128,7 +128,7 @@ fn axes_scales_5(fig: &Figure) -> CaseResult {
 
 fn axes_scales_6(fig: &Figure) -> CaseResult {
     let x = arange(0.0, 1000.0, 1.0);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     fig.subplot().semilogy(&x, &x)?;
     Ok(())
 }

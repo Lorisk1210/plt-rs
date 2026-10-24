@@ -6,9 +6,9 @@
 //! arrays. Strings convert infallibly, so every colour argument takes a
 //! plain `&str`; the colour is checked when it is resolved to an RGBA
 //! value ([`Color::resolve`]) or up front with [`Color::parse`]. Resolved
-//! colours are [`Rgba`] values; a few figure-level settings
-//! ([`Figure::set_facecolor`], [`SaveOptions::facecolor`]) take one
-//! directly.
+//! colours are [`Rgba`] values, which getters such as [`Patch::colors`]
+//! return; setters, figure-level ones included ([`Figure::set_facecolor`],
+//! [`SaveOptions::facecolor`]), take colours and resolve them when drawn.
 //!
 //! **Colormaps and norms.** [`Colormap`] is one type for matplotlib's
 //! `ListedColormap` and `LinearSegmentedColormap`, built with
@@ -19,6 +19,14 @@
 //! ([`BoundaryNorm`]) and masked values. Plotting options take a
 //! colormap value, not a name: `cmap="plasma"` is
 //! `colormaps::get("plasma")?`.
+//!
+//! **Colour mapping.** matplotlib's `cmap`, `norm`, `vmin` and `vmax`
+//! keywords are one [`ColorizerOptions`], held in the `colorizer` field of
+//! every plotting option that maps values to colours (images, meshes,
+//! contours, scatter's [`MappedColors`], streamplot, 3-D surfaces,
+//! `imsave`, `LightSource.shade`). The [`Colorize`] trait (in the
+//! prelude) gives all of them the builders `cmap`, `norm`, `limits` and
+//! `colorizer`.
 //!
 //! **rcParams.** [`RcParams`] has one typed field per parameter
 //! (`lines.linewidth` is `lines_linewidth`), and also matplotlib's
@@ -213,6 +221,10 @@
 //! [`Color::parse`]: crate::colors::Color::parse
 //! [`Rgba`]: crate::colors::Rgba
 //! [`Figure::set_facecolor`]: crate::figure::Figure::set_facecolor
+//! [`Patch::colors`]: crate::patches::Patch::colors
+//! [`ColorizerOptions`]: crate::colors::ColorizerOptions
+//! [`Colorize`]: crate::colors::Colorize
+//! [`MappedColors`]: crate::axes::MappedColors
 //! [`SaveOptions::facecolor`]: crate::figure::SaveOptions::facecolor
 //! [`to_rgba`]: crate::colors::to_rgba
 //! [`to_hex`]: crate::colors::to_hex

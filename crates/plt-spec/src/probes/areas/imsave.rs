@@ -1,7 +1,7 @@
 //! Probe operations for the `imsave` area (`matplotlib.image.imsave` to
 //! JPEG and TIFF).
 
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::image::{
     ImageData, ImsaveOptions, Interpolation, Origin, ThumbnailOptions, imread, imsave_bytes,
     imsave_format, thumbnail,
@@ -89,9 +89,12 @@ fn imsave(args: Args<'_>) -> Outcome {
         .map(|q| u8::try_from(q).map_err(|_| bad("quality")))
         .transpose()?;
     let options = ImsaveOptions {
-        vmin: args.opt_f64("vmin")?,
-        vmax: args.opt_f64("vmax")?,
-        cmap,
+        colorizer: ColorizerOptions {
+            cmap,
+            vmin: args.opt_f64("vmin")?,
+            vmax: args.opt_f64("vmax")?,
+            ..ColorizerOptions::default()
+        },
         origin,
         dpi: args.opt_f64("dpi")?.unwrap_or(100.0),
         jpeg_quality,

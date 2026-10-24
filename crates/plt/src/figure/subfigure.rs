@@ -8,6 +8,7 @@ use plt_core::{Bbox, Rgba};
 
 use super::{Figure, FigureFrame};
 use crate::artist::{ArtistId, RawHandle};
+use crate::colors::Color;
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotSpec};
 use crate::numeric::Grid;
 
@@ -148,8 +149,8 @@ impl Figure {
         let rc = crate::rc::params();
         let mut frame = FigureFrame::new(
             extent,
-            Rgba::TRANSPARENT,
-            rc.figure_edgecolor.resolve().unwrap_or(Rgba::WHITE),
+            Color::from(Rgba::TRANSPARENT),
+            Color::from(rc.figure_edgecolor.resolve().unwrap_or(Rgba::WHITE)),
             self.subplot_params(),
         );
         frame.frameon = rc.figure_frameon;
@@ -234,7 +235,8 @@ mod tests {
         let fig = Figure::new();
         fig.set_layout_engine(Some(crate::layout::LayoutEngine::Constrained(
             crate::layout::ConstrainedLayout::default(),
-        )));
+        )))
+        .unwrap();
         let options = SubfigureOptions {
             wspace: Some(0.1),
             ..SubfigureOptions::default()

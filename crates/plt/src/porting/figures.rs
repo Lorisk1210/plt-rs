@@ -32,7 +32,7 @@
 //! | `Figure(figsize=(w, h), dpi=d)`                 | [`Figure::with_size`]`(w, h, d)`              |
 //! | `fig.get_size_inches()`, `fig.set_size_inches(w, h)` | [`Figure::size_inches`], [`Figure::set_size_inches`] |
 //! | `fig.dpi`, `fig.set_dpi(d)`                     | [`Figure::dpi`], [`Figure::set_dpi`]          |
-//! | `fig.set_facecolor(c)`, `fig.set_edgecolor(c)`  | [`Figure::set_facecolor`], [`Figure::set_edgecolor`] (resolved [`Rgba`]) |
+//! | `fig.set_facecolor(c)`, `fig.set_edgecolor(c)`  | [`Figure::set_facecolor`], [`Figure::set_edgecolor`] |
 //! | `fig.add_subplot()`                             | [`Figure::subplot`]                           |
 //! | `fig.add_subplot(r, c, i)`, `fig.add_subplot(rci)` | [`Figure::add_subplot`]`(r, c, i)?`        |
 //! | `fig.add_subplot(gs[0, :])`                     | [`Figure::add_subplot_spec`]                  |
@@ -60,7 +60,8 @@
 //! | `fig.suptitle(s, y=...)`, `supxlabel(s, y=...)`, `supylabel(s, x=...)` | then [`Figure::set_suptitle_y`], [`Figure::set_supxlabel_y`], [`Figure::set_supylabel_x`] |
 //! | `fig.text(x, y, s)`                             | [`Figure::text`]                              |
 //! | `layout="constrained"`, `"compressed"`, `"tight"` | [`LayoutEngine::constrained`], [`LayoutEngine::compressed`], [`LayoutEngine::tight`] |
-//! | `fig.set_layout_engine(...)`, `fig.get_layout_engine()` | [`Figure::set_layout_engine`], [`Figure::layout_engine`] |
+//! | `fig.set_layout_engine(...)`, `fig.get_layout_engine()` | [`Figure::set_layout_engine`]`(...)?`, [`Figure::layout_engine`] |
+//! | `fig.set_layout_engine("none")`                 | [`Figure::set_layout_engine`]`(None)?` (a [`LayoutEngine::PlaceHolder`] stays) |
 //! | `ConstrainedLayoutEngine(w_pad=..., ...)`       | [`LayoutEngine::Constrained`]`(`[`ConstrainedLayout`]`)` |
 //! | `fig.tight_layout(pad=...)`                     | [`Figure::tight_layout`]`(&TightLayout { .. })` ([`TightLayout`]) |
 //! | `fig.subplots_adjust(left=..., wspace=...)`     | [`Figure::subplots_adjust`]`(&SubplotOverrides { .. })` |
@@ -85,7 +86,8 @@
 //! use plt::figure::Figure;
 //!
 //! let fig = Figure::with_size(8.0, 3.0, 120.0);
-//! fig.set_facecolor(Color::from("0.9").resolve()?);
+//! fig.set_facecolor("0.9");
+//! assert_eq!(fig.facecolor(), Color::from("0.9"));
 //! fig.set_size_inches(6.0, 4.0)?;
 //! assert_eq!(fig.size_inches(), (6.0, 4.0));
 //! assert_eq!(fig.dpi(), 120.0);
@@ -202,12 +204,14 @@
 //! # Layout engines and margins
 //!
 //! Set the engine explicitly when a port depends on it, because the
-//! default depends on the look.
+//! default depends on the look. Swapping engines can fail, as in
+//! matplotlib: once a colorbar exists, an engine placing colorbars
+//! differently is refused.
 //!
 //! ```python
 //! fig = plt.figure(layout="constrained")
 //! assert isinstance(fig.get_layout_engine(), ConstrainedLayoutEngine)
-//! fig.set_layout_engine(None)
+//! fig.set_layout_engine("none")
 //! fig.subplots_adjust(left=0.2, wspace=0.4)
 //! fig.tight_layout(pad=0.5)
 //! fig.align_labels()
@@ -219,10 +223,10 @@
 //! use plt::layout::{LayoutEngine, TightLayout};
 //!
 //! let fig = Figure::new();
-//! fig.set_layout_engine(LayoutEngine::constrained());
+//! fig.set_layout_engine(LayoutEngine::constrained())?;
 //! assert!(matches!(fig.layout_engine(), Some(LayoutEngine::Constrained(_))));
 //!
-//! fig.set_layout_engine(None);
+//! fig.set_layout_engine(None)?;
 //! fig.subplots(2, 2)?;
 //! let margins = SubplotOverrides { left: Some(0.2), wspace: Some(0.4), ..SubplotOverrides::default() };
 //! fig.subplots_adjust(&margins)?;
@@ -272,6 +276,7 @@
 //! [`Figure::text`]: crate::figure::Figure::text
 //! [`Figure::set_layout_engine`]: crate::figure::Figure::set_layout_engine
 //! [`Figure::layout_engine`]: crate::figure::Figure::layout_engine
+//! [`LayoutEngine::PlaceHolder`]: crate::layout::LayoutEngine::PlaceHolder
 //! [`Figure::tight_layout`]: crate::figure::Figure::tight_layout
 //! [`Figure::subplots_adjust`]: crate::figure::Figure::subplots_adjust
 //! [`Figure::subplot_params`]: crate::figure::Figure::subplot_params
@@ -279,7 +284,6 @@
 //! [`Figure::align_titles`]: crate::figure::Figure::align_titles
 //! [`Figure::autofmt_xdate`]: crate::figure::Figure::autofmt_xdate
 //! [`Figure::layout`]: crate::figure::Figure::layout
-//! [`Rgba`]: crate::colors::Rgba
 //! [`Grid`]: crate::numeric::Grid
 //! [`Grid::as_slice`]: crate::numeric::Grid::as_slice
 //! [`Grid::shape`]: crate::numeric::Grid::shape

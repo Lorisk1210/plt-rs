@@ -1,8 +1,8 @@
 //! Streamplot cases of `figures/cases_fields.py`.
 
 use plt::axes::ImshowOptions;
-use plt::colors::colormaps;
-use plt::image::{ColorizerOptions, Extent, ImageAlpha, Origin, ScalarField};
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
+use plt::image::{Extent, ImageAlpha, Origin, ScalarField};
 use plt::lines::LineProps;
 use plt::numeric::{Grid, linspace};
 use plt::rc::Aspect;
@@ -54,7 +54,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.streamplot(&field, options)?;
         let visible = Grid::from_fn(40, 40, |i, j| !masked(i, j));
         let image = ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("gray")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("gray")?),
             extent: Some(Extent {
                 left: -3.0,
                 right: 3.0,
@@ -80,9 +80,12 @@ pub(crate) const CASES: &[FigureCase] = &[
         let options = StreamplotOptions {
             density: (0.5, 1.5),
             color: Some(StreamColors::Mapped(Box::new(StreamColorMap {
+                colorizer: ColorizerOptions {
+                    cmap: Some(colormaps::get("autumn")?),
+                    norm: None,
+                    ..ColorizerOptions::default()
+                },
                 values: speed(&field),
-                cmap: Some(colormaps::get("autumn")?),
-                norm: None,
             }))),
             ..StreamplotOptions::default()
         };

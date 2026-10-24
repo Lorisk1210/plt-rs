@@ -6,13 +6,13 @@ use std::f64::consts::PI;
 
 use plt::axes::ErrorSize;
 use plt::collections::CollectionProps;
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::LegendOptions;
 use plt::lines::MarkEvery;
 use plt::mplot3d::{
-    Axis3, Errorbar3DOptions, FaceColormap, FaceColors, Quiver3DOptions, Sampling,
-    Scatter3DOptions, Stem3DOptions, SurfaceOptions,
+    Axis3, Errorbar3DOptions, FaceColors, Quiver3DOptions, Sampling, Scatter3DOptions,
+    Stem3DOptions, SurfaceOptions,
 };
 use plt::numeric::Grid;
 use plt::patches::{Arc, PathShape};
@@ -71,7 +71,7 @@ pub(super) fn errorbar3d(fig: &Figure) -> CaseResult {
 pub(super) fn stem3d(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(Some(
         LayoutEngine::Constrained(ConstrainedLayout::default()),
-    ));
+    ))?;
     let axs = subplots_3d(fig, 2, 3)?;
     let theta = linspace(0.0, 2.0 * PI, 50);
     let x: Vec<f64> = theta.iter().map(|t| (t - PI / 2.0).cos()).collect();
@@ -113,9 +113,7 @@ pub(super) fn scalarmap_update(fig: &Figure) -> CaseResult {
     let options = Scatter3DOptions {
         scatter: ScatterOptions {
             sizes: Some(vec![40.0]),
-            colors: MappedColors::new(c)
-                .with_cmap(colormaps::get("viridis")?)
-                .into(),
+            colors: MappedColors::new(c).cmap(colormaps::get("viridis")?).into(),
             ..ScatterOptions::default()
         },
         ..Scatter3DOptions::default()
@@ -195,7 +193,7 @@ pub(super) fn surface3d_zsort_inf(fig: &Figure) -> CaseResult {
         }
     });
     let options = SurfaceOptions {
-        colors: FaceColors::Mapped(Box::new(FaceColormap::new(colormaps::get("jet")?))),
+        colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("jet")?)),
         ..SurfaceOptions::default()
     };
     ax.plot_surface(&x, &y, &z, options)?;

@@ -47,23 +47,15 @@ fn segment() -> Path {
 
 fn draw(effects: Vec<PathEffect>, gc: &GraphicsContext, fill: Option<Rgba>) -> Recorder {
     let mut recorder = Recorder::default();
-    PathEffectRenderer::new(effects, &mut recorder).draw_path(
-        gc,
-        &segment(),
-        &Affine2D::IDENTITY,
-        fill,
-    );
+    PathEffectRenderer::new(effects, &mut recorder)
+        .unwrap()
+        .draw_path(gc, &segment(), &Affine2D::IDENTITY, fill);
     recorder
 }
 
 #[test]
 fn with_stroke_draws_the_stroke_then_the_path() {
-    let stroke = Stroke::new(
-        GcUpdate::default()
-            .linewidth(4.0)
-            .foreground("red")
-            .unwrap(),
-    );
+    let stroke = Stroke::new(GcUpdate::default().linewidth(4.0).foreground("red"));
     let gc = GraphicsContext::default();
     let calls = draw(vec![PathEffect::with_stroke(stroke)], &gc, None).calls;
     assert_eq!(calls.len(), 2);
@@ -128,6 +120,32 @@ fn ticks_follow_the_path() {
 }
 
 #[test]
+fn colours_are_resolved_when_drawn() {
+    let bad = PatchShadow::default().with_color("not a colour");
+    let effects = vec![PathEffect::simple_patch_shadow(bad), PathEffect::normal()];
+    let mut recorder = Recorder::default();
+    assert!(PathEffectRenderer::new(effects.clone(), &mut recorder).is_err());
+
+    let fig = crate::figure::Figure::new();
+    let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8]);
+    ax.set_axis_off();
+    let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
+    crate::artist::ArtistHandle::set_path_effects(&line, effects);
+    let mut renderer = crate::testing::RecordingRenderer::new(640.0, 480.0, 100.0);
+    let errors = fig.draw(&mut renderer).unwrap_err();
+    assert_eq!(errors.0.len(), 1, "the shadow is reported");
+    let widths: Vec<f64> = renderer
+        .calls
+        .iter()
+        .filter_map(|call| match call {
+            crate::testing::Call::Path { linewidth, .. } => Some(*linewidth),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(widths, [0.0], "the background, but not the line");
+}
+
+#[test]
 fn degenerate_paths_get_no_ticks() {
     let gc = GraphicsContext::default();
     let mut recorder = Recorder::default();
@@ -135,6 +153,7 @@ fn degenerate_paths_get_no_ticks() {
         vec![PathEffect::ticked_stroke(TickedStroke::default())],
         &mut recorder,
     )
+    .unwrap()
     .draw_path(
         &gc,
         &Path::polyline(vec![Point::ORIGIN]),
@@ -154,6 +173,7 @@ fn markers_are_drawn_once_per_effect() {
         vec![PathEffect::normal(), PathEffect::normal()],
         &mut recorder,
     )
+    .unwrap()
     .draw_markers(
         &gc,
         &marker,

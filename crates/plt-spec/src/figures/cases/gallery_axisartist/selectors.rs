@@ -79,7 +79,7 @@ fn polygon_selector_simple_1(fig: &Figure) -> CaseResult {
 }
 
 fn rectangle_selector(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 1)?;
     let x = linspace(0.0, 10.0, 100_000);
     let y = map(&x, |x| (2.0 * PI * x).sin());

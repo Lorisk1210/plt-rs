@@ -69,7 +69,7 @@ pub(super) const CASES: &[FigureCase] = &[
         fig.set_layout_engine(Some(LayoutEngine::Tight(TightLayout {
             pad: 0.1,
             ..TightLayout::default()
-        })));
+        })))?;
         example_plot(&fig.subplot(), 24.0, false)
     }),
     FigureCase::new("mpl_figure/tight_layout9", |fig| {

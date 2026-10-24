@@ -8,10 +8,9 @@ use plt::axes::{Mesh, PcolorOptions, Shading};
 use plt::collections::Collection;
 use plt::colorbar::{Colorbar, ColorbarOptions};
 use plt::colors::{
-    BoundaryNorm, CenteredNorm, Colormap, Extend, FuncNorm, LogNorm, Norm, NormError, Normalized,
-    PowerNorm, SymLogNorm, TwoSlopeNorm, colormaps,
+    BoundaryNorm, CenteredNorm, ColorizerOptions, Colormap, Extend, FuncNorm, LogNorm, Norm,
+    NormError, Normalized, PowerNorm, SymLogNorm, TwoSlopeNorm, colormaps,
 };
-use plt::image::ColorizerOptions;
 use plt::layout::LayoutEngine;
 use plt::numeric::{Grid, interp};
 use plt::orientation::Orientation;
@@ -31,11 +30,11 @@ type Drawn = Result<Collection, Box<dyn Error>>;
 /// limits, and a shading.
 fn shaded(
     cmap: &str,
-    colors: ColorizerOptions,
+    colorizer: ColorizerOptions,
     shading: Shading,
 ) -> Result<PcolorOptions, Box<dyn Error>> {
     Ok(PcolorOptions {
-        colors: colors.cmap(colormaps::get(cmap)?),
+        colorizer: colorizer.cmap(colormaps::get(cmap)?),
         shading: Some(shading),
         ..PcolorOptions::default()
     })
@@ -99,7 +98,7 @@ fn colormapnorms_2(fig: &Figure) -> CaseResult {
         let pc = ax.pcolormesh(
             Mesh::new(z.clone()),
             PcolorOptions {
-                colors: colors.cmap(colormaps::get("coolwarm")?),
+                colorizer: colors.cmap(colormaps::get("coolwarm")?),
                 ..PcolorOptions::default()
             },
         )?;
@@ -142,7 +141,7 @@ fn power_field() -> (Grid<f64>, Grid<f64>, Grid<f64>) {
 
 fn colormapnorms_4(fig: &Figure) -> CaseResult {
     let (x, y, z) = power_field();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let draw = |ax: &Axes, colors| -> Drawn {
         let mesh = Mesh::from_coords(x.clone(), y.clone(), z.clone());
         Ok(ax.pcolormesh(mesh, shaded("PuBu_r", colors, Shading::Auto)?)?)
@@ -170,12 +169,12 @@ fn colormapnorms_5(fig: &Figure) -> CaseResult {
         },
     );
     let z = Grid::from_fn(99, 99, |r, c| z[(r, c)]);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     let ax: Vec<&Axes> = axs.as_slice().iter().collect();
-    let mesh = |ax: &Axes, colors: ColorizerOptions| -> Drawn {
+    let mesh = |ax: &Axes, colorizer: ColorizerOptions| -> Drawn {
         let mesh = Mesh::from_coords(x.clone(), y.clone(), z.clone());
-        Ok(ax.pcolormesh(mesh, shaded("RdBu_r", colors, Shading::Auto)?)?)
+        Ok(ax.pcolormesh(mesh, shaded("RdBu_r", colorizer, Shading::Auto)?)?)
     };
     let vertical = |ax: &Axes, extend| ColorbarOptions {
         extend,
@@ -251,7 +250,7 @@ fn topo_map(ax: &Axes, norm: impl Norm + 'static, title: &str) -> Drawn {
     let pcm = ax.pcolormesh(
         Mesh::from_coords(longitude, latitude, topo),
         PcolorOptions {
-            colors: ColorizerOptions::default().norm(norm).cmap(terrain_map()?),
+            colorizer: ColorizerOptions::default().norm(norm).cmap(terrain_map()?),
             shading: Some(Shading::Auto),
             ..PcolorOptions::default()
         },

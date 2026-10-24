@@ -3,8 +3,8 @@
 use std::f64::consts::TAU;
 
 use plt::axes::ImshowOptions;
-use plt::colors::colormaps;
-use plt::image::{ColorizerOptions, Extent, ImageData, ScalarField};
+use plt::colors::{ColorizerOptions, colormaps};
+use plt::image::{Extent, ImageData, ScalarField};
 use plt::numeric::Grid;
 use plt::patches::Rectangle;
 use plt::patheffects::{GcUpdate, LineShadow, PatchShadow, PathEffect, Stroke, TickedStroke};
@@ -18,17 +18,17 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         let ramp = Grid::from_fn(10, 10, |r, c| (r * 10 + c) as i64);
         let options = ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("gray")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("gray")?),
             extent: Some(Extent::new(0.0, 10.0, 0.0, 10.0)),
             ..ImshowOptions::default()
         };
         ax.imshow(ImageData::from(ScalarField::integers(&ramp)), options)?;
-        let black = Stroke::new(GcUpdate::default().linewidth(4.0).foreground("k")?);
+        let black = Stroke::new(GcUpdate::default().linewidth(4.0).foreground("k"));
         ax.text(1.0, 6.0, "stroked text")
             .set_fontsize(24.0)
             .set_color("w")
             .set_path_effects(vec![PathEffect::with_stroke(black)]);
-        let red = Stroke::new(GcUpdate::default().linewidth(6.0).foreground("r")?);
+        let red = Stroke::new(GcUpdate::default().linewidth(6.0).foreground("r"));
         ax.plot_with(
             [0.0, 10.0],
             [2.0, 4.0],
@@ -40,12 +40,12 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(5.0, 3.0, 100.0),
     FigureCase::new("text/patheffects_stroke_normal", |fig| {
         let ax = blank(fig);
-        let navy = Stroke::new(GcUpdate::default().linewidth(5.0).foreground("navy")?);
+        let navy = Stroke::new(GcUpdate::default().linewidth(5.0).foreground("navy"));
         ax.text(1.0, 6.0, "Stroke + Normal")
             .set_fontsize(24.0)
             .set_color("gold")
             .set_path_effects(vec![PathEffect::stroke(navy), PathEffect::normal()]);
-        let grey = Stroke::new(GcUpdate::default().linewidth(8.0).foreground("0.7")?);
+        let grey = Stroke::new(GcUpdate::default().linewidth(8.0).foreground("0.7"));
         ax.plot_with([1.0, 9.0], [2.0, 3.0], LineProps::default().linewidth(3.0))?
             .set_path_effects(vec![PathEffect::stroke(grey), PathEffect::normal()]);
         Ok(())
@@ -68,7 +68,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             alpha: 0.4,
             ..PatchShadow::default()
         }
-        .with_color("k")?;
+        .with_color("k");
         ax.add_patch(Rectangle::new((1.0, 1.0), 3.0, 2.0))
             .set_facecolor("tab:blue")
             .set_path_effects(vec![
@@ -80,7 +80,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             alpha: 0.6,
             ..PatchShadow::default()
         }
-        .with_color("r")?;
+        .with_color("r");
         ax.text(6.0, 1.5, "offset")
             .set_fontsize(18.0)
             .set_path_effects(vec![PathEffect::with_simple_patch_shadow(red)]);

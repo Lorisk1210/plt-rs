@@ -8,13 +8,13 @@ mod legends;
 mod subfigures;
 
 use plt::axes::PcolorOptions;
-use plt::image::ColorizerOptions;
 use plt::numeric::{Grid, linspace};
 use plt::prelude::*;
 
 use crate::figures::FigureCase;
 use crate::figures::cases::common::map;
 use crate::rng::SpecRng;
+use plt::colors::ColorizerOptions;
 
 /// `T`: the abscissa of the line plots.
 fn t() -> Vec<f64> {
@@ -42,7 +42,7 @@ fn field_mesh(
     Ok(ax.pcolormesh(
         plt::axes::Mesh::new(field(seed)),
         PcolorOptions {
-            colors,
+            colorizer: colors,
             ..PcolorOptions::default()
         },
     )?)

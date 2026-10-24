@@ -3,9 +3,8 @@
 
 use plt::axes::{Mesh, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Extend, colormaps};
+use plt::colors::{ColorizerOptions, Extend, colormaps};
 use plt::figure::{Share, SubfigureOptions};
-use plt::image::ColorizerOptions;
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::LegendOptions;
 use plt::orientation::Orientation;
@@ -23,14 +22,14 @@ fn scaled_grid(gain: f64) -> Mesh {
 /// `pcolormesh` options with a named colormap.
 fn colored(cmap: &str) -> Result<PcolorOptions, plt::colors::ColormapError> {
     Ok(PcolorOptions {
-        colors: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
+        colorizer: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
         ..PcolorOptions::default()
     })
 }
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("layout/constrained_basic", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         for (i, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
             fill(ax, i)?;
             ax.set_title(format!("title {i}"));
@@ -39,7 +38,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("layout/constrained_colorbars", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         for (i, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
             let mesh = ax.pcolormesh(scaled_grid(i as f64 + 1.0), colored("viridis")?)?;
             fig.colorbar(&mesh, ColorbarOptions::beside(ax))?;
@@ -51,7 +50,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         constrained_shared_colorbar,
     ),
     FigureCase::new("layout/constrained_suptitle_suplabels", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let axs = fig.subplots_shared(1, 3, Share::None, Share::All)?;
         for (i, ax) in axs.as_slice().iter().enumerate() {
             fill(ax, i)?;
@@ -62,7 +61,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("layout/constrained_legend_outside", |fig| {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
         let t = linspace(0.0, 10.0, 40);
         let axs = fig.subplots(1, 2)?;
         for (i, ax) in axs.as_slice().iter().enumerate() {
@@ -96,7 +95,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             wspace: 0.1,
             hspace: 0.1,
             ..ConstrainedLayout::default()
-        })));
+        })))?;
         for (i, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
             fill(ax, i)?;
         }
@@ -123,11 +122,11 @@ pub(crate) const CASES: &[FigureCase] = &[
 ];
 
 fn constrained_shared_colorbar(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     let options = || -> Result<PcolorOptions, plt::colors::ColormapError> {
         Ok(PcolorOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(colormaps::get("RdBu_r")?)
                 .limits(Some(-2.0), Some(2.0)),
             ..PcolorOptions::default()
@@ -149,7 +148,7 @@ fn constrained_shared_colorbar(fig: &Figure) -> CaseResult {
 }
 
 fn subfigures_nested_constrained(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let rows = fig.subfigures(2, 1, SubfigureOptions::default())?;
     let (top, bottom) = (&rows[(0, 0)], &rows[(1, 0)]);
     top.suptitle("top");

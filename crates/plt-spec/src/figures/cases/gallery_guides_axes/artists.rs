@@ -89,6 +89,10 @@ fn patheffects_guide_2(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "every case shares the fallible build signature"
+)]
 fn patheffects_guide_3(fig: &Figure) -> CaseResult {
     centred_text(
         &fig.text(
@@ -100,7 +104,7 @@ fn patheffects_guide_3(fig: &Figure) -> CaseResult {
     )
     .set_color("white")
     .set_path_effects(vec![
-        PathEffect::stroke(stroke(3.0, "black")?),
+        PathEffect::stroke(stroke(3.0, "black")),
         PathEffect::normal(),
     ]);
     Ok(())

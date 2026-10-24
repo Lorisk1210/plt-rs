@@ -1,12 +1,13 @@
 //! Statistics: histograms, box and violin plots, pies.
 
-use plt::axes::{BoxplotOptions, HistPlotOptions, PieLabelFormat, PieOptions, ViolinplotOptions};
+use plt::axes::{BoxplotOptions, HistPlotOptions, PieOptions, ViolinplotOptions};
 use plt::legend::LegendOptions;
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions, HistType};
 
 use super::data::Samples;
 use super::{Built, Entry};
+use plt::ticker::LabelFormat;
 
 /// The figures of this topic.
 pub(crate) const ENTRIES: &[Entry] = &[
@@ -84,7 +85,7 @@ fn pie() -> Built {
     let ax = fig.subplot();
     let options = PieOptions {
         labels: ["Frogs", "Hogs", "Dogs", "Logs"].map(String::from).to_vec(),
-        autopct: Some(PieLabelFormat::Printf("%1.1f%%".into())),
+        autopct: Some(LabelFormat::Template("%1.1f%%".into())),
         explode: vec![0.0, 0.1, 0.0, 0.0],
         startangle: 90.0,
         ..PieOptions::default()

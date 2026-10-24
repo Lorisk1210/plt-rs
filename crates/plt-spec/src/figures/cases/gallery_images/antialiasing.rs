@@ -3,10 +3,10 @@
 
 use plt::axes::{Axes, ImshowOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{Colormap, Extend, colormaps};
+use plt::colors::{Colorize, ColorizerOptions, Colormap, Extend, colormaps};
 use plt::figure::Figure;
 use plt::fonts::{FontSize, RelativeSize};
-use plt::image::{AxesImage, ColorizerOptions, Interpolation, InterpolationStage};
+use plt::image::{AxesImage, Interpolation, InterpolationStage};
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 
@@ -97,7 +97,7 @@ fn image_antialiasing_1(fig: &Figure) -> CaseResult {
 }
 
 fn image_antialiasing_2(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::compressed()));
+    fig.set_layout_engine(Some(LayoutEngine::compressed()))?;
     let ax = fig.subplot();
     show(
         &ax,
@@ -115,7 +115,7 @@ fn image_antialiasing_2(fig: &Figure) -> CaseResult {
 /// Two panels resampling the large pattern with `interpolation` in data
 /// and in RGBA space.
 fn stages(fig: &Figure, interpolation: Interpolation) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::compressed()));
+    fig.set_layout_engine(Some(LayoutEngine::compressed()))?;
     let axs = fig.subplots(1, 2)?;
     for (ax, (stage, space)) in axs.as_slice().iter().zip([
         (InterpolationStage::Data, "data"),
@@ -170,7 +170,7 @@ fn image_antialiasing_6(fig: &Figure) -> CaseResult {
 }
 
 fn image_antialiasing_7(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(1, 2)?;
     for (ax, interpolation) in axs
         .as_slice()
@@ -194,7 +194,7 @@ fn image_antialiasing_8(fig: &Figure) -> CaseResult {
     let cmap = colormaps::get("RdBu_r")?
         .with_under("yellow")?
         .with_over("limegreen")?;
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(1, 3)?;
     let mut last = None;
     for (i, (ax, (interpolation, (stage, space)))) in axs
@@ -208,7 +208,7 @@ fn image_antialiasing_8(fig: &Figure) -> CaseResult {
         .enumerate()
     {
         let options = ImshowOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(cmap.clone())
                 .limits(Some(0.0), Some(2.0)),
             interpolation_stage: Some(stage),
@@ -227,7 +227,7 @@ fn image_antialiasing_8(fig: &Figure) -> CaseResult {
 }
 
 fn image_antialiasing_9(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::compressed()));
+    fig.set_layout_engine(Some(LayoutEngine::compressed()))?;
     let axs = fig.subplots(1, 2)?;
     show(
         &axs[(0, 0)],
@@ -249,7 +249,7 @@ fn image_antialiasing_9(fig: &Figure) -> CaseResult {
 }
 
 fn image_antialiasing_10(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::compressed()));
+    fig.set_layout_engine(Some(LayoutEngine::compressed()))?;
     let axs = fig.subplots(1, 2)?;
     let im = show(
         &axs[(0, 0)],

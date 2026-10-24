@@ -61,7 +61,7 @@ mod tests {
     ) -> (Figure, Vec<Axes3D>) {
         crate::rc::set("text.hinting", "none").expect("valid setting");
         let fig = Figure::with_size(width, height, 100.0);
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
         let grid = GridSpec::new(nrows, ncols).unwrap();
         let axs = (0..nrows * ncols)
             .map(|i| {

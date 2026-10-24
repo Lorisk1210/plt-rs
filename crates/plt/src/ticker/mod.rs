@@ -31,6 +31,7 @@
 mod context;
 mod error;
 mod formatter;
+mod label_format;
 mod locator;
 pub mod pyfmt;
 pub(crate) mod pymath;
@@ -44,6 +45,7 @@ pub use formatter::{
     LogLabelStyle, LogitFormatter, NullFormatter, OffsetMode, PercentFormatter, ScalarFormatter,
     StrMethodFormatter, TickLabels, strip_math,
 };
+pub use label_format::LabelFormat;
 pub use locator::{
     AsinhLocator, AutoLocator, AutoMinorLocator, FixedLocator, IndexLocator, LinearLocator,
     Locator, LogLocator, LogSubs, LogitLocator, MAXTICKS, MaxNLocator, MultipleLocator, Nbins,

@@ -4,11 +4,9 @@
 //! scalar, RGB and RGBA images in both interpolation stages.
 
 use plt::axes::ImshowOptions;
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::{
-    ColorizerOptions, FigimageOptions, ImageAlpha, Interpolation, InterpolationStage, Origin,
-};
+use plt::image::{FigimageOptions, ImageAlpha, Interpolation, InterpolationStage, Origin};
 use plt::numeric::{Grid, linspace};
 
 use super::{classic, remove_ticks_and_titles, uniform};
@@ -124,7 +122,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         fig.subplot().imshow(
             zz,
             ImshowOptions {
-                colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
+                colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
                 alpha: Some(ImageAlpha::Each(alpha)),
                 ..ImshowOptions::default().interpolation(Interpolation::Nearest)
             },

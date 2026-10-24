@@ -5,9 +5,8 @@
 use plt::axes::{Mesh, PcolorOptions};
 use plt::collections::Collection;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::gridspec::SubplotOverrides;
-use plt::image::ColorizerOptions;
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::LegendOptions;
 use plt::numeric::Grid;
@@ -36,7 +35,7 @@ fn example_grid(
     layout: Option<LayoutEngine>,
     fontsize: f64,
 ) -> CaseResult {
-    fig.set_layout_engine(layout);
+    fig.set_layout_engine(layout)?;
     for ax in fig.subplots(nrows, ncols)?.as_slice() {
         example_plot(ax, fontsize, false)?;
     }
@@ -47,7 +46,7 @@ fn example_grid(
 /// values normalised over `[0, 100]`.
 pub(super) fn arr_mesh(ax: &Axes) -> Result<Collection, Box<dyn std::error::Error>> {
     let options = PcolorOptions {
-        colors: ColorizerOptions::default()
+        colorizer: ColorizerOptions::default()
             .cmap(colormaps::get("viridis")?)
             .limits(Some(0.0), Some(100.0)),
         ..PcolorOptions::default()
@@ -63,7 +62,7 @@ fn meshes(
     nrows: usize,
     ncols: usize,
 ) -> Result<(Grid<Axes>, Collection), Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(nrows, ncols)?;
     let mut last = None;
     for ax in axs.as_slice() {
@@ -140,7 +139,7 @@ fn leaning_legend() -> LegendOptions {
 }
 
 fn constrained_9(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.plot_with(
         arange(0.0, 10.0, 1.0),
@@ -154,7 +153,7 @@ fn constrained_9(fig: &Figure) -> CaseResult {
 /// Two constrained axes, the right one with a labelled line; returns the
 /// right axes and its line.
 fn legend_pair(fig: &Figure) -> Result<(Axes, Line2D), Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     let x = arange(0.0, 10.0, 1.0);
     axs[(0, 0)].plot(&x, &x)?;
@@ -172,7 +171,7 @@ fn constrained_11(fig: &Figure) -> CaseResult {
     leg.set_in_layout(false);
     fig.layout();
     leg.set_in_layout(true);
-    fig.set_layout_engine(None);
+    fig.set_layout_engine(None)?;
     Ok(())
 }
 
@@ -209,7 +208,7 @@ fn spaced_grid(
     spacing: SubplotOverrides,
     engine: LayoutEngine,
 ) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let grid = plt::gridspec::GridSpec::with_ratios(nrows, ncols, None, None, spacing)?;
     for ax in fig
         .subplots_on(&grid, plt::figure::Share::None, plt::figure::Share::None)?
@@ -217,7 +216,7 @@ fn spaced_grid(
     {
         example_plot(ax, 12.0, true)?;
     }
-    fig.set_layout_engine(engine);
+    fig.set_layout_engine(engine)?;
     Ok(())
 }
 
@@ -243,7 +242,7 @@ fn constrained_16(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_17(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     for (ax, pad) in axs.as_slice().iter().zip([0.0, 0.05, 0.1, 0.2]) {
         let pc = arr_mesh(ax)?;
@@ -265,7 +264,7 @@ fn constrained_17(fig: &Figure) -> CaseResult {
         hspace: 0.2,
         wspace: 0.2,
         ..ConstrainedLayout::default()
-    }));
+    }))?;
     Ok(())
 }
 

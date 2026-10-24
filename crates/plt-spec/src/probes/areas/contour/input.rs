@@ -1,8 +1,8 @@
 //! Decoding the arguments of contour probes into plt-rs inputs, as the
 //! adapters of `spec/reference/probes/test_contour.py` build them.
 
-use plt::colors::{Color, Extend};
-use plt::contour::{ContourNorm, ContourOptions, Levels, Origin, QuadCoords, QuadField};
+use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, Norm};
+use plt::contour::{ContourOptions, Levels, Origin, QuadCoords, QuadField};
 use plt::numeric::Grid;
 use plt::rc::{self, RcParams};
 use plt::ticker::{Locator, LogLocator, MaxNLocator, Nbins, NumTicks};
@@ -194,19 +194,22 @@ pub(super) fn options(args: Args<'_>) -> Result<ContourOptions, ProbeError> {
                 .ok_or_else(|| ProbeError::BadArgs(format!("bad colors {value}")))?,
         ),
     };
-    let norm = match args.opt_str("norm")? {
-        None => ContourNorm::Linear,
-        Some("log") => ContourNorm::Log,
+    let norm: Option<Box<dyn Norm>> = match args.opt_str("norm")? {
+        None => None,
+        Some("log") => Some(Box::new(LogNorm::default())),
         Some(other) => return Err(ProbeError::BadArgs(format!("unknown norm {other:?}"))),
     };
     Ok(ContourOptions {
+        colorizer: ColorizerOptions {
+            norm,
+            vmin: args.opt_f64("vmin")?,
+            vmax: args.opt_f64("vmax")?,
+            ..ColorizerOptions::default()
+        },
         levels,
         locator: args.get("locator").map(locator).transpose()?,
         extend,
         colors,
-        norm,
-        vmin: args.opt_f64("vmin")?,
-        vmax: args.opt_f64("vmax")?,
         ..ContourOptions::default()
     })
 }

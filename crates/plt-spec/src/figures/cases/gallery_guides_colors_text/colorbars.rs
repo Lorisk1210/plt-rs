@@ -18,7 +18,7 @@ fn strip(
     cmap: Colormap,
     options: ColorbarOptions,
 ) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     fig.colorbar(
         &ScalarMappable::with_norm(cmap, Box::new(norm)),
@@ -49,7 +49,7 @@ fn colorbar_only_1(fig: &Figure) -> CaseResult {
 }
 
 fn colorbar_only_2(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let magma =
         ScalarMappable::with_norm(colormaps::get("magma")?, Box::new(Normalize::new(0.0, 1.0)));

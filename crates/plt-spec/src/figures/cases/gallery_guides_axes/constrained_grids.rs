@@ -26,7 +26,7 @@ fn constrained_18(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_19(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs1 = fig.add_gridspec(2, 1)?;
     for row in 0..2 {
         example_plot(&fig.add_subplot_spec(&gs1.cell(row, 0)?)?, 12.0, false)?;
@@ -35,7 +35,7 @@ fn constrained_19(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_20(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs0 = fig.add_gridspec(1, 2)?;
     let gs1 = GridSpec::nested(&gs0.cell(0, 0)?, 2, 1, None, None, (None, None))?;
     for row in 0..2 {
@@ -58,7 +58,7 @@ fn constrained_20(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_21(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs0 = fig.add_gridspec(6, 2)?;
     for rows in [0..3, 3..6] {
         example_plot(&fig.add_subplot_spec(&gs0.span(rows, 0..1)?)?, 12.0, false)?;
@@ -84,7 +84,7 @@ fn labelled_meshes(
 }
 
 fn constrained_22(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs0 = GridSpec::with_ratios(
         1,
         2,
@@ -106,7 +106,7 @@ fn constrained_22(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_23(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let sfigs = fig.subfigures(
         1,
         2,
@@ -127,7 +127,7 @@ fn constrained_23(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_24(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     example_plot(&axs[(0, 0)], 12.0, false)?;
     axs[(0, 1)].set_position([0.2, 0.2, 0.4, 0.4]);
@@ -137,7 +137,7 @@ fn constrained_24(fig: &Figure) -> CaseResult {
 /// Four shared `arr` images in a 2 × 2 grid laid out by `layout`, named
 /// `name` in the title.
 fn fixed_aspect_images(fig: &Figure, layout: LayoutEngine, name: &str) -> CaseResult {
-    fig.set_layout_engine(layout);
+    fig.set_layout_engine(layout)?;
     for ax in fig
         .subplots_shared(2, 2, Share::All, Share::All)?
         .as_slice()
@@ -159,7 +159,7 @@ fn constrained_26(fig: &Figure) -> CaseResult {
 /// A random 10 × 10 image with a colorbar, titled `title`; `zoom`
 /// limits it to rows 4 to 8.
 fn colorbar_title(fig: &Figure, layout: LayoutEngine, title: &str, zoom: bool) -> CaseResult {
-    fig.set_layout_engine(layout);
+    fig.set_layout_engine(layout)?;
     let ax = fig.subplot();
     let noise = Grid::from_vec(10, 10, SpecRng::new(SEED).normal(100, 0.0, 1.0))?;
     let pcm = ax.imshow(
@@ -202,7 +202,7 @@ fn constrained_29(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_30(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax1 = fig.add_subplot(2, 2, 1)?;
     let ax2 = fig.add_subplot(2, 2, 3)?;
     let grid = ax1.subplot_spec().ok_or("a subplot")?.gridspec().clone();
@@ -215,7 +215,7 @@ fn constrained_30(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_31(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axes = [
         fig.add_subplot(2, 2, 1)?,
         fig.add_subplot(2, 2, 3)?,
@@ -229,7 +229,7 @@ fn constrained_31(fig: &Figure) -> CaseResult {
 }
 
 fn constrained_32(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     subplot2grid(fig)?;
     fig.suptitle("subplot2grid");
     Ok(())

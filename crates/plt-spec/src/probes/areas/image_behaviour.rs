@@ -7,7 +7,7 @@
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, ImshowOptions, NonUniformOptions};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, ImageData, InterpolationStage, Origin, ScalarField};
+use plt::image::{Extent, ImageData, InterpolationStage, Origin, ScalarField};
 use plt::navigation::Navigation;
 use plt::numeric::Grid;
 use plt::rc::{self, Aspect};
@@ -18,6 +18,7 @@ use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{bbox, object, parse_points};
 use crate::probes::{Args, Op, Outcome, ProbeError};
+use plt::colors::ColorizerOptions;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -295,7 +296,7 @@ fn exact_vmin() -> Outcome {
         0.0, 0.0, 34.0,
     ];
     let options = ImshowOptions {
-        colors: ColorizerOptions {
+        colorizer: ColorizerOptions {
             cmap: Some(cmap),
             vmin: Some(0.0),
             vmax: Some(100.0),

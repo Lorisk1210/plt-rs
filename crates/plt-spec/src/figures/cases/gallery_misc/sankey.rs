@@ -3,10 +3,11 @@
 
 use plt::fonts::FontWeight;
 use plt::prelude::*;
-use plt::sankey::{PathLengths, QuantityFormat, Sankey, SankeyOptions, Subdiagram};
+use plt::sankey::{PathLengths, Sankey, SankeyOptions, Subdiagram};
 
 use crate::figures::cases::common::{flow_labels, flow_orientations, shown_labels, tickless};
 use crate::figures::{CaseResult, FigureCase};
+use plt::ticker::LabelFormat;
 
 /// The axes `Sankey` makes when given none, with an optional title.
 fn sankey_axes(fig: &Figure, title: &str) -> Axes {
@@ -39,7 +40,7 @@ fn sankey_basics_2(fig: &Figure) -> CaseResult {
         scale: 0.01,
         offset: 0.2,
         head_angle: 180.0,
-        format: QuantityFormat::Printf("%.0f".into()),
+        format: LabelFormat::Template("%.0f".into()),
         unit: Some("%".into()),
         ..SankeyOptions::default()
     };
@@ -342,7 +343,7 @@ fn sankey_rankine(fig: &Figure) -> CaseResult {
          Engineering Thermodynamics \", 6th ed., 2008",
     );
     let options = SankeyOptions {
-        format: QuantityFormat::Printf("%.3G".into()),
+        format: LabelFormat::Template("%.3G".into()),
         unit: Some(" MW".into()),
         gap: 0.5,
         scale: 1.0 / HDOT[0],

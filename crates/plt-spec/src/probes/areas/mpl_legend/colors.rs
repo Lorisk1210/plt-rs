@@ -5,7 +5,7 @@
 use plt::artist::{ArtistHandle, RawHandle};
 use plt::axes::{Axes, HistArtists, HistPlotOptions, MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::{Collection, EdgeColors};
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, colormaps};
 use plt::figure::Figure;
 use plt::legend::{Legend, LegendLabelColor, LegendOptions};
 use plt::lines::{Line2D, LineProps};
@@ -109,7 +109,7 @@ fn scatter_options(kwargs: &Keywords) -> Result<(ScatterOptions, Option<&str>), 
     }
     if let Some(cmap) = cmap {
         options.colors = match std::mem::take(&mut options.colors) {
-            ScatterColors::Mapped(mapped) => mapped.with_cmap(cmap).into(),
+            ScatterColors::Mapped(mapped) => mapped.cmap(cmap).into(),
             _ => return Err(ProbeError::BadArgs("cmap without values to map".into())),
         };
     }

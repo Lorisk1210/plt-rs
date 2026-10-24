@@ -5,12 +5,12 @@
 use std::rc::Rc;
 
 use plt::axes::{
-    Axes, BandAlign, BarContainer, BarLabelFormat, BarLabelOptions, BarLabelType, BarOptions,
-    ErrorbarOptions, GroupedBarData, GroupedBarOptions, ImshowOptions,
+    Axes, BandAlign, BarContainer, BarLabelOptions, BarLabelType, BarOptions, ErrorbarOptions,
+    GroupedBarData, GroupedBarOptions, ImshowOptions,
 };
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::figure::Share;
-use plt::image::{ColorizerOptions, Extent, Interpolation};
+use plt::image::{Extent, Interpolation};
 use plt::layout::LayoutEngine;
 use plt::legend::{BboxToAnchor, LegendOptions};
 use plt::numeric::Grid;
@@ -20,6 +20,7 @@ use plt::rc::Aspect;
 use crate::figures::cases::common::padded;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
+use plt::ticker::LabelFormat;
 
 /// The penguin species of the bar examples.
 const SPECIES: [&str; 3] = ["Adelie", "Chinstrap", "Gentoo"];
@@ -33,7 +34,7 @@ fn barchart(fig: &Figure) -> CaseResult {
         ("Bill Length".into(), vec![38.79, 48.83, 47.50]),
         ("Flipper Length".into(), vec![189.95, 195.82, 217.19]),
     ]);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let options = GroupedBarOptions {
         tick_labels: SPECIES.map(String::from).to_vec(),
@@ -163,7 +164,7 @@ fn performance_bars(
 fn bar_label_demo_2(fig: &Figure) -> CaseResult {
     let (ax, hbars, _) = performance_bars(fig)?;
     let options = BarLabelOptions {
-        fmt: BarLabelFormat::Template("%.2f".to_owned()),
+        fmt: LabelFormat::Template("%.2f".to_owned()),
         ..BarLabelOptions::default()
     };
     ax.bar_label(&hbars, options)?;
@@ -191,7 +192,7 @@ fn labelled_sales(
     names: &[&str],
     values: &[f64],
     (ylabel, title, ytop): (&str, &str, f64),
-    fmt: BarLabelFormat,
+    fmt: LabelFormat,
 ) -> CaseResult {
     let ax = fig.subplot();
     let bars = ax.bar(names.to_vec(), values, BarOptions::default())?;
@@ -212,7 +213,7 @@ fn bar_label_demo_4(fig: &Figure) -> CaseResult {
         &["Coffee", "Salted Caramel", "Pistachio"],
         &[4000.0, 2000.0, 7000.0],
         ("pints sold", "Gelato sales by flavor", 8000.0),
-        BarLabelFormat::Template("{:,.0f}".to_owned()),
+        LabelFormat::Template("{:,.0f}".to_owned()),
     )
 }
 
@@ -222,7 +223,7 @@ fn bar_label_demo_5(fig: &Figure) -> CaseResult {
         &["Lion", "Gazelle", "Cheetah"],
         &[50.0, 60.0, 75.0],
         ("speed in MPH", "Running speeds", 80.0),
-        BarLabelFormat::Func(Rc::new(|x| format!("{:.1} km/h", x * 1.61))),
+        LabelFormat::Func(Rc::new(|x| format!("{:.1} km/h", x * 1.61))),
     )
 }
 
@@ -326,7 +327,7 @@ fn gradient_image(
         .fold(f64::NEG_INFINITY, f64::max);
     let x = Grid::from_fn(2, 2, |r, c| a + (b - a) / max * corners[r][c]);
     let options = ImshowOptions {
-        colors: ColorizerOptions::default()
+        colorizer: ColorizerOptions::default()
             .cmap(colormaps::get(cmap)?)
             .limits(Some(0.0), Some(1.0)),
         interpolation: Some(Interpolation::Bicubic),
@@ -361,7 +362,7 @@ fn gradient_bar(fig: &Figure) -> CaseResult {
 fn hat_graph(fig: &Figure) -> CaseResult {
     let player_a = [5.0, 15.0, 22.0, 20.0, 25.0];
     let player_b = [25.0, 32.0, 34.0, 30.0, 27.0];
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let mut colors = vec![Color::none()];
     colors.extend(

@@ -66,7 +66,7 @@ fn spine_placement_demo(fig: &Figure) -> CaseResult {
 }
 
 fn spines(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     spine_bounds_demo(fig)
 }
 

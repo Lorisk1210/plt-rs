@@ -32,7 +32,7 @@
 //! | `fig.add_subplot(projection="3d")`                | [`Figure::subplot_3d`], [`Figure::add_subplot_3d`] |
 //! | `fig.add_subplot(projection="3d", elev=, azim=, proj_type=)` | [`Figure::subplot_3d_with`] and [`Axes3DOptions`] |
 //! | `ax.plot(x, y, z)`, `ax.scatter(x, y, z, ...)`    | [`Axes3D::plot`], [`Axes3D::scatter_with`] with [`Scatter3DOptions`] |
-//! | `ax.plot_surface(X, Y, Z, cmap=)`                 | [`Axes3D::plot_surface`] with [`SurfaceOptions`], [`FaceColors::Mapped`] |
+//! | `ax.plot_surface(X, Y, Z, cmap=, norm=, vmin=)`   | [`Axes3D::plot_surface`] with [`SurfaceOptions`], [`FaceColors::Mapped`] |
 //! | `ax.plot_wireframe`, `ax.plot_trisurf`            | [`Axes3D::plot_wireframe`], [`Axes3D::plot_trisurf`] |
 //! | `ax.contour(X, Y, Z, zdir=, offset=)`             | [`Axes3D::contour`] with [`Contour3DOptions`]  |
 //! | `ax.bar3d`, `ax.voxels`, `ax.quiver`, `ax.stem`   | [`Axes3D::bar3d`], [`Axes3D::voxels`], [`Axes3D::quiver`], [`Axes3D::stem`] |
@@ -89,8 +89,8 @@
 //! ```
 //!
 //! ```
-//! use plt::colors::colormaps;
-//! use plt::mplot3d::{Axis3, FaceColormap, FaceColors, SurfaceOptions};
+//! use plt::colors::{Colorize, ColorizerOptions, colormaps};
+//! use plt::mplot3d::{Axis3, FaceColors, SurfaceOptions};
 //! use plt::numeric::{Grid, linspace, meshgrid};
 //! use plt::figure::Figure;
 //!
@@ -103,7 +103,7 @@
 //! let (xx, yy) = meshgrid(&linspace(-1.0, 1.0, 10), &linspace(-1.0, 1.0, 10));
 //! let zz = Grid::from_fn(10, 10, |r, c| xx[(r, c)] * yy[(r, c)]);
 //! let options = SurfaceOptions {
-//!     colors: FaceColors::Mapped(Box::new(FaceColormap::new(colormaps::get("viridis")?))),
+//!     colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("viridis")?)),
 //!     ..SurfaceOptions::default()
 //! };
 //! ax.plot_surface(&xx, &yy, &zz, options)?;

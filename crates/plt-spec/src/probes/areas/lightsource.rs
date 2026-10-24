@@ -1,7 +1,8 @@
 //! Probe operations for the `lightsource` area (`matplotlib.colors.LightSource`).
 
 use plt::colors::{
-    BlendMode, LightSource, Relief, ShadeOptions, blend_overlay, blend_soft_light, colormaps,
+    BlendMode, ColorizerOptions, LightSource, Relief, ShadeOptions, blend_overlay,
+    blend_soft_light, colormaps,
 };
 use plt::numeric::Grid;
 
@@ -153,14 +154,17 @@ pub(crate) fn shade(args: Args<'_>) -> Outcome {
     let data = grid(args.json("data")?, "data")?;
     let cmap = colormaps::get(args.str("cmap")?).map_err(ProbeError::rejected)?;
     let options = ShadeOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(cmap),
+            vmin: args.opt_f64("vmin")?,
+            vmax: args.opt_f64("vmax")?,
+            ..ColorizerOptions::default()
+        },
         blend: blend_mode(args.str("blend_mode")?)?,
-        vmin: args.opt_f64("vmin")?,
-        vmax: args.opt_f64("vmax")?,
         relief: relief(args)?,
-        ..ShadeOptions::default()
     };
     let shaded = light(args)?
-        .shade(&data, &cmap, &options)
+        .shade(&data, &options)
         .map_err(ProbeError::rejected)?;
     Ok(rows_json(&shaded, |c| Json::from(vec![c.r, c.g, c.b, c.a])))
 }

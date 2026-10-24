@@ -6,7 +6,7 @@ use plt_raster::resample::ResampleError;
 
 use crate::axes::AspectError;
 use crate::colors::multivar::MultivarError;
-use crate::colors::{ColormapError, NormError};
+use crate::colors::{ColorizerError, ColormapError, NORM_WITH_LIMITS, NormError};
 use crate::stats::StatsError;
 
 /// Invalid input to `imshow`, `pcolormesh`, `hexbin` and friends, or a
@@ -139,9 +139,7 @@ impl fmt::Display for ImageError {
             Self::ValueCount { values, points } => {
                 write!(f, "{values} values given for {points} points")
             }
-            Self::NormWithLimits => f.write_str(
-                "passing a Normalize instance simultaneously with vmin/vmax is not supported",
-            ),
+            Self::NormWithLimits => f.write_str(NORM_WITH_LIMITS),
             Self::Colormap(err) => err.fmt(f),
             Self::Norm(err) => err.fmt(f),
             Self::Aspect(err) => err.fmt(f),
@@ -182,6 +180,15 @@ impl std::error::Error for ImageError {
 impl From<ColormapError> for ImageError {
     fn from(err: ColormapError) -> Self {
         Self::Colormap(err)
+    }
+}
+
+impl From<ColorizerError> for ImageError {
+    fn from(err: ColorizerError) -> Self {
+        match err {
+            ColorizerError::Colormap(err) => Self::Colormap(err),
+            ColorizerError::NormWithLimits => Self::NormWithLimits,
+        }
     }
 }
 

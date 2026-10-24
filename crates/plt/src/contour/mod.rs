@@ -53,10 +53,10 @@ mod style;
 pub use error::ContourError;
 pub use grid::{Origin, QuadCoords, QuadField};
 pub use handle::ContourSet;
-pub use label::{ClabelOptions, ContourLabel, LabelFormat};
+pub use label::{ClabelFormat, ClabelOptions, ContourLabel};
 pub use levels::Levels;
 pub use nearest::{NearestContour, NearestIn};
-pub use options::{ContourNorm, ContourOptions};
+pub use options::ContourOptions;
 pub use quad::{ContourAlgorithm, QuadContourGenerator};
 pub use set::ContourWarning;
 

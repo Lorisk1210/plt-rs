@@ -61,11 +61,9 @@ fn options(value: &Json) -> Result<StreamplotOptions, ProbeError> {
             }
             "start_points" => options.start_points = Some(parse_points(item)?),
             "color" => {
-                options.color = Some(StreamColors::Mapped(Box::new(StreamColorMap {
-                    values: grid(item)?,
-                    cmap: None,
-                    norm: None,
-                })));
+                options.color = Some(StreamColors::Mapped(Box::new(StreamColorMap::new(grid(
+                    item,
+                )?))));
             }
             other => return Err(ProbeError::BadArgs(format!("unknown option {other}"))),
         }

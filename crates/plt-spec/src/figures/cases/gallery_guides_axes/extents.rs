@@ -202,7 +202,7 @@ fn imshow_demo_grid(
     view: Option<((f64, f64), (f64, f64))>,
 ) -> Result<[Vec<Axes>; 2], Box<dyn std::error::Error>> {
     let n = extents.len();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let gs = GridSpec::new(n, 5)?;
     let column = |cols: std::ops::Range<usize>| {
         (0..n)

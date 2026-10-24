@@ -43,7 +43,7 @@ fn concise_axes(
         .map(|i| base.checked_add(TimeDelta::new(0, 2 * 3600 * i, 0)?))
         .collect::<Result<Vec<_>, _>>()?;
     let y = cumsum(&SpecRng::new(19_680_801).normal(dates.len(), 0.0, 1.0));
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(3, 1)?.as_slice().to_vec();
     for (ax, (low, high)) in axs.iter().zip(LIMITS) {
         setup(ax)?;

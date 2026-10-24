@@ -2,10 +2,10 @@
 //! origin and extent combination, and clipping.
 
 use plt::axes::ImshowOptions;
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::figure::Figure;
 use plt::gridspec::SubplotOverrides;
-use plt::image::{ColorizerOptions, Extent, Interpolation, Origin};
+use plt::image::{Extent, Interpolation, Origin};
 use plt::numeric::{Grid, arange};
 use plt::patches::{Rectangle, RotationPoint};
 use plt::prelude::*;
@@ -22,7 +22,7 @@ pub(super) fn log_axes_resampled(fig: &Figure) -> CaseResult {
     axs[(0, 0)].imshow(
         stripes,
         ImshowOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(colormaps::get("viridis")?)
                 .limits(Some(-1.0), Some(1.0)),
             extent: Some(Extent::new(1.0, 100.0, 1.0, 100.0)),
@@ -151,7 +151,7 @@ pub(super) fn clip_path_rotated_rectangle(fig: &Figure) -> CaseResult {
     let image = ax.imshow(
         bump(40),
         ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("plasma")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("plasma")?),
             ..ImshowOptions::default()
         },
     )?;

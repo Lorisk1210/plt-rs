@@ -6,10 +6,10 @@
 
 use plt::artist::ArtistHandle;
 use plt::axes_grid1::anchored_artists::{AnchoredAuxTransformBox, AnchoredDrawingArea};
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::coords::{CoordUnit, Coords};
 use plt::gridspec::SubplotOverrides;
-use plt::image::{BboxImageOptions, ColorizerOptions};
+use plt::image::BboxImageOptions;
 use plt::numeric::Grid;
 use plt::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOptions, AnnotationBboxOptions, BoxItem, DrawingArea,
@@ -148,7 +148,7 @@ fn annotations_17(fig: &Figure) -> CaseResult {
         arr,
         1.0,
         BboxImageOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("Greens")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("Greens")?),
             ..BboxImageOptions::default()
         },
     )?;

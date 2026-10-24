@@ -9,8 +9,8 @@ use crate::artist::Artist;
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors,
 };
-use crate::colors::LogNorm;
-use crate::image::{ColorizerOptions, Extent, ImageError};
+use crate::colors::{Colorize, ColorizerOptions, LogNorm, impl_colorize};
+use crate::image::{Extent, ImageError};
 use crate::scale::LogScale;
 use crate::transforms::{Transform, nonsingular};
 
@@ -105,7 +105,7 @@ pub struct HexbinOptions {
     /// Only show hexagons with at least this many points.
     pub mincnt: Option<usize>,
     /// Colormap, norm and limits.
-    pub colors: ColorizerOptions,
+    pub colorizer: ColorizerOptions,
     /// Edge colours (default: the face colours) and widths, opacity,
     /// z-order.
     pub props: CollectionProps,
@@ -118,6 +118,8 @@ pub struct HexbinOptions {
     /// they are created with.
     pub marginals: bool,
 }
+
+impl_colorize!(HexbinOptions);
 
 /// The hexagon lattice: two interleaved rectangular grids.
 struct Lattice {
@@ -249,9 +251,9 @@ impl Axes {
             .map(|k| (lattice.centre(k), accum[k]))
             .unzip();
 
-        let (colors, accum) = binned(options.colors, options.bins, kept);
-        let shared_norm = colors.norm.is_some();
-        let mut mappable = colors.into_mappable(&crate::rc::params())?;
+        let (colorizer, accum) = binned(options.colorizer, options.bins, kept);
+        let shared_norm = colorizer.norm.is_some();
+        let mut mappable = colorizer.into_mappable(&crate::rc::params())?;
         let values: Vec<Option<f64>> = accum.iter().map(|&v| Some(v)).collect();
         mappable.norm_mut().autoscale_none(&values);
 
@@ -435,27 +437,27 @@ fn accumulate(
 /// over `vmin` and `vmax`) unless a norm is given, or the values replaced
 /// by their bin indices.
 fn binned(
-    mut colors: ColorizerOptions,
+    mut colorizer: ColorizerOptions,
     bins: Option<HexBins>,
     accum: Vec<f64>,
 ) -> (ColorizerOptions, Vec<f64>) {
     match bins {
-        Some(HexBins::Log) if colors.norm.is_none() => {
+        Some(HexBins::Log) if colorizer.norm.is_none() => {
             let mut norm = LogNorm::default();
-            if let Some(vmin) = colors.vmin.take() {
+            if let Some(vmin) = colorizer.vmin.take() {
                 norm = norm.with_vmin(vmin);
             }
-            if let Some(vmax) = colors.vmax.take() {
+            if let Some(vmax) = colorizer.vmax.take() {
                 norm = norm.with_vmax(vmax);
             }
-            (colors.norm(norm), accum)
+            (colorizer.norm(norm), accum)
         }
         Some(HexBins::Count(n)) => {
             let edges = equal_bins(&accum, n);
-            (colors, discretise(&accum, &edges))
+            (colorizer, discretise(&accum, &edges))
         }
-        Some(HexBins::Edges(edges)) => (colors, discretise(&accum, &edges)),
-        _ => (colors, accum),
+        Some(HexBins::Edges(edges)) => (colorizer, discretise(&accum, &edges)),
+        _ => (colorizer, accum),
     }
 }
 

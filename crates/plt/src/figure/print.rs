@@ -41,10 +41,11 @@ pub struct SaveOptions {
     /// (`savefig.transparent`).
     pub transparent: Option<bool>,
     /// Figure background (`savefig.facecolor`, the figure's own by
+    /// default); a colour that does not resolve fails the save.
+    pub facecolor: Option<Color>,
+    /// Figure border colour (`savefig.edgecolor`, the figure's own by
     /// default).
-    pub facecolor: Option<Rgba>,
-    /// Figure border colour (`savefig.edgecolor`).
-    pub edgecolor: Option<Rgba>,
+    pub edgecolor: Option<Color>,
     /// The file format, overriding the file name's extension
     /// (matplotlib's `format`).
     pub format: Option<SaveFormat>,
@@ -121,10 +122,10 @@ impl FigureState {
 struct Saving<'a> {
     figure: &'a Figure,
     dpi: f64,
-    colors: (Rgba, Rgba),
+    colors: (Color, Color),
     /// The background and border colours of the subfigures made
     /// transparent.
-    subfigure_colors: Vec<(Figure, Rgba, Rgba)>,
+    subfigure_colors: Vec<(Figure, Color, Color)>,
     /// The backgrounds of the axes made transparent.
     axes_faces: Vec<(Axes, Color)>,
 }
@@ -159,10 +160,10 @@ impl Drop for Saving<'_> {
             state.saving = false;
         }
         figure.set_dpi(self.dpi);
-        figure.set_facecolor(self.colors.0);
-        figure.set_edgecolor(self.colors.1);
+        figure.set_facecolor(self.colors.0.clone());
+        figure.set_edgecolor(self.colors.1.clone());
         for (sub, face, edge) in &self.subfigure_colors {
-            sub.set_facecolor(*face).set_edgecolor(*edge);
+            sub.set_facecolor(face.clone()).set_edgecolor(edge.clone());
         }
         for (ax, face) in &self.axes_faces {
             ax.set_facecolor(face.clone());
@@ -181,11 +182,12 @@ struct Page {
     dpi: f64,
 }
 
-/// `color`, unless the rcParam asks for a specific one.
-fn rc_color(setting: &ColorOrAuto, figure: Rgba) -> Rgba {
+/// The figure's colour `figure`, unless the rcParam asks for a specific
+/// one.
+fn rc_color(setting: &ColorOrAuto, figure: &Color) -> Color {
     match setting {
-        ColorOrAuto::Auto => figure,
-        ColorOrAuto::Color(color) => color.resolve().unwrap_or(figure),
+        ColorOrAuto::Auto => figure.clone(),
+        ColorOrAuto::Color(color) => color.clone(),
     }
 }
 
@@ -233,15 +235,20 @@ impl Figure {
             saving.make_transparent();
         }
         let (face, edge) = if transparent {
-            (Rgba::TRANSPARENT, Rgba::TRANSPARENT)
+            (
+                Color::from(Rgba::TRANSPARENT),
+                Color::from(Rgba::TRANSPARENT),
+            )
         } else {
             (
                 options
                     .facecolor
-                    .unwrap_or_else(|| rc_color(&rc.savefig_facecolor, saving.colors.0)),
+                    .clone()
+                    .unwrap_or_else(|| rc_color(&rc.savefig_facecolor, &saving.colors.0)),
                 options
                     .edgecolor
-                    .unwrap_or_else(|| rc_color(&rc.savefig_edgecolor, saving.colors.1)),
+                    .clone()
+                    .unwrap_or_else(|| rc_color(&rc.savefig_edgecolor, &saving.colors.1)),
             )
         };
         self.set_dpi(canvas_dpi)
@@ -428,7 +435,8 @@ mod tests {
         // on the cropped canvas, so the window still frames the axes.
         let fig = Figure::with_size(4.0, 3.0, 50.0);
         let layout = crate::layout::ConstrainedLayout::from_rc(&crate::rc::params());
-        fig.set_layout_engine(Some(crate::layout::LayoutEngine::Constrained(layout)));
+        fig.set_layout_engine(Some(crate::layout::LayoutEngine::Constrained(layout)))
+            .unwrap();
         let ax = fig.subplot();
         ax.set_aspect(crate::rc::Aspect::Ratio(1.0)).unwrap();
         ax.set_facecolor("k");
@@ -484,7 +492,7 @@ mod tests {
         let fig = Figure::with_size(2.0, 2.0, 50.0);
         let grid = crate::gridspec::GridSpec::new(1, 1).unwrap();
         let sub = fig.add_subfigure(&grid.cell(0, 0).unwrap());
-        sub.set_facecolor(Rgba::new(1.0, 0.0, 0.0, 1.0));
+        sub.set_facecolor("red");
         let ax = sub.add_axes([0.0, 0.0, 1.0, 1.0]);
         ax.set_axis_off();
         let inset = ax.inset_axes([0.25, 0.25, 0.5, 0.5]);
@@ -504,8 +512,24 @@ mod tests {
         let image = fig.render_raster_with(options).unwrap().to_image();
         assert_eq!(image.pixel(50, 50).map(|p| p[3]), Some(0), "centre");
         assert_eq!(image.pixel(5, 5).map(|p| p[3]), Some(0), "subfigure");
-        assert_eq!(sub.facecolor(), Rgba::new(1.0, 0.0, 0.0, 1.0), "restored");
+        assert_eq!(sub.facecolor(), Color::from("red"), "restored");
         assert_ne!(inset.facecolor(), Color::none(), "inset restored");
+    }
+
+    #[test]
+    fn save_colours_are_resolved_when_drawn() {
+        let fig = Figure::with_size(1.0, 1.0, 10.0);
+        let options = SaveOptions {
+            facecolor: Some("tab:nope".into()),
+            ..SaveOptions::default()
+        };
+        assert!(matches!(
+            fig.render_raster_with(options),
+            Err(SaveError::Draw(_))
+        ));
+        assert_eq!(fig.facecolor(), Color::from(Rgba::WHITE), "restored");
+        fig.set_edgecolor("not a colour");
+        assert!(fig.render_raster().is_err());
     }
 
     #[test]

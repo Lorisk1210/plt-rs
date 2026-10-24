@@ -1,38 +1,10 @@
 //! The settings, subdiagram descriptions and results of a Sankey diagram.
 
-use std::fmt;
-use std::rc::Rc;
-
 use plt_core::Point;
 
 use crate::patches::{Patch, PatchProps, PathShape};
 use crate::text::Text;
-
-/// How flow quantities are written under their labels (matplotlib's
-/// `format`).
-#[derive(Clone)]
-pub enum QuantityFormat {
-    /// A printf-style template applied to the flow's magnitude (default
-    /// `"%G"`).
-    Printf(String),
-    /// A function of the (signed) flow.
-    Func(Rc<dyn Fn(f64) -> String>),
-}
-
-impl Default for QuantityFormat {
-    fn default() -> Self {
-        Self::Printf("%G".to_owned())
-    }
-}
-
-impl fmt::Debug for QuantityFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Printf(template) => f.debug_tuple("Printf").field(template).finish(),
-            Self::Func(_) => f.write_str("Func(..)"),
-        }
-    }
-}
+use crate::ticker::LabelFormat;
 
 /// Settings shared by every subdiagram of a [`Sankey`](super::Sankey) (matplotlib's
 /// `Sankey(...)` arguments).
@@ -43,8 +15,10 @@ pub struct SankeyOptions {
     /// Unit appended to the quantities; `None` hides the quantities
     /// (default `""`).
     pub unit: Option<String>,
-    /// How quantities are written.
-    pub format: QuantityFormat,
+    /// How quantities are written: a printf-style template applied to the
+    /// flow's magnitude (default `"%G"`), or a function of the signed
+    /// flow (matplotlib's `format`).
+    pub format: LabelFormat,
     /// Space between paths breaking in or away at the top or bottom
     /// (default 0.25).
     pub gap: f64,
@@ -69,7 +43,7 @@ impl Default for SankeyOptions {
         Self {
             scale: 1.0,
             unit: Some(String::new()),
-            format: QuantityFormat::default(),
+            format: LabelFormat::from("%G"),
             gap: 0.25,
             radius: 0.1,
             shoulder: 0.03,

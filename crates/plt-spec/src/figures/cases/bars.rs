@@ -1,8 +1,8 @@
 //! `figures/cases_bars.py`.
 
 use plt::axes::{
-    BandAlign, BarAlign, BarLabelFormat, BarLabelOptions, BarLabelType, BarOptions, ErrorSize,
-    ErrorbarOptions, GroupedBarData, GroupedBarOptions,
+    BandAlign, BarAlign, BarLabelOptions, BarLabelType, BarOptions, ErrorSize, ErrorbarOptions,
+    GroupedBarData, GroupedBarOptions,
 };
 use plt::colors::Color;
 use plt::legend::LegendOptions;
@@ -12,6 +12,7 @@ use plt::orientation::Orientation;
 
 use crate::figures::FigureCase;
 use crate::figures::cases::common::padded;
+use plt::ticker::LabelFormat;
 
 const HEIGHTS: [f64; 5] = [3.0, 7.0, 5.0, 2.0, 6.0];
 
@@ -28,7 +29,7 @@ fn heights(factor: f64) -> Vec<f64> {
 /// `bar_label` options formatting values with `template`.
 fn formatted(template: &str) -> BarLabelOptions {
     BarLabelOptions {
-        fmt: BarLabelFormat::Template(template.to_owned()),
+        fmt: LabelFormat::Template(template.to_owned()),
         ..BarLabelOptions::default()
     }
 }

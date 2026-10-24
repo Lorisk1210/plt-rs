@@ -22,7 +22,7 @@ use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 /// The circle, name and code of one element of `anatomy`.
-fn anatomy_label(ax: &Axes, (x, y): (f64, f64), text: &str, code: &str) -> CaseResult {
+fn anatomy_label(ax: &Axes, (x, y): (f64, f64), text: &str, code: &str) {
     let royal_blue = [0.0, 20.0 / 256.0, 82.0 / 256.0];
     let halo = || with_stroke(7.0, "white");
     ax.add_artist_with(
@@ -33,7 +33,7 @@ fn anatomy_label(ax: &Axes, (x, y): (f64, f64), text: &str, code: &str) -> CaseR
             .linewidth(2.5)
             .edgecolor([royal_blue[0], royal_blue[1], royal_blue[2], 0.6])
             .facecolor("none")
-            .path_effects(halo()?),
+            .path_effects(halo()),
     );
     // The halos and the coloured texts are drawn separately, so that a
     // halo cannot cover another text.
@@ -53,14 +53,13 @@ fn anatomy_label(ax: &Axes, (x, y): (f64, f64), text: &str, code: &str) -> CaseR
             .set_family(["monospace"])
             .set_fontsize(RelativeSize::Medium);
         if haloed {
-            name.set_color("white").set_path_effects(halo()?);
-            call.set_color("white").set_path_effects(halo()?);
+            name.set_color("white").set_path_effects(halo());
+            call.set_color("white").set_path_effects(halo());
         } else {
             name.set_color(royal_blue);
             call.set_color("black");
         }
     }
-    Ok(())
 }
 
 /// The elements `anatomy` names: where their circle goes, their name and
@@ -181,7 +180,7 @@ fn anatomy(fig: &Figure) -> CaseResult {
         ..LegendOptions::default().loc("upper right")
     })?;
     for (xy, text, code) in ANATOMY_LABELS {
-        anatomy_label(&ax, xy, text, code)?;
+        anatomy_label(&ax, xy, text, code);
     }
     fig.set_linewidth(4.0);
     fig.set_edgecolor(Color::from("0.5").resolve()?);
@@ -392,7 +391,7 @@ fn price_walk(rng: &mut SpecRng, months: usize, first: usize, start: f64, drift:
 fn stock_prices(fig: &Figure) -> CaseResult {
     let dates = months()?;
     let mut rng = SpecRng::new(GALLERY_SEED);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let colors = [
         "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c", "#98df8a", "#d62728", "#ff9896",

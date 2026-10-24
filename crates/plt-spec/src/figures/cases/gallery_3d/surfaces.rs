@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 use plt::axes::Adjustable;
 use plt::collections::CollectionProps;
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{BlendMode, Color, LightSource, Relief, ShadeOptions, colormaps};
+use plt::colors::{BlendMode, Color, Colorize, LightSource, Relief, ShadeOptions, colormaps};
 use plt::figure::Figure;
 use plt::lines::LineProps;
 use plt::mplot3d::{
@@ -152,8 +152,9 @@ fn custom_shaded_3d_surface(fig: &Figure) -> CaseResult {
             ..Relief::default()
         },
         ..ShadeOptions::default()
-    };
-    let rgb = LightSource::new(270.0, 45.0).shade(&z, &colormaps::get("gist_earth")?, &shading)?;
+    }
+    .cmap(colormaps::get("gist_earth")?);
+    let rgb = LightSource::new(270.0, 45.0).shade(&z, &shading)?;
     let options = SurfaceOptions {
         sampling: EVERY_POINT,
         cell_colors: Some(rgb.map(|&c| Color::from(c))),

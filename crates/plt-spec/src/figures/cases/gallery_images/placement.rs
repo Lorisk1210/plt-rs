@@ -3,15 +3,14 @@
 
 use plt::axes::{Axes, AxisName, ImshowOptions, NonUniformOptions, TickParams};
 use plt::colorbar::{ColorbarOptions, Spacing};
-use plt::colors::{BoundaryNorm, Color, Extend, Normalize, colormaps, to_rgba};
+use plt::colors::{
+    BoundaryNorm, Color, Colorize, ColorizerOptions, Extend, Normalize, colormaps, to_rgba,
+};
 use plt::contour::{ContourOptions, Levels, QuadField};
 use plt::figure::{Figure, Share};
 use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::{GridSpec, SubplotOverrides};
-use plt::image::{
-    ColorizerOptions, Extent, ImageAlpha, Interpolation, NonUniformInterpolation, Origin,
-    ScalarField,
-};
+use plt::image::{Extent, ImageAlpha, Interpolation, NonUniformInterpolation, Origin, ScalarField};
 use plt::layout::LayoutEngine;
 use plt::lines::LineStyle;
 use plt::numeric::{Grid, linspace};
@@ -35,7 +34,7 @@ fn exact_placement_images() -> (Grid<f64>, Grid<f64>) {
 /// `imshow(data, vmin=-1, vmax=1)`.
 fn show_unit(ax: &Axes, data: Grid<f64>) -> CaseResult {
     let unit = ColorizerOptions::default().limits(Some(-1.0), Some(1.0));
-    ax.imshow(data, ImshowOptions::default().colors(unit))?;
+    ax.imshow(data, ImshowOptions::default().colorizer(unit))?;
     Ok(())
 }
 
@@ -120,14 +119,14 @@ fn image_masked(fig: &Figure) -> CaseResult {
         .with_bad("b")?;
     let axs = fig.subplots(2, 1)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(1, 0)]);
-    let image = |colors: ColorizerOptions, interpolation| {
+    let image = |colorizer: ColorizerOptions, interpolation| {
         ImshowOptions {
             aspect: Some(Aspect::Auto),
             origin: Some(Origin::Lower),
             extent: Some(Extent::new(x0, x1, y0, y1)),
             ..ImshowOptions::default()
         }
-        .colors(colors)
+        .colorizer(colorizer)
         .interpolation(interpolation)
     };
     let uniform = ColorizerOptions::default()
@@ -182,7 +181,7 @@ fn image_nonuniform(fig: &Figure) -> CaseResult {
     let x2: Vec<f64> = x.iter().map(|v| v.powf(3.0)).collect();
     let y = linspace(-4.0, 4.0, 9);
     let z = Grid::from_fn(9, 9, |r, c| (x[c] * x[c] + y[r] * y[r]).sqrt());
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(2, 2)?;
     fig.suptitle("NonUniformImage class")
         .set_fontsize(FontSize::Relative(RelativeSize::Large));
@@ -196,7 +195,7 @@ fn image_nonuniform(fig: &Figure) -> CaseResult {
         for (col, (xs, half_width)) in [(&x, 4.0), (&x2, 64.0)].into_iter().enumerate() {
             let ax = &axs[(row, col)];
             let options = NonUniformOptions {
-                colors: ColorizerOptions::default().cmap(colormaps::get("Purples")?),
+                colorizer: ColorizerOptions::default().cmap(colormaps::get("Purples")?),
                 interpolation,
             };
             ax.nonuniform_image(xs, &y, z.clone(), options)?;
@@ -232,7 +231,7 @@ fn blend(
     let ax = fig.subplot();
     ax.imshow(greys, ImshowOptions::default())?;
     let options = ImshowOptions {
-        colors: ColorizerOptions::default()
+        colorizer: ColorizerOptions::default()
             .cmap(colormaps::get("RdYlBu")?)
             .limits(Some(-vmax), Some(vmax)),
         alpha: alphas(&weights).map(ImageAlpha::Each),

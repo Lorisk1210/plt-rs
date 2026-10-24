@@ -16,11 +16,13 @@ impl Colorbar {
     /// ```
     /// use plt::axes::ImshowOptions;
     /// use plt::colorbar::ColorbarOptions;
+    /// use plt::layout::LayoutEngine;
     /// use plt::numeric::Grid;
     /// use plt::prelude::*;
     /// let fig = Figure::new();
-    /// // Without a layout engine, the colorbar takes room from the grid cell.
-    /// fig.set_layout_engine(None);
+    /// // Unlike constrained layout, tight layout lets the colorbar take
+    /// // room from the grid cell.
+    /// fig.set_layout_engine(LayoutEngine::tight())?;
     /// let ax = fig.subplot();
     /// let image = ax.imshow(Grid::from_fn(2, 2, |r, c| (r + c) as f64), ImshowOptions::default())?;
     /// let colorbar = fig.colorbar(&image, ColorbarOptions::default())?;
@@ -141,7 +143,7 @@ mod tests {
     fn constrained_layouts_take_the_room_back() {
         // matplotlib's test_remove_from_figure_cl.
         let fig = Figure::new();
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
         let ax = fig.subplot();
         let points = scatter(&ax);
         fig.layout();

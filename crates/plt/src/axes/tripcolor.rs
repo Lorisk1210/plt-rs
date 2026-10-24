@@ -12,7 +12,8 @@ use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, TriMesh,
     TriMeshSpec,
 };
-use crate::image::{ColorizerOptions, ImageError};
+use crate::colors::{ColorizerOptions, impl_colorize};
+use crate::image::ImageError;
 use crate::tri::Triangulation;
 
 /// The values a [`Axes::tripcolor`] plot colours.
@@ -40,13 +41,15 @@ pub enum TriShading {
 #[derive(Debug, Default)]
 pub struct TripcolorOptions {
     /// Colormap, norm and limits.
-    pub colors: ColorizerOptions,
+    pub colorizer: ColorizerOptions,
     /// Flat or Gouraud shading.
     pub shading: TriShading,
     /// Edge colours and widths, anti-aliasing and z-order; the opacity
     /// defaults to 1 and the edges to `pcolor`'s.
     pub props: CollectionProps,
 }
+
+impl_colorize!(TripcolorOptions);
 
 /// The artist of a [`Axes::tripcolor`] plot.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -178,7 +181,10 @@ impl Axes {
         options: TripcolorOptions,
     ) -> Result<Tripcolor, TripcolorError> {
         let placement = Placement::resolve(tri, values)?;
-        let mappable = options.colors.into_mappable(&crate::rc::params())?;
+        let mappable = options
+            .colorizer
+            .into_mappable(&crate::rc::params())
+            .map_err(ImageError::from)?;
         let mut props = options.props;
         pcolor_edge_defaults(&mut props);
         props.base.alpha.get_or_insert(1.0);

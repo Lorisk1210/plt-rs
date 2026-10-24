@@ -1,9 +1,9 @@
 //! The `NonUniformImage` cases.
 
 use plt::axes::{Axes, NonUniformOptions};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, ImageData, NonUniformInterpolation};
+use plt::image::{ImageData, NonUniformInterpolation};
 use plt::numeric::{Grid, linspace};
 
 use super::data::rgb_float;
@@ -25,7 +25,7 @@ fn cubic_grid() -> (Vec<f64>, Vec<f64>, Grid<f64>) {
 fn cubic(ax: &Axes, interpolation: NonUniformInterpolation, cmap: &str) -> CaseResult {
     let (x, y, radius) = cubic_grid();
     let options = NonUniformOptions {
-        colors: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
+        colorizer: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
         interpolation,
     };
     ax.nonuniform_image(&x, &y, radius, options)?;

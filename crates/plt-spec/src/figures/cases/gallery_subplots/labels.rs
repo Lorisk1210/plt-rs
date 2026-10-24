@@ -24,7 +24,7 @@ fn yellow_box() -> TextBoxProps {
 }
 
 fn align_labels_demo(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let grid = GridSpec::with_ratios(
         2,
         3,

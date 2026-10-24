@@ -302,7 +302,8 @@ pub(super) fn draw(args: Args<'_>) -> Outcome {
         rc::set("font.family", "DejaVu Sans").map_err(ProbeError::rejected)?;
         rc::set("text.hinting", "none").map_err(ProbeError::rejected)?;
         let fig = Figure::new();
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())
+            .map_err(ProbeError::rejected)?;
         let axes = fig.subplots(2, 2).map_err(ProbeError::rejected)?;
         let axes = axes.as_slice();
         let before = positions(axes, Axes::original_position);

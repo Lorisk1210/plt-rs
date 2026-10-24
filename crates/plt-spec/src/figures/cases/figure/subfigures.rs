@@ -6,13 +6,13 @@ use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::figure::{Share, SubfigureOptions};
 use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::{GridSpec, SubplotOverrides};
-use plt::image::ColorizerOptions;
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::prelude::*;
 use plt::spines::SpineSide;
 
 use super::{field, field_mesh, map, t};
 use crate::figures::CaseResult;
+use plt::colors::ColorizerOptions;
 
 /// `_example_plot(ax, seed, hide_labels)`: the field and, unless hidden,
 /// labels and a title in 12 points.
@@ -38,7 +38,7 @@ fn rgba(name: &str) -> Result<plt_core::Rgba, plt::colors::ColorError> {
 }
 
 pub(super) fn gallery_subfigures(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let subfigs = fig.subfigures(
         1,
         2,
@@ -97,7 +97,7 @@ pub(super) fn gallery_subfigures(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn subfigures_nested_ratios(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     fig.suptitle("fig");
     let subfigs = fig.subfigures(
         1,
@@ -168,12 +168,12 @@ pub(super) fn tight_suptitle_suplabels(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn compressed_layout_images(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::compressed());
+    fig.set_layout_engine(LayoutEngine::compressed())?;
     let axs = fig.subplots(2, 2)?;
     let mut last = None;
     for (i, ax) in axs.as_slice().iter().enumerate() {
         let options = plt::axes::ImshowOptions {
-            colors: ColorizerOptions::default().limits(Some(-2.5), Some(2.5)),
+            colorizer: ColorizerOptions::default().limits(Some(-2.5), Some(2.5)),
             ..plt::axes::ImshowOptions::default()
         };
         last = Some(ax.imshow(field(30 + i as u64), options)?);
@@ -192,7 +192,7 @@ pub(super) fn compressed_layout_images(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn constrained_subgridspec_colorbar(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs = GridSpec::with_ratios(
         1,
         2,

@@ -73,7 +73,7 @@ fn legend_guide_3(fig: &Figure) -> CaseResult {
 }
 
 fn legend_guide_4(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplot_mosaic(&mosaic(&[&["left", "right"]])?, MosaicOptions::default())?;
     let (left, right) = (
         axs.get("left").ok_or("a left axes")?,
@@ -88,7 +88,7 @@ fn legend_guide_4(fig: &Figure) -> CaseResult {
 /// A light grey constrained figure with a figure legend titled by its
 /// location at each of `locations`.
 fn outside_legends(fig: &Figure, label: &str, locations: &[&str]) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     fig.set_facecolor(to_rgba("0.95", None)?);
     let ax = fig.subplot();
     ax.plot_with([1.0, 2.0], [1.0, 2.0], LineProps::default().label(label))?;

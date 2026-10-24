@@ -14,7 +14,7 @@ use plt::axes::{
     BarOptions, GridOptions, MappedColors, Mesh, PcolorOptions, ScatterOptions, TickParams,
 };
 use plt::collections::{CollectionProps, EdgeColors};
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::Figure;
 use plt::fonts::FontSize;
@@ -76,7 +76,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let options = ScatterOptions {
             sizes: Some(r.iter().map(|r| 200.0 * r * r).collect()),
             colors: MappedColors::new(theta.clone())
-                .with_cmap(colormaps::get("hsv")?)
+                .cmap(colormaps::get("hsv")?)
                 .into(),
             alpha: 0.75.into(),
             ..ScatterOptions::default()
@@ -203,8 +203,11 @@ pub(crate) const CASES: &[FigureCase] = &[
         let z = Grid::from_fn(30, 60, |i, j| r[(i, j)] * (3.0 * theta[(i, j)]).cos());
         let field = QuadField::new(z).with_coords(QuadCoords::Mesh { x: theta, y: r });
         let options = ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("RdBu")?),
+                ..ColorizerOptions::default()
+            },
             levels: Levels::Count(10),
-            cmap: Some(colormaps::get("RdBu")?),
             ..ContourOptions::default()
         };
         fig.polar_subplot().contourf(&field, options)?;

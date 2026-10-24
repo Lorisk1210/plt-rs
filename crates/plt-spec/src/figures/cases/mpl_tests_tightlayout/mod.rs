@@ -64,7 +64,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             Ok(())
         }),
         classic("mpl_tests_tightlayout/collapsed", |fig| {
-            fig.set_layout_engine(LayoutEngine::tight());
+            fig.set_layout_engine(LayoutEngine::tight())?;
             let ax = fig.subplot();
             ax.set_xlim(0.0, 1.0).set_ylim(0.0, 1.0);
             let options = AnnotateOptions {
@@ -83,7 +83,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             Ok(())
         }),
         classic("mpl_tests_tightlayout/suptitle", |fig| {
-            fig.set_layout_engine(LayoutEngine::tight());
+            fig.set_layout_engine(LayoutEngine::tight())?;
             let ax = fig.subplot();
             fig.suptitle("foo");
             ax.set_title("bar");
@@ -94,7 +94,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             fig.set_layout_engine(LayoutEngine::Tight(TightLayout {
                 pad: 0.15,
                 ..TightLayout::default()
-            }));
+            }))?;
             fig.subplot();
             Ok(())
         }),

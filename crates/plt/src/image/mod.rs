@@ -56,7 +56,7 @@ pub use bbox_image::{BboxImage, BboxImageOptions};
 pub(crate) use bbox_image::{BboxImageArtist, Region};
 pub use bitmap::{BitmapError, BitmapFormat, BitmapSettings};
 pub use color_image::{color_image_bytes, color_image_rgba};
-pub use colorize::{ColorizerOptions, MultivarColorizerOptions};
+pub use colorize::MultivarColorizerOptions;
 pub(crate) use composite::Compositor;
 pub(crate) use data::Precision;
 pub use data::{ImageData, ScalarField, ScalarKind};

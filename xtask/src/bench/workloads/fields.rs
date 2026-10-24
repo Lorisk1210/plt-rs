@@ -1,8 +1,8 @@
 //! Contours, vector fields and triangulations, and 3-D axes.
 
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadField};
-use plt::mplot3d::{FaceColormap, FaceColors, SurfaceOptions};
+use plt::mplot3d::{FaceColors, SurfaceOptions};
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::quiver::{QuiverOptions, VectorField};
 use plt::streamplot::{StreamField, StreamplotOptions};
@@ -97,7 +97,7 @@ fn plot_surface() -> Build {
     let z = Grid::from_fn(200, 200, |i, j| t[j].hypot(t[i]).sin());
     Box::new(move |fig| {
         let options = SurfaceOptions {
-            colors: FaceColors::Mapped(Box::new(FaceColormap::new(colormaps::get("viridis")?))),
+            colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("viridis")?)),
             ..SurfaceOptions::default()
         };
         fig.subplot_3d().plot_surface(&x, &y, &z, options)?;

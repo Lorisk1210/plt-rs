@@ -4,10 +4,9 @@
 use plt::axes::{Mesh, PcolorOptions};
 use plt::collections::Collection;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::to_rgba;
+use plt::colors::{ColorizerOptions, to_rgba};
 use plt::figure::{Share, SubfigureOptions};
 use plt::fonts::{FontSize, RelativeSize};
-use plt::image::ColorizerOptions;
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -28,7 +27,7 @@ fn random_mesh(
 ) -> Result<Collection, Box<dyn std::error::Error>> {
     let noise = Grid::from_vec(30, 30, rng.normal(30 * 30, 0.0, 1.0))?;
     let options = PcolorOptions {
-        colors: ColorizerOptions::default().limits(Some(-2.5), Some(2.5)),
+        colorizer: ColorizerOptions::default().limits(Some(-2.5), Some(2.5)),
         ..PcolorOptions::default()
     };
     let mesh = ax.pcolormesh(Mesh::new(noise), options)?;
@@ -111,7 +110,7 @@ fn figure_suptitle(fig: &Figure) {
 /// `_left_and_right`: the left and right plots in two subfigures with
 /// the given relative widths.
 fn left_and_right(fig: &Figure, width_ratios: Option<Vec<f64>>) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let mut rng = SpecRng::new(SEED);
     let subfigs = fig.subfigures(
         1,
@@ -133,7 +132,7 @@ fn subfigures_1(fig: &Figure) -> CaseResult {
 }
 
 fn subfigures_2(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(2, 3)?;
     let grid = axs[(0, 0)]
         .subplot_spec()
@@ -159,7 +158,7 @@ fn subfigures_3(fig: &Figure) -> CaseResult {
 }
 
 fn subfigures_4(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let mut rng = SpecRng::new(SEED);
     fig.suptitle("fig");
     let subfigs = fig.subfigures(

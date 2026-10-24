@@ -53,10 +53,13 @@ Ops
     the file saved to a path name the format (``test_fspath``), or
     ``true`` once saved with empty metadata.
 ``Figure.get_layout_engine``  {layout?, calls?} -> the engine's name
-    (``"none"``, ``"tight"``, ``"constrained"``, ``"compressed"``) of
-    ``Figure(layout=layout)`` after each call: ``["set_layout_engine",
-    name]``, ``["tight_layout", {kwargs}]`` (a 1 x 2 grid made first),
-    ``["savefig_tight"]``.
+    (``"none"``, ``"tight"``, ``"constrained"``, ``"compressed"``; a
+    placeholder engine is ``"none"``) of ``Figure(layout=layout)`` after
+    each call: ``["set_layout_engine", name]`` (``"none"`` included),
+    ``["tight_layout", {kwargs}]`` (a 1 x 2 grid made first),
+    ``["savefig_tight"]``, ``["colorbar"]`` (a subplot holding
+    ``pcolormesh([[1, 2], [3, 4]])`` and its colorbar). A call the figure
+    refuses makes the whole op raise.
 ``Figure.get_constrained_layout_pads``  {params} -> the pads of a
     figure laid out by ``ConstrainedLayoutEngine(**params)``.
 ``Figure.get_tightbbox``  {} -> the tight boxes of
@@ -471,6 +474,8 @@ def _layout_engine(layout=None, calls=()):
             fig.tight_layout(**args[0])
         elif name == "savefig_tight":
             fig.savefig(io.BytesIO(), bbox_inches='tight')
+        elif name == "colorbar":
+            fig.colorbar(fig.subplots().pcolormesh([[1.0, 2.0], [3.0, 4.0]]))
         out.append(_engine_name(fig.get_layout_engine()))
     return out
 
@@ -484,6 +489,24 @@ def test_invalid_layouts():
     probe("Figure.get_layout_engine", _layout_engine, layout="foobar")
     probe("Figure.get_layout_engine", _layout_engine, layout="constrained",
           calls=[["set_layout_engine", "tight"], ["set_layout_engine", "constrained"]])
+    # Once a colorbar exists, an engine placing colorbars differently is
+    # refused, also after the engine was removed ("none" leaves a
+    # placeholder); engines placing them alike are accepted.
+    for layout, other in [("constrained", "tight"), ("tight", "constrained")]:
+        probe("Figure.get_layout_engine", _layout_engine, layout=layout,
+              calls=[["colorbar"], ["set_layout_engine", other]])
+        probe("Figure.get_layout_engine", _layout_engine, layout=layout,
+              calls=[["colorbar"], ["set_layout_engine", "none"]])
+        probe("Figure.get_layout_engine", _layout_engine, layout=layout,
+              calls=[["colorbar"], ["set_layout_engine", "none"], ["set_layout_engine", other]])
+        probe("Figure.get_layout_engine", _layout_engine, layout=layout,
+              calls=[["colorbar"], ["set_layout_engine", "none"], ["set_layout_engine", layout]])
+    probe("Figure.get_layout_engine", _layout_engine, layout="constrained",
+          calls=[["colorbar"], ["set_layout_engine", "compressed"]])
+    probe("Figure.get_layout_engine", _layout_engine,
+          calls=[["colorbar"], ["set_layout_engine", "none"], ["set_layout_engine", "constrained"]])
+    probe("Figure.get_layout_engine", _layout_engine, layout="constrained",
+          calls=[["colorbar"], ["tight_layout", {}]])
 
 
 def test_tightlayout_autolayout_deconflict():

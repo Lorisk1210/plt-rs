@@ -9,14 +9,13 @@
 //! giving them are rejected when their arguments are read.
 
 use plt::figure::Figure;
-use plt::sankey::{
-    FlowOrientation, PathLengths, QuantityFormat, Sankey, SankeyOptions, Subdiagram,
-};
+use plt::sankey::{FlowOrientation, PathLengths, Sankey, SankeyOptions, Subdiagram};
 
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{object, points};
 use crate::probes::{Args, Op, Outcome, ProbeError};
+use plt::ticker::LabelFormat;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[Op::new("sankey.diagram", |args| {
@@ -52,7 +51,7 @@ fn options(spec: &Json) -> Result<SankeyOptions, ProbeError> {
             "unit" => options.unit = value.as_str().map(str::to_owned),
             "format" => {
                 let template = value.as_str().unwrap_or("%G").to_owned();
-                options.format = QuantityFormat::Printf(template);
+                options.format = LabelFormat::Template(template);
             }
             other => return Err(ProbeError::BadArgs(format!("unknown option {other}"))),
         }

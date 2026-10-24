@@ -50,7 +50,7 @@ fn section(fig: &Figure, title: &str) {
 }
 
 fn tick_formatters(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let parts = fig.subfigures(
         3,
         1,
@@ -145,7 +145,7 @@ fn locator_strip(
 }
 
 fn date_formatters_locators_1(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(10, 1)?;
     let ax = |i: usize| &axs[(i, 0)];
     fig.suptitle("Date Locators");
@@ -235,7 +235,7 @@ fn date_formatters_locators_1(fig: &Figure) -> CaseResult {
 }
 
 fn date_formatters_locators_2(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(3, 1)?;
     fig.suptitle("Date Formatters");
     let xmax = "2002-02-01";

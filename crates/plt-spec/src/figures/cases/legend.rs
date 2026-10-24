@@ -386,7 +386,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let y = SpecRng::new(303).uniform(20, 0.0, 1.0);
         let mapped = ScatterOptions {
             colors: MappedColors::new(y.clone())
-                .with_cmap(colormaps::get("viridis")?)
+                .cmap(colormaps::get("viridis")?)
                 .into(),
             ..ScatterOptions::default()
         };

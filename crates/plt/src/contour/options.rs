@@ -2,23 +2,10 @@
 
 use super::Levels;
 use super::levels::is_log_locator;
-use crate::colors::{Color, Colormap, Extend, Norm};
+use crate::colors::{Color, ColorizerOptions, Extend, Norm, NormKind, impl_colorize};
 use crate::lines::LineStyle;
 use crate::ticker::Locator;
 use crate::transforms::Transform;
-
-/// The normalisation mapping layers to colormap positions.
-#[derive(Debug, Default)]
-pub enum ContourNorm {
-    /// Linear between the extreme levels (matplotlib's `Normalize`).
-    #[default]
-    Linear,
-    /// Logarithmic (matplotlib's `LogNorm`): also selects levels on a log
-    /// scale and masks non-positive z on quad grids.
-    Log,
-    /// Any other norm (not log-scaled).
-    Custom(Box<dyn Norm>),
-}
 
 /// Options of [`Axes::contour`](crate::axes::Axes::contour) and friends
 /// (matplotlib's contour keyword arguments).
@@ -37,16 +24,13 @@ pub struct ContourOptions {
     /// instead of a colormap; with `extend`, two extra colours may give the
     /// under and over colours.
     pub colors: Option<Vec<Color>>,
-    /// The colormap (default `image.cmap`); exclusive with `colors`.
-    pub cmap: Option<Colormap>,
-    /// The normalisation of the colour mapping.
-    pub norm: ContourNorm,
-    /// The data value mapped to the bottom of the colormap (default: the
-    /// lowest level).
-    pub vmin: Option<f64>,
-    /// The data value mapped to the top of the colormap (default: the
-    /// highest level).
-    pub vmax: Option<f64>,
+    /// The colour mapping of the levels: the colormap (default
+    /// `image.cmap`, exclusive with `colors`), the norm (default linear;
+    /// a [`LogNorm`](crate::colors::LogNorm) also selects levels on a log
+    /// scale and masks non-positive z on quad grids) and the limits
+    /// (default the extreme levels), which override the norm's own, as in
+    /// matplotlib.
+    pub colorizer: ColorizerOptions,
     /// Opacity of lines and fills.
     pub alpha: Option<f64>,
     /// Line widths in points, cycled over the levels (default
@@ -71,10 +55,18 @@ pub struct ContourOptions {
     pub transform: Option<Transform>,
 }
 
+impl_colorize!(ContourOptions);
+
 impl ContourOptions {
-    /// Whether levels and colours are log-scaled: a log norm or a
-    /// `LogLocator`.
+    /// Whether levels and colours are log-scaled: a `LogNorm` or a
+    /// `LogLocator` (matplotlib's `logscale`).
     pub fn logscale(&self) -> bool {
-        matches!(self.norm, ContourNorm::Log) || self.locator.as_deref().is_some_and(is_log_locator)
+        self.colorizer.norm.as_deref().is_some_and(is_log_norm)
+            || self.locator.as_deref().is_some_and(is_log_locator)
     }
+}
+
+/// Whether `norm` is a `LogNorm` (a norm made from the log scale).
+fn is_log_norm(norm: &dyn Norm) -> bool {
+    matches!(norm.kind(), NormKind::Scaled(scale) if scale.name() == "log")
 }

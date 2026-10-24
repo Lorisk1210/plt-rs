@@ -126,7 +126,8 @@ impl Scene {
                 _ => return Err(bad()),
             }
         }
-        fig.set_layout_engine(engine);
+        fig.set_layout_engine(engine)
+            .map_err(ProbeError::rejected)?;
         Ok(Self {
             fig,
             axes: Vec::new(),

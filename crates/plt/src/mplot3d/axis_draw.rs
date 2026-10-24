@@ -389,9 +389,12 @@ impl<'a> Painter<'a> {
         }
         let origin = Path::polyline(vec![Point::new(0.0, 0.0)]);
         let (path, affine) = self.plane.split_path(&origin);
-        with_path_effects(ctx, &grid.path_effects, |ctx| {
+        let drawn = with_path_effects(ctx, &grid.path_effects, |ctx| {
             ctx.renderer().draw_path(&gc, &path, &affine, None);
         });
+        if let Err(err) = drawn {
+            self.report(ctx, err);
+        }
     }
 
     /// Strokes a path in projected coordinates like a solid `Line2D`.

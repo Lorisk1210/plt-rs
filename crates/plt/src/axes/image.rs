@@ -8,12 +8,11 @@ use plt_core::{Bbox, Path, Point};
 use super::children::DataUpdate;
 use super::{Axes, AxesState, AxisName, TickPosition};
 use crate::artist::{Artist, ArtistHandle, ClipPathSpec, RawHandle};
-use crate::colors::Colormap;
+use crate::colors::{ColorizerOptions, impl_colorize};
 use crate::image::{
-    AxesImage, AxesImageArtist, BboxImage, BboxImageArtist, BboxImageOptions, ColorizerOptions,
-    CoreSettings, Extent, ImageAlpha, ImageCore, ImageData, ImageError, Interpolation,
-    InterpolationStage, NonUniformImage, NonUniformImageArtist, NonUniformInterpolation, Origin,
-    Region,
+    AxesImage, AxesImageArtist, BboxImage, BboxImageArtist, BboxImageOptions, CoreSettings, Extent,
+    ImageAlpha, ImageCore, ImageData, ImageError, Interpolation, InterpolationStage,
+    NonUniformImage, NonUniformImageArtist, NonUniformInterpolation, Origin, Region,
 };
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
@@ -26,7 +25,7 @@ use crate::transforms::Transform;
 #[derive(Debug, Default)]
 pub struct ImshowOptions {
     /// Colormap, norm and limits for scalar data.
-    pub colors: ColorizerOptions,
+    pub colorizer: ColorizerOptions,
     /// The axes aspect to set (`None` = `image.aspect`).
     pub aspect: Option<Aspect>,
     /// Interpolation when resampling (`None` = `image.interpolation`).
@@ -55,19 +54,14 @@ pub struct ImshowOptions {
     pub clip_path: Option<(Path, Transform)>,
 }
 
-impl ImshowOptions {
-    /// These options with the colormap, norm and limits `colors`.
-    #[must_use]
-    pub fn colors(mut self, colors: ColorizerOptions) -> Self {
-        self.colors = colors;
-        self
-    }
+impl_colorize!(ImshowOptions, NonUniformOptions);
 
-    /// These options with the colormap `cmap` (matplotlib's `cmap=`).
+impl ImshowOptions {
+    /// These options with the interpolation `interpolation`.
     ///
     /// ```
     /// use plt::axes::ImshowOptions;
-    /// use plt::colors::colormaps;
+    /// use plt::colors::{Colorize, colormaps};
     /// use plt::image::Interpolation;
     /// let options = ImshowOptions::default()
     ///     .cmap(colormaps::get("magma")?)
@@ -75,13 +69,6 @@ impl ImshowOptions {
     /// assert_eq!(options.interpolation, Some(Interpolation::Nearest));
     /// # Ok::<(), plt::colors::ColormapError>(())
     /// ```
-    #[must_use]
-    pub fn cmap(mut self, cmap: Colormap) -> Self {
-        self.colors = std::mem::take(&mut self.colors).cmap(cmap);
-        self
-    }
-
-    /// These options with the interpolation `interpolation`.
     #[must_use]
     pub fn interpolation(mut self, interpolation: Interpolation) -> Self {
         self.interpolation = Some(interpolation);
@@ -94,7 +81,7 @@ impl ImshowOptions {
 #[derive(Debug, Default)]
 pub struct NonUniformOptions {
     /// Colormap, norm and limits for scalar data.
-    pub colors: ColorizerOptions,
+    pub colorizer: ColorizerOptions,
     /// How pixels between the centres are coloured.
     pub interpolation: NonUniformInterpolation,
 }
@@ -139,7 +126,7 @@ impl Axes {
     ) -> Result<AxesImage, ImageError> {
         let rc = crate::rc::params();
         let settings = CoreSettings {
-            colors: options.colors,
+            colorizer: options.colorizer,
             interpolation: options.interpolation,
             stage: options.interpolation_stage,
             origin: options.origin,
@@ -234,7 +221,7 @@ impl Axes {
         options: NonUniformOptions,
     ) -> Result<NonUniformImage, ImageError> {
         let data = data.into().normalized();
-        let mut mappable = options.colors.into_mappable(&crate::rc::params())?;
+        let mut mappable = options.colorizer.into_mappable(&crate::rc::params())?;
         if let Some(field) = data.scalars() {
             field.autoscale(mappable.norm_mut());
         }
@@ -513,16 +500,6 @@ mod tests {
             ax.imshow(Grid::filled(1, 1, 0.0), bad_aspect),
             Err(ImageError::Aspect(_))
         ));
-        let cmap = crate::colors::multivar::MultiColormap::get("BiPeak").unwrap();
-        let bivariate = ImshowOptions {
-            colors: ColorizerOptions::default()
-                .multivariate(crate::image::MultivarColorizerOptions::new(cmap)),
-            ..ImshowOptions::default()
-        };
-        assert_eq!(
-            ax.imshow(Grid::filled(2, 2, 0.0), bivariate).err(),
-            Some(ImageError::MultivariateColormap)
-        );
     }
 
     #[test]

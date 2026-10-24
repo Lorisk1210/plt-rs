@@ -274,7 +274,8 @@ pub(super) fn box_aspect_constrained(args: Args<'_>) -> Outcome {
         for ax in axs.as_slice() {
             made(ax.set_box_aspect(Some(1.0)))?;
         }
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())
+            .map_err(ProbeError::rejected)?;
         fig.layout();
         axs.as_slice()
             .iter()

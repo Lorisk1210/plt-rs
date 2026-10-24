@@ -128,7 +128,8 @@ mod tests {
         fig.set_layout_engine(Some(LayoutEngine::Constrained(ConstrainedLayout {
             compress,
             ..ConstrainedLayout::default()
-        })));
+        })))
+        .unwrap();
         let axs = fig.subplots(2, 2).expect("a grid");
         for ax in axs.as_slice() {
             let data = Grid::from_fn(10, 10, |r, c| (r * 10 + c) as f64);
@@ -211,7 +212,8 @@ mod tests {
         let (line, image) = crate::rc::context(|| {
             crate::rc::set("text.hinting", "none").expect("valid setting");
             let fig = Figure::with_size(6.4, 9.6, 100.0);
-            fig.set_layout_engine(Some(LayoutEngine::compressed()));
+            fig.set_layout_engine(Some(LayoutEngine::compressed()))
+                .unwrap();
             let parts = fig
                 .subfigures(3, 1, crate::figure::SubfigureOptions::default())
                 .expect("subfigures");

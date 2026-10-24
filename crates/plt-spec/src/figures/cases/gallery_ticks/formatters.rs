@@ -10,10 +10,9 @@ use plt::axes::{
     AxisName, ImshowOptions, MappedColors, TickLabelProps, TickLevel, TickParams, TicklabelFormat,
 };
 use plt::colorbar::{ColorbarFormat, ColorbarOptions, ColorbarTicks};
-use plt::colors::{Extend, colormaps};
+use plt::colors::{ColorizerOptions, Extend, colormaps};
 use plt::figure::Share;
 use plt::gridspec::{GridSpec, SubplotOverrides};
-use plt::image::ColorizerOptions;
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
@@ -188,7 +187,7 @@ fn major_minor_demo_2(fig: &Figure) -> CaseResult {
 
 fn scalarformatter(fig: &Figure) -> CaseResult {
     let x = arange(0.0, 1.0, 0.01);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let gs = GridSpec::with_ratios(
         3,
         3,
@@ -251,7 +250,7 @@ fn colorbar_tick_labelling_demo_1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let image = ax.imshow(
         noise(),
-        ImshowOptions::default().colors(ColorizerOptions {
+        ImshowOptions::default().colorizer(ColorizerOptions {
             cmap: Some(colormaps::get("coolwarm")?),
             vmin: Some(-1.0),
             vmax: Some(1.0),

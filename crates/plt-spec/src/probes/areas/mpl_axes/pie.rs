@@ -1,6 +1,6 @@
 //! Pie charts: argument checks, label properties and `pie_label`.
 
-use plt::axes::{PieContainer, PieLabelAlignment, PieLabelFormat, PieLabelOptions, PieOptions};
+use plt::axes::{PieContainer, PieLabelAlignment, PieLabelOptions, PieOptions};
 use plt::fonts::FontSize;
 use plt::text::{Text, TextProps};
 
@@ -8,6 +8,7 @@ use super::{color, made, number_list, numbers, on_axes, optional, strings};
 use crate::json::Json;
 use crate::probes::areas::canon::Canon;
 use crate::probes::{Args, Outcome, ProbeError, encode};
+use plt::ticker::LabelFormat;
 
 /// `{text, ha, va, rotation, rotation_mode, size, color}` of a label.
 fn text_desc(text: &Text) -> Result<Json, ProbeError> {
@@ -62,7 +63,7 @@ fn pie_options(args: Args<'_>) -> Result<PieOptions, ProbeError> {
         labels: optional(args, "labels", strings)?.unwrap_or_default(),
         autopct: args
             .opt_str("autopct")?
-            .map(|format| PieLabelFormat::Printf(format.to_owned())),
+            .map(|format| LabelFormat::Template(format.to_owned())),
         startangle: args.opt_f64("startangle")?.unwrap_or_default(),
         ..PieOptions::default()
     };

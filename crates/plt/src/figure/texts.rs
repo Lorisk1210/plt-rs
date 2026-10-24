@@ -48,7 +48,7 @@ impl Figure {
     /// use plt::layout::LayoutEngine;
     /// use plt::prelude::*;
     /// let fig = Figure::new();
-    /// fig.set_layout_engine(LayoutEngine::constrained());
+    /// fig.set_layout_engine(LayoutEngine::constrained())?;
     /// let ax = fig.subplot();
     /// fig.layout();
     /// let top = ax.position().y1();
@@ -57,6 +57,7 @@ impl Figure {
     /// fig.layout();
     /// assert_eq!(ax.position().y1(), top, "no room is made");
     /// assert_eq!(title.position().y, 0.5);
+    /// # Ok::<(), plt::layout::LayoutEngineError>(())
     /// ```
     pub fn set_suptitle_y(&self, y: f64) -> &Self {
         self.place_super_text(SuperKind::Title, y)

@@ -128,7 +128,8 @@ mod tests {
         let fig = Figure::new();
         fig.set_layout_engine(Some(super::super::LayoutEngine::Constrained(
             ConstrainedLayout::from_rc(&RcParams::matplotlib()),
-        )));
+        )))
+        .unwrap();
         let axs = fig.subplots(2, 2).unwrap();
         for (i, ax) in axs.as_slice().iter().enumerate() {
             ax.set_xlim(0.0, 10.0).set_ylim(-1.0, 1.0);
@@ -161,7 +162,8 @@ mod tests {
             let fig = Figure::new();
             fig.set_layout_engine(Some(super::super::LayoutEngine::Constrained(
                 ConstrainedLayout::from_rc(&RcParams::matplotlib()),
-            )));
+            )))
+            .unwrap();
             let ax = fig.subplot();
             let texts = place.map(|across| {
                 let texts = [fig.suptitle("t"), fig.supxlabel("x"), fig.supylabel("y")];
@@ -201,7 +203,8 @@ mod tests {
             let fig = Figure::new();
             fig.set_layout_engine(Some(super::super::LayoutEngine::Constrained(
                 ConstrainedLayout::from_rc(&RcParams::matplotlib()),
-            )));
+            )))
+            .unwrap();
             let ax = fig.subplot();
             if let Some(text) = suptitle {
                 fig.suptitle(text);

@@ -5,9 +5,8 @@ use plt::axes_grid1::{
     CbarMode, GridRect, ImageGrid, ImageGridOptions, LabelMode, SizeSpec, make_axes_locatable,
 };
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::gridspec::GridSpec;
-use plt::image::ColorizerOptions;
 use plt::spines::SpineSide;
 
 use super::field;
@@ -58,7 +57,7 @@ fn imagegrid_single_cbar(fig: &plt::figure::Figure) -> CaseResult {
     for (i, ax) in grid.axes().iter().enumerate() {
         let scale = (i as f64 + 1.0) / 4.0;
         let image = ImshowOptions {
-            colors: ColorizerOptions::default().limits(Some(-1.0), Some(1.0)),
+            colorizer: ColorizerOptions::default().limits(Some(-1.0), Some(1.0)),
             ..ImshowOptions::default()
         };
         last = Some(ax.imshow(field(20).map(|v| v * scale), image)?);
@@ -82,7 +81,7 @@ fn axesgrid_each_cbar(fig: &plt::figure::Figure) -> CaseResult {
     for (i, (ax, cax)) in grid.axes().iter().zip(grid.cbar_axes()).enumerate() {
         let scale = i as f64 + 1.0;
         let image = ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get(cmaps[i])?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get(cmaps[i])?),
             ..ImshowOptions::default()
         };
         let im = ax.imshow(field(10).map(|v| v * scale), image)?;

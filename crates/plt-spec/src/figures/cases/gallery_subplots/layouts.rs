@@ -38,12 +38,12 @@ fn demo_constrained_layout_1(fig: &Figure) -> CaseResult {
 }
 
 fn demo_constrained_layout_2(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     demo_constrained_layout_1(fig)
 }
 
 fn demo_constrained_layout_3(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let outer = GridSpec::new(1, 2)?;
     for (col, rows) in [3, 2].into_iter().enumerate() {
         let nested = GridSpec::nested(&outer.cell(0, col)?, rows, 1, None, None, (None, None))?;

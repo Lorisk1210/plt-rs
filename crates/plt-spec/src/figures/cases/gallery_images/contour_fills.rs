@@ -3,19 +3,17 @@
 
 use plt::axes::{ImshowOptions, LocatorParams};
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, Extend, Normalize, colormaps};
-use plt::contour::{
-    ClabelOptions, ContourNorm, ContourOptions, LabelFormat, Origin, QuadCoords, QuadField,
-};
+use plt::colors::{Color, Colorize, ColorizerOptions, Extend, Normalize, colormaps};
+use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, Origin, QuadCoords, QuadField};
 use plt::figure::Figure;
 use plt::fonts::FontSize;
 use plt::gridspec::SubplotOverrides;
-use plt::image::{ColorizerOptions, Extent, Interpolation};
+use plt::image::{Extent, Interpolation};
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::legend::LegendOptions;
 use plt::lines::{LineProps, LineStyle};
 use plt::numeric::{Grid, arange, linspace, meshgrid};
-use plt::ticker::pyfmt::{self, PrintfFormat};
+use plt::ticker::pyfmt;
 use plt::ticker::{LogLocator, Nbins};
 use plt::tri::{LinearTriInterpolator, TriInterpolator, Triangulation};
 
@@ -54,12 +52,15 @@ fn holey_levels() -> Vec<f64> {
 
 fn contourf_demo_1(fig: &Figure) -> CaseResult {
     let field = holey_field();
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let ax = fig.subplot();
     let cs = ax.contourf(
         &field,
         ContourOptions {
-            cmap: Some(colormaps::get("bone")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("bone")?),
+                ..ColorizerOptions::default()
+            },
             ..count(10)
         },
     )?;
@@ -83,7 +84,7 @@ fn contourf_demo_1(fig: &Figure) -> CaseResult {
 
 fn contourf_demo_2(fig: &Figure) -> CaseResult {
     let field = holey_field();
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let ax = fig.subplot();
     let cs3 = ax.contourf(
         &field,
@@ -105,7 +106,7 @@ fn contourf_demo_2(fig: &Figure) -> CaseResult {
     )?;
     ax.set_title("Listed colors (3 masked regions)");
     cs4.clabel(ClabelOptions {
-        fmt: LabelFormat::Printf(PrintfFormat::parse("%2.1f")?),
+        fmt: ClabelFormat::Label("%2.1f".into()),
         colors: Some(colors(&["w"])),
         fontsize: Some(FontSize::Points(14.0)),
         ..ClabelOptions::default()
@@ -119,7 +120,7 @@ fn contourf_demo_3(fig: &Figure) -> CaseResult {
     let cmap = colormaps::get("winter")?
         .with_under("magenta")?
         .with_over("yellow")?;
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(2, 2)?;
     for (ax, (extend, name)) in axs.as_slice().iter().zip([
         (Extend::Neither, "neither"),
@@ -130,7 +131,10 @@ fn contourf_demo_3(fig: &Figure) -> CaseResult {
         let cs = ax.contourf(
             &field,
             ContourOptions {
-                cmap: Some(cmap.clone()),
+                colorizer: ColorizerOptions {
+                    cmap: Some(cmap.clone()),
+                    ..ColorizerOptions::default()
+                },
                 extend,
                 ..values(&holey_levels())
             },
@@ -188,8 +192,11 @@ fn contourf_hatching_1(fig: &Figure) -> CaseResult {
     let cs = ax.contourf(
         &hatching_wave(),
         ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("gray")?),
+                ..ColorizerOptions::default()
+            },
             hatches: hatches(&[Some("-"), Some("/"), Some("\\"), Some("//")]),
-            cmap: Some(colormaps::get("gray")?),
             extend: Extend::Both,
             alpha: Some(0.5),
             ..ContourOptions::default()
@@ -253,8 +260,11 @@ fn contourf_log(fig: &Figure) -> CaseResult {
     let cs = ax.contourf(
         &field,
         ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("PuBu_r")?),
+                ..ColorizerOptions::default()
+            },
             locator: Some(Box::new(LogLocator::new(10.0)?)),
-            cmap: Some(colormaps::get("PuBu_r")?),
             ..ContourOptions::default()
         },
     )?;
@@ -283,8 +293,11 @@ fn contour_image(fig: &Figure) -> CaseResult {
     let cset1 = axs[0].contourf(
         &mesh,
         ContourOptions {
-            norm: ContourNorm::Custom(Box::new(norm())),
-            cmap: Some(cmap.resampled(levels.len() - 1)?),
+            colorizer: ColorizerOptions {
+                cmap: Some(cmap.resampled(levels.len() - 1)?),
+                norm: Some(Box::new(norm())),
+                ..ColorizerOptions::default()
+            },
             ..values(&levels)
         },
     )?;
@@ -309,7 +322,7 @@ fn contour_image(fig: &Figure) -> CaseResult {
 
     let image =
         |origin: Option<plt::image::Origin>, interpolation: Option<Interpolation>| ImshowOptions {
-            colors: ColorizerOptions::default().cmap(cmap.clone()).norm(norm()),
+            colorizer: ColorizerOptions::default().cmap(cmap.clone()).norm(norm()),
             extent: Some(Extent::new(extent[0], extent[1], extent[2], extent[3])),
             origin,
             interpolation,
@@ -374,7 +387,10 @@ fn irregulardatagrid(fig: &Figure) -> CaseResult {
     };
     let rdbu = || -> Result<ContourOptions, plt::colors::ColormapError> {
         Ok(ContourOptions {
-            cmap: Some(colormaps::get("RdBu_r")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("RdBu_r")?),
+                ..ColorizerOptions::default()
+            },
             ..count(14)
         })
     };

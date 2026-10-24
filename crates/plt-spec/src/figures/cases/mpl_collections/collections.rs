@@ -114,9 +114,7 @@ pub(super) fn scalarmap_change_cmap(fig: &Figure) -> CaseResult {
     let options = Scatter3DOptions {
         scatter: ScatterOptions {
             sizes: Some(vec![40.0]),
-            colors: MappedColors::new(c)
-                .with_cmap(colormaps::get("jet")?)
-                .into(),
+            colors: MappedColors::new(c).cmap(colormaps::get("jet")?).into(),
             ..ScatterOptions::default()
         },
         ..Scatter3DOptions::default()

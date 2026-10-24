@@ -135,7 +135,7 @@ fn y_on_right(ax: &Axes) -> Fallible<()> {
 }
 
 fn align_labels(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let gs = GridSpec::new(3, 3)?;
 
     let ax = fig.add_subplot_spec(&gs.span(0..1, 0..2)?)?;
@@ -177,9 +177,9 @@ fn align_labels(fig: &Figure) -> CaseResult {
 /// `test_align_titles` under tight (`1`) or constrained (`2`) layout.
 fn align_titles(fig: &Figure, constrained_layout: bool) -> CaseResult {
     if constrained_layout {
-        fig.set_layout_engine(LayoutEngine::constrained());
+        fig.set_layout_engine(LayoutEngine::constrained())?;
     } else {
-        fig.set_layout_engine(LayoutEngine::tight());
+        fig.set_layout_engine(LayoutEngine::tight())?;
     }
     let gs = GridSpec::with_ratios(
         1,

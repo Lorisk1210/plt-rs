@@ -6,9 +6,9 @@
 use plt::axes::{
     Axes, Hist2dOptions, ImshowOptions, Mesh, MeshCoords, PcolorOptions, PcolorfastOptions,
 };
-use plt::colors::{Color, Extend, LogNorm, Norm, Normalize, colormaps};
-use plt::contour::{ContourNorm, ContourOptions, Levels, QuadCoords, QuadField};
-use plt::image::{ColorizerOptions, Origin};
+use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, Norm, Normalize, colormaps};
+use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
+use plt::image::Origin;
 use plt::numeric::Grid;
 
 use super::call::{Call, KEYWORD_ONLY};
@@ -118,7 +118,6 @@ fn colorizer(call: &Call<'_>) -> Result<ColorizerOptions, ProbeError> {
         norm: call.keyword("norm").map(|n| norm(Ok(n))).transpose()?,
         vmin: call.opt_f64(KEYWORD_ONLY, "vmin")?,
         vmax: call.opt_f64(KEYWORD_ONLY, "vmax")?,
-        ..ColorizerOptions::default()
     })
 }
 
@@ -144,7 +143,7 @@ fn imshow(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     };
     let options = ImshowOptions {
         origin,
-        colors: colorizer(call)?,
+        colorizer: colorizer(call)?,
         ..ImshowOptions::default()
     };
     ax.imshow(grid(call, 0)?, options)
@@ -160,7 +159,7 @@ fn pcolor(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
         _ => return Err(call.bad("unsupported mesh arguments")),
     };
     let options = PcolorOptions {
-        colors: colorizer(call)?,
+        colorizer: colorizer(call)?,
         ..PcolorOptions::default()
     };
     let made = if call.method == "pcolor" {
@@ -211,7 +210,7 @@ fn contour(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
         Some(other) => return Err(ProbeError::rejected(format!("bad extend {other:?}"))),
     };
     if let Some(value) = call.keyword("norm") {
-        options.norm = ContourNorm::Custom(norm(Ok(value))?);
+        options.colorizer.norm = Some(norm(Ok(value))?);
     }
     let made = if call.method == "contourf" {
         ax.contourf(&field, options)

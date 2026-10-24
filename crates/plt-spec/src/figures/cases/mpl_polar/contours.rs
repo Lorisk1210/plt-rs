@@ -8,10 +8,8 @@ use std::f64::consts::PI;
 use plt::artist::ClipPathSpec;
 use plt::axes::{Mesh, PcolorOptions, TickLabelProps, TickLevel};
 use plt::colorbar::{ColorbarOptions, Spacing};
-use plt::colors::{Extend, colormaps};
-use plt::contour::{
-    ClabelOptions, ContourNorm, ContourOptions, ContourSet, Levels, QuadCoords, QuadField,
-};
+use plt::colors::{ColorizerOptions, Extend, LogNorm, colormaps};
+use plt::contour::{ClabelOptions, ContourOptions, ContourSet, Levels, QuadCoords, QuadField};
 use plt::dates::DateTime;
 use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::SubplotOverrides;
@@ -145,11 +143,14 @@ pub(super) fn given_colors_levels_and_extends(fig: &Figure) -> CaseResult {
 
 pub(super) fn hatch_colors(fig: &Figure) -> CaseResult {
     let options = ContourOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("gray")?),
+            ..ColorizerOptions::default()
+        },
         hatches: ["-", "/", "\\", "//"]
             .into_iter()
             .map(|h| Some(h.to_owned()))
             .collect(),
-        cmap: Some(colormaps::get("gray")?),
         ..ContourOptions::default()
     };
     let cf = fig
@@ -305,9 +306,12 @@ pub(super) fn contourf_log_extension(fig: &Figure) -> CaseResult {
         .map(|e| 10f64.powf(e))
         .collect();
     let log_norm = |vmin: f64, vmax: f64| ContourOptions {
-        norm: ContourNorm::Log,
-        vmin: Some(vmin),
-        vmax: Some(vmax),
+        colorizer: ColorizerOptions {
+            norm: Some(Box::new(LogNorm::default())),
+            vmin: Some(vmin),
+            vmax: Some(vmax),
+            ..ColorizerOptions::default()
+        },
         ..ContourOptions::default()
     };
     let (zmin, zmax) = (10f64.powf(-7.5), 10f64.powf(9.5));
@@ -416,7 +420,10 @@ pub(super) fn contour_manual(fig: &Figure) -> CaseResult {
         segment(&[(1.0, 4.0), (3.0, 4.0), (3.0, 3.0)]),
     ];
     let filled = ContourOptions {
-        cmap: Some(viridis()?),
+        colorizer: ColorizerOptions {
+            cmap: Some(viridis()?),
+            ..ColorizerOptions::default()
+        },
         ..ContourOptions::default()
     };
     ax.contour_segments(&[0.0, 1.0, 2.0], &[filled01, filled12], true, filled)?;
@@ -448,7 +455,10 @@ pub(super) fn contour_manual(fig: &Figure) -> CaseResult {
         codes.to_vec(),
     )?;
     let hole = ContourOptions {
-        cmap: Some(viridis()?),
+        colorizer: ColorizerOptions {
+            cmap: Some(viridis()?),
+            ..ColorizerOptions::default()
+        },
         ..ContourOptions::default()
     };
     let segs = [vec![segs]];

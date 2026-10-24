@@ -20,7 +20,7 @@ use crate::figures::{CaseResult, FigureCase};
 
 /// `test_secondary_xy`: secondary axes of every kind on both axes.
 fn secondary_xy(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?.into_vec();
     for (nn, ax) in axs.iter().enumerate() {
         let n = arange(2.0, 11.0, 1.0);

@@ -2,9 +2,9 @@
 //! colours and greyscale scalars.
 
 use plt::axes::ImshowOptions;
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, ImsaveOptions, Interpolation, imread_png, imsave_png};
+use plt::image::{ImsaveOptions, Interpolation, imread_png, imsave_png};
 use plt::lines::LineProps;
 use plt::numeric::Grid;
 use plt_codec::png::{BitDepth, ColorType, Encoder, ImageRef};
@@ -55,7 +55,7 @@ pub(super) fn imread_gray_float32(fig: &Figure) -> CaseResult {
     )?)?;
     let gray = imread_png(&png)?;
     let limited = ImshowOptions {
-        colors: ColorizerOptions::default()
+        colorizer: ColorizerOptions::default()
             .cmap(colormaps::get("gray")?)
             .limits(Some(0.1), Some(0.9)),
         ..ImshowOptions::default().interpolation(Interpolation::Bilinear)

@@ -6,7 +6,7 @@ use plt::axes::ImshowOptions;
 use plt::colorbar::{Colorbar, ColorbarOptions};
 use plt::contour::{ContourOptions, QuadField};
 use plt::figure::Figure;
-use plt::image::{AxesImage, ColorizerOptions};
+use plt::image::AxesImage;
 use plt::navigation::DragKey;
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
@@ -14,6 +14,7 @@ use plt::orientation::Orientation;
 use super::toolbar::{button, drag, pixel, tool_mode, toolbar};
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
+use plt::colors::{Colorize, ColorizerOptions};
 
 /// The colorbar of `plot_func(arange(12).reshape(4, 3), vmin=0,
 /// vmax=10)` in `orientation`, with the image drawn (none for contours).
@@ -30,13 +31,8 @@ fn scene(fig: &Figure, args: Args<'_>) -> Result<(Colorbar, Option<AxesImage>), 
     };
     match args.str("plot_func")? {
         "imshow" => {
-            let colors = ColorizerOptions {
-                vmin: Some(0.0),
-                vmax: Some(10.0),
-                ..ColorizerOptions::default()
-            };
             let image = ax
-                .imshow(data, ImshowOptions::default().colors(colors))
+                .imshow(data, ImshowOptions::default().limits(Some(0.0), Some(10.0)))
                 .map_err(ProbeError::rejected)?;
             let colorbar = fig
                 .colorbar(&image, options)
@@ -45,8 +41,11 @@ fn scene(fig: &Figure, args: Args<'_>) -> Result<(Colorbar, Option<AxesImage>), 
         }
         "contourf" => {
             let limits = ContourOptions {
-                vmin: Some(0.0),
-                vmax: Some(10.0),
+                colorizer: ColorizerOptions {
+                    vmin: Some(0.0),
+                    vmax: Some(10.0),
+                    ..ColorizerOptions::default()
+                },
                 ..ContourOptions::default()
             };
             let contours = ax

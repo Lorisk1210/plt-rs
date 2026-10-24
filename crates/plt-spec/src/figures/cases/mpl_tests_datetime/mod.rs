@@ -19,7 +19,7 @@ use plt::axes::Axes;
 use plt::dates::{DateError, DateTime, Datetime64, TimeDelta};
 use plt::figure::Figure;
 use plt::gridspec::GridSpecError;
-use plt::layout::LayoutEngine;
+use plt::layout::{LayoutEngine, LayoutEngineError};
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -42,8 +42,9 @@ pub(crate) fn cases() -> Vec<FigureCase> {
 }
 
 /// `layout="constrained"`.
-fn constrained(fig: &Figure) {
-    fig.set_layout_engine(LayoutEngine::constrained());
+fn constrained(fig: &Figure) -> Result<(), LayoutEngineError> {
+    fig.set_layout_engine(LayoutEngine::constrained())?;
+    Ok(())
 }
 
 /// The axes of `fig.subplots(rows, columns)`, row by row.

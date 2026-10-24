@@ -4,7 +4,7 @@
 use std::f64::consts::PI;
 
 use plt::axes::{ImshowOptions, SpecgramOptions, SpyOptions};
-use plt::colors::{BlendMode, Colormap, LightSource, Relief, ShadeOptions, colormaps};
+use plt::colors::{BlendMode, Colorize, Colormap, LightSource, Relief, ShadeOptions, colormaps};
 use plt::figure::{Figure, Share};
 use plt::mlab::SpectralOptions;
 use plt::numeric::{Grid, arange};
@@ -43,8 +43,9 @@ fn compare_shading(fig: &Figure, z: &Grid<f64>, cmap: &Colormap, ve: f64) -> Cas
             blend,
             relief,
             ..ShadeOptions::default()
-        };
-        let rgba = ls.shade(z, cmap, &options)?;
+        }
+        .cmap(cmap.clone());
+        let rgba = ls.shade(z, &options)?;
         ax.imshow(rgba.map(|c| [c.r, c.g, c.b, c.a]), ImshowOptions::default())?;
         ax.set_xlabel(label);
     }

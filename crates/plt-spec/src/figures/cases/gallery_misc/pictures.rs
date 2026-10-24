@@ -2,7 +2,9 @@
 //! Mandelbrot set, shaded (`demo_ribbon_box` and `mandelbrot`).
 
 use plt::axes::ImshowOptions;
-use plt::colors::{BlendMode, LightSource, PowerNorm, Relief, ShadeOptions, colormaps};
+use plt::colors::{
+    BlendMode, ColorizerOptions, LightSource, PowerNorm, Relief, ShadeOptions, colormaps,
+};
 use plt::image::{Extent, Interpolation};
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -164,15 +166,18 @@ fn mandelbrot(fig: &Figure) -> CaseResult {
     ax.set_aspect(Aspect::Ratio(1.0))?;
     let light = LightSource::new(315.0, 10.0);
     let options = ShadeOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("hot")?),
+            norm: Some(Box::new(PowerNorm::new(0.3))),
+            ..ColorizerOptions::default()
+        },
         blend: BlendMode::Hsv,
-        norm: Some(Box::new(PowerNorm::new(0.3))),
         relief: Relief {
             vert_exag: 1.5,
             ..Relief::default()
         },
-        ..ShadeOptions::default()
     };
-    let shaded = light.shade(&recount, &colormaps::get("hot")?, &options)?;
+    let shaded = light.shade(&recount, &options)?;
     ax.imshow(
         shaded.map(|c| [c.r, c.g, c.b, c.a]),
         ImshowOptions {

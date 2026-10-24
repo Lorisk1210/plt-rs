@@ -16,7 +16,7 @@ use crate::figures::FigureCase;
 pub(crate) fn cases() -> Vec<FigureCase> {
     vec![
         classic("mpl_tests_figure/subfigure_pdf", |fig| {
-            fig.set_layout_engine(LayoutEngine::constrained());
+            fig.set_layout_engine(LayoutEngine::constrained())?;
             let sub = fig.subfigures(1, 1, SubfigureOptions::default())?;
             let ax = sub[(0, 0)].subplot();
             let bars = ax.bar(vec![1.0], [1.0], BarOptions::default())?;
@@ -29,7 +29,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             Ok(())
         }),
         classic("mpl_tests_figure/subfigure_spanning", |fig| {
-            fig.set_layout_engine(LayoutEngine::constrained());
+            fig.set_layout_engine(LayoutEngine::constrained())?;
             let grid = GridSpec::new(3, 3)?;
             for (rows, cols) in [(0..1, 0..1), (0..2, 1..2), (2..3, 1..3), (0..3, 1..3)] {
                 fig.add_subfigure(&grid.span(rows, cols)?).subplot();

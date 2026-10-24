@@ -97,7 +97,7 @@ pub use aspect::Aspect3D;
 pub use axis_handle::Axis3D;
 pub use bars::{Bar3DOptions, Boxes};
 pub use camera::{ProjType, ViewAngles};
-pub use collections3d::{FaceColormap, FaceColors};
+pub use collections3d::FaceColors;
 pub use contour::Contour3DOptions;
 pub use coords::Axis3;
 pub use error::Axes3DError;

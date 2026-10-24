@@ -1,7 +1,7 @@
 //! Colorbars of filled and line contours.
 
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, Extend, colormaps};
+use plt::colors::{Color, ColorizerOptions, Extend, colormaps};
 use plt::contour::{ContourOptions, Levels};
 use plt::figure::Figure;
 use plt::numeric::linspace;
@@ -12,9 +12,12 @@ use crate::figures::CaseResult;
 pub(super) fn extend_both_contourf(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = ContourOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("RdBu_r")?),
+            ..ColorizerOptions::default()
+        },
         levels: Levels::Values(linspace(-0.5, 0.5, 11)),
         extend: Extend::Both,
-        cmap: Some(colormaps::get("RdBu_r")?),
         ..ContourOptions::default()
     };
     let cs = ax.contourf(&xyz(), options)?;
@@ -37,8 +40,11 @@ pub(super) fn contourf_add_lines(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let field = xyz();
     let fills = ContourOptions {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("Greens")?),
+            ..ColorizerOptions::default()
+        },
         levels: Levels::Count(8),
-        cmap: Some(colormaps::get("Greens")?),
         ..ContourOptions::default()
     };
     let cf = ax.contourf(&field, fills)?;

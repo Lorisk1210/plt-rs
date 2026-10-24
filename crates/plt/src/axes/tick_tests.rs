@@ -409,7 +409,7 @@ fn tick_labels_link_to_their_url() {
 /// first layout when `out_of_layout`.
 fn constrained_position(labels: [&str; 2], out_of_layout: bool) -> plt_core::Bbox {
     let fig = Figure::new();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
     let ax = fig.subplot();
     ax.set_xticks([0.0, 1.0]).set_xticklabels(labels).unwrap();
     fig.layout();

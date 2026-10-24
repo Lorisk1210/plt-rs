@@ -1,14 +1,13 @@
 //! Pie chart cases of `figures/cases_stats.py`.
 
-use plt::axes::{
-    PieDirection, PieLabelAlignment, PieLabelFormat, PieLabelOptions, PieOptions, PieShadow,
-};
+use plt::axes::{PieDirection, PieLabelAlignment, PieLabelOptions, PieOptions, PieShadow};
 use plt::colors::Color;
 use plt::fonts::FontSize;
 use plt::lines::LineStyle;
 use plt::patches::PatchProps;
 
 use crate::figures::FigureCase;
+use plt::ticker::LabelFormat;
 
 /// `SHARES`.
 const SHARES: [f64; 5] = [35.0, 25.0, 20.0, 12.0, 8.0];
@@ -29,7 +28,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("stats/pie_labels_autopct", |fig| {
         let options = PieOptions {
             labels: names(),
-            autopct: Some(PieLabelFormat::Printf("%1.1f%%".into())),
+            autopct: Some(LabelFormat::Template("%1.1f%%".into())),
             ..PieOptions::default()
         };
         fig.subplot().pie(&SHARES, options)?;
@@ -53,7 +52,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             labels: names(),
             direction: PieDirection::Clockwise,
             labeldistance: Some(0.7),
-            autopct: Some(PieLabelFormat::Printf("%d%%".into())),
+            autopct: Some(LabelFormat::Template("%d%%".into())),
             pctdistance: 1.15,
             ..PieOptions::default()
         };

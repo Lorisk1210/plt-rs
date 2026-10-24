@@ -81,7 +81,7 @@ fn mosaic_row(
     labels: &[&str],
     shared: bool,
 ) -> Result<MosaicAxes, Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let options = MosaicOptions {
         sharex: shared,
         sharey: shared,
@@ -242,7 +242,7 @@ fn one_over_n(n: usize) -> Vec<f64> {
 fn histogram_normalization_8(fig: &Figure) -> CaseResult {
     let xdata = [SpecRng::new(SEED).normal(1000, 0.0, 1.0)];
     let weights = [one_over_n(1000)];
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     for dx in BIN_WIDTHS {
         let options = weighted_steps(arange(-4.0, 4.0, dx), &weights, &dx.to_string());

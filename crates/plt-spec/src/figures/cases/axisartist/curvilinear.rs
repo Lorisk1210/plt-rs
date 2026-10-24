@@ -10,10 +10,9 @@ use plt::axisartist::grid_finder::{
 };
 use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
 use plt::axisartist::{self, AuxTransform, Toggle};
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, QuadCoords, QuadField};
 use plt::gridspec::SubplotOverrides;
-use plt::image::ColorizerOptions;
 use plt::image::Origin;
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -167,7 +166,7 @@ pub(super) fn curvelinear_grid2(fig: &Figure) -> CaseResult {
     ax.ax().imshow(
         arange_grid(5, 5),
         ImshowOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(colormaps::get("gray_r")?)
                 .limits(None, Some(50.0)),
             origin: Some(Origin::Lower),

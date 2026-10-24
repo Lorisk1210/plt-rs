@@ -3,7 +3,7 @@
 
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::{EdgeColors, ElementCount, LegendElementsOptions, LegendProperty};
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, colormaps};
 use plt::figure::Figure;
 use plt::legend::LegendOptions;
 use plt::numeric::{arange, linspace};
@@ -60,7 +60,7 @@ fn num_fmt_func(fig: &Figure) -> CaseResult {
     let options = ScatterOptions {
         sizes: Some(price.iter().map(|p| p * 20.0).collect()),
         colors: MappedColors::new(linspace(-1.0, 3.0, 30))
-            .with_cmap(colormaps::get("coolwarm")?)
+            .cmap(colormaps::get("coolwarm")?)
             .into(),
         edgecolors: Some(EdgeColors::Colors(vec![Color::from("k")])),
         linewidths: Some(vec![0.5]),

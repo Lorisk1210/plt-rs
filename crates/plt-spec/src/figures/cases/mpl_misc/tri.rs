@@ -4,7 +4,7 @@ use std::f64::consts::{PI, TAU};
 
 use plt::axes::{TriValues, TripcolorOptions};
 use plt::collections::CollectionProps;
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, Levels};
 use plt::numeric::{arange, linspace, linspace_with};
 use plt::prelude::*;
@@ -175,8 +175,11 @@ fn tri_smooth_gradient(fig: &Figure) -> CaseResult {
         &refined.triangulation,
         &refined_values(&refined.z),
         ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("hot")?),
+                ..ColorizerOptions::default()
+            },
             levels: Levels::Values(arange(0.0, 1.0, 0.01)),
-            cmap: Some(colormaps::get("hot")?),
             linewidths: Some(vec![2.0, 1.0, 1.0, 1.0]),
             ..ContourOptions::default()
         },

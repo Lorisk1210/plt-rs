@@ -12,15 +12,18 @@ use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors,
     MeshShading,
 };
-use crate::colors::{Color, ScalarMappable};
-use crate::image::{ColorizerOptions, ImageError, MultiField, ScalarField};
+use crate::colors::{Color, ColorizerOptions, ScalarMappable, impl_colorize};
+use crate::image::{ImageError, MultiField, MultivarColorizerOptions, ScalarField};
 use crate::numeric::Grid;
 
 /// Options of [`Axes::pcolor`] and [`Axes::pcolormesh`].
 #[derive(Debug, Default)]
 pub struct PcolorOptions {
-    /// Colormap, norm and limits.
-    pub colors: ColorizerOptions,
+    /// Colormap, norm and limits of scalar values.
+    pub colorizer: ColorizerOptions,
+    /// The colormap, norms and limits of values of several variates
+    /// (`pcolormesh` only), which exclude `colorizer`.
+    pub multivariate: Option<MultivarColorizerOptions>,
     /// Where the values sit (`None` = `pcolor.shading`).
     pub shading: Option<Shading>,
     /// Snap the cells to pixels (`None` = off for `pcolor`,
@@ -33,17 +36,29 @@ pub struct PcolorOptions {
     pub props: CollectionProps,
 }
 
-/// Colours the faces of a mesh of several variates as `colors` say
-/// (matplotlib's `update_scalarmappable`, which applies the artist's alpha
-/// in the colormap). The alpha moves from the artist into the colours:
-/// the faces get it from the colormap, explicit edge colours directly.
+impl_colorize!(PcolorOptions);
+
+/// Colours the faces of a mesh of several variates as `multivariate`
+/// says (matplotlib's `update_scalarmappable`, which applies the artist's
+/// alpha in the colormap). The alpha moves from the artist into the
+/// colours: the faces get it from the colormap, explicit edge colours
+/// directly.
+///
+/// # Errors
+///
+/// When no multivariate options are given, scalar options (`colorizer`)
+/// are, or the norms and colormap do not fit the variates.
 pub(super) fn multivariate_faces(
     field: &MultiField,
-    colors: ColorizerOptions,
+    colorizer: &ColorizerOptions,
+    multivariate: Option<MultivarColorizerOptions>,
     props: &mut CollectionProps,
 ) -> Result<(), ImageError> {
+    let Some(multivariate) = multivariate.filter(|_| !colorizer.is_set()) else {
+        return Err(ImageError::ScalarColorizer);
+    };
     let alpha = props.base.alpha.take();
-    let faces = colors.multivariate_colors(field, alpha)?;
+    let faces = multivariate.colors(field, alpha)?;
     props.facecolors = Some(faces.into_iter().map(Color::from).collect());
     if let (Some(alpha), Some(EdgeColors::Colors(edges))) = (alpha, &mut props.edgecolors) {
         for edge in edges.iter_mut().filter(|edge| !edge.is_none()) {
@@ -55,13 +70,22 @@ pub(super) fn multivariate_faces(
     Ok(())
 }
 
+/// Refuses options for several variates given for scalar values.
+pub(super) fn scalar_only(
+    multivariate: Option<&MultivarColorizerOptions>,
+) -> Result<(), ImageError> {
+    multivariate.map_or(Ok(()), |_| Err(ImageError::MultivariateColormap))
+}
+
 /// The colormap and norm of a mesh, autoscaled to all its values
 /// (matplotlib's `_scale_norm`).
 pub(super) fn mesh_mappable(
-    colors: ColorizerOptions,
+    colorizer: ColorizerOptions,
+    multivariate: Option<&MultivarColorizerOptions>,
     values: &ScalarField,
 ) -> Result<ScalarMappable, ImageError> {
-    let mut mappable = colors.into_mappable(&crate::rc::params())?;
+    scalar_only(multivariate)?;
+    let mut mappable = colorizer.into_mappable(&crate::rc::params())?;
     values.autoscale(mappable.norm_mut());
     Ok(mappable)
 }
@@ -96,7 +120,7 @@ impl Axes {
         let MeshValues::Scalar(values) = &mesh.values else {
             return Err(ImageError::MultivariateNotSupported("pcolor"));
         };
-        let mappable = mesh_mappable(options.colors, values)?;
+        let mappable = mesh_mappable(options.colorizer, options.multivariate.as_ref(), values)?;
         let (rows, cols) = values.values().shape();
         let masked = values.masked_values();
         let (paths, values): (Vec<Path>, Vec<Option<f64>>) = (0..rows)
@@ -127,21 +151,23 @@ impl Axes {
     ///
     /// Values of several variates ([`MeshValues::Multivariate`]) are
     /// coloured through the bivariate or multivariate colormap of
-    /// `options.colors.multivariate`, with the norms autoscaled to each
-    /// variate; the mesh then carries the resulting face colours.
+    /// `options.multivariate`, with the norms autoscaled to each variate;
+    /// the mesh then carries the resulting face colours.
     ///
     /// ```
     /// use plt::prelude::*;
     /// use plt::axes::{Mesh, PcolorOptions};
     /// use plt::colors::multivar::MultiColormap;
-    /// use plt::image::{ColorizerOptions, MultiField, MultivarColorizerOptions};
+    /// use plt::image::{MultiField, MultivarColorizerOptions};
     /// use plt::numeric::Grid;
     /// let ax = Figure::new().subplot();
     /// let a = Grid::from_fn(2, 3, |r, c| (r + c) as f64);
     /// let b = Grid::from_fn(2, 3, |r, c| (r * c) as f64);
-    /// let colors = ColorizerOptions::default()
-    ///     .multivariate(MultivarColorizerOptions::new(MultiColormap::get("BiOrangeBlue")?));
-    /// let options = PcolorOptions { colors, ..PcolorOptions::default() };
+    /// let cmap = MultiColormap::get("BiOrangeBlue")?;
+    /// let options = PcolorOptions {
+    ///     multivariate: Some(MultivarColorizerOptions::new(cmap)),
+    ///     ..PcolorOptions::default()
+    /// };
     /// ax.pcolormesh(Mesh::new(MultiField::new([a, b])?), options)?;
     /// assert_eq!(ax.xlim(), (0.0, 3.0));
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -157,7 +183,8 @@ impl Axes {
         let mesh = pcolor_args(mesh, default_shading(options.shading), true)?;
         match &mesh.values {
             MeshValues::Scalar(values) => {
-                let mappable = mesh_mappable(options.colors, values)?;
+                let mappable =
+                    mesh_mappable(options.colorizer, options.multivariate.as_ref(), values)?;
                 let values = values.masked_values();
                 let handle = self.add_pcolormesh(&mesh, options.props, options.snap);
                 handle.set_mapping(ColorMapping { values, mappable });
@@ -168,7 +195,7 @@ impl Axes {
                     return Err(ImageError::MultivariateNotSupported("gouraud shading"));
                 }
                 let mut props = options.props;
-                multivariate_faces(field, options.colors, &mut props)?;
+                multivariate_faces(field, &options.colorizer, options.multivariate, &mut props)?;
                 Ok(self.add_pcolormesh(&mesh, props, options.snap))
             }
         }
@@ -320,21 +347,19 @@ mod tests {
     }
 
     /// A two-variate ramp and colouring through `BiOrangeBlue`.
-    fn bivariate(rows: usize, cols: usize) -> (MultiField, ColorizerOptions) {
+    fn bivariate(rows: usize, cols: usize) -> (MultiField, Option<MultivarColorizerOptions>) {
         use crate::colors::multivar::MultiColormap;
-        use crate::image::MultivarColorizerOptions;
         let field = MultiField::new([values(rows, cols), values(rows, cols)]).unwrap();
         let cmap = MultiColormap::get("BiOrangeBlue").unwrap();
-        let colors = ColorizerOptions::default().multivariate(MultivarColorizerOptions::new(cmap));
-        (field, colors)
+        (field, Some(MultivarColorizerOptions::new(cmap)))
     }
 
     #[test]
     fn multivariate_meshes_carry_their_colours() {
         let ax = Figure::new().subplot();
-        let (field, colors) = bivariate(1, 2);
+        let (field, multivariate) = bivariate(1, 2);
         let options = PcolorOptions {
-            colors,
+            multivariate,
             props: CollectionProps {
                 edgecolors: Some(EdgeColors::Colors(vec!["k".into()])),
                 ..CollectionProps::default().alpha(0.5)
@@ -361,9 +386,9 @@ mod tests {
     #[test]
     fn multivariate_data_is_drawn_by_pcolormesh_only() {
         let ax = Figure::new().subplot();
-        let (field, colors) = bivariate(2, 2);
+        let (field, multivariate) = bivariate(2, 2);
         let gouraud = PcolorOptions {
-            colors,
+            multivariate,
             shading: Some(Shading::Gouraud),
             ..PcolorOptions::default()
         };
@@ -371,9 +396,9 @@ mod tests {
             ax.pcolormesh(Mesh::new(field.clone()), gouraud).err(),
             Some(ImageError::MultivariateNotSupported("gouraud shading"))
         );
-        let (_, colors) = bivariate(2, 2);
+        let (_, multivariate) = bivariate(2, 2);
         let options = PcolorOptions {
-            colors,
+            multivariate,
             ..PcolorOptions::default()
         };
         assert_eq!(
@@ -385,9 +410,9 @@ mod tests {
                 .err(),
             Some(ImageError::ScalarColorizer)
         );
-        let (_, colors) = bivariate(2, 2);
+        let (_, multivariate) = bivariate(2, 2);
         let scalar_with_bivariate = PcolorOptions {
-            colors,
+            multivariate,
             ..PcolorOptions::default()
         };
         assert_eq!(

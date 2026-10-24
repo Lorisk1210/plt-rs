@@ -5,7 +5,8 @@ use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_render::{FilterFn, GraphicsContext, PathCollection, Renderer, RgbaImage};
 use plt_text::{TextEngine, TextRun};
 
-use super::PathEffect;
+use super::{EffectColors, PathEffect};
+use crate::colors::ColorError;
 
 /// The size text outlines are made at (`TextToPath.FONT_SCALE`).
 const TEXT_PATH_POINTS: f64 = 100.0;
@@ -17,7 +18,8 @@ const TEXT_PATH_DPI: f64 = 72.0;
 /// turn; markers and collections are drawn path by path, once per effect,
 /// and text is drawn as its glyph outlines.
 pub struct PathEffectRenderer<'r> {
-    effects: Vec<PathEffect>,
+    /// The effects with their colours resolved.
+    effects: Vec<(PathEffect, EffectColors)>,
     inner: &'r mut dyn Renderer,
 }
 
@@ -31,7 +33,24 @@ impl std::fmt::Debug for PathEffectRenderer<'_> {
 
 impl<'r> PathEffectRenderer<'r> {
     /// A proxy drawing through `effects` onto `inner`.
-    pub fn new(effects: Vec<PathEffect>, inner: &'r mut dyn Renderer) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// When a colour of an effect does not resolve.
+    pub fn new(effects: Vec<PathEffect>, inner: &'r mut dyn Renderer) -> Result<Self, ColorError> {
+        let effects = effects
+            .into_iter()
+            .map(|effect| effect.colors().map(|colors| (effect, colors)))
+            .collect::<Result<_, _>>()?;
+        Ok(Self::resolved(effects, inner))
+    }
+
+    /// A proxy drawing through `effects`, whose colours are resolved, onto
+    /// `inner`.
+    pub(super) fn resolved(
+        effects: Vec<(PathEffect, EffectColors)>,
+        inner: &'r mut dyn Renderer,
+    ) -> Self {
         Self { effects, inner }
     }
 
@@ -40,7 +59,10 @@ impl<'r> PathEffectRenderer<'r> {
     /// (matplotlib's `copy_with_path_effect` recursion).
     fn per_effect(&mut self, mut draw: impl FnMut(&mut PathEffectRenderer<'_>)) {
         for effect in self.effects.clone() {
-            draw(&mut PathEffectRenderer::new(vec![effect], &mut *self.inner));
+            draw(&mut PathEffectRenderer::resolved(
+                vec![effect],
+                &mut *self.inner,
+            ));
         }
     }
 }
@@ -65,8 +87,8 @@ impl Renderer for PathEffectRenderer<'_> {
         transform: &Affine2D,
         fill: Option<Rgba>,
     ) {
-        for effect in &self.effects {
-            effect.draw_path(self.inner, gc, path, transform, fill);
+        for (effect, colors) in &self.effects {
+            effect.draw_path(self.inner, gc, path, transform, fill, *colors);
         }
     }
 

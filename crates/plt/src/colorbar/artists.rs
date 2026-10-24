@@ -11,8 +11,8 @@ use super::dividers::Dividers;
 use crate::artist::{Artist, ArtistHandle, ArtistId, BaseProps, ClipPathSpec};
 use crate::axes::{Axes, DataUpdate, Mesh, MeshCoords, PcolorOptions, RgbaMesh, Shading};
 use crate::collections::{CollectionArtist, CollectionKind, CollectionProps, EdgeColors};
-use crate::colors::{Color, ScalarMappable};
-use crate::image::{ColorizerOptions, ScalarField};
+use crate::colors::{Color, ColorizerOptions, ScalarMappable};
+use crate::image::ScalarField;
 use crate::numeric::Grid;
 use crate::orientation::Orientation;
 use crate::patches::{PatchArtist, PathShape};
@@ -291,7 +291,7 @@ impl Painter<'_> {
         let (x, y) = (MeshCoords::Grid(x), MeshCoords::Grid(y));
         let solids = match fill {
             SolidFill::Mapped(values, mapping) => {
-                options.colors = ColorizerOptions {
+                options.colorizer = ColorizerOptions {
                     cmap: Some(mapping.cmap().clone()),
                     norm: Some(mapping.norm().clone_box()),
                     ..ColorizerOptions::default()

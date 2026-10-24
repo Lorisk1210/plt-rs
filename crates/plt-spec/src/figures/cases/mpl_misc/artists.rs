@@ -2,10 +2,9 @@
 
 use plt::artist::{AggFilter, FilterImage, Filtered};
 use plt::axes::{Adjustable, Mesh, PcolorOptions};
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::figure::Share;
 use plt::gridspec::SubplotOverrides;
-use plt::image::ColorizerOptions;
 use plt::numeric::Grid;
 use plt::patches::Rectangle;
 use plt::prelude::*;
@@ -79,7 +78,7 @@ fn agg_filter_alpha(fig: &Figure) -> CaseResult {
     let mesh = ax.pcolormesh(
         Mesh::new(data),
         PcolorOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("Reds")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("Reds")?),
             ..PcolorOptions::default()
         },
     )?;

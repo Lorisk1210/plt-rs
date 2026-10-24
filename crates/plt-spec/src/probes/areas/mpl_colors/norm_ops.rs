@@ -4,9 +4,11 @@
 
 use plt::axes::ImshowOptions;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{CenteredNorm, FuncNorm, Norm, Normalize, ScalarMappable, colormaps};
+use plt::colors::{
+    CenteredNorm, ColorizerOptions, FuncNorm, Norm, Normalize, ScalarMappable, colormaps,
+};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, ImageData, ScalarField, color_image_bytes, color_image_rgba};
+use plt::image::{ImageData, ScalarField, color_image_bytes, color_image_rgba};
 use plt::numeric::Grid;
 
 use super::norms::{self, make_norm, normalized_json};
@@ -217,7 +219,7 @@ pub(super) fn colorbar_ylim(args: Args<'_>) -> Outcome {
     let figure = Figure::new();
     let ax = figure.subplot();
     let options = ImshowOptions {
-        colors: ColorizerOptions {
+        colorizer: ColorizerOptions {
             norm: Some(norm_arg(args, "norm")?),
             ..ColorizerOptions::default()
         },

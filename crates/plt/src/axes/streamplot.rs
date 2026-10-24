@@ -8,8 +8,7 @@ use super::Axes;
 use super::children::DataUpdate;
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
-use crate::colors::{Color, Normalize, ScalarMappable, colormaps};
-use crate::numeric::{nanmax, nanmin};
+use crate::colors::{Color, ScalarMappable};
 use crate::rc::RcParams;
 use crate::streamplot::{
     ArrowLook, StreamArrow, StreamArrowArtist, StreamColors, StreamField, StreamPlan, StreamWidths,
@@ -175,23 +174,13 @@ impl Axes {
             None => LineColors::Single(self.next_line_color()),
             Some(StreamColors::Single(color)) => LineColors::Single(color),
             Some(StreamColors::Mapped(map)) => {
-                let cmap = match map.cmap {
-                    Some(cmap) => cmap,
-                    None => colormaps::get(&rc.image_cmap)?,
-                };
                 let finite: Vec<Option<f64>> = map
                     .values
                     .as_slice()
                     .iter()
                     .map(|&v| v.is_finite().then_some(v))
                     .collect();
-                let range = nanmin(finite.iter().flatten().copied())
-                    .zip(nanmax(finite.iter().flatten().copied()));
-                let norm = map.norm.unwrap_or_else(|| match range {
-                    Some((vmin, vmax)) => Box::new(Normalize::new(vmin, vmax)),
-                    None => Box::new(Normalize::default()),
-                });
-                let mut mappable = ScalarMappable::with_norm(cmap, norm);
+                let mut mappable = map.colorizer.into_mappable(rc)?;
                 mappable.norm_mut().autoscale_none(&finite);
                 LineColors::Mapped(Box::new(mappable))
             }
@@ -256,11 +245,9 @@ mod tests {
     fn mapped_colours_and_widths() {
         let field = field();
         let options = StreamplotOptions {
-            color: Some(StreamColors::Mapped(Box::new(StreamColorMap {
-                values: field.u.clone(),
-                cmap: None,
-                norm: None,
-            }))),
+            color: Some(StreamColors::Mapped(Box::new(StreamColorMap::new(
+                field.u.clone(),
+            )))),
             linewidth: Some(StreamWidths::Varying(Grid::filled(15, 15, 3.0))),
             start_points: Some(vec![Point::new(1.0, 0.0)]),
             ..StreamplotOptions::default()

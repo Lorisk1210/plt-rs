@@ -26,7 +26,7 @@ fn fallback_last_resort(fig: &Figure) -> CaseResult {
 /// `test_tick_not_in_layout`: a constrained layout ignoring a long tick
 /// label taken out of it (the labels are white).
 fn tick_not_in_layout(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.set_xticks([0.0, 1.0])
         .set_xticklabels(["short", "very long"])?;

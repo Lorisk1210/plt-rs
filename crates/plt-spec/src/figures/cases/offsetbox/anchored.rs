@@ -6,9 +6,8 @@ use plt::axes_grid1::anchored_artists::{
     AnchoredAuxTransformBox, AnchoredDirectionArrows, AnchoredDrawingArea, AnchoredEllipse,
     AnchoredSizeBar,
 };
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::fonts::{FontProperties, FontWeight};
-use plt::image::ColorizerOptions;
 use plt::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOptions, AuxTransformBox, BoxItem, DrawingArea, OffsetBox,
     PackAlign, PackMode, Packer, PaddedBox,
@@ -267,7 +266,7 @@ pub(super) fn anchored_direction_arrows(fig: &Figure) -> CaseResult {
     ax.imshow(
         gradient(30, 40),
         ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("gray")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("gray")?),
             ..ImshowOptions::default()
         },
     )?;

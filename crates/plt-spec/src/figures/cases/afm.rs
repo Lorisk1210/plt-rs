@@ -69,7 +69,7 @@ fn gallery(fig: &Figure) {
 /// `_layout`: a title, labels, tick labels, a legend and a suptitle placed
 /// by the constrained layout engine, which measures text at draw time.
 fn layout(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let x = linspace(-3.0, 3.0, 40);
     let sin: Vec<f64> = x.iter().map(|v| v.sin()).collect();

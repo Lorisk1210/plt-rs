@@ -2,10 +2,10 @@
 //! images and a drawing area placed away from the points they annotate
 //! (`demo_annotation_box`).
 
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::coords::Coords;
 use plt::figure::{Mosaic, MosaicCell, MosaicOptions};
-use plt::image::{BboxImageOptions, ColorizerOptions, ScalarField};
+use plt::image::{BboxImageOptions, ScalarField};
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::offsetbox::{AnnotationBboxOptions, BoxItem, DrawingArea, OffsetImage, TextArea};
@@ -51,7 +51,7 @@ fn photo() -> Grid<[u8; 3]> {
 }
 
 fn demo_annotation_box_1(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::compressed());
+    fig.set_layout_engine(LayoutEngine::compressed())?;
     let label = |name: &str| MosaicCell::Label(name.into());
     let mosaic = Mosaic::new(vec![vec![label("t1"), MosaicCell::Empty, label("t2")]])?;
     let axd = fig.subplot_mosaic(&mosaic, MosaicOptions::default())?;
@@ -98,7 +98,7 @@ fn demo_annotation_box_2(fig: &Figure) -> CaseResult {
         ScalarField::integers(&counts),
         2.0,
         BboxImageOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
             ..BboxImageOptions::default()
         },
     )?;

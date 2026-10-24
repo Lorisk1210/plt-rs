@@ -31,7 +31,7 @@ fn shared_axis_demo(fig: &Figure) -> CaseResult {
 fn invert_axes(fig: &Figure) -> CaseResult {
     let x = arange(0.01, 4.0, 0.01);
     let y = map(&x, |x| (-x).exp());
-    fig.set_layout_engine(Some(LayoutEngine::constrained()));
+    fig.set_layout_engine(Some(LayoutEngine::constrained()))?;
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     fig.suptitle("Inverted axis with ...");

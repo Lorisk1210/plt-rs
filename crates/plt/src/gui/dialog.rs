@@ -7,6 +7,7 @@ use plt_ui::{
 };
 
 use super::{GuiError, icons};
+use crate::colors::Rgba;
 use crate::figure::Figure;
 
 /// The space around a dialog's content.
@@ -23,9 +24,11 @@ pub(super) fn window_options(title: &str) -> Result<WindowOptions, GuiError> {
 }
 
 /// The theme of the windows of `figure`: the chrome [look](crate::look)
-/// for the figure's background.
+/// for the figure's background, taken as white when it does not resolve
+/// (drawing the figure reports it).
 pub(super) fn chrome_theme(figure: &Figure) -> Theme {
-    crate::look::appearance().chrome.theme(figure.facecolor())
+    let background = figure.facecolor().resolve().unwrap_or(Rgba::WHITE);
+    crate::look::appearance().chrome.theme(background)
 }
 
 /// Opens a dialog of the window of `figure` at its content's natural
@@ -111,14 +114,15 @@ mod tests {
     use plt_ui::Dropdown;
 
     use super::*;
-    use plt_core::Rgba;
 
     #[test]
     fn windows_take_the_chrome_look() {
         let figure = Figure::new();
-        figure.set_facecolor(Rgba::new(0.0, 0.0, 0.0, 1.0));
+        figure.set_facecolor("black");
         let chrome = crate::look::appearance().chrome;
-        assert_eq!(chrome_theme(&figure), chrome.theme(figure.facecolor()));
+        assert_eq!(chrome_theme(&figure), chrome.theme(Rgba::BLACK));
+        figure.set_facecolor("not a colour");
+        assert_eq!(chrome_theme(&figure), chrome.theme(Rgba::WHITE));
     }
 
     #[test]

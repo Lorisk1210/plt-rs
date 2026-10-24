@@ -3,9 +3,9 @@
 
 use plt::axes::{GridOptions, ImshowOptions};
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, ColorizerOptions, colormaps};
 use plt::contour::{
-    ClabelOptions, ContourOptions, ContourSet, LabelFormat, Origin, QuadCoords, QuadField,
+    ClabelFormat, ClabelOptions, ContourOptions, ContourSet, Origin, QuadCoords, QuadField,
 };
 use plt::figure::Figure;
 use plt::fonts::FontSize;
@@ -15,11 +15,12 @@ use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::orientation::Orientation;
 use plt::patheffects::{PathEffect, TickedStroke};
 use plt::prelude::ArtistHandle;
-use plt::ticker::pyfmt::{self, PrintfFormat};
+use plt::ticker::pyfmt;
 use plt::ticker::{FuncFormatter, LogFormatter, LogLabelStyle, LogLocator};
 
 use crate::figures::cases::common::{colors, contour_field, count, values};
 use crate::figures::{CaseResult, FigureCase};
+use std::rc::Rc;
 
 /// `contour_demo`'s field with its coordinates.
 fn demo_field() -> QuadField {
@@ -167,7 +168,10 @@ fn contour_demo_6(fig: &Figure) -> CaseResult {
         extent: Some([-3.0, 3.0, -2.0, 2.0]),
     });
     let options = ContourOptions {
-        cmap: Some(colormaps::get("flag")?),
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get("flag")?),
+            ..ColorizerOptions::default()
+        },
         extend: plt::colors::Extend::Both,
         linewidths: Some(vec![2.0]),
         ..values(&levels)
@@ -178,7 +182,7 @@ fn contour_demo_6(fig: &Figure) -> CaseResult {
     cs.set_linewidths(&widths);
     cs.clabel(ClabelOptions {
         levels: Some(levels.iter().copied().skip(1).step_by(2).collect()),
-        fmt: LabelFormat::Printf(PrintfFormat::parse("%1.1f")?),
+        fmt: ClabelFormat::Label("%1.1f".into()),
         ..sized_labels(14.0)
     })?;
     let cb = fig.colorbar(
@@ -225,7 +229,7 @@ fn contour_label_demo_1(fig: &Figure) -> CaseResult {
     let cs = default_lines(fig)?;
     cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
-        fmt: LabelFormat::Formatter(Box::new(FuncFormatter::new(|x, _| percent(x)))),
+        fmt: ClabelFormat::Formatter(Rc::new(FuncFormatter::new(|x, _| percent(x)))),
         ..sized_labels(10.0)
     })?;
     Ok(())
@@ -239,7 +243,7 @@ fn contour_label_demo_2(fig: &Figure) -> CaseResult {
     let levels = cs.levels();
     cs.clabel(ClabelOptions {
         levels: Some(levels.iter().copied().step_by(2).collect()),
-        fmt: LabelFormat::Map(
+        fmt: ClabelFormat::Map(
             levels
                 .iter()
                 .zip(names)
@@ -264,7 +268,7 @@ fn contour_label_demo_3(fig: &Figure) -> CaseResult {
     )?;
     cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
-        fmt: LabelFormat::Formatter(Box::new(LogFormatter::new(LogLabelStyle::Mathtext, 10.0))),
+        fmt: ClabelFormat::Formatter(Rc::new(LogFormatter::new(LogLabelStyle::Mathtext, 10.0))),
         ..ClabelOptions::default()
     })?;
     ax.set_title("$100^Z$");
@@ -294,7 +298,7 @@ fn contours_in_optimization_demo(fig: &Figure) -> CaseResult {
         },
     )?;
     cntr.clabel(ClabelOptions {
-        fmt: LabelFormat::Printf(PrintfFormat::parse("%2.1f")?),
+        fmt: ClabelFormat::Label("%2.1f".into()),
         use_clabeltext: true,
         ..ClabelOptions::default()
     })?;
@@ -334,7 +338,7 @@ fn contours_in_optimization_demo(fig: &Figure) -> CaseResult {
             },
         )?;
         for collection in cg.collections() {
-            collection.set_path_effects(vec![PathEffect::with_ticked_stroke(ticks)]);
+            collection.set_path_effects(vec![PathEffect::with_ticked_stroke(ticks.clone())]);
         }
     }
     ax.set_xlim(0.0, 4.0);

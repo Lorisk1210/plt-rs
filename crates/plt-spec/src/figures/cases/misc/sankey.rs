@@ -6,10 +6,11 @@ use plt::axes::Axes;
 use plt::figure::Figure;
 use plt::fonts::FontWeight;
 use plt::patches::PatchProps;
-use plt::sankey::{PathLengths, QuantityFormat, Sankey, SankeyOptions, Subdiagram};
+use plt::sankey::{PathLengths, Sankey, SankeyOptions, Subdiagram};
 
 use crate::figures::cases::common::{flow_labels, flow_orientations, shown_labels};
 use crate::figures::{CaseResult, FigureCase};
+use plt::ticker::LabelFormat;
 
 /// An axes without ticks, as both cases start.
 fn bare_axes(fig: &Figure) -> Axes {
@@ -50,7 +51,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let options = SankeyOptions {
             scale: 0.01,
             offset: 0.2,
-            format: QuantityFormat::Printf("%.0f".into()),
+            format: LabelFormat::Template("%.0f".into()),
             unit: Some("%".into()),
             ..SankeyOptions::default()
         };
@@ -133,7 +134,7 @@ fn units_format_texts(fig: &Figure) -> CaseResult {
     let options = SankeyOptions {
         scale: 0.02,
         unit: Some(" kW".into()),
-        format: QuantityFormat::Printf("%.1f".into()),
+        format: LabelFormat::Template("%.1f".into()),
         ..SankeyOptions::default()
     };
     let plant = Subdiagram {
@@ -204,7 +205,7 @@ fn three_chained(fig: &Figure) -> CaseResult {
 fn zero_and_unbalanced(fig: &Figure) -> CaseResult {
     let ax = bare_axes(fig);
     let options = SankeyOptions {
-        format: QuantityFormat::Func(Rc::new(|q| format!("{q:+.2}"))),
+        format: LabelFormat::Func(Rc::new(|q| format!("{q:+.2}"))),
         tolerance: 0.01,
         ..SankeyOptions::default()
     };

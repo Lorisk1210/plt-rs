@@ -5,8 +5,8 @@ use plt::axes::{
     Axes, ImshowOptions, MappedColors, Mesh, MeshCoords, PcolorFast, PcolorOptions,
     PcolorfastOptions, ScatterOptions, Shading,
 };
-use plt::colors::Normalize;
-use plt::image::{ColorizerOptions, ImageData};
+use plt::colors::{Colorize, ColorizerOptions, Normalize};
+use plt::image::ImageData;
 use plt::numeric::Grid;
 
 use super::{count, datasets, made, on_axes};
@@ -51,7 +51,7 @@ pub(super) fn imshow(args: Args<'_>) -> Outcome {
             .norm(Normalize::new(low, high))
             .limits(args.opt_f64("vmin")?, args.opt_f64("vmax")?);
         let options = ImshowOptions {
-            colors,
+            colorizer: colors,
             ..ImshowOptions::default()
         };
         let image = made(ax.imshow(grid(args.json("data")?)?, options))?;
@@ -134,12 +134,12 @@ fn clim_colors() -> ColorizerOptions {
 fn clim_of(ax: &Axes, method: &str) -> Result<(Option<f64>, Option<f64>), ProbeError> {
     let data = || made(Grid::from_rows(vec![vec![0.0, 1.0], vec![2.0, 3.0]]));
     let pcolor_options = || PcolorOptions {
-        colors: clim_colors(),
+        colorizer: clim_colors(),
         ..PcolorOptions::default()
     };
     Ok(match method {
         "scatter" => {
-            let colors = MappedColors::new(vec![0.0, 1.0, 2.0]).with_limits(Some(7.0), Some(8.0));
+            let colors = MappedColors::new(vec![0.0, 1.0, 2.0]).limits(Some(7.0), Some(8.0));
             let options = ScatterOptions {
                 colors: colors.into(),
                 ..ScatterOptions::default()
@@ -148,7 +148,7 @@ fn clim_of(ax: &Axes, method: &str) -> Result<(Option<f64>, Option<f64>), ProbeE
         }
         "imshow" => {
             let options = ImshowOptions {
-                colors: clim_colors(),
+                colorizer: clim_colors(),
                 ..ImshowOptions::default()
             };
             made(ax.imshow(data()?, options))?.clim()
@@ -157,7 +157,7 @@ fn clim_of(ax: &Axes, method: &str) -> Result<(Option<f64>, Option<f64>), ProbeE
         "pcolormesh" => made(ax.pcolormesh(Mesh::new(data()?), pcolor_options()))?.clim(),
         "pcolorfast" => {
             let options = PcolorfastOptions {
-                colors: clim_colors(),
+                colorizer: clim_colors(),
                 ..PcolorfastOptions::default()
             };
             match made(ax.pcolorfast(None, data()?, options))? {

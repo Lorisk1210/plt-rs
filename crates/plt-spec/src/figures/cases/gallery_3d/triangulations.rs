@@ -4,7 +4,7 @@
 use std::f64::consts::PI;
 
 use plt::collections::CollectionProps;
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::contour::ContourOptions;
 use plt::figure::Figure;
 use plt::mplot3d::{Axes3DOptions, Contour3DOptions, TrisurfOptions};
@@ -49,7 +49,10 @@ fn ring_contours(fig: &Figure, fill: Fill) -> CaseResult {
     let tri = ring_triangulation(&x, &y, |x, y| x.hypot(y) < 0.25)?;
     let options = Contour3DOptions {
         contour: ContourOptions {
-            cmap: Some(colormaps::get("CMRmap")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("CMRmap")?),
+                ..ColorizerOptions::default()
+            },
             ..ContourOptions::default()
         },
         ..Contour3DOptions::default()

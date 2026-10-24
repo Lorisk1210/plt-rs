@@ -393,7 +393,7 @@ fn levels(releases: &[Release]) -> Vec<f64> {
 fn timeline(fig: &Figure) -> CaseResult {
     let releases = releases()?;
     let levels = levels(&releases);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     ax.set_title("Matplotlib release dates");
     let dates: Vec<DateTime> = releases.iter().map(|r| r.date).collect();

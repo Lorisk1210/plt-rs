@@ -3,11 +3,12 @@
 use plt::axes::{ImshowOptions, Mesh, PcolorOptions, TickParams};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions, Spacing};
 use plt::colors::{
-    BlendMode, BoundaryNorm, Color, Colormap, Extend, LightSource, Norm, NormError, Normalize,
-    Normalized, Relief, ScalarMappable, ShadeOptions, colormaps, from_levels_and_colors,
+    BlendMode, BoundaryNorm, Color, ColorizerOptions, Colormap, Extend, LightSource, Norm,
+    NormError, Normalize, Normalized, Relief, ScalarMappable, ShadeOptions, colormaps,
+    from_levels_and_colors,
 };
-use plt::contour::{ContourNorm, ContourOptions, QuadField};
-use plt::image::{ColorizerOptions, ScalarField};
+use plt::contour::{ContourOptions, QuadField};
+use plt::image::ScalarField;
 use plt::numeric::{Grid, linspace};
 use plt::orientation::Orientation;
 use plt::prelude::*;
@@ -25,7 +26,7 @@ fn cmap_and_norm_from_levels_and_colors(fig: &Figure) -> CaseResult {
     let mesh = ax.pcolormesh(
         Mesh::new(data),
         PcolorOptions {
-            colors: ColorizerOptions::default().cmap(cmap).norm(norm),
+            colorizer: ColorizerOptions::default().cmap(cmap).norm(norm),
             ..PcolorOptions::default()
         },
     )?;
@@ -103,10 +104,9 @@ fn light_source_topo_surface(fig: &Figure) -> CaseResult {
                     ..Relief::default()
                 },
                 ..ShadeOptions::default()
-            };
-            let rgba = light
-                .shade(&elev, &cmap, &options)?
-                .map(|c| [c.r, c.g, c.b, c.a]);
+            }
+            .cmap(cmap.clone());
+            let rgba = light.shade(&elev, &options)?.map(|c| [c.r, c.g, c.b, c.a]);
             let ax = &axes[(row, col)];
             ax.imshow(rgba, ImshowOptions::default())?;
             ax.set_xticks(Vec::<f64>::new())
@@ -124,7 +124,7 @@ fn norm_update_figs(fig: &Figure) -> CaseResult {
     let image = ax.imshow(
         ScalarField::integers(&z),
         ImshowOptions {
-            colors: ColorizerOptions::default().norm(Normalize::new(0.0, 1.0)),
+            colorizer: ColorizerOptions::default().norm(Normalize::new(0.0, 1.0)),
             ..ImshowOptions::default()
         },
     )?;
@@ -195,20 +195,23 @@ fn norm_abc(fig: &Figure) -> CaseResult {
     axes[(0, 0)].imshow(
         r.clone(),
         ImshowOptions {
-            colors: colorizer(),
+            colorizer: colorizer(),
             ..ImshowOptions::default()
         },
     )?;
     axes[(0, 1)].pcolor(
         Mesh::new(r.clone()),
         PcolorOptions {
-            colors: colorizer(),
+            colorizer: colorizer(),
             ..PcolorOptions::default()
         },
     )?;
     let contours = |cmap: Colormap| ContourOptions {
-        cmap: Some(cmap),
-        norm: ContourNorm::Custom(Box::new(HalfNorm)),
+        colorizer: ColorizerOptions {
+            cmap: Some(cmap),
+            norm: Some(Box::new(HalfNorm)),
+            ..ColorizerOptions::default()
+        },
         ..ContourOptions::default()
     };
     let field = QuadField::new(r);

@@ -8,7 +8,7 @@ use super::{GcUpdate, offset_affine};
 
 /// Short ticks at regular intervals along a path, for example to mark the
 /// forbidden side of a constraint.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TickedStroke {
     /// Offset of the ticks in points.
     pub offset: (f64, f64),
@@ -86,7 +86,9 @@ impl TickedStroke {
         Some(Path::new(vertices, codes).expect("tick segments start with moves"))
     }
 
-    /// Draws the ticks of `path` (mapped by `affine`) on `renderer`.
+    /// Draws the ticks of `path` (mapped by `affine`) on `renderer`, with
+    /// `foreground` the resolved stroke colour of the graphics state
+    /// changes.
     pub(super) fn draw_path(
         &self,
         renderer: &mut dyn Renderer,
@@ -94,9 +96,10 @@ impl TickedStroke {
         path: &Path,
         affine: &Affine2D,
         fill: Option<Rgba>,
+        foreground: Option<Rgba>,
     ) {
         let mut gc = gc.clone();
-        self.gc.apply(&mut gc);
+        self.gc.apply(&mut gc, foreground);
         let placed = offset_affine(renderer, affine, self.offset);
         let Some(back) = affine.inverted() else {
             return;

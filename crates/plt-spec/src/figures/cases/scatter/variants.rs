@@ -4,7 +4,7 @@
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::EdgeColors;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions, ColorbarTicks, Spacing};
-use plt::colors::{Alpha, BoundaryNorm, Color, Colormap, Extend, colormaps};
+use plt::colors::{Alpha, BoundaryNorm, Color, Colorize, Colormap, Extend, colormaps};
 use plt::figure::Figure;
 use plt::lines::LineStyle;
 use plt::markers::{FillStyle, Marker, MarkerStyle, PolygonStyle};
@@ -121,7 +121,7 @@ fn edges_per_point(fig: &Figure) -> CaseResult {
     let dashed = ScatterOptions {
         sizes: Some(vec![200.0]),
         colors: MappedColors::new(x.clone())
-            .with_cmap(colormaps::get("viridis")?)
+            .cmap(colormaps::get("viridis")?)
             .into(),
         edgecolors: Some(EdgeColors::Colors(vec![Color::from("k")])),
         linewidths: Some(vec![0.5, 1.0, 2.0, 3.0]),
@@ -167,8 +167,8 @@ fn extremes(fig: &Figure) -> CaseResult {
         .with_over("tab:orange")?;
     let options = ScatterOptions {
         colors: MappedColors::new(linspace(-0.5, 1.5, 40))
-            .with_cmap(cmap)
-            .with_limits(Some(0.0), Some(1.0))
+            .cmap(cmap)
+            .limits(Some(0.0), Some(1.0))
             .into(),
         sizes: Some(vec![60.0]),
         edgecolors: Some(EdgeColors::Colors(vec![Color::from("k")])),
@@ -197,7 +197,7 @@ fn boundary_norm(fig: &Figure) -> CaseResult {
     let norm = BoundaryNorm::new(bounds.clone(), cmap.n(), Extend::Neither)?;
     let c: Vec<f64> = x.iter().zip(&y).map(|(x, y)| x + y).collect();
     let options = ScatterOptions {
-        colors: MappedColors::new(c).with_cmap(cmap).with_norm(norm).into(),
+        colors: MappedColors::new(c).cmap(cmap).norm(norm).into(),
         sizes: Some(vec![70.0]),
         marker: Some("s".parse()?),
         ..ScatterOptions::default()
@@ -231,7 +231,7 @@ fn nonfinite(fig: &Figure) -> CaseResult {
     let cmap = colormaps::get("cividis")?.with_bad("magenta")?;
     let options = ScatterOptions {
         sizes: Some(s),
-        colors: MappedColors::new(c).with_cmap(cmap).into(),
+        colors: MappedColors::new(c).cmap(cmap).into(),
         plot_nonfinite: true,
         edgecolors: Some(EdgeColors::Colors(vec![Color::from("k")])),
         ..ScatterOptions::default()
@@ -273,7 +273,7 @@ fn alpha_array(fig: &Figure) -> CaseResult {
     let mapped = ScatterOptions {
         sizes: Some(vec![150.0]),
         colors: MappedColors::new(t.clone())
-            .with_cmap(colormaps::get("plasma")?)
+            .cmap(colormaps::get("plasma")?)
             .into(),
         alpha: Alpha::Each(t.iter().map(|t| 1.0 - 0.9 * t).collect()),
         ..ScatterOptions::default()

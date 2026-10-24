@@ -7,10 +7,10 @@
 use plt::artist::{ArtistHandle, Sketch};
 use plt::axes::{BarOptions, FillBetweenOptions, ImshowOptions, ScatterOptions};
 use plt::collections::CollectionSpec;
-use plt::colors::{Alpha, BoundaryNorm, Extend, colormaps};
+use plt::colors::{Alpha, BoundaryNorm, ColorizerOptions, Extend, colormaps};
 use plt::contour::{ContourOptions, QuadField};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, ImageData};
+use plt::image::ImageData;
 use plt::lines::LineProps;
 use plt::navigation::Navigation;
 use plt::numeric::Grid;
@@ -279,7 +279,7 @@ fn cursor_boundary(args: Args<'_>) -> Outcome {
     let fig = Figure::new();
     let ax = fig.subplot();
     let options = ImshowOptions {
-        colors: ColorizerOptions {
+        colorizer: ColorizerOptions {
             cmap: Some(made(colormaps::get("RdBu_r"))?),
             norm: Some(Box::new(norm)),
             ..ColorizerOptions::default()

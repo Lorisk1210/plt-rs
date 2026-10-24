@@ -3,13 +3,14 @@
 use plt::artist::{ArtistHandle, Picker};
 use plt::axes::{Axes, HexBins, HexGridSize, HexScale, HexbinOptions};
 use plt::collections::Collection;
-use plt::image::{ColorizerOptions, Extent};
+use plt::image::Extent;
 use plt_core::Point;
 
 use super::{made, on_axes};
 use crate::json::Json;
 use crate::probes::encode::points;
 use crate::probes::{Args, Outcome, ProbeError, encode};
+use plt::colors::{Colorize, ColorizerOptions};
 
 /// A binning scale argument.
 fn scale(args: Args<'_>, key: &str) -> Result<HexScale, ProbeError> {
@@ -53,7 +54,7 @@ fn hexbin_from(ax: &Axes, args: Args<'_>) -> Result<Collection, ProbeError> {
         xscale: scale(args, "xscale")?,
         yscale: scale(args, "yscale")?,
         extent: extent(args)?,
-        colors: ColorizerOptions::default().limits(args.opt_f64("vmin")?, args.opt_f64("vmax")?),
+        colorizer: ColorizerOptions::default().limits(args.opt_f64("vmin")?, args.opt_f64("vmax")?),
         ..HexbinOptions::default()
     };
     made(ax.hexbin(&args.f64_vec("x")?, &args.f64_vec("y")?, options))

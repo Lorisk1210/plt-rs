@@ -6,7 +6,7 @@ use plt::artist::BaseProps;
 use plt::axes::{Axes, TriShading, TriValues, TripcolorOptions};
 use plt::collections::{CollectionProps, EdgeColors};
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, ColorizerOptions, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::Figure;
 use plt::layout::TightLayout;
@@ -72,6 +72,10 @@ fn tricontour_demo_2(fig: &Figure) -> CaseResult {
         &triang,
         &z,
         ContourOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("cividis")?),
+                ..ColorizerOptions::default()
+            },
             hatches: hatches(&[
                 Some("*"),
                 Some("-"),
@@ -80,7 +84,6 @@ fn tricontour_demo_2(fig: &Figure) -> CaseResult {
                 Some("\\"),
                 None,
             ]),
-            cmap: Some(colormaps::get("cividis")?),
             ..ContourOptions::default()
         },
     )?;
@@ -203,7 +206,10 @@ fn tricontour_smooth_delaunay(fig: &Figure) -> CaseResult {
         &refined.triangulation,
         &refined_values(&refined.z),
         ContourOptions {
-            cmap: Some(colormaps::get("Blues")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("Blues")?),
+                ..ColorizerOptions::default()
+            },
             linewidths: Some(vec![2.0, 0.5, 1.0, 0.5]),
             ..values(&arange(0.0, 1.0, 0.025))
         },
@@ -237,7 +243,10 @@ fn tricontour_smooth_user(fig: &Figure) -> CaseResult {
         &refined.triangulation,
         &z_refi,
         ContourOptions {
-            cmap: Some(colormaps::get("terrain")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("terrain")?),
+                ..ColorizerOptions::default()
+            },
             ..values(&levels)
         },
     )?;
@@ -282,7 +291,10 @@ fn trigradient_demo(fig: &Figure) -> CaseResult {
         &refined.triangulation,
         &refined_values(&refined.z),
         ContourOptions {
-            cmap: Some(colormaps::get("hot")?),
+            colorizer: ColorizerOptions {
+                cmap: Some(colormaps::get("hot")?),
+                ..ColorizerOptions::default()
+            },
             linewidths: Some(vec![2.0, 1.0, 1.0, 1.0]),
             ..values(&arange(0.0, 1.0, 0.01))
         },

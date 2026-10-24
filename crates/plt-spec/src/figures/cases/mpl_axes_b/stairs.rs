@@ -237,7 +237,7 @@ fn stairs_options(fig: &Figure) -> CaseResult {
 /// `test_stairs_datetime`: daily date edges under constrained layout with
 /// rotated tick labels.
 fn stairs_datetime(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let first = Datetime64::parse("2001-12-27")?.ok_or("not a time")?;
     let days: Vec<Datetime64> = (0..37)

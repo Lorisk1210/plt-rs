@@ -6,10 +6,10 @@ use plt::artist::ArtistHandle;
 use plt::axes::{ImshowOptions, Mesh, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::colors::{
-    Color, LogNorm, Norm, Normalize, PowerNorm, ScalarMappable, colormaps, from_levels_and_colors,
+    Color, Colorize, ColorizerOptions, LogNorm, Norm, Normalize, PowerNorm, ScalarMappable,
+    colormaps, from_levels_and_colors,
 };
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::numeric::{Grid, linspace};
 use plt::orientation::Orientation;
 use plt_core::Rgba;
@@ -32,7 +32,7 @@ pub(super) fn extend_patches(args: Args<'_>) -> Outcome {
         let fig = Figure::new();
         let ax = fig.subplot();
         let options = ImshowOptions {
-            colors: ColorizerOptions::default().cmap(cmap),
+            colorizer: ColorizerOptions::default().cmap(cmap),
             ..ImshowOptions::default()
         };
         let image = ax
@@ -66,7 +66,7 @@ pub(super) fn outline(args: Args<'_>) -> Outcome {
         let ax = fig.subplot();
         let cmap = colormaps::get("RdBu_r").map_err(ProbeError::rejected)?;
         let options = PcolorOptions {
-            colors: ColorizerOptions::default().cmap(cmap),
+            colorizer: ColorizerOptions::default().cmap(cmap),
             ..PcolorOptions::default()
         };
         let mesh = ax

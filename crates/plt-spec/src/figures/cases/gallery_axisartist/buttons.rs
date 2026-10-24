@@ -92,7 +92,7 @@ fn button_panel(ax: &Axes, title: &str) {
 }
 
 fn radio_buttons(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let options = MosaicOptions {
         width_ratios: Some(vec![5.0, 1.0]),
         ..MosaicOptions::default()

@@ -2,9 +2,8 @@
 
 use plt::axes::ImshowOptions;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::colormaps;
+use plt::colors::{Colorize, ColorizerOptions, colormaps};
 use plt::figure::Figure;
-use plt::image::ColorizerOptions;
 use plt::layout::LayoutEngine;
 use plt::spines::SpineSide;
 
@@ -17,7 +16,7 @@ fn scaled_field(gain: f64) -> plt::numeric::Grid<f64> {
 }
 
 pub(super) fn constrained_layout(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     for (i, ax) in axs.as_slice().iter().enumerate() {
         let im = ax.imshow(
@@ -34,10 +33,11 @@ pub(super) fn constrained_layout(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn constrained_shared(fig: &Figure) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(2, 2)?;
     let limits = || {
-        ImshowOptions::default().colors(ColorizerOptions::default().limits(Some(-2.0), Some(2.0)))
+        ImshowOptions::default()
+            .colorizer(ColorizerOptions::default().limits(Some(-2.0), Some(2.0)))
     };
     let mut last = None;
     for (i, ax) in axs.as_slice().iter().enumerate() {

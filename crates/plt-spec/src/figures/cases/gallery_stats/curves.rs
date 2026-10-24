@@ -223,7 +223,7 @@ fn draw_error_band(ax: &Axes, x: &[f64], y: &[f64], err: &[f64], props: PatchPro
 
 fn curve_error_band_2(fig: &Figure) -> CaseResult {
     let (t, x, y) = cardioid();
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots_shared(1, 2, Share::All, Share::All)?;
     let errs = [
         ("constant error", vec![0.05]),

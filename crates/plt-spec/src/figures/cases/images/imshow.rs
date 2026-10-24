@@ -1,11 +1,13 @@
 //! The `imshow`, `matshow`, `spy` and `figimage` cases.
 
 use plt::axes::ImshowOptions;
-use plt::colors::{BoundaryNorm, Extend, LogNorm, PowerNorm, SymLogNorm, colormaps};
+use plt::colors::{
+    BoundaryNorm, Colorize, ColorizerOptions, Extend, LogNorm, PowerNorm, SymLogNorm, colormaps,
+};
 use plt::figure::Figure;
 use plt::image::{
-    ColorizerOptions, Extent, FigimageOptions, ImageAlpha, ImageData, Interpolation,
-    InterpolationStage, Origin, ScalarField,
+    Extent, FigimageOptions, ImageAlpha, ImageData, Interpolation, InterpolationStage, Origin,
+    ScalarField,
 };
 use plt::lines::LineProps;
 use plt::numeric::{Grid, linspace};
@@ -189,7 +191,7 @@ pub(super) fn vmin_vmax(fig: &Figure) -> CaseResult {
         .cmap(colormaps::get("coolwarm")?)
         .limits(Some(-0.3), Some(0.3));
     fig.subplot()
-        .imshow(bump(20), ImshowOptions::default().colors(colors))?;
+        .imshow(bump(20), ImshowOptions::default().colorizer(colors))?;
     Ok(())
 }
 
@@ -198,7 +200,7 @@ pub(super) fn lognorm(fig: &Figure) -> CaseResult {
     let data = Grid::from_fn(40, 40, |r, c| 10.0_f64.powf(x[r] + x[c] / 2.0));
     let colors = ColorizerOptions::default().norm(LogNorm::default());
     fig.subplot()
-        .imshow(data, ImshowOptions::default().colors(colors))?;
+        .imshow(data, ImshowOptions::default().colorizer(colors))?;
     Ok(())
 }
 
@@ -208,7 +210,7 @@ pub(super) fn symlognorm(fig: &Figure) -> CaseResult {
         .cmap(colormaps::get("RdBu_r")?)
         .norm(SymLogNorm::new(0.5, 1.0, 10.0)?);
     fig.subplot()
-        .imshow(data, ImshowOptions::default().colors(colors))?;
+        .imshow(data, ImshowOptions::default().colorizer(colors))?;
     Ok(())
 }
 
@@ -218,7 +220,7 @@ pub(super) fn powernorm(fig: &Figure) -> CaseResult {
         .norm(PowerNorm::new(0.4));
     fig.subplot().imshow(
         bump(30).map(|v| v.abs()),
-        ImshowOptions::default().colors(colors),
+        ImshowOptions::default().colorizer(colors),
     )?;
     Ok(())
 }
@@ -229,14 +231,14 @@ pub(super) fn boundarynorm(fig: &Figure) -> CaseResult {
         .cmap(colormaps::get("RdBu")?)
         .norm(norm);
     fig.subplot()
-        .imshow(bump(30), ImshowOptions::default().colors(colors))?;
+        .imshow(bump(30), ImshowOptions::default().colorizer(colors))?;
     Ok(())
 }
 
 pub(super) fn cmap_resampled(fig: &Figure) -> CaseResult {
     let colors = ColorizerOptions::default().cmap(colormaps::get("viridis")?.resampled(5)?);
     fig.subplot()
-        .imshow(bump(30), ImshowOptions::default().colors(colors))?;
+        .imshow(bump(30), ImshowOptions::default().colorizer(colors))?;
     Ok(())
 }
 
@@ -255,7 +257,7 @@ pub(super) fn cmap_extremes(fig: &Figure) -> CaseResult {
         .limits(Some(-0.4), Some(0.4));
     fig.subplot().imshow(
         ScalarField::masked(values, &mask)?,
-        ImshowOptions::default().colors(colors),
+        ImshowOptions::default().colorizer(colors),
     )?;
     Ok(())
 }
@@ -303,7 +305,7 @@ pub(super) fn figimage(fig: &Figure) -> CaseResult {
     let viridis = FigimageOptions {
         xo: 20.0,
         yo: 30.0,
-        colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
+        colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
         ..FigimageOptions::default()
     };
     fig.figimage(bump(80), viridis)?;

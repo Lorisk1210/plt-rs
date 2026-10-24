@@ -104,7 +104,7 @@ fn text_intro_7(fig: &Figure) -> CaseResult {
 
 fn text_intro_8(fig: &Figure) -> CaseResult {
     let (x, y) = oscillation();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let axs = fig.subplots(3, 1)?;
     for (ax, (location, name)) in axs.as_slice().iter().zip([
         (TitleLocation::Center, "center"),
@@ -138,7 +138,7 @@ fn ticks() -> Vec<f64> {
 /// Two tight rows of the oscillation; returns their axes.
 fn oscillation_pair(fig: &Figure) -> Result<(Axes, Axes), Box<dyn std::error::Error>> {
     let (x, y) = oscillation();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let axs = fig.subplots(2, 1)?;
     for ax in axs.as_slice() {
         ax.plot(&x, &y)?;
@@ -188,7 +188,7 @@ fn text_intro_13(fig: &Figure) -> CaseResult {
 
 fn text_intro_14(fig: &Figure) -> CaseResult {
     let (x, y) = oscillation();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let axs = fig.subplots(2, 2)?;
     for ax in axs.as_slice() {
         ax.plot(map(&x, |x| x * 10.0), &y)?;
@@ -220,7 +220,7 @@ fn formatoddticks(x: f64, _pos: Option<usize>) -> String {
 
 fn text_intro_15(fig: &Figure) -> CaseResult {
     let (x, y) = oscillation();
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let ax = fig.subplot();
     ax.plot(x, y)?;
     ax.xaxis()
@@ -238,7 +238,7 @@ fn daily(fig: &Figure, setup: impl FnOnce(&Axes) -> CaseResult) -> CaseResult {
     let time = (0..x.len())
         .map(|day| base.checked_add(TimeDelta::new(day as i64, 0, 0)?))
         .collect::<Result<Vec<_>, _>>()?;
-    fig.set_layout_engine(LayoutEngine::tight());
+    fig.set_layout_engine(LayoutEngine::tight())?;
     let ax = fig.subplot();
     setup(&ax)?;
     ax.plot(time, y)?;

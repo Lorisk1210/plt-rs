@@ -472,7 +472,7 @@ mod tests {
             let fig = Figure::with_size(1.0, 0.5, 20.0);
             let canvas = fig.render_raster().unwrap();
             assert_eq!(&canvas.pixmap().data()[..4], &[0, 0, 0, 255]);
-            assert!((fig.facecolor().r - 0.75).abs() < 1e-12);
+            assert!((fig.facecolor().resolve().unwrap().r - 0.75).abs() < 1e-12);
         });
     }
 

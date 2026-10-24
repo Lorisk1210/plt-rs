@@ -5,11 +5,10 @@
 
 use plt::artist::ArtistHandle;
 use plt::axes::ImshowOptions;
-use plt::colors::{LogNorm, colormaps};
+use plt::colors::{Colorize, ColorizerOptions, LogNorm, colormaps};
 use plt::figure::Figure;
 use plt::image::{
-    BboxImageOptions, ColorizerOptions, Extent, ImageAlpha, ImageData, Interpolation, Origin,
-    ScalarField,
+    BboxImageOptions, Extent, ImageAlpha, ImageData, Interpolation, Origin, ScalarField,
 };
 use plt::lines::LineProps;
 use plt::numeric::{Grid, arange};
@@ -69,7 +68,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.imshow(
             data,
             ImshowOptions {
-                colors: ColorizerOptions::default().norm(LogNorm::default()),
+                colorizer: ColorizerOptions::default().norm(LogNorm::default()),
                 extent: Some(Extent::new(734_717.945_208, 734_717.946_366, 1.0, 100.0)),
                 ..ImshowOptions::default().interpolation(Interpolation::None)
             },
@@ -123,7 +122,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.imshow(
             z,
             ImshowOptions {
-                colors: ColorizerOptions::default()
+                colorizer: ColorizerOptions::default()
                     .cmap(colormaps::get("viridis")?)
                     .limits(Some(-1.0), Some(1.0)),
                 aspect: Some(Aspect::Auto),
@@ -147,7 +146,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.imshow(
             Grid::from_vec(16, 16, noise)?,
             ImshowOptions {
-                colors: ColorizerOptions::default()
+                colorizer: ColorizerOptions::default()
                     .cmap(colormaps::get("Blues")?)
                     .limits(Some(-1.0), Some(1.0)),
                 extent: Some(Extent::new(0.0, 1.0, 0.0, 1.0)),
@@ -262,7 +261,7 @@ fn rotate_image(fig: &Figure) -> CaseResult {
     let image = ax.imshow(
         gaussians(0.25, 1.0),
         ImshowOptions {
-            colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
             origin: Some(Origin::Lower),
             extent: Some(Extent::new(-2.0, 4.0, -3.0, 2.0)),
             ..ImshowOptions::default().interpolation(Interpolation::None)

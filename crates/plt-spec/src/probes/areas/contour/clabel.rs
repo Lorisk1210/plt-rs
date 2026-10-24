@@ -2,12 +2,11 @@
 //! on line contours in a figure of given size and axes rectangle.
 
 use plt::contour::{
-    ClabelOptions, ContourOptions, ContourSet, LabelFormat, Levels, QuadCoords, QuadField,
+    ClabelFormat, ClabelOptions, ContourOptions, ContourSet, Levels, QuadCoords, QuadField,
 };
 use plt::figure::Figure;
 use plt::fonts::{FontSize, RelativeSize};
 use plt::numeric::Grid;
-use plt::ticker::pyfmt::PrintfFormat;
 
 use super::{canon, input};
 use crate::json::Json;
@@ -125,11 +124,9 @@ pub(super) fn clabel_options(args: Args<'_>) -> Result<ClabelOptions, ProbeError
         options.use_clabeltext = data;
     }
     options.fmt = match args.get("fmt") {
-        None => LabelFormat::Scalar,
-        Some(Json::String(fmt)) => {
-            LabelFormat::Printf(PrintfFormat::parse(fmt).map_err(ProbeError::rejected)?)
-        }
-        Some(value) => LabelFormat::Map(
+        None => ClabelFormat::Scalar,
+        Some(Json::String(fmt)) => ClabelFormat::Label(fmt.as_str().into()),
+        Some(value) => ClabelFormat::Map(
             value
                 .as_array()
                 .and_then(|pairs| {

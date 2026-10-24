@@ -3,7 +3,7 @@
 //! length, traced backwards, and integrated with other tolerances.
 
 use plt::colorbar::ColorbarOptions;
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::layout::TightLayout;
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::prelude::*;
@@ -39,9 +39,12 @@ fn swirl_velocity_field() -> StreamField {
 /// Colours mapped from `values` through the colormap `cmap`.
 fn mapped(values: Grid<f64>, cmap: &str) -> Result<StreamColors, plt::colors::ColormapError> {
     Ok(StreamColors::Mapped(Box::new(StreamColorMap {
+        colorizer: ColorizerOptions {
+            cmap: Some(colormaps::get(cmap)?),
+            norm: None,
+            ..ColorizerOptions::default()
+        },
         values,
-        cmap: Some(colormaps::get(cmap)?),
-        norm: None,
     })))
 }
 

@@ -313,7 +313,7 @@ enum GridAxes {
 /// value, titled with it, plotting `y` against `x` as `o-` with 4 pt
 /// markers.
 fn markevery_grid(fig: &Figure, x: &[f64], y: &[f64], kind: GridAxes) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let grid = GridSpec::new(3, 3)?;
     for (i, (markevery, spelling)) in markevery_cases().into_iter().enumerate() {
         let spec = grid.cell(i / 3, i % 3)?;

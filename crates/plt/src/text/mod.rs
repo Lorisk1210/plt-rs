@@ -354,7 +354,7 @@ impl TextArtist {
         let rotation = self.block_style(layout).rotation;
         with_path_effects(ctx, &self.base.path_effects, |ctx| {
             draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);
-        });
+        })?;
         Ok(())
     }
 }

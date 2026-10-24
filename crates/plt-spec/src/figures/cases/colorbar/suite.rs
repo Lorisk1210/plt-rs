@@ -9,12 +9,11 @@ use plt::colorbar::{
     ColorbarAxes, ColorbarFormat, ColorbarOptions, ColorbarTicks, ExtendFrac, ParentAnchor, Spacing,
 };
 use plt::colors::{
-    BoundaryNorm, CenteredNorm, Colormap, Extend, LogNorm, Norm, PowerNorm, ScalarMappable,
-    SymLogNorm, colormaps,
+    BoundaryNorm, CenteredNorm, ColorizerOptions, Colormap, Extend, LogNorm, Norm, PowerNorm,
+    ScalarMappable, SymLogNorm, colormaps,
 };
 use plt::figure::Figure;
 use plt::gridspec::SubplotOverrides;
-use plt::image::ColorizerOptions;
 use plt::numeric::{Grid, linspace};
 use plt::orientation::Orientation;
 use plt::prelude::*;
@@ -23,6 +22,7 @@ use plt_core::Anchor;
 
 use super::data::field;
 use crate::figures::CaseResult;
+use plt::ticker::LabelFormat;
 
 /// The extension kinds in the order of the test suite.
 const EXTENSIONS: [Extend; 4] = [Extend::Neither, Extend::Min, Extend::Max, Extend::Both];
@@ -196,7 +196,7 @@ fn normed(
     cmap: &str,
     norm: impl Norm + 'static,
 ) -> Result<plt::axes::ImshowOptions, Box<dyn std::error::Error>> {
-    Ok(ImshowOptions::default().colors(
+    Ok(ImshowOptions::default().colorizer(
         ColorizerOptions::default()
             .cmap(colormaps::get(cmap)?)
             .norm(norm),
@@ -216,7 +216,7 @@ pub(super) fn boundaries_values_irregular(fig: &Figure) -> CaseResult {
             boundaries: Some(vec![-0.8, -0.4, -0.1, 0.0, 0.2, 0.8]),
             values: Some(vec![-0.6, -0.25, -0.05, 0.1, 0.5]),
             ticks: Some(ColorbarTicks::Values(vec![-0.8, -0.1, 0.2, 0.8])),
-            format: Some(ColorbarFormat::Template("%.2f".into())),
+            format: Some(ColorbarFormat::Label(LabelFormat::Template("%.2f".into()))),
             ..ColorbarOptions::beside(ax1)
         },
     )?;
@@ -246,7 +246,8 @@ pub(super) fn lognorm_extend_minor_custom_ticks(fig: &Figure) -> CaseResult {
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     let im = ax1.imshow(
         decades(),
-        ImshowOptions::default().colors(ColorizerOptions::default().norm(LogNorm::new(10.0, 1e4))),
+        ImshowOptions::default()
+            .colorizer(ColorizerOptions::default().norm(LogNorm::new(10.0, 1e4))),
     )?;
     let cb = fig.colorbar(
         &im,

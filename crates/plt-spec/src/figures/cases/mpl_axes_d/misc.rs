@@ -9,11 +9,11 @@ use plt::axes::{
     PcolorOptions, PcolorfastOptions, ScatterColors, ScatterOptions, ViolinDrawOptions,
     ViolinplotOptions,
 };
-use plt::colors::{Colormap, Normalize, colormaps};
+use plt::colors::{Colorize, ColorizerOptions, Colormap, Normalize, colormaps};
 use plt::contour::{ContourOptions, QuadField};
 use plt::dates::{DateFormatter, Datetime64};
 use plt::figure::Figure;
-use plt::image::{ColorizerOptions, Extent, FigimageOptions, Origin};
+use plt::image::{Extent, FigimageOptions, Origin};
 use plt::lines::{LineStyle, StepWhere};
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
@@ -84,7 +84,7 @@ fn extent_units(fig: &Figure) -> CaseResult {
     let plasma = || -> Result<ImshowOptions, Box<dyn std::error::Error>> {
         Ok(ImshowOptions {
             origin: Some(Origin::Lower),
-            colors: ColorizerOptions::default().cmap(colormaps::get("plasma")?),
+            colorizer: ColorizerOptions::default().cmap(colormaps::get("plasma")?),
             ..ImshowOptions::default()
         })
     };
@@ -278,8 +278,8 @@ fn use_colorizer_keyword(fig: &Figure) -> CaseResult {
     let axes = fig.subplots(3, 4)?;
 
     let mapped = plt::axes::MappedColors::new(flat.clone())
-        .with_cmap(cmap.clone())
-        .with_norm(Normalize::new(4.0, 20.0));
+        .cmap(cmap.clone())
+        .norm(Normalize::new(4.0, 20.0));
     axes[(0, 0)].scatter_with(
         flat.clone(),
         flat.clone(),
@@ -293,20 +293,20 @@ fn use_colorizer_keyword(fig: &Figure) -> CaseResult {
         &rand_y,
         HexbinOptions {
             gridsize: HexGridSize::Shape(2, 2),
-            colors: colorizer()?,
+            colorizer: colorizer()?,
             ..HexbinOptions::default()
         },
     )?;
     axes[(0, 2)].imshow(
         c.clone(),
         ImshowOptions {
-            colors: colorizer()?,
+            colorizer: colorizer()?,
             ..ImshowOptions::default()
         },
     )?;
     let pcolor = || -> Result<PcolorOptions, Box<dyn std::error::Error>> {
         Ok(PcolorOptions {
-            colors: colorizer()?,
+            colorizer: colorizer()?,
             ..PcolorOptions::default()
         })
     };
@@ -314,7 +314,7 @@ fn use_colorizer_keyword(fig: &Figure) -> CaseResult {
     axes[(1, 0)].pcolormesh(Mesh::new(c.clone()), pcolor()?)?;
     let fast = || -> Result<PcolorfastOptions, Box<dyn std::error::Error>> {
         Ok(PcolorfastOptions {
-            colors: colorizer()?,
+            colorizer: colorizer()?,
             ..PcolorfastOptions::default()
         })
     };
@@ -331,9 +331,12 @@ fn use_colorizer_keyword(fig: &Figure) -> CaseResult {
     );
     axes[(1, 3)].pcolorfast(Some(grids), corner, fast()?)?;
     let contour = || ContourOptions {
-        cmap: Some(cmap.clone()),
-        vmin: Some(4.0),
-        vmax: Some(20.0),
+        colorizer: ColorizerOptions {
+            cmap: Some(cmap.clone()),
+            vmin: Some(4.0),
+            vmax: Some(20.0),
+            ..ColorizerOptions::default()
+        },
         ..ContourOptions::default()
     };
     axes[(2, 0)].contour(&QuadField::new(c.clone()), contour())?;
@@ -345,7 +348,7 @@ fn use_colorizer_keyword(fig: &Figure) -> CaseResult {
     fig.figimage(
         big,
         FigimageOptions {
-            colors: colorizer()?,
+            colorizer: colorizer()?,
             ..FigimageOptions::default()
         },
     )?;

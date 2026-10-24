@@ -88,7 +88,7 @@ fn scatter_plot(fig: &Figure) -> CaseResult {
     let options = ScatterOptions {
         sizes: Some(sizes),
         colors: MappedColors::new(colors)
-            .with_limits(Some(0.0), Some(100.0))
+            .limits(Some(0.0), Some(100.0))
             .into(),
         ..ScatterOptions::default()
     };

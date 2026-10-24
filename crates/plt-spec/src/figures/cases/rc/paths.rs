@@ -33,10 +33,14 @@ fn lissajous(fig: &Figure) -> CaseResult {
 }
 
 /// `rc={"path.effects": [withStroke(linewidth=4, foreground="0.8")]}`.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "every rc setup shares the fallible signature"
+)]
 fn stroke_effect(rc: &mut RcParams) -> CaseResult {
     let outline = Stroke::new(GcUpdate {
         linewidth: Some(4.0),
-        foreground: Some(Color::from("0.8").resolve()?),
+        foreground: Some(Color::from("0.8")),
         ..GcUpdate::default()
     });
     rc.path_effects = vec![PathEffect::with_stroke(outline)];

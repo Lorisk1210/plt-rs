@@ -158,14 +158,20 @@ pub(crate) fn draw_tick_lines(
             path: polar.patch_path(),
             transform: unit_to_bbox(&display),
         };
-        with_path_effects(ctx, &style.grid.path_effects, |ctx| {
+        let drawn = with_path_effects(ctx, &style.grid.path_effects, |ctx| {
             draw_gridline(ctx, axes, &ptick, &style.grid, clip, rc);
         });
+        if let Err(err) = drawn {
+            ctx.report(axes, err);
+        }
     }
-    with_path_effects(ctx, &rc.path_effects, |ctx| match name {
+    let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| match name {
         AxisName::X => draw_theta_marks(ctx, axes, &ptick, style),
         AxisName::Y => draw_radial_marks(ctx, axes, &ptick, style),
     });
+    if let Err(err) = drawn {
+        ctx.report(axes, err);
+    }
 }
 
 fn draw_gridline(

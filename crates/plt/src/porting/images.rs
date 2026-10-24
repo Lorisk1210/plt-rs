@@ -15,10 +15,10 @@
 //!   [`StreamField`].
 //!
 //! The colour-mapping keywords `cmap`, `norm`, `vmin` and `vmax` are a
-//! [`ColorizerOptions`] in the options of `imshow`, `pcolormesh`,
-//! `tripcolor`, `hexbin`, ...; contours keep them as fields of
-//! [`ContourOptions`]. A colormap is a value: `cmap="magma"` is
-//! `colormaps::get("magma")?`.
+//! [`ColorizerOptions`] in the `colorizer` field of the options of
+//! `imshow`, `pcolormesh`, `tripcolor`, `hexbin`, the contour functions
+//! ([`ContourOptions`]), `streamplot`, `imsave`, ... A colormap is a
+//! value: `cmap="magma"` is `colormaps::get("magma")?`.
 //!
 //! Colorbars are made by [`Figure::colorbar`] from any colour-mapped
 //! artist (image, collection, contour set) and follow later changes of
@@ -44,7 +44,7 @@
 //! | `cb.set_label(s)`, `cb.set_ticks(t)`, `cb.ax`    | [`Colorbar::set_label`], [`Colorbar::set_ticks`], [`Colorbar::ax`] |
 //! | `ax.contour(X, Y, Z, levels=[...])`              | [`Axes::contour`] with [`QuadField`] and [`ContourOptions`], [`Levels::Values`] |
 //! | `ax.contourf(Z, levels=10)`                      | [`Axes::contourf`], [`Levels::Count`]            |
-//! | `ax.clabel(cs, fmt="%.2f")`, `cs.clabel(...)`    | [`ContourSet::clabel`] with [`ClabelOptions`]    |
+//! | `ax.clabel(cs, fmt="%.2f")`, `cs.clabel(...)`    | [`ContourSet::clabel`] with [`ClabelOptions`] ([`ClabelFormat`]) |
 //! | `cs.levels`, `cs.get_paths()`                    | [`ContourSet::levels`], [`ContourSet::paths`]    |
 //! | `Triangulation(x, y)`, `Triangulation(x, y, triangles)` | [`Triangulation::delaunay`], [`Triangulation::new`] |
 //! | `ax.triplot(tri, "k-")`, `ax.tripcolor(tri, z)`  | [`Axes::triplot`], [`Axes::tripcolor`] with [`TriValues`] |
@@ -70,8 +70,8 @@
 //! ```
 //! use plt::axes::ImshowOptions;
 //! use plt::colorbar::ColorbarOptions;
-//! use plt::colors::colormaps;
-//! use plt::image::{ColorizerOptions, Extent, Interpolation, Origin};
+//! use plt::colors::{ColorizerOptions, colormaps};
+//! use plt::image::{Extent, Interpolation, Origin};
 //! use plt::numeric::Grid;
 //! use plt::prelude::*;
 //!
@@ -79,7 +79,7 @@
 //! let ax = fig.subplot();
 //! let z = Grid::from_fn(4, 5, |r, c| (r * c) as f64);
 //! let options = ImshowOptions {
-//!     colors: ColorizerOptions::default()
+//!     colorizer: ColorizerOptions::default()
 //!         .cmap(colormaps::get("magma")?)
 //!         .limits(Some(0.0), Some(12.0)),
 //!     origin: Some(Origin::Lower),
@@ -107,8 +107,7 @@
 //!
 //! ```
 //! use plt::axes::{Mesh, PcolorOptions, Shading};
-//! use plt::colors::colormaps;
-//! use plt::image::ColorizerOptions;
+//! use plt::colors::{ColorizerOptions, colormaps};
 //! use plt::numeric::Grid;
 //! use plt::prelude::*;
 //!
@@ -116,7 +115,7 @@
 //! let c = Grid::from_fn(3, 5, |r, c| (r + c) as f64);
 //! let options = PcolorOptions {
 //!     shading: Some(Shading::Flat),
-//!     colors: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
+//!     colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
 //!     ..PcolorOptions::default()
 //! };
 //! let mesh = ax.pcolormesh(Mesh::from_coords(linspace(0.0, 1.0, 6), linspace(0.0, 1.0, 4), c), options)?;
@@ -135,7 +134,7 @@
 //! ```
 //!
 //! ```
-//! use plt::contour::{ClabelOptions, ContourOptions, LabelFormat, Levels, QuadCoords, QuadField};
+//! use plt::contour::{ClabelOptions, ContourOptions, ClabelFormat, Levels, QuadCoords, QuadField};
 //! use plt::colors::colormaps;
 //! use plt::numeric::{Grid, meshgrid};
 //! use plt::prelude::*;
@@ -154,15 +153,15 @@
 //! };
 //! let cs = ax.contour(&field, lines)?;
 //! assert_eq!(cs.levels(), [0.25, 0.5, 0.75]);
-//! let format = ClabelOptions { fmt: LabelFormat::Printf(PrintfFormat::parse("%.2f")?), ..ClabelOptions::default() };
+//! let format = ClabelOptions { fmt: ClabelFormat::Label("%.2f".into()), ..ClabelOptions::default() };
 //! let labels = cs.clabel(format)?;
 //! assert!(labels.iter().any(|label| label.text() == "0.50"));
 //!
 //! let bands = ContourOptions {
 //!     levels: Levels::Count(10),
-//!     cmap: Some(colormaps::get("Blues")?),
 //!     ..ContourOptions::default()
-//! };
+//! }
+//! .cmap(colormaps::get("Blues")?);
 //! let filled = ax.contourf(&field, bands)?;
 //! assert!(filled.filled());
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -241,12 +240,12 @@
 //! ```
 //!
 //! ```
-//! use plt::colors::colormaps;
+//! use plt::colors::{Colorize, colormaps};
 //! use plt::image::{BitmapFormat, ImsaveOptions, imread_bytes, imsave_bytes};
 //! use plt::numeric::Grid;
 //!
 //! let z = Grid::from_fn(2, 3, |r, c| (r + c) as f64);
-//! let options = ImsaveOptions { cmap: Some(colormaps::get("gray")?), ..ImsaveOptions::default() };
+//! let options = ImsaveOptions::default().cmap(colormaps::get("gray")?);
 //! let png = imsave_bytes(z, BitmapFormat::Png, options)?;
 //! let pixels = imread_bytes(&png)?;
 //! assert_eq!(pixels.shape(), (2, 3));
@@ -257,7 +256,7 @@
 //! [`ImageData`]: crate::image::ImageData
 //! [`ScalarField`]: crate::image::ScalarField
 //! [`ScalarField::with_mask`]: crate::image::ScalarField::with_mask
-//! [`ColorizerOptions`]: crate::image::ColorizerOptions
+//! [`ColorizerOptions`]: crate::colors::ColorizerOptions
 //! [`Extent::new`]: crate::image::Extent::new
 //! [`Interpolation::Nearest`]: crate::image::Interpolation::Nearest
 //! [`AxesImage::set_data`]: crate::image::AxesImage::set_data
@@ -309,6 +308,7 @@
 //! [`Levels::Values`]: crate::contour::Levels::Values
 //! [`Levels::Count`]: crate::contour::Levels::Count
 //! [`ContourSet::clabel`]: crate::contour::ContourSet::clabel
+//! [`ClabelFormat`]: crate::contour::ClabelFormat
 //! [`ContourSet::levels`]: crate::contour::ContourSet::levels
 //! [`ContourSet::paths`]: crate::contour::ContourSet::paths
 //! [`ClabelOptions`]: crate::contour::ClabelOptions

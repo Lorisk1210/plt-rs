@@ -5,7 +5,7 @@ use std::f64::consts::{PI, TAU};
 
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
 use plt::collections::EdgeColors;
-use plt::colors::{Color, colormaps};
+use plt::colors::{Color, Colorize, colormaps};
 use plt::figure::Figure;
 use plt::lines::LineStyle;
 use plt::markers::{FillStyle, Marker, MarkerStyle};
@@ -82,7 +82,7 @@ fn invalid_colors(fig: &Figure, plot_nonfinite: bool) -> CaseResult {
         .with_bad("black")?;
     let options = ScatterOptions {
         colors: MappedColors::new([1.0, f64::NAN, 2.0, f64::NAN])
-            .with_cmap(cmap)
+            .cmap(cmap)
             .into(),
         sizes: Some(vec![1.0, 2.0, 3.0, 4.0]),
         plot_nonfinite,

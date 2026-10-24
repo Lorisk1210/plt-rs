@@ -44,7 +44,7 @@ fn days_between(from: DateTime, to: DateTime) -> f64 {
 /// `test_bar`: bars at dates four days wide, and bars from a date as
 /// high as durations.
 fn bar(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 2, 1)?;
     let x_dates = summer_dates()?;
     let width = BarOptions {
@@ -65,7 +65,7 @@ fn bar(fig: &Figure) -> CaseResult {
 /// `test_barh`: bars at birth dates ten days high, and bars from the new
 /// year as long as the time to the birth dates.
 fn barh(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 2, 1)?;
     let birth_dates = [(4, 10), (5, 30), (10, 12), (11, 15)]
         .into_iter()
@@ -96,7 +96,7 @@ fn barh(fig: &Figure) -> CaseResult {
 
 /// `test_bar_label`: bars at five days labelled with percentages.
 fn bar_label(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = fig.subplot();
     let dates = daily(day(2023, 1, 1)?, 0..5)?;
     let values = [10.0, 20.0, 15.0, 25.0, 30.0];
@@ -129,7 +129,7 @@ fn broken_barh(fig: &Figure) -> CaseResult {
 /// One figure of `test_hist`: the same 30 days, weighted three ways, in
 /// `bins` (dates are converted on the x axis first).
 fn hist(fig: &Figure, bins: impl Fn(&plt::axes::Axes) -> Result<Bins, DateError>) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let days_of_month = daily(day(2023, 10, 1)?, 0..30)?;
     let mut rng = SpecRng::new(7);
     let weights: Vec<Vec<f64>> = (0..3)
@@ -172,7 +172,7 @@ fn hist_2(fig: &Figure) -> CaseResult {
 /// `test_stairs`: steps between daily edges, from a 1980 baseline for
 /// the steps of dates.
 fn stairs(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let start = day(2023, 12, 1)?;
     let baseline = day(1980, 1, 1)?;
     let bin_edges = daily(start, 0..31)?;
@@ -218,7 +218,7 @@ fn stairs(fig: &Figure) -> CaseResult {
 /// `test_eventplot`: one row of dates, then three rows of random dates
 /// at numbers and at dates.
 fn eventplot(fig: &Figure) -> CaseResult {
-    constrained(fig);
+    constrained(fig)?;
     let ax = axes(fig, 3, 1)?;
     ax[0].eventplot(&[summer_dates()?], EventplotOptions::default())?;
     let mut rng = SpecRng::new(19_680_801);

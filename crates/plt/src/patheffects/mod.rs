@@ -11,10 +11,12 @@
 //! use plt::prelude::*;
 //! use plt::patheffects::{GcUpdate, PathEffect, Stroke};
 //! let ax = Figure::new().subplot();
-//! let halo = Stroke::new(GcUpdate::default().linewidth(4.0).foreground("k")?);
+//! let halo = Stroke::new(GcUpdate::default().linewidth(4.0).foreground("k"));
 //! ax.text(0.5, 0.5, "outlined").set_path_effects(vec![PathEffect::with_stroke(halo)]);
-//! # Ok::<(), plt::colors::ColorError>(())
 //! ```
+//!
+//! Colours are resolved when drawn: an artist with an effect whose colour
+//! does not resolve is reported and not drawn.
 //!
 //! [`ArtistHandle::set_path_effects`]: crate::artist::ArtistHandle::set_path_effects
 
@@ -35,12 +37,12 @@ use crate::rc::RcValue;
 
 /// Changes an effect makes to the graphics state of the paths it draws
 /// (the keyword arguments matplotlib forwards to the graphics context).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct GcUpdate {
     /// Line width in points.
     pub linewidth: Option<f64>,
     /// Stroke colour.
-    pub foreground: Option<Rgba>,
+    pub foreground: Option<Color>,
     /// Opacity override.
     pub alpha: Option<f64>,
     /// Line end style.
@@ -60,11 +62,12 @@ impl GcUpdate {
     }
 
     /// Sets the stroke colour.
-    pub fn foreground(self, color: impl Into<Color>) -> Result<Self, ColorError> {
-        Ok(Self {
-            foreground: Some(color.into().resolve()?),
+    #[must_use]
+    pub fn foreground(self, color: impl Into<Color>) -> Self {
+        Self {
+            foreground: Some(color.into()),
             ..self
-        })
+        }
     }
 
     /// Sets the opacity override.
@@ -94,12 +97,13 @@ impl GcUpdate {
         }
     }
 
-    /// Writes the set properties into `gc` (`AbstractPathEffect._update_gc`).
-    fn apply(&self, gc: &mut GraphicsContext) {
+    /// Writes the set properties into `gc`, with `foreground` the stroke
+    /// colour resolved (`AbstractPathEffect._update_gc`).
+    fn apply(&self, gc: &mut GraphicsContext, foreground: Option<Rgba>) {
         if let Some(linewidth) = self.linewidth {
             gc.linewidth = linewidth;
         }
-        if let Some(foreground) = self.foreground {
+        if let Some(foreground) = foreground {
             gc.foreground = foreground;
         }
         if let Some(alpha) = self.alpha {
@@ -116,7 +120,7 @@ impl GcUpdate {
 
 /// Redraws the path stroked with an updated graphics state (matplotlib's
 /// `Stroke`).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Stroke {
     /// Offset of the stroke in points.
     pub offset: (f64, f64),
@@ -135,12 +139,12 @@ impl Stroke {
 }
 
 /// A shadow filled below the path (matplotlib's `SimplePatchShadow`).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PatchShadow {
     /// Offset of the shadow in points.
     pub offset: (f64, f64),
     /// Shadow colour; `None` darkens the face colour by `rho`.
-    pub color: Option<Rgba>,
+    pub color: Option<Color>,
     /// Shadow opacity.
     pub alpha: f64,
     /// Darkening factor of the face colour.
@@ -163,21 +167,22 @@ impl Default for PatchShadow {
 
 impl PatchShadow {
     /// The same shadow in an explicit colour.
-    pub fn with_color(self, color: impl Into<Color>) -> Result<Self, ColorError> {
-        Ok(Self {
-            color: Some(color.into().resolve()?),
+    #[must_use]
+    pub fn with_color(self, color: impl Into<Color>) -> Self {
+        Self {
+            color: Some(color.into()),
             ..self
-        })
+        }
     }
 }
 
 /// A shadow stroked below the path (matplotlib's `SimpleLineShadow`).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LineShadow {
     /// Offset of the shadow in points.
     pub offset: (f64, f64),
     /// Shadow colour; `None` darkens the stroke colour by `rho`.
-    pub color: Option<Rgba>,
+    pub color: Option<Color>,
     /// Shadow opacity.
     pub alpha: f64,
     /// Darkening factor of the stroke colour.
@@ -190,12 +195,21 @@ impl Default for LineShadow {
     fn default() -> Self {
         Self {
             offset: (2.0, -2.0),
-            color: Some(Rgba::BLACK),
+            color: Some(Color::from(Rgba::BLACK)),
             alpha: 0.3,
             rho: 0.3,
             gc: GcUpdate::default(),
         }
     }
+}
+
+/// The colours of an effect resolved for drawing, as matplotlib resolves
+/// them when it draws: the shadow colour and the stroke colour of the
+/// graphics state changes.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct EffectColors {
+    shadow: Option<Rgba>,
+    foreground: Option<Rgba>,
 }
 
 /// What an effect draws.
@@ -278,16 +292,39 @@ impl PathEffect {
         Self::of(Effect::PathPatch(patch), false)
     }
 
-    /// Draws `path` (mapped by `affine`) with the effect on `renderer`.
-    pub fn draw_path(
+    /// The colours of the effect, resolved.
+    ///
+    /// # Errors
+    ///
+    /// When one of them does not resolve.
+    fn colors(&self) -> Result<EffectColors, ColorError> {
+        let resolve = |color: Option<&Color>| color.map(Color::resolve).transpose();
+        let (shadow, gc) = match &self.effect {
+            Effect::Normal | Effect::PathPatch(_) => return Ok(EffectColors::default()),
+            Effect::Stroke(stroke) => (None, &stroke.gc),
+            Effect::PatchShadow(shadow) => (shadow.color.as_ref(), &shadow.gc),
+            Effect::LineShadow(shadow) => (shadow.color.as_ref(), &shadow.gc),
+            Effect::TickedStroke(ticks) => (None, &ticks.gc),
+        };
+        Ok(EffectColors {
+            shadow: resolve(shadow)?,
+            foreground: resolve(gc.foreground.as_ref())?,
+        })
+    }
+
+    /// Draws `path` (mapped by `affine`) with the effect on `renderer`, in
+    /// the effect's resolved `colors`.
+    fn draw_path(
         &self,
         renderer: &mut dyn Renderer,
         gc: &GraphicsContext,
         path: &Path,
         affine: &Affine2D,
         fill: Option<Rgba>,
+        colors: EffectColors,
     ) {
-        self.effect.draw_path(renderer, gc, path, affine, fill);
+        self.effect
+            .draw_path(renderer, gc, path, affine, fill, colors);
         if self.then_normal {
             renderer.draw_path(gc, path, affine, fill);
         }
@@ -315,18 +352,19 @@ impl Effect {
         path: &Path,
         affine: &Affine2D,
         fill: Option<Rgba>,
+        colors: EffectColors,
     ) {
         match self {
             Self::Normal => renderer.draw_path(gc, path, affine, fill),
             Self::Stroke(stroke) => {
                 let mut gc = gc.clone();
-                stroke.gc.apply(&mut gc);
+                stroke.gc.apply(&mut gc, colors.foreground);
                 let placed = offset_affine(renderer, affine, stroke.offset);
                 renderer.draw_path(&gc, path, &placed, fill);
             }
             Self::PatchShadow(shadow) => {
-                let face = shadow
-                    .color
+                let face = colors
+                    .shadow
                     .unwrap_or_else(|| darkened(fill.unwrap_or(Rgba::WHITE), shadow.rho));
                 let mut gc = GraphicsContext {
                     foreground: Rgba::TRANSPARENT,
@@ -334,24 +372,26 @@ impl Effect {
                     linewidth: 0.0,
                     ..gc.clone()
                 };
-                shadow.gc.apply(&mut gc);
+                shadow.gc.apply(&mut gc, colors.foreground);
                 let placed = offset_affine(renderer, affine, shadow.offset);
                 renderer.draw_path(&gc, path, &placed, Some(face));
             }
             Self::LineShadow(shadow) => {
-                let color = shadow
-                    .color
+                let color = colors
+                    .shadow
                     .unwrap_or_else(|| darkened(gc.foreground, shadow.rho));
                 let mut gc = GraphicsContext {
                     foreground: color,
                     alpha: Some(shadow.alpha),
                     ..gc.clone()
                 };
-                shadow.gc.apply(&mut gc);
+                shadow.gc.apply(&mut gc, colors.foreground);
                 let placed = offset_affine(renderer, affine, shadow.offset);
                 renderer.draw_path(&gc, path, &placed, None);
             }
-            Self::TickedStroke(ticks) => ticks.draw_path(renderer, gc, path, affine, fill),
+            Self::TickedStroke(ticks) => {
+                ticks.draw_path(renderer, gc, path, affine, fill, colors.foreground);
+            }
             Self::PathPatch(patch) => patch.draw_path(renderer, gc, path, affine),
         }
     }
@@ -383,19 +423,26 @@ impl RcValue for Vec<PathEffect> {
 }
 
 /// Runs `f` drawing through `effects`, or directly when there are none.
+///
+/// # Errors
+///
+/// When a colour of an effect does not resolve; nothing is drawn then.
 pub(crate) fn with_path_effects<R>(
     ctx: &mut DrawContext<'_>,
     effects: &[PathEffect],
     f: impl FnOnce(&mut DrawContext<'_>) -> R,
-) -> R {
+) -> Result<R, ColorError> {
     if effects.is_empty() {
-        return f(ctx);
+        return Ok(f(ctx));
     }
-    let effects = effects.to_vec();
-    ctx.with_wrapped_renderer(
-        move |renderer| Box::new(PathEffectRenderer::new(effects, renderer)),
+    let resolved = effects
+        .iter()
+        .map(|effect| effect.colors().map(|colors| (effect.clone(), colors)))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ctx.with_wrapped_renderer(
+        move |renderer| Box::new(PathEffectRenderer::resolved(resolved, renderer)),
         f,
-    )
+    ))
 }
 
 #[cfg(test)]

@@ -66,7 +66,7 @@ fn histogram_bihistogram(fig: &Figure) -> CaseResult {
 fn histogram_cumulative(fig: &Figure) -> CaseResult {
     let (mu, sigma) = (200.0, 25.0);
     let data = SpecRng::new(SEED).normal(100, mu, sigma);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots_shared(1, 2, Share::All, Share::All)?;
     let (ax0, ax1) = (&axs[(0, 0)], &axs[(0, 1)]);
     let step = |cumulative: Cumulative, label: &str, bins: Bins| HistPlotOptions {

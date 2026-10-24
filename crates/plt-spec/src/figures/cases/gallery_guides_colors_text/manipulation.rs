@@ -5,8 +5,7 @@
 
 use plt::axes::{ImshowOptions, Mesh, PcolorOptions};
 use plt::colorbar::ColorbarOptions;
-use plt::colors::{Colormap, Segment, SegmentData, colormaps};
-use plt::image::ColorizerOptions;
+use plt::colors::{ColorizerOptions, Colormap, Segment, SegmentData, colormaps};
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::prelude::*;
@@ -23,11 +22,11 @@ const ORANGE_TO_TEAL: [&str; 4] = ["darkorange", "gold", "lawngreen", "lightseag
 /// colorbar (the cases give the figure its `2 * n + 2` by 3 in size).
 fn plot_examples(fig: &Figure, cmaps: Vec<Colormap>) -> CaseResult {
     let data = Grid::from_vec(30, 30, SpecRng::new(GALLERY_SEED).normal(900, 0.0, 1.0))?;
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, cmaps.len())?;
     for (ax, cmap) in axs.as_slice().iter().zip(cmaps) {
         let options = PcolorOptions {
-            colors: ColorizerOptions::default()
+            colorizer: ColorizerOptions::default()
                 .cmap(cmap)
                 .limits(Some(-4.0), Some(4.0)),
             ..PcolorOptions::default()
@@ -117,7 +116,7 @@ fn cdict(red: Vec<[f64; 3]>) -> SegmentData {
 fn plot_linearmap(fig: &Figure, data: SegmentData) -> CaseResult {
     let newcmp = Colormap::segmented("testCmap", data, 256, 1.0)?;
     let rgba = samples(&newcmp, 0.0, 1.0, 256);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     for xx in [0.25, 0.5, 0.75] {
         ax.axvline(

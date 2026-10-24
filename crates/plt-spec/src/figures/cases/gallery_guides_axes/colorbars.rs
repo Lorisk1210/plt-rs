@@ -5,9 +5,9 @@
 use plt::axes::{ImshowOptions, Mesh, PcolorOptions};
 use plt::collections::Collection;
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::colormaps;
+use plt::colors::{ColorizerOptions, colormaps};
 use plt::figure::Share;
-use plt::image::{AxesImage, ColorizerOptions};
+use plt::image::AxesImage;
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::orientation::Orientation;
@@ -43,7 +43,7 @@ fn mesh(
     cmap: &str,
 ) -> Result<Collection, Box<dyn std::error::Error>> {
     let options = PcolorOptions {
-        colors: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
+        colorizer: ColorizerOptions::default().cmap(colormaps::get(cmap)?),
         ..PcolorOptions::default()
     };
     Ok(ax.pcolormesh(Mesh::new(values), options)?)
@@ -93,7 +93,7 @@ fn colorbar_placement_2(fig: &Figure) -> CaseResult {
 /// out by `layout`.
 fn summed_mesh(fig: &Figure, layout: Option<LayoutEngine>) -> CaseResult {
     let x = normal(&mut SpecRng::new(SEED), 20, 20)?;
-    fig.set_layout_engine(layout);
+    fig.set_layout_engine(layout)?;
     let axs = fig.subplots_shared(2, 1, Share::All, Share::None)?;
     let sums: Vec<f64> = (0..20)
         .map(|col| (0..20).map(|row| x[(row, col)]).sum())
@@ -120,7 +120,7 @@ fn colorbar_placement_4(fig: &Figure) -> CaseResult {
 
 fn colorbar_placement_5(fig: &Figure) -> CaseResult {
     let mut rng = SpecRng::new(SEED);
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(3, 3)?;
     let mut last = None;
     for ax in axs.as_slice() {
@@ -158,7 +158,7 @@ fn colorbar_placement_5(fig: &Figure) -> CaseResult {
 /// `layout`.
 fn padded_colorbars(fig: &Figure, layout: Option<LayoutEngine>, title: &str) -> CaseResult {
     let mut rng = SpecRng::new(SEED);
-    fig.set_layout_engine(layout);
+    fig.set_layout_engine(layout)?;
     let axs = fig.subplots(3, 1)?;
     for (ax, pad) in axs.as_slice().iter().zip([0.025, 0.05, 0.1]) {
         let pcm = mesh(ax, normal(&mut rng, 20, 20)?, "viridis")?;
@@ -190,7 +190,7 @@ fn colorbar_placement_7(fig: &Figure) -> CaseResult {
 /// A random mesh with a horizontal colorbar inset at `bounds`, in axes or
 /// (`in_data`) data coordinates.
 fn inset_colorbar(fig: &Figure, bounds: [f64; 4], in_data: bool) -> CaseResult {
-    fig.set_layout_engine(LayoutEngine::constrained());
+    fig.set_layout_engine(LayoutEngine::constrained())?;
     let ax = fig.subplot();
     let pcm = mesh(&ax, normal(&mut SpecRng::new(SEED), 20, 20)?, "viridis")?;
     ax.set_ylim(-4.0, 20.0);
@@ -223,7 +223,7 @@ fn random_image(
     fig: &Figure,
     layout: LayoutEngine,
 ) -> Result<(Axes, AxesImage), Box<dyn std::error::Error>> {
-    fig.set_layout_engine(layout);
+    fig.set_layout_engine(layout)?;
     let ax = fig.subplot();
     let image = ax.imshow(
         normal(&mut SpecRng::new(SEED), 10, 10)?,

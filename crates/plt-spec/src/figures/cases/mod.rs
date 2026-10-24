@@ -93,6 +93,7 @@ mod styles;
 mod text;
 mod ticks;
 mod toolkits;
+mod units;
 mod vectors;
 mod widgets;
 
@@ -245,6 +246,7 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_tests_marker::cases(),
         &mpl_tests_contour::cases(),
         &mpl_tests_backend_pgf::cases(),
+        &units::cases(),
     ]
     .concat()
 }

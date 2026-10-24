@@ -12,7 +12,7 @@ impl Axes {
     /// the data limits to cover it without autoscaling the view
     /// (matplotlib's `add_patch`). A shape given in plotting values, such
     /// as a [`DataRectangle`](crate::patches::DataRectangle), is converted
-    /// first.
+    /// first, and again when an axis changes unit.
     pub fn add_patch<S: IntoPatchShape>(&self, shape: S) -> Patch<S::Shape> {
         self.add_patch_with(shape, PatchProps::default())
     }
@@ -26,7 +26,9 @@ impl Axes {
         shape: S,
         props: PatchProps,
     ) -> Patch<S::Shape> {
+        let unit_source = shape.unit_source();
         let mut patch = PatchArtist::new(shape.into_shape(self), crate::rc::params());
+        patch.unit_source = unit_source;
         props.apply(&mut patch);
         // Like matplotlib's `_set_artist_props`, keep a transform the
         // shape already chose (a shadow inherits its source's).

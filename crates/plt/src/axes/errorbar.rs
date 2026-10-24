@@ -1,15 +1,13 @@
 //! Error bars (matplotlib's `errorbar`).
 
-use std::convert::Infallible;
 use std::f64::consts::FRAC_PI_2;
 use std::str::FromStr;
 
-use super::broadcast::{broadcast, broadcast_flags};
-use super::{Axes, AxesState, Axis, PlotError};
+use super::broadcast::broadcast_flags;
+use super::{Axes, AxesState, ErrorSize, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist};
 use crate::colors::Color;
-use crate::dates::TimeDelta;
 use crate::lines::{
     FormatString, FormatStringError, Line2D, LineArtist, LineProps, LineStyle, MarkEvery,
     PolarMarkerRotation,
@@ -17,98 +15,7 @@ use crate::lines::{
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
-use crate::units::{AxisDeltas, AxisValues};
-
-/// Error sizes along one axis (matplotlib's `xerr`/`yerr`): numbers,
-/// durations or user values ([`AxisDeltas`]), every list holding one
-/// value or one per point.
-#[derive(Clone, Debug, PartialEq)]
-pub enum ErrorSize {
-    /// The same error below and above.
-    Symmetric(AxisDeltas),
-    /// Separate errors below and above.
-    Asymmetric {
-        /// Errors below the values.
-        lower: AxisDeltas,
-        /// Errors above the values.
-        upper: AxisDeltas,
-    },
-}
-
-impl From<f64> for ErrorSize {
-    fn from(error: f64) -> Self {
-        Self::Symmetric(error.into())
-    }
-}
-
-impl From<Vec<f64>> for ErrorSize {
-    fn from(errors: Vec<f64>) -> Self {
-        Self::Symmetric(errors.into())
-    }
-}
-
-impl From<TimeDelta> for ErrorSize {
-    /// The same duration below and above, on a date axis (matplotlib's
-    /// `timedelta` errors).
-    fn from(error: TimeDelta) -> Self {
-        Self::Symmetric(error.into())
-    }
-}
-
-impl From<AxisDeltas> for ErrorSize {
-    fn from(errors: AxisDeltas) -> Self {
-        Self::Symmetric(errors)
-    }
-}
-
-impl ErrorSize {
-    /// The errors below and above, each list converted by `convert`.
-    pub(crate) fn sides<E>(
-        &self,
-        mut convert: impl FnMut(&AxisDeltas) -> Result<Vec<f64>, E>,
-    ) -> Result<(Vec<f64>, Vec<f64>), E> {
-        match self {
-            Self::Symmetric(errors) => {
-                let errors = convert(errors)?;
-                Ok((errors.clone(), errors))
-            }
-            Self::Asymmetric { lower, upper } => Ok((convert(lower)?, convert(upper)?)),
-        }
-    }
-
-    /// The sizes in axis numbers, each list converted by `convert`.
-    pub(crate) fn converted(&self, mut convert: impl FnMut(&AxisDeltas) -> Vec<f64>) -> Self {
-        let Ok((lower, upper)) = self.sides(|errors| Ok::<_, Infallible>(convert(errors)));
-        match self {
-            Self::Symmetric(_) => Self::Symmetric(lower.into()),
-            Self::Asymmetric { .. } => Self::Asymmetric {
-                lower: lower.into(),
-                upper: upper.into(),
-            },
-        }
-    }
-
-    /// `(lower, upper)` errors for `n` points along `axis`, converted by
-    /// themselves (see [`Axes::errorbar`]).
-    fn bounds(
-        &self,
-        argument: &'static str,
-        n: usize,
-        axis: &Axis,
-    ) -> Result<(Vec<f64>, Vec<f64>), PlotError> {
-        let (lower, upper) =
-            self.sides(|errors| Ok::<_, PlotError>(axis.convert_deltas(errors)))?;
-        let (lower, upper) = (
-            broadcast(argument, &lower, n)?,
-            broadcast(argument, &upper, n)?,
-        );
-        // NaN skips a bar; negative sizes are rejected.
-        if lower.iter().chain(&upper).any(|&e| e < 0.0) {
-            return Err(PlotError::NegativeErrors(argument));
-        }
-        Ok((lower, upper))
-    }
-}
+use crate::units::{AxisValue, AxisValues, UnitSources, UnitValues};
 
 /// How [`Axes::errorbar`] draws the data line (matplotlib's `fmt`);
 /// matplotlib's strings parse with [`str::parse`].
@@ -234,10 +141,51 @@ struct BarStyle {
     capthick: Option<f64>,
 }
 
+/// The points of a cap or limit-marker line, and the user values they
+/// came from (matplotlib's caps are lines of the values with units).
+struct CapPoints {
+    x: Vec<f64>,
+    y: Vec<f64>,
+    sources: UnitSources,
+}
+
+/// Values along one axis of the points of an error bar plot: the numbers
+/// drawn and the plotting values they came from.
+#[derive(Clone, Copy)]
+struct Series<'a> {
+    numbers: &'a [f64],
+    values: &'a [AxisValue],
+}
+
+impl Series<'_> {
+    /// The numbers and the user values where `mask` is set.
+    fn masked(self, mask: &[bool]) -> (Vec<f64>, Option<UnitValues>) {
+        let values = self
+            .values
+            .iter()
+            .zip(mask)
+            .filter_map(|(value, &keep)| keep.then_some(value));
+        (masked(self.numbers, mask), UnitValues::join(values))
+    }
+}
+
+/// The cap points at `x` and `y` where `mask` is set.
+fn cap_points(x: Series<'_>, y: Series<'_>, mask: &[bool]) -> CapPoints {
+    let ((x, x_sources), (y, y_sources)) = (x.masked(mask), y.masked(mask));
+    CapPoints {
+        x,
+        y,
+        sources: UnitSources {
+            x: x_sources,
+            y: y_sources,
+        },
+    }
+}
+
 impl BarStyle {
     /// A cap or limit-marker line with `marker` (matplotlib's
     /// `eb_cap_style`).
-    fn cap(&self, axes: &Axes, x: Vec<f64>, y: Vec<f64>, marker: MarkerSymbol) -> LineArtist {
+    fn cap(&self, axes: &Axes, points: CapPoints, marker: MarkerSymbol) -> LineArtist {
         let mut props = self
             .base
             .clone()
@@ -248,7 +196,8 @@ impl BarStyle {
             props.markersize = Some(2.0 * self.capsize);
         }
         props.markeredgewidth = self.capthick;
-        let mut line = LineArtist::new(x, y, crate::rc::params());
+        let mut line = LineArtist::new(points.x, points.y, crate::rc::params());
+        line.unit_sources = points.sources;
         props.apply(&mut line);
         line.base_mut().transform = Some(axes.trans_data());
         line
@@ -261,7 +210,7 @@ impl BarStyle {
     fn caps(
         &self,
         axes: &Axes,
-        (x, y): (Vec<f64>, Vec<f64>),
+        points: CapPoints,
         marker: MarkerSymbol,
         axis: AxisName,
     ) -> Vec<LineArtist> {
@@ -269,13 +218,20 @@ impl BarStyle {
             .raw()
             .with::<AxesState, _>(|state| state.polar().is_some())
         {
-            return vec![self.cap(axes, x, y, marker)];
+            return vec![self.cap(axes, points, marker)];
         }
         let extra = if axis == AxisName::Y { FRAC_PI_2 } else { 0.0 };
+        let CapPoints { x, y, sources } = points;
         x.into_iter()
             .zip(y)
-            .map(|(theta, r)| {
-                let mut line = self.cap(axes, vec![theta], vec![r], MarkerSymbol::HLine);
+            .enumerate()
+            .map(|(i, (theta, r))| {
+                let point = CapPoints {
+                    x: vec![theta],
+                    y: vec![r],
+                    sources: sources.item(i),
+                };
+                let mut line = self.cap(axes, point, MarkerSymbol::HLine);
                 line.marker_rotation = Some(PolarMarkerRotation { theta, extra });
                 line
             })
@@ -310,11 +266,15 @@ struct Direction {
 }
 
 impl Axes {
-    /// Points with error bars (matplotlib's `errorbar`). Error sizes
-    /// convert to axis numbers by themselves: durations in days, user
-    /// values by the axis converter (matplotlib adds them to the values in
-    /// their units instead, which comes to the same for converters that
-    /// scale and shift).
+    /// Points with error bars (matplotlib's `errorbar`). The bars end at
+    /// the values less and plus their errors in the units of the data, as
+    /// matplotlib computes them (`x + -1 * xerr`): numbers add to numbers,
+    /// durations to dates, and user errors to user values as their
+    /// [`Convertible::scale`](crate::units::Convertible::scale) and
+    /// [`add_delta`](crate::units::Convertible::add_delta) say; the ends
+    /// convert on the axis. Like matplotlib's, the data line and the caps
+    /// keep their user values, which convert again when the axis changes
+    /// unit, and the bars do not.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -329,14 +289,18 @@ impl Axes {
     /// # Errors
     ///
     /// When `x` and `y` differ in length, an error or limit list does not
-    /// broadcast, or errors are negative.
+    /// broadcast, errors are negative, or errors do not scale or add to
+    /// the values in their units (a number to a date, a duration to a
+    /// number, ...).
     pub fn errorbar(
         &self,
         x: impl Into<AxisValues>,
         y: impl Into<AxisValues>,
         mut options: ErrorbarOptions,
     ) -> Result<ErrorbarContainer, PlotError> {
-        let (x, y) = (self.xaxis().convert_units(x), self.yaxis().convert_units(y));
+        let (x_values, y_values) = (x.into(), y.into());
+        let x = self.xaxis().convert_plot_units(x_values.clone());
+        let y = self.yaxis().convert_plot_units(y_values.clone());
         let (x, y) = (x.as_slice(), y.as_slice());
         if x.len() != y.len() {
             return Err(PlotError::LengthMismatch {
@@ -364,6 +328,7 @@ impl Axes {
         let hidden = !options.fmt.draws_line();
         let format = options.fmt.line_props();
         let mut data = self.cycled_line(x.to_vec(), y.to_vec(), format.overlay(kwargs.clone()));
+        data.unit_sources = UnitSources::of(&x_values, &y_values);
         let color = if hidden {
             kwargs.color.clone().unwrap_or_else(|| Color::from("C0"))
         } else {
@@ -387,6 +352,16 @@ impl Axes {
                 .markeredgewidth
                 .or(options.capthick)
                 .or(rc.errorbar_capthick),
+        };
+        let item = |values: &AxisValues| (0..n).filter_map(|i| values.get(i)).collect::<Vec<_>>();
+        let (x_items, y_items) = (item(&x_values), item(&y_values));
+        let x = Series {
+            numbers: x,
+            values: &x_items,
+        };
+        let y = Series {
+            numbers: y,
+            values: &y_items,
         };
         let mut barlinecols = Vec::new();
         let mut caps = Vec::new();
@@ -443,25 +418,33 @@ impl Axes {
     fn error_direction(
         &self,
         direction: &Direction,
-        x: &[f64],
-        y: &[f64],
+        x: Series<'_>,
+        y: Series<'_>,
         every: &[bool],
         style: &BarStyle,
     ) -> Result<(Collection, Vec<LineArtist>), PlotError> {
         let along_x = direction.axis == AxisName::X;
         let (dep, indep) = if along_x { (x, y) } else { (y, x) };
-        let (lower, upper) = direction.err.bounds(
-            if along_x { "xerr" } else { "yerr" },
-            x.len(),
-            &self.axis_of(direction.axis),
-        )?;
-        // `dep - lower * !lolims` written so that NaN errors stay NaN.
-        let low: Vec<f64> = (0..x.len())
-            .map(|i| dep[i] + -(1.0 - indicator(direction.lolims[i])) * lower[i])
-            .collect();
-        let high: Vec<f64> = (0..x.len())
-            .map(|i| dep[i] + (1.0 - indicator(direction.uplims[i])) * upper[i])
-            .collect();
+        let argument = if along_x { "xerr" } else { "yerr" };
+        let (low_values, high_values) =
+            direction
+                .err
+                .ends(argument, dep.values, &direction.lolims, &direction.uplims)?;
+        let axis = self.axis_of(direction.axis);
+        let convert = |ends: &[AxisValue]| -> Vec<f64> {
+            ends.iter()
+                .map(|end| axis.convert_without_update(end))
+                .collect()
+        };
+        let (low, high) = (convert(&low_values), convert(&high_values));
+        let low = Series {
+            numbers: &low,
+            values: &low_values,
+        };
+        let high = Series {
+            numbers: &high,
+            values: &high_values,
+        };
         let orientation = if along_x {
             Orientation::Horizontal
         } else {
@@ -469,9 +452,9 @@ impl Axes {
         };
         let bars = self.segments(
             orientation,
-            &masked(indep, every),
-            &masked(&low, every),
-            &masked(&high, every),
+            &masked(indep.numbers, every),
+            &masked(low.numbers, every),
+            &masked(high.numbers, every),
         )?;
         style.style_bars(&bars);
         if along_x
@@ -488,11 +471,11 @@ impl Axes {
         }
 
         // Lines take `(x, y)`; the error values belong on the error axis.
-        let place = |positions: Vec<f64>, values: Vec<f64>| {
+        let place = |positions: Series<'_>, ends: Series<'_>, mask: &[bool]| {
             if along_x {
-                (values, positions)
+                cap_points(ends, positions, mask)
             } else {
-                (positions, values)
+                cap_points(positions, ends, mask)
             }
         };
         let (cap_marker, lo_marker, hi_marker) = if along_x {
@@ -509,20 +492,20 @@ impl Axes {
             )
         };
         let mut caps = Vec::new();
-        let nolims: Vec<bool> = (0..x.len())
+        let nolims: Vec<bool> = (0..every.len())
             .map(|i| !(direction.lolims[i] || direction.uplims[i]))
             .collect();
         if style.capsize > 0.0 && nolims.contains(&true) {
             let mask: Vec<bool> = nolims.iter().zip(every).map(|(&a, &b)| a && b).collect();
-            for ends in [&low, &high] {
-                let points = place(masked(indep, &mask), masked(ends, &mask));
+            for ends in [low, high] {
+                let points = place(indep, ends, &mask);
                 caps.extend(style.caps(self, points, cap_marker, direction.axis));
             }
         }
         let inverted = self.axis_of(direction.axis).inverted();
         for (upper_end, lims, ends) in [
-            (false, &direction.lolims, &high),
-            (true, &direction.uplims, &low),
+            (false, &direction.lolims, high),
+            (true, &direction.uplims, low),
         ] {
             if !lims.contains(&true) {
                 continue;
@@ -533,10 +516,10 @@ impl Axes {
                 lo_marker
             };
             let mask: Vec<bool> = lims.iter().zip(every).map(|(&a, &b)| a && b).collect();
-            let points = place(masked(indep, &mask), masked(ends, &mask));
+            let points = place(indep, ends, &mask);
             caps.extend(style.caps(self, points, marker, direction.axis));
             if style.capsize > 0.0 {
-                let points = (masked(x, &mask), masked(y, &mask));
+                let points = cap_points(x, y, &mask);
                 caps.extend(style.caps(self, points, cap_marker, direction.axis));
             }
         }
@@ -551,11 +534,6 @@ fn masked(values: &[f64], mask: &[bool]) -> Vec<f64> {
         .zip(mask)
         .filter_map(|(&value, &keep)| keep.then_some(value))
         .collect()
-}
-
-/// 1 for set flags, 0 otherwise.
-fn indicator(flag: bool) -> f64 {
-    f64::from(u8::from(flag))
 }
 
 /// `props` without the marker and line-style parts, which do not apply to

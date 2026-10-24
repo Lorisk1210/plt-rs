@@ -141,7 +141,7 @@ impl<'a> AngleAnnotation<'a> {
             (radius * cos, radius * sin),
             AnnotateOptions {
                 xycoords: Coords::Transform(around_center),
-                xytext: label.xytext.or(Some(Point::ORIGIN)),
+                xytext: label.xytext.or(Some(Point::ORIGIN.into())),
                 textcoords: Some("offset points".parse()?),
                 annotation_clip: Some(true),
                 ..label
@@ -349,7 +349,7 @@ fn angle_annotation_2(fig: &Figure) -> CaseResult {
         boxed,
     )?;
     let custom_arrow = AnnotateOptions {
-        xytext: Some(Point::new(30.0, 20.0)),
+        xytext: Some(Point::new(30.0, 20.0).into()),
         arrowprops: Some(ArrowProps::Fancy(arrow("->", "arc3,rad=-0.2")?)),
         ..AnnotateOptions::default()
     };

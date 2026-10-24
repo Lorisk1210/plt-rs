@@ -9,6 +9,7 @@ use super::{
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
+use crate::ticker::AxisName;
 
 /// A handle to a text artist (matplotlib's `Text`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,13 +57,19 @@ impl Text {
 
     /// Moves the text horizontally, keeping its y (matplotlib's `set_x`).
     pub fn set_x(&self, x: f64) -> &Self {
-        self.raw.with_mut::<TextArtist, _>(|t| t.position.x = x);
+        self.raw.with_mut::<TextArtist, _>(|t| {
+            t.position.x = x;
+            t.unit_sources.forget(AxisName::X);
+        });
         self
     }
 
     /// Moves the text vertically, keeping its x (matplotlib's `set_y`).
     pub fn set_y(&self, y: f64) -> &Self {
-        self.raw.with_mut::<TextArtist, _>(|t| t.position.y = y);
+        self.raw.with_mut::<TextArtist, _>(|t| {
+            t.position.y = y;
+            t.unit_sources.forget(AxisName::Y);
+        });
         self
     }
 
@@ -165,7 +172,7 @@ artist_properties! {
         /// The string shown (lines separated by `\n`).
         text, set_text: String;
         /// Position in the text's coordinate system.
-        position, set_position: Point;
+        position, set_position: Point => position_replaced;
         /// Text colour.
         color, set_color: Color;
         /// Counter-clockwise rotation in degrees.

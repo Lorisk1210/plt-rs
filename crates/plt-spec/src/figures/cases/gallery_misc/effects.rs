@@ -45,7 +45,7 @@ fn patheffect_demo(fig: &Figure) -> CaseResult {
         "test",
         (1.0, 1.0),
         AnnotateOptions {
-            xytext: Some(Point::new(0.0, 0.0)),
+            xytext: Some(Point::new(0.0, 0.0).into()),
             arrowprops: Some(ArrowProps::Fancy(arrow)),
             ..AnnotateOptions::default()
         },

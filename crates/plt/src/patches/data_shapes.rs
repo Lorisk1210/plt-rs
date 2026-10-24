@@ -1,12 +1,15 @@
 //! Patch shapes given in plotting values before unit conversion, which an
-//! axes converts to its numbers when the patch is added (matplotlib's
-//! patches made of values with units, which convert them through their
-//! axes: `Rectangle._convert_units`).
+//! axes converts to its numbers when the patch is added, and again when
+//! an axis changes unit (matplotlib's patches made of values with units,
+//! which convert them through their axes when drawn:
+//! `Rectangle._convert_units`).
+
+use plt_core::Point;
 
 use super::{PatchShape, Rectangle, ShapeError};
 use crate::axes::Axes;
 use crate::ticker::AxisName;
-use crate::units::{AxisDelta, DataPoint};
+use crate::units::{AxisDelta, DataPoint, UnitSources, UnitValues};
 
 /// What [`Axes::add_patch`] adds: a [`PatchShape`] in axis numbers, which
 /// it adds as it is, or a shape given in plotting values, such as a
@@ -17,6 +20,13 @@ pub trait IntoPatchShape {
 
     /// The shape in the axis numbers of `axes`.
     fn into_shape(self, axes: &Axes) -> Self::Shape;
+
+    /// The rectangle in plotting values the shape is made of, which the
+    /// patch keeps to convert again when an axis changes unit; none for
+    /// shapes in axis numbers.
+    fn unit_source(&self) -> Option<DataRectangle> {
+        None
+    }
 }
 
 impl<S: PatchShape> IntoPatchShape for S {
@@ -32,8 +42,11 @@ impl<S: PatchShape> IntoPatchShape for S {
 /// height, extents from it (matplotlib's `Rectangle` made of values with
 /// units). [`Axes::add_patch`] adds it as the [`Rectangle`] between its
 /// corner and its far corner, each converted as artists convert their
-/// values, which gives an axis without a converter one but leaves its
-/// unit alone (matplotlib's `Rectangle._convert_units`).
+/// values, which gives an axis without a converter one but neither its
+/// tick helpers nor a unit (matplotlib's `Rectangle._convert_units`).
+/// The patch converts the user values among them again when an axis
+/// changes unit, as matplotlib's rectangle converts them whenever it is
+/// drawn.
 ///
 /// ```
 /// use plt::dates::{DateTime, TimeDelta};
@@ -83,6 +96,51 @@ impl DataRectangle {
         };
         Ok(Self { corner, far_corner })
     }
+
+    /// The user values of the corner and of the far corner.
+    fn sources(&self) -> [UnitSources; 2] {
+        [
+            UnitSources::of_point(&self.corner),
+            UnitSources::of_point(&self.far_corner),
+        ]
+    }
+
+    /// The user values among the coordinates along axis `name`, the
+    /// corner's first.
+    pub(crate) fn unit_sources(&self, name: AxisName) -> Vec<UnitValues> {
+        self.sources()
+            .iter()
+            .filter_map(|sources| sources.along(name).cloned())
+            .collect()
+    }
+
+    /// Moves the sides of `rectangle`, converted from this rectangle,
+    /// along axis `name` to `numbers`: the values of
+    /// [`unit_sources`](Self::unit_sources) converted again. Coordinates
+    /// that are numbers, dates or category names stay.
+    pub(crate) fn reconvert(
+        &self,
+        name: AxisName,
+        rectangle: &mut Rectangle,
+        numbers: Vec<Vec<f64>>,
+    ) {
+        let [corner, far_corner] = self.sources();
+        let mut low = rectangle.xy;
+        let mut high = Point::new(low.x + rectangle.width, low.y + rectangle.height);
+        let mut numbers = numbers.into_iter();
+        corner.reconvert_point(name, &mut low, &mut numbers);
+        far_corner.reconvert_point(name, &mut high, &mut numbers);
+        match name {
+            AxisName::X => {
+                rectangle.xy.x = low.x;
+                rectangle.width = high.x - low.x;
+            }
+            AxisName::Y => {
+                rectangle.xy.y = low.y;
+                rectangle.height = high.y - low.y;
+            }
+        }
+    }
 }
 
 impl IntoPatchShape for DataRectangle {
@@ -95,6 +153,10 @@ impl IntoPatchShape for DataRectangle {
         let x1 = xaxis.convert_without_update(&self.far_corner.x);
         let y1 = yaxis.convert_without_update(&self.far_corner.y);
         Rectangle::new((x0, y0), x1 - x0, y1 - y0)
+    }
+
+    fn unit_source(&self) -> Option<DataRectangle> {
+        Some(self.clone())
     }
 }
 

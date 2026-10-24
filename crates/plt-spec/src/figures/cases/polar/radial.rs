@@ -115,7 +115,7 @@ fn annotated(fig: &Figure) -> CaseResult {
         "peak",
         (0.0, 3.0),
         AnnotateOptions {
-            xytext: Some(Point::new(PI / 4.0, 3.6)),
+            xytext: Some(Point::new(PI / 4.0, 3.6).into()),
             arrowprops: Some(ArrowProps::Fancy(arrow)),
             ..AnnotateOptions::default()
         },

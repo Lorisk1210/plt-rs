@@ -41,7 +41,7 @@ fn patheffect1(fig: &Figure) -> CaseResult {
         ..FancyArrowProps::new("->".parse()?)
     };
     let options = AnnotateOptions {
-        xytext: Some(Point::new(0.0, 0.0)),
+        xytext: Some(Point::new(0.0, 0.0).into()),
         arrowprops: Some(ArrowProps::Fancy(arrow)),
         ..AnnotateOptions::default()
     };

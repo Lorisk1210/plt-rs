@@ -26,7 +26,7 @@ fn signed_annotations(fig: &Figure, unit: &str, placements: [SignedPlacement; 3]
         let coords: Coords = format!("{unit} {name}").parse()?;
         for (sign, xy) in [('+', positive), ('-', negative)] {
             let options = AnnotateOptions {
-                xytext: Some(Point::from(xy)),
+                xytext: Some(Point::from(xy).into()),
                 xycoords: coords.clone(),
                 textcoords: Some(coords.clone()),
                 ..AnnotateOptions::default()
@@ -134,7 +134,7 @@ fn annotation_units(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.plot_fmt(vec![when], [1.0], "o")?;
     let options = AnnotateOptions {
-        xytext: Some(Point::new(0.0, 0.0)),
+        xytext: Some(Point::new(0.0, 0.0).into()),
         xycoords: Coords::blended(Coords::Data, "axes fraction".parse()?),
         textcoords: Some("offset points".parse()?),
         ..AnnotateOptions::default()
@@ -165,7 +165,7 @@ fn offsetfrom(fig: &Figure, from_line: bool) -> CaseResult {
     let line = ax.plot([0.0, 2.0], [0.0, 2.0])?;
     let (xy, options) = if from_line {
         let options = AnnotateOptions {
-            xytext: Some(Point::new(10.0, 0.0)),
+            xytext: Some(Point::new(10.0, 0.0).into()),
             textcoords: Some(Coords::OffsetFrom {
                 artist: line.id(),
                 reference: Point::new(0.5, 0.5),
@@ -176,7 +176,7 @@ fn offsetfrom(fig: &Figure, from_line: bool) -> CaseResult {
         ((0.0, 0.0), options)
     } else {
         let options = AnnotateOptions {
-            xytext: Some(Point::new(10.0, 0.0)),
+            xytext: Some(Point::new(10.0, 0.0).into()),
             xycoords: Coords::Artist(line.id()),
             textcoords: Some("offset points".parse()?),
             ..AnnotateOptions::default()

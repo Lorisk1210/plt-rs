@@ -18,7 +18,9 @@ use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::text::{AnnotateOptions, HAlign, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::{FormatStrFormatter, IndexLocator};
-use plt::units::{AxisDeltas, AxisInfo, ConversionError, ConversionInterface, Convertible};
+use plt::units::{
+    AxisDeltas, AxisInfo, ConversionError, ConversionInterface, Convertible, DataPoint,
+};
 
 use crate::figures::cases::common::{black_arrow, map};
 use crate::figures::{CaseResult, FigureCase};
@@ -29,9 +31,8 @@ use crate::user_units::basic_units::{
 fn annotate_with_units(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.annotate("Note 01", (0.5 * CM, 0.5 * CM), AnnotateOptions::default())?;
-    let text_in_data = ax.convert_point((0.8 * CM, 0.95 * CM));
     for (xytext, textcoords) in [
-        (text_in_data, "data"),
+        (DataPoint::from((0.8 * CM, 0.95 * CM)), "data"),
         ((0.8, 0.95).into(), "axes fraction"),
     ] {
         ax.annotate(

@@ -56,6 +56,28 @@ impl AxisDelta {
             Self::Number(_) | Self::Duration(_) => None,
         }
     }
+
+    /// The extent `factor` times, if it scales (Python's `factor *
+    /// delta`): numbers and durations do, user values as their
+    /// [`Convertible::scale`] says.
+    pub(crate) fn scale(&self, factor: i64) -> Option<Self> {
+        match self {
+            Self::Number(delta) => Some(Self::Number(factor as f64 * delta)),
+            Self::Duration(duration) => duration.checked_mul(factor).map(Self::Duration),
+            Self::Custom(value) => value.scale(factor).map(Self::Custom),
+        }
+    }
+
+    /// Whether the extent is below zero, which error sizes may not be:
+    /// numbers and durations can be, user values have no order here
+    /// (matplotlib compares them with `err < -err`).
+    pub(crate) fn is_negative(&self) -> bool {
+        match self {
+            Self::Number(delta) => *delta < 0.0,
+            Self::Duration(duration) => duration.total_micros() < 0,
+            Self::Custom(_) => false,
+        }
+    }
 }
 
 impl From<f64> for AxisDelta {
@@ -308,6 +330,33 @@ mod tests {
         assert_eq!(
             AxisDeltas::from(UnitValues::new(vec![Metres(1.0)])).len(),
             1
+        );
+    }
+
+    #[test]
+    fn extents_scale_and_tell_their_sign() {
+        let hour = TimeDelta::new(0, 3600, 0).expect("a duration");
+        assert_eq!(
+            AxisDelta::from(hour).scale(-2),
+            Some(AxisDelta::from(
+                TimeDelta::new(0, -7200, 0).expect("a duration")
+            ))
+        );
+        assert_eq!(
+            AxisDelta::from(0.5).scale(-1),
+            Some(AxisDelta::Number(-0.5))
+        );
+        assert_eq!(
+            AxisDelta::from(Metres(1.0)).scale(2),
+            None,
+            "no scale given"
+        );
+        assert!(AxisDelta::from(-0.5).is_negative());
+        assert!(!AxisDelta::from(f64::NAN).is_negative());
+        assert!(AxisDelta::from(TimeDelta::new(-1, 0, 0).expect("a duration")).is_negative());
+        assert!(
+            !AxisDelta::from(Metres(-1.0)).is_negative(),
+            "user values have no order"
         );
     }
 }

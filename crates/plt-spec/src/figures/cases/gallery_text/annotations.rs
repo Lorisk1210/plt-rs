@@ -80,7 +80,7 @@ fn annotation_demo_1(fig: &Figure) -> CaseResult {
         "pixel offset from axes fraction",
         (1.0, 0.0),
         AnnotateOptions {
-            xytext: Some(Point::new(-20.0, 20.0)),
+            xytext: Some(Point::new(-20.0, 20.0).into()),
             textcoords: Some("offset pixels".parse()?),
             ..at("axes fraction")?
         },
@@ -104,7 +104,7 @@ fn annotation_demo_3(fig: &Figure) -> CaseResult {
         "the top",
         (FRAC_PI_2, 10.0),
         AnnotateOptions {
-            xytext: Some(Point::new(FRAC_PI_3, 20.0)),
+            xytext: Some(Point::new(FRAC_PI_3, 20.0).into()),
             xycoords: Coords::Polar,
             textcoords: Some(Coords::Polar),
             arrowprops: Some(black_arrow()),
@@ -256,7 +256,7 @@ fn annotation_demo_4(fig: &Figure) -> CaseResult {
         "",
         (4.0, 1.0),
         AnnotateOptions {
-            xytext: Some(Point::new(4.5, -1.0)),
+            xytext: Some(Point::new(4.5, -1.0).into()),
             textcoords: Some(Coords::Data),
             arrowprops: Some(ArrowProps::Fancy(FancyArrowProps {
                 shrink_a: 5.0,

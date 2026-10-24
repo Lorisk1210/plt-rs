@@ -3,7 +3,7 @@
 
 use super::{Disc, Sheared};
 use crate::artist::ArtistHandle;
-use crate::axes::{Axes, AxisName, ProjectionKind};
+use crate::axes::{Axes, AxisName, PlotError, ProjectionKind};
 use crate::figure::{Figure, Mosaic, MosaicError, MosaicOptions, Share};
 use crate::projections::{
     Projection, ProjectionError, ProjectionSpec, ProjectionView, register, register_with,
@@ -99,11 +99,23 @@ fn grids_take_registered_projections() {
     assert_eq!(labels(&axs[(0, 1)]), 0, "inner labels of rectangles go");
     assert!(labels(&axs[(1, 1)]) > 0);
 
-    let disc = register(|| Disc).unwrap();
-    let discs = Figure::new()
-        .subplots_with_projection(2, 1, Share::All, Share::None, disc)
+    let polar = Figure::new()
+        .subplots_with_projection(2, 1, Share::All, Share::None, ProjectionKind::Polar)
         .unwrap();
-    assert!(labels(&discs[(0, 0)]) > 0, "curved outlines keep theirs");
+    assert!(labels(&polar[(0, 0)]) > 0, "curved outlines keep theirs");
+
+    let disc = register(|| Disc).unwrap();
+    let discs = Figure::new();
+    assert_eq!(
+        discs.subplots_with_projection(2, 1, Share::All, Share::None, disc),
+        Err(ProjectionError::Share(PlotError::FixedLimits(AxisName::X))),
+        "fixed limits cannot be shared"
+    );
+    assert_eq!(
+        discs.axes().len(),
+        1,
+        "the axes failing to share is removed"
+    );
 
     let nowhere = ProjectionKind::Registered("nowhere");
     assert_eq!(

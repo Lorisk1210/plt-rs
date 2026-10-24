@@ -29,7 +29,7 @@ fn fancyarrow(fig: &Figure) -> CaseResult {
                 ..FancyArrowProps::new(style.parse::<ArrowStyle>()?)
             };
             let options = AnnotateOptions {
-                xytext: Some(Point::new(0.5, 0.5)),
+                xytext: Some(Point::new(0.5, 0.5).into()),
                 arrowprops: Some(ArrowProps::Fancy(arrow)),
                 ..AnnotateOptions::default()
             };

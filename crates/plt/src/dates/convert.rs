@@ -66,11 +66,7 @@ impl Epoch {
     /// assert_eq!(Epoch::default().date2num(noon), 0.5);
     /// ```
     pub fn date2num(&self, utc: DateTime) -> f64 {
-        let micros = utc.timestamp_micros();
-        self.datetime64_to_num(Datetime64::new(
-            micros.div_euclid(MICROS_PER_SECOND),
-            (micros.rem_euclid(MICROS_PER_SECOND) * 1000) as u32,
-        ))
+        self.micros_to_num(utc.timestamp_micros())
     }
 
     /// The date number of a numpy `datetime64` value: whole seconds from
@@ -79,6 +75,48 @@ impl Epoch {
     pub fn datetime64_to_num(&self, value: Datetime64) -> f64 {
         let seconds = (value.seconds() - self.instant.seconds()) as f64;
         (seconds + f64::from(value.subsec_nanos()) / 1e9) / SECONDS_PER_DAY
+    }
+
+    /// Date number `x` moved by `duration` as Python's `datetime +
+    /// timedelta` moves the date-time it stands for, whose date number
+    /// matplotlib then takes: on whole microseconds when `x` is the date
+    /// number of a whole microsecond (as those of [`DateTime`]s are), on
+    /// the numbers otherwise. Adding the days to the date number instead
+    /// can round to a neighbouring number.
+    ///
+    /// ```
+    /// use plt::dates::{DateTime, Epoch, TimeDelta};
+    /// let epoch = Epoch::default();
+    /// let start = epoch.date2num(DateTime::new(2020, 5, 1, 0, 0, 1, 0)?);
+    /// let eight_hours = TimeDelta::new(0, 8 * 3600, 0)?;
+    /// let end = epoch.date2num(DateTime::new(2020, 5, 1, 8, 0, 1, 0)?);
+    /// assert_eq!(epoch.add_duration(start, eight_hours), end);
+    /// assert_ne!(start + 8.0 / 24.0, end);
+    /// # Ok::<(), plt::dates::DateError>(())
+    /// ```
+    pub fn add_duration(&self, x: f64, duration: TimeDelta) -> f64 {
+        // Date numbers count from the whole seconds of the epoch.
+        let since_epoch = (x * MICROSECONDS_PER_DAY).round_ties_even();
+        let epoch = self.instant.seconds().checked_mul(MICROS_PER_SECOND);
+        let start = epoch
+            .filter(|_| since_epoch.abs() < 9.223_372_036_854_775e18)
+            .and_then(|epoch| epoch.checked_add(since_epoch as i64));
+        let end = start
+            .filter(|&micros| self.micros_to_num(micros).to_bits() == x.to_bits())
+            .and_then(|micros| micros.checked_add(duration.total_micros()));
+        match end {
+            Some(micros) => self.micros_to_num(micros),
+            None => x + duration.total_micros() as f64 / MICROSECONDS_PER_DAY,
+        }
+    }
+
+    /// The date number of the instant `micros` microseconds from
+    /// 1970-01-01.
+    fn micros_to_num(&self, micros: i64) -> f64 {
+        self.datetime64_to_num(Datetime64::new(
+            micros.div_euclid(MICROS_PER_SECOND),
+            (micros.rem_euclid(MICROS_PER_SECOND) * 1000) as u32,
+        ))
     }
 
     /// The date-time in `tz` of date number `x` (matplotlib's

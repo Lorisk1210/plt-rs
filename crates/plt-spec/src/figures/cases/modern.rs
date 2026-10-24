@@ -233,7 +233,7 @@ fn annotations(fig: &Figure) -> CaseResult {
     };
     ax.errorbar(&x, &y, errors)?;
     let arrow = AnnotateOptions {
-        xytext: Some(Point::new(2.5, -0.8)),
+        xytext: Some(Point::new(2.5, -0.8).into()),
         arrowprops: Some(ArrowProps::Fancy("->".parse::<FancyArrowProps>()?)),
         ..AnnotateOptions::default()
     };

@@ -100,7 +100,7 @@ pub(super) const CASES: &[FigureCase] = &[
             "",
             Point::new(x[150], y[150]),
             AnnotateOptions {
-                xytext: Some(Point::new(1.0, 0.0)),
+                xytext: Some(Point::new(1.0, 0.0).into()),
                 xycoords: Coords::Transform(ax.trans_data()),
                 textcoords: Some(Coords::Transform(axins.trans_axes())),
                 arrowprops: Some(ArrowProps::Fancy(arrow)),

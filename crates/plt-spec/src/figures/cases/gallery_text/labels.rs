@@ -92,7 +92,7 @@ fn label_subplots_1(fig: &Figure) -> CaseResult {
             (0.0, 1.0),
             AnnotateOptions {
                 xycoords: "axes fraction".parse()?,
-                xytext: Some(Point::new(0.5, -0.5)),
+                xytext: Some(Point::new(0.5, -0.5).into()),
                 textcoords: Some("offset fontsize".parse()?),
                 ..AnnotateOptions::default()
             },
@@ -163,7 +163,7 @@ fn text_commands(fig: &Figure) -> CaseResult {
         "annotate",
         (2.0, 1.0),
         AnnotateOptions {
-            xytext: Some(Point::new(3.0, 4.0)),
+            xytext: Some(Point::new(3.0, 4.0).into()),
             arrowprops: Some(black_arrow()),
             ..AnnotateOptions::default()
         },

@@ -168,7 +168,7 @@ fn simple_axis_pad(fig: &Figure) -> CaseResult {
                 note,
                 (0.5, 1.0),
                 AnnotateOptions {
-                    xytext: Some(Point::new(5.0, -5.0)),
+                    xytext: Some(Point::new(5.0, -5.0).into()),
                     xycoords: "axes fraction".parse()?,
                     textcoords: Some("offset points".parse()?),
                     ..AnnotateOptions::default()

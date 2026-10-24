@@ -11,6 +11,7 @@ use plt::text::{
     AnnotateOptions, Annotation, ArrowProps, HAlign, LegacyArrowProps, Text, TextRotationMode,
     VAlign,
 };
+use plt::units::DataPoint;
 use plt_core::Point;
 
 use super::extent;
@@ -70,7 +71,7 @@ fn placed(
 ) -> Result<AnnotateOptions, ProbeError> {
     let parse = |name: &str| name.parse().map_err(ProbeError::rejected);
     Ok(AnnotateOptions {
-        xytext: xytext.map(Point::from),
+        xytext: xytext.map(DataPoint::from),
         xycoords: parse(xycoords)?,
         textcoords: textcoords.map(parse).transpose()?,
         ..AnnotateOptions::default()

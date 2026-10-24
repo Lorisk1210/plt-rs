@@ -9,7 +9,7 @@ use plt_text::HAlign;
 
 use super::{AxesRectError, Figure, FigureState, axes_bounds};
 use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
-use crate::axes::{Axes, AxesState, AxisName};
+use crate::axes::{Axes, AxesState, AxisName, share_free};
 use crate::fonts::FontProperties;
 use crate::gridspec::{GridSpec, GridSpecError, SubplotSpec};
 use crate::numeric::Grid;
@@ -244,7 +244,16 @@ impl Figure {
         sharex: Share,
         sharey: Share,
     ) -> Result<Grid<Axes>, GridSpecError> {
-        Self::subplots_made(grid, sharex, sharey, |spec| self.add_subplot_spec(spec))
+        Self::subplots_made(
+            grid,
+            sharex,
+            sharey,
+            |spec| self.add_subplot_spec(spec),
+            |axes, name, target| {
+                share_free(axes, name, target);
+                Ok(())
+            },
+        )
     }
 
     /// A grid of axes with `projection`, sharing their x and y axes as
@@ -292,8 +301,11 @@ impl Figure {
     /// thread and [`ProjectionError::Options`] for options it does not
     /// take, before any axes is added; [`ProjectionError::SetUp`] when it
     /// fails to set an axes up, which leaves the axes made before;
-    /// [`ProjectionError::Grid`] when the subplot parameters leave no room
-    /// for a cell.
+    /// [`ProjectionError::Share`] when axes of a projection fixing their
+    /// limits, such as the geographic ones, are to share an axis (the
+    /// axes that would share is not added, as matplotlib fails to make
+    /// it); [`ProjectionError::Grid`] when the subplot parameters leave no
+    /// room for a cell.
     pub fn subplots_on_with_projection(
         &self,
         grid: &GridSpec,
@@ -303,28 +315,40 @@ impl Figure {
     ) -> Result<Grid<Axes>, ProjectionError> {
         let projection = projection.into();
         projection.check()?;
-        Self::subplots_made(grid, sharex, sharey, |spec| {
-            self.add_subplot_spec_with_projection(spec, projection.clone())
-        })
+        Self::subplots_made(
+            grid,
+            sharex,
+            sharey,
+            |spec| self.add_subplot_spec_with_projection(spec, projection.clone()),
+            |axes, name, target| {
+                axes.share(name, target).map_err(ProjectionError::Share)?;
+                Ok(())
+            },
+        )
     }
 
-    /// One axes made by `make` per cell of `grid`, sharing axes as
-    /// requested; see [`subplots_on`](Self::subplots_on).
+    /// One axes made by `make` per cell of `grid`, each made to share an
+    /// axis with an axes made before it by `share` as requested; an axes
+    /// failing to share is removed and the error returned. See
+    /// [`subplots_on`](Self::subplots_on).
     pub(crate) fn subplots_made<E: From<GridSpecError>>(
         grid: &GridSpec,
         sharex: Share,
         sharey: Share,
         make: impl Fn(&SubplotSpec) -> Result<Axes, E>,
+        share: impl Fn(&Axes, AxisName, &Axes) -> Result<(), E>,
     ) -> Result<Grid<Axes>, E> {
         let (nrows, ncols) = grid.shape();
         let mut cells: Vec<Axes> = Vec::with_capacity(nrows * ncols);
         for row in 0..nrows {
             for col in 0..ncols {
                 let axes = make(&grid.cell(row, col)?)?;
-                for (share, name) in [(sharex, AxisName::X), (sharey, AxisName::Y)] {
-                    if let Some(target) = share.target(row, col, ncols) {
-                        axes.share(name, &cells[target])
-                            .expect("a new axes in this figure shares nothing yet");
+                for (kind, name) in [(sharex, AxisName::X), (sharey, AxisName::Y)] {
+                    if let Some(target) = kind.target(row, col, ncols)
+                        && let Err(err) = share(&axes, name, &cells[target])
+                    {
+                        axes.remove();
+                        return Err(err);
                     }
                 }
                 cells.push(axes);

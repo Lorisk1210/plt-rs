@@ -72,8 +72,9 @@ pub enum Axes3DError {
     Not3DArtist,
     /// The axis does not label its major ticks with a `ScalarFormatter`.
     NotScalarFormatter(Axis3),
-    /// Error sizes along the axis are values of a user type, which 3-D
-    /// axes do not convert.
+    /// Error sizes along the axis are durations or values of a user type,
+    /// which do not add to the numbers 3-D axes plot (matplotlib's
+    /// `TypeError` from `data - err`).
     UnitErrors(Axis3),
 }
 
@@ -121,7 +122,7 @@ impl fmt::Display for Axes3DError {
             ),
             Self::UnitErrors(axis) => write!(
                 f,
-                "the {}-axis error sizes have units, which 3-D axes do not convert",
+                "the {}-axis error sizes have units, which do not add to the numbers of 3-D axes",
                 axis.name()
             ),
             Self::Scale(err) => err.fmt(f),

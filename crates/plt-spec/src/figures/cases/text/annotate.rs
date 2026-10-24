@@ -11,6 +11,7 @@ use plt::text::{
     AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, LegacyArrowProps, TextBoxProps, VAlign,
 };
 use plt::transforms::Point;
+use plt::units::DataPoint;
 
 use super::blank;
 use crate::figures::{CaseResult, FigureCase};
@@ -134,7 +135,7 @@ fn coord_kinds(ax: &Axes) -> CaseResult {
             note.text,
             note.xy,
             AnnotateOptions {
-                xytext: note.xytext.map(Point::from),
+                xytext: note.xytext.map(DataPoint::from),
                 xycoords: coords(note.xycoords)?,
                 textcoords: note.textcoords.map(coords).transpose()?,
                 arrowprops: if note.arrow { arrowprops("->")? } else { None },
@@ -161,7 +162,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "peak",
             (1.0, 1.0),
             AnnotateOptions {
-                xytext: Some(Point::new(0.2, 0.5)),
+                xytext: Some(Point::new(0.2, 0.5).into()),
                 textcoords: Some(coords("axes fraction")?),
                 arrowprops: arrowprops("->")?,
                 ..AnnotateOptions::default()
@@ -172,7 +173,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "from text",
             (1.0, 0.0),
             AnnotateOptions {
-                xytext: Some(Point::new(0.0, -40.0)),
+                xytext: Some(Point::new(0.0, -40.0).into()),
                 xycoords: Coords::Artist(peak.id()),
                 textcoords: Some(coords("offset points")?),
                 arrowprops: arrowprops("<-")?,
@@ -184,7 +185,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "outside xlim",
             (2.4, 0.5),
             AnnotateOptions {
-                xytext: Some(Point::new(0.6, 0.85)),
+                xytext: Some(Point::new(0.6, 0.85).into()),
                 textcoords: Some(coords("axes fraction")?),
                 arrowprops: arrowprops("->")?,
                 annotation_clip: Some(false),
@@ -207,7 +208,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 style,
                 (x + 3.0, y),
                 AnnotateOptions {
-                    xytext: Some(Point::new(x, y)),
+                    xytext: Some(Point::new(x, y).into()),
                     arrowprops: Some(ArrowProps::Fancy(props)),
                     ..AnnotateOptions::default()
                 },
@@ -231,7 +232,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 style,
                 (x + 3.5, y),
                 AnnotateOptions {
-                    xytext: Some(Point::new(x, y)),
+                    xytext: Some(Point::new(x, y).into()),
                     arrowprops: Some(ArrowProps::Fancy(props)),
                     ..AnnotateOptions::default()
                 },
@@ -266,7 +267,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 name,
                 (x + 4.0, y),
                 AnnotateOptions {
-                    xytext: Some(Point::new(x, y)),
+                    xytext: Some(Point::new(x, y).into()),
                     arrowprops: Some(ArrowProps::Fancy(props)),
                     ..AnnotateOptions::default()
                 },
@@ -309,7 +310,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 "",
                 (0.2, 0.2),
                 AnnotateOptions {
-                    xytext: Some(Point::new(0.8, 0.8)),
+                    xytext: Some(Point::new(0.8, 0.8).into()),
                     arrowprops: Some(ArrowProps::Fancy(props)),
                     ..AnnotateOptions::default()
                 },
@@ -338,7 +339,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 format!("shrinkA={sa} shrinkB={sb}"),
                 (8.0, y),
                 AnnotateOptions {
-                    xytext: Some(Point::new(1.0, y)),
+                    xytext: Some(Point::new(1.0, y).into()),
                     arrowprops: Some(ArrowProps::Fancy(props)),
                     ..AnnotateOptions::default()
                 },
@@ -353,7 +354,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "boxed",
             (9.0, 1.0),
             AnnotateOptions {
-                xytext: Some(Point::new(6.0, 2.5)),
+                xytext: Some(Point::new(6.0, 2.5).into()),
                 arrowprops: Some(ArrowProps::Fancy(props)),
                 ..AnnotateOptions::default()
             },
@@ -368,7 +369,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "default dict",
             (8.0, 8.0),
             AnnotateOptions {
-                xytext: Some(Point::new(1.0, 7.0)),
+                xytext: Some(Point::new(1.0, 7.0).into()),
                 arrowprops: Some(ArrowProps::Legacy(LegacyArrowProps::default())),
                 ..AnnotateOptions::default()
             },
@@ -385,7 +386,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             "width/headwidth",
             (8.0, 4.0),
             AnnotateOptions {
-                xytext: Some(Point::new(1.0, 3.0)),
+                xytext: Some(Point::new(1.0, 3.0).into()),
                 arrowprops: Some(ArrowProps::Legacy(legacy)),
                 ..AnnotateOptions::default()
             },

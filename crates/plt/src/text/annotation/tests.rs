@@ -19,7 +19,7 @@ fn offset_text_is_placed_from_the_point() {
             "a",
             (5.0, 5.0),
             AnnotateOptions {
-                xytext: Some(Point::new(10.0, 20.0)),
+                xytext: Some(Point::new(10.0, 20.0).into()),
                 textcoords: Some("offset points".parse().expect("valid coords")),
                 ..AnnotateOptions::default()
             },
@@ -50,7 +50,7 @@ fn the_annotated_point_cannot_be_an_offset() {
 fn points_outside_the_axes_hide_data_annotations() {
     let (_fig, ax) = data_axes();
     let options = || AnnotateOptions {
-        xytext: Some(Point::new(5.0, 5.0)),
+        xytext: Some(Point::new(5.0, 5.0).into()),
         ..AnnotateOptions::default()
     };
     let hidden = ax
@@ -80,7 +80,7 @@ fn arrows_reach_the_point_and_widen_the_extent() {
             "text",
             (8.0, 8.0),
             AnnotateOptions {
-                xytext: Some(Point::new(1.0, 1.0)),
+                xytext: Some(Point::new(1.0, 1.0).into()),
                 arrowprops: Some(arrow("-|>")),
                 ..AnnotateOptions::default()
             },
@@ -113,7 +113,7 @@ fn legacy_arrows_are_filled_in_their_face_colour() {
         "",
         (8.0, 8.0),
         AnnotateOptions {
-            xytext: Some(Point::new(1.0, 1.0)),
+            xytext: Some(Point::new(1.0, 1.0).into()),
             arrowprops: Some(ArrowProps::Legacy(legacy)),
             ..AnnotateOptions::default()
         },
@@ -164,7 +164,7 @@ fn arrow_end(ax: &Axes, patch_b: Option<crate::artist::ArtistId>) -> f64 {
             "",
             (9.0, 5.0),
             AnnotateOptions {
-                xytext: Some(Point::new(1.0, 5.0)),
+                xytext: Some(Point::new(1.0, 5.0).into()),
                 arrowprops: Some(ArrowProps::Fancy(props)),
                 ..AnnotateOptions::default()
             },
@@ -214,7 +214,7 @@ fn text_can_be_offset_from_another_artist() {
         .annotate("anchor", (5.0, 5.0), AnnotateOptions::default())
         .expect("annotated");
     let options = AnnotateOptions {
-        xytext: Some(Point::new(0.0, 0.0)),
+        xytext: Some(Point::new(0.0, 0.0).into()),
         textcoords: Some(crate::coords::Coords::OffsetFrom {
             artist: anchor.id(),
             reference: Point::new(0.5, 0.0),
@@ -252,7 +252,7 @@ fn arrows_are_measured_at_their_last_drawn_resolution() {
             "a",
             (5.0, 5.0),
             AnnotateOptions {
-                xytext: Some(Point::new(1.0, 1.0)),
+                xytext: Some(Point::new(1.0, 1.0).into()),
                 arrowprops: Some(arrow("simple")),
                 ..AnnotateOptions::default()
             },
@@ -284,7 +284,7 @@ fn arrow_start(ax: &Axes, patch_a: ArrowStart) -> f64 {
             "start",
             (9.0, 5.0),
             AnnotateOptions {
-                xytext: Some(Point::new(1.0, 5.0)),
+                xytext: Some(Point::new(1.0, 5.0).into()),
                 arrowprops: Some(ArrowProps::Fancy(props)),
                 ..AnnotateOptions::default()
             },
@@ -345,7 +345,7 @@ fn lines_clip_arrows_within_their_pick_radius() {
             "start",
             (9.0, 5.0),
             AnnotateOptions {
-                xytext: Some(Point::new(1.0, 5.0)),
+                xytext: Some(Point::new(1.0, 5.0).into()),
                 arrowprops: Some(ArrowProps::Fancy(props)),
                 ..AnnotateOptions::default()
             },

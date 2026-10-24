@@ -2,8 +2,8 @@
 //! `Epoch` and `UnitDbl` with the converters `jpl_units.register()`
 //! installs (`EpochConverter` for epochs and durations,
 //! `UnitDblConverter`) and the `UnitDblFormatter`. The tests keep to
-//! ephemeris time and to kilometres, radians, degrees, seconds and hours,
-//! so the UTC frame and the other units are left out.
+//! ephemeris time and to metres, kilometres, miles, radians, degrees,
+//! seconds and hours, so the UTC frame and minutes are left out.
 
 use std::ops::{Add, Mul, Neg, Sub};
 use std::rc::Rc;
@@ -207,7 +207,9 @@ impl Convertible for Duration {
 /// (`UnitDbl.allowed`); its name labels axes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum UnitName {
+    Metres,
     Kilometres,
+    Miles,
     Radians,
     Degrees,
     Seconds,
@@ -219,7 +221,9 @@ impl UnitName {
     /// (`UnitDbl.allowed[unit]`).
     fn scale(self) -> (f64, Self) {
         match self {
+            Self::Metres => (0.001, Self::Kilometres),
             Self::Kilometres => (1.0, Self::Kilometres),
+            Self::Miles => (1.609_344, Self::Kilometres),
             Self::Radians => (1.0, Self::Radians),
             Self::Degrees => (1.745_329_251_994_33e-2, Self::Radians),
             Self::Seconds => (1.0, Self::Seconds),
@@ -230,7 +234,9 @@ impl UnitName {
     /// The unit's name (`"km"`, `"deg"`, ...).
     fn name(self) -> &'static str {
         match self {
+            Self::Metres => "m",
             Self::Kilometres => "km",
+            Self::Miles => "mile",
             Self::Radians => "rad",
             Self::Degrees => "deg",
             Self::Seconds => "sec",

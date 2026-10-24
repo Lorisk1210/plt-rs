@@ -404,6 +404,7 @@ const AREAS: &[(&str, &[Op])] = &[
         areas::mpl_multivariate_colormaps::OPS,
     ),
     ("mpl_backend_pgf", areas::mpl_backend_pgf::OPS),
+    ("units", areas::units::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

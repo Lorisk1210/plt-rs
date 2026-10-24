@@ -39,6 +39,13 @@ impl AxisUnits {
         }
     }
 
+    /// The converter, which is `converter` when there was none
+    /// (matplotlib's `Axis.convert_units`, which sets the converter of
+    /// the values it converts only on an axis without one).
+    pub(crate) fn converter_or(&mut self, converter: UnitConverter) -> UnitConverter {
+        self.converter.get_or_insert(converter).clone()
+    }
+
     /// The time zone of date ticks: the unit when it is a time zone, as
     /// matplotlib's date converter takes it, else UTC.
     pub(crate) fn time_zone(&self) -> TimeZone {

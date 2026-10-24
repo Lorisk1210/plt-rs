@@ -86,7 +86,7 @@ fn annotate_coords(args: Args<'_>) -> Outcome {
         .map_err(ProbeError::rejected)?;
     let fig = Figure::new();
     let options = AnnotateOptions {
-        xytext: Some(Point::new(0.5, 0.5)),
+        xytext: Some(Point::new(0.5, 0.5).into()),
         xycoords,
         ..AnnotateOptions::default()
     };

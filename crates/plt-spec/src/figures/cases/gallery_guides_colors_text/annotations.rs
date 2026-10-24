@@ -69,7 +69,7 @@ fn annotations_5(fig: &Figure) -> CaseResult {
             text,
             (xi, yi),
             AnnotateOptions {
-                xytext: Some(Point::new(1.5, 1.5)),
+                xytext: Some(Point::new(1.5, 1.5).into()),
                 textcoords: Some("offset points".parse()?),
                 ..AnnotateOptions::default()
             },
@@ -156,7 +156,7 @@ fn annotations_9(fig: &Figure) -> CaseResult {
         "",
         (0.2, 0.2),
         AnnotateOptions {
-            xytext: Some(Point::new(0.8, 0.8)),
+            xytext: Some(Point::new(0.8, 0.8).into()),
             textcoords: Some(Coords::Data),
             arrowprops: Some(ArrowProps::Fancy(arrow("->", "arc3")?)),
             ..AnnotateOptions::default()

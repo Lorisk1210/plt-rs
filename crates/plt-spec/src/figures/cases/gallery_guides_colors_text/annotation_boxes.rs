@@ -195,7 +195,7 @@ fn annotations_19(fig: &Figure) -> CaseResult {
         (0.0, 0.0),
         AnnotateOptions {
             xycoords: Coords::Transform(ax1.trans_data()),
-            xytext: Some(Point::new(0.0, 0.0)),
+            xytext: Some(Point::new(0.0, 0.0).into()),
             textcoords: Some(Coords::Transform(ax2.trans_data())),
             arrowprops: Some(ArrowProps::Fancy("<->".parse()?)),
             ..AnnotateOptions::default()
@@ -223,7 +223,7 @@ fn test_2_beside(fig: &Figure) -> CaseResult {
         (1.0, 0.5),
         AnnotateOptions {
             xycoords: Coords::Artist(an1.id()),
-            xytext: Some(Point::new(30.0, 0.0)),
+            xytext: Some(Point::new(30.0, 0.0).into()),
             textcoords: Some("offset points".parse()?),
             arrowprops: Some(ArrowProps::Fancy(plain_arrow()?)),
             ..AnnotateOptions::default()
@@ -285,7 +285,7 @@ fn annotations_25(fig: &Figure) -> CaseResult {
         "Test 2",
         (0.1, 0.1),
         AnnotateOptions {
-            xytext: Some(Point::new(0.0, -10.0)),
+            xytext: Some(Point::new(0.0, -10.0).into()),
             textcoords: Some(offset_from),
             arrowprops: Some(ArrowProps::Fancy(plain_arrow()?)),
             ..AnnotateOptions::default()

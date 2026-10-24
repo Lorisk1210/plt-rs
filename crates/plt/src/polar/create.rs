@@ -3,7 +3,7 @@
 //! `projection="polar"`).
 
 use super::PolarAxes;
-use crate::axes::Axes;
+use crate::axes::{Axes, share_free};
 use crate::figure::{AxesRectError, Figure, Share};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotSpec};
 use crate::numeric::Grid;
@@ -40,10 +40,19 @@ impl Figure {
         sharey: Share,
     ) -> Result<Grid<PolarAxes>, GridSpecError> {
         let grid = GridSpec::new(nrows, ncols)?;
-        let axes = Self::subplots_made(&grid, sharex, sharey, |spec| {
-            self.add_polar_subplot_spec(spec)
-                .map(|polar| polar.axes().clone())
-        })?;
+        let axes = Self::subplots_made(
+            &grid,
+            sharex,
+            sharey,
+            |spec| {
+                self.add_polar_subplot_spec(spec)
+                    .map(|polar| polar.axes().clone())
+            },
+            |axes, name, target| {
+                share_free(axes, name, target);
+                Ok(())
+            },
+        )?;
         Ok(axes.map(|ax| ax.as_polar().expect("polar_subplots makes polar axes")))
     }
 

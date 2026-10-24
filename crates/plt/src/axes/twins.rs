@@ -29,8 +29,10 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When the x axis is already shared with a different axes, or `other`
-    /// belongs to another figure.
+    /// When the x axis is already shared with a different axes, `other`
+    /// belongs to another figure, or this axes has a projection fixing its
+    /// limits, such as a geographic one ([`PlotError::FixedLimits`];
+    /// matplotlib's geographic axes raise a `TypeError` when they share).
     pub fn share_x(&self, other: &Self) -> Result<&Self, PlotError> {
         self.share(AxisName::X, other)
     }
@@ -50,6 +52,12 @@ impl Axes {
         let figure = self.raw().figure_state();
         if !Rc::ptr_eq(figure, other.raw().figure_state()) {
             return Err(PlotError::ForeignAxes);
+        }
+        if self
+            .raw
+            .with::<AxesState, _>(|axes| axes.projection.fixed_limits())
+        {
+            return Err(PlotError::FixedLimits(name));
         }
         figure
             .borrow_mut()
@@ -168,8 +176,7 @@ impl Axes {
             (axes.base().parent, axes.position, axes.subplot_spec.clone())
         });
         let twin = make_axes(self.raw().figure_state(), frame, position, spec);
-        twin.share(shared, self)
-            .expect("a new axes in this figure shares nothing yet");
+        share_free(&twin, shared, self);
         twin
     }
 
@@ -315,6 +322,14 @@ impl Axes {
     pub fn patch_visible(&self) -> bool {
         self.raw.with::<AxesState, _>(|axes| axes.patch.visible)
     }
+}
+
+/// Makes `axes`, new in the figure of `target` and of free limits, share
+/// axis `name` with it, which always succeeds (the `sharex=` argument of
+/// a new rectilinear or polar axes in matplotlib).
+pub(crate) fn share_free(axes: &Axes, name: AxisName, target: &Axes) {
+    axes.share(name, target)
+        .expect("a new axes with free limits shares any axis of its figure");
 }
 
 #[cfg(test)]
@@ -483,5 +498,46 @@ mod tests {
         assert_eq!(axs[(0, 0)].shared_axes(AxisName::X).len(), 4);
         assert_eq!(axs[(0, 0)].shared_axes(AxisName::Y).len(), 2);
         assert!(axs[(1, 1)].shared_axes(AxisName::Y).contains(&axs[(1, 0)]));
+    }
+
+    #[test]
+    fn geographic_axes_share_nothing_as_in_matplotlib() {
+        use crate::axes::{PlotError, ProjectionKind};
+        use crate::figure::{Mosaic, MosaicError, MosaicOptions};
+        use crate::projections::ProjectionError;
+
+        let fig = Figure::new();
+        let rect = fig.add_subplot(1, 2, 1).unwrap();
+        let geo = fig
+            .subplot_with_projection(ProjectionKind::Mollweide)
+            .unwrap();
+        assert_eq!(
+            geo.share_x(&rect).err(),
+            Some(PlotError::FixedLimits(AxisName::X))
+        );
+        assert_eq!(
+            geo.shared_axes(AxisName::X),
+            std::slice::from_ref(&geo),
+            "not joined"
+        );
+        assert!(rect.share_y(&geo).is_ok(), "others may share theirs");
+
+        let grid = Figure::new();
+        assert_eq!(
+            grid.subplots_with_projection(1, 2, Share::None, Share::All, ProjectionKind::Hammer),
+            Err(ProjectionError::Share(PlotError::FixedLimits(AxisName::Y)))
+        );
+        assert_eq!(grid.axes().len(), 1, "matplotlib fails to make the second");
+
+        let options = MosaicOptions {
+            sharex: true,
+            projection: ProjectionKind::Aitoff.into(),
+            ..MosaicOptions::default()
+        };
+        let mosaic = "AB".parse::<Mosaic>().unwrap();
+        assert!(matches!(
+            Figure::new().subplot_mosaic(&mosaic, options),
+            Err(MosaicError::Projection(ProjectionError::Share(_)))
+        ));
     }
 }

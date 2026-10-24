@@ -404,8 +404,7 @@ impl Figure {
                     continue;
                 }
                 for (_, ax) in &entries {
-                    ax.share(name, &first)
-                        .expect("a new mosaic axes shares nothing yet");
+                    ax.share(name, &first).map_err(ProjectionError::Share)?;
                     ax.label_outer_shared(name);
                 }
             }

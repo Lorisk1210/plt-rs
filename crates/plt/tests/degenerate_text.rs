@@ -60,7 +60,7 @@ fn decorate(fig: &Figure, text: &str) -> Result<(), Box<dyn std::error::Error>> 
     ax.set_xticklabels([text, text, text])?;
     ax.text(0.5, 0.5, text).set_rotation(33.0).set_wrap(true);
     let options = AnnotateOptions {
-        xytext: Some(Point::new(0.2, 0.8)),
+        xytext: Some(Point::new(0.2, 0.8).into()),
         ..AnnotateOptions::default()
     };
     ax.annotate(text, Point::new(0.5, 0.5), options)?;

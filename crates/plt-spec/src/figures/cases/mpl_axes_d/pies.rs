@@ -79,7 +79,7 @@ fn pie_center_radius(fig: &Figure) -> CaseResult {
         "Center point",
         Point::new(1.0, 2.0),
         AnnotateOptions {
-            xytext: Some(Point::new(1.0, 1.3)),
+            xytext: Some(Point::new(1.0, 1.3).into()),
             arrowprops: Some(ArrowProps::Fancy(arrow)),
             ..AnnotateOptions::default()
         },

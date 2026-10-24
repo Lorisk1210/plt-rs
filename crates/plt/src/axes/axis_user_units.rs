@@ -10,9 +10,8 @@ use std::rc::Rc;
 use super::axis::AxisState;
 use super::axis_handle::Axis;
 use super::{Axes, AxesState};
-use crate::artist::{ArtistHandle, DrawError};
+use crate::artist::{ArtistHandle, ArtistLookup, DrawError};
 use crate::dates::TimeZone;
-use crate::lines::LineArtist;
 use crate::ticker::AxisName;
 use crate::units::{AxisInfo, AxisValues, ConversionError, Unit, UnitConverter, UnitValues};
 
@@ -86,18 +85,26 @@ impl Axis {
         &self,
         values: &UnitValues,
     ) -> Result<Vec<f64>, ConversionError> {
+        let fallback = UnitConverter::Custom(values.converter());
+        self.update(|axis| axis.units.converter_or(fallback));
+        self.try_convert_custom_as_is(values)
+    }
+
+    /// User values in the axis unit, converted by the axis converter if it
+    /// is of their converter's type and by their own otherwise, leaving
+    /// the axis as it is.
+    pub(super) fn try_convert_custom_as_is(
+        &self,
+        values: &UnitValues,
+    ) -> Result<Vec<f64>, ConversionError> {
         let (converter, unit) =
             self.read(|axis| (axis.units.converter.clone(), axis.units.unit.clone()));
-        let converter = converter.unwrap_or_else(|| {
-            let converter = UnitConverter::Custom(values.converter());
-            self.update(|axis| axis.units.adopt(converter.clone()));
-            converter
-        });
-        values.convert(converter.custom(), unit.as_ref(), self)
+        let converter = converter.as_ref().and_then(UnitConverter::custom);
+        values.convert(converter, unit.as_ref(), self)
     }
 
     /// Reports a failed conversion when the figure next draws.
-    fn report(&self, error: &ConversionError) {
+    pub(super) fn report(&self, error: &ConversionError) {
         self.axes
             .raw()
             .figure_state()
@@ -111,8 +118,10 @@ impl Axis {
 
     /// Sets the unit of the axis and of the axes sharing it (matplotlib's
     /// `set_units`): each takes the tick helpers and label its converter
-    /// gives for the unit, and converts the lines plotted on it from user
-    /// values again. Before any user value is converted the axis has no
+    /// gives for the unit, and the artists on it that keep user values
+    /// (lines, texts, annotations, rectangles of a
+    /// [`DataRectangle`](crate::patches::DataRectangle)) convert them
+    /// again. Before any user value is converted the axis has no
     /// converter to ask, so the unit only decides how values convert
     /// later. Dates follow a [`TimeZone`] unit; category axes keep their
     /// names.
@@ -216,19 +225,34 @@ impl AxisState {
 
 impl Axes {
     /// Follows a change of unit of axis `name` (matplotlib's
-    /// `_unit_change_handler`): the lines plotted from user values convert
-    /// them again, the data limits are recomputed and the axis
+    /// `_unit_change_handler`, and its artists converting their values
+    /// when drawn): the artists that keep user values
+    /// ([`Artist::unit_sources`](crate::artist::Artist::unit_sources))
+    /// convert them again, the data limits are recomputed and the axis
     /// autoscales.
     fn units_changed(&self, name: AxisName) {
         let axis = self.axis_of(name);
-        for line in self.lines() {
-            let source = line
-                .raw()
-                .with::<LineArtist, _>(|line| line.unit_sources.along(name).cloned());
-            if let Some(values) = source {
-                let numbers = axis.convert_custom(&values);
-                line.raw()
-                    .with_mut::<LineArtist, _>(|line| line.reconvert(name, numbers));
+        let figure = self.raw().figure_state();
+        let children = self
+            .raw()
+            .with::<AxesState, _>(|axes| axes.children.clone());
+        for id in children {
+            let sources = figure
+                .borrow()
+                .artist(id)
+                .map(|artist| artist.unit_sources(name))
+                .unwrap_or_default();
+            if sources.is_empty() {
+                continue;
+            }
+            let numbers = sources
+                .iter()
+                .map(|values| axis.convert_custom(values))
+                .collect();
+            let mut state = figure.borrow_mut();
+            if let Some(artist) = state.artist_mut(id) {
+                artist.reconvert_units(name, numbers);
+                state.stale = true;
             }
         }
         self.relim(false);

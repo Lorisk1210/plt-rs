@@ -12,7 +12,7 @@ use crate::polar::GRIDLINE_INTERPOLATION_STEPS;
 use crate::scale::ScaleName;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
-use crate::units::{AxisValue, LineSources};
+use crate::units::{AxisValue, UnitSources};
 
 impl Axes {
     /// A horizontal line at data height `y` (a number, date or category)
@@ -31,7 +31,7 @@ impl Axes {
         props: LineProps,
     ) -> Line2D {
         let y = y.into();
-        let sources = LineSources::of_value(AxisName::Y, &y);
+        let sources = UnitSources::of_value(AxisName::Y, &y);
         let y = self.yaxis().convert_value(y);
         let mut line = LineArtist::new(vec![xmin, xmax], vec![y, y], crate::rc::params());
         line.unit_sources = sources;
@@ -54,7 +54,7 @@ impl Axes {
         props: LineProps,
     ) -> Line2D {
         let x = x.into();
-        let sources = LineSources::of_value(AxisName::X, &x);
+        let sources = UnitSources::of_value(AxisName::X, &x);
         let x = self.xaxis().convert_value(x);
         let mut line = LineArtist::new(vec![x, x], vec![ymin, ymax], crate::rc::params());
         line.unit_sources = sources;

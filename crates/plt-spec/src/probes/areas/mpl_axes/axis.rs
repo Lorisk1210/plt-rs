@@ -125,7 +125,7 @@ pub(super) fn arrow(args: Args<'_>) -> Outcome {
 pub(super) fn annotation_arrow(args: Args<'_>) -> Outcome {
     on_axes(args, |ax| {
         let options = AnnotateOptions {
-            xytext: Some(Point::new(2.0, 3.0)),
+            xytext: Some(Point::new(2.0, 3.0).into()),
             arrowprops: args
                 .contains("arrowprops")
                 .then(|| ArrowProps::Legacy(LegacyArrowProps::default())),

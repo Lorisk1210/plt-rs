@@ -28,6 +28,7 @@ mod current_image;
 mod data_coords;
 mod ecdf;
 mod error;
+mod error_size;
 mod errorbar;
 mod eventplot;
 mod fill;
@@ -82,6 +83,8 @@ mod titles;
 mod tripcolor;
 mod triplot;
 mod twins;
+#[cfg(test)]
+mod unit_change_tests;
 mod view;
 mod view_limits;
 mod violin;
@@ -103,8 +106,9 @@ pub(crate) use children::DataUpdate;
 pub use current_image::ColorizingArtist;
 pub use ecdf::{EcdfError, EcdfOptions};
 pub use error::PlotError;
+pub use error_size::ErrorSize;
 pub(crate) use errorbar::without_marker_style;
-pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarFormat, ErrorbarOptions};
+pub use errorbar::{ErrorbarContainer, ErrorbarFormat, ErrorbarOptions};
 pub use eventplot::EventplotOptions;
 pub use fill_between::FillBetweenOptions;
 pub(crate) use fill_between::FillGeometry;
@@ -143,10 +147,11 @@ pub(crate) use tight_bbox::{clipped_extent, collapse_x};
 pub use titles::TitleLocation;
 pub use tripcolor::{TriShading, TriValues, Tripcolor, TripcolorError, TripcolorOptions};
 pub use triplot::TriplotLines;
+pub(crate) use twins::share_free;
 pub use view_limits::Limits;
 pub use violin::{ViolinDrawOptions, ViolinParts, ViolinSide, ViolinplotOptions};
 
-use plt_core::Bbox;
+use plt_core::{Bbox, Point};
 
 use std::rc::Rc;
 
@@ -157,7 +162,7 @@ use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
 use crate::ticker::TickerError;
 use crate::transforms::Transform;
-use crate::units::{AxisValue, DataPoint};
+use crate::units::{AxisValue, DataPoint, UnitSources};
 
 /// A handle to one axes of a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -216,19 +221,28 @@ impl Axes {
         Transform::blended(self.trans_axes(), self.trans_data())
     }
 
-    /// Adds text at `(x, y)` in data coordinates, numbers, dates or
-    /// categories (matplotlib's `ax.text`).
+    /// Adds text at `(x, y)` in data coordinates: numbers, dates,
+    /// categories or user values (matplotlib's `ax.text`). They convert
+    /// as matplotlib's texts convert their position when drawn: without
+    /// giving the axes a converter, tick helpers or a unit (which plotting
+    /// data does), and again, for user values, when an axis changes
+    /// unit.
     pub fn text(
         &self,
         x: impl Into<AxisValue>,
         y: impl Into<AxisValue>,
         text: impl Into<String>,
     ) -> Text {
-        let at = self.convert_point(DataPoint {
+        let at = DataPoint {
             x: x.into(),
             y: y.into(),
-        });
-        let mut artist = TextArtist::new(at, text, crate::rc::params());
+        };
+        let position = Point::new(
+            self.xaxis().convert_when_drawn(&at.x),
+            self.yaxis().convert_when_drawn(&at.y),
+        );
+        let mut artist = TextArtist::new(position, text, crate::rc::params());
+        artist.unit_sources = UnitSources::of_point(&at);
         let base = artist.base_mut();
         base.transform = Some(Transform::Data(self.id()));
         base.clip_box = Some(self.id());

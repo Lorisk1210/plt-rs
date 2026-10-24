@@ -6,7 +6,7 @@
 use plt::axes::{
     Axes, Hist2dOptions, ImshowOptions, Mesh, MeshCoords, PcolorOptions, PcolorfastOptions,
 };
-use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, Norm, Normalize, colormaps};
+use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, Norm, NormSpec, Normalize, colormaps};
 use plt::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use plt::image::Origin;
 use plt::numeric::Grid;
@@ -115,7 +115,11 @@ fn colorizer(call: &Call<'_>) -> Result<ColorizerOptions, ProbeError> {
         .transpose()?;
     Ok(ColorizerOptions {
         cmap,
-        norm: call.keyword("norm").map(|n| norm(Ok(n))).transpose()?,
+        norm: call
+            .keyword("norm")
+            .map(|n| norm(Ok(n)))
+            .transpose()?
+            .map(NormSpec::from),
         vmin: call.opt_f64(KEYWORD_ONLY, "vmin")?,
         vmax: call.opt_f64(KEYWORD_ONLY, "vmax")?,
     })
@@ -210,7 +214,7 @@ fn contour(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
         Some(other) => return Err(ProbeError::rejected(format!("bad extend {other:?}"))),
     };
     if let Some(value) = call.keyword("norm") {
-        options.colorizer.norm = Some(norm(Ok(value))?);
+        options.colorizer.norm = Some(norm(Ok(value))?.into());
     }
     let made = if call.method == "contourf" {
         ax.contourf(&field, options)

@@ -121,7 +121,7 @@ fn line_values(lines: &[Line2D], getter: &str) -> Result<Vec<Json>, ProbeError> 
                 "get_linewidth" => line.linewidth().into(),
                 "get_dash_pattern" => {
                     let dashes = line.linestyle().dash_pattern(&plt::rc::params());
-                    Json::Array(vec![dashes.offset.into(), dashes.pattern.into()])
+                    Json::Array(vec![dashes.offset.into(), dashes.lengths().to_vec().into()])
                 }
                 other => return Err(ProbeError::BadArgs(format!("no line getter {other}"))),
             })

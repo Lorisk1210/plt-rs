@@ -1,5 +1,5 @@
 //! Secondary axes: where they may go, the host's position after a
-//! resize, and the locators and formatters they keep.
+//! resize, the locators and formatters they keep, and their colour.
 
 use std::any::Any;
 
@@ -12,10 +12,10 @@ use plt::ticker::{
     ScalarFormatter,
 };
 
-use super::{made, numbers, on_axes};
+use super::{made, numbers, on_axes, rgba};
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
-use crate::probes::{Args, Outcome, ProbeError};
+use crate::probes::{Args, Outcome, ProbeError, encode};
 
 /// `ax.plot(np.arange(2, 11), np.arange(2, 11))`.
 fn plot_range(ax: &Axes) -> Result<(), ProbeError> {
@@ -153,5 +153,36 @@ pub(super) fn secondary_ticks(args: Args<'_>) -> Outcome {
             secax.yaxis()
         };
         Ok(Json::from(locator_kind(axis.major_locator().as_ref())))
+    })
+}
+
+pub(super) fn secondary_color(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let location = SecondaryLocation::Fraction(1.0);
+        let (secax, axis) = if args.str("orientation")? == "x" {
+            let secax = made(ax.secondary_xaxis(location, None))?;
+            let axis = secax.xaxis();
+            (secax, axis)
+        } else {
+            let secax = made(ax.secondary_yaxis(location, None))?;
+            let axis = secax.yaxis();
+            (secax, axis)
+        };
+        // matplotlib's `color` keyword calls `set_color` once the axes is
+        // made, as here for both spellings.
+        axis.set_color("red");
+        let spines = secax
+            .spines()
+            .iter()
+            .map(|spine| Ok((spine.side().name().to_owned(), rgba(&spine.edgecolor())?)))
+            .collect::<Result<Vec<_>, ProbeError>>()?;
+        let major = axis.tick_style(false);
+        Ok(encode::object([
+            ("spines", Json::Object(spines)),
+            ("color", rgba(&major.color)?),
+            ("labelcolor", rgba(&major.label_color)?),
+            ("label", rgba(&axis.label_color())?),
+            ("minor", rgba(&axis.tick_style(true).color)?),
+        ]))
     })
 }

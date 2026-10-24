@@ -430,7 +430,7 @@ fn cursor_boundary(args: Args<'_>) -> Outcome {
     let options = ImshowOptions {
         colorizer: ColorizerOptions {
             cmap: Some(made(colormaps::get("RdBu_r"))?),
-            norm: Some(Box::new(norm)),
+            norm: Some(norm.into()),
             ..ColorizerOptions::default()
         },
         ..ImshowOptions::default()

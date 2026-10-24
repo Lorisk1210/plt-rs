@@ -141,7 +141,7 @@ pub(super) fn contourf_lognorm_levels_colorbar(fig: &Figure) -> CaseResult {
     let options = ContourOptions {
         colorizer: ColorizerOptions {
             cmap: Some(colormaps::get("PuBu_r")?),
-            norm: Some(Box::new(LogNorm::default())),
+            norm: Some(LogNorm::default().into()),
             ..ColorizerOptions::default()
         },
         ..values(&logspace(-2.0, 3.0, 11, 10.0))

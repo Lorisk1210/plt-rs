@@ -9,9 +9,9 @@ use std::time::Instant;
 
 use super::blit::Blitter;
 use super::{AnimationOptions, Frames};
-use crate::artist::{ArtistHandle, DrawError, RawHandle};
+use crate::artist::{ArtistHandle, RawHandle};
 use crate::events::{ConnectionId, EventKind, TimerKey};
-use crate::figure::{CanvasError, DrawErrors, Figure};
+use crate::figure::Figure;
 
 /// A function giving the artists it changed.
 pub(super) type FrameFn = Box<dyn FnMut(usize) -> Vec<RawHandle>>;
@@ -261,7 +261,7 @@ impl Player {
         let figure = &self.figure;
         match &mut self.blitter {
             Some(blitter) if blit && !blitter.drawn.is_empty() => {
-                report(figure, blitter.draw(figure));
+                figure.canvas().report(blitter.draw(figure));
             }
             // Problems of a full draw come back whenever the figure is
             // drawn.
@@ -284,18 +284,4 @@ fn animate(artists: &[RawHandle]) {
     for artist in artists.iter().filter(|a| a.is_attached()) {
         artist.set_animated(true);
     }
-}
-
-/// Keeps a problem met while blitting a frame, which no caller can take,
-/// to be reported with the figure's next draw.
-fn report(figure: &Figure, outcome: Result<(), CanvasError>) {
-    let problems = match outcome {
-        Ok(()) => return,
-        Err(CanvasError::Draw(DrawErrors(errors))) => errors,
-        Err(err) => vec![DrawError {
-            artist: figure.id(),
-            message: err.to_string(),
-        }],
-    };
-    figure.state_mut().pending_errors.extend(problems);
 }

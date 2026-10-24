@@ -209,6 +209,7 @@ impl AxisState {
                     AxisName::X => &rc.xaxis_labellocation,
                     AxisName::Y => &rc.yaxis_labellocation,
                 }),
+                halign: None,
                 multialign: None,
                 visible: true,
                 rotation: None,

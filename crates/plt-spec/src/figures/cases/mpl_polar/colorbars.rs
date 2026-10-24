@@ -215,7 +215,7 @@ pub(super) fn twoslope_colorbar(fig: &Figure) -> CaseResult {
         Mesh::from_coords(x.clone(), x, hundred(0.0)),
         PcolorOptions {
             colorizer: ColorizerOptions {
-                norm: Some(Box::new(norm)),
+                norm: Some(norm.into()),
                 ..ColorizerOptions::default().cmap(colormaps::get("RdBu_r")?)
             },
             ..PcolorOptions::default()
@@ -251,7 +251,7 @@ pub(super) fn proportional_colorbars(fig: &Figure) -> CaseResult {
             let options = ContourOptions {
                 colorizer: ColorizerOptions {
                     cmap: Some(cmap.clone()),
-                    norm: Some(Box::new(norm)),
+                    norm: Some(norm.into()),
                     ..ColorizerOptions::default()
                 },
                 levels: Levels::Values(levels.clone()),

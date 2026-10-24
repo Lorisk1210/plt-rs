@@ -41,7 +41,10 @@ impl ContourSet {
                         .linewidth(widths[i % widths.len()])
                         .linestyle({
                             let dash = &dashes[i % dashes.len()];
-                            LineStyle::dashes(dash.offset, dash.pattern.clone())
+                            LineStyle::Dashes {
+                                offset: dash.offset,
+                                pattern: dash.pattern.clone(),
+                            }
                         });
                     let label = format!("${variable_name} = {}$", str_format(level));
                     (LegendHandle::line(props), label)

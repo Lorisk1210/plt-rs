@@ -1,7 +1,8 @@
 //! Axis modes (matplotlib's `Axes.axis(...)` with a string): switching
 //! the decorations off and on, and the aspect/limit presets.
 
-use super::{Adjustable, Axes, AxesState};
+use super::aspect::check_adjustable;
+use super::{Adjustable, AspectError, Axes, AxesState};
 use crate::rc::Aspect;
 use crate::transforms::Anchor;
 
@@ -29,10 +30,35 @@ pub enum AxisMode {
 
 impl Axes {
     /// Applies an axis preset (matplotlib's `Axes.axis(mode)`).
-    pub fn axis_mode(&self, mode: AxisMode) -> &Self {
+    ///
+    /// ```
+    /// use plt::axes::{AspectError, AxisMode};
+    /// use plt::figure::Figure;
+    /// let fig = Figure::new();
+    /// fig.subplot().axis_mode(AxisMode::Equal)?;
+    /// let polar = fig.polar_subplot();
+    /// assert!(matches!(
+    ///     polar.axis_mode(AxisMode::Equal),
+    ///     Err(AspectError::FixedDataRatio(_))
+    /// ));
+    /// # Ok::<(), AspectError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AxisMode::Equal`] on axes of a curved projection (polar, the map
+    /// projections): it equalises the scales by changing the data limits,
+    /// which those axes cannot do since their data ratio is fixed
+    /// (matplotlib refuses their `adjustable="datalim"`). The axes are
+    /// left unchanged.
+    pub fn axis_mode(&self, mode: AxisMode) -> Result<&Self, AspectError> {
         match mode {
-            AxisMode::On => return self.set_axis_on(),
-            AxisMode::Off => return self.set_axis_off(),
+            AxisMode::On => return Ok(self.set_axis_on()),
+            AxisMode::Off => return Ok(self.set_axis_off()),
+            AxisMode::Equal => {
+                self.raw
+                    .with::<AxesState, _>(|axes| check_adjustable(axes, Adjustable::Datalim))?;
+            }
             _ => {}
         }
         self.set_autoscale_on(true);
@@ -72,7 +98,7 @@ impl Axes {
             }
             AxisMode::On | AxisMode::Off | AxisMode::Auto => {}
         }
-        self
+        Ok(self)
     }
 
     /// Autoscales both axes now rather than at the next layout
@@ -89,11 +115,11 @@ impl Axes {
         self
     }
 
-    /// An equal aspect honoured by `adjustable`; axes of a curved
-    /// projection keep their box, as they cannot adjust their data limits.
+    /// An equal aspect honoured by `adjustable`, which the axes take
+    /// ([`Axes::axis_mode`] checks the data limits are adjustable).
     fn set_equal_aspect(&self, adjustable: Adjustable) {
         self.set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
-        self.set_adjustable(adjustable).ok();
+        self.store_adjustable(adjustable);
     }
 }

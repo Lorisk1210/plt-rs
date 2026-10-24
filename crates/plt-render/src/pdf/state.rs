@@ -118,10 +118,7 @@ impl PdfState {
             fill: fill.map_or(Fill::None, Fill::Color),
             join: gc.join,
             linewidth: gc.linewidth,
-            dashes: (
-                gc.dashes.offset,
-                (!gc.dashes.pattern.is_empty()).then(|| gc.dashes.pattern.clone()),
-            ),
+            dashes: (gc.dashes.offset, gc.dashes.pattern.clone()),
             rgb,
             hatch: gc.hatch.as_ref().map(|h| h.pattern.clone()),
             hatch_color: gc.hatch.as_ref().map(|h| h.color),
@@ -364,10 +361,7 @@ mod tests {
             foreground: Rgba::opaque(0.5, 0.25, 1.0),
             linewidth: 1.5,
             clip_rect: Some(Bbox::from_bounds(1.0, 2.0, 3.0, 4.0)),
-            dashes: crate::gc::Dashes {
-                offset: 0.0,
-                pattern: vec![3.7, 1.6],
-            },
+            dashes: crate::gc::Dashes::new(0.0, vec![3.7, 1.6]),
             ..GraphicsContext::default()
         };
         let target = PdfState::from_gc(&line, None, 1);

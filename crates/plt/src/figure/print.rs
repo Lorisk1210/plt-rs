@@ -68,7 +68,8 @@ pub struct SaveOptions {
     /// (matplotlib's `format`).
     pub format: Option<SaveFormat>,
     /// Document metadata of the vector formats (plt-rs as creator and
-    /// the current or `SOURCE_DATE_EPOCH` date by default).
+    /// the current or `SOURCE_DATE_EPOCH` date by default) and the text
+    /// entries of PNG files (matplotlib's `Software` entry by default).
     pub metadata: Option<Metadata>,
     /// JPEG quality from 1 to 100 (Pillow's `quality` in matplotlib's
     /// `pil_kwargs`; 75 by default).

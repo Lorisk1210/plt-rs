@@ -400,6 +400,16 @@ impl Spine {
         self
     }
 
+    /// The spine colour (matplotlib's `get_edgecolor`).
+    pub fn edgecolor(&self) -> Color {
+        self.raw.with::<SpineArtist, _>(|s| {
+            s.style
+                .edgecolor
+                .clone()
+                .unwrap_or_else(|| s.rc.axes_edgecolor.clone())
+        })
+    }
+
     /// Sets the spine width in points.
     pub fn set_linewidth(&self, width: f64) -> &Self {
         self.raw

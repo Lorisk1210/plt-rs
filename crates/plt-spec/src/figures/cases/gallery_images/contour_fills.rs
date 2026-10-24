@@ -295,7 +295,7 @@ fn contour_image(fig: &Figure) -> CaseResult {
         ContourOptions {
             colorizer: ColorizerOptions {
                 cmap: Some(cmap.resampled(levels.len() - 1)?),
-                norm: Some(Box::new(norm())),
+                norm: Some(norm().into()),
                 ..ColorizerOptions::default()
             },
             ..values(&levels)

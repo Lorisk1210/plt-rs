@@ -30,9 +30,10 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("gallery_axisartist/multicursor_2", multicursor_2),
 ];
 
-/// The red crosshair of `annotated_cursor` and `cursor`.
+/// The red blitted crosshair of `annotated_cursor` and `cursor`.
 fn red_crosshair() -> CursorOptions {
     CursorOptions {
+        useblit: true,
         line: LineProps::default().color("red").linewidth(2.0),
         ..CursorOptions::default()
     }

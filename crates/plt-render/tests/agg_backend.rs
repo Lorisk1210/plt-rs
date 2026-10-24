@@ -110,10 +110,7 @@ impl Case {
             linewidth: arg("lw").map_or(1.0, |w| w.parse().expect("lw")),
             dashes: arg("dashes").map_or_else(Dashes::solid, |spec| {
                 let (offset, lengths) = spec.split_once(':').expect("offset:lengths");
-                Dashes {
-                    offset: offset.parse().expect("offset"),
-                    pattern: floats(lengths),
-                }
+                Dashes::new(offset.parse().expect("offset"), floats(lengths))
             }),
             clip_rect: arg("clip").map(|v| {
                 let v = floats(v);

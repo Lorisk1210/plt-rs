@@ -108,11 +108,7 @@ fn bar_style(bars: &Collection) -> Result<Json, ProbeError> {
         .unwrap_or(rc.lines_linewidth);
     let linestyles = style.linestyles.iter().map(|linestyle| {
         let dashes = linestyle.scaled_dashes(width, &rc);
-        let pattern = if dashes.pattern.is_empty() {
-            Json::Null
-        } else {
-            numbers(&dashes.pattern)
-        };
+        let pattern = dashes.pattern.as_deref().map_or(Json::Null, numbers);
         Json::Array(vec![Json::from(dashes.offset), pattern])
     });
     Ok(encode::object([

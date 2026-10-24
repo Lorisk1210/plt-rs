@@ -7,8 +7,8 @@ use std::rc::Rc;
 use plt_core::Rgba;
 
 use super::{
-    ColorError, ColorizerOptions, ColormapError, NormError, Normalize, ScalarMappable, hsv_to_rgb,
-    impl_colorize, rgb_to_hsv,
+    ColorError, ColorizerOptions, ColormapError, Norm, NormError, NormSpec, Normalize,
+    ScalarMappable, hsv_to_rgb, impl_colorize, rgb_to_hsv,
 };
 use crate::numeric::Grid;
 
@@ -263,11 +263,14 @@ impl LightSource {
         let values = data.as_slice();
         let min = || values.iter().copied().fold(f64::INFINITY, f64::min);
         let max = || values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let norm = colorizer.norm.clone().unwrap_or_else(|| {
-            let vmin = colorizer.vmin.unwrap_or_else(min);
-            let vmax = colorizer.vmax.unwrap_or_else(max);
-            Box::new(Normalize::new(vmin, vmax))
-        });
+        let norm = colorizer.norm.clone().map_or_else(
+            || -> Box<dyn Norm> {
+                let vmin = colorizer.vmin.unwrap_or_else(min);
+                let vmax = colorizer.vmax.unwrap_or_else(max);
+                Box::new(Normalize::new(vmin, vmax))
+            },
+            NormSpec::resolve,
+        );
         let mut mappable = ScalarMappable::with_norm(cmap, norm);
         let masked: Vec<Option<f64>> = values.iter().map(|&v| Some(v)).collect();
         let colors = mappable.to_rgba(&masked, None).map_err(ShadeError::Norm)?;

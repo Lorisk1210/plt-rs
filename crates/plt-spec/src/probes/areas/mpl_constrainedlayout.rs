@@ -118,7 +118,8 @@ fn compressed_suptitle(args: Args<'_>) -> Outcome {
             .map_err(ProbeError::rejected)?;
         for (row, box_aspect) in [(0, 1.0 / 3.0), (1, 1.0)] {
             let ax = add_cell(&fig, &gs, row, 0)?;
-            ax.axis_mode(AxisMode::Equal);
+            ax.axis_mode(AxisMode::Equal)
+                .map_err(ProbeError::rejected)?;
             ax.set_box_aspect(Some(box_aspect))
                 .map_err(ProbeError::rejected)?;
         }

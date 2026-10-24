@@ -12,6 +12,10 @@ Ops
 ``axes.Axes.set_adjustable``  {projection, adjustable} -> ``get_adjustable()``
     after ``set_adjustable(adjustable)`` on an axes of ``projection``, or
     the error refusing it.
+``axes.Axes.axis``  {projection, arg} -> ``[get_adjustable(),
+    get_aspect()]`` after ``ax.axis(arg)`` on an axes of ``projection``, or
+    the error refusing it: ``axis("equal")`` asks for the ``datalim``
+    adjustable that polar axes refuse.
 ``axes.Axes.grid``  {alpha} -> the alpha of the first major x and y
     gridlines after ``ax.grid(alpha=alpha)`` and a draw.
 ``spines.Spine.get_tightbbox``  {theta_direction?, theta_zero_location?,
@@ -103,6 +107,19 @@ def test_polar_not_datalim_adjustable():
                  adjustable="box")
     probes.probe("axes.Axes.set_adjustable", _set_adjustable, projection=None,
                  adjustable="datalim")
+
+
+def _axis(projection, arg):
+    ax = Figure().add_subplot(projection=projection)
+    ax.axis(arg)
+    return [ax.get_adjustable(), ax.get_aspect()]
+
+
+def test_polar_axis_equal():
+    for arg in ["equal", "scaled"]:
+        r = probes.probe("axes.Axes.axis", _axis, projection="polar", arg=arg)
+        assert isinstance(r, ValueError) == (arg == "equal")
+        probes.probe("axes.Axes.axis", _axis, projection=None, arg=arg)
 
 
 def _grid(alpha):

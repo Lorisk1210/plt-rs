@@ -139,8 +139,8 @@ fn hatch_swatches(fig: &Figure, hatches: [&str; 10]) -> CaseResult {
         ax.text(1.0, -0.5, format!("' {hatch} '"))
             .set_fontsize(15.0)
             .set_halign(HAlign::Center);
-        ax.axis_mode(AxisMode::Equal);
-        ax.axis_mode(AxisMode::Off);
+        ax.axis_mode(AxisMode::Equal)?;
+        ax.axis_mode(AxisMode::Off)?;
     }
     Ok(())
 }

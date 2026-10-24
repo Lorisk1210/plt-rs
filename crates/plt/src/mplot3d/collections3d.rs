@@ -79,7 +79,7 @@ pub(crate) fn mean_z_faces(
 ) -> Result<PolyFaces, ColormapError> {
     let cmap = colorizer.colormap(&crate::rc::params())?;
     let mappable = if let Some(norm) = &colorizer.norm {
-        ScalarMappable::with_norm(cmap, norm.clone())
+        ScalarMappable::with_norm(cmap, norm.clone().resolve())
     } else {
         let mut mappable = ScalarMappable::new(cmap);
         mappable.norm_mut().set_vmin(colorizer.vmin);

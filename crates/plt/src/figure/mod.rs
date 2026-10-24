@@ -37,7 +37,7 @@ pub(crate) use draw_order::draws_before;
 pub(crate) use frame::{FigureFrame, SuperText};
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use pdf_pages::PdfPages;
-pub use plt_render::{Metadata, PageOrientation, PageSetupError, Paper, SvgMetadata};
+pub use plt_render::{Metadata, PageOrientation, PageSetupError, Paper, PngMetadata, SvgMetadata};
 pub use print::{BboxInches, PadInches, SaveOptions};
 pub use rect::AxesRectError;
 pub(crate) use rect::axes_bounds;

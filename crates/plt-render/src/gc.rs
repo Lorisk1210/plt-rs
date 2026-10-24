@@ -69,27 +69,53 @@ impl JoinStyle {
     }
 }
 
-/// A dash pattern in points: alternating on/off lengths starting at `offset`.
+/// A dash pattern in points: alternating on/off lengths starting at
+/// `offset` (matplotlib's `(offset, dash_list)` of a graphics context).
+///
+/// A line without a dash list and one with an empty list both draw
+/// solid, but the SVG, PDF and PGF backends write an empty list where
+/// they write none for no list, as matplotlib does.
+///
+/// ```
+/// use plt_render::Dashes;
+/// assert!(Dashes::solid().is_solid() && Dashes::new(0.0, Vec::new()).is_solid());
+/// assert_ne!(Dashes::solid(), Dashes::new(0.0, Vec::new()));
+/// assert!(!Dashes::new(1.0, vec![3.0, 1.0]).is_solid());
+/// ```
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Dashes {
     /// Distance into the pattern at which the stroke starts.
     pub offset: f64,
-    /// On/off lengths; empty means a solid line.
-    pub pattern: Vec<f64>,
+    /// On/off lengths, or `None` for no dash list (matplotlib's `None`).
+    pub pattern: Option<Vec<f64>>,
 }
 
 impl Dashes {
-    /// A solid line.
+    /// A solid line: no dash list.
     pub const fn solid() -> Self {
         Self {
             offset: 0.0,
-            pattern: Vec::new(),
+            pattern: None,
         }
+    }
+
+    /// The on/off lengths `pattern` from `offset` on; an empty pattern
+    /// draws solid.
+    pub const fn new(offset: f64, pattern: Vec<f64>) -> Self {
+        Self {
+            offset,
+            pattern: Some(pattern),
+        }
+    }
+
+    /// The on/off lengths, empty without a dash list.
+    pub fn lengths(&self) -> &[f64] {
+        self.pattern.as_deref().unwrap_or_default()
     }
 
     /// Returns `true` when the pattern draws a continuous line.
     pub fn is_solid(&self) -> bool {
-        self.pattern.is_empty() || self.pattern.iter().all(|&len| len <= 0.0)
+        self.lengths().iter().all(|&len| len <= 0.0)
     }
 }
 
@@ -250,19 +276,9 @@ mod tests {
     #[test]
     fn zero_length_dash_patterns_are_solid() {
         assert!(Dashes::solid().is_solid());
-        assert!(
-            Dashes {
-                offset: 0.0,
-                pattern: vec![0.0, 0.0]
-            }
-            .is_solid()
-        );
-        assert!(
-            !Dashes {
-                offset: 0.0,
-                pattern: vec![3.0, 1.0]
-            }
-            .is_solid()
-        );
+        assert!(Dashes::new(0.0, vec![0.0, 0.0]).is_solid());
+        assert!(Dashes::new(2.0, Vec::new()).is_solid());
+        assert!(!Dashes::new(0.0, vec![3.0, 1.0]).is_solid());
+        assert_eq!(Dashes::solid().lengths(), []);
     }
 }

@@ -68,7 +68,7 @@ fn imshow(ax: &Axes, data: impl Into<ImageData>, options: ImshowOptions) -> Resu
 fn normed(norm: impl Norm + 'static) -> ImshowOptions {
     ImshowOptions {
         colorizer: ColorizerOptions {
-            norm: Some(Box::new(norm)),
+            norm: Some(norm.into()),
             ..ColorizerOptions::default()
         },
         ..ImshowOptions::default()

@@ -21,14 +21,18 @@ pub enum LineStyle {
     Dotted,
     /// No line at all (`"None"`, `"none"`, `" "`, `""`).
     None,
-    /// An explicit on-off sequence in units of the line width.
+    /// An explicit on-off sequence in units of the line width
+    /// (matplotlib's `(offset, onoffseq)`).
     Dashes {
         /// Distance into the pattern where drawing starts.
         offset: f64,
         /// Alternating on/off lengths; an odd list is gone through twice,
         /// its ons becoming offs the second time (as in PDF, PS and SVG,
-        /// which receive it as given).
-        pattern: Vec<f64>,
+        /// which receive it as given). An empty list and `None`
+        /// (matplotlib's `(offset, ())` and `(offset, None)`) both draw a
+        /// continuous line with the caps of dashed lines; the SVG, PDF
+        /// and PGF output writes the empty list, as matplotlib does.
+        pattern: Option<Vec<f64>>,
     },
 }
 
@@ -42,7 +46,10 @@ const NAMED: [(&str, &str, LineStyle); 4] = [
 impl LineStyle {
     /// An explicit on-off dash sequence.
     pub fn dashes(offset: f64, pattern: Vec<f64>) -> Self {
-        Self::Dashes { offset, pattern }
+        Self::Dashes {
+            offset,
+            pattern: Some(pattern),
+        }
     }
 
     /// Whether anything is drawn.
@@ -58,20 +65,24 @@ impl LineStyle {
     /// The dash pattern before line-width scaling, with the offset
     /// normalised into the pattern's period (matplotlib's `_get_dash_pattern`).
     pub fn dash_pattern(&self, rc: &RcParams) -> Dashes {
-        let (offset, pattern) = match self {
+        let dashes = match self {
             Self::Solid | Self::None => return Dashes::solid(),
-            Self::Dashed => (0.0, rc.lines_dashed_pattern.clone()),
-            Self::DashDot => (0.0, rc.lines_dashdot_pattern.clone()),
-            Self::Dotted => (0.0, rc.lines_dotted_pattern.clone()),
-            Self::Dashes { offset, pattern } => (*offset, pattern.clone()),
+            Self::Dashed => Dashes::new(0.0, rc.lines_dashed_pattern.clone()),
+            Self::DashDot => Dashes::new(0.0, rc.lines_dashdot_pattern.clone()),
+            Self::Dotted => Dashes::new(0.0, rc.lines_dotted_pattern.clone()),
+            Self::Dashes { offset, pattern } => Dashes {
+                offset: *offset,
+                pattern: pattern.clone(),
+            },
         };
-        let period: f64 = pattern.iter().sum();
-        let offset = if period == 0.0 {
-            offset
-        } else {
-            offset.rem_euclid(period)
-        };
-        Dashes { offset, pattern }
+        let period: f64 = dashes.lengths().iter().sum();
+        if period == 0.0 {
+            return dashes;
+        }
+        Dashes {
+            offset: dashes.offset.rem_euclid(period),
+            ..dashes
+        }
     }
 
     /// The dash pattern in points for a line `linewidth` points wide,
@@ -83,12 +94,15 @@ impl LineStyle {
         }
         Dashes {
             offset: dashes.offset * linewidth,
-            pattern: dashes.pattern.iter().map(|len| len * linewidth).collect(),
+            pattern: dashes
+                .pattern
+                .map(|pattern| pattern.iter().map(|len| len * linewidth).collect()),
         }
     }
 
     /// Interprets a parsed rc/Python value: a style name, or an on-off
-    /// sequence `(offset, (on, off, ...))` / `(on, off, ...)`.
+    /// sequence `(offset, (on, off, ...))` / `(on, off, ...)`. Like
+    /// matplotlib's rc validation, `(offset, None)` is refused.
     pub(crate) fn from_expr(expr: &Expr) -> Option<Self> {
         match expr {
             Expr::Str(name) => name.parse().ok(),
@@ -113,16 +127,13 @@ impl LineStyle {
 /// The inverse of a dash pattern, used to fill the gaps with `gapcolor`
 /// (matplotlib's `_get_inverse_dash_pattern`).
 pub fn inverse_dashes(dashes: &Dashes) -> Dashes {
-    let Some(&last) = dashes.pattern.last() else {
+    let Some((&last, rest)) = dashes.lengths().split_last() else {
         return dashes.clone();
     };
-    let mut pattern = Vec::with_capacity(dashes.pattern.len());
+    let mut pattern = Vec::with_capacity(rest.len() + 1);
     pattern.push(last);
-    pattern.extend_from_slice(&dashes.pattern[..dashes.pattern.len() - 1]);
-    Dashes {
-        offset: dashes.offset + last,
-        pattern,
-    }
+    pattern.extend_from_slice(rest);
+    Dashes::new(dashes.offset + last, pattern)
 }
 
 impl FromStr for LineStyle {
@@ -152,7 +163,14 @@ impl fmt::Display for LineStyle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::None => f.write_str("None"),
-            Self::Dashes { offset, pattern } => {
+            Self::Dashes {
+                offset,
+                pattern: None,
+            } => write!(f, "({offset:?}, None)"),
+            Self::Dashes {
+                offset,
+                pattern: Some(pattern),
+            } => {
                 let items: Vec<String> = pattern.iter().map(|v| format!("{v:?}")).collect();
                 write!(f, "({offset:?}, ({}))", items.join(", "))
             }
@@ -209,12 +227,25 @@ mod tests {
             "(1, 2, 3)".parse::<LineStyle>().is_err(),
             "odd on-off sequences are rejected"
         );
+        assert!(
+            "(0, None)".parse::<LineStyle>().is_err(),
+            "rc values need a dash list"
+        );
+        assert_eq!("(0, ())".parse(), Ok(LineStyle::dashes(0.0, Vec::new())));
         assert!("wavy".parse::<LineStyle>().is_err());
     }
 
     #[test]
     fn display_round_trips() {
-        for style in ["-", "--", "-.", ":", "None", "(1.0, (3.0, 1.0))"] {
+        for style in [
+            "-",
+            "--",
+            "-.",
+            ":",
+            "None",
+            "(1.0, (3.0, 1.0))",
+            "(0.0, ())",
+        ] {
             let parsed: LineStyle = style.parse().expect("valid");
             assert_eq!(parsed.to_string(), style);
         }
@@ -223,9 +254,20 @@ mod tests {
     #[test]
     fn dash_patterns_scale_and_normalise() {
         let rc = RcParams::matplotlib();
-        assert_eq!(LineStyle::Dashed.dash_pattern(&rc).pattern, vec![3.7, 1.6]);
+        assert_eq!(LineStyle::Dashed.dash_pattern(&rc).lengths(), [3.7, 1.6]);
         let scaled = LineStyle::Dotted.scaled_dashes(2.0, &rc);
-        assert_eq!(scaled.pattern, vec![2.0, 3.3]);
+        assert_eq!(scaled.lengths(), [2.0, 3.3]);
+        let unlisted = LineStyle::Dashes {
+            offset: 4.0,
+            pattern: None,
+        };
+        let scaled_unlisted = unlisted.scaled_dashes(2.0, &rc);
+        assert_eq!(
+            (scaled_unlisted.offset, scaled_unlisted.pattern),
+            (8.0, None)
+        );
+        let empty = LineStyle::dashes(0.0, Vec::new()).dash_pattern(&rc);
+        assert_eq!(empty, Dashes::new(0.0, Vec::new()), "an empty list stays");
         let wrapped = LineStyle::dashes(7.0, vec![2.0, 3.0]).dash_pattern(&rc);
         assert_eq!(wrapped.offset, 2.0);
         let negative = LineStyle::dashes(-1.0, vec![2.0, 3.0]).dash_pattern(&rc);
@@ -235,11 +277,8 @@ mod tests {
 
     #[test]
     fn inverse_pattern_fills_gaps() {
-        let inverse = inverse_dashes(&Dashes {
-            offset: 1.0,
-            pattern: vec![3.0, 1.0, 2.0, 4.0],
-        });
-        assert_eq!(inverse.pattern, vec![4.0, 3.0, 1.0, 2.0]);
+        let inverse = inverse_dashes(&Dashes::new(1.0, vec![3.0, 1.0, 2.0, 4.0]));
+        assert_eq!(inverse.lengths(), [4.0, 3.0, 1.0, 2.0]);
         assert_eq!(inverse.offset, 5.0);
     }
 }

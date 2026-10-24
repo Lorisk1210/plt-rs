@@ -304,21 +304,17 @@ impl PgfRenderer {
         if stroke_opacity != 1.0 {
             self.line(&format!(r"\pgfsetstrokeopacity{{{}}}", num(stroke_opacity)));
         }
-        if gc.dashes.pattern.is_empty() {
-            self.line(r"\pgfsetdash{}{0pt}");
-        } else {
-            let dashes = gc
-                .dashes
-                .pattern
-                .iter()
-                .fold(String::new(), |mut out, &dash| {
-                    let _ = write!(out, "{{{}pt}}", num(dash));
-                    out
-                });
+        if let Some(pattern) = &gc.dashes.pattern {
+            let dashes = pattern.iter().fold(String::new(), |mut out, &dash| {
+                let _ = write!(out, "{{{}pt}}", num(dash));
+                out
+            });
             self.line(&format!(
                 r"\pgfsetdash{{{dashes}}}{{{}pt}}",
                 num(gc.dashes.offset)
             ));
+        } else {
+            self.line(r"\pgfsetdash{}{0pt}");
         }
     }
 

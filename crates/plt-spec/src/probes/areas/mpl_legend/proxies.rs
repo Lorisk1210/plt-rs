@@ -97,14 +97,12 @@ fn line_handle_marker(ax: &Axes) -> Outcome {
     Ok(Json::Array(vec![marker.canon(), proxy.marker().canon()]))
 }
 
-/// `[offset, dashes]`, `dashes` being `null` for a solid line.
+/// `[offset, dashes]`, `dashes` being `null` without a dash list.
 fn dashes(Dashes { offset, pattern }: Dashes) -> Json {
-    let pattern = if pattern.is_empty() {
-        Json::Null
-    } else {
-        numbers(pattern)
-    };
-    Json::Array(vec![Json::from(offset), pattern])
+    Json::Array(vec![
+        Json::from(offset),
+        pattern.map_or(Json::Null, numbers),
+    ])
 }
 
 /// The scaled dash pattern of a collection's first line.

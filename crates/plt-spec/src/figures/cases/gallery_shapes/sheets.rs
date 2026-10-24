@@ -172,7 +172,7 @@ fn ggplot(fig: &Figure) -> CaseResult {
             PatchProps::default().color(color),
         );
     }
-    ax4.axis_mode(AxisMode::Equal);
+    ax4.axis_mode(AxisMode::Equal)?;
     ax4.set_margins(0.0, 0.0)?;
     Ok(())
 }

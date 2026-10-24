@@ -349,7 +349,7 @@ fn koch_snowflake(order: u32) -> (Vec<f64>, Vec<f64>) {
 fn fill_1(fig: &Figure) -> CaseResult {
     let (x, y) = koch_snowflake(5);
     let ax = fig.subplot();
-    ax.axis_mode(AxisMode::Equal);
+    ax.axis_mode(AxisMode::Equal)?;
     ax.fill(x, y, PatchProps::default())?;
     Ok(())
 }

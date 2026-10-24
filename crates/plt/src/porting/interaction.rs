@@ -51,7 +51,7 @@
 //! | `slider.on_changed(f)`, `slider.set_val(v)`     | [`Slider::on_changed`], [`Slider::set_val`]    |
 //! | `cid = button.on_clicked(f)`, `button.disconnect(cid)` | [`Button::on_clicked`] returns a [`CallbackId`] for [`Button::disconnect`]; every widget has both |
 //! | `RangeSlider`, `Button`, `CheckButtons`, `RadioButtons`, `TextBox` | [`RangeSlider`], [`Button`], [`CheckButtons`], [`RadioButtons`], [`TextBox`] |
-//! | `Cursor`, `MultiCursor`                         | [`Cursor`], [`MultiCursor`]                    |
+//! | `Cursor(ax, useblit=True)`, `MultiCursor(axes)` | [`Cursor`], [`MultiCursor`] with [`CursorOptions::useblit`] |
 //! | `SpanSelector`, `RectangleSelector`, `EllipseSelector` | [`SpanSelector`], [`RectangleSelector`], [`EllipseSelector`] |
 //! | `LassoSelector`, `PolygonSelector`, `Lasso`     | [`LassoSelector`], [`PolygonSelector`], [`Lasso`] |
 //! | `plt.subplot_tool()`, `SubplotTool`             | [`crate::pyplot::subplot_tool`], [`SubplotTool`] |
@@ -382,6 +382,7 @@
 //! [`TextBox`]: crate::widgets::TextBox
 //! [`Cursor`]: crate::widgets::Cursor
 //! [`MultiCursor`]: crate::widgets::MultiCursor
+//! [`CursorOptions::useblit`]: crate::widgets::CursorOptions::useblit
 //! [`SpanSelector`]: crate::widgets::SpanSelector
 //! [`RectangleSelector`]: crate::widgets::RectangleSelector
 //! [`EllipseSelector`]: crate::widgets::EllipseSelector

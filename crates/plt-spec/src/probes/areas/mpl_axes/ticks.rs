@@ -2,15 +2,17 @@
 //! fixed locations, the offset text and the axis labels.
 
 use plt::axes::{
-    Axes, Axis, AxisName, GridOptions, TickDirection, TickLevel, TickParams, TickStyle,
+    Axes, Axis, AxisName, GridOptions, LabelLoc, TickDirection, TickLevel, TickParams, TickStyle,
 };
 use plt::colors::Color;
 use plt::figure::Figure;
 use plt::fonts::FontSize;
 use plt::rc;
+use plt::spines::SpineSide;
+use plt::text::HAlign;
 use plt::units::AxisValues;
 
-use super::{color, made, on_axes, strings};
+use super::{color, made, on_axes, rgba, strings};
 use crate::json::Json;
 use crate::probes::areas::canon::Canon;
 use crate::probes::areas::mpl_ticker::styled;
@@ -23,11 +25,6 @@ fn direction_name(direction: TickDirection) -> &'static str {
         TickDirection::Out => "out",
         TickDirection::InOut => "inout",
     }
-}
-
-/// A colour as RGBA JSON.
-fn rgba(color: &Color) -> Result<Json, ProbeError> {
-    Ok(encode::rgba(made(color.resolve())?))
 }
 
 /// What the ticks of one level show and how (matplotlib's state of its
@@ -364,6 +361,27 @@ pub(super) fn label_formatting(args: Args<'_>) -> Outcome {
             rgba(&axis.label_color())?,
             Json::from(font.size),
             font.weight.canon(),
+        ]))
+    })
+}
+
+pub(super) fn ylabel_halign(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let halign: HAlign = made(args.str("ha")?.parse())?;
+        ax.set_ylabel("test");
+        let yaxis = ax.yaxis();
+        yaxis.set_label_loc(LabelLoc::End).set_label_halign(halign);
+        made(yaxis.set_label_position(SpineSide::Right))?;
+        let shown = yaxis.label_halign().canon();
+        let extent = yaxis
+            .label_extent()
+            .ok_or_else(|| ProbeError::BadArgs("the label is not drawn".to_owned()))?;
+        Ok(encode::object([
+            ("ha", shown),
+            (
+                "extent",
+                super::numbers(&[extent.x0(), extent.y0(), extent.x1(), extent.y1()]),
+            ),
         ]))
     })
 }

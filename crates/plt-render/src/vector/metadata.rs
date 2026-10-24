@@ -1,6 +1,7 @@
-//! Document metadata shared by the vector backends: title, creator and
-//! creation date, with matplotlib's `SOURCE_DATE_EPOCH` convention for
-//! reproducible builds.
+//! Document metadata: the title, creator and creation date the vector
+//! backends share, with matplotlib's `SOURCE_DATE_EPOCH` convention for
+//! reproducible builds, and the entries only SVG documents or PNG files
+//! record.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -129,11 +130,12 @@ impl Trapped {
     }
 }
 
-/// Metadata written into a vector document; `None` leaves an entry out.
+/// Metadata written into a saved document; `None` leaves an entry out.
 ///
-/// Every format writes the title, creator and date; `svg` holds what only
-/// SVG documents record, and the other entries are keys of the PDF
-/// document information dictionary (SVG records the keywords too).
+/// Every vector format writes the title, creator and date; `svg` holds
+/// what only SVG documents record, and the other entries are keys of the
+/// PDF document information dictionary (SVG records the keywords too).
+/// PNG files record the text entries of `png` alone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Metadata {
     /// Document title.
@@ -156,11 +158,14 @@ pub struct Metadata {
     pub trapped: Option<Trapped>,
     /// The further Dublin Core entries of SVG documents.
     pub svg: SvgMetadata,
+    /// The text entries of PNG files.
+    pub png: PngMetadata,
 }
 
 impl Default for Metadata {
     /// plt-rs as creator and producer, dated by
-    /// [`Timestamp::source_date_or_now`].
+    /// [`Timestamp::source_date_or_now`]; the PNG `Software` entry
+    /// ([`PngMetadata::default`]).
     fn default() -> Self {
         let version = env!("CARGO_PKG_VERSION");
         Self {
@@ -168,6 +173,7 @@ impl Default for Metadata {
             producer: Some(format!("plt-rs v{version}")),
             date: Some(Timestamp::source_date_or_now()),
             svg: SvgMetadata::default(),
+            png: PngMetadata::default(),
             ..Self::none()
         }
     }
@@ -187,6 +193,7 @@ impl Metadata {
             modified: None,
             trapped: None,
             svg: SvgMetadata::none(),
+            png: PngMetadata::none(),
         }
     }
 }
@@ -263,6 +270,77 @@ impl SvgMetadata {
     }
 }
 
+/// The `Software` entry of plt-rs' PNG files, where matplotlib writes its
+/// own name and version (`Matplotlib version3.11.2, https://matplotlib.org/`).
+pub const PNG_SOFTWARE: &str = concat!("plt-rs v", env!("CARGO_PKG_VERSION"));
+
+/// The text entries of a PNG file (matplotlib's PNG `metadata`): any
+/// keywords, PNG's own being `Title`, `Author`, `Description`,
+/// `Copyright`, `Creation Time`, `Software`, `Disclaimer`, `Warning`,
+/// `Source` and `Comment`. They are written in order as `tEXt` chunks, or
+/// as `iTXt` chunks when the text is not Latin-1, as Pillow writes them.
+///
+/// matplotlib merges the `metadata` dictionary over its default
+/// `Software` entry and leaves out the keys set to `None`;
+/// [`PngMetadata::with`] and [`PngMetadata::without`] do the same.
+///
+/// ```
+/// use plt_render::PngMetadata;
+/// // matplotlib's `metadata={"Title": "Signal", "Software": None}`.
+/// let png = PngMetadata::default().with("Title", "Signal").without("Software");
+/// assert_eq!(png.entries(), [("Title".to_owned(), "Signal".to_owned())]);
+/// let defaults = PngMetadata::default();
+/// assert_eq!(defaults.entries()[0].0, "Software");
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PngMetadata {
+    /// Keywords and texts, in file order, each keyword once.
+    entries: Vec<(String, String)>,
+}
+
+impl Default for PngMetadata {
+    /// The `Software` entry naming plt-rs ([`PNG_SOFTWARE`]), as matplotlib
+    /// names itself.
+    fn default() -> Self {
+        Self::none().with("Software", PNG_SOFTWARE)
+    }
+}
+
+impl PngMetadata {
+    /// No entry at all.
+    pub const fn none() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
+    /// These entries with `keyword` set to `text`: in place when the
+    /// keyword has an entry, else as a new last entry (a key of
+    /// matplotlib's `metadata`).
+    #[must_use]
+    pub fn with(mut self, keyword: impl Into<String>, text: impl Into<String>) -> Self {
+        let (keyword, text) = (keyword.into(), text.into());
+        match self.entries.iter_mut().find(|(key, _)| *key == keyword) {
+            Some(entry) => entry.1 = text,
+            None => self.entries.push((keyword, text)),
+        }
+        self
+    }
+
+    /// These entries without `keyword` (a key of matplotlib's `metadata`
+    /// set to `None`).
+    #[must_use]
+    pub fn without(mut self, keyword: &str) -> Self {
+        self.entries.retain(|(key, _)| key != keyword);
+        self
+    }
+
+    /// The keywords and texts, in file order.
+    pub fn entries(&self) -> &[(String, String)] {
+        &self.entries
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,5 +361,23 @@ mod tests {
         let metadata = Metadata::default();
         assert!(metadata.creator.is_some_and(|c| c.starts_with("plt-rs")));
         assert_eq!(Metadata::none().date, None);
+    }
+
+    #[test]
+    fn png_entries_merge_like_matplotlib_dictionaries() {
+        let png = PngMetadata::default()
+            .with("Title", "a")
+            .with("Software", "b")
+            .with("Title", "c");
+        let entries: Vec<(&str, &str)> = png
+            .entries()
+            .iter()
+            .map(|(key, text)| (key.as_str(), text.as_str()))
+            .collect();
+        assert_eq!(entries, [("Software", "b"), ("Title", "c")]);
+        let emptied = png.without("Software").without("Title");
+        assert_eq!(emptied.entries(), []);
+        assert_eq!(Metadata::none().png, PngMetadata::none());
+        assert_eq!(PngMetadata::default().entries()[0].1, PNG_SOFTWARE);
     }
 }

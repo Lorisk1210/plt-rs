@@ -56,7 +56,7 @@ pub(crate) fn map_colors(
     }
     let cmap = colorizer.colormap(rc)?;
     let mut norm: Box<dyn Norm> = match colorizer.norm {
-        Some(norm) => norm,
+        Some(norm) => norm.resolve(),
         None if coloring.logscale => Box::new(LogNorm::default()),
         None => Box::new(Normalize::default()),
     };

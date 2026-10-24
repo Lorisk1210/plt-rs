@@ -293,7 +293,7 @@ impl Painter<'_> {
             SolidFill::Mapped(values, mapping) => {
                 options.colorizer = ColorizerOptions {
                     cmap: Some(mapping.cmap().clone()),
-                    norm: Some(mapping.norm().clone_box()),
+                    norm: Some(mapping.norm().clone_box().into()),
                     ..ColorizerOptions::default()
                 };
                 let values =

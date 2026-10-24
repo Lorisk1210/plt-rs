@@ -41,6 +41,15 @@ Ops
     (``test_hexbin_bad_extents``, ``test_hexbin_log_offsets``,
     ``test_hexbin_log_clim``, with 4 hexagons across instead of 100 to keep
     the offsets short; ``test_pathological_hexbin``).
+``Axes.norm_by_name``  {plot, values, norm, vmin?, vmax?, samples} -> {vmin,
+    vmax, normalized}: the limits of the norm of what ``plot`` makes of the
+    four ``values`` with ``norm`` given by its scale name and the limits
+    given, and what that norm makes of ``samples`` (``null`` where it
+    masks one). ``plot`` is ``"hexbin"`` (the values as ``C`` at the
+    corners of the unit square, each in a hexagon of its own),
+    ``"imshow"`` and ``"pcolormesh"`` (the values as a 2 x 2 grid) or
+    ``"scatter"`` (the values as ``c`` of four points)
+    (``test_hexbin_string_norm``).
 ``Axes.hexbin.contains``  {x, y, extent, point} -> whether the hexbin
     collection made with ``picker=-1`` contains a mouse event at the display
     ``point`` (``test_hexbin_pickable``).
@@ -221,6 +230,11 @@ Ops
     ``fill_between(range(3), range(3))``, three ``fill_betweenx``, and
     ``fill_between`` with ``facecolor``, ``color`` and twice ``edgecolor``
     ``"k"`` (``test_fillbetween_cycle`` without the keyword aliases).
+``Axes.stackplot``  {facecolor?, facecolors?, colors?} -> {faces, next}:
+    the face colours of the two layers of ``stackplot(x, 1.0 * x, 2.0 * x
+    + 1, ...)`` over ``x = np.linspace(0, 10, 10)``, given the keywords
+    present, and the colour of a ``plot`` drawn next
+    (``test_stackplot_facecolor``).
 ``Axes.bar.color_cycle``  {} -> five times the colour of ``plot(range(3))``
     and the face colours of ``bar(range(3), range(3))`` drawn after it
     (``test_bar_color_cycle``).
@@ -314,6 +328,10 @@ Ops
     (``test_axis_get_tick_params``).
 ``Axis.label``  {rc} -> ``[color, fontsize, fontweight]`` of the x axis
     label (``test_rc_axes_label_formatting``).
+``Axis.label.get_ha``  {ha} -> {ha, extent}: the horizontal alignment of
+    the y axis label after ``set_ylabel("test", y=1, ha=ha)`` and
+    ``yaxis.set_label_position("right")``, and the label's window extent
+    after a draw (``test_ylabel_ha_with_position``).
 ``Axes.title.get_position``  {case, rc?} -> the heights of the titles of a
     scene (see ``_titles``) after a draw (``test_title_location_shared``,
     ``test_titlesetpos``, ``test_title_xticks_top``,
@@ -335,6 +353,13 @@ Ops
 ``Axes.secondary_xaxis.formatter``  {} -> the class name of the major
     formatter of a secondary axis given a ``ScalarFormatter`` on a
     logarithmic host, after a draw (``test_secondary_formatter``).
+``Axes.secondary_axis.set_color``  {orientation, how} -> {spines, color,
+    labelcolor, label, minor}: after ``secondary_<orientation>axis(1,
+    color="red")`` (``how = "keyword"``) or ``set_color("red")`` on the
+    secondary axis made without it (``"method"``), the edge colours of its
+    four spines (by side), the ``color`` and ``labelcolor`` of its axis'
+    ``get_tick_params()``, the colour of the axis label and the colour of
+    the minor ticks, which keep theirs (``test_set_secondary_axis_color``).
 ``Axes.secondary_axis.set_ticks``  {orientation} -> the class name of the
     major locator of a secondary axis at 1 after ``set_<orientation>ticks``
     (``test_secondary_init_xticks``, ticks set by the setter rather than a
@@ -498,11 +523,7 @@ lists in place of typed values (``s="foo"`` in
 ``test_scatter_c``, the list ``elinewidth`` of
 ``test_errorbar_linewidth_type``, the projection name of
 ``test_invalid_projection``) and the call signatures of ``test_stem_args``
-without positions or with a positional format. Also left out:
-``test_hexbin_string_norm`` (a norm named by a string together with
-``vmin`` and ``vmax``: plt-rs's colour options take a norm object, which
-excludes limits) and ``test_stackplot_facecolor`` (plt-rs's stack plots take
-their fill colours once, as ``colors``).
+without positions or with a positional format.
 
 Left out of the second half: Python mechanics: ``test_secondary_repr``
 (``repr``), ``test_axes_clear_reference_cycle`` (garbage collection),
@@ -538,10 +559,7 @@ as span limits (``test_axline_minmax``), ``None``, 2-D and 3-D data
 ``test_plot_format``. Also left out: ``test_wrong_use_colorizer``
 (plt-rs's colour options are one value holding the norm, colormap and
 limits, so a colorizer cannot be combined with them; a norm with limits is
-rejected as ``test_imshow_norm_vminvmax`` checks), and two tests of
-keywords plt-rs lacks: ``test_set_secondary_axis_color`` (the ``color`` of
-``secondary_xaxis``) and ``test_ylabel_ha_with_position`` (an axis label
-aligned by ``ha`` rather than ``loc``).
+rejected as ``test_imshow_norm_vminvmax`` checks).
 """
 
 import datetime
@@ -749,6 +767,37 @@ def test_hexbin_pickable():
     x, y = (np.arange(200) / 200).reshape((2, 100)).tolist()
     probe("Axes.hexbin.contains", _hexbin_contains, x=x, y=y, extent=[.1, .3, .6, .7],
           point=[400, 300])
+
+
+def _norm_by_name(plot, values, norm, samples, vmin=None, vmax=None):
+    ax = _axes()
+    kw = {"norm": norm, "vmin": vmin, "vmax": vmax}
+    if plot == "hexbin":
+        mappable = ax.hexbin([0, 1, 0, 1], [0, 0, 1, 1], C=values, **kw)
+    elif plot == "scatter":
+        mappable = ax.scatter([0, 1, 2, 3], [0, 1, 2, 3], c=values, **kw)
+    else:
+        mappable = getattr(ax, plot)(np.reshape(values, (2, 2)), **kw)
+    normalized = np.ma.asarray(mappable.norm(samples))
+    return {"vmin": mappable.norm.vmin, "vmax": mappable.norm.vmax,
+            "normalized": [None if masked else float(value)
+                           for value, masked in zip(normalized.filled(0),
+                                                    np.ma.getmaskarray(normalized))]}
+
+
+def test_hexbin_string_norm():
+    values = [1.5, 2.5, 4.0, 6.0]
+    samples = [-1, 2.5, 3, 4]
+    for plot in ["hexbin", "imshow", "pcolormesh", "scatter"]:
+        probe("Axes.norm_by_name", _norm_by_name, tol=1e-12, plot=plot, values=values,
+              norm="log", vmin=2, vmax=5, samples=samples)
+        probe("Axes.norm_by_name", _norm_by_name, tol=1e-12, plot=plot, values=values,
+              norm="log", samples=samples)
+    for norm in ["linear", "symlog", "asinh"]:
+        probe("Axes.norm_by_name", _norm_by_name, tol=1e-12, plot="imshow", values=values,
+              norm=norm, vmin=2, samples=samples)
+    probe("Axes.norm_by_name", _norm_by_name, tol=1e-12, plot="imshow",
+          values=[0.1, 0.3, 0.6, 0.9], norm="logit", vmax=0.8, samples=[0.05, 0.2, 0.5, 1.5])
 
 
 # --- images and meshes ---------------------------------------------------------------
@@ -1753,6 +1802,23 @@ def test_fillbetween_cycle():
     probe("Axes.fill_between.cycle", _fill_between_cycle, style=["default"])
 
 
+def _stackplot(**kw):
+    ax = _axes()
+    x = np.linspace(0, 10, 10)
+    layers = ax.stackplot(x, 1.0 * x, 2.0 * x + 1, **kw)
+    next_line, = ax.plot(x, x)
+    return {"faces": [_rgba_list(layer.get_facecolor()) for layer in layers],
+            "next": _rgba(next_line.get_color())}
+
+
+def test_stackplot_facecolor():
+    probe("Axes.stackplot", _stackplot, facecolor=["r", "b"], colors=["c", "m"])
+    probe("Axes.stackplot", _stackplot, facecolors=["r", "b"], colors=["c", "m"])
+    probe("Axes.stackplot", _stackplot, facecolor=["r"])
+    probe("Axes.stackplot", _stackplot, colors=["c", "m"])
+    probe("Axes.stackplot", _stackplot)
+
+
 def _bar_color_cycle():
     ax = _axes()
     colors = []
@@ -2405,6 +2471,22 @@ def test_rc_axes_label_formatting():
           rc={"axes.labelcolor": "red", "axes.labelsize": 20, "axes.labelweight": "bold"})
 
 
+def _ylabel_ha(ha):
+    fig = Figure()
+    FigureCanvasAgg(fig)
+    ax = fig.subplots()
+    ax.set_ylabel("test", y=1, ha=ha)
+    ax.yaxis.set_label_position("right")
+    ha = ax.yaxis.label.get_ha()
+    fig.draw_without_rendering()
+    return {"ha": ha, "extent": ax.yaxis.label.get_window_extent().extents.tolist()}
+
+
+def test_ylabel_ha_with_position():
+    for ha in ["left", "center", "right"]:
+        assert probe("Axis.label.get_ha", _ylabel_ha, ha=ha, tol=1e-9)["ha"] == ha
+
+
 # --- titles --------------------------------------------------------------------------
 
 def _title_y(title):
@@ -2613,6 +2695,29 @@ def _secondary_formatter():
 
 def test_secondary_formatter():
     probe("Axes.secondary_xaxis.formatter", _secondary_formatter)
+
+
+def _secondary_color(orientation, how):
+    ax = _axes()
+    make = getattr(ax, f"secondary_{orientation}axis")
+    if how == "keyword":
+        secax = make(1, color="red")
+    else:
+        secax = make(1)
+        secax.set_color("red")
+    axis = getattr(secax, f"{orientation}axis")
+    params = axis.get_tick_params()
+    return {"spines": {side: _rgba(spine.get_edgecolor()) for side, spine in secax.spines.items()},
+            "color": _rgba(params["color"]), "labelcolor": _rgba(params["labelcolor"]),
+            "label": _rgba(axis.label.get_color()),
+            "minor": _rgba(axis.get_minor_ticks(1)[0].tick1line.get_color())}
+
+
+def test_set_secondary_axis_color():
+    for orientation in ["x", "y"]:
+        for how in ["keyword", "method"]:
+            probe("Axes.secondary_axis.set_color", _secondary_color, orientation=orientation,
+                  how=how)
 
 
 def _secondary_ticks(orientation):

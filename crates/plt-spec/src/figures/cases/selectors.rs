@@ -155,6 +155,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         bottom.set_xlim(0.0, 10.0)?.set_ylim(-1.5, 1.5)?;
         let options = CursorOptions {
             horizontal: true,
+            useblit: false,
             line: LineProps::default().color("r").linewidth(1.0),
             ..CursorOptions::multicursor()
         };

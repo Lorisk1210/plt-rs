@@ -252,7 +252,7 @@ impl Axes {
             .unzip();
 
         let (colorizer, accum) = binned(options.colorizer, options.bins, kept);
-        let shared_norm = colorizer.norm.is_some();
+        let marginal_norm = colorizer.norm.clone();
         let mut mappable = colorizer.into_mappable(&crate::rc::params())?;
         let values: Vec<Option<f64>> = accum.iter().map(|&v| Some(v)).collect();
         mappable.norm_mut().autoscale_none(&values);
@@ -290,7 +290,7 @@ impl Axes {
                 scales: (options.xscale, options.yscale),
                 reduce: options.reduce,
             };
-            self.add_hexbin_marginals(&marginals, &mappable, shared_norm, &options.props);
+            self.add_hexbin_marginals(&marginals, &mappable, marginal_norm, &options.props);
         }
         handle.set_mapping(ColorMapping { values, mappable });
         Ok(handle)

@@ -112,9 +112,13 @@ impl PsRenderer {
             let _ = writeln!(self.body, "{} setlinecap", cap_code(gc.cap));
             self.line.cap = Some(gc.cap);
         }
+        // An empty dash list sets no dashes, as no list does.
         let dash = (
             gc.dashes.offset,
-            (!gc.dashes.pattern.is_empty()).then(|| gc.dashes.pattern.clone()),
+            gc.dashes
+                .pattern
+                .clone()
+                .filter(|pattern| !pattern.is_empty()),
         );
         if self.line.dash.as_ref() != Some(&dash) {
             if let Some(pattern) = &dash.1 {

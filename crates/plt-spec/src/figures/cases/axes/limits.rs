@@ -120,7 +120,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ];
         for (ax, (mode, name)) in axs.as_slice().iter().zip(modes) {
             ellipse(ax)?;
-            ax.axis_mode(mode);
+            ax.axis_mode(mode)?;
             ax.set_title(name);
         }
         Ok(())

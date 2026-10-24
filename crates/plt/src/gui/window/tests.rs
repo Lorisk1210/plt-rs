@@ -15,6 +15,7 @@ use crate::artist::ArtistHandle;
 use crate::events::EventKind;
 use crate::gui::subplot_dialog::{Param, SubplotMessage};
 use crate::lines::Line2D;
+use crate::widgets::{Cursor, CursorOptions};
 
 /// An opaque white pixel.
 const WHITE: [u8; 4] = [255; 4];
@@ -433,4 +434,40 @@ fn blitted_animations_play_through_partial_updates() {
         "only the axes: {frames:?}"
     );
     drop(animation);
+}
+
+#[test]
+fn blitting_cursors_draw_without_redrawing_the_figure() {
+    let (mut event_loop, handle, mut window, _) = shown_with_animated_line();
+    let figure = window.figure().clone();
+    let options = CursorOptions {
+        useblit: true,
+        ..CursorOptions::default()
+    };
+    let cursor = Cursor::new(&figure.axes()[0], options);
+    // The window draws the figure, which saves the cursor's background.
+    figure.canvas().draw_idle().expect("drawn");
+    window.refresh(&mut event_loop.context()).expect("shown");
+    let draws = Rc::new(RefCell::new(0));
+    let counted = Rc::clone(&draws);
+    figure.connect(EventKind::Draw, move |_| *counted.borrow_mut() += 1);
+    let moved = WindowEvent::CursorMoved {
+        position: PhysicalPosition::new(200.0, 150.0),
+        modifiers: Modifiers::NONE,
+    };
+    handle
+        .inject(window.id(), moved)
+        .expect("the window exists");
+    pump(&mut event_loop, &mut window);
+    window.refresh(&mut event_loop.context()).expect("shown");
+    let frames = handle.take_frames();
+    let frame = frames.last().expect("a frame is presented");
+    assert_ne!(
+        frame.image.pixel(200, 100),
+        Some(WHITE),
+        "the vertical line"
+    );
+    assert_eq!(frame.image.pixel(150, 100), Some(WHITE));
+    assert_eq!(*draws.borrow(), 0, "the figure is not drawn again");
+    assert!(cursor.vertical_line().visible() && !figure.is_stale());
 }

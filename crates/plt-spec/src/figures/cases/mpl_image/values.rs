@@ -280,7 +280,7 @@ fn str_norms(fig: &Figure) -> CaseResult {
             t.clone(),
             ImshowOptions {
                 colorizer: ColorizerOptions {
-                    norm: Some(norm),
+                    norm: Some(norm.into()),
                     ..ColorizerOptions::default()
                 },
                 ..ImshowOptions::default()

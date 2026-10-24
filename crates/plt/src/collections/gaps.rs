@@ -42,7 +42,7 @@ pub(super) fn inverse_paths_and_dashes(
         .iter()
         .zip(dashes.iter().cycle())
         .map(|(path, dashes)| {
-            if dashes.pattern.is_empty() {
+            if dashes.lengths().is_empty() {
                 (
                     Path::polyline(vec![Point::new(f64::NAN, f64::NAN)]),
                     dashes.clone(),
@@ -61,10 +61,7 @@ mod tests {
     #[test]
     fn solid_items_get_no_gaps_and_dashed_ones_the_inverse_pattern() {
         let line = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(1.0, 0.0)]);
-        let dashed = Dashes {
-            offset: 0.0,
-            pattern: vec![4.0, 1.0],
-        };
+        let dashed = Dashes::new(0.0, vec![4.0, 1.0]);
         let (paths, dashes) = inverse_paths_and_dashes(
             &[line.clone(), line.clone(), line.clone()],
             &[dashed, Dashes::solid()],
@@ -75,13 +72,7 @@ mod tests {
             paths[1].vertices()[0].x.is_nan(),
             "solid items draw nothing"
         );
-        assert_eq!(
-            dashes[0],
-            Dashes {
-                offset: 1.0,
-                pattern: vec![1.0, 4.0]
-            }
-        );
+        assert_eq!(dashes[0], Dashes::new(1.0, vec![1.0, 4.0]));
         assert_eq!(dashes[2], dashes[0], "the patterns are cycled");
     }
 

@@ -14,7 +14,7 @@ use crate::artist::Artist;
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors,
 };
-use crate::colors::ScalarMappable;
+use crate::colors::{NormSpec, ScalarMappable};
 use crate::numeric::{geomspace, linspace};
 
 /// How far the bars reach into the axes, as a fraction of it.
@@ -132,15 +132,17 @@ fn bar(axis: AxisName, lo: f64, hi: f64) -> Path {
 
 impl Axes {
     /// Adds the bars of both marginals, coloured through the colormap of
-    /// the hexagons' `mappable` — and through its norm too when
-    /// `shared_norm`, else through a linear norm fitted to each marginal —
-    /// and styled by the hexagons' `props` with edges in the face colour.
-    /// The data limits are left alone.
+    /// the hexagons' `mappable` and styled by the hexagons' `props` with
+    /// edges in the face colour; the data limits are left alone. The bars
+    /// share the hexagons' norm when it was given as a norm, and get one
+    /// of their own fitted to each marginal otherwise: a new norm of the
+    /// scale named by `norm`, or a linear one (matplotlib's
+    /// `bar.set_norm(norm)` with the hexbin's `norm` argument).
     pub(super) fn add_hexbin_marginals(
         &self,
         marginals: &Marginals<'_>,
         mappable: &ScalarMappable,
-        shared_norm: bool,
+        norm: Option<NormSpec>,
         props: &CollectionProps,
     ) {
         let weights: Cow<'_, [f64]> = marginals
@@ -153,10 +155,11 @@ impl Axes {
         };
         for marginal in marginals.bins() {
             let (paths, values) = marginal.bars(&weights, marginals.reduce);
-            let mut mappable = if shared_norm {
-                mappable.clone()
-            } else {
-                ScalarMappable::new(mappable.cmap().clone())
+            let cmap = mappable.cmap().clone();
+            let mut mappable = match &norm {
+                Some(NormSpec::Norm(_)) => mappable.clone(),
+                Some(NormSpec::Name(name)) => ScalarMappable::with_norm(cmap, name.norm()),
+                None => ScalarMappable::new(cmap),
             };
             mappable.norm_mut().autoscale_none(&values);
             let mut collection =

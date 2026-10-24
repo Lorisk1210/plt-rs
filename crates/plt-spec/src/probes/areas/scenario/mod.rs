@@ -31,6 +31,8 @@ use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 use scene::Scene;
 
+pub(crate) use axes_limits::axis_mode;
+
 /// Replays `steps` in a fresh figure under the spec's reference
 /// configuration, inside the scenario's style and rcParams.
 pub(crate) fn replay(args: Args<'_>) -> Outcome {

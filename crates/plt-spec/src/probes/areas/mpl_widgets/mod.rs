@@ -4,7 +4,7 @@
 //! classic style. The selectors replay [`steps`] of synthetic events and
 //! queries: [`region`] (rectangles and ellipses), [`span`], [`polygon`]
 //! and [`lasso`]; [`buttons`] covers check and radio buttons and text
-//! boxes, [`sliders`] the sliders and [`cursors`] the multicursor.
+//! boxes, [`sliders`] the sliders and [`cursors`] the cursors.
 
 mod buttons;
 mod cursors;
@@ -46,6 +46,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Slider.slidermax", sliders::slidermax),
     Op::new("RangeSlider", sliders::range_slider),
     Op::new("MultiCursor", cursors::multicursor),
+    Op::new("Cursor.useblit", cursors::cursor_useblit),
 ];
 
 /// A malformed argument.

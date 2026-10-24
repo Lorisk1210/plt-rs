@@ -1,10 +1,10 @@
 //! Probe operations for the `mpl_agg` area: matplotlib's own non-image
 //! tests of the Agg canvas (`tests/test_agg.py`; see
 //! `spec/reference/probes/test_mpl_agg.py`): saved colours, canvas sizes
-//! and what the JPEG, GIF and WebP files record, read as Pillow reads
+//! and what the JPEG, GIF, WebP and PNG files record, read as Pillow reads
 //! them.
 
-use plt::figure::{Figure, SaveFormat, SaveOptions};
+use plt::figure::{Figure, Metadata, PngMetadata, SaveFormat, SaveOptions};
 use plt_codec::raster::Pixels;
 use plt_core::Rgba;
 
@@ -20,6 +20,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Figure.savefig.jpeg", jpeg),
     Op::new("Figure.savefig.gif", gif),
     Op::new("Figure.savefig.webp", webp),
+    Op::new("Figure.savefig.png_text", png_text),
 ];
 
 fn bad(what: &str) -> ProbeError {
@@ -191,6 +192,83 @@ fn webp(args: Args<'_>) -> Outcome {
         } else {
             "RGB"
         }))
+    })
+}
+
+/// The chunk types of `png` before its first `IDAT`.
+fn chunk_types(png: &[u8]) -> Result<Vec<Json>, ProbeError> {
+    let malformed = || ProbeError::rejected("a malformed PNG file");
+    let mut types = Vec::new();
+    let mut pos = plt_codec::png::SIGNATURE.len();
+    loop {
+        let header = png.get(pos..pos + 8).ok_or_else(malformed)?;
+        let (length, kind) = header.split_at(4);
+        if kind == b"IDAT" {
+            return Ok(types);
+        }
+        types.push(Json::from(String::from_utf8_lossy(kind).into_owned()));
+        let length = u32::from_be_bytes(length.try_into().map_err(|_| malformed())?);
+        pos += 12 + usize::try_from(length).map_err(ProbeError::rejected)?;
+    }
+}
+
+/// The PNG entries of the probe's matplotlib `metadata` dictionary, merged
+/// over the defaults.
+fn png_metadata(entries: &[(String, Json)]) -> Result<PngMetadata, ProbeError> {
+    entries
+        .iter()
+        .try_fold(PngMetadata::default(), |png, (key, value)| match value {
+            Json::Null => Ok(png.without(key)),
+            Json::String(text) => Ok(png.with(key, text)),
+            other => Err(ProbeError::BadArgs(format!("bad {key} {other}"))),
+        })
+}
+
+/// The chunk types before the image data and the text entries of a small
+/// figure saved as a PNG with the probe's metadata.
+/// What the probes record for the default `Software` entry, which names
+/// the library writing the file.
+const DEFAULT_SOFTWARE: &str = "<default software>";
+
+fn png_text(args: Args<'_>) -> Outcome {
+    styled(args, || {
+        let metadata = args
+            .get("metadata")
+            .map(|value| {
+                let entries = value.as_object().ok_or_else(|| bad("metadata"))?;
+                Ok::<_, ProbeError>(Metadata {
+                    png: png_metadata(entries)?,
+                    ..Metadata::default()
+                })
+            })
+            .transpose()?;
+        let options = SaveOptions {
+            metadata,
+            ..SaveOptions::default()
+        };
+        let png = Figure::with_size(1.0, 1.0, 10.0)
+            .to_format(SaveFormat::Png, options)
+            .map_err(ProbeError::rejected)?;
+        let decoded = plt_codec::png::decode(&png).map_err(ProbeError::rejected)?;
+        let text = decoded
+            .metadata()
+            .text
+            .iter()
+            .map(|entry| {
+                // Both libraries name themselves in the default entry.
+                let text = if entry.keyword == "Software" && entry.text == plt_render::PNG_SOFTWARE
+                {
+                    DEFAULT_SOFTWARE
+                } else {
+                    entry.text.as_str()
+                };
+                Json::Array(vec![Json::from(entry.keyword.as_str()), Json::from(text)])
+            })
+            .collect();
+        Ok(crate::probes::encode::object([
+            ("chunks", Json::Array(chunk_types(&png)?)),
+            ("text", Json::Array(text)),
+        ]))
     })
 }
 

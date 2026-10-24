@@ -209,7 +209,7 @@ fn norm_abc(fig: &Figure) -> CaseResult {
     let contours = |cmap: Colormap| ContourOptions {
         colorizer: ColorizerOptions {
             cmap: Some(cmap),
-            norm: Some(Box::new(HalfNorm)),
+            norm: Some(HalfNorm.into()),
             ..ColorizerOptions::default()
         },
         ..ContourOptions::default()

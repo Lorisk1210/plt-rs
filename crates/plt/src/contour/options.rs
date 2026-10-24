@@ -2,7 +2,7 @@
 
 use super::Levels;
 use super::levels::is_log_locator;
-use crate::colors::{Color, ColorizerOptions, Extend, Norm, NormKind, impl_colorize};
+use crate::colors::{Color, ColorizerOptions, Extend, NormSpec, impl_colorize};
 use crate::lines::LineStyle;
 use crate::ticker::Locator;
 use crate::transforms::Transform;
@@ -61,12 +61,7 @@ impl ContourOptions {
     /// Whether levels and colours are log-scaled: a `LogNorm` or a
     /// `LogLocator` (matplotlib's `logscale`).
     pub fn logscale(&self) -> bool {
-        self.colorizer.norm.as_deref().is_some_and(is_log_norm)
+        self.colorizer.norm.as_ref().is_some_and(NormSpec::is_log)
             || self.locator.as_deref().is_some_and(is_log_locator)
     }
-}
-
-/// Whether `norm` is a `LogNorm` (a norm made from the log scale).
-fn is_log_norm(norm: &dyn Norm) -> bool {
-    matches!(norm.kind(), NormKind::Scaled(scale) if scale.name() == "log")
 }

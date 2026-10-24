@@ -10,9 +10,10 @@ use crate::figures::FigureCase;
 /// Every case of the group.
 pub(crate) fn cases() -> Vec<FigureCase> {
     vec![
-        // `test_linestyle_variants`: every named style, then an offset dash
-        // pattern without dashes (matplotlib's `(0, None)`), which draws
-        // solid.
+        // `test_linestyle_variants`: every named style, then offset dash
+        // patterns without dashes, which draw solid: no dash list
+        // (matplotlib's `(0, None)`) and an empty one, spelled `(0, ())`
+        // and `(0, [])` in matplotlib.
         classic("mpl_tests_lines/linestyle_variants", |fig| {
             let ax = fig.subplot();
             let y: Vec<f64> = (0..10).map(f64::from).collect();
@@ -23,8 +24,9 @@ pub(crate) fn cases() -> Vec<FigureCase> {
                 .collect::<Result<Vec<_>, _>>()?;
             styles.push(LineStyle::Dashes {
                 offset: 0.0,
-                pattern: Vec::new(),
+                pattern: None,
             });
+            styles.extend(["(0, ())".parse()?, "(0, [])".parse()?]);
             for style in styles {
                 ax.plot_y(y.clone()).set_linestyle(style);
             }

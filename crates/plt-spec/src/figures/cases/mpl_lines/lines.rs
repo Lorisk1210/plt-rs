@@ -25,7 +25,7 @@ fn range(n: usize) -> Vec<f64> {
 fn line_dashes(fig: &Figure) -> CaseResult {
     let dashes = LineStyle::Dashes {
         offset: 0.0,
-        pattern: vec![3.0, 3.0],
+        pattern: Some(vec![3.0, 3.0]),
     };
     let props = LineProps::default().linestyle(dashes).linewidth(5.0);
     plot_y(&fig.subplot(), range(10), props)?;
@@ -70,7 +70,7 @@ fn line_collection_dashes(fig: &Figure) -> CaseResult {
     let options = ContourOptions {
         linestyles: Some(vec![LineStyle::Dashes {
             offset: 0.0,
-            pattern: vec![3.0, 3.0],
+            pattern: Some(vec![3.0, 3.0]),
         }]),
         ..ContourOptions::default()
     };
@@ -209,7 +209,7 @@ fn striped_line(fig: &Figure) -> CaseResult {
         .gapcolor(Color::from("black"))
         .linestyle(LineStyle::Dashes {
             offset: 0.0,
-            pattern: vec![2.0, 5.0, 4.0, 2.0],
+            pattern: Some(vec![2.0, 5.0, 4.0, 2.0]),
         })
         .linewidth(5.0)
         .label("black in red")
@@ -278,7 +278,7 @@ pub(super) const CASES: &[FigureCase] = &[
     classic("mpl_lines/odd_dashes", |fig| {
         let odd = LineStyle::Dashes {
             offset: 0.0,
-            pattern: vec![1.0, 2.0, 3.0],
+            pattern: Some(vec![1.0, 2.0, 3.0]),
         };
         plot_y(
             &fig.subplot(),

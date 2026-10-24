@@ -73,7 +73,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             LineStyle::DashDot,
             LineStyle::Dashes {
                 offset: 0.0,
-                pattern: vec![5.0, 1.0, 1.0, 1.0],
+                pattern: Some(vec![5.0, 1.0, 1.0, 1.0]),
             },
         ];
         for (i, style) in styles.into_iter().enumerate() {

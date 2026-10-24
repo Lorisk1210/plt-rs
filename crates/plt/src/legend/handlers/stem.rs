@@ -50,7 +50,10 @@ pub(super) fn stem(
         if let Some(&color) = edges.first() {
             line.color = Color::from(color);
         }
-        line.linestyle = LineStyle::dashes(dashes.offset, dashes.pattern.clone());
+        line.linestyle = LineStyle::Dashes {
+            offset: dashes.offset,
+            pattern: dashes.pattern.clone(),
+        };
         artists.push(HandlerArtist::placed(line));
     }
 

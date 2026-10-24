@@ -307,7 +307,7 @@ pub(super) fn contourf_log_extension(fig: &Figure) -> CaseResult {
         .collect();
     let log_norm = |vmin: f64, vmax: f64| ContourOptions {
         colorizer: ColorizerOptions {
-            norm: Some(Box::new(LogNorm::default())),
+            norm: Some(LogNorm::default().into()),
             vmin: Some(vmin),
             vmax: Some(vmax),
             ..ColorizerOptions::default()

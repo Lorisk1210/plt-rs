@@ -59,9 +59,10 @@ fn linestyle(args: Args<'_>) -> Outcome {
             .set_edgecolor("b")
             .set_linestyle(LineStyle::dashes(offset, pattern));
         match rect.style().linestyle {
-            LineStyle::Dashes { offset, pattern } => {
-                Ok(Json::Array(vec![Json::from(offset), numbers(pattern)]))
-            }
+            LineStyle::Dashes { offset, pattern } => Ok(Json::Array(vec![
+                Json::from(offset),
+                pattern.map_or(Json::Null, numbers),
+            ])),
             other => Ok(Json::from(other.to_string())),
         }
     })

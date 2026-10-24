@@ -2,6 +2,10 @@
  "area": "mpl_polar",
  "matplotlib": "3.11.2",
  "probes": [
+  {"op": "axes.Axes.axis", "args": {"projection": "polar", "arg": "equal"}, "error": "ValueError"},
+  {"op": "axes.Axes.axis", "args": {"projection": null, "arg": "equal"}, "value": ["datalim", 1.0]},
+  {"op": "axes.Axes.axis", "args": {"projection": "polar", "arg": "scaled"}, "value": ["box", 1.0]},
+  {"op": "axes.Axes.axis", "args": {"projection": null, "arg": "scaled"}, "value": ["box", 1.0]},
   {"op": "axes.Axes.axvspan._interpolation_steps", "args": {"xmin": 0, "xmax": 0.7853981633974483}, "value": 180},
   {
    "op": "axes.Axes.format_coord",

@@ -98,7 +98,7 @@ fn colorbar_histogram(fig: &Figure) -> CaseResult {
         ImshowOptions {
             colorizer: ColorizerOptions {
                 cmap: Some(cmap.clone()),
-                norm: Some(Box::new(norm.clone())),
+                norm: Some(norm.clone().into()),
                 ..ColorizerOptions::default()
             },
             origin: Some(Origin::Lower),

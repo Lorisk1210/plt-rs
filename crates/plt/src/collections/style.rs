@@ -197,7 +197,7 @@ mod tests {
         );
         assert_eq!(widths.len(), 6);
         assert_eq!(widths, [1.0, 2.0, 1.0, 2.0, 1.0, 2.0]);
-        assert_eq!(dashes[1].pattern, vec![3.7 * 2.0, 1.6 * 2.0]);
+        assert_eq!(dashes[1].lengths(), [3.7 * 2.0, 1.6 * 2.0]);
     }
 
     #[test]

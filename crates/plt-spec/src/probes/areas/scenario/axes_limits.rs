@@ -192,7 +192,8 @@ fn set_margin(ax: &Axes, axis: AxisName, call: &Call<'_>) -> Result<Produced, Pr
 fn axis(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     let limits = match call.arg(0, "arg") {
         Some(Json::String(mode)) => {
-            ax.axis_mode(axis_mode(mode)?);
+            ax.axis_mode(axis_mode(mode)?)
+                .map_err(ProbeError::rejected)?;
             return Ok(Produced::Nothing);
         }
         Some(extent) => {
@@ -221,7 +222,8 @@ fn axis(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     Ok(Produced::Nothing)
 }
 
-fn axis_mode(mode: &str) -> Result<AxisMode, ProbeError> {
+/// The preset matplotlib's `axis` names `mode`.
+pub(crate) fn axis_mode(mode: &str) -> Result<AxisMode, ProbeError> {
     Ok(match mode {
         "on" => AxisMode::On,
         "off" => AxisMode::Off,

@@ -136,11 +136,12 @@ impl Encoder {
             interlaced: false,
         };
         write_chunk(&mut png, ChunkType::IHDR, &header.to_bytes());
-        if let Some(physical) = physical {
-            write_chunk(&mut png, ChunkType::PHYS, &physical.to_bytes());
-        }
+        // Text before the resolution, in the order Pillow writes them.
         for (kind, data) in &text_chunks {
             write_chunk(&mut png, *kind, data);
+        }
+        if let Some(physical) = physical {
+            write_chunk(&mut png, ChunkType::PHYS, &physical.to_bytes());
         }
         for part in compressed.chunks(IDAT_CHUNK_LEN) {
             write_chunk(&mut png, ChunkType::IDAT, part);

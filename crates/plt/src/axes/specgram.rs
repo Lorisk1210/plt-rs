@@ -146,7 +146,8 @@ impl Axes {
             ..options.image
         };
         let image = self.imshow(flipped, image).map_err(SpecgramError::Image)?;
-        self.axis_mode(AxisMode::Auto);
+        self.axis_mode(AxisMode::Auto)
+            .expect("every axes takes the automatic mode");
         Ok(SpecgramPlot { spectrogram, image })
     }
 }

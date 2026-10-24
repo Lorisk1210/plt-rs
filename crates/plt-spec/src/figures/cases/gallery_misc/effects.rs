@@ -101,7 +101,7 @@ fn tickedstroke_demo_1(fig: &Figure) -> CaseResult {
     ax.add_patch(PathShape(Path::unit_circle()))
         .update_props(PatchProps::default().facecolor("none").linewidth(2.0))
         .set_path_effects(ticked_stroke(-90.0, 10.0, 1.0));
-    ax.axis_mode(AxisMode::Equal);
+    ax.axis_mode(AxisMode::Equal)?;
     ax.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
     Ok(())
 }

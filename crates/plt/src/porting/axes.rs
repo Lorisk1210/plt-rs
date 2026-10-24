@@ -61,6 +61,7 @@
 //! | `set_xlabel(..., loc=, labelpad=, fontsize=, color=)` | [`Axis::set_label_loc`], [`Axis::set_label_pad`], [`Axis::set_label_fontsize`], [`Axis::set_label_color`] |
 //! | `ax.xaxis.set_label_position("top")`           | [`Axis::set_label_position`]`(SpineSide::Top)`   |
 //! | `ax.xaxis.set_label_coords(x, y)`              | [`Axis::set_label_coords`]                       |
+//! | `ax.set_ylabel(s, y=1, ha="left")`             | [`Axis::set_label_loc`]`(LabelLoc::End)` then [`Axis::set_label_halign`]`(HAlign::Left)` |
 //! | `ax.spines["top"].set_visible(False)`          | `ax.spines().top.set_visible(false)` ([`Spines`]) |
 //! | `ax.spines["left"].set_position(("outward", 10))` | [`Spine::set_position`]`(SpinePosition::Outward(10.0))` |
 //! | `ax.spines["bottom"].set_position("zero")`     | [`Spine::set_position`]`(SpinePosition::Data(0.0))` |
@@ -68,6 +69,7 @@
 //! | `spine.set_bounds(lo, None)`, `spine.get_bounds()` | [`Spine::set_bound_ends`], [`Spine::bounds`]   |
 //! | `ax.twinx()`, `ax.twiny()`                     | [`Axes::twinx`], [`Axes::twiny`]                 |
 //! | `ax.secondary_xaxis("top", functions=(f, g))`  | [`Axes::secondary_xaxis`]`(SecondaryLocation::Side(SpineSide::Top), Some(..))` |
+//! | `ax.secondary_xaxis("top", color="r")`, `sec.set_color("r")` | [`Axis::set_color`] on the secondary axes' [`Axes::xaxis`] |
 //! | `ax.sharex(other)`, `ax.get_shared_x_axes()`   | [`Axes::share_x`], [`Axes::shared_axes`]         |
 //! | `ax.label_outer()`                             | [`Axes::label_outer`]                            |
 //! | `ax.xaxis_date()`, `ax.xaxis.axis_date(tz)`    | [`Axes::xaxis_date`], [`Axis::axis_date`]        |
@@ -390,5 +392,7 @@
 //! [`Axis::set_label_color`]: crate::axes::Axis::set_label_color
 //! [`Axis::set_label_position`]: crate::axes::Axis::set_label_position
 //! [`Axis::set_label_coords`]: crate::axes::Axis::set_label_coords
+//! [`Axis::set_label_halign`]: crate::axes::Axis::set_label_halign
+//! [`Axis::set_color`]: crate::axes::Axis::set_color
 //! [`Axis::axis_date`]: crate::axes::Axis::axis_date
 //! [`Axis::convert_units`]: crate::axes::Axis::convert_units

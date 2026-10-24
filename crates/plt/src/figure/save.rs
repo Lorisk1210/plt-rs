@@ -8,7 +8,8 @@ use std::str::FromStr;
 
 use plt_core::path::convert::SimplifySettings;
 use plt_render::{
-    Metadata, PdfOptions, PdfRenderer, RasterBackendError, RasterRenderer, Renderer, VectorError,
+    Metadata, PdfOptions, PdfRenderer, PngMetadata, RasterBackendError, RasterRenderer, Renderer,
+    VectorError,
 };
 
 use super::print::SaveOptions;
@@ -268,19 +269,45 @@ impl Figure {
         self.render_raster_with(super::SaveOptions::default())
     }
 
-    /// The figure as PNG bytes (matplotlib's `savefig(format="png")`).
+    /// The figure as PNG bytes (matplotlib's `savefig(format="png")`),
+    /// with matplotlib's `Software` text entry.
     pub fn to_png(&self) -> Result<Vec<u8>, SaveError> {
-        self.render_raster()?.to_png().map_err(SaveError::Backend)
+        self.to_png_with(SaveOptions::default())
     }
 
-    /// The figure as PNG bytes with save options.
+    /// The figure as PNG bytes with save options; the PNG entries of the
+    /// metadata ([`Metadata::png`], matplotlib's `Software` entry when no
+    /// metadata is given) become text chunks.
+    ///
+    /// ```
+    /// use plt::figure::{Figure, Metadata, PngMetadata, SaveOptions};
+    /// let fig = Figure::with_size(1.0, 1.0, 10.0);
+    /// // matplotlib's `savefig(..., metadata={"Title": "Signal"})`.
+    /// let options = SaveOptions {
+    ///     metadata: Some(Metadata {
+    ///         png: PngMetadata::default().with("Title", "Signal"),
+    ///         ..Metadata::default()
+    ///     }),
+    ///     ..SaveOptions::default()
+    /// };
+    /// let png = plt_codec::png::decode(&fig.to_png_with(options)?)?;
+    /// let keywords: Vec<&str> =
+    ///     png.metadata().text.iter().map(|entry| entry.keyword.as_str()).collect();
+    /// assert_eq!(keywords, ["Software", "Title"]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     ///
     /// # Errors
     ///
-    /// As [`Figure::render_raster_with`], or when encoding fails.
+    /// As [`Figure::render_raster_with`], or when encoding fails, a PNG
+    /// keyword included (1 to 79 printable Latin-1 characters).
     pub fn to_png_with(&self, options: SaveOptions) -> Result<Vec<u8>, SaveError> {
+        let text = options
+            .metadata
+            .as_ref()
+            .map_or_else(PngMetadata::default, |metadata| metadata.png.clone());
         self.render_raster_with(options)?
-            .to_png()
+            .to_png_with(&text)
             .map_err(SaveError::Backend)
     }
 

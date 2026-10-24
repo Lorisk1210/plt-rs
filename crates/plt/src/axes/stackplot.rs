@@ -23,12 +23,22 @@ pub enum Baseline {
 
 /// Options of [`Axes::stackplot`]. The sequences are cycled over the
 /// layers.
+///
+/// A layer is filled with its colour of `facecolors`, else with the face
+/// colour of `props`, else with its colour of `colors`: matplotlib's
+/// `facecolor` takes precedence over `colors`. Without `colors` the
+/// layers take the next colours of the line property cycle, even when
+/// another fill wins, as in matplotlib.
 #[derive(Clone, Debug, Default)]
 pub struct StackplotOptions {
     /// Where the bottom of the stack lies.
     pub baseline: Baseline,
-    /// Fill colours (empty: the next colours of the line property cycle).
+    /// Colours of the layers (empty: the next colours of the line property
+    /// cycle).
     pub colors: Vec<Color>,
+    /// Fill colours, taking precedence over `colors` (matplotlib's
+    /// `facecolor` or `facecolors`; empty: none).
+    pub facecolors: Vec<Color>,
     /// Edge colours (empty: the collection default).
     pub edgecolors: Vec<Color>,
     /// Hatch patterns (empty: none).
@@ -96,10 +106,12 @@ impl Axes {
 /// The style of layer `i`: the shared props plus the cycled sequences.
 fn layer_props(options: &StackplotOptions, colors: &[Color], i: usize) -> CollectionProps {
     let cycled = |len: usize| i % len;
-    let mut props = options
-        .props
-        .clone()
-        .facecolor(colors[cycled(colors.len())].clone());
+    let mut props = options.props.clone();
+    if !options.facecolors.is_empty() {
+        props = props.facecolor(options.facecolors[cycled(options.facecolors.len())].clone());
+    } else if props.facecolors.is_none() {
+        props = props.facecolor(colors[cycled(colors.len())].clone());
+    }
     if !options.edgecolors.is_empty() {
         props = props.edgecolor(options.edgecolors[cycled(options.edgecolors.len())].clone());
     }
@@ -178,6 +190,8 @@ fn weighted_wiggle(ys: &[Vec<f64>], stack: &[Vec<f64>], total: &[f64]) -> Vec<f6
 
 #[cfg(test)]
 mod tests {
+    use plt_core::Rgba;
+
     use super::*;
     use crate::figure::Figure;
 
@@ -206,6 +220,39 @@ mod tests {
         for (a, b) in first.iter().zip(expected) {
             assert!((a - b).abs() < 1e-12, "{first:?}");
         }
+    }
+
+    #[test]
+    fn face_colours_take_precedence_over_colours() {
+        let ax = Figure::new().subplot();
+        let face = |options: StackplotOptions| -> Vec<Rgba> {
+            ax.stackplot([0.0, 1.0, 2.0], &layers(), options)
+                .unwrap()
+                .iter()
+                .map(|layer| layer.colors().unwrap().faces[0])
+                .collect()
+        };
+        let rgba = |name: &str| Color::from(name).resolve().unwrap();
+        let colors = vec![Color::from("c"), Color::from("m")];
+        let given = StackplotOptions {
+            facecolors: vec![Color::from("r"), Color::from("b")],
+            colors: colors.clone(),
+            ..StackplotOptions::default()
+        };
+        assert_eq!(face(given), [rgba("r"), rgba("b")]);
+        let shared = StackplotOptions {
+            props: CollectionProps::default().facecolor("k"),
+            colors,
+            ..StackplotOptions::default()
+        };
+        assert_eq!(face(shared), [rgba("k"), rgba("k")]);
+        let cycled = StackplotOptions {
+            facecolors: vec![Color::from("r")],
+            ..StackplotOptions::default()
+        };
+        assert_eq!(face(cycled), [rgba("r"), rgba("r")]);
+        let next = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap().rgba().unwrap();
+        assert_eq!(next, rgba("C2"), "the layers took C0 and C1");
     }
 
     #[test]

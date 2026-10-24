@@ -144,12 +144,19 @@ Ops
     handles, poly}``, the handle positions along the slider and the corners
     of ``poly`` in axes coordinates (``test_range_slider``,
     ``test_range_slider_same_init_values``).
-``MultiCursor``  {horizOn, vertOn} -> the line counts and, after a motion at
-    ``(0.5, 0.25)`` of the first of two axes sharing x, after toggling both
-    switches and moving there again, and after a motion over the other axes
-    (not in the cursor): the x data of the vertical lines, the y data of the
-    horizontal lines and how many of each are visible; the cursor spans the
-    first axes and the axes of a second figure (``test_MultiCursor``).
+``MultiCursor``  {horizOn, vertOn, useblit} -> the line counts and, after a
+    motion at ``(0.5, 0.25)`` of the first of two axes sharing x, after
+    toggling both switches and moving there again, and after a motion over
+    the other axes (not in the cursor): the x data of the vertical lines,
+    the y data of the horizontal lines and how many of each are visible;
+    the cursor spans the first axes and the axes of a second figure, and
+    with ``useblit`` blits its animated lines (``test_MultiCursor``, which
+    turns blitting off, and the same with blitting).
+``Cursor.useblit``  {rects} -> ``[useblit, animated]`` of ``Cursor(ax,
+    useblit=True)`` on the first of axes added at ``rects``: whether the
+    cursor blits, which it does not over axes overlapping others, and
+    whether its vertical line is animated
+    (``test_cursor_overlapping_axes_blitting_warning``).
 
 The image tests and the ``fig_test`` sides of the ``check_figures_equal``
 tests are figure cases of the ``mpl_rendering`` group;
@@ -161,15 +168,17 @@ an unknown keyword and unraisable exceptions), ``test_tool_line_handle``
 (plt-rs keeps ``ToolLineHandles`` inside the span selector, whose handles
 the ``SpanSelector`` queries read), ``test_span_selector_animated_artists_callback``
 (the Qt backend), ``test_slider_slidermin_slidermax_invalid`` (a
-``slidermin`` that is not a slider cannot be written in Rust),
-``test_cursor_overlapping_axes_blitting_warning`` (plt-rs cursors do not
-blit), the ``with_deprecated_canvas`` cases of ``test_MultiCursor``
+``slidermin`` that is not a slider cannot be written in Rust), the warning
+of ``test_cursor_overlapping_axes_blitting_warning`` (plt-rs has no
+warnings; the probe records that the cursor does not blit), the
+``with_deprecated_canvas`` cases of ``test_MultiCursor``
 (deprecation machinery), and of the tests ported, the ``TypeError`` of
 ``CheckButtons.set_active(1, state="invalid")`` and the ``ValueError`` of an
 invalid ``Rectangle.rotation_point`` (both typed in plt-rs).
 """
 
 import copy
+import warnings
 
 import matplotlib as mpl
 import matplotlib.colors as mcolors
@@ -1040,11 +1049,11 @@ def test_range_slider_same_init_values():
 # --- cursors -----------------------------------------------------------------
 
 
-def _multicursor(horizOn, vertOn):
+def _multicursor(horizOn, vertOn, useblit):
     fig = _figure()
     ax1, ax3 = fig.subplots(2, sharex=True)
     ax2 = _figure().subplots()
-    multi = widgets.MultiCursor((ax1, ax2), useblit=False, horizOn=horizOn, vertOn=vertOn)
+    multi = widgets.MultiCursor((ax1, ax2), useblit=useblit, horizOn=horizOn, vertOn=vertOn)
 
     def lines():
         return {"vx": [list(line.get_xdata()) for line in multi.vlines],
@@ -1052,7 +1061,8 @@ def _multicursor(horizOn, vertOn):
                 "vvisible": sum(line.get_visible() for line in multi.vlines),
                 "hvisible": sum(line.get_visible() for line in multi.hlines)}
 
-    counts = [len(multi.vlines), len(multi.hlines)]
+    counts = [len(multi.vlines), len(multi.hlines),
+              sum(line.get_animated() for line in multi.vlines + multi.hlines)]
     MouseEvent._from_ax_coords("motion_notify_event", ax1, (.5, .25))._process()
     fig.canvas.draw()
     moved = lines()
@@ -1067,4 +1077,23 @@ def _multicursor(horizOn, vertOn):
 def test_MultiCursor():
     for horizOn in [False, True]:
         for vertOn in [False, True]:
-            probe("MultiCursor", _multicursor, horizOn=horizOn, vertOn=vertOn)
+            for useblit in [False, True]:
+                probe("MultiCursor", _multicursor, horizOn=horizOn, vertOn=vertOn,
+                      useblit=useblit)
+
+
+def _cursor_useblit(rects):
+    fig = _figure()
+    axes = [fig.add_axes(rect) for rect in rects]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cursor = widgets.Cursor(axes[0], useblit=True)
+    return [cursor.useblit, cursor.linev.get_animated()]
+
+
+def test_cursor_overlapping_axes_blitting_warning():
+    assert probe("Cursor.useblit", _cursor_useblit,
+                 rects=[[0.1, 0.1, 0.8, 0.8], [0.2, 0.2, 0.6, 0.6]]) == [False, False]
+    probe("Cursor.useblit", _cursor_useblit, rects=[[0, 0, 0.5, 1], [0.5, 0, 0.5, 1]])
+    probe("Cursor.useblit", _cursor_useblit, rects=[[0.1, 0.1, 0.3, 0.3], [0.6, 0.6, 0.3, 0.3]])
+    probe("Cursor.useblit", _cursor_useblit, rects=[[0.1, 0.1, 0.8, 0.8]])

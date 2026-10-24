@@ -204,7 +204,7 @@ pub(super) const CASES: &[FigureCase] = &[
             let offset = f64::from(j);
             let dashes = LineStyle::Dashes {
                 offset,
-                pattern: vec![10.0, 10.0],
+                pattern: Some(vec![10.0, 10.0]),
             };
             let props = LineProps::default()
                 .linestyle(dashes)

@@ -66,7 +66,7 @@ fn axis_options(fig: &Figure) -> CaseResult {
         for (row, (x, y, center, radius)) in rows.into_iter().enumerate() {
             let ax = &axes[(row, i)];
             ax.plot([x.0, x.1], [y.0, y.1])?;
-            ax.axis_mode(option);
+            ax.axis_mode(option)?;
             ax.add_artist(Circle::new(center, radius))
                 .update_props(PatchProps::default().facecolor("none").edgecolor("k"));
         }
@@ -114,9 +114,9 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_axes_d/secondary_xy", secondary_xy).sized(10.0, 5.0, 100.0),
     FigureCase::new("mpl_axes_d/axis_options", axis_options),
     classic("mpl_axes_d/axis_bool_arguments", |fig| {
-        fig.add_subplot(2, 1, 1)?.axis_mode(AxisMode::Off);
+        fig.add_subplot(2, 1, 1)?.axis_mode(AxisMode::Off)?;
         let ax = fig.add_subplot(2, 1, 2)?;
-        ax.axis_mode(AxisMode::Off).axis_mode(AxisMode::On);
+        ax.axis_mode(AxisMode::Off)?.axis_mode(AxisMode::On)?;
         Ok(())
     }),
     classic("mpl_axes_d/polar_interpolation_steps_variable_r", |fig| {

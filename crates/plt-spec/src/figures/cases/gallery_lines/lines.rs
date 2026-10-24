@@ -198,10 +198,7 @@ fn eventplot_demo(fig: &Figure) -> CaseResult {
 
 /// The on-off `pattern` from the start (matplotlib's `dashes=pattern`).
 fn dashes(pattern: &[f64]) -> LineStyle {
-    LineStyle::Dashes {
-        offset: 0.0,
-        pattern: pattern.to_vec(),
-    }
+    LineStyle::dashes(0.0, pattern.to_vec())
 }
 
 fn line_demo_dash_control(fig: &Figure) -> CaseResult {
@@ -249,10 +246,10 @@ fn parametrized(name: &'static str, offset: u32, pattern: &[u32]) -> NamedStyle 
     let lengths: Vec<String> = pattern.iter().map(u32::to_string).collect();
     NamedStyle {
         name,
-        style: LineStyle::Dashes {
-            offset: f64::from(offset),
-            pattern: pattern.iter().copied().map(f64::from).collect(),
-        },
+        style: LineStyle::dashes(
+            f64::from(offset),
+            pattern.iter().copied().map(f64::from).collect(),
+        ),
         repr: format!("({offset}, ({}))", lengths.join(", ")),
     }
 }

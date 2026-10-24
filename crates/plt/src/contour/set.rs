@@ -334,8 +334,8 @@ mod tests {
         );
         assert_eq!(cs.linewidths(), [1.5; 3]);
         assert_eq!(cs.colors()[0], Rgba::new(0.0, 0.0, 0.0, 0.5));
-        assert_eq!(cs.dash_patterns()[0].pattern.len(), 2);
-        assert_eq!(cs.dash_patterns()[1].pattern, Vec::<f64>::new());
+        assert_eq!(cs.dash_patterns()[0].lengths().len(), 2);
+        assert_eq!(cs.dash_patterns()[1].lengths(), []);
         assert_eq!(cs.norm_limits(), (Some(-1.0), Some(1.0)));
     }
 
@@ -345,7 +345,7 @@ mod tests {
         let field = QuadField::new(Grid::from_rows([[-1.0, 10.0], [100.0, 1000.0]]).unwrap());
         let options = ContourOptions {
             colorizer: ColorizerOptions {
-                norm: Some(Box::new(LogNorm::default())),
+                norm: Some(LogNorm::default().into()),
                 ..ColorizerOptions::default()
             },
             ..ContourOptions::default()

@@ -2,7 +2,8 @@
 //! tests of `Axes` (`tests/test_axes.py`; see
 //! `spec/reference/probes/test_mpl_axes.py`), run in the style each probe
 //! names. The ops are grouped by topic: [`axis`] (formatters, twins,
-//! arrows and annotations), [`hexbin`], [`mesh`] (images, pseudocolour
+//! arrows and annotations), [`hexbin`], [`named_norms`] (norms named by
+//! their scale, with limits), [`mesh`] (images, pseudocolour
 //! meshes and `pcolorfast`), [`bars`] (bars, broken bars, grouped bars and a
 //! figure legend), [`bar_label`], [`boxes`] (box and violin plots),
 //! [`errorbar`], [`stem`], [`hist`] (histograms and stairs), [`scatter`]
@@ -27,6 +28,7 @@ mod limits;
 mod lines;
 mod mesh;
 mod misc;
+mod named_norms;
 mod pie;
 mod scatter;
 mod secondary;
@@ -54,6 +56,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Annotation.arrow_patch", axis::annotation_arrow),
     Op::new("Axes.hexbin", hexbin::hexbin),
     Op::new("Axes.hexbin.contains", hexbin::contains),
+    Op::new("Axes.norm_by_name", named_norms::norm_by_name),
     Op::new("Axes.imshow", mesh::imshow),
     Op::new("Axes.pcolor", mesh::pcolor),
     Op::new("Axes.pcolormesh", mesh::pcolormesh),
@@ -91,6 +94,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Axes.vlines", lines::vlines),
     Op::new("Axes.hlines", lines::hlines),
     Op::new("Axes.fill_between.cycle", lines::fill_between_cycle),
+    Op::new("Axes.stackplot", lines::stackplot),
     Op::new("Axes.bar.color_cycle", bars::bar_color_cycle),
     Op::new("Axes.eventplot.segments", scatter::eventplot_segments),
     Op::new("Axes.eventplot.legend", scatter::eventplot_legend),
@@ -111,6 +115,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Axis.set_ticklabels", ticks::set_ticklabels),
     Op::new("Axis.get_tick_params", ticks::get_tick_params),
     Op::new("Axis.label", ticks::label_formatting),
+    Op::new("Axis.label.get_ha", ticks::ylabel_halign),
     Op::new("Axes.title.get_position", titles::title_positions),
     Op::new("Axes.set_title.twiny", titles::twiny_title_gap),
     Op::new("Axes.secondary_axis", secondary::secondary_axis),
@@ -124,6 +129,7 @@ pub(crate) const OPS: &[Op] = &[
         secondary::secondary_formatter,
     ),
     Op::new("Axes.secondary_axis.set_ticks", secondary::secondary_ticks),
+    Op::new("Axes.secondary_axis.set_color", secondary::secondary_color),
     Op::new("pyplot.subplot", contents::subplot_geometry),
     Op::new("Axes.specgram", contents::specgram_extent),
     Op::new("Axes.psd", contents::psd_inverted),
@@ -166,6 +172,11 @@ fn on_axes(args: Args<'_>, f: impl FnOnce(&Axes) -> Outcome) -> Outcome {
 /// A plt-rs result, its error as the rejection matplotlib's error mirrors.
 fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
     result.map_err(ProbeError::rejected)
+}
+
+/// A colour as RGBA JSON.
+fn rgba(color: &Color) -> Result<Json, ProbeError> {
+    Ok(encode::rgba(made(color.resolve())?))
 }
 
 /// A list of RGBA colours as JSON.

@@ -6,7 +6,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::scaled::{LinearTransform, ScaleNorm};
-use super::{AsinhNorm, LogNorm, Norm, NormError, SymLogNorm};
+use super::{AsinhNorm, LogNorm, Norm, NormError, NormKind, SymLogNorm};
 use crate::colors::Normalized;
 use crate::scale::{LogitTransform, NonPositive};
 
@@ -95,8 +95,18 @@ impl FromStr for NormName {
     }
 }
 
-/// One norm of a [`MultiNorm`]: a scale name or a norm (matplotlib accepts
-/// a `str` or a `Normalize`).
+/// A norm given as a scale name or as a norm (matplotlib's `norm`
+/// argument, a `str` or a `Normalize`): the norm of a colour mapping
+/// ([`ColorizerOptions`](crate::colors::ColorizerOptions)), or one norm
+/// of a [`MultiNorm`].
+///
+/// ```
+/// use plt::colors::{LogNorm, NormName, NormSpec};
+/// let named: NormSpec = NormName::Log.into();
+/// let given: NormSpec = LogNorm::new(1.0, 10.0).into();
+/// assert!(named.resolve().vmin().is_none(), "a new norm, not yet scaled");
+/// assert_eq!(given.resolve().vmin(), Some(1.0));
+/// ```
 #[derive(Clone, Debug)]
 pub enum NormSpec {
     /// A new norm of the named kind.
@@ -109,6 +119,17 @@ impl NormSpec {
     /// The norm `norm`.
     pub fn norm(norm: impl Norm + 'static) -> Self {
         Self::Norm(Box::new(norm))
+    }
+
+    /// Whether the norm is logarithmic: the `"log"` scale or a norm made
+    /// from it (matplotlib's `isinstance(norm, LogNorm)`).
+    pub fn is_log(&self) -> bool {
+        match self {
+            Self::Name(name) => *name == NormName::Log,
+            Self::Norm(norm) => {
+                matches!(norm.kind(), NormKind::Scaled(scale) if scale.name() == "log")
+            }
+        }
     }
 
     /// The norm described.
@@ -129,6 +150,12 @@ impl From<NormName> for NormSpec {
 impl From<Box<dyn Norm>> for NormSpec {
     fn from(norm: Box<dyn Norm>) -> Self {
         Self::Norm(norm)
+    }
+}
+
+impl<N: Norm + 'static> From<N> for NormSpec {
+    fn from(norm: N) -> Self {
+        Self::norm(norm)
     }
 }
 

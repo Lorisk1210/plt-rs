@@ -66,7 +66,7 @@ pub(super) fn line_collection(
     line.color = Color::from(color);
     let style = source.linestyles.first().unwrap_or(&LineStyle::Solid);
     let Dashes { offset, pattern } = style.dash_pattern(source.rc());
-    line.linestyle = LineStyle::dashes(offset, pattern);
+    line.linestyle = LineStyle::Dashes { offset, pattern };
     line.linewidth = first_width(source);
     Ok(vec![HandlerArtist::placed(line)])
 }

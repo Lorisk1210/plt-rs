@@ -175,9 +175,9 @@ fn axis_equal_demo(fig: &Figure) -> CaseResult {
         ax.set_title(text).set_fontsize(10.0);
     };
     title(&axs[(0, 0)], "not equal, looks like ellipse");
-    axs[(0, 1)].axis_mode(AxisMode::Equal);
+    axs[(0, 1)].axis_mode(AxisMode::Equal)?;
     title(&axs[(0, 1)], "equal, looks like circle");
-    axs[(1, 0)].axis_mode(AxisMode::Equal);
+    axs[(1, 0)].axis_mode(AxisMode::Equal)?;
     axs[(1, 0)].set_xlim(-3.0, 3.0)?.set_ylim(-3.0, 3.0)?;
     title(&axs[(1, 0)], "still a circle, even after changing limits");
     axs[(1, 1)]

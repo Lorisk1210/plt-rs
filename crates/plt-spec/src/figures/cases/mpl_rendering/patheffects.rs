@@ -237,7 +237,7 @@ fn tickedstroke(fig: &Figure) -> CaseResult {
     ax1.add_patch(PathShape(Path::unit_circle()))
         .update_props(PatchProps::default().facecolor("none").linewidth(2.0))
         .set_path_effects(ticked_stroke(-90.0, 10.0, 1.0));
-    ax1.axis_mode(AxisMode::Equal);
+    ax1.axis_mode(AxisMode::Equal)?;
     ax1.set_xlim(-2.0, 2.0)?.set_ylim(-2.0, 2.0)?;
 
     let default_length = TickedStroke::default().length;

@@ -1,16 +1,18 @@
 //! Lines: format strings and plot arguments, infinite lines, `vlines` and
-//! `hlines` colours, and the colour cycle of filled areas.
+//! `hlines` colours, the colour cycle of filled areas and the fill colours
+//! of stack plots.
 
-use plt::axes::{Axes, FillBetweenOptions};
+use plt::axes::{Axes, FillBetweenOptions, StackplotOptions};
 use plt::collections::{Collection, CollectionProps, EdgeColors};
 use plt::colors::Color;
 use plt::figure::Figure;
 use plt::lines::{AxLineThrough, Line2D, LineProps};
+use plt::numeric::linspace;
 use plt::orientation::Orientation;
 use plt::units::AxisValues;
 use plt_core::Point;
 
-use super::{color, made, on_axes, optional, rgba_list};
+use super::{color, colors, made, on_axes, optional, rgba_list};
 use crate::json::Json;
 use crate::probes::areas::canon::Canon;
 use crate::probes::areas::mpl_ticker::styled;
@@ -150,5 +152,35 @@ pub(super) fn fill_between_cycle(args: Args<'_>) -> Outcome {
             .map(fill_colors)
             .collect::<Result<Vec<_>, _>>()
             .map(Json::Array)
+    })
+}
+
+pub(super) fn stackplot(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let x = linspace(0.0, 10.0, 10);
+        let layers = [
+            x.iter().map(|v| 1.0 * v).collect(),
+            x.iter().map(|v| 2.0 * v + 1.0).collect(),
+        ];
+        // matplotlib's `facecolor` and its plural alias are one option.
+        let facecolors = match optional(args, "facecolor", colors)? {
+            Some(given) => Some(given),
+            None => optional(args, "facecolors", colors)?,
+        };
+        let options = StackplotOptions {
+            facecolors: facecolors.unwrap_or_default(),
+            colors: optional(args, "colors", colors)?.unwrap_or_default(),
+            ..StackplotOptions::default()
+        };
+        let drawn = made(ax.stackplot(x.clone(), &layers, options))?;
+        let faces = drawn
+            .iter()
+            .map(|layer| Ok(rgba_list(&made(layer.colors())?.faces)))
+            .collect::<Result<Vec<_>, ProbeError>>()?;
+        let next = made(ax.plot(x.clone(), x))?;
+        Ok(encode::object([
+            ("faces", Json::Array(faces)),
+            ("next", encode::rgba(made(next.rgba())?)),
+        ]))
     })
 }

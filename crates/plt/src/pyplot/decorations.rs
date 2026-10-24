@@ -7,8 +7,8 @@
 use super::error::PyplotError;
 use super::registry::gca;
 use crate::axes::{
-    Axis, AxisMode, AxisName, GridOptions, LocatorParams, PlotError, TickParams, TickSet,
-    TicklabelFormat, TitleLocation,
+    AspectError, Axis, AxisMode, AxisName, GridOptions, LocatorParams, PlotError, TickParams,
+    TickSet, TicklabelFormat, TitleLocation,
 };
 use crate::coords::CoordError;
 use crate::legend::{Legend, LegendError, LegendOptions};
@@ -203,8 +203,13 @@ pub fn grid_with(visible: bool, options: GridOptions) {
 
 /// Applies an axis preset (`On`, `Off`, `Equal`, `Tight`, ...) to the
 /// current axes (matplotlib's `axis(mode)`).
-pub fn axis(mode: AxisMode) {
-    gca().axis_mode(mode);
+///
+/// # Errors
+///
+/// As [`Axes::axis_mode`](crate::axes::Axes::axis_mode): `Equal` on
+/// axes of a curved projection.
+pub fn axis(mode: AxisMode) -> Result<(), AspectError> {
+    gca().axis_mode(mode).map(drop)
 }
 
 /// Changes the appearance of the ticks and tick labels of the current
@@ -417,7 +422,7 @@ mod tests {
         minorticks_off();
         margins(0.1, 0.2).unwrap();
         autoscale(Some(AxisName::X), Some(true));
-        axis(AxisMode::Equal);
+        axis(AxisMode::Equal).expect("rectilinear axes take an equal mode");
         r#box(None);
         assert!(!gca().frame_on(), "box toggles the frame");
         r#box(Some(true));

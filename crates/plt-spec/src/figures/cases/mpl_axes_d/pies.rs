@@ -61,7 +61,7 @@ fn edgeless(options: PieOptions) -> PieOptions {
 fn equal_pie(fig: &Figure, options: &PieOptions) -> Result<Axes, Box<dyn std::error::Error>> {
     let ax = fig.gca();
     ax.pie(&SIZES, options.clone())?;
-    ax.axis_mode(AxisMode::Equal);
+    ax.axis_mode(AxisMode::Equal)?;
     Ok(ax)
 }
 
@@ -92,7 +92,7 @@ fn pie_center_radius(fig: &Figure) -> CaseResult {
         TextBoxProps::new("square".parse::<BoxStyle>()?)
             .with_patch(PatchProps::default().facecolor("lightgrey")),
     ));
-    ax.axis_mode(AxisMode::Equal);
+    ax.axis_mode(AxisMode::Equal)?;
     Ok(())
 }
 
@@ -115,7 +115,7 @@ fn pie_frame_grid(fig: &Figure) -> CaseResult {
         ..framed((3.0, 5.0))
     };
     ax.pie(&SIZES, options)?;
-    ax.axis_mode(AxisMode::Equal);
+    ax.axis_mode(AxisMode::Equal)?;
     Ok(())
 }
 

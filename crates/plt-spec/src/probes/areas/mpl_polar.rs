@@ -8,15 +8,18 @@ use plt::artist::ArtistHandle;
 use plt::axes::{Adjustable, Axes, AxisName, GridOptions};
 use plt::figure::{Figure, Mosaic, MosaicOptions, Share};
 use plt::polar::{Compass, PolarAxes, ThetaDirection};
+use plt::rc::Aspect;
 use plt::spines::SpineSide;
 use plt::ticker::{FuncFormatter, MaxNLocator, Nbins, TickerError};
 
+use super::scenario::axis_mode;
 use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
     Op::new("axes.Axes.set_adjustable", set_adjustable),
+    Op::new("axes.Axes.axis", axis),
     Op::new("axes.Axes.grid", grid_alpha),
     Op::new("spines.Spine.get_tightbbox", spine_extents),
     Op::new("axes.Axes.axvspan._interpolation_steps", span_steps),
@@ -40,23 +43,45 @@ fn labels(labels: Result<Vec<String>, TickerError>) -> Outcome {
     Ok(Json::from(labels.map_err(rejected)?))
 }
 
+/// An axes of the probe's `projection` on `fig`.
+fn projected(fig: &Figure, args: Args<'_>) -> Result<Axes, ProbeError> {
+    match args.opt_str("projection")? {
+        None => Ok(fig.subplot()),
+        Some("polar") => Ok(Axes::clone(&fig.polar_subplot())),
+        Some(other) => Err(ProbeError::BadArgs(format!("unknown projection {other:?}"))),
+    }
+}
+
+/// The name of an adjustable.
+fn adjustable_name(ax: &Axes) -> Json {
+    Json::from(match ax.adjustable() {
+        Adjustable::Box => "box",
+        Adjustable::Datalim => "datalim",
+    })
+}
+
 fn set_adjustable(args: Args<'_>) -> Outcome {
-    let fig = Figure::new();
-    let ax: Axes = match args.opt_str("projection")? {
-        None => fig.subplot(),
-        Some("polar") => Axes::clone(&fig.polar_subplot()),
-        Some(other) => return Err(ProbeError::BadArgs(format!("unknown projection {other:?}"))),
-    };
+    let ax = projected(&Figure::new(), args)?;
     let adjustable = match args.str("adjustable")? {
         "box" => Adjustable::Box,
         "datalim" => Adjustable::Datalim,
         other => return Err(ProbeError::BadArgs(format!("unknown adjustable {other:?}"))),
     };
     ax.set_adjustable(adjustable).map_err(rejected)?;
-    Ok(Json::from(match ax.adjustable() {
-        Adjustable::Box => "box",
-        Adjustable::Datalim => "datalim",
-    }))
+    Ok(adjustable_name(&ax))
+}
+
+/// The adjustable and aspect after `ax.axis(arg)`.
+fn axis(args: Args<'_>) -> Outcome {
+    let ax = projected(&Figure::new(), args)?;
+    ax.axis_mode(axis_mode(args.str("arg")?)?)
+        .map_err(rejected)?;
+    let aspect = match ax.aspect() {
+        Aspect::Equal => Json::from(1.0),
+        Aspect::Auto => Json::from("auto"),
+        Aspect::Ratio(ratio) => Json::from(ratio),
+    };
+    Ok(Json::Array(vec![adjustable_name(&ax), aspect]))
 }
 
 /// The alpha of the first major x and y gridlines after `ax.grid(alpha=)`.

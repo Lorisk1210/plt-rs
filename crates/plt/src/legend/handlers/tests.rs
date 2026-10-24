@@ -225,7 +225,13 @@ fn line_collections_hand_over_their_dash_pattern() {
         [0.0, 20.0],
         "one scatter point: the whole width"
     );
-    assert_eq!(legline.linestyle, LineStyle::dashes(0.0, Vec::new()));
+    assert_eq!(
+        legline.linestyle,
+        LineStyle::Dashes {
+            offset: 0.0,
+            pattern: None
+        }
+    );
     assert!(
         legline.linestyle.is_dashed(),
         "drawn with the dash cap style"

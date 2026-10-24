@@ -92,7 +92,7 @@ fn mesh_clim(ax: &Axes) -> Result<Vec<Json>, ProbeError> {
     let options = PcolorOptions {
         colorizer: ColorizerOptions {
             cmap: Some(made(colormaps::get("plasma"))?),
-            norm: Some(Box::new(Normalize::new(0.0, 1.0))),
+            norm: Some(Normalize::new(0.0, 1.0).into()),
             ..ColorizerOptions::default()
         },
         ..PcolorOptions::default()

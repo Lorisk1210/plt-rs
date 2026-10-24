@@ -1,7 +1,7 @@
 //! Decoding the arguments of contour probes into plt-rs inputs, as the
 //! adapters of `spec/reference/probes/test_contour.py` build them.
 
-use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, Norm};
+use plt::colors::{Color, ColorizerOptions, Extend, LogNorm, NormSpec};
 use plt::contour::{ContourOptions, Levels, Origin, QuadCoords, QuadField};
 use plt::numeric::Grid;
 use plt::rc::{self, RcParams};
@@ -194,9 +194,9 @@ pub(super) fn options(args: Args<'_>) -> Result<ContourOptions, ProbeError> {
                 .ok_or_else(|| ProbeError::BadArgs(format!("bad colors {value}")))?,
         ),
     };
-    let norm: Option<Box<dyn Norm>> = match args.opt_str("norm")? {
+    let norm: Option<NormSpec> = match args.opt_str("norm")? {
         None => None,
-        Some("log") => Some(Box::new(LogNorm::default())),
+        Some("log") => Some(LogNorm::default().into()),
         Some(other) => return Err(ProbeError::BadArgs(format!("unknown norm {other:?}"))),
     };
     Ok(ContourOptions {

@@ -2199,6 +2199,94 @@
   {"op": "Axes.inset_axes.projection", "args": {"style": ["classic", "_classic_test_patch"], "projection": "hammer"}, "value": ["hammer", true]},
   {"op": "Axes.legend.errorbar", "args": {"style": ["classic", "_classic_test_patch"]}, "value": ["empty y", "empty x"]},
   {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "imshow", "values": [1.5, 2.5, 4.0, 6.0], "norm": "asinh", "vmin": 2, "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 2.0, "vmax": 6.0, "normalized": [-2.218214505733536, 0.1942439186521993, 0.3575948047914596, 0.6211711726740123]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "imshow", "values": [1.5, 2.5, 4.0, 6.0], "norm": "linear", "vmin": 2, "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 2.0, "vmax": 6.0, "normalized": [-0.75, 0.125, 0.25, 0.5]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "hexbin", "values": [1.5, 2.5, 4.0, 6.0], "norm": "log", "vmin": 2, "vmax": 5, "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 2.0, "vmax": 5.0, "normalized": [null, 0.24352920263396993, 0.4425070493497599, 0.75647079736603]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "hexbin", "values": [1.5, 2.5, 4.0, 6.0], "norm": "log", "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 1.5, "vmax": 6.0, "normalized": [null, 0.36848279708310305, 0.5, 0.707518749639422]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "imshow", "values": [1.5, 2.5, 4.0, 6.0], "norm": "log", "vmin": 2, "vmax": 5, "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 2.0, "vmax": 5.0, "normalized": [null, 0.24352920263396993, 0.4425070493497599, 0.75647079736603]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "imshow", "values": [1.5, 2.5, 4.0, 6.0], "norm": "log", "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 1.5, "vmax": 6.0, "normalized": [null, 0.36848279708310305, 0.5, 0.707518749639422]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "plot": "pcolormesh",
+    "values": [1.5, 2.5, 4.0, 6.0],
+    "norm": "log",
+    "vmin": 2,
+    "vmax": 5,
+    "samples": [-1, 2.5, 3, 4]
+   },
+   "value": {"vmin": 2.0, "vmax": 5.0, "normalized": [null, 0.24352920263396993, 0.4425070493497599, 0.75647079736603]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "pcolormesh", "values": [1.5, 2.5, 4.0, 6.0], "norm": "log", "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 1.5, "vmax": 6.0, "normalized": [null, 0.36848279708310305, 0.5, 0.707518749639422]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "plot": "scatter",
+    "values": [1.5, 2.5, 4.0, 6.0],
+    "norm": "log",
+    "vmin": 2,
+    "vmax": 5,
+    "samples": [-1, 2.5, 3, 4]
+   },
+   "value": {"vmin": 2.0, "vmax": 5.0, "normalized": [null, 0.24352920263396993, 0.4425070493497599, 0.75647079736603]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "scatter", "values": [1.5, 2.5, 4.0, 6.0], "norm": "log", "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 1.5, "vmax": 6.0, "normalized": [null, 0.36848279708310305, 0.5, 0.707518749639422]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "imshow", "values": [0.1, 0.3, 0.6, 0.9], "norm": "logit", "vmax": 0.8, "samples": [0.05, 0.2, 0.5, 1.5]},
+   "value": {"vmin": 0.1, "vmax": 0.8, "normalized": [-0.20851414898679, 0.22629438553091683, 0.6131471927654584, null]},
+   "tol": 1e-12
+  },
+  {
+   "op": "Axes.norm_by_name",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": "imshow", "values": [1.5, 2.5, 4.0, 6.0], "norm": "symlog", "vmin": 2, "samples": [-1, 2.5, 3, 4]},
+   "value": {"vmin": 2.0, "vmax": 6.0, "normalized": [-3.4931721238156417, 0.2031140135750124, 0.3690702464285428, 0.6309297535714576]},
+   "tol": 1e-12
+  },
+  {
    "op": "Axes.pcolor",
    "args": {
     "style": ["classic", "_classic_test_patch"],
@@ -2910,6 +2998,50 @@
   },
   {"op": "Axes.secondary_axis", "args": {"style": ["classic", "_classic_test_patch"], "orientation": "y", "location": "bottom"}, "error": "ValueError"},
   {"op": "Axes.secondary_axis", "args": {"style": ["classic", "_classic_test_patch"], "orientation": "x", "location": "right"}, "error": "ValueError"},
+  {
+   "op": "Axes.secondary_axis.set_color",
+   "args": {"style": ["classic", "_classic_test_patch"], "orientation": "x", "how": "keyword"},
+   "value": {
+    "spines": {"left": [0.0, 0.0, 0.0, 1.0], "right": [0.0, 0.0, 0.0, 1.0], "bottom": [1.0, 0.0, 0.0, 1.0], "top": [1.0, 0.0, 0.0, 1.0]},
+    "color": [1.0, 0.0, 0.0, 1.0],
+    "labelcolor": [1.0, 0.0, 0.0, 1.0],
+    "label": [1.0, 0.0, 0.0, 1.0],
+    "minor": [0.0, 0.0, 0.0, 1]
+   }
+  },
+  {
+   "op": "Axes.secondary_axis.set_color",
+   "args": {"style": ["classic", "_classic_test_patch"], "orientation": "y", "how": "keyword"},
+   "value": {
+    "spines": {"left": [1.0, 0.0, 0.0, 1.0], "right": [1.0, 0.0, 0.0, 1.0], "bottom": [0.0, 0.0, 0.0, 1.0], "top": [0.0, 0.0, 0.0, 1.0]},
+    "color": [1.0, 0.0, 0.0, 1.0],
+    "labelcolor": [1.0, 0.0, 0.0, 1.0],
+    "label": [1.0, 0.0, 0.0, 1.0],
+    "minor": [0.0, 0.0, 0.0, 1]
+   }
+  },
+  {
+   "op": "Axes.secondary_axis.set_color",
+   "args": {"style": ["classic", "_classic_test_patch"], "orientation": "x", "how": "method"},
+   "value": {
+    "spines": {"left": [0.0, 0.0, 0.0, 1.0], "right": [0.0, 0.0, 0.0, 1.0], "bottom": [1.0, 0.0, 0.0, 1.0], "top": [1.0, 0.0, 0.0, 1.0]},
+    "color": [1.0, 0.0, 0.0, 1.0],
+    "labelcolor": [1.0, 0.0, 0.0, 1.0],
+    "label": [1.0, 0.0, 0.0, 1.0],
+    "minor": [0.0, 0.0, 0.0, 1]
+   }
+  },
+  {
+   "op": "Axes.secondary_axis.set_color",
+   "args": {"style": ["classic", "_classic_test_patch"], "orientation": "y", "how": "method"},
+   "value": {
+    "spines": {"left": [1.0, 0.0, 0.0, 1.0], "right": [1.0, 0.0, 0.0, 1.0], "bottom": [0.0, 0.0, 0.0, 1.0], "top": [0.0, 0.0, 0.0, 1.0]},
+    "color": [1.0, 0.0, 0.0, 1.0],
+    "labelcolor": [1.0, 0.0, 0.0, 1.0],
+    "label": [1.0, 0.0, 0.0, 1.0],
+    "minor": [0.0, 0.0, 0.0, 1]
+   }
+  },
   {"op": "Axes.secondary_axis.set_ticks", "args": {"style": ["classic", "_classic_test_patch"], "orientation": "x"}, "value": "FixedLocator"},
   {"op": "Axes.secondary_axis.set_ticks", "args": {"style": ["classic", "_classic_test_patch"], "orientation": "y"}, "value": "FixedLocator"},
   {"op": "Axes.secondary_xaxis.formatter", "args": {"style": ["classic", "_classic_test_patch"]}, "value": "ScalarFormatter"},
@@ -2937,6 +3069,31 @@
     "scale": "linear"
    },
    "value": [32.0, 96.0, 0.0, 1.0]
+  },
+  {
+   "op": "Axes.stackplot",
+   "args": {"style": ["classic", "_classic_test_patch"], "facecolor": ["r", "b"], "colors": ["c", "m"]},
+   "value": {"faces": [[[1.0, 0.0, 0.0, 1.0]], [[0.0, 0.0, 1.0, 1.0]]], "next": [0.0, 0.0, 1.0, 1]}
+  },
+  {
+   "op": "Axes.stackplot",
+   "args": {"style": ["classic", "_classic_test_patch"], "facecolors": ["r", "b"], "colors": ["c", "m"]},
+   "value": {"faces": [[[1.0, 0.0, 0.0, 1.0]], [[0.0, 0.0, 1.0, 1.0]]], "next": [0.0, 0.0, 1.0, 1]}
+  },
+  {
+   "op": "Axes.stackplot",
+   "args": {"style": ["classic", "_classic_test_patch"], "colors": ["c", "m"]},
+   "value": {"faces": [[[0.0, 0.75, 0.75, 1.0]], [[0.75, 0.0, 0.75, 1.0]]], "next": [0.0, 0.0, 1.0, 1]}
+  },
+  {
+   "op": "Axes.stackplot",
+   "args": {"style": ["classic", "_classic_test_patch"], "facecolor": ["r"]},
+   "value": {"faces": [[[1.0, 0.0, 0.0, 1.0]], [[1.0, 0.0, 0.0, 1.0]]], "next": [1.0, 0.0, 0.0, 1]}
+  },
+  {
+   "op": "Axes.stackplot",
+   "args": {"style": ["classic", "_classic_test_patch"]},
+   "value": {"faces": [[[0.0, 0.0, 1.0, 1.0]], [[0.0, 0.5, 0.0, 1.0]]], "next": [1.0, 0.0, 0.0, 1]}
   },
   {"op": "Axes.stairs", "args": {"style": ["classic", "_classic_test_patch"], "values": [1, 2], "edges": [0, 1]}, "error": "ValueError"},
   {"op": "Axes.stairs", "args": {"style": ["classic", "_classic_test_patch"], "values": [1, 2], "edges": [0, NaN, 1]}, "error": "ValueError"},
@@ -5427,6 +5584,24 @@
    "op": "Axis.label",
    "args": {"style": ["default"], "rc": {"axes.labelcolor": "red", "axes.labelsize": 20, "axes.labelweight": "bold"}},
    "value": [[1.0, 0.0, 0.0, 1.0], 20.0, "bold"]
+  },
+  {
+   "op": "Axis.label.get_ha",
+   "args": {"style": ["classic", "_classic_test_patch"], "ha": "center"},
+   "value": {"ha": "center", "extent": [581.5555555555555, 419.5, 594.8888888888889, 444.5]},
+   "tol": 1e-09
+  },
+  {
+   "op": "Axis.label.get_ha",
+   "args": {"style": ["classic", "_classic_test_patch"], "ha": "left"},
+   "value": {"ha": "left", "extent": [581.5555555555555, 432.0, 594.8888888888889, 457.0]},
+   "tol": 1e-09
+  },
+  {
+   "op": "Axis.label.get_ha",
+   "args": {"style": ["classic", "_classic_test_patch"], "ha": "right"},
+   "value": {"ha": "right", "extent": [581.5555555555555, 407.0, 594.8888888888889, 432.0]},
+   "tol": 1e-09
   },
   {
    "op": "Axis.set_major_formatter",

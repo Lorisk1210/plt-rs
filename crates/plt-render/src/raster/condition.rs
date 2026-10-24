@@ -221,7 +221,7 @@ impl RasterRenderer {
         let scale = self.dpi / 72.0;
         let lengths: Vec<f64> = gc
             .dashes
-            .pattern
+            .lengths()
             .iter()
             .map(|&v| {
                 let v = v * scale;
@@ -253,6 +253,7 @@ fn snap_and_finish<S: VertexSource>(source: S, path: &Path, c: &Conditioning, ou
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gc::Dashes;
 
     #[test]
     fn rounding_and_mode_mapping() {
@@ -290,8 +291,7 @@ mod tests {
         assert!(style.dashes.is_none());
 
         let mut dashed = gc.clone();
-        dashed.dashes.pattern = vec![1.3, 0.6, 2.0];
-        dashed.dashes.offset = 0.5;
+        dashed.dashes = Dashes::new(0.5, vec![1.3, 0.6, 2.0]);
         let style = r.stroke_style(&dashed);
         let pattern = style.dashes.unwrap();
         assert_eq!(pattern.pairs(), &[(2.6, 1.2), (4.0, 2.6), (1.2, 4.0)]);

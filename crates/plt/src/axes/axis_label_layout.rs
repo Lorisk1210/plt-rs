@@ -37,7 +37,7 @@ impl AxisPainter<'_> {
             .filter(|(first, _)| *first != high)
             .map(|(_, b)| *b);
         let bounds = boxes.fold(edge, |acc, b| acc.union(&b));
-        let along = label.loc.halign();
+        let along = label.halign();
         let multialign = label.multialign.unwrap_or(along);
         let (automatic, block) = match self.name {
             AxisName::X => (

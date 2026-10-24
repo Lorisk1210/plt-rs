@@ -21,6 +21,7 @@ use plt_raster::{Mask, Painter, Pixmap, RasterError, Rgba8};
 
 use crate::gc::ClipPath;
 use crate::image::RgbaImage;
+use crate::vector::PngMetadata;
 
 /// Why a raster canvas could not be created or encoded.
 #[derive(Debug)]
@@ -149,16 +150,36 @@ impl RasterRenderer {
         .expect("a pixmap holds width × height × 4 bytes")
     }
 
-    /// Encodes the pixels as an RGBA PNG carrying the resolution.
+    /// Encodes the pixels as an RGBA PNG carrying the resolution, without
+    /// text entries.
+    ///
+    /// # Errors
+    ///
+    /// When the image cannot be encoded.
     pub fn to_png(&self) -> Result<Vec<u8>, RasterBackendError> {
+        self.to_png_with(&PngMetadata::none())
+    }
+
+    /// Encodes the canvas as PNG with the text entries of `metadata`, as
+    /// matplotlib's `savefig` writes them.
+    ///
+    /// # Errors
+    ///
+    /// When the image cannot be encoded, or a keyword is not a valid PNG
+    /// keyword (1 to 79 printable Latin-1 characters).
+    pub fn to_png_with(&self, metadata: &PngMetadata) -> Result<Vec<u8>, RasterBackendError> {
         let image = ImageRef::rgba8(
             self.pixmap.width(),
             self.pixmap.height(),
             self.pixmap.data(),
         )
         .map_err(RasterBackendError::Encode)?;
-        png::Encoder::new()
-            .dpi(self.dpi)
+        metadata
+            .entries()
+            .iter()
+            .fold(png::Encoder::new().dpi(self.dpi), |encoder, (key, text)| {
+                encoder.text(key, text)
+            })
             .encode(image)
             .map_err(RasterBackendError::Encode)
     }

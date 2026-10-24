@@ -60,7 +60,10 @@ impl std::error::Error for AspectError {}
 
 /// Refuses [`Adjustable::Datalim`] for axes of a curved projection, whose
 /// data ratio is fixed.
-fn check_adjustable(axes: &AxesState, adjustable: Adjustable) -> Result<(), AspectError> {
+pub(super) fn check_adjustable(
+    axes: &AxesState,
+    adjustable: Adjustable,
+) -> Result<(), AspectError> {
     if adjustable == Adjustable::Datalim && !axes.projection.is_rectilinear() {
         return Err(AspectError::FixedDataRatio(axes.projection.kind()));
     }

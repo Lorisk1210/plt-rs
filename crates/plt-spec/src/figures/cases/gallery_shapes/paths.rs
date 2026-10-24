@@ -209,7 +209,7 @@ fn path_patch(fig: &Figure) -> CaseResult {
     ax.add_patch_with(PathShape(curve), red);
     ax.plot_fmt(x, y, "go-")?;
     ax.grid(true);
-    ax.axis_mode(AxisMode::Equal);
+    ax.axis_mode(AxisMode::Equal)?;
     Ok(())
 }
 

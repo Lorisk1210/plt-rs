@@ -448,6 +448,14 @@ mod tests {
             ))
         );
         assert_eq!(ax.adjustable(), Adjustable::Box);
+        let before = ax.ylim();
+        assert!(ax.axis_mode(crate::axes::AxisMode::Equal).is_err());
+        assert_eq!(
+            (ax.adjustable(), ax.ylim()),
+            (Adjustable::Box, before),
+            "refused without a change"
+        );
+        assert!(ax.axis_mode(crate::axes::AxisMode::Scaled).is_ok());
     }
 
     #[test]

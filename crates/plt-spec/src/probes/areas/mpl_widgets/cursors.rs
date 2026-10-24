@@ -1,10 +1,11 @@
-//! The `MultiCursor` op.
+//! The `MultiCursor` and `Cursor.useblit` ops.
 
 use plt::artist::ArtistHandle;
 use plt::figure::{Figure, Share};
 use plt::lines::Line2D;
-use plt::widgets::{CursorOptions, MultiCursor};
+use plt::widgets::{Cursor, CursorOptions, MultiCursor};
 
+use super::bad;
 use super::steps::motion;
 use super::{count, numbers};
 use crate::json::Json;
@@ -40,12 +41,20 @@ pub(super) fn multicursor(args: Args<'_>) -> Outcome {
         let options = CursorOptions {
             horizontal: args.bool("horizOn")?,
             vertical: args.bool("vertOn")?,
+            useblit: args.bool("useblit")?,
             ..CursorOptions::multicursor()
         };
         let multi = MultiCursor::new(&[ax1.clone(), ax2], options);
-        let counts = numbers(&[
-            multi.vertical_lines().len() as f64,
-            multi.horizontal_lines().len() as f64,
+        let lines_of = || {
+            multi
+                .vertical_lines()
+                .iter()
+                .chain(multi.horizontal_lines())
+        };
+        let counts = Json::Array(vec![
+            count(multi.vertical_lines().len()),
+            count(multi.horizontal_lines().len()),
+            count(lines_of().filter(|line| line.animated()).count()),
         ]);
         motion(&ax1, (0.5, 0.25))?;
         fig.layout();
@@ -60,6 +69,37 @@ pub(super) fn multicursor(args: Args<'_>) -> Outcome {
             ("moved", moved),
             ("toggled", toggled),
             ("elsewhere", lines(&multi)),
+        ]))
+    })
+}
+
+/// `test_cursor_overlapping_axes_blitting_warning`: whether a cursor asked
+/// to blit over the first of axes at the probe's `rects` does, and whether
+/// its vertical line is animated.
+pub(super) fn cursor_useblit(args: Args<'_>) -> Outcome {
+    styled(args, || {
+        let fig = Figure::new();
+        let rects = args.json("rects")?.as_array().ok_or_else(|| bad("rects"))?;
+        let mut axes = Vec::new();
+        for rect in rects {
+            let &[left, bottom, width, height] = rect.as_f64_vec().unwrap_or_default().as_slice()
+            else {
+                return Err(bad("rects"));
+            };
+            axes.push(
+                fig.add_axes([left, bottom, width, height])
+                    .map_err(ProbeError::rejected)?,
+            );
+        }
+        let ax = axes.first().ok_or_else(|| bad("rects"))?;
+        let options = CursorOptions {
+            useblit: true,
+            ..CursorOptions::default()
+        };
+        let cursor = Cursor::new(ax, options);
+        Ok(Json::Array(vec![
+            Json::Bool(cursor.useblit()),
+            Json::Bool(cursor.vertical_line().animated()),
         ]))
     })
 }

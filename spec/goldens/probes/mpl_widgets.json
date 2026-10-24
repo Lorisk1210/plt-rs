@@ -34,6 +34,10 @@
    "args": {"style": ["classic", "_classic_test_patch"], "labels": ["a", "b", "c"], "actives": [true, false, true], "index": 8},
    "error": "ValueError"
   },
+  {"op": "Cursor.useblit", "args": {"style": ["classic", "_classic_test_patch"], "rects": [[0, 0, 0.5, 1], [0.5, 0, 0.5, 1]]}, "value": [false, false]},
+  {"op": "Cursor.useblit", "args": {"style": ["classic", "_classic_test_patch"], "rects": [[0.1, 0.1, 0.3, 0.3], [0.6, 0.6, 0.3, 0.3]]}, "value": [true, true]},
+  {"op": "Cursor.useblit", "args": {"style": ["classic", "_classic_test_patch"], "rects": [[0.1, 0.1, 0.8, 0.8], [0.2, 0.2, 0.6, 0.6]]}, "value": [false, false]},
+  {"op": "Cursor.useblit", "args": {"style": ["classic", "_classic_test_patch"], "rects": [[0.1, 0.1, 0.8, 0.8]]}, "value": [true, true]},
   {
    "op": "EllipseSelector",
    "args": {
@@ -144,9 +148,9 @@
   },
   {
    "op": "MultiCursor",
-   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": false, "vertOn": false},
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": false, "vertOn": false, "useblit": false},
    "value": {
-    "counts": [2, 2],
+    "counts": [2, 2, 0],
     "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0},
     "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2},
     "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2}
@@ -154,9 +158,9 @@
   },
   {
    "op": "MultiCursor",
-   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": false, "vertOn": true},
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": false, "vertOn": true, "useblit": false},
    "value": {
-    "counts": [2, 2],
+    "counts": [2, 2, 0],
     "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0},
     "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2},
     "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2}
@@ -164,9 +168,29 @@
   },
   {
    "op": "MultiCursor",
-   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": true, "vertOn": false},
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": false, "vertOn": false, "useblit": true},
    "value": {
-    "counts": [2, 2],
+    "counts": [2, 2, 4],
+    "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0},
+    "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2},
+    "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2}
+   }
+  },
+  {
+   "op": "MultiCursor",
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": false, "vertOn": true, "useblit": true},
+   "value": {
+    "counts": [2, 2, 4],
+    "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0},
+    "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2},
+    "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2}
+   }
+  },
+  {
+   "op": "MultiCursor",
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": true, "vertOn": false, "useblit": false},
+   "value": {
+    "counts": [2, 2, 0],
     "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2},
     "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0},
     "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0}
@@ -174,9 +198,29 @@
   },
   {
    "op": "MultiCursor",
-   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": true, "vertOn": true},
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": true, "vertOn": true, "useblit": false},
    "value": {
-    "counts": [2, 2],
+    "counts": [2, 2, 0],
+    "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2},
+    "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0},
+    "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0}
+   }
+  },
+  {
+   "op": "MultiCursor",
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": true, "vertOn": false, "useblit": true},
+   "value": {
+    "counts": [2, 2, 4],
+    "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2},
+    "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0},
+    "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0}
+   }
+  },
+  {
+   "op": "MultiCursor",
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": true, "vertOn": true, "useblit": true},
+   "value": {
+    "counts": [2, 2, 4],
     "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2},
     "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0},
     "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0}

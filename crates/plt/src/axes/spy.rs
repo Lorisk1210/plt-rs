@@ -3,7 +3,7 @@
 use super::image::ImshowOptions;
 use super::{Axes, AxisName};
 use crate::artist::Artist;
-use crate::colors::{ColorizerOptions, Colormap, NoNorm, Norm, impl_colorize};
+use crate::colors::{ColorizerOptions, Colormap, NoNorm, impl_colorize};
 use crate::image::{AxesImage, ImageData, ImageError, Interpolation, Origin, ScalarField};
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle};
 use crate::markers::{Marker, MarkerSymbol};
@@ -58,10 +58,10 @@ fn spy_colorizer(colorizer: ColorizerOptions) -> Result<ColorizerOptions, ImageE
         None => Colormap::listed("binary", vec!["w", "k"])?,
     };
     let scaled = colorizer.norm.is_some() || colorizer.vmin.is_some() || colorizer.vmax.is_some();
-    let norm: Option<Box<dyn Norm>> = if scaled {
+    let norm = if scaled {
         colorizer.norm
     } else {
-        Some(Box::new(NoNorm::default()))
+        Some(NoNorm::default().into())
     };
     Ok(ColorizerOptions {
         cmap: Some(cmap),

@@ -1,37 +1,59 @@
 //! How plotting functions map values to colours: a colormap, and a norm
-//! or the limits of a linear one (matplotlib's `cmap`, `norm`, `vmin` and
-//! `vmax` keywords).
+//! or the limits of a linear one or of the norm of a named scale
+//! (matplotlib's `cmap`, `norm`, `vmin` and `vmax` keywords).
 
 use std::fmt;
 
-use super::{Colormap, ColormapError, Norm, ScalarMappable, colormaps};
+use super::{Colormap, ColormapError, NormSpec, ScalarMappable, colormaps};
 use crate::rc::RcParams;
 
 /// A colormap, and a norm or limits, mapping values to colours
 /// (matplotlib's `cmap`, `norm`, `vmin` and `vmax` keywords). Unset parts
 /// default to `image.cmap` and a linear norm autoscaled to the data.
 ///
+/// The norm is a norm, or the name of a scale ([`NormName`]), which makes
+/// that scale's norm (matplotlib's `norm="log"`, see
+/// [`NormName::norm`]). Limits go with no norm or a named one, which
+/// takes them; given with a norm, they are refused, as matplotlib refuses
+/// a `Normalize` instance together with `vmin` or `vmax`.
+///
 /// Every function that maps values to colours takes one in the
 /// `colorizer` field of its options, which implement [`Colorize`] for the
-/// builders below. matplotlib refuses a norm together with limits in most
-/// functions; where it lets one win over the other (`contour`,
-/// `plot_surface`, `LightSource.shade`), the function says so.
+/// builders below. Where matplotlib lets a norm win over the limits
+/// instead (`contour`, `plot_surface`, `LightSource.shade`), the function
+/// says so.
 ///
 /// ```
-/// use plt::colors::{Colorize, ColorizerOptions, LogNorm, colormaps};
+/// use plt::axes::ImshowOptions;
+/// use plt::colors::{Colorize, ColorizerOptions, LogNorm, NormName, colormaps};
+/// use plt::numeric::Grid;
+/// use plt::prelude::*;
 /// let colorizer = ColorizerOptions::default()
 ///     .cmap(colormaps::get("magma")?)
 ///     .norm(LogNorm::default());
 /// let limited = ColorizerOptions::default().limits(Some(0.0), None);
 /// assert_eq!((limited.vmin, limited.vmax), (Some(0.0), None));
-/// # Ok::<(), plt::colors::ColormapError>(())
+///
+/// // matplotlib's `imshow(data, norm="log", vmin=2, vmax=5)`.
+/// let options = ImshowOptions::default()
+///     .norm(NormName::Log)
+///     .limits(Some(2.0), Some(5.0));
+/// let data = Grid::from_rows(vec![vec![1.0, 10.0]])?;
+/// let image = Figure::new().subplot().imshow(data, options)?;
+/// let norm = image.norm();
+/// assert_eq!((norm.vmin(), norm.vmax()), (Some(2.0), Some(5.0)));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+///
+/// [`NormName`]: super::NormName
+/// [`NormName::norm`]: super::NormName::norm
 #[derive(Clone, Debug, Default)]
 pub struct ColorizerOptions {
     /// The colormap (`None` = `image.cmap`).
     pub cmap: Option<Colormap>,
-    /// The norm (`None` = a linear norm between `vmin` and `vmax`).
-    pub norm: Option<Box<dyn Norm>>,
+    /// The norm, or the scale whose norm is made with the limits (`None` =
+    /// a linear norm between `vmin` and `vmax`).
+    pub norm: Option<NormSpec>,
     /// The value mapped to the bottom of the colormap (`None` = the
     /// smallest value).
     pub vmin: Option<f64>,
@@ -55,8 +77,9 @@ impl ColorizerOptions {
     }
 
     /// The colormap and norm with the limits applied, not yet autoscaled
-    /// (matplotlib's `_get_colorizer` and `_scale_norm`, which refuses a
-    /// norm together with limits).
+    /// (matplotlib's `_get_colorizer`, which makes the norm of a scale
+    /// name, and `_scale_norm`, which refuses a norm together with
+    /// limits).
     ///
     /// # Errors
     ///
@@ -66,8 +89,8 @@ impl ColorizerOptions {
         let cmap = self.colormap(rc)?;
         let limits = self.vmin.is_some() || self.vmax.is_some();
         let mut mappable = match self.norm {
-            Some(_) if limits => return Err(ColorizerError::NormWithLimits),
-            Some(norm) => ScalarMappable::with_norm(cmap, norm),
+            Some(NormSpec::Norm(_)) if limits => return Err(ColorizerError::NormWithLimits),
+            Some(norm) => ScalarMappable::with_norm(cmap, norm.resolve()),
             None => ScalarMappable::new(cmap),
         };
         let norm = mappable.norm_mut();
@@ -112,10 +135,11 @@ pub trait Colorize: Sized {
         self
     }
 
-    /// Uses `norm` instead of a linear norm.
+    /// Uses `norm` instead of a linear norm: a norm, or the name of a
+    /// scale ([`NormName`](super::NormName)) whose norm takes the limits.
     #[must_use]
-    fn norm(mut self, norm: impl Norm + 'static) -> Self {
-        self.colorizer_mut().norm = Some(Box::new(norm));
+    fn norm(mut self, norm: impl Into<NormSpec>) -> Self {
+        self.colorizer_mut().norm = Some(norm.into());
         self
     }
 

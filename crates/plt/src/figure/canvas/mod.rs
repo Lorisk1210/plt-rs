@@ -43,13 +43,11 @@ use plt_raster::{Pixmap, RasterError};
 use plt_render::{RasterBackendError, RgbaImage};
 
 use super::{DrawErrors, Figure};
+use crate::artist::{ArtistHandle, DrawError};
 use crate::events::Event;
 pub use region::{BufferRegion, PixelBox};
 use state::{CanvasKey, Generation, KeptCanvas};
 pub(crate) use state::{CanvasState, Presentation};
-
-#[cfg(doc)]
-use crate::artist::ArtistHandle;
 
 /// Why a canvas operation failed.
 #[derive(Debug)]
@@ -333,6 +331,21 @@ impl FigureCanvas {
             Some(kept) if kept.key == key => Ok(kept),
             _ => key.make().map_err(CanvasError::Backend),
         }
+    }
+
+    /// Keeps a problem met by a canvas operation that no caller can take,
+    /// such as a blit from an event callback or an animation timer, to be
+    /// reported with the figure's next draw.
+    pub(crate) fn report(&self, outcome: Result<(), CanvasError>) {
+        let problems = match outcome {
+            Ok(()) => return,
+            Err(CanvasError::Draw(DrawErrors(errors))) => errors,
+            Err(err) => vec![DrawError {
+                artist: self.figure.id(),
+                message: err.to_string(),
+            }],
+        };
+        self.figure.state_mut().pending_errors.extend(problems);
     }
 
     /// Puts back the canvas [`FigureCanvas::take`] took out.

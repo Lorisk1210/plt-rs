@@ -168,7 +168,7 @@ fn mandelbrot(fig: &Figure) -> CaseResult {
     let options = ShadeOptions {
         colorizer: ColorizerOptions {
             cmap: Some(colormaps::get("hot")?),
-            norm: Some(Box::new(PowerNorm::new(0.3))),
+            norm: Some(PowerNorm::new(0.3).into()),
             ..ColorizerOptions::default()
         },
         blend: BlendMode::Hsv,

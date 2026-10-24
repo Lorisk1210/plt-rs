@@ -29,6 +29,7 @@
 //! | `transparent=True`, `facecolor=`, `edgecolor=`     | [`SaveOptions::transparent`], [`SaveOptions::facecolor`], [`SaveOptions::edgecolor`] |
 //! | `format="pdf"`                                     | [`SaveOptions::format`]`: Some(SaveFormat::Pdf)`, or `"pdf".parse::<SaveFormat>()?` |
 //! | `metadata={"Title": ..., "Author": ...}`           | [`SaveOptions::metadata`]                      |
+//! | `metadata={"Title": ..., "Software": None}` (PNG)  | [`Metadata::png`]`: PngMetadata::default().with("Title", ..).without("Software")` ([`PngMetadata`]) |
 //! | `pil_kwargs={"quality": 90}`                       | [`SaveOptions::jpeg_quality`]                  |
 //! | `fig.savefig(io.BytesIO(), format="png")`          | [`Figure::to_png`], [`Figure::to_png_with`]    |
 //! | the same for SVG, PDF, PS, EPS, PGF                | [`Figure::to_svg`], [`Figure::to_pdf`], [`Figure::to_ps`], [`Figure::to_eps`], [`Figure::to_pgf`] |
@@ -156,6 +157,8 @@
 //! [`SaveOptions::edgecolor`]: crate::figure::SaveOptions::edgecolor
 //! [`SaveOptions::format`]: crate::figure::SaveOptions::format
 //! [`SaveOptions::metadata`]: crate::figure::SaveOptions::metadata
+//! [`Metadata::png`]: crate::figure::Metadata::png
+//! [`PngMetadata`]: crate::figure::PngMetadata
 //! [`SaveOptions::jpeg_quality`]: crate::figure::SaveOptions::jpeg_quality
 //! [`BboxInches::Inches`]: crate::figure::BboxInches::Inches
 //! [`PadInches::Layout`]: crate::figure::PadInches::Layout

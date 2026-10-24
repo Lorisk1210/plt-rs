@@ -106,8 +106,8 @@ pub(super) fn style_dict(gc: &GraphicsContext, face: Option<Rgba>, hatch: Option
     if let Some(alpha) = gc.alpha.filter(|&a| a != 1.0) {
         style.push(("opacity", short(alpha)));
     }
-    if !gc.dashes.pattern.is_empty() {
-        let pattern: Vec<String> = gc.dashes.pattern.iter().map(|&v| short(v)).collect();
+    if let Some(pattern) = &gc.dashes.pattern {
+        let pattern: Vec<String> = pattern.iter().map(|&v| short(v)).collect();
         style.push(("stroke-dasharray", pattern.join(",")));
         style.push(("stroke-dashoffset", short(gc.dashes.offset)));
     }
@@ -178,10 +178,7 @@ mod tests {
             linewidth: 2.0,
             join: JoinStyle::Miter,
             cap: CapStyle::Projecting,
-            dashes: crate::gc::Dashes {
-                offset: 0.0,
-                pattern: vec![3.7, 1.6],
-            },
+            dashes: crate::gc::Dashes::new(0.0, vec![3.7, 1.6]),
             ..GraphicsContext::default()
         };
         assert_eq!(

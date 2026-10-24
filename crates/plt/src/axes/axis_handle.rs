@@ -1,13 +1,14 @@
 //! Handles to the x and y axis of an axes (matplotlib's `XAxis` and
-//! `YAxis`): the tick helpers, visibility and direction. Ticks and their
+//! `YAxis`): the tick helpers, visibility, direction and colour. Ticks and their
 //! labels ([`super::axis_ticks`]), the axis label ([`super::axis_label`])
 //! and unit conversion ([`super::axis_units`]) have modules of their own.
 
 use std::rc::Rc;
 
 use super::axis::AxisState;
-use super::{Axes, AxesState};
+use super::{Axes, AxesState, TickParams};
 use crate::artist::ArtistHandle;
+use crate::colors::Color;
 use crate::ticker::{AxisName, Formatter, Locator};
 
 /// One axis of an axes, from [`Axes::xaxis`], [`Axes::yaxis`] or
@@ -245,6 +246,39 @@ impl Axis {
         self.axes
             .raw()
             .with::<AxesState, _>(|axes| axes.axis(self.name).visible)
+    }
+
+    /// Colours the axis with its decorations: the spines along it (on both
+    /// sides), the major ticks and their labels, and the axis label
+    /// (matplotlib's `SecondaryAxis.set_color`, also its `color` keyword
+    /// of `secondary_xaxis`; here any axis takes it).
+    ///
+    /// ```
+    /// use plt::axes::SecondaryLocation;
+    /// use plt::colors::Color;
+    /// use plt::prelude::*;
+    /// use plt::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// let sec = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), None)?;
+    /// sec.xaxis().set_color("red");
+    /// let red = Color::from("red");
+    /// assert_eq!(sec.spines().bottom.edgecolor(), red);
+    /// assert_eq!(sec.xaxis().tick_style(false).label_color, red);
+    /// assert_eq!(sec.xaxis().label_color(), red);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn set_color(&self, color: impl Into<Color>) -> &Self {
+        let color = color.into();
+        self.set_tick_params(&TickParams {
+            colors: Some(color.clone()),
+            ..TickParams::default()
+        });
+        for spine in self.axes.spines().iter() {
+            if spine.side().axis() == self.name {
+                spine.set_color(color.clone());
+            }
+        }
+        self.set_label_color(color)
     }
 }
 

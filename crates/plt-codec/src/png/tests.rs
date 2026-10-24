@@ -162,7 +162,7 @@ fn metadata_round_trips_in_chunk_order() {
         .text("Title", "π ≈ 3.14")
         .encode(ImageRef::rgba8(2, 2, &rgba).unwrap())
         .unwrap();
-    let order: Vec<&[u8]> = [&b"IHDR"[..], b"pHYs", b"tEXt", b"iTXt", b"IDAT", b"IEND"].to_vec();
+    let order: Vec<&[u8]> = [&b"IHDR"[..], b"tEXt", b"iTXt", b"pHYs", b"IDAT", b"IEND"].to_vec();
     let mut positions = order
         .iter()
         .map(|kind| file.windows(4).position(|w| w == *kind));

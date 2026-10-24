@@ -220,7 +220,7 @@ pub(super) fn colorbar_ylim(args: Args<'_>) -> Outcome {
     let ax = figure.subplot();
     let options = ImshowOptions {
         colorizer: ColorizerOptions {
-            norm: Some(norm_arg(args, "norm")?),
+            norm: Some(norm_arg(args, "norm")?.into()),
             ..ColorizerOptions::default()
         },
         ..ImshowOptions::default()

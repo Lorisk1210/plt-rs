@@ -77,6 +77,9 @@ pub(crate) struct AxisLabel {
     pub(crate) side: SpineSide,
     /// Where along the axis the label sits.
     pub(crate) loc: LabelLoc,
+    /// The alignment along the axis instead of the one that comes with
+    /// `loc` (matplotlib's `ha`).
+    pub(crate) halign: Option<HAlign>,
     /// The alignment of the lines of a multi-line label (`None` follows
     /// the alignment along the axis, as matplotlib's `multialignment`).
     pub(crate) multialign: Option<HAlign>,
@@ -99,6 +102,12 @@ impl AxisLabel {
     pub(crate) fn move_to(&mut self, side: SpineSide) {
         self.side = side;
         self.valign = None;
+    }
+
+    /// The alignment along the axis, the text's horizontal alignment
+    /// before any rotation: the one set, else that of `loc`.
+    pub(crate) fn halign(&self) -> HAlign {
+        self.halign.unwrap_or(self.loc.halign())
     }
 
     /// The rotation in degrees: the one set, else horizontal for x and
@@ -209,16 +218,54 @@ impl Axis {
         self.read(|axis| axis.label.color.clone())
     }
 
-    /// Places the axis label along the axis (matplotlib's `loc` of
-    /// `set_xlabel`).
+    /// Places the axis label along the axis, aligned to that place
+    /// (matplotlib's `loc` of `set_xlabel`, which sets the position and
+    /// the horizontal alignment together); an alignment set with
+    /// [`Axis::set_label_halign`] gives way to that of `loc`.
     pub fn set_label_loc(&self, loc: LabelLoc) -> &Self {
-        self.update(|axis| axis.label.loc = loc);
+        self.update(|axis| {
+            axis.label.loc = loc;
+            axis.label.halign = None;
+        });
         self
     }
 
     /// Where along the axis its label sits.
     pub fn label_loc(&self) -> LabelLoc {
         self.read(|axis| axis.label.loc)
+    }
+
+    /// Aligns the axis label along its axis independently of where it sits
+    /// (matplotlib's `set_ylabel(..., y=..., ha=...)`, with the position
+    /// given by [`Axis::set_label_loc`] or [`Axis::set_label_coords`]):
+    /// the text's horizontal alignment before any rotation, so a y label
+    /// aligned `Left` starts at its anchor and runs upwards. The
+    /// alignment stays when the label moves to the other side, until the
+    /// next [`Axis::set_label_loc`].
+    ///
+    /// ```
+    /// use plt::axes::LabelLoc;
+    /// use plt::prelude::*;
+    /// use plt::spines::SpineSide;
+    /// use plt::text::HAlign;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_ylabel("test");
+    /// let yaxis = ax.yaxis();
+    /// yaxis.set_label_loc(LabelLoc::End).set_label_halign(HAlign::Left);
+    /// yaxis.set_label_position(SpineSide::Right)?;
+    /// assert_eq!(yaxis.label_halign(), HAlign::Left);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn set_label_halign(&self, halign: HAlign) -> &Self {
+        self.update(|axis| axis.label.halign = Some(halign));
+        self
+    }
+
+    /// The horizontal alignment of the axis label: the one set, else that
+    /// of its place along the axis (matplotlib's
+    /// `label.get_horizontalalignment()`).
+    pub fn label_halign(&self) -> HAlign {
+        self.read(|axis| axis.label.halign())
     }
 
     /// Sets the gap between the tick labels and the axis label in points
@@ -377,6 +424,26 @@ mod tests {
         assert_eq!(LabelLoc::Start.halign(), HAlign::Left);
         assert_eq!(LabelLoc::Center.halign(), HAlign::Center);
         assert_eq!(LabelLoc::End.halign(), HAlign::Right);
+    }
+
+    #[test]
+    fn label_alignment_set_apart_from_the_place_gives_way_to_the_next_loc() {
+        let ax = Figure::new().subplot();
+        let yaxis = ax.yaxis();
+        assert_eq!(yaxis.label_halign(), HAlign::Center);
+        yaxis
+            .set_label_loc(LabelLoc::End)
+            .set_label_halign(HAlign::Center);
+        yaxis
+            .set_label_position(SpineSide::Right)
+            .expect("a y side");
+        assert_eq!(
+            (yaxis.label_loc(), yaxis.label_halign()),
+            (LabelLoc::End, HAlign::Center)
+        );
+        yaxis.set_label_loc(LabelLoc::Start);
+        assert_eq!(yaxis.label_halign(), HAlign::Left);
+        assert_eq!(ax.xaxis().label_halign(), HAlign::Center);
     }
 
     #[test]

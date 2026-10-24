@@ -10,6 +10,54 @@
    "args": {"style": ["classic", "_classic_test_patch"], "figsize": [1, 0.4], "facecolor": [0, 1, 0.4], "alpha": 0.25},
    "value": [0, 255, 102, 64]
   },
+  {
+   "op": "Figure.savefig.png_text",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "metadata": {
+     "Title": "Signal",
+     "Author": "Zoë",
+     "Description": "日本語の説明",
+     "Copyright": "CC0",
+     "Creation Time": "2026-10-24",
+     "Disclaimer": "none",
+     "Warning": "hot",
+     "Source": "plt-rs",
+     "Comment": "first line\nsecond line",
+     "Custom key": "value",
+     "Unset": null
+    }
+   },
+   "value": {
+    "chunks": ["IHDR", "tEXt", "tEXt", "tEXt", "iTXt", "tEXt", "tEXt", "tEXt", "tEXt", "tEXt", "tEXt", "tEXt", "pHYs"],
+    "text": [["Software", "<default software>"], ["Title", "Signal"], ["Author", "Zoë"], ["Description", "日本語の説明"], ["Copyright", "CC0"], ["Creation Time", "2026-10-24"], ["Disclaimer", "none"], ["Warning", "hot"], ["Source", "plt-rs"], ["Comment", "first line\nsecond line"], ["Custom key", "value"]]
+   }
+  },
+  {
+   "op": "Figure.savefig.png_text",
+   "args": {"style": ["classic", "_classic_test_patch"], "metadata": {"Title": "Signal", "Software": "s"}},
+   "value": {"chunks": ["IHDR", "tEXt", "tEXt", "pHYs"], "text": [["Software", "s"], ["Title", "Signal"]]}
+  },
+  {
+   "op": "Figure.savefig.png_text",
+   "args": {"style": ["classic", "_classic_test_patch"], "metadata": {"Software": "test"}},
+   "value": {"chunks": ["IHDR", "tEXt", "pHYs"], "text": [["Software", "test"]]}
+  },
+  {
+   "op": "Figure.savefig.png_text",
+   "args": {"style": ["classic", "_classic_test_patch"], "metadata": {"Software": null}},
+   "value": {"chunks": ["IHDR", "pHYs"], "text": []}
+  },
+  {
+   "op": "Figure.savefig.png_text",
+   "args": {"style": ["classic", "_classic_test_patch"], "metadata": {}},
+   "value": {"chunks": ["IHDR", "tEXt", "pHYs"], "text": [["Software", "<default software>"]]}
+  },
+  {
+   "op": "Figure.savefig.png_text",
+   "args": {"style": ["classic", "_classic_test_patch"]},
+   "value": {"chunks": ["IHDR", "tEXt", "pHYs"], "text": [["Software", "<default software>"]]}
+  },
   {"op": "Figure.savefig.too_large", "args": {"style": ["classic", "_classic_test_patch"], "figsize": [300, 33554432]}, "error": "ValueError"},
   {"op": "Figure.savefig.webp", "args": {"style": ["classic", "_classic_test_patch"], "transparent": false}, "value": "RGB"},
   {"op": "Figure.savefig.webp", "args": {"style": ["classic", "_classic_test_patch"], "transparent": true}, "value": "RGBA"},

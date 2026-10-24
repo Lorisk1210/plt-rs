@@ -101,10 +101,7 @@ fn summary(args: Args<'_>, grid: Grid, filled: bool) -> Outcome {
         let styles = cs
             .dash_patterns()
             .into_iter()
-            .map(|dashes| {
-                let pattern = (!dashes.pattern.is_empty()).then(|| Json::from(dashes.pattern));
-                Json::Array(vec![Json::from(dashes.offset), Json::from(pattern)])
-            })
+            .map(|dashes| Json::Array(vec![Json::from(dashes.offset), Json::from(dashes.pattern)]))
             .collect();
         entries.push(("linewidths", Json::from(cs.linewidths())));
         entries.push(("linestyles", Json::Array(styles)));

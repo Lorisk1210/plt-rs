@@ -26,6 +26,14 @@ Ops
     transparent index is used).
 ``Figure.savefig.webp``  {transparent} -> Pillow's mode of the same figure
     saved as a WebP (``test_webp_alpha``).
+``Figure.savefig.png_text``  {metadata?} -> {chunks, text}: the chunk types
+    before the image data of ``Figure(figsize=(1, 1), dpi=10)`` saved as a
+    PNG with ``metadata`` (none when absent; a ``null`` value drops the
+    key), and the text entries Pillow reads from it, in file order:
+    matplotlib's default ``Software`` entry (recorded as ``<default software>``,
+    since each library names itself there), the keys PNG defines, custom
+    ones and text outside Latin-1 (``test_pil_kwargs_png``, through
+    ``metadata`` rather than Pillow's ``pnginfo``).
 
 The tests that draw a figure and only check that it works
 (``test_large_single_path_collection``, ``test_marker_with_nan``,
@@ -33,9 +41,8 @@ The tests that draw a figure and only check that it works
 figure cases of ``mpl_tests_agg``; ``test_agg_filter`` is the case
 ``mpl_misc/agg_filter``.
 
-Left out: Pillow's keyword arguments (``test_pil_kwargs_png``,
-``test_pil_kwargs_tiff``, ``test_pil_kwargs_webp``; plt-rs writes lossless
-WebP), AVIF (``test_pil_kwargs_avif``, ``test_avif_alpha``),
+Left out: Pillow's keyword arguments (``test_pil_kwargs_tiff``,
+``test_pil_kwargs_webp``; plt-rs writes lossless WebP), AVIF (``test_pil_kwargs_avif``, ``test_avif_alpha``),
 ``test_draw_path_collection_error_handling`` (a lone path given as the
 paths of a collection is a type error in Rust) and ``test_chunksize_fails``
 (the Agg renderer's own limits on splitting huge paths).
@@ -139,3 +146,43 @@ def _webp(transparent):
 def test_webp_alpha():
     for transparent in [False, True]:
         probe("Figure.savefig.webp", _webp, transparent=transparent)
+
+
+def _chunk_types(png):
+    """The chunk types of ``png`` before its first ``IDAT``."""
+    types, pos = [], 8
+    while png[pos + 4:pos + 8] != b"IDAT":
+        length = int.from_bytes(png[pos:pos + 4], "big")
+        types.append(png[pos + 4:pos + 8].decode("ascii"))
+        pos += 12 + length
+    return types
+
+
+# The default ``Software`` entry names the library writing the file
+# (``Matplotlib version...`` here, ``plt-rs v...`` in plt-rs), so it is
+# recorded as this placeholder.
+_DEFAULT_SOFTWARE = f"Matplotlib version{matplotlib.__version__}, https://matplotlib.org/"
+
+
+def _png_text(metadata=None):
+    fig = _figure(figsize=(1, 1), dpi=10)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", metadata=metadata)
+    png = buf.getvalue()
+    text = Image.open(io.BytesIO(png)).text.items()
+    return {"chunks": _chunk_types(png),
+            "text": [[key, "<default software>" if key == "Software" and value == _DEFAULT_SOFTWARE
+                      else value] for key, value in text]}
+
+
+def test_png_metadata():
+    probe("Figure.savefig.png_text", _png_text)
+    probe("Figure.savefig.png_text", _png_text, metadata={})
+    probe("Figure.savefig.png_text", _png_text, metadata={"Software": None})
+    probe("Figure.savefig.png_text", _png_text, metadata={"Software": "test"})
+    probe("Figure.savefig.png_text", _png_text, metadata={"Title": "Signal", "Software": "s"})
+    probe("Figure.savefig.png_text", _png_text, metadata={
+        "Title": "Signal", "Author": "Zoë", "Description": "日本語の説明",
+        "Copyright": "CC0", "Creation Time": "2026-10-24", "Disclaimer": "none",
+        "Warning": "hot", "Source": "plt-rs", "Comment": "first line\nsecond line",
+        "Custom key": "value", "Unset": None})

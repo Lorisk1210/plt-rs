@@ -62,9 +62,9 @@
 //! * [`polar`] — polar axes: angle and radius instead of x and y.
 //! * [`geo`] — geographic axes: longitude and latitude through the Aitoff,
 //!   Hammer, Lambert and Mollweide map projections.
-//! * [`patches`] / [`coords`] / [`patheffects`] / [`table`] — shapes,
-//!   fancy boxes and arrows, annotation coordinate systems, path effects
-//!   and tables.
+//! * [`patches`] / [`path`] / [`coords`] / [`patheffects`] / [`table`] —
+//!   shapes, paths, fancy boxes and arrows, annotation coordinate systems,
+//!   path effects and tables.
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
 //! * [`sankey`] — Sankey flow diagrams.
 //! * [`pyplot`] — the stateful `matplotlib.pyplot`-style interface.
@@ -128,6 +128,7 @@ pub mod numeric;
 pub mod offsetbox;
 pub mod orientation;
 pub mod patches;
+pub mod path;
 pub mod patheffects;
 pub mod polar;
 pub mod porting;

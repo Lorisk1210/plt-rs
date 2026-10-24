@@ -61,5 +61,6 @@ pub use norm::{
     NormError, NormKind, NormName, NormSpec, NormTransform, Normalize, PowerNorm, ScaleNorm,
     SymLogNorm, TwoSlopeNorm,
 };
+pub use plt_core::Rgba;
 pub use sequences::{color_sequence, color_sequence_names};
 pub use spec::{Color, ColorError, is_color_like, is_cycle_reference, to_hex, to_rgba};

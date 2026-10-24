@@ -250,3 +250,34 @@ fn proxy_lines_are_drawn_like_lines() {
     assert_eq!(legline.markersize, 9.0);
     assert_eq!(legline.markevery, Some(MarkEvery::Indices(vec![1])));
 }
+
+#[test]
+fn handlers_of_other_kinds_of_handles_fail() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let line = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).unwrap();
+    let as_box = LegendHandle::from(&line).with_handler(HandlerPatch);
+    assert_eq!(
+        ax.legend(LegendOptions::default().handles([as_box]).labels(["box"]))
+            .unwrap_err(),
+        LegendError::UnsupportedHandle("HandlerPatch")
+    );
+    let patch = ax.add_patch(Rectangle::new((0.0, 0.0), 1.0, 1.0));
+    let as_errorbar = LegendHandle::from(&patch).with_handler(HandlerErrorbar);
+    assert_eq!(
+        ax.legend(
+            LegendOptions::default()
+                .handles([as_errorbar])
+                .labels(["bars"])
+        )
+        .unwrap_err(),
+        LegendError::UnsupportedHandle("HandlerErrorbar")
+    );
+    // A handle whose artist is gone draws nothing instead.
+    let removed = Source::Handled(
+        Box::new(artist_source(&line)),
+        crate::legend::handle::OwnHandler(std::rc::Rc::new(HandlerPatch)),
+    );
+    line.remove();
+    assert!(handle(&fig, &removed, &LegendOptions::default()).is_none());
+}

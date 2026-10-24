@@ -30,7 +30,7 @@ const LINE_POINTS: usize = 100;
 /// use plt::axisartist::grid_finder::GridFinderOptions;
 /// use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
 /// use plt::axisartist::AuxTransform;
-/// use plt_core::Bbox;
+/// use plt::transforms::Bbox;
 /// let shear = AuxTransform::from_fns(|x, y| (x, y - x), |x, y| (x, y + x));
 /// let helper = GridHelperCurveLinear::new(shear, GridFinderOptions::default());
 /// let info = helper.grid_finder().get_grid_info(Bbox::from_extents(0.0, 0.0, 10.0, 10.0))?;

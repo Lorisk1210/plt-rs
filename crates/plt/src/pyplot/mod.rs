@@ -65,11 +65,12 @@
 //! windows fall back to without a window system); or nothing
 //! ([`Backend::Agg`]).
 //!
+//! [`get_current_fig_manager`] returns the [`FigureManager`] of the current
+//! figure: its number, its figure and its window title.
 //! matplotlib's introspection helpers (`setp`, `getp`, `get`,
 //! `get_plot_commands`) and the rest of its backend machinery
-//! (`new_figure_manager`, `get_current_fig_manager`, the REPL display
-//! hooks, `set_loglevel`) have no counterpart: Rust's types and the
-//! window session take their place.
+//! (`new_figure_manager`, the REPL display hooks, `set_loglevel`) have no
+//! counterpart: Rust's types and the window session take their place.
 //!
 //! [`Axes`]: crate::axes::Axes
 //! [`Figure`]: crate::figure::Figure

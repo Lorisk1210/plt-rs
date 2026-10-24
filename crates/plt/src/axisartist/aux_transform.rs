@@ -22,7 +22,7 @@ use crate::transforms::{PointMap, ResolvedTransform, Step};
 /// ```
 /// use plt::axisartist::AuxTransform;
 /// use plt::transforms::Affine2D;
-/// use plt_core::Point;
+/// use plt::transforms::Point;
 /// // Degrees and radius onto the plane.
 /// let polar = AuxTransform::affine(Affine2D::scaling(std::f64::consts::PI / 180.0, 1.0))
 ///     .then(AuxTransform::polar());

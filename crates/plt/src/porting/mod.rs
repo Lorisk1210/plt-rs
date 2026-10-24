@@ -114,7 +114,7 @@
 //! | `matplotlib.dates`                           | [`crate::dates`]                |
 //! | `matplotlib.units`, `matplotlib.category`    | [`crate::units`]                |
 //! | `matplotlib.transforms`                      | [`crate::transforms`]           |
-//! | `matplotlib.path`                            | [`plt_core::Path`]              |
+//! | `matplotlib.path`                            | [`crate::path`]                 |
 //! | `matplotlib.spines`                          | [`crate::spines`]               |
 //! | `matplotlib.image`                           | [`crate::image`]                |
 //! | `matplotlib.contour`                         | [`crate::contour`]              |

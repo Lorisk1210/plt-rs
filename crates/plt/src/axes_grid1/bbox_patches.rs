@@ -105,7 +105,7 @@ impl BboxSource {
 ///
 /// ```
 /// use plt::axes_grid1::{Corner, connect_bbox};
-/// use plt_core::{Bbox, Point};
+/// use plt::transforms::{Bbox, Point};
 /// let path = connect_bbox(
 ///     &Bbox::from_extents(0.0, 0.0, 1.0, 1.0),
 ///     &Bbox::from_extents(2.0, 2.0, 4.0, 3.0),
@@ -130,7 +130,7 @@ fn display_coordinates(base: &mut ArtistBase) {
 /// ```
 /// use plt::axes_grid1::{BboxPatch, BboxSource};
 /// use plt::prelude::*;
-/// use plt_core::Bbox;
+/// use plt::transforms::Bbox;
 /// let ax = Figure::new().subplot();
 /// let span = Bbox::from_extents(0.2, 0.0, 0.4, 1.0);
 /// let patch = ax.add_patch(BboxPatch::new(BboxSource::transformed(span, ax.trans_xaxis())));

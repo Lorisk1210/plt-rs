@@ -15,7 +15,7 @@ use super::named;
 ///
 /// ```
 /// use plt::colors::Color;
-/// use plt_core::Rgba;
+/// use plt::colors::Rgba;
 /// assert_eq!(Color::from("red").resolve()?, Rgba::opaque(1.0, 0.0, 0.0));
 /// assert_eq!(Color::from("#00f8").resolve()?.a, 0x88 as f64 / 255.0);
 /// assert!(Color::from("not a colour").resolve().is_err());

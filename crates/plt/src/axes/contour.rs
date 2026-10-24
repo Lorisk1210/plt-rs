@@ -106,7 +106,8 @@ impl Axes {
     /// ```
     /// use plt::contour::ContourOptions;
     /// use plt::prelude::*;
-    /// use plt_core::{Path, Point};
+    /// use plt::path::Path;
+    /// use plt::transforms::Point;
     ///
     /// let ax = Figure::new().subplot();
     /// let line = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(3.0, 4.0)]);

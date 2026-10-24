@@ -54,7 +54,7 @@ impl Axes {
     /// use plt::prelude::*;
     /// use plt::axes::{PcolorOptions, RgbaMesh};
     /// use plt::numeric::Grid;
-    /// use plt_core::Rgba;
+    /// use plt::colors::Rgba;
     /// let ax = Figure::new().subplot();
     /// let colors = Grid::from_fn(2, 3, |r, c| Rgba::new(0.2 * c as f64, 0.5, r as f64, 1.0));
     /// ax.pcolormesh_rgba(RgbaMesh::new(colors), PcolorOptions::default())?;

@@ -67,7 +67,8 @@ pub type BoxOutline = fn(x0: f64, y0: f64, width: f64, height: f64, pad: f64) ->
 ///
 /// ```
 /// use plt::patches::{BoxShape, BoxStyle, CustomBox};
-/// use plt_core::{Path, Point};
+/// use plt::path::Path;
+/// use plt::transforms::Point;
 /// fn diamond(x0: f64, y0: f64, width: f64, height: f64, pad: f64) -> Path {
 ///     let (cx, cy) = (x0 + width / 2.0, y0 + height / 2.0);
 ///     let (rx, ry) = (width / 2.0 + 2.0 * pad, height / 2.0 + 2.0 * pad);

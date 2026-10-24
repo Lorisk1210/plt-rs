@@ -275,7 +275,7 @@
 //! [`Figure::align_titles`]: crate::figure::Figure::align_titles
 //! [`Figure::autofmt_xdate`]: crate::figure::Figure::autofmt_xdate
 //! [`Figure::layout`]: crate::figure::Figure::layout
-//! [`Rgba`]: plt_core::Rgba
+//! [`Rgba`]: crate::colors::Rgba
 //! [`Grid`]: crate::numeric::Grid
 //! [`Grid::as_slice`]: crate::numeric::Grid::as_slice
 //! [`Grid::shape`]: crate::numeric::Grid::shape

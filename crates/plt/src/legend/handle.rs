@@ -219,11 +219,18 @@ impl LegendHandle {
     ///
     /// ```
     /// use plt::prelude::*;
-    /// use plt::legend::{HandlerPatch, LegendHandle, LegendOptions};
+    /// use plt::legend::{HandlerKey, HandlerLine2D, HandlerPatch, LegendHandle, LegendOptions};
     /// let ax = Figure::new().subplot();
-    /// let line = ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("as a box"))?;
+    /// let line = ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("data"))?;
+    /// // The handle's own handler wins over the legend's handler map.
+    /// let own = LegendHandle::from(&line).with_handler(HandlerLine2D);
+    /// let options = LegendOptions::default()
+    ///     .handles([own])
+    ///     .handler(HandlerKey::Line, HandlerPatch);
+    /// assert_eq!(ax.legend(options)?.labels(), ["data"]);
+    /// // A handler of another kind of handle fails, as in matplotlib.
     /// let boxed = LegendHandle::from(&line).with_handler(HandlerPatch);
-    /// ax.legend(LegendOptions::default().handles([boxed]))?;
+    /// assert!(ax.legend(LegendOptions::default().handles([boxed])).is_err());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]

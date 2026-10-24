@@ -70,6 +70,7 @@ pub(crate) use normalize::normalize as normalize_scalars;
 pub use options::{Extent, ImageAlpha, Interpolation, InterpolationStage, Origin, UnknownName};
 pub use pcolor_image::PcolorImage;
 pub(crate) use pcolor_image::PcolorImageArtist;
+pub use plt_render::RgbaImage;
 pub(crate) use resample::Resampling;
 pub use thumbnail::{ThumbnailError, ThumbnailOptions, thumbnail};
 pub use variates::MultiField;

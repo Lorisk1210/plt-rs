@@ -3,7 +3,8 @@
 //! `HandlerPatch`, `HandlerStepPatch`, `HandlerLineCollection`,
 //! `HandlerPathCollection`, `HandlerPolyCollection`, `HandlerErrorbar`,
 //! `HandlerStem` and `HandlerTuple`). A handler given a handle of another
-//! kind draws nothing, which leaves the entry out.
+//! kind fails with [`LegendError::UnsupportedHandle`], as matplotlib's
+//! raise; a handle whose artist was removed draws nothing.
 
 use super::{
     HandleBox, HandlerArtist, HandlerContext, HandlerEntry, LegendHandler, collection, create,
@@ -29,7 +30,10 @@ impl LegendHandler for HandlerLine2D {
             Source::Proxy(Proxy::Line(line)) => Some(line.as_ref()),
             _ => None,
         };
-        Ok(line.map_or_else(Vec::new, |line| line::line2d(entry.ctx, line, &entry.area)))
+        match line {
+            Some(line) => Ok(line::line2d(entry.ctx, line, &entry.area)),
+            None => unsupported(entry, "HandlerLine2D"),
+        }
     }
 }
 
@@ -45,11 +49,11 @@ impl LegendHandler for HandlerPatch {
         let original = patch::original_patch(entry.ctx.store, entry.source);
         // A bar container without bars still gets a rectangle.
         let bars = matches!(entry.source, Source::Container(ContainerIds::Bar { .. }));
-        Ok(if original.is_some() || bars {
-            patch::patch(entry.ctx, original, &entry.area)
+        if original.is_some() || bars {
+            Ok(patch::patch(entry.ctx, original, &entry.area))
         } else {
-            Vec::new()
-        })
+            unsupported(entry, "HandlerPatch")
+        }
     }
 }
 
@@ -61,11 +65,12 @@ pub struct HandlerStepPatch;
 
 impl LegendHandler for HandlerStepPatch {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
-        let Source::Artist(id) = entry.source else {
-            return Ok(Vec::new());
+        let artist = match entry.source {
+            Source::Artist(id) => entry.ctx.store.get(*id),
+            _ => None,
         };
-        let Some(artist) = entry.ctx.store.get(*id) else {
-            return Ok(Vec::new());
+        let Some(artist) = artist else {
+            return unsupported(entry, "HandlerStepPatch");
         };
         match artist.as_patch() {
             Some(view @ PatchView { shape, .. }) if shape.is::<StepPatch>() => {
@@ -76,7 +81,7 @@ impl LegendHandler for HandlerStepPatch {
                 Some((artist.base(), view)),
                 &entry.area,
             )),
-            None => Ok(Vec::new()),
+            None => unsupported(entry, "HandlerStepPatch"),
         }
     }
 }
@@ -96,9 +101,10 @@ pub struct HandlerLineCollection;
 
 impl LegendHandler for HandlerLineCollection {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
-        collection_of(entry).map_or(Ok(Vec::new()), |source| {
-            line::line_collection(entry.ctx, source, &entry.area)
-        })
+        match collection_of(entry) {
+            Some(source) => line::line_collection(entry.ctx, source, &entry.area),
+            None => unsupported(entry, "HandlerLineCollection"),
+        }
     }
 }
 
@@ -110,9 +116,10 @@ pub struct HandlerPathCollection;
 
 impl LegendHandler for HandlerPathCollection {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
-        collection_of(entry).map_or(Ok(Vec::new()), |source| {
-            collection::path_collection(entry.ctx, source, &entry.area)
-        })
+        match collection_of(entry) {
+            Some(source) => collection::path_collection(entry.ctx, source, &entry.area),
+            None => unsupported(entry, "HandlerPathCollection"),
+        }
     }
 }
 
@@ -124,9 +131,10 @@ pub struct HandlerPolyCollection;
 
 impl LegendHandler for HandlerPolyCollection {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
-        collection_of(entry).map_or(Ok(Vec::new()), |source| {
-            patch::poly_collection(entry.ctx, source, &entry.area)
-        })
+        match collection_of(entry) {
+            Some(source) => patch::poly_collection(entry.ctx, source, &entry.area),
+            None => unsupported(entry, "HandlerPolyCollection"),
+        }
     }
 }
 
@@ -141,7 +149,7 @@ impl LegendHandler for HandlerErrorbar {
             Source::Container(ContainerIds::Errorbar(ids)) => {
                 errorbar::errorbar(entry.ctx, ids, &entry.area)
             }
-            _ => Ok(Vec::new()),
+            _ => unsupported(entry, "HandlerErrorbar"),
         }
     }
 }
@@ -160,7 +168,7 @@ impl LegendHandler for HandlerStem {
                 baseline,
                 ..
             }) => stem::stem(entry.ctx, [*markerline, *stemlines, *baseline], &entry.area),
-            _ => Ok(Vec::new()),
+            _ => unsupported(entry, "HandlerStem"),
         }
     }
 }
@@ -171,9 +179,21 @@ impl LegendHandler for HandlerStem {
 impl LegendHandler for HandlerTuple {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
         let Source::Tuple(sources) = entry.source else {
-            return Ok(Vec::new());
+            return unsupported(entry, "HandlerTuple");
         };
         tuple_parts(entry.ctx, sources, *self, &entry.area)
+    }
+}
+
+/// What `handler` makes of a handle it cannot draw: nothing when the
+/// handle's artist was removed, else [`LegendError::UnsupportedHandle`].
+fn unsupported(
+    entry: &HandlerEntry<'_>,
+    handler: &'static str,
+) -> Result<Vec<HandlerArtist>, LegendError> {
+    match entry.source {
+        Source::Artist(id) if entry.ctx.store.get(*id).is_none() => Ok(Vec::new()),
+        _ => Err(LegendError::UnsupportedHandle(handler)),
     }
 }
 

@@ -39,7 +39,7 @@ fn zero_locations(fig: &Figure) -> CaseResult {
     for (i, (location, name, direction, offset)) in settings.into_iter().enumerate() {
         let ax = fig.add_polar_subplot(2, 2, i + 1)?;
         let options = BarOptions {
-            thickness: vec![0.5],
+            thickness: 0.5.into(),
             color: vec![Color::from("tab:blue")],
             props: PatchProps::default().alpha(0.6),
             ..BarOptions::default()
@@ -106,8 +106,8 @@ fn bars_west(fig: &Figure) -> CaseResult {
         .map(|i| f64::from(10 + 20 * i).to_radians())
         .collect();
     let options = BarOptions {
-        thickness: vec![15f64.to_radians()],
-        base: vec![1.0],
+        thickness: 15f64.to_radians().into(),
+        base: vec![1.0].into(),
         color: ["C0", "C1", "C2"]
             .repeat(3)
             .into_iter()

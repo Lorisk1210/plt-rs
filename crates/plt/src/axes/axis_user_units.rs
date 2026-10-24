@@ -74,6 +74,18 @@ impl Axis {
     /// to convert become NaN, and the figure reports why when it next
     /// draws.
     pub(super) fn convert_custom(&self, values: &UnitValues) -> Vec<f64> {
+        self.try_convert_custom(values).unwrap_or_else(|error| {
+            self.report(&error);
+            vec![f64::NAN; values.len()]
+        })
+    }
+
+    /// [`convert_custom`](Self::convert_custom), failing instead of
+    /// reporting.
+    pub(super) fn try_convert_custom(
+        &self,
+        values: &UnitValues,
+    ) -> Result<Vec<f64>, ConversionError> {
         let (converter, unit) =
             self.read(|axis| (axis.units.converter.clone(), axis.units.unit.clone()));
         let converter = converter.unwrap_or_else(|| {
@@ -81,12 +93,7 @@ impl Axis {
             self.update(|axis| axis.units.adopt(converter.clone()));
             converter
         });
-        values
-            .convert(converter.custom(), unit.as_ref(), self)
-            .unwrap_or_else(|error| {
-                self.report(&error);
-                vec![f64::NAN; values.len()]
-            })
+        values.convert(converter.custom(), unit.as_ref(), self)
     }
 
     /// Reports a failed conversion when the figure next draws.

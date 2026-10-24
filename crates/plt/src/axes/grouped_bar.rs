@@ -287,8 +287,8 @@ impl Axes {
                 }
                 let face = cycled(&options.facecolor, i).or_else(|| cycled(&options.colors, i));
                 let bar = BarOptions {
-                    thickness: vec![width],
-                    base: options.base.clone(),
+                    thickness: width.into(),
+                    base: options.base.clone().into(),
                     align: BarAlign::Edge,
                     label,
                     color: face.into_iter().collect(),

@@ -4,6 +4,7 @@ use std::fmt;
 
 use crate::colors::ColorError;
 use crate::coords::CoordError;
+use crate::ticker::AxisName;
 
 /// A problem met while drawing a patch.
 #[derive(Clone, Debug, PartialEq)]
@@ -109,6 +110,10 @@ pub enum ShapeError {
     AnnulusTooWide,
     /// A shadow shade outside `[0, 1]`.
     ShadeOutOfRange,
+    /// A side of a rectangle that does not add to the corner it extends
+    /// from, the width along x or the height along y (matplotlib's
+    /// `TypeError` from `x0 + width`).
+    UnaddableSide(AxisName),
 }
 
 impl fmt::Display for ShapeError {
@@ -118,6 +123,8 @@ impl fmt::Display for ShapeError {
                 "width of annulus must be less than or equal to semi-minor axis"
             }
             Self::ShadeOutOfRange => "shade must be between 0 and 1",
+            Self::UnaddableSide(AxisName::X) => "the width does not add to the x of the corner",
+            Self::UnaddableSide(AxisName::Y) => "the height does not add to the y of the corner",
         })
     }
 }

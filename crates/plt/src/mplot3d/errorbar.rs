@@ -376,13 +376,14 @@ fn bar_ends(
     every: &[bool],
 ) -> Result<BarEnds, Axes3DError> {
     let n = points.len();
-    let (lower, upper) = match err {
-        ErrorSize::Symmetric(errors) => (errors, errors),
-        ErrorSize::Asymmetric { lower, upper } => (lower, upper),
-    };
+    let (lower, upper) = err.sides(|errors| {
+        errors
+            .to_numbers()
+            .map_err(|_| Axes3DError::UnitErrors(axis))
+    })?;
     let (lower, upper) = (
-        broadcast("errors", lower, n)?,
-        broadcast("errors", upper, n)?,
+        broadcast("errors", &lower, n)?,
+        broadcast("errors", &upper, n)?,
     );
     let i = axis.index();
     let moved = |p: Vec3, delta: f64, keep: bool| {
@@ -458,8 +459,8 @@ mod tests {
     fn limits_drop_one_side_and_every_skips_points() {
         let points = [[0.0, 0.0, 1.0], [1.0, 1.0, 2.0], [2.0, 2.0, 3.0]];
         let err = ErrorSize::Asymmetric {
-            lower: vec![0.5],
-            upper: vec![1.0],
+            lower: 0.5.into(),
+            upper: 1.0.into(),
         };
         let ends = bar_ends(
             &points,
@@ -474,6 +475,50 @@ mod tests {
         assert_eq!((ends.lows[1][2], ends.highs[1][2]), (1.5, 3.0));
         assert_eq!((ends.lows[2][2], ends.highs[2][2]), (3.0, 3.0), "no bar");
         assert_eq!(ends.lows[1][0], 1.0, "other coordinates stay");
+    }
+
+    #[test]
+    fn durations_are_days_and_user_errors_are_refused() {
+        use crate::axes::Axis;
+        use crate::dates::TimeDelta;
+        use crate::units::{AxisDeltas, ConversionError, ConversionInterface, Convertible};
+
+        /// A length in some unit.
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        struct Length(f64);
+
+        struct LengthConverter;
+
+        impl ConversionInterface for LengthConverter {
+            type Value = Length;
+            type Unit = ();
+            fn convert(
+                &self,
+                values: &[Length],
+                _: Option<&()>,
+                _: &Axis,
+            ) -> Result<Vec<f64>, ConversionError> {
+                Ok(values.iter().map(|length| length.0).collect())
+            }
+        }
+
+        impl Convertible for Length {
+            type Converter = LengthConverter;
+            fn converter() -> LengthConverter {
+                LengthConverter
+            }
+        }
+
+        let points = [[0.0, 0.0, 1.0]];
+        let flags: (&[bool], &[bool]) = (&[false], &[false]);
+        let half_day = TimeDelta::new(0, 43_200, 0).unwrap();
+        let ends = bar_ends(&points, Axis3::X, &half_day.into(), flags, &[true]).unwrap();
+        assert_eq!((ends.lows[0][0], ends.highs[0][0]), (-0.5, 0.5));
+        let lengths = ErrorSize::from(AxisDeltas::from(vec![Length(1.0)]));
+        assert_eq!(
+            bar_ends(&points, Axis3::Y, &lengths, flags, &[true]).err(),
+            Some(Axes3DError::UnitErrors(Axis3::Y))
+        );
     }
 
     #[test]

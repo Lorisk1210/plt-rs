@@ -98,8 +98,8 @@ fn bbox_inches_tight(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     for row in DATA {
         let options = BarOptions {
-            thickness: vec![0.4],
-            base: yoff.to_vec(),
+            thickness: 0.4.into(),
+            base: yoff.to_vec().into(),
             align: BarAlign::Edge,
             ..BarOptions::default()
         };

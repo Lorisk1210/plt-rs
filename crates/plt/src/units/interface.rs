@@ -6,6 +6,7 @@
 use std::fmt;
 use std::rc::Rc;
 
+use super::{AxisDelta, AxisValue};
 use crate::axes::Axis;
 use crate::ticker::{Formatter, Locator};
 
@@ -121,6 +122,75 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
     /// The converter an axis uses for these values unless another one of
     /// the same type was set on it ([`Axis::set_converter`]).
     fn converter() -> Self::Converter;
+
+    /// This value moved by the extent `delta`, if extents of that kind
+    /// add to it (Python's `value + delta`). An extent from a value, such
+    /// as the height of a bar from its bottom or the width of a
+    /// [`DataRectangle`](crate::patches::DataRectangle) from its corner,
+    /// becomes axis numbers as the converted far end less the converted
+    /// value (matplotlib's `Axes._convert_dx` and
+    /// `Rectangle._convert_units`). The default adds nothing, so that
+    /// extents from these values are converted by themselves, as
+    /// `_convert_dx` falls back to.
+    ///
+    /// ```
+    /// use plt::axes::{Axis, BarOptions};
+    /// use plt::prelude::*;
+    /// use plt::units::{AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible};
+    ///
+    /// /// A day of a year.
+    /// #[derive(Clone, Copy, Debug, PartialEq)]
+    /// struct Day(f64);
+    ///
+    /// /// A number of days.
+    /// #[derive(Clone, Copy, Debug, PartialEq)]
+    /// struct Days(f64);
+    ///
+    /// struct DayConverter;
+    ///
+    /// impl ConversionInterface for DayConverter {
+    ///     type Value = Day;
+    ///     type Unit = ();
+    ///     fn convert(&self, days: &[Day], _: Option<&()>, _: &Axis)
+    ///         -> Result<Vec<f64>, ConversionError> {
+    ///         Ok(days.iter().map(|day| day.0).collect())
+    ///     }
+    /// }
+    ///
+    /// impl Convertible for Day {
+    ///     type Converter = DayConverter;
+    ///     fn converter() -> DayConverter { DayConverter }
+    ///     fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
+    ///         delta.downcast_ref::<Days>().map(|days| Day(self.0 + days.0).into())
+    ///     }
+    /// }
+    ///
+    /// struct DaysConverter;
+    ///
+    /// impl ConversionInterface for DaysConverter {
+    ///     type Value = Days;
+    ///     type Unit = ();
+    ///     fn convert(&self, days: &[Days], _: Option<&()>, _: &Axis)
+    ///         -> Result<Vec<f64>, ConversionError> {
+    ///         Ok(days.iter().map(|days| days.0).collect())
+    ///     }
+    /// }
+    ///
+    /// impl Convertible for Days {
+    ///     type Converter = DaysConverter;
+    ///     fn converter() -> DaysConverter { DaysConverter }
+    /// }
+    ///
+    /// let ax = Figure::new().subplot();
+    /// let from_day_10 = BarOptions { base: vec![Day(10.0)].into(), ..BarOptions::default() };
+    /// let bars = ax.bar([1.0, 2.0], vec![Days(3.0), Days(5.0)], from_day_10)?;
+    /// assert_eq!(bars.tops(), [13.0, 15.0]);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
+        let _ = delta;
+        None
+    }
 }
 
 /// The unit type of the converter of values of type `T`.

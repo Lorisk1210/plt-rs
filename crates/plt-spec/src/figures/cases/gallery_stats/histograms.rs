@@ -325,8 +325,8 @@ fn multiple_histograms_side_by_side(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     for (x_loc, binned_data) in x_locations.iter().zip(&binned_data_sets) {
         let options = BarOptions {
-            thickness: heights.clone(),
-            base: map(binned_data, |count| x_loc - 0.5 * count),
+            thickness: heights.clone().into(),
+            base: map(binned_data, |count| x_loc - 0.5 * count).into(),
             ..BarOptions::default()
         };
         ax.barh(centers.clone(), binned_data, options)?;

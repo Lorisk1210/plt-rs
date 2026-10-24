@@ -340,7 +340,7 @@ mod tests {
         let ax = Figure::new().subplot();
         let options = BarOptions {
             errors: ErrorbarOptions {
-                yerr: Some(ErrorSize::Symmetric(vec![0.5])),
+                yerr: Some(ErrorSize::Symmetric(vec![0.5].into())),
                 ..ErrorbarOptions::default()
             },
             ..BarOptions::default()

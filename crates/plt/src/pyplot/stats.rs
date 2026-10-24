@@ -12,7 +12,7 @@ use crate::axes::{
 use crate::collections::Collection;
 use crate::stats::BinSample;
 use crate::text::{Annotation, Text};
-use crate::units::{AxisDelta, AxisValue, AxisValues};
+use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues};
 
 /// Draws vertical bars on the current axes (matplotlib's `bar`).
 ///
@@ -21,7 +21,7 @@ use crate::units::{AxisDelta, AxisValue, AxisValues};
 /// As [`Axes::bar`](crate::axes::Axes::bar).
 pub fn bar(
     x: impl Into<AxisValues>,
-    height: impl AsRef<[f64]>,
+    height: impl Into<AxisDeltas>,
     options: BarOptions,
 ) -> Result<BarContainer, PlotError> {
     gca().bar(x, height, options)
@@ -34,7 +34,7 @@ pub fn bar(
 /// As [`Axes::barh`](crate::axes::Axes::barh).
 pub fn barh(
     y: impl Into<AxisValues>,
-    width: impl AsRef<[f64]>,
+    width: impl Into<AxisDeltas>,
     options: BarOptions,
 ) -> Result<BarContainer, PlotError> {
     gca().barh(y, width, options)

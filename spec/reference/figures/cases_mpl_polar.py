@@ -19,8 +19,10 @@ Deviations from the tests:
 * ``np.random`` draws (seeded or not) come from ``spec_support.rng``, seeded
   with the test's seed.
 * ``test_polar_units_1`` and ``test_polar_units_2`` plot
-  ``matplotlib.testing.jpl_units`` quantities; only their ``fig_ref`` sides
-  are ported (``_ref``).
+  ``matplotlib.testing.jpl_units`` quantities, registering its converters
+  only while the case is built (``spec_support.units.jpl_registered``), as
+  the test fixture restores the registry after each test. Their ``fig_ref``
+  sides are ported too (``_ref``).
 * ``test_contour_set_paths`` takes its replacement paths from a contour set
   drawn on a scratch figure, and ``test_colorbar_positioning`` contours the
   hatched set's data again where the test passes the set itself to
@@ -47,6 +49,7 @@ from matplotlib.figure import Figure
 from matplotlib.testing.decorators import remove_ticks_and_titles
 
 from spec_support import case, rng
+from spec_support.units import jpl_registered
 
 GROUP = "mpl_polar"
 
@@ -142,6 +145,27 @@ def _(fig):
     ax = fig.add_subplot(projection="polar")
     ax.plot(np.deg2rad([179, -179]), [0.2, 0.1])
     ax.plot(np.deg2rad([2, -2]), [0.2, 0.1])
+
+
+@classic("polar_units_1")
+def _(fig):
+    import matplotlib.testing.jpl_units as units
+
+    with jpl_registered():
+        xs = [x * units.deg for x in [30.0, 45.0, 60.0, 90.0]]
+        ys = [1.0, 2.0, 3.0, 4.0]
+        fig.add_subplot(projection="polar").plot(xs, ys)
+
+
+@classic("polar_units_2")
+def _(fig):
+    import matplotlib.testing.jpl_units as units
+
+    with jpl_registered():
+        xs_deg = [x * units.deg for x in [30.0, 45.0, 60.0, 90.0]]
+        ys_km = [y * units.km for y in [1.0, 2.0, 3.0, 4.0]]
+        fig.add_subplot(projection="polar").plot(xs_deg, ys_km, thetaunits="rad",
+                                                 runits="km")
 
 
 @classic("polar_units_1_ref")

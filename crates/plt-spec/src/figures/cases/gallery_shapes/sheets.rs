@@ -149,7 +149,7 @@ fn ggplot(fig: &Figure) -> CaseResult {
         .collect();
     let width = 0.25;
     let narrow = || BarOptions {
-        thickness: vec![width],
+        thickness: width.into(),
         ..BarOptions::default()
     };
     ax3.bar(x.clone(), &heights[..5], narrow())?;

@@ -24,12 +24,12 @@ pub(crate) const CASES: &[FigureCase] = &[
         let x = arange(1.0, 7.0, 1.0);
         let options = ErrorbarOptions {
             xerr: Some(ErrorSize::Asymmetric {
-                lower: map(&x, |x| 0.1 * x),
-                upper: vec![0.3; 6],
+                lower: map(&x, |x| 0.1 * x).into(),
+                upper: vec![0.3; 6].into(),
             }),
             yerr: Some(ErrorSize::Asymmetric {
-                lower: map(&x, |x| 0.5 * x),
-                upper: x.clone(),
+                lower: map(&x, |x| 0.5 * x).into(),
+                upper: x.clone().into(),
             }),
             fmt: "o".parse()?,
             ..ErrorbarOptions::default()

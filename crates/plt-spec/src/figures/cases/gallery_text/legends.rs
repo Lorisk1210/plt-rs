@@ -216,7 +216,7 @@ fn legend_demo_3(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(3, 1)?;
     let (top_ax, middle_ax, bottom_ax) = (&axs[(0, 0)], &axs[(1, 0)], &axs[(2, 0)]);
     let bars = |label: &str| BarOptions {
-        thickness: vec![0.4],
+        thickness: 0.4.into(),
         align: BarAlign::Center,
         label: Some(label.into()),
         ..BarOptions::default()
@@ -301,7 +301,7 @@ fn legend_demo_4(fig: &Figure) -> CaseResult {
         x_left,
         [2.0, 1.0, 4.0],
         BarOptions {
-            thickness: vec![0.5],
+            thickness: 0.5.into(),
             color: vec![Color::from("w")],
             hatch: vec!["///".into()],
             label: Some("-1".into()),
@@ -312,7 +312,7 @@ fn legend_demo_4(fig: &Figure) -> CaseResult {
         x_left,
         [1.0, 3.0, 2.0],
         BarOptions {
-            thickness: vec![0.5],
+            thickness: 0.5.into(),
             color: vec![Color::from("k")],
             label: Some("+1".into()),
             ..BarOptions::default()

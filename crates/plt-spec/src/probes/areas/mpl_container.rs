@@ -89,7 +89,7 @@ fn errorbar_remove(args: Args<'_>) -> Outcome {
 fn bar_container(args: Args<'_>) -> Outcome {
     let ax = Figure::new().subplot();
     let options = BarOptions {
-        base: args.f64_vec("base")?,
+        base: args.f64_vec("base")?.into(),
         ..BarOptions::default()
     };
     let (positions, values) = (args.f64_vec("positions")?, args.f64_vec("values")?);

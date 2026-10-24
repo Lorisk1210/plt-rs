@@ -49,7 +49,7 @@ fn bar_graphs(ax: &Axes, rng: &mut SpecRng) -> CaseResult {
         .collect();
     let width = 0.25;
     let narrow = BarOptions {
-        thickness: vec![width],
+        thickness: width.into(),
         ..BarOptions::default()
     };
     ax.bar(x.clone(), &heights[..5], narrow.clone())?;

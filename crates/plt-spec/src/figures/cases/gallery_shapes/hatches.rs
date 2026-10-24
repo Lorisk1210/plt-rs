@@ -85,7 +85,7 @@ fn hatched_bars(
     patterns: &[&str],
 ) -> CaseResult {
     let bars = BarOptions {
-        base: bottom.to_vec(),
+        base: bottom.to_vec().into(),
         edgecolor: vec!["black".into()],
         hatch: patterns.iter().map(|&p| p.to_owned()).collect(),
         ..BarOptions::default()

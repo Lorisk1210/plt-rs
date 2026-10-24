@@ -142,10 +142,7 @@ fn scales(ax: &Axes, x: bool, y: bool) -> Result<(), ProbeError> {
 fn errorbar(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     let size = |keyword| {
         call.keyword(keyword)
-            .map(|_| {
-                call.f64_vec(KEYWORD_ONLY, keyword)
-                    .map(ErrorSize::Symmetric)
-            })
+            .map(|_| call.f64_vec(KEYWORD_ONLY, keyword).map(ErrorSize::from))
             .transpose()
     };
     let options = ErrorbarOptions {
@@ -175,7 +172,7 @@ fn bars(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
         ..BarOptions::default()
     };
     if let Some(base) = call.opt_f64(KEYWORD_ONLY, base_keyword)? {
-        options.base = vec![base];
+        options.base = vec![base].into();
     }
     let made = if call.method == "bar" {
         ax.bar(at, size, options)

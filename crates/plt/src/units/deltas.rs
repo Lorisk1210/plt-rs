@@ -1,0 +1,313 @@
+//! Extents along an axis before unit conversion: one ([`AxisDelta`]) or a
+//! list of them ([`AxisDeltas`]), such as bar heights, bar widths and
+//! error sizes (matplotlib's `dx` arguments, which may be `timedelta`s or
+//! values of user types).
+
+use super::{Convertible, UnitValues};
+use crate::dates::TimeDelta;
+
+/// Microseconds in a day: a duration of that many microseconds spans one
+/// unit of a date axis.
+const MICROS_PER_DAY: f64 = 86_400_000_000.0;
+
+/// The days `duration` lasts, the unit of date axes.
+pub(crate) fn days(duration: TimeDelta) -> f64 {
+    duration.total_micros() as f64 / MICROS_PER_DAY
+}
+
+/// An extent along an axis before unit conversion: a number, a duration
+/// on a date axis (matplotlib's `timedelta` widths, heights and error
+/// sizes) or a value of a [`Convertible`] type.
+///
+/// ```
+/// use plt::dates::TimeDelta;
+/// use plt::units::AxisDelta;
+/// assert_eq!(AxisDelta::from(0.8).to_number(), Some(0.8));
+/// assert_eq!(AxisDelta::from(TimeDelta::new(1, 43_200, 0)?).to_number(), Some(1.5));
+/// # Ok::<(), plt::dates::DateError>(())
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub enum AxisDelta {
+    /// A plain number.
+    Number(f64),
+    /// A duration.
+    Duration(TimeDelta),
+    /// A value of a user type: [`UnitValues`] holding one value.
+    Custom(UnitValues),
+}
+
+impl AxisDelta {
+    /// The extent in axis units where that needs no converter: numbers as
+    /// they are, durations in days, the unit of date axes. A user value
+    /// has none until an axis converts it.
+    pub fn to_number(&self) -> Option<f64> {
+        match self {
+            Self::Number(delta) => Some(*delta),
+            Self::Duration(duration) => Some(days(*duration)),
+            Self::Custom(_) => None,
+        }
+    }
+
+    /// The user value, if the extent is one of type `T`: how
+    /// [`Convertible::add_delta`] looks at the extents it is given.
+    pub fn downcast_ref<T: Convertible>(&self) -> Option<&T> {
+        match self {
+            Self::Custom(values) => values.downcast_ref::<T>()?.first(),
+            Self::Number(_) | Self::Duration(_) => None,
+        }
+    }
+}
+
+impl From<f64> for AxisDelta {
+    fn from(delta: f64) -> Self {
+        Self::Number(delta)
+    }
+}
+
+impl From<TimeDelta> for AxisDelta {
+    fn from(duration: TimeDelta) -> Self {
+        Self::Duration(duration)
+    }
+}
+
+impl<T: Convertible> From<T> for AxisDelta {
+    fn from(value: T) -> Self {
+        Self::Custom(UnitValues::new(vec![value]))
+    }
+}
+
+/// Extents along an axis before unit conversion, one or one per item:
+/// numbers, durations or values of a [`Convertible`] type (matplotlib's
+/// bar heights and widths and error sizes, which convert through the
+/// values they extend from, as its `_convert_dx` converts them).
+///
+/// ```
+/// use plt::dates::TimeDelta;
+/// use plt::units::AxisDeltas;
+/// assert_eq!(AxisDeltas::from([0.5, 1.0]), AxisDeltas::Numbers(vec![0.5, 1.0]));
+/// let day = TimeDelta::new(1, 0, 0)?;
+/// assert_eq!(AxisDeltas::from(day).len(), 1);
+/// # Ok::<(), plt::dates::DateError>(())
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub enum AxisDeltas {
+    /// Plain numbers.
+    Numbers(Vec<f64>),
+    /// Durations, in days on a date axis.
+    Durations(Vec<TimeDelta>),
+    /// Values of a user type.
+    Custom(UnitValues),
+}
+
+impl AxisDeltas {
+    /// The number of extents.
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Numbers(deltas) => deltas.len(),
+            Self::Durations(durations) => durations.len(),
+            Self::Custom(values) => values.len(),
+        }
+    }
+
+    /// Whether there are no extents.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The extents one by one.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = AxisDelta> + '_ {
+        (0..self.len()).filter_map(|index| self.get(index))
+    }
+
+    /// Extent `index`.
+    fn get(&self, index: usize) -> Option<AxisDelta> {
+        match self {
+            Self::Numbers(deltas) => deltas.get(index).copied().map(AxisDelta::Number),
+            Self::Durations(durations) => durations.get(index).copied().map(AxisDelta::Duration),
+            Self::Custom(values) => values.get(index).map(AxisDelta::Custom),
+        }
+    }
+
+    /// The extents in axis units where that needs no converter (see
+    /// [`AxisDelta::to_number`]), or the user values, which need one.
+    pub(crate) fn to_numbers(&self) -> Result<Vec<f64>, &UnitValues> {
+        match self {
+            Self::Numbers(deltas) => Ok(deltas.clone()),
+            Self::Durations(durations) => Ok(durations.iter().copied().map(days).collect()),
+            Self::Custom(values) => Err(values),
+        }
+    }
+}
+
+impl From<AxisDelta> for AxisDeltas {
+    /// The one extent.
+    fn from(delta: AxisDelta) -> Self {
+        match delta {
+            AxisDelta::Number(delta) => Self::Numbers(vec![delta]),
+            AxisDelta::Duration(duration) => Self::Durations(vec![duration]),
+            AxisDelta::Custom(value) => Self::Custom(value),
+        }
+    }
+}
+
+impl From<f64> for AxisDeltas {
+    fn from(delta: f64) -> Self {
+        Self::Numbers(vec![delta])
+    }
+}
+
+impl From<Vec<f64>> for AxisDeltas {
+    fn from(deltas: Vec<f64>) -> Self {
+        Self::Numbers(deltas)
+    }
+}
+
+impl From<&Vec<f64>> for AxisDeltas {
+    fn from(deltas: &Vec<f64>) -> Self {
+        Self::Numbers(deltas.clone())
+    }
+}
+
+impl From<&[f64]> for AxisDeltas {
+    fn from(deltas: &[f64]) -> Self {
+        Self::Numbers(deltas.to_vec())
+    }
+}
+
+impl<const N: usize> From<[f64; N]> for AxisDeltas {
+    fn from(deltas: [f64; N]) -> Self {
+        Self::Numbers(deltas.to_vec())
+    }
+}
+
+impl<const N: usize> From<&[f64; N]> for AxisDeltas {
+    fn from(deltas: &[f64; N]) -> Self {
+        Self::Numbers(deltas.to_vec())
+    }
+}
+
+impl From<TimeDelta> for AxisDeltas {
+    fn from(duration: TimeDelta) -> Self {
+        Self::Durations(vec![duration])
+    }
+}
+
+impl From<Vec<TimeDelta>> for AxisDeltas {
+    fn from(durations: Vec<TimeDelta>) -> Self {
+        Self::Durations(durations)
+    }
+}
+
+impl From<&[TimeDelta]> for AxisDeltas {
+    fn from(durations: &[TimeDelta]) -> Self {
+        Self::Durations(durations.to_vec())
+    }
+}
+
+impl<const N: usize> From<[TimeDelta; N]> for AxisDeltas {
+    fn from(durations: [TimeDelta; N]) -> Self {
+        Self::Durations(durations.to_vec())
+    }
+}
+
+impl From<UnitValues> for AxisDeltas {
+    fn from(values: UnitValues) -> Self {
+        Self::Custom(values)
+    }
+}
+
+impl<T: Convertible> From<Vec<T>> for AxisDeltas {
+    fn from(values: Vec<T>) -> Self {
+        Self::Custom(UnitValues::new(values))
+    }
+}
+
+impl<T: Convertible> From<&[T]> for AxisDeltas {
+    fn from(values: &[T]) -> Self {
+        values.to_vec().into()
+    }
+}
+
+impl<T: Convertible, const N: usize> From<[T; N]> for AxisDeltas {
+    fn from(values: [T; N]) -> Self {
+        Vec::from(values).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::axes::Axis;
+    use crate::units::{ConversionError, ConversionInterface};
+
+    /// A length in metres.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    struct Metres(f64);
+
+    struct MetreConverter;
+
+    impl ConversionInterface for MetreConverter {
+        type Value = Metres;
+        type Unit = ();
+
+        fn convert(
+            &self,
+            values: &[Metres],
+            _: Option<&()>,
+            _: &Axis,
+        ) -> Result<Vec<f64>, ConversionError> {
+            Ok(values.iter().map(|m| m.0).collect())
+        }
+    }
+
+    impl Convertible for Metres {
+        type Converter = MetreConverter;
+        fn converter() -> MetreConverter {
+            MetreConverter
+        }
+    }
+
+    #[test]
+    fn single_extents_become_one_element_lists() {
+        let back = TimeDelta::new(-2, 0, 0).expect("a duration");
+        assert_eq!(AxisDelta::from(back).to_number(), Some(-2.0));
+        assert_eq!(
+            AxisDeltas::from(AxisDelta::from(back)),
+            AxisDeltas::Durations(vec![back])
+        );
+        assert_eq!(AxisDeltas::from(0.5), AxisDeltas::Numbers(vec![0.5]));
+        let metres = AxisDelta::from(Metres(3.0));
+        assert_eq!(metres.to_number(), None, "user values need a converter");
+        assert_eq!(metres.downcast_ref::<Metres>(), Some(&Metres(3.0)));
+        assert_eq!(AxisDelta::from(1.0).downcast_ref::<Metres>(), None);
+        assert_eq!(AxisDeltas::from(metres).len(), 1);
+    }
+
+    #[test]
+    fn lists_hold_one_kind_of_extent() {
+        let numbers = vec![1.0, 2.0];
+        assert_eq!(AxisDeltas::from(&numbers), AxisDeltas::from(&[1.0, 2.0]));
+        assert_eq!(
+            AxisDeltas::from(numbers.as_slice()).to_numbers(),
+            Ok(numbers)
+        );
+        let day = TimeDelta::new(1, 0, 0).expect("a duration");
+        let durations = AxisDeltas::from([day, day]);
+        assert_eq!(durations, AxisDeltas::from(vec![day, day]));
+        assert_eq!(durations.to_numbers(), Ok(vec![1.0, 1.0]));
+        assert_eq!(AxisDeltas::from(&[day][..]).len(), 1);
+        let lengths = AxisDeltas::from([Metres(1.0), Metres(2.0)]);
+        assert_eq!(lengths, AxisDeltas::from(&[Metres(1.0), Metres(2.0)][..]));
+        assert!(
+            lengths.to_numbers().is_err(),
+            "user values need a converter"
+        );
+        let second = lengths.iter().nth(1).expect("two extents");
+        assert_eq!(second.downcast_ref::<Metres>(), Some(&Metres(2.0)));
+        assert!(AxisDeltas::from(Vec::<f64>::new()).is_empty());
+        assert_eq!(
+            AxisDeltas::from(UnitValues::new(vec![Metres(1.0)])).len(),
+            1
+        );
+    }
+}

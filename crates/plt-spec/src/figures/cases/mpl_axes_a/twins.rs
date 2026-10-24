@@ -1,7 +1,7 @@
-//! Tickers and twins: a lone x label, fixed and linear locators with
-//! printf-style and fixed formatters under twins, log scales set before
-//! and after twinning, twins of axes that do not autoscale, and minor ticks
-//! turned on through rcParams.
+//! Tickers and twins: fixed and linear locators with printf-style and
+//! fixed formatters under twins, log scales set before and after
+//! twinning, twins of axes that do not autoscale, and minor ticks turned
+//! on through rcParams.
 
 use plt::axes::AxisName;
 use plt::numeric::{arange, linspace};
@@ -10,15 +10,6 @@ use plt::ticker::{FixedFormatter, FixedLocator, FormatStrFormatter, LinearLocato
 
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
-
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "every case shares the fallible build signature"
-)]
-pub(super) fn formatter_ticker_001(fig: &Figure) -> CaseResult {
-    fig.subplot().set_xlabel("x-label 001");
-    Ok(())
-}
 
 /// `FixedFormatter` labels from string literals.
 fn fixed_labels(labels: &[&str]) -> FixedFormatter {

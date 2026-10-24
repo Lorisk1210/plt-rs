@@ -27,8 +27,11 @@ Deviations from the tests:
   ``matplotlib.testing.jpl_units``, which plays no part in plotting their
   ``datetime`` data; the cases leave it out.
 * ``test_table_unit`` builds its table from objects of a class with a
-  mocked unit converter; the case contributes the ``fig_ref`` side (the
-  same table of ``"Hello"`` strings) as ``table_unit_ref``.
+  mocked unit converter that must not be called; the case registers a
+  converter that fails when called instead, and only while the case is
+  built (``spec_support.units.registered``), as the test fixture restores
+  the registry after each test. The ``fig_ref`` side (the same table of
+  ``"Hello"`` strings) is ``table_unit_ref``.
 
 The other image tests of ``test_units.py`` (``test_numpy_facade``,
 ``test_plot_masked_units``, ``test_jpl_bar_units`` and
@@ -51,6 +54,7 @@ from matplotlib import lines as mlines
 from matplotlib import patches as mpatches
 from matplotlib import transforms as mtransforms
 from matplotlib import tri as mtri
+from matplotlib import units as munits
 from matplotlib.legend_handler import HandlerTuple
 from matplotlib.offsetbox import (
     AnchoredOffsetbox, AnchoredText, DrawingArea, PaddedBox, TextArea)
@@ -58,6 +62,7 @@ from matplotlib.testing.decorators import remove_ticks_and_titles
 from matplotlib.transforms import Bbox
 
 from spec_support import case
+from spec_support.units import registered
 
 GROUP = "mpl_misc"
 
@@ -524,6 +529,34 @@ def _(fig):
     fig.subplots().table(cellText=cell_text, rowLabels=("Ada", "Bob"),
                          colLabels=("Foo", "Bar"), loc="center",
                          bbox=Bbox.from_extents(0.1, 0.2, 0.9, 0.8))
+
+
+class _FakeUnit:
+    """``test_table_unit.FakeUnit``: shown as ``Hello``, whatever it holds."""
+
+    def __init__(self, thing):
+        pass
+
+    def __repr__(self):
+        return "Hello"
+
+
+class _UncalledConverter(munits.ConversionInterface):
+    """The test's mocked converter, failing where the test asserts that it
+    is not called."""
+
+    @staticmethod
+    def convert(value, unit, axis):
+        raise AssertionError("tables do not convert units")
+
+
+@classic("table_unit")
+def _(fig):
+    with registered({_FakeUnit: _UncalledConverter()}):
+        data = [[_FakeUnit("yellow"), _FakeUnit(42)],
+                [_FakeUnit(datetime.datetime(1968, 8, 1)), _FakeUnit(True)]]
+        fig.subplots().table(data)
+        fig.canvas.draw()
 
 
 @classic("table_unit_ref")

@@ -66,7 +66,7 @@ fn stacked_bars() -> Built {
         days.to_vec(),
         evening,
         BarOptions {
-            base: morning.to_vec(),
+            base: morning.to_vec().into(),
             ..labelled("evening")
         },
     )?;

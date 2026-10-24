@@ -247,7 +247,7 @@ fn drop_shadow_patches(ax: &Axes) -> CaseResult {
             x.as_slice(),
             means,
             BarOptions {
-                thickness: vec![width],
+                thickness: width.into(),
                 color: vec![Color::from(color)],
                 edgecolor: vec![Color::from("w")],
                 linewidth: vec![2.0],

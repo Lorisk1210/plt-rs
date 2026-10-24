@@ -13,6 +13,7 @@ mod artists;
 mod fills;
 mod hexbin;
 mod images;
+mod jpl;
 mod labels;
 mod limits;
 mod markevery;
@@ -28,6 +29,10 @@ use crate::figures::{CaseResult, FigureCase};
 /// `image.interpolation: nearest`, set by the imshow tests "to match the
 /// existing baseline image".
 const NEAREST: &[(&str, &str)] = &[("image.interpolation", "nearest")];
+
+/// `lines.markeredgewidth: 30`, which `test_formatter_ticker` sets to
+/// check that it leaves the ticks alone.
+const MARKEREDGEWIDTH_30: &[(&str, &str)] = &[("lines.markeredgewidth", "30")];
 
 /// `pcolormesh.snap: False`, set by the pcolormesh tests until their
 /// baseline images are regenerated.
@@ -48,11 +53,16 @@ pub(crate) const CASES: &[FigureCase] = &[
     classic("mpl_axes_a/acorr_integers", signals::acorr_integers),
     classic("mpl_axes_a/spy", signals::spy),
     FigureCase::new("mpl_axes_a/matshow", signals::matshow).sized(8.0, 6.0, 80.0),
-    FigureCase::new(
-        "mpl_axes_a/formatter_ticker_001",
-        twins::formatter_ticker_001,
-    )
-    .with_rc(&[("lines.markeredgewidth", "30")]),
+    FigureCase::new("mpl_axes_a/formatter_ticker_001", jpl::formatter_ticker_001)
+        .with_rc(MARKEREDGEWIDTH_30),
+    FigureCase::new("mpl_axes_a/formatter_ticker_002", jpl::formatter_ticker_002)
+        .with_rc(MARKEREDGEWIDTH_30),
+    FigureCase::new("mpl_axes_a/formatter_ticker_003", jpl::formatter_ticker_003)
+        .with_rc(MARKEREDGEWIDTH_30),
+    FigureCase::new("mpl_axes_a/formatter_ticker_004", jpl::formatter_ticker_004)
+        .with_rc(MARKEREDGEWIDTH_30),
+    FigureCase::new("mpl_axes_a/formatter_ticker_005", jpl::formatter_ticker_005)
+        .with_rc(MARKEREDGEWIDTH_30),
     FigureCase::new(
         "mpl_axes_a/twin_axis_locators_formatters",
         twins::twin_axis_locators_formatters,
@@ -123,6 +133,9 @@ pub(crate) const CASES: &[FigureCase] = &[
     classic("mpl_axes_a/arc_ellipse", artists::arc_ellipse),
     FigureCase::new("mpl_axes_a/imshow", images::imshow).with_rc(NEAREST),
     FigureCase::new("mpl_axes_a/imshow_clip", images::imshow_clip).with_rc(NEAREST),
+    FigureCase::new("mpl_axes_a/fill_units", jpl::fill_units).sized(6.4, 4.8, 60.0),
+    FigureCase::new("mpl_axes_a/axvspan_epoch", jpl::axvspan_epoch),
+    FigureCase::new("mpl_axes_a/axhspan_epoch", jpl::axhspan_epoch),
     classic(
         "mpl_axes_a/fill_between_interpolate",
         fills::fill_between_interpolate,

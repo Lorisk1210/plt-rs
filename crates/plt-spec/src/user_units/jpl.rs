@@ -1,21 +1,24 @@
-//! The parts of `matplotlib.testing.jpl_units` the units tests use:
-//! `Duration`, `Epoch` and `UnitDbl` with the `EpochConverter`,
-//! `UnitDblConverter` and `UnitDblFormatter` that `jpl_units.register()`
-//! installs. The tests keep to ephemeris time and kilometres, so the other
-//! frames and units (and the converters' cases for polar axes) are left
-//! out.
+//! The parts of `matplotlib.testing.jpl_units` the tests use: `Duration`,
+//! `Epoch` and `UnitDbl` with the converters `jpl_units.register()`
+//! installs (`EpochConverter` for epochs and durations,
+//! `UnitDblConverter`) and the `UnitDblFormatter`. The tests keep to
+//! ephemeris time and to kilometres, radians, degrees, seconds and hours,
+//! so the UTC frame and the other units are left out.
 
 use std::ops::{Add, Mul, Neg, Sub};
 use std::rc::Rc;
 
-use plt::axes::Axis;
+use plt::axes::{Axis, ProjectionKind};
 use plt::dates::{AutoDateFormatter, AutoDateLocator, DateTime, get_epoch};
+use plt::polar::ThetaFormatter;
 use plt::ticker::pyfmt::FormatSpec;
 use plt::ticker::{
     FormattedTicks, Formatter, OffsetMode, ScalarFormatter, TickContext, TickerError,
     TickerSettings,
 };
-use plt::units::{AxisInfo, ConversionError, ConversionInterface, Convertible};
+use plt::units::{
+    AxisDelta, AxisInfo, AxisValue, ConversionError, ConversionInterface, Convertible,
+};
 
 /// Seconds in a day.
 const SECONDS_PER_DAY: f64 = 86_400.0;
@@ -109,8 +112,18 @@ impl Sub<Duration> for Epoch {
     }
 }
 
-/// `jpl_units.EpochConverter` for epochs: date numbers, ticked as dates
-/// and labelled with the frame.
+/// What `EpochConverter.axisinfo` gives every axis of epochs or
+/// durations: date ticks, labelled with the frame.
+fn epoch_axisinfo(unit: Option<&EphemerisTime>) -> AxisInfo {
+    AxisInfo {
+        major_locator: Some(Rc::new(AutoDateLocator::new())),
+        major_formatter: Some(Rc::new(AutoDateFormatter::new(AutoDateLocator::new()))),
+        label: unit.map(|_| "ET".to_owned()),
+        ..AxisInfo::default()
+    }
+}
+
+/// `jpl_units.EpochConverter` for epochs: date numbers.
 pub(crate) struct EpochConverter;
 
 impl ConversionInterface for EpochConverter {
@@ -130,12 +143,7 @@ impl ConversionInterface for EpochConverter {
     }
 
     fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &Axis) -> Option<AxisInfo> {
-        Some(AxisInfo {
-            major_locator: Some(Rc::new(AutoDateLocator::new())),
-            major_formatter: Some(Rc::new(AutoDateFormatter::new(AutoDateLocator::new()))),
-            label: unit.map(|_| "ET".to_owned()),
-            ..AxisInfo::default()
-        })
+        Some(epoch_axisinfo(unit))
     }
 
     fn default_units(&self, values: &[Epoch], _: &Axis) -> Option<EphemerisTime> {
@@ -149,53 +157,201 @@ impl Convertible for Epoch {
     fn converter() -> EpochConverter {
         EpochConverter
     }
-}
 
-/// Kilometres, the unit of the tests' distances (`"km"`, the default unit
-/// of distances).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Kilometres;
-
-/// A distance in kilometres (`jpl_units.UnitDbl(value, "km")`).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct UnitDbl {
-    km: f64,
-}
-
-impl UnitDbl {
-    /// `km` kilometres (`km * units.km`).
-    pub(crate) fn km(km: f64) -> Self {
-        Self { km }
+    /// `epoch + duration` (`Epoch.__add__`); nothing else adds to epochs.
+    fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
+        delta
+            .downcast_ref::<Duration>()
+            .map(|&duration| (*self + duration).into())
     }
 }
 
-/// `jpl_units.UnitDblConverter`: numbers in the axis unit, labelled with
-/// it and formatted by a [`UnitDblFormatter`].
+/// `jpl_units.EpochConverter` for durations, which `jpl_units.register()`
+/// installs for them too: days.
+pub(crate) struct DurationConverter;
+
+impl ConversionInterface for DurationConverter {
+    type Value = Duration;
+    type Unit = EphemerisTime;
+
+    fn convert(
+        &self,
+        values: &[Duration],
+        _: Option<&EphemerisTime>,
+        _: &Axis,
+    ) -> Result<Vec<f64>, ConversionError> {
+        Ok(values
+            .iter()
+            .map(|duration| duration.seconds / SECONDS_PER_DAY)
+            .collect())
+    }
+
+    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &Axis) -> Option<AxisInfo> {
+        Some(epoch_axisinfo(unit))
+    }
+
+    fn default_units(&self, values: &[Duration], _: &Axis) -> Option<EphemerisTime> {
+        values.first().map(|_| EphemerisTime)
+    }
+}
+
+impl Convertible for Duration {
+    type Converter = DurationConverter;
+
+    fn converter() -> DurationConverter {
+        DurationConverter
+    }
+}
+
+/// A unit a [`UnitDbl`] can be given in and converted to
+/// (`UnitDbl.allowed`); its name labels axes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum UnitName {
+    Kilometres,
+    Radians,
+    Degrees,
+    Seconds,
+    Hours,
+}
+
+impl UnitName {
+    /// What one of this unit is in its base unit, and the base unit
+    /// (`UnitDbl.allowed[unit]`).
+    fn scale(self) -> (f64, Self) {
+        match self {
+            Self::Kilometres => (1.0, Self::Kilometres),
+            Self::Radians => (1.0, Self::Radians),
+            Self::Degrees => (1.745_329_251_994_33e-2, Self::Radians),
+            Self::Seconds => (1.0, Self::Seconds),
+            Self::Hours => (3600.0, Self::Seconds),
+        }
+    }
+
+    /// The unit's name (`"km"`, `"deg"`, ...).
+    fn name(self) -> &'static str {
+        match self {
+            Self::Kilometres => "km",
+            Self::Radians => "rad",
+            Self::Degrees => "deg",
+            Self::Seconds => "sec",
+            Self::Hours => "hour",
+        }
+    }
+}
+
+/// A distance, angle or time in a unit (`jpl_units.UnitDbl`), held in the
+/// base unit of its kind: kilometres, radians or seconds.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct UnitDbl {
+    value: f64,
+    unit: UnitName,
+}
+
+impl UnitDbl {
+    /// `value` in `unit` (`UnitDbl(value, unit)`).
+    pub(crate) fn new(value: f64, unit: UnitName) -> Self {
+        let (factor, base) = unit.scale();
+        Self {
+            value: value * factor,
+            unit: base,
+        }
+    }
+
+    /// The value in `unit`, of the same kind (`UnitDbl.convert`).
+    pub(crate) fn convert(self, unit: UnitName) -> Result<f64, ConversionError> {
+        if self.unit == unit {
+            return Ok(self.value);
+        }
+        let (factor, base) = unit.scale();
+        if base == self.unit {
+            Ok(self.value / factor)
+        } else {
+            Err(ConversionError::Failed(format!(
+                "cannot convert {} to {}",
+                self.unit.name(),
+                unit.name()
+            )))
+        }
+    }
+
+    /// The unit values of this kind are plotted in unless the axis has one
+    /// (`UnitDblConverter.defaults`).
+    fn default_unit(self) -> UnitName {
+        match self.unit {
+            UnitName::Radians => UnitName::Degrees,
+            unit => unit,
+        }
+    }
+
+    /// Whether the value is an angle (`UnitDbl.type() == "angle"`).
+    fn is_angle(self) -> bool {
+        self.unit == UnitName::Radians
+    }
+}
+
+/// `scale * value` (`UnitDbl.__rmul__`).
+impl Mul<UnitDbl> for f64 {
+    type Output = UnitDbl;
+
+    fn mul(self, value: UnitDbl) -> UnitDbl {
+        UnitDbl {
+            value: value.value * self,
+            unit: value.unit,
+        }
+    }
+}
+
+/// `jpl_units.UnitDblConverter`: numbers in the axis unit (angles in
+/// radians on polar axes), labelled with the unit and formatted by a
+/// [`UnitDblFormatter`], or by polar axes' `ThetaFormatter` for degrees
+/// on polar axes.
 pub(crate) struct UnitDblConverter;
+
+/// Whether `axis` belongs to polar axes (`isinstance(axis.axes,
+/// PolarAxes)`).
+fn on_polar_axes(axis: &Axis) -> bool {
+    axis.axes().projection() == ProjectionKind::Polar
+}
 
 impl ConversionInterface for UnitDblConverter {
     type Value = UnitDbl;
-    type Unit = Kilometres;
+    type Unit = UnitName;
 
     fn convert(
         &self,
         values: &[UnitDbl],
-        _: Option<&Kilometres>,
-        _: &Axis,
+        unit: Option<&UnitName>,
+        axis: &Axis,
     ) -> Result<Vec<f64>, ConversionError> {
-        Ok(values.iter().map(|value| value.km).collect())
+        let polar = on_polar_axes(axis);
+        values
+            .iter()
+            .map(|&value| {
+                if polar && value.is_angle() {
+                    value.convert(UnitName::Radians)
+                } else {
+                    value.convert(unit.copied().unwrap_or_else(|| value.default_unit()))
+                }
+            })
+            .collect()
     }
 
-    fn axisinfo(&self, unit: Option<&Kilometres>, _: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&UnitName>, axis: &Axis) -> Option<AxisInfo> {
+        let major_formatter: Rc<dyn Formatter> =
+            if unit == Some(&UnitName::Degrees) && on_polar_axes(axis) {
+                Rc::new(ThetaFormatter)
+            } else {
+                Rc::new(UnitDblFormatter::new())
+            };
         Some(AxisInfo {
-            major_formatter: Some(Rc::new(UnitDblFormatter::new())),
-            label: unit.map(|_| "km".to_owned()),
+            major_formatter: Some(major_formatter),
+            label: unit.map(|unit| unit.name().to_owned()),
             ..AxisInfo::default()
         })
     }
 
-    fn default_units(&self, values: &[UnitDbl], _: &Axis) -> Option<Kilometres> {
-        values.first().map(|_| Kilometres)
+    fn default_units(&self, values: &[UnitDbl], _: &Axis) -> Option<UnitName> {
+        values.first().map(|value| value.default_unit())
     }
 }
 
@@ -204,6 +360,18 @@ impl Convertible for UnitDbl {
 
     fn converter() -> UnitDblConverter {
         UnitDblConverter
+    }
+
+    /// The sum of two values of one unit (`UnitDbl.__add__`).
+    fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
+        let delta = delta.downcast_ref::<Self>()?;
+        (delta.unit == self.unit).then(|| {
+            Self {
+                value: self.value + delta.value,
+                unit: self.unit,
+            }
+            .into()
+        })
     }
 }
 

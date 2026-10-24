@@ -198,7 +198,7 @@ pub(super) fn xkcd_ticks(fig: &Figure) -> CaseResult {
         [2.0, 5.0, 8.0],
         [0.4, -0.3, 0.6],
         BarOptions {
-            thickness: vec![1.2],
+            thickness: 1.2.into(),
             color: vec!["tab:orange".into()],
             label: Some("bars".into()),
             ..BarOptions::default()

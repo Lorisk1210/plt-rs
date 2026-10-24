@@ -14,10 +14,14 @@
 //! The plotting methods take the values they place as [`AxisValues`] (or
 //! one [`AxisValue`], or a [`DataPoint`] of two) and convert them on the
 //! axis they go along, as matplotlib converts its `x` and `y` arguments.
-//! Option fields hold axis numbers: convert dates for them with
+//! Extents, such as bar heights and widths, error sizes and the sides of
+//! a [`DataRectangle`](crate::patches::DataRectangle), are [`AxisDeltas`]
+//! (or one [`AxisDelta`]): numbers, durations or user values, converted
+//! through the values they extend from (matplotlib's `_convert_dx`).
+//! Other option fields hold axis numbers: convert dates for them with
 //! [`Axis::convert_value`](crate::axes::Axis::convert_value) or
 //! [`Axis::convert_units`](crate::axes::Axis::convert_units), which give
-//! the axis its date ticks too, and durations with [`AxisDelta`].
+//! the axis its date ticks too.
 //!
 //! ```
 //! use plt::dates::DateTime;
@@ -39,15 +43,16 @@
 //! of them is an [`AxisValue`]. An axis picks its [`Unit`] from the first
 //! such values it converts, unless [`Axis::set_units`] chose one, takes
 //! its tick helpers, label and default view from the converter, and
-//! converts the lines plotted on it again when its unit changes. Extents
-//! such as bar heights are axis numbers here too: convert the end of the
-//! extent and subtract the converted start, as matplotlib's `_convert_dx`
-//! does. [`ConversionInterface`] shows a converter.
+//! converts the lines plotted on it again when its unit changes. An
+//! extent from a user value converts as the far end less the start when
+//! [`Convertible::add_delta`] adds it to the value, and by itself
+//! otherwise. [`ConversionInterface`] shows a converter.
 //!
 //! [`Axis::set_units`]: crate::axes::Axis::set_units
 
 mod category;
 mod custom;
+mod deltas;
 mod interface;
 mod scalar;
 
@@ -62,8 +67,9 @@ use crate::ticker::{Formatter, Locator};
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
 pub(crate) use custom::LineSources;
 pub use custom::{CustomConverter, Unit, UnitValues};
+pub use deltas::{AxisDelta, AxisDeltas};
 pub use interface::{AxisInfo, ConversionError, ConversionInterface, Convertible};
-pub use scalar::{AxisDelta, AxisValue, DataPoint};
+pub use scalar::{AxisValue, DataPoint};
 
 /// The tick helpers of an axis of dates in `tz` (matplotlib's
 /// `DateConverter.axisinfo`, or `ConciseDateConverter`'s when
@@ -83,30 +89,6 @@ pub(crate) fn date_tickers(tz: &TimeZone) -> (Rc<dyn Locator>, Rc<dyn Formatter>
         Rc::new(AutoDateFormatter::new(locator()).with_tz(tz.clone()))
     };
     (Rc::new(locator()), formatter)
-}
-
-/// Extents along an axis re-expressed through the axis origin, the first
-/// finite position (or the first position when none is finite):
-/// `(origin + delta) - origin`. This is matplotlib's `_convert_dx` for
-/// numbers, which rounds the extents of bars and error bars; without
-/// positions the deltas are kept.
-///
-/// ```
-/// use plt::units::convert_dx;
-/// // 1e16 + 1 rounds back to 1e16.
-/// assert_eq!(convert_dx(&[f64::NAN, 1e16], &[1.0]), [0.0]);
-/// assert_eq!(convert_dx(&[], &[0.1]), [0.1]);
-/// ```
-pub fn convert_dx(positions: &[f64], deltas: &[f64]) -> Vec<f64> {
-    let origin = positions
-        .iter()
-        .copied()
-        .find(|p| p.is_finite())
-        .or_else(|| positions.first().copied());
-    match origin {
-        Some(origin) => deltas.iter().map(|&d| (origin + d) - origin).collect(),
-        None => deltas.to_vec(),
-    }
 }
 
 /// The unit converter of an axis (matplotlib's `ConversionInterface`s
@@ -177,6 +159,28 @@ impl AxisValues {
             Self::Numbers(_) | Self::Categories(_) | Self::Dates(_) => None,
         }
     }
+
+    /// The first finite value, or the first one when none is
+    /// (matplotlib's `cbook._safe_first_finite`); names and user values
+    /// count as finite.
+    pub(crate) fn first_finite(&self) -> Option<AxisValue> {
+        match self {
+            Self::Numbers(values) => first_finite(values).map(AxisValue::Number),
+            Self::Dates(values) => first_finite(values).map(AxisValue::Date),
+            Self::Categories(names) => names.first().cloned().map(AxisValue::Category),
+            Self::Custom(values) => values.get(0).map(AxisValue::Custom),
+        }
+    }
+}
+
+/// The first finite number, or the first one when none is (matplotlib's
+/// `cbook._safe_first_finite`).
+pub(crate) fn first_finite(numbers: &[f64]) -> Option<f64> {
+    numbers
+        .iter()
+        .copied()
+        .find(|number| number.is_finite())
+        .or_else(|| numbers.first().copied())
 }
 
 impl From<UnitValues> for AxisValues {
@@ -295,6 +299,18 @@ mod tests {
     use super::*;
     use crate::axes::AxisName;
     use crate::figure::Figure;
+
+    #[test]
+    fn the_first_finite_value_leads() {
+        assert_eq!(first_finite(&[f64::NAN, 2.0]), Some(2.0));
+        assert!(first_finite(&[f64::NAN]).is_some_and(f64::is_nan));
+        assert_eq!(first_finite(&[]), None);
+        let dates = AxisValues::Dates(vec![f64::INFINITY, 3.0]);
+        assert_eq!(dates.first_finite(), Some(AxisValue::Date(3.0)));
+        let names = AxisValues::from(["b", "a"]);
+        assert_eq!(names.first_finite(), Some(AxisValue::from("b")));
+        assert_eq!(AxisValues::Numbers(Vec::new()).first_finite(), None);
+    }
 
     #[test]
     fn dates_become_date_numbers_on_a_date_axis() {

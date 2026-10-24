@@ -104,10 +104,22 @@ impl Locator for ThetaLocator {
     }
 }
 
-/// Angles in degrees with a degree sign, with more digits for narrower
-/// views (matplotlib's `ThetaFormatter`).
-#[derive(Debug)]
-struct ThetaFormatter;
+/// Angles in radians labelled in degrees with a degree sign, with more
+/// digits for narrower views (matplotlib's `ThetaFormatter`): the default
+/// formatter of the θ axis, and one a unit converter may give an axis of
+/// angles.
+///
+/// ```
+/// use plt::polar::ThetaFormatter;
+/// use plt::prelude::*;
+/// let ax = Figure::new().subplot();
+/// ax.set_xlim(0.0, std::f64::consts::PI)?;
+/// ax.xaxis().set_major_formatter(ThetaFormatter);
+/// assert_eq!(ax.xaxis().ticklabels(false)?[1], "29°", "half a radian");
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ThetaFormatter;
 
 impl ThetaFormatter {
     /// The number of decimals for a view `span` radians wide.

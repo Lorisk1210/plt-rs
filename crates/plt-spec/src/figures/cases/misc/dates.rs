@@ -112,7 +112,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("misc/dates_datetime64_bar", |fig| {
         let days = datetime64_range(at(2024, 1, 1, 0, 0)?, at(2024, 1, 7, 0, 0)?, DAY);
         let bars = BarOptions {
-            thickness: vec![0.8],
+            thickness: 0.8.into(),
             ..BarOptions::default()
         };
         fig.subplot()

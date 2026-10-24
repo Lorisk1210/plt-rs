@@ -4,7 +4,9 @@ use plt_core::{Path, Point};
 
 use super::broadcast::{broadcast, common_length};
 use super::children::DataUpdate;
-use super::{Axes, AxesState, ErrorbarContainer, ErrorbarFormat, ErrorbarOptions, PlotError};
+use super::{
+    Axes, AxesState, ErrorSize, ErrorbarContainer, ErrorbarFormat, ErrorbarOptions, PlotError,
+};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind};
 use crate::colors::Color;
@@ -12,7 +14,7 @@ use crate::orientation::Orientation;
 use crate::patches::{Patch, PatchArtist, PatchProps, Rectangle};
 use crate::scale::{LogScale, NonPositive};
 use crate::ticker::AxisName;
-use crate::units::{AxisDelta, AxisValue, AxisValues, convert_dx};
+use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues};
 
 /// Where a bar sits relative to its position (matplotlib's `align`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -38,8 +40,8 @@ pub enum BandAlign {
 }
 
 /// The vertical extent of an [`Axes::broken_barh`] band (matplotlib's
-/// `yrange`): a position on the y axis, a number or a category name, and
-/// a height.
+/// `yrange`): a position on the y axis (a number, a category name, a date
+/// or a user value) and a height, an extent from it.
 ///
 /// ```
 /// use plt::axes::BandRange;
@@ -47,26 +49,17 @@ pub enum BandAlign {
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct BandRange {
-    /// Where the band sits: always a single value.
-    position: AxisValues,
+    /// Where the band sits.
+    position: AxisValue,
     /// The extent of the band along y.
-    height: f64,
+    height: AxisDelta,
 }
 
-impl From<(f64, f64)> for BandRange {
-    fn from((position, height): (f64, f64)) -> Self {
+impl<P: Into<AxisValue>, H: Into<AxisDelta>> From<(P, H)> for BandRange {
+    fn from((position, height): (P, H)) -> Self {
         Self {
-            position: AxisValues::Numbers(vec![position]),
-            height,
-        }
-    }
-}
-
-impl From<(&str, f64)> for BandRange {
-    fn from((category, height): (&str, f64)) -> Self {
-        Self {
-            position: AxisValues::Categories(vec![category.to_owned()]),
-            height,
+            position: position.into(),
+            height: height.into(),
         }
     }
 }
@@ -78,11 +71,12 @@ impl From<(&str, f64)> for BandRange {
 #[derive(Clone, Debug)]
 pub struct BarOptions {
     /// Thickness across the value direction: the width of vertical bars,
-    /// the height of horizontal ones (default 0.8).
-    pub thickness: Vec<f64>,
+    /// the height of horizontal ones (default 0.8), an extent from the bar
+    /// positions.
+    pub thickness: AxisDeltas,
     /// Where the bars start along the value direction: `bottom` of `bar`,
     /// `left` of `barh` (default 0).
-    pub base: Vec<f64>,
+    pub base: AxisValues,
     /// Placement relative to the positions.
     pub align: BarAlign,
     /// Face colours (default: the next colour of the property cycle).
@@ -111,8 +105,8 @@ pub struct BarOptions {
 impl Default for BarOptions {
     fn default() -> Self {
         Self {
-            thickness: vec![0.8],
-            base: vec![0.0],
+            thickness: AxisDeltas::Numbers(vec![0.8]),
+            base: AxisValues::Numbers(vec![0.0]),
             align: BarAlign::Center,
             color: Vec::new(),
             edgecolor: Vec::new(),
@@ -180,6 +174,18 @@ impl BarContainer {
     }
 }
 
+/// The per-bar arguments in axis numbers, one or one per bar.
+struct BarNumbers {
+    /// The positions.
+    starts: Vec<f64>,
+    /// Where the bars start along the value direction.
+    bases: Vec<f64>,
+    /// The thicknesses across the value direction.
+    thickness: Vec<f64>,
+    /// The values (heights of vertical bars, widths of horizontal ones).
+    values: Vec<f64>,
+}
+
 /// One bar's geometry along the position and value directions.
 struct BarGeometry {
     start: f64,
@@ -204,6 +210,13 @@ impl BarGeometry {
 impl Axes {
     /// Vertical bars at `x` with heights `height` (matplotlib's `bar`).
     ///
+    /// The heights, the widths (`options.thickness`) and the error sizes
+    /// are extents: numbers, durations or user values, converted through
+    /// the values they extend from, the bottoms (`options.base`) for
+    /// heights and the positions for widths, as matplotlib's `_convert_dx`
+    /// converts them. When the bottoms give the value axis no unit, the
+    /// heights may.
+    ///
     /// ```
     /// use plt::prelude::*;
     /// use plt::axes::BarOptions;
@@ -220,10 +233,10 @@ impl Axes {
     pub fn bar(
         &self,
         x: impl Into<AxisValues>,
-        height: impl AsRef<[f64]>,
+        height: impl Into<AxisDeltas>,
         options: BarOptions,
     ) -> Result<BarContainer, PlotError> {
-        self.bars(Orientation::Vertical, x.into(), height.as_ref(), options)
+        self.bars(Orientation::Vertical, x.into(), &height.into(), options)
     }
 
     /// Horizontal bars at `y` with widths `width` (matplotlib's `barh`);
@@ -236,17 +249,21 @@ impl Axes {
     pub fn barh(
         &self,
         y: impl Into<AxisValues>,
-        width: impl AsRef<[f64]>,
+        width: impl Into<AxisDeltas>,
         options: BarOptions,
     ) -> Result<BarContainer, PlotError> {
-        self.bars(Orientation::Horizontal, y.into(), width.as_ref(), options)
+        self.bars(Orientation::Horizontal, y.into(), &width.into(), options)
     }
 
     /// A horizontal band of rectangles, one per `(start, width)` in
-    /// `xranges`, spanning the band's height vertically at its position, a
-    /// number or a category of the y axis (matplotlib's `broken_barh`).
-    /// The starts may be dates, with durations for widths. Style it
-    /// through the returned collection.
+    /// `xranges`, spanning the band's height vertically at its position on
+    /// the y axis (matplotlib's `broken_barh`). The starts may be dates
+    /// or user values, with durations or user values for widths: each
+    /// rectangle ends where its width takes its start, or, where the
+    /// width does not add to the start (which matplotlib refuses), at the
+    /// start plus the width converted by itself. The band height converts
+    /// through the band position (matplotlib's `_convert_dx`). Style the
+    /// band through the returned collection.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -272,7 +289,11 @@ impl Axes {
         W: Clone + Into<AxisDelta>,
     {
         let BandRange { position, height } = band.into();
-        let position = self.yaxis().convert_units(position)[0];
+        let yaxis = self.yaxis();
+        let origin = AxisValues::from(position);
+        let converted = yaxis.convert_units(origin.clone());
+        let height = yaxis.convert_dx(&height.into(), &origin, &converted)[0];
+        let position = converted[0];
         let (y0, y1) = match align {
             BandAlign::Bottom => (position, position + height),
             BandAlign::Center => (position - height / 2.0, position + height / 2.0),
@@ -282,8 +303,7 @@ impl Axes {
         let paths = xranges
             .iter()
             .map(|(x0, width)| {
-                let x0 = xaxis.convert_value(x0.clone());
-                let x1 = x0 + width.clone().into().to_number();
+                let (x0, x1) = xaxis.convert_span(x0.clone().into(), &width.clone().into());
                 Path::polygon([
                     Point::new(x0, y0),
                     Point::new(x0, y1),
@@ -302,13 +322,10 @@ impl Axes {
         &self,
         orientation: Orientation,
         positions: AxisValues,
-        values: &[f64],
+        values: &AxisDeltas,
         mut options: BarOptions,
     ) -> Result<BarContainer, PlotError> {
-        let (position_axis, value_axis) = match orientation {
-            Orientation::Vertical => (AxisName::X, AxisName::Y),
-            Orientation::Horizontal => (AxisName::Y, AxisName::X),
-        };
+        let (position_name, value_name) = bar_axes(orientation);
         let faces = if !options.color.is_empty() {
             options.color.clone()
         } else if let Some(face) = &options.props.facecolor {
@@ -320,24 +337,10 @@ impl Axes {
             let log = LogScale::new(10.0)
                 .expect("10 is a valid logarithm base")
                 .with_nonpositive(NonPositive::Clip);
-            self.set_scale(value_axis, Box::new(log));
+            self.set_scale(value_name, Box::new(log));
         }
-        let numeric = matches!(positions, AxisValues::Numbers(_));
-        let positions = self.axis_of(position_axis).convert_units(positions);
-        // Like matplotlib, extents are rounded through the numeric
-        // coordinates they start from.
-        let origin: &[f64] = if numeric { &positions } else { &[] };
-        let thickness = convert_dx(origin, &options.thickness);
-        let values = convert_dx(&options.base, values);
-        let (x_origin, y_origin) = match orientation {
-            Orientation::Vertical => (origin, options.base.as_slice()),
-            Orientation::Horizontal => (options.base.as_slice(), origin),
-        };
-        let errors = &mut options.errors;
-        errors.xerr = errors.xerr.take().map(|err| err.convert_dx(x_origin));
-        errors.yerr = errors.yerr.take().map(|err| err.convert_dx(y_origin));
-
-        let geometry = layout_bars(&positions, &values, &thickness, &options)?;
+        let numbers = self.bar_numbers(orientation, &positions, values, &mut options);
+        let geometry = layout_bars(&numbers, &options)?;
         let n = geometry.len();
         let patches = geometry
             .iter()
@@ -353,8 +356,8 @@ impl Axes {
             .with_mut::<AxesState, _>(|axes| axes.request_autoscale(true, true));
         if !options.tick_labels.is_empty() {
             let tick_labels = broadcast("tick_label", &options.tick_labels, n)?;
-            let ticks = broadcast("x", &positions, n)?;
-            self.axis_of(position_axis)
+            let ticks = broadcast("x", &numbers.starts, n)?;
+            self.axis_of(position_name)
                 .set_ticks(ticks)
                 .set_ticklabels(tick_labels)?;
         }
@@ -372,6 +375,57 @@ impl Axes {
         };
         self.add_container(container.clone());
         Ok(container)
+    }
+
+    /// The bar arguments in axis numbers, with the error sizes of `options`
+    /// converted in place (matplotlib's `_process_unit_info` and
+    /// `_convert_dx` in `bar`). The positions and the bases convert on
+    /// their axes, the values giving the value axis its unit when the
+    /// bases did not; the extents convert through what they extend from:
+    /// the thicknesses and the errors across the bars through the
+    /// positions, the values and the errors along the bars through the
+    /// bases.
+    fn bar_numbers(
+        &self,
+        orientation: Orientation,
+        positions: &AxisValues,
+        values: &AxisDeltas,
+        options: &mut BarOptions,
+    ) -> BarNumbers {
+        let (position_name, value_name) = bar_axes(orientation);
+        let (position_axis, value_axis) = (self.axis_of(position_name), self.axis_of(value_name));
+        let starts = position_axis.convert_units(positions.clone());
+        let bases = value_axis.convert_units(options.base.clone());
+        if let AxisDeltas::Custom(values) = values
+            && !value_axis.have_units()
+        {
+            value_axis.update_units(values.clone());
+        }
+        let across = |err: &ErrorSize| {
+            err.converted(|deltas| position_axis.convert_dx(deltas, positions, &starts))
+        };
+        let along = |err: &ErrorSize| {
+            err.converted(|deltas| value_axis.convert_dx(deltas, &options.base, &bases))
+        };
+        let errors = &options.errors;
+        let (xerr, yerr) = match orientation {
+            Orientation::Vertical => (
+                errors.xerr.as_ref().map(across),
+                errors.yerr.as_ref().map(along),
+            ),
+            Orientation::Horizontal => (
+                errors.xerr.as_ref().map(along),
+                errors.yerr.as_ref().map(across),
+            ),
+        };
+        let numbers = BarNumbers {
+            thickness: position_axis.convert_dx(&options.thickness, positions, &starts),
+            values: value_axis.convert_dx(values, &options.base, &bases),
+            starts,
+            bases,
+        };
+        (options.errors.xerr, options.errors.yerr) = (xerr, yerr);
+        numbers
     }
 
     /// Adds bar `index`: per-bar styles first, then the shared properties;
@@ -443,19 +497,28 @@ impl Axes {
     }
 }
 
+/// The axes bars of `orientation` are placed along and grow along.
+fn bar_axes(orientation: Orientation) -> (AxisName, AxisName) {
+    match orientation {
+        Orientation::Vertical => (AxisName::X, AxisName::Y),
+        Orientation::Horizontal => (AxisName::Y, AxisName::X),
+    }
+}
+
 /// Broadcasts the per-bar arguments to a common length and places the
 /// bars (matplotlib's `np.broadcast_arrays` and alignment in `bar`).
-fn layout_bars(
-    positions: &[f64],
-    values: &[f64],
-    thickness: &[f64],
-    options: &BarOptions,
-) -> Result<Vec<BarGeometry>, PlotError> {
+fn layout_bars(numbers: &BarNumbers, options: &BarOptions) -> Result<Vec<BarGeometry>, PlotError> {
+    let BarNumbers {
+        starts: positions,
+        bases,
+        thickness,
+        values,
+    } = numbers;
     let n = common_length(&[
         ("x", positions.len()),
         ("height", values.len()),
         ("width", thickness.len()),
-        ("y", options.base.len()),
+        ("y", bases.len()),
         ("linewidth", options.linewidth.len().max(1)),
         ("hatch", options.hatch.len().max(1)),
     ])?;
@@ -468,7 +531,7 @@ fn layout_bars(
     let positions = broadcast("x", positions, n)?;
     let values = broadcast("height", values, n)?;
     let thickness = broadcast("width", thickness, n)?;
-    let base = broadcast("y", &options.base, n)?;
+    let base = broadcast("y", bases, n)?;
     Ok((0..n)
         .map(|i| BarGeometry {
             start: match options.align {

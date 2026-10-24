@@ -47,7 +47,7 @@ pub(super) fn sticky_shared_axes_ref(fig: &Figure) -> CaseResult {
 /// One bar of `height` (or width) 0.1 starting at `base`.
 fn thin_bar(base: f64) -> BarOptions {
     BarOptions {
-        base: vec![base],
+        base: vec![base].into(),
         ..BarOptions::default()
     }
 }

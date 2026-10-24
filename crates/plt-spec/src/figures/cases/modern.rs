@@ -80,7 +80,7 @@ fn bars(fig: &Figure) -> CaseResult {
     for (i, (year, values)) in years.into_iter().enumerate() {
         let offset = (i as f64 - 1.0) * 0.25;
         let options = BarOptions {
-            thickness: vec![0.25],
+            thickness: 0.25.into(),
             label: Some(year.to_owned()),
             ..BarOptions::default()
         };

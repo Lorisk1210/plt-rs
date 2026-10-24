@@ -255,6 +255,99 @@ mod tests {
         assert!((x[0] + 3.0 * x[1] - 2.0).abs() < 1e-10);
     }
 
+    /// The matrix as dense rows.
+    fn dense(a: &SparseMatrix) -> Vec<Vec<f64>> {
+        let mut rows = vec![vec![0.0; a.n]; a.n];
+        for &(row, col, value) in &a.entries {
+            rows[row][col] += value;
+        }
+        rows
+    }
+
+    /// The 2-D Poisson matrix of an `n × m` grid as COO entries, built as
+    /// matplotlib's `test_triinterpcubic_cg_solver` does (zeros left in the
+    /// first off-diagonals at the row ends).
+    fn poisson(n: usize, m: usize) -> Vec<(usize, usize, f64)> {
+        let l = n * m;
+        let mut entries: Vec<(usize, usize, f64)> = (0..l).map(|k| (k, k, 4.0)).collect();
+        let end_of_row = |k: usize| if k % m == m - 1 { 0.0 } else { -1.0 };
+        entries.extend((0..l - 1).map(|k| (k, k + 1, end_of_row(k))));
+        entries.extend((0..l - 1).map(|k| (k + 1, k, end_of_row(k))));
+        entries.extend((0..l - n).map(|k| (k, k + n, -1.0)));
+        entries.extend((0..l - n).map(|k| (k + n, k, -1.0)));
+        entries
+    }
+
+    /// Solves `a x = e_i` for every basis vector from `start` and checks
+    /// the solution to six decimals.
+    fn solves_every_basis_vector(a: &SparseMatrix, start: f64) {
+        let rows = dense(a);
+        for i in 0..a.n {
+            let b: Vec<f64> = (0..a.n).map(|k| f64::from(u8::from(k == i))).collect();
+            let (x, _) = conjugate_gradient(a, &b, vec![start; a.n], 1e-10, 1000);
+            for (row, expected) in rows.iter().zip(&b) {
+                assert!((dot(row, &x) - expected).abs() < 1e-6, "basis vector {i}");
+            }
+        }
+    }
+
+    #[test]
+    fn conjugate_gradient_solves_poisson_systems() {
+        // matplotlib's test_triinterpcubic_cg_solver, first case.
+        solves_every_basis_vector(&SparseMatrix::compress(48, poisson(12, 4)), 0.0);
+    }
+
+    #[test]
+    fn conjugate_gradient_solves_systems_with_empty_diagonal_terms() {
+        // Two rows and columns with a zero diagonal, linked to their
+        // neighbours (test_triinterpcubic_cg_solver, second case).
+        let shift = |k: usize| k + usize::from(k >= 12) + usize::from(k >= 49);
+        let mut entries: Vec<_> = poisson(12, 4)
+            .into_iter()
+            .map(|(row, col, value)| (shift(row), shift(col), value))
+            .collect();
+        entries.extend([(12, 11, 1.0), (11, 12, 1.0), (49, 48, 1.0), (48, 49, 1.0)]);
+        solves_every_basis_vector(&SparseMatrix::compress(50, entries), 1.0);
+    }
+
+    #[test]
+    fn compression_sums_duplicate_entries() {
+        let rows = [0, 1, 2, 0, 0, 1, 1, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1];
+        let cols = [0, 1, 2, 1, 1, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2];
+        let entries = rows
+            .into_iter()
+            .zip(cols)
+            .map(|(r, c)| (r, c, 1.0))
+            .collect();
+        assert_eq!(
+            dense(&SparseMatrix::compress(3, entries)),
+            [[1.0, 2.0, 0.0], [2.0, 1.0, 5.0], [0.0, 5.0, 1.0]]
+        );
+    }
+
+    #[test]
+    fn angle_weights_sum_to_one_or_twice_the_obtuse_apex() {
+        // matplotlib's test_triinterpcubic_geom_weights: a triangle's
+        // weights sum to 1 when its angles are acute, else to twice the
+        // weight of its obtuse apex, however the figure is rotated.
+        let (ax, ay) = (0.0, 1.687);
+        let points = [[ax, ay], [0.5 * ax, -ay], [0.0, 0.0], [1.0, 0.0]];
+        for step in 0..14 {
+            let theta = 2.0 * PI * f64::from(step) / 13.0;
+            let (sin, cos) = theta.sin_cos();
+            let rotated = points.map(|[x, y]| [cos * x + sin * y, -sin * x + cos * y]);
+            for tri in [[0, 2, 3], [1, 3, 2]] {
+                let weights = angle_weights(tri.map(|v| rotated[v]));
+                let sum: f64 = weights.iter().sum();
+                let closest = weights
+                    .iter()
+                    .map(|w| (sum - 2.0 * w).abs())
+                    .fold((sum - 1.0).abs(), f64::min);
+                assert!(closest < 1e-6, "rotation {step}: weights {weights:?}");
+            }
+        }
+    }
+
     #[test]
     fn geom_gradients_of_a_linear_field() {
         let pts = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];

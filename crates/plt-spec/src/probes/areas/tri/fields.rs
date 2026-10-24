@@ -12,7 +12,7 @@ use super::{canon_triple, floats, int, masked, object, queries, rejected, triang
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 
-pub(super) fn linear_call(args: Args<'_>) -> Outcome {
+pub(crate) fn linear_call(args: Args<'_>) -> Outcome {
     let tri = triangulation(args)?;
     let interp = LinearTriInterpolator::new(&tri, &floats(args, "z")?).map_err(rejected)?;
     Ok(values(&interp, &queries(args)?))
@@ -24,19 +24,19 @@ pub(super) fn linear_gradient(args: Args<'_>) -> Outcome {
     Ok(gradients(&interp, &queries(args)?))
 }
 
-pub(super) fn cubic_call(args: Args<'_>) -> Outcome {
+pub(crate) fn cubic_call(args: Args<'_>) -> Outcome {
     let tri = triangulation(args)?;
     let interp = cubic(&tri, args, &cubic_kind(args.str("kind")?, args)?)?;
     Ok(values(&interp, &queries(args)?))
 }
 
-pub(super) fn cubic_gradient(args: Args<'_>) -> Outcome {
+pub(crate) fn cubic_gradient(args: Args<'_>) -> Outcome {
     let tri = triangulation(args)?;
     let interp = cubic(&tri, args, &cubic_kind(args.str("kind")?, args)?)?;
     Ok(gradients(&interp, &queries(args)?))
 }
 
-pub(super) fn refine_triangulation(args: Args<'_>) -> Outcome {
+pub(crate) fn refine_triangulation(args: Args<'_>) -> Outcome {
     let base = triangulation(args)?;
     let refiner = UniformTriRefiner::new(&base);
     let subdiv = subdiv(args)?;
@@ -91,7 +91,7 @@ pub(super) fn refine_triangulation(args: Args<'_>) -> Outcome {
     ))
 }
 
-pub(super) fn refine_field(args: Args<'_>) -> Outcome {
+pub(crate) fn refine_field(args: Args<'_>) -> Outcome {
     let tri = triangulation(args)?;
     let z = floats(args, "z")?;
     let refiner = UniformTriRefiner::new(&tri);

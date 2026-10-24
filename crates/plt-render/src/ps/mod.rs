@@ -19,6 +19,7 @@
 mod afm;
 mod draw;
 mod fonts;
+mod page;
 mod text;
 mod type42;
 
@@ -32,91 +33,11 @@ use crate::collection::PathCollection;
 use crate::gc::{CapStyle, ClipPath, GraphicsContext, JoinStyle};
 use crate::image::RgbaImage;
 use crate::renderer::Renderer;
+pub use page::{PageOrientation, PageSetupError, Paper};
+
 use crate::vector::{
     CharacterTracker, FontCache, FontType, Metadata, Problems, VectorError, check_canvas,
 };
-
-/// matplotlib's paper sizes in inches (`backend_ps.papersize`).
-const PAPER_SIZES: [(&str, f64, f64); 25] = [
-    ("letter", 8.5, 11.0),
-    ("legal", 8.5, 14.0),
-    ("ledger", 11.0, 17.0),
-    ("a0", 33.11, 46.81),
-    ("a1", 23.39, 33.11),
-    ("a2", 16.54, 23.39),
-    ("a3", 11.69, 16.54),
-    ("a4", 8.27, 11.69),
-    ("a5", 5.83, 8.27),
-    ("a6", 4.13, 5.83),
-    ("a7", 2.91, 4.13),
-    ("a8", 2.05, 2.91),
-    ("a9", 1.46, 2.05),
-    ("a10", 1.02, 1.46),
-    ("b0", 40.55, 57.32),
-    ("b1", 28.66, 40.55),
-    ("b2", 20.27, 28.66),
-    ("b3", 14.33, 20.27),
-    ("b4", 10.11, 14.33),
-    ("b5", 7.16, 10.11),
-    ("b6", 5.04, 7.16),
-    ("b7", 3.58, 5.04),
-    ("b8", 2.51, 3.58),
-    ("b9", 1.76, 2.51),
-    ("b10", 1.26, 1.76),
-];
-
-/// The page a PostScript document is printed on (`ps.papersize`).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Paper {
-    /// A page the size of the figure.
-    Figure,
-    /// A named paper size, in inches (portrait).
-    Named {
-        /// matplotlib's name, e.g. `"letter"` or `"a4"`.
-        name: &'static str,
-        /// Width in inches.
-        width: f64,
-        /// Height in inches.
-        height: f64,
-    },
-}
-
-impl Paper {
-    /// The paper called `name` (case-insensitive), or `"figure"`.
-    pub fn from_name(name: &str) -> Option<Self> {
-        let name = name.to_ascii_lowercase();
-        if name == "figure" {
-            return Some(Self::Figure);
-        }
-        PAPER_SIZES
-            .iter()
-            .find(|(n, _, _)| *n == name)
-            .map(|&(name, width, height)| Self::Named {
-                name,
-                width,
-                height,
-            })
-    }
-}
-
-/// How the figure sits on the page (`savefig.orientation`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Orientation {
-    /// Upright.
-    #[default]
-    Portrait,
-    /// Rotated by 90°.
-    Landscape,
-}
-
-impl Orientation {
-    const fn name(self) -> &'static str {
-        match self {
-            Self::Portrait => "portrait",
-            Self::Landscape => "landscape",
-        }
-    }
-}
 
 /// Settings of a PostScript document.
 #[derive(Clone, Debug, PartialEq)]
@@ -126,7 +47,7 @@ pub struct PsOptions {
     /// `ps.papersize` (ignored for EPS).
     pub paper: Paper,
     /// `savefig.orientation`.
-    pub orientation: Orientation,
+    pub orientation: PageOrientation,
     /// Title, creator and creation date (DSC comments).
     pub metadata: Metadata,
     /// `path.simplify` and `path.simplify_threshold`.
@@ -146,7 +67,7 @@ impl Default for PsOptions {
         Self {
             eps: false,
             paper: Paper::from_name("letter").unwrap_or(Paper::Figure),
-            orientation: Orientation::Portrait,
+            orientation: PageOrientation::Portrait,
             metadata: Metadata::default(),
             simplify: SimplifySettings::default(),
             composite_images: true,
@@ -238,8 +159,8 @@ impl PsRenderer {
         let (width, height) = (self.width, self.height);
         let (paper_width, paper_height) = match (self.options.eps, self.options.paper) {
             (false, Paper::Named { width, height, .. }) => match self.options.orientation {
-                Orientation::Portrait => (width, height),
-                Orientation::Landscape => (height, width),
+                PageOrientation::Portrait => (width, height),
+                PageOrientation::Landscape => (height, width),
             },
             _ => (width, height),
         };
@@ -249,7 +170,7 @@ impl PsRenderer {
         );
         let (mut llx, mut lly) = (xo, yo);
         let (mut urx, mut ury) = (llx + width * 72.0, lly + height * 72.0);
-        let landscape = self.options.orientation == Orientation::Landscape;
+        let landscape = self.options.orientation == PageOrientation::Landscape;
         if landscape {
             (llx, lly, urx, ury) = (lly, llx, ury, urx);
             (xo, yo) = (72.0 * paper_height - yo, xo);

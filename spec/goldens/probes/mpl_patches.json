@@ -1,0 +1,16 @@
+{
+ "area": "mpl_patches",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Annulus.set_semimajor", "args": {"r": 0.2, "width": 0.01, "semimajor": 0.2, "semiminor": 0.2}, "value": [0.2, 0.2]},
+  {"op": "Annulus.set_semimajor", "args": {"r": [1, 2], "width": 0.1, "semimajor": 0.5, "semiminor": 0.3}, "value": [0.5, 0.3]},
+  {"op": "Patch.get_hatch_linewidth", "args": {"setter": false}, "value": 2.0},
+  {"op": "Patch.get_hatch_linewidth", "args": {"setter": true}, "value": 2.0},
+  {"op": "Patch.get_linestyle", "args": {"linestyle": [0, [0, 6, 6, 0]]}, "value": [0, [0, 6, 6, 0]]},
+  {"op": "Patch.get_linestyle", "args": {"linestyle": [0, [6, 6]]}, "value": [0, [6, 6]]},
+  {"op": "Patch.get_linestyle", "args": {"linestyle": [6, [6, 6]]}, "value": [6, [6, 6]]},
+  {"op": "Rectangle.get_angle", "args": {}, "value": [30.0, 0.0, 30]},
+  {"op": "patches.BoxStyle", "args": {"style": "Round,foo", "rect": [0.0, 0.0, 1.0, 1.0], "mutation_size": 1.0}, "error": "ValueError"},
+  {"op": "patches.BoxStyle", "args": {"style": "foo", "rect": [0.0, 0.0, 1.0, 1.0], "mutation_size": 1.0}, "error": "ValueError"}
+ ]
+}

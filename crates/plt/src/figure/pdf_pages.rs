@@ -115,12 +115,17 @@ impl PdfPages {
         self.document.finish().map_err(SaveError::Vector)
     }
 
-    /// Finishes the document and writes it to `path`.
+    /// Finishes the document and writes it to `path`; a document without
+    /// pages writes no file (matplotlib only creates the file when the
+    /// first figure is saved).
     ///
     /// # Errors
     ///
     /// As [`finish`](Self::finish), or when the file cannot be written.
     pub fn save(self, path: impl AsRef<FsPath>) -> Result<(), SaveError> {
+        if self.page_count() == 0 {
+            return Ok(());
+        }
         let document = self.finish()?;
         std::fs::write(path, document).map_err(SaveError::Io)
     }
@@ -199,5 +204,13 @@ mod tests {
         let path = std::env::temp_dir().join("plt-rs-pdf-pages.pdf");
         pages.save(&path).unwrap();
         assert!(std::fs::read(&path).unwrap().starts_with(b"%PDF-1.4"));
+    }
+
+    #[test]
+    fn documents_without_pages_write_no_file() {
+        let path = std::env::temp_dir().join("plt-rs-pdf-pages-empty.pdf");
+        let _ = std::fs::remove_file(&path);
+        PdfPages::new().unwrap().save(&path).unwrap();
+        assert!(!path.exists());
     }
 }

@@ -26,7 +26,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Axes.contour", |args| summary(args, Grid::Quad, false)),
     Op::new("Axes.contourf", |args| summary(args, Grid::Quad, true)),
     Op::new("Axes.tricontour", |args| summary(args, Grid::Tri, false)),
-    Op::new("Axes.tricontourf", |args| summary(args, Grid::Tri, true)),
+    Op::new("Axes.tricontourf", tricontourf),
     Op::new("ContourSet.get_paths", raw_paths),
     Op::new("ContourSet.clabel", clabel::clabel),
     Op::new(
@@ -127,8 +127,13 @@ fn summary(args: Args<'_>, grid: Grid, filled: bool) -> Outcome {
     ))
 }
 
+/// The filled contours of a triangulation (`tricontourf_op` in the spec).
+pub(crate) fn tricontourf(args: Args<'_>) -> Outcome {
+    summary(args, Grid::Tri, true)
+}
+
 /// The raw paths of `func(**args)` (`raw_paths_op` in the spec).
-fn raw_paths(args: Args<'_>) -> Outcome {
+pub(crate) fn raw_paths(args: Args<'_>) -> Outcome {
     let (grid, filled) = match args.str("func")? {
         "contour" => (Grid::Quad, false),
         "contourf" => (Grid::Quad, true),

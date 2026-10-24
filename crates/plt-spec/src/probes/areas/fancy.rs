@@ -30,7 +30,7 @@ fn canonical(path: &Path) -> Json {
 }
 
 /// The outline of `BoxStyle(style)(x0, y0, width, height, mutation_size)`.
-fn box_style(args: Args<'_>) -> Outcome {
+pub(crate) fn box_style(args: Args<'_>) -> Outcome {
     let style: BoxStyle = args.str("style")?.parse().map_err(ProbeError::rejected)?;
     let [x0, y0, width, height] = <[f64; 4]>::try_from(args.f64_vec("rect")?)
         .map_err(|_| ProbeError::BadArgs("rect needs four numbers".into()))?;

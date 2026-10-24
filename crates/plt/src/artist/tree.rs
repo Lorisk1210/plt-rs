@@ -35,9 +35,21 @@ impl RawHandle {
             self.find_under(child, matches, found);
         }
         let handle = RawHandle::new(Rc::clone(self.figure_state()), id);
-        if matches(&handle) {
+        if !handle.is_projection_plane() && matches(&handle) {
             found.push(handle);
         }
+    }
+
+    /// Whether the artist is the hidden 2-D plane of a 3-D axes, which
+    /// matplotlib does not have: its artists are the 3-D axes' own.
+    fn is_projection_plane(&self) -> bool {
+        let state = self.figure_state().borrow();
+        state.store.get_as::<AxesState>(self.id()).is_some()
+            && state
+                .store
+                .get(self.id())
+                .and_then(|artist| artist.base().parent)
+                .is_some_and(|parent| state.store.get_as::<Axes3DState>(parent).is_some())
     }
 
     /// The nearest 2-D axes among the artist and its owners; `None` when

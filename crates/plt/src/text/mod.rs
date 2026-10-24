@@ -327,6 +327,14 @@ impl TextArtist {
         if self.text.is_empty() {
             return Ok(());
         }
+        ctx.renderer().open_group("text", self.base.gid.as_deref());
+        let drawn = self.draw_block_at(ctx, anchor);
+        ctx.renderer().close_group("text");
+        drawn
+    }
+
+    /// Draws the text's box and lines at `anchor`.
+    fn draw_block_at(&self, ctx: &mut DrawContext<'_>, anchor: Point) -> Result<(), TextDrawError> {
         let layout = *ctx.layout();
         if let Some((bbox, placement)) = self.box_placement(layout, anchor)? {
             bbox.draw(ctx, &self.base, &self.rc, &placement)

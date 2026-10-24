@@ -385,6 +385,25 @@ fn single_tick_label_properties_accumulate_on_the_major_style() {
     assert_eq!(other, base, "other ticks keep the major style");
 }
 
+#[test]
+fn tick_labels_link_to_their_url() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    ax.set_xticks([0.0, 1.0]);
+    let props = TickLabelProps {
+        url: Some("https://example.com/one".to_owned()),
+        ..TickLabelProps::default()
+    };
+    ax.xaxis().set_major_ticklabel_props(1, props);
+    let svg = fig.to_svg().unwrap();
+    assert_eq!(
+        svg.matches("<a xlink:href=\"https://example.com/one\"")
+            .count(),
+        1,
+        "only the label of the second tick is linked"
+    );
+}
+
 /// The position of a constrained subplot whose x ticks at 0 and 1 are
 /// labelled `labels`, the second label taken out of the layout after a
 /// first layout when `out_of_layout`.

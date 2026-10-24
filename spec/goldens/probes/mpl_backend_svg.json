@@ -1,0 +1,93 @@
+{
+ "area": "mpl_backend_svg",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "AnnotationBbox.set_gid", "args": {}, "value": true},
+  {"op": "Artist.set_clip_path", "args": {}, "value": {"ids": 2, "unique": true}},
+  {"op": "Artist.set_gid", "args": {}, "value": []},
+  {"op": "Artist.set_rasterized", "args": {"figure": 1}, "value": {"image": 0, "path": 6}},
+  {"op": "Artist.set_rasterized", "args": {"figure": 2}, "value": {"image": 1, "path": 1}},
+  {"op": "Artist.set_rasterized", "args": {"figure": 3}, "value": {"image": 5, "path": 6}},
+  {"op": "Artist.set_rasterized", "args": {"figure": 4}, "value": {"image": 1, "path": 1}},
+  {"op": "Artist.set_rasterized", "args": {"figure": 5}, "value": {"image": 5, "path": 1}},
+  {"op": "Artist.set_visible", "args": {}, "value": true},
+  {"op": "Collection.set_urls", "args": {}, "value": ["foo", "bar", "baz", "quux"]},
+  {"op": "Figure.savefig", "args": {"format": "svgz", "bbox_inches": "tight"}, "value": true},
+  {"op": "Text.set_fontstretch", "args": {"rc": {"svg.fonttype": "none", "font.stretch": "condensed"}}, "value": [true, true]},
+  {"op": "Text.set_gid", "args": {}, "value": true},
+  {"op": "Text.set_url", "args": {}, "value": true},
+  {"op": "Tick.set_url", "args": {}, "value": {"urls": [true, true, true, true, true, true, true], "same": true}},
+  {"op": "savefig.svg.id", "args": {"svg_id": "a test for issue 28535"}, "value": "a test for issue 28535"},
+  {"op": "savefig.svg.id", "args": {"svg_id": null}, "value": null},
+  {
+   "op": "savefig.svg.metadata",
+   "args": {
+    "metadata": {
+     "Date": [{"date": "1968-08-01"}, {"datetime": "1968-08-02T01:02:03"}],
+     "Description": "description\ntext",
+     "Coverage": "Coverage foo",
+     "Identifier": "Identifier foo",
+     "Language": "Language foo",
+     "Relation": "Relation foo",
+     "Source": "Source foo",
+     "Title": "Title foo",
+     "Type": "Type foo",
+     "Contributor": ["Contributor bar", "Contributor baz"],
+     "Creator": ["Creator bar", "Creator baz"],
+     "Keywords": ["Keywords bar", "Keywords baz"],
+     "Publisher": ["Publisher bar", "Publisher baz"],
+     "Rights": ["Rights bar", "Rights baz"]
+    }
+   },
+   "value": {
+    "titles": ["Title foo"],
+    "work": [
+     ["dc:type", "Type foo"],
+     ["dc:title", "Title foo"],
+     ["dc:coverage", "Coverage foo"],
+     ["dc:date", "1968-08-01/1968-08-02T01:02:03"],
+     ["dc:description", "description\ntext"],
+     ["dc:format", "image/svg+xml"],
+     ["dc:identifier", "Identifier foo"],
+     ["dc:language", "Language foo"],
+     ["dc:relation", "Relation foo"],
+     ["dc:source", "Source foo"],
+     ["dc:creator", ["Creator bar", "Creator baz"]],
+     ["dc:contributor", ["Contributor bar", "Contributor baz"]],
+     ["dc:publisher", ["Publisher bar", "Publisher baz"]],
+     ["dc:rights", ["Rights bar", "Rights baz"]],
+     ["dc:subject", ["Keywords bar", "Keywords baz"]]
+    ]
+   }
+  },
+  {"op": "savefig.svg.metadata", "args": {"metadata": {"Date": null, "Creator": null, "Format": null, "Type": null}}, "value": {"titles": [], "work": null}},
+  {
+   "op": "savefig.svg.metadata",
+   "args": {"metadata": {"Creator": null}},
+   "value": {"titles": [], "work": [["dc:type", "http://purl.org/dc/dcmitype/StillImage"], ["dc:date", "1970-08-16T18:53:21+00:00"], ["dc:format", "image/svg+xml"]]}
+  },
+  {
+   "op": "savefig.svg.metadata",
+   "args": {"metadata": {"Date": null}},
+   "value": {"titles": [], "work": [["dc:type", "http://purl.org/dc/dcmitype/StillImage"], ["dc:format", "image/svg+xml"], ["dc:creator", ["<default>"]]]}
+  },
+  {
+   "op": "savefig.svg.metadata",
+   "args": {"metadata": {"Format": null}},
+   "value": {"titles": [], "work": [["dc:type", "http://purl.org/dc/dcmitype/StillImage"], ["dc:date", "1970-08-16T18:53:21+00:00"], ["dc:creator", ["<default>"]]]}
+  },
+  {
+   "op": "savefig.svg.metadata",
+   "args": {"metadata": {"Type": null}},
+   "value": {"titles": [], "work": [["dc:date", "1970-08-16T18:53:21+00:00"], ["dc:format", "image/svg+xml"], ["dc:creator", ["<default>"]]]}
+  },
+  {
+   "op": "savefig.svg.metadata",
+   "args": {"metadata": {}},
+   "value": {
+    "titles": [],
+    "work": [["dc:type", "http://purl.org/dc/dcmitype/StillImage"], ["dc:date", "1970-08-16T18:53:21+00:00"], ["dc:format", "image/svg+xml"], ["dc:creator", ["<default>"]]]
+   }
+  }
+ ]
+}

@@ -1,0 +1,91 @@
+{
+ "area": "mpl_backend_pdf",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Axes.imshow", "args": {"rc": {"image.composite_image": false}}, "value": 2},
+  {"op": "Axes.imshow", "args": {"rc": {"image.composite_image": true}}, "value": 1},
+  {"op": "Axes.scatter", "args": {}, "value": {"offaxis": true, "visible": true, "visible_vs_offaxis": true}},
+  {"op": "Figure.figimage", "args": {"rc": {"pdf.compression": 1}}, "value": {"indexed": true, "colors": 256, "pixels": true}},
+  {"op": "Line2D.set_rasterized", "args": {}, "value": true},
+  {"op": "PdfPages.__exit__", "args": {"pages": 0}, "value": false},
+  {"op": "PdfPages.__exit__", "args": {"pages": 1}, "value": true},
+  {"op": "PdfPages.close", "args": {}, "value": {"startxref": 1, "small": true}},
+  {"op": "PdfPages.get_pagecount", "args": {}, "value": [0, 1, 2]},
+  {
+   "op": "Text.set_url",
+   "args": {"figsize": [1, 1], "texts": [[0.1, 0.1, "N", 45, "https://test_text_urls.matplotlib.org/"]], "rc": {"pdf.compression": 0}},
+   "value": [
+    ["https://test_text_urls.matplotlib.org/", [7.2828540759, 6.3556337676, 19.3036893561, 18.3764690478], [13.6468251066, 6.3556437676, 19.3036793561, 12.0124980171, 12.9397183254, 18.3764590478, 7.2828640759, 12.7196047983]]
+   ]
+  },
+  {
+   "op": "Text.set_url",
+   "args": {
+    "figsize": [2, 1],
+    "texts": [[0.1, 0.1, "test plain 123", 0, "https://test_text_urls.matplotlib.org/plain"], [0.1, 0.4, "test mathtext $123$", 0, "https://test_text_urls.matplotlib.org/mathtext"]],
+    "rc": {"pdf.compression": 0}
+   },
+   "value": [
+    ["https://test_text_urls.matplotlib.org/plain", [14.4, 7.2, 97.4, 20.2], null],
+    ["https://test_text_urls.matplotlib.org/mathtext", [14.4, 28.8, 118.4, 39.8], null]
+   ]
+  },
+  {
+   "op": "get_glyphs_subset",
+   "args": {"font": "DejaVuSerif.ttf", "chars": "these should be subsetted! 1234567890"},
+   "value": {"chars": " !0123456789bdehlostu", "fewer": true, "glyphs": true}
+  },
+  {
+   "op": "savefig.pdf.metadata",
+   "args": {
+    "metadata": {
+     "Author": "me",
+     "Title": "Multipage PDF",
+     "Subject": "Test page",
+     "Keywords": "test,pdf,multipage",
+     "ModDate": {"datetime": "1968-08-01T00:00:00+00:00"},
+     "Trapped": "True"
+    },
+    "pages": 2,
+    "rc": {"pdf.compression": 0}
+   },
+   "value": {
+    "Creator": "<default>",
+    "Producer": "<default>",
+    "CreationDate": "D:19700101000000Z",
+    "Author": "me",
+    "Title": "Multipage PDF",
+    "Subject": "Test page",
+    "Keywords": "test,pdf,multipage",
+    "ModDate": "D:19680801000000Z",
+    "Trapped": "/True"
+   }
+  },
+  {
+   "op": "savefig.pdf.metadata",
+   "args": {
+    "metadata": {
+     "Author": "me",
+     "Title": "Multipage PDF",
+     "Subject": "Test page",
+     "Keywords": "test,pdf,multipage",
+     "ModDate": {"datetime": "1968-08-01T00:00:00+00:00"},
+     "Trapped": "True"
+    },
+    "pages": null,
+    "rc": {"pdf.compression": 0}
+   },
+   "value": {
+    "Creator": "<default>",
+    "Producer": "<default>",
+    "CreationDate": "D:19700101000000Z",
+    "Author": "me",
+    "Title": "Multipage PDF",
+    "Subject": "Test page",
+    "Keywords": "test,pdf,multipage",
+    "ModDate": "D:19680801000000Z",
+    "Trapped": "/True"
+   }
+  }
+ ]
+}

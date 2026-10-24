@@ -2,15 +2,17 @@
 //! kerning between glyphs, mathtext glyph by glyph, both in one-byte codes
 //! of 256-glyph Type 3 font subsets or two-byte codes of Type 42 fonts
 //! (plain text in the core fonts of `pdf.use14corefonts` is `core_fonts`'
-//! business).
+//! business), and the link annotations of texts with a URL.
 
 use plt_core::Point;
-use plt_text::{TextRun, TextSource};
+use plt_font::Hinting;
+use plt_text::{FontRequest, TextRun, TextSource};
 
 use super::PdfRenderer;
 use super::object::Obj;
+use super::pages::Link;
 use crate::gc::GraphicsContext;
-use crate::vector::{FontType, VectorError, glyph_chars, in_points, prev_kerns};
+use crate::vector::{FontType, POINTS_DPI, VectorError, glyph_chars, in_points, prev_kerns};
 
 /// One element of a `TJ` array being collected.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -191,6 +193,44 @@ impl PdfRenderer {
             self.math_text(gc, &points, origin, angle);
         } else {
             self.plain_text(&points, source.size(), origin, angle);
+        }
+        if let Some(url) = &gc.url {
+            self.link_text(url, &points, source, origin, angle);
+        }
+    }
+
+    /// Links the block of a text drawn at `origin` to `url`: the extent
+    /// of typeset math, or the extent `FT2Font.set_text` gives plain text
+    /// in its default autohinted layout (as matplotlib's `draw_text` and
+    /// `draw_mathtext` measure them).
+    fn link_text(
+        &mut self,
+        url: &str,
+        points: &TextRun,
+        source: &TextSource,
+        origin: Point,
+        angle: f64,
+    ) {
+        let extent = match source {
+            TextSource::Math { .. } => Ok((points.width, points.height)),
+            TextSource::Plain {
+                text,
+                font,
+                shaping,
+            } => {
+                let autohinted = FontRequest {
+                    hinting: Hinting::Auto,
+                    ..font.clone()
+                };
+                self.fonts
+                    .engine()
+                    .layout_line_with(text, &autohinted, shaping, POINTS_DPI)
+                    .map(|run| (run.width, run.height))
+            }
+        };
+        if let Some((width, height)) = self.problems.record(extent.map_err(VectorError::from)) {
+            self.pages
+                .add_link(Link::over_block(url, origin, width, height, angle));
         }
     }
 }

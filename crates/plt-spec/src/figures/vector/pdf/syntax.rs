@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 /// A PDF object.
 #[derive(Clone, Debug, PartialEq)]
-pub(super) enum Value {
+pub(crate) enum Value {
     Null,
     Bool(bool),
     Num(f64),
@@ -20,28 +20,28 @@ pub(super) enum Value {
 
 impl Value {
     /// The entry `key` of a dictionary.
-    pub(super) fn get(&self, key: &str) -> Option<&Self> {
+    pub(crate) fn get(&self, key: &str) -> Option<&Self> {
         match self {
             Self::Dict(entries) => entries.iter().find(|(k, _)| k == key).map(|(_, v)| v),
             _ => None,
         }
     }
 
-    pub(super) fn as_num(&self) -> Option<f64> {
+    pub(crate) fn as_num(&self) -> Option<f64> {
         match self {
             Self::Num(n) => Some(*n),
             _ => None,
         }
     }
 
-    pub(super) fn as_name(&self) -> Option<&str> {
+    pub(crate) fn as_name(&self) -> Option<&str> {
         match self {
             Self::Name(n) => Some(n),
             _ => None,
         }
     }
 
-    pub(super) fn as_array(&self) -> Option<&[Self]> {
+    pub(crate) fn as_array(&self) -> Option<&[Self]> {
         match self {
             Self::Array(items) => Some(items),
             _ => None,
@@ -55,13 +55,13 @@ fn is_delimiter(b: u8) -> bool {
 }
 
 /// A cursor over PDF bytes.
-pub(super) struct Lexer<'a> {
+pub(crate) struct Lexer<'a> {
     data: &'a [u8],
-    pub(super) pos: usize,
+    pub(crate) pos: usize,
 }
 
 impl<'a> Lexer<'a> {
-    pub(super) const fn new(data: &'a [u8], pos: usize) -> Self {
+    pub(crate) const fn new(data: &'a [u8], pos: usize) -> Self {
         Self { data, pos }
     }
 
@@ -84,7 +84,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Whether only whitespace is left.
-    pub(super) fn at_end(&mut self) -> bool {
+    pub(crate) fn at_end(&mut self) -> bool {
         self.skip_space();
         self.pos >= self.data.len()
     }
@@ -171,7 +171,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// The next object or operator; `N G R` becomes a reference.
-    pub(super) fn value(&mut self) -> Result<Value, String> {
+    pub(crate) fn value(&mut self) -> Result<Value, String> {
         self.skip_space();
         let b = self.peek().ok_or("unexpected end of data")?;
         match b {
@@ -268,20 +268,20 @@ fn decode_name(raw: &str) -> String {
 /// An object as stored in the file: its value and, for streams, the raw
 /// (still encoded) data.
 #[derive(Clone, Debug)]
-pub(super) struct Stored {
-    pub(super) value: Value,
-    pub(super) stream: Option<Vec<u8>>,
+pub(crate) struct Stored {
+    pub(crate) value: Value,
+    pub(crate) stream: Option<Vec<u8>>,
 }
 
 /// Every object of a file, by number.
-pub(super) struct Document {
-    pub(super) objects: HashMap<u32, Stored>,
-    pub(super) trailer: Value,
+pub(crate) struct Document {
+    pub(crate) objects: HashMap<u32, Stored>,
+    pub(crate) trailer: Value,
 }
 
 impl Document {
     /// Reads a file through its cross-reference table.
-    pub(super) fn parse(data: &[u8]) -> Result<Self, String> {
+    pub(crate) fn parse(data: &[u8]) -> Result<Self, String> {
         let start = find_last(data, b"startxref").ok_or("no startxref")?;
         let mut lexer = Lexer::new(data, start + b"startxref".len());
         let xref = lexer.value()?.as_num().ok_or("bad startxref")? as usize;
@@ -359,7 +359,7 @@ impl Document {
     }
 
     /// Follows references.
-    pub(super) fn resolve<'a>(&'a self, value: &'a Value) -> &'a Value {
+    pub(crate) fn resolve<'a>(&'a self, value: &'a Value) -> &'a Value {
         match value {
             Value::Ref(id) => self
                 .objects
@@ -370,7 +370,7 @@ impl Document {
     }
 
     /// The decoded data of the stream `value` refers to.
-    pub(super) fn stream(&self, value: &Value) -> Option<Vec<u8>> {
+    pub(crate) fn stream(&self, value: &Value) -> Option<Vec<u8>> {
         let Value::Ref(id) = value else { return None };
         let stored = self.objects.get(id)?;
         let raw = stored.stream.as_ref()?;
@@ -386,7 +386,7 @@ fn find_last(data: &[u8], needle: &[u8]) -> Option<usize> {
 }
 
 /// Splits content-stream data into `(operands, operator)` pairs.
-pub(super) fn operations(data: &[u8]) -> Result<Vec<(Vec<Value>, String)>, String> {
+pub(crate) fn operations(data: &[u8]) -> Result<Vec<(Vec<Value>, String)>, String> {
     let mut lexer = Lexer::new(data, 0);
     let mut ops = Vec::new();
     let mut operands = Vec::new();

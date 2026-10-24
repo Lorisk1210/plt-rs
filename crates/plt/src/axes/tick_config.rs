@@ -309,6 +309,9 @@ pub struct TickLabelProps {
     /// Whether the labels count in layouts and push the axis label and
     /// the offset text away (matplotlib's `set_in_layout`).
     pub in_layout: Option<bool>,
+    /// The hyperlink of the labels in vector output (matplotlib's
+    /// `set_url` on a tick or its labels).
+    pub url: Option<String>,
 }
 
 impl TickLabelProps {
@@ -334,6 +337,7 @@ impl TickLabelProps {
             fontweight: newer.fontweight.or(self.fontweight),
             fontstyle: newer.fontstyle.or(self.fontstyle),
             in_layout: newer.in_layout.or(self.in_layout),
+            url: newer.url.clone().or_else(|| self.url.clone()),
         }
     }
 
@@ -369,6 +373,9 @@ impl TickLabelProps {
         }
         if let Some(in_layout) = self.in_layout {
             style.label_in_layout = in_layout;
+        }
+        if self.url.is_some() {
+            style.label_url.clone_from(&self.url);
         }
     }
 }

@@ -1,8 +1,9 @@
 //! Toolbar buttons: an icon that can be checked (a mode is on) or
 //! disabled (nothing to do).
 
-use plt_platform::MouseButton;
+use plt_platform::{ButtonState, Key, MouseButton};
 
+use super::frame::paint_focus_ring;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
@@ -10,10 +11,15 @@ use crate::icon::Icon;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
 /// An icon button that sends a message when clicked (pressed and released
-/// with the left button over it). It is flat until the pointer is over
-/// it; a checked button shows an accent wash and an accent icon, and a
-/// disabled one is greyed out and ignores clicks. It may have a
+/// with the left button over it), or when Space is pressed while it has
+/// the focus. It is flat until the pointer is over it; a checked button
+/// shows an accent wash and an accent icon, and a disabled one is greyed
+/// out and ignores clicks. It may have a
 /// [tooltip](ToolButton::with_tooltip).
+///
+/// As in Qt, Tab gives tool buttons the focus but clicks do not, so that
+/// clicking a toolbar leaves the focus (and the keys) where it was; the
+/// other keys a focused tool button receives go on to shortcuts.
 #[derive(Debug)]
 pub struct ToolButton<M> {
     icon: Icon,
@@ -122,7 +128,11 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
         };
         let icon = theme.icon_size * scale;
         self.icon
-            .paint(cx.canvas(), square.centered(Size::new(icon, icon)), color)
+            .paint(cx.canvas(), square.centered(Size::new(icon, icon)), color)?;
+        if status.focus_visible() {
+            paint_focus_ring(cx, square, radius)?;
+        }
+        Ok(())
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
@@ -162,8 +172,28 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
                     cx.emit(leave.clone());
                 }
             }
+            UiEvent::Key(key)
+                if self.enabled
+                    && key.state == ButtonState::Pressed
+                    && key.key == Key::Character(' ')
+                    && !key.modifiers.control()
+                    && !key.modifiers.alt() =>
+            {
+                if !key.repeat {
+                    cx.emit(self.message.clone());
+                }
+                cx.set_handled();
+            }
             _ => {}
         }
+    }
+
+    fn accepts_focus(&self) -> bool {
+        self.enabled
+    }
+
+    fn focus_on_click(&self) -> bool {
+        false
     }
 
     fn tooltip(&self) -> Option<&str> {

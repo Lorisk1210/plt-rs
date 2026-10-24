@@ -16,6 +16,15 @@
 //! labels and scales of the axes, the style of their curves and the
 //! colormaps of their images.
 //!
+//! Everything works from the keyboard too, following Qt and GTK. The
+//! canvas has the focus, as in matplotlib's Qt backend, and takes it back
+//! when clicked; Ctrl+Tab moves the focus on to the toolbar, whose buttons
+//! Tab steps through and Space presses, while the keys they leave unused
+//! still reach the canvas. In the dialogs, the first field has the focus,
+//! Tab and Shift+Tab move it, Enter presses the primary button (Save, OK,
+//! Close) unless the focused control uses Enter, Escape closes, and
+//! Ctrl+Tab switches the figure options' tabs.
+//!
 //! ```no_run
 //! use plt::figure::Figure;
 //! let fig = Figure::new();

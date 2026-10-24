@@ -1,8 +1,11 @@
 //! The UI engine: owns the widget tree and the framebuffer, lays out,
-//! paints (see [`painting`]) and routes input (see [`routing`] and
-//! [`focus`]), and shows tooltips (see [`tooltip`]).
+//! paints (see [`painting`]) and routes input (see [`routing`], [`keys`]
+//! and [`focus`]), and shows tooltips (see [`tooltip`]).
 
 mod focus;
+#[cfg(test)]
+mod keyboard_tests;
+mod keys;
 #[cfg(test)]
 mod layer_tests;
 mod painting;
@@ -19,7 +22,7 @@ use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::theme::Theme;
-use crate::widget::{LayoutCx, Widget, WidgetId, WidgetPod};
+use crate::widget::{ClipboardRequest, LayoutCx, Widget, WidgetId, WidgetPod};
 use routing::Routing;
 use tooltip::Tooltip;
 
@@ -40,6 +43,10 @@ pub struct Ui<M> {
     tooltip: Tooltip,
     /// Messages emitted outside of [`Ui::handle`] (during layout).
     messages: Vec<M>,
+    /// What widgets asked of the clipboard, for the application.
+    clipboard_requests: Vec<ClipboardRequest>,
+    /// The widget that asked to paste the clipboard's text.
+    paste_target: Option<WidgetId>,
     needs_layout: bool,
     needs_paint: bool,
 }
@@ -62,6 +69,8 @@ impl<M: 'static> Ui<M> {
             routing: Routing::default(),
             tooltip: Tooltip::default(),
             messages: Vec::new(),
+            clipboard_requests: Vec::new(),
+            paste_target: None,
             needs_layout: true,
             needs_paint: true,
         };
@@ -171,6 +180,15 @@ impl<M: 'static> Ui<M> {
         std::mem::take(&mut self.messages)
     }
 
+    /// Removes what widgets asked of the clipboard since the last call,
+    /// for the application to do: put text on the clipboard, or ask for
+    /// its text and hand it back as [`WindowEvent::ClipboardText`].
+    /// [`UiWindow`](crate::UiWindow) does this with the platform's
+    /// clipboard.
+    pub fn take_clipboard_requests(&mut self) -> Vec<ClipboardRequest> {
+        std::mem::take(&mut self.clipboard_requests)
+    }
+
     /// Changes the framebuffer size and scale factor, and lays out again.
     pub fn resize(&mut self, size: PhysicalSize, scale_factor: f64) -> Result<(), UiError> {
         if size != self.size() {
@@ -224,6 +242,12 @@ impl<M: 'static> Ui<M> {
                 self.deliver(self.routing.pointer_target(), &wheel);
             }
             WindowEvent::Key(key) => self.key(key),
+            WindowEvent::ClipboardText(text) => {
+                let target = self.paste_target.take();
+                if let Some(text) = text {
+                    self.deliver(target, &UiEvent::Paste(text.clone()));
+                }
+            }
             _ => {}
         }
         Ok(self.take_messages())
@@ -309,6 +333,8 @@ impl<M: 'static> Ui<M> {
             .arrange(&mut cx, Rect::from_origin_size(Point::ORIGIN, size))?;
         self.needs_layout = false;
         self.needs_paint = true;
+        // Pages may have been switched or widgets disabled meanwhile.
+        self.keep_focus_shown();
         Ok(())
     }
 }

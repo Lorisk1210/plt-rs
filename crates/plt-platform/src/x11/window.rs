@@ -174,6 +174,10 @@ mod tests {
         clipboard: 311,
         targets: 312,
         image_png: 313,
+        text: 314,
+        text_plain_utf8: 315,
+        incr: 316,
+        paste: 317,
     };
 
     /// `(property, type, value)` of a `ChangeProperty` request.

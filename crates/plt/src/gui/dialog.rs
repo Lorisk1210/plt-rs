@@ -1,5 +1,9 @@
 //! What the windows opened from a figure window's toolbar share: their
-//! window options, theme, margins, and the footer holding their buttons.
+//! window options, theme, margins, the footer holding their buttons, and
+//! their keyboard conventions (Qt's and GTK's): the first field has the
+//! focus when a dialog opens, Tab moves it, Enter presses the primary
+//! button unless the focused widget uses Enter, and Escape closes the
+//! dialog unless it closes an open drop-down.
 
 use plt_platform::{ButtonState, Context, Key, WindowEvent, WindowOptions};
 use plt_ui::{
@@ -32,7 +36,8 @@ pub(super) fn chrome_theme(figure: &Figure) -> Theme {
 }
 
 /// Opens a dialog of the window of `figure` at its content's natural
-/// size, in the figure's [theme](chrome_theme).
+/// size, in the figure's [theme](chrome_theme), with the focus on its
+/// first field.
 pub(super) fn open_fitted<M: 'static>(
     cx: &mut Context<'_>,
     figure: &Figure,
@@ -41,6 +46,7 @@ pub(super) fn open_fitted<M: 'static>(
 ) -> Result<UiWindow<M>, GuiError> {
     let mut window = UiWindow::open_fitted(cx, options, root)?;
     window.ui_mut().set_theme(chrome_theme(figure));
+    window.ui_mut().focus_first();
     Ok(window)
 }
 
@@ -98,7 +104,7 @@ impl<M: Clone + 'static> Dialog<M> {
     }
 
     /// Adds the primary button, last: labelled `label`, sending
-    /// `message`.
+    /// `message`. Enter presses it (see [`plt_ui::Button::primary`]).
     pub(super) fn primary(&mut self, label: &str, message: M) {
         self.footer.push(Button::new(label, message).primary(), 0.0);
     }

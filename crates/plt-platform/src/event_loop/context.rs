@@ -86,6 +86,19 @@ impl<'a> Context<'a> {
         self.backend.set_clipboard_image(window, png)
     }
 
+    /// Puts `text` on the clipboard, owned by `window`, until another
+    /// application takes the clipboard.
+    pub fn set_clipboard_text(&mut self, window: WindowId, text: String) -> Result<(), Error> {
+        self.backend.set_clipboard_text(window, text)
+    }
+
+    /// Asks for the text on the clipboard, which may belong to another
+    /// application: it arrives later as [`WindowEvent::ClipboardText`]
+    /// for `window` (`None` when the clipboard holds no text).
+    pub fn request_clipboard_text(&mut self, window: WindowId) -> Result<(), Error> {
+        self.backend.request_clipboard_text(window)
+    }
+
     /// Asks the window manager to show a window full screen, or to restore
     /// it; the new size arrives as [`WindowEvent::Resized`].
     pub fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error> {

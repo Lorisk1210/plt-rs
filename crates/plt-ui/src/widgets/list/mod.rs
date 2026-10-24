@@ -2,11 +2,13 @@
 
 use std::fmt;
 use std::rc::Rc;
+use std::time::Instant;
 
 use plt_core::Point;
-use plt_platform::{ButtonState, Key, MouseButton, ScrollDelta};
+use plt_platform::{ButtonState, Key, KeyEvent, MouseButton, ScrollDelta};
 
 use super::frame::paint_frame;
+use super::type_ahead::TypeAhead;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
@@ -70,9 +72,11 @@ struct Metrics {
 }
 
 /// A list of rows with at most one selected: a click selects a row, a
-/// double click or Enter activates it, the arrow keys move the selection,
-/// and the wheel or the scroll bar (shown when the rows overflow)
-/// scrolls.
+/// double click or Enter activates it, and the wheel or the scroll bar
+/// (shown when the rows overflow) scrolls. While the list has the focus,
+/// the arrow keys move the selection, Page Up and Page Down by the rows
+/// shown, Home and End to the ends, and typing the start of a row's label
+/// selects it; the selection scrolls into view.
 pub struct List<M> {
     items: Vec<ListItem>,
     selected: Option<usize>,
@@ -89,6 +93,8 @@ pub struct List<M> {
     /// While the scroll bar's thumb is dragged: the pointer's distance
     /// from the thumb's top.
     dragging: Option<f64>,
+    /// The start of a label being typed.
+    type_ahead: TypeAhead,
 }
 
 impl<M> fmt::Debug for List<M> {
@@ -114,6 +120,7 @@ impl<M> List<M> {
             metrics: Metrics::default(),
             hot: None,
             dragging: None,
+            type_ahead: TypeAhead::default(),
         }
     }
 
@@ -238,6 +245,71 @@ impl<M> List<M> {
         }
     }
 
+    /// How many rows a page of Page Up and Page Down moves: one fewer than
+    /// the rows shown, and at least one.
+    fn page(&self) -> usize {
+        let Metrics {
+            row_height,
+            viewport,
+            ..
+        } = self.metrics;
+        if row_height > 0.0 {
+            // Whole rows of a finite viewport.
+            ((viewport / row_height).floor() as usize)
+                .saturating_sub(1)
+                .max(1)
+        } else {
+            1
+        }
+    }
+
+    /// The row a navigation key leads to from the selection.
+    fn navigated(&self, key: &KeyEvent) -> Option<usize> {
+        let last = self.items.len().checked_sub(1)?;
+        if key.modifiers.control() || key.modifiers.alt() {
+            return None;
+        }
+        let Some(row) = self.selected else {
+            return match key.key {
+                Key::End => Some(last),
+                Key::Up | Key::Down | Key::PageUp | Key::PageDown | Key::Home => Some(0),
+                _ => None,
+            };
+        };
+        match key.key {
+            Key::Up => Some(row.saturating_sub(1)),
+            Key::Down => Some((row + 1).min(last)),
+            Key::PageUp => Some(row.saturating_sub(self.page())),
+            Key::PageDown => Some((row + self.page()).min(last)),
+            Key::Home => Some(0),
+            Key::End => Some(last),
+            _ => None,
+        }
+    }
+
+    /// Handles a key press: navigation, type-ahead, and Enter activating
+    /// the selected row (when the list has rows to activate).
+    fn key(&mut self, cx: &mut EventCx<'_, M>, key: &KeyEvent) {
+        if key.key == Key::Enter {
+            if let (Some(row), Some(_)) = (self.selected, &self.on_activate) {
+                self.activate(cx, row);
+                cx.set_handled();
+            }
+            return;
+        }
+        let reached = self.navigated(key).or_else(|| {
+            let labels = self.items.iter().map(|item| item.label.as_str());
+            self.type_ahead
+                .search(key, Instant::now(), labels, self.selected)
+        });
+        if let Some(row) = reached {
+            if self.selected != Some(row) {
+                self.select(cx, row);
+            }
+            cx.set_handled();
+        }
+    }
+
     fn scroll_to(&mut self, cx: &mut EventCx<'_, M>, scroll: f64) {
         self.scroll = scroll.clamp(0.0, self.max_scroll());
         cx.request_paint();
@@ -335,14 +407,15 @@ impl<M: 'static> Widget<M> for List<M> {
         let theme = cx.theme();
         let scale = cx.scale_factor();
         let status = cx.status();
-        paint_frame(cx, rect, theme.card_radius * scale, theme.surface)?;
+        let radius = theme.card_radius * scale;
+        paint_frame(cx, rect, radius, theme.surface, status.focused())?;
         let area = self.rows_area(rect);
         let row_height = self.metrics.row_height;
         if row_height > 0.0 {
             let first = (self.scroll / row_height).floor() as usize;
             let shown = (area.height / row_height).ceil() as usize + 1;
             for row in (first..self.items.len()).take(shown) {
-                self.paint_row(cx, area, row, status.focused)?;
+                self.paint_row(cx, area, row, status.focused())?;
             }
         }
         if let Some((_, thumb)) = self.scroll_bar(rect) {
@@ -410,23 +483,7 @@ impl<M: 'static> Widget<M> for List<M> {
                 };
                 self.scroll_to(cx, self.scroll - pixels);
             }
-            UiEvent::Key(key) if key.state == ButtonState::Pressed => {
-                let last = self.items.len().checked_sub(1);
-                let row = match (&key.key, self.selected) {
-                    (Key::Down, None) | (Key::Home, _) => last.map(|_| 0),
-                    (Key::Down, Some(row)) => last.map(|last| (row + 1).min(last)),
-                    (Key::Up, Some(row)) => Some(row.saturating_sub(1)),
-                    (Key::End, _) => last,
-                    (Key::Enter, Some(row)) => {
-                        self.activate(cx, row);
-                        None
-                    }
-                    _ => None,
-                };
-                if let Some(row) = row {
-                    self.select(cx, row);
-                }
-            }
+            UiEvent::Key(key) if key.state == ButtonState::Pressed => self.key(cx, key),
             _ => {}
         }
     }
@@ -437,76 +494,4 @@ impl<M: 'static> Widget<M> for List<M> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn list(rows: usize) -> List<usize> {
-        let items = (0..rows)
-            .map(|i| ListItem::new(format!("row {i}")))
-            .collect();
-        let mut list = List::new(items, |row| row);
-        list.metrics = Metrics {
-            row_height: 10.0,
-            inset: 0.0,
-            padding: 0.0,
-            viewport: 50.0,
-            scrollbar_width: 6.0,
-            min_thumb: 20.0,
-        };
-        list
-    }
-
-    #[test]
-    fn rows_under_the_pointer_and_scrolling() {
-        let mut list = list(20);
-        assert_eq!(list.row_at(25.0), Some(2));
-        assert_eq!(list.row_at(55.0), None, "below the visible rows");
-        assert_eq!(list.max_scroll(), 150.0);
-        list.set_selected(Some(9));
-        assert_eq!(list.scroll, 50.0, "the selection scrolls into view");
-        assert_eq!(list.row_at(0.0), Some(5));
-        list.set_selected(Some(99));
-        assert_eq!(list.selected(), None);
-        list.set_items(vec![ListItem::new("only")]);
-        assert_eq!((list.items().len(), list.scroll), (1, 0.0));
-        assert_eq!(list.row_at(15.0), None);
-    }
-
-    #[test]
-    fn the_scroll_bar_shows_where_the_rows_are() {
-        let rect = Rect::new(0.0, 0.0, 100.0, 50.0);
-        assert!(list(5).scroll_bar(rect).is_none(), "all rows fit");
-        let mut long = list(100);
-        let (track, top) = long.scroll_bar(rect).unwrap();
-        assert_eq!((track.x, track.height), (94.0, 50.0));
-        assert_eq!(top.y, 0.0);
-        assert_eq!(top.height, 20.0, "never shorter than the minimum");
-        long.scroll = long.max_scroll();
-        let (_, bottom) = long.scroll_bar(rect).unwrap();
-        assert_eq!(bottom.max_y(), track.max_y());
-    }
-
-    #[test]
-    fn dragging_the_thumb_scrolls() {
-        let mut long = list(100);
-        let rect = Rect::new(0.0, 0.0, 100.0, 50.0);
-        let mut messages = Vec::new();
-        let mut cx = EventCx::new(&mut messages);
-        let press = |y| UiEvent::PointerDown {
-            button: MouseButton::Left,
-            position: Point::new(97.0, y),
-            modifiers: plt_platform::Modifiers::NONE,
-            click_count: 1,
-        };
-        long.event(&mut cx, &press(5.0), rect);
-        let drag = UiEvent::PointerMove {
-            position: Point::new(97.0, 35.0),
-            modifiers: plt_platform::Modifiers::NONE,
-        };
-        long.event(&mut cx, &drag, rect);
-        assert_eq!(long.scroll, long.max_scroll(), "dragged to the bottom");
-        long.event(&mut cx, &press(0.0), rect);
-        assert!(long.scroll < 50.0, "a press above the thumb pages up");
-        assert!(messages.is_empty(), "the scroll bar selects nothing");
-    }
-}
+mod tests;

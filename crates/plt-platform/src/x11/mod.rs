@@ -30,6 +30,7 @@ mod keysym_table;
 #[cfg(test)]
 mod live_tests;
 mod output;
+mod paste;
 mod reply;
 mod request;
 mod resources;
@@ -59,6 +60,7 @@ use image::PixelFormat;
 use input::Input;
 use keymap::Keymap;
 use request::{ImageTarget, NewWindow, WindowAttribute, WindowClass, event_mask};
+use selection::Clipboard;
 use transport::Wait;
 use waker::X11Waker;
 use window::WindowState;
@@ -103,8 +105,11 @@ pub(crate) struct X11Backend {
     cursors: Cursors,
     scale_factor: f64,
     waker: Arc<X11Waker>,
-    /// The image offered on the clipboard while this connection owns it.
-    clipboard: Option<Vec<u8>>,
+    /// What this connection offers on the clipboard while it owns it.
+    clipboard: Option<Clipboard>,
+    /// The windows waiting for the clipboard's text, with the form each
+    /// asked for.
+    pastes: BTreeMap<u32, u32>,
     /// The server time of the latest key or button event, which claims
     /// the clipboard (ICCCM asks for an event time, not `CurrentTime`).
     last_input_time: u32,
@@ -143,6 +148,7 @@ impl X11Backend {
             scale_factor,
             waker,
             clipboard: None,
+            pastes: BTreeMap::new(),
             last_input_time: 0,
         })
     }
@@ -256,6 +262,7 @@ impl Backend for X11Backend {
         let (xid, state) = self.window(window)?;
         let gc = state.gc;
         self.windows.remove(&xid);
+        self.pastes.remove(&xid);
         self.conn.send(&request::free_gc(gc))?;
         self.conn.send(&request::destroy_window(xid))?;
         self.conn.flush()
@@ -312,7 +319,15 @@ impl Backend for X11Backend {
     }
 
     fn set_clipboard_image(&mut self, window: WindowId, png: Vec<u8>) -> Result<(), Error> {
-        self.offer_clipboard(window, png)
+        self.offer_clipboard(window, Clipboard::Image(png))
+    }
+
+    fn set_clipboard_text(&mut self, window: WindowId, text: String) -> Result<(), Error> {
+        self.offer_clipboard(window, Clipboard::Text(text))
+    }
+
+    fn request_clipboard_text(&mut self, window: WindowId) -> Result<(), Error> {
+        self.request_text(window)
     }
 
     fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error> {

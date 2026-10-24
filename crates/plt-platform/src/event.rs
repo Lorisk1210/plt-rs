@@ -99,6 +99,10 @@ pub enum WindowEvent {
     },
     /// A key was pressed or released.
     Key(KeyEvent),
+    /// The text on the clipboard, which
+    /// [`Context::request_clipboard_text`](crate::Context::request_clipboard_text)
+    /// asked for: `None` when the clipboard is empty or holds no text.
+    ClipboardText(Option<String>),
 }
 
 /// Whether a button or key went down or up.

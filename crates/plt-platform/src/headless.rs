@@ -84,8 +84,17 @@ struct State {
     woken: bool,
     loop_alive: bool,
     frames: Vec<PresentedFrame>,
-    /// The image last put on the clipboard.
-    clipboard: Option<Vec<u8>>,
+    /// What was last put on the clipboard.
+    clipboard: Option<Clipboard>,
+}
+
+/// What the clipboard holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Clipboard {
+    /// A PNG image.
+    Image(Vec<u8>),
+    /// Text.
+    Text(String),
 }
 
 #[derive(Debug)]
@@ -152,9 +161,26 @@ impl HeadlessHandle {
         self.shared.lock().windows.keys().copied().collect()
     }
 
-    /// The PNG image last put on the clipboard, if any.
+    /// The PNG image on the clipboard, if it holds one.
     pub fn clipboard_image(&self) -> Option<Vec<u8>> {
-        self.shared.lock().clipboard.clone()
+        match &self.shared.lock().clipboard {
+            Some(Clipboard::Image(png)) => Some(png.clone()),
+            _ => None,
+        }
+    }
+
+    /// The text on the clipboard, if it holds text.
+    pub fn clipboard_text(&self) -> Option<String> {
+        match &self.shared.lock().clipboard {
+            Some(Clipboard::Text(text)) => Some(text.clone()),
+            _ => None,
+        }
+    }
+
+    /// Puts `text` on the clipboard, as another application copying it
+    /// would.
+    pub fn set_clipboard_text(&self, text: impl Into<String>) {
+        self.shared.lock().clipboard = Some(Clipboard::Text(text.into()));
     }
 
     /// Ids of the open windows from bottom to top: new and raised windows
@@ -220,6 +246,16 @@ impl HeadlessBackend {
             .get_mut(&window)
             .ok_or(Error::UnknownWindow(window))?;
         f(target)
+    }
+
+    /// Makes `window` the owner of the clipboard, holding `content`.
+    fn set_clipboard(&mut self, window: WindowId, content: Clipboard) -> Result<(), Error> {
+        let mut state = self.shared.lock();
+        if !state.windows.contains_key(&window) {
+            return Err(Error::UnknownWindow(window));
+        }
+        state.clipboard = Some(content);
+        Ok(())
     }
 }
 
@@ -308,11 +344,24 @@ impl Backend for HeadlessBackend {
     }
 
     fn set_clipboard_image(&mut self, window: WindowId, png: Vec<u8>) -> Result<(), Error> {
+        self.set_clipboard(window, Clipboard::Image(png))
+    }
+
+    fn set_clipboard_text(&mut self, window: WindowId, text: String) -> Result<(), Error> {
+        self.set_clipboard(window, Clipboard::Text(text))
+    }
+
+    fn request_clipboard_text(&mut self, window: WindowId) -> Result<(), Error> {
         let mut state = self.shared.lock();
         if !state.windows.contains_key(&window) {
             return Err(Error::UnknownWindow(window));
         }
-        state.clipboard = Some(png);
+        let text = match &state.clipboard {
+            Some(Clipboard::Text(text)) => Some(text.clone()),
+            _ => None,
+        };
+        let event = WindowEvent::ClipboardText(text);
+        state.queue.push_back(Event::Window { window, event });
         Ok(())
     }
 
@@ -490,6 +539,46 @@ mod tests {
         assert_eq!(
             backend.raise_window(first),
             Err(Error::UnknownWindow(first))
+        );
+    }
+
+    #[test]
+    fn the_clipboard_holds_an_image_or_text() {
+        let (mut backend, handle) = HeadlessBackend::new();
+        let window = backend.create_window(&WindowOptions::new("t")).unwrap();
+        backend.set_clipboard_image(window, vec![1, 2]).unwrap();
+        assert_eq!(handle.clipboard_image(), Some(vec![1, 2]));
+        assert_eq!(handle.clipboard_text(), None);
+        let mut events = Vec::new();
+        backend.poll(None, &mut events).unwrap();
+        events.clear();
+        backend.request_clipboard_text(window).unwrap();
+        backend.set_clipboard_text(window, "0.25".into()).unwrap();
+        backend.request_clipboard_text(window).unwrap();
+        handle.set_clipboard_text("from elsewhere");
+        backend.request_clipboard_text(window).unwrap();
+        backend.poll(None, &mut events).unwrap();
+        let texts: Vec<WindowEvent> = events
+            .into_iter()
+            .filter_map(|event| match event {
+                Event::Window { event, .. } => Some(event),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            texts,
+            [
+                WindowEvent::ClipboardText(None),
+                WindowEvent::ClipboardText(Some("0.25".into())),
+                WindowEvent::ClipboardText(Some("from elsewhere".into())),
+            ],
+            "an image is no text"
+        );
+        assert_eq!(handle.clipboard_image(), None);
+        let gone = WindowId::from_raw(99);
+        assert_eq!(
+            backend.request_clipboard_text(gone),
+            Err(Error::UnknownWindow(gone))
         );
     }
 

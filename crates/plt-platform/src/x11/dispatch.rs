@@ -80,6 +80,7 @@ impl X11Backend {
                     data,
                 } => self.client_message(out, window, message_type, data)?,
                 ServerEvent::SelectionRequest(asked) => self.answer_selection(asked)?,
+                ServerEvent::SelectionNotify(answer) => self.receive_text(out, answer)?,
                 ServerEvent::SelectionClear { selection } => self.clipboard_taken(selection),
                 ServerEvent::KeyboardMappingChanged => {
                     self.input.set_keymap(Keymap::query(&mut self.conn)?);

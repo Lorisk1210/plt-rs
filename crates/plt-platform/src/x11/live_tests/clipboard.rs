@@ -1,11 +1,15 @@
-//! Live test of the clipboard: another client pastes the image a window
-//! put on it.
+//! Live tests of the clipboard: another client pastes the image or text a
+//! window put on it, and windows paste text from another client and from
+//! themselves.
 
 use std::time::{Duration, Instant};
 
-use super::super::request::{self, testing};
+use super::super::atoms::predefined;
+use super::super::request;
+use super::super::server_event::{SelectionRequest, ServerEvent};
 use super::super::transport::Wait;
-use super::{Driver, live, open_window, x11_loop};
+use super::{Driver, is, live, open_window, pump_until, x11_loop};
+use crate::event::WindowEvent;
 use crate::event_loop::EventLoop;
 use crate::window::WindowOptions;
 
@@ -23,8 +27,8 @@ fn paste(
         driver.atom(target),
         driver.atom("PLT_PASTE"),
     );
-    driver.send(&testing::convert_selection(
-        requestor, clipboard, target, property,
+    driver.send(&request::convert_selection(
+        requestor, clipboard, target, property, 0,
     ));
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
@@ -44,15 +48,12 @@ fn paste(
     }
 }
 
-#[test]
-fn the_clipboard_hands_out_its_image() {
-    let Some(live) = live() else { return };
-    let mut driver = Driver::connect(&live.name);
-    let requestor = driver.conn.generate_id().unwrap();
-    let root = driver.root;
+/// A hidden window of `driver`'s, to ask for and own selections.
+fn driver_window(driver: &mut Driver) -> u32 {
+    let id = driver.conn.generate_id().unwrap();
     let window = request::NewWindow {
-        id: requestor,
-        parent: root,
+        id,
+        parent: driver.root,
         class: request::WindowClass::InputOnly,
         depth: 0,
         visual: 0,
@@ -60,6 +61,24 @@ fn the_clipboard_hands_out_its_image() {
         height: 1,
     };
     driver.send(&request::create_window(&window, &[]));
+    id
+}
+
+/// The 32-bit words of a property value.
+fn words(bytes: &[u8]) -> Vec<u32> {
+    bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|w| u32::from_le_bytes(*w))
+        .collect()
+}
+
+#[test]
+fn the_clipboard_hands_out_its_image() {
+    let Some(live) = live() else { return };
+    let mut driver = Driver::connect(&live.name);
+    let requestor = driver_window(&mut driver);
     let mut event_loop = x11_loop();
     let owner = open_window(&mut event_loop, &WindowOptions::new("clipboard"));
     let png = b"\x89PNG\r\n\x1a\nnot really a PNG".to_vec();
@@ -69,13 +88,10 @@ fn the_clipboard_hands_out_its_image() {
         .unwrap();
 
     let targets = paste(&mut driver, &mut event_loop, requestor, "TARGETS").expect("targets");
-    let words: Vec<u32> = targets
-        .as_chunks::<4>()
-        .0
-        .iter()
-        .map(|w| u32::from_le_bytes(*w))
-        .collect();
-    assert_eq!(words, [driver.atom("TARGETS"), driver.atom("image/png")]);
+    assert_eq!(
+        words(&targets),
+        [driver.atom("TARGETS"), driver.atom("image/png")]
+    );
     assert_eq!(
         paste(&mut driver, &mut event_loop, requestor, "image/png"),
         Some(png)
@@ -84,4 +100,124 @@ fn the_clipboard_hands_out_its_image() {
         paste(&mut driver, &mut event_loop, requestor, "UTF8_STRING"),
         None
     );
+}
+
+#[test]
+fn the_clipboard_hands_out_its_text() {
+    let Some(live) = live() else { return };
+    let mut driver = Driver::connect(&live.name);
+    let requestor = driver_window(&mut driver);
+    let mut event_loop = x11_loop();
+    let owner = open_window(&mut event_loop, &WindowOptions::new("clipboard"));
+    event_loop
+        .context()
+        .set_clipboard_text(owner, "0.125 €".into())
+        .unwrap();
+    let targets = paste(&mut driver, &mut event_loop, requestor, "TARGETS").expect("targets");
+    assert!(words(&targets).contains(&driver.atom("UTF8_STRING")));
+    assert!(words(&targets).contains(&predefined::STRING));
+    assert_eq!(
+        paste(&mut driver, &mut event_loop, requestor, "UTF8_STRING"),
+        Some("0.125 €".as_bytes().to_vec())
+    );
+    assert_eq!(
+        paste(&mut driver, &mut event_loop, requestor, "STRING"),
+        Some(b"0.125 ?".to_vec()),
+        "Latin-1 has no euro sign"
+    );
+    assert_eq!(
+        paste(&mut driver, &mut event_loop, requestor, "image/png"),
+        None
+    );
+}
+
+/// Pumps `event_loop` until `window` receives clipboard text.
+fn pasted(event_loop: &mut EventLoop, window: crate::window::WindowId) -> Option<String> {
+    let events = pump_until(event_loop, "the clipboard's text", |event| {
+        matches!(
+            event,
+            crate::event::Event::Window {
+                window: w,
+                event: WindowEvent::ClipboardText(_),
+            } if *w == window
+        )
+    });
+    events.into_iter().find_map(|event| match event {
+        crate::event::Event::Window {
+            window: w,
+            event: WindowEvent::ClipboardText(text),
+        } if w == window => Some(text),
+        _ => None,
+    })?
+}
+
+#[test]
+fn windows_paste_their_own_text_and_other_clients_text() {
+    let Some(live) = live() else { return };
+    let mut event_loop = x11_loop();
+    let window = open_window(&mut event_loop, &WindowOptions::new("paste"));
+    event_loop
+        .context()
+        .set_clipboard_text(window, "copied here".into())
+        .unwrap();
+    event_loop.context().request_clipboard_text(window).unwrap();
+    assert_eq!(
+        pasted(&mut event_loop, window).as_deref(),
+        Some("copied here")
+    );
+
+    // Another client takes the clipboard, offering Latin-1 only.
+    let mut driver = Driver::connect(&live.name);
+    let owner = driver_window(&mut driver);
+    let clipboard = driver.atom("CLIPBOARD");
+    driver.send(&request::set_selection_owner(owner, clipboard, 0));
+    event_loop.context().request_clipboard_text(window).unwrap();
+    let mut answered = 0;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut text = None;
+    while text.is_none() {
+        assert!(Instant::now() < deadline, "no paste");
+        let events = driver
+            .conn
+            .wait_for_events(Wait::Until(Instant::now() + Duration::from_millis(20)))
+            .unwrap();
+        for raw in &events {
+            if let ServerEvent::SelectionRequest(asked) = ServerEvent::parse(raw) {
+                answer_in_latin1(&mut driver, asked);
+                answered += 1;
+            }
+        }
+        event_loop
+            .pump_events(Some(Duration::ZERO), |_, event| {
+                if is(
+                    &event,
+                    window,
+                    &WindowEvent::ClipboardText(Some("café".into())),
+                ) {
+                    text = Some("café");
+                }
+            })
+            .unwrap();
+    }
+    assert_eq!(answered, 2, "UTF-8 first, then Latin-1");
+}
+
+/// Answers `asked` as an owner offering only `STRING`: "café".
+fn answer_in_latin1(driver: &mut Driver, asked: SelectionRequest) {
+    let property = if asked.target == predefined::STRING {
+        let store =
+            request::set_property_bytes(asked.requestor, asked.property, asked.target, b"caf\xe9");
+        driver.send(&store);
+        asked.property
+    } else {
+        0
+    };
+    let notify = request::selection_notify(
+        asked.time,
+        asked.requestor,
+        asked.selection,
+        asked.target,
+        property,
+    );
+    driver.send(&request::send_event(asked.requestor, 0, &notify));
 }

@@ -19,6 +19,7 @@ mod swatch;
 mod tabs;
 mod text_input;
 mod tool_button;
+mod type_ahead;
 
 pub use button::Button;
 pub use checkbox::Checkbox;

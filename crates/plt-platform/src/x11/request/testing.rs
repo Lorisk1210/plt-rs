@@ -34,20 +34,3 @@ pub(crate) fn delete_property(window: u32, property: u32) -> Request {
         b.put_u32(property);
     })
 }
-
-/// `ConvertSelection`: asks the owner of `selection` to put it, converted
-/// to `target`, into `property` of `requestor`.
-pub(crate) fn convert_selection(
-    requestor: u32,
-    selection: u32,
-    target: u32,
-    property: u32,
-) -> Request {
-    request(24, 0, |b| {
-        b.put_u32(requestor);
-        b.put_u32(selection);
-        b.put_u32(target);
-        b.put_u32(property);
-        b.put_u32(0);
-    })
-}

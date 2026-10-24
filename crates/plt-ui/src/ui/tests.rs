@@ -105,6 +105,7 @@ fn kinds(log: &[Log]) -> Vec<(&'static str, &'static str)> {
                 UiEvent::PointerUp { .. } => "up",
                 UiEvent::Wheel { .. } => "wheel",
                 UiEvent::Key(_) => "key",
+                UiEvent::Paste(_) => "paste",
             };
             (*name, kind)
         })

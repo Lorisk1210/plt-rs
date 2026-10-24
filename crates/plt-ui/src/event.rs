@@ -54,6 +54,9 @@ pub enum UiEvent {
     },
     /// A key was pressed or released.
     Key(KeyEvent),
+    /// The clipboard's text, which the widget asked for with
+    /// [`EventCx::request_paste`](crate::EventCx::request_paste).
+    Paste(String),
 }
 
 impl UiEvent {
@@ -65,7 +68,7 @@ impl UiEvent {
             | Self::PointerDown { position, .. }
             | Self::PointerUp { position, .. }
             | Self::Wheel { position, .. } => Some(*position),
-            Self::PointerLeave | Self::Key(_) => None,
+            Self::PointerLeave | Self::Key(_) | Self::Paste(_) => None,
         }
     }
 
@@ -81,7 +84,7 @@ impl UiEvent {
             | Self::PointerDown { position, .. }
             | Self::PointerUp { position, .. }
             | Self::Wheel { position, .. } => *position = shift(position),
-            Self::PointerLeave | Self::Key(_) => {}
+            Self::PointerLeave | Self::Key(_) | Self::Paste(_) => {}
         }
         event
     }

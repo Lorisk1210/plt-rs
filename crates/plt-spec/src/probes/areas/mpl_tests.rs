@@ -22,10 +22,13 @@ pub(crate) fn in_test_style<T>(
 ) -> Result<T, ProbeError> {
     rc::context(|| {
         let mut params = RcParams::matplotlib();
-        // `matplotlib.testing.setup` names the font family and turns
-        // hinting off.
+        // `matplotlib.testing.setup` names the font family, salts the SVG
+        // ids and turns hinting off.
         params
             .set("font.family", "DejaVu Sans")
+            .map_err(ProbeError::rejected)?;
+        params
+            .set("svg.hashsalt", "matplotlib")
             .map_err(ProbeError::rejected)?;
         params
             .set("text.hinting", "none")

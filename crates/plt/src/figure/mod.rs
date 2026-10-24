@@ -34,7 +34,7 @@ pub(crate) use draw_order::draws_before;
 pub(crate) use frame::{FigureFrame, SuperText};
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use pdf_pages::PdfPages;
-pub use plt_render::Metadata;
+pub use plt_render::{Metadata, PageOrientation, PageSetupError, Paper, SvgMetadata};
 pub use print::{BboxInches, SaveOptions};
 use save::whole_pixels;
 pub use save::{SaveError, SaveFormat};

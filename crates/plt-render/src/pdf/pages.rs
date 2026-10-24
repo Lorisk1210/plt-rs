@@ -1,6 +1,8 @@
 //! The pages of a document and its information dictionary (`newPage`,
-//! `newTextnote`, `_write_annotations`, the page tree and
-//! `writeInfoDict`).
+//! `newTextnote`, the link annotations of texts, `_write_annotations`, the
+//! page tree and `writeInfoDict`).
+
+use plt_core::Point;
 
 use super::object::{Obj, text_string};
 use super::writer::PdfWriter;
@@ -27,12 +29,92 @@ impl Note {
     }
 }
 
-/// One page: its object and its annotation array.
+/// A link from a drawn text to a URI (`_get_link_annotation`).
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct Link {
+    uri: String,
+    /// The box covering the link, `[x0, y0, x1, y1]` in points.
+    rect: [f64; 4],
+    /// The corners of a block not aligned with the page, which viewers
+    /// read inside `rect` (`QuadPoints`).
+    quad_points: Option<[f64; 8]>,
+}
+
+impl Link {
+    /// The link over the `width × height` block whose bottom left corner
+    /// is `origin`, turned by `angle` degrees about it
+    /// (`_get_coordinates_of_block`): a block not aligned with the page
+    /// gives its corners too, in a box padded to hold them.
+    pub(super) fn over_block(
+        uri: &str,
+        origin: Point,
+        width: f64,
+        height: f64,
+        angle: f64,
+    ) -> Self {
+        let (sin, cos) = (-angle).to_radians().sin_cos();
+        let Point { x, y } = origin;
+        let corners = [
+            [x, y],
+            [x + width * cos, y - width * sin],
+            [
+                x + width * cos + height * sin,
+                y - width * sin + height * cos,
+            ],
+            [x + height * sin, y + height * cos],
+        ];
+        let aligned = angle.rem_euclid(90.0) == 0.0;
+        let pad = if aligned { 0.0 } else { 0.00001 };
+        let extreme = |axis: usize, pick: fn(f64, f64) -> f64| {
+            corners
+                .iter()
+                .map(|corner| corner[axis])
+                .reduce(pick)
+                .unwrap_or(0.0)
+        };
+        Self {
+            uri: uri.to_owned(),
+            rect: [
+                extreme(0, f64::min) - pad,
+                extreme(1, f64::min) - pad,
+                extreme(0, f64::max) + pad,
+                extreme(1, f64::max) + pad,
+            ],
+            quad_points: (!aligned)
+                .then_some(corners.as_flattened())
+                .and_then(|flat| flat.try_into().ok()),
+        }
+    }
+
+    /// The annotation dictionary.
+    fn annotation(&self) -> Obj {
+        let link = Obj::dict([
+            ("Type", Obj::name("Annot")),
+            ("Subtype", Obj::name("Link")),
+            ("Rect", Obj::reals(self.rect)),
+            ("Border", Obj::Array(vec![Obj::Int(0); 3])),
+            (
+                "A",
+                Obj::dict([("S", Obj::name("URI")), ("URI", text_string(&self.uri))]),
+            ),
+        ]);
+        match (link, self.quad_points) {
+            (Obj::Dict(mut entries), Some(points)) => {
+                entries.push(("QuadPoints".to_owned(), Obj::reals(points)));
+                Obj::Dict(entries)
+            }
+            (link, _) => link,
+        }
+    }
+}
+
+/// One page: its object, its annotation array and what goes in it.
 #[derive(Clone, Debug, PartialEq)]
 struct Page {
     object: u32,
     annotations: u32,
     notes: Vec<Note>,
+    links: Vec<Link>,
 }
 
 /// The pages written so far (`pageList` and `_annotations`) and the notes
@@ -61,6 +143,13 @@ impl Pages {
     /// Queues a note for the next page started.
     pub(super) fn add_note(&mut self, note: Note) {
         self.pending.push(note);
+    }
+
+    /// Adds a link to the current page, after its notes.
+    pub(super) fn add_link(&mut self, link: Link) {
+        if let Some(page) = self.pages.last_mut() {
+            page.links.push(link);
+        }
     }
 
     /// Writes the page object of a `width × height` inch page whose
@@ -99,6 +188,7 @@ impl Pages {
             object,
             annotations,
             notes: std::mem::take(&mut self.pending),
+            links: Vec::new(),
         });
         Ok(contents)
     }
@@ -106,8 +196,10 @@ impl Pages {
     /// Writes every page's annotation array (`_write_annotations`).
     pub(super) fn write_annotations(&self, writer: &mut PdfWriter) -> Result<(), VectorError> {
         for page in &self.pages {
-            let notes = page.notes.iter().map(Note::annotation).collect();
-            writer.write_object(page.annotations, &Obj::Array(notes))?;
+            let annotations = (page.notes.iter().map(Note::annotation))
+                .chain(page.links.iter().map(Link::annotation))
+                .collect();
+            writer.write_object(page.annotations, &Obj::Array(annotations))?;
         }
         Ok(())
     }
@@ -176,6 +268,25 @@ mod tests {
             "<< /CreationDate (D:19700101000000Z) /Title (T) /Author (A)\n/Trapped /Unknown >>"
         );
         assert_eq!(text(&info_dict(&Metadata::none())), "<< >>");
+    }
+
+    #[test]
+    fn links_of_turned_blocks_record_their_corners() {
+        let flat = Link::over_block("u", Point::new(14.4, 7.2), 83.0, 13.0, 0.0);
+        assert_eq!(flat.rect, [14.4, 7.2, 97.4, 20.2]);
+        assert_eq!(flat.quad_points, None);
+        let annotation = text(&flat.annotation());
+        assert!(
+            annotation.starts_with("<< /Type /Annot /Subtype /Link /Rect [ 14.4 7.2 97.4 20.2 ]")
+        );
+        assert!(annotation.ends_with("/A << /S /URI /URI (u) >> >>"));
+        assert!(!annotation.contains("QuadPoints"));
+        let turned = Link::over_block("u", Point::new(0.0, 0.0), 10.0, 5.0, 45.0);
+        let corners = turned.quad_points.expect("corners of a turned block");
+        // matplotlib's test_text_rotated_urls: the box's left edge is the
+        // fourth corner's x, padded.
+        assert_eq!(turned.rect[0], corners[6] - 0.00001);
+        assert!((corners[2] - 10.0 / 2_f64.sqrt()).abs() < 1e-12);
     }
 
     #[test]

@@ -271,7 +271,7 @@ impl<'a> DrawContext<'a> {
     /// (`allow_rasterization`): a rasterized artist outside any other
     /// starts rasterizing, an artist that is not rasterized outside any
     /// rasterized one stops it, so that consecutive rasterized artists
-    /// share one image.
+    /// share one image, unless the figure suppresses compositing.
     pub fn draw_artist<R>(&mut self, rasterized: bool, draw: impl FnOnce(&mut Self) -> R) -> R {
         let outermost = self.rasterization.depth == 0;
         if rasterized {
@@ -285,6 +285,12 @@ impl<'a> DrawContext<'a> {
         let result = draw(self);
         if rasterized {
             self.rasterization.depth -= 1;
+        }
+        if self.rasterization.active && self.layout.suppress_composite() == Some(true) {
+            // The figure's `suppressComposite` keeps what each artist
+            // rasterized in an image of its own.
+            self.renderer.stop_rasterizing();
+            self.renderer.start_rasterizing();
         }
         result
     }
@@ -439,12 +445,13 @@ mod tests {
     use crate::figure::Figure;
 
     /// A page in points whose rasterized parts go to a canvas at twice
-    /// its resolution; records where every path starts and whether it was
-    /// rasterized.
+    /// its resolution; records where every path starts, whether it was
+    /// rasterized, and how many raster canvases were placed.
     #[derive(Debug, Default)]
     struct Page {
         rasterizing: bool,
         starts: Vec<(bool, Point)>,
+        canvases: usize,
     }
 
     impl Renderer for Page {
@@ -497,6 +504,7 @@ mod tests {
 
         fn stop_rasterizing(&mut self) {
             self.rasterizing = false;
+            self.canvases += 1;
         }
 
         fn raster_dpi(&self) -> Option<f64> {
@@ -527,5 +535,27 @@ mod tests {
         );
         assert!(page.starts.iter().any(|&(rasterized, _)| !rasterized));
         assert_eq!(fig.dpi(), 72.0, "the figure's resolution is restored");
+    }
+
+    #[test]
+    fn suppressing_compositing_gives_each_rasterized_artist_its_canvas() {
+        let canvases = |suppress: Option<bool>| {
+            let fig = Figure::with_size(2.0, 1.0, 72.0);
+            fig.set_suppress_composite(suppress);
+            let ax = fig.subplot();
+            ax.set_axis_off();
+            for y in [0.25, 0.75] {
+                let line = ax.plot(vec![0.0, 1.0], vec![y, y]).unwrap();
+                line.set_rasterized(true);
+            }
+            let mut page = Page::default();
+            fig.draw(&mut page).unwrap();
+            let rasterized = page.starts.iter().filter(|(rasterized, _)| *rasterized);
+            (rasterized.count(), page.canvases)
+        };
+        // Two rasterized paths in one canvas, or in one canvas each (plus
+        // the empty one restarted after the last).
+        assert_eq!(canvases(None), (2, 1));
+        assert_eq!(canvases(Some(true)), (2, 3));
     }
 }

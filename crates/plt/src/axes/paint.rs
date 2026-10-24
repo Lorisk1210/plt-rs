@@ -41,6 +41,8 @@ impl AxesState {
         if ctx.layout().axes_extent(self.base().id()).is_none() {
             return;
         }
+        ctx.renderer()
+            .open_group("axes", self.base().gid.as_deref());
         let mut items = self.items(ctx.layout().store());
         items.retain(
             |&(_, item)| !matches!(item, Item::Child(id) if ctx.layout().skips_animated(id, true)),
@@ -59,6 +61,7 @@ impl AxesState {
             });
         }
         self.draw_composited(ctx, above);
+        ctx.renderer().close_group("axes");
     }
 
     /// The children and both axes sorted by z-order, stable for ties in the

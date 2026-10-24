@@ -2,7 +2,7 @@
 //! `backend_ps`): the vector renderer placed on a page per `ps.papersize`
 //! and `savefig.orientation`, with fonts embedded or taken from AFM metrics.
 
-use plt_render::{Orientation, Paper, PsOptions, PsRenderer};
+use plt_render::{PageOrientation, Paper, PsOptions, PsRenderer};
 
 use super::Figure;
 use super::print::SaveOptions;
@@ -10,18 +10,21 @@ use super::save::{SaveError, embedding, simplify_settings};
 
 impl Figure {
     /// A PostScript document with save options: `eps` selects
-    /// Encapsulated PostScript; `ps.papersize` and `savefig.orientation`
-    /// place the figure on the page.
+    /// Encapsulated PostScript; the paper type and orientation of the
+    /// options, else `ps.papersize` and `savefig.orientation`, place the
+    /// figure on the page.
     fn postscript(&self, options: &SaveOptions, eps: bool) -> Result<String, SaveError> {
         let rc = crate::rc::params();
         let ps = PsOptions {
             eps,
-            paper: Paper::from_name(&rc.ps_papersize).unwrap_or(Paper::Figure),
-            orientation: if rc.savefig_orientation == "landscape" {
-                Orientation::Landscape
-            } else {
-                Orientation::Portrait
-            },
+            paper: options
+                .papertype
+                .unwrap_or_else(|| rc.ps_papersize.parse().unwrap_or(Paper::Figure)),
+            orientation: options.orientation.unwrap_or_else(|| {
+                rc.savefig_orientation
+                    .parse()
+                    .unwrap_or(PageOrientation::Portrait)
+            }),
             metadata: options.metadata.clone().unwrap_or_default(),
             simplify: simplify_settings(),
             composite_images: rc.image_composite_image,
@@ -95,5 +98,26 @@ mod tests {
         fig.savefig(dir.join("figure.eps")).unwrap();
         let saved = std::fs::read_to_string(dir.join("figure.eps")).unwrap();
         assert!(saved.contains("%%Title: figure.eps\n"));
+    }
+
+    #[test]
+    fn save_options_choose_the_paper_and_orientation() {
+        let fig = Figure::with_size(8.0, 6.0, 80.0);
+        let options = SaveOptions {
+            orientation: Some(PageOrientation::Landscape),
+            papertype: Some(Paper::Figure),
+            ..SaveOptions::default()
+        };
+        let ps = fig.to_ps_with(options).unwrap();
+        assert!(!ps.contains("%%DocumentPaperSizes"));
+        assert!(ps.contains("%%Orientation: landscape\n%%BoundingBox: 0 0 432 576\n"));
+        assert!(ps.contains("mpldict begin\n432 0 translate\n90 rotate\n"));
+        let letter = SaveOptions {
+            papertype: Some("letter".parse().unwrap()),
+            ..SaveOptions::default()
+        };
+        let ps = fig.to_ps_with(letter).unwrap();
+        assert!(ps.contains("%%DocumentPaperSizes: letter\n"));
+        assert!(ps.contains("%%BoundingBox: 18 180 594 612\n"));
     }
 }

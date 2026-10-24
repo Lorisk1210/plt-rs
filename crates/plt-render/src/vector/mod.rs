@@ -28,7 +28,7 @@ pub(crate) use format::{
     fixed, general, hex, hex_color, repr, repr_bytes, repr_str, short, trimmed,
 };
 pub(crate) use image::{flipped_rows, png_idat};
-pub use metadata::{Metadata, Timestamp, Trapped};
+pub use metadata::{Metadata, SvgMetadata, Timestamp, Trapped};
 pub(crate) use text::{POINTS_DPI, glyph_chars, in_points, prev_kerns};
 pub(crate) use tracker::{CharacterTracker, Subset};
 

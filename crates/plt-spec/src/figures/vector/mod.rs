@@ -9,13 +9,13 @@
 //! numbers, metadata, compression and image encodings are thereby ignored.
 
 mod diff;
-mod pdf;
+pub(crate) mod pdf;
 mod pgf;
 mod ps;
 mod svg;
 mod truetype;
 mod wide;
-mod xml;
+pub(crate) mod xml;
 
 use std::error::Error;
 use std::fmt;
@@ -235,12 +235,18 @@ impl FigureCase {
     }
 }
 
-/// The save options of the vector goldens: the case's resolution and no
-/// metadata.
+/// The save options of the vector goldens: the case's resolution and the
+/// default metadata without creator, producer and date (the spec's
+/// `VECTOR_METADATA`).
 fn golden_options(case: &FigureCase) -> SaveOptions {
     SaveOptions {
         dpi: Some(case.dpi),
-        metadata: Some(Metadata::none()),
+        metadata: Some(Metadata {
+            creator: None,
+            producer: None,
+            date: None,
+            ..Metadata::default()
+        }),
         ..SaveOptions::default()
     }
 }

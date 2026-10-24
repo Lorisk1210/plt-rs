@@ -106,6 +106,29 @@ impl Artist for FigureFrame {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        let group = if self.base.parent.is_some() {
+            "subfigure"
+        } else {
+            "figure"
+        };
+        ctx.renderer().open_group(group, self.base.gid.as_deref());
+        self.draw_contents(ctx);
+        ctx.renderer().close_group(group);
+    }
+
+    fn children(&self) -> Vec<ArtistId> {
+        self.children.clone()
+    }
+
+    fn remove_child(&mut self, child: ArtistId) {
+        self.children.retain(|&id| id != child);
+        self.super_texts.forget(child);
+    }
+}
+
+impl FigureFrame {
+    /// Draws the background, then the children, compositing images.
+    fn draw_contents(&self, ctx: &mut DrawContext<'_>) {
         if self.frameon
             && let Some(extent) = ctx.layout().frame_patch_extent(self.base.id())
         {
@@ -145,15 +168,6 @@ impl Artist for FigureFrame {
             compositor.draw(ctx, id);
         }
         compositor.flush(ctx);
-    }
-
-    fn children(&self) -> Vec<ArtistId> {
-        self.children.clone()
-    }
-
-    fn remove_child(&mut self, child: ArtistId) {
-        self.children.retain(|&id| id != child);
-        self.super_texts.forget(child);
     }
 }
 

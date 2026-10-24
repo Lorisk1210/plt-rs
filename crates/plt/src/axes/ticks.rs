@@ -251,6 +251,9 @@ pub struct TickStyle {
     /// Whether the labels count in layouts and in placing the axis label
     /// and the offset text (matplotlib's `set_in_layout` on tick labels).
     pub label_in_layout: bool,
+    /// The hyperlink of the labels in vector output (matplotlib's
+    /// `set_url` on a tick or its labels).
+    pub label_url: Option<String>,
     /// Whether gridlines are drawn at the ticks.
     pub grid_on: bool,
     /// How the gridlines are drawn; kept while they are off, like
@@ -303,6 +306,7 @@ impl TickStyle {
             label_weight: None,
             label_style: None,
             label_in_layout: true,
+            label_url: None,
             grid_on: grid_on_from_rc(axis, major, rc),
             grid: GridStyle::from_rc(major, rc),
         }

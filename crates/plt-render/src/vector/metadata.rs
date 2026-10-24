@@ -131,8 +131,9 @@ impl Trapped {
 
 /// Metadata written into a vector document; `None` leaves an entry out.
 ///
-/// Every format writes the title, creator and date; the other entries are
-/// keys of the PDF document information dictionary only.
+/// Every format writes the title, creator and date; `svg` holds what only
+/// SVG documents record, and the other entries are keys of the PDF
+/// document information dictionary (SVG records the keywords too).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Metadata {
     /// Document title.
@@ -147,12 +148,14 @@ pub struct Metadata {
     pub author: Option<String>,
     /// What the document is about (PDF `Subject`).
     pub subject: Option<String>,
-    /// Keywords (PDF `Keywords`).
+    /// Keywords (PDF `Keywords`, the SVG subject).
     pub keywords: Option<String>,
     /// When the document was last changed (PDF `ModDate`).
     pub modified: Option<Timestamp>,
     /// Whether the document is trapped (PDF `Trapped`).
     pub trapped: Option<Trapped>,
+    /// The further Dublin Core entries of SVG documents.
+    pub svg: SvgMetadata,
 }
 
 impl Default for Metadata {
@@ -164,6 +167,7 @@ impl Default for Metadata {
             creator: Some(format!("plt-rs v{version}")),
             producer: Some(format!("plt-rs v{version}")),
             date: Some(Timestamp::source_date_or_now()),
+            svg: SvgMetadata::default(),
             ..Self::none()
         }
     }
@@ -182,6 +186,79 @@ impl Metadata {
             keywords: None,
             modified: None,
             trapped: None,
+            svg: SvgMetadata::none(),
+        }
+    }
+}
+
+/// The Dublin Core entries of SVG documents besides the title, creator and
+/// date every format writes (matplotlib's SVG `metadata` keys), and the
+/// several agents, subjects and dates SVG can record where the shared
+/// entries hold one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SvgMetadata {
+    /// The resource type URI (`Type`), the DCMI still image by default.
+    pub resource_type: Option<String>,
+    /// The media type (`Format`), `image/svg+xml` by default.
+    pub format: Option<String>,
+    /// `Coverage`.
+    pub coverage: Option<String>,
+    /// `Description`.
+    pub description: Option<String>,
+    /// `Identifier`.
+    pub identifier: Option<String>,
+    /// `Language`.
+    pub language: Option<String>,
+    /// `Relation`.
+    pub relation: Option<String>,
+    /// `Source`.
+    pub source: Option<String>,
+    /// Several creators (`Creator` as a list), written in place of
+    /// [`Metadata::creator`] when not empty.
+    pub creators: Vec<String>,
+    /// `Contributor` agents.
+    pub contributors: Vec<String>,
+    /// `Publisher` agents.
+    pub publishers: Vec<String>,
+    /// `Rights` holders.
+    pub rights: Vec<String>,
+    /// Several keywords (`Keywords` as a list), written in place of
+    /// [`Metadata::keywords`] when not empty.
+    pub keywords: Vec<String>,
+    /// Dates in ISO 8601, several making a period (`Date` as a list),
+    /// written in place of [`Metadata::date`] when not empty.
+    pub dates: Vec<String>,
+}
+
+impl Default for SvgMetadata {
+    /// The resource type and format matplotlib records by default.
+    fn default() -> Self {
+        Self {
+            resource_type: Some("http://purl.org/dc/dcmitype/StillImage".to_owned()),
+            format: Some("image/svg+xml".to_owned()),
+            ..Self::none()
+        }
+    }
+}
+
+impl SvgMetadata {
+    /// No entry at all.
+    pub const fn none() -> Self {
+        Self {
+            resource_type: None,
+            format: None,
+            coverage: None,
+            description: None,
+            identifier: None,
+            language: None,
+            relation: None,
+            source: None,
+            creators: Vec::new(),
+            contributors: Vec::new(),
+            publishers: Vec::new(),
+            rights: Vec::new(),
+            keywords: Vec::new(),
+            dates: Vec::new(),
         }
     }
 }

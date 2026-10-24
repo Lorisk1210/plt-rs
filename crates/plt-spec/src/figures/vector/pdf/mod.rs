@@ -9,7 +9,7 @@
 mod fonts;
 mod interp;
 mod samples;
-mod syntax;
+pub(crate) mod syntax;
 
 use self::fonts::font_item;
 use self::interp::Interpreter;

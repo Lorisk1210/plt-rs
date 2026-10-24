@@ -3,7 +3,10 @@
 //! background colours, for the raster canvas and the vector backends.
 
 use plt_core::{Bbox, Rgba};
-use plt_render::{Metadata, MixedModeRenderer, PdfRenderer, RasterRenderer, Renderer, VectorError};
+use plt_render::{
+    Metadata, MixedModeRenderer, PageOrientation, Paper, PdfRenderer, RasterRenderer, Renderer,
+    VectorError,
+};
 
 use super::frame::FigureFrame;
 use super::save::{SaveError, SaveFormat};
@@ -51,6 +54,12 @@ pub struct SaveOptions {
     /// JPEG quality from 1 to 100 (Pillow's `quality` in matplotlib's
     /// `pil_kwargs`; 75 by default).
     pub jpeg_quality: Option<u8>,
+    /// How PostScript places the figure on the page
+    /// (`savefig.orientation`).
+    pub orientation: Option<PageOrientation>,
+    /// The page of a PostScript document (`ps.papersize`; Encapsulated
+    /// PostScript is sized to the figure).
+    pub papertype: Option<Paper>,
 }
 
 impl FigureState {

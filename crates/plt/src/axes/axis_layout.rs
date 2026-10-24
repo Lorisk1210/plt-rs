@@ -43,6 +43,8 @@ pub(crate) struct PlacedText {
     pub(crate) rotation: f64,
     /// The text colour.
     pub(crate) color: Rgba,
+    /// The hyperlink of the text in vector output.
+    pub(crate) url: Option<String>,
 }
 
 impl PlacedText {
@@ -376,7 +378,7 @@ fn lay_out_tick_label(
         rotation_mode: placement.rotation_mode,
         ..BlockStyle::default()
     };
-    place_text(
+    let placed = place_text(
         layout,
         &tick.label,
         &font,
@@ -384,7 +386,11 @@ fn lay_out_tick_label(
         &block,
         placement.anchor,
         rc,
-    )
+    )?;
+    Ok(PlacedText {
+        url: style.label_url.clone(),
+        ..placed
+    })
 }
 
 /// The extents of the tick labels of `texts` that count in layouts, each
@@ -427,5 +433,6 @@ pub(crate) fn place_text(
         anchor,
         rotation: block.rotation,
         color,
+        url: None,
     })
 }

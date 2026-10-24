@@ -6,7 +6,7 @@
 //! Delaunay output), neighbours aligned with them, refined meshes as sorted
 //! coordinate triangles, and masked values as `null`.
 
-mod fields;
+pub(crate) mod fields;
 
 use plt::tri::{TriAnalyzer, TriError, Triangulation};
 
@@ -42,7 +42,7 @@ pub(crate) const OPS: &[Op] = &[
 ];
 
 /// A flat list of numbers; nested lists (non-1-D arrays) are rejected.
-fn floats(args: Args<'_>, key: &str) -> Result<Vec<f64>, ProbeError> {
+pub(crate) fn floats(args: Args<'_>, key: &str) -> Result<Vec<f64>, ProbeError> {
     let value = args.json(key)?;
     match value.as_array() {
         Some(items) if items.iter().any(|v| v.as_array().is_some()) => {
@@ -106,7 +106,7 @@ fn parse_mask(args: Args<'_>) -> Result<Option<Vec<bool>>, ProbeError> {
 
 /// The triangulation described by `x`, `y`, `triangles` (or Delaunay when
 /// `null`) and `mask`.
-fn triangulation(args: Args<'_>) -> Result<Triangulation, ProbeError> {
+pub(crate) fn triangulation(args: Args<'_>) -> Result<Triangulation, ProbeError> {
     let (x, y) = (floats(args, "x")?, floats(args, "y")?);
     let tri = match args.get("triangles") {
         None => Triangulation::delaunay(&x, &y),
@@ -194,7 +194,7 @@ fn object<const N: usize>(entries: [(&str, Json); N]) -> Json {
 }
 
 /// A finite value, or `null` (numpy's `masked_invalid`).
-fn masked(value: Option<f64>) -> Json {
+pub(crate) fn masked(value: Option<f64>) -> Json {
     value
         .filter(|v| v.is_finite())
         .map_or(Json::Null, Json::from)
@@ -212,7 +212,7 @@ fn delaunay(args: Args<'_>) -> Outcome {
     ]))
 }
 
-fn delaunay_counts(args: Args<'_>) -> Outcome {
+pub(crate) fn delaunay_counts(args: Args<'_>) -> Outcome {
     let tri = Triangulation::delaunay(&floats(args, "x")?, &floats(args, "y")?)
         .map_err(ProbeError::rejected)?;
     let mut used: Vec<usize> = tri.triangles().iter().flatten().copied().collect();
@@ -227,7 +227,7 @@ fn delaunay_counts(args: Args<'_>) -> Outcome {
 
 /// The triangles and neighbours exactly as matplotlib's qhull wrapper
 /// orders them.
-fn delaunay_order(args: Args<'_>) -> Outcome {
+pub(crate) fn delaunay_order(args: Args<'_>) -> Outcome {
     let tri = Triangulation::delaunay(&floats(args, "x")?, &floats(args, "y")?)
         .map_err(ProbeError::rejected)?;
     Ok(object([
@@ -236,7 +236,7 @@ fn delaunay_order(args: Args<'_>) -> Outcome {
     ]))
 }
 
-fn explicit(args: Args<'_>) -> Outcome {
+pub(crate) fn explicit(args: Args<'_>) -> Outcome {
     let (x, y) = (floats(args, "x")?, floats(args, "y")?);
     let (raw, indices) = parse_triangles(args.json("triangles")?)?;
     let mut tri = Triangulation::new(&x, &y, indices).map_err(ProbeError::rejected)?;
@@ -270,7 +270,7 @@ fn plane_coefficients(args: Args<'_>) -> Outcome {
 }
 
 /// Query points `qx`, `qy` of equal length.
-fn queries(args: Args<'_>) -> Result<Vec<(f64, f64)>, ProbeError> {
+pub(crate) fn queries(args: Args<'_>) -> Result<Vec<(f64, f64)>, ProbeError> {
     let (qx, qy) = (floats(args, "qx")?, floats(args, "qy")?);
     if qx.len() != qy.len() {
         return Err(ProbeError::rejected("x and y must have the same shape"));
@@ -294,18 +294,18 @@ fn find(args: Args<'_>) -> Outcome {
     ))
 }
 
-fn scale_factors(args: Args<'_>) -> Outcome {
+pub(crate) fn scale_factors(args: Args<'_>) -> Outcome {
     let tri = triangulation(args)?;
     Ok(Json::from(TriAnalyzer::new(&tri).scale_factors().to_vec()))
 }
 
-fn circle_ratios(args: Args<'_>) -> Outcome {
+pub(crate) fn circle_ratios(args: Args<'_>) -> Outcome {
     let tri = triangulation(args)?;
     let ratios = TriAnalyzer::new(&tri).circle_ratios(args.bool("rescale")?);
     Ok(Json::Array(ratios.into_iter().map(masked).collect()))
 }
 
-fn flat_tri_mask(args: Args<'_>) -> Outcome {
+pub(crate) fn flat_tri_mask(args: Args<'_>) -> Outcome {
     let tri = triangulation(args)?;
     let mask =
         TriAnalyzer::new(&tri).flat_tri_mask(args.f64("min_circle_ratio")?, args.bool("rescale")?);
@@ -313,6 +313,6 @@ fn flat_tri_mask(args: Args<'_>) -> Outcome {
 }
 
 /// Maps triangulation errors to probe rejections.
-fn rejected(err: TriError) -> ProbeError {
+pub(crate) fn rejected(err: TriError) -> ProbeError {
     ProbeError::rejected(err)
 }

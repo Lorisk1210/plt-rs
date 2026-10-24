@@ -5,6 +5,7 @@ use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 
 use super::*;
 use crate::gc::{ClipPath, Hatch};
+use crate::vector::SvgMetadata;
 
 fn renderer() -> SvgRenderer {
     SvgRenderer::new(
@@ -37,9 +38,74 @@ fn document_skeleton() {
         "<svg xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"100pt\" height=\"50pt\" \
          viewBox=\"0 0 100 50\" xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">"
     ));
-    assert!(svg.contains("<dc:format>image/svg+xml</dc:format>"));
+    assert!(!svg.contains("<metadata>"), "no metadata, no block");
     assert!(svg.ends_with("</svg>\n"));
     assert!(SvgRenderer::new(0.0, 1.0, 72.0, SvgOptions::default()).is_err());
+}
+
+/// The `<metadata>` block of a document with `metadata`.
+fn metadata_block(metadata: Metadata) -> String {
+    let options = SvgOptions {
+        hashsalt: Some("test".to_owned()),
+        metadata,
+        ..SvgOptions::default()
+    };
+    let svg = SvgRenderer::new(10.0, 10.0, 72.0, options)
+        .and_then(SvgRenderer::finish)
+        .expect("document");
+    let start = svg.find("<metadata>").expect("a metadata block");
+    let end = svg.find("</metadata>").expect("a closed block");
+    svg[start..end].to_owned()
+}
+
+#[test]
+fn default_metadata_records_type_date_format_and_creator() {
+    let block = metadata_block(Metadata {
+        date: Some(Timestamp(19_680_801)),
+        ..Metadata::default()
+    });
+    let tags: Vec<&str> = block
+        .lines()
+        .filter_map(|line| line.trim_start().strip_prefix("<dc:"))
+        .collect();
+    assert_eq!(tags.len(), 5);
+    assert!(tags[0].starts_with("type rdf:resource=\"http://purl.org/dc/dcmitype/StillImage\""));
+    assert_eq!(tags[1], "date>1970-08-16T18:53:21+00:00</dc:date>");
+    assert_eq!(tags[2], "format>image/svg+xml</dc:format>");
+    assert_eq!(tags[3], "creator>");
+    assert!(tags[4].starts_with("title>plt-rs v"), "the creator agent");
+}
+
+#[test]
+fn dublin_core_entries_follow_matplotlibs_order() {
+    let block = metadata_block(Metadata {
+        title: Some("Title".to_owned()),
+        keywords: Some("ignored for the list".to_owned()),
+        svg: SvgMetadata {
+            description: Some("about".to_owned()),
+            creators: vec!["A".to_owned(), "B".to_owned()],
+            rights: vec!["R".to_owned()],
+            keywords: vec!["k1".to_owned(), "k2".to_owned()],
+            dates: vec!["1968-08-01".to_owned(), "1968-08-02T01:02:03".to_owned()],
+            ..SvgMetadata::none()
+        },
+        ..Metadata::none()
+    });
+    let order: Vec<usize> = [
+        "<dc:title>Title",
+        "<dc:date>1968-08-01/1968-08-02T01:02:03",
+        "<dc:description>about",
+        "<dc:creator>",
+        "<dc:title>B",
+        "<dc:rights>",
+        "<rdf:li>k1",
+        "<rdf:li>k2",
+    ]
+    .iter()
+    .map(|entry| block.find(entry).expect(entry))
+    .collect();
+    assert!(order.is_sorted(), "{block}");
+    assert!(!block.contains("dc:type") && !block.contains("ignored"));
 }
 
 #[test]

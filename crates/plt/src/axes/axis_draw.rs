@@ -279,6 +279,7 @@ pub(crate) fn draw_text(ctx: &mut DrawContext<'_>, text: &PlacedText, rc: &crate
     let gc = GraphicsContext {
         foreground: text.color,
         antialiased: rc.text_antialiased,
+        url: text.url.clone(),
         ..GraphicsContext::default()
     };
     draw_laid_out(ctx, &gc, &text.laid_out, text.anchor, text.rotation);

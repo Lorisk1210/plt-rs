@@ -225,6 +225,24 @@ impl Artist for Axes3DState {
         let Some(extent) = ctx.layout().axes_extent(self.base.id()) else {
             return;
         };
+        ctx.renderer().open_group("axes", self.base.gid.as_deref());
+        self.draw_in_group(ctx, &extent);
+        ctx.renderer().close_group("axes");
+    }
+
+    fn children(&self) -> Vec<ArtistId> {
+        vec![self.plane]
+    }
+
+    fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        ctx.axes_extent(self.base.id())
+    }
+}
+
+impl Axes3DState {
+    /// Draws the background, the axes and the plane's artists inside the
+    /// display box `extent`.
+    fn draw_in_group(&self, ctx: &mut DrawContext<'_>, extent: &Bbox) {
         match self.facecolor.resolve() {
             Ok(face) => {
                 // The background patch has edge colour 'none' and no width,
@@ -236,14 +254,14 @@ impl Artist for Axes3DState {
                 ctx.renderer().draw_path(
                     &gc,
                     &Path::unit_rectangle(),
-                    &unit_to_bbox(&extent),
+                    &unit_to_bbox(extent),
                     (!face.is_transparent()).then_some(face),
                 );
             }
             Err(err) => ctx.report(self.base.id(), err),
         }
         if self.axis_on {
-            draw_axes(self, ctx, &extent);
+            draw_axes(self, ctx, extent);
         }
         let Some(plane) = ctx.layout().store().get_as::<AxesState>(self.plane) else {
             return;
@@ -251,14 +269,6 @@ impl Artist for Axes3DState {
         let mut children = Self::plane_children(plane);
         children.retain(|&id| !ctx.layout().skips_animated(id, true));
         ctx.draw_children_sorted(&children);
-    }
-
-    fn children(&self) -> Vec<ArtistId> {
-        vec![self.plane]
-    }
-
-    fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        ctx.axes_extent(self.base.id())
     }
 }
 

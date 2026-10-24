@@ -81,3 +81,23 @@ impl Figure {
         .map_err(SaveError::Vector)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::artist::ArtistHandle;
+    use crate::figure::Figure;
+
+    #[test]
+    fn figures_axes_and_texts_write_their_group_ids() {
+        let fig = Figure::new();
+        fig.set_gid("the figure");
+        let ax = fig.subplot();
+        ax.set_gid("the axes");
+        ax.text(0.5, 0.5, "label").set_gid("the text");
+        fig.subplot_3d().set_gid("the 3-D axes");
+        let svg = fig.to_svg().unwrap();
+        for gid in ["the figure", "the axes", "the text", "the 3-D axes"] {
+            assert!(svg.contains(&format!("<g id=\"{gid}\">")), "{gid}");
+        }
+    }
+}

@@ -3,16 +3,16 @@
 
 /// An element with its attributes (in document order), children and text.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub(super) struct Element {
-    pub(super) name: String,
-    pub(super) attributes: Vec<(String, String)>,
-    pub(super) children: Vec<Element>,
-    pub(super) text: String,
+pub(crate) struct Element {
+    pub(crate) name: String,
+    pub(crate) attributes: Vec<(String, String)>,
+    pub(crate) children: Vec<Element>,
+    pub(crate) text: String,
 }
 
 impl Element {
     /// The value of attribute `name`.
-    pub(super) fn attr(&self, name: &str) -> Option<&str> {
+    pub(crate) fn attr(&self, name: &str) -> Option<&str> {
         self.attributes
             .iter()
             .find(|(n, _)| n == name)
@@ -166,7 +166,7 @@ impl<'a> Reader<'a> {
 }
 
 /// Parses a document into its root element.
-pub(super) fn parse(text: &str) -> Result<Element, String> {
+pub(crate) fn parse(text: &str) -> Result<Element, String> {
     let mut reader = Reader { text, pos: 0 };
     reader.skip_misc()?;
     if !reader.rest().starts_with('<') {

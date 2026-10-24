@@ -172,6 +172,10 @@ fn insert_axes3d(
     let plane = insert_axes(state, frame, Bbox::UNIT, None);
     let (lo, hi) = Camera::view_window();
     plane.set_xlim(lo, hi).set_ylim(lo, hi);
+    // mplot3d draws its own frame: matplotlib hides the axes' spines.
+    for spine in plane.spines().iter() {
+        spine.set_visible(false);
+    }
     let mut axes = Axes3DState::new(position, plane.id(), camera, crate::rc::params());
     axes.subplot_spec = spec;
     axes.computed_zorder = options.computed_zorder;

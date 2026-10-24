@@ -11,7 +11,9 @@ use std::sync::OnceLock;
 use plt::artist::ArtistHandle;
 use plt::figure::Figure;
 use plt::text::{Feature, HAlign, Language, LanguageRange, Text};
-use plt_font::{Face, FontChain, FontDatabase, FontSource, Hinting, ShapeOptions, TextLayout};
+use plt_font::{
+    Face, FontChain, FontDatabase, FontId, FontSource, Hinting, ShapeOptions, TextLayout,
+};
 
 use super::text_metrics::with_rc;
 use crate::json::Json;
@@ -26,9 +28,19 @@ pub(crate) const OPS: &[Op] = &[
 ];
 
 /// The bundled fonts, loaded once.
-fn database() -> &'static FontDatabase {
+pub(crate) fn database() -> &'static FontDatabase {
     static DATABASE: OnceLock<FontDatabase> = OnceLock::new();
     DATABASE.get_or_init(FontDatabase::with_bundled_fonts)
+}
+
+/// The bundled font stored in the file named `file`.
+pub(crate) fn bundled_font(file: &str) -> Result<FontId, ProbeError> {
+    let db = database();
+    db.entries()
+        .iter()
+        .map(|entry| entry.font)
+        .find(|&font| db.source(font).and_then(FontSource::file_name) == Some(file))
+        .ok_or_else(|| ProbeError::BadArgs(format!("unknown font file {file:?}")))
 }
 
 /// The `features` argument: `HarfBuzz` feature strings (absent or null:
@@ -90,14 +102,9 @@ fn language(args: Args<'_>, text: &str) -> Result<Option<Language>, ProbeError> 
 fn laid_out(args: Args<'_>) -> Result<TextLayout, ProbeError> {
     let file = args.str("file")?;
     let text = args.str("text")?;
-    let db = database();
-    let font = db
-        .entries()
-        .iter()
-        .map(|entry| entry.font)
-        .find(|&font| db.source(font).and_then(FontSource::file_name) == Some(file))
-        .ok_or_else(|| ProbeError::BadArgs(format!("unknown font file {file:?}")))?;
-    let face: Face<'_> = db.face(font).map_err(ProbeError::rejected)?;
+    let face: Face<'_> = database()
+        .face(bundled_font(file)?)
+        .map_err(ProbeError::rejected)?;
     let languages = match language(args, text)? {
         Some(language) => language.ranges(text).map_err(ProbeError::rejected)?,
         None => Vec::new(),

@@ -195,7 +195,7 @@ impl Axes {
                         text,
                         xy,
                         AnnotateOptions {
-                            xytext: Some(placement.offset(pad)),
+                            xytext: Some(placement.offset(pad).into()),
                             xycoords,
                             textcoords: Some(Coords::Relative {
                                 origin: CoordOrigin::Offset,

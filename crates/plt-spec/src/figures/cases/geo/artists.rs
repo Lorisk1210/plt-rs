@@ -79,7 +79,7 @@ fn scatter_text_annotate(fig: &Figure) -> CaseResult {
         "far east",
         (lon[5], lat[5]),
         AnnotateOptions {
-            xytext: Some(Point::new(1.5, 1.2)),
+            xytext: Some(Point::new(1.5, 1.2).into()),
             arrowprops: Some(ArrowProps::Fancy(arrow)),
             ..AnnotateOptions::default()
         },

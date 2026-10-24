@@ -9,7 +9,7 @@ use crate::colors::Color;
 use crate::lines::{DrawStyle, LineStyle, MarkEvery, MarkerIndicesError, StepError};
 use crate::markers::{FillStyle, Marker};
 use crate::rc::ColorOrAuto;
-use crate::units::LineSources;
+use crate::units::UnitSources;
 
 /// A handle to a line in a figure (matplotlib's `Line2D`).
 ///
@@ -65,7 +65,7 @@ impl Line2D {
         self.raw.with_mut::<LineArtist, _>(|line| {
             line.xdata = x.to_vec();
             line.ydata = y.to_vec();
-            line.unit_sources = LineSources::default();
+            line.unit_sources = UnitSources::default();
             line.recache();
         });
         self
@@ -73,7 +73,7 @@ impl Line2D {
 
     /// Keeps the user values the line's data came from, which it converts
     /// again when an axis changes unit.
-    pub(crate) fn set_unit_sources(&self, sources: LineSources) -> &Self {
+    pub(crate) fn set_unit_sources(&self, sources: UnitSources) -> &Self {
         self.raw
             .with_mut::<LineArtist, _>(|line| line.unit_sources = sources);
         self

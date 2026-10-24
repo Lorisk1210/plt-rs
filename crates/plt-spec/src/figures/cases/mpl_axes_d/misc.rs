@@ -188,7 +188,7 @@ fn preset_clip_paths(fig: &Figure) -> CaseResult {
         "Annotation",
         Point::new(-0.75, -0.75),
         AnnotateOptions {
-            xytext: Some(Point::new(0.1, 0.75)),
+            xytext: Some(Point::new(0.1, 0.75).into()),
             arrowprops: Some(ArrowProps::Legacy(arrow)),
             ..AnnotateOptions::default()
         },

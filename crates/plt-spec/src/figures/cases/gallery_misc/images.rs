@@ -277,7 +277,7 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
             "Vertical Exaggeration",
             (0.5, 1.0),
             AnnotateOptions {
-                xytext: Some(Point::new(0.0, 30.0)),
+                xytext: Some(Point::new(0.0, 30.0).into()),
                 xycoords: axes_fraction()?,
                 textcoords: Some("offset points".parse()?),
                 ..AnnotateOptions::default()
@@ -291,7 +291,7 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
             "Blend Mode",
             (0.0, 0.5),
             AnnotateOptions {
-                xytext: Some(Point::new(-30.0, 0.0)),
+                xytext: Some(Point::new(-30.0, 0.0).into()),
                 xycoords: axes_fraction()?,
                 textcoords: Some("offset points".parse()?),
                 ..AnnotateOptions::default()

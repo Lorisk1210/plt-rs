@@ -22,13 +22,16 @@ use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle}
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
 use crate::events::Dragger;
 use crate::patches::{ClipRegion, DisplayPath};
+use crate::units::{DataPoint, UnitSources};
 
 /// The options of [`Axes::annotate`](crate::axes::Axes::annotate)
 /// (matplotlib's keyword arguments besides the text properties).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct AnnotateOptions {
-    /// Where the text goes; `None` puts it at the annotated point.
-    pub xytext: Option<Point>,
+    /// Where the text goes, in `textcoords`: numbers, or plotting values
+    /// converted on their axis where they are data coordinates; `None`
+    /// puts it at the annotated point.
+    pub xytext: Option<DataPoint>,
     /// The coordinates of the annotated point (not an offset).
     pub xycoords: Coords,
     /// The coordinates of the text; `None` uses `xycoords`.
@@ -49,6 +52,10 @@ pub struct AnnotateOptions {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct AnnotationState {
     pub(crate) xy: Point,
+    /// The user values the annotated point came from, which it converts
+    /// again when an axis changes unit (matplotlib's `Annotation.xy`
+    /// converted when drawn); moving the point forgets them.
+    pub(crate) unit_sources: UnitSources,
     pub(crate) xycoords: Coords,
     pub(crate) textcoords: Coords,
     pub(crate) arrow: Option<AnnotationArrow>,
@@ -70,6 +77,7 @@ impl AnnotationState {
         }
         Ok(Self {
             xy,
+            unit_sources: UnitSources::default(),
             textcoords: options
                 .textcoords
                 .unwrap_or_else(|| options.xycoords.clone()),
@@ -314,7 +322,10 @@ impl Annotation {
     /// Moves the annotated point.
     pub fn set_xy(&self, xy: impl Into<Point>) -> &Self {
         let xy = xy.into();
-        self.update(|a| a.xy = xy)
+        self.update(|a| {
+            a.xy = xy;
+            a.unit_sources = UnitSources::default();
+        })
     }
 
     /// The coordinates of the text position (matplotlib's

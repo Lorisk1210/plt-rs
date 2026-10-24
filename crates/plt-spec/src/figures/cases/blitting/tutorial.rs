@@ -112,7 +112,7 @@ fn blit_manager(fig: &Figure) -> CaseResult {
     let x = wave_x();
     let ln = ax.plot(x.clone(), shifted(&x, 0.0, f64::sin))?;
     let options = AnnotateOptions {
-        xytext: Some(Point::new(10.0, -10.0)),
+        xytext: Some(Point::new(10.0, -10.0).into()),
         xycoords: "axes fraction".parse()?,
         textcoords: Some("offset points".parse()?),
         ..AnnotateOptions::default()

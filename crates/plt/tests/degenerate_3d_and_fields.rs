@@ -161,7 +161,7 @@ fn other_cases() -> Vec<(&'static str, Case)> {
         ("annotate and axline", |ax, _, y| {
             for &v in y {
                 let options = AnnotateOptions {
-                    xytext: Some(Point::new(v / 2.0, v * 2.0)),
+                    xytext: Some(Point::new(v / 2.0, v * 2.0).into()),
                     ..AnnotateOptions::default()
                 };
                 ax.annotate(format!("{v}"), Point::new(v, v), options)?;

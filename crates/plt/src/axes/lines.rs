@@ -8,7 +8,7 @@ use crate::lines::{Line2D, LineArtist, LineProps};
 use crate::rc::{CycleValue, Cycler};
 use crate::scale::LogScale;
 use crate::ticker::AxisName;
-use crate::units::{AxisValues, LineSources};
+use crate::units::{AxisValues, UnitSources};
 
 impl Axes {
     /// Plots `y` against `x` as a line using the next property-cycle style
@@ -66,7 +66,7 @@ impl Axes {
                 y: y.len(),
             });
         }
-        let sources = LineSources::of(&x, &y);
+        let sources = UnitSources::of(&x, &y);
         let x = self.xaxis().convert_plot_units(x);
         let y = self.yaxis().convert_plot_units(y);
         let line = self.add_cycled_line(x, y, props);

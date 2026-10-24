@@ -418,7 +418,7 @@ fn timeline(fig: &Figure) -> CaseResult {
     for ((release, &day), &level) in releases.iter().zip(&days).zip(&levels) {
         let version = release.version.map(|n| n.to_string()).join(".");
         let options = AnnotateOptions {
-            xytext: Some(Point::new(-3.0, level.signum() * 3.0)),
+            xytext: Some(Point::new(-3.0, level.signum() * 3.0).into()),
             textcoords: Some("offset points".parse()?),
             ..AnnotateOptions::default()
         };

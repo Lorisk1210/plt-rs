@@ -96,9 +96,13 @@
 //! The x and y of `plot`, `scatter`, `bar`, `barh` and `step` accept
 //! numbers, categories, dates and values of user types ([`AxisValues`]),
 //! and the heights, widths and error sizes of bars accept numbers,
-//! durations and values of user types ([`AxisDeltas`]); most other
-//! methods take numbers (`impl AsRef<[f64]>`), converted first with
-//! [`Axis::convert_units`] when they are not.
+//! durations and values of user types ([`AxisDeltas`]); so do the
+//! positions of texts and annotations (`xy` and `xytext`) and the corner
+//! and sides of a [`DataRectangle`]. Most other methods take numbers
+//! (`impl AsRef<[f64]>`), converted first with [`Axis::convert_units`]
+//! when they are not. As in matplotlib, lines, texts, annotations and
+//! rectangles of user values convert them again when an axis changes unit
+//! ([`Axis::set_units`]); spans, bars, fills and scatters do not.
 //!
 //! # Lines
 //!
@@ -447,5 +451,6 @@
 //! [`Convertible`]: crate::units::Convertible
 //! [`Axis::set_units`]: crate::axes::Axis::set_units
 //! [`Axis::update_units`]: crate::axes::Axis::update_units
+//! [`DataRectangle`]: crate::patches::DataRectangle
 //! [`ScalarField::with_mask`]: crate::image::ScalarField::with_mask
 //! [`QuadField`]: crate::contour::QuadField

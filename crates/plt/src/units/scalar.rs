@@ -3,7 +3,6 @@
 
 use plt_core::Point;
 
-use super::deltas::days;
 use super::{AxisDelta, AxisValues, Convertible, UnitValues};
 use crate::dates::{DateTime, Datetime64, get_epoch};
 
@@ -35,17 +34,25 @@ pub enum AxisValue {
 impl AxisValue {
     /// The value an extent `delta` reaches from this one, if the extent
     /// adds to it (Python's `value + delta`): a number to a number, a
-    /// duration to a date, and to a user value what its
-    /// [`Convertible::add_delta`] adds.
+    /// duration to a date (on the instant, as Python adds a `timedelta`
+    /// to a `datetime`: [`Epoch::add_duration`](crate::dates::Epoch::add_duration)),
+    /// and to a user value what its [`Convertible::add_delta`] adds.
     pub(crate) fn add_delta(&self, delta: &AxisDelta) -> Option<Self> {
         match (self, delta) {
             (Self::Number(value), AxisDelta::Number(delta)) => Some(Self::Number(value + delta)),
             (Self::Date(date), AxisDelta::Duration(duration)) => {
-                Some(Self::Date(date + days(*duration)))
+                Some(Self::Date(get_epoch().add_duration(*date, *duration)))
             }
             (Self::Custom(value), delta) => value.add_delta(delta),
             _ => None,
         }
+    }
+
+    /// The value `factor` extents `delta` away, if the extent scales and
+    /// adds to it (Python's `value + factor * delta`, matplotlib's ends
+    /// of error bars).
+    pub(crate) fn offset(&self, delta: &AxisDelta, factor: i64) -> Option<Self> {
+        self.add_delta(&delta.scale(factor)?)
     }
 }
 
@@ -140,7 +147,7 @@ impl From<[f64; 2]> for DataPoint {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dates::TimeDelta;
+    use crate::dates::{DateTime, TimeDelta};
 
     #[test]
     fn single_values_become_one_element_lists() {
@@ -184,5 +191,38 @@ mod tests {
             AxisValue::from("a").add_delta(&AxisDelta::Number(1.0)),
             None
         );
+    }
+
+    #[test]
+    fn durations_add_to_the_instants_of_dates() {
+        let at = |h, s| AxisValue::from(DateTime::new(2020, 5, 1, h, 0, s, 0).unwrap());
+        let eight_hours = AxisDelta::from(TimeDelta::new(0, 8 * 3600, 0).unwrap());
+        // Adding a third of a day to the date number rounds the other way.
+        assert_eq!(at(0, 1).add_delta(&eight_hours), Some(at(8, 1)));
+        // A date number of no whole microsecond adds as a number.
+        let odd = AxisValue::Date(0.123_456_789_012_345);
+        let day = AxisDelta::from(TimeDelta::new(1, 0, 0).unwrap());
+        assert_eq!(
+            odd.add_delta(&day),
+            Some(AxisValue::Date(1.123_456_789_012_345))
+        );
+        assert!(matches!(
+            AxisValue::Date(f64::NAN).add_delta(&day),
+            Some(AxisValue::Date(date)) if date.is_nan()
+        ));
+    }
+
+    #[test]
+    fn offsets_scale_the_extent_first() {
+        let back = TimeDelta::new(0, 3600, 0).unwrap().into();
+        let noon = AxisValue::from(DateTime::new(2020, 5, 1, 12, 0, 0, 0).unwrap());
+        let eleven = AxisValue::from(DateTime::new(2020, 5, 1, 11, 0, 0, 0).unwrap());
+        assert_eq!(noon.offset(&back, -1), Some(eleven));
+        assert_eq!(noon.offset(&back, 0), Some(noon.clone()));
+        assert_eq!(
+            AxisValue::Number(1.0).offset(&AxisDelta::Number(0.25), -1),
+            Some(AxisValue::Number(0.75))
+        );
+        assert_eq!(AxisValue::Number(1.0).offset(&back, 1), None);
     }
 }

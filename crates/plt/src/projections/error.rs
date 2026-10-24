@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::axes::AspectError;
+use crate::axes::{AspectError, PlotError};
 use crate::figure::AxesRectError;
 use crate::gridspec::GridSpecError;
 
@@ -39,6 +39,10 @@ pub enum ProjectionError {
     /// projection fixing its data ratio refuses (matplotlib's
     /// `set_adjustable('datalim')` raising in `twinx`).
     Aspect(AspectError),
+    /// Axes of the projection cannot share an axis: it fixes their limits,
+    /// as the geographic projections do (matplotlib's `TypeError` from
+    /// `sharex`).
+    Share(PlotError),
 }
 
 impl fmt::Display for ProjectionError {
@@ -65,6 +69,7 @@ impl fmt::Display for ProjectionError {
             Self::Grid(err) => err.fmt(f),
             Self::Rect(err) => err.fmt(f),
             Self::Aspect(err) => err.fmt(f),
+            Self::Share(err) => err.fmt(f),
         }
     }
 }
@@ -75,6 +80,7 @@ impl std::error::Error for ProjectionError {
             Self::Grid(err) => Some(err),
             Self::Rect(err) => Some(err),
             Self::Aspect(err) => Some(err),
+            Self::Share(err) => Some(err),
             Self::Unknown(_) | Self::Builtin(_) | Self::Options { .. } | Self::SetUp { .. } => None,
         }
     }

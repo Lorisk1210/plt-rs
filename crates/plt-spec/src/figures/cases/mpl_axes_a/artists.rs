@@ -25,7 +25,7 @@ pub(super) fn basic_annotate(fig: &Figure) -> CaseResult {
     ax.set_xlim(-1.0, 5.0)?.set_ylim(-3.0, 5.0)?;
     ax.plot_with(t, s, LineProps::default().linewidth(3.0).color("purple"))?;
     let options = AnnotateOptions {
-        xytext: Some(Point::new(3.0, 3.0)),
+        xytext: Some(Point::new(3.0, 3.0).into()),
         xycoords: "data".parse()?,
         textcoords: Some("offset points".parse()?),
         ..AnnotateOptions::default()

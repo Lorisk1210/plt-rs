@@ -191,6 +191,60 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
         let _ = delta;
         None
     }
+
+    /// This value `factor` times, if values of the type scale (Python's
+    /// `factor * value`). [`Axes::errorbar`](crate::axes::Axes::errorbar)
+    /// scales error sizes by -1, 0 or 1 and adds them to the values
+    /// ([`add_delta`](Self::add_delta)), as matplotlib computes the ends
+    /// of error bars in the units of the data (`x + -1 * xerr`). The
+    /// default does not scale, so that error sizes of the type fail as
+    /// they do in matplotlib.
+    ///
+    /// ```
+    /// use plt::axes::{Axis, ErrorbarOptions};
+    /// use plt::prelude::*;
+    /// use plt::units::{
+    ///     AxisDelta, AxisDeltas, AxisValue, ConversionError, ConversionInterface, Convertible,
+    /// };
+    ///
+    /// /// A temperature in degrees Celsius, plotted in degrees Fahrenheit.
+    /// #[derive(Clone, Copy, Debug, PartialEq)]
+    /// struct Celsius(f64);
+    ///
+    /// struct Fahrenheit;
+    ///
+    /// impl ConversionInterface for Fahrenheit {
+    ///     type Value = Celsius;
+    ///     type Unit = ();
+    ///     fn convert(&self, values: &[Celsius], _: Option<&()>, _: &Axis)
+    ///         -> Result<Vec<f64>, ConversionError> {
+    ///         Ok(values.iter().map(|t| t.0 * 9.0 / 5.0 + 32.0).collect())
+    ///     }
+    /// }
+    ///
+    /// impl Convertible for Celsius {
+    ///     type Converter = Fahrenheit;
+    ///     fn converter() -> Fahrenheit { Fahrenheit }
+    ///     fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
+    ///         delta.downcast_ref::<Self>().map(|d| Celsius(self.0 + d.0).into())
+    ///     }
+    ///     fn scale(&self, factor: i64) -> Option<Self> {
+    ///         Some(Celsius(factor as f64 * self.0))
+    ///     }
+    /// }
+    ///
+    /// let ax = Figure::new().subplot();
+    /// let five = AxisDeltas::from(vec![Celsius(5.0)]);
+    /// let options = ErrorbarOptions { yerr: Some(five.into()), ..Default::default() };
+    /// let bars = ax.errorbar([1.0], vec![Celsius(20.0)], options)?;
+    /// let ends = bars.barlinecols[0].paths()[0].vertices().to_vec();
+    /// assert_eq!((ends[0].y, ends[1].y), (59.0, 77.0), "15 °C to 25 °C, not 68 ± 41 °F");
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    fn scale(&self, factor: i64) -> Option<Self> {
+        let _ = factor;
+        None
+    }
 }
 
 /// The unit type of the converter of values of type `T`.

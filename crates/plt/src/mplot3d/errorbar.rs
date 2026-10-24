@@ -17,6 +17,7 @@ use crate::colors::Color;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::transforms::{TransformContext, unit_to_bbox};
+use crate::units::AxisDeltas;
 
 /// The tangent of a quiver head's 15° barb angle, inverted: arrow length
 /// over half the width of its base (matplotlib's `1.8660254037844388`).
@@ -29,8 +30,8 @@ const NO_LEGEND: &str = "_nolegend_";
 /// 3-D axes).
 #[derive(Clone, Debug, Default)]
 pub struct Errorbar3DOptions {
-    /// Error sizes along x, y and z (one value or one per point; nothing
-    /// draws no bars along that axis).
+    /// Error sizes along x, y and z: numbers, one or one per point;
+    /// nothing draws no bars along that axis.
     pub errors: [Option<ErrorSize>; 3],
     /// Style of the data line, or no line.
     pub fmt: ErrorbarFormat,
@@ -105,7 +106,9 @@ impl Axes3D {
     /// # Errors
     ///
     /// When the coordinates differ in length, an error or limit list does
-    /// not broadcast, or `errorevery` is invalid.
+    /// not broadcast, `errorevery` is invalid, or errors are durations or
+    /// user values, which do not add to the coordinates
+    /// ([`Axes3DError::UnitErrors`]; matplotlib fails on them too).
     pub fn errorbar(
         &self,
         x: &[f64],
@@ -376,10 +379,11 @@ fn bar_ends(
     every: &[bool],
 ) -> Result<BarEnds, Axes3DError> {
     let n = points.len();
-    let (lower, upper) = err.sides(|errors| {
-        errors
-            .to_numbers()
-            .map_err(|_| Axes3DError::UnitErrors(axis))
+    // matplotlib computes the ends as `data - err` and `data + err` on the
+    // coordinates, which are numbers here: only numbers add to them.
+    let (lower, upper) = err.sides(|errors| match errors {
+        AxisDeltas::Numbers(numbers) => Ok(numbers.clone()),
+        AxisDeltas::Durations(_) | AxisDeltas::Custom(_) => Err(Axes3DError::UnitErrors(axis)),
     })?;
     let (lower, upper) = (
         broadcast("errors", &lower, n)?,
@@ -478,10 +482,10 @@ mod tests {
     }
 
     #[test]
-    fn durations_are_days_and_user_errors_are_refused() {
+    fn errors_with_units_are_refused_as_in_matplotlib() {
         use crate::axes::Axis;
         use crate::dates::TimeDelta;
-        use crate::units::{AxisDeltas, ConversionError, ConversionInterface, Convertible};
+        use crate::units::{ConversionError, ConversionInterface, Convertible};
 
         /// A length in some unit.
         #[derive(Clone, Copy, Debug, PartialEq)]
@@ -512,8 +516,11 @@ mod tests {
         let points = [[0.0, 0.0, 1.0]];
         let flags: (&[bool], &[bool]) = (&[false], &[false]);
         let half_day = TimeDelta::new(0, 43_200, 0).unwrap();
-        let ends = bar_ends(&points, Axis3::X, &half_day.into(), flags, &[true]).unwrap();
-        assert_eq!((ends.lows[0][0], ends.highs[0][0]), (-0.5, 0.5));
+        assert_eq!(
+            bar_ends(&points, Axis3::X, &half_day.into(), flags, &[true]).err(),
+            Some(Axes3DError::UnitErrors(Axis3::X)),
+            "a number plus a duration fails in Python"
+        );
         let lengths = ErrorSize::from(AxisDeltas::from(vec![Length(1.0)]));
         assert_eq!(
             bar_ends(&points, Axis3::Y, &lengths, flags, &[true]).err(),

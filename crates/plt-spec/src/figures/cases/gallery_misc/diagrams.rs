@@ -35,7 +35,7 @@ fn fishbone_problem(ax: &Axes, data: &str, x: f64, angle_y: f64) -> CaseResult {
         data.to_uppercase(),
         (x, 0.0),
         AnnotateOptions {
-            xytext: Some(Point::new(-12.0, angle_y)),
+            xytext: Some(Point::new(-12.0, angle_y).into()),
             textcoords: Some("offset fontsize".parse()?),
             arrowprops: Some(fishbone_arrow()?),
             ..AnnotateOptions::default()
@@ -72,7 +72,7 @@ fn fishbone_causes(ax: &Axes, data: &[&str], x: f64, y: f64, top: bool) -> CaseR
             *cause,
             (x, y),
             AnnotateOptions {
-                xytext: Some(Point::new(-9.0, -0.3)),
+                xytext: Some(Point::new(-9.0, -0.3).into()),
                 textcoords: Some("offset fontsize".parse()?),
                 arrowprops: Some(fishbone_arrow()?),
                 ..AnnotateOptions::default()

@@ -35,7 +35,9 @@ use plt_core::{Bbox, Point};
 use plt_render::ClipPath;
 
 use crate::patches::{ClipRegion, PatchView};
+use crate::ticker::AxisName;
 use crate::transforms::Transform;
+use crate::units::UnitValues;
 
 pub use attach::AttachError;
 pub(crate) use base::rc_sketch;
@@ -186,4 +188,20 @@ pub trait Artist: Any + Debug {
     fn as_patch(&self) -> Option<PatchView<'_>> {
         None
     }
+
+    /// The plotting values of user types the artist keeps along axis
+    /// `name`, which it drew converted: when that axis of its axes
+    /// changes unit ([`Axis::set_units`](crate::axes::Axis::set_units)),
+    /// the axes converts each again and hands the numbers to
+    /// [`reconvert_units`](Self::reconvert_units) (matplotlib's artists
+    /// converting their values with `convert_xunits` when drawn, and its
+    /// lines on the axis' `units` callback). None by default.
+    fn unit_sources(&self, _name: AxisName) -> Vec<UnitValues> {
+        Vec::new()
+    }
+
+    /// Takes the values [`unit_sources`](Self::unit_sources) gave for
+    /// axis `name` converted in its new unit, one list per value list, in
+    /// their order.
+    fn reconvert_units(&mut self, _name: AxisName, _numbers: Vec<Vec<f64>>) {}
 }

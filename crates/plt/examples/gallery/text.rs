@@ -42,7 +42,7 @@ fn annotations() -> Built {
         "local max",
         Point::new(2.5, (-2.5_f64 / 3.0).exp()),
         AnnotateOptions {
-            xytext: Some(Point::new(3.3, 1.2)),
+            xytext: Some(Point::new(3.3, 1.2).into()),
             arrowprops: arrow("->")?,
             ..AnnotateOptions::default()
         },
@@ -51,7 +51,7 @@ fn annotations() -> Built {
         "local min",
         Point::new(1.25, -(-1.25_f64 / 3.0).exp()),
         AnnotateOptions {
-            xytext: Some(Point::new(0.15, 0.1)),
+            xytext: Some(Point::new(0.15, 0.1).into()),
             textcoords: Some("axes fraction".parse::<Coords>()?),
             arrowprops: arrow("fancy")?,
             ..AnnotateOptions::default()

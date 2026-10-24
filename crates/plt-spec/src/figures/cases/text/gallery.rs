@@ -231,7 +231,7 @@ fn annotation_arrow_anatomy(fig: &Figure) -> CaseResult {
             "",
             (x1, y1),
             AnnotateOptions {
-                xytext: Some(Point::new(x2, y2)),
+                xytext: Some(Point::new(x2, y2).into()),
                 textcoords: Some(Coords::Data),
                 arrowprops: Some(ArrowProps::Fancy(props)),
                 ..AnnotateOptions::default()
@@ -321,7 +321,7 @@ fn annotate_annotation_chain(fig: &Figure) -> CaseResult {
         (1.0, 0.5),
         AnnotateOptions {
             xycoords: Coords::Artist(an1.id()),
-            xytext: Some(Point::new(30.0, 0.0)),
+            xytext: Some(Point::new(30.0, 0.0).into()),
             textcoords: Some("offset points".parse()?),
             arrowprops: Some(ArrowProps::Fancy(FancyArrowProps::new("->".parse()?))),
             ..AnnotateOptions::default()
@@ -335,7 +335,7 @@ fn annotate_annotation_chain(fig: &Figure) -> CaseResult {
         (0.5, 1.0),
         AnnotateOptions {
             xycoords: Coords::Artist(an2.id()),
-            xytext: Some(Point::new(0.5, 1.1)),
+            xytext: Some(Point::new(0.5, 1.1).into()),
             textcoords: Some(Coords::blended(
                 Coords::Artist(an1.id()),
                 "axes fraction".parse()?,
@@ -357,7 +357,7 @@ fn annotate_annotation_chain(fig: &Figure) -> CaseResult {
         "Test 4",
         (6.0, 2.0),
         AnnotateOptions {
-            xytext: Some(Point::new(8.0, 5.0)),
+            xytext: Some(Point::new(8.0, 5.0).into()),
             arrowprops: Some(ArrowProps::Fancy(FancyArrowProps {
                 patch: PatchProps::default()
                     .facecolor("tab:orange")
@@ -378,7 +378,7 @@ fn annotate_annotation_chain(fig: &Figure) -> CaseResult {
         (0.0, 0.5),
         AnnotateOptions {
             xycoords: Coords::Artist(an4.id()),
-            xytext: Some(Point::new(-60.0, -40.0)),
+            xytext: Some(Point::new(-60.0, -40.0).into()),
             textcoords: Some("offset points".parse()?),
             arrowprops: Some(ArrowProps::Fancy(FancyArrowProps {
                 shrink_a: 0.0,
@@ -409,7 +409,7 @@ fn annotate_offset_from(fig: &Figure) -> CaseResult {
         "Test 2",
         (0.1, 0.1),
         AnnotateOptions {
-            xytext: Some(Point::new(0.0, -10.0)),
+            xytext: Some(Point::new(0.0, -10.0).into()),
             textcoords: Some(offset_from((0.5, 0.0), CoordUnit::Points)),
             arrowprops: Some(ArrowProps::Fancy(FancyArrowProps::new("->".parse()?))),
             ..AnnotateOptions::default()
@@ -422,7 +422,7 @@ fn annotate_offset_from(fig: &Figure) -> CaseResult {
         "Test 3",
         (0.9, 0.8),
         AnnotateOptions {
-            xytext: Some(Point::new(5.0, 5.0)),
+            xytext: Some(Point::new(5.0, 5.0).into()),
             textcoords: Some(offset_from((1.0, 1.0), CoordUnit::Pixels)),
             arrowprops: Some(ArrowProps::Fancy(FancyArrowProps::new("->".parse()?))),
             ..AnnotateOptions::default()

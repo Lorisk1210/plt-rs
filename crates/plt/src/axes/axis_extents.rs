@@ -4,7 +4,9 @@
 //! `Axes._convert_dx` and `Rectangle._convert_units`).
 
 use super::axis_handle::Axis;
-use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues, ConversionError, first_finite};
+use crate::units::{
+    AxisDelta, AxisDeltas, AxisValue, AxisValues, ConversionError, UnitConverter, first_finite,
+};
 
 impl Axis {
     /// Extents converted to axis numbers by themselves (matplotlib's
@@ -65,23 +67,50 @@ impl Axis {
     }
 
     /// Converts `value` as an artist converts its own values (matplotlib's
-    /// `Axis.convert_units`, which `convert_xunits` calls): a user value
-    /// without updating the unit of the axis, which only takes a converter
-    /// if it has none. A failed conversion gives NaN and is reported when
-    /// the figure next draws.
+    /// `Axis.convert_units`, which `convert_xunits` calls): a date or a
+    /// user value without updating the axis, which only takes the
+    /// converter of the value if it has none, without its tick helpers,
+    /// label or unit. Category names register as when they are plotted. A
+    /// failed conversion gives NaN and is reported when the figure next
+    /// draws.
     pub(crate) fn convert_without_update(&self, value: &AxisValue) -> f64 {
-        match value {
-            AxisValue::Custom(values) => one_number(self.convert_custom(values)),
-            value => self.convert_value(value.clone()),
-        }
+        self.try_convert_value(value).unwrap_or_else(|error| {
+            self.report(&error);
+            f64::NAN
+        })
+    }
+
+    /// Converts `value` as texts and annotations convert their positions,
+    /// which matplotlib does only when drawing them, after the plotting
+    /// calls that set the axis up: without changing the axis. Dates are
+    /// their numbers, user values convert in the axis unit as
+    /// [`convert_custom`](Self::convert_custom) does but without giving
+    /// the axis their converter, and category names register as when they
+    /// are plotted. A failed conversion gives NaN and is reported when the
+    /// figure next draws.
+    pub(crate) fn convert_when_drawn(&self, value: &AxisValue) -> f64 {
+        let converted = match value {
+            &AxisValue::Number(number) | &AxisValue::Date(number) => Ok(number),
+            AxisValue::Category(_) => Ok(self.convert_value(value.clone())),
+            AxisValue::Custom(values) => self.try_convert_custom_as_is(values).map(one_number),
+        };
+        converted.unwrap_or_else(|error| {
+            self.report(&error);
+            f64::NAN
+        })
     }
 
     /// [`convert_without_update`](Self::convert_without_update), failing
     /// instead of reporting.
     fn try_convert_value(&self, value: &AxisValue) -> Result<f64, ConversionError> {
         match value {
+            &AxisValue::Number(number) => Ok(number),
+            &AxisValue::Date(number) => {
+                self.update(|axis| axis.units.converter_or(UnitConverter::Dates));
+                Ok(number)
+            }
+            AxisValue::Category(_) => Ok(self.convert_value(value.clone())),
             AxisValue::Custom(values) => self.try_convert_custom(values).map(one_number),
-            value => Ok(self.convert_value(value.clone())),
         }
     }
 }

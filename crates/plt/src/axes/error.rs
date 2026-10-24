@@ -44,6 +44,10 @@ pub enum PlotError {
     Steps(StepPatchError),
     /// Negative error bar sizes (the argument named).
     NegativeErrors(&'static str),
+    /// Error bar sizes that do not add to the values they extend from, or
+    /// do not scale, in their units (the argument named; matplotlib's
+    /// `TypeError` from `x + -1 * xerr`).
+    UnaddableErrors(&'static str),
     /// An invalid `errorevery` selection.
     ErrorEvery(MarkEveryError),
     /// Per-item legend labels whose number differs from the number of
@@ -103,6 +107,10 @@ pub enum PlotError {
     },
     /// Another unit converter was already set explicitly on the axis.
     ExplicitConverter(AxisName),
+    /// The axis belongs to axes whose projection fixes their limits, such
+    /// as geographic axes, which therefore cannot share it (matplotlib's
+    /// `TypeError` from `set_xlim` in `sharex`).
+    FixedLimits(AxisName),
     /// An infinite line given by a slope on axes with a non-linear scale.
     SlopeOnNonlinearScale,
 }
@@ -131,6 +139,10 @@ impl fmt::Display for PlotError {
             Self::NegativeErrors(argument) => {
                 write!(f, "'{argument}' must not contain negative values")
             }
+            Self::UnaddableErrors(argument) => write!(
+                f,
+                "'{argument}' does not add to the values it extends from in their units"
+            ),
             Self::ErrorEvery(err) => write!(f, "errorevery: {err}"),
             Self::LabelCount { labels, items } => write!(
                 f,
@@ -193,6 +205,11 @@ impl fmt::Display for PlotError {
             Self::ExplicitConverter(axis) => write!(
                 f,
                 "the {}-axis already has an explicit converter set",
+                axis.name()
+            ),
+            Self::FixedLimits(axis) => write!(
+                f,
+                "the {}-axis cannot be shared: the projection of its axes fixes their limits",
                 axis.name()
             ),
             Self::NormWithLimits => f.write_str(NORM_WITH_LIMITS),

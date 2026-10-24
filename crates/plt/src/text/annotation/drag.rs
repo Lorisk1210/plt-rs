@@ -51,6 +51,7 @@ impl DragTarget for AnnotationDrag {
             state.store.get_as_mut::<TextArtist>(annotation.id()),
         ) {
             text.position = position;
+            text.position_replaced();
         }
         state.stale = true;
     }

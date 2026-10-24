@@ -9,7 +9,7 @@ use plt_render::{CapStyle, ClipPath, JoinStyle};
 
 use super::shape::{DisplayPath, PatchShape, ShapeFrame};
 use super::style::{PatchStyle, paint_paths};
-use super::{ClipRegion, PatchError, PatchProps};
+use super::{ClipRegion, DataRectangle, PatchError, PatchProps, Rectangle};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, DrawnDpiCor, LayoutContext,
     LimitPoints, Picker, RawHandle, TypedHandle,
@@ -17,7 +17,9 @@ use crate::artist::{
 use crate::colors::{Color, ColorError};
 use crate::lines::LineStyle;
 use crate::rc::{ColorOrEdge, RcParams};
+use crate::ticker::AxisName;
 use crate::transforms::Transform;
+use crate::units::UnitValues;
 
 /// The pieces a patch is drawn from, borrowed from whichever artist owns
 /// them (a patch artist, or a text drawing its box or arrow).
@@ -123,6 +125,11 @@ pub(crate) struct PatchArtist<S: PatchShape> {
     /// Pieces each outline segment is cut into for projections that bend
     /// lines (matplotlib's `get_path()._interpolation_steps`).
     pub(crate) interpolation_steps: usize,
+    /// The rectangle in plotting values the shape was converted from,
+    /// which the patch converts again when an axis changes unit
+    /// (matplotlib's `Rectangle._convert_units` when drawn); always a
+    /// [`Rectangle`]'s, and forgotten when the shape is replaced.
+    pub(crate) unit_source: Option<DataRectangle>,
     rc: Rc<RcParams>,
     /// The resolution of the patch's last draw.
     dpi_cor: DrawnDpiCor,
@@ -140,6 +147,7 @@ impl<S: PatchShape> PatchArtist<S> {
             style,
             shape,
             interpolation_steps: 1,
+            unit_source: None,
             rc,
             dpi_cor: DrawnDpiCor::default(),
         }
@@ -238,6 +246,20 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         if let Err(err) = self.parts().paint(ctx) {
             ctx.report(self.base.id(), err);
+        }
+    }
+
+    fn unit_sources(&self, name: AxisName) -> Vec<UnitValues> {
+        self.unit_source
+            .as_ref()
+            .map(|source| source.unit_sources(name))
+            .unwrap_or_default()
+    }
+
+    fn reconvert_units(&mut self, name: AxisName, numbers: Vec<Vec<f64>>) {
+        let rectangle = (&mut self.shape as &mut dyn Any).downcast_mut::<Rectangle>();
+        if let (Some(source), Some(rectangle)) = (&self.unit_source, rectangle) {
+            source.reconvert(name, rectangle, numbers);
         }
     }
 
@@ -352,14 +374,22 @@ impl<S: PatchShape> Patch<S> {
         self.read(|p| p.shape.clone())
     }
 
-    /// Replaces the geometry.
+    /// Replaces the geometry; a rectangle made from a
+    /// [`DataRectangle`] no longer follows changes of axis unit.
     pub fn set_shape(&self, shape: S) -> &Self {
-        self.update(|p| p.shape = shape)
+        self.update(|p| {
+            p.shape = shape;
+            p.unit_source = None;
+        })
     }
 
-    /// Modifies the geometry in place.
+    /// Modifies the geometry in place; a rectangle made from a
+    /// [`DataRectangle`] no longer follows changes of axis unit.
     pub fn update_shape(&self, f: impl FnOnce(&mut S)) -> &Self {
-        self.update(|p| f(&mut p.shape))
+        self.update(|p| {
+            f(&mut p.shape);
+            p.unit_source = None;
+        })
     }
 
     /// How many straight pieces each segment of the outline is split into

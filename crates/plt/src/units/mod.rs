@@ -41,12 +41,17 @@
 //! [`ConversionInterface`] converts them and they are [`Convertible`]
 //! (matplotlib's `units.registry`): lists of them are [`AxisValues`], one
 //! of them is an [`AxisValue`]. An axis picks its [`Unit`] from the first
-//! such values it converts, unless [`Axis::set_units`] chose one, takes
-//! its tick helpers, label and default view from the converter, and
-//! converts the lines plotted on it again when its unit changes. An
-//! extent from a user value converts as the far end less the start when
-//! [`Convertible::add_delta`] adds it to the value, and by itself
-//! otherwise. [`ConversionInterface`] shows a converter.
+//! such values it converts, unless [`Axis::set_units`] chose one, and
+//! takes its tick helpers, label and default view from the converter.
+//! When its unit changes, the artists that matplotlib converts when
+//! drawing convert their user values again: lines, texts, annotations and
+//! rectangles of a [`DataRectangle`](crate::patches::DataRectangle); spans,
+//! bars, fills, scatters and the bars of error bars keep the numbers they
+//! were made with, as in matplotlib. An extent from a user value converts
+//! as the far end less the start when [`Convertible::add_delta`] adds it
+//! to the value, and by itself otherwise; error bars end at the values
+//! less and plus their errors ([`Convertible::scale`]).
+//! [`ConversionInterface`] shows a converter.
 //!
 //! [`Axis::set_units`]: crate::axes::Axis::set_units
 
@@ -55,6 +60,7 @@ mod custom;
 mod deltas;
 mod interface;
 mod scalar;
+mod sources;
 
 use std::rc::Rc;
 
@@ -65,11 +71,11 @@ use crate::dates::{
 use crate::ticker::{Formatter, Locator};
 
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
-pub(crate) use custom::LineSources;
 pub use custom::{CustomConverter, Unit, UnitValues};
 pub use deltas::{AxisDelta, AxisDeltas};
 pub use interface::{AxisInfo, ConversionError, ConversionInterface, Convertible};
 pub use scalar::{AxisValue, DataPoint};
+pub(crate) use sources::UnitSources;
 
 /// The tick helpers of an axis of dates in `tz` (matplotlib's
 /// `DateConverter.axisinfo`, or `ConciseDateConverter`'s when
@@ -150,6 +156,16 @@ impl AxisValues {
     /// Whether there are no values.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Value `index`, if there is one.
+    pub(crate) fn get(&self, index: usize) -> Option<AxisValue> {
+        match self {
+            Self::Numbers(values) => values.get(index).copied().map(AxisValue::Number),
+            Self::Dates(values) => values.get(index).copied().map(AxisValue::Date),
+            Self::Categories(names) => names.get(index).cloned().map(AxisValue::Category),
+            Self::Custom(values) => values.get(index).map(AxisValue::Custom),
+        }
     }
 
     /// The values of a user type, if they are.

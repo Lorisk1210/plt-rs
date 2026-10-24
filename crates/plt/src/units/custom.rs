@@ -1,5 +1,5 @@
 //! User values, units and converters with their types erased, so that
-//! axes and lines can hold them (matplotlib's duck-typed unit objects).
+//! axes and artists can hold them (matplotlib's duck-typed unit objects).
 
 use std::any::{Any, TypeId, type_name};
 use std::fmt;
@@ -7,11 +7,8 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use super::interface::UnitOf;
-use super::{
-    AxisDelta, AxisInfo, AxisValue, AxisValues, ConversionError, ConversionInterface, Convertible,
-};
+use super::{AxisDelta, AxisInfo, AxisValue, ConversionError, ConversionInterface, Convertible};
 use crate::axes::Axis;
-use crate::ticker::AxisName;
 
 /// The unit of an axis (matplotlib's `Axis.units`): a value of the unit
 /// type of a [`ConversionInterface`], whatever its type. Units compare
@@ -174,7 +171,8 @@ impl fmt::Debug for CustomConverter {
 }
 
 /// Plotting values of a [`Convertible`] type before conversion, whatever
-/// the type, as [`AxisValues::Custom`] holds them.
+/// the type, as [`AxisValues::Custom`](super::AxisValues::Custom) holds
+/// them.
 ///
 /// ```
 /// # use plt::axes::Axis;
@@ -232,6 +230,13 @@ trait AnyValues: Any + fmt::Debug {
     /// The first value moved by `delta`, if it adds
     /// ([`Convertible::add_delta`]).
     fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue>;
+
+    /// The first value `factor` times, if it scales
+    /// ([`Convertible::scale`]).
+    fn scale(&self, factor: i64) -> Option<UnitValues>;
+
+    /// These values followed by those of `rest`, if all are of this type.
+    fn concat(&self, rest: &[&UnitValues]) -> Option<UnitValues>;
 }
 
 /// Values of one [`Convertible`] type.
@@ -306,6 +311,19 @@ impl<T: Convertible> AnyValues for Values<T> {
     fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
         self.0.first()?.add_delta(delta)
     }
+
+    fn scale(&self, factor: i64) -> Option<UnitValues> {
+        let scaled = self.0.first()?.scale(factor)?;
+        Some(UnitValues::new(vec![scaled]))
+    }
+
+    fn concat(&self, rest: &[&UnitValues]) -> Option<UnitValues> {
+        let mut values = self.0.clone();
+        for part in rest {
+            values.extend_from_slice(part.downcast_ref::<T>()?);
+        }
+        Some(UnitValues::new(values))
+    }
 }
 
 impl UnitValues {
@@ -363,6 +381,26 @@ impl UnitValues {
     pub(crate) fn add_delta(&self, delta: &AxisDelta) -> Option<AxisValue> {
         self.0.add_delta(delta)
     }
+
+    /// The first value `factor` times, alone, if it scales
+    /// ([`Convertible::scale`]).
+    pub(crate) fn scale(&self, factor: i64) -> Option<Self> {
+        self.0.scale(factor)
+    }
+
+    /// The user values among `values` in one list, when every value is a
+    /// user value and all are of one type; `None` for no values.
+    pub(crate) fn join<'a>(values: impl IntoIterator<Item = &'a AxisValue>) -> Option<Self> {
+        let parts = values
+            .into_iter()
+            .map(|value| match value {
+                AxisValue::Custom(values) => Some(values),
+                AxisValue::Number(_) | AxisValue::Category(_) | AxisValue::Date(_) => None,
+            })
+            .collect::<Option<Vec<_>>>()?;
+        let (first, rest) = parts.split_first()?;
+        first.0.concat(rest)
+    }
 }
 
 impl PartialEq for UnitValues {
@@ -380,48 +418,6 @@ impl fmt::Debug for UnitValues {
 impl<T: Convertible> From<Vec<T>> for UnitValues {
     fn from(values: Vec<T>) -> Self {
         Self::new(values)
-    }
-}
-
-/// The plotting values of a line that came from a user converter, kept so
-/// that the line converts them again when its axis changes unit
-/// (matplotlib's `Line2D._xorig` and `_yorig`).
-#[derive(Clone, Debug, Default)]
-pub(crate) struct LineSources {
-    /// The x values.
-    pub(crate) x: Option<UnitValues>,
-    /// The y values.
-    pub(crate) y: Option<UnitValues>,
-}
-
-impl LineSources {
-    /// The user values among `x` and `y`.
-    pub(crate) fn of(x: &AxisValues, y: &AxisValues) -> Self {
-        Self {
-            x: x.custom().cloned(),
-            y: y.custom().cloned(),
-        }
-    }
-
-    /// The user values along axis `name`, if any.
-    pub(crate) fn along(&self, name: AxisName) -> Option<&UnitValues> {
-        match name {
-            AxisName::X => self.x.as_ref(),
-            AxisName::Y => self.y.as_ref(),
-        }
-    }
-
-    /// `value` along axis `name`, if it is a user value: the source of
-    /// the line of `axhline` or `axvline`.
-    pub(crate) fn of_value(name: AxisName, value: &AxisValue) -> Self {
-        let source = match value {
-            AxisValue::Custom(value) => Some(value.clone()),
-            _ => None,
-        };
-        match name {
-            AxisName::X => Self { x: source, y: None },
-            AxisName::Y => Self { x: None, y: source },
-        }
     }
 }
 
@@ -505,6 +501,20 @@ mod tests {
         assert_eq!(values.get(1), Some(UnitValues::new(vec![Millimetres(2.0)])));
         assert_eq!(values.get(2), None);
         assert_eq!(values.add_delta(&AxisDelta::Number(1.0)), None);
+        assert_eq!(values.scale(-1), None);
+    }
+
+    #[test]
+    fn values_of_one_type_join() {
+        let one = AxisValue::from(Millimetres(1.0));
+        let two = AxisValue::from(Millimetres(2.0));
+        assert_eq!(
+            UnitValues::join([&one, &two]),
+            Some(UnitValues::new(vec![Millimetres(1.0), Millimetres(2.0)]))
+        );
+        assert_eq!(UnitValues::join([&one, &AxisValue::Number(2.0)]), None);
+        assert_eq!(UnitValues::join([&one, &Dropped(2.0).into()]), None);
+        assert_eq!(UnitValues::join([]), None);
     }
 
     #[test]

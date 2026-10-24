@@ -390,7 +390,7 @@ fn annotate(fig: &Figure) -> CaseResult {
         note,
         (dates[5], dates[30]),
         AnnotateOptions {
-            xytext: Some(ax[3].convert_point((dates[1], dates[7]))),
+            xytext: Some(ax[3].convert_point((dates[1], dates[7])).into()),
             arrowprops: Some(ArrowProps::Legacy(arrow)),
             ..plain()
         },

@@ -131,7 +131,7 @@ fn texts(fig: &Figure) -> Built {
         .set_picker(Some(Picker::Default));
     let arrow: ArrowStyle = "->".parse().map_err(ProbeError::rejected)?;
     let options = AnnotateOptions {
-        xytext: Some(Point::new(2.0, 1.5)),
+        xytext: Some(Point::new(2.0, 1.5).into()),
         arrowprops: Some(arrow.into()),
         ..AnnotateOptions::default()
     };

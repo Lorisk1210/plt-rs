@@ -21,7 +21,7 @@ use crate::patches::ClipRegion;
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform};
-use crate::units::LineSources;
+use crate::units::{UnitSources, UnitValues};
 
 /// A marker rotation following the θ orientation of polar axes: by angle
 /// θ shifted the way the axes shift θ, plus a fixed turn (matplotlib's
@@ -96,7 +96,7 @@ pub(crate) struct LineArtist {
     /// The data that came from user values, kept so that the line
     /// converts it again when its axis changes unit; replacing the data
     /// drops it.
-    pub(crate) unit_sources: LineSources,
+    pub(crate) unit_sources: UnitSources,
     /// rc snapshot used to resolve named dash patterns.
     rc: std::rc::Rc<RcParams>,
 }
@@ -137,7 +137,7 @@ impl LineArtist {
             dash_joinstyle: rc.lines_dash_joinstyle,
             infinite: None,
             marker_rotation: None,
-            unit_sources: LineSources::default(),
+            unit_sources: UnitSources::default(),
             rc,
         };
         line.recache();
@@ -167,7 +167,7 @@ impl LineArtist {
     /// from converted again; one number stands for all the points, as
     /// the value of `axhline` or `axvline` does (matplotlib's
     /// `recache_always`).
-    pub(crate) fn reconvert(&mut self, name: AxisName, numbers: Vec<f64>) {
+    fn reconvert(&mut self, name: AxisName, numbers: Vec<f64>) {
         let data = match name {
             AxisName::X => &mut self.xdata,
             AxisName::Y => &mut self.ydata,
@@ -284,6 +284,16 @@ impl Artist for LineArtist {
 
     fn base_mut(&mut self) -> &mut ArtistBase {
         &mut self.base
+    }
+
+    fn unit_sources(&self, name: AxisName) -> Vec<UnitValues> {
+        self.unit_sources.along(name).cloned().into_iter().collect()
+    }
+
+    fn reconvert_units(&mut self, name: AxisName, numbers: Vec<Vec<f64>>) {
+        if let Some(numbers) = numbers.into_iter().next() {
+            self.reconvert(name, numbers);
+        }
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {

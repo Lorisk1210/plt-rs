@@ -55,7 +55,7 @@ pub(super) fn polar_annotations(fig: &Figure) -> CaseResult {
     let (thisr, thistheta) = (r[800], theta[800]);
     ax.plot_fmt([thistheta], [thisr], "o")?;
     let options = AnnotateOptions {
-        xytext: Some(Point::new(0.05, 0.05)),
+        xytext: Some(Point::new(0.05, 0.05).into()),
         textcoords: Some("figure fraction".parse()?),
         arrowprops: Some(black_arrow()),
         ..AnnotateOptions::default()
@@ -79,7 +79,7 @@ pub(super) fn polar_coord_annotations(fig: &Figure) -> CaseResult {
     ax.add_artist(Ellipse::new((0.0, 0.0), 10.0, 20.0))
         .update_props(PatchProps::default().facecolor("r").alpha(0.5));
     let options = AnnotateOptions {
-        xytext: Some(Point::new(PI / 3.0, 20.0)),
+        xytext: Some(Point::new(PI / 3.0, 20.0).into()),
         xycoords: "polar".parse()?,
         textcoords: Some("polar".parse()?),
         arrowprops: Some(black_arrow()),

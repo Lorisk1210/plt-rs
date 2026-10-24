@@ -37,7 +37,9 @@ use crate::fonts::FontProperties;
 use crate::patches::ClipRegion;
 use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
+use crate::ticker::AxisName;
 use crate::transforms::Transform;
+use crate::units::{UnitSources, UnitValues};
 
 pub use annotation::{
     AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps,
@@ -106,6 +108,10 @@ pub(crate) struct TextArtist {
     pub(crate) bbox: Option<TextBoxPatch>,
     /// What makes the text an annotation.
     pub(crate) annotation: Option<Box<AnnotationState>>,
+    /// The user values the position came from, which the text converts
+    /// again when an axis changes unit (matplotlib's `Text._x` and `_y`
+    /// converted when drawn); moving the text forgets them.
+    pub(crate) unit_sources: UnitSources,
     pub(crate) rc: Rc<RcParams>,
 }
 
@@ -134,8 +140,15 @@ impl TextArtist {
             language: rc_language(&rc),
             bbox: None,
             annotation: None,
+            unit_sources: UnitSources::default(),
             rc,
         }
+    }
+
+    /// Forgets the user values the position came from, both replaced
+    /// (the hook of [`Text::set_position`]).
+    pub(crate) fn position_replaced(&mut self) {
+        self.unit_sources = UnitSources::default();
     }
 
     /// The rotation drawn in degrees (matplotlib's `get_rotation`): turned
@@ -368,6 +381,27 @@ impl Artist for TextArtist {
 
     fn base_mut(&mut self) -> &mut ArtistBase {
         &mut self.base
+    }
+
+    /// The user values of the position, then those of the annotated
+    /// point of an annotation.
+    fn unit_sources(&self, name: AxisName) -> Vec<UnitValues> {
+        let point = self.annotation.as_ref().map(|a| &a.unit_sources);
+        std::iter::once(&self.unit_sources)
+            .chain(point)
+            .filter_map(|sources| sources.along(name).cloned())
+            .collect()
+    }
+
+    fn reconvert_units(&mut self, name: AxisName, numbers: Vec<Vec<f64>>) {
+        let mut numbers = numbers.into_iter();
+        self.unit_sources
+            .reconvert_point(name, &mut self.position, &mut numbers);
+        if let Some(annotation) = &mut self.annotation {
+            annotation
+                .unit_sources
+                .reconvert_point(name, &mut annotation.xy, &mut numbers);
+        }
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {

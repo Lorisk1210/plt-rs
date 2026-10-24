@@ -282,7 +282,7 @@ fn plot_linestyles(ax: &Axes, linestyles: &[NamedStyle], title: &str) -> CaseRes
     for (i, style) in (0_i32..).map(f64::from).zip(linestyles) {
         let options = AnnotateOptions {
             xycoords: Coords::Transform(ax.trans_yaxis()),
-            xytext: Some(Point::new(-6.0, -12.0)),
+            xytext: Some(Point::new(-6.0, -12.0).into()),
             textcoords: Some("offset points".parse()?),
             ..AnnotateOptions::default()
         };

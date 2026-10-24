@@ -169,7 +169,7 @@ fn other_cases() -> Vec<(&'static str, Case)> {
                     Point::new(v, 0.0),
                     AxLineThrough::Slope(v),
                     LineProps::default(),
-                );
+                )?;
             }
             Ok(())
         }),

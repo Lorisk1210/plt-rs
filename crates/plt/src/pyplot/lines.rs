@@ -241,7 +241,11 @@ pub fn axvline_between(x: impl Into<AxisValue>, ymin: f64, ymax: f64, props: Lin
 
 /// An infinite line through `xy1` on the current axes (matplotlib's
 /// `axline`).
-pub fn axline(xy1: Point, through: AxLineThrough, props: LineProps) -> Line2D {
+///
+/// # Errors
+///
+/// When a slope is given while either axis has a non-linear scale.
+pub fn axline(xy1: Point, through: AxLineThrough, props: LineProps) -> Result<Line2D, PlotError> {
     gca().axline(xy1, through, props)
 }
 
@@ -381,7 +385,8 @@ mod tests {
                 Point::new(0.0, 0.0),
                 AxLineThrough::Slope(1.0),
                 LineProps::default(),
-            ),
+            )
+            .unwrap(),
         ];
         let ax = gca();
         for line in &lines {

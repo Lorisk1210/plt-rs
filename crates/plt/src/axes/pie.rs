@@ -9,7 +9,7 @@ use crate::colors::Color;
 use crate::fonts::FontSize;
 use crate::patches::{Patch, PatchProps, Shadow, ShadowError, Wedge};
 use crate::rc::Aspect;
-use crate::text::Text;
+use crate::text::{Text, TextProps};
 use crate::ticker::pyfmt::{FormatError, PrintfFormat};
 
 /// How the percentage labels of a pie are written (matplotlib's
@@ -102,6 +102,10 @@ pub struct PieOptions {
     pub text_size: Option<FontSize>,
     /// Colour of all labels.
     pub text_color: Option<Color>,
+    /// Further properties of all labels, set last so that they override
+    /// the computed alignment and rotation (the rest of matplotlib's
+    /// `textprops`; size and colour are `text_size` and `text_color`).
+    pub textprops: TextProps,
     /// Centre of the pie.
     pub center: (f64, f64),
     /// Keep the axes frame and ticks and autoscale to the pie.
@@ -133,6 +137,7 @@ impl Default for PieOptions {
             wedgeprops: PatchProps::default(),
             text_size: None,
             text_color: None,
+            textprops: TextProps::default(),
             center: (0.0, 0.0),
             frame: false,
             rotatelabels: false,
@@ -333,6 +338,9 @@ impl Axes {
             }
             None => Vec::new(),
         };
+        for text in labels.iter().chain(&pct_labels) {
+            text.update_props(options.textprops.clone());
+        }
         if options.frame {
             self.autoscale_view(None);
         } else {
@@ -449,6 +457,7 @@ fn percent_label(format: &PieLabelFormat, percent: f64) -> Result<String, PieErr
 mod tests {
     use super::*;
     use crate::figure::Figure;
+    use crate::text::{HAlign, TextRotationMode as RotationMode, VAlign};
 
     #[test]
     fn fractions_validate_like_matplotlib() {
@@ -490,6 +499,31 @@ mod tests {
             ..PieOptions::default()
         };
         assert!(ax.pie(&[1.0], mismatched).is_err());
+    }
+
+    #[test]
+    fn text_props_override_the_computed_label_placement() {
+        // matplotlib's test_pie_textprops.
+        let ax = Figure::new().subplot();
+        let options = PieOptions {
+            labels: vec!["a".into(), "b".into()],
+            autopct: Some(PieLabelFormat::Printf("%.2f".into())),
+            textprops: TextProps::default()
+                .halign(HAlign::Center)
+                .valign(VAlign::Top)
+                .rotation(90.0)
+                .rotation_mode(RotationMode::Anchor),
+            ..PieOptions::default()
+        };
+        let pie = ax.pie(&[1.0, 2.0], options).unwrap();
+        for text in pie.labels.iter().chain(&pie.pct_labels) {
+            assert_eq!(
+                (text.halign(), text.valign()),
+                (HAlign::Center, VAlign::Top)
+            );
+            assert_eq!(text.rotation(), 90.0);
+            assert_eq!(text.rotation_mode(), RotationMode::Anchor);
+        }
     }
 
     #[test]

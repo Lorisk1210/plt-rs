@@ -1,9 +1,12 @@
 //! `figures/cases_mpl_tests_axes.py`: matplotlib's own tests of `Axes`
-//! (the first part of `test_axes.py`) that draw without an image
-//! comparison: the `fig_test` side of `test_limits_empty_data`, one case
-//! per plotting function, in the `default` style the test picks (no rc).
-//! Plotting empty data first must not change the autoscaled limits of the
-//! dates plotted next.
+//! (`test_axes.py`) that draw without an image comparison. Here the
+//! `fig_test` side of `test_limits_empty_data`, one case per plotting
+//! function, in the `default` style the test picks (no rc): plotting
+//! empty data first must not change the autoscaled limits of the dates
+//! plotted next. The cases of the second half of the file are in
+//! [`draws`].
+
+mod draws;
 
 use plt::axes::{Axes, FillBetweenOptions, ScatterColors, ScatterOptions};
 use plt::collections::CollectionProps;
@@ -17,7 +20,7 @@ use crate::figures::{CaseResult, FigureCase};
 
 /// Every case of the group.
 pub(crate) fn cases() -> Vec<FigureCase> {
-    vec![
+    let mut cases = vec![
         FigureCase::new("mpl_tests_axes/limits_empty_data_scatter", |fig| {
             limits_empty_data(fig, PlotFun::Scatter)
         }),
@@ -27,7 +30,9 @@ pub(crate) fn cases() -> Vec<FigureCase> {
         FigureCase::new("mpl_tests_axes/limits_empty_data_fill_between", |fig| {
             limits_empty_data(fig, PlotFun::FillBetween)
         }),
-    ]
+    ];
+    cases.extend(draws::cases());
+    cases
 }
 
 /// The plotting functions `test_limits_empty_data` is parametrised over.

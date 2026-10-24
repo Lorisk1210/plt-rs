@@ -103,6 +103,8 @@ pub enum PlotError {
     },
     /// Another unit converter was already set explicitly on the axis.
     ExplicitConverter(AxisName),
+    /// An infinite line given by a slope on axes with a non-linear scale.
+    SlopeOnNonlinearScale,
 }
 
 impl fmt::Display for PlotError {
@@ -196,6 +198,9 @@ impl fmt::Display for PlotError {
             Self::NormWithLimits => f.write_str(
                 "passing a Normalize instance simultaneously with vmin/vmax is not supported",
             ),
+            Self::SlopeOnNonlinearScale => {
+                f.write_str("'slope' cannot be used with non-linear scales")
+            }
         }
     }
 }

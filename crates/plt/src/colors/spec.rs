@@ -79,6 +79,31 @@ impl Color {
         }
     }
 
+    /// The opaque colour and the alpha of a colour that carries an alpha
+    /// channel (matplotlib's `_has_alpha_channel`): an RGBA colour that is
+    /// not opaque, or a hex code with an alpha digit pair (`"#rgba"`,
+    /// `"#rrggbbaa"`). `None` for other colours, and for colours that do
+    /// not resolve. An RGB triple and an opaque RGBA quadruple are the
+    /// same colour here, so an opaque RGBA colour has no alpha channel.
+    ///
+    /// ```
+    /// use plt::colors::Color;
+    /// let (rgb, alpha) = Color::from([0.5, 0.6, 0.7, 0.3]).split_alpha().unwrap();
+    /// assert_eq!((rgb, alpha), (Color::from([0.5, 0.6, 0.7]), 0.3));
+    /// assert_eq!(Color::from("#ff000080").split_alpha().unwrap().1, 128.0 / 255.0);
+    /// assert!(Color::from("red").split_alpha().is_none());
+    /// ```
+    pub fn split_alpha(&self) -> Option<(Self, f64)> {
+        let rgba = match self {
+            Self::Rgba(rgba) if rgba.a < 1.0 => *rgba,
+            Self::Spec(spec) if spec.starts_with('#') && matches!(spec.len(), 5 | 9) => {
+                self.resolve().ok()?
+            }
+            Self::Rgba(_) | Self::Spec(_) => return None,
+        };
+        Some((Self::Rgba(Rgba::opaque(rgba.r, rgba.g, rgba.b)), rgba.a))
+    }
+
     /// Whether this is the fully transparent `"none"` colour.
     pub fn is_none(&self) -> bool {
         match self {

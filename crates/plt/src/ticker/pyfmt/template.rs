@@ -30,8 +30,8 @@ enum Kind {
 enum Naming<'a> {
     /// The keywords `x` (a float) and `pos` (an integer).
     Keywords,
-    /// One positional float (`{}`, `{0}`).
-    Positional(Numbering),
+    /// One positional argument of this type (`{}`, `{0}`).
+    Positional(Numbering, Kind),
     /// These keywords, the arguments in order.
     Named(&'a [&'a str]),
 }
@@ -95,7 +95,23 @@ impl StrTemplate {
     /// assert!(StrTemplate::parse_positional("{} {}").is_err());
     /// ```
     pub fn parse_positional(template: &str) -> Result<Self, FormatError> {
-        Self::parse_with(template, Naming::Positional(Numbering::Unknown))
+        Self::parse_with(
+            template,
+            Naming::Positional(Numbering::Unknown, Kind::Float),
+        )
+    }
+
+    /// Like [`StrTemplate::parse_positional`] for an integer, rendered with
+    /// [`StrTemplate::render_values`] (`template.format(3)`).
+    ///
+    /// ```
+    /// use plt::ticker::pyfmt::{StrTemplate, TemplateValue};
+    /// let t = StrTemplate::parse_positional_int("{:d} items").unwrap();
+    /// assert_eq!(t.render_values(&[TemplateValue::Int(5)], |s| s).unwrap(), "5 items");
+    /// assert!(StrTemplate::parse_positional("{:d}").is_err());
+    /// ```
+    pub fn parse_positional_int(template: &str) -> Result<Self, FormatError> {
+        Self::parse_with(template, Naming::Positional(Numbering::Unknown, Kind::Int))
     }
 
     /// Parses and validates a template whose fields name the keywords
@@ -275,7 +291,7 @@ fn parse_field(body: &str, naming: &mut Naming<'_>) -> Result<Field, FormatError
     };
     let (arg, kind) = match naming {
         Naming::Keywords => keyword_arg(name)?,
-        Naming::Positional(numbering) => (positional_arg(name, numbering)?, Some(Kind::Float)),
+        Naming::Positional(numbering, kind) => (positional_arg(name, numbering)?, Some(*kind)),
         Naming::Named(names) => (named_arg(name, names)?, None),
     };
     if spec_text.contains('{') {

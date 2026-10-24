@@ -167,14 +167,70 @@ fn counts(ax: &Axes) -> Json {
 pub(super) fn remove(args: Args<'_>) -> Outcome {
     on_axes(args, |ax| {
         let options = ErrorbarOptions {
-            xerr: Some(error_size(args.json("xerr")?)?),
-            yerr: Some(error_size(args.json("yerr")?)?),
+            xerr: super::optional(args, "xerr", error_size)?,
+            yerr: super::optional(args, "yerr", error_size)?,
             ..ErrorbarOptions::default()
         };
         let bars = made(ax.errorbar(args.f64_vec("x")?, args.f64_vec("y")?, options))?;
         let before = counts(ax);
         bars.remove();
         Ok(Json::Array(vec![before, counts(ax)]))
+    })
+}
+
+pub(super) fn caps(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let options = ErrorbarOptions {
+            yerr: Some(error_size(args.json("yerr")?)?),
+            fmt: made(args.opt_str("fmt")?.unwrap_or_default().parse())?,
+            ecolor: super::optional(args, "ecolor", super::color)?,
+            ..ErrorbarOptions::default()
+        };
+        let bars = made(ax.errorbar(args.f64_vec("x")?, args.f64_vec("y")?, options))?;
+        let caps = bars
+            .caplines
+            .iter()
+            .map(|cap| {
+                Ok(Json::Array(vec![
+                    encode::rgba(made(cap.effective_markeredgecolor().resolve())?),
+                    Json::from(cap.markersize()),
+                    Json::from(cap.markeredgewidth()),
+                ]))
+            })
+            .collect::<Result<Vec<_>, ProbeError>>()?;
+        let barlines = bars
+            .barlinecols
+            .iter()
+            .map(|bar| numbers(&bar.linewidths()));
+        Ok(encode::object([
+            ("line", Json::from(bars.data_line.is_some())),
+            ("caps", Json::Array(caps)),
+            ("barlines", Json::Array(barlines.collect())),
+        ]))
+    })
+}
+
+pub(super) fn empty_legend(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        for (label, horizontal) in [("empty y", true), ("empty x", false)] {
+            let empty = Some(ErrorSize::from(Vec::<f64>::new()));
+            let (xerr, yerr) = if horizontal {
+                (empty, None)
+            } else {
+                (None, empty)
+            };
+            let options = ErrorbarOptions {
+                xerr,
+                yerr,
+                line: LineProps::default().label(label),
+                ..ErrorbarOptions::default()
+            };
+            made(ax.errorbar(Vec::<f64>::new(), Vec::<f64>::new(), options))?;
+        }
+        let legend = made(ax.legend(plt::legend::LegendOptions::default()))?;
+        Ok(Json::Array(
+            legend.labels().into_iter().map(Json::from).collect(),
+        ))
     })
 }
 

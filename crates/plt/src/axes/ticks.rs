@@ -110,9 +110,15 @@ impl GridStyle {
                 &rc.grid_minor_linestyle,
             )
         };
+        let color = color.clone().unwrap_or_else(|| rc.grid_color.clone());
+        // An alpha channel in the colour beats the rc alpha.
+        let (color, alpha) = match color.split_alpha() {
+            Some(split) => split,
+            None => (color, alpha.unwrap_or(rc.grid_alpha)),
+        };
         Self {
-            color: color.clone().unwrap_or_else(|| rc.grid_color.clone()),
-            alpha: alpha.unwrap_or(rc.grid_alpha),
+            color,
+            alpha,
             linewidth: linewidth.unwrap_or(rc.grid_linewidth),
             linestyle: linestyle
                 .clone()
@@ -168,10 +174,18 @@ pub struct GridOptions {
 }
 
 impl GridOptions {
-    /// Applies the set options to `style`.
+    /// Applies the set options to `style`; without an alpha of its own,
+    /// the alpha channel of the colour, if any, sets the alpha (as
+    /// matplotlib's `Tick._apply_params` does).
     pub(crate) fn restyle(&self, style: &mut GridStyle) {
         if let Some(color) = &self.color {
-            style.color = color.clone();
+            match (self.alpha, color.split_alpha()) {
+                (None, Some((opaque, alpha))) => {
+                    style.color = opaque;
+                    style.alpha = alpha;
+                }
+                _ => style.color = color.clone(),
+            }
         }
         if let Some(alpha) = self.alpha {
             style.alpha = alpha;
@@ -444,6 +458,30 @@ mod tests {
         assert!(!major.grid_on);
         let minor = TickStyle::from_rc(AxisName::Y, false, &rc);
         assert_eq!((minor.size, minor.width), (2.0, 0.6));
+    }
+
+    #[test]
+    fn the_alpha_channel_of_a_grid_colour_sets_the_alpha() {
+        // matplotlib's test_grid_color_with_alpha.
+        let mut style = GridStyle::from_rc(true, &RcParams::matplotlib());
+        let translucent = GridOptions {
+            color: Some(Color::from([0.5, 0.6, 0.7, 0.3])),
+            ..GridOptions::default()
+        };
+        translucent.restyle(&mut style);
+        assert_eq!(style.alpha, 0.3);
+        assert_eq!(style.color, Color::from([0.5, 0.6, 0.7]));
+        let explicit = GridOptions {
+            color: Some(Color::from([0.5, 0.6, 0.7, 0.3])),
+            alpha: Some(0.8),
+            ..GridOptions::default()
+        };
+        explicit.restyle(&mut style);
+        assert_eq!(style.alpha, 0.8);
+        let mut rc = RcParams::matplotlib();
+        rc.set("grid.color", "#00000080").expect("valid");
+        let from_rc = GridStyle::from_rc(false, &rc);
+        assert_eq!(from_rc.alpha, 128.0 / 255.0);
     }
 
     #[test]

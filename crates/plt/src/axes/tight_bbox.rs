@@ -5,8 +5,8 @@ use plt_core::Bbox;
 
 use super::aspect::Placement;
 use super::axis_layout::{AxisPainter, PlacedText};
-use super::{Axes, AxesState};
-use crate::artist::{Artist, ArtistBase, ArtistId, ClipPathSpec, LayoutContext};
+use super::{Axes, AxesState, Axis};
+use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, ClipPathSpec, LayoutContext};
 use crate::axes_grid1::parasites_of;
 use crate::figure::FigureState;
 use crate::spines::SpineArtist;
@@ -15,27 +15,67 @@ use crate::ticker::AxisName;
 use crate::transforms::{Transform, TransformContext};
 
 impl Axes {
-    /// The extent of the axes with its decorations, in display pixels
-    /// (matplotlib's `Axes.get_tightbbox`), or `None` for an invisible
-    /// axes: its box united with the tick labels, axis labels, offset
-    /// texts, titles, and the children not clipped to it.
+    /// The extent of the axes with its decorations in display pixels, the
+    /// figure laid out first (matplotlib's
+    /// `get_tightbbox(for_layout_only=...)`): its box united with the tick
+    /// labels, axis labels, offset texts, titles, spines with their ticks,
+    /// inset axes and unclipped artists. `for_layout_only` leaves out the
+    /// length of the axis labels and titles. `None` for invisible axes.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let fig = Figure::with_size(4.0, 3.0, 100.0);
+    /// let ax = fig.subplot();
+    /// let tight = ax.tight_bbox(false).unwrap();
+    /// let frame = ax.window_extent().unwrap();
+    /// assert!(tight.x0() < frame.x0() && tight.y0() < frame.y0());
+    /// ```
+    pub fn tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
+        let mut state = self.raw().figure_state().borrow_mut();
+        state.prepare();
+        state.axes_tight_bbox(self.id(), for_layout_only)
+    }
+}
+
+impl Axis {
+    /// The extent of the axis' tick labels, label and offset text in
+    /// display pixels, the figure laid out first (matplotlib's
+    /// `Axis.get_tightbbox`); `None` for a hidden axis or one showing no
+    /// text.
     ///
     /// ```
     /// use plt::prelude::*;
     /// let ax = Figure::new().subplot();
-    /// let bare = ax.tight_bbox().expect("a visible axes");
-    /// ax.set_xlabel("time");
-    /// let labelled = ax.tight_bbox().expect("a visible axes");
-    /// assert!(labelled.y0() < bare.y0());
+    /// assert!(ax.xaxis().tight_bbox().is_some());
+    /// ax.set_xticks(Vec::<f64>::new());
+    /// assert_eq!(ax.xaxis().tight_bbox(), None);
     /// ```
     pub fn tight_bbox(&self) -> Option<Bbox> {
-        let mut state = self.raw.figure_state().borrow_mut();
+        let mut state = self.axes.raw().figure_state().borrow_mut();
         state.prepare();
-        state.axes_tight_bbox(self.raw.id(), false)
+        state.tight_bbox_of_axis(self.axes.id(), self.name)
     }
 }
 
 impl FigureState {
+    /// [`Axis::tight_bbox`] of axis `name` of `axes`, its ticks brought up
+    /// to date.
+    fn tight_bbox_of_axis(&mut self, axes: ArtistId, name: AxisName) -> Option<Bbox> {
+        self.lay_out_axes(axes);
+        let extent = self.axes_bbox(axes)?;
+        let dpi = self.dpi();
+        let shared = self.shared_tick_spaces(axes);
+        self.store
+            .get_as_mut::<AxesState>(axes)?
+            .update_ticks(&extent, dpi, shared);
+        let state = self.store.get_as::<AxesState>(axes)?;
+        if !state.axis(name).visible {
+            return None;
+        }
+        let painter = AxisPainter::new(axes, state, name);
+        axis_tight_bbox(LayoutContext::new(self), &painter, false)
+    }
+
     /// matplotlib's `ax.get_tightbbox(for_layout_only=...)` in display
     /// coordinates, or `None` for an invisible axes: brings the axes up to
     /// date (autoscaling, aspect, ticks), then unites its box with the
@@ -193,7 +233,7 @@ fn child_tight_bbox(
         return state
             .decorations
             .framed()
-            .then(|| spine_tight_bbox(layout, state, axes, spine))?;
+            .then(|| spine.window_extent(&layout))?;
     }
     if fully_clipped(base, axes) {
         return None;
@@ -224,20 +264,20 @@ fn in_data_domain(state: &AxesState, axes: ArtistId, text: &TextArtist) -> bool 
             .val_in_range(text.position.y)
 }
 
-/// A spine's extent, widened by the ticks of a visible axis drawn on it
-/// (matplotlib's `Spine.get_window_extent`).
-fn spine_tight_bbox(
+/// A spine's extent widened by the ticks of the visible axis drawn on
+/// it (matplotlib's `Spine.get_window_extent`); `None` for spines of
+/// non-rectilinear axes, of hidden axes and outside any axes.
+pub(crate) fn spine_extent_with_ticks(
     layout: LayoutContext<'_>,
-    state: &AxesState,
-    axes: ArtistId,
     spine: &SpineArtist,
 ) -> Option<Bbox> {
+    let axes = spine.base().parent?;
+    let state = layout.store().get_as::<AxesState>(axes)?;
     let name = spine.side.axis();
-    if state.axis(name).visible {
-        AxisPainter::new(axes, state, name).spine_extent(layout, spine.side)
-    } else {
-        spine.window_extent(&layout)
-    }
+    state
+        .axis(name)
+        .visible
+        .then(|| AxisPainter::new(axes, state, name).spine_extent(layout, spine.side))?
 }
 
 /// Whether an artist is clipped to exactly its axes (matplotlib's
@@ -297,8 +337,43 @@ fn collapse_y(bbox: &Bbox) -> Bbox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artist::ArtistHandle;
+    use crate::axes::{TickDirection, TickParams};
     use crate::figure::Figure;
+    use crate::spines::SpineSide;
+
+    #[test]
+    fn spine_extents_take_in_their_ticks() {
+        // matplotlib's test_tickdirs: 72 dpi, so ticks are as long in
+        // pixels as in points.
+        let fig = Figure::with_size(4.0, 3.0, 72.0);
+        let ax = fig.add_axes([0.25, 0.25, 0.5, 0.5]);
+        ax.tick_params(&TickParams {
+            direction: Some(TickDirection::Out),
+            length: Some(5.0),
+            ..TickParams::default()
+        });
+        let frame = ax.window_extent().expect("an axes box");
+        let bottom = ax.spines().get(SpineSide::Bottom).window_extent();
+        let bottom = bottom.expect("a spine extent");
+        assert_eq!((bottom.y0(), bottom.y1()), (frame.y0() - 5.0, frame.y0()));
+        ax.xaxis().set_visible(false);
+        let bare = ax.spines().get(SpineSide::Bottom).window_extent();
+        assert_eq!(bare.map(|b| b.y0()), Some(frame.y0()));
+    }
+
+    #[test]
+    fn axis_tight_boxes_hold_the_axis_texts() {
+        let fig = Figure::with_size(4.0, 3.0, 72.0);
+        let ax = fig.add_axes([0.25, 0.25, 0.5, 0.5]);
+        let frame = ax.window_extent().expect("an axes box");
+        let labels = ax.xaxis().tight_bbox().expect("tick labels");
+        assert!(labels.y1() < frame.y0());
+        ax.set_xlabel("x");
+        let labelled = ax.xaxis().tight_bbox().expect("tick labels and a label");
+        assert!(labelled.y0() < labels.y0());
+        ax.xaxis().set_visible(false);
+        assert_eq!(ax.xaxis().tight_bbox(), None);
+    }
 
     #[test]
     fn decorations_reach_beyond_the_axes() {

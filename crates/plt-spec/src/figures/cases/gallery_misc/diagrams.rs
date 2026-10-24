@@ -416,7 +416,7 @@ fn anscombe(fig: &Figure) -> CaseResult {
             Point::new(0.0, intercept),
             AxLineThrough::Slope(slope),
             LineProps::default().color("r").linewidth(2.0),
-        );
+        )?;
         let stats = format!(
             "$\\mu$ = {:.2}\n$\\sigma$ = {std:.2}\n$r$ = {r:.2}",
             mean(y)

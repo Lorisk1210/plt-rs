@@ -1,6 +1,6 @@
 //! Infinite lines, `vlines`/`hlines`, steps and a patch collection.
 
-use plt::axes::Axes;
+use plt::axes::{Axes, PlotError};
 use plt::collections::{Collection, CollectionPatch, CollectionSpec, EdgeColors};
 use plt::colors::ColorError;
 use plt::figure::Figure;
@@ -22,7 +22,12 @@ fn unit_view(fig: &Figure) -> Axes {
 
 /// An infinite line through `xy1`, in `lines.color` unless `color` is
 /// given.
-fn axline(ax: &Axes, xy1: (f64, f64), through: AxLineThrough, color: Option<&str>) -> Line2D {
+fn axline(
+    ax: &Axes,
+    xy1: (f64, f64),
+    through: AxLineThrough,
+    color: Option<&str>,
+) -> Result<Line2D, PlotError> {
     let props = color.map_or_else(LineProps::default, |c| LineProps::default().color(c));
     ax.axline(Point::new(xy1.0, xy1.1), through, props)
 }
@@ -33,8 +38,14 @@ fn to(x: f64, y: f64) -> AxLineThrough {
 }
 
 /// An infinite line given in the axes' fractions.
-fn axline_in_axes(ax: &Axes, xy1: (f64, f64), through: AxLineThrough, color: Option<&str>) {
-    axline(ax, xy1, through, color).set_transform(ax.trans_axes());
+fn axline_in_axes(
+    ax: &Axes,
+    xy1: (f64, f64),
+    through: AxLineThrough,
+    color: Option<&str>,
+) -> Result<(), PlotError> {
+    axline(ax, xy1, through, color)?.set_transform(ax.trans_axes());
+    Ok(())
 }
 
 /// `hlines` for horizontal segments, `vlines` for vertical ones.
@@ -210,37 +221,37 @@ pub(super) const CASES: &[FigureCase] = &[
         ax.set_xlim(0.1, 10.0).set_ylim(1e-3, 1.0);
         ax.set_xscale("log")?.set_yscale("log")?;
         ax.plot_fmt([0.3, 0.6], [0.3, 0.6], ".-")?;
-        axline(&ax, (1.0, 1e-3), to(10.0, 1e-2), Some("k"));
+        axline(&ax, (1.0, 1e-3), to(10.0, 1e-2), Some("k"))?;
         Ok(())
     }),
     classic("mpl_axes_d/axline", |fig| {
         let ax = unit_view(fig);
-        axline(&ax, (0.0, 0.0), to(1.0, 1.0), None);
-        axline(&ax, (0.0, 0.0), to(1.0, 0.0), Some("C1"));
-        axline(&ax, (0.0, 0.5), to(1.0, 0.5), Some("C2"));
-        axline(&ax, (-0.7, -0.5), AxLineThrough::Slope(0.0), Some("C3"));
-        axline(&ax, (1.0, -0.5), AxLineThrough::Slope(-0.5), Some("C4"));
+        axline(&ax, (0.0, 0.0), to(1.0, 1.0), None)?;
+        axline(&ax, (0.0, 0.0), to(1.0, 0.0), Some("C1"))?;
+        axline(&ax, (0.0, 0.5), to(1.0, 0.5), Some("C2"))?;
+        axline(&ax, (-0.7, -0.5), AxLineThrough::Slope(0.0), Some("C3"))?;
+        axline(&ax, (1.0, -0.5), AxLineThrough::Slope(-0.5), Some("C4"))?;
         axline(
             &ax,
             (-0.5, 1.0),
             AxLineThrough::Slope(f64::INFINITY),
             Some("C5"),
-        );
+        )?;
         Ok(())
     }),
     classic("mpl_axes_d/axline_transaxes", |fig| {
         let ax = unit_view(fig);
-        axline_in_axes(&ax, (0.0, 0.0), AxLineThrough::Slope(1.0), None);
-        axline_in_axes(&ax, (1.0, 0.5), AxLineThrough::Slope(1.0), Some("C1"));
-        axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(0.0), Some("C2"));
-        axline_in_axes(&ax, (0.5, 0.0), to(0.5, 1.0), Some("C3"));
+        axline_in_axes(&ax, (0.0, 0.0), AxLineThrough::Slope(1.0), None)?;
+        axline_in_axes(&ax, (1.0, 0.5), AxLineThrough::Slope(1.0), Some("C1"))?;
+        axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(0.0), Some("C2"))?;
+        axline_in_axes(&ax, (0.5, 0.0), to(0.5, 1.0), Some("C3"))?;
         Ok(())
     }),
     classic("mpl_axes_d/axline_transaxes_panzoom", |fig| {
         let ax = unit_view(fig);
-        axline_in_axes(&ax, (0.0, 0.0), AxLineThrough::Slope(1.0), None);
-        axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(2.0), Some("C1"));
-        axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(0.0), Some("C2"));
+        axline_in_axes(&ax, (0.0, 0.0), AxLineThrough::Slope(1.0), None)?;
+        axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(2.0), Some("C1"))?;
+        axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(0.0), Some("C2"))?;
         ax.set_xlim(0.0, 5.0).set_ylim(0.0, 10.0);
         fig.set_size_inches(3.0, 3.0)?;
         Ok(())

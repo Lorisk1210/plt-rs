@@ -105,7 +105,7 @@ pub(super) fn tightbbox(args: Args<'_>) -> Outcome {
         let ax = fig.subplot();
         ax.set_xlim(0.0, 1.0);
         let text = ax.text(1.0, 0.5, "This dangles over end");
-        let axes_x1 = || ax.tight_bbox().map_or(f64::NAN, |b| b.x1());
+        let axes_x1 = || ax.tight_bbox(false).map_or(f64::NAN, |b| b.x1());
         let text_x1 = text.window_extent().map_or(f64::NAN, |b| b.x1());
         let (axes, figure) = (axes_x1(), fig.tight_bbox());
         text.set_in_layout(false);

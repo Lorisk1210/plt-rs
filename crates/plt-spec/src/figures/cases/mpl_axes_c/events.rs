@@ -52,7 +52,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let data = [rng.uniform(20, 0.0, 1.0), rng.uniform(10, 0.0, 1.0)];
         let options = EventplotOptions {
             colors: vec![Color::from("r"), Color::from("b")],
-            linewidths: vec![2.0, 1.0],
+            linewidths: Some(vec![2.0, 1.0]),
             linestyles: vec![LineStyle::Solid, LineStyle::Dashed],
             ..EventplotOptions::default()
         };

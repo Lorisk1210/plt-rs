@@ -145,17 +145,20 @@ fn nonfinite(fig: &Figure) -> Result<Vec<Line2D>, ProbeError> {
     ])
 }
 
-fn axlines(fig: &Figure) -> Vec<Line2D> {
+fn axlines(fig: &Figure) -> Result<Vec<Line2D>, ProbeError> {
     let ax = fig.subplot();
-    let axline = |xy1: (f64, f64), through| ax.axline(xy1.into(), through, LineProps::default());
+    let axline = |xy1: (f64, f64), through| {
+        ax.axline(xy1.into(), through, LineProps::default())
+            .map_err(ProbeError::rejected)
+    };
     let lines = vec![
-        axline((0.2, 0.3), AxLineThrough::Point(Point::new(0.6, 0.9))),
-        axline((0.5, 0.5), AxLineThrough::Slope(-2.0)),
-        axline((0.4, 0.0), AxLineThrough::Slope(f64::INFINITY)),
-        axline((0.0, 1.5), AxLineThrough::Slope(0.0)),
+        axline((0.2, 0.3), AxLineThrough::Point(Point::new(0.6, 0.9)))?,
+        axline((0.5, 0.5), AxLineThrough::Slope(-2.0))?,
+        axline((0.4, 0.0), AxLineThrough::Slope(f64::INFINITY))?,
+        axline((0.0, 1.5), AxLineThrough::Slope(0.0))?,
     ];
     ax.set_xlim(0.0, 1.0).set_ylim(0.0, 2.0);
-    lines
+    Ok(lines)
 }
 
 fn figure_line(fig: &Figure) -> Result<Vec<Line2D>, ProbeError> {
@@ -173,7 +176,7 @@ fn window_extent(args: Args<'_>) -> Outcome {
     let lines = match args.str("scene")? {
         "plain" => plain(&fig)?,
         "nonfinite" => nonfinite(&fig)?,
-        "axlines" => axlines(&fig),
+        "axlines" => axlines(&fig)?,
         "figure_line" => figure_line(&fig)?,
         other => return Err(ProbeError::BadArgs(format!("unknown scene {other:?}"))),
     };
@@ -187,11 +190,14 @@ fn window_extent(args: Args<'_>) -> Outcome {
 /// Whether `axline((0, 0), slope=1e-14)` rises, by less than 4e-12 pixels.
 fn axline_small_slope() -> Outcome {
     let fig = Figure::new();
-    let line = fig.subplot().axline(
-        Point::ORIGIN,
-        AxLineThrough::Slope(1e-14),
-        LineProps::default(),
-    );
+    let line = fig
+        .subplot()
+        .axline(
+            Point::ORIGIN,
+            AxLineThrough::Slope(1e-14),
+            LineProps::default(),
+        )
+        .map_err(ProbeError::rejected)?;
     let extent = line
         .window_extent()
         .ok_or_else(|| ProbeError::rejected("the line has no extent"))?;

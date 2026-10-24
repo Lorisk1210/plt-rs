@@ -90,6 +90,7 @@ pub(super) fn boxplot(args: Args<'_>) -> Outcome {
             usermedians: optional(args, "usermedians", number_list)?
                 .map(|medians| medians.into_iter().map(Some).collect()),
             conf_intervals: optional(args, "conf_intervals", intervals)?,
+            tick_labels: optional(args, "tick_labels", super::strings)?,
             draw: draw_options(args)?,
             ..BoxplotOptions::default()
         };

@@ -122,7 +122,7 @@ fn tight_bbox(args: Args<'_>) -> Outcome {
         .map_err(ProbeError::rejected)?;
     ax.grid(args.bool("grid")?);
     let tight = ax
-        .tight_bbox()
+        .tight_bbox(false)
         .ok_or_else(|| ProbeError::rejected("the axes is invisible"))?;
     Ok(encode::bbox(&tight))
 }

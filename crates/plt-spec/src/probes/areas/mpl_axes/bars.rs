@@ -22,7 +22,7 @@ use crate::probes::areas::mpl_ticker::styled;
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
 /// Bar positions: a category, categories or numbers.
-fn positions(value: &Json) -> Result<AxisValues, ProbeError> {
+pub(super) fn positions(value: &Json) -> Result<AxisValues, ProbeError> {
     match value {
         Json::String(name) => Ok(AxisValues::Categories(vec![name.clone()])),
         Json::Array(items)
@@ -50,12 +50,17 @@ fn bar_options(args: Args<'_>) -> Result<BarOptions, ProbeError> {
         props: PatchProps {
             base: BaseProps {
                 alpha: args.opt_f64("alpha")?,
+                zorder: args.opt_f64("zorder")?,
                 ..BaseProps::default()
             },
+            facecolor: optional(args, "facecolor", color)?,
             ..PatchProps::default()
         },
         ..BarOptions::default()
     };
+    if let Some(base) = optional(args, "bottom", number_list)? {
+        options.base = base;
+    }
     if let Some(face) = args.get("color") {
         options.color = vec![color(face)?];
     }
@@ -115,6 +120,114 @@ pub(super) fn bar(args: Args<'_>) -> Outcome {
             ("xlim", pair(ax.xlim())),
             ("ylim", pair(ax.ylim())),
         ]))
+    })
+}
+
+pub(super) fn barh(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let defaults = BarOptions::default();
+        let options = BarOptions {
+            base: optional(args, "left", number_list)?.unwrap_or(defaults.base.clone()),
+            thickness: optional(args, "height", number_list)?.unwrap_or(defaults.thickness.clone()),
+            ..defaults
+        };
+        let widths = number_list(args.json("width")?)?;
+        let bars = made(ax.barh(number_list(args.json("y")?)?, widths, options))?;
+        Ok(rects(&bars))
+    })
+}
+
+pub(super) fn bar_errorbar(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let mut options = bar_options(args)?;
+        options.errors.yerr = Some(ErrorSize::from(args.f64_vec("yerr")?));
+        options.errors.capsize = Some(args.f64("capsize")?);
+        let bars = made(ax.bar(args.f64_vec("x")?, args.f64_vec("height")?, options))?;
+        let errorbar = bars
+            .errorbar
+            .as_ref()
+            .ok_or_else(|| ProbeError::BadArgs("bars without error bars".into()))?;
+        let zorders = |values: Vec<f64>| numbers(&values);
+        Ok(encode::object([
+            (
+                "bars",
+                zorders(bars.patches.iter().map(ArtistHandle::zorder).collect()),
+            ),
+            (
+                "caps",
+                zorders(errorbar.caplines.iter().map(ArtistHandle::zorder).collect()),
+            ),
+            (
+                "barlines",
+                zorders(
+                    errorbar
+                        .barlinecols
+                        .iter()
+                        .map(ArtistHandle::zorder)
+                        .collect(),
+                ),
+            ),
+        ]))
+    })
+}
+
+/// `align` of a band: `"bottom"` (the default), `"center"` or `"top"`.
+fn band_align(args: Args<'_>) -> Result<BandAlign, ProbeError> {
+    match args.opt_str("align")?.unwrap_or("bottom") {
+        "bottom" => Ok(BandAlign::Bottom),
+        "center" => Ok(BandAlign::Center),
+        "top" => Ok(BandAlign::Top),
+        other => Err(ProbeError::BadArgs(format!("bad align {other}"))),
+    }
+}
+
+pub(super) fn broken_barh_paths(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let xranges: Vec<(f64, f64)> = args.pairs("xranges")?;
+        let align = band_align(args)?;
+        let band = if let Some([Json::String(category), height]) = args.json("yrange")?.as_array() {
+            let height = height
+                .as_f64()
+                .ok_or_else(|| ProbeError::BadArgs("bad band height".into()))?;
+            ax.broken_barh(&xranges, (category.as_str(), height), align)
+        } else {
+            let [y, height] = args.f64_vec("yrange")?[..] else {
+                return Err(ProbeError::BadArgs("yrange is not [y, height]".into()));
+            };
+            ax.broken_barh(&xranges, (y, height), align)
+        };
+        let extents = band
+            .paths()
+            .iter()
+            .map(|path| encode::bbox(&path.extents()))
+            .collect();
+        Ok(encode::object([
+            ("extents", Json::Array(extents)),
+            ("xlim", pair(ax.xlim())),
+            ("ylim", pair(ax.ylim())),
+        ]))
+    })
+}
+
+pub(super) fn bar_color_cycle(args: Args<'_>) -> Outcome {
+    on_axes(args, |ax| {
+        let x = [0.0, 1.0, 2.0];
+        (0..5)
+            .map(|_| {
+                let line = made(ax.plot(x, x))?;
+                let bars = made(ax.bar(x, x, BarOptions::default()))?;
+                let faces = bars
+                    .patches
+                    .iter()
+                    .map(|patch| Ok(made(patch.colors())?.face))
+                    .collect::<Result<Vec<_>, ProbeError>>()?;
+                Ok(Json::Array(vec![
+                    encode::rgba(made(line.rgba())?),
+                    rgba_list(&faces),
+                ]))
+            })
+            .collect::<Result<Vec<_>, ProbeError>>()
+            .map(Json::Array)
     })
 }
 

@@ -1,23 +1,37 @@
 //! Probe operations for the `mpl_axes` area: matplotlib's own non-image
-//! tests of `Axes` (the first part of `tests/test_axes.py`; see
+//! tests of `Axes` (`tests/test_axes.py`; see
 //! `spec/reference/probes/test_mpl_axes.py`), run in the style each probe
 //! names. The ops are grouped by topic: [`axis`] (formatters, twins,
-//! arrows and annotations), [`hexbin`], [`mesh`] (images and pseudocolour
-//! meshes), [`bars`] (bars, grouped bars and a figure legend), [`boxes`] (box
-//! and violin plots), [`errorbar`], [`stem`], [`hist`] (histograms and
-//! stairs), [`scatter`] (scatter and event plots) and [`misc`]
-//! (projections, pyplot's current axes and saving).
+//! arrows and annotations), [`hexbin`], [`mesh`] (images, pseudocolour
+//! meshes and `pcolorfast`), [`bars`] (bars, broken bars, grouped bars and a
+//! figure legend), [`bar_label`], [`boxes`] (box and violin plots),
+//! [`errorbar`], [`stem`], [`hist`] (histograms and stairs), [`scatter`]
+//! (scatter and event plots), [`lines`] (plot formats, infinite and
+//! segment lines, fill colours), [`pie`], [`ticks`] (tick parameters,
+//! gridlines, tick labels, offset texts and axis labels), [`titles`],
+//! [`secondary`] (secondary axes), [`extents`] (tight boxes and spine
+//! extents), [`contents`] (artist lists, spectral plots, insets and other
+//! single calls) and [`misc`] (projections, pyplot's current axes and
+//! saving).
 
 mod axis;
+mod bar_label;
 mod bars;
 mod boxes;
+mod contents;
 mod errorbar;
+mod extents;
 mod hexbin;
 mod hist;
+mod lines;
 mod mesh;
 mod misc;
+mod pie;
 mod scatter;
+mod secondary;
 mod stem;
+mod ticks;
+mod titles;
 
 use plt::axes::Axes;
 use plt::colors::Color;
@@ -71,6 +85,73 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("MollweideAxes.transProjection", misc::mollweide),
     Op::new("pyplot.sca", misc::sca_figures),
     Op::new("Figure.savefig", misc::savefig_raw),
+    Op::new("Axes.plot", lines::plot),
+    Op::new("Axes.axline", lines::axline),
+    Op::new("Axes.vlines", lines::vlines),
+    Op::new("Axes.hlines", lines::hlines),
+    Op::new("Axes.fill_between.cycle", lines::fill_between_cycle),
+    Op::new("Axes.bar.color_cycle", bars::bar_color_cycle),
+    Op::new("Axes.eventplot.segments", scatter::eventplot_segments),
+    Op::new("Axes.eventplot.legend", scatter::eventplot_legend),
+    Op::new("Axes.pie", pie::pie),
+    Op::new("Axes.pie_label", pie::pie_label),
+    Op::new("Axes.bar_label", bar_label::bar_label),
+    Op::new("Axes.barh", bars::barh),
+    Op::new("Axes.bar.errorbar", bars::bar_errorbar),
+    Op::new("Axes.broken_barh.paths", bars::broken_barh_paths),
+    Op::new("Axes.hist.bins", hist::hist_bins),
+    Op::new("Axes.errorbar.caps", errorbar::caps),
+    Op::new("Axes.legend.errorbar", errorbar::empty_legend),
+    Op::new("Axes.tick_params", ticks::tick_params_state),
+    Op::new("Axes.tick_params.rc_context", ticks::rc_context_ticks),
+    Op::new("Axes.tick_params.reset", ticks::reset_grid),
+    Op::new("Axes.grid", ticks::grid),
+    Op::new("Axis.get_offset_text", ticks::offset_text),
+    Op::new("Axis.set_ticklabels", ticks::set_ticklabels),
+    Op::new("Axis.get_tick_params", ticks::get_tick_params),
+    Op::new("Axis.label", ticks::label_formatting),
+    Op::new("Axes.title.get_position", titles::title_positions),
+    Op::new("Axes.set_title.twiny", titles::twiny_title_gap),
+    Op::new("Axes.secondary_axis", secondary::secondary_axis),
+    Op::new("Axes.secondary_xaxis.resize", secondary::secondary_resize),
+    Op::new(
+        "Axes.secondary_xaxis.minor_locator",
+        secondary::secondary_minor_locator,
+    ),
+    Op::new(
+        "Axes.secondary_xaxis.formatter",
+        secondary::secondary_formatter,
+    ),
+    Op::new("Axes.secondary_axis.set_ticks", secondary::secondary_ticks),
+    Op::new("pyplot.subplot", contents::subplot_geometry),
+    Op::new("Axes.specgram", contents::specgram_extent),
+    Op::new("Axes.psd", contents::psd_inverted),
+    Op::new("Axes.pcolorfast", mesh::pcolorfast),
+    Op::new("Axes.clim", mesh::clim),
+    Op::new("FigureCanvasBase.inaxes", contents::inaxes),
+    Op::new("Axes.add_patch", contents::wedge_bounds),
+    Op::new("Axes.artist_sublists", contents::artist_sublists),
+    Op::new("Axes.autoscale", contents::path_autoscale),
+    Op::new("Axes.ecdf", contents::ecdf),
+    Op::new("Axes.plot.large_offset", contents::large_offset),
+    Op::new("Axes.barbs.dates", contents::vectors_at_dates),
+    Op::new("Figure.savefig.pdf", contents::pdf_rasterized),
+    Op::new("Axes.indicate_inset", contents::indicate_inset),
+    Op::new(
+        "Axes.set_box_aspect.constrained",
+        contents::box_aspect_constrained,
+    ),
+    Op::new("Axes.get_tightbbox.decorations", extents::decoration_boxes),
+    Op::new("Axes.get_tightbbox.axis_off", extents::tight_bbox_axis_off),
+    Op::new(
+        "Axes.get_tightbbox.long_label",
+        extents::tight_bbox_long_label,
+    ),
+    Op::new("Axes.get_tightbbox.nan_text", extents::tight_bbox_nan_text),
+    Op::new("Axes.add_collection.autolim", contents::relim_autolim_false),
+    Op::new("Axes.remove.child_axes", contents::child_axes_removal),
+    Op::new("Axes.inset_axes.projection", contents::inset_projection),
+    Op::new("Axes.redraw_in_frame", contents::redraw_in_frame),
 ];
 
 /// Runs `f` on a fresh `Figure::new().subplot()` in the probe's style

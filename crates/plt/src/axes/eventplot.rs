@@ -24,12 +24,12 @@ pub struct EventplotOptions {
     pub lineoffsets: Vec<f64>,
     /// Length of the lines of each row.
     pub linelengths: Vec<f64>,
-    /// Line width of each row in points (empty: `lines.linewidth`).
-    pub linewidths: Vec<f64>,
+    /// Line width of each row in points (`None`: `lines.linewidth`).
+    pub linewidths: Option<Vec<f64>>,
     /// Colour of each row (empty: `lines.color`).
     pub colors: Vec<Color>,
-    /// Opacity of each row (empty: opaque).
-    pub alpha: Vec<f64>,
+    /// Opacity of each row (`None`: opaque).
+    pub alpha: Option<Vec<f64>>,
     /// Line style of each row.
     pub linestyles: Vec<LineStyle>,
 }
@@ -40,9 +40,9 @@ impl Default for EventplotOptions {
             orientation: Orientation::Horizontal,
             lineoffsets: vec![1.0],
             linelengths: vec![1.0],
-            linewidths: Vec::new(),
+            linewidths: None,
             colors: Vec::new(),
-            alpha: Vec::new(),
+            alpha: None,
             linestyles: vec![LineStyle::Solid],
         }
     }
@@ -85,9 +85,17 @@ impl Axes {
         let offsets = row_offsets(&options.lineoffsets, n)?;
         let lengths = per_dataset("linelengths", &options.linelengths, n)?;
         let styles = per_dataset("linestyles", &options.linestyles, n)?;
-        let widths = optional_per_dataset("linewidths", &options.linewidths, n)?;
+        let widths = options
+            .linewidths
+            .map(|widths| per_dataset("linewidths", &widths, n))
+            .transpose()?
+            .unwrap_or_default();
         let colors = optional_per_dataset("colors", &options.colors, n)?;
-        let alphas = optional_per_dataset("alpha", &options.alpha, n)?;
+        let alphas = options
+            .alpha
+            .map(|alpha| per_dataset("alpha", &alpha, n))
+            .transpose()?
+            .unwrap_or_default();
         let rc = crate::rc::params();
         let rows = positions
             .iter()
@@ -173,7 +181,8 @@ fn per_dataset<T: Clone>(
     }
 }
 
-/// Like [`per_dataset`], but an empty list keeps the defaults.
+/// Like [`per_dataset`], but an empty list keeps the defaults (as
+/// matplotlib's colours do).
 fn optional_per_dataset<T: Clone>(
     argument: &'static str,
     values: &[T],
@@ -221,6 +230,33 @@ mod tests {
         ax.set_margins(0.0, 0.0).unwrap();
         assert_eq!(ax.xlim(), (0.0, 10.0));
         assert_eq!(ax.ylim(), (0.0, 2.0));
+    }
+
+    #[test]
+    fn explicitly_empty_widths_and_alphas_are_rejected() {
+        // matplotlib's test_eventplot_errors.
+        let ax = Figure::new().subplot();
+        for options in [
+            EventplotOptions {
+                linewidths: Some(Vec::new()),
+                ..EventplotOptions::default()
+            },
+            EventplotOptions {
+                alpha: Some(Vec::new()),
+                ..EventplotOptions::default()
+            },
+            EventplotOptions {
+                alpha: Some(vec![1.0, 0.5]),
+                ..EventplotOptions::default()
+            },
+        ] {
+            assert!(ax.eventplot(&[vec![1.0]], options).is_err());
+        }
+        let colors = EventplotOptions {
+            colors: Vec::new(),
+            ..EventplotOptions::default()
+        };
+        assert!(ax.eventplot(&[vec![1.0]], colors).is_ok());
     }
 
     #[test]

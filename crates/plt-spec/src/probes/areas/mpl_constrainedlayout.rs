@@ -149,7 +149,7 @@ fn suplabels(args: Args<'_>) -> Outcome {
         let fig = constrained_figure();
         let ax = fig.subplot();
         let tight = || {
-            ax.tight_bbox()
+            ax.tight_bbox(false)
                 .ok_or_else(|| ProbeError::rejected("no tight box"))
         };
         fig.layout();

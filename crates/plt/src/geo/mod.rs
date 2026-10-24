@@ -14,24 +14,39 @@
 //! The view limits are fixed to the whole sphere, `[-π, π]` × `[-π/2,
 //! π/2]`; every path drawn in data coordinates is subdivided before it is
 //! projected, so straight segments follow the curvature of the map.
+//! Geographic axes are drawn through the same [`Projection`] hooks as
+//! projections defined by the program.
+//!
+//! [`Projection`]: crate::projections::Projection
 
 mod api;
+mod axes_projection;
 mod placement;
 mod projection;
 mod ticker;
 mod transform;
 
 pub use api::{GeoAxes, GeoError};
-pub(crate) use placement::{tick_label_anchor, tick_transform};
 pub use projection::GeoProjection;
 pub use ticker::ThetaFormatter;
-pub(crate) use transform::{OUTLINE_SPINE, outline};
 
 use crate::axes::Axes;
 
 /// Where longitude gridlines stop by default, in degrees of latitude
 /// (matplotlib's `set_longitude_grid_ends(75)` in `GeoAxes.clear`).
 const DEFAULT_LONGITUDE_GRID_ENDS: f64 = 75.0;
+
+/// Longitudes run from `-LONGITUDE_EDGE` to `LONGITUDE_EDGE` degrees.
+const LONGITUDE_EDGE: f64 = 180.0;
+
+/// Latitudes run from `-LATITUDE_EDGE` to `LATITUDE_EDGE` degrees.
+const LATITUDE_EDGE: f64 = 90.0;
+
+/// Default spacing of longitude gridlines in degrees.
+const DEFAULT_LONGITUDE_GRID: f64 = 30.0;
+
+/// Default spacing of latitude gridlines in degrees.
+const DEFAULT_LATITUDE_GRID: f64 = 15.0;
 
 /// The geographic settings of an axes.
 #[derive(Clone, Debug, PartialEq)]

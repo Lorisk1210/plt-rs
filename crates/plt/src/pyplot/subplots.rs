@@ -12,11 +12,10 @@ use crate::figure::{
     AxesRectError, Figure, Mosaic, MosaicAxes, MosaicError, MosaicOptions, SaveError, SaveOptions,
     Share,
 };
-use crate::geo::{GeoAxes, GeoProjection};
-use crate::gridspec::GridSpecError;
+use crate::gridspec::{GridSpecError, SubplotSpec};
 use crate::lines::Line2D;
 use crate::numeric::Grid;
-use crate::polar::PolarAxes;
+use crate::projections::ProjectionError;
 use crate::units::AxisValues;
 
 /// A new current figure with a grid of axes (matplotlib's `subplots`).
@@ -95,7 +94,14 @@ fn fresh_figure_num(num: u32, clear: bool) -> Result<Figure, PyplotError> {
 ///
 /// When the grid is empty or `index` is outside it.
 pub fn subplot(nrows: usize, ncols: usize, index: usize) -> Result<Axes, GridSpecError> {
-    subplot_reusing(nrows, ncols, index, None)
+    let fig = gcf();
+    let spec = fig.numbered_cell(nrows, ncols, index)?;
+    let ax = match cell_axes(&fig, &spec, None) {
+        Some(ax) => ax,
+        None => fig.add_subplot_spec(&spec)?,
+    };
+    fig.sca(&ax);
+    Ok(ax)
 }
 
 /// The axes with `projection` in cell `index` (1-based, row-major) of an
@@ -113,58 +119,36 @@ pub fn subplot(nrows: usize, ncols: usize, index: usize) -> Result<Axes, GridSpe
 /// assert_eq!(plt::subplot_with_projection(1, 2, 1, ProjectionKind::Polar)?, polar);
 /// assert_eq!(plt::gcf().axes().len(), 2);
 /// plt::close_all();
-/// # Ok::<(), ::plt::gridspec::GridSpecError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
 /// # Errors
 ///
-/// When the grid is empty or `index` is outside it.
+/// When the grid is empty or `index` is outside it, or as
+/// [`Figure::add_subplot_spec_with_projection`] for a new axes.
 pub fn subplot_with_projection(
     nrows: usize,
     ncols: usize,
     index: usize,
     projection: ProjectionKind,
-) -> Result<Axes, GridSpecError> {
-    subplot_reusing(nrows, ncols, index, Some(projection))
-}
-
-/// The axes in a cell of the current figure, made current: the first one
-/// there with `projection` (any projection for `None`), else a new one
-/// with `projection`.
-fn subplot_reusing(
-    nrows: usize,
-    ncols: usize,
-    index: usize,
-    projection: Option<ProjectionKind>,
-) -> Result<Axes, GridSpecError> {
+) -> Result<Axes, ProjectionError> {
     let fig = gcf();
     let spec = fig.numbered_cell(nrows, ncols, index)?;
-    let existing = fig.axes().into_iter().find(|ax| {
-        ax.subplot_spec().as_ref() == Some(&spec)
-            && projection.is_none_or(|projection| ax.projection() == projection)
-    });
-    let ax = match existing {
+    let ax = match cell_axes(&fig, &spec, Some(projection)) {
         Some(ax) => ax,
-        None => projected(fig.add_subplot_spec(&spec)?, projection.unwrap_or_default()),
+        None => fig.add_subplot_spec_with_projection(&spec, projection)?,
     };
     fig.sca(&ax);
     Ok(ax)
 }
 
-/// `ax`, a new rectilinear axes, given `projection`.
-fn projected(ax: Axes, projection: ProjectionKind) -> Axes {
-    let geo = match projection {
-        ProjectionKind::Rectilinear => return ax,
-        ProjectionKind::Polar => return PolarAxes::convert(ax).axes().clone(),
-        ProjectionKind::Aitoff => GeoProjection::Aitoff,
-        ProjectionKind::Hammer => GeoProjection::Hammer,
-        ProjectionKind::Lambert => GeoProjection::Lambert {
-            center_longitude: 0.0,
-            center_latitude: 0.0,
-        },
-        ProjectionKind::Mollweide => GeoProjection::Mollweide,
-    };
-    GeoAxes::convert(ax, geo).axes().clone()
+/// The first axes of `fig` in the cell `spec` with `projection` (any
+/// projection for `None`).
+fn cell_axes(fig: &Figure, spec: &SubplotSpec, projection: Option<ProjectionKind>) -> Option<Axes> {
+    fig.axes().into_iter().find(|ax| {
+        ax.subplot_spec().as_ref() == Some(spec)
+            && projection.is_none_or(|projection| ax.projection() == projection)
+    })
 }
 
 /// A new current axes spanning `rowspan × colspan` cells from cell `loc`
@@ -244,7 +228,11 @@ pub fn subplot_mosaic_num(
 ///
 /// As [`Figure::add_axes`] for `rect`.
 pub fn axes(rect: Option<[f64; 4]>) -> Result<Axes, AxesRectError> {
-    axes_with_projection(rect, ProjectionKind::Rectilinear)
+    let fig = gcf();
+    match rect {
+        Some(rect) => fig.add_axes(rect),
+        None => Ok(fig.subplot()),
+    }
 }
 
 /// A new current axes with `projection` in the current figure, placed as
@@ -258,22 +246,22 @@ pub fn axes(rect: Option<[f64; 4]>) -> Result<Axes, AxesRectError> {
 /// assert_eq!((polar.projection(), plain.projection()), (ProjectionKind::Polar, ProjectionKind::Rectilinear));
 /// assert_eq!(plt::gca(), plain);
 /// plt::close_all();
-/// # Ok::<(), ::plt::figure::AxesRectError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
 /// # Errors
 ///
-/// As [`Figure::add_axes`] for `rect`.
+/// As [`Figure::add_axes_with_projection`] for `rect`, or
+/// [`Figure::subplot_with_projection`].
 pub fn axes_with_projection(
     rect: Option<[f64; 4]>,
     projection: ProjectionKind,
-) -> Result<Axes, AxesRectError> {
+) -> Result<Axes, ProjectionError> {
     let fig = gcf();
-    let ax = match rect {
-        Some(rect) => fig.add_axes(rect)?,
-        None => fig.subplot(),
-    };
-    Ok(projected(ax, projection))
+    match rect {
+        Some(rect) => fig.add_axes_with_projection(rect, projection),
+        None => fig.subplot_with_projection(projection),
+    }
 }
 
 /// A new current axes sharing the x axis of `ax`, or of the current axes,

@@ -1,11 +1,13 @@
 //! `figures/cases_gallery_misc.py`: the gallery's miscellaneous, specialty
 //! plot, showcase, spine and pyplot sections, one case per figure. Spines
 //! and plain plots, hand-built artists, diagrams, Sankey flows, path
-//! effects, agg filters, images, computed pictures, polar and geographic
-//! projections and the showcase each have a submodule.
+//! effects, agg filters, images, computed pictures, polar axes, the two
+//! projections written as user code and the showcase each have a
+//! submodule.
 
 mod artists;
 mod basics;
+mod custom_projection;
 mod diagrams;
 mod effects;
 mod filters;
@@ -14,6 +16,7 @@ mod pictures;
 mod projections;
 mod sankey;
 mod showcase;
+mod skewt;
 
 use plt::axes::Axes;
 use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicError};
@@ -26,6 +29,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
     [
         basics::CASES,
         artists::CASES,
+        custom_projection::CASES,
         diagrams::CASES,
         effects::CASES,
         filters::CASES,
@@ -33,6 +37,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
         pictures::CASES,
         projections::CASES,
         sankey::CASES,
+        skewt::CASES,
         showcase::CASES,
     ]
     .concat()

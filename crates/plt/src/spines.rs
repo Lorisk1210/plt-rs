@@ -10,10 +10,10 @@ use crate::artist::{
 };
 use crate::axes::AxesState;
 use crate::colors::Color;
-use crate::geo;
 use crate::lines::LineStyle;
 use crate::patches::PatchStyle;
 use crate::polar::PolarView;
+use crate::projections::OUTLINE_SPINE;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
@@ -248,25 +248,24 @@ impl SpineArtist {
 
 impl SpineArtist {
     /// The spine path (non-affine part applied) and its display affine,
-    /// spanning the bounds or the parent axes' view interval.
+    /// spanning the bounds or else the parent axes' view interval (or the
+    /// interval a custom projection gives).
     fn display_path(&self, ctx: LayoutContext<'_>) -> Option<(Path, Affine2D)> {
         let axes_id = self.base.parent?;
         let axes = ctx.store().get_as::<AxesState>(axes_id)?;
         if let Some(polar) = axes.polar_view() {
             return self.polar_path(&polar, axes_id, ctx);
         }
-        if axes.geo().is_some() {
-            // matplotlib's single circular `geo` spine around the map.
-            if self.side != geo::OUTLINE_SPINE {
+        if !axes.projection.is_rectangular() {
+            // matplotlib's single spine around a map or another outline.
+            if self.side != OUTLINE_SPINE {
                 return None;
             }
-            return Some((geo::outline(), unit_to_bbox(&ctx.axes_extent(axes_id)?)));
+            return Some((axes.patch_path(), unit_to_bbox(&ctx.axes_extent(axes_id)?)));
         }
-        let interval = self.bounds.unwrap_or(if self.side.is_vertical() {
-            axes.view_lim.interval_y()
-        } else {
-            axes.view_lim.interval_x()
-        });
+        let interval = self
+            .bounds
+            .unwrap_or_else(|| axes.spine_interval(self.side));
         let resolved = ctx.resolve(&self.spine_transform(axes_id))?;
         let outline = self.path(interval);
         let (path, affine) = resolved.split_path(&outline);

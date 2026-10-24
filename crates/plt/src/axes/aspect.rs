@@ -63,13 +63,13 @@ impl fmt::Display for AspectError {
 
 impl std::error::Error for AspectError {}
 
-/// Refuses [`Adjustable::Datalim`] for axes of a curved projection, whose
-/// data ratio is fixed.
+/// Refuses [`Adjustable::Datalim`] for axes whose projection fixes their
+/// data ratio (curved projections, and custom ones fixing it).
 pub(super) fn check_adjustable(
     axes: &AxesState,
     adjustable: Adjustable,
 ) -> Result<(), AspectError> {
-    if adjustable == Adjustable::Datalim && !axes.projection.is_rectilinear() {
+    if adjustable == Adjustable::Datalim && axes.projection.fixed_data_ratio().is_some() {
         return Err(AspectError::FixedDataRatio(axes.projection.kind()));
     }
     Ok(())
@@ -234,7 +234,8 @@ impl Axes {
     /// # Errors
     ///
     /// [`AspectError::FixedDataRatio`] for [`Adjustable::Datalim`] on polar
-    /// and geographic axes, whose data ratio is fixed.
+    /// and geographic axes, and those of custom projections fixing their
+    /// data ratio.
     pub fn set_adjustable(&self, adjustable: Adjustable) -> Result<&Self, AspectError> {
         self.raw
             .with::<AxesState, _>(|axes| check_adjustable(axes, adjustable))?;

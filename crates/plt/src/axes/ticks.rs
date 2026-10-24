@@ -63,6 +63,14 @@ pub struct Sides {
     pub second: bool,
 }
 
+impl Sides {
+    /// Both sides.
+    pub const BOTH: Self = Self {
+        first: true,
+        second: true,
+    };
+}
+
 /// Where an axis draws its ticks (matplotlib's `set_ticks_position`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TickPosition {

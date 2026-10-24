@@ -62,6 +62,8 @@
 //! * [`polar`] — polar axes: angle and radius instead of x and y.
 //! * [`geo`] — geographic axes: longitude and latitude through the Aitoff,
 //!   Hammer, Lambert and Mollweide map projections.
+//! * [`projections`] — projections defined by the program, registered by
+//!   name and drawn like the built-in ones.
 //! * [`patches`] / [`path`] / [`coords`] / [`patheffects`] / [`table`] —
 //!   shapes, paths, fancy boxes and arrows, annotation coordinate systems,
 //!   path effects and tables.
@@ -138,6 +140,7 @@ pub mod patheffects;
 pub mod polar;
 pub mod porting;
 pub mod prelude;
+pub mod projections;
 pub mod pyplot;
 pub mod quiver;
 pub mod rc;

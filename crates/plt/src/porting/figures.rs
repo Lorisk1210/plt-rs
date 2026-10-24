@@ -7,7 +7,9 @@
 //! [`Figure::add_subplot`] for `(nrows, ncols, index)`,
 //! [`Figure::add_subplot_spec`] for a cell of a grid, and one family per
 //! projection ([`Figure::polar_subplot`], [`Figure::subplot_3d`],
-//! [`Figure::geo_subplot`]) instead of `projection="..."`.
+//! [`Figure::geo_subplot`]) instead of `projection="..."`; when the
+//! projection is only known as a [`ProjectionKind`], as for registered
+//! ones, [`Figure::add_subplot_with_projection`] and friends take it.
 //!
 //! [`Figure::subplots`] returns a [`Grid`] of axes, indexed by
 //! `(row, col)` where matplotlib indexes a numpy array with `[row, col]`;
@@ -39,6 +41,7 @@
 //! | `fig.add_subplot(projection="polar")`           | [`Figure::polar_subplot`], [`Figure::add_polar_subplot`] |
 //! | `fig.add_subplot(projection="3d")`              | [`Figure::subplot_3d`], [`Figure::add_subplot_3d`] |
 //! | `fig.add_subplot(projection="mollweide")`       | [`Figure::geo_subplot`]`(GeoProjection::Mollweide)` |
+//! | `fig.add_subplot(r, c, i, projection=name)`     | [`Figure::add_subplot_with_projection`]`(r, c, i, kind)?` |
 //! | `fig.add_axes([l, b, w, h])`                    | [`Figure::add_axes`]                          |
 //! | `fig.subplots(r, c)`                            | [`Figure::subplots`] → [`Grid`]`<Axes>`       |
 //! | `fig.subplots(r, c, sharex=True, sharey="row")` | [`Figure::subplots_shared`]`(r, c, Share::All, Share::Row)` |
@@ -254,6 +257,8 @@
 //! [`Figure::subplot_3d`]: crate::figure::Figure::subplot_3d
 //! [`Figure::add_subplot_3d`]: crate::figure::Figure::add_subplot_3d
 //! [`Figure::geo_subplot`]: crate::figure::Figure::geo_subplot
+//! [`Figure::add_subplot_with_projection`]: crate::figure::Figure::add_subplot_with_projection
+//! [`ProjectionKind`]: crate::axes::ProjectionKind
 //! [`Figure::add_axes`]: crate::figure::Figure::add_axes
 //! [`Figure::subplots`]: crate::figure::Figure::subplots
 //! [`Figure::subplots_shared`]: crate::figure::Figure::subplots_shared

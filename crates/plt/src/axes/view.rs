@@ -89,11 +89,14 @@ impl FigureState {
         scale: &Rc<dyn Scale>,
     ) {
         let linear_only = self.axes_state(axes).and_then(|state| {
-            if state.geo().is_some() {
-                Some("the axes of geographic projections")
+            if state.projection.linear_only() {
+                Some(format!(
+                    "the axes of {} projections",
+                    projection_noun(state)
+                ))
             } else {
                 (state.axis(name).role == AxisRole::Theta)
-                    .then_some("the angular axis of polar axes")
+                    .then(|| "the angular axis of polar axes".to_owned())
             }
         });
         if let Some(axis) = linear_only.filter(|_| scale.name() != "linear") {
@@ -229,7 +232,8 @@ impl FigureState {
     /// `Axis._set_lim`): validates them, marks the axis and its siblings
     /// as autoscaled, switches autoscaling to `auto` when given and, with
     /// `emit`, applies the same limits to every sibling. The fixed limits
-    /// of geographic axes refuse to change (matplotlib raises).
+    /// of geographic axes, and of custom projections fixing theirs, refuse
+    /// to change (matplotlib raises).
     pub(crate) fn set_axis_limits(
         &mut self,
         axes: ArtistId,
@@ -238,11 +242,18 @@ impl FigureState {
         auto: Option<bool>,
         emit: bool,
     ) {
-        if let Some(state) = self.axes_state(axes).filter(|state| state.geo().is_some()) {
+        if let Some(state) = self
+            .axes_state(axes)
+            .filter(|state| state.projection.fixed_limits())
+        {
             if state.view_interval(name) != (v0, v1) {
+                let message = format!(
+                    "changing the limits of {} axes is not supported",
+                    projection_noun(state)
+                );
                 self.pending_errors.push(DrawError {
                     artist: axes,
-                    message: "changing the limits of geographic axes is not supported".into(),
+                    message,
                 });
             }
             return;
@@ -305,6 +316,16 @@ impl FigureState {
         }
         self.stale = true;
         Ok(())
+    }
+}
+
+/// How errors name the axes of `state`: geographic, or by the name of
+/// their projection.
+fn projection_noun(state: &AxesState) -> &'static str {
+    if state.geo().is_some() {
+        "geographic"
+    } else {
+        state.projection.kind().name()
     }
 }
 

@@ -10,6 +10,7 @@ use crate::axes::{Axes, AxesState, AxisName};
 use crate::colorbar::Colorbar;
 use crate::figure::{Figure, FigureState};
 use crate::orientation::Orientation;
+use crate::projections::Projection;
 use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// Drags shorter than this many pixels cancel a zoom.
@@ -17,15 +18,24 @@ const MIN_DRAG: f64 = 5.0;
 
 impl Axes {
     /// Whether the zoom-to-rectangle tool works on this axes (not on
-    /// polar or geographic axes; matplotlib's `can_zoom`).
+    /// polar or geographic axes, nor on those of custom projections
+    /// refusing it; matplotlib's `can_zoom`).
     pub fn can_zoom(&self) -> bool {
-        self.as_polar().is_none() && self.as_geo().is_none()
+        self.as_polar().is_none() && self.custom_projection_allows(Projection::can_zoom)
     }
 
     /// Whether the pan/zoom tool works on this axes (not on geographic
-    /// axes; matplotlib's `can_pan`).
+    /// axes, nor on those of custom projections refusing it;
+    /// matplotlib's `can_pan`).
     pub fn can_pan(&self) -> bool {
-        self.as_geo().is_none()
+        self.custom_projection_allows(Projection::can_pan)
+    }
+
+    /// Whether the custom projection of this axes, if any, allows what
+    /// `allows` asks it.
+    fn custom_projection_allows(&self, allows: impl FnOnce(&dyn Projection) -> bool) -> bool {
+        self.raw()
+            .with::<AxesState, _>(|state| state.projection.custom().is_none_or(allows))
     }
 
     /// Whether the navigation toolbar acts on this axes and reports its

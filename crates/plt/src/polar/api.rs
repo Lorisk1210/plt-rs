@@ -11,7 +11,7 @@ use plt_core::Bbox;
 use super::{Compass, PolarFrame, PolarState, ThetaDirection};
 use crate::artist::ArtistHandle;
 use crate::axes::axis::AxisRole;
-use crate::axes::projection::Projection;
+use crate::axes::projection::ProjectionState;
 use crate::axes::{Adjustable, Axes, AxesState, AxisName, PlotError, ProjectionKind, Sides};
 use crate::rc::Aspect;
 use crate::scale::{LinearScale, ScaleError};
@@ -81,7 +81,7 @@ impl PolarAxes {
     /// (matplotlib's `PolarAxes.__init__` and `clear`).
     pub(crate) fn convert(axes: Axes) -> Self {
         axes.raw().with_mut::<AxesState, _>(|state| {
-            state.projection = Projection::Polar(PolarState::default());
+            state.projection = ProjectionState::Polar(PolarState::default());
             for (axis, role) in [
                 (&mut state.xaxis, AxisRole::Theta),
                 (&mut state.yaxis, AxisRole::Radius),
@@ -125,10 +125,8 @@ impl PolarAxes {
         self.axes
             .raw()
             .with_mut::<AxesState, _>(|state| match &mut state.projection {
-                Projection::Polar(settings) => change(settings),
-                Projection::Rectilinear | Projection::Geo(_) => {
-                    unreachable!("a PolarAxes handle refers to polar axes")
-                }
+                ProjectionState::Polar(settings) => change(settings),
+                _ => unreachable!("a PolarAxes handle refers to polar axes"),
             });
         self
     }

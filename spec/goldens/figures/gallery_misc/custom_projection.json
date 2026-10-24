@@ -3,7 +3,7 @@
  "suptitle": "",
  "axes": [
   {
-   "kind": "hammer",
+   "kind": "custom_hammer",
    "position": [0.125, 0.236667, 0.775, 0.516667],
    "title": "",
    "xlim": [-3.141593, 3.141593],

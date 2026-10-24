@@ -1,5 +1,6 @@
 //! The axes artist: a data coordinate system placed inside a figure frame.
 
+use std::any::Any;
 use std::rc::Rc;
 
 use plt_core::{Bbox, Path, Point};
@@ -9,17 +10,18 @@ use super::aspect::{AspectState, AxesLocatorFn};
 use super::axis::{AxisGeometry, AxisState};
 use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
-use super::projection::Projection;
+use super::projection::ProjectionState;
 use super::secondary::Secondary;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::axes_grid1::Parasite;
 use crate::colors::Color;
-use crate::geo::{self, GeoState};
+use crate::geo::GeoState;
 use crate::gridspec::SubplotSpec;
 use crate::polar::{PolarState, PolarView};
 use crate::rc::{AxisBelow, Cycler, RcParams};
+use crate::spines::SpineSide;
 use crate::ticker::{AxisInfo, AxisName, Formatter, TickContext, TickerError};
-use crate::transforms::{ResolvedTransform, Step, Transform, bbox_to_unit, unit_to_bbox};
+use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 
 /// The formatters of the x and y coordinates a status bar shows, unset
 /// where the major formatters do (see [`AxesState::fmt_data`]).
@@ -40,7 +42,7 @@ pub(crate) struct AxesState {
     /// The grid cell the axes occupies, if placed on a grid.
     pub(crate) subplot_spec: Option<SubplotSpec>,
     /// The coordinate system.
-    pub(crate) projection: Projection,
+    pub(crate) projection: ProjectionState,
     /// Visible data range; `x0 > x1` means an inverted axis.
     pub(crate) view_lim: Bbox,
     /// Whether the view limits differ from the initial unit box
@@ -190,7 +192,7 @@ impl AxesState {
             aspect: AspectState::default(),
             axes_locator: None,
             subplot_spec: None,
-            projection: Projection::Rectilinear,
+            projection: ProjectionState::Rectilinear,
             view_lim: Bbox::UNIT,
             view_mutated: (false, false),
             data_lim: DataLimits::default(),
@@ -272,17 +274,15 @@ impl AxesState {
     /// The polar settings, if this is a polar axes.
     pub(crate) fn polar(&self) -> Option<&PolarState> {
         match &self.projection {
-            Projection::Polar(settings) => Some(settings),
-            Projection::Rectilinear | Projection::Geo(_) => None,
+            ProjectionState::Polar(settings) => Some(settings),
+            _ => None,
         }
     }
 
     /// The geographic settings, if this is a geographic axes.
     pub(crate) fn geo(&self) -> Option<&GeoState> {
-        match &self.projection {
-            Projection::Geo(settings) => Some(settings),
-            Projection::Rectilinear | Projection::Polar(_) => None,
-        }
+        let projection: &dyn Any = self.projection.custom()?;
+        projection.downcast_ref()
     }
 
     /// The polar geometry at the current view, if this is a polar axes.
@@ -293,24 +293,16 @@ impl AxesState {
 
     /// The full data → display transform for the axes placed at `display`:
     /// scales, then view limits onto the unit square, then onto `display`
-    /// (or the polar or a geographic projection).
+    /// (or the polar, a geographic or a custom projection).
     pub(crate) fn data_transform(&self, display: &Bbox) -> ResolvedTransform {
         if let Some(polar) = self.polar_view() {
             return polar.data_transform(display);
         }
-        if let Some(geo) = self.geo() {
-            return geo.data_transform(display);
+        if let Some(custom) = self.custom_data_transform(display) {
+            return custom;
         }
-        let (x0, x1) = scaled_interval(&self.xaxis, self.view_lim.interval_x());
-        let (y0, y1) = scaled_interval(&self.yaxis, self.view_lim.interval_y());
-        let scaled_limits = Bbox::from_extents(x0, y0, x1, y1);
-        let affine = bbox_to_unit(&scaled_limits).then(unit_to_bbox(display));
-        let (x_map, y_map) = (self.xaxis.map().cloned(), self.yaxis.map().cloned());
-        if x_map.is_none() && y_map.is_none() {
-            ResolvedTransform::affine(affine)
-        } else {
-            ResolvedTransform::with_step(Step::Separable(x_map, y_map), affine)
-        }
+        (self.projection_view().rectilinear())
+            .then(ResolvedTransform::affine(unit_to_bbox(display)))
     }
 
     /// Whether the view limits of one axis were ever changed from the
@@ -488,7 +480,7 @@ impl AxesState {
                 AxisName::Y => extent.height().abs(),
             };
             let geometry = AxisGeometry {
-                view: self.view_interval(name),
+                view: self.tick_interval(name),
                 data: (lo, hi),
                 minpos,
                 length_points: length_pixels / dpi * 72.0,
@@ -513,18 +505,34 @@ impl AxesState {
 
     /// The spines in the order of matplotlib's `spines` dictionary: left,
     /// right, bottom, top; for polar axes the outer arc, the start and
-    /// end of the sector, then the inner arc.
-    pub(super) fn spines_in_children_order(&self) -> impl Iterator<Item = ArtistId> + '_ {
+    /// end of the sector, then the inner arc; for a custom projection the
+    /// order it gives, sides it leaves out last.
+    pub(crate) fn spines_in_children_order(&self) -> Vec<ArtistId> {
         // `spines` holds the left, right, bottom and top spine, which polar
         // axes use as start, end, inner and outer spine.
-        let order = if self.polar_view().is_some() {
-            [3, 0, 1, 2]
-        } else {
-            [0, 1, 2, 3]
+        let order = match (self.polar_view(), self.projection.custom()) {
+            (Some(_), _) => [
+                SpineSide::Top,
+                SpineSide::Left,
+                SpineSide::Right,
+                SpineSide::Bottom,
+            ],
+            (None, Some(custom)) => custom.spine_order(),
+            (None, None) => SpineSide::ALL,
         };
-        order
+        let mut sides: Vec<SpineSide> = Vec::with_capacity(SpineSide::ALL.len());
+        for side in order.into_iter().chain(SpineSide::ALL) {
+            if !sides.contains(&side) {
+                sides.push(side);
+            }
+        }
+        sides
             .into_iter()
-            .filter_map(|i| self.spines.get(i).copied())
+            .filter_map(|side| {
+                let index = SpineSide::ALL.iter().position(|&s| s == side)?;
+                self.spines.get(index).copied()
+            })
+            .collect()
     }
 }
 
@@ -561,22 +569,12 @@ impl Artist for AxesState {
 
 impl AxesState {
     /// The outline of the background patch in axes coordinates: the unit
-    /// square, the wedge of polar axes, or the ellipse of geographic axes.
+    /// square, the wedge of polar axes, the ellipse of geographic axes or
+    /// the outline of a custom projection.
     pub(crate) fn patch_path(&self) -> Path {
         match self.polar_view() {
             Some(polar) => polar.patch_path(),
-            None if self.geo().is_some() => geo::outline(),
-            None => Path::unit_rectangle(),
+            None => self.custom_outline().unwrap_or_else(Path::unit_rectangle),
         }
     }
-}
-
-/// The view interval `(v0, v1)` of `axis` in scaled coordinates. Like
-/// matplotlib's `TransformedBbox` of the view limits, it keeps the
-/// orientation of the data interval: a decreasing scale (a function scale
-/// such as `1 / x`) leaves the axis the way round its limits say.
-fn scaled_interval(axis: &AxisState, (v0, v1): (f64, f64)) -> (f64, f64) {
-    let (a, b) = (axis.forward(v0), axis.forward(v1));
-    let (low, high) = (a.min(b), a.max(b));
-    if v0 > v1 { (high, low) } else { (low, high) }
 }

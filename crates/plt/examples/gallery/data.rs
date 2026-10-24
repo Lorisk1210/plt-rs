@@ -12,10 +12,9 @@ impl Samples {
         Self(SplitMix64::new(seed))
     }
 
-    /// A uniform draw in `[0, 1)` from the top 32 bits of the next output.
+    /// A uniform draw in `[0, 1)`.
     pub(crate) fn uniform(&mut self) -> f64 {
-        let bits = u32::try_from(self.0.next_u64() >> 32).unwrap_or(u32::MAX);
-        f64::from(bits) / 4_294_967_296.0
+        self.0.next_f64()
     }
 
     /// A draw from the normal distribution with `mean` and `sd`

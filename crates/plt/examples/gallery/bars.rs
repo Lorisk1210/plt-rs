@@ -1,6 +1,7 @@
-//! Bar charts: grouped, stacked and horizontal bars, with value labels.
+//! Bar charts: grouped, stacked, horizontal and broken bars, with value
+//! labels.
 
-use plt::axes::{BarLabelOptions, BarOptions, GroupedBarData, GroupedBarOptions};
+use plt::axes::{BandAlign, BarLabelOptions, BarOptions, GroupedBarData, GroupedBarOptions};
 use plt::legend::LegendOptions;
 use plt::prelude::*;
 
@@ -8,21 +9,22 @@ use super::{Built, Entry};
 
 /// The figures of this topic.
 pub(crate) const ENTRIES: &[Entry] = &[
-    Entry {
-        name: "grouped_bars",
-        caption: "Grouped bars with value labels",
-        build: grouped_bars,
-    },
-    Entry {
-        name: "stacked_bars",
-        caption: "Stacked bars",
-        build: stacked_bars,
-    },
-    Entry {
-        name: "horizontal_bars",
-        caption: "Horizontal bars, sorted",
-        build: horizontal_bars,
-    },
+    Entry::figure(
+        "grouped_bars",
+        "Grouped bars with value labels",
+        grouped_bars,
+    ),
+    Entry::figure("stacked_bars", "Stacked bars", stacked_bars),
+    Entry::figure(
+        "horizontal_bars",
+        "Horizontal bars, sorted",
+        horizontal_bars,
+    ),
+    Entry::figure(
+        "broken_barh",
+        "A schedule drawn with broken_barh",
+        broken_barh,
+    ),
 ];
 
 /// Three series side by side for each category, labelled with their
@@ -92,5 +94,30 @@ fn horizontal_bars() -> Built {
     let bars = ax.barh(names, scores, BarOptions::default())?;
     ax.bar_label(&bars, BarLabelOptions::default())?;
     ax.set_title("Admiration (%)");
+    Ok(fig)
+}
+
+/// Busy intervals of four machines: each row is one `broken_barh` of
+/// `(start, duration)` pairs, placed on a categorical y axis.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "every gallery builder has the same signature"
+)]
+fn broken_barh() -> Built {
+    let fig = Figure::with_size(6.4, 3.6, 100.0);
+    let ax = fig.subplot();
+    let schedule: [(&str, &[(f64, f64)]); 4] = [
+        ("build", &[(0.0, 2.5), (6.0, 1.5)]),
+        ("test", &[(2.5, 3.0), (7.5, 2.0)]),
+        ("lint", &[(0.0, 1.0), (4.0, 0.5), (9.0, 0.5)]),
+        ("deploy", &[(9.5, 1.5)]),
+    ];
+    for (row, (machine, busy)) in schedule.iter().enumerate() {
+        let band = ax.broken_barh(busy, (*machine, 0.6), BandAlign::Center);
+        band.set_facecolor(format!("C{row}"));
+    }
+    ax.yaxis().set_inverted(true);
+    ax.set_xlabel("minutes since push");
+    ax.set_title("A CI pipeline");
     Ok(fig)
 }
